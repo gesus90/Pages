@@ -1,6 +1,9 @@
 import { setTimeout as wait } from "node:timers/promises";
 
-import { pagesRunsOwnershipSchema } from "@/definition/PagesRuns";
+import {
+  pagesRunsOwnershipSchema,
+  pagesRunsSwarmSchema,
+} from "@/definition/PagesRuns";
 import { withBackgroundDatabaseWork } from "@/backend/database/executor/DatabaseWorkContext";
 import { PlanRunCommandRepository } from "@/backend/database/repositories/agent/PlanRunCommandRepository";
 import { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
@@ -11,6 +14,7 @@ import { recordServiceProgress } from "@/backend/runtime/ServiceWorkHealth";
 import { isActivePlanRun } from "@/definition/AgentPlanRunState";
 
 import { RunsSocket } from "./RunsSocket";
+import { answerSwarmCall } from "../swarm/SwarmRegistry";
 
 import type { AgentPlanRun } from "@/definition/AgentPlan";
 import type { PendingPlanRunCommand } from "@/backend/database/repositories/agent/PlanRunCommandRepository";
@@ -47,6 +51,8 @@ export class PlanRunCommandWorker {
       socketPath,
       () => this.wake(),
       (input) => {
+        const swarm = pagesRunsSwarmSchema.safeParse(input);
+        if (swarm.success) return Promise.resolve(answerSwarmCall(swarm.data));
         const request = pagesRunsOwnershipSchema.parse(input);
         return Promise.resolve({ active: this.engine.isActive(request.runId) });
       },

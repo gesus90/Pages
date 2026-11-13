@@ -1,6 +1,7 @@
-import { fireEvent, screen } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { expect, it } from "vitest";
 
+import { fullPlanTeam } from "@/definition/AgentPlanTeam";
 import { emptyPlanLoop } from "@/definition/AgentPlanLoop";
 
 import { GROUP_SOURCES, agentNode } from "./plan-group-fixture";
@@ -122,4 +123,40 @@ it("retains an edge queued before a refused loop membership move", () => {
       expect.objectContaining({ id: "loop", type: "loop", steps: [] }),
     ]),
   );
+});
+
+it("keeps a queued team-only settings save even when the graph stayed unchanged", async () => {
+  const selected = planView({ revision: 4 });
+  const page = planPage({ selected });
+  let release: () => void = () => {
+    throw new Error("hold not initialized");
+  };
+  const hold = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const scene = {
+    ...actionScene({ ok: true, intent: "save-plan", revision: 5 }),
+    hold,
+  };
+  const teams = [fullPlanTeam("user", "Mei")];
+  renderWithEditor(page, scene, (editor) => (
+    <>
+      <button onClick={editor.save}>Save graph</button>
+      <button onClick={() => editor.saveWith((draft) => draft, { teams })}>
+        Share with Mei
+      </button>
+    </>
+  ));
+  fireEvent.click(screen.getByRole("button", { name: "Save graph" }));
+  await waitFor(() => expect(scene.submissions).toHaveLength(1));
+  fireEvent.click(screen.getByRole("button", { name: "Share with Mei" }));
+  expect(scene.submissions).toHaveLength(1);
+  release();
+  await waitFor(() => expect(scene.submissions).toHaveLength(2));
+  expect(JSON.parse(String(scene.submissions[1]?.get("access")))).toEqual({
+    teams,
+  });
+  expect(JSON.parse(String(scene.submissions[1]?.get("plan")))).toMatchObject({
+    revision: 5,
+  });
 });

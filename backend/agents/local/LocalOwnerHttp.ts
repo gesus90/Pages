@@ -2,6 +2,8 @@ import { createServer } from "node:http";
 import { chmod, lstat, unlink } from "node:fs/promises";
 import { timingSafeEqual } from "node:crypto";
 
+import { AgentError } from "@/backend/error/AgentErrors";
+
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 
 import { localCommandSchema } from "./LocalSessionContracts";
@@ -117,9 +119,18 @@ export class LocalOwnerHttp {
         await this.close();
         await this.release();
       }
-    } catch {
-      if (!response.headersSent) response.writeHead(409);
-      response.end();
+    } catch (error: unknown) {
+      if (response.headersSent) {
+        response.end();
+        return;
+      }
+      const code =
+        error instanceof AgentError ? error.code : "plan_local_control_failed";
+      response.writeHead(409, {
+        "content-type": "application/json",
+        "cache-control": "no-store",
+      });
+      response.end(JSON.stringify({ error: code }));
     }
   }
 

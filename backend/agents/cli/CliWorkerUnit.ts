@@ -199,6 +199,46 @@ export async function listRunningWorkerUnits(
 }
 
 /**
+ * Whether a worker unit of one session still runs, without stopping it.
+ *
+ * @param instanceId - The tag of the session; its units carry it in their name.
+ * @param command - Runs `systemctl`; defaults to a real process.
+ * @throws When the service manager cannot be read; nothing is proven then.
+ */
+export async function hasRunningWorkerUnit(
+  instanceId: string,
+  command: CliWorkerCommand = runCommand,
+): Promise<boolean> {
+  const prefix = `${UNIT_PREFIX}${instanceId}-`;
+  return [...(await listRunningWorkerUnits(command))].some((name) =>
+    name.startsWith(prefix),
+  );
+}
+
+/**
+ * Stops every worker unit of one session and proves that none of them runs any more.
+ *
+ * @param instanceId - The tag of the session; its units carry it in their name.
+ * @param command - Runs `systemctl`; defaults to a real process.
+ * @returns How many units of the session still run after the stop.
+ * @throws When the service manager cannot be read; nothing is proven then.
+ *
+ * @remarks
+ * A chat worker always runs in its unit (PAGE-335), so a session whose units
+ * are all inactive has no process left, also when it ended before its
+ * process identity was recorded.
+ */
+export async function settleWorkerUnits(
+  instanceId: string,
+  command: CliWorkerCommand = runCommand,
+): Promise<number> {
+  await stopWorkerUnits(instanceId, command);
+  const prefix = `${UNIT_PREFIX}${instanceId}-`;
+  const running = await listRunningWorkerUnits(command);
+  return [...running].filter((name) => name.startsWith(prefix)).length;
+}
+
+/**
  * Proves that the user's service manager starts a limited transient unit.
  *
  * @param command - Runs `systemd-run`; defaults to a real process.
@@ -426,6 +466,10 @@ export class CliWorkerUnits {
       else {
         // Stopping first ends a helper that outlived the adapter.
         await this.command(SYSTEMCTL, ["--user", "stop", name]);
+        // The end of the session counts as its process frame's end only once nothing of the unit runs.
+        const active = await this.unitState(name, "ActiveState");
+        if (active !== "inactive" && active !== "failed")
+          throw new Error("The worker unit did not stop");
         result = readResult(await this.unitState(name, "Result"));
       }
     } finally {
@@ -448,7 +492,7 @@ export class CliWorkerUnits {
 
   private async unitState(
     name: string,
-    property: "LoadState" | "Result",
+    property: "LoadState" | "ActiveState" | "Result",
   ): Promise<string> {
     const shown = await this.command(SYSTEMCTL, [
       "--user",

@@ -9,6 +9,7 @@ import { PlanDecisionCard } from "./plan-node-card/plan-decision-card";
 import { PlanGitCloseoutCard } from "./plan-node-card/plan-git-closeout-card";
 import { PlanScriptCard } from "./plan-node-card/plan-script-card";
 import { PlanStackCard } from "./plan-node-card/plan-stack-card";
+import { PlanSwarmCard } from "./plan-swarm/plan-swarm-card";
 import { PlanSourceCard } from "./plan-node-card/plan-source-card";
 import { PlanAssetCard } from "./plan-node-card/plan-asset-card";
 import { planPortLayout, usePlanFlowPorts } from "./use-plan-flow-ports";
@@ -90,5 +91,7 @@ export function PlanNodeCard({
       />
     );
   if (node.type === "asset") return <PlanAssetCard node={node} />;
+  if (node.type === "swarm")
+    return <PlanSwarmCard swarm={node} result={result} hasRun={run !== null} />;
   return <PlanSourceCard node={node} />;
 }

@@ -1,5 +1,6 @@
 import path from "node:path";
 
+import { RepositoryReadService } from "@/backend/service/github/RepositoryReadService";
 import { hasRunServiceOwnership } from "@/backend/runtime/RunsMode";
 import { GitHubCreationRepository } from "@/backend/database/repositories/integrations/GitHubCreationRepository";
 import { AuthService } from "@/backend/auth/AuthService";
@@ -118,6 +119,7 @@ export interface ApplicationServices
   readonly ticketTreeService: TicketTreeService;
   readonly wikiService: WikiService;
   readonly gitHubSyncService: GitHubSyncService;
+  readonly repositoryReadService: RepositoryReadService;
   /** The live notices of open pages: kind and id of changed objects, per account. */
   readonly liveChangeHub: LiveChangeHub;
   /** Decides who may learn about which event, for the hub and `pages-core`. */
@@ -208,6 +210,14 @@ function createAuthorizationServices(
   };
 }
 
+function createSessionAuth(
+  users: UserService,
+  sessions: SessionService,
+  hasher: PasswordHasher,
+): AuthService {
+  return new AuthService(users, sessions, hasher, new LoginThrottle());
+}
+
 async function initializeServices(
   database: Database,
   databasePath: string,
@@ -245,6 +255,7 @@ async function initializeServices(
     events: pagesEventPublisher,
   });
   const taskServices = await createTaskServices({
+    administrationService,
     pagesEventPublisher,
     database,
     databasePath,
@@ -292,12 +303,7 @@ async function initializeServices(
     ...planServices,
     ...mcpServices,
     administrationService,
-    authService: new AuthService(
-      userService,
-      sessionService,
-      passwordHasher,
-      new LoginThrottle(),
-    ),
+    authService: createSessionAuth(userService, sessionService, passwordHasher),
     boardPreferencesService,
     designThemeService,
     groupAdministrationService,
@@ -342,6 +348,7 @@ async function preparePlanService(
 
 /** What the task services are built from. */
 interface TaskServiceContext {
+  readonly administrationService: AdministrationService;
   readonly database: Database;
   readonly pagesEventPublisher: PagesEventPublisher;
   readonly databasePath: string;
@@ -352,6 +359,34 @@ interface TaskServiceContext {
   readonly tokenKey: ReturnType<typeof resolveGitHubTokenKey>;
   readonly userRepository: UserRepository;
   readonly wikiService: WikiService;
+}
+
+type TaskApplicationServices = Pick<
+  ApplicationServices,
+  | "discordAuthorizationService"
+  | "discordConnectionService"
+  | "gitHubSyncService"
+  | "repositoryReadService"
+  | keyof GoogleDriveApplicationServices
+  | "liveChangeHub"
+  | "liveChangeAudience"
+  | "pagesEventPublisher"
+  | "taskAttachmentService"
+  | "ticketAssetAuditService"
+  | "taskService"
+  | "taskTemplateService"
+  | "ticketTreeService"
+>;
+
+function createRepositoryReads(
+  context: TaskServiceContext,
+): RepositoryReadService {
+  return new RepositoryReadService({
+    projects: context.projectService,
+    accounts: { getById: (id) => context.userRepository.findById(id) },
+    repository: context.projectRepository,
+    tokenKey: context.tokenKey,
+  });
 }
 
 /**
@@ -366,23 +401,7 @@ interface TaskServiceContext {
  */
 async function createTaskServices(
   context: TaskServiceContext,
-): Promise<
-  Pick<
-    ApplicationServices,
-    | "discordAuthorizationService"
-    | "discordConnectionService"
-    | "gitHubSyncService"
-    | keyof GoogleDriveApplicationServices
-    | "liveChangeHub"
-    | "liveChangeAudience"
-    | "pagesEventPublisher"
-    | "taskAttachmentService"
-    | "ticketAssetAuditService"
-    | "taskService"
-    | "taskTemplateService"
-    | "ticketTreeService"
-  >
-> {
+): Promise<TaskApplicationServices> {
   const { database, permissionService, projectService } = context;
   const taskRepository = new TaskRepository(database);
   const { pagesEventPublisher } = context;
@@ -436,7 +455,10 @@ async function createTaskServices(
       taskRepository,
     }),
     gitHubSyncService,
-    ...createGoogleDriveServices(database, context.tokenKey),
+    repositoryReadService: createRepositoryReads(context),
+    ...createGoogleDriveServices(database, context.tokenKey, (id) =>
+      context.administrationService.getContext(id),
+    ),
     ...createLiveChangeServices({
       database,
       databaseUrl: config.firstRun ? undefined : config.databaseUrl,

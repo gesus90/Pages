@@ -39,6 +39,7 @@ import { ConversationDecisionModel } from "@/backend/service/conversation/Conver
 import { ConversationGroupSummaries } from "@/backend/service/conversation/ConversationGroupSummaries";
 import { ConversationGroupSummaryScheduler } from "@/backend/service/conversation/ConversationGroupSummaryScheduler";
 import { ConversationObserverModel } from "@/backend/service/conversation/ConversationObserverModel";
+import { ConversationObserverMonitor } from "@/backend/service/conversation/ConversationObserverMonitor";
 import { ConversationObserverRouting } from "@/backend/service/conversation/ConversationObserverRouting";
 import { ConversationOversight } from "@/backend/service/conversation/ConversationOversight";
 import { ConversationReader } from "@/backend/service/conversation/ConversationReader";
@@ -70,6 +71,8 @@ export interface ConversationApplicationServices {
   readonly conversationAgentReplies: ConversationAgentReplies;
   /** The stored context of groups (PAGE-296). */
   readonly conversationContextReader: ConversationContextReader;
+  /** How the group observer fared, for members and administrators (PAGE-340). */
+  readonly conversationObserverMonitor: ConversationObserverMonitor;
   /** Who answers in a group chat (PAGE-317). */
   readonly conversationReplySettingsService: ConversationReplySettingsService;
   /** The longest voice message Pages takes, in milliseconds (PAGE-277). */
@@ -123,6 +126,11 @@ export interface ConversationObserverInput {
   readonly decision: Pick<ChatDecisionSettingsService, "resolve">;
   /** The simulated decision model; set only while the simulation is on. */
   readonly decisionSimulation: SimulatedConversationDecision | null;
+  /**
+   * Where observer and decision sessions get their working directories: a
+   * folder the worker units of the service manager see (PAGE-340).
+   */
+  readonly directoryRoot: string;
   /**
    * Whether this process runs the background work: the summaries and the
    * end of answers an earlier process left open.
@@ -227,6 +235,7 @@ export function createConversationServices(
     conversationReader,
     conversationAgentReplies,
     conversationContextReader: observer.reader,
+    conversationObserverMonitor: observer.monitor,
     conversationReplySettingsService: new ConversationReplySettingsService({
       conversations,
       settings: replySettings,
@@ -321,6 +330,7 @@ function createReplies(
         settings: input.observer.decision,
         plans: input.observer.plans,
         simulation: input.observer.decisionSimulation,
+        directoryRoot: input.observer.directoryRoot,
       }),
       publisher: input.events,
     }),
@@ -390,6 +400,7 @@ function sweepContent(content: ContentParts): void {
 interface ObserverParts {
   readonly rounds: ConversationRoundRepository;
   readonly reader: ConversationContextReader;
+  readonly monitor: ConversationObserverMonitor;
   readonly routing: ConversationObserverRouting;
   readonly summaries: ConversationGroupSummaries;
 }
@@ -405,16 +416,24 @@ function createObserver(
   const { database } = input;
   const rounds = new ConversationRoundRepository(database);
   const contexts = new ConversationGroupContextRepository(database);
-  const reader = new ConversationContextReader({ ...shared, contexts });
+  const runs = new ConversationObserverRunRepository(database);
+  const monitor = new ConversationObserverMonitor(runs);
+  const reader = new ConversationContextReader({
+    ...shared,
+    contexts,
+    observer: monitor,
+  });
   const model = new ConversationObserverModel({
     pica: input.observer.pica,
     plans: input.observer.plans,
-    runs: new ConversationObserverRunRepository(database),
+    runs,
     simulation: input.observer.simulation,
+    directoryRoot: input.observer.directoryRoot,
   });
   return {
     rounds,
     reader,
+    monitor,
     routing: new ConversationObserverRouting({
       messages: shared.messages,
       contexts: reader,

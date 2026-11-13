@@ -109,7 +109,7 @@ it("treats a replayed run that no longer belongs to the account as missing", asy
   ).rejects.toMatchObject({ code: "NOT_FOUND" });
 });
 
-it("replays a clone only while the copy stays editable and valid", async () => {
+it("replays the committed clone receipt while the copy stays editable", async () => {
   storeEarlier("plans.clone", {
     planId: "plan-2",
     revision: 1,
@@ -127,9 +127,7 @@ it("replays a clone only while the copy stays editable and valid", async () => {
     "plans.clone",
     request("plans.clone"),
   );
-  expect(plans.checkNodes).toHaveBeenCalledWith(USER, "workspace-1", [
-    { id: "n" },
-  ]);
+  expect(plans.checkNodes).not.toHaveBeenCalled();
   expect(result).toMatchObject({
     planId: "plan-2",
     sourcePlanId: "plan-1",

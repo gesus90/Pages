@@ -9,7 +9,9 @@ export function PlanLeaveGuard(props: {
   readonly isDirty: boolean;
 }): React.ReactElement {
   const { t } = useTranslation();
-  const blocker = useBlocker(props.isDirty);
+  const blocker = useBlocker(
+    ({ nextLocation }) => props.isDirty && !isCreatedClone(nextLocation),
+  );
   useEffect(() => {
     if (!props.isDirty) return undefined;
     const warn = (event: BeforeUnloadEvent): void => event.preventDefault();
@@ -26,5 +28,22 @@ export function PlanLeaveGuard(props: {
       title={t("plans.discardTitle")}
       description={t("plans.discardHint")}
     />
+  );
+}
+
+/** The successful clone action already chose to open this exact saved copy. */
+function isCreatedClone(location: {
+  readonly pathname: string;
+  readonly search: string;
+  readonly state: unknown;
+}): boolean {
+  const { state } = location;
+  return (
+    location.pathname === "/agents/plans" &&
+    typeof state === "object" &&
+    state !== null &&
+    "clonedPlanId" in state &&
+    typeof state.clonedPlanId === "string" &&
+    new URLSearchParams(location.search).get("planId") === state.clonedPlanId
   );
 }

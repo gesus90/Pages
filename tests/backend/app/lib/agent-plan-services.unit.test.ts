@@ -359,6 +359,7 @@ it("drives runs with the engine and reports engine activity to the runners", asy
     remoteExecution: only(vi.mocked(AgentPlanRemoteExecution)),
     scripts: only(vi.mocked(AgentPlanScriptRunner)),
     decisions: expect.any(Object) as unknown,
+    swarms: expect.any(Object) as unknown,
     runs: only(vi.mocked(AgentPlanRunRepository)),
     start,
     resources: agents.acpResourceScheduler,

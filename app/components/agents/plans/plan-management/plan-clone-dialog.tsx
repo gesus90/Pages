@@ -1,106 +1,78 @@
-import { useState } from "react";
+import { useId } from "react";
 import { useTranslation } from "react-i18next";
 
-import { suggestOneShotCopyName } from "@/definition/AgentPlanOneShot";
-
-import { PlanContextFields } from "./plan-context-fields";
-import {
-  isPlanNameUsed,
-  planContextRequest,
-  planLocationValue,
-  planRequestError,
-} from "./plan-context-model";
+import { planRequestError } from "./plan-context-model";
 import { PlanDialogFrame } from "./plan-dialog-frame";
-import { useRequestKey } from "./use-plan-management";
+import { PlanSettingsTeams, PlanOwnerField } from "./plan-access-teams";
+import {
+  PlanSettingsName,
+  PlanSettingsOptions,
+  PlanSettingsContext,
+} from "./plan-settings-fields";
+import { usePlanCloneSettings } from "./use-plan-clone-settings";
 
 import type { AgentPlanPage, AgentPlanView } from "@/definition/AgentPlan";
 import type { usePlanManagement } from "./use-plan-management";
 
-/**
- * Copies the saved revision of the plan into a new, independent plan.
- *
- * @remarks
- * The copy takes every node with groups, loops, settings, positions and
- * connections under new identifiers; runs, checkpoints, sessions, processes
- * and workspace files stay with the source, which does not change. Unsaved
- * edits of the editor are neither copied nor saved and stay in the editor.
- * No run starts.
- */
+/** Copies the latest saved source; the server repairs context, names and unavailable references. */
 export function PlanCloneDialog({
   page,
   source,
-  isDirty,
   isOneShot,
   management,
 }: {
   readonly page: AgentPlanPage;
   readonly source: AgentPlanView;
   readonly isDirty: boolean;
-  /** Makes the copy a one-time plan (PAGE-309): its own name suggestion and request flag. */
   readonly isOneShot: boolean;
   readonly management: ReturnType<typeof usePlanManagement>;
 }): React.ReactElement {
   const { t } = useTranslation();
-  const [values, setValues] = useState(() => ({
-    name: isOneShot
-      ? suggestOneShotCopyName(
-          source.name,
-          t("plans.manage.cloneOneShotLabel"),
-          new Date(),
-        )
-      : t("plans.manage.cloneName", { name: source.name }).slice(0, 120),
-    projectId: source.projectId,
-    location: planLocationValue(source),
-  }));
-  const context = planContextRequest(page, values);
-  const request = context && {
-    intent: "clone-plan",
-    planId: source.id,
-    revision: String(source.revision),
-    ...(isOneShot ? { oneShot: "true" } : {}),
-    ...context,
-  };
-  const key = useRequestKey(JSON.stringify(request));
-  const isTaken = isPlanNameUsed(page, {
-    name: values.name,
-    projectId: values.projectId,
-    departmentId: page.teamDepartmentId ?? null,
-  });
+  const searchId = useId();
+  const { values, setValues, teams, ownerId, setOwnerId, request, key } =
+    usePlanCloneSettings(page, source, isOneShot);
   return (
     <PlanDialogFrame
-      title={t(
-        isOneShot
-          ? "plans.manage.cloneOneShotTitle"
-          : "plans.manage.cloneTitle",
-      )}
+      title={t("plans.manage.cloneTitle")}
       description={t("plans.manage.cloneSource", { name: source.name })}
       submitLabel={t("plans.manage.clone")}
       isPending={management.isPending}
-      isSubmitDisabled={request === null || isTaken}
+      isSubmitDisabled={false}
+      isAlwaysEnabled
       error={planRequestError(management.error, t)}
-      onSubmit={() => {
-        if (request) management.submit(request, key);
-      }}
+      onSubmit={() => management.submit(request, key)}
       onClose={management.close}
     >
-      <PlanContextFields
-        page={page}
-        values={values}
-        onChange={setValues}
-        isDisabled={management.isPending}
-        isProjectFixed={false}
-        nameError={isTaken ? t("settings.agents.error.plan_name_taken") : null}
+      <PlanSettingsName
+        name={values.name}
+        isReadOnly={management.isPending}
+        onChange={(name) => setValues({ ...values, name })}
       />
-      {isOneShot ? (
-        <p role="note" className="text-xs text-muted-foreground">
-          {t("plans.manage.cloneOneShotNote")}
-        </p>
-      ) : null}
-      {isDirty ? (
-        <p role="note" className="text-xs text-muted-foreground">
-          {t("plans.manage.cloneUnsaved")}
-        </p>
-      ) : null}
+      <PlanSettingsOptions page={page} values={values} teams={teams.teams}>
+        <PlanSettingsTeams
+          directory={page.directory}
+          state={teams}
+          isDisabled={management.isPending}
+          canManage
+          searchId={searchId}
+        />
+        <PlanSettingsContext
+          page={page}
+          values={values}
+          onChange={setValues}
+          isDisabled={management.isPending}
+          isProjectFixed
+          hasProject={false}
+        />
+        {source.rights?.isAdministrator ? (
+          <PlanOwnerField
+            page={page}
+            ownerId={ownerId}
+            isDisabled={management.isPending}
+            onChange={setOwnerId}
+          />
+        ) : null}
+      </PlanSettingsOptions>
     </PlanDialogFrame>
   );
 }

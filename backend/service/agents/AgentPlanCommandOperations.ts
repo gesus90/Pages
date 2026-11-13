@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 import { planRunCommandReceiptSchema } from "@/definition/PagesRuns";
 import { requirePlanRevision } from "@/backend/database/repositories/agent/AgentPlanRepository";
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
@@ -161,7 +163,6 @@ export class AgentPlanCommandOperations {
     if (request.operation === "plans.clone") {
       const target = await this.plans.view(userId, result.planId);
       if (!target.canEdit) throw new AgentOperationError("NOT_FOUND");
-      await this.plans.checkNodes(userId, target.workspaceId, target.nodes);
     }
     if (result.runId) await this.commandRun(userId, request, result.runId);
     if (
@@ -209,6 +210,10 @@ export class AgentPlanCommandOperations {
     request: AgentPlanCommandRequest,
     recorder: OperationRecorder<AgentPlanCommandResult>,
   ): Promise<void> {
+    if (request.operation === "plans.clone") {
+      await this.clone(userId, { request, recorder });
+      return;
+    }
     const plan = await this.plans.view(userId, request.planId);
     if (!mayCommand(plan, request.operation))
       throw new AgentOperationError("FORBIDDEN");
@@ -217,10 +222,6 @@ export class AgentPlanCommandOperations {
         currentRevision: plan.revision,
       });
     const base = { planId: plan.id, revision: plan.revision };
-    if (request.operation === "plans.clone") {
-      await this.clone(userId, { request, plan, recorder });
-      return;
-    }
     if (request.operation === "plans.delete") {
       if (plan.ownerId !== userId && !isPlanAdministrator(plan))
         throw new AgentOperationError("FORBIDDEN");
@@ -281,29 +282,26 @@ export class AgentPlanCommandOperations {
     userId: string,
     context: {
       readonly request: AgentPlanCommandRequest;
-      readonly plan: AgentPlanView;
       readonly recorder: OperationRecorder<AgentPlanCommandResult>;
     },
   ): Promise<void> {
-    const { request, plan, recorder } = context;
+    const { request, recorder } = context;
     if (request.name === null) throw new AgentOperationError("INVALID_REQUEST");
     await this.plans.clone(
       userId,
-      plan.id,
+      request.planId,
       {
         name: request.name,
         expectedRevision: request.expectedRevision,
         ...(request.workspaceId ? { workspaceId: request.workspaceId } : {}),
         ...(request.oneShot ? { oneShot: true } : {}),
+        ...(request.ownerId === undefined ? {} : { ownerId: request.ownerId }),
+        ...(request.teams === undefined ? {} : { teams: request.teams }),
+        ...(request.executionTarget === undefined
+          ? {}
+          : { executionTarget: request.executionTarget }),
       },
-      (transaction, planId) =>
-        recorder.store(transaction, {
-          planId,
-          revision: 1,
-          sourcePlanId: plan.id,
-          sourceRevision: plan.revision,
-          workspaceId: request.workspaceId ?? plan.workspaceId,
-        }),
+      (transaction, _, receipt) => recorder.store(transaction, receipt),
     );
   }
 
@@ -461,7 +459,25 @@ function readCommandResult(json: string): AgentPlanCommandResult {
 }
 
 function readCloneResult(result: object): Partial<AgentPlanCommandResult> {
+  const adjustments =
+    "adjustments" in result
+      ? z
+          .array(
+            z.object({
+              code: z.enum([
+                "workspace_replaced",
+                "name_suffixed",
+                "source_revision_updated",
+                "legacy_form_cleaned",
+                "reference_cleared",
+              ]),
+              nodeId: z.string().optional(),
+            }),
+          )
+          .parse(result.adjustments)
+      : undefined;
   return {
+    ...(adjustments ? { adjustments } : {}),
     ...("sourcePlanId" in result && typeof result.sourcePlanId === "string"
       ? { sourcePlanId: result.sourcePlanId }
       : {}),

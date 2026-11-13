@@ -16,6 +16,13 @@ const MAXIMUM_ISSUES = 50;
 
 /** Refusals of the plan page that name the input to change. */
 const PLAN_REASONS: Readonly<Partial<Record<AgentErrorCode, Reason>>> = {
+  source_not_visible: "source_not_visible",
+  workspace_unavailable: "workspace_unavailable",
+  plan_schema_unsupported: "plan_schema_unsupported",
+  credentials_in_text: "credentials_in_text",
+  plan_user_team_read_only: "plan_user_team_read_only",
+  clone_request_invalid: "clone_request_invalid",
+  clone_failed: "clone_failed",
   plan_invalid: "graph_invalid",
   plan_loop_invalid: "graph_invalid",
   plan_loop_nested: "graph_invalid",
@@ -57,6 +64,8 @@ const PLAN_REASONS: Readonly<Partial<Record<AgentErrorCode, Reason>>> = {
   plan_continuation_deleted: "plan_continuation_deleted",
   // Script nodes keep the codes of the plan page.
   plan_script_invalid: "plan_script_invalid",
+  swarm_invalid: "swarm_invalid",
+  swarm_remote_unsupported: "swarm_remote_unsupported",
   plan_git_closeout_unsupported: "graph_invalid",
   plan_script_profile_missing: "plan_script_profile_missing",
 };
@@ -99,6 +108,7 @@ function translateAgentError(error: AgentError): AgentOperationError {
   )
     return new AgentOperationError("NOT_FOUND");
   if (
+    error.code === "forbidden" ||
     error.code === "plan_project_owner_only" ||
     error.code === "plan_team_forbidden" ||
     error.code === "plan_owner_forbidden" ||

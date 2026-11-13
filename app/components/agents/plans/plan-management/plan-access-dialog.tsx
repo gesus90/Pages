@@ -1,12 +1,13 @@
 import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { Input } from "@/app/components/ui/input";
-import { Select } from "@/app/components/ui/select";
-
 import { planRequestError } from "./plan-context-model";
 import { PlanDialogFrame } from "./plan-dialog-frame";
-import { PlanTeamRows } from "./plan-access-teams";
+import {
+  PlanTeamRows,
+  PlanTeamSearch,
+  PlanOwnerField,
+} from "./plan-access-teams";
 import {
   hasPlanTeamRight,
   planTeamChoices,
@@ -119,92 +120,5 @@ export function PlanAccessDialog({
         />
       ) : null}
     </PlanDialogFrame>
-  );
-}
-
-/** The search for groups and departments and the matching entries to add. */
-function PlanTeamSearch(props: {
-  readonly id: string;
-  readonly query: string;
-  readonly choices: readonly PlanTeamChoice[];
-  readonly onQuery: (query: string) => void;
-  readonly onAdd: (choice: PlanTeamChoice) => void;
-}): React.ReactElement {
-  const { t } = useTranslation();
-  return (
-    <div className="space-y-2">
-      <label
-        htmlFor={`${props.id}-search`}
-        className="grid gap-1.5 text-xs font-medium"
-      >
-        {t("plans.access.search")}
-        <Input
-          id={`${props.id}-search`}
-          value={props.query}
-          placeholder={t("plans.access.searchPlaceholder")}
-          onChange={(event) => props.onQuery(event.target.value)}
-          data-plan-team-search
-        />
-      </label>
-      {props.choices.length > 0 ? (
-        <ul
-          className="flex flex-wrap gap-1.5"
-          aria-label={t("plans.access.choices")}
-        >
-          {props.choices.map((choice) => (
-            <li key={`${choice.kind}:${choice.id}`}>
-              <button
-                type="button"
-                className="rounded-full border border-control-border px-2.5 py-1 text-xs hover:bg-surface-hover focus-visible:outline-2 focus-visible:outline-ring [@media(pointer:coarse)]:min-h-11"
-                onClick={() => props.onAdd(choice)}
-                data-plan-team-choice={choice.name}
-              >
-                {t("plans.access.add", {
-                  name: choice.name,
-                  kind: t(`plans.access.kind.${choice.kind}`),
-                })}
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="text-xs text-muted-foreground">
-          {t("plans.access.noChoices")}
-        </p>
-      )}
-    </div>
-  );
-}
-
-/** The owner choice of an administrator: every active account. */
-function PlanOwnerField(props: {
-  readonly page: AgentPlanPage;
-  readonly ownerId: string;
-  readonly isDisabled: boolean;
-  readonly onChange: (ownerId: string) => void;
-}): React.ReactElement {
-  const { t } = useTranslation();
-  const persons = props.page.directory.persons;
-  const options = persons.some((person) => person.id === props.ownerId)
-    ? persons
-    : [{ id: props.ownerId, name: props.ownerId }, ...persons];
-  return (
-    <label className="grid gap-1.5 text-xs font-medium">
-      {t("plans.access.owner")}
-      <Select
-        ariaLabel={t("plans.access.owner")}
-        value={props.ownerId}
-        disabled={props.isDisabled}
-        options={options.map((person) => ({
-          value: person.id,
-          label: person.name,
-        }))}
-        onValueChange={props.onChange}
-        className="w-full min-w-0 [&>span]:truncate"
-      />
-      <span className="font-normal text-muted-foreground">
-        {t("plans.access.ownerHint")}
-      </span>
-    </label>
   );
 }

@@ -6,6 +6,7 @@ import {
   COORDINATE_SCHEMA,
   PLAN_NODE_IDENTIFIER_SCHEMA,
 } from "./ToolDefinition.js";
+import { SWARM_FIELDS } from "./PlanSwarmSchema.js";
 
 import type { PropertySchema, ToolProperties } from "./ToolDefinition.js";
 
@@ -414,6 +415,7 @@ const NODE_FIELDS: ToolProperties = {
   },
   configuration: CONFIGURATION,
   ...SCRIPT_FIELDS,
+  ...SWARM_FIELDS,
 };
 
 function change(action: string, properties: ToolProperties): PropertySchema {

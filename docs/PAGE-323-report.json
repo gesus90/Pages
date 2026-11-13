@@ -1,0 +1,3817 @@
+{
+  "ticket": "PAGE-323",
+  "ticketId": "d186623c-8252-4277-b102-813fd8da2389",
+  "state": "Implementation complete; local commit and Review handoff, final QA pending",
+  "workspace": "/home/igor/Repo/Pages-Session-2",
+  "branch": "work/pages-session-2-20261112T222600Z-3aa7e1a1",
+  "baseBeforeTicketCommit": "37cfb85f99a47a85eb2d4f7c3544fe9316b9a301",
+  "preservation": "No branch switch, rebase, push, tag, live service, live data, folder provisioning, credential change or external communication. Existing PAGE-330 and earlier commits preserved. Untracked PAGE-330 input images are excluded from the commit.",
+  "checklist": {
+    "revision": "1",
+    "items": [],
+    "note": "Read at start and final reconciliation; no checkboxes exist to tick."
+  },
+  "todos": [
+    {
+      "id": "T1",
+      "status": "done",
+      "evidence": "Folder-scoped grants and UI, Pica/HTTP/step-bridge authorization, account-attributed history, credential-safe repository reads, migration, German/English text, selected unit proofs and wiki source are in the workspace. Local commit and final fingerprint are supplied in report_step_result."
+    }
+  ],
+  "criteria": [
+    {
+      "id": "K1",
+      "met": true,
+      "evidence": "All implementation and test files below plus docs/wiki/PAGE-323.md and this report. Required ticket-agent checks have final valid passing evidence; project lint/check belong to the final QA node."
+    }
+  ],
+  "acceptanceEvidence": [
+    {
+      "criterion": 1,
+      "implemented": true,
+      "proof": "page323-storage-access: non-admin agent creates a folder and uploads Markdown, including a descendant; both audit records use Ed Agent and authenticated ID despite a forged writer userId. page323-storage-channels exercises Pica and MCP dispatch. Frontend history displays actor name."
+    },
+    {
+      "criterion": 2,
+      "implemented": true,
+      "proof": "page323-storage-access, page323-storage-routes and page323-storage-channels assert forbidden/403 outside grants, no writer or audit effect; native Pica returns FORBIDDEN. Step bridge rejects before receipt reservation."
+    },
+    {
+      "criterion": 3,
+      "implemented": true,
+      "proof": "Human without grants, inactive/missing/mismatched account, revoked grants, agent with forged admin flags and administrative delete/move/etc all deny. Current membership is read in parameterized role/department/group subqueries, not copied to sessions."
+    },
+    {
+      "criterion": 4,
+      "implemented": true,
+      "proof": "page323-repository-reads asserts exact c5ee1978..3468b2db comparison request, GET-only redirect:error transport, authorization before token loading, explicit projections, redaction of current credential in messages and base64 files, fixed error output without logs; native tool, HTTP route and step bridge dispatch tested. No live GitHub request or clone executed."
+    },
+    {
+      "criterion": 5,
+      "implemented": true,
+      "proof": "Backend: 196 distinct tests across the final 22-file selection have valid passing proofs after targeted corrections. Frontend: 60 tests in 4 files, including grant creation/revocation/rejection, forbidden capabilities, parser propagation and administrative control restrictions. Earlier existing writer create/replace regressions also passed in backend-2."
+    },
+    {
+      "criterion": 6,
+      "implemented": true,
+      "proof": "docs/wiki/PAGE-323.md documents admin setup for Storage/Pages, Pages MCP and Pica Mobile to group A-Team, inheritance/revocation, history, GitHub setup, tool/API contracts and limits. docs/StorageApi.md updated. This is the repository wiki source; no live wiki was edited."
+    }
+  ],
+  "decisions": [
+    "Current explicit implementation instruction starts this backlog ticket; historical do-not-start decision is superseded for this run.",
+    "Grants are additive for current roles, department members or group members, inherit to descendants and are bound to stable Drive references plus Google permission ID. No hardcoded A-Team IDs or automatic live grants.",
+    "Copy, rename, restore, batch, quota/global search and deletion/moving remain administrative. Existing content-replacement confirmations remain account/object/version bound.",
+    "The same account-bound Storage facade serves UI, Pica and MCP HTTP; full plan sessions additionally use the existing step bridge. Read sessions get reads only; ticket-bound sessions get neither new operation family.",
+    "Step-bridge writes reserve existing agent_operation_keys before external work. Completed receipts replay after fresh authorization; pending receipts conflict to prevent blind duplicate external writes after interruption.",
+    "Repository reads use the existing encrypted project token and the project access service. GitHub comparison semantics/order, pagination, file limits and missing patches are explicit. No write operation, session checkout or credential discovery.",
+    "An unnecessary duplicate authorization repository was removed; Storage reuses the existing administration context service. Existing test fixture import order is retained because it installs mocks before the SUT.",
+    "Local wiki source is delivered without writing live content. Real provisioning, migration application and a live historical-range lookup are intentionally unexecuted under the workspace-only/unit-only pilot.",
+    "Pinned pnpm launcher failed with Permission denied. Existing .git/pages-session/corepack/v1/pnpm/11.23.0/bin/pnpm.cjs reported version 11.23.0 and ran the unchanged pnpm scripts; no dependency or check configuration was modified."
+  ],
+  "validation": {
+    "format": {
+      "command": "node .git/pages-session/corepack/v1/pnpm/11.23.0/bin/pnpm.cjs exec prettier --write --ignore-unknown <only files changed by PAGE-323>",
+      "exitCode": 0,
+      "note": "Repeated only for newly edited files; SQL manually reviewed because installed Prettier has no SQL parser."
+    },
+    "launcherFailures": [
+      {
+        "command": "pnpm exec prettier --write --ignore-unknown <changed files>",
+        "exitCode": 1,
+        "message": "switch pnpm to v11.23.0: Permission denied (os error 13)"
+      },
+      {
+        "command": "pnpm run test:backend <three initially selected files>",
+        "exitCode": 1,
+        "message": "Same launcher failure before any test execution."
+      }
+    ],
+    "executions": [
+      {
+        "scope": "backend",
+        "command": "node .git/pages-session/corepack/v1/pnpm/11.23.0/bin/pnpm.cjs run test:backend tests/backend/backend/service/google/page323-storage-access.unit.test.ts tests/backend/backend/service/google/page323-storage-channels.unit.test.ts tests/backend/backend/service/github/page323-repository-reads.unit.test.ts",
+        "exitCode": 0,
+        "log": ".git/pages-session/page323-backend-1.txt",
+        "result": "superseded by later targeted source checks",
+        "selectedFiles": [
+          "tests/backend/backend/service/google/page323-storage-access.unit.test.ts",
+          "tests/backend/backend/service/google/page323-storage-channels.unit.test.ts",
+          "tests/backend/backend/service/github/page323-repository-reads.unit.test.ts"
+        ]
+      },
+      {
+        "scope": "backend",
+        "command": "node .git/pages-session/corepack/v1/pnpm/11.23.0/bin/pnpm.cjs run test:backend tests/backend/backend/service/google/page323-storage-access.unit.test.ts tests/backend/backend/service/google/page323-storage-channels.unit.test.ts tests/backend/backend/service/github/page323-repository-reads.unit.test.ts tests/backend/backend/service/chat/page323-repository-tools.unit.test.ts tests/backend/backend/database/repositories/google/page323-storage-access-repository.unit.test.ts tests/backend/app/routes/page323-storage-routes.unit.test.ts tests/backend/app/routes/page323-repository-api.unit.test.ts tests/backend/app/lib/chat-services.unit.test.ts tests/backend/app/lib/services.unit.test.ts tests/backend/app/lib/services-lifecycle.unit.test.ts tests/backend/backend/service/chat/page83-pica-composition.unit.test.ts tests/backend/backend/service/chat/acp/page68-pica-bridge.unit.test.ts tests/backend/backend/service/chat/admin/pica-admin-service.unit.test.ts tests/backend/backend/service/google/storage-file-writer-create.unit.test.ts tests/backend/backend/service/google/storage-file-writer-replace.unit.test.ts",
+        "exitCode": 1,
+        "log": ".git/pages-session/page323-backend-2.txt",
+        "result": "2 composition failures: duplicate authorization repository and new repository service wiring; repaired and rechecked",
+        "selectedFiles": [
+          "tests/backend/backend/service/google/page323-storage-access.unit.test.ts",
+          "tests/backend/backend/service/google/page323-storage-channels.unit.test.ts",
+          "tests/backend/backend/service/github/page323-repository-reads.unit.test.ts",
+          "tests/backend/backend/service/chat/page323-repository-tools.unit.test.ts",
+          "tests/backend/backend/database/repositories/google/page323-storage-access-repository.unit.test.ts",
+          "tests/backend/app/routes/page323-storage-routes.unit.test.ts",
+          "tests/backend/app/routes/page323-repository-api.unit.test.ts",
+          "tests/backend/app/lib/chat-services.unit.test.ts",
+          "tests/backend/app/lib/services.unit.test.ts",
+          "tests/backend/app/lib/services-lifecycle.unit.test.ts",
+          "tests/backend/backend/service/chat/page83-pica-composition.unit.test.ts",
+          "tests/backend/backend/service/chat/acp/page68-pica-bridge.unit.test.ts",
+          "tests/backend/backend/service/chat/admin/pica-admin-service.unit.test.ts",
+          "tests/backend/backend/service/google/storage-file-writer-create.unit.test.ts",
+          "tests/backend/backend/service/google/storage-file-writer-replace.unit.test.ts"
+        ]
+      },
+      {
+        "scope": "backend",
+        "command": "node .git/pages-session/corepack/v1/pnpm/11.23.0/bin/pnpm.cjs run test:backend tests/backend/app/lib/services.unit.test.ts tests/backend/app/lib/services-lifecycle.unit.test.ts",
+        "exitCode": 0,
+        "log": ".git/pages-session/page323-backend-3.txt",
+        "result": "composition repairs verified",
+        "selectedFiles": [
+          "tests/backend/app/lib/services.unit.test.ts",
+          "tests/backend/app/lib/services-lifecycle.unit.test.ts"
+        ]
+      },
+      {
+        "scope": "backend",
+        "command": "node .git/pages-session/corepack/v1/pnpm/11.23.0/bin/pnpm.cjs run test:backend tests/backend/backend/service/agents/page323-file-operations.unit.test.ts tests/backend/definition/tool-catalog.unit.test.ts tests/backend/backend/service/mcp/page171-plan-operation-catalog.unit.test.ts tests/backend/backend/service/mcp/project-deletion-catalog.unit.test.ts tests/backend/app/lib/services.unit.test.ts tests/backend/app/lib/services-lifecycle.unit.test.ts",
+        "exitCode": 0,
+        "log": ".git/pages-session/page323-backend-4.txt",
+        "result": "step bridge catalog, file dispatch and composition verified",
+        "selectedFiles": [
+          "tests/backend/backend/service/agents/page323-file-operations.unit.test.ts",
+          "tests/backend/definition/tool-catalog.unit.test.ts",
+          "tests/backend/backend/service/mcp/page171-plan-operation-catalog.unit.test.ts",
+          "tests/backend/backend/service/mcp/project-deletion-catalog.unit.test.ts",
+          "tests/backend/app/lib/services.unit.test.ts",
+          "tests/backend/app/lib/services-lifecycle.unit.test.ts"
+        ]
+      },
+      {
+        "scope": "backend",
+        "command": "node .git/pages-session/corepack/v1/pnpm/11.23.0/bin/pnpm.cjs run test:backend tests/backend/backend/service/google/page323-storage-access.unit.test.ts tests/backend/backend/service/google/page323-storage-channels.unit.test.ts tests/backend/backend/service/github/page323-repository-reads.unit.test.ts tests/backend/backend/service/chat/page323-repository-tools.unit.test.ts tests/backend/backend/database/repositories/google/page323-storage-access-repository.unit.test.ts tests/backend/backend/database/repositories/google/page323-storage-receipts.unit.test.ts tests/backend/backend/service/agents/page323-file-operations.unit.test.ts tests/backend/app/routes/page323-storage-routes.unit.test.ts tests/backend/app/routes/page323-repository-api.unit.test.ts tests/backend/app/lib/services.unit.test.ts tests/backend/app/lib/services-lifecycle.unit.test.ts tests/backend/app/lib/mcp-services.unit.test.ts tests/backend/app/lib/chat-services.unit.test.ts tests/backend/backend/service/chat/page83-pica-composition.unit.test.ts tests/backend/backend/service/chat/acp/page68-pica-bridge.unit.test.ts tests/backend/backend/service/chat/admin/pica-admin-service.unit.test.ts tests/backend/definition/tool-catalog.unit.test.ts tests/backend/backend/service/mcp/page171-plan-operation-catalog.unit.test.ts tests/backend/backend/service/mcp/project-deletion-catalog.unit.test.ts tests/backend/backend/service/agents/codex-session-reach-api.unit.test.ts tests/backend/backend/service/agents/page162-work-gate.unit.test.ts tests/backend/backend/service/chat/page48-deletion.unit.test.ts",
+        "exitCode": 1,
+        "log": ".git/pages-session/page323-backend-final.txt",
+        "result": "21 of 22 files passed; service fixture import order caused 13 failures in one file; repaired without changing expectations",
+        "selectedFiles": [
+          "tests/backend/backend/service/google/page323-storage-access.unit.test.ts",
+          "tests/backend/backend/service/google/page323-storage-channels.unit.test.ts",
+          "tests/backend/backend/service/github/page323-repository-reads.unit.test.ts",
+          "tests/backend/backend/service/chat/page323-repository-tools.unit.test.ts",
+          "tests/backend/backend/database/repositories/google/page323-storage-access-repository.unit.test.ts",
+          "tests/backend/backend/database/repositories/google/page323-storage-receipts.unit.test.ts",
+          "tests/backend/backend/service/agents/page323-file-operations.unit.test.ts",
+          "tests/backend/app/routes/page323-storage-routes.unit.test.ts",
+          "tests/backend/app/routes/page323-repository-api.unit.test.ts",
+          "tests/backend/app/lib/services.unit.test.ts",
+          "tests/backend/app/lib/services-lifecycle.unit.test.ts",
+          "tests/backend/app/lib/mcp-services.unit.test.ts",
+          "tests/backend/app/lib/chat-services.unit.test.ts",
+          "tests/backend/backend/service/chat/page83-pica-composition.unit.test.ts",
+          "tests/backend/backend/service/chat/acp/page68-pica-bridge.unit.test.ts",
+          "tests/backend/backend/service/chat/admin/pica-admin-service.unit.test.ts",
+          "tests/backend/definition/tool-catalog.unit.test.ts",
+          "tests/backend/backend/service/mcp/page171-plan-operation-catalog.unit.test.ts",
+          "tests/backend/backend/service/mcp/project-deletion-catalog.unit.test.ts",
+          "tests/backend/backend/service/agents/codex-session-reach-api.unit.test.ts",
+          "tests/backend/backend/service/agents/page162-work-gate.unit.test.ts",
+          "tests/backend/backend/service/chat/page48-deletion.unit.test.ts"
+        ]
+      },
+      {
+        "scope": "backend",
+        "command": "node .git/pages-session/corepack/v1/pnpm/11.23.0/bin/pnpm.cjs run test:backend tests/backend/app/lib/services.unit.test.ts tests/backend/backend/service/agents/page323-file-operations.unit.test.ts tests/backend/app/routes/page323-storage-routes.unit.test.ts",
+        "exitCode": 0,
+        "log": ".git/pages-session/page323-backend-correction.txt",
+        "result": "services fixture order and file-operation extraction verified; 21 tests in 3 files",
+        "selectedFiles": [
+          "tests/backend/app/lib/services.unit.test.ts",
+          "tests/backend/backend/service/agents/page323-file-operations.unit.test.ts",
+          "tests/backend/app/routes/page323-storage-routes.unit.test.ts"
+        ]
+      },
+      {
+        "scope": "backend",
+        "command": "node .git/pages-session/corepack/v1/pnpm/11.23.0/bin/pnpm.cjs run test:backend tests/backend/app/routes/page323-repository-api.unit.test.ts",
+        "exitCode": 0,
+        "log": ".git/pages-session/page323-backend-routes.txt",
+        "result": "repository API and bearer/cookie route separation verified; 3 tests",
+        "selectedFiles": [
+          "tests/backend/app/routes/page323-repository-api.unit.test.ts"
+        ]
+      },
+      {
+        "scope": "backend",
+        "command": "node .git/pages-session/corepack/v1/pnpm/11.23.0/bin/pnpm.cjs run test:backend tests/backend/app/lib/services.unit.test.ts tests/backend/backend/database/repositories/google/page323-storage-access-repository.unit.test.ts tests/backend/backend/service/github/page323-repository-reads.unit.test.ts",
+        "exitCode": 0,
+        "log": ".git/pages-session/page323-backend-types.txt",
+        "result": "type-safe matcher annotations; services, grant persistence and repository reads rechecked; 22 tests",
+        "selectedFiles": [
+          "tests/backend/app/lib/services.unit.test.ts",
+          "tests/backend/backend/database/repositories/google/page323-storage-access-repository.unit.test.ts",
+          "tests/backend/backend/service/github/page323-repository-reads.unit.test.ts"
+        ]
+      },
+      {
+        "scope": "frontend",
+        "command": "node .git/pages-session/corepack/v1/pnpm/11.23.0/bin/pnpm.cjs run test:frontend tests/frontend/app/components/storage/page323-storage-permissions.unit.test.tsx tests/frontend/app/components/storage/use-storage-actions.unit.test.tsx",
+        "exitCode": 1,
+        "log": ".git/pages-session/page323-frontend-1.txt",
+        "result": "3 unsupported matcher calls in new tests; replaced with repository-standard assertions of the same observable state",
+        "selectedFiles": [
+          "tests/frontend/app/components/storage/page323-storage-permissions.unit.test.tsx",
+          "tests/frontend/app/components/storage/use-storage-actions.unit.test.tsx"
+        ]
+      },
+      {
+        "scope": "frontend",
+        "command": "node .git/pages-session/corepack/v1/pnpm/11.23.0/bin/pnpm.cjs run test:frontend tests/frontend/app/components/storage/page323-storage-permissions.unit.test.tsx tests/frontend/app/components/storage/page323-storage-commands.unit.test.tsx tests/frontend/app/components/storage/storage-page.unit.test.tsx tests/frontend/app/components/storage/use-storage-actions.unit.test.tsx",
+        "exitCode": 0,
+        "log": ".git/pages-session/page323-frontend-2.txt",
+        "result": "57 tests in 4 files after matcher correction",
+        "selectedFiles": [
+          "tests/frontend/app/components/storage/page323-storage-permissions.unit.test.tsx",
+          "tests/frontend/app/components/storage/page323-storage-commands.unit.test.tsx",
+          "tests/frontend/app/components/storage/storage-page.unit.test.tsx",
+          "tests/frontend/app/components/storage/use-storage-actions.unit.test.tsx"
+        ]
+      },
+      {
+        "scope": "frontend",
+        "command": "node .git/pages-session/corepack/v1/pnpm/11.23.0/bin/pnpm.cjs run test:frontend tests/frontend/app/components/storage/page323-storage-permissions.unit.test.tsx tests/frontend/app/components/storage/page323-storage-commands.unit.test.tsx tests/frontend/app/components/storage/storage-page.unit.test.tsx tests/frontend/app/components/storage/use-storage-actions.unit.test.tsx",
+        "exitCode": 0,
+        "log": ".git/pages-session/page323-frontend-final.txt",
+        "result": "58 tests in 4 files including scoped-view parser",
+        "selectedFiles": [
+          "tests/frontend/app/components/storage/page323-storage-permissions.unit.test.tsx",
+          "tests/frontend/app/components/storage/page323-storage-commands.unit.test.tsx",
+          "tests/frontend/app/components/storage/storage-page.unit.test.tsx",
+          "tests/frontend/app/components/storage/use-storage-actions.unit.test.tsx"
+        ]
+      },
+      {
+        "scope": "frontend",
+        "command": "node .git/pages-session/corepack/v1/pnpm/11.23.0/bin/pnpm.cjs run test:frontend tests/frontend/app/components/storage/storage-page.unit.test.tsx",
+        "exitCode": 0,
+        "log": ".git/pages-session/page323-frontend-page-correction.txt",
+        "result": "31 page tests, including administrator read-only trash access and shared-folder controls; adds 2 cases",
+        "selectedFiles": [
+          "tests/frontend/app/components/storage/storage-page.unit.test.tsx"
+        ]
+      }
+    ],
+    "effectiveSelections": {
+      "backend": [
+        "tests/backend/app/lib/chat-services.unit.test.ts",
+        "tests/backend/app/lib/mcp-services.unit.test.ts",
+        "tests/backend/app/lib/services-lifecycle.unit.test.ts",
+        "tests/backend/app/lib/services.unit.test.ts",
+        "tests/backend/app/routes/page323-repository-api.unit.test.ts",
+        "tests/backend/app/routes/page323-storage-routes.unit.test.ts",
+        "tests/backend/backend/database/repositories/google/page323-storage-access-repository.unit.test.ts",
+        "tests/backend/backend/database/repositories/google/page323-storage-receipts.unit.test.ts",
+        "tests/backend/backend/service/agents/codex-session-reach-api.unit.test.ts",
+        "tests/backend/backend/service/agents/page162-work-gate.unit.test.ts",
+        "tests/backend/backend/service/agents/page323-file-operations.unit.test.ts",
+        "tests/backend/backend/service/chat/acp/page68-pica-bridge.unit.test.ts",
+        "tests/backend/backend/service/chat/admin/pica-admin-service.unit.test.ts",
+        "tests/backend/backend/service/chat/page323-repository-tools.unit.test.ts",
+        "tests/backend/backend/service/chat/page48-deletion.unit.test.ts",
+        "tests/backend/backend/service/chat/page83-pica-composition.unit.test.ts",
+        "tests/backend/backend/service/github/page323-repository-reads.unit.test.ts",
+        "tests/backend/backend/service/google/page323-storage-access.unit.test.ts",
+        "tests/backend/backend/service/google/page323-storage-channels.unit.test.ts",
+        "tests/backend/backend/service/mcp/page171-plan-operation-catalog.unit.test.ts",
+        "tests/backend/backend/service/mcp/project-deletion-catalog.unit.test.ts",
+        "tests/backend/definition/tool-catalog.unit.test.ts"
+      ],
+      "frontend": [
+        "tests/frontend/app/components/storage/page323-storage-commands.unit.test.tsx",
+        "tests/frontend/app/components/storage/page323-storage-permissions.unit.test.tsx",
+        "tests/frontend/app/components/storage/storage-page.unit.test.tsx",
+        "tests/frontend/app/components/storage/use-storage-actions.unit.test.tsx"
+      ]
+    },
+    "effectiveResults": {
+      "backend": {
+        "files": 22,
+        "tests": 196,
+        "status": "passed using final selection plus precise correction/route/type reruns"
+      },
+      "frontend": {
+        "files": 4,
+        "tests": 60,
+        "status": "passed using frontend-final plus page-correction"
+      }
+    },
+    "nonTestReview": [
+      "GUIDELINES.md and affected surrounding code read before implementation",
+      "git diff --check passed",
+      "Function/file-size and nested-conditional review; small local composition/route helpers keep repository size limits; no lint rules suppressed",
+      "Wiki contract links and path names reviewed against implementation"
+    ]
+  },
+  "coverageDiagnostics": {
+    "backend": {
+      "execution": "page323-backend-types.txt",
+      "note": "Diagnostic coverage of this last partial rerun only. Not combined with the other test selections, not full-project or full-ticket coverage. Zero/low rows are expected for modules outside this rerun. No threshold or population changed.",
+      "total": {
+        "lines": {
+          "total": 75908,
+          "covered": 819,
+          "skipped": 0,
+          "pct": 1.07
+        },
+        "statements": {
+          "total": 83037,
+          "covered": 830,
+          "skipped": 0,
+          "pct": 0.99
+        },
+        "functions": {
+          "total": 21462,
+          "covered": 106,
+          "skipped": 0,
+          "pct": 0.49
+        },
+        "branches": {
+          "total": 57281,
+          "covered": 126,
+          "skipped": 0,
+          "pct": 0.21
+        },
+        "branchesTrue": {
+          "total": 0,
+          "covered": 0,
+          "skipped": 0,
+          "pct": 100
+        }
+      },
+      "changedModules": [
+        {
+          "file": "app/lib/chat-services.server.ts",
+          "statements": {
+            "total": 45,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "branches": {
+            "total": 21,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "functions": {
+            "total": 16,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "lines": {
+            "total": 44,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          }
+        },
+        {
+          "file": "app/lib/google-drive-services.server.ts",
+          "statements": {
+            "total": 9,
+            "covered": 8,
+            "skipped": 0,
+            "pct": 88.88
+          },
+          "branches": {
+            "total": 4,
+            "covered": 2,
+            "skipped": 0,
+            "pct": 50
+          },
+          "functions": {
+            "total": 3,
+            "covered": 2,
+            "skipped": 0,
+            "pct": 66.66
+          },
+          "lines": {
+            "total": 9,
+            "covered": 8,
+            "skipped": 0,
+            "pct": 88.88
+          }
+        },
+        {
+          "file": "app/lib/mcp-services.server.ts",
+          "statements": {
+            "total": 44,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "branches": {
+            "total": 18,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "functions": {
+            "total": 18,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "lines": {
+            "total": 43,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          }
+        },
+        {
+          "file": "app/lib/mcp-storage-route.server.ts",
+          "statements": {
+            "total": 41,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "branches": {
+            "total": 40,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "functions": {
+            "total": 6,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "lines": {
+            "total": 37,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          }
+        },
+        {
+          "file": "app/lib/mcp-workspace-services.server.ts",
+          "statements": {
+            "total": 16,
+            "covered": 15,
+            "skipped": 0,
+            "pct": 93.75
+          },
+          "branches": {
+            "total": 4,
+            "covered": 3,
+            "skipped": 0,
+            "pct": 75
+          },
+          "functions": {
+            "total": 3,
+            "covered": 2,
+            "skipped": 0,
+            "pct": 66.66
+          },
+          "lines": {
+            "total": 16,
+            "covered": 15,
+            "skipped": 0,
+            "pct": 93.75
+          }
+        },
+        {
+          "file": "app/lib/services.server.ts",
+          "statements": {
+            "total": 70,
+            "covered": 53,
+            "skipped": 0,
+            "pct": 75.71
+          },
+          "branches": {
+            "total": 8,
+            "covered": 2,
+            "skipped": 0,
+            "pct": 25
+          },
+          "functions": {
+            "total": 16,
+            "covered": 12,
+            "skipped": 0,
+            "pct": 75
+          },
+          "lines": {
+            "total": 69,
+            "covered": 53,
+            "skipped": 0,
+            "pct": 76.81
+          }
+        },
+        {
+          "file": "app/lib/storage-routes.ts",
+          "statements": {
+            "total": 2,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "branches": {
+            "total": 0,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 100
+          },
+          "functions": {
+            "total": 2,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "lines": {
+            "total": 2,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          }
+        },
+        {
+          "file": "app/routes.ts",
+          "statements": {
+            "total": 58,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "branches": {
+            "total": 23,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "functions": {
+            "total": 20,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "lines": {
+            "total": 54,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          }
+        },
+        {
+          "file": "app/routes/api-mcp-v1-repository.ts",
+          "statements": {
+            "total": 19,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "branches": {
+            "total": 14,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "functions": {
+            "total": 5,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "lines": {
+            "total": 17,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          }
+        },
+        {
+          "file": "app/routes/storage-access-api.ts",
+          "statements": {
+            "total": 30,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "branches": {
+            "total": 18,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "functions": {
+            "total": 2,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "lines": {
+            "total": 27,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          }
+        },
+        {
+          "file": "app/routes/storage-api-v1.ts",
+          "statements": {
+            "total": 73,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "branches": {
+            "total": 52,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "functions": {
+            "total": 30,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "lines": {
+            "total": 71,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          }
+        },
+        {
+          "file": "app/routes/storage-api.ts",
+          "statements": {
+            "total": 48,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "branches": {
+            "total": 42,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "functions": {
+            "total": 6,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "lines": {
+            "total": 48,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          }
+        },
+        {
+          "file": "backend/database/repositories/google/StorageAccessRepository.ts",
+          "statements": {
+            "total": 22,
+            "covered": 14,
+            "skipped": 0,
+            "pct": 63.63
+          },
+          "branches": {
+            "total": 12,
+            "covered": 5,
+            "skipped": 0,
+            "pct": 41.66
+          },
+          "functions": {
+            "total": 9,
+            "covered": 7,
+            "skipped": 0,
+            "pct": 77.77
+          },
+          "lines": {
+            "total": 21,
+            "covered": 13,
+            "skipped": 0,
+            "pct": 61.9
+          }
+        },
+        {
+          "file": "backend/database/repositories/google/StorageOperationRepository.ts",
+          "statements": {
+            "total": 9,
+            "covered": 1,
+            "skipped": 0,
+            "pct": 11.11
+          },
+          "branches": {
+            "total": 4,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "functions": {
+            "total": 3,
+            "covered": 1,
+            "skipped": 0,
+            "pct": 33.33
+          },
+          "lines": {
+            "total": 7,
+            "covered": 1,
+            "skipped": 0,
+            "pct": 14.28
+          }
+        },
+        {
+          "file": "backend/github/GitHubRepositoryReadClient.ts",
+          "statements": {
+            "total": 70,
+            "covered": 63,
+            "skipped": 0,
+            "pct": 90
+          },
+          "branches": {
+            "total": 39,
+            "covered": 30,
+            "skipped": 0,
+            "pct": 76.92
+          },
+          "functions": {
+            "total": 11,
+            "covered": 10,
+            "skipped": 0,
+            "pct": 90.9
+          },
+          "lines": {
+            "total": 62,
+            "covered": 59,
+            "skipped": 0,
+            "pct": 95.16
+          }
+        },
+        {
+          "file": "backend/service/agents/AgentFileOperationService.ts",
+          "statements": {
+            "total": 66,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "branches": {
+            "total": 55,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "functions": {
+            "total": 12,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "lines": {
+            "total": 59,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          }
+        },
+        {
+          "file": "backend/service/agents/AgentOperationRouter.ts",
+          "statements": {
+            "total": 149,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "branches": {
+            "total": 128,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "functions": {
+            "total": 24,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "lines": {
+            "total": 128,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          }
+        },
+        {
+          "file": "backend/service/chat/ChatToolExecutor.ts",
+          "statements": {
+            "total": 57,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "branches": {
+            "total": 51,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "functions": {
+            "total": 13,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "lines": {
+            "total": 56,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          }
+        },
+        {
+          "file": "backend/service/chat/PicaRepositoryTools.ts",
+          "statements": {
+            "total": 11,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "branches": {
+            "total": 6,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "functions": {
+            "total": 3,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "lines": {
+            "total": 11,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          }
+        },
+        {
+          "file": "backend/service/chat/PicaTools.ts",
+          "statements": {
+            "total": 112,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "branches": {
+            "total": 77,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "functions": {
+            "total": 35,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "lines": {
+            "total": 101,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          }
+        },
+        {
+          "file": "backend/service/chat/admin/PicaAdminService.ts",
+          "statements": {
+            "total": 159,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "branches": {
+            "total": 96,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "functions": {
+            "total": 37,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "lines": {
+            "total": 145,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          }
+        },
+        {
+          "file": "backend/service/chat/admin/PicaStorageContracts.ts",
+          "statements": {
+            "total": 15,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "branches": {
+            "total": 0,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 100
+          },
+          "functions": {
+            "total": 0,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 100
+          },
+          "lines": {
+            "total": 15,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          }
+        },
+        {
+          "file": "backend/service/chat/admin/PicaStorageHandlers.ts",
+          "statements": {
+            "total": 50,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "branches": {
+            "total": 48,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "functions": {
+            "total": 19,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "lines": {
+            "total": 46,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          }
+        },
+        {
+          "file": "backend/service/chat/admin/PicaStorageService.ts",
+          "statements": {
+            "total": 48,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "branches": {
+            "total": 35,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "functions": {
+            "total": 10,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "lines": {
+            "total": 41,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          }
+        },
+        {
+          "file": "backend/service/chat/admin/PicaStorageTools.ts",
+          "statements": {
+            "total": 17,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "branches": {
+            "total": 13,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "functions": {
+            "total": 4,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "lines": {
+            "total": 17,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          }
+        },
+        {
+          "file": "backend/service/github/RepositoryReadService.ts",
+          "statements": {
+            "total": 31,
+            "covered": 29,
+            "skipped": 0,
+            "pct": 93.54
+          },
+          "branches": {
+            "total": 16,
+            "covered": 14,
+            "skipped": 0,
+            "pct": 87.5
+          },
+          "functions": {
+            "total": 3,
+            "covered": 3,
+            "skipped": 0,
+            "pct": 100
+          },
+          "lines": {
+            "total": 28,
+            "covered": 27,
+            "skipped": 0,
+            "pct": 96.42
+          }
+        },
+        {
+          "file": "backend/service/google/GoogleDriveFileService.ts",
+          "statements": {
+            "total": 13,
+            "covered": 7,
+            "skipped": 0,
+            "pct": 53.84
+          },
+          "branches": {
+            "total": 8,
+            "covered": 1,
+            "skipped": 0,
+            "pct": 12.5
+          },
+          "functions": {
+            "total": 3,
+            "covered": 1,
+            "skipped": 0,
+            "pct": 33.33
+          },
+          "lines": {
+            "total": 12,
+            "covered": 7,
+            "skipped": 0,
+            "pct": 58.33
+          }
+        },
+        {
+          "file": "backend/service/google/StorageAccessService.ts",
+          "statements": {
+            "total": 64,
+            "covered": 2,
+            "skipped": 0,
+            "pct": 3.12
+          },
+          "branches": {
+            "total": 67,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "functions": {
+            "total": 10,
+            "covered": 1,
+            "skipped": 0,
+            "pct": 10
+          },
+          "lines": {
+            "total": 57,
+            "covered": 2,
+            "skipped": 0,
+            "pct": 3.5
+          }
+        },
+        {
+          "file": "backend/service/google/StorageAccountBrowse.ts",
+          "statements": {
+            "total": 17,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "branches": {
+            "total": 10,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "functions": {
+            "total": 5,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "lines": {
+            "total": 15,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          }
+        },
+        {
+          "file": "backend/service/google/StorageAccountFiles.ts",
+          "statements": {
+            "total": 66,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "branches": {
+            "total": 39,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "functions": {
+            "total": 42,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "lines": {
+            "total": 50,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          }
+        },
+        {
+          "file": "backend/service/mcp/AgentOperationCatalog.ts",
+          "statements": {
+            "total": 16,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "branches": {
+            "total": 28,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "functions": {
+            "total": 10,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "lines": {
+            "total": 15,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          }
+        },
+        {
+          "file": "backend/service/mcp/storage/McpStorageService.ts",
+          "statements": {
+            "total": 34,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "branches": {
+            "total": 25,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "functions": {
+            "total": 24,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "lines": {
+            "total": 34,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          }
+        },
+        {
+          "file": "definition/AgentFileOperations.ts",
+          "statements": {
+            "total": 2,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "branches": {
+            "total": 0,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 100
+          },
+          "functions": {
+            "total": 0,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 100
+          },
+          "lines": {
+            "total": 2,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          }
+        },
+        {
+          "file": "definition/AgentTools/Files.ts",
+          "statements": {
+            "total": 10,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "branches": {
+            "total": 1,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "functions": {
+            "total": 2,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "lines": {
+            "total": 10,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          }
+        },
+        {
+          "file": "definition/AgentTools/ToolCatalog.ts",
+          "statements": {
+            "total": 1,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "branches": {
+            "total": 0,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 100
+          },
+          "functions": {
+            "total": 0,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 100
+          },
+          "lines": {
+            "total": 1,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          }
+        },
+        {
+          "file": "definition/GoogleDriveFiles.ts",
+          "statements": {
+            "total": 3,
+            "covered": 3,
+            "skipped": 0,
+            "pct": 100
+          },
+          "branches": {
+            "total": 0,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 100
+          },
+          "functions": {
+            "total": 0,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 100
+          },
+          "lines": {
+            "total": 3,
+            "covered": 3,
+            "skipped": 0,
+            "pct": 100
+          }
+        },
+        {
+          "file": "definition/GoogleDriveStorage.ts",
+          "statements": {
+            "total": 2,
+            "covered": 2,
+            "skipped": 0,
+            "pct": 100
+          },
+          "branches": {
+            "total": 0,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 100
+          },
+          "functions": {
+            "total": 0,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 100
+          },
+          "lines": {
+            "total": 2,
+            "covered": 2,
+            "skipped": 0,
+            "pct": 100
+          }
+        },
+        {
+          "file": "definition/PagesAgentApi.ts",
+          "statements": {
+            "total": 0,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "branches": {
+            "total": 0,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "functions": {
+            "total": 0,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "lines": {
+            "total": 0,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          }
+        },
+        {
+          "file": "definition/PagesAgentOperations.ts",
+          "statements": {
+            "total": 12,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "branches": {
+            "total": 10,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "functions": {
+            "total": 1,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "lines": {
+            "total": 12,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          }
+        },
+        {
+          "file": "definition/RepositoryRead.ts",
+          "statements": {
+            "total": 9,
+            "covered": 9,
+            "skipped": 0,
+            "pct": 100
+          },
+          "branches": {
+            "total": 6,
+            "covered": 6,
+            "skipped": 0,
+            "pct": 100
+          },
+          "functions": {
+            "total": 3,
+            "covered": 3,
+            "skipped": 0,
+            "pct": 100
+          },
+          "lines": {
+            "total": 9,
+            "covered": 9,
+            "skipped": 0,
+            "pct": 100
+          }
+        },
+        {
+          "file": "definition/StorageAccess.ts",
+          "statements": {
+            "total": 0,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "branches": {
+            "total": 0,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "functions": {
+            "total": 0,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "lines": {
+            "total": 0,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          }
+        }
+      ],
+      "rawCounters": ".git/pages-session/page323-evidence/backend-coverage-final.json",
+      "moduleSummary": ".git/pages-session/page323-evidence/backend-coverage-summary.json"
+    },
+    "frontend": {
+      "execution": "page323-frontend-page-correction.txt",
+      "note": "Diagnostic coverage of this last partial rerun only. Not combined with the other test selections, not full-project or full-ticket coverage. Zero/low rows are expected for modules outside this rerun. No threshold or population changed.",
+      "total": {
+        "lines": {
+          "total": 27971,
+          "covered": 73,
+          "skipped": 0,
+          "pct": 0.26
+        },
+        "statements": {
+          "total": 30892,
+          "covered": 76,
+          "skipped": 0,
+          "pct": 0.24
+        },
+        "functions": {
+          "total": 9937,
+          "covered": 29,
+          "skipped": 0,
+          "pct": 0.29
+        },
+        "branches": {
+          "total": 25135,
+          "covered": 101,
+          "skipped": 0,
+          "pct": 0.4
+        },
+        "branchesTrue": {
+          "total": 0,
+          "covered": 0,
+          "skipped": 0,
+          "pct": 100
+        }
+      },
+      "changedModules": [
+        {
+          "file": "app/components/common/app-shell.tsx",
+          "statements": {
+            "total": 50,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "branches": {
+            "total": 31,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "functions": {
+            "total": 25,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "lines": {
+            "total": 49,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          }
+        },
+        {
+          "file": "app/components/settings/system-section.tsx",
+          "statements": {
+            "total": 2,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "branches": {
+            "total": 0,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 100
+          },
+          "functions": {
+            "total": 1,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "lines": {
+            "total": 2,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          }
+        },
+        {
+          "file": "app/components/settings/system/storage-access-card.tsx",
+          "statements": {
+            "total": 59,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "branches": {
+            "total": 22,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "functions": {
+            "total": 16,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "lines": {
+            "total": 57,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          }
+        },
+        {
+          "file": "app/components/storage/storage-action-toolbar.tsx",
+          "statements": {
+            "total": 9,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "branches": {
+            "total": 10,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "functions": {
+            "total": 3,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "lines": {
+            "total": 8,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          }
+        },
+        {
+          "file": "app/components/storage/storage-actions-requests.ts",
+          "statements": {
+            "total": 38,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "branches": {
+            "total": 14,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "functions": {
+            "total": 7,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "lines": {
+            "total": 36,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          }
+        },
+        {
+          "file": "app/components/storage/storage-commands.ts",
+          "statements": {
+            "total": 34,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "branches": {
+            "total": 40,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "functions": {
+            "total": 12,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "lines": {
+            "total": 29,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          }
+        },
+        {
+          "file": "app/components/storage/storage-history.tsx",
+          "statements": {
+            "total": 17,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "branches": {
+            "total": 6,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "functions": {
+            "total": 5,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "lines": {
+            "total": 14,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          }
+        },
+        {
+          "file": "app/components/storage/storage-page.tsx",
+          "statements": {
+            "total": 40,
+            "covered": 39,
+            "skipped": 0,
+            "pct": 97.5
+          },
+          "branches": {
+            "total": 74,
+            "covered": 72,
+            "skipped": 0,
+            "pct": 97.29
+          },
+          "functions": {
+            "total": 14,
+            "covered": 13,
+            "skipped": 0,
+            "pct": 92.85
+          },
+          "lines": {
+            "total": 39,
+            "covered": 38,
+            "skipped": 0,
+            "pct": 97.43
+          }
+        },
+        {
+          "file": "app/components/storage/storage-requests.ts",
+          "statements": {
+            "total": 27,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "branches": {
+            "total": 12,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "functions": {
+            "total": 4,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "lines": {
+            "total": 24,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          }
+        },
+        {
+          "file": "app/components/storage/use-storage-capabilities.ts",
+          "statements": {
+            "total": 12,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "branches": {
+            "total": 10,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "functions": {
+            "total": 4,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "lines": {
+            "total": 11,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          }
+        },
+        {
+          "file": "app/components/storage/use-storage-file-manager.tsx",
+          "statements": {
+            "total": 9,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "branches": {
+            "total": 12,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "functions": {
+            "total": 2,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "lines": {
+            "total": 9,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          }
+        },
+        {
+          "file": "app/components/storage/use-storage-folder-actions.tsx",
+          "statements": {
+            "total": 13,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "branches": {
+            "total": 18,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "functions": {
+            "total": 4,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "lines": {
+            "total": 13,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          }
+        },
+        {
+          "file": "app/lib/storage-routes.ts",
+          "statements": {
+            "total": 2,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "branches": {
+            "total": 0,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 100
+          },
+          "functions": {
+            "total": 2,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "lines": {
+            "total": 2,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          }
+        },
+        {
+          "file": "app/routes.ts",
+          "statements": {
+            "total": 58,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "branches": {
+            "total": 23,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "functions": {
+            "total": 20,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "lines": {
+            "total": 54,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          }
+        },
+        {
+          "file": "definition/AgentFileOperations.ts",
+          "statements": {
+            "total": 2,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "branches": {
+            "total": 0,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 100
+          },
+          "functions": {
+            "total": 0,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 100
+          },
+          "lines": {
+            "total": 2,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          }
+        },
+        {
+          "file": "definition/AgentTools/Files.ts",
+          "statements": {
+            "total": 10,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "branches": {
+            "total": 1,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "functions": {
+            "total": 2,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "lines": {
+            "total": 10,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          }
+        },
+        {
+          "file": "definition/AgentTools/ToolCatalog.ts",
+          "statements": {
+            "total": 1,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "branches": {
+            "total": 0,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 100
+          },
+          "functions": {
+            "total": 0,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 100
+          },
+          "lines": {
+            "total": 1,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          }
+        },
+        {
+          "file": "definition/GoogleDriveFiles.ts",
+          "statements": {
+            "total": 3,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "branches": {
+            "total": 0,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 100
+          },
+          "functions": {
+            "total": 0,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 100
+          },
+          "lines": {
+            "total": 3,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          }
+        },
+        {
+          "file": "definition/GoogleDriveStorage.ts",
+          "statements": {
+            "total": 2,
+            "covered": 2,
+            "skipped": 0,
+            "pct": 100
+          },
+          "branches": {
+            "total": 0,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 100
+          },
+          "functions": {
+            "total": 0,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 100
+          },
+          "lines": {
+            "total": 2,
+            "covered": 2,
+            "skipped": 0,
+            "pct": 100
+          }
+        },
+        {
+          "file": "definition/PagesAgentApi.ts",
+          "statements": {
+            "total": 0,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "branches": {
+            "total": 0,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "functions": {
+            "total": 0,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "lines": {
+            "total": 0,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          }
+        },
+        {
+          "file": "definition/PagesAgentOperations.ts",
+          "statements": {
+            "total": 12,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "branches": {
+            "total": 10,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "functions": {
+            "total": 1,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "lines": {
+            "total": 12,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          }
+        },
+        {
+          "file": "definition/RepositoryRead.ts",
+          "statements": {
+            "total": 9,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "branches": {
+            "total": 6,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "functions": {
+            "total": 3,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "lines": {
+            "total": 9,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          }
+        },
+        {
+          "file": "definition/StorageAccess.ts",
+          "statements": {
+            "total": 0,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "branches": {
+            "total": 0,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "functions": {
+            "total": 0,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          },
+          "lines": {
+            "total": 0,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 0
+          }
+        }
+      ],
+      "rawCounters": ".git/pages-session/page323-evidence/frontend-coverage-final.json",
+      "moduleSummary": ".git/pages-session/page323-evidence/frontend-coverage-summary.json"
+    }
+  },
+  "changedFiles": [
+    {
+      "file": "app/components/common/app-shell.tsx",
+      "state": "present",
+      "sha256": "1ae72eb61a53ce137b67ab8320ffa2c5580f09618644b3f6bdd1776ed3d81762"
+    },
+    {
+      "file": "app/components/settings/system-section.tsx",
+      "state": "present",
+      "sha256": "899b4abe992f3a2a34c6aaa03018a26eeaab5c7cd202b8f35fd4ef5d53e8b9f4"
+    },
+    {
+      "file": "app/components/settings/system/storage-access-card.tsx",
+      "state": "present",
+      "sha256": "7bbf956f520fe7f27f354c113db85bcb967d88f7003a5bc980854bbdd9f18907"
+    },
+    {
+      "file": "app/components/storage/storage-action-toolbar.tsx",
+      "state": "present",
+      "sha256": "f0aa2e0bb655cd8a203875ee54e85982e4102f09d71cadae42b006c5b8bef0ca"
+    },
+    {
+      "file": "app/components/storage/storage-actions-requests.ts",
+      "state": "present",
+      "sha256": "3ee38658f602fd2eae3543e8f706424f5f8fa49318a172a5f03254f99cc91c26"
+    },
+    {
+      "file": "app/components/storage/storage-commands.ts",
+      "state": "present",
+      "sha256": "ccb109ef9eb184ef3f7b79184ecfe949f4a085c2351761e9d6ec034b89d5fa47"
+    },
+    {
+      "file": "app/components/storage/storage-history.tsx",
+      "state": "present",
+      "sha256": "c9cd66f79fce2305300f34c9bbb0a318849e1c9ccdb37184e51ebbed5a8d7b13"
+    },
+    {
+      "file": "app/components/storage/storage-page.tsx",
+      "state": "present",
+      "sha256": "f7315394b8e9e2c8911de85ca5be48c4b2beef950e05fd2cf0a7287cfbf58558"
+    },
+    {
+      "file": "app/components/storage/storage-requests.ts",
+      "state": "present",
+      "sha256": "cbfa6b3a34a181ea4ee272d0b5fa2a732e6116cf159be8d6b18a7adb6b59a102"
+    },
+    {
+      "file": "app/components/storage/use-storage-capabilities.ts",
+      "state": "present",
+      "sha256": "99abb656fb55baf555713a20d8206916b1646641e41c78915239929f9c62c076"
+    },
+    {
+      "file": "app/components/storage/use-storage-file-manager.tsx",
+      "state": "present",
+      "sha256": "511ef45c22693172af224d12de214b285a09d9e7e05261b6391e9d995b1208a2"
+    },
+    {
+      "file": "app/components/storage/use-storage-folder-actions.tsx",
+      "state": "present",
+      "sha256": "a10c57f1791e6442dbf0a2768c7ff436b277cce91f0052d538b84a86cc0a8933"
+    },
+    {
+      "file": "app/lib/chat-services.server.ts",
+      "state": "present",
+      "sha256": "835e1f86dad9d362b28929d3d31b74db628b7af74b921ff95c5bf8a2b1897f39"
+    },
+    {
+      "file": "app/lib/google-drive-services.server.ts",
+      "state": "present",
+      "sha256": "fce73b8bffcc8231cc834a73c4f767fadb3981cba8c6d98b7b337d700ceea030"
+    },
+    {
+      "file": "app/lib/mcp-services.server.ts",
+      "state": "present",
+      "sha256": "4f79b82c2a467aa615727ddea7591105d99ac8524d23676a18dfd7009afa99ec"
+    },
+    {
+      "file": "app/lib/mcp-storage-route.server.ts",
+      "state": "present",
+      "sha256": "07145287d5ad465575d9edc6543d8fe5885284e8fc9044950f6dd6072a6844db"
+    },
+    {
+      "file": "app/lib/mcp-workspace-services.server.ts",
+      "state": "present",
+      "sha256": "a5e9a6f5f760c74fbae1983c33a0416a24b34ac3d37548906cb20118fec17cac"
+    },
+    {
+      "file": "app/lib/services.server.ts",
+      "state": "present",
+      "sha256": "346ae423fe00812d02f4b3f232741f0b4bd3634363db7f14e3fbab8ba45c2f8a"
+    },
+    {
+      "file": "app/lib/storage-routes.ts",
+      "state": "present",
+      "sha256": "575f2a50759e27a95e73c15a93942404b740032a2de4872e85a5a049ac138807"
+    },
+    {
+      "file": "app/routes.ts",
+      "state": "present",
+      "sha256": "a2b47ee32d4f4b775ba9ea76880eb01502c4c2283d40c493b9fc5f0e2892862f"
+    },
+    {
+      "file": "app/routes/api-mcp-v1-repository.ts",
+      "state": "present",
+      "sha256": "28f4efec65db961e111579178d214916099c38ef583338305486ed81cebec8c9"
+    },
+    {
+      "file": "app/routes/storage-access-api.ts",
+      "state": "present",
+      "sha256": "f2f39c64feac9d1e36a2c40889a5670fc2d967367e29679ab7c62d8fb78ffdeb"
+    },
+    {
+      "file": "app/routes/storage-api-v1.ts",
+      "state": "present",
+      "sha256": "c8fb23a9ccba2f1c7a660348ac322939142dae4875ed34892ccb4e4d6deb1bf1"
+    },
+    {
+      "file": "app/routes/storage-api.ts",
+      "state": "present",
+      "sha256": "797459ffd25e6a825cb84eeae12703944e74454bf36517b2f2563190de67c749"
+    },
+    {
+      "file": "backend/database/postgres/migrations/053_storage_grants.sql",
+      "state": "present",
+      "sha256": "caff7b813f363e41848afc77c7e2acb4e4c418cc542a8a5d199937b1142b580e"
+    },
+    {
+      "file": "backend/database/repositories/google/StorageAccessRepository.ts",
+      "state": "present",
+      "sha256": "cd882138ae1f6f627037de9ce8cec935e2e7517b2857e7140fabdcd36e844972"
+    },
+    {
+      "file": "backend/database/repositories/google/StorageOperationRepository.ts",
+      "state": "present",
+      "sha256": "45f840ec3ac6e090e7b4c234b992e738ec4e9b93f3560b7524111dba4b441ded"
+    },
+    {
+      "file": "backend/github/GitHubRepositoryReadClient.ts",
+      "state": "present",
+      "sha256": "e02446a1cc08bbeacc472ad13ec799b12e5fb6e8786e6b25ae4ea9480d8309fb"
+    },
+    {
+      "file": "backend/service/agents/AgentFileOperationService.ts",
+      "state": "present",
+      "sha256": "8f149f055dbfd4481b5ff1abb8af18950101021a3df1db7bc07b50de95b84d3f"
+    },
+    {
+      "file": "backend/service/agents/AgentOperationRouter.ts",
+      "state": "present",
+      "sha256": "6eb522395175d37b1e41eecbf2fb2abc43e4a7f6fb541d239417a930d87a5e8f"
+    },
+    {
+      "file": "backend/service/chat/ChatToolExecutor.ts",
+      "state": "present",
+      "sha256": "22ae171d6febac9a977d34a24c7072e1b3a8b3efc198075fc2310a30f8682c0d"
+    },
+    {
+      "file": "backend/service/chat/PicaRepositoryTools.ts",
+      "state": "present",
+      "sha256": "4c4247fbf79a14b612eeb34b34e1e2ff81a21b17a428f9af12f26a5e256d1bbd"
+    },
+    {
+      "file": "backend/service/chat/PicaTools.ts",
+      "state": "present",
+      "sha256": "dfec23e9db1521fc1811f7fd008a75386a82ea39d4ad90b563c3ba965b1c062d"
+    },
+    {
+      "file": "backend/service/chat/admin/PicaAdminService.ts",
+      "state": "present",
+      "sha256": "5c1f6f8339fa2258ee160bc198c69abc18ec015737bed5a575739925db8ef90f"
+    },
+    {
+      "file": "backend/service/chat/admin/PicaStorageContracts.ts",
+      "state": "present",
+      "sha256": "84556d7f19f295b2a416ec29ebc6f9941e13a2c01ff625146732fcab7b352a1b"
+    },
+    {
+      "file": "backend/service/chat/admin/PicaStorageHandlers.ts",
+      "state": "present",
+      "sha256": "4b03b36037082d7a6a1cd8f3d5c28f6680213b8260cc1e92a6a37270759925b4"
+    },
+    {
+      "file": "backend/service/chat/admin/PicaStorageService.ts",
+      "state": "present",
+      "sha256": "996824a10cd27214e4e09758446c38f1486f892307eb1e4bea537bad062faa58"
+    },
+    {
+      "file": "backend/service/chat/admin/PicaStorageTools.ts",
+      "state": "present",
+      "sha256": "a7711f94206e0dc4e01fe89c84f9696ce7466e227bf91d642be89a1631ec2f80"
+    },
+    {
+      "file": "backend/service/github/RepositoryReadService.ts",
+      "state": "present",
+      "sha256": "a44882ac9ce834d2db24d950a00a642695099a0ddfc358cd7748a519c4febf6e"
+    },
+    {
+      "file": "backend/service/google/GoogleDriveFileService.ts",
+      "state": "present",
+      "sha256": "978e7b4e17127519fafdfaef3e0e3df15a0276290bed61c62ffbf35144940d41"
+    },
+    {
+      "file": "backend/service/google/StorageAccessService.ts",
+      "state": "present",
+      "sha256": "200934db341765cc9a75a1b5704c63e2add89d075952da4101abadd5b089d4fd"
+    },
+    {
+      "file": "backend/service/google/StorageAccountBrowse.ts",
+      "state": "present",
+      "sha256": "5e2fbf925e613cd865a212fdc5485546c39c7d5ab690a44fc8b5cdea2a68774e"
+    },
+    {
+      "file": "backend/service/google/StorageAccountFiles.ts",
+      "state": "present",
+      "sha256": "af37dab87fac9327b0bad0c341b339224e5ce61eab4ba8a86e7b7ca04494d73d"
+    },
+    {
+      "file": "backend/service/mcp/AgentOperationCatalog.ts",
+      "state": "present",
+      "sha256": "9967ca6f387e6e4af9e89cf9ea914f9e7e9556f573532bb5dc2d80666616d405"
+    },
+    {
+      "file": "backend/service/mcp/storage/McpStorageAccess.ts",
+      "state": "deleted",
+      "sha256": null
+    },
+    {
+      "file": "backend/service/mcp/storage/McpStorageService.ts",
+      "state": "present",
+      "sha256": "d820375dcb2c260de2e0430904d52b8793193afc0fe4f1cc9fdf677b657d8d51"
+    },
+    {
+      "file": "definition/AgentFileOperations.ts",
+      "state": "present",
+      "sha256": "4097a1899f60c55f60ce9ad7cc4c47579aea5a849b6014bd34219638c9e980af"
+    },
+    {
+      "file": "definition/AgentTools/Files.ts",
+      "state": "present",
+      "sha256": "40ece77fe4e69036d93a8237c2c0b832d668b6693353fab53921741046d40934"
+    },
+    {
+      "file": "definition/AgentTools/ToolCatalog.ts",
+      "state": "present",
+      "sha256": "98905f6656c406d096da009ef95b06cef606a3ed8ba17255ebeefbe83a99e0e7"
+    },
+    {
+      "file": "definition/GoogleDriveFiles.ts",
+      "state": "present",
+      "sha256": "357ae8db4a9a2f93356d20b4bf60dfb40351b5f96bea3bbc49a67caa39eb4334"
+    },
+    {
+      "file": "definition/GoogleDriveStorage.ts",
+      "state": "present",
+      "sha256": "c167f9fcbea3fb6dc0d98295947af726196c12b9c8a44c24534da11a28e8834a"
+    },
+    {
+      "file": "definition/PagesAgentApi.ts",
+      "state": "present",
+      "sha256": "579d7a3604f3d0bd00cfb9be4261c962ed78550a693677d049a6901dfc1550fc"
+    },
+    {
+      "file": "definition/PagesAgentOperations.ts",
+      "state": "present",
+      "sha256": "7c0bc0d3f437f39497f62a8403be3d76f2715aaefb94281ae83e19591a1ccb34"
+    },
+    {
+      "file": "definition/RepositoryRead.ts",
+      "state": "present",
+      "sha256": "07083d6cca801fd35d047f8675bda620c1f8fbb35a1496e3e4e630f795a2dea7"
+    },
+    {
+      "file": "definition/StorageAccess.ts",
+      "state": "present",
+      "sha256": "a392f85c5e5d431c4e408100b7a7a6732435383a34d56aa52185b0c16350ab99"
+    },
+    {
+      "file": "docs/StorageApi.md",
+      "state": "present",
+      "sha256": "378bd0266ae68d186c5fd5d105fea72eac69453fe65a0cb75bd44c1d615a05fe"
+    },
+    {
+      "file": "docs/wiki/PAGE-323.md",
+      "state": "present",
+      "sha256": "e90e26dedd2c7b335109cf79dcf7d8260d7f263b8688436a23368a14eca57749"
+    },
+    {
+      "file": "language/locales/de/translation.json",
+      "state": "present",
+      "sha256": "0abbf4fac1bc60bd4cfc0dcdf0bd92f339b1e1c0e437c365fd20e34519b1254a"
+    },
+    {
+      "file": "language/locales/en/translation.json",
+      "state": "present",
+      "sha256": "b2d3448b2a93850b3d217d592180df0dd99502c005976b9a4d3b63cfb822210d"
+    },
+    {
+      "file": "tests/backend/app/lib/services.unit.test.ts",
+      "state": "present",
+      "sha256": "e6d596c422c6f8286148f6b829bb3183a10c97f8a2c51a964da03d0712f72889"
+    },
+    {
+      "file": "tests/backend/app/routes/page323-repository-api.unit.test.ts",
+      "state": "present",
+      "sha256": "486c7e1df73897799bc6571241c469813537b9fb8cfa66bc1bf57a294c10cd79"
+    },
+    {
+      "file": "tests/backend/app/routes/page323-storage-routes.unit.test.ts",
+      "state": "present",
+      "sha256": "1dcfb159034b7b76dca5b4fe1475175253e55d95db0857280de1a1c5fb17f3cf"
+    },
+    {
+      "file": "tests/backend/backend/database/repositories/google/page323-storage-access-repository.unit.test.ts",
+      "state": "present",
+      "sha256": "11508cf0303ac30c5096765a32735c630c4be687de92a48f5ce85484a260fb8e"
+    },
+    {
+      "file": "tests/backend/backend/database/repositories/google/page323-storage-receipts.unit.test.ts",
+      "state": "present",
+      "sha256": "29933b503c196a73dc29f547a7ee4c6b955ac2d8a626f54191a34934350b8d90"
+    },
+    {
+      "file": "tests/backend/backend/service/agents/page323-file-operations.unit.test.ts",
+      "state": "present",
+      "sha256": "5bf974902c317621cabd1a377030725511f6841e79a25e5161ee0034b98916db"
+    },
+    {
+      "file": "tests/backend/backend/service/chat/page323-repository-tools.unit.test.ts",
+      "state": "present",
+      "sha256": "4439b8f61fc03fe262e8355d2c15e4196b7e6500b66ecccec12261cb38c7ef92"
+    },
+    {
+      "file": "tests/backend/backend/service/github/page323-repository-reads.unit.test.ts",
+      "state": "present",
+      "sha256": "78b34697994558bd5f2a7cc2eabdf1804013b1f3dd46a54234ef4b9d7acba0b0"
+    },
+    {
+      "file": "tests/backend/backend/service/google/page323-storage-access.unit.test.ts",
+      "state": "present",
+      "sha256": "17c09b75f3e0d22326389e7528946cc90472ebcde53e06360250ff470906c64d"
+    },
+    {
+      "file": "tests/backend/backend/service/google/page323-storage-channels.unit.test.ts",
+      "state": "present",
+      "sha256": "d96f7e4ec5c8a7e61473267d96352db2fd0fafff121fe212de9754d68f6d6e21"
+    },
+    {
+      "file": "tests/backend/backend/service/google/page323-storage-fixture.ts",
+      "state": "present",
+      "sha256": "c56c5586a23f609c163eeb2d350429337c289026c9875770e446a307622ca923"
+    },
+    {
+      "file": "tests/frontend/app/components/storage/page323-storage-commands.unit.test.tsx",
+      "state": "present",
+      "sha256": "708f148b0f6cea27213e858fad10cda89072c9ca835393b8454812dc177f2861"
+    },
+    {
+      "file": "tests/frontend/app/components/storage/page323-storage-permissions.unit.test.tsx",
+      "state": "present",
+      "sha256": "11782beebeb9f2f5ddc662e12a9a5b658a18ef8cb102bd830b8e3a1cdb26e3ff"
+    },
+    {
+      "file": "tests/frontend/app/components/storage/storage-page.unit.test.tsx",
+      "state": "present",
+      "sha256": "c9f2bb967d635d4c74cc420808178777e5dff8345769638da2e3dfc0537984f4"
+    }
+  ],
+  "finalQaHandoff": {
+    "status": "pending; no final QA release asserted",
+    "scope": "QA must determine all changed functions/files since preparation.base, including preserved prior tickets and this implementation. This report inventories this ticket against baseBeforeTicketCommit only.",
+    "lint": "pnpm exec eslint --max-warnings=0 -- <affected lintable files with existing config>",
+    "ticketLintFiles": [
+      "app/components/common/app-shell.tsx",
+      "app/components/settings/system-section.tsx",
+      "app/components/settings/system/storage-access-card.tsx",
+      "app/components/storage/storage-action-toolbar.tsx",
+      "app/components/storage/storage-actions-requests.ts",
+      "app/components/storage/storage-commands.ts",
+      "app/components/storage/storage-history.tsx",
+      "app/components/storage/storage-page.tsx",
+      "app/components/storage/storage-requests.ts",
+      "app/components/storage/use-storage-capabilities.ts",
+      "app/components/storage/use-storage-file-manager.tsx",
+      "app/components/storage/use-storage-folder-actions.tsx",
+      "app/lib/chat-services.server.ts",
+      "app/lib/google-drive-services.server.ts",
+      "app/lib/mcp-services.server.ts",
+      "app/lib/mcp-storage-route.server.ts",
+      "app/lib/mcp-workspace-services.server.ts",
+      "app/lib/services.server.ts",
+      "app/lib/storage-routes.ts",
+      "app/routes.ts",
+      "app/routes/api-mcp-v1-repository.ts",
+      "app/routes/storage-access-api.ts",
+      "app/routes/storage-api-v1.ts",
+      "app/routes/storage-api.ts",
+      "backend/database/repositories/google/StorageAccessRepository.ts",
+      "backend/database/repositories/google/StorageOperationRepository.ts",
+      "backend/github/GitHubRepositoryReadClient.ts",
+      "backend/service/agents/AgentFileOperationService.ts",
+      "backend/service/agents/AgentOperationRouter.ts",
+      "backend/service/chat/ChatToolExecutor.ts",
+      "backend/service/chat/PicaRepositoryTools.ts",
+      "backend/service/chat/PicaTools.ts",
+      "backend/service/chat/admin/PicaAdminService.ts",
+      "backend/service/chat/admin/PicaStorageContracts.ts",
+      "backend/service/chat/admin/PicaStorageHandlers.ts",
+      "backend/service/chat/admin/PicaStorageService.ts",
+      "backend/service/chat/admin/PicaStorageTools.ts",
+      "backend/service/github/RepositoryReadService.ts",
+      "backend/service/google/GoogleDriveFileService.ts",
+      "backend/service/google/StorageAccessService.ts",
+      "backend/service/google/StorageAccountBrowse.ts",
+      "backend/service/google/StorageAccountFiles.ts",
+      "backend/service/mcp/AgentOperationCatalog.ts",
+      "backend/service/mcp/storage/McpStorageService.ts",
+      "definition/AgentFileOperations.ts",
+      "definition/AgentTools/Files.ts",
+      "definition/AgentTools/ToolCatalog.ts",
+      "definition/GoogleDriveFiles.ts",
+      "definition/GoogleDriveStorage.ts",
+      "definition/PagesAgentApi.ts",
+      "definition/PagesAgentOperations.ts",
+      "definition/RepositoryRead.ts",
+      "definition/StorageAccess.ts",
+      "tests/backend/app/lib/services.unit.test.ts",
+      "tests/backend/app/routes/page323-repository-api.unit.test.ts",
+      "tests/backend/app/routes/page323-storage-routes.unit.test.ts",
+      "tests/backend/backend/database/repositories/google/page323-storage-access-repository.unit.test.ts",
+      "tests/backend/backend/database/repositories/google/page323-storage-receipts.unit.test.ts",
+      "tests/backend/backend/service/agents/page323-file-operations.unit.test.ts",
+      "tests/backend/backend/service/chat/page323-repository-tools.unit.test.ts",
+      "tests/backend/backend/service/github/page323-repository-reads.unit.test.ts",
+      "tests/backend/backend/service/google/page323-storage-access.unit.test.ts",
+      "tests/backend/backend/service/google/page323-storage-channels.unit.test.ts",
+      "tests/backend/backend/service/google/page323-storage-fixture.ts",
+      "tests/frontend/app/components/storage/page323-storage-commands.unit.test.tsx",
+      "tests/frontend/app/components/storage/page323-storage-permissions.unit.test.tsx",
+      "tests/frontend/app/components/storage/storage-page.unit.test.tsx"
+    ],
+    "check": "pnpm run check once: code, types and routes changed; its Prettier is included. Not run by ticket agent.",
+    "unitTests": "Use effectiveSelections plus prior-ticket effects; run backend then frontend, no full automatic suites. Retain valid evidence for unchanged relevant inputs.",
+    "fingerprint": "node scripts/qa-evidence.mjs fingerprint --scope pages; final output saved under .git/pages-session/page323-fingerprint.json and bound in report_step_result.",
+    "notRun": [
+      "lint",
+      "project check/typegen",
+      "build",
+      "full backend/frontend suites",
+      "browser/E2E",
+      "postgres:check",
+      "qa-evidence coverage/verify-handoff gates",
+      "ci_test tags",
+      "live-provider tests"
+    ]
+  },
+  "limitations": [
+    "Final lint and project check are reserved to the final QA agent, as expressly requested.",
+    "No live storage grants, Google consent or GitHub credentials were changed. No live c5ee1978..3468b2db retrieval is claimed.",
+    "Coverage snapshots belong to individual selected reruns; percentages are not an aggregate quality verdict."
+  ],
+  "changedFunctions": [
+    {
+      "file": "app/components/common/app-shell.tsx",
+      "functions": [
+        {
+          "name": "NavigationLinks",
+          "line": 183,
+          "change": "changed"
+        }
+      ]
+    },
+    {
+      "file": "app/components/settings/system-section.tsx",
+      "functions": [
+        {
+          "name": "SystemSection",
+          "line": 46,
+          "change": "changed"
+        }
+      ]
+    },
+    {
+      "file": "app/components/settings/system/storage-access-card.tsx",
+      "functions": [
+        {
+          "name": "useStorageGrantEditor",
+          "line": 45,
+          "change": "added"
+        },
+        {
+          "name": "useStorageGrantEditor",
+          "line": 52,
+          "change": "added"
+        },
+        {
+          "name": "useStorageGrantEditor.load",
+          "line": 54,
+          "change": "added"
+        },
+        {
+          "name": "useStorageGrantEditor",
+          "line": 68,
+          "change": "added"
+        },
+        {
+          "name": "useStorageGrantEditor.save",
+          "line": 71,
+          "change": "added"
+        },
+        {
+          "name": "useStorageGrantEditor.submit",
+          "line": 98,
+          "change": "added"
+        },
+        {
+          "name": "useStorageGrantEditor.submit.recipient",
+          "line": 101,
+          "change": "added"
+        },
+        {
+          "name": "GrantForm",
+          "line": 125,
+          "change": "added"
+        },
+        {
+          "name": "GrantForm",
+          "line": 139,
+          "change": "added"
+        },
+        {
+          "name": "GrantForm",
+          "line": 148,
+          "change": "added"
+        },
+        {
+          "name": "GrantForm",
+          "line": 152,
+          "change": "added"
+        },
+        {
+          "name": "GrantRows",
+          "line": 169,
+          "change": "added"
+        },
+        {
+          "name": "GrantRows",
+          "line": 178,
+          "change": "added"
+        },
+        {
+          "name": "GrantRows",
+          "line": 186,
+          "change": "added"
+        },
+        {
+          "name": "GrantRows",
+          "line": 195,
+          "change": "added"
+        },
+        {
+          "name": "StorageAccessCard",
+          "line": 213,
+          "change": "added"
+        }
+      ]
+    },
+    {
+      "file": "app/components/storage/storage-action-toolbar.tsx",
+      "functions": [
+        {
+          "name": "StorageActionToolbar",
+          "line": 22,
+          "change": "changed"
+        }
+      ]
+    },
+    {
+      "file": "app/components/storage/storage-actions-requests.ts",
+      "functions": [
+        {
+          "name": "requestStorageCapabilities",
+          "line": 172,
+          "change": "changed"
+        }
+      ]
+    },
+    {
+      "file": "app/components/storage/storage-commands.ts",
+      "functions": [
+        {
+          "name": "allowedCommands",
+          "line": 83,
+          "change": "added"
+        },
+        {
+          "name": "allowedCommands",
+          "line": 95,
+          "change": "added"
+        },
+        {
+          "name": "buildStorageCommands",
+          "line": 114,
+          "change": "changed"
+        },
+        {
+          "name": "buildStorageCommands.commands.run",
+          "line": 134,
+          "change": "added"
+        },
+        {
+          "name": "buildStorageCommands.commands.run",
+          "line": 142,
+          "change": "added"
+        },
+        {
+          "name": "buildStorageCommands.commands.run",
+          "line": 157,
+          "change": "added"
+        },
+        {
+          "name": "buildStorageCommands.commands.run",
+          "line": 165,
+          "change": "added"
+        },
+        {
+          "name": "buildStorageCommands.commands.run",
+          "line": 183,
+          "change": "added"
+        },
+        {
+          "name": "buildStorageCommands.run",
+          "change": "removed"
+        },
+        {
+          "name": "buildStorageCommands.run",
+          "change": "removed"
+        },
+        {
+          "name": "buildStorageCommands.run",
+          "change": "removed"
+        },
+        {
+          "name": "buildStorageCommands.run",
+          "change": "removed"
+        },
+        {
+          "name": "buildStorageCommands.run",
+          "change": "removed"
+        }
+      ]
+    },
+    {
+      "file": "app/components/storage/storage-history.tsx",
+      "functions": [
+        {
+          "name": "StorageHistory",
+          "line": 19,
+          "change": "added"
+        },
+        {
+          "name": "StorageHistory",
+          "line": 24,
+          "change": "added"
+        },
+        {
+          "name": "StorageHistory.load",
+          "line": 26,
+          "change": "added"
+        },
+        {
+          "name": "StorageHistory",
+          "line": 38,
+          "change": "added"
+        },
+        {
+          "name": "StorageHistory",
+          "line": 44,
+          "change": "added"
+        }
+      ]
+    },
+    {
+      "file": "app/components/storage/storage-page.tsx",
+      "functions": [
+        {
+          "name": "StorageToolbar",
+          "line": 45,
+          "change": "changed"
+        },
+        {
+          "name": "StorageActionBar",
+          "line": 143,
+          "change": "changed"
+        },
+        {
+          "name": "StoragePage",
+          "line": 216,
+          "change": "changed"
+        },
+        {
+          "name": "StoragePage",
+          "line": 292,
+          "change": "added"
+        }
+      ]
+    },
+    {
+      "file": "app/components/storage/storage-requests.ts",
+      "functions": [],
+      "note": "Contracts/imports/documentation or composition dependency changed; assess affected callers."
+    },
+    {
+      "file": "app/components/storage/use-storage-capabilities.ts",
+      "functions": [
+        {
+          "name": "useStorageCapabilities",
+          "line": 13,
+          "change": "changed"
+        },
+        {
+          "name": "useStorageCapabilities",
+          "line": 21,
+          "change": "changed"
+        },
+        {
+          "name": "useStorageCapabilities.load",
+          "line": 24,
+          "change": "changed"
+        }
+      ]
+    },
+    {
+      "file": "app/components/storage/use-storage-file-manager.tsx",
+      "functions": [
+        {
+          "name": "useStorageFileManager",
+          "line": 40,
+          "change": "changed"
+        }
+      ]
+    },
+    {
+      "file": "app/components/storage/use-storage-folder-actions.tsx",
+      "functions": [
+        {
+          "name": "useStorageFolderActions",
+          "line": 61,
+          "change": "changed"
+        }
+      ]
+    },
+    {
+      "file": "app/lib/chat-services.server.ts",
+      "functions": [
+        {
+          "name": "createChatServices",
+          "line": 182,
+          "change": "changed"
+        }
+      ]
+    },
+    {
+      "file": "app/lib/google-drive-services.server.ts",
+      "functions": [
+        {
+          "name": "createGoogleDriveServices",
+          "line": 103,
+          "change": "changed"
+        }
+      ]
+    },
+    {
+      "file": "app/lib/mcp-services.server.ts",
+      "functions": [
+        {
+          "name": "createMcpOperationRouter",
+          "line": 177,
+          "change": "changed"
+        },
+        {
+          "name": "createChatOperationRouter",
+          "line": 240,
+          "change": "changed"
+        },
+        {
+          "name": "createMcpServices",
+          "line": 506,
+          "change": "changed"
+        }
+      ]
+    },
+    {
+      "file": "app/lib/mcp-storage-route.server.ts",
+      "functions": [
+        {
+          "name": "runMcpStorageRoute",
+          "line": 88,
+          "change": "changed"
+        }
+      ]
+    },
+    {
+      "file": "app/lib/mcp-workspace-services.server.ts",
+      "functions": [
+        {
+          "name": "createWorkspaceServices",
+          "line": 68,
+          "change": "changed"
+        },
+        {
+          "name": "startMcpWorkspace",
+          "line": 114,
+          "change": "changed"
+        }
+      ]
+    },
+    {
+      "file": "app/lib/services.server.ts",
+      "functions": [
+        {
+          "name": "createSessionAuth",
+          "line": 213,
+          "change": "added"
+        },
+        {
+          "name": "initializeServices",
+          "line": 221,
+          "change": "changed"
+        },
+        {
+          "name": "createRepositoryReads",
+          "line": 381,
+          "change": "added"
+        },
+        {
+          "name": "createRepositoryReads.accounts.getById",
+          "line": 386,
+          "change": "added"
+        },
+        {
+          "name": "createTaskServices",
+          "line": 402,
+          "change": "changed"
+        },
+        {
+          "name": "createTaskServices",
+          "line": 459,
+          "change": "added"
+        }
+      ]
+    },
+    {
+      "file": "app/lib/storage-routes.ts",
+      "functions": [
+        {
+          "name": "storageRoutes",
+          "line": 10,
+          "change": "changed"
+        },
+        {
+          "name": "mcpFileRoutes",
+          "line": 26,
+          "change": "added"
+        }
+      ]
+    },
+    {
+      "file": "app/routes.ts",
+      "functions": [
+        {
+          "name": "publicRoutes",
+          "line": 255,
+          "change": "changed"
+        }
+      ]
+    },
+    {
+      "file": "app/routes/api-mcp-v1-repository.ts",
+      "functions": [
+        {
+          "name": "readTool",
+          "line": 14,
+          "change": "added"
+        },
+        {
+          "name": "readTool",
+          "line": 18,
+          "change": "added"
+        },
+        {
+          "name": "failureStatus",
+          "line": 23,
+          "change": "added"
+        },
+        {
+          "name": "loader",
+          "line": 29,
+          "change": "added"
+        },
+        {
+          "name": "action",
+          "line": 57,
+          "change": "added"
+        }
+      ]
+    },
+    {
+      "file": "app/routes/storage-access-api.ts",
+      "functions": [
+        {
+          "name": "loader",
+          "line": 20,
+          "change": "added"
+        },
+        {
+          "name": "action",
+          "line": 37,
+          "change": "added"
+        }
+      ]
+    },
+    {
+      "file": "app/routes/storage-api-v1.ts",
+      "functions": [
+        {
+          "name": "grantedFiles",
+          "line": 53,
+          "change": "changed"
+        },
+        {
+          "name": "READ_HANDLERS.capabilities",
+          "line": 89,
+          "change": "changed"
+        }
+      ]
+    },
+    {
+      "file": "app/routes/storage-api.ts",
+      "functions": [
+        {
+          "name": "grantedServices",
+          "line": 24,
+          "change": "changed"
+        },
+        {
+          "name": "loader",
+          "line": 62,
+          "change": "changed"
+        },
+        {
+          "name": "action",
+          "line": 127,
+          "change": "changed"
+        }
+      ]
+    },
+    {
+      "file": "backend/database/repositories/google/StorageAccessRepository.ts",
+      "functions": [
+        {
+          "name": "grantOf",
+          "line": 12,
+          "change": "added"
+        },
+        {
+          "name": "StorageAccessRepository",
+          "line": 33,
+          "change": "added"
+        },
+        {
+          "name": "StorageAccessRepository.grants",
+          "line": 38,
+          "change": "added"
+        },
+        {
+          "name": "StorageAccessRepository.targets",
+          "line": 70,
+          "change": "added"
+        },
+        {
+          "name": "StorageAccessRepository.targets",
+          "line": 79,
+          "change": "added"
+        },
+        {
+          "name": "StorageAccessRepository.setGrant",
+          "line": 92,
+          "change": "added"
+        },
+        {
+          "name": "StorageAccessRepository.record",
+          "line": 130,
+          "change": "added"
+        },
+        {
+          "name": "StorageAccessRepository.history",
+          "line": 157,
+          "change": "added"
+        },
+        {
+          "name": "StorageAccessRepository.history",
+          "line": 177,
+          "change": "added"
+        }
+      ]
+    },
+    {
+      "file": "backend/database/repositories/google/StorageOperationRepository.ts",
+      "functions": [
+        {
+          "name": "StorageOperationRepository",
+          "line": 10,
+          "change": "added"
+        },
+        {
+          "name": "StorageOperationRepository.claim",
+          "line": 15,
+          "change": "added"
+        },
+        {
+          "name": "StorageOperationRepository.finish",
+          "line": 51,
+          "change": "added"
+        }
+      ]
+    },
+    {
+      "file": "backend/github/GitHubRepositoryReadClient.ts",
+      "functions": [
+        {
+          "name": "GitHubRepositoryReadClient",
+          "line": 39,
+          "change": "added"
+        },
+        {
+          "name": "GitHubRepositoryReadClient.log",
+          "line": 50,
+          "change": "added"
+        },
+        {
+          "name": "GitHubRepositoryReadClient.diff",
+          "line": 93,
+          "change": "added"
+        },
+        {
+          "name": "GitHubRepositoryReadClient.diff.missingPatches",
+          "line": 110,
+          "change": "added"
+        },
+        {
+          "name": "GitHubRepositoryReadClient.diff.missingPatches",
+          "line": 111,
+          "change": "added"
+        },
+        {
+          "name": "GitHubRepositoryReadClient.show",
+          "line": 116,
+          "change": "added"
+        },
+        {
+          "name": "GitHubRepositoryReadClient.show.missingPatches",
+          "line": 131,
+          "change": "added"
+        },
+        {
+          "name": "GitHubRepositoryReadClient.show.missingPatches",
+          "line": 132,
+          "change": "added"
+        },
+        {
+          "name": "GitHubRepositoryReadClient.file",
+          "line": 137,
+          "change": "added"
+        },
+        {
+          "name": "GitHubRepositoryReadClient.redact",
+          "line": 162,
+          "change": "added"
+        },
+        {
+          "name": "GitHubRepositoryReadClient.get",
+          "line": 168,
+          "change": "added"
+        }
+      ]
+    },
+    {
+      "file": "backend/service/agents/AgentFileOperationService.ts",
+      "functions": [
+        {
+          "name": "decodeStorageContent",
+          "line": 33,
+          "change": "added"
+        },
+        {
+          "name": "storageResult",
+          "line": 48,
+          "change": "added"
+        },
+        {
+          "name": "AgentFileOperationService",
+          "line": 58,
+          "change": "added"
+        },
+        {
+          "name": "AgentFileOperationService.handle",
+          "line": 63,
+          "change": "added"
+        },
+        {
+          "name": "AgentFileOperationService.handle.isRead",
+          "line": 69,
+          "change": "added"
+        },
+        {
+          "name": "AgentFileOperationService.handle.isWrite",
+          "line": 72,
+          "change": "added"
+        },
+        {
+          "name": "AgentFileOperationService.handle.tool",
+          "line": 79,
+          "change": "added"
+        },
+        {
+          "name": "AgentFileOperationService.handle.supported",
+          "line": 90,
+          "change": "added"
+        },
+        {
+          "name": "AgentFileOperationService.handle.perform",
+          "line": 93,
+          "change": "added"
+        },
+        {
+          "name": "AgentFileOperationService.repositoryRead",
+          "line": 109,
+          "change": "added"
+        },
+        {
+          "name": "AgentFileOperationService.write",
+          "line": 137,
+          "change": "added"
+        },
+        {
+          "name": "AgentFileOperationService.write.fingerprint",
+          "line": 149,
+          "change": "added"
+        }
+      ]
+    },
+    {
+      "file": "backend/service/agents/AgentOperationRouter.ts",
+      "functions": [
+        {
+          "name": "AgentOperationRouter.handleAdditional",
+          "line": 276,
+          "change": "changed"
+        }
+      ]
+    },
+    {
+      "file": "backend/service/chat/ChatToolExecutor.ts",
+      "functions": [
+        {
+          "name": "ChatToolExecutor.repositoryReads",
+          "line": 82,
+          "change": "added"
+        }
+      ]
+    },
+    {
+      "file": "backend/service/chat/PicaRepositoryTools.ts",
+      "functions": [
+        {
+          "name": "registerPicaRepositoryTools",
+          "line": 26,
+          "change": "added"
+        },
+        {
+          "name": "registerPicaRepositoryTools",
+          "line": 34,
+          "change": "added"
+        },
+        {
+          "name": "registerPicaRepositoryTools.execute",
+          "line": 43,
+          "change": "added"
+        }
+      ]
+    },
+    {
+      "file": "backend/service/chat/PicaTools.ts",
+      "functions": [
+        {
+          "name": "createPicaTools",
+          "line": 573,
+          "change": "changed"
+        },
+        {
+          "name": "createPicaTools.spend",
+          "line": 637,
+          "change": "added"
+        }
+      ]
+    },
+    {
+      "file": "backend/service/chat/admin/PicaAdminService.ts",
+      "functions": [
+        {
+          "name": "PicaAdminService",
+          "line": 85,
+          "change": "changed"
+        },
+        {
+          "name": "PicaAdminService.runStorage",
+          "line": 142,
+          "change": "changed"
+        }
+      ]
+    },
+    {
+      "file": "backend/service/chat/admin/PicaStorageContracts.ts",
+      "functions": [],
+      "note": "Contracts/imports/documentation or composition dependency changed; assess affected callers."
+    },
+    {
+      "file": "backend/service/chat/admin/PicaStorageHandlers.ts",
+      "functions": [],
+      "note": "Contracts/imports/documentation or composition dependency changed; assess affected callers."
+    },
+    {
+      "file": "backend/service/chat/admin/PicaStorageService.ts",
+      "functions": [
+        {
+          "name": "PicaStorageService",
+          "line": 88,
+          "change": "changed"
+        },
+        {
+          "name": "PicaStorageService.run",
+          "line": 102,
+          "change": "changed"
+        }
+      ]
+    },
+    {
+      "file": "backend/service/chat/admin/PicaStorageTools.ts",
+      "functions": [
+        {
+          "name": "registerPicaStorageTools",
+          "line": 55,
+          "change": "changed"
+        }
+      ]
+    },
+    {
+      "file": "backend/service/github/RepositoryReadService.ts",
+      "functions": [
+        {
+          "name": "RepositoryReadService",
+          "line": 32,
+          "change": "added"
+        },
+        {
+          "name": "RepositoryReadService.run",
+          "line": 37,
+          "change": "added"
+        },
+        {
+          "name": "RepositoryReadService.client",
+          "line": 66,
+          "change": "added"
+        }
+      ]
+    },
+    {
+      "file": "backend/service/google/GoogleDriveFileService.ts",
+      "functions": [
+        {
+          "name": "GoogleDriveFileService",
+          "line": 67,
+          "change": "changed"
+        },
+        {
+          "name": "GoogleDriveFileService.forAccount",
+          "line": 89,
+          "change": "added"
+        }
+      ]
+    },
+    {
+      "file": "backend/service/google/StorageAccessService.ts",
+      "functions": [
+        {
+          "name": "StorageAccessService",
+          "line": 55,
+          "change": "added"
+        },
+        {
+          "name": "StorageAccessService.context",
+          "line": 60,
+          "change": "added"
+        },
+        {
+          "name": "StorageAccessService.allows",
+          "line": 82,
+          "change": "added"
+        },
+        {
+          "name": "StorageAccessService.contains",
+          "line": 111,
+          "change": "added"
+        },
+        {
+          "name": "StorageAccessService.contains",
+          "line": 124,
+          "change": "added"
+        },
+        {
+          "name": "StorageAccessService.record",
+          "line": 134,
+          "change": "added"
+        },
+        {
+          "name": "StorageAccessService.settings",
+          "line": 149,
+          "change": "added"
+        },
+        {
+          "name": "StorageAccessService.setGrant",
+          "line": 168,
+          "change": "added"
+        },
+        {
+          "name": "StorageAccessService.setGrant",
+          "line": 179,
+          "change": "added"
+        },
+        {
+          "name": "StorageAccessService.history",
+          "line": 201,
+          "change": "added"
+        }
+      ]
+    },
+    {
+      "file": "backend/service/google/StorageAccountBrowse.ts",
+      "functions": [
+        {
+          "name": "browseAccountStorage",
+          "line": 10,
+          "change": "added"
+        },
+        {
+          "name": "browseAccountStorage.roots",
+          "line": 35,
+          "change": "added"
+        },
+        {
+          "name": "browseAccountStorage.value.folder.items",
+          "line": 48,
+          "change": "added"
+        },
+        {
+          "name": "browseAccountStorage.items",
+          "line": 71,
+          "change": "added"
+        },
+        {
+          "name": "browseAccountStorage.items",
+          "line": 72,
+          "change": "added"
+        }
+      ]
+    },
+    {
+      "file": "backend/service/google/StorageAccountFiles.ts",
+      "functions": [
+        {
+          "name": "accountCapabilities",
+          "line": 47,
+          "change": "added"
+        },
+        {
+          "name": "accountCapabilities.operations",
+          "line": 65,
+          "change": "added"
+        },
+        {
+          "name": "accountCapabilities.value.grantedFolders",
+          "line": 77,
+          "change": "added"
+        },
+        {
+          "name": "accountStorageFiles",
+          "line": 86,
+          "change": "added"
+        },
+        {
+          "name": "accountStorageFiles.run",
+          "line": 91,
+          "change": "added"
+        },
+        {
+          "name": "accountStorageFiles.capabilities",
+          "line": 115,
+          "change": "added"
+        },
+        {
+          "name": "accountStorageFiles.reader.list",
+          "line": 118,
+          "change": "added"
+        },
+        {
+          "name": "accountStorageFiles.reader.list",
+          "line": 118,
+          "change": "added"
+        },
+        {
+          "name": "accountStorageFiles.reader.search",
+          "line": 119,
+          "change": "added"
+        },
+        {
+          "name": "accountStorageFiles.reader.search",
+          "line": 119,
+          "change": "added"
+        },
+        {
+          "name": "accountStorageFiles.reader.stat",
+          "line": 120,
+          "change": "added"
+        },
+        {
+          "name": "accountStorageFiles.reader.stat",
+          "line": 120,
+          "change": "added"
+        },
+        {
+          "name": "accountStorageFiles.reader.resolvePath",
+          "line": 121,
+          "change": "added"
+        },
+        {
+          "name": "accountStorageFiles.reader.resolvePath",
+          "line": 133,
+          "change": "added"
+        },
+        {
+          "name": "accountStorageFiles.reader.read",
+          "line": 136,
+          "change": "added"
+        },
+        {
+          "name": "accountStorageFiles.reader.read",
+          "line": 137,
+          "change": "added"
+        },
+        {
+          "name": "accountStorageFiles.reader.download",
+          "line": 138,
+          "change": "added"
+        },
+        {
+          "name": "accountStorageFiles.reader.download",
+          "line": 139,
+          "change": "added"
+        },
+        {
+          "name": "accountStorageFiles.reader.quota",
+          "line": 140,
+          "change": "added"
+        },
+        {
+          "name": "accountStorageFiles.reader.quota",
+          "line": 140,
+          "change": "added"
+        },
+        {
+          "name": "accountStorageFiles.writer.createFolder",
+          "line": 143,
+          "change": "added"
+        },
+        {
+          "name": "accountStorageFiles.writer.createFolder",
+          "line": 144,
+          "change": "added"
+        },
+        {
+          "name": "accountStorageFiles.writer.upload",
+          "line": 147,
+          "change": "added"
+        },
+        {
+          "name": "accountStorageFiles.writer.upload",
+          "line": 148,
+          "change": "added"
+        },
+        {
+          "name": "accountStorageFiles.writer.update",
+          "line": 149,
+          "change": "added"
+        },
+        {
+          "name": "accountStorageFiles.writer.update",
+          "line": 150,
+          "change": "added"
+        },
+        {
+          "name": "accountStorageFiles.writer.confirm",
+          "line": 151,
+          "change": "added"
+        },
+        {
+          "name": "accountStorageFiles.writer.confirm",
+          "line": 152,
+          "change": "added"
+        },
+        {
+          "name": "accountStorageFiles.writer.copy",
+          "line": 153,
+          "change": "added"
+        },
+        {
+          "name": "accountStorageFiles.writer.copy",
+          "line": 154,
+          "change": "added"
+        },
+        {
+          "name": "accountStorageFiles.writer.move",
+          "line": 155,
+          "change": "added"
+        },
+        {
+          "name": "accountStorageFiles.writer.move",
+          "line": 156,
+          "change": "added"
+        },
+        {
+          "name": "accountStorageFiles.writer.rename",
+          "line": 157,
+          "change": "added"
+        },
+        {
+          "name": "accountStorageFiles.writer.rename",
+          "line": 158,
+          "change": "added"
+        },
+        {
+          "name": "accountStorageFiles.writer.trash",
+          "line": 159,
+          "change": "added"
+        },
+        {
+          "name": "accountStorageFiles.writer.trash",
+          "line": 160,
+          "change": "added"
+        },
+        {
+          "name": "accountStorageFiles.writer.restore",
+          "line": 161,
+          "change": "added"
+        },
+        {
+          "name": "accountStorageFiles.writer.restore",
+          "line": 162,
+          "change": "added"
+        },
+        {
+          "name": "accountStorageFiles.writer.deletePermanently",
+          "line": 163,
+          "change": "added"
+        },
+        {
+          "name": "accountStorageFiles.writer.deletePermanently",
+          "line": 164,
+          "change": "added"
+        },
+        {
+          "name": "accountStorageFiles.batch.run",
+          "line": 169,
+          "change": "added"
+        },
+        {
+          "name": "accountStorageFiles.batch.run",
+          "line": 170,
+          "change": "added"
+        }
+      ]
+    },
+    {
+      "file": "backend/service/mcp/AgentOperationCatalog.ts",
+      "functions": [
+        {
+          "name": "ownerOperations",
+          "line": 62,
+          "change": "changed"
+        }
+      ]
+    },
+    {
+      "file": "backend/service/mcp/storage/McpStorageAccess.ts",
+      "functions": [
+        {
+          "name": "hasMcpStorageAccess",
+          "change": "removed"
+        }
+      ]
+    },
+    {
+      "file": "backend/service/mcp/storage/McpStorageService.ts",
+      "functions": [
+        {
+          "name": "McpStorageService",
+          "line": 23,
+          "change": "changed"
+        }
+      ]
+    },
+    {
+      "file": "definition/AgentFileOperations.ts",
+      "functions": [],
+      "note": "Contracts/imports/documentation or composition dependency changed; assess affected callers."
+    },
+    {
+      "file": "definition/AgentTools/Files.ts",
+      "functions": [
+        {
+          "name": "read",
+          "line": 17,
+          "change": "added"
+        },
+        {
+          "name": "write",
+          "line": 99,
+          "change": "added"
+        }
+      ]
+    },
+    {
+      "file": "definition/AgentTools/ToolCatalog.ts",
+      "functions": [],
+      "note": "Contracts/imports/documentation or composition dependency changed; assess affected callers."
+    },
+    {
+      "file": "definition/GoogleDriveFiles.ts",
+      "functions": [],
+      "note": "Contracts/imports/documentation or composition dependency changed; assess affected callers."
+    },
+    {
+      "file": "definition/GoogleDriveStorage.ts",
+      "functions": [],
+      "note": "Contracts/imports/documentation or composition dependency changed; assess affected callers."
+    },
+    {
+      "file": "definition/PagesAgentApi.ts",
+      "functions": [],
+      "note": "Contracts/imports/documentation or composition dependency changed; assess affected callers."
+    },
+    {
+      "file": "definition/PagesAgentOperations.ts",
+      "functions": [],
+      "note": "Contracts/imports/documentation or composition dependency changed; assess affected callers."
+    },
+    {
+      "file": "definition/RepositoryRead.ts",
+      "functions": [
+        {
+          "name": "REPOSITORY_READ_SCHEMAS.repository_file.path",
+          "line": 33,
+          "change": "added"
+        },
+        {
+          "name": "REPOSITORY_READ_SCHEMAS.repository_file.path",
+          "line": 38,
+          "change": "added"
+        },
+        {
+          "name": "RepositoryReadError",
+          "line": 56,
+          "change": "added"
+        }
+      ]
+    },
+    {
+      "file": "definition/StorageAccess.ts",
+      "functions": [],
+      "note": "Contracts/imports/documentation or composition dependency changed; assess affected callers."
+    }
+  ]
+}

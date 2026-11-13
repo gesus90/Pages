@@ -29,8 +29,11 @@ export function planTeamName(
   directory: AgentProfileDirectory,
   team: Pick<AgentPlanTeam, "kind" | "targetId">,
 ): string {
-  const entries =
-    team.kind === "group" ? directory.groups : directory.departments;
+  const entries = {
+    group: directory.groups,
+    department: directory.departments,
+    user: directory.persons,
+  }[team.kind];
   return (
     entries.find((entry) => entry.id === team.targetId)?.name ?? team.targetId
   );
@@ -51,6 +54,7 @@ export function planTeamChoices(
   const needle = query.trim().toLocaleLowerCase();
   const taken = new Set(teams.map((team) => `${team.kind}:${team.targetId}`));
   return [
+    ...directory.persons.map((entry) => ({ kind: "user" as const, ...entry })),
     ...directory.groups.map((entry) => ({ kind: "group" as const, ...entry })),
     ...directory.departments.map((entry) => ({
       kind: "department" as const,

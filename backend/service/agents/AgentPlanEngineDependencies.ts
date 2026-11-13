@@ -3,6 +3,7 @@ import type { LocalSessions } from "@/backend/agents/local/LocalSessions";
 import type { AgentPlanRemoteExecution } from "./AgentPlanRemoteExecution";
 import type { AgentPlanScriptRunner } from "./AgentPlanScriptRunner";
 import type { AgentPlanDecisionModel } from "./branching/AgentPlanDecisionModel";
+import type { AgentPlanSwarmRunner } from "./swarm/AgentPlanSwarmRunner";
 import type { AgentPlanStepStart } from "./AgentPlanStepStart";
 import type { AgentPlanStepRunner } from "./AgentPlanStepRunner";
 import type { AgentRunArchive } from "./AgentRunArchive";
@@ -20,6 +21,8 @@ export interface EngineDependencies {
   readonly scripts?: Pick<AgentPlanScriptRunner, "run">;
   /** Asks the model of a model decision; without it such a decision fails instead of guessing. */
   readonly decisions?: Pick<AgentPlanDecisionModel, "run">;
+  /** Runs swarm nodes (PAGE-313); without it a swarm fails instead of running. */
+  readonly swarms?: Pick<AgentPlanSwarmRunner, "run">;
   readonly resources?: Pick<AcpResourceScheduler, "pauseRun" | "resumeRun">;
   readonly runs: Pick<
     AgentPlanRunRepository,

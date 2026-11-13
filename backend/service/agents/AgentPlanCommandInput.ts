@@ -1,7 +1,12 @@
+import { planExecutionTargetSchema } from "@/definition/AgentPlanExecution";
 import { readPlanTemplateName } from "@/backend/agents/AgentPlanTemplateInput";
 import { readPlanText } from "@/backend/agents/AgentPlanInput";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 
+import {
+  readPlanTeamsParameter,
+  readPlanOwnerParameter,
+} from "./AgentPlanTeamInput";
 import {
   readIdentifier,
   readParameterRecord,
@@ -9,6 +14,7 @@ import {
 } from "./AgentParameterReader";
 import { readPageAgentRevision } from "./PageAgentOperationInput";
 
+import type { AgentPlanCloneInput } from "./AgentPlanClone";
 import type {
   AgentPlanCommandOperation,
   AgentPlanTemplateCommandOperation,
@@ -26,6 +32,9 @@ export interface AgentPlanCommandRequest {
   readonly workspaceId: string | null;
   /** Set only for a clone that becomes a one-time plan (PAGE-309). */
   readonly oneShot?: true;
+  readonly ownerId?: string;
+  readonly teams?: AgentPlanCloneInput["teams"];
+  readonly executionTarget?: AgentPlanCloneInput["executionTarget"];
 }
 
 /** Reads bounded command input before any persistence or execution. */
@@ -51,7 +60,9 @@ export function readPlanCommand(
       ...(isClone ? ["name"] : []),
     ],
     [
-      ...(isClone ? ["workspaceId", "oneShot"] : []),
+      ...(isClone
+        ? ["workspaceId", "oneShot", "ownerId", "teams", "executionTarget"]
+        : []),
       ...(operation === "plans.delete" ? ["confirmation"] : []),
     ],
   );
@@ -73,7 +84,10 @@ export function readPlanCommand(
 function readCloneTarget(
   parameters: Readonly<Record<string, unknown>>,
   isClone: boolean,
-): Pick<AgentPlanCommandRequest, "workspaceId" | "oneShot"> {
+): Pick<
+  AgentPlanCommandRequest,
+  "workspaceId" | "oneShot" | "ownerId" | "teams" | "executionTarget"
+> {
   if (!isClone) return { workspaceId: null };
   const { workspaceId, oneShot } = parameters;
   if (oneShot !== undefined && typeof oneShot !== "boolean")
@@ -81,6 +95,19 @@ function readCloneTarget(
   return {
     workspaceId: workspaceId === undefined ? null : readIdentifier(workspaceId),
     ...(oneShot === true ? { oneShot: true } : {}),
+    ...(parameters.ownerId === undefined
+      ? {}
+      : { ownerId: readPlanOwnerParameter(parameters.ownerId) }),
+    ...(parameters.teams === undefined
+      ? {}
+      : { teams: readPlanTeamsParameter(parameters.teams) }),
+    ...(parameters.executionTarget === undefined
+      ? {}
+      : {
+          executionTarget: planExecutionTargetSchema.parse(
+            parameters.executionTarget,
+          ),
+        }),
   };
 }
 
@@ -88,7 +115,10 @@ function cloneName(
   parameters: Readonly<Record<string, unknown>>,
   isClone: boolean,
 ): string | null {
-  return isClone ? readPlanText(parameters.name, 120) : null;
+  if (!isClone) return null;
+  if (typeof parameters.name === "string" && parameters.name.trim() === "")
+    return "";
+  return readPlanText(parameters.name, 120);
 }
 
 /** A change or deletion of a stored node template, named with the workspace it is read in. */

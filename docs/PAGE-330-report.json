@@ -1,0 +1,1519 @@
+{
+  "ticket": "PAGE-330",
+  "ticketId": "aeac9aaa-c515-4da9-9a53-9da7d9b46743",
+  "state": "implementation complete; local Review pending final QA",
+  "workspace": "/home/igor/Repo/Pages-Session-2",
+  "branch": "work/pages-session-2-20261112T222600Z-3aa7e1a1",
+  "baseBeforeTicketCommit": "cf500bc7b236d6e84dd79d951f95be9935a09234",
+  "todos": [
+    {
+      "id": "T1",
+      "status": "done",
+      "evidence": "Implemented server repairs, contract 18, user teams, shared compact dialogs, marked selections and direct copy navigation; selected unit results and source inventory below; local commit and final fingerprint are bound in report_step_result."
+    }
+  ],
+  "criteria": [
+    {
+      "id": "K1",
+      "met": true,
+      "evidence": "Product code, migration, translations, tests, docs/AgentPlanRunner.md and this review handoff are in the workspace; all latest required selected unit executions passed."
+    }
+  ],
+  "checklist": {
+    "revision": "1",
+    "items": [],
+    "note": "read_ticket_checklist returned no entries at the start and final reconciliation; no nonexistent item was checked."
+  },
+  "acceptanceEvidence": [
+    {
+      "criterion": 1,
+      "evidence": "page330-cloning and page330-dialogs: foreign agents/models/connections cleared; round-trip-safe placeholder configuration; adjustments and visible primary border/text; execution remains blocked pending selection."
+    },
+    {
+      "criterion": 2,
+      "evidence": "page330-cloning: old ticket flow edges and git_closeout removed with legacy_form_cleaned; agent-plan-clone: nested groups, decisions, stack bindings and while sources remapped."
+    },
+    {
+      "criterion": 3,
+      "evidence": "page330-clone-surfaces and page330-dialogs: inaccessible source workspace does not disable cloning; server chooses own workspace. Browser evidence excluded by the pilot instruction."
+    },
+    {
+      "criterion": 4,
+      "evidence": "page330-user-team-access: clone with a user team, actual AgentPlanAccess read, planDetail/read_plan projection and readPlanControlEntry all show the exact read-only grant."
+    },
+    {
+      "criterion": 5,
+      "evidence": "page330-cloning: omission of teams preserves the creator-department default."
+    },
+    {
+      "criterion": 6,
+      "evidence": "page330-cloning: non-admin owner override returns forbidden; active admin override succeeds and is audited."
+    },
+    {
+      "criterion": 7,
+      "evidence": "plan-teams: user identity membership, active target existence/project access, own rejection code for edit/run, legacy and canonical parsing."
+    },
+    {
+      "criterion": 8,
+      "evidence": "plan-context-model checks distinct German/English messages; page330-cloning checks visible failures and sanitized planId/code logging; page330-dialogs shows actionable errors. No browser execution in this pilot."
+    },
+    {
+      "criterion": 9,
+      "evidence": "page330-dialogs: collapsed defaults, Name, no field error, empty/taken names and pending requests never disable Clone. Browser execution replaced by isolated component assertions per pilot."
+    },
+    {
+      "criterion": 10,
+      "evidence": "page330-dialogs: read-only explanation, owner name, read-only fields, Close/Clone and no Save button. Browser execution excluded per pilot."
+    },
+    {
+      "criterion": 11,
+      "evidence": "Code inspection: PlanTeamSearch and PlanOwnerField moved to plan-access-teams; PlanSettingsTeams composes the same search/rows for Clone/Edit; Access imports those same controls."
+    },
+    {
+      "criterion": 12,
+      "evidence": "page330-clone-surfaces: actual page action/management, native plans.clone operation and api-mcp-v1-plan-clone handler call the common cloning service; adjustment codes and destination match, with independent node IDs. Token/transport boundary mocked."
+    },
+    {
+      "criterion": 13,
+      "evidence": "page330-dialogs reads tool-set teams and sends canonical access with the graph; page330-settings exercises update_plan delegation and atomic settings commit. use-plan-editor-atomic preserves a queued team-only save."
+    },
+    {
+      "criterion": 14,
+      "evidence": "page330-settings invokes readPlanResources for plans.capabilities.read and asserts contractVersion 18."
+    },
+    {
+      "criterion": 15,
+      "evidence": "Existing plan-teams and plan-operation-write regressions passed; legacy usage/sharing data model and checks are unchanged. Clone creation retains its private default."
+    },
+    {
+      "criterion": 16,
+      "evidence": "Only changed-file Prettier and selected isolated Vitest files were executed. No pnpm run check/lint/test scripts, full suites, browser, database, build or live-service tests were started."
+    }
+  ],
+  "decisions": [
+    "Followed the pilot split: ticket implementation runs changed-file Prettier and isolated selected units; final QA owns filtered ESLint and the project check. No browser/database/build/full-suite evidence is claimed.",
+    "Used the written clone/edit specification over superseded drawings. Reused the existing team model, kept usage/sharing unchanged, and retained legacy update_plan team aliases for compatibility.",
+    "Admin owner overrides retain the normal creator-department team default when teams is omitted. Explicit teams use normal validation and a transaction-local audit entry.",
+    "Legacy git_closeout nodes and their incident references are removed via the existing graph removal rules, and recorded as legacy_form_cleaned.",
+    "A successful clone opens its saved copy directly, including from a dirty source editor. Unsaved source edits are neither persisted nor copied.",
+    "The pnpm executable failed while switching to its configured v11.23.0 (Permission denied, os error 13). Used the existing local Prettier and Vitest Node entry points with unchanged configs; no dependency or tool configuration was changed.",
+    "Split clone identity remapping, ordinary revision validation and atomic settings saves into focused modules to preserve the mandatory source/function size limits."
+  ],
+  "implementationAreas": {
+    "clone": [
+      "AgentPlanCloning.clone/copy/workspace/target/ownership/store",
+      "AgentPlanCloneReferences.prepare and resource-specific repair",
+      "cleanCloneForm",
+      "clonePlanGraph and AgentPlanCloneGraph.copy",
+      "AgentPlanRepository.cloneSource"
+    ],
+    "inputsAndReceipts": [
+      "AgentPlanCommandInput/readPlanCommand",
+      "AgentPlanCommandOperations clone/apply/readCloneResult/replay",
+      "AgentPlanManagement.clone/cloneReceipt/once",
+      "clonePlanAction",
+      "AgentTools/PlanAccessSchema and PlanResources",
+      "AgentPlanOperationErrors/AgentErrors"
+    ],
+    "teams": [
+      "AgentPlanSharing.isMemberOf/validateTeams/directory",
+      "AgentPlanAccess.place/directory/validateTeams",
+      "AgentPlanTeamService.validateChange/change",
+      "AgentPlanTeamInput/readPlanTeamsParameter",
+      "AgentPlanOperationViews.planTeams",
+      "AgentPlanTeam kind/default/normalization",
+      "052_agent_plan_user_teams.sql"
+    ],
+    "editing": [
+      "AgentPlanService.saveSettings and revise facade",
+      "AgentPlanSettings.save",
+      "reviseAgentPlan preserves ordinary save checks",
+      "writePlanAccess",
+      "AgentPlanWriteOperations.saveWithAccess",
+      "agent-plans-server savePlan access envelope",
+      "AgentPlanConfigurationPins empty-selection authorization",
+      "AgentPlanReferences empty ticket draft"
+    ],
+    "interface": [
+      "PlanCloneDialog and PlanEditDialog",
+      "PlanSettingsName/Options/Context",
+      "PlanTeamRows/Search/OwnerField/SettingsTeams",
+      "usePlanCloneSettings/usePlanEditSettings/usePlanTeams/useEditSave",
+      "usePlanEditor/usePlanSubmission access queue",
+      "planStepSelection/planPendingSelections",
+      "PlanSelectionNotice/PlanAgentCard/PlanCard",
+      "PlanLeaveGuard and successful-clone navigation"
+    ]
+  },
+  "unitExecutions": [
+    {
+      "scope": "backend",
+      "command": [
+        "node",
+        "node_modules/vitest/vitest.mjs",
+        "run",
+        "--config",
+        "vitest.backend.config.ts",
+        "tests/backend/backend/service/agents/page330-cloning.unit.test.ts",
+        "tests/backend/backend/service/agents/agent-plan-clone.unit.test.ts",
+        "tests/backend/backend/service/agents/plan-teams.unit.test.ts",
+        "tests/backend/backend/service/agents/agent-plan-command-operations.unit.test.ts",
+        "tests/backend/backend/service/agents/agent-plan-command-replay.unit.test.ts",
+        "tests/backend/app/lib/agent-plan-management.unit.test.ts"
+      ],
+      "exitCode": 1,
+      "result": {
+        "files": "1 failed | 5 passed (6)",
+        "tests": "2 failed | 102 passed (104)"
+      },
+      "log": "/tmp/page330-backend-tests.log"
+    },
+    {
+      "scope": "backend",
+      "command": [
+        "node",
+        "node_modules/vitest/vitest.mjs",
+        "run",
+        "--config",
+        "vitest.backend.config.ts",
+        "tests/backend/backend/service/agents/page330-cloning.unit.test.ts",
+        "tests/backend/backend/service/agents/page330-settings.unit.test.ts",
+        "tests/backend/backend/service/agents/agent-plan-command-operations.unit.test.ts",
+        "tests/backend/backend/service/agents/agent-plan-command-replay.unit.test.ts",
+        "tests/backend/app/lib/agent-plan-management.unit.test.ts",
+        "tests/backend/backend/service/agents/agent-plan-service-save.unit.test.ts",
+        "tests/backend/backend/service/agents/agent-plan-service-control.unit.test.ts",
+        "tests/backend/backend/service/agents/plan-operation-write.unit.test.ts"
+      ],
+      "exitCode": 0,
+      "result": {
+        "files": "8 passed (8)",
+        "tests": "134 passed (134)"
+      },
+      "log": "/tmp/page330-backend-second.log"
+    },
+    {
+      "scope": "backend",
+      "command": [
+        "node",
+        "node_modules/vitest/vitest.mjs",
+        "run",
+        "--config",
+        "vitest.backend.config.ts",
+        "tests/backend/backend/service/agents/page330-clone-surfaces.unit.test.ts",
+        "tests/backend/backend/service/agents/page330-cloning.unit.test.ts",
+        "tests/backend/backend/service/agents/agent-plan-clone.unit.test.ts",
+        "tests/backend/backend/service/agents/agent-plan-command-operations.unit.test.ts",
+        "tests/backend/backend/service/agents/agent-plan-command-replay.unit.test.ts",
+        "tests/backend/app/lib/agent-plan-management.unit.test.ts",
+        "tests/backend/backend/agents/agent-plan-input.unit.test.ts",
+        "tests/backend/backend/agents/agent-plan-input-composites.unit.test.ts"
+      ],
+      "exitCode": 1,
+      "result": {
+        "files": "1 failed | 7 passed (8)",
+        "tests": "1 failed | 163 passed (164)"
+      },
+      "log": "/tmp/page330-backend-third.log"
+    },
+    {
+      "scope": "backend",
+      "command": [
+        "node",
+        "node_modules/vitest/vitest.mjs",
+        "run",
+        "--config",
+        "vitest.backend.config.ts",
+        "tests/backend/backend/service/agents/page330-clone-surfaces.unit.test.ts",
+        "tests/backend/backend/service/agents/page330-cloning.unit.test.ts",
+        "tests/backend/backend/service/agents/agent-plan-clone.unit.test.ts",
+        "tests/backend/backend/service/agents/agent-plan-service-save.unit.test.ts",
+        "tests/backend/backend/service/agents/agent-plan-service-groups.unit.test.ts",
+        "tests/backend/backend/service/agents/agent-plan-service-control.unit.test.ts",
+        "tests/backend/backend/service/agents/agent-plan-command-operations.unit.test.ts",
+        "tests/backend/app/lib/agent-plan-management.unit.test.ts"
+      ],
+      "exitCode": 0,
+      "result": {
+        "files": "8 passed (8)",
+        "tests": "96 passed (96)"
+      },
+      "log": "/tmp/page330-backend-fourth.log"
+    },
+    {
+      "scope": "backend",
+      "command": [
+        "node",
+        "node_modules/vitest/vitest.mjs",
+        "run",
+        "--config",
+        "vitest.backend.config.ts",
+        "tests/backend/backend/service/agents/page330-cloning.unit.test.ts",
+        "tests/backend/backend/service/agents/page330-clone-surfaces.unit.test.ts",
+        "tests/backend/backend/service/agents/agent-plan-clone.unit.test.ts",
+        "tests/backend/backend/service/agents/plan-teams.unit.test.ts",
+        "tests/backend/backend/agents/agent-plan-input.unit.test.ts",
+        "tests/backend/backend/agents/agent-plan-input-composites.unit.test.ts"
+      ],
+      "exitCode": 0,
+      "result": {
+        "files": "6 passed (6)",
+        "tests": "130 passed (130)"
+      },
+      "log": "/tmp/page330-backend-final.log"
+    },
+    {
+      "scope": "backend",
+      "command": [
+        "node",
+        "node_modules/vitest/vitest.mjs",
+        "run",
+        "--config",
+        "vitest.backend.config.ts",
+        "tests/backend/backend/service/agents/page330-user-team-access.unit.test.ts",
+        "tests/backend/backend/service/agents/plan-access-summaries.unit.test.ts"
+      ],
+      "exitCode": 0,
+      "result": {
+        "files": "2 passed (2)",
+        "tests": "11 passed (11)"
+      },
+      "log": "/tmp/page330-backend-access.log"
+    },
+    {
+      "scope": "backend",
+      "command": [
+        "node",
+        "node_modules/vitest/vitest.mjs",
+        "run",
+        "--config",
+        "vitest.backend.config.ts",
+        "tests/backend/backend/service/agents/page330-cloning.unit.test.ts",
+        "tests/backend/backend/service/agents/page330-clone-surfaces.unit.test.ts"
+      ],
+      "exitCode": 0,
+      "result": {
+        "files": "2 passed (2)",
+        "tests": "14 passed (14)"
+      },
+      "log": "/tmp/page330-backend-core-final.log"
+    },
+    {
+      "scope": "backend",
+      "command": [
+        "node",
+        "node_modules/vitest/vitest.mjs",
+        "run",
+        "--config",
+        "vitest.backend.config.ts",
+        "tests/backend/backend/service/agents/agent-plan-service-save.unit.test.ts"
+      ],
+      "exitCode": 0,
+      "result": {
+        "files": "1 passed (1)",
+        "tests": "18 passed (18)"
+      },
+      "log": "/tmp/page330-backend-pins-final.log"
+    },
+    {
+      "scope": "backend",
+      "command": [
+        "node",
+        "node_modules/vitest/vitest.mjs",
+        "run",
+        "--config",
+        "vitest.backend.config.ts",
+        "tests/backend/backend/service/agents/page330-settings.unit.test.ts"
+      ],
+      "exitCode": 0,
+      "result": {
+        "files": "1 passed (1)",
+        "tests": "5 passed (5)"
+      },
+      "log": "/tmp/page330-backend-settings-final.log"
+    },
+    {
+      "scope": "backend",
+      "command": [
+        "node",
+        "node_modules/vitest/vitest.mjs",
+        "run",
+        "--config",
+        "vitest.backend.config.ts",
+        "tests/backend/backend/service/agents/page330-cleared-references.unit.test.ts",
+        "tests/backend/backend/service/agents/page330-cloning.unit.test.ts"
+      ],
+      "exitCode": 0,
+      "result": {
+        "files": "2 passed (2)",
+        "tests": "14 passed (14)"
+      },
+      "log": "/tmp/page330-backend-references-final.log"
+    },
+    {
+      "scope": "frontend",
+      "command": [
+        "node",
+        "node_modules/vitest/vitest.mjs",
+        "run",
+        "--config",
+        "vitest.frontend.config.ts",
+        "tests/frontend/app/components/agents/plans/plan-management/page330-dialogs.unit.test.tsx",
+        "tests/frontend/app/components/agents/plans/plan-management/plan-access-model.unit.test.ts",
+        "tests/frontend/app/components/agents/plans/plan-management/plan-context-model.unit.test.ts",
+        "tests/frontend/app/components/agents/plans/use-plan-editor-atomic.unit.test.tsx"
+      ],
+      "exitCode": 1,
+      "result": {
+        "files": "1 failed | 3 passed (4)",
+        "tests": "4 failed | 17 passed (21)"
+      },
+      "log": "/tmp/page330-frontend-tests.log"
+    },
+    {
+      "scope": "frontend",
+      "command": [
+        "node",
+        "node_modules/vitest/vitest.mjs",
+        "run",
+        "--config",
+        "vitest.frontend.config.ts",
+        "tests/frontend/app/components/agents/plans/plan-management/page330-dialogs.unit.test.tsx"
+      ],
+      "exitCode": 1,
+      "result": {
+        "files": "1 failed (1)",
+        "tests": "1 failed | 6 passed (7)"
+      },
+      "log": "/tmp/page330-frontend-second.log"
+    },
+    {
+      "scope": "frontend",
+      "command": [
+        "node",
+        "node_modules/vitest/vitest.mjs",
+        "run",
+        "--config",
+        "vitest.frontend.config.ts",
+        "tests/frontend/app/components/agents/plans/plan-management/page330-dialogs.unit.test.tsx",
+        "tests/frontend/app/components/agents/plans/plan-management/plan-context-model.unit.test.ts"
+      ],
+      "exitCode": 0,
+      "result": {
+        "files": "2 passed (2)",
+        "tests": "17 passed (17)"
+      },
+      "log": "/tmp/page330-frontend-third.log"
+    },
+    {
+      "scope": "frontend",
+      "command": [
+        "node",
+        "node_modules/vitest/vitest.mjs",
+        "run",
+        "--config",
+        "vitest.frontend.config.ts",
+        "tests/frontend/app/components/agents/plans/plan-management/page330-dialogs.unit.test.tsx",
+        "tests/frontend/app/components/agents/plans/plan-management/plan-context-model.unit.test.ts",
+        "tests/frontend/app/components/agents/plans/use-plan-editor-atomic.unit.test.tsx",
+        "tests/frontend/app/components/agents/plans/plan-leave-guard.unit.test.tsx"
+      ],
+      "exitCode": 0,
+      "result": {
+        "files": "4 passed (4)",
+        "tests": "25 passed (25)"
+      },
+      "log": "/tmp/page330-frontend-fourth.log"
+    },
+    {
+      "scope": "frontend",
+      "command": [
+        "node",
+        "node_modules/vitest/vitest.mjs",
+        "run",
+        "--config",
+        "vitest.frontend.config.ts",
+        "tests/frontend/app/components/agents/plans/plan-management/page330-dialogs.unit.test.tsx"
+      ],
+      "exitCode": 0,
+      "result": {
+        "files": "1 passed (1)",
+        "tests": "9 passed (9)"
+      },
+      "log": "/tmp/page330-frontend-final.log"
+    },
+    {
+      "scope": "frontend",
+      "command": [
+        "node",
+        "node_modules/vitest/vitest.mjs",
+        "run",
+        "--config",
+        "vitest.frontend.config.ts",
+        "tests/frontend/app/components/agents/plans/plan-management/page330-dialogs.unit.test.tsx"
+      ],
+      "exitCode": 0,
+      "result": {
+        "files": "1 passed (1)",
+        "tests": "9 passed (9)"
+      },
+      "log": "/tmp/page330-frontend-cards-final.log"
+    }
+  ],
+  "failureResolution": [
+    {
+      "runs": ["backend-tests"],
+      "resolved": true,
+      "reason": "Test fixture used view-only fields instead of stored JSON and omitted legacy node coordinates; corrected to the persistence contract without weakening business assertions."
+    },
+    {
+      "runs": ["frontend-tests", "frontend-second"],
+      "resolved": true,
+      "reason": "Portal queries were scoped to the wrong container; corrected to the dialog portal. Name label and localized clone-name default were aligned with the written product requirement."
+    },
+    {
+      "runs": ["backend-third"],
+      "resolved": true,
+      "reason": "Surface comparison expected the direct fixture wrapper to collect receipts even though real entry points bypass it; assertions now compare actual returned adjustments and saved copies."
+    }
+  ],
+  "formatting": {
+    "runner": ["node", "node_modules/prettier/bin/prettier.cjs", "--write"],
+    "scope": "Every self-changed .ts/.tsx/.json/.md file, including this report; final command/result is recorded in the Pages binding result. SQL was reviewed with repository migration conventions.",
+    "finalCommand": [
+      "node",
+      "node_modules/prettier/bin/prettier.cjs",
+      "--write",
+      "app/components/agents/plans/plan-canvas.tsx",
+      "app/components/agents/plans/plan-leave-guard.tsx",
+      "app/components/agents/plans/plan-management/plan-access-dialog.tsx",
+      "app/components/agents/plans/plan-management/plan-access-model.ts",
+      "app/components/agents/plans/plan-management/plan-access-teams.tsx",
+      "app/components/agents/plans/plan-management/plan-clone-dialog.tsx",
+      "app/components/agents/plans/plan-management/plan-context-model.ts",
+      "app/components/agents/plans/plan-management/plan-deviation-choice.tsx",
+      "app/components/agents/plans/plan-management/plan-dialog-frame.tsx",
+      "app/components/agents/plans/plan-management/plan-edit-dialog.tsx",
+      "app/components/agents/plans/plan-management/plan-settings-fields.tsx",
+      "app/components/agents/plans/plan-management/use-plan-clone-settings.ts",
+      "app/components/agents/plans/plan-management/use-plan-edit-settings.ts",
+      "app/components/agents/plans/plan-management/use-plan-management.ts",
+      "app/components/agents/plans/plan-management/use-plan-settings-save.ts",
+      "app/components/agents/plans/plan-management/use-plan-teams.ts",
+      "app/components/agents/plans/plan-node-card/plan-agent-card.tsx",
+      "app/components/agents/plans/plan-node-card/plan-card.tsx",
+      "app/components/agents/plans/plan-node-configuration-fields.tsx",
+      "app/components/agents/plans/plan-selection-notice.tsx",
+      "app/components/agents/plans/use-plan-editor.ts",
+      "app/components/agents/plans/use-plan-submission.ts",
+      "app/lib/agent-plan-access-actions.server.ts",
+      "app/lib/agent-plan-management.server.ts",
+      "app/lib/agent-plan-response.ts",
+      "app/routes/agent-plans-server.ts",
+      "backend/agents/AgentPlanConfigurationInput.ts",
+      "backend/agents/AgentPlanInput.ts",
+      "backend/database/repositories/agent/AgentPlanAccessRepository.ts",
+      "backend/database/repositories/agent/AgentPlanRepository.ts",
+      "backend/error/AgentErrors.ts",
+      "backend/service/agents/AgentPlanAccess.ts",
+      "backend/service/agents/AgentPlanClone.ts",
+      "backend/service/agents/AgentPlanCloneForm.ts",
+      "backend/service/agents/AgentPlanCloneGraph.ts",
+      "backend/service/agents/AgentPlanCloneReferences.ts",
+      "backend/service/agents/AgentPlanCloning.ts",
+      "backend/service/agents/AgentPlanCommandInput.ts",
+      "backend/service/agents/AgentPlanCommandOperations.ts",
+      "backend/service/agents/AgentPlanConfigurationPins.ts",
+      "backend/service/agents/AgentPlanManagement.ts",
+      "backend/service/agents/AgentPlanOperationErrors.ts",
+      "backend/service/agents/AgentPlanOperationViews.ts",
+      "backend/service/agents/AgentPlanReferences.ts",
+      "backend/service/agents/AgentPlanRevision.ts",
+      "backend/service/agents/AgentPlanService.ts",
+      "backend/service/agents/AgentPlanSettings.ts",
+      "backend/service/agents/AgentPlanSharing.ts",
+      "backend/service/agents/AgentPlanTeamInput.ts",
+      "backend/service/agents/AgentPlanTeamService.ts",
+      "backend/service/agents/AgentPlanWriteOperations.ts",
+      "backend/service/chat/ChatPrompt.ts",
+      "backend/service/chat/ChatToolCatalog.ts",
+      "definition/AgentPlan.ts",
+      "definition/AgentPlanCapabilities.ts",
+      "definition/AgentPlanClone.ts",
+      "definition/AgentPlanGraph.ts",
+      "definition/AgentPlanOperations.ts",
+      "definition/AgentPlanSelection.ts",
+      "definition/AgentPlanTeam.ts",
+      "definition/AgentTools/PlanAccessSchema.ts",
+      "definition/AgentTools/PlanResources.ts",
+      "definition/AgentTools/Plans.ts",
+      "definition/PagesAgentOperations.ts",
+      "docs/AgentPlanRunner.md",
+      "docs/PAGE-330-report.json",
+      "language/locales/de/translation.json",
+      "language/locales/en/translation.json",
+      "tests/backend/app/lib/agent-plan-management.unit.test.ts",
+      "tests/backend/backend/service/agents/agent-plan-clone.unit.test.ts",
+      "tests/backend/backend/service/agents/agent-plan-cloning-fixture.ts",
+      "tests/backend/backend/service/agents/agent-plan-command-operations.unit.test.ts",
+      "tests/backend/backend/service/agents/agent-plan-command-replay.unit.test.ts",
+      "tests/backend/backend/service/agents/agent-plan-service-save.unit.test.ts",
+      "tests/backend/backend/service/agents/page330-cleared-references.unit.test.ts",
+      "tests/backend/backend/service/agents/page330-clone-surfaces.unit.test.ts",
+      "tests/backend/backend/service/agents/page330-cloning.unit.test.ts",
+      "tests/backend/backend/service/agents/page330-settings.unit.test.ts",
+      "tests/backend/backend/service/agents/page330-user-team-access.unit.test.ts",
+      "tests/backend/backend/service/agents/plan-access-summaries.unit.test.ts",
+      "tests/backend/backend/service/agents/plan-teams.unit.test.ts",
+      "tests/frontend/app/components/agents/plans/plan-leave-guard.unit.test.tsx",
+      "tests/frontend/app/components/agents/plans/plan-management/page330-dialogs.unit.test.tsx",
+      "tests/frontend/app/components/agents/plans/plan-management/plan-context-model.unit.test.ts",
+      "tests/frontend/app/components/agents/plans/use-plan-editor-atomic.unit.test.tsx"
+    ],
+    "exitCode": 0,
+    "log": "/tmp/page330-format-final.log"
+  },
+  "coverage": {
+    "policy": "Diagnostic only; subsets do not establish full project coverage, and scopes/runs are not aggregated. No thresholds, populations, exclusions, ignores or assertions were weakened.",
+    "snapshots": [
+      {
+        "selection": "backend-references-final: cleared ticket drafts and clone repairs",
+        "metricOrder": ["statements", "branches", "functions", "lines"],
+        "counterMeaning": "covered/total; 0/0 contains no executable item. These are separate subset measurements, never a merged coverage verdict.",
+        "modules": {
+          "app/lib/agent-plan-access-actions.server.ts": {
+            "statements": "0/32",
+            "branches": "0/25",
+            "functions": "0/8",
+            "lines": "0/30"
+          },
+          "app/lib/agent-plan-management.server.ts": {
+            "statements": "0/36",
+            "branches": "0/34",
+            "functions": "0/10",
+            "lines": "0/33"
+          },
+          "app/lib/agent-plan-response.ts": {
+            "statements": "0/0",
+            "branches": "0/0",
+            "functions": "0/0",
+            "lines": "0/0"
+          },
+          "app/routes/agent-plans-server.ts": {
+            "statements": "0/111",
+            "branches": "0/121",
+            "functions": "0/13",
+            "lines": "0/105"
+          },
+          "backend/agents/AgentPlanConfigurationInput.ts": {
+            "statements": "8/12",
+            "branches": "21/27",
+            "functions": "2/3",
+            "lines": "8/12"
+          },
+          "backend/agents/AgentPlanInput.ts": {
+            "statements": "73/220",
+            "branches": "97/293",
+            "functions": "20/44",
+            "lines": "66/190"
+          },
+          "backend/database/repositories/agent/AgentPlanAccessRepository.ts": {
+            "statements": "0/34",
+            "branches": "0/15",
+            "functions": "0/10",
+            "lines": "0/33"
+          },
+          "backend/database/repositories/agent/AgentPlanRepository.ts": {
+            "statements": "0/124",
+            "branches": "0/95",
+            "functions": "0/37",
+            "lines": "0/114"
+          },
+          "backend/error/AgentErrors.ts": {
+            "statements": "4/9",
+            "branches": "0/2",
+            "functions": "1/4",
+            "lines": "4/9"
+          },
+          "backend/service/agents/AgentPlanAccess.ts": {
+            "statements": "0/70",
+            "branches": "0/62",
+            "functions": "0/16",
+            "lines": "0/62"
+          },
+          "backend/service/agents/AgentPlanClone.ts": {
+            "statements": "3/3",
+            "branches": "4/8",
+            "functions": "1/1",
+            "lines": "3/3"
+          },
+          "backend/service/agents/AgentPlanCloneForm.ts": {
+            "statements": "16/18",
+            "branches": "7/9",
+            "functions": "1/1",
+            "lines": "15/16"
+          },
+          "backend/service/agents/AgentPlanCloneGraph.ts": {
+            "statements": "25/64",
+            "branches": "20/56",
+            "functions": "11/29",
+            "lines": "23/51"
+          },
+          "backend/service/agents/AgentPlanCloneReferences.ts": {
+            "statements": "87/152",
+            "branches": "64/124",
+            "functions": "20/29",
+            "lines": "80/135"
+          },
+          "backend/service/agents/AgentPlanCloning.ts": {
+            "statements": "81/103",
+            "branches": "58/84",
+            "functions": "12/13",
+            "lines": "80/97"
+          },
+          "backend/service/agents/AgentPlanCommandInput.ts": {
+            "statements": "0/28",
+            "branches": "0/57",
+            "functions": "0/5",
+            "lines": "0/26"
+          },
+          "backend/service/agents/AgentPlanCommandOperations.ts": {
+            "statements": "0/139",
+            "branches": "0/161",
+            "functions": "0/27",
+            "lines": "0/128"
+          },
+          "backend/service/agents/AgentPlanConfigurationPins.ts": {
+            "statements": "0/33",
+            "branches": "0/36",
+            "functions": "0/9",
+            "lines": "0/31"
+          },
+          "backend/service/agents/AgentPlanManagement.ts": {
+            "statements": "0/40",
+            "branches": "0/20",
+            "functions": "0/18",
+            "lines": "0/37"
+          },
+          "backend/service/agents/AgentPlanOperationErrors.ts": {
+            "statements": "0/43",
+            "branches": "0/48",
+            "functions": "0/6",
+            "lines": "0/38"
+          },
+          "backend/service/agents/AgentPlanOperationViews.ts": {
+            "statements": "0/93",
+            "branches": "0/155",
+            "functions": "0/44",
+            "lines": "0/82"
+          },
+          "backend/service/agents/AgentPlanReferences.ts": {
+            "statements": "37/96",
+            "branches": "17/90",
+            "functions": "11/22",
+            "lines": "35/89"
+          },
+          "backend/service/agents/AgentPlanRevision.ts": {
+            "statements": "0/27",
+            "branches": "0/26",
+            "functions": "0/2",
+            "lines": "0/25"
+          },
+          "backend/service/agents/AgentPlanService.ts": {
+            "statements": "0/160",
+            "branches": "0/79",
+            "functions": "0/57",
+            "lines": "0/152"
+          },
+          "backend/service/agents/AgentPlanSettings.ts": {
+            "statements": "0/11",
+            "branches": "0/8",
+            "functions": "0/3",
+            "lines": "0/11"
+          },
+          "backend/service/agents/AgentPlanSharing.ts": {
+            "statements": "0/62",
+            "branches": "0/51",
+            "functions": "0/25",
+            "lines": "0/51"
+          },
+          "backend/service/agents/AgentPlanTeamInput.ts": {
+            "statements": "0/19",
+            "branches": "0/34",
+            "functions": "0/4",
+            "lines": "0/17"
+          },
+          "backend/service/agents/AgentPlanTeamService.ts": {
+            "statements": "0/58",
+            "branches": "0/48",
+            "functions": "0/15",
+            "lines": "0/50"
+          },
+          "backend/service/agents/AgentPlanWriteOperations.ts": {
+            "statements": "0/131",
+            "branches": "0/138",
+            "functions": "0/29",
+            "lines": "0/122"
+          },
+          "backend/service/chat/ChatPrompt.ts": {
+            "statements": "0/49",
+            "branches": "0/39",
+            "functions": "0/15",
+            "lines": "0/43"
+          },
+          "backend/service/chat/ChatToolCatalog.ts": {
+            "statements": "0/25",
+            "branches": "0/13",
+            "functions": "0/12",
+            "lines": "0/25"
+          },
+          "definition/AgentPlan.ts": {
+            "statements": "1/1",
+            "branches": "0/0",
+            "functions": "1/1",
+            "lines": "1/1"
+          },
+          "definition/AgentPlanCapabilities.ts": {
+            "statements": "0/1",
+            "branches": "0/0",
+            "functions": "0/0",
+            "lines": "0/1"
+          },
+          "definition/AgentPlanClone.ts": {
+            "statements": "0/0",
+            "branches": "0/0",
+            "functions": "0/0",
+            "lines": "0/0"
+          },
+          "definition/AgentPlanGraph.ts": {
+            "statements": "94/235",
+            "branches": "53/235",
+            "functions": "27/59",
+            "lines": "83/193"
+          },
+          "definition/AgentPlanOperations.ts": {
+            "statements": "0/5",
+            "branches": "0/0",
+            "functions": "0/0",
+            "lines": "0/5"
+          },
+          "definition/AgentPlanSelection.ts": {
+            "statements": "5/7",
+            "branches": "2/6",
+            "functions": "3/3",
+            "lines": "3/4"
+          },
+          "definition/AgentPlanTeam.ts": {
+            "statements": "15/23",
+            "branches": "5/17",
+            "functions": "4/8",
+            "lines": "14/19"
+          },
+          "definition/AgentTools/PlanAccessSchema.ts": {
+            "statements": "0/2",
+            "branches": "0/0",
+            "functions": "0/0",
+            "lines": "0/2"
+          },
+          "definition/AgentTools/PlanResources.ts": {
+            "statements": "0/8",
+            "branches": "0/13",
+            "functions": "0/1",
+            "lines": "0/8"
+          },
+          "definition/AgentTools/Plans.ts": {
+            "statements": "0/13",
+            "branches": "0/0",
+            "functions": "0/0",
+            "lines": "0/13"
+          },
+          "definition/PagesAgentOperations.ts": {
+            "statements": "0/12",
+            "branches": "0/10",
+            "functions": "0/1",
+            "lines": "0/12"
+          }
+        },
+        "outsideThisPopulation": [
+          "app/components/agents/plans/plan-canvas.tsx",
+          "app/components/agents/plans/plan-leave-guard.tsx",
+          "app/components/agents/plans/plan-management/plan-access-dialog.tsx",
+          "app/components/agents/plans/plan-management/plan-access-model.ts",
+          "app/components/agents/plans/plan-management/plan-access-teams.tsx",
+          "app/components/agents/plans/plan-management/plan-clone-dialog.tsx",
+          "app/components/agents/plans/plan-management/plan-context-model.ts",
+          "app/components/agents/plans/plan-management/plan-deviation-choice.tsx",
+          "app/components/agents/plans/plan-management/plan-dialog-frame.tsx",
+          "app/components/agents/plans/plan-management/plan-edit-dialog.tsx",
+          "app/components/agents/plans/plan-management/plan-settings-fields.tsx",
+          "app/components/agents/plans/plan-management/use-plan-clone-settings.ts",
+          "app/components/agents/plans/plan-management/use-plan-edit-settings.ts",
+          "app/components/agents/plans/plan-management/use-plan-management.ts",
+          "app/components/agents/plans/plan-management/use-plan-settings-save.ts",
+          "app/components/agents/plans/plan-management/use-plan-teams.ts",
+          "app/components/agents/plans/plan-node-card/plan-agent-card.tsx",
+          "app/components/agents/plans/plan-node-card/plan-card.tsx",
+          "app/components/agents/plans/plan-node-configuration-fields.tsx",
+          "app/components/agents/plans/plan-selection-notice.tsx",
+          "app/components/agents/plans/use-plan-editor.ts",
+          "app/components/agents/plans/use-plan-submission.ts"
+        ]
+      },
+      {
+        "selection": "backend-access: person read/control rights and foreign workspace visibility",
+        "metricOrder": ["statements", "branches", "functions", "lines"],
+        "counterMeaning": "covered/total; 0/0 contains no executable item. These are separate subset measurements, never a merged coverage verdict.",
+        "modules": {
+          "backend/service/agents/AgentPlanAccess.ts": {
+            "statements": "49/70",
+            "branches": "43/62",
+            "functions": "11/16",
+            "lines": "44/62"
+          },
+          "backend/service/agents/AgentPlanOperationViews.ts": {
+            "statements": "25/93",
+            "branches": "28/155",
+            "functions": "13/44",
+            "lines": "24/82"
+          },
+          "backend/service/agents/AgentPlanSharing.ts": {
+            "statements": "33/62",
+            "branches": "24/51",
+            "functions": "15/25",
+            "lines": "29/51"
+          },
+          "backend/service/agents/AgentPlanTeamService.ts": {
+            "statements": "1/58",
+            "branches": "0/48",
+            "functions": "0/15",
+            "lines": "1/50"
+          },
+          "definition/AgentPlanTeam.ts": {
+            "statements": "19/23",
+            "branches": "10/17",
+            "functions": "6/8",
+            "lines": "17/19"
+          }
+        },
+        "outsideThisPopulation": []
+      },
+      {
+        "selection": "frontend-cards-final: compact dialogs, team rows, markers, direct editor notice",
+        "metricOrder": ["statements", "branches", "functions", "lines"],
+        "counterMeaning": "covered/total; 0/0 contains no executable item. These are separate subset measurements, never a merged coverage verdict.",
+        "modules": {
+          "app/components/agents/plans/plan-canvas.tsx": {
+            "statements": "0/40",
+            "branches": "0/18",
+            "functions": "0/12",
+            "lines": "0/36"
+          },
+          "app/components/agents/plans/plan-leave-guard.tsx": {
+            "statements": "0/17",
+            "branches": "0/12",
+            "functions": "0/8",
+            "lines": "0/13"
+          },
+          "app/components/agents/plans/plan-management/plan-access-dialog.tsx": {
+            "statements": "0/15",
+            "branches": "0/16",
+            "functions": "0/4",
+            "lines": "0/15"
+          },
+          "app/components/agents/plans/plan-management/plan-access-model.ts": {
+            "statements": "13/21",
+            "branches": "5/17",
+            "functions": "9/12",
+            "lines": "12/19"
+          },
+          "app/components/agents/plans/plan-management/plan-access-teams.tsx": {
+            "statements": "20/29",
+            "branches": "14/16",
+            "functions": "12/18",
+            "lines": "20/28"
+          },
+          "app/components/agents/plans/plan-management/plan-clone-dialog.tsx": {
+            "statements": "6/6",
+            "branches": "1/2",
+            "functions": "3/3",
+            "lines": "6/6"
+          },
+          "app/components/agents/plans/plan-management/plan-context-model.ts": {
+            "statements": "28/38",
+            "branches": "23/45",
+            "functions": "18/20",
+            "lines": "26/33"
+          },
+          "app/components/agents/plans/plan-management/plan-deviation-choice.tsx": {
+            "statements": "0/6",
+            "branches": "0/0",
+            "functions": "0/3",
+            "lines": "0/6"
+          },
+          "app/components/agents/plans/plan-management/plan-dialog-frame.tsx": {
+            "statements": "5/7",
+            "branches": "15/24",
+            "functions": "2/3",
+            "lines": "4/5"
+          },
+          "app/components/agents/plans/plan-management/plan-edit-dialog.tsx": {
+            "statements": "11/13",
+            "branches": "15/20",
+            "functions": "4/6",
+            "lines": "10/12"
+          },
+          "app/components/agents/plans/plan-management/plan-settings-fields.tsx": {
+            "statements": "16/18",
+            "branches": "14/16",
+            "functions": "8/10",
+            "lines": "15/17"
+          },
+          "app/components/agents/plans/plan-management/use-plan-clone-settings.ts": {
+            "statements": "9/9",
+            "branches": "7/12",
+            "functions": "2/2",
+            "lines": "8/8"
+          },
+          "app/components/agents/plans/plan-management/use-plan-edit-settings.ts": {
+            "statements": "22/24",
+            "branches": "23/32",
+            "functions": "4/5",
+            "lines": "21/22"
+          },
+          "app/components/agents/plans/plan-management/use-plan-management.ts": {
+            "statements": "8/30",
+            "branches": "2/25",
+            "functions": "2/8",
+            "lines": "7/27"
+          },
+          "app/components/agents/plans/plan-management/use-plan-settings-save.ts": {
+            "statements": "10/10",
+            "branches": "11/13",
+            "functions": "3/3",
+            "lines": "9/9"
+          },
+          "app/components/agents/plans/plan-management/use-plan-teams.ts": {
+            "statements": "5/5",
+            "branches": "0/0",
+            "functions": "2/2",
+            "lines": "5/5"
+          },
+          "app/components/agents/plans/plan-node-card/plan-agent-card.tsx": {
+            "statements": "8/11",
+            "branches": "8/12",
+            "functions": "1/3",
+            "lines": "8/11"
+          },
+          "app/components/agents/plans/plan-node-card/plan-card.tsx": {
+            "statements": "11/15",
+            "branches": "22/35",
+            "functions": "4/7",
+            "lines": "11/14"
+          },
+          "app/components/agents/plans/plan-node-configuration-fields.tsx": {
+            "statements": "0/29",
+            "branches": "0/26",
+            "functions": "0/10",
+            "lines": "0/24"
+          },
+          "app/components/agents/plans/plan-selection-notice.tsx": {
+            "statements": "8/10",
+            "branches": "2/4",
+            "functions": "2/2",
+            "lines": "8/8"
+          },
+          "app/components/agents/plans/use-plan-editor.ts": {
+            "statements": "24/38",
+            "branches": "11/20",
+            "functions": "4/12",
+            "lines": "23/33"
+          },
+          "app/components/agents/plans/use-plan-submission.ts": {
+            "statements": "23/33",
+            "branches": "6/22",
+            "functions": "6/6",
+            "lines": "20/29"
+          },
+          "app/lib/agent-plan-response.ts": {
+            "statements": "0/0",
+            "branches": "0/0",
+            "functions": "0/0",
+            "lines": "0/0"
+          },
+          "definition/AgentPlan.ts": {
+            "statements": "0/1",
+            "branches": "0/0",
+            "functions": "0/1",
+            "lines": "0/1"
+          },
+          "definition/AgentPlanCapabilities.ts": {
+            "statements": "0/1",
+            "branches": "0/0",
+            "functions": "0/0",
+            "lines": "0/1"
+          },
+          "definition/AgentPlanClone.ts": {
+            "statements": "0/0",
+            "branches": "0/0",
+            "functions": "0/0",
+            "lines": "0/0"
+          },
+          "definition/AgentPlanGraph.ts": {
+            "statements": "32/235",
+            "branches": "9/235",
+            "functions": "6/59",
+            "lines": "32/193"
+          },
+          "definition/AgentPlanOperations.ts": {
+            "statements": "0/5",
+            "branches": "0/0",
+            "functions": "0/0",
+            "lines": "0/5"
+          },
+          "definition/AgentPlanSelection.ts": {
+            "statements": "5/7",
+            "branches": "2/6",
+            "functions": "3/3",
+            "lines": "3/4"
+          },
+          "definition/AgentPlanTeam.ts": {
+            "statements": "4/23",
+            "branches": "0/17",
+            "functions": "2/8",
+            "lines": "4/19"
+          },
+          "definition/AgentTools/PlanAccessSchema.ts": {
+            "statements": "0/2",
+            "branches": "0/0",
+            "functions": "0/0",
+            "lines": "0/2"
+          },
+          "definition/AgentTools/PlanResources.ts": {
+            "statements": "0/8",
+            "branches": "0/13",
+            "functions": "0/1",
+            "lines": "0/8"
+          },
+          "definition/AgentTools/Plans.ts": {
+            "statements": "0/13",
+            "branches": "0/0",
+            "functions": "0/0",
+            "lines": "0/13"
+          },
+          "definition/PagesAgentOperations.ts": {
+            "statements": "0/12",
+            "branches": "0/10",
+            "functions": "0/1",
+            "lines": "0/12"
+          }
+        },
+        "outsideThisPopulation": [
+          "app/lib/agent-plan-access-actions.server.ts",
+          "app/lib/agent-plan-management.server.ts",
+          "app/routes/agent-plans-server.ts",
+          "backend/agents/AgentPlanConfigurationInput.ts",
+          "backend/agents/AgentPlanInput.ts",
+          "backend/database/repositories/agent/AgentPlanAccessRepository.ts",
+          "backend/database/repositories/agent/AgentPlanRepository.ts",
+          "backend/error/AgentErrors.ts",
+          "backend/service/agents/AgentPlanAccess.ts",
+          "backend/service/agents/AgentPlanClone.ts",
+          "backend/service/agents/AgentPlanCloneForm.ts",
+          "backend/service/agents/AgentPlanCloneGraph.ts",
+          "backend/service/agents/AgentPlanCloneReferences.ts",
+          "backend/service/agents/AgentPlanCloning.ts",
+          "backend/service/agents/AgentPlanCommandInput.ts",
+          "backend/service/agents/AgentPlanCommandOperations.ts",
+          "backend/service/agents/AgentPlanConfigurationPins.ts",
+          "backend/service/agents/AgentPlanManagement.ts",
+          "backend/service/agents/AgentPlanOperationErrors.ts",
+          "backend/service/agents/AgentPlanOperationViews.ts",
+          "backend/service/agents/AgentPlanReferences.ts",
+          "backend/service/agents/AgentPlanRevision.ts",
+          "backend/service/agents/AgentPlanService.ts",
+          "backend/service/agents/AgentPlanSettings.ts",
+          "backend/service/agents/AgentPlanSharing.ts",
+          "backend/service/agents/AgentPlanTeamInput.ts",
+          "backend/service/agents/AgentPlanTeamService.ts",
+          "backend/service/agents/AgentPlanWriteOperations.ts",
+          "backend/service/chat/ChatPrompt.ts",
+          "backend/service/chat/ChatToolCatalog.ts"
+        ]
+      }
+    ],
+    "remainingMeasurements": [
+      "Remote-target fallbacks and remote catalogs, nested resource sanitization and asset/script variants are not exhaustively branch-covered by these selected cases.",
+      "Some modules have zero counters in a particular snapshot although a separate listed unit execution tested them; each snapshot is one explicitly named subset, not an overall verdict.",
+      "Migration 052 has not been applied to a database. Real browser sizing, screenshots, devices and transports were intentionally excluded from the pilot."
+    ]
+  },
+  "qaHandoff": {
+    "status": "pending",
+    "lint": "QA: pnpm exec eslint --max-warnings=0 -- <affected lintable source and test files using existing configuration>",
+    "check": "QA: pnpm run check; project-wide TypeScript is required because code/types/routes changed.",
+    "unitSelection": "Reuse valid results above; select only changed behavior and affected callers from the inventories. No automatic full suite.",
+    "sourceFingerprint": "Run with node scripts/qa-evidence.mjs fingerprint --scope pages --manifest /tmp/page330-fingerprint.json; final value is recorded outside this self-referential report in report_step_result.",
+    "notRun": [
+      "pnpm run check",
+      "pnpm run lint",
+      "pnpm run test:backend",
+      "pnpm run test:frontend",
+      "pnpm run browser:test",
+      "pnpm run postgres:check",
+      "build",
+      "full Backend/Frontend suites",
+      "qa-evidence coverage/verify-handoff",
+      "ci_test tags"
+    ],
+    "toolingIssue": "QA must account for the pnpm v11.23.0 launcher execution error; direct installed Node runners proved the selected ticket checks.",
+    "unresolvedProductCriteria": []
+  },
+  "publication": {
+    "pushed": false,
+    "rebased": false,
+    "branchChanged": false,
+    "liveServicesOrCredentialsChanged": false
+  },
+  "sourceFiles": [
+    {
+      "path": "app/components/agents/plans/plan-canvas.tsx",
+      "sha256": "09a6f33b83304edcd3207dedb0717e54742333fbb8c4d4adc85afc854f707341"
+    },
+    {
+      "path": "app/components/agents/plans/plan-leave-guard.tsx",
+      "sha256": "eaf6239010a68b848641c49b68fd7f0043c3f7d1ed49f2ecb47de098f8887608"
+    },
+    {
+      "path": "app/components/agents/plans/plan-management/plan-access-dialog.tsx",
+      "sha256": "4d7e02e5d803aa7489e18df7efea578ebe50ae8ade140f8559d68c6ce23f67b2"
+    },
+    {
+      "path": "app/components/agents/plans/plan-management/plan-access-model.ts",
+      "sha256": "207e069508aad4cd712214d1bf4413745b255f711e27f14b04533f0463134b5f"
+    },
+    {
+      "path": "app/components/agents/plans/plan-management/plan-access-teams.tsx",
+      "sha256": "3c895b768d390b9e57d15e14fb95807ba854dff0dd6ef0c36149a9af7395a067"
+    },
+    {
+      "path": "app/components/agents/plans/plan-management/plan-clone-dialog.tsx",
+      "sha256": "53b8b059557e74fa1feadcf4f8a8ee6bd3b67013d78dd696092cc03fd394ad40"
+    },
+    {
+      "path": "app/components/agents/plans/plan-management/plan-context-model.ts",
+      "sha256": "d2176d918647fda1d3d7959bb3e5c137cfb4b4c642f1491c2596f6b6ca1a886e"
+    },
+    {
+      "path": "app/components/agents/plans/plan-management/plan-deviation-choice.tsx",
+      "sha256": "b7214ef5725bd2f518a0386009774411116d1d0573612b0baf19749f9b85b39a"
+    },
+    {
+      "path": "app/components/agents/plans/plan-management/plan-dialog-frame.tsx",
+      "sha256": "6e07c02370bb5c25030dc7b8b0377173b8b05f7615b17778b784b7c14839518e"
+    },
+    {
+      "path": "app/components/agents/plans/plan-management/plan-edit-dialog.tsx",
+      "sha256": "abf61c63d2bfd45561f0bad1bf27d2bc97b2834e40ea9435143c7ab2776cf20e"
+    },
+    {
+      "path": "app/components/agents/plans/plan-management/plan-settings-fields.tsx",
+      "sha256": "634f761d89e4de60bf99a6a85c54b9323ab226f29f3cbcd94bae1fba70602cc0"
+    },
+    {
+      "path": "app/components/agents/plans/plan-management/use-plan-clone-settings.ts",
+      "sha256": "e4df262ece38104bac931f70f8435dda4f45fa845c471f666fa90a87279aac6e"
+    },
+    {
+      "path": "app/components/agents/plans/plan-management/use-plan-edit-settings.ts",
+      "sha256": "b3f1e4e31c26fe51586637ce3884e2d671e868dfbad4b6a3d4c4ca5e3a49c850"
+    },
+    {
+      "path": "app/components/agents/plans/plan-management/use-plan-management.ts",
+      "sha256": "f7a8dd27350b5f0daaef2ba212706522546c1d59dc9e31b0e8121ab4adae48f1"
+    },
+    {
+      "path": "app/components/agents/plans/plan-management/use-plan-settings-save.ts",
+      "sha256": "df6eefb1ff26bb1aad2e515c2ffdec4bb6f71297a86e53fb3ff80dc7deb912d8"
+    },
+    {
+      "path": "app/components/agents/plans/plan-management/use-plan-teams.ts",
+      "sha256": "f9fb522c1f110b846f57dfdf8823e0f63da1e2f5e19ae8086d94494a6d66a389"
+    },
+    {
+      "path": "app/components/agents/plans/plan-node-card/plan-agent-card.tsx",
+      "sha256": "52b709bce4fda2e74ce90aaf3dd98874873f5fc6a5c3344c7e8b0dfaa417f2b1"
+    },
+    {
+      "path": "app/components/agents/plans/plan-node-card/plan-card.tsx",
+      "sha256": "eb1d8ff58d173d13ce21cd2de39f94bf0675d874c9fc7ced46b34e688b3360e3"
+    },
+    {
+      "path": "app/components/agents/plans/plan-node-configuration-fields.tsx",
+      "sha256": "f40586546326699e96a55ca792b3da375da1e0557c7ec1ab8490cb6ae6f0efa0"
+    },
+    {
+      "path": "app/components/agents/plans/plan-selection-notice.tsx",
+      "sha256": "0759aba6ad437e1f401dc6f277dbddcbbd8f31dc712edba3f973ed7705fea9b2"
+    },
+    {
+      "path": "app/components/agents/plans/use-plan-editor.ts",
+      "sha256": "94915ae38a906be35c98037f2f835134222768cc4049f9f63d7ee61a2f217e01"
+    },
+    {
+      "path": "app/components/agents/plans/use-plan-submission.ts",
+      "sha256": "44b633b0ee01477588f5b3e24d80ceb9692d29aa1798370bb583fa5b32490c0d"
+    },
+    {
+      "path": "app/lib/agent-plan-access-actions.server.ts",
+      "sha256": "9c963308ea989659ee34684b13619cd8e64aec8180f8eaba0690ab3fcc299071"
+    },
+    {
+      "path": "app/lib/agent-plan-management.server.ts",
+      "sha256": "51afbba0544585fe9282ee02dc831e4aa3a4fe5cee40b5324447e804fbb2b365"
+    },
+    {
+      "path": "app/lib/agent-plan-response.ts",
+      "sha256": "a575c54e3e49fda91c3a4c110a5be7ea1832fd5b45ae25d11f1948922ebb1b93"
+    },
+    {
+      "path": "app/routes/agent-plans-server.ts",
+      "sha256": "7c7ab785d11b4da055cfaf60a632f07d1cf49691832d2230b6c9dc11f59e6cb3"
+    },
+    {
+      "path": "backend/agents/AgentPlanConfigurationInput.ts",
+      "sha256": "e59bffacfd76063c1146f2357c73058301e04358751608692318e4340c5f2f74"
+    },
+    {
+      "path": "backend/agents/AgentPlanInput.ts",
+      "sha256": "be4e7bd722c8691815012689b7b49926765aa1b57f377072c2ae2be18ba50a31"
+    },
+    {
+      "path": "backend/database/postgres/migrations/052_agent_plan_user_teams.sql",
+      "sha256": "9e3ab4b81d1b0294c8ef8ccc67b22b0a97251e202108960367fb8df3c02ad169"
+    },
+    {
+      "path": "backend/database/repositories/agent/AgentPlanAccessRepository.ts",
+      "sha256": "38ae94ff670382c4b003ee6cbae7f7f50024f3ccc721dab5486ad76d2e392b7a"
+    },
+    {
+      "path": "backend/database/repositories/agent/AgentPlanRepository.ts",
+      "sha256": "988cbcc0d1bed27b0e0fb37a45ba0ef570fcf3129f2333962f97f472f26293d3"
+    },
+    {
+      "path": "backend/error/AgentErrors.ts",
+      "sha256": "f8d6856e632ba4d26dd9b8a080bfb6529c3db9b1a40e783a0a1336c219c89918"
+    },
+    {
+      "path": "backend/service/agents/AgentPlanAccess.ts",
+      "sha256": "937c6b30fa32e69958714cf96deff14acec663b7bb4615e086ecef1b0212a4ba"
+    },
+    {
+      "path": "backend/service/agents/AgentPlanClone.ts",
+      "sha256": "a6a66ae83c8b6f8d40ca04c1855e3f6bffe45a12fa83c15e9569807d4db3782a"
+    },
+    {
+      "path": "backend/service/agents/AgentPlanCloneForm.ts",
+      "sha256": "a3939a9b9c0cd2341cf4ba287b70adee392d6019b523a44a8e07675c45d450a5"
+    },
+    {
+      "path": "backend/service/agents/AgentPlanCloneGraph.ts",
+      "sha256": "e92b50b328910e541f575974c277759b607d88333dbefa4fcce089af8c3951c9"
+    },
+    {
+      "path": "backend/service/agents/AgentPlanCloneReferences.ts",
+      "sha256": "043f7acf2236fa1ed4626b871f8fb865ec070b1aeff3774468633c04ee2950b9"
+    },
+    {
+      "path": "backend/service/agents/AgentPlanCloning.ts",
+      "sha256": "6358277a52a9d9506ff1748eb01ee4fa5032f5552b31be8ae3d904b1fec9e9fa"
+    },
+    {
+      "path": "backend/service/agents/AgentPlanCommandInput.ts",
+      "sha256": "abda4f7391e18a93cd28a4f14ea25d09f622d5d910a213b5cd30b91a4af107ec"
+    },
+    {
+      "path": "backend/service/agents/AgentPlanCommandOperations.ts",
+      "sha256": "82a84c64de63c2d7867dbaed019e6b193e07bf8bd1304f3f2506589537e30fb9"
+    },
+    {
+      "path": "backend/service/agents/AgentPlanConfigurationPins.ts",
+      "sha256": "0da9d66ed348f5134c7865917384ce0234465a1f561c57673e4138728f6b146e"
+    },
+    {
+      "path": "backend/service/agents/AgentPlanManagement.ts",
+      "sha256": "7903d1efe596bacebc598b5299002874c619d7f8543fb2b8bac014853a03953e"
+    },
+    {
+      "path": "backend/service/agents/AgentPlanOperationErrors.ts",
+      "sha256": "c9e63ee60958c7747819b7e04073f36988abb9759f6456f3007a2492d204879c"
+    },
+    {
+      "path": "backend/service/agents/AgentPlanOperationViews.ts",
+      "sha256": "0f46679d5d7dbeb0d4249880cc5da4522c793f48b60d2aa26603a58112784625"
+    },
+    {
+      "path": "backend/service/agents/AgentPlanReferences.ts",
+      "sha256": "4035841398ebb3784fdc55f5e5e6c74738936006ecd8c8a258e5aa54cc73c134"
+    },
+    {
+      "path": "backend/service/agents/AgentPlanRevision.ts",
+      "sha256": "c0c8580e301ac8ffbe86deafe41b97a1aaaf5de8476dea0c97021a83c78de3b6"
+    },
+    {
+      "path": "backend/service/agents/AgentPlanService.ts",
+      "sha256": "50cf611ce2eefdb7a6f2a081a973a4c7148a95398ecda7954db89b133fafdc77"
+    },
+    {
+      "path": "backend/service/agents/AgentPlanSettings.ts",
+      "sha256": "c12785a30ba9656a14c1e86f7c79c62ffc8638b3bff603e7cc819f2b7170d9c7"
+    },
+    {
+      "path": "backend/service/agents/AgentPlanSharing.ts",
+      "sha256": "ae71fad073f6a2ad3335370a01e7ebba1e353c982e6cde2d7569b6ffbbc0effc"
+    },
+    {
+      "path": "backend/service/agents/AgentPlanTeamInput.ts",
+      "sha256": "e053e611f21c479ead5f664e09756f8c0220ac8346c345adf972f7024054a0e1"
+    },
+    {
+      "path": "backend/service/agents/AgentPlanTeamService.ts",
+      "sha256": "c9980ce33137a2120ae9b9b7afa9e7b38208681505071630f35dd5ddf2d8f15a"
+    },
+    {
+      "path": "backend/service/agents/AgentPlanWriteOperations.ts",
+      "sha256": "b980a0adb21332fe26ce553acd778a9219b6ca2db6f1bf9f576954dc04fcff9c"
+    },
+    {
+      "path": "backend/service/chat/ChatPrompt.ts",
+      "sha256": "3a1c0456f8341be6ba0fe2acad100f431ae0e34a9b3fa1ed39789220bbf256af"
+    },
+    {
+      "path": "backend/service/chat/ChatToolCatalog.ts",
+      "sha256": "f88d6759190c25dacb37d1aa13aec98b9fa97841ccf93c4cc10be088d03617cd"
+    },
+    {
+      "path": "definition/AgentPlan.ts",
+      "sha256": "c5da07b4018ede97bb271f6adccccc0e031cb59e3ffde6a0957a91261affa478"
+    },
+    {
+      "path": "definition/AgentPlanCapabilities.ts",
+      "sha256": "7e8793d91edc1301e1888cfdad80ac917335693078aa9d5be70cb36998dca2a2"
+    },
+    {
+      "path": "definition/AgentPlanClone.ts",
+      "sha256": "e74fded225925cd35bf36e27dd6493555f228bac24e4c5a546b8a2b477fae16a"
+    },
+    {
+      "path": "definition/AgentPlanGraph.ts",
+      "sha256": "df266441699085abeb64055db943faa3522b5ff1985cabf2fe269a072b261653"
+    },
+    {
+      "path": "definition/AgentPlanOperations.ts",
+      "sha256": "cf79a4694dbd3fcea15656c578f27f63ac3d4ac28953799c4108e3854a5fef88"
+    },
+    {
+      "path": "definition/AgentPlanSelection.ts",
+      "sha256": "c0644302c7a8265f80a3d4ce2c8d080fe54cbea2e38373789ff5272d2129ff5a"
+    },
+    {
+      "path": "definition/AgentPlanTeam.ts",
+      "sha256": "1935954b94e7c3c35372a7e2a29f72e6d058431b2008ab9478d1502208178037"
+    },
+    {
+      "path": "definition/AgentTools/PlanAccessSchema.ts",
+      "sha256": "198befe4939831b1b58fe6dcf3812ffd770eed7fa5321cb1289930a8c8c67672"
+    },
+    {
+      "path": "definition/AgentTools/PlanResources.ts",
+      "sha256": "e89a5e546939f7caca6b9c5e635d23d8dcc8241633a6838b341c6e8d4d8a54a9"
+    },
+    {
+      "path": "definition/AgentTools/Plans.ts",
+      "sha256": "841565508537c66ae7bc943aeb4f84e7ad5e9ea6ea82e86a46164c5abbdbc886"
+    },
+    {
+      "path": "definition/PagesAgentOperations.ts",
+      "sha256": "4db097b9e544f1ea6c19a0d1041ecc6974f01399a2d52354544a25cf65ec3d03"
+    },
+    {
+      "path": "docs/AgentPlanRunner.md",
+      "sha256": "a0b0d73f425b3f2d5c1d92638e0941dfbe1404cccfb88d9f4b2a9507c5c50a8f"
+    },
+    {
+      "path": "language/locales/de/translation.json",
+      "sha256": "eec58a13139fdafa523f5aff222200dc4ffe9e7e4fe77cc5d9af9cf29a61f2f3"
+    },
+    {
+      "path": "language/locales/en/translation.json",
+      "sha256": "56049f68c717c190f3ff28fcb3d8a377956da3ae09aba32b693af3b050f1ead7"
+    },
+    {
+      "path": "tests/backend/app/lib/agent-plan-management.unit.test.ts",
+      "sha256": "c9bdf02536dadbbca412471687b413ce2655285ffd3d40800d7050c28bff6696"
+    },
+    {
+      "path": "tests/backend/backend/service/agents/agent-plan-clone.unit.test.ts",
+      "sha256": "5355bc6b3cba7ab8f9d65fa22f5a855aef796801c4bb11aa3b9e573ea7227c24"
+    },
+    {
+      "path": "tests/backend/backend/service/agents/agent-plan-cloning-fixture.ts",
+      "sha256": "22bd3b9fa0fd968b4cdbe0752a071d4824cf4e64547d489219b25beef72f2937"
+    },
+    {
+      "path": "tests/backend/backend/service/agents/agent-plan-command-operations.unit.test.ts",
+      "sha256": "5c0d7bbc17b324c36a8e4a6115e2f99ccb00541eda0618307f19828f630e0840"
+    },
+    {
+      "path": "tests/backend/backend/service/agents/agent-plan-command-replay.unit.test.ts",
+      "sha256": "dbbcedfc75be336bdd245648dca2f159a15d22d9b4200a5154fed6fdb7fcfe0e"
+    },
+    {
+      "path": "tests/backend/backend/service/agents/agent-plan-service-save.unit.test.ts",
+      "sha256": "0366b0b1af9700b7b7536a58ea56d0de6e933841180e7a6ef820da8a7002d601"
+    },
+    {
+      "path": "tests/backend/backend/service/agents/page330-cleared-references.unit.test.ts",
+      "sha256": "9ae6b312b439ebbef7270623e853c75d5546ccc81a3bc041197994bc288d1c4e"
+    },
+    {
+      "path": "tests/backend/backend/service/agents/page330-clone-surfaces.unit.test.ts",
+      "sha256": "641f50b6a612d6650c2d2e661da64fd16ea978b8b5be062a59eb9073d42ece1e"
+    },
+    {
+      "path": "tests/backend/backend/service/agents/page330-cloning.unit.test.ts",
+      "sha256": "68002a14e4b125e99efb658d858b2ab714760747ceb836c7db7cb5496f103e03"
+    },
+    {
+      "path": "tests/backend/backend/service/agents/page330-settings.unit.test.ts",
+      "sha256": "d7cfdb4a75cfdd6d4aaef543b691e81fcd056f073719909a1f514e75dacc5591"
+    },
+    {
+      "path": "tests/backend/backend/service/agents/page330-user-team-access.unit.test.ts",
+      "sha256": "2a54d4785cf103d38f0c25ac922870115f702c03e0c1e137dacbf2013e5bd6d7"
+    },
+    {
+      "path": "tests/backend/backend/service/agents/plan-access-summaries.unit.test.ts",
+      "sha256": "03e93f24c990974bd38b3b484ab4fbc34889cbab3c73fad463155b69c5e46c25"
+    },
+    {
+      "path": "tests/backend/backend/service/agents/plan-teams.unit.test.ts",
+      "sha256": "58f9c2d147158a6e8b91a2dd4ab8ff6a688a64a6c6ad1f5a3726821b3c5544df"
+    },
+    {
+      "path": "tests/frontend/app/components/agents/plans/plan-leave-guard.unit.test.tsx",
+      "sha256": "82ffe38bcbf1499d4910312b3906784bb5d3201fa738d40fb36d91f0de2ac3c3"
+    },
+    {
+      "path": "tests/frontend/app/components/agents/plans/plan-management/page330-dialogs.unit.test.tsx",
+      "sha256": "abdf6987cf34a7fb719f7eb111e114e06d510cb76417756355d1d2d624fa28bd"
+    },
+    {
+      "path": "tests/frontend/app/components/agents/plans/plan-management/plan-context-model.unit.test.ts",
+      "sha256": "6047b9965988560b8bf3d9347830827b860abd9bb31e2ced7427612e90fe51fd"
+    },
+    {
+      "path": "tests/frontend/app/components/agents/plans/use-plan-editor-atomic.unit.test.tsx",
+      "sha256": "519b45786d8374d8083418e45c1360749c46216281e2fdf7b1e516d53ef937cd"
+    }
+  ]
+}

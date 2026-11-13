@@ -123,3 +123,40 @@ it("opens the node dialog from its edit button and keeps the edit button while t
   );
   expect(onEdit).toHaveBeenCalledOnce();
 });
+
+it("prefers border-primary for an open agent choice and border-destructive when another issue hits", () => {
+  const { unmount } = renderInFlow(
+    <PlanCard
+      node={{ ...agentStep("agent"), selectionRequired: "model" }}
+      label="Card"
+      title="Reviewer"
+    >
+      <p>Body</p>
+    </PlanCard>,
+    flowContext({
+      graph: graphActions({
+        issues: [{ nodeId: "agent", port: null, reason: "agent" }],
+      }),
+    }),
+  );
+  expect(article().className).toContain("border-2");
+  expect(article().className).toContain("border-primary");
+  expect(article().className).not.toContain("border-destructive");
+  unmount();
+
+  renderCard(
+    {
+      node: { ...agentStep("agent"), selectionRequired: "model" },
+      title: "Reviewer",
+    },
+    {
+      graph: graphActions({
+        issues: [
+          { nodeId: "agent", port: null, reason: "agent" },
+          { nodeId: "agent", port: null, reason: "port" },
+        ],
+      }),
+    },
+  );
+  expect(article().className).toContain("border-destructive");
+});

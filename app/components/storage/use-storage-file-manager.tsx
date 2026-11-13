@@ -14,7 +14,6 @@ import { useStorageSelection } from "./use-storage-selection";
 
 import type { StorageBrowseResult } from "@/definition/GoogleDriveStorage";
 import type { ReactNode } from "react";
-
 import type { StorageListTools } from "./storage-content";
 import type { StorageMenuPoint } from "./storage-context-menu";
 import type { StorageFolderActions } from "./use-storage-folder-actions";
@@ -60,6 +59,7 @@ export function useStorageFileManager(
     actions: writing.actions,
     batch,
     canWrite: writing.canWrite,
+    operations: writing.capabilities?.operations,
     folderRef,
     items,
     selection,

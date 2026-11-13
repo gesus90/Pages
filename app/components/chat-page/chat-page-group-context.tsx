@@ -11,10 +11,12 @@ import {
   DialogTitle,
 } from "@/app/components/ui/dialog";
 import { cn } from "@/app/lib/cn";
+import { observerFailureText } from "@/app/lib/observer-failure-text";
 
 import type {
   ConversationGroupContextStatus,
   ConversationGroupContextView,
+  ConversationObserverStatus,
 } from "@/definition/ConversationObserver";
 import type { VirtualGroup } from "@/definition/VirtualChat";
 
@@ -100,6 +102,32 @@ function ContextState({
   );
 }
 
+/** Says that the observer of the group gives no result, and why (PAGE-340). */
+function ObserverNotice({
+  observer,
+}: {
+  readonly observer: ConversationObserverStatus | undefined;
+}): React.ReactElement | null {
+  const { t, i18n } = useTranslation();
+  const failure = observer?.lastFailure;
+  if (!observer || !failure || observer.consecutiveFailures === 0) return null;
+  return (
+    <div
+      role="alert"
+      className="mt-4 space-y-1 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive"
+    >
+      <p className="font-medium">
+        {t(`chatPage.groupContext.observer.failing.${failure.kind}`, {
+          count: observer.consecutiveFailures,
+          moment: new Date(failure.at).toLocaleString(i18n.language),
+        })}
+      </p>
+      <p>{observerFailureText(t, failure)}</p>
+      <p className="text-xs">{t("chatPage.groupContext.observer.hint")}</p>
+    </div>
+  );
+}
+
 function ContextBody({
   view,
   isLoading,
@@ -119,6 +147,7 @@ function ContextBody({
   return (
     <>
       <ContextState view={view} />
+      <ObserverNotice observer={view.observer} />
       {view.summary === "" ? (
         <p className="mt-4 text-sm text-muted-foreground">
           {t("chatPage.groupContext.empty")}

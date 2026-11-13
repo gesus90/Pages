@@ -141,6 +141,7 @@ function runStepName(snapshot: AgentPlanSnapshot, node: AgentPlanNode): string {
   if (remote?.step.type === "agent")
     return remote.step.configuration?.name ?? node.type;
   if (node.type === "decision") return node.name ?? "Decision";
+  if (node.type === "swarm") return node.name ?? "Swarm";
   return node.type === "loop" ||
     node.type === "script" ||
     node.type === "git_closeout" ||

@@ -15,6 +15,7 @@ import {
 import { PlanDecisionDialog } from "./plan-decision-dialog";
 import { PlanGitCloseoutDialog } from "./plan-git-closeout-dialog";
 import { PlanStackDialog } from "./plan-stack-dialog";
+import { PlanSwarmPanel } from "./plan-swarm/plan-swarm-panel";
 import { PlanGroupPanel } from "./plan-group-panel";
 import { PlanLoopPanel } from "./plan-loop-panel";
 import { PlanNodeConfigurationFields } from "./plan-node-configuration-fields";
@@ -128,6 +129,10 @@ function PlanContainerDialog(
     );
   if (node.type === "group")
     return <PlanGroupPanel key={node.id} {...shared} group={node} />;
+  if (node.type === "swarm")
+    return (
+      <PlanSwarmPanel key={node.id} {...shared} swarm={node} run={props.run} />
+    );
   return null;
 }
 

@@ -3,6 +3,7 @@ import { skippedPlanScriptResult } from "./AgentPlanScriptResult";
 import { createLoopHost } from "./loop/AgentPlanLoopEngineHost";
 import { triggerOuterPlanStack } from "./stack/AgentPlanStackTrigger";
 import { invalidDecisionInput } from "./branching/AgentPlanDecisionValue";
+import { patchStep } from "./AgentPlanRunState";
 
 import type { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import type {
@@ -11,6 +12,7 @@ import type {
   AgentPlanStepResult,
 } from "@/definition/AgentPlan";
 import type { AgentPlanLoop } from "@/definition/AgentPlanLoop";
+import type { AgentPlanSwarm } from "@/definition/AgentPlanSwarm";
 import type { EngineDependencies } from "./AgentPlanEngineDependencies";
 import type { ActivePlanRun } from "./AgentPlanRunState";
 import type { AgentPlanLoopRunner } from "./loop/AgentPlanLoopRunner";
@@ -20,7 +22,7 @@ export interface PlanNodeDispatchContext {
   readonly writes: SerialQueue;
   readonly dependencies: Pick<
     EngineDependencies,
-    "scripts" | "runs" | "start" | "decisions"
+    "scripts" | "runs" | "start" | "decisions" | "swarms"
   >;
 }
 
@@ -56,6 +58,8 @@ export function dispatchPlanLocalNode(
     });
   if (node.type === "decision")
     return dispatchPlanDecision(active, node, controller, context);
+  if (node.type === "swarm")
+    return dispatchPlanSwarm(active, node, controller, context);
   if (node.type !== "stack") return null;
   return triggerOuterPlanStack(active, node, {
     writes,
@@ -81,6 +85,45 @@ function dispatchPlanDecision(
     results: new Map(active.view.steps.map((step) => [step.id, step])),
     signal: controller.signal,
     authorize: () => start.control(active.view, active.snapshot, node),
+  });
+}
+
+/**
+ * A swarm runs its main model and helpers in sessions of their own (PAGE-313).
+ *
+ * @remarks
+ * Its lanes and board are written into the node result after every change,
+ * through the engine's write queue, so the run view shows them live.
+ */
+function dispatchPlanSwarm(
+  active: ActivePlanRun,
+  node: AgentPlanSwarm,
+  controller: AbortController,
+  context: PlanNodeDispatchContext,
+): Promise<Partial<AgentPlanStepResult>> {
+  const { swarms, start, runs } = context.dependencies;
+  if (!swarms)
+    return Promise.resolve({
+      status: "failed",
+      error: "plan_session_unavailable",
+      output: null,
+    });
+  return swarms.run({
+    run: active.view,
+    snapshot: active.snapshot,
+    node,
+    signal: controller.signal,
+    authorize: () => start.control(active.view, active.snapshot, node),
+    save: (swarm) =>
+      context.writes.run(async () => {
+        if (
+          active.view.steps.find((step) => step.id === node.id)?.status !==
+          "running"
+        )
+          return;
+        patchStep(active, node.id, { swarm });
+        await runs.update(active.view);
+      }),
   });
 }
 

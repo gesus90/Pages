@@ -1,6 +1,5 @@
 import { authenticatedUserContext } from "@/app/lib/auth.server";
 import { getApplicationServices } from "@/app/lib/services.server";
-import { isSystemSettingsGranted } from "@/app/lib/settings-actions/settings-system-access.server";
 import {
   queryParameters,
   readBodyParameters,
@@ -16,7 +15,7 @@ import { STORAGE_MAX_UPLOAD_BYTES } from "@/backend/service/google/StorageFileWr
 import { STORAGE_OPERATIONS } from "@/definition/GoogleDriveFiles";
 
 import type { StorageParameters } from "@/app/lib/storage-api.server";
-import type { GoogleDriveFileService } from "@/backend/service/google/GoogleDriveFileService";
+import type { StorageAccountFiles } from "@/backend/service/google/StorageAccountFiles";
 import type {
   StorageConfirmableAction,
   StorageOperation,
@@ -34,7 +33,7 @@ const CONFIRMABLE_ACTIONS: readonly StorageConfirmableAction[] = [
 
 /** One call after the Pages right was checked. */
 interface StorageCall {
-  readonly files: GoogleDriveFileService;
+  readonly files: StorageAccountFiles;
   readonly user: User;
   readonly parameters: StorageParameters;
 }
@@ -50,26 +49,14 @@ function methodNotAllowed(allowed: "GET" | "POST"): Response {
   });
 }
 
-/**
- * Returns the file service when the account may use Storage right now.
- *
- * @remarks
- * The Drive connection is the one Google account of the instance, so the
- * interface follows the right of the system settings: an active administrator
- * in the admin mode, checked again on every call.
- */
+/** Binds all operations to the signed-in account, with fresh checks per call. */
 async function grantedFiles(
   user: User | null,
-): Promise<GoogleDriveFileService | null> {
-  if (!user) {
-    return null;
-  }
-
-  const services = await getApplicationServices();
-
-  return (await isSystemSettingsGranted(services, user))
-    ? services.googleDriveFileService
-    : null;
+): Promise<StorageAccountFiles | null> {
+  if (!user) return null;
+  return (await getApplicationServices()).googleDriveFileService.forAccount(
+    user.id,
+  );
 }
 
 function required(parameters: StorageParameters, name: string): string {
@@ -99,7 +86,11 @@ async function runDownload(call: StorageCall): Promise<Response> {
 
 /** The reading operations; each answers `GET`. */
 const READ_HANDLERS: Partial<Record<StorageOperation, ReadHandler>> = {
-  capabilities: async (call) => answer(call, await call.files.capabilities()),
+  capabilities: async (call) =>
+    answer(
+      call,
+      await call.files.capabilities(call.parameters.text("ref") ?? undefined),
+    ),
   download: runDownload,
   list: async (call) =>
     answer(

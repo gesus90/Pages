@@ -86,8 +86,11 @@ function planTeams(
   directory: AgentProfileDirectory,
 ): readonly AgentPlanTeamRightsEntry[] {
   return planTeamsOf(plan).map((team) => {
-    const entries =
-      team.kind === "group" ? directory.groups : directory.departments;
+    const entries = {
+      group: directory.groups,
+      department: directory.departments,
+      user: directory.persons,
+    }[team.kind];
     return {
       kind: team.kind,
       id: team.targetId,
@@ -235,6 +238,7 @@ function nodeLabel(node: AgentPlanNode, sources: AgentPlanSources): string {
     return node.name;
   if (node.type === "parameter" || node.type === "variable") return node.name;
   if (node.type === "decision") return node.name ?? "Decision";
+  if (node.type === "swarm") return node.name ?? "Swarm";
   const reference = referenceLabel(node, sources);
   if (reference !== null) return reference;
   return node.type === "start" ? "Start" : "End";

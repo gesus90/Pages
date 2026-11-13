@@ -55,6 +55,8 @@ import type {
 } from "./AgentPlanScript";
 import type { AgentPlanGitCloseout } from "./AgentPlanGitCloseout";
 import type { AgentPlanAsset } from "./AgentPlanAsset";
+import type { AgentPlanSwarm } from "./AgentPlanSwarm";
+import type { AgentPlanSwarmRun } from "./AgentPlanSwarmRun";
 import type { AgentPlanScriptAssessment } from "./AgentPlanScriptReport";
 import type {
   AgentPlanRecoveryReason,
@@ -109,6 +111,8 @@ export interface AgentPlanStep extends AgentPlanPosition {
   readonly type: "agent";
   /** Empty after deletion until an agent is explicitly assigned again. */
   readonly agentId: string;
+  /** A selection cleared while cloning; removed once a model or agent is chosen. */
+  readonly selectionRequired?: "agent" | "model";
   /** null chooses automatic access; an empty string marks a removed explicit assignment. */
   readonly personalAgentId: string | null;
   readonly instruction: string;
@@ -188,6 +192,7 @@ export type AgentPlanNode =
   | AgentPlanLoop
   | AgentPlanDecision
   | AgentPlanStack
+  | AgentPlanSwarm
   | AgentPlanParameter
   | AgentPlanAsset
   | (AgentPlanPosition & { readonly id: string; readonly type: "end" })
@@ -531,6 +536,8 @@ export interface AgentPlanStepResult {
   readonly history?: readonly AgentPlanStepActivation[];
   /** What a stack node handed over in this start; `entryId: null` when it was used up. */
   readonly stack?: AgentPlanStackHandover;
+  /** Main model, helpers and board of a swarm node (PAGE-313). */
+  readonly swarm?: AgentPlanSwarmRun;
 }
 
 /** Only the executor may read this sanitized view or request its stop. */

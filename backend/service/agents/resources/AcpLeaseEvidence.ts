@@ -16,6 +16,11 @@ export interface AcpLeaseEvidenceContext {
   readonly isUnverifiedLocal: boolean;
   /** Running ACP worker units, or `null` when the service manager could not be read. */
   readonly units: ReadonlySet<string> | null;
+  /**
+   * Reads whether the journal proves that the only worker unit of a lease
+   * started and ended; absent where a check does not consult the journal.
+   */
+  readonly journal?: (instanceId: string) => Promise<boolean>;
 }
 
 /** Whether a check reason proves that no process of the lease can remain. */
@@ -55,6 +60,30 @@ async function classifyNamespace(
   return "namespace_ended";
 }
 
+/**
+ * Whether the process of a lease was started in a recorded worker unit.
+ *
+ * @remarks
+ * The unit holds every process of the worker in its cgroup (PAGE-335), so
+ * its units prove whether a process of the lease can remain, also when it
+ * ended before its identity was recorded.
+ */
+export function isUnitBound(record: AcpResourceRecord): boolean {
+  return (
+    typeof record.workerUnit === "string" &&
+    (record.lifecycle === "spawning" || record.lifecycle === "process")
+  );
+}
+
+function classifyWorkerUnit(
+  record: AcpResourceRecord,
+  units: ReadonlySet<string> | null,
+): AcpLeaseCheckReason | null {
+  if (!isUnitBound(record)) return null;
+  if (units === null) throw new Error("Worker units are unreadable");
+  return "unit_inactive";
+}
+
 function classifyWithoutIdentity(
   record: AcpResourceRecord,
   isPreviousBoot: boolean,
@@ -68,6 +97,27 @@ function classifyWithoutIdentity(
 }
 
 /**
+ * Proves the end of a spawned lease without identity through its unit history.
+ *
+ * @remarks
+ * Only with a readable service manager that lists no running unit of the
+ * lease, and only when the journal shows its one unit started and ended.
+ */
+async function classifyByUnitHistory(
+  record: AcpResourceRecord,
+  context: AcpLeaseEvidenceContext,
+  reason: AcpLeaseCheckReason,
+): Promise<AcpLeaseCheckReason> {
+  if (
+    (reason !== "start_unconfirmed" && reason !== "legacy_unproven") ||
+    context.units === null ||
+    !context.journal
+  )
+    return reason;
+  return (await context.journal(record.instanceId)) ? "unit_ended" : reason;
+}
+
+/**
  * Classifies an unconfirmed lease from durable evidence, without ending,
  * signalling or commanding any process.
  *
@@ -78,9 +128,12 @@ function classifyWithoutIdentity(
  *
  * @remarks
  * Age, a missing environment marker, a missing PID or a restart of Pages
- * prove nothing. A change of boot does: no process outlives it. A managed
+ * prove nothing. A change of boot does: no process outlives it. So does the
+ * journaled end of the one worker unit of a lease while no unit of it runs. A managed
  * owner that has not released the lease keeps it, since only its own
- * authorized closeout may end the session.
+ * authorized closeout may end the session. A lease without identity that
+ * recorded its worker unit is released once its units are proven inactive;
+ * unreadable units keep it.
  */
 export async function classifyLease(
   record: AcpResourceRecord,
@@ -93,5 +146,11 @@ export async function classifyLease(
   if (namespace !== null) return namespace;
   if (managed === "released") return "owner_released";
   if (hasRunningUnit(record, context.units)) return "unit_active";
-  return classifyWithoutIdentity(record, await startedBeforeBoot(record.since));
+  const unit = classifyWorkerUnit(record, context.units);
+  if (unit !== null) return unit;
+  const reason = classifyWithoutIdentity(
+    record,
+    await startedBeforeBoot(record.since),
+  );
+  return classifyByUnitHistory(record, context, reason);
 }

@@ -1,3 +1,5 @@
+import type { AgentFileOperation } from "./AgentFileOperations.js";
+import type { AgentSwarmOperation } from "./AgentPlanSwarmOperations.js";
 import type { AutomationReadOperation } from "./AutomationOperations.js";
 import type { AGENT_STEP_PROGRESS_OPERATION } from "./AgentPlanStepProgress.js";
 import type { AGENT_STEP_REPORT_OPERATION } from "./AgentPlanStepReport.js";
@@ -32,10 +34,12 @@ export interface PagesAgentApiIdentity {
 
 /** Business operations Pages may offer to a verified identity. */
 export type PagesAgentApiBusinessOperation =
+  | AgentFileOperation
   | "ticket.work.read"
   | "ticket.work.save"
   | typeof AGENT_STEP_REPORT_OPERATION
   | typeof AGENT_STEP_PROGRESS_OPERATION
+  | AgentSwarmOperation
   | "assets.download.prepare"
   | "projects.names.list"
   | "chat.sessions.list"

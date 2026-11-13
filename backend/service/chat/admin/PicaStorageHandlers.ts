@@ -1,12 +1,12 @@
 import { PICA_STORAGE_SCHEMAS } from "./PicaStorageContracts";
 
-import type { GoogleDriveFileService } from "@/backend/service/google/GoogleDriveFileService";
+import type { StorageAccountFiles } from "@/backend/service/google/StorageAccountFiles";
 import type { StorageResult } from "@/definition/GoogleDriveFiles";
 import type { PicaStorageTool } from "./PicaStorageContracts";
 
 /** The part of the Storage interface (PAGE-270) the native tools use. */
 export type PicaStorageFiles = Pick<
-  GoogleDriveFileService,
+  StorageAccountFiles,
   "reader" | "writer" | "capabilities" | "isSimulation"
 >;
 

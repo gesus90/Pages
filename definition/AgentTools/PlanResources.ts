@@ -1,3 +1,5 @@
+import { PLAN_TEAMS_SCHEMA, PLAN_OWNER_SCHEMA } from "./PlanAccessSchema.js";
+import { EXECUTION_TARGET } from "./PlanChangeSchema.js";
 import {
   CONFIRMATION_SCHEMA,
   CURSOR_SCHEMA,
@@ -361,14 +363,23 @@ export const PLAN_RESOURCE_WRITE_TOOLS: readonly {
       name: "clone_plan",
       title: "Clone complete agent plan",
       description:
-        "Atomically duplicates the entire saved planId at expectedRevision under a new name. workspaceId explicitly chooses the target; omission transparently keeps the source workspace, returned in the acknowledgement. Requires current source visibility and normal create/resource rights in the target. All nodes, nested members, ports, internal/outer edges, conditions, previous-result and data bindings, positions, globals and configuration survive with independent internal IDs. External ticket/wiki/workspace/model references stay and are reauthorized; files, runs, results, checkpoints, processes, sessions and secrets are never copied. New owner/team follow create_plan; the source's additional read shares are not inherited (normal private create share). The source remains unchanged. No execution starts. Unknown persisted structure is INVALID_REQUEST with plan_schema_unsupported; name conflicts and invalid references use create_plan validation. Same operationId and arguments return the same new plan after fresh source and target access checks, even after response loss. Different arguments or a stale source revision are CONFLICT. oneShot true marks the copy as a one-time plan (Pages deletes it five minutes after a run ended as succeeded); without it the copy is a normal plan, even when the source is a one-time plan. Returns new planId, revision, sourcePlanId, sourceRevision, workspaceId and current control.",
+        "Copies any visible saved plan using the latest source revision. Empty name becomes Kopie von <name>; occupied names get a numeric suffix. An unavailable source workspace is replaced by the first usable workspace of the project; none returns workspace_unavailable. Unavailable agents, models, connections, tickets and wiki parameters are cleared, with open selections marked. Legacy ticket flow and git_closeout nodes are cleaned. Returns planId, revision, sourcePlanId, sourceRevision, workspaceId, control and adjustments [{code,nodeId?}], where code is workspace_replaced, name_suffixed, source_revision_updated, legacy_form_cleaned or reference_cleared. Teams use the same canonical input as update_plan; omission keeps create defaults. Only active administrators can set ownerId (FORBIDDEN otherwise). Additional legacy sharing is never inherited. Source visibility and credentials_in_text remain enforced. No run starts and no workspace files, run history, sessions or credentials are copied. Reusing operationId with identical input returns the committed receipt. oneShot true creates a one-time copy, otherwise it is a normal plan.",
       properties: {
         ...TARGET,
-        name: { type: "string", minLength: 1, maxLength: 120 },
+        name: { type: "string", maxLength: 120 },
         workspaceId: IDENTIFIER_SCHEMA,
+        executionTarget: EXECUTION_TARGET,
         oneShot: { type: "boolean" },
+        teams: PLAN_TEAMS_SCHEMA,
+        ownerId: PLAN_OWNER_SCHEMA,
       },
-      optionalKeys: ["workspaceId", "oneShot"],
+      optionalKeys: [
+        "workspaceId",
+        "oneShot",
+        "executionTarget",
+        "teams",
+        "ownerId",
+      ],
       isDestructive: false,
     }),
   },

@@ -66,8 +66,11 @@ const SHARED_DECLARATIONS = [
   "--sidebar-scene-fill: #5d8763;",
   // The painting fills the space below a short tree instead of the tree.
   "--sidebar-tree-flex: 0 1 auto;",
-  // A resting sticky heading lets the painting through; stuck, it covers.
+  // A resting sticky heading lets the painting through; stuck, it lies on
+  // the veil, and so does its fade, so no opaque band crosses the painting.
   "--sticky-band-rest-opacity: 0;",
+  "--sticky-band-surface: var(--scene-veil);",
+  "--sticky-band-filter: var(--scene-veil-filter);",
   // Text without a surface of its own stays readable where the painting shows.
   "--scene-veil-filter: blur(8px);",
   "--auth-glow-opacity: 0;",

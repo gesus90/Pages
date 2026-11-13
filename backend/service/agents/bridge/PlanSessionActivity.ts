@@ -1,7 +1,26 @@
 import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
+import { readAgentSwarmStep } from "@/definition/AgentPlanSwarmOperations";
+
+import type { AgentPlanStepResult } from "@/definition/AgentPlan";
 
 import type { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
 import type { PlanBridgeGrant } from "./PlanBridgeGrants";
+
+/**
+ * Whether the grant belongs to the main model or a helper of a running swarm (PAGE-313).
+ *
+ * @remarks
+ * The sessions of a swarm have no session record of their own; their grant
+ * names the swarm node or `<node>::H<n>`. Whether the helper still works is
+ * decided by the swarm itself, which refuses the tools of an ended helper.
+ */
+function isSwarmSession(
+  result: AgentPlanStepResult,
+  grant: PlanBridgeGrant,
+): boolean {
+  if (result.swarm === undefined) return false;
+  return readAgentSwarmStep(grant.stepId).nodeId === result.id;
+}
 
 /**
  * Builds the activity check of the plan bridge from the stored runs.
@@ -29,7 +48,8 @@ export function planSessionActivity(
     return allPlanRunResults(run).some(
       (result) =>
         result.status === "running" &&
-        result.session?.instanceId === grant.instanceId,
+        (result.session?.instanceId === grant.instanceId ||
+          isSwarmSession(result, grant)),
     );
   };
 }

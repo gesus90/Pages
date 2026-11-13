@@ -1,3 +1,4 @@
+import { createModelNodeRunners } from "./agent-plan-swarm.server";
 import { canProcessRuns } from "@/backend/runtime/RunsMode";
 import { registerShutdownTask } from "@/backend/runtime/ProcessLifecycle";
 import { PlanRunCommandWorker } from "@/backend/service/agents/runs/PlanRunCommandWorker";
@@ -37,7 +38,6 @@ import { AgentPlanPreparation } from "@/backend/service/agents/AgentPlanPreparat
 import { AgentPlanScripts } from "@/backend/service/agents/AgentPlanScripts";
 import { AgentPlanScriptPreparation } from "@/backend/service/agents/AgentPlanScriptPreparation";
 import { AgentPlanScriptRunner } from "@/backend/service/agents/AgentPlanScriptRunner";
-import { AgentPlanDecisionModel } from "@/backend/service/agents/branching/AgentPlanDecisionModel";
 import { AgentPlanRunEngine } from "@/backend/service/agents/AgentPlanRunEngine";
 import { AgentPlanActiveRunService } from "@/backend/service/agents/AgentPlanActiveRuns";
 import { AgentPlanOverviewService } from "@/backend/service/agents/AgentPlanOverview";
@@ -642,11 +642,7 @@ async function createPlanEngine(
     workGate: new AgentPlanWorkGate(input.database, input.users),
     remoteExecution: parts.remoteExecution,
     scripts: new AgentPlanScriptRunner(parts.scripts),
-    decisions: new AgentPlanDecisionModel({
-      execution: input.agents.agentPlanExecution,
-      profiles: input.agents.agentProfileService,
-      tasks: parts.tasks,
-    }),
+    ...createModelNodeRunners(input, parts),
     runs: parts.runs,
     start: parts.start,
     resources: input.agents.acpResourceScheduler,

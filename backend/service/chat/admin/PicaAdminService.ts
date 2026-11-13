@@ -53,7 +53,9 @@ export interface PicaAdminServiceOptions {
   /** Where signed-in sessions the administrator released are kept, encrypted. */
   readonly browserSessions?: PicaBrowserSessionStore;
   /** The Storage interface of the instance Drive (PAGE-271); without it no Storage tool is offered. */
-  readonly storage?: PicaStorageFiles;
+  readonly storage?: PicaStorageFiles & {
+    readonly forAccount?: (userId: string) => PicaStorageFiles;
+  };
 }
 
 interface AdminScope {
@@ -78,6 +80,7 @@ export class PicaAdminService {
   private readonly operatorBrowsers: PicaOperatorBrowser;
   private readonly scopes = new Map<string, AdminScope>();
   private readonly storage: PicaStorageService | null;
+  private readonly hasAccountStorage: boolean;
 
   public constructor(
     accounts: {
@@ -87,8 +90,12 @@ export class PicaAdminService {
     options: PicaAdminServiceOptions = {},
   ) {
     this.accounts = accounts;
+    this.hasAccountStorage = options.storage?.forAccount !== undefined;
     this.storage = options.storage
-      ? new PicaStorageService(options.storage)
+      ? new PicaStorageService(
+          options.storage,
+          options.storage.forAccount?.bind(options.storage) ?? null,
+        )
       : null;
     this.operatorBrowsers = new PicaOperatorBrowser({
       launch: options.launchBrowser ?? launchPicaBrowser,
@@ -127,14 +134,18 @@ export class PicaAdminService {
   }
 
   /**
-   * Runs one Storage tool with the administrator right resolved before and after it (PAGE-271).
+   * Runs Storage with account-scoped folder rights (PAGE-323).
    *
    * @param call - Tool, checked arguments, job scope and human turn.
-   * @returns The outcome, or `ADMIN_REQUIRED` without an active administrator in the admin mode.
+   * @returns The outcome, or `FORBIDDEN` without a folder grant.
    */
   public async runStorage(call: PicaStorageCall): Promise<PicaToolOutcome> {
     const storage = this.storage;
     if (!storage) return { ok: false, result: null, error: "UNKNOWN_TOOL" };
+    if (this.hasAccountStorage) {
+      await call.context.authorize();
+      return storage.run(call);
+    }
     return this.runPrivileged(
       { operation: call.tool, input: call.parameters },
       call.context,

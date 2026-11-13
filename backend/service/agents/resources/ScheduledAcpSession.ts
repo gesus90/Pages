@@ -18,6 +18,11 @@ interface LeaseLifecycle {
     stepId?: string,
   ) => Promise<void>;
   readonly finish: (isConfirmed: boolean) => Promise<boolean>;
+  /**
+   * Proves the end of the processes from the durable evidence of the lease,
+   * after the native closeout could not confirm it (PAGE-335).
+   */
+  readonly settle?: () => Promise<boolean>;
 }
 
 /** Keeps one lease across turns until its owner closes the session or its process ends. */
@@ -152,13 +157,25 @@ export class ScheduledAcpSession implements PlanSession {
     await this.lifecycle.transition("closing");
     try {
       const closed = await this.session.close();
-      const isConfirmed = await this.lifecycle.finish(closed.isConfirmed);
+      const isConfirmed = await this.lifecycle.finish(
+        closed.isConfirmed || (await this.settleLease()),
+      );
       return { ...closed, isConfirmed };
     } catch (error: unknown) {
       logCaughtError("ScheduledAcpSession", error);
 
-      await this.lifecycle.finish(false);
+      await this.lifecycle.finish(await this.settleLease());
       throw error;
+    }
+  }
+
+  /** A failed proof keeps the lease, so the periodic check decides later. */
+  private async settleLease(): Promise<boolean> {
+    try {
+      return (await this.lifecycle.settle?.()) ?? false;
+    } catch (error: unknown) {
+      logCaughtError("ScheduledAcpSession", error);
+      return false;
     }
   }
 }

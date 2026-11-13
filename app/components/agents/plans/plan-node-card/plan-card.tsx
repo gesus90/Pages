@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 
+import { planStepSelection } from "@/definition/AgentPlanSelection";
 import { cn } from "@/app/lib/cn";
 import { isPlanTemplateNode } from "@/definition/AgentPlanNodeTemplate";
 
@@ -50,6 +51,12 @@ interface PlanCardProps {
 export function PlanCard(props: PlanCardProps): React.ReactElement {
   const { graph } = usePlanFlowContext();
   const { node } = props;
+  const needsSelection =
+    node.type === "agent" && planStepSelection(node) !== null;
+  const nodeIssues = graph.issues.filter((issue) => issue.nodeId === node.id);
+  const hasDestructiveIssue = needsSelection
+    ? nodeIssues.some((issue) => issue.reason !== "agent")
+    : nodeIssues.length > 0;
   return (
     <article
       aria-label={props.label}
@@ -61,8 +68,8 @@ export function PlanCard(props: PlanCardProps): React.ReactElement {
         props.isDimmed && "opacity-70",
         graph.selectedId === node.id &&
           "ring-2 ring-info ring-offset-2 ring-offset-surface",
-        graph.issues.some((issue) => issue.nodeId === node.id) &&
-          "border-destructive",
+        needsSelection && !hasDestructiveIssue && "border-2 border-primary",
+        hasDestructiveIssue && "border-destructive",
       )}
     >
       <PlanCardHeader {...props} />
@@ -124,7 +131,8 @@ function PlanCardHeader(props: PlanCardProps): React.ReactElement {
               (node.type === "agent" ||
                 node.type === "script" ||
                 node.type === "git_closeout" ||
-                node.type === "decision") &&
+                node.type === "decision" ||
+                node.type === "swarm") &&
               planNodeAccent(node.type),
           )}
         >

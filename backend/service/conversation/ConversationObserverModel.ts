@@ -1,7 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import path from "node:path";
+import { rm } from "node:fs/promises";
 
 import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { ChatError } from "@/backend/error/ChatErrors";
@@ -10,6 +8,7 @@ import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 import { CONVERSATION_OBSERVER_LIMITS } from "@/definition/ConversationObserver";
 
 import { turnFailureCode } from "../agents/AgentPlanSessionRecords";
+import { createConversationModelDirectory } from "./ConversationModelDirectory";
 import { picaAcpRunner } from "../chat/acp/PicaAcpRunners";
 
 import type { Usage } from "@agentclientprotocol/sdk";
@@ -79,6 +78,8 @@ export interface ConversationObserverModelDependencies {
   readonly runs: Pick<ConversationObserverRunRepository, "record">;
   /** The simulated observer; set only while the simulation is on. */
   readonly simulation: SimulatedConversationObserver | null;
+  /** Where its working directories are made; see `conversationModelRoot`. */
+  readonly directoryRoot: string;
   readonly now?: () => Date;
 }
 
@@ -250,7 +251,10 @@ export class ConversationObserverModel {
     const { question, personId, assignment } = call;
     const { plans, pica } = this.dependencies;
     if (!plans) throw new ConversationObserverError("observer_unavailable");
-    const directory = await mkdtemp(path.join(tmpdir(), "pages-observer-"));
+    const directory = await createConversationModelDirectory(
+      this.dependencies.directoryRoot,
+      "observer-",
+    );
     let session: PlanSession | null = null;
     try {
       session = await plans.open(

@@ -16,6 +16,7 @@ import {
   stub,
 } from "./local-owner-session-fixture";
 import { newOwner } from "./local-owner-session-harness";
+import { deferred } from "../../service/agents/page81-resource-fixture";
 
 import type { PlanSessionTurn } from "@/backend/agents/AgentPlanExecution";
 import type { AgentPlanContinuationCapabilities } from "@/definition/AgentPlanRecovery";
@@ -296,6 +297,28 @@ describe("LocalOwnerSession journal faults", () => {
 });
 
 describe("LocalOwnerSession close", () => {
+  it("replays confirmed exit-zero closeout after the native process ends on its own", async () => {
+    const terminated = deferred<void>();
+    const result = { ...CLOSED, exit: { code: 0, signal: null } };
+    const session = newSession({
+      terminated: terminated.promise,
+      close: vi.fn(async () => result),
+    });
+    doubles.open.mockResolvedValue(session);
+    const owner = newOwner();
+    await owner.start();
+    await flush();
+    terminated.resolve();
+    await flush();
+
+    expect(session.close).toHaveBeenCalledOnce();
+    await expect(owner.close()).resolves.toEqual(result);
+    await expect(owner.close()).resolves.toEqual(result);
+    expect(session.close).toHaveBeenCalledOnce();
+    expect(appended("closed")).toEqual([{ kind: "closed", result }]);
+    expect(recorderOf().current).toMatchObject({ state: "ended" });
+  });
+
   it("closes the native session once and ends an idle attempt", async () => {
     const session = newSession();
     doubles.open.mockResolvedValue(session);

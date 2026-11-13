@@ -92,7 +92,8 @@ export class AcpResourceRepository implements AcpResourceStore {
           namespace_identity,
           lifecycle,
           check_reason,
-          checked_at
+          checked_at,
+          worker_unit
       FROM acp_resource_leases
       ORDER BY since, instance_id;
     `);
@@ -121,6 +122,7 @@ export class AcpResourceRepository implements AcpResourceStore {
           readNullableTextColumn(row, 9, "check_reason"),
           readNullableTextColumn(row, 10, "checked_at"),
         ),
+        workerUnit: readNullableTextColumn(row, 11, "worker_unit"),
       };
     });
   }
@@ -253,14 +255,16 @@ export class AcpResourceRepository implements AcpResourceStore {
           state,
           since,
           namespace_identity,
-          lifecycle
+          lifecycle,
+          worker_unit
       )
-      VALUES ($instance_id, $user_id, $provider, $run_id, $step_id, $state, $since, $namespace_identity, $lifecycle)
+      VALUES ($instance_id, $user_id, $provider, $run_id, $step_id, $state, $since, $namespace_identity, $lifecycle, $worker_unit)
       ON CONFLICT (instance_id) DO UPDATE SET
           state = excluded.state,
           step_id = excluded.step_id,
           namespace_identity = excluded.namespace_identity,
-          lifecycle = COALESCE(excluded.lifecycle, acp_resource_leases.lifecycle);
+          lifecycle = COALESCE(excluded.lifecycle, acp_resource_leases.lifecycle),
+          worker_unit = COALESCE(excluded.worker_unit, acp_resource_leases.worker_unit);
     `,
       {
         instance_id: record.instanceId,
@@ -274,6 +278,7 @@ export class AcpResourceRepository implements AcpResourceStore {
           ? JSON.stringify(record.namespace)
           : null,
         lifecycle: record.lifecycle ?? null,
+        worker_unit: record.workerUnit ?? null,
       },
     );
   }

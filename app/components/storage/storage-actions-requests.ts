@@ -80,6 +80,9 @@ const errorSchema = z.object({
 });
 
 const capabilitiesSchema = z.object({
+  grantedFolders: z
+    .array(z.object({ ref: z.string(), name: z.string() }))
+    .optional(),
   canRead: z.boolean(),
   canWrite: z.boolean(),
   canRequestWriteAccess: z.boolean(),
@@ -168,13 +171,17 @@ async function readApiReply<Value>(
  */
 export async function requestStorageCapabilities(
   signal: AbortSignal,
+  folderRef?: string | null,
 ): Promise<StorageApiReply<StorageCapabilities>> {
   return readApiReply(
-    fetch(`${STORAGE_API_V1}/capabilities`, {
-      credentials: "same-origin",
-      headers: { Accept: "application/json" },
-      signal,
-    }),
+    fetch(
+      `${STORAGE_API_V1}/capabilities${folderRef ? `?ref=${encodeURIComponent(folderRef)}` : ""}`,
+      {
+        credentials: "same-origin",
+        headers: { Accept: "application/json" },
+        signal,
+      },
+    ),
     capabilitiesSchema,
   );
 }

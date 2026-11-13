@@ -2,6 +2,7 @@ import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 
 import { PlanRunPanel } from "@/app/components/agents/plans/plan-run-panel";
+import { createI18n } from "@/app/lib/i18n";
 
 import { syntheticRun } from "../page72-run-fixture";
 import { agentNode } from "./plan-group-fixture";
@@ -477,6 +478,65 @@ it("shows the refusal of a run request that no finding explains", async () => {
   expect(screen.getByRole("alert").textContent).toContain(
     i18n.t("settings.agents.error.plan_workspace_conflict"),
   );
+});
+
+it("states in English and German why Fortsetzen refused a skipped script that is enabled again", async () => {
+  renderPanel({
+    control: planControl({
+      runId: "run-1",
+      status: "paused",
+      resumeKind: "paused",
+      canResume: true,
+    }),
+    scene: actionScene({
+      ok: false,
+      intent: "resume-plan",
+      error: "plan_skipped_step_enabled",
+      nodeId: "prepare",
+    }),
+  });
+
+  fireEvent.click(button("resume"));
+
+  await waitFor(() =>
+    expect(
+      screen.getByText(i18n.t("plans.panel.state.error.label")),
+    ).toBeDefined(),
+  );
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: new RegExp(i18n.t("plans.panel.state.error.label"), "u"),
+    }),
+  );
+  expect(screen.getByRole("alert").textContent).toContain(
+    "A script that this run skipped is now enabled. Start the run anew.",
+  );
+  expect(
+    createI18n("de").t("settings.agents.error.plan_skipped_step_enabled"),
+  ).toBe(
+    "Ein in diesem Lauf übersprungenes Skript ist jetzt eingeschaltet. Starten Sie den Lauf neu.",
+  );
+});
+
+it("names an enabled skipped script as the block of an ended run and offers a new start", () => {
+  renderPanelWithBlock({
+    code: "plan_skipped_step_enabled",
+    action: "restart",
+  });
+
+  expect(button("resume").hasAttribute("disabled")).toBe(true);
+  expect(
+    screen
+      .getAllByRole("status")
+      .some((element) =>
+        element.textContent?.includes(
+          "A script that this run skipped is now enabled. Start anew.",
+        ),
+      ),
+  ).toBe(true);
+  expect(
+    createI18n("de").t("plans.resumeBlock.reason.plan_skipped_step_enabled"),
+  ).toBe("Ein in diesem Lauf übersprungenes Skript ist jetzt eingeschaltet.");
 });
 
 it("opens and closes the details with the chevron of the heading as with the status line", () => {

@@ -28,6 +28,7 @@ import type { UserRepository } from "@/backend/database/repositories/UserReposit
 import type { UserSettingsRepository } from "@/backend/database/repositories/UserSettingsRepository";
 import type { ResolvedAgentAssignment } from "../agents/AgentAssignmentResolution";
 import type {
+  PicaAcpEmployeeRun,
   PicaAcpRequest,
   PicaAcpService,
   PicaAcpStart,
@@ -138,6 +139,8 @@ export interface AgentJobRequest {
   readonly purpose: AgentConversationPurpose;
   /** The stored conversation an answer belongs to (PAGE-276); its session is kept per agent and conversation. */
   readonly conversationId?: string;
+  /** How the resource view names the conversation of a kept session (PAGE-335). */
+  readonly conversationLabel?: string;
   readonly text: string;
   readonly clientMessageId: string | null;
   /** Ends the wait of the message in the queue (PAGE-304). */
@@ -161,6 +164,22 @@ interface WaitingMessage extends QueuedAgentMessage {
 /** The key of the direct chat of a person with an agent. */
 function chatKey(agentId: string, personId: string): string {
   return `${agentId}:${personId}`;
+}
+
+/**
+ * The session a chat keeps between its rounds (PAGE-335): a direct chat and
+ * a conversation answer every round through one session of the agent; a run
+ * of the agent's own starts a session of its own each time.
+ */
+function keptSessionOf(
+  request: AgentJobRequest,
+): PicaAcpEmployeeRun["keptSession"] {
+  const { purpose, person, employee } = request;
+  if (purpose !== "chat" && purpose !== "conversation") return undefined;
+  const conversation =
+    request.conversationLabel ??
+    (person ? `Chat mit ${person.displayName}` : request.agent.displayName);
+  return { conversation, revision: employee.revision };
 }
 
 function isSessionBusy(error: unknown): boolean {
@@ -206,7 +225,10 @@ function readMessage(input: unknown): AgentMessage {
  * and history (PAGE-304): the direct chat per person, every conversation per
  * conversation. Sessions of different chats run side by side. A message to
  * a chat whose job runs joins that job; above the limits of concurrent
- * sessions a message waits for a free place and is never refused.
+ * sessions a message waits for a free place and is never refused. A direct
+ * chat and a conversation keep their native session between rounds
+ * (PAGE-335): every further round becomes its next turn, and rounds of one
+ * chat run one after another, never as a second process.
  */
 export class AgentEmployeeSessions {
   private readonly dependencies: AgentEmployeeSessionDependencies;
@@ -478,6 +500,7 @@ export class AgentEmployeeSessions {
         const run = await this.employeeRun(agent, employee, {
           assignment,
           audience,
+          keptSession: keptSessionOf(request),
         });
         const start = await acp.start({
           actor: agent,
@@ -646,9 +669,10 @@ export class AgentEmployeeSessions {
       readonly assignment: ResolvedAgentAssignment;
       /** The chat whose rules of sharing `memory_search` applies (PAGE-305). */
       readonly audience: AgentMemoryAudience;
+      readonly keptSession: PicaAcpEmployeeRun["keptSession"];
     },
   ): Promise<NonNullable<PicaAcpStart["employee"]>> {
-    const { assignment, audience } = job;
+    const { assignment, audience, keptSession } = job;
     const { access } = employee;
     const hostServers =
       (await this.dependencies.accessEnvironment?.chatServers(
@@ -659,6 +683,7 @@ export class AgentEmployeeSessions {
     const agentChat = this.dependencies.agentChat?.() ?? null;
     return {
       ...(agentChat ? { agentChat } : {}),
+      ...(keptSession ? { keptSession } : {}),
       runner: employeeAcpRunner(assignment, access, hostServers),
       ...(hostFiles && hasHostTools(access)
         ? {

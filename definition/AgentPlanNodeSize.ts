@@ -1,3 +1,4 @@
+import { PLAN_SWARM_BADGES_PER_ROW } from "./AgentPlanSwarm";
 import { planStepTemplate } from "./AgentPlanConfiguration";
 import { planDecisionMode, planDecisionOutputPorts } from "./AgentPlanDecision";
 
@@ -174,6 +175,15 @@ export function planMemberPosition(
   return { x: origin.x + step.x, y: origin.y + step.y };
 }
 
+/**
+ * The height of a swarm card: head, task, main line and one row of helper
+ * badges per five helpers (PAGE-313).
+ */
+export function planSwarmHeight(workerCount: number): number {
+  const rows = Math.max(1, Math.ceil(workerCount / PLAN_SWARM_BADGES_PER_ROW));
+  return 48 + 26 + 30 + rows * 28 + 12;
+}
+
 /** Cards keep their stored top left corner; only their size follows the card type. */
 export function planNodeWidth(node: AgentPlanNode): number {
   if (node.type === "group" || node.type === "loop")
@@ -181,7 +191,8 @@ export function planNodeWidth(node: AgentPlanNode): number {
   if (
     node.type === "agent" ||
     node.type === "script" ||
-    node.type === "git_closeout"
+    node.type === "git_closeout" ||
+    node.type === "swarm"
   )
     return PLAN_AGENT_WIDTH;
   if (node.type === "decision") return PLAN_DECISION_WIDTH;
@@ -217,5 +228,6 @@ export function planNodeHeight(
   if (node.type === "git_closeout") return PLAN_GIT_CLOSEOUT_HEIGHT;
   if (node.type === "stack") return planStackHeight(node);
   if (node.type === "decision") return decisionHeight(node);
+  if (node.type === "swarm") return planSwarmHeight(node.workers.count);
   return heights[node.type];
 }

@@ -25,6 +25,7 @@ import {
   isPicaCriticalOperation,
 } from "./admin/PicaOperatorCatalog";
 
+import type { RepositoryReadService } from "@/backend/service/github/RepositoryReadService";
 import type { AgentOperationRouter } from "@/backend/service/agents/AgentOperationRouter";
 import type { ChatConfirmationWord } from "@/definition/Chat";
 import type { ChatActionOutcome } from "./ChatPrompt";
@@ -53,6 +54,7 @@ interface AdminCall {
 
 /** What the actions of the chat agent run through. */
 export interface ChatToolDependencies {
+  readonly repositoryReads?: RepositoryReadService;
   /** The operation catalog of the agent API, wired for the chat channel. */
   readonly router: Pick<AgentOperationRouter, "handle">;
   readonly identities: Pick<PicaIdentityService, "verify">;
@@ -74,6 +76,11 @@ export class ChatToolExecutor {
 
   public constructor(dependencies: ChatToolDependencies) {
     this.dependencies = dependencies;
+  }
+
+  /** Exposes the server-owned repository read service to native tools. */
+  public repositoryReads(): RepositoryReadService | undefined {
+    return this.dependencies.repositoryReads;
   }
 
   /**

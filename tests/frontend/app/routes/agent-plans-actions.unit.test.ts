@@ -15,6 +15,7 @@ import type { User } from "@/definition/User";
 
 const service = vi.hoisted(() => ({
   save: vi.fn(),
+  saveSettings: vi.fn(),
   view: vi.fn(),
   play: vi.fn(),
   saveAndPlay: vi.fn(),
@@ -125,6 +126,55 @@ it("saves an existing plan as the revision after the one it was based on", async
   await expect(
     post({ intent: "save-plan", planId: "plan-1", plan: JSON.stringify(PLAN) }),
   ).resolves.toMatchObject({ body: { revision: 1 } });
+});
+
+it("saves plan content together with access settings when access is sent", async () => {
+  service.saveSettings.mockResolvedValue(7);
+
+  await expect(
+    post({
+      intent: "save-plan",
+      planId: "plan-1",
+      plan: JSON.stringify({ ...PLAN, revision: 6 }),
+      access: JSON.stringify({
+        ownerId: "user-2",
+        teams: [
+          {
+            kind: "group",
+            targetId: "group-1",
+            canRead: true,
+            canEdit: true,
+            canRun: false,
+          },
+        ],
+      }),
+    }),
+  ).resolves.toEqual({
+    status: 200,
+    body: { ok: true, intent: "save-plan", planId: "plan-1", revision: 7 },
+  });
+  expect(service.saveSettings).toHaveBeenCalledOnce();
+  expect(service.saveSettings.mock.calls[0]).toMatchObject([
+    "user-1",
+    "plan-1",
+    {
+      plan: { name: "Plan", revision: 6 },
+      access: {
+        revision: 6,
+        ownerId: "user-2",
+        teams: [
+          {
+            kind: "group",
+            targetId: "group-1",
+            canRead: true,
+            canEdit: true,
+            canRun: false,
+          },
+        ],
+      },
+    },
+  ]);
+  expect(service.save).not.toHaveBeenCalled();
 });
 
 it("answers a conflicting save with the current revision", async () => {

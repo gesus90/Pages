@@ -1,5 +1,13 @@
+import { getPagesRuntime } from "@/backend/runtime/PagesRuntime";
+import {
+  callRunsSwarm,
+  runsSocketPath,
+} from "@/backend/service/agents/runs/RunsSocket";
+import { AgentPlanSwarmService } from "@/backend/service/agents/swarm/AgentPlanSwarmService";
+import { PROCESS_SWARM_REGISTRY } from "@/backend/service/agents/swarm/SwarmRegistry";
 import path from "node:path";
 
+import { AgentFileOperationService } from "@/backend/service/agents/AgentFileOperationService";
 import { AgentAssetDownloadService } from "@/backend/service/agents/AgentAssetDownloadService";
 import { createAgentAssetReaders } from "@/backend/service/agents/AgentAssetReaders";
 import { AgentTicketUploadService } from "@/backend/service/agents/AgentTicketUploadService";
@@ -50,12 +58,12 @@ import { AgentRunCredentialService } from "@/backend/service/mcp/AgentRunCredent
 import { AgentOperationKeyRepository } from "@/backend/database/repositories/agents/AgentOperationKeyRepository";
 import { McpUserApi } from "@/backend/service/mcp/users/McpUserApi";
 import { PasswordHasher } from "@/backend/auth/PasswordHasher";
+import { AutomationOperationService } from "@/backend/service/automation/AutomationOperationService";
 
 import { runnerAssetUpload } from "./agent-asset-return.server";
 import { createMcpDeviceServices } from "./mcp-device-services.server";
 
-import { AutomationOperationService } from "@/backend/service/automation/AutomationOperationService";
-
+import type { AgentFileDependencies } from "@/backend/service/agents/AgentFileOperationService";
 import type { AutomationService } from "@/backend/service/automation/AutomationService";
 import type { McpDeviceApplicationServices } from "./mcp-device-services.server";
 import type { AgentPlanStepReportService } from "@/backend/service/agents/AgentPlanStepReportService";
@@ -129,6 +137,7 @@ function createWikiOperations(
 
 /** What the operation catalogs of both agent channels are built from. */
 interface RouterContext extends Omit<OperationContext, "channel"> {
+  readonly externalFiles?: AgentFileDependencies;
   readonly directory: string;
   readonly planRecovery?: AgentPlanRecoveryService;
   readonly planSessions?: AgentSessionService;
@@ -180,6 +189,9 @@ function createMcpOperationRouter(
   const { creation } = context;
   const planning = createAgentPlanningServices(context);
   return new AgentOperationRouter({
+    files: context.externalFiles
+      ? new AgentFileOperationService(context.externalFiles)
+      : undefined,
     administration: new AgentAdministrationService(
       context.database,
       context.cache,
@@ -239,6 +251,9 @@ function createChatOperationRouter(
   const channel = "chat";
   const planning = createAgentPlanningServices({ ...context, channel });
   return new AgentOperationRouter({
+    files: context.externalFiles
+      ? new AgentFileOperationService(context.externalFiles)
+      : undefined,
     administration: new AgentAdministrationService(
       context.database,
       context.cache,
@@ -449,6 +464,14 @@ function createBinaryAssetServices(input: {
             reports: new AgentPlanStepReportRepository(database),
             progress: new AgentPlanStepProgressRepository(database),
           }),
+          swarms: new AgentPlanSwarmService({
+            local: PROCESS_SWARM_REGISTRY,
+            forward: async (call) =>
+              callRunsSwarm(
+                runsSocketPath((await getPagesRuntime()).getDatabasePath()),
+                call,
+              ),
+          }),
           downloads: agentAssetDownloadService,
           upload: runnerAssetUpload(async () => ({
             agentUploadTicketService,
@@ -468,6 +491,7 @@ function createBinaryAssetServices(input: {
 
 /** Services and storage context shared by the personal MCP and chat routers. */
 interface McpWorkspace {
+  readonly externalFiles?: AgentFileDependencies;
   readonly directory: string;
   readonly wikiService: Pick<WikiService, "getSettings" | "openAttachment">;
   /** What reacts to a committed ticket change; without it nothing is published or invalidated. */
@@ -527,6 +551,7 @@ export function createMcpServices(
     events: pagesEventPublisher,
   };
   const routers: RouterContext = {
+    externalFiles: workspace.externalFiles,
     database,
     directory: workspace.directory,
     events: pagesEventPublisher,

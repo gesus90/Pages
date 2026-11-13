@@ -80,9 +80,7 @@ export class AgentPlanTeamService {
     request: AgentPlanAccessRequest,
   ): Promise<number> {
     const plan = await this.dependencies.access.require(userId, planId);
-    const teams = request.teams && normalizePlanTeams(request.teams);
-    if (teams) await this.checkTeams(plan, teams);
-    if (request.ownerId !== undefined) await this.checkOwner(plan, request);
+    const { teams } = await this.validateChange(plan, request);
     if (plan.revision !== request.revision)
       throw new AgentError("plan_conflict");
     return this.writer().change({
@@ -93,6 +91,19 @@ export class AgentPlanTeamService {
       ...(request.ownerId === undefined ? {} : { ownerId: request.ownerId }),
       journal: request.journal,
     });
+  }
+
+  /** Validates a settings change before any graph or access write can commit. */
+  public async validateChange(
+    plan: AgentPlanView,
+    request: AgentPlanAccessRequest,
+  ): Promise<AgentPlanAccessRequest> {
+    if (request.teams) await this.checkTeams(plan, request.teams);
+    if (request.ownerId !== undefined) await this.checkOwner(plan, request);
+    return {
+      ...request,
+      ...(request.teams ? { teams: normalizePlanTeams(request.teams) } : {}),
+    };
   }
 
   /**
@@ -224,7 +235,7 @@ export class AgentPlanTeamService {
       throw new AgentError("plan_team_forbidden");
     if (teams.length > AGENT_PLAN_TEAM_LIMIT)
       throw new AgentError("plan_invalid");
-    await this.dependencies.access.validateTeams(teams);
+    await this.dependencies.access.validateTeams(teams, plan.projectId);
   }
 
   private async checkOwner(

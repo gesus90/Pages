@@ -1793,7 +1793,11 @@ earlier one, and every concrete blocker. Two separate actions follow:
   digest are taken over unchanged; nothing else counts as done. Only open,
   failed or interrupted work runs again, each as a new attempt with the saved
   revision, which must keep every completed node, its dependencies, its group
-  and every started loop unchanged (`plan_completed_changed`). A loop keeps its
+  and every started loop unchanged (`plan_completed_changed`). A script that
+  was disabled and skipped in the earlier run must stay disabled: enabling it
+  again refuses Continue and Resume with `plan_skipped_step_enabled` and its
+  node ID, because running it now would invalidate the completed steps after
+  it; only a new run with Play executes it. A loop keeps its
   completed iterations and the completed members of its unfinished iteration.
   Every node that had started — an agent session or a script process — needs
   the executor's explicit reviewed decision first (`review_required`); its

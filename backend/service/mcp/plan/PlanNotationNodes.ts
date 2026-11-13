@@ -53,6 +53,7 @@ const BINDING_TYPES: readonly string[] = [
   "git_closeout",
   "group",
   "loop",
+  "swarm",
 ];
 
 /** The declarations of one block: its nodes and frames in written order. */

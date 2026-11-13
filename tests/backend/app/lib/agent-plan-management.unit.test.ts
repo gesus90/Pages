@@ -23,7 +23,11 @@ interface PlanFakes {
 function planFakes(): PlanFakes {
   return {
     create: vi.fn(async () => "created"),
-    clone: vi.fn(async () => "copy"),
+    clone: vi.fn(async () => ({
+      planId: "copy",
+      revision: 1,
+      adjustments: [],
+    })),
     remove: vi.fn(async () => undefined),
     keep: vi.fn(async () => undefined),
     visible: vi.fn(async () => []),
@@ -34,7 +38,7 @@ function servicesWith(fakes: PlanFakes): ReturnType<typeof servicesOf> {
   return servicesOf({
     agentPlanManagement: {
       create: fakes.create,
-      clone: fakes.clone,
+      cloneReceipt: fakes.clone,
       remove: fakes.remove,
       keep: fakes.keep,
     },
@@ -140,7 +144,6 @@ it("copies the named revision to the Pages host by default", async () => {
       expectedRevision: 4,
       name: "Copy",
       workspaceId: "workspace",
-      executionTarget: { kind: "local" },
     },
     "page-dialog-2",
   );
@@ -149,6 +152,7 @@ it("copies the named revision to the Pages host by default", async () => {
     intent: "clone-plan",
     planId: "copy",
     revision: 1,
+    adjustments: [],
   });
 });
 
@@ -179,7 +183,7 @@ it("refuses a copy of a missing or malformed revision", async () => {
       planError(
         clonePlanAction("copier", services, formOf({ ...CLONE, revision })),
       ),
-    ).resolves.toBe("plan_invalid");
+    ).resolves.toBe("clone_request_invalid");
   }
   expect(fakes.clone).not.toHaveBeenCalled();
 });

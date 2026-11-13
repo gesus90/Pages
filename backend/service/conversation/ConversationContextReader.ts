@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { ConversationError } from "@/backend/error/ConversationError";
+import { logCaughtError } from "@/backend/logging/Logger";
 import { redactCredentials } from "@/backend/security/AgentTextSafety";
 import { CONVERSATION_CONTEXT_READ_LIMITS } from "@/definition/ConversationObserver";
 
@@ -11,7 +12,11 @@ import type {
 } from "@/backend/database/repositories/conversation/ConversationMessageRepository";
 import type { ConversationRepository } from "@/backend/database/repositories/conversation/ConversationRepository";
 import type { StoredGroupContext } from "@/backend/database/repositories/conversation/ConversationGroupContextRepository";
-import type { ConversationGroupContextView } from "@/definition/ConversationObserver";
+import type {
+  ConversationGroupContextView,
+  ConversationObserverStatus,
+} from "@/definition/ConversationObserver";
+import type { ConversationObserverMonitor } from "./ConversationObserverMonitor";
 import type { User } from "@/definition/User";
 import type {
   ConversationAccounts,
@@ -27,6 +32,8 @@ export interface ConversationContextReaderDependencies {
     "find" | "pendingCount" | "isSourceCurrent"
   >;
   readonly directory: Pick<ConversationDirectory, "read">;
+  /** How the observer of a group fared lately; absent where nothing records it. */
+  readonly observer?: Pick<ConversationObserverMonitor, "status">;
 }
 
 /** One message as `read_conversation_context` returns it. */
@@ -167,7 +174,9 @@ export class ConversationContextReader {
     );
     if (conversation?.kind !== "group")
       throw new ConversationError("not_found");
-    return this.view(conversationId);
+    const view = await this.view(conversationId);
+    const observer = await this.observerStatus(conversationId);
+    return observer === null ? view : { ...view, observer };
   }
 
   /** The context of a group; the caller checked the membership. */
@@ -248,5 +257,17 @@ export class ConversationContextReader {
       nextAfterSequence: last?.sequence ?? after,
       hasMore: page.length > messages.length,
     };
+  }
+
+  /** A status that cannot be read leaves the context readable without it. */
+  private async observerStatus(
+    conversationId: string,
+  ): Promise<ConversationObserverStatus | null> {
+    try {
+      return (await this.dependencies.observer?.status(conversationId)) ?? null;
+    } catch (error: unknown) {
+      logCaughtError("ConversationContextReader", error);
+      return null;
+    }
   }
 }

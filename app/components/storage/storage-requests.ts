@@ -68,6 +68,7 @@ const itemSchema = z.object({
 });
 
 const browseSchema = z.object({
+  isScoped: z.boolean().optional(),
   kind: z.literal("browse"),
   accountEmail: z.string().nullable(),
   reach: z.enum(["full", "app_files"]),

@@ -23,6 +23,9 @@ const mocks = vi.hoisted(() => ({
   content: vi.fn(),
 }));
 
+vi.mock("@/app/components/storage/storage-history", () => ({
+  StorageHistory: () => null,
+}));
 vi.mock("@/app/components/storage/use-storage-folder", () => ({
   useStorageFolder: mocks.folder,
 }));
@@ -49,12 +52,14 @@ vi.mock("@/app/components/storage/storage-header", () => ({
 vi.mock("@/app/components/storage/storage-action-toolbar", () => ({
   StorageActionToolbar: (props: {
     canAddHere: boolean;
+    canUseTrash: boolean;
     isTrashOpen: boolean;
     onToggleTrash: () => void;
   }) => (
     <div data-testid="action-toolbar">
       <span>
-        add:{String(props.canAddHere)} trash:{String(props.isTrashOpen)}
+        add:{String(props.canAddHere)} trash:{String(props.isTrashOpen)}{" "}
+        allowed:{String(props.canUseTrash)}
       </span>
       <button onClick={props.onToggleTrash} type="button">
         toggle trash
@@ -643,4 +648,42 @@ it("hides the action error while a dialog is open", () => {
   renderPage();
 
   expect(screen.queryByRole("button", { name: "Dismiss" })).toBeNull();
+});
+
+it("keeps trash reading for an administrator with read-only provider scopes", () => {
+  setup(
+    modelOf(),
+    writingOf({
+      capabilities: capabilitiesOf({
+        canWrite: false,
+        operations: ["list", "capabilities"],
+      }),
+      canWrite: false,
+    }),
+  );
+  renderPage();
+  expect(screen.getByTestId("action-toolbar").textContent).toContain(
+    "allowed:true",
+  );
+});
+
+it("hides administrative navigation and disables trash for a shared-folder account", () => {
+  setup(
+    modelOf({
+      reading: { kind: "loaded", result: resultOf({ isScoped: true }) },
+    }),
+    writingOf({
+      capabilities: capabilitiesOf({
+        grantedFolders: [{ ref: "pages", name: "Pages" }],
+        operations: ["list", "upload"],
+      }),
+    }),
+  );
+  renderPage();
+  expect(screen.getByRole("link", { name: "Shared folders" })).toBeTruthy();
+  expect(screen.queryByText("Choose start folder")).toBeNull();
+  expect(screen.getByTestId("action-toolbar").textContent).toContain(
+    "allowed:false",
+  );
+  expect(screen.queryByTestId("picker")).toBeNull();
 });

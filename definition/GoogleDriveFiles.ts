@@ -125,6 +125,11 @@ export interface StorageConfirmation {
 
 /** What the connected account and this instance allow right now. */
 export interface StorageCapabilities {
+  /** Explicit roots offered to non-administrators; absent for administrators. */
+  readonly grantedFolders?: readonly {
+    readonly ref: string;
+    readonly name: string;
+  }[];
   readonly canRead: boolean;
   /** Whether the granted Google scopes allow changes. */
   readonly canWrite: boolean;

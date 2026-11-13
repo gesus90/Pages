@@ -16,13 +16,36 @@ import type { PicaCodexTool } from "@/backend/agents/acp/PicaCodexGlue";
 import type { PicaCodexTurnBinding } from "@/backend/agents/acp/PicaCodexRequests";
 import type { RuntimeExecutionContext } from "@/backend/agents/runtime/RuntimeExecutionContext";
 import type { AgentRunAccess } from "@/definition/AgentConfiguration";
-import type { PicaBridgeDescriptor, PicaBridgeLease } from "./PicaBridge";
+import type {
+  PicaBridgeDescriptor,
+  PicaBridgeLease,
+  PicaBridgeMcpChannel,
+} from "./PicaBridge";
 
 /** What a credential reads from the specification of its job. */
 export interface PicaAcpCredentialSource {
   readonly directory: string;
   readonly agent: { readonly connection: { readonly provider: string } };
   readonly run: { readonly options: { readonly access: AgentRunAccess } };
+}
+
+/**
+ * The MCP server of Pica's bridge with one credential.
+ *
+ * @param descriptor - The endpoint and the credential.
+ * @returns The one server a session reaches the Pages tools through.
+ */
+export function bridgeServers(
+  descriptor: PicaBridgeDescriptor,
+): readonly McpServer[] {
+  return [
+    {
+      type: "http",
+      name: PAGES_MCP_SERVER,
+      url: descriptor.url,
+      headers: [{ name: "Authorization", value: descriptor.authorization }],
+    },
+  ];
 }
 
 /**
@@ -84,15 +107,20 @@ export class PicaAcpCredential {
    * admits calls only during a running turn of this job and ends with it.
    */
   public mcpServers(): readonly McpServer[] {
-    const descriptor = this.requireLease().openMcp();
-    return [
-      {
-        type: "http",
-        name: PAGES_MCP_SERVER,
-        url: descriptor.url,
-        headers: [{ name: "Authorization", value: descriptor.authorization }],
-      },
-    ];
+    return bridgeServers(this.requireLease().openMcp());
+  }
+
+  /**
+   * The MCP server of a chat session that outlives this job (PAGE-335): its
+   * credential stays with the session and is bound to this job now.
+   */
+  public openMcpChannel(): PicaBridgeMcpChannel {
+    return this.requireLease().openMcpChannel();
+  }
+
+  /** Binds the MCP credential of a resting chat session to this job. */
+  public attachMcpChannel(channel: PicaBridgeMcpChannel): void {
+    this.requireLease().attachMcpChannel(channel);
   }
 
   /** The helper a Claude Code turn may run; `null` between turns. */

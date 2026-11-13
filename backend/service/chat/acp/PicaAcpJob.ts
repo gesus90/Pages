@@ -10,7 +10,11 @@ import {
   withLogContext,
 } from "@/backend/logging/Logger";
 
-import { picaSteerText, picaTurnPrompt } from "./PicaAcpContent";
+import {
+  continuedPicaBrief,
+  picaSteerText,
+  picaTurnPrompt,
+} from "./PicaAcpContent";
 import { PicaAcpJournal } from "./PicaAcpJournal";
 import { PicaAcpCredential } from "./PicaAcpCredential";
 import { PicaAcpUsage } from "./PicaAcpUsage";
@@ -28,6 +32,7 @@ import {
 } from "./PicaAcpTurnResult";
 import { PicaAcpUpdates } from "./PicaAcpUpdates";
 import { chatMcpServers } from "./PicaAcpRunners";
+import { openPicaSession } from "./PicaAcpPoolOpening";
 
 import type { PromptCapabilities } from "@agentclientprotocol/sdk";
 import type { DatabaseLogMetrics } from "@/backend/logging/DatabaseLogMetrics";
@@ -50,6 +55,7 @@ import type { PicaAcpRunner } from "./PicaAcpRunners";
 import type { PicaAcpMessage } from "./PicaAcpSteering";
 import type { PicaAcpOutcome } from "./PicaAcpTurnResult";
 import type { PicaAcpJobDependencies } from "./PicaAcpJobDependencies";
+import type { PicaAcpJobPool, PicaAcpPooledInput } from "./PicaAcpPoolOpening";
 
 export type { PicaAcpJobDependencies } from "./PicaAcpJobDependencies";
 
@@ -79,6 +85,8 @@ export interface PicaAcpJobSpecification {
   readonly resumeSessionId: string | null;
   /** Runs a task in the queue of the conversation. */
   readonly gate: <Result>(task: () => Promise<Result>) => Promise<Result>;
+  /** The chat session of an agent employee kept between rounds (PAGE-335); absent opens one per job. */
+  readonly pool?: PicaAcpJobPool;
 }
 
 /**
@@ -349,14 +357,19 @@ export class PicaAcpJob {
     // A continued agent session knows the conversation; a new one gets the
     // transcript, and a brief that keeps its context gets it on every turn.
     const turnBrief =
-      resumeSessionId === null || brief.keepsContext === true
-        ? brief
-        : { ...brief, prompt: { ...brief.prompt, history: [], summary: null } };
-    const session = await this.dependencies.plans.open(
-      this.sessionInput(message, turnBrief, resumeSessionId),
+      resumeSessionId === null ? brief : continuedPicaBrief(brief);
+    const session = await openPicaSession({
+      pool: this.specification.pool,
+      plans: this.dependencies.plans,
       signal,
-      this.observer(),
-    );
+      observer: this.observer(),
+      listener: this.updates,
+      credential: this.credential,
+      hasBridgeMcp: this.specification.run.runner.hasBridgeMcp === true,
+      input: (start) =>
+        this.sessionInput(message, turnBrief, resumeSessionId, start),
+      turn: () => this.followUpInput(message),
+    });
     this.session = session;
     await this.journal.record({ kind: "phase", phase: "running" });
     return this.awaitTurn(session.turn);
@@ -398,28 +411,22 @@ export class PicaAcpJob {
     const session = this.session;
     if (!session?.next) throw new PicaAcpJobError("providerFailed");
     await this.beginTurn("followUp", message);
-    const { brief } = this.specification;
-    const input: AgentPlanExecutionInput = {
-      ...this.turnInput(
-        message,
-        brief.keepsContext === true
-          ? brief
-          : {
-              ...brief,
-              prompt: { ...brief.prompt, history: [], summary: null },
-            },
-      ),
+    const result = await this.awaitTurn(
+      session.next(this.followUpInput(message), signal, this.observer()),
+    );
+    signal.throwIfAborted();
+    requireCompleted(result);
+    return this.storeAnswer(result.output);
+  }
+
+  private followUpInput(message: PicaAcpMessage): AgentPlanExecutionInput {
+    return {
+      ...this.turnInput(message, continuedPicaBrief(this.specification.brief)),
       agent: this.specification.agent,
       userId: this.userId,
       directory: this.specification.directory,
       beforeStart: () => this.authorize(),
     };
-    const result = await this.awaitTurn(
-      session.next(input, signal, this.observer()),
-    );
-    signal.throwIfAborted();
-    requireCompleted(result);
-    return this.storeAnswer(result.output);
   }
 
   private async beginTurn(
@@ -452,10 +459,12 @@ export class PicaAcpJob {
     }
   }
 
+  /** The input of a new native session; a pooled one gets the listener and credential of the pool. */
   private sessionInput(
     message: PicaAcpMessage,
     brief: PicaTurnBrief,
     resumeSessionId: string | null,
+    pooled?: PicaAcpPooledInput,
   ): AgentPlanSessionInput {
     const { agent, directory, run } = this.specification;
     return {
@@ -466,10 +475,13 @@ export class PicaAcpJob {
       options: run.options,
       instanceId: randomUUID(),
       chat: {
-        ...chatMcpServers(run.runner, () => this.credential.mcpServers()),
+        ...chatMcpServers(
+          run.runner,
+          () => pooled?.servers ?? this.credential.mcpServers(),
+        ),
         ...(run.runner.isUnisolated === true ? { isUnisolated: true } : {}),
         resumeSessionId,
-        listener: this.updates,
+        listener: pooled?.listener ?? this.updates,
       },
       beforeStart: () => this.authorize(),
     };
@@ -619,12 +631,10 @@ export class PicaAcpJob {
   }
 
   private observer(): PlanSessionObserver {
-    return {
-      started: () => undefined,
-      identified: (sessionId) => {
-        this.acpSessionId = sessionId;
-      },
+    const identified = (sessionId: string): void => {
+      this.acpSessionId = sessionId;
     };
+    return { started: () => undefined, identified };
   }
 
   private authorize(): Promise<void> {

@@ -3,6 +3,7 @@ import { beforeEach, expect, it, vi } from "vitest";
 import { CliProcessRunner } from "@/backend/agents/cli/CliProcessRunner";
 import { CliSessionExecution } from "@/backend/agents/cli/CliSessionExecution";
 import { AgentError } from "@/backend/error/AgentErrors";
+import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
 import {
   DEFAULT_AGENT_RUN_OPTIONS,
   acpRunOptions,
@@ -29,6 +30,7 @@ import type { FakeAdapterOptions } from "../acp/fake-acp-adapter";
 import type { FakeCliSpawn } from "./fake-cli-spawn";
 
 import type * as OwnedNamespaceModule from "@/backend/agents/cli/CliOwnedNamespace";
+import type * as WorkerUnitModule from "@/backend/agents/cli/CliWorkerUnit";
 
 const files = vi.hoisted(() => ({ existing: new Set<string>() }));
 // This fixture spawns an in-memory adapter, so its synthetic PID has no /proc entry.
@@ -49,6 +51,13 @@ vi.mock("node:fs/promises", () => ({
 }));
 const scan = vi.hoisted(() => ({
   endTaggedProcesses: vi.fn(async () => ({ found: 0, remaining: 0 })),
+}));
+const workerUnits = vi.hoisted(() => ({
+  settleWorkerUnits: vi.fn(async () => 0),
+}));
+vi.mock("@/backend/agents/cli/CliWorkerUnit", async (importOriginal) => ({
+  ...(await importOriginal<typeof WorkerUnitModule>()),
+  settleWorkerUnits: workerUnits.settleWorkerUnits,
 }));
 vi.mock("@/backend/agents/cli/CliProcessScan", () => ({
   RUN_INSTANCE_VARIABLE: "PAGES_RUN_INSTANCE",
@@ -119,6 +128,9 @@ function harness(
     readonly isLoggedIn?: boolean;
     readonly provider?: CliProviderId;
     readonly adapter?: FakeAdapterOptions;
+    readonly units?: ConstructorParameters<
+      typeof CliSessionExecution
+    >[0]["units"];
   } = {},
 ): Harness {
   const isClaude = setup.provider === "claude_code";
@@ -148,6 +160,7 @@ function harness(
       signalGroup: fake.signalGroup,
     }),
     isolation: setup.isolation,
+    units: setup.units,
   });
   return { execution, fake, secure };
 }
@@ -540,4 +553,79 @@ it("keeps a partial-start lease when process cleanup is unconfirmed even if cred
   expect(world.cleanup).not.toHaveBeenCalled();
   expect(world.scheduler.snapshot().active[0]?.state).toBe("cleanup_failed");
   await world.scheduler.shutdown();
+});
+
+it("frames an unisolated YOLO chat by its worker unit: identity and unit before the turn, confirmed closeout, released lease (PAGE-335, PAGE-340)", async () => {
+  const world = resourceWorld({ maxConcurrentAcpSessions: 0 });
+  await world.scheduler.recover();
+  const settle = vi.fn(async () => "success" as const);
+  const unit = {
+    name: "pages-acp-instance-synthetic-0123abcd.service",
+    signal: vi.fn(),
+    started: vi.fn(),
+    settle,
+  };
+  const { execution, fake } = harness({
+    resources: world.scheduler,
+    provider: "claude_code",
+    units: {
+      isAvailable: async () => true,
+      wrap: async (request) => ({ request, unit }),
+    },
+  });
+  const watcher = observer();
+  scan.endTaggedProcesses.mockRejectedValue(
+    new Error("Process ownership is unverified for legacy session"),
+  );
+
+  const session = await execution.open(
+    {
+      ...input("claude_code", YOLO),
+      resourceContext: undefined,
+      chat: {
+        isUnisolated: true,
+        resumeSessionId: null,
+        listener: { update: () => {}, prompted: () => {}, closed: () => {} },
+      },
+    },
+    new AbortController().signal,
+    watcher,
+  );
+
+  expect(fake.spawned[0]?.file).not.toBe("/usr/bin/bwrap");
+  expect(world.records.get("instance-synthetic")).toMatchObject({
+    lifecycle: "process",
+    workerUnit: unit.name,
+    namespace: { unit: unit.name, boot: "synthetic-boot" },
+  });
+  expect(watcher.started.mock.calls[0]?.[0]).toMatchObject({
+    namespace: { unit: unit.name },
+  });
+  await session.turn;
+  const closed = await session.close();
+
+  expect(closed.isConfirmed).toBe(true);
+  expect(settle).toHaveBeenCalled();
+  expect(workerUnits.settleWorkerUnits).toHaveBeenCalledWith(
+    "instance-synthetic",
+  );
+  expect(scan.endTaggedProcesses).not.toHaveBeenCalled();
+  expect(world.records.has("instance-synthetic")).toBe(false);
+});
+
+it("secures the prepared credentials when cancellation occurs before spawn", async () => {
+  const { execution, fake, secure } = harness();
+  const controller = new AbortController();
+  await expect(
+    execution.open(
+      {
+        ...input("codex_cli", READ_ONLY),
+        beforeStart: async () => controller.abort(),
+      },
+      controller.signal,
+      observer(),
+    ),
+  ).rejects.toBeInstanceOf(AgentPlanCancelledError);
+  expect(fake.spawned).toEqual([]);
+  expect(secure).toHaveBeenCalledOnce();
 });

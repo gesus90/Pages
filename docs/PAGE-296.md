@@ -58,8 +58,9 @@ missing choice or a person outside the connection scope means no call
 
 The call runs apart from Pica's chat: no chat session, no memory, no
 `SOUL.md`, no tools. It opens a short ACP session of the new purpose
-`observer` on the plan execution path in an empty temporary directory,
-read-only, without web, shell or MCP server, with a five-minute deadline.
+`observer` on the plan execution path in an empty private directory below
+`observer-sessions` next to Pica's working directories (PAGE-340: the worker
+unit does not see a private `/tmp` of the Pages service), read-only, without web, shell or MCP server, with a five-minute deadline.
 Every driver maps `observer` to a profile without tools (Codex: read-only,
 shell/apps/web off, every request refused; Claude Code: `tools: []`, no
 session kept; Antigravity: `enabledTools: []`, no MCP server; OpenCode: the

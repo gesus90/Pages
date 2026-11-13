@@ -4,6 +4,7 @@ import { readPlanText } from "@/backend/agents/AgentPlanInput";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { planExecutionTargetSchema } from "@/definition/AgentPlanExecution";
 
+import { readTeams } from "./agent-plan-access-actions.server";
 import { AGENT_NO_STORE } from "./settings-actions/settings-agents-response.server";
 
 import type { AgentPlanExecutionTarget } from "@/definition/AgentPlanExecution";
@@ -85,20 +86,40 @@ export async function clonePlanAction(
   services: PlanServices,
   formData: FormData,
 ): Promise<Response> {
-  const target = readTarget(formData);
-  const planId = await services.agentPlanManagement.clone(
-    userId,
-    readPlanText(formData.get("planId")),
-    {
-      expectedRevision: readRevision(formData),
-      name: readPlanText(formData.get("name"), 120),
-      workspaceId: readPlanText(formData.get("workspaceId")),
-      executionTarget: target ?? { kind: "local" },
-      ...(formData.get("oneShot") === "true" ? { oneShot: true } : {}),
-    },
-    readRequestKey(formData),
-  );
-  return planCreated("clone-plan", planId);
+  try {
+    const target = readTarget(formData);
+    const receipt = await services.agentPlanManagement.cloneReceipt(
+      userId,
+      readPlanText(formData.get("planId")),
+      {
+        expectedRevision: readRevision(formData),
+        name:
+          String(formData.get("name") ?? "").trim() === ""
+            ? ""
+            : readPlanText(formData.get("name"), 120),
+        ...(formData.get("workspaceId")
+          ? { workspaceId: readPlanText(formData.get("workspaceId")) }
+          : {}),
+        ...(formData.has("target")
+          ? { executionTarget: target ?? { kind: "local" as const } }
+          : {}),
+        ...(formData.has("teams") ? { teams: readTeams(formData) } : {}),
+        ...(formData.get("ownerId")
+          ? { ownerId: readPlanText(formData.get("ownerId")) }
+          : {}),
+        ...(formData.get("oneShot") === "true" ? { oneShot: true } : {}),
+      },
+      readRequestKey(formData),
+    );
+    return Response.json(
+      { ok: true, intent: "clone-plan", ...receipt },
+      { headers: AGENT_NO_STORE },
+    );
+  } catch (error: unknown) {
+    if (error instanceof AgentError && error.code === "plan_invalid")
+      throw new AgentError("clone_request_invalid");
+    throw error;
+  }
 }
 
 /**

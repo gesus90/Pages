@@ -11,6 +11,7 @@ export function storageRoutes(
   resource: (path: string, file: string) => RouteConfigEntry,
 ): RouteConfigEntry[] {
   return [
+    resource("storage-api/access", "routes/storage-access-api.ts"),
     resource("settings-api/google-drive", "routes/settings-google-drive.ts"),
     resource(
       "settings-api/google-drive/callback",
@@ -18,5 +19,18 @@ export function storageRoutes(
     ),
     resource("storage-api", "routes/storage-api.ts"),
     resource("storage-api/v1/:operation", "routes/storage-api-v1.ts"),
+  ];
+}
+
+/** Declares bearer-authenticated file resources outside the cookie-authenticated workspace frame. */
+export function mcpFileRoutes(
+  resource: (path: string, file: string) => RouteConfigEntry,
+): RouteConfigEntry[] {
+  return [
+    resource("api/mcp/v1/storage/*", "routes/api-mcp-v1-storage.ts"),
+    resource(
+      "api/mcp/v1/repository/:operation",
+      "routes/api-mcp-v1-repository.ts",
+    ),
   ];
 }

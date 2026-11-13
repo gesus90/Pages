@@ -112,7 +112,7 @@ async function validateNodeAccess(
   },
 ): Promise<void> {
   const { node, projectId } = context;
-  if (node.type === "task")
+  if (node.type === "task" && node.taskId)
     await dependencies.tasks.snapshot(userId, projectId, node.taskId);
   if (
     node.type === "agent" &&

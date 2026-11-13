@@ -1,3 +1,6 @@
+import { StorageAccessRepository } from "@/backend/database/repositories/google/StorageAccessRepository";
+import { StorageAccessService } from "@/backend/service/google/StorageAccessService";
+import { StorageFileReader } from "@/backend/service/google/StorageFileReader";
 import { GoogleDriveRepository } from "@/backend/database/repositories/google/GoogleDriveRepository";
 import { StorageStartFolderRepository } from "@/backend/database/repositories/google/StorageStartFolderRepository";
 import { GoogleDriveApiClient } from "@/backend/google/GoogleDriveApiClient";
@@ -15,6 +18,7 @@ import { GoogleDriveFileService } from "@/backend/service/google/GoogleDriveFile
 import { GoogleDriveSimulatedConnection } from "@/backend/service/google/GoogleDriveSimulatedConnection";
 import { GoogleDriveStorageService } from "@/backend/service/google/GoogleDriveStorageService";
 
+import type { StorageAccessDependencies } from "@/backend/service/google/StorageAccessService";
 import type { Database } from "@/backend/database/Database";
 import type { GoogleFetch } from "@/backend/google/GoogleDriveResponses";
 import type { GoogleDriveConnection } from "@/backend/service/google/GoogleDriveConnectionService";
@@ -33,6 +37,7 @@ export interface GoogleDriveApplicationServices {
   readonly googleDriveConnectionService: GoogleDriveConnection;
   readonly googleDriveStorageService: GoogleDriveStorageService;
   readonly googleDriveFileService: GoogleDriveFileService;
+  readonly storageAccessService: StorageAccessService;
 }
 
 /** The connection and the `fetch` the Drive clients use. */
@@ -84,6 +89,7 @@ function simulatedWiring(simulation: GoogleDriveSimulation): DriveWiring {
  *
  * @param database - Central database access.
  * @param instanceKey - The key the instance encrypts its connection secrets with.
+ * @param account - The shared administration service resolving current account facts.
  * @returns The connection service, which without the OAuth client of the
  * instance only names the settings that are missing, the Storage area and the
  * Storage interface on it.
@@ -97,18 +103,28 @@ function simulatedWiring(simulation: GoogleDriveSimulation): DriveWiring {
 export function createGoogleDriveServices(
   database: Database,
   instanceKey: Buffer,
+  account: StorageAccessDependencies["account"],
 ): GoogleDriveApplicationServices {
   const simulation = readGoogleDriveSimulation();
   const wiring = simulation
     ? simulatedWiring(new GoogleDriveSimulation(simulation.scenario))
     : realWiring(database, instanceKey);
 
+  const drive = new GoogleDriveItemsClient(wiring.fetcher);
+  const storageAccessService = new StorageAccessService({
+    repository: new StorageAccessRepository(database),
+    account,
+    connection: wiring.connection,
+    reader: new StorageFileReader(wiring.connection, drive),
+  });
   return {
+    storageAccessService,
     googleDriveConnectionService: wiring.connection,
     googleDriveFileService: new GoogleDriveFileService({
       canRequestWriteAccess: wiring.canRequestWriteAccess,
       connection: wiring.connection,
-      drive: new GoogleDriveItemsClient(wiring.fetcher),
+      access: storageAccessService,
+      drive,
       isSimulation: wiring.isSimulation,
     }),
     googleDriveStorageService: new GoogleDriveStorageService({

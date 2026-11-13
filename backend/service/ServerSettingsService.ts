@@ -15,9 +15,17 @@ import {
 import type { PermissionService } from "@/backend/auth/PermissionService";
 import type { ConfigFile } from "@/backend/config/ConfigFile";
 import type { AcpResourceScheduler } from "@/backend/service/agents/AcpResourceScheduler";
-import type { AcpResourceUpdateResult } from "@/definition/AcpResource";
+import type {
+  AcpLeaseCleanupReport,
+  AcpResourceUpdateResult,
+} from "@/definition/AcpResource";
 import type { User } from "@/definition/User";
 import type { LoggingStatus } from "@/definition/Logging";
+
+/** What an administrator asks of the ACP reservation cleanup. */
+export type AcpLeaseCleanupRequest =
+  | { readonly mode: "preview" }
+  | { readonly mode: "cleanup"; readonly instanceIds: readonly string[] };
 
 /** Thrown when an actor may not change settings of the whole instance. */
 export class ServerSettingsDeniedError extends Error {
@@ -132,6 +140,43 @@ export class ServerSettingsService {
       });
       return { ok: true, resources };
     });
+  }
+
+  /**
+   * Checks the ACP reservations of this service and, only after a confirmed
+   * preview, releases those whose end is still proven (PAGE-340).
+   *
+   * @param actor - The signed-in user; must manage the instance.
+   * @param scheduler - The scheduler of this service process.
+   * @param request - A preview, or a cleanup of the confirmed reservations.
+   * @returns The classification of every reservation.
+   * @throws {ServerSettingsDeniedError} When the actor may not manage the instance.
+   */
+  public async checkAcpLeases(
+    actor: User,
+    scheduler: Pick<AcpResourceScheduler, "leaseCleanup">,
+    request: AcpLeaseCleanupRequest,
+  ): Promise<AcpLeaseCleanupReport> {
+    if (!(await this.canManage(actor))) throw new ServerSettingsDeniedError();
+    const report =
+      request.mode === "preview"
+        ? await scheduler.leaseCleanup.preview()
+        : await scheduler.leaseCleanup.cleanup(new Set(request.instanceIds));
+    logEvent({
+      level: "info",
+      event: `acp.resources.${request.mode}`,
+      component: "ServerSettingsService",
+      message:
+        request.mode === "preview"
+          ? "Administrator checked ACP reservations"
+          : "Administrator confirmed the cleanup of ACP reservations",
+      metadata: {
+        userId: actor.id,
+        count: report.entries.length,
+        reservationsReleased: report.counts.released,
+      },
+    });
+    return report;
   }
 
   /**

@@ -4,6 +4,7 @@ import { logCaughtError } from "@/backend/logging/Logger";
 
 import { closeCliSession } from "./CliSessionCloseout";
 
+import type { CliSessionContainment } from "./CliSessionCloseout";
 import type { CliGitHubAccess } from "./CliGitHubCredentials";
 import type { CliSessionRequest } from "./CliContracts";
 import type { CliSessionProcess } from "./CliSessionProcess";
@@ -16,7 +17,7 @@ interface StartCleanup {
   readonly instanceId: string;
   readonly github: CliGitHubAccess | null;
   readonly limited: { readonly request: CliSessionRequest } | null;
-  readonly isPidNamespace: boolean;
+  readonly containment: CliSessionContainment;
 }
 
 async function closeFailedAcp(
@@ -30,7 +31,7 @@ async function closeFailedAcp(
         child,
         cleanup.instanceId,
         undefined,
-        cleanup.isPidNamespace,
+        cleanup.containment,
       )
     ).isConfirmed;
   } catch (caughtError: unknown) {

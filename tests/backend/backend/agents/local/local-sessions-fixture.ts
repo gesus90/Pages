@@ -99,7 +99,11 @@ export const resources = {
 /** What the next attached session answers to a native closeout. */
 export const state = { closed: undefined as PlanSessionClosed | undefined };
 
-export const lifecycle = { trackSpawn: vi.fn(), beforeSpawn: vi.fn() };
+export const lifecycle = {
+  trackSpawn: vi.fn(),
+  beforeSpawn: vi.fn(),
+  confirmStartEnded: vi.fn(),
+};
 
 export const CLOSED: PlanSessionClosed = {
   exit: { code: 0, signal: null },

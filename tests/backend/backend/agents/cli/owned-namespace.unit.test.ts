@@ -10,10 +10,12 @@ const files = vi.hoisted(() => ({
   readFile: vi.fn(),
   stat: vi.fn(),
   stopWorkerUnits: vi.fn(),
+  hasRunningWorkerUnit: vi.fn(),
 }));
 vi.mock("node:fs/promises", () => files);
 vi.mock("@/backend/agents/cli/CliWorkerUnit", () => ({
   stopWorkerUnits: files.stopWorkerUnits,
+  hasRunningWorkerUnit: files.hasRunningWorkerUnit,
 }));
 
 const BOOT = "10000000-0000-4000-8000-000000000001";
@@ -24,6 +26,7 @@ beforeEach(() => {
   files.readFile.mockReset();
   files.stat.mockReset().mockResolvedValue({ uid: OWNER.uid });
   files.stopWorkerUnits.mockReset().mockResolvedValue(0);
+  files.hasRunningWorkerUnit.mockReset().mockResolvedValue(false);
   files.readFile.mockImplementation(async (path: string) => {
     if (path.endsWith("boot_id")) return BOOT;
     if (path.endsWith("/stat"))
@@ -109,4 +112,20 @@ it("refuses a unit outside the session's own name", async () => {
     ),
   ).rejects.toThrow("Invalid owned worker unit");
   expect(files.stopWorkerUnits).not.toHaveBeenCalled();
+});
+
+it("keeps a unit-framed session unconfirmed while its unit still runs after the stop (PAGE-340)", async () => {
+  files.stat.mockRejectedValue(
+    Object.assign(new Error("gone"), { code: "ENOENT" }),
+  );
+  files.hasRunningWorkerUnit.mockResolvedValue(true);
+  await expect(
+    settleOwnedNamespace(
+      { ...OWNER, unit: "pages-acp-owned-1234abcd.service" },
+      "owned",
+      "/synthetic-proc",
+    ),
+  ).resolves.toBe(false);
+  expect(files.stopWorkerUnits).toHaveBeenCalledExactlyOnceWith("owned");
+  expect(files.hasRunningWorkerUnit).toHaveBeenCalledExactlyOnceWith("owned");
 });

@@ -8,7 +8,10 @@ import {
 } from "@/app/components/settings/settings-layout";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
-import { AGENT_SESSION_LIMIT_MAXIMUM } from "@/definition/AgentSessionLimits";
+import {
+  AGENT_CHAT_IDLE_MAXIMUM_MINUTES,
+  AGENT_SESSION_LIMIT_MAXIMUM,
+} from "@/definition/AgentSessionLimits";
 
 import type { AgentActionResult } from "@/app/lib/settings-actions/settings-agents-response.server";
 import type { AgentSessionLimitsAdministration } from "@/definition/AgentSessionLimits";
@@ -73,8 +76,9 @@ function LimitField({
 }
 
 /**
- * The limits of concurrent chat sessions of agents (PAGE-304) and the time
- * of day of the nightly dream run (PAGE-305).
+ * The limits of concurrent chat sessions of agents (PAGE-304), the time
+ * of day of the nightly dream run (PAGE-305) and the idle time after which a
+ * resting chat session ends (PAGE-335).
  *
  * @remarks
  * Every chat of an agent has its own session; sessions of different chats
@@ -135,6 +139,26 @@ export function AgentSessionLimitsCard({
         </ControlRow>
         <p className="text-xs text-muted-foreground">
           {t("agentSessionLimits.dreamTimeHint")}
+        </p>
+        <ControlRow label={t("agentSessionLimits.idleMinutes")}>
+          <Input
+            className="w-24"
+            name="idleMinutes"
+            type="number"
+            min={1}
+            max={AGENT_CHAT_IDLE_MAXIMUM_MINUTES}
+            step={1}
+            required
+            inputMode="numeric"
+            defaultValue={limits.idleMinutes}
+            disabled={isPending}
+            aria-label={t("agentSessionLimits.idleMinutes")}
+          />
+        </ControlRow>
+        <p className="text-xs text-muted-foreground">
+          {t("agentSessionLimits.idleMinutesHint", {
+            maximum: AGENT_CHAT_IDLE_MAXIMUM_MINUTES,
+          })}
         </p>
         <p className="text-xs text-muted-foreground">
           {t("agentSessionLimits.current", {

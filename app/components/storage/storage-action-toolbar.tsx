@@ -11,6 +11,7 @@ interface StorageActionToolbarProps {
   /** Whether the shown folder takes uploads right now. */
   readonly canAddHere: boolean;
   readonly isTrashOpen: boolean;
+  readonly canUseTrash?: boolean;
   readonly onToggleTrash: () => void;
 }
 
@@ -22,6 +23,7 @@ export function StorageActionToolbar({
   actions,
   canAddHere,
   isTrashOpen,
+  canUseTrash = true,
   onToggleTrash,
 }: StorageActionToolbarProps): React.ReactElement {
   const { t } = useTranslation();
@@ -58,6 +60,7 @@ export function StorageActionToolbar({
         type="file"
       />
       <Button
+        disabled={!canUseTrash}
         aria-pressed={isTrashOpen}
         onClick={onToggleTrash}
         size="xs"

@@ -1,5 +1,6 @@
 import { expect, it } from "vitest";
 
+import { createI18n } from "@/app/lib/i18n";
 import {
   firstPlanLocation,
   isPlanNameUsed,
@@ -213,4 +214,35 @@ it("sends a trimmed name with the workspace and the remote target, or nothing wh
       location: "",
     }),
   ).toBeNull();
+});
+
+it("gives every clone refusal its own German and English reason and next step", () => {
+  const codes = [
+    "workspace_unavailable",
+    "source_not_visible",
+    "plan_schema_unsupported",
+    "credentials_in_text",
+    "forbidden",
+    "clone_failed",
+    "clone_request_invalid",
+    "plan_user_team_read_only",
+    "profile_target_invalid",
+    "plan_owner_invalid",
+    "plan_model_unavailable",
+    "connection_not_found",
+    "agent_usage_denied",
+  ];
+  for (const language of ["de", "en"] as const) {
+    const translations = createI18n(language);
+    const messages = codes.map((code) => {
+      expect(translations.exists(`settings.agents.error.${code}`)).toBe(true);
+      return planRequestError(code, translations.t);
+    });
+    expect(new Set(messages).size).toBe(codes.length);
+    expect(
+      messages.every(
+        (message) => typeof message === "string" && message.length > 20,
+      ),
+    ).toBe(true);
+  }
 });

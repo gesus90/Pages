@@ -1,3 +1,4 @@
+import { planSwarmGraphIssues } from "./AgentPlanSwarmGraph";
 import { expandPlanGroups } from "./AgentPlanGroup";
 import { withPortlessPlanGroups } from "./AgentPlanGroupUpgrade";
 import { planGroupIssues } from "./AgentPlanGroupGraph";
@@ -126,7 +127,10 @@ export interface AgentPlanIssue {
     | "scriptReportGate"
     | "loopScriptUnsupported"
     | "scriptUnavailable"
-    | "gitCloseoutUnsupported";
+    | "gitCloseoutUnsupported"
+    | "swarmRemoteUnsupported"
+    | "swarmIncomplete"
+    | "swarmInvalid";
 }
 
 export { hasPlanPath } from "./AgentPlanPath";
@@ -142,7 +146,8 @@ export function isPlanFlowNode(node: AgentPlanNode): boolean {
     node.type === "git_closeout" ||
     node.type === "decision" ||
     node.type === "loop" ||
-    node.type === "stack"
+    node.type === "stack" ||
+    node.type === "swarm"
   );
 }
 
@@ -422,41 +427,67 @@ function missingResultReason(
   return candidates > 1 ? "resultAmbiguous" : "resultMissing";
 }
 
+function isParameterSatisfied(
+  step: AgentPlanStep,
+  parameter: AgentParameter,
+  directoryParameter: string | null | undefined,
+  plan: AgentPlanInput,
+): boolean {
+  if (!parameter.isRequired && parameter.name !== directoryParameter)
+    return true;
+  const binding = step.bindings[parameter.name];
+  if (!binding && hasAgentParameterValue(parameter.defaultValue)) return true;
+  if (binding?.kind === "literal" && hasAgentParameterValue(binding.value))
+    return true;
+  return hasConnectedValue(binding, plan);
+}
+
+function stepAgentIssue(
+  step: AgentPlanStep,
+  agent: AgentDefinitionChoice | undefined,
+  markdown: string,
+): AgentPlanIssue | null {
+  if (
+    [markdown, step.instruction].some(
+      (entry) => scanAgentPlaceholders(entry).hasUnsupportedRunNotes,
+    )
+  )
+    return { nodeId: step.id, port: null, reason: "unsupportedRunNotes" };
+  if (
+    step.configuration?.model === "" ||
+    (!step.configuration && !agent?.availability.isUsable) ||
+    step.personalAgentId === ""
+  )
+    return { nodeId: step.id, port: null, reason: "agent" };
+  return null;
+}
+
 function requiredParameterIssues(
   step: AgentPlanStep,
   agent: AgentDefinitionChoice | undefined,
   plan: AgentPlanInput,
 ): AgentPlanIssue[] {
   const configuration = step.configuration?.template ?? agent?.configuration;
-  if (
-    [configuration?.markdown ?? "", step.instruction].some(
-      (markdown) => scanAgentPlaceholders(markdown).hasUnsupportedRunNotes,
-    )
-  )
-    return [{ nodeId: step.id, port: null, reason: "unsupportedRunNotes" }];
-  if (
-    (!step.configuration && !agent?.availability.isUsable) ||
-    step.personalAgentId === ""
-  )
-    return [{ nodeId: step.id, port: null, reason: "agent" }];
+  const markdown = configuration?.markdown ?? "";
+  const nodeIssue = stepAgentIssue(step, agent, markdown);
+  if (nodeIssue) return [nodeIssue];
   const parameters = configuration?.parameters ?? [];
   const unfilled = placeholderIssues(step, parameters, {
-    markdown: configuration?.markdown ?? "",
+    markdown,
     plan,
   });
   return parameters.flatMap((parameter): AgentPlanIssue[] => {
     const placeholder = unfilled.find((issue) => issue.port === parameter.name);
     if (placeholder) return [placeholder];
     if (
-      !parameter.isRequired &&
-      parameter.name !== configuration?.directoryParameter
+      isParameterSatisfied(
+        step,
+        parameter,
+        configuration?.directoryParameter,
+        plan,
+      )
     )
       return [];
-    const binding = step.bindings[parameter.name];
-    if (!binding && hasAgentParameterValue(parameter.defaultValue)) return [];
-    if (binding?.kind === "literal" && hasAgentParameterValue(binding.value))
-      return [];
-    if (hasConnectedValue(binding, plan)) return [];
     return [{ nodeId: step.id, port: parameter.name, reason: "required" }];
   });
 }
@@ -542,6 +573,7 @@ function flowNodeIssues(
       ),
     );
   if (node.type === "script") issues.push(...scriptIssues(node, plan));
+  if (node.type === "swarm") issues.push(...planSwarmGraphIssues(node, plan));
   // The removed Git closeout (PAGE-285) is never run; it has to be removed or replaced first.
   if (node.type === "git_closeout")
     issues.push({
@@ -565,7 +597,12 @@ function flowExecutionIssues(
   if (ends.length === 0)
     issues.push({ nodeId: null, port: null, reason: "end" });
   if (
-    !plan.nodes.some((node) => node.type === "agent" || node.type === "script")
+    !plan.nodes.some(
+      (node) =>
+        node.type === "agent" ||
+        node.type === "script" ||
+        node.type === "swarm",
+    )
   )
     issues.push({ nodeId: null, port: null, reason: "agent" });
   for (const node of plan.nodes.filter(isPlanFlowNode)) {

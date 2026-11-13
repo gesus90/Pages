@@ -123,7 +123,7 @@ export const PICA_STORAGE_DESCRIPTIONS: Readonly<
   Record<PicaStorageTool, string>
 > = {
   storage_capabilities:
-    "Storage (Google Drive of the instance): what the person may do right now — read/write right of the connected Google account, limits, offered operations and export formats per Google document type. Needs an active administrator in the admin mode; otherwise explain that the person has to switch to the admin mode.",
+    "Storage (Google Drive of the instance): what the person may do right now — read/write right of the connected Google account, limits, offered operations and export formats per Google document type. Folder grants allow reading, creating folders, uploading and saving versions without admin mode. grantedFolders names available roots. Delete and move require an active administrator.",
   storage_quota: "Storage: used and available space of the connected Drive.",
   storage_list: `Storage: list a folder (ref, default root) or, with trash true, the trash. ${REFERENCE_NOTE}`,
   storage_search: `Storage: search entries by name or text, optionally below folderRef. ${REFERENCE_NOTE}`,
@@ -156,7 +156,7 @@ export const PICA_STORAGE_DESCRIPTIONS: Readonly<
 /** An explanation per error code the model passes on in the person's words. */
 export const PICA_STORAGE_HINTS: Readonly<Record<StorageErrorCode, string>> = {
   forbidden:
-    "Storage needs an active administrator in the admin mode. Ask the person to switch to the admin mode; Pica gains no rights of its own.",
+    "The acting account has no Storage write grant for this folder or the action requires an administrator. An administrator can release the folder to a role, department or group in settings.",
   invalid_request: "The request is incomplete or invalid.",
   invalid_reference: "The reference is no valid Storage reference.",
   invalid_path: "The path is invalid.",

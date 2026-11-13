@@ -1,7 +1,8 @@
+import { z } from "zod";
+
 import { readAgentObject } from "@/backend/agents/AgentPayload";
 import { AgentOperationKeyRepository } from "@/backend/database/repositories/agents/AgentOperationKeyRepository";
 import { AgentError } from "@/backend/error/AgentErrors";
-import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { emptyAgentPlan } from "@/definition/AgentPlan";
 
 import {
@@ -10,6 +11,7 @@ import {
   StoredOperationFound,
 } from "./AgentOperationRecorder";
 
+import type { AgentPlanCloneReceipt } from "@/definition/AgentPlanClone";
 import type {
   Database,
   DatabaseTransaction,
@@ -31,6 +33,7 @@ export interface AgentPlanCreation {
 type PlanJournal = (
   transaction: DatabaseTransaction,
   planId: string,
+  receipt?: AgentPlanCloneReceipt,
 ) => Promise<void>;
 
 /** A request as it was read; its fields fingerprint the key it is stored under. */
@@ -128,17 +131,41 @@ export class AgentPlanManagement {
         sourceId,
         ...input,
       },
-      async (journal) => {
-        try {
-          return await this.plans.clone(userId, sourceId, input, journal);
-        } catch (error: unknown) {
-          // A stored graph the copy cannot reproduce is refused, never shortened.
-          if (error instanceof AgentOperationError)
-            throw new AgentError("plan_invalid");
-          throw error;
-        }
-      },
+      (journal) => this.plans.clone(userId, sourceId, input, journal),
     );
+  }
+
+  /** Returns the persisted adjustment receipt to the page, including after a lost response. */
+  public async cloneReceipt(
+    userId: string,
+    sourceId: string,
+    input: AgentPlanCloneInput,
+    requestKey: string,
+  ): Promise<AgentPlanCloneReceipt> {
+    await this.clone(userId, sourceId, input, requestKey);
+    const stored = await this.lookup(userId, requestKey);
+    if (!stored) throw new AgentError("clone_failed");
+    return z
+      .object({
+        planId: z.string(),
+        revision: z.number(),
+        sourcePlanId: z.string(),
+        sourceRevision: z.number(),
+        workspaceId: z.string(),
+        adjustments: z.array(
+          z.object({
+            code: z.enum([
+              "workspace_replaced",
+              "name_suffixed",
+              "source_revision_updated",
+              "legacy_form_cleaned",
+              "reference_cleared",
+            ]),
+            nodeId: z.string().optional(),
+          }),
+        ),
+      })
+      .parse(JSON.parse(stored.resultJson) as unknown);
   }
 
   /**
@@ -212,8 +239,8 @@ export class AgentPlanManagement {
       request,
     );
     try {
-      return await apply((transaction, planId) =>
-        recorder.store(transaction, { planId }),
+      return await apply((transaction, planId, receipt) =>
+        recorder.store(transaction, receipt ?? { planId }),
       );
     } catch (error: unknown) {
       const completed =
@@ -240,7 +267,11 @@ export class AgentPlanManagement {
       stored.operation !== request.operation ||
       stored.fingerprint !== fingerprintOperation(request)
     )
-      throw new AgentError("plan_invalid");
+      throw new AgentError(
+        request.operation === "page.plans.clone"
+          ? "clone_request_invalid"
+          : "plan_invalid",
+      );
     return readStoredPlanId(stored);
   }
 }

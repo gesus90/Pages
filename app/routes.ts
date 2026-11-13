@@ -16,7 +16,7 @@ import { mcpUserRoutes } from "./lib/mcp-user-routes";
 import { userProfileRoutes } from "./lib/user-profile-routes";
 import { mcpWikiRoutes } from "./lib/mcp-wiki-routes";
 import { settingsApiRoutes } from "./lib/settings-api-routes";
-import { storageRoutes } from "./lib/storage-routes";
+import { mcpFileRoutes, storageRoutes } from "./lib/storage-routes";
 
 /**
  * Which route table a build reads (PAGE-235).
@@ -298,7 +298,7 @@ function publicRoutes(routes: RouteBuilder): RouteConfigEntry[] {
       "api/mcp/v1/conversations/:conversationId/reply-settings",
       "routes/api-mcp-v1-conversation-reply-settings.ts",
     ),
-    resource("api/mcp/v1/storage/*", "routes/api-mcp-v1-storage.ts"),
+    ...mcpFileRoutes(resource),
     ...mcpAutomationRoutes(routes.resource),
     resource("health", "routes/health.ts"),
     resource("health/live", "routes/health-live.ts"),

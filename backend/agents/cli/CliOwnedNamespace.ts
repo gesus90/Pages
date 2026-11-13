@@ -3,7 +3,7 @@ import { readFile, stat } from "node:fs/promises";
 import { readOwnedNamespace } from "@/definition/AcpNamespace";
 import { settleManagedLocalOwner } from "@/backend/agents/local/LocalOwnerControl";
 
-import { stopWorkerUnits } from "./CliWorkerUnit";
+import { hasRunningWorkerUnit, stopWorkerUnits } from "./CliWorkerUnit";
 
 import type { AcpNamespaceOwner } from "@/definition/AcpResource";
 
@@ -75,7 +75,14 @@ export async function hasEndedOwnedNamespace(
   );
 }
 
-/** Settles a recorded owned unit before checking its directly spawned supervisor. */
+/**
+ * Settles a recorded owned unit before checking its directly spawned supervisor.
+ *
+ * @remarks
+ * A unit frames every process of a session without a PID namespace, such as
+ * a YOLO chat (PAGE-340), so its stop counts only once the service manager
+ * no longer lists it as running.
+ */
 export async function settleOwnedNamespace(
   owner: AcpNamespaceOwner,
   instanceId: string,
@@ -92,6 +99,7 @@ export async function settleOwnedNamespace(
     )
       throw new Error("Invalid owned worker unit");
     await stopWorkerUnits(instanceId);
+    if (await hasRunningWorkerUnit(instanceId)) return false;
   }
   return hasEndedOwnedNamespace(owner, root);
 }

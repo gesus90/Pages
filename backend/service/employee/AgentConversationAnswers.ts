@@ -20,6 +20,14 @@ const POLL_MILLISECONDS = 1_500;
 /** How long an answer waits for its job before it counts as failed. */
 const ANSWER_TIMEOUT_MILLISECONDS = 10 * 60_000;
 
+/** How the memory and the resource view name the conversation of an answer. */
+function conversationLabel(request: ConversationAgentRequest): string {
+  const { conversation, person } = request;
+  return conversation.kind === "group"
+    ? `Gruppe „${conversation.name}“`
+    : `Chat mit ${person.displayName}`;
+}
+
 /** What the answers of agents in conversations run on. */
 export interface AgentConversationAnswerDependencies {
   readonly store: EmployeeStore;
@@ -43,7 +51,8 @@ export interface AgentConversationAnswerDependencies {
  * @remarks
  * The agent must be active. Its answer runs on the
  * ACP path of its sessions as its own account, with its model, instructions
- * and rights, in one session per agent and conversation. While the
+ * and rights, in one session per agent and conversation that answers every
+ * round of the conversation until it rests too long (PAGE-335). While the
  * simulation is on, the simulated agent answers instead, after the same
  * checks and within the same limits of concurrent sessions, and no model
  * provider is asked. A stopped answer ends only its own session (PAGE-304).
@@ -81,6 +90,7 @@ export class AgentConversationAnswers implements ConversationAgentRunner {
       person: request.person,
       purpose: "conversation",
       conversationId: request.conversation.id,
+      conversationLabel: conversationLabel(request),
       text: request.prompt,
       clientMessageId: null,
       signal,
@@ -126,10 +136,7 @@ export class AgentConversationAnswers implements ConversationAgentRunner {
     void this.dependencies.recorder?.record({
       agent,
       chat: { kind: "conversation", conversationId: conversation.id },
-      chatLabel:
-        conversation.kind === "group"
-          ? `Gruppe „${conversation.name}“`
-          : `Chat mit ${person.displayName}`,
+      chatLabel: conversationLabel(request),
       personName: person.displayName,
       message: request.lastMessage,
       answer: result.answer,

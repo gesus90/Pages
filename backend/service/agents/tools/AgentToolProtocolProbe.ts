@@ -149,8 +149,9 @@ export class AgentToolProtocolProbe {
       child.cancel("login_cancelled");
       let isConfirmed = false;
       try {
-        isConfirmed = (await closeCliSession(child, instanceId, scope, true))
-          .isConfirmed;
+        isConfirmed = (
+          await closeCliSession(child, instanceId, scope, "pid_namespace")
+        ).isConfirmed;
       } catch (error: unknown) {
         logCaughtError("AgentToolProtocolProbe", error);
       }

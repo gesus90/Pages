@@ -144,6 +144,10 @@ Vor PAGE-303 war die Sperre an drei Stellen fest verdrahtet:
   - `yolo` → wie `workspace`, aber `AcpChatOptions.isUnisolated`;
     `CliSessionExecution.isolateWorker()` startet den Worker dann ohne
     Namespace. Nur dieser Fall überspringt die Isolation; Plan-Schritte nie.
+    Den Prozessrahmen bildet dann die begrenzte Worker-Unit: Ihre Identität
+    wird vor der ersten ACP-Anfrage an der Reservierung gespeichert, und der
+    Closeout bestätigt über die gestoppte Unit statt über den Legacy-Scan
+    (PAGE-340, `docs/PAGE-340.md`).
 - **Vorgabe:** `createAgentEmployeeInstructions()` erzeugt den Zugriffsabsatz
   aus der Stufe; `picaHelperUsage(path, hasHostTools)` erlaubt bei Host-Tools
   andere Werkzeuge neben dem Helper.

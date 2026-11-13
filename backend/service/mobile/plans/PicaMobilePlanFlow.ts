@@ -36,6 +36,7 @@ const FLOW_KIND: Readonly<
   decision: "decision",
   stack: "stack",
   loop: "loop",
+  swarm: "swarm",
 };
 
 /** The stage of some nodes; none for a step without a node. */

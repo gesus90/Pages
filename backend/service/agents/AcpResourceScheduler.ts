@@ -13,13 +13,19 @@ import {
   endLeaseProcesses,
 } from "./resources/AcpLeaseProcesses";
 import {
+  acpMemoryWaitReason,
   readAcpAvailableMemory,
   readScheduledAcpMemory,
 } from "./resources/AcpMemory";
 import { ScheduledAcpSession } from "./resources/ScheduledAcpSession";
+import { enqueueAcpRequest } from "./resources/AcpAdmissionRequest";
 
 import type { SchedulerDependencies } from "./resources/AcpSchedulerDependencies";
-import type { AcpStartLifecycle } from "./resources/AcpStartLifecycle";
+import type { AcpLeaseCleanup } from "./resources/AcpLeaseCleanup";
+import type {
+  AcpOpenRequest,
+  WaitingRequest,
+} from "./resources/AcpAdmissionRequest";
 import type {
   PlanSession,
   PlanSessionObserver,
@@ -40,15 +46,6 @@ import type { AcpResourceStore } from "./resources/AcpResourceStore";
 /** Uncertain leases are checked again at most this often while they block admission. */
 const LEASE_RECHECK_MS = 60_000;
 
-interface WaitingRequest {
-  readonly owner: AcpResourceOwner;
-  readonly since: string;
-  readonly signal: AbortSignal;
-  readonly resolve: () => void;
-  readonly reject: (error: Error) => void;
-  readonly abort: () => void;
-}
-
 /** Shared FIFO admission for ACP processes, independent of DAG scheduling and provider. */
 export class AcpResourceScheduler {
   private readonly store: AcpResourceStore;
@@ -58,6 +55,7 @@ export class AcpResourceScheduler {
   private limitSource: AcpResourceLimitSource;
   private readonly memory: () => Promise<number | null>;
   private readonly cleanup: NonNullable<SchedulerDependencies["cleanup"]>;
+  private readonly settleUnits: SchedulerDependencies["settleUnits"];
   private readonly writes = new SerialQueue();
   private readonly active = new Map<string, AcpResourceRecord>();
   private readonly sessions = new Map<string, PlanSession>();
@@ -66,6 +64,8 @@ export class AcpResourceScheduler {
   private readonly shutdownController = new AbortController();
   private readonly opening = new Set<Promise<PlanSession>>();
   private readonly checks: AcpLeaseChecks;
+  /** The administrator's check and confirmed cleanup of the leases this service owns (PAGE-340). */
+  public readonly leaseCleanup: AcpLeaseCleanup;
   private unverifiedLocal: ReadonlySet<string> = new Set();
   private availableMemory: number | null = null;
   private problem: AcpResourceSnapshot["problem"] = null;
@@ -75,6 +75,7 @@ export class AcpResourceScheduler {
   private isPumping = false;
   private hasPendingWake = false;
   private lastLeaseCheck = 0;
+  private reclaimIdle: (() => boolean) | null = null;
 
   public constructor(dependencies: SchedulerDependencies) {
     this.store = dependencies.store;
@@ -91,6 +92,7 @@ export class AcpResourceScheduler {
         : "config");
     this.memory = dependencies.memory ?? readAcpAvailableMemory;
     this.cleanup = dependencies.cleanup ?? endLeaseProcesses;
+    this.settleUnits = dependencies.settleUnits;
     this.checks = new AcpLeaseChecks({
       store: this.store,
       scope: this.admission.recoveryScope(),
@@ -100,7 +102,9 @@ export class AcpResourceScheduler {
       unverifiedLocal: () => this.unverifiedLocal,
       persist: (task) => this.persist(task),
       wake: () => this.wake(),
+      owns: (record) => this.admission.owns(record),
     });
+    this.leaseCleanup = this.checks.cleanup;
   }
 
   /**
@@ -146,15 +150,22 @@ export class AcpResourceScheduler {
   public open(
     owner: AcpResourceOwner,
     signal: AbortSignal,
-    start: (
-      signal: AbortSignal,
-      lifecycle: AcpStartLifecycle,
-    ) => Promise<PlanSession>,
+    start: AcpOpenRequest["start"],
     observer?: PlanSessionObserver,
   ): Promise<PlanSession> {
-    const pending = this.openSession(owner, signal, start, observer);
+    return this.openWithin({ owner, signal, start, observer });
+  }
+
+  /**
+   * Opens a session like {@link open}; with a deadline the request leaves the
+   * queue without a place when none became free in time.
+   *
+   * @throws {AcpAdmissionTimeoutError} After the deadline.
+   */
+  public openWithin(request: AcpOpenRequest): Promise<PlanSession> {
+    const pending = this.openSession(request);
     this.opening.add(pending);
-    const settled = this.checks.opening(owner.instanceId);
+    const settled = this.checks.opening(request.owner.instanceId);
     const settle = (): void => {
       this.opening.delete(pending);
       settled();
@@ -204,15 +215,7 @@ export class AcpResourceScheduler {
       session.isDurable !== true
     )
       throw new Error("ACP durable lease cannot be adopted");
-    const wrapped = new ScheduledAcpSession(
-      session,
-      {
-        transition: (state, stepId) =>
-          this.transition(instanceId, state, stepId),
-        finish: (isConfirmed) => this.finish(instanceId, isConfirmed),
-      },
-      observer,
-    );
+    const wrapped = this.wrap(instanceId, session, observer);
     this.sessions.set(instanceId, wrapped);
     return wrapped;
   }
@@ -226,6 +229,16 @@ export class AcpResourceScheduler {
       throw new Error("Unverified local lease");
     if (this.active.has(instanceId))
       await this.finish(instanceId, closed.isConfirmed);
+  }
+
+  /**
+   * Installs what ends the longest idle chat session when a start waits at
+   * the instance limit (PAGE-335).
+   *
+   * @param reclaim - Ends one idle session and returns whether it found one.
+   */
+  public setIdleReclaimer(reclaim: () => boolean): void {
+    this.reclaimIdle = reclaim;
   }
 
   /** Suspends queued requests of a paused run; existing sessions continue to own capacity. */
@@ -366,20 +379,16 @@ export class AcpResourceScheduler {
       throw new Error(
         "Local native owner is unverified; no cleanup is authorized",
       );
-    return closeLease(record, startedAt, this.cleanup);
+    return closeLease(record, startedAt, this.cleanup, this.settleUnits);
   }
 
-  private async openSession(
-    owner: AcpResourceOwner,
-    signal: AbortSignal,
-    start: (
-      signal: AbortSignal,
-      lifecycle: AcpStartLifecycle,
-    ) => Promise<PlanSession>,
-    observer?: PlanSessionObserver,
-  ): Promise<PlanSession> {
-    const combined = AbortSignal.any([signal, this.shutdownController.signal]);
-    await this.acquire(owner, combined);
+  private async openSession(request: AcpOpenRequest): Promise<PlanSession> {
+    const { owner, start, observer } = request;
+    const combined = AbortSignal.any([
+      request.signal,
+      this.shutdownController.signal,
+    ]);
+    await this.acquire(owner, combined, request.deadlineMs);
     let native: PlanSession | null = null;
     let hasAttemptedStart = false;
     try {
@@ -388,15 +397,7 @@ export class AcpResourceScheduler {
       hasAttemptedStart = true;
       native = await start(combined, this.checks.lifecycle(owner.instanceId));
       await this.transition(owner.instanceId, "running");
-      const session = new ScheduledAcpSession(
-        native,
-        {
-          transition: (state, stepId) =>
-            this.transition(owner.instanceId, state, stepId),
-          finish: (isConfirmed) => this.finish(owner.instanceId, isConfirmed),
-        },
-        observer,
-      );
+      const session = this.wrap(owner.instanceId, native, observer);
       this.sessions.set(owner.instanceId, session);
       return session;
     } catch (error: unknown) {
@@ -407,7 +408,7 @@ export class AcpResourceScheduler {
         native,
         isProven:
           !hasAttemptedStart ||
-          this.checks.markNotSpawned(owner.instanceId, native),
+          this.checks.isStartEnded(owner.instanceId, native),
         close: () => {
           const current = this.active.get(owner.instanceId);
           const fallback = { ...owner, state: "starting" as const, since: "" };
@@ -422,7 +423,11 @@ export class AcpResourceScheduler {
     }
   }
 
-  private acquire(owner: AcpResourceOwner, signal: AbortSignal): Promise<void> {
+  private acquire(
+    owner: AcpResourceOwner,
+    signal: AbortSignal,
+    deadlineMs?: number,
+  ): Promise<void> {
     if (signal.aborted || this.isClosing)
       return Promise.reject(new AgentPlanCancelledError());
     if (
@@ -432,27 +437,37 @@ export class AcpResourceScheduler {
       )
     )
       return Promise.reject(new Error("ACP instance already reserved"));
-    return new Promise((resolve, reject) => {
-      const request: WaitingRequest = {
-        owner,
-        signal,
-        since: new Date().toISOString(),
-        resolve,
-        reject,
-        abort: () => {
-          const index = this.waiting.indexOf(request);
-          if (index < 0) return;
-          this.waiting.splice(index, 1);
-          signal.removeEventListener("abort", request.abort);
-          reject(new AgentPlanCancelledError());
-          this.wake();
-        },
-      };
-      this.waiting.push(request);
-      signal.addEventListener("abort", request.abort, { once: true });
-      if (signal.aborted) request.abort();
-      this.wake();
-    });
+    return enqueueAcpRequest(
+      { waiting: this.waiting, wake: () => this.wake() },
+      owner,
+      signal,
+      deadlineMs,
+    );
+  }
+
+  private wrap(
+    instanceId: string,
+    session: PlanSession,
+    observer: PlanSessionObserver | undefined,
+  ): ScheduledAcpSession {
+    return new ScheduledAcpSession(
+      session,
+      {
+        transition: (state, stepId) =>
+          this.transition(instanceId, state, stepId),
+        finish: (isConfirmed) => this.finish(instanceId, isConfirmed),
+        settle: () => this.settleChatLease(instanceId),
+      },
+      observer,
+    );
+  }
+
+  /** A chat lease whose native closeout stayed unconfirmed is proven from its identity and units. */
+  private async settleChatLease(instanceId: string): Promise<boolean> {
+    const record = this.active.get(instanceId);
+    if (!record) return true;
+    if (record.runId !== null) return false;
+    return (await this.cleanupRecord(record, record.since)).remaining === 0;
   }
 
   /**
@@ -505,6 +520,8 @@ export class AcpResourceScheduler {
   private async pump(): Promise<void> {
     await this.refreshOptions();
     await this.recheckBlockingLeases();
+    // An idle chat session gives its place to a waiting start; its closeout wakes the queue.
+    if (this.isAtCapacity()) this.reclaimIdle?.();
     while (this.canAdmit()) {
       const request = this.waiting.find((entry) => !this.isPaused(entry));
       if (!request) return;
@@ -656,6 +673,14 @@ export class AcpResourceScheduler {
       : this.options.maxConcurrentAcpSessions;
   }
 
+  private isAtCapacity(): boolean {
+    return (
+      this.isReady &&
+      this.waiting.some((request) => !this.isPaused(request)) &&
+      this.active.size >= this.admissionCap()
+    );
+  }
+
   private canAdmit(): boolean {
     return (
       this.isReady &&
@@ -670,14 +695,8 @@ export class AcpResourceScheduler {
     if (!this.isReady) return "recovery";
     if (this.problem) return "scheduler_error";
     if (this.active.size >= this.admissionCap()) return "capacity";
-    if (this.options.memoryAwareScheduling && this.availableMemory === null)
-      return "memory_unknown";
-    if (
-      this.options.memoryAwareScheduling &&
-      this.availableMemory !== null &&
-      this.availableMemory < this.options.minimumAvailableMemory
-    )
-      return "memory";
-    return "capacity";
+    return (
+      acpMemoryWaitReason(this.options, this.availableMemory) ?? "capacity"
+    );
   }
 }

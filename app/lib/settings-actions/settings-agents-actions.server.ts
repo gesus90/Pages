@@ -108,6 +108,7 @@ const AGENT_ACTION_HANDLERS: Readonly<Record<string, AgentActionHandler>> = {
       total: readTextOrEmpty(formData, "total"),
       revision: readTextOrEmpty(formData, "revision"),
       dreamTime: readTextOrEmpty(formData, "dreamTime"),
+      idleMinutes: readTextOrEmpty(formData, "idleMinutes"),
     });
     return { ok: true };
   },

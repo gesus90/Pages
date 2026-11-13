@@ -91,7 +91,7 @@ function localOption(
     hint: [translate("plans.manage.location.local"), workspace.path]
       .filter(Boolean)
       .join(" · "),
-    disabled: false,
+    disabled: !workspace.isUsable,
     kind: "local",
   };
 }
@@ -164,7 +164,8 @@ export function planLocationFields(
     (entry) =>
       entry.id === id &&
       entry.projectId === values.projectId &&
-      entry.kind !== "remote",
+      entry.kind !== "remote" &&
+      entry.isUsable,
   );
   if (kind === "local")
     return local ? { workspaceId: id, executionTarget: undefined } : null;

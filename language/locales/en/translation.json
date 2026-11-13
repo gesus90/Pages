@@ -843,6 +843,8 @@
         "plan_sources_failed": "The current agent template could not be loaded. Please insert it again.",
         "plan_remote_unavailable": "Remote execution is blocked: the runner, model route or interpreter is not ready. No local fallback.",
         "plan_invalid": "Check the plan fields and graph nodes.",
+        "swarm_invalid": "Check the swarm: 1 to 10 helpers, a time limit of 1 to 1440 minutes and a working directory inside the workspace.",
+        "swarm_remote_unsupported": "Swarm nodes run only on the Pages host. Choose a local target.",
         "plan_script_invalid": "Check the script: name, interpreter profile, content (at most 100,000 characters), unique input and output names and a timeout of 1 to 86400 seconds.",
         "plan_script_profile_missing": "The script's interpreter profile is not configured on this server. Choose a configured profile.",
         "plan_script_unavailable": "This script configuration is not supported by the runtime. Review its profile, inputs and container.",
@@ -961,6 +963,7 @@
         "agent_tool_not_ready": "A required agent tool is not ready. The run events show the tool and cause; see Settings → Agents → Tools.",
         "plan_continuation_deleted": "Continuation point deleted – restart required. Stop first, then start again.",
         "plan_completed_changed": "This change would repeat completed work. Stop the run and start again.",
+        "plan_skipped_step_enabled": "A script that this run skipped is now enabled. Start the run anew.",
         "plan_pause_required": "Pause first and wait for every running step to finish.",
         "plan_connection_unavailable": "Connection interrupted. The displayed state is the last received state; actions are disabled. Reconnecting automatically.",
         "plan_loop_nested": "A loop holds agents, scripts and groups of agents. Loops inside loops are not supported.",
@@ -1030,7 +1033,15 @@
         "plan_simulation_item_failed": "Simulation scenario item_failed: this entry fails on purpose because its name begins with defekt.",
         "plan_stack_entries_failed": "At least one stack entry failed. The other entries were processed; each error stays with its entry.",
         "cleanup_unconfirmed": "The end of the run's processes is not confirmed. Release first or wait a moment.",
-        "action_unavailable": "This action is not possible for the run right now."
+        "action_unavailable": "This action is not possible for the run right now.",
+        "workspace_unavailable": "No usable workspace of this project is available. Add or enable a workspace and clone again.",
+        "source_not_visible": "The source was deleted or is no longer visible. Reload the plan list and select a visible plan.",
+        "plan_schema_unsupported": "The saved plan structure is unsupported. Update the source and clone again.",
+        "plan_user_team_read_only": "People can only read. Remove edit and run rights and save again.",
+        "forbidden": "Only an active administrator may choose another owner. Keep yourself as owner or activate administrator mode.",
+        "credentials_in_text": "The source contains credentials. Remove them from the plan and clone again.",
+        "clone_failed": "The copy could not be stored. Try again or contact the project manager.",
+        "clone_request_invalid": "The clone request is invalid. Reload the plan and try again."
       },
       "description": "Manage named API and CLI connections and their usage scopes. Permitted models are available directly in Agent Plans.",
       "adminModeRequired": "The agent settings are only available in the admin mode. Your account is currently in the role mode.",
@@ -1477,6 +1488,7 @@
         },
         "entry": {
           "pica": "Pica chat",
+          "agentChat": "Chat session of {{agent}} · {{conversation}}",
           "plan": "Plan “{{name}}”",
           "planUnknown": "Plan run",
           "age": "Reserved since",
@@ -1488,20 +1500,73 @@
           "lastCheck": "Last checked automatically:",
           "otherService": "Another Pages service is responsible; this service only counts the reservation."
         },
+        "chatSessions": {
+          "title": "Chat sessions of the agents",
+          "none": "No agent holds a chat session open right now.",
+          "agent_one": "{{name}} · {{count}} session",
+          "agent_other": "{{name}} · {{count}} sessions",
+          "busy": "answering now",
+          "idle": "resting until the next round",
+          "lastActivity": "Last activity:"
+        },
         "reason": {
           "unchecked": "Not checked automatically yet. The slot stays reserved until the end of the session is confirmed.",
           "process_alive": "The related process is provably still running (same process and boot identity). Pages does not end it automatically. Next step: finish the run through the run cleanup or wait for it to end; the check then releases the slot.",
           "unit_active": "A worker unit of this session is still active. Pages does not end it automatically. Next step: run the run cleanup or inspect the unit with “systemctl --user status pages-acp-{{instance}}-*”.",
           "owner_managed": "A managed local session owner holds the session, for example paused or resumable. Pages does not end it automatically. Next step: resume the run or finish it through the run cleanup.",
           "owner_unverified": "The local session owner could not be proven at startup. Next step: use recovery in the run view; the slot is released only after a proven end.",
-          "start_unconfirmed": "Process creation had begun, but no process identity was captured. Such a start does not count as never started. Next step: check for processes with PAGES_RUN_INSTANCE={{instance}}; after a host restart the next check releases the slot.",
+          "start_unconfirmed": "Process creation had begun, but no process identity was captured. Such a start does not count as never started. Next step: run “Check reservations” – if the journal proves that the session's only worker unit ended, the slot is released after your confirmation. Otherwise check the processes and the unit “pages-acp-{{instance}}-*”; after a host restart the next check releases the slot.",
           "start_interrupted": "Pages stopped during the start. Without evidence the start does not count as never started. Next step: check for processes with PAGES_RUN_INSTANCE={{instance}}; after a host restart the next check releases the slot.",
-          "legacy_unproven": "Older reservation without stored ownership evidence. Age, a missing process marker or a Pages restart prove no end. Next step: check for processes with PAGES_RUN_INSTANCE={{instance}}; after a host restart the next check releases the slot automatically.",
+          "legacy_unproven": "Older reservation without stored ownership evidence. Age, a missing process marker or a Pages restart prove no end. Next step: run “Check reservations” – if the journal proves that the session's only worker unit ended, the slot is released after your confirmation. Otherwise check for processes with PAGES_RUN_INSTANCE={{instance}}; after a host restart the next check releases the slot automatically.",
           "check_failed": "The last check could not read the evidence. The slot stays reserved; Pages checks again.",
           "not_spawned": "Start ended before process creation.",
           "previous_boot": "Started before the last host restart.",
           "namespace_ended": "Process provably ended.",
-          "owner_released": "Released by the session owner."
+          "owner_released": "Released by the session owner.",
+          "unit_ended": "According to the journal, the only worker unit of this session started and ended, and no unit of the session runs any more.",
+          "unit_inactive": "Process ended: the worker unit of this chat session is proven inactive.",
+          "session_open": "The session is open, running or being closed. Pages neither checks nor ends it; the slot is released with its confirmed end.",
+          "start_in_progress": "The session is starting. Pages leaves running starts alone; check again after the start.",
+          "run_paused": "The plan run is paused. Paused sessions stay untouched. Next step: resume the run or finish it through the run cleanup.",
+          "other_service": "Another Pages service is responsible; this service neither checks nor changes the reservation. Next step: wait for the periodic check of the responsible service.",
+          "lease_changed": "The reservation changed since the preview and therefore stays. Next step: check again."
+        },
+        "cleanup": {
+          "title": "Check and clean up reservations",
+          "hint": "The check changes nothing. It classifies each reservation by stored evidence: process identity and boot, worker units and the journal of their end. Only provably ended reservations are released, and only after your confirmation; running, starting, paused or not reliably provable sessions stay untouched. Pages ends no process.",
+          "preview": "Check (preview)",
+          "running": "Checking …",
+          "confirm": "Release {{count}} provably ended reservation(s)",
+          "previewTitle": "Preview of {{count}} reservation(s), as of",
+          "resultTitle": "Cleanup result for {{count}} reservation(s), as of",
+          "empty": "No reservations.",
+          "nothing": "No reservation is provably ended; there is nothing to release.",
+          "category": {
+            "releasable": "Provably ended, releasable: {{count}}",
+            "released": "Released: {{count}}",
+            "kept_active": "Active or paused, kept: {{count}}",
+            "kept_unproven": "Not reliably provable, kept: {{count}}",
+            "check_failed": "Check failed, kept: {{count}}"
+          },
+          "scope": {
+            "chat": "This service checks and cleans up the Pica reservations. Plan reservations belong to the plan service and stay unchanged here.",
+            "plans": "This service checks and cleans up the plan reservations. Pica reservations belong to the API service and stay unchanged here."
+          },
+          "error": {
+            "invalidSelection": "The selection is invalid. Please run the check again.",
+            "general": "The check could not finish. No reservation was released without evidence; details are in the server log."
+          }
+        },
+        "observer": {
+          "title": "Group observer (last 24 hours)",
+          "none": "No observer calls in the last 24 hours.",
+          "summary": "Succeeded: {{succeeded}} · Failed: {{failed}} · Refused: {{refused}}",
+          "lastSuccess": "Last successful call:",
+          "lastFailure": {
+            "routing": "Last routing failure:",
+            "summary": "Last summary failure:"
+          },
+          "reservations": "Each observer call briefly holds a reservation; it is released with the confirmed end of its session, also after a failed start."
         }
       },
       "openCodeProvider": "Key provider for OpenCode",
@@ -3915,6 +3980,13 @@
         "behind": "Behind",
         "unavailable": "Not available",
         "rebuilding": "Being rebuilt"
+      },
+      "observer": {
+        "failing": {
+          "routing": "The group observer gave no result for the last {{count}} call(s), most recently while routing on {{moment}}.",
+          "summary": "The group observer gave no result for the last {{count}} call(s), most recently while summarizing on {{moment}}."
+        },
+        "hint": "While it fails, agents may not answer automatically and the group context falls behind. Administrators also see the cause under Settings → System → ACP resources."
       }
     },
     "voice": {
@@ -4676,7 +4748,8 @@
       "loop": "Loop",
       "decision": "Decision",
       "stack": "Stack",
-      "asset": "Asset"
+      "asset": "Asset",
+      "swarm": "Swarm"
     },
     "status": {
       "waiting": "Waiting",
@@ -4770,7 +4843,10 @@
       "decisionSequence": "A decision that reads a parameter, a ticket or a text result needs a connected sequence input: a data input alone never starts it.",
       "decisionModel": "Choose a model of an ACP connection for the decision model.",
       "decisionQuestion": "Enter the question the decision model answers (at most 4000 characters).",
-      "decisionCases": "A classification needs 2 to 20 values with unique, non-empty names of at most 60 characters."
+      "decisionCases": "A classification needs 2 to 20 values with unique, non-empty names of at most 60 characters.",
+      "swarmRemoteUnsupported": "Swarm nodes run only on the Pages host. Choose a local target.",
+      "swarmIncomplete": "The swarm lacks a task, a main model or helper models.",
+      "swarmInvalid": "Check the swarm: 1 to 10 helpers, a time limit of 1 to 1440 minutes and a working directory inside the workspace."
     },
     "session": {
       "runner": {
@@ -5475,7 +5551,8 @@
         "loop": "Loop",
         "decision": "Decision",
         "stack": "Stack",
-        "asset": "Asset"
+        "asset": "Asset",
+        "swarm": "Swarm"
       },
       "hint": {
         "start": "Add the beginning of a flow.",
@@ -5488,7 +5565,8 @@
         "loop": "Repeat agents and scripts as one subgraph, with a session of its own per agent.",
         "decision": "Add a branch: the boolean result of an agent decides which branch continues.",
         "stack": "Ordered tickets or values; every trigger hands over the next entry",
-        "asset": "A file as a source: image, video, document, audio or any other file."
+        "asset": "A file as a source: image, video, document, audio or any other file.",
+        "swarm": "A main model splits one task among several helpers at run time"
       },
       "addTitle": "Add {{type}}",
       "add": "Add",
@@ -6120,18 +6198,19 @@
       "menu": "Teams and owner",
       "title": "Teams and owner",
       "description": "Who reads, changes and runs “{{name}}”. Everybody works with their own access.",
-      "teams": "Teams",
+      "teams": "Share with",
       "noTeams": "This plan has no team. Only its owner and administrators work with it.",
       "teamsReadOnly": "Only the owner, administrators and project managers change the teams.",
       "search": "Search group or department",
-      "searchPlaceholder": "Enter a name",
+      "searchPlaceholder": "Add a group, department or person …",
       "choices": "Matching groups and departments",
       "noChoices": "No further group or department matches.",
       "add": "+ {{name}} ({{kind}})",
       "remove": "Remove {{name}}",
       "kind": {
         "group": "group",
-        "department": "department"
+        "department": "department",
+        "user": "Person"
       },
       "right": {
         "canRead": "read",
@@ -6168,7 +6247,8 @@
       "deletePreview": "Plan “{{name}}” · revision {{revision}} · {{runs}}",
       "deleteRunActive": "a run is active",
       "deleteNoRun": "no active runs",
-      "deleteAdmin": "You delete somebody else’s plan as administrator. This is recorded in the history."
+      "deleteAdmin": "You delete somebody else’s plan as administrator. This is recorded in the history.",
+      "personReadOnly": "People can only read."
     },
     "manage": {
       "menu": "Plan actions",
@@ -6186,14 +6266,14 @@
       "editUnsaved": "Unsaved changes to the plan are saved as well.",
       "cloneTitle": "Clone plan",
       "clone": "Clone",
-      "cloneName": "{{name}} – copy",
-      "cloneSource": "Copy of {{name}}",
+      "cloneName": "Copy of {{name}}",
+      "cloneSource": "Copy of “{{name}}”",
       "cloneOneShotItem": "Copy as one-time plan",
       "cloneOneShotTitle": "Copy as one-time plan",
       "cloneOneShotLabel": "one-time",
       "cloneOneShotNote": "The copy is a one-time plan: Pages deletes it with its runs 5 minutes after a run ended successfully.",
       "oneShot": "One-time plan",
-      "oneShotHint": "Pages deletes the plan with its runs 5 minutes after a run ended successfully.",
+      "oneShotHint": "Delete after a successful run",
       "oneShotConfirmTitle": "Make this a one-time plan?",
       "oneShotConfirmBody": "When a run of this plan ends successfully, Pages deletes the plan with all runs, reports, diagnostics, session data and working files 5 minutes later. Until then \"Keep\" cancels the deletion. The plan stays after failed, cancelled or open runs.",
       "oneShotConfirmKept": "Commits, pushed branches, changes to tickets and wiki pages, attached files and shared workspaces, agents, templates and the parameters of other plans are not deleted.",
@@ -6228,7 +6308,20 @@
         "follow": "Move these steps to the new plan target"
       },
       "withoutWorkspace": "Without workspace",
-      "reassignWorkspace": "This plan has no registered workspace and cannot start. Choose a workspace under Plan actions → Edit. Its nodes and contents are preserved."
+      "reassignWorkspace": "This plan has no registered workspace and cannot start. Choose a workspace under Plan actions → Edit. Its nodes and contents are preserved.",
+      "moreOptions": "More options",
+      "editSource": "{{name}} · Revision {{revision}}",
+      "readOnlyTitle": "Read only.",
+      "readOnlyBody": "The plan belongs to {{name}} and is not shared with you for editing. You can clone it and freely edit the copy.",
+      "selectionSteps_one": "{{count}} step",
+      "selectionSteps_other": "{{count}} steps",
+      "selectionNeeded": "need a selection",
+      "selectionFirst": "Go to first →",
+      "select": {
+        "model": "Choose model",
+        "agent": "Choose agent"
+      },
+      "nameLabel": "Name"
     },
     "savedAlias": "saved as alias “{{alias}}”",
     "remoteAccess": {
@@ -6592,6 +6685,7 @@
         "plan_run_active": "Another run of this plan is active.",
         "plan_context_changed": "The plan's project, workspace or target changed.",
         "plan_continuation_deleted": "The continuation point was deleted from the plan.",
+        "plan_skipped_step_enabled": "A script that this run skipped is now enabled.",
         "plan_invalid": "The plan has findings that prevent a start.",
         "plan_access_denied": "You are missing current rights to the run's content or resources.",
         "workspace_not_found": "The plan's workspace no longer exists.",
@@ -6618,6 +6712,86 @@
       "description": "This plan has an open run. Start ends it (processes end, reservations are released) and begins a new run from the start. To carry on instead, use Resume.",
       "cancel": "Cancel",
       "confirm": "End and begin anew"
+    },
+    "swarm": {
+      "workers": "Helpers",
+      "taskTicket": "Task from the ticket",
+      "taskMissing": "No task",
+      "modelMissing": "No model chosen",
+      "taskCount": "{{finished}} of {{assigned}} subtasks finished",
+      "mainShort": "Main",
+      "chooseModel": "Choose a model",
+      "modelNotAcp": "Does not run over an ACP connection",
+      "accessOf": "Access of {{name}}",
+      "symbol": {
+        "busy": "busy",
+        "done": "done",
+        "failed": "failed",
+        "notStarted": "not started"
+      },
+      "access": {
+        "read_only": "Read only",
+        "workspace_write": "Write",
+        "yolo": "YOLO"
+      },
+      "sections": {
+        "task": "Task",
+        "main": "Main model",
+        "workers": "Helpers",
+        "execution": "Execution",
+        "run": "Run"
+      },
+      "taskSource": "Source of the task",
+      "taskText": "Text",
+      "taskTicketOption": "Ticket",
+      "taskPlaceholder": "What should the swarm do?",
+      "chooseTicket": "Choose a ticket node",
+      "mainModel": "Main model",
+      "mainInstruction": "Additional instruction",
+      "count": "Number of helpers",
+      "fewer": "One helper less",
+      "more": "One helper more",
+      "mode": "Model choice of the helpers",
+      "modeSame": "Same for all",
+      "modeIndividual": "Individually",
+      "workerModel": "Model of the helpers",
+      "workerInstruction": "Shared instruction for helpers",
+      "remoteRefused": "Swarm nodes run only on the Pages host. Choose a local target.",
+      "targetInherit": "As the plan",
+      "directory": "Working directory",
+      "timeout": "Time limit",
+      "minutes": "min",
+      "panel": {
+        "label": "Settings of {{name}}",
+        "kicker": "Edit swarm",
+        "close": "Close settings",
+        "closeButton": "Done",
+        "draftHint": "Changes apply with the next save of the plan."
+      },
+      "todoCount": "{{done}}/{{total}} TODOs",
+      "notStarted": "not started – hand the task out again",
+      "failure": {
+        "timeout": "Time exceeded",
+        "failed": "failed"
+      },
+      "free": "free",
+      "reason": "Reason: {{reason}}",
+      "todos": "TODOs",
+      "heldLocks": "Locked: {{paths}}",
+      "toggleLane": "Open or close lane {{id}}",
+      "violations_one": "{{count}} violation of area or locks",
+      "violations_other": "{{count}} violations of area or locks",
+      "violation": {
+        "outside": "Outside area and locks ({{workers}}): {{files}}",
+        "head": "Git HEAD changed ({{workers}})",
+        "index": "Git index changed ({{workers}})"
+      },
+      "mainIdle": "waiting",
+      "loading": "Loading lanes",
+      "runLabel": "Run view of the swarm",
+      "nodeFailed": "Swarm failed: {{reason}}",
+      "empty": "The main model plans the split …",
+      "result": "Result"
     }
   },
   "pageAgents": {
@@ -6856,11 +7030,13 @@
     "saving": "Saving …",
     "saved": "Limits saved.",
     "error": {
-      "profile_invalid": "Enter whole numbers from 1 to 64 and a time as HH:MM; the limit per agent must not exceed the total limit.",
+      "profile_invalid": "Enter whole numbers from 1 to 64 and a time as HH:MM and an idle time from 1 to 1440 minutes; the limit per agent must not exceed the total limit.",
       "profile_conflict": "The limits were changed in the meantime. Reload the page and try again."
     },
     "dreamTime": "Dream run at",
-    "dreamTimeHint": "Time of the nightly dream run of all agents, in the server's time zone. It evaluates the day's chats, plan runs, errors and feedback and maintains DREAM.md."
+    "dreamTimeHint": "Time of the nightly dream run of all agents, in the server's time zone. It evaluates the day's chats, plan runs, errors and feedback and maintains DREAM.md.",
+    "idleMinutes": "Idle time of a chat session (minutes)",
+    "idleMinutesHint": "Every agent keeps one session open per conversation and answers each further round through it. After this many minutes without a round it ends and releases its process and reservation; the next round starts it again. Values from 1 to {{maximum}}."
   },
   "speechSettings": {
     "title": "Speech recognition · STT",
@@ -7270,6 +7446,35 @@
         "folders_other": "{{count}} folders move with all their content.",
         "confirm": "Move to trash"
       }
+    },
+    "access": {
+      "title": "Write to Storage",
+      "description": "Create folders in Storage first. Grants include descendants, reading, uploading and new versions. Deleting and moving remain administrative.",
+      "failed": "Could not read or save the grant. Check the folder and administrator mode.",
+      "path": "Folder path (for example /Storage/Pages)",
+      "recipient": "Role, department or group",
+      "choose": "Choose recipient",
+      "grant": "Allow writing to Storage",
+      "revoke": "Revoke",
+      "group": "Group",
+      "role": "Role",
+      "department": "Department",
+      "history": "Storage history",
+      "operations": {
+        "create_folder": "Created folder",
+        "upload": "Uploaded file",
+        "update": "Saved version",
+        "read": "Read file",
+        "download": "Downloaded file",
+        "list": "Listed folder",
+        "stat": "Read metadata",
+        "search": "Searched",
+        "resolve_path": "Resolved path",
+        "confirm": "Prepared confirmation",
+        "grant": "Granted access",
+        "revoke": "Revoked access"
+      },
+      "roots": "Shared folders"
     }
   },
   "personColor": {
@@ -8115,5 +8320,24 @@
       "model": "Model",
       "workload": "Workload"
     }
+  },
+  "conversationObserver": {
+    "code": {
+      "antigravity_acp_session_failed": "The observer's Antigravity session ended before answering. Next step: check Pica's connection and sign-in; details are in the server log.",
+      "opencode_acp_session_failed": "The observer's OpenCode session ended before answering. Next step: check Pica's connection and sign-in; details are in the server log.",
+      "plan_acp_session_failed": "The observer's Codex session ended before answering. Details are in the server log.",
+      "plan_claude_acp_session_failed": "The observer's Claude Code session ended before answering. Details are in the server log.",
+      "cli_not_executable": "The program of Pica's chosen model could not be started. Next step: check the installation under Settings → Agents.",
+      "acp_worker_unit_unavailable": "The service manager of the server account starts no limited worker unit. Next step: check the user service manager of the server account.",
+      "check_timeout": "The observer did not answer in time.",
+      "pica_disabled": "Pica is switched off; the observer uses Pica's model and therefore does not run.",
+      "pica_model_missing": "No model is chosen for Pica. Next step: choose one under Settings → Pica.",
+      "pica_access_denied": "No person involved may use Pica's chosen model.",
+      "pica_model_unavailable": "Pica's chosen model is currently unavailable.",
+      "observer_unavailable": "This server runs no ACP sessions; the observer is unavailable.",
+      "observer_no_person": "No authorized person was available for the call.",
+      "observer_failed": "The observer gave no usable result."
+    },
+    "unknownCode": "The observer call failed (error code {{code}}). Details are in the server log."
   }
 }

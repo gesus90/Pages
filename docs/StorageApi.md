@@ -16,15 +16,19 @@ confirmations). A separate MCP client is not part of PAGE-270.
 
 ## Rights
 
-- Only an **active administrator in the admin mode** may call the interface
-  (the right of the system settings). Pages checks it on **every** call, before
-  a body is read; an administrator in the role mode gets `403 forbidden` at
-  once.
+- An active administrator in admin mode may use all operations. PAGE-323
+  also grants **Storage writing per folder** to roles, departments or groups.
+  Current members (human or agent accounts) may list/read, create subfolders,
+  upload and save versions in that folder and its descendants without admin
+  mode. Missing rights return `403 forbidden` before any content read or write.
+  Copy, rename, move, trash, restore, permanent deletion, batch, quota and global
+  search remain administrative. Provider scopes remain an additional boundary.
 - Every call takes a freshly confirmed access of the instance connection
   (`about.get`); Google then decides with the rights of the connected account.
   The interface never returns a token, a credential or a sharing link, and
   references grant nothing.
-- The Google account is the one of the instance; nothing is shared per user.
+- The Google account is the one of the instance. Folder grants are bound to
+  its permission ID and stable folder IDs, never names or a session checkout.
 - The session cookie authenticates the call (`SameSite=Lax`); changing calls
   are `POST` only.
 
@@ -79,19 +83,23 @@ Concrete decisions that a client must follow or compare against its contract:
   unsupported exports `exportFormats`. No provider response, credential or
   file content is included. JSON responses use `no-store` and `nosniff`.
 
-### Persisted UI rights, not MCP administrator projection
+### Current account and folder rights (PAGE-323)
 
-Each call first uses the normal paired-device authentication, including the
-current account's active/password-change checks. It then calls the ordinary
-`administrationService.getContext(actor.id)` and uses
-`new UserPolicyService("ui").isAdministrator(account)`. The context must belong
-to exactly that user and represent an active **personal administrator in the
-persisted `admin` mode**, never an agent account. Missing, mismatched,
-unreadable or ineligible context returns structured `403 forbidden`.
-No MCP role projection, mode switch or client-supplied account context is used.
-A personal administrator working in `role` mode is refused until the person
-switches mode through the ordinary UI. This restriction also applies to
-capabilities, downloads, confirmations and retries.
+Paired-device authentication checks the current active account and password
+requirements. Every operation then uses `googleDriveFileService.forAccount`:
+`StorageAccessService` resolves persisted account facts, current role,
+department/group memberships and live folder ancestry. Agent accounts never
+become administrators. Capabilities name `grantedFolders`; use those references
+for subsequent calls. Unscoped list/search, trash and quota remain restricted.
+The account-bound facade is shared by the cookie API, MCP and native Pica tools;
+callers cannot override the acting account. Revocation applies to the next call.
+
+Successful file operations are written to `storage_activity` with actor ID and
+name, operation and reference, without bytes, tokens or input parameters.
+The UI history and `/storage-api/access?view=history` show the account's own
+activity; active administrators see all activity. The settings at
+`/settings/system` configure grants through `/storage-api/access`.
+See [Team setup](wiki/PAGE-323.md) for the A-Team configuration.
 
 ### File transfers and destructive changes
 
@@ -288,7 +296,7 @@ show again.
 
 | Code                     | HTTP | Meaning                                                                                                                                                                                                        |
 | ------------------------ | ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `forbidden`              | 403  | No Pages right: not an active administrator in the admin mode.                                                                                                                                                 |
+| `forbidden`              | 403  | No Pages right for the folder or operation.                                                                                                                                                                    |
 | `invalid_request`        | 400  | Missing or invalid parameter, unreadable body, unknown operation.                                                                                                                                              |
 | `invalid_reference`      | 400  | `ref` is no possible Drive id.                                                                                                                                                                                 |
 | `invalid_path`           | 400  | Path not absolute, too deep, or with `.`/`..`.                                                                                                                                                                 |
@@ -342,11 +350,11 @@ Pica uses the same reader and writer as this interface through native tools
 `storage_trash`, `storage_restore`, `storage_create_folder` and
 `storage_delete_permanently`.
 
-- The person must be an active administrator in the admin mode; Pages checks
-  that before and after every call. Pica has no rights of its own: the
-  connected Google account decides as for this interface. Every person sees
-  `storage_capabilities`, so a missing right is explained (`ADMIN_REQUIRED`);
-  the other tools are administrator tools.
+- Every tool is available to ordinary human and agent accounts. The shared
+  account facade checks folder grants per call and returns `FORBIDDEN` for an
+  unavailable folder or administrative action; no blanket `ADMIN_REQUIRED`.
+  `storage_capabilities` names available roots and operations. The connected
+  Google account still needs the corresponding provider scopes.
 - Results carry the entries with their `ref`, which Pica keeps for later calls
   instead of searching again. Errors carry the code (`NOT_FOUND`,
   `NAME_CONFLICT`, `PROVIDER_SCOPE_MISSING`, …) and an explanation.

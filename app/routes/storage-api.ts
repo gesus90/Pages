@@ -1,3 +1,4 @@
+import { browseAccountStorage } from "@/backend/service/google/StorageAccountBrowse";
 import { authenticatedUserContext } from "@/app/lib/auth.server";
 import { GOOGLE_DRIVE_NO_STORE_HEADERS } from "@/app/lib/google-drive-route.server";
 import { getApplicationServices } from "@/app/lib/services.server";
@@ -19,15 +20,7 @@ function respond(body: unknown, status = 200): Response {
   });
 }
 
-/**
- * Returns the services when the account may use Storage, else `null`.
- *
- * @remarks
- * The Drive connection is the one Google account an administrator signed in
- * for the instance. Storage therefore follows the right of the system
- * settings: an administrator in the active admin mode. Opening it to other
- * accounts would share that Google account without anyone deciding so.
- */
+/** Resolves services; the loader checks folder rights and mutations remain administrative. */
 async function grantedServices(
   user: User | null,
 ): Promise<ApplicationServices | null> {
@@ -37,7 +30,7 @@ async function grantedServices(
 
   const services = await getApplicationServices();
 
-  return (await isSystemSettingsGranted(services, user)) ? services : null;
+  return services;
 }
 
 function readOptional(
@@ -81,6 +74,30 @@ export async function loader({
   const storage = services.googleDriveStorageService;
 
   try {
+    if (!(await isSystemSettingsGranted(services, user))) {
+      const access = await services.storageAccessService.context(user.id);
+      if (
+        !access ||
+        access.grants.length === 0 ||
+        parameters.get("view") === "quota"
+      )
+        return respond({ error: "forbidden" }, 403);
+      const result = await browseAccountStorage(
+        services.googleDriveFileService.forAccount(user.id),
+        access,
+        {
+          folderId: readOptional(parameters, "folder"),
+          pageToken: readPageToken(parameters),
+          isFoldersOnly: parameters.get("foldersOnly") === "1",
+        },
+      );
+      return result.ok
+        ? respond(result.value)
+        : respond(
+            { error: result.error.code },
+            result.error.code === "forbidden" ? 403 : 400,
+          );
+    }
     if (parameters.get("view") === "quota") {
       return respond(await storage.readQuota());
     }
@@ -124,6 +141,9 @@ export async function action({
   if (!user || !services) {
     return respond({ error: "forbidden" }, 403);
   }
+
+  if (!(await isSystemSettingsGranted(services, user)))
+    return respond({ error: "forbidden" }, 403);
 
   const formData = await request.formData();
   const intent = formData.get("intent");

@@ -8,7 +8,6 @@ import {
   storageDownloadResponse,
   storageErrorResponse,
 } from "@/app/lib/storage-api.server";
-import { hasMcpStorageAccess } from "@/backend/service/mcp/storage/McpStorageAccess";
 import { readMcpStorageInput } from "@/backend/service/mcp/storage/McpStorageRequest";
 import { McpStorageService } from "@/backend/service/mcp/storage/McpStorageService";
 import { toMcpUserError } from "@/backend/service/mcp/users/McpUserError";
@@ -95,9 +94,7 @@ export async function runMcpStorageRoute(
     const actor = await services.mcpUserApi.authenticate(
       request.headers.get("Authorization"),
     );
-    if (!(await hasMcpStorageAccess(services.administrationService, actor)))
-      return failure({ code: "forbidden" }, false);
-    const files = services.googleDriveFileService;
+    const files = services.googleDriveFileService.forAccount(actor.id);
     const simulation = files.isSimulation;
     const operation = operationFrom(path);
     if (operation === null)

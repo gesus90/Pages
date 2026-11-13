@@ -51,6 +51,8 @@ export interface AgentPlanExecutionInput extends TextExecutionInput {
     /** The failed run a native recovery resumes; its transcripts move to this run. */
     readonly sourceRunId?: string;
     readonly isLocalInstruction?: boolean;
+    /** Gives up waiting for an ACP place after this long; a swarm helper uses it (PAGE-313). */
+    readonly admissionDeadlineMs?: number;
   };
   readonly directory: string | null;
   /** Rechecks live access immediately before the adapter's provider request or spawn. */
@@ -137,7 +139,8 @@ export class AgentPlanStepStart {
       node.type !== "end" &&
       node.type !== "loop" &&
       node.type !== "stack" &&
-      node.type !== "decision"
+      node.type !== "decision" &&
+      node.type !== "swarm"
     )
       throw new AgentError("plan_invalid");
   }

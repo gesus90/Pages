@@ -153,3 +153,17 @@ it("reads only the requested own refusal page without observing or starting a ru
   expect(services.agentPlanService.control).not.toHaveBeenCalled();
   expect(services.runnerService.observePlan).not.toHaveBeenCalled();
 });
+
+it("reads the first page of start rejections without a cursor", async () => {
+  services.agentPlanService.startRejections.mockResolvedValue({
+    entry: null,
+    nextBefore: null,
+  });
+  const response = await poll("?planId=plan-1&startRejections=true");
+  expect(response.status).toBe(200);
+  expect(services.agentPlanService.startRejections).toHaveBeenCalledWith(
+    EMPLOYEE.id,
+    "plan-1",
+    null,
+  );
+});

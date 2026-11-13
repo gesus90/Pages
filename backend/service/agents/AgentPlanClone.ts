@@ -1,150 +1,40 @@
-import { randomUUID } from "node:crypto";
-
-import { AgentOperationError } from "@/backend/error/AgentOperationError";
+import { AgentPlanCloneGraph } from "./AgentPlanCloneGraph";
 
 import type { AgentPlanExecutionTarget } from "@/definition/AgentPlanExecution";
-import type {
-  AgentPlanBinding,
-  AgentPlanEdge,
-  AgentPlanInput,
-  AgentPlanNode,
-  AgentPlanStep,
-} from "@/definition/AgentPlan";
+import type { AgentPlanInput } from "@/definition/AgentPlan";
+import type { AgentPlanTeam } from "@/definition/AgentPlanTeam";
 
-/** A clone uses normal creation ownership and sharing, with an explicit source revision. */
+/** Explicit clone settings; omitted access fields retain normal creation defaults. */
 export interface AgentPlanCloneInput {
+  /** Only an active administrator can choose the copy's owner. */
+  readonly ownerId?: string;
+  readonly teams?: readonly AgentPlanTeam[];
+  /** A newer source is copied automatically and named in the adjustment receipt. */
   readonly expectedRevision: number;
   readonly name: string;
-  /** Omission transparently keeps the source workspace; it never copies its files. */
+  /** Defaults to the source workspace, then to the first usable workspace of its project. */
   readonly workspaceId?: string;
-  /** The plan target of the copy; omission keeps the source's, a local target runs on the Pages host. */
+  /** Keeps an authorized source target when omitted; no workspace files are copied. */
   readonly executionTarget?: AgentPlanExecutionTarget;
-  /** Marks the copy as a one-time plan (PAGE-309); a plain copy never inherits the mark. */
+  /** Marks only this copy as a one-time plan; it never inherits the source's mark. */
   readonly oneShot?: boolean;
 }
 
-/** The plan target of a copy, stored only when it names a remote workspace. */
-function clonedTarget(
-  source: AgentPlanInput,
-  input: AgentPlanCloneInput,
-): Pick<AgentPlanInput, "executionTarget"> {
-  const target = input.executionTarget ?? source.executionTarget;
-  return target?.kind === "remote" ? { executionTarget: target } : {};
-}
-
-function invalidReference(): never {
-  throw new AgentOperationError("INVALID_REQUEST", { reason: "graph_invalid" });
-}
-
-function cloneIdentities(plan: AgentPlanInput): ReadonlyMap<string, string> {
-  const ids = new Map<string, string>();
-  const add = (id: string): void => {
-    if (ids.has(id)) invalidReference();
-    ids.set(id, randomUUID());
-  };
-  for (const node of plan.nodes) {
-    add(node.id);
-    if (node.type === "group" || node.type === "loop")
-      for (const step of node.steps) add(step.id);
-    if (node.type === "group")
-      for (const parameter of node.parameters) add(parameter.id);
-  }
-  return ids;
-}
-
-/** Copies the entire saved graph, remapping every internal identity or refusing a dangling reference. */
+/** Copies saved content and remaps every internal identity, with normal private creation sharing. */
 export function clonePlanGraph(
   source: AgentPlanInput,
   input: AgentPlanCloneInput,
 ): AgentPlanInput {
   const plan = structuredClone(source);
-  const ids = cloneIdentities(plan);
-  const mapped = (id: string): string => ids.get(id) ?? invalidReference();
-  const edges = (entries: readonly AgentPlanEdge[]): readonly AgentPlanEdge[] =>
-    entries.map((edge) => ({
-      ...edge,
-      from: mapped(edge.from),
-      to: mapped(edge.to),
-    }));
-  const bindings = (
-    entries: Readonly<Record<string, AgentPlanBinding>>,
-  ): Readonly<Record<string, AgentPlanBinding>> =>
-    Object.fromEntries(
-      Object.entries(entries).map(([name, binding]) => {
-        if (binding.kind === "source")
-          return [name, { ...binding, nodeId: mapped(binding.nodeId) }];
-        if (binding.kind === "result" || binding.kind === "previous")
-          return [name, { ...binding, stepId: mapped(binding.stepId) }];
-        return [name, binding];
-      }),
-    );
-  const copyStep = (step: AgentPlanStep): AgentPlanStep => ({
-    ...step,
-    id: mapped(step.id),
-    agentId:
-      step.configuration?.connectionId || step.configuration?.runnerRoute
-        ? mapped(step.id)
-        : step.agentId,
-    bindings: bindings(step.bindings),
-  });
-  const copyNode = (node: AgentPlanNode): AgentPlanNode => {
-    const base = { ...node, id: mapped(node.id) };
-    if (node.type === "agent") return copyStep(node);
-    if (base.type === "script" || base.type === "git_closeout")
-      return { ...base, bindings: bindings(base.bindings) };
-    if (base.type === "group")
-      return {
-        ...base,
-        steps: base.steps.map(copyStep),
-        ...(base.edges ? { edges: edges(base.edges) } : {}),
-        parameters: base.parameters.map((parameter) => ({
-          ...parameter,
-          id: mapped(parameter.id),
-        })),
-        bindings: bindings(base.bindings),
-      };
-    if (base.type === "loop")
-      return {
-        ...base,
-        steps: base.steps.map((step) =>
-          step.type === "agent"
-            ? copyStep(step)
-            : {
-                ...step,
-                id: mapped(step.id),
-                bindings: bindings(step.bindings),
-              },
-        ),
-        edges: edges(base.edges),
-        bindings: bindings(base.bindings),
-        condition: base.condition
-          ? {
-              ...base.condition,
-              sourceNodeId: mappedConditionSource(
-                base.condition.sourceNodeId,
-                mapped,
-              ),
-            }
-          : null,
-      };
-    return base;
-  };
+  const target = input.executionTarget ?? plan.executionTarget;
   return {
     name: input.name,
     workspaceId: input.workspaceId ?? plan.workspaceId,
     usage: "private",
     sharing: { isGlobal: false, targets: [], operator: "or" },
-    ...clonedTarget(plan, input),
+    ...(target?.kind === "remote" ? { executionTarget: target } : {}),
     ...(input.oneShot === true ? { oneShot: true } : {}),
     globals: plan.globals,
-    nodes: plan.nodes.map(copyNode),
-    edges: edges(plan.edges),
+    ...new AgentPlanCloneGraph(plan).copy(),
   };
-}
-
-function mappedConditionSource(
-  sourceId: string,
-  mapped: (id: string) => string,
-): string {
-  return sourceId ? mapped(sourceId) : "";
 }

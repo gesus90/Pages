@@ -5,7 +5,9 @@ import {
 import {
   AgentPlanAgentTodoRepository,
   readEntries,
+  saveSwarmTodos,
 } from "@/backend/database/repositories/agent/AgentPlanAgentTodoRepository";
+import { AgentPlanSwarmRepository } from "@/backend/database/repositories/agent/AgentPlanSwarmRepository";
 import { AgentSessionRepository } from "@/backend/database/repositories/agent/AgentSessionRepository";
 import {
   ATTEMPT_COLUMNS,
@@ -272,6 +274,52 @@ export const AGENT_SESSION_FLOW: RepositoryFlow = {
       ),
     ),
     call("readEntries", () => Promise.resolve(readEntries("[]"))),
+    call("saveSwarmTodos", ({ database }) =>
+      saveSwarmTodos(database, {
+        runId: "run-session",
+        stepId: "swarm",
+        attemptId: "swarm:run-session:swarm",
+        workerId: "main",
+        todos: [],
+        updatedAt: STARTED_AT,
+      }),
+    ),
+    call("AgentPlanSwarmRepository.saveTodos", ({ database }) =>
+      new AgentPlanSwarmRepository(database).saveTodos({
+        runId: "run-session",
+        stepId: "swarm",
+        attemptId: "swarm:run-session:swarm",
+        workerId: "H1",
+        todos: [
+          { id: "1", text: "Lesen", status: "active", updatedAt: STARTED_AT },
+        ],
+        updatedAt: STARTED_AT,
+      }),
+    ),
+    call("AgentPlanSwarmRepository.save", ({ database }) =>
+      new AgentPlanSwarmRepository(database).save("run-session", "swarm", {
+        view: {
+          main: {
+            provider: "codex_cli",
+            model: "m",
+            activity: null,
+            todos: [],
+          },
+          workers: [],
+          tasks: [],
+          violations: [],
+          summary: null,
+          outcome: "running",
+        },
+        locks: [{ path: "a.md", owner: "H1", expiresAt: 1 }],
+      }),
+    ),
+    call("AgentPlanSwarmRepository.find", ({ database }) =>
+      new AgentPlanSwarmRepository(database).find("run-session", "swarm"),
+    ),
+    call("AgentPlanAgentTodoRepository.listForRun", ({ database }) =>
+      new AgentPlanAgentTodoRepository(database).listForRun("run-session"),
+    ),
     call("AgentSessionRepository.readEvents", (world) =>
       sessions(world).readEvents(ATTEMPT_ID, 0, 10),
     ),

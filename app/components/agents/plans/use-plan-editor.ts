@@ -9,6 +9,7 @@ import { usePlanGraph } from "./use-plan-graph";
 import { usePlanSources } from "./use-plan-sources";
 import { isSaveCommand, usePlanSubmission } from "./use-plan-submission";
 
+import type { PlanEditorAccess } from "./use-plan-submission";
 import type { AgentWorkspaceChoice } from "@/definition/AgentWorkspace";
 import type { AgentPlanActionResult } from "@/app/lib/agent-plan-response";
 import type {
@@ -32,8 +33,8 @@ async function loadNodeConfiguration(
   return readPlanConfiguration(configuration);
 }
 
-/** Saved graphs and unsaved edits remain separate state; only an explicit save stores the draft. */
-export function usePlanEditor(page: AgentPlanPage): {
+/** State and actions exposed by `usePlanEditor`. */
+export interface PlanEditorResult {
   readonly draft: AgentPlanInput;
   readonly workspaces: readonly AgentWorkspaceChoice[];
   readonly sources: AgentPlanSources;
@@ -62,10 +63,14 @@ export function usePlanEditor(page: AgentPlanPage): {
   /** Applies a change to the draft and saves the result in the same step. */
   readonly saveWith: (
     change: (draft: AgentPlanInput) => AgentPlanInput,
+    access?: PlanEditorAccess,
   ) => void;
   readonly rename: (name: string) => void;
   readonly changeContext: (workspace: AgentWorkspaceChoice) => void;
-} {
+}
+
+/** Saved graphs and unsaved edits remain separate state; only an explicit save stores the draft. */
+export function usePlanEditor(page: AgentPlanPage): PlanEditorResult {
   const command = useFetcher<AgentPlanActionResult>();
   const navigate = useNavigate();
   const [submittedName, setSubmittedName] = useState<string | null>(null);
@@ -105,6 +110,7 @@ export function usePlanEditor(page: AgentPlanPage): {
   function requestSave(
     change: (current: AgentPlanInput) => AgentPlanInput,
     isExplicit: boolean,
+    access?: PlanEditorAccess,
   ): void {
     graph.flushPendingMove();
     const current = currentDraft();
@@ -112,11 +118,14 @@ export function usePlanEditor(page: AgentPlanPage): {
     if (next !== current) setDraft(next);
     setExplicitSave(isExplicit);
     setSubmittedName(next.name);
-    submitSave(next);
+    submitSave(next, access);
   }
   // A save asked for while one runs waits for its answer instead of being dropped.
-  function saveWith(change: (current: AgentPlanInput) => AgentPlanInput): void {
-    requestSave(change, false);
+  function saveWith(
+    change: (current: AgentPlanInput) => AgentPlanInput,
+    access?: PlanEditorAccess,
+  ): void {
+    requestSave(change, false, access);
   }
   const isSaving = isSubmitting && isSaveCommand(command);
   const isRevalidatingSave =

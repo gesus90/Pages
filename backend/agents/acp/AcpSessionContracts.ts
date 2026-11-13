@@ -1,3 +1,4 @@
+import type { CliSessionContainment } from "@/backend/agents/cli/CliSessionCloseout";
 import type { TextExecutionInput } from "@/backend/agents/TextExecution";
 import type { McpServer, SessionConfigOption } from "@agentclientprotocol/sdk";
 import type { PlanSessionObserver } from "@/backend/agents/AgentPlanExecution";
@@ -55,8 +56,11 @@ export interface AcpSessionContext {
   readonly signal: AbortSignal;
   /** How the process is isolated, as the run records it. */
   readonly isolation: string;
-  /** The adapter runs inside an owned PID namespace whose init is the tracked process. */
-  readonly isPidNamespace?: boolean;
+  /**
+   * What contains every process of the session: an owned PID namespace whose
+   * init is the tracked process, or the limited worker unit it started in.
+   */
+  readonly containment?: CliSessionContainment;
   /** Restores the modes of the credential folder after the session. */
   readonly secure: () => Promise<void>;
   /** Removes owned adapter artifacts only after process cleanup is confirmed. */

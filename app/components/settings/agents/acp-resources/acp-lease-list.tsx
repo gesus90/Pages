@@ -4,6 +4,7 @@ import { Link } from "react-router";
 import { AgentCheckTime } from "../agent-check-time";
 
 import type {
+  AcpChatSessionView,
   AcpRecoveryScope,
   AcpResourceDiagnostics,
   AcpResourceRunReference,
@@ -17,15 +18,26 @@ function isOwnedBy(scope: AcpRecoveryScope, runId: string | null): boolean {
   return scope === "plans" ? runId !== null : runId === null;
 }
 
-/** Names the plan of a run or the Pica chat behind a reservation. */
+/** Names the plan of a run, the kept chat session of an agent or the Pica chat behind a reservation. */
 function LeaseOrigin({
   runId,
   run,
+  chat,
 }: {
   readonly runId: string | null;
   readonly run: AcpResourceRunReference | undefined;
+  readonly chat?: AcpChatSessionView;
 }): React.ReactElement {
   const { t } = useTranslation();
+  if (chat)
+    return (
+      <span>
+        {t("settings.agents.resources.entry.agentChat", {
+          agent: chat.agentName,
+          conversation: chat.conversation,
+        })}
+      </span>
+    );
   if (runId === null)
     return <span>{t("settings.agents.resources.entry.pica")}</span>;
   if (!run)
@@ -103,10 +115,12 @@ function LeaseReason({
 function LeaseItem({
   entry,
   run,
+  chat,
   isOwned,
 }: {
   readonly entry: Lease;
   readonly run: AcpResourceRunReference | undefined;
+  readonly chat: AcpChatSessionView | undefined;
   readonly isOwned: boolean;
 }): React.ReactElement {
   const { t } = useTranslation();
@@ -114,7 +128,7 @@ function LeaseItem({
     <li className="space-y-1 rounded-md border border-border p-3">
       <p className="font-medium">
         {t(`settings.agents.providerShort.${entry.provider}`)} ·{" "}
-        <LeaseOrigin runId={entry.runId} run={run} />
+        <LeaseOrigin runId={entry.runId} run={run} chat={chat} />
       </p>
       <p>
         {t(`settings.agents.resources.${entry.state}`)}
@@ -143,6 +157,9 @@ export function AcpLeaseList({
     (resources.runs ?? []).map((reference) => [reference.runId, reference]),
   );
   const scope = resources.check?.scope ?? "all";
+  const chats = new Map(
+    (resources.chatSessions ?? []).map((chat) => [chat.instanceId, chat]),
+  );
   return (
     <ul className="space-y-2">
       {resources.active.map((entry) => (
@@ -150,6 +167,7 @@ export function AcpLeaseList({
           key={entry.instanceId}
           entry={entry}
           run={entry.runId === null ? undefined : runs.get(entry.runId)}
+          chat={chats.get(entry.instanceId)}
           isOwned={isOwnedBy(scope, entry.runId)}
         />
       ))}

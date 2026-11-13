@@ -25,10 +25,7 @@ export interface PicaStorageToolParts {
 }
 
 const STORAGE_NOTE =
-  "Pages checks on every call that the person is an active administrator in the admin mode and what the connected Google account allows; Pica has no rights of its own. Use it only on the person's explicit request. No tokens or secret links are ever returned.";
-
-/** The one tool every person sees, so a refusal can be explained instead of the tools just missing. */
-const PUBLIC_TOOL: PicaStorageTool = "storage_capabilities";
+  "Pages checks current folder grants for the acting account and what the connected Google account allows; Pica has no rights of its own. Use it only on the person's explicit request. No tokens or secret links are ever returned.";
 
 function isStorageTool(name: string): name is PicaStorageTool {
   return Object.hasOwn(PICA_STORAGE_SCHEMAS, name);
@@ -51,8 +48,7 @@ function explained(outcome: PicaToolOutcome): PicaToolOutcome {
  * @param parts - The privileged dispatch, the human turn and the budget.
  *
  * @remarks
- * Besides `storage_capabilities`, which explains a missing right, the tools
- * carry the `administrator` access class. A change that failed is not sent
+ * All tools use the acting account and check folder grants in the service. A change that failed is not sent
  * again unchanged in the same turn; a requested confirmation is no failure,
  * because the identical call follows the person's reply.
  */
@@ -65,7 +61,7 @@ export function registerPicaStorageTools(
     const isWrite = !PICA_STORAGE_READ_TOOLS.has(tool);
     registry.register<unknown, PicaToolOutcome>({
       id: tool,
-      access: tool === PUBLIC_TOOL ? "user" : "administrator",
+      access: "user",
       description: `${PICA_STORAGE_DESCRIPTIONS[tool]} ${STORAGE_NOTE}`,
       inputSchema: PICA_STORAGE_SCHEMAS[tool],
       outputSchema: PICA_TOOL_OUTCOME,

@@ -21,23 +21,37 @@ function readRight(input: unknown): boolean {
 
 function readTeam(input: unknown): AgentPlanTeam {
   const team = readParameterRecord(input);
-  requireParameterKeys(team, ["kind", "id"], ["read", "edit", "run"]);
+  const isCanonical = "targetId" in team;
+  requireParameterKeys(
+    team,
+    isCanonical
+      ? ["kind", "targetId", "canRead", "canEdit", "canRun"]
+      : ["kind", "id"],
+    isCanonical ? [] : ["read", "edit", "run"],
+  );
   if (!isAgentPlanTeamKind(team.kind))
     throw new AgentOperationError("INVALID_REQUEST");
+  const canEdit = isCanonical ? team.canEdit : team.edit;
+  const canRun = isCanonical ? team.canRun : team.run;
   return {
     kind: team.kind,
-    targetId: readIdentifier(team.id),
-    canRead: readRight(team.read),
-    canEdit: readRight(team.edit),
-    canRun: readRight(team.run),
+    targetId: readIdentifier(isCanonical ? team.targetId : team.id),
+    canRead: readRight(isCanonical ? team.canRead : team.read),
+    canEdit:
+      canEdit === undefined && team.kind === "user"
+        ? false
+        : readRight(canEdit),
+    canRun:
+      canRun === undefined && team.kind === "user" ? false : readRight(canRun),
   };
 }
 
 /**
- * Reads the `teams` parameter of `update_plan` (PAGE-329).
+ * Reads the shared `teams` parameter of `update_plan` and `clone_plan`.
  *
- * @param input - The raw parameter: a list of `{kind, id, read?, edit?, run?}`;
- * an omitted right defaults to `true`.
+ * @param input - Canonical `{kind, targetId, canRead, canEdit, canRun}` entries,
+ * or legacy `{kind, id, read?, edit?, run?}`. Legacy rights default to true,
+ * except a person's edit and run rights, which default to false.
  * @returns The entries in their order, or `undefined` when the parameter is absent.
  * @throws {AgentOperationError} `INVALID_REQUEST` for a malformed entry or too many entries.
  */

@@ -38,6 +38,9 @@ function Editor(): React.ReactElement {
         dirty
       </label>
       <Link to="/other">Leave</Link>
+      <Link to="/agents/plans?planId=copy" state={{ clonedPlanId: "copy" }}>
+        Open created clone
+      </Link>
       <PlanLeaveGuard isDirty={isDirty} />
     </>
   );
@@ -48,6 +51,7 @@ function renderEditor(): void {
     [
       { path: "/plan", element: <Editor /> },
       { path: "/other", element: <p>Other page</p> },
+      { path: "/agents/plans", element: <p>Created copy editor</p> },
     ],
     { initialEntries: ["/plan"] },
   );
@@ -105,4 +109,11 @@ it("keeps the question open when the dialog only reports that it is open", async
   await new Promise((resolve) => setTimeout(resolve, 0));
   expect(screen.getByRole("dialog")).toBeTruthy();
   expect(screen.queryByText("Other page")).toBeNull();
+});
+
+it("opens the committed clone directly without a second dialog even from an unsaved source", async () => {
+  renderEditor();
+  fireEvent.click(screen.getByRole("link", { name: "Open created clone" }));
+  expect(await screen.findByText("Created copy editor")).toBeDefined();
+  expect(screen.queryByRole("dialog")).toBeNull();
 });

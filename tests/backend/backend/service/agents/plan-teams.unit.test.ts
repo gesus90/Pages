@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { AgentError } from "@/backend/error/AgentErrors";
+import { AgentPlanAccess } from "@/backend/service/agents/AgentPlanAccess";
+import { planDetail } from "@/backend/service/agents/AgentPlanOperationViews";
 import { AgentPlanSharing } from "@/backend/service/agents/AgentPlanSharing";
 import { AgentPlanTeamService } from "@/backend/service/agents/AgentPlanTeamService";
 import { readPlanTeamsParameter } from "@/backend/service/agents/AgentPlanTeamInput";
@@ -298,9 +301,7 @@ describe("changing teams and owner of a plan (PAGE-329, part B)", () => {
         teams: [A_TEAM_ENTRY],
       }),
     ).resolves.toBe(5);
-    expect(world.validateTeams).toHaveBeenCalledWith([
-      { ...A_TEAM_ENTRY, canRead: true },
-    ]);
+    expect(world.validateTeams).toHaveBeenCalledWith([A_TEAM_ENTRY], "project");
     expect(world.change).toHaveBeenCalledWith(
       expect.objectContaining({
         planId: "plan-1",
@@ -411,5 +412,98 @@ describe("reading teams from update_plan", () => {
         },
       ]),
     ).toEqual([{ ...A_TEAM_ENTRY, canRead: true }]);
+  });
+});
+
+describe("person entries in the same team model (PAGE-330)", () => {
+  const person = {
+    kind: "user" as const,
+    targetId: "Mei",
+    canRead: true,
+    canEdit: false,
+    canRun: false,
+  };
+  it("grants exactly read to the named account and names the person in read_plan", () => {
+    expect(
+      SHARING.rights(plan({ teams: [person] }), viewer(account("Mei"))),
+    ).toMatchObject({ canRead: true, canEdit: false, canRun: false });
+    expect(
+      SHARING.rights(plan({ teams: [person] }), viewer(account("Ed"))),
+    ).toMatchObject({ canRead: false, canEdit: false, canRun: false });
+    const result = planDetail(view({ teams: [person] }), {
+      directory: {
+        persons: [{ id: "Mei", name: "Mei Reader" }],
+        groups: [],
+        departments: [],
+      },
+      sources: { agents: [], tasks: [] },
+      entries: [],
+      starters: new Map(),
+    });
+    expect(result.teams).toEqual([
+      {
+        kind: "user",
+        id: "Mei",
+        name: "Mei Reader",
+        read: true,
+        edit: false,
+        run: false,
+      },
+    ]);
+  });
+
+  it("accepts the canonical clone/update team input and preserves legacy input", () => {
+    expect(readPlanTeamsParameter([person])).toEqual([person]);
+    expect(readPlanTeamsParameter([{ kind: "user", id: "Mei" }])).toEqual([
+      person,
+    ]);
+  });
+
+  it.each(["canEdit", "canRun"])(
+    "rejects a person's %s with its own reason",
+    async (right) => {
+      const sharing = new AgentPlanSharing(
+        partial({
+          snapshot: async () => ({
+            accounts: [account("Mei")],
+            departments: [],
+          }),
+        }),
+        partial({ findAll: async () => [] }),
+      );
+      await expect(
+        sharing.validateTeams([{ ...person, [right]: true }]),
+      ).rejects.toMatchObject({ code: "plan_user_team_read_only" });
+    },
+  );
+
+  it("checks the person's existence and project visibility, before any access write", async () => {
+    const sharing = new AgentPlanSharing(
+      partial({
+        snapshot: async () => ({ accounts: [account("Mei")], departments: [] }),
+      }),
+      partial({ findAll: async () => [] }),
+    );
+    const requireProjectAccess = vi.fn(async () => undefined);
+    const access = new AgentPlanAccess(
+      partial({}),
+      partial({ requireProjectAccess }),
+      sharing,
+    );
+    await access.validateTeams([person], "project");
+    expect(requireProjectAccess).toHaveBeenCalledWith("Mei", "project");
+    await expect(
+      access.validateTeams([{ ...person, targetId: "missing" }], "project"),
+    ).rejects.toMatchObject({ code: "profile_target_invalid" });
+    requireProjectAccess.mockRejectedValueOnce(
+      new AgentError("workspace_access_denied"),
+    );
+    await expect(
+      access.validateTeams([person], "project"),
+    ).rejects.toMatchObject({ code: "profile_target_invalid" });
+    requireProjectAccess.mockRejectedValueOnce(new Error("unexpected"));
+    await expect(access.validateTeams([person], "project")).rejects.toThrow(
+      "unexpected",
+    );
   });
 });

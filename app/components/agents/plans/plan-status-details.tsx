@@ -7,6 +7,7 @@ import { Button } from "@/app/components/ui/button";
 import { PlanExecutionDetails } from "./plan-execution-details";
 import { PlanStatusActivity } from "./plan-status-activity";
 import { PlanStatusAgentTodos } from "./plan-status-agent-todos";
+import { PlanSwarmRun } from "./plan-swarm/plan-swarm-run";
 import { hasOpenPlanReport, PlanStatusBadge } from "./plan-status";
 import { PlanStatusConfiguration } from "./plan-status-configuration";
 import { isPlanDecisionResult, PlanStatusHistory } from "./plan-status-history";
@@ -188,6 +189,14 @@ function StepConfiguration({
   const { t } = useTranslation();
   if (!step) return null;
   if (isPlanDecisionResult(step)) return null;
+  if (step.swarm)
+    return (
+      <PlanSwarmRun
+        run={step.swarm}
+        workerCount={step.swarm.workers.length}
+        error={step.status === "failed" ? step.error : null}
+      />
+    );
   if (step.script) return <PlanScriptRun step={step} />;
   if (isScript(step)) return <PlanRemoteScriptRun step={step} />;
   if (step.session)

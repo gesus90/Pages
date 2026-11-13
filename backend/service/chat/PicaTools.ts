@@ -1,6 +1,7 @@
 import { RuntimeToolRegistry } from "@/backend/agents/runtime/RuntimeToolRegistry";
 import { redactCredentials } from "@/backend/security/AgentTextSafety";
 
+import { registerPicaRepositoryTools } from "./PicaRepositoryTools";
 import { ChatResultBudget } from "./ChatResultBudget";
 import { registerPicaChatTools } from "./PicaChatTools";
 import { registerPicaEmployeeTools } from "./PicaEmployeeTools";
@@ -44,7 +45,7 @@ import type {
 /** Services captured by the server for the native tool catalog of one turn. */
 export interface PicaToolsInput {
   readonly tools: Pick<ChatToolExecutor, "run"> &
-    Partial<Pick<ChatToolExecutor, "runPlan" | "runAdmin">>;
+    Partial<Pick<ChatToolExecutor, "runPlan" | "runAdmin" | "repositoryReads">>;
   /** Raw current human message only; never a model prompt, history or attachment text. */
   readonly message?: string;
   readonly planTurnId?: string;
@@ -628,6 +629,12 @@ export function createPicaTools(
       inputSchema: PICA_WRITE_SCHEMAS[tool],
       outputSchema: PICA_TOOL_OUTCOME,
       execute: (parameters, context) => write(tool, parameters, context),
+    });
+  const repositoryReads = input.tools.repositoryReads?.();
+  if (repositoryReads)
+    registerPicaRepositoryTools(registry, {
+      service: repositoryReads,
+      spend: () => spend(input, budget),
     });
   registerPicaPlanTools(registry, {
     execute: (operation, parameters, context) =>

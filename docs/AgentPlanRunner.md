@@ -49,6 +49,44 @@ Pica registriert diese Werkzeuge nativ im Pages-Backend. Die statischen Schemata
 
 Vorlagen ändern und löschen (`plans.templates.update`, `plans.templates.delete`, PAGE-246) gibt es für Agentenwerkzeuge, Pica und die Plan-API von Pages MCP; der Editor bietet dafür weiterhin keine Oberfläche. Plan und Vorlage werden nach ausdrücklicher aktueller Bitte der Person ohne Bestätigungswort gelöscht; Eigentum und gelesener Stand werden geprüft. Planänderungen, Vorlagenoperationen und reine Lesezugriffe starten keinen Run.
 
+## Klonen und Teams (PAGE-330, Vertragsversion 18)
+
+`clone_plan` und `POST /api/mcp/v1/plans/{planId}/clone` verwenden wie der
+Klon-Dialog `AgentPlanCloning`. Die Quelle muss sichtbar sein. Kopiert wird
+die aktuelle Revision; eine veraltete `expectedRevision` verhindert die Kopie
+nicht. Ein leerer Name wird „Kopie von <Name>“, ein belegter Name bekommt eine
+Zahl. Ist der Quellworkspace nicht nutzbar, wird der erste nutzbare Workspace
+desselben Projekts gewählt; fehlt einer, lautet der Fehler `workspace_unavailable`.
+Nicht nutzbare Agenten-, Modell- und Verbindungswahlen sowie nicht lesbare
+Ticket-, Wiki- und Workspace-Verweise werden geleert. Alte Ticket-Flusskanten,
+`git_closeout` und unbekannte alte Felder werden bereinigt. Zugangsdaten im
+Quelltext bleiben ein Fehler (`credentials_in_text`).
+
+Die Antwort enthält `adjustments` mit `workspace_replaced`, `name_suffixed`,
+`source_revision_updated`, `legacy_form_cleaned` oder `reference_cleared` und,
+wo zutreffend, der neuen `nodeId`. Diese Antwort wird mit der Kopie gespeichert
+und bei einer Wiederholung derselben Operations-ID wiedergegeben. Im Editor
+zeigen Text, Symbol und Rahmen offene Agenten- oder Modellwahlen an.
+
+Klonen und `update_plan` nehmen optional `ownerId` und `teams` entgegen.
+`ownerId` setzt nur ein aktiver Administrator. Teams enthalten höchstens 50
+Einträge mit `kind`, `targetId`, `canRead`, `canEdit` und `canRun`. `kind` ist
+`group`, `department` oder `user`. Eine Person muss aktiv sein und das Projekt
+sehen dürfen; sie kann ausschließlich lesen. Änderungs- oder Startrechte für
+eine Person werden mit `plan_user_team_read_only` abgelehnt. Der frühere
+Werkzeug-Eingang `{kind, id, read?, edit?, run?}` bleibt lesbar. Ohne `teams`
+bekommt die Kopie die normale Vorgabe des Anlegens. Die alte Freigabe
+`usage`/`sharing` bleibt unverändert und wird nicht von der Quelle übernommen.
+
+Zugriffs-, Klon- und Bearbeitendialog nutzen dieselbe Team-Suche, Team-Zeilen
+und Besitzerwahl. Die kompakten Dialoge zeigen zunächst nur Name und „Weitere
+Optionen“. Klonen bleibt verfügbar. Ein nur lesbarer Plan erklärt Besitzer
+und fehlendes Änderungsrecht und bietet Klonen an. Nach erfolgreichem Klonen
+öffnet die gespeicherte Kopie direkt; lokale ungespeicherte Änderungen der
+Quelle werden dabei weder gespeichert noch übernommen. Ein Speichern von
+Graph und Freigaben im Bearbeitendialog ist atomar; es zählt die Graphrevision
+und, falls vorhanden, die gesonderte Zugriffsrevision samt Audit.
+
 ## Native Remote-CLI-Knoten (PAGE-151)
 
 Runner 1.4.0 erweitert die bestehende Remote-Route um Codex und Claude Code. Nur Modelle aus dem authentifizierten CLI-Picker dieses Remote-Hosts sind auswählbar. Arbeitsverzeichnis, Werkzeug, Modell, Reasoning, Zugriffsstufe und Timeout stammen aus dem eingefrorenen Knoten. Ein neuer Knoten ist lesend; YOLO verlangt die ausdrückliche Wahl am Knoten. `workspace_write` bleibt entsprechend den lokalen ACP-Verträgen gesperrt. Lokale Ausführung bleibt unverändert.

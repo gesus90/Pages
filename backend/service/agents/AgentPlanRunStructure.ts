@@ -19,7 +19,8 @@ export type AgentPlanStructureKind =
   | "git_closeout"
   | "decision"
   | "stack"
-  | "loop";
+  | "loop"
+  | "swarm";
 
 /**
  * A node of the plan revision a run executes, without anything it would run.
@@ -62,6 +63,7 @@ const STEP_KINDS: ReadonlySet<AgentPlanStructureKind> = new Set([
   "script",
   "git_closeout",
   "loop",
+  "swarm",
 ]);
 
 /** The structure kind of every node type; `null` for nodes that are no part of the flow. */
@@ -76,12 +78,18 @@ const STRUCTURE_KIND: Readonly<
   decision: "decision",
   stack: "stack",
   loop: "loop",
+  swarm: "swarm",
   group: null,
   parameter: null,
   asset: null,
   task: null,
   variable: null,
 };
+
+/** A swarm shows its name, or none so the run view falls back to the type name. */
+function swarmName(node: AgentPlanNode): string | null {
+  return node.type === "swarm" ? (node.name ?? null) : null;
+}
 
 function structureKind(node: AgentPlanNode): AgentPlanStructureKind | null {
   return STRUCTURE_KIND[node.type];
@@ -107,7 +115,7 @@ function nodeName(
     node.type === "stack" ||
     node.type === "loop"
     ? node.name
-    : null;
+    : swarmName(node);
 }
 
 function iterationStages(

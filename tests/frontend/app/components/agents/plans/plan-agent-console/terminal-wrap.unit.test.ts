@@ -46,6 +46,15 @@ it("keeps the style of a line in every row and counts no control sequence", () =
   ]);
 });
 
+it("counts wide characters and combining marks while wrapping", () => {
+  expect(wrapTerminalLine("猫猫 a b", 5)).toEqual(["猫猫", "a b"]);
+  expect(wrapTerminalLine("e\u0301 e\u0301 e\u0301", 3)).toEqual([
+    "e\u0301 e\u0301",
+    "e\u0301",
+  ]);
+  expect(wrapTerminalLine("a\tb", 0)).toEqual(["a    b"]);
+});
+
 it("shows a running time as mm:ss and from one hour as h:mm:ss", () => {
   expect(formatClock(65_400)).toBe("01:05");
   expect(formatClock(3_725_000)).toBe("1:02:05");

@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/lib/cn";
 
+import { PlanSelectionNotice } from "./plan-selection-notice";
 import { PLAN_FIT_VIEW, PlanCanvasControls } from "./plan-canvas-controls";
 import { planRefusalKey } from "./plan-connection-refusal";
 import { PlanFlowConnectionLine } from "./plan-flow-connection-line";
@@ -215,6 +216,7 @@ function PlanCanvasOverlay({
         data-plan-upper-stack
         className="flex max-h-full w-full max-w-3xl shrink-0 flex-col items-start gap-2 @5xl:max-h-full @5xl:min-w-0 @5xl:flex-1"
       >
+        <PlanSelectionNotice canvas={canvas} />
         {canvas.panel}
         <div className="flex w-full shrink-0 flex-col items-start gap-2">
           <PlanCanvasControls />

@@ -1,3 +1,6 @@
+import type { AgentPlanTeamKind } from "./AgentPlanTeam";
+import type { AgentPlanCloneAdjustment } from "./AgentPlanClone";
+import type { AgentPlanSwarm } from "./AgentPlanSwarm";
 import type { PlanRunCommandReceipt } from "./PagesRuns.js";
 import type { AgentPlanIssueProblem } from "./AgentPlanIssueProblems.js";
 import type {
@@ -334,6 +337,8 @@ export type AgentPlanNodeEntry =
   // An asset source (PAGE-268); a node without a file is a draft.
   | (AgentPlanNodeBase & Pick<AgentPlanAsset, "type" | "name" | "file">)
   | Decision.AgentPlanControlNodeEntry
+  // A swarm (PAGE-313): a main model splits a task among helpers at run time.
+  | (AgentPlanNodeBase & Omit<AgentPlanSwarm, "id" | "x" | "y">)
   | (AgentPlanNodeBase & { readonly type: "task"; readonly taskId: string })
   | (AgentPlanNodeBase & { readonly type: "variable"; readonly name: string });
 
@@ -391,7 +396,7 @@ export interface AgentPlanTeamEntry {
 
 /** One team of a plan with its name and rights (PAGE-329). */
 export interface AgentPlanTeamRightsEntry extends AgentPlanTeamEntry {
-  readonly kind: "group" | "department";
+  readonly kind: AgentPlanTeamKind;
   readonly read: boolean;
   readonly edit: boolean;
   readonly run: boolean;
@@ -692,6 +697,7 @@ export type AgentPlanRecoveryCommandResult = AgentPlanRecoveryCommandIdentity &
 
 /** Journaled command acknowledgement; run contents always require a fresh private read. */
 export interface AgentPlanCommandResult {
+  readonly adjustments?: readonly AgentPlanCloneAdjustment[];
   /** Committed request, separate from the asynchronously observed run status. */
   readonly command?: PlanRunCommandReceipt;
   readonly planId: string;

@@ -118,4 +118,37 @@ export interface ConversationGroupContextView {
   readonly sources: readonly ConversationSummarySource[];
   /** Why the context is unavailable, as a stable code; otherwise `null`. */
   readonly errorCode: string | null;
+  /** How the observer of this group fared lately; only in a member's view (PAGE-340). */
+  readonly observer?: ConversationObserverStatus;
+}
+
+/** One observer call that gave no result, without prompt, answer or provider text. */
+export interface ConversationObserverFailure {
+  readonly kind: "routing" | "summary";
+  /** `failed` when the model call failed, `refused` when no model was asked. */
+  readonly state: "failed" | "refused";
+  /** The stable error code of the call. */
+  readonly code: string;
+  /** ISO 8601 end of the call. */
+  readonly at: string;
+}
+
+/** The latest observer calls of one group, for its members (PAGE-340). */
+export interface ConversationObserverStatus {
+  /** Calls without result in a row since the last success, counted among the latest calls. */
+  readonly consecutiveFailures: number;
+  /** The newest call without result while no later call succeeded; otherwise `null`. */
+  readonly lastFailure: ConversationObserverFailure | null;
+}
+
+/** How the group observer fared across the instance, for administrators (PAGE-340). */
+export interface ConversationObserverHealth {
+  /** ISO 8601 start of the counted window. */
+  readonly since: string;
+  readonly succeeded: number;
+  readonly failed: number;
+  readonly refused: number;
+  readonly lastSuccessAt: string | null;
+  /** The newest call without result in the window; otherwise `null`. */
+  readonly lastFailure: ConversationObserverFailure | null;
 }

@@ -199,7 +199,12 @@ it.each(["submitting", "loading"] as const)(
   (state) => {
     fetcher.state = state;
     render(card());
-    expect(screen.getByRole("button").hasAttribute("disabled")).toBe(true);
+    // The limit form's own button; the card also offers the reservation check (PAGE-340).
+    expect(
+      screen
+        .getByRole("button", { name: "Wird gespeichert und angewendet …" })
+        .hasAttribute("disabled"),
+    ).toBe(true);
     expect(screen.getByRole("spinbutton").hasAttribute("disabled")).toBe(true);
     expect(
       screen.getAllByText("Wird gespeichert und angewendet …"),

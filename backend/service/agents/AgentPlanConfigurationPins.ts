@@ -8,9 +8,23 @@ import { localPlanModelSteps } from "./AgentPlanRemoteExecution";
 import { requireCompatibleFields } from "./AgentPlanGroupRuntime";
 import { requireAllowedRunOptions } from "./AgentProfileValidation";
 
+import type { AgentProviderId } from "@/definition/AgentConnection";
+import type { AgentPlanConfiguration } from "@/definition/AgentPlanConfiguration";
 import type { AgentPlanInput, AgentPlanView } from "@/definition/AgentPlan";
 import type { PlanDependencies } from "./AgentPlanDependencies";
 import type { AgentPlanScripts } from "./AgentPlanScripts";
+
+function isUnselectedConfiguration(
+  configuration: AgentPlanConfiguration,
+): boolean {
+  return (
+    configuration.model === "" &&
+    configuration.modelProfileId === "" &&
+    !configuration.connectionId &&
+    !configuration.runnerRoute &&
+    configuration.provider === null
+  );
+}
 
 /**
  * Pins the configuration of every agent node of a plan to the profile it
@@ -74,7 +88,8 @@ export class AgentPlanConfigurationPins {
       userId,
       pinned,
     )) {
-      if (!node.configuration) continue;
+      if (!node.configuration || isUnselectedConfiguration(node.configuration))
+        continue;
       const resolved = await this.dependencies.profiles.resolveDefinition(
         userId,
         {
@@ -89,26 +104,13 @@ export class AgentPlanConfigurationPins {
           entry.type === "group" &&
           entry.steps.some((step) => step.id === node.id),
       );
-      if (group) {
-        const fields = {
-          "provider/adapter": resolved.assignment.connection.provider,
-          connectionId: resolved.assignment.connection.id,
-        };
-        if (!isAcpProvider(fields["provider/adapter"]))
-          throw new AgentPlanValidationError([
-            {
-              nodeId: node.id,
-              port: "provider/adapter",
-              reason: "groupProvider",
-            },
-          ]);
-        requireCompatibleFields(
+      if (group)
+        checkGroupConnection(
           node.id,
-          fields,
-          groupConnections.get(group.id) ?? null,
+          group.id,
+          resolved.assignment.connection,
+          groupConnections,
         );
-        groupConnections.set(group.id, fields);
-      }
       const saved = previous
         ? allPlanSteps(previous).find((entry) => entry.id === node.id)
         : undefined;
@@ -120,4 +122,26 @@ export class AgentPlanConfigurationPins {
     }
     return pinned;
   }
+}
+
+function checkGroupConnection(
+  nodeId: string,
+  groupId: string,
+  connection: { readonly id: string; readonly provider: AgentProviderId },
+  groupConnections: Map<string, Readonly<Record<string, string>>>,
+): void {
+  const fields = {
+    "provider/adapter": connection.provider,
+    connectionId: connection.id,
+  };
+  if (!isAcpProvider(connection.provider))
+    throw new AgentPlanValidationError([
+      { nodeId, port: "provider/adapter", reason: "groupProvider" },
+    ]);
+  requireCompatibleFields(
+    nodeId,
+    fields,
+    groupConnections.get(groupId) ?? null,
+  );
+  groupConnections.set(groupId, fields);
 }

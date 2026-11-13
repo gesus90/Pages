@@ -1,3 +1,4 @@
+import { newPlanSwarm } from "@/definition/AgentPlanSwarm";
 import { randomUUID } from "node:crypto";
 
 import {
@@ -138,6 +139,8 @@ function newNodeFields(
 ): Readonly<Record<string, unknown>> {
   // As on the palette: a decision without a condition until one is connected.
   if (change.type === "decision") return { ...emptyPlanDecision("", position) };
+  if (change.type === "swarm")
+    return { ...newPlanSwarm({ id: "", ...position }) };
   if (change.type === "loop")
     return { ...emptyPlanLoop("", "", { x: 0, y: 0 }) };
   if (change.type === "agent")

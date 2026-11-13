@@ -343,3 +343,44 @@ describe("AgentPlanService.save of a stored plan", () => {
     expect(mocks.plans.save).not.toHaveBeenCalled();
   });
 });
+
+it("saves a repaired empty selection while still authorizing an empty model that names a connection", async () => {
+  const configuration = {
+    name: "Choose",
+    revision: 1,
+    modelProfileId: "",
+    model: "",
+    provider: null,
+    reasoningEffort: null,
+    template: { markdown: "", parameters: [], directoryParameter: null },
+  };
+  const context = createPlanContext();
+  await context.service.save(
+    "owner",
+    null,
+    input({ nodes: [START, agentNode({ agentId: "", configuration }), END] }),
+  );
+  expect(context.mocks.profiles.resolveDefinition).not.toHaveBeenCalled();
+  const denied = createPlanContext();
+  denied.mocks.profiles.resolveDefinition.mockRejectedValueOnce(
+    new AgentError("plan_model_unavailable"),
+  );
+  await expect(
+    denied.service.save(
+      "owner",
+      null,
+      input({
+        nodes: [
+          START,
+          agentNode({
+            agentId: "",
+            configuration: { ...configuration, connectionId: "hidden" },
+          }),
+          END,
+        ],
+      }),
+    ),
+  ).rejects.toMatchObject({ code: "plan_model_unavailable" });
+  expect(denied.mocks.profiles.resolveDefinition).toHaveBeenCalled();
+  expect(denied.mocks.plans.save).not.toHaveBeenCalled();
+});

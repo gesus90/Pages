@@ -170,8 +170,14 @@ export class AntigravityProtocol {
     this.connection.close();
     this.child.cancel("login_cancelled");
     if (
-      !(await closeCliSession(this.child, this.instanceId, this.scope, true))
-        .isConfirmed
+      !(
+        await closeCliSession(
+          this.child,
+          this.instanceId,
+          this.scope,
+          "pid_namespace",
+        )
+      ).isConfirmed
     )
       throw new AgentError("credential_cleanup_failed");
   }

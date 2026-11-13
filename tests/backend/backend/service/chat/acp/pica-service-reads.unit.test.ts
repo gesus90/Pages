@@ -116,3 +116,53 @@ it("recovers again after interruption fails and reads activity", async () => {
   expect(steers.selections).toHaveBeenCalledWith(FIRST);
   await expect(service.outcome(OWNER.id, FIRST, "missing")).resolves.toBeNull();
 });
+
+it("reads journals in chronological order and keeps empty pages at the cursor", async () => {
+  const { service, jobs, requireSession } = fixture();
+  const newest: ChatJob = {
+    id: "newest",
+    sessionId: FIRST,
+    state: "completed",
+    errorCode: null,
+    createdAt: "today",
+    endedAt: "today",
+    usage: { context: null, tokens: null, cost: null },
+  };
+  const oldest = { ...newest, id: "oldest" };
+  vi.mocked(jobs.recent).mockResolvedValue([newest, oldest]);
+  await expect(
+    service.journals(OWNER, FIRST, { jobs: 2, entries: 5 }),
+  ).resolves.toEqual([
+    { job: oldest, events: [] },
+    { job: newest, events: [] },
+  ]);
+  expect(jobs.events).toHaveBeenNthCalledWith(1, OWNER.id, "oldest", {
+    after: 0,
+    limit: 5,
+  });
+  expect(requireSession).toHaveBeenCalledWith(OWNER, FIRST);
+  vi.mocked(jobs.latest).mockResolvedValue(newest);
+  await expect(
+    service.update(OWNER, { sessionId: FIRST, after: 42 }),
+  ).resolves.toEqual({
+    job: newest,
+    events: [],
+    cursor: 42,
+    hasMore: false,
+  });
+});
+
+it("does not steer when the authorized conversation has no running job", async () => {
+  const { service, steers, requireSession } = fixture();
+  const create = vi.spyOn(steers, "create");
+  await expect(
+    service.steer(OWNER, {
+      sessionId: FIRST,
+      clientMessageId: null,
+      text: "hello",
+      attachmentIds: [],
+    }),
+  ).resolves.toBeNull();
+  expect(requireSession).toHaveBeenCalledWith(OWNER, FIRST);
+  expect(create).not.toHaveBeenCalled();
+});

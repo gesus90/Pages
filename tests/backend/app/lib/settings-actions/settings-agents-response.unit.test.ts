@@ -5,6 +5,7 @@ import {
   AgentAccessDeniedError,
   AgentError,
   AgentInUseError,
+  AgentPlanSkippedStepError,
 } from "@/backend/error/AgentErrors";
 import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { AgentPlanValidationError } from "@/backend/error/AgentPlanValidationError";
@@ -108,5 +109,20 @@ it("hides an unexpected failure behind a general 500", async () => {
     ok: false,
     intent: "x",
     error: "general",
+  });
+});
+
+it("names the enabled skipped script of a refused continuation with 409", async () => {
+  const response = agentFailureResponse(
+    new AgentPlanSkippedStepError("prepare"),
+    "resume-plan",
+  );
+
+  expect(response.status).toBe(409);
+  expect(await response.json()).toEqual({
+    ok: false,
+    intent: "resume-plan",
+    error: "plan_skipped_step_enabled",
+    nodeId: "prepare",
   });
 });

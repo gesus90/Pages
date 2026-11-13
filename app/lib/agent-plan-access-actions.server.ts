@@ -40,7 +40,9 @@ function readTeam(input: unknown): AgentPlanTeam {
 }
 
 /** The teams the dialog sends as JSON; absent keeps the teams. */
-function readTeams(formData: FormData): readonly AgentPlanTeam[] | undefined {
+export function readTeams(
+  formData: FormData,
+): readonly AgentPlanTeam[] | undefined {
   const text = formData.get("teams");
   if (text === null) return undefined;
   let input: unknown;

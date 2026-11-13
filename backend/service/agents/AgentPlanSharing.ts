@@ -235,10 +235,15 @@ export class AgentPlanSharing {
    */
   public async validateTeams(teams: readonly AgentPlanTeam[]): Promise<void> {
     if (teams.length === 0) return;
-    const directory = await this.directory();
+    const directory = await this.directory(true);
     for (const team of teams) {
-      const entries =
-        team.kind === "group" ? directory.groups : directory.departments;
+      if (team.kind === "user" && (team.canEdit || team.canRun))
+        throw new AgentError("plan_user_team_read_only");
+      const entries = {
+        group: directory.groups,
+        department: directory.departments,
+        user: directory.persons,
+      }[team.kind];
       if (!entries.some((entry) => entry.id === team.targetId))
         throw new AgentError("profile_target_invalid");
     }
@@ -272,6 +277,7 @@ export class AgentPlanSharing {
 
 /** Whether the person is a member or leader of the group or department of the team. */
 function isMemberOf(team: AgentPlanTeam, viewer: AgentViewer): boolean {
+  if (team.kind === "user") return viewer.actor.userId === team.targetId;
   return team.kind === "group"
     ? viewer.groupIds.includes(team.targetId)
     : viewer.actor.departments.includes(team.targetId);

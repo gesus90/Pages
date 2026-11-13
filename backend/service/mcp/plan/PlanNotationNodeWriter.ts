@@ -17,6 +17,7 @@ import {
   wordEntry,
 } from "./PlanNotationFormat";
 
+import type { AgentPlanSwarm } from "@/definition/AgentPlanSwarm";
 import type { AgentPlanAsset } from "@/definition/AgentPlanAsset";
 import type { AgentParameterValue } from "@/definition/AgentParameters";
 import type {
@@ -246,6 +247,23 @@ function assetEntries(node: AgentPlanAsset): readonly PlanNotationEntry[] {
   ];
 }
 
+/** The settings of a swarm (PAGE-313), its nested settings as JSON. */
+function swarmEntries(node: AgentPlanSwarm): readonly PlanNotationEntry[] {
+  return [
+    ...(node.name === undefined ? [] : [textEntry("name", node.name)]),
+    jsonEntry("task", node.task),
+    jsonEntry("main", node.main),
+    jsonEntry("workers", node.workers),
+    ...(node.directory === undefined
+      ? []
+      : [textEntry("directory", node.directory)]),
+    jsonEntry("timeoutMinutes", node.timeoutMinutes),
+    ...(node.executionTarget === undefined
+      ? []
+      : [jsonEntry("executionTarget", node.executionTarget)]),
+  ];
+}
+
 /** The settings of a decision; a decision of a plan before PAGE-286 writes its name only. */
 function decisionEntries(
   node: AgentPlanDecision,
@@ -274,6 +292,7 @@ export function planNotationNodeEntries(
   context: PlanNotationWriterContext,
 ): readonly PlanNotationEntry[] {
   const type = wordEntry("type", node.type);
+  if (isOtherNode(node)) return [type, ...otherEntries(node)];
   switch (node.type) {
     case "start":
     case "end":
@@ -297,15 +316,45 @@ export function planNotationNodeEntries(
       return [type, ...parameterEntries(node, context)];
     case "stack":
       return [type, ...stackEntries(node, context)];
+  }
+}
+
+/** Frames, decisions, swarms, assets and legacy variables. */
+type OtherNode = Extract<
+  AgentPlanNode,
+  {
+    readonly type:
+      "asset" | "group" | "loop" | "decision" | "swarm" | "variable";
+  }
+>;
+
+const OTHER_TYPES: readonly string[] = [
+  "asset",
+  "group",
+  "loop",
+  "decision",
+  "swarm",
+  "variable",
+];
+
+function isOtherNode(node: AgentPlanNode): node is OtherNode {
+  return OTHER_TYPES.includes(node.type);
+}
+
+/** The fields of frames, decisions, swarms, assets and legacy variables. */
+function otherEntries(node: OtherNode): readonly PlanNotationEntry[] {
+  switch (node.type) {
     case "asset":
-      return [type, ...assetEntries(node)];
+      return assetEntries(node);
     case "group":
-      return [type, ...groupEntries(node)];
+      return groupEntries(node);
     case "loop":
-      return [type, ...loopEntries(node)];
+      return loopEntries(node);
     case "decision":
-      return [type, ...decisionEntries(node)];
+      return decisionEntries(node);
+    case "swarm":
+      return swarmEntries(node);
     case "variable":
-      return [type, textEntry("name", node.name)];
+      return [textEntry("name", node.name)];
   }
 }

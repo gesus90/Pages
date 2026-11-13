@@ -4,10 +4,12 @@ import {
   readScopeSince,
 } from "@/backend/agents/cli/CliProcessScan";
 import { settleManagedLocalOwner } from "@/backend/agents/local/LocalOwnerControl";
+import { settleWorkerUnits } from "@/backend/agents/cli/CliWorkerUnit";
 import { AcpCleanupUnconfirmedError } from "@/backend/error/AcpCleanupUnconfirmedError";
 import { logCaughtError } from "@/backend/logging/Logger";
 
 import { AgentToolPreflightError } from "../tools/AgentToolReadinessError";
+import { isUnitBound } from "./AcpLeaseEvidence";
 
 import type { PlanSession } from "@/backend/agents/AgentPlanExecution";
 import type { AcpResourceRecord } from "@/definition/AcpResource";
@@ -32,16 +34,21 @@ export async function endLeaseProcesses(
  * @param record - A lease of this process role.
  * @param startedAt - Its recorded start, or `null` when the start is unknown.
  * @param cleanup - The legacy closeout, which refuses without ownership proof.
+ * @param settleUnits - Stops the worker units of a lease and counts those still running.
  *
  * @remarks
  * A managed owner or a recorded namespace decides first. Without process
- * identity a tracked start that spawned nothing counts; a start before the
- * current boot is left to the periodic check, which reads the boot itself.
+ * identity a tracked start that spawned nothing counts, and a start in a
+ * recorded worker unit counts once its units are stopped and none of them
+ * runs (PAGE-335); a start
+ * before the current boot is left to the periodic check, which reads the
+ * boot itself.
  */
 export async function closeLease(
   record: AcpResourceRecord,
   startedAt: string | null,
   cleanup: LeaseCleanup,
+  settleUnits: (instanceId: string) => Promise<number> = settleWorkerUnits,
 ): Promise<{ readonly remaining: number }> {
   const managed = await settleManagedLocalOwner(record.instanceId);
   if (managed !== null) return { remaining: managed ? 0 : 1 };
@@ -55,6 +62,8 @@ export async function closeLease(
         : 1,
     };
   if (record.lifecycle === "not_spawned") return { remaining: 0 };
+  if (isUnitBound(record))
+    return { remaining: await settleUnits(record.instanceId) };
   return cleanup(record.instanceId, startedAt);
 }
 

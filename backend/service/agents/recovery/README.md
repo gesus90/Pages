@@ -70,7 +70,8 @@ integration", the PAGE-127 rules apply:
   saved revision (`prepareRecoveredPlan`): completed nodes keep their frozen
   contracts, their results are taken over only when the checkpoint's output
   digest matches, and their checkpoints are copied into the new run, so a later
-  resume can verify them again. Loops keep completed iterations and members.
+  resume can verify them again. A skipped script that the saved revision enables
+  again refuses the resume (`plan_skipped_step_enabled`). Loops keep completed iterations and members.
   Started work (sessions, scripts, started loop iterations) needs a reviewed
   decision and gets a recovery notice in its prompt; the snapshot's
   `recovery` directive names the native sessions to continue.

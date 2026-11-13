@@ -34,6 +34,7 @@ it("journals only explicit ownership and lifecycle fields using bound SQL parame
       since: "2026-10-16",
       namespace_identity: null,
       lifecycle: null,
+      worker_unit: null,
     },
   );
   await repository.remove("native-tag");
@@ -59,6 +60,7 @@ it("maps durable states on restart and refuses unknown providers or states", asy
       null,
       null,
       null,
+      null,
     ],
   ]);
   expect(await repository.list()).toEqual([
@@ -73,6 +75,7 @@ it("maps durable states on restart and refuses unknown providers or states", asy
       namespace: null,
       lifecycle: null,
       check: null,
+      workerUnit: null,
     },
   ]);
   vi.mocked(connection.query).mockResolvedValueOnce([

@@ -118,7 +118,8 @@ export function planNodeLabel(
   sources: AgentPlanSources,
 ): string {
   if (node.type === "start" || node.type === "end") return node.type;
-  if (node.type === "decision") return node.name ?? node.type;
+  if (node.type === "decision" || node.type === "swarm")
+    return node.name ?? node.type;
   if (node.type === "task") {
     const task = sources.tasks.find((entry) => entry.id === node.taskId);
     return task ? `${task.key}: ${task.title}` : node.taskId;
@@ -141,6 +142,7 @@ const NODE_TINTS = {
   loop: "border-plan-loop-edge/60 bg-plan-loop-subtle",
   decision: "border-plan-logic-edge/60 bg-plan-logic-subtle",
   stack: "border-plan-stack-edge/60 bg-plan-stack-subtle",
+  swarm: "border-plan-swarm-edge/60 bg-plan-swarm-subtle",
   task: "border-plan-ticket-edge bg-plan-ticket-subtle",
   variable: "border-plan-parameter/60 bg-plan-parameter-subtle",
   parameter: "border-plan-parameter/60 bg-plan-parameter-subtle",
@@ -157,6 +159,7 @@ const NODE_ACCENTS = {
   loop: "text-plan-loop",
   decision: "text-plan-logic",
   stack: "text-plan-stack",
+  swarm: "text-plan-swarm",
   task: "text-plan-ticket",
   variable: "text-plan-parameter",
   parameter: "text-plan-parameter",

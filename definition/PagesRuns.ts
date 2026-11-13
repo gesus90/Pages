@@ -1,3 +1,7 @@
+import {
+  AGENT_SWARM_MAIN_OPERATIONS,
+  AGENT_SWARM_WORKER_OPERATIONS,
+} from "./AgentPlanSwarmOperations";
 import { z } from "zod";
 
 /** Local control-plane protocol. Durable commands live in PostgreSQL, never in the socket. */
@@ -54,3 +58,24 @@ export const pagesRunsOwnershipSchema = z
 export const pagesRunsOwnershipReplySchema = z
   .object({ active: z.boolean() })
   .strict();
+
+/** A swarm tool call the API hands to the engine process that runs the swarm (PAGE-313). */
+export const pagesRunsSwarmSchema = z
+  .object({
+    version: z.literal(1),
+    operation: z.literal("swarm"),
+    runId: z.string().min(1).max(200),
+    stepId: z.string().min(1).max(300),
+    swarmOperation: z.enum([
+      ...AGENT_SWARM_MAIN_OPERATIONS,
+      ...AGENT_SWARM_WORKER_OPERATIONS,
+    ]),
+    parameters: z.unknown(),
+  })
+  .strict();
+
+/** The answer of the engine: the result, or why the call was refused. */
+export const pagesRunsSwarmReplySchema = z.union([
+  z.object({ refused: z.enum(["FORBIDDEN", "INVALID_REQUEST"]) }).strict(),
+  z.object({ result: z.unknown() }).strict(),
+]);

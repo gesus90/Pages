@@ -84,6 +84,7 @@ import type {
   CliGitHubCredentials,
 } from "./CliGitHubCredentials";
 import type { ClaudePlanSessionHome } from "./ClaudePlanSessionHome";
+import type { CliSessionContainment } from "./CliSessionCloseout";
 import type { CliSessionProcess } from "./CliSessionProcess";
 import type { AcpStartLifecycle } from "@/backend/service/agents/resources/AcpStartLifecycle";
 import type { CliWorkerUnits } from "./CliWorkerUnit";
@@ -130,6 +131,26 @@ interface VerifiedStart {
   readonly adapterVersion?: string | null;
   readonly credentials?: CliCredentialAccess;
   readonly browser?: Awaited<ReturnType<typeof agentPlaywrightServer>>;
+}
+
+/** A PID namespace contains everything; otherwise only a worker unit frames the session. */
+function sessionContainment(
+  isIsolated: boolean,
+  request: CliSessionRequest,
+): CliSessionContainment {
+  if (isIsolated) return "pid_namespace";
+  return request.unit ? "worker_unit" : "none";
+}
+
+/** The stored run mode of an ACP start; a start without one is refused. */
+function requireAcpMode(
+  driver: AcpDriver,
+  input: AgentPlanSessionInput,
+): AcpPermissionMode {
+  const mode = input.options.access;
+  if (!isAcpPermissionMode(mode))
+    throw new AgentError(driver.errors.modeRequired);
+  return mode;
 }
 
 function requireAdapter(adapter: string | null, driver: AcpDriver): string {
@@ -200,8 +221,8 @@ export class CliSessionExecution implements PlanSessionRunner {
   ): Promise<PlanSession> {
     const provider = sessionAcpProvider(input);
     if (provider !== null && this.dependencies.resources)
-      return this.dependencies.resources.open(
-        {
+      return this.dependencies.resources.openWithin({
+        owner: {
           instanceId: input.instanceId,
           userId: input.userId,
           provider,
@@ -209,12 +230,13 @@ export class CliSessionExecution implements PlanSessionRunner {
           stepId: input.resourceContext?.stepId ?? null,
         },
         signal,
-        (admitted, lifecycle) => {
+        start: (admitted, lifecycle) => {
           lifecycle.trackSpawn();
           return this.openAdmitted(input, admitted, observer, lifecycle);
         },
         observer,
-      );
+        deadlineMs: input.resourceContext?.admissionDeadlineMs,
+      });
     return this.openAdmitted(input, signal, observer);
   }
 
@@ -389,9 +411,7 @@ export class CliSessionExecution implements PlanSessionRunner {
     start: VerifiedStart,
     control: SessionControl,
   ): Promise<PlanSession> {
-    const mode = input.options.access;
-    if (!isAcpPermissionMode(mode))
-      throw new AgentError(driver.errors.modeRequired);
+    const mode = requireAcpMode(driver, input);
     const scoped = await this.scopedHome(driver, input, start);
     const adapter = requireAdapter(start.adapter, driver);
     const purpose = input.chat ? "chat" : (input.purpose ?? "plan");
@@ -410,7 +430,7 @@ export class CliSessionExecution implements PlanSessionRunner {
     });
     let child: CliSessionProcess | null = null;
     let limited: LimitedRequest | null = null;
-    let isPidNamespace = false;
+    let containment: CliSessionContainment = "none";
     let picaBundle: PicaCodexBundle | null = null;
     try {
       const picaNative = this.selectPicaNative(driver, input, launch, profile);
@@ -434,16 +454,16 @@ export class CliSessionExecution implements PlanSessionRunner {
         scoped,
         input,
       );
-      isPidNamespace = isIsolated;
       limited = await this.limit(request, input);
+      containment = sessionContainment(isIsolated, limited.request);
       if (control.signal.aborted) throw new AgentPlanCancelledError();
-      await control.lifecycle?.beforeSpawn();
+      await control.lifecycle?.beforeSpawn(limited.request.unit?.name);
       child = this.dependencies.runner.startSession(limited.request);
       const namespace = await this.registerNamespace(
         input,
         child.processId,
         limited.request,
-        isPidNamespace,
+        containment,
       );
       await recordGitHubNamespace(github, namespace);
       connectChild(child, channel, {
@@ -464,7 +484,7 @@ export class CliSessionExecution implements PlanSessionRunner {
         observer: control.observer,
         signal: control.signal,
         isolation: `${isolationLabel(isIsolated, mode, driver)}; ${limited.label}`,
-        isPidNamespace,
+        containment,
         github: github?.status,
         redact,
         secure: () => this.secureAcp(input, start, github),
@@ -478,9 +498,11 @@ export class CliSessionExecution implements PlanSessionRunner {
 
       await cleanupFailedAcpStart(
         child,
-        { instanceId: input.instanceId, github, limited, isPidNamespace },
+        { instanceId: input.instanceId, github, limited, containment },
         picaBundle?.cleanup,
       );
+      // The failed start's own closeout confirmed its frame ended, so its reservation may go.
+      control.lifecycle?.confirmStartEnded();
       throw error;
     }
   }
@@ -560,13 +582,25 @@ export class CliSessionExecution implements PlanSessionRunner {
     });
   }
 
+  /**
+   * Persists the identity of the process frame before the first ACP request.
+   *
+   * @remarks
+   * The directly spawned process is the namespace init or, for a session
+   * without a namespace such as a YOLO chat, the client of its worker unit
+   * (PAGE-335, PAGE-340). Its PID, start, owner and boot together with the unit
+   * name let a later check prove the end of exactly this instance and let its
+   * lease leave `spawning`.
+   */
   private async registerNamespace(
     input: AgentPlanSessionInput,
     processId: number | null,
     request: CliSessionRequest,
-    isPidNamespace: boolean,
+    containment: CliSessionContainment,
   ): Promise<AcpNamespaceOwner | undefined> {
-    if (!isPidNamespace) return undefined;
+    if (containment === "none") return undefined;
+    // A spawn that failed has no process; the unit frame still confirms its closeout.
+    if (!processId && containment === "worker_unit") return undefined;
     if (!processId) throw new AcpCleanupUnconfirmedError();
     const identity = await captureOwnedNamespace(processId);
     const namespace = request.unit

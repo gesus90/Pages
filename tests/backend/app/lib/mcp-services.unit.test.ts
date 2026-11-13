@@ -1,3 +1,4 @@
+import { AgentPlanSwarmService } from "@/backend/service/agents/swarm/AgentPlanSwarmService";
 import { beforeEach, expect, it, vi } from "vitest";
 
 import { createMcpServices } from "@/app/lib/mcp-services.server";
@@ -387,6 +388,7 @@ it("serves the agent API over the MCP catalog with run, download and upload capa
       runs: vi.mocked(AgentRunCredentialService).mock.instances[0],
       workGate: vi.mocked(AgentPlanWorkGate).mock.instances[0],
       stepProgress: expect.any(AgentPlanStepProgressService) as unknown,
+      swarms: expect.any(AgentPlanSwarmService) as unknown,
       downloads: services.agentAssetDownloadService,
       upload: opaque("upload"),
     },

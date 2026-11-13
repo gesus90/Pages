@@ -39,6 +39,15 @@ export const PLAN_NODE_FIELDS = {
   git_closeout: [],
   decision: ["name", "mode", "question", "model", "output", "cases", "input"],
   stack: ["name", "entries"],
+  swarm: [
+    "name",
+    "task",
+    "main",
+    "workers",
+    "directory",
+    "timeoutMinutes",
+    "executionTarget",
+  ],
   asset: ["name", "file"],
   task: ["taskId"],
   parameter: ["name", "format", "value"],
@@ -57,4 +66,5 @@ export const PLAN_ADDABLE_TYPES = [
   "loop",
   "stack",
   "decision",
+  "swarm",
 ] as const;

@@ -2,6 +2,24 @@ import type { AgentUsage } from "@/definition/AgentUsage";
 
 /** Stable codes cross the HTTP boundary; upstream error text never does. */
 export const AGENT_ERROR_MESSAGES = {
+  workspace_unavailable:
+    "No usable workspace of this project is available. Add or enable a workspace and try cloning again.",
+  source_not_visible:
+    "The source was removed or is no longer visible. Reload the plan list and select a visible plan.",
+  plan_schema_unsupported:
+    "The saved plan has an unsupported structure. Update the source and try cloning again.",
+  plan_user_team_read_only:
+    "People can only read a plan. Remove the edit and run rights and try again.",
+  forbidden:
+    "Only an active administrator can choose another owner. Keep yourself as owner or switch to administrator mode.",
+  credentials_in_text:
+    "The source contains credentials. Remove them before cloning the plan.",
+  clone_failed:
+    "The copy could not be stored. Try again or contact the project manager.",
+  clone_request_invalid:
+    "The clone request is invalid. Reload the plan and try again.",
+  plan_local_control_failed:
+    "The verified local native session owner could not complete a control command. See the server log for its safe error code.",
   plan_local_owner_unverified:
     "The local native session owner could not be proven. Its unit was not adopted or signalled; reservations remain held for reconciliation.",
   plan_local_launch_invalid:
@@ -85,11 +103,17 @@ export const AGENT_ERROR_MESSAGES = {
   plan_continuation_deleted: "Continuation point deleted – restart required.",
   plan_completed_changed:
     "This change requires completed work to run again. Stop and start a new run.",
+  plan_skipped_step_enabled:
+    "A script that this run skipped is now enabled. Start the run anew.",
   plan_pause_required:
     "Pause the run and wait until all steps have drained before editing.",
   plan_remote_unavailable:
     "Remote execution is unavailable until a runner dispatcher and model access are configured.",
   plan_invalid: "Check the plan fields and graph nodes.",
+  swarm_invalid:
+    "Check the swarm: 1 to 10 helpers, a time limit of 1 to 1440 minutes and a working directory inside the workspace.",
+  swarm_remote_unsupported:
+    "Swarm nodes run only on the Pages host. Choose a local target.",
   plan_script_invalid:
     "Check the script: name, interpreter profile, content, unique input and output names and a timeout of 1 to 86400 seconds.",
   plan_script_profile_missing:
@@ -503,6 +527,22 @@ export class AgentInUseError extends AgentError {
   ) {
     super(code);
     this.usages = usages;
+  }
+}
+
+/**
+ * A continuation would take over the empty result of a script that is enabled again.
+ *
+ * @remarks
+ * Running the script now would invalidate the completed steps after it, so the
+ * run is refused and names the script; only a new run executes it.
+ */
+export class AgentPlanSkippedStepError extends AgentError {
+  public readonly nodeId: string;
+
+  public constructor(nodeId: string) {
+    super("plan_skipped_step_enabled");
+    this.nodeId = nodeId;
   }
 }
 

@@ -55,7 +55,11 @@ export function usePlanManagement(): {
     if (result.intent !== "create-plan" && result.intent !== "clone-plan")
       return;
     setDialog(null);
-    void navigate(`/agents/plans?planId=${encodeURIComponent(result.planId)}`);
+    void navigate(`/agents/plans?planId=${encodeURIComponent(result.planId)}`, {
+      ...(result.intent === "clone-plan"
+        ? { state: { clonedPlanId: result.planId } }
+        : {}),
+    });
   }, [result, navigate]);
   function submit(request: PlanManagementRequest, key: string): void {
     setAnswered(null);

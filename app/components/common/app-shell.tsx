@@ -239,9 +239,7 @@ function NavigationLinks({
       <AutomationsNavigationLink onNavigate={onNavigate} />
       <WikiNavigationLink onNavigate={onNavigate} />
       <WikiSidebarSection onNavigate={onNavigate} />
-      {canManageAgents ? (
-        <StorageNavigationLink onNavigate={onNavigate} />
-      ) : null}
+      <StorageNavigationLink onNavigate={onNavigate} />
 
       <div aria-hidden="true" className="pages-sidebar-scene" />
       <div className="mt-auto flex flex-col gap-1 pt-2">

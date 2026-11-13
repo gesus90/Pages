@@ -25,10 +25,18 @@ import {
   readAgentTargets,
 } from "./AgentConfigurationInput";
 import { readPlanConfiguration } from "./AgentPlanConfigurationInput";
-import { readPlanLoopCondition, readPlanLoopWhile } from "./AgentPlanLoopInput";
+import {
+  containedCount,
+  readPlanLoopCondition,
+  readPlanLoopWhile,
+} from "./AgentPlanLoopInput";
 import { readAgentObject } from "./AgentPayload";
 import { readCompletionGate } from "./AgentPlanWorkInput";
 import { readPlanAssetFile, readPlanAssetNode } from "./AgentPlanAssetInput";
+import {
+  readPlanSwarmNode,
+  requireLocalPlanSwarms,
+} from "./AgentPlanSwarmInput";
 import {
   readPlanContainedDecisions,
   readPlanDecisionNode,
@@ -155,6 +163,7 @@ export function readPlanNode(input: unknown): AgentPlanNode {
   if (node.type === "group") return readGroupNode(node, base);
   if (node.type === "loop") return readLoopNode(node, base);
   if (node.type === "script") return readScriptNode(node, base);
+  if (node.type === "swarm") return readPlanSwarmNode(node, base, readBindings);
   if (node.type === "git_closeout") return readGitCloseoutNode(node, base);
   if (node.type === "stack") return readStackNode(node, base);
   if (node.type === "asset")
@@ -165,7 +174,7 @@ export function readPlanNode(input: unknown): AgentPlanNode {
   if (node.type === "decision")
     return readPlanDecisionNode(node, base, readPlanBinding);
   if (node.type === "task")
-    return { ...base, type: "task", taskId: readPlanText(node.taskId) };
+    return { ...base, type: "task", taskId: readSourceId(node.taskId) };
   if (node.type === "variable") {
     const name = readPlanText(node.name, 64);
     if (!isAgentParameterName(name)) throw new AgentError("plan_invalid");
@@ -211,6 +220,9 @@ function readStepNode(
   return {
     ...base,
     type: "agent",
+    ...(node.selectionRequired === "agent" || node.selectionRequired === "model"
+      ? { selectionRequired: node.selectionRequired }
+      : {}),
     agentId: node.agentId === "" ? "" : readPlanText(node.agentId),
     personalAgentId:
       node.personalAgentId === null || node.personalAgentId === ""
@@ -465,9 +477,9 @@ export function readPlanInput(input: unknown): AgentPlanInput {
     AGENT_READ_LIMITS.planNodes
   )
     throw new AgentError("plan_invalid");
-  return {
+  return requireLocalPlanSwarms({
     name: readPlanText(plan.name, 120),
-    workspaceId: readWorkspaceBinding(plan.workspaceId),
+    workspaceId: readSourceId(plan.workspaceId),
     usage: plan.usage,
     ...(plan.projectId === undefined
       ? {}
@@ -481,21 +493,10 @@ export function readPlanInput(input: unknown): AgentPlanInput {
     nodes,
     edges: plan.edges.map(readEdge),
     ...(revision === undefined ? {} : { revision }),
-  };
+  });
 }
 
-/** How many nodes a group or loop holds, the agents of a loop's groups included. */
-function containedCount(node: AgentPlanNode): number {
-  if (node.type === "group") return node.steps.length;
-  if (node.type !== "loop") return 0;
-  return node.steps.reduce(
-    (count, step) =>
-      count + 1 + (step.type === "group" ? step.steps.length : 0),
-    0,
-  );
-}
-
-function readWorkspaceBinding(input: unknown): string {
+function readSourceId(input: unknown): string {
   return input === "" ? "" : readPlanText(input);
 }
 

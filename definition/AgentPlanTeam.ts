@@ -1,12 +1,13 @@
-/** Whether a team entry names a group or a department. */
-export type AgentPlanTeamKind = "group" | "department";
+/** Whether a team entry names a group, department or read-only person. */
+export type AgentPlanTeamKind = "group" | "department" | "user";
 
 /**
- * One team of a plan: a group or a department and what its members may do (PAGE-329).
+ * One team of a plan: a group, department or person and the rights it grants.
  *
  * @remarks
  * Members and leaders of the group or department who can open the project of
  * the plan get the rights of the entry. Changing or running implies reading.
+ * A person entry grants reading alone and still requires project visibility.
  * Every operation still checks agents, models, tickets and workspaces for the
  * person who performs it; a team never delegates credentials.
  */
@@ -70,7 +71,7 @@ export interface AgentPlanScriptApprovalState {
 /** The most team entries one plan holds. */
 export const AGENT_PLAN_TEAM_LIMIT = 50;
 
-const TEAM_KINDS: readonly string[] = ["group", "department"];
+const TEAM_KINDS: readonly string[] = ["group", "department", "user"];
 
 /** Narrows a value to a team kind. */
 export function isAgentPlanTeamKind(
@@ -101,12 +102,18 @@ export function normalizePlanTeams(
   return normalized;
 }
 
-/** A team entry with all three rights, the default of a new entry. */
+/** The default of a new entry: all rights for teams, reading alone for a person. */
 export function fullPlanTeam(
   kind: AgentPlanTeamKind,
   targetId: string,
 ): AgentPlanTeam {
-  return { kind, targetId, canRead: true, canEdit: true, canRun: true };
+  return {
+    kind,
+    targetId,
+    canRead: true,
+    canEdit: kind !== "user",
+    canRun: kind !== "user",
+  };
 }
 
 /**

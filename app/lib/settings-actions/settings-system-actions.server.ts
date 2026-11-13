@@ -18,7 +18,10 @@ import {
 import { handleUpdateChatSettings } from "./settings-chat-actions.server";
 import { handleSetMode } from "./settings-mode-action.server";
 import { handleUpdateLogging } from "./settings-logging-action.server";
-import { handleUpdateAcpResources } from "./settings-acp-resources-action.server";
+import {
+  handleCheckAcpLeases,
+  handleUpdateAcpResources,
+} from "./settings-acp-resources-action.server";
 
 import type {
   SettingsActionContext,
@@ -99,6 +102,8 @@ const SYSTEM_ACTION_HANDLERS = {
       context,
       await createServerSettingsService(context),
     ),
+  "check-acp-leases": async (context: SettingsActionContext) =>
+    handleCheckAcpLeases(context, await createServerSettingsService(context)),
   "update-logging": async (context: SettingsActionContext) =>
     handleUpdateLogging(context, await createServerSettingsService(context)),
   "remove-logo": handleRemoveLogo,

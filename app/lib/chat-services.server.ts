@@ -20,6 +20,8 @@ import { ChatToolExecutor } from "@/backend/service/chat/ChatToolExecutor";
 import { PicaAcpService } from "@/backend/service/chat/acp/PicaAcpService";
 import { PicaAcpWorkspace } from "@/backend/service/chat/acp/PicaAcpWorkspace";
 import { PicaBridge } from "@/backend/service/chat/acp/PicaBridge";
+import { PicaAcpSessionPool } from "@/backend/service/chat/acp/PicaAcpSessionPool";
+import { AgentSessionSettingsRepository } from "@/backend/database/repositories/employee/AgentSessionSettingsRepository";
 import { ChatError } from "@/backend/error/ChatErrors";
 import { readPicaInstructions } from "@/backend/service/chat/PicaInstructionFiles";
 import { PicaIdentityService } from "@/backend/service/chat/PicaIdentityService";
@@ -27,6 +29,7 @@ import { WikiFileStore } from "@/backend/storage/WikiFileStore";
 
 import { isSafeSvg } from "./settings-actions/svg-safety.server";
 
+import type { RepositoryReadService } from "@/backend/service/github/RepositoryReadService";
 import type { Database } from "@/backend/database/Database";
 import type { PicaAdminServiceOptions } from "@/backend/service/chat/admin/PicaAdminService";
 import type { PicaStorageFiles } from "@/backend/service/chat/admin/PicaStorageHandlers";
@@ -38,6 +41,7 @@ import type { AgentProfileService } from "@/backend/service/agents/AgentProfileS
 import type { PlanExecution } from "@/backend/agents/AgentPlanExecution";
 import type { PicaSettingsService } from "@/backend/service/chat/PicaSettingsService";
 import type { ExecutionAuthorizer } from "@/backend/agents/ScopedExecution";
+import type { AcpResourceScheduler } from "@/backend/service/agents/AcpResourceScheduler";
 import type {
   ChatContextUsage,
   ChatJob,
@@ -56,6 +60,8 @@ export interface ChatApplicationServices {
   readonly picaAcpService: PicaAcpService | null;
   /** Pica's turn-bound tool endpoint; `null` without the ACP path. */
   readonly picaBridge: PicaBridge | null;
+  /** The chat sessions agents keep between rounds (PAGE-335); `null` without the ACP path. */
+  readonly picaAcpSessionPool: PicaAcpSessionPool | null;
 }
 
 /** Where the Codex path of Pica runs and how its agent processes reach the bridge. */
@@ -80,16 +86,26 @@ interface PicaAcpParts {
   readonly tools: ChatToolExecutor;
   readonly adminTools: PicaAdminService;
   readonly pica?: PicaSettingsService;
+  /** Lets a waiting start take the place of a resting chat session (PAGE-335). */
+  readonly resources?: Pick<AcpResourceScheduler, "setIdleReclaimer">;
 }
 
 /** Builds the Codex path on the existing scheduler, executor, registry and repositories. */
 function createPicaAcp(
   parts: PicaAcpParts,
-): Pick<ChatApplicationServices, "picaAcpService" | "picaBridge"> {
+): Pick<
+  ChatApplicationServices,
+  "picaAcpService" | "picaBridge" | "picaAcpSessionPool"
+> {
   const { settings, plans, access } = parts;
   if (!settings || !plans || !access)
-    return { picaAcpService: null, picaBridge: null };
+    return { picaAcpService: null, picaBridge: null, picaAcpSessionPool: null };
   const picaBridge = new PicaBridge(settings.bridgeUrl);
+  const sessionSettings = new AgentSessionSettingsRepository(parts.database);
+  const picaAcpSessionPool = new PicaAcpSessionPool({
+    idleMinutes: async () => (await sessionSettings.read()).idleMinutes,
+  });
+  parts.resources?.setIdleReclaimer(() => picaAcpSessionPool.reclaimIdle());
   const picaAcpService = new PicaAcpService({
     plans,
     jobs: new ChatJobRepository(parts.database),
@@ -108,12 +124,13 @@ function createPicaAcp(
     admit: (work) => (parts.pica ? parts.pica.admit(work) : work()),
     requireCurrent: (userId, assignment) =>
       parts.pica?.requireCurrent(userId, assignment) ?? Promise.resolve(),
+    pool: picaAcpSessionPool,
   });
   parts.sessions.setDeletionEffects({
     before: (userId, sessionId) => picaAcpService.forget(userId, sessionId),
     after: (sessionId) => picaAcpService.cleanup(sessionId),
   });
-  return { picaAcpService, picaBridge };
+  return { picaAcpService, picaBridge, picaAcpSessionPool };
 }
 
 /** What the Codex path adds to the session view and the context indicator. */
@@ -154,7 +171,10 @@ export interface ChatServicesInput {
   /** The operator browser of Pica (PAGE-181): local origins, saved sessions and an optional launcher. */
   readonly picaBrowser?: PicaAdminServiceOptions;
   /** The Storage interface of the instance Drive; Pica's Storage tools use it (PAGE-271). */
-  readonly storage?: PicaStorageFiles;
+  readonly repositoryReads?: RepositoryReadService;
+  readonly storage?: PicaStorageFiles & {
+    readonly forAccount?: (userId: string) => PicaStorageFiles;
+  };
   readonly database: Database;
   /** Directory next to the database; attachments live in its `chat-attachments`. */
   readonly directory: string;
@@ -166,6 +186,11 @@ export interface ChatServicesInput {
     readonly picaSettingsService?: PicaSettingsService;
     readonly agentProfileService: Pick<AgentProfileService, "resolve">;
     readonly chatRequests: ChatRequestRegistry;
+    /** Where a waiting start takes the place of a resting chat session (PAGE-335). */
+    readonly acpResourceScheduler?: Pick<
+      AcpResourceScheduler,
+      "setIdleReclaimer"
+    >;
     /** With the two below and `acp`, the native CLI agents answer over ACP. */
     readonly agentPlanExecution?: PlanExecution;
     readonly agentConnectionAccess?: ExecutionAuthorizer;
@@ -224,6 +249,7 @@ export function createChatServices(
   );
   if (input.protectedOrigin) adminTools.protectOrigin(input.protectedOrigin);
   const tools = new ChatToolExecutor({
+    repositoryReads: input.repositoryReads,
     router: input.router,
     identities: new PicaIdentityService(
       input.accounts.users,
@@ -243,6 +269,7 @@ export function createChatServices(
     tools,
     pica: input.agents.picaSettingsService,
     adminTools,
+    resources: input.agents.acpResourceScheduler,
   });
   configurePicaStop(input, acp);
   return {

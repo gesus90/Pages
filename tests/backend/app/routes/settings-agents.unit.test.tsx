@@ -127,7 +127,13 @@ vi.mock("@/app/components/settings/admin-mode-required", () => ({
 const ADMIN = accountAccess({ isAdmin: true, mode: "admin" });
 const LINKS = [{ provider: "zai", state: "linked" }];
 const LIMITS = {
-  limits: { perAgent: 4, total: 16, revision: 1, dreamTime: "03:00" },
+  limits: {
+    perAgent: 4,
+    total: 16,
+    revision: 1,
+    dreamTime: "03:00",
+    idleMinutes: 10,
+  },
   running: 0,
   waiting: 0,
 };

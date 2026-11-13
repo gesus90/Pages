@@ -1,5 +1,8 @@
 import { data as routeData, redirect } from "react-router";
 
+import { readTeams } from "@/app/lib/agent-plan-access-actions.server";
+import { readPlanOwnerParameter } from "@/backend/service/agents/AgentPlanTeamInput";
+import { readAgentObject } from "@/backend/agents/AgentPayload";
 import { defaultPlanId } from "@/app/lib/agent-plan-default";
 import { displayPlanRun } from "@/app/lib/agent-plan-display.server";
 import {
@@ -171,8 +174,25 @@ async function savePlan(
   if (planId) readPlanText(planId);
   const proposed = readPlanContent(formData);
   let id: string;
+  let revision = planId ? (proposed.revision ?? 0) + 1 : 1;
   try {
-    id = await service.save(userId, planId || null, proposed);
+    if (formData.has("access") && planId) {
+      const access = readAgentObject(
+        JSON.parse(String(formData.get("access"))) as unknown,
+      );
+      const fields = new FormData();
+      if (access.teams !== undefined)
+        fields.set("teams", JSON.stringify(access.teams));
+      revision = await service.saveSettings(userId, planId, {
+        plan: proposed,
+        access: {
+          revision: proposed.revision ?? 0,
+          teams: readTeams(fields),
+          ownerId: readPlanOwnerParameter(access.ownerId),
+        },
+      });
+      id = planId;
+    } else id = await service.save(userId, planId || null, proposed);
   } catch (error: unknown) {
     if (
       !(error instanceof AgentError) ||
@@ -196,7 +216,7 @@ async function savePlan(
       ok: true,
       intent: "save-plan",
       planId: id,
-      revision: planId ? (proposed.revision ?? 0) + 1 : 1,
+      revision,
     },
     { headers: AGENT_NO_STORE },
   );

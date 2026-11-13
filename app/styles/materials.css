@@ -116,13 +116,16 @@
   }
 
   /* A sticky heading covers what scrolls below it. A design with a painting
-     shows the painting behind the heading while it rests in place. */
+     shows the painting behind the heading while it rests in place; stuck, the
+     heading lies on the veil of the design, so it ends in the painting
+     without an opaque band and a hard edge (PAGE-324). */
   .pages-sticky-band {
     container-type: scroll-state;
   }
 
   .pages-sticky-band-surface {
     pointer-events: none;
+    backdrop-filter: var(--sticky-band-filter);
   }
 
   @supports (container-type: scroll-state) {

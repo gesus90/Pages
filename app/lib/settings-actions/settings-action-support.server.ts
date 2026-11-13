@@ -1,7 +1,10 @@
 import type { data } from "react-router";
 import type { ApplicationServices } from "@/app/lib/services.server";
 import type { User } from "@/definition/User";
-import type { AcpResourceUpdateResult } from "@/definition/AcpResource";
+import type {
+  AcpLeaseCleanupResult,
+  AcpResourceUpdateResult,
+} from "@/definition/AcpResource";
 import type { AutomationNotificationMode } from "@/definition/Automation";
 
 /** Outcome of a password change attempt reported to the visitor. */
@@ -29,6 +32,7 @@ type AvatarUpdateErrorCode = "invalidInput" | "invalidAvatar" | "general";
 /** What the settings screen receives after a submitted form. */
 export type SettingsActionData =
   | ({ readonly intent: "update-acp-resources" } & AcpResourceUpdateResult)
+  | ({ readonly intent: "check-acp-leases" } & AcpLeaseCleanupResult)
   | {
       readonly intent: "update-logging";
       readonly ok: true;

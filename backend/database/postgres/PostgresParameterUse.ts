@@ -194,7 +194,11 @@ function noteConflict(
     : null;
   for (const [column, name] of written)
     if (keys === null || keys.has(column)) uses.noteOne(name, "unclear");
-  const set = findWord(tokens, targetEnd, new Set(["SET"]));
+  const set = findWord(
+    tokens,
+    hasTarget ? targetEnd + 1 : targetEnd,
+    new Set(["SET"]),
+  );
   const end = findWord(tokens, set + 1, AFTER_SET);
   noteAssignments(tokens.slice(set + 1, end), uses);
   noteAfterAssignments(tokens.slice(end), uses);

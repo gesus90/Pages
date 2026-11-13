@@ -6,8 +6,11 @@ import { useFetcher } from "react-router";
 import { SettingsCard } from "@/app/components/settings/settings-layout";
 
 import { AcpResourceLimitForm } from "./acp-resource-limit-form";
+import { AcpChatSessionList } from "./acp-resources/acp-chat-session-list";
 import { AcpLeaseCheckStatus } from "./acp-resources/acp-lease-check-status";
+import { AcpLeaseCleanup } from "./acp-resources/acp-lease-cleanup";
 import { AcpLeaseList } from "./acp-resources/acp-lease-list";
+import { AcpObserverHealth } from "./acp-resources/acp-observer-health";
 import { AcpResourceOverview } from "./acp-resources/acp-resource-overview";
 
 import type {
@@ -48,6 +51,10 @@ export function AcpResourcesCard({
     void load("/agent-api/resources");
   }
 
+  function handleCleaned(): void {
+    void load("/agent-api/resources");
+  }
+
   return (
     <SettingsCard
       title={t("settings.agents.resources.title")}
@@ -62,6 +69,7 @@ export function AcpResourcesCard({
               onApplied={handleApplied}
             />
           ) : null}
+          {canConfigure ? <AcpLeaseCleanup onCleaned={handleCleaned} /> : null}
           <ResourceDetails resources={current} />
         </div>
       ) : (
@@ -117,10 +125,14 @@ function ResourceDetails({
         </p>
       ) : null}
       <AcpLeaseCheckStatus check={resources.check} />
+      <AcpObserverHealth observer={resources.observer} />
       {resources.leftovers.length > 0 ? (
         <LeftoverNotice leftovers={resources.leftovers} />
       ) : null}
       <AcpLeaseList resources={resources} />
+      {resources.chatSessions ? (
+        <AcpChatSessionList sessions={resources.chatSessions} />
+      ) : null}
     </div>
   );
 }

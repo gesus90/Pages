@@ -12,6 +12,7 @@ import {
 } from "@/definition/PagesRunsRunner";
 import {
   pagesRunsOwnershipReplySchema,
+  pagesRunsSwarmReplySchema,
   PAGES_RUNS_PROTOCOL,
   PAGES_RUNS_TIMEOUT_MS,
   pagesRunsWakeSchema,
@@ -20,6 +21,9 @@ import {
 import { AgentError, isAgentErrorCode } from "@/backend/error/AgentErrors";
 import { logCaughtError } from "@/backend/logging/Logger";
 
+import { SwarmCallError } from "../swarm/SwarmRegistry";
+
+import type { SwarmCall } from "../swarm/SwarmRegistry";
 import type { Server, IncomingMessage, ServerResponse } from "node:http";
 
 /** Stable private socket shared by API and scheduler for this data directory. */
@@ -58,6 +62,31 @@ export async function queryRunOwnership(
   );
   if (!reply.ok) throw new Error("Run ownership unavailable");
   return pagesRunsOwnershipReplySchema.parse(reply.result).active;
+}
+
+/**
+ * Hands a swarm tool call to the engine process (PAGE-313).
+ *
+ * @throws {SwarmCallError} When the engine refused the call.
+ */
+export async function callRunsSwarm(
+  socketPath: string,
+  call: SwarmCall,
+): Promise<unknown> {
+  const reply = pagesRunnerReplySchema.parse(
+    await socketRequest(socketPath, "/v1/engine", {
+      version: 1,
+      operation: "swarm",
+      runId: call.runId,
+      stepId: call.stepId,
+      swarmOperation: call.operation,
+      parameters: call.parameters,
+    }),
+  );
+  if (!reply.ok) throw new Error("Swarm call unavailable");
+  const answer = pagesRunsSwarmReplySchema.parse(reply.result);
+  if ("refused" in answer) throw new SwarmCallError(answer.refused);
+  return answer.result;
 }
 
 /** Best-effort wakeup. A missing peer leaves the command in the durable inbox. */

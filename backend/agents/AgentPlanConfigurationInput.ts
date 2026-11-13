@@ -3,8 +3,10 @@ import { AgentError } from "@/backend/error/AgentErrors";
 import { emptyAgentConfiguration } from "@/definition/AgentConfiguration";
 import { isAgentProvider } from "@/definition/AgentConnection";
 import { agentParameterIssues } from "@/definition/AgentParameters";
+
 import { readAgentConfiguration } from "./AgentConfigurationInput";
 import { readAgentObject } from "./AgentPayload";
+
 import type { AgentPlanConfiguration } from "@/definition/AgentPlanConfiguration";
 
 /** Validates a secret-free node copy using the same parameter and run-option readers as templates. */
@@ -45,7 +47,7 @@ export function readPlanConfiguration(input: unknown): AgentPlanConfiguration {
     ...(entry.connectionId === undefined
       ? {}
       : { connectionId: readText(entry.connectionId, 100) }),
-    model: readText(entry.model, 500),
+    model: readText(entry.model, 500, true),
     provider: entry.provider,
     reasoningEffort: entry.reasoningEffort,
     template: {

@@ -75,7 +75,7 @@ export class AgentPlanAccessRepository {
   public async change(change: AgentPlanAccessChange): Promise<number> {
     try {
       return await this.database.transaction((transaction) =>
-        writeAccess(transaction, change),
+        writePlanAccess(transaction, change),
       );
     } catch (error: unknown) {
       if (isNameViolation(error)) throw new AgentError("plan_name_taken");
@@ -145,7 +145,8 @@ async function lockRevision(
   };
 }
 
-async function writeAccess(
+/** Writes validated settings inside the graph transaction when an editor saves both. */
+export async function writePlanAccess(
   transaction: DatabaseTransaction,
   change: AgentPlanAccessChange,
 ): Promise<number> {

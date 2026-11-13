@@ -160,7 +160,7 @@ const CHAT_OPERATIONS: Readonly<Record<ChatOperation, string>> = {
   "plans.run.recovery.resume":
     "{planId, runId, expectedRecoveryRevision, expectedPlanRevision, mode, reviewedStepIds} nach ausdrücklichem Auftrag und Prüfung möglicher Nebenwirkungen einen verknüpften neuen Lauf am verifizierten Zustand fortsetzen",
   "plans.clone":
-    "{planId, expectedRevision, name, workspaceId?, oneShot?} vollständigen gespeicherten Plan atomar mit unabhängigen IDs kopieren (oneShot true: als Einmal-Plan, der fünf Minuten nach einem erfolgreichen Lauf gelöscht wird); ohne workspaceId im Quellworkspace, mit normalen Create-Rechten und ohne übernommene Lesefreigaben, Historie oder Start",
+    "{planId, expectedRevision, name, workspaceId?, executionTarget?, oneShot?, ownerId?, teams?} jeden sichtbaren Plan in aktueller Revision kopieren; fremden Workspace ersetzen, nicht nutzbare Verweise leeren und alte Formen bereinigen. adjustments nennt die Anpassungen. Namen bekommen bei Bedarf eine Zahl. Personen in teams können nur lesen; ownerId setzt nur ein Admin. Ohne teams gilt die Vorgabe beim Anlegen. Keine zusätzlichen alten Freigaben, Historie, Dateien, Zugangsdaten oder Ausführung kopieren.",
   "plans.templates.list": "{workspaceId} sichtbare Node-Vorlagen lesen",
   "plans.templates.read":
     "{workspaceId, templateId} eine sichtbare Node-Vorlage lesen",

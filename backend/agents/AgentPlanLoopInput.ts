@@ -6,6 +6,7 @@ import {
 
 import { readAgentObject } from "./AgentPayload";
 
+import type { AgentPlanNode } from "@/definition/AgentPlan";
 import type {
   AgentPlanLoopCondition,
   AgentPlanLoopValue,
@@ -90,4 +91,15 @@ export function readPlanLoopWhile(input: unknown): AgentPlanLoopWhile | null {
   )
     throw invalid();
   return { sourceNodeId, outputPath };
+}
+
+/** How many nodes a group or loop holds, the agents of a loop's groups included. */
+export function containedCount(node: AgentPlanNode): number {
+  if (node.type === "group") return node.steps.length;
+  if (node.type !== "loop") return 0;
+  return node.steps.reduce(
+    (count, step) =>
+      count + 1 + (step.type === "group" ? step.steps.length : 0),
+    0,
+  );
 }

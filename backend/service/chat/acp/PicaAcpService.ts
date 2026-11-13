@@ -37,6 +37,8 @@ import type { PicaAcpMessage } from "./PicaAcpSteering";
 import type { PicaAcpRunner } from "./PicaAcpRunners";
 import type { AgentHostFileTarget } from "@/backend/service/employee/AgentHostFiles";
 import type { PicaAcpWorkspace } from "./PicaAcpWorkspace";
+import type { PicaAcpSessionPool } from "./PicaAcpSessionPool";
+import type { PicaAcpJobPool } from "./PicaAcpPoolOpening";
 
 /** A job of a conversation with its journal (PAGE-303). */
 export interface ChatJobJournal {
@@ -64,6 +66,8 @@ export interface PicaAcpServiceDependencies extends PicaAcpJobDependencies {
     userId: string,
     assignment: ResolvedAgentAssignment,
   ) => Promise<void>;
+  /** The chat sessions agent employees keep between rounds (PAGE-335); absent opens one per job. */
+  readonly pool?: Pick<PicaAcpSessionPool, "open" | "close">;
 }
 
 /** A sent message after validation. */
@@ -109,6 +113,15 @@ export interface PicaAcpEmployeeRun {
   readonly onSettled?: () => void;
   /** The Pages tools to read chats and send messages (PAGE-311); absent where none run. */
   readonly agentChat?: AgentChatTools;
+  /**
+   * Keeps the session of the chat for the next round (PAGE-335): the label of
+   * the conversation for the resource view and the revision of the agent,
+   * whose change starts a new session. Absent opens a session per job.
+   */
+  readonly keptSession?: {
+    readonly conversation: string;
+    readonly revision: number;
+  };
 }
 
 /** What a new job is started from; the agent is resolved by the caller for this message. */
@@ -365,9 +378,12 @@ export class PicaAcpService {
       return Promise.resolve();
     });
     const entry = this.running.get(sessionId);
-    if (entry?.job.userId !== userId) return;
-    this.cancel(userId, sessionId);
-    await entry.completion;
+    if (entry?.job.userId === userId) {
+      this.cancel(userId, sessionId);
+      await entry.completion;
+    }
+    // The kept session of an agent works in the folder the deletion removes.
+    await this.dependencies.pool?.close(sessionId);
   }
 
   /** Stops only Pica jobs at the existing cancellation boundary, retaining all chats. */
@@ -484,6 +500,7 @@ export class PicaAcpService {
         brief: input.brief,
         resumeSessionId,
         gate: (task) => this.gate(sessionId, task),
+        pool: this.keptSession(input, { sessionId, run, directory }),
       },
     );
     this.register(sessionId, job, {
@@ -493,6 +510,46 @@ export class PicaAcpService {
     const started = await this.dependencies.jobs.find(actor.id, id);
     if (started === null) throw new ChatError("sessionMissing");
     return { job: started, messageId: message.id };
+  }
+
+  /**
+   * The kept chat session of an agent employee's job (PAGE-335).
+   *
+   * @remarks
+   * Every value that shapes the native session is part of its fingerprint, so
+   * a changed connection, model, effort, access, folder or agent starts a new
+   * one instead of continuing the resting one.
+   */
+  private keptSession(
+    input: PicaAcpStart,
+    job: {
+      readonly sessionId: string;
+      readonly run: PicaAcpRun;
+      readonly directory: string;
+    },
+  ): PicaAcpJobPool | undefined {
+    const kept = input.employee?.keptSession;
+    const { pool } = this.dependencies;
+    if (!kept || !pool) return undefined;
+    const { agent, actor } = input;
+    return {
+      sessions: pool,
+      session: {
+        chatSessionId: job.sessionId,
+        agentId: actor.id,
+        agentName: actor.displayName,
+        conversation: kept.conversation,
+        fingerprint: JSON.stringify([
+          agent.connection.id,
+          agent.model,
+          agent.reasoningEffort,
+          job.run.runner.profile,
+          job.run.options,
+          job.directory,
+          kept.revision,
+        ]),
+      },
+    };
   }
 
   /** The dependencies of a job: Pica's, or those bound to the configuration of an agent employee. */

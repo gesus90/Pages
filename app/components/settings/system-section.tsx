@@ -13,6 +13,7 @@ import { LoggingCard } from "@/app/components/settings/system/logging-card";
 import { SystemDashboardCard } from "@/app/components/settings/system/system-dashboard-card";
 import { WikiSettingsCard } from "@/app/components/settings/system/wiki-settings-card";
 
+import { StorageAccessCard } from "./system/storage-access-card";
 import { TicketAssetsCard } from "./system/ticket-assets-card";
 
 import type { ChatAdministration } from "@/definition/Chat";
@@ -62,6 +63,7 @@ export function SystemSection({
       <div className="mt-4 grid gap-4 lg:grid-cols-2 lg:items-start">
         <div className="flex min-w-0 flex-col gap-4">
           <GoogleDriveCard />
+          <StorageAccessCard />
           <InterpreterCard />
           <InstanceCard branding={branding} />
           <WikiSettingsCard settings={wikiSettings} />

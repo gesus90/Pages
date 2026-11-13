@@ -17,7 +17,7 @@ interface PlanFloatingPanelProps {
   readonly kicker: string;
   readonly title: string;
   /** The node type whose symbol and color mark the panel. */
-  readonly type: Extract<AgentPlanNode["type"], "loop" | "group">;
+  readonly type: Extract<AgentPlanNode["type"], "loop" | "group" | "swarm">;
   readonly closeLabel: string;
   readonly closeButton: string;
   readonly hint: string;
@@ -25,7 +25,11 @@ interface PlanFloatingPanelProps {
   readonly children: React.ReactNode;
 }
 
-const ACCENTS = { loop: "text-plan-loop", group: "text-plan-group" } as const;
+const ACCENTS = {
+  loop: "text-plan-loop",
+  group: "text-plan-group",
+  swarm: "text-plan-swarm",
+} as const;
 
 /** Escape closes the panel unless a control inside has used it, such as an open list. */
 function useEscapeToClose(onClose: () => void): void {

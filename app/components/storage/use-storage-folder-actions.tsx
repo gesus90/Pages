@@ -10,7 +10,6 @@ import type {
   StorageItem,
 } from "@/definition/GoogleDriveStorage";
 import type { ReactNode } from "react";
-
 import type { StorageActionsModel } from "./use-storage-actions";
 
 /** The changing side of the shown folder. */
@@ -63,8 +62,8 @@ export function useStorageFolderActions(
   result: StorageBrowseResult | null,
   onChanged: () => void,
 ): StorageFolderActions {
-  const capabilities = useStorageCapabilities();
   const folderRef = realFolderRef(result);
+  const capabilities = useStorageCapabilities(folderRef);
   const canWrite = capabilities?.canWrite === true;
   const actions = useStorageActions({
     maxUploadBytes: capabilities?.maxUploadBytes ?? null,

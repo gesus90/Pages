@@ -1,3 +1,5 @@
+import type { ConversationObserverHealth } from "./ConversationObserver";
+
 /** Absolute admission ceiling, including the configured unlimited mode. */
 export const MAX_ACP_SESSIONS = 999;
 
@@ -62,6 +64,8 @@ export const ACP_RELEASE_REASONS = [
   "previous_boot",
   "namespace_ended",
   "owner_released",
+  "unit_ended",
+  "unit_inactive",
 ] as const;
 
 /** Reasons of the periodic check that keep a reservation, each with its own safe next step. */
@@ -94,6 +98,11 @@ export interface AcpResourceRecord extends AcpResourceOwner {
   readonly namespace?: AcpNamespaceOwner | null;
   readonly lifecycle?: AcpLeaseLifecycle | null;
   readonly check?: AcpLeaseCheck | null;
+  /**
+   * The worker unit the process starts in, recorded before the spawn
+   * (PAGE-335); `null` for a start without a unit.
+   */
+  readonly workerUnit?: string | null;
 }
 
 /** Recovery owns plan or chat leases separately when the engine runs outside the API. */
@@ -122,7 +131,11 @@ export interface AcpLeaseCheckSummary {
   readonly failed: number;
 }
 
-/** Kernel identity of a directly spawned namespace supervisor. */
+/**
+ * Kernel identity of a directly spawned process frame: the init of an owned
+ * PID namespace or, for a session without one, the client of its worker unit
+ * (PAGE-340); `unit` then names the frame that holds every process.
+ */
 export interface AcpNamespaceOwner {
   readonly pid: number;
   readonly uid: number;
@@ -187,6 +200,28 @@ export interface AcpResourceDiagnostics extends AcpResourceSnapshot {
   readonly leftovers: readonly AcpCredentialLeftover[];
   /** Readable plan names of the runs that hold reservations. */
   readonly runs?: readonly AcpResourceRunReference[];
+  /** How the group observer fared in the last 24 hours (PAGE-340). */
+  readonly observer?: ConversationObserverHealth;
+  /** The chat sessions agents hold open between their answers (PAGE-335). */
+  readonly chatSessions?: readonly AcpChatSessionView[];
+}
+
+/**
+ * One chat session an agent keeps open for a conversation (PAGE-335).
+ *
+ * @remarks
+ * `busy` answers now; `idle` waits for the next round of its conversation
+ * and ends after the idle time of the agent settings.
+ */
+export interface AcpChatSessionView {
+  /** The reservation of the session's process, as listed under `active`. */
+  readonly instanceId: string;
+  readonly agentId: string;
+  readonly agentName: string;
+  /** The conversation, as the memory of the agent names it. */
+  readonly conversation: string;
+  readonly state: "busy" | "idle";
+  readonly lastActivityAt: string;
 }
 
 /** The plan run behind a reservation, as shown to administrators. */
@@ -197,3 +232,53 @@ export interface AcpResourceRunReference {
   readonly startedAt: string;
   readonly status: string;
 }
+
+/**
+ * Where the administrative cleanup puts one reservation (PAGE-340).
+ *
+ * @remarks
+ * `releasable` appears only in a preview, `released` only in a cleanup.
+ * `kept_active` covers live, starting, paused or still running work;
+ * `kept_unproven` a lease whose end the evidence does not prove;
+ * `check_failed` a lease whose evidence could not be read.
+ */
+export type AcpLeaseCleanupCategory =
+  "releasable" | "released" | "kept_active" | "kept_unproven" | "check_failed";
+
+/** Why a lease that is not idle and unconfirmed stays without any process check. */
+export const ACP_CLEANUP_HOLDS = [
+  "session_open",
+  "start_in_progress",
+  "run_paused",
+  "other_service",
+  "lease_changed",
+] as const;
+
+/** A check reason, or why the lease was not checked at all. */
+export type AcpLeaseCleanupReason =
+  AcpLeaseCheckReason | (typeof ACP_CLEANUP_HOLDS)[number];
+
+/** One reservation in a cleanup preview or result, without prompts or credentials. */
+export interface AcpLeaseCleanupEntry {
+  readonly instanceId: string;
+  readonly provider: AcpResourceOwner["provider"];
+  readonly runId: string | null;
+  readonly state: AcpResourceState;
+  readonly since: string;
+  readonly category: AcpLeaseCleanupCategory;
+  readonly reason: AcpLeaseCleanupReason;
+}
+
+/** A preview or the result of the administrative cleanup. */
+export interface AcpLeaseCleanupReport {
+  readonly mode: "preview" | "cleanup";
+  readonly scope: AcpRecoveryScope;
+  readonly at: string;
+  readonly counts: Readonly<Record<AcpLeaseCleanupCategory, number>>;
+  readonly entries: readonly AcpLeaseCleanupEntry[];
+}
+
+/** The answer to an administrative preview or cleanup request. */
+export type AcpLeaseCleanupResult =
+  | { readonly ok: true; readonly report: AcpLeaseCleanupReport }
+  | { readonly ok: false; readonly error: "invalidSelection" | "general" };

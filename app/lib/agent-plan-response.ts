@@ -1,3 +1,4 @@
+import type { AgentPlanCloneAdjustment } from "@/definition/AgentPlanClone";
 import type { AgentPlanControl } from "@/definition/AgentPlanControl";
 import type { AgentPlanRun } from "@/definition/AgentPlan";
 import type { AgentPlanIssue } from "@/definition/AgentPlanGraph";
@@ -7,6 +8,7 @@ export type AgentPlanActionResult =
   | {
       readonly ok: true;
       readonly intent: string;
+      readonly adjustments?: readonly AgentPlanCloneAdjustment[];
       readonly planId?: string;
       readonly revision?: number;
       readonly run?: AgentPlanRun;
@@ -19,4 +21,6 @@ export type AgentPlanActionResult =
       readonly runId?: string;
       readonly currentRevision?: number;
       readonly issues?: readonly AgentPlanIssue[];
+      /** The node a refusal names, such as a skipped script that is enabled again. */
+      readonly nodeId?: string;
     };

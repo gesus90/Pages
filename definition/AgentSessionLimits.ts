@@ -3,7 +3,8 @@
  *
  * @remarks
  * Every chat of an agent has its own session; sessions of different chats
- * run side by side. Above a limit a message is queued, never refused, and
+ * run side by side. A session rests between the rounds of its chat and ends
+ * after the idle time (PAGE-335). Above a limit a message is queued, never refused, and
  * answered once a place is free.
  */
 
@@ -13,6 +14,13 @@ export const AGENT_SESSION_DEFAULT_PER_AGENT = 4;
 export const AGENT_SESSION_DEFAULT_TOTAL = 16;
 /** The highest value either limit takes. */
 export const AGENT_SESSION_LIMIT_MAXIMUM = 64;
+/**
+ * Minutes a chat session of an agent rests after its last round before it
+ * ends and releases its process (PAGE-335).
+ */
+export const AGENT_CHAT_IDLE_DEFAULT_MINUTES = 10;
+/** The longest idle time of a resting chat session, one day. */
+export const AGENT_CHAT_IDLE_MAXIMUM_MINUTES = 1440;
 
 /** The stored limits with the revision they were read at. */
 export interface AgentSessionLimits {
@@ -21,6 +29,8 @@ export interface AgentSessionLimits {
   readonly revision: number;
   /** The time of day of the nightly dream run, `HH:MM` in the time zone of the server (PAGE-305). */
   readonly dreamTime: string;
+  /** Minutes a chat session of an agent rests before it ends (PAGE-335). */
+  readonly idleMinutes: number;
 }
 
 /** What the settings card shows: the limits and how many sessions run and wait now. */

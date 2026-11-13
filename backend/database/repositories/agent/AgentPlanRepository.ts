@@ -15,6 +15,7 @@ import { agentPlanNameKey } from "@/definition/AgentPlanName";
 import { withoutTicketFlow } from "@/definition/AgentPlanGraph";
 import { withPortlessPlanGroups } from "@/definition/AgentPlanGroupUpgrade";
 import { fullPlanTeam } from "@/definition/AgentPlanTeam";
+
 import { AgentWorkspaceReferencesRepository } from "./AgentWorkspaceReferencesRepository";
 import {
   requirePlanConnections,
@@ -246,6 +247,21 @@ export class AgentPlanRepository {
   /** Reads a graph without introducing permission policy into persistence. */
   public async find(id: string): Promise<AgentPlan | null> {
     return findPlan(this.database, id);
+  }
+
+  /** Reads the saved source for clone normalization, after the service authorized its visibility. */
+  public async cloneSource(id: string): Promise<unknown> {
+    const [row] = await this.database.query(
+      `
+      SELECT plan_json
+      FROM agent_plans
+      WHERE id = $id;
+    `,
+      { id },
+    );
+    if (!row) throw new AgentError("source_not_visible");
+    const source: unknown = JSON.parse(readTextColumn(row, 0, "plan_json"));
+    return source;
   }
 
   /** Refuses a stale source or unknown persisted fields instead of silently producing a partial clone. */

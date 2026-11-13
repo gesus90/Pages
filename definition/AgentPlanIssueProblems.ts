@@ -79,6 +79,9 @@ export const AGENT_PLAN_ISSUE_PROBLEMS = [
   "scriptReportGate",
   "loopScriptUnsupported",
   "gitCloseoutUnsupported",
+  "swarmRemoteUnsupported",
+  "swarmIncomplete",
+  "swarmInvalid",
 ] as const;
 
 export type AgentPlanIssueProblem = (typeof AGENT_PLAN_ISSUE_PROBLEMS)[number];

@@ -88,6 +88,28 @@ export interface PicaBridgeLease {
    * binding of the running turn, so it admits no call between turns.
    */
   readonly openMcp: () => PicaBridgeDescriptor;
+  /**
+   * Issues the credential of an MCP client that outlives this job, for a chat
+   * session that answers several jobs (PAGE-335); it is bound to this job now.
+   */
+  readonly openMcpChannel: () => PicaBridgeMcpChannel;
+  /** Binds the credential of a chat session that outlives its jobs to this job. */
+  readonly attachMcpChannel: (channel: PicaBridgeMcpChannel) => void;
+  readonly close: () => void;
+}
+
+/**
+ * The MCP credential of a chat session that outlives its jobs (PAGE-335).
+ *
+ * @remarks
+ * A native session reads its MCP servers once, when it starts. The
+ * credential therefore stays the same while the session rests between
+ * jobs; it lists the catalog of the last job and refuses every call until
+ * the next job binds it to its running turn.
+ */
+export interface PicaBridgeMcpChannel {
+  readonly descriptor: PicaBridgeDescriptor;
+  /** Revokes the credential when the session ends. */
   readonly close: () => void;
 }
 
@@ -225,6 +247,8 @@ export class PicaBridge {
   private readonly url: string;
   private readonly bindings = new Map<string, Binding>();
   private readonly mcpAccesses = new Map<string, McpAccess>();
+  /** The keys of the open MCP channels, by channel. */
+  private readonly channels = new WeakMap<PicaBridgeMcpChannel, string>();
 
   public constructor(url: string) {
     this.url = url;
@@ -242,6 +266,19 @@ export class PicaBridge {
     const revokeMcp = (): void => {
       if (mcpKey) this.mcpAccesses.delete(mcpKey);
       mcpKey = null;
+    };
+    let channelKey: string | null = null;
+    const attach = (channel: PicaBridgeMcpChannel): void => {
+      const key = this.channels.get(channel);
+      if (key === undefined || !this.mcpAccesses.has(key)) return;
+      channelKey = key;
+      this.mcpAccesses.set(key, { owner, binding: () => current });
+    };
+    // A resting session keeps listing the catalog of this job, but calls nothing.
+    const detach = (): void => {
+      if (channelKey && this.mcpAccesses.has(channelKey))
+        this.mcpAccesses.set(channelKey, { owner, binding: () => null });
+      channelKey = null;
     };
     const issue = (
       turn: PicaBridgeTurn | null,
@@ -288,9 +325,16 @@ export class PicaBridge {
         this.mcpAccesses.set(mcpKey, { owner, binding: () => current });
         return { url: this.url, authorization: `Bearer ${token}` };
       },
+      openMcpChannel: () => {
+        const channel = this.openChannel(owner);
+        attach(channel);
+        return channel;
+      },
+      attachMcpChannel: attach,
       close: () => {
         revoke();
         revokeMcp();
+        detach();
       },
     };
   }
@@ -329,6 +373,21 @@ export class PicaBridge {
     } finally {
       binding.calls.delete(pending);
     }
+  }
+
+  /** Creates a channel whose credential refuses every call until a job binds it. */
+  private openChannel(owner: PicaBridgeOwner): PicaBridgeMcpChannel {
+    const token = randomBytes(32).toString("base64url");
+    const key = digest(token);
+    this.mcpAccesses.set(key, { owner, binding: () => null });
+    const channel: PicaBridgeMcpChannel = {
+      descriptor: { url: this.url, authorization: `Bearer ${token}` },
+      close: () => {
+        this.mcpAccesses.delete(key);
+      },
+    };
+    this.channels.set(channel, key);
+    return channel;
   }
 
   private authenticate(authorization: string | null): Binding | null {

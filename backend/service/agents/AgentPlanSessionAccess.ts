@@ -1,8 +1,13 @@
 import { isAcpProvider } from "@/definition/AgentConfiguration";
+import {
+  AGENT_SWARM_TOOLS,
+  agentSwarmOperations,
+} from "@/definition/AgentPlanSwarmOperations";
 
 import type { CliSessionMcp } from "@/backend/agents/cli/CliSessionPlans";
 import type { PlanBridgeGrants } from "./bridge/PlanBridgeGrants";
 import type { AgentRunCredentialService } from "@/backend/service/mcp/AgentRunCredentialService";
+import type { AgentSwarmRole } from "@/definition/AgentPlanSwarmOperations";
 import type { AgentRunOptions } from "@/definition/AgentConfiguration";
 import type { AgentProviderId } from "@/definition/AgentConnection";
 import type {
@@ -60,6 +65,8 @@ export interface AgentPlanSessionGrant {
    * follow the rights of the executor.
    */
   readonly canSetStatus?: boolean;
+  /** The swarm side whose tools the session gets besides its reach (PAGE-313). */
+  readonly swarm?: AgentSwarmRole;
 }
 
 /**
@@ -86,13 +93,15 @@ export function planSessionScope(
   return {
     runId: grant.runId,
     stepId: grant.stepId,
-    operations:
-      grant.reach === "tickets"
+    operations: [
+      ...(grant.reach === "tickets"
         ? [
             ...SESSION_OPERATIONS,
             ...(grant.canSetStatus ? [STATUS_OPERATION] : []),
           ]
-        : [],
+        : []),
+      ...(grant.swarm ? agentSwarmOperations(grant.swarm) : []),
+    ],
     tickets: grant.tickets,
     reach: grant.reach,
   };
@@ -100,12 +109,13 @@ export function planSessionScope(
 
 /** The tool names a step of the given grant may call; `null` leaves the choice to the scope of the credential. */
 export function planSessionTools(
-  grant: Pick<AgentPlanSessionGrant, "reach" | "canSetStatus">,
+  grant: Pick<AgentPlanSessionGrant, "reach" | "canSetStatus" | "swarm">,
 ): readonly string[] | null {
   if (grant.reach !== "tickets") return null;
   return [
     ...SESSION_TOOLS,
     ...(grant.canSetStatus === true ? [STATUS_TOOL] : []),
+    ...(grant.swarm ? AGENT_SWARM_TOOLS[grant.swarm] : []),
   ];
 }
 

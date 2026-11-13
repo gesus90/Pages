@@ -680,7 +680,7 @@ export class AcpSession implements PlanSession {
         this.process,
         this.context.instanceId,
         undefined,
-        this.context.isPidNamespace === true,
+        this.context.containment ?? "none",
       );
       if (closed.isConfirmed) this.context.cleanupAdapter?.();
       return closed;

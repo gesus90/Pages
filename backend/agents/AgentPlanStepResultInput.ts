@@ -1,3 +1,4 @@
+import { planSwarmRunSchema } from "@/definition/AgentPlanSwarmRun";
 import {
   planStepExecutionSchema,
   planRemoteProgressSchema,
@@ -67,7 +68,16 @@ export function readPlanStepResult(input: unknown): AgentPlanStepResult {
     ...(step.stack === undefined
       ? {}
       : { stack: readPlanStackHandover(step.stack) }),
+    ...readStepSwarm(step.swarm),
   };
+}
+
+/** Reads the lanes and board of a swarm node; a damaged view is refused like any damaged result. */
+function readStepSwarm(swarm: unknown): Pick<AgentPlanStepResult, "swarm"> {
+  if (swarm === undefined) return {};
+  const parsed = planSwarmRunSchema.safeParse(swarm);
+  if (!parsed.success) throw new AgentError("plan_invalid");
+  return { swarm: parsed.data };
 }
 
 function readStepSkipped(

@@ -1,3 +1,8 @@
+import {
+  AGENT_FILE_READ_OPERATIONS,
+  AGENT_FILE_WRITE_OPERATIONS,
+} from "@/definition/AgentFileOperations";
+import { isAgentSwarmOperation } from "@/definition/AgentPlanSwarmOperations";
 import { AGENT_ADMIN_READ_OPERATIONS } from "@/definition/AgentAdministration";
 import { AGENT_STEP_PROGRESS_OPERATION } from "@/definition/AgentPlanStepProgress";
 import { AGENT_STEP_REPORT_OPERATION } from "@/definition/AgentPlanStepReport";
@@ -32,6 +37,7 @@ export const PROJECT_NAMES_OPERATION = "projects.names.list" as const;
 
 /** Every reading operation besides the administrator reads. */
 const READING_OPERATIONS: readonly PagesAgentApiBusinessOperation[] = [
+  ...AGENT_FILE_READ_OPERATIONS,
   "assets.download.prepare",
   PROJECT_NAMES_OPERATION,
   ...PAGES_AGENT_READ_OPERATIONS,
@@ -58,6 +64,8 @@ export function ownerOperations(
   isAdmin: boolean,
 ): readonly PagesAgentApiBusinessOperation[] {
   return [
+    ...AGENT_FILE_READ_OPERATIONS,
+    ...AGENT_FILE_WRITE_OPERATIONS,
     "assets.download.prepare",
     PROJECT_NAMES_OPERATION,
     ...PAGES_AGENT_READ_OPERATIONS,
@@ -169,5 +177,7 @@ export function sessionOperations(
     ...operations,
     AGENT_STEP_REPORT_OPERATION,
     AGENT_STEP_PROGRESS_OPERATION,
+    // A swarm session carries its tools in its scope, whatever its reach (PAGE-313).
+    ...scope.operations.filter(isAgentSwarmOperation),
   ];
 }

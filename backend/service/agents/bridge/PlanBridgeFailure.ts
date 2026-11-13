@@ -53,10 +53,16 @@ const REJECTION_REASONS: Readonly<
   element_missing: true,
   element_exists: true,
   plan_script_invalid: true,
+  swarm_invalid: true,
+  swarm_remote_unsupported: true,
   plan_script_profile_missing: true,
   plan_name_taken: true,
   template_name_taken: true,
   plan_schema_unsupported: true,
+  source_not_visible: true,
+  plan_user_team_read_only: true,
+  clone_request_invalid: true,
+  clone_failed: true,
   plan_running: true,
   plan_run_unavailable: true,
   plan_run_unreadable: true,
@@ -208,6 +214,9 @@ const ISSUE_PROBLEMS: Readonly<Record<AgentPlanIssueProblem, true>> = {
   scriptReportGate: true,
   loopScriptUnsupported: true,
   gitCloseoutUnsupported: true,
+  swarmRemoteUnsupported: true,
+  swarmIncomplete: true,
+  swarmInvalid: true,
 };
 
 /** Findings a refusal carries at most. */

@@ -13,7 +13,6 @@ import { STORAGE_BATCH_LIMIT } from "@/definition/GoogleDriveFiles";
 
 import type { StorageItem } from "@/definition/GoogleDriveStorage";
 import type { LucideIcon } from "lucide-react";
-
 import type { StorageActionsModel } from "./use-storage-actions";
 import type { StorageBatchModel } from "./use-storage-batch";
 import type { StorageSelection } from "./use-storage-selection";
@@ -50,6 +49,7 @@ export interface StorageCommandsInput {
   readonly folderRef: string | null;
   readonly items: readonly StorageItem[];
   readonly canWrite: boolean;
+  readonly operations?: readonly string[];
   readonly actions: StorageActionsModel;
   readonly batch: StorageBatchModel;
   readonly selection: StorageSelection;
@@ -80,6 +80,26 @@ function pasteBlocked(input: StorageCommandsInput): boolean {
   );
 }
 
+function allowedCommands(
+  commands: readonly StorageCommand[],
+  operations: readonly string[] | undefined,
+): readonly StorageCommand[] {
+  const required: Partial<Record<StorageCommandId, string>> = {
+    newFolder: "create_folder",
+    rename: "rename",
+    copy: "copy",
+    move: "move",
+    paste: "batch",
+    trash: "delete",
+  };
+  return commands.map((command) => {
+    const operation = required[command.id];
+    return operation && operations && !operations.includes(operation)
+      ? { ...command, isDisabled: true }
+      : command;
+  });
+}
+
 /**
  * Builds the actions of the Storage menu bar and context menu (PAGE-272):
  * new folder, rename, copy, move, paste, trash, multi-select and select all.
@@ -104,7 +124,7 @@ export function buildStorageCommands(
   const first = selected[0];
   const base = { endsGroup: false, isDestructive: false, isPressed: null };
 
-  return [
+  const commands: StorageCommand[] = [
     {
       ...base,
       hintKey: null,
@@ -180,4 +200,5 @@ export function buildStorageCommands(
       run: selection.selectAll,
     },
   ];
+  return allowedCommands(commands, input.operations);
 }

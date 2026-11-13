@@ -7,8 +7,13 @@ import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
 import { AgentProviderError } from "@/backend/error/AgentProviderError";
 import { isApiProvider } from "@/definition/AgentConnection";
-import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
+import { logCaughtError } from "@/backend/logging/Logger";
 
+import {
+  closePlanSession,
+  finishStartedPlanSession,
+  planSessionCloseoutFailure,
+} from "./AgentPlanSessionCloseout";
 import { retainPlanSession } from "./AgentPlanRetainedSessions";
 import {
   apiBusinessResult,
@@ -46,7 +51,6 @@ import {
   initialStepAttemptId,
   closedSessionChanges,
   isConfirmedPlanCancellation,
-  planCompletedFailure,
   withTurn,
 } from "./AgentPlanSessionRecords";
 import { planStackNodeInput } from "./stack/AgentPlanStackInputs";
@@ -437,32 +441,9 @@ export class AgentPlanStepRunner {
     node.control.claimStart?.();
     this.offerInstructions(node, groupKey, input, session);
     node.hasStarted = true;
-    return this.finishStartedSession(node, session, terms);
-  }
-
-  private async finishStartedSession(
-    node: NodeRun,
-    session: PlanSession,
-    terms: AgentPlanSessionTerms,
-  ): Promise<Partial<AgentPlanStepResult>> {
-    try {
-      return await this.finish(node, session, terms);
-    } catch (error: unknown) {
-      logCaughtError("AgentPlanStepRunner", error);
-
-      // A started session is always ended, also when its evaluation failed.
-      await session.close().catch((closeError: unknown) => {
-        logCaughtError("AgentPlanStepRunner", closeError);
-
-        logDiagnostic(
-          "AgentPlanStepRunner",
-          "error",
-          "Pages could not close an agent session.",
-          closeError,
-        );
-      });
-      throw error;
-    }
+    return finishStartedPlanSession(session, () =>
+      this.finish(node, session, terms),
+    );
   }
 
   /**
@@ -523,9 +504,10 @@ export class AgentPlanStepRunner {
         session: node.record,
         ...passed,
       };
-    const closed = await this.closeSession(node, session);
+    const closeout = await this.closeSession(node, session);
+    const { closed } = closeout;
     const failure =
-      planCompletedFailure(turn, closed, node.control.signal) ??
+      planSessionCloseoutFailure(turn, closeout, node.control.signal) ??
       acceptanceFailure;
     await this.complete(node, {
       ...closedSessionChanges(closed),
@@ -556,9 +538,10 @@ export class AgentPlanStepRunner {
   private async closeSession(
     node: NodeRun,
     session: PlanSession,
-  ): Promise<PlanSessionClosed> {
+  ): ReturnType<typeof closePlanSession> {
     const key = `${node.run.id}/${node.sessionGroup ?? node.step.step.id}`;
-    const closed = await session.close();
+    const closeout = await closePlanSession(session, node.record);
+    const { closed } = closeout;
     await this.dependencies.sessions?.released(node.record);
     this.groupInputs.delete(key);
     for (const previous of this.retained.get(key) ?? [])
@@ -568,7 +551,7 @@ export class AgentPlanStepRunner {
       node.run.id,
       node.sessionGroup ?? node.step.step.id,
     );
-    return closed;
+    return closeout;
   }
 
   private observer(node: NodeRun): PlanSessionObserver {

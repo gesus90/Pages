@@ -9,6 +9,7 @@ import {
   STORAGE_SHARED_DRIVES_ID,
 } from "@/definition/GoogleDriveStorage";
 
+import { StorageHistory } from "./storage-history";
 import { StorageActionDialogs } from "./storage-action-dialogs";
 import {
   StorageActionError,
@@ -32,7 +33,6 @@ import type {
   StorageBrowseResult,
   StorageStartFolder,
 } from "@/definition/GoogleDriveStorage";
-
 import type { StorageFolderActions } from "./use-storage-folder-actions";
 
 /** The folder of the address; without one the start folder opens. */
@@ -59,7 +59,7 @@ function StorageToolbar({
       <div className="flex flex-wrap items-center gap-1">
         <Link className={linkClass} to={storageFolderHref(STORAGE_MY_DRIVE_ID)}>
           <HardDrive aria-hidden="true" className="size-3.5" />
-          {t("storage.myDrive")}
+          {t(result.isScoped ? "storage.access.roots" : "storage.myDrive")}
         </Link>
         {result.hasSharedDrives ? (
           <Link
@@ -71,24 +71,26 @@ function StorageToolbar({
           </Link>
         ) : null}
       </div>
-      <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs text-muted-foreground">
-        <span className="min-w-0 truncate">
-          {result.startFolder
-            ? t("storage.startFolder.label", {
-                path: pathText(result.startFolder.path, t),
-              })
-            : t("storage.startFolder.none")}
-        </span>
-        {result.startFolder && isExplicitTarget ? (
-          <Link className={linkClass} to={storageFolderHref(null)}>
-            {t("storage.openStart")}
-          </Link>
-        ) : null}
-        <Button onClick={onChoose} size="xs" type="button" variant="outline">
-          <FolderCog aria-hidden="true" className="size-3.5" />
-          {t("storage.startFolder.choose")}
-        </Button>
-      </div>
+      {result.isScoped ? null : (
+        <div className="flex min-w-0 flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          <span className="min-w-0 truncate">
+            {result.startFolder
+              ? t("storage.startFolder.label", {
+                  path: pathText(result.startFolder.path, t),
+                })
+              : t("storage.startFolder.none")}
+          </span>
+          {result.startFolder && isExplicitTarget ? (
+            <Link className={linkClass} to={storageFolderHref(null)}>
+              {t("storage.openStart")}
+            </Link>
+          ) : null}
+          <Button onClick={onChoose} size="xs" type="button" variant="outline">
+            <FolderCog aria-hidden="true" className="size-3.5" />
+            {t("storage.startFolder.choose")}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
@@ -155,6 +157,10 @@ function StorageActionBar({
   return (
     <>
       <StorageActionToolbar
+        canUseTrash={
+          writing.capabilities !== null &&
+          writing.capabilities.grantedFolders === undefined
+        }
         actions={actions}
         canAddHere={writing.canAddHere && !isSwitching}
         isTrashOpen={isTrashOpen}
@@ -200,6 +206,38 @@ function StorageFrame({
         {children}
       </div>
     </section>
+  );
+}
+
+function StorageLoadedControls(props: {
+  readonly result: StorageBrowseResult | null;
+  readonly folderId: string | null;
+  readonly isSwitching: boolean;
+  readonly isTrashOpen: boolean;
+  readonly writing: ReturnType<typeof useStorageFolderActions>;
+  readonly onChoose: () => void;
+  readonly onToggleTrash: () => void;
+}): React.ReactElement | null {
+  const { result } = props;
+  if (!result) return null;
+  return (
+    <>
+      <StorageMessages
+        capabilities={props.writing.capabilities}
+        result={result}
+      />
+      <StorageToolbar
+        isExplicitTarget={props.folderId !== null}
+        onChoose={props.onChoose}
+        result={result}
+      />
+      <StorageActionBar
+        isSwitching={props.isSwitching}
+        isTrashOpen={props.isTrashOpen}
+        onToggleTrash={props.onToggleTrash}
+        writing={props.writing}
+      />
+    </>
   );
 }
 
@@ -251,24 +289,15 @@ export function StoragePage(): React.ReactElement {
         isConnected={result !== null}
         path={result?.folder?.path ?? []}
       />
-      {result ? (
-        <StorageMessages capabilities={writing.capabilities} result={result} />
-      ) : null}
-      {result ? (
-        <StorageToolbar
-          isExplicitTarget={folderId !== null}
-          onChoose={() => setIsPickerOpen(true)}
-          result={result}
-        />
-      ) : null}
-      {result ? (
-        <StorageActionBar
-          isSwitching={model.previousResult !== null}
-          isTrashOpen={isTrashOpen}
-          onToggleTrash={toggleTrash}
-          writing={writing}
-        />
-      ) : null}
+      <StorageLoadedControls
+        result={result}
+        folderId={folderId}
+        isSwitching={model.previousResult !== null}
+        isTrashOpen={isTrashOpen}
+        writing={writing}
+        onChoose={() => setIsPickerOpen(true)}
+        onToggleTrash={toggleTrash}
+      />
       {isTrashOpen ? null : manager.notices}
       {isTrashOpen ? (
         <StorageTrashPanel canWrite={writing.canWrite} />
@@ -281,9 +310,14 @@ export function StoragePage(): React.ReactElement {
           tools={manager.tools}
         />
       )}
+      <StorageHistory
+        key={result?.folder?.items
+          .map((item) => `${item.id}:${item.modifiedAt ?? ""}`)
+          .join(",")}
+      />
       <StorageActionDialogs actions={writing.actions} />
       {manager.overlays}
-      {result ? (
+      {result && !result.isScoped ? (
         <StorageStartFolderPicker
           initialFolderId={
             result.folder?.canBeStartFolder

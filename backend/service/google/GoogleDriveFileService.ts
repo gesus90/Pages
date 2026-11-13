@@ -16,6 +16,10 @@ import {
   STORAGE_READ_OPERATIONS,
 } from "@/definition/GoogleDriveFiles";
 
+import { accountStorageFiles } from "./StorageAccountFiles";
+
+import type { StorageAccountFiles } from "./StorageAccountFiles";
+import type { StorageAccessService } from "./StorageAccessService";
 import type {
   StorageConnection,
   StorageDriveClient,
@@ -27,6 +31,7 @@ import type {
 
 /** Collaborators of the file service. */
 export interface GoogleDriveFileDependencies {
+  readonly access?: StorageAccessService;
   readonly connection: StorageConnection;
   readonly drive: StorageDriveClient;
   /** Whether the Drive behind the connection is the in-memory simulation. */
@@ -50,6 +55,7 @@ export class GoogleDriveFileService {
   /** Copy, move and trash for several entries of one folder (PAGE-272). */
   public readonly batch: StorageBatchWriter;
   public readonly isSimulation: boolean;
+  private readonly access: StorageAccessService | null;
   private readonly connection: StorageConnection;
   private readonly canRequestWriteAccess: boolean;
 
@@ -59,6 +65,7 @@ export class GoogleDriveFileService {
    * @param dependencies - Connection, Drive client and the simulation marker.
    */
   public constructor(dependencies: GoogleDriveFileDependencies) {
+    this.access = dependencies.access ?? null;
     this.connection = dependencies.connection;
     this.isSimulation = dependencies.isSimulation;
     this.canRequestWriteAccess = dependencies.canRequestWriteAccess;
@@ -76,6 +83,11 @@ export class GoogleDriveFileService {
       dependencies.drive,
       this.writer,
     );
+  }
+
+  /** Binds every operation and its history to the authenticated Pages account. */
+  public forAccount(userId: string): StorageAccountFiles {
+    return accountStorageFiles(this, userId, this.access);
   }
 
   /**

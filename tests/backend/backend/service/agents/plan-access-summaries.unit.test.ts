@@ -156,12 +156,12 @@ describe("the summaries of the plans a person reads", () => {
     expect(world.projects).not.toHaveBeenCalled();
   });
 
-  it("keeps a plan whose registration is gone repairable, once, and drops one it cannot see", async () => {
+  it("keeps readable plans with removed or foreign workspaces repairable and hides inaccessible projects", async () => {
     const world = worldOf(
       [
         listing("orphan", { workspaceId: "gone" }),
         listing("orphan-too", { workspaceId: "gone" }),
-        listing("hidden-workspace", { workspaceId: "exists" }),
+        listing("foreign-workspace", { workspaceId: "exists" }),
         listing("other-project", { workspaceId: "gone", projectId: "p2" }),
       ],
       {
@@ -177,6 +177,7 @@ describe("the summaries of the plans a person reads", () => {
     expect(summaries.map((entry) => entry.id)).toEqual([
       "orphan",
       "orphan-too",
+      "foreign-workspace",
     ]);
     expect(summaries.every((entry) => entry.isWorkspaceMissing)).toBe(true);
     expect(world.registeredIds).toHaveBeenCalledTimes(1);

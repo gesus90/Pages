@@ -3,7 +3,10 @@ import { z } from "zod";
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AGENT_DREAM_TIME_PATTERN } from "@/definition/AgentMemory";
-import { AGENT_SESSION_LIMIT_MAXIMUM } from "@/definition/AgentSessionLimits";
+import {
+  AGENT_CHAT_IDLE_MAXIMUM_MINUTES,
+  AGENT_SESSION_LIMIT_MAXIMUM,
+} from "@/definition/AgentSessionLimits";
 
 import { requireAgentAdministrator } from "../agents/AgentServiceAccess";
 
@@ -24,12 +27,18 @@ const limitsInput = z
     total: limit,
     revision: z.coerce.number().int().min(0),
     dreamTime: z.string().regex(AGENT_DREAM_TIME_PATTERN),
+    idleMinutes: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(AGENT_CHAT_IDLE_MAXIMUM_MINUTES),
   })
   .refine((input) => input.perAgent <= input.total);
 
 /**
- * The limits of the concurrent chat sessions of agents (PAGE-304) and the
- * time of day of the dream run (PAGE-305), under Einstellungen → Agents.
+ * The limits of the concurrent chat sessions of agents (PAGE-304), the
+ * time of day of the dream run (PAGE-305) and the idle time of a resting
+ * chat session (PAGE-335), under Einstellungen → Agents.
  *
  * @remarks
  * Only an administrator in the active admin mode reads and saves them. A
@@ -57,6 +66,11 @@ export class AgentSessionLimitService {
     return this.settings.read();
   }
 
+  /** The idle time of a resting chat session, read anew for every rest (PAGE-335). */
+  public async idleMinutes(): Promise<number> {
+    return (await this.settings.read()).idleMinutes;
+  }
+
   /** Supplies the settings card with the limits and the sessions running and waiting now. */
   public async administration(
     actor: AccountAccess,
@@ -70,10 +84,12 @@ export class AgentSessionLimitService {
   }
 
   /**
-   * Saves both limits and the time of day of the dream run (PAGE-305).
+   * Saves both limits, the time of day of the dream run (PAGE-305) and the
+   * idle time of a resting chat session (PAGE-335).
    *
    * @throws {AgentError} `profile_invalid` for a value outside 1 to 64, a
-   * limit per agent above the total or a time that is no `HH:MM`,
+   * limit per agent above the total, a time that is no `HH:MM` or an idle
+   * time outside 1 to 1440 minutes,
    * `profile_conflict` after a concurrent change.
    */
   public async save(actor: AccountAccess, input: unknown): Promise<void> {

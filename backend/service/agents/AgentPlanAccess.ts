@@ -1,3 +1,4 @@
+import { AGENT_PLAN_TEAM_LIMIT } from "@/definition/AgentPlanTeam";
 import { AgentError } from "@/backend/error/AgentErrors";
 
 import type { ActorChannel } from "@/backend/auth/McpActorContext";
@@ -197,8 +198,22 @@ export class AgentPlanAccess {
    */
   public async validateTeams(
     teams: Parameters<AgentPlanSharing["validateTeams"]>[0],
+    projectId?: string,
   ): Promise<void> {
+    if (teams.length > AGENT_PLAN_TEAM_LIMIT)
+      throw new AgentError("clone_request_invalid");
     await this.sharing.validateTeams(teams);
+    for (const team of teams) {
+      if (team.kind !== "user") continue;
+      if (!projectId) throw new AgentError("profile_target_invalid");
+      try {
+        await this.workspaces.requireProjectAccess(team.targetId, projectId);
+      } catch (error: unknown) {
+        if (error instanceof AgentError)
+          throw new AgentError("profile_target_invalid");
+        throw error;
+      }
+    }
   }
 
   /**
@@ -229,10 +244,10 @@ export class AgentPlanAccess {
     };
   }
 
-  /** Supplies sharing choices only to active accounts; administrators also get the owner choices. */
+  /** Supplies team targets, including persons; the administrator-only owner field uses the same names. */
   public async directory(userId: string): Promise<AgentProfileDirectory> {
-    const viewer = await this.sharing.viewer(userId);
-    return this.sharing.directory(this.sharing.isAdministrator(viewer));
+    await this.sharing.viewer(userId);
+    return this.sharing.directory(true);
   }
 
   /** Validates sharing identifiers before persisting a plan. */
@@ -284,8 +299,7 @@ export class AgentPlanAccess {
       };
     const { registered, projects } = await context.orphans();
     const project = projects?.get(plan.projectId);
-    if (!project || !registered || registered.has(plan.workspaceId))
-      return null;
+    if (!project || !registered) return null;
     return {
       rights,
       isTeamMember,

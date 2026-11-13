@@ -1,5 +1,6 @@
 import path from "node:path";
 
+import { StorageOperationRepository } from "@/backend/database/repositories/google/StorageOperationRepository";
 import { isLocalSessionOwner } from "@/backend/agents/local/LocalSessionMode";
 import { AgentPlanStepReportRepository } from "@/backend/database/repositories/agent/AgentPlanStepReportRepository";
 import { PagesEventOutboxReaderRepository } from "@/backend/database/repositories/events/PagesEventOutboxReaderRepository";
@@ -53,6 +54,8 @@ interface McpWorkspaceContext {
     ApplicationServices,
     | "gitHubSyncService"
     | "googleDriveFileService"
+    | "repositoryReadService"
+    | "storageAccessService"
     | "pagesEventPublisher"
     | "taskService"
     | "taskAttachmentService"
@@ -78,6 +81,12 @@ function createWorkspaceServices(
   const { users, administration } = context.accounts;
   return createMcpServices(context.database, users, administration, {
     directory,
+    externalFiles: {
+      files: context.tasks.googleDriveFileService,
+      access: context.tasks.storageAccessService,
+      repositories: context.tasks.repositoryReadService,
+      receipts: new StorageOperationRepository(context.database),
+    },
     wikiService: context.wiki,
     tickets: { cache: context.serverCache, publisher },
     agentWorkspaces: context.agents.agentWorkspaceService,
@@ -120,6 +129,7 @@ export async function startMcpWorkspace(
     acp: picaSettings,
     protectedOrigin: runtime.getConfig().publicUrl,
     storage: context.tasks.googleDriveFileService,
+    repositoryReads: context.tasks.repositoryReadService,
     picaBrowser: picaBrowserOptions({
       directory,
       instanceKey: context.tokenKey,

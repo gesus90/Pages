@@ -843,6 +843,8 @@
         "plan_sources_failed": "Die aktuelle Agent-Vorlage konnte nicht geladen werden. Bitte erneut einfügen.",
         "plan_remote_unavailable": "Remote-Ausführung ist gesperrt: Runner, Modellroute oder Interpreter sind nicht bereit. Kein lokaler Ersatz.",
         "plan_invalid": "Planfelder und Graphknoten prüfen.",
+        "swarm_invalid": "Swarm prüfen: 1 bis 10 Helfer, eine Zeitgrenze von 1 bis 1440 Minuten und ein Arbeitsverzeichnis im Arbeitsbereich.",
+        "swarm_remote_unsupported": "Swarm-Knoten laufen nur auf dem Pages-Rechner. Wähle ein lokales Ziel.",
         "plan_script_invalid": "Script prüfen: Name, Interpreterprofil, Inhalt (höchstens 100.000 Zeichen), eindeutige Ein- und Ausgabenamen und ein Zeitlimit von 1 bis 86400 Sekunden.",
         "plan_script_profile_missing": "Das Interpreterprofil des Scripts ist auf diesem Server nicht konfiguriert. Ein konfiguriertes Profil wählen.",
         "plan_script_unavailable": "Diese Scriptkonfiguration wird von der Runtime nicht unterstützt. Prüfe Profil, Eingaben und Container.",
@@ -961,6 +963,7 @@
         "agent_tool_not_ready": "Ein benötigtes Agent-Tool ist nicht betriebsbereit. Tool und Ursache stehen in den Run-Ereignissen; siehe Einstellungen → Agents → Tools.",
         "plan_continuation_deleted": "Fortsetzungspunkt gelöscht – Neustart erforderlich. Zuerst stoppen, danach neu starten.",
         "plan_completed_changed": "Diese Änderung würde abgeschlossene Arbeit wiederholen. Stoppen Sie den Run und starten Sie neu.",
+        "plan_skipped_step_enabled": "Ein in diesem Lauf übersprungenes Skript ist jetzt eingeschaltet. Starten Sie den Lauf neu.",
         "plan_pause_required": "Zuerst pausieren und warten, bis alle laufenden Schritte beendet sind.",
         "plan_connection_unavailable": "Verbindung unterbrochen. Der angezeigte Status ist der zuletzt empfangene; Aktionen sind gesperrt. Die Verbindung wird automatisch erneut geprüft.",
         "plan_loop_nested": "Eine Loop enthält Agenten, Scripts und Groups von Agenten. Loops in Loops werden nicht unterstützt.",
@@ -1030,7 +1033,15 @@
         "plan_simulation_item_failed": "Simulationsszenario item_failed: Dieser Eintrag schlägt absichtlich fehl, weil sein Name mit „defekt“ beginnt.",
         "plan_stack_entries_failed": "Mindestens ein Stack-Eintrag ist fehlgeschlagen. Die übrigen Einträge wurden verarbeitet; jeder Fehler steht beim Eintrag.",
         "cleanup_unconfirmed": "Das Ende der Prozesse des Laufs ist nicht bestätigt. Zuerst freigeben oder kurz warten.",
-        "action_unavailable": "Diese Aktion ist für den Lauf gerade nicht möglich."
+        "action_unavailable": "Diese Aktion ist für den Lauf gerade nicht möglich.",
+        "workspace_unavailable": "Kein nutzbarer Arbeitsbereich dieses Projekts ist verfügbar. Richte einen Arbeitsbereich ein oder gib ihn frei und klone erneut.",
+        "source_not_visible": "Die Quelle wurde gelöscht oder ist nicht mehr sichtbar. Lade die Planliste neu und wähle einen sichtbaren Plan.",
+        "plan_schema_unsupported": "Die gespeicherte Planstruktur wird nicht unterstützt. Aktualisiere die Quelle und klone erneut.",
+        "plan_user_team_read_only": "Personen können nur lesen. Entferne die Rechte zum Ändern und Starten und speichere erneut.",
+        "forbidden": "Nur ein aktiver Admin darf einen anderen Besitzer setzen. Behalte dich als Besitzer oder aktiviere den Admin-Modus.",
+        "credentials_in_text": "Die Quelle enthält Zugangsdaten. Entferne diese aus dem Plan und klone erneut.",
+        "clone_failed": "Die Kopie konnte nicht gespeichert werden. Versuche es erneut oder wende dich an die Projektleitung.",
+        "clone_request_invalid": "Die Angaben zum Klonen sind ungültig. Lade den Plan neu und versuche es erneut."
       },
       "description": "Verwalten Sie die benannten API- und CLI-Anbindungen und ihre Nutzungsfreigaben. Freigegebene Modelle stehen direkt im Agent Plan zur Verfügung.",
       "adminModeRequired": "Die Agents-Einstellungen sind nur im Admin-Modus verfügbar. Ihr Konto ist derzeit im Rollenmodus.",
@@ -1477,6 +1488,7 @@
         },
         "entry": {
           "pica": "Pica-Chat",
+          "agentChat": "Chat-Sitzung von {{agent}} · {{conversation}}",
           "plan": "Plan „{{name}}“",
           "planUnknown": "Plan-Lauf",
           "age": "Reserviert seit",
@@ -1488,20 +1500,73 @@
           "lastCheck": "Zuletzt automatisch geprüft:",
           "otherService": "Zuständig ist ein anderer Pages-Dienst; dieser Dienst zählt die Reservierung nur mit."
         },
+        "chatSessions": {
+          "title": "Chat-Sitzungen der Agents",
+          "none": "Kein Agent hält gerade eine Chat-Sitzung offen.",
+          "agent_one": "{{name}} · {{count}} Sitzung",
+          "agent_other": "{{name}} · {{count}} Sitzungen",
+          "busy": "antwortet gerade",
+          "idle": "ruht bis zur nächsten Runde",
+          "lastActivity": "Letzte Aktivität:"
+        },
         "reason": {
           "unchecked": "Noch nicht automatisch geprüft. Der Platz bleibt reserviert, bis das Ende der Sitzung bestätigt ist.",
           "process_alive": "Der zugehörige Prozess läuft nachweislich noch (gleiche Prozess- und Bootidentität). Pages beendet ihn nicht automatisch. Nächster Schritt: Lauf über die Lauf-Bereinigung abschließen oder sein Ende abwarten; danach gibt die Prüfung den Platz frei.",
           "unit_active": "Eine Worker-Unit dieser Sitzung ist noch aktiv. Pages beendet sie nicht automatisch. Nächster Schritt: Lauf-Bereinigung ausführen oder die Unit mit „systemctl --user status pages-acp-{{instance}}-*“ prüfen.",
           "owner_managed": "Ein verwalteter lokaler Sitzungsbesitzer hält die Sitzung, etwa pausiert oder wiederaufnehmbar. Pages beendet sie nicht automatisch. Nächster Schritt: Lauf fortsetzen oder über die Lauf-Bereinigung abschließen.",
           "owner_unverified": "Der lokale Sitzungsbesitzer ließ sich beim Start nicht nachweisen. Nächster Schritt: Wiederherstellung in der Laufansicht nutzen; freigegeben wird erst nach nachgewiesenem Ende.",
-          "start_unconfirmed": "Die Prozessanlage hatte begonnen, eine Prozessidentität wurde aber nicht erfasst. Ein solcher Start gilt nicht als nie gestartet. Nächster Schritt: Prozesse mit PAGES_RUN_INSTANCE={{instance}} prüfen; nach einem Neustart des Hosts gibt die nächste Prüfung den Platz frei.",
+          "start_unconfirmed": "Die Prozessanlage hatte begonnen, eine Prozessidentität wurde aber nicht erfasst. Ein solcher Start gilt nicht als nie gestartet. Nächster Schritt: „Reservierungen prüfen“ ausführen – belegt das Journal das Ende der einzigen Worker-Unit, wird der Platz nach Bestätigung freigegeben. Sonst Prozesse und die Unit „pages-acp-{{instance}}-*“ prüfen; nach einem Neustart des Hosts gibt die nächste Prüfung den Platz frei.",
           "start_interrupted": "Pages wurde während des Starts beendet. Ohne Nachweis gilt der Start nicht als nie erfolgt. Nächster Schritt: Prozesse mit PAGES_RUN_INSTANCE={{instance}} prüfen; nach einem Neustart des Hosts gibt die nächste Prüfung den Platz frei.",
-          "legacy_unproven": "Ältere Reservierung ohne gespeicherten Eigentumsnachweis. Alter, eine fehlende Prozessmarkierung oder ein Neustart von Pages beweisen kein Ende. Nächster Schritt: Prozesse mit PAGES_RUN_INSTANCE={{instance}} prüfen; nach einem Neustart des Hosts gibt die nächste Prüfung den Platz automatisch frei.",
+          "legacy_unproven": "Ältere Reservierung ohne gespeicherten Eigentumsnachweis. Alter, eine fehlende Prozessmarkierung oder ein Neustart von Pages beweisen kein Ende. Nächster Schritt: „Reservierungen prüfen“ ausführen – belegt das Journal das Ende der einzigen Worker-Unit, wird der Platz nach Bestätigung freigegeben. Sonst Prozesse mit PAGES_RUN_INSTANCE={{instance}} prüfen; nach einem Neustart des Hosts gibt die nächste Prüfung den Platz automatisch frei.",
           "check_failed": "Die letzte Prüfung konnte den Nachweis nicht lesen. Der Platz bleibt reserviert; Pages prüft erneut.",
           "not_spawned": "Start vor der Prozessanlage beendet.",
           "previous_boot": "Vor dem letzten Hostneustart gestartet.",
           "namespace_ended": "Prozess nachweislich beendet.",
-          "owner_released": "Vom Sitzungsbesitzer freigegeben."
+          "owner_released": "Vom Sitzungsbesitzer freigegeben.",
+          "unit_ended": "Die einzige Worker-Unit dieser Sitzung ist laut Journal gestartet und beendet, und keine Unit der Sitzung läuft mehr.",
+          "unit_inactive": "Prozess beendet: Die Worker-Unit dieser Chat-Sitzung läuft nachweislich nicht mehr.",
+          "session_open": "Die Sitzung ist offen, läuft oder wird gerade beendet. Pages prüft und beendet sie nicht; der Platz wird mit ihrem bestätigten Ende frei.",
+          "start_in_progress": "Die Sitzung startet gerade. Pages lässt laufende Starts unberührt; nach dem Start erneut prüfen.",
+          "run_paused": "Der zugehörige Plan-Lauf ist pausiert. Pausierte Sitzungen bleiben unberührt. Nächster Schritt: Lauf fortsetzen oder über die Lauf-Bereinigung abschließen.",
+          "other_service": "Zuständig ist ein anderer Pages-Dienst; dieser Dienst prüft und ändert die Reservierung nicht. Nächster Schritt: Die automatische Prüfung des zuständigen Dienstes abwarten.",
+          "lease_changed": "Die Reservierung hat sich seit der Vorschau geändert und bleibt deshalb erhalten. Nächster Schritt: erneut prüfen."
+        },
+        "cleanup": {
+          "title": "Reservierungen prüfen und bereinigen",
+          "hint": "Die Prüfung ändert nichts. Sie stuft jede Reservierung nach gespeicherten Belegen ein: Prozessidentität und Boot, Worker-Units und das Journal ihres Endes. Freigegeben werden nur nachweislich beendete Reservierungen und erst nach Ihrer Bestätigung; laufende, startende, pausierte oder nicht sicher nachweisbare Sitzungen bleiben unberührt. Pages beendet dabei keinen Prozess.",
+          "preview": "Prüfen (Vorschau)",
+          "running": "Wird geprüft …",
+          "confirm": "{{count}} nachweislich beendete Reservierung(en) freigeben",
+          "previewTitle": "Vorschau mit {{count}} Reservierung(en), Stand",
+          "resultTitle": "Ergebnis der Bereinigung für {{count}} Reservierung(en), Stand",
+          "empty": "Keine Reservierung vorhanden.",
+          "nothing": "Keine Reservierung ist nachweislich beendet; es gibt nichts freizugeben.",
+          "category": {
+            "releasable": "Nachweislich beendet, freigebbar: {{count}}",
+            "released": "Freigegeben: {{count}}",
+            "kept_active": "Aktiv oder pausiert, erhalten: {{count}}",
+            "kept_unproven": "Nicht sicher nachweisbar, erhalten: {{count}}",
+            "check_failed": "Prüfung fehlgeschlagen, erhalten: {{count}}"
+          },
+          "scope": {
+            "chat": "Dieser Dienst prüft und bereinigt die Pica-Reservierungen. Plan-Reservierungen gehören dem Plan-Dienst und bleiben hier unverändert.",
+            "plans": "Dieser Dienst prüft und bereinigt die Plan-Reservierungen. Pica-Reservierungen gehören dem API-Dienst und bleiben hier unverändert."
+          },
+          "error": {
+            "invalidSelection": "Die Auswahl ist ungültig. Bitte die Prüfung erneut ausführen.",
+            "general": "Die Prüfung konnte nicht abgeschlossen werden. Es wurde keine Reservierung ohne Nachweis freigegeben; Details stehen im Serverlog."
+          }
+        },
+        "observer": {
+          "title": "Gruppen-Beobachter (letzte 24 Stunden)",
+          "none": "Keine Beobachter-Aufrufe in den letzten 24 Stunden.",
+          "summary": "Erfolgreich: {{succeeded}} · Fehlgeschlagen: {{failed}} · Abgelehnt: {{refused}}",
+          "lastSuccess": "Letzter erfolgreicher Aufruf:",
+          "lastFailure": {
+            "routing": "Letzter Fehlschlag beim Routing:",
+            "summary": "Letzter Fehlschlag bei der Zusammenfassung:"
+          },
+          "reservations": "Jeder Beobachter-Aufruf belegt kurz eine Reservierung; sie wird mit dem bestätigten Ende seiner Sitzung freigegeben, auch nach einem Fehlstart."
         }
       },
       "openCodeProvider": "Schlüsselanbieter für OpenCode",
@@ -3915,6 +3980,13 @@
         "behind": "Rückständig",
         "unavailable": "Nicht verfügbar",
         "rebuilding": "Wird neu aufgebaut"
+      },
+      "observer": {
+        "failing": {
+          "routing": "Der Gruppen-Beobachter hat bei den letzten {{count}} Aufruf(en) kein Ergebnis geliefert, zuletzt beim Routing am {{moment}}.",
+          "summary": "Der Gruppen-Beobachter hat bei den letzten {{count}} Aufruf(en) kein Ergebnis geliefert, zuletzt bei der Zusammenfassung am {{moment}}."
+        },
+        "hint": "Solange er scheitert, antworten Agents möglicherweise nicht automatisch und der Gruppenkontext bleibt zurück. Administratoren sehen die Ursache auch unter Einstellungen → System → ACP-Ressourcen."
       }
     },
     "voice": {
@@ -4676,7 +4748,8 @@
       "loop": "Loop",
       "decision": "Decision",
       "stack": "Stack",
-      "asset": "Asset"
+      "asset": "Asset",
+      "swarm": "Swarm"
     },
     "status": {
       "waiting": "Wartet",
@@ -4770,7 +4843,10 @@
       "decisionSequence": "Eine Decision, die einen Parameter, ein Ticket oder ein Textergebnis liest, braucht einen verbundenen Sequenz-IN: Ein Dateneingang allein startet sie nie.",
       "decisionModel": "Wähle für das Decision-Modell ein Modell einer ACP-Verbindung.",
       "decisionQuestion": "Gib die Frage ein, die das Decision-Modell beantwortet (höchstens 4000 Zeichen).",
-      "decisionCases": "Eine Klassifizierung braucht 2 bis 20 Werte mit eindeutigen, nicht leeren Namen von höchstens 60 Zeichen."
+      "decisionCases": "Eine Klassifizierung braucht 2 bis 20 Werte mit eindeutigen, nicht leeren Namen von höchstens 60 Zeichen.",
+      "swarmRemoteUnsupported": "Swarm-Knoten laufen nur auf dem Pages-Rechner. Wähle ein lokales Ziel.",
+      "swarmIncomplete": "Dem Swarm fehlen Aufgabe, Hauptmodell oder Helfermodelle.",
+      "swarmInvalid": "Swarm prüfen: 1 bis 10 Helfer, eine Zeitgrenze von 1 bis 1440 Minuten und ein Arbeitsverzeichnis im Arbeitsbereich."
     },
     "session": {
       "runner": {
@@ -5475,7 +5551,8 @@
         "loop": "Loop",
         "decision": "Decision",
         "stack": "Stack",
-        "asset": "Asset"
+        "asset": "Asset",
+        "swarm": "Swarm"
       },
       "hint": {
         "start": "Beginn eines Ablaufs hinzufügen.",
@@ -5488,7 +5565,8 @@
         "loop": "Agents und Scripts als Untergraph wiederholen, mit eigener Session je Agent.",
         "decision": "Eine Verzweigung hinzufügen: Das Boolean-Ergebnis eines Agents entscheidet, welcher Zweig weiterläuft.",
         "stack": "Geordnete Tickets oder Werte; jeder Trigger übergibt den nächsten Eintrag",
-        "asset": "Eine Datei als Quelle: Bild, Video, Dokument, Audio oder eine andere Datei."
+        "asset": "Eine Datei als Quelle: Bild, Video, Dokument, Audio oder eine andere Datei.",
+        "swarm": "Ein Hauptmodell verteilt eine Aufgabe zur Laufzeit auf mehrere Helfer"
       },
       "addTitle": "{{type}} hinzufügen",
       "add": "Hinzufügen",
@@ -6120,18 +6198,19 @@
       "menu": "Teams und Besitzer",
       "title": "Teams und Besitzer",
       "description": "Wer „{{name}}“ liest, ändert und ausführt. Jede Person arbeitet mit ihren eigenen Zugängen.",
-      "teams": "Teams",
+      "teams": "Teilen mit",
       "noTeams": "Dieser Plan hat kein Team. Nur der Besitzer und Administratoren arbeiten mit ihm.",
       "teamsReadOnly": "Teams ändern nur der Besitzer, Administratoren und Projektleitungen.",
       "search": "Gruppe oder Abteilung suchen",
-      "searchPlaceholder": "Name eingeben",
+      "searchPlaceholder": "Gruppe, Abteilung oder Person hinzufügen …",
       "choices": "Passende Gruppen und Abteilungen",
       "noChoices": "Keine weitere Gruppe oder Abteilung passt.",
       "add": "+ {{name}} ({{kind}})",
       "remove": "{{name}} entfernen",
       "kind": {
         "group": "Gruppe",
-        "department": "Abteilung"
+        "department": "Abteilung",
+        "user": "Person"
       },
       "right": {
         "canRead": "lesen",
@@ -6168,7 +6247,8 @@
       "deletePreview": "Plan „{{name}}“ · Revision {{revision}} · {{runs}}",
       "deleteRunActive": "ein Lauf ist aktiv",
       "deleteNoRun": "keine laufenden Läufe",
-      "deleteAdmin": "Du löschst als Administrator den Plan einer anderen Person. Das steht im Verlauf."
+      "deleteAdmin": "Du löschst als Administrator den Plan einer anderen Person. Das steht im Verlauf.",
+      "personReadOnly": "Personen können nur lesen."
     },
     "manage": {
       "menu": "Planaktionen",
@@ -6186,14 +6266,14 @@
       "editUnsaved": "Ungespeicherte Änderungen am Plan werden mitgespeichert.",
       "cloneTitle": "Plan klonen",
       "clone": "Klonen",
-      "cloneName": "{{name}} – Kopie",
-      "cloneSource": "Kopie von {{name}}",
+      "cloneName": "Kopie von {{name}}",
+      "cloneSource": "Kopie von „{{name}}“",
       "cloneOneShotItem": "Als Einmal-Plan kopieren",
       "cloneOneShotTitle": "Als Einmal-Plan kopieren",
       "cloneOneShotLabel": "einmalig",
       "cloneOneShotNote": "Die Kopie ist ein Einmal-Plan: Pages löscht sie samt ihren Läufen 5 Minuten nach einem erfolgreich beendeten Lauf.",
       "oneShot": "Einmal-Plan",
-      "oneShotHint": "Pages löscht den Plan samt Läufen 5 Minuten nach einem erfolgreich beendeten Lauf.",
+      "oneShotHint": "Nach einem erfolgreichen Lauf löschen",
       "oneShotConfirmTitle": "Als Einmal-Plan festlegen?",
       "oneShotConfirmBody": "Endet ein Lauf dieses Plans erfolgreich, löscht Pages den Plan samt allen Läufen, Berichten, Diagnosen, Sitzungsdaten und Arbeitsdateien 5 Minuten später. Bis dahin lässt sich das Löschen mit „Behalten“ abbrechen. Bei fehlgeschlagenen, abgebrochenen oder offenen Läufen bleibt der Plan bestehen.",
       "oneShotConfirmKept": "Nicht gelöscht werden Commits, gepushte Branches, Änderungen an Tickets und Wiki-Seiten, angehängte Dateien sowie gemeinsam genutzte Arbeitsplätze, Agents, Vorlagen und Parameter anderer Pläne.",
@@ -6228,7 +6308,20 @@
         "follow": "Diese Schritte auf das neue Planziel umstellen"
       },
       "withoutWorkspace": "Ohne Arbeitsbereich",
-      "reassignWorkspace": "Dieser Plan hat keinen registrierten Arbeitsbereich und kann nicht gestartet werden. Wählen Sie unter Planaktionen → Bearbeiten einen Arbeitsbereich. Die Knoten und Inhalte bleiben erhalten."
+      "reassignWorkspace": "Dieser Plan hat keinen registrierten Arbeitsbereich und kann nicht gestartet werden. Wählen Sie unter Planaktionen → Bearbeiten einen Arbeitsbereich. Die Knoten und Inhalte bleiben erhalten.",
+      "moreOptions": "Weitere Optionen",
+      "editSource": "{{name}} · Revision {{revision}}",
+      "readOnlyTitle": "Nur lesbar.",
+      "readOnlyBody": "Der Plan gehört {{name}} und ist nicht mit dir geteilt. Du kannst ihn klonen und die Kopie frei bearbeiten.",
+      "selectionSteps_one": "{{count}} Schritt",
+      "selectionSteps_other": "{{count}} Schritte",
+      "selectionNeeded": "brauchen eine Auswahl",
+      "selectionFirst": "Zum ersten →",
+      "select": {
+        "model": "Modell wählen",
+        "agent": "Agent wählen"
+      },
+      "nameLabel": "Name"
     },
     "savedAlias": "gespeichert als Alias „{{alias}}“",
     "remoteAccess": {
@@ -6592,6 +6685,7 @@
         "plan_run_active": "Ein anderer Lauf dieses Plans ist aktiv.",
         "plan_context_changed": "Projekt, Arbeitsplatz oder Ziel des Plans haben sich geändert.",
         "plan_continuation_deleted": "Der Fortsetzungspunkt wurde im Plan gelöscht.",
+        "plan_skipped_step_enabled": "Ein in diesem Lauf übersprungenes Skript ist jetzt eingeschaltet.",
         "plan_invalid": "Der Plan hat Befunde, die einen Start verhindern.",
         "plan_access_denied": "Dir fehlen aktuelle Rechte an Inhalten oder Ressourcen des Laufs.",
         "workspace_not_found": "Der Arbeitsplatz des Plans existiert nicht mehr.",
@@ -6618,6 +6712,86 @@
       "description": "Dieser Plan hat einen offenen Lauf. Starten beendet ihn (Prozesse enden, Reservierungen werden freigegeben) und beginnt einen neuen Lauf von vorn. Zum Weitermachen stattdessen Fortsetzen nutzen.",
       "cancel": "Abbrechen",
       "confirm": "Beenden und neu beginnen"
+    },
+    "swarm": {
+      "workers": "Helfer",
+      "taskTicket": "Aufgabe aus dem Ticket",
+      "taskMissing": "Keine Aufgabe",
+      "modelMissing": "Kein Modell gewählt",
+      "taskCount": "{{finished}} von {{assigned}} Teilaufgaben abgeschlossen",
+      "mainShort": "Haupt",
+      "chooseModel": "Modell wählen",
+      "modelNotAcp": "Läuft nicht über eine ACP-Anbindung",
+      "accessOf": "Zugriff von {{name}}",
+      "symbol": {
+        "busy": "beschäftigt",
+        "done": "fertig",
+        "failed": "fehlgeschlagen",
+        "notStarted": "nicht gestartet"
+      },
+      "access": {
+        "read_only": "Nur lesen",
+        "workspace_write": "Schreiben",
+        "yolo": "YOLO"
+      },
+      "sections": {
+        "task": "Aufgabe",
+        "main": "Hauptmodell",
+        "workers": "Helfer",
+        "execution": "Ausführung",
+        "run": "Lauf"
+      },
+      "taskSource": "Quelle der Aufgabe",
+      "taskText": "Text",
+      "taskTicketOption": "Ticket",
+      "taskPlaceholder": "Was soll der Swarm erledigen?",
+      "chooseTicket": "Ticket-Knoten wählen",
+      "mainModel": "Hauptmodell",
+      "mainInstruction": "Zusätzliche Anweisung",
+      "count": "Anzahl der Helfer",
+      "fewer": "Einen Helfer weniger",
+      "more": "Einen Helfer mehr",
+      "mode": "Modellwahl der Helfer",
+      "modeSame": "Für alle gleich",
+      "modeIndividual": "Einzeln",
+      "workerModel": "Modell der Helfer",
+      "workerInstruction": "Gemeinsame Anweisung für Helfer",
+      "remoteRefused": "Swarm-Knoten laufen nur auf dem Pages-Rechner. Wähle ein lokales Ziel.",
+      "targetInherit": "Wie der Plan",
+      "directory": "Arbeitsverzeichnis",
+      "timeout": "Zeitgrenze",
+      "minutes": "Min.",
+      "panel": {
+        "label": "Einstellungen von {{name}}",
+        "kicker": "Swarm bearbeiten",
+        "close": "Einstellungen schließen",
+        "closeButton": "Fertig",
+        "draftHint": "Änderungen gelten mit dem nächsten Speichern des Plans."
+      },
+      "todoCount": "{{done}}/{{total}} TODOs",
+      "notStarted": "nicht gestartet – Aufgabe neu vergeben",
+      "failure": {
+        "timeout": "Zeit überschritten",
+        "failed": "fehlgeschlagen"
+      },
+      "free": "frei",
+      "reason": "Grund: {{reason}}",
+      "todos": "TODOs",
+      "heldLocks": "Gesperrt: {{paths}}",
+      "toggleLane": "Spur {{id}} auf- oder zuklappen",
+      "violations_one": "{{count}} Verstoß gegen Bereich oder Sperren",
+      "violations_other": "{{count}} Verstöße gegen Bereich oder Sperren",
+      "violation": {
+        "outside": "Außerhalb von Bereich und Sperren ({{workers}}): {{files}}",
+        "head": "Git-HEAD geändert ({{workers}})",
+        "index": "Git-Index geändert ({{workers}})"
+      },
+      "mainIdle": "wartet",
+      "loading": "Spuren werden geladen",
+      "runLabel": "Laufansicht des Swarms",
+      "nodeFailed": "Swarm fehlgeschlagen: {{reason}}",
+      "empty": "Hauptmodell plant die Aufteilung …",
+      "result": "Ergebnis"
     }
   },
   "pageAgents": {
@@ -6856,11 +7030,13 @@
     "saving": "Speichert …",
     "saved": "Grenzen gespeichert.",
     "error": {
-      "profile_invalid": "Bitte ganze Zahlen von 1 bis 64 und eine Uhrzeit im Format HH:MM eingeben; die Grenze je Agent darf nicht größer als die Gesamtgrenze sein.",
+      "profile_invalid": "Bitte ganze Zahlen von 1 bis 64 und eine Uhrzeit im Format HH:MM sowie eine Ruhezeit von 1 bis 1440 Minuten eingeben; die Grenze je Agent darf nicht größer als die Gesamtgrenze sein.",
       "profile_conflict": "Die Grenzen wurden inzwischen geändert. Lade die Seite neu und versuche es erneut."
     },
     "dreamTime": "Traumlauf um",
-    "dreamTimeHint": "Uhrzeit des nächtlichen Traumlaufs aller Agents in der Zeitzone des Servers. Er wertet die Chats, Planläufe, Fehler und Rückmeldungen des Tages aus und pflegt DREAM.md."
+    "dreamTimeHint": "Uhrzeit des nächtlichen Traumlaufs aller Agents in der Zeitzone des Servers. Er wertet die Chats, Planläufe, Fehler und Rückmeldungen des Tages aus und pflegt DREAM.md.",
+    "idleMinutes": "Ruhezeit einer Chat-Sitzung (Minuten)",
+    "idleMinutesHint": "Jeder Agent hält je Unterhaltung eine Sitzung offen und beantwortet jede weitere Runde darüber. Nach so vielen Minuten ohne Runde endet sie und gibt Prozess und Reservierung frei; die nächste Runde startet sie neu. Werte von 1 bis {{maximum}}."
   },
   "speechSettings": {
     "title": "Spracherkennung · STT",
@@ -7270,6 +7446,35 @@
         "folders_other": "{{count}} Ordner werden mit ihrem gesamten Inhalt verschoben.",
         "confirm": "In den Papierkorb legen"
       }
+    },
+    "access": {
+      "title": "Storage schreiben",
+      "description": "Ordner zuerst in Storage anlegen. Freigaben gelten für Unterordner, Lesen, Hochladen und neue Versionen. Löschen und Verschieben bleiben beim Admin.",
+      "failed": "Die Freigabe konnte nicht gelesen oder gespeichert werden. Prüfe Ordner und Admin-Modus.",
+      "path": "Ordnerpfad (zum Beispiel /Storage/Pages)",
+      "recipient": "Rolle, Abteilung oder Gruppe",
+      "choose": "Empfänger wählen",
+      "grant": "Storage schreiben erlauben",
+      "revoke": "Entziehen",
+      "group": "Gruppe",
+      "role": "Rolle",
+      "department": "Abteilung",
+      "history": "Storage-Verlauf",
+      "operations": {
+        "create_folder": "Ordner angelegt",
+        "upload": "Datei hochgeladen",
+        "update": "Version gespeichert",
+        "read": "Datei gelesen",
+        "download": "Datei heruntergeladen",
+        "list": "Ordner aufgelistet",
+        "stat": "Metadaten gelesen",
+        "search": "Gesucht",
+        "resolve_path": "Pfad aufgelöst",
+        "confirm": "Bestätigung vorbereitet",
+        "grant": "Recht vergeben",
+        "revoke": "Recht entzogen"
+      },
+      "roots": "Freigegebene Ordner"
     }
   },
   "personColor": {
@@ -8115,5 +8320,24 @@
       "model": "Modell",
       "workload": "Auslastung"
     }
+  },
+  "conversationObserver": {
+    "code": {
+      "antigravity_acp_session_failed": "Die Antigravity-Sitzung des Beobachters ist vor einer Antwort beendet worden. Nächster Schritt: Verbindung und Anmeldung von Pica prüfen; Details stehen im Serverlog.",
+      "opencode_acp_session_failed": "Die OpenCode-Sitzung des Beobachters ist vor einer Antwort beendet worden. Nächster Schritt: Verbindung und Anmeldung von Pica prüfen; Details stehen im Serverlog.",
+      "plan_acp_session_failed": "Die Codex-Sitzung des Beobachters ist vor einer Antwort beendet worden. Details stehen im Serverlog.",
+      "plan_claude_acp_session_failed": "Die Claude-Code-Sitzung des Beobachters ist vor einer Antwort beendet worden. Details stehen im Serverlog.",
+      "cli_not_executable": "Das Programm des gewählten Pica-Modells ließ sich nicht starten. Nächster Schritt: Installation unter Einstellungen → Agents prüfen.",
+      "acp_worker_unit_unavailable": "Der Service-Manager des Serverkontos startet keine begrenzte Worker-Unit. Nächster Schritt: Benutzer-Service-Manager des Serverkontos prüfen.",
+      "check_timeout": "Der Beobachter hat nicht rechtzeitig geantwortet.",
+      "pica_disabled": "Pica ist ausgeschaltet; der Beobachter nutzt Picas Modell und läuft deshalb nicht.",
+      "pica_model_missing": "Für Pica ist kein Modell gewählt. Nächster Schritt: Modell unter Einstellungen → Pica wählen.",
+      "pica_access_denied": "Keine beteiligte Person darf Picas gewähltes Modell nutzen.",
+      "pica_model_unavailable": "Picas gewähltes Modell ist derzeit nicht verfügbar.",
+      "observer_unavailable": "Dieser Server führt keine ACP-Sitzungen aus; der Beobachter ist nicht verfügbar.",
+      "observer_no_person": "Für den Aufruf war keine berechtigte Person vorhanden.",
+      "observer_failed": "Der Beobachter hat kein verwertbares Ergebnis geliefert."
+    },
+    "unknownCode": "Der Beobachter-Aufruf ist fehlgeschlagen (Fehlercode {{code}}). Details stehen im Serverlog."
   }
 }

@@ -1,0 +1,761 @@
+{
+  "ticket": "PAGE-333",
+  "status": "blocked",
+  "sourceBase": "bcf4e75c",
+  "summary": "T1–T7 mit gezielten Unit-Regressionen belegt. T8 bleibt wegen PAGE-339 offen: Der vollständige Backend-Lauf ist rot; Check, Lint, Prettier und die gezielten Tests sind grün.",
+  "todos": [
+    {
+      "id": "T1",
+      "status": "done",
+      "evidence": "local-control-closeout.unit.test.ts: CLI-Exit 0 vor close, HTTP 200, isConfirmed true und AgentPlanStepRunner succeeded im selben Unit-Szenario; local-owner-session-turn.unit.test.ts prüft das natürliche Prozessende am echten Owner."
+    },
+    {
+      "id": "T2",
+      "status": "done",
+      "evidence": "local-control-closeout.unit.test.ts vergleicht zwei HTTP-close-Antworten; local-owner-session-turn.unit.test.ts belegt einmaligen nativen Closeout und einmaligen closed-Journaleintrag nach automatischem Prozessende."
+    },
+    {
+      "id": "T3",
+      "status": "done",
+      "evidence": "local-control-closeout.unit.test.ts: Owner wirft AgentError(plan_history_unavailable) oder unbekannten Fehler; HTTP 409 mit sicherem JSON-Code; Client meldet plan_local_control_failed; Log-Metadaten operation/statusCode/code bleiben durch safeLogMetadata erhalten."
+    },
+    {
+      "id": "T4",
+      "status": "done",
+      "evidence": "local-control-closeout.unit.test.ts: synthetische HTTP-Antwort 403 lehnt mit plan_local_owner_unverified ab."
+    },
+    {
+      "id": "T5",
+      "status": "done",
+      "evidence": "page333-closeout.unit.test.ts: fehlgeschlagener Owner-Close plus weiter existierender Namespace führt am öffentlichen StepRunner.run zu failed/plan_closeout_failed/closeout failed."
+    },
+    {
+      "id": "T6",
+      "status": "done",
+      "evidence": "page333-closeout.unit.test.ts: unabhängig bewiesenes Namespace-Ende erhält Erfolg, Providerfehler, fachliche Ablehnung und Abbruch; Recovery-Hinweis im Log; kein erfundener Exit-Code. Fehlende/unlesbare Evidenz und explizit unbestätigter Closeout bleiben fehlgeschlagen."
+    },
+    {
+      "id": "T7",
+      "status": "done",
+      "evidence": "local-control-closeout.unit.test.ts: manipulierte, unbekannte und zusätzliche Antwortfelder mit Token-, capability-, Prompt- und Antwort-Sentinels erscheinen weder in Log-Aufrufen noch im zurückgegebenen Fehler."
+    },
+    {
+      "id": "T8",
+      "status": "open",
+      "evidence": "Check und Prettier Exit 0; Lint 5129/5129 Dateien, 0 Warnungen/Fehler; 85 gezielte Tests grün. pnpm run test:backend endet mit Exit 1: 9911 bestanden, 2 fehlgeschlagen in 789 Dateien. PAGE-339 reproduziert sich auch isoliert (1 Fehler/15 bestanden); zusätzlicher Runner-Timeout ist isoliert grün (26/26). Protokolle unter coverage/page333-evidence/."
+    }
+  ],
+  "criteria": [
+    {
+      "id": "K1",
+      "met": true,
+      "evidence": "Dieser Bericht im Workspace ordnet T1–T8 konkrete Tests und Gate-Ergebnisse zu; alle Änderungen liegen im Workspace."
+    }
+  ],
+  "testFiles": [
+    "tests/backend/backend/agents/local/local-control-closeout.unit.test.ts",
+    "tests/backend/backend/agents/local/local-owner-session-turn.unit.test.ts",
+    "tests/backend/backend/service/agents/page333-closeout.unit.test.ts"
+  ],
+  "gates": {
+    "check": {
+      "command": "pnpm run check",
+      "exitCode": 0,
+      "log": "coverage/page333-evidence/check.txt",
+      "result": "TypeScript und repo-weites Prettier bestanden."
+    },
+    "lint": {
+      "command": "PAGES_LINT_BLOCK_SIZE=2000 PAGES_LINT_MAX_OLD_SPACE_SIZE=4096 pnpm run lint",
+      "exitCode": 0,
+      "log": "coverage/page333-evidence/lint.txt",
+      "files": 5129,
+      "errors": 0,
+      "warnings": 0,
+      "note": "Nur unterstützte Prozess-Blockgröße und Heapgröße angepasst; alle Regeln und alle Dateien unverändert geprüft."
+    },
+    "prettier": {
+      "command": "prettier --check . (in pnpm run check)",
+      "exitCode": 0,
+      "log": "coverage/page333-evidence/check.txt"
+    },
+    "focused": {
+      "command": "pnpm exec vitest run --config vitest.backend.config.ts --coverage.enabled false tests/backend/backend/agents/local/local-control-closeout.unit.test.ts tests/backend/backend/agents/local/local-owner-session-turn.unit.test.ts tests/backend/backend/service/agents/page333-closeout.unit.test.ts tests/backend/backend/agents/acp/acp-lifecycle.unit.test.ts tests/backend/backend/agents/cli/page81-closeout.unit.test.ts tests/backend/backend/agents/local/local-attached-session.unit.test.ts tests/backend/backend/service/agents/acp-plan-node.unit.test.ts",
+      "exitCode": 0,
+      "log": "coverage/page333-evidence/focused.txt",
+      "passed": 85,
+      "files": 7
+    },
+    "backend": {
+      "command": "VITEST_MAX_WORKERS=2 pnpm run test:backend",
+      "exitCode": 1,
+      "log": "coverage/page333-evidence/backend.txt",
+      "passed": 9911,
+      "failed": 2,
+      "files": 789,
+      "failedCases": [
+        {
+          "file": "tests/backend/backend/database/repositories/project-deletion-repositories.unit.test.ts",
+          "line": 328,
+          "cause": "Assertion erwartet DELETE für agent_plan_teams, agent_plan_script_approvals und agent_plan_audit. Bekannter, separat zu entscheidender Fehler PAGE-339.",
+          "isolatedCommand": "pnpm exec vitest run --config vitest.backend.config.ts --coverage.enabled false tests/backend/backend/database/repositories/project-deletion-repositories.unit.test.ts",
+          "isolatedExitCode": 1,
+          "isolatedPassed": 15,
+          "isolatedFailed": 1,
+          "log": "coverage/page333-evidence/page339-reproduction.txt",
+          "baseEvidence": "git diff --exit-code bcf4e75c -- backend/database/repositories/project/ProjectLifecycleRepository.ts tests/backend/backend/database/repositories/project-deletion-repositories.unit.test.ts backend/database/postgres/migrations: Exit 0, kein Diff."
+        },
+        {
+          "file": "tests/backend/scripts/runner-pages-files.unit.test.ts",
+          "line": 117,
+          "cause": "5000-ms-Timeout im vollständigen Lauf.",
+          "isolatedCommand": "pnpm exec vitest run --config vitest.backend.config.ts --coverage.enabled false tests/backend/scripts/runner-pages-files.unit.test.ts",
+          "isolatedExitCode": 0,
+          "isolatedPassed": 26,
+          "log": "coverage/page333-evidence/runner-files-isolated.txt"
+        }
+      ]
+    }
+  },
+  "decisions": [
+    "Bereits gesetzte Ticket-Checkboxen T1–T7 wurden anhand dieses Checkouts erneut geprüft und mit aktuellen Tests belegt.",
+    "Externe Grenzen bleiben gemockt: kein echter CLI-Prozess, HTTP-Socket, Datenbank- oder MCP-Start in der Backend-Unit-Suite.",
+    "Die Rückfallprüfung verwendet ausschließlich die gespeicherte Identität des PID-Namespace-Supervisors. Fehlende oder unlesbare Identität bestätigt keinen Closeout.",
+    "Nur plan_local_control_failed kann mit unabhängigem Prozessnachweis versöhnt werden. Authentifizierungsfehler und explizit unbestätigte Closeout-Ergebnisse werden nicht überschrieben.",
+    "Die Rückfallprüfung erfindet keinen Exit 0; das bekannte Turn- und Akzeptanzergebnis bleibt maßgeblich.",
+    "Der installierte pnpm-Starter und das esbuild-Binary hatten keine nutzbaren Ausführungsrechte. Ein Workspace-lokaler Wrapper startet das vorhandene pnpm 11.23.0 über Node; eine ausführbare esbuild-Kopie liegt unter coverage/page333-evidence/bin. Keine Dependency-, Lockfile- oder Tool-Konfigurationsänderung.",
+    "Keine Frontend-Validierung abgeleitet; die Aufgabe ändert Backend-Verhalten.",
+    "Die vollständige Ticketbeschreibung wurde erst nach der ersten Umsetzung gelesen. Die dort genannte Sicherung /home/igor/Results/backup-PAGE-333-run-70cbb00c ist in dieser isolierten Session nicht vorhanden; sie wurde nicht übernommen. Die hier nachgewiesenen Änderungen liegen ausschließlich im aktuellen Workspace.",
+    "PAGE-339 wird nicht im Rahmen von PAGE-333 durch eine abgeschwächte Löschungsprüfung oder eine Änderung der Audit-Regel verdeckt. T8 bleibt offen und benötigt die Bearbeitung dieses separaten Tickets.",
+    "Ein erster Backend-Lauf wurde nach letzten Änderungen unterbrochen und als backend-interrupted.txt erhalten. Maßgeblich ist der vollständige anschließende Lauf mit 9913 Tests. Die Worker-Anzahl wurde nur als Laufzeitparameter auf 2 gesetzt; keine Test-Zeitlimits oder Assertions geändert.",
+    "Ein unnötiger Typ-Cast im neuen HTTP-Testdouble wurde nach dem ersten Lint-Befund entfernt. Der abschließende volle Lint-Lauf besteht.",
+    "Die zusätzlichen Abnahmen 5–10 der vollständigen Ticketbeschreibung zu Workspace-Sperren, wartenden Läufen und toten unbestätigten Ownern werden durch diesen auf T1–T8 begrenzten Bericht nicht als geprüft oder erfüllt ausgewiesen."
+  ],
+  "limitations": [
+    "Unit-Nachweise verwenden synthetische Prozess- und Transportgrenzen; sie sind kein Live-CLI- oder Integrationstest. Backend-Coverage wird separat diagnostisch dokumentiert."
+  ],
+  "artifacts": "coverage/page333-evidence/ enthält die Gate-Protokolle; coverage/backend/ die diagnostische Backend-Coverage. Generierte Artefakte werden nicht als Quellcode aufgenommen.",
+  "coverage": {
+    "scope": "backend",
+    "suiteStatus": "failed",
+    "isDiagnostic": true,
+    "threshold": "Kein verpflichtender Prozentsatz für diesen Lauf; keine Abdeckung aus Check/Lint abgeleitet.",
+    "totals": {
+      "statements": {
+        "total": 81599,
+        "covered": 41560,
+        "skipped": 0,
+        "pct": 50.93
+      },
+      "branches": {
+        "total": 56151,
+        "covered": 27134,
+        "skipped": 0,
+        "pct": 48.32
+      },
+      "functions": {
+        "total": 21161,
+        "covered": 10211,
+        "skipped": 0,
+        "pct": 48.25
+      },
+      "lines": {
+        "total": 74602,
+        "covered": 38838,
+        "skipped": 0,
+        "pct": 52.06
+      }
+    },
+    "relevantModules": {
+      "backend/agents/local/LocalOwnerHttp.ts": {
+        "metrics": {
+          "statements": {
+            "total": 86,
+            "covered": 37,
+            "skipped": 0,
+            "pct": 43.02
+          },
+          "branches": {
+            "total": 52,
+            "covered": 21,
+            "skipped": 0,
+            "pct": 40.38
+          },
+          "functions": {
+            "total": 14,
+            "covered": 7,
+            "skipped": 0,
+            "pct": 50
+          },
+          "lines": {
+            "total": 83,
+            "covered": 37,
+            "skipped": 0,
+            "pct": 44.57
+          }
+        },
+        "uncoveredStatementLines": [
+          47, 48, 49, 50, 51, 52, 53, 54, 57, 59, 65, 66, 67, 68, 69, 71, 72,
+          73, 74, 76, 81, 95, 96, 104, 110, 119, 120, 124, 125, 150, 153, 164,
+          165, 167, 171, 172, 174, 175, 177, 181, 182, 184, 188, 193, 194, 195
+        ],
+        "branchGaps": [
+          {
+            "line": 65,
+            "type": "if",
+            "counts": [0, 0]
+          },
+          {
+            "line": 69,
+            "type": "cond-expr",
+            "counts": [0, 0]
+          },
+          {
+            "line": 73,
+            "type": "if",
+            "counts": [0, 0]
+          },
+          {
+            "line": 73,
+            "type": "binary-expr",
+            "counts": [0, 0]
+          },
+          {
+            "line": 76,
+            "type": "if",
+            "counts": [0, 0]
+          },
+          {
+            "line": 77,
+            "type": "binary-expr",
+            "counts": [0, 0, 0]
+          },
+          {
+            "line": 90,
+            "type": "if",
+            "counts": [0, 14]
+          },
+          {
+            "line": 100,
+            "type": "if",
+            "counts": [0, 14]
+          },
+          {
+            "line": 106,
+            "type": "if",
+            "counts": [0, 14]
+          },
+          {
+            "line": 118,
+            "type": "if",
+            "counts": [0, 11]
+          },
+          {
+            "line": 123,
+            "type": "if",
+            "counts": [0, 3]
+          },
+          {
+            "line": 138,
+            "type": "binary-expr",
+            "counts": [14, 0]
+          },
+          {
+            "line": 149,
+            "type": "if",
+            "counts": [0, 14]
+          },
+          {
+            "line": 152,
+            "type": "if",
+            "counts": [0, 14]
+          },
+          {
+            "line": 159,
+            "type": "switch",
+            "counts": [8, 0, 0, 0, 0, 0, 0, 0, 6, 0]
+          },
+          {
+            "line": 194,
+            "type": "if",
+            "counts": [0, 0]
+          }
+        ],
+        "sha256": "af1a542279fd14bb17b8fcf0b2e817c3bf8b70900f610b9c79ba839d58121e7b"
+      },
+      "backend/agents/local/LocalSessionTransport.ts": {
+        "metrics": {
+          "statements": {
+            "total": 35,
+            "covered": 30,
+            "skipped": 0,
+            "pct": 85.71
+          },
+          "branches": {
+            "total": 14,
+            "covered": 12,
+            "skipped": 0,
+            "pct": 85.71
+          },
+          "functions": {
+            "total": 10,
+            "covered": 7,
+            "skipped": 0,
+            "pct": 70
+          },
+          "lines": {
+            "total": 34,
+            "covered": 29,
+            "skipped": 0,
+            "pct": 85.29
+          }
+        },
+        "uncoveredStatementLines": [47, 50, 61, 67, 70],
+        "branchGaps": [
+          {
+            "line": 36,
+            "type": "binary-expr",
+            "counts": [18, 0]
+          },
+          {
+            "line": 46,
+            "type": "if",
+            "counts": [0, 17]
+          }
+        ],
+        "sha256": "8dd8637635c4d7de313e2004dd2ac250b61d5fb6a513be0f4a1867513453e5dc"
+      },
+      "backend/agents/local/LocalOwnerSession.ts": {
+        "metrics": {
+          "statements": {
+            "total": 195,
+            "covered": 194,
+            "skipped": 0,
+            "pct": 99.48
+          },
+          "branches": {
+            "total": 106,
+            "covered": 104,
+            "skipped": 0,
+            "pct": 98.11
+          },
+          "functions": {
+            "total": 42,
+            "covered": 42,
+            "skipped": 0,
+            "pct": 100
+          },
+          "lines": {
+            "total": 178,
+            "covered": 178,
+            "skipped": 0,
+            "pct": 100
+          }
+        },
+        "uncoveredStatementLines": [369],
+        "branchGaps": [
+          {
+            "line": 369,
+            "type": "if",
+            "counts": [0, 37]
+          },
+          {
+            "line": 451,
+            "type": "if",
+            "counts": [17, 0]
+          }
+        ],
+        "sha256": "3894f9380859721f212e5dc96f30bf17b4fcae91d1c31a50a4d66f4089c0cc67"
+      },
+      "backend/agents/cli/CliSessionCloseout.ts": {
+        "metrics": {
+          "statements": {
+            "total": 16,
+            "covered": 16,
+            "skipped": 0,
+            "pct": 100
+          },
+          "branches": {
+            "total": 22,
+            "covered": 22,
+            "skipped": 0,
+            "pct": 100
+          },
+          "functions": {
+            "total": 4,
+            "covered": 4,
+            "skipped": 0,
+            "pct": 100
+          },
+          "lines": {
+            "total": 14,
+            "covered": 14,
+            "skipped": 0,
+            "pct": 100
+          }
+        },
+        "uncoveredStatementLines": [],
+        "branchGaps": [],
+        "sha256": "a2e46b4cbe181ef12c6b53a8cbde3b1e93b6e2fe7688435783b35ab61185f34d"
+      },
+      "backend/error/AgentErrors.ts": {
+        "metrics": {
+          "statements": {
+            "total": 9,
+            "covered": 9,
+            "skipped": 0,
+            "pct": 100
+          },
+          "branches": {
+            "total": 2,
+            "covered": 2,
+            "skipped": 0,
+            "pct": 100
+          },
+          "functions": {
+            "total": 4,
+            "covered": 4,
+            "skipped": 0,
+            "pct": 100
+          },
+          "lines": {
+            "total": 9,
+            "covered": 9,
+            "skipped": 0,
+            "pct": 100
+          }
+        },
+        "uncoveredStatementLines": [],
+        "branchGaps": [],
+        "sha256": "bc049e96b0211d6a2275e6aaaab32f90608d983e1f743d4cbf923703ff4f2677"
+      },
+      "backend/service/agents/AgentPlanSessionCloseout.ts": {
+        "metrics": {
+          "statements": {
+            "total": 20,
+            "covered": 19,
+            "skipped": 0,
+            "pct": 95
+          },
+          "branches": {
+            "total": 16,
+            "covered": 15,
+            "skipped": 0,
+            "pct": 93.75
+          },
+          "functions": {
+            "total": 5,
+            "covered": 5,
+            "skipped": 0,
+            "pct": 100
+          },
+          "lines": {
+            "total": 19,
+            "covered": 18,
+            "skipped": 0,
+            "pct": 94.73
+          }
+        },
+        "uncoveredStatementLines": [45],
+        "branchGaps": [
+          {
+            "line": 41,
+            "type": "if",
+            "counts": [0, 9]
+          }
+        ],
+        "sha256": "586eaebe4b96cb0c7566615dd009db627bec6449b43f041c062dba0be0ca121c"
+      },
+      "backend/service/agents/AgentPlanStepRunner.ts": {
+        "metrics": {
+          "statements": {
+            "total": 187,
+            "covered": 167,
+            "skipped": 0,
+            "pct": 89.3
+          },
+          "branches": {
+            "total": 128,
+            "covered": 102,
+            "skipped": 0,
+            "pct": 79.68
+          },
+          "functions": {
+            "total": 40,
+            "covered": 34,
+            "skipped": 0,
+            "pct": 85
+          },
+          "lines": {
+            "total": 173,
+            "covered": 158,
+            "skipped": 0,
+            "pct": 91.32
+          }
+        },
+        "uncoveredStatementLines": [
+          165, 167, 178, 179, 180, 181, 200, 206, 209, 265, 304, 316, 358, 461,
+          462, 463, 465, 566, 640
+        ],
+        "branchGaps": [
+          {
+            "line": 179,
+            "type": "if",
+            "counts": [0, 0]
+          },
+          {
+            "line": 192,
+            "type": "default-arg",
+            "counts": [0]
+          },
+          {
+            "line": 241,
+            "type": "binary-expr",
+            "counts": [20, 0]
+          },
+          {
+            "line": 265,
+            "type": "if",
+            "counts": [0, 212]
+          },
+          {
+            "line": 288,
+            "type": "binary-expr",
+            "counts": [1, 0]
+          },
+          {
+            "line": 303,
+            "type": "if",
+            "counts": [0, 33]
+          },
+          {
+            "line": 316,
+            "type": "if",
+            "counts": [0, 55]
+          },
+          {
+            "line": 347,
+            "type": "cond-expr",
+            "counts": [0, 3]
+          },
+          {
+            "line": 358,
+            "type": "if",
+            "counts": [0, 206]
+          },
+          {
+            "line": 373,
+            "type": "binary-expr",
+            "counts": [206, 0]
+          },
+          {
+            "line": 389,
+            "type": "binary-expr",
+            "counts": [206, 0]
+          },
+          {
+            "line": 421,
+            "type": "cond-expr",
+            "counts": [0, 205]
+          },
+          {
+            "line": 460,
+            "type": "if",
+            "counts": [202, 0]
+          },
+          {
+            "line": 461,
+            "type": "if",
+            "counts": [0, 0]
+          },
+          {
+            "line": 462,
+            "type": "if",
+            "counts": [0, 0]
+          },
+          {
+            "line": 485,
+            "type": "if",
+            "counts": [202, 0]
+          },
+          {
+            "line": 578,
+            "type": "binary-expr",
+            "counts": [2, 0]
+          },
+          {
+            "line": 579,
+            "type": "cond-expr",
+            "counts": [2, 0]
+          },
+          {
+            "line": 588,
+            "type": "binary-expr",
+            "counts": [2, 0]
+          },
+          {
+            "line": 609,
+            "type": "cond-expr",
+            "counts": [0, 0]
+          },
+          {
+            "line": 613,
+            "type": "cond-expr",
+            "counts": [0, 9]
+          },
+          {
+            "line": 640,
+            "type": "if",
+            "counts": [0, 790]
+          }
+        ],
+        "sha256": "d9d730caaf211d07f8da224c332b5cdf1f3cbd58bdd73f20b3ec906b0b31a963"
+      },
+      "backend/service/agents/AgentPlanBlockerRules.ts": {
+        "metrics": {
+          "statements": {
+            "total": 33,
+            "covered": 32,
+            "skipped": 0,
+            "pct": 96.96
+          },
+          "branches": {
+            "total": 43,
+            "covered": 36,
+            "skipped": 0,
+            "pct": 83.72
+          },
+          "functions": {
+            "total": 13,
+            "covered": 13,
+            "skipped": 0,
+            "pct": 100
+          },
+          "lines": {
+            "total": 29,
+            "covered": 29,
+            "skipped": 0,
+            "pct": 100
+          }
+        },
+        "uncoveredStatementLines": [422],
+        "branchGaps": [
+          {
+            "line": 369,
+            "type": "cond-expr",
+            "counts": [27, 0]
+          },
+          {
+            "line": 399,
+            "type": "binary-expr",
+            "counts": [66, 0]
+          },
+          {
+            "line": 404,
+            "type": "binary-expr",
+            "counts": [1, 0]
+          },
+          {
+            "line": 422,
+            "type": "if",
+            "counts": [0, 19]
+          },
+          {
+            "line": 423,
+            "type": "binary-expr",
+            "counts": [19, 0]
+          },
+          {
+            "line": 428,
+            "type": "binary-expr",
+            "counts": [86, 0]
+          },
+          {
+            "line": 491,
+            "type": "binary-expr",
+            "counts": [2, 0]
+          }
+        ],
+        "sha256": "8f99b06091892f2b28545e1e877eea9129aac7ada1a8aa74efa99e06025d5d3c"
+      },
+      "backend/logging/LogRedaction.ts": {
+        "metrics": {
+          "statements": {
+            "total": 39,
+            "covered": 33,
+            "skipped": 0,
+            "pct": 84.61
+          },
+          "branches": {
+            "total": 34,
+            "covered": 26,
+            "skipped": 0,
+            "pct": 76.47
+          },
+          "functions": {
+            "total": 3,
+            "covered": 3,
+            "skipped": 0,
+            "pct": 100
+          },
+          "lines": {
+            "total": 37,
+            "covered": 31,
+            "skipped": 0,
+            "pct": 83.78
+          }
+        },
+        "uncoveredStatementLines": [47, 62, 63, 66, 67, 83],
+        "branchGaps": [
+          {
+            "line": 13,
+            "type": "if",
+            "counts": [22, 0]
+          },
+          {
+            "line": 46,
+            "type": "if",
+            "counts": [0, 709152]
+          },
+          {
+            "line": 46,
+            "type": "binary-expr",
+            "counts": [709152, 0, 0]
+          },
+          {
+            "line": 49,
+            "type": "cond-expr",
+            "counts": [0, 7387]
+          },
+          {
+            "line": 61,
+            "type": "if",
+            "counts": [0, 11964]
+          },
+          {
+            "line": 65,
+            "type": "if",
+            "counts": [0, 11964]
+          },
+          {
+            "line": 82,
+            "type": "if",
+            "counts": [0, 11960]
+          }
+        ],
+        "sha256": "432aa0f3f1b1189a8733b00ed0a302712193bbe79c8f2fc561841cf667fe6a92"
+      }
+    },
+    "zeroStatementModuleCount": 516,
+    "allUntestedModulesAndRelevantBranchGaps": "coverage/page333-evidence/backend-module-gaps.json",
+    "rawCounters": "coverage/backend/coverage-final.json",
+    "perModuleMetrics": "coverage/backend/coverage-summary.json",
+    "perModuleText": "coverage/backend/coverage.txt",
+    "html": "coverage/backend/index.html",
+    "limits": "Keine Frontend-Coverage; keine Aussagen über reale Prozesse, Datenbanken oder Netzwerkgrenzen. Die Coverage stammt ausdrücklich aus dem fehlgeschlagenen vollständigen Backend-Lauf."
+  },
+  "blockingDependency": {
+    "ticket": "PAGE-339",
+    "statusAtRead": "To Do",
+    "requiredAction": "Separate Entscheidung und Umsetzung zur Trigger-Aufräumprüfung und zur aufzubewahrenden Audit-Historie, danach Backend-Suite erneut ausführen."
+  }
+}

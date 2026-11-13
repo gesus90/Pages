@@ -32,6 +32,7 @@ import {
 } from "./AgentWikiFieldValidation";
 import { WikiImportPlanner } from "./WikiImportPlanner";
 
+import type { AgentFileOperationService } from "./AgentFileOperationService";
 import type { AgentChatSessionOperationService } from "./AgentChatSessionOperationService";
 import type { AgentChannel } from "@/backend/auth/McpActorContext";
 import type { AgentAdministrationService } from "./AgentAdministrationService";
@@ -79,6 +80,7 @@ interface AdditionalOperations {
 
 /** Server-owned dependencies; no actor or policy arrives through operation parameters. */
 export interface AgentOperationDependencies {
+  readonly files?: AgentFileOperationService;
   readonly projects: ProjectRepository;
   readonly wiki: WikiRepository;
   readonly users: Pick<UserService, "getById">;
@@ -278,6 +280,7 @@ export class AgentOperationRouter {
     const { dependencies } = this;
     // The first service that knows the operation answers; the order is the catalog's.
     const services: readonly (AdditionalOperations | undefined)[] = [
+      dependencies.files,
       dependencies.chatSessions,
       dependencies.administration,
       dependencies.instanceAdministration,

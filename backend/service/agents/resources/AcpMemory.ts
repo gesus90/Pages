@@ -2,6 +2,11 @@ import { readFile } from "node:fs/promises";
 
 import { logCaughtError } from "@/backend/logging/Logger";
 
+import type {
+  AcpResourceOptions,
+  AcpWaitReason,
+} from "@/definition/AcpResource";
+
 /** Reads Linux's reclaim-aware free memory in MiB; unavailable metrics never imply spare RAM. */
 export async function readAcpAvailableMemory(): Promise<number | null> {
   try {
@@ -28,4 +33,19 @@ export async function readScheduledAcpMemory(
     logCaughtError("AcpResourceScheduler", error);
     return null;
   }
+}
+
+/**
+ * Why memory-aware admission holds a request back, or `null` when memory allows it.
+ *
+ * @param options - The admission options of the scheduler.
+ * @param availableMemory - The last probe in MiB; `null` when unknown.
+ */
+export function acpMemoryWaitReason(
+  options: AcpResourceOptions,
+  availableMemory: number | null,
+): AcpWaitReason | null {
+  if (!options.memoryAwareScheduling) return null;
+  if (availableMemory === null) return "memory_unknown";
+  return availableMemory < options.minimumAvailableMemory ? "memory" : null;
 }

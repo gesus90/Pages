@@ -12,6 +12,7 @@ import type { AgentPlanRecoveryBlocker } from "@/definition/AgentPlanRecovery";
 const ISSUE_ACTIONS: Readonly<Record<string, AgentPlanResumeAction>> = {
   plan_script_permission_denied: "admin_mode",
   plan_workspace_waiting: "wait",
+  plan_skipped_step_enabled: "restart",
 };
 
 /** What lifts a block of the recovery view, where the person can lift it at once. */

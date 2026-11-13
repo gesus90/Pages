@@ -471,3 +471,81 @@ it("bounds queued wire bytes and individual messages without imposing a lifetime
     "2 MiB wire budget",
   );
 });
+
+it("rejects invalid sequences, oversized aligned records and appends after close", async () => {
+  const journal = new ChunkJournal("/validation", BINDING, {
+    recordAligned: true,
+  });
+  await journal.initialize();
+  await expect(journal.append(Buffer.from("a"), -1)).rejects.toThrow(
+    "sequence changed",
+  );
+  await expect(
+    journal.append(Buffer.alloc(OUTPUT_CHUNK_BYTES + 1), 1),
+  ).rejects.toThrow("record exceeds");
+  await journal.append(Buffer.from("a"), 2);
+  await expect(journal.append(Buffer.from("b"), 1)).rejects.toThrow(
+    "sequence changed",
+  );
+  await journal.close();
+  await journal.close();
+  await expect(journal.append(Buffer.from("c"), 3)).rejects.toThrow("closed");
+});
+
+it("rejects corrupt committed chunks and an incomplete event prefix", async () => {
+  const journal = new ChunkJournal("/corrupt", BINDING, {
+    recordAligned: true,
+  });
+  await journal.initialize();
+  await journal.append(Buffer.from('{"sequence":2}\n'), 1);
+  await journal.checkpoint();
+  await expect(readJournalEvents("/corrupt", BINDING, 0)).rejects.toThrow(
+    "event prefix incomplete",
+  );
+  const index = await journalIndex("/corrupt", BINDING);
+  journalFiles.files.set(
+    "/corrupt/000000000001.part",
+    Buffer.from("x".repeat(15)),
+  );
+  await expect(readJournalChunk("/corrupt", index, 1)).rejects.toThrow(
+    "integrity failure",
+  );
+  await journal.close();
+});
+
+it("redacts diagnostics and omits a private key block from script output", async () => {
+  const command: RunnerExecution = {
+    ...COMMAND,
+    program: {
+      kind: "script",
+      interpreter: {
+        id: "node",
+        name: "Node",
+        path: "/synthetic/node",
+        digest: "0".repeat(64),
+        version: "synthetic",
+      },
+      source: "synthetic",
+    },
+  };
+  const output = new JobOutput(command, "/redaction", BINDING, (text) =>
+    text.replaceAll("secret", "[redacted]"),
+  );
+  await output.initialize("/redaction");
+  await writePacket(output, Buffer.from("secret answer"));
+  await writePacket(
+    output,
+    Buffer.from(
+      "before secret\n-----BEGIN PRIVATE KEY-----\nkey material\n-----END PRIVATE KEY-----\nafter secret\n",
+    ),
+    "stderr",
+  );
+  await new Promise<void>((resolve, reject) => {
+    output.once("error", reject);
+    output.end(resolve);
+  });
+  expect(output.result()).toEqual({
+    output: "[redacted] answer",
+    stderr: "before [redacted]\nafter [redacted]\n",
+  });
+});

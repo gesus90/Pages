@@ -1,5 +1,7 @@
+import { CircleAlert } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
+import { planStepSelection } from "@/definition/AgentPlanSelection";
 import { planNodeParameters } from "@/definition/AgentPlanGroup";
 
 import { usePlanFlowContext } from "../plan-flow-context";
@@ -71,6 +73,12 @@ export function PlanAgentCard(props: {
       onEdit={edit}
     >
       <div className="flex flex-col gap-1.5 px-3 pt-1 pb-2">
+        {planStepSelection(step) ? (
+          <p className="flex items-center gap-1 text-xs font-medium text-primary">
+            <CircleAlert aria-hidden="true" className="size-3" />
+            {t(`plans.manage.select.${planStepSelection(step)}`)}
+          </p>
+        ) : null}
         <PlanRunNotes result={result} />
         <PlanFlowPorts node={step} graph={graph} canEdit={canEdit} isCompact />
         <PlanAgentCurrentAsset step={step} />

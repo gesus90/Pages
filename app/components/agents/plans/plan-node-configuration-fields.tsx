@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+
 import {
   PageAgentModelNotices,
   PageAgentReasoningField,
@@ -14,6 +15,7 @@ import {
   planSavedModel,
 } from "@/definition/AgentPlanConfiguration";
 import { effectivePlanTarget } from "@/definition/AgentPlanTarget";
+
 import { PlanExecutionTargetField } from "./plan-execution-target-field";
 import { PlanCompletionGateField } from "./plan-completion-gate-field";
 import { PlanRemoteStatus } from "./plan-remote-status";
@@ -21,6 +23,7 @@ import {
   PlanNodeContentFields,
   PlanNodeNameField,
 } from "./plan-node-content-fields";
+
 import type { AgentWorkspaceChoice } from "@/definition/AgentWorkspace";
 import type { AgentPlanExecutionTarget } from "@/definition/AgentPlanExecution";
 import type { AgentPlanSources, AgentPlanStep } from "@/definition/AgentPlan";
@@ -43,6 +46,7 @@ export function planStepWithModel(
 ): AgentPlanStep {
   return {
     ...step,
+    selectionRequired: undefined,
     configuration: {
       ...configuration,
       modelProfileId: model.id,

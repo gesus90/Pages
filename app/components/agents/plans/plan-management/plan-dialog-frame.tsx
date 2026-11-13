@@ -15,6 +15,8 @@ interface PlanDialogFrameProps {
   /** A short line under the title, such as the source of a copy. */
   readonly description?: string;
   readonly submitLabel: string;
+  readonly cancelLabel?: string;
+  readonly isAlwaysEnabled?: boolean;
   readonly isPending: boolean;
   readonly isSubmitDisabled: boolean;
   readonly tone?: "default" | "destructive";
@@ -55,7 +57,7 @@ export function PlanDialogFrame(
         // Without a description line the dialog has nothing to be described by.
         {...(props.description ? {} : { "aria-describedby": undefined })}
       >
-        <form onSubmit={handleSubmit} noValidate className="space-y-6">
+        <form onSubmit={handleSubmit} noValidate className="space-y-5">
           <div className="flex items-start gap-3">
             <div className="min-w-0 flex-1 space-y-1.5">
               <DialogTitle className="text-lg font-semibold">
@@ -92,15 +94,15 @@ export function PlanDialogFrame(
               disabled={props.isPending}
               onClick={props.onClose}
             >
-              {t("settings.agents.cancel")}
+              {props.cancelLabel ?? t("settings.agents.cancel")}
             </Button>
             <Button
               type="submit"
               variant={
                 props.tone === "destructive" ? "destructive-soft" : "default"
               }
-              isPending={props.isPending}
-              disabled={props.isSubmitDisabled}
+              isPending={!props.isAlwaysEnabled && props.isPending}
+              disabled={!props.isAlwaysEnabled && props.isSubmitDisabled}
             >
               {props.submitLabel}
             </Button>

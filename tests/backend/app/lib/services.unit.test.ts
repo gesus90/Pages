@@ -1,3 +1,5 @@
+import { StorageOperationRepository } from "@/backend/database/repositories/google/StorageOperationRepository";
+import { RepositoryReadService } from "@/backend/service/github/RepositoryReadService";
 import { AgentPlanStepReportService } from "@/backend/service/agents/AgentPlanStepReportService";
 import { beforeEach, expect, it, vi } from "vitest";
 
@@ -386,6 +388,12 @@ it("gives agents and the chat the shared accounts, wiki, plans and events", asyn
     accounts.administration,
     {
       directory: "/srv/pages/data",
+      externalFiles: {
+        files: (await getApplicationServices()).googleDriveFileService,
+        access: (await getApplicationServices()).storageAccessService,
+        repositories: (await getApplicationServices()).repositoryReadService,
+        receipts: expect.any(StorageOperationRepository) as unknown,
+      },
       wikiService: only(vi.mocked(WikiService)),
       tickets: {
         cache: only(vi.mocked(ServerCache)),
@@ -405,7 +413,11 @@ it("gives agents and the chat the shared accounts, wiki, plans and events", asyn
     },
   );
   const [chatInput] = vi.mocked(createChatServices).mock.calls[0];
-  const { picaBrowser, storage, ...chatSettings } = chatInput;
+  const { picaBrowser, storage, repositoryReads, ...chatSettings } = chatInput;
+  expect(repositoryReads).toBeInstanceOf(RepositoryReadService);
+  expect(repositoryReads).toBe(
+    (await getApplicationServices()).repositoryReadService,
+  );
   expect(picaBrowser?.browserSessions).toBeDefined();
   expect(storage).toBeInstanceOf(GoogleDriveFileService);
   expect(chatSettings).toEqual({

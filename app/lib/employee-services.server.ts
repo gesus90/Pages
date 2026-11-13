@@ -52,6 +52,8 @@ import { startAutomationAgentWorker } from "./automation-services.server";
 import { createConversationServices } from "./conversation-services.server";
 import { defaultAgentTemplateTexts } from "./agent-template-texts.server";
 
+import { conversationModelRoot } from "@/backend/service/conversation/ConversationModelDirectory";
+
 import type { AgentChatTools } from "@/definition/AgentChat";
 import type { SpeechRecognitionSetting } from "@/backend/config/SpeechRecognitionConfig";
 import type { ServerCache } from "@/backend/cache/ServerCache";
@@ -188,10 +190,11 @@ function createLearning(
 
 /** What the group observer and the decision model run on, simulated while the simulation is on. */
 function groupObserverInput(
-  observer: EmployeeServicesInput["observer"],
+  input: Pick<EmployeeServicesInput, "observer" | "workspaceRoot">,
   simulation: AgentSimulationMode,
   isBackgroundOwner: boolean,
 ): ConversationObserverInput {
+  const { observer } = input;
   return {
     pica: observer.picaSettingsService,
     plans: observer.agentPlanExecution,
@@ -203,6 +206,7 @@ function groupObserverInput(
       ? new SimulatedConversationDecision(simulation)
       : null,
     isBackgroundOwner,
+    directoryRoot: conversationModelRoot(input.workspaceRoot),
   };
 }
 
@@ -493,7 +497,7 @@ export function createEmployeeServices(
   const conversations = createConversationServices({
     database,
     ...input.conversations,
-    observer: groupObserverInput(input.observer, simulation, isBackgroundOwner),
+    observer: groupObserverInput(input, simulation, isBackgroundOwner),
     runner: new AgentConversationAnswers({
       store,
       users,

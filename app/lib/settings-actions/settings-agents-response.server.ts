@@ -2,6 +2,7 @@ import {
   AgentAccessDeniedError,
   AgentError,
   AgentInUseError,
+  AgentPlanSkippedStepError,
 } from "@/backend/error/AgentErrors";
 import { AgentPlanValidationError } from "@/backend/error/AgentPlanValidationError";
 import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
@@ -44,6 +45,8 @@ export type AgentActionResult =
         | "general";
       /** Current references of a blocked deletion, so the dialog can list them. */
       readonly usages?: readonly AgentUsage[];
+      /** The node a refusal names, such as a skipped script that is enabled again. */
+      readonly nodeId?: string;
     };
 
 export const AGENT_NO_STORE = { "Cache-Control": "no-store" };
@@ -85,6 +88,7 @@ const ERROR_STATUS: Partial<Record<AgentErrorCode, number>> = {
   plan_pause_required: 409,
   plan_continuation_deleted: 409,
   plan_completed_changed: 409,
+  plan_skipped_step_enabled: 409,
   plan_workspace_conflict: 409,
   plan_context_changed: 409,
   template_name_taken: 409,
@@ -142,6 +146,9 @@ export function agentFailureResponse(error: unknown, intent = ""): Response {
       intent,
       error: code,
       ...references,
+      ...(error instanceof AgentPlanSkippedStepError
+        ? { nodeId: error.nodeId }
+        : {}),
       ...(error instanceof AgentPlanValidationError
         ? { issues: error.issues }
         : {}),

@@ -78,7 +78,14 @@ it("rejects malformed command input before any lookup", async () => {
 it("clones a plan, records the copy and answers with its control state", async () => {
   plans.view.mockResolvedValue(plan({ canEdit: false }));
   plans.clone.mockImplementation((...args: unknown[]) =>
-    runJournal(args, "plan-2"),
+    runJournal(args, "plan-2", {
+      planId: "plan-2",
+      revision: 1,
+      sourcePlanId: "plan-1",
+      sourceRevision: 3,
+      workspaceId: "workspace-1",
+      adjustments: [],
+    }),
   );
   world.readControl.mockResolvedValue({ ...CONTROL, planId: "plan-2" });
   const result = await operations().write(
@@ -98,6 +105,7 @@ it("clones a plan, records the copy and answers with its control state", async (
     sourcePlanId: "plan-1",
     sourceRevision: 3,
     workspaceId: "workspace-1",
+    adjustments: [],
   });
   expect(world.readControl).toHaveBeenCalledWith(plans, USER, "plan-2");
   expect(result).toMatchObject({
@@ -110,7 +118,14 @@ it("clones a plan, records the copy and answers with its control state", async (
 
 it("clones into another workspace when one is named", async () => {
   plans.clone.mockImplementation((...args: unknown[]) =>
-    runJournal(args, "plan-2"),
+    runJournal(args, "plan-2", {
+      planId: "plan-2",
+      revision: 1,
+      sourcePlanId: "plan-1",
+      sourceRevision: 3,
+      workspaceId: "workspace-9",
+      adjustments: [],
+    }),
   );
   await operations().write(
     USER,

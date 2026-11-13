@@ -1,4 +1,7 @@
-import { AgentError } from "@/backend/error/AgentErrors";
+import {
+  AgentError,
+  AgentPlanSkippedStepError,
+} from "@/backend/error/AgentErrors";
 import { hasPlanBranching } from "@/definition/AgentPlanBranching";
 import { isPlanFlowNode } from "@/definition/AgentPlanGraph";
 import { isPlanOuterRunStep } from "@/definition/AgentPlanStack";
@@ -109,6 +112,30 @@ function requireBoundary(
       dependencies(previous) !== dependencies(next)
     )
       throw new AgentError("plan_completed_changed");
+  }
+  requireSkippedScriptsDisabled(run, next);
+}
+
+/**
+ * Refuses to take over a skipped script that the adopted plan enables again.
+ *
+ * @remarks
+ * A disabled script succeeds without a process and leaves an empty or
+ * replacement result. Taking that over for an enabled script would hand its
+ * successors a result it never produced, and running it now would invalidate
+ * the completed steps after it. Only a new run executes the script.
+ *
+ * @throws {AgentPlanSkippedStepError} `plan_skipped_step_enabled` with the script's node ID.
+ */
+function requireSkippedScriptsDisabled(
+  run: AgentPlanRun,
+  next: AgentPlanSnapshot,
+): void {
+  for (const id of run.pauseBoundary?.completedStepIds ?? []) {
+    if (run.steps.find((step) => step.id === id)?.skipped !== true) continue;
+    const node = next.plan.nodes.find((entry) => entry.id === id);
+    if (node?.type === "script" && node.disabled !== true)
+      throw new AgentPlanSkippedStepError(id);
   }
 }
 
@@ -314,7 +341,8 @@ function resumedNodeName(node: AgentPlanNode): string {
  * @returns The snapshot of the new run: completed nodes keep their frozen contracts.
  * @throws {AgentError} `plan_context_changed` for another project or workspace,
  * `plan_completed_changed` when a completed node, its dependencies, its group
- * or a started loop changed.
+ * or a started loop changed, `plan_skipped_step_enabled` when a script this
+ * run skipped is enabled in the saved revision.
  *
  * @remarks
  * Unlike a live continuation, no group session is required to still run: a

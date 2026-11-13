@@ -27,6 +27,7 @@ import { AgentPlanRunVisibilityRepository } from "@/backend/database/repositorie
 import { AgentPlanStartRejectionRepository } from "@/backend/database/repositories/agent/AgentPlanStartRejectionRepository";
 import { AgentPlanAgentTodoRepository } from "@/backend/database/repositories/agent/AgentPlanAgentTodoRepository";
 import { AgentPlanStepProgressRepository } from "@/backend/database/repositories/agent/AgentPlanStepProgressRepository";
+import { AgentPlanSwarmRepository } from "@/backend/database/repositories/agent/AgentPlanSwarmRepository";
 import { AgentPlanStepReportRepository } from "@/backend/database/repositories/agent/AgentPlanStepReportRepository";
 import { AgentPlanTemplateRepository } from "@/backend/database/repositories/agent/AgentPlanTemplateRepository";
 import { AgentPlanWorkRepository } from "@/backend/database/repositories/agent/AgentPlanWorkRepository";
@@ -118,12 +119,15 @@ import {
   RUNNER_SESSION_FLOW,
 } from "./runner-flows";
 
+import { ACP_CHAT_LEASE_FLOW } from "./acp-chat-lease-flow";
+
 import type { RepositoryFlow } from "./world";
 
 /** The flows of agents, plans, runners and remote machines, in dependency order. */
 export const AGENT_AREA_FLOWS: readonly RepositoryFlow[] = [
   PLAN_WORLD_FLOW,
   ACP_RESOURCE_FLOW,
+  ACP_CHAT_LEASE_FLOW,
   ASSIGNMENT_FLOW,
   CATALOG_FLOW,
   CHECK_FLOW,
@@ -205,6 +209,7 @@ export const AGENT_AREA_CLASSES: Readonly<
   AgentPlanAgentTodoRepository,
   AgentPlanStepProgressRepository,
   AgentPlanStepReportRepository,
+  AgentPlanSwarmRepository,
   AgentPlanTemplateRepository,
   AgentPlanWorkRepository,
   AgentPlanWorkspaceRepository,

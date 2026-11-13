@@ -1,4 +1,4 @@
-import type { GoogleDriveFileService } from "@/backend/service/google/GoogleDriveFileService";
+import type { StorageAccountFiles } from "@/backend/service/google/StorageAccountFiles";
 import type { StorageDownload } from "@/backend/service/google/StorageFileReader";
 import type {
   StorageOperation,
@@ -17,10 +17,10 @@ type StorageHandler = (call: McpStorageCall) => Promise<StorageResult<object>>;
 
 /** Translates the MCP operations into the existing Storage services. */
 export class McpStorageService {
-  private readonly files: GoogleDriveFileService;
+  private readonly files: StorageAccountFiles;
 
   /** Keeps the shared reader, writer and their server-side confirmations. */
-  public constructor(files: GoogleDriveFileService) {
+  public constructor(files: StorageAccountFiles) {
     this.files = files;
   }
 

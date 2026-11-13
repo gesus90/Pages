@@ -98,6 +98,8 @@ export interface StorageConnectionUnavailable {
 
 /** The answer of a folder request with a usable connection. */
 export interface StorageBrowseResult {
+  /** A grant-scoped view with a virtual list of shared roots and no administrative controls. */
+  readonly isScoped?: boolean;
   readonly kind: "browse";
   readonly accountEmail: string | null;
   readonly reach: StorageAccessReach;

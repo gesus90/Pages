@@ -68,7 +68,7 @@ function serialize(result: unknown): string {
  * Every tool calls the same reader and writer as `/storage-api/v1`, so the
  * checks of the connected Google account, conflicts, limits and the
  * confirmations bound to action, object and state apply unchanged. The
- * administrator right is checked by the caller on every call. A confirmation
+ * folder right is checked by the account-bound facade on every call. A confirmation
  * token stays on the server: the model sees the target, the scope and the
  * confirmation request, and Pages spends the token only when the person explicitly replied
  * in a later message and the model repeats the identical
@@ -76,6 +76,7 @@ function serialize(result: unknown): string {
  */
 export class PicaStorageService {
   private readonly files: PicaStorageFiles;
+  private readonly forAccount: ((userId: string) => PicaStorageFiles) | null;
   private readonly consent = new PicaPlanConfirmation();
   private readonly pending = new Map<string, PendingToken>();
 
@@ -84,8 +85,12 @@ export class PicaStorageService {
    *
    * @param files - The Storage interface of the instance Drive.
    */
-  public constructor(files: PicaStorageFiles) {
+  public constructor(
+    files: PicaStorageFiles,
+    forAccount: ((userId: string) => PicaStorageFiles) | null = null,
+  ) {
     this.files = files;
+    this.forAccount = forAccount;
   }
 
   /**
@@ -100,7 +105,7 @@ export class PicaStorageService {
     const key = picaPlanOperationId(request, call.context, "storage");
     const approved = this.approvedToken(key, call);
     const result = await PICA_STORAGE_HANDLERS[call.tool](
-      this.files,
+      this.forAccount?.(call.context.userId) ?? this.files,
       call.parameters,
       { userId: call.context.userId, confirmation: approved },
     );

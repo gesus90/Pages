@@ -1,4 +1,5 @@
 import { AcpLeaseAudit } from "./AcpLeaseAudit";
+import { AcpLeaseCleanup } from "./AcpLeaseCleanup";
 
 import type { PlanSession } from "@/backend/agents/AgentPlanExecution";
 import type {
@@ -21,6 +22,8 @@ export interface AcpLeaseCheckHost {
   readonly sessions: ReadonlyMap<string, PlanSession>;
   readonly pausedRuns: ReadonlySet<string>;
   unverifiedLocal(): ReadonlySet<string>;
+  /** Whether this process role is responsible for the lease. */
+  owns(record: AcpResourceRecord): boolean;
   persist<Result>(task: () => Promise<Result>): Promise<Result>;
   /** Lets waiting requests use capacity a released lease freed. */
   wake(): void;
@@ -38,9 +41,13 @@ export interface AcpLeaseCheckHost {
 export class AcpLeaseChecks {
   private readonly host: AcpLeaseCheckHost;
   private readonly audit: AcpLeaseAudit;
+  /** The administrator's check and confirmed cleanup (PAGE-340). */
+  public readonly cleanup: AcpLeaseCleanup;
   private readonly openingIds = new Set<string>();
   /** Starts whose callback records process creation, so a failure before it proves no spawn. */
   private readonly spawnTracked = new Set<string>();
+  /** Failed starts whose own closeout confirmed the end of every process they created. */
+  private readonly endedStarts = new Set<string>();
 
   public constructor(host: AcpLeaseCheckHost) {
     this.host = host;
@@ -55,6 +62,11 @@ export class AcpLeaseChecks {
       },
       host.scope,
     );
+    this.cleanup = new AcpLeaseCleanup({
+      ...host,
+      isOpening: (instanceId) => this.openingIds.has(instanceId),
+      isUnverifiedLocal: (instanceId) => host.unverifiedLocal().has(instanceId),
+    });
   }
 
   /** Starts the periodic check after startup recovery. */
@@ -78,6 +90,7 @@ export class AcpLeaseChecks {
     return () => {
       this.openingIds.delete(instanceId);
       this.spawnTracked.delete(instanceId);
+      this.endedStarts.delete(instanceId);
     };
   }
 
@@ -87,8 +100,22 @@ export class AcpLeaseChecks {
       trackSpawn: () => {
         this.spawnTracked.add(instanceId);
       },
-      beforeSpawn: () => this.record(instanceId, "spawning"),
+      beforeSpawn: (unit) => this.record(instanceId, "spawning", unit),
+      confirmStartEnded: () => {
+        this.endedStarts.add(instanceId);
+      },
     };
+  }
+
+  /**
+   * Whether a failed start provably left no process: it spawned nothing, or
+   * its own closeout confirmed the end of everything it spawned (PAGE-340).
+   */
+  public isStartEnded(instanceId: string, native: PlanSession | null): boolean {
+    return (
+      this.markNotSpawned(instanceId, native) ||
+      (native === null && this.endedStarts.has(instanceId))
+    );
   }
 
   /**
@@ -140,13 +167,16 @@ export class AcpLeaseChecks {
   private async record(
     instanceId: string,
     lifecycle: AcpLeaseLifecycle,
+    workerUnit?: string,
   ): Promise<void> {
     await this.host.persist(async () => {
       const current = this.host.active.get(instanceId);
       if (current?.state !== "starting")
         throw new Error("ACP reservation is not starting");
-      if (current.lifecycle === lifecycle) return;
-      const record = { ...current, lifecycle };
+      const unit = workerUnit ?? current.workerUnit ?? null;
+      if (current.lifecycle === lifecycle && current.workerUnit === unit)
+        return;
+      const record = { ...current, lifecycle, workerUnit: unit };
       await this.host.store.save(record);
       this.host.active.set(instanceId, record);
     });

@@ -41,7 +41,7 @@ export interface AgentPlanWriteDependencies {
     AgentPlanService,
     "view" | "agents" | "save" | "workspaces" | "sources"
   > &
-    Partial<Pick<AgentPlanService, "changeAccess">>;
+    Partial<Pick<AgentPlanService, "changeAccess" | "saveSettings">>;
 }
 
 /** Whether an update changes nothing but teams and owner. */
@@ -450,6 +450,23 @@ export class AgentPlanWriteOperations {
     if (!changeAccess) throw new AgentOperationError("INVALID_REQUEST");
     let revision = current.revision;
     try {
+      if (write.proposed && this.dependencies.plans.saveSettings) {
+        await this.dependencies.plans.saveSettings(userId, current.id, {
+          plan: write.proposed,
+          access: {
+            ...write.access,
+            revision,
+            journal: (transaction) =>
+              recorder.store(transaction, {
+                planId: current.id,
+                changed: true,
+                revision: revision + 2,
+                createdNodeIds: [...write.createdNodeIds],
+              }),
+          },
+        });
+        return;
+      }
       if (write.proposed) {
         await this.dependencies.plans.save(userId, current.id, write.proposed);
         revision += 1;

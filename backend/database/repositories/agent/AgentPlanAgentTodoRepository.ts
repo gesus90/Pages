@@ -31,7 +31,8 @@ export class AgentPlanAgentTodoRepository {
       `
       SELECT todos_json
       FROM agent_plan_agent_todos
-      WHERE attempt_id = $attempt_id;
+      WHERE attempt_id = $attempt_id
+          AND worker_id = '';
     `,
       { attempt_id: attemptId },
     );
@@ -52,6 +53,7 @@ export class AgentPlanAgentTodoRepository {
           updated_at
       FROM agent_plan_agent_todos
       WHERE run_id = $run_id
+          AND worker_id = ''
       ORDER BY attempt_id;
     `,
       { run_id: runId },
@@ -94,7 +96,7 @@ export class AgentPlanAgentTodoRepository {
           $updated_at
       FROM agent_session_attempts
       WHERE attempt_id = $attempt_id
-      ON CONFLICT (attempt_id) DO UPDATE SET
+      ON CONFLICT (attempt_id, worker_id) DO UPDATE SET
           todos_json = excluded.todos_json,
           updated_at = excluded.updated_at;
     `,
@@ -105,6 +107,57 @@ export class AgentPlanAgentTodoRepository {
       },
     );
   }
+}
+
+/**
+ * Replaces the list of the main model or a helper of a swarm node (PAGE-313).
+ *
+ * @param database - The executor.
+ * @param list - Run and node of the swarm, the attempt of the node, the
+ * side (`main`, `H1` … `H10`) and its entries.
+ */
+export async function saveSwarmTodos(
+  database: Pick<Database, "execute">,
+  list: {
+    readonly runId: string;
+    readonly stepId: string;
+    readonly attemptId: string;
+    readonly workerId: string;
+    readonly todos: readonly AgentPlanAgentTodo[];
+    readonly updatedAt: string;
+  },
+): Promise<void> {
+  await database.execute(
+    `
+    INSERT INTO agent_plan_agent_todos (
+        run_id,
+        step_id,
+        attempt_id,
+        worker_id,
+        todos_json,
+        updated_at
+    )
+    VALUES (
+        $run_id,
+        $step_id,
+        $attempt_id,
+        $worker_id,
+        $todos_json,
+        $updated_at
+    )
+    ON CONFLICT (attempt_id, worker_id) DO UPDATE SET
+        todos_json = excluded.todos_json,
+        updated_at = excluded.updated_at;
+  `,
+    {
+      run_id: list.runId,
+      step_id: list.stepId,
+      attempt_id: list.attemptId,
+      worker_id: list.workerId,
+      todos_json: JSON.stringify(list.todos),
+      updated_at: list.updatedAt,
+    },
+  );
 }
 
 const entrySchema = z.array(

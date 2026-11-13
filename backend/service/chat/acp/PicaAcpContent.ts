@@ -134,6 +134,18 @@ export async function readPicaAttachments(
 }
 
 /**
+ * The brief of a continued agent session, which knows the transcript already.
+ *
+ * @param brief - The brief of the job.
+ * @returns The brief without history and summary, unless it keeps its context on every turn.
+ */
+export function continuedPicaBrief(brief: PicaTurnBrief): PicaTurnBrief {
+  return brief.keepsContext === true
+    ? brief
+    : { ...brief, prompt: { ...brief.prompt, history: [], summary: null } };
+}
+
+/**
  * The text that opens the prompt of a turn: the instructions, then the
  * conversation as data with the current message.
  *

@@ -1,13 +1,12 @@
 import { randomUUID } from "node:crypto";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import path from "node:path";
+import { rm } from "node:fs/promises";
 
 import { ConversationObserverError } from "@/backend/error/ConversationObserverError";
 import { logCaughtError } from "@/backend/logging/Logger";
 import { CONVERSATION_DECISION_LIMITS } from "@/definition/ConversationDecision";
 
 import { turnFailureCode } from "../agents/AgentPlanSessionRecords";
+import { createConversationModelDirectory } from "./ConversationModelDirectory";
 import { decisionPrompt } from "./ConversationDecisionPrompt";
 
 import type {
@@ -50,6 +49,8 @@ export interface ConversationDecisionModelDependencies {
   readonly plans: Pick<PlanExecution, "open"> | null;
   /** The simulated model; set only while the simulation is on. */
   readonly simulation: SimulatedConversationDecision | null;
+  /** Where its working directories are made; see `conversationModelRoot`. */
+  readonly directoryRoot: string;
 }
 
 /**
@@ -83,7 +84,10 @@ export class ConversationDecisionModel {
     const { simulation, plans } = this.dependencies;
     if (simulation) return simulation.decide(question.material);
     if (!plans) throw new ConversationObserverError("observer_unavailable");
-    const directory = await mkdtemp(path.join(tmpdir(), "pages-decision-"));
+    const directory = await createConversationModelDirectory(
+      this.dependencies.directoryRoot,
+      "decision-",
+    );
     let session: PlanSession | null = null;
     try {
       const prompt = decisionPrompt(question.material);

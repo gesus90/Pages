@@ -6,7 +6,7 @@ import type {
 } from "./AgentPlanOperations.js";
 
 /** Additive contract revision, independently observable from a client's MCP bundle version. */
-export const AGENT_PLAN_CONTRACT_VERSION = 17;
+export const AGENT_PLAN_CONTRACT_VERSION = 18;
 
 /** Implementation discovery never substitutes for current per-plan access and availability. */
 export interface AgentPlanCapabilities {

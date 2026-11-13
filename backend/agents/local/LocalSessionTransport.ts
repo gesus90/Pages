@@ -1,7 +1,8 @@
 import { request } from "node:http";
 import { createHash } from "node:crypto";
 
-import { AgentError } from "@/backend/error/AgentErrors";
+import { logEvent } from "@/backend/logging/Logger";
+import { AgentError, isAgentErrorCode } from "@/backend/error/AgentErrors";
 
 import type {
   LocalSessionCommand,
@@ -45,10 +46,12 @@ export function sendLocalCommand(
           if (Buffer.byteLength(received) > 2 * 1024 * 1024)
             outgoing.destroy(new Error("Local control response is too large"));
         });
-        response.on("error", reject);
+        response.on("error", () =>
+          reject(localCommandFailure(command, response.statusCode, "")),
+        );
         response.on("end", () => {
           if (response.statusCode !== 200) {
-            reject(new AgentError("plan_local_owner_unverified"));
+            reject(localCommandFailure(command, response.statusCode, received));
             return;
           }
           try {
@@ -63,7 +66,39 @@ export function sendLocalCommand(
     outgoing.setTimeout(35_000, () =>
       outgoing.destroy(new Error("Local session control timed out")),
     );
-    outgoing.on("error", reject);
+    outgoing.on("error", () =>
+      reject(localCommandFailure(command, undefined, "")),
+    );
     outgoing.end(body);
   });
+}
+
+/** Maps only known codes; owner payloads and exception messages never enter diagnostics. */
+function localCommandFailure(
+  command: LocalSessionCommand,
+  statusCode: number | undefined,
+  body: string,
+): AgentError {
+  let code = "plan_local_control_failed";
+  try {
+    const result: unknown = JSON.parse(body);
+    if (typeof result === "object" && result !== null) {
+      const receivedCode: unknown = Reflect.get(result, "error");
+      if (isAgentErrorCode(receivedCode)) code = receivedCode;
+    }
+  } catch {
+    // An empty or malformed response carries no safe owner diagnosis.
+  }
+  logEvent({
+    level: "warn",
+    event: "local.session.control_failed",
+    component: "LocalSessionTransport",
+    message: "Local owner control command failed",
+    metadata: { operation: command.kind, statusCode, code },
+  });
+  return new AgentError(
+    statusCode === 403
+      ? "plan_local_owner_unverified"
+      : "plan_local_control_failed",
+  );
 }

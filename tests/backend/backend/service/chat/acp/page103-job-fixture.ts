@@ -7,6 +7,7 @@ import { PICA_TOOL_OUTCOME } from "@/backend/service/chat/PicaToolSchemas";
 import { deferred } from "../../agents/page81-resource-fixture";
 import { ASSIGNMENT, FIRST, OWNER, SESSION } from "../page48-chat-fixture";
 
+import type { PicaAcpJobPool } from "@/backend/service/chat/acp/PicaAcpPoolOpening";
 import type {
   AcpSessionListener,
   AcpSteerOutcome,
@@ -112,6 +113,7 @@ export class PicaJobWorld {
     administration: Partial<
       Pick<PicaAcpJobDependencies, "adminTools" | "tools">
     > = {},
+    pool?: PicaAcpJobPool,
   ) {
     const agent = {
       ...ASSIGNMENT,
@@ -177,6 +179,7 @@ export class PicaJobWorld {
         },
         resumeSessionId,
         gate: (task) => task(),
+        ...(pool ? { pool } : {}),
       },
     );
   }
@@ -258,6 +261,11 @@ export class PicaJobWorld {
         return DESCRIPTOR;
       },
       openMcp: () => DESCRIPTOR,
+      openMcpChannel: () => ({
+        descriptor: DESCRIPTOR,
+        close: () => undefined,
+      }),
+      attachMcpChannel: () => undefined,
       activateTurn: (turn) => {
         if (this.reserved?.id !== turn.id) return false;
         this.binding = turn;

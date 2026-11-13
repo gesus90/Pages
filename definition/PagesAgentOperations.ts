@@ -1,7 +1,9 @@
 import { AGENT_TICKET_NAVIGATION_READ_OPERATIONS } from "./AgentTicketNavigation.js";
 
+import type { AgentFileResult } from "./AgentFileOperations.js";
 import type { AutomationReadResult } from "./AutomationOperations";
 import type { AgentPlanStepProgressReceipt } from "./AgentPlanStepProgress.js";
+import type { AgentSwarmToolResult } from "./AgentPlanSwarmOperations.js";
 import type { AgentPlanStepReportReceipt } from "./AgentPlanStepReport.js";
 import type { AgentPlanWorkView } from "./AgentPlanWork.js";
 import type { AgentPlanCleanupFailure } from "./AgentPlanCleanupResource.js";
@@ -213,9 +215,11 @@ export interface AgentWikiSearch {
 export interface PagesAgentReadResponse {
   readonly apiVersion: "1";
   readonly result:
+    | AgentFileResult
     | AgentPlanWorkView
     | AgentPlanStepReportReceipt
     | AgentPlanStepProgressReceipt
+    | AgentSwarmToolResult
     | AgentAssetDownload
     | AgentProjectReference
     | AgentProjectList
@@ -342,10 +346,16 @@ export const AGENT_REJECTION_REASONS = [
   "element_missing",
   "element_exists",
   "plan_script_invalid",
+  "swarm_invalid",
+  "swarm_remote_unsupported",
   "plan_script_profile_missing",
   "plan_name_taken",
   "template_name_taken",
   "plan_schema_unsupported",
+  "source_not_visible",
+  "plan_user_team_read_only",
+  "clone_request_invalid",
+  "clone_failed",
   "plan_running",
   "plan_run_unavailable",
   "plan_run_unreadable",

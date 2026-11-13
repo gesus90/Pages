@@ -1,15 +1,12 @@
-import { randomUUID } from "node:crypto";
-
-import { withPortlessPlanGroups } from "@/definition/AgentPlanGroupUpgrade";
-import { planExecutionIssues } from "@/definition/AgentPlanGraph";
-import { readPlanInput } from "@/backend/agents/AgentPlanInput";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { isActivePlanRun } from "@/definition/AgentPlanRunState";
 import { ProjectRunsActiveError } from "@/backend/error/ProjectErrors";
-import { requireCredentialFreeText } from "@/backend/security/AgentTextSafety";
 import { emptyAgentPlan } from "@/definition/AgentPlan";
 import { withReadScope } from "@/backend/database/ReadScope";
+import { canRunPlan, isPlanAdministrator } from "@/definition/AgentPlanTeam";
 
+import { reviseAgentPlan } from "./AgentPlanRevision";
+import { AgentPlanSettings } from "./AgentPlanSettings";
 import { planDependenciesForChannel } from "./AgentPlanChannel";
 import { withRunCommand } from "./runs/RunCommandView";
 import {
@@ -26,21 +23,17 @@ import { recoverPlanStartup } from "./recovery/AgentPlanStartupRecovery";
 import { AgentPlanStartActions } from "./AgentPlanStartActions";
 import { validatePlanReferences } from "./AgentPlanReferences";
 import { requireAgentAdministrator } from "./AgentServiceAccess";
-import {
-  planOwnership,
-  requireOwnerForProjectChange,
-} from "./AgentPlanOwnership";
 import { AgentPlanScripts } from "./AgentPlanScripts";
 import { AgentPlanConfigurationPins } from "./AgentPlanConfigurationPins";
 import { AgentPlanCloning } from "./AgentPlanCloning";
 import { planTaskBindings } from "./AgentPlanTaskBindings";
-import { requireNoNewGitCloseout } from "./AgentPlanGitCloseoutLegacy";
 import { AgentPlanTeamReads } from "./diagnosis/AgentPlanTeamReads";
 import { AgentPlanTeamService } from "./AgentPlanTeamService";
-import { canRunPlan, isPlanAdministrator } from "@/definition/AgentPlanTeam";
 
+import type { AgentPlanSettingsInput } from "./AgentPlanSettings";
 import type { ActorChannel } from "@/backend/auth/McpActorContext";
 import type { PlanDependencies } from "./AgentPlanDependencies";
+import type { CloneJournal } from "./AgentPlanCloning";
 import type { AgentPlanCloneInput } from "./AgentPlanClone";
 import type {
   AgentPlanContext,
@@ -446,6 +439,20 @@ export class AgentPlanService extends AgentPlanTeamReads {
     });
   }
 
+  /** Saves editor settings and access audit atomically; ordinary graph saves keep ownership. */
+  public async saveSettings(
+    userId: string,
+    id: string,
+    input: AgentPlanSettingsInput,
+  ): Promise<number> {
+    return new AgentPlanSettings({
+      ...this.dependencies,
+      teams: this.teams,
+      revise: (actorId, planId, proposed) =>
+        this.revise(actorId, planId, proposed),
+    }).save(userId, id, input);
+  }
+
   /**
    * Creates an independent complete plan under the caller's normal create rights.
    * Source revision, new graph and replay journal commit atomically; no execution is created.
@@ -454,16 +461,14 @@ export class AgentPlanService extends AgentPlanTeamReads {
     userId: string,
     sourceId: string,
     input: AgentPlanCloneInput,
-    journal?: (
-      transaction: DatabaseTransaction,
-      planId: string,
-    ) => Promise<void>,
+    journal?: CloneJournal,
   ): Promise<string> {
-    return new AgentPlanCloning({
-      plans: this.dependencies.plans,
-      access: this.dependencies.access,
-      revise: (actorId, proposed) => this.revise(actorId, null, proposed),
-    }).clone(userId, sourceId, input, journal);
+    return new AgentPlanCloning(this.dependencies).clone(
+      userId,
+      sourceId,
+      input,
+      journal,
+    );
   }
 
   /**
@@ -820,54 +825,12 @@ export class AgentPlanService extends AgentPlanTeamReads {
     id: string | null,
     input: unknown,
   ): Promise<AgentPlan> {
-    let proposed = withPortlessPlanGroups(readPlanInput(input));
-    requireCredentialFreeText(JSON.stringify(proposed));
-    const previous =
-      id === null ? null : await this.dependencies.access.require(userId, id);
-    if (previous && !previous.canEdit)
-      throw new AgentError("plan_access_denied");
-    if (previous && proposed.revision !== previous.revision)
-      throw new AgentError("plan_conflict");
-    requireNoNewGitCloseout(proposed, previous);
-    // The workspace is resolved for the person who saves: the owner's access never stands in.
-    const workspace = await this.resolveWorkspace(userId, proposed);
-    if (workspace.executionTarget)
-      proposed = { ...proposed, executionTarget: workspace.executionTarget };
-    if (previous)
-      requireOwnerForProjectChange(userId, previous, workspace.projectId);
-    if (
-      proposed.projectId !== undefined &&
-      proposed.projectId !== workspace.projectId
-    )
-      throw new AgentError("plan_context_changed");
-    proposed = await this.pins.pin(
+    return reviseAgentPlan(this.dependencies, {
       userId,
-      { ...proposed, projectId: workspace.projectId },
-      previous,
-    );
-    await validatePlanReferences(
-      this.dependencies,
-      userId,
-      proposed,
-      workspace.projectId,
-    );
-    await this.dependencies.remoteTargets?.validate(userId, proposed);
-    const plan: AgentPlan = {
-      ...proposed,
-      ...(await planOwnership(this.dependencies.access, userId, previous)),
-      id: id ?? randomUUID(),
-      projectId: workspace.projectId,
-      revision: proposed.revision ?? 1,
-    };
-    await this.dependencies.access.validateSharing(plan);
-    if (plan.nodes.some((node) => node.type === "group")) {
-      const catalog = await this.dependencies.profiles.catalog(
-        userId,
-        plan.projectId,
-      );
-      if (planExecutionIssues(plan, catalog).length === 0)
-        await this.dependencies.preparation.prepare(userId, plan);
-    }
-    return plan;
+      id,
+      input,
+      pins: this.pins,
+      resolveWorkspace: (actorId, plan) => this.resolveWorkspace(actorId, plan),
+    });
   }
 }

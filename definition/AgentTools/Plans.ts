@@ -1,3 +1,4 @@
+import { PLAN_TEAMS_SCHEMA, PLAN_OWNER_SCHEMA } from "./PlanAccessSchema.js";
 import { AGENT_READ_LIMITS } from "../AgentReadChunks.js";
 import {
   CHANGES,
@@ -43,31 +44,6 @@ const SHARING: PropertySchema = {
   },
   required: ["scope"],
   additionalProperties: false,
-};
-
-const TEAMS: PropertySchema = {
-  type: "array",
-  maxItems: 50,
-  description:
-    "The complete new team list of the plan, replacing the old one (empty: no team). Each entry is a group or department from list_groups/list_departments with the rights read, edit and run (each defaults to true; edit or run imply read). Members and leaders of a team who can open the project get its rights, each with their own access. Only the owner, an active administrator or a project manager of the project changes teams (FORBIDDEN otherwise); the change is its own revision and is recorded in the plan history.",
-  items: {
-    type: "object",
-    properties: {
-      kind: { enum: ["group", "department"] },
-      id: IDENTIFIER_SCHEMA,
-      read: { type: "boolean" },
-      edit: { type: "boolean" },
-      run: { type: "boolean" },
-    },
-    required: ["kind", "id"],
-    additionalProperties: false,
-  },
-};
-
-const OWNER: PropertySchema = {
-  ...IDENTIFIER_SCHEMA,
-  description:
-    "The account that owns the plan from now on. Only an active human administrator changes the owner (FORBIDDEN otherwise); the new owner must be an active account (INVALID_REQUEST plan_owner_invalid). The change is its own revision and is recorded in the plan history.",
 };
 
 const SEE_DESCRIPTION =
@@ -216,8 +192,8 @@ export const PLAN_WRITE_TOOLS: readonly {
         executionTarget: EXECUTION_TARGET,
         oneShot: ONE_SHOT,
         changes: CHANGES,
-        teams: TEAMS,
-        ownerId: OWNER,
+        teams: PLAN_TEAMS_SCHEMA,
+        ownerId: PLAN_OWNER_SCHEMA,
       },
       optionalKeys: [
         "name",

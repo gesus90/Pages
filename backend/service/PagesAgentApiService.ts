@@ -6,6 +6,7 @@ import { loggedOperation } from "@/backend/logging/LoggedOperation";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { McpAuthorizationError } from "@/backend/error/McpAuthorizationError";
 import { AGENT_STEP_PROGRESS_OPERATION } from "@/definition/AgentPlanStepProgress";
+import { isAgentSwarmOperation } from "@/definition/AgentPlanSwarmOperations";
 import { AGENT_STEP_REPORT_OPERATION } from "@/definition/AgentPlanStepReport";
 
 import { resolveAgentTicketReference } from "./agents/AgentTicketValidation";
@@ -17,6 +18,8 @@ import {
 
 import type { AgentPlanStepReportService } from "./agents/AgentPlanStepReportService";
 import type { AgentPlanStepProgressService } from "./agents/AgentPlanStepProgressService";
+import type { AgentPlanSwarmService } from "./agents/swarm/AgentPlanSwarmService";
+import type { AgentSwarmOperation } from "@/definition/AgentPlanSwarmOperations";
 import type { AgentPlanWorkGate } from "./agents/AgentPlanWorkGate";
 import type { AgentTicketAssetService } from "./agents/AgentTicketAssetService";
 import type { AgentAsset } from "@/definition/PagesAgentWrites";
@@ -74,6 +77,7 @@ export class PagesAgentApiService {
   private readonly workGate: AgentPlanWorkGate | undefined;
   private readonly stepReports: AgentPlanStepReportService | undefined;
   private readonly stepProgress: AgentPlanStepProgressService | undefined;
+  private readonly swarms: AgentPlanSwarmService | undefined;
   private readonly projects: AgentProjectService;
   private readonly operations: AgentOperationRouter;
   private readonly runs: AgentRunCredentialService | null;
@@ -89,6 +93,7 @@ export class PagesAgentApiService {
           readonly workGate?: AgentPlanWorkGate;
           readonly stepReports?: AgentPlanStepReportService;
           readonly stepProgress?: AgentPlanStepProgressService;
+          readonly swarms?: AgentPlanSwarmService;
           readonly runs?: AgentRunCredentialService;
           readonly downloads?: AgentAssetDownloadService;
           readonly upload?: (
@@ -104,6 +109,7 @@ export class PagesAgentApiService {
     this.workGate = named?.workGate;
     this.stepReports = named?.stepReports;
     this.stepProgress = named?.stepProgress;
+    this.swarms = named?.swarms;
     this.projects = projects;
     this.operations = operations;
     this.publish = named?.upload;
@@ -227,6 +233,8 @@ export class PagesAgentApiService {
       return this.reportStep(identity, input.parameters);
     if (input.operation === AGENT_STEP_PROGRESS_OPERATION)
       return this.reportProgress(identity, input.parameters);
+    if (isAgentSwarmOperation(input.operation))
+      return this.callSwarm(scope, input.operation, input.parameters);
     if (scope.reach === "tickets" && !isRunTicketCall(scope, input.parameters))
       throw new AgentOperationError("FORBIDDEN");
     if (input.operation === "assets.upload.prepare")
@@ -257,6 +265,19 @@ export class PagesAgentApiService {
     return {
       apiVersion: "1",
       result: await this.stepProgress.update(identity, parameters),
+    };
+  }
+
+  /** The credential names run and step; only that swarm and only its side's tools answer (PAGE-313). */
+  private async callSwarm(
+    scope: AgentRunScope,
+    operation: AgentSwarmOperation,
+    parameters: unknown,
+  ): Promise<PagesAgentReadResponse> {
+    if (!this.swarms) throw new AgentOperationError("FORBIDDEN");
+    return {
+      apiVersion: "1",
+      result: await this.swarms.handle(scope, operation, parameters),
     };
   }
 

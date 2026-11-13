@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { emptyPlanLoop } from "@/definition/AgentPlanLoop";
 import { clonePlanGraph } from "@/backend/service/agents/AgentPlanClone";
 
 import type { AgentPlanInput, AgentPlanStep } from "@/definition/AgentPlan";
@@ -98,4 +99,81 @@ describe("cloning plan graphs", () => {
       ),
     ).toThrow();
   });
+});
+
+function loopWithNestedGroup(): ReturnType<typeof emptyPlanLoop> {
+  const member: AgentPlanStep = {
+    ...step,
+    id: "member",
+    bindings: { count: { kind: "stack", stackId: "stack", output: "count" } },
+  };
+  return {
+    ...emptyPlanLoop("loop", "Loop", { x: 0, y: 0 }),
+    steps: [
+      {
+        id: "group",
+        type: "group" as const,
+        name: "Group",
+        x: 0,
+        y: 0,
+        steps: [member],
+        parameters: [],
+        bindings: {},
+        decisions: [
+          {
+            id: "decision",
+            type: "decision" as const,
+            x: 0,
+            y: 0,
+            input: { kind: "result" as const, stepId: "member" },
+          },
+        ],
+      },
+    ],
+    while: { sourceNodeId: "member", outputPath: "$.continue" },
+  };
+}
+
+it("remaps stack bindings, decisions and groups inside loops without retaining source identities", () => {
+  const copy = clonePlanGraph(
+    {
+      ...plan,
+      nodes: [
+        {
+          id: "stack",
+          type: "stack",
+          name: "Stack",
+          x: 0,
+          y: 0,
+          entries: [{ id: "entry", type: "task", taskId: "ticket" }],
+        },
+        loopWithNestedGroup(),
+      ],
+      edges: [],
+    },
+    { name: "Copy", expectedRevision: 1 },
+  );
+  const stack = copy.nodes[0];
+  const copiedLoop = copy.nodes[1];
+  if (stack?.type !== "stack" || copiedLoop?.type !== "loop")
+    throw new Error("missing frames");
+  const group = copiedLoop.steps[0];
+  if (group?.type !== "group") throw new Error("missing nested group");
+  const entry = stack.entries[0];
+  const member = group.steps[0];
+  const decision = group.decisions?.[0];
+  if (!entry || !member || !decision || !copiedLoop.while)
+    throw new Error("missing copied members");
+  expect(stack.id).not.toBe("stack");
+  expect(entry.id).not.toBe("entry");
+  expect(group.id).not.toBe("group");
+  expect(member.id).not.toBe("member");
+  expect(member.bindings.count).toEqual({
+    kind: "stack",
+    stackId: stack.id,
+    output: "count",
+  });
+  expect(decision.id).not.toBe("decision");
+  expect(decision.input).toEqual({ kind: "result", stepId: member.id });
+  expect(copiedLoop.while.sourceNodeId).toBe(member.id);
 });

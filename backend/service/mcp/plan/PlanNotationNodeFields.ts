@@ -268,6 +268,25 @@ function readGroup(
   };
 }
 
+/** A swarm (PAGE-313) writes its nested settings as JSON; the plan reader checks them. */
+function readSwarm(
+  attributes: PlanNotationAttributes,
+): Record<string, unknown> {
+  const name = attributes.text("name");
+  const directory = attributes.text("directory");
+  return {
+    ...(name === undefined ? {} : { name }),
+    task: attributes.json("task"),
+    main: attributes.json("main"),
+    workers: attributes.json("workers"),
+    ...(directory === undefined ? {} : { directory }),
+    timeoutMinutes: attributes.json("timeoutMinutes"),
+    ...(attributes.has("executionTarget")
+      ? { executionTarget: attributes.json("executionTarget") }
+      : {}),
+  };
+}
+
 const FIELD_READERS: Readonly<Record<PlanNotationNodeType, FieldReader>> = {
   start: () => ({}),
   end: () => ({}),
@@ -284,6 +303,7 @@ const FIELD_READERS: Readonly<Record<PlanNotationNodeType, FieldReader>> = {
     file: attributes.has("file") ? attributes.json("file") : null,
   }),
   decision: readDecision,
+  swarm: readSwarm,
   variable: (attributes) => ({ name: attributes.text("name") }),
 };
 

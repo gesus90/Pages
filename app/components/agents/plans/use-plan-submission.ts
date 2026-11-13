@@ -2,9 +2,16 @@ import { useCallback, useEffect, useRef } from "react";
 
 import { planDraftContents } from "./use-plan-draft";
 
+import type { AgentPlanTeam } from "@/definition/AgentPlanTeam";
 import type { useFetcher } from "react-router";
 import type { AgentPlanActionResult } from "@/app/lib/agent-plan-response";
 import type { AgentPlanInput } from "@/definition/AgentPlan";
+
+/** Explicit access fields saved with the edit dialog, separate from its graph. */
+export interface PlanEditorAccess {
+  readonly teams?: readonly AgentPlanTeam[];
+  readonly ownerId?: string;
+}
 
 type PlanCommand = ReturnType<typeof useFetcher<AgentPlanActionResult>>;
 
@@ -31,20 +38,26 @@ export function usePlanSubmission(input: {
   readonly planId: string;
   readonly currentDraft: () => AgentPlanInput;
   readonly submitted: React.RefObject<AgentPlanInput | null>;
-}): (draft: AgentPlanInput) => void {
+}): (draft: AgentPlanInput, access?: PlanEditorAccess) => void {
   const { command, planId, currentDraft, submitted } = input;
   const { submit, state, data: answer } = command;
   // A request counts as running from the call on, before React shows the fetcher as submitting.
   const isRunning = useRef(false);
   const isWaiting = useRef(false);
   const sent = useRef(0);
+  const waitingAccess = useRef<PlanEditorAccess | undefined>(undefined);
   const send = useCallback(
-    (draft: AgentPlanInput): void => {
+    (draft: AgentPlanInput, access?: PlanEditorAccess): void => {
       const token = ++sent.current;
       isRunning.current = true;
       submitted.current = draft;
       void submit(
-        { intent: "save-plan", planId, plan: JSON.stringify(draft) },
+        {
+          intent: "save-plan",
+          planId,
+          plan: JSON.stringify(draft),
+          ...(access ? { access: JSON.stringify(access) } : {}),
+        },
         { method: "post", action: "/agents/plans", flushSync: true },
       ).finally(() => {
         // A request that never reached the server must not keep later saves waiting.
@@ -60,15 +73,20 @@ export function usePlanSubmission(input: {
     isWaiting.current = false;
     if (answer?.intent !== "save-plan" || !answer.ok) return;
     const next = currentDraft();
+    const access = waitingAccess.current;
+    waitingAccess.current = undefined;
     if (
+      access ||
       planDraftContents(next) !== planDraftContents(submitted.current ?? next)
     )
-      send(next);
+      send(next, access);
   }, [state, answer, currentDraft, submitted, send]);
   return useCallback(
-    (draft: AgentPlanInput): void => {
-      if (isRunning.current) isWaiting.current = true;
-      else send(draft);
+    (draft: AgentPlanInput, access?: PlanEditorAccess): void => {
+      if (isRunning.current) {
+        isWaiting.current = true;
+        waitingAccess.current = access ?? waitingAccess.current;
+      } else send(draft, access);
     },
     [send],
   );

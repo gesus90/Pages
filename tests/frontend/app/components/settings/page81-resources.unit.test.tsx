@@ -100,3 +100,85 @@ it("shows occupied slots, FIFO wait reasons, memory and failed cleanup without p
   expect(view.container.textContent).not.toContain("owner");
   view.unmount();
 });
+
+it("lists the chat sessions each agent holds with conversation and last activity (PAGE-335)", () => {
+  fetcher.resources = {
+    options: {
+      maxConcurrentAcpSessions: 4,
+      memoryAwareScheduling: false,
+      minimumAvailableMemory: 0,
+      queueDiscipline: "fifo",
+    },
+    limitSource: "default",
+    availableMemory: 4096,
+    problem: null,
+    active: [
+      {
+        instanceId: "chat-a",
+        userId: "agent-1",
+        provider: "claude_code",
+        runId: null,
+        stepId: null,
+        state: "idle",
+        isPaused: false,
+        since: "2026-11-12T14:00:00.000Z",
+      },
+    ],
+    waiting: [],
+    leftovers: [],
+    chatSessions: [
+      {
+        instanceId: "chat-a",
+        agentId: "agent-1",
+        agentName: "Ed",
+        conversation: "Gruppe „A-Team“",
+        state: "idle",
+        lastActivityAt: "2026-11-12T14:00:00.000Z",
+      },
+      {
+        instanceId: "chat-b",
+        agentId: "agent-1",
+        agentName: "Ed",
+        conversation: "Chat mit Igor",
+        state: "busy",
+        lastActivityAt: "2026-11-12T14:05:00.000Z",
+      },
+    ],
+  };
+  renderCard();
+  expect(screen.getByText("Chat-Sitzungen der Agents")).toBeTruthy();
+  expect(screen.getByText("Ed · 2 Sitzungen")).toBeTruthy();
+  expect(
+    screen.getByText("Chat mit Igor · antwortet gerade", { exact: false }),
+  ).toBeTruthy();
+  expect(
+    screen.getByText("Gruppe „A-Team“ · ruht bis zur nächsten Runde", {
+      exact: false,
+    }),
+  ).toBeTruthy();
+  expect(
+    screen.getByText("Chat-Sitzung von Ed · Gruppe „A-Team“"),
+  ).toBeTruthy();
+});
+
+it("says when no agent holds a chat session", () => {
+  fetcher.resources = {
+    options: {
+      maxConcurrentAcpSessions: 4,
+      memoryAwareScheduling: false,
+      minimumAvailableMemory: 0,
+      queueDiscipline: "fifo",
+    },
+    limitSource: "default",
+    availableMemory: 4096,
+    problem: null,
+    active: [],
+    waiting: [],
+    leftovers: [],
+    chatSessions: [],
+  };
+  renderCard();
+  expect(
+    screen.getByText("Kein Agent hält gerade eine Chat-Sitzung offen."),
+  ).toBeTruthy();
+});

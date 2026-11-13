@@ -62,6 +62,12 @@ const WITHOUT_OPERATION_ID = [
   "save_ticket_work",
   "report_step_result",
   "update_step_progress",
+  // The swarm tools of PAGE-313 act only on the board of the session's own run, like the step report.
+  "swarm_assign",
+  "swarm_cancel",
+  "swarm_finish",
+  "swarm_lock",
+  "swarm_unlock",
 ];
 
 describe("the MCP tool catalog", () => {

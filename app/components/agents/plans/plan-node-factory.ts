@@ -6,6 +6,7 @@ import {
 import { emptyPlanLoop } from "@/definition/AgentPlanLoop";
 import { emptyPlanStack } from "@/definition/AgentPlanStack";
 import { emptyPlanAsset } from "@/definition/AgentPlanAsset";
+import { newPlanSwarm } from "@/definition/AgentPlanSwarm";
 import { createRandomUuid } from "@/app/lib/random-uuid";
 import type {
   AgentPlanInput,
@@ -120,6 +121,7 @@ function containerNode(
   if (kind === "loop") return emptyPlanLoop(base.id, reference, base);
   if (kind === "decision") return emptyPlanDecision(base.id, base);
   if (kind === "stack") return emptyPlanStack(base.id, reference, base);
+  if (kind === "swarm") return newPlanSwarm(base);
   return kind === "asset" ? emptyPlanAsset(base.id, reference, base) : null;
 }
 
