@@ -38,10 +38,7 @@ import {
 } from "./AgentPlanRemoteResolvedCommand";
 import { AgentPlanRemoteSources } from "./AgentPlanRemoteSources";
 import { remoteTodoChecklists } from "./AgentPlanRemoteChecklist";
-import {
-  isOriginalRemoteJob,
-  pauseQueuedRemoteRun,
-} from "./AgentPlanRemoteCancellation";
+import { isOriginalRemoteJob } from "./AgentPlanRemoteCancellation";
 import {
   completedGatedRemote,
   remoteAssessmentTerms,
@@ -122,7 +119,7 @@ interface RemoteExecutionDependencies {
     | "historyPending"
     | "contact"
   > &
-    Partial<Pick<RunnerService, "enqueueRetry">>;
+    Partial<Pick<RunnerService, "enqueueRetry" | "pauseExecution">>;
   readonly provider: Pick<RunnerOpenRouterService, "catalog">;
   readonly runs: Pick<AgentPlanRunRepository, "find">;
 }
@@ -400,7 +397,35 @@ export class AgentPlanRemoteExecution {
 
   /** Queue pause is replayable and cannot kill a job that has already acquired its launch claim. */
   public async pause(run: AgentPlanRun): Promise<void> {
-    await pauseQueuedRemoteRun(run, this.dependencies.runners);
+    await this.setPaused(run, true);
+  }
+
+  /** Resumes the original remote workers; neither their claims nor session IDs change. */
+  public async resume(run: AgentPlanRun): Promise<void> {
+    await this.setPaused(run, false);
+  }
+
+  private async setPaused(run: AgentPlanRun, isPaused: boolean): Promise<void> {
+    await Promise.all(
+      allPlanRunResults(run).map(async (step) => {
+        const execution = step.execution;
+        if (execution?.target.kind !== "remote") return;
+        const job = await this.dependencies.runners.progress(
+          execution.target.connectionId,
+          run.id,
+          execution.attemptId,
+        );
+        if (isOriginalRemoteJob(run, step, job)) {
+          if (!this.dependencies.runners.pauseExecution)
+            throw new AgentError("plan_runner_control_update_required");
+          await this.dependencies.runners.pauseExecution(
+            execution.target.connectionId,
+            job.jobId,
+            isPaused,
+          );
+        }
+      }),
+    );
   }
 
   /** Adds current transport health to confirmed job facts without mutating the stored execution state. */

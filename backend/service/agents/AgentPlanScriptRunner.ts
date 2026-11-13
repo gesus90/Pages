@@ -1,9 +1,12 @@
+import { planPauseGate } from "./AgentPlanPauseGate";
+
 import { randomUUID } from "node:crypto";
 
 import { AgentPlanPausedError } from "@/backend/error/AgentPlanPausedError";
 import { AgentError } from "@/backend/error/AgentErrors";
 
-import { executeScriptProcess } from "./AgentPlanScriptProcess";
+import { executeOwnedScript } from "./AgentPlanScriptOwner";
+import { scriptRuntimeDirectory } from "./AgentPlanScriptResources";
 import { planStackScriptInput } from "./stack/AgentPlanStackInputs";
 import { scriptInputJson } from "./AgentPlanScriptInputs";
 import { assessPlanScriptResult } from "./AgentPlanScriptResult";
@@ -53,14 +56,16 @@ export class AgentPlanScriptRunner {
       const input = scriptInputJson(run, script);
       await this.preparation.reauthorize(run.userId, snapshot.plan, script);
       control.signal.throwIfAborted();
-      record = initialRecord(run, script);
+      record =
+        run.steps.find((step) => step.id === script.step.id)?.script ??
+        initialRecord(run, script);
       await control.save(record);
-      const resources = await createScriptResources(
-        record.instanceId,
-        script.step.content,
-      );
+      const resources = record.processId
+        ? scriptRuntimeDirectory(record.instanceId)
+        : await createScriptResources(record.instanceId, script.step.content);
       await this.preparation.reauthorize(run.userId, snapshot.plan, script);
-      record = await executeScriptProcess({
+      record = await executeOwnedScript({
+        runId: run.id,
         record,
         program: script.interpreter.path,
         resources,
@@ -70,6 +75,7 @@ export class AgentPlanScriptRunner {
         claimStart: control.claimStart,
         save: control.save,
       });
+      await planPauseGate(run.id).wait(control.signal);
       if (record.closeout === "confirmed")
         await removeScriptResources(record.instanceId);
       return completedResult(record, script);

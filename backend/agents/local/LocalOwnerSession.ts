@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 
+import { controlOwnedNamespace } from "@/backend/agents/cli/CliNamespaceControl";
 import { AgentSessionJournal } from "@/backend/service/agents/sessions/AgentSessionJournal";
 import { AgentSessionRecorder } from "@/backend/service/agents/sessions/AgentSessionRecorder";
 import { UNKNOWN_CONTEXT } from "@/backend/service/agents/sessions/AgentSessionUsage";
@@ -18,6 +19,7 @@ import { localDeferred } from "./LocalDeferred";
 import { LocalAcpJournalListener } from "./LocalAcpJournalListener";
 import { readLocalRecord, writeLocalRecord } from "./LocalSessionFiles";
 
+import type { AcpNamespaceOwner } from "@/definition/AcpResource";
 import type { Database } from "@/backend/database/Database";
 import type { AgentSessionState } from "@/definition/AgentSessionJournal";
 import type {
@@ -68,6 +70,11 @@ export class LocalOwnerSession {
   private readonly bearer = localDeferred<string>();
   private closing: Promise<PlanSessionClosed> | null = null;
   private cancellation: Promise<void> | null = null;
+  private namespace:
+    import("@/definition/AcpResource").AcpNamespaceOwner | undefined;
+  private isPaused = false;
+  private executionMilliseconds = 0;
+  private observedAt = Date.now();
   private checkingStop = false;
   private stopTimer: ReturnType<typeof setInterval> | null = null;
   private hasJournalFailure = false;
@@ -114,6 +121,8 @@ export class LocalOwnerSession {
     const input = await this.prepare(launch);
     await writeLocalRecord(file, launch);
     this.launch = launch;
+    this.executionMilliseconds = 0;
+    this.observedAt = Date.now();
     await writeLocalRecord(
       path.join(this.manifest.directory, "current.json"),
       launch,
@@ -303,7 +312,11 @@ export class LocalOwnerSession {
       );
     this.listener ??= new LocalAcpJournalListener(this.recorder, this.journal);
     await this.recorder.drained();
-    return { ...prepared.input, journal: this.listener };
+    return {
+      ...prepared.input,
+      options: { ...prepared.input.options, timeoutMinutes: 0 },
+      journal: this.listener,
+    };
   }
 
   private async bearerFor(launch: LocalSessionLaunch): Promise<string | null> {
@@ -329,11 +342,14 @@ export class LocalOwnerSession {
         .catch((error: unknown) => this.fail(error));
     };
     return {
-      started: (details) =>
+      started: (details) => {
+        this.namespace = details.namespace;
         emit({
           kind: "started",
           details: { ...details, arguments: [...details.arguments] },
-        }),
+        });
+        void this.checkStop();
+      },
       identified: (sessionId) => emit({ kind: "identified", sessionId }),
       capabilities: (capabilities) =>
         emit({ kind: "capabilities", capabilities }),
@@ -505,7 +521,33 @@ export class LocalOwnerSession {
     this.checkingStop = true;
     try {
       const run = await this.dependencies.runs.find(this.launch.runId);
-      if (!run || run.stopRequested) await this.cancel();
+      const now = Date.now();
+      if (!this.isPaused && this.isTurnPending)
+        this.executionMilliseconds += now - this.observedAt;
+      this.observedAt = now;
+      if (
+        this.launch.timeoutMinutes > 0 &&
+        this.executionMilliseconds >= this.launch.timeoutMinutes * 60_000
+      ) {
+        this.controller.abort(
+          new DOMException("Turn deadline expired", "TimeoutError"),
+        );
+        await this.close();
+        return;
+      }
+      if (!run || run.stopRequested) {
+        if (this.namespace) await controlOwnedNamespace(this.namespace, "stop");
+        await this.cancel();
+      } else if (this.namespace) {
+        const isPaused = run.status === "paused" || run.status === "pausing";
+        if (isPaused !== this.isPaused) {
+          await controlOwnedNamespace(
+            this.namespace,
+            isPaused ? "pause" : "resume",
+          );
+          this.isPaused = isPaused;
+        }
+      }
     } catch (error: unknown) {
       // Database loss does not fabricate a user Stop or terminate a surviving native session.
       logCaughtError("LocalOwnerSession", error);

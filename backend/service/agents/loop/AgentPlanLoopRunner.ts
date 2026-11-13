@@ -204,6 +204,7 @@ export class AgentPlanLoopRunner {
     if (!host.current(loop.id)?.count) await host.authorize();
     await this.begin(loop, host);
     for (;;) {
+      if (!host.signal.aborted) await host.waitUntilRunning?.();
       const completion = completionOf(this.record(loop, host));
       if (completion)
         return this.end(

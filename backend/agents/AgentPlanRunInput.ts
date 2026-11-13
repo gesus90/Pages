@@ -47,7 +47,8 @@ export function readPlanRun(input: unknown): AgentPlanRun {
     status,
     stopRequested,
     ...readWriterWait(run, { status, stopRequested }),
-    ...(run.controlError === "plan_step_failed"
+    ...(run.controlError === "plan_step_failed" ||
+    run.controlError === "plan_stop_unconfirmed"
       ? { controlError: run.controlError }
       : {}),
     ...readPlanPauseBoundary(run.pauseBoundary),

@@ -63,18 +63,6 @@ export function planWritingWorkspaces(
   ];
 }
 
-/** The rounds a cycle has behind it cannot be compared with another revision of its plan. */
-function requireSameBranchingRevision(
-  previous: AgentPlanSnapshot,
-  next: AgentPlanSnapshot,
-): void {
-  if (
-    (hasPlanBranching(previous.plan) || hasPlanBranching(next.plan)) &&
-    previous.plan.revision !== next.plan.revision
-  )
-    throw new AgentError("plan_branching_revision");
-}
-
 function requireBoundary(
   run: AgentPlanRun,
   previous: AgentPlanSnapshot,
@@ -83,7 +71,7 @@ function requireBoundary(
   const boundary = run.pauseBoundary;
   if (!boundary || run.stopRequested || run.status !== "paused")
     throw new AgentError("plan_run_unavailable");
-  requireSameBranchingRevision(previous, next);
+
   // A paused run keeps the context it started with, its plan target included.
   if (
     previous.plan.projectId !== next.plan.projectId ||
@@ -222,14 +210,14 @@ function requireStartedLoops(
     if (record.count === null) continue;
     const old = previous.plan.nodes.find((node) => node.id === record.id);
     const adopted = next.plan.nodes.find((node) => node.id === record.id);
-    const members = (snapshot: AgentPlanSnapshot): string =>
-      JSON.stringify(
-        snapshot.steps.filter((step) => step.loopId === record.id),
-      );
-    if (
-      JSON.stringify(old) !== JSON.stringify(adopted) ||
-      members(previous) !== members(next)
-    )
+    if (old?.type !== "loop" || adopted?.type !== "loop")
+      throw new AgentError("plan_context_changed");
+    const shape = (loop: typeof old): string =>
+      JSON.stringify({
+        ...loop,
+        steps: loop.steps.map((step) => ({ id: step.id, type: step.type })),
+      });
+    if (shape(old) !== shape(adopted))
       throw new AgentError("plan_context_changed");
   }
 }
@@ -305,7 +293,8 @@ function resumedSteps(
     planFlowSequence(next.plan).order,
   ).map((node) => {
     const previous = run.steps.find((step) => step.id === node.id);
-    if (previous?.status === "succeeded") return previous;
+    if (previous?.status === "succeeded" || previous?.status === "running")
+      return previous;
     const snapshot = next.steps.find((step) => step.step.id === node.id);
     return {
       id: node.id,
@@ -409,7 +398,14 @@ function keptContracts(
   previous: AgentPlanSnapshot,
   proposed: AgentPlanSnapshot,
 ): AgentPlanSnapshot {
-  const completed = new Set(run.pauseBoundary?.completedStepIds);
+  const completed = new Set([
+    ...(run.pauseBoundary?.completedStepIds ?? []),
+    ...run.steps
+      .filter(
+        (step) => step.status === "running" || step.status === "succeeded",
+      )
+      .map((step) => step.id),
+  ]);
   return {
     ...proposed,
     remoteSteps: proposed.remoteSteps?.map((step) =>

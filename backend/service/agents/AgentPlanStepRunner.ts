@@ -9,6 +9,9 @@ import { AgentProviderError } from "@/backend/error/AgentProviderError";
 import { isApiProvider } from "@/definition/AgentConnection";
 import { logCaughtError } from "@/backend/logging/Logger";
 
+import { planTurnTimeout } from "./AgentPlanTimeout";
+import { planPauseGate } from "./AgentPlanPauseGate";
+import { runPausablePlanRequest } from "./AgentPlanPausedRequest";
 import {
   closePlanSession,
   finishStartedPlanSession,
@@ -226,6 +229,8 @@ export class AgentPlanStepRunner {
     runId: string,
     status: "succeeded" | "failed" | "cancelled",
   ): Promise<void> {
+    if (status === "cancelled")
+      await this.dependencies.access.revoke(runId, null);
     await this.dependencies.execution.finishPlanRun?.(runId, status);
   }
 
@@ -263,18 +268,21 @@ export class AgentPlanStepRunner {
       node.step,
     );
     if (node.control.signal.aborted) throw new AgentPlanCancelledError();
-    if (prepared.options.timeoutMinutes > 0)
-      node.control = {
-        ...node.control,
-        signal: AbortSignal.any([
-          node.control.signal,
-          AbortSignal.timeout(prepared.options.timeoutMinutes * 60_000),
-        ]),
-      };
-    const guarded = guardPlanStepStart(node, prepared);
-    if (isApiProvider(prepared.input.agent.connection.provider))
-      return this.request(node, guarded);
-    return this.session(node, guarded);
+    const timeout = planTurnTimeout(
+      node.run.id,
+      prepared.options.timeoutMinutes * 60_000,
+      node.control.signal,
+    );
+    node.control = { ...node.control, signal: timeout.signal };
+    try {
+      await planPauseGate(node.run.id).wait(node.control.signal);
+      const guarded = guardPlanStepStart(node, prepared);
+      if (isApiProvider(prepared.input.agent.connection.provider))
+        return await this.request(node, guarded);
+      return await this.session(node, guarded);
+    } finally {
+      timeout.dispose();
+    }
   }
 
   private async pauseUnstarted(
@@ -321,10 +329,13 @@ export class AgentPlanStepRunner {
     node: NodeRun,
     prepared: PreparedPlanStep,
   ): Promise<Partial<AgentPlanStepResult>> {
+    const previous = node.run.steps.find(
+      (step) => step.id === node.step.step.id,
+    )?.session;
     await this.save(node, {
       ...createSessionRecord({
-        attemptId: initialStepAttemptId(node),
-        instanceId: randomUUID(),
+        attemptId: previous?.attemptId ?? initialStepAttemptId(node),
+        instanceId: previous?.instanceId ?? randomUUID(),
         prepared,
         contract: null,
         usesMcp: false,
@@ -339,7 +350,9 @@ export class AgentPlanStepRunner {
     };
     await this.pin(node, input.prompt);
     const output = sanitizePlanOutput(
-      await this.dependencies.execution.run(input, node.control.signal),
+      await runPausablePlanRequest(node.run.id, node.control.signal, (signal) =>
+        this.dependencies.execution.run(input, signal),
+      ),
     );
     const result = apiBusinessResult(output);
     await this.complete(node, {
@@ -482,6 +495,7 @@ export class AgentPlanStepRunner {
     terms: AgentPlanSessionTerms,
   ): Promise<Partial<AgentPlanStepResult>> {
     const turn = await session.turn;
+    await planPauseGate(node.run.id).wait(node.control.signal);
     if (node.record) node.record = withTurn(node.record, turn);
     await this.dependencies.sessions?.settle(node.record, turn);
     const reported = await this.turnReports.assess(node, turn, terms);

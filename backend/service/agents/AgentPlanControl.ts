@@ -85,12 +85,12 @@ export function planControl(
   const issue = continuationIssue(plan, run);
   return {
     ...runControlMetadata(run, canIdentify),
-    canPlay: canRunPlan(plan) && (!isActive || canIdentify),
+    canPlay: canRunPlan(plan) && !isActive,
     workspaceWait:
       canIdentify && isPlanWriterWaitActive(run)
         ? run.workspaceWait
         : undefined,
-    canRestart: canIdentify,
+    canRestart: canIdentify && !isActive,
     ...ownRunActions(run, canIdentify, issue),
     canEdit: plan.canEdit,
     ...foreignRunBlocker(plan, run, canIdentify),
@@ -182,10 +182,10 @@ export function isEndedResumable(run: AgentPlanRun): boolean {
  * Stop, also when a process hangs.
  */
 function isStoppable(run: AgentPlanRun): boolean {
-  return isActivePlanRun(run.status) || isResumablePlanRunEnd(run.status);
+  return isActivePlanRun(run.status);
 }
 
 function resumableStatus(run: AgentPlanRun, issue: string | null): boolean {
   if (run.status === "paused") return !run.stopRequested && !issue;
-  return isEndedResumable(run) && !issue;
+  return false;
 }

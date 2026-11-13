@@ -480,7 +480,10 @@ export class AgentPlanProgressRepository {
     const hasUnconfirmedCleanup =
       hasUnconfirmedLoopCloseout(run) ||
       allPlanRunResults(run).some(isCleanupUnconfirmed);
-    if (!isActivePlanRun(run.status) && !hasUnconfirmedCleanup)
+    if (
+      !isActivePlanRun(run.status) &&
+      (run.stopRequested || !hasUnconfirmedCleanup)
+    )
       await transaction.execute(
         "DELETE FROM agent_plan_workspace_locks WHERE run_id = $id;",
         { id: run.id },

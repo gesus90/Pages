@@ -35,7 +35,8 @@ export function continueRemotePlanExecution(
   if (!basis) throw new Error("Remote continuation execution missing");
   const steps = captured.run.steps.map((step) => {
     const original = run.steps.find((entry) => entry.id === step.id);
-    if (original?.status === "succeeded") return original;
+    if (original?.status === "succeeded" || original?.status === "running")
+      return original;
     return step;
   });
   const executions = basis.steps.map(

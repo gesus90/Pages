@@ -1004,7 +1004,7 @@
         "modelUnavailable": "A saved model is not (or no longer) in the catalog of its target. Nothing was saved or started and no other model was used. Choose the affected model again in the marked node.",
         "reasoningUnsupported": "A saved reasoning level is not supported by the chosen model. Nothing was saved or started and no other level was used. Choose the level again in the marked node.",
         "opencode_free_tier_refused": "OpenCode Zen refused its free tier for this request (“only within OpenCode”). Zen serves its free models only to sessions with OpenCode's own tools; Pica runs without them on purpose, plan agents are not affected. No other model was used. For Pica, choose a model of a provider with a key in Pages, such as a free OpenRouter model.",
-        "plan_stop_unconfirmed": "The stop deadline expired or cleanup failed. Reconnect the target and use Recovery → Release to retry cleanup. Reservations remain held.",
+        "plan_stop_unconfirmed": "The run is stopped. Process cleanup is not yet confirmed. Reconnect the target and use Recovery → Release to retry cleanup. A new run can start.",
         "antigravity_acp_unsupported": "Antigravity requires the official ACP adapter 1.4.4. No model was called.",
         "antigravity_acp_session_failed": "The Antigravity ACP session failed. Check the adapter, login and quota at the execution host.",
         "antigravity_configuration_unmanaged": "Additional Antigravity configuration could widen session permissions. Use the isolated Pages context.",

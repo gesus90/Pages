@@ -565,7 +565,7 @@ export interface AgentPlanRun {
   readonly continuation?: AgentPlanContinuation;
   readonly stopRequested: boolean;
   /** Safe failure of an additional session turn, separate from completed graph results. */
-  readonly controlError?: "plan_step_failed";
+  readonly controlError?: "plan_step_failed" | "plan_stop_unconfirmed";
   /** A running, non-stopped run currently awaits concrete writer admission; other states have no live wait. */
   readonly isWaitingForWorkspace?: boolean;
   readonly workspaceWait?: AgentPlanWriterWait;

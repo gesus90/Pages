@@ -5,6 +5,8 @@ import { Writable } from "node:stream";
 import { captureOwnedNamespace } from "@/backend/agents/cli/CliOwnedNamespace";
 import { sshConfigOverlayArguments } from "@/backend/agents/cli/CliSshConfigOverlay";
 
+import { planPauseGate } from "./AgentPlanPauseGate";
+
 import { AgentPlanScriptCapture } from "./AgentPlanScriptCapture";
 import { scriptEnvironment } from "./AgentPlanScriptResources";
 
@@ -13,6 +15,7 @@ import type { AgentPlanScriptRun } from "@/definition/AgentPlanScript";
 /** One authorized attempt; source and JSON input are always separate transports. */
 export interface ScriptProcessRequest {
   readonly record: AgentPlanScriptRun;
+  readonly runId?: string;
   readonly program: string;
   readonly resources: string;
   readonly input: string;
@@ -91,10 +94,20 @@ async function collectProcess(
   const abort = (): void => capture.interrupt("cancelled");
   request.signal.addEventListener("abort", abort, { once: true });
   if (request.signal.aborted) abort();
-  const timer = setTimeout(
-    () => capture.interrupt("timeout"),
-    request.timeoutSeconds * 1000,
-  );
+  let remaining = request.timeoutSeconds * 1000;
+  let wasPaused = false;
+  let observedAt = Date.now();
+  const unlisten = request.runId
+    ? planPauseGate(request.runId).listen((paused) => {
+        wasPaused = paused;
+      })
+    : undefined;
+  const timer = setInterval(() => {
+    const now = Date.now();
+    if (!wasPaused) remaining -= now - observedAt;
+    observedAt = now;
+    if (remaining <= 0) capture.interrupt("timeout");
+  }, 100);
   try {
     if (!child.pid) throw new Error("Script supervisor was not started");
     const namespace = await captureOwnedNamespace(child.pid);
@@ -109,7 +122,8 @@ async function collectProcess(
   } catch {
     capture.interrupt("io");
   } finally {
-    clearTimeout(timer);
+    clearInterval(timer);
+    unlisten?.();
     request.signal.removeEventListener("abort", abort);
   }
   let isConfirmed = false;

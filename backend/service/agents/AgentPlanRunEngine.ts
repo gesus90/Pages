@@ -12,6 +12,7 @@ import {
   withLogContext,
 } from "@/backend/logging/Logger";
 
+import { planPauseGate } from "./AgentPlanPauseGate";
 import { planNodeOutcome } from "./AgentPlanNodeOutcome";
 import {
   acquirePlanWriters,
@@ -283,7 +284,11 @@ export class AgentPlanRunEngine {
     this.dependencies.localSessions?.detachAll();
     if (this.resourceTimer) clearTimeout(this.resourceTimer);
     for (const [id, active] of this.active) {
-      if (!this.dependencies.localSessions?.detachRun(id)) continue;
+      if (
+        active.view.status !== "paused" &&
+        !this.dependencies.localSessions?.detachRun(id)
+      )
+        continue;
       this.active.delete(id);
       for (const pending of active.executions) this.pending.delete(pending);
     }
@@ -625,6 +630,10 @@ export class AgentPlanRunEngine {
         };
       },
     );
+    await planPauseGate(active.view.id)
+      .wait(controller.signal)
+      .catch(() => undefined);
+    if (active.view.stopRequested) return;
     const changes =
       outcome.status === "failed"
         ? { ...outcome, failureStop: planNodeStop(active.view, node, outcome) }
@@ -643,7 +652,11 @@ export class AgentPlanRunEngine {
     try {
       await this.writes.run(async () => {
         // A result belongs to the start it was dispatched for.
-        if (isStaleStart(active, node.id, activation)) return;
+        if (
+          active.view.stopRequested ||
+          isStaleStart(active, node.id, activation)
+        )
+          return;
         const previous = active.view;
         patchStep(
           active,

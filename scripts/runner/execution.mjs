@@ -928,13 +928,29 @@ async function executeWorker(folder) {
         isCancelReadBusy = false;
       });
   }, 250);
+  const began = Date.now();
+  let isReadingClock = false;
   const timeout =
     job.execution.timeoutSeconds === 0
       ? null
-      : setTimeout(
-          () => controller.abort("timeout"),
-          job.execution.timeoutSeconds * 1000,
-        );
+      : setInterval(() => {
+          if (isReadingClock) return;
+          isReadingClock = true;
+          void readRecord(join(folder, "pause.json"))
+            .then((paused) => {
+              const now = Date.now();
+              const excluded =
+                (paused?.totalMilliseconds ?? 0) +
+                (paused?.isPaused ? now - paused.startedAt : 0);
+              if (now - began - excluded >= job.execution.timeoutSeconds * 1000)
+                controller.abort("timeout");
+            })
+            .catch(() => controller.abort("cancelled"))
+            .finally(() => {
+              isReadingClock = false;
+            });
+        }, 100);
+
   let leaseBusy = false;
   const lease =
     job.execution.pagesAccess === 1
@@ -1007,7 +1023,7 @@ async function executeWorker(folder) {
   } finally {
     clearInterval(cancel);
     clearInterval(lease);
-    clearTimeout(timeout);
+    clearInterval(timeout);
   }
   const closeout = await cleanup(folder, job.jobId);
   const status = terminalStatus(result, closeout);

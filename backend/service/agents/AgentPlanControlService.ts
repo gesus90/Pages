@@ -268,7 +268,8 @@ export class AgentPlanControlService {
     let canResume = control.canResume;
     let block: AgentPlanResumeBlock | null = null;
     const conflict = await this.conflictOfOthers(control, context);
-    if (conflict === "own") canResume = !control.issues?.length;
+    if (conflict === "own")
+      canResume = run.status === "paused" && !control.issues?.length;
     else if (conflict) {
       canResume = false;
       block = conflict;

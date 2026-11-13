@@ -633,12 +633,7 @@ export class AgentPlanService extends AgentPlanTeamReads {
     await this.teams.recordRunAction(userId, run, "admin_run_controlled", {
       command: "stop",
     });
-    if (!(await this.ended.settleEnded(userId, run, journal))) {
-      await this.dependencies.engine.stop(id, journal);
-      if (!this.dependencies.engine.commandReceipt)
-        await this.dependencies.remoteExecution?.stop(run);
-      await this.ended.forceStuck(userId, run);
-    }
+    await this.dependencies.engine.stop(id, journal);
     return (await readPlanControlRun(this, userId, run.planId, id)).run;
   }
 

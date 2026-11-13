@@ -1,3 +1,4 @@
+import { controlOwnedNamespace } from "@/backend/agents/cli/CliNamespaceControl";
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { withBackgroundDatabaseWork } from "@/backend/database/executor/DatabaseWorkContext";
 import { readAcpResourceOptions } from "@/backend/config/AcpResourceConfig";
@@ -200,6 +201,8 @@ export class AcpResourceScheduler {
       const record = { ...current, namespace, lifecycle: "process" as const };
       await this.store.save(record);
       this.active.set(instanceId, record);
+      if (record.runId && this.pausedRuns.has(record.runId))
+        await controlOwnedNamespace(namespace, "pause");
     });
   }
 
@@ -250,6 +253,21 @@ export class AcpResourceScheduler {
   public resumeRun(runId: string): void {
     this.pausedRuns.delete(runId);
     this.wake();
+  }
+
+  /** Controls every native process of a run, including decision and swarm sessions. */
+  public async controlRun(
+    runId: string,
+    action: "pause" | "resume" | "stop",
+  ): Promise<void> {
+    await Promise.all(
+      [...this.active.values()]
+        .filter((record) => record.runId === runId)
+        .map(async (record) => {
+          if (record.namespace)
+            await controlOwnedNamespace(record.namespace, action);
+        }),
+    );
   }
 
   /** Refreshes RAM for monitoring even while capacity is full or the queue is empty. */
