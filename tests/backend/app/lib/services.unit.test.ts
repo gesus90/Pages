@@ -430,6 +430,13 @@ it("gives agents and the chat the shared accounts, wiki, plans and events", asyn
       ...world.plans,
     },
     router: world.mcp.chatOperationRouter,
+    tickets: {
+      tasks: only(vi.mocked(AnnouncingTaskService)),
+      templates: only(vi.mocked(TaskTemplateService)),
+      attachments: only(vi.mocked(TaskAttachmentService)),
+      projects: only(vi.mocked(ProjectService)),
+      users: accounts.users,
+    },
     acp: {
       bridgeUrl: "http://127.0.0.1:3100/api/v1/pica-bridge",
       workspaceRoot: "/srv/pages/pica-sessions",
