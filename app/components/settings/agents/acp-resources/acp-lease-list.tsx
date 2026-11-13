@@ -73,12 +73,11 @@ function LeaseRow({
 }): React.ReactElement {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
-  const state =
-    "state" in entry
-      ? entry.isPaused && entry.state !== "cleanup_failed"
-        ? "paused"
-        : entry.state
-      : "waiting";
+  let state = "waiting";
+  if ("state" in entry) {
+    state = entry.state;
+    if (entry.isPaused && entry.state !== "cleanup_failed") state = "paused";
+  }
   const tones: Record<string, string> = {
     cleanup_failed: "bg-warning-subtle text-warning",
     running: "bg-info-subtle text-info",

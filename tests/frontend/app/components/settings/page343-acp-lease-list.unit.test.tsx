@@ -17,6 +17,7 @@ function resources(): AcpResourceDiagnostics {
       stepId: null,
       since: "2026-11-13T10:00:00.000Z",
       state: index < 3 ? "cleanup_failed" : "running",
+      isPaused: false,
     }),
   );
   return {

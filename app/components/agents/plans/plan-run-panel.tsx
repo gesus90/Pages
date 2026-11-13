@@ -178,7 +178,11 @@ function PlanRunDecisionDialog({
   if (!action) return null;
   return (
     <Suspense fallback={null}>
-      <PlanRecoveryResumeDialog recovery={recovery} planName={planName} onClose={onClose} />
+      <PlanRecoveryResumeDialog
+        recovery={recovery}
+        planName={planName}
+        onClose={onClose}
+      />
     </Suspense>
   );
 }

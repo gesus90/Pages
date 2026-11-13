@@ -1,10 +1,12 @@
 import { expect, it, vi } from "vitest";
 
+import { hasRunningWorkerUnit } from "@/backend/agents/cli/CliWorkerUnit";
 import { AcpResourceScheduler } from "@/backend/service/agents/AcpResourceScheduler";
 import { classifyLease } from "@/backend/service/agents/resources/AcpLeaseEvidence";
 
 import { closed, completedTurn, deferred } from "./page81-resource-fixture";
 
+import type * as CliWorkerUnit from "@/backend/agents/cli/CliWorkerUnit";
 import type { PlanSession } from "@/backend/agents/AgentPlanExecution";
 import type { AcpStartLifecycle } from "@/backend/service/agents/resources/AcpStartLifecycle";
 import type {
@@ -12,6 +14,11 @@ import type {
   AcpResourceOwner,
   AcpResourceRecord,
 } from "@/definition/AcpResource";
+
+vi.mock("@/backend/agents/cli/CliWorkerUnit", async (importOriginal) => ({
+  ...(await importOriginal<typeof CliWorkerUnit>()),
+  hasRunningWorkerUnit: vi.fn(async () => false),
+}));
 
 const UNIT = "pages-acp-chat-1-0a1b2c3d.service";
 const IDENTITY: AcpNamespaceOwner = {
@@ -166,7 +173,9 @@ it("keeps the lease of a chat whose unit still runs or cannot be read", async ()
     lifecycle: "spawning",
     workerUnit: UNIT,
   });
-  settleUnits.mockRejectedValueOnce(new Error("manager unreadable"));
+  vi.mocked(hasRunningWorkerUnit).mockRejectedValueOnce(
+    new Error("manager unreadable"),
+  );
   await expect(scheduler.reconcile()).resolves.toBe(1);
   expect(records.get("chat-1")?.state).toBe("cleanup_failed");
   await expect(scheduler.reconcile()).resolves.toBe(0);

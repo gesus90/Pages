@@ -56,7 +56,12 @@ export function PlanRecoveryResumeDialog({
         {recovery.error ? (
           <p role="alert" className="mt-3 text-xs text-destructive">
             {t("plans.recovery.restartDialogError", {
-              reason: recoveryErrorText(t, recovery.error, recovery.cleanupFailure, view.stepNames),
+              reason: recoveryErrorText(
+                t,
+                recovery.error,
+                recovery.cleanupFailure,
+                view.stepNames,
+              ),
               code: recovery.error,
             })}
           </p>

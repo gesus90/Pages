@@ -1,10 +1,8 @@
-import { hasRunningWorkerUnit } from "@/backend/agents/cli/CliWorkerUnit";
-import { inspectManagedLocalOwner } from "@/backend/agents/local/LocalOwnerControl";
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { withBackgroundDatabaseWork } from "@/backend/database/executor/DatabaseWorkContext";
 import { readAcpResourceOptions } from "@/backend/config/AcpResourceConfig";
 import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
-import { logCaughtError, logEvent } from "@/backend/logging/Logger";
+import { logCaughtError } from "@/backend/logging/Logger";
 import { isAcpSessionLimit, MAX_ACP_SESSIONS } from "@/definition/AcpResource";
 
 import { AcpLeaseAdmission } from "./resources/AcpLeaseAdmission";
@@ -260,7 +258,7 @@ export class AcpResourceScheduler {
   /** Refreshes RAM for monitoring even while capacity is full or the queue is empty. */
   public async inspect(): Promise<Omit<AcpResourceDiagnostics, "leftovers">> {
     await this.refreshOptions();
-    await this.refreshMemory();
+    this.availableMemory = await readScheduledAcpMemory(this.memory);
     return {
       ...this.snapshot(),
       ...(await this.admission.records((record) =>
@@ -301,54 +299,9 @@ export class AcpResourceScheduler {
     };
   }
 
-  /**
-   * Checks uncertain leases again and releases each one whose processes are proven gone.
-   *
-   * @param runId - Only the leases of this plan run; `undefined` checks every uncertain lease.
-   * @returns How many leases stay uncertain.
-   *
-   * @remarks
-   * A registered namespace supervisor is checked against its boot and start
-   * identity; legacy leases without containment evidence remain uncertain.
-   */
-  public async reconcile(runId?: string): Promise<number> {
-    const uncertain = [...this.active.values()].filter(
-      (record) =>
-        record.state === "cleanup_failed" &&
-        (runId === undefined || record.runId === runId),
-    );
-    let remaining = 0;
-    for (const record of uncertain) {
-      let reason: string | null = null;
-      try {
-        if (
-          record.runId === null &&
-          !record.namespace &&
-          !this.unverifiedLocal.has(record.instanceId) &&
-          inspectManagedLocalOwner(record.instanceId) !== "owned"
-        ) {
-          if (record.workerUnit) {
-            if (!(await hasRunningWorkerUnit(record.instanceId)))
-              reason = "unit_inactive";
-          } else if (Date.now() - Date.parse(record.since) >= 15 * 60_000) {
-            reason = "unbound_expired";
-          }
-        }
-        if (reason && (await this.checks.releaseIfUnchanged(record))) {
-          logEvent({
-            level: "info",
-            event: "agent.acp_lease.released",
-            component: "AcpResourceScheduler",
-            message: `Released ACP reservation ${record.instanceId}: ${reason}, age ${Date.now() - Date.parse(record.since)} ms`,
-          });
-          continue;
-        }
-      } catch (caughtError: unknown) {
-        logCaughtError("AcpResourceScheduler", caughtError);
-      }
-      remaining += 1;
-    }
-    return remaining;
+  /** Checks uncertain leases again and returns how many remain. */
+  public reconcile(runId?: string): Promise<number> {
+    return this.checks.reconcile(runId);
   }
 
   /** Cancels all waiters and drains sessions; uncertain leases survive server exit. */
@@ -567,7 +520,7 @@ export class AcpResourceScheduler {
     while (this.canAdmit()) {
       const request = this.waiting.find((entry) => !this.isPaused(entry));
       if (!request) return;
-      await this.refreshMemory();
+      this.availableMemory = await readScheduledAcpMemory(this.memory);
       // A live reduction or shutdown may have happened during the memory probe.
       if (!this.canAdmit()) return;
       if (
@@ -697,10 +650,6 @@ export class AcpResourceScheduler {
       return;
     this.lastLeaseCheck = Date.now();
     await this.reconcile();
-  }
-
-  private async refreshMemory(): Promise<void> {
-    this.availableMemory = await readScheduledAcpMemory(this.memory);
   }
 
   private isPaused(request: WaitingRequest): boolean {

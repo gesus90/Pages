@@ -33,7 +33,12 @@ export function PlanRecoveryRestart({
   else if (hasError) actionLabel = t("plans.recovery.restartDialogRetry");
   return (
     <footer className="mt-6 flex justify-end gap-2">
-      <Button size="sm" variant="outline" disabled={isPending} onClick={onClose}>
+      <Button
+        size="sm"
+        variant="outline"
+        disabled={isPending}
+        onClick={onClose}
+      >
         {t("settings.agents.cancel")}
       </Button>
       <Button size="sm" isPending={isPending} onClick={handleRestart}>

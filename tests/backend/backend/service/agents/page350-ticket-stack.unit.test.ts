@@ -145,14 +145,13 @@ it.each([["ticket-1", "ticket-2"], ["ticket-2"]])(
           flow("loop", "end"),
         ],
       });
-      expect(plan.snapshot.steps[0]?.prepared.parameters.assetInputs).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            parameter: "aufgabe",
-            ticket: expect.objectContaining({ id: ticketIds[0] }),
-          }),
-        ]),
-      );
+      const assets = plan.snapshot.steps[0]?.prepared.parameters.assetInputs;
+      expect(
+        assets?.some(
+          (asset) =>
+            asset.parameter === "aufgabe" && asset.ticket.id === ticketIds[0],
+        ),
+      ).toBe(true);
       const started = await plan.engine.start("owner", plan.snapshot);
       const run = await finishedRun(plan, started.id);
       expect(run.status).toBe("succeeded");

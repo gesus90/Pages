@@ -238,6 +238,38 @@ export async function settleWorkerUnits(
   return [...running].filter((name) => name.startsWith(prefix)).length;
 }
 
+/** Stops the recorded unit and confirms that the service manager no longer runs it. */
+export async function settleRecordedWorkerUnit(
+  instanceId: string,
+  name: string,
+  command: CliWorkerCommand = runCommand,
+): Promise<number> {
+  const prefix = `${UNIT_PREFIX}${instanceId}-`;
+  if (
+    !/^[A-Za-z0-9-]+$/u.test(instanceId) ||
+    !name.startsWith(prefix) ||
+    !/^[a-f0-9]{8}\.service$/u.test(name.slice(prefix.length))
+  )
+    throw new Error("Invalid worker unit identity");
+  const load = await command(SYSTEMCTL, [
+    "--user",
+    "show",
+    "--property=LoadState",
+    "--value",
+    name,
+  ]);
+  if (load.stdout.trim() !== "not-found")
+    await command(SYSTEMCTL, ["--user", "stop", name]);
+  const active = await command(SYSTEMCTL, [
+    "--user",
+    "show",
+    "--property=ActiveState",
+    "--value",
+    name,
+  ]);
+  return ["inactive", "failed"].includes(active.stdout.trim()) ? 0 : 1;
+}
+
 /**
  * Proves that the user's service manager starts a limited transient unit.
  *
