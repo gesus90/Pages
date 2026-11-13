@@ -31,6 +31,10 @@ import { AgentChatSessionLifecycle } from "@/backend/service/employee/AgentChatS
 import { AgentChatSessionService } from "@/backend/service/employee/AgentChatSessionService";
 import { AgentChatToolGuard } from "@/backend/service/employee/AgentChatToolGuard";
 import { AgentHostFiles } from "@/backend/service/employee/AgentHostFiles";
+import { AgentLogbookAdministration } from "@/backend/service/employee/AgentLogbookAdministration";
+import { AgentLogbookScheduler } from "@/backend/service/employee/AgentLogbookScheduler";
+import { AgentLogbookService } from "@/backend/service/employee/AgentLogbookService";
+import { AgentLogbookSummarizer } from "@/backend/service/employee/AgentLogbookSummarizer";
 import { AgentActivityService } from "@/backend/service/employee/AgentActivityService";
 import { AgentConversationAnswers } from "@/backend/service/employee/AgentConversationAnswers";
 import { AgentDeletionService } from "@/backend/service/employee/AgentDeletionService";
@@ -101,6 +105,8 @@ export interface EmployeeApplicationServices extends ConversationApplicationServ
   readonly agentEmployeeSessions: AgentEmployeeSessions;
   /** The chat sessions of agents: the popup "Agent-Einstellungen" and the head of a chat (PAGE-376). */
   readonly agentChatSessionService: AgentChatSessionService;
+  /** The tab "Lagebuch" of that popup: entries, settings, removal (PAGE-377). */
+  readonly agentLogbookAdministration: AgentLogbookAdministration;
   /** The limits of concurrent chat sessions of agents (PAGE-304). */
   readonly agentSessionLimitService: AgentSessionLimitService;
   readonly agentLearningService: AgentLearningService;
@@ -408,9 +414,32 @@ interface EmployeeParts {
   readonly slots: AgentSessionSlots;
   readonly sessions: AgentEmployeeSessions;
   readonly agentSessions: AgentChatSessionService;
+  readonly logbook: AgentLogbookService;
   readonly conversations: ConversationApplicationServices;
   readonly learning: AgentLearningService;
   readonly privacy: AgentChatPrivacyService;
+}
+
+/** The tab "Lagebuch": what a viewer sees of the Lagebuch of an agent and what they change. */
+function createLogbookAdministration(
+  parts: Pick<
+    EmployeeParts,
+    "input" | "store" | "users" | "models" | "sessionSettings" | "logbook"
+  >,
+): AgentLogbookAdministration {
+  const { input } = parts;
+  return new AgentLogbookAdministration({
+    store: parts.store,
+    users: parts.users,
+    logbook: parts.logbook,
+    isMember: async (conversationId, userId) =>
+      (await new ConversationRepository(input.database).findForMember(
+        conversationId,
+        userId,
+      )) !== null,
+    models: (userId) => parts.models.models(userId),
+    instanceModel: () => parts.sessionSettings.logbookModel(),
+  });
 }
 
 function assembleEmployeeServices(
@@ -440,9 +469,11 @@ function assembleEmployeeServices(
     }),
     agentEmployeeSessions: sessions,
     agentChatSessionService: parts.agentSessions,
+    agentLogbookAdministration: createLogbookAdministration(parts),
     agentSessionLimitService: new AgentSessionLimitService(
       parts.sessionSettings,
       parts.slots,
+      (userId) => models.models(userId),
     ),
     agentLearningService: parts.learning,
     agentChatPrivacyService: parts.privacy,
@@ -495,6 +526,17 @@ export function createEmployeeServices(
   let contextReader: ConversationContextReader | null = null;
   const { accessEnvironment, sessionSettings, slots } =
     createSessionGates(database);
+  const chatReader = new AgentChatReader({
+    messages,
+    conversationMessages: new ConversationMessageRepository(database),
+    directory: new ConversationDirectory({
+      users,
+      lookups: new WikiLookupRepository(database),
+      jobTitles: () => store.identities().jobTitles(),
+    }),
+  });
+  // The Lagebuch is wired once the dream service exists, which it asks for the compaction.
+  let logbook: AgentLogbookService | null = null;
   const lifecycle = new AgentChatSessionLifecycle({
     store,
     messages,
@@ -527,16 +569,9 @@ export function createEmployeeServices(
           : Promise.reject(new ConversationError("not_found")),
     },
     lifecycle: () => lifecycle,
-    chatReader: new AgentChatReader({
-      messages,
-      conversationMessages: new ConversationMessageRepository(database),
-      directory: new ConversationDirectory({
-        users,
-        lookups: new WikiLookupRepository(database),
-        jobTitles: () => store.identities().jobTitles(),
-      }),
-    }),
+    chatReader,
     toolGuard: new AgentChatToolGuard({ store }),
+    logbook: () => logbook,
   });
   const isBackgroundOwner = !isLocalSessionOwner() && !isPagesRunsProcess();
   const conversations = createConversationServices({
@@ -561,6 +596,25 @@ export function createEmployeeServices(
     isBackgroundOwner,
     hasModel: input.acp !== null || simulation.isActive,
   });
+  const hasModel = input.acp !== null || simulation.isActive;
+  const logbookService = new AgentLogbookService({
+    store,
+    compaction: hasModel ? (agentId) => learning.run(agentId) : null,
+  });
+  logbook = logbookService;
+  if (isBackgroundOwner && hasModel)
+    new AgentLogbookScheduler({
+      store,
+      summarizer: new AgentLogbookSummarizer({
+        store,
+        users,
+        reader: chatReader,
+        model: () => memoryModel,
+        logbook: logbookService,
+        instanceModel: () => sessionSettings.logbookModel(),
+      }),
+      isWorking: (agentId) => sessions.isWorkingInChat(agentId),
+    }).start();
   const agentSessions = new AgentChatSessionService({
     store,
     users,
@@ -597,6 +651,7 @@ export function createEmployeeServices(
     slots,
     sessions,
     agentSessions,
+    logbook: logbookService,
     conversations,
     learning,
     privacy,

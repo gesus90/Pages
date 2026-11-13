@@ -8,6 +8,8 @@ import { AgentDeletionPurgeRepository } from "./AgentDeletionPurgeRepository";
 import { AgentEmployeeRemovalRepository } from "./AgentEmployeeRemovalRepository";
 import { AgentEmployeeRepository } from "./AgentEmployeeRepository";
 import { AgentLearningSourceRepository } from "./AgentLearningSourceRepository";
+import { AgentLogbookRepository } from "./AgentLogbookRepository";
+import { AgentLogbookSessionRepository } from "./AgentLogbookSessionRepository";
 import { AgentProfileLoadRepository } from "./AgentProfileLoadRepository";
 import { AgentMemoryRepository } from "./AgentMemoryRepository";
 import { AgentSessionSettingsRepository } from "./AgentSessionSettingsRepository";
@@ -85,6 +87,16 @@ export class EmployeeStore {
   /** The state of the chat sessions of agents: inbox position, context and tokens (PAGE-376). */
   public chatSessions(): AgentChatSessionRepository {
     return new AgentChatSessionRepository(this.database);
+  }
+
+  /** The entries and settings of the Lagebuch of agents (PAGE-377). */
+  public logbook(): AgentLogbookRepository {
+    return new AgentLogbookRepository(this.database);
+  }
+
+  /** What the chat sessions remember of the Lagebuch: hint stand and summary progress (PAGE-377). */
+  public logbookSessions(): AgentLogbookSessionRepository {
+    return new AgentLogbookSessionRepository(this.database);
   }
 
   /** Summaries and confidentiality of chats for the memory (PAGE-305). */

@@ -7080,7 +7080,11 @@
     "dreamTime": "Dream run at",
     "dreamTimeHint": "Time of the nightly dream run of all agents, in the server's time zone. It evaluates the day's chats, plan runs, errors and feedback and maintains DREAM.md.",
     "idleMinutes": "Idle time of a chat session (minutes)",
-    "idleMinutesHint": "Every agent keeps one session open per conversation and answers each further round through it. After this many minutes without a round it ends and releases its process and reservation; the next round starts it again. Values from 1 to {{maximum}}."
+    "idleMinutesHint": "Every agent keeps one session open per conversation and answers each further round through it. After this many minutes without a round it ends and releases its process and reservation; the next round starts it again. Values from 1 to {{maximum}}.",
+    "logbookModel": "Logbook: model of the background summary",
+    "logbookModelAgent": "The model of each agent",
+    "logbookModelHint": "This cheap model summarizes quiet chats for the logbook, for agents without a choice of their own in the Logbook tab. Without a choice each agent uses its own model.",
+    "logbookModelSave": "Save model"
   },
   "speechSettings": {
     "title": "Speech recognition · STT",
@@ -7562,7 +7566,8 @@
       "deactivate": "Deactivate",
       "activate": "Activate",
       "delete": "Delete agent",
-      "settings": "Agent settings …"
+      "settings": "Agent settings …",
+      "logbook": "Logbook …"
     },
     "deletion": {
       "title": "Delete {{name}}?",
@@ -8407,7 +8412,7 @@
       "lessons": "Lessons & recipes"
     },
     "soon": "Follows with the respective feature.",
-    "soonNote": "Logbook, dreaming, and lessons & recipes follow with the respective feature."
+    "soonNote": "Dreaming and lessons & recipes follow with the respective feature."
   },
   "agentSessions": {
     "state": {
@@ -8478,6 +8483,79 @@
       "summarize": "Summarize session: {{chat}}",
       "restart": "Restart session: {{chat}}"
     },
+    "cancel": "Cancel",
+    "save": "Save"
+  },
+  "agentLogbook": {
+    "loading": "Loading the logbook …",
+    "retry": "Try again",
+    "failure": {
+      "forbidden": "You are not allowed to do that.",
+      "notFound": "The agent no longer exists.",
+      "invalidInput": "The entry was not accepted.",
+      "unavailable": "The logbook is not reachable right now. Try again in a moment."
+    },
+    "cards": {
+      "fill": "Fill level",
+      "limit": "Limit",
+      "summary": "Background summary"
+    },
+    "fill": {
+      "count": "{{count}} of {{limit}} entries",
+      "meter": "Fill level of the logbook",
+      "hint": "At about {{percent}} % the compaction (dreaming) is started, when it is switched on. Above the limit the oldest entries drop out."
+    },
+    "settings": {
+      "limitLabel": "Limit",
+      "limitUnit": "entries",
+      "limitInvalid": "Enter whole numbers from {{minimum}} to {{maximum}}.",
+      "limitHint": "A lower value lets the oldest entries drop out at once.",
+      "quietLabel": "Quiet time",
+      "quietUnit": "min.",
+      "quietInvalid": "Enter whole minutes from {{minimum}} to {{maximum}}.",
+      "quietHint": "How long a chat has to be quiet after an answer round before the background model summarizes what is new and adds missing entries.",
+      "modelLabel": "Model for it",
+      "modelAgent": "The agent's model",
+      "modelInstance": "Instance default: {{name}}",
+      "readOnly": "You can view these settings but not change them.",
+      "saved": "Settings saved."
+    },
+    "search": {
+      "label": "Search entries",
+      "placeholder": "Search entries …"
+    },
+    "filter": {
+      "kind": "Filter by kind",
+      "allKinds": "All kinds",
+      "chat": "Filter by chat",
+      "allChats": "All chats"
+    },
+    "shown": "{{shown}} of {{count}} entries shown",
+    "empty": "No entries yet. The agent keeps here what it needs to know across chats.",
+    "emptyFiltered": "No entries match the search and filters.",
+    "tableLabel": "Logbook of {{name}}",
+    "columns": {
+      "time": "Time",
+      "chat": "Chat",
+      "kind": "Kind",
+      "entry": "Entry",
+      "origin": "Origin",
+      "actions": "Actions"
+    },
+    "kind": {
+      "decision": "Decision",
+      "open": "Task/Open",
+      "fact": "Fact",
+      "question": "Question",
+      "note": "Note"
+    },
+    "origin": {
+      "agent": "Agent",
+      "background": "Background"
+    },
+    "participants": "People involved: {{names}}",
+    "remove": "Delete",
+    "removeFor": "Delete entry: {{topic}}",
     "cancel": "Cancel",
     "save": "Save"
   }

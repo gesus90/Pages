@@ -46,6 +46,7 @@ import type { AgentMemoryService } from "./AgentMemoryService";
 import type { AgentMemoryRecorder } from "./AgentMemoryRecorder";
 import type { AgentChatReader } from "./AgentChatReader";
 import type { AgentChatSessionLifecycle } from "./AgentChatSessionLifecycle";
+import type { AgentLogbookService } from "./AgentLogbookService";
 import type {
   AgentChatToolGuard,
   AgentChatToolScope,
@@ -140,6 +141,15 @@ export interface AgentEmployeeSessionDependencies {
   readonly chatReader?: Pick<AgentChatReader, "read">;
   /** Keeps a confidential chat inside its own session (PAGE-376); absent leaves the chat tools as they are. */
   readonly toolGuard?: Pick<AgentChatToolGuard, "tools" | "contextReader">;
+  /**
+   * The Lagebuch of the agents (PAGE-377): its tools for every chat session
+   * and the one hint line of a round. A function, because it is wired after
+   * the sessions; absent offers no Lagebuch.
+   */
+  readonly logbook?: () => Pick<
+    AgentLogbookService,
+    "tools" | "hint" | "markSeen"
+  > | null;
   readonly today?: () => string;
   /** Waits between two looks of a background run at the chats of its agent; tests pass a fast one. */
   readonly wait?: (milliseconds: number) => Promise<void>;
@@ -171,6 +181,15 @@ export interface AgentJobRequest {
    * joining it, so its own answer exists.
    */
   readonly isScheduled?: boolean;
+  /**
+   * Runs the job on this model instead of the agent's own (PAGE-377), such as
+   * the cheap model of the background summary of the Lagebuch. A model that no
+   * longer passes the rule for agents falls back to the agent's own.
+   */
+  readonly modelOverride?: {
+    readonly connectionId: string;
+    readonly model: string;
+  };
   /** Ends the wait of the message in the queue (PAGE-304). */
   readonly signal?: AbortSignal;
   /** Called once when the message waits for a free place among the limits. */
@@ -602,13 +621,20 @@ export class AgentEmployeeSessions {
           return null;
         }
         await this.restartIfNeeded(request, sessionId);
-        const assignment = await this.assignment(employee);
-        const { brief, audience } = await this.brief(request, sessionId);
+        const assignment = await this.assignment(
+          employee,
+          request.modelOverride,
+        );
+        const { brief, audience, logbookNewest } = await this.brief(
+          request,
+          sessionId,
+        );
         const run = await this.employeeRun(agent, employee, {
           assignment,
           audience,
           keptSession: keptSessionOf(request),
           chat: this.chatScope(request, sessionId),
+          connectionId: assignment.connection.id,
         });
         const start = await acp.start({
           actor: agent,
@@ -625,6 +651,7 @@ export class AgentEmployeeSessions {
             },
           },
         });
+        await this.markLogbookSeen(sessionId, logbookNewest);
         return { start, sessionId };
       } catch (error: unknown) {
         endRound();
@@ -633,6 +660,40 @@ export class AgentEmployeeSessions {
           throw error;
         await acp.settled(agent, sessionId);
       }
+    }
+  }
+
+  /** Tells the session the entries of the Lagebuch its round just carried the hint line for (PAGE-377). */
+  private async markLogbookSeen(
+    sessionId: string,
+    newest: number,
+  ): Promise<void> {
+    const logbook = this.dependencies.logbook?.();
+    if (!logbook || newest <= 0) return;
+    try {
+      await logbook.markSeen(sessionId, newest);
+    } catch (error: unknown) {
+      // The hint is a courtesy: a failed note must not fail the round.
+      logCaughtError("AgentEmployeeSessions", error);
+    }
+  }
+
+  /**
+   * The hint line of the Lagebuch for a round of a chat (PAGE-377). A run of
+   * the agent's own has none, and a failed read leaves the line out.
+   */
+  private async logbookHint(
+    request: AgentJobRequest,
+    sessionId: string,
+  ): Promise<{ readonly line: string | null; readonly newest: number }> {
+    const logbook = this.dependencies.logbook?.();
+    if (!logbook || !isChatPurpose(request.purpose))
+      return { line: null, newest: 0 };
+    try {
+      return await logbook.hint({ agentId: request.agent.id, sessionId });
+    } catch (error: unknown) {
+      logCaughtError("AgentEmployeeSessions", error);
+      return { line: null, newest: 0 };
     }
   }
 
@@ -711,12 +772,34 @@ export class AgentEmployeeSessions {
 
   private async assignment(
     employee: StoredAgentEmployee,
+    override?: AgentJobRequest["modelOverride"],
   ): Promise<ResolvedAgentAssignment> {
-    const resolved = await this.dependencies.models.resolve(employee);
+    const resolved = await this.resolveModel(employee, override);
     return {
       ...resolved,
       run: acpRunOptions(employeeRunMode(employee.access), 0),
     };
+  }
+
+  /** The agent's own model, or the model a job asks for when it still passes the rule for agents. */
+  private async resolveModel(
+    employee: StoredAgentEmployee,
+    override: AgentJobRequest["modelOverride"],
+  ): Promise<ResolvedAgentAssignment> {
+    const { models } = this.dependencies;
+    if (!override) return models.resolve(employee);
+    try {
+      return await models.resolve({
+        ...employee,
+        connectionId: override.connectionId,
+        model: override.model,
+        reasoningEffort: null,
+      });
+    } catch (error: unknown) {
+      if (!(error instanceof AgentEmployeeError)) throw error;
+      logCaughtError("AgentEmployeeSessions", error);
+      return models.resolve(employee);
+    }
   }
 
   /**
@@ -731,15 +814,19 @@ export class AgentEmployeeSessions {
   ): Promise<{
     readonly brief: PicaAcpStart["brief"];
     readonly audience: AgentMemoryAudience;
+    /** The newest entry of the Lagebuch the round's hint line covers (PAGE-377). */
+    readonly logbookNewest: number;
   }> {
     const { agent, employee, person } = request;
-    const [identity, settings, context] = await Promise.all([
+    const [identity, settings, context, hint] = await Promise.all([
       this.identity(agent.id),
       person ? this.dependencies.languages.findByUserId(person.id) : null,
       this.context.forJob(request, { sessionId, message: request.text }),
+      this.logbookHint(request, sessionId),
     ]);
     return {
       audience: context.audience,
+      logbookNewest: hint.newest,
       brief: {
         instructions: createAgentEmployeeInstructions({
           name: agent.displayName,
@@ -751,6 +838,9 @@ export class AgentEmployeeSessions {
           related: context.related,
           access: employee.access,
           personName: context.isChat ? (person?.displayName ?? null) : null,
+          hasLogbook:
+            context.isChat && (this.dependencies.logbook?.() ?? null) !== null,
+          logbookHint: hint.line,
         }),
         // A continued agent session knows its chat; only a new or restarted one
         // gets the summary and the last messages (PAGE-376).
@@ -837,6 +927,8 @@ export class AgentEmployeeSessions {
       readonly keptSession: PicaAcpEmployeeRun["keptSession"];
       /** The chat the job runs in (PAGE-376). */
       readonly chat: AgentChatScope;
+      /** The connection the job runs on, which stays the only one it may use. */
+      readonly connectionId: string;
     },
   ): Promise<NonNullable<PicaAcpStart["employee"]>> {
     const { assignment, audience, keptSession, chat } = job;
@@ -862,7 +954,7 @@ export class AgentEmployeeSessions {
         : {}),
       requireCurrent: () => this.requireCurrent(agent.id, employee.revision),
       requireConnection: (connectionId) =>
-        connectionId === employee.connectionId
+        connectionId === job.connectionId
           ? Promise.resolve()
           : Promise.reject(new ChatError("contextChanged")),
       searchMemory: async (query) => ({
@@ -885,9 +977,10 @@ export class AgentEmployeeSessions {
     chat: AgentChatScope,
   ): Pick<
     NonNullable<PicaAcpStart["employee"]>,
-    "agentChat" | "readConversationContext" | "readOwnChat"
+    "agentChat" | "readConversationContext" | "readOwnChat" | "logbook"
   > {
     const { toolGuard, chatReader, conversationContext } = this.dependencies;
+    const logbook = this.dependencies.logbook?.() ?? null;
     const agentChat = this.dependencies.agentChat?.() ?? null;
     const readContext = conversationContext
       ? (input: unknown): Promise<unknown> =>
@@ -908,6 +1001,14 @@ export class AgentEmployeeSessions {
         ? {
             readOwnChat: (input: unknown) =>
               chatReader.read(own, agent.displayName, input),
+          }
+        : {}),
+      ...(logbook && own
+        ? {
+            logbook: logbook.tools({
+              agentId: agent.id,
+              sessionId: own.sessionId,
+            }),
           }
         : {}),
     };

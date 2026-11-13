@@ -6,6 +6,11 @@ import { AgentDirectory } from "@/app/components/users/agents/agent-directory";
 import { createI18n } from "@/app/lib/i18n";
 
 import {
+  logbookEntry,
+  logbookOverview,
+  stubLogbookEndpoint,
+} from "../../agent-settings/agent-logbook-fixture";
+import {
   sessionOverview,
   sessionView,
   stubSessionEndpoint,
@@ -105,4 +110,62 @@ it("opens the popup of the agent from the menu of its row", async () => {
   expect(within(dialog).queryByText("this chat")).toBeNull();
   fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
   expect(screen.queryByRole("dialog")).toBeNull();
+});
+
+function openRowMenu(): void {
+  fireEvent.pointerDown(screen.getByRole("button", { name: "Actions for Ed" }), {
+    button: 0,
+    ctrlKey: false,
+  });
+}
+
+it("opens the popup of the agent straight in the tab Logbook from the menu of its row (PAGE-377)", async () => {
+  const { calls } = stubLogbookEndpoint(() => ({
+    ok: true,
+    overview: logbookOverview({
+      entries: [logbookEntry("e1")],
+      count: 1,
+      chats: [logbookEntry("e1").source],
+    }),
+  }));
+  render(
+    <I18nextProvider i18n={i18n}>
+      <AgentDirectory directory={DIRECTORY} agents={AGENTS} />
+    </I18nextProvider>,
+  );
+  openRowMenu();
+  fireEvent.click(screen.getByRole("menuitem", { name: "Logbook …" }));
+  const dialog = await screen.findByRole("dialog");
+  expect(
+    within(dialog).getByRole("tab", { name: "Logbook" }).getAttribute("aria-selected"),
+  ).toBe("true");
+  expect(
+    await within(dialog).findByRole("table", { name: "Logbook of Ed" }),
+  ).toBeTruthy();
+  expect(calls[0]?.url).toBe("/chat-page-api/agent-logbook?agentId=ed");
+  fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+  expect(screen.queryByRole("dialog")).toBeNull();
+});
+
+it("reaches the tab Logbook from the popup opened as Agent settings", async () => {
+  const { calls } = stubLogbookEndpoint(() => ({
+    ok: true,
+    overview: logbookOverview({ entries: [logbookEntry("e1")], count: 1 }),
+  }));
+  render(
+    <I18nextProvider i18n={i18n}>
+      <AgentDirectory directory={DIRECTORY} agents={AGENTS} />
+    </I18nextProvider>,
+  );
+  openRowMenu();
+  fireEvent.click(screen.getByRole("menuitem", { name: "Agent settings …" }));
+  const dialog = await screen.findByRole("dialog");
+  expect(calls).toHaveLength(0);
+  const tab = within(dialog).getByRole("tab", { name: "Logbook" });
+  fireEvent.mouseDown(tab);
+  fireEvent.click(tab);
+  expect(
+    await within(dialog).findByRole("table", { name: "Logbook of Ed" }),
+  ).toBeTruthy();
+  expect(calls).toHaveLength(1);
 });

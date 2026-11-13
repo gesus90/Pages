@@ -1,4 +1,5 @@
 import { awaitAgentJobAnswer } from "./AgentJobAnswer";
+import { createLogbookMessage, readLogbookAnswer } from "./AgentLogbookPrompt";
 import { createDreamMessage, readDreamAnswer } from "./AgentLearningPrompt";
 import {
   createSummaryMessage,
@@ -13,6 +14,8 @@ import type { AgentConversationPurpose } from "@/backend/database/repositories/e
 import type { AgentLearningSource } from "@/backend/database/repositories/employee/AgentLearningSourceRepository";
 import type { User } from "@/definition/User";
 import type { AgentEmployeeSessions } from "./AgentEmployeeSessions";
+import type { AgentLogbookDraft } from "./AgentLogbookService";
+import type { LogbookSummaryMessage } from "./AgentLogbookPrompt";
 import type { AgentDreamAnswerLesson } from "./AgentLearningPrompt";
 import type {
   AgentExchange,
@@ -37,6 +40,14 @@ export interface AgentMemoryCaller {
    * chat to work in.
    */
   readonly runsNow?: boolean;
+  /**
+   * Runs the call on this model instead of the agent's own (PAGE-377), such as
+   * the cheap model of the background summary of the Lagebuch.
+   */
+  readonly model?: {
+    readonly connectionId: string;
+    readonly model: string;
+  };
 }
 
 /**
@@ -74,6 +85,18 @@ export interface AgentMemoryModel {
       readonly today: string;
     },
   ): Promise<readonly AgentDreamAnswerLesson[] | null>;
+  /**
+   * The entries of the Lagebuch a quiet chat brings that it lacks (PAGE-377);
+   * `null` when no usable answer arrived.
+   */
+  logbook(
+    caller: AgentMemoryCaller,
+    input: {
+      readonly chat: string;
+      readonly existing: readonly string[];
+      readonly messages: readonly LogbookSummaryMessage[];
+    },
+  ): Promise<readonly AgentLogbookDraft[] | null>;
 }
 
 /** What the model calls over the agent's own sessions use. */
@@ -142,6 +165,19 @@ export class AgentSessionMemoryModel implements AgentMemoryModel {
     return answer === null ? null : readDreamAnswer(answer, input.today);
   }
 
+  /** Asks which entries of the Lagebuch the new messages of a quiet chat bring. */
+  public async logbook(
+    caller: AgentMemoryCaller,
+    input: Parameters<AgentMemoryModel["logbook"]>[1],
+  ): Promise<readonly AgentLogbookDraft[] | null> {
+    const answer = await this.ask(caller, {
+      purpose: "memory",
+      text: createLogbookMessage(input.chat, input.existing, input.messages),
+      timeoutMilliseconds: MEMORY_TIMEOUT_MILLISECONDS,
+    });
+    return answer === null ? null : readLogbookAnswer(answer);
+  }
+
   private async ask(
     caller: AgentMemoryCaller,
     task: {
@@ -164,6 +200,7 @@ export class AgentSessionMemoryModel implements AgentMemoryModel {
       purpose: task.purpose,
       text: task.text,
       clientMessageId: null,
+      ...(caller.model ? { modelOverride: caller.model } : {}),
     });
     if (!started) return null;
     return awaitAgentJobAnswer(

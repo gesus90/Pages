@@ -34,6 +34,7 @@ import type { PicaAdminService } from "./admin/PicaAdminService";
 import type { AgentDeletionService } from "@/backend/service/employee/AgentDeletionService";
 import type { RuntimeExecutionContext } from "@/backend/agents/runtime/RuntimeExecutionContext";
 import type { AgentChatTools } from "@/definition/AgentChat";
+import type { AgentLogbookTools } from "@/definition/AgentLogbook";
 import type { ChatAnswerFileService } from "./ChatAnswerFileService";
 import type { PicaHostFileAttach } from "./PicaHostFileTools";
 import type { ChatSessionService } from "./ChatSessionService";
@@ -82,6 +83,12 @@ export interface PicaToolsInput {
    * (PAGE-376); without it `chat_lesen` is not offered.
    */
   readonly readOwnChat?: ((input: unknown) => Promise<unknown>) | undefined;
+  /**
+   * Keeps and reads the Lagebuch of the agent employee whose job runs
+   * (PAGE-377); without it `lagebuch_merken`, `lagebuch_suchen` and
+   * `lagebuch_lesen` are not offered.
+   */
+  readonly logbook?: AgentLogbookTools | undefined;
   /**
    * Attaches a file of the chat's working folder to a ticket or a wiki page,
    * for an agent employee with host tools (PAGE-303); without it the tools

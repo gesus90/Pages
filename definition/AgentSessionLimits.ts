@@ -38,6 +38,20 @@ export interface AgentSessionLimitsAdministration {
   readonly limits: AgentSessionLimits;
   readonly running: number;
   readonly waiting: number;
+  /**
+   * The model the instance names for the background summary of the Lagebuch
+   * (PAGE-377); `null` leaves the agent's own. Absent in an older kept answer.
+   */
+  readonly logbookModel?: {
+    readonly connectionId: string;
+    readonly model: string;
+  } | null;
+  /** The models an administrator may choose for it; absent in an older kept answer. */
+  readonly logbookModels?: readonly {
+    readonly connectionId: string;
+    readonly model: string;
+    readonly label: string;
+  }[];
 }
 
 /**

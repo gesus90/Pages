@@ -20,6 +20,7 @@ import type {
 } from "@/backend/service/chat/ChatRequestRegistry";
 import type { ResolvedAgentAssignment } from "@/backend/service/agents/AgentAssignmentResolution";
 import type { AgentChatTools } from "@/definition/AgentChat";
+import type { AgentLogbookTools } from "@/definition/AgentLogbook";
 import type { ChatSendResult } from "@/definition/Chat";
 import type {
   ChatJob,
@@ -101,6 +102,8 @@ export interface PicaAcpEmployeeRun {
   readonly readConversationContext?: (input: unknown) => Promise<unknown>;
   /** Reads the messages of the chat of the job's session after a position, for `chat_lesen` (PAGE-376). */
   readonly readOwnChat?: (input: unknown) => Promise<unknown>;
+  /** The Lagebuch tools of the job's chat session (PAGE-377); absent for a run of the agent's own. */
+  readonly logbook?: AgentLogbookTools;
   /**
    * A short run of the agent's own, such as the upkeep of its memory
    * (PAGE-376): it starts a new agent session and never continues an
@@ -586,6 +589,7 @@ export class PicaAcpService {
         ? { readConversationContext: employee.readConversationContext }
         : {}),
       ...(employee.readOwnChat ? { readOwnChat: employee.readOwnChat } : {}),
+      ...(employee.logbook ? { logbook: employee.logbook } : {}),
       ...(employee.agentChat ? { agentChat: employee.agentChat } : {}),
       access: {
         requireUser: (userId, connectionId) =>

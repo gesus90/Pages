@@ -31,7 +31,7 @@ export interface AgentChatPrivacyDependencies {
 /**
  * Marks a chat with agents confidential (PAGE-305): nothing of it reaches
  * `MEMORY.md`, the archive or `DREAM.md`, and nothing of it is shared with
- * another chat.
+ * another chat. Its entries leave the Lagebuch of the agents (PAGE-377).
  *
  * @remarks
  * The person marks their own direct chat with an agent, or a stored
@@ -68,11 +68,21 @@ export class AgentChatPrivacyService {
           this.dependencies.createSessionId(),
         );
       await chats.setDirectConfidential(agentId, person.id, isConfidential);
+      // A confidential chat leaves the Lagebuch of the agent (PAGE-377).
+      if (isConfidential)
+        await this.dependencies.store
+          .logbook()
+          .removeChat({ kind: "direct", id: person.id }, agentId);
       return;
     }
     const { conversationId } = parsed.data;
     const people = await chats.conversationPeople(conversationId);
     if (!people.includes(person.id)) throw new AgentEmployeeError("notFound");
     await chats.setConversationConfidential(conversationId, isConfidential);
+    // The group leaves the Lagebuch of every agent that took part (PAGE-377).
+    if (isConfidential)
+      await this.dependencies.store
+        .logbook()
+        .removeChat({ kind: "group", id: conversationId }, null);
   }
 }

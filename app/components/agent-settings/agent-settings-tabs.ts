@@ -11,12 +11,13 @@ export interface AgentSettingsTabInfo {
  * The tabs in their order.
  *
  * @remarks
- * Only "Sitzungen" works so far. The others stay visible but off until their
- * functions arrive; switching one on is a change of its flag here.
+ * "Sitzungen" (PAGE-376) and "Lagebuch" (PAGE-377) work so far. The others
+ * stay visible but off until their functions arrive; switching one on is a
+ * change of its flag here.
  */
 export const AGENT_SETTINGS_TABS: readonly AgentSettingsTabInfo[] = [
   { value: "sessions", isAvailable: true },
-  { value: "logbook", isAvailable: false },
+  { value: "logbook", isAvailable: true },
   { value: "dreaming", isAvailable: false },
   { value: "lessons", isAvailable: false },
 ];

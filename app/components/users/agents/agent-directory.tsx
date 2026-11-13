@@ -20,6 +20,7 @@ import { AgentPanel } from "./agent-panel";
 import { AgentDeleteDialog } from "./agent-delete-dialog";
 import { AgentDeletedList } from "./agent-deleted-list";
 
+import type { AgentSettingsTab } from "@/app/components/agent-settings/agent-settings-tabs";
 import type { AgentSettingsIdentity } from "@/app/components/agent-settings/agent-settings-types";
 import type { AdministrationPageData } from "@/definition/Authorization";
 import type { AgentEmployeeListItem } from "@/definition/AgentEmployee";
@@ -44,7 +45,10 @@ interface AgentRowProps {
   readonly canManage: boolean;
   readonly canDelete: boolean;
   readonly onEdit: (agentId: string) => void;
-  readonly onSettings: (agent: AgentEmployeeListItem) => void;
+  readonly onSettings: (
+    agent: AgentEmployeeListItem,
+    tab: AgentSettingsTab,
+  ) => void;
   readonly onDelete: (agentId: string) => void;
 }
 
@@ -139,8 +143,11 @@ function AgentRow({
                   : "agentEmployees.actions.view",
               )}
             </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => onSettings(agent)}>
+            <DropdownMenuItem onSelect={() => onSettings(agent, "sessions")}>
               {t("agentEmployees.actions.settings")}
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => onSettings(agent, "logbook")}>
+              {t("agentEmployees.actions.logbook")}
             </DropdownMenuItem>
             {canManage ? (
               <DropdownMenuItem onSelect={() => setActive(!agent.isActive)}>
@@ -168,7 +175,10 @@ interface AgentTableProps {
   readonly canManage: boolean;
   readonly canDelete: boolean;
   readonly onEdit: (agentId: string) => void;
-  readonly onSettings: (agent: AgentEmployeeListItem) => void;
+  readonly onSettings: (
+    agent: AgentEmployeeListItem,
+    tab: AgentSettingsTab,
+  ) => void;
   readonly onDelete: (agentId: string) => void;
 }
 
@@ -303,8 +313,10 @@ export function AgentDirectory({
     readonly agentId: string | null;
   } | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [settingsAgent, setSettingsAgent] =
-    useState<AgentEmployeeListItem | null>(null);
+  const [settings, setSettings] = useState<{
+    readonly agent: AgentEmployeeListItem;
+    readonly tab: AgentSettingsTab;
+  } | null>(null);
   const visible = agents.agents.filter((agent) =>
     matchesSearch(agent, search.trim().toLowerCase()),
   );
@@ -325,19 +337,19 @@ export function AgentDirectory({
         canManage={agents.canCreate}
         canDelete={canDelete}
         onEdit={(agentId) => setPanel({ agentId })}
-        onSettings={setSettingsAgent}
+        onSettings={(agent, tab) => setSettings({ agent, tab })}
         onDelete={setDeleteId}
       />
       {directory.actor.isAdmin && directory.actor.mode === "admin" ? (
         <AgentDeletedList />
       ) : null}
       <AgentSettingsDialog
-        agentId={settingsAgent?.id ?? null}
-        initialTab="sessions"
+        agentId={settings?.agent.id ?? null}
+        initialTab={settings?.tab ?? "sessions"}
         identity={
-          settingsAgent === null ? undefined : settingsIdentity(settingsAgent)
+          settings === null ? undefined : settingsIdentity(settings.agent)
         }
-        onClose={() => setSettingsAgent(null)}
+        onClose={() => setSettings(null)}
       />
       {deleteId ? (
         <AgentDeleteDialog

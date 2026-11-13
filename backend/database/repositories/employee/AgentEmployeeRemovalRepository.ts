@@ -38,6 +38,7 @@ export interface StoredAgentUsages {
 const REMOVAL_STATEMENTS: readonly string[] = [
   "DELETE FROM agent_memory_archive WHERE user_id = $user_id;",
   "DELETE FROM agent_memory_versions WHERE user_id = $user_id;",
+  "DELETE FROM agent_logbook_entries WHERE agent_id = $user_id;",
   "DELETE FROM agent_activity WHERE user_id = $user_id;",
   "DELETE FROM agent_employees WHERE user_id = $user_id;",
   "DELETE FROM chat_contacts WHERE contact_id = $user_id OR owner_id = $user_id;",

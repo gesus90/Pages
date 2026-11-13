@@ -13,6 +13,7 @@ import {
 } from "@/app/components/ui/dialog";
 import { Tabs, TabsContent } from "@/app/components/ui/tabs";
 
+import { AgentLogbookTab } from "./agent-logbook-tab";
 import { AgentSessionsTab } from "./agent-sessions-tab";
 import {
   AGENT_SETTINGS_TABS,
@@ -137,6 +138,9 @@ function AgentSettingsBody({
             onClose={onClose}
           />
         </TabsContent>
+        <TabsContent className="mt-4 border-t border-border" value="logbook">
+          <AgentLogbookTab agentId={agentId} onClose={onClose} />
+        </TabsContent>
       </Tabs>
     </div>
   );
@@ -148,8 +152,9 @@ function AgentSettingsBody({
  *
  * @remarks
  * Its tabs are Sitzungen, Lagebuch, Dreaming and Lektionen & Rezepte; only
- * Sitzungen works so far, the others show as switched off. The popup reads
- * the sessions of the agent when it opens and keeps no state after it closes.
+ * Sitzungen and Lagebuch (PAGE-377) work so far, the others show as switched
+ * off. The popup reads the sessions of the agent when it opens and its
+ * Lagebuch when that tab opens, and keeps no state after it closes.
  */
 export function AgentSettingsDialog({
   agentId,

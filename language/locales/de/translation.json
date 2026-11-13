@@ -7080,7 +7080,11 @@
     "dreamTime": "Traumlauf um",
     "dreamTimeHint": "Uhrzeit des nächtlichen Traumlaufs aller Agents in der Zeitzone des Servers. Er wertet die Chats, Planläufe, Fehler und Rückmeldungen des Tages aus und pflegt DREAM.md.",
     "idleMinutes": "Ruhezeit einer Chat-Sitzung (Minuten)",
-    "idleMinutesHint": "Jeder Agent hält je Unterhaltung eine Sitzung offen und beantwortet jede weitere Runde darüber. Nach so vielen Minuten ohne Runde endet sie und gibt Prozess und Reservierung frei; die nächste Runde startet sie neu. Werte von 1 bis {{maximum}}."
+    "idleMinutesHint": "Jeder Agent hält je Unterhaltung eine Sitzung offen und beantwortet jede weitere Runde darüber. Nach so vielen Minuten ohne Runde endet sie und gibt Prozess und Reservierung frei; die nächste Runde startet sie neu. Werte von 1 bis {{maximum}}.",
+    "logbookModel": "Lagebuch: Modell der Hintergrund-Zusammenfassung",
+    "logbookModelAgent": "Modell des jeweiligen Agents",
+    "logbookModelHint": "Dieses günstige Modell fasst ruhige Chats für das Lagebuch zusammen, bei Agents ohne eigene Wahl im Reiter Lagebuch. Ohne Wahl nimmt jeder Agent sein eigenes Modell.",
+    "logbookModelSave": "Modell speichern"
   },
   "speechSettings": {
     "title": "Spracherkennung · STT",
@@ -7562,7 +7566,8 @@
       "deactivate": "Deaktivieren",
       "activate": "Aktivieren",
       "delete": "Agent löschen",
-      "settings": "Agent-Einstellungen …"
+      "settings": "Agent-Einstellungen …",
+      "logbook": "Lagebuch …"
     },
     "deletion": {
       "title": "{{name}} löschen?",
@@ -8407,7 +8412,7 @@
       "lessons": "Lektionen & Rezepte"
     },
     "soon": "Folgt mit der jeweiligen Funktion.",
-    "soonNote": "Lagebuch, Dreaming sowie Lektionen & Rezepte folgen mit der jeweiligen Funktion."
+    "soonNote": "Dreaming sowie Lektionen & Rezepte folgen mit der jeweiligen Funktion."
   },
   "agentSessions": {
     "state": {
@@ -8478,6 +8483,79 @@
       "summarize": "Sitzung zusammenfassen: {{chat}}",
       "restart": "Sitzung neu starten: {{chat}}"
     },
+    "cancel": "Abbrechen",
+    "save": "Speichern"
+  },
+  "agentLogbook": {
+    "loading": "Das Lagebuch wird geladen …",
+    "retry": "Erneut versuchen",
+    "failure": {
+      "forbidden": "Dazu fehlt dir die Berechtigung.",
+      "notFound": "Den Agent gibt es nicht mehr.",
+      "invalidInput": "Die Eingabe wurde nicht angenommen.",
+      "unavailable": "Das Lagebuch ist gerade nicht erreichbar. Versuche es gleich noch einmal."
+    },
+    "cards": {
+      "fill": "Füllstand",
+      "limit": "Obergrenze",
+      "summary": "Hintergrund-Zusammenfassung"
+    },
+    "fill": {
+      "count": "{{count}} von {{limit}} Einträgen",
+      "meter": "Füllstand des Lagebuchs",
+      "hint": "Bei etwa {{percent}} % wird die Verdichtung (Dreaming) angestoßen, sofern sie aktiviert ist. Über der Obergrenze fallen die ältesten Einträge heraus."
+    },
+    "settings": {
+      "limitLabel": "Obergrenze",
+      "limitUnit": "Einträge",
+      "limitInvalid": "Gib ganze Zahlen von {{minimum}} bis {{maximum}} ein.",
+      "limitHint": "Ein niedrigerer Wert lässt die ältesten Einträge sofort herausfallen.",
+      "quietLabel": "Ruhezeit",
+      "quietUnit": "Min.",
+      "quietInvalid": "Gib ganze Minuten von {{minimum}} bis {{maximum}} ein.",
+      "quietHint": "So lange muss ein Chat nach einer Antwortrunde ruhig sein, bevor das Hintergrundmodell das Neue zusammenfasst und fehlende Einträge ergänzt.",
+      "modelLabel": "Modell dafür",
+      "modelAgent": "Modell des Agents",
+      "modelInstance": "Standard der Instanz: {{name}}",
+      "readOnly": "Du kannst diese Einstellungen ansehen, aber nicht ändern.",
+      "saved": "Einstellungen gespeichert."
+    },
+    "search": {
+      "label": "Einträge durchsuchen",
+      "placeholder": "Einträge durchsuchen …"
+    },
+    "filter": {
+      "kind": "Nach Art filtern",
+      "allKinds": "Alle Arten",
+      "chat": "Nach Chat filtern",
+      "allChats": "Alle Chats"
+    },
+    "shown": "{{shown}} von {{count}} Einträgen angezeigt",
+    "empty": "Noch keine Einträge. Der Agent hält hier chatübergreifend fest, was er wissen muss.",
+    "emptyFiltered": "Keine Einträge passen zu Suche und Filter.",
+    "tableLabel": "Lagebuch von {{name}}",
+    "columns": {
+      "time": "Zeit",
+      "chat": "Chat",
+      "kind": "Art",
+      "entry": "Eintrag",
+      "origin": "Herkunft",
+      "actions": "Aktionen"
+    },
+    "kind": {
+      "decision": "Entscheidung",
+      "open": "Aufgabe/Offen",
+      "fact": "Fakt",
+      "question": "Frage",
+      "note": "Notiz"
+    },
+    "origin": {
+      "agent": "Agent",
+      "background": "Hintergrund"
+    },
+    "participants": "Beteiligte: {{names}}",
+    "remove": "Löschen",
+    "removeFor": "Eintrag löschen: {{topic}}",
     "cancel": "Abbrechen",
     "save": "Speichern"
   }

@@ -12,6 +12,11 @@ import { ChatPageHeader } from "@/app/components/chat-page/chat-page-header";
 import { createI18n } from "@/app/lib/i18n";
 
 import {
+  logbookEntry,
+  logbookOverview,
+  stubLogbookEndpoint,
+} from "../agent-settings/agent-logbook-fixture";
+import {
   sessionBrief,
   sessionOverview,
   sessionView,
@@ -281,13 +286,33 @@ it("opens the popup for the agent in the tab Sessions with the opened group mark
   ).toBe("true");
 });
 
-it("shows the entries of Lagebuch and Dreaming off with the remark that they follow", () => {
+it("shows the entry of Dreaming off with the remark that it follows and the entry of the Logbook on", () => {
   renderGroup([WORKING]);
   openByClick(chip());
-  for (const name of [/^Logbook …/, /^Dreaming, lessons & recipes …/]) {
-    expect(isOff(item(name))).toBe(true);
-    expect(within(item(name)).getByText("soon")).toBeTruthy();
-  }
+  const dreaming = item(/^Dreaming, lessons & recipes …/);
+  expect(isOff(dreaming)).toBe(true);
+  expect(within(dreaming).getByText("soon")).toBeTruthy();
+  const logbook = item(/^Logbook …/);
+  expect(isOff(logbook)).toBe(false);
+  expect(within(logbook).queryByText("soon")).toBeNull();
+});
+
+it("opens the popup of the agent straight in the tab Logbook from the entry Logbook … of the menu (PAGE-377)", async () => {
+  const { calls } = stubLogbookEndpoint(() => ({
+    ok: true,
+    overview: logbookOverview({ entries: [logbookEntry("e1")], count: 1 }),
+  }));
+  renderGroup([WORKING]);
+  openByClick(chip());
+  fireEvent.click(item(/^Logbook …/));
+  const dialog = await screen.findByRole("dialog");
+  expect(
+    within(dialog).getByRole("tab", { name: "Logbook" }).getAttribute("aria-selected"),
+  ).toBe("true");
+  expect(
+    await within(dialog).findByRole("table", { name: "Logbook of Ed" }),
+  ).toBeTruthy();
+  expect(calls[0]?.url).toBe("/chat-page-api/agent-logbook?agentId=ed");
 });
 
 it("opens the direct chat with the agent", () => {
@@ -402,5 +427,6 @@ it("words the status and the entries in German", () => {
     expect(item(name)).toBeTruthy();
   }
   expect(item(/^Agent-Einstellungen …\s*Sitzungen$/)).toBeTruthy();
-  expect(within(item(/^Lagebuch …/)).getByText("folgt")).toBeTruthy();
+  expect(isOff(item(/^Lagebuch …/))).toBe(false);
+  expect(within(item(/^Dreaming, Lektionen & Rezepte …/)).getByText("folgt")).toBeTruthy();
 });

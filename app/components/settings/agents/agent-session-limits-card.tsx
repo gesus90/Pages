@@ -1,4 +1,5 @@
 import { Layers } from "lucide-react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useFetcher } from "react-router";
 
@@ -8,6 +9,7 @@ import {
 } from "@/app/components/settings/settings-layout";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
+import { Select } from "@/app/components/ui/select";
 import {
   AGENT_CHAT_IDLE_MAXIMUM_MINUTES,
   AGENT_SESSION_LIMIT_MAXIMUM,
@@ -42,6 +44,73 @@ function SaveFeedback({
         "chat.error.general",
       ])}
     </p>
+  );
+}
+
+/** The key a model of the choice is picked by; empty for the agent's own model. */
+function modelKey(
+  model: { readonly connectionId: string; readonly model: string } | null,
+): string {
+  return model === null ? "" : `${model.connectionId}\u001f${model.model}`;
+}
+
+/**
+ * The model the instance names for the background summary of the Lagebuch
+ * (PAGE-377), for agents without a model of their own for it. Saved on its
+ * own, so it never conflicts with the limits above.
+ */
+function LogbookModelForm({
+  administration,
+}: AgentSessionLimitsCardProps): React.ReactElement {
+  const { t } = useTranslation();
+  const fetcher = useFetcher<AgentActionResult>({
+    key: "agent-logbook-model",
+  });
+  const isPending = fetcher.state !== "idle";
+  const models = administration.logbookModels ?? [];
+  const saved = administration.logbookModel ?? null;
+  const [selected, setSelected] = useState(modelKey(saved));
+  const chosen = models.find((model) => modelKey(model) === selected);
+  const options = [
+    { value: "", label: t("agentSessionLimits.logbookModelAgent") },
+    ...models.map((model) => ({
+      value: modelKey(model),
+      label: model.label,
+    })),
+  ];
+  return (
+    <fetcher.Form method="post" className="space-y-3" aria-busy={isPending}>
+      <input type="hidden" name="intent" value="save-agent-logbook-model" />
+      <input
+        type="hidden"
+        name="connectionId"
+        value={chosen?.connectionId ?? ""}
+      />
+      <input type="hidden" name="model" value={chosen?.model ?? ""} />
+      <ControlRow label={t("agentSessionLimits.logbookModel")}>
+        <Select
+          ariaLabel={t("agentSessionLimits.logbookModel")}
+          className="w-72"
+          disabled={isPending}
+          onValueChange={setSelected}
+          options={options}
+          value={selected}
+        />
+      </ControlRow>
+      <p className="text-xs text-muted-foreground">
+        {t("agentSessionLimits.logbookModelHint")}
+      </p>
+      <div className="flex justify-end">
+        <Button type="submit" size="sm" disabled={isPending}>
+          {t(
+            isPending
+              ? "agentSessionLimits.saving"
+              : "agentSessionLimits.logbookModelSave",
+          )}
+        </Button>
+      </div>
+      <SaveFeedback result={isPending ? undefined : fetcher.data} />
+    </fetcher.Form>
   );
 }
 
@@ -177,6 +246,9 @@ export function AgentSessionLimitsCard({
         </div>
         <SaveFeedback result={isPending ? undefined : fetcher.data} />
       </fetcher.Form>
+      <div className="mt-4 border-t border-border pt-4">
+        <LogbookModelForm administration={administration} />
+      </div>
     </SettingsCard>
   );
 }

@@ -4,12 +4,15 @@ import type {
 } from "@/backend/service/employee/AgentMemoryModel";
 import type { AgentDreamAnswerLesson } from "@/backend/service/employee/AgentLearningPrompt";
 import type { AgentTopicUpdate } from "@/backend/service/employee/AgentMemoryPrompt";
+import type { AgentLogbookDraft } from "@/backend/service/employee/AgentLogbookService";
 
 /** Words of a message that make the title of a simulated topic. */
 const TITLE_WORDS = 6;
 /** Lessons one simulated dream run derives at most. */
 const DREAM_LESSONS = 5;
 const TICKET_KEY = /\b[A-Z][A-Z0-9]*-\d+\b/gu;
+/** Entries one simulated Lagebuch summary writes at most. */
+const LOGBOOK_ENTRIES = 3;
 
 function cut(text: string, maximum: number): string {
   const single = text.replace(/\s+/gu, " ").trim();
@@ -92,5 +95,28 @@ export class SimulatedAgentMemoryModel implements AgentMemoryModel {
         date: input.today,
       }));
     return Promise.resolve(lessons);
+  }
+
+  /** An entry per message that names a ticket or a decision, the newest first. */
+  public logbook(
+    caller: AgentMemoryCaller,
+    input: Parameters<AgentMemoryModel["logbook"]>[1],
+  ): Promise<readonly AgentLogbookDraft[] | null> {
+    const entries = [...input.messages]
+      .reverse()
+      .filter((message) => message.from !== caller.agent.displayName)
+      .filter((message) =>
+        /\b(?:[A-Z][A-Z0-9]*-\d+|beschlossen|entschieden|bis)\b/u.test(
+          message.text,
+        ),
+      )
+      .slice(0, LOGBOOK_ENTRIES)
+      .map((message) => ({
+        kind: /\b(?:beschlossen|entschieden)\b/u.test(message.text)
+          ? ("decision" as const)
+          : ("open" as const),
+        text: `${message.from}: ${cut(message.text, 200)}`,
+      }));
+    return Promise.resolve(entries);
   }
 }

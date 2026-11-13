@@ -253,8 +253,8 @@ interface ChatPageAgentMenuProps {
  *
  * @remarks
  * A click on `children` opens it, and so does a right click wherever the
- * caller wires `state.openFromContextMenu`. Lagebuch and Dreaming stay off
- * until their tabs work.
+ * caller wires `state.openFromContextMenu`. "Lagebuch …" opens the popup in
+ * its tab (PAGE-377); Dreaming stays off until its tab works.
  */
 export function ChatPageAgentMenu({
   agent,

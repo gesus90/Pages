@@ -183,20 +183,23 @@ it("names the agent from the sessions when the caller knows no identity", async 
   ).toBeTruthy();
 });
 
-it("shows the tabs of functions that do not exist yet as off, with a hint", async () => {
+it("shows the tabs of functions that do not exist yet as off, with a hint, and the Logbook as a working tab", async () => {
   stubSessionEndpoint(() => answer());
   renderDialog({ initialTab: "dreaming" });
   await sessionRows();
-  for (const name of ["Logbook", "Dreaming", "Lessons & recipes"]) {
+  for (const name of ["Dreaming", "Lessons & recipes"]) {
     const tab = screen.getByRole("tab", { name });
     expect(isDisabled(tab)).toBe(true);
     expect(tab.getAttribute("title")).toBe(
       "Follows with the respective feature.",
     );
   }
+  const logbook = screen.getByRole("tab", { name: "Logbook" });
+  expect(isDisabled(logbook)).toBe(false);
+  expect(logbook.getAttribute("title")).toBeNull();
   expect(
     screen.getByText(
-      "Logbook, dreaming, and lessons & recipes follow with the respective feature.",
+      "Dreaming and lessons & recipes follow with the respective feature.",
     ),
   ).toBeTruthy();
   // A tab that does not work opens "Sessions" instead.
