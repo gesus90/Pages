@@ -87,8 +87,8 @@ export interface PicaAcpRequest {
  *
  * @remarks
  * The job runs as the agent's own account, with the runner of its stored
- * access. Its configuration, not Pica's settings, is checked again before
- * every turn and tool call, and Pica's switch does not admit it.
+ * access. Each round pins its configuration and checks account availability
+ * again before every turn and tool call. Pica's switch does not admit it.
  */
 export interface PicaAcpEmployeeRun {
   readonly runner: PicaAcpRunner;
@@ -97,7 +97,7 @@ export interface PicaAcpEmployeeRun {
   ) => Promise<PicaAcpConversationTurn>;
   /** Rechecks account availability while keeping this round's configuration pinned. */
   readonly requireCurrent: () => Promise<void>;
-  /** Fails when the connection of the job is no longer the agent's. */
+  /** Requires the connection pinned for this round, even if the next round's settings changed. */
   readonly requireConnection: (connectionId: string) => Promise<void>;
   /** Searches the agent's own memory archive. */
   readonly searchMemory: (query: string) => Promise<unknown>;

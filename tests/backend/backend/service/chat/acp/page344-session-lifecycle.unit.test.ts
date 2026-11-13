@@ -12,9 +12,11 @@ import * as invocationFiles from "@/backend/service/chat/acp/PicaInvocationFile"
 
 import { bareInstance } from "../../tasks/bare-instance";
 import { ASSIGNMENT, FIRST, OWNER, SECOND } from "../page48-chat-fixture";
-import { PicaJobWorld } from "./page103-job-fixture";
+import { completedTurn, PicaJobWorld } from "./page103-job-fixture";
 
+import type { ContentBlock } from "@agentclientprotocol/sdk";
 import type { ChatSessionService } from "@/backend/service/chat/ChatSessionService";
+import type { AgentPlanExecutionInput } from "@/backend/service/agents/AgentPlanStepStart";
 import type { ChatJob } from "@/definition/ChatJob";
 import type { PicaAcpStart } from "@/backend/service/chat/acp/PicaAcpService";
 
@@ -226,11 +228,11 @@ it("PAGE-344 preserves a complete employee answer during the settings stop handl
   const { service, world, requests, pool, jobs } = fixture();
   const started = await service.start(input());
   await vi.waitFor(() => expect(world.opened).toHaveBeenCalledOnce());
+  world.text("Full answer in progress");
   await Promise.all([service.stopAll(), requests.cancelAll()]);
   expect(jobs.get(started.job.id)?.state).toBe("running");
   expect(world.close).not.toHaveBeenCalled();
-  world.text("Full answer in progress");
-  world.complete();
+  world.complete(completedTurn("Full answer completed after settings save"));
   await service.settled(OWNER, FIRST);
   expect(jobs.get(started.job.id)).toMatchObject({
     state: "completed",
@@ -238,7 +240,91 @@ it("PAGE-344 preserves a complete employee answer during the settings stop handl
   });
   expect(world.messages.at(-1)).toMatchObject({
     role: "assistant",
-    content: "Answer",
+    content: "Full answer completed after settings save",
   });
   await pool.closeAll();
+});
+
+it("PAGE-344 sends the newly prepared context and image bytes on both turns of one native session", async () => {
+  const { service, world, pool } = fixture();
+  const payloads: (readonly ContentBlock[])[] = [];
+  const prompts: string[] = [];
+  const capture = async (turn: AgentPlanExecutionInput): Promise<void> => {
+    if (!turn.promptContent) throw new Error("Missing attachment payload");
+    prompts.push(turn.prompt);
+    payloads.push(await turn.promptContent({ image: true }));
+  };
+  const open = world.opened.getMockImplementation();
+  if (!open) throw new Error("Missing native session boundary");
+  world.opened.mockImplementation(async (...opening) => {
+    await capture(opening[0]);
+    const native = await open(...opening);
+    const next = native.next;
+    if (!next) throw new Error("Missing next-turn boundary");
+    return {
+      ...native,
+      next: async (...turn: Parameters<NonNullable<typeof native.next>>) => {
+        await capture(turn[0]);
+        return next.call(native, ...turn);
+      },
+    };
+  });
+  let throughSequence = 1;
+  const prepare = vi.fn(async (afterSequence: number | null) => {
+    const bytes = Buffer.from(`image-${throughSequence}`);
+    return {
+      text: `Context from ${afterSequence ?? 0} through ${throughSequence}`,
+      attachments: [
+        {
+          id: `image-${throughSequence}`,
+          fileName: `image-${throughSequence}.png`,
+          contentType: "image/png",
+          size: bytes.length,
+          sessionId: FIRST,
+          messageId: null,
+          storageName: "synthetic",
+        },
+      ],
+      attachmentReader: {
+        readBytes: async () => bytes,
+        readText: async () => "",
+      },
+      throughSequence,
+    };
+  });
+  const start = input();
+  if (!start.employee) throw new Error("Missing employee");
+  const round = {
+    ...start,
+    employee: { ...start.employee, prepareTurn: prepare },
+  };
+  try {
+    await service.start(round);
+    await vi.waitFor(() => expect(world.opened).toHaveBeenCalledOnce());
+    world.complete();
+    await service.settled(OWNER, FIRST);
+    throughSequence = 31;
+    await service.start(round);
+    await service.settled(OWNER, FIRST);
+    expect(prepare.mock.calls).toEqual([[null], [1]]);
+    expect(world.opened).toHaveBeenCalledOnce();
+    expect(prompts[0]).toContain("Context from 0 through 1");
+    expect(prompts[1]).toContain("Context from 1 through 31");
+    expect(
+      payloads.map((blocks) =>
+        blocks.filter((block) => block.type === "image"),
+      ),
+    ).toEqual(
+      [1, 31].map((sequence) => [
+        {
+          type: "image",
+          mimeType: "image/png",
+          data: Buffer.from(`image-${sequence}`).toString("base64"),
+        },
+      ]),
+    );
+    expect(world.close).not.toHaveBeenCalled();
+  } finally {
+    await pool.closeAll();
+  }
 });

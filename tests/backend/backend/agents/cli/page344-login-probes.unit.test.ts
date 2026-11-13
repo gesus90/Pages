@@ -24,13 +24,12 @@ const connection: AgentConnectionRecord = {
   updatedAt: "2026-11-13",
 };
 
-function fixture(): {
+function fixture(runner = new CliProcessRunner()): {
   runtime: AgentCliRuntime;
   runner: CliProcessRunner;
   store: AgentCredentialStore;
   adapter: CodexCli;
 } {
-  const runner = new CliProcessRunner();
   const store = new AgentCredentialStore("/synthetic");
   const home = store.paths(connection.id, "codex_cli");
   vi.spyOn(store, "prepare").mockResolvedValue(home);
@@ -48,17 +47,43 @@ function fixture(): {
 }
 
 it("PAGE-344 defers a login probe while the connection's native session is answering", async () => {
-  const { runtime, runner, store } = fixture();
-  const active = vi.spyOn(runner, "hasSession").mockReturnValue(true);
+  const fake = fakeChild();
+  const signalGroup = vi.fn();
+  const runner = new CliProcessRunner({ spawn: () => fake.child, signalGroup });
+  const { runtime, store } = fixture(runner);
+  const home = store.paths(connection.id, "codex_cli");
+  const controller = new AbortController();
+  const session = runner.startSession({
+    file: "/synthetic/codex",
+    provider: "codex_cli",
+    home,
+    workingDirectory: home.work,
+    arguments: [],
+    environment: {},
+    timeoutMs: 0,
+    signal: controller.signal,
+    onLine: vi.fn(),
+  });
+  const completed = vi.fn();
+  void session.completed.then(completed);
   const run = vi.spyOn(runner, "run");
   await expect(
     runtime.check(connection, "auth", new AbortController().signal),
   ).resolves.toMatchObject({ ok: false, errorCode: "check_in_progress" });
-  expect(active).toHaveBeenCalledWith(store.paths(connection.id, "codex_cli"));
+  expect(runner.hasSession(home)).toBe(true);
+  expect(controller.signal.aborted).toBe(false);
+  expect(completed).not.toHaveBeenCalled();
+  expect(fake.kill).not.toHaveBeenCalled();
+  expect(signalGroup).not.toHaveBeenCalled();
   expect(run).not.toHaveBeenCalled();
   expect(store.prepare).not.toHaveBeenCalled();
   expect(store.secure).not.toHaveBeenCalled();
   expect(runtime.adapter).not.toHaveBeenCalled();
+  fake.child.emit("close", 0, null);
+  await expect(session.completed).resolves.toMatchObject({
+    exitCode: 0,
+    errorCode: null,
+  });
 });
 
 it.each([

@@ -222,8 +222,9 @@ function readMessage(input: unknown): AgentMessage {
  * the agent's role, departments and project memberships. It runs with the
  * model and access stored for the agent; full access only inside the
  * isolation the ACP execution never runs YOLO without. `SOUL.md` and
- * `AGENT.md` open every instruction, `MEMORY.md` follows as data. A change
- * of the agent ends a running session at its next turn or tool call.
+ * `AGENT.md` open every instruction, `MEMORY.md` follows as data. Settings
+ * apply to the next round; a running round keeps its configuration while
+ * every turn and tool call still checks that the account is active.
  *
  * Every chat of an agent has its own session with its own working directory
  * and history (PAGE-304): the direct chat per person, every conversation per
