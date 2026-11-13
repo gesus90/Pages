@@ -129,6 +129,72 @@ it("rechecks archive rights after the preview and refuses restore without them",
   expect(world.storage.state).toEqual(previewed);
 });
 
+it("requires project responsibility as well as the milestone capability to archive", async () => {
+  const active = structuredClone(world.storage.state);
+  for (const options of [{}, { confirmed: true }]) {
+    expect(
+      await world.call(
+        "tickets_archive",
+        { ticketId: "task", ...options },
+        "milestoner",
+      ),
+    ).toEqual({ ok: false, error: "FORBIDDEN", result: null });
+    expect(world.storage.state).toEqual(active);
+  }
+});
+
+it("requires project responsibility as well as the milestone capability to restore", async () => {
+  expect(
+    (await world.call("tickets_archive", { ticketId: "task", confirmed: true }))
+      .ok,
+  ).toBe(true);
+  const archived = structuredClone(world.storage.state);
+  expect(
+    await world.call("tickets_restore", { ticketId: "task" }, "milestoner"),
+  ).toEqual({ ok: false, error: "FORBIDDEN", result: null });
+  expect(world.storage.state).toEqual(archived);
+});
+
+it("attributes restoration to its current account independently of the account that archived", async () => {
+  world.storage.addPerson("restorer", {
+    capabilities: ["write", "milestones", "manage_projects"],
+    managedDepartments: ["engineering"],
+  });
+  expect(
+    await world.call("tickets_archive", { ticketId: "task", confirmed: true }),
+  ).toEqual({ ok: true, error: null, result: '{"archived":2}' });
+  const restored = await world.call(
+    "tickets_restore",
+    { ticketId: "task" },
+    "restorer",
+  );
+  expect(restored.ok).toBe(true);
+  expect(JSON.parse(restored.result ?? "null")).toMatchObject({ restored: 2 });
+  const history = await world.storage.tasks.findHistoryByProject(
+    world.storage.user("manager"),
+    "alpha",
+  );
+  expect(history).toHaveLength(4);
+  for (const workItemId of ["task", "sub"]) {
+    expect(history).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          workItemId,
+          action: "archived",
+          userId: "manager",
+          userDisplayName: "manager",
+        }),
+        expect.objectContaining({
+          workItemId,
+          action: "restored",
+          userId: "restorer",
+          userDisplayName: "restorer",
+        }),
+      ]),
+    );
+  }
+});
+
 it.each([undefined, true])(
   "rejects keep for a task in preview and execution (confirmed %s)",
   async (confirmed) => {
@@ -199,6 +265,24 @@ it("rejects hidden descendants without archiving any visible ticket", async () =
   ).toEqual({ ok: false, error: "INVALID_REQUEST", result: null });
   expect(world.storage.state.writes).toEqual([]);
   expect(world.storage.state.history).toEqual([]);
+});
+
+it("rejects restoring a subtree with hidden descendants without changing tickets or history", async () => {
+  expect(
+    (await world.call("tickets_archive", { ticketId: "task", confirmed: true }))
+      .ok,
+  ).toBe(true);
+  world.storage.addTicket("sub", {
+    ...world.storage.ticket("sub"),
+    departmentIds: ["design"],
+  });
+  const archived = structuredClone(world.storage.state);
+  expect(await world.call("tickets_restore", { ticketId: "task" })).toEqual({
+    ok: false,
+    error: "INVALID_REQUEST",
+    result: null,
+  });
+  expect(world.storage.state).toEqual(archived);
 });
 
 it("finds only archived tickets with archived true and excludes them by default or with false", async () => {
