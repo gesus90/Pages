@@ -209,26 +209,6 @@ it.each<[string, NodeFields, string]>([
     { type: "parameter", name: "p", format: "xml" },
     "plan_invalid",
   ],
-  [
-    "a parameter with invalid JSON",
-    {
-      type: "parameter",
-      name: "p",
-      format: "json",
-      value: { type: "text", text: "{" },
-    },
-    "plan_json_invalid",
-  ],
-  [
-    "a parameter with a text that is no number",
-    {
-      type: "parameter",
-      name: "p",
-      format: "number",
-      value: { type: "text", text: '"a"' },
-    },
-    "plan_number_invalid",
-  ],
   ["an unknown node type", { type: "note" }, "plan_invalid"],
   ["an instruction that is no text", { instruction: 1 }, "plan_invalid"],
   [
@@ -327,3 +307,21 @@ it.each<[unknown, string]>([
 ])("refuses the binding %j as %s", (input, code) => {
   expect(agentErrorCode(() => readPlanBinding(input))).toBe(code);
 });
+
+it.each(["json", "number", "boolean"] as const)(
+  "keeps invalid %s parameter text editable as a warning",
+  (format) => {
+    const input = {
+      ...POSITION,
+      id: "input",
+      type: "parameter",
+      name: "input",
+      format,
+      value: { type: "text", text: "{" },
+    };
+    expect(readPlanNode(input)).toMatchObject({
+      format,
+      value: { type: "text", text: "{" },
+    });
+  },
+);

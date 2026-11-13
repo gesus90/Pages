@@ -152,10 +152,11 @@ export class AgentPlanRemoteParameters {
               [parameter],
             )[parameter.name]
           : parameter.defaultValue;
-        values[parameter.name] = bound;
+        const compatible = bound?.type === parameter.type ? bound : null;
+        values[parameter.name] = compatible;
         await this.collectReference(
           userId,
-          bound,
+          compatible,
           {
             parameter: parameter.name,
             projectId: plan.projectId,

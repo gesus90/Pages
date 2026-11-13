@@ -122,6 +122,7 @@ async function bindGroupStep(
     wiki: { ...step.prepared.wiki, ...shared.wiki },
   };
   const parameters = await bindAgentParameters(step.template, values, {
+    allowIncomplete: true,
     ticket: async (id) => {
       const ticket = prepared.tickets[id];
       if (!ticket) throw new AgentError("parameter_ticket_unavailable");

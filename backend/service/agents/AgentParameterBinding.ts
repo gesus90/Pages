@@ -26,6 +26,8 @@ import type {
 
 /** Resolvers must authorize the executing user and project before returning any resource. */
 export interface AgentReferenceResolvers {
+  /** Plans pass incomplete inputs to their steps; direct agent calls remain strict. */
+  readonly allowIncomplete?: boolean;
   readonly ticket?: (id: string) => Promise<ResolvedAgentTicket>;
   readonly workspace: (id: string) => Promise<{ readonly path: string }>;
   readonly wiki: (id: string) => Promise<{
@@ -59,11 +61,13 @@ interface ParameterResolution {
 function readBindings(
   configuration: Pick<AgentConfiguration, "parameters" | "directoryParameter">,
   input: unknown,
+  allowIncomplete = false,
 ): Readonly<Record<string, AgentParameterValue | null>> {
   if (typeof input !== "object" || input === null || Array.isArray(input))
     throw new AgentError("parameter_invalid");
   const bindings = readAgentObject(input);
   if (
+    !allowIncomplete &&
     Object.keys(bindings).some(
       (name) =>
         !configuration.parameters.some((parameter) => parameter.name === name),
@@ -72,10 +76,13 @@ function readBindings(
     throw new AgentError("parameter_invalid");
   return Object.fromEntries(
     configuration.parameters.map((parameter) => {
-      const bound = boundValue(parameter, bindings);
+      const bound = allowIncomplete
+        ? incompleteValue(parameter, bindings)
+        : boundValue(parameter, bindings);
       if (bound !== null && bound.type !== parameter.type)
         throw new AgentError("parameter_invalid");
       if (
+        !allowIncomplete &&
         (parameter.isRequired ||
           configuration.directoryParameter === parameter.name) &&
         !hasAgentParameterValue(bound)
@@ -84,6 +91,21 @@ function readBindings(
       return [parameter.name, bound];
     }),
   );
+}
+
+function incompleteValue(
+  parameter: AgentParameter,
+  bindings: Readonly<Record<string, unknown>>,
+): AgentParameterValue | null {
+  try {
+    const bound = boundValue(parameter, bindings);
+    return bound?.type === parameter.type && hasAgentParameterValue(bound)
+      ? bound
+      : null;
+  } catch (error: unknown) {
+    if (error instanceof AgentError) return null;
+    throw error;
+  }
 }
 
 function boundValue(
@@ -108,6 +130,8 @@ async function resolveParameter(
         [`${name}.path`]: "",
         [`${name}.link`]: "",
         [`${name}.markdown`]: "",
+        [`${name}.description`]: "",
+        [`${name}.assets`]: "",
       },
       directory: null,
       version: null,
@@ -201,15 +225,18 @@ export async function bindAgentParameters(
 ): Promise<BoundAgentParameters> {
   if (scanAgentPlaceholders(configuration.markdown).hasUnsupportedRunNotes)
     throw new AgentError("run_notes_unsupported");
-  if (agentParameterIssues(configuration).length > 0)
+  if (
+    !references.allowIncomplete &&
+    agentParameterIssues(configuration).length > 0
+  )
     throw new AgentError("parameter_invalid");
-  const values = readBindings(configuration, input);
+  const values = readBindings(configuration, input, references.allowIncomplete);
   const placeholders = scanAgentPlaceholders(
     configuration.markdown,
   ).placeholders;
   for (const placeholder of placeholders) {
     const bound = values[placeholder.name];
-    if (!hasAgentParameterValue(bound ?? null))
+    if (!references.allowIncomplete && !hasAgentParameterValue(bound ?? null))
       throw new AgentError("parameter_required");
   }
   const replacements: Record<string, string> = {};
@@ -253,7 +280,11 @@ export async function bindAgentParameters(
     if (resolved.version !== null)
       wikiVersions[parameter.name] = resolved.version;
   }
-  const markdown = replacePlaceholders(configuration.markdown, replacements);
+  const markdown = replacePlaceholders(
+    configuration.markdown,
+    replacements,
+    references.allowIncomplete,
+  );
   if (markdown.length > 1_000_000) throw new AgentError("parameter_invalid");
   return { markdown, directory, values, wikiVersions, tickets, assetInputs };
 }
@@ -261,6 +292,7 @@ export async function bindAgentParameters(
 function replacePlaceholders(
   source: string,
   replacements: Readonly<Record<string, string>>,
+  allowIncomplete = false,
 ): string {
   const { placeholders } = scanAgentPlaceholders(source);
   let markdown = source;
@@ -269,7 +301,8 @@ function replacePlaceholders(
       placeholder.property === "text"
         ? placeholder.name
         : `${placeholder.name}.${placeholder.property}`;
-    const replacement = replacements[token];
+    const replacement =
+      replacements[token] ?? (allowIncomplete ? "" : undefined);
     // A placeholder is never sent unresolved, not even as an empty or literal token.
     if (replacement === undefined)
       throw new AgentError("plan_placeholder_unresolved");

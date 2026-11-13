@@ -1,6 +1,6 @@
 import type { AgentWorkspaceCleanupRepository } from "@/backend/database/repositories/agent/AgentWorkspaceCleanupRepository";
 import { canRunPlan } from "@/definition/AgentPlanTeam";
-import { planExecutionIssues } from "@/definition/AgentPlanGraph";
+import { planStartIssues } from "@/definition/AgentPlanStart";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { AgentPlanValidationError } from "@/backend/error/AgentPlanValidationError";
@@ -134,12 +134,7 @@ export class AgentPlanControlService {
         run.status === "stopping")
     )
       return withStartRejection(control, rejection);
-    const issues = [
-      ...planExecutionIssues(
-        plan,
-        await this.dependencies.profiles.catalog(userId, plan.projectId),
-      ),
-    ];
+    const issues = [...planStartIssues(plan)];
     const execution = await this.executionIssue(userId, plan, issues);
     let issue = execution.code ?? control.issue;
     if (run?.status === "paused" && (await this.hasChangedContext(run, plan)))
@@ -226,6 +221,8 @@ export class AgentPlanControlService {
     plan: AgentPlan,
     issues: AgentPlanIssue[],
   ): Promise<ExecutionIssue> {
+    if (issues.some((issue) => issue.reason === "startEndDisconnected"))
+      return { code: "plan_start_end_disconnected" };
     try {
       const snapshot = await this.dependencies.preparation?.prepare(
         userId,

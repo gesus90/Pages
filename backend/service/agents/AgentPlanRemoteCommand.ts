@@ -55,10 +55,7 @@ export function remoteTextInputs(
   for (const parameter of parameters) {
     const bound = bindings[parameter.name] ?? parameter.defaultValue;
     if (step.bindings[parameter.name]?.kind === "result") continue;
-    if (!bound && !parameter.isRequired) continue;
-    if (bound?.type !== "text" || (parameter.isRequired && !bound.text.trim()))
-      throw new AgentError("plan_binding_invalid");
-    inputs[parameter.name] = bound.text;
+    inputs[parameter.name] = bound?.type === "text" ? bound.text : "";
   }
   return inputs;
 }

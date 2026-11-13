@@ -40,6 +40,16 @@ export async function planNodeOutcome(
   controller: AbortController,
   input: NodeOutcomeInput,
 ): Promise<Partial<AgentPlanStepResult>> {
+  const preparationFailure = active.snapshot.preparationFailures?.[node.id];
+  if (preparationFailure)
+    return { status: "failed", error: preparationFailure };
+  const group = active.snapshot.steps.find(
+    (step) => step.step.id === node.id,
+  )?.groupId;
+  const groupFailure = group
+    ? active.snapshot.preparationFailures?.[group]
+    : undefined;
+  if (groupFailure) return { status: "failed", error: groupFailure };
   const isReattaching = isReattachingLocalNode(
     active,
     node.id,

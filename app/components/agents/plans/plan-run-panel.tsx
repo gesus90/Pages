@@ -15,7 +15,11 @@ import { PlanOpenRunStartDialog } from "./plan-open-run-start-dialog";
 import { usePlanManagement } from "./plan-management/use-plan-management";
 import { PlanPanelDetails } from "./plan-panel-details";
 import { PlanPanelHeading } from "./plan-panel-heading";
-import { planPanelIssues } from "./plan-panel-issues";
+import {
+  PlanPanelIssueList,
+  planPanelIssues,
+  planWarningEntries,
+} from "./plan-panel-issues";
 import { PlanPanelStatus } from "./plan-panel-status";
 import { planPanelState } from "./plan-panel-status-model";
 import { recoverableRunId, recoveryErrorText } from "./plan-recovery-panel";
@@ -217,12 +221,19 @@ function useRunDecisions(
   readonly setRecoveryAction: (action: PlanRunDecision | null) => void;
   readonly action: (intent: PlanRunIntent) => void;
   readonly resolveBlock: (action: AgentPlanResumeAction) => void;
+  readonly warnings: ReturnType<typeof planWarningEntries>;
 } {
+  const { t } = useTranslation();
+  const [warnings, setWarnings] = useState<
+    ReturnType<typeof planWarningEntries>
+  >([]);
   const [recoveryAction, setRecoveryAction] = useState<PlanRunDecision | null>(
     null,
   );
   const { control } = props;
   function action(intent: PlanRunIntent): void {
+    if (intent === "play-plan")
+      setWarnings(planWarningEntries(props.editor, t));
     if (intent !== "play-plan") submitRunAction(props, intent);
     else if (control?.runId && isActivePlanRun(control.status))
       setRecoveryAction("replace-open");
@@ -237,7 +248,7 @@ function useRunDecisions(
     else if (blockAction === "admin_mode")
       void switchToAdminMode().then(props.onRecoveryDecided);
   }
-  return { recoveryAction, setRecoveryAction, action, resolveBlock };
+  return { recoveryAction, setRecoveryAction, action, resolveBlock, warnings };
 }
 
 /** Fixed within the editor, independent of graph position, viewport and zoom. */
@@ -256,7 +267,7 @@ export function PlanRunPanel(props: PlanRunPanelProps): React.ReactElement {
   });
   const presentation = panelPresentation(props);
   const state = panelState(props, presentation.error);
-  const { recoveryAction, setRecoveryAction, action, resolveBlock } =
+  const { recoveryAction, setRecoveryAction, action, resolveBlock, warnings } =
     useRunDecisions(props, recovery);
   return (
     <>
@@ -290,6 +301,11 @@ export function PlanRunPanel(props: PlanRunPanelProps): React.ReactElement {
           onManage={management.open}
         />
         {recoveryRunId ? <RecoveryErrorLine recovery={recovery} /> : null}
+        {warnings.length > 0 ? (
+          <div role="status" className="px-3 py-2">
+            <PlanPanelIssueList issues={warnings} />
+          </div>
+        ) : null}
         <PlanPanelStatus
           state={state}
           isOpen={isOpen}

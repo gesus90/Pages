@@ -101,7 +101,8 @@ it("marks a selected node with an issue and takes the colors of a shown run", ()
   );
   expect(article().className).toContain("run-colors");
   expect(article().className).toContain("ring-2");
-  expect(article().className).toContain("border-destructive");
+  expect(article().className).not.toContain("border-destructive");
+  expect(within(article()).getByRole("img").title).not.toBe("");
   expect(article().textContent).toContain("Running");
 });
 
@@ -124,7 +125,7 @@ it("opens the node dialog from its edit button and keeps the edit button while t
   expect(onEdit).toHaveBeenCalledOnce();
 });
 
-it("prefers border-primary for an open agent choice and border-destructive when another issue hits", () => {
+it("marks an open agent choice and explains other findings with a quiet warning", () => {
   const { unmount } = renderInFlow(
     <PlanCard
       node={{ ...agentStep("agent"), selectionRequired: "model" }}
@@ -158,5 +159,6 @@ it("prefers border-primary for an open agent choice and border-destructive when 
       }),
     },
   );
-  expect(article().className).toContain("border-destructive");
+  expect(article().className).not.toContain("border-destructive");
+  expect(within(article()).getByRole("img").title).not.toBe("");
 });

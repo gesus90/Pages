@@ -385,6 +385,7 @@ function stepReferences(
   live: PreparedAgentParameters,
 ): AgentReferenceResolvers {
   return {
+    allowIncomplete: true,
     ticket: async (id) => {
       // A group keeps the tickets it froze at its entry; a ticket a stack handed over later is read live.
       const ticket =
@@ -487,9 +488,10 @@ function resultValues(
       snapshot.steps.find((source) => source.step.id === binding.stepId),
     );
     const result = run.steps.find((entry) => entry.id === binding.stepId);
-    if (result?.status !== "succeeded" || result.output === null)
-      throw new AgentError("plan_binding_invalid");
-    values[name] = { type: "text", text: result.output };
+    values[name] = {
+      type: "text",
+      text: result?.status === "succeeded" ? (result.output ?? "") : "",
+    };
   }
   return values;
 }

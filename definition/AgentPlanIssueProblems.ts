@@ -63,6 +63,7 @@ export const AGENT_PLAN_ISSUE_PROBLEMS = [
   "resultAmbiguous",
   "source",
   "required",
+  "startEndDisconnected",
   "start",
   "end",
   "flowIn",

@@ -30,9 +30,7 @@ export async function resolvedRemoteCommand(
   for (const [name, binding] of Object.entries(remote.step.bindings)) {
     if (binding.kind !== "result") continue;
     const result = run.steps.find((entry) => entry.id === binding.stepId);
-    if (result?.status !== "succeeded" || result.output === null)
-      throw new AgentError("plan_binding_invalid");
-    inputs[name] = result.output;
+    inputs[name] = result?.status === "succeeded" ? (result.output ?? "") : "";
   }
   const command = remote.command;
   if (command.program.kind === "script")

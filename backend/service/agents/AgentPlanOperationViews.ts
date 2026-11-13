@@ -1,6 +1,7 @@
 import { copyPlanConfiguration } from "@/definition/AgentPlanConfiguration";
 import { isActivePlanRun } from "@/definition/AgentPlanRunState";
-import { planExecutionIssues } from "@/definition/AgentPlanGraph";
+import { planStartIssues } from "@/definition/AgentPlanStart";
+import { planWarnings } from "@/definition/AgentPlanWarnings";
 import { scriptAssessmentVerdict } from "@/definition/AgentPlanScriptReport";
 import { sessionAttemptId } from "@/definition/AgentSessionJournal";
 import { PLAN_BLOCKER_RETRIES } from "@/definition/AgentPlanRetry";
@@ -273,14 +274,12 @@ export function planDetail(
   plan: AgentPlanView,
   context: AgentPlanDetailContext,
 ): AgentPlanDetail {
-  const issues = planExecutionIssues(plan, context.sources.agents).map(
-    (issue) => ({
-      nodeId: issue.nodeId,
-      port: issue.port,
-      problem: issue.reason,
-      ...(issue.asset ? { asset: issue.asset } : {}),
-    }),
-  );
+  const issues = planStartIssues(plan).map((issue) => ({
+    nodeId: issue.nodeId,
+    port: issue.port,
+    problem: issue.reason,
+    ...(issue.asset ? { asset: issue.asset } : {}),
+  }));
   return {
     ...planBase(plan, context.directory),
     executionTarget: plan.executionTarget ?? null,
@@ -289,6 +288,11 @@ export function planDetail(
       ...planState(plan, context.entries, context.starters),
       isRunnable: context.isRunnable ?? issues.length === 0,
       issues,
+      warnings: planWarnings(plan, context.sources.agents).map((issue) => ({
+        nodeId: issue.nodeId,
+        port: issue.port,
+        problem: issue.reason,
+      })),
     },
     nodes: plan.nodes.map((node) => nodeEntry(node, context.sources)),
     edges: plan.edges.map((edge) => ({ ...edge })),

@@ -178,14 +178,14 @@ const CHAT_OPERATIONS: Readonly<Record<ChatOperation, string>> = {
   "plans.keep":
     "{planId, expectedRevision} auf ausdrücklichen Auftrag einen Einmal-Plan behalten: geplantes Löschen abbrechen und oneShot entfernen",
   "plans.play":
-    "{planId, expectedRevision} gespeicherte Revision ausdrücklich starten",
+    "{planId, expectedRevision} gespeicherte Revision ausdrücklich starten; einzige Ablaufbedingung Start→End verbunden, fehlende Werte nur Warnung, freie Knoten werden übersprungen",
   "plans.pause": "{planId, expectedRevision, runId} eigenen Run pausieren",
   "plans.resume":
     "{planId, expectedRevision, runId} eigenen pausierten Run fortsetzen",
   "plans.stop": "{planId, expectedRevision, runId} eigenen Run stoppen",
   "plans.list": `{text?, projectId?, ${WINDOW}} sichtbare Agent Plans nach Name mit Projekt, team (Abteilung des Plans), Freigabe, canEdit, revision, state (idle|running|pausing|paused|stopping) und latestRun, oneShot und scheduledDeletionAt (Einmal-Plan wird fünf Minuten nach einem erfolgreichen Lauf gelöscht); text sucht im Namen`,
   "plans.read":
-    "{planId, cursor?, maxBytes?} Agent Plan lesen; über 64 KiB als chunk mit text, Byte-Offsets, SHA-256 und nextCursor (als cursor fortsetzen), höchstens 1 MiB insgesamt; nach Änderung neu lesen. Kleine Antworten mit nodes (label, Agent, Script, Ticket, Parameter, bindings), edges (Ablauf from → to), Freigabe, revision und status (state, runCount, latestRun, isRunnable, issues) lesen",
+    "{planId, cursor?, maxBytes?} Agent Plan lesen; über 64 KiB als chunk mit text, Byte-Offsets, SHA-256 und nextCursor (als cursor fortsetzen), höchstens 1 MiB insgesamt; nach Änderung neu lesen. Kleine Antworten mit nodes (label, Agent, Script, Ticket, Parameter, bindings), edges (Ablauf from → to), Freigabe, revision und status (state, runCount, latestRun, isRunnable, issues, warnings) lesen; warnings nennen Knoten und Feld und blockieren Starten nicht",
   "plans.sources.read":
     "{workspaceId?} Arbeitsbereiche für neue Pläne; mit workspaceId auch die Agents mit ihren Parametern für Agent-Nodes und die Interpreterprofile (id, name, status, version) für Script-Nodes",
   "plans.runs.list": `{planId, order?: newest|oldest, ${WINDOW}} eigene Runs eines Plans mit runId, planId, startedAt und status, seitenweise (Standard 20 pro Seite)`,

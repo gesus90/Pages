@@ -95,7 +95,11 @@ function issueTitle(
   return port && issue.reason !== "required" ? `${name} · ${port}` : name;
 }
 
-function issueCause(issue: AgentPlanIssue, translate: TFunction): string {
+/** Explains a stable finding and names a missing input in the user's language. */
+export function planIssueCause(
+  issue: AgentPlanIssue,
+  translate: TFunction,
+): string {
   const port = issuePort(issue);
   const keys = [`plans.validation.${issue.reason}`];
   // A node-bound finding gets the sentence about that node, not the plan-wide one.
@@ -132,7 +136,7 @@ export function planPanelIssues(input: {
   const entries: PlanPanelIssue[] = graph.map((issue) => ({
     key: `node-${issue.nodeId ?? ""}-${issue.port ?? ""}`,
     title: issueTitle(issue, editor, translate),
-    cause: issueCause(issue, translate),
+    cause: planIssueCause(issue, translate),
     shouldWrap: issue.port !== null && issue.reason.startsWith("remote"),
   }));
   for (const issue of planTargetIssues(
@@ -158,6 +162,21 @@ export function planPanelIssues(input: {
       }),
     });
   return bySubject(entries);
+}
+
+/** Names every advisory finding once before a start, without asking for confirmation. */
+export function planWarningEntries(
+  editor: ReturnType<typeof usePlanEditor>,
+  translate: TFunction,
+): readonly PlanPanelIssue[] {
+  return bySubject(
+    editor.graph.issues.map((issue) => ({
+      key: `warning-${issue.nodeId ?? ""}-${issue.port ?? ""}`,
+      title: issueTitle(issue, editor, translate),
+      cause: planIssueCause(issue, translate),
+      shouldWrap: true,
+    })),
+  );
 }
 
 /** One row per affected step or area; its causes follow each other. */

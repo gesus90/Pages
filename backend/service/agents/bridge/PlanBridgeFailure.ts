@@ -126,6 +126,7 @@ const STEP_REPORT_REASONS: Readonly<Record<StepReportRejectionReason, true>> = {
 
 /** Every finding of the plan graph check, so a refused plan names what to fix. */
 const ISSUE_PROBLEMS: Readonly<Record<AgentPlanIssueProblem, true>> = {
+  startEndDisconnected: true,
   remoteRunnerUpdate: true,
   remoteToolIncompatible: true,
   remotePagesUnavailable: true,

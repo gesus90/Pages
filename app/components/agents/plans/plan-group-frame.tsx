@@ -14,6 +14,7 @@ import { PLAN_NODE_TEXT } from "./plan-node-text";
 import { PlanPaletteButton } from "./plan-palette-button";
 import { PlanGroupCount, PlanGroupStatus } from "./plan-group-progress";
 import { PlanGroupRoutes } from "./plan-group-routes";
+import { PlanNodeWarning } from "./plan-node-warning";
 
 import type { AgentPlanRun, AgentPlanSources } from "@/definition/AgentPlan";
 import type { AgentPlanGroup } from "@/definition/AgentPlanGroup";
@@ -77,6 +78,7 @@ export function PlanGroupFrame(props: GroupFrameProps): React.ReactElement {
           )}
         >
           <GroupHeaderContent {...props} label={label} />
+          <PlanNodeWarning nodeId={group.id} issues={graph.issues} />
           <PlanPaletteButton
             variant="outline"
             size="icon-sm"

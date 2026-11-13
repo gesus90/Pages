@@ -3,7 +3,6 @@ import { planExecutionTargetSchema } from "@/definition/AgentPlanExecution";
 import { emptyAgentConfiguration } from "@/definition/AgentConfiguration";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { isAgentParameterName } from "@/definition/AgentParameters";
-import { planValueIssue } from "@/definition/AgentPlanValue";
 import {
   PLAN_SCRIPT_DISABLED_OUTPUT_LENGTH,
   planScriptIssues,
@@ -379,12 +378,6 @@ function readEdge(input: unknown): AgentPlanEdge {
   };
 }
 
-const PARAMETER_ERRORS = {
-  json: "plan_json_invalid",
-  number: "plan_number_invalid",
-  boolean: "plan_boolean_invalid",
-} as const;
-
 function readParameterNode(
   node: Record<string, unknown>,
   base: AgentPlanPosition & { readonly id: string },
@@ -406,8 +399,6 @@ function readParameterNode(
     format,
     value: readAgentParameterValue(node.value),
   };
-  const issue = planValueIssue(parameter);
-  if (issue !== null) throw new AgentError(PARAMETER_ERRORS[issue]);
   return parameter;
 }
 

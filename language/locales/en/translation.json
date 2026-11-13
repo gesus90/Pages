@@ -842,6 +842,7 @@
         "workspace_in_use": "Remove the workspace references before rebinding the registration.",
         "plan_sources_failed": "The current agent template could not be loaded. Please insert it again.",
         "plan_remote_unavailable": "Remote execution is blocked: the runner, model route or interpreter is not ready. No local fallback.",
+        "plan_start_end_disconnected": "Start is not connected to End.",
         "plan_invalid": "Check the plan fields and graph nodes.",
         "swarm_invalid": "Check the swarm: 1 to 10 helpers, a time limit of 1 to 1440 minutes and a working directory inside the workspace.",
         "swarm_remote_unsupported": "Swarm nodes run only on the Pages host. Choose a local target.",
@@ -4775,6 +4776,7 @@
     "dataIn": "Data IN",
     "disconnect": "Remove data connection for {{name}}",
     "validation": {
+      "startEndDisconnected": "Start is not connected to End.",
       "ticketHandoff": "Agent results are text and cannot forward ticket assets. Bind the same ticket source to the receiving agent’s ticket parameter.",
       "resultSource": "The bound result source is missing or not an agent. Release the data connection and connect the result of an existing agent.",
       "resultOrder": "The result source does not run before this agent. Only the result of an agent earlier in the flow can be connected.",
@@ -5338,10 +5340,10 @@
       "issueCause": {
         "agent": "Model access is missing or not released.",
         "required": "A required parameter is not connected.",
-        "requiredPort": "Required parameter “{{port}}” is not connected. The connection to its intended source must exist before the start.",
+        "requiredPort": "Input “{{port}}” has no value. The run starts anyway.",
         "flowIn": "The step has no incoming flow.",
         "flowOut": "The step has no outgoing flow.",
-        "unreachable": "No start reaches this step.",
+        "unreachable": "Node outside a complete Start→End path; skipped during execution.",
         "end": "No flow leads from here to an end.",
         "remoteModel": "The selected model or catalog revision is unavailable on this runner. Choose a current model of this remote workspace.",
         "remoteInterpreter": "The interpreter does not belong to the runner of the remote workspace. Choose one of its interpreters or run the script locally.",

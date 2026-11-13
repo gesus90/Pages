@@ -1,4 +1,4 @@
-import { AgentError } from "@/backend/error/AgentErrors";
+import { planValueIssue } from "@/definition/AgentPlanValue";
 
 import type {
   AgentParameter,
@@ -34,7 +34,7 @@ function stackValue(
   declared: AgentParameter | undefined,
 ): AgentParameterValue | null {
   const stack = plan.nodes.find((node) => node.id === binding.stackId);
-  if (stack?.type !== "stack") throw new AgentError("plan_binding_invalid");
+  if (stack?.type !== "stack") return null;
   if (binding.output === "count")
     return declared?.type === "number"
       ? { type: "number", number: stack.entries.length }
@@ -72,15 +72,19 @@ export function planBindings(
   parameters: readonly AgentParameter[],
 ): Readonly<Record<string, AgentParameterValue | null>> {
   return Object.fromEntries(
-    Object.entries(step.bindings).map(([name, binding]) => {
-      const declared = parameters.find((entry) => entry.name === name);
-      if (binding.kind === "literal") return [name, binding.value];
-      if (isPendingResult(binding))
-        return [name, { type: "text", text: "[pending predecessor result]" }];
-      if (binding.kind === "stack")
-        return [name, stackValue(plan, binding, declared)];
-      return [name, sourceValue(plan, binding.nodeId, { tasks, declared })];
-    }),
+    Object.entries(step.bindings)
+      .filter(([name]) =>
+        parameters.some((parameter) => parameter.name === name),
+      )
+      .map(([name, binding]) => {
+        const declared = parameters.find((entry) => entry.name === name);
+        if (binding.kind === "literal") return [name, binding.value];
+        if (isPendingResult(binding))
+          return [name, { type: "text", text: "[pending predecessor result]" }];
+        if (binding.kind === "stack")
+          return [name, stackValue(plan, binding, declared)];
+        return [name, sourceValue(plan, binding.nodeId, { tasks, declared })];
+      }),
   );
 }
 
@@ -88,9 +92,10 @@ export function planBindings(
 function ownValue(
   source: AgentPlan["nodes"][number] | undefined,
 ): AgentParameterValue | null {
-  if (source?.type === "parameter") return source.value;
+  if (source?.type === "parameter")
+    return planValueIssue(source) ? null : source.value;
   if (source?.type !== "asset") return null;
-  if (!source.file) throw new AgentError("plan_asset_file_missing");
+  if (!source.file) return null;
   return { type: "asset", assetId: source.file.assetId };
 }
 
@@ -102,7 +107,7 @@ function sourceValue(
     readonly tasks: readonly AgentPlanTaskSnapshot[];
     readonly declared: AgentParameter | undefined;
   },
-): AgentParameterValue {
+): AgentParameterValue | null {
   const source = plan.nodes.find((node) => node.id === nodeId);
   const own = ownValue(source);
   if (own) return own;
@@ -114,5 +119,5 @@ function sourceValue(
     const task = context.tasks.find((entry) => entry.id === source.taskId);
     if (task) return { type: "text", text: task.markdown };
   }
-  throw new AgentError("plan_binding_invalid");
+  return null;
 }
