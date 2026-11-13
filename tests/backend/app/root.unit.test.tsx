@@ -8,6 +8,7 @@ import Root, { ErrorBoundary, Layout, links, meta } from "@/app/root";
 import { loader } from "@/app/routes/root-data";
 import { middleware } from "@/app/routes/root-server";
 import { databaseRequestMiddleware } from "@/app/lib/database-failure.server";
+import { managementRequestMiddleware } from "@/app/lib/management-middleware.server";
 import {
   createDocumentHeaders,
   createSecurityHeaders,
@@ -106,6 +107,7 @@ it("keeps every route closed until the setup is finished", () => {
   expect(middleware).toEqual([
     ...databaseRequestMiddleware,
     requireFinishedSetup,
+    managementRequestMiddleware,
   ]);
 });
 

@@ -176,9 +176,11 @@ describe("readAgentJson size limits", () => {
     });
   });
 
-  it("rejects an envelope above the wiki budget by its declared length", async () => {
+  it("rejects an envelope above the avatar budget by its declared length", async () => {
     const request = agentRequest("{}", {
-      "content-length": String(PAGES_AGENT_LIMITS.wikiEnvelopeBytes + 1),
+      "content-length": String(
+        PAGES_AGENT_LIMITS.managementAvatarEnvelopeBytes + 1,
+      ),
       "content-type": JSON_TYPE,
     });
 
@@ -187,7 +189,7 @@ describe("readAgentJson size limits", () => {
     expect(error.code).toBe("PAYLOAD_TOO_LARGE");
     expect(error.details).toEqual({
       constraint: "requestBytes",
-      limit: PAGES_AGENT_LIMITS.wikiEnvelopeBytes,
+      limit: PAGES_AGENT_LIMITS.managementAvatarEnvelopeBytes,
     });
   });
 

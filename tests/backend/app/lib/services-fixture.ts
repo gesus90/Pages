@@ -70,7 +70,9 @@ vi.mock("@/app/lib/agent-plan-services.server", () => ({
   createAgentPlanService: vi.fn(),
 }));
 vi.mock("@/app/lib/automation-services.server", () => ({
-  createAutomationServices: vi.fn(() => ({})),
+  createAutomationServices: vi.fn(() => ({
+    automationService: { automations: "automation service" },
+  })),
 }));
 vi.mock("@/app/lib/mcp-services.server", () => ({
   createMcpServices: vi.fn(),
