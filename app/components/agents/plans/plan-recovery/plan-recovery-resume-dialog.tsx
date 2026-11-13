@@ -1,6 +1,5 @@
 import { useTranslation } from "react-i18next";
 
-import { Button } from "@/app/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -10,28 +9,20 @@ import {
 
 import { recoveryErrorText } from "../plan-recovery-panel";
 import { PlanRecoveryRestart } from "./plan-recovery-restart";
-import { PlanRecoveryState } from "./plan-recovery-state";
 
 import type {
   PlanRecoveryRequest,
   usePlanRecovery,
 } from "../use-plan-recovery";
 
-/**
- * Starts an ended run from the beginning, after the executor's decision.
- *
- * @remarks
- * A restart names what runs again and asks for each possible repeated
- * effect. Continuing needs no dialog: Fortsetzen does it in one click. The
- * server checks the revision, the rights and leftover processes again and
- * starts a new run linked to the ended one, or refuses with the reason. The
- * dialog closes once that run started.
- */
+/** Confirms a restart and shows a server refusal without closing the dialog. */
 export function PlanRecoveryResumeDialog({
   recovery,
+  planName,
   onClose,
 }: {
   readonly recovery: ReturnType<typeof usePlanRecovery>;
+  readonly planName: string;
   readonly onClose: () => void;
 }): React.ReactElement | null {
   const { t } = useTranslation();
@@ -48,50 +39,35 @@ export function PlanRecoveryResumeDialog({
         if (!isOpen && !recovery.isPending) onClose();
       }}
     >
-      <DialogContent size="lg" className="space-y-4 overflow-y-auto">
-        <div className="space-y-1.5">
-          <DialogTitle className="text-lg font-semibold">
-            {t("plans.recovery.restart")}
-          </DialogTitle>
-          <DialogDescription className="text-sm text-muted-foreground">
-            {t("plans.recovery.freshDescription")}
-          </DialogDescription>
-        </div>
-        <div className="space-y-3 text-xs leading-4 wrap-anywhere text-muted-foreground">
-          <PlanRecoveryState view={view} />
-          <PlanRecoveryRestart
-            view={view}
-            isPending={recovery.isPending}
-            onSubmit={(request) => void submit(request)}
-          />
-          {recovery.result?.outcome === "reset" ? (
-            <p role="status">
-              {t("plans.recovery.result.reset")}{" "}
-              {recovery.result.issue
-                ? t(`settings.agents.error.${recovery.result.issue}`)
-                : null}
-            </p>
-          ) : null}
-          {recovery.error ? (
-            <p role="alert" className="text-destructive">
-              {recoveryErrorText(
-                t,
-                recovery.error,
-                recovery.cleanupFailure,
-                view.stepNames,
-              )}
-            </p>
-          ) : null}
-        </div>
-        <div className="flex justify-end">
-          <Button
-            variant="outline"
-            disabled={recovery.isPending}
-            onClick={onClose}
-          >
-            {t("settings.agents.cancel")}
-          </Button>
-        </div>
+      <DialogContent>
+        <DialogTitle className="text-lg font-semibold">
+          {t("plans.recovery.restartDialogTitle")}
+        </DialogTitle>
+        <DialogDescription className="mt-3 text-sm leading-relaxed text-muted-foreground">
+          {t("plans.recovery.restartDialogDescription")}
+        </DialogDescription>
+        <p className="mt-3 text-xs text-muted-foreground">
+          {t("plans.recovery.restartDialogContext", {
+            plan: planName,
+            run: view.runId.slice(0, 8),
+            state: t(`plans.recovery.state.${view.state}`),
+          })}
+        </p>
+        {recovery.error ? (
+          <p role="alert" className="mt-3 text-xs text-destructive">
+            {t("plans.recovery.restartDialogError", {
+              reason: recoveryErrorText(t, recovery.error, recovery.cleanupFailure, view.stepNames),
+              code: recovery.error,
+            })}
+          </p>
+        ) : null}
+        <PlanRecoveryRestart
+          view={view}
+          isPending={recovery.isPending}
+          hasError={Boolean(recovery.error)}
+          onSubmit={(request) => void submit(request)}
+          onClose={onClose}
+        />
       </DialogContent>
     </Dialog>
   );

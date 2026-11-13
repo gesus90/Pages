@@ -6079,6 +6079,13 @@
         "native_resume": "Frühere Agent-Sitzung fortsetzen",
         "new_session": "Neuer Versuch"
       },
+      "restartDialogTitle": "Plan neu starten?",
+      "restartDialogDescription": "Der Plan startet einen neuen Lauf von vorne. Der Schritt ‚prepare‘ sichert nicht Gespeichertes und setzt die Arbeitskopie zurück.",
+      "restartDialogContext": "{{plan}} · letzter Lauf {{run}} {{state}}",
+      "restartDialogError": "Neustart abgelehnt: {{reason}} ({{code}}). Es wurde nichts gestartet.",
+      "restartDialogAction": "Neu starten",
+      "restartDialogPending": "Startet …",
+      "restartDialogRetry": "Erneut versuchen",
       "resumeAction": "Fortsetzen",
       "restart": "Von vorne starten",
       "restartHint": "Startet einen neuen Lauf mit dem gespeicherten Plan. Der frühere Lauf, seine Ergebnisse und sein Journal bleiben erhalten; vorhandene Dateien und Branches werden nicht zurückgesetzt.",

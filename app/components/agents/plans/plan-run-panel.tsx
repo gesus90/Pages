@@ -161,9 +161,11 @@ type PlanRunDecision = "restart" | "foreign-start" | "replace-open";
 function PlanRunDecisionDialog({
   action,
   recovery,
+  planName,
   onStart,
   onClose,
 }: {
+  readonly planName: string;
   readonly action: PlanRunDecision | null;
   readonly recovery: ReturnType<typeof usePlanRecovery>;
   readonly onStart: () => void;
@@ -176,7 +178,7 @@ function PlanRunDecisionDialog({
   if (!action) return null;
   return (
     <Suspense fallback={null}>
-      <PlanRecoveryResumeDialog recovery={recovery} onClose={onClose} />
+      <PlanRecoveryResumeDialog recovery={recovery} planName={planName} onClose={onClose} />
     </Suspense>
   );
 }
@@ -316,6 +318,7 @@ export function PlanRunPanel(props: PlanRunPanelProps): React.ReactElement {
       <PlanRunDecisionDialog
         action={recoveryAction}
         recovery={recovery}
+        planName={page.selected?.name ?? ""}
         onStart={() =>
           submitRunAction(props, "play-plan", recoveryAction === "replace-open")
         }

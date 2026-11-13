@@ -10,7 +10,7 @@ import type { PlanRecovery } from "../plan-panel-fixture";
 function renderDialog(recovery: PlanRecovery): ReturnType<typeof vi.fn> {
   const onClose = vi.fn();
   renderTranslated(
-    <PlanRecoveryResumeDialog recovery={recovery} onClose={onClose} />,
+    <PlanRecoveryResumeDialog recovery={recovery} planName="Plan" onClose={onClose} />,
   );
   return onClose;
 }
