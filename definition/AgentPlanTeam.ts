@@ -36,6 +36,8 @@ export interface AgentPlanRightsView {
   readonly isAdministrator: boolean;
   /** The rights come from the administrator role alone: the plan is somebody else's. */
   readonly isAdminAccess: boolean;
+  /** Business-wide run reading does not grant execution or control. */
+  readonly canReadAllRuns?: boolean;
 }
 
 /** One action recorded in the history of a plan. */

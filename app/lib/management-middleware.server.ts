@@ -26,11 +26,14 @@ export const managementRequestMiddleware: MiddlewareFunction = async (
   let userId: string | undefined;
   if (path.startsWith("/api/mcp/v1/") && request.headers.has("authorization")) {
     try {
+      const identity = await services.mcpDeviceService.authenticate(
+        request.headers.get("authorization"),
+      );
       userId = (
-        await services.mcpDeviceService.authenticate(
-          request.headers.get("authorization"),
+        await services.userService.findCredentialsByUsername(
+          identity.account.username,
         )
-      ).account.id;
+      )?.user.id;
     } catch (error: unknown) {
       if (!(error instanceof McpDeviceError)) throw error;
     }

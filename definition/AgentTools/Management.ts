@@ -22,7 +22,7 @@ const agent = {
   },
   required: ["agentMd", "soulMd", "connectionId", "model", "reasoningEffort"],
   additionalProperties: false,
-} as const;
+} satisfies ToolProperties;
 const user = {
   displayName: IDENTIFIER_SCHEMA,
   email: { type: ["string", "null"] },
