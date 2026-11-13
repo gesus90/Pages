@@ -34,7 +34,10 @@ vi.mock(
   "@/backend/service/chat/browser/PicaBrowserNavigation",
   async (importOriginal) => ({
     ...(await importOriginal<object>()),
-    checkedAddress: async (_origins: unknown, url: string) => url,
+    checkedAddress: async (origins: unknown, url: string) => {
+      void origins;
+      return url;
+    },
     navigate: async () => "Navigated",
   }),
 );
@@ -126,7 +129,7 @@ async function toolsWorld(): Promise<{
   await service.bind(world.context);
   const registry = createPicaTools({
     tools: { run: vi.fn(async () => ({ ok: true, result: null })) },
-    sessions: { confirmationWord: async () => "CONFIRM" },
+    sessions: { confirmationWord: async () => "DELETE" },
     authorize: world.context.authorize,
     agentBrowsers: service,
   });
@@ -168,7 +171,7 @@ it("lists the visual tools as user tools, with no administrator catalog or file-
 it("offers no browser at all without the server-owned employee capability", () => {
   const registry = createPicaTools({
     tools: { run: vi.fn() },
-    sessions: { confirmationWord: async () => "CONFIRM" },
+    sessions: { confirmationWord: async () => "DELETE" },
     authorize: async () => undefined,
   });
   expect(
@@ -211,9 +214,8 @@ it("rejects a guessed foreign/admin profile before launching and lists only self
   });
   expect(launch).not.toHaveBeenCalled();
   const profiles = await registry.invoke("browser_profiles", {}, world.context);
-  expect(profiles).toMatchObject({
-    output: { ok: true, result: expect.stringContaining('"name":"self"') },
-  });
+  expect(profiles).toMatchObject({ output: { ok: true } });
+  expect(JSON.stringify(profiles.output)).toContain('\\"name\\":\\"self\\"');
   await service.release(world.context);
 });
 
