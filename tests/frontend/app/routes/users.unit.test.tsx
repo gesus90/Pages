@@ -9,6 +9,7 @@ import { action, loader, middleware } from "@/app/routes/users-server";
 
 import {
   ACTOR,
+  accountAccess,
   formPost,
   pagesRequest,
   renderRoute,
@@ -63,13 +64,17 @@ it("requires the user of the authentication middleware", async () => {
 });
 
 it("loads the directory together with the private wiki pages", async () => {
-  services.administrationService.pageData.mockResolvedValue({ users: [] });
+  services.administrationService.pageData.mockResolvedValue({
+    users: [],
+    actor: accountAccess(),
+  });
   services.wikiService.listAllPlaceholders.mockResolvedValue({ "user-2": [] });
 
   await expect(
     loader(routeArguments(pagesRequest("/users"), { user: ACTOR })),
   ).resolves.toEqual({
     users: [],
+    actor: accountAccess(),
     privateWikiPages: { "user-2": [] },
     audience: AUDIENCE,
     agents: null,
