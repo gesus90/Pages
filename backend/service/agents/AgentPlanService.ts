@@ -5,6 +5,10 @@ import { emptyAgentPlan } from "@/definition/AgentPlan";
 import { withReadScope } from "@/backend/database/ReadScope";
 import { canRunPlan, isPlanAdministrator } from "@/definition/AgentPlanTeam";
 
+import {
+  requireManagementPlanAccess,
+  requireManagementScriptExecution,
+} from "../management/ManagementPlanAccess";
 import { reviseAgentPlan } from "./AgentPlanRevision";
 import { AgentPlanSettings } from "./AgentPlanSettings";
 import { planDependenciesForChannel } from "./AgentPlanChannel";
@@ -367,8 +371,12 @@ export class AgentPlanService extends AgentPlanTeamReads {
     planId: string,
     order: "newest" | "oldest",
   ): Promise<readonly AgentPlanRunEntry[]> {
-    await this.dependencies.access.require(userId, planId);
-    return this.dependencies.runs.entries(userId, planId, order);
+    const plan = await this.dependencies.access.require(userId, planId);
+    return this.dependencies.runs.entries(
+      plan.rights?.canReadAllRuns ? null : userId,
+      planId,
+      order,
+    );
   }
 
   /**
@@ -382,15 +390,22 @@ export class AgentPlanService extends AgentPlanTeamReads {
     userId: string,
     planIds: readonly string[],
   ): Promise<ReadonlyMap<string, readonly AgentPlanRunEntry[]>> {
-    const visible = new Set(
-      (await this.dependencies.access.list(userId)).map((plan) => plan.id),
+    const visible = new Map(
+      (await this.dependencies.access.list(userId)).map((plan) => [
+        plan.id,
+        plan,
+      ]),
     );
     const overview = new Map<string, readonly AgentPlanRunEntry[]>();
     for (const planId of planIds)
       if (visible.has(planId))
         overview.set(
           planId,
-          await this.dependencies.runs.entries(userId, planId, "newest"),
+          await this.dependencies.runs.entries(
+            visible.get(planId)?.rights?.canReadAllRuns ? null : userId,
+            planId,
+            "newest",
+          ),
         );
     return overview;
   }
@@ -463,6 +478,12 @@ export class AgentPlanService extends AgentPlanTeamReads {
     input: AgentPlanCloneInput,
     journal?: CloneJournal,
   ): Promise<string> {
+    const source = await this.dependencies.access.require(userId, sourceId);
+    requireManagementPlanAccess(
+      source.rights?.canReadAllRuns === true,
+      source,
+      null,
+    );
     return new AgentPlanCloning(this.dependencies).clone(
       userId,
       sourceId,
@@ -540,6 +561,11 @@ export class AgentPlanService extends AgentPlanTeamReads {
     revision: number,
     journal?: AgentPlanRunJournal,
   ): Promise<AgentPlanRun> {
+    const plan = await this.dependencies.access.require(userId, id);
+    requireManagementScriptExecution(
+      plan.rights?.canReadAllRuns === true,
+      plan,
+    );
     const run = await this.starts.play(userId, id, revision, journal);
     await this.teams.recordRunAction(userId, run, "admin_started");
     return run;
@@ -559,6 +585,11 @@ export class AgentPlanService extends AgentPlanTeamReads {
     revision: number,
     journal?: AgentPlanRunJournal,
   ): Promise<AgentPlanRun> {
+    const plan = await this.dependencies.access.require(userId, id);
+    requireManagementScriptExecution(
+      plan.rights?.canReadAllRuns === true,
+      plan,
+    );
     const control = await this.control(userId, id);
     const { runId } = control;
     if (runId && isActivePlanRun(control.status))
@@ -590,6 +621,11 @@ export class AgentPlanService extends AgentPlanTeamReads {
     id: string,
     input: unknown,
   ): Promise<AgentPlanRun> {
+    const plan = await this.dependencies.access.require(userId, id);
+    requireManagementScriptExecution(
+      plan.rights?.canReadAllRuns === true,
+      input,
+    );
     const run = await this.starts.saveAndPlay(userId, id, input);
     await this.teams.recordRunAction(userId, run, "admin_started");
     return run;
@@ -648,7 +684,7 @@ export class AgentPlanService extends AgentPlanTeamReads {
     id: string,
     journal?: AgentPlanRunJournal,
   ): Promise<AgentPlanRun> {
-    const run = await this.run(userId, id);
+    const run = await this.controlRun(userId, id);
     if (!canRunPlan(await this.dependencies.access.require(userId, run.planId)))
       throw new AgentError("plan_access_denied");
     await this.teams.recordRunAction(userId, run, "admin_run_controlled", {
@@ -665,8 +701,12 @@ export class AgentPlanService extends AgentPlanTeamReads {
     revision?: number,
     journal?: AgentPlanRunJournal,
   ): Promise<AgentPlanRun> {
-    const run = await this.run(userId, id);
+    const run = await this.controlRun(userId, id);
     const plan = await this.dependencies.access.require(userId, run.planId);
+    requireManagementScriptExecution(
+      plan.rights?.canReadAllRuns === true,
+      plan,
+    );
     if (!canRunPlan(plan)) throw new AgentError("plan_access_denied");
     if (revision === undefined || plan.revision !== revision)
       throw new AgentError("plan_conflict");

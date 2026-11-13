@@ -39,6 +39,9 @@ function deletionFailure(
       ok: false,
       intent,
       error: error.code === "CONFLICT" ? "conflict" : "invalidInput",
+      ...(error.code === "FORBIDDEN"
+        ? { code: "FORBIDDEN" as const, reason: error.reason }
+        : {}),
     },
     { status },
   );

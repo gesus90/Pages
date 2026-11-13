@@ -220,15 +220,24 @@ export class PagesAgentApiService {
     | PagesAgentWriteResponse
   > {
     const { userId, isAdmin, permissions } = identity;
-    const allowed = sessionOperations(scope, isAdmin);
+    const allowed = sessionOperations(scope, isAdmin, identity.isManagement);
     if (input.operation === "verify")
       return {
         apiVersion: "1",
         identity: { userId, isAdmin, permissions },
         tools: allowed,
       };
-    if (!allowed.some((operation) => operation === input.operation))
+    if (!allowed.some((operation) => operation === input.operation)) {
+      if (identity.isManagement)
+        throw new AgentOperationError("FORBIDDEN", {
+          reason:
+            typeof input.operation === "string" &&
+            input.operation.startsWith("admin.roles")
+              ? "role_grant"
+              : "core_system",
+        });
       throw new AgentOperationError("FORBIDDEN");
+    }
     if (input.operation === AGENT_STEP_REPORT_OPERATION)
       return this.reportStep(identity, input.parameters);
     if (input.operation === AGENT_STEP_PROGRESS_OPERATION)

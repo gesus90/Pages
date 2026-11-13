@@ -1,5 +1,6 @@
 import { AGENT_TICKET_NAVIGATION_READ_OPERATIONS } from "./AgentTicketNavigation.js";
 
+import type { ManagementResult } from "./Management";
 import type { AgentFileResult } from "./AgentFileOperations.js";
 import type { AutomationReadResult } from "./AutomationOperations";
 import type { AgentPlanStepProgressReceipt } from "./AgentPlanStepProgress.js";
@@ -97,6 +98,8 @@ export type PagesAgentReadOperation =
 /** Fixed wire limits, including the whole serialized UTF-8 response envelope. */
 export const PAGES_AGENT_LIMITS = {
   requestBytes: 65_536,
+  /** Base64 of a 5 MiB avatar plus the operation and revision fields. */
+  managementAvatarEnvelopeBytes: 7 * 1_048_576,
   /** Plan edits can carry an editor-sized field, including JSON escaping. */
   planWriteEnvelopeBytes: 2 * 1_048_576,
   wikiContentBytes: 1_048_576,
@@ -117,6 +120,10 @@ export const PAGES_AGENT_LIMITS = {
  * @returns The limit in UTF-8 bytes of the serialized `{ operation, parameters }`.
  */
 export function agentEnvelopeLimit(operation: unknown): number {
+  if (operation === "users_set_avatar")
+    return PAGES_AGENT_LIMITS.managementAvatarEnvelopeBytes;
+  if (operation === "users_create" || operation === "users_update")
+    return PAGES_AGENT_LIMITS.planWriteEnvelopeBytes;
   if (operation === "wiki.page.create" || operation === "wiki.page.setContent")
     return PAGES_AGENT_LIMITS.wikiEnvelopeBytes;
   if (
@@ -149,6 +156,7 @@ export interface AgentProjectList {
 
 /** Explicit core fields without people, integration settings or invisible parent references. */
 export interface AgentProjectDetails extends AgentProjectReference {
+  readonly revision?: string;
   readonly description: string;
   readonly status: string;
   readonly progress: number;
@@ -215,6 +223,7 @@ export interface AgentWikiSearch {
 export interface PagesAgentReadResponse {
   readonly apiVersion: "1";
   readonly result:
+    | ManagementResult
     | AgentFileResult
     | AgentPlanWorkView
     | AgentPlanStepReportReceipt
@@ -445,7 +454,18 @@ export interface AgentInputRejection {
   readonly problems: readonly string[];
 }
 
+/** Business administration failures never include submitted values or credentials. */
+export interface ManagementRejection {
+  readonly reason: string;
+}
+/** String revision of the full business administration state. */
+export interface ManagementRevisionConflict {
+  readonly currentRevision: string;
+}
+
 export type AgentOperationDetails =
+  | ManagementRejection
+  | ManagementRevisionConflict
   | AgentInputRejection
   | AgentProjectCandidates
   | AgentLimitDetails

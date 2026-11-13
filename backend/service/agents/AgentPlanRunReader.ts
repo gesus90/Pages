@@ -90,13 +90,18 @@ async function loadAuthorizedPlanRun(
   if (!run) throw new AgentError("plan_access_denied");
   const plan = await dependencies.access.require(userId, run.planId);
   // An administrator reads and controls every run of a plan (PAGE-329).
-  if (run.userId !== userId && !isPlanAdministrator(plan))
+  if (
+    run.userId !== userId &&
+    !isPlanAdministrator(plan) &&
+    !plan.rights?.canReadAllRuns
+  )
     throw new AgentError("plan_access_denied");
   const resources = await dependencies.runs.resources(id);
-  await requirePlanRunResourceAccess(dependencies, userId, {
-    resources,
-    ticketAssets: allRunAssetReferences(run, resources.ticketAssets),
-  });
+  if (!plan.rights?.canReadAllRuns)
+    await requirePlanRunResourceAccess(dependencies, userId, {
+      resources,
+      ticketAssets: allRunAssetReferences(run, resources.ticketAssets),
+    });
   const progress = await withPlanProgress(run, {
     projectId: resources.projectId,
     tasks: dependencies.tasks,

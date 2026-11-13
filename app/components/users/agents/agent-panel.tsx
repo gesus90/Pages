@@ -30,7 +30,6 @@ import { useAgentDetail } from "./use-agent-detail";
 import type { AgentDetailState } from "./use-agent-detail";
 import type { AgentEmployee } from "@/definition/AgentEmployee";
 import type { UsersErrorCode } from "@/app/lib/user-actions/user-action-support.server";
-
 import type { AgentDraft, AgentDraftChange } from "./agent-draft";
 import type { AgentEmployeeDetailData } from "@/definition/AgentEmployeePage";
 import type { AgentInstructionTemplateList } from "@/definition/AgentInstructionTemplate";
@@ -208,6 +207,7 @@ function AgentAccessTab({
         savedValue={agent?.settings.access ?? null}
         onChange={(access) => panel.change("access", access)}
         canChange={!isDisabled && loaded.detail?.canChangeAccess === true}
+        canAssignYolo={loaded.detail?.canAssignYolo ?? false}
         environment={loaded.detail?.accessEnvironment ?? null}
       />
     </TabsContent>

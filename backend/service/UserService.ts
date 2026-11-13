@@ -1,3 +1,5 @@
+import { UserPolicyService } from "@/backend/auth/UserPolicyService";
+import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { generateTemporaryPassword } from "@/backend/auth/TemporaryPassword";
 import { PERMISSION, ROLE } from "@/definition/Role";
 import {
@@ -278,13 +280,20 @@ export class UserService {
    *
    * @remarks
    * Intended for password changes the caller initiates on behalf of the
-   * authenticated user themselves, so no permission check is applied; the
+   * authenticated user themselves; the business administration role cannot
+   * set credentials. The
    * caller must have verified the current password before invoking this.
    */
   public async updatePasswordHash(
     userId: string,
     passwordHash: string,
   ): Promise<void> {
+    if (this.administration) {
+      const account = await this.administration.getContext(userId);
+      const policy = new UserPolicyService();
+      if (policy.isManagement(account) && !policy.isAdministrator(account))
+        throw new AgentOperationError("FORBIDDEN", { reason: "core_system" });
+    }
     await this.userRepository.updatePasswordHash(userId, passwordHash);
   }
 

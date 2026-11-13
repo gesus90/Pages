@@ -1,50 +1,22 @@
-import {
-  mcpUserChangeResponse,
-  mcpUserQuery,
-  mcpUserResponse,
-  readMcpUserBody,
-  runMcpUserRoute,
-} from "@/app/lib/mcp-user-route.server";
-import { McpUserRequest } from "@/backend/service/mcp/users/McpUserRequest";
+import { runManagementRoute } from "@/app/lib/management-route.server";
+import { mcpDeviceMethodNotAllowed } from "@/app/lib/mcp-device-response.server";
 
-import type { McpUserHandlers } from "@/app/lib/mcp-user-route.server";
 import type { Route } from "./+types/api-mcp-v1-users";
 
-/** The methods of this resource. */
-const HANDLERS: McpUserHandlers = {
-  GET: async ({ api, actor, request }) =>
-    mcpUserResponse(
-      await api.read(actor, (session) =>
-        api.reads.users(
-          session,
-          McpUserRequest.userList(mcpUserQuery(request)),
-        ),
-      ),
-    ),
-  POST: async ({ api, actor, request }) =>
-    mcpUserChangeResponse(
-      await api.change(
-        actor,
-        api.users.create(
-          McpUserRequest.createUser(await readMcpUserBody(request)),
-        ),
-      ),
-      true,
-    ),
-};
-
-/**
- * Lists the accounts of the user management (`GET /api/mcp/v1/users`) and creates one (`POST`), PAGE-280.
- *
- * @remarks
- * Only the device token of a paired machine admits a request; the rights of
- * its account are read again on every call. See `docs/McpUserManagement.md`.
- */
+/** Serves the shared PAGE-316 business administration contract. */
 export async function loader({ request }: Route.LoaderArgs): Promise<Response> {
-  return runMcpUserRoute(request, HANDLERS);
+  if (request.method === "GET")
+    return runManagementRoute(request, "users_list");
+  if (request.method === "POST")
+    return runManagementRoute(request, "users_create");
+  return mcpDeviceMethodNotAllowed("GET, POST");
 }
 
-/** Serves the changing methods of the same resource. */
+/** Serves the shared PAGE-316 business administration contract. */
 export async function action({ request }: Route.ActionArgs): Promise<Response> {
-  return runMcpUserRoute(request, HANDLERS);
+  if (request.method === "GET")
+    return runManagementRoute(request, "users_list");
+  if (request.method === "POST")
+    return runManagementRoute(request, "users_create");
+  return mcpDeviceMethodNotAllowed("GET, POST");
 }

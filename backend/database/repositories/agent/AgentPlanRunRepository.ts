@@ -508,7 +508,7 @@ export class AgentPlanRunRepository {
    * @returns No snapshot, view or result; the service decides visibility from the references.
    */
   public async visibilityBases(
-    userId: string,
+    userId: string | null,
     planId: string,
   ): Promise<readonly AgentPlanRunVisibilityBasis[]> {
     return this.visibility.bases(userId, planId);
@@ -522,7 +522,7 @@ export class AgentPlanRunRepository {
    * @param order - `newest` first or `oldest` first; the identifier breaks ties.
    */
   public async entries(
-    userId: string,
+    userId: string | null,
     planId: string,
     order: "newest" | "oldest",
   ): Promise<readonly AgentPlanRunEntry[]> {
@@ -535,7 +535,7 @@ export class AgentPlanRunRepository {
           status,
           manual_input_at
       FROM agent_plan_runs
-      WHERE user_id = $user_id
+      WHERE (CAST($user_id AS TEXT) IS NULL OR user_id = $user_id)
           AND plan_id = $plan_id
       ORDER BY started_at ${direction}, id ${direction};
     `,

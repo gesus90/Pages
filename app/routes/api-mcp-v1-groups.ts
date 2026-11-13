@@ -1,3 +1,4 @@
+import { runManagementRoute } from "@/app/lib/management-route.server";
 import {
   mcpUserChangeResponse,
   mcpUserQuery,
@@ -38,10 +39,14 @@ const HANDLERS: McpUserHandlers = {
  * its account are read again on every call. See `docs/McpUserManagement.md`.
  */
 export async function loader({ request }: Route.LoaderArgs): Promise<Response> {
+  if (request.method === "POST")
+    return runManagementRoute(request, "groups_create");
   return runMcpUserRoute(request, HANDLERS);
 }
 
 /** Serves the changing methods of the same resource. */
 export async function action({ request }: Route.ActionArgs): Promise<Response> {
+  if (request.method === "POST")
+    return runManagementRoute(request, "groups_create");
   return runMcpUserRoute(request, HANDLERS);
 }

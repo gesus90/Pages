@@ -1,3 +1,4 @@
+import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { UserPolicyService } from "@/backend/auth/UserPolicyService";
 import { readSpawnScope } from "@/backend/agents/cli/CliProcessScan";
 import { AgentError } from "@/backend/error/AgentErrors";
@@ -6,11 +7,13 @@ import {
   planScriptParameters,
 } from "@/definition/AgentPlanScript";
 import { canRunPlan } from "@/definition/AgentPlanTeam";
+
 import { planBindings } from "./AgentPlanBindings";
 import {
   localPlanScripts,
   scriptApprovalState,
 } from "./AgentPlanScriptApproval";
+
 import type { AgentPlanScriptApprovalRepository } from "@/backend/database/repositories/agent/AgentPlanScriptApprovalRepository";
 import type { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import type { AgentPlan } from "@/definition/AgentPlan";
@@ -165,6 +168,9 @@ export class AgentPlanScriptPreparation {
       await this.dependencies.authorization.snapshot()
     ).accounts.find((account) => account.userId === userId);
     if (!actor) throw new AgentError("plan_script_permission_denied");
+    const policy = new UserPolicyService();
+    if (policy.isManagement(actor) && !policy.isAdministrator(actor))
+      throw new AgentOperationError("FORBIDDEN", { reason: "core_system" });
     const current = await this.dependencies.access.require(userId, plan.id);
     if (!canRunPlan(current)) throw new AgentError("plan_access_denied");
     if (!new UserPolicyService().isAdministrator(actor))

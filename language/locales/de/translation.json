@@ -1749,6 +1749,16 @@
     }
   },
   "users": {
+    "management": {
+      "role": "Verwaltung",
+      "invitationSent": "Das Konto wurde angelegt. Die Einladung wurde ausschließlich per E-Mail an die Person versendet.",
+      "activity": "Verwaltungsprotokoll",
+      "at": "Zeitpunkt",
+      "actor": "Konto",
+      "action": "Aktion",
+      "target": "Ziel",
+      "change": "Änderung"
+    },
     "fields": {
       "firstName": "Vorname",
       "lastName": "Nachname",

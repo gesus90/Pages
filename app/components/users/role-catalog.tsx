@@ -1,11 +1,14 @@
 import { Plus } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+
+import { userRoleLabel } from "@/app/lib/user-role-label";
 import { Button } from "@/app/components/ui/button";
 import { VerticalScrollArea } from "@/app/components/ui/vertical-scroll-area";
 import { CatalogDeleteDialog } from "@/app/components/users/catalog-delete-dialog";
 import { ManagementTable } from "@/app/components/users/management-table";
 import { RoleEditor } from "@/app/components/users/role-editor";
+
 import type {
   AdministrationPageData,
   UserRole,
@@ -53,7 +56,9 @@ export function RoleCatalog({
           <tbody className="divide-y divide-border/60">
             {directory.assignableRoles.map((role) => (
               <tr key={role.id} className="hover:bg-muted/40">
-                <td className="pages-selectable px-4 py-3">{role.name}</td>
+                <td className="pages-selectable px-4 py-3">
+                  {userRoleLabel(role, t)}
+                </td>
                 <td className="px-4 py-3 tabular-nums">{role.rank}</td>
                 <td className="px-4 py-3">
                   <div className="flex justify-end gap-2">

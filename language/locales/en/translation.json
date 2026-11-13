@@ -1749,6 +1749,16 @@
     }
   },
   "users": {
+    "management": {
+      "role": "Management",
+      "invitationSent": "The account was created. Its invitation was sent only to the person by email.",
+      "activity": "Management activity",
+      "at": "Time",
+      "actor": "Account",
+      "action": "Action",
+      "target": "Target",
+      "change": "Change"
+    },
     "fields": {
       "firstName": "First name",
       "lastName": "Last name",

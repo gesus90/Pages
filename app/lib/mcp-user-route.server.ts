@@ -1,3 +1,4 @@
+import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import {
   mcpDeviceFailure,
   mcpDeviceMethodNotAllowed,
@@ -102,6 +103,11 @@ export async function runMcpUserRoute(
     const actor = await api.authenticate(request.headers.get("Authorization"));
     return await handler({ api, actor, request, wiki: services.wikiService });
   } catch (error: unknown) {
+    if (error instanceof AgentOperationError)
+      return mcpUserResponse(
+        { error: error.code, ...error.details },
+        error.status,
+      );
     const failure = toMcpUserError(error);
     if (failure === null) return mcpDeviceFailure(error);
     return mcpUserResponse(failure.toBody(), failure.status);

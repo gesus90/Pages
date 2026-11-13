@@ -19,7 +19,7 @@ export class TicketDepartmentPolicy {
   public canSelect(actor: AccountAccess, departmentId: string): boolean {
     return (
       actor.isActive &&
-      (this.users.isAdministrator(actor) ||
+      (this.users.hasGlobalAccess(actor) ||
         actor.departments.includes(departmentId) ||
         (this.users.has(actor, CAPABILITY.MANAGE_PROJECTS) &&
           (actor.allProjects ||

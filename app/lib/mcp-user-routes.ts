@@ -24,6 +24,16 @@ export function mcpUserRoutes(
     ),
     resource(`${base}/users`, "routes/api-mcp-v1-users.ts"),
     resource(user, "routes/api-mcp-v1-user.ts"),
+    resource(`${user}/status`, "routes/api-mcp-v1-user-status.ts"),
+    resource(`${user}/avatar`, "routes/api-mcp-v1-user-avatar.ts"),
+    resource(
+      `${base}/projects/:projectId/members`,
+      "routes/api-mcp-v1-management-project-members.ts",
+    ),
+    resource(
+      `${base}/projects/:projectId/departments`,
+      "routes/api-mcp-v1-management-project-departments.ts",
+    ),
     resource(`${user}/active`, "routes/api-mcp-v1-user-active.ts"),
     resource(
       `${user}/password-reset`,

@@ -1,5 +1,7 @@
 import { data } from "react-router";
 
+import { AgentOperationError } from "@/backend/error/AgentOperationError";
+import { UserPolicyService } from "@/backend/auth/UserPolicyService";
 import { logCaughtError } from "@/backend/logging/Logger";
 
 import { invalidInput, toActionError } from "./user-action-support.server";
@@ -27,6 +29,37 @@ export const handleCreateUser: UsersActionHandler = async ({
   }
 
   try {
+    const account = await services.administrationService.getContext(actor.id);
+    if (
+      new UserPolicyService().isManagement(account) &&
+      !new UserPolicyService().isAdministrator(account)
+    ) {
+      if (input.isAdmin)
+        return toActionError(
+          new AgentOperationError("FORBIDDEN", { reason: "role_grant" }),
+          "create-user",
+        );
+      await services.managementService.call(
+        actor.id,
+        "users_create",
+        {
+          kind: "human",
+          displayName: `${input.firstName} ${input.lastName}`.trim(),
+          username: input.username,
+          email: input.email,
+          role: input.roleId,
+          departmentIds: input.departments,
+          groupIds: [],
+          operationId: crypto.randomUUID(),
+        },
+        "ui",
+      );
+      return data<UsersActionData>({
+        intent: "create-user",
+        ok: true,
+        invitationSent: true,
+      });
+    }
     const { temporaryPassword } =
       await services.administrationService.createUser(actor.id, input);
     return data<UsersActionData>(

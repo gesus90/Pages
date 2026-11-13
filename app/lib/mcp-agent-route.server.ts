@@ -1,3 +1,4 @@
+import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import {
   mcpDeviceFailure,
   mcpDeviceMethodNotAllowed,
@@ -84,6 +85,11 @@ export function mcpAgentResponse(body: unknown, status = 200): Response {
  * document or an image.
  */
 function mcpAgentFailure(error: unknown): Response {
+  if (error instanceof AgentOperationError)
+    return mcpAgentResponse(
+      { error: error.code, ...error.details },
+      error.status,
+    );
   if (error instanceof AgentDeletionError) {
     const status = {
       FORBIDDEN: 403,

@@ -91,6 +91,8 @@ function requireTarget(
   if (target.isAdmin) throw new AgentDeletionError("FORBIDDEN", "admin_target");
   if (target.isAgent !== true)
     throw new AgentDeletionError("FORBIDDEN", "human_target");
+  if (policy.isManagement(actor) && !policy.isAdministrator(actor))
+    throw new AgentDeletionError("FORBIDDEN", "core_system");
   const isManager =
     actor.role?.name === "Verwaltung" &&
     policy.has(actor, CAPABILITY.MANAGE_USERS);

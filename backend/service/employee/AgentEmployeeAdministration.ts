@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 
+import { accountForChannel } from "@/backend/auth/McpActorContext";
+import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { UserPolicyService } from "@/backend/auth/UserPolicyService";
 import { AdministrationError } from "@/backend/error/AdministrationError";
 import { AgentEmployeeError } from "@/backend/error/AgentEmployeeError";
@@ -8,6 +10,10 @@ import { logEvent } from "@/backend/logging/Logger";
 import { isAgentProvider } from "@/definition/AgentConnection";
 import { CAPABILITY } from "@/definition/Authorization";
 
+import {
+  requireManagementTarget,
+  requireManagementRole,
+} from "../management/ManagementPolicy";
 import { activeAccount, findAccount } from "../AdministrationAccess";
 import { AgentEmployeeDirectory } from "./AgentEmployeeDirectory";
 
@@ -167,6 +173,7 @@ function actorName(actor: AccountAccess): string {
  * account with the administrator role acts as an administrator.
  */
 export class AgentEmployeeAdministration {
+  private readonly channel: ActorChannel;
   private readonly dependencies: AgentEmployeeAdministrationDependencies;
   private readonly policy: UserPolicyService;
   private readonly directory: AgentEmployeeDirectory;
@@ -175,6 +182,7 @@ export class AgentEmployeeAdministration {
     dependencies: AgentEmployeeAdministrationDependencies,
     channel: ActorChannel = "ui",
   ) {
+    this.channel = channel;
     this.dependencies = dependencies;
     this.policy = new UserPolicyService(channel);
     this.directory = new AgentEmployeeDirectory(dependencies);
@@ -195,14 +203,17 @@ export class AgentEmployeeAdministration {
     const actor = snapshot.accounts.find(
       (account) => account.userId === actorId,
     );
-    if (!actor || !this.policy.isAdministrator(actor))
+    if (!actor || !this.policy.hasGlobalAccess(actor))
       throw new AgentEmployeeError("forbidden");
   }
 
   /** Every agent the person may see, with its full panel, by name. */
   public async employees(actorId: string): Promise<AgentEmployee[]> {
     const snapshot = await this.dependencies.authorization.snapshot();
-    const actor = activeAccount(snapshot, actorId);
+    const actor = accountForChannel(
+      activeAccount(snapshot, actorId),
+      this.channel,
+    );
     if (!this.policy.canEnter(actor)) throw new AgentEmployeeError("forbidden");
     const items = await this.directory.list(snapshot, (target) =>
       this.policy.canSee(actor, target),
@@ -221,7 +232,10 @@ export class AgentEmployeeAdministration {
   /** The roles the person may assign and every department. */
   public async choices(actorId: string): Promise<AgentEmployeeChoices> {
     const snapshot = await this.dependencies.authorization.snapshot();
-    const actor = activeAccount(snapshot, actorId);
+    const actor = accountForChannel(
+      activeAccount(snapshot, actorId),
+      this.channel,
+    );
     this.require(this.policy.has(actor, CAPABILITY.MANAGE_USERS));
     return {
       roles: snapshot.roles.filter((role) =>
@@ -234,7 +248,10 @@ export class AgentEmployeeAdministration {
   /** The agents tab for a person who may enter the administration. */
   public async page(actorId: string): Promise<AgentEmployeePage> {
     const snapshot = await this.dependencies.authorization.snapshot();
-    const actor = activeAccount(snapshot, actorId);
+    const actor = accountForChannel(
+      activeAccount(snapshot, actorId),
+      this.channel,
+    );
     if (!this.policy.canEnter(actor)) throw new AgentEmployeeError("forbidden");
     const canCreate = this.policy.has(actor, CAPABILITY.MANAGE_USERS);
     return {
@@ -252,7 +269,10 @@ export class AgentEmployeeAdministration {
     agentId: string,
   ): Promise<AgentEmployeeDetail> {
     const snapshot = await this.dependencies.authorization.snapshot();
-    const actor = activeAccount(snapshot, actorId);
+    const actor = accountForChannel(
+      activeAccount(snapshot, actorId),
+      this.channel,
+    );
     const target = this.requireAgentAccount(snapshot, agentId);
     if (!this.policy.canSee(actor, target))
       throw new AgentEmployeeError("notFound");
@@ -267,11 +287,19 @@ export class AgentEmployeeAdministration {
       memoryDetails: await this.dependencies.memory.details(agentId),
       activity: await this.dependencies.activity.list(agentId),
       canEdit,
-      canChangeAccess: canEdit && this.policy.isAdministrator(actor),
+      canChangeAccess: canEdit && this.policy.hasGlobalAccess(actor),
+      canAssignYolo: this.policy.isAdministrator(actor),
       accessEnvironment:
-        (await this.dependencies.accessEnvironment?.environment(
-          isAgentProvider(agent.provider) ? agent.provider : null,
-        )) ?? NO_ACCESS_ENVIRONMENT,
+        this.policy.isManagement(actor) && !this.policy.isAdministrator(actor)
+          ? {
+              isIsolationAvailable:
+                (await this.dependencies.accessEnvironment?.isIsolationAvailable()) ??
+                false,
+              mcpServers: [],
+            }
+          : ((await this.dependencies.accessEnvironment?.environment(
+              isAgentProvider(agent.provider) ? agent.provider : null,
+            )) ?? NO_ACCESS_ENVIRONMENT),
     };
   }
 
@@ -287,7 +315,10 @@ export class AgentEmployeeAdministration {
     agentId: string,
   ): Promise<string> {
     const snapshot = await this.dependencies.authorization.snapshot();
-    const actor = activeAccount(snapshot, actorId);
+    const actor = accountForChannel(
+      activeAccount(snapshot, actorId),
+      this.channel,
+    );
     const target = this.requireAgentAccount(snapshot, agentId);
     if (!this.policy.canSee(actor, target))
       throw new AgentEmployeeError("notFound");
@@ -314,9 +345,13 @@ export class AgentEmployeeAdministration {
     const agentId = randomUUID();
     await this.write(async (repository) => {
       const snapshot = await repository.snapshot();
-      const actor = activeAccount(snapshot, actorId);
+      const actor = accountForChannel(
+        activeAccount(snapshot, actorId),
+        this.channel,
+      );
       this.require(this.policy.has(actor, CAPABILITY.MANAGE_USERS));
       const role = requireRole(snapshot, input.roleId);
+      requireManagementRole(actor, role.id);
       this.require(this.policy.canAssignRole(actor, role));
       await this.requireAccessChange(actor, "read_only", input.settings.access);
       const account = this.newAccount(agentId, role, input.displayName);
@@ -370,12 +405,17 @@ export class AgentEmployeeAdministration {
     await this.dependencies.models.requireAllowed(actorId, input.settings);
     await this.write(async (repository) => {
       const snapshot = await repository.snapshot();
-      const actor = activeAccount(snapshot, actorId);
+      const actor = accountForChannel(
+        activeAccount(snapshot, actorId),
+        this.channel,
+      );
       const target = this.requireAgentAccount(snapshot, agentId);
       this.require(
         this.policy.canChange(actor, target, CAPABILITY.MANAGE_USERS),
       );
       const role = requireRole(snapshot, input.roleId);
+      if (!this.policy.isAdministrator(actor))
+        requireManagementTarget(actor, target, role.id);
       if (role.id !== target.role?.id)
         this.require(
           this.policy.canChange(actor, target, CAPABILITY.MANAGE_ROLES) &&
@@ -508,8 +548,12 @@ export class AgentEmployeeAdministration {
     agentId: string,
   ): Promise<AgentEmployeeRemovalScope> {
     const snapshot = await this.dependencies.authorization.snapshot();
-    const actor = activeAccount(snapshot, actorId);
+    const actor = accountForChannel(
+      activeAccount(snapshot, actorId),
+      this.channel,
+    );
     const target = this.requireAgentAccount(snapshot, agentId);
+    requireManagementTarget(actor, target);
     this.require(this.policy.canChange(actor, target, CAPABILITY.MANAGE_USERS));
     const removals = this.dependencies.authorization.employees().removals();
     const [agent, usages, isRunning] = await Promise.all([
@@ -536,6 +580,10 @@ export class AgentEmployeeAdministration {
     revision: number,
   ): Promise<void> {
     await this.write(async (repository) => {
+      const actor = activeAccount(await repository.snapshot(), actorId);
+      this.require(
+        !this.policy.isManagement(actor) || this.policy.isAdministrator(actor),
+      );
       await this.requireChangeable(repository, actorId, agentId);
       const store = repository.employees();
       const employee = await store.employees().find(agentId);
@@ -563,8 +611,12 @@ export class AgentEmployeeAdministration {
     version: { readonly id: string; readonly expectedRevision: number | null },
   ): Promise<void> {
     const snapshot = await this.dependencies.authorization.snapshot();
-    const actor = activeAccount(snapshot, actorId);
+    const actor = accountForChannel(
+      activeAccount(snapshot, actorId),
+      this.channel,
+    );
     const target = this.requireAgentAccount(snapshot, agentId);
+    requireManagementTarget(actor, target);
     this.require(this.policy.canChange(actor, target, CAPABILITY.MANAGE_USERS));
     await this.dependencies.memory.restore(agentId, version, actorId);
   }
@@ -581,8 +633,12 @@ export class AgentEmployeeAdministration {
     file: AgentMemoryFile,
   ): Promise<void> {
     const snapshot = await this.dependencies.authorization.snapshot();
-    const actor = activeAccount(snapshot, actorId);
+    const actor = accountForChannel(
+      activeAccount(snapshot, actorId),
+      this.channel,
+    );
     const target = this.requireAgentAccount(snapshot, agentId);
+    requireManagementTarget(actor, target);
     this.require(this.policy.canChange(actor, target, CAPABILITY.MANAGE_USERS));
     await this.dependencies.memory.reset(agentId, file, actorId);
   }
@@ -613,8 +669,12 @@ export class AgentEmployeeAdministration {
     agentId: string,
   ): Promise<AccountAccess> {
     const snapshot = await repository.snapshot();
-    const actor = activeAccount(snapshot, actorId);
+    const actor = accountForChannel(
+      activeAccount(snapshot, actorId),
+      this.channel,
+    );
     const target = this.requireAgentAccount(snapshot, agentId);
+    requireManagementTarget(actor, target);
     this.require(this.policy.canChange(actor, target, CAPABILITY.MANAGE_USERS));
     return target;
   }
@@ -640,7 +700,13 @@ export class AgentEmployeeAdministration {
     to: AgentEmployeeAccess,
   ): Promise<void> {
     if (from === to) return;
-    if (!this.policy.isAdministrator(actor))
+    if (
+      to === "yolo" &&
+      this.policy.isManagement(actor) &&
+      !this.policy.isAdministrator(actor)
+    )
+      throw new AgentOperationError("FORBIDDEN", { reason: "access_level" });
+    if (!this.policy.hasGlobalAccess(actor))
       throw new AgentEmployeeError("accessAdminRequired");
     if (
       to === "workspace" &&

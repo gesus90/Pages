@@ -1,3 +1,6 @@
+import path from "node:path";
+
+import { ManagementOperations } from "@/backend/service/management/ManagementOperations";
 import { getPagesRuntime } from "@/backend/runtime/PagesRuntime";
 import {
   callRunsSwarm,
@@ -5,8 +8,6 @@ import {
 } from "@/backend/service/agents/runs/RunsSocket";
 import { AgentPlanSwarmService } from "@/backend/service/agents/swarm/AgentPlanSwarmService";
 import { PROCESS_SWARM_REGISTRY } from "@/backend/service/agents/swarm/SwarmRegistry";
-import path from "node:path";
-
 import { AgentFileOperationService } from "@/backend/service/agents/AgentFileOperationService";
 import { AgentAssetDownloadService } from "@/backend/service/agents/AgentAssetDownloadService";
 import { createAgentAssetReaders } from "@/backend/service/agents/AgentAssetReaders";
@@ -63,6 +64,7 @@ import { AutomationOperationService } from "@/backend/service/automation/Automat
 import { runnerAssetUpload } from "./agent-asset-return.server";
 import { createMcpDeviceServices } from "./mcp-device-services.server";
 
+import type { ManagementService } from "@/backend/service/management/ManagementService";
 import type { AgentFileDependencies } from "@/backend/service/agents/AgentFileOperationService";
 import type { AutomationService } from "@/backend/service/automation/AutomationService";
 import type { McpDeviceApplicationServices } from "./mcp-device-services.server";
@@ -137,6 +139,7 @@ function createWikiOperations(
 
 /** What the operation catalogs of both agent channels are built from. */
 interface RouterContext extends Omit<OperationContext, "channel"> {
+  readonly management?: () => ManagementService;
   readonly externalFiles?: AgentFileDependencies;
   readonly directory: string;
   readonly planRecovery?: AgentPlanRecoveryService;
@@ -189,6 +192,9 @@ function createMcpOperationRouter(
   const { creation } = context;
   const planning = createAgentPlanningServices(context);
   return new AgentOperationRouter({
+    management: context.management
+      ? new ManagementOperations(context.management)
+      : undefined,
     files: context.externalFiles
       ? new AgentFileOperationService(context.externalFiles)
       : undefined,
@@ -251,6 +257,9 @@ function createChatOperationRouter(
   const channel = "chat";
   const planning = createAgentPlanningServices({ ...context, channel });
   return new AgentOperationRouter({
+    management: context.management
+      ? new ManagementOperations(context.management, "ui")
+      : undefined,
     files: context.externalFiles
       ? new AgentFileOperationService(context.externalFiles)
       : undefined,
@@ -491,6 +500,7 @@ function createBinaryAssetServices(input: {
 
 /** Services and storage context shared by the personal MCP and chat routers. */
 interface McpWorkspace {
+  readonly management?: () => ManagementService;
   readonly externalFiles?: AgentFileDependencies;
   readonly directory: string;
   readonly wikiService: Pick<WikiService, "getSettings" | "openAttachment">;
@@ -551,6 +561,7 @@ export function createMcpServices(
     events: pagesEventPublisher,
   };
   const routers: RouterContext = {
+    management: workspace.management,
     externalFiles: workspace.externalFiles,
     database,
     directory: workspace.directory,

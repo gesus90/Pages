@@ -1,3 +1,4 @@
+import { UserPolicyService } from "@/backend/auth/UserPolicyService";
 import { AGENT_PLAN_TEAM_LIMIT } from "@/definition/AgentPlanTeam";
 import { AgentError } from "@/backend/error/AgentErrors";
 
@@ -25,6 +26,7 @@ import type {
 
 /** The project and the departments that decide which shared objects a person works with. */
 export interface AgentPlanTeam {
+  readonly isManagement?: boolean;
   /** The project of the workspace the person works in; `null` without one. */
   readonly projectId: string | null;
   /** The departments the person is a member or leader of now, each once. */
@@ -238,6 +240,10 @@ export class AgentPlanAccess {
           ).find((entry) => entry.id === workspaceId);
     if (workspace === undefined) throw new AgentError("plan_access_denied");
     return {
+      ...(new UserPolicyService().isManagement(viewer.actor) &&
+      !this.sharing.isAdministrator(viewer)
+        ? { isManagement: true }
+        : {}),
       projectId: workspace?.projectId ?? null,
       departmentIds: viewer.actor.departments,
       departmentId: this.sharing.teamDepartment(viewer),

@@ -1,7 +1,7 @@
+import { MANAGEMENT_WRITE_TOOLS } from "./Management.js";
 import { AUTOMATION_WRITE_TOOLS } from "./Automations.js";
 import { AGENT_STEP_PROGRESS_OPERATION } from "../AgentPlanStepProgress.js";
 import { AGENT_STEP_REPORT_OPERATION } from "../AgentPlanStepReport.js";
-
 import { PLAN_WORK_SAVE_TOOL } from "./PlanWork.js";
 import { STEP_PROGRESS_TOOL } from "./StepProgress.js";
 import { STEP_REPORT_TOOL } from "./StepReport.js";
@@ -53,6 +53,7 @@ import {
 } from "./WikiPageFields.js";
 import { WORKSPACE_WRITE_TOOLS } from "./Workspaces.js";
 
+import type { ManagementWriteOperation } from "../Management.js";
 import type { Tool } from "@modelcontextprotocol/server";
 import type { PagesAgentWriteOperation } from "../PagesAgentWrites.js";
 import type { AgentSwarmOperation } from "../AgentPlanSwarmOperations.js";
@@ -61,12 +62,14 @@ import type { AgentSwarmOperation } from "../AgentPlanSwarmOperations.js";
 export const WRITE_TOOLS: readonly {
   readonly operation:
     | PagesAgentWriteOperation
+    | ManagementWriteOperation
     | "ticket.work.save"
     | typeof AGENT_STEP_REPORT_OPERATION
     | typeof AGENT_STEP_PROGRESS_OPERATION
     | AgentSwarmOperation;
   readonly tool: Tool;
 }[] = [
+  ...MANAGEMENT_WRITE_TOOLS,
   { operation: "ticket.work.save", tool: PLAN_WORK_SAVE_TOOL },
   { operation: AGENT_STEP_REPORT_OPERATION, tool: STEP_REPORT_TOOL },
   { operation: AGENT_STEP_PROGRESS_OPERATION, tool: STEP_PROGRESS_TOOL },

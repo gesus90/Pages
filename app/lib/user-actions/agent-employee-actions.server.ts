@@ -1,5 +1,6 @@
 import { data } from "react-router";
 
+import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { AgentEmployeeError } from "@/backend/error/AgentEmployeeError";
 import { logCaughtError } from "@/backend/logging/Logger";
 import { readAgentEmployeeInput } from "@/backend/service/employee/AgentEmployeeInput";
@@ -47,6 +48,20 @@ export function toAgentError(
   error: unknown,
   intent: UsersIntent,
 ): UsersActionResult {
+  if (error instanceof AgentOperationError)
+    return data<UsersActionData>(
+      {
+        ok: false,
+        intent,
+        error: "forbidden",
+        code: "FORBIDDEN",
+        reason:
+          error.details && "reason" in error.details
+            ? error.details.reason
+            : undefined,
+      },
+      { status: error.status },
+    );
   if (!(error instanceof AgentEmployeeError)) throw error;
   const failure = AGENT_ERRORS[error.code];
   return data<UsersActionData>(

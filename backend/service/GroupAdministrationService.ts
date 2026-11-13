@@ -2,6 +2,7 @@ import { UserPolicyService } from "@/backend/auth/UserPolicyService";
 import { AdministrationError } from "@/backend/error/AdministrationError";
 import { MAX_GROUP_NAME_LENGTH } from "@/definition/UserGroup";
 
+import { requireManagementMembershipChange } from "./management/ManagementMembershipPolicy";
 import {
   activeAccount,
   requireAdministration,
@@ -31,6 +32,7 @@ function validateGroup(
   snapshot: AuthorizationSnapshot,
   existing: readonly UserGroup[],
   input: UserGroup,
+  allowEmpty = false,
 ): void {
   const name = input.name.trim();
   const memberIds = new Set(input.memberIds);
@@ -43,7 +45,7 @@ function validateGroup(
   if (
     name.length === 0 ||
     name.length > MAX_GROUP_NAME_LENGTH ||
-    memberIds.size === 0 ||
+    (!allowEmpty && memberIds.size === 0) ||
     members.length !== memberIds.size ||
     members.some((member) => !member.isActive) ||
     hasForeignLeader ||
@@ -100,7 +102,7 @@ export class GroupAdministrationService {
       if (!this.policy.canManageGroups(actor)) {
         return { canManage: false, canSetLeaders: false, groups: [] };
       }
-      const isAdministrator = this.policy.isAdministrator(actor);
+      const isAdministrator = this.policy.hasGlobalAccess(actor);
 
       const groups = await repository.groups().findAll();
 
@@ -148,7 +150,11 @@ export class GroupAdministrationService {
    * @throws {AdministrationError} When the actor lacks scope or the input is invalid,
    * or when a non-administrator changes the leaders.
    */
-  public async saveGroup(userId: string, input: UserGroup): Promise<void> {
+  public async saveGroup(
+    userId: string,
+    input: UserGroup,
+    options: { readonly allowEmpty?: boolean } = {},
+  ): Promise<void> {
     await this.repository.transaction(async (repository) => {
       const snapshot = await repository.snapshot();
       const actor = activeAccount(snapshot, userId);
@@ -161,9 +167,25 @@ export class GroupAdministrationService {
           ...membersOf(snapshot, input.memberIds),
         ]),
       );
-      validateGroup(snapshot, groups, input);
+      for (const account of snapshot.accounts) {
+        const memberId = account.userId;
+        if (
+          (current?.memberIds.includes(memberId) ?? false) !==
+            input.memberIds.includes(memberId) ||
+          (input.leaderIds !== undefined &&
+            (current?.leaderIds?.includes(memberId) ?? false) !==
+              input.leaderIds.includes(memberId))
+        )
+          requireManagementMembershipChange(actor, account);
+      }
+      validateGroup(
+        snapshot,
+        groups,
+        input,
+        options.allowEmpty === true || this.policy.isManagement(actor),
+      );
       requireAdministration(
-        !changesLeaders(current, input) || this.policy.isAdministrator(actor),
+        !changesLeaders(current, input) || this.policy.hasGlobalAccess(actor),
       );
       await repository.groups().save({ ...input, name: input.name.trim() });
     });
@@ -193,6 +215,8 @@ export class GroupAdministrationService {
       requireAdministration(
         this.policy.canChangeGroup(actor, membersOf(snapshot, group.memberIds)),
       );
+      for (const member of membersOf(snapshot, group.memberIds))
+        requireManagementMembershipChange(actor, member);
       await requireNoAgentScope(repository, actor, {
         kind: "group",
         targetId: groupId,

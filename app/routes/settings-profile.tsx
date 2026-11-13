@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useLoaderData, useSubmit } from "react-router";
 
+import { ADMINISTRATION_ROLE_ID } from "@/definition/Authorization";
 import { ChangePasswordDialog } from "@/app/components/settings/change-password-dialog";
 import { NotificationsCard } from "@/app/components/settings/notifications-card";
 import { ProfileCard } from "@/app/components/settings/profile-card";
@@ -177,6 +178,10 @@ export default function SettingsProfileRoute(): React.ReactElement {
 
           <div className="flex flex-col gap-4">
             <SecurityCard
+              canChangePassword={
+                account.role?.id !== ADMINISTRATION_ROLE_ID ||
+                (account.isAdmin && account.mode === "admin")
+              }
               sessions={sessions}
               onChangePassword={() => setIsPasswordDialogOpen(true)}
               onRevokeSession={handleRevokeSession}

@@ -28,7 +28,8 @@ export interface WikiPageFacts {
 /** Resolves who is looking at the wiki, from the current account facts. */
 export class WikiAccess {
   private readonly projectService: Pick<ProjectService, "workItemVisibility">;
-  private readonly permissionService: PermissionService;
+  private readonly permissionService: Pick<PermissionService, "hasCapability"> &
+    Partial<Pick<PermissionService, "isManagement">>;
 
   /**
    * Creates the resolver.
@@ -38,7 +39,8 @@ export class WikiAccess {
    */
   public constructor(
     projectService: Pick<ProjectService, "workItemVisibility">,
-    permissionService: PermissionService,
+    permissionService: Pick<PermissionService, "hasCapability"> &
+      Partial<Pick<PermissionService, "isManagement">>,
   ) {
     this.projectService = projectService;
     this.permissionService = permissionService;
@@ -53,15 +55,17 @@ export class WikiAccess {
    */
   public async resolve(actor: User): Promise<WikiViewer> {
     const visibility = await this.projectService.workItemVisibility(actor);
-    const [canWrite, canManageProjects] = await Promise.all([
+    const [canWrite, canManageProjects, isManagement] = await Promise.all([
       this.permissionService.hasCapability(actor, CAPABILITY.WRITE),
       this.permissionService.hasCapability(actor, CAPABILITY.MANAGE_PROJECTS),
+      this.permissionService.isManagement?.(actor) ?? false,
     ]);
 
     return {
       canManageProjects,
       canWrite,
       scope: {
+        ...(isManagement ? { canReadPrivate: true } : {}),
         departmentIds: visibility.departmentIds ?? [],
         isAdmin: visibility.departmentIds === null,
         projectIds: visibility.projectIds ?? [],

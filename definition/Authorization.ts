@@ -19,6 +19,9 @@ export const CAPABILITY = {
   MANAGE_ROLES: "manage_roles",
 } as const;
 
+/** Stable identity of the protected business administration role (PAGE-316). */
+export const ADMINISTRATION_ROLE_ID = "role-administration";
+
 /** A capability that can be granted by a shared role. */
 export type Capability = (typeof CAPABILITY)[keyof typeof CAPABILITY];
 
@@ -104,6 +107,8 @@ export interface ManagedUser extends UserListItem {
   readonly canManageAccess: boolean;
   readonly canManageMemberships: boolean;
   readonly canManageScope: boolean;
+  readonly canResetPassword?: boolean;
+  readonly canAssignRole?: boolean;
 }
 
 /** Server-filtered view model for the three management sections. */

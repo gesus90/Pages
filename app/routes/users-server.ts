@@ -1,3 +1,4 @@
+import { UserPolicyService } from "@/backend/auth/UserPolicyService";
 import {
   authenticatedUserContext,
   requireUserManagement,
@@ -49,7 +50,18 @@ export async function loader({
     readLocalStateAudience(services, actor),
     readAgentPage(services, actor.id),
   ]);
-  return { ...directory, privateWikiPages, audience, agents };
+  const managementActivity = new UserPolicyService().isAdministrator(
+    directory.actor,
+  )
+    ? await services.managementService.audit.list(actor.id)
+    : undefined;
+  return {
+    ...directory,
+    privateWikiPages,
+    audience,
+    agents,
+    managementActivity,
+  };
 }
 
 /** Applies validated mutations through the transactional A2 service boundary. */

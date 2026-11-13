@@ -1,3 +1,4 @@
+import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import {
   mcpDeviceFailure,
   mcpDeviceMethodNotAllowed,
@@ -81,6 +82,11 @@ export function mcpPlanResponse(body: unknown, status = 200): Response {
  * `reason` as `detail`; never a message and never a part of the request.
  */
 function mcpPlanFailure(error: unknown): Response {
+  if (error instanceof AgentOperationError)
+    return mcpDeviceResponse(
+      { error: error.code, ...error.details },
+      error.status,
+    );
   const failure = toMcpPlanError(error);
   if (failure === null) return mcpDeviceFailure(error);
   return mcpDeviceResponse(

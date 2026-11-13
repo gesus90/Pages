@@ -14,6 +14,8 @@ export type AgentPlanTeamKind = "group" | "department" | "user";
 export interface AgentPlanTeam {
   readonly kind: AgentPlanTeamKind;
   readonly targetId: string;
+  /** Business-wide run reading does not grant execution or control. */
+  readonly canReadAllRuns?: boolean;
   readonly canRead: boolean;
   readonly canEdit: boolean;
   readonly canRun: boolean;

@@ -21,6 +21,7 @@ interface AgentAccessSectionProps {
   readonly onChange: (access: AgentEmployeeAccess) => void;
   /** Whether the person may change the level: an administrator in active admin mode. */
   readonly canChange: boolean;
+  readonly canAssignYolo?: boolean;
   /** `null` while a new agent is created, which starts on "Nur Pages". */
   readonly environment: AgentAccessEnvironment | null;
 }
@@ -125,6 +126,7 @@ export function AgentAccessSection({
   savedValue,
   onChange,
   canChange,
+  canAssignYolo = true,
   environment,
 }: AgentAccessSectionProps): React.ReactElement {
   const { t } = useTranslation();
@@ -135,6 +137,7 @@ export function AgentAccessSection({
   function select(level: AgentEmployeeAccess): void {
     if (level === value) return;
     if (level === "yolo") {
+      if (!canAssignYolo) return;
       setConfirming(true);
       return;
     }
@@ -176,7 +179,9 @@ export function AgentAccessSection({
         <legend className="mb-2 text-sm font-semibold text-foreground">
           {t("agentEmployees.accessTab.legend")}
         </legend>
-        {AGENT_EMPLOYEE_ACCESS_MODES.map((level) => (
+        {AGENT_EMPLOYEE_ACCESS_MODES.filter(
+          (level) => canAssignYolo || level !== "yolo" || savedValue === "yolo",
+        ).map((level) => (
           <LevelOption
             isChecked={value === level}
             isDisabled={

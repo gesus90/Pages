@@ -32,6 +32,7 @@ import {
 } from "./AgentWikiFieldValidation";
 import { WikiImportPlanner } from "./WikiImportPlanner";
 
+import type { ManagementOperations } from "@/backend/service/management/ManagementOperations";
 import type { AgentFileOperationService } from "./AgentFileOperationService";
 import type { AgentChatSessionOperationService } from "./AgentChatSessionOperationService";
 import type { AgentChannel } from "@/backend/auth/McpActorContext";
@@ -80,6 +81,7 @@ interface AdditionalOperations {
 
 /** Server-owned dependencies; no actor or policy arrives through operation parameters. */
 export interface AgentOperationDependencies {
+  readonly management?: ManagementOperations;
   readonly files?: AgentFileOperationService;
   readonly projects: ProjectRepository;
   readonly wiki: WikiRepository;
@@ -179,6 +181,26 @@ export class AgentOperationRouter {
     | PagesAgentWriteResponse
     | AgentAdminWriteResponse
   > {
+    if (this.dependencies.management)
+      return this.dependencies.management.audited(
+        identity,
+        input.operation,
+        input.parameters,
+        () => this.handleOperation(identity, input, verify),
+      );
+    return this.handleOperation(identity, input, verify);
+  }
+
+  private async handleOperation(
+    identity: AgentIdentity,
+    input: Readonly<Record<string, unknown>>,
+    verify?: () => Promise<AgentIdentity>,
+  ): Promise<
+    | PagesAgentReadResponse
+    | PagesAgentStructuredReadResponse
+    | PagesAgentWriteResponse
+    | AgentAdminWriteResponse
+  > {
     const extension = await this.handleAdditional(identity, input);
     if (extension) return extension;
     const direct = await this.handleDirect(identity, input, verify);
@@ -201,9 +223,16 @@ export class AgentOperationRouter {
     if (operation === "projects.list") result = await projects.list(actor);
     else if (operation === "projects.resolve")
       result = await projects.resolve(actor, readText(parameters, "name"));
-    else if (operation === "projects.read")
-      result = await projects.read(actor, readText(parameters, "projectId"));
-    else if (operation === "wiki.page.read")
+    else if (operation === "projects.read") {
+      const projectId = readText(parameters, "projectId");
+      result = {
+        ...(await projects.read(actor, projectId)),
+        revision: await this.dependencies.management?.projectRevision(
+          identity,
+          projectId,
+        ),
+      };
+    } else if (operation === "wiki.page.read")
       result = await wiki.read(actor, readText(parameters, "pageId"));
     else {
       const projectId =
@@ -280,6 +309,7 @@ export class AgentOperationRouter {
     const { dependencies } = this;
     // The first service that knows the operation answers; the order is the catalog's.
     const services: readonly (AdditionalOperations | undefined)[] = [
+      dependencies.management,
       dependencies.files,
       dependencies.chatSessions,
       dependencies.administration,

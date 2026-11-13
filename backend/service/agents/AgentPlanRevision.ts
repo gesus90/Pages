@@ -6,6 +6,7 @@ import { requireCredentialFreeText } from "@/backend/security/AgentTextSafety";
 import { planExecutionIssues } from "@/definition/AgentPlanGraph";
 import { withPortlessPlanGroups } from "@/definition/AgentPlanGroupUpgrade";
 
+import { requireManagementPlanAccess } from "../management/ManagementPlanAccess";
 import {
   planOwnership,
   requireOwnerForProjectChange,
@@ -43,6 +44,8 @@ export async function reviseAgentPlan(
   if (previous && !previous.canEdit) throw new AgentError("plan_access_denied");
   if (previous && proposed.revision !== previous.revision)
     throw new AgentError("plan_conflict");
+  const team = await dependencies.access.team(userId, null);
+  requireManagementPlanAccess(team.isManagement === true, proposed, previous);
   requireNoNewGitCloseout(proposed, previous);
   // The workspace is resolved for the person who saves: the owner's access never stands in.
   const workspace = await context.resolveWorkspace(userId, proposed);
@@ -75,7 +78,7 @@ export async function reviseAgentPlan(
     revision: proposed.revision ?? 1,
   };
   await dependencies.access.validateSharing(plan);
-  if (plan.nodes.some((node) => node.type === "group")) {
+  if (!team.isManagement && plan.nodes.some((node) => node.type === "group")) {
     const catalog = await dependencies.profiles.catalog(userId, plan.projectId);
     if (planExecutionIssues(plan, catalog).length === 0)
       await dependencies.preparation.prepare(userId, plan);

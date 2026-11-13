@@ -1,3 +1,5 @@
+import { renderManagementAvatar } from "@/backend/service/management/ManagementAvatar";
+import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import {
   MAXIMUM_AVATAR_BYTES,
   SUPPORTED_AVATAR_MIME_TYPES,
@@ -67,11 +69,24 @@ export async function parseAvatarUpload(
 
   if (
     value.size > MAXIMUM_AVATAR_BYTES ||
-    !SUPPORTED_AVATAR_MIME_TYPES.has(value.type)
+    (!SUPPORTED_AVATAR_MIME_TYPES.has(value.type) &&
+      value.type !== "image/svg+xml")
   ) {
     return { status: "invalid" };
   }
 
+  if (value.type === "image/svg+xml") {
+    try {
+      const avatar = await renderManagementAvatar(
+        value.type,
+        Buffer.from(await value.arrayBuffer()).toString("base64"),
+      );
+      return { status: "ready", avatar };
+    } catch (error: unknown) {
+      if (error instanceof AgentOperationError) return { status: "invalid" };
+      throw error;
+    }
+  }
   return validateAvatarImage({
     data: Buffer.from(await value.arrayBuffer()),
     mimeType: value.type,

@@ -80,7 +80,7 @@ export function UserActionsMenu({
             {t("users.menu.edit")}
           </DropdownMenuItem>
         ) : null}
-        {user.canEditProfile ? (
+        {(user.canAssignRole ?? user.canEditProfile) ? (
           <DropdownMenuItem className="gap-2.5" onSelect={onChangeRole}>
             <ShieldCheck
               className="size-4 text-muted-foreground"
@@ -91,13 +91,15 @@ export function UserActionsMenu({
         ) : null}
         {user.canManageAccess ? (
           <>
-            <DropdownMenuItem className="gap-2.5" onSelect={onResetPassword}>
-              <KeyRound
-                className="size-4 text-muted-foreground"
-                aria-hidden="true"
-              />
-              {t("users.menu.resetPassword")}
-            </DropdownMenuItem>
+            {(user.canResetPassword ?? user.canManageAccess) ? (
+              <DropdownMenuItem className="gap-2.5" onSelect={onResetPassword}>
+                <KeyRound
+                  className="size-4 text-muted-foreground"
+                  aria-hidden="true"
+                />
+                {t("users.menu.resetPassword")}
+              </DropdownMenuItem>
+            ) : null}
             <DropdownMenuSeparator />
             {user.isActive ? (
               <DropdownMenuItem

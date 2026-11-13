@@ -1,4 +1,6 @@
 import { data } from "react-router";
+
+import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import {
   AdministrationError,
   AgentScopeInUseError,
@@ -90,7 +92,8 @@ export type UsersActionData =
   | {
       readonly ok: true;
       readonly intent: "create-user";
-      readonly temporaryPassword: string;
+      readonly temporaryPassword?: string;
+      readonly invitationSent?: boolean;
     }
   | {
       readonly ok: true;
@@ -104,6 +107,8 @@ export type UsersActionData =
       readonly error: UsersErrorCode;
       /** Agents that block deleting a group or department, named only for administrators. */
       readonly agents?: readonly string[];
+      readonly code?: "FORBIDDEN";
+      readonly reason?: string;
     };
 
 /** The response a user directory action returns. */
@@ -141,6 +146,20 @@ export function toActionError(
   error: unknown,
   intent: UsersIntent,
 ): UsersActionResult {
+  if (error instanceof AgentOperationError)
+    return data<UsersActionData>(
+      {
+        ok: false,
+        intent,
+        error: "forbidden",
+        code: "FORBIDDEN",
+        reason:
+          error.details && "reason" in error.details
+            ? error.details.reason
+            : undefined,
+      },
+      { status: error.status },
+    );
   if (error instanceof AdministrationError) {
     const errorCode = error.code === "notFound" ? "userNotFound" : error.code;
     const details =

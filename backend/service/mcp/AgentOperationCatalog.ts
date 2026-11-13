@@ -1,4 +1,8 @@
 import {
+  MANAGEMENT_READ_OPERATIONS,
+  MANAGEMENT_WRITE_OPERATIONS,
+} from "@/definition/Management";
+import {
   AGENT_FILE_READ_OPERATIONS,
   AGENT_FILE_WRITE_OPERATIONS,
 } from "@/definition/AgentFileOperations";
@@ -37,6 +41,7 @@ export const PROJECT_NAMES_OPERATION = "projects.names.list" as const;
 
 /** Every reading operation besides the administrator reads. */
 const READING_OPERATIONS: readonly PagesAgentApiBusinessOperation[] = [
+  ...MANAGEMENT_READ_OPERATIONS,
   ...AGENT_FILE_READ_OPERATIONS,
   "assets.download.prepare",
   PROJECT_NAMES_OPERATION,
@@ -64,8 +69,10 @@ export function ownerOperations(
   isAdmin: boolean,
 ): readonly PagesAgentApiBusinessOperation[] {
   return [
+    ...MANAGEMENT_READ_OPERATIONS,
     ...AGENT_FILE_READ_OPERATIONS,
     ...AGENT_FILE_WRITE_OPERATIONS,
+    ...MANAGEMENT_WRITE_OPERATIONS,
     "assets.download.prepare",
     PROJECT_NAMES_OPERATION,
     ...PAGES_AGENT_READ_OPERATIONS,
@@ -153,25 +160,31 @@ function forSession(
 export function sessionOperations(
   scope: AgentRunScope,
   isAdmin: boolean,
+  isManagement = false,
 ): readonly PagesAgentApiBusinessOperation[] {
   const operations = forSession(scope, isAdmin).filter(
     (operation) =>
-      !AGENT_PLAN_COMMAND_OPERATIONS.some((command) => command === operation) &&
-      !AGENT_PLAN_RECOVERY_COMMAND_OPERATIONS.some(
+      (isManagement &&
+        scope.reach !== "tickets" &&
+        readingOperations(false).includes(operation)) ||
+      (!AGENT_PLAN_COMMAND_OPERATIONS.some(
         (command) => command === operation,
       ) &&
-      operation !== "plans.templates.list" &&
-      operation !== "plans.templates.read" &&
-      operation !== "plans.control.read" &&
-      operation !== "plans.capabilities.read" &&
-      operation !== "plans.run.recovery.read" &&
-      operation !== "plans.run.diagnostics.read" &&
-      operation !== "plans.run.session.events.read" &&
-      operation !== "plans.run.checkpoint.read" &&
-      operation !== "plans.run.logs.read" &&
-      !AGENT_PROJECT_DELETION_WRITE_OPERATIONS.some(
-        (deletion) => deletion === operation,
-      ),
+        !AGENT_PLAN_RECOVERY_COMMAND_OPERATIONS.some(
+          (command) => command === operation,
+        ) &&
+        operation !== "plans.templates.list" &&
+        operation !== "plans.templates.read" &&
+        operation !== "plans.control.read" &&
+        operation !== "plans.capabilities.read" &&
+        operation !== "plans.run.recovery.read" &&
+        (isManagement || operation !== "plans.run.diagnostics.read") &&
+        (isManagement || operation !== "plans.run.session.events.read") &&
+        (isManagement || operation !== "plans.run.logs.read") &&
+        operation !== "plans.run.checkpoint.read" &&
+        !AGENT_PROJECT_DELETION_WRITE_OPERATIONS.some(
+          (deletion) => deletion === operation,
+        )),
   );
   return [
     ...operations,

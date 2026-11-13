@@ -1,4 +1,5 @@
 import { useLoaderData } from "react-router";
+
 import { useLocalStateRoute } from "@/app/components/common/use-local-state-route";
 import { ManagementWorkspace } from "@/app/components/users/management-workspace";
 import {
@@ -12,6 +13,7 @@ import {
 import { readRouteData } from "@/app/lib/local-state/route-data";
 import { sendToBackend } from "@/app/lib/backend-request";
 
+import type { ManagementActivityEntry } from "@/app/components/users/management-activity";
 import type { LocalStateRouteKind } from "@/app/components/common/use-local-state-route";
 import type { LocalStateAudience } from "@/app/lib/local-state/local-state-audience";
 import type { WithLocalState } from "@/app/lib/local-state/local-state-loader";
@@ -22,6 +24,7 @@ import type { Route } from "./+types/users";
 
 /** The management view with what an administrator sees of private wiki pages. */
 export interface UsersPageData extends AdministrationPageData {
+  readonly managementActivity?: readonly ManagementActivityEntry[];
   readonly privateWikiPages: WikiPrivatePagesByOwner;
   readonly audience: LocalStateAudience;
   /** The agents tab (PAGE-266); `null` for an account that may not see it. */
@@ -46,7 +49,7 @@ function isUsersPageData(value: unknown): value is UsersPageData {
 const USERS_PAGE_STATE: LocalStateRouteKind<UsersPageData> = {
   // 4: the agent voice (PAGE-300) joined the answer; 5: groups carry their
   // leaders (PAGE-308). An older kept answer lacks them.
-  schemaVersion: 5,
+  schemaVersion: 6,
   isPayload: isUsersPageData,
   isCurrent: (page) => isCurrentLocalStateAudience(page.audience),
   ownerOf: (page) => page.audience.userId,
@@ -91,6 +94,7 @@ export default function UsersRoute(): React.ReactElement {
       directory={page}
       privateWikiPages={page.privateWikiPages}
       agents={page.agents}
+      managementActivity={page.managementActivity}
     />
   );
 }

@@ -68,6 +68,8 @@ export interface WikiAnchorTarget extends WikiAnchor {
  * for each request and never leaves it.
  */
 export interface WikiVisibilityScope {
+  /** Business administrators read and edit every area, including private pages (PAGE-316). */
+  readonly canReadPrivate?: boolean;
   readonly userId: string;
   /** True in the active admin mode, which sees every department. */
   readonly isAdmin: boolean;

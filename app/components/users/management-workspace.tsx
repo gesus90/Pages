@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+
 import { Tabs, TabsContent } from "@/app/components/ui/tabs";
 import { UserDirectory } from "@/app/components/users/user-directory";
 import { RoleCatalog } from "@/app/components/users/role-catalog";
@@ -8,6 +9,9 @@ import { DepartmentCatalog } from "@/app/components/users/department-catalog";
 import { ManagementFeedback } from "@/app/components/users/management-feedback";
 import { AgentDirectory } from "@/app/components/users/agents/agent-directory";
 
+import { ManagementActivity } from "./management-activity";
+
+import type { ManagementActivityEntry } from "./management-activity";
 import type { AdministrationPageData } from "@/definition/Authorization";
 import type { AgentEmployeePageData } from "@/definition/AgentEmployeePage";
 import type { WikiPrivatePagesByOwner } from "@/definition/Wiki";
@@ -17,7 +21,9 @@ export function ManagementWorkspace({
   directory,
   privateWikiPages,
   agents,
+  managementActivity,
 }: {
+  readonly managementActivity?: readonly ManagementActivityEntry[];
   readonly directory: AdministrationPageData;
   readonly privateWikiPages: WikiPrivatePagesByOwner;
   /** The agents tab (PAGE-266), or `null` without it. */
@@ -33,6 +39,8 @@ export function ManagementWorkspace({
     tabs.push({ value: "departments", label: t("users.sections.departments") });
   if (directory.groups.canManage)
     tabs.push({ value: "groups", label: t("users.sections.groups") });
+  if (managementActivity)
+    tabs.push({ value: "activity", label: t("users.management.activity") });
   const current = tabs.some((tab) => tab.value === section) ? section : "users";
   return (
     <section className="pages-page-fill mx-auto flex w-full max-w-6xl flex-col">
@@ -79,6 +87,11 @@ export function ManagementWorkspace({
         {directory.groups.canManage ? (
           <TabsContent value="groups" className="mt-6 min-h-0 flex-1">
             <GroupCatalog directory={directory} />
+          </TabsContent>
+        ) : null}
+        {managementActivity ? (
+          <TabsContent value="activity" className="mt-6 min-h-0 flex-1">
+            <ManagementActivity entries={managementActivity} />
           </TabsContent>
         ) : null}
       </Tabs>

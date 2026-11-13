@@ -1,3 +1,4 @@
+import type { ManagementOperation } from "./Management.js";
 import type { AgentFileOperation } from "./AgentFileOperations.js";
 import type { AgentSwarmOperation } from "./AgentPlanSwarmOperations.js";
 import type { AutomationReadOperation } from "./AutomationOperations.js";
@@ -34,6 +35,7 @@ export interface PagesAgentApiIdentity {
 
 /** Business operations Pages may offer to a verified identity. */
 export type PagesAgentApiBusinessOperation =
+  | ManagementOperation
   | AgentFileOperation
   | "ticket.work.read"
   | "ticket.work.save"

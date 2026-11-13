@@ -27,7 +27,8 @@ import type {
 } from "./PlanBridgeProtocol";
 
 /** The largest MCP message the bridge reads; a plan edit stays far below it. */
-export const PLAN_BRIDGE_MAXIMUM_BODY = PAGES_AGENT_LIMITS.wikiEnvelopeBytes;
+export const PLAN_BRIDGE_MAXIMUM_BODY =
+  PAGES_AGENT_LIMITS.managementAvatarEnvelopeBytes;
 
 /** The tool that lists project names; it has no entry in the shared catalog. */
 const LIST_PROJECT_NAMES_TOOL = {
