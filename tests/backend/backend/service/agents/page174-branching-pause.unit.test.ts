@@ -242,6 +242,7 @@ it("continues after a technical refusal of a later attempt, on the record that e
   });
   let prepares = 0;
   const world = await branchEngine(runtime.execution, {
+    withoutTodos: ["check"],
     beforePrepare: () => {
       prepares += 1;
       if (prepares === 2) throw new AgentError("plan_runner_admission_failed");
@@ -271,6 +272,7 @@ it("keeps record and retry state when a pause ends a later attempt before its re
   let prepares = 0;
   let runId: string | null = null;
   const world = await branchEngine(runtime.execution, {
+    withoutTodos: ["check"],
     beforePrepare: async () => {
       prepares += 1;
       if (prepares !== 2) return;

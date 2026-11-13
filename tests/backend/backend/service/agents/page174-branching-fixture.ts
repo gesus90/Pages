@@ -199,6 +199,7 @@ export async function branchEngine(
   execution: PlanExecution,
   shape: {
     readonly edges?: readonly AgentPlanEdge[];
+    readonly withoutTodos?: readonly string[];
     readonly nodes?: (
       agent: (id: string, x: number) => AgentPlanStep,
     ) => readonly AgentPlanNode[];
@@ -223,7 +224,9 @@ export async function branchEngine(
     ...base.step.step,
     id,
     x,
-    instruction: `Instruction ${id}`,
+    instruction: shape.withoutTodos?.includes(id)
+      ? `Instruction ${id}`
+      : `Instruction ${id}\n- [ ] Carry out the work`,
     configuration: copyPlanConfiguration(source),
     bindings: {},
   });

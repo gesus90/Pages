@@ -238,7 +238,9 @@ it("never turns a missing input into false: a checker that failed leaves the dec
   const runtime = branchRuntime({
     check: ["No report at all.", "No report at all.", "No report at all."],
   });
-  const world = await branchEngine(runtime.execution);
+  const world = await branchEngine(runtime.execution, {
+    withoutTodos: ["check"],
+  });
   const started = await world.engine.start("owner", world.snapshot);
   const run = await finished(world, started.id);
   expect(run.status).toBe("failed");
@@ -348,6 +350,7 @@ function refusingAfterFirst(code: AgentErrorCode): () => void {
 it("keeps the session and the whole history when a later attempt is refused before its record", async () => {
   const runtime = branchRuntime({ check: ["No report at all."] });
   const world = await branchEngine(runtime.execution, {
+    withoutTodos: ["check"],
     beforePrepare: refusingAfterFirst("plan_access_denied"),
   });
   const started = await world.engine.start("owner", world.snapshot);
@@ -395,6 +398,7 @@ it("keeps the session and the whole history when a later attempt is refused befo
 it("does not let the report of the earlier attempt turn a refused start into a repair round", async () => {
   const runtime = branchRuntime({ check: ["No report at all."] });
   const world = await branchEngine(runtime.execution, {
+    withoutTodos: ["check"],
     beforePrepare: refusingAfterFirst("plan_model_unavailable"),
   });
   const started = await world.engine.start("owner", world.snapshot);
