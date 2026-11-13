@@ -25,9 +25,6 @@ Die Quelle nennt diese Festlegungen als entschieden oder umgesetzt, ohne ihren U
 - Die **Katalog-Verwaltung** (Admin) zeigt das Intervall (nur manuell, 6 Stunden, täglich, wöchentlich), manuelles Aktualisieren, letzten Versuch, letzte erfolgreiche Aktualisierung, nächste geplante Aktualisierung und einen übersetzten Fehler- oder Veraltet-Hinweis. Bei einem Fehler bleibt der letzte gute Katalog auswählbar. Intervalländerungen gelten sofort und setzen die nächste Frist neu; ungespeicherte Formulare und laufende Operationen sperren Katalogaktionen. **Erst speichern, dann Katalog laden**; es gibt keine automatischen Anbieteraufrufe beim Seitenaufruf. Nicht-Admins und Admins im Rollenmodus erhalten keine Katalog- und Intervalldaten.
 - Der Testmodell-Hinweis unterscheidet Katalog-Schnittstelle, Schnittstelle ohne Katalog (Z.AI) und CLI-Standard. Die Modellliste enthält nur Text-Modelle; Anbindungs- und Modellauswahl zeigen „Name (Anbieter)“, z. B. „TSK_100 (Z.AI API)“; das Suchfeld sitzt im geöffneten Auswahlpanel.
 
-
-
 # Offen
 
 Keine weitere offene Sachfrage im Ausgangstext ausdrücklich ausgewiesen.
-

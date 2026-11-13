@@ -19,9 +19,6 @@ Die Quelle nennt diese Festlegungen als entschieden oder umgesetzt, ohne ihren U
 - Admins können Dreaming mit „aktiv“ und „Intervall“ konfigurieren. **Standard: ausgeschaltet, Intervall drei Tage.** Im deaktivierten Zustand startet kein Durchlauf; bei Aktivierung erfolgt der globale Durchgang alle drei Tage um Mitternacht.
 - Die Oberfläche erlaubt **nicht**, die unveränderlichen Agent-Beschreibungsdateien oder Agent-Beschreibungen zu ändern. Die Dreaming-Datei ist von Dreaming gepflegter Zusatzkontext und **kein Ersatz** für die feste Agent-Funktion.
 
-
-
 # Offen
 
 Keine weitere offene Sachfrage im Ausgangstext ausdrücklich ausgewiesen.
-

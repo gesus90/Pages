@@ -50,8 +50,6 @@ Die Quelle nennt diese Festlegungen als entschieden oder umgesetzt, ohne ihren U
 - Ein Modelltest benötigt einen **Dialog** mit fester Eingabe, Modell, Stufe, Kosten- und Kontingenthinweis und der Zusicherung, dass **keine Pages-Inhalte übertragen** werden; das Ergebnis nennt die verwendete Stufe.
 - **Entfernen** bestätigt den Namen und die getrennte Wirkung bei API und CLI. Der CLI-Text erklärt, dass persönliche Server-Anmeldungen unberührt bleiben. Fokus-Falle, Fokus-Rückgabe und Verwerfen-Rückfrage gelten auch hier.
 
-
-
 ## Nachtrag Stand 2026-10-13: Nutzungsumfang, Arbeitsverzeichnis und Nutzer-Agents
 
 **Nutzungsumfang je Anbindung (PAGE-19)**
@@ -63,10 +61,6 @@ Die Quelle nennt diese Festlegungen als entschieden oder umgesetzt, ohne ihren U
 - Mitgliedschaftsänderungen wirken sofort beim nächsten Zugriff. Die Lösch- und Entfernungssperre von Gruppen und Abteilungen berücksichtigt die Umfänge.
 - Bei der Chat-Nutzung (Pica) meldet das System bei fehlender Berechtigung ausdrücklich, dass der Anbindungsumfang den Zugriff nicht erlaubt.
 
-
 # Offen
 
 - **Offen zur Bestätigung:** die Lesart „Global“ als Obergrenze statt Ersatz der Profilzuweisungen sowie der fehlende Admin-Bypass.
-
-
-

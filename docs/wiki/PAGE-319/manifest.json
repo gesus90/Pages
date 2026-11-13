@@ -346,5 +346,6 @@
   ],
   "verifiedOn": "2026-11-13",
   "ticketId": "177aa3f1-3f62-4007-ba52-300e7904ae91",
-  "projectId": "ec6476da-edd0-408d-92a0-e580266d82f9"
+  "projectId": "ec6476da-edd0-408d-92a0-e580266d82f9",
+  "snapshotFile": "snapshots.json"
 }

@@ -6,11 +6,8 @@ Funktionsrollen, zentrale Agent-Verwaltung, Agent-Editor und Nutzer-Agents.
 
 - Die frühere Funktionsrolle **„Text“** ist seit 2026-10-18 entfernt (Entscheidung des Auftraggebers: kein Textassistent mehr). Zuweisungen für Chat und Agent-Ausführung laufen über das zentrale Panel „Agents“; wählbar sind nur Modelle und Reasoning-Stufen, die die Anbindung tatsächlich liefert, nicht unterstützte Stufen erscheinen nicht als Option. Fehlende oder ungültige Zuordnungen erklärt ein verständlicher Hinweis. Die Rollenverwaltung ist durch die Admin- und Rechte-Architektur geschützt. Weitere Funktionsrollen sind nicht beauftragt.
 
-
 - Der frühere Bereich **„Agent-Aufgaben“** (Tabelle mit Funktionsaufgabe, Anbindung, Modell, Reasoning-Stufe) ist durch das zentrale Panel „Agents“ ersetzt. Für Zuordnungen galt: Auswahl in der Reihenfolge Funktionsaufgabe, benannte Anbindung, gelistetes Modell, gelistete Stufe; Modelle und Stufen stammen ausschließlich aus dem gespeicherten Katalog der Anbindung, keine freie Eingabe; ist ein Katalog leer oder nicht geladen, erklärt ein Hinweis, dass die Anbindung zuerst verifiziert werden muss; ungültige oder nicht mehr gelistete Zuordnungen bleiben sichtbar und sind als unbrauchbar markiert, mit Grund; es gibt keinen stillen Ersatz.
 - Die echten Konto-Abläufe von Codex und Claude Code (Anmeldung bis „Angemeldet“, CLI-Test, Abmelden) wurden vom Auftraggeber bestätigt.
-
-
 
 # Entschieden (noch nicht umgesetzt)
 
@@ -22,10 +19,7 @@ Die Quelle nennt diese Festlegungen als entschieden oder umgesetzt, ohne ihren U
 
 ## Funktionsrollen und Zuweisung
 
-
-
 - **Persönliche Pages-Tokens für Agents:** Jeder Benutzer erzeugt einen benannten Token mit wählbarer Gültigkeit; er ist an diesen Benutzer gebunden und **widerrufbar sowie rotierbar**. Die MCP-Token-Rechte folgen der persönlichen Admin-Eigenschaft **unabhängig vom aktiven Rollenmodus** (entschiedene Ausnahme); die allgemeinen Rollenmodus-Regeln gelten außerhalb des MCP-Token-Pfads unverändert.
-
 
 ## Zentrale Agent-Verwaltung
 
@@ -47,8 +41,6 @@ Die Quelle nennt diese Festlegungen als entschieden oder umgesetzt, ohne ihren U
 - Das Zeilenmenü bietet Bearbeiten und Löschen; der Löschdialog liest aktuelle Verwendungen und sperrt verwendete Agents. **SKILLS** bleibt als schreibgeschützter Altbestand sichtbar.
 - Der Editor und die Liste liegen im zentralen Panel; die Navigation führt unter „Agents“ zu „Ausführplan“, „Arbeitsplatz“ und „Agents Liste“. Die Verwaltung im zentralen Panel bleibt an den aktiven persönlichen Admin-Modus gebunden.
 
-
-
 **Nutzer-Agents (PAGE-20)**
 
 - Unter **Agents → Agents** erstellen und verwalten Nutzer eigene Agents: Name, Instruktion, typisierte Parameter, Modell und Reasoning aus den für sie freigegebenen Admin-Modellen. Die Liste zeigt die für sie sichtbaren Agents; Administratoren finden hier einen Link zur Verwaltung.
@@ -60,9 +52,6 @@ Die Quelle nennt diese Festlegungen als entschieden oder umgesetzt, ohne ihren U
 - Das Löschen eines Admin-Profils berührt bestehende Nutzer-Agents nicht; Nutzer-Agents sperren ihre Löschung nicht.
 
 Weiterführend: [Benutzer, Rollen und Autorisierung (Technik): Zielmodell](/wiki/bcf6d1ea-462e-4b02-8b8a-afdcab75af77) für Rollen und Rechte.
-
-
-
 
 # Offen
 

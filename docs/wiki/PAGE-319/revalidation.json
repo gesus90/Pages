@@ -159,9 +159,7 @@
       "unicodeCharacters": 5693,
       "sha256": "36c8ffcfc7f96ee5ecb81e93c7cbc8d1dc57940922dcfdf4546562bae16b9f3c",
       "links": {
-        "outgoingIds": [
-          "93eb063a-a63c-4cac-8393-af182291a582"
-        ],
+        "outgoingIds": ["93eb063a-a63c-4cac-8393-af182291a582"],
         "nextCursor": null
       }
     },
@@ -179,9 +177,7 @@
       "unicodeCharacters": 3578,
       "sha256": "3281e6077664efc4a65de60c782ddbb033e97ddeeb46254a8ee1acea1f5e42c8",
       "links": {
-        "outgoingIds": [
-          "93eb063a-a63c-4cac-8393-af182291a582"
-        ],
+        "outgoingIds": ["93eb063a-a63c-4cac-8393-af182291a582"],
         "nextCursor": null
       }
     },
@@ -305,9 +301,7 @@
       "unicodeCharacters": 1180,
       "sha256": "a13c8c8fddec32749ac96c6c70852455b49b70b73cdb5374f46f8c8022673b73",
       "links": {
-        "outgoingIds": [
-          "93eb063a-a63c-4cac-8393-af182291a582"
-        ],
+        "outgoingIds": ["93eb063a-a63c-4cac-8393-af182291a582"],
         "nextCursor": null
       }
     },
@@ -325,9 +319,7 @@
       "unicodeCharacters": 2724,
       "sha256": "fc415f425637d4dea829a814bf79b286a4af8faf02f2ffebc1de075b3cfd5ade",
       "links": {
-        "outgoingIds": [
-          "93eb063a-a63c-4cac-8393-af182291a582"
-        ],
+        "outgoingIds": ["93eb063a-a63c-4cac-8393-af182291a582"],
         "nextCursor": null
       }
     },
@@ -345,9 +337,7 @@
       "unicodeCharacters": 1631,
       "sha256": "975c1f14125de89ea4bfb81beba99b5e6692f3ec5ea04227676a426fc20e53ea",
       "links": {
-        "outgoingIds": [
-          "957716f3-ed65-4e80-886c-ece8821cd0dc"
-        ],
+        "outgoingIds": ["957716f3-ed65-4e80-886c-ece8821cd0dc"],
         "nextCursor": null
       }
     },

@@ -21,34 +21,34 @@ Die [Hauptseite](/wiki/93eb063a-a63c-4cac-8393-af182291a582) ist jetzt eine Übe
 
 ## Tatsächliche Abnahme
 
-| Todo | Nachweis |
-| --- | --- |
-| T1 | Hauptseite Revision 23 (42.794 Zeichen) und Entscheidungsmodell Revision 1 (2.285 Zeichen) vor Änderungen aktuell gelesen und unmittelbar vor dem Schreiben erneut abgeglichen. Sämtliche 45.079 Originalzeichen lassen sich lückenlos und zeichengetreu aus den gespeicherten Zielseiten rekonstruieren. Keine Aussage und kein Datum wurde umgeschrieben. Bestehende IDs, Titel, Eltern, Projekt, Geltung, Icon, Cover und Anker blieben erhalten. |
-| T2 | Alle zehn neu gegliederten Seiten nach dem Speichern vollständig gelesen; jede unter 20.000 Zeichen, sowohl in UTF-16-Codeeinheiten als auch Unicode-Codepunkten. Größte Seite: 11.535 Zeichen. |
-| T3 | Hauptseite verlinkt alle neun tatsächlichen Unterseitenkennungen; alle neun Unterseiten verlinken zurück und sind Kinder der Hauptseite. Alle 21 geschriebenen Seiten und ihre Verknüpfungen über Pages zurückgelesen; sämtliche enthaltenen Wiki-Ziele durch die gespeicherten ausgehenden Links bestätigt. 20 fachlich engere Verweise auf elf anderen Wiki-Seiten angepasst. Allgemeine Verweise behalten die gültige Hauptseitenkennung. |
-| T4 | Jede Unterseite trennt „Umgesetzt“, „Entschieden (noch nicht umgesetzt)“, „Festlegungen ohne eindeutigen Umsetzungsstand“ und „Offen“. Ausdrückliche Umsetzungsangaben, noch nicht umgesetzte Entscheidungen und offene Bestätigungen stehen getrennt. Unklare historische Angaben werden keinem erfundenen Umsetzungsstand zugeordnet. |
+| Todo | Nachweis                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| T1   | Hauptseite Revision 23 (42.794 Zeichen) und Entscheidungsmodell Revision 1 (2.285 Zeichen) vor Änderungen aktuell gelesen und unmittelbar vor dem Schreiben erneut abgeglichen. Sämtliche 45.079 Originalzeichen lassen sich lückenlos und zeichengetreu aus den gespeicherten Zielseiten rekonstruieren. Keine Aussage und kein Datum wurde umgeschrieben. Bestehende IDs, Titel, Eltern, Projekt, Geltung, Icon, Cover und Anker blieben erhalten. |
+| T2   | Alle zehn neu gegliederten Seiten nach dem Speichern vollständig gelesen; jede unter 20.000 Zeichen, sowohl in UTF-16-Codeeinheiten als auch Unicode-Codepunkten. Größte Seite: 11.535 Zeichen.                                                                                                                                                                                                                                                      |
+| T3   | Hauptseite verlinkt alle neun tatsächlichen Unterseitenkennungen; alle neun Unterseiten verlinken zurück und sind Kinder der Hauptseite. Alle 21 geschriebenen Seiten und ihre Verknüpfungen über Pages zurückgelesen; sämtliche enthaltenen Wiki-Ziele durch die gespeicherten ausgehenden Links bestätigt. 20 fachlich engere Verweise auf elf anderen Wiki-Seiten angepasst. Allgemeine Verweise behalten die gültige Hauptseitenkennung.         |
+| T4   | Jede Unterseite trennt „Umgesetzt“, „Entschieden (noch nicht umgesetzt)“, „Festlegungen ohne eindeutigen Umsetzungsstand“ und „Offen“. Ausdrückliche Umsetzungsangaben, noch nicht umgesetzte Entscheidungen und offene Bestätigungen stehen getrennt. Unklare historische Angaben werden keinem erfundenen Umsetzungsstand zugeordnet.                                                                                                              |
 
 Alle vier Akzeptanz-Checkboxen wurden erst nach dem tatsächlichen Nachweis im Ticket abgehakt (Checklistenrevision 5). K1: Die zurückgelesenen Wiki-Abbilder, ihre echten Kennungen und revisionsbezogenen Nachweise befinden sich in diesem Workspace.
 
 ## Gespeicherte Seiten
 
-| Wiki-Seite | Revision | Zeichen (UTF-16) |
-| --- | --- | --- |
-| [Agents: Festlegungen](/wiki/93eb063a-a63c-4cac-8393-af182291a582) | 24 | 1.893 |
-| [Anbindungen](/wiki/b53d1a62-5462-4439-bf6d-cbbd854dd433) | 1 | 5.693 |
-| [Modell und Reasoning](/wiki/c64fb7a7-fd6b-4d2a-be1f-f5af9619e724) | 1 | 3.578 |
-| [Agent-Verwaltung und Editor](/wiki/3d67d542-5917-4176-9881-6245e9faead3) | 1 | 7.457 |
-| [Arbeitsplätze](/wiki/702f7bd4-9d30-478c-a719-b0350dec7fb5) | 1 | 5.006 |
-| [Remote-Verbindungen und Runner](/wiki/45bc1de4-9c18-4851-8e62-fc516075ca19) | 1 | 6.808 |
-| [Agent-Plan](/wiki/957716f3-ed65-4e80-886c-ece8821cd0dc) | 1 | 11.535 |
-| [Laufsteuerung und Planpanel](/wiki/4d0a8535-ba0a-485c-aff0-6c07203426b1) | 1 | 6.972 |
-| [Gedächtnis und Dreaming](/wiki/965bcb83-13d6-4db6-bf7a-eb6695a3a3d1) | 1 | 1.180 |
-| [Entscheidungsmodell für Chats: Festlegungen](/wiki/d645e528-e900-4673-9de1-4d817173ccf1) | 2 | 2.724 |
+| Wiki-Seite                                                                                | Revision | Zeichen (UTF-16) |
+| ----------------------------------------------------------------------------------------- | -------- | ---------------- |
+| [Agents: Festlegungen](/wiki/93eb063a-a63c-4cac-8393-af182291a582)                        | 24       | 1.893            |
+| [Anbindungen](/wiki/b53d1a62-5462-4439-bf6d-cbbd854dd433)                                 | 1        | 5.693            |
+| [Modell und Reasoning](/wiki/c64fb7a7-fd6b-4d2a-be1f-f5af9619e724)                        | 1        | 3.578            |
+| [Agent-Verwaltung und Editor](/wiki/3d67d542-5917-4176-9881-6245e9faead3)                 | 1        | 7.457            |
+| [Arbeitsplätze](/wiki/702f7bd4-9d30-478c-a719-b0350dec7fb5)                               | 1        | 5.006            |
+| [Remote-Verbindungen und Runner](/wiki/45bc1de4-9c18-4851-8e62-fc516075ca19)              | 1        | 6.808            |
+| [Agent-Plan](/wiki/957716f3-ed65-4e80-886c-ece8821cd0dc)                                  | 1        | 11.535           |
+| [Laufsteuerung und Planpanel](/wiki/4d0a8535-ba0a-485c-aff0-6c07203426b1)                 | 1        | 6.972            |
+| [Gedächtnis und Dreaming](/wiki/965bcb83-13d6-4db6-bf7a-eb6695a3a3d1)                     | 1        | 1.180            |
+| [Entscheidungsmodell für Chats: Festlegungen](/wiki/d645e528-e900-4673-9de1-4d817173ccf1) | 2        | 2.724            |
 
 ## Reproduzierbare Nachweise im Workspace
 
-- Die zehn Markdown-Dateien unter [PAGE-319/](PAGE-319/index.md) sind Abbilder des zurückgelesenen Wiki-Inhalts mit echten Wiki-Links.
-- [manifest.json](PAGE-319/manifest.json) enthält Quellrevisionen, SHA-256, tatsächliche Zielkennungen und Fragmentpositionen. Pro Quelle die Fragmente nach `start` sortieren, aus den Zieldateien `[targetStart, targetEnd)` lesen und verketten: Das ergibt die vollständige Originalseite mit dem dokumentierten Hash. Positionen sind nullbasiert in UTF-16-Codeeinheiten, das Ende exklusiv.
+- Die zehn Markdown-Dateien unter [PAGE-319/](PAGE-319/index.md) zeigen den formatierten Wiki-Inhalt mit echten Wiki-Links. Die zeichengetreuen Abbilder des Rücklesens liegen in [snapshots.json](PAGE-319/snapshots.json), nach Dateiname indiziert.
+- [manifest.json](PAGE-319/manifest.json) enthält Quellrevisionen, SHA-256, tatsächliche Zielkennungen und Fragmentpositionen. Pro Quelle die Fragmente nach `start` sortieren, aus dem jeweiligen Text in `snapshots.json` `[targetStart, targetEnd)` lesen und verketten: Das ergibt die vollständige Originalseite mit dem dokumentierten Hash. Positionen sind nullbasiert in UTF-16-Codeeinheiten, das Ende exklusiv.
 - [verification.json](PAGE-319/verification.json) enthält die gelesenen Zielrevisionen, Metadaten und Linkgraphen, alle 20 Verweisänderungen mit Wortlaut vorher/nachher sowie die vier unverändert allgemein verweisenden Seiten.
 
 Die Quell-Hashes wurden nach Rekonstruktion erneut geprüft:

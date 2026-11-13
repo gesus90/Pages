@@ -6,7 +6,6 @@ Graph, Nodes, Vorlagen, gemeinsame Pläne und Parität der Schnittstelle.
 
 Umgesetzt sind Textfilter (Name, Tag, Modell beziehungsweise Ticketkennung, Titel, Status), Task- und Subtask-Auswahl, Nutzbarkeitsfilter, Einfügen ohne Ziehen, numerische Positionen, beschriftete Ports und Auswahlfelder.
 
-
 # Entschieden (noch nicht umgesetzt)
 
 ### Geplante Script-Node: eigene Typfarbe und bestehende Kartenstruktur
@@ -37,8 +36,6 @@ Berechtigte Teammitglieder sollen denselben Plan im Rahmen der bestehenden Schre
 
 Privatsphäre, persönliche Credentials, Quellen-/Modellrechte und bestehende Laufsteuerrechte werden nicht mitfreigegeben. Entzogene Projekt-/Abteilungsrechte müssen auch offene Editoren und direkte API-Aufrufe sperren. Offene Ausarbeitung: Abteilungszuordnung bei mehreren/keinen Mitgliedschaften, Zuordnung privater Altobjekte, Umgang mit alten Namenskollisionen und der genaue Namensraum. Keine automatische Veröffentlichung privater Altbestände, Zusammenführung, Löschung oder willkürliche Umbenennung.
 
-
-
 # Festlegungen ohne eindeutigen Umsetzungsstand
 
 Die Quelle nennt diese Festlegungen als entschieden oder umgesetzt, ohne ihren Umsetzungsstand eindeutig zuzuordnen. Historische Zielverträge sind keine Auslieferungsnachweise; spätere datierte Präzisierungen bleiben maßgeblich.
@@ -53,22 +50,17 @@ Die Quelle nennt diese Festlegungen als entschieden oder umgesetzt, ohne ihren U
 - Die **Laufansicht** zeigt die letzten 20 eigenen Läufe, Fortschritt, die Zustände wartet, läuft, erfolgreich, fehlgeschlagen und abgebrochen, bereinigte Endergebnisse und feste Fehlergründe. **Stop** gilt dem gewählten eigenen Lauf.
 - Native Zieh-Ereignisse und **Einfüge-Schaltflächen**, numerische Rasterpositionen, getrennte Ablauf- und Datenports sowie Parameter-Auswahlfelder bedienen denselben Graphen. Der Rasterbereich scrollt innerhalb seines Containers; Formulare und Quellen ordnen sich auf Tablet und Phone um.
 
-
-Gezieltes Fortsetzen nach Pause/Absturz ist seit 22.10.2026 bestätigter Zielumfang wie unten beschrieben. 
+Gezieltes Fortsetzen nach Pause/Absturz ist seit 22.10.2026 bestätigter Zielumfang wie unten beschrieben.
 
 ### MCP-Parität des Planeditors — Vorgabe 19.10.2026
 
 Die fachlichen Bedienmöglichkeiten des visuellen Planeditors sollen auch über MCP verfügbar sein: Pläne finden/lesen, erzeugen, ändern und ihre Nodes einschließlich Positionen, Gruppen/Mitgliedern, Tickets, Parametern, Verbindungen und Konfiguration verwalten. Geplante Script-/Vorlagenfunktionen müssen entsprechend ergänzt werden. Gleiche Rechte, gemeinsame Projekt-/Abteilungsregeln und Validierung wie im Editor; keine MCP-Sonderrechte und keine implizite Ausführung beim Bearbeiten. Die konkrete Lückenmatrix und der nur lesend geprüfte Ist-Stand stehen unter [Pages-Schnittstelle und MCP: technische Umsetzung](/wiki/6d5a37ed-6ab1-4c4e-8962-96b7f1224b5b). Vollständige Parität ist ausdrücklich noch nicht nachgewiesen.
 
-
-
 # Offen
 
-- **Offen:** erweiterte Dropdown-Filter für Zuweisung, Ticketstatus und Zuständigkeit, Zoom und Verschieben sowie allgemeines Wiederholen. 
+- **Offen:** erweiterte Dropdown-Filter für Zuweisung, Ticketstatus und Zuständigkeit, Zoom und Verschieben sowie allgemeines Wiederholen.
 
 - **Offen:** konkrete Knotenfarben, Portformen und Kantenstile des Planeditors (Vorschlag: zurückhaltende typabhängige Tönungen, beschriftete Parameter-Ports, unterscheidbare Ablauf- und Datenverbindungen; bestehende helle Flächen, Radien und Typografie beibehalten).
-
-
 
 Aus den datierten Zielverträgen bleiben außerdem offen: produktiver Script-Farbwert und Theme-Tokens; Schriftmaße und Panelgeometrie; externe Bindungen von Vorlagen; Altbestandszuordnung, Mehrfachmitgliedschaften und Vorlagenverwaltung; der Namensraum über Abteilungen hinweg und alte Namenskollisionen. Die vollständigen Aussagen stehen in den vorherigen Abschnitten.
 

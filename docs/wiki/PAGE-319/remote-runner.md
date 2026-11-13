@@ -36,9 +36,6 @@ Die Quelle nennt diese Festlegungen als entschieden oder umgesetzt, ohne ihren U
 - Der dauerhafte authentifizierte WS/WSS-Dienst verwaltet die gewählten Remote-ACPs und meldet **echte** Anbindungen, Modelle und unterstützte Fast-/Thinking-/Reasoning-Fähigkeiten unter **Einstellungen → Agents → Remote**. Beim Remote-Workspace bietet Agent Plan passende Anbindungen des zugehörigen Hosts an; keine stille lokale/andere Host-/Modellsubstitution. Prompt, Workspace/cwd, Konfiguration und Rückkommunikation folgen dem lokalen semantischen Vertrag, mit erneuter serverseitiger Rechteprüfung.
 - Usage, Quoten-/Reset-Fenster und native Session-/Resume-Metadaten nur soweit tatsächlich aus CLI/Provider verfügbar melden. Fünf-Stunden-/Wochenkontingent ist keine universelle Sessionlaufzeit; unbekannt bleibt unbekannt. Reconnect gleicht tatsächliche Prozesse/Ereignisse ab statt Aufträge doppelt zu starten oder Fortsetzung zu simulieren. Auth-, Berechtigungs-, Boot-/Container-Lifecycle- und Protokollgrenzen siehe [technischer Vertrag](/wiki/3301f98d-8727-4c7b-97dc-8a8262d4e440).
 
-
-
 # Offen
 
 Keine weitere offene Sachfrage im Ausgangstext ausdrücklich ausgewiesen.
-

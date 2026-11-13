@@ -43,4 +43,3 @@ Keine weiteren Festlegungen mit unklarem Umsetzungsstand.
 # Offen
 
 Keine weitere offene Sachfrage im Ausgangstext ausdrücklich ausgewiesen.
-
