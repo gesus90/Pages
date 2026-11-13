@@ -5,7 +5,10 @@ import { planStartOwnerSchema } from "@/definition/AgentPlanResourceRelease";
 import type { AgentPlanStartOwner } from "@/definition/AgentPlanResourceRelease";
 
 /** Reads the current affected owners when Starten is clicked, before showing its confirmation. */
-export function usePlanStartOwners(planId: string | undefined, revision: number | undefined): {
+export function usePlanStartOwners(
+  planId: string | undefined,
+  revision: number | undefined,
+): {
   readonly owners: readonly AgentPlanStartOwner[];
   readonly isPending: boolean;
   readonly error: string | null;
@@ -22,9 +25,18 @@ export function usePlanStartOwners(planId: string | undefined, revision: number 
       body.set("intent", "inspect-plan-start");
       body.set("planId", planId ?? "");
       body.set("revision", String(revision ?? ""));
-      const response = await fetch("/agents/plans", { method: "POST", body, cache: "no-store" });
+      const response = await fetch("/agents/plans", {
+        method: "POST",
+        body,
+        cache: "no-store",
+      });
       const payload: unknown = await response.json();
-      if (!response.ok || typeof payload !== "object" || payload === null || !("owners" in payload))
+      if (
+        !response.ok ||
+        typeof payload !== "object" ||
+        payload === null ||
+        !("owners" in payload)
+      )
         throw new Error("Start owners unavailable");
       const current = planStartOwnerSchema.array().parse(payload.owners);
       setOwners(current);

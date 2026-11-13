@@ -177,11 +177,21 @@ function PlanRunDecisionDialog({
   if (action === "foreign-start")
     return <PlanForeignRunStartDialog onConfirm={onStart} onClose={onClose} />;
   if (action === "replace-open")
-    return <PlanOpenRunStartDialog onConfirm={onStart} onClose={onClose} owners={owners} />;
+    return (
+      <PlanOpenRunStartDialog
+        onConfirm={onStart}
+        onClose={onClose}
+        owners={owners}
+      />
+    );
   if (!action) return null;
   return (
     <Suspense fallback={null}>
-      <PlanRecoveryResumeDialog recovery={recovery} onClose={onClose} owners={owners} />
+      <PlanRecoveryResumeDialog
+        recovery={recovery}
+        onClose={onClose}
+        owners={owners}
+      />
     </Suspense>
   );
 }
@@ -261,7 +271,10 @@ export function PlanRunPanel(props: PlanRunPanelProps): React.ReactElement {
   const detailsId = useId();
   const [isOpen, setOpen] = useState(false);
   const { editor, control, page } = props;
-  const startOwners = usePlanStartOwners(page.selected?.id, editor.draft.revision);
+  const startOwners = usePlanStartOwners(
+    page.selected?.id,
+    editor.draft.revision,
+  );
   const management = usePlanManagement();
   const recoveryRunId =
     page.selected?.canEdit === false ? null : recoverableRunId(control);
@@ -291,7 +304,8 @@ export function PlanRunPanel(props: PlanRunPanelProps): React.ReactElement {
           editor={editor}
           control={control}
           isPending={
-            recovery.isPending || startOwners.isPending ||
+            recovery.isPending ||
+            startOwners.isPending ||
             editor.isPending ||
             Boolean(props.error) ||
             (!control && page.selected !== null)
@@ -306,7 +320,11 @@ export function PlanRunPanel(props: PlanRunPanelProps): React.ReactElement {
           onManage={management.open}
         />
         {recoveryRunId ? <RecoveryErrorLine recovery={recovery} /> : null}
-        {startOwners.error ? <p role="alert" className="px-4 py-2 text-xs text-destructive">{t(`settings.agents.error.${startOwners.error}`)}</p> : null}
+        {startOwners.error ? (
+          <p role="alert" className="px-4 py-2 text-xs text-destructive">
+            {t(`settings.agents.error.${startOwners.error}`)}
+          </p>
+        ) : null}
         <PlanResourceReleases run={props.run} />
         <PlanPanelStatus
           state={state}

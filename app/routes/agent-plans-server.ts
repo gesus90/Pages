@@ -386,7 +386,9 @@ export async function action(args: Route.ActionArgs): Promise<Response> {
       return await playPlan(user.id, services.agentPlanService, formData);
     if (intent === "inspect-plan-start") {
       const owners = await services.agentPlanService.startOwners(
-        user.id, readPlanText(formData.get("planId")), Number(formData.get("revision")),
+        user.id,
+        readPlanText(formData.get("planId")),
+        Number(formData.get("revision")),
       );
       return Response.json({ owners }, { headers: AGENT_NO_STORE });
     }

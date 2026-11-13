@@ -20,9 +20,7 @@ import type { PicaMobileAutomationPush } from "@/backend/service/mobile/notifica
 import type { AgentPlanRemoteExecution } from "@/backend/service/agents/AgentPlanRemoteExecution";
 import { AgentPlanStepReportRepository } from "@/backend/database/repositories/agent/AgentPlanStepReportRepository";
 import { AgentRunCredentialRepository } from "@/backend/database/repositories/mcp/AgentRunCredentialRepository";
-import { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
-import { upgradePlanConfigurations } from "@/backend/service/agents/AgentPlanConfigurationUpgrade";
-import { shareLegacyPlans } from "@/backend/service/agents/AgentPlanLegacyShare";
+import { upgradeStoredPlans } from "./agent-plan-upgrade.server";
 import { AgentPlanRepository } from "@/backend/database/repositories/agent/AgentPlanRepository";
 import { AgentPlanTemplateRepository } from "@/backend/database/repositories/agent/AgentPlanTemplateRepository";
 import { AgentProfileRepository } from "@/backend/database/repositories/agent/AgentProfileRepository";
@@ -145,28 +143,6 @@ function planScripts(): AgentPlanScripts {
   });
 }
 
-/**
- * Brings the plans stored by an earlier version up to date when the server starts.
- *
- * @remarks
- * Legacy node configurations are pinned, and the plans of before teams are
- * shared once with the team of their owner; the second step never throws.
- */
-async function upgradeStoredPlans(
-  database: Database,
-  plans: AgentPlanRepository,
-): Promise<void> {
-  await upgradePlanConfigurations({
-    plans,
-    profiles: new AgentProfileRepository(database),
-    connections: new AgentConnectionRepository(database),
-  });
-  await shareLegacyPlans({
-    plans,
-    authorization: new AuthorizationRepository(database),
-  });
-}
-
 /** The file store of asset nodes, where one was wired (PAGE-268). */
 function planAssetsOf(
   agents: Pick<AgentApplicationServices, "agentPlanAssetService">,
@@ -195,9 +171,13 @@ function planRecords(input: {
   | "accessChanges"
   | "planAudit"
   | "scriptApprovals"
+  | "startResources"
 > {
   return {
     ...planAccessRecords(input.database),
+    startResources: new AgentPlanStartResources({
+      repository: new AgentPlanStartResourceRepository(input.database),
+    }),
     workGate: new AgentPlanWorkGate(input.database, input.users),
     stepProgress: new AgentPlanStepProgressService({
       reports: new AgentPlanStepReportRepository(input.database),
@@ -274,9 +254,6 @@ export async function createAgentPlanService(input: {
     ...planRecords(input),
     ...diagnosis.dependencies,
     resumeAdvisor,
-    startResources: new AgentPlanStartResources({
-      repository: new AgentPlanStartResourceRepository(input.database),
-    }),
     workspaceCatalog,
     remoteExecution,
     remoteTargets,
