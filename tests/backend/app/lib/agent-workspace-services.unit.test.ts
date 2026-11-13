@@ -254,6 +254,9 @@ it("prepares parameters, content, assets and run records on the shared services"
   expect(vi.mocked(AgentTicketParameterService).mock.calls[0][1]).toBe(
     services.agentTicketAssetService,
   );
+  expect(vi.mocked(AgentTicketParameterService).mock.calls[0][3]).toBe(
+    services.agentTicketAssetSnapshots,
+  );
   expect(vi.mocked(AgentParameterService).mock.calls[0][0]).toEqual({
     profiles: services.agentProfileService,
     workspaces: services.agentWorkspaceService,

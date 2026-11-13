@@ -61,6 +61,7 @@ export async function createPlanRemoteServices(
     tickets: input.agents.agentTicketParameterService,
     content: input.agents.agentContentAccess,
     assets: input.agents.agentTicketAssetService,
+    snapshots: input.agents.agentTicketAssetSnapshots,
     authorization: new AuthorizationRepository(input.database),
     users: input.users,
   });

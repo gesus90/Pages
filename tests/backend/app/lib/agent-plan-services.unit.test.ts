@@ -131,6 +131,7 @@ function agentFixture(): AgentFixture {
     agentTicketParameterService: opaque("ticket parameters"),
     agentContentAccess: opaque("content"),
     agentTicketAssetService: opaque("ticket assets"),
+    agentTicketAssetSnapshots: opaque("ticket snapshots"),
   });
   return { agents, restore, recoverArchive, attachRunOwnership, waiting };
 }
@@ -413,6 +414,7 @@ it("lets runners reach Pages and run remote steps through the shared targets", a
     tickets: agents.agentTicketParameterService,
     content: agents.agentContentAccess,
     assets: agents.agentTicketAssetService,
+    snapshots: agents.agentTicketAssetSnapshots,
     authorization: vi.mocked(AuthorizationRepository).mock.instances[2],
     users: USERS,
   });

@@ -1,5 +1,6 @@
 import { AgentAssetError } from "@/backend/error/AgentAssetError";
 import { AgentError } from "@/backend/error/AgentErrors";
+import { withLogContext } from "@/backend/logging/Logger";
 
 import type { RunnerAssetCursors } from "./RunnerAssetCursors";
 import type { AgentPlanRemoteAccessRepository } from "@/backend/database/repositories/agent/AgentPlanRemoteAccessRepository";
@@ -61,6 +62,24 @@ export class RunnerParameterFiles {
 
   /** Lists the pinned files with the text extracts a model may read. */
   public async manifest(access: ParameterFileAccess): Promise<unknown> {
+    return withLogContext(
+      { runId: access.run.id, stepId: access.remote.step.id },
+      () => this.manifestFiles(access),
+    );
+  }
+
+  /** Answers one chunk of one file and records which file the step received. */
+  public async chunk(
+    access: ParameterFileAccess,
+    request: AssetRequest,
+  ): Promise<unknown> {
+    return withLogContext(
+      { runId: access.run.id, stepId: access.remote.step.id },
+      () => this.serveChunk(access, request),
+    );
+  }
+
+  private async manifestFiles(access: ParameterFileAccess): Promise<unknown> {
     const prepared = access.remote.parameters;
     if (!prepared) throw new AgentError("plan_mcp_unavailable");
     const files = [];
@@ -91,8 +110,7 @@ export class RunnerParameterFiles {
     return { files };
   }
 
-  /** Answers one chunk of one file and records which file the step received. */
-  public async chunk(
+  private async serveChunk(
     access: ParameterFileAccess,
     request: AssetRequest,
   ): Promise<unknown> {

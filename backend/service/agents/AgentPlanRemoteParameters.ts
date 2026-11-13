@@ -3,11 +3,9 @@ import { AgentAssetError } from "@/backend/error/AgentAssetError";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentPlanValidationError } from "@/backend/error/AgentPlanValidationError";
 import { planContentDigest } from "@/backend/agents/AgentPlanContentDigest";
-import { MAX_RUNNER_PROMPT_CHARACTERS } from "@/definition/RunnerExecution";
+import { digestStream } from "@/backend/storage/StreamDigest";
 
-import { assetFailure } from "./AgentPlanStepFailure";
 import { remoteAssetFile } from "./AgentAssetRemoteFile";
-import { bindAgentParameters } from "./AgentParameterBinding";
 import { planBindings } from "./AgentPlanBindings";
 import {
   requireAssetReferences,
@@ -15,6 +13,11 @@ import {
 } from "./AgentTicketAssetReferences";
 import { STREAMED_ASSET_REASON } from "./AgentTicketAssetService";
 import { PLAN_HANDOVER_LIMITS } from "@/definition/AgentPlanHandover";
+import type { AgentTicketAssetSnapshots } from "./AgentTicketAssetSnapshots";
+import type {
+  AgentTicketAssetSnapshot,
+  AgentTicketInput,
+} from "@/definition/AgentTicketParameter";
 
 import type { Readable } from "node:stream";
 import type { User } from "@/definition/User";
@@ -38,11 +41,23 @@ import type { AgentTicketAssetService } from "./AgentTicketAssetService";
 import type { AgentContentAccess } from "./AgentContentAccess";
 import type { AgentPlanRemoteTargets } from "./AgentPlanRemoteTargets";
 import type { AgentPlanTaskSnapshot } from "./AgentPlanBindings";
-import type { AgentReferenceResolvers } from "./AgentParameterBinding";
+
+import {
+  remoteParameterError,
+  requireAssetBudget,
+} from "./AgentPlanRemoteParameterValidation";
+
+export {
+  remoteParameterError,
+  remoteParameterResolvers,
+  validateRemoteParameterPrompt,
+  remoteWorkspaceContext,
+  requireRemotePromptSize,
+} from "./AgentPlanRemoteParameterValidation";
 
 type WikiReference = Awaited<ReturnType<AgentContentAccess["wiki"]>>;
 
-/** Private pinned reference basis; binary contents are always read again at transmission. */
+/** Private pinned reference basis; ticket originals are served from verified start copies. */
 export interface RemotePlanParameters {
   readonly values: Readonly<Record<string, AgentParameterValue | null>>;
   readonly tickets: Readonly<Record<string, ResolvedAgentTicket>>;
@@ -57,6 +72,7 @@ export interface RemoteParameterAsset {
   readonly owner: { readonly type: "ticket" | "wiki"; readonly id: string };
   readonly reference: AgentTicketAsset;
   readonly file: PlanRemoteFile;
+  readonly snapshot?: AgentTicketAssetSnapshot;
 }
 
 interface RemoteParameterCollection {
@@ -83,6 +99,7 @@ interface RemoteParameterDependencies {
   readonly authorization: AuthorizationRepository;
   readonly users: Pick<UserService, "getById">;
   readonly targets: AgentPlanRemoteTargets;
+  readonly snapshots?: AgentTicketAssetSnapshots;
 }
 
 /** Resolves remote references with the local content/file policies and no local workspace paths. */
@@ -194,7 +211,7 @@ export class AgentPlanRemoteParameters {
         throw new AgentError("plan_context_changed");
     }
     for (const ticket of Object.values(prepared.tickets))
-      await this.dependencies.tickets.resolve(userId, ticket.id);
+      await this.authorizeTicket(userId, ticket, prepared);
     for (const id of Object.keys(prepared.wiki)) await this.wiki(userId, id);
   }
 
@@ -216,10 +233,27 @@ export class AgentPlanRemoteParameters {
     readonly bytes: Buffer;
     readonly content: AgentTicketAssetContent["content"];
   }> {
+    if (
+      asset.owner.type === "ticket" &&
+      asset.snapshot &&
+      prepared.tickets[asset.owner.id]
+    )
+      await this.authorizeTicket(
+        userId,
+        prepared.tickets[asset.owner.id],
+        prepared,
+      );
     await this.authorizeAsset(userId, asset, prepared);
     const actor = await this.activeActor(userId);
-    const file = await this.dependencies.assets.read(actor, asset.reference);
+    const file =
+      asset.snapshot && this.dependencies.snapshots
+        ? await this.dependencies.snapshots.read(
+            asset.snapshot,
+            PLAN_HANDOVER_LIMITS.inlineBytes,
+          )
+        : await this.dependencies.assets.read(actor, asset.reference);
     if (
+      !("bytes" in file) ||
       file.original.digest !== asset.file.digest ||
       file.bytes.length !== asset.file.size
     )
@@ -243,7 +277,19 @@ export class AgentPlanRemoteParameters {
     asset: RemoteParameterAsset,
     prepared: RemotePlanParameters,
   ): Promise<Readable> {
+    if (
+      asset.owner.type === "ticket" &&
+      asset.snapshot &&
+      prepared.tickets[asset.owner.id]
+    )
+      await this.authorizeTicket(
+        userId,
+        prepared.tickets[asset.owner.id],
+        prepared,
+      );
     await this.authorizeAsset(userId, asset, prepared);
+    if (asset.snapshot && this.dependencies.snapshots)
+      return this.dependencies.snapshots.open(asset.snapshot);
     return this.dependencies.assets.stream(
       await this.activeActor(userId),
       asset.reference,
@@ -255,7 +301,7 @@ export class AgentPlanRemoteParameters {
     return asset.file.modelContent === STREAMED_ASSET_REASON;
   }
 
-  /** Checks that the owner still names this file and the person may still read what the owner names. */
+  /** Checks current owner rights and the frozen manifest; only wiki references must still name the file. */
   public async authorizeAsset(
     userId: string,
     asset: RemoteParameterAsset,
@@ -266,6 +312,24 @@ export class AgentPlanRemoteParameters {
         ? prepared.tickets[asset.owner.id]?.assets
         : ticketAssetReferences(prepared.wiki[asset.owner.id]?.markdown ?? "");
     if (!expected) throw new AgentError("parameter_ticket_changed");
+    if (asset.owner.type === "ticket" && asset.snapshot) {
+      if (
+        !expected.some(
+          (entry) =>
+            entry.id === asset.reference.id &&
+            entry.source === asset.reference.source,
+        ) ||
+        !this.dependencies.snapshots
+      )
+        throw new AgentError("parameter_ticket_changed");
+      await this.authorizeTicket(
+        userId,
+        prepared.tickets[asset.owner.id],
+        prepared,
+        { inspectContents: false },
+      );
+      return;
+    }
     const references =
       asset.owner.type === "ticket"
         ? (await this.dependencies.tickets.resolve(userId, asset.owner.id))
@@ -282,6 +346,50 @@ export class AgentPlanRemoteParameters {
       )
     )
       throw new AgentError("parameter_ticket_changed");
+  }
+
+  private async authorizeTicket(
+    userId: string,
+    ticket: ResolvedAgentTicket,
+    prepared: RemotePlanParameters,
+    options: { readonly inspectContents: boolean } = { inspectContents: true },
+  ): Promise<void> {
+    const current = await this.dependencies.tickets.resolve(userId, ticket.id);
+    if (!this.dependencies.snapshots) return;
+    const input: AgentTicketInput = {
+      parameter: "ticket",
+      ticket,
+      snapshots: Object.fromEntries(
+        prepared.assets.flatMap((asset) =>
+          asset.owner.type === "ticket" &&
+          asset.owner.id === ticket.id &&
+          asset.snapshot
+            ? [
+                [
+                  `${asset.reference.source}:${asset.reference.id}`,
+                  asset.snapshot,
+                ],
+              ]
+            : [],
+        ),
+      ),
+    };
+    const actor = await this.activeActor(userId);
+    if (!options.inspectContents) {
+      await this.dependencies.snapshots.reportChanges(input, current.assets);
+      return;
+    }
+    await this.dependencies.snapshots.reportChanges(
+      input,
+      current.assets,
+      async (reference) =>
+        (
+          await digestStream(
+            await this.dependencies.assets.stream(actor, reference),
+            PLAN_HANDOVER_LIMITS.bytes,
+          )
+        ).digest,
+    );
   }
 
   private async activeActor(userId: string): Promise<User> {
@@ -407,6 +515,9 @@ export class AgentPlanRemoteParameters {
     return {
       owner,
       reference,
+      ...(owner.type === "ticket" && this.dependencies.snapshots
+        ? { snapshot: await this.dependencies.snapshots.pin(file) }
+        : {}),
       file: remoteAssetFile(parameter, reference, {
         fileName: file.fileName,
         original: file.original,
@@ -414,155 +525,4 @@ export class AgentPlanRemoteParameters {
       }),
     };
   }
-}
-
-/** Returns the same safe node/parameter cause for editor checks and dispatch failures. */
-export function remoteParameterError(
-  nodeId: string,
-  port: string,
-  type: string,
-  error: unknown,
-): AgentPlanValidationError {
-  let reason: AgentPlanIssue["reason"] = "remoteParameter";
-  if (type === "ticket") reason = "remoteTicketUnavailable";
-  if (type === "wiki") reason = "remoteWikiUnavailable";
-  if (type === "workspace") reason = "remoteWorkspaceParameter";
-  if (error instanceof AgentError) {
-    if (error.code === "parameter_assets_too_large")
-      reason = "remoteAssetsTooLarge";
-    else if (
-      error.code === "parameter_asset_type_unsupported" ||
-      error.code === "parameter_asset_reference_unsupported"
-    )
-      reason = "remoteAssetType";
-    else if (
-      error.code === "parameter_asset_unavailable" ||
-      error.code === "parameter_ticket_changed"
-    )
-      reason = "remoteAssetUnavailable";
-  }
-  return new AgentPlanValidationError([
-    {
-      nodeId,
-      port,
-      reason,
-      ...(assetFailure(error).assetFailure
-        ? { asset: assetFailure(error).assetFailure }
-        : {}),
-    },
-  ]);
-}
-
-/** Binds frozen remote content through the existing non-recursive parameter binder. */
-export function remoteParameterResolvers(
-  prepared: RemotePlanParameters,
-): AgentReferenceResolvers {
-  return {
-    ticket: (id) => {
-      const ticket = prepared.tickets[id];
-      return ticket
-        ? Promise.resolve(ticket)
-        : Promise.reject(new AgentError("parameter_ticket_unavailable"));
-    },
-    wiki: (id) => {
-      const page = prepared.wiki[id];
-      return page
-        ? Promise.resolve(page)
-        : Promise.reject(new AgentError("parameter_reference_unavailable"));
-    },
-    workspace: (id) => {
-      const workspace = prepared.workspaces[id];
-      return workspace
-        ? Promise.resolve({ path: workspace.path })
-        : Promise.reject(new AgentError("parameter_reference_unavailable"));
-    },
-  };
-}
-
-/** Checks the complete template with the same typed values later used at dispatch. */
-export async function validateRemoteParameterPrompt(
-  step: AgentPlanStep,
-  prepared: RemotePlanParameters,
-  markdown: string,
-): Promise<void> {
-  const template = step.configuration?.template;
-  if (!template) throw new AgentError("configuration_invalid");
-  try {
-    const bound = await bindAgentParameters(
-      { ...template, markdown },
-      prepared.values,
-      remoteParameterResolvers(prepared),
-    );
-    requireRemotePromptSize(
-      step,
-      bound.markdown + remoteWorkspaceContext(prepared),
-    );
-  } catch (error: unknown) {
-    if (error instanceof AgentPlanValidationError) throw error;
-    const port =
-      template.parameters.find(
-        (parameter) => parameter.isRequired && !prepared.values[parameter.name],
-      )?.name ??
-      template.parameters[0]?.name ??
-      "parameters";
-    throw remoteParameterError(step.id, port, "", error);
-  }
-}
-
-/** Adds only the pinned names and paths of remote workspace parameters. */
-export function remoteWorkspaceContext(
-  prepared: RemotePlanParameters | undefined,
-): string {
-  if (!prepared?.resources.some((resource) => resource.type === "workspace"))
-    return "";
-  return `\n\nPages remote workspaces:\n${Object.values(prepared.workspaces)
-    .map((workspace) => `${workspace.workspaceName}: ${workspace.path}`)
-    .join("\n")}`;
-}
-
-/** Refuses an oversized complete prompt with its node and contributing parameter names, without truncating it. */
-export function requireRemotePromptSize(
-  step: AgentPlanStep,
-  prompt: string,
-): void {
-  if (prompt.length <= MAX_RUNNER_PROMPT_CHARACTERS) return;
-  const template = step.configuration?.template;
-  const names = scanAgentPlaceholders(
-    `${template?.markdown ?? ""}\n\n${step.instruction}`,
-  ).placeholders.map((placeholder) => placeholder.name);
-  const ports =
-    template?.parameters
-      .filter((parameter) => names.includes(parameter.name))
-      .map((parameter) => parameter.name) ?? [];
-  throw new AgentPlanValidationError(
-    (ports.length ? ports : [null]).map((port) => ({
-      nodeId: step.id,
-      port,
-      reason: "remotePromptTooLarge",
-    })),
-  );
-}
-
-function requireAssetBudget(assets: readonly RemoteParameterAsset[]): void {
-  const originalBytes = assets.reduce(
-    (total, asset) => total + asset.file.size,
-    0,
-  );
-  const manifestBytes =
-    Buffer.byteLength(JSON.stringify(assets.map((asset) => asset.file))) +
-    assets.reduce((total, asset) => total + (asset.file.modelSize ?? 0), 0);
-  if (
-    assets.length <= PLAN_HANDOVER_LIMITS.files &&
-    originalBytes <= PLAN_HANDOVER_LIMITS.bytes &&
-    manifestBytes <= 1024 * 1024
-  )
-    return;
-  const last = assets.at(-1);
-  if (last)
-    throw new AgentAssetError(
-      "parameter_assets_too_large",
-      last.reference,
-      last.file.name,
-    );
-  throw new AgentError("parameter_assets_too_large");
 }

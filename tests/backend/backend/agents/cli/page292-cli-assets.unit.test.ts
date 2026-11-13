@@ -100,8 +100,10 @@ it("does not copy the same file again in the next turn of a session while the co
   expect(open).toHaveBeenCalledTimes(1);
   const [copy] = await copiesIn();
   await appendFile(copy ?? "", "x");
-  await assets.prepare(input);
-  expect(open).toHaveBeenCalledTimes(2);
+  await expect(assets.prepare(input)).rejects.toMatchObject({
+    code: "parameter_ticket_changed",
+  });
+  expect(open).toHaveBeenCalledTimes(1);
 });
 
 it("refuses and removes a copy that is not the measured original", async () => {

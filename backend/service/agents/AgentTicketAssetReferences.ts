@@ -1,5 +1,6 @@
 import { AgentAssetReferenceError } from "@/backend/error/AgentAssetReferenceError";
 import { AgentError } from "@/backend/error/AgentErrors";
+import { logEvent } from "@/backend/logging/Logger";
 
 import { parseMarkdown, walkMarkdown } from "./RelativeLinkScanner";
 
@@ -8,13 +9,48 @@ import type { AgentTicketAsset } from "@/definition/AgentTicketParameter";
 const ASSET_PATH =
   /\/(aufgaben\/attachments|wiki\/attachments|agent-assets)\/([\w-]+)\/?(?:[?#].*)?$/;
 
-/** Rejects a changed file handoff while allowing unrelated content and status revisions. */
+/** Keeps the strict reference policy for wiki and directly bound plan assets. */
 export function requireAssetReferences(
   expected: readonly AgentTicketAsset[],
   current: readonly AgentTicketAsset[],
 ): void {
   if (JSON.stringify(expected) !== JSON.stringify(current))
     throw new AgentError("parameter_ticket_changed");
+}
+
+/** Reports ticket changes as information; the first manifest and its copies remain the handoff. */
+export function reportTicketAssetChanges(
+  expected: readonly AgentTicketAsset[],
+  current: readonly AgentTicketAsset[],
+  changed: readonly string[] = [],
+): void {
+  const key = (asset: AgentTicketAsset): string =>
+    `${asset.source}:${asset.id}`;
+  const previous = new Set(expected.map(key));
+  const latest = new Set(current.map(key));
+  const added = current.filter((asset) => !previous.has(key(asset))).length;
+  const removed = expected.filter((asset) => !latest.has(key(asset))).length;
+  const modified = new Set(changed).size;
+  const messages: string[] = [];
+  if (added > 0)
+    messages.push(
+      added === 1
+        ? "1 Anhang kam nach dem Start dazu und ist nicht in diesem Lauf."
+        : `${added} Anhänge kamen nach dem Start dazu und sind nicht in diesem Lauf.`,
+    );
+  if (removed + modified > 0)
+    messages.push(
+      removed + modified === 1
+        ? "1 Anhang wurde nach dem Start geändert oder entfernt. Dieser Lauf nutzt seine geprüfte Kopie vom Start."
+        : `${removed + modified} Anhänge wurden nach dem Start geändert oder entfernt. Dieser Lauf nutzt seine geprüften Kopien vom Start.`,
+    );
+  if (messages.length)
+    logEvent({
+      level: "info",
+      event: "agent.ticket_assets.snapshot",
+      component: "AgentTicketAssetReferences",
+      message: messages.join(" "),
+    });
 }
 
 /** Recognizes Pages attachment addresses without fetching arbitrary network locations. */

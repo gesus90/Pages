@@ -4,6 +4,7 @@ import { AgentError } from "@/backend/error/AgentErrors";
 import { bindAgentParameters } from "./AgentParameterBinding";
 import { planBindings } from "./AgentPlanBindings";
 import { validatePlanParameterContext } from "./AgentPlanParameterContext";
+import { retainTicketSnapshots } from "./AgentPlanTicketSnapshots";
 import {
   groupRuntimeFields,
   requireCompatibleFields,
@@ -142,14 +143,14 @@ async function bindGroupStep(
     : null;
   const updated = {
     ...step,
-    prepared: {
+    prepared: retainTicketSnapshots(step.prepared, {
       ...prepared,
       parameters,
       directory:
         directoryValue?.type === "workspace"
           ? (references.get(directoryValue.workspaceId) ?? null)
           : step.prepared.directory,
-    },
+    }),
   };
   validatePlanParameterContext(step, updated.prepared);
   requireCompatibleFields(

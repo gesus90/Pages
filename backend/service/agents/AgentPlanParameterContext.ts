@@ -37,6 +37,11 @@ function validateAssetInputs(
       (entry) => entry.parameter === input.parameter,
     );
     const current = currentAssetOwner(input, liveInput, live);
+    if (input.snapshots !== undefined) {
+      if (!current || current.id !== input.ticket.id)
+        throw new AgentError("parameter_ticket_unavailable");
+      continue;
+    }
     if (
       input.originals &&
       JSON.stringify(input.originals) !== JSON.stringify(liveInput?.originals)

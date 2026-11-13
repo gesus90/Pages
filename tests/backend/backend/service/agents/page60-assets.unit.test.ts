@@ -86,13 +86,16 @@ it("refuses deleted files, stream failures and truncated storage, while labellin
   ).rejects.toThrow(AGENT_ERROR_MESSAGES.parameter_asset_unavailable);
 });
 
-it("does not silently adopt changed ticket references and bounds the total transfer", async () => {
+it("keeps the selected ticket references after description edits and bounds the total transfer", async () => {
   const world = ticketAssetWorld();
   const ticket = await world.service.resolve("executor", TICKET.id);
   world.tickets.set(TICKET.id, { ...TICKET, description: "Changed" });
   await expect(
     world.service.readAssets("executor", [{ parameter: "ticket", ticket }]),
-  ).rejects.toThrow(new AgentError("parameter_ticket_changed"));
+  ).resolves.toMatchObject([
+    { asset: { id: "png" } },
+    { asset: { id: "text" } },
+  ]);
   world.files.set("png", Buffer.alloc(MAX_TICKET_ASSET_BYTES + 1, 65));
   await expect(
     world.assets.read(TICKET_ACTOR, {

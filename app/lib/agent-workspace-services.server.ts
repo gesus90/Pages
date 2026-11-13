@@ -20,6 +20,7 @@ import { UserRepository } from "@/backend/database/repositories/UserRepository";
 import { AgentTicketParameterService } from "@/backend/service/agents/AgentTicketParameterService";
 import { createAgentTaskContext } from "@/backend/service/agents/AgentTaskAccess";
 import { AgentTicketAssetService } from "@/backend/service/agents/AgentTicketAssetService";
+import { AgentTicketAssetSnapshots } from "@/backend/service/agents/AgentTicketAssetSnapshots";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { PicaSettingsRepository } from "@/backend/database/repositories/chat/PicaSettingsRepository";
 import { PicaSettingsService } from "@/backend/service/chat/PicaSettingsService";
@@ -36,6 +37,7 @@ export interface AgentConfigurationApplicationServices {
   readonly agentTicketParameterService: AgentTicketParameterService;
   readonly agentContentAccess: AgentContentAccess;
   readonly agentTicketAssetService: AgentTicketAssetService;
+  readonly agentTicketAssetSnapshots: AgentTicketAssetSnapshots;
   readonly agentProfileService: AgentProfileService;
   readonly agentWorkspaceService: AgentWorkspaceService;
   readonly agentParameterService: AgentParameterService;
@@ -72,6 +74,34 @@ export function resolveWorkspaceRoots(): Pick<
   return { roots: [path.parse(home).root || path.sep], startDirectory: home };
 }
 
+/** Prepares ticket-parameter services for both chat and agent plans. */
+function createAgentTicketParameterService(input: {
+  readonly database: Database;
+  readonly users: UserRepository;
+  readonly authorization: AuthorizationRepository;
+  readonly content: AgentContentAccess;
+  readonly assets: AgentTicketAssetService;
+  readonly snapshots: AgentTicketAssetSnapshots;
+}): AgentTicketParameterService {
+  return new AgentTicketParameterService(
+    async (userId) => {
+      const actor = await input.users.findById(userId);
+      if (!actor?.isActive) throw new AgentError("agent_usage_denied");
+      return createAgentTaskContext(input.database, actor, "chat");
+    },
+    input.assets,
+    async (userId, pageId) => {
+      const actor = (await input.authorization.snapshot()).accounts.find(
+        (entry) => entry.userId === userId,
+      );
+      if (!actor?.isActive)
+        throw new AgentError("parameter_reference_unavailable");
+      return input.content.wiki(actor, pageId);
+    },
+    input.snapshots,
+  );
+}
+
 /** Wires registration and parameter preparation without filesystem writes or runner starts. */
 export function createAgentConfigurationServices(input: {
   readonly database: Database;
@@ -92,22 +122,15 @@ export function createAgentConfigurationServices(input: {
   );
   const users = new UserRepository(database);
   const assets = new AgentTicketAssetService(input.ticketAssets);
-  const tickets = new AgentTicketParameterService(
-    async (userId) => {
-      const actor = await users.findById(userId);
-      if (!actor?.isActive) throw new AgentError("agent_usage_denied");
-      return createAgentTaskContext(database, actor, "chat");
-    },
+  const snapshots = new AgentTicketAssetSnapshots(input.dataDirectory);
+  const tickets = createAgentTicketParameterService({
+    database,
+    users,
+    authorization,
+    content,
     assets,
-    async (userId, pageId) => {
-      const actor = (await authorization.snapshot()).accounts.find(
-        (entry) => entry.userId === userId,
-      );
-      if (!actor?.isActive)
-        throw new AgentError("parameter_reference_unavailable");
-      return content.wiki(actor, pageId);
-    },
-  );
+    snapshots,
+  });
   const agentWorkspaceService = new AgentWorkspaceService({
     workspaces: new AgentWorkspaceRepository(database),
     authorization,
@@ -149,6 +172,7 @@ export function createAgentConfigurationServices(input: {
     agentTicketParameterService: tickets,
     agentContentAccess: content,
     agentTicketAssetService: assets,
+    agentTicketAssetSnapshots: snapshots,
     picaSettingsService,
     agentProfileService,
     agentWorkspaceService,

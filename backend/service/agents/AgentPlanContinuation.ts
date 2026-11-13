@@ -22,6 +22,10 @@ import { initialLoopRun } from "./loop/AgentPlanLoopRecord";
 import { continueRemotePlanExecution } from "./AgentPlanExecutionSnapshot";
 import { planStepDirectory } from "./AgentPlanSnapshot";
 import { remoteWorkspaceKeys } from "./AgentPlanRemoteWorkspaceKey";
+import {
+  retainTicketSnapshots,
+  retainRemoteTicketSnapshots,
+} from "./AgentPlanTicketSnapshots";
 import type {
   AgentPlanRun,
   AgentPlanStepResult,
@@ -417,7 +421,15 @@ function keptContracts(
         ? (previous.remoteSteps?.find(
             (entry) => entry.step.id === step.step.id,
           ) ?? step)
-        : step,
+        : {
+            ...step,
+            parameters: retainRemoteTicketSnapshots(
+              previous.remoteSteps?.find(
+                (entry) => entry.step.id === step.step.id,
+              )?.parameters,
+              step.parameters,
+            ),
+          },
     ),
     scripts: proposed.scripts?.map((script) =>
       completed.has(script.step.id)
@@ -430,7 +442,14 @@ function keptContracts(
       completed.has(step.step.id)
         ? (previous.steps.find((entry) => entry.step.id === step.step.id) ??
           step)
-        : step,
+        : {
+            ...step,
+            prepared: retainTicketSnapshots(
+              previous.steps.find((entry) => entry.step.id === step.step.id)
+                ?.prepared,
+              step.prepared,
+            ),
+          },
     ),
   };
 }

@@ -28,6 +28,8 @@ export interface AgentParameterSelection {
   readonly personalAgentId: string | null;
   readonly workspaceId: string;
   readonly configuration?: AgentPlanConfiguration;
+  /** The first attempt's ticket copies, reused during authorization and retries. */
+  readonly ticketInputs?: readonly AgentTicketInput[];
 }
 
 /** Server preparation for A10.4, with no process start, provider request or credentials. */
@@ -57,7 +59,12 @@ interface ParameterDependencies {
   readonly authorization: Pick<AuthorizationRepository, "snapshot">;
   readonly content: Pick<AgentContentAccess, "wiki">;
   readonly tickets?: Pick<AgentTicketParameterService, "resolve"> &
-    Partial<Pick<AgentTicketParameterService, "readAssets" | "requireAssets">>;
+    Partial<
+      Pick<
+        AgentTicketParameterService,
+        "readAssets" | "requireAssets" | "pinAssets"
+      >
+    >;
   /** The files of asset nodes (PAGE-268); without them an asset parameter cannot be bound. */
   readonly planAssets?: Pick<PlanAssetService, "describe">;
 }
@@ -188,7 +195,11 @@ export class AgentParameterService {
     return {
       parameters: {
         ...parameters,
-        assetInputs: await this.pinInputs(userId, parameters.assetInputs),
+        assetInputs: await this.pinInputs(
+          userId,
+          parameters.assetInputs,
+          selection.ticketInputs,
+        ),
       },
       workspace,
       directory,
@@ -228,13 +239,35 @@ export class AgentParameterService {
   private async pinInputs(
     userId: string,
     inputs: readonly AgentTicketInput[],
+    previous: readonly AgentTicketInput[] = [],
   ): Promise<readonly AgentTicketInput[]> {
+    inputs = inputs.map(
+      (input) =>
+        previous.find(
+          (pinned) =>
+            pinned.snapshots !== undefined &&
+            pinned.parameter === input.parameter &&
+            pinned.ticket.id === input.ticket.id &&
+            pinned.owner === input.owner,
+        ) ?? input,
+    );
+    const ticketService = this.dependencies.tickets;
+    if (ticketService?.pinAssets) {
+      const fresh = inputs.filter((input) => input.snapshots === undefined);
+      const pinned = await ticketService.pinAssets(userId, fresh);
+      inputs = inputs.map(
+        (input) =>
+          pinned.find((entry) => entry.parameter === input.parameter) ?? input,
+      );
+    }
     // A plan asset carries its pinned digest already; its bytes are read at the handover.
-    const reading = inputs.filter((input) => input.owner !== "asset");
+    const reading = inputs.filter(
+      (input) => input.owner !== "asset" && input.snapshots === undefined,
+    );
     if (!reading.some((input) => input.ticket.assets.length > 0)) return inputs;
     const contents = await this.readTicketAssets(userId, reading);
     return inputs.map((input) =>
-      input.owner === "asset"
+      input.owner === "asset" || input.snapshots !== undefined
         ? input
         : {
             ...input,

@@ -1,4 +1,5 @@
 import { AgentError } from "@/backend/error/AgentErrors";
+import { withLogContext } from "@/backend/logging/Logger";
 import {
   agentRunOptionsFor,
   isAcpProvider,
@@ -97,19 +98,23 @@ interface StartContext {
 
 function ticketAssetDelivery(
   service: StartDependencies["parameters"],
-  userId: string,
+  run: AgentPlanRun,
   inputs: readonly AgentTicketInput[],
-  beforeStart: () => Promise<void>,
+  context: {
+    readonly beforeStart: () => Promise<void>;
+    readonly stepId: string;
+  },
 ): Pick<TextExecutionInput, "ticketInputs" | "readTicketAssets"> {
   if (inputs.length === 0) return {};
   return {
     ticketInputs: inputs,
-    readTicketAssets: async () => {
-      await beforeStart();
-      if (!service.readTicketAssets)
-        throw new AgentError("parameter_asset_transfer_unsupported");
-      return service.readTicketAssets(userId, inputs);
-    },
+    readTicketAssets: () =>
+      withLogContext({ runId: run.id, stepId: context.stepId }, async () => {
+        await context.beforeStart();
+        if (!service.readTicketAssets)
+          throw new AgentError("parameter_asset_transfer_unsupported");
+        return service.readTicketAssets(run.userId, inputs);
+      }),
   };
 }
 
@@ -207,6 +212,7 @@ export class AgentPlanStepStart {
         personalAgentId: selection.personalAgentId,
         workspaceId: snapshot.plan.workspaceId,
         configuration: step.step.configuration,
+        ticketInputs: step.prepared.parameters.assetInputs,
       },
       values,
       step.template,
@@ -238,9 +244,9 @@ export class AgentPlanStepStart {
         prompt: parameters.prompt,
         ...ticketAssetDelivery(
           this.dependencies.parameters,
-          run.userId,
+          run,
           parameters.assetInputs,
-          beforeStart,
+          { beforeStart, stepId: step.step.id },
         ),
         beforeStart,
       },
@@ -308,6 +314,7 @@ export class AgentPlanStepStart {
         personalAgentId: step.step.personalAgentId,
         workspaceId: snapshot.plan.workspaceId,
         configuration: step.step.configuration,
+        ticketInputs: step.prepared.parameters.assetInputs,
       },
       context.values,
       step.template,
@@ -358,7 +365,19 @@ async function bindStepParameters(
     : `${parameters.markdown}\n\n${instruction}`;
   if (isOpenCode && scanAgentPlaceholders(prompt).placeholders.length > 0)
     throw new AgentError("plan_placeholder_unresolved");
-  return { prompt, instruction, assetInputs: parameters.assetInputs };
+  return {
+    prompt,
+    instruction,
+    assetInputs: parameters.assetInputs.map(
+      (input) =>
+        live.parameters.assetInputs.find(
+          (pinned) =>
+            pinned.snapshots !== undefined &&
+            pinned.parameter === input.parameter &&
+            pinned.ticket.id === input.ticket.id,
+        ) ?? input,
+    ),
+  };
 }
 
 function stepReferences(
@@ -372,7 +391,10 @@ function stepReferences(
         (step.groupId ? step.prepared.tickets?.[id] : undefined) ??
         live.tickets?.[id];
       if (!ticket) throw new AgentError("parameter_ticket_unavailable");
-      return ticket;
+      const pinned = live.parameters.assetInputs.find(
+        (input) => input.snapshots !== undefined && input.ticket.id === id,
+      );
+      return pinned ? { ...ticket, assets: pinned.ticket.assets } : ticket;
     },
     workspace: async (id) => {
       const reference = step.prepared.references.find(

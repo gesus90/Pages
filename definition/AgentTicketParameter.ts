@@ -24,8 +24,16 @@ export interface AgentTicketInput {
   readonly owner?: "ticket" | "wiki" | "asset";
   /** Source/id keyed digests frozen during validation, without file contents. */
   readonly originals?: Readonly<Record<string, string>>;
+  /** Private copies of the first attempt's ticket files, including an empty manifest. */
+  readonly snapshots?: Readonly<Record<string, AgentTicketAssetSnapshot>>;
   readonly parameter: string;
   readonly ticket: ResolvedAgentTicket;
+}
+
+/** Serializable identity of an immutable private ticket-file copy. */
+export interface AgentTicketAssetSnapshot {
+  readonly fileName: string;
+  readonly original: AgentAssetOriginal;
 }
 
 /** Authorized contents for one transmission, never an instruction-text substitution. */

@@ -123,7 +123,7 @@ export class RunnerAssetUploads {
   }): OutputReservation {
     const previous = this.outputs.get(input.outputKey);
     if (previous && previous.digest !== input.digest)
-      throw new AgentError("parameter_ticket_changed");
+      throw new AgentError("parameter_asset_conflict");
     const size = Math.max(
       previous?.size ?? 0,
       input.upload.size + input.bytes.length,

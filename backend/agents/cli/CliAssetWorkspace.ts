@@ -51,7 +51,14 @@ export class CliAssetWorkspace {
     if (!input.readTicketAssets) return input;
     await input.beforeStart?.();
     const assets = await input.readTicketAssets();
-    if (!assets.length) return input;
+    if (!assets.length)
+      return {
+        ...input,
+        readTicketAssets: async () => {
+          await input.readTicketAssets?.();
+          return [];
+        },
+      };
     const root = await realpath(this.directory);
     const directory = await mkdtemp(path.join(root, ".pages-assets-"));
     this.copies.add(directory);
@@ -70,14 +77,13 @@ export class CliAssetWorkspace {
     return {
       ...input,
       readTicketAssets: async () => {
-        const current = await read();
+        await read();
         return Promise.all(
-          current.map(async (asset) => {
+          assets.map(async (asset) => {
             const stored = paths.get(
               `${asset.parameter}:${asset.asset.source}:${asset.asset.id}`,
             );
-            if (!stored || originalDigest(asset) !== stored.digest)
-              throw new AgentError("parameter_ticket_changed");
+            if (!stored) throw new AgentError("parameter_ticket_changed");
             try {
               await verifyCopy(stored);
             } catch {
@@ -117,7 +123,18 @@ export class CliAssetWorkspace {
     }
     const key = `${asset.parameter}:${asset.asset.source}:${asset.asset.id}:${originalDigest(asset)}`;
     const known = this.streamed.get(key);
-    if (known && (await isIntact(known))) return known;
+    if (known) {
+      try {
+        await verifyCopy(known);
+      } catch {
+        throw new AgentAssetError(
+          "parameter_ticket_changed",
+          asset.asset,
+          asset.fileName,
+        );
+      }
+      return known;
+    }
     const copy = await copyStream(asset, asset.open, target);
     this.streamed.set(key, copy);
     return copy;
@@ -258,16 +275,6 @@ async function verifyCopy(stored: AssetCopy): Promise<void> {
       throw new Error("Asset copy changed");
   } finally {
     await file.close();
-  }
-}
-
-/** Whether a copy made earlier is still exactly the original that was measured. */
-async function isIntact(stored: AssetCopy): Promise<boolean> {
-  try {
-    await verifyCopy(stored);
-    return true;
-  } catch {
-    return false;
   }
 }
 
