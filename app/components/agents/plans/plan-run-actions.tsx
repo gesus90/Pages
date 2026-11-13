@@ -90,8 +90,8 @@ function ActionContent({
  * Starten starts a new run of the saved revision and nothing else; Pause lets
  * running steps finish and dispatches nothing new; Stop ends the whole run.
  * Fortsetzen replaces Pause while a run can be continued, whether it is paused,
- * failed, interrupted, blocked, stopped or has only its closeout open; one
- * click is enough, because the server chooses the technical way. Stop stays
+ * failed, interrupted, blocked or has only its closeout open. Stopped runs
+ * keep a disabled Resume button. Stop stays
  * available while a stop hangs, where it ends the run's processes by force.
  * The buttons only mirror the server's answer: every action is checked again
  * when it arrives.

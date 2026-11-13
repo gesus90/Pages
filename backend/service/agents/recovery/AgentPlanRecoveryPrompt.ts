@@ -16,7 +16,7 @@ function noteText(
   return [
     "## Pages recovery notice",
     "",
-    `An earlier run of this plan (${sourceRunId}) stopped before this node finished. This is a new attempt ${mode === "native_resume" ? "that continues the earlier agent session" : "in a new agent session, which does not remember the earlier attempt"}.`,
+    `An earlier run of this plan (${sourceRunId}) stopped before this node finished. This is a new attempt ${mode === "native_resume" ? "that attempts to continue the earlier agent session; if it is unavailable, a new session uses the saved context below" : "in a new agent session, which does not remember the earlier attempt"}.`,
     "Files, branches, tickets or other effects of the earlier attempt may already exist. Inspect the current state first, keep what is correct, and do not repeat a completed external action without checking it. Then complete the assignment below.",
     "",
     "",
@@ -49,8 +49,11 @@ export function planRecoveryTerms(
   const { loop } = terms;
   // Whichever member of a group opens the group's session first continues the earlier one.
   const resumeSessionId =
-    directive.mode === "native_resume" && !loop
-      ? (directive.resumeSessions[terms.sessionGroup ?? stepId] ?? null)
+    directive.mode === "native_resume" &&
+    (!loop || directive.loopIterations[loop.loopId] === loop.iteration)
+      ? (directive.resumeSessions[terms.sessionGroup ?? stepId] ??
+        directive.resumeSessions[stepId] ??
+        null)
       : null;
   const isRetried = loop
     ? directive.loopIterations[loop.loopId] === loop.iteration

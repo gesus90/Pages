@@ -54,6 +54,7 @@ import {
 } from "./AgentPlanEngineShutdown";
 import { initialPlanRun, recoveredPlanRun } from "./AgentPlanRunStart";
 import { AgentPlanLoopRunner } from "./loop/AgentPlanLoopRunner";
+import { readPlanBranchState } from "./branching/AgentPlanBranchPersistence";
 import { completedPlanWorkCheckpoint } from "./AgentPlanWorkDispatch";
 
 import type { dispatchPlanLoop } from "./AgentPlanNodeDispatch";
@@ -391,6 +392,9 @@ export class AgentPlanRunEngine {
         controllers: new Map(),
         executions: new Set(),
         releaseDefinition,
+        branching: snapshot.recovery?.branching
+          ? readPlanBranchState(snapshot.recovery.branching)
+          : undefined,
       });
     });
     return withBackgroundDatabaseWork(PLAN_RUN_ORIGIN, async () => {
@@ -651,7 +655,8 @@ export class AgentPlanRunEngine {
         active.controllers.delete(node.id);
         active.dispatched.delete(node.id);
         // A start that a pause ended before it began keeps its news for the resume.
-        if (changes.status !== "paused") settleEventPrompt(active, node.id);
+        if (changes.status !== "paused" && changes.status !== "failed")
+          settleEventPrompt(active, node.id);
         try {
           const checkpoint = completedPlanWorkCheckpoint(active, node, changes);
           await this.dependencies.runs.update(active.view, checkpoint);

@@ -12,9 +12,9 @@ export interface PendingPlanEvent {
  * The live bookkeeping of decisions and events of one run.
  *
  * @remarks
- * Only the scheduler changes it, under its serial queue. It is not part of the
- * stored run: after a restart nothing runs again by itself, so nothing has to
- * be rebuilt from it.
+ * Only the scheduler changes it, under its serial queue. It is stored privately
+ * alongside the public run, and a continuation carries consumed edges, pending
+ * results and event prompts into its own private snapshot.
  */
 export interface PlanBranchingState {
   /** Results waiting for their target, in the order they arrived. */

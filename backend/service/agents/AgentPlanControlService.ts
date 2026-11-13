@@ -259,6 +259,12 @@ export class AgentPlanControlService {
   ): Promise<AgentPlanControl> {
     const { run } = context;
     if (!run || !control.resumeKind) return control;
+    if (run.stopRequested || run.status === "cancelled")
+      return {
+        ...control,
+        canResume: false,
+        resumeBlock: resumeBlockFromRecovery("cancelled_by_user"),
+      };
     let canResume = control.canResume;
     let block: AgentPlanResumeBlock | null = null;
     const conflict = await this.conflictOfOthers(control, context);

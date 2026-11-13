@@ -5450,7 +5450,7 @@
       "resumeHint_interrupted": "Fortsetzen macht nach dem Abbruch am letzten sicheren Stand weiter; eigene Prozesse und Reservierungen werden vorher freigegeben.",
       "resumeHint_blocked": "Fortsetzen versucht den blockierten Schritt neu, nachdem die Ursache behoben ist; die gesperrten Nachfolger werden wieder freigegeben.",
       "resumeHint_closeout_open": "Fortsetzen wiederholt nur den offenen Abschluss-Schritt.",
-      "resumeHint_stopped": "Fortsetzen macht am letzten sicheren Stand des gestoppten Laufs weiter; fertige Schritte laufen nicht erneut.",
+      "resumeHint_stopped": "Stop ist endgültig. Starte den Plan von vorn.",
       "allRuns": "Alle Läufe dieses Plans ansehen"
     },
     "ticketPicker": {
@@ -6047,7 +6047,7 @@
       "noFailure": "Kein Knoten ist gescheitert.",
       "checkpoint": "Letzter verifizierter Stand",
       "checkpointValue": "Checkpoint {{version}} · {{step}} · {{time}}",
-      "checkpointNone": "Kein verifizierter Checkpoint – nichts kann übernommen werden.",
+      "checkpointNone": "Kein zusätzlicher Checkpoint. Gespeicherte erfolgreiche Ergebnisse bleiben erhalten.",
       "originLabel": "Herkunft",
       "origin": {
         "restart": "Von vorne neu gestartet nach Lauf {{run}}",
@@ -6091,7 +6091,7 @@
         "run_active": "Der Lauf ist noch aktiv. Zuerst stoppen.",
         "plan_run_active": "Ein anderer Lauf dieses Plans ist aktiv. Auf ihn warten oder ihn stoppen.",
         "plan_read_only": "Dieser Plan ist nur lesbar, nicht ausführbar.",
-        "cancelled_by_user": "Der Lauf wurde gestoppt. Er lässt sich fortsetzen, sobald ein sicherer Stand gespeichert ist.",
+        "cancelled_by_user": "Der Lauf wurde mit Stop beendet. Nur Start von vorn ist möglich.",
         "succeeded": "Der Lauf war erfolgreich; es gibt nichts fortzusetzen.",
         "superseded": "Es gibt einen neueren Lauf dieses Plans; nur der neueste Lauf kann fortgesetzt werden.",
         "already_continued": "Dieser Lauf wurde bereits neu gestartet oder fortgesetzt.",
@@ -6157,6 +6157,10 @@
       "planChanged": "Seit diesem Lauf erneut gespeichert",
       "planUnchanged": "Seit diesem Lauf unverändert",
       "resumeConfirm": "Den Plan an der fehlgeschlagenen Stelle fortsetzen? Erfolgreiche Schritte und Loop-Durchläufe bleiben erhalten und laufen nicht erneut.",
+      "completedChangesIgnored": "Die aktuell gespeicherte Planrevision wird verwendet. Die folgenden erledigten Schritte behalten ihre bisherigen Ergebnisse, auch wenn sie inzwischen bearbeitet wurden.",
+      "continuedFrom": "Fortsetzung von Lauf {{run}}",
+      "inheritedSteps": "Übernommene Schritte (werden nicht erneut ausgeführt):",
+      "inherited": "Übernommen",
       "resumePending": "Wird fortgesetzt …"
     },
     "nodeInstruction": "Zusätzliche Node-Anweisung",

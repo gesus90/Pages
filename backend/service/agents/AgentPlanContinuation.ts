@@ -343,12 +343,11 @@ function resumedNodeName(node: AgentPlanNode): string {
  * @param previous - The frozen plan the ended run executed.
  * @param proposed - The saved revision, prepared with the executor's current rights.
  * @returns The snapshot of the new run: completed nodes keep their frozen contracts.
- * @throws {AgentError} `plan_context_changed` for another project or workspace,
- * `plan_completed_changed` when a completed node, its dependencies, its group
- * or a started loop changed, `plan_skipped_step_enabled` when a script this
- * run skipped is enabled in the saved revision.
+ * @throws {AgentError} `plan_context_changed` for another project, workspace or execution target.
  *
  * @remarks
+ * Pending nodes adopt the saved revision, including changes inside started
+ * loops. Completed results remain completed even when their definition changed.
  * Unlike a live continuation, no group session is required to still run: a
  * resumed run continues a group session through the adapter's resume or
  * opens a new one, and says which.
@@ -358,18 +357,15 @@ export function prepareRecoveredPlan(
   previous: AgentPlanSnapshot,
   proposed: AgentPlanSnapshot,
 ): AgentPlanSnapshot {
-  requireBoundary(boundary, previous, proposed);
-  requireCompletedGroups(boundary, previous, proposed);
-  for (const step of proposed.steps) {
-    const old = previous.steps.find((entry) => entry.step.id === step.step.id);
-    if (
-      old &&
-      old.groupId !== step.groupId &&
-      boundary.pauseBoundary?.completedStepIds.includes(step.step.id)
+  if (
+    previous.plan.projectId !== proposed.plan.projectId ||
+    previous.plan.workspaceId !== proposed.plan.workspaceId ||
+    !isSamePlanTarget(
+      previous.plan.executionTarget,
+      proposed.plan.executionTarget,
     )
-      throw new AgentError("plan_completed_changed");
-  }
-  requireStartedLoops(boundary, previous, proposed);
+  )
+    throw new AgentError("plan_context_changed");
   return keptContracts(boundary, previous, proposed);
 }
 

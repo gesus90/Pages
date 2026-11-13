@@ -327,6 +327,26 @@ export class AcpResourceScheduler {
     return remaining;
   }
 
+  /** Releases only the reservations of an ended run whose executor explicitly resumes it. */
+  public async releaseForResume(runId: string): Promise<void> {
+    await this.persist(async () => {
+      const stored = await this.store.list();
+      const records = new Map(
+        [...stored, ...this.active.values()].map((record) => [
+          record.instanceId,
+          record,
+        ]),
+      );
+      for (const record of records.values()) {
+        if (record.runId !== runId) continue;
+        await this.store.remove(record.instanceId);
+        this.active.delete(record.instanceId);
+        this.sessions.delete(record.instanceId);
+      }
+    });
+    this.wake();
+  }
+
   /** Cancels all waiters and drains sessions; uncertain leases survive server exit. */
   public async shutdown(): Promise<void> {
     this.isClosing = true;

@@ -1,4 +1,3 @@
-import { planContentDigest } from "@/backend/agents/AgentPlanContentDigest";
 import { AgentPlanRecoveryError } from "@/backend/error/AgentPlanRecoveryError";
 import { isAcpProvider } from "@/definition/AgentConfiguration";
 import { isActivePlanRun } from "@/definition/AgentPlanRunState";
@@ -35,6 +34,8 @@ export interface RecoveryFacts {
   readonly groupIds: readonly string[];
   /** The frozen plan has a decision or an event connection; absent counts as none. */
   readonly hasBranching?: boolean;
+  /** Private event queues, consumed edges and active event prompts. */
+  readonly branching?: unknown;
 }
 
 /** What a resume would take over, run again and continue natively. */
@@ -43,11 +44,11 @@ export interface ResumePlan {
   readonly reused: readonly AgentPlanStepResult[];
   /** Started nodes that run again; their possible effects need a reviewed decision. */
   readonly retriedStepIds: readonly string[];
-  /** Successful results whose checkpoint is missing or does not match. */
+  /** Compatibility diagnostic; durable successful results need no separate checkpoint. */
   readonly unverifiedStepIds: readonly string[];
   /** The native session of each retried agent node or group, where the adapter can resume it. */
   readonly resumeSessions: Readonly<Record<string, string>>;
-  /** Whether every retried agent node has such a session. */
+  /** Whether at least one retried agent can continue natively; others start with saved context. */
   readonly canResumeNatively: boolean;
 }
 
@@ -62,7 +63,8 @@ function blocked(
 /** A failed or interrupted node that had started, so its effects are unknown. */
 function hasStarted(step: AgentPlanStepResult): boolean {
   return (
-    (step.status === "failed" || step.status === "cancelled") &&
+    step.status !== "succeeded" &&
+    step.status !== "skipped" &&
     (Boolean(step.session) || step.script !== undefined)
   );
 }
@@ -121,10 +123,8 @@ export function restartOption(facts: RecoveryFacts): AgentPlanRecoveryOption {
  * A resume continues only the newest ended, unfinished run of the plan, once.
  *
  * @remarks
- * A stopped run continues like a failed one, as long as a verified
- * completion is saved to continue from; without one it names that a restart
- * is the way. A successful run has nothing to resume.
- * Uncertain cleanup is settled by the resume itself, or named when it cannot be.
+ * Stop is terminal. Failed runs retain their durable results, including
+ * control nodes and loop iterations, independently of checkpoint availability.
  */
 export function resumeOption(
   facts: RecoveryFacts,
@@ -133,18 +133,12 @@ export function resumeOption(
   const restart = restartOption(facts);
   if (!restart.available) return restart;
   const { run } = facts;
-  if (isActivePlanRun(run.status) || facts.isEngineActive !== false)
-    return blocked("run_active");
+  if (isActivePlanRun(run.status)) return blocked("run_active");
   if (run.status === "succeeded") return blocked("succeeded");
-  if (
-    (run.stopRequested || run.status === "cancelled") &&
-    facts.checkpoints.length === 0
-  )
-    return blocked("no_safe_state");
+  if (run.stopRequested || run.status === "cancelled")
+    return blocked("cancelled_by_user");
   if (continuedRun(facts.executions) !== null)
     return blocked("already_continued");
-  // A cycle's earlier rounds are not part of a checkpoint, so no result of it can be taken over.
-  if (facts.hasBranching) return blocked("branching_unsupported");
   if (facts.latest && facts.latest.id !== run.id) return blocked("superseded");
   if (plan.unverifiedStepIds.length > 0) return blocked("checkpoint_mismatch");
   return AVAILABLE;
@@ -162,13 +156,12 @@ export function releaseOption(facts: RecoveryFacts): AgentPlanRecoveryOption {
 }
 
 /**
- * Splits an ended run into verified results, work to run again and work that never started.
+ * Splits the durable run into completed results and unfinished work.
  *
  * @remarks
- * A successful result is taken over only when its checkpoint names the same
- * output digest, so a changed or unverifiable result is never treated as done.
- * A native session counts only with its identifier and the adapter's
- * announced `session/resume`; a loop's sessions always start new.
+ * The stored run is authoritative even when a crash prevented an additional
+ * checkpoint write. A skipped branch stays skipped. Native sessions are
+ * selected individually; other nodes receive the saved context.
  */
 export function planResume(
   facts: Pick<
@@ -176,31 +169,27 @@ export function planResume(
     "run" | "checkpoints" | "agentStepIds" | "groupIds"
   >,
 ): ResumePlan {
-  const { run, checkpoints } = facts;
-  const reused: AgentPlanStepResult[] = [];
-  const unverified: string[] = [];
-  for (const step of run.steps) {
-    if (!isAcceptedPredecessor(step) || facts.groupIds.includes(step.id))
-      continue;
-    const checkpoint = checkpoints.find((entry) => entry.stepId === step.id);
-    if (
-      checkpoint?.result.outputDigest === planContentDigest(step.output) &&
-      planContentDigest(checkpoint.result.report ?? null) ===
-        planContentDigest(step.report ?? null)
-    )
-      reused.push(step);
-    else unverified.push(step.id);
-  }
-  const retried = run.steps.filter(
+  const { run } = facts;
+  const reused = run.steps.filter(
     (step) =>
-      hasStarted(step) ||
-      hasOpenAcceptance(step) ||
-      hasStartedLoop(run.loops, step.id),
+      (step.status === "succeeded" || step.status === "skipped") &&
+      !facts.groupIds.includes(step.id),
+  );
+  const retried = run.steps.filter(
+    (step) => hasStarted(step) || hasStartedLoop(run.loops, step.id),
   );
   const retriedLoops = (run.loops ?? []).filter((loop) =>
     retried.some((step) => step.id === loop.id),
   );
-  const agents = retried.filter(
+  const loopMembers = (run.loops ?? []).flatMap((loop) => {
+    const iteration = loop.iterations.at(-1);
+    return iteration?.status === "succeeded"
+      ? []
+      : (iteration?.nodes.filter(
+          (node) => node.status !== "succeeded" && node.status !== "skipped",
+        ) ?? []);
+  });
+  const agents = [...retried, ...loopMembers].filter(
     (step) =>
       facts.agentStepIds.includes(step.id) &&
       !retriedLoops.some((loop) => loop.id === step.id),
@@ -208,15 +197,22 @@ export function planResume(
   const resumeSessions: Record<string, string> = {};
   for (const step of agents) {
     const sessionId = nativeSession(step);
-    if (sessionId) resumeSessions[step.groupId ?? step.id] = sessionId;
+    if (sessionId) {
+      const loop = step.session?.loop;
+      const group = step.groupId ?? step.id;
+      const key = loop ? `${loop.loopId}/${group}#${loop.iteration}` : group;
+      resumeSessions[key] = sessionId;
+      resumeSessions[step.id] = sessionId;
+    }
   }
   return {
     reused,
-    retriedStepIds: retried.map((step) => step.id),
-    unverifiedStepIds: unverified,
+    retriedStepIds: [
+      ...new Set([...retried, ...loopMembers].map((step) => step.id)),
+    ],
+    unverifiedStepIds: [],
     resumeSessions,
-    canResumeNatively:
-      agents.length > 0 && agents.every((step) => nativeSession(step) !== null),
+    canResumeNatively: Object.keys(resumeSessions).length > 0,
   };
 }
 
@@ -225,8 +221,8 @@ export function planResume(
  *
  * @param plan - What the resume runs again.
  * @param requested - An explicit decision; absent for the confirmation of a person.
- * @returns `native_resume` only when every retried agent node has a session
- * its adapter announced it can resume, `new_session` otherwise.
+ * @returns `native_resume` when any retried agent has a usable session,
+ * with new sessions for the remaining nodes; `new_session` otherwise.
  * @throws {AgentPlanRecoveryError} `action_unavailable` for `live`, which an
  * ended run never has, and `native_resume_unavailable` for a named native
  * resume the sessions do not allow.
@@ -333,7 +329,9 @@ export function resumedLoopRuns(
                 endedAt: null,
                 error: null,
                 nodes: iteration.nodes.map((node) =>
-                  node.status === "succeeded" ? node : waitingAgain(node),
+                  node.status === "succeeded" || node.status === "skipped"
+                    ? node
+                    : waitingAgain(node),
                 ),
               },
         ),
@@ -354,14 +352,4 @@ function waitingAgain(node: AgentPlanStepResult): AgentPlanStepResult {
     output: null,
     error: null,
   };
-}
-
-function hasOpenAcceptance(step: AgentPlanStepResult): boolean {
-  return (
-    step.session?.acceptance?.verdict === "open" ||
-    step.session?.acceptance?.verdict === "rejected"
-  );
-}
-function isAcceptedPredecessor(step: AgentPlanStepResult): boolean {
-  return step.status === "succeeded" && !hasOpenAcceptance(step);
 }

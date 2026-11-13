@@ -83,7 +83,7 @@ function requiredNumber(parameters: SqlParameters, name: string): number {
 /** In-memory transaction boundary with rollback and controlled storage faults; no SQL engine or process. */
 export class RecoveryDatabase {
   private readonly agentFiles = new MemoryAgentPayloads();
-  private readonly plan: AgentPlanSnapshot;
+  private plan: AgentPlanSnapshot;
   private readonly queue = new SerialQueue();
   private rows: RecoveryRows = {
     runs: new Map(),
@@ -111,6 +111,11 @@ export class RecoveryDatabase {
       });
       this.rows.locks.set(snapshot.plan.workspaceId, run.id);
     }
+  }
+
+  /** Simulates saving a new plan without changing any run's frozen execution basis. */
+  public savePlan(snapshot: AgentPlanSnapshot): void {
+    this.plan = snapshot;
   }
 
   /** Structural database access for the real repositories under test. */

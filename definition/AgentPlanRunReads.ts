@@ -25,6 +25,8 @@ export interface AgentPlanRunList {
 
 /** The state of one node in a run. */
 export interface AgentPlanRunStepEntry extends Partial<AgentRunErrorFields> {
+  /** This result was taken over unchanged from the failed predecessor run. */
+  readonly isInherited?: boolean;
   readonly execution?: AgentPlanStepExecution;
   readonly attemptId?: string;
   readonly stepId: string;
@@ -70,6 +72,8 @@ export interface AgentPlanRunDetail
   extends AgentPlanRunSummary, Partial<AgentRunErrorFields> {
   /** The first step that failed, when the run failed at a step. */
   readonly failedStepId?: string | null;
+  /** The source run of an explicit continuation, without its private session details. */
+  readonly continuedFromRunId?: string;
   readonly planRevision: number;
   /** ISO 8601 time the last node ended, `null` while the run is active. */
   readonly endedAt: string | null;

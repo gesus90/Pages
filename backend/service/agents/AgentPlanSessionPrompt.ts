@@ -118,6 +118,9 @@ export async function buildPlanSessionInput(
       runId: node.run.id,
       stepId: node.step.step.id,
       sessionScopeId: node.sessionGroup ?? node.step.step.id,
+      ...(node.run.origin?.kind === "resume"
+        ? { recoveryRunId: node.run.origin.runId }
+        : {}),
       ...(node.run.origin?.mode === "native_resume"
         ? { sourceRunId: node.run.origin.runId }
         : {}),

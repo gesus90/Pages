@@ -13,6 +13,10 @@ import { logCaughtError } from "@/backend/logging/Logger";
 import { hasPlanBranching } from "@/definition/AgentPlanBranching";
 import { isActivePlanRun } from "@/definition/AgentPlanRunState";
 
+import { compatibleRecoverySessions } from "./AgentPlanRecoverySessions";
+import { recoveredPlanBranching } from "./AgentPlanRecoveredBranching";
+import { serializePlanBranchState } from "../branching/AgentPlanBranchPersistence";
+
 import {
   recoveredAgentContext,
   withRecoveredAgentContext,
@@ -75,11 +79,13 @@ export interface RecoveryActionDependencies {
   readonly planRuns: Pick<
     AgentPlanRunRepository,
     "latest" | "hasReservation" | "release"
-  >;
+  > &
+    Partial<Pick<AgentPlanRunRepository, "engineState">>;
   readonly executions: AgentPlanRecoveryExecutionRepository;
   readonly checkpoints: Pick<AgentPlanCheckpointRepository, "list" | "append">;
   /** Rechecks the ACP leases of the run; absent without native capacity journal. */
-  readonly resources?: Pick<AcpResourceScheduler, "reconcile" | "snapshot">;
+  readonly resources?: Pick<AcpResourceScheduler, "reconcile" | "snapshot"> &
+    Partial<Pick<AcpResourceScheduler, "releaseForResume">>;
 }
 
 type RestartCommand = Extract<
@@ -155,8 +161,8 @@ function frozenNodes(snapshot: AgentPlanSnapshot): {
  * executor and the run's recovery revision, idempotent by its key and
  * journaled in the transaction that creates the new run. The earlier run
  * is never reopened or rewritten. Nothing starts while a process of the
- * earlier run may still be alive: ownership uses a stored namespace supervisor
- * and, where present, its server-owned worker unit.
+ * earlier run may still be alive except on an explicit failed-run resume,
+ * which relinquishes its reservations even when closeout cannot be proven.
  */
 export class AgentPlanRecoveryActions {
   private readonly dependencies: RecoveryActionDependencies;
@@ -210,6 +216,9 @@ export class AgentPlanRecoveryActions {
         checkpoints,
         executions,
         ...frozenNodes(snapshot),
+        branching: serializePlanBranchState(
+          await this.dependencies.planRuns.engineState?.(runId),
+        ),
       },
     };
   }
@@ -239,7 +248,7 @@ export class AgentPlanRecoveryActions {
    * A run that an engine still drives only has its hung processes ended; the
    * engine closes the record itself. Every other run, ended at a failure or
    * orphaned, becomes `cancelled` once the end of its processes is proven, and
-   * can be continued from its last safe state.
+   * cannot be continued; Start begins again.
    */
   public async stop(
     userId: string,
@@ -345,15 +354,18 @@ export class AgentPlanRecoveryActions {
     );
     if (facts.plan.revision !== command.revision)
       throw new AgentError("plan_conflict");
-    const plan = planResume(facts);
-    requireOption(resumeOption(facts, plan));
-    const mode = resumeSessionMode(plan, command.mode);
-    const reviewedStepIds = reviewedRetries(plan, command);
-    await this.settleCleanup(facts);
+    const planned = planResume(facts);
+    requireOption(resumeOption(facts, planned));
     const proposed = await this.dependencies.preparation.prepare(
       userId,
       facts.plan,
     );
+    const plan = compatibleRecoverySessions(planned, previous, proposed);
+    const mode = resumeSessionMode(plan, command.mode);
+    const reviewedStepIds = reviewedRetries(plan, command);
+    if (request.automaticAttempt === undefined)
+      await this.releaseForResume(facts);
+    else await this.settleCleanup(facts);
     const reusedStepIds = plan.reused.map((step) => step.id);
     const merged = prepareRecoveredPlan(
       boundaryOf(facts, reusedStepIds),
@@ -363,6 +375,11 @@ export class AgentPlanRecoveryActions {
     const loops = resumedLoopRuns(facts.run.loops ?? [], reusedStepIds);
     const recovery = {
       sourceRunId: facts.run.id,
+      branching: recoveredPlanBranching(
+        facts.run,
+        previous.plan,
+        facts.branching,
+      ),
       mode,
       retriedStepIds: plan.retriedStepIds,
       loopIterations: loops.iterations,
@@ -386,6 +403,7 @@ export class AgentPlanRecoveryActions {
             : { automaticAttempt: request.automaticAttempt }),
         }),
         reused: plan.reused,
+        pending: facts.run.steps,
         loops: loops.loops,
         // The resumed iteration reads the entry its stack handed over, and the next one takes the following entry.
         stacks: facts.run.stacks ?? [],
@@ -500,6 +518,22 @@ export class AgentPlanRecoveryActions {
     await this.reconcileResources(run.id);
     if (shouldRelease) await this.dependencies.executions.releaseChecked(run);
     return run;
+  }
+
+  /** Resume explicitly relinquishes the failed run's reservations even without closeout proof. */
+  private async releaseForResume(facts: RecoveryFacts): Promise<void> {
+    try {
+      await this.settleCleanup(facts, false);
+    } catch (error: unknown) {
+      if (
+        !(error instanceof AgentPlanRecoveryError) ||
+        error.code !== "cleanup_unconfirmed"
+      )
+        throw error;
+      logCaughtError("AgentPlanRecoveryActions", error);
+    }
+    await this.dependencies.resources?.releaseForResume?.(facts.run.id);
+    await this.dependencies.executions.releaseChecked(facts.run);
   }
 
   private async reconcileResources(runId: string): Promise<void> {

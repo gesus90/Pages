@@ -242,6 +242,7 @@ export type ScriptAnswer = (
 ) => string;
 
 export interface StackEngine {
+  readonly database: RecoveryDatabase;
   readonly engine: AgentPlanRunEngine;
   readonly snapshot: AgentPlanSnapshot;
   readonly read: (id: string) => AgentPlanRun;
@@ -386,6 +387,7 @@ export async function stackEngine(
     scripts: scriptRunner(shape.script ?? (() => "{}"), scriptCalls),
   });
   return {
+    database,
     engine,
     snapshot,
     read: (id) => database.run(id),

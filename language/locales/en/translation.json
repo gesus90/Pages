@@ -5450,7 +5450,7 @@
       "resumeHint_interrupted": "Resume continues at the last safe state after the interruption; its own processes and reservations are released first.",
       "resumeHint_blocked": "Resume retries the blocked step once its cause is fixed; the locked successors are released again.",
       "resumeHint_closeout_open": "Resume repeats only the open closeout step.",
-      "resumeHint_stopped": "Resume continues at the last safe state of the stopped run; completed steps do not run again.",
+      "resumeHint_stopped": "Stop is final. Start the plan from the beginning.",
       "allRuns": "View all runs of this plan"
     },
     "ticketPicker": {
@@ -6047,7 +6047,7 @@
       "noFailure": "No node failed.",
       "checkpoint": "Last verified state",
       "checkpointValue": "Checkpoint {{version}} · {{step}} · {{time}}",
-      "checkpointNone": "No verified checkpoint – nothing can be taken over.",
+      "checkpointNone": "No additional checkpoint. Stored successful results are retained.",
       "originLabel": "Origin",
       "origin": {
         "restart": "Restarted from the start after run {{run}}",
@@ -6091,7 +6091,7 @@
         "run_active": "The run is still active. Stop it first.",
         "plan_run_active": "Another run of this plan is active. Wait for it or stop it.",
         "plan_read_only": "You can read this plan but not run it.",
-        "cancelled_by_user": "The run was stopped. It can be resumed once a safe state is saved.",
+        "cancelled_by_user": "This run was stopped. Only a new start from the beginning is available.",
         "succeeded": "The run succeeded; there is nothing to continue.",
         "superseded": "A newer run of this plan exists; only the newest run can be continued.",
         "already_continued": "This run was already restarted or continued.",
@@ -6157,6 +6157,10 @@
       "planChanged": "Saved again since this run",
       "planUnchanged": "Unchanged since this run",
       "resumeConfirm": "Continue the plan at the point where it failed? Successful steps and loop iterations are kept and do not run again.",
+      "completedChangesIgnored": "The currently saved plan revision is used. The completed steps below keep their previous results, including steps edited since the failure.",
+      "continuedFrom": "Continuation of run {{run}}",
+      "inheritedSteps": "Inherited steps (will not run again):",
+      "inherited": "Inherited",
       "resumePending": "Continuing …"
     },
     "nodeInstruction": "Additional node instruction",

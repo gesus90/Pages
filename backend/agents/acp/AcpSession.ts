@@ -464,6 +464,11 @@ export class AcpSession implements PlanSession {
     const { request } = this.context;
     const resumeSessionId = request.resumeSessionId ?? null;
     if (resumeSessionId !== null) return this.resumeSession(resumeSessionId);
+    return this.newSession();
+  }
+
+  private async newSession(): Promise<OpenedSession> {
+    const { request } = this.context;
     const response = await this.connection.agent.request(
       methods.agent.session.new,
       {
@@ -494,8 +499,10 @@ export class AcpSession implements PlanSession {
       logCaughtError("AcpSession", error);
 
       // The adapter refused the session; a lost connection fails as it always does.
-      if (error instanceof RequestError && !this.connection.signal.aborted)
+      if (error instanceof RequestError && !this.connection.signal.aborted) {
+        if (request.canReplaceMissingSession) return this.newSession();
         throw new AgentError("acp_session_resume_failed");
+      }
       throw error;
     }
   }

@@ -1,4 +1,10 @@
-import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 
 import { PlanRunPanel } from "@/app/components/agents/plans/plan-run-panel";
@@ -316,20 +322,30 @@ it("asks before a new run begins beside the ended run of another executor", asyn
   expect(screen.queryByRole("dialog")).toBeNull();
 });
 
-it("continues an ended run with one click and no dialog", async () => {
+it("shows the saved revision before continuing an ended run", async () => {
+  const submit = vi.fn<PlanRecovery["submit"]>(async () => null);
+  recovery({ view: RESUMABLE, submit });
   const { scene } = renderPanel({
     control: planControl({
       ...FAILED,
       resumeKind: "failed",
+      resumeAction: "recovery",
       canResume: true,
     }),
   });
-
   fireEvent.click(button("resume"));
-
-  await waitFor(() => expect(scene.submissions).toHaveLength(1));
-  expect(scene.submissions[0]?.get("intent")).toBe("resume-plan");
-  expect(screen.queryByRole("dialog")).toBeNull();
+  const dialog = await screen.findByRole("dialog");
+  expect(scene.submissions).toHaveLength(0);
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: i18n.t("plans.panel.resume") }),
+  );
+  await waitFor(() =>
+    expect(submit).toHaveBeenCalledWith({
+      action: "resume",
+      revision: 3,
+      confirmContinue: true,
+    }),
+  );
 });
 
 it("shows why Fortsetzen is off as text and carries out the action that lifts it", async () => {

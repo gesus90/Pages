@@ -94,6 +94,9 @@ export class AgentLocalSessionPreparation {
           runId: run.id,
           stepId: step.step.id,
           sessionScopeId: launch.sessionScopeId,
+          ...(run.origin?.kind === "resume"
+            ? { recoveryRunId: run.origin.runId }
+            : {}),
           ...(run.origin?.mode === "native_resume"
             ? { sourceRunId: run.origin.runId }
             : {}),
