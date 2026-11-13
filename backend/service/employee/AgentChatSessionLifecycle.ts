@@ -180,7 +180,9 @@ export class AgentChatSessionLifecycle {
     const settings = await this.dependencies.store
       .chatSessions()
       .settings(agentId);
-    return settings?.restartPercent ?? AGENT_CHAT_SESSION_RESTART_DEFAULT_PERCENT;
+    return (
+      settings?.restartPercent ?? AGENT_CHAT_SESSION_RESTART_DEFAULT_PERCENT
+    );
   }
 
   /**

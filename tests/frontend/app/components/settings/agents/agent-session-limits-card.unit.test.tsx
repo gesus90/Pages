@@ -62,8 +62,16 @@ const WITH_MODELS: AgentSessionLimitsAdministration = {
   ...ADMINISTRATION,
   logbookModel: { connectionId: "cheap-connection", model: "cheap-model" },
   logbookModels: [
-    { connectionId: "cheap-connection", model: "cheap-model", label: "Cheap Model" },
-    { connectionId: "other-connection", model: "other-model", label: "Other Model" },
+    {
+      connectionId: "cheap-connection",
+      model: "cheap-model",
+      label: "Cheap Model",
+    },
+    {
+      connectionId: "other-connection",
+      model: "other-model",
+      label: "Other Model",
+    },
   ],
 };
 
@@ -85,10 +93,13 @@ it("offers the model of the Lagebuch summary of the instance in a form of its ow
     model: "cheap-model",
   });
   expect(
-    screen.getByRole("combobox", { name: i18n.t("agentSessionLimits.logbookModel") })
-      .textContent,
+    screen.getByRole("combobox", {
+      name: i18n.t("agentSessionLimits.logbookModel"),
+    }).textContent,
   ).toContain("Cheap Model");
-  expect(screen.getByText(i18n.t("agentSessionLimits.logbookModelHint"))).toBeTruthy();
+  expect(
+    screen.getByText(i18n.t("agentSessionLimits.logbookModelHint")),
+  ).toBeTruthy();
 });
 
 it("submits another model of the choice, and no model for the model of each agent", async () => {

@@ -1,5 +1,3 @@
-import { randomUUID } from "node:crypto";
-
 import { createRuntimeExecutionContext } from "@/backend/agents/runtime/RuntimeExecutionContext";
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { PicaAcpJobError } from "@/backend/error/PicaAcpJobError";
@@ -10,11 +8,12 @@ import {
   withLogContext,
 } from "@/backend/logging/Logger";
 
+import { continuedPicaBrief, picaSteerText } from "./PicaAcpContent";
 import {
-  continuedPicaBrief,
-  picaSteerText,
-  picaTurnPrompt,
-} from "./PicaAcpContent";
+  type PicaAcpInputSources,
+  sessionPromptInput,
+  turnPromptInput,
+} from "./PicaAcpJobInputs";
 import { PicaAcpJournal } from "./PicaAcpJournal";
 import { PicaAcpCredential } from "./PicaAcpCredential";
 import { PicaAcpUsage } from "./PicaAcpUsage";
@@ -31,7 +30,6 @@ import {
   turnBeganEvent,
 } from "./PicaAcpTurnResult";
 import { PicaAcpUpdates } from "./PicaAcpUpdates";
-import { chatMcpServers } from "./PicaAcpRunners";
 import { openPicaSession } from "./PicaAcpPoolOpening";
 
 import type { PromptCapabilities } from "@agentclientprotocol/sdk";
@@ -46,49 +44,24 @@ import type {
 import type { RuntimeExecutionContext } from "@/backend/agents/runtime/RuntimeExecutionContext";
 import type { NewChatMessage } from "@/backend/database/repositories/chat/ChatSessionRepository";
 import type { AgentPlanExecutionInput } from "@/backend/service/agents/AgentPlanStepStart";
-import type { ResolvedAgentAssignment } from "@/backend/service/agents/AgentAssignmentResolution";
-import type { AgentRunOptions } from "@/definition/AgentConfiguration";
 import type { ChatSteerStatus } from "@/definition/ChatJob";
-import type { User } from "@/definition/User";
 import type { PicaMessageContent, PicaTurnBrief } from "./PicaAcpContent";
-import type { PicaAcpRunner } from "./PicaAcpRunners";
 import type { PicaAcpMessage } from "./PicaAcpSteering";
 import type { PicaAcpOutcome } from "./PicaAcpTurnResult";
 import type { PicaAcpJobDependencies } from "./PicaAcpJobDependencies";
-import type { PicaAcpJobPool, PicaAcpPooledInput } from "./PicaAcpPoolOpening";
+import type { PicaAcpPooledInput } from "./PicaAcpPoolOpening";
 import type { PicaNativeToolEvent } from "./PicaAcpToolCalls";
+import type { PicaAcpJobSpecification } from "./PicaAcpJobSpecification";
 
 export type { PicaAcpJobDependencies } from "./PicaAcpJobDependencies";
+export type {
+  PicaAcpJobSpecification,
+  PicaAcpRun,
+} from "./PicaAcpJobSpecification";
 
 /** What the agent reads after the person cancelled its running tool call. */
 const TOOL_CANCELLED_NOTE =
   "Die Person hat deinen laufenden Werkzeugaufruf abgebrochen. Starte ihn nicht erneut, sondern antworte mit dem bisherigen Stand und frag nach, wie es weitergehen soll.";
-
-/** The runner of a job and the run options it was validated with before anything was stored. */
-export interface PicaAcpRun {
-  readonly runner: PicaAcpRunner;
-  readonly options: AgentRunOptions;
-}
-
-/** One job: the conversation, the pinned agent and the message it answers. */
-export interface PicaAcpJobSpecification {
-  readonly id: string;
-  readonly actor: User;
-  readonly sessionId: string;
-  readonly agent: ResolvedAgentAssignment;
-  readonly run: PicaAcpRun;
-  /** The fixed working directory of the conversation. */
-  readonly directory: string;
-  readonly message: PicaAcpMessage;
-  /** Instructions and context with the transcript, for a new agent session. */
-  readonly brief: PicaTurnBrief;
-  /** The agent session to continue; `null` starts a new one. */
-  readonly resumeSessionId: string | null;
-  /** Runs a task in the queue of the conversation. */
-  readonly gate: <Result>(task: () => Promise<Result>) => Promise<Result>;
-  /** The chat session of an agent employee kept between rounds (PAGE-335); absent opens one per job. */
-  readonly pool?: PicaAcpJobPool;
-}
 
 /**
  * One Pica answer over ACP that runs on the server with the assigned CLI
@@ -443,7 +416,11 @@ export class PicaAcpJob {
 
   private followUpInput(message: PicaAcpMessage): AgentPlanExecutionInput {
     return {
-      ...this.turnInput(message, continuedPicaBrief(this.specification.brief)),
+      ...turnPromptInput(
+        message,
+        continuedPicaBrief(this.specification.brief),
+        this.inputSources(),
+      ),
       agent: this.specification.agent,
       userId: this.userId,
       directory: this.specification.directory,
@@ -488,49 +465,24 @@ export class PicaAcpJob {
     resumeSessionId: string | null,
     pooled?: PicaAcpPooledInput,
   ): AgentPlanSessionInput {
-    const { agent, directory, run } = this.specification;
-    return {
-      ...this.turnInput(message, brief),
-      agent,
-      userId: this.userId,
-      directory,
-      options: run.options,
-      instanceId: randomUUID(),
-      chat: {
-        ...(this.dependencies.agentBrowsers
-          ? {
-              browserStateDirectory: this.dependencies.agentBrowsers.mount(
-                this.requireContext(),
-              ),
-            }
-          : {}),
-        ...chatMcpServers(
-          run.runner,
-          () => pooled?.servers ?? this.credential.mcpServers(),
-        ),
-        ...(run.runner.isUnisolated === true ? { isUnisolated: true } : {}),
-        resumeSessionId,
-        listener: pooled?.listener ?? this.updates,
-      },
-      beforeStart: () => this.authorize(),
-    };
+    return sessionPromptInput(
+      { message, brief, resumeSessionId, pooled },
+      this.inputSources(),
+    );
   }
 
-  private turnInput(
-    message: PicaAcpMessage,
-    brief: PicaTurnBrief,
-  ): Pick<AgentPlanExecutionInput, "prompt" | "promptContent"> {
+  private inputSources(): PicaAcpInputSources {
     return {
-      prompt: [
-        picaTurnPrompt(brief, message.text, message.attachments),
-        this.credential.usage(),
-        this.dependencies.agentBrowsers?.usage(this.requireContext()) ?? "",
-      ].join("\n\n"),
-      promptContent: async (capabilities) => {
+      specification: this.specification,
+      userId: this.userId,
+      browsers: this.dependencies.agentBrowsers,
+      credential: this.credential,
+      selections: this.selections,
+      updates: this.updates,
+      context: () => this.requireContext(),
+      authorize: () => this.authorize(),
+      setCapabilities: (capabilities) => {
         this.capabilities = capabilities;
-        const content = await this.selections.read(message, capabilities);
-        await this.selections.select(message.id, content.items);
-        return content.blocks;
       },
     };
   }

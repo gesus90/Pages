@@ -134,7 +134,7 @@ it("gives a recipe no right beyond the tools of the session: a tool the agent ha
 });
 
 it("never runs an administrator tool, a deleting tool or the recipe tool itself: the chain stops before it", async () => {
-  const chain = (tool: string) =>
+  const chain = (tool: string): ReturnType<typeof recipe> =>
     recipe({
       parameters: [],
       steps: [
@@ -243,7 +243,7 @@ it("lists its recipes without a name and lists itself in the catalog of the tool
       {
         name: "ticket-anlegen",
         kind: "flow",
-        summary: expect.any(String),
+        summary: expect.any(String) as unknown,
         parameters: ["projekt"],
       },
     ],
@@ -303,12 +303,12 @@ it("offers rezept in the tools of a turn only with the recipes of an agent emplo
     sessions: { confirmationWord: vi.fn() },
     authorize: async () => undefined,
   };
-  const without = createPicaTools(base as never);
+  const without = createPicaTools(base);
   expect(without.describe().some((tool) => tool.id === "rezept")).toBe(false);
   const withRecipes = createPicaTools({
     ...base,
     recipes: { run: vi.fn(), note: vi.fn() },
-  } as never);
+  });
   expect(withRecipes.describe().some((tool) => tool.id === "rezept")).toBe(
     true,
   );

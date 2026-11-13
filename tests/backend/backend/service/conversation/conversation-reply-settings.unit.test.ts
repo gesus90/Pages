@@ -62,13 +62,12 @@ function fixture(): {
   stored: { current: ConversationReplySettings };
 } {
   const settings = bareInstance(ConversationReplySettingsRepository.prototype);
-  const stored = {
-    current: {
-      conversationId: "group",
-      mode: "decision",
-      overrides: CONVERSATION_NO_RULE_OVERRIDES,
-    } as ConversationReplySettings,
+  const current: ConversationReplySettings = {
+    conversationId: "group",
+    mode: "decision",
+    overrides: CONVERSATION_NO_RULE_OVERRIDES,
   };
+  const stored = { current };
   vi.spyOn(settings, "find").mockImplementation(async () => stored.current);
   vi.spyOn(settings, "save").mockResolvedValue();
   const dependencies: ConversationReplySettingsDependencies = {
@@ -120,7 +119,11 @@ describe("read", () => {
     context.stored.current = {
       conversationId: "group",
       mode: "mentions",
-      overrides: { ...CONVERSATION_NO_RULE_OVERRIDES, answerThreshold: 80, maximumResponders: 1 },
+      overrides: {
+        ...CONVERSATION_NO_RULE_OVERRIDES,
+        answerThreshold: 80,
+        maximumResponders: 1,
+      },
     };
     vi.mocked(context.dependencies.instance.rules).mockResolvedValue({
       ...CONVERSATION_DEFAULT_DECISION_RULES,
@@ -148,15 +151,19 @@ describe("read", () => {
     ],
     ["the last call failed", READY, "model_failed", "modelFailed"],
   ] as const)(
-    "tells a manager when %s, because the group then behaves like \"Nur @\"",
-    async (_name, model, fallback, hint) => {
-      vi.mocked(context.dependencies.instance.modelView).mockResolvedValue(model);
-      vi.mocked(context.dependencies.decisions.latestFallback).mockResolvedValue(fallback);
+    'tells a manager when %s, because the group then behaves like "Nur @"',
+    async (_, model, fallback, hint) => {
+      vi.mocked(context.dependencies.instance.modelView).mockResolvedValue(
+        model,
+      );
+      vi.mocked(
+        context.dependencies.decisions.latestFallback,
+      ).mockResolvedValue(fallback);
       expect((await context.service.read(manager, "group")).hint).toBe(hint);
     },
   );
 
-  it("tells nobody else and says nothing in the mode \"Nur @\" or when all is well", async () => {
+  it('tells nobody else and says nothing in the mode "Nur @" or when all is well', async () => {
     vi.mocked(context.dependencies.instance.modelView).mockResolvedValue({
       status: "noModel",
       name: null,
@@ -166,19 +173,25 @@ describe("read", () => {
     expect((await context.service.read(manager, "group")).hint).toBeNull();
     context.stored.current = { ...context.stored.current, mode: "decision" };
     vi.mocked(context.dependencies.instance.modelView).mockResolvedValue(READY);
-    vi.mocked(context.dependencies.decisions.latestFallback).mockResolvedValue("none");
+    vi.mocked(context.dependencies.decisions.latestFallback).mockResolvedValue(
+      "none",
+    );
     expect((await context.service.read(manager, "group")).hint).toBeNull();
   });
 
   it("knows no direct conversation and no conversation of a non-member", async () => {
-    vi.mocked(context.dependencies.conversations.findForMember).mockResolvedValueOnce({
+    vi.mocked(
+      context.dependencies.conversations.findForMember,
+    ).mockResolvedValueOnce({
       ...GROUP,
       kind: "direct",
     });
     await expect(context.service.read(manager, "group")).rejects.toMatchObject({
       code: "not_found",
     });
-    vi.mocked(context.dependencies.conversations.findForMember).mockResolvedValueOnce(null);
+    vi.mocked(
+      context.dependencies.conversations.findForMember,
+    ).mockResolvedValueOnce(null);
     await expect(context.service.read(manager, "group")).rejects.toMatchObject({
       code: "not_found",
     });
@@ -217,7 +230,7 @@ describe("save", () => {
     expect(view.isDefault).toBe(false);
   });
 
-  it("returns the group to the defaults of the instance with null rules, also in the mode \"Nur @\"", async () => {
+  it('returns the group to the defaults of the instance with null rules, also in the mode "Nur @"', async () => {
     await context.service.save(manager, {
       conversationId: "group",
       mode: "mentions",
@@ -236,7 +249,11 @@ describe("save", () => {
 
   it("is refused for a member who does not manage the group", async () => {
     await expect(
-      context.service.save(member, { conversationId: "group", mode: "mentions", rules: null }),
+      context.service.save(member, {
+        conversationId: "group",
+        mode: "mentions",
+        rules: null,
+      }),
     ).rejects.toMatchObject({ code: "forbidden" });
     expect(context.dependencies.settings.save).not.toHaveBeenCalled();
   });
@@ -244,13 +261,28 @@ describe("save", () => {
   it.each([
     ["an unknown mode", { mode: "observer", rules: null }],
     ["the removed mode observer", { mode: "observer", rules: rules }],
-    ["a threshold above 100", { mode: "decision", rules: { ...rules, answerThreshold: 101 } }],
-    ["a fractional threshold", { mode: "decision", rules: { ...rules, secondThreshold: 40.5 } }],
-    ["no answering agent", { mode: "decision", rules: { ...rules, maximumResponders: 0 } }],
-    ["too many answering agents", { mode: "decision", rules: { ...rules, maximumResponders: 4 } }],
+    [
+      "a threshold above 100",
+      { mode: "decision", rules: { ...rules, answerThreshold: 101 } },
+    ],
+    [
+      "a fractional threshold",
+      { mode: "decision", rules: { ...rules, secondThreshold: 40.5 } },
+    ],
+    [
+      "no answering agent",
+      { mode: "decision", rules: { ...rules, maximumResponders: 0 } },
+    ],
+    [
+      "too many answering agents",
+      { mode: "decision", rules: { ...rules, maximumResponders: 4 } },
+    ],
     ["a missing field", { mode: "decision", rules: { answerThreshold: 60 } }],
-    ["a default responder, which no longer exists", { mode: "decision", rules: null, defaultResponderId: "ed" }],
-  ])("refuses %s", async (_name, body) => {
+    [
+      "a default responder, which no longer exists",
+      { mode: "decision", rules: null, defaultResponderId: "ed" },
+    ],
+  ])("refuses %s", async (_, body) => {
     await expect(
       context.service.save(manager, { conversationId: "group", ...body }),
     ).rejects.toMatchObject({ code: "invalid" });
@@ -276,9 +308,14 @@ describe("decisions", () => {
   };
 
   it("lists the newest decisions of a group with names and a shortened message", async () => {
-    vi.mocked(context.dependencies.decisions.recent).mockResolvedValue([listing]);
+    vi.mocked(context.dependencies.decisions.recent).mockResolvedValue([
+      listing,
+    ]);
     const [entry] = await context.service.decisions(member, "group");
-    expect(context.dependencies.decisions.recent).toHaveBeenCalledWith("group", 30);
+    expect(context.dependencies.decisions.recent).toHaveBeenCalledWith(
+      "group",
+      30,
+    );
     expect(entry).toMatchObject({
       messageId: "m1",
       outcome: "responders",
@@ -299,9 +336,15 @@ describe("decisions", () => {
     vi.mocked(context.dependencies.decisions.recent).mockResolvedValue([
       { ...listing, text: "Danke!" },
     ]);
-    expect((await context.service.decisions(member, "group"))[0]?.text).toBe("Danke!");
-    vi.mocked(context.dependencies.conversations.findForMember).mockResolvedValueOnce(null);
-    await expect(context.service.decisions(member, "group")).rejects.toMatchObject({
+    expect((await context.service.decisions(member, "group"))[0]?.text).toBe(
+      "Danke!",
+    );
+    vi.mocked(
+      context.dependencies.conversations.findForMember,
+    ).mockResolvedValueOnce(null);
+    await expect(
+      context.service.decisions(member, "group"),
+    ).rejects.toMatchObject({
       code: "not_found",
     });
   });

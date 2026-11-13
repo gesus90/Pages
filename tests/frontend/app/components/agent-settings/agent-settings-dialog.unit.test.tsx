@@ -192,12 +192,7 @@ it("names the agent from the sessions when the caller knows no identity", async 
 it("shows all four tabs as working tabs, without a hint, and opens in the one that was asked for", async () => {
   stubDreamingEndpoints({});
   renderDialog({ initialTab: "dreaming" });
-  for (const name of [
-    "Sessions",
-    "Logbook",
-    "Dreaming",
-    "Lessons & recipes",
-  ]) {
+  for (const name of ["Sessions", "Logbook", "Dreaming", "Lessons & recipes"]) {
     const tab = screen.getByRole("tab", { name });
     expect(isDisabled(tab)).toBe(false);
     expect(tab.getAttribute("title")).toBeNull();
@@ -210,7 +205,9 @@ it("shows all four tabs as working tabs, without a hint, and opens in the one th
   expect(
     screen.getByRole("tab", { name: "Dreaming" }).getAttribute("aria-selected"),
   ).toBe("true");
-  expect(await screen.findByRole("switch", { name: "Dreaming active" })).toBeTruthy();
+  expect(
+    await screen.findByRole("switch", { name: "Dreaming active" }),
+  ).toBeTruthy();
 });
 
 it("switches between the tabs and reads each tab only when it opens", async () => {
@@ -230,7 +227,9 @@ it("switches between the tabs and reads each tab only when it opens", async () =
   const dreaming = screen.getByRole("tab", { name: "Dreaming" });
   fireEvent.mouseDown(dreaming);
   fireEvent.click(dreaming);
-  expect(await screen.findByRole("switch", { name: "Dreaming active" })).toBeTruthy();
+  expect(
+    await screen.findByRole("switch", { name: "Dreaming active" }),
+  ).toBeTruthy();
   expect(dreamingCalls).toHaveLength(1);
 });
 

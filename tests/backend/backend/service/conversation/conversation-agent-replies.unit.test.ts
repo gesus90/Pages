@@ -4,9 +4,7 @@ import { ConversationRoundRepository } from "@/backend/database/repositories/con
 import { ConversationAgentReplies } from "@/backend/service/conversation/ConversationAgentReplies";
 import { ConversationAccounts } from "@/backend/service/conversation/ConversationDirectory";
 
-import {
-  CONVERSATION_AGENT_SEND_PREFIX,
-} from "@/definition/Conversation";
+import { CONVERSATION_AGENT_SEND_PREFIX } from "@/definition/Conversation";
 import { CONVERSATION_NO_RULE_OVERRIDES } from "@/definition/ConversationDecision";
 
 import type { ConversationAgentRepliesDependencies } from "@/backend/service/conversation/ConversationAgentReplies";
@@ -158,21 +156,31 @@ it("deduplicates valid mentions, claims only the named agent and never asks the 
 
 it("records an @ addressing of a person in the decision mode, and only there", async () => {
   const { service, dependencies } = fixture();
-  await service.answer({ ...message, mentions: ["agent"] }, ["person", "agent"]);
+  await service.answer({ ...message, mentions: ["agent"] }, [
+    "person",
+    "agent",
+  ]);
   expect(dependencies.decisions.recordMention).toHaveBeenCalledWith({
     conversationId: "group",
     messageId: "origin",
     agentIds: ["agent"],
   });
-  vi.mocked(dependencies.replySettings.find).mockResolvedValue(mentionsSettings);
-  vi.mocked(dependencies.decisions.recordMention).mockClear();
-  await service.answer({ ...message, mentions: ["agent"] }, ["person", "agent"]);
-  expect(dependencies.decisions.recordMention).not.toHaveBeenCalled();
-  vi.mocked(dependencies.replySettings.find).mockResolvedValue(decisionSettings);
-  await service.answer(
-    { ...agentMessage, mentions: ["agent"] },
-    ["person", "agent"],
+  vi.mocked(dependencies.replySettings.find).mockResolvedValue(
+    mentionsSettings,
   );
+  vi.mocked(dependencies.decisions.recordMention).mockClear();
+  await service.answer({ ...message, mentions: ["agent"] }, [
+    "person",
+    "agent",
+  ]);
+  expect(dependencies.decisions.recordMention).not.toHaveBeenCalled();
+  vi.mocked(dependencies.replySettings.find).mockResolvedValue(
+    decisionSettings,
+  );
+  await service.answer({ ...agentMessage, mentions: ["agent"] }, [
+    "person",
+    "agent",
+  ]);
   expect(dependencies.decisions.recordMention).not.toHaveBeenCalled();
 });
 
@@ -181,7 +189,10 @@ it("answers a message that names agents even when recording the @ addressing fai
   vi.mocked(dependencies.decisions.recordMention).mockRejectedValueOnce(
     new Error("database down"),
   );
-  await service.answer({ ...message, mentions: ["agent"] }, ["person", "agent"]);
+  await service.answer({ ...message, mentions: ["agent"] }, [
+    "person",
+    "agent",
+  ]);
   expect(rounds.claim).toHaveBeenCalledWith(
     expect.objectContaining({ agentId: "agent", trigger: "mention" }),
   );
@@ -215,9 +226,11 @@ it("starts nobody when the decision settles on nobody", async () => {
   expect(rounds.claim).not.toHaveBeenCalled();
 });
 
-it("never asks the decision model in the mode \"Nur @\"", async () => {
+it('never asks the decision model in the mode "Nur @"', async () => {
   const { service, dependencies, rounds } = fixture();
-  vi.mocked(dependencies.replySettings.find).mockResolvedValue(mentionsSettings);
+  vi.mocked(dependencies.replySettings.find).mockResolvedValue(
+    mentionsSettings,
+  );
   await service.answer(message, ["person", "agent"]);
   expect(dependencies.decisions.decide).not.toHaveBeenCalled();
   expect(rounds.claim).not.toHaveBeenCalled();
@@ -225,7 +238,10 @@ it("never asks the decision model in the mode \"Nur @\"", async () => {
 
 it("treats a message that names only people as addressed to them: no decision, no agent", async () => {
   const { service, dependencies, rounds } = fixture();
-  await service.answer({ ...message, mentions: ["person"] }, ["person", "agent"]);
+  await service.answer({ ...message, mentions: ["person"] }, [
+    "person",
+    "agent",
+  ]);
   expect(dependencies.decisions.decide).not.toHaveBeenCalled();
   expect(rounds.claim).not.toHaveBeenCalled();
 });
@@ -239,7 +255,12 @@ it("wakes no other agent with a message an agent sent without an @", async () =>
 
 it("wakes exactly the agent a message of an agent names with @", async () => {
   const { service, dependencies, rounds } = fixture();
-  const other: User = { ...agent, id: "other", username: "other", displayName: "Other" };
+  const other: User = {
+    ...agent,
+    id: "other",
+    username: "other",
+    displayName: "Other",
+  };
   const accounts = await dependencies.directory.read();
   vi.mocked(dependencies.directory.read).mockResolvedValue(
     new ConversationAccounts(
@@ -252,7 +273,12 @@ it("wakes exactly the agent a message of an agent names with @", async () => {
           other.id,
           {
             user: other,
-            participant: { id: other.id, name: "Other", kind: "agent", color: null },
+            participant: {
+              id: other.id,
+              name: "Other",
+              kind: "agent",
+              color: null,
+            },
             role: "",
             isAvailable: true,
           },
@@ -260,10 +286,11 @@ it("wakes exactly the agent a message of an agent names with @", async () => {
       ]),
     ),
   );
-  await service.answer(
-    { ...agentMessage, mentions: ["other"] },
-    ["person", "agent", "other"],
-  );
+  await service.answer({ ...agentMessage, mentions: ["other"] }, [
+    "person",
+    "agent",
+    "other",
+  ]);
   expect(rounds.claim).toHaveBeenCalledOnce();
   expect(rounds.claim).toHaveBeenCalledWith(
     expect.objectContaining({ agentId: "other", trigger: "mention" }),

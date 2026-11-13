@@ -144,12 +144,14 @@ function toEntry(row: readonly DatabaseValue[]): StoredAgentLogbookEntry {
     text: readTextColumn(row, 4, "text"),
     topic: readTextColumn(row, 5, "topic"),
     source: {
-      kind: readTextColumn(row, 6, "source_kind") === "group" ? "group" : "direct",
+      kind:
+        readTextColumn(row, 6, "source_kind") === "group" ? "group" : "direct",
       id: readTextColumn(row, 7, "source_id"),
       name: readTextColumn(row, 8, "source_name"),
     },
     participants: readIdListColumn(row, 9, "participants"),
-    origin: readTextColumn(row, 10, "origin") === "agent" ? "agent" : "background",
+    origin:
+      readTextColumn(row, 10, "origin") === "agent" ? "agent" : "background",
     createdAt: readTextColumn(row, 11, "created_at"),
   };
 }
@@ -310,7 +312,9 @@ export class AgentLogbookRepository {
         "lower(agent_logbook_entries.source_name) LIKE $chat ESCAPE '\\'",
       );
     }
-    const extra = conditions.map((condition) => `AND ${condition}`).join("\n            ");
+    const extra = conditions
+      .map((condition) => `AND ${condition}`)
+      .join("\n            ");
     const rows = await this.database.query(
       `
         SELECT${COLUMNS}
@@ -424,7 +428,9 @@ export class AgentLogbookRepository {
     ids: readonly string[],
   ): Promise<StoredAgentLogbookEntry[]> {
     if (ids.length === 0) return [];
-    const parameters: Record<string, string | number | null> = { agent_id: agentId };
+    const parameters: Record<string, string | number | null> = {
+      agent_id: agentId,
+    };
     const placeholders = ids.map((id, index) => {
       parameters[`id_${String(index)}`] = id;
       return `$id_${String(index)}`;
@@ -497,7 +503,9 @@ export class AgentLogbookRepository {
     ids: readonly string[],
   ): Promise<number> {
     if (ids.length === 0) return 0;
-    const parameters: Record<string, string | number | null> = { agent_id: agentId };
+    const parameters: Record<string, string | number | null> = {
+      agent_id: agentId,
+    };
     const placeholders = ids.map((id, index) => {
       parameters[`id_${String(index)}`] = id;
       return `$id_${String(index)}`;

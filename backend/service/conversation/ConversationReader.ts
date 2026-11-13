@@ -463,7 +463,9 @@ export class ConversationReader {
         messages.filter(isPerson).map((message) => message.id),
       ),
       decisions.forReplies(
-        messages.filter((message) => !isPerson(message)).map((message) => message.id),
+        messages
+          .filter((message) => !isPerson(message))
+          .map((message) => message.id),
       ),
     ]);
     return messages.map((message) => {

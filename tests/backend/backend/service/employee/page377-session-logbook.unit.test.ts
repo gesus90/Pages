@@ -56,11 +56,15 @@ function fixture(
 ): Fixture {
   const sessionIds = new Map<string, string>();
   const start = vi.fn(
-    options.start ?? (async () => ({ job: { id: "job" }, messageId: "message" })),
+    options.start ??
+      (async () => ({ job: { id: "job" }, messageId: "message" })),
   );
   const hint = vi.fn(
     options.hint ??
-      (async () => ({ line: "Lagebuch: 2 neue Einträge (PAGE-370, Release Freitag)", newest: 9 })),
+      (async () => ({
+        line: "Lagebuch: 2 neue Einträge (PAGE-370, Release Freitag)",
+        newest: 9,
+      })),
   );
   const markSeen = vi.fn(async () => undefined);
   const tools = vi.fn((session: { sessionId: string }) => ({
@@ -81,7 +85,11 @@ function fixture(
     store: {
       conversations: () => ({
         ensure: vi.fn(
-          async (key: { agentId: string; personId: string; purpose: string }) => {
+          async (key: {
+            agentId: string;
+            personId: string;
+            purpose: string;
+          }) => {
             const id = `${key.agentId}:${key.personId}:${key.purpose}`;
             if (!sessionIds.has(id))
               sessionIds.set(id, `session-${String(sessionIds.size + 1)}`);
@@ -97,13 +105,16 @@ function fixture(
     languages: { findByUserId: async () => ({ language: "de" }) },
     models: { resolve },
     memory: {},
-    acp: { start, settled: vi.fn(async () => undefined), steer: vi.fn(async () => null) },
+    acp: {
+      start,
+      settled: vi.fn(async () => undefined),
+      steer: vi.fn(async () => null),
+    },
     createSessionId: () => "unused",
     ...(options.withoutLogbook
       ? {}
       : {
-          logbook: () =>
-            options.unwired ? null : { tools, hint, markSeen },
+          logbook: () => (options.unwired ? null : { tools, hint, markSeen }),
         }),
   };
   const service = new AgentEmployeeSessions(
@@ -128,7 +139,7 @@ function fixture(
     tools,
     resolve,
     started: () => {
-      const input: unknown = start.mock.calls[0]?.[0];
+      const [input]: unknown[] = start.mock.calls[0] ?? [];
       return input as StartInput;
     },
   };
@@ -156,7 +167,9 @@ it("gives a round of a chat one line about the news of other chats and the rule 
   await service.run(request("conversation"));
 
   const { instructions } = started().brief;
-  const lines = instructions.split("\n").filter((line) => line.startsWith("Lagebuch:"));
+  const lines = instructions
+    .split("\n")
+    .filter((line) => line.startsWith("Lagebuch:"));
   expect(lines).toEqual([
     "Lagebuch: 2 neue Einträge (PAGE-370, Release Freitag)",
   ]);

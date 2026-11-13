@@ -54,23 +54,31 @@ beforeEach(() => {
 });
 
 function post(body: URLSearchParams): Promise<Response> {
-  const request = new Request("http://pages.invalid/chat-page-api/agent-logbook", {
-    method: "POST",
-    body,
-  });
+  const request = new Request(
+    "http://pages.invalid/chat-page-api/agent-logbook",
+    {
+      method: "POST",
+      body,
+    },
+  );
   return action(routeArguments(request, EMPLOYEE, {}));
 }
 
 it("reads the Lagebuch of an agent for the signed-in account", async () => {
   const response = await loader(
     routeArguments(
-      new Request("http://pages.invalid/chat-page-api/agent-logbook?agentId=agent"),
+      new Request(
+        "http://pages.invalid/chat-page-api/agent-logbook?agentId=agent",
+      ),
       EMPLOYEE,
       {},
     ),
   );
   expect(response.headers.get("Cache-Control")).toBe("no-store");
-  await expect(response.json()).resolves.toEqual({ ok: true, overview: OVERVIEW });
+  await expect(response.json()).resolves.toEqual({
+    ok: true,
+    overview: OVERVIEW,
+  });
   expect(services.agentLogbookAdministration.overview).toHaveBeenCalledWith(
     expect.objectContaining({ user: EMPLOYEE, isAdministrator: false }),
     "agent",
@@ -85,7 +93,9 @@ it("lets an administrator in the active admin mode see all entries", async () =>
   });
   await loader(
     routeArguments(
-      new Request("http://pages.invalid/chat-page-api/agent-logbook?agentId=agent"),
+      new Request(
+        "http://pages.invalid/chat-page-api/agent-logbook?agentId=agent",
+      ),
       EMPLOYEE,
       {},
     ),
@@ -103,7 +113,10 @@ it("refuses a request without an account", async () => {
   await expect(
     action(
       routeArguments(
-        new Request("http://pages.invalid/x", { method: "POST", body: new URLSearchParams() }),
+        new Request("http://pages.invalid/x", {
+          method: "POST",
+          body: new URLSearchParams(),
+        }),
         null,
         {},
       ),
@@ -155,7 +168,10 @@ it("maps a refusal of the service to its status and an unknown change to 400", a
     new URLSearchParams({ intent: "save-settings", agentId: "agent" }),
   );
   expect(forbidden.status).toBe(403);
-  await expect(forbidden.json()).resolves.toEqual({ ok: false, error: "forbidden" });
+  await expect(forbidden.json()).resolves.toEqual({
+    ok: false,
+    error: "forbidden",
+  });
 
   services.agentLogbookAdministration.remove.mockRejectedValueOnce(
     new AgentEmployeeError("notFound"),
@@ -165,6 +181,8 @@ it("maps a refusal of the service to its status and an unknown change to 400", a
   );
   expect(missing.status).toBe(404);
 
-  const unknown = await post(new URLSearchParams({ intent: "wipe", agentId: "agent" }));
+  const unknown = await post(
+    new URLSearchParams({ intent: "wipe", agentId: "agent" }),
+  );
   expect(unknown.status).toBe(400);
 });

@@ -2,11 +2,7 @@ import { cn } from "@/app/lib/cn";
 
 /** How a badge is colored: by the meaning of its word, with semantic tokens. */
 export type DreamBadgeTone =
-  | "neutral"
-  | "success"
-  | "warning"
-  | "destructive"
-  | "info";
+  "neutral" | "success" | "warning" | "destructive" | "info";
 
 const BADGE_TONES: Readonly<Record<DreamBadgeTone, string>> = {
   neutral: "border-border bg-surface text-muted-foreground",

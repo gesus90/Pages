@@ -171,7 +171,9 @@ export class OpenRouterDecisionsClient {
       CONVERSATION_DECISION_LIMITS.timeoutSeconds * 1000,
     );
     const signal =
-      input.signal === undefined ? timeout : AbortSignal.any([input.signal, timeout]);
+      input.signal === undefined
+        ? timeout
+        : AbortSignal.any([input.signal, timeout]);
     const response = await this.send(input, signal);
     this.log(response.status);
     if (!response.ok) {

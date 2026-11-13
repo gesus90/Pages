@@ -35,7 +35,10 @@ function RecipeTextFields({
   return (
     <div className="grid gap-3 sm:grid-cols-2">
       <div className="flex flex-col gap-1">
-        <label className="text-xs text-muted-foreground" htmlFor={`${baseId}-name`}>
+        <label
+          className="text-xs text-muted-foreground"
+          htmlFor={`${baseId}-name`}
+        >
           {t("agentLessons.editor.name")}
         </label>
         <Input
@@ -62,7 +65,10 @@ function RecipeTextFields({
         </p>
       </div>
       <div className="flex flex-col gap-1">
-        <label className="text-xs text-muted-foreground" htmlFor={`${baseId}-keywords`}>
+        <label
+          className="text-xs text-muted-foreground"
+          htmlFor={`${baseId}-keywords`}
+        >
           {t("agentLessons.editor.keywords")}
         </label>
         <Input
@@ -77,7 +83,10 @@ function RecipeTextFields({
         </p>
       </div>
       <div className="flex flex-col gap-1 sm:col-span-2">
-        <label className="text-xs text-muted-foreground" htmlFor={`${baseId}-summary`}>
+        <label
+          className="text-xs text-muted-foreground"
+          htmlFor={`${baseId}-summary`}
+        >
           {t("agentLessons.editor.summary")}
         </label>
         <Input
@@ -109,7 +118,10 @@ function RecipeBodyField({
   const { t } = useTranslation();
   return (
     <div className="flex flex-col gap-1">
-      <label className="text-xs text-muted-foreground" htmlFor={`${baseId}-body`}>
+      <label
+        className="text-xs text-muted-foreground"
+        htmlFor={`${baseId}-body`}
+      >
         {t("agentLessons.editor.body")}
       </label>
       <Textarea

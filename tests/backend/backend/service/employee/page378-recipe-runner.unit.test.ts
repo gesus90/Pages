@@ -18,7 +18,7 @@ function runner(
     calls,
     runner: {
       offers: (tool) => offers[tool] ?? "ok",
-      call: vi.fn(async (...call: Call) => {
+      call: vi.fn<AgentRecipeStepRunner["call"]>(async (...call) => {
         calls.push(call);
         const answer = answers[call[0]];
         if (answer === undefined)

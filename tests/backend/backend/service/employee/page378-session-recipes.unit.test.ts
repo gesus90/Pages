@@ -7,6 +7,7 @@ import { activeDreamDocument } from "@/backend/service/employee/AgentDreamDocume
 import type { AgentEmployeeSessionDependencies } from "@/backend/service/employee/AgentEmployeeSessions";
 import type { AgentRecipeBrief } from "@/backend/service/employee/AgentRecipeService";
 import type { User } from "@/definition/User";
+import { partialStub } from "../../stub-fixture";
 
 const person: User = {
   id: "person",
@@ -48,12 +49,26 @@ const BRIEF: AgentRecipeBrief = {
   ],
 };
 
+/** The start of the chat job, as the acp receives it. */
+interface StartedJob {
+  brief: { instructions: string };
+  employee: { recipes?: unknown };
+}
+
+/** A recipe-enabled employee session service with the calls it makes recorded. */
+interface RecipeFixture {
+  readonly service: AgentEmployeeSessions;
+  readonly tools: ReturnType<typeof vi.fn>;
+  readonly brief: ReturnType<typeof vi.fn>;
+  readonly started: () => StartedJob;
+}
+
 function fixture(
   options: {
     withoutRecipes?: boolean;
     brief?: () => Promise<AgentRecipeBrief>;
   } = {},
-) {
+): RecipeFixture {
   const start = vi.fn(async () => ({
     job: { id: "job" },
     messageId: "message",
@@ -122,10 +137,7 @@ function fixture(
     tools,
     brief,
     started: () =>
-      start.mock.calls[0]?.[0] as unknown as {
-        brief: { instructions: string };
-        employee: { recipes?: unknown };
-      },
+      (start.mock.calls[0] as unknown[] | undefined)?.[0] as StartedJob,
   };
 }
 
@@ -245,7 +257,7 @@ it("loads the session context of a chat with DREAM.md without the lessons that a
   const { AgentChatContext } =
     await import("@/backend/service/employee/AgentChatContext");
   const context = new AgentChatContext({
-    store: {
+    store: partialStub<never>({
       employees: () => ({
         find: async () => ({
           memory: "",
@@ -257,12 +269,12 @@ it("loads the session context of a chat with DREAM.md without the lessons that a
         summary: async () => null,
         conversationPeople: async () => [],
       }),
-    } as never,
+    }),
     messages: { messages: async () => [] },
-    memory: {
-      share: async (_audience: unknown, entries: unknown[]) => entries,
+    memory: partialStub<never>({
+      share: async (audience: unknown, entries: unknown[]) => entries,
       related: async () => [],
-    } as never,
+    }),
   });
   const brief = await context.brief(
     { agentId: "ed", person },

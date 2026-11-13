@@ -4,7 +4,10 @@ import {
   parseMemoryDocument,
   renderMemoryDocument,
 } from "@/backend/service/employee/AgentMemoryDocument";
-import { AgentLearningService } from "@/backend/service/employee/AgentLearningService";
+import {
+  AgentLearningService,
+  type AgentLearningDependencies,
+} from "@/backend/service/employee/AgentLearningService";
 import { AGENT_DREAM_DEFAULT_SCHEDULE } from "@/definition/AgentDreaming";
 
 import { AGENT, FakeRecipes } from "./page378-recipe-fixture";
@@ -15,6 +18,7 @@ import type { StoredAgentLogbookEntry } from "@/backend/database/repositories/em
 import type { AgentLearningSource } from "@/backend/database/repositories/employee/AgentLearningSourceRepository";
 import type { AgentDreamAnswer } from "@/backend/service/employee/AgentLearningPrompt";
 import type { AgentMemoryDocument } from "@/backend/service/employee/AgentMemoryDocument";
+import { partialStub } from "../../stub-fixture";
 
 export { AGENT };
 
@@ -70,64 +74,71 @@ export interface DreamWorld {
   memory(): AgentMemoryDocument;
 }
 
-/** A world of one agent for the dream run: an in-memory store, a model that answers as told, a clock. */
-export function dreamWorld(
-  answer: AgentDreamAnswer | null = EMPTY_ANSWER,
-): DreamWorld {
-  const employee: { value: StoredAgentEmployee } = {
-    value: {
-      userId: AGENT,
-      connectionId: "conn",
-      model: "model",
-      reasoningEffort: null,
-      access: "read_only",
-      soul: "",
-      instructions: "",
-      memory: "",
-      isLearningEnabled: true,
-      learningIntervalHours: 12,
-      learnedThrough: null,
-      lastLearningAt: null,
-      lastLearningResult: null,
-      revision: 1,
-      createdAt: "2026-11-01 10:00:00",
-      updatedAt: "2026-11-01 10:00:00",
-      voiceId: null,
-      voiceSpeedTenths: 10,
-      dream: "",
-      memoryCharacters: 8_000,
-      dreamCharacters: 4_000,
-      dreamSchedule: AGENT_DREAM_DEFAULT_SCHEDULE,
-      dreamRequest: null,
-    },
+/** The employee of the dream run as it is stored before any run. */
+function freshEmployee(): StoredAgentEmployee {
+  return {
+    userId: AGENT,
+    connectionId: "conn",
+    model: "model",
+    reasoningEffort: null,
+    access: "read_only",
+    soul: "",
+    instructions: "",
+    memory: "",
+    isLearningEnabled: true,
+    learningIntervalHours: 12,
+    learnedThrough: null,
+    lastLearningAt: null,
+    lastLearningResult: null,
+    revision: 1,
+    createdAt: "2026-11-01 10:00:00",
+    updatedAt: "2026-11-01 10:00:00",
+    voiceId: null,
+    voiceSpeedTenths: 10,
+    dream: "",
+    memoryCharacters: 8_000,
+    dreamCharacters: 4_000,
+    dreamSchedule: AGENT_DREAM_DEFAULT_SCHEDULE,
+    dreamRequest: null,
   };
-  const dreaming: { value: StoredAgentDreaming } = {
-    value: {
-      agentId: AGENT,
-      schedule: AGENT_DREAM_DEFAULT_SCHEDULE,
-      model: null,
-      lastRunAt: null,
-      createdAt: "2026-11-01 10:00:00",
-      request: null,
-      logbookThrough: 0,
-      toolsThrough: 0,
-      lastRun: null,
-    },
+}
+
+/** The dreaming settings of the agent as they are stored before any run. */
+function freshDreaming(): StoredAgentDreaming {
+  return {
+    agentId: AGENT,
+    schedule: AGENT_DREAM_DEFAULT_SCHEDULE,
+    model: null,
+    lastRunAt: null,
+    createdAt: "2026-11-01 10:00:00",
+    request: null,
+    logbookThrough: 0,
+    toolsThrough: 0,
+    lastRun: null,
   };
-  const recipes = new FakeRecipes();
-  const logbook = { entries: [] as StoredAgentLogbookEntry[] };
-  const sources = { entries: [] as AgentLearningSource[] };
-  const saved: DreamWorld["saved"] = { learning: [], runs: [], requests: [] };
-  const isWorking = { value: false };
-  const clock = { value: NOW };
-  const activity = { recordLearning: vi.fn(async () => undefined) };
-  const model = { dream: vi.fn(async () => answer) };
-  const recipeStore = recipes.store();
-  const store = {
+}
+
+/** The in-memory state the store of a dream world reads and writes. */
+interface DreamStoreParts {
+  readonly employee: { value: StoredAgentEmployee };
+  readonly dreaming: { value: StoredAgentDreaming };
+  readonly saved: DreamWorld["saved"];
+  readonly logbook: { entries: StoredAgentLogbookEntry[] };
+  readonly sources: { entries: AgentLearningSource[] };
+  readonly recipes: FakeRecipes;
+}
+
+/** The store of a dream world: the employee, the dreaming settings, the Lagebuch, sources and recipes. */
+function dreamStore(
+  parts: DreamStoreParts,
+): AgentLearningDependencies["store"] {
+  const { employee, dreaming, saved, logbook, sources } = parts;
+  const recipeStore = parts.recipes.store();
+  return partialStub<AgentLearningDependencies["store"]>({
     employees: () => ({
       find: async () => employee.value,
       saveLearning: async (
-        _agent: string,
+        agent: string,
         record: { learnedThrough: string | null; lastLearningAt: string },
       ) => {
         saved.learning.push(record);
@@ -142,7 +153,7 @@ export function dreamWorld(
     dreaming: () => ({
       find: async () => dreaming.value,
       saveRun: async (
-        _agent: string,
+        agent: string,
         record: {
           run: Record<string, unknown>;
           logbookThrough: number | null;
@@ -160,7 +171,7 @@ export function dreamWorld(
         employee.value = { ...employee.value, dreamRequest: null };
       },
       saveRequest: async (
-        _agent: string,
+        agent: string,
         request: { at: string; trigger: "manual" | "logbook" },
       ) => {
         saved.requests.push(request);
@@ -170,7 +181,7 @@ export function dreamWorld(
     sources: () => ({ read: async () => sources.entries }),
     logbook: () => ({
       forDreaming: async (
-        _agent: string,
+        agent: string,
         window: { after: number; limit: number },
       ) =>
         logbook.entries
@@ -180,14 +191,20 @@ export function dreamWorld(
     toolUses: () => recipeStore.toolUses(),
     recipes: () => recipeStore.recipes(),
     sessionSettings: () => ({ read: async () => ({ dreamTime: "03:00" }) }),
-  };
-  const memory = {
-    saveDream: vi.fn(async (_agent: string, dream: string) => {
+  });
+}
+
+/** The memory of the agent as the dream run changes it; the employee holds the text. */
+function memoryPort(employee: {
+  value: StoredAgentEmployee;
+}): AgentLearningDependencies["memory"] {
+  return {
+    saveDream: vi.fn(async (agent: string, dream: string) => {
       employee.value = { ...employee.value, dream };
     }),
     updateMemory: vi.fn(
       async (
-        _agent: string,
+        agent: string,
         change: (current: AgentMemoryDocument) => {
           document: AgentMemoryDocument;
           finished: readonly unknown[];
@@ -202,18 +219,34 @@ export function dreamWorld(
       },
     ),
   };
+}
+
+/** A world of one agent for the dream run: an in-memory store, a model that answers as told, a clock. */
+export function dreamWorld(
+  answer: AgentDreamAnswer | null = EMPTY_ANSWER,
+): DreamWorld {
+  const employee = { value: freshEmployee() };
+  const dreaming = { value: freshDreaming() };
+  const recipes = new FakeRecipes();
+  const logbook = { entries: [] as StoredAgentLogbookEntry[] };
+  const sources = { entries: [] as AgentLearningSource[] };
+  const saved: DreamWorld["saved"] = { learning: [], runs: [], requests: [] };
+  const isWorking = { value: false };
+  const clock = { value: NOW };
+  const activity = { recordLearning: vi.fn(async () => undefined) };
+  const model = { dream: vi.fn(async () => answer) };
   const service = new AgentLearningService({
-    store: store as never,
+    store: dreamStore({ employee, dreaming, saved, logbook, sources, recipes }),
     users: {
       findById: async () =>
-        ({
+        partialStub<never>({
           id: AGENT,
           displayName: "Ed",
           isAgent: true,
           isActive: true,
-        }) as never,
+        }),
     },
-    memory,
+    memory: memoryPort(employee),
     model: model as never,
     activity: activity as never,
     isWorkingInChat: () => isWorking.value,

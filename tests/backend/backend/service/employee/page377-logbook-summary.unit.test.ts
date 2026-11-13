@@ -13,6 +13,7 @@ import { TEAM, logbookWorld, settings } from "./page377-logbook-fixture";
 import type { PendingLogbookSession } from "@/backend/database/repositories/employee/AgentLogbookSessionRepository";
 import type { AgentMemoryModel } from "@/backend/service/employee/AgentMemoryModel";
 import type { User } from "@/definition/User";
+import { partialStub } from "../../stub-fixture";
 
 const AGENT: User = {
   id: "ed",
@@ -23,7 +24,11 @@ const AGENT: User = {
   mustChangePassword: false,
   isAgent: true,
 };
-const EMPLOYEE = { userId: "ed", connectionId: "own-connection", model: "own-model" };
+const EMPLOYEE = {
+  userId: "ed",
+  connectionId: "own-connection",
+  model: "own-model",
+};
 
 const PENDING: PendingLogbookSession = {
   sessionId: TEAM.sessionId,
@@ -36,6 +41,11 @@ const PENDING: PendingLogbookSession = {
   quietMinutes: 2,
 };
 
+interface LogbookReadPage {
+  readonly messages: { nr: number; from: string; at: string; text: string }[];
+  readonly next: number | null;
+}
+
 interface SummaryWorld {
   readonly summarizer: AgentLogbookSummarizer;
   readonly world: ReturnType<typeof logbookWorld>;
@@ -44,16 +54,15 @@ interface SummaryWorld {
   readonly saveProgress: ReturnType<typeof vi.fn>;
 }
 
-function summaryWorld(options: {
-  readonly pages?: readonly {
-    messages: { nr: number; from: string; at: string; text: string }[];
-    next: number | null;
-  }[];
-  readonly drafts?: unknown;
-  readonly agentSettings?: ReturnType<typeof settings>;
-  readonly instanceModel?: { connectionId: string; model: string } | null;
-  readonly agent?: User | null;
-} = {}): SummaryWorld {
+function summaryWorld(
+  options: {
+    readonly pages?: readonly LogbookReadPage[];
+    readonly drafts?: unknown;
+    readonly agentSettings?: ReturnType<typeof settings>;
+    readonly instanceModel?: { connectionId: string; model: string } | null;
+    readonly agent?: User | null;
+  } = {},
+): SummaryWorld {
   const world = logbookWorld([TEAM], options.agentSettings ?? settings());
   const pages = [...(options.pages ?? [])];
   const read = vi.fn(async () => pages.shift() ?? { messages: [], next: null });
@@ -62,21 +71,29 @@ function summaryWorld(options: {
       ? options.drafts
       : [
           { kind: "decision", text: "PAGE-370 übernimmt Ed bis Freitag." },
-          { kind: "open", text: "Mei schreibt die Release-Notizen bis Mittwoch." },
+          {
+            kind: "open",
+            text: "Mei schreibt die Release-Notizen bis Mittwoch.",
+          },
         ],
   );
   const saveProgress = vi.fn(async () => undefined);
   const summarizer = new AgentLogbookSummarizer({
-    store: {
+    store: partialStub<unknown>({
       logbook: () => world.logbook,
       logbookSessions: () => ({ saveProgress }),
       employees: () => ({ find: async () => EMPLOYEE }),
-    } as unknown as ConstructorParameters<typeof AgentLogbookSummarizer>[0]["store"],
+    }) as ConstructorParameters<typeof AgentLogbookSummarizer>[0]["store"],
     users: {
-      findById: async () => (options.agent === undefined ? AGENT : options.agent),
+      findById: async () =>
+        options.agent === undefined ? AGENT : options.agent,
     },
     reader: { read },
-    model: () => ({ logbook: logbookModel }) as unknown as Pick<AgentMemoryModel, "logbook">,
+    model: () =>
+      partialStub<unknown>({ logbook: logbookModel }) as Pick<
+        AgentMemoryModel,
+        "logbook"
+      >,
     logbook: world.service,
     instanceModel: async () => options.instanceModel ?? null,
     now: () => new Date("2026-11-13T17:10:00.000Z"),
@@ -86,8 +103,18 @@ function summaryWorld(options: {
 
 const MESSAGES = {
   messages: [
-    { nr: 11, from: "Igor", at: "2026-11-13T16:58:00.000Z", text: "PAGE-370 macht Ed bis Freitag." },
-    { nr: 12, from: "Mei", at: "2026-11-13T16:59:00.000Z", text: "Ich schreibe die Release-Notizen bis Mittwoch." },
+    {
+      nr: 11,
+      from: "Igor",
+      at: "2026-11-13T16:58:00.000Z",
+      text: "PAGE-370 macht Ed bis Freitag.",
+    },
+    {
+      nr: 12,
+      from: "Mei",
+      at: "2026-11-13T16:59:00.000Z",
+      text: "Ich schreibe die Release-Notizen bis Mittwoch.",
+    },
   ],
   next: null,
 };
@@ -116,12 +143,22 @@ it("adds the decisions and open tasks of a quiet chat to the Lagebuch as entries
       chat: "Gruppe „Pages-Team“",
       existing: [],
       messages: [
-        { from: "Igor", at: "2026-11-13T16:58:00.000Z", text: "PAGE-370 macht Ed bis Freitag." },
-        { from: "Mei", at: "2026-11-13T16:59:00.000Z", text: "Ich schreibe die Release-Notizen bis Mittwoch." },
+        {
+          from: "Igor",
+          at: "2026-11-13T16:58:00.000Z",
+          text: "PAGE-370 macht Ed bis Freitag.",
+        },
+        {
+          from: "Mei",
+          at: "2026-11-13T16:59:00.000Z",
+          text: "Ich schreibe die Release-Notizen bis Mittwoch.",
+        },
       ],
     },
   );
-  expect(world.logbook.entries.map((entry) => [entry.kind, entry.origin])).toEqual([
+  expect(
+    world.logbook.entries.map((entry) => [entry.kind, entry.origin]),
+  ).toEqual([
     ["decision", "background"],
     ["open", "background"],
   ]);
@@ -137,7 +174,9 @@ it("adds the decisions and open tasks of a quiet chat to the Lagebuch as entries
 });
 
 it("shows the model the entries the chat has already, so it adds only what is missing", async () => {
-  const { summarizer, world, logbookModel } = summaryWorld({ pages: [MESSAGES] });
+  const { summarizer, world, logbookModel } = summaryWorld({
+    pages: [MESSAGES],
+  });
   await world.service.record(
     "ed",
     { kind: "group", id: TEAM.chatId, name: TEAM.chatName },
@@ -147,17 +186,28 @@ it("shows the model the entries the chat has already, so it adds only what is mi
   await summarizer.summarize(PENDING);
   expect(logbookModel).toHaveBeenCalledWith(
     expect.anything(),
-    expect.objectContaining({ existing: ["PAGE-370 übernimmt Ed bis Freitag."] }),
+    expect.objectContaining({
+      existing: ["PAGE-370 übernimmt Ed bis Freitag."],
+    }),
   );
   // The same decision is not written twice.
-  expect(world.logbook.entries.filter((entry) => entry.kind === "decision")).toHaveLength(1);
+  expect(
+    world.logbook.entries.filter((entry) => entry.kind === "decision"),
+  ).toHaveLength(1);
 });
 
 it("names the person of a direct chat by name, not as person", async () => {
   const { summarizer, logbookModel } = summaryWorld({
     pages: [
       {
-        messages: [{ nr: 1, from: "person", at: "2026-11-13T16:58:00.000Z", text: "Ich mag kurze Antworten." }],
+        messages: [
+          {
+            nr: 1,
+            from: "person",
+            at: "2026-11-13T16:58:00.000Z",
+            text: "Ich mag kurze Antworten.",
+          },
+        ],
         next: null,
       },
     ],
@@ -181,8 +231,14 @@ it("names the person of a direct chat by name, not as person", async () => {
 it("takes the model of the agent, else the one of the instance, else the agent's own", async () => {
   const own = summaryWorld({
     pages: [MESSAGES],
-    agentSettings: settings({ connectionId: "agent-connection", model: "agent-cheap" }),
-    instanceModel: { connectionId: "instance-connection", model: "instance-cheap" },
+    agentSettings: settings({
+      connectionId: "agent-connection",
+      model: "agent-cheap",
+    }),
+    instanceModel: {
+      connectionId: "instance-connection",
+      model: "instance-cheap",
+    },
   });
   await own.summarizer.summarize(PENDING);
   expect(own.logbookModel).toHaveBeenCalledWith(
@@ -194,7 +250,10 @@ it("takes the model of the agent, else the one of the instance, else the agent's
 
   const instance = summaryWorld({
     pages: [MESSAGES],
-    instanceModel: { connectionId: "instance-connection", model: "instance-cheap" },
+    instanceModel: {
+      connectionId: "instance-connection",
+      model: "instance-cheap",
+    },
   });
   await instance.summarizer.summarize(PENDING);
   expect(instance.logbookModel).toHaveBeenCalledWith(
@@ -215,7 +274,9 @@ it("keeps a chat due when the model gives no usable answer, and writes nothing",
     pages: [MESSAGES],
     drafts: null,
   });
-  await expect(summarizer.summarize(PENDING)).resolves.toEqual({ status: "retry" });
+  await expect(summarizer.summarize(PENDING)).resolves.toEqual({
+    status: "retry",
+  });
   expect(world.logbook.entries).toHaveLength(0);
   expect(saveProgress).not.toHaveBeenCalled();
 });
@@ -239,7 +300,7 @@ it("finishes a chat without new messages and an inactive agent without asking a 
 });
 
 it("works off a long backlog over several runs: the chat stays due until it was read to its end", async () => {
-  const page = (start: number, next: number | null) => ({
+  const page = (start: number, next: number | null): LogbookReadPage => ({
     messages: Array.from({ length: 20 }, (_, index) => ({
       nr: start + index,
       from: "Igor",
@@ -249,7 +310,13 @@ it("works off a long backlog over several runs: the chat stays due until it was 
     next,
   });
   const { summarizer, saveProgress, read } = summaryWorld({
-    pages: [page(11, 30), page(31, 50), page(51, 70), page(71, 90), page(91, 110)],
+    pages: [
+      page(11, 30),
+      page(31, 50),
+      page(51, 70),
+      page(71, 90),
+      page(91, 110),
+    ],
   });
   await summarizer.summarize(PENDING);
   expect(read).toHaveBeenCalledTimes(5);
@@ -274,7 +341,13 @@ it("asks the model for entries in a fixed JSON form and reads its answer strictl
   const message = createLogbookMessage(
     "Gruppe „Pages-Team“",
     ["Alt"],
-    [{ from: "Igor", at: "2026-11-13T16:58:00.000Z", text: "password=geheim123456 und mehr" }],
+    [
+      {
+        from: "Igor",
+        at: "2026-11-13T16:58:00.000Z",
+        text: "password=geheim123456 und mehr",
+      },
+    ],
   );
   expect(message).toContain("Lagebuch-Ergänzung");
   expect(message).toContain('"eintraege"');
@@ -304,25 +377,26 @@ it("asks the model for entries in a fixed JSON form and reads its answer strictl
 });
 
 it("runs the model call as a short run of the agent's own on the chosen model, beside the chat sessions", async () => {
-  const run = vi.fn(async () => ({
+  const run = vi.fn<(...args: unknown[]) => unknown>(async () => ({
     start: { job: { id: "job" } },
     sessionId: "memory-session",
   }));
   const job = vi.fn(async () => ({ state: "completed" }));
   const model = new AgentSessionMemoryModel({
-    sessions: {
+    sessions: partialStub<unknown>({
       run,
       job,
       whenOutOfChats: async () => true,
-    } as unknown as ConstructorParameters<typeof AgentSessionMemoryModel>[0]["sessions"],
-    messages: {
+    }) as ConstructorParameters<typeof AgentSessionMemoryModel>[0]["sessions"],
+    messages: partialStub<unknown>({
       messages: async () => [
         {
           role: "assistant",
-          content: '```json\n{"eintraege":[{"art":"fakt","text":"Der Testserver heißt staging-2."}]}\n```',
+          content:
+            '```json\n{"eintraege":[{"art":"fakt","text":"Der Testserver heißt staging-2."}]}\n```',
         },
       ],
-    } as unknown as ConstructorParameters<typeof AgentSessionMemoryModel>[0]["messages"],
+    }) as ConstructorParameters<typeof AgentSessionMemoryModel>[0]["messages"],
     wait: async () => undefined,
   });
   const drafts = await model.logbook(
@@ -333,7 +407,9 @@ it("runs the model call as a short run of the agent's own on the chosen model, b
     },
     { chat: "Gruppe „Pages-Team“", existing: [], messages: [] },
   );
-  expect(drafts).toEqual([{ kind: "fact", text: "Der Testserver heißt staging-2." }]);
+  expect(drafts).toEqual([
+    { kind: "fact", text: "Der Testserver heißt staging-2." },
+  ]);
   expect(run).toHaveBeenCalledWith(
     expect.objectContaining({
       purpose: "memory",
@@ -341,21 +417,44 @@ it("runs the model call as a short run of the agent's own on the chosen model, b
       modelOverride: { connectionId: "cheap-connection", model: "cheap" },
     }),
   );
-  const request = run.mock.calls[0]?.[0] as unknown as { text: string };
+  const request = run.mock.calls[0]?.[0] as { text: string };
   expect(request.text).toContain("Lagebuch-Ergänzung");
 });
 
 it("looks for quiet chats of agents that answer in no chat and summarizes each once", async () => {
   const sessions: PendingLogbookSession[] = [
-    { ...PENDING, sessionId: "quiet", lastActivityAt: "2026-11-13T17:00:00.000Z" },
-    { ...PENDING, sessionId: "recent", lastActivityAt: "2026-11-13T17:09:00.000Z" },
-    { ...PENDING, sessionId: "busy", agentId: "busy-agent", lastActivityAt: "2026-11-13T16:00:00.000Z" },
-    { ...PENDING, sessionId: "longer-quiet", quietMinutes: 30, lastActivityAt: "2026-11-13T17:00:00.000Z" },
+    {
+      ...PENDING,
+      sessionId: "quiet",
+      lastActivityAt: "2026-11-13T17:00:00.000Z",
+    },
+    {
+      ...PENDING,
+      sessionId: "recent",
+      lastActivityAt: "2026-11-13T17:09:00.000Z",
+    },
+    {
+      ...PENDING,
+      sessionId: "busy",
+      agentId: "busy-agent",
+      lastActivityAt: "2026-11-13T16:00:00.000Z",
+    },
+    {
+      ...PENDING,
+      sessionId: "longer-quiet",
+      quietMinutes: 30,
+      lastActivityAt: "2026-11-13T17:00:00.000Z",
+    },
   ];
-  const summarize = vi.fn(async () => ({ status: "done" as const, saved: 1 }));
+  const summarize = vi.fn<AgentLogbookSummarizer["summarize"]>(async () => ({
+    status: "done" as const,
+    saved: 1,
+  }));
   let now = new Date("2026-11-13T17:10:00.000Z");
   const scheduler = new AgentLogbookScheduler({
-    store: { logbookSessions: () => ({ pending: async () => sessions }) } as never,
+    store: partialStub<never>({
+      logbookSessions: () => ({ pending: async () => sessions }),
+    }),
     summarizer: { summarize },
     isWorking: (agentId) => agentId === "busy-agent",
     now: () => now,
@@ -363,15 +462,19 @@ it("looks for quiet chats of agents that answer in no chat and summarizes each o
   await scheduler.runDue();
   // Ten minutes of quiet reach the two minutes of the default, not the 30 of the longer one;
   // the chat that was active a minute ago and the agent that answers elsewhere wait.
-  expect(summarize.mock.calls.map(([session]) => (session as PendingLogbookSession).sessionId)).toEqual(["quiet"]);
+  expect(summarize.mock.calls.map(([session]) => session.sessionId)).toEqual([
+    "quiet",
+  ]);
 
   // Later the others are due.
   now = new Date("2026-11-13T17:35:00.000Z");
   summarize.mockClear();
   await scheduler.runDue();
-  expect(
-    summarize.mock.calls.map(([session]) => (session as PendingLogbookSession).sessionId),
-  ).toEqual(["quiet", "recent", "longer-quiet"]);
+  expect(summarize.mock.calls.map(([session]) => session.sessionId)).toEqual([
+    "quiet",
+    "recent",
+    "longer-quiet",
+  ]);
 });
 
 it("tries a chat whose summary got no answer again only after ten minutes, and survives a failing run", async () => {
@@ -382,7 +485,9 @@ it("tries a chat whose summary got no answer again only after ten minutes, and s
     .mockResolvedValue({ status: "done", saved: 0 });
   let now = new Date("2026-11-13T17:10:00.000Z");
   const scheduler = new AgentLogbookScheduler({
-    store: { logbookSessions: () => ({ pending: async () => [PENDING] }) } as never,
+    store: partialStub<never>({
+      logbookSessions: () => ({ pending: async () => [PENDING] }),
+    }),
     summarizer: { summarize },
     isWorking: () => false,
     now: () => now,
@@ -405,7 +510,7 @@ it("starts and stops its looking once", async () => {
   try {
     const pending = vi.fn(async () => []);
     const scheduler = new AgentLogbookScheduler({
-      store: { logbookSessions: () => ({ pending }) } as never,
+      store: partialStub<never>({ logbookSessions: () => ({ pending }) }),
       summarizer: { summarize: vi.fn() },
       isWorking: () => false,
     });

@@ -84,7 +84,10 @@ export interface AgentLogbookSettings {
   /** Minutes without a message until a quiet chat is summarized. */
   readonly quietMinutes: number;
   /** The model of the background summary; `null` follows the instance, and without one the agent's own model. */
-  readonly model: { readonly connectionId: string; readonly model: string } | null;
+  readonly model: {
+    readonly connectionId: string;
+    readonly model: string;
+  } | null;
 }
 
 /** A chat the entries can be filtered by. */

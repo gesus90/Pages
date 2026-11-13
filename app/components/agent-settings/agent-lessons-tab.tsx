@@ -63,8 +63,9 @@ function LessonsContent({
  * The lists are read when the tab opens. After every change the tab shows the
  * overview the server answers with.
  *
- * @param agentId - The agent whose lessons and recipes the tab shows.
- * @param onClose - Closes the popup.
+ * @param props - The agent whose lessons and recipes the tab shows, and the
+ * callback that closes the popup.
+ * @returns The tab content or its loading and failure placeholder.
  */
 export function AgentLessonsTab({
   agentId,

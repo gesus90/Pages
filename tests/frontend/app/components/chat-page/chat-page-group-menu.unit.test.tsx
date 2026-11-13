@@ -148,7 +148,7 @@ it("names the current mode as the remark of the entry who answers", () => {
   expect(within(entry(/^Who answers\? …/)).getByText("@ only")).toBeTruthy();
 });
 
-it("names \"@ + Decision\" for a group without a mode of its own", () => {
+it('names "@ + Decision" for a group without a mode of its own', () => {
   renderGroup();
   openMenu();
   expect(

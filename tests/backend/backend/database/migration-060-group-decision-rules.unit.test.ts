@@ -7,7 +7,7 @@ const SQL =
     (migration) => migration.name === "060_group_decision_rules.sql",
   )?.sql ?? "";
 
-it("takes over the groups as the ticket says: observer and decision become \"@ + Decision\", mentions stays", () => {
+it('takes over the groups as the ticket says: observer and decision become "@ + Decision", mentions stays', () => {
   expect(SQL).toContain(
     "UPDATE conversation_reply_settings\nSET mode = 'decision'\nWHERE mode IN ('observer', 'decision');",
   );

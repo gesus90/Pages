@@ -58,7 +58,10 @@ export function filterLogbookEntries(
     .filter((word) => word !== "");
   return entries.filter((entry) => {
     if (filter.kind !== ALL_ENTRIES && entry.kind !== filter.kind) return false;
-    if (filter.chat !== ALL_ENTRIES && logbookChatKey(entry.source) !== filter.chat)
+    if (
+      filter.chat !== ALL_ENTRIES &&
+      logbookChatKey(entry.source) !== filter.chat
+    )
       return false;
     const haystack = [
       entry.text,

@@ -38,7 +38,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function isStringList(value: unknown): value is string[] {
-  return Array.isArray(value) && value.every((item) => typeof item === "string");
+  return (
+    Array.isArray(value) && value.every((item) => typeof item === "string")
+  );
 }
 
 function isSource(value: unknown): boolean {
@@ -140,12 +142,15 @@ export async function readAgentLogbookOverview(
   signal: AbortSignal,
 ): Promise<AgentLogbookResponse> {
   const query = new URLSearchParams({ agentId });
-  const response = await fetch(`${AGENT_LOGBOOK_ENDPOINT}?${query.toString()}`, {
-    cache: "no-store",
-    credentials: "same-origin",
-    headers: backendRequestHeaders({ Accept: "application/json" }),
-    signal,
-  });
+  const response = await fetch(
+    `${AGENT_LOGBOOK_ENDPOINT}?${query.toString()}`,
+    {
+      cache: "no-store",
+      credentials: "same-origin",
+      headers: backendRequestHeaders({ Accept: "application/json" }),
+      signal,
+    },
+  );
   return readLogbookResponse(response);
 }
 
@@ -156,7 +161,10 @@ function requestForm(request: AgentLogbookRequest): FormData {
   if (request.intent === "save-settings") {
     formData.set("limit", String(request.settings.limit));
     formData.set("quietMinutes", String(request.settings.quietMinutes));
-    formData.set("modelConnectionId", request.settings.model?.connectionId ?? "");
+    formData.set(
+      "modelConnectionId",
+      request.settings.model?.connectionId ?? "",
+    );
     formData.set("model", request.settings.model?.model ?? "");
   } else {
     for (const id of request.entryIds) formData.append("entryId", id);

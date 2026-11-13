@@ -7,13 +7,18 @@ import { AGENT_DREAM_DEFAULT_SCHEDULE } from "@/definition/AgentDreaming";
 import { EMPTY_ANSWER, dreamWorld, entry } from "./page378-dream-fixture";
 
 import type { AgentDreamSchedule } from "@/definition/AgentDreaming";
+import type { DreamWorld } from "./page378-dream-fixture";
+import { partialStub } from "../../stub-fixture";
 
 /** Local clock times, because the schedule runs in the time zone of the server. */
 function local(day: number, hours: number, minutes = 0): Date {
   return new Date(2026, 10, day, hours, minutes, 0, 0);
 }
 
-function scheduled(schedule: Partial<AgentDreamSchedule>, lastRun: Date) {
+function scheduled(
+  schedule: Partial<AgentDreamSchedule>,
+  lastRun: Date,
+): { world: DreamWorld; scheduler: AgentLearningScheduler } {
   const world = dreamWorld({
     ...EMPTY_ANSWER,
     lessons: [
@@ -27,9 +32,9 @@ function scheduled(schedule: Partial<AgentDreamSchedule>, lastRun: Date) {
     lastLearningAt: toDatabaseTime(lastRun),
   };
   const scheduler = new AgentLearningScheduler(
-    {
+    partialStub<never>({
       employees: () => ({ list: async () => [world.employee.value] }),
-    } as never,
+    }),
     world.service,
   );
   return { world, scheduler };

@@ -152,9 +152,7 @@ function invalid(reason: string): AgentRecipeCheck {
 }
 
 /** The checked parameters of a draft, or the reason one is not usable. */
-function checkParameters(
-  draft: AgentRecipeDraft,
-):
+function checkParameters(draft: AgentRecipeDraft):
   | {
       readonly names: Set<string>;
       readonly list: AgentRecipeContent["parameters"];
@@ -349,7 +347,7 @@ export function fillPlaceholders(
       if (value === undefined) throw new RecipeValueError(whole[1]);
       return value;
     }
-    return template.replace(PLACEHOLDER, (_match, placeholder: string) => {
+    return template.replace(PLACEHOLDER, (match, placeholder: string) => {
       const value = valueOf(placeholder, values);
       if (value === undefined) throw new RecipeValueError(placeholder);
       return textOf(value);

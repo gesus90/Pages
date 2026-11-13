@@ -8,6 +8,7 @@ import { ConversationAccounts } from "@/backend/service/conversation/Conversatio
 import type { AgentChatEntry, AgentChatTools } from "@/definition/AgentChat";
 import type { StoredConversationMessage } from "@/backend/database/repositories/conversation/ConversationMessageRepository";
 import type { EmployeeStore } from "@/backend/database/repositories/employee/EmployeeStore";
+import { partialStub } from "../../stub-fixture";
 
 const SECRET = "Geheimer Inhalt des vertraulichen Chats";
 
@@ -73,13 +74,13 @@ function guardFixture(): {
     read,
     send,
   };
-  const store = {
+  const store = partialStub<unknown>({
     chats: () => ({
       isConfidentialConversation: vi.fn(
-        async (_agent: string, id: string) => id === "secret-group",
+        async (agent: string, id: string) => id === "secret-group",
       ),
     }),
-  } as unknown as EmployeeStore;
+  }) as EmployeeStore;
   return { guard: new AgentChatToolGuard({ store }), tools, read, send };
 }
 
@@ -103,16 +104,23 @@ it("keeps a confidential chat out of every other session of the agent: it reads 
   const byId = new Map(list.chats.map((chat) => [chat.id, chat]));
   expect(byId.get("secret-group")?.lastMessage).toBeNull();
   expect(byId.get("open-group")?.lastMessage?.text).toBe(SECRET);
-  expect(JSON.stringify(list.chats.find((chat) => chat.id === "secret-group"))).not.toContain(SECRET);
+  expect(
+    JSON.stringify(list.chats.find((chat) => chat.id === "secret-group")),
+  ).not.toContain(SECRET);
 });
 
 it("lets the session of a confidential chat read its own chat", async () => {
   const { guard, tools, read } = guardFixture();
-  const own = guard.tools(tools, { agentId: "agent", conversationId: "secret-group" });
+  const own = guard.tools(tools, {
+    agentId: "agent",
+    conversationId: "secret-group",
+  });
   await own.read("agent", { chatId: "secret-group", beforeMessageId: null });
   expect(read).toHaveBeenCalledOnce();
   const list = await own.list("agent", { cursor: null });
-  expect(list.chats.find((chat) => chat.id === "secret-group")?.lastMessage?.text).toBe(SECRET);
+  expect(
+    list.chats.find((chat) => chat.id === "secret-group")?.lastMessage?.text,
+  ).toBe(SECRET);
 });
 
 it("returns no reply of a confidential chat to the session that wrote into it", async () => {
@@ -120,15 +128,29 @@ it("returns no reply of a confidential chat to the session that wrote into it", 
   const guarded = guard.tools(tools, SCOPE);
   const known = await guarded.send(
     "agent",
-    { chatId: "secret-group", text: "Hallo", waitForReply: true, timeoutSeconds: 30 },
+    {
+      chatId: "secret-group",
+      text: "Hallo",
+      waitForReply: true,
+      timeoutSeconds: 30,
+    },
     CONTEXT,
   );
   // The session does not even wait for the reply.
   expect(send.mock.calls[0]?.[1]).toMatchObject({ waitForReply: false });
-  expect(known).toEqual({ chatId: "secret-group", messageId: "sent", status: "sent" });
+  expect(known).toEqual({
+    chatId: "secret-group",
+    messageId: "sent",
+    status: "sent",
+  });
   const byTarget = await guarded.send(
     "agent",
-    { target: { type: "group", id: "g" }, text: "Hallo", waitForReply: true, timeoutSeconds: 30 },
+    {
+      target: { type: "group", id: "g" },
+      text: "Hallo",
+      waitForReply: true,
+      timeoutSeconds: 30,
+    },
     CONTEXT,
   );
   expect(byTarget.reply).toBeUndefined();
@@ -139,11 +161,13 @@ it("refuses the stored context of another confidential group", async () => {
   const { guard } = guardFixture();
   const read = vi.fn(async () => ({ summary: SECRET }));
   const reader = guard.contextReader(read, SCOPE);
-  await expect(reader({ conversationId: "secret-group" })).rejects.toBeInstanceOf(
-    ConversationError,
-  );
+  await expect(
+    reader({ conversationId: "secret-group" }),
+  ).rejects.toBeInstanceOf(ConversationError);
   expect(read).not.toHaveBeenCalled();
-  await expect(reader({ conversationId: "open-group" })).resolves.toEqual({ summary: SECRET });
+  await expect(reader({ conversationId: "open-group" })).resolves.toEqual({
+    summary: SECRET,
+  });
   await expect(reader({ conversationId: "group-own" })).resolves.toBeDefined();
 });
 
@@ -153,15 +177,22 @@ function readerFixture(): AgentChatReader {
       [
         "person",
         {
-          user: { id: "person" } as never,
-          participant: { id: "person", name: "Igor", kind: "human", color: null },
+          user: partialStub<never>({ id: "person" }),
+          participant: {
+            id: "person",
+            name: "Igor",
+            kind: "human",
+            color: null,
+          },
           role: "",
           isAvailable: true,
         },
       ],
     ]),
   );
-  const all = [1, 2, 3, 4, 5].map((sequence) => message(sequence, `Text ${String(sequence)}`));
+  const all = [1, 2, 3, 4, 5].map((sequence) =>
+    message(sequence, `Text ${String(sequence)}`),
+  );
   return new AgentChatReader({
     messages: {
       messages: vi.fn(async () =>
@@ -174,7 +205,7 @@ function readerFixture(): AgentChatReader {
       ),
     },
     conversationMessages: {
-      contentAfter: vi.fn(async (_id: string, after: number, limit: number) =>
+      contentAfter: vi.fn(async (id: string, after: number, limit: number) =>
         all.filter((entry) => entry.sequence > after).slice(0, limit),
       ),
     },

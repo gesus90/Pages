@@ -102,7 +102,9 @@ function cut(text: string, maximum: number): string {
 }
 
 /** An entry as the tools answer it: no ID, no sequence, in the words of the agent. */
-function describeEntry(entry: StoredAgentLogbookEntry): Record<string, unknown> {
+function describeEntry(
+  entry: StoredAgentLogbookEntry,
+): Record<string, unknown> {
   return {
     zeit: entry.createdAt.slice(0, 16).replace("T", " "),
     chat: logbookChatLabel(entry.source),
@@ -172,7 +174,9 @@ export class AgentLogbookService {
       logbook.participantNames(chat, agentId),
       logbook.ofChat(agentId, chat, DUPLICATE_WINDOW),
     ]);
-    const seen = new Set(known.map((entry) => normalizedLogbookText(entry.text)));
+    const seen = new Set(
+      known.map((entry) => normalizedLogbookText(entry.text)),
+    );
     let saved = 0;
     for (const draft of drafts) {
       const text = cut(
@@ -273,7 +277,8 @@ export class AgentLogbookService {
     if (!chat)
       return {
         gespeichert: false,
-        grund: "Dieser Lauf gehört zu keinem Chat und schreibt nicht ins Lagebuch.",
+        grund:
+          "Dieser Lauf gehört zu keinem Chat und schreibt nicht ins Lagebuch.",
       };
     const source: AgentLogbookChat = {
       kind: chat.kind,
@@ -331,7 +336,10 @@ export class AgentLogbookService {
 
   private answer(entries: readonly StoredAgentLogbookEntry[]): unknown {
     if (entries.length === 0)
-      return { eintraege: [], hinweis: "Keine passenden Einträge im Lagebuch." };
+      return {
+        eintraege: [],
+        hinweis: "Keine passenden Einträge im Lagebuch.",
+      };
     return { eintraege: entries.map(describeEntry) };
   }
 

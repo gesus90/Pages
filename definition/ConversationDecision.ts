@@ -134,7 +134,9 @@ export function resolveDecisionRules(
  *
  * @param rules - The submitted or stored rules.
  */
-export function isValidDecisionRules(rules: ConversationDecisionRules): boolean {
+export function isValidDecisionRules(
+  rules: ConversationDecisionRules,
+): boolean {
   const { minimum, maximum } = CONVERSATION_THRESHOLD_RANGE;
   const isPercent = (value: number): boolean =>
     Number.isInteger(value) && value >= minimum && value <= maximum;
@@ -143,8 +145,7 @@ export function isValidDecisionRules(rules: ConversationDecisionRules): boolean 
     isPercent(rules.responsibilityThreshold) &&
     isPercent(rules.secondThreshold) &&
     Number.isInteger(rules.maximumResponders) &&
-    rules.maximumResponders >=
-      CONVERSATION_MAXIMUM_RESPONDERS_RANGE.minimum &&
+    rules.maximumResponders >= CONVERSATION_MAXIMUM_RESPONDERS_RANGE.minimum &&
     rules.maximumResponders <= CONVERSATION_MAXIMUM_RESPONDERS_RANGE.maximum
   );
 }

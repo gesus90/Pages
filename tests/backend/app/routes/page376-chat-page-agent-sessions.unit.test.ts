@@ -52,23 +52,31 @@ beforeEach(() => {
 });
 
 function post(fields: Record<string, string>): Promise<Response> {
-  const request = new Request("http://pages.invalid/chat-page-api/agent-sessions", {
-    method: "POST",
-    body: new URLSearchParams(fields),
-  });
+  const request = new Request(
+    "http://pages.invalid/chat-page-api/agent-sessions",
+    {
+      method: "POST",
+      body: new URLSearchParams(fields),
+    },
+  );
   return action(routeArguments(request, EMPLOYEE, {}));
 }
 
 it("reads the sessions of an agent for the signed-in account", async () => {
   const response = await loader(
     routeArguments(
-      new Request("http://pages.invalid/chat-page-api/agent-sessions?agentId=agent"),
+      new Request(
+        "http://pages.invalid/chat-page-api/agent-sessions?agentId=agent",
+      ),
       EMPLOYEE,
       {},
     ),
   );
   expect(response.headers.get("Cache-Control")).toBe("no-store");
-  await expect(response.json()).resolves.toEqual({ ok: true, overview: OVERVIEW });
+  await expect(response.json()).resolves.toEqual({
+    ok: true,
+    overview: OVERVIEW,
+  });
   expect(services.agentChatSessionService.overview).toHaveBeenCalledWith(
     expect.objectContaining({ user: EMPLOYEE, isAdministrator: false }),
     "agent",
@@ -83,7 +91,9 @@ it("lets an administrator in the active admin mode see and change everything", a
   });
   await loader(
     routeArguments(
-      new Request("http://pages.invalid/chat-page-api/agent-sessions?agentId=agent"),
+      new Request(
+        "http://pages.invalid/chat-page-api/agent-sessions?agentId=agent",
+      ),
       EMPLOYEE,
       {},
     ),
@@ -100,18 +110,33 @@ it("refuses a request without an account", async () => {
   ).rejects.toMatchObject({ status: 403 });
 });
 
-it.each(["stop", "summarize", "restart"])("runs %s on one session and answers with the sessions as they stand", async (intent) => {
-  const response = await post({ intent, agentId: "agent", sessionId: "session-1" });
-  expect(services.agentChatSessionService.act).toHaveBeenCalledWith(
-    expect.objectContaining({ user: EMPLOYEE }),
-    intent,
-    "session-1",
-  );
-  await expect(response.json()).resolves.toMatchObject({ ok: true, overview: { agentId: "agent" } });
-});
+it.each(["stop", "summarize", "restart"])(
+  "runs %s on one session and answers with the sessions as they stand",
+  async (intent) => {
+    const response = await post({
+      intent,
+      agentId: "agent",
+      sessionId: "session-1",
+    });
+    expect(services.agentChatSessionService.act).toHaveBeenCalledWith(
+      expect.objectContaining({ user: EMPLOYEE }),
+      intent,
+      "session-1",
+    );
+    await expect(response.json()).resolves.toMatchObject({
+      ok: true,
+      overview: { agentId: "agent" },
+    });
+  },
+);
 
 it("saves the idle time and the restart threshold of an agent", async () => {
-  await post({ intent: "save-settings", agentId: "agent", idleMinutes: "20", restartPercent: "70" });
+  await post({
+    intent: "save-settings",
+    agentId: "agent",
+    idleMinutes: "20",
+    restartPercent: "70",
+  });
   expect(services.agentChatSessionService.saveSettings).toHaveBeenCalledWith(
     expect.objectContaining({ user: EMPLOYEE }),
     "agent",
@@ -120,11 +145,22 @@ it("saves the idle time and the restart threshold of an agent", async () => {
 });
 
 it("maps a refusal of the service to its status and an unknown change to 400", async () => {
-  services.agentChatSessionService.act.mockRejectedValueOnce(new AgentEmployeeError("notFound"));
-  const missing = await post({ intent: "stop", agentId: "agent", sessionId: "x" });
+  services.agentChatSessionService.act.mockRejectedValueOnce(
+    new AgentEmployeeError("notFound"),
+  );
+  const missing = await post({
+    intent: "stop",
+    agentId: "agent",
+    sessionId: "x",
+  });
   expect(missing.status).toBe(404);
-  await expect(missing.json()).resolves.toEqual({ ok: false, error: "notFound" });
-  services.agentChatSessionService.saveSettings.mockRejectedValueOnce(new AgentEmployeeError("forbidden"));
+  await expect(missing.json()).resolves.toEqual({
+    ok: false,
+    error: "notFound",
+  });
+  services.agentChatSessionService.saveSettings.mockRejectedValueOnce(
+    new AgentEmployeeError("forbidden"),
+  );
   const forbidden = await post({ intent: "save-settings", agentId: "agent" });
   expect(forbidden.status).toBe(403);
   const unknown = await post({ intent: "delete", agentId: "agent" });

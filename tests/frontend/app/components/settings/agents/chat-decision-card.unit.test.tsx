@@ -9,9 +9,9 @@ import { CONVERSATION_DEFAULT_DECISION_RULES } from "@/definition/ConversationDe
 import type { ChatDecisionAdministration } from "@/definition/ConversationDecision";
 import type { PageAgentModel } from "@/definition/PageAgent";
 
-const fetcher = vi.hoisted(() => ({
-  state: "idle" as "idle" | "submitting",
-  data: undefined as unknown,
+const fetcher = vi.hoisted((): { state: string; data: unknown } => ({
+  state: "idle",
+  data: undefined,
 }));
 vi.mock("react-router", () => ({
   useFetcher: () => ({
@@ -124,7 +124,9 @@ it("submits an empty model while none is chosen and says so", () => {
   expect(fields(form)).toMatchObject({ modelConnectionId: "", model: "" });
   expect(screen.getByText("No model chosen")).toBeTruthy();
   expect(
-    screen.getByText(/Without a decision model only agents named with @ answer/),
+    screen.getByText(
+      /Without a decision model only agents named with @ answer/,
+    ),
   ).toBeTruthy();
 });
 

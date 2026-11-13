@@ -6,6 +6,8 @@ import { AGENT, FakeRecipes, recipe } from "./page378-recipe-fixture";
 
 import type { AgentRecipeStepRunner } from "@/definition/AgentDreaming";
 
+const ANY_TEXT: unknown = expect.any(String);
+
 const OK: AgentRecipeStepRunner = {
   offers: () => "ok",
   call: vi.fn(async () => ({
@@ -183,7 +185,7 @@ it("answers a knowledge recipe with its guide and lists the recipes without a na
       {
         name: "ticket-anlegen",
         kind: "flow",
-        summary: expect.any(String),
+        summary: ANY_TEXT,
         parameters: ["projekt"],
       },
       {

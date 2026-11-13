@@ -177,7 +177,9 @@ function modelOptions(
     label:
       instanceModel === null
         ? t("agentLogbook.settings.modelAgent")
-        : t("agentLogbook.settings.modelInstance", { name: instanceModel.label }),
+        : t("agentLogbook.settings.modelInstance", {
+            name: instanceModel.label,
+          }),
   };
   const options = models.map((model) => ({
     value: logbookModelKey(model),
@@ -237,10 +239,7 @@ function SummaryRunCard({
             {t("agentLogbook.settings.modelLabel")}
           </label>
           {isReadOnly ? (
-            <p
-              className="text-sm text-foreground"
-              id="agent-logbook-model"
-            >
+            <p className="text-sm text-foreground" id="agent-logbook-model">
               {current?.label}
             </p>
           ) : (

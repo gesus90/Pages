@@ -80,7 +80,11 @@ export class AgentLogbookSummarizer {
       await this.finish(session, session.through, startedAt);
       return { status: "done", saved: 0 };
     }
-    const chat = { kind: session.kind, id: session.chatId, name: session.chatName };
+    const chat = {
+      kind: session.kind,
+      id: session.chatId,
+      name: session.chatName,
+    };
     const existing = await store
       .logbook()
       .ofChat(session.agentId, chat, EXISTING_ENTRIES);
@@ -108,9 +112,10 @@ export class AgentLogbookSummarizer {
   }
 
   /** The model of the summary: the agent's choice, else the instance's, else none (the agent's own). */
-  private async modelFor(agentId: string): Promise<
-    | { readonly connectionId: string; readonly model: string }
-    | undefined
+  private async modelFor(
+    agentId: string,
+  ): Promise<
+    { readonly connectionId: string; readonly model: string } | undefined
   > {
     const settings = await this.dependencies.store.logbook().settings(agentId);
     if (settings?.connectionId && settings.model)
@@ -131,7 +136,11 @@ export class AgentLogbookSummarizer {
     let through = session.through;
     for (let page = 0; page < READ_PAGES; page += 1) {
       const result = await this.dependencies.reader.read(
-        { sessionId: session.sessionId, kind: session.kind, chatId: session.chatId },
+        {
+          sessionId: session.sessionId,
+          kind: session.kind,
+          chatId: session.chatId,
+        },
         agentName,
         { ab: through },
       );

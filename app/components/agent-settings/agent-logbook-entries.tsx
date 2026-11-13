@@ -187,7 +187,10 @@ export function AgentLogbookEntries({
     <div className="flex flex-col gap-3">
       <EntriesToolbar filter={filter} chats={chats} onChange={setFilter} />
       <p className="text-xs text-muted-foreground" role="status">
-        {t("agentLogbook.shown", { shown: shown.length, count: entries.length })}
+        {t("agentLogbook.shown", {
+          shown: shown.length,
+          count: entries.length,
+        })}
       </p>
       {shown.length === 0 ? (
         <p className="rounded-xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">

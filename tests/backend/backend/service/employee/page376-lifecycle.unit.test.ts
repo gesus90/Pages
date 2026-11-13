@@ -84,7 +84,7 @@ function fixture(
   });
   const recordUsage = vi.fn(
     async (
-      _id: string,
+      id: string,
       usage: { contextUsed: number | null; contextSize: number | null },
     ) => {
       stored.current = {
@@ -101,7 +101,7 @@ function fixture(
       restartPercent: options.restartPercent ?? 80,
     })),
     recordUsage,
-    setNeedsRestart: vi.fn(async (_id: string, needsRestart: boolean) => {
+    setNeedsRestart: vi.fn(async (id: string, needsRestart: boolean) => {
       stored.current = { ...stored.current, needsRestart };
     }),
     markRestarted: vi.fn(async () => {
@@ -245,9 +245,9 @@ it("shares one restart between concurrent calls", async () => {
 
 it("reads the fill of the context in percent", () => {
   expect(contextPercentOf(session())).toBeNull();
-  expect(
-    contextPercentOf(session({ contextUsed: 58, contextSize: 100 })),
-  ).toBe(58);
+  expect(contextPercentOf(session({ contextUsed: 58, contextSize: 100 }))).toBe(
+    58,
+  );
   expect(
     contextPercentOf(session({ contextUsed: 120, contextSize: 100 })),
   ).toBe(100);
@@ -276,7 +276,7 @@ it("gives a restarted session its summary and the last messages of the chat", as
     },
     messages: { messages: vi.fn(async () => transcript) },
     memory: {
-      share: vi.fn(async (_audience: unknown, entries: unknown[]) => entries),
+      share: vi.fn(async (audience: unknown, entries: unknown[]) => entries),
       related: vi.fn(async () => []),
     },
   } as unknown as ConstructorParameters<typeof AgentChatContext>[0]);

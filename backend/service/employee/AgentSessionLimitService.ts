@@ -61,7 +61,9 @@ export class AgentSessionLimitService {
     "apply" | "running" | "waiting"
   >;
   private readonly writes = new SerialQueue();
-  private readonly models: (userId: string) => Promise<readonly PageAgentModel[]>;
+  private readonly models: (
+    userId: string,
+  ) => Promise<readonly PageAgentModel[]>;
 
   public constructor(
     settings: AgentSessionSettingsRepository,

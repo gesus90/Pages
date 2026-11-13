@@ -7,6 +7,7 @@ import type { ConversationAgentRequest } from "@/backend/service/conversation/Co
 import type { AgentConversationAnswerDependencies } from "@/backend/service/employee/AgentConversationAnswers";
 import type { AgentSessionMemoryModelDependencies } from "@/backend/service/employee/AgentMemoryModel";
 import type { User } from "@/definition/User";
+import { partialStub } from "../../stub-fixture";
 
 const person: User = {
   id: "person",
@@ -16,7 +17,12 @@ const person: User = {
   isActive: true,
   mustChangePassword: false,
 };
-const agent: User = { ...person, id: "agent", displayName: "Ed", isAgent: true };
+const agent: User = {
+  ...person,
+  id: "agent",
+  displayName: "Ed",
+  isAgent: true,
+};
 
 function request(throughSequence = 12): ConversationAgentRequest {
   return {
@@ -86,7 +92,10 @@ it("moves the position of the session forward once the round reached it", async 
   const { answers, saveDelivered, run } = answersFixture();
   await expect(answers.answer(request(12))).resolves.toBe("Antwort");
   expect(run).toHaveBeenCalledWith(
-    expect.objectContaining({ purpose: "conversation", conversationId: "group-1" }),
+    expect.objectContaining({
+      purpose: "conversation",
+      conversationId: "group-1",
+    }),
   );
   expect(saveDelivered).toHaveBeenCalledWith("session-1", 12);
 });
@@ -145,9 +154,12 @@ function modelFixture(isFree: boolean): {
 
 const CALLER = {
   agent,
-  employee: { revision: 1 } as never,
+  employee: partialStub<never>({ revision: 1 }),
 };
-const SUMMARY_INPUT = { previous: null, messages: [{ from: "chat", text: "Hallo" }] };
+const SUMMARY_INPUT = {
+  previous: null,
+  messages: [{ from: "chat", text: "Hallo" }],
+};
 
 it("runs the upkeep of the memory only while the agent works in no chat", async () => {
   const busy = modelFixture(false);
@@ -156,7 +168,9 @@ it("runs the upkeep of the memory only while the agent works in no chat", async 
   expect(busy.run).not.toHaveBeenCalled();
 
   const free = modelFixture(true);
-  await expect(free.model.summarize(CALLER, SUMMARY_INPUT)).resolves.toBe("Die Lage des Chats");
+  await expect(free.model.summarize(CALLER, SUMMARY_INPUT)).resolves.toBe(
+    "Die Lage des Chats",
+  );
   // A short run of its own in the memory session, never in a chat session.
   expect(free.run).toHaveBeenCalledWith(
     expect.objectContaining({ purpose: "memory", person: null }),

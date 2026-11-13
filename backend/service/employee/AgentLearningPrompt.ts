@@ -104,7 +104,10 @@ export interface AgentDreamRecipeSummary {
   /** The tools of a flow recipe in order. */
   readonly tools: readonly string[];
   /** Set while it is off, with what its last call reported. */
-  readonly disabled: { readonly reason: string; readonly error: string | null } | null;
+  readonly disabled: {
+    readonly reason: string;
+    readonly error: string | null;
+  } | null;
 }
 
 /** What a dream run reads. */
@@ -226,7 +229,8 @@ function describeToolUse(digest: AgentDreamToolDigest): string {
     [
       `Werkzeuge: ${JSON.stringify(digest.tools)}`,
       ...digest.repeated.map(
-        (call) => `Wiederholt (${String(call.calls)}×): ${JSON.stringify(call)}`,
+        (call) =>
+          `Wiederholt (${String(call.calls)}×): ${JSON.stringify(call)}`,
       ),
       ...digest.failures.map((call) => `Fehlschlag: ${JSON.stringify(call)}`),
       ...digest.trace.map((line) => `Ablauf: ${line}`),
@@ -275,15 +279,19 @@ function readTopics(entries: readonly unknown[]): AgentDreamTopic[] {
       tickets: topic.tickets
         .map((key) => key.trim().toUpperCase())
         .filter((key) => /^[A-Z][A-Z0-9]*-\d+$/u.test(key)),
-      wikiPages: topic.wikiPages.filter((id) => /^[A-Za-z0-9-]{1,100}$/u.test(id)),
+      wikiPages: topic.wikiPages.filter((id) =>
+        /^[A-Za-z0-9-]{1,100}$/u.test(id),
+      ),
     }));
 }
 
 function readRecipes(entries: readonly unknown[]): AgentRecipeDraft[] {
-  return entries.flatMap((entry) => {
-    const recipe = recipeSchema.safeParse(entry);
-    return recipe.success ? [recipe.data] : [];
-  }).slice(0, RECIPES_PER_RUN);
+  return entries
+    .flatMap((entry) => {
+      const recipe = recipeSchema.safeParse(entry);
+      return recipe.success ? [recipe.data] : [];
+    })
+    .slice(0, RECIPES_PER_RUN);
 }
 
 function readNumbers(entries: readonly unknown[]): number[] {
@@ -313,11 +321,11 @@ export function readDreamAnswer(
 ): AgentDreamAnswer | null {
   const checked = answerSchema.safeParse(readJsonObject(answer));
   if (!checked.success) return null;
-  const { data } = checked;
+  const parsed = checked.data;
   return {
-    topics: readTopics(data.memory),
-    discarded: readNumbers(data.discard),
-    lessons: data.lessons
+    topics: readTopics(parsed.memory),
+    discarded: readNumbers(parsed.discard),
+    lessons: parsed.lessons
       .flatMap((entry) => {
         const lesson = lessonSchema.safeParse(entry);
         return lesson.success ? [lesson.data] : [];
@@ -328,7 +336,7 @@ export function readDreamAnswer(
         evidence: stripCredentials(lesson.evidence),
         date: lesson.date ?? today,
       })),
-    recipes: readRecipes(data.recipes),
-    dropRecipes: readNames(data.dropRecipes),
+    recipes: readRecipes(parsed.recipes),
+    dropRecipes: readNames(parsed.dropRecipes),
   };
 }

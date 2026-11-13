@@ -107,9 +107,7 @@ function RecipeRow({ recipe, lessons }: RecipeRowProps): React.ReactElement {
         <AgentRecipeEditor
           recipe={recipe}
           isBusy={isBusy}
-          isSaving={
-            pendingKey === lessonsPendingKey("save-recipe", recipe.id)
-          }
+          isSaving={pendingKey === lessonsPendingKey("save-recipe", recipe.id)}
           onSave={(input) => void handleSave(input)}
           onCancel={() => setIsEditing(false)}
         />

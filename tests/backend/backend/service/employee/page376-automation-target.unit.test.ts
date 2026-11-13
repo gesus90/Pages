@@ -11,6 +11,7 @@ import { AgentAutomationTurns } from "@/backend/service/employee/AgentAutomation
 import type { EmployeeStore } from "@/backend/database/repositories/employee/EmployeeStore";
 import type { AgentAutomationTurnDependencies } from "@/backend/service/employee/AgentAutomationTurns";
 import type { User } from "@/definition/User";
+import { partialStub } from "../../stub-fixture";
 
 const owner: User = {
   id: "owner",
@@ -28,45 +29,80 @@ const agent: User = {
   isAgent: true,
 };
 
+function userById(id: string): User | null {
+  const users = new Map<string, User>([
+    ["agent", agent],
+    ["owner", owner],
+  ]);
+  return users.get(id) ?? null;
+}
+
 function storeWithGroups(groups: Record<string, string>): {
   readonly store: EmployeeStore;
   readonly findGroupByName: ReturnType<typeof vi.fn>;
 } {
-  const findGroupByName = vi.fn(async (name: string) => groups[name.toLowerCase()] ?? null);
-  const store = {
+  const findGroupByName = vi.fn(
+    async (name: string) => groups[name.toLowerCase()] ?? null,
+  );
+  const store = partialStub<EmployeeStore>({
     conversations: () => ({ findGroupByName }),
     employees: () => ({ find: vi.fn(async () => ({ revision: 1 })) }),
-  } as unknown as EmployeeStore;
+  });
   return { store, findGroupByName };
 }
 
 it("runs an automation without a target and with @Agentname in the direct chat of its owner with the agent", async () => {
   const { store } = storeWithGroups({});
   const target = new AgentAutomationTarget(store);
-  for (const chat of [undefined, null, "", "@All Might", "@all-might", "@ALL MIGHT"])
-    await expect(target.resolve({ agent, owner, chat })).resolves.toEqual({ kind: "direct", person: owner });
+  for (const chat of [
+    undefined,
+    null,
+    "",
+    "@All Might",
+    "@all-might",
+    "@ALL MIGHT",
+  ])
+    await expect(target.resolve({ agent, owner, chat })).resolves.toEqual({
+      kind: "direct",
+      person: owner,
+    });
 });
 
 it("runs an automation with [[Chatname]] in the group of that name the owner and the agent share", async () => {
-  const { store, findGroupByName } = storeWithGroups({ "pages team": "group-1" });
+  const { store, findGroupByName } = storeWithGroups({
+    "pages team": "group-1",
+  });
   const target = new AgentAutomationTarget(store);
-  await expect(target.resolve({ agent, owner, chat: "[[Pages Team]]" })).resolves.toEqual({
+  await expect(
+    target.resolve({ agent, owner, chat: "[[Pages Team]]" }),
+  ).resolves.toEqual({
     kind: "group",
     conversationId: "group-1",
     name: "Pages Team",
     person: owner,
   });
-  expect(findGroupByName).toHaveBeenCalledWith("Pages Team", ["agent", "owner"]);
-  await expect(target.resolve({ agent, owner, chat: "[[Gang]]" })).rejects.toMatchObject({ code: "target_chat_not_found" });
+  expect(findGroupByName).toHaveBeenCalledWith("Pages Team", [
+    "agent",
+    "owner",
+  ]);
+  await expect(
+    target.resolve({ agent, owner, chat: "[[Gang]]" }),
+  ).rejects.toMatchObject({ code: "target_chat_not_found" });
 });
 
 it("refuses a target that names another agent or is neither form, and gives an owner without a direct chat its own session", async () => {
   const { store } = storeWithGroups({});
   const target = new AgentAutomationTarget(store);
   for (const chat of ["@Conan", "Pages Team", "[[]]", "#Chat"])
-    await expect(target.resolve({ agent, owner, chat })).rejects.toBeInstanceOf(AutomationTargetError);
-  await expect(target.resolve({ agent, owner: { ...owner, isAgent: true }, chat: null })).resolves.toEqual({ kind: "own" });
-  await expect(target.resolve({ agent, owner: null, chat: "@All Might" })).resolves.toEqual({ kind: "own" });
+    await expect(target.resolve({ agent, owner, chat })).rejects.toBeInstanceOf(
+      AutomationTargetError,
+    );
+  await expect(
+    target.resolve({ agent, owner: { ...owner, isAgent: true }, chat: null }),
+  ).resolves.toEqual({ kind: "own" });
+  await expect(
+    target.resolve({ agent, owner: null, chat: "@All Might" }),
+  ).resolves.toEqual({ kind: "own" });
 });
 
 interface TurnFixture {
@@ -84,7 +120,9 @@ function turnFixture(groups: Record<string, string> = {}): TurnFixture {
   const postResult = vi.fn(async () => undefined);
   const dependencies = {
     store,
-    users: { findById: vi.fn(async (id: string) => (id === "agent" ? agent : id === "owner" ? owner : null)) },
+    users: {
+      findById: vi.fn(async (id: string) => userById(id)),
+    },
     sessions: {
       run,
       job: vi.fn(async () => ({ state: "completed" })),
@@ -99,7 +137,9 @@ function turnFixture(groups: Record<string, string> = {}): TurnFixture {
     now: () => new Date("2026-03-04T10:00:00.000Z"),
   };
   return {
-    turns: new AgentAutomationTurns(dependencies as unknown as AgentAutomationTurnDependencies),
+    turns: new AgentAutomationTurns(
+      dependencies as unknown as AgentAutomationTurnDependencies,
+    ),
     run,
     postResult,
   };
@@ -153,15 +193,23 @@ it("keeps a session of its own for an owner who is no person, and waits when the
   const fixture = turnFixture();
   await fixture.turns.start({ ...REQUEST, creatorId: "agent" });
   expect(fixture.run).toHaveBeenCalledWith(
-    expect.objectContaining({ purpose: "automation", conversationId: "automation:a1", person: null }),
+    expect.objectContaining({
+      purpose: "automation",
+      conversationId: "automation:a1",
+      person: null,
+    }),
   );
   fixture.run.mockRejectedValueOnce(new AgentEmployeeError("busy"));
-  await expect(fixture.turns.start(REQUEST)).rejects.toBeInstanceOf(AutomationAgentBusyError);
+  await expect(fixture.turns.start(REQUEST)).rejects.toBeInstanceOf(
+    AutomationAgentBusyError,
+  );
 });
 
 it("fails a run whose target chat does not exist before anything starts", async () => {
   const { turns, run } = turnFixture();
-  await expect(turns.start({ ...REQUEST, chat: "[[Gibt es nicht]]" })).rejects.toMatchObject({
+  await expect(
+    turns.start({ ...REQUEST, chat: "[[Gibt es nicht]]" }),
+  ).rejects.toMatchObject({
     code: "target_chat_not_found",
   });
   expect(run).not.toHaveBeenCalled();

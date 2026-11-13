@@ -32,7 +32,10 @@ export interface AgentLogbookAdministrationDependencies {
   readonly users: Pick<UserRepository, "findById">;
   readonly logbook: Pick<AgentLogbookService, "trim">;
   /** Whether a person takes part in a conversation. */
-  readonly isMember: (conversationId: string, userId: string) => Promise<boolean>;
+  readonly isMember: (
+    conversationId: string,
+    userId: string,
+  ) => Promise<boolean>;
   /** The models an administrator may give an agent. */
   readonly models: (userId: string) => Promise<readonly PageAgentModel[]>;
   /** The model the instance names for the summary; `null` without one. */
@@ -60,9 +63,14 @@ const settingsInput = z
     modelConnectionId: optionalText,
     model: optionalText,
   })
-  .refine((input) => (input.modelConnectionId === null) === (input.model === null));
+  .refine(
+    (input) => (input.modelConnectionId === null) === (input.model === null),
+  );
 
-const removeInput = z.array(z.string().min(1).max(100)).min(1).max(REMOVE_LIMIT);
+const removeInput = z
+  .array(z.string().min(1).max(100))
+  .min(1)
+  .max(REMOVE_LIMIT);
 
 function choiceOf(model: PageAgentModel): AgentLogbookModelChoice[] {
   return model.connectionId === undefined
@@ -188,11 +196,13 @@ export class AgentLogbookAdministration {
         : null;
     if (chosen !== null && !(await this.isAllowed(viewer.user.id, chosen)))
       throw new AgentEmployeeError("invalidInput");
-    const isSaved = await this.dependencies.store.logbook().saveSettings(agentId, {
-      limit: parsed.data.limit,
-      quietMinutes: parsed.data.quietMinutes,
-      model: chosen,
-    });
+    const isSaved = await this.dependencies.store
+      .logbook()
+      .saveSettings(agentId, {
+        limit: parsed.data.limit,
+        quietMinutes: parsed.data.quietMinutes,
+        model: chosen,
+      });
     if (!isSaved) throw new AgentEmployeeError("notFound");
     await this.dependencies.logbook.trim(agentId);
   }

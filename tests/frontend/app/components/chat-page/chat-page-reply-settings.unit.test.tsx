@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { I18nextProvider } from "react-i18next";
 import { beforeEach, expect, it, vi } from "vitest";
+import type { Mock } from "vitest";
 
 import { ChatPageReplySettings } from "@/app/components/chat-page/chat-page-reply-settings";
 import { createI18n } from "@/app/lib/i18n";
@@ -16,7 +17,7 @@ import type {
 interface FakeFetcher {
   data: unknown;
   state: "idle" | "submitting";
-  submit: ReturnType<typeof vi.fn>;
+  submit: Mock<(...args: unknown[]) => void>;
 }
 
 const fetchers = vi.hoisted(() => ({
@@ -95,21 +96,34 @@ const DECISIONS: readonly ConversationDecisionEntry[] = [
   },
 ];
 
-function fetcher(data: unknown = undefined): FakeFetcher {
-  return { data, state: "idle", submit: vi.fn() };
+function fetcher(initialData: unknown = undefined): FakeFetcher {
+  return {
+    data: initialData,
+    state: "idle",
+    submit: vi.fn<(...args: unknown[]) => void>(),
+  };
 }
 
 function renderPopup(
   settings: ConversationReplySettingsView | null,
-  options: { decisions?: readonly ConversationDecisionEntry[]; saved?: unknown } = {},
+  options: {
+    decisions?: readonly ConversationDecisionEntry[];
+    saved?: unknown;
+  } = {},
 ): { readonly writer: FakeFetcher; readonly reader: FakeFetcher } {
   const reader = fetcher(
-    settings === null ? undefined : { ok: true, intent: "reply-settings", replySettings: settings },
+    settings === null
+      ? undefined
+      : { ok: true, intent: "reply-settings", replySettings: settings },
   );
   const decisions = fetcher(
     options.decisions === undefined
       ? undefined
-      : { ok: true, intent: "reply-decisions", replyDecisions: options.decisions },
+      : {
+          ok: true,
+          intent: "reply-decisions",
+          replyDecisions: options.decisions,
+        },
   );
   const writer = fetcher(options.saved);
   fetchers.list = [reader, decisions, writer];
@@ -128,7 +142,8 @@ function renderPopup(
 
 function slider(name: string): HTMLInputElement {
   const element = screen.getByRole("slider", { name });
-  if (!(element instanceof HTMLInputElement)) throw new Error("range input expected");
+  if (!(element instanceof HTMLInputElement))
+    throw new Error("range input expected");
   return element;
 }
 
@@ -144,19 +159,27 @@ beforeEach(() => {
   fetchers.calls = 0;
 });
 
-it("shows the tab \"Answers\" with both modes, the decision model of the instance and the sliders at the defaults", () => {
+it('shows the tab "Answers" with both modes, the decision model of the instance and the sliders at the defaults', () => {
   renderPopup(SETTINGS);
-  expect(screen.getByRole("dialog", { name: "Who answers in “Team”?" })).toBeTruthy();
+  expect(
+    screen.getByRole("dialog", { name: "Who answers in “Team”?" }),
+  ).toBeTruthy();
   expect(screen.getByRole("tab", { name: "Answers" })).toBeTruthy();
   expect(screen.getByRole("tab", { name: "Latest decisions" })).toBeTruthy();
   const modes = screen.getByRole("group", { name: "Who answers?" });
   expect(
-    within(modes).getByRole("button", { name: "@ + Decision" }).getAttribute("aria-pressed"),
+    within(modes)
+      .getByRole("button", { name: "@ + Decision" })
+      .getAttribute("aria-pressed"),
   ).toBe("true");
   expect(
-    within(modes).getByRole("button", { name: "@ only" }).getAttribute("aria-pressed"),
+    within(modes)
+      .getByRole("button", { name: "@ only" })
+      .getAttribute("aria-pressed"),
   ).toBe("false");
-  expect(screen.getByText(/Like “@ only”\. When a message contains no @/)).toBeTruthy();
+  expect(
+    screen.getByText(/Like “@ only”\. When a message contains no @/),
+  ).toBeTruthy();
   expect(screen.getByText("Perplexity Decider V1.3")).toBeTruthy();
   expect(slider("Answer threshold").value).toBe("60");
   expect(slider("Responsibility threshold").value).toBe("50");
@@ -165,15 +188,24 @@ it("shows the tab \"Answers\" with both modes, the decision model of the instanc
   expect(screen.queryByRole("alert")).toBeNull();
 });
 
-it("switches the sliders off in the mode \"@ only\" and on again in \"@ + Decision\"", () => {
+it('switches the sliders off in the mode "@ only" and on again in "@ + Decision"', () => {
   renderPopup(SETTINGS);
   const modes = screen.getByRole("group", { name: "Who answers?" });
   fireEvent.click(within(modes).getByRole("button", { name: "@ only" }));
-  expect(screen.getByText("Only the agents named with @Name answer.")).toBeTruthy();
-  for (const name of ["Answer threshold", "Responsibility threshold", "Second threshold", "Most answering agents"])
+  expect(
+    screen.getByText("Only the agents named with @Name answer."),
+  ).toBeTruthy();
+  for (const name of [
+    "Answer threshold",
+    "Responsibility threshold",
+    "Second threshold",
+    "Most answering agents",
+  ])
     expect(slider(name).disabled).toBe(true);
   expect(
-    (screen.getByRole("button", { name: "Reset to default" }) as HTMLButtonElement).disabled,
+    screen.getByRole<HTMLButtonElement>("button", {
+      name: "Reset to default",
+    }).disabled,
   ).toBe(true);
   fireEvent.click(within(modes).getByRole("button", { name: "@ + Decision" }));
   expect(slider("Answer threshold").disabled).toBe(false);
@@ -199,9 +231,12 @@ it("saves mode, thresholds and maximum of the group", () => {
 it("saves only the mode while the group follows the defaults of the instance", () => {
   const { writer } = renderPopup(SETTINGS);
   fireEvent.click(
-    within(screen.getByRole("group", { name: "Who answers?" })).getByRole("button", {
-      name: "@ only",
-    }),
+    within(screen.getByRole("group", { name: "Who answers?" })).getByRole(
+      "button",
+      {
+        name: "@ only",
+      },
+    ),
   );
   fireEvent.click(screen.getByRole("button", { name: "Save" }));
   expect(submitted(writer)).toEqual({
@@ -212,11 +247,15 @@ it("saves only the mode while the group follows the defaults of the instance", (
   });
 });
 
-it("returns the sliders to the defaults with \"Reset to default\" and saves that", () => {
+it('returns the sliders to the defaults with "Reset to default" and saves that', () => {
   const own = {
     ...SETTINGS,
     isDefault: false,
-    rules: { ...CONVERSATION_DEFAULT_DECISION_RULES, answerThreshold: 90, maximumResponders: 1 },
+    rules: {
+      ...CONVERSATION_DEFAULT_DECISION_RULES,
+      answerThreshold: 90,
+      maximumResponders: 1,
+    },
   };
   const { writer } = renderPopup(own);
   expect(slider("Answer threshold").value).toBe("90");
@@ -231,12 +270,16 @@ it("lets a member who does not manage the group read but not change it", () => {
   renderPopup({ ...SETTINGS, canManage: false });
   expect(slider("Answer threshold").disabled).toBe(true);
   expect(
-    (within(screen.getByRole("group", { name: "Who answers?" })).getByRole("button", {
+    within(
+      screen.getByRole("group", { name: "Who answers?" }),
+    ).getByRole<HTMLButtonElement>("button", {
       name: "@ only",
-    }) as HTMLButtonElement).disabled,
+    }).disabled,
   ).toBe(true);
   expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
-  expect(screen.getByText("Only whoever manages the chat may change this.")).toBeTruthy();
+  expect(
+    screen.getByText("Only whoever manages the chat may change this."),
+  ).toBeTruthy();
 });
 
 it.each([
@@ -266,8 +309,12 @@ it("confirms a save", () => {
 });
 
 it("reports a failed save", () => {
-  renderPopup(SETTINGS, { saved: { ok: false, intent: "save-reply-settings" } });
-  expect(screen.getByRole("alert").textContent).toBe("The setting could not be saved.");
+  renderPopup(SETTINGS, {
+    saved: { ok: false, intent: "save-reply-settings" },
+  });
+  expect(screen.getByRole("alert").textContent).toBe(
+    "The setting could not be saved.",
+  );
 });
 
 it("says that the settings could not be loaded when none arrive", () => {
@@ -277,7 +324,9 @@ it("says that the settings could not be loaded when none arrive", () => {
 
 it("lists the last decisions with time, message, expected answer, distribution and result", () => {
   renderPopup(SETTINGS, { decisions: DECISIONS });
-  fireEvent.mouseDown(screen.getByRole("tab", { name: "Latest decisions" }), { button: 0 });
+  fireEvent.mouseDown(screen.getByRole("tab", { name: "Latest decisions" }), {
+    button: 0,
+  });
   fireEvent.click(screen.getByRole("tab", { name: "Latest decisions" }));
   const items = screen.getAllByRole("listitem");
   expect(items).toHaveLength(4);
@@ -291,12 +340,16 @@ it("lists the last decisions with time, message, expected answer, distribution a
   expect(nobody?.textContent).toContain("no answer");
   expect(mention?.textContent).toContain("@ → Ed");
   expect(mention?.textContent).toContain("—");
-  expect(unavailable?.textContent).toContain("Decision model failed · like “@ only”");
+  expect(unavailable?.textContent).toContain(
+    "Decision model failed · like “@ only”",
+  );
 });
 
 it("says that there are no decisions yet", () => {
   renderPopup(SETTINGS, { decisions: [] });
-  fireEvent.mouseDown(screen.getByRole("tab", { name: "Latest decisions" }), { button: 0 });
+  fireEvent.mouseDown(screen.getByRole("tab", { name: "Latest decisions" }), {
+    button: 0,
+  });
   fireEvent.click(screen.getByRole("tab", { name: "Latest decisions" }));
   expect(screen.getByText("No decisions yet.")).toBeTruthy();
 });
@@ -304,12 +357,16 @@ it("says that there are no decisions yet", () => {
 it("reads the settings and the decisions whenever it opens", () => {
   const { reader } = renderPopup(SETTINGS);
   const first = reader.submit.mock.calls[0]?.[0];
-  expect(first instanceof FormData ? Object.fromEntries(first.entries()) : {}).toEqual({
+  expect(
+    first instanceof FormData ? Object.fromEntries(first.entries()) : {},
+  ).toEqual({
     intent: "reply-settings",
     conversationId: "g",
   });
   const second = fetchers.list[1]?.submit.mock.calls[0]?.[0];
-  expect(second instanceof FormData ? Object.fromEntries(second.entries()) : {}).toEqual({
+  expect(
+    second instanceof FormData ? Object.fromEntries(second.entries()) : {},
+  ).toEqual({
     intent: "reply-decisions",
     conversationId: "g",
   });

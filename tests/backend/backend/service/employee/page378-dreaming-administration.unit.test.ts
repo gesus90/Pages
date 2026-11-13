@@ -10,29 +10,38 @@ import type { AgentChatSessionViewer } from "@/backend/service/employee/AgentCha
 import type { AgentDreamSchedule } from "@/definition/AgentDreaming";
 import type { PageAgentModel } from "@/definition/PageAgent";
 import type { User } from "@/definition/User";
+import { partialStub } from "../../stub-fixture";
 
 const ADMIN: AgentChatSessionViewer = {
-  user: { id: "admin", displayName: "Ada" } as User,
+  user: partialStub<User>({ id: "admin", displayName: "Ada" }),
   isAdministrator: true,
 };
 const MEMBER: AgentChatSessionViewer = {
-  user: { id: "igor", displayName: "Igor" } as User,
+  user: partialStub<User>({ id: "igor", displayName: "Igor" }),
   isAdministrator: false,
 };
-const CHEAP = {
+const CHEAP = partialStub<unknown>({
   id: "cheap",
   connectionId: "cheap-connection",
   model: "cheap-model",
   name: "Cheap Model",
-} as unknown as PageAgentModel;
-const OWN = {
+}) as PageAgentModel;
+const OWN = partialStub<unknown>({
   id: "own",
   connectionId: "conn",
   model: "model",
   name: "Claude Sonnet 5.5",
-} as unknown as PageAgentModel;
+}) as PageAgentModel;
 
 const NOW = new Date("2026-11-13T10:00:00.000Z");
+
+/** The administration with its store, its saving and its dream run, as the test set it up. */
+interface AdministrationWorld {
+  readonly service: AgentDreamingAdministration;
+  readonly saveSchedule: ReturnType<typeof vi.fn>;
+  readonly request: ReturnType<typeof vi.fn>;
+  readonly employee: () => StoredAgentEmployee;
+}
 
 function world(
   overrides: {
@@ -41,8 +50,8 @@ function world(
     isWorking?: boolean;
     learning?: boolean;
   } = {},
-) {
-  let employee = {
+): AdministrationWorld {
+  let employee = partialStub<unknown>({
     userId: "ed",
     connectionId: "conn",
     model: "model",
@@ -57,8 +66,8 @@ function world(
     dreamSchedule: AGENT_DREAM_DEFAULT_SCHEDULE,
     dreamRequest: null,
     ...overrides.employee,
-  } as unknown as StoredAgentEmployee;
-  let dreaming = {
+  }) as StoredAgentEmployee;
+  let dreaming = partialStub<unknown>({
     agentId: "ed",
     schedule: employee.dreamSchedule,
     model: null,
@@ -76,27 +85,27 @@ function world(
       log: [{ kind: "memoryTaken", text: "Release" }],
     },
     ...overrides.dreaming,
-  } as unknown as StoredAgentDreaming;
+  }) as StoredAgentDreaming;
   const saveSchedule = vi.fn(
     async (
-      _agent: string,
+      agent: string,
       change: { schedule: AgentDreamSchedule; model: unknown },
     ) => {
       employee = {
         ...employee,
         dreamSchedule: change.schedule,
-      } as StoredAgentEmployee;
-      dreaming = {
+      };
+      dreaming = partialStub<StoredAgentDreaming>({
         ...dreaming,
         schedule: change.schedule,
         model: change.model,
-      } as StoredAgentDreaming;
+      });
       return true;
     },
   );
   const request = vi.fn(async () => "started" as const);
   const service = new AgentDreamingAdministration({
-    store: {
+    store: partialStub<never>({
       employees: () => ({ find: async () => employee }),
       dreaming: () => ({ find: async () => dreaming, saveSchedule }),
       logbook: () => ({
@@ -104,16 +113,16 @@ function world(
         count: async () => 170,
       }),
       sessionSettings: () => ({ read: async () => ({ dreamTime: "03:00" }) }),
-    } as never,
+    }),
     users: {
       findById: async (id: string) =>
         id === "ed"
-          ? ({
+          ? partialStub<User>({
               id: "ed",
               displayName: "Ed",
               isAgent: true,
               isActive: true,
-            } as User)
+            })
           : null,
     },
     learning:
@@ -248,7 +257,7 @@ it("starts a run on request, and reports that it waits while the agent works in 
   const { service, request } = world();
   expect(await service.runNow(ADMIN, "ed")).toBe("started");
   expect(request).toHaveBeenCalledWith("ed", "manual");
-  request.mockResolvedValueOnce("waiting" as never);
+  request.mockResolvedValueOnce("waiting");
   expect(await service.runNow(ADMIN, "ed")).toBe("waiting");
   await expect(
     world({ learning: false }).service.runNow(ADMIN, "ed"),

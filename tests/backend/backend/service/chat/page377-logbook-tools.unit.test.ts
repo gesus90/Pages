@@ -4,11 +4,15 @@ import { PicaAcpToolTurns } from "@/backend/service/chat/acp/PicaAcpToolTurns";
 import { createPicaTools } from "@/backend/service/chat/PicaTools";
 import { PICA_TOOL_OUTCOME } from "@/backend/service/chat/PicaToolSchemas";
 
+import type { RuntimeToolInvocation } from "@/backend/agents/runtime/RuntimeToolRegistry";
 import type { AgentLogbookTools } from "@/definition/AgentLogbook";
+import { partialStub } from "../../stub-fixture";
 
 const NAMES = ["lagebuch_merken", "lagebuch_suchen", "lagebuch_lesen"];
 
-function registryOf(logbook: AgentLogbookTools | undefined) {
+function registryOf(
+  logbook: AgentLogbookTools | undefined,
+): ReturnType<typeof createPicaTools> {
   return createPicaTools({
     tools: { run: vi.fn() },
     sessions: { confirmationWord: async () => "LÖSCHEN" },
@@ -21,7 +25,7 @@ async function call(
   registry: ReturnType<typeof registryOf>,
   tool: string,
   parameters: unknown,
-) {
+): Promise<RuntimeToolInvocation | null> {
   const invocation = await registry.invoke(tool, parameters, {
     userId: "agent",
     sessionId: "session",
@@ -73,11 +77,18 @@ it("passes the checked input of the model to the Lagebuch and answers its result
     error: null,
   });
 
-  const searched = await call(registry, "lagebuch_suchen", { text: "PAGE-370" });
+  const searched = await call(registry, "lagebuch_suchen", {
+    text: "PAGE-370",
+  });
   expect(stub.search).toHaveBeenCalledWith({ text: "PAGE-370" });
-  expect(PICA_TOOL_OUTCOME.parse(searched?.output).result).toContain("PAGE-370");
+  expect(PICA_TOOL_OUTCOME.parse(searched?.output).result).toContain(
+    "PAGE-370",
+  );
 
-  await call(registry, "lagebuch_lesen", { chat: "Pages-Team", thema: "Release" });
+  await call(registry, "lagebuch_lesen", {
+    chat: "Pages-Team",
+    thema: "Release",
+  });
   expect(stub.read).toHaveBeenCalledWith({
     chat: "Pages-Team",
     thema: "Release",
@@ -110,7 +121,7 @@ it("lists the Lagebuch tools in the catalog of the turns of a job that has the L
     sessions: { confirmationWord: async () => "LÖSCHEN" },
   };
   const withLogbook = new PicaAcpToolTurns(
-    { ...dependencies, logbook: stub.tools } as never,
+    partialStub<never>({ ...dependencies, logbook: stub.tools }),
     () => "run",
   );
   const ids = (await withLogbook.catalog("agent")).map((tool) => tool.id);

@@ -142,8 +142,9 @@ function LogbookPlaceholder({
  * the overview the server answers with, and the entries restart from the saved
  * settings whenever those change, so a save never leaves stale text in them.
  *
- * @param agentId - The agent whose Lagebuch the tab shows.
- * @param onClose - Closes the popup.
+ * @param props - The agent whose Lagebuch the tab shows, and the callback that
+ * closes the popup.
+ * @returns The tab content or its loading and failure placeholder.
  */
 export function AgentLogbookTab({
   agentId,

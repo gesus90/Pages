@@ -7,10 +7,9 @@ import { ConversationReader } from "@/backend/service/conversation/ConversationR
 
 import { bareInstance } from "../tasks/bare-instance";
 
-import type {
-  StoredConversationDecision,
-} from "@/backend/database/repositories/conversation/ConversationDecisionRepository";
+import type { StoredConversationDecision } from "@/backend/database/repositories/conversation/ConversationDecisionRepository";
 import type { StoredConversationMessage } from "@/backend/database/repositories/conversation/ConversationMessageRepository";
+import type { ConversationAccount } from "@/backend/service/conversation/ConversationDirectory";
 import type { User } from "@/definition/User";
 
 const person: User = {
@@ -22,7 +21,11 @@ const person: User = {
   mustChangePassword: false,
 };
 
-function account(id: string, name: string, isAgent: boolean) {
+function account(
+  id: string,
+  name: string,
+  isAgent: boolean,
+): readonly [string, ConversationAccount] {
   return [
     id,
     {
@@ -87,7 +90,9 @@ function decision(
 const forMessages = vi.fn();
 const forReplies = vi.fn();
 
-function reader(stored: readonly StoredConversationMessage[]): ConversationReader {
+function reader(
+  stored: readonly StoredConversationMessage[],
+): ConversationReader {
   const conversations = bareInstance(ConversationRepository.prototype);
   vi.spyOn(conversations, "findForMember").mockResolvedValue({
     id: "group",
@@ -103,15 +108,17 @@ function reader(stored: readonly StoredConversationMessage[]): ConversationReade
     conversations,
     messages,
     directory: {
-      read: vi.fn().mockResolvedValue(
-        new ConversationAccounts(
-          new Map([
-            account("person", "Anna", false),
-            account("other", "Berta", false),
-            account("ed", "Ed", true),
-          ]),
+      read: vi
+        .fn()
+        .mockResolvedValue(
+          new ConversationAccounts(
+            new Map([
+              account("person", "Anna", false),
+              account("other", "Berta", false),
+              account("ed", "Ed", true),
+            ]),
+          ),
         ),
-      ),
     },
     files: { open: vi.fn() },
     decisions: { forMessages, forReplies },
@@ -125,7 +132,7 @@ beforeEach(() => {
   forReplies.mockResolvedValue(new Map());
 });
 
-it("shows the decision \"nobody answers\" under the message of any member, with its probabilities", async () => {
+it('shows the decision "nobody answers" under the message of any member, with its probabilities', async () => {
   forMessages.mockResolvedValue(
     new Map([
       ["thanks", decision("thanks", "nobody")],
@@ -172,8 +179,10 @@ it("shows no line under a message that agents answer, that names agents with @, 
   ]);
 });
 
-it("attaches the decision that chose an agent to its answer, for \"Warum?\"", async () => {
-  forReplies.mockResolvedValue(new Map([["answer", decision("asked", "responders")]]));
+it('attaches the decision that chose an agent to its answer, for "Warum?"', async () => {
+  forReplies.mockResolvedValue(
+    new Map([["answer", decision("asked", "responders")]]),
+  );
   const page = await reader([
     message("asked", 1, "person"),
     message("answer", 2, "ed"),

@@ -30,14 +30,36 @@ const person: User = {
 };
 
 function agentUser(id: string, name: string): User {
-  return { ...person, id, username: name.toLowerCase(), displayName: name, isAgent: true };
+  return {
+    ...person,
+    id,
+    username: name.toLowerCase(),
+    displayName: name,
+    isAgent: true,
+  };
 }
 
 const ed = agentUser("ed", "Ed");
 const mei = agentUser("mei", "Mei");
 const inactive = agentUser("inactive", "Inactive");
 
-function accountOf(user: User, isAvailable = true): [string, { user: User; participant: { id: string; name: string; kind: "human" | "agent"; color: null }; role: string; isAvailable: boolean }] {
+function accountOf(
+  user: User,
+  isAvailable = true,
+): [
+  string,
+  {
+    user: User;
+    participant: {
+      id: string;
+      name: string;
+      kind: "human" | "agent";
+      color: null;
+    };
+    role: string;
+    isAvailable: boolean;
+  },
+] {
   return [
     user.id,
     {
@@ -75,7 +97,11 @@ const message: ConversationMessage = {
   links: [],
 };
 
-function stored(sequence: number, text: string, extra: Partial<StoredConversationMessage> = {}): StoredConversationMessage {
+function stored(
+  sequence: number,
+  text: string,
+  extra: Partial<StoredConversationMessage> = {},
+): StoredConversationMessage {
   return {
     id: `m${String(sequence)}`,
     sequence,
@@ -128,11 +154,13 @@ function fixture(): {
   const dependencies: ConversationChatDecisionsDependencies = {
     messages: {
       find: vi.fn().mockResolvedValue(stored(3, "Danke!")),
-      history: vi.fn().mockResolvedValue([
-        stored(3, "Danke!"),
-        stored(2, "Fehlerhinweis", { notice: "agent_failed" }),
-        stored(1, "Wir brauchen den Fix."),
-      ]),
+      history: vi
+        .fn()
+        .mockResolvedValue([
+          stored(3, "Danke!"),
+          stored(2, "Fehlerhinweis", { notice: "agent_failed" }),
+          stored(1, "Wir brauchen den Fix."),
+        ]),
     },
     rounds: {
       claimRouting: vi.fn().mockResolvedValue(true),
@@ -250,7 +278,9 @@ describe("decide", () => {
       }),
     );
   });
+});
 
+describe("decide with thresholds and failures", () => {
   it("follows the thresholds and the maximum of the group before the defaults of the instance", async () => {
     const { service, dependencies } = context;
     vi.mocked(dependencies.model.ask).mockResolvedValue(
@@ -280,30 +310,47 @@ describe("decide", () => {
   });
 
   it.each([
-    ["no model is chosen", new ConversationObserverError("decision_no_model"), "no_model"],
-    ["the call fails", new ConversationObserverError("decision_failed"), "model_failed"],
-    ["the answer is invalid", new ConversationObserverError("decision_invalid"), "model_failed"],
+    [
+      "no model is chosen",
+      new ConversationObserverError("decision_no_model"),
+      "no_model",
+    ],
+    [
+      "the call fails",
+      new ConversationObserverError("decision_failed"),
+      "model_failed",
+    ],
+    [
+      "the answer is invalid",
+      new ConversationObserverError("decision_invalid"),
+      "model_failed",
+    ],
     ["something unexpected breaks", new Error("boom"), "model_failed"],
-  ])("behaves like \"Nur @\" and stores it when %s", async (_name, error, fallback) => {
-    const { service, dependencies } = context;
-    vi.mocked(dependencies.model.ask).mockRejectedValue(error);
-    await expect(service.decide(request)).resolves.toEqual([]);
-    expect(dependencies.decisions.record).toHaveBeenCalledWith(
-      expect.objectContaining({
-        outcome: "unavailable",
-        fallback,
-        responderIds: [],
-        model: null,
-        answerProbability: null,
-        choices: [],
-      }),
-    );
-    expect(dependencies.rounds.finishRouting).toHaveBeenCalledWith(
-      "judged",
-      expect.objectContaining({ state: "failed", errorCode: fallback }),
-    );
-  });
+  ])(
+    'behaves like "Nur @" and stores it when %s',
+    async (name, error, fallback) => {
+      const { service, dependencies } = context;
+      vi.mocked(dependencies.model.ask).mockRejectedValue(error);
+      await expect(service.decide(request)).resolves.toEqual([]);
+      expect(dependencies.decisions.record).toHaveBeenCalledWith(
+        expect.objectContaining({
+          outcome: "unavailable",
+          fallback,
+          responderIds: [],
+          model: null,
+          answerProbability: null,
+          choices: [],
+        }),
+      );
+      expect(dependencies.rounds.finishRouting).toHaveBeenCalledWith(
+        "judged",
+        expect.objectContaining({ state: "failed", errorCode: fallback }),
+      );
+    },
+  );
+});
 
+describe("decide claims and history budget", () => {
   it("decides a message once: a second claim asks nobody and stores nothing", async () => {
     const { service, dependencies } = context;
     vi.mocked(dependencies.rounds.claimRouting).mockResolvedValue(false);
@@ -336,7 +383,9 @@ describe("decide", () => {
     vi.mocked(dependencies.messages.find).mockResolvedValue(null);
     vi.mocked(dependencies.rounds.claimRouting).mockResolvedValue(true);
     await service.decide({ ...request, message: { ...message, id: "other" } });
-    expect(vi.mocked(dependencies.model.ask).mock.calls[1]?.[0].lines).toEqual([]);
+    expect(vi.mocked(dependencies.model.ask).mock.calls[1]?.[0].lines).toEqual(
+      [],
+    );
   });
 });
 

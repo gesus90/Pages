@@ -16,6 +16,9 @@ import {
 
 import type { StoredAgentToolUse } from "@/backend/database/repositories/employee/AgentToolUseRepository";
 import type { AgentDreamInput } from "@/backend/service/employee/AgentLearningPrompt";
+import { partialStub } from "../../stub-fixture";
+
+const WISH_TEXT: unknown = expect.stringContaining("Igor wünscht");
 
 function use(
   id: number,
@@ -257,7 +260,10 @@ it("marks a lesson as off in DREAM.md, keeps it off when the run confirms it and
 
 it("lets the simulation answer a dream run with topics of the decisions, lessons and a recipe for a repeated call", async () => {
   const answer = await new SimulatedAgentMemoryModel().dream(
-    { agent: { displayName: "Ed" } as never, employee: {} as never },
+    {
+      agent: partialStub<never>({ displayName: "Ed" }),
+      employee: partialStub<never>({}),
+    },
     INPUT,
   );
   expect(answer?.topics).toEqual([
@@ -272,7 +278,7 @@ it("lets the simulation answer a dream run with topics of the decisions, lessons
     kind: "knowledge",
   });
   expect(answer?.lessons).toEqual([
-    expect.objectContaining({ text: expect.stringContaining("Igor wünscht") }),
+    expect.objectContaining({ text: WISH_TEXT }),
   ]);
 });
 
@@ -282,14 +288,12 @@ it("runs the dream run as a run of the agent's own on the model of the dreaming,
     sessionId: "dream-session",
   }));
   const model = new AgentSessionMemoryModel({
-    sessions: {
+    sessions: partialStub<unknown>({
       run,
       job: vi.fn(async () => ({ state: "completed" })),
       whenOutOfChats: async () => true,
-    } as unknown as ConstructorParameters<
-      typeof AgentSessionMemoryModel
-    >[0]["sessions"],
-    messages: {
+    }) as ConstructorParameters<typeof AgentSessionMemoryModel>[0]["sessions"],
+    messages: partialStub<unknown>({
       messages: async () => [
         {
           role: "assistant",
@@ -297,15 +301,13 @@ it("runs the dream run as a run of the agent's own on the model of the dreaming,
             '```json\n{"lessons":[{"text":"Das Repo liegt unter /x.","evidence":"5× gesucht"}],"recipes":[{"name":"repo","kind":"knowledge","summary":"s","body":"b"}]}\n```',
         },
       ],
-    } as unknown as ConstructorParameters<
-      typeof AgentSessionMemoryModel
-    >[0]["messages"],
+    }) as ConstructorParameters<typeof AgentSessionMemoryModel>[0]["messages"],
     wait: async () => undefined,
   });
   const answer = await model.dream(
     {
-      agent: { id: "ed", displayName: "Ed", isAgent: true } as never,
-      employee: { userId: "ed" } as never,
+      agent: partialStub<never>({ id: "ed", displayName: "Ed", isAgent: true }),
+      employee: partialStub<never>({ userId: "ed" }),
       model: { connectionId: "cheap-connection", model: "cheap" },
     },
     INPUT,

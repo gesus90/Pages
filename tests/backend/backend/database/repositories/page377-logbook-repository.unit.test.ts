@@ -4,34 +4,41 @@ import { AgentLogbookRepository } from "@/backend/database/repositories/employee
 import { AgentLogbookSessionRepository } from "@/backend/database/repositories/employee/AgentLogbookSessionRepository";
 import { AgentSessionSettingsRepository } from "@/backend/database/repositories/employee/AgentSessionSettingsRepository";
 
-import type { DatabaseValue } from "@/backend/database/Database";
+import type {
+  DatabaseTransaction,
+  DatabaseValue,
+  SqlParameters,
+} from "@/backend/database/Database";
+import type { Mock } from "vitest";
 
-type Row = readonly DatabaseValue[];
+type Row = DatabaseValue[];
+type QueryFunction = DatabaseTransaction["query"];
+type ExecuteFunction = DatabaseTransaction["execute"];
 
 interface Call {
   readonly sql: string;
-  readonly parameters: Record<string, unknown> | undefined;
+  readonly parameters: SqlParameters | undefined;
 }
 
 /** A database that records every statement and answers each query with the next prepared rows. */
 function database(...answers: Row[][]): {
   readonly calls: Call[];
-  readonly query: ReturnType<typeof vi.fn>;
-  readonly execute: ReturnType<typeof vi.fn>;
+  readonly query: Mock<QueryFunction>;
+  readonly execute: Mock<ExecuteFunction>;
 } {
   const calls: Call[] = [];
   const queue = [...answers];
-  const query = vi.fn(async (sql: string, parameters?: Record<string, unknown>) => {
+  const query = vi.fn<QueryFunction>(async (sql, parameters) => {
     calls.push({ sql, parameters });
     return queue.shift() ?? [];
   });
-  const execute = vi.fn(async (sql: string, parameters?: Record<string, unknown>) => {
+  const execute = vi.fn<ExecuteFunction>(async (sql, parameters) => {
     calls.push({ sql, parameters });
   });
   return { calls, query, execute };
 }
 
-function entryRow(overrides: Partial<Record<number, DatabaseValue>> = {}): Row {
+function entryRow(overrides: Record<number, DatabaseValue> = {}): Row {
   const row: DatabaseValue[] = [
     "entry-1",
     7,
@@ -52,7 +59,10 @@ function entryRow(overrides: Partial<Record<number, DatabaseValue>> = {}): Row {
 }
 
 it("reads an entry with its source, people and origin", async () => {
-  const db = database([entryRow(), entryRow({ 3: "unbekannt", 6: "direct", 10: "agent" })]);
+  const db = database([
+    entryRow(),
+    entryRow({ 3: "unbekannt", 6: "direct", 10: "agent" }),
+  ]);
   const entries = await new AgentLogbookRepository(db).find("ed", {
     words: [],
     chat: null,
@@ -165,7 +175,9 @@ it("counts the entries of other chats since a stand and leaves the own chat out"
     topics: 3,
   });
   expect(call?.sql).toContain("sequence > $stand");
-  expect(call?.sql).toContain("agent_logbook_entries.source_kind = $source_kind");
+  expect(call?.sql).toContain(
+    "agent_logbook_entries.source_kind = $source_kind",
+  );
   expect(call?.sql).toContain("ORDER BY agent_logbook_entries.sequence DESC");
   expect(
     await new AgentLogbookRepository(database([])).newSince(
@@ -181,7 +193,11 @@ it("removes only entries of the given agent by ID, and every entry of one chat w
   const db = database([["a"]]);
   const repository = new AgentLogbookRepository(db);
   expect(await repository.remove("ed", ["a", "b"])).toBe(1);
-  expect(db.calls[0]?.parameters).toEqual({ agent_id: "ed", id_0: "a", id_1: "b" });
+  expect(db.calls[0]?.parameters).toEqual({
+    agent_id: "ed",
+    id_0: "a",
+    id_1: "b",
+  });
   expect(db.calls[0]?.sql).toContain("WHERE agent_id = $agent_id");
   expect(await repository.remove("ed", [])).toBe(0);
   expect(db.calls).toHaveLength(1);
@@ -215,9 +231,16 @@ it("saves limit, quiet time and model of an agent without touching its revision"
   });
   expect(db.calls[0]?.sql).not.toContain("revision");
   expect(
-    await repository.saveSettings("nobody", { limit: 10, quietMinutes: 1, model: null }),
+    await repository.saveSettings("nobody", {
+      limit: 10,
+      quietMinutes: 1,
+      model: null,
+    }),
   ).toBe(false);
-  expect(db.calls[1]?.parameters).toMatchObject({ connection_id: null, model: null });
+  expect(db.calls[1]?.parameters).toMatchObject({
+    connection_id: null,
+    model: null,
+  });
 });
 
 it("reads the settings of an agent and answers null for an unknown one", async () => {
@@ -245,11 +268,12 @@ it("reads the settings of an agent and answers null for an unknown one", async (
 it("names the people of a direct chat and of a group without the agent", async () => {
   const db = database([["Igor"]], [["Igor"], ["Mei"]]);
   const repository = new AgentLogbookRepository(db);
-  expect(await repository.participantNames({ kind: "direct", id: "p" }, "ed")).toEqual(["Igor"]);
-  expect(await repository.participantNames({ kind: "group", id: "g" }, "ed")).toEqual([
-    "Igor",
-    "Mei",
-  ]);
+  expect(
+    await repository.participantNames({ kind: "direct", id: "p" }, "ed"),
+  ).toEqual(["Igor"]);
+  expect(
+    await repository.participantNames({ kind: "group", id: "g" }, "ed"),
+  ).toEqual(["Igor", "Mei"]);
   expect(db.calls[1]?.sql).toContain("users.id <> $agent_id");
 });
 
@@ -265,7 +289,16 @@ it("lists the chat sessions that had a round after their last summary, never a c
       10,
       2,
     ],
-    ["session-igor", "ed", "chat", "person-igor", "Igor", "2026-11-13T16:00:00.000Z", 0, 5],
+    [
+      "session-igor",
+      "ed",
+      "chat",
+      "person-igor",
+      "Igor",
+      "2026-11-13T16:00:00.000Z",
+      0,
+      5,
+    ],
   ]);
   const pending = await new AgentLogbookSessionRepository(db).pending();
   expect(pending).toEqual([
@@ -284,7 +317,9 @@ it("lists the chat sessions that had a round after their last summary, never a c
   const { sql } = db.calls[0] ?? { sql: "" };
   // A session is due once a round ended after the last summary ...
   expect(sql).toContain("agent_conversations.last_activity_at IS NOT NULL");
-  expect(sql).toContain("logbook_processed_at < agent_conversations.last_activity_at");
+  expect(sql).toContain(
+    "logbook_processed_at < agent_conversations.last_activity_at",
+  );
   // ... only for chats, and never for a confidential one.
   expect(sql).toContain("purpose IN ('chat', 'conversation')");
   expect(sql).toContain("is_confidential");
@@ -298,7 +333,9 @@ it("remembers the stand of a session and how far its chat was read, moving only 
   await repository.saveProgress("session", { through: 12, processedAt: null });
   expect(db.calls[1]?.sql).toContain("GREATEST(logbook_seen, $sequence)");
   expect(db.calls[2]?.sql).toContain("GREATEST(logbook_through, $through)");
-  expect(db.calls[2]?.sql).toContain("COALESCE($processed_at, logbook_processed_at)");
+  expect(db.calls[2]?.sql).toContain(
+    "COALESCE($processed_at, logbook_processed_at)",
+  );
   expect(db.calls[2]?.parameters).toEqual({
     session_id: "session",
     through: 12,
@@ -309,7 +346,10 @@ it("remembers the stand of a session and how far its chat was read, moving only 
 it("stores the model the instance names for the summary without touching the limits' revision", async () => {
   const db = database([["c", "m"]], [], [[1]], []);
   const repository = new AgentSessionSettingsRepository(db);
-  expect(await repository.logbookModel()).toEqual({ connectionId: "c", model: "m" });
+  expect(await repository.logbookModel()).toEqual({
+    connectionId: "c",
+    model: "m",
+  });
   expect(await repository.logbookModel()).toBeNull();
   await repository.saveLogbookModel({ connectionId: "c2", model: "m2" });
   expect(db.calls[2]?.parameters).toEqual({ connection_id: "c2", model: "m2" });

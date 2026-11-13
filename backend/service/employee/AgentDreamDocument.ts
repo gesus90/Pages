@@ -119,7 +119,10 @@ export function parseDreamDocument(
  * @param text - The text of the lesson.
  */
 export function lessonId(text: string): string {
-  return createHash("sha1").update(cut(text, LESSON_CHARACTERS)).digest("hex").slice(0, 12);
+  return createHash("sha1")
+    .update(cut(text, LESSON_CHARACTERS))
+    .digest("hex")
+    .slice(0, 12);
 }
 
 /**

@@ -10,21 +10,30 @@ import { FakeRecipes, recipe } from "./page378-recipe-fixture";
 
 import type { AgentChatSessionViewer } from "@/backend/service/employee/AgentChatSessionService";
 import type { User } from "@/definition/User";
+import { partialStub } from "../../stub-fixture";
 
 const ADMIN: AgentChatSessionViewer = {
-  user: { id: "admin", displayName: "Ada" } as User,
+  user: partialStub<User>({ id: "admin", displayName: "Ada" }),
   isAdministrator: true,
 };
 const MEMBER: AgentChatSessionViewer = {
-  user: { id: "igor", displayName: "Igor" } as User,
+  user: partialStub<User>({ id: "igor", displayName: "Igor" }),
   isAdministrator: false,
 };
 const REPO = "Das Pages-Repo liegt unter /home/igor/Repo/Pages.";
 const STATUS = "Status-ID für Review ist status-review.";
 
+/** The lessons and recipes of one agent with the fake store behind them. */
+interface LessonsWorld {
+  readonly service: AgentLessonsAdministration;
+  readonly fake: FakeRecipes;
+  readonly state: { dream: string; characters: number };
+  readonly saveDream: ReturnType<typeof vi.fn>;
+}
+
 function world(
   dream = `- ${REPO} — Beleg: 5× gesucht · Datum: 2026-11-01 · Stärke: 3\n- ${STATUS} — Beleg: PAGE-1 · Datum: 2026-11-02 · Stärke: 1`,
-) {
+): LessonsWorld {
   const fake = new FakeRecipes();
   fake.recipes = [
     recipe(),
@@ -40,11 +49,11 @@ function world(
     }),
   ];
   const state = { dream, characters: 4_000 };
-  const saveDream = vi.fn(async (_agent: string, text: string) => {
+  const saveDream = vi.fn(async (agent: string, text: string) => {
     state.dream = text;
   });
   const service = new AgentLessonsAdministration({
-    store: {
+    store: partialStub<never>({
       employees: () => ({
         find: async () => ({
           userId: "ed",
@@ -53,11 +62,11 @@ function world(
         }),
       }),
       recipes: () => fake.store().recipes(),
-    } as never,
+    }),
     users: {
       findById: async (id: string) =>
         id === "ed"
-          ? ({ id: "ed", displayName: "Ed", isAgent: true } as User)
+          ? partialStub<User>({ id: "ed", displayName: "Ed", isAgent: true })
           : null,
     },
     memory: { saveDream },

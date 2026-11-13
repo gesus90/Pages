@@ -21,7 +21,13 @@ const person: User = {
   isActive: true,
   mustChangePassword: false,
 };
-const agent: User = { ...person, id: "agent", username: "agent", displayName: "Ed", isAgent: true };
+const agent: User = {
+  ...person,
+  id: "agent",
+  username: "agent",
+  displayName: "Ed",
+  isAgent: true,
+};
 
 const DIRECT: AgentChatSessionBrief = {
   sessionId: "s-direct",
@@ -58,7 +64,9 @@ it("gives the head of a chat the session of each agent in it", async () => {
       lastActivityAt: "2026-01-01",
     },
   ]);
-  vi.spyOn(AccountIdentityRepository.prototype, "jobTitles").mockResolvedValue(new Map());
+  vi.spyOn(AccountIdentityRepository.prototype, "jobTitles").mockResolvedValue(
+    new Map(),
+  );
   vi.spyOn(AgentConversationRepository.prototype, "find").mockResolvedValue({
     sessionId: "s-direct",
     agentId: "agent",
@@ -66,13 +74,21 @@ it("gives the head of a chat the session of each agent in it", async () => {
     purpose: "chat",
   });
   vi.spyOn(AgentEmployeeRepository.prototype, "find").mockResolvedValue(null);
-  vi.spyOn(AgentChatMemoryRepository.prototype, "confidentialAgents").mockResolvedValue(new Set());
-  vi.spyOn(AgentChatMemoryRepository.prototype, "confidentialConversations").mockResolvedValue(new Set());
+  vi.spyOn(
+    AgentChatMemoryRepository.prototype,
+    "confidentialAgents",
+  ).mockResolvedValue(new Set());
+  vi.spyOn(
+    AgentChatMemoryRepository.prototype,
+    "confidentialConversations",
+  ).mockResolvedValue(new Set());
   const directBrief = vi.fn(async () => DIRECT);
-  const groupBriefs = vi.fn(async (_id: string, signals: (agentId: string) => unknown) => {
-    expect(signals("agent")).toEqual({ isWorking: true, waitingMessages: 2 });
-    return [GROUP];
-  });
+  const groupBriefs = vi.fn(
+    async (id: string, signals: (agentId: string) => unknown) => {
+      expect(signals("agent")).toEqual({ isWorking: true, waitingMessages: 2 });
+      return [GROUP];
+    },
+  );
   const service = new ChatDirectoryService({
     store: new EmployeeStore(database),
     users: { findAll: vi.fn().mockResolvedValue([person, agent]) },
@@ -96,7 +112,7 @@ it("gives the head of a chat the session of each agent in it", async () => {
   expect(groupBriefs).toHaveBeenCalledWith("group-1", expect.any(Function));
 });
 
-it("names the reply mode of each group for the entry \"Wer antwortet?\" of the group menu (PAGE-379)", async () => {
+it('names the reply mode of each group for the entry "Wer antwortet?" of the group menu (PAGE-379)', async () => {
   const database: Pick<Database, "query" | "execute" | "transaction"> = {
     query: vi.fn(),
     execute: vi.fn(),
@@ -104,14 +120,36 @@ it("names the reply mode of each group for the entry \"Wer antwortet?\" of the g
   };
   vi.spyOn(ChatContactRepository.prototype, "list").mockResolvedValue([]);
   vi.spyOn(ChatGroupRepository.prototype, "list").mockResolvedValue([
-    { id: "mentions-group", name: "Nur @", description: "", memberIds: ["agent"], lastActivityAt: "2026-01-02" },
-    { id: "decision-group", name: "Decision", description: "", memberIds: ["agent"], lastActivityAt: "2026-01-01" },
+    {
+      id: "mentions-group",
+      name: "Nur @",
+      description: "",
+      memberIds: ["agent"],
+      lastActivityAt: "2026-01-02",
+    },
+    {
+      id: "decision-group",
+      name: "Decision",
+      description: "",
+      memberIds: ["agent"],
+      lastActivityAt: "2026-01-01",
+    },
   ]);
-  vi.spyOn(AccountIdentityRepository.prototype, "jobTitles").mockResolvedValue(new Map());
-  vi.spyOn(AgentConversationRepository.prototype, "find").mockResolvedValue(null);
+  vi.spyOn(AccountIdentityRepository.prototype, "jobTitles").mockResolvedValue(
+    new Map(),
+  );
+  vi.spyOn(AgentConversationRepository.prototype, "find").mockResolvedValue(
+    null,
+  );
   vi.spyOn(AgentEmployeeRepository.prototype, "find").mockResolvedValue(null);
-  vi.spyOn(AgentChatMemoryRepository.prototype, "confidentialAgents").mockResolvedValue(new Set());
-  vi.spyOn(AgentChatMemoryRepository.prototype, "confidentialConversations").mockResolvedValue(new Set());
+  vi.spyOn(
+    AgentChatMemoryRepository.prototype,
+    "confidentialAgents",
+  ).mockResolvedValue(new Set());
+  vi.spyOn(
+    AgentChatMemoryRepository.prototype,
+    "confidentialConversations",
+  ).mockResolvedValue(new Set());
   const view = (id: string): unknown => ({
     summary: {
       id,
@@ -126,14 +164,18 @@ it("names the reply mode of each group for the entry \"Wer antwortet?\" of the g
     messages: [],
     hasMore: false,
   });
-  const replyModes = vi.fn(async () => new Map([["mentions-group", "mentions" as const]]));
+  const replyModes = vi.fn(
+    async () => new Map([["mentions-group", "mentions" as const]]),
+  );
   const service = new ChatDirectoryService({
     store: new EmployeeStore(database),
     users: { findAll: vi.fn().mockResolvedValue([person, agent]) },
     lookups: { listActiveUsers: vi.fn().mockResolvedValue([person, agent]) },
     messages: { messages: vi.fn().mockResolvedValue([]) },
     conversations: {
-      views: vi.fn().mockResolvedValue([view("mentions-group"), view("decision-group")]),
+      views: vi
+        .fn()
+        .mockResolvedValue([view("mentions-group"), view("decision-group")]),
       history: vi.fn(),
     },
     isWorking: vi.fn().mockResolvedValue(false),

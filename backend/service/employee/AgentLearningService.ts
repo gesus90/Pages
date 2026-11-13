@@ -261,12 +261,10 @@ export class AgentLearningService {
       store
         .sources()
         .read(agentId, { since: employee.learnedThrough, limit: SOURCE_LIMIT }),
-      store
-        .logbook()
-        .forDreaming(agentId, {
-          after: dreaming.logbookThrough,
-          limit: LOGBOOK_LIMIT,
-        }),
+      store.logbook().forDreaming(agentId, {
+        after: dreaming.logbookThrough,
+        limit: LOGBOOK_LIMIT,
+      }),
       store.toolUses().since(agentId, dreaming.toolsThrough, TOOL_USE_LIMIT),
       store.recipes().list(agentId),
     ]);
@@ -329,7 +327,9 @@ export class AgentLearningService {
       .prune(
         agent.id,
         toDatabaseTime(
-          new Date(this.now().getTime() - TOOL_USE_RETENTION_DAYS * 24 * 3_600_000),
+          new Date(
+            this.now().getTime() - TOOL_USE_RETENTION_DAYS * 24 * 3_600_000,
+          ),
         ),
       );
     return this.finish(agent.id, {

@@ -117,10 +117,13 @@ it("opens the popup of the agent from the menu of its row", async () => {
 });
 
 function openRowMenu(): void {
-  fireEvent.pointerDown(screen.getByRole("button", { name: "Actions for Ed" }), {
-    button: 0,
-    ctrlKey: false,
-  });
+  fireEvent.pointerDown(
+    screen.getByRole("button", { name: "Actions for Ed" }),
+    {
+      button: 0,
+      ctrlKey: false,
+    },
+  );
 }
 
 it("opens the popup of the agent straight in the tab Logbook from the menu of its row (PAGE-377)", async () => {
@@ -141,7 +144,9 @@ it("opens the popup of the agent straight in the tab Logbook from the menu of it
   fireEvent.click(screen.getByRole("menuitem", { name: "Logbook …" }));
   const dialog = await screen.findByRole("dialog");
   expect(
-    within(dialog).getByRole("tab", { name: "Logbook" }).getAttribute("aria-selected"),
+    within(dialog)
+      .getByRole("tab", { name: "Logbook" })
+      .getAttribute("aria-selected"),
   ).toBe("true");
   expect(
     await within(dialog).findByRole("table", { name: "Logbook of Ed" }),

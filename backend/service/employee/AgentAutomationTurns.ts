@@ -16,7 +16,10 @@ import type {
 } from "@/backend/service/automation/AutomationAgentWorker";
 import type { AgentChatService } from "@/backend/service/conversation/AgentChatService";
 import type { User } from "@/definition/User";
-import type { AgentJobRequest, AgentEmployeeSessions } from "./AgentEmployeeSessions";
+import type {
+  AgentJobRequest,
+  AgentEmployeeSessions,
+} from "./AgentEmployeeSessions";
 import type { AutomationTarget } from "./AgentAutomationTarget";
 
 /** How often a turn looks at its job. */
@@ -138,8 +141,15 @@ export class AgentAutomationTurns implements AutomationAgentRunner {
 
   /** Waits for the answer; in a group it is stored there as the agent's message. */
   private async answer(
-    job: { readonly agent: User; readonly sessionId: string; readonly jobId: string },
-    context: { readonly target: AutomationTarget; readonly request: TurnRequest },
+    job: {
+      readonly agent: User;
+      readonly sessionId: string;
+      readonly jobId: string;
+    },
+    context: {
+      readonly target: AutomationTarget;
+      readonly request: TurnRequest;
+    },
   ): Promise<string> {
     const answer = await awaitAgentJobAnswer(job, {
       sessions: this.dependencies.sessions,

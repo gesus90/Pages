@@ -40,7 +40,10 @@ export function decisionView(
     answerProbability: stored.answerProbability,
     choices: stored.choices.map((choice) => ({
       agentId: choice.agentId,
-      name: choice.agentId === null ? "" : accounts.participant(choice.agentId).name,
+      name:
+        choice.agentId === null
+          ? ""
+          : accounts.participant(choice.agentId).name,
       probability: choice.probability,
     })),
     model: stored.model,
@@ -62,7 +65,10 @@ export function decisionEntry(
   const text =
     characters.length <= LISTED_TEXT_CHARACTERS
       ? characters.join("")
-      : `${characters.slice(0, LISTED_TEXT_CHARACTERS - 1).join("").trimEnd()}…`;
+      : `${characters
+          .slice(0, LISTED_TEXT_CHARACTERS - 1)
+          .join("")
+          .trimEnd()}…`;
   return {
     ...decisionView(listing, accounts),
     text,

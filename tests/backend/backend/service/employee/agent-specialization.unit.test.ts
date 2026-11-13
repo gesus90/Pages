@@ -38,7 +38,10 @@ it("understands English headings and numbered or starred lists", () => {
 
 it("gives only the opening paragraph for a document without a responsibilities heading", () => {
   expect(
-    agentSpecialization("# Manager\n\nSteuert das Projekt.\n\n## Regeln\n- Wiki pflegen", 400),
+    agentSpecialization(
+      "# Manager\n\nSteuert das Projekt.\n\n## Regeln\n- Wiki pflegen",
+      400,
+    ),
   ).toBe("Steuert das Projekt.");
 });
 

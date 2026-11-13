@@ -145,7 +145,10 @@ export function readDecisionProbabilities(
   const { probabilities } = meant;
   if (probabilities === null)
     throw new ConversationObserverError("decision_invalid");
-  const keys = [...candidates.map((candidate) => candidate.username), NOBODY_OPTION];
+  const keys = [
+    ...candidates.map((candidate) => candidate.username),
+    NOBODY_OPTION,
+  ];
   if (!keys.some((key) => key in probabilities))
     throw new ConversationObserverError("decision_invalid");
   return {

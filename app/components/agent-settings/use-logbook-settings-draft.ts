@@ -41,9 +41,7 @@ export function logbookModelKey(model: {
 /** The model a key stands for; `null` for {@link DEFAULT_MODEL_KEY} or a malformed key. */
 function readModelKey(key: string): AgentLogbookSettings["model"] {
   const [connectionId = "", model = ""] = key.split("\u001f");
-  return connectionId === "" || model === ""
-    ? null
-    : { connectionId, model };
+  return connectionId === "" || model === "" ? null : { connectionId, model };
 }
 
 function readWholeNumber(text: string, range: WholeNumberRange): number | null {

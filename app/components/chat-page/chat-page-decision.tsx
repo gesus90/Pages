@@ -87,9 +87,6 @@ export function ChatPageDecision({
   }
   if (decision.outcome !== "responders") return null;
   return (
-    <Collapsible
-      decision={decision}
-      summary={t("chatPage.decision.why")}
-    />
+    <Collapsible decision={decision} summary={t("chatPage.decision.why")} />
   );
 }

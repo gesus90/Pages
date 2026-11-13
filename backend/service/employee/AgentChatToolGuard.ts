@@ -74,7 +74,7 @@ export class AgentChatToolGuard {
     scope: AgentChatToolScope,
   ): (input: unknown) => Promise<unknown> {
     return async (input) => {
-      const conversationId =
+      const conversationId: unknown =
         typeof input === "object" && input !== null
           ? Reflect.get(input, "conversationId")
           : undefined;

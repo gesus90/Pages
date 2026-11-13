@@ -35,10 +35,7 @@ function text(formData: FormData, key: string): string {
   return typeof value === "string" ? value : "";
 }
 
-function respond(
-  body: AgentChatSessionResponse,
-  status: number,
-): Response {
+function respond(body: AgentChatSessionResponse, status: number): Response {
   return Response.json(body, { status, headers: CHAT_NO_STORE });
 }
 
@@ -104,8 +101,7 @@ export async function action({
     const viewer = await viewerOf(person);
     const sessions = services.agentChatSessionService;
     const chosen = ACTIONS.find((candidate) => candidate === intent);
-    if (chosen)
-      await sessions.act(viewer, chosen, text(formData, "sessionId"));
+    if (chosen) await sessions.act(viewer, chosen, text(formData, "sessionId"));
     else if (intent === "save-settings")
       await sessions.saveSettings(viewer, agentId, {
         idleMinutes: formData.get("idleMinutes"),

@@ -38,11 +38,13 @@ interface Fixture {
 function fixture(): Fixture {
   const sessionIds = new Map<string, string>();
   let settle: () => void = () => undefined;
-  const start = vi.fn(async (input: { employee?: { onSettled?: () => void } }) => {
-    settle = input.employee?.onSettled ?? settle;
-    return { job: { id: "job" }, messageId: "message" };
-  });
-  const steer = vi.fn(async () => null as unknown);
+  const start = vi.fn(
+    async (input: { employee?: { onSettled?: () => void } }) => {
+      settle = input.employee?.onSettled ?? settle;
+      return { job: { id: "job" }, messageId: "message" };
+    },
+  );
+  const steer = vi.fn(async () => null);
   const restartIfNeeded = vi.fn(async () => undefined);
   const afterRound = vi.fn(async () => undefined);
   const dependencies = {
@@ -56,13 +58,16 @@ function fixture(): Fixture {
             purpose: string;
           }) => {
             const id = `${key.agentId}:${key.personId}:${key.purpose}`;
-            if (!sessionIds.has(id)) sessionIds.set(id, `session-${String(sessionIds.size + 1)}`);
+            if (!sessionIds.has(id))
+              sessionIds.set(id, `session-${String(sessionIds.size + 1)}`);
             return { sessionId: sessionIds.get(id) };
           },
         ),
         find: vi.fn(
           async (agentId: string, personId: string, purpose: string) => {
-            const sessionId = sessionIds.get(`${agentId}:${personId}:${purpose}`);
+            const sessionId = sessionIds.get(
+              `${agentId}:${personId}:${purpose}`,
+            );
             return sessionId ? { sessionId } : null;
           },
         ),
@@ -128,7 +133,8 @@ it("gives an agent in a direct chat and three groups exactly four sessions, howe
   expect(sessionIds.size).toBe(4);
   const used = new Set(
     start.mock.calls.map(
-      ([input]: [{ request: { sessionId: string } }]) => input.request.sessionId,
+      ([input]) =>
+        (input as { request: { sessionId: string } }).request.sessionId,
     ),
   );
   expect(used.size).toBe(4);
@@ -181,11 +187,10 @@ it("tells background work whether the agent works in a chat", async () => {
 it("gives up the wait of a background run after the longest wait", async () => {
   const wait = vi.fn(async () => undefined);
   const { service } = fixture();
-  Reflect.set(
-    service,
-    "dependencies",
-    { ...Reflect.get(service, "dependencies"), wait },
-  );
+  Reflect.set(service, "dependencies", {
+    ...Reflect.get(service, "dependencies"),
+    wait,
+  });
   await service.run(round("chat"));
   await expect(service.whenOutOfChats("agent")).resolves.toBe(false);
   expect(wait).toHaveBeenCalled();
@@ -194,13 +199,25 @@ it("gives up the wait of a background run after the longest wait", async () => {
 it("steers into the running job of the chat of a conversation, and only into one that exists", async () => {
   const { service, steer } = fixture();
   await expect(
-    service.steerChat(agent, { purpose: "conversation", conversationId: "group-a" }, "Neu"),
+    service.steerChat(
+      agent,
+      { purpose: "conversation", conversationId: "group-a" },
+      "Neu",
+    ),
   ).resolves.toBe(false);
   expect(steer).not.toHaveBeenCalled();
   await service.run(round("conversation", "group-a"));
-  steer.mockResolvedValueOnce({ messageId: "m", jobId: "job", status: "pending" });
+  steer.mockResolvedValueOnce({
+    messageId: "m",
+    jobId: "job",
+    status: "pending",
+  });
   await expect(
-    service.steerChat(agent, { purpose: "conversation", conversationId: "group-a" }, "Neu"),
+    service.steerChat(
+      agent,
+      { purpose: "conversation", conversationId: "group-a" },
+      "Neu",
+    ),
   ).resolves.toBe(true);
   expect(steer).toHaveBeenCalledWith(
     agent,
@@ -208,7 +225,11 @@ it("steers into the running job of the chat of a conversation, and only into one
   );
   steer.mockResolvedValueOnce(null);
   await expect(
-    service.steerChat(agent, { purpose: "conversation", conversationId: "group-a" }, "Neu"),
+    service.steerChat(
+      agent,
+      { purpose: "conversation", conversationId: "group-a" },
+      "Neu",
+    ),
   ).resolves.toBe(false);
 });
 

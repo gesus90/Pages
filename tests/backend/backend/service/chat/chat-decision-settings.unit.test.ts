@@ -88,7 +88,7 @@ const EMPLOYEE: AccountAccess = {
   ...ADMIN,
   userId: "employee",
   isAdmin: false,
-  mode: "user",
+  mode: "role",
 };
 
 function world(isSimulation = false): {
@@ -99,7 +99,11 @@ function world(isSimulation = false): {
   const connections = bareInstance(AgentConnectionRepository.prototype);
   const catalogs = bareInstance(AgentCatalogRepository.prototype);
   const scopes = bareInstance(AgentConnectionScopeRepository.prototype);
-  vi.spyOn(connections, "list").mockResolvedValue([OPENROUTER, GOOGLE, INACTIVE]);
+  vi.spyOn(connections, "list").mockResolvedValue([
+    OPENROUTER,
+    GOOGLE,
+    INACTIVE,
+  ]);
   vi.spyOn(connections, "catalogs").mockReturnValue(catalogs);
   vi.spyOn(connections, "scopes").mockReturnValue(scopes);
   vi.spyOn(scopes, "find").mockResolvedValue(GLOBAL_CONNECTION_SCOPE);
@@ -149,9 +153,9 @@ describe("administration", () => {
       DECIDER.id,
       FLASH.id,
     ]);
-    expect(view.models.every((model) => model.connectionId === "openrouter")).toBe(
-      true,
-    );
+    expect(
+      view.models.every((model) => model.connectionId === "openrouter"),
+    ).toBe(true);
     expect(view.status).toBe("noModel");
     expect(view.settings.rules).toEqual(CONVERSATION_DEFAULT_DECISION_RULES);
   });
@@ -213,7 +217,11 @@ describe("save", () => {
   });
 
   it.each([
-    ["a chat model", { ...DECIDER_SELECTION, model: CHAT.id }, "provider_model_not_found"],
+    [
+      "a chat model",
+      { ...DECIDER_SELECTION, model: CHAT.id },
+      "provider_model_not_found",
+    ],
     [
       "a decision model of a connection that does not list it",
       { connectionId: "google", model: FLASH.id, reasoningEffort: null },
@@ -224,7 +232,7 @@ describe("save", () => {
       { ...DECIDER_SELECTION, reasoningEffort: "high" },
       "profile_invalid",
     ],
-  ])("refuses %s", async (_name, selection, code) => {
+  ])("refuses %s", async (label, selection, code) => {
     await expect(
       context.service.save(ADMIN, { selection, rules, revision: 1 }),
     ).rejects.toMatchObject({ code });

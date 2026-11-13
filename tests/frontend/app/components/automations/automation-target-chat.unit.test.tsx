@@ -18,7 +18,15 @@ import { createI18n } from "@/app/lib/i18n";
 
 import { automation, now, options } from "./automation-fixture";
 
+import type { Built } from "@/app/components/automations/automation-payload";
 import type { AutomationAgentAction } from "@/definition/Automation";
+
+/** Reads the built value; a draft with a problem fails the test instead of yielding a value. */
+function valueOf<Value>(built: Built<Value>): Value {
+  if (built.problem !== undefined)
+    throw new Error("The draft was refused with a problem.");
+  return built.value;
+}
 
 const i18n = createI18n("en");
 const t = i18n.t;
@@ -52,7 +60,7 @@ it("leaves the target chat out of the action while it is empty", () => {
     value: { type: "agent", agentId: "agent", instruction: "Do it" },
   });
   const built = buildAction({ ...draft, chat: "   " }, options);
-  expect(built.value).not.toHaveProperty("chat");
+  expect(valueOf(built)).not.toHaveProperty("chat");
 });
 
 it("sends the trimmed target chat of a direct chat and of a group", () => {
@@ -99,7 +107,7 @@ it("carries the target chat into the create and update payloads", () => {
     now,
     operationId: "operation",
   });
-  expect(created.value?.action).toEqual(agentAction("@Ed"));
+  expect(valueOf(created).action).toEqual(agentAction("@Ed"));
   expect(
     buildCreatePayload(
       { ...valid, chat: "Ed" },
@@ -116,7 +124,7 @@ it("carries the target chat into the create and update payloads", () => {
     now,
     operationId: "operation",
   });
-  expect(updated.value?.action).toEqual({
+  expect(valueOf(updated).action).toEqual({
     type: "agent",
     agentId: "agent",
     instruction: "Do it",

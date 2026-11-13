@@ -104,7 +104,10 @@ export interface ConversationAgentRepliesDependencies {
   /** How each group decides who answers without an @ (PAGE-317, PAGE-379). */
   readonly replySettings: Pick<ConversationReplySettingsRepository, "find">;
   /** The decision model that chooses agents for a group in decision mode (PAGE-379). */
-  readonly decisions: Pick<ConversationChatDecisions, "decide" | "recordMention">;
+  readonly decisions: Pick<
+    ConversationChatDecisions,
+    "decide" | "recordMention"
+  >;
   /** The in-process channel: the replies follow it and publish to it. */
   readonly events: Pick<ConversationEvents, "subscribe" | "publish">;
   /** Tells the live view of this process about a change. */

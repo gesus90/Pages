@@ -332,7 +332,9 @@ it("opens the popup of the agent straight in the tab Logbook from the entry Logb
   fireEvent.click(item(/^Logbook …/));
   const dialog = await screen.findByRole("dialog");
   expect(
-    within(dialog).getByRole("tab", { name: "Logbook" }).getAttribute("aria-selected"),
+    within(dialog)
+      .getByRole("tab", { name: "Logbook" })
+      .getAttribute("aria-selected"),
   ).toBe("true");
   expect(
     await within(dialog).findByRole("table", { name: "Logbook of Ed" }),

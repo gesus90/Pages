@@ -1,21 +1,13 @@
-import path from "node:path";
-
-import { CliHostMcpServers } from "@/backend/agents/cli/CliHostMcpServers";
-import { probeBubblewrap } from "@/backend/agents/cli/CliPlanIsolation";
 import { isLocalSessionOwner } from "@/backend/agents/local/LocalSessionMode";
 import { currentAgentSimulationMode } from "@/backend/agents/simulation/AgentSimulationMode";
-import { SimulatedAgentMemoryModel } from "@/backend/agents/simulation/SimulatedAgentMemoryModel";
-import { SimulatedConversationAgent } from "@/backend/agents/simulation/SimulatedConversationAgent";
-import { SimulatedConversationObserver } from "@/backend/agents/simulation/SimulatedConversationObserver";
 import { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
 import { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import { ChatAcpSessionRepository } from "@/backend/database/repositories/chat/ChatAcpSessionRepository";
 import { ChatSessionRepository } from "@/backend/database/repositories/chat/ChatSessionRepository";
 import { ConversationMessageRepository } from "@/backend/database/repositories/conversation/ConversationMessageRepository";
-import { ConversationReplySettingsRepository } from "@/backend/database/repositories/conversation/ConversationReplySettingsRepository";
 import { ConversationRepository } from "@/backend/database/repositories/conversation/ConversationRepository";
 import { EmployeeStore } from "@/backend/database/repositories/employee/EmployeeStore";
-import { AgentSessionSettingsRepository } from "@/backend/database/repositories/employee/AgentSessionSettingsRepository";
+import type { AgentSessionSettingsRepository } from "@/backend/database/repositories/employee/AgentSessionSettingsRepository";
 import { UserGroupRepository } from "@/backend/database/repositories/UserGroupRepository";
 import { UserRepository } from "@/backend/database/repositories/UserRepository";
 import { UserSettingsRepository } from "@/backend/database/repositories/UserSettingsRepository";
@@ -24,8 +16,8 @@ import { ConversationError } from "@/backend/error/ConversationError";
 import { ConversationDirectory } from "@/backend/service/conversation/ConversationDirectory";
 import { isPagesRunsProcess } from "@/backend/runtime/RunsMode";
 import { createChatSessionId } from "@/backend/service/chat/ChatSessionWords";
-import { AgentAccessEnvironmentService } from "@/backend/service/employee/AgentAccessEnvironmentService";
-import { AgentChatPrivacyService } from "@/backend/service/employee/AgentChatPrivacyService";
+import type { AgentAccessEnvironmentService } from "@/backend/service/employee/AgentAccessEnvironmentService";
+import type { AgentChatPrivacyService } from "@/backend/service/employee/AgentChatPrivacyService";
 import { AgentChatReader } from "@/backend/service/employee/AgentChatReader";
 import { AgentChatSessionLifecycle } from "@/backend/service/employee/AgentChatSessionLifecycle";
 import { AgentChatSessionService } from "@/backend/service/employee/AgentChatSessionService";
@@ -39,61 +31,50 @@ import { AgentLogbookService } from "@/backend/service/employee/AgentLogbookServ
 import { AgentLogbookSummarizer } from "@/backend/service/employee/AgentLogbookSummarizer";
 import { AgentActivityService } from "@/backend/service/employee/AgentActivityService";
 import { AgentConversationAnswers } from "@/backend/service/employee/AgentConversationAnswers";
-import { AgentDeletionService } from "@/backend/service/employee/AgentDeletionService";
+import type { AgentDeletionService } from "@/backend/service/employee/AgentDeletionService";
 import { AgentEmployeeAdministration } from "@/backend/service/employee/AgentEmployeeAdministration";
 import { AgentEmployeeModels } from "@/backend/service/employee/AgentEmployeeModels";
 import { AgentProfileReadService } from "@/backend/service/employee/profile/AgentProfileReadService";
 import { AgentEmployeeSessions } from "@/backend/service/employee/AgentEmployeeSessions";
-import { AgentLearningScheduler } from "@/backend/service/employee/AgentLearningScheduler";
-import { AgentLearningService } from "@/backend/service/employee/AgentLearningService";
-import { AgentSessionMemoryModel } from "@/backend/service/employee/AgentMemoryModel";
-import { AgentMemoryRecorder } from "@/backend/service/employee/AgentMemoryRecorder";
+import type { AgentLearningService } from "@/backend/service/employee/AgentLearningService";
 import { AgentRecipeService } from "@/backend/service/employee/AgentRecipeService";
-import { AgentMemoryService } from "@/backend/service/employee/AgentMemoryService";
-import {
-  AgentKnowledgeAccess,
-  AgentMemorySharing,
-} from "@/backend/service/employee/AgentMemorySharing";
+import type { AgentMemoryService } from "@/backend/service/employee/AgentMemoryService";
 import { AgentSessionLimitService } from "@/backend/service/employee/AgentSessionLimitService";
-import { AgentSessionSlots } from "@/backend/service/employee/AgentSessionSlots";
+import type { AgentSessionSlots } from "@/backend/service/employee/AgentSessionSlots";
 import { AgentTemplateService } from "@/backend/service/employee/AgentTemplateService";
-import { ChatDirectoryService } from "@/backend/service/employee/ChatDirectoryService";
+import type { ChatDirectoryService } from "@/backend/service/employee/ChatDirectoryService";
 import { ChatGroupService } from "@/backend/service/employee/ChatGroupService";
 import { PersonColorService } from "@/backend/service/employee/PersonColorService";
-import { PicaAcpWorkspace } from "@/backend/service/chat/acp/PicaAcpWorkspace";
-import { WikiFileStore } from "@/backend/storage/WikiFileStore";
+import {
+  createChatDirectory,
+  createDeletionService,
+  createLearning,
+  createMemoryParts,
+  createSessionGates,
+  groupObserverInput,
+  simulatedAgent,
+} from "./employee-service-factories.server";
 
-import { startAutomationAgentWorker } from "./automation-services.server";
 import { createConversationServices } from "./conversation-services.server";
 import { defaultAgentTemplateTexts } from "./agent-template-texts.server";
-
-import { conversationModelRoot } from "@/backend/service/conversation/ConversationModelDirectory";
 
 import type { AgentChatTools } from "@/definition/AgentChat";
 import type { SpeechRecognitionSetting } from "@/backend/config/SpeechRecognitionConfig";
 import type { ServerCache } from "@/backend/cache/ServerCache";
 import type { AutomationService } from "@/backend/service/automation/AutomationService";
-import type { AgentDeletionDependencies } from "@/backend/service/employee/AgentDeletionService";
-import type { AgentLearningDependencies } from "@/backend/service/employee/AgentLearningService";
 import type { Database } from "@/backend/database/Database";
 import type { PlanExecution } from "@/backend/agents/AgentPlanExecution";
 import type { AgentHostFileStores } from "@/backend/service/employee/AgentHostFiles";
-import type { AgentMemoryModel } from "@/backend/service/employee/AgentMemoryModel";
 import type { TaskService } from "@/backend/service/TaskService";
 import type { WikiService } from "@/backend/service/WikiService";
 import type { PicaAcpService } from "@/backend/service/chat/acp/PicaAcpService";
 import type { PicaAcpSessionPool } from "@/backend/service/chat/acp/PicaAcpSessionPool";
-import type { AgentChatService } from "@/backend/service/conversation/AgentChatService";
 import type { ChatDecisionSettingsService } from "@/backend/service/chat/ChatDecisionSettingsService";
 import type { ConversationDecisionModel } from "@/backend/service/conversation/ConversationDecisionModel";
 import type { PicaSettingsService } from "@/backend/service/chat/PicaSettingsService";
 import type { ConversationContextReader } from "@/backend/service/conversation/ConversationContextReader";
 import type { PagesEventPublisher } from "@/backend/service/events/PagesEventPublisher";
-import type { AgentSimulationMode } from "@/backend/agents/simulation/AgentSimulationMode";
-import type {
-  ConversationApplicationServices,
-  ConversationObserverInput,
-} from "./conversation-services.server";
+import type { ConversationApplicationServices } from "./conversation-services.server";
 
 /**
  * Agents as employees, the chat directory and person colors (PAGE-266), with
@@ -173,246 +154,6 @@ export interface EmployeeServicesInput {
   };
 }
 
-/**
- * Starts the nightly dream runs (PAGE-305) where a model can answer them, ACP
- * or the simulation, and the delivery of automation work to the agents, which
- * needs the ACP path of the agents' sessions.
- */
-function startBackground(
-  input: EmployeeServicesInput,
-  parts: {
-    readonly store: EmployeeStore;
-    readonly learning: AgentLearningService;
-    readonly sessions: AgentEmployeeSessions;
-    readonly chatPoster: AgentChatService | null;
-    readonly hasModel: boolean;
-  },
-): void {
-  if (parts.hasModel)
-    new AgentLearningScheduler(parts.store, parts.learning).start();
-  if (!input.acp) return;
-  startAutomationAgentWorker({
-    database: input.database,
-    automationService: input.automations,
-    sessions: parts.sessions,
-    ...(parts.chatPoster ? { chatPoster: parts.chatPoster } : {}),
-  });
-}
-
-/** The learning service; its runs and the other background work start only in the process that owns it. */
-function createLearning(
-  input: EmployeeServicesInput,
-  parts: {
-    readonly dependencies: AgentLearningDependencies;
-    readonly sessions: AgentEmployeeSessions;
-    readonly chatPoster: AgentChatService | null;
-    readonly isBackgroundOwner: boolean;
-    readonly hasModel: boolean;
-  },
-): AgentLearningService {
-  const learning = new AgentLearningService(parts.dependencies);
-  if (parts.isBackgroundOwner)
-    startBackground(input, {
-      store: parts.dependencies.store,
-      learning,
-      sessions: parts.sessions,
-      chatPoster: parts.chatPoster,
-      hasModel: parts.hasModel,
-    });
-  return learning;
-}
-
-/** What the group observer and the decision model run on, simulated while the simulation is on. */
-function groupObserverInput(
-  input: Pick<EmployeeServicesInput, "observer" | "workspaceRoot">,
-  simulation: AgentSimulationMode,
-  isBackgroundOwner: boolean,
-): ConversationObserverInput {
-  const { observer } = input;
-  return {
-    pica: observer.picaSettingsService,
-    plans: observer.agentPlanExecution,
-    simulation: simulation.isActive
-      ? new SimulatedConversationObserver(simulation)
-      : null,
-    decision: {
-      model: observer.chatDecisionModel,
-      settings: observer.chatDecisionSettingsService,
-    },
-    isBackgroundOwner,
-    directoryRoot: conversationModelRoot(input.workspaceRoot),
-  };
-}
-
-/**
- * The directory of the chat page with what runs and waits in each chat
- * (PAGE-303, PAGE-304).
- */
-function createChatDirectory(parts: {
-  readonly database: Database;
-  readonly store: EmployeeStore;
-  readonly users: UserRepository;
-  readonly messages: ChatSessionRepository;
-  readonly sessions: AgentEmployeeSessions;
-  readonly agentSessions: AgentChatSessionService;
-  readonly conversations: ConversationApplicationServices;
-}): ChatDirectoryService {
-  const { sessions, conversations } = parts;
-  const replies = conversations.conversationAgentReplies;
-  return new ChatDirectoryService({
-    store: parts.store,
-    users: parts.users,
-    lookups: new WikiLookupRepository(parts.database),
-    messages: parts.messages,
-    conversations: conversations.conversationReader,
-    isWorking: (agent, sessionId) => sessions.isWorking(agent, sessionId),
-    toolCalls: (agent, sessionId) => sessions.toolCalls(agent, sessionId),
-    workingAgentIds: (conversationId) =>
-      replies.workingAgentIds(conversationId),
-    oversight: conversations.conversationOversight,
-    guard: conversations.conversationAgentGuard,
-    queuedMessages: (conversationId) => replies.queuedMessages(conversationId),
-    waitingInJob: (agent, sessionId) => sessions.waitingInJob(agent, sessionId),
-    queuedAgentMessages: (agentId, personId) =>
-      sessions.queuedMessages(agentId, personId),
-    agentSessions: parts.agentSessions,
-    queuedFor: (conversationId, agentId) =>
-      replies.queuedFor(conversationId, agentId),
-    replyModes: (conversationIds) =>
-      new ConversationReplySettingsRepository(parts.database).modes(
-        conversationIds,
-      ),
-  });
-}
-
-/**
- * The memory of agents (PAGE-305): the rules of sharing, the memory with
- * its archive, the model calls, the recorder that updates `MEMORY.md`
- * after each answer and the confidential mark of chats.
- *
- * @remarks
- * The model calls run in the agent's own sessions, which are built after
- * the memory; `sessions` hands them over once they exist. The simulation
- * answers them without a model provider.
- */
-function createMemoryParts(parts: {
-  readonly store: EmployeeStore;
-  readonly users: UserRepository;
-  readonly messages: ChatSessionRepository;
-  readonly knowledge: EmployeeServicesInput["knowledge"];
-  readonly isSimulated: boolean;
-  readonly sessions: () => AgentEmployeeSessions;
-}): {
-  readonly memory: AgentMemoryService;
-  readonly memoryModel: AgentMemoryModel;
-  readonly recorder: AgentMemoryRecorder;
-  readonly privacy: AgentChatPrivacyService;
-} {
-  const { store, users, messages, knowledge } = parts;
-  const sharing = new AgentMemorySharing({
-    store,
-    ...(knowledge
-      ? {
-          visibility: new AgentKnowledgeAccess({
-            users,
-            tickets: knowledge.tickets,
-            wiki: knowledge.wiki,
-          }),
-        }
-      : {}),
-  });
-  const memory = new AgentMemoryService(store, sharing);
-  const memoryModel: AgentMemoryModel = parts.isSimulated
-    ? new SimulatedAgentMemoryModel()
-    : new AgentSessionMemoryModel({
-        sessions: {
-          run: (request) => parts.sessions().run(request),
-          job: (agent, sessionId, jobId) =>
-            parts.sessions().job(agent, sessionId, jobId),
-          whenOutOfChats: (agentId) => parts.sessions().whenOutOfChats(agentId),
-        },
-        messages,
-      });
-  return {
-    memory,
-    memoryModel,
-    recorder: new AgentMemoryRecorder({
-      store,
-      messages,
-      memory,
-      model: memoryModel,
-    }),
-    privacy: new AgentChatPrivacyService({
-      store,
-      users,
-      createSessionId: () => createChatSessionId(),
-    }),
-  };
-}
-
-/** The simulated agent of conversations; `null` outside the simulation. */
-function simulatedAgent(
-  simulation: ReturnType<typeof currentAgentSimulationMode>,
-): SimulatedConversationAgent | null {
-  return simulation.isActive
-    ? new SimulatedConversationAgent(simulation)
-    : null;
-}
-
-function createDeletionFiles(
-  input: EmployeeServicesInput,
-): NonNullable<AgentDeletionDependencies["files"]> {
-  const directory = input.conversations.directory;
-  const workspace = new PicaAcpWorkspace(input.workspaceRoot);
-  const chatFiles = new WikiFileStore(path.join(directory, "chat-attachments"));
-  const planFiles = new WikiFileStore(path.join(directory, "plan-assets"));
-  const voiceFiles = new WikiFileStore(
-    path.join(directory, "conversation-voice"),
-  );
-  return {
-    remove: async (kind, name) => {
-      if (kind === "session") return workspace.remove(name);
-      if (kind === "chat") return chatFiles.remove([name]);
-      if (kind === "plan") return planFiles.remove([name]);
-      return voiceFiles.remove([name]);
-    },
-  };
-}
-
-function createDeletionService(
-  input: EmployeeServicesInput,
-  authorization: AuthorizationRepository,
-): AgentDeletionService {
-  return new AgentDeletionService({
-    authorization,
-    cache: input.cache,
-    files: createDeletionFiles(input),
-  });
-}
-
-/**
- * The gates of the sessions of agents: the host access, read anew so that
- * bubblewrap and the MCP configuration of the CLIs change without a restart
- * (PAGE-303), and one place per running chat session of an agent within the
- * stored limits (PAGE-304).
- */
-function createSessionGates(database: Database): {
-  readonly accessEnvironment: AgentAccessEnvironmentService;
-  readonly sessionSettings: AgentSessionSettingsRepository;
-  readonly slots: AgentSessionSlots;
-} {
-  const sessionSettings = new AgentSessionSettingsRepository(database);
-  return {
-    accessEnvironment: new AgentAccessEnvironmentService({
-      isIsolationAvailable: () => probeBubblewrap(),
-      mcp: new CliHostMcpServers(),
-    }),
-    sessionSettings,
-    slots: new AgentSessionSlots(() => sessionSettings.read()),
-  };
-}
-
-/** What the services of the employee area are assembled from once the sessions and conversations are wired. */
 interface EmployeeParts {
   readonly input: EmployeeServicesInput;
   readonly store: EmployeeStore;
@@ -542,9 +283,25 @@ function assembleEmployeeServices(
  * person colors on the shared database; the learning scheduler runs only in
  * the process that serves the chat.
  */
-export function createEmployeeServices(
+/** Services that refer to each other; each is set once it exists and read lazily. */
+interface LateServices {
+  sessions: AgentEmployeeSessions | null;
+  agentChat: AgentChatTools | null;
+  contextReader: ConversationContextReader | null;
+  logbook: AgentLogbookService | null;
+}
+
+function lateSessions(late: LateServices): AgentEmployeeSessions {
+  if (late.sessions === null)
+    throw new Error("The agent sessions are used before they are wired.");
+  return late.sessions;
+}
+
+/** Creates the stores, the memory and the gates that every part of the wiring uses. */
+function createEmployeeBase(
   input: EmployeeServicesInput,
-): EmployeeApplicationServices {
+  late: LateServices,
+): EmployeeBase {
   const { database } = input;
   const store = new EmployeeStore(database);
   const authorization = new AuthorizationRepository(database);
@@ -563,13 +320,9 @@ export function createEmployeeServices(
     messages,
     knowledge: input.knowledge,
     isSimulated: simulation.isActive,
-    sessions: () => sessions,
+    sessions: () => lateSessions(late),
   });
-  // The conversations are wired after the sessions, which need their chat tools.
-  let agentChat: AgentChatTools | null = null;
   const activity = new AgentActivityService(store);
-  // The reader exists once the conversations are wired below.
-  let contextReader: ConversationContextReader | null = null;
   const { accessEnvironment, sessionSettings, slots } =
     createSessionGates(database);
   const chatReader = new AgentChatReader({
@@ -581,8 +334,6 @@ export function createEmployeeServices(
       jobTitles: () => store.identities().jobTitles(),
     }),
   });
-  // The Lagebuch is wired once the dream service exists, which it asks for the compaction.
-  let logbook: AgentLogbookService | null = null;
   const lifecycle = new AgentChatSessionLifecycle({
     store,
     messages,
@@ -591,35 +342,98 @@ export function createEmployeeServices(
     acpSessions: new ChatAcpSessionRepository(database),
     summaries: () => memoryModel,
   });
-  const sessions = new AgentEmployeeSessions({
+  return {
     store,
-    users,
     authorization,
+    users,
     messages,
-    languages,
     models,
+    languages,
+    simulation,
     memory,
-    acp: input.acp,
-    slots,
+    memoryModel,
+    recorder,
+    privacy,
+    activity,
     accessEnvironment,
+    sessionSettings,
+    slots,
+    chatReader,
+    lifecycle,
+  };
+}
+
+type MemoryParts = ReturnType<typeof createMemoryParts>;
+
+/** The services every part of the employee wiring shares. */
+interface EmployeeBase {
+  readonly store: EmployeeStore;
+  readonly authorization: AuthorizationRepository;
+  readonly users: UserRepository;
+  readonly messages: ChatSessionRepository;
+  readonly models: AgentEmployeeModels;
+  readonly languages: UserSettingsRepository;
+  readonly simulation: ReturnType<typeof currentAgentSimulationMode>;
+  readonly memory: MemoryParts["memory"];
+  readonly memoryModel: MemoryParts["memoryModel"];
+  readonly recorder: MemoryParts["recorder"];
+  readonly privacy: MemoryParts["privacy"];
+  readonly activity: AgentActivityService;
+  readonly accessEnvironment: AgentAccessEnvironmentService;
+  readonly sessionSettings: AgentSessionSettingsRepository;
+  readonly slots: AgentSessionSlots;
+  readonly chatReader: AgentChatReader;
+  readonly lifecycle: AgentChatSessionLifecycle;
+}
+
+function createEmployeeSessions(
+  input: EmployeeServicesInput,
+  base: EmployeeBase,
+  late: LateServices,
+): AgentEmployeeSessions {
+  return new AgentEmployeeSessions({
+    store: base.store,
+    users: base.users,
+    authorization: base.authorization,
+    messages: base.messages,
+    languages: base.languages,
+    models: base.models,
+    memory: base.memory,
+    acp: input.acp,
+    slots: base.slots,
+    accessEnvironment: base.accessEnvironment,
     ...(input.hostFiles
       ? { hostFiles: new AgentHostFiles(input.hostFiles) }
       : {}),
-    recorder,
-    agentChat: () => agentChat,
+    recorder: base.recorder,
+    agentChat: () => late.agentChat,
     createSessionId: () => createChatSessionId(),
     conversationContext: {
       readForAgent: (agentId, request) =>
-        contextReader
-          ? contextReader.readForAgent(agentId, request)
+        late.contextReader
+          ? late.contextReader.readForAgent(agentId, request)
           : Promise.reject(new ConversationError("not_found")),
     },
-    lifecycle: () => lifecycle,
-    chatReader,
-    toolGuard: new AgentChatToolGuard({ store }),
-    logbook: () => logbook,
-    recipes: new AgentRecipeService({ store }),
+    lifecycle: () => base.lifecycle,
+    chatReader: base.chatReader,
+    toolGuard: new AgentChatToolGuard({ store: base.store }),
+    logbook: () => late.logbook,
+    recipes: new AgentRecipeService({ store: base.store }),
   });
+}
+
+function wireEmployeeConversations(
+  input: EmployeeServicesInput,
+  base: EmployeeBase,
+  sessions: AgentEmployeeSessions,
+  late: LateServices,
+): Pick<
+  EmployeeParts,
+  "agentSessions" | "conversations" | "learning" | "logbook"
+> {
+  const { store, users, messages, memory, memoryModel, recorder } = base;
+  const { simulation, activity, sessionSettings, lifecycle, chatReader } = base;
+  const { database } = input;
   const isBackgroundOwner = !isLocalSessionOwner() && !isPagesRunsProcess();
   const conversations = createConversationServices({
     database,
@@ -634,8 +448,8 @@ export function createEmployeeServices(
       recorder,
     }),
   });
-  contextReader = conversations.conversationContextReader;
-  agentChat = conversations.agentChatService;
+  late.contextReader = conversations.conversationContextReader;
+  late.agentChat = conversations.agentChatService;
   const learning = createLearning(input, {
     dependencies: {
       store,
@@ -657,7 +471,7 @@ export function createEmployeeServices(
       ? (agentId) => learning.run(agentId, { trigger: "logbook" })
       : null,
   });
-  logbook = logbookService;
+  late.logbook = logbookService;
   if (isBackgroundOwner && hasModel)
     new AgentLogbookScheduler({
       store,
@@ -692,24 +506,29 @@ export function createEmployeeServices(
       )) !== null,
     defaultIdleMinutes: async () => (await sessionSettings.read()).idleMinutes,
   });
+  return { agentSessions, conversations, learning, logbook: logbookService };
+}
+
+/**
+ *
+ */
+export function createEmployeeServices(
+  input: EmployeeServicesInput,
+): EmployeeApplicationServices {
+  const late: LateServices = {
+    sessions: null,
+    agentChat: null,
+    contextReader: null,
+    logbook: null,
+  };
+  const base = createEmployeeBase(input, late);
+  const sessions = createEmployeeSessions(input, base, late);
+  late.sessions = sessions;
+  const wired = wireEmployeeConversations(input, base, sessions, late);
   return assembleEmployeeServices({
     input,
-    store,
-    authorization,
-    users,
-    messages,
-    models,
-    languages,
-    memory,
-    activity,
-    accessEnvironment,
-    sessionSettings,
-    slots,
+    ...base,
     sessions,
-    agentSessions,
-    logbook: logbookService,
-    conversations,
-    learning,
-    privacy,
+    ...wired,
   });
 }

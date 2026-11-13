@@ -46,7 +46,10 @@ function respond(
   return vi
     .fn<typeof fetch>()
     .mockResolvedValue(
-      new Response(typeof body === "string" ? body : JSON.stringify(body), init),
+      new Response(
+        typeof body === "string" ? body : JSON.stringify(body),
+        init,
+      ),
     );
 }
 
@@ -100,7 +103,9 @@ describe("OpenRouterDecisionsClient", () => {
       probabilities: null,
     });
   });
+});
 
+describe("OpenRouterDecisionsClient failures", () => {
   it.each([401, 402, 429, 500, 502, 524])(
     "reports HTTP %i as a failed call",
     async (status) => {
@@ -138,7 +143,7 @@ describe("OpenRouterDecisionsClient", () => {
       },
     ],
     ["no model", { answers: GOOD_BODY.answers }],
-  ])("refuses an answer with %s as invalid", async (_name, body) => {
+  ])("refuses an answer with %s as invalid", async (name, body) => {
     await expect(
       new OpenRouterDecisionsClient(respond(body)).decide(request),
     ).rejects.toMatchObject({ code: "decision_invalid" });

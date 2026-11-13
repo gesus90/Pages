@@ -304,52 +304,55 @@ it("learns from the tool calls: it hands them to the model and moves its positio
   expect(world.dreaming.value.toolsThrough).toBe(4);
 });
 
+/** The recipes the model answers in the run that creates, corrects and drops recipes. */
+const RECIPE_ANSWERS: AgentDreamAnswer["recipes"] = [
+  {
+    name: "Ticket anlegen",
+    kind: "flow",
+    summary: "Legt ein Ticket an und liest es.",
+    keywords: ["ticket"],
+    parameters: [{ name: "projekt", description: "ID" }],
+    steps: [
+      {
+        tool: "tickets_create",
+        input: { projectId: "{{projekt}}" },
+        note: "anlegen",
+      },
+      {
+        tool: "tickets_read",
+        input: { ticketId: "{{1.id}}" },
+        note: "Kontrolle",
+      },
+    ],
+    evidence: "4× in Sitzungen",
+  },
+  {
+    name: "Pages-Repo",
+    kind: "knowledge",
+    summary: "Wo das Repo liegt",
+    keywords: ["repo"],
+    body: "Unter /home/igor/Repo/Pages.",
+    evidence: "5× gesucht",
+  },
+  // A tool the agent never used, a deleting tool: both refused.
+  {
+    name: "Unbekannt",
+    kind: "flow",
+    summary: "x",
+    steps: [{ tool: "tickets_move", input: {}, note: "" }],
+  },
+  {
+    name: "Aufräumen",
+    kind: "flow",
+    summary: "x",
+    steps: [{ tool: "tickets_delete", input: { ticketId: "1" }, note: "" }],
+  },
+];
+
 it("creates recipes that work at once, corrects a failed one, and drops what it names", async () => {
   const world = dreamWorld({
     ...EMPTY_ANSWER,
-    recipes: [
-      {
-        name: "Ticket anlegen",
-        kind: "flow",
-        summary: "Legt ein Ticket an und liest es.",
-        keywords: ["ticket"],
-        parameters: [{ name: "projekt", description: "ID" }],
-        steps: [
-          {
-            tool: "tickets_create",
-            input: { projectId: "{{projekt}}" },
-            note: "anlegen",
-          },
-          {
-            tool: "tickets_read",
-            input: { ticketId: "{{1.id}}" },
-            note: "Kontrolle",
-          },
-        ],
-        evidence: "4× in Sitzungen",
-      },
-      {
-        name: "Pages-Repo",
-        kind: "knowledge",
-        summary: "Wo das Repo liegt",
-        keywords: ["repo"],
-        body: "Unter /home/igor/Repo/Pages.",
-        evidence: "5× gesucht",
-      },
-      // A tool the agent never used, a deleting tool: both refused.
-      {
-        name: "Unbekannt",
-        kind: "flow",
-        summary: "x",
-        steps: [{ tool: "tickets_move", input: {}, note: "" }],
-      },
-      {
-        name: "Aufräumen",
-        kind: "flow",
-        summary: "x",
-        steps: [{ tool: "tickets_delete", input: { ticketId: "1" }, note: "" }],
-      },
-    ],
+    recipes: RECIPE_ANSWERS,
     dropRecipes: ["alt"],
   });
   world.sources.entries = [
@@ -380,11 +383,11 @@ it("creates recipes that work at once, corrects a failed one, and drops what it 
   const result = await world.service.run(AGENT);
 
   expect(result).toMatchObject({ status: "updated" });
-  const names = world.recipes.recipes.map((entry) => entry.name).sort();
+  const names = world.recipes.recipes.map((stored) => stored.name).sort();
   expect(names).toEqual(["pages-repo", "ticket-anlegen"]);
   // The failed recipe was corrected: new steps, stronger, on again with a clean slate.
   const corrected = world.recipes.recipes.find(
-    (entry) => entry.name === "ticket-anlegen",
+    (stored) => stored.name === "ticket-anlegen",
   );
   expect(corrected).toMatchObject({
     isActive: true,
@@ -398,7 +401,7 @@ it("creates recipes that work at once, corrects a failed one, and drops what it 
     "tickets_read",
   ]);
   const created = world.recipes.recipes.find(
-    (entry) => entry.name === "pages-repo",
+    (stored) => stored.name === "pages-repo",
   );
   expect(created).toMatchObject({
     kind: "knowledge",
@@ -454,7 +457,7 @@ it("lets a rarely used recipe of the dream fall out but keeps one somebody wrote
     }),
   ];
   await world.service.run(AGENT);
-  expect(world.recipes.recipes.map((entry) => entry.name).sort()).toEqual([
+  expect(world.recipes.recipes.map((stored) => stored.name).sort()).toEqual([
     "frisch",
     "oft",
     "von-hand",

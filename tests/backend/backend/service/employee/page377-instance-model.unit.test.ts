@@ -8,6 +8,7 @@ import type { AgentSessionSettingsRepository } from "@/backend/database/reposito
 import type { AccountAccess } from "@/definition/Authorization";
 import type { PageAgentModel } from "@/definition/PageAgent";
 import type { User } from "@/definition/User";
+import { partialStub } from "../../stub-fixture";
 
 const LIMITS = {
   perAgent: 4,
@@ -30,14 +31,19 @@ const ADMINISTRATOR: AccountAccess = {
   allProjects: true,
   hasHadDepartment: false,
 };
-const CHEAP = {
+const CHEAP = partialStub<unknown>({
   id: "cheap",
   connectionId: "cheap-connection",
   model: "cheap-model",
   name: "Cheap Model",
-} as unknown as PageAgentModel;
+}) as PageAgentModel;
 
-function service(logbookModel: { connectionId: string; model: string } | null = null) {
+function service(
+  logbookModel: { connectionId: string; model: string } | null = null,
+): {
+  readonly limits: AgentSessionLimitService;
+  readonly saveLogbookModel: ReturnType<typeof vi.fn>;
+} {
   const saveLogbookModel = vi.fn(async () => undefined);
   const settings: unknown = {
     read: vi.fn(async () => LIMITS),
@@ -54,14 +60,21 @@ function service(logbookModel: { connectionId: string; model: string } | null = 
 }
 
 it("shows the model of the instance for the Lagebuch summary with the models an administrator may choose", async () => {
-  const { limits } = service({ connectionId: "cheap-connection", model: "cheap-model" });
+  const { limits } = service({
+    connectionId: "cheap-connection",
+    model: "cheap-model",
+  });
   await expect(limits.administration(ADMINISTRATOR)).resolves.toEqual({
     limits: LIMITS,
     running: 1,
     waiting: 2,
     logbookModel: { connectionId: "cheap-connection", model: "cheap-model" },
     logbookModels: [
-      { connectionId: "cheap-connection", model: "cheap-model", label: "Cheap Model" },
+      {
+        connectionId: "cheap-connection",
+        model: "cheap-model",
+        label: "Cheap Model",
+      },
     ],
   });
 });
@@ -84,15 +97,20 @@ it("saves the instance model of the Lagebuch summary, clears it with empty field
     { connectionId: "other", model: "other-model" },
     {},
   ])
-    await expect(limits.saveLogbookModel(ADMINISTRATOR, input)).rejects.toMatchObject({
+    await expect(
+      limits.saveLogbookModel(ADMINISTRATOR, input),
+    ).rejects.toMatchObject({
       code: "profile_invalid",
     });
   expect(saveLogbookModel).toHaveBeenCalledTimes(2);
   await expect(
-    limits.saveLogbookModel({ ...ADMINISTRATOR, isAdmin: false, mode: "role" }, {
-      connectionId: "",
-      model: "",
-    }),
+    limits.saveLogbookModel(
+      { ...ADMINISTRATOR, isAdmin: false, mode: "role" },
+      {
+        connectionId: "",
+        model: "",
+      },
+    ),
   ).rejects.toBeDefined();
 });
 
@@ -113,13 +131,18 @@ it("adds the Lagebuch rule to the instruction of a chat and the one hint line at
     ...BASE,
     personName: "Igor",
     hasLogbook: true,
-    logbookHint: "Lagebuch: 3 neue Einträge (PAGE-370, Release Freitag, Testserver)",
+    logbookHint:
+      "Lagebuch: 3 neue Einträge (PAGE-370, Release Freitag, Testserver)",
   });
   expect(text).toContain("Dein Lagebuch:");
   expect(text).toContain("lagebuch_merken(art, text)");
-  expect(text).toContain("Aus einem vertraulichen Chat steht nichts im Lagebuch");
+  expect(text).toContain(
+    "Aus einem vertraulichen Chat steht nichts im Lagebuch",
+  );
   expect(
-    text.endsWith("Lagebuch: 3 neue Einträge (PAGE-370, Release Freitag, Testserver)"),
+    text.endsWith(
+      "Lagebuch: 3 neue Einträge (PAGE-370, Release Freitag, Testserver)",
+    ),
   ).toBe(true);
 });
 
@@ -141,22 +164,37 @@ it("leaves the rule out without the tools and everything of the Lagebuch out of 
 
 it("lets the simulation derive entries from the messages without a model provider", async () => {
   const model = new SimulatedAgentMemoryModel();
-  const agent = { id: "ed", displayName: "Ed" } as User;
+  const agent = partialStub<User>({ id: "ed", displayName: "Ed" });
   const drafts = await model.logbook(
-    { agent, employee: {} as never },
+    { agent, employee: partialStub<never>({}) },
     {
       chat: "Gruppe „Team“",
       existing: [],
       messages: [
-        { from: "Igor", at: "2026-11-13T17:00:00.000Z", text: "Wir haben beschlossen: PAGE-370 macht Ed." },
-        { from: "Ed", at: "2026-11-13T17:01:00.000Z", text: "Alles klar, PAGE-370 bis Freitag." },
+        {
+          from: "Igor",
+          at: "2026-11-13T17:00:00.000Z",
+          text: "Wir haben beschlossen: PAGE-370 macht Ed.",
+        },
+        {
+          from: "Ed",
+          at: "2026-11-13T17:01:00.000Z",
+          text: "Alles klar, PAGE-370 bis Freitag.",
+        },
         { from: "Mei", at: "2026-11-13T17:02:00.000Z", text: "Guten Morgen!" },
-        { from: "Mei", at: "2026-11-13T17:03:00.000Z", text: "Die Notizen schreibe ich bis Mittwoch." },
+        {
+          from: "Mei",
+          at: "2026-11-13T17:03:00.000Z",
+          text: "Die Notizen schreibe ich bis Mittwoch.",
+        },
       ],
     },
   );
   expect(drafts).toEqual([
     { kind: "open", text: "Mei: Die Notizen schreibe ich bis Mittwoch." },
-    { kind: "decision", text: "Igor: Wir haben beschlossen: PAGE-370 macht Ed." },
+    {
+      kind: "decision",
+      text: "Igor: Wir haben beschlossen: PAGE-370 macht Ed.",
+    },
   ]);
 });

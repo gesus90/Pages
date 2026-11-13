@@ -78,7 +78,12 @@ it("finds in chat B with lagebuch_suchen what the agent kept in chat A with lage
 it("reads the Lagebuch by chat, by topic, by both and without either", async () => {
   const world = logbookWorld();
   await remember(world, TEAM, "fakt", "Der Testserver heißt staging-2.");
-  await remember(world, RELEASE, "aufgabe", "Release-Notizen schreibt Mei bis Mittwoch.");
+  await remember(
+    world,
+    RELEASE,
+    "aufgabe",
+    "Release-Notizen schreibt Mei bis Mittwoch.",
+  );
   await remember(world, IGOR, "frage", "Soll der Testserver nachts laufen?");
   const tools = toolsOf(world, IGOR);
 
@@ -98,7 +103,10 @@ it("reads the Lagebuch by chat, by topic, by both and without either", async () 
     "Der Testserver heißt staging-2.",
   ]);
 
-  const both = (await tools.read({ chat: "Pages-Team", thema: "testserver" })) as {
+  const both = (await tools.read({
+    chat: "Pages-Team",
+    thema: "testserver",
+  })) as {
     eintraege: { text: string }[];
   };
   expect(both.eintraege).toHaveLength(1);
@@ -133,7 +141,12 @@ it("takes all five kinds by their German names and refuses any other word", asyn
 it("leaves out a repeat of an entry the chat wrote before and cuts a long text", async () => {
   const world = logbookWorld();
   await remember(world, TEAM, "fakt", "Der Release ist am Freitag.");
-  const again = await remember(world, TEAM, "fakt", "  der   release ist am Freitag. ");
+  const again = await remember(
+    world,
+    TEAM,
+    "fakt",
+    "  der   release ist am Freitag. ",
+  );
   expect(again).toEqual({
     gespeichert: false,
     grund: "Ein gleicher Eintrag aus diesem Chat steht schon im Lagebuch.",
@@ -180,7 +193,12 @@ it("writes nothing from a confidential chat and finds nothing of it", async () =
   await remember(world, TEAM, "fakt", "Der Testserver heißt staging-2.");
   world.logbook.confidential.add("direct:person-igor");
 
-  const refused = await remember(world, IGOR, "fakt", "Igors Gehalt wird erhöht.");
+  const refused = await remember(
+    world,
+    IGOR,
+    "fakt",
+    "Igors Gehalt wird erhöht.",
+  );
   expect(refused).toEqual({
     gespeichert: false,
     grund:
@@ -213,7 +231,9 @@ it("does not let search, read or the hint reach entries of a chat that became co
   world.logbook.confidential.add("direct:person-igor");
 
   const tools = toolsOf(world, RELEASE);
-  expect(await tools.search({ text: "Urlaub" })).toMatchObject({ eintraege: [] });
+  expect(await tools.search({ text: "Urlaub" })).toMatchObject({
+    eintraege: [],
+  });
   const all = (await tools.read({})) as { eintraege: { text: string }[] };
   expect(all.eintraege.map((entry) => entry.text)).toEqual([
     "Der Testserver heißt staging-2.",
@@ -222,7 +242,9 @@ it("does not let search, read or the hint reach entries of a chat that became co
     agentId: AGENT,
     sessionId: RELEASE.sessionId,
   });
-  expect(hint.line).toBe("Lagebuch: 1 neuer Eintrag (Der Testserver heißt staging-2)");
+  expect(hint.line).toBe(
+    "Lagebuch: 1 neuer Eintrag (Der Testserver heißt staging-2)",
+  );
   expect(hint.line).not.toContain("Urlaub");
 });
 
@@ -285,7 +307,7 @@ it("asks for no compaction when the agent has dreaming switched off or no model 
   expect(off.logbook.entries).toHaveLength(10);
 });
 
-it("asks for no compaction when the schedule of the agent switches \"bei vollem Lagebuch\" off (PAGE-378)", async () => {
+it('asks for no compaction when the schedule of the agent switches "bei vollem Lagebuch" off (PAGE-378)', async () => {
   const world = logbookWorld([TEAM], settings({ limit: 10 }));
   world.isOnFullLogbook.value = false;
   for (let index = 1; index <= 10; index += 1)
@@ -304,7 +326,12 @@ it("tells a round in one line what other chats wrote since the stand of its sess
   // Nothing written yet: no line.
   expect(await world.service.hint(team)).toEqual({ line: null, newest: 0 });
 
-  await remember(world, IGOR, "entscheidung", "PAGE-370 übernimmt Ed bis Freitag.");
+  await remember(
+    world,
+    IGOR,
+    "entscheidung",
+    "PAGE-370 übernimmt Ed bis Freitag.",
+  );
   await remember(world, RELEASE, "aufgabe", "Release Freitag vorbereiten");
   await remember(world, IGOR, "fakt", "Testserver ist staging-2");
 
@@ -344,7 +371,8 @@ it("leaves the line out once the session was told, and counts only entries of ot
   // The stand of one session says nothing about another: the direct chat has
   // seen nothing yet, and its own first entry is no news for it.
   expect(
-    (await world.service.hint({ agentId: AGENT, sessionId: IGOR.sessionId })).line,
+    (await world.service.hint({ agentId: AGENT, sessionId: IGOR.sessionId }))
+      .line,
   ).toBe("Lagebuch: 2 neue Einträge (Neue Frage, Eigener Fakt)");
 });
 
@@ -373,7 +401,8 @@ it("names at most three topics and says that there are more", async () => {
   for (let index = 1; index <= 5; index += 1)
     await remember(world, IGOR, "notiz", `Thema ${String(index)}`);
   expect(
-    (await world.service.hint({ agentId: AGENT, sessionId: TEAM.sessionId })).line,
+    (await world.service.hint({ agentId: AGENT, sessionId: TEAM.sessionId }))
+      .line,
   ).toBe("Lagebuch: 5 neue Einträge (Thema 5, Thema 4, Thema 3, …)");
 });
 
@@ -389,7 +418,10 @@ it("keeps the entries of every agent apart", async () => {
   const world = logbookWorld();
   world.logbook.settingsOf.set("other", settings());
   await remember(world, TEAM, "fakt", "Nur für Ed.");
-  const other = world.service.tools({ agentId: "other", sessionId: TEAM.sessionId });
+  const other = world.service.tools({
+    agentId: "other",
+    sessionId: TEAM.sessionId,
+  });
   expect(await other.search({ text: "Ed" })).toMatchObject({ eintraege: [] });
   expect(FakeLogbook.key({ kind: "group", id: "g" })).toBe("group:g");
 });

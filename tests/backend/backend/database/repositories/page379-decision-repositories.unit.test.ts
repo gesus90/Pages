@@ -8,20 +8,26 @@ import {
   CONVERSATION_NO_RULE_OVERRIDES,
 } from "@/definition/ConversationDecision";
 
-import type { DatabaseValue } from "@/backend/database/Database";
+import type {
+  DatabaseTransaction,
+  DatabaseValue,
+} from "@/backend/database/Database";
 import type { StoredConversationDecision } from "@/backend/database/repositories/conversation/ConversationDecisionRepository";
+import type { Mock } from "vitest";
 
-type Row = readonly DatabaseValue[];
+type Row = DatabaseValue[];
+type QueryFunction = DatabaseTransaction["query"];
+type ExecuteFunction = DatabaseTransaction["execute"];
 
 /** A database that records every statement and answers each query with the next prepared rows. */
 function database(...answers: Row[][]): {
-  readonly query: ReturnType<typeof vi.fn>;
-  readonly execute: ReturnType<typeof vi.fn>;
+  readonly query: Mock<QueryFunction>;
+  readonly execute: Mock<ExecuteFunction>;
 } {
   const queue = [...answers];
   return {
-    query: vi.fn(async () => queue.shift() ?? []),
-    execute: vi.fn(async () => undefined),
+    query: vi.fn<QueryFunction>(async () => queue.shift() ?? []),
+    execute: vi.fn<ExecuteFunction>(async () => undefined),
   };
 }
 
@@ -40,7 +46,7 @@ const STORED: StoredConversationDecision = {
   createdAt: "2026-01-01T00:00:00Z",
 };
 
-function decisionRow(overrides: Partial<Record<number, DatabaseValue>> = {}): Row {
+function decisionRow(overrides: Record<number, DatabaseValue> = {}): Row {
   const row: DatabaseValue[] = [
     "m1",
     "group",
@@ -57,7 +63,7 @@ function decisionRow(overrides: Partial<Record<number, DatabaseValue>> = {}): Ro
   return row;
 }
 
-it("gives a group without a row the mode \"@ + Decision\" and no values of its own", async () => {
+it('gives a group without a row the mode "@ + Decision" and no values of its own', async () => {
   const repository = new ConversationReplySettingsRepository(database());
   await expect(repository.find("group")).resolves.toEqual({
     conversationId: "group",
@@ -66,7 +72,7 @@ it("gives a group without a row the mode \"@ + Decision\" and no values of its o
   });
 });
 
-it("reads a stored group with its own values and keeps \"Nur @\"", async () => {
+it('reads a stored group with its own values and keeps "Nur @"', async () => {
   const repository = new ConversationReplySettingsRepository(
     database([["mentions", 80, null, 30, 1]]),
   );
@@ -82,7 +88,7 @@ it("reads a stored group with its own values and keeps \"Nur @\"", async () => {
   });
 });
 
-it("reads a mode of the removed kind as \"@ + Decision\"", async () => {
+it('reads a mode of the removed kind as "@ + Decision"', async () => {
   const repository = new ConversationReplySettingsRepository(
     database([["observer", null, null, null, null]]),
   );
@@ -212,7 +218,9 @@ it("lists the newest decisions of a group with the text of their messages", asyn
 it("tells how the newest call of the model of a group went, ignoring @ addressings", async () => {
   const connection = database([["model_failed"]], []);
   const repository = new ConversationDecisionRepository(connection);
-  await expect(repository.latestFallback("group")).resolves.toBe("model_failed");
+  await expect(repository.latestFallback("group")).resolves.toBe(
+    "model_failed",
+  );
   expect(connection.query).toHaveBeenCalledWith(
     expect.stringContaining("outcome <> 'mention'"),
     { conversation_id: "group" },

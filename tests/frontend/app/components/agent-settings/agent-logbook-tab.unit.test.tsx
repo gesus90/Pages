@@ -49,8 +49,11 @@ const FULL = logbookOverview({
   models: [CHEAP],
 });
 
-function answer(overview: AgentLogbookOverview = FULL) {
-  return { ok: true as const, overview };
+function answer(overview: AgentLogbookOverview = FULL): {
+  ok: true;
+  overview: AgentLogbookOverview;
+} {
+  return { ok: true, overview };
 }
 
 function renderDialog(
@@ -112,15 +115,17 @@ it("shows fill level, limit, quiet time and the model for the background summary
   expect(screen.getByText("Fill level")).toBeTruthy();
   expect(screen.getByText("170 of 200 entries")).toBeTruthy();
   expect(
-    screen.getByRole("meter", { name: "Fill level of the logbook" }).getAttribute("aria-valuenow"),
+    screen
+      .getByRole("meter", { name: "Fill level of the logbook" })
+      .getAttribute("aria-valuenow"),
   ).toBe("85");
   expect(screen.getByText(/At about 80 %/)).toBeTruthy();
-  expect((screen.getByLabelText("Limit") as HTMLInputElement).value).toBe("200");
-  expect((screen.getByLabelText("Quiet time") as HTMLInputElement).value).toBe("2");
+  expect(screen.getByLabelText<HTMLInputElement>("Limit").value).toBe("200");
+  expect(screen.getByLabelText<HTMLInputElement>("Quiet time").value).toBe("2");
   expect(screen.getByText("Background summary")).toBeTruthy();
-  expect(screen.getByRole("combobox", { name: "Model for it" }).textContent).toContain(
-    "The agent's model",
-  );
+  expect(
+    screen.getByRole("combobox", { name: "Model for it" }).textContent,
+  ).toContain("The agent's model");
 });
 
 it("lists every entry with time, chat, kind, text, people and origin, the newest first", async () => {
@@ -129,18 +134,26 @@ it("lists every entry with time, chat, kind, text, people and origin, the newest
   const [openRow, factRow, decisionRow] = await entryRows();
   expect(within(openRow).getByText("Group “Release”")).toBeTruthy();
   expect(within(openRow).getByText("Task/Open")).toBeTruthy();
-  expect(within(openRow).getByText("Mei writes the release notes until Wednesday.")).toBeTruthy();
+  expect(
+    within(openRow).getByText("Mei writes the release notes until Wednesday."),
+  ).toBeTruthy();
   expect(within(openRow).getByText("People involved: Mei")).toBeTruthy();
   expect(within(openRow).getByText("Background")).toBeTruthy();
   expect(within(factRow).getByText("Direct · Igor")).toBeTruthy();
   expect(within(factRow).getByText("Fact")).toBeTruthy();
   expect(within(decisionRow).getByText("Group “Pages-Team”")).toBeTruthy();
   expect(within(decisionRow).getByText("Decision")).toBeTruthy();
-  expect(within(decisionRow).getByText("PAGE-370 übernimmt Ed bis Freitag.")).toBeTruthy();
-  expect(within(decisionRow).getByText("People involved: Igor, Mei")).toBeTruthy();
+  expect(
+    within(decisionRow).getByText("PAGE-370 übernimmt Ed bis Freitag."),
+  ).toBeTruthy();
+  expect(
+    within(decisionRow).getByText("People involved: Igor, Mei"),
+  ).toBeTruthy();
   expect(within(decisionRow).getByText("Agent")).toBeTruthy();
   // The time of the entry in the format of the visitor.
-  expect(within(decisionRow).getByText(/13\.11\.2026|11\/13\/2026|2026-11-13/u)).toBeTruthy();
+  expect(
+    within(decisionRow).getByText(/13\.11\.2026|11\/13\/2026|2026-11-13/u),
+  ).toBeTruthy();
 });
 
 it("narrows the entries with the search and says how many are shown", async () => {
@@ -160,7 +173,9 @@ it("narrows the entries with the search and says how many are shown", async () =
 
   fireEvent.change(search, { target: { value: "nothing like this" } });
   expect(screen.queryByRole("table")).toBeNull();
-  expect(screen.getByText("No entries match the search and filters.")).toBeTruthy();
+  expect(
+    screen.getByText("No entries match the search and filters."),
+  ).toBeTruthy();
 });
 
 it("filters the entries by kind and by chat", async () => {
@@ -174,7 +189,7 @@ it("filters the entries by kind and by chat", async () => {
   fireEvent.click(await screen.findByRole("option", { name: "Fact" }));
   const factRows = await entryRows();
   expect(factRows).toHaveLength(1);
-  expect(within(factRows[0] as HTMLElement).getByText("Direct · Igor")).toBeTruthy();
+  expect(within(factRows[0]).getByText("Direct · Igor")).toBeTruthy();
 
   fireEvent.keyDown(screen.getByRole("combobox", { name: "Filter by kind" }), {
     key: "Enter",
@@ -183,22 +198,36 @@ it("filters the entries by kind and by chat", async () => {
   fireEvent.keyDown(screen.getByRole("combobox", { name: "Filter by chat" }), {
     key: "Enter",
   });
-  fireEvent.click(await screen.findByRole("option", { name: "Group “Release”" }));
+  fireEvent.click(
+    await screen.findByRole("option", { name: "Group “Release”" }),
+  );
   const releaseRows = await entryRows();
   expect(releaseRows).toHaveLength(1);
-  expect(within(releaseRows[0] as HTMLElement).getByText("Task/Open")).toBeTruthy();
+  expect(within(releaseRows[0]).getByText("Task/Open")).toBeTruthy();
 });
 
 it("filters by search words, kind and chat together", () => {
   const entries = [OPEN, FACT, DECISION];
   const all = { query: "", kind: "all", chat: "all" } as const;
   expect(filterLogbookEntries(entries, all)).toHaveLength(3);
-  expect(filterLogbookEntries(entries, { ...all, kind: "open" })).toEqual([OPEN]);
-  expect(filterLogbookEntries(entries, { ...all, chat: "group:g1" })).toEqual([DECISION]);
-  expect(filterLogbookEntries(entries, { ...all, chat: "direct:g1" })).toEqual([]);
-  expect(filterLogbookEntries(entries, { ...all, query: "  PAGE-370  " })).toEqual([DECISION]);
+  expect(filterLogbookEntries(entries, { ...all, kind: "open" })).toEqual([
+    OPEN,
+  ]);
+  expect(filterLogbookEntries(entries, { ...all, chat: "group:g1" })).toEqual([
+    DECISION,
+  ]);
+  expect(filterLogbookEntries(entries, { ...all, chat: "direct:g1" })).toEqual(
+    [],
+  );
   expect(
-    filterLogbookEntries(entries, { query: "igor", kind: "fact", chat: "direct:person-1" }),
+    filterLogbookEntries(entries, { ...all, query: "  PAGE-370  " }),
+  ).toEqual([DECISION]);
+  expect(
+    filterLogbookEntries(entries, {
+      query: "igor",
+      kind: "fact",
+      chat: "direct:person-1",
+    }),
   ).toEqual([FACT]);
   expect(
     filterLogbookEntries(entries, { query: "igor", kind: "open", chat: "all" }),
@@ -208,12 +237,21 @@ it("filters by search words, kind and chat together", () => {
 it("removes an entry and shows the Lagebuch the server answers with", async () => {
   const { calls, bodies } = stubLogbookEndpoint((call) =>
     call.method === "POST"
-      ? answer(logbookOverview({ entries: [OPEN, FACT], count: 169, fillPercent: 85, chats: FULL.chats }))
+      ? answer(
+          logbookOverview({
+            entries: [OPEN, FACT],
+            count: 169,
+            fillPercent: 85,
+            chats: FULL.chats,
+          }),
+        )
       : answer(),
   );
   renderDialog();
   await entryRows();
-  fireEvent.click(screen.getByRole("button", { name: "Delete entry: PAGE-370" }));
+  fireEvent.click(
+    screen.getByRole("button", { name: "Delete entry: PAGE-370" }),
+  );
   await vi.waitFor(() => expect(calls).toHaveLength(2));
   expect(calls[1]?.method).toBe("POST");
   expect(calls[1]?.fields.intent).toBe("remove-entries");
@@ -236,8 +274,12 @@ it("saves limit, quiet time and model and shows that it worked", async () => {
   );
   renderDialog();
   await entryRows();
-  fireEvent.change(screen.getByLabelText("Limit"), { target: { value: "120" } });
-  fireEvent.change(screen.getByLabelText("Quiet time"), { target: { value: "5" } });
+  fireEvent.change(screen.getByLabelText("Limit"), {
+    target: { value: "120" },
+  });
+  fireEvent.change(screen.getByLabelText("Quiet time"), {
+    target: { value: "5" },
+  });
   fireEvent.keyDown(screen.getByRole("combobox", { name: "Model for it" }), {
     key: "Enter",
   });
@@ -254,11 +296,11 @@ it("saves limit, quiet time and model and shows that it worked", async () => {
   });
   expect(await screen.findByText("Settings saved.")).toBeTruthy();
   // The entries restart from what the server saved.
-  expect((screen.getByLabelText("Limit") as HTMLInputElement).value).toBe("120");
-  expect((screen.getByLabelText("Quiet time") as HTMLInputElement).value).toBe("5");
-  expect(screen.getByRole("combobox", { name: "Model for it" }).textContent).toContain(
-    "Cheap Model",
-  );
+  expect(screen.getByLabelText<HTMLInputElement>("Limit").value).toBe("120");
+  expect(screen.getByLabelText<HTMLInputElement>("Quiet time").value).toBe("5");
+  expect(
+    screen.getByRole("combobox", { name: "Model for it" }).textContent,
+  ).toContain("Cheap Model");
 });
 
 it("names the model of the instance as the default of the model choice", async () => {
@@ -267,9 +309,9 @@ it("names the model of the instance as the default of the model choice", async (
   );
   renderDialog();
   await entryRows();
-  expect(screen.getByRole("combobox", { name: "Model for it" }).textContent).toContain(
-    "Instance default: Cheap Model",
-  );
+  expect(
+    screen.getByRole("combobox", { name: "Model for it" }).textContent,
+  ).toContain("Instance default: Cheap Model");
 });
 
 it("checks limit and quiet time against their ranges before it sends anything", async () => {
@@ -282,28 +324,47 @@ it("checks limit and quiet time against their ranges before it sends anything", 
   fireEvent.change(screen.getByLabelText("Limit"), { target: { value: "9" } });
   expect(screen.getByText("Enter whole numbers from 10 to 2000.")).toBeTruthy();
   expect(save.hasAttribute("disabled")).toBe(true);
-  fireEvent.change(screen.getByLabelText("Limit"), { target: { value: "2000" } });
+  fireEvent.change(screen.getByLabelText("Limit"), {
+    target: { value: "2000" },
+  });
   expect(save.hasAttribute("disabled")).toBe(false);
 
-  fireEvent.change(screen.getByLabelText("Quiet time"), { target: { value: "0" } });
+  fireEvent.change(screen.getByLabelText("Quiet time"), {
+    target: { value: "0" },
+  });
   expect(screen.getByText("Enter whole minutes from 1 to 240.")).toBeTruthy();
   expect(save.hasAttribute("disabled")).toBe(true);
-  fireEvent.change(screen.getByLabelText("Quiet time"), { target: { value: "2.5" } });
+  fireEvent.change(screen.getByLabelText("Quiet time"), {
+    target: { value: "2.5" },
+  });
   expect(save.hasAttribute("disabled")).toBe(true);
   expect(calls).toHaveLength(1);
 });
 
 it("shows the settings to a viewer who may not change them, without a way to save", async () => {
   stubLogbookEndpoint(() =>
-    answer(logbookOverview({ ...FULL, canChangeSettings: false, models: [], settings: { limit: 200, quietMinutes: 2, model: CHEAP } })),
+    answer(
+      logbookOverview({
+        ...FULL,
+        canChangeSettings: false,
+        models: [],
+        settings: { limit: 200, quietMinutes: 2, model: CHEAP },
+      }),
+    ),
   );
   renderDialog();
   await entryRows();
-  expect((screen.getByLabelText("Limit") as HTMLInputElement).readOnly).toBe(true);
-  expect((screen.getByLabelText("Quiet time") as HTMLInputElement).readOnly).toBe(true);
+  expect(screen.getByLabelText<HTMLInputElement>("Limit").readOnly).toBe(true);
+  expect(screen.getByLabelText<HTMLInputElement>("Quiet time").readOnly).toBe(
+    true,
+  );
   expect(screen.queryByRole("combobox", { name: "Model for it" })).toBeNull();
-  expect(screen.getByText("You can view these settings but not change them.")).toBeTruthy();
-  expect(screen.getByRole("button", { name: "Save" }).hasAttribute("disabled")).toBe(true);
+  expect(
+    screen.getByText("You can view these settings but not change them."),
+  ).toBeTruthy();
+  expect(
+    screen.getByRole("button", { name: "Save" }).hasAttribute("disabled"),
+  ).toBe(true);
 });
 
 it("says why a change was refused and keeps the entries", async () => {
@@ -312,7 +373,9 @@ it("says why a change was refused and keeps the entries", async () => {
   );
   renderDialog();
   await entryRows();
-  fireEvent.click(screen.getByRole("button", { name: "Delete entry: PAGE-370" }));
+  fireEvent.click(
+    screen.getByRole("button", { name: "Delete entry: PAGE-370" }),
+  );
   expect((await screen.findByRole("alert")).textContent).toBe(
     "You are not allowed to do that.",
   );
@@ -354,11 +417,15 @@ it("words the tab in German", async () => {
   expect(screen.getByLabelText("Obergrenze")).toBeTruthy();
   expect(screen.getByLabelText("Ruhezeit")).toBeTruthy();
   expect(screen.getByRole("combobox", { name: "Modell dafür" })).toBeTruthy();
-  expect(screen.getByRole("searchbox", { name: "Einträge durchsuchen" })).toBeTruthy();
+  expect(
+    screen.getByRole("searchbox", { name: "Einträge durchsuchen" }),
+  ).toBeTruthy();
   expect(within(table).getByText("Gruppe „Pages-Team“")).toBeTruthy();
   expect(within(table).getByText("Entscheidung")).toBeTruthy();
   expect(within(table).getByText("Aufgabe/Offen")).toBeTruthy();
   expect(within(table).getByText("Hintergrund")).toBeTruthy();
-  expect(screen.getByRole("button", { name: "Eintrag löschen: PAGE-370" })).toBeTruthy();
+  expect(
+    screen.getByRole("button", { name: "Eintrag löschen: PAGE-370" }),
+  ).toBeTruthy();
   expect(screen.getByRole("button", { name: "Speichern" })).toBeTruthy();
 });

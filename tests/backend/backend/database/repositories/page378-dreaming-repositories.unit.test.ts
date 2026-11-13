@@ -4,40 +4,42 @@ import { AgentDreamingRepository } from "@/backend/database/repositories/employe
 import { AgentRecipeRepository } from "@/backend/database/repositories/employee/AgentRecipeRepository";
 import { AgentToolUseRepository } from "@/backend/database/repositories/employee/AgentToolUseRepository";
 
-import type { DatabaseValue } from "@/backend/database/Database";
+import type {
+  DatabaseTransaction,
+  DatabaseValue,
+  SqlParameters,
+} from "@/backend/database/Database";
+import type { Mock } from "vitest";
+import { partialStub } from "../../stub-fixture";
 
-type Row = readonly DatabaseValue[];
+type Row = DatabaseValue[];
+type QueryFunction = DatabaseTransaction["query"];
+type ExecuteFunction = DatabaseTransaction["execute"];
 
 interface Call {
   readonly sql: string;
-  readonly parameters: Record<string, unknown> | undefined;
+  readonly parameters: SqlParameters | undefined;
 }
 
 /** A database that records every statement and answers each query with the next prepared rows. */
 function database(...answers: Row[][]): {
   readonly calls: Call[];
-  readonly query: ReturnType<typeof vi.fn>;
-  readonly execute: ReturnType<typeof vi.fn>;
+  readonly query: Mock<QueryFunction>;
+  readonly execute: Mock<ExecuteFunction>;
 } {
   const calls: Call[] = [];
   const queue = [...answers];
-  const query = vi.fn(
-    async (sql: string, parameters?: Record<string, unknown>) => {
-      calls.push({ sql, parameters });
-      return queue.shift() ?? [];
-    },
-  );
-  const execute = vi.fn(
-    async (sql: string, parameters?: Record<string, unknown>) => {
-      calls.push({ sql, parameters });
-    },
-  );
+  const query = vi.fn<QueryFunction>(async (sql, parameters) => {
+    calls.push({ sql, parameters });
+    return queue.shift() ?? [];
+  });
+  const execute = vi.fn<ExecuteFunction>(async (sql, parameters) => {
+    calls.push({ sql, parameters });
+  });
   return { calls, query, execute };
 }
 
-function recipeRow(
-  overrides: Partial<Record<number, DatabaseValue>> = {},
-): Row {
+function recipeRow(overrides: Record<number, DatabaseValue> = {}): Row {
   const row: DatabaseValue[] = [
     "r-1",
     "ed",
@@ -260,7 +262,7 @@ it("saves the schedule without touching the revision, keeps an earlier request a
       status: "unchanged",
       trigger: "manual",
       errorCode: null,
-      counts: {} as never,
+      counts: partialStub<never>({}),
       log: [],
     },
     logbookThrough: 50,

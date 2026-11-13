@@ -6,15 +6,15 @@ Entwurf für All Might. Er ersetzt in [PAGE-317](./PAGE-317.md) die Abschnitte �
 
 ## Ablauf in Gruppenchats
 
-| Nachricht                                                  | Wer antwortet                                                                           | Decision-Modell gefragt?      |
-| ---------------------------------------------------------- | --------------------------------------------------------------------------------------- | ----------------------------- |
-| Person mit `@Name` eines Agents                            | genau die genannten Agents                                                              | nein                          |
-| Person mit `@Name` nur von Menschen                        | niemand (die Nachricht gilt den Genannten)                                              | nein                          |
-| Agent mit `@Name`                                          | die genannten Agents (wie bisher mit Weitergabe)                                        | nein                          |
-| Agent ohne `@`                                             | niemand                                                                                 | nein                          |
-| Person ohne `@`, Modus **Nur @**                           | niemand                                                                                 | nein                          |
-| Person ohne `@`, Modus **@ + Decision** (Standard)         | Pages entscheidet mit den Schwellen anhand der Wahrscheinlichkeiten des Decision-Modells | ja, genau einmal je Nachricht |
-| Person ohne `@`, kein Modell eingestellt oder ausgefallen  | niemand, die Gruppe verhält sich wie **Nur @**                                          | Aufruf entfällt oder schlägt fehl |
+| Nachricht                                                 | Wer antwortet                                                                            | Decision-Modell gefragt?          |
+| --------------------------------------------------------- | ---------------------------------------------------------------------------------------- | --------------------------------- |
+| Person mit `@Name` eines Agents                           | genau die genannten Agents                                                               | nein                              |
+| Person mit `@Name` nur von Menschen                       | niemand (die Nachricht gilt den Genannten)                                               | nein                              |
+| Agent mit `@Name`                                         | die genannten Agents (wie bisher mit Weitergabe)                                         | nein                              |
+| Agent ohne `@`                                            | niemand                                                                                  | nein                              |
+| Person ohne `@`, Modus **Nur @**                          | niemand                                                                                  | nein                              |
+| Person ohne `@`, Modus **@ + Decision** (Standard)        | Pages entscheidet mit den Schwellen anhand der Wahrscheinlichkeiten des Decision-Modells | ja, genau einmal je Nachricht     |
+| Person ohne `@`, kein Modell eingestellt oder ausgefallen | niemand, die Gruppe verhält sich wie **Nur @**                                           | Aufruf entfällt oder schlägt fehl |
 
 `ConversationAgentReplies.answer()` ist die einzige Stelle der Verzweigung. Die Nachrichten, die ein Agent selbst gesendet hat, lösen weiter nur die Agents aus, die sie mit `@` nennen; eine Antwort ohne `@` fragt niemanden mehr (der Beobachter, der danach noch einmal gewählt hat, ist weg).
 
@@ -30,12 +30,12 @@ Entwurf für All Might. Er ersetzt in [PAGE-317](./PAGE-317.md) die Abschnitte �
 
 ## Schwellen (Pages entscheidet, nicht das Modell)
 
-| Schwelle                    | Standard | Bedeutung                                                                                       |
-| --------------------------- | -------- | ----------------------------------------------------------------------------------------------- |
-| Antwort-Schwelle            | 60 %     | Darunter antwortet niemand.                                                                     |
-| Zuständigkeits-Schwelle     | 50 %     | Der wahrscheinlichste Agent antwortet ab hier.                                                  |
-| Zweit-Schwelle              | 40 %     | Weitere Agents antworten ab hier, solange die Höchstzahl es erlaubt.                            |
-| Höchstzahl Antwortende      | 2        | Bereich 1 bis 3 (gleich der Grenze automatischer Antworten je Runde).                           |
+| Schwelle                | Standard | Bedeutung                                                             |
+| ----------------------- | -------- | --------------------------------------------------------------------- |
+| Antwort-Schwelle        | 60 %     | Darunter antwortet niemand.                                           |
+| Zuständigkeits-Schwelle | 50 %     | Der wahrscheinlichste Agent antwortet ab hier.                        |
+| Zweit-Schwelle          | 40 %     | Weitere Agents antworten ab hier, solange die Höchstzahl es erlaubt.  |
+| Höchstzahl Antwortende  | 2        | Bereich 1 bis 3 (gleich der Grenze automatischer Antworten je Runde). |
 
 Niemand antwortet außerdem, wenn „niemand“ mindestens so wahrscheinlich ist wie der beste Agent (bei Gleichstand gewinnt „niemand“). Alle Vergleiche gelten einschließlich der Schwelle (`≥`). Die Entscheidung ist `settleDecision()` in `ConversationDecisionOutcome.ts`.
 
@@ -56,15 +56,15 @@ Kein Modell eingestellt, nicht mehr im Katalog, Schlüssel fehlt, Aufruf fehlges
 
 ## Bestehende Gruppen (Migration `060_group_decision_rules.sql`)
 
-| Vorher                              | Nachher                                                              |
-| ----------------------------------- | -------------------------------------------------------------------- |
-| `observer` oder `decision`          | `decision` („@ + Decision“)                                          |
-| `mentions`                          | `mentions` („Nur @“)                                                 |
-| Gruppe ohne gespeicherte Einstellung | Standard `decision`                                                 |
-| Höchstzahl 2 (alter Standard)       | ohne eigenen Wert, folgt der Instanz                                 |
-| Standard-Antwortender               | entfällt                                                             |
-| Modell der Instanz (Chat-Modell)    | geleert, weil nur ein Decision-Modell passt; bis zur Wahl gilt „Nur @“ |
-| gespeicherte Entscheidungen         | `default`/`notice` werden `responders`/`nobody`/`unavailable`        |
+| Vorher                               | Nachher                                                                |
+| ------------------------------------ | ---------------------------------------------------------------------- |
+| `observer` oder `decision`           | `decision` („@ + Decision“)                                            |
+| `mentions`                           | `mentions` („Nur @“)                                                   |
+| Gruppe ohne gespeicherte Einstellung | Standard `decision`                                                    |
+| Höchstzahl 2 (alter Standard)        | ohne eigenen Wert, folgt der Instanz                                   |
+| Standard-Antwortender                | entfällt                                                               |
+| Modell der Instanz (Chat-Modell)     | geleert, weil nur ein Decision-Modell passt; bis zur Wahl gilt „Nur @“ |
+| gespeicherte Entscheidungen          | `default`/`notice` werden `responders`/`nobody`/`unavailable`          |
 
 Die Migration wurde auf einem Wegwerf-PostgreSQL 18 (Migrationen 001 bis 059, Altzeilen, dann 060) geprüft; dabei fiel die falsche Reihenfolge von Constraint und Datenumschreibung auf, die behoben ist. Die neuen Abfragen der Repositories liefen gegen dasselbe Schema.
 

@@ -153,10 +153,7 @@ export class ConversationChatDecisions {
       await this.dependencies.defaults.rules(),
       request.settings.overrides,
     );
-    const settled = settleDecision(
-      await this.ask(request, candidates),
-      rules,
-    );
+    const settled = settleDecision(await this.ask(request, candidates), rules);
     await this.store(request, settled);
     const reason = reasonText(settled, request.accounts);
     await rounds.finishRouting(request.message.id, {
@@ -198,7 +195,9 @@ export class ConversationChatDecisions {
     });
   }
 
-  private routingState(settled: SettledDecision): "routed" | "silent" | "failed" {
+  private routingState(
+    settled: SettledDecision,
+  ): "routed" | "silent" | "failed" {
     if (settled.outcome === "unavailable") return "failed";
     return settled.outcome === "responders" ? "routed" : "silent";
   }

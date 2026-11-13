@@ -131,6 +131,21 @@ function avatarImage(user: User): string | null {
   return user.avatarType === "image" ? (user.avatarImageUrl ?? null) : null;
 }
 
+/** Marks the agents that nothing is shared from (PAGE-305). */
+function withConfidentiality(
+  participants: VirtualChatDirectory["participants"],
+  confidentialAgents: { has(id: string): boolean },
+): VirtualChatDirectory["participants"] {
+  return participants.map((participant) =>
+    participant.kind === "agent"
+      ? {
+          ...participant,
+          isConfidential: confidentialAgents.has(participant.id),
+        }
+      : participant,
+  );
+}
+
 function contactChoice(facts: AccountFacts): VirtualContactChoice {
   const { user } = facts;
   const isAgent = user.isAgent === true;
@@ -313,14 +328,7 @@ export class ChatDirectoryService {
       chats.confidentialConversations(person.id),
     ]);
     return {
-      participants: participants.map((participant) =>
-        participant.kind === "agent"
-          ? {
-              ...participant,
-              isConfidential: confidentialAgents.has(participant.id),
-            }
-          : participant,
-      ),
+      participants: withConfidentiality(participants, confidentialAgents),
       groups: [
         ...(await Promise.all(
           groupsOf(groups, shownIds, conversations, person).map(
@@ -678,6 +686,7 @@ export class ChatDirectoryService {
         toolUses: calls.byMessage[message.id] ?? [],
         ...(written.length > 0 ? { createdAt: message.createdAt } : {}),
       }));
+    const isBusy = isWorking || queued.length > 0;
     const chat = markQueuedMessages(messages, waitingInChat(messages, waiting));
     return {
       messages: [
@@ -685,14 +694,14 @@ export class ChatDirectoryService {
         ...queued,
       ],
       // A message waiting for a place keeps the page reading the history.
-      isWorking: isWorking || queued.length > 0,
+      isWorking: isBusy,
       liveTools: calls.current,
       accessLevel,
       session: await this.dependencies.agentSessions?.directBrief(
         agent.id,
         person.id,
         {
-          isWorking: isWorking || queued.length > 0,
+          isWorking: isBusy,
           waitingMessages: waiting.size + queued.length,
         },
       ),

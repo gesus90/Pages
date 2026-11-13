@@ -67,6 +67,14 @@ export function ChatDecisionCard({
   );
 }
 
+/** The rule fields of the form, each sent as a hidden input under its own name. */
+const RULE_FIELDS: readonly (keyof ConversationDecisionRules)[] = [
+  "answerThreshold",
+  "responsibilityThreshold",
+  "secondThreshold",
+  "maximumResponders",
+];
+
 interface ChatDecisionDraft {
   readonly modelKey: string;
   readonly rules: ConversationDecisionRules;
@@ -127,8 +135,8 @@ function ChatDecisionForm({
         value={draft.selection?.connectionId ?? ""}
       />
       <input type="hidden" name="model" value={draft.selection?.model ?? ""} />
-      {Object.entries(draft.rules).map(([rule, value]) => (
-        <input key={rule} type="hidden" name={rule} value={value} />
+      {RULE_FIELDS.map((rule) => (
+        <input key={rule} type="hidden" name={rule} value={draft.rules[rule]} />
       ))}
       <ModelFieldRow>
         <ModelPicker

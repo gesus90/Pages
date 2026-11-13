@@ -176,7 +176,7 @@ describe("readDecisionProbabilities", () => {
         },
       }),
     ],
-  ])("refuses an answer where %s", (_name, invalid) => {
+  ])("refuses an answer where %s", (name, invalid) => {
     expect(() => readDecisionProbabilities(invalid, [ed, mei])).toThrowError(
       expect.objectContaining({ code: "decision_invalid" }),
     );

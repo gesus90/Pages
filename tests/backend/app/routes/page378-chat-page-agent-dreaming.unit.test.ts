@@ -60,8 +60,11 @@ beforeEach(() => {
   services.agentLessonsAdministration.overview.mockResolvedValue(LESSONS);
 });
 
+type RouteArguments = ReturnType<typeof routeArguments>;
+type RouteAction = (args: RouteArguments) => Promise<Response>;
+
 function post(
-  action: typeof dreamingAction,
+  action: RouteAction,
   path: string,
   fields: Record<string, string>,
 ): Promise<Response> {
@@ -72,7 +75,7 @@ function post(
   return action(routeArguments(request, EMPLOYEE, {}));
 }
 
-function get(loader: typeof dreamingLoader, path: string): Promise<Response> {
+function get(loader: RouteAction, path: string): Promise<Response> {
   return loader(
     routeArguments(
       new Request(`http://pages.invalid/chat-page-api/${path}?agentId=agent`),

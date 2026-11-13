@@ -65,9 +65,7 @@ export class AgentLogbookScheduler {
 
   private async runAll(): Promise<void> {
     try {
-      const pending = await this.dependencies.store
-        .logbookSessions()
-        .pending();
+      const pending = await this.dependencies.store.logbookSessions().pending();
       for (const session of pending)
         if (this.isDue(session)) await this.summarize(session);
     } catch (error: unknown) {

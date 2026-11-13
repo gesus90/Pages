@@ -4,10 +4,18 @@ import { AgentEmployeeError } from "@/backend/error/AgentEmployeeError";
 import { AgentChatPrivacyService } from "@/backend/service/employee/AgentChatPrivacyService";
 import { AgentLogbookAdministration } from "@/backend/service/employee/AgentLogbookAdministration";
 
-import { IGOR, RELEASE, TEAM, logbookWorld, settings } from "./page377-logbook-fixture";
+import {
+  IGOR,
+  RELEASE,
+  TEAM,
+  logbookWorld,
+  settings,
+} from "./page377-logbook-fixture";
 
+import type { AgentLogbookTools } from "@/definition/AgentLogbook";
 import type { PageAgentModel } from "@/definition/PageAgent";
 import type { User } from "@/definition/User";
+import { partialStub } from "../../stub-fixture";
 
 const igor: User = {
   id: "person-igor",
@@ -17,15 +25,26 @@ const igor: User = {
   isActive: true,
   mustChangePassword: false,
 };
-const mei: User = { ...igor, id: "person-mei", username: "mei", displayName: "Mei" };
-const ed: User = { ...igor, id: "ed", username: "ed", displayName: "Ed", isAgent: true };
+const mei: User = {
+  ...igor,
+  id: "person-mei",
+  username: "mei",
+  displayName: "Mei",
+};
+const ed: User = {
+  ...igor,
+  id: "ed",
+  username: "ed",
+  displayName: "Ed",
+  isAgent: true,
+};
 
-const CHEAP = {
+const CHEAP = partialStub<unknown>({
   id: "cheap",
   connectionId: "cheap-connection",
   model: "cheap-model",
   name: "Cheap Model · Claude",
-} as unknown as PageAgentModel;
+}) as PageAgentModel;
 
 const WORLD_MEMBERS: Record<string, readonly string[]> = {
   "group-team": ["person-igor", "person-mei"],
@@ -36,20 +55,33 @@ async function filled(): Promise<{
   readonly administration: AgentLogbookAdministration;
   readonly world: ReturnType<typeof logbookWorld>;
   readonly trim: ReturnType<typeof vi.fn>;
-  readonly instanceModel: { value: { connectionId: string; model: string } | null };
+  readonly instanceModel: {
+    value: { connectionId: string; model: string } | null;
+  };
 }> {
   const world = logbookWorld([TEAM, IGOR, RELEASE], settings({ limit: 10 }));
-  const tools = (session: { sessionId: string }) =>
+  const tools = (session: { sessionId: string }): AgentLogbookTools =>
     world.service.tools({ agentId: "ed", sessionId: session.sessionId });
-  await tools(TEAM).remember({ art: "entscheidung", text: "PAGE-370 übernimmt Ed bis Freitag." });
-  await tools(IGOR).remember({ art: "fakt", text: "Igor mag kurze Antworten." });
-  await tools(RELEASE).remember({ art: "aufgabe", text: "Release-Notizen schreibt Mei." });
+  await tools(TEAM).remember({
+    art: "entscheidung",
+    text: "PAGE-370 übernimmt Ed bis Freitag.",
+  });
+  await tools(IGOR).remember({
+    art: "fakt",
+    text: "Igor mag kurze Antworten.",
+  });
+  await tools(RELEASE).remember({
+    art: "aufgabe",
+    text: "Release-Notizen schreibt Mei.",
+  });
   const trim = vi.fn(async () => 0);
-  const instanceModel: { value: { connectionId: string; model: string } | null } = {
+  const instanceModel: {
+    value: { connectionId: string; model: string } | null;
+  } = {
     value: null,
   };
   const administration = new AgentLogbookAdministration({
-    store: { logbook: () => world.logbook } as never,
+    store: partialStub<never>({ logbook: () => world.logbook }),
     users: { findById: async (id: string) => (id === "ed" ? ed : null) },
     logbook: { trim },
     isMember: async (conversationId, userId) =>
@@ -65,7 +97,10 @@ const IGOR_VIEWER = { user: igor, isAdministrator: false };
 
 it("shows an administrator all entries with fill level, limit, quiet time and the models to choose from", async () => {
   const { administration, instanceModel } = await filled();
-  instanceModel.value = { connectionId: "cheap-connection", model: "cheap-model" };
+  instanceModel.value = {
+    connectionId: "cheap-connection",
+    model: "cheap-model",
+  };
   const overview = await administration.overview(ADMIN, "ed");
   expect(overview).toMatchObject({
     agentId: "ed",
@@ -115,10 +150,20 @@ it("shows everybody else only the entries of the chats they take part in and no 
     "person-igor",
     "group-team",
   ]);
-  expect(igorView.chats.map((chat) => chat.id)).toEqual(["person-igor", "group-team"]);
-  expect(igorView).toMatchObject({ canChangeSettings: false, models: [], count: 3 });
+  expect(igorView.chats.map((chat) => chat.id)).toEqual([
+    "person-igor",
+    "group-team",
+  ]);
+  expect(igorView).toMatchObject({
+    canChangeSettings: false,
+    models: [],
+    count: 3,
+  });
 
-  const meiView = await administration.overview({ user: mei, isAdministrator: false }, "ed");
+  const meiView = await administration.overview(
+    { user: mei, isAdministrator: false },
+    "ed",
+  );
   expect(meiView.entries.map((entry) => entry.source.id)).toEqual([
     "group-release",
     "group-team",
@@ -166,8 +211,15 @@ it("saves limit, quiet time and model of an agent and drops what the lowered lim
 
 it("refuses settings from a viewer who is no administrator, out of range, half a model or a model that may not be chosen", async () => {
   const { administration, world } = await filled();
-  const valid = { limit: "50", quietMinutes: "5", modelConnectionId: "", model: "" };
-  await expect(administration.saveSettings(IGOR_VIEWER, "ed", valid)).rejects.toMatchObject({
+  const valid = {
+    limit: "50",
+    quietMinutes: "5",
+    modelConnectionId: "",
+    model: "",
+  };
+  await expect(
+    administration.saveSettings(IGOR_VIEWER, "ed", valid),
+  ).rejects.toMatchObject({
     code: "forbidden",
   });
   for (const input of [
@@ -179,10 +231,14 @@ it("refuses settings from a viewer who is no administrator, out of range, half a
     { ...valid, modelConnectionId: "cheap-connection" },
     { ...valid, modelConnectionId: "other", model: "other-model" },
   ])
-    await expect(administration.saveSettings(ADMIN, "ed", input)).rejects.toMatchObject({
+    await expect(
+      administration.saveSettings(ADMIN, "ed", input),
+    ).rejects.toMatchObject({
       code: "invalidInput",
     });
-  await expect(administration.saveSettings(ADMIN, "nobody", valid)).rejects.toMatchObject({
+  await expect(
+    administration.saveSettings(ADMIN, "nobody", valid),
+  ).rejects.toMatchObject({
     code: "notFound",
   });
   expect(world.logbook.settingsOf.get("ed")?.limit).toBe(10);
@@ -194,7 +250,9 @@ it("lets a viewer remove entries they see and ignores the others", async () => {
   // Igor sees the decision of his group and his own chat, not the release group of Mei.
   const removed = await administration.remove(IGOR_VIEWER, "ed", ids);
   expect(removed).toBe(2);
-  expect(world.logbook.entries.map((entry) => entry.source.id)).toEqual(["group-release"]);
+  expect(world.logbook.entries.map((entry) => entry.source.id)).toEqual([
+    "group-release",
+  ]);
   // An administrator removes what is left.
   expect(await administration.remove(ADMIN, "ed", [...ids, "unknown"])).toBe(1);
   expect(world.logbook.entries).toHaveLength(0);
@@ -205,12 +263,14 @@ it("refuses a malformed list of entries and an account that is no agent", async 
   await expect(administration.remove(ADMIN, "ed", [])).rejects.toMatchObject({
     code: "invalidInput",
   });
-  await expect(administration.remove(ADMIN, "ed", "all")).rejects.toMatchObject({
-    code: "invalidInput",
-  });
-  await expect(administration.overview(ADMIN, "person-igor")).rejects.toBeInstanceOf(
-    AgentEmployeeError,
+  await expect(administration.remove(ADMIN, "ed", "all")).rejects.toMatchObject(
+    {
+      code: "invalidInput",
+    },
   );
+  await expect(
+    administration.overview(ADMIN, "person-igor"),
+  ).rejects.toBeInstanceOf(AgentEmployeeError);
   await expect(administration.overview(ADMIN, "nobody")).rejects.toMatchObject({
     code: "notFound",
   });
@@ -218,7 +278,7 @@ it("refuses a malformed list of entries and an account that is no agent", async 
 
 it("removes the entries of a chat from the Lagebuch when it is marked confidential, and keeps them when the mark goes", async () => {
   const world = logbookWorld([TEAM, IGOR, RELEASE]);
-  const tools = (session: { sessionId: string }) =>
+  const tools = (session: { sessionId: string }): AgentLogbookTools =>
     world.service.tools({ agentId: "ed", sessionId: session.sessionId });
   await tools(TEAM).remember({ art: "fakt", text: "Teamfakt" });
   await tools(IGOR).remember({ art: "fakt", text: "Igors Fakt" });
@@ -230,19 +290,25 @@ it("removes the entries of a chat from the Lagebuch when it is marked confidenti
     conversationPeople: vi.fn(async () => ["person-igor"]),
   };
   const privacy = new AgentChatPrivacyService({
-    store: {
+    store: partialStub<never>({
       logbook: () => world.logbook,
       chats: () => chats,
       conversations: () => ({ ensure: vi.fn(async () => ({})) }),
-    } as never,
+    }),
     users: { findById: async () => ed },
     createSessionId: () => "new-session",
   });
 
-  await privacy.setConfidential(igor, { agentId: "ed", isConfidential: "false" });
+  await privacy.setConfidential(igor, {
+    agentId: "ed",
+    isConfidential: "false",
+  });
   expect(world.logbook.entries).toHaveLength(3);
 
-  await privacy.setConfidential(igor, { agentId: "ed", isConfidential: "true" });
+  await privacy.setConfidential(igor, {
+    agentId: "ed",
+    isConfidential: "true",
+  });
   expect(world.logbook.entries.map((entry) => entry.text)).toEqual([
     "Teamfakt",
     "Releasefakt",
@@ -252,5 +318,7 @@ it("removes the entries of a chat from the Lagebuch when it is marked confidenti
     conversationId: "group-team",
     isConfidential: "true",
   });
-  expect(world.logbook.entries.map((entry) => entry.text)).toEqual(["Releasefakt"]);
+  expect(world.logbook.entries.map((entry) => entry.text)).toEqual([
+    "Releasefakt",
+  ]);
 });

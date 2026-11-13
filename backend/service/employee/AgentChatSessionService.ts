@@ -46,7 +46,10 @@ export interface AgentChatSessionServiceDependencies {
     session: StoredAgentChatSession,
   ) => Promise<number>;
   /** Whether a person takes part in a conversation. */
-  readonly isMember: (conversationId: string, userId: string) => Promise<boolean>;
+  readonly isMember: (
+    conversationId: string,
+    userId: string,
+  ) => Promise<boolean>;
   /** The idle time an agent without one of its own follows. */
   readonly defaultIdleMinutes: () => Promise<number>;
   readonly now?: () => Date;

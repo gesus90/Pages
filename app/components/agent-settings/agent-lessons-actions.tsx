@@ -55,12 +55,7 @@ function RemoveConfirmation({
       >
         {t("agentLessons.actions.confirmRemove")}
       </Button>
-      <Button
-        disabled={isBusy}
-        onClick={onCancel}
-        size="xs"
-        variant="outline"
-      >
+      <Button disabled={isBusy} onClick={onCancel} size="xs" variant="outline">
         {t("agentLessons.actions.cancel")}
       </Button>
     </div>

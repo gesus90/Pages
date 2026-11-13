@@ -1,7 +1,4 @@
-import {
-  DEFAULT_DREAM_MODEL_KEY,
-  dreamModelKey,
-} from "./agent-dream-fields";
+import { DEFAULT_DREAM_MODEL_KEY, dreamModelKey } from "./agent-dream-fields";
 
 import type {
   AgentDreamCounts,

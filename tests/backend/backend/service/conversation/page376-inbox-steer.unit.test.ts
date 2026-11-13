@@ -7,11 +7,15 @@ import { ConversationReplyRunner } from "@/backend/service/conversation/Conversa
 import { deferred } from "../agents/page81-resource-fixture";
 
 import type { StoredConversationMessage } from "@/backend/database/repositories/conversation/ConversationMessageRepository";
+import type { ConversationAgentRequest } from "@/backend/service/conversation/ConversationAgentReplies";
 import type {
   ConversationReplyJob,
   ConversationReplyRunnerDependencies,
 } from "@/backend/service/conversation/ConversationReplyRunner";
 import type { User } from "@/definition/User";
+import type { Mock } from "vitest";
+
+type AnswerFunction = (request: ConversationAgentRequest) => Promise<string>;
 
 const person: User = {
   id: "person",
@@ -59,7 +63,12 @@ function accounts(): ConversationAccounts {
         "agent",
         {
           user: agent,
-          participant: { id: "agent", name: "Agent", kind: "agent", color: null },
+          participant: {
+            id: "agent",
+            name: "Agent",
+            kind: "agent",
+            color: null,
+          },
           role: "",
           isAvailable: true,
         },
@@ -143,7 +152,7 @@ it("names the tool chat_lesen when more arrived than a round carries", () => {
 
 interface RunnerFixture {
   readonly runner: ConversationReplyRunner;
-  readonly answer: ReturnType<typeof vi.fn>;
+  readonly answer: Mock<AnswerFunction>;
   readonly steer: ReturnType<typeof vi.fn>;
   readonly insert: ReturnType<typeof vi.fn>;
   readonly setTargetState: ReturnType<typeof vi.fn>;
@@ -151,12 +160,14 @@ interface RunnerFixture {
 }
 
 function runnerFixture(delivered: number): RunnerFixture {
-  const answer = vi.fn().mockResolvedValue("Antwort");
+  const answer = vi.fn<AnswerFunction>().mockResolvedValue("Antwort");
   const steer = vi.fn().mockResolvedValue(true);
-  const insert = vi.fn().mockImplementation(async (message: { text: string }) => ({
-    message: { ...stored(99, message.text), id: "reply", senderId: "agent" },
-    isNew: true,
-  }));
+  const insert = vi
+    .fn()
+    .mockImplementation(async (message: { text: string }) => ({
+      message: { ...stored(99, message.text), id: "reply", senderId: "agent" },
+      isNew: true,
+    }));
   const setTargetState = vi.fn().mockResolvedValue(undefined);
   const promptContext = vi.fn().mockResolvedValue({ context: null });
   const history = [6, 5, 4, 3].map((sequence) =>
@@ -165,8 +176,9 @@ function runnerFixture(delivered: number): RunnerFixture {
   const dependencies: ConversationReplyRunnerDependencies = {
     conversations: { findForMember: vi.fn().mockResolvedValue(conversation) },
     messages: {
-      find: vi.fn(async (_conversation: string, id: string) =>
-        history.find((entry) => entry.id === id),
+      find: vi.fn(
+        async (conversationId: string, id: string) =>
+          history.find((entry) => entry.id === id) ?? null,
       ),
       history: vi.fn().mockResolvedValue(history),
       insert,
@@ -219,12 +231,11 @@ function jobFor(messageId: string, origin = messageId): ConversationReplyJob {
 it("asks a session that knows the chat up to #4 only for #5 and #6 and loads no stored context", async () => {
   const { runner, answer, promptContext } = runnerFixture(4);
   await runner.run(jobFor("message-6"));
-  const request: { prompt: string; throughSequence: number } =
-    answer.mock.calls[0]?.[0];
-  expect(request.prompt).toContain("Text 5");
-  expect(request.prompt).toContain("Text 6");
-  expect(request.prompt).not.toContain("Text 4");
-  expect(request.throughSequence).toBe(6);
+  const request = answer.mock.calls[0]?.[0];
+  expect(request?.prompt).toContain("Text 5");
+  expect(request?.prompt).toContain("Text 6");
+  expect(request?.prompt).not.toContain("Text 4");
+  expect(request?.throughSequence).toBe(6);
   expect(promptContext).not.toHaveBeenCalled();
 });
 
@@ -232,7 +243,7 @@ it("opens a session that knows nothing with the stored context of the group", as
   const { runner, answer, promptContext } = runnerFixture(0);
   await runner.run(jobFor("message-6"));
   expect(promptContext).toHaveBeenCalledWith("group");
-  expect(answer.mock.calls[0]?.[0].prompt).toContain("Letzte Nachrichten");
+  expect(answer.mock.calls[0]?.[0]?.prompt).toContain("Letzte Nachrichten");
 });
 
 it("hands a message that arrives during an answer to the running answer instead of starting a second one", async () => {

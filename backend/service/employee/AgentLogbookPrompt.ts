@@ -81,9 +81,7 @@ export function createLogbookMessage(
  * @param answer - The text the summary session answered.
  * @returns The checked entries, or `null` for an answer without a readable list.
  */
-export function readLogbookAnswer(
-  answer: string,
-): AgentLogbookDraft[] | null {
+export function readLogbookAnswer(answer: string): AgentLogbookDraft[] | null {
   const parsed = answerSchema.safeParse(readJsonObject(answer));
   if (!parsed.success) return null;
   const drafts: AgentLogbookDraft[] = [];

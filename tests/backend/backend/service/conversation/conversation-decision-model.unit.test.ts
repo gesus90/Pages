@@ -25,7 +25,13 @@ const judgedLine = {
 const material: DecisionMaterial = {
   groupName: "Pages Team",
   candidates: [
-    { id: "ed", name: "Ed", username: "ed", role: "Entwickler", specialization: "Code" },
+    {
+      id: "ed",
+      name: "Ed",
+      username: "ed",
+      role: "Entwickler",
+      specialization: "Code",
+    },
     { id: "mei", name: "Mei", username: "mei", role: "", specialization: "" },
   ],
   lines: [judgedLine],
@@ -34,9 +40,10 @@ const material: DecisionMaterial = {
 function dependencies(): ConversationDecisionModelDependencies {
   return {
     settings: {
-      resolve: vi
-        .fn()
-        .mockResolvedValue({ connectionId: "openrouter", model: "perplexity/pplx-decider-v1.3" }),
+      resolve: vi.fn().mockResolvedValue({
+        connectionId: "openrouter",
+        model: "perplexity/pplx-decider-v1.3",
+      }),
     },
     connections: { findSecretEncrypted: vi.fn().mockResolvedValue("cipher") },
     cipher: { decrypt: vi.fn().mockReturnValue("or-key") },
@@ -64,7 +71,9 @@ beforeEach(() => {
 
 it("calls the decisions interface once with the key of the connection of the chosen model", async () => {
   const answer = await new ConversationDecisionModel(deps).ask(material);
-  expect(deps.connections.findSecretEncrypted).toHaveBeenCalledWith("openrouter");
+  expect(deps.connections.findSecretEncrypted).toHaveBeenCalledWith(
+    "openrouter",
+  );
   expect(deps.cipher.decrypt).toHaveBeenCalledWith("openrouter", "cipher");
   expect(deps.client.decide).toHaveBeenCalledOnce();
   const call = vi.mocked(deps.client.decide).mock.calls[0]?.[0];
@@ -91,7 +100,9 @@ it("calls the decisions interface once with the key of the connection of the cho
 
 it("asks nothing while no model is chosen", async () => {
   vi.mocked(deps.settings.resolve).mockResolvedValue(null);
-  await expect(new ConversationDecisionModel(deps).ask(material)).rejects.toMatchObject({
+  await expect(
+    new ConversationDecisionModel(deps).ask(material),
+  ).rejects.toMatchObject({
     code: "decision_no_model",
   });
   expect(deps.client.decide).not.toHaveBeenCalled();
@@ -99,14 +110,18 @@ it("asks nothing while no model is chosen", async () => {
 
 it("treats a missing or unreadable key as no usable model", async () => {
   vi.mocked(deps.connections.findSecretEncrypted).mockResolvedValue(null);
-  await expect(new ConversationDecisionModel(deps).ask(material)).rejects.toMatchObject({
+  await expect(
+    new ConversationDecisionModel(deps).ask(material),
+  ).rejects.toMatchObject({
     code: "decision_no_model",
   });
   vi.mocked(deps.connections.findSecretEncrypted).mockResolvedValue("cipher");
   vi.mocked(deps.cipher.decrypt).mockImplementation(() => {
     throw new Error("wrong key");
   });
-  await expect(new ConversationDecisionModel(deps).ask(material)).rejects.toMatchObject({
+  await expect(
+    new ConversationDecisionModel(deps).ask(material),
+  ).rejects.toMatchObject({
     code: "decision_no_model",
   });
   expect(deps.client.decide).not.toHaveBeenCalled();
@@ -116,14 +131,18 @@ it("lets a failed or invalid call reach the caller as it is", async () => {
   vi.mocked(deps.client.decide).mockRejectedValue(
     Object.assign(new Error("decision_failed"), { code: "decision_failed" }),
   );
-  await expect(new ConversationDecisionModel(deps).ask(material)).rejects.toMatchObject({
+  await expect(
+    new ConversationDecisionModel(deps).ask(material),
+  ).rejects.toMatchObject({
     code: "decision_failed",
   });
   vi.mocked(deps.client.decide).mockResolvedValue({
     model: "m",
     answers: {},
   });
-  await expect(new ConversationDecisionModel(deps).ask(material)).rejects.toMatchObject({
+  await expect(
+    new ConversationDecisionModel(deps).ask(material),
+  ).rejects.toMatchObject({
     code: "decision_invalid",
   });
 });
@@ -131,7 +150,10 @@ it("lets a failed or invalid call reach the caller as it is", async () => {
 it("answers from the simulation without a key and without a call", async () => {
   const model = new ConversationDecisionModel({
     ...deps,
-    simulation: new SimulatedConversationDecision({ isActive: true, scenario: "ok" }),
+    simulation: new SimulatedConversationDecision({
+      isActive: true,
+      scenario: "ok",
+    }),
   });
   const answer = await model.ask({
     ...material,
@@ -140,10 +162,16 @@ it("answers from the simulation without a key and without a call", async () => {
   expect(deps.client.decide).not.toHaveBeenCalled();
   expect(deps.connections.findSecretEncrypted).not.toHaveBeenCalled();
   expect(answer.model).toBe("simulation");
-  expect(answer.probabilities.options[0]).toEqual({ agentId: "ed", probability: 0.85 });
+  expect(answer.probabilities.options[0]).toEqual({
+    agentId: "ed",
+    probability: 0.85,
+  });
   const failing = new ConversationDecisionModel({
     ...deps,
-    simulation: new SimulatedConversationDecision({ isActive: true, scenario: "failed" }),
+    simulation: new SimulatedConversationDecision({
+      isActive: true,
+      scenario: "failed",
+    }),
   });
   await expect(failing.ask(material)).rejects.toThrow("fails on purpose");
 });

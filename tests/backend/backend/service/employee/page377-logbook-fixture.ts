@@ -37,12 +37,18 @@ export class FakeLogbook {
     return `${source.kind}:${source.id}`;
   }
 
+  /**
+   *
+   */
   public append(entry: NewAgentLogbookEntry): Promise<void> {
     this.sequence += 1;
     this.entries.push({ ...entry, sequence: this.sequence });
     return Promise.resolve();
   }
 
+  /**
+   *
+   */
   public trimToLimit(agentId: string, limit: number): Promise<number> {
     const own = this.entries.filter((entry) => entry.agentId === agentId);
     const dropped = own.slice(0, Math.max(0, own.length - limit));
@@ -51,12 +57,18 @@ export class FakeLogbook {
     return Promise.resolve(dropped.length);
   }
 
+  /**
+   *
+   */
   public count(agentId: string): Promise<number> {
     return Promise.resolve(
       this.entries.filter((entry) => entry.agentId === agentId).length,
     );
   }
 
+  /**
+   *
+   */
   public newestSequence(agentId: string): Promise<number> {
     return Promise.resolve(
       Math.max(
@@ -68,6 +80,9 @@ export class FakeLogbook {
     );
   }
 
+  /**
+   *
+   */
   public find(
     agentId: string,
     filter: AgentLogbookFilter,
@@ -97,6 +112,9 @@ export class FakeLogbook {
     return Promise.resolve(found.slice(0, filter.limit));
   }
 
+  /**
+   *
+   */
   public ofChat(
     agentId: string,
     source: Pick<AgentLogbookSource, "kind" | "id">,
@@ -114,6 +132,9 @@ export class FakeLogbook {
     );
   }
 
+  /**
+   *
+   */
   public byIds(
     agentId: string,
     ids: readonly string[],
@@ -125,6 +146,9 @@ export class FakeLogbook {
     );
   }
 
+  /**
+   *
+   */
   public remove(agentId: string, ids: readonly string[]): Promise<number> {
     const doomed = this.entries.filter(
       (entry) => entry.agentId === agentId && ids.includes(entry.id),
@@ -134,6 +158,9 @@ export class FakeLogbook {
     return Promise.resolve(doomed.length);
   }
 
+  /**
+   *
+   */
   public removeChat(
     source: Pick<AgentLogbookSource, "kind" | "id">,
     agentId: string | null,
@@ -148,6 +175,9 @@ export class FakeLogbook {
     return Promise.resolve();
   }
 
+  /**
+   *
+   */
   public newSince(
     agentId: string,
     stand: number,
@@ -169,16 +199,27 @@ export class FakeLogbook {
     });
   }
 
+  /**
+   *
+   */
   public participantNames(
     source: Pick<AgentLogbookSource, "kind" | "id">,
   ): Promise<string[]> {
-    return Promise.resolve(this.participants.get(FakeLogbook.key(source)) ?? []);
+    return Promise.resolve(
+      this.participants.get(FakeLogbook.key(source)) ?? [],
+    );
   }
 
+  /**
+   *
+   */
   public settings(agentId: string): Promise<StoredAgentLogbookSettings | null> {
     return Promise.resolve(this.settingsOf.get(agentId) ?? null);
   }
 
+  /**
+   *
+   */
   public saveSettings(
     agentId: string,
     change: {
@@ -199,6 +240,9 @@ export class FakeLogbook {
     return Promise.resolve(true);
   }
 
+  /**
+   *
+   */
   public saveCompactionAt(agentId: string, at: string): Promise<void> {
     const current = this.settingsOf.get(agentId);
     if (current) this.settingsOf.set(agentId, { ...current, compactionAt: at });
@@ -266,7 +310,9 @@ export function logbookWorld(
 ): LogbookWorld {
   const logbook = new FakeLogbook();
   logbook.settingsOf.set("ed", agentSettings);
-  const sessionMap = new Map(sessions.map((session) => [session.sessionId, session]));
+  const sessionMap = new Map(
+    sessions.map((session) => [session.sessionId, session]),
+  );
   const seen = new Map<string, number>();
   const compaction = vi.fn(async () => undefined);
   const isLearningEnabled = { value: true };
@@ -286,12 +332,10 @@ export function logbookWorld(
         find: async (sessionId: string) => sessionMap.get(sessionId) ?? null,
       }),
       chats: () => ({
-        isConfidential: async (
-          _agentId: string,
-          chat: { personId: string },
-        ) => logbook.confidential.has(`direct:${chat.personId}`),
+        isConfidential: async (agentId: string, chat: { personId: string }) =>
+          logbook.confidential.has(`direct:${chat.personId}`),
         isConfidentialConversation: async (
-          _agentId: string,
+          agentId: string,
           conversationId: string,
         ) => logbook.confidential.has(`group:${conversationId}`),
       }),
@@ -301,7 +345,9 @@ export function logbookWorld(
           dreamSchedule: { isOnFullLogbook: isOnFullLogbook.value },
         }),
       }),
-    } as unknown as ConstructorParameters<typeof AgentLogbookService>[0]["store"],
+    } as unknown as ConstructorParameters<
+      typeof AgentLogbookService
+    >[0]["store"],
     compaction,
     now: () => now,
     createId: () => {

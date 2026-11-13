@@ -104,9 +104,7 @@ export function nextDreamRun(
   if (!schedule.isEnabled) return null;
   const base = addHours(agent.lastLearningAt ?? agent.createdAt, 0);
   if (schedule.unit === "hours")
-    return new Date(
-      base.getTime() + schedule.interval * HOUR_MILLISECONDS,
-    );
+    return new Date(base.getTime() + schedule.interval * HOUR_MILLISECONDS);
   const time = schedule.time ?? instanceTime;
   if (schedule.weekday !== null)
     return firstSlotAfter(base, time, schedule.weekday);

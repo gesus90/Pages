@@ -132,7 +132,10 @@ function StepFields({
       </div>
       <div className="grid gap-2 sm:grid-cols-2">
         <div className="flex flex-col gap-1">
-          <label className="text-xs text-muted-foreground" htmlFor={`${id}-tool`}>
+          <label
+            className="text-xs text-muted-foreground"
+            htmlFor={`${id}-tool`}
+          >
             {t("agentLessons.editor.stepTool")}
           </label>
           <Input
@@ -151,7 +154,10 @@ function StepFields({
           ) : null}
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-xs text-muted-foreground" htmlFor={`${id}-note`}>
+          <label
+            className="text-xs text-muted-foreground"
+            htmlFor={`${id}-note`}
+          >
             {t("agentLessons.editor.stepNote")}
           </label>
           <Input
@@ -164,7 +170,10 @@ function StepFields({
         </div>
       </div>
       <div className="flex flex-col gap-1">
-        <label className="text-xs text-muted-foreground" htmlFor={`${id}-input`}>
+        <label
+          className="text-xs text-muted-foreground"
+          htmlFor={`${id}-input`}
+        >
           {t("agentLessons.editor.stepInput")}
         </label>
         <Textarea

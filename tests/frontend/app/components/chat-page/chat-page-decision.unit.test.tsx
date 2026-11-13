@@ -49,7 +49,7 @@ function renderDecision(
   );
 }
 
-it("shows the quiet line \"no answer · nobody 91 %\" and the probabilities on a click", () => {
+it('shows the quiet line "no answer · nobody 91 %" and the probabilities on a click', () => {
   const { container } = renderDecision(NOBODY);
   const summary = screen.getByText("no answer · nobody 91 %");
   expect(summary).toBeTruthy();
@@ -64,7 +64,7 @@ it("shows the quiet line \"no answer · nobody 91 %\" and the probabilities on a
   ).toBeTruthy();
 });
 
-it("shows only \"no answer\" for a decision without probabilities", () => {
+it('shows only "no answer" for a decision without probabilities', () => {
   renderDecision({
     ...NOBODY,
     answerProbability: null,
@@ -74,7 +74,7 @@ it("shows only \"no answer\" for a decision without probabilities", () => {
   expect(screen.getByText("no answer")).toBeTruthy();
 });
 
-it("shows \"Why?\" on an answer the decision model chose, with the probabilities", () => {
+it('shows "Why?" on an answer the decision model chose, with the probabilities', () => {
   renderDecision(RESPONDERS);
   expect(screen.getByText("Why?")).toBeTruthy();
   expect(
@@ -111,7 +111,7 @@ function renderHistory(
   );
 }
 
-it("shows the line under a message of the person, and \"Why?\" under the answer", () => {
+it('shows the line under a message of the person, and "Why?" under the answer', () => {
   renderHistory([
     { ...message("1"), decision: NOBODY },
     { ...message("2"), authorId: "ada", decision: RESPONDERS },

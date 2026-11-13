@@ -90,7 +90,11 @@ export class AgentSessionSettingsRepository {
       WHERE id = 1;
     `);
     if (!row) return null;
-    const connectionId = readNullableTextColumn(row, 0, "logbook_connection_id");
+    const connectionId = readNullableTextColumn(
+      row,
+      0,
+      "logbook_connection_id",
+    );
     const model = readNullableTextColumn(row, 1, "logbook_model");
     return connectionId !== null && model !== null
       ? { connectionId, model }
