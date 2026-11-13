@@ -6,7 +6,6 @@ it("PAGE-344 counts missing original messages only within the answered range", a
   const query = vi.fn().mockResolvedValue([[10]]);
   const messages = new ConversationMessageRepository({
     query,
-    execute: vi.fn(),
     transaction: vi.fn(),
   });
   await expect(

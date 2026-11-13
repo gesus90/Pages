@@ -325,11 +325,9 @@ it("PAGE-344 delivers the image of an earlier context message", async () => {
   );
   await runner.run(job);
   expect(answer).toHaveBeenCalledWith(
-    expect.objectContaining({
-      attachments: [image],
-      prompt: expect.stringContaining("Anhang von #1"),
-    }),
+    expect.objectContaining({ attachments: [image] }),
   );
+  expect(answer.mock.calls[0]?.[0].prompt).toContain("Anhang von #1");
 });
 
 it("PAGE-344 supplies all 30 unseen messages, full text and attachments to a kept session", async () => {
@@ -343,7 +341,7 @@ it("PAGE-344 supplies all 30 unseen messages, full text and attachments to a kep
   const answered = history.find((item) => item.sequence === 31);
   messages.find.mockResolvedValue(answered);
   messages.history.mockImplementation(
-    async (_id: string, before: number | null, limit: number) =>
+    async (id: string, before: number | null, limit: number) =>
       history
         .filter((item) => before === null || item.sequence < before)
         .slice(0, limit),
@@ -436,12 +434,10 @@ it.each([
     await runner.run(job);
     expect(answer).toHaveBeenCalledTimes(attempts);
     expect(messages.insert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        notice: "agent_failed",
-        text: expect.stringContaining(expected),
-      }),
+      expect.objectContaining({ notice: "agent_failed" }),
       expect.anything(),
     );
+    expect(messages.insert.mock.calls[0]?.[0].text).toContain(expected);
     expect(messages.insert.mock.calls[0]?.[0].text).not.toContain(
       "kein Modell nutzbar",
     );
@@ -472,7 +468,7 @@ it("PAGE-344 also supplies messages arriving while the round waited and retains 
     text: `Arrived-${31 - index}`,
   }));
   messages.history.mockImplementation(
-    async (_id: string, before: number | null, limit: number) =>
+    async (id: string, before: number | null, limit: number) =>
       latest
         .filter((item) => before === null || item.sequence < before)
         .slice(0, limit),
@@ -535,11 +531,7 @@ it("PAGE-344 counts only unseen originals when an older trigger is already summa
     },
   });
   await runner.run(job);
-  expect(answer).toHaveBeenCalledWith(
-    expect.objectContaining({
-      prompt: expect.stringContaining("11 Nachrichten fehlen"),
-    }),
-  );
+  expect(answer.mock.calls[0]?.[0].prompt).toContain("11 Nachrichten fehlen");
 });
 
 it("PAGE-344 keeps the actual refusal reason and conversation identity in safe log metadata", async () => {

@@ -108,8 +108,10 @@ it("PAGE-344 probes the exact same credential HOME again after the session rests
   expect(run).toHaveBeenLastCalledWith(
     expect.objectContaining({
       home: store.paths(connection.id, "codex_cli"),
-      arguments: expect.arrayContaining(["login", "status"]),
     }),
+  );
+  expect(run.mock.lastCall?.[0].arguments).toEqual(
+    expect.arrayContaining(["login", "status"]),
   );
 });
 
@@ -128,6 +130,7 @@ it("PAGE-344 tracks only the native session's own HOME and releases it when the 
     home,
     workingDirectory: home.work,
     arguments: [],
+    environment: {},
     timeoutMs: 0,
     signal: new AbortController().signal,
     onLine: vi.fn(),

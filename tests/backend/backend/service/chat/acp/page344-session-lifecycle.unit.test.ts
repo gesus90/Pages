@@ -41,10 +41,10 @@ function fixture(): {
   const jobs = new Map<string, ChatJob>();
   const repository = bareInstance(ChatJobRepository.prototype);
   vi.spyOn(repository, "interruptRunning").mockResolvedValue([]);
-  vi.spyOn(repository, "create").mockImplementation(async (input) => {
-    jobs.set(input.id, {
-      id: input.id,
-      sessionId: input.sessionId,
+  vi.spyOn(repository, "create").mockImplementation(async (created) => {
+    jobs.set(created.id, {
+      id: created.id,
+      sessionId: created.sessionId,
       state: "running",
       errorCode: null,
       createdAt: "today",
@@ -53,7 +53,7 @@ function fixture(): {
     });
   });
   vi.spyOn(repository, "find").mockImplementation(
-    async (_userId, id) => jobs.get(id) ?? null,
+    async (userId, id) => jobs.get(id) ?? null,
   );
   vi.spyOn(repository, "append").mockImplementation(
     world.dependencies.jobs.append,
@@ -87,7 +87,7 @@ function fixture(): {
     pool,
     sessions: {
       ...world.dependencies.sessions,
-      require: vi.fn<ChatSessionService["require"]>(async (_actor, id) => {
+      require: vi.fn<ChatSessionService["require"]>(async (actor, id) => {
         if (typeof id !== "string") throw new Error("Missing session ID");
         return { id, createdAt: "today", lastMessageAt: "today", preview: "" };
       }),
@@ -129,7 +129,7 @@ function input(revision = 1): PicaAcpStart {
       },
     },
     employee: {
-      runner: employeeAcpRunner(agent, "pages"),
+      runner: employeeAcpRunner(agent, "workspace"),
       requireCurrent: vi.fn(async () => undefined),
       requireConnection: vi.fn(async () => undefined),
       searchMemory: vi.fn(async () => []),

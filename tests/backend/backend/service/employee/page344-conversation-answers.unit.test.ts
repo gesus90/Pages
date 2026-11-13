@@ -18,7 +18,7 @@ const employee: StoredAgentEmployee = {
   connectionId: "connection",
   model: "model",
   reasoningEffort: null,
-  access: "pages",
+  access: "workspace",
   soul: "",
   instructions: "",
   memory: "",

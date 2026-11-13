@@ -10,10 +10,8 @@ import { OWNER } from "../chat/page48-chat-fixture";
 import type { StoredGroupContext } from "@/backend/database/repositories/conversation/ConversationGroupContextRepository";
 import type { ConversationGroupSummariesDependencies } from "@/backend/service/conversation/ConversationGroupSummaries";
 
-it("PAGE-344 retries quota exhaustion on a later tick and advances only after a valid summary", async () => {
-  let moment = new Date("2026-11-13T10:00:00Z");
-  let stored: StoredGroupContext | null = null;
-  const accounts = new ConversationAccounts(
+function ownerAccounts(): ConversationAccounts {
+  return new ConversationAccounts(
     new Map([
       [
         OWNER.id,
@@ -31,7 +29,14 @@ it("PAGE-344 retries quota exhaustion on a later tick and advances only after a 
       ],
     ]),
   );
-  const dependencies: ConversationGroupSummariesDependencies = {
+}
+
+function groupSummaryDependencies(
+  now: () => Date,
+): ConversationGroupSummariesDependencies {
+  let stored: StoredGroupContext | null = null;
+  const accounts = ownerAccounts();
+  return {
     contexts: {
       candidates: vi.fn(async () => [
         { conversationId: "group", throughSequence: 0 },
@@ -39,7 +44,9 @@ it("PAGE-344 retries quota exhaustion on a later tick and advances only after a 
       changedSources: vi.fn(async () => []),
       find: vi.fn(async () => stored),
       invalidate: vi.fn(),
-      recordFailure: vi.fn(async (_id, failure) => {
+      recordFailure: vi.fn<
+        ConversationGroupSummariesDependencies["contexts"]["recordFailure"]
+      >(async (id, failure) => {
         stored = {
           ...failure,
           conversationId: "group",
@@ -69,7 +76,7 @@ it("PAGE-344 retries quota exhaustion on a later tick and advances only after a 
           mentions: [],
           notice: null,
           voice: null,
-          createdAt: moment.toISOString(),
+          createdAt: now().toISOString(),
         },
       ]),
     },
@@ -80,7 +87,7 @@ it("PAGE-344 retries quota exhaustion on a later tick and advances only after a 
         id: "group",
         name: "Team",
         kind: "group",
-        lastActivityAt: moment.toISOString(),
+        lastActivityAt: now().toISOString(),
         isMuted: false,
         unreadCount: 0,
       })),
@@ -102,8 +109,13 @@ it("PAGE-344 retries quota exhaustion on a later tick and advances only after a 
           }),
         ),
     },
-    now: () => moment,
+    now,
   };
+}
+
+it("PAGE-344 retries quota exhaustion on a later tick and advances only after a valid summary", async () => {
+  let moment = new Date("2026-11-13T10:00:00Z");
+  const dependencies = groupSummaryDependencies(() => moment);
   const service = new ConversationGroupSummaries(dependencies);
   await service.runDue();
   expect(dependencies.contexts.recordFailure).toHaveBeenCalledWith(
