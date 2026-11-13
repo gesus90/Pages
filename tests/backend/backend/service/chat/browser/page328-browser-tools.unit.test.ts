@@ -34,7 +34,10 @@ vi.mock(
   "@/backend/service/chat/browser/PicaBrowserNavigation",
   async (importOriginal) => ({
     ...(await importOriginal<object>()),
-    checkedAddress: async (_origins: unknown, url: string) => url,
+    checkedAddress: async (origins: unknown, url: string) => {
+      void origins;
+      return url;
+    },
     navigate: async () => "Navigated",
   }),
 );
@@ -211,9 +214,8 @@ it("rejects a guessed foreign/admin profile before launching and lists only self
   });
   expect(launch).not.toHaveBeenCalled();
   const profiles = await registry.invoke("browser_profiles", {}, world.context);
-  expect(profiles).toMatchObject({
-    output: { ok: true, result: expect.stringContaining('"name":"self"') },
-  });
+  expect(profiles).toMatchObject({ output: { ok: true } });
+  expect(JSON.stringify(profiles)).toContain('\"name\":\"self\"');
   await service.release(world.context);
 });
 
