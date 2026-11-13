@@ -2,6 +2,7 @@ import { screen } from "@testing-library/react";
 import { expect, it } from "vitest";
 
 import { PlanAgentCard } from "@/app/components/agents/plans/plan-node-card/plan-agent-card";
+import { copyPlanConfiguration } from "@/definition/AgentPlanConfiguration";
 
 import { SOURCES } from "../../page61-plan-fixture";
 import {
@@ -12,12 +13,15 @@ import {
   renderInFlow,
 } from "../plan-flow-fixture";
 
-import type { AgentPlanStep } from "@/definition/AgentPlan";
+import type { AgentPlanSources, AgentPlanStep } from "@/definition/AgentPlan";
 
-function renderAgent(step: AgentPlanStep): void {
+function renderAgent(
+  step: AgentPlanStep,
+  sources: AgentPlanSources = SOURCES,
+): void {
   renderInFlow(
     <PlanAgentCard step={step} result={undefined} hasRun={false} />,
-    flowContext({ draft: planOf([step]), sources: SOURCES }),
+    flowContext({ draft: planOf([step]), sources }),
   );
 }
 
@@ -44,4 +48,51 @@ it("shows no input group for an agent without inputs", () => {
   renderAgent({ ...agentStep("agent"), agentId: "deleted" });
 
   expect(screen.queryByRole("group")).toBeNull();
+});
+
+it.each(["missing", "inactive"])(
+  "warns on the node about a %s profile even with a saved configuration",
+  (problem) => {
+    const profile = SOURCES.agents[0];
+    if (!profile) throw new Error("Missing fixture profile");
+    const configuration = {
+      ...copyPlanConfiguration(profile),
+      name: "Prepare E2E",
+    };
+    const agents =
+      problem === "missing"
+        ? []
+        : [
+            {
+              ...profile,
+              availability: {
+                isUsable: false,
+                reason: "agent_inactive" as const,
+                personalChoices: [],
+              },
+            },
+          ];
+    renderAgent(
+      { ...agentStep("node"), agentId: profile.id, configuration },
+      { ...SOURCES, agents },
+    );
+    expect(screen.getByRole("article", { name: "Prepare E2E" })).toBeDefined();
+    expect(screen.getByRole("alert").textContent).toBe(
+      i18n.t(
+        `plans.validation.${problem === "missing" ? "profileMissing" : "profileInactive"}`,
+      ),
+    );
+  },
+);
+
+it("shows no profile warning for a valid agent or an independent model node", () => {
+  const profile = SOURCES.agents[0];
+  if (!profile) throw new Error("Missing fixture profile");
+  const configuration = copyPlanConfiguration(profile);
+  renderAgent({
+    ...agentStep("node"),
+    agentId: "independent",
+    configuration: { ...configuration, connectionId: "connection" },
+  });
+  expect(screen.queryByRole("alert")).toBeNull();
 });

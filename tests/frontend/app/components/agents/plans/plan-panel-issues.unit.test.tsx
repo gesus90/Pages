@@ -171,6 +171,31 @@ function rows(): readonly HTMLElement[] {
   return screen.queryAllByRole("listitem");
 }
 
+it.each(["profileMissing", "profileInactive"] as const)(
+  "names the refused node and explains %s",
+  (reason) => {
+    const node = agent("prepare", "unavailable", {
+      configuration: {
+        ...copyPlanConfiguration(REVIEWER),
+        name: "Prepare E2E",
+      },
+    });
+    renderIssues({
+      nodes: [node],
+      control: planControl({
+        canPlay: false,
+        issue: "plan_invalid",
+        issues: [issue(node.id, reason)],
+      }),
+      code: "plan_invalid",
+    });
+    expect(screen.getByText("Prepare E2E")).toBeDefined();
+    expect(
+      screen.getByText(i18n.t(`plans.validation.${reason}`)),
+    ).toBeDefined();
+  },
+);
+
 /** The visible text of a row: its mark, what is affected and why. */
 function row(title: string, cause: string): string {
   return `!${title}${cause}`;

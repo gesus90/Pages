@@ -43,6 +43,9 @@ export function readPlanRun(input: unknown): AgentPlanRun {
       ? {}
       : { endedAt: readPlanText(run.endedAt) }),
     ...readRunCommand(run.command),
+    ...(run.startError === undefined
+      ? {}
+      : { startError: readPlanText(run.startError, 200) }),
     planRevision,
     status,
     stopRequested,

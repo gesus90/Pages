@@ -384,3 +384,37 @@ it("saves a repaired empty selection while still authorizing an empty model that
   expect(denied.mocks.profiles.resolveDefinition).toHaveBeenCalled();
   expect(denied.mocks.plans.save).not.toHaveBeenCalled();
 });
+
+it.each(["missing", "inactive"])(
+  "saves a pinned draft with a %s profile without resolving it",
+  async (problem) => {
+    const context = createPlanContext();
+    const profile = catalogAgent();
+    context.mocks.profiles.catalog.mockResolvedValue(
+      problem === "missing"
+        ? []
+        : [
+            {
+              ...profile,
+              availability: {
+                isUsable: false,
+                reason: "agent_inactive",
+                personalChoices: [],
+              },
+            },
+          ],
+    );
+    const configuration = copyPlanConfiguration(profile);
+    await context.service.save(
+      "owner",
+      null,
+      input({ nodes: [START, agentNode({ configuration }), END] }),
+    );
+    expect(context.mocks.plans.save).toHaveBeenCalledOnce();
+    expect(agentOf(savedPlan(context))).toHaveProperty(
+      "configuration",
+      configuration,
+    );
+    expect(context.mocks.profiles.resolveDefinition).not.toHaveBeenCalled();
+  },
+);

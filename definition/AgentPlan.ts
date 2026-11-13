@@ -542,6 +542,8 @@ export interface AgentPlanStepResult {
 
 /** Only the executor may read this sanitized view or request its stop. */
 export interface AgentPlanRun {
+  /** Safe code of a rejected background start, retained independently of later commands. */
+  readonly startError?: string;
   /** Durable command acknowledgement; execution state may still be unchanged. */
   readonly command?: PlanRunCommandReceipt;
   readonly id: string;

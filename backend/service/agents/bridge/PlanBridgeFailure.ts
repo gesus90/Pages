@@ -204,6 +204,8 @@ const ISSUE_PROBLEMS: Readonly<Record<AgentPlanIssueProblem, true>> = {
   flowOut: true,
   unreachable: true,
   agent: true,
+  profileMissing: true,
+  profileInactive: true,
   name: true,
   json: true,
   number: true,

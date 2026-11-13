@@ -4766,6 +4766,7 @@
     },
     "dataIn": "Data IN",
     "disconnect": "Remove data connection for {{name}}",
+    "startFailed": "The run could not start: {{reason}}",
     "validation": {
       "ticketHandoff": "Agent results are text and cannot forward ticket assets. Bind the same ticket source to the receiving agent’s ticket parameter.",
       "resultSource": "The bound result source is missing or not an agent. Release the data connection and connect the result of an existing agent.",
@@ -4787,6 +4788,8 @@
       "flowOut": "The required flow OUT is not connected.",
       "unreachable": "This node is not reachable from any start.",
       "agent": "At least one usable agent is required; check availability and permission.",
+      "profileMissing": "This node’s execution profile is missing or unavailable. Select an existing, active profile.",
+      "profileInactive": "This node’s execution profile is inactive. Select an active profile.",
       "name": "Start names with a lowercase letter; use only a–z, 0–9 and underscore, up to 64 characters.",
       "json": "Enter exactly one valid JSON value. Numbers must be finite.",
       "number": "Enter exactly one finite number.",

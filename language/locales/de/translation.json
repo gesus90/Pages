@@ -4766,6 +4766,7 @@
     },
     "dataIn": "Daten IN",
     "disconnect": "Datenverbindung für {{name}} entfernen",
+    "startFailed": "Der Lauf konnte nicht gestartet werden: {{reason}}",
     "validation": {
       "ticketHandoff": "Agent-Ergebnisse sind Text und können keine Ticket-Assets weitergeben. Dieselbe Ticketquelle an den Ticketparameter des empfangenden Agents binden.",
       "resultSource": "Die gebundene Ergebnisquelle fehlt oder ist kein Agent. Die Datenverbindung lösen und das Ergebnis eines vorhandenen Agents verbinden.",
@@ -4787,6 +4788,8 @@
       "flowOut": "Der erforderliche Ablauf-OUT ist nicht verbunden.",
       "unreachable": "Der Knoten ist von keinem Start erreichbar.",
       "agent": "Mindestens ein nutzbarer Agent ist erforderlich; Verfügbarkeit und Berechtigung prüfen.",
+      "profileMissing": "Das Ausführungsprofil dieses Knotens fehlt oder ist nicht verfügbar. Wähle ein vorhandenes, aktives Profil.",
+      "profileInactive": "Das Ausführungsprofil dieses Knotens ist inaktiv. Wähle ein aktives Profil.",
       "name": "Namen mit kleinem Buchstaben beginnen; nur a–z, 0–9 und Unterstrich, höchstens 64 Zeichen.",
       "json": "Genau einen gültigen JSON-Wert eingeben. Zahlen müssen endlich sein.",
       "number": "Genau eine endliche Zahl eingeben.",

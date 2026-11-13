@@ -145,8 +145,12 @@ export class PlanRunCommandRepository {
   }
 
   /** Makes a rejected command inspectable without retrying a permanent refusal forever. */
-  public async failed(id: string, error: string): Promise<void> {
-    await this.database.execute(
+  public async failed(
+    id: string,
+    error: string,
+    transaction?: DatabaseTransaction,
+  ): Promise<void> {
+    await (transaction ?? this.database).execute(
       `
       UPDATE plan_run_commands
       SET status = 'failed', error = $error, completed_at = $completed_at, delivery_complete = TRUE

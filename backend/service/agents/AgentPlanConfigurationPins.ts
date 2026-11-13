@@ -3,6 +3,7 @@ import { isAcpProvider } from "@/definition/AgentConfiguration";
 import { copyPlanConfiguration } from "@/definition/AgentPlanConfiguration";
 import { allPlanSteps, mapPlanSteps } from "@/definition/AgentPlanGroup";
 import { withInheritedPlanTarget } from "@/definition/AgentPlanTarget";
+import { planProfileProblem } from "@/definition/AgentPlanProfile";
 
 import { localPlanModelSteps } from "./AgentPlanRemoteExecution";
 import { requireCompatibleFields } from "./AgentPlanGroupRuntime";
@@ -88,7 +89,11 @@ export class AgentPlanConfigurationPins {
       userId,
       pinned,
     )) {
-      if (!node.configuration || isUnselectedConfiguration(node.configuration))
+      if (
+        !node.configuration ||
+        isUnselectedConfiguration(node.configuration) ||
+        planProfileProblem(node, catalog)
+      )
         continue;
       const resolved = await this.dependencies.profiles.resolveDefinition(
         userId,

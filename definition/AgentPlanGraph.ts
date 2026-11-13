@@ -31,6 +31,7 @@ import {
 } from "./AgentPlanStackGraph";
 import { PLAN_ASSET_NAME_LENGTH, planAssets } from "./AgentPlanAsset";
 import { isPlanStackTriggered } from "./AgentPlanStack";
+import { planProfileProblem } from "./AgentPlanProfile";
 
 import type { AgentDefinitionChoice } from "./AgentAvailability";
 import type { AgentParameter } from "./AgentParameters";
@@ -118,6 +119,8 @@ export interface AgentPlanIssue {
     | "flowOut"
     | "unreachable"
     | "agent"
+    | "profileMissing"
+    | "profileInactive"
     | "name"
     | "json"
     | "number"
@@ -467,6 +470,9 @@ function requiredParameterIssues(
   agent: AgentDefinitionChoice | undefined,
   plan: AgentPlanInput,
 ): AgentPlanIssue[] {
+  const profileProblem = planProfileProblem(step, agent ? [agent] : []);
+  if (profileProblem)
+    return [{ nodeId: step.id, port: null, reason: profileProblem }];
   const configuration = step.configuration?.template ?? agent?.configuration;
   const markdown = configuration?.markdown ?? "";
   const nodeIssue = stepAgentIssue(step, agent, markdown);
