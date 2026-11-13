@@ -72,9 +72,17 @@ export const dashboardDiskSchema = z.discriminatedUnion("isReachable", [
   }),
 ]);
 
+/** The public build metadata; deployment manifests may contain other, server-only fields. */
+export const dashboardBuildSchema = z.object({
+  commit: z.string().regex(/^[0-9a-f]{8,64}$/iu),
+  builtAt: z.iso.datetime({ offset: true }),
+});
+
 /** The facts below the panels; expensive ones are `null` until first measured. */
 export const dashboardFactsSchema = z.strictObject({
   version: z.string().max(64),
+  /** `null` without readable, valid deployment metadata, as in development. */
+  build: dashboardBuildSchema.nullable(),
   nodeVersion: z.string().max(64),
   /** When this Pages process started, in milliseconds since the epoch. */
   pagesStartedAt: instantSchema,
@@ -120,3 +128,6 @@ export type DashboardDisk = z.infer<typeof dashboardDiskSchema>;
 
 /** The fact line, see {@link dashboardFactsSchema}. */
 export type DashboardFacts = z.infer<typeof dashboardFactsSchema>;
+
+/** Build identity and timestamp, see {@link dashboardBuildSchema}. */
+export type DashboardBuild = z.infer<typeof dashboardBuildSchema>;

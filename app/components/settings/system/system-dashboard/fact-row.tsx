@@ -1,8 +1,10 @@
 import { useTranslation } from "react-i18next";
 
 import { MISSING_VALUE, useDashboardFormat } from "./use-dashboard-format";
+import { VersionFact } from "./version-fact";
 
 import type { TFunction } from "i18next";
+import type { ReactNode } from "react";
 import type { DashboardFacts } from "@/definition/SystemDashboard";
 import type { DashboardFormat } from "./use-dashboard-format";
 
@@ -21,7 +23,7 @@ const FACT_KEYS = [
 /** The facts of the measurement; the last backup comes from the service status. */
 type MeasuredFactKey = Exclude<(typeof FACT_KEYS)[number], "lastBackup">;
 
-type MeasuredFacts = Readonly<Record<MeasuredFactKey, string>>;
+type MeasuredFacts = Readonly<Record<MeasuredFactKey, ReactNode>>;
 
 const NO_FACTS: MeasuredFacts = {
   version: MISSING_VALUE,
@@ -44,7 +46,7 @@ function readMeasuredFacts(
   const { format, t, now } = context;
   const { databaseSize, tools } = facts;
   return {
-    version: facts.version,
+    version: <VersionFact version={facts.version} build={facts.build} />,
     node: facts.nodeVersion,
     pagesUptime: format.duration(facts.pagesStartedAt, now),
     serverUptime: format.duration(facts.serverStartedAt, now),

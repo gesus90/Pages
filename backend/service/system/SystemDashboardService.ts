@@ -2,6 +2,7 @@ import { logCaughtError } from "@/backend/logging/Logger";
 import { systemDashboardSchema } from "@/definition/SystemDashboard";
 import { PAGES_VERSION } from "@/definition/Version";
 
+import { readDeploymentBuild } from "./DeploymentBuild";
 import { PeriodicValue } from "./PeriodicValue";
 import { SystemDiskMonitor } from "./SystemDiskMonitor";
 import { SystemLoadSampler } from "./SystemLoadSampler";
@@ -10,6 +11,7 @@ import type { AccountAccess } from "@/definition/Authorization";
 import type { AgentToolView } from "@/definition/AgentTools";
 import type {
   DashboardAgents,
+  DashboardBuild,
   DashboardFacts,
   SystemDashboard,
 } from "@/definition/SystemDashboard";
@@ -143,10 +145,11 @@ export class SystemDashboardService {
   }
 
   private async measure(actor: AccountAccess): Promise<SystemDashboard> {
-    const [load, disks, agents] = await Promise.all([
+    const [load, disks, agents, build] = await Promise.all([
       this.sampler.read(),
       this.disks.read(),
       this.readAgents(),
+      readDeploymentBuild(this.dependencies.sources.readText),
     ]);
     return systemDashboardSchema.parse({
       measuredAt: this.dependencies.sources.now(),
@@ -155,7 +158,7 @@ export class SystemDashboardService {
       swap: load.swap,
       agents,
       disks,
-      facts: this.readFacts(actor, load.serverStartedAt),
+      facts: this.readFacts(actor, load.serverStartedAt, build),
     });
   }
 
@@ -186,12 +189,14 @@ export class SystemDashboardService {
   private readFacts(
     actor: AccountAccess,
     serverStartedAt: number | null,
+    build: DashboardBuild | null,
   ): DashboardFacts {
     const { sources, dataDirectory, readDatabaseSize, listTools } =
       this.dependencies;
     const now = sources.now();
     return {
       version: PAGES_VERSION,
+      build,
       nodeVersion: process.versions.node,
       // Whole seconds keep the start time steady between readings.
       pagesStartedAt: Math.round((now - process.uptime() * 1000) / 1000) * 1000,

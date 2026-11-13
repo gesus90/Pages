@@ -23,6 +23,10 @@ const MEASUREMENT: SystemDashboard = {
   disks: [],
   facts: {
     version: "1",
+    build: {
+      commit: "281a48950123456789abcdef0123456789abcdef01",
+      builtAt: "2026-11-13T10:12:00+01:00",
+    },
     nodeVersion: "22",
     pagesStartedAt: 0,
     serverStartedAt: null,

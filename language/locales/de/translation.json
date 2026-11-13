@@ -462,6 +462,8 @@
         },
         "facts": {
           "version": "Version",
+          "build": "Build {{commit}}",
+          "unknown": "unbekannt",
           "node": "Node.js",
           "pagesUptime": "Pages läuft seit",
           "serverUptime": "Server läuft seit",

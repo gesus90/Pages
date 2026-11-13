@@ -24,6 +24,7 @@ const MEASUREMENT: SystemDashboard = {
   disks: [],
   facts: {
     version: "1",
+    build: null,
     nodeVersion: "22",
     pagesStartedAt: 0,
     serverStartedAt: null,
