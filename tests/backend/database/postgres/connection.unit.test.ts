@@ -13,7 +13,7 @@ import {
   postgresErrorCode,
 } from "@/backend/database/postgres/PostgresConnection";
 
-import type { PoolClient } from "pg";
+import type { PoolClient, QueryConfig, QueryResult } from "pg";
 import type { Mock } from "vitest";
 
 vi.mock("@/backend/logging/Logger", () => ({ logEvent: vi.fn() }));
@@ -21,11 +21,12 @@ vi.mock("@/backend/logging/Logger", () => ({ logEvent: vi.fn() }));
 function createClient(): {
   client: PoolClient;
   emitter: EventEmitter;
-  query: Mock<(request: { values: string[] }) => Promise<unknown>>;
+  query: Mock<(request: QueryConfig) => Promise<QueryResult | QueryResult[]>>;
   release: ReturnType<typeof vi.fn>;
 } {
   const emitter = new EventEmitter();
-  const query = vi.fn<(request: { values: string[] }) => Promise<unknown>>();
+  const query =
+    vi.fn<(request: QueryConfig) => Promise<QueryResult | QueryResult[]>>();
   const release = vi.fn();
   const client = Object.assign(emitter, { query, release });
   return { client, emitter, query, release };
@@ -34,7 +35,10 @@ function createClient(): {
 describe("PostgresConnection", () => {
   it("binds parameters, returns the last result, and releases a healthy client", async () => {
     const fake = createClient();
-    fake.query.mockResolvedValue([{ rows: [["old"]] }, { rows: [["new"]] }]);
+    fake.query.mockResolvedValue([
+      { command: "SELECT", rows: [["old"]] },
+      { command: "SELECT", rows: [["new"]] },
+    ]);
     const connection = new PostgresConnection(fake.client, "reader");
     await expect(
       connection.run("SELECT $id", { id: 7 }, "rows"),
@@ -102,8 +106,11 @@ describe("PostgresConnection", () => {
 
   it("refuses an echoed stand-in for a compared NUL value", async () => {
     const fake = createClient();
-    fake.query.mockImplementation((request: { values: string[] }) =>
-      Promise.resolve({ rows: [[request.values[0]]] }),
+    fake.query.mockImplementation((request: QueryConfig) =>
+      Promise.resolve({
+        command: "SELECT",
+        rows: [[request.values?.[0] ?? null]],
+      }),
     );
     const connection = new PostgresConnection(fake.client, "reader");
     await expect(

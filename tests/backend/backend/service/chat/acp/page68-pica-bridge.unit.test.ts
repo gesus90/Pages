@@ -52,6 +52,8 @@ const WRITE_TOOLS = [
   "tickets_set_parent",
   "tickets_set_milestone",
   "tickets_delete",
+  "tickets_archive",
+  "tickets_restore",
   "projects_create",
   "projects_set_name",
   "projects_set_description",
@@ -90,6 +92,12 @@ const ADMINISTRATION =
   /^(?:admin|users?|accounts?|agents?|connections?|settings|instance|groups?|departments?_(?:create|set|delete)|tags?_(?:create|set|delete))/u;
 
 const WRITES = [
+  [
+    "tickets_archive",
+    "ticket.archive",
+    { ticketId: "PAGE-1", children: "include", confirmed: true },
+  ],
+  ["tickets_restore", "ticket.restore", { ticketId: "PAGE-1" }],
   [
     "tickets_create",
     "ticket.create",
@@ -273,6 +281,9 @@ it("lists every native tool of a turn with strict schemas and no administration"
   expect(names.filter((name) => ADMINISTRATION.test(name))).toEqual([]);
   for (const tool of listed.tools)
     expect(tool.description).not.toMatch(/BESTÄTIGEN|CONFIRM|LÖSCHEN/u);
+  expect(
+    listed.tools.find(({ id }) => id === "tickets_archive")?.description,
+  ).toMatch(/without confirmed.*confirm.*confirmed: true/u);
   expect(world.router).not.toHaveBeenCalled();
 });
 
@@ -316,6 +327,12 @@ it("reads projects, the person's own tickets and the wiki with fresh rights on e
 it.each([
   ["tickets_search", { projectId: "project", assigneeId: "foreign" }],
   ["tickets_search", { projectId: "project", userId: "foreign" }],
+  ["tickets_search", { projectId: "project", archived: "true" }],
+  ["tickets_archive", { ticketId: "PAGE-1", children: "omit" }],
+  ["tickets_archive", { ticketId: "PAGE-1", confirmed: "true" }],
+  ["tickets_archive", { ticketId: "PAGE-1", userId: "foreign" }],
+  ["tickets_restore", { ticketId: "PAGE-1", children: "include" }],
+  ["tickets_restore", { ticketId: "PAGE-1", operationId: "forged" }],
   ["projects_list", { includeHidden: true }],
   ["wiki_page_read", { pageId: "../server" }],
   ["tickets_set_title", { ticketId: "PAGE-1", title: "Neu" }],

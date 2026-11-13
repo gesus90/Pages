@@ -295,6 +295,7 @@ async function initializeServices(
     agents: { ...agentServices, ...planServices },
     wiki: workspaceServices.wikiService,
     instanceSettings: workspaceServices.instanceSettingsService,
+    projects: projectService,
     tasks: taskServices,
     serverCache,
     tokenKey,

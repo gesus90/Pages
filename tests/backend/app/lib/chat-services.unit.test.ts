@@ -27,6 +27,7 @@ import { PicaAcpWorkspace } from "@/backend/service/chat/acp/PicaAcpWorkspace";
 import { PicaBridge } from "@/backend/service/chat/acp/PicaBridge";
 import { readPicaInstructions } from "@/backend/service/chat/PicaInstructionFiles";
 import { PicaIdentityService } from "@/backend/service/chat/PicaIdentityService";
+import { PicaTicketLifecycleService } from "@/backend/service/chat/PicaTicketLifecycleService";
 import { WikiFileStore } from "@/backend/storage/WikiFileStore";
 
 import type { Mock } from "vitest";
@@ -118,6 +119,9 @@ vi.mock("@/backend/service/chat/PicaInstructionFiles", () => ({
 }));
 vi.mock("@/backend/service/chat/PicaIdentityService", () =>
   fakeClasses({ PicaIdentityService: [] }),
+);
+vi.mock("@/backend/service/chat/PicaTicketLifecycleService", () =>
+  fakeClasses({ PicaTicketLifecycleService: [] }),
 );
 vi.mock("@/backend/storage/WikiFileStore", () =>
   fakeClasses({ WikiFileStore: [] }),
@@ -443,6 +447,16 @@ it("protects the public origin from Pica's administration tools", () => {
 
   expect(PicaAdminService.prototype.protectOrigin).toHaveBeenCalledWith(
     "https://pages.example",
+  );
+});
+
+it("gives the executor the shared ticket lifecycle with the UI services", () => {
+  const tickets = opaque<NonNullable<ChatServicesInput["tickets"]>>("tickets");
+  createChatServices(chatInput({ tickets }));
+
+  expect(vi.mocked(PicaTicketLifecycleService).mock.calls).toEqual([[tickets]]);
+  expect(vi.mocked(ChatToolExecutor).mock.calls[0][0].ticketLifecycle).toBe(
+    vi.mocked(PicaTicketLifecycleService).mock.instances[0],
   );
 });
 

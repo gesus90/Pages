@@ -44,6 +44,7 @@ describe("readAgentTicketSearch", () => {
       type: "task",
       parentId: "/tasks/page-3",
       statusId: "status-1",
+      archived: true,
       milestoneId: "milestone-1",
       departmentId: "department-1",
       assigneeId: "user-1",
@@ -55,6 +56,7 @@ describe("readAgentTicketSearch", () => {
       type: "task",
       parent: { key: "PAGE-3" },
       statusId: "status-1",
+      archived: true,
       milestoneId: "milestone-1",
       departmentId: "department-1",
       assigneeId: "user-1",
@@ -79,6 +81,8 @@ describe("readAgentTicketSearch", () => {
     ["text that is not a string", { projectId: "p", text: 4 }],
     ["an unknown type", { projectId: "p", type: "bug" }],
     ["a null status filter", { projectId: "p", statusId: null }],
+    ["a string archive filter", { projectId: "p", archived: "true" }],
+    ["a null archive filter", { projectId: "p", archived: null }],
     [
       "a parent that names no ticket",
       { projectId: "p", parentId: "no ticket!" },
@@ -97,6 +101,12 @@ describe("readAgentTicketSearch", () => {
     const tagIds = Array.from({ length: 50 }, (_, index) => `tag-${index}`);
     const { search } = readAgentTicketSearch({ projectId: "p", tagIds });
     expect(search.tagIds).toHaveLength(50);
+  });
+
+  it("preserves an explicit active-ticket filter", () => {
+    expect(
+      readAgentTicketSearch({ projectId: "p", archived: false }).search,
+    ).toEqual({ projectId: "p", archived: false });
   });
 
   it("counts text characters as code points, with 200 as the limit", () => {
