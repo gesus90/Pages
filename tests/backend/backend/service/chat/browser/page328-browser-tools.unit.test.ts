@@ -126,7 +126,7 @@ async function toolsWorld(): Promise<{
   await service.bind(world.context);
   const registry = createPicaTools({
     tools: { run: vi.fn(async () => ({ ok: true, result: null })) },
-    sessions: { confirmationWord: async () => "CONFIRM" },
+    sessions: { confirmationWord: async () => "DELETE" },
     authorize: world.context.authorize,
     agentBrowsers: service,
   });
@@ -168,7 +168,7 @@ it("lists the visual tools as user tools, with no administrator catalog or file-
 it("offers no browser at all without the server-owned employee capability", () => {
   const registry = createPicaTools({
     tools: { run: vi.fn() },
-    sessions: { confirmationWord: async () => "CONFIRM" },
+    sessions: { confirmationWord: async () => "DELETE" },
     authorize: async () => undefined,
   });
   expect(
