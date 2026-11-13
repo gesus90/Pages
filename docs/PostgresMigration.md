@@ -7,6 +7,44 @@ the explicit offline transfer command. The historical database and backups must
 be retained. Returning to an old version after PostgreSQL writes would lose
 those writes unless an explicit reconciliation is performed.
 
+## Local development database
+
+The [local quickstart](../README.md#getting-started) needs an empty database
+before the first wizard completion. Use a dedicated development PostgreSQL
+cluster or an explicitly separate database and role on a development server;
+never point the wizard at production. PostgreSQL 18 is the version used by
+`scripts/postgres-check/temporary-instance.ts` and CI, not a tested minimum
+version claim for every PostgreSQL release.
+
+For example, in `psql` as the administrator of that **development** cluster:
+
+```sql
+CREATE ROLE pages_dev LOGIN;
+\password pages_dev
+CREATE DATABASE pages_dev
+    OWNER pages_dev
+    TEMPLATE template0
+    ENCODING 'UTF8'
+    LOCALE_PROVIDER libc
+    LOCALE 'C.UTF-8';
+```
+
+`\password` prompts for a password without putting it in the example or shell
+history. The role must be able to connect and own/create the schema objects.
+Keep the public schema empty, including functions, custom types and extensions;
+the wizard refuses an occupied schema. Connect using a private URL such as
+`postgresql://pages_dev:<URL-encoded-password>@127.0.0.1:5432/pages_dev` in the
+wizard, with the development cluster's actual host and port. Do not commit it.
+
+The server checks UTF8, the libc locale provider, byte-order collation
+(`C`, `POSIX`, `C.UTF-8` or `C.utf8`) and Unicode character types
+(`C.UTF-8` or `C.utf8`). The example above satisfies those checks when the host
+provides that locale. Sources: [locale validation](../backend/database/postgres/PostgresLocale.ts),
+[setup connection check](../backend/setup/SetupConnection.ts) and
+[transactional setup](../backend/setup/SetupPostgresRepository.ts).
+These instructions were source-reviewed in PAGE-332, not executed against a
+new cluster during that documentation task.
+
 ## Schema
 
 `backend/database/postgres/migrations/001_baseline.sql` holds the end state of

@@ -1,7 +1,7 @@
 # PAGE-290: CI test tags, execution evidence
 
 The job `Pages tests (100% coverage)` of `.github/workflows/ci.yml` runs only
-for a pushed tag `ci_test` or `ci_test-<id>` (see the README, "CI test tags").
+for a pushed tag `ci_test` or `ci_test-<id>` (see [CI test tags](../tests/README.md#ci-test-tags-page-290)).
 This file records the first observed runs. It separates two questions:
 
 - **Is the CI implemented correctly?** Yes, as observed below: the tag started

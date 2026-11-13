@@ -53,9 +53,8 @@ the unit, not the budget of the slice.
 The capability probe (`probeWorkerUnits`) still starts a throw-away unit with
 `MemoryMax=32M`; it runs `/usr/bin/true`, never a worker.
 
-## README
+## Runtime guide
 
-The table of limits under "Limited worker units (PAGE-127)" in `README.md`
-is historical for `MemoryMax` (1536 MiB) and `MemorySwapMax` (256 MiB): those
-two rows no longer apply. The other rows are current. README itself is
-protected and was not changed.
+The current [worker-unit guide](AgentRuntime.md#limited-worker-units-page-127)
+uses these shared budgets. The former README values (1536 MiB memory and
+256 MiB swap per worker) are historical and no longer apply.
