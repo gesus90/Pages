@@ -91,10 +91,13 @@ function usePlanDeadlineRefresh(
 export function PlanOneShotNotice({
   plan,
   status,
+  isHidden = false,
 }: {
   readonly plan: AgentPlanView;
   /** The polled status of the plan's run, which tells when a deadline may have been set. */
   readonly status: AgentPlanControl["status"] | undefined;
+  /** Shows nothing but keeps following the deadline, as in the collapsed plan panel (PAGE-338). */
+  readonly isHidden?: boolean;
 }): React.ReactElement | null {
   const { t, i18n } = useTranslation();
   usePlanDeadlineRefresh(plan, status);
@@ -106,7 +109,7 @@ export function PlanOneShotNotice({
     // A refused request is retried with a fresh key, not with the stored refusal.
     if (error) setRequestKey(createRandomUuid());
   }, [error]);
-  if (!plan.scheduledDeletionAt) return null;
+  if (isHidden || !plan.scheduledDeletionAt) return null;
   const time = deletionTime(plan.scheduledDeletionAt, i18n.language);
   if (time === null) return null;
   function keep(): void {

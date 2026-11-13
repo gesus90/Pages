@@ -17,7 +17,7 @@ import { PlanPanelDetails } from "./plan-panel-details";
 import { PlanPanelHeading } from "./plan-panel-heading";
 import { planPanelIssues } from "./plan-panel-issues";
 import { PlanPanelStatus } from "./plan-panel-status";
-import { planPanelState } from "./plan-panel-status-model";
+import { planPanelAttention, planPanelState } from "./plan-panel-status-model";
 import { recoverableRunId, recoveryErrorText } from "./plan-recovery-panel";
 import { usePlanRecovery } from "./use-plan-recovery";
 
@@ -133,6 +133,21 @@ function panelState(
   });
 }
 
+/** Whether the collapsed panel hides a warning or an error, which its marker then shows. */
+function panelAttention(
+  props: PlanRunPanelProps,
+  recoveryRunId: string | null,
+  recovery: ReturnType<typeof usePlanRecovery>,
+): ReturnType<typeof planPanelAttention> {
+  const plan = props.page.selected;
+  return planPanelAttention({
+    control: props.control,
+    isWorkspaceMissing: plan?.isWorkspaceMissing === true,
+    hasScheduledDeletion: Boolean(plan?.scheduledDeletionAt),
+    hasRecoveryError: recoveryRunId !== null && Boolean(recovery.error),
+  });
+}
+
 /** Sends a run command for the saved revision; it never carries the draft. */
 function submitRunAction(
   props: PlanRunPanelProps,
@@ -240,7 +255,14 @@ function useRunDecisions(
   return { recoveryAction, setRecoveryAction, action, resolveBlock };
 }
 
-/** Fixed within the editor, independent of graph position, viewport and zoom. */
+/**
+ * Fixed within the editor, independent of graph position, viewport and zoom.
+ *
+ * @remarks
+ * Collapsed, the panel shows the heading and the status marker only; notes,
+ * hints and the recovery refusal wait for the open panel, and the marker
+ * carries a dot while any of them is a warning or an error (PAGE-338).
+ */
 export function PlanRunPanel(props: PlanRunPanelProps): React.ReactElement {
   const { t } = useTranslation();
   const detailsId = useId();
@@ -289,11 +311,14 @@ export function PlanRunPanel(props: PlanRunPanelProps): React.ReactElement {
           onResolveBlock={resolveBlock}
           onManage={management.open}
         />
-        {recoveryRunId ? <RecoveryErrorLine recovery={recovery} /> : null}
+        {isOpen && recoveryRunId ? (
+          <RecoveryErrorLine recovery={recovery} />
+        ) : null}
         <PlanPanelStatus
           state={state}
           isOpen={isOpen}
           detailsId={detailsId}
+          attention={panelAttention(props, recoveryRunId, recovery)}
           onToggle={() => setOpen(!isOpen)}
         />
         {isOpen ? (

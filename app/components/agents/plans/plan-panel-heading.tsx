@@ -10,7 +10,10 @@ import { PlanOneShotBadge, PlanOneShotNotice } from "./plan-one-shot-notice";
 import { PlanAccessBadges } from "./plan-access-badges";
 import { PlanPanelMenu } from "./plan-panel-menu";
 import { PlanRunActions } from "./plan-run-actions";
-import { PlanResumeBlockNotice } from "./plan-resume-block-notice";
+import {
+  PlanResumeBlockButton,
+  PlanResumeBlockNotice,
+} from "./plan-resume-block-notice";
 
 import type { TFunction } from "i18next";
 import type { AgentPlanPage } from "@/definition/AgentPlan";
@@ -69,7 +72,9 @@ interface PlanPanelHeadingProps {
  *
  * @remarks
  * Saving the graph and the run controls are separate: Starten never saves,
- * and Speichern never starts a run.
+ * and Speichern never starts a run. Collapsed, the heading is one row
+ * without its notes; only the button that lifts a block of Fortsetzen joins
+ * the run controls (PAGE-338).
  */
 export function PlanPanelHeading(
   props: PlanPanelHeadingProps,
@@ -132,6 +137,13 @@ export function PlanPanelHeading(
               onAction={props.onAction}
             />
           </div>
+          {props.isOpen ? null : (
+            <PlanResumeBlockButton
+              control={control}
+              isPending={props.isPending}
+              onResolve={props.onResolveBlock}
+            />
+          )}
           <div className="flex items-center gap-1">
             <PlanPanelMenu
               page={props.page}
@@ -163,10 +175,15 @@ export function PlanPanelHeading(
         <PlanOneShotNotice
           plan={props.page.selected}
           status={control?.status}
+          isHidden={!props.isOpen}
         />
       ) : null}
-      <PlanSaveStatus editor={editor} control={control} />
-      <PlanControlNotes {...props} />
+      {props.isOpen ? (
+        <>
+          <PlanSaveStatus editor={editor} control={control} />
+          <PlanControlNotes {...props} />
+        </>
+      ) : null}
     </>
   );
 }
