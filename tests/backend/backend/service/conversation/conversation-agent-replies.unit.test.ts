@@ -85,7 +85,9 @@ function fixture(): {
   vi.spyOn(rounds, "round").mockResolvedValue(null);
   vi.spyOn(rounds, "claimRouting").mockResolvedValue(true);
   vi.spyOn(rounds, "finishRouting").mockResolvedValue(undefined);
-  vi.spyOn(rounds, "unannouncedEnds").mockResolvedValue([]);
+  vi.spyOn(rounds.handoffs, "pauseUnstarted").mockResolvedValue([]);
+  vi.spyOn(rounds.handoffs, "paused").mockResolvedValue([]);
+  vi.spyOn(rounds.handoffs, "request").mockResolvedValue([]);
   vi.spyOn(rounds, "interruptStale").mockResolvedValue(2);
   const dependencies: ConversationAgentRepliesDependencies = {
     conversations: {

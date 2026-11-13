@@ -7,7 +7,7 @@ import { scriptedDatabase } from "./scripted-database";
 
 import type { ConversationReplyClaim } from "@/backend/database/repositories/conversation/ConversationRoundRepository";
 
-const claim: ConversationReplyClaim = {
+const followUp: ConversationReplyClaim = {
   originMessageId: "origin",
   conversationId: "group",
   personId: "person",
@@ -17,94 +17,225 @@ const claim: ConversationReplyClaim = {
   triggerMessageId: "question",
   requestedBy: null,
   reason: "Replies to a question",
-  isAutomatic: true,
+  isAutomatic: false,
   isFollowUp: true,
 };
 
-it("atomically consumes a ready batch and claims the fourth answer", async () => {
+const handoff: ConversationReplyClaim = {
+  ...followUp,
+  triggerMessageId: "answer-of-b",
+  requestedBy: "b",
+  isFollowUp: false,
+  handoff: "pending",
+};
+
+function statementsOf(
+  boundary: ReturnType<typeof scriptedDatabase>,
+  text: string,
+): number {
+  return boundary.statements.filter((entry) => entry.statement.includes(text))
+    .length;
+}
+
+it("atomically consumes a ready batch and claims its continuation", async () => {
   const boundary = scriptedDatabase();
-  boundary.answer([[null]], [[6, 3, 0]], [["question"]], [["a"]]);
+  // round lock, consume, target insert
+  boundary.answer([[0]], [["question"]], [["a"]]);
   const repository = new ConversationRoundRepository(boundary.database);
-  expect(await repository.claim(claim)).toBe("claimed");
+  expect(await repository.claim(followUp)).toBe("claimed");
   expect(boundary.transactions()).toBe(1);
-  expect(boundary.ofKind("query").every((entry) => entry.inTransaction)).toBe(
-    true,
+  expect(boundary.statements.every((entry) => entry.inTransaction)).toBe(true);
+  expect(boundary.ofKind("query")[0]?.statement).toContain("FOR UPDATE");
+  expect(boundary.ofKind("query")[1]?.statement).toContain(
+    "SET consumed_at = $now",
   );
-  expect(
-    boundary
-      .ofKind("query")
-      .some((entry) => entry.statement.includes("FOR UPDATE")),
-  ).toBe(true);
-  expect(
-    boundary
-      .ofKind("query")
-      .some((entry) => entry.statement.includes("SET consumed_at = $now")),
-  ).toBe(true);
-  expect(boundary.ofKind("query")[2]?.parameters).toMatchObject({
-    question: "question",
-    now: "now",
-  });
   expect(boundary.ofKind("query").at(-1)?.statement).toContain(
-    "ON CONFLICT (origin_message_id, agent_id, trigger_message_id) DO NOTHING",
+    "INSERT INTO conversation_reply_targets",
+  );
+  // A follow-up is no contribution without @.
+  expect(statementsOf(boundary, "automatic_count = automatic_count + 1")).toBe(
+    0,
   );
 });
 
 it("propagates a failed target insert from the batch consumption transaction", async () => {
   const boundary = scriptedDatabase();
   const failure = new Error("Target could not be stored");
-  boundary.answer([[null]], [[3, 1, 0]], [["question"]], failure);
+  boundary.answer([[0]], [["question"]], failure);
   await expect(
-    new ConversationRoundRepository(boundary.database).claim(claim),
+    new ConversationRoundRepository(boundary.database).claim(followUp),
   ).rejects.toBe(failure);
-  const writes = boundary.ofKind("query").slice(-2);
-  expect(writes[0]?.statement).toContain("SET consumed_at = $now");
-  expect(writes[1]?.statement).toContain(
-    "INSERT INTO conversation_reply_targets",
-  );
-  expect(writes.every((entry) => entry.inTransaction)).toBe(true);
   expect(boundary.transactions()).toBe(1);
 });
 
+it("claims an @ hand-over to an agent that answered the round before, without any round or agent limit", async () => {
+  const boundary = scriptedDatabase();
+  // round lock with 9 contributions without @, take request, not bundled, target insert
+  boundary.answer([[9]], [["a"]], [], [["a"]]);
+  const repository = new ConversationRoundRepository(boundary.database);
+  expect(
+    await repository.claim({
+      ...handoff,
+      limits: { automaticRepliesPerOrigin: 8 },
+    }),
+  ).toBe("claimed");
+  const queries = boundary.ofKind("query");
+  expect(queries[1]?.statement).toContain(
+    "UPDATE conversation_handoff_requests",
+  );
+  expect(queries[1]?.parameters).toMatchObject({ expected: "pending" });
+  expect(queries[2]?.statement).toContain("conversation_follow_up_answers");
+  expect(queries[3]?.statement).toContain("ON CONFLICT DO NOTHING");
+  expect(statementsOf(boundary, "automatic_count = automatic_count + 1")).toBe(
+    0,
+  );
+});
+
+it("refuses a self mention before touching any stored state", async () => {
+  const boundary = scriptedDatabase();
+  boundary.answer([[0]]);
+  expect(
+    await new ConversationRoundRepository(boundary.database).claim({
+      ...handoff,
+      requestedBy: "a",
+    }),
+  ).toBe("duplicate");
+  expect(statementsOf(boundary, "conversation_handoff_requests")).toBe(0);
+  expect(statementsOf(boundary, "INSERT INTO conversation_reply_targets")).toBe(
+    0,
+  );
+});
+
+it("refuses a repeated trigger: the request is taken already, or the target exists", async () => {
+  const boundary = scriptedDatabase();
+  const repository = new ConversationRoundRepository(boundary.database);
+  boundary.answer([[0]], []);
+  expect(await repository.claim(handoff)).toBe("duplicate");
+  expect(statementsOf(boundary, "INSERT INTO conversation_reply_targets")).toBe(
+    0,
+  );
+  // Without a stored request (a person's mention), the unique target key decides.
+  boundary.answer([[0]], []);
+  expect(
+    await repository.claim({
+      ...handoff,
+      trigger: "mention",
+      triggerMessageId: "origin",
+      requestedBy: null,
+      handoff: undefined,
+    }),
+  ).toBe("duplicate");
+});
+
+it("leaves a reply that joined the agent's batch to the batch and ends its request", async () => {
+  const boundary = scriptedDatabase();
+  boundary.answer([[0]], [["a"]], [[1]]);
+  expect(
+    await new ConversationRoundRepository(boundary.database).claim(handoff),
+  ).toBe("duplicate");
+  expect(statementsOf(boundary, "SET state = 'done'")).toBe(1);
+  expect(statementsOf(boundary, "INSERT INTO conversation_reply_targets")).toBe(
+    0,
+  );
+});
+
+it("revives the interrupted target of a resumed hand-over once", async () => {
+  const boundary = scriptedDatabase();
+  const repository = new ConversationRoundRepository(boundary.database);
+  // lock, take paused, not bundled, insert conflicts, revive succeeds
+  boundary.answer([[0]], [["a"]], [], [], [["a"]]);
+  expect(await repository.claim({ ...handoff, handoff: "paused" })).toBe(
+    "claimed",
+  );
+  expect(boundary.ofKind("query").at(-1)?.statement).toContain(
+    "state = 'interrupted'",
+  );
+  // A target that already answered is not started again.
+  boundary.answer([[0]], [["a"]], [], [], []);
+  expect(await repository.claim({ ...handoff, handoff: "paused" })).toBe(
+    "duplicate",
+  );
+});
+
 it.each([
-  { counts: [7, 4, 0], outcome: "limit", isFollowUp: true },
-  { counts: [8, 1, 0], outcome: "limit", isFollowUp: true },
-  { counts: [5, 2, 1], outcome: "duplicate", isFollowUp: true },
-  { counts: [5, 2, 0], outcome: "duplicate", isFollowUp: false },
+  { count: 7, outcome: "claimed" },
+  { count: 8, outcome: "limit" },
 ])(
-  "guards persisted counts and repeated events: $counts, $outcome",
-  async ({ counts, outcome, isFollowUp }) => {
+  "limits contributions without @ to eight per round: $count before, $outcome",
+  async ({ count, outcome }) => {
     const boundary = scriptedDatabase();
-    boundary.answer([[null]], [counts]);
+    boundary.answer([[count]], [["c"]]);
     expect(
       await new ConversationRoundRepository(boundary.database).claim({
-        ...claim,
-        isFollowUp,
+        ...followUp,
+        trigger: "context",
+        triggerMessageId: "origin",
+        isAutomatic: true,
+        isFollowUp: false,
       }),
     ).toBe(outcome);
     expect(
-      boundary
-        .ofKind("query")
-        .some((entry) =>
-          entry.statement.includes("INSERT INTO conversation_reply_targets"),
-        ),
-    ).toBe(false);
+      statementsOf(boundary, "automatic_count = automatic_count + 1"),
+    ).toBe(outcome === "claimed" ? 1 : 0);
   },
 );
 
-it("refuses an ended round, an unproven follow-up and unsafe configured limits", async () => {
+it("clamps a configured limit without @ to nine", async () => {
   const boundary = scriptedDatabase();
-  const repository = new ConversationRoundRepository(boundary.database);
-  boundary.answer([["ended"]]);
-  expect(await repository.claim(claim)).toBe("limit");
-  boundary.answer([[null]], [[3, 1, 0]], []);
-  expect(await repository.claim(claim)).toBe("duplicate");
-  boundary.answer([[null]], [[9, 2, 0]]);
+  boundary.answer([[9]]);
   expect(
-    await repository.claim({
-      ...claim,
-      limits: { repliesPerAgentPerOrigin: 100, automaticRepliesPerOrigin: 100 },
+    await new ConversationRoundRepository(boundary.database).claim({
+      ...followUp,
+      trigger: "context",
+      isAutomatic: true,
+      isFollowUp: false,
+      limits: { automaticRepliesPerOrigin: 100 },
     }),
   ).toBe("limit");
+});
+
+it("refuses an unproven follow-up", async () => {
+  const boundary = scriptedDatabase();
+  boundary.answer([[0]], []);
+  expect(
+    await new ConversationRoundRepository(boundary.database).claim(followUp),
+  ).toBe("duplicate");
+});
+
+it("stores hand-overs once and pauses unstarted ones at a restart", async () => {
+  const boundary = scriptedDatabase();
+  const repository = new ConversationRoundRepository(boundary.database)
+    .handoffs;
+  const entry = {
+    triggerMessageId: "answer-of-b",
+    agentId: "a",
+    originMessageId: "origin",
+    conversationId: "group",
+    personId: "person",
+    requestedBy: "b",
+    reason: "B",
+    state: "paused" as const,
+    pauseReason: "agent_streak" as const,
+    createdAt: "now",
+  };
+  boundary.answer([["a"]]);
+  expect(await repository.request([entry])).toEqual([entry]);
+  boundary.answer([]);
+  expect(await repository.request([entry])).toEqual([]);
+  boundary.answer([["answer-of-b", "a", "origin", "group", "b", "B"]]);
+  expect(await repository.pauseUnstarted("start")).toEqual([
+    {
+      triggerMessageId: "answer-of-b",
+      agentId: "a",
+      originMessageId: "origin",
+      conversationId: "group",
+      requestedBy: "b",
+      reason: "B",
+    },
+  ]);
+  expect(boundary.ofKind("query").at(-1)?.statement).toContain(
+    "targets.state = 'queued'",
+  );
 });
 
 it("updates only the claimed answer and keeps every earlier reply associated with its round", async () => {
@@ -118,9 +249,6 @@ it("updates only the claimed answer and keeps every earlier reply associated wit
     trigger_message_id: "question",
     reply_message_id: "reply",
   });
-  expect(boundary.statements[0]?.statement).toContain(
-    "AND trigger_message_id = $trigger_message_id",
-  );
   boundary.answer([["origin", "person", "a", "handoff"]]);
   expect(await repository.findByReply("reply")).toMatchObject({
     originMessageId: "origin",
@@ -136,7 +264,7 @@ it("reads and consumes a durable batch once, retaining unanswered agents for the
     ["question", "origin", "group", "person", "a", "deadline", "b", "reply-b"],
     ["question", "origin", "group", "person", "a", "deadline", "c", null],
   ]);
-  const [question] = await repository.pending("origin");
+  const [question] = await repository.pending({ originMessageId: "origin" });
   expect(question?.answers).toEqual([
     { agentId: "b", replyMessageId: "reply-b" },
     { agentId: "c", replyMessageId: null },
@@ -144,31 +272,40 @@ it("reads and consumes a durable batch once, retaining unanswered agents for the
   boundary.answer([["question"]], []);
   expect(await repository.consume("question", "now")).toBe(true);
   expect(await repository.consume("question", "now")).toBe(false);
-  expect(boundary.ofKind("query").at(-1)?.statement).toContain(
-    "deadline_at <= $now OR NOT EXISTS",
-  );
 });
 
-it("keeps settings defaults, stored group limits and the hard maximum in persistence", async () => {
+it("records a reply into the questioner's batch under a row lock and reports it on every call", async () => {
+  const boundary = scriptedDatabase();
+  const repository = new ConversationRoundRepository(boundary.database)
+    .followUps;
+  boundary.answer([], [[1]]);
+  expect(
+    await repository.record("origin", {
+      id: "reply-b",
+      senderId: "b",
+      mentions: ["a", "b"],
+    }),
+  ).toEqual(new Set(["a"]));
+  expect(boundary.ofKind("query")[0]?.statement).toContain("FOR UPDATE");
+  expect(boundary.transactions()).toBe(1);
+});
+
+it("keeps the default and the hard maximum of the limit without @ in persistence", async () => {
   const boundary = scriptedDatabase();
   const repository = new ConversationReplySettingsRepository(boundary.database);
   expect(await repository.find("group")).toMatchObject({
-    repliesPerAgentPerOrigin: 4,
     automaticRepliesPerOrigin: 8,
   });
-  boundary.answer([["mentions", null, 2, 2, 9]]);
+  boundary.answer([["mentions", null, 2, 9]]);
   const settings = await repository.find("group");
-  expect(settings).toMatchObject({
-    repliesPerAgentPerOrigin: 2,
-    automaticRepliesPerOrigin: 9,
-  });
+  expect(settings).toMatchObject({ automaticRepliesPerOrigin: 9 });
+  expect(settings).not.toHaveProperty("repliesPerAgentPerOrigin");
   await repository.save({
     settings: { ...settings, automaticRepliesPerOrigin: 100 },
     updatedBy: "person",
     updatedAt: "now",
   });
   expect(boundary.ofKind("execute").at(-1)?.parameters).toMatchObject({
-    replies_per_agent: 2,
     replies_per_round: 9,
   });
 });

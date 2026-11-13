@@ -71,7 +71,16 @@ export class ConversationFollowUpRepository {
     });
   }
 
-  /** Records only an asked agent's later reply that explicitly mentions the questioner. */
+  /**
+   * Records an asked agent's later reply that explicitly mentions the
+   * questioner into the questioner's open questions of the round.
+   *
+   * @remarks
+   * The question rows are locked first, so a reply either joins a batch
+   * before it is consumed or stays outside it and starts its own hand-over.
+   *
+   * @returns The questioners whose batch holds this reply, also on a repeated call.
+   */
   public async record(
     originMessageId: string,
     answer: {
@@ -79,38 +88,70 @@ export class ConversationFollowUpRepository {
       readonly senderId: string;
       readonly mentions: readonly string[];
     },
-  ): Promise<void> {
-    for (const mentionedId of new Set(answer.mentions)) {
-      await this.database.execute(
-        `
-        UPDATE conversation_follow_up_answers AS answers
-        SET reply_message_id = $reply
-        FROM conversation_follow_up_questions AS questions
-        INNER JOIN conversation_messages AS question
-            ON question.id = questions.question_message_id
-        INNER JOIN conversation_messages AS reply
-            ON reply.id = $reply
-        WHERE answers.question_message_id = questions.question_message_id
-            AND questions.origin_message_id = $origin
-            AND questions.agent_id = $questioner
-            AND questions.consumed_at IS NULL
-            AND answers.agent_id = $sender
-            AND answers.reply_message_id IS NULL
-            AND reply.sequence > question.sequence;
-      `,
-        {
-          reply: answer.id,
-          origin: originMessageId,
-          questioner: mentionedId,
-          sender: answer.senderId,
-        },
-      );
-    }
+  ): Promise<Set<string>> {
+    return this.database.transaction(async (transaction) => {
+      const bundled = new Set<string>();
+      for (const mentionedId of new Set(answer.mentions)) {
+        if (mentionedId === answer.senderId) continue;
+        await transaction.query(
+          `
+          SELECT question_message_id
+          FROM conversation_follow_up_questions
+          WHERE origin_message_id = $origin
+              AND agent_id = $questioner
+              AND consumed_at IS NULL
+          FOR UPDATE;
+        `,
+          { origin: originMessageId, questioner: mentionedId },
+        );
+        await transaction.execute(
+          `
+          UPDATE conversation_follow_up_answers AS answers
+          SET reply_message_id = $reply
+          FROM conversation_follow_up_questions AS questions
+          INNER JOIN conversation_messages AS question
+              ON question.id = questions.question_message_id
+          INNER JOIN conversation_messages AS reply
+              ON reply.id = $reply
+          WHERE answers.question_message_id = questions.question_message_id
+              AND questions.origin_message_id = $origin
+              AND questions.agent_id = $questioner
+              AND questions.consumed_at IS NULL
+              AND answers.agent_id = $sender
+              AND answers.reply_message_id IS NULL
+              AND reply.sequence > question.sequence;
+        `,
+          {
+            reply: answer.id,
+            origin: originMessageId,
+            questioner: mentionedId,
+            sender: answer.senderId,
+          },
+        );
+        const rows = await transaction.query(
+          `
+          SELECT 1
+          FROM conversation_follow_up_answers AS answers
+          INNER JOIN conversation_follow_up_questions AS questions
+              ON questions.question_message_id = answers.question_message_id
+          WHERE answers.reply_message_id = $reply
+              AND questions.agent_id = $questioner
+          LIMIT 1;
+        `,
+          { reply: answer.id, questioner: mentionedId },
+        );
+        if (rows.length > 0) bundled.add(mentionedId);
+      }
+      return bundled;
+    });
   }
 
   /** Reads pending questions after events and at startup, including their original deadline. */
   public async pending(
-    originMessageId: string | null = null,
+    filter: {
+      readonly originMessageId?: string;
+      readonly conversationId?: string;
+    } = {},
   ): Promise<ConversationFollowUp[]> {
     const rows = await this.database.query(
       `
@@ -129,11 +170,14 @@ export class ConversationFollowUpRepository {
       INNER JOIN conversation_follow_up_answers AS answers
           ON answers.question_message_id = questions.question_message_id
       WHERE questions.consumed_at IS NULL
-          AND rounds.ended_at IS NULL
           AND ($origin::TEXT IS NULL OR questions.origin_message_id = $origin)
+          AND ($conversation::TEXT IS NULL OR questions.conversation_id = $conversation)
       ORDER BY questions.deadline_at, questions.question_message_id, answers.agent_id;
     `,
-      { origin: originMessageId },
+      {
+        origin: filter.originMessageId ?? null,
+        conversation: filter.conversationId ?? null,
+      },
     );
     const questions = new Map<string, ConversationFollowUp>();
     for (const row of rows) {

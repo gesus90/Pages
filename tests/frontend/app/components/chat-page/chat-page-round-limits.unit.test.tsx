@@ -49,7 +49,7 @@ function renderLimits(
   render(
     <I18nextProvider i18n={createI18n("en")}>
       <ChatPageRoundLimits
-        limits={{ repliesPerAgentPerOrigin: 4, automaticRepliesPerOrigin: 8 }}
+        limits={{ automaticRepliesPerOrigin: 8 }}
         isDisabled={isDisabled}
         onChange={onChange}
       />
@@ -58,26 +58,17 @@ function renderLimits(
   return onChange;
 }
 
-it("offers bounded group limits and changes one while retaining the other", () => {
+it("offers only the bounded limit without @; no limit per agent remains (PAGE-349)", () => {
   const onChange = renderLimits();
-  const perAgent = screen.getByRole("combobox", {
-    name: "Replies per agent (including follow-ups)",
-  });
+  expect(screen.getAllByRole("combobox")).toHaveLength(1);
   const perRound = screen.getByRole("combobox", {
-    name: "Total agent contributions",
+    name: "Contributions without @ (observer, decision model)",
   });
-  expect(perAgent.querySelectorAll("option")).toHaveLength(4);
   expect(perRound.querySelectorAll("option")).toHaveLength(9);
   fireEvent.change(perRound, { target: { value: "9" } });
-  expect(onChange).toHaveBeenLastCalledWith({
-    repliesPerAgentPerOrigin: 4,
-    automaticRepliesPerOrigin: 9,
-  });
-  fireEvent.change(perAgent, { target: { value: "2" } });
-  expect(onChange).toHaveBeenLastCalledWith({
-    repliesPerAgentPerOrigin: 2,
-    automaticRepliesPerOrigin: 8,
-  });
+  expect(onChange).toHaveBeenLastCalledWith({ automaticRepliesPerOrigin: 9 });
+  expect(screen.queryByText(/Replies per agent/u)).toBeNull();
+  expect(screen.getByText(/without a limit per round/u)).toBeTruthy();
 });
 
 it("disables changes when the settings are read-only or saving", () => {

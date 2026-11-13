@@ -216,10 +216,6 @@ function ReplySettingsBody({
     formData.set("defaultResponderId", draft.defaultResponderId);
     formData.set("maximumResponders", String(draft.maximumResponders));
     formData.set(
-      "repliesPerAgentPerOrigin",
-      String(draft.repliesPerAgentPerOrigin),
-    );
-    formData.set(
       "automaticRepliesPerOrigin",
       String(draft.automaticRepliesPerOrigin),
     );
@@ -233,7 +229,7 @@ function ReplySettingsBody({
   return (
     <>
       <ReplySettingsForm
-        key={`${settings.mode}:${settings.defaultResponderId ?? ""}:${String(settings.maximumResponders)}:${String(settings.repliesPerAgentPerOrigin)}:${String(settings.automaticRepliesPerOrigin)}`}
+        key={`${settings.mode}:${settings.defaultResponderId ?? ""}:${String(settings.maximumResponders)}:${String(settings.automaticRepliesPerOrigin)}`}
         settings={settings}
         isPending={isPending}
         onSave={handleSave}

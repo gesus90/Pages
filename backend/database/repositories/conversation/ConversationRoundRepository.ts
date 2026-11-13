@@ -6,6 +6,10 @@ import {
 } from "@/backend/database/RowValue";
 
 import { ConversationFollowUpRepository } from "./ConversationFollowUpRepository";
+import {
+  ConversationHandoffRepository,
+  takeHandoff,
+} from "./ConversationHandoffRepository";
 
 import type {
   Database,
@@ -34,17 +38,26 @@ export interface ConversationReplyClaim extends ConversationRoundOrigin {
   /** The agent that handed the round over; `null` otherwise. */
   readonly requestedBy: string | null;
   readonly reason: string;
-  /** Whether the answer counts against the limit of automatic answers. */
+  /**
+   * Whether the answer was chosen without @, by the observer or the decision
+   * model, and counts against the limit of such contributions (PAGE-349).
+   */
   readonly isAutomatic: boolean;
-  /** Only a ready batch of the agent's own question permits another answer. */
+  /** The continuation of a ready batch of the agent's own question; consumes it. */
   readonly isFollowUp?: boolean;
+  /**
+   * The stored @ hand-over this answer takes (PAGE-349): `pending` right
+   * after it was stored, `paused` when a person's message resumes it.
+   */
+  readonly handoff?: "pending" | "paused";
   /** Effective group settings, clamped again before persistence. */
   readonly limits?: ConversationRoundLimits;
 }
 
 /**
- * What became of a claim: the agent may answer, it was asked already, or the
- * limit of automatic answers is reached.
+ * What became of a claim: the agent may answer, it was started for this
+ * message already (or it is the sender itself), or the limit of contributions
+ * without @ is reached.
  */
 export type ConversationClaimOutcome = "claimed" | "duplicate" | "limit";
 
@@ -67,13 +80,10 @@ export interface ConversationReplyOrigin {
 /** A round as the next hand-over needs it. */
 export interface ConversationRoundState {
   readonly personId: string;
+  /** Contributions without @ so far; @ hand-overs are not counted (PAGE-349). */
   readonly automaticCount: number;
   /** One entry per claimed answer, including repeated agents and unfinished answers. */
   readonly agentIds: readonly string[];
-  /** A closed round starts no further answers. */
-  readonly endedAt?: string | null;
-  /** All contributions, including the agents the person initially mentioned. */
-  readonly replyCount?: number;
 }
 
 type RoundDatabase = Pick<Database, "query" | "execute" | "transaction">;
@@ -149,7 +159,7 @@ async function insertTarget(
           $created_at,
           $created_at
       )
-      ON CONFLICT (origin_message_id, agent_id, trigger_message_id) DO NOTHING
+      ON CONFLICT DO NOTHING
       RETURNING agent_id;
     `,
     {
@@ -167,23 +177,72 @@ async function insertTarget(
   return rows.length > 0;
 }
 
+/** Starts an interrupted answer of a resumed hand-over again, once. */
+async function reviveTarget(
+  transaction: Pick<DatabaseTransaction, "query">,
+  claim: ConversationReplyClaim,
+): Promise<boolean> {
+  const rows = await transaction.query(
+    `
+      UPDATE conversation_reply_targets
+      SET state = 'queued', updated_at = $now
+      WHERE trigger_message_id = $trigger_message_id
+          AND agent_id = $agent_id
+          AND state = 'interrupted'
+      RETURNING agent_id;
+    `,
+    {
+      trigger_message_id: claim.triggerMessageId,
+      agent_id: claim.agentId,
+      now: claim.createdAt,
+    },
+  );
+  return rows.length > 0;
+}
+
+/** Whether the message is a reply bundled into a question of the agent; the batch answers it. */
+async function isBundled(
+  transaction: Pick<DatabaseTransaction, "query">,
+  claim: ConversationReplyClaim,
+): Promise<boolean> {
+  const rows = await transaction.query(
+    `
+      SELECT 1
+      FROM conversation_follow_up_answers AS answers
+      INNER JOIN conversation_follow_up_questions AS questions
+          ON questions.question_message_id = answers.question_message_id
+      WHERE answers.reply_message_id = $trigger_message_id
+          AND questions.agent_id = $agent_id
+      LIMIT 1;
+    `,
+    { trigger_message_id: claim.triggerMessageId, agent_id: claim.agentId },
+  );
+  return rows.length > 0;
+}
+
 /**
  * The rounds of answers in conversations, their asked agents and the routing
- * decisions of the observer (PAGE-296).
+ * decisions of the observer (PAGE-296, PAGE-349).
  *
  * @remarks
- * Everything a loop guard needs is stored, never only held in memory: a
- * claim locks its round, so concurrent jobs, repeated events and a restart
- * can neither start a batch twice nor exceed either configured round limit.
+ * Everything a loop guard needs is stored, never only held in memory. An
+ * agent starts at most once per message that asks it: the unique key
+ * `(trigger_message_id, agent_id)` holds it against repeated events,
+ * concurrent jobs and a restart. Explicit @ hand-overs have no limit per round
+ * or per agent; only contributions without @ are counted, under the lock of
+ * their round.
  */
 export class ConversationRoundRepository {
   private readonly database: RoundDatabase;
   /** Durable batches of questions and their addressed replies. */
   public readonly followUps: ConversationFollowUpRepository;
+  /** Stored explicit @ hand-overs, pending or paused (PAGE-349). */
+  public readonly handoffs: ConversationHandoffRepository;
 
   public constructor(database: RoundDatabase) {
     this.database = database;
     this.followUps = new ConversationFollowUpRepository(database);
+    this.handoffs = new ConversationHandoffRepository(database);
   }
 
   /** Stores the round of a message of a person once. */
@@ -192,9 +251,12 @@ export class ConversationRoundRepository {
   }
 
   /**
-   * Claims an initial answer or consumes a ready question batch within both limits.
-   * Batch consumption and its answer target commit together, so a failed claim
-   * leaves the batch available for recovery.
+   * Claims the answer of one agent to one asking message, atomically.
+   *
+   * @remarks
+   * The answer target, the end of a stored hand-over, the consumption of a
+   * question batch and the count of contributions without @ commit together,
+   * so a failed claim leaves everything available again.
    *
    * @returns `claimed` when the agent may answer now.
    */
@@ -206,20 +268,48 @@ export class ConversationRoundRepository {
       // The lock orders concurrent claims of one round, so the limit holds.
       const [round] = await transaction.query(
         `
-          SELECT ended_at
+          SELECT automatic_count
           FROM conversation_reply_rounds
           WHERE origin_message_id = $origin_message_id
           FOR UPDATE;
         `,
         { origin_message_id: claim.originMessageId },
       );
-      if (round && readNullableTextColumn(round, 0, "ended_at") !== null)
+      // An agent never answers its own mention.
+      if (claim.requestedBy === claim.agentId) return "duplicate";
+      const automaticCount = round
+        ? readCountColumn(round, 0, "automatic_count")
+        : 0;
+      const limits = conversationRoundLimits(claim.limits ?? {});
+      if (
+        claim.isAutomatic &&
+        automaticCount >= limits.automaticRepliesPerOrigin
+      )
         return "limit";
-      const refusal = await this.refuseClaim(transaction, claim);
-      if (refusal) return refusal;
+      const handoff = claim.handoff;
+      if (
+        handoff &&
+        !(await takeHandoff(transaction, {
+          triggerMessageId: claim.triggerMessageId,
+          agentId: claim.agentId,
+          expected: handoff,
+          now: claim.createdAt,
+        }))
+      )
+        return "duplicate";
+      if (
+        !claim.isFollowUp &&
+        claim.trigger === "handoff" &&
+        (await isBundled(transaction, claim))
+      )
+        return "duplicate";
       if (claim.isFollowUp && !(await this.consumeFollowUp(transaction, claim)))
         return "duplicate";
-      if (!(await insertTarget(transaction, claim))) return "duplicate";
+      if (
+        !(await insertTarget(transaction, claim)) &&
+        !(handoff === "paused" && (await reviveTarget(transaction, claim)))
+      )
+        return "duplicate";
       if (claim.isAutomatic)
         await transaction.execute(
           `
@@ -280,8 +370,7 @@ export class ConversationRoundRepository {
         SELECT
             conversation_reply_rounds.person_id,
             conversation_reply_rounds.automatic_count,
-            conversation_reply_targets.agent_id,
-            conversation_reply_rounds.ended_at
+            conversation_reply_targets.agent_id
         FROM conversation_reply_rounds
         LEFT JOIN conversation_reply_targets
             ON conversation_reply_targets.origin_message_id = conversation_reply_rounds.origin_message_id
@@ -294,9 +383,6 @@ export class ConversationRoundRepository {
     return {
       personId: readTextColumn(first, 0, "person_id"),
       automaticCount: readCountColumn(first, 1, "automatic_count"),
-      endedAt: readNullableTextColumn(first, 3, "ended_at"),
-      replyCount: rows.filter((row) => row[2] !== null).length,
-
       agentIds: rows
         .map((row) => readNullableTextColumn(row, 2, "agent_id"))
         .filter((id): id is string => id !== null),
@@ -329,44 +415,6 @@ export class ConversationRoundRepository {
       agentId: readTextColumn(row, 2, "agent_id"),
       trigger: readTrigger(readTextColumn(row, 3, "trigger")),
     };
-  }
-
-  /** Ends a round once; its deterministic notice can then be inserted idempotently. */
-  public async end(originMessageId: string, now: string): Promise<void> {
-    await this.database.execute(
-      `
-      UPDATE conversation_reply_rounds
-      SET ended_at = COALESCE(ended_at, $now)
-      WHERE origin_message_id = $origin;
-    `,
-      { origin: originMessageId, now },
-    );
-  }
-
-  /** Closed rounds whose final notice was not committed before a restart. */
-  public async unannouncedEnds(): Promise<ConversationRoundOrigin[]> {
-    const rows = await this.database.query(`
-      SELECT
-          rounds.origin_message_id,
-          rounds.conversation_id,
-          rounds.person_id,
-          rounds.created_at
-      FROM conversation_reply_rounds AS rounds
-      WHERE rounds.ended_at IS NOT NULL
-          AND NOT EXISTS (
-              SELECT 1
-              FROM conversation_messages AS messages
-              WHERE messages.conversation_id = rounds.conversation_id
-                  AND messages.client_message_id = 'round-limit-' || rounds.origin_message_id
-                  AND messages.notice = 'round_limit'
-          );
-    `);
-    return rows.map((row) => ({
-      originMessageId: readTextColumn(row, 0, "origin_message_id"),
-      conversationId: readTextColumn(row, 1, "conversation_id"),
-      personId: readTextColumn(row, 2, "person_id"),
-      createdAt: readTextColumn(row, 3, "created_at"),
-    }));
   }
 
   /**
@@ -474,42 +522,6 @@ export class ConversationRoundRepository {
       { before },
     );
     return rows.length;
-  }
-
-  private async refuseClaim(
-    transaction: Pick<DatabaseTransaction, "query">,
-    claim: ConversationReplyClaim,
-  ): Promise<ConversationClaimOutcome | null> {
-    const [counts] = await transaction.query(
-      `
-        SELECT
-          COUNT(*),
-          COUNT(*) FILTER (WHERE agent_id = $agent_id),
-          COUNT(*) FILTER (WHERE agent_id = $agent_id AND trigger_message_id = $trigger_message_id)
-        FROM conversation_reply_targets
-        WHERE origin_message_id = $origin_message_id;
-      `,
-      {
-        origin_message_id: claim.originMessageId,
-        agent_id: claim.agentId,
-        trigger_message_id: claim.triggerMessageId,
-      },
-    );
-    const ownCount = counts ? readCountColumn(counts, 1, "agent_count") : 0;
-    const duplicateCount = counts
-      ? readCountColumn(counts, 2, "duplicate_count")
-      : 0;
-    if (duplicateCount > 0 || (ownCount > 0 && !claim.isFollowUp))
-      return "duplicate";
-    const limits = conversationRoundLimits(claim.limits ?? {});
-    const totalCount = counts ? readCountColumn(counts, 0, "reply_count") : 0;
-    if (
-      ownCount >= limits.repliesPerAgentPerOrigin ||
-      (claim.trigger !== "direct" &&
-        totalCount >= limits.automaticRepliesPerOrigin)
-    )
-      return "limit";
-    return null;
   }
 
   private async consumeFollowUp(

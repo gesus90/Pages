@@ -3,7 +3,6 @@ import {
   CONVERSATION_AGENT_CONTEXT_CHARACTERS,
   CONVERSATION_AGENT_CONTEXT_MESSAGES,
 } from "@/definition/Conversation";
-import { CONVERSATION_OBSERVER_LIMITS } from "@/definition/ConversationObserver";
 
 import type { StoredConversationMessage } from "@/backend/database/repositories/conversation/ConversationMessageRepository";
 import type { StoredGroupContext } from "@/backend/database/repositories/conversation/ConversationGroupContextRepository";
@@ -13,6 +12,14 @@ import type {
   ConversationAccount,
   ConversationAccounts,
 } from "./ConversationDirectory";
+
+/**
+ * The rule of hand-overs between agents in the prompt of a group (PAGE-349):
+ * agents may address each other with @ again and again when the matter needs
+ * it, until it is settled.
+ */
+export const CONVERSATION_GROUP_HANDOFF_RULE =
+  "Andere Agents der Gruppe kannst du bei fachlichem Bedarf mit @Benutzername ansprechen, auch mehrfach in derselben Runde und auch, wenn sie schon geantwortet haben; jede @-Ansprache weckt den Agent. Sprecht miteinander, bis die Sache geklärt ist; ohne fachlichen Grund sprichst du niemanden an. Dich selbst sprichst du nicht mit @ an.";
 
 /** Why the agent answers and for whom (PAGE-296). */
 export interface ConversationAgentPromptTrigger {
@@ -167,10 +174,7 @@ function agentLines(input: ConversationAgentPromptInput): string[] {
         `- @${account.user.username} (${account.user.displayName}${account.role ? `, ${account.role}` : ""})`,
     );
   if (agents.length === 0) return [];
-  return [
-    `Andere Agents der Gruppe kannst du bei fachlichem Bedarf mit @Benutzername um einen Beitrag bitten; ohne Grund sprichst du niemanden an. Je Ursprungsnachricht antwortet jeder Agent höchstens einmal, und höchstens ${String(CONVERSATION_OBSERVER_LIMITS.automaticRepliesPerOrigin)} weitere Beiträge sind möglich.`,
-    ...agents,
-  ];
+  return [CONVERSATION_GROUP_HANDOFF_RULE, ...agents];
 }
 
 function listLines(title: string, entries: readonly string[]): string[] {

@@ -38,7 +38,8 @@ export const CONVERSATION_DEFAULT_MAXIMUM_RESPONDERS = 2;
  * The range of the most agents that answer one message.
  *
  * @remarks
- * This bounds the initial selection; the separate round budget includes follow-ups.
+ * This bounds the initial selection; the separate budget of contributions
+ * without @ per round (PAGE-349) bounds the observer and the decision model.
  */
 export const CONVERSATION_MAXIMUM_RESPONDERS_RANGE = {
   minimum: 1,
@@ -51,15 +52,17 @@ export const CONVERSATION_MAXIMUM_RESPONDERS_RANGE = {
  * @remarks
  * `historyMessages`/`historyCharacters` bound what the model reads of the
  * history, `reasonCharacters` the one sentence it gives,
- * `timeoutSeconds` the longest wait, `agentStreak` how many agent messages
- * in a row, without a person, still start a hand-over.
+ * `timeoutSeconds` the longest wait, `agentStreak` the most agent messages
+ * in a row without a message of a person (PAGE-349): once that many stand in
+ * a row, a further hand-over is stored instead of started and starts once a
+ * person writes again.
  */
 export const CONVERSATION_DECISION_LIMITS = {
   historyMessages: 8,
   historyCharacters: 6_000,
   reasonCharacters: 300,
   timeoutSeconds: 120,
-  agentStreak: 10,
+  agentStreak: 20,
 } as const;
 
 /** How a group decides who answers; stored per group. */
@@ -69,9 +72,7 @@ export interface ConversationReplySettings {
   /** An agent member that answers when it is unclear who is addressed; `null` for none. */
   readonly defaultResponderId: string | null;
   readonly maximumResponders: number;
-  /** Total answers of one agent, including up to three follow-ups; defaults to four. */
-  readonly repliesPerAgentPerOrigin?: number;
-  /** Agent contributions per group round; defaults to eight, at most nine. */
+  /** Contributions without @ per group round; defaults to eight, at most nine (PAGE-349). */
   readonly automaticRepliesPerOrigin?: number;
 }
 

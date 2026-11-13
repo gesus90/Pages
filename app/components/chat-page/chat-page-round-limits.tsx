@@ -5,7 +5,7 @@ import { CONVERSATION_ROUND_LIMITS_RANGE } from "@/definition/ConversationObserv
 
 import type { ConversationRoundLimits } from "@/definition/ConversationObserver";
 
-/** The two bounded round settings, alongside the existing group reply settings. */
+/** The bounded number of contributions without @ per round (PAGE-349); @ hand-overs are not limited. */
 export function ChatPageRoundLimits({
   limits,
   isDisabled,
@@ -17,10 +17,6 @@ export function ChatPageRoundLimits({
 }): React.ReactElement {
   const { t } = useTranslation();
   const fields = [
-    {
-      key: "repliesPerAgentPerOrigin",
-      maximum: CONVERSATION_ROUND_LIMITS_RANGE.repliesPerAgentMaximum,
-    },
     {
       key: "automaticRepliesPerOrigin",
       maximum: CONVERSATION_ROUND_LIMITS_RANGE.automaticRepliesMaximum,

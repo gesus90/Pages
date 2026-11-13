@@ -1,10 +1,8 @@
-import { randomUUID } from "node:crypto";
-
 import { withBackgroundDatabaseWork } from "@/backend/database/executor/DatabaseWorkContext";
-import { logCaughtError } from "@/backend/logging/Logger";
+import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 import { CONVERSATION_OBSERVER_LIMITS } from "@/definition/ConversationObserver";
 
-import { toConversationMessage } from "./ConversationReader";
+import { isAgentChainPaused } from "./ConversationAgentChain";
 
 import type { ConversationFollowUp } from "@/backend/database/repositories/conversation/ConversationFollowUpRepository";
 import type { ConversationMessage } from "@/definition/Conversation";
@@ -15,17 +13,32 @@ import type { ConversationRound } from "./ConversationReplyRunner";
 export interface ConversationFollowUpStart {
   readonly agentId: string;
   readonly questionMessageId: string;
-  readonly contextMessageIds: readonly string[];
   readonly reason: string;
 }
 
-const REQUEST =
-  /\?|\b(?:bitte|please|could you|can you)\b|(?:^|[.!]\s+|@[\p{L}\p{N}._-]+\s+)(?:prüf(?:e|t)?|beurteil(?:e|t)?|bewert(?:e|et)?|klär(?:e|t)?|vergleich(?:e|t)?|schau(?:t)?|review|check|assess)\b/iu;
+/** The stored round of a message, as a batch or a stored hand-over refers to it. */
+export interface ConversationStoredRound {
+  readonly originMessageId: string;
+  readonly conversationId: string;
+  readonly personId: string;
+}
 
-/** Coordinates durable batches and their timers without holding an agent session open. */
+const COMPONENT = "ConversationRoundFollowUps";
+
+/**
+ * Coordinates durable batches and their timers without holding an agent
+ * session open (PAGE-337, PAGE-349).
+ *
+ * @remarks
+ * Every explicit @ mention of other agents in an answer opens a batch for
+ * its author, whatever the sentence says. The replies of the mentioned
+ * agents that mention the author back are collected until all arrived or the
+ * deadline passed; then the author answers once to all of them. At the chain
+ * pause a ready batch waits and starts with the next message of a person.
+ */
 export class ConversationRoundFollowUps {
   private readonly dependencies: ConversationAgentRepliesDependencies;
-  private readonly resume: (
+  private readonly start: (
     round: ConversationRound,
     start: ConversationFollowUpStart,
   ) => Promise<void>;
@@ -34,13 +47,13 @@ export class ConversationRoundFollowUps {
 
   public constructor(
     dependencies: ConversationAgentRepliesDependencies,
-    resume: (
+    start: (
       round: ConversationRound,
       start: ConversationFollowUpStart,
     ) => Promise<void>,
   ) {
     this.dependencies = dependencies;
-    this.resume = resume;
+    this.start = start;
   }
 
   /** Stops owned timers when this instance's event subscription is replaced. */
@@ -52,82 +65,96 @@ export class ConversationRoundFollowUps {
 
   /** Restores pending deadlines; consumed batches never run a second time. */
   public async recover(): Promise<void> {
-    const pending = await this.dependencies.rounds.followUps.pending();
-    for (const question of pending) {
-      const round = await this.restoreRound(question);
-      if (round) await this.flush(round);
-    }
-    for (const ended of await this.dependencies.rounds.unannouncedEnds()) {
-      const round = await this.restoreRound(ended);
-      if (round) await this.end(round);
-    }
+    await this.flushStored(await this.dependencies.rounds.followUps.pending());
   }
 
-  /** Stores a new question and collects explicitly addressed replies to earlier questions. */
+  /** Starts the batches of a conversation that waited at the chain pause; a person wrote. */
+  public async resume(conversationId: string): Promise<void> {
+    await this.flushStored(
+      await this.dependencies.rounds.followUps.pending({ conversationId }),
+    );
+  }
+
+  /**
+   * Opens a batch for every explicit @ mention of other agents and collects
+   * the replies that mention an earlier questioner.
+   *
+   * @param mentioned - The other agent members the answer mentions with @.
+   * @returns The questioners whose batch holds this answer; they get no separate hand-over.
+   */
   public async observe(
     round: ConversationRound,
     answer: ConversationMessage,
     mentioned: readonly string[],
-  ): Promise<void> {
+  ): Promise<ReadonlySet<string>> {
     const repository = this.dependencies.rounds.followUps;
-    if (mentioned.length > 0 && REQUEST.test(answer.text)) {
+    const asked = mentioned.filter((id) => id !== answer.sender.id);
+    if (asked.length > 0)
       await repository.open({
         questionMessageId: answer.id,
         originMessageId: round.originMessageId,
         conversationId: round.conversation.id,
         agentId: answer.sender.id,
-        askedAgentIds: mentioned.filter((id) => id !== answer.sender.id),
+        askedAgentIds: asked,
         deadlineAt: new Date(
           this.now().getTime() +
             CONVERSATION_OBSERVER_LIMITS.followUpTimeoutMilliseconds,
         ).toISOString(),
       });
-    }
-    await repository.record(round.originMessageId, {
+    const bundled = await repository.record(round.originMessageId, {
       id: answer.id,
       senderId: answer.sender.id,
-      mentions: mentioned,
+      mentions: asked,
     });
     await this.flush(round);
+    return bundled;
   }
 
-  /** Stops the round durably and publishes one quiet, idempotent Pages notice. */
-  public async end(round: ConversationRound): Promise<void> {
-    const { rounds, messages, directory } = this.dependencies;
-    await rounds.end(round.originMessageId, this.now().toISOString());
-    const state = await rounds.round(round.originMessageId);
-    const senderId = [...(state?.agentIds ?? [])].sort()[0] ?? round.person.id;
-    const event = {
-      type: "conversation.changed",
-      id: round.conversation.id,
-    } as const;
-    const outcome = await messages.insert(
-      {
-        id: randomUUID(),
-        conversationId: round.conversation.id,
-        senderId,
-        clientMessageId: `round-limit-${round.originMessageId}`,
-        text: "Abstimmung beendet, Grenze erreicht",
-        mentions: [],
-        voice: null,
-        notice: "round_limit",
-        createdAt: this.now().toISOString(),
-      },
-      event,
+  /**
+   * Restores the round of a stored batch or hand-over.
+   *
+   * @returns `null` when the person or the conversation is gone.
+   */
+  public async restore(
+    stored: ConversationStoredRound,
+  ): Promise<ConversationRound | null> {
+    const accounts = await this.dependencies.directory.read();
+    const person = accounts.find(stored.personId)?.user;
+    if (!person) return null;
+    const conversation = await this.dependencies.conversations.findForMember(
+      stored.conversationId,
+      person.id,
     );
-    if (!outcome.isNew) return;
-    this.dependencies.publisher.publish(event);
-    this.dependencies.events.publish({
-      kind: "message",
-      message: toConversationMessage(outcome.message, await directory.read()),
-      recipientIds: round.memberIds,
-    });
+    if (!conversation) return null;
+    const members = await this.dependencies.conversations.memberIds([
+      stored.conversationId,
+    ]);
+    return {
+      originMessageId: stored.originMessageId,
+      conversation,
+      person,
+      memberIds: members.get(stored.conversationId) ?? [],
+    };
+  }
+
+  private async flushStored(
+    pending: readonly ConversationFollowUp[],
+  ): Promise<void> {
+    const flushed = new Set<string>();
+    for (const question of pending) {
+      if (flushed.has(question.originMessageId)) continue;
+      flushed.add(question.originMessageId);
+      const round = await this.restore(question);
+      if (round) await this.flush(round);
+    }
   }
 
   private async flush(round: ConversationRound): Promise<void> {
     if (this.isStopped) return;
     const repository = this.dependencies.rounds.followUps;
-    const pending = await repository.pending(round.originMessageId);
+    const pending = await repository.pending({
+      originMessageId: round.originMessageId,
+    });
     for (const question of pending) {
       const isReady = question.answers.every(
         (answer) => answer.replyMessageId !== null,
@@ -147,6 +174,16 @@ export class ConversationRoundFollowUps {
         continue;
       }
       const accounts = await this.dependencies.directory.read();
+      if (
+        await isAgentChainPaused(
+          this.dependencies.messages,
+          accounts,
+          round.conversation.id,
+        )
+      ) {
+        this.logPaused(round, question);
+        continue;
+      }
       const missing = question.answers
         .filter((answer) => answer.replyMessageId === null)
         .map((answer) => accounts.participant(answer.agentId).name);
@@ -154,13 +191,9 @@ export class ConversationRoundFollowUps {
         missing.length > 0
           ? `Die Frist für deine Rückfrage ist abgelaufen. Fehlende Antworten: ${missing.join(", ")}. Nenne diese fehlenden Antworten ausdrücklich und fasse die vorhandenen Beiträge zusammen.`
           : "Alle gefragten Agents haben auf deine Rückfrage geantwortet. Antworte einmal auf die Beiträge zusammen und führe die Abstimmung zu einem Ergebnis.";
-      await this.resume(round, {
+      await this.start(round, {
         agentId: question.agentId,
         questionMessageId: question.questionMessageId,
-        contextMessageIds: await repository.context(
-          round.originMessageId,
-          question.questionMessageId,
-        ),
         reason,
       });
     }
@@ -187,29 +220,24 @@ export class ConversationRoundFollowUps {
     this.timers.set(question.questionMessageId, timer);
   }
 
-  private async restoreRound(
-    question: Pick<
-      ConversationFollowUp,
-      "originMessageId" | "conversationId" | "personId"
-    >,
-  ): Promise<ConversationRound | null> {
-    const accounts = await this.dependencies.directory.read();
-    const person = accounts.find(question.personId)?.user;
-    if (!person) return null;
-    const conversation = await this.dependencies.conversations.findForMember(
-      question.conversationId,
-      person.id,
-    );
-    if (!conversation) return null;
-    const members = await this.dependencies.conversations.memberIds([
-      question.conversationId,
-    ]);
-    return {
-      originMessageId: question.originMessageId,
-      conversation,
-      person,
-      memberIds: members.get(question.conversationId) ?? [],
-    };
+  /** A ready batch met the chain pause: it stays stored, nothing shows in the chat. */
+  private logPaused(
+    round: ConversationRound,
+    question: ConversationFollowUp,
+  ): void {
+    logEvent({
+      level: "info",
+      event: "conversation.agent_reply.paused",
+      component: COMPONENT,
+      message:
+        "A bundled follow-up waits at the chain pause until a person writes.",
+      metadata: {
+        conversationId: round.conversation.id,
+        agentId: question.agentId,
+        triggerMessageId: question.questionMessageId,
+        reason: "agent_streak",
+      },
+    });
   }
 
   private now(): Date {

@@ -42,12 +42,11 @@ Im Kopf des Gruppenchats öffnet **„Wer antwortet?“** einen Dialog. Alle Mit
 | Wer antwortet?                      | **Alle angesprochenen Agents** (nur @), **Beobachter-Agent** (PAGE-296), **Entscheidungsmodell** | Beobachter-Agent |
 | Standard-Antwortender               | ein Agent des Chats oder „Niemand“                                                               | niemand          |
 | Höchstzahl Antwortende              | 1 bis 3 je Nachricht                                                                             | 2                |
-| Antworten je Agent (PAGE-337)       | 1 bis 4 je Runde, einschließlich Rückfragen                                                      | 4                |
-| Agent-Beiträge insgesamt (PAGE-337) | 1 bis 9 je Runde, einschließlich der ersten Antworten                                            | 8                |
+| Beiträge ohne @ (PAGE-349)          | 1 bis 9 je Runde, nur Beobachter und Entscheidungsmodell                                         | 8                |
 
 - Der Standard der Betriebsart ist der **Beobachter**, weil das dem Verhalten vor PAGE-317 entspricht; bestehende Gruppen ändern ihr Verhalten nicht.
 - Das Modell wird nicht je Chat gewählt. Es gilt das Entscheidungsmodell der Instanz.
-- Die Höchstzahl 3 begrenzt die anfängliche Auswahl. Das getrennte Rundenbudget aus PAGE-337 umfasst auch gebündelte Rückfragen.
+- Die Höchstzahl 3 begrenzt die anfängliche Auswahl. Das getrennte Budget für Beiträge ohne @ (PAGE-349) begrenzt Beobachter und Entscheidungsmodell; @-Übergaben zählen nicht.
 - „Vorschlag beim Anlegen: die Leitung der Gruppe“: Die Rollen aus PAGE-308 sind in `main` noch nicht vorhanden, der Standard-Antwortende bleibt deshalb leer. Sobald die Rollen da sind, kann das Anlegen die Leitung vorbelegen.
 - Gespeichert in `conversation_reply_settings`.
 
@@ -72,17 +71,20 @@ Im Kopf des Gruppenchats öffnet **„Wer antwortet?“** einen Dialog. Alle Mit
 ## Schleifenschutz
 
 - Nur Nachrichten von Menschen lösen eine Entscheidung aus. Antworten von Agents starten **nie** eine neue Entscheidung; in den Betriebsarten „Alle angesprochenen Agents“ und „Entscheidungsmodell“ fragt eine Antwort ohne @ niemanden.
-- Seit PAGE-337 darf ein Agent auf Antworten zu seiner eigenen @-Frage erneut reagieren. Pages erkennt explizite Fragen (Fragezeichen) und Bitten wie „bitte“, „prüfe“ oder „please“. Eine bloße Nennung ohne vorherige Frage reicht nicht.
-- Antworten mehrerer gefragter Agents werden gebündelt: erst wenn alle mit @ an den Fragenden geantwortet haben oder nach drei Minuten, folgt eine gemeinsame Antwort. Pages nennt fehlende Antworten im Anlass für den Agent und fordert ihn auf, sie ausdrücklich zu nennen. Ohne eine einzige adressierte Antwort wird niemand erneut geweckt.
-- Standard: eine erste Antwort und höchstens drei weitere je Agent; acht Agent-Beiträge insgesamt je Runde. Die Gruppenverwaltung darf beide Grenzen reduzieren und das Gesamtbudget auf höchstens neun erhöhen. Auch die anfänglichen Antworten zählen zum Gesamtbudget, damit die Runde vor der Kettenpause von PAGE-311 endet.
-- Bei einer erreichten Grenze endet die Runde dauerhaft mit „Abstimmung beendet, Grenze erreicht“. Der Hinweis zählt nicht als Agent-Beitrag. Eine neue Nachricht einer Person eröffnet eine neue Runde.
-- Der erneut geweckte Agent erhält alle gespeicherten Antworten seit seiner letzten Nachricht derselben Runde. Fragen, Fristen, verbrauchte Bündel und einzelne Antworten sind gespeichert; doppelte Ereignisse oder ein Neustart starten sie nicht doppelt. Die eigenen Rechte jedes Agents bleiben maßgeblich.
+- Seit PAGE-349 dürfen Agents einander mit @ beliebig oft ansprechen. Jede ausdrückliche @-Erwähnung eines anderen Agents weckt ihn, auch wenn er in der Runde schon geantwortet hat, egal wie der Satz lautet. Eine Erwähnung des eigenen Kontos startet nichts.
+- Doppelschutz je Auslöser: Ein Agent startet je auslösender Nachricht höchstens einmal (eindeutiger Schlüssel `trigger_message_id` + `agent_id`). Wiederholte Ereignisse, parallele Jobs und Neustarts starten nichts doppelt.
+- @-Übergaben haben keine Grenze je Runde und keine je Agent. Beiträge ohne @ (Beobachter, Entscheidungsmodell) sind auf 8 je Runde begrenzt, einstellbar bis 9; @-Übergaben verbrauchen diese Plätze nicht.
+- Kettenpause: Nach 20 Agent-Nachrichten in Folge ohne Nachricht einer Person (`CONVERSATION_DECISION_LIMITS.agentStreak`) startet keine Übergabe mehr. Sie wird in `conversation_handoff_requests` gespeichert und als `conversation.agent_reply.paused` geloggt (Agent, Auslöser, Grund). Im Chat erscheint nichts.
+- Schreibt danach eine Person, startet Pages die gespeicherten Übergaben automatisch, jede genau einmal, mit allen Nachrichten seit der letzten Nachricht des Agents. Übergaben, die vor einem Neustart gespeichert oder reserviert, aber nie begonnen wurden, werden beim Start ebenso angehalten und so fortgesetzt.
+- Bündeln (PAGE-337): Spricht ein Agent andere mit @ an, sammelt Pages deren Antworten mit @ an ihn, bis alle geantwortet haben oder drei Minuten vergangen sind. Dann antwortet er einmal auf alle; fehlende Antworten werden genannt. Gebündelte Antworten starten ihn nicht zusätzlich. Eine verspätete Antwort nach dem Bündel weckt ihn als eigene Übergabe.
+- Einen Hinweis „Abstimmung beendet, Grenze erreicht“ gibt es nicht mehr. Ein schon gespeicherter Hinweis dieser Art (`round_limit`) wird im Chat nicht angezeigt.
+- Datenbankprüfung: `pnpm run postgres:conversation-check` prüft Migration 057 auf Stand 056 und den atomaren Doppelschutz gegen eine eigene, temporäre PostgreSQL-Instanz.
 
 ## Chat-Einstellung über die Schnittstelle
 
 Die Schnittstelle des Pages-MCP-Programms (Geräte-Token einer gekoppelten Maschine) bietet:
 
-- `GET /api/mcp/v1/conversations/{conversationId}/reply-settings` liest die Einstellung einer Gruppe, der das Konto angehört: `mode` (`mentions`, `observer`, `decision`), `defaultResponderId`, `maximumResponders`, `repliesPerAgentPerOrigin` (1–4), `automaticRepliesPerOrigin` (1–9), `canManage` und die Agents der Gruppe.
+- `GET /api/mcp/v1/conversations/{conversationId}/reply-settings` liest die Einstellung einer Gruppe, der das Konto angehört: `mode` (`mentions`, `observer`, `decision`), `defaultResponderId`, `maximumResponders`, `automaticRepliesPerOrigin` (1–9, Beiträge ohne @), `canManage` und die Agents der Gruppe.
 - `PUT` auf derselben Adresse setzt sie. Ein Feld, das der Körper weglässt, behält seinen Wert; `defaultResponderId: null` entfernt den Standard-Antwortenden.
 - Die Rechte sind die der Oberfläche, weil beide denselben Dienst aufrufen: Ändern darf nur, wer die Gruppe verwaltet; wer nicht Mitglied ist, erhält `not_found`. Fehlerantworten tragen nur den Code (`forbidden`, `not_found`, `invalid`).
 - Das Entscheidungsmodell der Instanz wird bewusst nicht über diese Adresse gesetzt.

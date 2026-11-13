@@ -12,10 +12,11 @@
  * The fixed limits of quiet and cost.
  *
  * @remarks
- * - `automaticRepliesPerOrigin`: total agent contributions per group round,
- *   including initial answers and automatic hand-overs.
- * - `repliesPerAgentPerOrigin`: every agent answers a message of a person
- *   once, plus at most three bundled answers to its own questions.
+ * - `automaticRepliesPerOrigin`: contributions per group round that nobody
+ *   asked for with @, chosen by the observer or the decision model
+ *   (PAGE-349). Explicit @ hand-overs are not counted and not limited per
+ *   round or per agent; only the chain pause of
+ *   `CONVERSATION_DECISION_LIMITS.agentStreak` stops them.
  * - `routingCallsPerMessage`: observer calls per new message at most.
  * - `routingContextMessages`/`routingContextCharacters`: the history the
  *   observer reads to choose.
@@ -23,7 +24,6 @@
  */
 export const CONVERSATION_OBSERVER_LIMITS = {
   automaticRepliesPerOrigin: 8,
-  repliesPerAgentPerOrigin: 4,
   followUpTimeoutMilliseconds: 3 * 60_000,
   routingCallsPerMessage: 1,
   routingContextMessages: 20,
@@ -32,16 +32,15 @@ export const CONVERSATION_OBSERVER_LIMITS = {
   observerTimeoutMinutes: 5,
 } as const;
 
-/** Configurable round limits stay below the final chain guard of ten messages. */
+/** The range a group may set for contributions without @ per round (PAGE-349). */
 export const CONVERSATION_ROUND_LIMITS_RANGE = {
   minimum: 1,
-  repliesPerAgentMaximum: 4,
   automaticRepliesMaximum: 9,
 } as const;
 
 /** The effective limits of one group's round. */
 export interface ConversationRoundLimits {
-  readonly repliesPerAgentPerOrigin: number;
+  /** Contributions without @ (observer, decision model) per round. */
   readonly automaticRepliesPerOrigin: number;
 }
 
@@ -50,11 +49,6 @@ export function conversationRoundLimits(
   settings: Partial<ConversationRoundLimits>,
 ): ConversationRoundLimits {
   return {
-    repliesPerAgentPerOrigin: clampLimit(
-      settings.repliesPerAgentPerOrigin,
-      CONVERSATION_OBSERVER_LIMITS.repliesPerAgentPerOrigin,
-      CONVERSATION_ROUND_LIMITS_RANGE.repliesPerAgentMaximum,
-    ),
     automaticRepliesPerOrigin: clampLimit(
       settings.automaticRepliesPerOrigin,
       CONVERSATION_OBSERVER_LIMITS.automaticRepliesPerOrigin,

@@ -42,12 +42,6 @@ const SETTINGS_INPUT = z
     conversationId: z.string(),
     mode: z.enum(CONVERSATION_REPLY_MODES),
     defaultResponderId: z.string().min(1).max(100).nullable(),
-    repliesPerAgentPerOrigin: z
-      .number()
-      .int()
-      .min(1)
-      .max(CONVERSATION_ROUND_LIMITS_RANGE.repliesPerAgentMaximum)
-      .optional(),
     automaticRepliesPerOrigin: z
       .number()
       .int()
@@ -125,9 +119,6 @@ export class ConversationReplySettingsService {
       defaultResponderId: parsed.data.defaultResponderId,
       maximumResponders: parsed.data.maximumResponders,
       ...conversationRoundLimits({
-        repliesPerAgentPerOrigin:
-          parsed.data.repliesPerAgentPerOrigin ??
-          current.repliesPerAgentPerOrigin,
         automaticRepliesPerOrigin:
           parsed.data.automaticRepliesPerOrigin ??
           current.automaticRepliesPerOrigin,

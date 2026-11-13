@@ -107,6 +107,7 @@ export type ConversationNotice =
   | "agent_unavailable"
   | "agent_failed"
   | "agent_stopped"
+  /** Stored by PAGE-337 only; the chat never shows it (PAGE-349). */
   | "round_limit";
 
 /** Where the text of a voice message stands. */

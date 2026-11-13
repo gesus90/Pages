@@ -19,7 +19,6 @@ const input = {
   mode: "mentions",
   defaultResponderId: null,
   maximumResponders: 2,
-  repliesPerAgentPerOrigin: 4,
   automaticRepliesPerOrigin: 8,
 } as const;
 
@@ -34,7 +33,6 @@ function fixture(): {
   });
   vi.spyOn(settings, "find").mockResolvedValue({
     ...input,
-    repliesPerAgentPerOrigin: 2,
     automaticRepliesPerOrigin: 6,
   });
   vi.spyOn(settings, "save").mockResolvedValue(undefined);
@@ -62,7 +60,6 @@ it("saves valid group limits and preserves them for clients that omit the new fi
   expect(
     await service.save(person, { ...input, automaticRepliesPerOrigin: 9 }),
   ).toMatchObject({
-    repliesPerAgentPerOrigin: 4,
     automaticRepliesPerOrigin: 9,
   });
   const legacy = {
@@ -72,15 +69,13 @@ it("saves valid group limits and preserves them for clients that omit the new fi
     maximumResponders: 2,
   };
   expect(await service.save(person, legacy)).toMatchObject({
-    repliesPerAgentPerOrigin: 2,
     automaticRepliesPerOrigin: 6,
   });
   expect(settings.save).toHaveBeenCalledTimes(2);
 });
 
 it.each([
-  { repliesPerAgentPerOrigin: 5 },
-  { repliesPerAgentPerOrigin: 0 },
+  { automaticRepliesPerOrigin: 0 },
   { automaticRepliesPerOrigin: 10 },
   { automaticRepliesPerOrigin: 1.5 },
 ])("rejects unsafe or invalid round limits: %s", async (limits) => {
@@ -91,7 +86,16 @@ it.each([
   expect(settings.save).not.toHaveBeenCalled();
 });
 
-it("keeps the existing group management authorization for both limits", async () => {
+it("drops the former limit per agent from saved settings (PAGE-349)", async () => {
+  const { service } = fixture();
+  const saved = await service.save(person, input);
+  expect(saved).not.toHaveProperty("repliesPerAgentPerOrigin");
+  await expect(
+    service.save(person, { ...input, repliesPerAgentPerOrigin: 4 } as never),
+  ).rejects.toMatchObject({ code: "invalid" });
+});
+
+it("keeps the existing group management authorization for the limit", async () => {
   const { service, settings, createdBy } = fixture();
   createdBy.mockResolvedValue("another-person");
   await expect(service.save(person, input)).rejects.toMatchObject({

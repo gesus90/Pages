@@ -250,13 +250,6 @@ async function runReplySettingsIntent(
       mode: formData.get("mode"),
       defaultResponderId: defaultResponderId === "" ? null : defaultResponderId,
       maximumResponders: Number(formData.get("maximumResponders")),
-      ...(formData.has("repliesPerAgentPerOrigin")
-        ? {
-            repliesPerAgentPerOrigin: Number(
-              formData.get("repliesPerAgentPerOrigin"),
-            ),
-          }
-        : {}),
       ...(formData.has("automaticRepliesPerOrigin")
         ? {
             automaticRepliesPerOrigin: Number(
