@@ -300,6 +300,7 @@ async function initializeServices(
     projects: projectService,
     tasks: taskServices,
     serverCache,
+    hasher: passwordHasher,
     tokenKey,
   });
   return {

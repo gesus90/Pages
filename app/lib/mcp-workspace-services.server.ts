@@ -2,7 +2,6 @@ import path from "node:path";
 
 import { ManagementService } from "@/backend/service/management/ManagementService";
 import { SendmailInvitationDelivery } from "@/backend/service/management/SendmailInvitationDelivery";
-import { PasswordHasher } from "@/backend/auth/PasswordHasher";
 import { StorageOperationRepository } from "@/backend/database/repositories/google/StorageOperationRepository";
 import { isLocalSessionOwner } from "@/backend/agents/local/LocalSessionMode";
 import { AgentPlanStepReportRepository } from "@/backend/database/repositories/agent/AgentPlanStepReportRepository";
@@ -23,6 +22,7 @@ import { createMcpServices } from "./mcp-services.server";
 import { picaBrowserOptions } from "./pica-browser.server";
 import { startWikiMaintenanceScheduler } from "./services-background.server";
 
+import type { PasswordHasher } from "@/backend/auth/PasswordHasher";
 import type { SessionService } from "@/backend/auth/SessionService";
 import type { ServerCache } from "@/backend/cache/ServerCache";
 import type { Database } from "@/backend/database/Database";
@@ -69,6 +69,8 @@ interface McpWorkspaceContext {
     | "taskTemplateService"
   >;
   readonly serverCache: ServerCache;
+  /** The one password hasher of the application, shared with the account services. */
+  readonly hasher: PasswordHasher;
   readonly tokenKey: Buffer;
 }
 
@@ -186,7 +188,7 @@ export async function startMcpWorkspace(context: McpWorkspaceContext): Promise<
   const managementService = new ManagementService({
     database: context.database,
     cache: context.serverCache,
-    hasher: new PasswordHasher(),
+    hasher: context.hasher,
     agents: employees.agentEmployeeAdministration,
     invitations: new SendmailInvitationDelivery(),
   });
