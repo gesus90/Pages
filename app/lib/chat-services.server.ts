@@ -25,6 +25,7 @@ import { AgentSessionSettingsRepository } from "@/backend/database/repositories/
 import { ChatError } from "@/backend/error/ChatErrors";
 import { readPicaInstructions } from "@/backend/service/chat/PicaInstructionFiles";
 import { PicaIdentityService } from "@/backend/service/chat/PicaIdentityService";
+import { PicaTicketLifecycleService } from "@/backend/service/chat/PicaTicketLifecycleService";
 import { WikiFileStore } from "@/backend/storage/WikiFileStore";
 
 import { isSafeSvg } from "./settings-actions/svg-safety.server";
@@ -35,6 +36,7 @@ import type { PicaAdminServiceOptions } from "@/backend/service/chat/admin/PicaA
 import type { PicaStorageFiles } from "@/backend/service/chat/admin/PicaStorageHandlers";
 import type { AdministrationService } from "@/backend/service/AdministrationService";
 import type { UserService } from "@/backend/service/UserService";
+import type { McpTicketDependencies } from "@/backend/service/mcp/ticket/McpTicketContext";
 import type { AgentOperationRouter } from "@/backend/service/agents/AgentOperationRouter";
 import type { ChatRequestRegistry } from "@/backend/service/chat/ChatRequestRegistry";
 import type { AgentProfileService } from "@/backend/service/agents/AgentProfileService";
@@ -172,6 +174,8 @@ export interface ChatServicesInput {
   readonly picaBrowser?: PicaAdminServiceOptions;
   /** The Storage interface of the instance Drive; Pica's Storage tools use it (PAGE-271). */
   readonly repositoryReads?: RepositoryReadService;
+  /** Shared UI ticket services for Pica's archive and restore tools. */
+  readonly tickets?: McpTicketDependencies;
   readonly storage?: PicaStorageFiles & {
     readonly forAccount?: (userId: string) => PicaStorageFiles;
   };
@@ -250,6 +254,9 @@ export function createChatServices(
   if (input.protectedOrigin) adminTools.protectOrigin(input.protectedOrigin);
   const tools = new ChatToolExecutor({
     repositoryReads: input.repositoryReads,
+    ...(input.tickets
+      ? { ticketLifecycle: new PicaTicketLifecycleService(input.tickets) }
+      : {}),
     router: input.router,
     identities: new PicaIdentityService(
       input.accounts.users,

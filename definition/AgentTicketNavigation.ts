@@ -41,6 +41,8 @@ export interface AgentTicketSearchInput {
   readonly text?: string;
   readonly type?: AgentTicketType;
   readonly statusId?: string;
+  /** Defaults to false; true searches only archived tickets within the archive rights of the account. */
+  readonly archived?: boolean;
   /** Only the direct children of this ticket. */
   readonly parent?: AgentTicketReference;
   readonly milestoneId?: string;

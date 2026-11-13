@@ -72,7 +72,9 @@ export type ChatOperation = Exclude<
   | AgentPlanCommandOperation
   | ChatAgentWriteOperation
   | AutomationReadOperation
-  | AutomationWriteOperation,
+  | AutomationWriteOperation
+  | "ticket.archive"
+  | "ticket.restore",
   ExcludedOperation
 >;
 
@@ -252,7 +254,7 @@ const CHAT_OPERATIONS: Readonly<Record<ChatOperation, string>> = {
     "{ticketId, expectedRevision, items: [{itemId, checked: true|false}]} mehrere Checklisteneinträge gemeinsam und atomar setzen (die gelesene Liste dient als Vorlage); nur die genannten Einträge ändern sich, Ergebnis ist die vollständige Checkliste mit neuer Revision",
   "ticket.create":
     "{projectId?, type: initiative|epic|task|subtask, title, description, statusId|null, parentId|null, milestoneId?|null, departmentId?|null, assignee?: {targetType: person|group|none, targetId|null}} Ticket anlegen; Projekt, Meilenstein und Abteilung kommen vom Elternticket, Bearbeitung ist ohne Angabe die anlegende Person",
-  "tickets.search": `{projectId, text?, type?: initiative|epic|task|subtask, statusId?, parentId?, milestoneId?, departmentId?, assigneeId?, assigneeGroupId?, tagIds?: [], ${WINDOW}} Tickets eines Projekts nach Schlüssel, Titel und Beschreibung suchen und filtern`,
+  "tickets.search": `{projectId, text?, type?: initiative|epic|task|subtask, statusId?, parentId?, milestoneId?, departmentId?, assigneeId?, assigneeGroupId?, tagIds?: [], archived?: boolean (Standard false; true nur archivierte), ${WINDOW}} Tickets eines Projekts nach Schlüssel, Titel und Beschreibung suchen und filtern`,
   "tickets.tree.read": `{projectId?, ticketId?, ${WINDOW}} Hierarchie eines Projekts oder Pfad und Unterbaum eines Tickets, nur sichtbare Tickets`,
   "tickets.links.read": `{ticketId, ${WINDOW}} Verknüpfungen blocks, relates_to und duplicates eines Tickets mit Richtung`,
   "assignment.targets.search": `{text?, targetType?: person|group|department, projectId?, ${WINDOW}} sichtbare Zuweisungsziele suchen; mehrdeutige Namen werden nie automatisch aufgelöst`,
@@ -272,6 +274,10 @@ const CHAT_OPERATIONS: Readonly<Record<ChatOperation, string>> = {
   "ticket.assignMilestone":
     "{ticketId, milestoneId|null, expectedMilestoneId|null} Meilenstein zuordnen",
   "ticket.delete": `{ticketId} Ticket samt Unterelementen in den Papierkorb (Anzahl vorher aus descendantCount), ${CONFIRMED}`,
+  "ticket.archive":
+    "{ticketId, children?: include|keep, confirmed?: boolean} erst ohne confirmed die betroffenen Schlüssel und Titel lesen, der Person zeigen und bestätigen lassen; dann mit confirmed: true archivieren. Standard include; keep ist für Aufgaben abgelehnt. Archivrecht des Projekts nötig",
+  "ticket.restore":
+    "{ticketId} archiviertes Ticket samt Unterelementen mit Archivrecht wiederherstellen; Workflowstatus bleibt",
   "tags.list": `{${WINDOW}} Tag-Katalog; nur diese Tags lassen sich zuweisen`,
   "ticket.setTags":
     "{ticketId, tagIds: [], expectedTagIds: []} Tags eines Tickets setzen, nur Tags des Katalogs",
@@ -334,6 +340,8 @@ export function isChatWriteOperation(operation: ChatOperation): boolean {
     AGENT_PLAN_COMMAND_OPERATIONS.some((write) => write === operation) ||
     CHAT_AGENT_WRITE_OPERATIONS.some((write) => write === operation) ||
     COMMENT_WRITES.has(operation) ||
+    operation === "ticket.archive" ||
+    operation === "ticket.restore" ||
     PAGES_AGENT_WRITE_OPERATIONS.some((write) => write === operation)
   );
 }

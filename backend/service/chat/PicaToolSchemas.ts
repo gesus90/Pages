@@ -73,6 +73,7 @@ export const PICA_READ_SCHEMAS = {
       assignedToMe: z.boolean().optional(),
       statusId: identifier.optional(),
       type: ticketType.optional(),
+      archived: z.boolean().optional(),
       limit: z.number().int().min(1).max(20).optional(),
       cursor: cursor.optional(),
     })
@@ -173,6 +174,14 @@ const TICKET_WRITE_SCHEMAS = {
     })
     .strict(),
   tickets_delete: z.object({ ticketId: identifier }).strict(),
+  tickets_archive: z
+    .object({
+      ticketId: identifier,
+      children: z.enum(["include", "keep"]).optional(),
+      confirmed: z.boolean().optional(),
+    })
+    .strict(),
+  tickets_restore: z.object({ ticketId: identifier }).strict(),
 } as const;
 
 const PROJECT_WRITE_SCHEMAS = {

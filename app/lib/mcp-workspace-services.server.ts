@@ -25,6 +25,7 @@ import type { Database } from "@/backend/database/Database";
 import type { AdministrationService } from "@/backend/service/AdministrationService";
 import type { InstanceSettingsService } from "@/backend/service/InstanceSettingsService";
 import type { UserService } from "@/backend/service/UserService";
+import type { ProjectService } from "@/backend/service/ProjectService";
 import type { WikiService } from "@/backend/service/WikiService";
 import type { AgentPlanServices } from "./agent-plan-services.server";
 import type { AgentApplicationServices } from "./agent-services.server";
@@ -49,6 +50,7 @@ interface McpWorkspaceContext {
   readonly wiki: WikiService;
   /** The instance settings the chat administration changes with the regular rules. */
   readonly instanceSettings: InstanceSettingsService;
+  readonly projects: Pick<ProjectService, "findAll" | "getById">;
   /** The ticket services, whose GitHub synchronization and event publisher the workspace shares. */
   readonly tasks: Pick<
     ApplicationServices,
@@ -59,6 +61,7 @@ interface McpWorkspaceContext {
     | "pagesEventPublisher"
     | "taskService"
     | "taskAttachmentService"
+    | "taskTemplateService"
   >;
   readonly serverCache: ServerCache;
   readonly tokenKey: Buffer;
@@ -126,6 +129,13 @@ export async function startMcpWorkspace(
     accounts: context.accounts,
     agents: context.agents,
     router: services.chatOperationRouter,
+    tickets: {
+      tasks: context.tasks.taskService,
+      templates: context.tasks.taskTemplateService,
+      attachments: context.tasks.taskAttachmentService,
+      projects: context.projects,
+      users: context.accounts.users,
+    },
     acp: picaSettings,
     protectedOrigin: runtime.getConfig().publicUrl,
     storage: context.tasks.googleDriveFileService,

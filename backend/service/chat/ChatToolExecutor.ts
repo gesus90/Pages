@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { AgentAuthorizationError } from "@/backend/error/AgentAuthorizationError";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { ChatError } from "@/backend/error/ChatErrors";
+import { toMcpTicketError } from "@/backend/service/mcp/ticket/McpTicketError";
 import {
   logCaughtError,
   logDiagnostic,
@@ -33,6 +34,7 @@ import type { ChatOperation } from "./ChatToolCatalog";
 import type { RuntimeExecutionContext } from "@/backend/agents/runtime/RuntimeExecutionContext";
 import type { PicaIdentity, PicaIdentityService } from "./PicaIdentityService";
 import type { PicaPlanTurn } from "./PicaPlanConfirmation";
+import type { PicaTicketLifecycleService } from "./PicaTicketLifecycleService";
 
 /** Keys only Pages sets; the agent can neither replay an operation nor confirm a deletion. */
 const SERVER_KEYS: ReadonlySet<string> = new Set([
@@ -55,6 +57,8 @@ interface AdminCall {
 /** What the actions of the chat agent run through. */
 export interface ChatToolDependencies {
   readonly repositoryReads?: RepositoryReadService;
+  /** Shared ticket API lifecycle for Pica's archive and restore operations. */
+  readonly ticketLifecycle?: Pick<PicaTicketLifecycleService, "handle">;
   /** The operation catalog of the agent API, wired for the chat channel. */
   readonly router: Pick<AgentOperationRouter, "handle">;
   readonly identities: Pick<PicaIdentityService, "verify">;
@@ -241,10 +245,16 @@ export class ChatToolExecutor {
   ): Promise<ChatActionOutcome> {
     const identity = await this.verify(userId);
     try {
-      const response = await this.dependencies.router.handle(identity, {
-        operation,
-        parameters,
-      });
+      const response: Pick<ChatActionOutcome, "result" | "temporaryPassword"> =
+        (await this.dependencies.ticketLifecycle?.handle(
+          identity.userId,
+          operation,
+          parameters,
+        )) ??
+        (await this.dependencies.router.handle(identity, {
+          operation,
+          parameters,
+        }));
       logEvent({
         level: "info",
         event: "chat.tool.completed",
@@ -255,7 +265,7 @@ export class ChatToolExecutor {
       return {
         ok: true,
         result: response.result,
-        ...("temporaryPassword" in response && response.temporaryPassword
+        ...(response.temporaryPassword
           ? { temporaryPassword: response.temporaryPassword }
           : {}),
       };
@@ -286,6 +296,11 @@ function failure(operation: string, error: unknown): ChatActionOutcome {
       : { ok: false, error: error.code, details: error.details };
   if (error instanceof AgentAuthorizationError)
     return { ok: false, error: "FORBIDDEN" };
+  if (operation === "ticket.archive" || operation === "ticket.restore") {
+    const ticketError = toMcpTicketError(error);
+    if (ticketError)
+      return { ok: false, error: ticketError.code.toUpperCase() };
+  }
   // Only the operation and the kind of error are logged, never parameters or content.
   logDiagnostic(
     "ChatToolExecutor",
