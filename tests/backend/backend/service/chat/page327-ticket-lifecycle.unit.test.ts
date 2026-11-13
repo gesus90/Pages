@@ -1,4 +1,5 @@
 import { beforeEach, expect, it, vi } from "vitest";
+import { z } from "zod";
 
 import { TaskRepository } from "@/backend/database/repositories/TaskRepository";
 import { McpTicketLifecycleService } from "@/backend/service/mcp/ticket/McpTicketLifecycleService";
@@ -226,6 +227,97 @@ it("finds only archived tickets with archived true and excludes them by default 
     tickets: [],
   });
 });
+
+it("pages only visible archived tickets and binds the cursor to the archive filter", async () => {
+  await world.call("tickets_archive", { ticketId: "task", confirmed: true });
+  world.storage.addTicket("hidden", {
+    number: 5,
+    departmentIds: ["design"],
+    archivedAt: "2026-01-01 00:00:00",
+  });
+  const first = await world.call("tickets_search", {
+    projectId: "alpha",
+    archived: true,
+    limit: 1,
+  });
+  expect(first.ok).toBe(true);
+  const page = z
+    .object({
+      total: z.number(),
+      tickets: z.array(z.object({ id: z.string() })),
+      nextCursor: z.string(),
+    })
+    .parse(JSON.parse(first.result ?? "null"));
+  expect(page).toEqual({
+    total: 2,
+    tickets: [{ id: "task" }],
+    nextCursor: expect.any(String),
+  });
+  const next = await world.call("tickets_search", {
+    projectId: "alpha",
+    archived: true,
+    limit: 1,
+    cursor: page.nextCursor,
+  });
+  expect(next.ok).toBe(true);
+  expect(JSON.parse(next.result ?? "null")).toMatchObject({
+    total: 2,
+    tickets: [{ id: "sub" }],
+    nextCursor: null,
+  });
+  expect(
+    await world.call("tickets_search", {
+      projectId: "alpha",
+      cursor: page.nextCursor,
+    }),
+  ).toEqual({ ok: false, error: "INVALID_REQUEST", result: null });
+});
+
+it("combines the archive filter with the ticket type and reflects restoration in search", async () => {
+  await world.call("tickets_archive", { ticketId: "task", confirmed: true });
+  const parameters = { projectId: "alpha", archived: true, type: "task" };
+  const archived = await world.call("tickets_search", parameters);
+  expect(archived.ok).toBe(true);
+  expect(JSON.parse(archived.result ?? "null")).toMatchObject({
+    total: 1,
+    tickets: [{ id: "task", type: "task" }],
+  });
+  expect((await world.call("tickets_restore", { ticketId: "task" })).ok).toBe(
+    true,
+  );
+  const restored = await world.call("tickets_search", parameters);
+  expect(restored.ok).toBe(true);
+  expect(JSON.parse(restored.result ?? "null")).toMatchObject({
+    total: 0,
+    tickets: [],
+  });
+});
+
+it.each([
+  ["tickets_archive", { ticketId: "task", confirmed: "true" }],
+  ["tickets_archive", { ticketId: "task", children: "omit" }],
+  ["tickets_archive", { ticketId: "task", userId: "manager" }],
+  ["tickets_restore", { ticketId: "task", confirmed: true }],
+  ["tickets_search", { projectId: "alpha", archived: "true" }],
+  ["tickets_search", { projectId: "alpha", archived: null }],
+] as const)(
+  "rejects malformed native input for %s: %j",
+  async (tool, input) => {
+    const execute = vi.spyOn(world.executor, "run");
+    const before = structuredClone(world.storage.state);
+    expect(
+      await world.registry.invoke(tool, input, {
+        userId: "writer",
+        sessionId: "session",
+        runId: "run",
+        signal: new AbortController().signal,
+        authorize: async () => undefined,
+      }),
+    ).toEqual({ isValid: false, output: null });
+    expect(execute).not.toHaveBeenCalled();
+    expect(world.storage.state).toEqual(before);
+  },
+);
 
 it("keeps an internal failure distinct from a business rejection", async () => {
   vi.spyOn(TaskRepository.prototype, "archiveMany").mockRejectedValue(
