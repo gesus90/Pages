@@ -1,4 +1,5 @@
 import type { AgentPlanWorkGate } from "./AgentPlanWorkGate";
+import type { AgentPlanStartResources } from "./AgentPlanStartResources";
 import type { LocalSessions } from "@/backend/agents/local/LocalSessions";
 import type { AgentPlanRemoteExecution } from "./AgentPlanRemoteExecution";
 import type { AgentPlanScriptRunner } from "./AgentPlanScriptRunner";
@@ -13,6 +14,7 @@ import type { AgentPlanRunRepository } from "@/backend/database/repositories/age
 
 /** Runtime boundaries shared with the run command aggregate. */
 export interface EngineDependencies {
+  readonly startResources?: Pick<AgentPlanStartResources, "release" | "releaseResources" | "reconcile">;
   /** Startup restores state and consumes pending controls before releasing dispatch. */
   readonly deferScheduling?: boolean;
   readonly localSessions?: LocalSessions;

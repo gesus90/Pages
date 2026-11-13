@@ -27,6 +27,8 @@ import { AgentPlanRepository } from "@/backend/database/repositories/agent/Agent
 import { AgentPlanTemplateRepository } from "@/backend/database/repositories/agent/AgentPlanTemplateRepository";
 import { AgentProfileRepository } from "@/backend/database/repositories/agent/AgentProfileRepository";
 import { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
+import { AgentPlanStartResourceRepository } from "@/backend/database/repositories/agent/AgentPlanStartResourceRepository";
+import { AgentPlanStartResources } from "@/backend/service/agents/AgentPlanStartResources";
 import { AgentPlanCheckpointRepository } from "@/backend/database/repositories/agent/AgentPlanCheckpointRepository";
 import { AgentPlanRecoveryRepository } from "@/backend/database/repositories/agent/AgentPlanRecoveryRepository";
 import { AgentPlanRecoveryExecutionRepository } from "@/backend/database/repositories/agent/AgentPlanRecoveryExecutionRepository";
@@ -272,6 +274,9 @@ export async function createAgentPlanService(input: {
     ...planRecords(input),
     ...diagnosis.dependencies,
     resumeAdvisor,
+    startResources: new AgentPlanStartResources({
+      repository: new AgentPlanStartResourceRepository(input.database),
+    }),
     workspaceCatalog,
     remoteExecution,
     remoteTargets,
@@ -637,6 +642,12 @@ async function createPlanEngine(
       runsSocketPath(runtime.getDatabasePath()),
     );
   return new AgentPlanRunEngine({
+    startResources: new AgentPlanStartResources({
+      repository: new AgentPlanStartResourceRepository(input.database),
+      remote: parts.remoteExecution,
+      localSessions: input.agents.localSessions ?? undefined,
+      resources: input.agents.acpResourceScheduler,
+    }),
     deferScheduling: true,
     localSessions: input.agents.localSessions ?? undefined,
     workGate: new AgentPlanWorkGate(input.database, input.users),

@@ -1,4 +1,5 @@
 import { readFile, stat } from "node:fs/promises";
+import { setTimeout as wait } from "node:timers/promises";
 
 import { readOwnedNamespace } from "@/definition/AcpNamespace";
 import { settleManagedLocalOwner } from "@/backend/agents/local/LocalOwnerControl";
@@ -102,4 +103,29 @@ export async function settleOwnedNamespace(
     if (await hasRunningWorkerUnit(instanceId)) return false;
   }
   return hasEndedOwnedNamespace(owner, root);
+}
+
+/**
+ * Ends a recorded namespace supervisor by force after checking its boot, uid and start identity.
+ *
+ * @remarks
+ * Killing the owned PID namespace's supervisor ends its descendants too. A
+ * reused PID or a supervisor from another boot is already closed and is never
+ * signalled. Explicit fresh starts use this after fencing the old scheduler.
+ */
+export async function forceOwnedNamespace(owner: AcpNamespaceOwner, instanceId: string, root = "/proc"): Promise<boolean> {
+  if (await settleOwnedNamespace(owner, instanceId, root)) return true;
+  if (owner.unit) return false;
+  if (owner.pid === process.pid) return false;
+  if (await hasEndedOwnedNamespace(owner, root)) return true;
+  try {
+    process.kill(owner.pid, "SIGKILL");
+  } catch (error: unknown) {
+    if (!vanished(error)) throw error;
+  }
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    if (await hasEndedOwnedNamespace(owner, root)) return true;
+    await wait(25);
+  }
+  return false;
 }

@@ -1,4 +1,5 @@
 import type { PlanRunCommandReceipt } from "./PagesRuns";
+import type { AgentPlanResourceRelease } from "./AgentPlanResourceRelease";
 import type {
   AgentPlanWriterWait,
   AgentPlanExecutionTarget,
@@ -542,6 +543,10 @@ export interface AgentPlanStepResult {
 
 /** Only the executor may read this sanitized view or request its stop. */
 export interface AgentPlanRun {
+  /** Durable forced-release journal; retained even when a later Play purges other old runs. */
+  readonly resourceReleases?: readonly AgentPlanResourceRelease[];
+  /** Old owner ids whose cleanup a fresh start could not confirm; informational only. */
+  readonly startCleanupUnconfirmed?: readonly string[];
   /** Durable command acknowledgement; execution state may still be unchanged. */
   readonly command?: PlanRunCommandReceipt;
   readonly id: string;

@@ -105,15 +105,9 @@ export function restartScriptReview(run: AgentPlanRun): readonly string[] {
     .map((step) => step.id);
 }
 
-/** A restart needs an ended run and no other active run of the plan. */
+/** An explicit restart may retire another active owner when it reserves the new run's resources. */
 export function restartOption(facts: RecoveryFacts): AgentPlanRecoveryOption {
   if (!facts.plan.canEdit) return blocked("plan_read_only");
-  if (
-    facts.latest &&
-    facts.latest.id !== facts.run.id &&
-    isActivePlanRun(facts.latest.status)
-  )
-    return blocked("plan_run_active");
   return AVAILABLE;
 }
 
@@ -132,6 +126,8 @@ export function resumeOption(
 ): AgentPlanRecoveryOption {
   const restart = restartOption(facts);
   if (!restart.available) return restart;
+  if (facts.latest && facts.latest.id !== facts.run.id && isActivePlanRun(facts.latest.status))
+    return blocked("plan_run_active");
   const { run } = facts;
   if (isActivePlanRun(run.status) || facts.isEngineActive !== false)
     return blocked("run_active");

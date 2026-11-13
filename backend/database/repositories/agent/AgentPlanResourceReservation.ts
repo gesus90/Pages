@@ -31,6 +31,16 @@ export async function reservePlanResources(
   runId: string,
   resourceKeys: readonly string[],
 ): Promise<boolean> {
+  const [current] = await transaction.query(
+    "SELECT view_json FROM agent_plan_runs WHERE id = $id FOR UPDATE;",
+    { id: runId },
+  );
+  if (
+    current &&
+    readPlanRun(JSON.parse(readTextColumn(current, 0, "view_json")))
+      .resourceReleases?.length
+  )
+    return false;
   const keys = await expandedPlanWriteResources(resourceKeys);
   const locks = await transaction.query(
     `

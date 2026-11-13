@@ -1,4 +1,5 @@
 import { planRunCommandReceiptSchema } from "@/definition/PagesRuns";
+import { planResourceReleaseSchema } from "@/definition/AgentPlanResourceRelease";
 import { planWriterWaitSchema } from "@/definition/AgentPlanExecution";
 import { isPlanWriterWaitActive } from "@/definition/AgentPlanRunState";
 import { AgentError } from "@/backend/error/AgentErrors";
@@ -46,6 +47,12 @@ export function readPlanRun(input: unknown): AgentPlanRun {
     planRevision,
     status,
     stopRequested,
+    ...(run.resourceReleases === undefined ? {} : {
+      resourceReleases: planResourceReleaseSchema.array().parse(run.resourceReleases),
+    }),
+    ...(run.startCleanupUnconfirmed === undefined ? {} : {
+      startCleanupUnconfirmed: readCleanupWarnings(run.startCleanupUnconfirmed),
+    }),
     ...readWriterWait(run, { status, stopRequested }),
     ...(run.controlError === "plan_step_failed"
       ? { controlError: run.controlError }
@@ -64,6 +71,11 @@ export function readPlanRun(input: unknown): AgentPlanRun {
       ? {}
       : { stacks: readPlanStackRuns(run.stacks) }),
   };
+}
+
+function readCleanupWarnings(input: unknown): readonly string[] {
+  if (!Array.isArray(input)) throw new AgentError("plan_invalid");
+  return input.map((entry: unknown) => readPlanText(entry));
 }
 
 function readWriterWait(

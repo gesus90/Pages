@@ -1,5 +1,6 @@
 import type { AgentWorkspaceCleanupRepository } from "@/backend/database/repositories/agent/AgentWorkspaceCleanupRepository";
 import type { AgentPlanWorkGate } from "./AgentPlanWorkGate";
+import type { AgentPlanStartResources } from "./AgentPlanStartResources";
 import type { AgentPlanAgentTodoService } from "./AgentPlanAgentTodoService";
 import type { AgentPlanStepProgressService } from "./AgentPlanStepProgressService";
 import type { AgentPlanWorkspaces } from "./AgentPlanWorkspaces";
@@ -29,6 +30,7 @@ import type { AgentPlanScriptApprovalRepository } from "@/backend/database/repos
 
 /** What the plan service and its parts work with. */
 export interface PlanDependencies {
+  readonly startResources?: Pick<AgentPlanStartResources, "owners">;
   /** Changes teams and owner and records the history of plans (PAGE-329). */
   readonly accessChanges?: AgentPlanAccessRepository;
   /** Reads the history of plans (PAGE-329). */

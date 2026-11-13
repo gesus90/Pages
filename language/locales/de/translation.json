@@ -6131,7 +6131,7 @@
       "cleanupHistory": "Letzter gespeicherter Bereinigungsfehler",
       "cleanupHistoryTime": "{{time}}",
       "cleanupHistoryHint": "Historischer Befund. Die aktuelle Freigabe und Prozesslage stehen bei den verfügbaren Aktionen.",
-      "freshDescription": "Den gespeicherten Plan von vorne starten. Logs, Sessions und Aufzeichnungen früherer Läufe dieses Plans werden entfernt; bereits erledigte Arbeit im Arbeitsbereich bleibt. Eigene frühere Jobs werden abgebrochen, und kollidierende Ausführung wartet auf bestätigtes Aufräumen.",
+      "freshDescription": "Den gespeicherten Plan von vorne starten. Schreibressourcen früherer Läufe werden zwangsweise freigegeben; aktive Besitzer werden beendet. Nicht bestätigtes Aufräumen blockiert den neuen Start nicht. Ergebnisse und Verlauf zwangsweise freigegebener Läufe bleiben erhalten.",
       "foreignStartTitle": "Neuen Lauf starten",
       "foreignStartDescription": "Der letzte Lauf dieses Plans gehört einer anderen Person und ist nicht abgeschlossen. Nur sie kann ihn fortsetzen. Starten setzt ihn nicht fort, sondern beginnt einen neuen eigenen Lauf von vorne; alle Schritte laufen erneut, und der beendete Lauf wird samt Logs, Sessions und Aufzeichnungen ersetzt.",
       "foreignStartConfirm": "Ich starte einen neuen Lauf von vorne. Der beendete Lauf der anderen Person wird dadurch nicht fortgesetzt.",
@@ -6709,9 +6709,14 @@
     },
     "openRun": {
       "title": "Offenen Lauf beenden und neu beginnen?",
-      "description": "Dieser Plan hat einen offenen Lauf. Starten beendet ihn (Prozesse enden, Reservierungen werden freigegeben) und beginnt einen neuen Lauf von vorn. Zum Weitermachen stattdessen Fortsetzen nutzen.",
+      "description": "Starten beendet die betroffenen offenen Läufe zwangsweise, gibt ihre Schreibressourcen frei und beginnt einen neuen Lauf von vorn. Nicht bestätigte Bereinigung wird als Hinweis angezeigt.",
       "cancel": "Abbrechen",
-      "confirm": "Beenden und neu beginnen"
+      "confirm": "Beenden und neu beginnen",
+      "affected": "Diese Läufe werden beendet:",
+      "cleanupHint": "Bereinigung für Lauf/Läufe {{runs}} nicht bestätigt. Die Ressourcen sind freigegeben; der neue Lauf startet trotzdem.",
+      "releaseHistory": "{{at}}: {{user}} hat die Ressourcen für den neuen Lauf {{run}} zwangsweise freigegeben.",
+      "processEnded": "Prozessende bestätigt",
+      "processUnconfirmed": "Prozessende nicht bestätigt"
     },
     "swarm": {
       "workers": "Helfer",

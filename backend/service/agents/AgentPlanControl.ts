@@ -76,7 +76,6 @@ export function planControl(
       continuationVersion: 0,
       frontierStepIds: [],
     };
-  const isActive = isActivePlanRun(run.status);
   // An administrator controls every run, also one somebody else started (PAGE-329).
   const canIdentify =
     canRunPlan(plan) &&
@@ -84,7 +83,7 @@ export function planControl(
   const issue = continuationIssue(plan, run);
   return {
     ...runControlMetadata(run, canIdentify),
-    canPlay: canRunPlan(plan) && (!isActive || canIdentify),
+    canPlay: canRunPlan(plan),
     workspaceWait:
       canIdentify && isPlanWriterWaitActive(run)
         ? run.workspaceWait

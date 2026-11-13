@@ -23,6 +23,7 @@ import { planNodeStop } from "./AgentPlanBlockerRules";
 import { savePlanSession } from "./AgentPlanSessionPersistence";
 import { capturePlanExecution } from "./AgentPlanExecutionSnapshot";
 import { hasRemotePlanTarget } from "./AgentPlanExecutionTargets";
+import { AgentPlanEngineStarts } from "./AgentPlanEngineStarts";
 import { AgentPlanRunCommands } from "./AgentPlanRunCommands";
 import { completePlanDrain } from "./AgentPlanDrain";
 import { closeIdlePlanGroups } from "./AgentPlanGroupCloseout";
@@ -59,6 +60,7 @@ import { completedPlanWorkCheckpoint } from "./AgentPlanWorkDispatch";
 import type { dispatchPlanLoop } from "./AgentPlanNodeDispatch";
 import type { AgentPlanRunJournal } from "./AgentPlanJournal";
 import type { RecoveredRunStart } from "./AgentPlanRunStart";
+import type { AgentPlanResourceStart } from "@/definition/AgentPlanResourceRelease";
 import type { PlanInstructionWork } from "./AgentPlanInstructionControl";
 import type { PlanSessionTurn } from "@/backend/agents/AgentPlanExecution";
 import type { ActivePlanRun } from "./AgentPlanRunState";
@@ -97,12 +99,17 @@ export class AgentPlanRunEngine {
   private readonly nodes: Parameters<typeof dispatchPlanLoop>[3];
   private readonly active = new Map<string, ActivePlanRun>();
   private readonly writes = new SerialQueue();
+  private readonly starts: AgentPlanEngineStarts;
   private readonly pending = new Set<Promise<void>>();
   private isClosing = false;
   private isSchedulingEnabled: boolean;
 
   public constructor(dependencies: EngineDependencies) {
     this.dependencies = dependencies;
+    this.starts = new AgentPlanEngineStarts({
+      dependencies, active: this.active, writes: this.writes,
+      reset: (id, record) => this.resetLogical(id, record),
+    });
     this.isSchedulingEnabled = !dependencies.deferScheduling;
     this.nodes = {
       writes: this.writes,
@@ -137,10 +144,9 @@ export class AgentPlanRunEngine {
     journal?: AgentPlanRunJournal,
   ): Promise<AgentPlanRun> {
     if (this.isClosing) throw new AgentError("plan_access_denied");
-    return this.launch(initialPlanRun(userId, snapshot), snapshot, {
-      recording,
-      journal,
-    });
+    return this.starts.run(initialPlanRun(userId, snapshot), snapshot, (run) =>
+      this.launch(run, snapshot, { recording, journal }),
+    );
   }
 
   /**
@@ -159,16 +165,19 @@ export class AgentPlanRunEngine {
     journal: AgentPlanRunJournal,
   ): Promise<AgentPlanRun> {
     if (this.isClosing) throw new AgentError("plan_access_denied");
-    return this.launch(
-      recoveredPlanRun(userId, snapshot, recovered),
-      snapshot,
-      { journal },
+    return this.starts.run(recoveredPlanRun(userId, snapshot, recovered), snapshot, (run) =>
+      this.launch(run, snapshot, { journal }),
     );
   }
 
   /** Persists an explicit stop before aborting any execution. */
   public async stop(id: string, journal?: AgentPlanRunJournal): Promise<void> {
     await this.commands.stop(id, journal);
+  }
+
+  /** Retires writers for a separate API producer before its run admission transaction. */
+  public async prepareStartResources(start: AgentPlanResourceStart, keys: readonly string[]): Promise<readonly string[]> {
+    return this.starts.prepare(start, keys);
   }
 
   /** Applies an atomic logical reset under the same queue that owns dispatch; cleanup continues independently. */
@@ -302,14 +311,7 @@ export class AgentPlanRunEngine {
 
   /** Applies reset/restart fences committed by the API without replaying their effects. */
   public async reconcileRetiredRuns(): Promise<void> {
-    for (const id of this.active.keys()) {
-      const stored = await this.dependencies.runs.find(id);
-      if (
-        stored?.stopRequested &&
-        (stored.status === "cancelled" || stored.status === "failed")
-      )
-        await this.resetLogical(id, () => Promise.resolve(stored));
-    }
+    await this.starts.reconcile();
   }
 
   private schedulePump(): void {

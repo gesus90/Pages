@@ -292,6 +292,7 @@ export class AgentPlanProgressRepository {
           );
     await this.database.transaction(async (transaction) => {
       const previous = await this.read(transaction, run.id);
+      if (previous.run.resourceReleases?.length) return;
       if (engineFile)
         await transaction.execute(
           "UPDATE agent_plan_runs SET engine_file = $engine_file WHERE id = $id;",
@@ -441,6 +442,7 @@ export class AgentPlanProgressRepository {
     run: AgentPlanRun,
     checkpoint?: AgentPlanCheckpointInput,
   ): Promise<void> {
+    if (previous.run.resourceReleases?.length) return;
     requireSettledWork(previous, run, checkpoint);
     const revision = previous.revision + 1;
     if (checkpoint) {

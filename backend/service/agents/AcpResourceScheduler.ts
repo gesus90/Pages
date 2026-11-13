@@ -5,6 +5,7 @@ import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError
 import { logCaughtError } from "@/backend/logging/Logger";
 import { isAcpSessionLimit, MAX_ACP_SESSIONS } from "@/definition/AcpResource";
 
+import { forceReleaseAcpRun, reconcileAcpRun } from "./resources/AcpRunRelease";
 import { AcpLeaseAdmission } from "./resources/AcpLeaseAdmission";
 import { AcpLeaseChecks } from "./resources/AcpLeaseChecks";
 import {
@@ -307,24 +308,21 @@ export class AcpResourceScheduler {
    * identity; legacy leases without containment evidence remain uncertain.
    */
   public async reconcile(runId?: string): Promise<number> {
-    const uncertain = [...this.active.values()].filter(
-      (record) =>
-        record.state === "cleanup_failed" &&
-        !this.sessions.has(record.instanceId) &&
-        (runId === undefined || record.runId === runId),
-    );
-    let remaining = 0;
-    for (const record of uncertain) {
-      let isConfirmed = false;
-      try {
-        isConfirmed =
-          (await this.cleanupRecord(record, record.since)).remaining === 0;
-      } catch (caughtError: unknown) {
-        logCaughtError("AcpResourceScheduler", caughtError);
-      }
-      if (!(await this.finish(record.instanceId, isConfirmed))) remaining += 1;
-    }
-    return remaining;
+    return reconcileAcpRun(runId, {
+      active: this.active, sessions: this.sessions,
+      cleanup: (record, since) => this.cleanupRecord(record, since),
+      finish: (id, confirmed) => this.finish(id, confirmed),
+    });
+  }
+
+  /** Frees only an explicitly superseded run's capacity after its process cleanup was attempted. */
+  public async forceReleaseRun(runId: string): Promise<boolean> {
+    return forceReleaseAcpRun(runId, {
+      active: this.active,
+      waiting: this.waiting,
+      pausedRuns: this.pausedRuns,
+      finish: (id, confirmed) => this.finish(id, confirmed),
+    });
   }
 
   /** Cancels all waiters and drains sessions; uncertain leases survive server exit. */
