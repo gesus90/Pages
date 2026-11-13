@@ -1,20 +1,46 @@
 .toast {
+  --toast-enter-x: 0;
+  --toast-enter-y: -0.5rem;
   animation: enter-toast 220ms ease-out;
+}
+
+.leaving {
+  animation: leave-toast 220ms ease-in forwards;
+  pointer-events: none;
 }
 
 @keyframes enter-toast {
   from {
     opacity: 0;
-    transform: translateY(0.5rem) scale(0.985);
+    transform: translate(var(--toast-enter-x), var(--toast-enter-y));
   }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translate(0, 0);
+  }
+}
+
+@keyframes leave-toast {
+  from {
+    opacity: 1;
+    transform: translate(0, 0);
+  }
+  to {
+    opacity: 0;
+    transform: translate(var(--toast-enter-x), var(--toast-enter-y));
+  }
+}
+
+@media (min-width: 40rem) {
+  .toast {
+    --toast-enter-x: 0.5rem;
+    --toast-enter-y: 0;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .toast {
-    animation-duration: 1ms;
+    --toast-enter-x: 0;
+    --toast-enter-y: 0;
   }
 }

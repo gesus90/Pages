@@ -17,11 +17,15 @@ import {
   useChatContent,
 } from "./content/chat-content-context";
 import { SplitPanel } from "./content/split-panel";
+import { useChatToastSelection } from "./use-chat-toast-selection";
 import { useChatPage } from "./use-chat-page";
 import { useVoiceSending } from "./use-voice-sending";
 import { formatVoiceDuration } from "./voice-audio";
 
-import type { VirtualChatDirectory } from "@/definition/VirtualChat";
+import type {
+  VirtualChatDirectory,
+  VirtualChatSelection,
+} from "@/definition/VirtualChat";
 import type { ChatPageState, OpenedConversation } from "./use-chat-page";
 
 function conversationName(opened: OpenedConversation): string {
@@ -227,11 +231,18 @@ function ListSlot({
  */
 export function ChatPage({
   directory,
+  requestedSelection,
 }: {
   readonly directory: VirtualChatDirectory;
+  readonly requestedSelection?: VirtualChatSelection;
 }): React.ReactElement {
   const { t } = useTranslation();
-  const page = useChatPage(directory);
+  const page = useChatPage(directory, requestedSelection);
+  useChatToastSelection({
+    selection: page.selection,
+    requested: requestedSelection,
+    select: page.select,
+  });
   return (
     <section className="pages-page-fill flex w-full flex-col">
       <header className="shrink-0">

@@ -57,3 +57,22 @@ it("coalesces relevant notices and resumes fallback after disconnect", async () 
   unmount();
   expect(boundary.close).toHaveBeenCalledOnce();
 });
+
+it("refreshes chat notifications outside the chat page using the same stream", () => {
+  vi.useFakeTimers();
+  vi.stubGlobal("EventSource", class {});
+  boundary.open.mockReset().mockReturnValue(boundary.close);
+  const refreshChat = vi.fn();
+  const { unmount } = renderHook(() => useLiveChanges("v1", refreshChat));
+  const handlers = boundary.open.mock.calls[0]?.[1];
+  if (!handlers) throw new Error("Live handlers missing");
+  act(() => {
+    handlers.onChange({ kind: "ticket", id: "irrelevant" });
+    handlers.onChange({ kind: "conversation", id: "chat" });
+  });
+  expect(refreshChat).toHaveBeenCalledOnce();
+  act(() => handlers.onResync());
+  expect(refreshChat).toHaveBeenCalledTimes(2);
+  expect(boundary.open).toHaveBeenCalledOnce();
+  unmount();
+});

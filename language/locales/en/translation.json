@@ -1,4 +1,18 @@
 {
+  "toast": {
+    "saveFailed": "Save failed",
+    "retry": "Try again",
+    "close": "Dismiss notification",
+    "open": "Open",
+    "newMessages_one": "{{count}} new",
+    "newMessages_other": "{{count}} new",
+    "notifications_one": "Notifications ({{count}})",
+    "notifications_other": "Notifications ({{count}})",
+    "history": "Notifications",
+    "empty": "No notifications",
+    "attachment": "New file",
+    "voice": "Voice message"
+  },
   "account": {
     "menu": "Account menu",
     "signOut": "Log out"
@@ -8087,6 +8101,8 @@
       "unknown": "The change failed."
     },
     "toast": {
+      "saveFailed": "Save failed",
+      "retry": "Try again",
       "accepted": "Run accepted",
       "queued": "Run queued"
     },

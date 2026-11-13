@@ -5,6 +5,7 @@ import { AppShell } from "@/app/components/common/app-shell";
 import { ChatLauncher } from "@/app/components/chat/chat-launcher";
 import { RegionProvider } from "@/app/components/common/region-provider";
 import { useAuthorizationRefresh } from "@/app/components/common/use-authorization-refresh";
+import { useChatNotifications } from "@/app/components/common/use-chat-notifications";
 import { useLiveChanges } from "@/app/components/common/use-live-changes";
 import {
   onLocalStateAudienceChanged,
@@ -70,7 +71,8 @@ export default function AuthenticatedRoute(): React.ReactElement {
     () => onLocalStateAudienceChanged(() => void revalidate()),
     [revalidate],
   );
-  const isLive = useLiveChanges(authorizationVersion);
+  const refreshChatNotifications = useChatNotifications(user.id);
+  const isLive = useLiveChanges(authorizationVersion, refreshChatNotifications);
   const isOffline =
     useAuthorizationRefresh(authorizationVersion, isLive) ||
     keptState?.state === "offline";

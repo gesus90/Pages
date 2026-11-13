@@ -40,6 +40,11 @@
   --color-primary: #f97316;
   --color-primary-hover: #ea580c;
   --color-primary-subtle: #fdf4ee;
+  --color-toast-action: color-mix(
+    in srgb,
+    var(--color-primary-hover) 80%,
+    var(--color-foreground)
+  );
   --color-primary-foreground: #ffffff;
   --color-destructive: #c5322b;
   --color-destructive-subtle: #fef2f2;
@@ -523,6 +528,7 @@
     --color-primary: #f97316;
     --color-primary-hover: #fb8a3c;
     --color-primary-subtle: #2a1b11;
+    --color-toast-action: var(--color-primary);
     --color-primary-foreground: #1a0f05;
     --color-destructive: #f87171;
     --color-destructive-subtle: #2d1618;

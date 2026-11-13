@@ -22,7 +22,7 @@ import { useSupersededSession } from "@/app/components/common/use-superseded-ses
 import { BackgroundSaveStatus } from "@/app/components/common/background-save-status";
 import { ServiceStatusLight } from "@/app/components/common/service-status-light";
 import { buttonVariants } from "@/app/components/ui/button";
-import { Toaster } from "@/app/components/ui/toast";
+import { Toaster, ToastProvider } from "@/app/components/ui/toast";
 import {
   getColorSchemeMeta,
   getThemeColorMetas,
@@ -210,11 +210,11 @@ export function Layout({
             ownerId={draftOwnerId}
           >
             {isSuperseded ? null : (
-              <>
+              <ToastProvider key={draftOwnerId ?? "anonymous"}>
                 {children}
                 <Toaster />
                 <ServiceStatusLight />
-              </>
+              </ToastProvider>
             )}
           </DraftProvider>
         </I18nextProvider>

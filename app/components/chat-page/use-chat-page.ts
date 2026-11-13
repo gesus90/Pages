@@ -351,11 +351,16 @@ function searchLists(lists: ChatLists, query: string): ChatLists {
  * person or of a group (PAGE-278), whose other members see it live. Opening
  * a conversation with unread messages marks it read.
  */
-export function useChatPage(directory: VirtualChatDirectory): ChatPageState {
+export function useChatPage(
+  directory: VirtualChatDirectory,
+  requestedSelection?: VirtualChatSelection,
+): ChatPageState {
   const [query, setQuery] = useState("");
   const activity = useChatActivity(directory);
   const lists: ChatLists = activity;
-  const [selection, setSelection] = useState(() => firstSelection(lists));
+  const [selection, setSelection] = useState(
+    () => requestedSelection ?? firstSelection(lists),
+  );
   const sender = useFetcher();
 
   const found = searchLists(lists, query);

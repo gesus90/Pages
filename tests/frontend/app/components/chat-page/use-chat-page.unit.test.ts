@@ -663,3 +663,25 @@ it("marks an opened stored conversation with unread messages read up to its newe
     { intent: "read", conversationId: "g", upToMessageId: "m2" },
   ]);
 });
+
+it("opens the notification's requested chat initially without marking the default chat read", () => {
+  const { result } = renderHook(() =>
+    useChatPage(
+      directory({
+        participants: [
+          participant("target", { conversationId: "direct", unreadCount: 1 }),
+        ],
+        groups: [group("default", { unreadCount: 1 })],
+        histories: { default: [message("wrong")], target: [message("right")] },
+      }),
+      { kind: "participant", id: "target" },
+    ),
+  );
+  expect(result.current.selection).toEqual({
+    kind: "participant",
+    id: "target",
+  });
+  expect(submissions("read").map((form) => form["conversationId"])).toEqual([
+    "direct",
+  ]);
+});
