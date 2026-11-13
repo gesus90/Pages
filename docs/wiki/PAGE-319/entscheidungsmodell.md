@@ -1,12 +1,12 @@
 Instanzweites Entscheidungsmodell, Gruppenchats, Fallback und Schutz.
 
-[Zur Übersicht](index.md)
+[Zur Übersicht](/wiki/93eb063a-a63c-4cac-8393-af182291a582)
 
 # Umgesetzt
 
 Im Ausgangstext nicht ausdrücklich als umgesetzt ausgewiesen.
 
-# Entschieden
+# Entschieden (noch nicht umgesetzt)
 
 Entschieden am 11.11.2026 von Igor und All Might. Übergeordnete Seite: [Agents: Festlegungen](/wiki/93eb063a-a63c-4cac-8393-af182291a582). Umsetzung: PAGE-317. Stand: entschieden, noch nicht umgesetzt.
 
@@ -36,8 +36,11 @@ Entschieden am 11.11.2026 von Igor und All Might. Übergeordnete Seite: [Agents:
 - Agent-Nachrichten lösen keine Endlosschleifen aus; es gilt der Schleifenschutz aus PAGE-311.
 - Das Entscheidungsmodell erhält keine Zugangsdaten und keine Inhalte, die Teilnehmer nicht sehen dürfen.
 
+# Festlegungen ohne eindeutigen Umsetzungsstand
+
+Keine weiteren Festlegungen mit unklarem Umsetzungsstand.
+
 # Offen
 
-Keine weitere offene Sachfrage im Ausgangstext ausdrücklich ausgewiesen. Die Einordnung des Umsetzungsstands folgt den Hinweisen unter „Entschieden“.
-
+Keine weitere offene Sachfrage im Ausgangstext ausdrücklich ausgewiesen.
 

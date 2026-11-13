@@ -1,14 +1,18 @@
 Lokale Arbeitsplätze, Arbeitsverzeichnisse und ihre Rechte.
 
-[Zur Übersicht](index.md)
+[Zur Übersicht](/wiki/93eb063a-a63c-4cac-8393-af182291a582)
 
 # Umgesetzt
 
 Im Ausgangstext nicht ausdrücklich als umgesetzt ausgewiesen.
 
-# Entschieden
+# Entschieden (noch nicht umgesetzt)
 
-Die folgenden Festlegungen bleiben in ihrem ursprünglichen Wortlaut erhalten. Ein Umsetzungsstand gilt nur dort als nachgewiesen, wo er ausdrücklich genannt ist; die übrigen Einordnungen sind noch zu bestätigen.
+Im Ausgangstext keine weitere Festlegung ausdrücklich als noch nicht umgesetzt ausgewiesen.
+
+# Festlegungen ohne eindeutigen Umsetzungsstand
+
+Die Quelle nennt diese Festlegungen als entschieden oder umgesetzt, ohne ihren Umsetzungsstand eindeutig zuzuordnen. Historische Zielverträge sind keine Auslieferungsnachweise; spätere datierte Präzisierungen bleiben maßgeblich.
 
 ## Arbeitsplätze
 
@@ -21,6 +25,8 @@ Die folgenden Festlegungen bleiben in ihrem ursprünglichen Wortlaut erhalten. E
 - **Fehlende Wurzeln** blockieren die Neuanlage und erklären die Serverkonfiguration im Admin-Bereich.
 - **Arbeitsplatz-Parameter** im zentralen Agent-Editor können berechtigte registrierte Kennungen als Standard auswählen oder löschen; nicht mehr zugängliche gespeicherte Werte bleiben sichtbar und werden nicht automatisch ersetzt.
 - Name, Pfad und GitHub sind kopierbare Inhalte; der Pfad bricht als Festbreitentext um. Die Navigation führt „Arbeitsplätze“ vor „Agent-Verwaltung“. Es gibt keine zweite Auswahl-, Dialog- oder Zieh-Infrastruktur.
+
+
 
 **Arbeitsverzeichnis (PAGE-25)**
 
@@ -39,3 +45,5 @@ Die folgenden Festlegungen bleiben in ihrem ursprünglichen Wortlaut erhalten. E
 - **Offen zur Bestätigung:** die Lesart „Manager mit Verwaltungsrechten auf Projektebene“ (wer Projektdaten und GitHub-Anbindung ändern darf, einschließlich Co-Eigner mit Geltungsbereich), die Ausweitung der Sichtbarkeit früher eingeschränkter Registrierungen und die Pfadwahl durch Manager ohne Wurzeln je Projekt.
 
 
+
+Die Präzisierung „Arbeitsverzeichnis (PAGE-25)“ stammt aus dem Nachtrag vom 2026-10-13. Remote-Maschinenreferenz und Abteilungsfreigabe: [Remote-Verbindungen und Runner](/wiki/45bc1de4-9c18-4851-8e62-fc516075ca19).

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "status": "local-draft-not-applied",
+  "status": "applied-and-read-back",
   "offsetUnit": "UTF-16 code units, zero-based, end-exclusive",
   "sources": [
     {
@@ -22,70 +22,90 @@
       "title": "Agents: Festlegungen",
       "pageId": "93eb063a-a63c-4cac-8393-af182291a582",
       "parentId": "3dc864cf-57af-47cc-8cad-79c1627372a7",
-      "characters": 1601
+      "characters": 1893,
+      "revision": 24,
+      "unicodeCharacters": 1893
     },
     {
       "file": "anbindungen.md",
       "title": "Anbindungen",
       "parentId": "93eb063a-a63c-4cac-8393-af182291a582",
-      "pageId": null,
-      "characters": 5474
+      "pageId": "b53d1a62-5462-4439-bf6d-cbbd854dd433",
+      "characters": 5693,
+      "revision": 1,
+      "unicodeCharacters": 5693
     },
     {
       "file": "modell-reasoning.md",
       "title": "Modell und Reasoning",
       "parentId": "93eb063a-a63c-4cac-8393-af182291a582",
-      "pageId": null,
-      "characters": 3438
+      "pageId": "c64fb7a7-fd6b-4d2a-be1f-f5af9619e724",
+      "characters": 3578,
+      "revision": 1,
+      "unicodeCharacters": 3578
     },
     {
       "file": "agent-verwaltung-editor.md",
       "title": "Agent-Verwaltung und Editor",
       "parentId": "93eb063a-a63c-4cac-8393-af182291a582",
-      "pageId": null,
-      "characters": 7290
+      "pageId": "3d67d542-5917-4176-9881-6245e9faead3",
+      "characters": 7457,
+      "revision": 1,
+      "unicodeCharacters": 7457
     },
     {
       "file": "arbeitsplaetze.md",
       "title": "Arbeitsplätze",
       "parentId": "93eb063a-a63c-4cac-8393-af182291a582",
-      "pageId": null,
-      "characters": 4572
+      "pageId": "702f7bd4-9d30-478c-a719-b0350dec7fb5",
+      "characters": 5006,
+      "revision": 1,
+      "unicodeCharacters": 5006
     },
     {
       "file": "remote-runner.md",
       "title": "Remote-Verbindungen und Runner",
       "parentId": "93eb063a-a63c-4cac-8393-af182291a582",
-      "pageId": null,
-      "characters": 6462
+      "pageId": "45bc1de4-9c18-4851-8e62-fc516075ca19",
+      "characters": 6808,
+      "revision": 1,
+      "unicodeCharacters": 6808
     },
     {
       "file": "agent-plan.md",
       "title": "Agent-Plan",
       "parentId": "93eb063a-a63c-4cac-8393-af182291a582",
-      "pageId": null,
-      "characters": 11282
+      "pageId": "957716f3-ed65-4e80-886c-ece8821cd0dc",
+      "characters": 11535,
+      "revision": 1,
+      "unicodeCharacters": 11535
     },
     {
       "file": "laufsteuerung.md",
       "title": "Laufsteuerung und Planpanel",
       "parentId": "93eb063a-a63c-4cac-8393-af182291a582",
-      "pageId": null,
-      "characters": 6832
+      "pageId": "4d0a8535-ba0a-485c-aff0-6c07203426b1",
+      "characters": 6972,
+      "revision": 1,
+      "unicodeCharacters": 6972
     },
     {
       "file": "gedaechtnis.md",
       "title": "Gedächtnis und Dreaming",
       "parentId": "93eb063a-a63c-4cac-8393-af182291a582",
-      "pageId": null,
-      "characters": 1136
+      "pageId": "965bcb83-13d6-4db6-bf7a-eb6695a3a3d1",
+      "characters": 1180,
+      "revision": 1,
+      "unicodeCharacters": 1180
     },
     {
       "file": "entscheidungsmodell.md",
       "title": "Entscheidungsmodell für Chats: Festlegungen",
       "parentId": "93eb063a-a63c-4cac-8393-af182291a582",
       "pageId": "d645e528-e900-4673-9de1-4d817173ccf1",
-      "characters": 2637
+      "characters": 2724,
+      "revision": 2,
+      "unicodeCharacters": 2724
     }
   ],
   "fragments": [
@@ -103,45 +123,81 @@
       "start": 459,
       "end": 4092,
       "file": "anbindungen.md",
-      "status": "decided",
-      "targetStart": 386,
-      "targetEnd": 4019
+      "status": "unspecified",
+      "targetStart": 602,
+      "targetEnd": 4235
     },
     {
       "sourceId": "93eb063a-a63c-4cac-8393-af182291a582",
       "start": 4092,
       "end": 6993,
       "file": "modell-reasoning.md",
-      "status": "decided",
-      "targetStart": 376,
-      "targetEnd": 3277
+      "status": "unspecified",
+      "targetStart": 592,
+      "targetEnd": 3493
     },
     {
       "sourceId": "93eb063a-a63c-4cac-8393-af182291a582",
       "start": 6993,
+      "end": 7027,
+      "file": "agent-verwaltung-editor.md",
+      "status": "unspecified",
+      "targetStart": 1893,
+      "targetEnd": 1927
+    },
+    {
+      "sourceId": "93eb063a-a63c-4cac-8393-af182291a582",
+      "start": 7027,
+      "end": 7574,
+      "file": "agent-verwaltung-editor.md",
+      "status": "implemented",
+      "targetStart": 151,
+      "targetEnd": 698
+    },
+    {
+      "sourceId": "93eb063a-a63c-4cac-8393-af182291a582",
+      "start": 7574,
+      "end": 7972,
+      "file": "agent-verwaltung-editor.md",
+      "status": "unspecified",
+      "targetStart": 1929,
+      "targetEnd": 2327
+    },
+    {
+      "sourceId": "93eb063a-a63c-4cac-8393-af182291a582",
+      "start": 7972,
+      "end": 8753,
+      "file": "agent-verwaltung-editor.md",
+      "status": "implemented",
+      "targetStart": 700,
+      "targetEnd": 1481
+    },
+    {
+      "sourceId": "93eb063a-a63c-4cac-8393-af182291a582",
+      "start": 8753,
       "end": 11940,
       "file": "agent-verwaltung-editor.md",
-      "status": "decided",
-      "targetStart": 408,
-      "targetEnd": 5355
+      "status": "unspecified",
+      "targetStart": 2329,
+      "targetEnd": 5516
     },
     {
       "sourceId": "93eb063a-a63c-4cac-8393-af182291a582",
       "start": 11940,
       "end": 13799,
       "file": "arbeitsplaetze.md",
-      "status": "decided",
-      "targetStart": 392,
-      "targetEnd": 2251
+      "status": "unspecified",
+      "targetStart": 608,
+      "targetEnd": 2467
     },
     {
       "sourceId": "93eb063a-a63c-4cac-8393-af182291a582",
       "start": 13799,
       "end": 15673,
       "file": "agent-plan.md",
-      "status": "decided",
-      "targetStart": 565,
-      "targetEnd": 2439
+      "status": "unspecified",
+      "targetStart": 7825,
+      "targetEnd": 9699
     },
     {
       "sourceId": "93eb063a-a63c-4cac-8393-af182291a582",
@@ -149,17 +205,17 @@
       "end": 15812,
       "file": "agent-plan.md",
       "status": "open",
-      "targetStart": 10871,
-      "targetEnd": 11010
+      "targetStart": 10600,
+      "targetEnd": 10739
     },
     {
       "sourceId": "93eb063a-a63c-4cac-8393-af182291a582",
       "start": 15812,
       "end": 15918,
       "file": "agent-plan.md",
-      "status": "decided",
-      "targetStart": 2441,
-      "targetEnd": 2547
+      "status": "unspecified",
+      "targetStart": 9701,
+      "targetEnd": 9807
     },
     {
       "sourceId": "93eb063a-a63c-4cac-8393-af182291a582",
@@ -167,8 +223,8 @@
       "end": 16140,
       "file": "agent-plan.md",
       "status": "implemented",
-      "targetStart": 113,
-      "targetEnd": 335
+      "targetStart": 147,
+      "targetEnd": 369
     },
     {
       "sourceId": "93eb063a-a63c-4cac-8393-af182291a582",
@@ -176,35 +232,44 @@
       "end": 16409,
       "file": "agent-plan.md",
       "status": "open",
-      "targetStart": 11012,
-      "targetEnd": 11281
+      "targetStart": 10741,
+      "targetEnd": 11010
     },
     {
       "sourceId": "93eb063a-a63c-4cac-8393-af182291a582",
       "start": 16409,
+      "end": 23544,
+      "file": "agent-plan.md",
+      "status": "pending",
+      "targetStart": 409,
+      "targetEnd": 7544
+    },
+    {
+      "sourceId": "93eb063a-a63c-4cac-8393-af182291a582",
+      "start": 23544,
       "end": 24324,
       "file": "agent-plan.md",
-      "status": "decided",
-      "targetStart": 2549,
-      "targetEnd": 10464
+      "status": "unspecified",
+      "targetStart": 9809,
+      "targetEnd": 10589
     },
     {
       "sourceId": "93eb063a-a63c-4cac-8393-af182291a582",
       "start": 24324,
       "end": 24829,
       "file": "gedaechtnis.md",
-      "status": "decided",
-      "targetStart": 374,
-      "targetEnd": 879
+      "status": "unspecified",
+      "targetStart": 590,
+      "targetEnd": 1095
     },
     {
       "sourceId": "93eb063a-a63c-4cac-8393-af182291a582",
       "start": 24829,
       "end": 26139,
       "file": "anbindungen.md",
-      "status": "decided",
-      "targetStart": 4019,
-      "targetEnd": 5329
+      "status": "unspecified",
+      "targetStart": 4237,
+      "targetEnd": 5547
     },
     {
       "sourceId": "93eb063a-a63c-4cac-8393-af182291a582",
@@ -212,17 +277,17 @@
       "end": 26272,
       "file": "anbindungen.md",
       "status": "open",
-      "targetStart": 5340,
-      "targetEnd": 5473
+      "targetStart": 5558,
+      "targetEnd": 5691
     },
     {
       "sourceId": "93eb063a-a63c-4cac-8393-af182291a582",
       "start": 26272,
       "end": 28264,
       "file": "arbeitsplaetze.md",
-      "status": "decided",
-      "targetStart": 2251,
-      "targetEnd": 4243
+      "status": "unspecified",
+      "targetStart": 2469,
+      "targetEnd": 4461
     },
     {
       "sourceId": "93eb063a-a63c-4cac-8393-af182291a582",
@@ -230,35 +295,35 @@
       "end": 28581,
       "file": "arbeitsplaetze.md",
       "status": "open",
-      "targetStart": 4254,
-      "targetEnd": 4571
+      "targetStart": 4472,
+      "targetEnd": 4789
     },
     {
       "sourceId": "93eb063a-a63c-4cac-8393-af182291a582",
       "start": 28581,
       "end": 34692,
       "file": "remote-runner.md",
-      "status": "decided",
-      "targetStart": 183,
-      "targetEnd": 6294
+      "status": "unspecified",
+      "targetStart": 612,
+      "targetEnd": 6723
     },
     {
       "sourceId": "93eb063a-a63c-4cac-8393-af182291a582",
       "start": 34692,
       "end": 36466,
       "file": "agent-verwaltung-editor.md",
-      "status": "decided",
-      "targetStart": 5355,
-      "targetEnd": 7129
+      "status": "unspecified",
+      "targetStart": 5518,
+      "targetEnd": 7292
     },
     {
       "sourceId": "93eb063a-a63c-4cac-8393-af182291a582",
       "start": 36466,
       "end": 39774,
       "file": "laufsteuerung.md",
-      "status": "decided",
-      "targetStart": 3363,
-      "targetEnd": 6671
+      "status": "unspecified",
+      "targetStart": 3579,
+      "targetEnd": 6887
     },
     {
       "sourceId": "93eb063a-a63c-4cac-8393-af182291a582",
@@ -266,17 +331,20 @@
       "end": 42794,
       "file": "laufsteuerung.md",
       "status": "implemented",
-      "targetStart": 113,
-      "targetEnd": 3133
+      "targetStart": 147,
+      "targetEnd": 3167
     },
     {
       "sourceId": "d645e528-e900-4673-9de1-4d817173ccf1",
       "start": 0,
       "end": 2285,
       "file": "entscheidungsmodell.md",
-      "status": "decided",
-      "targetStart": 189,
-      "targetEnd": 2474
+      "status": "pending",
+      "targetStart": 246,
+      "targetEnd": 2531
     }
-  ]
+  ],
+  "verifiedOn": "2026-11-13",
+  "ticketId": "177aa3f1-3f62-4007-ba52-300e7904ae91",
+  "projectId": "ec6476da-edd0-408d-92a0-e580266d82f9"
 }

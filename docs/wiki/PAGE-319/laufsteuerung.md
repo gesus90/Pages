@@ -1,6 +1,6 @@
 Starten, Pause, Stop und Fortsetzen sowie die Darstellung im Planpanel.
 
-[Zur Übersicht](index.md)
+[Zur Übersicht](/wiki/93eb063a-a63c-4cac-8393-af182291a582)
 
 # Umgesetzt
 
@@ -27,9 +27,13 @@ Der mittlere Button entscheidet selbst, welcher technische Weg nötig ist; Bedie
 - Über die Pages-Schnittstelle gilt dasselbe: `resume_plan` setzt in allen genannten Zuständen fort, `read_plan_control` liefert `canResume`, `resumeKind` und bei Sperre `resumeBlock` (Grund und Handlung) passend zur Oberfläche.
 
 
-# Entschieden
+# Entschieden (noch nicht umgesetzt)
 
-Die folgenden Festlegungen bleiben in ihrem ursprünglichen Wortlaut erhalten. Ein Umsetzungsstand gilt nur dort als nachgewiesen, wo er ausdrücklich genannt ist; die übrigen Einordnungen sind noch zu bestätigen.
+Im Ausgangstext keine weitere Festlegung ausdrücklich als noch nicht umgesetzt ausgewiesen.
+
+# Festlegungen ohne eindeutigen Umsetzungsstand
+
+Die Quelle nennt diese Festlegungen als entschieden oder umgesetzt, ohne ihren Umsetzungsstand eindeutig zuzuordnen. Historische Zielverträge sind keine Auslieferungsnachweise; spätere datierte Präzisierungen bleiben maßgeblich.
 
 ## Planpanel: Steuerung, Sequenz und Planaktionen (Entscheidung 22.10.2026)
 
@@ -43,8 +47,9 @@ Die Sequenz unten beginnt mit **1 Start** und folgt den **Ablaufkanten**. Beispi
 
 **Präzisierung Igor, 23.10.2026:** Im oberen Panel bündelt ein **⋯-Kontext-/Aktionsmenü** die Einträge **Neu, Bearbeiten, Klonen und Entfernen**, statt separater Verwaltungsbuttons. Neu/Bearbeiten öffnen ihre Konfiguration im Modal; zusätzliche Feldvorgaben der Vorschau bleiben Vorschlag. Entfernen zeigt nur eine kurze zielbezogene Bestätigung mit **Abbrechen / Löschen**, ohne Namenseingabe, Checkbox oder zweite Bestätigung. Laufsteuerung/Graph-Speichern bleiben getrennt; bestehende Aktionsrechte und Runsperren bleiben bindend. Klonen fragt einen gültigen Namen/Zielkontext ab und kopiert den vollständigen Graphen unabhängig, ohne Historie/Sessions/Secrets/Dateien oder Autostart; Quelle und Entwurf nicht still verändern. Entfernen braucht das tatsächliche bestehende Löschrecht/Bestätigung, ist bei aktiven Runs gesperrt und löscht keine Workspacedateien oder fremde Objekte. Lauf-/Edit-/Lesefreigabe ist nicht automatisch Eigentümer-Löschrecht. Details im [technischen Planvertrag](/wiki/3301f98d-8727-4c7b-97dc-8a8262d4e440).
 
+
+
 # Offen
 
-Keine weitere offene Sachfrage im Ausgangstext ausdrücklich ausgewiesen. Die Einordnung des Umsetzungsstands folgt den Hinweisen unter „Entschieden“.
-
+Keine weitere offene Sachfrage im Ausgangstext ausdrücklich ausgewiesen.
 

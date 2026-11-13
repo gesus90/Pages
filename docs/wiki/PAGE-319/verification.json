@@ -1,0 +1,1106 @@
+{
+  "ticket": "PAGE-319",
+  "verifiedOn": "2026-11-13",
+  "sourceComparison": {
+    "mainRevision": 23,
+    "decisionModelRevision": 1,
+    "exactReconstruction": true,
+    "gaps": 0,
+    "overlaps": 0,
+    "originalCharacters": 45079
+  },
+  "checks": [
+    {
+      "id": "T1",
+      "result": "passed",
+      "evidence": "Both current source pages reconstructed exactly from the saved target fragments, with unchanged identifiers and metadata."
+    },
+    {
+      "id": "T2",
+      "result": "passed",
+      "evidence": "All ten reorganized pages below 20000 UTF-16 code units and Unicode code points; maximum 11535."
+    },
+    {
+      "id": "T3",
+      "result": "passed",
+      "evidence": "All nine child pages linked from the main page, all nine link back; all saved pages and their outgoing links read back."
+    },
+    {
+      "id": "T4",
+      "result": "passed",
+      "evidence": "All nine child pages separate implemented, decided but not implemented, unclear historical implementation status and open issues."
+    }
+  ],
+  "pages": [
+    {
+      "id": "93eb063a-a63c-4cac-8393-af182291a582",
+      "title": "Agents: Festlegungen",
+      "revision": 24,
+      "parentId": "3dc864cf-57af-47cc-8cad-79c1627372a7",
+      "scope": "project",
+      "projectId": "ec6476da-edd0-408d-92a0-e580266d82f9",
+      "icon": null,
+      "cover": null,
+      "anchors": [],
+      "characters": 1893,
+      "links": {
+        "pageId": "93eb063a-a63c-4cac-8393-af182291a582",
+        "outgoing": [
+          {
+            "id": "3d67d542-5917-4176-9881-6245e9faead3",
+            "title": "Agent-Verwaltung und Editor"
+          },
+          {
+            "id": "45bc1de4-9c18-4851-8e62-fc516075ca19",
+            "title": "Remote-Verbindungen und Runner"
+          },
+          {
+            "id": "4d0a8535-ba0a-485c-aff0-6c07203426b1",
+            "title": "Laufsteuerung und Planpanel"
+          },
+          {
+            "id": "702f7bd4-9d30-478c-a719-b0350dec7fb5",
+            "title": "Arbeitsplätze"
+          },
+          {
+            "id": "957716f3-ed65-4e80-886c-ece8821cd0dc",
+            "title": "Agent-Plan"
+          },
+          {
+            "id": "965bcb83-13d6-4db6-bf7a-eb6695a3a3d1",
+            "title": "Gedächtnis und Dreaming"
+          },
+          {
+            "id": "af35a9aa-2850-4ee4-9f90-2bf7b559eb34",
+            "title": "MCP Pages"
+          },
+          {
+            "id": "b53d1a62-5462-4439-bf6d-cbbd854dd433",
+            "title": "Anbindungen"
+          },
+          {
+            "id": "c64fb7a7-fd6b-4d2a-be1f-f5af9619e724",
+            "title": "Modell und Reasoning"
+          },
+          {
+            "id": "d01775a6-8af5-4054-93c5-eec98867bcc2",
+            "title": "Agents"
+          },
+          {
+            "id": "d645e528-e900-4673-9de1-4d817173ccf1",
+            "title": "Entscheidungsmodell für Chats: Festlegungen"
+          }
+        ],
+        "nextCursor": null
+      }
+    },
+    {
+      "id": "d645e528-e900-4673-9de1-4d817173ccf1",
+      "title": "Entscheidungsmodell für Chats: Festlegungen",
+      "revision": 2,
+      "parentId": "93eb063a-a63c-4cac-8393-af182291a582",
+      "scope": "project",
+      "projectId": "ec6476da-edd0-408d-92a0-e580266d82f9",
+      "icon": null,
+      "cover": null,
+      "anchors": [],
+      "characters": 2724,
+      "links": {
+        "pageId": "d645e528-e900-4673-9de1-4d817173ccf1",
+        "outgoing": [
+          {
+            "id": "93eb063a-a63c-4cac-8393-af182291a582",
+            "title": "Agents: Festlegungen"
+          }
+        ],
+        "nextCursor": null
+      }
+    },
+    {
+      "id": "45bc1de4-9c18-4851-8e62-fc516075ca19",
+      "title": "Remote-Verbindungen und Runner",
+      "revision": 1,
+      "parentId": "93eb063a-a63c-4cac-8393-af182291a582",
+      "scope": "project",
+      "projectId": "ec6476da-edd0-408d-92a0-e580266d82f9",
+      "icon": null,
+      "cover": null,
+      "anchors": [],
+      "characters": 6808,
+      "links": {
+        "pageId": "45bc1de4-9c18-4851-8e62-fc516075ca19",
+        "outgoing": [
+          {
+            "id": "3301f98d-8727-4c7b-97dc-8a8262d4e440",
+            "title": "Agent-Definitionen, Arbeitsplätze und Arbeitspläne: technische Umsetzung"
+          },
+          {
+            "id": "93eb063a-a63c-4cac-8393-af182291a582",
+            "title": "Agents: Festlegungen"
+          }
+        ],
+        "nextCursor": null
+      }
+    },
+    {
+      "id": "4d0a8535-ba0a-485c-aff0-6c07203426b1",
+      "title": "Laufsteuerung und Planpanel",
+      "revision": 1,
+      "parentId": "93eb063a-a63c-4cac-8393-af182291a582",
+      "scope": "project",
+      "projectId": "ec6476da-edd0-408d-92a0-e580266d82f9",
+      "icon": null,
+      "cover": null,
+      "anchors": [],
+      "characters": 6972,
+      "links": {
+        "pageId": "4d0a8535-ba0a-485c-aff0-6c07203426b1",
+        "outgoing": [
+          {
+            "id": "3301f98d-8727-4c7b-97dc-8a8262d4e440",
+            "title": "Agent-Definitionen, Arbeitsplätze und Arbeitspläne: technische Umsetzung"
+          },
+          {
+            "id": "93eb063a-a63c-4cac-8393-af182291a582",
+            "title": "Agents: Festlegungen"
+          }
+        ],
+        "nextCursor": null
+      }
+    },
+    {
+      "id": "b53d1a62-5462-4439-bf6d-cbbd854dd433",
+      "title": "Anbindungen",
+      "revision": 1,
+      "parentId": "93eb063a-a63c-4cac-8393-af182291a582",
+      "scope": "project",
+      "projectId": "ec6476da-edd0-408d-92a0-e580266d82f9",
+      "icon": null,
+      "cover": null,
+      "anchors": [],
+      "characters": 5693,
+      "links": {
+        "pageId": "b53d1a62-5462-4439-bf6d-cbbd854dd433",
+        "outgoing": [
+          {
+            "id": "93eb063a-a63c-4cac-8393-af182291a582",
+            "title": "Agents: Festlegungen"
+          }
+        ],
+        "nextCursor": null
+      }
+    },
+    {
+      "id": "c64fb7a7-fd6b-4d2a-be1f-f5af9619e724",
+      "title": "Modell und Reasoning",
+      "revision": 1,
+      "parentId": "93eb063a-a63c-4cac-8393-af182291a582",
+      "scope": "project",
+      "projectId": "ec6476da-edd0-408d-92a0-e580266d82f9",
+      "icon": null,
+      "cover": null,
+      "anchors": [],
+      "characters": 3578,
+      "links": {
+        "pageId": "c64fb7a7-fd6b-4d2a-be1f-f5af9619e724",
+        "outgoing": [
+          {
+            "id": "93eb063a-a63c-4cac-8393-af182291a582",
+            "title": "Agents: Festlegungen"
+          }
+        ],
+        "nextCursor": null
+      }
+    },
+    {
+      "id": "3d67d542-5917-4176-9881-6245e9faead3",
+      "title": "Agent-Verwaltung und Editor",
+      "revision": 1,
+      "parentId": "93eb063a-a63c-4cac-8393-af182291a582",
+      "scope": "project",
+      "projectId": "ec6476da-edd0-408d-92a0-e580266d82f9",
+      "icon": null,
+      "cover": null,
+      "anchors": [],
+      "characters": 7457,
+      "links": {
+        "pageId": "3d67d542-5917-4176-9881-6245e9faead3",
+        "outgoing": [
+          {
+            "id": "93eb063a-a63c-4cac-8393-af182291a582",
+            "title": "Agents: Festlegungen"
+          },
+          {
+            "id": "bcf6d1ea-462e-4b02-8b8a-afdcab75af77",
+            "title": "Benutzer, Rollen und Autorisierung (Technik): Zielmodell"
+          }
+        ],
+        "nextCursor": null
+      }
+    },
+    {
+      "id": "702f7bd4-9d30-478c-a719-b0350dec7fb5",
+      "title": "Arbeitsplätze",
+      "revision": 1,
+      "parentId": "93eb063a-a63c-4cac-8393-af182291a582",
+      "scope": "project",
+      "projectId": "ec6476da-edd0-408d-92a0-e580266d82f9",
+      "icon": null,
+      "cover": null,
+      "anchors": [],
+      "characters": 5006,
+      "links": {
+        "pageId": "702f7bd4-9d30-478c-a719-b0350dec7fb5",
+        "outgoing": [
+          {
+            "id": "45bc1de4-9c18-4851-8e62-fc516075ca19",
+            "title": "Remote-Verbindungen und Runner"
+          },
+          {
+            "id": "93eb063a-a63c-4cac-8393-af182291a582",
+            "title": "Agents: Festlegungen"
+          }
+        ],
+        "nextCursor": null
+      }
+    },
+    {
+      "id": "957716f3-ed65-4e80-886c-ece8821cd0dc",
+      "title": "Agent-Plan",
+      "revision": 1,
+      "parentId": "93eb063a-a63c-4cac-8393-af182291a582",
+      "scope": "project",
+      "projectId": "ec6476da-edd0-408d-92a0-e580266d82f9",
+      "icon": null,
+      "cover": null,
+      "anchors": [],
+      "characters": 11535,
+      "links": {
+        "pageId": "957716f3-ed65-4e80-886c-ece8821cd0dc",
+        "outgoing": [
+          {
+            "id": "4d0a8535-ba0a-485c-aff0-6c07203426b1",
+            "title": "Laufsteuerung und Planpanel"
+          },
+          {
+            "id": "6d5a37ed-6ab1-4c4e-8962-96b7f1224b5b",
+            "title": "Pages-Schnittstelle und MCP: technische Umsetzung"
+          },
+          {
+            "id": "93eb063a-a63c-4cac-8393-af182291a582",
+            "title": "Agents: Festlegungen"
+          }
+        ],
+        "nextCursor": null
+      }
+    },
+    {
+      "id": "965bcb83-13d6-4db6-bf7a-eb6695a3a3d1",
+      "title": "Gedächtnis und Dreaming",
+      "revision": 1,
+      "parentId": "93eb063a-a63c-4cac-8393-af182291a582",
+      "scope": "project",
+      "projectId": "ec6476da-edd0-408d-92a0-e580266d82f9",
+      "icon": null,
+      "cover": null,
+      "anchors": [],
+      "characters": 1180,
+      "links": {
+        "pageId": "965bcb83-13d6-4db6-bf7a-eb6695a3a3d1",
+        "outgoing": [
+          {
+            "id": "93eb063a-a63c-4cac-8393-af182291a582",
+            "title": "Agents: Festlegungen"
+          }
+        ],
+        "nextCursor": null
+      }
+    },
+    {
+      "id": "08d76d5e-d795-442d-b322-9f35e2181d24",
+      "title": "Agent Plan: Verbindliche Ticketauswahl-Referenz mit Suche, Phasen und Sortierung",
+      "revision": 3,
+      "parentId": "d01775a6-8af5-4054-93c5-eec98867bcc2",
+      "scope": "project",
+      "projectId": "ec6476da-edd0-408d-92a0-e580266d82f9",
+      "icon": null,
+      "cover": null,
+      "anchors": [],
+      "characters": 1631,
+      "links": {
+        "pageId": "08d76d5e-d795-442d-b322-9f35e2181d24",
+        "outgoing": [
+          {
+            "id": "957716f3-ed65-4e80-886c-ece8821cd0dc",
+            "title": "Agent-Plan"
+          }
+        ],
+        "nextCursor": null
+      }
+    },
+    {
+      "id": "129e8279-37b9-49b1-8a6d-fc6cd10b76cf",
+      "title": "Agent-Dateien und Dreaming-Agent: technische Festlegungen",
+      "revision": 4,
+      "parentId": "e1de1b22-2282-4f92-bb96-1d9fd7bb2fa8",
+      "scope": "project",
+      "projectId": "ec6476da-edd0-408d-92a0-e580266d82f9",
+      "icon": null,
+      "cover": null,
+      "anchors": [],
+      "characters": 4823,
+      "links": {
+        "pageId": "129e8279-37b9-49b1-8a6d-fc6cd10b76cf",
+        "outgoing": [
+          {
+            "id": "2ce348a3-0793-4256-a893-43ff601a9231",
+            "title": "Zentrale Agent-Verwaltung und Zuweisungen: technische Festlegungen"
+          },
+          {
+            "id": "3301f98d-8727-4c7b-97dc-8a8262d4e440",
+            "title": "Agent-Definitionen, Arbeitsplätze und Arbeitspläne: technische Umsetzung"
+          },
+          {
+            "id": "75a00913-00e5-4f26-aa23-efcd4e0aea92",
+            "title": "Globaler Chat-Agent und MCP-Erweiterungen: technische Festlegungen"
+          },
+          {
+            "id": "965bcb83-13d6-4db6-bf7a-eb6695a3a3d1",
+            "title": "Gedächtnis und Dreaming"
+          }
+        ],
+        "nextCursor": null
+      }
+    },
+    {
+      "id": "2839df7f-a2ad-4c9e-936c-f3bd1949215a",
+      "title": "Einstellungen und Verwaltung",
+      "revision": 6,
+      "parentId": "3dc864cf-57af-47cc-8cad-79c1627372a7",
+      "scope": "project",
+      "projectId": "ec6476da-edd0-408d-92a0-e580266d82f9",
+      "icon": null,
+      "cover": null,
+      "anchors": [],
+      "characters": 7653,
+      "links": {
+        "pageId": "2839df7f-a2ad-4c9e-936c-f3bd1949215a",
+        "outgoing": [
+          {
+            "id": "0b6e45fd-4ca6-43eb-b505-7f33a0c2bc37",
+            "title": "Einrichtung und Einstellungen: Festlegungen"
+          },
+          {
+            "id": "3dc864cf-57af-47cc-8cad-79c1627372a7",
+            "title": "Frontend"
+          },
+          {
+            "id": "702f7bd4-9d30-478c-a719-b0350dec7fb5",
+            "title": "Arbeitsplätze"
+          },
+          {
+            "id": "b53d1a62-5462-4439-bf6d-cbbd854dd433",
+            "title": "Anbindungen"
+          },
+          {
+            "id": "d01775a6-8af5-4054-93c5-eec98867bcc2",
+            "title": "Agents"
+          }
+        ],
+        "nextCursor": null
+      }
+    },
+    {
+      "id": "2ce348a3-0793-4256-a893-43ff601a9231",
+      "title": "Zentrale Agent-Verwaltung und Zuweisungen: technische Festlegungen",
+      "revision": 4,
+      "parentId": "e1de1b22-2282-4f92-bb96-1d9fd7bb2fa8",
+      "scope": "project",
+      "projectId": "ec6476da-edd0-408d-92a0-e580266d82f9",
+      "icon": null,
+      "cover": null,
+      "anchors": [],
+      "characters": 6128,
+      "links": {
+        "pageId": "2ce348a3-0793-4256-a893-43ff601a9231",
+        "outgoing": [
+          {
+            "id": "0489975c-a5bc-4bd3-8b25-d32f025b3fd4",
+            "title": "Chat-Assistent Pica"
+          },
+          {
+            "id": "129e8279-37b9-49b1-8a6d-fc6cd10b76cf",
+            "title": "Agent-Dateien und Dreaming-Agent: technische Festlegungen"
+          },
+          {
+            "id": "3301f98d-8727-4c7b-97dc-8a8262d4e440",
+            "title": "Agent-Definitionen, Arbeitsplätze und Arbeitspläne: technische Umsetzung"
+          },
+          {
+            "id": "3d67d542-5917-4176-9881-6245e9faead3",
+            "title": "Agent-Verwaltung und Editor"
+          },
+          {
+            "id": "6d9ac5a3-3645-46fb-86f4-a75c48ce87fe",
+            "title": "Rechte, Rollen und Modi: Festlegungen"
+          },
+          {
+            "id": "75a00913-00e5-4f26-aa23-efcd4e0aea92",
+            "title": "Globaler Chat-Agent und MCP-Erweiterungen: technische Festlegungen"
+          },
+          {
+            "id": "d01775a6-8af5-4054-93c5-eec98867bcc2",
+            "title": "Agents"
+          },
+          {
+            "id": "ebc954d7-796a-4d6f-9e54-b9649bdb8da7",
+            "title": "Assistenten: Festlegungen"
+          },
+          {
+            "id": "ef72c5bf-391a-486d-9acd-b4a3b1d40243",
+            "title": "Technisches Zielbild"
+          }
+        ],
+        "nextCursor": null
+      }
+    },
+    {
+      "id": "3301f98d-8727-4c7b-97dc-8a8262d4e440",
+      "title": "Agent-Definitionen, Arbeitsplätze und Arbeitspläne: technische Umsetzung",
+      "revision": 17,
+      "parentId": "e1de1b22-2282-4f92-bb96-1d9fd7bb2fa8",
+      "scope": "project",
+      "projectId": "ec6476da-edd0-408d-92a0-e580266d82f9",
+      "icon": null,
+      "cover": null,
+      "anchors": [],
+      "characters": 38605,
+      "links": {
+        "pageId": "3301f98d-8727-4c7b-97dc-8a8262d4e440",
+        "outgoing": [
+          {
+            "id": "129e8279-37b9-49b1-8a6d-fc6cd10b76cf",
+            "title": "Agent-Dateien und Dreaming-Agent: technische Festlegungen"
+          },
+          {
+            "id": "2ce348a3-0793-4256-a893-43ff601a9231",
+            "title": "Zentrale Agent-Verwaltung und Zuweisungen: technische Festlegungen"
+          },
+          {
+            "id": "45bc1de4-9c18-4851-8e62-fc516075ca19",
+            "title": "Remote-Verbindungen und Runner"
+          },
+          {
+            "id": "75a00913-00e5-4f26-aa23-efcd4e0aea92",
+            "title": "Globaler Chat-Agent und MCP-Erweiterungen: technische Festlegungen"
+          },
+          {
+            "id": "93eb063a-a63c-4cac-8393-af182291a582",
+            "title": "Agents: Festlegungen"
+          },
+          {
+            "id": "957716f3-ed65-4e80-886c-ece8821cd0dc",
+            "title": "Agent-Plan"
+          },
+          {
+            "id": "98906a63-6435-48e5-b0b3-465ebb926754",
+            "title": "Produktkonzept"
+          },
+          {
+            "id": "d01775a6-8af5-4054-93c5-eec98867bcc2",
+            "title": "Agents"
+          },
+          {
+            "id": "ef72c5bf-391a-486d-9acd-b4a3b1d40243",
+            "title": "Technisches Zielbild"
+          }
+        ],
+        "nextCursor": null
+      }
+    },
+    {
+      "id": "4fd03334-b147-4fc5-b260-60c8a4bf2a19",
+      "title": "Assistenten",
+      "revision": 6,
+      "parentId": "3dc864cf-57af-47cc-8cad-79c1627372a7",
+      "scope": "project",
+      "projectId": "ec6476da-edd0-408d-92a0-e580266d82f9",
+      "icon": null,
+      "cover": null,
+      "anchors": [],
+      "characters": 4860,
+      "links": {
+        "pageId": "4fd03334-b147-4fc5-b260-60c8a4bf2a19",
+        "outgoing": [
+          {
+            "id": "0489975c-a5bc-4bd3-8b25-d32f025b3fd4",
+            "title": "Chat-Assistent Pica"
+          },
+          {
+            "id": "3a28af49-5efc-40ab-9a7e-bf4715f99744",
+            "title": "Pica-Panel: visuelle Konzeptreferenz für PAGE-28"
+          },
+          {
+            "id": "3dc864cf-57af-47cc-8cad-79c1627372a7",
+            "title": "Frontend"
+          },
+          {
+            "id": "b53d1a62-5462-4439-bf6d-cbbd854dd433",
+            "title": "Anbindungen"
+          }
+        ],
+        "nextCursor": null
+      }
+    },
+    {
+      "id": "6d5a37ed-6ab1-4c4e-8962-96b7f1224b5b",
+      "title": "Pages-Schnittstelle und MCP: technische Umsetzung",
+      "revision": 7,
+      "parentId": "af35a9aa-2850-4ee4-9f90-2bf7b559eb34",
+      "scope": "project",
+      "projectId": "ec6476da-edd0-408d-92a0-e580266d82f9",
+      "icon": null,
+      "cover": null,
+      "anchors": [],
+      "characters": 16808,
+      "links": {
+        "pageId": "6d5a37ed-6ab1-4c4e-8962-96b7f1224b5b",
+        "outgoing": [
+          {
+            "id": "1e02e5d9-dc88-474b-adef-a28e779a17a3",
+            "title": "Integrationen: GitHub, CI und Releases"
+          },
+          {
+            "id": "3d67d542-5917-4176-9881-6245e9faead3",
+            "title": "Agent-Verwaltung und Editor"
+          },
+          {
+            "id": "8d5ff60b-a3a9-4ef3-9a1f-378c336d2cd6",
+            "title": "MCP-Erweiterung A11.1: Werkzeugumfang und Regeln"
+          },
+          {
+            "id": "d9b7a3c8-a1b3-4902-9e31-6fb0aa60fd2d",
+            "title": "MCP-Pairing für stdio: technischer Vertrag"
+          },
+          {
+            "id": "dadc171b-0389-4166-92f5-0445ad6c0e02",
+            "title": "MCP: Einstellungen"
+          },
+          {
+            "id": "f82cd43a-b787-47e7-a330-35efcfc87936",
+            "title": "MCP Interface"
+          }
+        ],
+        "nextCursor": null
+      }
+    },
+    {
+      "id": "6d9ac5a3-3645-46fb-86f4-a75c48ce87fe",
+      "title": "Rechte, Rollen und Modi: Festlegungen",
+      "revision": 6,
+      "parentId": "3dc864cf-57af-47cc-8cad-79c1627372a7",
+      "scope": "project",
+      "projectId": "ec6476da-edd0-408d-92a0-e580266d82f9",
+      "icon": null,
+      "cover": null,
+      "anchors": [],
+      "characters": 7957,
+      "links": {
+        "pageId": "6d9ac5a3-3645-46fb-86f4-a75c48ce87fe",
+        "outgoing": [
+          {
+            "id": "3dc864cf-57af-47cc-8cad-79c1627372a7",
+            "title": "Frontend"
+          },
+          {
+            "id": "44f51444-6e67-43a3-be42-dab7821ef5ae",
+            "title": "Rückmeldung und Zustände"
+          },
+          {
+            "id": "45bc1de4-9c18-4851-8e62-fc516075ca19",
+            "title": "Remote-Verbindungen und Runner"
+          },
+          {
+            "id": "64fcca0a-5171-45a3-b8c7-4bcebdec8f3c",
+            "title": "Design"
+          },
+          {
+            "id": "98906a63-6435-48e5-b0b3-465ebb926754",
+            "title": "Produktkonzept"
+          },
+          {
+            "id": "b53d1a62-5462-4439-bf6d-cbbd854dd433",
+            "title": "Anbindungen"
+          },
+          {
+            "id": "d2b862d1-5a2e-4e4d-a723-8091e17c84a4",
+            "title": "Projekte und Aufgaben: Festlegungen"
+          },
+          {
+            "id": "ef72c5bf-391a-486d-9acd-b4a3b1d40243",
+            "title": "Technisches Zielbild"
+          }
+        ],
+        "nextCursor": null
+      }
+    },
+    {
+      "id": "98906a63-6435-48e5-b0b3-465ebb926754",
+      "title": "Produktkonzept",
+      "revision": 36,
+      "parentId": "b7bc5cf6-6054-4c71-b8ad-443c9a869932",
+      "scope": "project",
+      "projectId": "ec6476da-edd0-408d-92a0-e580266d82f9",
+      "icon": null,
+      "cover": null,
+      "anchors": [],
+      "characters": 17052,
+      "links": {
+        "pageId": "98906a63-6435-48e5-b0b3-465ebb926754",
+        "outgoing": [
+          {
+            "id": "03215cd3-4112-4526-8a03-279cfd515baf",
+            "title": "Wiki: Festlegungen"
+          },
+          {
+            "id": "0489975c-a5bc-4bd3-8b25-d32f025b3fd4",
+            "title": "Chat-Assistent Pica"
+          },
+          {
+            "id": "0b6e45fd-4ca6-43eb-b505-7f33a0c2bc37",
+            "title": "Einrichtung und Einstellungen: Festlegungen"
+          },
+          {
+            "id": "129e8279-37b9-49b1-8a6d-fc6cd10b76cf",
+            "title": "Agent-Dateien und Dreaming-Agent: technische Festlegungen"
+          },
+          {
+            "id": "1e02e5d9-dc88-474b-adef-a28e779a17a3",
+            "title": "Integrationen: GitHub, CI und Releases"
+          },
+          {
+            "id": "3301f98d-8727-4c7b-97dc-8a8262d4e440",
+            "title": "Agent-Definitionen, Arbeitsplätze und Arbeitspläne: technische Umsetzung"
+          },
+          {
+            "id": "3cfbdabb-34fa-4511-b775-2ad35fab6c4a",
+            "title": "Offene Punkte der Bedienung"
+          },
+          {
+            "id": "3dc864cf-57af-47cc-8cad-79c1627372a7",
+            "title": "Frontend"
+          },
+          {
+            "id": "4d0a8535-ba0a-485c-aff0-6c07203426b1",
+            "title": "Laufsteuerung und Planpanel"
+          },
+          {
+            "id": "561a356f-221a-4bb9-b89d-a92e2b143022",
+            "title": "Pica Mobile – Vision, Konzept und plattformübergreifende Zusammenarbeit"
+          },
+          {
+            "id": "64fcca0a-5171-45a3-b8c7-4bcebdec8f3c",
+            "title": "Design"
+          },
+          {
+            "id": "6d5a37ed-6ab1-4c4e-8962-96b7f1224b5b",
+            "title": "Pages-Schnittstelle und MCP: technische Umsetzung"
+          },
+          {
+            "id": "6d9ac5a3-3645-46fb-86f4-a75c48ce87fe",
+            "title": "Rechte, Rollen und Modi: Festlegungen"
+          },
+          {
+            "id": "6f4a24af-67bf-48a3-a89c-67f882b75647",
+            "title": "Architektur und Datenmodell"
+          },
+          {
+            "id": "795d7529-d618-46bc-86e6-d84da32f5658",
+            "title": "Vision"
+          },
+          {
+            "id": "805f9a31-918c-4a98-8693-13cf21dc6bdd",
+            "title": "Zielarchitektur: Kern und eigenständige Dienste (Vorschlag)"
+          },
+          {
+            "id": "930c289e-73e2-4c5c-8ee5-418949160f0e",
+            "title": "Schrift, Raster und Seitenaufbau"
+          },
+          {
+            "id": "93eb063a-a63c-4cac-8393-af182291a582",
+            "title": "Agents: Festlegungen"
+          },
+          {
+            "id": "957716f3-ed65-4e80-886c-ece8821cd0dc",
+            "title": "Agent-Plan"
+          },
+          {
+            "id": "af35a9aa-2850-4ee4-9f90-2bf7b559eb34",
+            "title": "MCP Pages"
+          },
+          {
+            "id": "b695348f-9dab-4c6f-926f-cf81f8f415e8",
+            "title": "Runtime, Konfiguration und Setup-Wizard"
+          },
+          {
+            "id": "b8722814-5778-4fa7-ae2e-84b651b12c04",
+            "title": "Events, Benachrichtigungen und Backups"
+          },
+          {
+            "id": "bcf6d1ea-462e-4b02-8b8a-afdcab75af77",
+            "title": "Benutzer, Rollen und Autorisierung (Technik): Zielmodell"
+          },
+          {
+            "id": "d2b862d1-5a2e-4e4d-a723-8091e17c84a4",
+            "title": "Projekte und Aufgaben: Festlegungen"
+          },
+          {
+            "id": "e79ef9b3-3c6c-4866-8eae-2ffdd95ff9b6",
+            "title": "Funktionsaufgaben und Auflösung der Zuweisung: technische Umsetzung"
+          },
+          {
+            "id": "ee96a2bc-18b0-45aa-8da5-c3d38bfd0627",
+            "title": "Updates und Betrieb"
+          },
+          {
+            "id": "ef72c5bf-391a-486d-9acd-b4a3b1d40243",
+            "title": "Technisches Zielbild"
+          },
+          {
+            "id": "fd0b40e2-07f7-48f4-85c4-620cdf812288",
+            "title": "AI-Anbieter und Routing: technische Umsetzung"
+          }
+        ],
+        "nextCursor": null
+      }
+    },
+    {
+      "id": "d9b7a3c8-a1b3-4902-9e31-6fb0aa60fd2d",
+      "title": "MCP-Pairing für stdio: technischer Vertrag",
+      "revision": 6,
+      "parentId": "af35a9aa-2850-4ee4-9f90-2bf7b559eb34",
+      "scope": "project",
+      "projectId": "ec6476da-edd0-408d-92a0-e580266d82f9",
+      "icon": null,
+      "cover": null,
+      "anchors": [],
+      "characters": 17519,
+      "links": {
+        "pageId": "d9b7a3c8-a1b3-4902-9e31-6fb0aa60fd2d",
+        "outgoing": [
+          {
+            "id": "3d67d542-5917-4176-9881-6245e9faead3",
+            "title": "Agent-Verwaltung und Editor"
+          },
+          {
+            "id": "6d5a37ed-6ab1-4c4e-8962-96b7f1224b5b",
+            "title": "Pages-Schnittstelle und MCP: technische Umsetzung"
+          },
+          {
+            "id": "d1e6ade3-73b9-4eb0-b9f9-d95d67a6cc60",
+            "title": "Ergänzungen und Herkunft der Festlegungen"
+          },
+          {
+            "id": "dadc171b-0389-4166-92f5-0445ad6c0e02",
+            "title": "MCP: Einstellungen"
+          }
+        ],
+        "nextCursor": null
+      }
+    },
+    {
+      "id": "e79ef9b3-3c6c-4866-8eae-2ffdd95ff9b6",
+      "title": "Funktionsaufgaben und Auflösung der Zuweisung: technische Umsetzung",
+      "revision": 6,
+      "parentId": "fd0b40e2-07f7-48f4-85c4-620cdf812288",
+      "scope": "project",
+      "projectId": "ec6476da-edd0-408d-92a0-e580266d82f9",
+      "icon": null,
+      "cover": null,
+      "anchors": [],
+      "characters": 9136,
+      "links": {
+        "pageId": "e79ef9b3-3c6c-4866-8eae-2ffdd95ff9b6",
+        "outgoing": [
+          {
+            "id": "0489975c-a5bc-4bd3-8b25-d32f025b3fd4",
+            "title": "Chat-Assistent Pica"
+          },
+          {
+            "id": "2ce348a3-0793-4256-a893-43ff601a9231",
+            "title": "Zentrale Agent-Verwaltung und Zuweisungen: technische Festlegungen"
+          },
+          {
+            "id": "3d67d542-5917-4176-9881-6245e9faead3",
+            "title": "Agent-Verwaltung und Editor"
+          },
+          {
+            "id": "4fd03334-b147-4fc5-b260-60c8a4bf2a19",
+            "title": "Assistenten"
+          },
+          {
+            "id": "8b665fab-daef-44ae-8189-15ebbf171a53",
+            "title": "AI-Anbindungen, Modellkatalog und Reasoning: technische Umsetzung"
+          },
+          {
+            "id": "af35a9aa-2850-4ee4-9f90-2bf7b559eb34",
+            "title": "MCP Pages"
+          },
+          {
+            "id": "d01775a6-8af5-4054-93c5-eec98867bcc2",
+            "title": "Agents"
+          },
+          {
+            "id": "ebc954d7-796a-4d6f-9e54-b9649bdb8da7",
+            "title": "Assistenten: Festlegungen"
+          },
+          {
+            "id": "fd0b40e2-07f7-48f4-85c4-620cdf812288",
+            "title": "AI-Anbieter und Routing: technische Umsetzung"
+          }
+        ],
+        "nextCursor": null
+      }
+    }
+  ],
+  "inboundChanges": [
+    {
+      "id": "08d76d5e-d795-442d-b322-9f35e2181d24",
+      "title": "Agent Plan: Verbindliche Ticketauswahl-Referenz mit Suche, Phasen und Sortierung",
+      "beforeRevision": 2,
+      "afterRevision": 3,
+      "edits": [
+        {
+          "line": 9,
+          "before": "Die DEMO-Tickets und Zeitangaben sind Beispieldaten; echte Einträge und Projektphasen ersetzen sie. Sichtbare Ticket-Keys sind erwünscht, technische Node-/Ticket-UUIDs nicht als Menübeschriftung. Zusatzvorgabe vom 18.10.2026: Im Drei-Punkte-Menü ursprünglich nur **„Löschen“ / „Delete“**, ohne angehängte ID oder Namen. **Präzisiert am 19.10.2026 (Igor):** Für Parameter, Agent, Script und Group kommt **„Als Vorlage speichern…“** hinzu; für Start, Ende und Tickets bleibt es bei „Löschen“. Dies ist der neue geplante Umfang, nicht bereits nachgewiesene Implementierung. Details: [Agents: Festlegungen](/wiki/93eb063a-a63c-4cac-8393-af182291a582). Löschen betrifft weiterhin nur die Node und ihre Verbindungen, nicht das referenzierte Pages-Ticket.",
+          "after": "Die DEMO-Tickets und Zeitangaben sind Beispieldaten; echte Einträge und Projektphasen ersetzen sie. Sichtbare Ticket-Keys sind erwünscht, technische Node-/Ticket-UUIDs nicht als Menübeschriftung. Zusatzvorgabe vom 18.10.2026: Im Drei-Punkte-Menü ursprünglich nur **„Löschen“ / „Delete“**, ohne angehängte ID oder Namen. **Präzisiert am 19.10.2026 (Igor):** Für Parameter, Agent, Script und Group kommt **„Als Vorlage speichern…“** hinzu; für Start, Ende und Tickets bleibt es bei „Löschen“. Dies ist der neue geplante Umfang, nicht bereits nachgewiesene Implementierung. Details: [Agent-Plan](/wiki/957716f3-ed65-4e80-886c-ece8821cd0dc). Löschen betrifft weiterhin nur die Node und ihre Verbindungen, nicht das referenzierte Pages-Ticket.",
+          "targetId": "957716f3-ed65-4e80-886c-ece8821cd0dc"
+        }
+      ]
+    },
+    {
+      "id": "129e8279-37b9-49b1-8a6d-fc6cd10b76cf",
+      "title": "Agent-Dateien und Dreaming-Agent: technische Festlegungen",
+      "beforeRevision": 3,
+      "afterRevision": 4,
+      "edits": [
+        {
+          "line": 3,
+          "before": "Diese Seite hält die **technischen Festlegungen zu Agent-Dateien und zum globalen Dreaming-Agenten** (Arbeitspaket A12.2) fest. Die Oberfläche des Dreamings beschreibt der Abschnitt „Globaler Dreaming-Agent“ auf [Agents: Festlegungen](/wiki/93eb063a-a63c-4cac-8393-af182291a582). Datensatz, Verwendungszweck „Dreaming“ und Systemzuweisung stehen auf [Zentrale Agent-Verwaltung und Zuweisungen](/wiki/2ce348a3-0793-4256-a893-43ff601a9231); der Chat-Agent mit seinem Agent-Ordner auf [Globaler Chat-Agent und MCP-Erweiterungen](/wiki/75a00913-00e5-4f26-aa23-efcd4e0aea92); Agent-Konfiguration und Pläne auf [Agent-Definitionen, Arbeitsplätze und Arbeitspläne](/wiki/3301f98d-8727-4c7b-97dc-8a8262d4e440).",
+          "after": "Diese Seite hält die **technischen Festlegungen zu Agent-Dateien und zum globalen Dreaming-Agenten** (Arbeitspaket A12.2) fest. Die Oberfläche des Dreamings beschreibt der Abschnitt „Globaler Dreaming-Agent“ auf [Gedächtnis und Dreaming](/wiki/965bcb83-13d6-4db6-bf7a-eb6695a3a3d1). Datensatz, Verwendungszweck „Dreaming“ und Systemzuweisung stehen auf [Zentrale Agent-Verwaltung und Zuweisungen](/wiki/2ce348a3-0793-4256-a893-43ff601a9231); der Chat-Agent mit seinem Agent-Ordner auf [Globaler Chat-Agent und MCP-Erweiterungen](/wiki/75a00913-00e5-4f26-aa23-efcd4e0aea92); Agent-Konfiguration und Pläne auf [Agent-Definitionen, Arbeitsplätze und Arbeitspläne](/wiki/3301f98d-8727-4c7b-97dc-8a8262d4e440).",
+          "targetId": "965bcb83-13d6-4db6-bf7a-eb6695a3a3d1"
+        },
+        {
+          "line": 58,
+          "before": "Die Dreaming-Datei ist von Dreaming gepflegter Zusatzkontext und **kein Ersatz** für die feste Agent-Funktion; die Oberfläche erlaubt nicht, die unveränderlichen Agent-Beschreibungsdateien oder Agent-Beschreibungen zu ändern (siehe [Agents: Festlegungen](/wiki/93eb063a-a63c-4cac-8393-af182291a582)).",
+          "after": "Die Dreaming-Datei ist von Dreaming gepflegter Zusatzkontext und **kein Ersatz** für die feste Agent-Funktion; die Oberfläche erlaubt nicht, die unveränderlichen Agent-Beschreibungsdateien oder Agent-Beschreibungen zu ändern (siehe [Gedächtnis und Dreaming](/wiki/965bcb83-13d6-4db6-bf7a-eb6695a3a3d1)).",
+          "targetId": "965bcb83-13d6-4db6-bf7a-eb6695a3a3d1"
+        }
+      ]
+    },
+    {
+      "id": "2839df7f-a2ad-4c9e-936c-f3bd1949215a",
+      "title": "Einstellungen und Verwaltung",
+      "beforeRevision": 5,
+      "afterRevision": 6,
+      "edits": [
+        {
+          "line": 70,
+          "before": "- **Anbindungsumfang** ist im Bereich Agents unter „Nutzung der Modelle“ einstellbar (Global oder eingeschränkt). Das Nähere steht unter [Agents: Festlegungen](/wiki/93eb063a-a63c-4cac-8393-af182291a582).",
+          "after": "- **Anbindungsumfang** ist im Bereich Agents unter „Nutzung der Modelle“ einstellbar (Global oder eingeschränkt). Das Nähere steht unter [Anbindungen](/wiki/b53d1a62-5462-4439-bf6d-cbbd854dd433).",
+          "targetId": "b53d1a62-5462-4439-bf6d-cbbd854dd433"
+        },
+        {
+          "line": 71,
+          "before": "- **Arbeitsverzeichnis** ist im Bereich Agents unter „Arbeitsverzeichnis“ zu finden. Siehe [Agents: Festlegungen](/wiki/93eb063a-a63c-4cac-8393-af182291a582).",
+          "after": "- **Arbeitsverzeichnis** ist im Bereich Agents unter „Arbeitsverzeichnis“ zu finden. Siehe [Arbeitsplätze](/wiki/702f7bd4-9d30-478c-a719-b0350dec7fb5).",
+          "targetId": "702f7bd4-9d30-478c-a719-b0350dec7fb5"
+        }
+      ]
+    },
+    {
+      "id": "2ce348a3-0793-4256-a893-43ff601a9231",
+      "title": "Zentrale Agent-Verwaltung und Zuweisungen: technische Festlegungen",
+      "beforeRevision": 3,
+      "afterRevision": 4,
+      "edits": [
+        {
+          "line": 3,
+          "before": "Diese Seite hält die **technischen Festlegungen der zentralen Agent-Verwaltung** (Arbeitspaket A11.3) fest: Datensatz, Zuweisungen, Geltung, Auflösung beim Start, Rechte, Löschen und Migration. Die sichtbare Bedienung steht unter [Agents](/wiki/d01775a6-8af5-4054-93c5-eec98867bcc2) und [Agents: Festlegungen](/wiki/93eb063a-a63c-4cac-8393-af182291a582) (Abschnitte „Zentrale Agent-Verwaltung“ und „Agent-Editor“). Die technische Umsetzung von Agent-Konfiguration, Arbeitsplätzen und Plangraph beschreibt [Agent-Definitionen, Arbeitsplätze und Arbeitspläne: technische Umsetzung](/wiki/3301f98d-8727-4c7b-97dc-8a8262d4e440).",
+          "after": "Diese Seite hält die **technischen Festlegungen der zentralen Agent-Verwaltung** (Arbeitspaket A11.3) fest: Datensatz, Zuweisungen, Geltung, Auflösung beim Start, Rechte, Löschen und Migration. Die sichtbare Bedienung steht unter [Agents](/wiki/d01775a6-8af5-4054-93c5-eec98867bcc2) und [Agent-Verwaltung und Editor](/wiki/3d67d542-5917-4176-9881-6245e9faead3) (Abschnitte „Zentrale Agent-Verwaltung“ und „Agent-Editor“). Die technische Umsetzung von Agent-Konfiguration, Arbeitsplätzen und Plangraph beschreibt [Agent-Definitionen, Arbeitsplätze und Arbeitspläne: technische Umsetzung](/wiki/3301f98d-8727-4c7b-97dc-8a8262d4e440).",
+          "targetId": "3d67d542-5917-4176-9881-6245e9faead3"
+        }
+      ]
+    },
+    {
+      "id": "3301f98d-8727-4c7b-97dc-8a8262d4e440",
+      "title": "Agent-Definitionen, Arbeitsplätze und Arbeitspläne: technische Umsetzung",
+      "beforeRevision": 16,
+      "afterRevision": 17,
+      "edits": [
+        {
+          "line": 158,
+          "before": "**Beschlossenes Produktziel, nicht Implementierungsnachweis:** Projektzugriff UND aktuelle tatsächliche Mitgliedschaft in der stabil gespeicherten Objektabteilung bestimmen den gemeinsamen Bereich für Pläne und Node-/Group-Vorlagen. [Fachliche Festlegung](/wiki/93eb063a-a63c-4cac-8393-af182291a582).",
+          "after": "**Beschlossenes Produktziel, nicht Implementierungsnachweis:** Projektzugriff UND aktuelle tatsächliche Mitgliedschaft in der stabil gespeicherten Objektabteilung bestimmen den gemeinsamen Bereich für Pläne und Node-/Group-Vorlagen. [Fachliche Festlegung](/wiki/957716f3-ed65-4e80-886c-ece8821cd0dc).",
+          "targetId": "957716f3-ed65-4e80-886c-ece8821cd0dc"
+        },
+        {
+          "line": 186,
+          "before": "- Ein Startverzeichnis isoliert keine Shell. Remote-OS-/Containergrenzen, Secretvertraulichkeit und das getrennte Beenden nur der eigenen PTY-Ressourcen bleiben erforderlich. Der Abschnitt ist ein bestätigter Zielvertrag, keine Implementierungs- oder Liveabnahmebehauptung. Fachlicher Einstieg: [Agents: Festlegungen](/wiki/93eb063a-a63c-4cac-8393-af182291a582).",
+          "after": "- Ein Startverzeichnis isoliert keine Shell. Remote-OS-/Containergrenzen, Secretvertraulichkeit und das getrennte Beenden nur der eigenen PTY-Ressourcen bleiben erforderlich. Der Abschnitt ist ein bestätigter Zielvertrag, keine Implementierungs- oder Liveabnahmebehauptung. Fachlicher Einstieg: [Remote-Verbindungen und Runner](/wiki/45bc1de4-9c18-4851-8e62-fc516075ca19).",
+          "targetId": "45bc1de4-9c18-4851-8e62-fc516075ca19"
+        }
+      ]
+    },
+    {
+      "id": "4fd03334-b147-4fc5-b260-60c8a4bf2a19",
+      "title": "Assistenten",
+      "beforeRevision": 5,
+      "afterRevision": 6,
+      "edits": [
+        {
+          "line": 50,
+          "before": "- Die Auswahl der Modelle richtet sich nach den Freigaben der Anbindung; Details unter [Agents: Festlegungen](/wiki/93eb063a-a63c-4cac-8393-af182291a582).",
+          "after": "- Die Auswahl der Modelle richtet sich nach den Freigaben der Anbindung; Details unter [Anbindungen](/wiki/b53d1a62-5462-4439-bf6d-cbbd854dd433).",
+          "targetId": "b53d1a62-5462-4439-bf6d-cbbd854dd433"
+        }
+      ]
+    },
+    {
+      "id": "6d5a37ed-6ab1-4c4e-8962-96b7f1224b5b",
+      "title": "Pages-Schnittstelle und MCP: technische Umsetzung",
+      "beforeRevision": 6,
+      "afterRevision": 7,
+      "edits": [
+        {
+          "line": 93,
+          "before": "- **Persönliche Tokens:** [Agents: Festlegungen](/wiki/93eb063a-a63c-4cac-8393-af182291a582) führt die A9.2-Formulierung („Jeder Benutzer erzeugt einen benannten Token“); ab A11.2 entstehen stdio-Tokens nur über Pairing.",
+          "after": "- **Persönliche Tokens:** [Agent-Verwaltung und Editor](/wiki/3d67d542-5917-4176-9881-6245e9faead3) führt die A9.2-Formulierung („Jeder Benutzer erzeugt einen benannten Token“); ab A11.2 entstehen stdio-Tokens nur über Pairing.",
+          "targetId": "3d67d542-5917-4176-9881-6245e9faead3"
+        }
+      ]
+    },
+    {
+      "id": "6d9ac5a3-3645-46fb-86f4-a75c48ce87fe",
+      "title": "Rechte, Rollen und Modi: Festlegungen",
+      "beforeRevision": 5,
+      "afterRevision": 6,
+      "edits": [
+        {
+          "line": 80,
+          "before": "- **Sichtbar und nutzbar** sind lokale Arbeitsbereiche für alle, die Zugriff auf das zugeordnete Projekt haben. Es gibt keine eigene Freigabe pro Arbeitsbereich. **Remote-Erweiterung, bestätigt am 21.10.2026:** Bei Remote-Arbeitsbereichen und ihrer interaktiven Konsole gelten zusätzlich die bereits an der Remote-Verbindung eingestellten **Abteilungen**. Die Konsole übernimmt diese Auswahl ohne eigenes Konsolenrecht oder zusätzlichen Freigabedialog; Projekt-/Workspace-Zugriff und aktuelle Mitgliedschaft werden beim Öffnen und während der Sitzung serverseitig geprüft. Die Verbindung darf nicht allein durch die Sichtbarkeit einer UI-Aktion nutzbar werden. Details und Umsetzungsgrenze unter [Agents: Festlegungen](/wiki/93eb063a-a63c-4cac-8393-af182291a582).",
+          "after": "- **Sichtbar und nutzbar** sind lokale Arbeitsbereiche für alle, die Zugriff auf das zugeordnete Projekt haben. Es gibt keine eigene Freigabe pro Arbeitsbereich. **Remote-Erweiterung, bestätigt am 21.10.2026:** Bei Remote-Arbeitsbereichen und ihrer interaktiven Konsole gelten zusätzlich die bereits an der Remote-Verbindung eingestellten **Abteilungen**. Die Konsole übernimmt diese Auswahl ohne eigenes Konsolenrecht oder zusätzlichen Freigabedialog; Projekt-/Workspace-Zugriff und aktuelle Mitgliedschaft werden beim Öffnen und während der Sitzung serverseitig geprüft. Die Verbindung darf nicht allein durch die Sichtbarkeit einer UI-Aktion nutzbar werden. Details und Umsetzungsgrenze unter [Remote-Verbindungen und Runner](/wiki/45bc1de4-9c18-4851-8e62-fc516075ca19).",
+          "targetId": "45bc1de4-9c18-4851-8e62-fc516075ca19"
+        },
+        {
+          "line": 86,
+          "before": "- Der Nutzungsumfang einer API- oder CLI-Anbindung ist eine Obergrenze auf die Profilzuweisungen und gewährt keinen Admin-Bypass. Details unter [Agents: Festlegungen](/wiki/93eb063a-a63c-4cac-8393-af182291a582).",
+          "after": "- Der Nutzungsumfang einer API- oder CLI-Anbindung ist eine Obergrenze auf die Profilzuweisungen und gewährt keinen Admin-Bypass. Details unter [Anbindungen](/wiki/b53d1a62-5462-4439-bf6d-cbbd854dd433).",
+          "targetId": "b53d1a62-5462-4439-bf6d-cbbd854dd433"
+        }
+      ]
+    },
+    {
+      "id": "98906a63-6435-48e5-b0b3-465ebb926754",
+      "title": "Produktkonzept",
+      "beforeRevision": 35,
+      "afterRevision": 36,
+      "edits": [
+        {
+          "line": 25,
+          "before": "**Geplante Script-Node (Gestaltungsentscheidung 19.10.2026):** eigenständige Typfarbe gegenüber Agents und Verwendung der bestehenden Kartenstruktur; Die rosa Gestaltungsrichtung mit Originalkartenstruktur ist bestätigt; konkrete Theme-Farbwerte sind noch auszuarbeiten. [Details zur Abgrenzung von Typ- und Laufstatusfarben](/wiki/93eb063a-a63c-4cac-8393-af182291a582).",
+          "after": "**Geplante Script-Node (Gestaltungsentscheidung 19.10.2026):** eigenständige Typfarbe gegenüber Agents und Verwendung der bestehenden Kartenstruktur; Die rosa Gestaltungsrichtung mit Originalkartenstruktur ist bestätigt; konkrete Theme-Farbwerte sind noch auszuarbeiten. [Details zur Abgrenzung von Typ- und Laufstatusfarben](/wiki/957716f3-ed65-4e80-886c-ece8821cd0dc).",
+          "targetId": "957716f3-ed65-4e80-886c-ece8821cd0dc"
+        },
+        {
+          "line": 27,
+          "before": "**Gestaltungsauftrag 19.10.2026:** Das rechte Planpanel soll „Nodes“ und „Vorlagen“ als Tabs anbieten. Unterschiedliche Nodegrößen bleiben zulässig, Schriftrollen werden über alle Nodefamilien vereinheitlicht. Parameter, Agent, Script und Group sollen ihre aktuelle Konfiguration per „Als Vorlage speichern…“ wiederverwendbar machen (Präzisierung 19.10.2026, 15:35); Groups enthalten dabei auch ihre Nodes und internen Verbindungen (bestätigt mit Ticketauftrag 19.10.2026); externe Bindungen bleiben abzustimmen; gemeinsame Geltung folgt dem am 19.10.2026 beschlossenen Projekt-UND-Abteilungsbereich. [Details und aktuelle Entwurfsgrenzen](/wiki/93eb063a-a63c-4cac-8393-af182291a582).",
+          "after": "**Gestaltungsauftrag 19.10.2026:** Das rechte Planpanel soll „Nodes“ und „Vorlagen“ als Tabs anbieten. Unterschiedliche Nodegrößen bleiben zulässig, Schriftrollen werden über alle Nodefamilien vereinheitlicht. Parameter, Agent, Script und Group sollen ihre aktuelle Konfiguration per „Als Vorlage speichern…“ wiederverwendbar machen (Präzisierung 19.10.2026, 15:35); Groups enthalten dabei auch ihre Nodes und internen Verbindungen (bestätigt mit Ticketauftrag 19.10.2026); externe Bindungen bleiben abzustimmen; gemeinsame Geltung folgt dem am 19.10.2026 beschlossenen Projekt-UND-Abteilungsbereich. [Details und aktuelle Entwurfsgrenzen](/wiki/957716f3-ed65-4e80-886c-ece8821cd0dc).",
+          "targetId": "957716f3-ed65-4e80-886c-ece8821cd0dc"
+        },
+        {
+          "line": 29,
+          "before": "**Entschieden am 19.10.2026:** Plan- und Vorlagenbestand gemeinsam für Personen mit Projektzugriff UND passender Abteilungsmitgliedschaft. Speichern erhält denselben gemeinsamen Plan, seine ID und Geltung. Doppelte Agent-Plan-Namen sind serverseitig zu verhindern; genauer Namensraum und Altbestandszuordnung bleiben auszuarbeiten. [Fachlicher Vertrag](/wiki/93eb063a-a63c-4cac-8393-af182291a582) · [Technischer Änderungsbedarf](/wiki/3301f98d-8727-4c7b-97dc-8a8262d4e440).",
+          "after": "**Entschieden am 19.10.2026:** Plan- und Vorlagenbestand gemeinsam für Personen mit Projektzugriff UND passender Abteilungsmitgliedschaft. Speichern erhält denselben gemeinsamen Plan, seine ID und Geltung. Doppelte Agent-Plan-Namen sind serverseitig zu verhindern; genauer Namensraum und Altbestandszuordnung bleiben auszuarbeiten. [Fachlicher Vertrag](/wiki/957716f3-ed65-4e80-886c-ece8821cd0dc) · [Technischer Änderungsbedarf](/wiki/3301f98d-8727-4c7b-97dc-8a8262d4e440).",
+          "targetId": "957716f3-ed65-4e80-886c-ece8821cd0dc"
+        },
+        {
+          "line": 91,
+          "before": "Bestätigtes Ziel: feste gleich große **Starten · Pause/Fortsetzen · Stop**-Buttons; Pause lässt aktive Schritte auslaufen, Stop beendet die gesamte eigene Sequenz. Sichere Wiederaufnahme erhält erledigte Arbeit. Sequenznummerierung ab Start = 1 entlang der Flow-Kanten, parallele Schritte stabil durchnummeriert. Seit 23.10.2026 zusätzlich bestätigt: Fehler/Unstimmigkeiten eingeklappt nur als kurzer Hinweis; Ursache und Handlung erst aufgeklappt. **Neu, Bearbeiten, Klonen und Entfernen** über das ⋯-Menü im oberen Planpanel; Entfernen mit kurzer Bestätigung **Abbrechen / Löschen**, ohne Namenseingabe (Präzisierung 23.10.2026). Bestehende Rechte/Runsperren erhalten. Kein Live-Implementierungsnachweis durch diese Festlegung. [Bedienung und Grenzen](/wiki/93eb063a-a63c-4cac-8393-af182291a582) · [technischer Vertrag](/wiki/3301f98d-8727-4c7b-97dc-8a8262d4e440).",
+          "after": "Bestätigtes Ziel: feste gleich große **Starten · Pause/Fortsetzen · Stop**-Buttons; Pause lässt aktive Schritte auslaufen, Stop beendet die gesamte eigene Sequenz. Sichere Wiederaufnahme erhält erledigte Arbeit. Sequenznummerierung ab Start = 1 entlang der Flow-Kanten, parallele Schritte stabil durchnummeriert. Seit 23.10.2026 zusätzlich bestätigt: Fehler/Unstimmigkeiten eingeklappt nur als kurzer Hinweis; Ursache und Handlung erst aufgeklappt. **Neu, Bearbeiten, Klonen und Entfernen** über das ⋯-Menü im oberen Planpanel; Entfernen mit kurzer Bestätigung **Abbrechen / Löschen**, ohne Namenseingabe (Präzisierung 23.10.2026). Bestehende Rechte/Runsperren erhalten. Kein Live-Implementierungsnachweis durch diese Festlegung. [Bedienung und Grenzen](/wiki/4d0a8535-ba0a-485c-aff0-6c07203426b1) · [technischer Vertrag](/wiki/3301f98d-8727-4c7b-97dc-8a8262d4e440).",
+          "targetId": "4d0a8535-ba0a-485c-aff0-6c07203426b1"
+        }
+      ]
+    },
+    {
+      "id": "d9b7a3c8-a1b3-4902-9e31-6fb0aa60fd2d",
+      "title": "MCP-Pairing für stdio: technischer Vertrag",
+      "beforeRevision": 5,
+      "afterRevision": 6,
+      "edits": [
+        {
+          "line": 232,
+          "before": "- **Information:** Die Seite [Agents: Festlegungen](/wiki/93eb063a-a63c-4cac-8393-af182291a582) beschreibt persönliche Tokens noch mit der Formulierung aus Arbeitspaket A9.2 („erzeugt einen benannten Token“); ab A11.2 entstehen stdio-Tokens nur über Pairing.",
+          "after": "- **Information:** Die Seite [Agent-Verwaltung und Editor](/wiki/3d67d542-5917-4176-9881-6245e9faead3) beschreibt persönliche Tokens noch mit der Formulierung aus Arbeitspaket A9.2 („erzeugt einen benannten Token“); ab A11.2 entstehen stdio-Tokens nur über Pairing.",
+          "targetId": "3d67d542-5917-4176-9881-6245e9faead3"
+        }
+      ]
+    },
+    {
+      "id": "e79ef9b3-3c6c-4866-8eae-2ffdd95ff9b6",
+      "title": "Funktionsaufgaben und Auflösung der Zuweisung: technische Umsetzung",
+      "beforeRevision": 5,
+      "afterRevision": 6,
+      "edits": [
+        {
+          "line": 5,
+          "before": "Die Bedienung beschreiben [Assistenten](/wiki/4fd03334-b147-4fc5-b260-60c8a4bf2a19) und [Agents](/wiki/d01775a6-8af5-4054-93c5-eec98867bcc2); die zugehörigen Festlegungen stehen unter [Assistenten: Festlegungen](/wiki/ebc954d7-796a-4d6f-9e54-b9649bdb8da7) und [Agents: Festlegungen](/wiki/93eb063a-a63c-4cac-8393-af182291a582). Das Agent-Datenmodell mit Zuweisungen und der Auflösung beim Start (A11.3) beschreibt [Zentrale Agent-Verwaltung und Zuweisungen: technische Festlegungen](/wiki/2ce348a3-0793-4256-a893-43ff601a9231). Die Rolle des Chats beschreibt [Chat-Assistent Pica](/wiki/0489975c-a5bc-4bd3-8b25-d32f025b3fd4).",
+          "after": "Die Bedienung beschreiben [Assistenten](/wiki/4fd03334-b147-4fc5-b260-60c8a4bf2a19) und [Agents](/wiki/d01775a6-8af5-4054-93c5-eec98867bcc2); die zugehörigen Festlegungen stehen unter [Assistenten: Festlegungen](/wiki/ebc954d7-796a-4d6f-9e54-b9649bdb8da7) und [Agent-Verwaltung und Editor](/wiki/3d67d542-5917-4176-9881-6245e9faead3). Das Agent-Datenmodell mit Zuweisungen und der Auflösung beim Start (A11.3) beschreibt [Zentrale Agent-Verwaltung und Zuweisungen: technische Festlegungen](/wiki/2ce348a3-0793-4256-a893-43ff601a9231). Die Rolle des Chats beschreibt [Chat-Assistent Pica](/wiki/0489975c-a5bc-4bd3-8b25-d32f025b3fd4).",
+          "targetId": "3d67d542-5917-4176-9881-6245e9faead3"
+        },
+        {
+          "line": 46,
+          "before": "- **Ersetzt durch A11.3:** Die Zuordnung ist eine **Zuweisung im Agent-Datenmodell**; die **Validierung gegen den Katalog bleibt bestehen**. Das Datenmodell beschreibt [Zentrale Agent-Verwaltung und Zuweisungen: technische Festlegungen](/wiki/2ce348a3-0793-4256-a893-43ff601a9231), die Bedienung des zentralen Panels „Agents“ [Agents: Festlegungen](/wiki/93eb063a-a63c-4cac-8393-af182291a582).",
+          "after": "- **Ersetzt durch A11.3:** Die Zuordnung ist eine **Zuweisung im Agent-Datenmodell**; die **Validierung gegen den Katalog bleibt bestehen**. Das Datenmodell beschreibt [Zentrale Agent-Verwaltung und Zuweisungen: technische Festlegungen](/wiki/2ce348a3-0793-4256-a893-43ff601a9231), die Bedienung des zentralen Panels „Agents“ [Agent-Verwaltung und Editor](/wiki/3d67d542-5917-4176-9881-6245e9faead3).",
+          "targetId": "3d67d542-5917-4176-9881-6245e9faead3"
+        },
+        {
+          "line": 70,
+          "before": "- Die **MCP-Token-Ausnahme** (die MCP-Token-Rechte folgen der persönlichen Admin-Eigenschaft unabhängig vom Rollenmodus; siehe [Agents: Festlegungen](/wiki/93eb063a-a63c-4cac-8393-af182291a582) und [MCP Pages](/wiki/af35a9aa-2850-4ee4-9f90-2bf7b559eb34)) wird **nicht verallgemeinert**.",
+          "after": "- Die **MCP-Token-Ausnahme** (die MCP-Token-Rechte folgen der persönlichen Admin-Eigenschaft unabhängig vom Rollenmodus; siehe [Agent-Verwaltung und Editor](/wiki/3d67d542-5917-4176-9881-6245e9faead3) und [MCP Pages](/wiki/af35a9aa-2850-4ee4-9f90-2bf7b559eb34)) wird **nicht verallgemeinert**.",
+          "targetId": "3d67d542-5917-4176-9881-6245e9faead3"
+        }
+      ]
+    }
+  ],
+  "unchangedGeneralReferrers": [
+    {
+      "id": "3dc864cf-57af-47cc-8cad-79c1627372a7",
+      "title": "Frontend",
+      "revision": 7
+    },
+    {
+      "id": "8b665fab-daef-44ae-8189-15ebbf171a53",
+      "title": "AI-Anbindungen, Modellkatalog und Reasoning: technische Umsetzung",
+      "revision": 9
+    },
+    {
+      "id": "d1e6ade3-73b9-4eb0-b9f9-d95d67a6cc60",
+      "title": "Ergänzungen und Herkunft der Festlegungen",
+      "revision": 3
+    },
+    {
+      "id": "fd0b40e2-07f7-48f4-85c4-620cdf812288",
+      "title": "AI-Anbieter und Routing: technische Umsetzung",
+      "revision": 5
+    }
+  ],
+  "decisions": [
+    "Use eight thematic new child pages and preserve the existing decision-model child.",
+    "Preserve the original wording, dates, identifiers and metadata; rewrite only navigation and contextual link labels.",
+    "Keep ambiguous historical implementation states separate instead of inferring implemented or not implemented.",
+    "Retain general references to the unchanged main identifier; retarget twenty thematic references.",
+    "No source code changed; documentation assertions and actual wiki readback are the functional checks."
+  ],
+  "qa": "Lint, Check, Typecheck, Build, Formatprüfung, vollständige Testsuiten und Coverage: an die Abschluss-QA übergeben."
+}

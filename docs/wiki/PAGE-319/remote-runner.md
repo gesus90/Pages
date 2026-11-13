@@ -1,12 +1,18 @@
 Abteilungsfreigaben, Konsole, Runner-Setup und Remote-Laufzeit.
 
-[Zur Übersicht](index.md)
+[Zur Übersicht](/wiki/93eb063a-a63c-4cac-8393-af182291a582)
 
 # Umgesetzt
 
 Im Ausgangstext nicht ausdrücklich als umgesetzt ausgewiesen.
 
-# Entschieden
+# Entschieden (noch nicht umgesetzt)
+
+Im Ausgangstext keine weitere Festlegung ausdrücklich als noch nicht umgesetzt ausgewiesen.
+
+# Festlegungen ohne eindeutigen Umsetzungsstand
+
+Die Quelle nennt diese Festlegungen als entschieden oder umgesetzt, ohne ihren Umsetzungsstand eindeutig zuzuordnen. Historische Zielverträge sind keine Auslieferungsnachweise; spätere datierte Präzisierungen bleiben maßgeblich.
 
 **Remote-Verbindungen, Konsole und Runner – bestätigt am 21.10.2026, Zielvertrag**
 
@@ -30,8 +36,9 @@ Im Ausgangstext nicht ausdrücklich als umgesetzt ausgewiesen.
 - Der dauerhafte authentifizierte WS/WSS-Dienst verwaltet die gewählten Remote-ACPs und meldet **echte** Anbindungen, Modelle und unterstützte Fast-/Thinking-/Reasoning-Fähigkeiten unter **Einstellungen → Agents → Remote**. Beim Remote-Workspace bietet Agent Plan passende Anbindungen des zugehörigen Hosts an; keine stille lokale/andere Host-/Modellsubstitution. Prompt, Workspace/cwd, Konfiguration und Rückkommunikation folgen dem lokalen semantischen Vertrag, mit erneuter serverseitiger Rechteprüfung.
 - Usage, Quoten-/Reset-Fenster und native Session-/Resume-Metadaten nur soweit tatsächlich aus CLI/Provider verfügbar melden. Fünf-Stunden-/Wochenkontingent ist keine universelle Sessionlaufzeit; unbekannt bleibt unbekannt. Reconnect gleicht tatsächliche Prozesse/Ereignisse ab statt Aufträge doppelt zu starten oder Fortsetzung zu simulieren. Auth-, Berechtigungs-, Boot-/Container-Lifecycle- und Protokollgrenzen siehe [technischer Vertrag](/wiki/3301f98d-8727-4c7b-97dc-8a8262d4e440).
 
+
+
 # Offen
 
-Der Ausgangstext bezeichnet das Remote-Setup als Zielvertrag ohne Implementierungsnachweis. Eine Umsetzung wird durch diese Festlegungen nicht nachgewiesen.
-
+Keine weitere offene Sachfrage im Ausgangstext ausdrücklich ausgewiesen.
 

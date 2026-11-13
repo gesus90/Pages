@@ -1,14 +1,18 @@
 API und CLI sowie der Nutzungsumfang der Anbindungen.
 
-[Zur Übersicht](index.md)
+[Zur Übersicht](/wiki/93eb063a-a63c-4cac-8393-af182291a582)
 
 # Umgesetzt
 
 Im Ausgangstext nicht ausdrücklich als umgesetzt ausgewiesen.
 
-# Entschieden
+# Entschieden (noch nicht umgesetzt)
 
-Die folgenden Festlegungen bleiben in ihrem ursprünglichen Wortlaut erhalten. Ein Umsetzungsstand gilt nur dort als nachgewiesen, wo er ausdrücklich genannt ist; die übrigen Einordnungen sind noch zu bestätigen.
+Im Ausgangstext keine weitere Festlegung ausdrücklich als noch nicht umgesetzt ausgewiesen.
+
+# Festlegungen ohne eindeutigen Umsetzungsstand
+
+Die Quelle nennt diese Festlegungen als entschieden oder umgesetzt, ohne ihren Umsetzungsstand eindeutig zuzuordnen. Historische Zielverträge sind keine Auslieferungsnachweise; spätere datierte Präzisierungen bleiben maßgeblich.
 
 ## Anbindungen (API und CLI) in den Einstellungen
 
@@ -46,6 +50,8 @@ Die folgenden Festlegungen bleiben in ihrem ursprünglichen Wortlaut erhalten. E
 - Ein Modelltest benötigt einen **Dialog** mit fester Eingabe, Modell, Stufe, Kosten- und Kontingenthinweis und der Zusicherung, dass **keine Pages-Inhalte übertragen** werden; das Ergebnis nennt die verwendete Stufe.
 - **Entfernen** bestätigt den Namen und die getrennte Wirkung bei API und CLI. Der CLI-Text erklärt, dass persönliche Server-Anmeldungen unberührt bleiben. Fokus-Falle, Fokus-Rückgabe und Verwerfen-Rückfrage gelten auch hier.
 
+
+
 ## Nachtrag Stand 2026-10-13: Nutzungsumfang, Arbeitsverzeichnis und Nutzer-Agents
 
 **Nutzungsumfang je Anbindung (PAGE-19)**
@@ -61,5 +67,6 @@ Die folgenden Festlegungen bleiben in ihrem ursprünglichen Wortlaut erhalten. E
 # Offen
 
 - **Offen zur Bestätigung:** die Lesart „Global“ als Obergrenze statt Ersatz der Profilzuweisungen sowie der fehlende Admin-Bypass.
+
 
 
