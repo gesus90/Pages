@@ -28,6 +28,7 @@ import { PicaBridge } from "@/backend/service/chat/acp/PicaBridge";
 import { readPicaInstructions } from "@/backend/service/chat/PicaInstructionFiles";
 import { PicaIdentityService } from "@/backend/service/chat/PicaIdentityService";
 import { PicaTicketLifecycleService } from "@/backend/service/chat/PicaTicketLifecycleService";
+import { PicaCalendarToolService } from "@/backend/service/chat/PicaCalendarToolService";
 import { WikiFileStore } from "@/backend/storage/WikiFileStore";
 
 import type { Mock } from "vitest";
@@ -123,6 +124,12 @@ vi.mock("@/backend/service/chat/PicaIdentityService", () =>
 vi.mock("@/backend/service/chat/PicaTicketLifecycleService", () =>
   fakeClasses({ PicaTicketLifecycleService: [] }),
 );
+vi.mock("@/backend/service/chat/PicaCalendarToolService", () =>
+  fakeClasses({ PicaCalendarToolService: [] }),
+);
+vi.mock("@/app/lib/services.server", () => ({
+  getApplicationServices: async () => ({ calendarService: "calendar" }),
+}));
 vi.mock("@/backend/storage/WikiFileStore", () =>
   fakeClasses({ WikiFileStore: [] }),
 );
@@ -418,7 +425,7 @@ it("checks attachments and answer files with the same storage and SVG check", ()
   expect(vi.mocked(ChatAnswerFileService).mock.calls[0][0]).toEqual(fileParts);
 });
 
-it("runs tools as the current identity over the shared operation router", () => {
+it("runs tools as the current identity over the shared operation router", async () => {
   const input = chatInput();
   const services = createChatServices(input);
 
@@ -429,7 +436,14 @@ it("runs tools as the current identity over the shared operation router", () => 
   expect(vi.mocked(ChatToolExecutor).mock.calls[0][0]).toEqual({
     router: input.router,
     identities: vi.mocked(PicaIdentityService).mock.instances[0],
+    calendar: vi.mocked(PicaCalendarToolService).mock.instances[0],
   });
+  expect(vi.mocked(PicaCalendarToolService).mock.calls).toEqual([
+    [{ users: ACCOUNTS.users, calendar: expect.any(Function), agentAccess: expect.any(Function) }],
+  ]);
+  await expect(
+    vi.mocked(PicaCalendarToolService).mock.calls[0][0].calendar(),
+  ).resolves.toBe("calendar");
   expect(vi.mocked(PicaAdminService).mock.calls).toEqual([
     [
       ACCOUNTS,

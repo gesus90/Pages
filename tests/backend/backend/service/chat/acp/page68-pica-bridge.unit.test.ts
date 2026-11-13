@@ -85,6 +85,12 @@ const WRITE_TOOLS = [
   "set_automation_active",
   "run_automation",
   "delete_automation",
+  "calendar_read",
+  "calendar_invitees_search",
+  "calendar_event_create",
+  "calendar_event_update",
+  "calendar_event_respond",
+  "calendar_event_delete",
 ];
 
 /** Names of administration: accounts, agents, connections, instance settings and the tag catalog. */

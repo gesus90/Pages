@@ -90,6 +90,8 @@ interface UserNotifications {
   readonly assignments: boolean;
   readonly dueDates: boolean;
   readonly weeklySummary: boolean;
+  /** Push to Pica Mobile when the user is invited to a calendar event (PAGE-301). */
+  readonly calendarInvitations: boolean;
 }
 
 /**
@@ -122,6 +124,7 @@ export const DEFAULT_USER_SETTINGS: UserSettings = {
     email: true,
     mentions: true,
     weeklySummary: false,
+    calendarInvitations: true,
   },
 };
 
@@ -133,6 +136,7 @@ export const USER_NOTIFICATION_KEYS = [
   "assignments",
   "dueDates",
   "weeklySummary",
+  "calendarInvitations",
 ] as const;
 
 /** A notification preference key a user can toggle. */

@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import type { PicaMobileCalendarAnswer } from "./PicaMobileCalendar";
 import type { PicaMobileConversationAnswer } from "./PicaMobileConversations";
 import type { PicaMobileSpeechAnswer } from "./PicaMobileSpeech";
 import type {
@@ -23,14 +24,14 @@ export const PICA_MOBILE_SUPPORTED_VERSIONS: readonly number[] = [
  * @remarks
  * Before authentication a larger frame closes the connection with 1009; after
  * it a larger frame is refused with `invalid_message`, except `chat_send`,
- * `conversation_send` and `voice_chunk`.
+ * `conversation_send`, `voice_chunk`, `speech_chunk` and `calendar_event_save`.
  */
 export const PICA_MOBILE_MAXIMUM_MESSAGE_BYTES = 16_384;
 
 /**
- * Largest `chat_send`, `conversation_send`, `voice_chunk` or `speech_chunk`
- * frame the server accepts, in UTF-8 bytes; a larger frame closes the
- * connection.
+ * Largest `chat_send`, `conversation_send`, `voice_chunk`, `speech_chunk` or
+ * `calendar_event_save` frame the server accepts, in UTF-8 bytes; a larger
+ * frame closes the connection.
  */
 export const PICA_MOBILE_MAXIMUM_CHAT_SEND_BYTES = 131_072;
 
@@ -99,6 +100,12 @@ export const PICA_MOBILE_CLIENT_MESSAGE_TYPE = {
   SPEECH_CHUNK: "speech_chunk",
   SPEECH_FINISH: "speech_finish",
   SPEECH_CANCEL: "speech_cancel",
+  CALENDAR_RANGE: "calendar_range",
+  CALENDAR_EVENT_SAVE: "calendar_event_save",
+  CALENDAR_EVENT_DELETE: "calendar_event_delete",
+  CALENDAR_EVENT_RESPOND: "calendar_event_respond",
+  CALENDAR_INVITEES: "calendar_invitees",
+  CALENDAR_TARGETS: "calendar_targets",
 } as const;
 
 /** Types of the messages the server sends. */
@@ -130,6 +137,12 @@ export const PICA_MOBILE_SERVER_MESSAGE_TYPE = {
   SPEECH_CONFIG: "speech_config",
   SPEECH_RESULT: "speech_result",
   SPEECH_ERROR: "speech_error",
+  CALENDAR: "calendar",
+  CALENDAR_EVENT: "calendar_event",
+  CALENDAR_EVENT_DELETED: "calendar_event_deleted",
+  CALENDAR_INVITEE_OPTIONS: "calendar_invitee_options",
+  CALENDAR_TARGET_OPTIONS: "calendar_target_options",
+  CALENDAR_CHANGED: "calendar_changed",
 } as const;
 
 /**
@@ -169,6 +182,18 @@ export const PICA_MOBILE_SERVER_MESSAGE_TYPE = {
  * recording `speech_start`, `speech_chunk`, `speech_finish`, `speech_cancel`
  * with the answers `speech_result` and `speech_error`. A server names it only
  * while a speech model is set up and the account may use Pica.
+ * `calendar.v1` stands for the calendar of Pages (PAGE-301): `calendar_range`
+ * with its answer `calendar`, `calendar_event_save` and
+ * `calendar_event_respond` with the answer `calendar_event`,
+ * `calendar_event_delete` with `calendar_event_deleted`, `calendar_invitees`
+ * with `calendar_invitee_options` and `calendar_targets` with
+ * `calendar_target_options`, and the `calendar_changed` messages the server
+ * sends on its own whenever an entry the account sees is created, changed,
+ * answered or deleted. Times carry the offset of the account's Pages time
+ * zone; all-day entries carry dates only. A refused request is answered with
+ * `error` and `forbidden`, `not_found` or `invalid_request`. With
+ * `notifications.push.fcm` new invitations also arrive as push on the
+ * channel `pica-calendar-invitations`.
  */
 export const PICA_MOBILE_CAPABILITY = {
   DASHBOARD_V1: "dashboard.v1",
@@ -181,6 +206,7 @@ export const PICA_MOBILE_CAPABILITY = {
   NOTIFICATIONS_PUSH_FCM: "notifications.push.fcm",
   NOTIFICATIONS_TEAM_V1: "notifications.team.v1",
   SPEECH_V1: "speech.v1",
+  CALENDAR_V1: "calendar.v1",
 } as const;
 
 /** One extension of {@link PICA_MOBILE_CAPABILITY}. */
@@ -199,6 +225,12 @@ export const PICA_MOBILE_ERROR_CODE = {
   ALREADY_AUTHENTICATED: "already_authenticated",
   RATE_LIMITED: "rate_limited",
   SERVER_UNAVAILABLE: "server_unavailable",
+  /** `calendar.v1`: the account may not do this with the entry. */
+  FORBIDDEN: "forbidden",
+  /** `calendar.v1`: the entry is missing or not visible to the account. */
+  NOT_FOUND: "not_found",
+  /** `calendar.v1`: the request breaks a rule, such as an end before its start. */
+  INVALID_REQUEST: "invalid_request",
 } as const;
 
 /** One reason of {@link PICA_MOBILE_ERROR_CODE}. */
@@ -895,5 +927,10 @@ export type PicaMobileServerMessage =
   | (PicaMobileSpeechAnswer & {
       readonly version: typeof PICA_MOBILE_PROTOCOL_VERSION;
       /** `null` when the server drops a silent recording on its own. */
+      readonly requestId: string | null;
+    })
+  | (PicaMobileCalendarAnswer & {
+      readonly version: typeof PICA_MOBILE_PROTOCOL_VERSION;
+      /** `null` for `calendar_changed`, which Pages sends on its own. */
       readonly requestId: string | null;
     });

@@ -1,9 +1,13 @@
 /**
  * Notification channels of the Pica Mobile app: two for plan notifications,
- * one for new messages of conversations (PAGE-278).
+ * one for new messages of conversations (PAGE-278) and one for invitations
+ * to calendar events (PAGE-301).
  */
 export type PicaMobilePushChannel =
-  "pica-plan-steps" | "pica-plan-results" | "pica-conversation-messages";
+  | "pica-plan-steps"
+  | "pica-plan-results"
+  | "pica-conversation-messages"
+  | "pica-calendar-invitations";
 
 /**
  * One push message for one registered device, in the words of Pages.

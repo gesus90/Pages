@@ -30,11 +30,13 @@ import { ChatError } from "@/backend/error/ChatErrors";
 import { readPicaInstructions } from "@/backend/service/chat/PicaInstructionFiles";
 import { PicaIdentityService } from "@/backend/service/chat/PicaIdentityService";
 import { PicaTicketLifecycleService } from "@/backend/service/chat/PicaTicketLifecycleService";
+import { PicaCalendarToolService } from "@/backend/service/chat/PicaCalendarToolService";
 import { WikiFileStore } from "@/backend/storage/WikiFileStore";
 
 import { isSafeSvg } from "./settings-actions/svg-safety.server";
 
 import type { RepositoryReadService } from "@/backend/service/github/RepositoryReadService";
+import type { CalendarService } from "@/backend/service/calendar/CalendarService";
 import type { Database } from "@/backend/database/Database";
 import type { PicaAdminServiceOptions } from "@/backend/service/chat/admin/PicaAdminService";
 import type { PicaStorageFiles } from "@/backend/service/chat/admin/PicaStorageHandlers";
@@ -210,6 +212,43 @@ export interface ChatServicesInput {
   readonly acp?: PicaAcpSettings;
 }
 
+/**
+ * Resolves the calendar on demand: the application services start it after
+ * the chat, so a static import or a constructor argument would come too early.
+ */
+async function resolveCalendarService(): Promise<CalendarService> {
+  const { getApplicationServices } = await import("./services.server");
+  return (await getApplicationServices()).calendarService;
+}
+
+/** Resolves the stored access of agent accounts, for read-only agents in the calendar. */
+async function resolveAgentAccess(): Promise<{
+  find(agentId: string): Promise<{ readonly access: string } | null>;
+}> {
+  const { getApplicationServices } = await import("./services.server");
+  return (await getApplicationServices()).mcpAgentEmployees;
+}
+
+/** Runs Pica's operations as the current identity, with the shared ticket lifecycle and calendar. */
+function createChatTools(input: ChatServicesInput): ChatToolExecutor {
+  return new ChatToolExecutor({
+    repositoryReads: input.repositoryReads,
+    ...(input.tickets
+      ? { ticketLifecycle: new PicaTicketLifecycleService(input.tickets) }
+      : {}),
+    calendar: new PicaCalendarToolService({
+      users: input.accounts.users,
+      calendar: resolveCalendarService,
+      agentAccess: resolveAgentAccess,
+    }),
+    router: input.router,
+    identities: new PicaIdentityService(
+      input.accounts.users,
+      input.accounts.administration,
+    ),
+  });
+}
+
 /** Wires the chat on the shared database; nothing runs until a person sends a message. */
 export function createChatServices(
   input: ChatServicesInput,
@@ -254,17 +293,7 @@ export function createChatServices(
   });
   const { adminTools, agentBrowsers, agentBrowserSessions } =
     createBrowserServices(input);
-  const tools = new ChatToolExecutor({
-    repositoryReads: input.repositoryReads,
-    ...(input.tickets
-      ? { ticketLifecycle: new PicaTicketLifecycleService(input.tickets) }
-      : {}),
-    router: input.router,
-    identities: new PicaIdentityService(
-      input.accounts.users,
-      input.accounts.administration,
-    ),
-  });
+  const tools = createChatTools(input);
   const acp = createPicaAcp({
     settings: input.acp,
     plans: input.agents.agentPlanExecution,

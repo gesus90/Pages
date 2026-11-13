@@ -59,8 +59,10 @@ import { createLiveChangeServices } from "./live-change-services.server";
 import { createPreferenceServices } from "./preference-services.server";
 import { registerShutdownHandler } from "./services-shutdown.server";
 import { createAutomationServices } from "./automation-services.server";
+import { createCalendarService } from "./calendar-services.server";
 
 import type { WikiService } from "@/backend/service/WikiService";
+import type { CalendarService } from "@/backend/service/calendar/CalendarService";
 import type { AutomationApplicationServices } from "./automation-services.server";
 import type { TaskAttachmentService } from "@/backend/service/task/TaskAttachmentService";
 import type { TicketAssetAuditService } from "@/backend/service/task/TicketAssetAuditService";
@@ -126,6 +128,8 @@ export interface ApplicationServices
   readonly liveChangeAudience: LiveChangeAudience;
   readonly permissionService: PermissionService;
   readonly passwordHasher: PasswordHasher;
+  /** The calendar of PAGE-301 for the interface, Pica Mobile, Pica and MCP. */
+  readonly calendarService: CalendarService;
 }
 
 declare global {
@@ -300,10 +304,26 @@ async function initializeServices(
     serverCache,
     tokenKey,
   });
+  const calendarService = createCalendarService({
+    database,
+    projectService,
+    permissionService,
+    settingsService,
+    events: pagesEventPublisher,
+    push: async () => {
+      const services = await getApplicationServices();
+      return {
+        picaMobileNotifications: services.picaMobileNotifications,
+        picaMobileAutomationPush: services.picaMobileAutomationPush,
+        settingsService: services.settingsService,
+      };
+    },
+  });
   return {
     ...agentServices,
     ...planServices,
     ...mcpServices,
+    calendarService,
     administrationService,
     authService: createSessionAuth(userService, sessionService, passwordHasher),
     boardPreferencesService,

@@ -331,5 +331,5 @@ Do not:
 The native Pica app lives in its own GitHub project "Pica Mobile" and is no
 part of this repository. The Pages side of the app (`backend/service/mobile/`,
 the mobile connection settings, push notifications and the WebSocket protocols
-`chat.v1`, `plans.v1`, `plans.flow.v1` and `conversations.v1`) is ordinary Pages source and follows this file and
+`chat.v1`, `plans.v1`, `plans.flow.v1`, `conversations.v1` and `calendar.v1`) is ordinary Pages source and follows this file and
 `GUIDELINES.md`. Do not add app code or an app dependency to Pages.

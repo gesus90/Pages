@@ -16,6 +16,7 @@ import {
 
 import { picaMobileConversationRequestSchema } from "@/definition/PicaMobileConversations";
 
+import { parsePicaMobileCalendarPayload } from "./calendar/PicaMobileCalendarMessages";
 import { parsePicaMobileNotificationPayload } from "./notifications/PicaMobileNotificationMessages";
 import { parsePicaMobileSpeechPayload } from "./speech/PicaMobileSpeechMessages";
 
@@ -39,6 +40,7 @@ import type {
   PicaMobileConversationRequestType,
 } from "@/definition/PicaMobileConversations";
 import type { PicaMobileAuthOutcome } from "./PicaMobileAuthenticator";
+import type { PicaMobileCalendarClientMessage } from "./calendar/PicaMobileCalendarMessages";
 import type { PicaMobileNotificationClientMessage } from "./notifications/PicaMobileNotificationMessages";
 import type { PicaMobileSpeechClientMessage } from "./speech/PicaMobileSpeechMessages";
 
@@ -60,7 +62,8 @@ export type PicaMobileClientMessage =
   | PicaMobilePlansClientMessage
   | PicaMobileChatClientMessage
   | PicaMobileConversationClientMessage
-  | PicaMobileSpeechClientMessage;
+  | PicaMobileSpeechClientMessage
+  | PicaMobileCalendarClientMessage;
 
 /** A request of `conversations.v1` that passed every check of its payload. */
 export type PicaMobileConversationClientMessage =
@@ -359,6 +362,7 @@ function parsePayload(
         parseChatPayload(type, requestId, payload) ??
         parseConversationPayload(type, requestId, payload) ??
         parsePicaMobileSpeechPayload(type, requestId, payload) ??
+        parsePicaMobileCalendarPayload(type, requestId, payload) ??
         reject(
           PICA_MOBILE_ERROR_CODE.UNKNOWN_TYPE,
           "The message type is not known.",

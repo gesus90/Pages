@@ -41,6 +41,7 @@ import { UserAvatar } from "@/app/components/common/user-avatar";
 import { TicketSidebarSection } from "@/app/components/tasks/tree/ticket-sidebar-section";
 import { WikiSidebarSection } from "@/app/components/wiki/wiki-sidebar-section";
 import { AgentNavigation } from "@/app/components/settings/agents/agent-navigation";
+import { CalendarNavigationLink } from "@/app/components/calendar/calendar-navigation-link";
 import { cn } from "@/app/lib/cn";
 import { localState } from "@/app/lib/local-state/local-state-store";
 
@@ -65,6 +66,8 @@ interface AppShellProps {
   readonly canViewProjects?: boolean;
   readonly canViewUsers: boolean;
   readonly branding: InstanceBranding;
+  /** Open calendar invitations of the account (PAGE-301). */
+  readonly calendarInvitations?: number;
 }
 
 interface DesktopSidebarProps {
@@ -74,12 +77,14 @@ interface DesktopSidebarProps {
   readonly canViewProjects: boolean;
   readonly canViewUsers: boolean;
   readonly canManageAgents: boolean;
+  readonly calendarInvitations: number;
 }
 
 interface NavigationLinksProps {
   readonly canViewProjects: boolean;
   readonly canViewUsers: boolean;
   readonly canManageAgents: boolean;
+  readonly calendarInvitations: number;
   readonly onNavigate?: () => void;
 }
 
@@ -184,6 +189,7 @@ function NavigationLinks({
   canViewProjects,
   canViewUsers,
   canManageAgents,
+  calendarInvitations,
   onNavigate,
 }: NavigationLinksProps): React.ReactElement {
   const { t } = useTranslation();
@@ -235,6 +241,11 @@ function NavigationLinks({
         </>
       ) : null}
       <ChatNavigationLink onNavigate={onNavigate} />
+      <CalendarNavigationLink
+        invitations={calendarInvitations}
+        getClassName={getLinkClassName}
+        onNavigate={onNavigate}
+      />
       <AgentNavigation canManage={canManageAgents} onNavigate={onNavigate} />
       <AutomationsNavigationLink onNavigate={onNavigate} />
       <WikiNavigationLink onNavigate={onNavigate} />
@@ -345,11 +356,13 @@ function MobileNavigation({
   canViewProjects,
   canViewUsers,
   canManageAgents,
+  calendarInvitations,
   branding,
 }: {
   readonly canViewProjects: boolean;
   readonly canViewUsers: boolean;
   readonly canManageAgents: boolean;
+  readonly calendarInvitations: number;
   readonly branding: InstanceBranding;
 }): React.ReactElement {
   const { t } = useTranslation();
@@ -411,6 +424,7 @@ function MobileNavigation({
           canViewProjects={canViewProjects}
           canViewUsers={canViewUsers}
           canManageAgents={canManageAgents}
+          calendarInvitations={calendarInvitations}
           onNavigate={handleClose}
         />
       </SheetContent>
@@ -433,6 +447,7 @@ function DesktopSidebar({
   canViewProjects,
   canViewUsers,
   canManageAgents,
+  calendarInvitations,
 }: DesktopSidebarProps): React.ReactElement {
   const sidebarRef = useRef<HTMLElement>(null);
   const sidebarId = useId();
@@ -471,6 +486,7 @@ function DesktopSidebar({
             canViewProjects={canViewProjects}
             canViewUsers={canViewUsers}
             canManageAgents={canManageAgents}
+            calendarInvitations={calendarInvitations}
           />
         </div>
       </div>
@@ -497,6 +513,7 @@ export function AppShell({
   canViewProjects = false,
   canViewUsers,
   branding,
+  calendarInvitations = 0,
 }: AppShellProps): React.ReactElement {
   const { t } = useTranslation();
   const shellRef = useRef<HTMLDivElement>(null);
@@ -518,6 +535,7 @@ export function AppShell({
       <div aria-hidden="true" className="pages-app-scene" />
       <DesktopSidebar
         branding={branding}
+        calendarInvitations={calendarInvitations}
         canManageAgents={canManageAgents}
         canViewProjects={canViewProjects}
         canViewUsers={canViewUsers}
@@ -532,6 +550,7 @@ export function AppShell({
             canViewProjects={canViewProjects}
             canViewUsers={canViewUsers}
             canManageAgents={canManageAgents}
+            calendarInvitations={calendarInvitations}
           />
         </div>
         <img

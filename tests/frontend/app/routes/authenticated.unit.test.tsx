@@ -24,6 +24,7 @@ const boundaries = vi.hoisted(() => ({
     instanceSettingsService: { getBranding: vi.fn() },
     permissionService: { allows: vi.fn() },
     picaSettingsService: { read: vi.fn() },
+    calendarService: { countOpenInvitations: vi.fn() },
   },
 }));
 vi.mock("@/app/lib/auth.server", async () => {
@@ -90,6 +91,7 @@ beforeEach(() => {
     isEnabled: true,
     revision: 3,
   });
+  services.calendarService.countOpenInvitations.mockResolvedValue(2);
   boundaries.isOffline.mockReturnValue(false);
 });
 
@@ -129,11 +131,23 @@ it("loads the user, the navigation rights, the region and the branding", async (
     user: USER,
     authorizationVersion: "v7:pica:3",
     account: ACCOUNT,
+    calendarInvitations: 2,
   });
   expect(boundaries.services.permissionService.allows).toHaveBeenCalledWith(
     USER,
     "participate_in_projects",
   );
+});
+
+it("shows no invitation badge when the calendar cannot count", async () => {
+  boundaries.services.calendarService.countOpenInvitations.mockRejectedValue(
+    new Error("calendar down"),
+  );
+  const response = await loader(loaderArguments(USER));
+
+  await expect(response.json()).resolves.toMatchObject({
+    calendarInvitations: 0,
+  });
 });
 
 /** Renders the route with the given loader data. */

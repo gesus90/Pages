@@ -127,6 +127,22 @@ export function buildAutomationPushMessage(input: {
   };
 }
 
+/** One activated device a push is built for. */
+export interface PicaMobilePushDevice {
+  /** The confidential native token of the device; it never reaches a log. */
+  readonly token: string;
+  readonly instanceId: string;
+  readonly registration: PushRegistrationRecord;
+  readonly ttlSeconds: number;
+}
+
+/** What a push of one person names in its handover log, never its text. */
+export interface PicaMobilePushLog {
+  readonly event: string;
+  readonly message: string;
+  readonly metadata: Readonly<Record<string, string>>;
+}
+
 /**
  * Tells a person on their Pica Mobile devices about a finished automation run.
  *
@@ -134,7 +150,8 @@ export function buildAutomationPushMessage(input: {
  * Push is the only way Pages delivers today. Without a configured sender or
  * a coupled device nothing happens: no error, no hint and no later delivery.
  * Each registration's session and account are checked before the handover,
- * which is logged without token or text.
+ * which is logged without token or text. {@link deliver} hands other pushes
+ * of one person the same way, such as calendar invitations (PAGE-301).
  */
 export class PicaMobileAutomationPush {
   private readonly options: PicaMobileAutomationPushOptions;
@@ -147,6 +164,39 @@ export class PicaMobileAutomationPush {
   public async notify(
     userId: string,
     notice: AutomationRunNotice,
+  ): Promise<void> {
+    await this.deliver(
+      userId,
+      (device) =>
+        buildAutomationPushMessage({
+          token: device.token,
+          instanceId: device.instanceId,
+          registration: device.registration,
+          notice,
+          ttlSeconds: device.ttlSeconds,
+        }),
+      {
+        event: "pica_mobile.automation_push.handed_over",
+        message: "Pica Mobile push of an automation run handed over",
+        metadata: { runId: notice.runId },
+      },
+    );
+  }
+
+  /**
+   * Hands a push to every activated device of a person.
+   *
+   * @param userId - The person.
+   * @param build - Builds the push for one device whose binding still holds.
+   * @param log - What each handover is logged as, with the outcome added.
+   *
+   * @remarks
+   * Without a sender that is ready nothing is built or sent and nothing fails.
+   */
+  public async deliver(
+    userId: string,
+    build: (device: PicaMobilePushDevice) => PicaMobilePushMessage,
+    log: PicaMobilePushLog,
   ): Promise<void> {
     const { sender } = this.options;
     if (sender === null || !(await sender.ready())) return;
@@ -166,20 +216,19 @@ export class PicaMobileAutomationPush {
       );
       if (token === null) continue;
       const outcome = await sender.send(
-        buildAutomationPushMessage({
+        build({
           token,
           instanceId: await this.options.instanceId(),
           registration,
-          notice,
           ttlSeconds: this.options.ttlSeconds,
         }),
       );
       logEvent({
         level: "info",
-        event: "pica_mobile.automation_push.handed_over",
+        event: log.event,
         component: "PicaMobileAutomationPush",
-        message: "Pica Mobile push of an automation run handed over",
-        metadata: { userId, runId: notice.runId, status: outcome.kind },
+        message: log.message,
+        metadata: { ...log.metadata, userId, status: outcome.kind },
       });
     }
   }

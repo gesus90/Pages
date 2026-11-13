@@ -27,6 +27,7 @@ import type { PicaMobileNotificationProvider } from "./notifications/PicaMobileN
 import type { PicaMobilePlansProvider } from "./plans/PicaMobilePlansProvider";
 import type { PicaMobileRelay } from "./PicaMobileRelay";
 import type { PicaMobileSpeechProvider } from "./speech/PicaMobileSpeechProvider";
+import type { PicaMobileCalendarProvider } from "./calendar/PicaMobileCalendarProvider";
 
 /** What the gateway needs from its surroundings. */
 export interface PicaMobileGatewayOptions {
@@ -54,6 +55,8 @@ export interface PicaMobileGatewayOptions {
   readonly attachments?: () => Promise<PicaMobileAttachmentServices>;
   /** Answers `speech.v1`; without it `speech.v1` is not announced. */
   readonly speech?: PicaMobileSpeechProvider;
+  /** Answers `calendar.v1`; without it `calendar.v1` is not announced. */
+  readonly calendar?: PicaMobileCalendarProvider;
   /** Version of this Pages build, reported to connected clients. */
   readonly serverVersion: string;
   /** Interface to listen on; every interface when missing. */
@@ -514,6 +517,7 @@ export class PicaMobileGateway {
       chat: this.options.chat,
       conversations: this.options.conversations,
       speech: this.options.speech,
+      calendar: this.options.calendar,
       handshakeOrigin: readHandshakeOrigin(request.headers.host),
       serverVersion: this.options.serverVersion,
     });

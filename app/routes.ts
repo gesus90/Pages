@@ -186,6 +186,25 @@ function mcpProjectRoutes(routes: RouteBuilder): RouteConfigEntry[] {
   ];
 }
 
+/** The calendar API of the stand-alone Pages MCP program, admitted by the device token (PAGE-301). */
+function mcpCalendarRoutes(routes: RouteBuilder): RouteConfigEntry[] {
+  const { resource } = routes;
+  const calendar = "api/mcp/v1/calendar";
+  const event = `${calendar}/events/:eventId`;
+  return [
+    resource(`${calendar}/options`, "routes/api-mcp-v1-calendar-options.ts"),
+    resource(`${calendar}/invitees`, "routes/api-mcp-v1-calendar-invitees.ts"),
+    resource(`${calendar}/entries`, "routes/api-mcp-v1-calendar-entries.ts"),
+    resource(`${calendar}/events`, "routes/api-mcp-v1-calendar-events.ts"),
+    resource(event, "routes/api-mcp-v1-calendar-event.ts"),
+    resource(
+      `${event}/response`,
+      "routes/api-mcp-v1-calendar-event-response.ts",
+    ),
+    resource(`${event}/delete`, "routes/api-mcp-v1-calendar-event-delete.ts"),
+  ];
+}
+
 /** The workspace and remote connection API of the stand-alone Pages MCP program, admitted by the device token (PAGE-245). */
 function mcpWorkspaceRoutes(routes: RouteBuilder): RouteConfigEntry[] {
   const { resource } = routes;
@@ -288,6 +307,7 @@ function publicRoutes(routes: RouteBuilder): RouteConfigEntry[] {
     resource("api/mcp/v1/device", "routes/api-mcp-v1-device.ts"),
     ...mcpTicketRoutes(routes),
     ...mcpProjectRoutes(routes),
+    ...mcpCalendarRoutes(routes),
     ...mcpWorkspaceRoutes(routes),
     ...mcpPlanRoutes(routes),
     ...mcpPlanNotationRoutes(routes.resource),
@@ -368,6 +388,11 @@ function workspaceResources(routes: RouteBuilder): RouteConfigEntry[] {
     ...page("chat", {
       browser: "routes/chat-page.tsx",
       server: "routes/chat-page-server.ts",
+    }),
+    resource("kalender-api/page", "routes/calendar-data.ts"),
+    ...page("kalender", {
+      browser: "routes/calendar.tsx",
+      server: "routes/calendar-server.ts",
     }),
   ];
 }

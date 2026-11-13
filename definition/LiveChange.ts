@@ -1,9 +1,15 @@
 /**
  * What kind of object a live notice names; `project` stands for the tickets
- * of a project, `conversation` for a stored conversation of the chat page.
+ * of a project, `conversation` for a stored conversation of the chat page,
+ * `calendar` for an event of the calendar or the project dates of a project.
  */
 export type LiveChangeKind =
-  "ticket" | "milestone" | "wiki" | "project" | "conversation";
+  | "ticket"
+  | "milestone"
+  | "wiki"
+  | "project"
+  | "conversation"
+  | "calendar";
 
 /**
  * One live notice: which object changed, never what it now contains.
@@ -31,6 +37,7 @@ const LIVE_CHANGE_KINDS: ReadonlySet<string> = new Set([
   "wiki",
   "project",
   "conversation",
+  "calendar",
 ]);
 
 function isLiveChangeKind(value: unknown): value is LiveChangeKind {

@@ -16,6 +16,8 @@ const LARGE_MESSAGE_TYPES: ReadonlySet<string> = new Set([
   "conversation_send",
   "voice_chunk",
   "speech_chunk",
+  // An event description alone may have 10,000 characters (PAGE-301).
+  "calendar_event_save",
 ]);
 
 /** The audio chunks, which count in a budget of their own. */
@@ -69,7 +71,7 @@ export function describePicaMobileFrameMismatch(
   frame: { readonly isLarge: boolean; readonly kind: PicaMobileFrameKind },
 ): string | null {
   if (frame.isLarge && !LARGE_MESSAGE_TYPES.has(type))
-    return "Only chat_send, conversation_send, voice_chunk and speech_chunk may exceed 16384 bytes.";
+    return "Only chat_send, conversation_send, voice_chunk, speech_chunk and calendar_event_save may exceed 16384 bytes.";
   if (frame.kind === "voiceChunk" && !AUDIO_CHUNK_TYPES.has(type))
     return "A frame that names voice_chunk or speech_chunk must be one.";
   return null;

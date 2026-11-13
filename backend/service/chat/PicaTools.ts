@@ -9,6 +9,7 @@ import { registerPicaAgentDeletionTools } from "./PicaAgentDeletionTools";
 import { registerPicaHostFileTools } from "./PicaHostFileTools";
 import { registerPicaPlanTools } from "./PicaPlanTools";
 import { registerPicaAutomationTools } from "./PicaAutomationTools";
+import { registerPicaCalendarTools } from "./PicaCalendarTools";
 import { registerPicaAdminTools } from "./admin/PicaAdminTools";
 import { registerPicaOperatorTools } from "./admin/PicaOperatorTools";
 import { registerPicaStorageTools } from "./admin/PicaStorageTools";
@@ -537,6 +538,24 @@ function registerAdministratorTools(
     });
 }
 
+/** Registers the plan, automation and calendar tools, which run through the operation catalog. */
+function registerOperationTools(
+  registry: RuntimeToolRegistry,
+  execute: PicaExecute,
+): void {
+  const dispatch = {
+    execute: (
+      operation: ChatOperation,
+      parameters: ToolParameters,
+      context: RuntimeExecutionContext,
+    ): Promise<PicaToolOutcome> =>
+      execute({ operation, description: "" }, parameters, context),
+  };
+  registerPicaPlanTools(registry, dispatch);
+  registerPicaAutomationTools(registry, dispatch);
+  registerPicaCalendarTools(registry, dispatch);
+}
+
 /**
  * Registers the tools a job of an agent employee offers beside the Pages
  * tools, and the deletion of agents; each is offered only when the job
@@ -653,14 +672,7 @@ export function createPicaTools(
       service: repositoryReads,
       spend: () => spend(input, budget),
     });
-  registerPicaPlanTools(registry, {
-    execute: (operation, parameters, context) =>
-      execute({ operation, description: "" }, parameters, context),
-  });
-  registerPicaAutomationTools(registry, {
-    execute: (operation, parameters, context) =>
-      execute({ operation, description: "" }, parameters, context),
-  });
+  registerOperationTools(registry, execute);
   if (input.answerFiles)
     registry.register<PicaFileParameters, PicaToolOutcome>({
       id: PICA_FILE_TOOL,

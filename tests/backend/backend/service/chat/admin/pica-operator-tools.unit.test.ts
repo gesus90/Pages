@@ -23,6 +23,7 @@ import {
   AUTOMATION_READ_TOOLS,
   AUTOMATION_WRITE_TOOLS,
 } from "@/definition/AgentTools/Automations";
+import { PICA_CALENDAR_OPERATIONS } from "@/backend/service/chat/PicaCalendarToolService";
 
 import { operatorWorld } from "./pica-operator-world";
 
@@ -84,6 +85,7 @@ it("offers an administrator every operation of the chat catalog, and a person no
       ({ operation }) => operation,
     ),
     ...Object.keys(PICA_UNOFFERED_OPERATIONS),
+    ...Object.keys(PICA_CALENDAR_OPERATIONS),
   ]);
   expect(
     listChatOperations().filter((operation) => !reachable.has(operation)),

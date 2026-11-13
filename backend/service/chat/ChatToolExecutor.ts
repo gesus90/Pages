@@ -35,6 +35,7 @@ import type { RuntimeExecutionContext } from "@/backend/agents/runtime/RuntimeEx
 import type { PicaIdentity, PicaIdentityService } from "./PicaIdentityService";
 import type { PicaPlanTurn } from "./PicaPlanConfirmation";
 import type { PicaTicketLifecycleService } from "./PicaTicketLifecycleService";
+import type { PicaCalendarToolService } from "./PicaCalendarToolService";
 
 /** Keys only Pages sets; the agent can neither replay an operation nor confirm a deletion. */
 const SERVER_KEYS: ReadonlySet<string> = new Set([
@@ -59,6 +60,8 @@ export interface ChatToolDependencies {
   readonly repositoryReads?: RepositoryReadService;
   /** Shared ticket API lifecycle for Pica's archive and restore operations. */
   readonly ticketLifecycle?: Pick<PicaTicketLifecycleService, "handle">;
+  /** The calendar service of the interface for Pica's calendar operations (PAGE-301). */
+  readonly calendar?: Pick<PicaCalendarToolService, "handle">;
   /** The operation catalog of the agent API, wired for the chat channel. */
   readonly router: Pick<AgentOperationRouter, "handle">;
   readonly identities: Pick<PicaIdentityService, "verify">;
@@ -247,6 +250,11 @@ export class ChatToolExecutor {
     try {
       const response: Pick<ChatActionOutcome, "result" | "temporaryPassword"> =
         (await this.dependencies.ticketLifecycle?.handle(
+          identity.userId,
+          operation,
+          parameters,
+        )) ??
+        (await this.dependencies.calendar?.handle(
           identity.userId,
           operation,
           parameters,

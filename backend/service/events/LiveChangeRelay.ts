@@ -23,6 +23,7 @@ const RELAYED_TYPES: ReadonlySet<string> = new Set<PagesEvent["type"]>([
   "project.tickets.changed",
   "project.access.changed",
   "conversation.changed",
+  "calendar.changed",
 ]);
 
 function isEventType(value: unknown): value is PagesEvent["type"] {

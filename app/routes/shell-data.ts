@@ -1,10 +1,26 @@
 import { authenticatedUserContext } from "@/app/lib/auth.server";
 import { routeDataResponse } from "@/app/lib/local-state/route-data.server";
 import { getApplicationServices } from "@/app/lib/services.server";
+import { logCaughtError } from "@/backend/logging/Logger";
 import { PERMISSION } from "@/definition/Role";
 
+import type { ApplicationServices } from "@/app/lib/services.server";
 import type { ShellData } from "@/app/lib/shell-data";
+import type { User } from "@/definition/User";
 import type { Route } from "./+types/shell-data";
+
+/** Counts the open calendar invitations; the frame shows without a badge when that fails. */
+async function countCalendarInvitations(
+  services: ApplicationServices,
+  user: User,
+): Promise<number> {
+  try {
+    return await services.calendarService.countOpenInvitations(user);
+  } catch (error: unknown) {
+    logCaughtError("shell_calendar_invitations", error);
+    return 0;
+  }
+}
 
 /** Returns the authenticated user and their navigation permissions. */
 async function readShell(
@@ -26,8 +42,10 @@ async function readShell(
     PERMISSION.PARTICIPATE_IN_PROJECTS,
   );
   const pica = await services.picaSettingsService.read();
+  const calendarInvitations = await countCalendarInvitations(services, user);
 
   return {
+    calendarInvitations,
     isPicaEnabled: pica.isEnabled,
     branding,
     canViewProjects,
@@ -41,7 +59,8 @@ async function readShell(
 
 /**
  * Answers the workspace frame of the static app: the account, its navigation
- * rights, its region settings, the instance branding and whether Pica is on.
+ * rights, its region settings, the instance branding, whether Pica is on and
+ * the number of its open calendar invitations.
  */
 export async function loader({ context }: Route.LoaderArgs): Promise<Response> {
   return routeDataResponse(await readShell(context));

@@ -39,6 +39,7 @@ export async function readPicaMobileCapabilities(
     | "chat"
     | "conversations"
     | "speech"
+    | "calendar"
   >,
   session: PicaMobileSessionIdentity,
 ): Promise<readonly PicaMobileCapability[]> {
@@ -66,6 +67,10 @@ export async function readPicaMobileCapabilities(
 
   if (conversations !== undefined) {
     capabilities.push(PICA_MOBILE_CAPABILITY.CONVERSATIONS_V1);
+  }
+
+  if (options.calendar !== undefined) {
+    capabilities.push(PICA_MOBILE_CAPABILITY.CALENDAR_V1);
   }
 
   if (await isSpeechAvailable(options, session)) {

@@ -21,6 +21,8 @@ export interface StoredUserSettings {
   readonly notifyAssignments: boolean | null;
   readonly notifyDueDates: boolean | null;
   readonly notifyWeeklySummary: boolean | null;
+  /** Absent in older callers; `null` keeps the default. */
+  readonly notifyCalendarInvitations?: boolean | null;
 }
 
 /** Owns persistence operations for personal user settings. */
@@ -178,7 +180,8 @@ export class UserSettingsRepository {
             notify_assignments,
             notify_due_dates,
             notify_weekly_summary,
-            theme
+            theme,
+            notify_calendar_invitations
         FROM user_settings
         WHERE user_id = $user_id;
       `,
@@ -215,6 +218,7 @@ export class UserSettingsRepository {
             notify_due_dates,
             notify_weekly_summary,
             theme,
+            notify_calendar_invitations,
             updated_at
         )
         VALUES (
@@ -230,6 +234,7 @@ export class UserSettingsRepository {
             $notify_due_dates,
             $notify_weekly_summary,
             $theme,
+            $notify_calendar_invitations,
             utc_now()
         )
         ON CONFLICT (user_id) DO UPDATE SET
@@ -244,6 +249,7 @@ export class UserSettingsRepository {
             notify_due_dates = excluded.notify_due_dates,
             notify_weekly_summary = excluded.notify_weekly_summary,
             theme = excluded.theme,
+            notify_calendar_invitations = excluded.notify_calendar_invitations,
             updated_at = excluded.updated_at;
       `,
       {
@@ -259,6 +265,7 @@ export class UserSettingsRepository {
         notify_due_dates: settings.notifyDueDates ?? null,
         notify_weekly_summary: settings.notifyWeeklySummary ?? null,
         theme: settings.theme,
+        notify_calendar_invitations: settings.notifyCalendarInvitations ?? null,
       },
     );
   }
@@ -291,6 +298,11 @@ export class UserSettingsRepository {
         row,
         9,
         "notify_weekly_summary",
+      ),
+      notifyCalendarInvitations: readNullableBooleanColumn(
+        row,
+        11,
+        "notify_calendar_invitations",
       ),
     };
   }
