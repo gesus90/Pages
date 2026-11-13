@@ -1,12 +1,7 @@
 import { CalendarError } from "@/backend/error/CalendarError";
 import { CALENDAR_WEEKDAYS } from "@/definition/Calendar";
 
-import {
-  dateIn,
-  parseInstant,
-  toUtcText,
-  weekdayIndex,
-} from "./CalendarTime";
+import { dateIn, parseInstant, toUtcText, weekdayIndex } from "./CalendarTime";
 
 import type { CalendarDirectoryRepository } from "@/backend/database/repositories/calendar/CalendarDirectoryRepository";
 import type {
@@ -31,20 +26,30 @@ export interface StoredCalendarTime {
  * @throws {CalendarError} `invalid_request` when the end lies before the start.
  */
 export function readCalendarTime(
-  fields: { readonly start: string; readonly end: string; readonly allDay: boolean },
+  fields: {
+    readonly start: string;
+    readonly end: string;
+    readonly allDay: boolean;
+  },
   timeZone: string,
 ): StoredCalendarTime {
   if (fields.allDay) {
     const startDate = dateIn(fields.start, timeZone);
     const endDate = dateIn(fields.end, timeZone);
     if (endDate < startDate)
-      throw new CalendarError("invalid_request", "The event ends before it starts.");
+      throw new CalendarError(
+        "invalid_request",
+        "The event ends before it starts.",
+      );
     return { allDay: true, startAt: startDate, endAt: endDate, startDate };
   }
   const startMs = parseInstant(fields.start, timeZone);
   const endMs = parseInstant(fields.end, timeZone);
   if (Number.isNaN(startMs) || Number.isNaN(endMs) || endMs <= startMs)
-    throw new CalendarError("invalid_request", "The event ends before it starts.");
+    throw new CalendarError(
+      "invalid_request",
+      "The event ends before it starts.",
+    );
   return {
     allDay: false,
     startAt: toUtcText(startMs),
@@ -68,7 +73,10 @@ export function normalizeRecurrence(
 ): CalendarRecurrence | null {
   if (rule === null) return null;
   if (rule.until !== null && rule.until < startDate)
-    throw new CalendarError("invalid_request", "The series ends before it starts.");
+    throw new CalendarError(
+      "invalid_request",
+      "The series ends before it starts.",
+    );
   if (rule.frequency !== "weekly") return { ...rule, weekdays: [] };
   const weekdays =
     rule.weekdays.length === 0
@@ -101,26 +109,38 @@ export async function checkCalendarInvitees(
     return true;
   });
   const idsOf = (kinds: readonly string[]): string[] =>
-    unique.filter((invitee) => kinds.includes(invitee.kind)).map((invitee) => invitee.id);
+    unique
+      .filter((invitee) => kinds.includes(invitee.kind))
+      .map((invitee) => invitee.id);
   const accounts = new Map(
-    (await directory.findAccounts(idsOf(["person", "agent"]))).map((account) => [
-      account.id,
-      account,
-    ]),
+    (await directory.findAccounts(idsOf(["person", "agent"]))).map(
+      (account) => [account.id, account],
+    ),
   );
-  const groups = new Set((await directory.findGroups(idsOf(["group"]))).map((group) => group.id));
+  const groups = new Set(
+    (await directory.findGroups(idsOf(["group"]))).map((group) => group.id),
+  );
   const departments = new Set(
-    (await directory.findDepartments(idsOf(["department"]))).map((entry) => entry.id),
+    (await directory.findDepartments(idsOf(["department"]))).map(
+      (entry) => entry.id,
+    ),
   );
   for (const invitee of unique) {
     const account = accounts.get(invitee.id);
     const isValid =
       (invitee.kind === "group" && groups.has(invitee.id)) ||
       (invitee.kind === "department" && departments.has(invitee.id)) ||
-      (invitee.kind === "person" && account?.isActive === true && !account.isAgent) ||
-      (invitee.kind === "agent" && account?.isActive === true && account.isAgent);
+      (invitee.kind === "person" &&
+        account?.isActive === true &&
+        !account.isAgent) ||
+      (invitee.kind === "agent" &&
+        account?.isActive === true &&
+        account.isAgent);
     if (!isValid)
-      throw new CalendarError("invalid_request", "An invitee cannot be invited.");
+      throw new CalendarError(
+        "invalid_request",
+        "An invitee cannot be invited.",
+      );
   }
   return unique;
 }

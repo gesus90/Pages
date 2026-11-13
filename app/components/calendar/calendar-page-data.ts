@@ -59,15 +59,25 @@ export type CalendarPageActionData =
       readonly error: CalendarPageError;
     };
 
+function hasCalendarLists(value: object): boolean {
+  return (
+    "entries" in value &&
+    Array.isArray(value.entries) &&
+    "targets" in value &&
+    Array.isArray(value.targets) &&
+    "projects" in value &&
+    Array.isArray(value.projects)
+  );
+}
+
 /**
  * Recognizes the answer of the calendar endpoint.
  *
  * @param value - The parsed answer.
  */
 export function isCalendarPageData(value: unknown): value is CalendarPageData {
+  if (typeof value !== "object" || value === null) return false;
   return (
-    typeof value === "object" &&
-    value !== null &&
     "userId" in value &&
     typeof value.userId === "string" &&
     "view" in value &&
@@ -76,12 +86,7 @@ export function isCalendarPageData(value: unknown): value is CalendarPageData {
     typeof value.date === "string" &&
     "timeZone" in value &&
     typeof value.timeZone === "string" &&
-    "entries" in value &&
-    Array.isArray(value.entries) &&
-    "targets" in value &&
-    Array.isArray(value.targets) &&
-    "projects" in value &&
-    Array.isArray(value.projects)
+    hasCalendarLists(value)
   );
 }
 

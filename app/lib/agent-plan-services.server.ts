@@ -128,6 +128,7 @@ export type AgentPlanLoaderServices = Pick<
   | "agentPlanOverviewService"
   | "agentPlanRunHistoryService"
   | "picaMobileNotifications"
+  | "picaMobileAutomationPush"
   | "runnerPagesAccessService"
   | "planBridgeGrants"
   | "agentPlanManagement"

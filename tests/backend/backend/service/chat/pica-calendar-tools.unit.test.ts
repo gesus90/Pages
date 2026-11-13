@@ -444,11 +444,15 @@ it("leaves every other operation to the next handler", async () => {
 
 describe("read-only agents in the calendar tools", () => {
   it("refuses changes of an agent with read-only access but lets it read", async () => {
-    const { PicaCalendarToolService } = await import(
-      "@/backend/service/chat/PicaCalendarToolService"
-    );
+    const { PicaCalendarToolService } =
+      await import("@/backend/service/chat/PicaCalendarToolService");
     const calendar = {
-      readRange: vi.fn(async () => ({ from: "a", to: "b", timeZone: "UTC", entries: [] })),
+      readRange: vi.fn(async () => ({
+        from: "a",
+        to: "b",
+        timeZone: "UTC",
+        entries: [],
+      })),
       searchInvitees: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
@@ -470,14 +474,22 @@ describe("read-only agents in the calendar tools", () => {
         })),
       },
       calendar: async () => calendar,
-      agentAccess: async () => ({ find: async () => ({ access: "read_only" }) }),
+      agentAccess: async () => ({
+        find: async () => ({ access: "read_only" }),
+      }),
     });
     await expect(
-      service.handle("agent", "calendar.event.respond", { id: "e", response: "accepted" }),
+      service.handle("agent", "calendar.event.respond", {
+        id: "e",
+        response: "accepted",
+      }),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
     expect(calendar.runOnce).not.toHaveBeenCalled();
     await expect(
-      service.handle("agent", "calendar.read", { from: "2026-11-09", to: "2026-11-10" }),
+      service.handle("agent", "calendar.read", {
+        from: "2026-11-09",
+        to: "2026-11-10",
+      }),
     ).resolves.not.toBeNull();
   });
 });

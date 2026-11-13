@@ -111,7 +111,8 @@ export class CalendarPeople {
     const groupIds = idsOf("group");
     const departmentIds = idsOf("department");
     const groupMembers = await directory.findGroupMembers(groupIds);
-    const departmentMembers = await directory.findDepartmentMembers(departmentIds);
+    const departmentMembers =
+      await directory.findDepartmentMembers(departmentIds);
     const accountIds = new Set([
       ...events.map((event) => event.createdBy),
       ...idsOf("person"),
@@ -133,7 +134,10 @@ export class CalendarPeople {
       responses,
       accounts: await directory.findAccounts([...accountIds]),
       groupNames: new Map(
-        (await directory.findGroups(groupIds)).map((entry) => [entry.id, entry.name]),
+        (await directory.findGroups(groupIds)).map((entry) => [
+          entry.id,
+          entry.name,
+        ]),
       ),
       departmentNames: new Map(
         (await directory.findDepartments(departmentIds)).map((entry) => [
@@ -192,7 +196,9 @@ export class CalendarPeople {
   }
 
   private invitee(entry: CalendarInvitationRecord): CalendarInvitee[] {
-    const names: Readonly<Record<CalendarInvitationRecord["kind"], string | undefined>> = {
+    const names: Readonly<
+      Record<CalendarInvitationRecord["kind"], string | undefined>
+    > = {
       group: this.groupNames.get(entry.inviteeId),
       department: this.departmentNames.get(entry.inviteeId),
       person: this.accounts.get(entry.inviteeId)?.name,
@@ -211,7 +217,8 @@ export class CalendarPeople {
     const ids = new Set<string>();
     for (const entry of invitations) {
       if (entry.kind === "person" || entry.kind === "agent") {
-        if (this.accounts.get(entry.inviteeId)?.isActive) ids.add(entry.inviteeId);
+        if (this.accounts.get(entry.inviteeId)?.isActive)
+          ids.add(entry.inviteeId);
       } else {
         const members =
           entry.kind === "group"

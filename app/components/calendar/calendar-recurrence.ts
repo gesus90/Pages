@@ -71,7 +71,8 @@ function baseOf(
     case "monthly":
     case "yearly":
       return { frequency: fields.preset, interval: 1, weekdays: [] };
-    default:
+    case "never":
+    case "custom":
       return {
         frequency: fields.frequency,
         interval: fields.interval,

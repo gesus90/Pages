@@ -1,7 +1,4 @@
-import {
-  readBooleanColumn,
-  readTextColumn,
-} from "@/backend/database/RowValue";
+import { readBooleanColumn, readTextColumn } from "@/backend/database/RowValue";
 
 import { calendarInList } from "./CalendarSql";
 

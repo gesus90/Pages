@@ -94,7 +94,11 @@ export class CalendarSourceRepository {
             AND project_events.event_date BETWEEN $from_date AND $to_date
         ORDER BY project_events.event_date, project_events.event_time NULLS FIRST, project_events.id;
       `,
-      { ...projects.parameters, from_date: range.fromDate, to_date: range.toDate },
+      {
+        ...projects.parameters,
+        from_date: range.fromDate,
+        to_date: range.toDate,
+      },
     );
     return rows.map((row) => ({
       id: readTextColumn(row, 0, "id"),
@@ -194,7 +198,11 @@ export class CalendarSourceRepository {
             AND substring(milestones.due_at from 1 for 10) BETWEEN $from_date AND $to_date
         ORDER BY due_date, milestones.name;
       `,
-      { ...projects.parameters, from_date: range.fromDate, to_date: range.toDate },
+      {
+        ...projects.parameters,
+        from_date: range.fromDate,
+        to_date: range.toDate,
+      },
     );
     return rows.map((row) => ({
       id: readTextColumn(row, 0, "id"),

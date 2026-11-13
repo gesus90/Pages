@@ -10,6 +10,7 @@ import { registerShutdownTask } from "@/backend/runtime/ProcessLifecycle";
 import { PagesPicaMobileAuthenticator } from "@/backend/service/mobile/PicaMobileAuthenticator";
 import { PagesPicaMobileDashboard } from "@/backend/service/mobile/PicaMobileDashboardService";
 import { PagesPicaMobileChat } from "@/backend/service/mobile/chat/PagesPicaMobileChat";
+import { PagesPicaMobileCalendar } from "@/backend/service/mobile/calendar/PagesPicaMobileCalendar";
 import { PagesPicaMobileConversations } from "@/backend/service/mobile/conversations/PagesPicaMobileConversations";
 import { PagesPicaMobileSpeech } from "@/backend/service/mobile/speech/PagesPicaMobileSpeech";
 import { PagesPicaMobileNotifications } from "@/backend/service/mobile/notifications/PagesPicaMobileNotifications";
@@ -51,6 +52,7 @@ const ANY_DASHBOARD: unknown = expect.any(PagesPicaMobileDashboard);
 const ANY_NOTIFICATIONS: unknown = expect.any(PagesPicaMobileNotifications);
 const ANY_PLANS: unknown = expect.any(PagesPicaMobilePlans);
 const ANY_CHAT: unknown = expect.any(PagesPicaMobileChat);
+const ANY_CALENDAR: unknown = expect.any(PagesPicaMobileCalendar);
 const ANY_CONVERSATIONS: unknown = expect.any(PagesPicaMobileConversations);
 const ANY_SPEECH: unknown = expect.any(PagesPicaMobileSpeech);
 const ANY_ATTACHMENTS: unknown = expect.any(Function);
@@ -82,6 +84,7 @@ describe("obtainPicaMobileGateway", () => {
       notifications: ANY_NOTIFICATIONS,
       plans: ANY_PLANS,
       chat: ANY_CHAT,
+      calendar: ANY_CALENDAR,
       conversations: ANY_CONVERSATIONS,
       attachments: ANY_ATTACHMENTS,
       speech: ANY_SPEECH,

@@ -50,7 +50,11 @@ export interface CalendarWindow {
  * @param timeZone - The zone of the event; dates of a timed event are read in it.
  */
 export function readStoredTime(
-  fields: { readonly allDay: boolean; readonly startAt: string; readonly endAt: string },
+  fields: {
+    readonly allDay: boolean;
+    readonly startAt: string;
+    readonly endAt: string;
+  },
   timeZone: string,
 ): OccurrenceTime {
   if (fields.allDay) {
@@ -80,7 +84,10 @@ export function readStoredTime(
  * @param date - An occurrence date in the zone of the series.
  * @returns The stored form of its original start.
  */
-export function occurrenceKeyOn(event: CalendarEventRecord, date: string): string {
+export function occurrenceKeyOn(
+  event: CalendarEventRecord,
+  date: string,
+): string {
   if (event.allDay) return date;
   const base = readStoredTime(event, event.timeZone);
   const time = toLocal(base.startMs ?? 0, event.timeZone).time;
@@ -93,7 +100,10 @@ export function occurrenceKeyOn(event: CalendarEventRecord, date: string): strin
  * @param event - The series.
  * @param key - A key of {@link occurrenceKeyOn}.
  */
-export function occurrenceDateOf(event: CalendarEventRecord, key: string): string {
+export function occurrenceDateOf(
+  event: CalendarEventRecord,
+  key: string,
+): string {
   if (isCalendarDate(key)) return key;
   return toLocal(Date.parse(key), event.timeZone).date;
 }
@@ -176,7 +186,10 @@ function applyException(
  * @param time - The occurrence.
  * @param window - Instants and dates of the viewer.
  */
-export function touchesWindow(time: OccurrenceTime, window: CalendarWindow): boolean {
+export function touchesWindow(
+  time: OccurrenceTime,
+  window: CalendarWindow,
+): boolean {
   if (time.allDay)
     return time.startDate <= window.toDate && time.endDate >= window.fromDate;
   const startMs = time.startMs ?? 0;
@@ -212,7 +225,9 @@ export function expandOccurrences(
     };
     return touchesWindow(single, window) ? [single] : [];
   }
-  const byKey = new Map(exceptions.map((entry) => [entry.occurrenceStart, entry]));
+  const byKey = new Map(
+    exceptions.map((entry) => [entry.occurrenceStart, entry]),
+  );
   const span = spanDays(base.startDate, base.endDate);
   const dates = listOccurrenceDates(
     event.recurrence,
@@ -246,9 +261,11 @@ export function findOccurrence(
   if (event.recurrence === null) return null;
   const date = occurrenceDateOf(event, key);
   const base = readStoredTime(event, event.timeZone);
-  const isListed = listOccurrenceDates(event.recurrence, base.startDate, date).some(
-    (entry) => entry.date === date,
-  );
+  const isListed = listOccurrenceDates(
+    event.recurrence,
+    base.startDate,
+    date,
+  ).some((entry) => entry.date === date);
   if (!isListed) return null;
   const plain = occurrenceAt(event, date);
   if (plain.key !== key) return null;

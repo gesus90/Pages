@@ -39,7 +39,9 @@ export class PicaMobileCalendarHandler {
     this.provider = provider;
     this.host = host;
     this.feed =
-      provider === undefined ? null : new PicaMobileCalendarFeed(provider, host);
+      provider === undefined
+        ? null
+        : new PicaMobileCalendarFeed(provider, host);
   }
 
   /** Starts sending the changes of the account; called once after the authentication. */
@@ -80,7 +82,11 @@ export class PicaMobileCalendarHandler {
       if (outcome.kind === "sessionEnded") {
         host.endSession(requestId);
       } else if (outcome.kind === "refused") {
-        host.reject({ code: outcome.code, message: outcome.message, requestId });
+        host.reject({
+          code: outcome.code,
+          message: outcome.message,
+          requestId,
+        });
       } else {
         host.acknowledge();
         host.send(encodePicaMobileCalendar(requestId, outcome.answer));

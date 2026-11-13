@@ -125,6 +125,7 @@ it("loads the user, the navigation rights, the region and the branding", async (
   const response = await loader(loaderArguments(USER));
 
   await expect(response.json()).resolves.toEqual({
+    calendarInvitations: 0,
     isPicaEnabled: true,
     branding: BRANDING,
     canViewProjects: false,

@@ -222,7 +222,8 @@ export class PicaMobileCalendarPush implements CalendarInvitationListener {
     });
     await services.picaMobileAutomationPush.deliver(
       userId,
-      (device) => buildPicaMobileCalendarPushMessage(device, notice.eventId, texts),
+      (device) =>
+        buildPicaMobileCalendarPushMessage(device, notice.eventId, texts),
       {
         event: "pica_mobile.calendar_push.handed_over",
         message: "Pica Mobile push of a calendar invitation handed over",

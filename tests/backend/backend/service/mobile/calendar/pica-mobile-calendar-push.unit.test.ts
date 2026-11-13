@@ -51,7 +51,10 @@ function settingsOf(change: {
 function world(options: {
   readonly settings?: Readonly<Record<string, UserSettings>>;
   readonly isPushAvailable?: boolean;
-}): { readonly push: PicaMobileCalendarPush; readonly sent: PicaMobilePushMessage[] } {
+}): {
+  readonly push: PicaMobileCalendarPush;
+  readonly sent: PicaMobilePushMessage[];
+} {
   const sent: PicaMobilePushMessage[] = [];
   const delivery = new PicaMobileAutomationPush({
     registrations: {
@@ -106,7 +109,9 @@ describe("calendar invitation texts", () => {
       language: "en",
     });
     expect(english.title).toBe("Invitation: Planung Q4");
-    expect(english.body).toMatch(/^Monday, 11\/16\/2026, 8:30\sAM · from Anna Admin$/u);
+    expect(english.body).toMatch(
+      /^Monday, 11\/16\/2026, 8:30\sAM · from Anna Admin$/u,
+    );
     expect(english.start).toBe("2026-11-16T08:30:00-05:00");
     expect(
       describePicaMobileCalendarInvitation(

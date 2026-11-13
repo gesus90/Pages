@@ -6,10 +6,7 @@ import type {
   CalendarMilestoneRecord,
   CalendarProjectDateRecord,
 } from "@/backend/database/repositories/calendar/CalendarSourceRepository";
-import type {
-  CalendarOfEntry,
-  CalendarViewEntry,
-} from "@/definition/Calendar";
+import type { CalendarOfEntry, CalendarViewEntry } from "@/definition/Calendar";
 import type { Language } from "@/language/Language";
 import type { CalendarOccurrence, OccurrenceTime } from "./CalendarOccurrences";
 import type { CalendarParticipants } from "./CalendarPeople";
@@ -186,7 +183,14 @@ export function toEventEntry(input: EventEntryInput): CalendarViewEntry {
 function derivedEntry(
   fields: Pick<
     CalendarViewEntry,
-    "id" | "title" | "description" | "start" | "end" | "allDay" | "calendar" | "source"
+    | "id"
+    | "title"
+    | "description"
+    | "start"
+    | "end"
+    | "allDay"
+    | "calendar"
+    | "source"
   >,
   link: string,
 ): CalendarViewEntry {
@@ -240,7 +244,10 @@ export function toProjectDateEntry(
     {
       ...base,
       start: formatInZone(startMs, viewer.timeZone),
-      end: formatInZone(startMs + PROJECT_DATE_MINUTES * 60_000, viewer.timeZone),
+      end: formatInZone(
+        startMs + PROJECT_DATE_MINUTES * 60_000,
+        viewer.timeZone,
+      ),
       allDay: false,
     },
     link,
@@ -266,7 +273,11 @@ export function toDueEntry(
       start: record.date,
       end: record.date,
       allDay: true,
-      calendar: { kind: "due", projectId: record.projectId, name: texts.deadlines },
+      calendar: {
+        kind: "due",
+        projectId: record.projectId,
+        name: texts.deadlines,
+      },
       source: { kind: "ticket", ticketKey: record.key },
     },
     `/aufgaben/${encodeURIComponent(record.key)}`,

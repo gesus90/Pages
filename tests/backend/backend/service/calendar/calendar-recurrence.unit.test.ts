@@ -34,10 +34,14 @@ function dates(
   start: string,
   until: string,
 ): string[] {
-  return listOccurrenceDates(recurrence, start, until).map((entry) => entry.date);
+  return listOccurrenceDates(recurrence, start, until).map(
+    (entry) => entry.date,
+  );
 }
 
-function weekly(overrides: Partial<CalendarEventRecord> = {}): CalendarEventRecord {
+function weekly(
+  overrides: Partial<CalendarEventRecord> = {},
+): CalendarEventRecord {
   return {
     id: "event-1",
     title: "Weekly",
@@ -72,17 +76,34 @@ describe("calendar recurrence", () => {
         "2026-11-12",
         "2026-11-18",
       ),
-    ).toEqual(["2026-11-12", "2026-11-13", "2026-11-16", "2026-11-17", "2026-11-18"]);
+    ).toEqual([
+      "2026-11-12",
+      "2026-11-13",
+      "2026-11-16",
+      "2026-11-17",
+      "2026-11-18",
+    ]);
   });
 
   it("repeats every second week on chosen weekdays until a date", () => {
     expect(
       dates(
-        rule({ frequency: "weekly", interval: 2, weekdays: ["mo", "th"], until: "2026-11-30" }),
+        rule({
+          frequency: "weekly",
+          interval: 2,
+          weekdays: ["mo", "th"],
+          until: "2026-11-30",
+        }),
         "2026-11-02",
         "2026-12-31",
       ),
-    ).toEqual(["2026-11-02", "2026-11-05", "2026-11-16", "2026-11-19", "2026-11-30"]);
+    ).toEqual([
+      "2026-11-02",
+      "2026-11-05",
+      "2026-11-16",
+      "2026-11-19",
+      "2026-11-30",
+    ]);
   });
 
   it("skips months without the day and leap days in other years", () => {
@@ -104,7 +125,9 @@ describe("calendar recurrence", () => {
       before: { ...counted, count: 4 },
       after: { ...counted, count: 6 },
     });
-    expect(splitRecurrence(rule({}), "2026-11-01", "2026-11-01").before).toBeNull();
+    expect(
+      splitRecurrence(rule({}), "2026-11-01", "2026-11-01").before,
+    ).toBeNull();
   });
 });
 
@@ -118,13 +141,17 @@ describe("calendar occurrences", () => {
     };
     const occurrences = expandOccurrences(weekly(), [], window);
     expect(
-      occurrences.map((entry) => formatInZone(entry.startMs ?? 0, "Europe/Berlin")),
+      occurrences.map((entry) =>
+        formatInZone(entry.startMs ?? 0, "Europe/Berlin"),
+      ),
     ).toEqual([
       "2026-10-19T09:00:00+02:00",
       "2026-10-26T09:00:00+01:00",
       "2026-11-02T09:00:00+01:00",
     ]);
-    expect(toLocal(occurrences[1]?.endMs ?? 0, "Europe/Berlin").time).toBe("10:00:00");
+    expect(toLocal(occurrences[1]?.endMs ?? 0, "Europe/Berlin").time).toBe(
+      "10:00:00",
+    );
   });
 
   it("applies cancelled and changed occurrences", () => {
@@ -159,9 +186,14 @@ describe("calendar occurrences", () => {
       },
     ];
     const occurrences = expandOccurrences(event, exceptions, window);
-    expect(occurrences.map((entry) => entry.title)).toEqual(["Moved", "Weekly"]);
+    expect(occurrences.map((entry) => entry.title)).toEqual([
+      "Moved",
+      "Weekly",
+    ]);
     expect(findOccurrence(event, exceptions, first?.key ?? "")).toBeNull();
-    expect(findOccurrence(event, exceptions, second?.key ?? "")?.title).toBe("Moved");
+    expect(findOccurrence(event, exceptions, second?.key ?? "")?.title).toBe(
+      "Moved",
+    );
   });
 
   it("shows multi-day all-day events in every window they touch", () => {

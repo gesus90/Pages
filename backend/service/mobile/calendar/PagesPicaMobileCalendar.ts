@@ -173,7 +173,8 @@ export class PagesPicaMobileCalendar implements PicaMobileCalendarProvider {
     if (user === null) return { kind: "sessionEnded" };
     const ids = new Set<string>();
     for (const event of events) {
-      if (await this.isVisible(services, user, event)) ids.add(entryIdOf(event));
+      if (await this.isVisible(services, user, event))
+        ids.add(entryIdOf(event));
     }
     return { kind: "changes", ids: [...ids] };
   }
@@ -236,7 +237,10 @@ export class PagesPicaMobileCalendar implements PicaMobileCalendarProvider {
         return {
           type: "calendar_target_options",
           payload: {
-            targets: targets.map(({ projectId, name }) => ({ projectId, name })),
+            targets: targets.map(({ projectId, name }) => ({
+              projectId,
+              name,
+            })),
           },
         };
       }

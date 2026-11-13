@@ -5,10 +5,7 @@ import {
   readNullableTextColumn,
   readTextColumn,
 } from "@/backend/database/RowValue";
-import {
-  CALENDAR_FREQUENCIES,
-  CALENDAR_WEEKDAYS,
-} from "@/definition/Calendar";
+import { CALENDAR_FREQUENCIES, CALENDAR_WEEKDAYS } from "@/definition/Calendar";
 
 import { calendarInList } from "./CalendarSql";
 
@@ -45,7 +42,10 @@ export interface CalendarEventRecord {
 }
 
 /** The values of a new event. */
-export type NewCalendarEvent = Omit<CalendarEventRecord, "revision" | "deletedAt">;
+export type NewCalendarEvent = Omit<
+  CalendarEventRecord,
+  "revision" | "deletedAt"
+>;
 
 /**
  * One occurrence that was changed or cancelled on its own.
@@ -107,7 +107,9 @@ function readWeekdays(text: string): CalendarWeekday[] {
   return Array.isArray(parsed) ? parsed.filter(isWeekday) : [];
 }
 
-function readRecurrence(row: readonly DatabaseValue[]): CalendarRecurrence | null {
+function readRecurrence(
+  row: readonly DatabaseValue[],
+): CalendarRecurrence | null {
   const frequency = readNullableTextColumn(row, 11, "frequency");
   if (frequency === null) return null;
   if (!isFrequency(frequency))
@@ -394,7 +396,9 @@ export class CalendarEventRepository {
    *
    * @param exception - The exception.
    */
-  public async saveException(exception: CalendarExceptionRecord): Promise<void> {
+  public async saveException(
+    exception: CalendarExceptionRecord,
+  ): Promise<void> {
     await this.database.execute(
       `
         INSERT INTO calendar_event_exceptions (
@@ -448,7 +452,10 @@ export class CalendarEventRepository {
    */
   public async deleteExceptions(
     eventId: string,
-    options: { readonly fromOccurrence?: string; readonly onlyChanged?: boolean } = {},
+    options: {
+      readonly fromOccurrence?: string;
+      readonly onlyChanged?: boolean;
+    } = {},
   ): Promise<void> {
     await this.database.execute(
       `

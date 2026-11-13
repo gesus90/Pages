@@ -13,8 +13,18 @@ import {
   readStoredTime,
 } from "./CalendarOccurrences";
 import { formatOccurrence } from "./CalendarProjection";
-import { listOccurrenceDates, spanDays, splitRecurrence } from "./CalendarRecurrence";
-import { addDays, daysBetween, fromLocal, toLocal, toUtcText } from "./CalendarTime";
+import {
+  listOccurrenceDates,
+  spanDays,
+  splitRecurrence,
+} from "./CalendarRecurrence";
+import {
+  addDays,
+  daysBetween,
+  fromLocal,
+  toLocal,
+  toUtcText,
+} from "./CalendarTime";
 
 import type {
   CalendarEventRecord,
@@ -35,10 +45,17 @@ export interface CalendarChangeResult {
 }
 
 function hasTimePatch(patch: CalendarEventPatch): boolean {
-  return patch.start !== undefined || patch.end !== undefined || patch.allDay !== undefined;
+  return (
+    patch.start !== undefined ||
+    patch.end !== undefined ||
+    patch.allDay !== undefined
+  );
 }
 
-function sameRule(left: CalendarEventRecord["recurrence"], right: CalendarEventRecord["recurrence"]): boolean {
+function sameRule(
+  left: CalendarEventRecord["recurrence"],
+  right: CalendarEventRecord["recurrence"],
+): boolean {
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
@@ -73,7 +90,10 @@ function shiftSeries(
 ): StoredCalendarTime {
   const base = readStoredTime(event, event.timeZone);
   const next = readStoredTime(target, event.timeZone);
-  const startDate = addDays(base.startDate, daysBetween(occurrence.startDate, next.startDate));
+  const startDate = addDays(
+    base.startDate,
+    daysBetween(occurrence.startDate, next.startDate),
+  );
   if (target.allDay) {
     const endDate = addDays(startDate, spanDays(next.startDate, next.endDate));
     return { allDay: true, startAt: startDate, endAt: endDate, startDate };
@@ -81,7 +101,12 @@ function shiftSeries(
   const time = toLocal(next.startMs ?? 0, event.timeZone).time;
   const startMs = fromLocal({ date: startDate, time }, event.timeZone);
   const endMs = startMs + ((next.endMs ?? 0) - (next.startMs ?? 0));
-  return { allDay: false, startAt: toUtcText(startMs), endAt: toUtcText(endMs), startDate };
+  return {
+    allDay: false,
+    startAt: toUtcText(startMs),
+    endAt: toUtcText(endMs),
+    startDate,
+  };
 }
 
 /**
@@ -116,7 +141,10 @@ export class CalendarSeriesChanges {
   public patchedEvent(
     event: CalendarEventRecord,
     patch: CalendarEventPatch,
-    context: { readonly viewer: CalendarViewer; readonly occurrence: CalendarOccurrence | null },
+    context: {
+      readonly viewer: CalendarViewer;
+      readonly occurrence: CalendarOccurrence | null;
+    },
   ): NewCalendarEvent {
     const time = this.patchedTime(event, patch, context);
     return {
@@ -128,7 +156,9 @@ export class CalendarSeriesChanges {
       endAt: time.endAt,
       timeZone: event.timeZone,
       projectId:
-        patch.calendarProjectId === undefined ? event.projectId : patch.calendarProjectId,
+        patch.calendarProjectId === undefined
+          ? event.projectId
+          : patch.calendarProjectId,
       createdBy: event.createdBy,
       recurrence: normalizeRecurrence(
         patch.recurrence === undefined ? event.recurrence : patch.recurrence,
@@ -151,7 +181,9 @@ export class CalendarSeriesChanges {
   ): Promise<CalendarChangeResult> {
     const { events, participation, directory } = this.dependencies;
     const isTimeChanged =
-      next.startAt !== event.startAt || next.endAt !== event.endAt || next.allDay !== event.allDay;
+      next.startAt !== event.startAt ||
+      next.endAt !== event.endAt ||
+      next.allDay !== event.allDay;
     await events.update(next);
     if (isTimeChanged || !sameRule(event.recurrence, next.recurrence))
       await events.deleteExceptions(event.id);
@@ -174,14 +206,19 @@ export class CalendarSeriesChanges {
   public async updateThis(
     event: CalendarEventRecord,
     occurrence: CalendarOccurrence & { readonly key: string },
-    context: { readonly patch: CalendarEventPatch; readonly viewer: CalendarViewer },
+    context: {
+      readonly patch: CalendarEventPatch;
+      readonly viewer: CalendarViewer;
+    },
   ): Promise<CalendarChangeResult> {
     const { patch, viewer } = context;
     const { events, participation, directory } = this.dependencies;
     const existing = (await events.findExceptions([event.id])).find(
       (entry) => entry.occurrenceStart === occurrence.key,
     );
-    const time = hasTimePatch(patch) ? patchedOccurrenceTime(occurrence, patch, viewer) : null;
+    const time = hasTimePatch(patch)
+      ? patchedOccurrenceTime(occurrence, patch, viewer)
+      : null;
     const exception: CalendarExceptionRecord = {
       eventId: event.id,
       occurrenceStart: occurrence.key,
@@ -213,12 +250,16 @@ export class CalendarSeriesChanges {
   public async updateFollowing(
     event: CalendarEventRecord,
     occurrence: CalendarOccurrence & { readonly key: string },
-    context: { readonly patch: CalendarEventPatch; readonly viewer: CalendarViewer },
+    context: {
+      readonly patch: CalendarEventPatch;
+      readonly viewer: CalendarViewer;
+    },
   ): Promise<CalendarChangeResult> {
     const { patch, viewer } = context;
     const { events, participation, directory } = this.dependencies;
     const rule = event.recurrence;
-    if (rule === null) throw new CalendarError("invalid_request", "The event is no series.");
+    if (rule === null)
+      throw new CalendarError("invalid_request", "The event is no series.");
     const base = readStoredTime(event, event.timeZone);
     const splitDate = occurrenceDateOf(event, occurrence.key);
     const split = splitRecurrence(rule, base.startDate, splitDate);
@@ -233,7 +274,10 @@ export class CalendarSeriesChanges {
       startAt: time.startAt,
       endAt: time.endAt,
       timeZone: event.timeZone,
-      projectId: patch.calendarProjectId === undefined ? event.projectId : patch.calendarProjectId,
+      projectId:
+        patch.calendarProjectId === undefined
+          ? event.projectId
+          : patch.calendarProjectId,
       createdBy: event.createdBy,
       recurrence: normalizeRecurrence(
         patch.recurrence === undefined ? split.after : patch.recurrence,
@@ -246,7 +290,10 @@ export class CalendarSeriesChanges {
     await participation.replaceInvitations(
       newId,
       patch.invitees === undefined
-        ? invitations.map((entry) => ({ kind: entry.kind, id: entry.inviteeId }))
+        ? invitations.map((entry) => ({
+            kind: entry.kind,
+            id: entry.inviteeId,
+          }))
         : await checkCalendarInvitees(directory, patch.invitees),
     );
     await participation.copyResponses(event.id, newId);
@@ -286,7 +333,11 @@ export class CalendarSeriesChanges {
       return;
     }
     const base = readStoredTime(event, event.timeZone);
-    const split = splitRecurrence(event.recurrence, base.startDate, occurrenceDateOf(event, occurrence.key));
+    const split = splitRecurrence(
+      event.recurrence,
+      base.startDate,
+      occurrenceDateOf(event, occurrence.key),
+    );
     if (split.before === null) {
       await events.markDeleted(event.id);
       return;
@@ -306,7 +357,9 @@ export class CalendarSeriesChanges {
     event: CalendarEventRecord,
     key: string,
   ): Promise<CalendarOccurrence & { readonly key: string }> {
-    const exceptions = await this.dependencies.events.findExceptions([event.id]);
+    const exceptions = await this.dependencies.events.findExceptions([
+      event.id,
+    ]);
     const occurrence = findOccurrence(event, exceptions, key);
     if (occurrence === null || occurrence.key === null)
       throw new CalendarError("not_found", "The occurrence does not exist.");
@@ -323,7 +376,11 @@ export class CalendarSeriesChanges {
     if (event.recurrence === null) return true;
     const base = readStoredTime(event, event.timeZone);
     // Every rule has its first occurrence within a week of its start.
-    const first = listOccurrenceDates(event.recurrence, base.startDate, addDays(base.startDate, 7))[0];
+    const first = listOccurrenceDates(
+      event.recurrence,
+      base.startDate,
+      addDays(base.startDate, 7),
+    )[0];
     const date = occurrenceDateOf(event, key);
     return first === undefined ? date <= base.startDate : date <= first.date;
   }
@@ -331,7 +388,10 @@ export class CalendarSeriesChanges {
   private patchedTime(
     event: CalendarEventRecord,
     patch: CalendarEventPatch,
-    context: { readonly viewer: CalendarViewer; readonly occurrence: CalendarOccurrence | null },
+    context: {
+      readonly viewer: CalendarViewer;
+      readonly occurrence: CalendarOccurrence | null;
+    },
   ): StoredCalendarTime {
     const base = readStoredTime(event, event.timeZone);
     const stored: StoredCalendarTime = {
@@ -343,7 +403,11 @@ export class CalendarSeriesChanges {
     if (!hasTimePatch(patch)) return stored;
     const { viewer, occurrence } = context;
     if (occurrence !== null && event.recurrence !== null)
-      return shiftSeries(event, occurrence, patchedOccurrenceTime(occurrence, patch, viewer));
+      return shiftSeries(
+        event,
+        occurrence,
+        patchedOccurrenceTime(occurrence, patch, viewer),
+      );
     const current = formatOccurrence(base, viewer.timeZone);
     return readCalendarTime(
       {

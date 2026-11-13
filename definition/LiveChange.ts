@@ -4,12 +4,7 @@
  * `calendar` for an event of the calendar or the project dates of a project.
  */
 export type LiveChangeKind =
-  | "ticket"
-  | "milestone"
-  | "wiki"
-  | "project"
-  | "conversation"
-  | "calendar";
+  "ticket" | "milestone" | "wiki" | "project" | "conversation" | "calendar";
 
 /**
  * One live notice: which object changed, never what it now contains.

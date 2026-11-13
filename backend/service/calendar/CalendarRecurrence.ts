@@ -23,7 +23,8 @@ function* dailyDates(
   rule: CalendarRecurrence,
   startDate: string,
 ): Generator<string> {
-  for (let step = 0; ; step += 1) yield addDays(startDate, step * rule.interval);
+  for (let step = 0; ; step += 1)
+    yield addDays(startDate, step * rule.interval);
 }
 
 function* weeklyDates(
@@ -145,7 +146,10 @@ export function splitRecurrence(
   rule: CalendarRecurrence,
   startDate: string,
   splitDate: string,
-): { readonly before: CalendarRecurrence | null; readonly after: CalendarRecurrence } {
+): {
+  readonly before: CalendarRecurrence | null;
+  readonly after: CalendarRecurrence;
+} {
   const earlier = listOccurrenceDates(rule, startDate, addDays(splitDate, -1));
   const shortened: CalendarRecurrence =
     rule.count === null

@@ -1,10 +1,6 @@
 /** Reasons the calendar refuses a request (PAGE-301). */
 export type CalendarErrorCode =
-  | "forbidden"
-  | "not_found"
-  | "invalid_request"
-  | "conflict"
-  | "too_large";
+  "forbidden" | "not_found" | "invalid_request" | "conflict" | "too_large";
 
 /**
  * A refused calendar request.

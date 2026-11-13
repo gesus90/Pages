@@ -74,9 +74,18 @@ export function readCalendarWindow(
     ? fromLocal({ date: addDays(to, 1), time: "00:00:00" }, timeZone)
     : Date.parse(to);
   if (Number.isNaN(fromMs) || Number.isNaN(toMs) || toMs <= fromMs)
-    throw new CalendarError("invalid_request", "The range ends before it starts.");
-  if (toMs - fromMs > CALENDAR_LIMITS.rangeDays * DAY_MILLISECONDS + RANGE_SLACK_MILLISECONDS)
-    throw new CalendarError("invalid_request", "The range is longer than 92 days.");
+    throw new CalendarError(
+      "invalid_request",
+      "The range ends before it starts.",
+    );
+  if (
+    toMs - fromMs >
+    CALENDAR_LIMITS.rangeDays * DAY_MILLISECONDS + RANGE_SLACK_MILLISECONDS
+  )
+    throw new CalendarError(
+      "invalid_request",
+      "The range is longer than 92 days.",
+    );
   return {
     fromMs,
     toMs,
@@ -110,7 +119,8 @@ export class CalendarReader {
     window: CalendarWindow,
     kinds?: ReadonlySet<CalendarKind>,
   ): Promise<CalendarViewEntry[]> {
-    const wants = (kind: CalendarKind): boolean => kinds === undefined || kinds.has(kind);
+    const wants = (kind: CalendarKind): boolean =>
+      kinds === undefined || kinds.has(kind);
     const entries: CalendarViewEntry[] = [];
     if (wants("personal") || wants("project"))
       entries.push(
@@ -133,7 +143,9 @@ export class CalendarReader {
     viewer: CalendarViewer,
     eventId: string,
   ): Promise<VisibleCalendarEvent> {
-    const event = await this.dependencies.events.findById(parseEntryId(eventId).eventId);
+    const event = await this.dependencies.events.findById(
+      parseEntryId(eventId).eventId,
+    );
     if (!event || event.deletedAt !== null)
       throw new CalendarError("not_found", "The event does not exist.");
     const people = await CalendarPeople.read(this.dependencies, [event]);
@@ -155,7 +167,9 @@ export class CalendarReader {
     key: string | null,
   ): Promise<CalendarViewEntry> {
     const { event, people } = visible;
-    const exceptions = await this.dependencies.events.findExceptions([event.id]);
+    const exceptions = await this.dependencies.events.findExceptions([
+      event.id,
+    ]);
     const occurrence =
       (key === null ? null : findOccurrence(event, exceptions, key)) ??
       this.firstOccurrence(event, exceptions);
@@ -165,7 +179,8 @@ export class CalendarReader {
       participants: people.of(event),
       viewer,
       projectNames: await this.projectNames(viewer, [event]),
-      isViewerAgent: people.isAgent(viewer.user.id) || viewer.user.isAgent === true,
+      isViewerAgent:
+        people.isAgent(viewer.user.id) || viewer.user.isAgent === true,
     });
   }
 
@@ -181,9 +196,14 @@ export class CalendarReader {
   ): Promise<CalendarEventView> {
     const { event, people } = visible;
     const participants = people.of(event);
-    const exceptions = await this.dependencies.events.findExceptions([event.id]);
+    const exceptions = await this.dependencies.events.findExceptions([
+      event.id,
+    ]);
     const entry = await this.entryOf(viewer, visible, null);
-    const times = formatOccurrence(readStoredTime(event, event.timeZone), viewer.timeZone);
+    const times = formatOccurrence(
+      readStoredTime(event, event.timeZone),
+      viewer.timeZone,
+    );
     const canEdit = entry.editable;
     return {
       id: event.id,
@@ -199,7 +219,10 @@ export class CalendarReader {
       myResponse: entry.myResponse,
       createdBy: participants.createdBy,
       exceptions: exceptions.map((exception) => ({
-        occurrenceStart: formatOccurrenceKey(exception.occurrenceStart, viewer.timeZone),
+        occurrenceStart: formatOccurrenceKey(
+          exception.occurrenceStart,
+          viewer.timeZone,
+        ),
         isCancelled: exception.isCancelled,
       })),
       permissions: {
@@ -231,7 +254,9 @@ export class CalendarReader {
     const people = await CalendarPeople.read(this.dependencies, events);
     return events.filter((event) => {
       const participants = people.of(event);
-      const own = participants.responses.find((entry) => entry.userId === viewer.user.id);
+      const own = participants.responses.find(
+        (entry) => entry.userId === viewer.user.id,
+      );
       if (!own || own.response !== "open") return false;
       if (event.recurrence === null)
         return readStoredTime(event, event.timeZone).endDate >= today;
@@ -253,7 +278,12 @@ export class CalendarReader {
       { projectId: null, name: calendarTexts(viewer.language).mine },
     ];
     for (const project of viewer.projects) {
-      if (await this.dependencies.projects.canWriteProject(viewer.user, project.id))
+      if (
+        await this.dependencies.projects.canWriteProject(
+          viewer.user,
+          project.id,
+        )
+      )
         targets.push({ projectId: project.id, name: project.name });
     }
     return targets;
@@ -288,7 +318,10 @@ export class CalendarReader {
     people: CalendarPeople,
   ): boolean {
     if (event.createdBy === viewer.user.id || viewer.isAdmin) return true;
-    if (event.projectId !== null && viewer.projects.some((project) => project.id === event.projectId))
+    if (
+      event.projectId !== null &&
+      viewer.projects.some((project) => project.id === event.projectId)
+    )
       return true;
     return people.of(event).affectedIds.has(viewer.user.id);
   }
@@ -303,11 +336,15 @@ export class CalendarReader {
     viewer: CalendarViewer,
     events: readonly CalendarEventRecord[],
   ): Promise<Map<string, string>> {
-    const names = new Map(viewer.projects.map((project) => [project.id, project.name]));
+    const names = new Map(
+      viewer.projects.map((project) => [project.id, project.name]),
+    );
     const missing = events
       .map((event) => event.projectId)
       .filter((id): id is string => id !== null && !names.has(id));
-    for (const project of await this.dependencies.sources.findProjectNames(missing))
+    for (const project of await this.dependencies.sources.findProjectNames(
+      missing,
+    ))
       names.set(project.id, project.name);
     return names;
   }
@@ -332,7 +369,12 @@ export class CalendarReader {
   ): CalendarOccurrence {
     const base = readStoredTime(event, event.timeZone);
     if (event.recurrence === null)
-      return { ...base, key: null, title: event.title, description: event.description };
+      return {
+        ...base,
+        key: null,
+        title: event.title,
+        description: event.description,
+      };
     const window: CalendarWindow = {
       fromMs: base.startMs ?? Date.parse(`${base.startDate}T00:00:00Z`),
       toMs: Number.MAX_SAFE_INTEGER,
@@ -353,17 +395,21 @@ export class CalendarReader {
     viewer: CalendarViewer,
     window: CalendarWindow,
   ): Promise<CalendarViewEntry[]> {
-    const events = await this.dependencies.events.findVisible(this.scopeOf(viewer), {
-      fromDate: addDays(window.fromDate, -1),
-      toDate: addDays(window.toDate, 1),
-    });
+    const events = await this.dependencies.events.findVisible(
+      this.scopeOf(viewer),
+      {
+        fromDate: addDays(window.fromDate, -1),
+        toDate: addDays(window.toDate, 1),
+      },
+    );
     if (events.length === 0) return [];
     const people = await CalendarPeople.read(this.dependencies, events);
     const exceptions = await this.dependencies.events.findExceptions(
       events.map((event) => event.id),
     );
     const projectNames = await this.projectNames(viewer, events);
-    const isViewerAgent = people.isAgent(viewer.user.id) || viewer.user.isAgent === true;
+    const isViewerAgent =
+      people.isAgent(viewer.user.id) || viewer.user.isAgent === true;
     return events.flatMap((event) => {
       const participants = people.of(event);
       return expandOccurrences(
@@ -371,7 +417,14 @@ export class CalendarReader {
         exceptions.filter((entry) => entry.eventId === event.id),
         window,
       ).map((occurrence) =>
-        toEventEntry({ event, occurrence, participants, viewer, projectNames, isViewerAgent }),
+        toEventEntry({
+          event,
+          occurrence,
+          participants,
+          viewer,
+          projectNames,
+          isViewerAgent,
+        }),
       );
     });
   }
@@ -386,12 +439,14 @@ export class CalendarReader {
     const entries: CalendarViewEntry[] = [];
     if (wants("project"))
       entries.push(
-        ...(await this.dependencies.sources.findProjectDates(projectIds, range)).map(
-          (record) => toProjectDateEntry(record, viewer),
-        ),
+        ...(
+          await this.dependencies.sources.findProjectDates(projectIds, range)
+        ).map((record) => toProjectDateEntry(record, viewer)),
       );
     if (wants("due")) {
-      const visibility = await this.dependencies.projects.workItemVisibility(viewer.user);
+      const visibility = await this.dependencies.projects.workItemVisibility(
+        viewer.user,
+      );
       entries.push(
         ...(
           await this.dependencies.sources.findDueTickets(
@@ -404,9 +459,9 @@ export class CalendarReader {
     }
     if (wants("milestone"))
       entries.push(
-        ...(await this.dependencies.sources.findMilestones(projectIds, range)).map(
-          (record) => toMilestoneEntry(record, viewer),
-        ),
+        ...(
+          await this.dependencies.sources.findMilestones(projectIds, range)
+        ).map((record) => toMilestoneEntry(record, viewer)),
       );
     return entries;
   }

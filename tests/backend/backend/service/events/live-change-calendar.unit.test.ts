@@ -16,7 +16,9 @@ const USER: User = {
   mustChangePassword: false,
 };
 
-function audience(isAffected: (actor: User, id: string) => Promise<boolean>): LiveChangeAudience {
+function audience(
+  isAffected: (actor: User, id: string) => Promise<boolean>,
+): LiveChangeAudience {
   const refuse = vi.fn(async () => {
     throw new Error("not used");
   });
@@ -31,24 +33,36 @@ function audience(isAffected: (actor: User, id: string) => Promise<boolean>): Li
 }
 
 it("announces a calendar change only to affected accounts", async () => {
-  const isAffected = vi.fn(async (_actor: User, id: string) => id === "event-1");
+  const isAffected = vi.fn(
+    async (_actor: User, id: string) => id === "event-1",
+  );
   const check = audience(isAffected);
 
-  await expect(check.notice(USER, { type: "calendar.changed", id: "event-1" })).resolves.toEqual({
+  await expect(
+    check.notice(USER, { type: "calendar.changed", id: "event-1" }),
+  ).resolves.toEqual({
     kind: "calendar",
     id: "event-1",
   });
-  await expect(check.notice(USER, { type: "calendar.changed", id: "event-2" })).resolves.toBeNull();
+  await expect(
+    check.notice(USER, { type: "calendar.changed", id: "event-2" }),
+  ).resolves.toBeNull();
   expect(isAffected).toHaveBeenCalledWith(USER, "event-2");
 });
 
 it("knows the calendar event type in the outbox, the relay and the browser", () => {
   expect(isPagesEventType("calendar.changed")).toBe(true);
-  expect(readRelayedEvent(JSON.stringify({ type: "calendar.changed", id: "project:p1" }))).toEqual({
+  expect(
+    readRelayedEvent(
+      JSON.stringify({ type: "calendar.changed", id: "project:p1" }),
+    ),
+  ).toEqual({
     type: "calendar.changed",
     id: "project:p1",
   });
-  expect(readLiveChange(JSON.stringify({ kind: "calendar", id: "event-1" }))).toEqual({
+  expect(
+    readLiveChange(JSON.stringify({ kind: "calendar", id: "event-1" })),
+  ).toEqual({
     kind: "calendar",
     id: "event-1",
   });

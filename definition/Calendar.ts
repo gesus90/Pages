@@ -32,17 +32,19 @@ export type CalendarResponse = "accepted" | "declined" | "open";
 export type CalendarAnswer = Exclude<CalendarResponse, "open">;
 
 /** The calendars an entry can belong to. */
-export const CALENDAR_KINDS = ["personal", "project", "due", "milestone"] as const;
+export const CALENDAR_KINDS = [
+  "personal",
+  "project",
+  "due",
+  "milestone",
+] as const;
 
 /** One kind of {@link CALENDAR_KINDS}. */
 export type CalendarKind = (typeof CALENDAR_KINDS)[number];
 
 /** Where an entry comes from. */
 export type CalendarSourceKind =
-  | "event"
-  | "project_event"
-  | "ticket"
-  | "milestone";
+  "event" | "project_event" | "ticket" | "milestone";
 
 /** Which occurrences of a series a change or a deletion covers. */
 export const CALENDAR_SCOPES = ["this", "following", "all"] as const;
@@ -248,7 +250,9 @@ export const calendarDateSchema = z
   .regex(DATE_PATTERN)
   .refine((value) => {
     const date = new Date(`${value}T00:00:00Z`);
-    return !Number.isNaN(date.getTime()) && date.toISOString().startsWith(value);
+    return (
+      !Number.isNaN(date.getTime()) && date.toISOString().startsWith(value)
+    );
   }, "invalid date");
 
 /** A date `YYYY-MM-DD` or an ISO-8601 instant with an offset or `Z`. */
@@ -325,7 +329,12 @@ export type CalendarEventPatch = Partial<CalendarEventFields>;
 
 /** The patch of an event as clients send it. */
 export const calendarEventPatchSchema = z.object({
-  title: z.string().trim().min(1).max(CALENDAR_LIMITS.titleCharacters).optional(),
+  title: z
+    .string()
+    .trim()
+    .min(1)
+    .max(CALENDAR_LIMITS.titleCharacters)
+    .optional(),
   description: z.string().max(CALENDAR_LIMITS.descriptionCharacters).optional(),
   start: calendarTimeSchema.optional(),
   end: calendarTimeSchema.optional(),
@@ -349,10 +358,7 @@ export const calendarAnswerSchema = z.enum(["accepted", "declined"]);
 
 /** Filters of the interface: which calendars are shown. */
 export type CalendarFilterKey =
-  | "mine"
-  | "invitations"
-  | "deadlines"
-  | `project:${string}`;
+  "mine" | "invitations" | "deadlines" | `project:${string}`;
 
 /** The views of the calendar page. */
 export const CALENDAR_VIEWS = ["day", "week", "month", "list"] as const;

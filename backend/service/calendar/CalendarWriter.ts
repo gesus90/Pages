@@ -60,7 +60,10 @@ export class CalendarWriter {
    * @param dependencies - Repositories and services.
    * @param reader - Visibility and targets.
    */
-  public constructor(dependencies: CalendarDependencies, reader: CalendarReader) {
+  public constructor(
+    dependencies: CalendarDependencies,
+    reader: CalendarReader,
+  ) {
     this.dependencies = dependencies;
     this.reader = reader;
     this.series = new CalendarSeriesChanges(dependencies);
@@ -80,7 +83,10 @@ export class CalendarWriter {
   ): Promise<CalendarWriteResult> {
     await this.requireTarget(viewer, fields.calendarProjectId);
     const time = readCalendarTime(fields, viewer.timeZone);
-    const invitees = await checkCalendarInvitees(this.dependencies.directory, fields.invitees);
+    const invitees = await checkCalendarInvitees(
+      this.dependencies.directory,
+      fields.invitees,
+    );
     const id = randomUUID();
     await this.dependencies.publisher.announce(
       async () => {
@@ -120,13 +126,26 @@ export class CalendarWriter {
   ): Promise<CalendarWriteResult> {
     const visible = await this.requireEditable(viewer, target);
     const { event } = visible;
-    if (patch.calendarProjectId !== undefined && patch.calendarProjectId !== event.projectId)
+    if (
+      patch.calendarProjectId !== undefined &&
+      patch.calendarProjectId !== event.projectId
+    )
       await this.requireTarget(viewer, patch.calendarProjectId);
     const before = visible.people.of(event).affectedIds;
     const occurrence = await this.occurrenceOf(event, target);
     const result = await this.dependencies.publisher.announce(
-      () => this.applyUpdate(viewer, { event, occurrence, scope: target.scope, patch }),
-      (change) => change.eventIds.map((id) => ({ type: "calendar.changed" as const, id })),
+      () =>
+        this.applyUpdate(viewer, {
+          event,
+          occurrence,
+          scope: target.scope,
+          patch,
+        }),
+      (change) =>
+        change.eventIds.map((id) => ({
+          type: "calendar.changed" as const,
+          id,
+        })),
     );
     await this.notifyInvited(result.eventIds, before);
     return { eventId: result.eventId, key: result.key };
@@ -197,7 +216,11 @@ export class CalendarWriter {
     const visible = await this.reader.requireVisible(viewer, id);
     const { event, people } = visible;
     const isInvited = people.of(event).affectedIds.has(viewer.user.id);
-    if (!isInvited || people.isAgent(viewer.user.id) || viewer.user.isAgent === true)
+    if (
+      !isInvited ||
+      people.isAgent(viewer.user.id) ||
+      viewer.user.isAgent === true
+    )
       throw new CalendarError("forbidden", "Only invited people answer.");
     await this.dependencies.publisher.announce(
       () =>
@@ -215,7 +238,8 @@ export class CalendarWriter {
     viewer: CalendarViewer,
     change: {
       readonly event: CalendarEventRecord;
-      readonly occurrence: (CalendarOccurrence & { readonly key: string }) | null;
+      readonly occurrence:
+        (CalendarOccurrence & { readonly key: string }) | null;
       readonly scope: CalendarScope;
       readonly patch: CalendarEventPatch;
     },
@@ -239,10 +263,13 @@ export class CalendarWriter {
     scope: CalendarScope,
     occurrence: CalendarOccurrence | null,
   ): number | "unbegrenzt" {
-    if (event.recurrence === null || (scope === "this" && occurrence !== null)) return 1;
+    if (event.recurrence === null || (scope === "this" && occurrence !== null))
+      return 1;
     const base = readStoredTime(event, event.timeZone);
     const fromDate =
-      scope === "following" && occurrence !== null ? occurrence.startDate : base.startDate;
+      scope === "following" && occurrence !== null
+        ? occurrence.startDate
+        : base.startDate;
     return countOccurrencesFrom(event.recurrence, base.startDate, fromDate);
   }
 
@@ -253,9 +280,19 @@ export class CalendarWriter {
     const visible = await this.reader.requireVisible(viewer, target.id);
     const { event } = visible;
     if (event.createdBy !== viewer.user.id && !viewer.isAdmin)
-      throw new CalendarError("forbidden", "Only the creator or an administrator changes the event.");
-    if (target.expectedRevision !== undefined && target.expectedRevision !== event.revision)
-      throw new CalendarError("conflict", "The event changed meanwhile.", event.revision);
+      throw new CalendarError(
+        "forbidden",
+        "Only the creator or an administrator changes the event.",
+      );
+    if (
+      target.expectedRevision !== undefined &&
+      target.expectedRevision !== event.revision
+    )
+      throw new CalendarError(
+        "conflict",
+        "The event changed meanwhile.",
+        event.revision,
+      );
     return visible;
   }
 
@@ -266,7 +303,10 @@ export class CalendarWriter {
     if (projectId === null) return;
     const targets = await this.reader.targets(viewer);
     if (!targets.some((target) => target.projectId === projectId))
-      throw new CalendarError("forbidden", "The calendar of the project is not writable.");
+      throw new CalendarError(
+        "forbidden",
+        "The calendar of the project is not writable.",
+      );
   }
 
   /** Finds the occurrence a change of a series addresses, or `null`. */
@@ -278,7 +318,10 @@ export class CalendarWriter {
     const raw = parseEntryId(target.id).key ?? target.occurrenceStart ?? null;
     if (raw === null) {
       if (target.scope === "all") return null;
-      throw new CalendarError("invalid_request", "occurrenceStart is required for this scope.");
+      throw new CalendarError(
+        "invalid_request",
+        "occurrenceStart is required for this scope.",
+      );
     }
     const key = normalizeOccurrenceKey(event, raw);
     return this.series.requireOccurrence(event, key);

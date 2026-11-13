@@ -279,7 +279,10 @@ export class PicaCalendarToolService {
     if (!isPicaCalendarOperation(operation)) return null;
     const { operationId, ...input } = parameters;
     const actor = await this.actor(userId);
-    if (operation.startsWith("calendar.event.") && (await this.isReadOnly(actor)))
+    if (
+      operation.startsWith("calendar.event.") &&
+      (await this.isReadOnly(actor))
+    )
       throw new AgentOperationError("FORBIDDEN");
     const call: CalendarCall = {
       actor,
@@ -298,7 +301,9 @@ export class PicaCalendarToolService {
   private async isReadOnly(actor: User): Promise<boolean> {
     if (actor.isAgent !== true || this.dependencies.agentAccess === undefined)
       return false;
-    const employee = await (await this.dependencies.agentAccess()).find(actor.id);
+    const employee = await (
+      await this.dependencies.agentAccess()
+    ).find(actor.id);
     return (employee?.access ?? "read_only") === "read_only";
   }
 

@@ -145,7 +145,10 @@ export class CalendarService {
    */
   public async readEvent(actor: User, id: string): Promise<CalendarEventView> {
     const viewer = await this.viewer(actor);
-    return this.reader.viewOf(viewer, await this.reader.requireVisible(viewer, id));
+    return this.reader.viewOf(
+      viewer,
+      await this.reader.requireVisible(viewer, id),
+    );
   }
 
   /**
@@ -162,7 +165,11 @@ export class CalendarService {
   ): Promise<CalendarViewEntry> {
     const viewer = await this.viewer(actor);
     const visible = await this.reader.requireVisible(viewer, id);
-    return this.reader.entryOf(viewer, visible, parseEntryId(id).key ?? occurrenceKey);
+    return this.reader.entryOf(
+      viewer,
+      visible,
+      parseEntryId(id).key ?? occurrenceKey,
+    );
   }
 
   /**
@@ -252,7 +259,10 @@ export class CalendarService {
     text: string,
     limit: number = CALENDAR_LIMITS.mobileInviteeOptions,
   ): Promise<CalendarInviteeOption[]> {
-    const bounded = Math.max(1, Math.min(limit, CALENDAR_LIMITS.mcpInviteeOptions));
+    const bounded = Math.max(
+      1,
+      Math.min(limit, CALENDAR_LIMITS.mcpInviteeOptions),
+    );
     const options = await this.dependencies.directory.searchInvitees(
       text.slice(0, 200),
       bounded + 1,
@@ -333,10 +343,16 @@ export class CalendarService {
     const digest = createHash("sha256")
       .update(JSON.stringify(canonical(operation.request)))
       .digest("hex");
-    const stored = await participation.findOperation(actor.id, operation.operationId);
+    const stored = await participation.findOperation(
+      actor.id,
+      operation.operationId,
+    );
     if (stored !== null) {
       if (stored.requestDigest !== digest)
-        throw new CalendarError("conflict", "The operation ID was used for another request.");
+        throw new CalendarError(
+          "conflict",
+          "The operation ID was used for another request.",
+        );
       const replayed: unknown = JSON.parse(stored.response);
       return { kind: "replayed", result: replayed };
     }

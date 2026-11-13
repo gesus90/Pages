@@ -85,7 +85,9 @@ function services(user: User | null = USER): {
     liveChangeAudience: {
       notice: vi.fn((_user: User, event: PagesEvent) =>
         Promise.resolve(
-          event.id === "hidden" ? null : { kind: "ticket" as const, id: event.id },
+          event.id === "hidden"
+            ? null
+            : { kind: "ticket" as const, id: event.id },
         ),
       ),
     },
@@ -148,23 +150,24 @@ describe("PagesPicaMobileCalendar", () => {
 
   it("deletes, responds, searches and lists targets", async () => {
     const { provider, resolved } = services();
+    const requests: PicaMobileCalendarRequest[] = [
+      {
+        type: "calendar_event_delete",
+        payload: { id: "event~k", scope: "this" },
+      },
+      {
+        type: "calendar_event_respond",
+        payload: { id: "event", response: "declined" },
+      },
+      { type: "calendar_invitees", payload: { query: "bo" } },
+      { type: "calendar_targets", payload: {} },
+    ];
     const answers = await Promise.all(
-      (
-        [
-          {
-            type: "calendar_event_delete",
-            payload: { id: "event~k", scope: "this" },
-          },
-          {
-            type: "calendar_event_respond",
-            payload: { id: "event", response: "declined" },
-          },
-          { type: "calendar_invitees", payload: { query: "bo" } },
-          { type: "calendar_targets", payload: {} },
-        ] satisfies PicaMobileCalendarRequest[]
-      ).map((request) => provider.answer(SESSION, request)),
+      requests.map((request) => provider.answer(SESSION, request)),
     );
-    expect(answers.map((outcome) => outcome.kind === "answer" && outcome.answer)).toEqual([
+    expect(
+      answers.map((outcome) => outcome.kind === "answer" && outcome.answer),
+    ).toEqual([
       { type: "calendar_event_deleted", payload: { id: "event~k" } },
       expect.objectContaining({ type: "calendar_event" }),
       {
@@ -214,7 +217,9 @@ describe("PagesPicaMobileCalendar", () => {
     vi.mocked(failing.resolved.calendarService.targets).mockRejectedValue(
       new Error("db"),
     );
-    await expect(failing.provider.answer(SESSION, targets)).rejects.toThrow("db");
+    await expect(failing.provider.answer(SESSION, targets)).rejects.toThrow(
+      "db",
+    );
     expect(await services(null).provider.answer(SESSION, targets)).toEqual({
       kind: "sessionEnded",
     });
@@ -248,11 +253,11 @@ describe("PagesPicaMobileCalendar", () => {
     expect(heard).toEqual([{ type: "calendar.changed", id: "event" }]);
     stop();
     expect(listeners).toHaveLength(0);
-    expect(isPicaMobileCalendarEvent({ type: "milestone.created", id: "m" })).toBe(
-      true,
-    );
-    expect(isPicaMobileCalendarEvent({ type: "conversation.changed", id: "c" })).toBe(
-      false,
-    );
+    expect(
+      isPicaMobileCalendarEvent({ type: "milestone.created", id: "m" }),
+    ).toBe(true);
+    expect(
+      isPicaMobileCalendarEvent({ type: "conversation.changed", id: "c" }),
+    ).toBe(false);
   });
 });

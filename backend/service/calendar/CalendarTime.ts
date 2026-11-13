@@ -160,7 +160,11 @@ export function weekdayIndex(date: string): number {
  * @param day - Day of the month.
  * @returns The date, or `null` when the month has no such day.
  */
-export function dateOf(year: number, month: number, day: number): string | null {
+export function dateOf(
+  year: number,
+  month: number,
+  day: number,
+): string | null {
   const normalizedYear = year + Math.floor((month - 1) / 12);
   const normalizedMonth = ((((month - 1) % 12) + 12) % 12) + 1;
   const date = new Date(Date.UTC(normalizedYear, normalizedMonth - 1, day));

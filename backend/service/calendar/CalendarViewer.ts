@@ -76,7 +76,10 @@ export interface CalendarDependencies {
   >;
   readonly sources: Pick<
     CalendarSourceRepository,
-    "findProjectDates" | "findDueTickets" | "findMilestones" | "findProjectNames"
+    | "findProjectDates"
+    | "findDueTickets"
+    | "findMilestones"
+    | "findProjectNames"
   >;
   readonly projects: Pick<
     ProjectService,

@@ -439,7 +439,13 @@ it("runs tools as the current identity over the shared operation router", async 
     calendar: vi.mocked(PicaCalendarToolService).mock.instances[0],
   });
   expect(vi.mocked(PicaCalendarToolService).mock.calls).toEqual([
-    [{ users: ACCOUNTS.users, calendar: expect.any(Function), agentAccess: expect.any(Function) }],
+    [
+      {
+        users: ACCOUNTS.users,
+        calendar: expect.any(Function),
+        agentAccess: expect.any(Function),
+      },
+    ],
   ]);
   await expect(
     vi.mocked(PicaCalendarToolService).mock.calls[0][0].calendar(),
