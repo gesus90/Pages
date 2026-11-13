@@ -31,6 +31,8 @@ import { AgentChatSessionLifecycle } from "@/backend/service/employee/AgentChatS
 import { AgentChatSessionService } from "@/backend/service/employee/AgentChatSessionService";
 import { AgentChatToolGuard } from "@/backend/service/employee/AgentChatToolGuard";
 import { AgentHostFiles } from "@/backend/service/employee/AgentHostFiles";
+import { AgentDreamingAdministration } from "@/backend/service/employee/AgentDreamingAdministration";
+import { AgentLessonsAdministration } from "@/backend/service/employee/AgentLessonsAdministration";
 import { AgentLogbookAdministration } from "@/backend/service/employee/AgentLogbookAdministration";
 import { AgentLogbookScheduler } from "@/backend/service/employee/AgentLogbookScheduler";
 import { AgentLogbookService } from "@/backend/service/employee/AgentLogbookService";
@@ -46,6 +48,7 @@ import { AgentLearningScheduler } from "@/backend/service/employee/AgentLearning
 import { AgentLearningService } from "@/backend/service/employee/AgentLearningService";
 import { AgentSessionMemoryModel } from "@/backend/service/employee/AgentMemoryModel";
 import { AgentMemoryRecorder } from "@/backend/service/employee/AgentMemoryRecorder";
+import { AgentRecipeService } from "@/backend/service/employee/AgentRecipeService";
 import { AgentMemoryService } from "@/backend/service/employee/AgentMemoryService";
 import {
   AgentKnowledgeAccess,
@@ -107,6 +110,10 @@ export interface EmployeeApplicationServices extends ConversationApplicationServ
   readonly agentChatSessionService: AgentChatSessionService;
   /** The tab "Lagebuch" of that popup: entries, settings, removal (PAGE-377). */
   readonly agentLogbookAdministration: AgentLogbookAdministration;
+  /** The tab "Dreaming": schedule, last and next run, the files and "Jetzt träumen" (PAGE-378). */
+  readonly agentDreamingAdministration: AgentDreamingAdministration;
+  /** The tab "Lektionen & Rezepte": lessons and recipes to view, edit, switch off and delete (PAGE-378). */
+  readonly agentLessonsAdministration: AgentLessonsAdministration;
   /** The limits of concurrent chat sessions of agents (PAGE-304). */
   readonly agentSessionLimitService: AgentSessionLimitService;
   readonly agentLearningService: AgentLearningService;
@@ -442,10 +449,40 @@ function createLogbookAdministration(
   });
 }
 
+/** The tabs "Dreaming" and "Lektionen & Rezepte": what a viewer sees of the dreams of an agent and what an administrator changes. */
+function createDreamingAdministration(
+  parts: Pick<
+    EmployeeParts,
+    "store" | "users" | "models" | "learning" | "memory" | "sessions"
+  > & { readonly hasModel: boolean },
+): {
+  readonly dreaming: AgentDreamingAdministration;
+  readonly lessons: AgentLessonsAdministration;
+} {
+  return {
+    dreaming: new AgentDreamingAdministration({
+      store: parts.store,
+      users: parts.users,
+      learning: parts.hasModel ? parts.learning : null,
+      isWorkingInChat: (agentId) => parts.sessions.isWorkingInChat(agentId),
+      models: (userId) => parts.models.models(userId),
+    }),
+    lessons: new AgentLessonsAdministration({
+      store: parts.store,
+      users: parts.users,
+      memory: parts.memory,
+    }),
+  };
+}
+
 function assembleEmployeeServices(
   parts: EmployeeParts,
 ): EmployeeApplicationServices {
   const { input, store, authorization, models, languages, sessions } = parts;
+  const dreams = createDreamingAdministration({
+    ...parts,
+    hasModel: input.acp !== null || currentAgentSimulationMode().isActive,
+  });
   return {
     ...parts.conversations,
     agentEmployeeAdministration: new AgentEmployeeAdministration({
@@ -470,6 +507,8 @@ function assembleEmployeeServices(
     agentEmployeeSessions: sessions,
     agentChatSessionService: parts.agentSessions,
     agentLogbookAdministration: createLogbookAdministration(parts),
+    agentDreamingAdministration: dreams.dreaming,
+    agentLessonsAdministration: dreams.lessons,
     agentSessionLimitService: new AgentSessionLimitService(
       parts.sessionSettings,
       parts.slots,
@@ -572,6 +611,7 @@ export function createEmployeeServices(
     chatReader,
     toolGuard: new AgentChatToolGuard({ store }),
     logbook: () => logbook,
+    recipes: new AgentRecipeService({ store }),
   });
   const isBackgroundOwner = !isLocalSessionOwner() && !isPagesRunsProcess();
   const conversations = createConversationServices({
@@ -590,7 +630,14 @@ export function createEmployeeServices(
   contextReader = conversations.conversationContextReader;
   agentChat = conversations.agentChatService;
   const learning = createLearning(input, {
-    dependencies: { store, users, memory, model: memoryModel, activity },
+    dependencies: {
+      store,
+      users,
+      memory,
+      model: memoryModel,
+      activity,
+      isWorkingInChat: (agentId) => sessions.isWorkingInChat(agentId),
+    },
     sessions,
     chatPoster: conversations.agentChatService,
     isBackgroundOwner,
@@ -599,7 +646,9 @@ export function createEmployeeServices(
   const hasModel = input.acp !== null || simulation.isActive;
   const logbookService = new AgentLogbookService({
     store,
-    compaction: hasModel ? (agentId) => learning.run(agentId) : null,
+    compaction: hasModel
+      ? (agentId) => learning.run(agentId, { trigger: "logbook" })
+      : null,
   });
   logbook = logbookService;
   if (isBackgroundOwner && hasModel)

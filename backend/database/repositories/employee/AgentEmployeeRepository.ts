@@ -6,7 +6,15 @@ import {
 } from "@/backend/database/RowValue";
 import { isAgentEmployeeAccess } from "@/definition/AgentEmployee";
 
+import {
+  DREAM_SCHEDULE_COLUMNS,
+  readDreamRequest,
+  readDreamSchedule,
+} from "./AgentDreamingRepository";
+
 import type { Database, DatabaseValue } from "@/backend/database/Database";
+import type { AgentDreamRequest } from "./AgentDreamingRepository";
+import type { AgentDreamSchedule } from "@/definition/AgentDreaming";
 import type {
   AgentEmployeeAccess,
   AgentLearningResult,
@@ -42,6 +50,10 @@ export interface StoredAgentEmployee {
   readonly memoryCharacters: number;
   /** The character limit of `DREAM.md`. */
   readonly dreamCharacters: number;
+  /** The schedule of the dream run of this agent (PAGE-378). */
+  readonly dreamSchedule: AgentDreamSchedule;
+  /** A run somebody asked for that has not run yet (PAGE-378). */
+  readonly dreamRequest: AgentDreamRequest | null;
 }
 
 /** What an administrator changes on an agent beside its account. */
@@ -89,7 +101,10 @@ const COLUMNS = `
     voice_speed_tenths,
     dream,
     memory_characters,
-    dream_characters`;
+    dream_characters,
+    ${DREAM_SCHEDULE_COLUMNS},
+    dream_requested_at,
+    dream_requested_trigger`;
 
 const STATUSES: readonly AgentLearningStatus[] = [
   "updated",
@@ -155,6 +170,12 @@ function readEmployee(row: readonly DatabaseValue[]): StoredAgentEmployee {
     dream: readTextColumn(row, 18, "dream"),
     memoryCharacters: readCountColumn(row, 19, "memory_characters"),
     dreamCharacters: readCountColumn(row, 20, "dream_characters"),
+    dreamSchedule: readDreamSchedule(
+      row,
+      21,
+      readBooleanColumn(row, 8, "is_learning_enabled"),
+    ),
+    dreamRequest: readDreamRequest(row, 26),
   };
 }
 

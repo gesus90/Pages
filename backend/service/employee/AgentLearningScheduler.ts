@@ -4,12 +4,15 @@ import type { EmployeeStore } from "@/backend/database/repositories/employee/Emp
 import type { AgentLearningService } from "./AgentLearningService";
 
 /** How often the scheduler looks for due learning runs. */
-const TICK_MILLISECONDS = 10 * 60_000;
+const TICK_MILLISECONDS = 60_000;
 
 /**
- * Starts the due dream runs of agent employees (PAGE-305): every agent
- * dreams once a day at the time set under Einstellungen → Agents, 03:00 by
- * default, one agent after the other.
+ * Starts the due dream runs of agent employees (PAGE-305, PAGE-378): every
+ * agent dreams on its own schedule, from every hour to every 30 days (by
+ * default daily at the time set under Einstellungen → Agents, 03:00), and a
+ * run somebody asked for follows once the agent works in no chat. A run that
+ * is due while the agent works in a chat is not started and is looked at
+ * again on the next tick. One agent after the other.
  */
 export class AgentLearningScheduler {
   private readonly store: EmployeeStore;
@@ -50,7 +53,9 @@ export class AgentLearningScheduler {
     try {
       for (const agent of await this.store.employees().list())
         if (await this.learning.isDue(agent))
-          await this.learning.run(agent.userId);
+          await this.learning.run(agent.userId, {
+            trigger: agent.dreamRequest?.trigger ?? "schedule",
+          });
     } catch (error: unknown) {
       logCaughtError("AgentLearningScheduler", error);
     }

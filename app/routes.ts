@@ -367,6 +367,14 @@ function workspaceResources(routes: RouteBuilder): RouteConfigEntry[] {
       "chat-page-api/agent-logbook",
       "routes/chat-page-agent-logbook.ts",
     ),
+    resource(
+      "chat-page-api/agent-dreaming",
+      "routes/chat-page-agent-dreaming.ts",
+    ),
+    resource(
+      "chat-page-api/agent-lessons",
+      "routes/chat-page-agent-lessons.ts",
+    ),
     resource("chat-page-api/voice", "routes/chat-page-voice.ts"),
     resource("chat-page-api/files", "routes/chat-page-files.ts"),
     resource("chat/files/:id", "routes/conversation-file.ts"),

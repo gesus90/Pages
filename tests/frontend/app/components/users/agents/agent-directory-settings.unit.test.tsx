@@ -6,6 +6,10 @@ import { AgentDirectory } from "@/app/components/users/agents/agent-directory";
 import { createI18n } from "@/app/lib/i18n";
 
 import {
+  dreamingOverview,
+  stubDreamingEndpoints,
+} from "../../agent-settings/agent-dreaming-fixture";
+import {
   logbookEntry,
   logbookOverview,
   stubLogbookEndpoint,
@@ -168,4 +172,48 @@ it("reaches the tab Logbook from the popup opened as Agent settings", async () =
     await within(dialog).findByRole("table", { name: "Logbook of Ed" }),
   ).toBeTruthy();
   expect(calls).toHaveLength(1);
+});
+
+it("opens the popup of the agent straight in the tab Dreaming from the menu of its row (PAGE-378)", async () => {
+  const { dreamingCalls } = stubDreamingEndpoints({
+    dreaming: () => ({ ok: true, overview: dreamingOverview() }),
+  });
+  render(
+    <I18nextProvider i18n={i18n}>
+      <AgentDirectory directory={DIRECTORY} agents={AGENTS} />
+    </I18nextProvider>,
+  );
+  openRowMenu();
+  fireEvent.click(
+    screen.getByRole("menuitem", { name: "Dreaming, lessons & recipes …" }),
+  );
+  const dialog = await screen.findByRole("dialog");
+  expect(
+    within(dialog)
+      .getByRole("tab", { name: "Dreaming" })
+      .getAttribute("aria-selected"),
+  ).toBe("true");
+  expect(
+    await within(dialog).findByRole("switch", { name: "Dreaming active" }),
+  ).toBeTruthy();
+  expect(dreamingCalls[0]?.url).toBe(
+    "/chat-page-api/agent-dreaming?agentId=ed",
+  );
+  fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+  expect(screen.queryByRole("dialog")).toBeNull();
+});
+
+it("words the entry of Dreaming in the menu of a row in German", () => {
+  render(
+    <I18nextProvider i18n={createI18n("de")}>
+      <AgentDirectory directory={DIRECTORY} agents={AGENTS} />
+    </I18nextProvider>,
+  );
+  fireEvent.pointerDown(
+    screen.getByRole("button", { name: "Aktionen für Ed" }),
+    { button: 0, ctrlKey: false },
+  );
+  expect(
+    screen.getByRole("menuitem", { name: "Dreaming, Lektionen & Rezepte …" }),
+  ).toBeTruthy();
 });

@@ -326,6 +326,36 @@ export class AgentLogbookRepository {
     return rows.map(toEntry);
   }
 
+  /**
+   * The entries a dream run condenses (PAGE-378): those written after the
+   * position of the last run, the oldest first. Of a backlog the oldest come
+   * first, because they are the ones that fall out of the ring buffer next.
+   *
+   * @remarks
+   * Entries of confidential chats are never among them.
+   *
+   * @param agentId - The agent.
+   * @param window - The sequence after which entries are new and the most to return.
+   */
+  public async forDreaming(
+    agentId: string,
+    window: { readonly after: number; readonly limit: number },
+  ): Promise<StoredAgentLogbookEntry[]> {
+    const rows = await this.database.query(
+      `
+        SELECT${COLUMNS}
+        FROM agent_logbook_entries
+        WHERE agent_logbook_entries.agent_id = $agent_id
+            AND ${NOT_CONFIDENTIAL}
+            AND agent_logbook_entries.sequence > $after
+        ORDER BY agent_logbook_entries.sequence
+        LIMIT $limit;
+      `,
+      { agent_id: agentId, after: window.after, limit: window.limit },
+    );
+    return rows.map(toEntry);
+  }
+
   /** The entries of one chat of an agent, the newest first. */
   public async ofChat(
     agentId: string,

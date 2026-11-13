@@ -5,6 +5,7 @@ import { AgentChatSessionRepository } from "./AgentChatSessionRepository";
 import { AgentConversationRepository } from "./AgentConversationRepository";
 import { AgentDeletionRepository } from "./AgentDeletionRepository";
 import { AgentDeletionPurgeRepository } from "./AgentDeletionPurgeRepository";
+import { AgentDreamingRepository } from "./AgentDreamingRepository";
 import { AgentEmployeeRemovalRepository } from "./AgentEmployeeRemovalRepository";
 import { AgentEmployeeRepository } from "./AgentEmployeeRepository";
 import { AgentLearningSourceRepository } from "./AgentLearningSourceRepository";
@@ -12,8 +13,10 @@ import { AgentLogbookRepository } from "./AgentLogbookRepository";
 import { AgentLogbookSessionRepository } from "./AgentLogbookSessionRepository";
 import { AgentProfileLoadRepository } from "./AgentProfileLoadRepository";
 import { AgentMemoryRepository } from "./AgentMemoryRepository";
+import { AgentRecipeRepository } from "./AgentRecipeRepository";
 import { AgentSessionSettingsRepository } from "./AgentSessionSettingsRepository";
 import { AgentTemplateRepository } from "./AgentTemplateRepository";
+import { AgentToolUseRepository } from "./AgentToolUseRepository";
 import { ChatContactRepository } from "./ChatContactRepository";
 import { ChatGroupRepository } from "./ChatGroupRepository";
 
@@ -92,6 +95,21 @@ export class EmployeeStore {
   /** The entries and settings of the Lagebuch of agents (PAGE-377). */
   public logbook(): AgentLogbookRepository {
     return new AgentLogbookRepository(this.database);
+  }
+
+  /** The schedule and the run state of the dream run of agents (PAGE-378). */
+  public dreaming(): AgentDreamingRepository {
+    return new AgentDreamingRepository(this.database);
+  }
+
+  /** The recipes of agents (PAGE-378). */
+  public recipes(): AgentRecipeRepository {
+    return new AgentRecipeRepository(this.database);
+  }
+
+  /** The tool calls of the chat sessions of agents, which the dream run reads (PAGE-378). */
+  public toolUses(): AgentToolUseRepository {
+    return new AgentToolUseRepository(this.database);
   }
 
   /** What the chat sessions remember of the Lagebuch: hint stand and summary progress (PAGE-377). */

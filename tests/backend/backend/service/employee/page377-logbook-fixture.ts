@@ -228,6 +228,8 @@ export interface LogbookWorld {
   readonly seen: Map<string, number>;
   readonly compaction: ReturnType<typeof vi.fn>;
   readonly isLearningEnabled: { value: boolean };
+  /** The schedule's "bei vollem Lagebuch" (PAGE-378). */
+  readonly isOnFullLogbook: { value: boolean };
   /** Moves the clock; the service reads it for every entry. */
   advance(minutes: number): void;
 }
@@ -268,6 +270,7 @@ export function logbookWorld(
   const seen = new Map<string, number>();
   const compaction = vi.fn(async () => undefined);
   const isLearningEnabled = { value: true };
+  const isOnFullLogbook = { value: true };
   let now = new Date("2026-11-13T17:05:00.000Z");
   let counter = 0;
   const service = new AgentLogbookService({
@@ -293,7 +296,10 @@ export function logbookWorld(
         ) => logbook.confidential.has(`group:${conversationId}`),
       }),
       employees: () => ({
-        find: async () => ({ isLearningEnabled: isLearningEnabled.value }),
+        find: async () => ({
+          isLearningEnabled: isLearningEnabled.value,
+          dreamSchedule: { isOnFullLogbook: isOnFullLogbook.value },
+        }),
       }),
     } as unknown as ConstructorParameters<typeof AgentLogbookService>[0]["store"],
     compaction,
@@ -310,6 +316,7 @@ export function logbookWorld(
     seen,
     compaction,
     isLearningEnabled,
+    isOnFullLogbook,
     advance: (minutes) => {
       now = new Date(now.getTime() + minutes * 60_000);
     },

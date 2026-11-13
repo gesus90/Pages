@@ -11,12 +11,11 @@ import {
 import type { ChatSessionRepository } from "@/backend/database/repositories/chat/ChatSessionRepository";
 import type { StoredAgentEmployee } from "@/backend/database/repositories/employee/AgentEmployeeRepository";
 import type { AgentConversationPurpose } from "@/backend/database/repositories/employee/AgentConversationRepository";
-import type { AgentLearningSource } from "@/backend/database/repositories/employee/AgentLearningSourceRepository";
 import type { User } from "@/definition/User";
 import type { AgentEmployeeSessions } from "./AgentEmployeeSessions";
 import type { AgentLogbookDraft } from "./AgentLogbookService";
 import type { LogbookSummaryMessage } from "./AgentLogbookPrompt";
-import type { AgentDreamAnswerLesson } from "./AgentLearningPrompt";
+import type { AgentDreamAnswer, AgentDreamInput } from "./AgentLearningPrompt";
 import type {
   AgentExchange,
   AgentSummaryMessage,
@@ -77,14 +76,15 @@ export interface AgentMemoryModel {
       readonly messages: readonly AgentSummaryMessage[];
     },
   ): Promise<string | null>;
+  /**
+   * The dream run (PAGE-378): the durable points of the Lagebuch for
+   * `MEMORY.md`, lessons about how the agent works and recipes; `null` when no
+   * usable answer arrived.
+   */
   dream(
     caller: AgentMemoryCaller,
-    input: {
-      readonly dream: string;
-      readonly sources: readonly AgentLearningSource[];
-      readonly today: string;
-    },
-  ): Promise<readonly AgentDreamAnswerLesson[] | null>;
+    input: AgentDreamInput,
+  ): Promise<AgentDreamAnswer | null>;
   /**
    * The entries of the Lagebuch a quiet chat brings that it lacks (PAGE-377);
    * `null` when no usable answer arrived.
@@ -152,14 +152,14 @@ export class AgentSessionMemoryModel implements AgentMemoryModel {
     return answer === null ? null : readSummaryAnswer(answer);
   }
 
-  /** Asks for the lessons of the day. */
+  /** Asks for the topics, lessons and recipes of a dream run. */
   public async dream(
     caller: AgentMemoryCaller,
-    input: Parameters<AgentMemoryModel["dream"]>[1],
-  ): Promise<readonly AgentDreamAnswerLesson[] | null> {
+    input: AgentDreamInput,
+  ): Promise<AgentDreamAnswer | null> {
     const answer = await this.ask(caller, {
       purpose: "learning",
-      text: createDreamMessage(input.dream, input.sources, input.today),
+      text: createDreamMessage(input),
       timeoutMilliseconds: DREAM_TIMEOUT_MILLISECONDS,
     });
     return answer === null ? null : readDreamAnswer(answer, input.today);

@@ -48,6 +48,10 @@ import type { AgentChatReader } from "./AgentChatReader";
 import type { AgentChatSessionLifecycle } from "./AgentChatSessionLifecycle";
 import type { AgentLogbookService } from "./AgentLogbookService";
 import type {
+  AgentRecipeBrief,
+  AgentRecipeService,
+} from "./AgentRecipeService";
+import type {
   AgentChatToolGuard,
   AgentChatToolScope,
 } from "./AgentChatToolGuard";
@@ -150,6 +154,11 @@ export interface AgentEmployeeSessionDependencies {
     AgentLogbookService,
     "tools" | "hint" | "markSeen"
   > | null;
+  /**
+   * The recipes of the agents (PAGE-378): the tool `rezept`, the record of tool
+   * calls and the list of recipes a round is told about. Absent offers none.
+   */
+  readonly recipes?: Pick<AgentRecipeService, "tools" | "brief">;
   readonly today?: () => string;
   /** Waits between two looks of a background run at the chats of its agent; tests pass a fast one. */
   readonly wait?: (milliseconds: number) => Promise<void>;
@@ -679,6 +688,24 @@ export class AgentEmployeeSessions {
   }
 
   /**
+   * What a round of a chat is told about the recipes of its agent (PAGE-378);
+   * a run of the agent's own gets none, and a failed read leaves them out.
+   */
+  private async recipeBrief(
+    request: AgentJobRequest,
+    isChat: boolean,
+  ): Promise<AgentRecipeBrief | null> {
+    const recipes = this.dependencies.recipes;
+    if (!recipes || !isChat) return null;
+    try {
+      return await recipes.brief(request.agent.id, request.text);
+    } catch (error: unknown) {
+      logCaughtError("AgentEmployeeSessions", error);
+      return null;
+    }
+  }
+
+  /**
    * The hint line of the Lagebuch for a round of a chat (PAGE-377). A run of
    * the agent's own has none, and a failed read leaves the line out.
    */
@@ -824,6 +851,7 @@ export class AgentEmployeeSessions {
       this.context.forJob(request, { sessionId, message: request.text }),
       this.logbookHint(request, sessionId),
     ]);
+    const recipes = await this.recipeBrief(request, context.isChat);
     return {
       audience: context.audience,
       logbookNewest: hint.newest,
@@ -841,6 +869,7 @@ export class AgentEmployeeSessions {
           hasLogbook:
             context.isChat && (this.dependencies.logbook?.() ?? null) !== null,
           logbookHint: hint.line,
+          ...(recipes ? { recipes } : {}),
         }),
         // A continued agent session knows its chat; only a new or restarted one
         // gets the summary and the last messages (PAGE-376).
@@ -977,10 +1006,15 @@ export class AgentEmployeeSessions {
     chat: AgentChatScope,
   ): Pick<
     NonNullable<PicaAcpStart["employee"]>,
-    "agentChat" | "readConversationContext" | "readOwnChat" | "logbook"
+    | "agentChat"
+    | "readConversationContext"
+    | "readOwnChat"
+    | "logbook"
+    | "recipes"
   > {
     const { toolGuard, chatReader, conversationContext } = this.dependencies;
     const logbook = this.dependencies.logbook?.() ?? null;
+    const { recipes } = this.dependencies;
     const agentChat = this.dependencies.agentChat?.() ?? null;
     const readContext = conversationContext
       ? (input: unknown): Promise<unknown> =>
@@ -1006,6 +1040,14 @@ export class AgentEmployeeSessions {
       ...(logbook && own
         ? {
             logbook: logbook.tools({
+              agentId: agent.id,
+              sessionId: own.sessionId,
+            }),
+          }
+        : {}),
+      ...(recipes && own
+        ? {
+            recipes: recipes.tools({
               agentId: agent.id,
               sessionId: own.sessionId,
             }),

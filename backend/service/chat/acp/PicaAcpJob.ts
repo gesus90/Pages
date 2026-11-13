@@ -56,6 +56,7 @@ import type { PicaAcpMessage } from "./PicaAcpSteering";
 import type { PicaAcpOutcome } from "./PicaAcpTurnResult";
 import type { PicaAcpJobDependencies } from "./PicaAcpJobDependencies";
 import type { PicaAcpJobPool, PicaAcpPooledInput } from "./PicaAcpPoolOpening";
+import type { PicaNativeToolEvent } from "./PicaAcpToolCalls";
 
 export type { PicaAcpJobDependencies } from "./PicaAcpJobDependencies";
 
@@ -127,6 +128,7 @@ export class PicaAcpJob {
   private isTurnRunning = false;
   private isStopRequested = false;
   private hasSteering: boolean | null = null;
+  private readonly notedNativeCalls = new Set<string>();
 
   public constructor(
     dependencies: PicaAcpJobDependencies,
@@ -186,8 +188,10 @@ export class PicaAcpJob {
         // Host tools of an agent employee show in the chat with input and result (PAGE-303).
         ...(specification.run.options.access === "yolo"
           ? {
-              nativeTool: (event) =>
-                this.journal.note({ kind: "tool", ...event }),
+              nativeTool: (event) => {
+                this.journal.note({ kind: "tool", ...event });
+                this.noteNativeTool(event);
+              },
             }
           : {}),
       },
@@ -322,6 +326,22 @@ export class PicaAcpJob {
     });
     this.credential.open(lease);
     await this.journal.record({ kind: "phase", phase: "starting" });
+  }
+
+  /** Hands a finished host tool call to the record the dream run learns from (PAGE-378). */
+  private noteNativeTool(event: PicaNativeToolEvent): void {
+    // A call reports several updates; only its end counts, once.
+    if (event.status === "running" || this.notedNativeCalls.has(event.callId))
+      return;
+    this.notedNativeCalls.add(event.callId);
+    // The prefix keeps a host tool, which no recipe can call, apart from a Pages tool.
+    this.dependencies.recipes?.note({
+      tool: `host:${event.tool}`,
+      input: event.input ?? "",
+      output: event.output ?? "",
+      isOk: event.status === "completed",
+      error: event.error,
+    });
   }
 
   private async execute(signal: AbortSignal): Promise<void> {

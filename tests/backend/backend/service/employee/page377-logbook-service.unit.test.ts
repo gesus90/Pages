@@ -285,6 +285,18 @@ it("asks for no compaction when the agent has dreaming switched off or no model 
   expect(off.logbook.entries).toHaveLength(10);
 });
 
+it("asks for no compaction when the schedule of the agent switches \"bei vollem Lagebuch\" off (PAGE-378)", async () => {
+  const world = logbookWorld([TEAM], settings({ limit: 10 }));
+  world.isOnFullLogbook.value = false;
+  for (let index = 1; index <= 10; index += 1)
+    await remember(world, TEAM, "notiz", `Eintrag ${String(index)}`);
+  expect(world.compaction).not.toHaveBeenCalled();
+
+  world.isOnFullLogbook.value = true;
+  await remember(world, TEAM, "notiz", "Eintrag 11");
+  expect(world.compaction).toHaveBeenCalledTimes(1);
+});
+
 it("tells a round in one line what other chats wrote since the stand of its session", async () => {
   const world = logbookWorld();
   const team = { agentId: AGENT, sessionId: TEAM.sessionId };

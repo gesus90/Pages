@@ -3,8 +3,14 @@ import { I18nextProvider } from "react-i18next";
 import { afterEach, expect, it, vi } from "vitest";
 
 import { AgentSettingsDialog } from "@/app/components/agent-settings/agent-settings-dialog";
+import {
+  isAgentSettingsTabAvailable,
+  readAvailableAgentSettingsTab,
+  resolveAgentSettingsTab,
+} from "@/app/components/agent-settings/agent-settings-tabs";
 import { createI18n } from "@/app/lib/i18n";
 
+import { stubDreamingEndpoints } from "./agent-dreaming-fixture";
 import {
   deferred,
   sessionOverview,
@@ -183,29 +189,59 @@ it("names the agent from the sessions when the caller knows no identity", async 
   ).toBeTruthy();
 });
 
-it("shows the tabs of functions that do not exist yet as off, with a hint, and the Logbook as a working tab", async () => {
-  stubSessionEndpoint(() => answer());
+it("shows all four tabs as working tabs, without a hint, and opens in the one that was asked for", async () => {
+  stubDreamingEndpoints({});
   renderDialog({ initialTab: "dreaming" });
-  await sessionRows();
-  for (const name of ["Dreaming", "Lessons & recipes"]) {
+  for (const name of [
+    "Sessions",
+    "Logbook",
+    "Dreaming",
+    "Lessons & recipes",
+  ]) {
     const tab = screen.getByRole("tab", { name });
-    expect(isDisabled(tab)).toBe(true);
-    expect(tab.getAttribute("title")).toBe(
-      "Follows with the respective feature.",
-    );
+    expect(isDisabled(tab)).toBe(false);
+    expect(tab.getAttribute("title")).toBeNull();
   }
-  const logbook = screen.getByRole("tab", { name: "Logbook" });
-  expect(isDisabled(logbook)).toBe(false);
-  expect(logbook.getAttribute("title")).toBeNull();
   expect(
-    screen.getByText(
+    screen.queryByText(
       "Dreaming and lessons & recipes follow with the respective feature.",
     ),
-  ).toBeTruthy();
-  // A tab that does not work opens "Sessions" instead.
+  ).toBeNull();
   expect(
-    screen.getByRole("tab", { name: "Sessions" }).getAttribute("aria-selected"),
+    screen.getByRole("tab", { name: "Dreaming" }).getAttribute("aria-selected"),
   ).toBe("true");
+  expect(await screen.findByRole("switch", { name: "Dreaming active" })).toBeTruthy();
+});
+
+it("switches between the tabs and reads each tab only when it opens", async () => {
+  const { dreamingCalls, lessonsCalls } = stubDreamingEndpoints({});
+  renderDialog({ initialTab: "sessions" });
+  await screen.findByText("This agent has no sessions yet.");
+  expect(dreamingCalls).toHaveLength(0);
+  expect(lessonsCalls).toHaveLength(0);
+
+  const lessons = screen.getByRole("tab", { name: "Lessons & recipes" });
+  fireEvent.mouseDown(lessons);
+  fireEvent.click(lessons);
+  expect(await screen.findByRole("heading", { name: "Lessons" })).toBeTruthy();
+  expect(lessonsCalls).toHaveLength(1);
+  expect(dreamingCalls).toHaveLength(0);
+
+  const dreaming = screen.getByRole("tab", { name: "Dreaming" });
+  fireEvent.mouseDown(dreaming);
+  fireEvent.click(dreaming);
+  expect(await screen.findByRole("switch", { name: "Dreaming active" })).toBeTruthy();
+  expect(dreamingCalls).toHaveLength(1);
+});
+
+it("knows which tabs work", () => {
+  for (const tab of ["sessions", "logbook", "dreaming", "lessons"] as const) {
+    expect(isAgentSettingsTabAvailable(tab)).toBe(true);
+    expect(resolveAgentSettingsTab(tab)).toBe(tab);
+    expect(readAvailableAgentSettingsTab(tab)).toBe(tab);
+  }
+  expect(resolveAgentSettingsTab(undefined)).toBe("sessions");
+  expect(readAvailableAgentSettingsTab("nothing")).toBeNull();
 });
 
 it("shows a hint while the sessions load", () => {

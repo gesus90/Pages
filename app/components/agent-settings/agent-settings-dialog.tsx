@@ -13,6 +13,8 @@ import {
 } from "@/app/components/ui/dialog";
 import { Tabs, TabsContent } from "@/app/components/ui/tabs";
 
+import { AgentDreamingTab } from "./agent-dreaming-tab";
+import { AgentLessonsTab } from "./agent-lessons-tab";
 import { AgentLogbookTab } from "./agent-logbook-tab";
 import { AgentSessionsTab } from "./agent-sessions-tab";
 import {
@@ -31,7 +33,7 @@ import type { AgentSettingsTab } from "./agent-settings-tabs";
 interface AgentSettingsDialogProps {
   /** The agent whose settings to show; `null` keeps the popup closed. */
   readonly agentId: string | null;
-  /** The tab to open in; one that does not work yet opens "Sitzungen". */
+  /** The tab to open in; one that does not work opens "Sitzungen". */
   readonly initialTab?: AgentSettingsTab;
   /** The chat the popup was opened from; its session stands out in the table. */
   readonly currentChat?: AgentSettingsCurrentChat;
@@ -141,6 +143,16 @@ function AgentSettingsBody({
         <TabsContent className="mt-4 border-t border-border" value="logbook">
           <AgentLogbookTab agentId={agentId} onClose={onClose} />
         </TabsContent>
+        <TabsContent className="mt-4 border-t border-border" value="dreaming">
+          <AgentDreamingTab
+            agentId={agentId}
+            onClose={onClose}
+            onOpenLessons={() => setTab("lessons")}
+          />
+        </TabsContent>
+        <TabsContent className="mt-4 border-t border-border" value="lessons">
+          <AgentLessonsTab agentId={agentId} onClose={onClose} />
+        </TabsContent>
       </Tabs>
     </div>
   );
@@ -151,10 +163,11 @@ function AgentSettingsBody({
  * chat and from the user administration.
  *
  * @remarks
- * Its tabs are Sitzungen, Lagebuch, Dreaming and Lektionen & Rezepte; only
- * Sitzungen and Lagebuch (PAGE-377) work so far, the others show as switched
- * off. The popup reads the sessions of the agent when it opens and its
- * Lagebuch when that tab opens, and keeps no state after it closes.
+ * Its tabs are Sitzungen, Lagebuch (PAGE-377), Dreaming and Lektionen &
+ * Rezepte (PAGE-378). A tab whose function is missing shows as switched off.
+ * The popup reads the sessions of the agent when it opens and the Lagebuch,
+ * Dreaming or lessons when their tab opens, and keeps no state after it
+ * closes.
  */
 export function AgentSettingsDialog({
   agentId,

@@ -8,6 +8,7 @@ import { registerPicaEmployeeTools } from "./PicaEmployeeTools";
 import { registerPicaAgentDeletionTools } from "./PicaAgentDeletionTools";
 import { registerPicaHostFileTools } from "./PicaHostFileTools";
 import { registerPicaPlanTools } from "./PicaPlanTools";
+import { observePicaToolUse, registerPicaRecipeTool } from "./PicaRecipeTool";
 import { registerPicaAutomationTools } from "./PicaAutomationTools";
 import { registerPicaAdminTools } from "./admin/PicaAdminTools";
 import { registerPicaOperatorTools } from "./admin/PicaOperatorTools";
@@ -35,6 +36,7 @@ import type { AgentDeletionService } from "@/backend/service/employee/AgentDelet
 import type { RuntimeExecutionContext } from "@/backend/agents/runtime/RuntimeExecutionContext";
 import type { AgentChatTools } from "@/definition/AgentChat";
 import type { AgentLogbookTools } from "@/definition/AgentLogbook";
+import type { AgentRecipeTools } from "@/definition/AgentDreaming";
 import type { ChatAnswerFileService } from "./ChatAnswerFileService";
 import type { PicaHostFileAttach } from "./PicaHostFileTools";
 import type { ChatSessionService } from "./ChatSessionService";
@@ -89,6 +91,12 @@ export interface PicaToolsInput {
    * `lagebuch_lesen` are not offered.
    */
   readonly logbook?: AgentLogbookTools | undefined;
+  /**
+   * The recipes of the agent employee whose job runs (PAGE-378): the tool
+   * `rezept(name, parameter)` and the record of its tool calls for the dream
+   * run; without it neither exists.
+   */
+  readonly recipes?: AgentRecipeTools | undefined;
   /**
    * Attaches a file of the chat's working folder to a ticket or a wiki page,
    * for an agent employee with host tools (PAGE-303); without it the tools
@@ -683,6 +691,14 @@ export function createPicaTools(
         createAnswerFile(input, budget, { parameters, context }),
     });
   registerAgentEmployeeTools(registry, input, budget);
+  if (input.recipes) {
+    registerPicaRecipeTool(
+      registry,
+      { authorize: input.authorize, recipes: input.recipes },
+      () => spend(input, budget),
+    );
+    observePicaToolUse(registry, input.recipes);
+  }
   if (input.agentBrowsers)
     registerAgentBrowserTools(registry, input.agentBrowsers, () =>
       spend(input, budget),

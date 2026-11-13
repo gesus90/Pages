@@ -7078,7 +7078,7 @@
       "profile_conflict": "The limits were changed in the meantime. Reload the page and try again."
     },
     "dreamTime": "Dream run at",
-    "dreamTimeHint": "Time of the nightly dream run of all agents, in the server's time zone. It evaluates the day's chats, plan runs, errors and feedback and maintains DREAM.md.",
+    "dreamTimeHint": "Default time of the dream run, in the server's time zone, for every agent whose schedule names no time of its own. Each agent sets its interval, time and weekday in the tab \"Dreaming\" of its agent settings. The run condenses the Lagebuch into MEMORY.md, evaluates how the agent works (DREAM.md) and creates recipes.",
     "idleMinutes": "Idle time of a chat session (minutes)",
     "idleMinutesHint": "Every agent keeps one session open per conversation and answers each further round through it. After this many minutes without a round it ends and releases its process and reservation; the next round starts it again. Values from 1 to {{maximum}}.",
     "logbookModel": "Logbook: model of the background summary",
@@ -7567,7 +7567,8 @@
       "activate": "Activate",
       "delete": "Delete agent",
       "settings": "Agent settings …",
-      "logbook": "Logbook …"
+      "logbook": "Logbook …",
+      "dreaming": "Dreaming, lessons & recipes …"
     },
     "deletion": {
       "title": "Delete {{name}}?",
@@ -8558,5 +8559,273 @@
     "removeFor": "Delete entry: {{topic}}",
     "cancel": "Cancel",
     "save": "Save"
+  },
+  "agentDreaming": {
+    "loading": "Loading Dreaming …",
+    "retry": "Try again",
+    "cancel": "Cancel",
+    "save": "Save",
+    "readOnly": "Only administrators change Dreaming.",
+    "failure": {
+      "forbidden": "You are not allowed to do that.",
+      "notFound": "The agent no longer exists.",
+      "invalidInput": "The entry was not accepted.",
+      "conflict": "Dreaming is already running or the state has changed meanwhile. Try again in a moment.",
+      "unavailable": "Dreaming is not reachable right now. Try again in a moment."
+    },
+    "cards": {
+      "schedule": "Schedule",
+      "lastRun": "Last run",
+      "nextRun": "Next run",
+      "log": "Log of the last run",
+      "files": "Files"
+    },
+    "schedule": {
+      "enabled": "Dreaming active",
+      "enabledHint": "When off, Dreaming runs neither on the schedule nor when the logbook is full.",
+      "intervalLabel": "Interval",
+      "every": "every",
+      "unitLabel": "Unit",
+      "unit": {
+        "hours": "hours",
+        "days": "days"
+      },
+      "intervalInvalid": "Enter a whole number from {{minimum}} to {{maximum}}.",
+      "timeLabel": "Time of day",
+      "timeHint": "Without a time, Dreaming runs at the time of the instance ({{time}}).",
+      "timeInstanceUse": "Use the time of the instance",
+      "weekdayLabel": "Weekday",
+      "weekdayNone": "No weekday",
+      "onFullLogbook": "When the logbook is full",
+      "logbookFill": "Logbook {{fill}} % full, trigger from {{trigger}} %",
+      "modelLabel": "Model for Dreaming",
+      "modelAgent": "The agent's model",
+      "modelAgentNamed": "The agent's model ({{name}})"
+    },
+    "weekday": {
+      "1": "Monday",
+      "2": "Tuesday",
+      "3": "Wednesday",
+      "4": "Thursday",
+      "5": "Friday",
+      "6": "Saturday",
+      "7": "Sunday"
+    },
+    "summary": {
+      "label": "Summary:",
+      "invalid": "not valid yet",
+      "off": "off – a run only starts with “Dream now”",
+      "hours_one": "every {{count}} hour",
+      "hours_other": "every {{count}} hours",
+      "daily": "daily at {{time}}",
+      "dailyInstance": "daily at {{time}} (instance time)",
+      "weekly": "every {{weekday}} at {{time}}",
+      "weeklyInstance": "every {{weekday}} at {{time}} (instance time)",
+      "days": "every {{interval}} days at {{time}}",
+      "daysInstance": "every {{interval}} days at {{time}} (instance time)",
+      "onFullLogbook": "In addition, as soon as the logbook is {{percent}} % full."
+    },
+    "status": {
+      "updated": "Updated",
+      "unchanged": "Unchanged",
+      "failed": "Failed"
+    },
+    "trigger": {
+      "schedule": "Schedule",
+      "manual": "By hand",
+      "logbook": "Logbook full"
+    },
+    "lastRun": {
+      "none": "There has been no run yet.",
+      "trigger": "Started by: {{trigger}}"
+    },
+    "errorCode": {
+      "invalidAnswer": "The model gave no usable answer.",
+      "failed": "The run failed unexpectedly. Details are in the server log."
+    },
+    "errorCodeUnknown": "The run failed (error code {{code}}). Details are in the server log.",
+    "counts": {
+      "memoryTaken_one": "{{count}} entry taken into memory",
+      "memoryTaken_other": "{{count}} entries taken into memory",
+      "memoryDropped_one": "{{count}} entry dropped",
+      "memoryDropped_other": "{{count}} entries dropped",
+      "lessonLearned_one": "{{count}} new lesson",
+      "lessonLearned_other": "{{count}} new lessons",
+      "lessonStrengthened_one": "{{count}} lesson confirmed",
+      "lessonStrengthened_other": "{{count}} lessons confirmed",
+      "lessonDropped_one": "{{count}} lesson dropped",
+      "lessonDropped_other": "{{count}} lessons dropped",
+      "recipeCreated_one": "{{count}} recipe created",
+      "recipeCreated_other": "{{count}} recipes created",
+      "recipeUpdated_one": "{{count}} recipe updated",
+      "recipeUpdated_other": "{{count}} recipes updated",
+      "recipeDropped_one": "{{count}} recipe removed",
+      "recipeDropped_other": "{{count}} recipes removed",
+      "none": "Nothing changed."
+    },
+    "nextRun": {
+      "running": "running now",
+      "waiting": "due – waiting for a quiet moment",
+      "off": "off",
+      "offHint": "Dreaming is off; a run only starts by hand."
+    },
+    "kind": {
+      "memoryTaken": "Taken into memory",
+      "memoryDropped": "Dropped (done/outdated)",
+      "lessonLearned": "New lesson",
+      "lessonStrengthened": "Lesson confirmed",
+      "lessonDropped": "Lesson dropped",
+      "recipeCreated": "Recipe created",
+      "recipeUpdated": "Recipe updated",
+      "recipeDropped": "Recipe removed"
+    },
+    "log": {
+      "noRun": "The log appears after the first run.",
+      "empty": "The last run changed nothing."
+    },
+    "files": {
+      "size": "{{characters}} / {{limit}} characters",
+      "show": "Show {{name}}",
+      "empty": "The file is empty.",
+      "content": "Content of {{name}}",
+      "meter": "Fill level of {{name}}",
+      "editLessons": "Edit lessons",
+      "lessons_one": "{{count}} lesson",
+      "lessons_other": "{{count}} lessons",
+      "hint": "The files are edited under Settings → Agents → Memory, the lessons also in the tab “Lessons & recipes”. Here they are read-only."
+    },
+    "run": {
+      "now": "Dream now",
+      "running": "Dreaming …",
+      "waitingLabel": "Waiting …"
+    },
+    "outcome": {
+      "saved": "Schedule saved.",
+      "started": "The run was started.",
+      "waiting": "The agent is working in a chat right now; Dreaming starts in the next quiet moment."
+    }
+  },
+  "agentLessons": {
+    "loading": "Loading lessons and recipes …",
+    "retry": "Try again",
+    "close": "Close",
+    "readOnly": "Only administrators see and change lessons and recipes.",
+    "failure": {
+      "forbidden": "You are not allowed to do that.",
+      "notFound": "The agent or the entry no longer exists.",
+      "invalidInput": "The entry was not accepted.",
+      "conflict": "The entry has changed meanwhile, for example through Dreaming. The list is up to date; try again.",
+      "unavailable": "Lessons and recipes are not reachable right now. Try again in a moment."
+    },
+    "strength": "Strength {{strength}}",
+    "evidence": "Evidence: {{evidence}}",
+    "date": "Last confirmed: {{date}}",
+    "status": {
+      "active": "active",
+      "off": "off"
+    },
+    "actions": {
+      "edit": "Edit",
+      "deactivate": "Deactivate",
+      "activate": "Activate",
+      "remove": "Delete",
+      "confirmQuestion": "Really delete?",
+      "confirmRemove": "Yes, delete",
+      "cancel": "Cancel"
+    },
+    "actionFor": {
+      "lesson": {
+        "edit": "Edit lesson: {{subject}}",
+        "deactivate": "Deactivate lesson: {{subject}}",
+        "activate": "Activate lesson: {{subject}}",
+        "remove": "Delete lesson: {{subject}}",
+        "confirmRemove": "Confirm deleting the lesson: {{subject}}"
+      },
+      "recipe": {
+        "edit": "Edit recipe: {{subject}}",
+        "deactivate": "Deactivate recipe: {{subject}}",
+        "activate": "Activate recipe: {{subject}}",
+        "remove": "Delete recipe: {{subject}}",
+        "confirmRemove": "Confirm deleting the recipe: {{subject}}"
+      }
+    },
+    "lessons": {
+      "title": "Lessons",
+      "usage": "DREAM.md: {{size}}",
+      "hint": "The agent learns lessons from its work while it dreams. Active lessons are loaded into every new session; a lesson that is off stays in the file but is not loaded.",
+      "empty": "No lessons yet. The agent learns them while it dreams.",
+      "textLabel": "Lesson",
+      "textInvalid": "The lesson must not be empty.",
+      "evidenceLabel": "Evidence"
+    },
+    "recipes": {
+      "title": "Recipes",
+      "count": "{{count}} of {{limit}} recipes",
+      "hint": "A recipe is a fixed flow of tools the agent may use anyway, or a short guide. The agent calls it with rezept(name, parameter). A flow never runs a deletion or an action that needs confirmation.",
+      "empty": "No recipes yet. The agent creates them while it dreams, when it repeats a flow.",
+      "kind": {
+        "flow": "Flow",
+        "knowledge": "Knowledge"
+      },
+      "status": {
+        "active": "active",
+        "failed": "off – failed {{failures}}×",
+        "manual": "off – by hand",
+        "off": "off"
+      },
+      "usage": "used {{uses}}×, last {{last}}",
+      "usageNoDate": "used {{uses}}×",
+      "usageNever": "Never used",
+      "origin": {
+        "dream": "Created by Dreaming",
+        "manual": "Created by hand"
+      },
+      "lastError": "Last error: {{error}}",
+      "showDetails": "Show details",
+      "hideDetails": "Hide details",
+      "showDetailsFor": "Show details of {{name}}",
+      "hideDetailsFor": "Hide details of {{name}}"
+    },
+    "details": {
+      "parameters": "Parameters",
+      "steps": "Steps",
+      "stepInput": "Input of step {{number}}",
+      "body": "Guide",
+      "keywords": "Keywords"
+    },
+    "editor": {
+      "save": "Save",
+      "cancel": "Cancel",
+      "name": "Name",
+      "nameHint": "This is how the agent calls the recipe: rezept(name, parameter).",
+      "nameInvalid": "Enter a name (at most {{limit}} characters).",
+      "keywords": "Keywords",
+      "keywordsHint": "Separate with commas.",
+      "summary": "Short description",
+      "summaryInvalid": "Enter a short description (at most {{limit}} characters).",
+      "body": "Guide",
+      "bodyInvalid": "Enter the guide (at most {{limit}} characters).",
+      "bodyCount": "{{count}} / {{limit}} characters",
+      "parameters": "Parameters",
+      "parametersHint": "Usable in the steps as {{example}}.",
+      "parameterName": "Name of parameter {{number}}",
+      "parameterNamePlaceholder": "Name",
+      "parameterDescription": "Description of parameter {{number}}",
+      "parameterDescriptionPlaceholder": "Description",
+      "removeParameter": "Remove parameter {{number}}",
+      "parameterInvalid": "Every parameter needs a name.",
+      "addParameter": "Add parameter",
+      "steps": "Steps",
+      "stepsHint": "In the input, {{parameter}} stands for a parameter and {{result}} for a field of the result of an earlier step (here step 2).",
+      "stepNumber": "Step {{number}}",
+      "removeStep": "Remove step {{number}}",
+      "stepTool": "Tool",
+      "stepToolInvalid": "Enter the tool.",
+      "stepNote": "Note",
+      "stepInput": "Input (JSON object)",
+      "stepInputInvalid": "Enter a JSON object, for example {{example}}.",
+      "noSteps": "A flow needs at least one step.",
+      "addStep": "Add step"
+    }
   }
 }

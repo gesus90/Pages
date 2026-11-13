@@ -1,6 +1,7 @@
 import type { AgentBrowserService } from "../browser/AgentBrowserService";
 import type { AgentChatTools } from "@/definition/AgentChat";
 import type { AgentLogbookTools } from "@/definition/AgentLogbook";
+import type { AgentRecipeTools } from "@/definition/AgentDreaming";
 import type { PicaAdminService } from "../admin/PicaAdminService";
 import type { AgentDeletionService } from "@/backend/service/employee/AgentDeletionService";
 import type { PlanExecution } from "@/backend/agents/AgentPlanExecution";
@@ -51,6 +52,8 @@ export interface PicaAcpJobDependencies {
   readonly readOwnChat?: (input: unknown) => Promise<unknown>;
   /** The Lagebuch tools of an agent employee's chat session (PAGE-377); absent for Pica. */
   readonly logbook?: AgentLogbookTools;
+  /** The recipe tool and the record of tool calls of an agent employee's chat session (PAGE-378); absent for Pica. */
+  readonly recipes?: AgentRecipeTools;
   /** Attaches a file of the job's working folder for an agent employee with host tools (PAGE-303). */
   readonly attachHostFile?: PicaHostFileAttach;
   /** The chat tools of an agent employee (PAGE-311); absent for Pica. */

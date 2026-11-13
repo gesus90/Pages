@@ -373,7 +373,13 @@ export class AgentLogbookService {
       store.employees().find(agentId),
       store.logbook().settings(agentId),
     ]);
-    if (!employee?.isLearningEnabled || !settings) return;
+    // The schedule decides: the dream run must be on and ask for a full Lagebuch (PAGE-378).
+    if (
+      !employee?.isLearningEnabled ||
+      !employee.dreamSchedule.isOnFullLogbook ||
+      !settings
+    )
+      return;
     const now = this.now();
     const last = settings.compactionAt;
     if (

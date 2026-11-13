@@ -149,6 +149,9 @@ function AgentRow({
             <DropdownMenuItem onSelect={() => onSettings(agent, "logbook")}>
               {t("agentEmployees.actions.logbook")}
             </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => onSettings(agent, "dreaming")}>
+              {t("agentEmployees.actions.dreaming")}
+            </DropdownMenuItem>
             {canManage ? (
               <DropdownMenuItem onSelect={() => setActive(!agent.isActive)}>
                 {t(

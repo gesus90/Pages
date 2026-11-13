@@ -7078,7 +7078,7 @@
       "profile_conflict": "Die Grenzen wurden inzwischen geändert. Lade die Seite neu und versuche es erneut."
     },
     "dreamTime": "Traumlauf um",
-    "dreamTimeHint": "Uhrzeit des nächtlichen Traumlaufs aller Agents in der Zeitzone des Servers. Er wertet die Chats, Planläufe, Fehler und Rückmeldungen des Tages aus und pflegt DREAM.md.",
+    "dreamTimeHint": "Standard-Uhrzeit des Traumlaufs in der Zeitzone des Servers für jeden Agent, dessen Zeitplan keine eigene Uhrzeit nennt. Takt, Uhrzeit und Wochentag stellt jeder Agent selbst im Reiter „Dreaming“ der Agent-Einstellungen ein. Der Lauf verdichtet das Lagebuch in MEMORY.md, wertet die Arbeitsweise aus (DREAM.md) und legt Rezepte an.",
     "idleMinutes": "Ruhezeit einer Chat-Sitzung (Minuten)",
     "idleMinutesHint": "Jeder Agent hält je Unterhaltung eine Sitzung offen und beantwortet jede weitere Runde darüber. Nach so vielen Minuten ohne Runde endet sie und gibt Prozess und Reservierung frei; die nächste Runde startet sie neu. Werte von 1 bis {{maximum}}.",
     "logbookModel": "Lagebuch: Modell der Hintergrund-Zusammenfassung",
@@ -7567,7 +7567,8 @@
       "activate": "Aktivieren",
       "delete": "Agent löschen",
       "settings": "Agent-Einstellungen …",
-      "logbook": "Lagebuch …"
+      "logbook": "Lagebuch …",
+      "dreaming": "Dreaming, Lektionen & Rezepte …"
     },
     "deletion": {
       "title": "{{name}} löschen?",
@@ -8558,5 +8559,273 @@
     "removeFor": "Eintrag löschen: {{topic}}",
     "cancel": "Abbrechen",
     "save": "Speichern"
+  },
+  "agentDreaming": {
+    "loading": "Dreaming wird geladen …",
+    "retry": "Erneut versuchen",
+    "cancel": "Abbrechen",
+    "save": "Speichern",
+    "readOnly": "Nur Administratoren ändern das Dreaming.",
+    "failure": {
+      "forbidden": "Dazu fehlt dir die Berechtigung.",
+      "notFound": "Den Agent gibt es nicht mehr.",
+      "invalidInput": "Die Eingabe wurde nicht angenommen.",
+      "conflict": "Das Dreaming läuft schon oder der Stand hat sich inzwischen geändert. Versuche es gleich noch einmal.",
+      "unavailable": "Dreaming ist gerade nicht erreichbar. Versuche es gleich noch einmal."
+    },
+    "cards": {
+      "schedule": "Zeitplan",
+      "lastRun": "Letzter Lauf",
+      "nextRun": "Nächster Lauf",
+      "log": "Protokoll des letzten Laufs",
+      "files": "Dateien"
+    },
+    "schedule": {
+      "enabled": "Dreaming aktiv",
+      "enabledHint": "Wenn aus, läuft Dreaming weder nach Zeitplan noch bei vollem Lagebuch.",
+      "intervalLabel": "Intervall",
+      "every": "alle",
+      "unitLabel": "Einheit",
+      "unit": {
+        "hours": "Stunden",
+        "days": "Tage"
+      },
+      "intervalInvalid": "Gib eine ganze Zahl von {{minimum}} bis {{maximum}} ein.",
+      "timeLabel": "Uhrzeit",
+      "timeHint": "Ohne Angabe läuft Dreaming zur Zeit der Instanz ({{time}}).",
+      "timeInstanceUse": "Zeit der Instanz verwenden",
+      "weekdayLabel": "Wochentag",
+      "weekdayNone": "Kein Wochentag",
+      "onFullLogbook": "Bei vollem Lagebuch",
+      "logbookFill": "Lagebuch zu {{fill}} % gefüllt, Anstoß ab {{trigger}} %",
+      "modelLabel": "Modell für Dreaming",
+      "modelAgent": "Modell des Agents",
+      "modelAgentNamed": "Modell des Agents ({{name}})"
+    },
+    "weekday": {
+      "1": "Montag",
+      "2": "Dienstag",
+      "3": "Mittwoch",
+      "4": "Donnerstag",
+      "5": "Freitag",
+      "6": "Samstag",
+      "7": "Sonntag"
+    },
+    "summary": {
+      "label": "Zusammenfassung:",
+      "invalid": "noch nicht gültig",
+      "off": "aus – ein Lauf startet nur mit „Jetzt träumen“",
+      "hours_one": "alle {{count}} Stunde",
+      "hours_other": "alle {{count}} Stunden",
+      "daily": "täglich um {{time}}",
+      "dailyInstance": "täglich um {{time}} (Zeit der Instanz)",
+      "weekly": "jeden {{weekday}} um {{time}}",
+      "weeklyInstance": "jeden {{weekday}} um {{time}} (Zeit der Instanz)",
+      "days": "alle {{interval}} Tage um {{time}}",
+      "daysInstance": "alle {{interval}} Tage um {{time}} (Zeit der Instanz)",
+      "onFullLogbook": "Zusätzlich, sobald das Lagebuch zu {{percent}} % gefüllt ist."
+    },
+    "status": {
+      "updated": "Aktualisiert",
+      "unchanged": "Unverändert",
+      "failed": "Fehlgeschlagen"
+    },
+    "trigger": {
+      "schedule": "Zeitplan",
+      "manual": "Von Hand",
+      "logbook": "Lagebuch voll"
+    },
+    "lastRun": {
+      "none": "Es gab noch keinen Lauf.",
+      "trigger": "Ausgelöst durch: {{trigger}}"
+    },
+    "errorCode": {
+      "invalidAnswer": "Das Modell hat keine verwertbare Antwort geliefert.",
+      "failed": "Der Lauf ist unerwartet fehlgeschlagen. Details stehen im Serverlog."
+    },
+    "errorCodeUnknown": "Der Lauf ist fehlgeschlagen (Fehlercode {{code}}). Details stehen im Serverlog.",
+    "counts": {
+      "memoryTaken_one": "{{count}} Eintrag übernommen",
+      "memoryTaken_other": "{{count}} Einträge übernommen",
+      "memoryDropped_one": "{{count}} Eintrag verworfen",
+      "memoryDropped_other": "{{count}} Einträge verworfen",
+      "lessonLearned_one": "{{count}} neue Lektion",
+      "lessonLearned_other": "{{count}} neue Lektionen",
+      "lessonStrengthened_one": "{{count}} Lektion bestätigt",
+      "lessonStrengthened_other": "{{count}} Lektionen bestätigt",
+      "lessonDropped_one": "{{count}} Lektion entfallen",
+      "lessonDropped_other": "{{count}} Lektionen entfallen",
+      "recipeCreated_one": "{{count}} Rezept angelegt",
+      "recipeCreated_other": "{{count}} Rezepte angelegt",
+      "recipeUpdated_one": "{{count}} Rezept aktualisiert",
+      "recipeUpdated_other": "{{count}} Rezepte aktualisiert",
+      "recipeDropped_one": "{{count}} Rezept entfernt",
+      "recipeDropped_other": "{{count}} Rezepte entfernt",
+      "none": "Nichts verändert."
+    },
+    "nextRun": {
+      "running": "läuft gerade",
+      "waiting": "fällig – wartet auf eine Ruhepause",
+      "off": "aus",
+      "offHint": "Dreaming ist aus; ein Lauf startet nur von Hand."
+    },
+    "kind": {
+      "memoryTaken": "Ins Gedächtnis übernommen",
+      "memoryDropped": "Verworfen (erledigt/veraltet)",
+      "lessonLearned": "Neue Lektion",
+      "lessonStrengthened": "Lektion bestätigt",
+      "lessonDropped": "Lektion entfallen",
+      "recipeCreated": "Rezept angelegt",
+      "recipeUpdated": "Rezept aktualisiert",
+      "recipeDropped": "Rezept entfernt"
+    },
+    "log": {
+      "noRun": "Das Protokoll erscheint nach dem ersten Lauf.",
+      "empty": "Der letzte Lauf hat nichts verändert."
+    },
+    "files": {
+      "size": "{{characters}} / {{limit}} Zeichen",
+      "show": "{{name}} anzeigen",
+      "empty": "Die Datei ist leer.",
+      "content": "Inhalt von {{name}}",
+      "meter": "Füllstand von {{name}}",
+      "editLessons": "Lektionen bearbeiten",
+      "lessons_one": "{{count}} Lektion",
+      "lessons_other": "{{count}} Lektionen",
+      "hint": "Bearbeiten lassen sich die Dateien unter Einstellungen → Agents → Gedächtnis, die Lektionen auch im Reiter „Lektionen & Rezepte“. Hier sind sie nur zum Lesen."
+    },
+    "run": {
+      "now": "Jetzt träumen",
+      "running": "Träumt …",
+      "waitingLabel": "Wartet …"
+    },
+    "outcome": {
+      "saved": "Zeitplan gespeichert.",
+      "started": "Der Lauf wurde gestartet.",
+      "waiting": "Der Agent arbeitet gerade in einem Chat; das Dreaming startet in der nächsten Ruhepause."
+    }
+  },
+  "agentLessons": {
+    "loading": "Lektionen und Rezepte werden geladen …",
+    "retry": "Erneut versuchen",
+    "close": "Schließen",
+    "readOnly": "Lektionen und Rezepte sehen und ändern nur Administratoren.",
+    "failure": {
+      "forbidden": "Dazu fehlt dir die Berechtigung.",
+      "notFound": "Den Agent oder den Eintrag gibt es nicht mehr.",
+      "invalidInput": "Die Eingabe wurde nicht angenommen.",
+      "conflict": "Der Eintrag hat sich inzwischen geändert, etwa durch ein Dreaming. Die Liste ist aktualisiert; versuche es noch einmal.",
+      "unavailable": "Lektionen und Rezepte sind gerade nicht erreichbar. Versuche es gleich noch einmal."
+    },
+    "strength": "Stärke {{strength}}",
+    "evidence": "Beleg: {{evidence}}",
+    "date": "Zuletzt bestätigt: {{date}}",
+    "status": {
+      "active": "aktiv",
+      "off": "aus"
+    },
+    "actions": {
+      "edit": "Bearbeiten",
+      "deactivate": "Deaktivieren",
+      "activate": "Aktivieren",
+      "remove": "Löschen",
+      "confirmQuestion": "Wirklich löschen?",
+      "confirmRemove": "Ja, löschen",
+      "cancel": "Abbrechen"
+    },
+    "actionFor": {
+      "lesson": {
+        "edit": "Lektion bearbeiten: {{subject}}",
+        "deactivate": "Lektion deaktivieren: {{subject}}",
+        "activate": "Lektion aktivieren: {{subject}}",
+        "remove": "Lektion löschen: {{subject}}",
+        "confirmRemove": "Löschen der Lektion bestätigen: {{subject}}"
+      },
+      "recipe": {
+        "edit": "Rezept bearbeiten: {{subject}}",
+        "deactivate": "Rezept deaktivieren: {{subject}}",
+        "activate": "Rezept aktivieren: {{subject}}",
+        "remove": "Rezept löschen: {{subject}}",
+        "confirmRemove": "Löschen des Rezepts bestätigen: {{subject}}"
+      }
+    },
+    "lessons": {
+      "title": "Lektionen",
+      "usage": "DREAM.md: {{size}}",
+      "hint": "Lektionen lernt der Agent beim Dreaming aus seiner Arbeit. Aktive Lektionen werden in jede neue Sitzung geladen; eine abgeschaltete bleibt in der Datei, wird aber nicht geladen.",
+      "empty": "Noch keine Lektionen. Der Agent lernt sie beim Dreaming.",
+      "textLabel": "Lektion",
+      "textInvalid": "Die Lektion darf nicht leer sein.",
+      "evidenceLabel": "Beleg"
+    },
+    "recipes": {
+      "title": "Rezepte",
+      "count": "{{count}} von {{limit}} Rezepten",
+      "hint": "Ein Rezept ist ein fester Ablauf aus Werkzeugen, die der Agent ohnehin nutzen darf, oder ein kurzer Leitfaden. Der Agent ruft es mit rezept(name, parameter) auf. Ein Ablauf führt nie eine Löschung oder eine Aktion aus, die eine Bestätigung braucht.",
+      "empty": "Noch keine Rezepte. Der Agent legt sie beim Dreaming an, wenn er einen Ablauf wiederholt.",
+      "kind": {
+        "flow": "Ablauf",
+        "knowledge": "Wissen"
+      },
+      "status": {
+        "active": "aktiv",
+        "failed": "aus – {{failures}}× fehlgeschlagen",
+        "manual": "aus – von Hand",
+        "off": "aus"
+      },
+      "usage": "{{uses}}× genutzt, zuletzt {{last}}",
+      "usageNoDate": "{{uses}}× genutzt",
+      "usageNever": "Noch nie genutzt",
+      "origin": {
+        "dream": "Vom Dreaming angelegt",
+        "manual": "Von Hand angelegt"
+      },
+      "lastError": "Letzter Fehler: {{error}}",
+      "showDetails": "Details anzeigen",
+      "hideDetails": "Details ausblenden",
+      "showDetailsFor": "Details von {{name}} anzeigen",
+      "hideDetailsFor": "Details von {{name}} ausblenden"
+    },
+    "details": {
+      "parameters": "Parameter",
+      "steps": "Schritte",
+      "stepInput": "Eingabe von Schritt {{number}}",
+      "body": "Leitfaden",
+      "keywords": "Schlagwörter"
+    },
+    "editor": {
+      "save": "Speichern",
+      "cancel": "Abbrechen",
+      "name": "Name",
+      "nameHint": "So ruft der Agent das Rezept auf: rezept(name, parameter).",
+      "nameInvalid": "Gib einen Namen an (höchstens {{limit}} Zeichen).",
+      "keywords": "Schlagwörter",
+      "keywordsHint": "Mit Komma trennen.",
+      "summary": "Kurzbeschreibung",
+      "summaryInvalid": "Gib eine Kurzbeschreibung an (höchstens {{limit}} Zeichen).",
+      "body": "Leitfaden",
+      "bodyInvalid": "Gib den Leitfaden an (höchstens {{limit}} Zeichen).",
+      "bodyCount": "{{count}} / {{limit}} Zeichen",
+      "parameters": "Parameter",
+      "parametersHint": "In den Schritten als {{example}} einsetzbar.",
+      "parameterName": "Name von Parameter {{number}}",
+      "parameterNamePlaceholder": "Name",
+      "parameterDescription": "Beschreibung von Parameter {{number}}",
+      "parameterDescriptionPlaceholder": "Beschreibung",
+      "removeParameter": "Parameter {{number}} entfernen",
+      "parameterInvalid": "Jeder Parameter braucht einen Namen.",
+      "addParameter": "Parameter hinzufügen",
+      "steps": "Schritte",
+      "stepsHint": "In der Eingabe steht {{parameter}} für einen Parameter und {{result}} für ein Feld aus dem Ergebnis eines früheren Schritts (hier Schritt 2).",
+      "stepNumber": "Schritt {{number}}",
+      "removeStep": "Schritt {{number}} entfernen",
+      "stepTool": "Werkzeug",
+      "stepToolInvalid": "Gib das Werkzeug an.",
+      "stepNote": "Notiz",
+      "stepInput": "Eingabe (JSON-Objekt)",
+      "stepInputInvalid": "Gib ein JSON-Objekt ein, zum Beispiel {{example}}.",
+      "noSteps": "Ein Ablauf braucht mindestens einen Schritt.",
+      "addStep": "Schritt hinzufügen"
+    }
   }
 }

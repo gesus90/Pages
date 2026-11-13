@@ -1,3 +1,4 @@
+import { activeDreamDocument } from "./AgentDreamDocument";
 import {
   parseMemoryDocument,
   renderMemoryDocument,
@@ -156,7 +157,8 @@ export class AgentChatContext {
         preamble: audience.people.length <= 1 ? document.preamble : "",
         entries,
       }),
-      dream: employee?.dream ?? "",
+      // A lesson somebody switched off stays in the file but not in the session (PAGE-378).
+      dream: activeDreamDocument(employee?.dream ?? ""),
       related: (
         await memory.related(target.agentId, input.message, audience)
       ).filter(

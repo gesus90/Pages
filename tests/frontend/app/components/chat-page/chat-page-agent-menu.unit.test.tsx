@@ -12,6 +12,10 @@ import { ChatPageHeader } from "@/app/components/chat-page/chat-page-header";
 import { createI18n } from "@/app/lib/i18n";
 
 import {
+  dreamingOverview,
+  stubDreamingEndpoints,
+} from "../agent-settings/agent-dreaming-fixture";
+import {
   logbookEntry,
   logbookOverview,
   stubLogbookEndpoint,
@@ -286,15 +290,36 @@ it("opens the popup for the agent in the tab Sessions with the opened group mark
   ).toBe("true");
 });
 
-it("shows the entry of Dreaming off with the remark that it follows and the entry of the Logbook on", () => {
+it("shows the entries of Dreaming, lessons & recipes and of the Logbook on, without a remark that they follow", () => {
   renderGroup([WORKING]);
   openByClick(chip());
   const dreaming = item(/^Dreaming, lessons & recipes …/);
-  expect(isOff(dreaming)).toBe(true);
-  expect(within(dreaming).getByText("soon")).toBeTruthy();
+  expect(isOff(dreaming)).toBe(false);
+  expect(within(dreaming).queryByText("soon")).toBeNull();
   const logbook = item(/^Logbook …/);
   expect(isOff(logbook)).toBe(false);
   expect(within(logbook).queryByText("soon")).toBeNull();
+});
+
+it("opens the popup of the agent straight in the tab Dreaming from the entry Dreaming, lessons & recipes … of the menu (PAGE-378)", async () => {
+  const { dreamingCalls } = stubDreamingEndpoints({
+    dreaming: () => ({ ok: true, overview: dreamingOverview() }),
+  });
+  renderGroup([WORKING]);
+  openByClick(chip());
+  fireEvent.click(item(/^Dreaming, lessons & recipes …/));
+  const dialog = await screen.findByRole("dialog");
+  expect(
+    within(dialog)
+      .getByRole("tab", { name: "Dreaming" })
+      .getAttribute("aria-selected"),
+  ).toBe("true");
+  expect(
+    await within(dialog).findByRole("switch", { name: "Dreaming active" }),
+  ).toBeTruthy();
+  expect(dreamingCalls[0]?.url).toBe(
+    "/chat-page-api/agent-dreaming?agentId=ed",
+  );
 });
 
 it("opens the popup of the agent straight in the tab Logbook from the entry Logbook … of the menu (PAGE-377)", async () => {
@@ -428,5 +453,7 @@ it("words the status and the entries in German", () => {
   }
   expect(item(/^Agent-Einstellungen …\s*Sitzungen$/)).toBeTruthy();
   expect(isOff(item(/^Lagebuch …/))).toBe(false);
-  expect(within(item(/^Dreaming, Lektionen & Rezepte …/)).getByText("folgt")).toBeTruthy();
+  const dreaming = item(/^Dreaming, Lektionen & Rezepte …/);
+  expect(isOff(dreaming)).toBe(false);
+  expect(within(dreaming).queryByText("folgt")).toBeNull();
 });

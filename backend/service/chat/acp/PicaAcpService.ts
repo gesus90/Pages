@@ -21,6 +21,7 @@ import type {
 import type { ResolvedAgentAssignment } from "@/backend/service/agents/AgentAssignmentResolution";
 import type { AgentChatTools } from "@/definition/AgentChat";
 import type { AgentLogbookTools } from "@/definition/AgentLogbook";
+import type { AgentRecipeTools } from "@/definition/AgentDreaming";
 import type { ChatSendResult } from "@/definition/Chat";
 import type {
   ChatJob,
@@ -104,6 +105,8 @@ export interface PicaAcpEmployeeRun {
   readonly readOwnChat?: (input: unknown) => Promise<unknown>;
   /** The Lagebuch tools of the job's chat session (PAGE-377); absent for a run of the agent's own. */
   readonly logbook?: AgentLogbookTools;
+  /** The recipe tool and the record of tool calls of the job's chat session (PAGE-378); absent for a run of the agent's own. */
+  readonly recipes?: AgentRecipeTools;
   /**
    * A short run of the agent's own, such as the upkeep of its memory
    * (PAGE-376): it starts a new agent session and never continues an
@@ -590,6 +593,7 @@ export class PicaAcpService {
         : {}),
       ...(employee.readOwnChat ? { readOwnChat: employee.readOwnChat } : {}),
       ...(employee.logbook ? { logbook: employee.logbook } : {}),
+      ...(employee.recipes ? { recipes: employee.recipes } : {}),
       ...(employee.agentChat ? { agentChat: employee.agentChat } : {}),
       access: {
         requireUser: (userId, connectionId) =>
