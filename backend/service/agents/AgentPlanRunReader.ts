@@ -10,7 +10,7 @@ import { requirePlanModelResources } from "./AgentPlanModel";
 
 import type { PlanRunEnginePort } from "./runs/PlanRunEnginePort";
 import type { PlanDependencies } from "./AgentPlanService";
-import type { AgentPlanRun } from "@/definition/AgentPlan";
+import type { AgentPlanRun, AgentPlanView } from "@/definition/AgentPlan";
 import type { AgentPlanRunResources } from "@/backend/agents/AgentPlanRunResources";
 import type { AgentTicketAsset } from "@/definition/AgentTicketParameter";
 
@@ -81,14 +81,19 @@ export async function findPlanRun(
   }
 }
 
-async function loadAuthorizedPlanRun(
-  dependencies: PlanRunReadDependencies,
+/**
+ * Requires that the person may read the run: its owner, an administrator or a reader of all runs.
+ *
+ * @param userId - The person who reads.
+ * @param run - The stored run.
+ * @param plan - The plan of the run, as the person sees it.
+ * @throws {AgentError} `plan_access_denied` for anyone else.
+ */
+function requireRunReadPermission(
   userId: string,
-  id: string,
-): Promise<AgentPlanRun> {
-  const run = await findPlanRun(dependencies, userId, id);
-  if (!run) throw new AgentError("plan_access_denied");
-  const plan = await dependencies.access.require(userId, run.planId);
+  run: AgentPlanRun,
+  plan: AgentPlanView,
+): void {
   // An administrator reads and controls every run of a plan (PAGE-329).
   if (
     run.userId !== userId &&
@@ -96,12 +101,21 @@ async function loadAuthorizedPlanRun(
     !plan.rights?.canReadAllRuns
   )
     throw new AgentError("plan_access_denied");
-  const resources = await dependencies.runs.resources(id);
-  if (!plan.rights?.canReadAllRuns)
-    await requirePlanRunResourceAccess(dependencies, userId, {
-      resources,
-      ticketAssets: allRunAssetReferences(run, resources.ticketAssets),
-    });
+}
+
+/**
+ * Adds the live progress, the work scope, the agent todos and the command view to a run.
+ *
+ * @param dependencies - The read dependencies of the plan service.
+ * @param run - The stored run.
+ * @param resources - The resources the run used.
+ * @returns The run as the person may read it.
+ */
+async function withRunViews(
+  dependencies: PlanRunReadDependencies,
+  run: AgentPlanRun,
+  resources: AgentPlanRunResources,
+): Promise<AgentPlanRun> {
   const progress = await withPlanProgress(run, {
     projectId: resources.projectId,
     tasks: dependencies.tasks,
@@ -117,6 +131,24 @@ async function loadAuthorizedPlanRun(
     (await dependencies.agentTodos?.listForRun(run.id)) ?? new Map(),
   );
   return withRunCommand(dependencies.engine, withTodos);
+}
+
+async function loadAuthorizedPlanRun(
+  dependencies: PlanRunReadDependencies,
+  userId: string,
+  id: string,
+): Promise<AgentPlanRun> {
+  const run = await findPlanRun(dependencies, userId, id);
+  if (!run) throw new AgentError("plan_access_denied");
+  const plan = await dependencies.access.require(userId, run.planId);
+  requireRunReadPermission(userId, run, plan);
+  const resources = await dependencies.runs.resources(id);
+  if (!plan.rights?.canReadAllRuns)
+    await requirePlanRunResourceAccess(dependencies, userId, {
+      resources,
+      ticketAssets: allRunAssetReferences(run, resources.ticketAssets),
+    });
+  return withRunViews(dependencies, run, resources);
 }
 
 /**

@@ -74,7 +74,16 @@ function employeeFailure(error: AgentEmployeeError): AgentOperationError {
       return new AgentOperationError("FORBIDDEN", { reason: "access_level" });
     case "conflict":
       return new AgentOperationError("CONFLICT");
-    default:
+    case "invalidInput":
+    case "usernameTaken":
+    case "modelNotAllowed":
+    case "accessUnsupported":
+    case "isolationUnavailable":
+    case "templateNameTaken":
+    case "inactive":
+    case "busy":
+    case "unavailable":
+    case "stopped":
       return new AgentOperationError("INVALID_REQUEST", { reason: error.code });
   }
 }

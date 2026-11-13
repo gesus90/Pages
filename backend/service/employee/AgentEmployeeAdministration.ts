@@ -1,12 +1,10 @@
 import { randomUUID } from "node:crypto";
 
 import { accountForChannel } from "@/backend/auth/McpActorContext";
-import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { UserPolicyService } from "@/backend/auth/UserPolicyService";
 import { AdministrationError } from "@/backend/error/AdministrationError";
 import { AgentEmployeeError } from "@/backend/error/AgentEmployeeError";
 import { UsernameTakenError } from "@/backend/error/UserErrors";
-import { logEvent } from "@/backend/logging/Logger";
 import { isAgentProvider } from "@/definition/AgentConnection";
 import { CAPABILITY } from "@/definition/Authorization";
 
@@ -15,6 +13,7 @@ import {
   requireManagementRole,
 } from "../management/ManagementPolicy";
 import { activeAccount, findAccount } from "../AdministrationAccess";
+import { AgentAccessLevelChanges } from "./AgentAccessLevelChanges";
 import { AgentEmployeeDirectory } from "./AgentEmployeeDirectory";
 
 import type { ActorChannel } from "@/backend/auth/McpActorContext";
@@ -24,7 +23,6 @@ import type {
   AuthorizationSnapshot,
 } from "@/backend/database/repositories/AuthorizationRepository";
 import type { StoredUserAvatar } from "@/backend/database/repositories/UserRepository";
-import type { AgentEmployeeChange } from "@/backend/database/repositories/employee/AgentEmployeeRepository";
 import type { StoredAgentUsages } from "@/backend/database/repositories/employee/AgentEmployeeRemovalRepository";
 import type { EmployeeStore } from "@/backend/database/repositories/employee/EmployeeStore";
 import type {
@@ -35,7 +33,6 @@ import type {
 import type {
   AgentAccessEnvironment,
   AgentEmployee,
-  AgentEmployeeAccess,
 } from "@/definition/AgentEmployee";
 import type {
   AgentEmployeeDetailData,
@@ -43,6 +40,7 @@ import type {
 } from "@/definition/AgentEmployeePage";
 import type { AgentAccessEnvironmentService } from "./AgentAccessEnvironmentService";
 import type { AgentActivityService } from "./AgentActivityService";
+import { employeeChange } from "./AgentEmployeeInput";
 import type { AgentEmployeeInput } from "./AgentEmployeeInput";
 import type { AgentEmployeeModels } from "./AgentEmployeeModels";
 import type { AgentMemoryFile, AgentMemoryService } from "./AgentMemoryService";
@@ -101,22 +99,6 @@ export interface AgentEmployeeUpdate {
   readonly isActive?: boolean;
 }
 
-function employeeChange(input: AgentEmployeeInput): AgentEmployeeChange {
-  return {
-    connectionId: input.settings.connectionId,
-    model: input.settings.model,
-    reasoningEffort: input.settings.reasoningEffort,
-    access: input.settings.access,
-    soul: input.documents.soul,
-    instructions: input.documents.instructions,
-    isLearningEnabled: input.isLearningEnabled,
-    voiceId: input.voice.voiceId,
-    voiceSpeedTenths: input.voice.speedTenths,
-    memoryCharacters: input.limits.memoryCharacters,
-    dreamCharacters: input.limits.dreamCharacters,
-  };
-}
-
 function requireRole(
   snapshot: AuthorizationSnapshot,
   roleId: string,
@@ -154,10 +136,6 @@ async function requireIdle(
     throw new AgentEmployeeError("busy");
 }
 
-function actorName(actor: AccountAccess): string {
-  return `${actor.firstName} ${actor.lastName}`.trim();
-}
-
 /**
  * Creates, changes and removes agent employees in the user administration
  * (PAGE-266, PAGE-267).
@@ -177,6 +155,7 @@ export class AgentEmployeeAdministration {
   private readonly dependencies: AgentEmployeeAdministrationDependencies;
   private readonly policy: UserPolicyService;
   private readonly directory: AgentEmployeeDirectory;
+  private readonly accessLevels: AgentAccessLevelChanges;
 
   public constructor(
     dependencies: AgentEmployeeAdministrationDependencies,
@@ -186,6 +165,11 @@ export class AgentEmployeeAdministration {
     this.dependencies = dependencies;
     this.policy = new UserPolicyService(channel);
     this.directory = new AgentEmployeeDirectory(dependencies);
+    this.accessLevels = new AgentAccessLevelChanges(
+      this.policy,
+      dependencies.activity,
+      dependencies.accessEnvironment,
+    );
   }
 
   /** The same administration with the administrator reading of another channel. */
@@ -353,7 +337,11 @@ export class AgentEmployeeAdministration {
       const role = requireRole(snapshot, input.roleId);
       requireManagementRole(actor, role.id);
       this.require(this.policy.canAssignRole(actor, role));
-      await this.requireAccessChange(actor, "read_only", input.settings.access);
+      await this.accessLevels.requireChange(
+        actor,
+        "read_only",
+        input.settings.access,
+      );
       const account = this.newAccount(agentId, role, input.displayName);
       if (input.departments.length > 0) {
         requireDepartments(snapshot, input.departments);
@@ -374,7 +362,7 @@ export class AgentEmployeeAdministration {
       });
       await store.employees().create(agentId, employeeChange(input));
       if (input.settings.access !== "read_only")
-        await this.recordAccessChange(store, {
+        await this.accessLevels.record(store, {
           agentId,
           actor,
           from: null,
@@ -430,7 +418,7 @@ export class AgentEmployeeAdministration {
       const store = repository.employees();
       const previousAccess =
         (await store.employees().find(agentId))?.access ?? "read_only";
-      await this.requireAccessChange(
+      await this.accessLevels.requireChange(
         actor,
         previousAccess,
         input.settings.access,
@@ -457,7 +445,7 @@ export class AgentEmployeeAdministration {
       )
         throw new AgentEmployeeError("conflict");
       if (previousAccess !== input.settings.access)
-        await this.recordAccessChange(store, {
+        await this.accessLevels.record(store, {
           agentId,
           actor,
           from: previousAccess,
@@ -687,63 +675,6 @@ export class AgentEmployeeAdministration {
   ): Promise<void> {
     if (!isActive) await requireIdle(repository.employees(), agentId);
     await repository.users().setActive(agentId, isActive);
-  }
-
-  /**
-   * Refuses a change of the access level by anyone but an administrator in
-   * active admin mode, and "Arbeitsplatz" on a host without the isolation
-   * it runs in (PAGE-303). An unchanged level needs neither.
-   */
-  private async requireAccessChange(
-    actor: AccountAccess,
-    from: AgentEmployeeAccess,
-    to: AgentEmployeeAccess,
-  ): Promise<void> {
-    if (from === to) return;
-    if (
-      to === "yolo" &&
-      this.policy.isManagement(actor) &&
-      !this.policy.isAdministrator(actor)
-    )
-      throw new AgentOperationError("FORBIDDEN", { reason: "access_level" });
-    if (!this.policy.hasGlobalAccess(actor))
-      throw new AgentEmployeeError("accessAdminRequired");
-    if (
-      to === "workspace" &&
-      !(await this.dependencies.accessEnvironment?.isIsolationAvailable())
-    )
-      throw new AgentEmployeeError("isolationUnavailable");
-  }
-
-  /** Records a change of the access level in the agent's activity and the server log. */
-  private async recordAccessChange(
-    store: EmployeeStore,
-    change: {
-      readonly agentId: string;
-      readonly actor: AccountAccess;
-      readonly from: AgentEmployeeAccess | null;
-      readonly to: AgentEmployeeAccess;
-    },
-  ): Promise<void> {
-    await this.dependencies.activity.recordAccessChange(store, {
-      agentId: change.agentId,
-      from: change.from,
-      to: change.to,
-      actorId: change.actor.userId,
-      actorName: actorName(change.actor),
-    });
-    logEvent({
-      level: "info",
-      event: "agent.access.changed",
-      component: "AgentEmployeeAdministration",
-      message: "Access level of an agent changed",
-      metadata: {
-        agentId: change.agentId,
-        actorId: change.actor.userId,
-        from: change.from,
-        to: change.to,
-      },
-    });
   }
 
   private require(isAllowed: boolean): void {

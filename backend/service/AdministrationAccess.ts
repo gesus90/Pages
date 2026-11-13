@@ -44,6 +44,20 @@ export function validateAdministrationName(name: string): void {
     throw new AdministrationError("invalidInput");
 }
 
+/** Rejects department identifiers that the current snapshot does not contain. */
+export function requireKnownDepartments(
+  snapshot: AuthorizationSnapshot,
+  ids: readonly string[],
+): void {
+  if (
+    ids.some(
+      (id) => !snapshot.departments.some((department) => department.id === id),
+    )
+  ) {
+    throw new AdministrationError("invalidInput");
+  }
+}
+
 /** Rejects conflicting catalog names without altering an existing record. */
 export function requireUniqueAdministrationName(
   records: readonly Department[],

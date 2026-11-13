@@ -129,11 +129,13 @@ export async function startMcpWorkspace(context: McpWorkspaceContext): Promise<
     }
 > {
   const directory = path.dirname(context.databasePath);
-  let managementService: ManagementService | undefined;
+  // The management service needs the employee services, which need the agent
+  // services built here, so the agent services reach it through this slot.
+  const managementSlot: { service?: ManagementService } = {};
   const services = createWorkspaceServices(context, directory, () => {
-    if (!managementService)
+    if (!managementSlot.service)
       throw new Error("Management services are not initialized");
-    return managementService;
+    return managementSlot.service;
   });
   const runtime = await getPagesRuntime();
   const picaSettings = await picaAcpSettings();
@@ -181,13 +183,14 @@ export async function startMcpWorkspace(context: McpWorkspaceContext): Promise<
       publicUrl: runtime.getConfig().publicUrl,
     },
   });
-  managementService = new ManagementService({
+  const managementService = new ManagementService({
     database: context.database,
     cache: context.serverCache,
     hasher: new PasswordHasher(),
     agents: employees.agentEmployeeAdministration,
     invitations: new SendmailInvitationDelivery(),
   });
+  managementSlot.service = managementService;
   chat.picaAcpService?.setAgentDeletions(employees.agentDeletionService);
   if (!isLocalSessionOwner() && !isPagesRunsProcess())
     startWikiMaintenanceScheduler(

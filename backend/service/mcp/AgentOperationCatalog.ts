@@ -117,6 +117,49 @@ export function readingOperations(
   ];
 }
 
+/** Templates, controls and run views that no agent plan session may call, whoever runs it. */
+const HIDDEN_SESSION_OPERATIONS = new Set<PagesAgentApiBusinessOperation>([
+  "plans.templates.list",
+  "plans.templates.read",
+  "plans.control.read",
+  "plans.capabilities.read",
+  "plans.run.recovery.read",
+  "plans.run.checkpoint.read",
+]);
+
+/** Run diagnostics, events and logs that only a management session may call. */
+const MANAGEMENT_ONLY_SESSION_OPERATIONS =
+  new Set<PagesAgentApiBusinessOperation>([
+    "plans.run.diagnostics.read",
+    "plans.run.session.events.read",
+    "plans.run.logs.read",
+  ]);
+
+/**
+ * Whether a session may call the operation, apart from the reads a management session gets.
+ *
+ * @param operation - The operation of the session.
+ * @param isManagement - Whether the session belongs to a management plan.
+ * @returns `false` for commands, recovery, deletion and the hidden or management-only views.
+ */
+function isSessionCallable(
+  operation: PagesAgentApiBusinessOperation,
+  isManagement: boolean,
+): boolean {
+  if (
+    AGENT_PLAN_COMMAND_OPERATIONS.some((command) => command === operation) ||
+    AGENT_PLAN_RECOVERY_COMMAND_OPERATIONS.some(
+      (command) => command === operation,
+    ) ||
+    AGENT_PROJECT_DELETION_WRITE_OPERATIONS.some(
+      (deletion) => deletion === operation,
+    ) ||
+    HIDDEN_SESSION_OPERATIONS.has(operation)
+  )
+    return false;
+  return isManagement || !MANAGEMENT_ONLY_SESSION_OPERATIONS.has(operation);
+}
+
 /** The operations of a session before the deletion of a project is taken away. */
 function forSession(
   scope: AgentRunScope,
@@ -167,24 +210,7 @@ export function sessionOperations(
       (isManagement &&
         scope.reach !== "tickets" &&
         readingOperations(false).includes(operation)) ||
-      (!AGENT_PLAN_COMMAND_OPERATIONS.some(
-        (command) => command === operation,
-      ) &&
-        !AGENT_PLAN_RECOVERY_COMMAND_OPERATIONS.some(
-          (command) => command === operation,
-        ) &&
-        operation !== "plans.templates.list" &&
-        operation !== "plans.templates.read" &&
-        operation !== "plans.control.read" &&
-        operation !== "plans.capabilities.read" &&
-        operation !== "plans.run.recovery.read" &&
-        (isManagement || operation !== "plans.run.diagnostics.read") &&
-        (isManagement || operation !== "plans.run.session.events.read") &&
-        (isManagement || operation !== "plans.run.logs.read") &&
-        operation !== "plans.run.checkpoint.read" &&
-        !AGENT_PROJECT_DELETION_WRITE_OPERATIONS.some(
-          (deletion) => deletion === operation,
-        )),
+      isSessionCallable(operation, isManagement),
   );
   return [
     ...operations,

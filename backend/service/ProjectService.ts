@@ -6,6 +6,7 @@ import {
   stableIdKey,
 } from "@/backend/cache/ServerCache";
 import { ProjectManagementDeniedError } from "@/backend/error/ProjectErrors";
+import { extractRepoName } from "@/backend/github/GitHubRepositoryName";
 import { encryptGitHubToken } from "@/backend/github/GitHubTokenCrypto";
 import { CAPABILITY } from "@/definition/Authorization";
 import { isGitHubSyncInterval, isProjectRole } from "@/definition/Project";
@@ -800,14 +801,6 @@ export class ProjectService {
  */
 export function hashIntegrationToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
-}
-
-function extractRepoName(repoUrl: string): string | null {
-  const match = repoUrl.match(
-    /^https:\/\/github\.com\/([^/]+\/[^/]+?)(\.git)?\/?$/,
-  );
-
-  return match?.[1] ?? null;
 }
 
 // A blank time means the date has no time, so an empty string must not be stored.

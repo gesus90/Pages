@@ -112,6 +112,86 @@ function DetectedMcpServers({
   );
 }
 
+interface AccessNoticesProps {
+  readonly canChange: boolean;
+  readonly environment: AgentAccessEnvironment | null;
+}
+
+/** The notices above the level choice: a new agent, a missing admin mode or a missing isolation. */
+function AccessNotices({
+  canChange,
+  environment,
+}: AccessNoticesProps): React.ReactElement {
+  const { t } = useTranslation();
+  return (
+    <>
+      {environment === null ? (
+        <p className="text-sm text-muted-foreground">
+          {t("agentEmployees.accessTab.createHint")}
+        </p>
+      ) : null}
+      {environment !== null && !canChange ? (
+        <p className="text-sm text-muted-foreground">
+          {t("agentEmployees.accessTab.adminOnly")}
+        </p>
+      ) : null}
+      {environment !== null && !environment.isIsolationAvailable ? (
+        <p
+          className="flex items-start gap-2 rounded-xl bg-warning-subtle px-3 py-2 text-sm text-warning"
+          role="status"
+        >
+          <ShieldAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+          {t("agentEmployees.accessTab.isolationMissing")}
+        </p>
+      ) : null}
+    </>
+  );
+}
+
+interface AccessLevelFieldsetProps {
+  readonly value: AgentEmployeeAccess;
+  readonly savedValue: AgentEmployeeAccess | null;
+  readonly canAssignYolo: boolean;
+  readonly isLocked: boolean;
+  readonly isIsolationAvailable: boolean;
+  readonly onSelect: (level: AgentEmployeeAccess) => void;
+}
+
+/** The radio group of the access levels; a level the person may not take is disabled. */
+function AccessLevelFieldset({
+  value,
+  savedValue,
+  canAssignYolo,
+  isLocked,
+  isIsolationAvailable,
+  onSelect,
+}: AccessLevelFieldsetProps): React.ReactElement {
+  const { t } = useTranslation();
+  return (
+    <fieldset className="flex flex-col gap-2">
+      <legend className="mb-2 text-sm font-semibold text-foreground">
+        {t("agentEmployees.accessTab.legend")}
+      </legend>
+      {AGENT_EMPLOYEE_ACCESS_MODES.filter(
+        (level) => canAssignYolo || level !== "yolo" || savedValue === "yolo",
+      ).map((level) => (
+        <LevelOption
+          isChecked={value === level}
+          isDisabled={
+            isLocked ||
+            (level === "workspace" &&
+              !isIsolationAvailable &&
+              savedValue !== "workspace")
+          }
+          key={level}
+          level={level}
+          onSelect={onSelect}
+        />
+      ))}
+    </fieldset>
+  );
+}
+
 /**
  * The tab "Zugriff" (PAGE-303): the three access levels of the agent's
  * chats, the isolation of the host and the MCP servers Pages detected.
@@ -149,25 +229,7 @@ export function AgentAccessSection({
       <p className="text-sm text-muted-foreground">
         {t("agentEmployees.accessTab.intro")}
       </p>
-      {environment === null ? (
-        <p className="text-sm text-muted-foreground">
-          {t("agentEmployees.accessTab.createHint")}
-        </p>
-      ) : null}
-      {environment !== null && !canChange ? (
-        <p className="text-sm text-muted-foreground">
-          {t("agentEmployees.accessTab.adminOnly")}
-        </p>
-      ) : null}
-      {environment !== null && !isIsolationAvailable ? (
-        <p
-          className="flex items-start gap-2 rounded-xl bg-warning-subtle px-3 py-2 text-sm text-warning"
-          role="status"
-        >
-          <ShieldAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
-          {t("agentEmployees.accessTab.isolationMissing")}
-        </p>
-      ) : null}
+      <AccessNotices canChange={canChange} environment={environment} />
       <p className="text-sm text-foreground" role="status">
         {t(
           hasHostTools(savedValue ?? value)
@@ -175,27 +237,14 @@ export function AgentAccessSection({
             : "agentEmployees.accessTab.browserDenied",
         )}
       </p>
-      <fieldset className="flex flex-col gap-2">
-        <legend className="mb-2 text-sm font-semibold text-foreground">
-          {t("agentEmployees.accessTab.legend")}
-        </legend>
-        {AGENT_EMPLOYEE_ACCESS_MODES.filter(
-          (level) => canAssignYolo || level !== "yolo" || savedValue === "yolo",
-        ).map((level) => (
-          <LevelOption
-            isChecked={value === level}
-            isDisabled={
-              isLocked ||
-              (level === "workspace" &&
-                !isIsolationAvailable &&
-                savedValue !== "workspace")
-            }
-            key={level}
-            level={level}
-            onSelect={select}
-          />
-        ))}
-      </fieldset>
+      <AccessLevelFieldset
+        value={value}
+        savedValue={savedValue}
+        canAssignYolo={canAssignYolo}
+        isLocked={isLocked}
+        isIsolationAvailable={isIsolationAvailable}
+        onSelect={select}
+      />
       {savedValue !== null && savedValue !== value ? (
         <p className="text-sm text-muted-foreground" role="status">
           {t("agentEmployees.accessTab.pending")}

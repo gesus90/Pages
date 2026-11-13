@@ -216,51 +216,10 @@ export class AgentOperationRouter {
     );
     validateParameters(operation, parameters);
     const actor = await this.requireActor(identity);
-    const access = this.projectAccess();
-    const projects = new AgentProjectReadService(access);
-    const wiki = this.wikiReads(actor, access);
-    let result: PagesAgentReadResponse["result"];
-    if (operation === "projects.list") result = await projects.list(actor);
-    else if (operation === "projects.resolve")
-      result = await projects.resolve(actor, readText(parameters, "name"));
-    else if (operation === "projects.read") {
-      const projectId = readText(parameters, "projectId");
-      result = {
-        ...(await projects.read(actor, projectId)),
-        revision: await this.dependencies.management?.projectRevision(
-          identity,
-          projectId,
-        ),
-      };
-    } else if (operation === "wiki.page.read")
-      result = await wiki.read(actor, readText(parameters, "pageId"));
-    else {
-      const projectId =
-        parameters.projectId === undefined
-          ? undefined
-          : readText(parameters, "projectId");
-      if (projectId !== undefined) await projects.read(actor, projectId);
-      const paging = {
-        cursor: parameters.cursor,
-        limit: parameters.limit,
-        context: JSON.stringify([
-          actor.id,
-          operation,
-          projectId,
-          parameters.text,
-        ]),
-      };
-      result =
-        operation === "wiki.tree.read"
-          ? await wiki.tree(actor, projectId, paging)
-          : await wiki.search(
-              actor,
-              readText(parameters, "text"),
-              projectId,
-              paging,
-            );
-    }
-    const response: PagesAgentReadResponse = { apiVersion: "1", result };
+    const response: PagesAgentReadResponse = {
+      apiVersion: "1",
+      result: await this.readResult(identity, actor, operation, parameters),
+    };
     if (
       Buffer.byteLength(JSON.stringify(response)) >
       (operation === "wiki.page.read"
@@ -269,6 +228,51 @@ export class AgentOperationRouter {
     )
       throw new AgentOperationError("PAYLOAD_TOO_LARGE");
     return response;
+  }
+
+  /** Runs one validated read of the projects, pages or page tree for the authenticated actor. */
+  private async readResult(
+    identity: AgentIdentity,
+    actor: User,
+    operation: Exclude<PagesAgentReadOperation, "wiki.import.plan">,
+    parameters: Readonly<Record<string, unknown>>,
+  ): Promise<PagesAgentReadResponse["result"]> {
+    const access = this.projectAccess();
+    const projects = new AgentProjectReadService(access);
+    const wiki = this.wikiReads(actor, access);
+    if (operation === "projects.list") return projects.list(actor);
+    if (operation === "projects.resolve")
+      return projects.resolve(actor, readText(parameters, "name"));
+    if (operation === "projects.read") {
+      const projectId = readText(parameters, "projectId");
+      return {
+        ...(await projects.read(actor, projectId)),
+        revision: await this.dependencies.management?.projectRevision(
+          identity,
+          projectId,
+        ),
+      };
+    }
+    if (operation === "wiki.page.read")
+      return wiki.read(actor, readText(parameters, "pageId"));
+    const projectId =
+      parameters.projectId === undefined
+        ? undefined
+        : readText(parameters, "projectId");
+    if (projectId !== undefined) await projects.read(actor, projectId);
+    const paging = {
+      cursor: parameters.cursor,
+      limit: parameters.limit,
+      context: JSON.stringify([
+        actor.id,
+        operation,
+        projectId,
+        parameters.text,
+      ]),
+    };
+    return operation === "wiki.tree.read"
+      ? wiki.tree(actor, projectId, paging)
+      : wiki.search(actor, readText(parameters, "text"), projectId, paging);
   }
 
   private projectAccess(): ProjectAccessService {

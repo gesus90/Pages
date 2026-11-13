@@ -1,5 +1,9 @@
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
 /** Captures access selections by stable object IDs so reordering existing nodes grants nothing. */
 function yoloSelections(input: unknown): ReadonlySet<string> {
   const paths = new Set<string>();
@@ -8,8 +12,7 @@ function yoloSelections(input: unknown): ReadonlySet<string> {
   ];
   while (pending.length > 0) {
     const current = pending.pop();
-    if (!current || typeof current.input !== "object" || current.input === null)
-      continue;
+    if (!current || !isRecord(current.input)) continue;
     for (const [key, entry] of Object.entries(current.input)) {
       const identity =
         typeof entry === "object" &&
