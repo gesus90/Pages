@@ -169,7 +169,7 @@ function RailTooltip({
   );
 }
 
-function isSelected(
+function isEntrySelected(
   selection: VirtualChatSelection | null,
   entry: VirtualChatSelection,
 ): boolean {
@@ -230,7 +230,7 @@ export function ChatPageListRail({
               label={entryLabel(group.name, group.unreadCount)}
               count={group.unreadCount}
               isMuted={group.isMuted === true}
-              isSelected={isSelected(page.selection, {
+              isSelected={isEntrySelected(page.selection, {
                 kind: "group",
                 id: group.id,
               })}
@@ -254,7 +254,7 @@ export function ChatPageListRail({
               label={entryLabel(participant.name, participant.unreadCount)}
               count={participant.unreadCount}
               isMuted={participant.isMuted === true}
-              isSelected={isSelected(page.selection, {
+              isSelected={isEntrySelected(page.selection, {
                 kind: "participant",
                 id: participant.id,
               })}

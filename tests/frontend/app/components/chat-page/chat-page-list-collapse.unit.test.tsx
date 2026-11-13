@@ -16,7 +16,7 @@ import { directory, group, participant } from "./chat-page-fixture";
 const fetcher = vi.hoisted(() => ({
   state: "idle",
   data: undefined,
-  submit: vi.fn(),
+  submit: vi.fn<(formData: FormData, options: { method: string }) => void>(),
 }));
 vi.mock("react-router", () => ({
   useFetcher: () => fetcher,
@@ -64,13 +64,13 @@ function renderList(isStoredCollapsed = false): void {
 
 /** The stored states, in the order the page sent them. */
 function storedStates(): string[] {
-  return fetcher.submit.mock.calls.map(([formData]: [FormData]) => {
+  return fetcher.submit.mock.calls.map(([formData]) => {
     expect(formData.get("intent")).toBe("list-collapsed");
     return String(formData.get("isCollapsed"));
   });
 }
 
-function pressShortcut(target: EventTarget = window): void {
+function pressShortcut(target: HTMLElement | Window = window): void {
   fireEvent.keyDown(target, { key: "L", ctrlKey: true, shiftKey: true });
 }
 
