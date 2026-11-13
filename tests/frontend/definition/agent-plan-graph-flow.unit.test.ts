@@ -184,10 +184,10 @@ describe("the plans with groups, loops and events before Play", () => {
 });
 
 describe("an agent the offered list does not know", () => {
-  it("is named by the connection check and again by the check of the run", () => {
-    const agentIssue = { nodeId: "a", port: null, reason: "agent" };
+  it("allows a draft and names the missing profile before execution", () => {
+    const agentIssue = { nodeId: "a", port: null, reason: "profileMissing" };
 
-    expect(of(connection([agent("a")]), "a")).toEqual([agentIssue]);
-    expect(of(execution([agent("a")]), "a")).toEqual([agentIssue, agentIssue]);
+    expect(of(connection([agent("a")]), "a")).toEqual([]);
+    expect(of(execution([agent("a")]), "a")).toEqual([agentIssue]);
   });
 });

@@ -50,9 +50,14 @@ it("shows no input group for an agent without inputs", () => {
   expect(screen.queryByRole("group")).toBeNull();
 });
 
-it.each(["missing", "inactive"])(
-  "warns on the node about a %s profile even with a saved configuration",
-  (problem) => {
+it.each([
+  { problem: "missing", hasConfiguration: true },
+  { problem: "missing", hasConfiguration: false },
+  { problem: "inactive", hasConfiguration: true },
+  { problem: "inactive", hasConfiguration: false },
+])(
+  "warns on the node about an invalid profile: %j",
+  ({ problem, hasConfiguration }) => {
     const profile = SOURCES.agents[0];
     if (!profile) throw new Error("Missing fixture profile");
     const configuration = {
@@ -73,10 +78,17 @@ it.each(["missing", "inactive"])(
             },
           ];
     renderAgent(
-      { ...agentStep("node"), agentId: profile.id, configuration },
+      {
+        ...agentStep("node"),
+        agentId: profile.id,
+        ...(hasConfiguration ? { configuration } : {}),
+      },
       { ...SOURCES, agents },
     );
-    expect(screen.getByRole("article", { name: "Prepare E2E" })).toBeDefined();
+    let expectedName =
+      problem === "missing" ? i18n.t("plans.missingAgent") : profile.name;
+    if (hasConfiguration) expectedName = "Prepare E2E";
+    expect(screen.getByRole("article", { name: expectedName })).toBeDefined();
     expect(screen.getByRole("alert").textContent).toBe(
       i18n.t(
         `plans.validation.${problem === "missing" ? "profileMissing" : "profileInactive"}`,
@@ -85,7 +97,14 @@ it.each(["missing", "inactive"])(
   },
 );
 
-it("shows no profile warning for a valid agent or an independent model node", () => {
+it("shows no profile warning for a valid agent", () => {
+  const profile = SOURCES.agents[0];
+  if (!profile) throw new Error("Missing fixture profile");
+  renderAgent({ ...agentStep("node"), agentId: profile.id });
+  expect(screen.queryByRole("alert")).toBeNull();
+});
+
+it("shows no profile warning for an independent model node", () => {
   const profile = SOURCES.agents[0];
   if (!profile) throw new Error("Missing fixture profile");
   const configuration = copyPlanConfiguration(profile);

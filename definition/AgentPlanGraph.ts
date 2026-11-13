@@ -278,7 +278,9 @@ function bindingIssues(
     !step.configuration &&
     !agents.some((entry) => entry.id === step.agentId)
   )
-    return [{ nodeId: step.id, port: null, reason: "agent" }];
+    // A draft may retain a missing profile; its inputs cannot be checked until
+    // a template is available. Execution reports the profile on the node.
+    return [];
   const parameters = inputParameters(step, agents);
   for (const [name, binding] of Object.entries(step.bindings)) {
     const parameter = parameters.find((entry) => entry.name === name);
