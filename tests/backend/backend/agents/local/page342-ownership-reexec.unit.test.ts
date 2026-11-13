@@ -135,7 +135,9 @@ describe("PAGE-342: ownership across a user-manager reexec", () => {
       session.detach();
     }
   });
+});
 
+describe("PAGE-342: owner proof across a user-manager reexec", () => {
   it("accepts a matching process and unit without any retry", async () => {
     await expect(verifyOwner()).resolves.toEqual({
       result: { manifest: MANIFEST, proof: OWNER_PROOF },
@@ -154,9 +156,9 @@ describe("PAGE-342: ownership across a user-manager reexec", () => {
         result: { manifest: MANIFEST, proof: OWNER_PROOF },
       });
       expect(boundaries.show.mock.calls.length).toBeGreaterThan(1);
-      for (const [program, arguments_] of boundaries.show.mock.calls) {
+      for (const [program, args] of boundaries.show.mock.calls) {
         expect(program).toBe("/usr/bin/systemctl");
-        expect(arguments_).toEqual([
+        expect(args).toEqual([
           "--user",
           "show",
           MANIFEST.unit,

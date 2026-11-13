@@ -358,7 +358,10 @@ describe("settleFinished", () => {
       await vi.advanceTimersByTimeAsync(0);
       await repeated;
 
-      expect(resources.completeAdopted).toHaveBeenCalledWith(INSTANCE_ID, CLOSED);
+      expect(resources.completeAdopted).toHaveBeenCalledWith(
+        INSTANCE_ID,
+        CLOSED,
+      );
       expect(mocks.owners.released).toHaveBeenCalledWith(INSTANCE_ID);
       expect(inspectManagedLocalOwner(INSTANCE_ID)).toBe("released");
     } finally {
@@ -367,7 +370,9 @@ describe("settleFinished", () => {
       vi.useRealTimers();
     }
   });
+});
 
+describe("settleFinished ownership", () => {
   it("imports, closes and releases the owner of a finished run", async () => {
     mocks.runs.find.mockResolvedValue(runOf("succeeded"));
     const sessions = createSessions();

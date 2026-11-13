@@ -60,7 +60,11 @@ export function resetOwnerEvidence(): void {
       return encoding ? command : Buffer.from(command);
     }
     if (file === `/proc/${OWNER_PROOF.pid}/stat`) {
-      const fields = ["S", ...Array<string>(18).fill("0"), String(identity.start)];
+      const fields = [
+        "S",
+        ...Array<string>(18).fill("0"),
+        String(identity.start),
+      ];
       return `${OWNER_PROOF.pid} (synthetic owner) ${fields.join(" ")}`;
     }
     throw new Error(`Unexpected process read: ${file}`);

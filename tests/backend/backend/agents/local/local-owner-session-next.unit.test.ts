@@ -91,7 +91,13 @@ describe("LocalOwnerSession stop polling", () => {
     },
   );
 
-  it.each(["failed", "cancelled", "replaced", "closeout_failed", "loop_failed"])(
+  it.each([
+    "failed",
+    "cancelled",
+    "replaced",
+    "closeout_failed",
+    "loop_failed",
+  ])(
     "ends the orphaned attempt for %s even while its run is active",
     async (reason) => {
       const session = newSession({ turn: endlessTurn() });
@@ -165,7 +171,9 @@ describe("LocalOwnerSession stop polling", () => {
     await expect(closing).resolves.toEqual(CLOSED);
     expect(appended("closed")).toHaveLength(1);
   });
+});
 
+describe("LocalOwnerSession stop lookups", () => {
   it("cancels when the database reports a requested stop", async () => {
     const session = newSession({ turn: endlessTurn() });
     await startedOwner(session);
@@ -237,7 +245,10 @@ describe("LocalOwnerSession next refusals", () => {
   it("does not dispatch another prompt after the durable attempt failed", async () => {
     const session = newSession();
     const owner = await startedOwner(session);
-    doubles.findRun.mockResolvedValue({ ...runWithAttempt(), status: "failed" });
+    doubles.findRun.mockResolvedValue({
+      ...runWithAttempt(),
+      status: "failed",
+    });
 
     await expect(owner.next(launchOf({ turnId: "turn-2" }))).rejects.toThrow();
 
