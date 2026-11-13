@@ -62,7 +62,7 @@ it("copies the latest visible source using an own workspace and marks a foreign 
   expect(planExecutionIssues(copy, [])).toContainEqual({
     nodeId: copy.nodes[0]?.id,
     port: null,
-    reason: "agent",
+    reason: "profileMissing",
   });
   expect(world.source.nodes[0]).toMatchObject({ agentId: "private" });
 });

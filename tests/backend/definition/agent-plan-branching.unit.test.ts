@@ -142,11 +142,10 @@ describe("decision validation", () => {
   it("accepts the return path of the fix cycle and finds nothing missing", () => {
     const plan = planOf(NODES, EDGES);
     expect(planConnectionIssues(plan, agents)).toEqual([]);
-    expect(
-      planExecutionIssues(plan, agents).filter(
-        (issue) => issue.reason !== "agent",
-      ),
-    ).toEqual([]);
+    expect(planExecutionIssues(plan, agents)).toEqual([
+      { nodeId: "check", port: null, reason: "profileMissing" },
+      { nodeId: "fix", port: null, reason: "profileMissing" },
+    ]);
   });
 
   it("refuses an event that does not return to an earlier node", () => {

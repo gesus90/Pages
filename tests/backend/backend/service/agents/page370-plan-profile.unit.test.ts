@@ -24,7 +24,7 @@ it.each(["profileMissing", "profileInactive"] as const)(
   "retains the %s finding across the plan bridge",
   (problem) => {
     const details = {
-      reason: "graph_invalid",
+      reason: "graph_invalid" as const,
       issues: [{ nodeId: "node", port: null, problem }],
     };
     expect(
@@ -68,18 +68,24 @@ it.each(["missing", "inactive"])(
       actions.play("owner", plan.id, plan.revision),
     ).rejects.toMatchObject({
       code: "plan_invalid",
-      issues: expect.arrayContaining([{ nodeId: "node", port: null, reason }]),
+    });
+    const rejectionError: unknown = await actions
+      .play("owner", plan.id, plan.revision)
+      .catch((error: unknown) => error);
+    expect(rejectionError).toMatchObject({
+      issues: [{ nodeId: "node", port: null, reason }],
     });
     await expect(
       actions.saveAndPlay("owner", plan.id, plan),
     ).rejects.toMatchObject({ code: "plan_invalid" });
     expect(start).not.toHaveBeenCalled();
     expect(save).not.toHaveBeenCalled();
-    expect(append).toHaveBeenCalledTimes(2);
-    expect(readPlanStartRejection(append.mock.calls[0]?.[2])).toMatchObject({
-      issues: expect.arrayContaining([
-        { nodeId: "node", port: null, problem: reason },
-      ]),
+    expect(append).toHaveBeenCalledTimes(3);
+    const rejection = readPlanStartRejection(append.mock.calls[0]?.[2]);
+    expect(rejection.issues).toContainEqual({
+      nodeId: "node",
+      port: null,
+      problem: reason,
     });
   },
 );

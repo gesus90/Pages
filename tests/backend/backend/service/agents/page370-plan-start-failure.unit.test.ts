@@ -30,7 +30,8 @@ it.each(["waiting", "paused", "running"] as const)(
   (status) => {
     const loop = emptyPlanLoop("loop", "Prepare E2E", { x: 0, y: 0 });
     const initial = initialLoopRun(loop);
-    const iteration = beginIteration(initial, loop, new Map(), []).iterations[0];
+    const iteration = beginIteration(initial, loop, new Map(), [])
+      .iterations[0];
     if (!iteration) throw new Error("Missing fixture iteration");
     const completed = {
       ...iteration,
@@ -96,5 +97,7 @@ it("keeps runs without loops compatible and stamps one terminal time", () => {
 
   expect(failed).not.toHaveProperty("loops");
   expect(failed.endedAt).toEqual(expect.any(String));
-  expect(failedPlanStart(failed, "profile_invalid").endedAt).toBe(failed.endedAt);
+  expect(failedPlanStart(failed, "profile_invalid").endedAt).toBe(
+    failed.endedAt,
+  );
 });

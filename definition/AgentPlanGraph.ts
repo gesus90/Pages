@@ -473,11 +473,12 @@ function requiredParameterIssues(
   plan: AgentPlanInput,
 ): AgentPlanIssue[] {
   const profileProblem = planProfileProblem(step, agent ? [agent] : []);
-  if (profileProblem)
-    return [{ nodeId: step.id, port: null, reason: profileProblem }];
   const configuration = step.configuration?.template ?? agent?.configuration;
   const markdown = configuration?.markdown ?? "";
   const nodeIssue = stepAgentIssue(step, agent, markdown);
+  if (nodeIssue?.reason === "unsupportedRunNotes") return [nodeIssue];
+  if (profileProblem)
+    return [{ nodeId: step.id, port: null, reason: profileProblem }];
   if (nodeIssue) return [nodeIssue];
   const parameters = configuration?.parameters ?? [];
   const unfilled = placeholderIssues(step, parameters, {

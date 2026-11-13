@@ -63,6 +63,7 @@ export function configured(
       name: "Agent",
       revision: 1,
       modelProfileId: "model",
+      connectionId: "fixture-connection",
       model: "m",
       provider: "claude_code",
       reasoningEffort: null,

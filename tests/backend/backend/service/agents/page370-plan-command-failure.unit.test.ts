@@ -33,9 +33,10 @@ vi.mock("@/backend/logging/Logger", () => ({
   captureLogContext: vi.fn(() => ({})),
   logCaughtError: vi.fn(),
   logEvent: vi.fn(),
-  withLogContext: vi.fn((_context: unknown, operation: () => unknown) =>
-    operation(),
-  ),
+  withLogContext: vi.fn((context: unknown, operation: () => unknown) => {
+    void context;
+    return operation();
+  }),
 }));
 
 beforeEach(() => vi.clearAllMocks());
@@ -125,7 +126,9 @@ async function consume(
   vi.spyOn(AgentPlanRunRepository.prototype, "find").mockResolvedValue(run);
   const update = vi
     .spyOn(AgentPlanRunRepository.prototype, "update")
-    .mockImplementation(async (view, _checkpoint, _continuation, journal) => {
+    .mockImplementation(async (view, checkpoint, continuation, journal) => {
+      void checkpoint;
+      void continuation;
       await journal?.(transaction, view);
     });
   const { failed, delivered } = mockCommand(run, options);
@@ -160,11 +163,11 @@ it("settles a profile_invalid start atomically as failed, cancels waiting steps 
   expect(persisted).toMatchObject({
     status: "failed",
     startError: "profile_invalid",
-    endedAt: expect.any(String),
     steps: [
       { status: "cancelled", cancellation: "not_started", isBlocked: false },
     ],
   });
+  expect(typeof persisted?.endedAt).toBe("string");
   expect(readPlanRun(persisted)).toHaveProperty(
     "startError",
     "profile_invalid",
@@ -179,14 +182,13 @@ it("settles a profile_invalid start atomically as failed, cancels waiting steps 
     { runId: "run-1" },
     expect.any(Function),
   );
-  expect(logEvent).toHaveBeenCalledWith(
-    expect.objectContaining({
-      level: "error",
-      event: "agent.run.completed",
-      message: expect.stringContaining("profile_invalid"),
-      metadata: { status: "failed", code: "profile_invalid" },
-    }),
-  );
+  const event = vi.mocked(logEvent).mock.calls[0]?.[0];
+  expect(event).toMatchObject({
+    level: "error",
+    event: "agent.run.completed",
+    metadata: { status: "failed", code: "profile_invalid" },
+  });
+  expect(event?.message).toContain("profile_invalid");
 });
 
 it("also closes a start with an unreadable queued payload", async () => {
@@ -218,12 +220,10 @@ it("closes pending loop iterations and their waiting members when a queued start
       {
         status: "cancelled",
         error: "profile_invalid",
-        endedAt: expect.any(String),
         iterations: [
           {
             status: "cancelled",
             error: "profile_invalid",
-            endedAt: expect.any(String),
             nodes: [
               {
                 status: "cancelled",
@@ -236,6 +236,8 @@ it("closes pending loop iterations and their waiting members when a queued start
       },
     ],
   });
+  expect(typeof failed?.loops?.[0]?.endedAt).toBe("string");
+  expect(typeof failed?.loops?.[0]?.iterations[0]?.endedAt).toBe("string");
   expect(readPlanRun(failed).loops?.[0]?.iterations[0]).toMatchObject({
     status: "cancelled",
     error: "profile_invalid",
