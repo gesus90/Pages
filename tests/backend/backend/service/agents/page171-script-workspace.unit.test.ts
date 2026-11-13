@@ -168,28 +168,12 @@ async function fixture(
   return { plan, preparation, control };
 }
 
-it("refuses parallel local scripts on one working copy before a run starts", async () => {
-  const { plan, preparation, control } = await fixture(false);
-  await expect(preparation.prepare("owner", plan)).rejects.toMatchObject({
-    code: "plan_workspace_conflict",
-  });
-  await expect(control.read("owner", plan.id)).resolves.toMatchObject({
-    canPlay: false,
-    issue: "plan_workspace_conflict",
-    workspaceConflict: {
-      kind: "parallel_writers",
-      targets: [
-        {
-          workspaceId: plan.workspaceId,
-          kind: "local",
-          path: "/synthetic/repository",
-        },
-      ],
-      nodes: [
-        { id: "first", name: "Synthetic first" },
-        { id: "second", name: "Synthetic second" },
-      ],
-    },
+it("records conflicts for parallel local scripts before either can run", async () => {
+  const { plan, preparation } = await fixture(false);
+  const snapshot = await preparation.prepare("owner", plan);
+  expect(snapshot.preparationFailures).toMatchObject({
+    first: "plan_workspace_conflict",
+    second: "plan_workspace_conflict",
   });
 });
 

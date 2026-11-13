@@ -2,9 +2,7 @@ import { AgentError, isAgentErrorCode } from "@/backend/error/AgentErrors";
 
 /** Fixed diagnoses that never contain request content or exception text. */
 export type LocalControlCode =
-  | "stale_attachment"
-  | "native_cleanup_unconfirmed"
-  | "internal";
+  "stale_attachment" | "native_cleanup_unconfirmed" | "internal";
 
 /** A local protocol rejection with a fixed, safe diagnosis. */
 export class LocalControlFailure extends Error {

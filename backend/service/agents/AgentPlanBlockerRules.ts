@@ -86,6 +86,7 @@ const ERROR_CLASSES: Readonly<Record<AgentErrorCode, AgentPlanBlockerClass>> = {
   plan_pause_required: "open",
   plan_remote_unavailable: "open",
   plan_invalid: "open",
+  plan_start_end_disconnected: "open",
   plan_script_invalid: "open",
   swarm_invalid: "open",
   swarm_remote_unsupported: "open",

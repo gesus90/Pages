@@ -1,17 +1,18 @@
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { withBackgroundDatabaseWork } from "@/backend/database/executor/DatabaseWorkContext";
 import { readAcpResourceOptions } from "@/backend/config/AcpResourceConfig";
-import { settleManagedLocalOwner } from "@/backend/agents/local/LocalOwnerControl";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
 import { logCaughtError } from "@/backend/logging/Logger";
 import { isAcpSessionLimit, MAX_ACP_SESSIONS } from "@/definition/AcpResource";
 
+import { reconcileAcpLeases } from "./resources/AcpLeaseRecovery";
+import { cleanupAcpLease } from "./resources/AcpLeaseRecovery";
+import { recoverAcpLease } from "./resources/AcpLeaseRecovery";
 import { AcpWaitDiagnostics } from "./resources/AcpWaitDiagnostics";
 import { AcpLeaseAdmission } from "./resources/AcpLeaseAdmission";
 import { AcpLeaseChecks } from "./resources/AcpLeaseChecks";
 import {
-  closeLease,
   confirmFailedStart,
   endLeaseProcesses,
 } from "./resources/AcpLeaseProcesses";
@@ -65,8 +66,7 @@ export class AcpResourceScheduler {
   private readonly waiting: WaitingRequest[] = [];
   private readonly waitDiagnostics = new AcpWaitDiagnostics();
   private waitObserver:
-    | ((waiting: AcpResourceSnapshot["waiting"]) => Promise<void>)
-    | null = null;
+    ((waiting: AcpResourceSnapshot["waiting"]) => Promise<void>) | null = null;
   private readonly pausedRuns = new Set<string>();
   private readonly shutdownController = new AbortController();
   private readonly opening = new Set<Promise<PlanSession>>();
@@ -146,7 +146,15 @@ export class AcpResourceScheduler {
       await this.persist(() => this.store.save(record));
     }
     for (const record of this.active.values())
-      await this.recoverRecord(record, { preserved, retained, adopted });
+      await recoverAcpLease(
+        record,
+        { preserved, retained, adopted },
+        {
+          transition: (id, state) => this.transition(id, state),
+          cleanup: (lease, since) => this.cleanupLease(lease, since),
+          finish: (id, confirmed) => this.finish(id, confirmed),
+        },
+      );
     this.isReady = true;
     this.wake();
     // The periodic check runs with the service, also without queue or open settings page.
@@ -327,18 +335,10 @@ export class AcpResourceScheduler {
         !this.sessions.has(record.instanceId) &&
         (runId === undefined || record.runId === runId),
     );
-    let remaining = 0;
-    for (const record of uncertain) {
-      let isConfirmed = false;
-      try {
-        isConfirmed =
-          (await this.cleanupRecord(record, record.since)).remaining === 0;
-      } catch (caughtError: unknown) {
-        logCaughtError("AcpResourceScheduler", caughtError);
-      }
-      if (!(await this.finish(record.instanceId, isConfirmed))) remaining += 1;
-    }
-    return remaining;
+    return reconcileAcpLeases(uncertain, {
+      cleanup: (record) => this.cleanupLease(record, record.since),
+      finish: (id, confirmed) => this.finish(id, confirmed),
+    });
   }
 
   /** Cancels all waiters and drains sessions; uncertain leases survive server exit. */
@@ -355,48 +355,15 @@ export class AcpResourceScheduler {
     );
   }
 
-  private async recoverRecord(
+  private cleanupLease(
     record: AcpResourceRecord,
-    context: {
-      readonly preserved: ReadonlySet<string>;
-      readonly retained: ReadonlySet<string>;
-      readonly adopted: ReadonlySet<string>;
-    },
-  ): Promise<void> {
-    if (context.preserved.has(record.instanceId)) {
-      if (record.state === "closing" || record.state === "cleanup_failed")
-        await this.transition(record.instanceId, "running");
-      return;
-    }
-    if (context.retained.has(record.instanceId)) {
-      await this.transition(record.instanceId, "cleanup_failed");
-      return;
-    }
-    try {
-      const cleanup = await this.cleanupRecord(
-        record,
-        context.adopted.has(record.instanceId) ? null : record.since,
-      );
-      await this.finish(record.instanceId, cleanup.remaining === 0);
-    } catch (caughtError: unknown) {
-      logCaughtError("AcpResourceScheduler", caughtError);
-
-      await this.transition(record.instanceId, "cleanup_failed");
-    }
-  }
-
-  private async cleanupRecord(
-    record: AcpResourceRecord,
-    startedAt: string | null,
+    since: string | null,
   ): Promise<{ readonly remaining: number }> {
-    if (this.unverifiedLocal.has(record.instanceId)) {
-      if ((await settleManagedLocalOwner(record.instanceId)) !== true)
-        throw new Error(
-          "Local native owner is unverified; no cleanup is authorized",
-        );
-      this.unverifiedLocal.delete(record.instanceId);
-    }
-    return closeLease(record, startedAt, this.cleanup, this.settleUnits);
+    return cleanupAcpLease(record, since, {
+      unverified: this.unverifiedLocal,
+      cleanup: this.cleanup,
+      settleUnits: this.settleUnits,
+    });
   }
 
   private async openSession(request: AcpOpenRequest): Promise<PlanSession> {
@@ -429,10 +396,7 @@ export class AcpResourceScheduler {
         close: () => {
           const current = this.active.get(owner.instanceId);
           const fallback = { ...owner, state: "starting" as const, since: "" };
-          return this.cleanupRecord(
-            current ?? fallback,
-            current?.since ?? null,
-          );
+          return this.cleanupLease(current ?? fallback, current?.since ?? null);
         },
       });
       await this.finish(owner.instanceId, isConfirmed);
@@ -493,7 +457,7 @@ export class AcpResourceScheduler {
           error.code !== "plan_local_owner_unverified"))
     )
       return false;
-    return (await this.cleanupRecord(record, record.since)).remaining === 0;
+    return (await this.cleanupLease(record, record.since)).remaining === 0;
   }
 
   /**

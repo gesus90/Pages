@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 
-import { AgentPlanValidationError } from "@/backend/error/AgentPlanValidationError";
+import { planWarnings } from "@/definition/AgentPlanWarnings";
 
 import {
   STACK_TICKETS,
@@ -195,28 +195,24 @@ it("fails instead of reading false when the member's value is no boolean", async
   expect(runtime.calls).toHaveLength(1);
 });
 
-it("refuses a while loop without a valid boolean before anything runs", async () => {
+it("warns about a while loop without a valid boolean before anything runs", async () => {
   const runtime = stackRuntime({ work: [] });
-  await expect(
-    stackEngine(runtime.execution, {
-      nodes: ({ plain }) => [
-        ...boundary(),
-        booleanParameter('"ja"'),
-        loopOf([plain("work")], {
-          mode: "while",
-          bindings: { while: { kind: "source", nodeId: "flag" } },
-        }),
-      ],
-      edges: [flow("start", "loop"), flow("loop", "end")],
-    }),
-  ).rejects.toSatisfy(
-    (error: unknown) =>
-      error instanceof AgentPlanValidationError &&
-      error.issues.some(
-        (issue) => issue.nodeId === "loop" && issue.reason === "loopWhile",
-      ),
-  );
-  expect(runtime.calls).toHaveLength(0);
+  const world = await stackEngine(runtime.execution, {
+    nodes: ({ plain }) => [
+      ...boundary(),
+      booleanParameter('"ja"'),
+      loopOf([plain("work")], {
+        mode: "while",
+        bindings: { while: { kind: "source", nodeId: "flag" } },
+      }),
+    ],
+    edges: [flow("start", "loop"), flow("loop", "end")],
+  });
+  expect(planWarnings(world.plan, [])).toContainEqual({
+    nodeId: "loop",
+    port: "while",
+    reason: "loopWhile",
+  });
 });
 
 it("runs a group inside a loop strictly in order in one shared session across all iterations", async () => {
@@ -380,29 +376,25 @@ it("hands each stack entry to a script in the loop as its text input", async () 
   ]);
 });
 
-it("refuses a group whose agents run with different configurations instead of pretending they share a session", async () => {
+it("warns about a group whose agents run with different configurations instead of pretending they share a session", async () => {
   const runtime = stackRuntime({});
-  await expect(
-    stackEngine(runtime.execution, {
-      nodes: ({ plain }) => {
-        const review = plain("review");
-        const changed: AgentPlanStep = {
-          ...review,
-          configuration: review.configuration && {
-            ...review.configuration,
-            model: "another-model",
-          },
-        };
-        return [...boundary(), loopOf([groupOf([plain("edit"), changed])])];
-      },
-      edges: [flow("start", "loop"), flow("loop", "end")],
-    }),
-  ).rejects.toSatisfy(
-    (error: unknown) =>
-      error instanceof AgentPlanValidationError &&
-      error.issues.some(
-        (issue) =>
-          issue.nodeId === "review" && issue.reason === "groupConfiguration",
-      ),
-  );
+  const world = await stackEngine(runtime.execution, {
+    nodes: ({ plain }) => {
+      const review = plain("review");
+      const changed: AgentPlanStep = {
+        ...review,
+        configuration: review.configuration && {
+          ...review.configuration,
+          model: "another-model",
+        },
+      };
+      return [...boundary(), loopOf([groupOf([plain("edit"), changed])])];
+    },
+    edges: [flow("start", "loop"), flow("loop", "end")],
+  });
+  expect(planWarnings(world.plan, [])).toContainEqual({
+    nodeId: "review",
+    port: "model",
+    reason: "groupConfiguration",
+  });
 });

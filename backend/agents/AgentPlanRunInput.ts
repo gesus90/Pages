@@ -54,9 +54,7 @@ export function readPlanRun(input: unknown): AgentPlanRun {
       ? { waitReason: run.waitReason }
       : {}),
     ...readWriterWait(run, { status, stopRequested }),
-    ...(run.controlError === "plan_step_failed"
-      ? { controlError: run.controlError }
-      : {}),
+    ...readControlError(run),
     ...readPlanPauseBoundary(run.pauseBoundary),
     ...readPlanContinuation(run.continuation),
     ...(run.recovery === undefined
@@ -115,4 +113,12 @@ function readRunCommand(input: unknown): Pick<AgentPlanRun, "command"> {
   return input === undefined
     ? {}
     : { command: planRunCommandReceiptSchema.parse(input) };
+}
+
+function readControlError(
+  run: Readonly<Record<string, unknown>>,
+): Partial<Pick<AgentPlanRun, "controlError">> {
+  return run.controlError === "plan_step_failed"
+    ? { controlError: run.controlError }
+    : {};
 }

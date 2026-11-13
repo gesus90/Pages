@@ -182,25 +182,21 @@ it("adds, connects, binds and removes nodes; the stored structure reads back", a
   expect(plan.status.isRunnable).toBe(true);
 });
 
-it("refuses a graph the plan page refuses and writes nothing", async () => {
-  const refused = await refusal(
-    world.call("owner", "plans.update", {
-      operationId: "cycle",
-      planId: "plan-a",
-      expectedRevision: 1,
-      changes: [{ action: "connect", from: "review", to: "start" }],
-    }),
-  );
-
-  expect(refused.code).toBe("INVALID_REQUEST");
-  expect(refused.details).toMatchObject({ reason: "graph_invalid" });
-  expect(
-    refused.details && "issues" in refused.details
-      ? refused.details.issues.map((issue) => issue.problem)
-      : [],
-  ).toContain("port");
-  expect((await read("owner", "plan-a")).revision).toBe(1);
-  expect(world.keys.size).toBe(0);
+it("saves an editable graph with an invalid connection", async () => {
+  await change("owner", "plans.update", {
+    operationId: "cycle",
+    planId: "plan-a",
+    expectedRevision: 1,
+    changes: [{ action: "connect", from: "review", to: "start" }],
+  });
+  const plan = await read("owner", "plan-a");
+  expect(plan.revision).toBe(2);
+  expect(plan.edges).toContainEqual({
+    from: "review",
+    to: "start",
+    fromPort: "flow-out",
+    toPort: "flow-in",
+  });
 });
 
 it.each([
@@ -355,7 +351,7 @@ it("removes a parameter together with the inputs it fed", async () => {
   ).toBeUndefined();
 });
 
-it("refuses a taken name, a value of the wrong format and a node that is no parameter", async () => {
+it("refuses a taken name and a node that is no parameter", async () => {
   const taken = await refusal(
     world.call("owner", "plans.parameter.create", {
       operationId: "taken",
@@ -363,16 +359,6 @@ it("refuses a taken name, a value of the wrong format and a node that is no para
       expectedRevision: 1,
       name: "repository",
       value: { type: "text", text: "x" },
-    }),
-  );
-  const malformed = await refusal(
-    world.call("owner", "plans.parameter.create", {
-      operationId: "malformed",
-      planId: "plan-a",
-      expectedRevision: 1,
-      name: "data",
-      format: "json",
-      value: { type: "text", text: "{not json" },
     }),
   );
   const notParameter = await refusal(
@@ -386,9 +372,27 @@ it("refuses a taken name, a value of the wrong format and a node that is no para
   );
 
   expect(taken.details).toEqual({ reason: "element_exists" });
-  expect(malformed.details).toEqual({ reason: "parameter_value_invalid" });
   expect(notParameter.code).toBe("NOT_FOUND");
   expect(world.saves).toBe(0);
+});
+
+it("stores invalid parameter text for correction", async () => {
+  const created = await change("owner", "plans.parameter.create", {
+    operationId: "malformed",
+    planId: "plan-a",
+    expectedRevision: 1,
+    name: "data",
+    format: "json",
+    value: { type: "text", text: "{not json" },
+  });
+  const plan = await read("owner", "plan-a");
+  expect(
+    plan.nodes.find((node) => node.id === created.createdNodeIds[0]),
+  ).toMatchObject({
+    name: "data",
+    format: "json",
+    value: { type: "text", text: "{not json" },
+  });
 });
 
 it("refuses to rename a parameter to a name another parameter holds, and allows keeping its own", async () => {

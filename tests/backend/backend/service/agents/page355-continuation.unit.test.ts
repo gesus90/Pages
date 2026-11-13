@@ -12,6 +12,45 @@ import {
   stackRuntime,
 } from "./page175-stack-fixture";
 
+function continuationNodes({
+  plain,
+}: Parameters<Parameters<typeof stackEngine>[1]["nodes"]>[0]): ReturnType<
+  Parameters<typeof stackEngine>[1]["nodes"]
+> {
+  return [
+    { id: "start", type: "start", x: 0, y: 0 },
+    { id: "end", type: "end", x: 900, y: 0 },
+    plain("before"),
+    {
+      id: "stack",
+      type: "stack",
+      name: "Inputs",
+      entries: [
+        {
+          id: "entry",
+          type: "parameter",
+          name: "input",
+          format: "string",
+          value: { type: "text", text: "input" },
+        },
+      ],
+      x: 0,
+      y: 0,
+    },
+    {
+      ...emptyPlanLoop("loop", "Loop", { x: 200, y: 0 }),
+      runsSource: "parameter",
+      bindings: {
+        runs: { kind: "stack", stackId: "stack", output: "count" },
+      },
+      steps: [
+        { ...plain("work"), agentId: "missing", configuration: undefined },
+      ],
+    },
+    plain("after"),
+  ];
+}
+
 it("continues the failed member of a stack-counted loop after correction without replaying completed work", async () => {
   const runtime = stackRuntime({
     before: [stackReport()],
@@ -19,38 +58,7 @@ it("continues the failed member of a stack-counted loop after correction without
     after: [stackReport()],
   });
   const world = await stackEngine(runtime.execution, {
-    nodes: ({ plain }) => [
-      { id: "start", type: "start", x: 0, y: 0 },
-      { id: "end", type: "end", x: 900, y: 0 },
-      plain("before"),
-      {
-        id: "stack",
-        type: "stack",
-        name: "Inputs",
-        entries: [
-          {
-            id: "entry",
-            type: "parameter",
-            name: "input",
-            format: "string",
-            value: { type: "text", text: "input" },
-          },
-        ],
-        x: 0,
-        y: 0,
-      },
-      {
-        ...emptyPlanLoop("loop", "Loop", { x: 200, y: 0 }),
-        runsSource: "parameter",
-        bindings: {
-          runs: { kind: "stack", stackId: "stack", output: "count" },
-        },
-        steps: [
-          { ...plain("work"), agentId: "missing", configuration: undefined },
-        ],
-      },
-      plain("after"),
-    ],
+    nodes: continuationNodes,
     edges: [
       flow("start", "before"),
       flow("before", "loop"),

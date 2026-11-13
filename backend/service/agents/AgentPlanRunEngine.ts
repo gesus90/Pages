@@ -64,28 +64,18 @@ import type { PlanInstructionWork } from "./AgentPlanInstructionControl";
 import type { PlanSessionTurn } from "@/backend/agents/AgentPlanExecution";
 import type { ActivePlanRun } from "./AgentPlanRunState";
 import type { DatabaseLogMetrics } from "@/backend/logging/DatabaseLogMetrics";
-import type { DatabaseTransaction } from "@/backend/database/Database";
 import type {
   AgentPlanNode,
   AgentPlanRun,
   AgentPlanStepResult,
 } from "@/definition/AgentPlan";
-import type { AgentPlanSessionRecord } from "@/definition/AgentPlanSession";
 import type { AgentPlanSnapshot } from "./AgentPlanSnapshot";
 import type { EngineDependencies } from "./AgentPlanEngineDependencies";
 
 export type { EngineDependencies } from "./AgentPlanEngineDependencies";
 
-/**
- * Creates the record of a new run inside a transaction that the caller opens.
- *
- * @remarks
- * The caller passes `create` the transaction in which it stores its own
- * changes; a failure of either rolls both back.
- */
-export type AgentPlanRunRecording = (
-  create: (transaction: DatabaseTransaction) => Promise<void>,
-) => Promise<void>;
+export type { AgentPlanRunRecording } from "./AgentPlanRunRecording";
+import type { AgentPlanRunRecording } from "./AgentPlanRunRecording";
 
 /** Label of the database jobs of plan runs in the write-ahead log counters. */
 const PLAN_RUN_ORIGIN = "plan_run";
@@ -699,19 +689,11 @@ export class AgentPlanRunEngine {
       dependencies: this.dependencies,
       nodes: this.nodes,
       instruction: (work) => this.instruction(active, work),
-      saveSession: (session) => this.saveSession(active, node.id, session),
-    });
-  }
-
-  /** Stores the newest record of a running node; a failure is reported, never thrown. */
-  private async saveSession(
-    active: ActivePlanRun,
-    stepId: string,
-    session: AgentPlanSessionRecord,
-  ): Promise<void> {
-    await savePlanSession(active, stepId, session, {
-      writes: this.writes,
-      runs: this.dependencies.runs,
+      saveSession: (session) =>
+        savePlanSession(active, node.id, session, {
+          writes: this.writes,
+          runs: this.dependencies.runs,
+        }),
     });
   }
 }

@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { inspectManagedLocalOwner, settleManagedLocalOwner } from "@/backend/agents/local/LocalOwnerControl";
+import {
+  inspectManagedLocalOwner,
+  settleManagedLocalOwner,
+} from "@/backend/agents/local/LocalOwnerControl";
 
 import {
   CLOSED,
@@ -69,7 +72,9 @@ vi.mock("@/backend/agents/local/LocalAttachedSession", async () =>
 );
 
 const worker = vi.hoisted(() => ({ settle: vi.fn<() => Promise<number>>() }));
-vi.mock("@/backend/agents/cli/CliWorkerUnit", () => ({ settleWorkerUnits: worker.settle }));
+vi.mock("@/backend/agents/cli/CliWorkerUnit", () => ({
+  settleWorkerUnits: worker.settle,
+}));
 beforeEach(() => {
   resetMocks();
   worker.settle.mockReset().mockResolvedValue(0);
@@ -463,7 +468,10 @@ it("retires a previously unverified dead owner only after worker cleanup, and pe
   await adopt(sessions);
   mocks.ownership.hasEndedLocalOwner.mockResolvedValue(true);
   await expect(settleManagedLocalOwner(INSTANCE_ID)).resolves.toBe(true);
-  expect(mocks.ownership.hasEndedLocalOwner).toHaveBeenCalledWith(entryOf(), directoryOf(INSTANCE_ID));
+  expect(mocks.ownership.hasEndedLocalOwner).toHaveBeenCalledWith(
+    entryOf(),
+    directoryOf(INSTANCE_ID),
+  );
   expect(worker.settle).toHaveBeenCalledWith(INSTANCE_ID);
   expect(mocks.owners.released).toHaveBeenCalledWith(INSTANCE_ID);
   expect(inspectManagedLocalOwner(INSTANCE_ID)).toBe("released");
@@ -478,9 +486,15 @@ it.each(["alive", "unreadable", "workers", "write_failed"])(
     const sessions = createSessions();
     await adopt(sessions);
     mocks.ownership.hasEndedLocalOwner.mockResolvedValue(failure !== "alive");
-    if (failure === "unreadable") mocks.ownership.hasEndedLocalOwner.mockRejectedValue(new Error("private path"));
+    if (failure === "unreadable")
+      mocks.ownership.hasEndedLocalOwner.mockRejectedValue(
+        new Error("private path"),
+      );
     if (failure === "workers") worker.settle.mockResolvedValue(1);
-    if (failure === "write_failed") mocks.owners.released.mockRejectedValue(new Error("database unavailable"));
+    if (failure === "write_failed")
+      mocks.owners.released.mockRejectedValue(
+        new Error("database unavailable"),
+      );
     await settleManagedLocalOwner(INSTANCE_ID).catch(() => false);
     expect(inspectManagedLocalOwner(INSTANCE_ID)).toBe("owned");
     expect(sessions.unverified().has(INSTANCE_ID)).toBe(true);

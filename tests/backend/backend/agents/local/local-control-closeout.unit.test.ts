@@ -115,13 +115,16 @@ it.each([
   },
 );
 
-it.each([401, 403])("keeps %s as plan_local_owner_unverified", async (status) => {
-  const control = await controlOwner({ close: async () => CLOSED });
-  httpBoundary.reply = { status, body: "" };
-  await expect(control({ kind: "close" })).rejects.toMatchObject({
-    code: "plan_local_owner_unverified",
-  });
-});
+it.each([401, 403])(
+  "keeps %s as plan_local_owner_unverified",
+  async (status) => {
+    const control = await controlOwner({ close: async () => CLOSED });
+    httpBoundary.reply = { status, body: "" };
+    await expect(control({ kind: "close" })).rejects.toMatchObject({
+      code: "plan_local_owner_unverified",
+    });
+  },
+);
 
 it.each(["malformed", "unknown", "extra"])(
   "never exposes credentials or prompt/answer content from a %s owner error",
@@ -185,30 +188,69 @@ it("omits upstream exception text and credentials from close errors and diagnost
 it("reports stale attachment without dispatching native close or exposing the attachment", async () => {
   const close = vi.fn(async () => CLOSED);
   await controlOwner({ close });
-  await expect(sendLocalCommand(MANIFEST, { kind: "close" }, "private-stale-attachment")).rejects.toMatchObject({ code: "plan_local_control_failed", detail: "stale_attachment" });
+  await expect(
+    sendLocalCommand(MANIFEST, { kind: "close" }, "private-stale-attachment"),
+  ).rejects.toMatchObject({
+    code: "plan_local_control_failed",
+    detail: "stale_attachment",
+  });
   expect(close).not.toHaveBeenCalled();
-  expect(httpBoundary.responses.at(-1)?.body).toBe(JSON.stringify({ error: "stale_attachment" }));
-  expect(JSON.stringify(httpBoundary.logEvent.mock.calls)).not.toContain("private-stale-attachment");
+  expect(httpBoundary.responses.at(-1)?.body).toBe(
+    JSON.stringify({ error: "stale_attachment" }),
+  );
+  expect(JSON.stringify(httpBoundary.logEvent.mock.calls)).not.toContain(
+    "private-stale-attachment",
+  );
 });
 
 it("reports native_cleanup_unconfirmed when a release cannot prove cleanup", async () => {
-  const control = await controlOwner({ close: async () => ({ ...CLOSED, isConfirmed: false }) });
-  await expect(control({ kind: "release" })).rejects.toMatchObject({ code: "plan_local_control_failed", detail: "native_cleanup_unconfirmed" });
-  expect(httpBoundary.responses.at(-1)?.body).toBe(JSON.stringify({ error: "native_cleanup_unconfirmed" }));
+  const control = await controlOwner({
+    close: async () => ({ ...CLOSED, isConfirmed: false }),
+  });
+  await expect(control({ kind: "release" })).rejects.toMatchObject({
+    code: "plan_local_control_failed",
+    detail: "native_cleanup_unconfirmed",
+  });
+  expect(httpBoundary.responses.at(-1)?.body).toBe(
+    JSON.stringify({ error: "native_cleanup_unconfirmed" }),
+  );
 });
 
 it("bounds an oversized owner body and retains the HTTP status without logging any response content", async () => {
   const control = await controlOwner({ close: async () => CLOSED });
-  httpBoundary.reply = { status: 502, body: "private-answer-sentinel".repeat(100_000) };
-  await expect(control({ kind: "close" })).rejects.toMatchObject({ code: "plan_local_control_failed", detail: "internal" });
-  expect(httpBoundary.logEvent).toHaveBeenCalledWith(expect.objectContaining({ event: "local.control.failed", metadata: { operation: "close", statusCode: 502, code: "internal" } }));
-  expect(JSON.stringify(httpBoundary.logEvent.mock.calls)).not.toContain("private-answer-sentinel");
-  expect(classifyAgentRunErrorCode("plan_local_control_failed")).toBe("process_crash");
+  httpBoundary.reply = {
+    status: 502,
+    body: "private-answer-sentinel".repeat(100_000),
+  };
+  await expect(control({ kind: "close" })).rejects.toMatchObject({
+    code: "plan_local_control_failed",
+    detail: "internal",
+  });
+  expect(httpBoundary.logEvent).toHaveBeenCalledWith(
+    expect.objectContaining({
+      event: "local.control.failed",
+      metadata: { operation: "close", statusCode: 502, code: "internal" },
+    }),
+  );
+  expect(JSON.stringify(httpBoundary.logEvent.mock.calls)).not.toContain(
+    "private-answer-sentinel",
+  );
+  expect(classifyAgentRunErrorCode("plan_local_control_failed")).toBe(
+    "process_crash",
+  );
 });
 
 it("refuses arbitrary regex-shaped response content as an owner diagnosis", async () => {
   const control = await controlOwner({ close: async () => CLOSED });
-  httpBoundary.reply = { status: 409, body: JSON.stringify({ error: "private_answer_sentinel" }) };
-  await expect(control({ kind: "close" })).rejects.toMatchObject({ code: "plan_local_control_failed", detail: "internal" });
-  expect(JSON.stringify(httpBoundary.logEvent.mock.calls)).not.toContain("private_answer_sentinel");
+  httpBoundary.reply = {
+    status: 409,
+    body: JSON.stringify({ error: "private_answer_sentinel" }),
+  };
+  await expect(control({ kind: "close" })).rejects.toMatchObject({
+    code: "plan_local_control_failed",
+    detail: "internal",
+  });
+  expect(JSON.stringify(httpBoundary.logEvent.mock.calls)).not.toContain(
+    "private_answer_sentinel",
+  );
 });

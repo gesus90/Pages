@@ -194,7 +194,9 @@ function readControlOptions(
       : { resumeAction: input.resumeAction }),
     ...readResumeBlocker(input),
     ...readResumeState(input),
-    ...(isAcpWaitReason(input.waitReason) ? { waitReason: input.waitReason } : {}),
+    ...(isAcpWaitReason(input.waitReason)
+      ? { waitReason: input.waitReason }
+      : {}),
     ...(input.workspaceWait === undefined
       ? {}
       : { workspaceWait: planWriterWaitSchema.parse(input.workspaceWait) }),

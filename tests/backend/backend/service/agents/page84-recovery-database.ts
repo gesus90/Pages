@@ -333,37 +333,13 @@ export class RecoveryDatabase {
   }
 
   private execute(statement: string, parameters: SqlParameters): void {
-    if (statement.includes("INSERT INTO agent_workspace_cleanup")) {
-      this.rows.cleanup.push(requiredText(parameters, "run_id"));
-      return;
-    }
-    if (statement.includes("SET engine_file")) {
-      const row = this.rows.runs.get(requiredText(parameters, "id"));
-      if (row) row.engineFile = requiredText(parameters, "engine_file");
-      return;
-    }
+    if (this.writeCleanupOrEngine(statement, parameters)) return;
     if (statement.includes("INSERT INTO agent_plan_loop_iterations")) {
       this.insertIteration(parameters);
       return;
     }
-    if (statement.includes("INSERT INTO agent_plan_checkpoints")) {
-      this.throwFault("checkpoint");
-      this.rows.checkpoints.push({
-        runId: requiredText(parameters, "run_id"),
-        stepId: requiredText(parameters, "step_id"),
-        version: requiredNumber(parameters, "version"),
-        json: requiredText(parameters, "checkpoint_json"),
-      });
-      return;
-    }
-    if (statement.includes("INSERT INTO agent_plan_continuations")) {
-      this.rows.continuations.push({
-        runId: requiredText(parameters, "id"),
-        version: requiredNumber(parameters, "version"),
-        snapshot: requiredText(parameters, "snapshot"),
-      });
-      return;
-    }
+    if (this.insertCheckpoint(statement, parameters)) return;
+    if (this.insertContinuation(statement, parameters)) return;
     if (statement.includes("INSERT INTO agent_plan_repair_attempts")) {
       this.throwFault("attempt");
       this.rows.attempts.push({
@@ -411,6 +387,54 @@ export class RecoveryDatabase {
       return;
     }
     throw new Error(`Unexpected synthetic statement ${statement}`);
+  }
+
+  private writeCleanupOrEngine(
+    statement: string,
+    parameters: SqlParameters,
+  ): boolean {
+    if (statement.includes("INSERT INTO agent_workspace_cleanup")) {
+      this.rows.cleanup.push(requiredText(parameters, "run_id"));
+      return true;
+    }
+    if (statement.includes("SET engine_file")) {
+      const row = this.rows.runs.get(requiredText(parameters, "id"));
+      if (row) row.engineFile = requiredText(parameters, "engine_file");
+      return true;
+    }
+    return false;
+  }
+
+  private insertContinuation(
+    statement: string,
+    parameters: SqlParameters,
+  ): boolean {
+    if (statement.includes("INSERT INTO agent_plan_continuations")) {
+      this.rows.continuations.push({
+        runId: requiredText(parameters, "id"),
+        version: requiredNumber(parameters, "version"),
+        snapshot: requiredText(parameters, "snapshot"),
+      });
+      return true;
+    }
+    return false;
+  }
+
+  private insertCheckpoint(
+    statement: string,
+    parameters: SqlParameters,
+  ): boolean {
+    if (statement.includes("INSERT INTO agent_plan_checkpoints")) {
+      this.throwFault("checkpoint");
+      this.rows.checkpoints.push({
+        runId: requiredText(parameters, "run_id"),
+        stepId: requiredText(parameters, "step_id"),
+        version: requiredNumber(parameters, "version"),
+        json: requiredText(parameters, "checkpoint_json"),
+      });
+      return true;
+    }
+    return false;
   }
 
   private writeLock(statement: string, parameters: SqlParameters): void {

@@ -19,7 +19,10 @@ import { AgentToolPreflightError } from "../tools/AgentToolReadinessError";
 import { isUnitBound } from "./AcpLeaseEvidence";
 
 import type { PlanSession } from "@/backend/agents/AgentPlanExecution";
-import type { AcpNamespaceOwner, AcpResourceRecord } from "@/definition/AcpResource";
+import type {
+  AcpNamespaceOwner,
+  AcpResourceRecord,
+} from "@/definition/AcpResource";
 
 type LeaseCleanup = (
   instanceId: string,
@@ -70,7 +73,7 @@ export async function closeLease(
     return {
       remaining: (await hasEndedLeaseProcesses(
         record.instanceId,
-        record.namespace,
+        record.namespace ?? undefined,
       ))
         ? 0
         : 1,

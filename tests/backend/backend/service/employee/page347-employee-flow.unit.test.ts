@@ -215,20 +215,11 @@ it.each(["workspace", "yolo"] as const)(
       ).resolves.toMatchObject({ sessionId: "session" });
     }
     expect(acp.start).toHaveBeenCalledTimes(2);
-    expect(acp.start).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        agent: expect.objectContaining({
-          model: ZEN.id,
-          run: expect.objectContaining({ access: "yolo" }),
-        }),
-        employee: expect.objectContaining({
-          runner: expect.objectContaining({
-            provider: "opencode",
-            hasBridgeMcp: true,
-          }),
-        }),
-      }),
-    );
+    const call = vi.mocked(acp.start).mock.lastCall;
+    expect(call?.[0].agent?.model).toBe(ZEN.id);
+    expect(call?.[0].agent?.run?.access).toBe("yolo");
+    expect(call?.[0].employee?.runner.provider).toBe("opencode");
+    expect(call?.[0].employee?.runner.hasBridgeMcp).toBe(true);
   },
 );
 

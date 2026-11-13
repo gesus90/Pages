@@ -293,12 +293,37 @@ it.each(["paused", "failed", "cancelled", "succeeded"] as const)(
 );
 
 it("shows a workspace holder and cleanup reason while the run waits for its lock", () => {
-  renderHeading(planPage(), { control: planControl({ status: "running", workspaceWait: { resource: "Workspace", runId: "holder", reason: "process_end_unconfirmed", jobId: null, attemptId: null } }) });
-  expect(screen.getByText((text) => text.includes("holder") && text.includes("Workspace"))).toBeDefined();
-  expect(screen.getByText((text) => text.includes(i18n.t("plans.recovery.cleanupBlocker.process_end_unconfirmed")))).toBeDefined();
+  renderHeading(planPage(), {
+    control: planControl({
+      status: "running",
+      workspaceWait: {
+        resource: "Workspace",
+        runId: "holder",
+        reason: "process_end_unconfirmed",
+        jobId: null,
+        attemptId: null,
+      },
+    }),
+  });
+  expect(
+    screen.getByText(
+      (text) => text.includes("holder") && text.includes("Workspace"),
+    ),
+  ).toBeDefined();
+  expect(
+    screen.getByText((text) =>
+      text.includes(
+        i18n.t("plans.recovery.cleanupBlocker.process_end_unconfirmed"),
+      ),
+    ),
+  ).toBeDefined();
 });
 
 it("shows the current ACP waitReason in the plan heading", () => {
-  renderHeading(planPage(), { control: planControl({ status: "running", waitReason: "capacity" }) });
-  expect(screen.getByText(i18n.t("settings.agents.resources.capacity"))).toBeDefined();
+  renderHeading(planPage(), {
+    control: planControl({ status: "running", waitReason: "capacity" }),
+  });
+  expect(
+    screen.getByText(i18n.t("settings.agents.resources.capacity")),
+  ).toBeDefined();
 });

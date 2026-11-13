@@ -173,8 +173,8 @@ export class ScheduledAcpSession implements PlanSession {
   private async settleLease(error?: unknown): Promise<boolean> {
     try {
       return (await this.lifecycle.settle?.(error)) ?? false;
-    } catch (error: unknown) {
-      logCaughtError("ScheduledAcpSession", error);
+    } catch (caughtError: unknown) {
+      logCaughtError("ScheduledAcpSession", caughtError);
       return false;
     }
   }

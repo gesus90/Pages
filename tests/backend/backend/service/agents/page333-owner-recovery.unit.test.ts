@@ -19,7 +19,8 @@ vi.mock("@/backend/agents/local/LocalOwnerControl", () => ({
   inspectManagedLocalOwner: () => "owned",
 }));
 vi.mock("@/backend/agents/cli/CliOwnedNamespace", () => ({
-  settleOwnedNamespace: async (namespace: unknown, instanceId: string) => (await boundaries.settleOwner(instanceId)) === true,
+  settleOwnedNamespace: async (namespace: unknown, instanceId: string) =>
+    (await boundaries.settleOwner(instanceId)) === true,
 }));
 vi.mock("@/backend/agents/cli/CliProcessScan", () => ({
   readScopeSince: vi.fn(async () => ({ earliestStart: 0 })),
@@ -61,11 +62,24 @@ async function recoveryWithUnverifiedOwner(): Promise<{
   if (!session) throw new Error("Synthetic accepted session is missing");
   const run = {
     ...previous,
-    steps: previous.steps.map((step) => step.id === "a" ? {
-      ...step,
-      error: "plan_closeout_failed",
-      session: { ...session, closeout: "failed" as const, namespace: { pid: 42, uid: 1000, start: 12, boot: "11111111-1111-4111-8111-111111111111" } },
-    } : step),
+    steps: previous.steps.map((step) =>
+      step.id === "a"
+        ? {
+            ...step,
+            error: "plan_closeout_failed",
+            session: {
+              ...session,
+              closeout: "failed" as const,
+              namespace: {
+                pid: 42,
+                uid: 1000,
+                start: 12,
+                boot: "11111111-1111-4111-8111-111111111111",
+              },
+            },
+          }
+        : step,
+    ),
   };
   const resources = resourceWorld();
   resources.records.set(session.instanceId, {

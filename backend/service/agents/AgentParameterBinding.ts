@@ -214,6 +214,20 @@ async function resolveAsset(
   };
 }
 
+function assertParameterConfiguration(
+  configuration: Pick<
+    AgentConfiguration,
+    "markdown" | "parameters" | "directoryParameter"
+  >,
+  references: AgentReferenceResolvers,
+): void {
+  if (
+    !references.allowIncomplete &&
+    agentParameterIssues(configuration).length > 0
+  )
+    throw new AgentError("parameter_invalid");
+}
+
 /** Applies explicit step values over defaults, without modifying or recursively evaluating the template. */
 export async function bindAgentParameters(
   configuration: Pick<
@@ -225,11 +239,7 @@ export async function bindAgentParameters(
 ): Promise<BoundAgentParameters> {
   if (scanAgentPlaceholders(configuration.markdown).hasUnsupportedRunNotes)
     throw new AgentError("run_notes_unsupported");
-  if (
-    !references.allowIncomplete &&
-    agentParameterIssues(configuration).length > 0
-  )
-    throw new AgentError("parameter_invalid");
+  assertParameterConfiguration(configuration, references);
   const values = readBindings(configuration, input, references.allowIncomplete);
   const placeholders = scanAgentPlaceholders(
     configuration.markdown,

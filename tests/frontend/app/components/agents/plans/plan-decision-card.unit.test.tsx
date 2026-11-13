@@ -200,7 +200,9 @@ it("marks the condition input and an output without a continuation as findings",
   expect(handle(card, "condition-in").className).toContain("invalidHandle");
   expect(handle(card, "false-out").className).toContain("invalidHandle");
   expect(handle(card, "true-out").className).not.toContain("invalidHandle");
-  expect(card.className).toContain("border-destructive");
+  expect(within(card).getByRole("img").getAttribute("title")).toContain(
+    "condition-in",
+  );
 });
 
 it("takes the name of the decision for its title and its edit button", () => {

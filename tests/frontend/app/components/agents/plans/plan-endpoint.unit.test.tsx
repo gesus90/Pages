@@ -123,7 +123,9 @@ it("marks the selected endpoint and one with a finding", () => {
   });
 
   expect(card(START_LABEL).classList).toContain("ring-2");
-  expect(card(START_LABEL).classList).toContain("border-destructive");
+  expect(
+    within(card(START_LABEL)).getByRole("img").getAttribute("title"),
+  ).toContain("flow-out");
 });
 
 it("leaves an unselected endpoint without findings unmarked", () => {

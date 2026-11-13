@@ -54,10 +54,9 @@ export async function closePlanSession(
   } catch (error: unknown) {
     if (!canReconcileClose(error, record)) throw error;
     const hasEnded = record
-      ? await hasEndedLeaseProcesses(
-          record.instanceId,
-          record.namespace,
-        ).catch(() => false)
+      ? await hasEndedLeaseProcesses(record.instanceId, record.namespace).catch(
+          () => false,
+        )
       : false;
     const reason =
       error instanceof LocalControlCommandError ? error.detail : error.code;

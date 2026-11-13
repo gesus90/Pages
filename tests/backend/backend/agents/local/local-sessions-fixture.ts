@@ -42,7 +42,11 @@ export const mocks = {
   },
   runs: { find: vi.fn() },
   files: { read: vi.fn() },
-  ownership: { proveLocalOwner: vi.fn(), localManifestDigest: vi.fn(), hasEndedLocalOwner: vi.fn<() => Promise<boolean>>() },
+  ownership: {
+    proveLocalOwner: vi.fn(),
+    localManifestDigest: vi.fn(),
+    hasEndedLocalOwner: vi.fn<() => Promise<boolean>>(),
+  },
   records: {
     readLocalRecord: vi.fn<(file: string) => Promise<unknown>>(),
     requireLocalDirectory: vi.fn(),
