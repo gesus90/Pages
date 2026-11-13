@@ -75,8 +75,8 @@ it.each([
   ],
   ["a missing workspace", input({ isWorkspaceMissing: true })],
   ["a scheduled deletion", input({ hasScheduledDeletion: true })],
-])("names %s a warning", (_name, value) => {
-  expect(planPanelAttention(value)).toBe("warning");
+])("names %s a warning", (name, value) => {
+  expect(planPanelAttention(value), name).toBe("warning");
 });
 
 it("names a refused recovery request an error before any warning", () => {

@@ -102,27 +102,7 @@ export function PlanPanelHeading(
           ) : null}
         </div>
         <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-9 px-4 text-xs font-semibold [@media(pointer:coarse)]:min-h-11"
-            onClick={editor.save}
-            aria-busy={editor.isSaving}
-            disabled={
-              !editor.canEdit ||
-              props.isPending ||
-              !editor.isDirty ||
-              !editor.draft.workspaceId
-            }
-          >
-            {editor.isSaving ? (
-              <Loader2
-                aria-hidden="true"
-                className="mr-1.5 size-3.5 animate-spin"
-              />
-            ) : null}
-            {t("plans.execution.save")}
-          </Button>
+          <PlanSaveButton editor={editor} isPending={props.isPending} />
           {/* On narrow screens the run controls take their own row below. */}
           <div className="max-sm:order-last max-sm:basis-full">
             <PlanRunActions
@@ -185,6 +165,33 @@ export function PlanPanelHeading(
         </>
       ) : null}
     </>
+  );
+}
+
+function PlanSaveButton({
+  editor,
+  isPending,
+}: Pick<PlanPanelHeadingProps, "editor" | "isPending">): React.ReactElement {
+  const { t } = useTranslation();
+  return (
+    <Button
+      size="sm"
+      variant="outline"
+      className="h-9 px-4 text-xs font-semibold [@media(pointer:coarse)]:min-h-11"
+      onClick={editor.save}
+      aria-busy={editor.isSaving}
+      disabled={
+        !editor.canEdit ||
+        isPending ||
+        !editor.isDirty ||
+        !editor.draft.workspaceId
+      }
+    >
+      {editor.isSaving ? (
+        <Loader2 aria-hidden="true" className="mr-1.5 size-3.5 animate-spin" />
+      ) : null}
+      {t("plans.execution.save")}
+    </Button>
   );
 }
 

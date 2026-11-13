@@ -13,14 +13,17 @@ import {
 } from "./plan-panel-fixture";
 
 import type { AgentPlanPage } from "@/definition/AgentPlan";
-import type { AgentPlanControl } from "@/definition/AgentPlanControl";
+import type {
+  AgentPlanControl,
+  AgentPlanResumeAction,
+} from "@/definition/AgentPlanControl";
 import type { PlanEditor } from "./plan-panel-fixture";
 
 interface HeadingOptions {
   readonly control?: AgentPlanControl;
   readonly isPending?: boolean;
   readonly isOpen?: boolean;
-  readonly onResolveBlock?: ReturnType<typeof vi.fn>;
+  readonly onResolveBlock?: (action: AgentPlanResumeAction) => void;
 }
 
 function renderHeading(
