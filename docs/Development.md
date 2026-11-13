@@ -55,32 +55,32 @@ These source-backed repository instructions describe the checked checkout.
 
 ## Tech stack
 
-| Area | Technology |
-| --- | --- |
-| UI | React 19, TypeScript, Tailwind CSS 4, Radix UI, Lucide |
-| Framework | React Router 8 static app and API server |
-| Runtime | Node.js; Vite 7 for development/build |
-| Database | PostgreSQL (`pg`); PostgreSQL 18 used by repository test tools |
-| Text | i18next (German/English), Tiptap |
-| Tooling | pnpm, ESLint, Prettier, Vitest, Playwright |
+| Area      | Technology                                                     |
+| --------- | -------------------------------------------------------------- |
+| UI        | React 19, TypeScript, Tailwind CSS 4, Radix UI, Lucide         |
+| Framework | React Router 8 static app and API server                       |
+| Runtime   | Node.js; Vite 7 for development/build                          |
+| Database  | PostgreSQL (`pg`); PostgreSQL 18 used by repository test tools |
+| Text      | i18next (German/English), Tiptap                               |
+| Tooling   | pnpm, ESLint, Prettier, Vitest, Playwright                     |
 
 ## Commands
 
 All commands are scripts in `package.json`; run them with `pnpm run <script>`.
 
-| Script          | What it does                                                                                                                                              |
-| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `dev`           | Starts the development server of the static app (Vite). It passes server requests to `dev:api`. |
-| `dev:api`       | Starts the API's development server (port 5174) with the Pages runtime; `PAGES_DEV_API` tells `dev` another address. |
-| `build`         | Builds the static app (`ssr: false`) into `build/client` and the API into `build/server` (`scripts/build.mjs`). |
-| `start`         | Runs the API from `build/` through `server.mjs`; it also serves the static app. Run `build` first. Accepts `--port <number>` and `--config <path>`. |
+| Script          | What it does                                                                                                                                                              |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dev`           | Starts the development server of the static app (Vite). It passes server requests to `dev:api`.                                                                           |
+| `dev:api`       | Starts the API's development server (port 5174) with the Pages runtime; `PAGES_DEV_API` tells `dev` another address.                                                      |
+| `build`         | Builds the static app (`ssr: false`) into `build/client` and the API into `build/server` (`scripts/build.mjs`).                                                           |
+| `start`         | Runs the API from `build/` through `server.mjs`; it also serves the static app. Run `build` first. Accepts `--port <number>` and `--config <path>`.                       |
 | `check`         | Generates the React Router route types, type-checks with `tsc --noEmit` and runs `prettier --check`. Checks only; the generated types go to the ignored `.react-router/`. |
-| `lint`          | Runs ESLint sequentially in bounded file blocks (`scripts/run-lint.mjs`) with `--concurrency=off` and `--max-warnings=0`: any warning fails. Fixes nothing. |
-| `format`        | Runs `prettier --write` and rewrites files in place.                                                                                                      |
-| `test:backend`  | Backend unit tests with coverage (see [Unit tests](../tests/README.md#choosing-a-scope)).                                                                                         |
-| `test:frontend` | Frontend unit tests with coverage (see [Unit tests](../tests/README.md#choosing-a-scope)).                                                                                        |
-| `browser:test`  | Builds, then runs the browser and visual regression suite of the ticket image viewer in a real Chromium (see [Browser tests](../tests/README.md#browser-suite)).    |
-| `clean`         | Deletes the `build/` directory.                                                                                                                           |
+| `lint`          | Runs ESLint sequentially in bounded file blocks (`scripts/run-lint.mjs`) with `--concurrency=off` and `--max-warnings=0`: any warning fails. Fixes nothing.               |
+| `format`        | Runs `prettier --write` and rewrites files in place.                                                                                                                      |
+| `test:backend`  | Backend unit tests with coverage (see [Unit tests](../tests/README.md#choosing-a-scope)).                                                                                 |
+| `test:frontend` | Frontend unit tests with coverage (see [Unit tests](../tests/README.md#choosing-a-scope)).                                                                                |
+| `browser:test`  | Builds, then runs the browser and visual regression suite of the ticket image viewer in a real Chromium (see [Browser tests](../tests/README.md#browser-suite)).          |
+| `clean`         | Deletes the `build/` directory.                                                                                                                                           |
 
 There is no `test` script. CI runs `check` and `lint` on pushes to `main` and
 on pull requests; it runs no tests and no browser suite there. Only a pushed
@@ -98,9 +98,9 @@ at a time (`concurrency = 1`, `--concurrency=off`, `--max-warnings=0`, no `--fix
 Each child process exits before the next block starts so TypeScript
 `projectService` contexts do not accumulate across blocks.
 
-| Setting | Default | Environment override | CLI override | Valid range |
-| --- | --- | --- | --- | --- |
-| Max files per block (`blockSize`) | `200` (`DEFAULT_BLOCK_SIZE`) | `PAGES_LINT_BLOCK_SIZE` | `--block-size <int>` / `--block-size=<int>` | `1..5000` (positive integer) |
+| Setting                                      | Default                                      | Environment override            | CLI override                                                | Valid range                         |
+| -------------------------------------------- | -------------------------------------------- | ------------------------------- | ----------------------------------------------------------- | ----------------------------------- |
+| Max files per block (`blockSize`)            | `200` (`DEFAULT_BLOCK_SIZE`)                 | `PAGES_LINT_BLOCK_SIZE`         | `--block-size <int>` / `--block-size=<int>`                 | `1..5000` (positive integer)        |
 | Node V8 old-space heap (`maxOldSpaceSizeMb`) | `2048` MiB (`DEFAULT_MAX_OLD_SPACE_SIZE_MB`) | `PAGES_LINT_MAX_OLD_SPACE_SIZE` | `--max-old-space-size <int>` / `--max-old-space-size=<int>` | `128..65536` MiB (positive integer) |
 
 CLI flags take precedence over environment variables, which take precedence over
@@ -127,16 +127,16 @@ project references rather than disabling typed rules.
 
 ## Repository layout
 
-| Path           | Contents                                                                 |
-| -------------- | ------------------------------------------------------------------------ |
-| `app/`         | Routes, React components, client and server helpers, styles              |
-| `backend/`     | Services, repositories, migrations, configuration, server runtime, auth  |
-| `definition/`  | Shared types and contracts                                               |
-| `language/`    | i18next setup and the German and English translations                    |
-| `tests/`       | Unit-test scopes and setup                                               |
-| `scripts/`     | Maintenance and proof scripts (`acp:smoke`)                              |
-| `assets/`      | Logo, README banner and the Pica mascot (`assets/pica/`)                 |
-| `server.mjs`   | Entry point of the production server                                     |
+| Path          | Contents                                                                |
+| ------------- | ----------------------------------------------------------------------- |
+| `app/`        | Routes, React components, client and server helpers, styles             |
+| `backend/`    | Services, repositories, migrations, configuration, server runtime, auth |
+| `definition/` | Shared types and contracts                                              |
+| `language/`   | i18next setup and the German and English translations                   |
+| `tests/`      | Unit-test scopes and setup                                              |
+| `scripts/`    | Maintenance and proof scripts (`acp:smoke`)                             |
+| `assets/`     | Logo, README banner and the Pica mascot (`assets/pica/`)                |
+| `server.mjs`  | Entry point of the production server                                    |
 
 Further documentation:
 

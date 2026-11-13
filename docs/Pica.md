@@ -26,13 +26,13 @@ session, without native tools.
 Its native catalog has fixed tools, each on an existing Pages operation with
 the current account rights:
 
-| Kind | Tools |
-| ---- | ----- |
-| Reads | `projects_list`, `projects_read`, `departments_list`, `tickets_search` (in one project; `assignedToMe` for the person's own tickets), `tickets_read`, `assignment_targets_search`, `tags_list`, `milestones_read`, `wiki_search`, `wiki_tree_read`, `wiki_page_read`, `wiki_comments_read` |
-| Tickets | `tickets_create`, `tickets_set_title`, `tickets_set_status`, `tickets_set_description`, `tickets_set_assignee`, `tickets_set_tags`, `tickets_set_departments`, `tickets_set_parent`, `tickets_set_milestone`, `tickets_delete` |
-| Projects | `projects_create`, `projects_set_name`, `projects_set_description`, `projects_set_status`, `projects_set_dates` |
-| Milestones | `milestones_create`, `milestones_set_name`, `milestones_set_description`, `milestones_set_status`, `milestones_set_start_at`, `milestones_set_due_at`, `milestones_delete` |
-| Wiki | `wiki_page_create`, `wiki_page_set_title`, `wiki_page_set_content`, `wiki_page_move`, `wiki_page_delete`, `wiki_comment_add`, `wiki_comment_edit`, `wiki_comment_resolve`, `wiki_comment_delete` |
+| Kind       | Tools                                                                                                                                                                                                                                                                                      |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Reads      | `projects_list`, `projects_read`, `departments_list`, `tickets_search` (in one project; `assignedToMe` for the person's own tickets), `tickets_read`, `assignment_targets_search`, `tags_list`, `milestones_read`, `wiki_search`, `wiki_tree_read`, `wiki_page_read`, `wiki_comments_read` |
+| Tickets    | `tickets_create`, `tickets_set_title`, `tickets_set_status`, `tickets_set_description`, `tickets_set_assignee`, `tickets_set_tags`, `tickets_set_departments`, `tickets_set_parent`, `tickets_set_milestone`, `tickets_delete`                                                             |
+| Projects   | `projects_create`, `projects_set_name`, `projects_set_description`, `projects_set_status`, `projects_set_dates`                                                                                                                                                                            |
+| Milestones | `milestones_create`, `milestones_set_name`, `milestones_set_description`, `milestones_set_status`, `milestones_set_start_at`, `milestones_set_due_at`, `milestones_delete`                                                                                                                 |
+| Wiki       | `wiki_page_create`, `wiki_page_set_title`, `wiki_page_set_content`, `wiki_page_move`, `wiki_page_delete`, `wiki_comment_add`, `wiki_comment_edit`, `wiki_comment_resolve`, `wiki_comment_delete`                                                                                           |
 
 Sessions of agent employees (not Pica) additionally get `chats_list`,
 `chat_read` and `chat_send` (PAGE-311): an agent reads the chats it takes part
@@ -108,16 +108,16 @@ than a guarantee for arbitrary workloads.
 
 ## Pica over Codex ACP (PAGE-68)
 
-When the chat agent under *Settings › Agents* uses a Codex CLI connection, Pica
+When the chat agent under _Settings › Agents_ uses a Codex CLI connection, Pica
 answers through `codex-acp` with the same native tools. There is no model choice
 in the chat and no fallback to an API model; the assignment is resolved anew
 for every new answer, so a change applies from the next message on.
 
 - **Server-side jobs.** Sending stores the message and starts a job on the
   server. Closing the browser, switching tabs or a lost connection does not end
-  it; only *Stop* does. The panel reads the job's journal after its last cursor,
+  it; only _Stop_ does. The panel reads the job's journal after its last cursor,
   so returning shows the current state or the finished answer without running
-  anything again. *Stop* keeps what Pica had written in the running turn as its
+  anything again. _Stop_ keeps what Pica had written in the running turn as its
   answer, marked as stopped (migration 054); a new agent session receives it
   marked as incomplete.
 - **Sent once.** Every message carries a client message ID, which stays the
@@ -126,9 +126,9 @@ for every new answer, so a change applies from the next message on.
   or steer of the first sending; an older message without a replayable ACP
   outcome is refused as already sent. A second Enter or click before the panel updated sends nothing.
 - **Steering.** While Pica answers, sending stays possible. The message goes
-  into the running turn through `_session/steering` (status *accepted*); a
+  into the running turn through `_session/steering` (status _accepted_); a
   message that arrives between turns, or that the adapter no longer takes, is
-  answered in a turn of its own (*follow-up*). Statuses: pending, delivered,
+  answered in a turn of its own (_follow-up_). Statuses: pending, delivered,
   accepted, follow-up, failed.
 - **Selected data.** The attachments selected for a message (and for a steer)
   reach Codex as content blocks: text as an embedded resource (cut after
@@ -162,7 +162,7 @@ The capability matrix of the installed adapter is in
 
 ## Pica over Claude Code ACP (PAGE-90)
 
-When the chat agent under *Settings › Agents* uses a Claude Code connection,
+When the chat agent under _Settings › Agents_ uses a Claude Code connection,
 Pica answers through `claude-agent-acp` on the same server-side jobs, journal,
 steering, attachments and tool bridge as with Codex: jobs run on without the
 browser, a message is stored once, steers and selection snapshots keep their
@@ -171,7 +171,7 @@ section. This section names what differs.
 
 - **Assignment only.** Connection, model, effort and the permission mode come
   from the assigned chat agent and nothing else: no model default, no fallback
-  to Codex, an API model or another process. The mode must be *Read only*,
+  to Codex, an API model or another process. The mode must be _Read only_,
   because Pica gets nothing but the bridge tools there; an agent stored with
   YOLO or the earlier write mode is refused with a translated explanation
   before the message is stored. The agent's timeout limits the adapter process
@@ -184,9 +184,9 @@ section. This section names what differs.
   `--hide-claude-auth` flag.
 - **Steering.** The adapter announces `_session/steering` in `initialize`; Pages
   steers only then. A message sent while Pica's prompt runs interrupts the
-  current generation and joins the same turn (*accepted*). A steer that finds
+  current generation and joins the same turn (_accepted_). A steer that finds
   the turn already ended comes back with `promptRequired`, because Pages asks
-  for that, and is answered once in a turn of its own (*follow-up*).
+  for that, and is answered once in a turn of its own (_follow-up_).
 - **Selected data.** Text attachments as embedded resources, PNG/JPEG/GIF/WebP
   images as image blocks, for the message and for steers. The adapter drops
   binary resources, so PDFs and other files are listed as not transferred.
@@ -219,7 +219,7 @@ explicitly distinguishes OpenCode Console / Zen (`opencode`) from OpenRouter
 OpenRouter native credential files keep their exact provider and model IDs. Other credential formats and custom provider
 configurations are not imported. No model, provider or API fallback is used.
 
-- **Scope and isolation.** Pica requires *Read only* workspace access. It uses
+- **Scope and isolation.** Pica requires _Read only_ workspace access. It uses
   the existing jobs, scheduler, durable leases, connection locks and process
   cleanup. Bubblewrap is required; the chat directory is mounted read-only.
   The managed `pages-pica` mode denies all native tools and permits only
@@ -245,7 +245,7 @@ configurations are not imported. No model, provider or API fallback is used.
   assigned model supports vision; model refusals remain visible.
 - **Sessions.** `session/resume` continues only the same person's chat with
   the same connection, model, variant and profile `pica-opencode-chat-1`.
-  Losing or closing the browser leaves the server job running. *Stop* ends
+  Losing or closing the browser leaves the server job running. _Stop_ ends
   it explicitly. A server restart marks interrupted jobs and does not replay
   them. Deleting a Pages conversation removes its Pages mapping, messages
   and attachments; native CLI archives and provider retention are not erased,
@@ -327,7 +327,7 @@ starts a simulated state that exists only in the open browser tab and is marked
 - **Budget status not available.** The card can switch to the OpenCode case:
   OpenCode reports no budget, missing data is not read as a used-up quota, and
   messages are sent as usual.
-- **Refresh and reset.** *Refresh* updates the waited time; *Reset* ends the
+- **Refresh and reset.** _Refresh_ updates the waited time; _Reset_ ends the
   demo. Nothing is sent again on its own; sending the message again is the
   person's own action.
 
@@ -374,7 +374,7 @@ configurations stay untouched.
 
 **Protection in the product.** Pages has no function that edits, replaces or
 deletes the files: no page, settings field, API route, Agent API or MCP
-operation, and no Pica action. *Settings › System › Chat assistant Pica* keeps
+operation, and no Pica action. _Settings › System › Chat assistant Pica_ keeps
 only an optional supplementary instruction in the database. It stands below the
 protected files with the note that it cannot override them, and an empty field
 removes it. Chat messages, attachments and action results reach the model as

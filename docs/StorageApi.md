@@ -431,12 +431,12 @@ An administrator of the Google Cloud project creates the client:
 1. In the [Google Cloud console](https://console.cloud.google.com/) choose or
    create the project of the instance and enable the **Google Drive API**
    (APIs & Services → Library).
-2. **OAuth consent screen / Google Auth Platform:** user type *External* (or
-   *Internal* for a Workspace organization), app name, support address. Add the
+2. **OAuth consent screen / Google Auth Platform:** user type _External_ (or
+   _Internal_ for a Workspace organization), app name, support address. Add the
    scopes `https://www.googleapis.com/auth/drive.file` and, for the folder
    navigation of Storage, `https://www.googleapis.com/auth/drive.readonly`
    (PAGE-188), nothing else.
-3. **Clients:** create an OAuth client of the type *Web application* with the
+3. **Clients:** create an OAuth client of the type _Web application_ with the
    authorized redirect URIs of every address Pages is reached at, exactly and
    without wildcards:
    `https://<public address>/settings-api/google-drive/callback` (the HTTPS
@@ -493,9 +493,9 @@ example through an SSH port forward.
 - Google can end the access at any time: the account owner revokes it, the
   token is unused for six months, or the account exceeds the refresh token
   limit per client. **While the OAuth app is in the publishing status
-  *Testing* with user type *External*, Google lets refresh tokens expire after
+  _Testing_ with user type _External_, Google lets refresh tokens expire after
   7 days.** A lasting connection needs
-  the status *In production* (or an *Internal* Workspace app); `drive.file` is a
+  the status _In production_ (or an _Internal_ Workspace app); `drive.file` is a
   non-sensitive scope and needs no Google security assessment for that.
   `drive.readonly` is a restricted scope: an unverified client in production
   shows Google's warning and its user limit during the consent, which is enough

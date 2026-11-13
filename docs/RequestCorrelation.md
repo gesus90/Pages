@@ -156,13 +156,13 @@ emit safe trace metadata; the old `PAGES_CACHE_DEBUG` minimum no longer filters 
 lists exactly five read-only status routes. Only GET/HEAD requests qualify;
 React Router's equivalent `.data` URLs and a trailing slash use the same policy.
 
-| Route | Caller / purpose |
-| --- | --- |
-| `/account-version` | Authorization refresh every 5 seconds per browser tab and on focus |
-| `/health` | Reverse-proxy / uptime heartbeat |
-| `/agent-api/resources` | ACP occupancy diagnostics every 5 seconds |
-| `/agent-api/plan-runs` | Active/paused plan status every second |
-| `/settings-api/agents/:connectionId/login` | Pending CLI login status every 2 seconds |
+| Route                                      | Caller / purpose                                                   |
+| ------------------------------------------ | ------------------------------------------------------------------ |
+| `/account-version`                         | Authorization refresh every 5 seconds per browser tab and on focus |
+| `/health`                                  | Reverse-proxy / uptime heartbeat                                   |
+| `/agent-api/resources`                     | ACP occupancy diagnostics every 5 seconds                          |
+| `/agent-api/plan-runs`                     | Active/paused plan status every second                             |
+| `/settings-api/agents/:connectionId/login` | Pending CLI login status every 2 seconds                           |
 
 For these routes, HTTP 2xx/3xx (including 304) below **250 ms** produce no
 `http.request.started/completed`, successful `route.loader.*`/control-response

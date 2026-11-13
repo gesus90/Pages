@@ -169,13 +169,13 @@ opposed to `open`). Pages does not read or write the custom **Status** field of 
 GitHub Projects (V2) board, so a board column has no effect on a ticket, and a
 ticket never moves a card.
 
-| Pages ticket                               | GitHub issue at the next sync |
-| ------------------------------------------ | ----------------------------- |
-| active, status **Done**                    | closed                        |
-| active, any other status                   | open                          |
-| archived, whatever its workflow status     | closed                        |
-| restored, status other than **Done**       | reopened                      |
-| restored, status **Done**                  | stays closed                  |
+| Pages ticket                           | GitHub issue at the next sync |
+| -------------------------------------- | ----------------------------- |
+| active, status **Done**                | closed                        |
+| active, any other status               | open                          |
+| archived, whatever its workflow status | closed                        |
+| restored, status other than **Done**   | reopened                      |
+| restored, status **Done**              | stays closed                  |
 
 - **Archiving** stays its own state in Pages. It does not change the workflow
   status and neither deletes nor unlinks the issue; the issue is only closed.
@@ -220,12 +220,12 @@ instance. Projects never ask for credentials.
 4. Set these environment variables on the Pages server and restart it (see
    [.env.example](../.env.example)):
 
-| Variable                       | Value                                                              |
-| ------------------------------ | ------------------------------------------------------------------ |
-| `PAGES_DISCORD_APPLICATION_ID` | Application ID (the OAuth2 client ID)                              |
-| `PAGES_DISCORD_CLIENT_SECRET`  | OAuth2 client secret                                               |
-| `PAGES_DISCORD_BOT_TOKEN`      | Bot token                                                          |
-| `PAGES_PUBLIC_URL`             | Optional. Public address of Pages, for example behind a proxy      |
+| Variable                       | Value                                                         |
+| ------------------------------ | ------------------------------------------------------------- |
+| `PAGES_DISCORD_APPLICATION_ID` | Application ID (the OAuth2 client ID)                         |
+| `PAGES_DISCORD_CLIENT_SECRET`  | OAuth2 client secret                                          |
+| `PAGES_DISCORD_BOT_TOKEN`      | Bot token                                                     |
+| `PAGES_PUBLIC_URL`             | Optional. Public address of Pages, for example behind a proxy |
 
 Without all three secrets, the Discord panel of a project explains which
 variables are missing and offers no way to connect. The values stay in the

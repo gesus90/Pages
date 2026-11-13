@@ -190,11 +190,11 @@ select an additional asset parameter. At execution, Pages resolves it to:
 }
 ```
 
-| Placeholder | Instruction text | Separate file delivery |
-| --- | --- | --- |
-| `{{ticket.description}}` | Exact complete description | None |
-| `{{ticket.assets}}` | Asset references with parameter name, ticket ID and key | All ticket assets |
-| `{{ticket}}` | Compatible complete ticket text, including title and stored criteria | All ticket assets |
+| Placeholder              | Instruction text                                                     | Separate file delivery |
+| ------------------------ | -------------------------------------------------------------------- | ---------------------- |
+| `{{ticket.description}}` | Exact complete description                                           | None                   |
+| `{{ticket.assets}}`      | Asset references with parameter name, ticket ID and key              | All ticket assets      |
+| `{{ticket}}`             | Compatible complete ticket text, including title and stored criteria | All ticket assets      |
 
 The same syntax works with any declared ticket parameter name, such as
 `{{referenz.description}}` and `{{referenz.assets}}`. Substitution happens only
@@ -923,19 +923,19 @@ The inventory below is from the domain definitions, editor, input readers,
 repository, permission service and run views on the PAGE-86 base. It describes
 the preserved contracts, not a claim that a live database roundtrip was run.
 
-| Model or behavior | Preserved contract |
-| --- | --- |
-| Start / End | Stored IDs and coordinates; only Flow OUT / IN respectively; completed checkpoints turn green, other checkpoints stay neutral. |
-| Agent | Independent configuration (name/revision, model grant, model, provider, reasoning, complete template and run options), personal assignment, instruction, completion scope and bindings. |
-| Ticket | Task reference and live workflow badge; a value source with no flow ports; legacy ticket-to-text bindings remain supported. |
-| Parameter | Name, format (string/number/JSON), typed text/number/ticket/workspace/wiki value and data output. |
-| Variable | Legacy named global text value and data output. |
-| Group | Name, position, ordered membership records, member-relative coordinates, explicit internal edges (or existing legacy-chain reading), retained legacy boundary metadata, direct member bindings and shared-session display. |
-| Flow | Outer and internal edges remain separate; only same-level flow ports connect; duplicate edges and cycles are refused. |
-| Data | Literal bindings stay in the model; source bindings refer directly to value nodes; legacy group aliases are resolved on read; result bindings retain predecessor/path requirements. Data never becomes a scheduling edge. |
-| Editing | Existing source filters, button/drag insertion, copied template defaults, movement, selection, node dialog, inspector, group assignment/removal choice, disconnect and node removal remain attached to domain actions. Double-click still opens the PAGE-86 node/group console. |
-| Runs | Waiting/running/succeeded/failed/paused/cancelled, blocked/cancellation diagnostics, group sessions, historical runs, progress, console and run controls keep their existing meanings. |
-| Access and persistence | Owner-only editing, executor-only run access, server authorization, optimistic revisions, Save/Play payloads, dirty-draft leave guard, in-flight edit preservation and run polling retain their existing implementations. |
+| Model or behavior      | Preserved contract                                                                                                                                                                                                                                                              |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Start / End            | Stored IDs and coordinates; only Flow OUT / IN respectively; completed checkpoints turn green, other checkpoints stay neutral.                                                                                                                                                  |
+| Agent                  | Independent configuration (name/revision, model grant, model, provider, reasoning, complete template and run options), personal assignment, instruction, completion scope and bindings.                                                                                         |
+| Ticket                 | Task reference and live workflow badge; a value source with no flow ports; legacy ticket-to-text bindings remain supported.                                                                                                                                                     |
+| Parameter              | Name, format (string/number/JSON), typed text/number/ticket/workspace/wiki value and data output.                                                                                                                                                                               |
+| Variable               | Legacy named global text value and data output.                                                                                                                                                                                                                                 |
+| Group                  | Name, position, ordered membership records, member-relative coordinates, explicit internal edges (or existing legacy-chain reading), retained legacy boundary metadata, direct member bindings and shared-session display.                                                      |
+| Flow                   | Outer and internal edges remain separate; only same-level flow ports connect; duplicate edges and cycles are refused.                                                                                                                                                           |
+| Data                   | Literal bindings stay in the model; source bindings refer directly to value nodes; legacy group aliases are resolved on read; result bindings retain predecessor/path requirements. Data never becomes a scheduling edge.                                                       |
+| Editing                | Existing source filters, button/drag insertion, copied template defaults, movement, selection, node dialog, inspector, group assignment/removal choice, disconnect and node removal remain attached to domain actions. Double-click still opens the PAGE-86 node/group console. |
+| Runs                   | Waiting/running/succeeded/failed/paused/cancelled, blocked/cancellation diagnostics, group sessions, historical runs, progress, console and run controls keep their existing meanings.                                                                                          |
+| Access and persistence | Owner-only editing, executor-only run access, server authorization, optimistic revisions, Save/Play payloads, dirty-draft leave guard, in-flight edit preservation and run polling retain their existing implementations.                                                       |
 
 `plan-flow-model.ts` is a one-way rendering projection, not a new save format.
 It keeps references to Pages domain nodes and maps members to React Flow
@@ -950,13 +950,13 @@ of this migration. Project/milestone diagram implementations remain unchanged.
 
 Source comparison of the implemented interface (not screenshot evidence):
 
-| Before PAGE-87 | After PAGE-87 |
-| --- | --- |
-| Custom transformed canvas, pointer gestures and SVG curves | React Flow canvas, measured handles, native dragging, zoom/fit controls and MiniMap |
-| Floating configuration/source/run panels over a fading raster | Framed canvas with separate configuration, selection/source and run areas; collapsible narrow-screen panels |
-| Node title/type and custom port buttons | Symbol plus type/title hierarchy, semantic type border, existing run badge, 24px pointer handles and keyboard port buttons |
-| Custom curves for both connection kinds | Solid flow curves, dashed data paths, direction markers, named chips and a connection inspector |
-| Selection details inside the tab of the selected type | One inspector above independently usable source tabs; explicit draft/save/read-only/loading feedback |
+| Before PAGE-87                                                | After PAGE-87                                                                                                              |
+| ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Custom transformed canvas, pointer gestures and SVG curves    | React Flow canvas, measured handles, native dragging, zoom/fit controls and MiniMap                                        |
+| Floating configuration/source/run panels over a fading raster | Framed canvas with separate configuration, selection/source and run areas; collapsible narrow-screen panels                |
+| Node title/type and custom port buttons                       | Symbol plus type/title hierarchy, semantic type border, existing run badge, 24px pointer handles and keyboard port buttons |
+| Custom curves for both connection kinds                       | Solid flow curves, dashed data paths, direction markers, named chips and a connection inspector                            |
+| Selection details inside the tab of the selected type         | One inspector above independently usable source tabs; explicit draft/save/read-only/loading feedback                       |
 
 The superseded plan SVG renderer, line-action positioning, pointer/link/move
 gesture hooks and viewport implementation are removed. Shared domain editing,

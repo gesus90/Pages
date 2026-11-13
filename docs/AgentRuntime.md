@@ -230,15 +230,15 @@ transient unit of the server account's systemd user manager, named
 `pages-acp-<instance>-<random>.service` in `pages-acp.slice`. The unit is a
 cgroup of its own with hard limits:
 
-| Limit | Value | Why |
-| --- | --- | --- |
-| `MemoryMax` | infinity per worker | shared slice budget: 10G; see [Worker memory](AgentWorkerMemory.md) |
-| `MemorySwapMax` | infinity per worker | shared slice budget: 2G |
-| `OOMScoreAdjust` | 500 | prefer workers under host memory pressure |
-| `TasksMax` | 512 | processes and threads of the whole worker tree; measured ≤ 100 |
-| `CPUQuota` | 200 % | at most two of four cores |
-| `RuntimeMaxSec` | node deadline + 120 s, else 24 h | a backstop if Pages itself hangs |
-| `OOMPolicy=kill` | — | an exceeded limit ends the whole worker, inside its cgroup only |
+| Limit            | Value                            | Why                                                                 |
+| ---------------- | -------------------------------- | ------------------------------------------------------------------- |
+| `MemoryMax`      | infinity per worker              | shared slice budget: 10G; see [Worker memory](AgentWorkerMemory.md) |
+| `MemorySwapMax`  | infinity per worker              | shared slice budget: 2G                                             |
+| `OOMScoreAdjust` | 500                              | prefer workers under host memory pressure                           |
+| `TasksMax`       | 512                              | processes and threads of the whole worker tree; measured ≤ 100      |
+| `CPUQuota`       | 200 %                            | at most two of four cores                                           |
+| `RuntimeMaxSec`  | node deadline + 120 s, else 24 h | a backstop if Pages itself hangs                                    |
+| `OOMPolicy=kill` | —                                | an exceeded limit ends the whole worker, inside its cgroup only     |
 
 The shared slice budget and OOM behavior are described in
 [Worker memory](AgentWorkerMemory.md), the current authority for memory limits.
@@ -405,10 +405,10 @@ The existing Claude ACP adapter remains an externally provisioned dependency;
 PAGE-69 adds no new Claude/OpenCode adapter. Pages continues to start its process
 for each authorized session and use the connection's isolated sign-in.
 
-| Runner      | Package                                  | Executable         | Pages accepts   | Verified with |
-| ----------- | ---------------------------------------- | ------------------ | --------------- | ------------- |
-| Codex CLI   | `@agentclientprotocol/codex-acp`         | `codex-acp`        | 2.1.1 up to 3.0 | 2.2.2         |
-| Claude Code | `@agentclientprotocol/claude-agent-acp`  | `claude-agent-acp` | 0.90.x          | 0.90.0        |
+| Runner      | Package                                 | Executable         | Pages accepts   | Verified with |
+| ----------- | --------------------------------------- | ------------------ | --------------- | ------------- |
+| Codex CLI   | `@agentclientprotocol/codex-acp`        | `codex-acp`        | 2.1.1 up to 3.0 | 2.2.2         |
+| Claude Code | `@agentclientprotocol/claude-agent-acp` | `claude-agent-acp` | 0.90.x          | 0.90.0        |
 
 For the external Claude adapter only, an operator can install the fixed package
 into a dedicated directory owned by the service account and add its `.bin`
@@ -418,7 +418,6 @@ directory to the service PATH:
 npm install --prefix /srv/pages-external-acp @agentclientprotocol/claude-agent-acp@0.90.0
 # Add /srv/pages-external-acp/node_modules/.bin to the Pages service PATH.
 ```
-
 
 The adapter packages a Claude CLI binary of its own, which Pages never uses:
 it always points the adapter at the `claude` CLI of the host
@@ -480,12 +479,12 @@ sibling `<runId>.paused` markers remain untouched. Pages no longer cleans them
 up automatically. Any later deletion requires separate operator approval.
 Prompt and final-answer archiving keeps its existing behavior.
 
-| Run record or error                                      | Cause and remedy                                                                 |
-| -------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| `agent_tool_not_ready` | The run events name a tool and concrete readiness cause; inspect Settings → Agents → Tools. |
-| `plan_acp_adapter_missing`, `plan_claude_acp_adapter_missing` | Check the managed Codex installation, or the externally provisioned Claude ACP adapter. |
-| `plan_acp_adapter_unsupported`, `plan_claude_acp_adapter_unsupported` | The run record names the installed adapter and the verified range. |
-| `plan_yolo_isolation_unavailable`                        | bubblewrap is missing or user namespaces are off. Install or allow it.           |
-| `plan_permission_mode_unenforceable`                     | The adapter did not offer or confirm the mode, for Claude Code for example a managed setting that disables `bypassPermissions`, or a server running as root. |
-| `plan_model_unavailable`, `plan_reasoning_unsupported`   | The runner does not offer the stored model or effort. Choose another in the agent. |
-| `codex_permission_mode_required`, `claude_permission_mode_required` | An agent saved with the earlier write mode needs a chosen mode.   |
+| Run record or error                                                   | Cause and remedy                                                                                                                                             |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `agent_tool_not_ready`                                                | The run events name a tool and concrete readiness cause; inspect Settings → Agents → Tools.                                                                  |
+| `plan_acp_adapter_missing`, `plan_claude_acp_adapter_missing`         | Check the managed Codex installation, or the externally provisioned Claude ACP adapter.                                                                      |
+| `plan_acp_adapter_unsupported`, `plan_claude_acp_adapter_unsupported` | The run record names the installed adapter and the verified range.                                                                                           |
+| `plan_yolo_isolation_unavailable`                                     | bubblewrap is missing or user namespaces are off. Install or allow it.                                                                                       |
+| `plan_permission_mode_unenforceable`                                  | The adapter did not offer or confirm the mode, for Claude Code for example a managed setting that disables `bypassPermissions`, or a server running as root. |
+| `plan_model_unavailable`, `plan_reasoning_unsupported`                | The runner does not offer the stored model or effort. Choose another in the agent.                                                                           |
+| `codex_permission_mode_required`, `claude_permission_mode_required`   | An agent saved with the earlier write mode needs a chosen mode.                                                                                              |
