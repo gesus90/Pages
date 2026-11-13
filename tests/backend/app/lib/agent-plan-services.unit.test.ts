@@ -1,5 +1,6 @@
 import { AgentPlanAgentTodoService } from "@/backend/service/agents/AgentPlanAgentTodoService";
 import { AgentPlanStepProgressService } from "@/backend/service/agents/AgentPlanStepProgressService";
+import { AgentPlanStartResources } from "@/backend/service/agents/AgentPlanStartResources";
 import "./agent-plan-services-mocks";
 import { beforeEach, expect, it, vi } from "vitest";
 
@@ -256,6 +257,7 @@ it("wires the plan service on one access, preparation and engine", async () => {
   expect(options).toEqual({
     diagnosisStores: expect.any(Object) as unknown,
     starters: { displayName: expect.any(Function) as unknown },
+    startResources: expect.any(AgentPlanStartResources) as unknown,
     workGate: vi.mocked(AgentPlanWorkGate).mock.instances[1],
     stepProgress: expect.any(AgentPlanStepProgressService) as unknown,
     agentTodos: expect.any(AgentPlanAgentTodoService) as unknown,
@@ -362,6 +364,7 @@ it("drives runs with the engine and reports engine activity to the runners", asy
     decisions: expect.any(Object) as unknown,
     swarms: expect.any(Object) as unknown,
     runs: only(vi.mocked(AgentPlanRunRepository)),
+    startResources: expect.any(AgentPlanStartResources) as unknown,
     start,
     resources: agents.acpResourceScheduler,
     steps: only(vi.mocked(AgentPlanStepRunner)),
