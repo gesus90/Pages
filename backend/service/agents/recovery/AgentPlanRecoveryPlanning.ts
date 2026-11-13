@@ -126,9 +126,18 @@ export function resumeOption(
 ): AgentPlanRecoveryOption {
   const restart = restartOption(facts);
   if (!restart.available) return restart;
-  if (facts.latest && facts.latest.id !== facts.run.id && isActivePlanRun(facts.latest.status))
-    return blocked("plan_run_active");
+  return resumeRunBlock(facts) ?? resumeHistoryBlock(facts, plan) ?? AVAILABLE;
+}
+
+/** Why the ended run itself cannot be continued, or `null` when it can. */
+function resumeRunBlock(facts: RecoveryFacts): AgentPlanRecoveryOption | null {
   const { run } = facts;
+  if (
+    facts.latest &&
+    facts.latest.id !== run.id &&
+    isActivePlanRun(facts.latest.status)
+  )
+    return blocked("plan_run_active");
   if (isActivePlanRun(run.status) || facts.isEngineActive !== false)
     return blocked("run_active");
   if (run.status === "succeeded") return blocked("succeeded");
@@ -139,11 +148,20 @@ export function resumeOption(
     return blocked("no_safe_state");
   if (continuedRun(facts.executions) !== null)
     return blocked("already_continued");
+  return null;
+}
+
+/** Why the plan's rounds or checkpoints cannot be taken over, or `null` when they can. */
+function resumeHistoryBlock(
+  facts: RecoveryFacts,
+  plan: ResumePlan,
+): AgentPlanRecoveryOption | null {
   // A cycle's earlier rounds are not part of a checkpoint, so no result of it can be taken over.
   if (facts.hasBranching) return blocked("branching_unsupported");
-  if (facts.latest && facts.latest.id !== run.id) return blocked("superseded");
+  if (facts.latest && facts.latest.id !== facts.run.id)
+    return blocked("superseded");
   if (plan.unverifiedStepIds.length > 0) return blocked("checkpoint_mismatch");
-  return AVAILABLE;
+  return null;
 }
 
 /** A release is offered only while the ended run still holds working copies. */

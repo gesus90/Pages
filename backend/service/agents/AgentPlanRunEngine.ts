@@ -65,7 +65,6 @@ import type { PlanInstructionWork } from "./AgentPlanInstructionControl";
 import type { PlanSessionTurn } from "@/backend/agents/AgentPlanExecution";
 import type { ActivePlanRun } from "./AgentPlanRunState";
 import type { DatabaseLogMetrics } from "@/backend/logging/DatabaseLogMetrics";
-import type { DatabaseTransaction } from "@/backend/database/Database";
 import type {
   AgentPlanNode,
   AgentPlanRun,
@@ -73,20 +72,10 @@ import type {
 } from "@/definition/AgentPlan";
 import type { AgentPlanSessionRecord } from "@/definition/AgentPlanSession";
 import type { AgentPlanSnapshot } from "./AgentPlanSnapshot";
+import type { AgentPlanRunRecording } from "./AgentPlanEngineDependencies";
 import type { EngineDependencies } from "./AgentPlanEngineDependencies";
 
 export type { EngineDependencies } from "./AgentPlanEngineDependencies";
-
-/**
- * Creates the record of a new run inside a transaction that the caller opens.
- *
- * @remarks
- * The caller passes `create` the transaction in which it stores its own
- * changes; a failure of either rolls both back.
- */
-export type AgentPlanRunRecording = (
-  create: (transaction: DatabaseTransaction) => Promise<void>,
-) => Promise<void>;
 
 /** Label of the database jobs of plan runs in the write-ahead log counters. */
 const PLAN_RUN_ORIGIN = "plan_run";
@@ -107,7 +96,9 @@ export class AgentPlanRunEngine {
   public constructor(dependencies: EngineDependencies) {
     this.dependencies = dependencies;
     this.starts = new AgentPlanEngineStarts({
-      dependencies, active: this.active, writes: this.writes,
+      dependencies,
+      active: this.active,
+      writes: this.writes,
       reset: (id, record) => this.resetLogical(id, record),
     });
     this.isSchedulingEnabled = !dependencies.deferScheduling;
@@ -165,8 +156,10 @@ export class AgentPlanRunEngine {
     journal: AgentPlanRunJournal,
   ): Promise<AgentPlanRun> {
     if (this.isClosing) throw new AgentError("plan_access_denied");
-    return this.starts.run(recoveredPlanRun(userId, snapshot, recovered), snapshot, (run) =>
-      this.launch(run, snapshot, { journal }),
+    return this.starts.run(
+      recoveredPlanRun(userId, snapshot, recovered),
+      snapshot,
+      (run) => this.launch(run, snapshot, { journal }),
     );
   }
 
@@ -176,7 +169,10 @@ export class AgentPlanRunEngine {
   }
 
   /** Retires writers for a separate API producer before its run admission transaction. */
-  public async prepareStartResources(start: AgentPlanResourceStart, keys: readonly string[]): Promise<readonly string[]> {
+  public async prepareStartResources(
+    start: AgentPlanResourceStart,
+    keys: readonly string[],
+  ): Promise<readonly string[]> {
     return this.starts.prepare(start, keys);
   }
 

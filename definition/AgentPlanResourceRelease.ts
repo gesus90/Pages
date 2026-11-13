@@ -34,7 +34,11 @@ export const planResourceStartSchema = z.object({
   sourceRunId: z.string().min(1).max(200).optional(),
 });
 
-export type AgentPlanReleasedProcess = z.infer<typeof planReleasedProcessSchema>;
-export type AgentPlanResourceRelease = z.infer<typeof planResourceReleaseSchema>;
+export type AgentPlanReleasedProcess = z.infer<
+  typeof planReleasedProcessSchema
+>;
+export type AgentPlanResourceRelease = z.infer<
+  typeof planResourceReleaseSchema
+>;
 export type AgentPlanStartOwner = z.infer<typeof planStartOwnerSchema>;
 export type AgentPlanResourceStart = z.infer<typeof planResourceStartSchema>;

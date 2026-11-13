@@ -44,28 +44,48 @@ export function readPlanRun(input: unknown): AgentPlanRun {
       ? {}
       : { endedAt: readPlanText(run.endedAt) }),
     ...readRunCommand(run.command),
+    ...readOptionalRunFields(run),
     planRevision,
     status,
     stopRequested,
-    ...(run.resourceReleases === undefined ? {} : {
-      resourceReleases: planResourceReleaseSchema.array().parse(run.resourceReleases),
-    }),
-    ...(run.startCleanupUnconfirmed === undefined ? {} : {
-      startCleanupUnconfirmed: readCleanupWarnings(run.startCleanupUnconfirmed),
-    }),
     ...readWriterWait(run, { status, stopRequested }),
+    ...readPlanPauseBoundary(run.pauseBoundary),
+    ...readPlanContinuation(run.continuation),
+    steps: run.steps.map(readPlanStepResult),
+  };
+}
+
+/** Reads the fields a persisted view has only in some states, and leaves out the others. */
+function readOptionalRunFields(
+  run: Record<string, unknown>,
+): Partial<AgentPlanRun> {
+  return {
+    ...(run.endedAt === undefined
+      ? {}
+      : { endedAt: readPlanText(run.endedAt) }),
+    ...(run.resourceReleases === undefined
+      ? {}
+      : {
+          resourceReleases: planResourceReleaseSchema
+            .array()
+            .parse(run.resourceReleases),
+        }),
+    ...(run.startCleanupUnconfirmed === undefined
+      ? {}
+      : {
+          startCleanupUnconfirmed: readCleanupWarnings(
+            run.startCleanupUnconfirmed,
+          ),
+        }),
     ...(run.controlError === "plan_step_failed"
       ? { controlError: run.controlError }
       : {}),
-    ...readPlanPauseBoundary(run.pauseBoundary),
-    ...readPlanContinuation(run.continuation),
     ...(run.recovery === undefined
       ? {}
       : { recovery: readPlanRecoveryReason(run.recovery) }),
     ...(run.origin === undefined
       ? {}
       : { origin: readPlanRunOrigin(run.origin) }),
-    steps: run.steps.map(readPlanStepResult),
     ...(run.loops === undefined ? {} : { loops: readPlanLoopRuns(run.loops) }),
     ...(run.stacks === undefined
       ? {}

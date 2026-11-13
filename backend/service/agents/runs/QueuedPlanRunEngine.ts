@@ -27,7 +27,7 @@ import type {
   PlanRunCommandAction,
   PlanRunCommandReceipt,
 } from "@/definition/PagesRuns";
-import type { AgentPlanRunRecording } from "../AgentPlanRunEngine";
+import type { AgentPlanRunRecording } from "../AgentPlanEngineDependencies";
 import type { AgentPlanRunJournal } from "../AgentPlanJournal";
 import type { AgentPlanSnapshot } from "../AgentPlanSnapshot";
 import type { RecoveredRunStart } from "../AgentPlanRunStart";
@@ -176,11 +176,16 @@ export class QueuedPlanRunEngine implements PlanRunEnginePort {
         const resources = new AgentPlanStartResources({
           repository: new AgentPlanStartResourceRepository(this.database),
         });
-        warnings = await resources.release(view, snapshot, async (_id, record) => {
-          await record();
-        });
+        warnings = await resources.release(
+          view,
+          snapshot,
+          async (runId, record) => {
+            await record();
+          },
+        );
       }
-      if (warnings.length) view = { ...view, startCleanupUnconfirmed: warnings };
+      if (warnings.length)
+        view = { ...view, startCleanupUnconfirmed: warnings };
     }
     const captured = capturePlanExecution(view, snapshot);
     const receipt = this.commands.receipt(view.id, "start");

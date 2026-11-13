@@ -339,8 +339,11 @@ export class LocalSessions {
   /** Retires observers after an explicit forced start; the durable journal records any cleanup uncertainty. */
   public async forgetForcedRun(runId: string): Promise<void> {
     await forgetForcedLocalRun(runId, {
-      entries: this.entries, attached: this.attached, proven: this.proven,
-      uncertain: this.uncertain, release: (entry) => this.release(entry),
+      entries: this.entries,
+      attached: this.attached,
+      proven: this.proven,
+      uncertain: this.uncertain,
+      release: (entry) => this.release(entry),
     });
   }
 

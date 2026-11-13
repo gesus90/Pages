@@ -86,14 +86,22 @@ export class AgentEnvironmentMaintenance {
           !children.some((entry) => entry.name === name && entry.isDirectory())
         )
           continue;
-        for (const entry of await entries(folder)) {
-          if (name === "claude" && entry.name === ".credentials.json") continue;
-          await rm(path.join(folder, entry.name), {
-            recursive: true,
-            force: true,
-          });
-        }
+        await this.emptyFolder(folder, name === "claude");
       }
+    }
+  }
+
+  /** Removes every child of a folder; the Claude folder keeps its credentials file. */
+  private async emptyFolder(
+    folder: string,
+    keepsCredentials: boolean,
+  ): Promise<void> {
+    for (const entry of await entries(folder)) {
+      if (keepsCredentials && entry.name === ".credentials.json") continue;
+      await rm(path.join(folder, entry.name), {
+        recursive: true,
+        force: true,
+      });
     }
   }
 }

@@ -446,18 +446,7 @@ export class AgentPlanProgressRepository {
     requireSettledWork(previous, run, checkpoint);
     const revision = previous.revision + 1;
     if (checkpoint) {
-      const step = run.steps.find((entry) => entry.id === checkpoint.stepId);
-      if (
-        checkpoint.runId !== run.id ||
-        checkpoint.planId !== run.planId ||
-        checkpoint.planRevision !== run.planRevision ||
-        checkpoint.snapshotDigest !== planContentDigest(previous.snapshot) ||
-        step?.status !== "succeeded" ||
-        checkpoint.result.isOutputReduced !==
-          (checkpoint.result.output !== step.output) ||
-        checkpoint.result.outputDigest !== planContentDigest(step.output)
-      )
-        throw new AgentPlanRecoveryError("checkpoint_invalid");
+      requireCheckpointMatches(previous, run, checkpoint);
       await this.checkpoints.append(transaction, checkpoint, revision);
     }
     for (const iteration of loopIterationCheckpoints(previous.run, run))
@@ -493,4 +482,24 @@ export class AgentPlanProgressRepository {
       return Promise.resolve();
     });
   }
+}
+
+/** A checkpoint must describe the succeeded step of this run with the exact output it stored. */
+function requireCheckpointMatches(
+  previous: StoredProgress,
+  run: AgentPlanRun,
+  checkpoint: AgentPlanCheckpointInput,
+): void {
+  const step = run.steps.find((entry) => entry.id === checkpoint.stepId);
+  if (
+    checkpoint.runId !== run.id ||
+    checkpoint.planId !== run.planId ||
+    checkpoint.planRevision !== run.planRevision ||
+    checkpoint.snapshotDigest !== planContentDigest(previous.snapshot) ||
+    step?.status !== "succeeded" ||
+    checkpoint.result.isOutputReduced !==
+      (checkpoint.result.output !== step.output) ||
+    checkpoint.result.outputDigest !== planContentDigest(step.output)
+  )
+    throw new AgentPlanRecoveryError("checkpoint_invalid");
 }

@@ -11,10 +11,25 @@ import type { AgentRunArchive } from "./AgentRunArchive";
 import type { AcpResourceScheduler } from "./AcpResourceScheduler";
 import type { AgentDefinitionFiles } from "./AgentDefinitionFiles";
 import type { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
+import type { DatabaseTransaction } from "@/backend/database/Database";
 
 /** Runtime boundaries shared with the run command aggregate. */
+/**
+ * Creates the record of a new run inside a transaction that the caller opens.
+ *
+ * @remarks
+ * The caller passes `create` the transaction in which it stores its own
+ * changes; a failure of either rolls both back.
+ */
+export type AgentPlanRunRecording = (
+  create: (transaction: DatabaseTransaction) => Promise<void>,
+) => Promise<void>;
+
 export interface EngineDependencies {
-  readonly startResources?: Pick<AgentPlanStartResources, "release" | "releaseResources" | "reconcile">;
+  readonly startResources?: Pick<
+    AgentPlanStartResources,
+    "release" | "releaseResources" | "reconcile"
+  >;
   /** Startup restores state and consumes pending controls before releasing dispatch. */
   readonly deferScheduling?: boolean;
   readonly localSessions?: LocalSessions;

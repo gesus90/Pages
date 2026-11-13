@@ -1,7 +1,7 @@
 import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 
 import type { PicaAcpJobDependencies } from "./PicaAcpJobDependencies";
-import type { PicaAcpJobSpecification } from "./PicaAcpJob";
+import type { PicaAcpJobSpecification } from "./PicaAcpJobSpecification";
 
 /**
  * Runs one step of a job's closeout.
@@ -54,4 +54,22 @@ export async function savePicaAcpSession(
     acpSessionId,
     throughMessageId: messages.at(-1)?.id ?? null,
   });
+}
+
+/**
+ * Hands the last message of a completed job to the consumer of answers.
+ *
+ * @param dependencies - The message store and the consumer of answers.
+ * @param sessionId - The conversation of the job.
+ * @param completed - Whether the job completed; a stopped or failed job hands over nothing.
+ */
+export async function consumePicaAcpAnswer(
+  dependencies: Pick<PicaAcpJobDependencies, "messages" | "consumeAnswer">,
+  sessionId: string,
+  completed: boolean,
+): Promise<void> {
+  const messages = await dependencies.messages.messages(sessionId);
+  const answer = messages.at(-1);
+  if (completed && answer?.role === "assistant")
+    await dependencies.consumeAnswer?.(answer.content);
 }

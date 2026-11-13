@@ -18,15 +18,19 @@ import {
 import { PicaAcpJournal } from "./PicaAcpJournal";
 import { PicaAcpCredential } from "./PicaAcpCredential";
 import { PicaAcpUsage } from "./PicaAcpUsage";
-import { attemptPicaCloseoutStep, savePicaAcpSession } from "./PicaAcpCloseout";
+import {
+  attemptPicaCloseoutStep,
+  consumePicaAcpAnswer,
+  savePicaAcpSession,
+} from "./PicaAcpCloseout";
 import { PicaAcpAnswerOutput } from "./PicaAcpAnswerOutput";
+import { PicaAcpAnswerStore } from "./PicaAcpAnswerStore";
 import { PicaAcpSelections } from "./PicaAcpSelections";
 import { PicaAcpSteering } from "./PicaAcpSteering";
 import { PicaAcpToolTurns } from "./PicaAcpToolTurns";
 import { PicaAcpThreadWatch } from "./PicaAcpThreadWatch";
 import {
   picaAcpOutcome,
-  readAnswer,
   requireCompleted,
   turnBeganEvent,
 } from "./PicaAcpTurnResult";
@@ -46,48 +50,23 @@ import type {
 import type { RuntimeExecutionContext } from "@/backend/agents/runtime/RuntimeExecutionContext";
 import type { NewChatMessage } from "@/backend/database/repositories/chat/ChatSessionRepository";
 import type { AgentPlanExecutionInput } from "@/backend/service/agents/AgentPlanStepStart";
-import type { ResolvedAgentAssignment } from "@/backend/service/agents/AgentAssignmentResolution";
-import type { AgentRunOptions } from "@/definition/AgentConfiguration";
 import type { ChatSteerStatus } from "@/definition/ChatJob";
-import type { User } from "@/definition/User";
 import type { PicaMessageContent, PicaTurnBrief } from "./PicaAcpContent";
-import type { PicaAcpRunner } from "./PicaAcpRunners";
 import type { PicaAcpMessage } from "./PicaAcpSteering";
 import type { PicaAcpOutcome } from "./PicaAcpTurnResult";
 import type { PicaAcpJobDependencies } from "./PicaAcpJobDependencies";
-import type { PicaAcpJobPool, PicaAcpPooledInput } from "./PicaAcpPoolOpening";
+import type { PicaAcpPooledInput } from "./PicaAcpPoolOpening";
+import type { PicaAcpJobSpecification } from "./PicaAcpJobSpecification";
 
 export type { PicaAcpJobDependencies } from "./PicaAcpJobDependencies";
+export type {
+  PicaAcpJobSpecification,
+  PicaAcpRun,
+} from "./PicaAcpJobSpecification";
 
 /** What the agent reads after the person cancelled its running tool call. */
 const TOOL_CANCELLED_NOTE =
   "Die Person hat deinen laufenden Werkzeugaufruf abgebrochen. Starte ihn nicht erneut, sondern antworte mit dem bisherigen Stand und frag nach, wie es weitergehen soll.";
-
-/** The runner of a job and the run options it was validated with before anything was stored. */
-export interface PicaAcpRun {
-  readonly runner: PicaAcpRunner;
-  readonly options: AgentRunOptions;
-}
-
-/** One job: the conversation, the pinned agent and the message it answers. */
-export interface PicaAcpJobSpecification {
-  readonly id: string;
-  readonly actor: User;
-  readonly sessionId: string;
-  readonly agent: ResolvedAgentAssignment;
-  readonly run: PicaAcpRun;
-  /** The fixed working directory of the conversation. */
-  readonly directory: string;
-  readonly message: PicaAcpMessage;
-  /** Instructions and context with the transcript, for a new agent session. */
-  readonly brief: PicaTurnBrief;
-  /** The agent session to continue; `null` starts a new one. */
-  readonly resumeSessionId: string | null;
-  /** Runs a task in the queue of the conversation. */
-  readonly gate: <Result>(task: () => Promise<Result>) => Promise<Result>;
-  /** The chat session of an agent employee kept between rounds (PAGE-335); absent opens one per job. */
-  readonly pool?: PicaAcpJobPool;
-}
 
 /**
  * One Pica answer over ACP that runs on the server with the assigned CLI
@@ -116,6 +95,7 @@ export class PicaAcpJob {
   private readonly credential: PicaAcpCredential;
   private readonly selections: PicaAcpSelections;
   private readonly answerOutput: PicaAcpAnswerOutput;
+  private readonly answerStore: PicaAcpAnswerStore;
   private isSteerBinding = false;
   private endedDuringSteer = false;
   private hasAdapterTurn = false;
@@ -149,6 +129,13 @@ export class PicaAcpJob {
       dependencies.answerFiles,
       specification,
     );
+    this.answerStore = new PicaAcpAnswerStore({
+      dependencies,
+      userId: this.userId,
+      sessionId: specification.sessionId,
+      journal: this.journal,
+      answers: this.answerOutput,
+    });
     this.toolTurns = new PicaAcpToolTurns(dependencies, (turn) =>
       this.answerOutput.runId(turn),
     );
@@ -196,7 +183,7 @@ export class PicaAcpJob {
     );
     this.steering = new PicaAcpSteering({
       gate: specification.gate,
-      status: (messageId, status) => this.recordSteer(messageId, status),
+      status: (messageId, status) => this.answerStore.steer(messageId, status),
       isTurnRunning: () =>
         this.isTurnRunning &&
         this.session !== null &&
@@ -616,29 +603,7 @@ export class PicaAcpJob {
     ending: Pick<NewChatMessage, "isStopped"> = {},
   ): Promise<string> {
     await this.credential.requireLease().settle(this.turn);
-    await this.answerOutput.settle(this.turn);
-    const content = readAnswer(output);
-    const message = await this.dependencies.messages.append(
-      this.userId,
-      this.specification.sessionId,
-      { role: "assistant", content, ...ending },
-    );
-    // Files of this turn are linked before the answer event, so the browser reads them with it.
-    await this.answerOutput.claim(this.turn, message.id);
-    await this.journal.record({
-      kind: "answer",
-      turn: this.turn,
-      messageId: message.id,
-    });
-    return message.id;
-  }
-
-  private async recordSteer(
-    messageId: string,
-    status: ChatSteerStatus,
-  ): Promise<void> {
-    await this.dependencies.steers.update(messageId, status);
-    await this.journal.record({ kind: "steer", messageId, status });
+    return this.answerStore.store(this.turn, output, ending);
   }
 
   private observer(): PlanSessionObserver {
@@ -692,12 +657,11 @@ export class PicaAcpJob {
         this.specification,
         this.acpSessionId,
       );
-      const messages = await this.dependencies.messages.messages(
+      await consumePicaAcpAnswer(
+        this.dependencies,
         this.specification.sessionId,
+        outcome.state === "completed",
       );
-      const answer = messages.at(-1);
-      if (outcome.state === "completed" && answer?.role === "assistant")
-        await this.dependencies.consumeAnswer?.(answer.content);
       if (this.isSessionClosed) await this.dependencies.workspaceClosed?.();
     });
     await attemptPicaCloseoutStep(() =>

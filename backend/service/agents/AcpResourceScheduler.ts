@@ -309,7 +309,8 @@ export class AcpResourceScheduler {
    */
   public async reconcile(runId?: string): Promise<number> {
     return reconcileAcpRun(runId, {
-      active: this.active, sessions: this.sessions,
+      active: this.active,
+      sessions: this.sessions,
       cleanup: (record, since) => this.cleanupRecord(record, since),
       finish: (id, confirmed) => this.finish(id, confirmed),
     });

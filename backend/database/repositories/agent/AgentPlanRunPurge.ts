@@ -164,7 +164,10 @@ async function purgeRun(
   // The failures of the run stay countable after it is gone (PAGE-307).
   await indexRunFailures(new AgentRunFailureRepository(database), runId);
   return database.transaction(async (transaction) => {
-    const [settled] = await transaction.query(SETTLED_RUN, { run_id: runId, preserve_released: preserveReleased });
+    const [settled] = await transaction.query(SETTLED_RUN, {
+      run_id: runId,
+      preserve_released: preserveReleased,
+    });
     if (!settled) return false;
     await deleteRun(transaction, runId);
     return true;
