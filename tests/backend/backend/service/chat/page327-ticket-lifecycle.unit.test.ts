@@ -332,11 +332,9 @@ it("pages only visible archived tickets and binds the cursor to the archive filt
       nextCursor: z.string(),
     })
     .parse(JSON.parse(first.result ?? "null"));
-  expect(page).toEqual({
-    total: 2,
-    tickets: [{ id: "task" }],
-    nextCursor: expect.any(String),
-  });
+  expect(page.total).toBe(2);
+  expect(page.tickets).toEqual([{ id: "task" }]);
+  expect(page.nextCursor.length).toBeGreaterThan(0);
   const next = await world.call("tickets_search", {
     projectId: "alpha",
     archived: true,
