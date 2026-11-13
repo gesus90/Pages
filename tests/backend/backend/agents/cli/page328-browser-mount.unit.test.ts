@@ -18,7 +18,11 @@ it("mounts only the job's private runtime directory read-only into Arbeitsplatz,
     chat: {
       browserStateDirectory: directory,
       resumeSessionId: null,
-      listener: { prompted: () => undefined, update: () => undefined },
+      listener: {
+        prompted: () => undefined,
+        update: () => undefined,
+        closed: () => undefined,
+      },
     },
   });
   const request = acpWorkerRequest({

@@ -53,14 +53,14 @@ it.each(["completed", "stopped", "failed"] as const)(
       job.complete({
         ...completedTurn(),
         failure: "failed",
-        errorCode: "providerFailed",
+        errorCode: "provider_unavailable",
       });
     else job.complete();
     await completion;
     expect(job.finish).toHaveBeenCalledWith(
       "job",
       outcome,
-      outcome === "failed" ? "providerFailed" : null,
+      outcome === "failed" ? "provider_unavailable" : null,
     );
     expect(runtimeFiles.contents.has(`${directory}/storage-state.json`)).toBe(
       false,
