@@ -26,6 +26,8 @@ it("binds folder grants to the Google account and current group, department and 
   expect(sql).toContain("user_group_members WHERE user_id = $user_id");
   expect(sql).toContain("department_members WHERE user_id = $user_id");
   expect(sql).toContain("user_authorization WHERE user_id = $user_id");
+  // PostgreSQL cannot type a parameter whose first use is `IS NULL`.
+  expect(sql).toContain("CAST($user_id AS TEXT) IS NULL");
   query.mockResolvedValueOnce([]);
   expect(await repository.grants("Conan", "other-google")).toEqual([]);
 });
@@ -57,6 +59,9 @@ it("writes actor identity and metadata to history without storing file content o
       createdAt: "2026-11-13",
     },
   ]);
+  expect(query.mock.calls[0]?.[0]).toContain(
+    "CAST($user_id AS TEXT) IS NULL OR actor_id = $user_id",
+  );
   expect(query.mock.calls[0]?.[1]).toEqual({
     user_id: "Ed",
     permission_id: "google",
