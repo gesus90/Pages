@@ -2,10 +2,14 @@ import { createServer } from "node:http";
 import { chmod, lstat, unlink } from "node:fs/promises";
 import { timingSafeEqual } from "node:crypto";
 
-import { AgentError } from "@/backend/error/AgentErrors";
+import { logEvent } from "@/backend/logging/Logger";
 
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 
+import {
+  LocalControlFailure,
+  localControlFailureCode,
+} from "./LocalControlFailure";
 import { localCommandSchema } from "./LocalSessionContracts";
 import { localSessionSocket } from "./LocalSessionTransport";
 
@@ -86,6 +90,7 @@ export class LocalOwnerHttp {
     request: IncomingMessage,
     response: ServerResponse,
   ): Promise<void> {
+    let kind: LocalSessionCommand["kind"] | "invalid" = "invalid";
     try {
       if (
         request.method !== "POST" ||
@@ -97,17 +102,18 @@ export class LocalOwnerHttp {
       }
       const body = await this.body(request);
       const command = localCommandSchema.parse(JSON.parse(body));
+      kind = command.kind;
       if (
         command.kind !== "attach" &&
         request.headers["x-pages-attachment"] !== this.attachment
       )
-        throw new Error("Stale local attachment");
+        throw new LocalControlFailure("stale_attachment");
       const result = await this.commands.run(async () => {
         if (
           command.kind !== "attach" &&
           request.headers["x-pages-attachment"] !== this.attachment
         )
-          throw new Error("Stale local attachment");
+          throw new LocalControlFailure("stale_attachment");
         return this.execute(command);
       });
       response.writeHead(200, {
@@ -120,12 +126,18 @@ export class LocalOwnerHttp {
         await this.release();
       }
     } catch (error: unknown) {
+      const code = localControlFailureCode(error);
+      logEvent({
+        level: "warn",
+        event: "local.control.rejected",
+        component: "LocalOwnerHttp",
+        message: "Local owner rejected a control command",
+        metadata: { kind, code },
+      });
       if (response.headersSent) {
         response.end();
         return;
       }
-      const code =
-        error instanceof AgentError ? error.code : "plan_local_control_failed";
       response.writeHead(409, {
         "content-type": "application/json",
         "cache-control": "no-store",
@@ -191,7 +203,8 @@ export class LocalOwnerHttp {
 
   private async confirmRelease(): Promise<unknown> {
     const closed = await this.session.close();
-    if (!closed.isConfirmed) throw new Error("Native cleanup is unconfirmed");
+    if (!closed.isConfirmed)
+      throw new LocalControlFailure("native_cleanup_unconfirmed");
     return { closed };
   }
 }

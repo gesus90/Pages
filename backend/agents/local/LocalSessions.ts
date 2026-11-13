@@ -2,6 +2,7 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { watch } from "node:fs/promises";
 import path from "node:path";
 
+import { settleWorkerUnits } from "@/backend/agents/cli/CliWorkerUnit";
 import { LocalSessionRepository } from "@/backend/database/repositories/agent/LocalSessionRepository";
 import { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
 import { requireAgentFiles } from "@/backend/storage/AgentPayloadFileStore";
@@ -20,7 +21,11 @@ import {
 import { LocalSessionJournal } from "./LocalSessionJournal";
 import { LocalSessionImport } from "./LocalSessionImport";
 import { LocalAttachedSession } from "./LocalAttachedSession";
-import { localManifestDigest, proveLocalOwner } from "./LocalSessionOwnership";
+import {
+  hasEndedLocalOwner,
+  localManifestDigest,
+  proveLocalOwner,
+} from "./LocalSessionOwnership";
 import {
   readLocalRecord,
   requireLocalDirectory,
@@ -542,10 +547,18 @@ export class LocalSessions {
     const entry = this.entries.get(instanceId);
     if (!entry) return null;
     if (entry.releasedAt) return true;
-    const owned = await proveLocalOwner(
-      this.requireEntry(instanceId),
-      this.directory(instanceId),
-    );
+    if (this.uncertain.has(instanceId)) return this.settleEndedOwner(entry);
+    let owned: Awaited<ReturnType<typeof proveLocalOwner>>;
+    try {
+      owned = await proveLocalOwner(
+        this.requireEntry(instanceId),
+        this.directory(instanceId),
+      );
+    } catch {
+      this.proven.delete(instanceId);
+      this.uncertain.add(instanceId);
+      return this.settleEndedOwner(entry);
+    }
     if (!this.attachments.has(instanceId)) {
       const token = randomUUID();
       await sendLocalCommand(owned.manifest, { kind: "attach", token });
@@ -559,14 +572,28 @@ export class LocalSessions {
     return closed.isConfirmed;
   }
 
+  private async settleEndedOwner(entry: LocalSessionEntry): Promise<boolean> {
+    const instanceId = entry.instanceId;
+    if (!(await hasEndedLocalOwner(entry, this.directory(instanceId))))
+      throw new AgentError("plan_local_owner_unverified");
+    if ((await settleWorkerUnits(instanceId)) !== 0) return false;
+    await this.recordReleased(entry);
+    return true;
+  }
+
   private async release(entry: LocalSessionEntry): Promise<void> {
     await this.control(entry, { kind: "release" });
+    await this.recordReleased(entry);
+  }
+
+  private async recordReleased(entry: LocalSessionEntry): Promise<void> {
     await this.owners.released(entry.instanceId);
     this.entries.set(entry.instanceId, {
       ...entry,
       releasedAt: new Date().toISOString(),
     });
     this.proven.delete(entry.instanceId);
+    this.uncertain.delete(entry.instanceId);
     this.attached.delete(entry.instanceId);
     this.input.tools.supervisor.release(entry.instanceId);
   }

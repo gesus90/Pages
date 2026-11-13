@@ -13,6 +13,7 @@ import {
 } from "@/backend/logging/Logger";
 
 import { planNodeOutcome } from "./AgentPlanNodeOutcome";
+import { persistPlanResourceWaits } from "./resources/PlanResourceWait";
 import {
   acquirePlanWriters,
   retireActivePredecessor,
@@ -119,6 +120,15 @@ export class AgentPlanRunEngine {
       isClosing: () => this.isClosing,
       pump: () => this.pump(),
     });
+    dependencies.resources?.setWaitObserver?.((waiting) =>
+      this.writes.run(() =>
+        persistPlanResourceWaits(
+          this.active.values(),
+          waiting,
+          dependencies.runs,
+        ),
+      ),
+    );
   }
 
   /**

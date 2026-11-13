@@ -2,7 +2,12 @@ import { request } from "node:http";
 import { createHash } from "node:crypto";
 
 import { logEvent } from "@/backend/logging/Logger";
-import { AgentError, isAgentErrorCode } from "@/backend/error/AgentErrors";
+import { AgentError } from "@/backend/error/AgentErrors";
+
+import {
+  LocalControlCommandError,
+  safeLocalControlCode,
+} from "./LocalControlFailure";
 
 import type {
   LocalSessionCommand,
@@ -26,6 +31,7 @@ export function sendLocalCommand(
 ): Promise<unknown> {
   return new Promise((resolve, reject) => {
     const body = JSON.stringify(command);
+    let statusCode: number | undefined;
     const outgoing = request(
       {
         socketPath: localSessionSocket(manifest),
@@ -39,12 +45,18 @@ export function sendLocalCommand(
         },
       },
       (response) => {
+        statusCode = response.statusCode;
         let received = "";
         response.setEncoding("utf8");
         response.on("data", (chunk: string) => {
-          received += chunk;
-          if (Buffer.byteLength(received) > 2 * 1024 * 1024)
+          if (
+            Buffer.byteLength(received) + Buffer.byteLength(chunk) >
+            2 * 1024 * 1024
+          ) {
             outgoing.destroy(new Error("Local control response is too large"));
+            return;
+          }
+          received += chunk;
         });
         response.on("error", () =>
           reject(localCommandFailure(command, response.statusCode, "")),
@@ -67,7 +79,7 @@ export function sendLocalCommand(
       outgoing.destroy(new Error("Local session control timed out")),
     );
     outgoing.on("error", () =>
-      reject(localCommandFailure(command, undefined, "")),
+      reject(localCommandFailure(command, statusCode, "")),
     );
     outgoing.end(body);
   });
@@ -79,26 +91,24 @@ function localCommandFailure(
   statusCode: number | undefined,
   body: string,
 ): AgentError {
-  let code = "plan_local_control_failed";
+  let code = "internal";
   try {
     const result: unknown = JSON.parse(body);
     if (typeof result === "object" && result !== null) {
       const receivedCode: unknown = Reflect.get(result, "error");
-      if (isAgentErrorCode(receivedCode)) code = receivedCode;
+      code = safeLocalControlCode(receivedCode);
     }
   } catch {
     // An empty or malformed response carries no safe owner diagnosis.
   }
   logEvent({
     level: "warn",
-    event: "local.session.control_failed",
+    event: "local.control.failed",
     component: "LocalSessionTransport",
     message: "Local owner control command failed",
     metadata: { operation: command.kind, statusCode, code },
   });
-  return new AgentError(
-    statusCode === 403
-      ? "plan_local_owner_unverified"
-      : "plan_local_control_failed",
-  );
+  return statusCode === 401 || statusCode === 403
+    ? new AgentError("plan_local_owner_unverified")
+    : new LocalControlCommandError(code);
 }

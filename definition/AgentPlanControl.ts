@@ -1,3 +1,4 @@
+import type { AcpWaitReason } from "./AcpResource";
 import type { AgentPlanWriterWait } from "./AgentPlanExecution";
 import type { AgentWorkspaceCleanup } from "./AgentWorkspaceCleanup";
 import type { AgentPlanIssue } from "./AgentPlanGraph";
@@ -84,6 +85,8 @@ export interface AgentPlanControl {
    */
   readonly resumeBlocker?: AgentPlanResumeBlocker;
   readonly workspaceWait?: AgentPlanWriterWait;
+  /** Current ACP admission reason for this run, absent once admitted. */
+  readonly waitReason?: AcpWaitReason;
   readonly cleanup?: readonly AgentWorkspaceCleanup[];
   readonly canPause: boolean;
   readonly canResume: boolean;

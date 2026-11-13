@@ -1,0 +1,60 @@
+{
+  "ticket": "PAGE-333",
+  "sessionInstance": "d23c580b-94ea-42b2-84e2-7e9c9d57eeae",
+  "status": "technical_implementation_complete",
+  "baseRevision": "5da2c614ca2ccffcbff73063f7513b4430a99a00",
+  "branch": "work/pages-session-3-20261113T164910Z-9f8aa25e",
+  "implementation": [
+    "Owner logs only command kind and validated fixed/AgentError code; HTTP 409 carries the safe error code.",
+    "Transport bounds response accumulation, logs local.control.failed with operation/statusCode/code, preserves 401/403 authentication errors and carries other safe owner diagnoses as plan_local_control_failed.detail.",
+    "Existing terminated-session close caching and immutable close-result replay are retained and functionally verified.",
+    "Server reconciles control failure through the lease path and independently checks supervisor identity and worker units. Accepted work remains accepted. Missing or surviving process evidence keeps plan_closeout_failed.",
+    "Unavailable owners, including owners that die after discovery, require bound private manifest/proof records, an unloaded or inactive owner unit, and absence of the recorded PID/start/boot identity. Worker cleanup must also confirm before released_at is persisted and the unverified guard is cleared.",
+    "Recovery releases leases and workspace locks after proven cleanup while preserving historical run results; it admits a waiting successor. Alive, unknown, unreadable and failed persistence outcomes retain reservations.",
+    "Workspace wait changes log their reason. ACP wait changes log in the waiting run context and persist waitReason through the engine serial queue, so separate API processes and the UI can read it.",
+    "A terminal run retires its owner on the next one-second lifecycle observation through the existing bounded shutdown, including when native close fails. Active/paused runs remain owned."
+  ],
+  "todos": {
+    "T1": "local-control-closeout.unit.test.ts: exited CLI returns HTTP 200/isConfirmed true and the real node result succeeds; local-owner-session-turn.unit.test.ts verifies native self-termination.",
+    "T2": "local-owner-session-turn.unit.test.ts verifies one native close, one closed journal record and identical repeated results; HTTP replay is asserted by local-control-closeout.unit.test.ts.",
+    "T3": "local-control-closeout.unit.test.ts verifies 409 JSON, owner kind/code logging, server local.control.failed metadata and plan_local_control_failed.detail, plus stale_attachment/native_cleanup_unconfirmed/internal.",
+    "T4": "local-control-closeout.unit.test.ts verifies both 401 and 403 remain plan_local_owner_unverified.",
+    "T5": "page333-closeout.unit.test.ts and page333-lease-closeout.unit.test.ts retain plan_closeout_failed/reservations for live supervisors, live units and unreadable evidence; accepted verdict is retained.",
+    "T6": "page333-closeout.unit.test.ts preserves node outcomes and logs safe original diagnosis after proven cleanup; page333-lease-closeout.unit.test.ts proves lease release.",
+    "T7": "local-control-closeout.unit.test.ts verifies no bearer, capability, attachment token, prompt or answer sentinel in errors/logs; malformed, arbitrary code-shaped and oversized bodies are bounded and sanitized.",
+    "T8": "Gezielte Funktionstests gruen. Formatpruefung/Prettier, Check, Lint, Typecheck, Build, volle Suiten und Coverage: an die Abschluss-QA uebergeben; auf ausdrueckliche Vorgabe nicht ausgefuehrt."
+  },
+  "additionalAcceptance": {
+    "5": "page333-owner-recovery.unit.test.ts exercises real release operation and scheduler with a failed closeout: lease and workspace locks released, earlier steps immutable, successor admitted.",
+    "6": "page333-wait-reasons.unit.test.ts verifies workspace wait persistence, public run parsing and deduplicated run-scoped logging; plan-panel-heading.unit.test.ts verifies holder/resource/reason rendering.",
+    "7": "local-owner-retirement.unit.test.ts verifies bounded terminal-run retirement, active/paused retention and retry on temporary failure; LocalSessionOwner wires the existing shutdown and finally closes channel/database.",
+    "8": "local-owner-ended-proof.unit.test.ts verifies unit/PID/start/boot proof with mocked OS boundaries; local-sessions-discovery.unit.test.ts verifies released_at persistence; page333-owner-recovery.unit.test.ts verifies lease/lock release.",
+    "9": "Proof, discovery, lease-closeout and owner-recovery tests retain reservations for alive/unknown/unreadable evidence, active workers and failed release persistence.",
+    "10": "page333-wait-reasons.unit.test.ts verifies persisted reason and run log context; page81-resource-dag.unit.test.ts verifies real engine/scheduler propagation into the stored run; frontend polling/heading tests verify capacity display."
+  },
+  "functionTests": [
+    {
+      "command": "node node_modules/vitest/vitest.mjs run --config vitest.backend.config.ts --coverage.enabled=false tests/backend/backend/agents/local/*.unit.test.ts tests/backend/backend/service/agents/page333-closeout.unit.test.ts tests/backend/backend/service/agents/page333-owner-recovery.unit.test.ts tests/backend/backend/service/agents/page333-lease-closeout.unit.test.ts tests/backend/backend/service/agents/page333-wait-reasons.unit.test.ts tests/backend/backend/service/agents/page81-resource-dag.unit.test.ts tests/backend/backend/service/agents/page81-resource-scheduler.unit.test.ts tests/backend/backend/service/agents/page81-resource-lifecycle.unit.test.ts tests/backend/backend/service/agents/page171-recovery-operation.unit.test.ts tests/backend/backend/service/agents/page171-recovery-resources.unit.test.ts",
+      "exitCode": 0,
+      "testFilesPassed": 21,
+      "testsPassed": 277,
+      "coverage": false
+    },
+    {
+      "command": "node node_modules/vitest/vitest.mjs run --config vitest.frontend.config.ts --coverage.enabled=false tests/frontend/app/components/agents/plans/plan-panel-heading.unit.test.tsx tests/frontend/app/lib/agent-plan-poll.unit.test.ts",
+      "exitCode": 0,
+      "testFilesPassed": 2,
+      "testsPassed": 66,
+      "coverage": false
+    }
+  ],
+  "boundaries": "OS/filesystem identity, systemd commands, sockets, native execution and persistence are controlled mocks/stubs or existing in-memory fixtures. No real provider, network service, database server or subprocess chain is started.",
+  "decisions": [
+    "No pages-plan-sicherung stash existed in this workspace. Existing committed PAGE-333 implementation and tests were extended; earlier ticket changes and the historical docs/PAGE-333.qa.json were preserved.",
+    "Only known product codes satisfying the required regex are accepted from the owner; arbitrary valid-looking strings become internal to avoid response-content leakage.",
+    "Lost owner proof after acceptance can recover only with independent supervisor and worker evidence. A living agent during systemd reexec still fails safely; PAGE-342 is not implemented here.",
+    "Explicit native isConfirmed:false results stay unconfirmed. No accepted verdict is reset by closeout.",
+    "No push, rebase, branch switch, deployment, live service/data or credential change. QA gates are delegated, not blocking todos."
+  ],
+  "limits": "Functional unit evidence only; no live recovery or deployment claim, no full-suite/type/lint/format/coverage verdict."
+}

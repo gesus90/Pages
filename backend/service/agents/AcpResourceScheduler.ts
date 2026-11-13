@@ -1,10 +1,13 @@
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { withBackgroundDatabaseWork } from "@/backend/database/executor/DatabaseWorkContext";
 import { readAcpResourceOptions } from "@/backend/config/AcpResourceConfig";
+import { settleManagedLocalOwner } from "@/backend/agents/local/LocalOwnerControl";
+import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
 import { logCaughtError } from "@/backend/logging/Logger";
 import { isAcpSessionLimit, MAX_ACP_SESSIONS } from "@/definition/AcpResource";
 
+import { AcpWaitDiagnostics } from "./resources/AcpWaitDiagnostics";
 import { AcpLeaseAdmission } from "./resources/AcpLeaseAdmission";
 import { AcpLeaseChecks } from "./resources/AcpLeaseChecks";
 import {
@@ -60,13 +63,17 @@ export class AcpResourceScheduler {
   private readonly active = new Map<string, AcpResourceRecord>();
   private readonly sessions = new Map<string, PlanSession>();
   private readonly waiting: WaitingRequest[] = [];
+  private readonly waitDiagnostics = new AcpWaitDiagnostics();
+  private waitObserver:
+    | ((waiting: AcpResourceSnapshot["waiting"]) => Promise<void>)
+    | null = null;
   private readonly pausedRuns = new Set<string>();
   private readonly shutdownController = new AbortController();
   private readonly opening = new Set<Promise<PlanSession>>();
   private readonly checks: AcpLeaseChecks;
   /** The administrator's check and confirmed cleanup of the leases this service owns (PAGE-340). */
   public readonly leaseCleanup: AcpLeaseCleanup;
-  private unverifiedLocal: ReadonlySet<string> = new Set();
+  private unverifiedLocal: Set<string> = new Set();
   private availableMemory: number | null = null;
   private problem: AcpResourceSnapshot["problem"] = null;
   private timer: ReturnType<typeof setTimeout> | undefined;
@@ -123,7 +130,7 @@ export class AcpResourceScheduler {
     if (this.isReady || this.isClosing)
       throw new Error("ACP scheduler already initialized");
     const previous = await this.admission.recoverable();
-    this.unverifiedLocal = unverified;
+    this.unverifiedLocal = new Set(unverified);
     for (const record of previous) this.active.set(record.instanceId, record);
     // An adopted lease is dated now, after its processes started, so its start rules nothing out.
     const adopted = new Set<string>();
@@ -239,6 +246,13 @@ export class AcpResourceScheduler {
    */
   public setIdleReclaimer(reclaim: () => boolean): void {
     this.reclaimIdle = reclaim;
+  }
+
+  /** Installs the engine's serialized persistence of current admission reasons. */
+  public setWaitObserver(
+    observer: (waiting: AcpResourceSnapshot["waiting"]) => Promise<void>,
+  ): void {
+    this.waitObserver = observer;
   }
 
   /** Suspends queued requests of a paused run; existing sessions continue to own capacity. */
@@ -375,10 +389,13 @@ export class AcpResourceScheduler {
     record: AcpResourceRecord,
     startedAt: string | null,
   ): Promise<{ readonly remaining: number }> {
-    if (this.unverifiedLocal.has(record.instanceId))
-      throw new Error(
-        "Local native owner is unverified; no cleanup is authorized",
-      );
+    if (this.unverifiedLocal.has(record.instanceId)) {
+      if ((await settleManagedLocalOwner(record.instanceId)) !== true)
+        throw new Error(
+          "Local native owner is unverified; no cleanup is authorized",
+        );
+      this.unverifiedLocal.delete(record.instanceId);
+    }
     return closeLease(record, startedAt, this.cleanup, this.settleUnits);
   }
 
@@ -456,17 +473,26 @@ export class AcpResourceScheduler {
         transition: (state, stepId) =>
           this.transition(instanceId, state, stepId),
         finish: (isConfirmed) => this.finish(instanceId, isConfirmed),
-        settle: () => this.settleChatLease(instanceId),
+        settle: (error) => this.settleSessionLease(instanceId, error),
       },
       observer,
     );
   }
 
-  /** A chat lease whose native closeout stayed unconfirmed is proven from its identity and units. */
-  private async settleChatLease(instanceId: string): Promise<boolean> {
+  /** Reconciles a failed close using the recorded lease identity and worker units. */
+  private async settleSessionLease(
+    instanceId: string,
+    error?: unknown,
+  ): Promise<boolean> {
     const record = this.active.get(instanceId);
     if (!record) return true;
-    if (record.runId !== null) return false;
+    if (
+      record.runId !== null &&
+      (!(error instanceof AgentError) ||
+        (error.code !== "plan_local_control_failed" &&
+          error.code !== "plan_local_owner_unverified"))
+    )
+      return false;
     return (await this.cleanupRecord(record, record.since)).remaining === 0;
   }
 
@@ -518,6 +544,17 @@ export class AcpResourceScheduler {
   }
 
   private async pump(): Promise<void> {
+    try {
+      await this.admitWaiting();
+    } finally {
+      this.waitDiagnostics.report(this.waiting, (request) =>
+        this.waitReason(request),
+      );
+      await this.waitObserver?.(this.snapshot().waiting);
+    }
+  }
+
+  private async admitWaiting(): Promise<void> {
     await this.refreshOptions();
     await this.recheckBlockingLeases();
     // An idle chat session gives its place to a waiting start; its closeout wakes the queue.

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { inspectManagedLocalOwner } from "@/backend/agents/local/LocalOwnerControl";
+import { inspectManagedLocalOwner, settleManagedLocalOwner } from "@/backend/agents/local/LocalOwnerControl";
 
 import {
   CLOSED,
@@ -68,7 +68,12 @@ vi.mock("@/backend/agents/local/LocalAttachedSession", async () =>
   (await import("./local-sessions-fixture")).factories.attached(),
 );
 
-beforeEach(resetMocks);
+const worker = vi.hoisted(() => ({ settle: vi.fn<() => Promise<number>>() }));
+vi.mock("@/backend/agents/cli/CliWorkerUnit", () => ({ settleWorkerUnits: worker.settle }));
+beforeEach(() => {
+  resetMocks();
+  worker.settle.mockReset().mockResolvedValue(0);
+});
 
 describe("discover", () => {
   it("skips released owners but remembers them for lease inspection", async () => {
@@ -450,4 +455,46 @@ describe("settleFinished edge cases", () => {
       expect.objectContaining({ code: "plan_run_unavailable" }),
     );
   });
+});
+
+it("retires a previously unverified dead owner only after worker cleanup, and persists release", async () => {
+  mocks.ownership.proveLocalOwner.mockRejectedValue(new Error("gone"));
+  const sessions = createSessions();
+  await adopt(sessions);
+  mocks.ownership.hasEndedLocalOwner.mockResolvedValue(true);
+  await expect(settleManagedLocalOwner(INSTANCE_ID)).resolves.toBe(true);
+  expect(mocks.ownership.hasEndedLocalOwner).toHaveBeenCalledWith(entryOf(), directoryOf(INSTANCE_ID));
+  expect(worker.settle).toHaveBeenCalledWith(INSTANCE_ID);
+  expect(mocks.owners.released).toHaveBeenCalledWith(INSTANCE_ID);
+  expect(inspectManagedLocalOwner(INSTANCE_ID)).toBe("released");
+  expect(sessions.unverified().has(INSTANCE_ID)).toBe(false);
+  expect(mocks.transport.sendLocalCommand).not.toHaveBeenCalled();
+});
+
+it.each(["alive", "unreadable", "workers", "write_failed"])(
+  "retains an unverified owner and lease evidence when %s",
+  async (failure) => {
+    mocks.ownership.proveLocalOwner.mockRejectedValue(new Error("unverified"));
+    const sessions = createSessions();
+    await adopt(sessions);
+    mocks.ownership.hasEndedLocalOwner.mockResolvedValue(failure !== "alive");
+    if (failure === "unreadable") mocks.ownership.hasEndedLocalOwner.mockRejectedValue(new Error("private path"));
+    if (failure === "workers") worker.settle.mockResolvedValue(1);
+    if (failure === "write_failed") mocks.owners.released.mockRejectedValue(new Error("database unavailable"));
+    await settleManagedLocalOwner(INSTANCE_ID).catch(() => false);
+    expect(inspectManagedLocalOwner(INSTANCE_ID)).toBe("owned");
+    expect(sessions.unverified().has(INSTANCE_ID)).toBe(true);
+    expect(mocks.transport.sendLocalCommand).not.toHaveBeenCalled();
+  },
+);
+
+it("reconciles an initially proven owner that died after discovery without a restart", async () => {
+  const sessions = createSessions();
+  await adopt(sessions);
+  mocks.ownership.proveLocalOwner.mockRejectedValue(new Error("owner exited"));
+  mocks.ownership.hasEndedLocalOwner.mockResolvedValue(true);
+  await expect(settleManagedLocalOwner(INSTANCE_ID)).resolves.toBe(true);
+  expect(mocks.owners.released).toHaveBeenCalledWith(INSTANCE_ID);
+  expect(inspectManagedLocalOwner(INSTANCE_ID)).toBe("released");
+  expect(mocks.transport.sendLocalCommand).not.toHaveBeenCalled();
 });

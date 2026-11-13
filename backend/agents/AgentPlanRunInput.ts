@@ -1,6 +1,10 @@
+import { isAcpWaitReason } from "@/definition/AcpResource";
 import { planRunCommandReceiptSchema } from "@/definition/PagesRuns";
 import { planWriterWaitSchema } from "@/definition/AgentPlanExecution";
-import { isPlanWriterWaitActive } from "@/definition/AgentPlanRunState";
+import {
+  isActivePlanRun,
+  isPlanWriterWaitActive,
+} from "@/definition/AgentPlanRunState";
 import { AgentError } from "@/backend/error/AgentErrors";
 
 import {
@@ -46,6 +50,9 @@ export function readPlanRun(input: unknown): AgentPlanRun {
     planRevision,
     status,
     stopRequested,
+    ...(isActivePlanRun(status) && isAcpWaitReason(run.waitReason)
+      ? { waitReason: run.waitReason }
+      : {}),
     ...readWriterWait(run, { status, stopRequested }),
     ...(run.controlError === "plan_step_failed"
       ? { controlError: run.controlError }

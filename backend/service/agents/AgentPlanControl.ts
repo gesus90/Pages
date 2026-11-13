@@ -85,6 +85,7 @@ export function planControl(
   return {
     ...runControlMetadata(run, canIdentify),
     canPlay: canRunPlan(plan) && (!isActive || canIdentify),
+    waitReason: canIdentify && isActive ? run.waitReason : undefined,
     workspaceWait:
       canIdentify && isPlanWriterWaitActive(run)
         ? run.workspaceWait

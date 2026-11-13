@@ -47,6 +47,19 @@ export async function acquirePlanWriters(
       workspaceWait: workspaceWait ?? undefined,
     };
     await dependencies.runs.update(active.view);
+    if (!acquired)
+      withLogContext({ ...active.logContext, runId: active.view.id }, () =>
+        logEvent({
+          level: "info",
+          event: "agent.workspace.waiting",
+          component: "AgentPlanRunEngine",
+          message: `Waiting for a workspace write resource: ${workspaceWait?.reason ?? "reserved"}`,
+          metadata: {
+            runId: active.view.id,
+            reason: workspaceWait?.reason ?? "reserved",
+          },
+        }),
+      );
   }
   return acquired;
 }
