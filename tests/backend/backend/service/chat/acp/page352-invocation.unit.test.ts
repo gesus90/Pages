@@ -4,6 +4,17 @@ import { beforeEach, expect, it, vi } from "vitest";
 
 import { removePicaInvocationFile } from "@/backend/service/chat/acp/PicaInvocationFile";
 
+import type * as NodeFs from "node:fs";
+
+/** The fields of a file status that the invocation code reads. */
+interface FakeStats {
+  readonly isDirectory: () => boolean;
+  readonly mode: number;
+  readonly uid: number | undefined;
+  readonly dev: number;
+  readonly ino: string;
+}
+
 const filesystem = vi.hoisted(() => ({
   handles: new Map<number, string>(),
   entries: new Set<string>(),
@@ -11,7 +22,7 @@ const filesystem = vi.hoisted(() => ({
   replaced: false,
 }));
 vi.mock("node:fs", async (importOriginal) => {
-  const original = await importOriginal<typeof import("node:fs")>();
+  const original = await importOriginal<typeof NodeFs>();
   const resolve = (location: string): string =>
     path.normalize(
       location.replace(
@@ -20,7 +31,7 @@ vi.mock("node:fs", async (importOriginal) => {
           filesystem.handles.get(Number(descriptor)) ?? match,
       ),
     );
-  const facts = (location: string) => ({
+  const facts = (location: string): FakeStats => ({
     isDirectory: () => true,
     mode: 0o700,
     uid: process.getuid?.(),

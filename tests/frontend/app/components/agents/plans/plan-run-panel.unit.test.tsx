@@ -121,7 +121,10 @@ function recovery(overrides: Partial<PlanRecovery> = {}): void {
 }
 
 beforeEach(() => {
-  vi.stubGlobal("fetch", vi.fn(async () => Response.json({ owners: [] })));
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => Response.json({ owners: [] })),
+  );
   recoveryHook.calls = [];
   recovery();
 });
@@ -413,7 +416,9 @@ it("asks before it ends an open run for a new one, and sends the confirmation", 
   fireEvent.click(button("play"));
   expect(scene.submissions).toHaveLength(0);
   fireEvent.click(
-    await screen.findByRole("button", { name: i18n.t("plans.openRun.confirm") }),
+    await screen.findByRole("button", {
+      name: i18n.t("plans.openRun.confirm"),
+    }),
   );
 
   await waitFor(() => expect(scene.submissions).toHaveLength(1));
@@ -421,14 +426,29 @@ it("asks before it ends an open run for a new one, and sends the confirmation", 
 });
 
 it("names a running owner of another plan before Starten sends the confirmed replacement", async () => {
-  vi.stubGlobal("fetch", vi.fn(async () => Response.json({ owners: [{
-    runId: "foreign-running-run", planName: "Other plan", startedAt: "2026-11-13T11:11:00Z",
-  }] })));
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () =>
+      Response.json({
+        owners: [
+          {
+            runId: "foreign-running-run",
+            planName: "Other plan",
+            startedAt: "2026-11-13T11:11:00Z",
+          },
+        ],
+      }),
+    ),
+  );
   const { scene } = renderPanel();
   fireEvent.click(button("play"));
   expect(scene.submissions).toHaveLength(0);
-  expect(await screen.findByText(/Other plan · foreign-running-run/u)).toBeDefined();
-  fireEvent.click(screen.getByRole("button", { name: i18n.t("plans.openRun.confirm") }));
+  expect(
+    await screen.findByText(/Other plan · foreign-running-run/u),
+  ).toBeDefined();
+  fireEvent.click(
+    screen.getByRole("button", { name: i18n.t("plans.openRun.confirm") }),
+  );
   await waitFor(() => expect(scene.submissions).toHaveLength(1));
   expect(scene.submissions[0]?.get("replaceOpenRun")).toBe("true");
 });

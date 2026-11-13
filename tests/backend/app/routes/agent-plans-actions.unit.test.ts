@@ -66,17 +66,40 @@ beforeEach(() => {
 });
 
 it("PAGE-353 reads affected owners for the signed-in user's saved revision without starting", async () => {
-  const owners = [{ runId: "old-run", planName: "Other plan", startedAt: "2026-11-13T11:11:00Z" }];
+  const owners = [
+    {
+      runId: "old-run",
+      planName: "Other plan",
+      startedAt: "2026-11-13T11:11:00Z",
+    },
+  ];
   service.startOwners.mockResolvedValue(owners);
-  await expect(post({ intent: "inspect-plan-start", planId: "plan", revision: "4" })).resolves.toEqual({ status: 200, body: { owners } });
-  expect(service.startOwners).toHaveBeenCalledExactlyOnceWith(USER.id, "plan", 4);
+  await expect(
+    post({ intent: "inspect-plan-start", planId: "plan", revision: "4" }),
+  ).resolves.toEqual({ status: 200, body: { owners } });
+  expect(service.startOwners).toHaveBeenCalledExactlyOnceWith(
+    USER.id,
+    "plan",
+    4,
+  );
   expect(service.play).not.toHaveBeenCalled();
 });
 
 it("PAGE-353 forwards the confirmed replacement to the shared forced-start path", async () => {
   service.playReplacing.mockResolvedValue(RUN);
-  await expect(post({ intent: "play-plan", planId: "plan", revision: "4", replaceOpenRun: "true" })).resolves.toMatchObject({ status: 200 });
-  expect(service.playReplacing).toHaveBeenCalledExactlyOnceWith(USER.id, "plan", 4);
+  await expect(
+    post({
+      intent: "play-plan",
+      planId: "plan",
+      revision: "4",
+      replaceOpenRun: "true",
+    }),
+  ).resolves.toMatchObject({ status: 200 });
+  expect(service.playReplacing).toHaveBeenCalledExactlyOnceWith(
+    USER.id,
+    "plan",
+    4,
+  );
   expect(service.stop).not.toHaveBeenCalled();
 });
 

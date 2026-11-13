@@ -3,6 +3,7 @@ import { expect, it, vi } from "vitest";
 import { ConversationAccounts } from "@/backend/service/conversation/ConversationDirectory";
 import { ConversationReplyRunner } from "@/backend/service/conversation/ConversationReplyRunner";
 
+import type { ConversationAgentRequest } from "@/backend/service/conversation/ConversationAgentReplies";
 import type {
   ConversationReplyJob,
   ConversationReplyRunnerDependencies,
@@ -295,15 +296,11 @@ it("copies and binds workspace files inside the job callback before its workspac
     expect(workspaceExists).toBe(true);
     return staged;
   });
-  answer.mockImplementation(
-    async (
-      request: import("@/backend/service/conversation/ConversationAgentReplies").ConversationAgentRequest,
-    ) => {
-      await request.consumeAnswer?.("Answer");
-      workspaceExists = false;
-      return "Answer";
-    },
-  );
+  answer.mockImplementation(async (request: ConversationAgentRequest) => {
+    await request.consumeAnswer?.("Answer");
+    workspaceExists = false;
+    return "Answer";
+  });
   const result = await runner.run(job);
   expect(result?.id).toBe("answer");
   expect(workspaceExists).toBe(false);
