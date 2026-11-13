@@ -53,7 +53,7 @@ it.each(["completed", "stopped", "failed"] as const)(
       job.complete({
         ...completedTurn(),
         failure: "failed",
-        errorCode: "providerFailed",
+        errorCode: null,
       });
     else job.complete();
     await completion;
