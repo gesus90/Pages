@@ -71,7 +71,8 @@ export function todoFixture(
   };
   const native = new Map<string, readonly AgentPlanAgentTodo[]>();
   const writes = vi.fn<AgentTicketChecklistService["set"]>(
-    async (_identity: AgentIdentity, input: unknown) => {
+    async (identity: AgentIdentity, input: unknown) => {
+      if (!identity.run) throw new Error("Missing run");
       if (typeof input !== "object" || input === null || !("itemId" in input))
         throw new Error("Invalid write");
       ticket = {

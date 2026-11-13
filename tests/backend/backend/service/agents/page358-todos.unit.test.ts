@@ -272,8 +272,7 @@ it("keeps each iteration's ticket projection separate from the original stack bi
       stepTickets: { agent: ["first"] },
       live: await fixture.progress.listForRun("run"),
       tasks: {
-        checklist: async (_user, _project, id) =>
-          id === "first" ? first : second,
+        checklist: async (...[, , id]) => (id === "first" ? first : second),
       },
     },
   );

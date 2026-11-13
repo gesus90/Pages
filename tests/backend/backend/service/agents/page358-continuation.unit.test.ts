@@ -14,6 +14,7 @@ import type { AgentPlanExecutionInput } from "@/backend/service/agents/AgentPlan
 import type {
   AgentPlanNode,
   AgentPlanStepResult,
+  AgentPlanStep,
 } from "@/definition/AgentPlan";
 import type {
   PlanSessionClosed,
@@ -43,25 +44,7 @@ async function runIncompleteStep(
     ...(isShared ? { loopId: "loop" } : {}),
     step: { ...fixture.step.step, instruction, completion: "todos" as const },
   };
-  const nodes: readonly AgentPlanNode[] = isShared
-    ? [
-        {
-          id: "loop",
-          type: "loop",
-          name: "Shared iteration",
-          x: 0,
-          y: 0,
-          steps: [step.step],
-          edges: [],
-          runs: 1,
-          runsSource: "value",
-          bindings: {},
-          countMode: "expected",
-          sessionPolicy: "reuse",
-          condition: null,
-        },
-      ]
-    : [step.step];
+  const nodes = incompleteNodes(step.step, isShared);
   const snapshot = {
     ...fixture.snapshot,
     steps: [step],
@@ -69,26 +52,24 @@ async function runIncompleteStep(
   };
   const records: AgentPlanSessionRecord[] = [];
   let returns = 0;
-  const next = vi.fn(
-    async (_input: AgentPlanExecutionInput): Promise<PlanSessionTurn> => {
-      returns += 1;
-      return reportedTurn({
-        output:
-          "```pages-report\n" +
-          JSON.stringify({
-            todos: [
-              {
-                id: "T1",
-                status: returns >= completeOnReturn ? "done" : "open",
-              },
-            ],
-            decisions: [],
-            summary: "Work",
-          }) +
-          "\n```",
-      });
-    },
-  );
+  const next = vi.fn(async (): Promise<PlanSessionTurn> => {
+    returns += 1;
+    return reportedTurn({
+      output:
+        "```pages-report\n" +
+        JSON.stringify({
+          todos: [
+            {
+              id: "T1",
+              status: returns >= completeOnReturn ? "done" : "open",
+            },
+          ],
+          decisions: [],
+          summary: "Work",
+        }) +
+        "\n```",
+    });
+  });
   const close = vi.fn(async () => ({
     exit: { code: 0, signal: null },
     endedAt: "now",
@@ -133,6 +114,31 @@ async function runIncompleteStep(
   });
   if (isShared) await runner.closeGroups(run.id);
   return { result, records, next, close };
+}
+
+function incompleteNodes(
+  step: AgentPlanStep,
+  isShared: boolean,
+): readonly AgentPlanNode[] {
+  return isShared
+    ? [
+        {
+          id: "loop",
+          type: "loop",
+          name: "Shared iteration",
+          x: 0,
+          y: 0,
+          steps: [step],
+          edges: [],
+          runs: 1,
+          runsSource: "value",
+          bindings: {},
+          countMode: "expected",
+          sessionPolicy: "reuse",
+          condition: null,
+        },
+      ]
+    : [step];
 }
 
 it("continues the same agent until it finishes its open TODO, without closing between turns", async () => {

@@ -337,9 +337,7 @@ export function decidePlanStepRetry(
   work: PlanRetryWork,
   previous: AgentPlanRetry | null,
 ): AgentPlanRetry | null {
-  if (result.session?.acceptance?.issues.includes("todo_returns_exhausted"))
-    return null;
-  if (result.status !== "failed" || work.isScript) return null;
+  if (!shouldConsiderRetry(result, work)) return null;
   const session = result.session;
   const code = result.error ?? "plan_step_failed";
   const failureClass = failureClassOf(result);
@@ -444,4 +442,15 @@ export function decideRestartSessionMode(
   return sessions.some((session) => session && hasToolActivity(session))
     ? "effect_unknown"
     : "new_session";
+}
+
+function shouldConsiderRetry(
+  result: Partial<AgentPlanStepResult>,
+  work: PlanRetryWork,
+): boolean {
+  return (
+    result.status === "failed" &&
+    !work.isScript &&
+    !result.session?.acceptance?.issues.includes("todo_returns_exhausted")
+  );
 }

@@ -49,12 +49,7 @@ export async function runPlanTodoTurns(
       acceptance: assessed?.acceptance ?? null,
       ...(assessed ? { contract: assessed.contract } : {}),
     });
-    const open =
-      assessed?.contract.todos.filter((todo) =>
-        assessed.acceptance.todos.some(
-          (state) => state.id === todo.id && state.status !== "done",
-        ),
-      ) ?? [];
+    const open = openTodos(assessed);
     if (
       !assessed ||
       !canContinueTodos({ node, session, turn, assessed }, open.length)
@@ -63,10 +58,7 @@ export async function runPlanTodoTurns(
     const remaining = open
       .map((todo) => `- ${todo.id}: ${todo.text}`)
       .join("\n");
-    if (
-      (node.todoReturns ?? node.record?.todoReturns ?? 0) >=
-      MAXIMUM_TODO_RETURNS
-    ) {
+    if (todoReturnCount(node) >= MAXIMUM_TODO_RETURNS) {
       const acceptance = {
         ...assessed.acceptance,
         issues: [...assessed.acceptance.issues, "todo_returns_exhausted"],
@@ -79,7 +71,7 @@ export async function runPlanTodoTurns(
         output: `${result.output}\n\nOffene TODOs nach drei Rückgaben:\n${remaining}`,
       };
     }
-    node.todoReturns = (node.todoReturns ?? node.record?.todoReturns ?? 0) + 1;
+    node.todoReturns = todoReturnCount(node) + 1;
     await dependencies.save({ todoReturns: node.todoReturns });
     terms = { ...terms, contract: assessed.contract };
     turn = await nextTodoTurn(
@@ -140,26 +132,39 @@ async function nextTodoTurn(
     directory: prepared.input.directory ?? "",
     requiresAcceptance: true,
   });
-  return session.next(
-    {
-      ...prepared.input,
-      prompt: `Der Schritt ist noch nicht fertig. Arbeite die offenen TODOs ab und hake sie über update_step_progress ab. Bereits erledigte TODOs bleiben erledigt.\n${open.map((id) => `- ${id}: ${terms.contract.todos.find((todo) => todo.id === id)?.text ?? ""}`).join("\n")}\n\n${assignment}`,
-      recording: node.record
-        ? (sessionStart(node, node.record.instanceId) ?? undefined)
-        : undefined,
-      acceptanceInstruction: terms.instruction,
-      resourceContext: {
-        runId: node.run.id,
-        stepId: node.step.step.id,
-        sessionScopeId: node.sessionGroup ?? node.step.step.id,
-        isLocalInstruction: true,
-      },
-      journal:
-        dependencies.hasDurableLocalSessions || !node.record
-          ? undefined
-          : dependencies.sessions?.listen(node, node.record.instanceId),
+  const nextInput = {
+    ...prepared.input,
+    prompt: `Der Schritt ist noch nicht fertig. Arbeite die offenen TODOs ab und hake sie über update_step_progress ab. Bereits erledigte TODOs bleiben erledigt.\n${open.map((id) => `- ${id}: ${terms.contract.todos.find((todo) => todo.id === id)?.text ?? ""}`).join("\n")}\n\n${assignment}`,
+    recording: node.record
+      ? (sessionStart(node, node.record.instanceId) ?? undefined)
+      : undefined,
+    acceptanceInstruction: terms.instruction,
+    resourceContext: {
+      runId: node.run.id,
+      stepId: node.step.step.id,
+      sessionScopeId: node.sessionGroup ?? node.step.step.id,
+      isLocalInstruction: true,
     },
-    node.control.signal,
-    dependencies.observer,
+    journal:
+      dependencies.hasDurableLocalSessions || !node.record
+        ? undefined
+        : dependencies.sessions?.listen(node, node.record.instanceId),
+  };
+  return session.next(nextInput, node.control.signal, dependencies.observer);
+}
+
+function todoReturnCount(node: NodeRun): number {
+  return node.todoReturns ?? node.record?.todoReturns ?? 0;
+}
+
+function openTodos(
+  assessed: PlanTurnAssessment["assessed"],
+): NonNullable<PlanTurnAssessment["assessed"]>["contract"]["todos"] {
+  return (
+    assessed?.contract.todos.filter((todo) =>
+      assessed.acceptance.todos.some(
+        (state) => state.id === todo.id && state.status !== "done",
+      ),
+    ) ?? []
   );
 }

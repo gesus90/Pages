@@ -421,7 +421,7 @@ function createBinaryAssetServices(input: {
   readonly database: Database;
   readonly users: Pick<UserService, "getById">;
   readonly identities: AgentIdentityService;
-  readonly workspace: Parameters<typeof createAssetServices>[1];
+  readonly workspace: McpWorkspace;
   readonly stepReports: AgentPlanStepReportService | undefined;
 }): ReturnType<typeof createAssetServices> & {
   readonly apiFor: (operations: AgentOperationRouter) => PagesAgentApiService;

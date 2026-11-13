@@ -181,9 +181,7 @@ export async function withPlanProgress(
     const contract = step.session?.contract;
     const ticketIds = progressTicketIds(step, context.stepTickets);
     if (!contract && ticketIds.length === 0) return step;
-    const isLive =
-      ["running", "pausing", "paused", "stopping"].includes(run.status) &&
-      (step.status === "running" || step.status === "paused");
+    const isLive = isLiveStep(run, step);
     const readsTicket = isLive || ticketIds.length > 0;
     const reported = context.live?.get(step.id);
     const live =
@@ -219,4 +217,11 @@ export async function withPlanProgress(
     })),
   );
   return { ...run, steps, ...(run.loops ? { loops } : {}) };
+}
+
+function isLiveStep(run: AgentPlanRun, step: AgentPlanStepResult): boolean {
+  return (
+    ["running", "pausing", "paused", "stopping"].includes(run.status) &&
+    (step.status === "running" || step.status === "paused")
+  );
 }
