@@ -20,7 +20,7 @@ import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
 
 import { RunsSocket } from "./RunsSocket";
 import { answerSwarmCall } from "../swarm/SwarmRegistry";
-import { endedPlanRun } from "../AgentPlanRunState";
+import { failedPlanStart } from "../AgentPlanStartFailure";
 
 import type { AgentPlanRun } from "@/definition/AgentPlan";
 import type { PendingPlanRunCommand } from "@/backend/database/repositories/agent/PlanRunCommandRepository";
@@ -170,29 +170,7 @@ export class PlanRunCommandWorker {
       allPlanRunResults(run).some((step) => step.status === "running")
     )
       throw new Error("Cannot reject a start while execution is owned.");
-    const failed: AgentPlanRun = {
-      ...endedPlanRun(run, "failed"),
-      startError: code,
-      steps: run.steps.map((step) =>
-        step.status === "waiting" || step.status === "paused"
-          ? {
-              ...step,
-              status: "cancelled",
-              cancellation: "not_started",
-              isBlocked: false,
-            }
-          : step,
-      ),
-      ...(run.loops
-        ? {
-            loops: run.loops.map((loop) =>
-              loop.status === "waiting" || loop.status === "paused"
-                ? { ...loop, status: "cancelled", error: code }
-                : loop,
-            ),
-          }
-        : {}),
-    };
+    const failed = failedPlanStart(run, code);
     await this.runs.update(failed, undefined, undefined, (transaction) =>
       this.commands.failed(command.receipt.id, code, transaction),
     );

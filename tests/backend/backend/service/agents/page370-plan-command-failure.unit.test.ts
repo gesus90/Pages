@@ -6,6 +6,11 @@ import { AgentError } from "@/backend/error/AgentErrors";
 import { logEvent, withLogContext } from "@/backend/logging/Logger";
 import { readPlanRun } from "@/backend/agents/AgentPlanRunInput";
 import { PlanRunCommandWorker } from "@/backend/service/agents/runs/PlanRunCommandWorker";
+import { emptyPlanLoop } from "@/definition/AgentPlanLoop";
+import {
+  beginIteration,
+  initialLoopRun,
+} from "@/backend/service/agents/loop/AgentPlanLoopRecord";
 
 import { planRun, stub } from "./agent-plan-service-harness";
 
@@ -191,6 +196,51 @@ it("also closes a start with an unreadable queued payload", async () => {
     startError: "plan_run_unreadable",
   });
   expect(failed).toHaveBeenCalledOnce();
+});
+
+it("closes pending loop iterations and their waiting members when a queued start fails", async () => {
+  const loop = emptyPlanLoop("loop", "Prepare E2E", { x: 0, y: 0 });
+  const pending = beginIteration(initialLoopRun(loop), loop, new Map(), [
+    "nested",
+  ]);
+  const run = planRun({
+    steps: pending.iterations.flatMap((iteration) =>
+      iteration.nodes.map((node) => ({ ...node, id: "outer" })),
+    ),
+    loops: [{ ...pending, status: "paused" }],
+  });
+  const { update } = await consume({ error: "profile_invalid", run });
+  const failed = update.mock.calls[0]?.[0];
+
+  expect(failed).toMatchObject({
+    status: "failed",
+    loops: [
+      {
+        status: "cancelled",
+        error: "profile_invalid",
+        endedAt: expect.any(String),
+        iterations: [
+          {
+            status: "cancelled",
+            error: "profile_invalid",
+            endedAt: expect.any(String),
+            nodes: [
+              {
+                status: "cancelled",
+                cancellation: "not_started",
+                isBlocked: false,
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  });
+  expect(readPlanRun(failed).loops?.[0]?.iterations[0]).toMatchObject({
+    status: "cancelled",
+    error: "profile_invalid",
+    nodes: [{ status: "cancelled", cancellation: "not_started" }],
+  });
 });
 
 it("keeps a valid start applied and leaves its run unchanged", async () => {
