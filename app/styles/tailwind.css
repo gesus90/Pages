@@ -730,6 +730,31 @@
     height: calc(100dvh - 8.5rem);
     min-height: 20rem;
   }
+  /*
+   * PAGE-325: a page that never scrolls the document from 768 px on. Its
+   * height comes from a flex chain down from the viewport instead of a fixed
+   * sum, so a notice above it (offline, saving) takes its room from the page
+   * and no longer pushes it below the screen.
+   */
+  @media (min-width: 48rem) {
+    main:has(.pages-page-fixed) {
+      display: flex;
+      flex-direction: column;
+      height: 100dvh;
+      overflow: hidden;
+    }
+    main:has(.pages-page-fixed) div:not([hidden]):has(.pages-page-fixed) {
+      display: flex;
+      flex: 1 1 0;
+      flex-direction: column;
+      min-height: 0;
+    }
+    .pages-page-fixed {
+      flex: 1 1 0;
+      height: auto;
+      min-height: 0;
+    }
+  }
   /* Inhalt des Nutzers in einem nicht markierbaren Bereich (DESIGN.md §10.1). */
   .pages-selectable {
     user-select: text;

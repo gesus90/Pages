@@ -17,6 +17,7 @@ import {
   useChatContent,
 } from "./content/chat-content-context";
 import { SplitPanel } from "./content/split-panel";
+import { useChatListCollapse } from "./use-chat-list-collapse";
 import { useChatPage } from "./use-chat-page";
 import { useVoiceSending } from "./use-voice-sending";
 import { formatVoiceDuration } from "./voice-audio";
@@ -217,7 +218,10 @@ function ListSlot({
  * @remarks
  * Two columns 32 px apart down to the foot of the page: the list card of 340
  * px with a scroll area for each list, and the chat without card or
- * background.
+ * background. The list collapses to a bar of avatars of 72 px, by its toggle
+ * or `Ctrl+Shift+L`, and the chat takes the room (PAGE-325). From 768 px on
+ * the page fills the screen and the document never scrolls; only the
+ * history and the list do.
  * Below `lg` the list stands above the chat; below `md` a selection replaces
  * it. Messages go to active agents, which answer over ACP, and into the
  * stored conversations with people and of groups (PAGE-278). The list holds
@@ -232,8 +236,11 @@ export function ChatPage({
 }): React.ReactElement {
   const { t } = useTranslation();
   const page = useChatPage(directory);
+  const collapse = useChatListCollapse(
+    directory.viewPreferences?.isListCollapsed === true,
+  );
   return (
-    <section className="pages-page-fill flex w-full flex-col">
+    <section className="pages-page-fill pages-page-fixed flex w-full flex-col">
       <header className="shrink-0">
         <h1 className="text-2xl font-semibold tracking-tight">
           {t("chatPage.title")}
@@ -249,7 +256,11 @@ export function ChatPage({
           directory={directory}
         >
           <ListSlot>
-            <ChatPageList page={page} directory={directory} />
+            <ChatPageList
+              page={page}
+              directory={directory}
+              collapse={collapse}
+            />
             <ChatPagePicker page={page} />
           </ListSlot>
           <ChatPageConversation page={page} />

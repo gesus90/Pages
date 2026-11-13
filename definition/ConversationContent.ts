@@ -70,6 +70,8 @@ export interface ChatViewPreferences {
   readonly cardStates: Readonly<Record<string, ChatCardState>>;
   /** The last width of the split view in pixels; `null` before the first change. */
   readonly splitWidth: number | null;
+  /** Whether the list of the chat page is collapsed to its bar (PAGE-325). */
+  readonly isListCollapsed?: boolean;
 }
 
 /** The domains that may be embedded, as the chat page reads them. */
@@ -119,6 +121,11 @@ export const chatSplitWidthSchema = z.coerce
   .int()
   .min(CHAT_SPLIT_MINIMUM_WIDTH)
   .max(10_000);
+
+/** Whether the list of the chat page is collapsed, as a form sends it (PAGE-325). */
+export const chatListCollapsedSchema = z
+  .enum(["true", "false"])
+  .transform((choice) => choice === "true");
 
 /**
  * Decides how the chat shows a file from its MIME type.

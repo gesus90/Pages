@@ -45,7 +45,11 @@ vi.mock("@/app/components/chat-page/chat-page-tool-uses", () => ({
   ChatPageLiveTools: () => null,
 }));
 vi.mock("@/app/components/chat-page/chat-page-list", () => ({
-  ChatPageList: () => null,
+  ChatPageList: ({
+    collapse,
+  }: {
+    collapse: { readonly isCollapsed: boolean };
+  }) => <p>{collapse.isCollapsed ? "list collapsed" : "list expanded"}</p>,
 }));
 vi.mock("@/app/components/chat-page/chat-page-picker", () => ({
   ChatPagePicker: () => null,
@@ -109,4 +113,25 @@ it("shows the agent composer for an active participant", () => {
       }),
     ),
   ).toBeTruthy();
+});
+
+it("restores the collapsed list from the view settings of the person (PAGE-325)", () => {
+  renderPage(
+    directory({
+      viewPreferences: {
+        cardStates: {},
+        splitWidth: null,
+        isListCollapsed: true,
+      },
+    }),
+  );
+  expect(screen.getByText("list collapsed")).toBeTruthy();
+});
+
+it("shows the list expanded without a stored choice and fills the screen", () => {
+  renderPage(directory());
+  expect(screen.getByText("list expanded")).toBeTruthy();
+  expect(
+    screen.getByRole("heading", { level: 1 }).closest("section")?.className,
+  ).toContain("pages-page-fixed");
 });

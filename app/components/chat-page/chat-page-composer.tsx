@@ -135,6 +135,7 @@ export function ChatPageComposer({
 
   return (
     <footer
+      data-chat-composer=""
       className={cn(
         "mr-22 shrink-0 rounded-[14px] border-[1.5px] border-primary bg-surface p-3 shadow-card",
         isDragging && "ring-2 ring-primary",

@@ -1,4 +1,8 @@
-import { readCountColumn, readTextColumn } from "@/backend/database/RowValue";
+import {
+  readBooleanColumn,
+  readCountColumn,
+  readTextColumn,
+} from "@/backend/database/RowValue";
 
 import type { Database } from "@/backend/database/Database";
 import type { ChatCardState } from "@/definition/ConversationContent";
@@ -8,7 +12,8 @@ const CARD_STATE_LIMIT = 2_000;
 
 /**
  * What a person chose for the content cards of the chat and the split view
- * (PAGE-298): collapsed or expanded per card, and the width of the panel.
+ * (PAGE-298): collapsed or expanded per card, the width of the panel, and
+ * whether the list of the chat page is collapsed (PAGE-325).
  */
 export class ChatViewPreferenceRepository {
   private readonly database: Pick<Database, "query" | "execute">;
@@ -90,7 +95,54 @@ export class ChatViewPreferenceRepository {
       { user_id: userId },
     );
     const [row] = rows;
-    return row ? readCountColumn(row, 0, "split_width") : null;
+    // A person who only collapsed the list has a row without a width.
+    if (!row || row[0] === null || row[0] === undefined) return null;
+    return readCountColumn(row, 0, "split_width");
+  }
+
+  /** Returns whether a person collapsed the list of the chat page. */
+  public async isListCollapsed(userId: string): Promise<boolean> {
+    const rows = await this.database.query(
+      `
+        SELECT list_collapsed
+        FROM chat_view_settings
+        WHERE user_id = $user_id;
+      `,
+      { user_id: userId },
+    );
+    const [row] = rows;
+    return row ? readBooleanColumn(row, 0, "list_collapsed") : false;
+  }
+
+  /** Stores whether a person collapsed the list of the chat page. */
+  public async setListCollapsed(
+    userId: string,
+    isCollapsed: boolean,
+    updatedAt: string,
+  ): Promise<void> {
+    await this.database.execute(
+      `
+        INSERT INTO chat_view_settings (
+            user_id,
+            list_collapsed,
+            updated_at
+        )
+        VALUES (
+            $user_id,
+            $list_collapsed,
+            $updated_at
+        )
+        ON CONFLICT (user_id) DO UPDATE
+        SET
+            list_collapsed = EXCLUDED.list_collapsed,
+            updated_at = EXCLUDED.updated_at;
+      `,
+      {
+        user_id: userId,
+        list_collapsed: isCollapsed ? 1 : 0,
+        updated_at: updatedAt,
+      },
+    );
   }
 
   /** Stores the width a person gave the split view. */
