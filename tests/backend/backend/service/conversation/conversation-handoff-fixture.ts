@@ -156,12 +156,7 @@ export class MemoryRounds {
     };
     this.rounds.set(claim.originMessageId, round);
     if (claim.requestedBy === claim.agentId) return "duplicate";
-    const limits = conversationRoundLimits(claim.limits ?? {});
-    if (
-      claim.isAutomatic &&
-      round.automaticCount >= limits.automaticRepliesPerOrigin
-    )
-      return "limit";
+    if (this.isAtLimit(claim, round.automaticCount)) return "limit";
     const key = `${claim.triggerMessageId}|${claim.agentId}`;
     if (claim.handoff) {
       const request = this.handoffs.get(key);
@@ -175,10 +170,25 @@ export class MemoryRounds {
     )
       return "duplicate";
     if (claim.isFollowUp && !this.consumeFor(claim)) return "duplicate";
+    if (!this.claimTarget(key, claim)) return "duplicate";
+    if (claim.isAutomatic) round.automaticCount += 1;
+    this.claims.push(claim);
+    return "claimed";
+  }
+
+  private isAtLimit(claim: ConversationReplyClaim, count: number): boolean {
+    return (
+      claim.isAutomatic &&
+      count >=
+        conversationRoundLimits(claim.limits ?? {}).automaticRepliesPerOrigin
+    );
+  }
+
+  private claimTarget(key: string, claim: ConversationReplyClaim): boolean {
     const existing = this.targets.get(key);
     if (existing) {
       if (claim.handoff !== "paused" || existing.state !== "interrupted")
-        return "duplicate";
+        return false;
       existing.state = "queued";
     } else
       this.targets.set(key, {
@@ -190,9 +200,7 @@ export class MemoryRounds {
         state: "queued",
         replyMessageId: null,
       });
-    if (claim.isAutomatic) round.automaticCount += 1;
-    this.claims.push(claim);
-    return "claimed";
+    return true;
   }
 
   private isBundled(replyId: string, agentId: string): boolean {
@@ -330,18 +338,16 @@ export class MemoryRounds {
             (filter.conversationId === undefined ||
               question.conversationId === filter.conversationId),
         )
-        .map(
-          (question): ConversationFollowUp => ({
-            questionMessageId: question.questionMessageId,
-            originMessageId: question.originMessageId,
-            conversationId: question.conversationId,
-            personId:
-              this.rounds.get(question.originMessageId)?.personId ?? PERSON.id,
-            agentId: question.agentId,
-            deadlineAt: question.deadlineAt,
-            answers: question.answers.map((answer) => ({ ...answer })),
-          }),
-        ),
+        .map((question): ConversationFollowUp => ({
+          questionMessageId: question.questionMessageId,
+          originMessageId: question.originMessageId,
+          conversationId: question.conversationId,
+          personId:
+            this.rounds.get(question.originMessageId)?.personId ?? PERSON.id,
+          agentId: question.agentId,
+          deadlineAt: question.deadlineAt,
+          answers: question.answers.map((answer) => ({ ...answer })),
+        })),
     );
     vi.spyOn(followUps, "consume").mockImplementation(async (id, now) => {
       const question = this.questions.get(id);
@@ -451,14 +457,81 @@ export interface HandoffFixture {
   /** Moves the clock. */
   readonly advance: (milliseconds: number) => void;
   /** Stores and returns a message of the person. */
-  readonly personWrites: (text: string, mentions?: string[]) => ConversationMessage;
+  readonly personWrites: (
+    text: string,
+    mentions?: string[],
+  ) => ConversationMessage;
   /** Stores and returns a message an agent chose to send (PAGE-311). */
-  readonly agentSends: (agentId: string, text: string, mentions: string[]) => ConversationMessage;
+  readonly agentSends: (
+    agentId: string,
+    text: string,
+    mentions: string[],
+  ) => ConversationMessage;
   /** Stores plain earlier messages of agents, as history. */
   readonly agentHistory: (count: number) => void;
   /** A new service on the same state, as after a restart of the process. */
   readonly restart: () => ConversationAgentReplies;
   readonly settings: { current: ConversationReplySettings };
+}
+
+interface FixtureDependencyInput {
+  memberIds: string[];
+  stored: StoredConversationMessage[];
+  accounts: ConversationAccounts;
+  started: string[];
+  requests: ConversationAgentRequest[];
+  script: Map<string, string[]>;
+  settings: { current: ConversationReplySettings };
+  now: () => Date;
+  rounds: ConversationRoundRepository;
+}
+
+function fixtureDependencies({
+  memberIds,
+  stored,
+  accounts,
+  started,
+  requests,
+  script,
+  settings,
+  now,
+  rounds,
+}: FixtureDependencyInput): ConversationAgentRepliesDependencies {
+  return {
+    conversations: {
+      findForMember: vi.fn().mockResolvedValue(CONVERSATION),
+      memberIds: vi.fn().mockResolvedValue(new Map([["group", memberIds]])),
+    },
+    messages: memoryMessages(stored),
+    directory: { read: vi.fn().mockResolvedValue(accounts) },
+    runner: {
+      answer: vi.fn(async (request: ConversationAgentRequest) => {
+        started.push(request.agent.id);
+        requests.push(request);
+        return script.get(request.agent.id)?.shift() ?? "Erledigt.";
+      }),
+    },
+    rounds,
+    contexts: { promptContext: vi.fn().mockResolvedValue({ context: null }) },
+    routing: { choose: vi.fn().mockResolvedValue([]) },
+    replySettings: { find: vi.fn(async () => settings.current) },
+    decisions: { decide: vi.fn().mockResolvedValue([]) },
+    events: new ConversationEvents(),
+    publisher: { publish: vi.fn() },
+    guard: { isPaused: vi.fn().mockResolvedValue(false) },
+    agentFiles: {
+      select: vi.fn(async (text: string) => ({
+        text,
+        lines: [text],
+        files: [],
+      })),
+      open: vi.fn(),
+    },
+    attachments: { stage: vi.fn(), bind: vi.fn(), release: vi.fn() },
+    content: { describe: vi.fn().mockResolvedValue(new Map()) },
+    now,
+    wait: async () => undefined,
+  };
 }
 
 /** Mocked persistence and runner; the reply orchestration, follow-ups and runner stay real. */
@@ -490,37 +563,17 @@ export function handoffFixture(): HandoffFixture {
     memory.install(rounds);
     return rounds;
   };
-  const dependencies: ConversationAgentRepliesDependencies = {
-    conversations: {
-      findForMember: vi.fn().mockResolvedValue(CONVERSATION),
-      memberIds: vi.fn().mockResolvedValue(new Map([["group", memberIds]])),
-    },
-    messages: memoryMessages(stored),
-    directory: { read: vi.fn().mockResolvedValue(accounts) },
-    runner: {
-      answer: vi.fn(async (request: ConversationAgentRequest) => {
-        started.push(request.agent.id);
-        requests.push(request);
-        return script.get(request.agent.id)?.shift() ?? "Erledigt.";
-      }),
-    },
-    rounds: newRounds(),
-    contexts: { promptContext: vi.fn().mockResolvedValue({ context: null }) },
-    routing: { choose: vi.fn().mockResolvedValue([]) },
-    replySettings: { find: vi.fn(async () => settings.current) },
-    decisions: { decide: vi.fn().mockResolvedValue([]) },
-    events: new ConversationEvents(),
-    publisher: { publish: vi.fn() },
-    guard: { isPaused: vi.fn().mockResolvedValue(false) },
-    agentFiles: {
-      select: vi.fn(async (text: string) => ({ text, lines: [text], files: [] })),
-      open: vi.fn(),
-    },
-    attachments: { stage: vi.fn(), bind: vi.fn(), release: vi.fn() },
-    content: { describe: vi.fn().mockResolvedValue(new Map()) },
+  const dependencies = fixtureDependencies({
+    memberIds,
+    stored,
+    accounts,
+    started,
+    requests,
+    script,
+    settings,
     now,
-    wait: async () => undefined,
-  };
+    rounds: newRounds(),
+  });
   let counter = 0;
   const store = (
     senderId: string,

@@ -220,6 +220,14 @@ async function isBundled(
   return rows.length > 0;
 }
 
+async function claimTarget(
+  transaction: DatabaseTransaction,
+  claim: ConversationReplyClaim,
+): Promise<boolean> {
+  if (await insertTarget(transaction, claim)) return true;
+  return claim.handoff === "paused" && (await reviveTarget(transaction, claim));
+}
+
 /**
  * The rounds of answers in conversations, their asked agents and the routing
  * decisions of the observer (PAGE-296, PAGE-349).
@@ -305,11 +313,7 @@ export class ConversationRoundRepository {
         return "duplicate";
       if (claim.isFollowUp && !(await this.consumeFollowUp(transaction, claim)))
         return "duplicate";
-      if (
-        !(await insertTarget(transaction, claim)) &&
-        !(handoff === "paused" && (await reviveTarget(transaction, claim)))
-      )
-        return "duplicate";
+      if (!(await claimTarget(transaction, claim))) return "duplicate";
       if (claim.isAutomatic)
         await transaction.execute(
           `

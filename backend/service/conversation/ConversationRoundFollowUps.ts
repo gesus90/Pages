@@ -79,7 +79,6 @@ export class ConversationRoundFollowUps {
    * Opens a batch for every explicit @ mention of other agents and collects
    * the replies that mention an earlier questioner.
    *
-   * @param mentioned - The other agent members the answer mentions with @.
    * @returns The questioners whose batch holds this answer; they get no separate hand-over.
    */
   public async observe(

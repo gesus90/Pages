@@ -37,12 +37,12 @@ Es gab keine Einstellung je Gruppe: jede Gruppe nutzte den Beobachter.
 
 Im Kopf des Gruppenchats öffnet **„Wer antwortet?“** einen Dialog. Alle Mitglieder lesen ihn, ändern dürfen alle, die den Chat verwalten (die Person, die die Gruppe angelegt hat).
 
-| Feld                                | Werte                                                                                            | Standard         |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------ | ---------------- |
-| Wer antwortet?                      | **Alle angesprochenen Agents** (nur @), **Beobachter-Agent** (PAGE-296), **Entscheidungsmodell** | Beobachter-Agent |
-| Standard-Antwortender               | ein Agent des Chats oder „Niemand“                                                               | niemand          |
-| Höchstzahl Antwortende              | 1 bis 3 je Nachricht                                                                             | 2                |
-| Beiträge ohne @ (PAGE-349)          | 1 bis 9 je Runde, nur Beobachter und Entscheidungsmodell                                         | 8                |
+| Feld                       | Werte                                                                                            | Standard         |
+| -------------------------- | ------------------------------------------------------------------------------------------------ | ---------------- |
+| Wer antwortet?             | **Alle angesprochenen Agents** (nur @), **Beobachter-Agent** (PAGE-296), **Entscheidungsmodell** | Beobachter-Agent |
+| Standard-Antwortender      | ein Agent des Chats oder „Niemand“                                                               | niemand          |
+| Höchstzahl Antwortende     | 1 bis 3 je Nachricht                                                                             | 2                |
+| Beiträge ohne @ (PAGE-349) | 1 bis 9 je Runde, nur Beobachter und Entscheidungsmodell                                         | 8                |
 
 - Der Standard der Betriebsart ist der **Beobachter**, weil das dem Verhalten vor PAGE-317 entspricht; bestehende Gruppen ändern ihr Verhalten nicht.
 - Das Modell wird nicht je Chat gewählt. Es gilt das Entscheidungsmodell der Instanz.

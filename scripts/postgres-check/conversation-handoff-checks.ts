@@ -67,7 +67,11 @@ async function checkMigration(database: Database): Promise<void> {
   const [settings] = await database.query(
     "SELECT replies_per_round FROM conversation_reply_settings WHERE conversation_id = 'group';",
   );
-  assert.equal(Number(settings?.[0]), 8, "existing groups get eight places without @");
+  assert.equal(
+    Number(settings?.[0]),
+    8,
+    "existing groups get eight places without @",
+  );
   const [targets] = await database.query(
     "SELECT COUNT(*) FROM conversation_reply_targets WHERE origin_message_id = 'origin';",
   );
@@ -220,18 +224,27 @@ async function checkRestartResume(database: Database): Promise<void> {
   // F was claimed but never ran before the crash; E was never claimed.
   assert.equal(
     await rounds.claim(
-      claim({ agentId: "f", triggerMessageId: "answer-d", requestedBy: "d", handoff: "pending" }),
+      claim({
+        agentId: "f",
+        triggerMessageId: "answer-d",
+        requestedBy: "d",
+        handoff: "pending",
+      }),
     ),
     "claimed",
   );
-  const paused = await rounds.handoffs.pauseUnstarted("2026-11-13T11:00:00.000Z");
+  const paused = await rounds.handoffs.pauseUnstarted(
+    "2026-11-13T11:00:00.000Z",
+  );
   assert.deepEqual(paused.map((entry) => entry.agentId).sort(), ["e", "f"]);
   assert.equal(
-    await rounds.interruptStale("2026-11-13T11:00:00.000Z") >= 0,
+    (await rounds.interruptStale("2026-11-13T11:00:00.000Z")) >= 0,
     true,
   );
   assert.deepEqual(
-    (await rounds.handoffs.paused("group")).map((entry) => entry.agentId).sort(),
+    (await rounds.handoffs.paused("group"))
+      .map((entry) => entry.agentId)
+      .sort(),
     ["e", "f"],
   );
   const resumed = await Promise.all(
@@ -282,7 +295,13 @@ async function checkBundles(database: Database): Promise<void> {
   });
   assert.deepEqual([...recorded], ["g"]);
   assert.deepEqual(
-    [...(await rounds.followUps.record("origin", { id: "reply-h", senderId: "h", mentions: ["g"] }))],
+    [
+      ...(await rounds.followUps.record("origin", {
+        id: "reply-h",
+        senderId: "h",
+        mentions: ["g"],
+      })),
+    ],
     ["g"],
     "a repeated record still reports the batch",
   );
@@ -305,7 +324,10 @@ async function checkBundles(database: Database): Promise<void> {
       ),
     ),
   );
-  assert.equal(continuations.filter((outcome) => outcome === "claimed").length, 1);
+  assert.equal(
+    continuations.filter((outcome) => outcome === "claimed").length,
+    1,
+  );
 }
 
 /**

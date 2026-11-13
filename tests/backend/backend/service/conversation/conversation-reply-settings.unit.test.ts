@@ -91,7 +91,7 @@ it("drops the former limit per agent from saved settings (PAGE-349)", async () =
   const saved = await service.save(person, input);
   expect(saved).not.toHaveProperty("repliesPerAgentPerOrigin");
   await expect(
-    service.save(person, { ...input, repliesPerAgentPerOrigin: 4 } as never),
+    service.save(person, { ...input, repliesPerAgentPerOrigin: 4 }),
   ).rejects.toMatchObject({ code: "invalid" });
 });
 

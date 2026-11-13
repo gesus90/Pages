@@ -7,10 +7,11 @@ import { CONVERSATION_OBSERVER_LIMITS } from "@/definition/ConversationObserver"
 
 import { accountsOf, handoffFixture } from "./conversation-handoff-fixture";
 
+import type * as Logger from "@/backend/logging/Logger";
 import type { HandoffFixture } from "./conversation-handoff-fixture";
 
 vi.mock("@/backend/logging/Logger", async (original) => ({
-  ...(await original<typeof import("@/backend/logging/Logger")>()),
+  ...(await original<typeof Logger>()),
   logEvent: vi.fn(),
   logCaughtError: vi.fn(),
 }));
@@ -35,7 +36,7 @@ function count(list: readonly string[], id: string): number {
   return list.filter((entry) => entry === id).length;
 }
 
-function pausedLogs(): unknown[] {
+function pausedLogs(): Parameters<typeof logEvent>[0][] {
   return vi
     .mocked(logEvent)
     .mock.calls.map(([entry]) => entry)
@@ -61,7 +62,9 @@ it("starts agent A again when agent B mentions it, although A answered in the ro
   const origin = fixture.personWrites("@a @b Bitte prüfen", ["a", "b"]);
   await fixture.service.answer(origin, fixture.memberIds);
   expect(count(fixture.started, "a")).toBe(2);
-  expect(fixture.requests.at(-1)?.lastMessage).toBe("@a Siehst du das auch so?");
+  expect(fixture.requests.at(-1)?.lastMessage).toBe(
+    "@a Siehst du das auch so?",
+  );
   // The second answer of A in the same round is stored, not swallowed by an idempotency key.
   expect(fixture.stored.filter((entry) => entry.senderId === "a")).toHaveLength(
     2,
@@ -122,7 +125,9 @@ it("limits contributions without @ to eight per round; @ hand-overs neither use 
   // I was refused as the ninth contribution without @, but A's @ hands over to it.
   expect(
     fixture.memory.claims.filter((claim) => claim.agentId === "i"),
-  ).toEqual([expect.objectContaining({ trigger: "handoff", isAutomatic: false })]);
+  ).toEqual([
+    expect.objectContaining({ trigger: "handoff", isAutomatic: false }),
+  ]);
   expect(fixture.memory.rounds.get(origin.id)?.automaticCount).toBe(8);
   expect(
     vi
@@ -152,7 +157,10 @@ it("gives the observer only the places left by contributions without @", async (
   const fixture = started(handoffFixture());
   fixture.settings.current = { ...fixture.settings.current, mode: "observer" };
   const origin = fixture.personWrites("Frage ohne @");
-  fixture.memory.rounds.set(origin.id, { personId: "person", automaticCount: 6 });
+  fixture.memory.rounds.set(origin.id, {
+    personId: "person",
+    automaticCount: 6,
+  });
   for (const agentId of ["a", "b", "c", "d", "e"])
     fixture.memory.targets.set(`x-${agentId}|${agentId}`, {
       originMessageId: origin.id,
@@ -181,7 +189,11 @@ it("tells the chain pause at 19, 20 and 21 agent messages in a row", async () =>
     fixture.personWrites("Hallo");
     fixture.agentHistory(agents);
     expect(
-      await isAgentChainPaused(fixture.dependencies.messages, accounts, "group"),
+      await isAgentChainPaused(
+        fixture.dependencies.messages,
+        accounts,
+        "group",
+      ),
     ).toBe(isPaused);
   }
   expect(CONVERSATION_DECISION_LIMITS.agentStreak).toBe(20);
@@ -206,15 +218,12 @@ it.each([
     if (isStarted) return;
     const [paused] = fixture.memory.handoffsIn("paused");
     expect(paused).toMatchObject({ agentId: "b", pauseReason: "agent_streak" });
-    expect(pausedLogs()).toEqual([
-      expect.objectContaining({
-        metadata: expect.objectContaining({
-          agentId: "b",
-          triggerMessageId: paused?.triggerMessageId,
-          reason: "agent_streak",
-        }),
-      }),
-    ]);
+    expect(pausedLogs()).toHaveLength(1);
+    expect(pausedLogs()[0]?.metadata).toMatchObject({
+      agentId: "b",
+      triggerMessageId: paused?.triggerMessageId,
+      reason: "agent_streak",
+    });
     // Only A's answer was stored: no hint in the chat.
     expect(fixture.stored).toHaveLength(messagesBefore + 1);
     expect(fixture.stored.every((entry) => entry.notice === null)).toBe(true);
@@ -313,11 +322,11 @@ it("keeps a hand-over stored before a crash and resumes it once a person writes 
   const restarted = fixture.restart();
   await restarted.recover(new Date());
   expect(fixture.memory.handoffsIn("paused")).toHaveLength(1);
-  expect(pausedLogs()).toEqual([
-    expect.objectContaining({
-      metadata: expect.objectContaining({ agentId: "b", reason: "restart" }),
-    }),
-  ]);
+  expect(pausedLogs()).toHaveLength(1);
+  expect(pausedLogs()[0]?.metadata).toMatchObject({
+    agentId: "b",
+    reason: "restart",
+  });
   const next = fixture.personWrites("Und?");
   await restarted.answer(next, fixture.memberIds);
   await restarted.answer(next, fixture.memberIds);
@@ -352,7 +361,10 @@ it("resumes a claimed but unprocessed hand-over after a crash once, and never re
       replyMessageId: null,
     });
   }
-  fixture.memory.rounds.set(origin.id, { personId: "person", automaticCount: 0 });
+  fixture.memory.rounds.set(origin.id, {
+    personId: "person",
+    automaticCount: 0,
+  });
   const restarted = fixture.restart();
   await restarted.recover(new Date());
   expect(fixture.started).toEqual([]);
@@ -519,18 +531,19 @@ it("does not start a queued agent that lost its membership or was deactivated be
     fixture.service.answer(second, fixture.memberIds),
   ]);
   await new Promise((resolve) => setTimeout(resolve, 0));
-  vi.mocked(fixture.dependencies.conversations.findForMember).mockImplementation(
-    async (conversationId, memberId) =>
-      memberId === "a"
-        ? null
-        : {
-            id: "group",
-            kind: "group",
-            name: "Team",
-            lastActivityAt: "today",
-            isMuted: false,
-            unreadCount: 0,
-          },
+  vi.mocked(
+    fixture.dependencies.conversations.findForMember,
+  ).mockImplementation(async (conversationId, memberId) =>
+    memberId === "a"
+      ? null
+      : {
+          id: "group",
+          kind: "group",
+          name: "Team",
+          lastActivityAt: "today",
+          isMuted: false,
+          unreadCount: 0,
+        },
   );
   release();
   await running;
