@@ -4,6 +4,7 @@ import {
   captureOwnedNamespace,
   hasEndedOwnedNamespace,
   settleOwnedNamespace,
+  forceOwnedNamespace,
 } from "@/backend/agents/cli/CliOwnedNamespace";
 
 const files = vi.hoisted(() => ({
@@ -128,4 +129,39 @@ it("keeps a unit-framed session unconfirmed while its unit still runs after the 
   ).resolves.toBe(false);
   expect(files.stopWorkerUnits).toHaveBeenCalledExactlyOnceWith("owned");
   expect(files.hasRunningWorkerUnit).toHaveBeenCalledExactlyOnceWith("owned");
+});
+
+it("PAGE-353 forcibly ends the matching namespace supervisor and confirms its exit", async () => {
+  const kill = vi.spyOn(process, "kill").mockImplementation(() => {
+    files.stat.mockRejectedValue(
+      Object.assign(new Error("gone"), { code: "ESRCH" }),
+    );
+    return true;
+  });
+  await expect(
+    forceOwnedNamespace(OWNER, "owned", "/synthetic-proc"),
+  ).resolves.toBe(true);
+  expect(kill).toHaveBeenCalledExactlyOnceWith(OWNER.pid, "SIGKILL");
+});
+
+it("PAGE-353 never signals a reused PID when forcibly releasing the previous owner", async () => {
+  files.stat.mockResolvedValue({ uid: OWNER.uid + 1 });
+  const kill = vi.spyOn(process, "kill").mockReturnValue(true);
+  await expect(
+    forceOwnedNamespace(OWNER, "owned", "/synthetic-proc"),
+  ).resolves.toBe(true);
+  expect(kill).not.toHaveBeenCalled();
+});
+
+it("PAGE-353 does not claim a complete cgroup cleanup from its supervisor PID alone", async () => {
+  files.hasRunningWorkerUnit.mockResolvedValue(true);
+  const kill = vi.spyOn(process, "kill").mockReturnValue(true);
+  await expect(
+    forceOwnedNamespace(
+      { ...OWNER, unit: "pages-acp-owned-1234abcd.service" },
+      "owned",
+      "/synthetic-proc",
+    ),
+  ).resolves.toBe(false);
+  expect(kill).not.toHaveBeenCalled();
 });

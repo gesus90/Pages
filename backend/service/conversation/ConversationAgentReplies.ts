@@ -77,6 +77,8 @@ export interface ConversationAgentRequest {
    * once the round is delivered (PAGE-376).
    */
   readonly throughSequence?: number;
+  /** Copies file attachments before the agent job removes its temporary workspace. */
+  readonly consumeAnswer?: (answer: string) => Promise<void>;
   /** Stops the answer, also while it waits for a free place (PAGE-304). */
   readonly signal?: AbortSignal;
   /** Called when the answer waits because the limits of concurrent sessions are reached. */

@@ -19,6 +19,7 @@ const BATCH_SIZE = 64;
 const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 const PLAN_RUN_PURGE = new RegExp(`^${PLAN_RUN_PURGE_PREFIX}(${UUID})$`, "u");
 const PLAN_SESSIONS = new RegExp(`^plan-sessions/(${UUID})/$`, "u");
+const PLAN_HOMES = new RegExp(`^plan-homes/(${UUID})/$`, "u");
 const LOCAL_SESSIONS = /^local-sessions\/([a-f0-9-]{36})\/$/u;
 const JOURNAL_RECORD = /^\d{16}\.json$/u;
 
@@ -199,6 +200,11 @@ export class AgentDeferredGarbage {
       await this.removePlanSessions(sessions[1]);
       return "done";
     }
+    const homes = PLAN_HOMES.exec(storageName);
+    if (homes) {
+      await this.removePlanSessions(homes[1], "plan-homes");
+      return "done";
+    }
     const local = LOCAL_SESSIONS.exec(storageName);
     if (local) {
       await this.removeLocalSession(local[1]);
@@ -226,12 +232,15 @@ export class AgentDeferredGarbage {
   }
 
   /** Removes `agents/<connection>/plan-sessions/<run>` of every connection, HOME and cache included. */
-  private async removePlanSessions(runId: string): Promise<void> {
+  private async removePlanSessions(
+    runId: string,
+    folder = "plan-sessions",
+  ): Promise<void> {
     const agents = path.join(this.directory, "agents");
     if (!(await realDirectory(agents))) return;
     for (const connection of await readdir(agents, { withFileTypes: true })) {
       if (!connection.isDirectory()) continue;
-      const sessions = path.join(agents, connection.name, "plan-sessions");
+      const sessions = path.join(agents, connection.name, folder);
       // A linked folder is never followed; only the run entry itself goes.
       if (!(await realDirectory(sessions))) continue;
       await rm(path.join(sessions, runId), { recursive: true, force: true });

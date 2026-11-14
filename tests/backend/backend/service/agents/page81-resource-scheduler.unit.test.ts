@@ -20,6 +20,65 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+it("PAGE-353 frees uncertain capacity of the replaced run and admits the new run", async () => {
+  const world = resourceWorld();
+  await world.scheduler.recover();
+  const oldSession = nativeSession();
+  oldSession.close.mockResolvedValue(closed(false));
+  world.cleanup.mockResolvedValue({ remaining: 1 });
+  const old = await world.scheduler.open(
+    owner("old"),
+    new AbortController().signal,
+    async () => oldSession,
+  );
+  await old.close();
+  const start = vi.fn(async () => nativeSession());
+  const next = world.scheduler.open(
+    owner("new"),
+    new AbortController().signal,
+    start,
+  );
+  await vi.advanceTimersByTimeAsync(0);
+  expect(start).not.toHaveBeenCalled();
+  await world.scheduler.forceReleaseRun("run-old");
+  await vi.advanceTimersByTimeAsync(0);
+  const running = await next;
+  expect(start).toHaveBeenCalledOnce();
+  expect(world.records.has("old")).toBe(false);
+  expect(world.scheduler.snapshot().active.map((entry) => entry.runId)).toEqual(
+    ["run-new"],
+  );
+  await running.close();
+  await world.scheduler.shutdown();
+});
+
+it("PAGE-353 cancels only the old run's pending admission without freeing another run's lease", async () => {
+  const world = resourceWorld();
+  await world.scheduler.recover();
+  const running = await world.scheduler.open(
+    owner("other"),
+    new AbortController().signal,
+    async () => nativeSession(),
+  );
+  const start = vi.fn(async () => nativeSession());
+  const old = world.scheduler.open(
+    owner("old"),
+    new AbortController().signal,
+    start,
+  );
+  const rejected = expect(old).rejects.toBeInstanceOf(AgentPlanCancelledError);
+  await vi.advanceTimersByTimeAsync(0);
+  await world.scheduler.forceReleaseRun("run-old");
+  await rejected;
+  expect(start).not.toHaveBeenCalled();
+  expect(world.scheduler.snapshot().waiting).toEqual([]);
+  expect(world.scheduler.snapshot().active.map((entry) => entry.runId)).toEqual(
+    ["run-other"],
+  );
+  await running.close();
+  await world.scheduler.shutdown();
+});
+
 it("admits three mixed-provider independent runs FIFO with exactly one durable starting lease", async () => {
   const world = resourceWorld();
   await world.scheduler.recover();

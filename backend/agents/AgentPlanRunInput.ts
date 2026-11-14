@@ -1,4 +1,5 @@
 import { planRunCommandReceiptSchema } from "@/definition/PagesRuns";
+import { planResourceReleaseSchema } from "@/definition/AgentPlanResourceRelease";
 import { planWriterWaitSchema } from "@/definition/AgentPlanExecution";
 import { isPlanWriterWaitActive } from "@/definition/AgentPlanRunState";
 import { AgentError } from "@/backend/error/AgentErrors";
@@ -43,30 +44,61 @@ export function readPlanRun(input: unknown): AgentPlanRun {
       ? {}
       : { endedAt: readPlanText(run.endedAt) }),
     ...readRunCommand(run.command),
-    ...(run.startError === undefined
-      ? {}
-      : { startError: readPlanText(run.startError, 200) }),
+    ...readOptionalRunFields(run),
     planRevision,
     status,
     stopRequested,
     ...readWriterWait(run, { status, stopRequested }),
+    ...readPlanPauseBoundary(run.pauseBoundary),
+    ...readPlanContinuation(run.continuation),
+    steps: run.steps.map(readPlanStepResult),
+  };
+}
+
+/** Reads the fields a persisted view has only in some states, and leaves out the others. */
+function readOptionalRunFields(
+  run: Record<string, unknown>,
+): Partial<AgentPlanRun> {
+  return {
+    ...(run.endedAt === undefined
+      ? {}
+      : { endedAt: readPlanText(run.endedAt) }),
+    ...(run.resourceReleases === undefined
+      ? {}
+      : {
+          resourceReleases: planResourceReleaseSchema
+            .array()
+            .parse(run.resourceReleases),
+        }),
+    ...(run.startCleanupUnconfirmed === undefined
+      ? {}
+      : {
+          startCleanupUnconfirmed: readCleanupWarnings(
+            run.startCleanupUnconfirmed,
+          ),
+        }),
+    ...(run.startError === undefined
+      ? {}
+      : { startError: readPlanText(run.startError, 200) }),
     ...(run.controlError === "plan_step_failed"
       ? { controlError: run.controlError }
       : {}),
-    ...readPlanPauseBoundary(run.pauseBoundary),
-    ...readPlanContinuation(run.continuation),
     ...(run.recovery === undefined
       ? {}
       : { recovery: readPlanRecoveryReason(run.recovery) }),
     ...(run.origin === undefined
       ? {}
       : { origin: readPlanRunOrigin(run.origin) }),
-    steps: run.steps.map(readPlanStepResult),
     ...(run.loops === undefined ? {} : { loops: readPlanLoopRuns(run.loops) }),
     ...(run.stacks === undefined
       ? {}
       : { stacks: readPlanStackRuns(run.stacks) }),
   };
+}
+
+function readCleanupWarnings(input: unknown): readonly string[] {
+  if (!Array.isArray(input)) throw new AgentError("plan_invalid");
+  return input.map((entry: unknown) => readPlanText(entry));
 }
 
 function readWriterWait(

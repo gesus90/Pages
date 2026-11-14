@@ -22,7 +22,7 @@ beforeEach(() => credentialFiles.reset());
 describe("credential directory isolation", () => {
   it("restores owner-only modes throughout a connection folder", async () => {
     const home = await store.prepare(CONNECTION, "claude_code");
-    const nested = path.join(home.home, "cache", "tool");
+    const nested = path.join(home.home, "state", "tool");
     const file = path.join(nested, "state.json");
     credentialFiles.seed(nested, "directory", 0o755);
     credentialFiles.seed(file, "file", 0o644);

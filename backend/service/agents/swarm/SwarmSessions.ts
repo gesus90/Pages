@@ -41,6 +41,7 @@ export interface SwarmSessionDependencies {
 
 /** The run, node and directory every session of one swarm shares. */
 export interface SwarmSessionScope {
+  readonly planId: string;
   readonly userId: string;
   readonly runId: string;
   readonly nodeId: string;
@@ -234,6 +235,7 @@ export class SwarmSessions {
         mcp,
         journal: this.journal(request.todos),
         resourceContext: {
+          planId: this.scope.planId,
           runId: this.scope.runId,
           stepId,
           ...(request.role === "worker"

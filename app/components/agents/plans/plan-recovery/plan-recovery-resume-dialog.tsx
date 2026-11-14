@@ -11,6 +11,8 @@ import {
 import { recoveryErrorText } from "../plan-recovery-panel";
 import { PlanRecoveryRestart } from "./plan-recovery-restart";
 import { PlanRecoveryState } from "./plan-recovery-state";
+import { PlanStartOwners } from "../plan-start-owners";
+import type { AgentPlanStartOwner } from "@/definition/AgentPlanResourceRelease";
 
 import type {
   PlanRecoveryRequest,
@@ -30,9 +32,11 @@ import type {
 export function PlanRecoveryResumeDialog({
   recovery,
   onClose,
+  owners = [],
 }: {
   readonly recovery: ReturnType<typeof usePlanRecovery>;
   readonly onClose: () => void;
+  readonly owners?: readonly AgentPlanStartOwner[];
 }): React.ReactElement | null {
   const { t } = useTranslation();
   const { view } = recovery;
@@ -59,6 +63,7 @@ export function PlanRecoveryResumeDialog({
         </div>
         <div className="space-y-3 text-xs leading-4 wrap-anywhere text-muted-foreground">
           <PlanRecoveryState view={view} />
+          <PlanStartOwners owners={owners} />
           <PlanRecoveryRestart
             view={view}
             isPending={recovery.isPending}

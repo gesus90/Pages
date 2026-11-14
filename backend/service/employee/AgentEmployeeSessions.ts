@@ -449,6 +449,7 @@ export class AgentEmployeeSessions {
           employee: {
             ...run,
             prepareTurn: request.prepareTurn,
+            consumeAnswer: request.consumeAnswer,
             onSettled: () => {
               endRound();
               slot.release();

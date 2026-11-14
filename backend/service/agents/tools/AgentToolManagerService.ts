@@ -90,6 +90,21 @@ export class AgentToolManagerService {
     return this.dependencies.files.root;
   }
 
+  /** Collects obsolete releases only while no installation, probe or native session uses the tool. */
+  public async runMaintenance(): Promise<void> {
+    for (const tool of AGENT_TOOL_REGISTRY) {
+      if (this.pending.has(tool.id)) continue;
+      await this.exclusive(tool.id, async () => {
+        if (
+          this.supervisor.activities(tool.id).length > 0 ||
+          (this.dependencies.activities?.(tool.id).length ?? 0) > 0
+        )
+          return;
+        await this.dependencies.files.prune?.(tool);
+      });
+    }
+  }
+
   /** Returns cached secret-free metadata after checking active system administrator rights. */
   public list(actor: AccountAccess): readonly AgentToolView[] {
     requireAgentAdministrator(actor);

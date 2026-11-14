@@ -1,6 +1,10 @@
 import path from "node:path";
 import { homedir } from "node:os";
 
+import { registerShutdownTask } from "@/backend/runtime/ProcessLifecycle";
+import { AgentEnvironmentRepository } from "@/backend/database/repositories/agent/AgentEnvironmentRepository";
+import { AgentEnvironmentMaintenance } from "@/backend/storage/AgentEnvironmentMaintenance";
+import { WikiMaintenanceScheduler } from "@/backend/service/wiki/WikiMaintenanceScheduler";
 import { ConfigFile } from "@/backend/config/ConfigFile";
 import { canProcessRuns } from "@/backend/runtime/RunsMode";
 import { createAgentToolManager } from "@/backend/service/agents/tools/AgentToolServices";
@@ -427,6 +431,7 @@ export function createAgentServices(
     repository,
   });
   const { runtime, agentToolManagerService } = cliRuntime;
+  startEnvironmentMaintenance(database, dataDirectory, agentToolManagerService);
   const localSessions = createLocalSessions(database, dataDirectory, tokenKey, {
     resources,
     acpResourceScheduler,
@@ -563,4 +568,33 @@ function resourceOptionsReader(
     if (!config) throw new Error("ACP configuration disappeared");
     return readAcpResourceOptions(config);
   };
+}
+
+/** Periodic file cleanup runs independently of further plan starts, also in the separate runs process. */
+function startEnvironmentMaintenance(
+  database: Database,
+  directory: string,
+  tools: AgentToolManagerService,
+): void {
+  if (!canProcessRuns()) return;
+  const repository = new AgentEnvironmentRepository(database);
+  const files = new AgentEnvironmentMaintenance(directory, repository);
+  const scheduler = new WikiMaintenanceScheduler(
+    {
+      runMaintenance: async () => {
+        await files.run();
+        await database.agentFiles?.collectGarbage(database);
+        if (!(await repository.hasActiveWorkers()))
+          await tools.runMaintenance();
+      },
+    },
+    60_000,
+  );
+  scheduler.start();
+  registerShutdownTask(
+    async () => {
+      scheduler.stop();
+    },
+    { step: "agent_environment_maintenance" },
+  );
 }

@@ -5,6 +5,7 @@ import {
   lstat,
   mkdir,
   readFile,
+  readdir,
   readlink,
   rename,
   rm,
@@ -122,6 +123,25 @@ export class AgentToolFiles implements AgentToolStorage {
     )
       throw new Error("Invalid managed release");
     await rm(location.release, { recursive: true, force: true });
+  }
+
+  /** Removes generations outside current/previous; the manager excludes installation and live users. */
+  public async prune(tool: AgentToolDefinition): Promise<void> {
+    const pointer = await this.pointer(tool);
+    const kept = new Set([pointer?.current, pointer?.previous]);
+    const releases = path.join(this.root, tool.id, "releases");
+    const metadata = await lstat(releases).catch((error: unknown) => {
+      if (missing(error)) return null;
+      throw error;
+    });
+    if (!metadata?.isDirectory() || metadata.isSymbolicLink()) return;
+    for (const entry of await readdir(releases, { withFileTypes: true })) {
+      if (kept.has(entry.name)) continue;
+      await rm(path.join(releases, entry.name), {
+        recursive: true,
+        force: true,
+      });
+    }
   }
 
   /** Explicit removal never touches system packages or connection homes. */

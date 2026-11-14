@@ -227,6 +227,7 @@ async function restoredInput(
     acceptanceInstruction: launch.instruction,
     recording: sessionStart(node, record.instanceId) ?? undefined,
     resourceContext: {
+      planId: node.run.planId,
       runId: node.run.id,
       stepId: node.step.step.id,
       sessionScopeId: launch.sessionScopeId,

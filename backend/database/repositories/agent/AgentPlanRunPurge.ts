@@ -21,6 +21,7 @@ const EARLIER_RUNS = `
       ON kept.plan_id = earlier.plan_id
   WHERE kept.id = $kept_run_id
       AND earlier.id <> kept.id
+      AND (earlier.view_json::jsonb -> 'resourceReleases') IS NULL
       AND (
           earlier.creation_order IS NULL
           OR earlier.creation_order < kept.creation_order
@@ -36,6 +37,7 @@ const SETTLED_RUN = `
   SELECT runs.id
   FROM agent_plan_runs AS runs
   WHERE runs.id = $run_id
+      AND (NOT $preserve_released OR (runs.view_json::jsonb -> 'resourceReleases') IS NULL)
       AND runs.status NOT IN ('running', 'pausing', 'paused', 'stopping')
       AND NOT EXISTS (
           SELECT 1 FROM acp_resource_leases WHERE run_id = runs.id
@@ -157,11 +159,15 @@ async function deleteRun(
 async function purgeRun(
   database: PlanRunPurgeDatabase,
   runId: string,
+  preserveReleased = true,
 ): Promise<boolean> {
   // The failures of the run stay countable after it is gone (PAGE-307).
   await indexRunFailures(new AgentRunFailureRepository(database), runId);
   return database.transaction(async (transaction) => {
-    const [settled] = await transaction.query(SETTLED_RUN, { run_id: runId });
+    const [settled] = await transaction.query(SETTLED_RUN, {
+      run_id: runId,
+      preserve_released: preserveReleased,
+    });
     if (!settled) return false;
     await deleteRun(transaction, runId);
     return true;
@@ -227,6 +233,7 @@ export async function queueEarlierRunPurge(
  * starts of the plan before the kept run go as well. A run that still holds
  * a lease, a writer lock, a pending cleanup, an unreleased local owner or an
  * accepted command stays until that settled, and a repeated purge finishes it.
+ * Runs with a forced-release journal stay as evidence until explicit plan deletion.
  */
 export async function purgeEarlierPlanRuns(
   database: PlanRunPurgeDatabase,
@@ -272,7 +279,7 @@ export async function purgeAllPlanRuns(
   );
   let isComplete = true;
   for (const row of runs)
-    if (!(await purgeRun(database, readTextColumn(row, 0, "id"))))
+    if (!(await purgeRun(database, readTextColumn(row, 0, "id"), false)))
       isComplete = false;
   return isComplete;
 }

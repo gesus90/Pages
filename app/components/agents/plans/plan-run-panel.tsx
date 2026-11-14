@@ -21,6 +21,9 @@ import { PlanPanelStatus } from "./plan-panel-status";
 import { planPanelState } from "./plan-panel-status-model";
 import { recoverableRunId, recoveryErrorText } from "./plan-recovery-panel";
 import { usePlanRecovery } from "./use-plan-recovery";
+import { usePlanStartOwners } from "./use-plan-start-owners";
+import { PlanResourceReleases } from "./plan-resource-releases";
+import type { AgentPlanStartOwner } from "@/definition/AgentPlanResourceRelease";
 
 import type { AgentPlanPage, AgentPlanRun } from "@/definition/AgentPlan";
 import type {
@@ -164,20 +167,32 @@ function PlanRunDecisionDialog({
   recovery,
   onStart,
   onClose,
+  owners,
 }: {
   readonly action: PlanRunDecision | null;
   readonly recovery: ReturnType<typeof usePlanRecovery>;
   readonly onStart: () => void;
   readonly onClose: () => void;
+  readonly owners: readonly AgentPlanStartOwner[];
 }): React.ReactElement | null {
   if (action === "foreign-start")
     return <PlanForeignRunStartDialog onConfirm={onStart} onClose={onClose} />;
   if (action === "replace-open")
-    return <PlanOpenRunStartDialog onConfirm={onStart} onClose={onClose} />;
+    return (
+      <PlanOpenRunStartDialog
+        onConfirm={onStart}
+        onClose={onClose}
+        owners={owners}
+      />
+    );
   if (!action) return null;
   return (
     <Suspense fallback={null}>
-      <PlanRecoveryResumeDialog recovery={recovery} onClose={onClose} />
+      <PlanRecoveryResumeDialog
+        recovery={recovery}
+        onClose={onClose}
+        owners={owners}
+      />
     </Suspense>
   );
 }
@@ -213,6 +228,7 @@ function RecoveryErrorLine({
 function useRunDecisions(
   props: PlanRunPanelProps,
   recovery: ReturnType<typeof usePlanRecovery>,
+  startOwners: ReturnType<typeof usePlanStartOwners>,
 ): {
   readonly recoveryAction: PlanRunDecision | null;
   readonly setRecoveryAction: (action: PlanRunDecision | null) => void;
@@ -225,14 +241,23 @@ function useRunDecisions(
   const { control } = props;
   function action(intent: PlanRunIntent): void {
     if (intent !== "play-plan") submitRunAction(props, intent);
-    else if (control?.runId && isActivePlanRun(control.status))
+    else void startPlan();
+  }
+  async function startPlan(): Promise<void> {
+    const owners = await startOwners.inspect();
+    if (!owners) return;
+    if (control?.runId && isActivePlanRun(control.status))
       setRecoveryAction("replace-open");
     else if (control?.canRestart) setRecoveryAction("restart");
+    else if (owners.length) setRecoveryAction("replace-open");
     else if (isForeignEndedRun(control)) setRecoveryAction("foreign-start");
     else submitRunAction(props, "play-plan");
   }
+  async function restartPlan(): Promise<void> {
+    if (await startOwners.inspect()) setRecoveryAction("restart");
+  }
   function resolveBlock(blockAction: AgentPlanResumeAction): void {
-    if (blockAction === "restart") setRecoveryAction("restart");
+    if (blockAction === "restart") void restartPlan();
     else if (blockAction === "release")
       void recovery.submit({ action: "release" });
     else if (blockAction === "admin_mode")
@@ -247,6 +272,10 @@ export function PlanRunPanel(props: PlanRunPanelProps): React.ReactElement {
   const detailsId = useId();
   const [isOpen, setOpen] = useState(false);
   const { editor, control, page } = props;
+  const startOwners = usePlanStartOwners(
+    page.selected?.id,
+    editor.draft.revision,
+  );
   const management = usePlanManagement();
   const recoveryRunId =
     page.selected?.canEdit === false ? null : recoverableRunId(control);
@@ -258,7 +287,7 @@ export function PlanRunPanel(props: PlanRunPanelProps): React.ReactElement {
   const presentation = panelPresentation(props);
   const state = panelState(props, presentation.error);
   const { recoveryAction, setRecoveryAction, action, resolveBlock } =
-    useRunDecisions(props, recovery);
+    useRunDecisions(props, recovery, startOwners);
   return (
     <>
       <ScrollViewport
@@ -277,6 +306,7 @@ export function PlanRunPanel(props: PlanRunPanelProps): React.ReactElement {
           control={control}
           isPending={
             recovery.isPending ||
+            startOwners.isPending ||
             editor.isPending ||
             Boolean(props.error) ||
             (!control && page.selected !== null)
@@ -292,6 +322,12 @@ export function PlanRunPanel(props: PlanRunPanelProps): React.ReactElement {
         />
         {recoveryRunId ? <RecoveryErrorLine recovery={recovery} /> : null}
         <PlanStartFailure error={props.run?.startError} />
+        {startOwners.error ? (
+          <p role="alert" className="px-4 py-2 text-xs text-destructive">
+            {t(`settings.agents.error.${startOwners.error}`)}
+          </p>
+        ) : null}
+        <PlanResourceReleases run={props.run} />
         <PlanPanelStatus
           state={state}
           isOpen={isOpen}
@@ -318,6 +354,7 @@ export function PlanRunPanel(props: PlanRunPanelProps): React.ReactElement {
       <PlanRunDecisionDialog
         action={recoveryAction}
         recovery={recovery}
+        owners={startOwners.owners}
         onStart={() =>
           submitRunAction(props, "play-plan", recoveryAction === "replace-open")
         }

@@ -6222,7 +6222,7 @@
       "cleanupHistory": "Last recorded cleanup failure",
       "cleanupHistoryTime": "{{time}}",
       "cleanupHistoryHint": "Historical finding. See available actions for the current release and process state.",
-      "freshDescription": "Start the saved plan from the beginning. The logs, sessions and records of earlier runs of this plan are removed; work already done in the workspace remains. Prior owned jobs are cancelled and conflicting dispatch waits for proven cleanup.",
+      "freshDescription": "Start the saved plan from the beginning. Earlier runs release their write resources by force; active owners are stopped. Unconfirmed cleanup does not block the new start. Results and history of forcibly released runs are retained.",
       "foreignStartTitle": "Start a new run",
       "foreignStartDescription": "The last run of this plan belongs to another person and has not finished. Only they can resume it. Start does not resume it but begins a new run of your own from the beginning; every step runs again, and the ended run is replaced with its logs, sessions and records.",
       "foreignStartConfirm": "I start a new run from the beginning. The other person's ended run is not resumed by this.",
@@ -6800,9 +6800,14 @@
     },
     "openRun": {
       "title": "End the open run and begin anew?",
-      "description": "This plan has an open run. Start ends it (processes end, reservations are released) and begins a new run from the start. To carry on instead, use Resume.",
+      "description": "Start forcibly ends the affected open runs, releases their write resources and begins a new run from the start. Unconfirmed cleanup is shown as a hint.",
       "cancel": "Cancel",
-      "confirm": "End and begin anew"
+      "confirm": "End and begin anew",
+      "affected": "These runs will be stopped:",
+      "cleanupHint": "Cleanup for run(s) {{runs}} is unconfirmed. Their resources are released; the new run starts anyway.",
+      "releaseHistory": "{{at}}: {{user}} forcibly released the resources for new run {{run}}.",
+      "processEnded": "Process end confirmed",
+      "processUnconfirmed": "Process end unconfirmed"
     },
     "swarm": {
       "workers": "Helpers",

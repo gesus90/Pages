@@ -127,6 +127,8 @@ export interface AgentJobRequest {
   /** The person the agent talks with; `null` for a learning run. */
   readonly person: User | null;
   readonly purpose: AgentConversationPurpose;
+  /** Transfers conversation attachments before the temporary workspace is removed. */
+  readonly consumeAnswer?: (answer: string) => Promise<void>;
   /** The stored conversation an answer belongs to (PAGE-276); its session is kept per agent and conversation. */
   readonly conversationId?: string;
   /** How the resource view names the conversation of a kept session (PAGE-335). */

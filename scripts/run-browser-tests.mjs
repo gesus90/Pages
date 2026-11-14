@@ -35,8 +35,10 @@ export function browserCacheCandidates(environment, realHome) {
   return [...new Set(candidates)];
 }
 
-/** The private directory a missing browser is installed into; never a shared one. */
+/** Uses the agent environment's shared browser directory when configured. */
 export function privateBrowserCache(environment, realHome) {
+  if (environment.PLAYWRIGHT_BROWSERS_PATH)
+    return environment.PLAYWRIGHT_BROWSERS_PATH;
   const base =
     environment.XDG_CACHE_HOME ||
     path.join(environment.HOME || realHome, ".cache");

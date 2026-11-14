@@ -1,20 +1,16 @@
 import { createHash } from "node:crypto";
 import { constants } from "node:fs";
-import { access, lstat, mkdir, open, rename } from "node:fs/promises";
+import { access, lstat, mkdir, open, rename, rm } from "node:fs/promises";
 import path from "node:path";
 
 import { AgentError } from "@/backend/error/AgentErrors";
 
 import type { CliHome } from "./CliContracts";
 
-/**
- * Folder of a connection that holds the transcript homes of its plan runs.
- *
- * @remarks
- * A run's folder stays until its plan starts a new run; the deletion follows
- * the removal of the run record (`agent_payload_garbage`).
- */
+/** Legacy run-owned transcripts, swept after their run settles. */
 export const PLAN_SESSIONS_DIRECTORY = "plan-sessions";
+/** Stable homes keyed by plan and session scope. */
+export const PLAN_HOMES_DIRECTORY = "plan-homes";
 
 /** A plan-owned Claude home and the single credential file mounted into it. */
 export interface ClaudePlanSessionHome {
@@ -24,10 +20,11 @@ export interface ClaudePlanSessionHome {
 
 /** Which plan session a transcript home belongs to. */
 export interface ClaudePlanSessionScope {
+  readonly planId: string;
   readonly runId: string;
   /** The node, or the group or loop whose members share one native session. */
   readonly scopeId: string;
-  /** The failed run a native recovery resumes; its transcripts of this scope move to `runId`. */
+  /** The failed run a native recovery resumes; legacy transcripts of this scope are adopted into the stable plan home. */
   readonly sourceRunId?: string;
 }
 
@@ -45,60 +42,66 @@ async function requirePrivateDirectory(directory: string): Promise<void> {
     throw new AgentError("cli_isolation_unavailable");
 }
 
-/**
- * Moves the transcripts of one scope from the failed run a recovery resumes.
- *
- * @remarks
- * A recovery is a new linked run with its own ID, but its native resume needs
- * the earlier session files. The source run is already continued and offers
- * no second recovery, so a move leaves exactly one owner of the history. A
- * scope the new run already holds is never replaced.
- */
+/** Adopts a legacy run home once, including the source of a native recovery. */
 async function adoptSourceScope(
-  sessions: string,
+  connection: CliHome,
   scope: ClaudePlanSessionScope,
-  hash: string,
+  destination: string,
 ): Promise<void> {
-  const { sourceRunId, runId } = scope;
-  if (!sourceRunId || sourceRunId === runId || !UUID.test(sourceRunId)) return;
-  const from = path.join(sessions, sourceRunId, hash);
-  const to = path.join(sessions, runId, hash);
-  const source = await lstat(from).catch(() => null);
-  if (!source?.isDirectory() || source.isSymbolicLink()) return;
-  if (await existingEntry(to)) return;
-  await requirePrivateDirectory(path.join(sessions, runId));
-  await rename(from, to);
+  if (await existingEntry(destination)) return;
+  const hash = path.basename(destination);
+  for (const runId of [scope.sourceRunId, scope.runId]) {
+    if (!runId || !UUID.test(runId)) continue;
+    const source = path.join(
+      connection.root,
+      PLAN_SESSIONS_DIRECTORY,
+      runId,
+      hash,
+    );
+    const metadata = await lstat(source).catch(() => null);
+    if (!metadata?.isDirectory() || metadata.isSymbolicLink()) continue;
+    await rename(source, destination);
+    for (const relative of [
+      "home/cache",
+      "home/.cache",
+      "home/data/pnpm",
+      "home/.npm",
+      "home/.local/share/pnpm",
+    ])
+      await rm(path.join(destination, relative), {
+        recursive: true,
+        force: true,
+      });
+    return;
+  }
 }
 
 /**
- * Creates a private transcript home stable across attempts of one plan session.
- *
- * @param connection - The connection's own home, which holds its login.
- * @param scope - The run and the node or group the session belongs to.
- *
- * @remarks
- * The source credential is never copied. Bubblewrap exposes only this home
- * and binds the one credential file into it, writable so a refreshed token
- * reaches the connection; other connection settings, the history of other
- * runs and the chats of Pica stay hidden. The transcripts stay until the
- * plan starts a new run, so a stopped, failed or paused run can still be
- * resumed. A missing or linked credential fails closed.
+ * Reuses one private transcript home per plan and scope across runs and native recovery.
+ * Only the connection's credential file is exposed inside it. Completed transcripts
+ * are swept independently; the stable home remains until the plan is deleted.
  */
 export async function prepareClaudePlanSessionHome(
   connection: CliHome,
   scope: ClaudePlanSessionScope,
 ): Promise<ClaudePlanSessionHome> {
-  const { runId, scopeId } = scope;
-  if (!UUID.test(runId) || !scopeId || scopeId.length > 200)
+  const { planId, runId, scopeId } = scope;
+  if (
+    !UUID.test(planId) ||
+    !UUID.test(runId) ||
+    !scopeId ||
+    scopeId.length > 200
+  )
     throw new AgentError("plan_context_changed");
   const hash = createHash("sha256").update(scopeId).digest("hex");
-  const sessions = path.join(connection.root, PLAN_SESSIONS_DIRECTORY);
-  const root = path.join(sessions, runId, hash);
+  const sessions = path.join(connection.root, PLAN_HOMES_DIRECTORY);
+  const root = path.join(sessions, planId, hash);
   const home: CliHome = {
     root,
     home: path.join(root, "home"),
     config: path.join(root, "claude"),
     work: path.join(root, "work"),
+    sharedEnvironment: connection.sharedEnvironment,
   };
   const source = path.join(connection.config, CREDENTIAL_FILE);
   const target = path.join(home.config, CREDENTIAL_FILE);
@@ -106,9 +109,10 @@ export async function prepareClaudePlanSessionHome(
   if (!credential?.isFile()) throw new AgentError("cli_not_logged_in");
   await access(source, constants.R_OK);
   await requirePrivateDirectory(sessions);
-  await adoptSourceScope(sessions, scope, hash);
+  await requirePrivateDirectory(path.join(sessions, planId));
+  await adoptSourceScope(connection, scope, root);
   for (const directory of [
-    path.join(sessions, runId),
+    path.join(sessions, planId),
     root,
     home.home,
     home.config,

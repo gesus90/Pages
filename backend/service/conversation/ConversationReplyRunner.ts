@@ -371,16 +371,27 @@ export class ConversationReplyRunner {
     this.controllers.set(controllerKey, controller);
     this.setWorking(job, true);
     try {
+      let posted: { readonly message: ConversationMessage | null } | undefined;
       const text = await this.askWhenFree(job, agent.user, {
         accounts,
         signal: controller.signal,
+        consumeAnswer: async (answer) => {
+          posted = {
+            message: await this.post(job, accounts, {
+              text: this.answerText(answer),
+              notice: null,
+            }),
+          };
+        },
       });
-      const posted = await this.post(job, accounts, { text, notice: null });
+      const message = posted
+        ? posted.message
+        : await this.post(job, accounts, { text, notice: null });
       await this.settleSteered(controllerKey, {
         state: "answered",
-        ...(posted ? { replyMessageId: posted.id } : {}),
+        ...(message ? { replyMessageId: message.id } : {}),
       });
-      return posted;
+      return message;
     } catch (error: unknown) {
       const notice = controller.signal.aborted
         ? "agent_stopped"
@@ -416,6 +427,7 @@ export class ConversationReplyRunner {
     context: {
       readonly accounts: ConversationAccounts;
       readonly signal: AbortSignal;
+      readonly consumeAnswer: (answer: string) => Promise<void>;
     },
   ): Promise<string> {
     const deadline = this.nowMilliseconds() + BUSY_WAIT_MAXIMUM_MILLISECONDS;
@@ -527,15 +539,21 @@ export class ConversationReplyRunner {
     context: {
       readonly accounts: ConversationAccounts;
       readonly signal: AbortSignal;
+      readonly consumeAnswer: (answer: string) => Promise<void>;
     },
   ): Promise<string> {
     const request = await this.buildRequest(job, agent, context.accounts);
     const answer = await this.dependencies.runner.answer({
       ...request,
+      consumeAnswer: context.consumeAnswer,
       signal: context.signal,
       onQueued: () => this.markQueued(job, "limit"),
       onAdmitted: () => this.unmarkQueued(job),
     });
+    return this.answerText(answer);
+  }
+
+  private answerText(answer: string): string {
     const text = Array.from(answer.trim())
       .slice(0, CONVERSATION_TEXT_MAXIMUM_LENGTH)
       .join("");

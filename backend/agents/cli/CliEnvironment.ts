@@ -2,8 +2,13 @@ import path from "node:path";
 
 import { correlationEnvironment } from "@/backend/logging/LogCorrelation";
 
+import {
+  sharedAgentEnvironment,
+  sharedPnpmBin,
+} from "./AgentSharedEnvironment";
+
 import type { CliProviderId } from "@/definition/AgentConnection";
-import type { CliHome } from "./CliContracts";
+import type { CliHome, CliRunRequest } from "./CliContracts";
 
 // OpenCode keeps its key and sessions below XDG_DATA_HOME; every other source of
 // configuration, plugins and updates outside the connection folder stays off.
@@ -63,6 +68,12 @@ export function createCliEnvironment(
   const environment: Record<string, string> = {
     PATH: [
       ...new Set([
+        ...(home.sharedEnvironment
+          ? [
+              sharedPnpmBin(home.sharedEnvironment),
+              path.join(home.sharedEnvironment, "pnpm"),
+            ]
+          : []),
         path.dirname(process.execPath),
         path.dirname(file),
         "/usr/local/bin",
@@ -85,8 +96,39 @@ export function createCliEnvironment(
   return {
     ...environment,
     ...providerEnvironment(home, provider),
+    ...(home.sharedEnvironment
+      ? sharedAgentEnvironment(home.sharedEnvironment)
+      : {}),
     ...correlationEnvironment(),
   };
+}
+
+/** Preserves the shared toolchain even when a credential wrapper adds its own PATH. */
+export function createCliRequestEnvironment(
+  request: Pick<
+    CliRunRequest,
+    "home" | "provider" | "file" | "toolFile" | "environment"
+  >,
+): Record<string, string> {
+  const environment = {
+    ...createCliEnvironment(
+      request.home,
+      request.provider,
+      request.toolFile ?? request.file,
+    ),
+    ...request.environment,
+  };
+  const root = request.home.sharedEnvironment;
+  if (root) {
+    Object.assign(environment, sharedAgentEnvironment(root));
+    environment.PATH = [
+      ...new Set([
+        sharedPnpmBin(root),
+        ...environment.PATH.split(path.delimiter),
+      ]),
+    ].join(path.delimiter);
+  }
+  return environment;
 }
 
 /** The arguments of the official sign-in command of each CLI. */

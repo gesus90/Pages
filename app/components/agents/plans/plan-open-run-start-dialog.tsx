@@ -1,6 +1,8 @@
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/app/components/ui/button";
+import { PlanStartOwners } from "./plan-start-owners";
+import type { AgentPlanStartOwner } from "@/definition/AgentPlanResourceRelease";
 import {
   Dialog,
   DialogContent,
@@ -20,9 +22,11 @@ import {
 export function PlanOpenRunStartDialog({
   onConfirm,
   onClose,
+  owners = [],
 }: {
   readonly onConfirm: () => void;
   readonly onClose: () => void;
+  readonly owners?: readonly AgentPlanStartOwner[];
 }): React.ReactElement {
   const { t } = useTranslation();
   function handleConfirm(): void {
@@ -45,6 +49,7 @@ export function PlanOpenRunStartDialog({
             {t("plans.openRun.description")}
           </DialogDescription>
         </div>
+        <PlanStartOwners owners={owners} />
         <div className="flex flex-wrap justify-end gap-1.5">
           <Button
             size="xs"

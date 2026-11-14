@@ -218,3 +218,15 @@ it("reads a program that cannot start as a failure", async () => {
     }),
   ).resolves.toBe(3);
 });
+
+it("installs missing browsers in the shared agent browser cache when configured", () => {
+  expect(
+    privateBrowserCache(
+      {
+        PLAYWRIGHT_BROWSERS_PATH: "/shared/browsers",
+        XDG_CACHE_HOME: "/shared/cache",
+      },
+      "/home",
+    ),
+  ).toBe("/shared/browsers");
+});

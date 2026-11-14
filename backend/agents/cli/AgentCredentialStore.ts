@@ -55,13 +55,17 @@ export class AgentCredentialStore {
   public paths(id: string, provider: CliProviderId): CliHome {
     if (!UUID_PATTERN.test(id)) throw new AgentError("connection_not_found");
     if (this.binding && this.isBound(id, provider))
-      return boundAntigravityHome(this.binding);
+      return {
+        ...boundAntigravityHome(this.binding),
+        sharedEnvironment: path.join(path.dirname(this.root), "shared-env"),
+      };
     const root = path.resolve(this.root, id);
     return {
       root,
       home: path.join(root, "home"),
       config: path.join(root, CONFIG_DIRECTORIES[provider]),
       work: path.join(root, "work"),
+      sharedEnvironment: path.join(path.dirname(this.root), "shared-env"),
     };
   }
 
@@ -82,6 +86,7 @@ export class AgentCredentialStore {
       home: path.join(root, "home"),
       config: path.join(root, CONFIG_DIRECTORIES[provider]),
       work: path.join(root, "work"),
+      sharedEnvironment: path.join(path.dirname(this.root), "shared-env"),
     };
   }
 
@@ -107,7 +112,7 @@ export class AgentCredentialStore {
         login.home,
         login.config,
         login.work,
-        ...["config", "cache", "data", "state"].map((name) =>
+        ...["config", "data", "state"].map((name) =>
           path.join(login.home, name),
         ),
       ]) {
@@ -188,7 +193,7 @@ export class AgentCredentialStore {
         home.home,
         home.config,
         home.work,
-        ...["config", "cache", "data", "state"].map((name) =>
+        ...["config", "data", "state"].map((name) =>
           path.join(home.home, name),
         ),
       ]) {

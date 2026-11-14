@@ -558,3 +558,42 @@ it("PAGE-344 keeps the actual refusal reason and conversation identity in safe l
     event.mockRestore();
   }
 });
+
+it("copies and binds workspace files inside the job callback before its workspace disappears", async () => {
+  const { runner, answer, dependencies, messages } = fixture();
+  let workspaceExists = true;
+  vi.mocked(dependencies.agentFiles.select).mockImplementation(async () => {
+    if (!workspaceExists) throw new Error("Workspace already removed");
+    return {
+      text: "Answer",
+      lines: ["Answer", "![File](file:/workspace/report.txt)"],
+      files: [
+        {
+          path: "/workspace/report.txt",
+          name: "report.txt",
+          mimeType: "text/plain",
+          sizeBytes: 3,
+          lineIndex: 1,
+        },
+      ],
+    };
+  });
+  vi.mocked(dependencies.attachments.stage).mockImplementation(async () => {
+    expect(workspaceExists).toBe(true);
+    return staged;
+  });
+  answer.mockImplementation(async (request: ConversationAgentRequest) => {
+    await request.consumeAnswer?.("Answer");
+    workspaceExists = false;
+    return "Answer";
+  });
+  const result = await runner.run(job);
+  expect(result?.id).toBe("answer");
+  expect(workspaceExists).toBe(false);
+  expect(dependencies.attachments.bind).toHaveBeenCalledWith(
+    expect.anything(),
+    [staged.id],
+  );
+  expect(dependencies.attachments.stage).toHaveBeenCalledOnce();
+  expect(messages.insert).toHaveBeenCalledOnce();
+});

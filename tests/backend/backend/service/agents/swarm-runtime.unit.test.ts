@@ -89,6 +89,7 @@ describe("swarm sessions", () => {
       {
         userId: "u",
         runId: "r",
+        planId: "plan",
         nodeId: "s",
         projectId: "p",
         directory: "/w",
@@ -129,6 +130,7 @@ describe("swarm sessions", () => {
       {
         userId: "u",
         runId: "r",
+        planId: "plan",
         nodeId: "s",
         projectId: "p",
         directory: "/w",

@@ -91,6 +91,7 @@ export class AgentConversationAnswers implements ConversationAgentRunner {
       person: request.person,
       purpose: "conversation",
       conversationId: request.conversation.id,
+      consumeAnswer: request.consumeAnswer,
       conversationLabel: conversationLabel(request),
       text: request.prompt,
       prepareTurn: conversationTurnPreparation(request),

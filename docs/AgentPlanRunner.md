@@ -9,6 +9,12 @@ Lokale ACP-Planagenten verwenden ab PAGE-224 einen unabhängigen nativen Sitzung
 
 Planänderungen über Editor, MCP und Pica speichern ausschließlich eine neue Planrevision. Ein aktiver Run behält seine ursprüngliche Plan-/Node-Konfiguration. Nur die ausdrücklichen Aktionen Play und Resume dürfen Ausführung anfordern. Ein ausdrücklich fortgesetzter pausierter Run kann wie bisher eine neue, angehängte Ausführungsgrundlage übernehmen; die ursprüngliche Grundlage und erfolgreiche Checkpoints werden dabei nicht überschrieben.
 
+## Starten und Zwangsfreigabe (PAGE-353)
+
+Play und Neu starten ermitteln vor der Reservierung die Besitzer der tatsächlichen Schreibverzeichnisse, Git-Branches und Remote-Workspaces. Offene Besitzer werden gestoppt, auch wenn sie zu einem anderen Plan gehören; der Bestätigungsdialog nennt ihre Plannamen und Lauf-IDs. Die Bereinigung nutzt die Sitzungs-, Namespace-, Script- und Runner-Grenzen der Wiederherstellungsfreigabe. Ein unbestätigtes Prozessende oder ein unerreichbarer alter Runner hält den neuen Lauf nicht auf: Sitzungsbesitzer, Kapazität und Schreibsperren werden zwangsweise freigegeben, die Unsicherheit erscheint als Hinweis.
+
+Der alte Lauf behält seine Ergebnisse und erhält unter `resourceReleases` einen dauerhaften Nachweis mit ausführender Person, Zeitpunkt, Ressourcen, Prozessidentitäten und bestätigtem oder unbestätigtem Prozessende. Die Ereignisse stehen auch im Laufjournal. Verspätete Fortschrittsmeldungen können den Nachweis nicht überschreiben und der alte Scheduler kann seine Schreibressourcen nicht erneut reservieren. Die automatische Bereinigung früherer Läufe durch Play lässt diese Läufe erhalten; eine ausdrückliche Planlöschung bleibt möglich. Bei getrenntem API-/Runner-Betrieb überträgt der Kontrollsocket nur Startidentität und Ressourcenschlüssel; private Snapshots bleiben im bestehenden Speicherpfad.
+
 ## Snapshot und Anzeige
 
 Vor dem Speichern eines Runs wird die vorbereitete Konfiguration nochmals strukturiert kopiert. `snapshot_json.execution` enthält Schema v1, Plan-ID, Run-ID, Planrevision und je Agent-/Script-Schritt eine initiale Versuchs-ID mit Schritt-ID. Das Modell, Reasoning, der Modellzugang und der Workspace werden als angeforderte Metadaten festgehalten. Die erste lokale Ausführung verwendet diese Versuchs-ID; weitere Versuche haben eigene IDs im vorhandenen Session-/Retry-Journal. Historische Runs ohne diese zusätzlichen Metadaten bleiben lesbar.

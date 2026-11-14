@@ -32,6 +32,7 @@ import {
   registerLocalOwnerInspection,
   registerLocalOwnerSettlement,
 } from "./LocalOwnerControl";
+import { forgetForcedLocalRun } from "./LocalSessionForcedRelease";
 import { pinLocalSessionTools } from "./LocalSessionTools";
 
 import type { Database } from "@/backend/database/Database";
@@ -333,6 +334,17 @@ export class LocalSessions {
       if (entry.runId === runId)
         this.attached.get(entry.instanceId)?.session.detach?.();
     return true;
+  }
+
+  /** Retires observers after an explicit forced start; the durable journal records any cleanup uncertainty. */
+  public async forgetForcedRun(runId: string): Promise<void> {
+    await forgetForcedLocalRun(runId, {
+      entries: this.entries,
+      attached: this.attached,
+      proven: this.proven,
+      uncertain: this.uncertain,
+      release: (entry) => this.release(entry),
+    });
   }
 
   /** Releases proven owner processes only after native closeout and public history import. */

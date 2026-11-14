@@ -117,6 +117,7 @@ export class AgentPlanSwarmRunner {
   ): Promise<Partial<AgentPlanStepResult>> {
     const { run, node, snapshot } = request;
     const sessions = new SwarmSessions(this.dependencies, {
+      planId: run.planId,
       userId: run.userId,
       runId: run.id,
       nodeId: node.id,

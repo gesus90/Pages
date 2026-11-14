@@ -32,9 +32,10 @@ it("binds only the selected connection and never deletes its context", async () 
   expect(
     store.isBound("10000000-0000-4000-8000-000000000002", "antigravity"),
   ).toBe(false);
-  await expect(store.prepare(ID, "antigravity")).resolves.toEqual(
-    boundAntigravityHome(binding),
-  );
+  await expect(store.prepare(ID, "antigravity")).resolves.toEqual({
+    ...boundAntigravityHome(binding),
+    sharedEnvironment: "/private/pages/shared-env",
+  });
   await store.secure(ID, "antigravity");
   await store.remove(ID, "antigravity");
   expect(files.rm).not.toHaveBeenCalled();

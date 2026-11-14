@@ -335,7 +335,11 @@ export class AgentPlanStepRunner {
       ...prepared.input,
       prompt: planRequestPrompt(node, prepared),
       // Names the run and node, so result files a request writes keep their origin.
-      resourceContext: { runId: node.run.id, stepId: node.step.step.id },
+      resourceContext: {
+        planId: node.run.planId,
+        runId: node.run.id,
+        stepId: node.step.step.id,
+      },
     };
     await this.pin(node, input.prompt);
     const output = sanitizePlanOutput(

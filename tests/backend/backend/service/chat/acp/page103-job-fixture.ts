@@ -115,7 +115,16 @@ export class PicaJobWorld {
     provider: PicaAcpProvider = "codex_cli",
     resumeSessionId: string | null = null,
     administration: Partial<
-      Pick<PicaAcpJobDependencies, "adminTools" | "tools" | "agentBrowsers">
+      Pick<
+        PicaAcpJobDependencies,
+        | "adminTools"
+        | "tools"
+        | "agentBrowsers"
+        | "workspaceClosed"
+        | "consumeAnswer"
+        | "acpSessions"
+        | "answerFiles"
+      >
     > & { readonly actor?: User; readonly brief?: PicaTurnBrief } = {},
     pool?: PicaAcpJobPool,
   ) {

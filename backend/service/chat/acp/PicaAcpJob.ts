@@ -16,15 +16,19 @@ import {
 import { PicaAcpJournal } from "./PicaAcpJournal";
 import { PicaAcpCredential } from "./PicaAcpCredential";
 import { PicaAcpUsage } from "./PicaAcpUsage";
-import { attemptPicaCloseoutStep, savePicaAcpSession } from "./PicaAcpCloseout";
+import {
+  attemptPicaCloseoutStep,
+  consumePicaAcpAnswer,
+  savePicaAcpSession,
+} from "./PicaAcpCloseout";
 import { PicaAcpAnswerOutput } from "./PicaAcpAnswerOutput";
+import { PicaAcpAnswerStore } from "./PicaAcpAnswerStore";
 import { PicaAcpSelections } from "./PicaAcpSelections";
 import { PicaAcpSteering } from "./PicaAcpSteering";
 import { PicaAcpToolTurns } from "./PicaAcpToolTurns";
 import { PicaAcpThreadWatch } from "./PicaAcpThreadWatch";
 import {
   picaAcpOutcome,
-  readAnswer,
   requireCompleted,
   turnBeganEvent,
 } from "./PicaAcpTurnResult";
@@ -77,6 +81,7 @@ const TOOL_CANCELLED_NOTE =
 export class PicaAcpJob {
   public readonly id: string;
   public readonly userId: string;
+  private isSessionClosed = false;
   private readonly dependencies: PicaAcpJobDependencies;
   private readonly specification: PicaAcpJobSpecification;
   private readonly journal: PicaAcpJournal;
@@ -89,6 +94,7 @@ export class PicaAcpJob {
   private readonly selections: PicaAcpSelections;
   private readonly prompt: PicaAcpPrompt;
   private readonly answerOutput: PicaAcpAnswerOutput;
+  private readonly answerStore: PicaAcpAnswerStore;
   private isSteerBinding = false;
   private endedDuringSteer = false;
   private hasAdapterTurn = false;
@@ -123,6 +129,13 @@ export class PicaAcpJob {
       dependencies.answerFiles,
       specification,
     );
+    this.answerStore = new PicaAcpAnswerStore({
+      dependencies,
+      userId: this.userId,
+      sessionId: specification.sessionId,
+      journal: this.journal,
+      answers: this.answerOutput,
+    });
     this.toolTurns = new PicaAcpToolTurns(dependencies, (turn) =>
       this.answerOutput.runId(turn),
     );
@@ -181,7 +194,7 @@ export class PicaAcpJob {
     );
     this.steering = new PicaAcpSteering({
       gate: specification.gate,
-      status: (messageId, status) => this.recordSteer(messageId, status),
+      status: (messageId, status) => this.answerStore.steer(messageId, status),
       isTurnRunning: () =>
         this.isTurnRunning &&
         this.session !== null &&
@@ -603,29 +616,7 @@ export class PicaAcpJob {
     ending: Pick<NewChatMessage, "isStopped"> = {},
   ): Promise<string> {
     await this.credential.requireLease().settle(this.turn);
-    await this.answerOutput.settle(this.turn);
-    const content = readAnswer(output);
-    const message = await this.dependencies.messages.append(
-      this.userId,
-      this.specification.sessionId,
-      { role: "assistant", content, ...ending },
-    );
-    // Files of this turn are linked before the answer event, so the browser reads them with it.
-    await this.answerOutput.claim(this.turn, message.id);
-    await this.journal.record({
-      kind: "answer",
-      turn: this.turn,
-      messageId: message.id,
-    });
-    return message.id;
-  }
-
-  private async recordSteer(
-    messageId: string,
-    status: ChatSteerStatus,
-  ): Promise<void> {
-    await this.dependencies.steers.update(messageId, status);
-    await this.journal.record({ kind: "steer", messageId, status });
+    return this.answerStore.store(this.turn, output, ending);
   }
 
   private observer(): PlanSessionObserver {
@@ -667,17 +658,24 @@ export class PicaAcpJob {
     this.credential.close();
     await attemptPicaCloseoutStep(() => this.answerOutput.discard());
     await attemptPicaCloseoutStep(() => this.steering.close());
-    await attemptPicaCloseoutStep(() =>
-      savePicaAcpSession(
-        this.dependencies,
-        this.specification,
-        this.acpSessionId,
-      ),
-    );
+
     await attemptPicaCloseoutStep(async () => {
       await this.usage.idle();
       await this.journal.record({ kind: "end", ...outcome });
       await this.journal.drain();
+    });
+    await attemptPicaCloseoutStep(async () => {
+      await savePicaAcpSession(
+        this.dependencies,
+        this.specification,
+        this.acpSessionId,
+      );
+      await consumePicaAcpAnswer(
+        this.dependencies,
+        this.specification.sessionId,
+        outcome.state === "completed",
+      );
+      if (this.isSessionClosed) await this.dependencies.workspaceClosed?.();
     });
     await attemptPicaCloseoutStep(() =>
       this.dependencies.jobs.finish(this.id, outcome.state, outcome.errorCode),
@@ -698,9 +696,13 @@ export class PicaAcpJob {
   private async closeSession(): Promise<void> {
     const session = this.session;
     this.session = null;
-    if (session === null) return;
+    if (session === null) {
+      this.isSessionClosed = true;
+      return;
+    }
     await attemptPicaCloseoutStep(async () => {
-      await session.close();
+      const closed = await session.close();
+      this.isSessionClosed = closed.isConfirmed;
     });
   }
 }

@@ -1,7 +1,7 @@
+import { AcpCleanupUnconfirmedError } from "@/backend/error/AcpCleanupUnconfirmedError";
 import { PicaAcpJobError } from "@/backend/error/PicaAcpJobError";
 import { logCaughtError } from "@/backend/logging/Logger";
 import { AGENT_CHAT_IDLE_DEFAULT_MINUTES } from "@/definition/AgentSessionLimits";
-
 import { PicaAcpPooledListener } from "./PicaAcpPooledListener";
 
 import type { ContentBlock } from "@agentclientprotocol/sdk";
@@ -90,6 +90,8 @@ interface PoolEntry {
   instanceId: string;
   /** The identifier of the agent session, for the job that reuses the process. */
   acpSessionId: string | null;
+  /** Releases of the workspace that wait for the end of the process. */
+  readonly releases: Array<() => Promise<void>>;
   isLent: boolean;
   isEnding: boolean;
   timer: ReturnType<typeof setTimeout> | null;
@@ -147,6 +149,37 @@ export class PicaAcpSessionPool {
       return this.reuse(existing, existing.native, opening);
     if (existing) await this.end(existing);
     return this.startNew(opening);
+  }
+
+  /** Ends the native cwd owner before workspace deletion, refusing an unconfirmed closeout. */
+  public async closeForWorkspace(chatSessionId: string): Promise<void> {
+    const entry = this.entries.get(chatSessionId);
+    if (!entry) return;
+    entry.isEnding = true;
+    this.clearTimer(entry);
+    const closed = await entry.native?.close();
+    if (closed && !closed.isConfirmed) throw new AcpCleanupUnconfirmedError();
+    this.forget(entry);
+  }
+
+  /**
+   * Hands the release of a chat's workspace to its resting process.
+   *
+   * @remarks
+   * A resting process still owns its working directory, and its next round
+   * continues in it. The directory goes away only when the process ends.
+   *
+   * @returns Whether the process rests and took over the release; otherwise
+   * the caller releases the workspace itself.
+   */
+  public keepWorkspace(
+    chatSessionId: string,
+    release: () => Promise<void>,
+  ): boolean {
+    const entry = this.entries.get(chatSessionId);
+    if (!entry?.native || entry.isLent || entry.isEnding) return false;
+    entry.releases.push(release);
+    return true;
   }
 
   /** Ends the session of a chat, such as before the chat is deleted. */
@@ -218,6 +251,7 @@ export class PicaAcpSessionPool {
       throughSequence: null,
       instanceId: "",
       acpSessionId: null,
+      releases: [],
       isLent: true,
       isEnding: false,
       timer: null,
@@ -430,6 +464,14 @@ export class PicaAcpSessionPool {
     entry.channel?.close();
     if (this.entries.get(entry.session.chatSessionId) === entry)
       this.entries.delete(entry.session.chatSessionId);
+    const releases = entry.releases.splice(0);
+    void Promise.allSettled(releases.map((release) => release())).then(
+      (outcomes) => {
+        for (const outcome of outcomes)
+          if (outcome.status === "rejected")
+            logCaughtError("PicaAcpSessionPool", outcome.reason);
+      },
+    );
   }
 
   private clearTimer(entry: PoolEntry): void {

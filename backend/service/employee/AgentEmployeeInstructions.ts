@@ -187,6 +187,7 @@ export function createAgentEmployeeInstructions(
       : `Du sprichst gerade mit ${input.personName}. Pages hält nach jeder Antwort die Themen dieses Chats in MEMORY.md fest; sie sind in jedem Chat derselben Person nutzbar, in Chats mit weiteren Personen nur, soweit sie an Tickets oder Wiki-Seiten hängen, die alle sehen dürfen. Aus einem vertraulichen Chat wird nichts geteilt. Gib Vertrauliches einer Person nicht an andere weiter.`,
     ACCESS_DESCRIPTIONS[input.access],
     describeTools(input.access),
+    "Dein Arbeitsordner wird nach jedem Job vollständig gelöscht und beim nächsten Job leer neu angelegt. Dateien, die nach der Antwort erhalten bleiben sollen, gehören nach ~/Results/. Antwortanhänge übernimmt Pages vorher.",
     "Dein Gedächtnis: MEMORY.md hält deine aktuellen Themen, DREAM.md deine Lehren; beide sind unten geladen. Ältere und erledigte Themen liegen im Archiv; durchsuche es mit memory_search, wenn du dich an etwas erinnern sollst, das unten fehlt. Nenne bei Wissen aus einem anderen Chat dessen Quelle.",
     ...(input.personName !== null && input.hasLogbook === true
       ? [LOGBOOK_RULE]

@@ -1,4 +1,5 @@
 import type { PlanRunCommandReceipt } from "./PagesRuns";
+import type { AgentPlanResourceRelease } from "./AgentPlanResourceRelease";
 import type {
   AgentPlanWriterWait,
   AgentPlanExecutionTarget,
@@ -544,6 +545,10 @@ export interface AgentPlanStepResult {
 export interface AgentPlanRun {
   /** Safe code of a rejected background start, retained independently of later commands. */
   readonly startError?: string;
+  /** Durable forced-release journal; retained even when a later Play purges other old runs. */
+  readonly resourceReleases?: readonly AgentPlanResourceRelease[];
+  /** Old owner ids whose cleanup a fresh start could not confirm; informational only. */
+  readonly startCleanupUnconfirmed?: readonly string[];
   /** Durable command acknowledgement; execution state may still be unchanged. */
   readonly command?: PlanRunCommandReceipt;
   readonly id: string;

@@ -69,7 +69,8 @@ export async function retireActivePredecessor(
       for (const controller of prior.controllers.values()) controller.abort();
     }
     const previous = await dependencies.runs.find(view.origin.runId);
-    if (previous) await dependencies.remoteExecution?.stop(previous);
+    if (previous && !previous.resourceReleases?.length)
+      await dependencies.remoteExecution?.stop(previous);
   }
 }
 

@@ -27,6 +27,11 @@ vi.mock("@/backend/runtime/ProcessLifecycle", () => ({
 vi.mock("@/backend/service/chat/PicaPlanTools", () => ({
   registerPicaPlanTools: vi.fn(),
 }));
+/** A text matcher whose result is typed, so the assertion stays type-safe. */
+function containingText(text: string): unknown {
+  return expect.stringContaining(text);
+}
+
 vi.mock("@/backend/service/chat/browser/PicaBrowserObservation", () => ({
   observePage: async () => ({ text: "UNTRUSTED_DATA", images: [] }),
 }));
@@ -211,11 +216,9 @@ it("rejects a guessed foreign/admin profile before launching and lists only self
   });
   expect(launch).not.toHaveBeenCalled();
   const profiles = await registry.invoke("browser_profiles", {}, world.context);
-  expect(profiles).toMatchObject({ output: { ok: true } });
-  expect(profiles).toHaveProperty(
-    "output.result",
-    expect.stringContaining('"name":"self"'),
-  );
+  expect(profiles).toMatchObject({
+    output: { ok: true, result: containingText('"name":"self"') },
+  });
   await service.release(world.context);
 });
 
