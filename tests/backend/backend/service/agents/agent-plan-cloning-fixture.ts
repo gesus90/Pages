@@ -90,6 +90,7 @@ export class CloneWorld {
     access: partial({
       require: this.require,
       validateTeams: this.validateTeams,
+      requireFullEnvironment: async () => undefined,
       team: async () => ({ departmentId: "development" }),
     }),
     workspaces: partial({ choices: this.choices, resolve: this.resolve }),
