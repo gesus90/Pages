@@ -133,6 +133,40 @@ it("retains completion across pause, abort recovery and a fresh attempt, showing
   expect(resumed.todos[0]?.checked).toBe(true);
 });
 
+it("keeps active work and activity in the same iteration, then resets both in the next", async () => {
+  const fixture = todoFixture("- [ ] Done work\n- [ ] Active work");
+  await fixture.progress.initialize(SCOPE, fixture.contract);
+  await fixture.progress.update(TODO_IDENTITY, {
+    todos: [
+      { id: "T1", status: "done" },
+      { id: "T2", status: "active" },
+    ],
+    activity: "Working on the second item",
+  });
+
+  await fixture.progress.initialize(
+    { ...SCOPE, attemptId: "resumed" },
+    fixture.contract,
+  );
+  expect(fixture.state().todos).toEqual([
+    { id: "T1", status: "done" },
+    { id: "T2", status: "active" },
+  ]);
+  expect(fixture.rows.get("run/agent")?.activity).toBe(
+    "Working on the second item",
+  );
+
+  await fixture.progress.initialize(
+    { ...SCOPE, iteration: "loop/2", attemptId: "next" },
+    fixture.contract,
+  );
+  expect(fixture.state().todos).toEqual([
+    { id: "T1", status: "open" },
+    { id: "T2", status: "open" },
+  ]);
+  expect(fixture.rows.get("run/agent")?.activity).toBeNull();
+});
+
 it("isolates the next iteration even when its ticket has the same checkbox ID and text", async () => {
   const fixture = todoFixture("- [ ] Same work");
   await fixture.progress.initialize(SCOPE, fixture.contract);
