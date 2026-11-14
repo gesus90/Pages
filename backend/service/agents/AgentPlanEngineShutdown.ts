@@ -54,7 +54,7 @@ async function interruptForShutdown(
 }
 
 /** Whether the executions ended within {@link STOP_WAIT_MILLISECONDS}. */
-async function drainWithin(
+export async function drainPlanExecutions(
   pending: ReadonlySet<Promise<void>>,
 ): Promise<boolean> {
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -89,7 +89,7 @@ export async function shutdownPlanEngine(
     const failure = await interruptForShutdown(input, id);
     if (failure !== null) failures.push(failure);
   }
-  if (!(await drainWithin(input.pending)))
+  if (!(await drainPlanExecutions(input.pending)))
     failures.push(
       new Error("Agent plan shutdown timed out; reservations remain held."),
     );

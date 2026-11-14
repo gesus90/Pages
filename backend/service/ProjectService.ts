@@ -1,6 +1,11 @@
 import { createHash, randomUUID } from "node:crypto";
 
 import {
+  normalizeEventTime,
+  validateEvent,
+} from "./project/ProjectEventValues";
+
+import {
   CACHE_TTLS,
   ServerCache,
   stableIdKey,
@@ -507,15 +512,7 @@ export class ProjectService {
     await this.requireProjectWrite(actor, projectId);
     await this.getById(actor, projectId);
 
-    const title = event.title.trim();
-
-    if (!title || title.length > 200) {
-      throw new Error("Event title must be between 1 and 200 characters.");
-    }
-
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(event.eventDate)) {
-      throw new Error("Event date must use the format YYYY-MM-DD.");
-    }
+    const title = validateEvent(event);
 
     await this.projectRepository.insertEvent({
       description: event.description.trim(),
@@ -545,15 +542,7 @@ export class ProjectService {
     await this.getById(actor, projectId);
     await this.requireEvent(projectId, eventId);
 
-    const title = event.title.trim();
-
-    if (!title || title.length > 200) {
-      throw new Error("Event title must be between 1 and 200 characters.");
-    }
-
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(event.eventDate)) {
-      throw new Error("Event date must use the format YYYY-MM-DD.");
-    }
+    const title = validateEvent(event);
 
     await this.projectRepository.updateEvent(eventId, {
       description: event.description.trim(),
@@ -819,11 +808,4 @@ export class ProjectService {
  */
 export function hashIntegrationToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
-}
-
-// A blank time means the date has no time, so an empty string must not be stored.
-function normalizeEventTime(eventTime: string | null): string | null {
-  const trimmedTime = eventTime?.trim();
-
-  return trimmedTime === undefined || trimmedTime === "" ? null : trimmedTime;
 }

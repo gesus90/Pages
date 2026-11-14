@@ -52,7 +52,7 @@ import {
 } from "./branching/AgentPlanBranchSettle";
 import {
   shutdownPlanEngine,
-  STOP_WAIT_MILLISECONDS,
+  drainPlanExecutions,
 } from "./AgentPlanEngineShutdown";
 import { initialPlanRun, recoveredPlanRun } from "./AgentPlanRunStart";
 import { AgentPlanLoopRunner } from "./loop/AgentPlanLoopRunner";
@@ -277,17 +277,11 @@ export class AgentPlanRunEngine {
       (active) => active.snapshot.plan.projectId === projectId,
     );
     for (const active of runs) await this.stop(active.view.id);
-    let timer: NodeJS.Timeout | undefined;
-    const timeout = new Promise<boolean>((resolve) => {
-      timer = setTimeout(() => resolve(false), STOP_WAIT_MILLISECONDS);
-    });
-    const closed = Promise.all(
-      runs.flatMap((active) => [...active.executions]),
-    ).then(() => true);
     try {
-      return await Promise.race([closed, timeout]);
+      return await drainPlanExecutions(
+        new Set(runs.flatMap((active) => [...active.executions])),
+      );
     } finally {
-      clearTimeout(timer);
       await this.pump();
     }
   }
