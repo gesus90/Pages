@@ -177,7 +177,7 @@ export function loopSessionsOf(
       {
         ...session,
         nodeId: member.id,
-        key: `${runId}/${loop.id}/${member.id}`,
+        key: `${runId}/${turns.at(-1)?.session?.group?.groupId ?? `${loop.id}/${member.id}`}`,
       },
     ];
   });
@@ -191,14 +191,17 @@ function describeSession(
   const last = turns.at(-1)?.session ?? null;
   if (!last) return null;
   return {
-    policy: record.sessionPolicy,
-    state: sessionState(record, {
-      isLost: isSessionLost(turns, record),
-      isOpenAllowed,
-      closeout: last.closeout,
-    }),
+    policy: last.group ? "reuse" : record.sessionPolicy,
+    state: sessionState(
+      last.group ? { ...record, sessionPolicy: "reuse" } : record,
+      {
+        isLost: isSessionLost(turns, record),
+        isOpenAllowed: isOpenAllowed || Boolean(last.group),
+        closeout: last.closeout,
+      },
+    ),
     createdInIteration: turns.at(0)?.session?.loop?.iteration ?? null,
-    turns: last.loop?.turn ?? turns.length,
+    turns: last.group?.turn ?? last.loop?.turn ?? turns.length,
     ...sessionIdentities(last),
     closeout: last.closeout,
   };
@@ -221,7 +224,8 @@ function sessionIdentities(
   return {
     instanceId: last.instanceId,
     acpSessionId: last.loop?.acpSessionId ?? last.sessionId,
-    nativeSessionId: last.loop?.nativeSessionId ?? null,
+    nativeSessionId:
+      last.group?.nativeSessionId ?? last.loop?.nativeSessionId ?? null,
   };
 }
 

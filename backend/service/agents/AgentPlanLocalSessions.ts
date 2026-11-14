@@ -108,16 +108,18 @@ export async function restoreLocalStepSessions(
   dependencies: RestoreDependencies,
 ): Promise<void> {
   const local = dependencies.local;
-  if (!local) return;
   const nodes: NodeRun[] = [];
   for (const result of allPlanRunResults(run)) {
     const record = result.session;
     const step = snapshot.steps.find(
       (candidate) => candidate.step.id === result.id,
     );
+    if (record?.group)
+      dependencies.groups.markLost(`${run.id}/${record.group.groupId}`);
     if (
       !record ||
       !step ||
+      !local ||
       !local.has(record.instanceId) ||
       record.closeout === "confirmed"
     )

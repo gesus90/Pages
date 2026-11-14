@@ -1,3 +1,5 @@
+import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
+import { planGroupContent } from "@/definition/AgentPlanGroupLoop";
 import {
   AgentError,
   AgentPlanSkippedStepError,
@@ -19,6 +21,7 @@ import {
   isAcpProvider,
 } from "@/definition/AgentConfiguration";
 import { isApiProvider } from "@/definition/AgentConnection";
+
 import { withGroupResults } from "./AgentPlanGroupResults";
 import { planStepRole } from "./AgentPlanRunStart";
 import { groupRuntimeFields } from "./AgentPlanGroupRuntime";
@@ -30,6 +33,7 @@ import {
   retainTicketSnapshots,
   retainRemoteTicketSnapshots,
 } from "./AgentPlanTicketSnapshots";
+
 import type {
   AgentPlanRun,
   AgentPlanStepResult,
@@ -156,7 +160,14 @@ function requireRetainedGroups(
   const completed = new Set(run.pauseBoundary?.completedStepIds);
   const startedGroups = new Set(
     previous.steps
-      .filter((step) => completed.has(step.step.id) && step.groupId)
+      .filter(
+        (step) =>
+          step.groupId &&
+          (completed.has(step.step.id) ||
+            allPlanRunResults(run).some(
+              (result) => result.id === step.step.id && result.session?.group,
+            )),
+      )
       .map((step) => step.groupId),
   );
   for (const step of next.steps) {
@@ -173,8 +184,11 @@ function requireRetainedGroups(
         JSON.stringify(groupRuntimeFields(step))
     )
       throw new AgentError("plan_context_changed");
-    const session = run.steps.find(
-      (entry) => entry.groupId === step.groupId && entry.session,
+    const session = allPlanRunResults(run).find(
+      (entry) =>
+        (entry.groupId === step.groupId ||
+          entry.session?.group?.groupId === step.groupId) &&
+        entry.session?.closeout === "pending",
     )?.session;
     if (session?.closeout !== "pending")
       throw new AgentError("plan_group_session_lost");
@@ -203,8 +217,10 @@ function requireCompletedGroups(
     if (!run.pauseBoundary?.completedStepIds.includes(group.id)) continue;
     const adopted = next.groups?.find((entry) => entry.id === group.id);
     if (
-      JSON.stringify(group.steps.map((step) => step.id)) !==
-      JSON.stringify(adopted?.steps.map((step) => step.id))
+      JSON.stringify(planGroupContent(group).map((step) => step.id)) !==
+      JSON.stringify(
+        adopted && planGroupContent(adopted).map((step) => step.id),
+      )
     )
       throw new AgentError("plan_completed_changed");
   }

@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 
+import { planContainedNodes } from "@/definition/AgentPlanGroupLoop";
 import { setPlanDecisionCondition } from "@/definition/AgentPlanBranchingEdit";
 import { planWarnings } from "@/definition/AgentPlanWarnings";
 import { replacePlanNode } from "@/definition/AgentPlanGroupEdit";
@@ -95,7 +96,7 @@ function canvasIssues(
 
 function hasNodeOrPort(plan: AgentPlanInput, id: string): boolean {
   return (
-    plan.nodes.some(
+    planContainedNodes(plan).some(
       (node) =>
         node.id === id ||
         (node.type === "group" &&
@@ -112,7 +113,7 @@ function withMovedNode(
 ): AgentPlanInput {
   const node =
     findPlanNodeLocation(plan, id)?.node ??
-    plan.nodes.find((entry) => entry.id === id);
+    planContainedNodes(plan).find((entry) => entry.id === id);
   if (!node) return plan;
   return replacePlanNode(plan, {
     ...node,
@@ -239,11 +240,12 @@ export function usePlanGraph(
   }
   function remove(id: string): void {
     const node =
-      draft.nodes.find((entry) => entry.id === id) ??
+      planContainedNodes(draft).find((entry) => entry.id === id) ??
       findPlanGroupLocation(draft, id)?.group;
     if (
       (node?.type === "group" || node?.type === "loop") &&
-      node.steps.length > 0
+      (node.steps.length > 0 ||
+        (node.type === "group" && Boolean(node.loops?.length)))
     ) {
       groups.requestRemoval(id);
       return;

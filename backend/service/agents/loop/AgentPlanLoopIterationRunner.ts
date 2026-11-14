@@ -491,10 +491,14 @@ export class AgentPlanLoopIterationRunner {
           save: async (session) => {
             await host
               .update(loop.id, (record) =>
-                patchIterationNode(
-                  record,
-                  { number, nodeId: member.id },
-                  { session },
+                withLoopSessions(
+                  patchIterationNode(
+                    record,
+                    { number, nodeId: member.id },
+                    { session },
+                  ),
+                  loop,
+                  host.run().id,
                 ),
               )
               .catch((error: unknown) => {

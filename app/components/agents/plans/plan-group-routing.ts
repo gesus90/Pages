@@ -1,3 +1,5 @@
+import { planContainedNodes } from "@/definition/AgentPlanGroupLoop";
+
 import { PLAN_GROUP_COMPACT_HEIGHT } from "./plan-layout";
 import { planLinkKey, planLinks } from "./plan-links";
 
@@ -19,7 +21,11 @@ export function planGroupRouteLinks(
   group: AgentPlanGroup,
   side?: "from" | "to",
 ): readonly PlanLink[] {
-  const members = new Set(group.steps.map((step) => step.id));
+  const members = new Set(
+    planContainedNodes({ nodes: [group] })
+      .filter((node) => node.id !== group.id)
+      .map((node) => node.id),
+  );
   return planLinks(plan).filter(
     (link) =>
       members.has(link.from) !== members.has(link.to) &&
@@ -39,7 +45,9 @@ export function planGroupRouteLabel(
       (node) =>
         node.type === "group" &&
         collapsed.has(node.id) &&
-        node.steps.some((step) => step.id === link[side]),
+        planContainedNodes({ nodes: [node] }).some(
+          (step) => step.id === link[side],
+        ),
     );
     if (group?.type !== "group") continue;
     const links = planGroupRouteLinks(plan, group, side);

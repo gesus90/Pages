@@ -203,6 +203,8 @@ export interface AgentPlanGroupNodeEntry
   readonly type: "group";
   readonly name: string;
   readonly steps: readonly AgentPlanGroupStepEntry[];
+  /** Loops sharing this outer group’s session. */
+  readonly loops?: readonly Omit<AgentPlanLoopNodeEntry, "label">[];
   readonly edges?: readonly AgentPlanGroupEdgeEntry[];
   /** Retained historical inputs; current bindings name the actual value source. */
   readonly parameters: readonly (AgentParameter & { readonly id: string })[];

@@ -1,5 +1,7 @@
+import { planContainedNodes, planGroupContent } from "./AgentPlanGroupLoop";
 import { planGroupEdges } from "./AgentPlanGroup";
 
+import type { AgentPlanLoop } from "./AgentPlanLoop";
 import type {
   AgentPlanBinding,
   AgentPlanNode,
@@ -93,7 +95,8 @@ function internalBindings(
     Object.entries(bindings).filter(
       ([, binding]) =>
         binding.kind === "literal" ||
-        (binding.kind === "result" && members.has(binding.stepId)),
+        ((binding.kind === "result" || binding.kind === "previous") &&
+          members.has(binding.stepId)),
     ),
   );
 }
@@ -122,7 +125,7 @@ export function planTemplateNode(
       y: 0,
       bindings: internalBindings(node.bindings, new Set()),
     };
-  const members = new Set(node.steps.map((step) => step.id));
+  const members = new Set(planGroupContent(node).map((step) => step.id));
   return {
     ...node,
     x: 0,
@@ -131,6 +134,7 @@ export function planTemplateNode(
       ...step,
       bindings: internalBindings(step.bindings, members),
     })),
+    ...(node.loops ? { loops: node.loops.map(templateLoop) } : {}),
     edges: planGroupEdges(node).filter(
       (edge) => members.has(edge.from) && members.has(edge.to),
     ),
@@ -154,7 +158,11 @@ export function instantiatePlanTemplate(
 ): AgentPlanTemplateNode {
   const copy = structuredClone(node);
   if (copy.type !== "group") return { ...copy, id: createId() };
-  const ids = new Map(copy.steps.map((step) => [step.id, createId()]));
+  const ids = new Map(
+    planContainedNodes({ nodes: [copy] })
+      .filter((entry) => entry.id !== copy.id)
+      .map((step) => [step.id, createId()]),
+  );
   const mapped = (id: string): string => ids.get(id) ?? id;
   return {
     ...copy,
@@ -171,10 +179,87 @@ export function instantiatePlanTemplate(
         ]),
       ),
     })),
+    ...(copy.loops
+      ? { loops: copy.loops.map((loop) => instantiateLoop(loop, mapped)) }
+      : {}),
     edges: planGroupEdges(copy).map((edge) => ({
       ...edge,
       from: mapped(edge.from),
       to: mapped(edge.to),
     })),
+  };
+}
+
+/** Keeps each loop's internal results without retaining references to another plan. */
+function templateLoop(loop: AgentPlanLoop): AgentPlanLoop {
+  const members = new Set(loop.steps.map((step) => step.id));
+  return {
+    ...loop,
+    bindings: internalBindings(loop.bindings, new Set()),
+    steps: loop.steps.map((step) => ({
+      ...step,
+      bindings: internalBindings(step.bindings, members),
+    })),
+  };
+}
+
+/** Gives a copied loop and all of its internal references independent identities. */
+function instantiateLoop(
+  loop: AgentPlanLoop,
+  mapped: (id: string) => string,
+): AgentPlanLoop {
+  function bindingReferences(
+    bindings: Readonly<Record<string, AgentPlanBinding>>,
+  ): Readonly<Record<string, AgentPlanBinding>> {
+    return Object.fromEntries(
+      Object.entries(bindings).map(([name, binding]) => [
+        name,
+        binding.kind === "result" || binding.kind === "previous"
+          ? { ...binding, stepId: mapped(binding.stepId) }
+          : binding,
+      ]),
+    );
+  }
+  return {
+    ...loop,
+    id: mapped(loop.id),
+    bindings: bindingReferences(loop.bindings),
+    steps: loop.steps.map((step) => ({
+      ...step,
+      id: mapped(step.id),
+      bindings: bindingReferences(step.bindings),
+    })),
+    edges: loop.edges.map((edge) => ({
+      ...edge,
+      from: mapped(edge.from),
+      to: mapped(edge.to),
+    })),
+    ...(loop.decisions
+      ? {
+          decisions: loop.decisions.map((decision) => ({
+            ...decision,
+            id: mapped(decision.id),
+            ...(decision.input?.kind === "result"
+              ? {
+                  input: {
+                    ...decision.input,
+                    stepId: mapped(decision.input.stepId),
+                  },
+                }
+              : {}),
+          })),
+        }
+      : {}),
+    condition: loop.condition
+      ? { ...loop.condition, sourceNodeId: mapped(loop.condition.sourceNodeId) }
+      : null,
+    ...(loop.while
+      ? {
+          while: {
+            ...loop.while,
+            sourceNodeId: mapped(loop.while.sourceNodeId),
+          },
+        }
+      : {}),
   };
 }

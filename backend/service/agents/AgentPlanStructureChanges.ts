@@ -1,6 +1,11 @@
-import { newPlanSwarm } from "@/definition/AgentPlanSwarm";
 import { randomUUID } from "node:crypto";
 
+import {
+  allPlanLoops,
+  placePlanLoopInGroup,
+  planGroupContent,
+} from "@/definition/AgentPlanGroupLoop";
+import { newPlanSwarm } from "@/definition/AgentPlanSwarm";
 import {
   connectPlanFlow,
   disconnectPlanGroupFlow,
@@ -33,7 +38,6 @@ import {
   copyPlanConfiguration,
   planConfigurationForModel,
 } from "@/definition/AgentPlanConfiguration";
-import type { AgentPlanGitCloseout } from "@/definition/AgentPlanGitCloseout";
 import { PLAN_SCRIPT_TIMEOUT } from "@/definition/AgentPlanScript";
 import { readPlanNode } from "@/backend/agents/AgentPlanInput";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
@@ -46,6 +50,7 @@ import {
 import { AGENT_PLAN_NODE_FIELDS } from "./AgentPlanOperationInput";
 import { applyPlanPortConnection } from "./AgentPlanPortConnections";
 
+import type { AgentPlanGitCloseout } from "@/definition/AgentPlanGitCloseout";
 import type { AgentPlanLoop } from "@/definition/AgentPlanLoop";
 import type { PageAgentModel } from "@/definition/PageAgent";
 import type { AgentPlanTemplateNode } from "@/definition/AgentPlanNodeTemplate";
@@ -361,7 +366,7 @@ function connect(
     );
   const edges = [
     ...plan.edges,
-    ...plan.nodes.flatMap((node) => (node.type === "loop" ? node.edges : [])),
+    ...allPlanLoops(plan).flatMap((loop) => loop.edges),
     ...plan.nodes.flatMap((node) =>
       node.type === "group" ? planGroupEdges(node) : [],
     ),
@@ -382,6 +387,8 @@ function connect(
       (edge) => edge.from !== change.from || edge.to !== change.to,
     ),
   };
+  for (const loop of allPlanLoops(plan))
+    disconnected = disconnectLoopFlow(disconnected, loop.id, change);
   for (const node of plan.nodes)
     if (node.type === "group")
       disconnected = disconnectPlanGroupFlow(disconnected, node.id, change);
@@ -505,10 +512,11 @@ function ungroupContainer(
   const group = findNode(plan, change.nodeId);
   if (
     (group.type !== "group" && group.type !== "loop") ||
-    change.positions.length !== group.steps.length ||
+    change.positions.length !==
+      (group.type === "group" ? planGroupContent(group) : group.steps).length ||
     new Set(change.positions.map((entry) => entry.nodeId)).size !==
-      group.steps.length ||
-    group.steps.some(
+      (group.type === "group" ? planGroupContent(group) : group.steps).length ||
+    (group.type === "group" ? planGroupContent(group) : group.steps).some(
       (step) => !change.positions.some((entry) => entry.nodeId === step.id),
     )
   )
@@ -531,6 +539,22 @@ function placeMember(
   change: Extract<AgentPlanChange, { action: "placeNode" | "placeLoopNode" }>,
   context: AgentPlanChangeContext,
 ): AgentPlanChangeResult {
+  if (
+    change.action === "placeNode" &&
+    allPlanLoops(plan).some((loop) => loop.id === change.nodeId)
+  ) {
+    const moved = placePlanLoopInGroup(
+      plan,
+      {
+        loopId: change.nodeId,
+        groupId: change.groupId,
+        position: { x: change.x, y: change.y },
+      },
+      context.agents,
+    );
+    if (typeof moved === "string") throw refused("graph_invalid");
+    return { plan: moved.plan, createdNodeIds: [] };
+  }
   if (findPlanDecision(plan, change.nodeId)) return placeDecision(plan, change);
   const location = findPlanNodeLocation(plan, change.nodeId);
   if (!location) throw refused("element_missing");

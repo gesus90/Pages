@@ -1,3 +1,4 @@
+import { planGroupContent } from "./AgentPlanGroupLoop";
 import { PLAN_SWARM_BADGES_PER_ROW } from "./AgentPlanSwarm";
 import { planStepTemplate } from "./AgentPlanConfiguration";
 import { planDecisionMode, planDecisionOutputPorts } from "./AgentPlanDecision";
@@ -118,14 +119,22 @@ function decisionHeight(decision: AgentPlanDecision): number {
 
 /** What a frame shows: its members and its decisions (PAGE-286). */
 type FrameContent =
-  AgentPlanStep | AgentPlanScript | AgentPlanGroup | AgentPlanDecision;
+  | AgentPlanStep
+  | AgentPlanScript
+  | AgentPlanGroup
+  | AgentPlanLoop
+  | AgentPlanDecision;
 
 function frameContent(group: PlanFrame): readonly FrameContent[] {
-  return [...group.steps, ...(group.decisions ?? [])];
+  return [
+    ...(group.type === "group" ? planGroupContent(group) : group.steps),
+    ...(group.decisions ?? []),
+  ];
 }
 
 function memberHeight(member: FrameContent, sources: AgentPlanSources): number {
-  if (member.type === "group") return groupHeight(member, sources);
+  if (member.type === "group" || member.type === "loop")
+    return groupHeight(member, sources);
   if (member.type === "decision") return decisionHeight(member);
   return member.type === "script"
     ? scriptHeight(member)
@@ -134,7 +143,9 @@ function memberHeight(member: FrameContent, sources: AgentPlanSources): number {
 
 function memberWidth(member: FrameContent): number {
   if (member.type === "decision") return PLAN_DECISION_WIDTH;
-  return member.type === "group" ? planGroupWidth(member) : PLAN_AGENT_WIDTH;
+  return member.type === "group" || member.type === "loop"
+    ? planGroupWidth(member)
+    : PLAN_AGENT_WIDTH;
 }
 
 /** A frame grows with its members; an empty frame keeps room to drop the first one. */

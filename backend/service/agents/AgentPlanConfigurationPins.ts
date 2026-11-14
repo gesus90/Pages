@@ -1,3 +1,4 @@
+import { planGroupAgents } from "@/definition/AgentPlanGroupLoop";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentPlanValidationError } from "@/backend/error/AgentPlanValidationError";
 import { isAcpProvider } from "@/definition/AgentConfiguration";
@@ -111,7 +112,7 @@ export class AgentPlanConfigurationPins {
       const group = pinned.nodes.find(
         (entry) =>
           entry.type === "group" &&
-          entry.steps.some((step) => step.id === node.id),
+          planGroupAgents(entry).some((step) => step.id === node.id),
       );
       if (group)
         checkGroupConnection(

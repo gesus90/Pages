@@ -1,3 +1,4 @@
+import { planContainedNodes } from "./AgentPlanGroupLoop";
 import { planSwarmGraphIssues } from "./AgentPlanSwarmGraph";
 import { expandPlanGroups } from "./AgentPlanGroup";
 import { withPortlessPlanGroups } from "./AgentPlanGroupUpgrade";
@@ -371,7 +372,10 @@ export function planConnectionIssues(
       node.type === "git_closeout"
     )
       issues.push(...bindingIssues(node, expanded, agents));
-  if (new Set(plan.nodes.map((node) => node.id)).size !== plan.nodes.length)
+  if (
+    new Set(planContainedNodes(plan).map((node) => node.id)).size !==
+    planContainedNodes(plan).length
+  )
     issues.push({ nodeId: null, port: null, reason: "duplicateNode" });
   for (const node of plan.nodes) {
     if (node.type === "parameter") {

@@ -1,3 +1,4 @@
+import { planGroupContent } from "./AgentPlanGroupLoop";
 import { planOrderEdges } from "./AgentPlanBranching";
 import { planGroupEdges } from "./AgentPlanGroup";
 import {
@@ -106,7 +107,9 @@ function memberOwners(
   for (const member of members) {
     owners.set(member.id, member.id);
     if (member.type === "group" || member.type === "loop")
-      for (const nested of memberOwners(member.steps).keys())
+      for (const nested of memberOwners(
+        member.type === "group" ? planGroupContent(member) : member.steps,
+      ).keys())
         owners.set(nested, member.id);
   }
   return owners;
@@ -118,7 +121,12 @@ function levelNodes(
 ): readonly AgentPlanNode[] {
   return members.flatMap((member): readonly AgentPlanNode[] =>
     member.type === "group" || member.type === "loop"
-      ? [member, ...levelNodes(member.steps)]
+      ? [
+          member,
+          ...levelNodes(
+            member.type === "group" ? planGroupContent(member) : member.steps,
+          ),
+        ]
       : [member],
   );
 }
@@ -414,7 +422,10 @@ function storedBoxes(
         height: planNodeHeight(member, sources),
       });
       if (member.type === "group" || member.type === "loop")
-        collect(member.id, member.steps);
+        collect(
+          member.id,
+          member.type === "group" ? planGroupContent(member) : member.steps,
+        );
     }
   }
   if (previous) collect("", previous.nodes);
@@ -501,10 +512,21 @@ class PlanLevelLayout {
   }
 
   private withSteps(group: AgentPlanGroup): AgentPlanGroup {
-    const positions = this.place(group.id, group.steps, planGroupEdges(group));
+    const loops = group.loops?.map((loop) => ({
+      ...loop,
+      steps: this.arrangeContent(loop.id, loop.steps, loop.edges),
+    }));
+    const positions = this.place(
+      group.id,
+      planGroupContent({ ...group, loops }),
+      planGroupEdges(group),
+    );
     return {
       ...group,
       steps: group.steps.map((step) => ({ ...step, ...positions(step.id) })),
+      ...(loops
+        ? { loops: loops.map((loop) => ({ ...loop, ...positions(loop.id) })) }
+        : {}),
     };
   }
 

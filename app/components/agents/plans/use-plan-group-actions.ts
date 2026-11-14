@@ -1,5 +1,10 @@
 import { useState } from "react";
 
+import {
+  allPlanLoops,
+  planLoopOwner,
+  placePlanLoopInGroup,
+} from "@/definition/AgentPlanGroupLoop";
 import { planGroupAdapter, planStepAdapter } from "@/definition/AgentPlanGroup";
 import {
   findPlanStep,
@@ -48,7 +53,6 @@ import type {
   AgentPlanGroupRefusal,
 } from "@/definition/AgentPlanGroup";
 import type { PlanGroupMove } from "@/definition/AgentPlanGroupEdit";
-import type { AgentPlanLoop } from "@/definition/AgentPlanLoop";
 import type { PlanGroupPlacement } from "@/definition/AgentPlanLoopGroupEdit";
 import type {
   PlanNodeLocation,
@@ -125,10 +129,10 @@ function memberOffset(
   });
 }
 
-/** The top left corner of the member area of a group inside a loop, on the grid. */
+/** The grid origin of an agent in either supported pair of nested frames. */
 function nestedMemberOrigin(
-  loop: AgentPlanLoop,
-  group: AgentPlanGroup,
+  loop: PlanFrame,
+  group: PlanFrame,
 ): AgentPlanPosition {
   const corner = planMemberOrigin(loop);
   const inner = planMemberOrigin({ ...group, x: 0, y: 0 });
@@ -484,6 +488,10 @@ function placeGroupDrop(
   drop: PlanDrop,
 ): void {
   const { draft, setDraft, sources, setNotice } = context;
+  if (allPlanLoops(draft).some((loop) => loop.id === id)) {
+    placeLoopDrop(context, id, drop);
+    return;
+  }
   const placement = groupPlacement(draft, sources, { id, drop });
   if (!placement) return;
   const result = placePlanGroupInLoop(draft, placement);
@@ -494,6 +502,48 @@ function placeGroupDrop(
     return moved && typeof moved !== "string" ? moved.plan : previous;
   });
   setNotice(moveNotice(result, "loop"));
+}
+
+/** Places the entire loop relative to the outer group's member area. */
+function placeLoopDrop(
+  context: FrameMoveContext,
+  id: string,
+  drop: PlanDrop,
+): void {
+  const { draft, sources, setDraft, setNotice } = context;
+  const frame = planDropGroup(
+    {
+      ...draft,
+      nodes: draft.nodes.filter(
+        (node) => node.id !== id && !drop.excludedGroups?.has(node.id),
+      ),
+    },
+    drop.pointer,
+    sources,
+    planLoopOwner(draft, id)?.id ?? null,
+  );
+  const group = frame?.type === "group" ? frame : null;
+  const placement = {
+    loopId: id,
+    groupId: group?.id ?? null,
+    position: group
+      ? memberOffset(group, drop.position)
+      : boundedPosition(drop.position),
+  };
+  const result = placePlanLoopInGroup(draft, placement, sources.agents);
+  if (typeof result === "string") {
+    const step = allPlanLoops(draft)
+      .find((loop) => loop.id === id)
+      ?.steps.find((member) => member.type === "agent");
+    if (group && step?.type === "agent")
+      setNotice(refusalNotice(result, { step, group, sources }));
+    return;
+  }
+  setDraft((previous) => {
+    const moved = placePlanLoopInGroup(previous, placement, sources.agents);
+    return typeof moved === "string" ? previous : moved.plan;
+  });
+  setNotice(null);
 }
 
 /** Moves a ticket or value node into a stack as its last entry. */

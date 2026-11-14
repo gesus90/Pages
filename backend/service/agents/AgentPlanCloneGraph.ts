@@ -40,6 +40,8 @@ export class AgentPlanCloneGraph {
     this.add(node.id);
     if (node.type === "group" || node.type === "loop") {
       node.steps.forEach((step) => this.identify(step));
+      if (node.type === "group")
+        node.loops?.forEach((loop) => this.identify(loop));
       node.decisions?.forEach((decision) => this.identify(decision));
     }
     if (node.type === "group")
@@ -113,6 +115,9 @@ export class AgentPlanCloneGraph {
       ...node,
       id: this.mapped(node.id),
       steps: node.steps.map((step) => this.step(step)),
+      ...(node.loops
+        ? { loops: node.loops.map((loop) => this.loop(loop)) }
+        : {}),
       ...(node.edges ? { edges: this.edges(node.edges) } : {}),
       ...(node.decisions
         ? {

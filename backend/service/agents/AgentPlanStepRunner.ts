@@ -9,6 +9,7 @@ import { AgentProviderError } from "@/backend/error/AgentProviderError";
 import { isApiProvider } from "@/definition/AgentConnection";
 import { logCaughtError } from "@/backend/logging/Logger";
 
+import { withGroupIterationInputs } from "./AgentPlanGroupParameters";
 import {
   closePlanSession,
   finishStartedPlanSession,
@@ -324,7 +325,7 @@ export class AgentPlanStepRunner {
       (entry) => entry.step.id === node.step.step.id,
     );
     if (!step) throw new AgentError("plan_binding_invalid");
-    node.step = step;
+    node.step = withGroupIterationInputs(step, node.step);
   }
 
   private async request(

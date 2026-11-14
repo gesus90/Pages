@@ -15,6 +15,8 @@ export interface LoopSessionTerms {
   readonly policy: AgentPlanLoopSessionPolicy;
   /** Counts from 1. */
   readonly iteration: number;
+  /** The enclosing group owns the thread independently of loop policy. */
+  readonly groupId?: string;
 }
 
 /**
@@ -34,7 +36,17 @@ export function loopSessionTerms(
     (node) => node.type === "loop" && node.id === step.loopId,
   );
   if (loop?.type !== "loop") return null;
-  return { loopId: loop.id, policy: loop.sessionPolicy, iteration };
+  const owner = snapshot.groups?.find(
+    (group) =>
+      group.id === step.groupId &&
+      group.loops?.some((entry) => entry.id === loop.id),
+  );
+  return {
+    loopId: loop.id,
+    policy: owner ? "reuse" : loop.sessionPolicy,
+    iteration,
+    ...(owner ? { groupId: owner.id } : {}),
+  };
 }
 
 /**
@@ -54,7 +66,7 @@ export function planSessionGroup(
   terms: LoopSessionTerms | null,
 ): string | undefined {
   if (step.groupId !== undefined) {
-    if (!terms) return step.groupId;
+    if (!terms || terms.groupId === step.groupId) return step.groupId;
     return terms.policy === "reuse"
       ? `${terms.loopId}/${step.groupId}`
       : `${terms.loopId}/${step.groupId}#${terms.iteration}`;
@@ -104,7 +116,13 @@ export function planSessionLink(
   },
   shared: AgentPlanGroupSessionLink | null,
 ): Pick<AgentPlanSessionRecord, "group" | "loop"> {
-  if (node.step.groupId && shared) return { group: shared };
+  if (node.step.groupId && shared)
+    return {
+      group: shared,
+      ...(node.loop?.groupId
+        ? { loop: loopSessionLink(node.loop, shared) }
+        : {}),
+    };
   return node.loop ? { loop: loopSessionLink(node.loop, shared) } : {};
 }
 

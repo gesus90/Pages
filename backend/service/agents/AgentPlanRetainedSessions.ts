@@ -33,7 +33,10 @@ export function retainPlanSession(
     ...nodes.map((entry) => entry.step.step.id),
     node.step.step.id,
   ]);
-  const isGroupDone = group?.steps.every((step) => completed.has(step.id));
+  // A loop may revisit its agents; retain the outer owner until the scheduler closes the run.
+  const isGroupDone =
+    !group?.loops?.length &&
+    group?.steps.every((step) => completed.has(step.id));
   // A group inside a loop that reuses sessions keeps its session until the loop ends.
   if (isGroupDone && node.loop?.policy !== "reuse") return false;
   retained.set(key, [...nodes, node]);

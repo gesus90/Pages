@@ -1,7 +1,7 @@
 import { useState } from "react";
-
 import { useTranslation } from "react-i18next";
 
+import { planContainedNodes } from "@/definition/AgentPlanGroupLoop";
 import { Button } from "@/app/components/ui/button";
 import { findPlanStep } from "@/definition/AgentPlanGroupEdit";
 import { findPlanLoopMember } from "@/definition/AgentPlanLoopEdit";
@@ -99,7 +99,7 @@ function dialogNode(
 ): AgentPlanNode | undefined {
   if (nodeId === null) return undefined;
   return (
-    draft.nodes.find((node) => node.id === nodeId) ??
+    planContainedNodes(draft).find((node) => node.id === nodeId) ??
     findPlanStep(draft, nodeId)?.step ??
     findPlanLoopMember(draft, nodeId)?.member
   );

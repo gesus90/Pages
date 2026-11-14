@@ -1,7 +1,13 @@
+import {
+  planGroupAgents,
+  planGroupContent,
+  mapPlanLoops,
+} from "./AgentPlanGroupLoop";
 import { isAcpProvider } from "./AgentConfiguration";
 import { planStepTemplate } from "./AgentPlanConfiguration";
 import { planScriptParameters } from "./AgentPlanScript";
 
+import type { AgentPlanLoop } from "./AgentPlanLoop";
 import type { AgentDefinitionChoice } from "./AgentAvailability";
 import type { AcpProviderId } from "./AgentConfiguration";
 import type { AgentProviderId } from "./AgentConnection";
@@ -49,6 +55,8 @@ export interface AgentPlanGroup extends AgentPlanPosition {
   readonly name: string;
   /** Members in the order they joined; the first one decides the adapter class. */
   readonly steps: readonly AgentPlanStep[];
+  /** Loops owned by this group; their agents inherit its session across every iteration. */
+  readonly loops?: readonly AgentPlanLoop[];
   /**
    * Decisions inside the frame (PAGE-286); absent in groups without one.
    *
@@ -107,7 +115,7 @@ export function planGroupAdapter(
   group: AgentPlanGroup,
   agents: readonly AgentDefinitionChoice[],
 ): AcpProviderId | null {
-  const first = group.steps.at(0);
+  const first = planGroupAgents(group).at(0);
   return first ? planStepAdapter(first, agents) : null;
 }
 
@@ -128,7 +136,9 @@ export function planGroupRefusal(
   if (!isAcpProvider(provider)) return "notAcp";
   // The first member decides the class, so only the later ones can differ from it.
   const adapter =
-    group.steps.at(0)?.id === step.id ? null : planGroupAdapter(group, agents);
+    planGroupAgents(group).at(0)?.id === step.id
+      ? null
+      : planGroupAdapter(group, agents);
   return adapter !== null && adapter !== provider ? "otherAdapter" : null;
 }
 
@@ -150,7 +160,7 @@ export function planMemberProviderRefusal(
   agents: readonly AgentDefinitionChoice[],
 ): Extract<AgentPlanGroupRefusal, "notAcp" | "otherAdapter"> | null {
   if (!isAcpProvider(provider)) return "notAcp";
-  const others = group.steps.filter((step) => step.id !== stepId);
+  const others = planGroupAgents(group).filter((step) => step.id !== stepId);
   return others.some((step) => {
     const adapter = planStepAdapter(step, agents);
     return adapter !== null && adapter !== provider;
@@ -182,9 +192,9 @@ export function planGroupEdges(
 /** Members without an internal predecessor: where the outer flow enters the group. */
 export function planGroupEntries(
   group: AgentPlanGroup,
-): readonly AgentPlanStep[] {
+): readonly (AgentPlanStep | AgentPlanLoop)[] {
   const edges = planGroupEdges(group);
-  return group.steps.filter(
+  return planGroupContent(group).filter(
     (step) => !edges.some((edge) => edge.to === step.id),
   );
 }
@@ -192,9 +202,9 @@ export function planGroupEntries(
 /** Members without an internal successor: where the flow leaves the group. */
 export function planGroupExits(
   group: AgentPlanGroup,
-): readonly AgentPlanStep[] {
+): readonly (AgentPlanStep | AgentPlanLoop)[] {
   const edges = planGroupEdges(group);
-  return group.steps.filter(
+  return planGroupContent(group).filter(
     (step) => !edges.some((edge) => edge.from === step.id),
   );
 }
@@ -208,10 +218,11 @@ export function planGroupExits(
 export function planGroupOrder(
   group: AgentPlanGroup,
 ): readonly AgentPlanStep[] | null {
+  if (group.loops?.length) return null;
   const edges = planGroupEdges(group);
   const entries = planGroupEntries(group);
   const first = entries.at(0);
-  if (entries.length !== 1 || !first) return null;
+  if (entries.length !== 1 || !first || first.type !== "agent") return null;
   const order: AgentPlanStep[] = [first];
   for (;;) {
     const current = order.at(-1);
@@ -228,7 +239,7 @@ export function planGroupOrder(
 export function allPlanSteps(plan: AgentPlanInput): readonly AgentPlanStep[] {
   return plan.nodes.flatMap((node): readonly AgentPlanStep[] => {
     if (node.type === "agent") return [node];
-    if (node.type === "group") return node.steps;
+    if (node.type === "group") return planGroupAgents(node);
     if (node.type !== "loop") return [];
     return node.steps.flatMap((member): readonly AgentPlanStep[] => {
       if (member.type === "group") return member.steps;
@@ -242,19 +253,18 @@ export function mapPlanSteps<Plan extends AgentPlanInput>(
   plan: Plan,
   transform: (step: AgentPlanStep) => AgentPlanStep,
 ): Plan {
+  plan = mapPlanLoops(plan, (loop) => ({
+    ...loop,
+    steps: loop.steps.map((member) => {
+      if (member.type === "group")
+        return { ...member, steps: member.steps.map(transform) };
+      return member.type === "agent" ? transform(member) : member;
+    }),
+  }));
   return {
     ...plan,
     nodes: plan.nodes.map((node) => {
       if (node.type === "agent") return transform(node);
-      if (node.type === "loop")
-        return {
-          ...node,
-          steps: node.steps.map((member) => {
-            if (member.type === "group")
-              return { ...member, steps: member.steps.map(transform) };
-            return member.type === "agent" ? transform(member) : member;
-          }),
-        };
       return node.type === "group"
         ? { ...node, steps: node.steps.map(transform) }
         : node;
@@ -276,7 +286,7 @@ export function expandPlanGroups<Plan extends AgentPlanInput>(
   const groups = plan.nodes.filter((node) => node.type === "group");
   const nodes = plan.nodes.flatMap<AgentPlanNode>((node) => {
     if (node.type !== "group") return [node];
-    return [...node.steps, ...(node.decisions ?? [])];
+    return [...planGroupContent(node), ...(node.decisions ?? [])];
   });
   const edges: AgentPlanEdge[] = [...plan.edges];
   for (const group of groups) edges.push(...planGroupEdges(group));

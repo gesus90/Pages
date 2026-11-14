@@ -1,5 +1,5 @@
+import { planContainedNodes } from "./AgentPlanGroupLoop";
 import { planGroupEdges } from "./AgentPlanGroup";
-import { planLoopDecisions } from "./AgentPlanLoop";
 
 import type {
   AgentPlanBinding,
@@ -85,11 +85,22 @@ export function removePlanNode<Plan extends AgentPlanInput>(
       .map(withoutReferences);
     const hasMember =
       steps.length !== node.steps.length ||
-      (node.decisions ?? []).some((decision) => decision.id === id);
+      (node.decisions ?? []).some((decision) => decision.id === id) ||
+      (node.loops ?? []).some((loop) => removed.has(loop.id));
     return {
       ...node,
       ...withoutDecisions(node.decisions),
       steps,
+      ...(node.loops
+        ? {
+            loops: node.loops
+              .filter((loop) => !removed.has(loop.id))
+              .map((loop) => {
+                const changed = withoutMember(loop);
+                return changed.type === "loop" ? changed : loop;
+              }),
+          }
+        : {}),
       ...(hasMember
         ? {
             edges: planGroupEdges(node).filter(
@@ -148,28 +159,15 @@ function findContainer(
   plan: AgentPlanInput,
   id: string,
 ): AgentPlanNode | undefined {
-  for (const node of plan.nodes) {
-    if (node.id === id) return node;
-    if (node.type !== "loop") continue;
-    const member = node.steps.find((step) => step.id === id);
-    if (member) return member;
-  }
-  return undefined;
+  return planContainedNodes(plan).find((node) => node.id === id);
 }
 
 /** The ids of what a container holds: the members of a group or loop, the agents of a loop's groups. */
 function containedIds(node: AgentPlanNode | undefined): readonly string[] {
-  if (node?.type === "group")
-    return [...node.steps, ...(node.decisions ?? [])].map((step) => step.id);
-  if (node?.type !== "loop") return [];
-  return [
-    ...node.steps.flatMap((step) =>
-      step.type === "group"
-        ? [step.id, ...step.steps.map((entry) => entry.id)]
-        : [step.id],
-    ),
-    ...planLoopDecisions(node).map((decision) => decision.id),
-  ];
+  if (!node) return [];
+  return planContainedNodes({ nodes: [node] })
+    .filter((entry) => entry.id !== node.id)
+    .map((entry) => entry.id);
 }
 
 /** Whether a binding reads a node that is removed. */

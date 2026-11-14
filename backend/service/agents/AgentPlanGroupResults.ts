@@ -1,3 +1,4 @@
+import { planGroupContent } from "@/definition/AgentPlanGroupLoop";
 import { planGroupProgress } from "@/definition/AgentPlanGroupProgress";
 
 import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
@@ -32,7 +33,7 @@ export function withGroupResults(
   );
   const groups: AgentPlanStepResult[] = outer.map((group) => {
     const children = run.steps.filter((step) =>
-      group.steps.some((member) => member.id === step.id),
+      planGroupContent(group).some((member) => member.id === step.id),
     );
     const failed = children.find((step) => step.status === "failed");
     const cancelled = children.find((step) => step.status === "cancelled");

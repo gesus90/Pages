@@ -503,6 +503,30 @@ function readGroupEdges(input: unknown): readonly AgentPlanEdge[] {
   return input.map(readEdge);
 }
 
+/** Reads only group → loop → agent/script; deeper containers are refused. */
+function readGroupLoops(input: unknown): {
+  readonly loops?: readonly AgentPlanLoop[];
+} {
+  if (input === undefined) return {};
+  if (!Array.isArray(input) || input.length > 50)
+    throw new AgentError("plan_invalid");
+  const loops = input.map((entry: unknown) => {
+    const raw = readPlanObject(entry);
+    if (raw.type !== "loop" || !Array.isArray(raw.steps))
+      throw new AgentError("plan_invalid");
+    // Check before recursive parsing, including malformed or cyclic objects.
+    if (
+      raw.steps.some(
+        (member: unknown) =>
+          !["agent", "script"].includes(String(readPlanObject(member).type)),
+      )
+    )
+      throw new AgentError("plan_loop_nested");
+    return readLoopNode(raw, readNodeBase(raw));
+  });
+  return { loops };
+}
+
 function readGroupNode(
   node: Record<string, unknown>,
   base: AgentPlanPosition & { readonly id: string },
@@ -537,6 +561,7 @@ function readGroupNode(
     type: "group",
     name: readPlanText(node.name, 120),
     steps,
+    ...readGroupLoops(node.loops),
     // Absent edges mark a group saved before them; it keeps reading as the chain of its members.
     ...(node.edges === undefined ? {} : { edges: readGroupEdges(node.edges) }),
     ...readPlanContainedDecisions(node.decisions, readPlanNode),
@@ -569,10 +594,16 @@ function readLoopNode(
   if (!isPlanLoopRuns(node.runs))
     throw new AgentError("plan_loop_runs_invalid");
   const steps = node.steps.map((input: unknown): AgentPlanLoopContent => {
+    const raw = readPlanObject(input);
+    if (raw.type === "loop") throw new AgentError("plan_loop_nested");
     const member = readPlanNode(input);
     if (member.type === "agent" && member.completionGate)
       throw new AgentError("plan_work_gate_unavailable");
-    if (member.type === "loop") throw new AgentError("plan_loop_nested");
+    if (
+      member.type === "loop" ||
+      (member.type === "group" && member.loops?.length)
+    )
+      throw new AgentError("plan_loop_nested");
     if ((member.type === "agent" || member.type === "script") && member.role)
       throw new AgentError("plan_invalid");
     if (

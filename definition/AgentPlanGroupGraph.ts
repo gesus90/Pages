@@ -1,3 +1,4 @@
+import { planGroupAgents, planGroupContent } from "./AgentPlanGroupLoop";
 import { hasPlanPath } from "./AgentPlanPath";
 import { agentRunOptionsFor } from "./AgentConfiguration";
 import { planStepTemplate } from "./AgentPlanConfiguration";
@@ -14,7 +15,7 @@ function internalIssues(
   agents: readonly AgentDefinitionChoice[],
 ): AgentPlanIssue[] {
   const issues: AgentPlanIssue[] = [];
-  for (const step of group.steps) {
+  for (const step of planGroupAgents(group)) {
     const refusal = planGroupRefusal(group, step, agents);
     if (refusal === "notAcp" || refusal === "otherAdapter")
       issues.push({
@@ -36,7 +37,7 @@ function internalIssues(
 function internalEdgeIssues(group: AgentPlanGroup): AgentPlanIssue[] {
   return containerEdgeIssues(
     new Set([
-      ...group.steps.map((step) => step.id),
+      ...planGroupContent(group).map((step) => step.id),
       ...(group.decisions ?? []).map((decision) => decision.id),
     ]),
     planGroupEdges(group),
@@ -87,7 +88,7 @@ function configurationIssues(
 ): AgentPlanIssue[] {
   const issues: AgentPlanIssue[] = [];
   let expected: Readonly<Record<string, unknown>> | null = null;
-  for (const step of group.steps) {
+  for (const step of planGroupAgents(group)) {
     const configuration = step.configuration;
     const source = agents.find((entry) => entry.id === step.agentId);
     const provider = configuration?.provider ?? source?.provider;
@@ -146,9 +147,9 @@ export function planGroupIssues(
   );
   for (const node of allGroups(plan)) {
     // A neutral group may be saved empty; it needs one agent before it runs.
-    if (isExecution && node.steps.length === 0)
+    if (isExecution && planGroupAgents(node).length === 0)
       issues.push({ nodeId: node.id, port: null, reason: "groupSize" });
-    for (const step of [...node.steps, ...(node.decisions ?? [])]) {
+    for (const step of [...planGroupContent(node), ...(node.decisions ?? [])]) {
       if (ids.has(step.id))
         issues.push({ nodeId: step.id, port: null, reason: "duplicateNode" });
       ids.add(step.id);

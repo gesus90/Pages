@@ -322,3 +322,30 @@ describe("placing into a loop while the draft changes", () => {
     expect(stepOf(settled, "other")).toMatchObject({ x: 5, y: 6 });
   });
 });
+
+it("places an entire loop into a group, keeps relative member coordinates and takes it out again", () => {
+  const group = sessionGroup({
+    steps: [agentNode("before", "codex")],
+    edges: [],
+  });
+  const loop = loopWith([
+    agentNode("work", "codex", { x: 40, y: 20 }),
+    scriptNode("script"),
+  ]);
+  const scene = mountGroupActions(planOf([group, { ...loop, x: 1400 }]));
+  const origin = planMemberOrigin(group);
+  scene.run((actions) =>
+    actions.placeGroup(loop.id, dropAt(origin.x + 100, origin.y + 50)),
+  );
+  const owner = scene.draft().nodes.find((node) => node.id === group.id);
+  expect(owner?.type === "group" && owner.loops?.[0]).toMatchObject({
+    id: loop.id,
+    x: 100,
+    y: 50,
+    steps: loop.steps,
+  });
+  scene.run((actions) => actions.placeGroup(loop.id, dropAt(2500, 1000)));
+  expect(scene.draft().nodes.find((node) => node.id === loop.id)).toMatchObject(
+    { x: 2500, y: 1000, steps: loop.steps },
+  );
+});

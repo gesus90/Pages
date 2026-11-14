@@ -1,3 +1,8 @@
+import {
+  allPlanLoops,
+  mapPlanLoops,
+  planLoopOwner,
+} from "./AgentPlanGroupLoop";
 import { planLoopEntries, planLoopExits, planLoopOf } from "./AgentPlanLoop";
 
 import type { AgentDefinitionChoice } from "./AgentAvailability";
@@ -139,10 +144,9 @@ function leaveLoop<Plan extends AgentPlanInput>(
         ? { ...loop.condition, sourceNodeId: "" }
         : loop.condition,
   };
-  const next = {
-    ...plan,
-    nodes: plan.nodes.map((node) => (node.id === loop.id ? left : node)),
-  };
+  const next = mapPlanLoops(plan, (entry) =>
+    entry.id === loop.id ? left : entry,
+  );
   return {
     plan: next,
     node: own.node,
@@ -204,6 +208,14 @@ export function findPlanNodeLocation(
       const found = loopLocation(node, id);
       if (found) return found;
     }
+  }
+  for (const loop of allPlanLoops(plan)) {
+    const found = loopLocation(loop, id);
+    if (found)
+      return {
+        ...found,
+        group: found.group ?? planLoopOwner(plan, loop.id) ?? null,
+      };
   }
   return null;
 }
@@ -289,10 +301,9 @@ function attachToLoop<Plan extends AgentPlanInput>(
   const node = entered?.node ?? state.node;
   const placed: AgentPlanLoop = { ...loop, steps: [...loop.steps, node] };
   return {
-    plan: {
-      ...plan,
-      nodes: plan.nodes.map((entry) => (entry.id === loop.id ? placed : entry)),
-    },
+    plan: mapPlanLoops(plan, (entry) =>
+      entry.id === loop.id ? placed : entry,
+    ),
     removedEdges: state.removedEdges + (entered?.moved.removedEdges ?? 0),
     removedBindings:
       state.removedBindings + (entered?.moved.removedBindings ?? 0),
@@ -319,8 +330,13 @@ export function placePlanLoopNode<Plan extends AgentPlanInput>(
   const found = findPlanNodeLocation(plan, placement.nodeId);
   if (!found) return "missingAgent";
   // An agent of a group inside a loop moves with its group, never alone.
-  if (found.loop && found.group) return "nestedGroup";
-  const target = plan.nodes.find(
+  if (
+    found.loop &&
+    found.group &&
+    (!planLoopOwner(plan, found.loop.id) || found.loop.id !== placement.loopId)
+  )
+    return "nestedGroup";
+  const target = allPlanLoops(plan).find(
     (node): node is AgentPlanLoop =>
       node.type === "loop" && node.id === placement.loopId,
   );
@@ -416,15 +432,11 @@ export function replaceLoopMember<Plan extends AgentPlanInput>(
       ),
     };
   }
-  return {
-    ...plan,
-    nodes: plan.nodes.map((node) =>
-      node.type === "loop" &&
-      planLoopOf({ ...plan, nodes: [node] }, replacement.id) !== undefined
-        ? { ...node, steps: node.steps.map(replaced) }
-        : node,
-    ),
-  };
+  return mapPlanLoops(plan, (node) =>
+    planLoopOf({ ...plan, nodes: [node] }, replacement.id)
+      ? { ...node, steps: node.steps.map(replaced) }
+      : node,
+  );
 }
 
 /** Adds a flow edge inside a loop; both ends must be members of that loop. */
@@ -433,14 +445,9 @@ export function connectLoopFlow<Plan extends AgentPlanInput>(
   loop: AgentPlanLoop,
   edge: AgentPlanEdge,
 ): Plan {
-  return {
-    ...plan,
-    nodes: plan.nodes.map((node) =>
-      node.id === loop.id && node.type === "loop"
-        ? { ...node, edges: [...node.edges, edge] }
-        : node,
-    ),
-  };
+  return mapPlanLoops(plan, (node) =>
+    node.id === loop.id ? { ...node, edges: [...node.edges, edge] } : node,
+  );
 }
 
 /** Removes one internal flow edge of a loop and keeps both members. */
@@ -449,17 +456,14 @@ export function disconnectLoopFlow<Plan extends AgentPlanInput>(
   loopId: string,
   link: Pick<AgentPlanEdge, "from" | "to">,
 ): Plan {
-  return {
-    ...plan,
-    nodes: plan.nodes.map((node) =>
-      node.type === "loop" && node.id === loopId
-        ? {
-            ...node,
-            edges: node.edges.filter(
-              (edge) => edge.from !== link.from || edge.to !== link.to,
-            ),
-          }
-        : node,
-    ),
-  };
+  return mapPlanLoops(plan, (node) =>
+    node.id === loopId
+      ? {
+          ...node,
+          edges: node.edges.filter(
+            (edge) => edge.from !== link.from || edge.to !== link.to,
+          ),
+        }
+      : node,
+  );
 }

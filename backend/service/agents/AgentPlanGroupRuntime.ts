@@ -1,3 +1,4 @@
+import { planGroupAgents } from "@/definition/AgentPlanGroupLoop";
 import { AgentPlanValidationError } from "@/backend/error/AgentPlanValidationError";
 import {
   agentRunOptionsFor,
@@ -94,7 +95,7 @@ export function validateGroupRuntimes(
 ): void {
   for (const group of groups) {
     let expected: Readonly<Record<string, string>> | null = null;
-    for (const child of group.steps) {
+    for (const child of planGroupAgents(group)) {
       const step = steps.find((entry) => entry.step.id === child.id);
       if (!step)
         throw new AgentPlanValidationError([

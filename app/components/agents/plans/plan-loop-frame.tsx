@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 
+import { planLoopOwner } from "@/definition/AgentPlanGroupLoop";
 import { cn } from "@/app/lib/cn";
 import { planLoopMembers, planLoopMode } from "@/definition/AgentPlanLoop";
 import { isPlanLoopLeftRegularly } from "@/definition/AgentPlanLoopRun";
@@ -197,6 +198,8 @@ function footerNote(
   translate: (key: string, options?: Record<string, unknown>) => string,
 ): string {
   const latest = planLoopRunOf(props.run, props.loop.id)?.iterations.at(-1);
+  if (!latest && planLoopOwner(props.draft, props.loop.id))
+    return translate("plans.loops.session.inheritGroup");
   if (!latest)
     return translate(`plans.loops.session.${props.loop.sessionPolicy}Short`);
   return `${translate("plans.loops.run.iteration", { number: latest.number })} · ${loopConditionText(latest.condition, translate)}`;

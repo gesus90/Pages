@@ -1,3 +1,4 @@
+import { allPlanLoops } from "./AgentPlanGroupLoop";
 import { planLoopStacks } from "./AgentPlanStack";
 
 import type {
@@ -356,9 +357,7 @@ export function emptyPlanLoop(
 export function allPlanLoopMembers(
   plan: AgentPlanInput,
 ): readonly AgentPlanLoopMember[] {
-  return plan.nodes.flatMap((node) =>
-    node.type === "loop" ? planLoopMembers(node) : [],
-  );
+  return allPlanLoops(plan).flatMap(planLoopMembers);
 }
 
 /** The loop a member, a group or an agent of a group belongs to, if any. */
@@ -366,7 +365,7 @@ export function planLoopOf(
   plan: AgentPlanInput,
   memberId: string,
 ): AgentPlanLoop | undefined {
-  return plan.nodes.find(
+  return allPlanLoops(plan).find(
     (node): node is AgentPlanLoop =>
       node.type === "loop" &&
       (node.steps.some(

@@ -1,3 +1,5 @@
+import { planGroupContent, planGroupAgents } from "./AgentPlanGroupLoop";
+import { allPlanRunResults } from "./AgentPlanLoopResults";
 import { isResumablePlanRunEnd } from "./AgentPlanRunState";
 
 import type { AgentPlanRun, AgentPlanStepResult } from "./AgentPlan";
@@ -30,6 +32,15 @@ export function planGroupRunMembers(
   group: AgentPlanGroup,
   run: AgentPlanRun,
 ): readonly AgentPlanStepResult[] {
+  if (group.loops?.length) {
+    const ids = new Set(planGroupContent(group).map((member) => member.id));
+    return allPlanRunResults(run).filter(
+      (step) =>
+        step.groupId === group.id ||
+        step.session?.group?.groupId === group.id ||
+        ids.has(step.id),
+    );
+  }
   const linked = run.steps.filter((step) => step.groupId === group.id);
   if (linked.length > 0) return linked;
   return run.steps.filter((step) =>
@@ -158,17 +169,20 @@ export function planGroupProgress(
   const hasKnownTotal =
     !run ||
     (members.length > 0 &&
-      new Set(members.map((step) => step.id)).size === members.length);
+      (Boolean(group.loops?.length) ||
+        new Set(members.map((step) => step.id)).size === members.length));
+  const turns = progressTurns(group, members);
+  const hasFinishedLoops = haveGroupLoopsEnded(group, run);
   let total: number | null = null;
-  if (!error && hasKnownTotal)
-    total = run ? members.length : group.steps.length;
+  if (!error && hasKnownTotal && hasFinishedLoops)
+    total = run ? turns.length : planGroupAgents(group).length;
   let state: PlanGroupState = "ready";
   if (run) state = groupState(run, members);
   if (error || !hasKnownTotal) state = "unavailable";
   return {
     completed: error
       ? 0
-      : members.filter(
+      : turns.filter(
           (step) =>
             step.status === "succeeded" &&
             step.session?.closeout !== "failed" &&
@@ -178,4 +192,33 @@ export function planGroupProgress(
     state,
     error: groupError(members, error, run),
   };
+}
+
+/** Controller results affect status, while progress counts agent turns only. */
+function progressTurns(
+  group: AgentPlanGroup,
+  members: readonly AgentPlanStepResult[],
+): readonly AgentPlanStepResult[] {
+  if (!group.loops?.length) return members;
+  const agentIds = new Set(planGroupAgents(group).map((step) => step.id));
+  return members.filter(
+    (step) =>
+      agentIds.has(step.id) || step.session?.group?.groupId === group.id,
+  );
+}
+
+/** An open or while loop has no final number of turns yet. */
+function haveGroupLoopsEnded(
+  group: AgentPlanGroup,
+  run: AgentPlanRun | null,
+): boolean {
+  if (!group.loops?.length) return true;
+  if (!run) return false;
+  return group.loops.every((loop) =>
+    run.loops?.some(
+      (record) =>
+        record.id === loop.id &&
+        ["succeeded", "failed", "cancelled"].includes(record.status),
+    ),
+  );
 }

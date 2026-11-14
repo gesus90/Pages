@@ -1,5 +1,10 @@
 import { MarkerType } from "@xyflow/react";
 
+import {
+  planGroupContent,
+  allPlanLoops,
+  planContainedNodes,
+} from "@/definition/AgentPlanGroupLoop";
 import { PLAN_PORT, planEdgeBranch } from "@/definition/AgentPlanBranching";
 import { isPlanFlowNode, isPlanResultNode } from "@/definition/AgentPlanGraph";
 import { planLoopEntries, planLoopExits } from "@/definition/AgentPlanLoop";
@@ -127,9 +132,10 @@ export function planFlowNodes(
       (options.collapsedGroups?.has(node.id) ?? false);
     return [
       projected,
-      ...[...node.steps, ...(node.decisions ?? [])].flatMap((step) =>
-        tree(step, { frame: node, isHidden }),
-      ),
+      ...[
+        ...(node.type === "group" ? planGroupContent(node) : node.steps),
+        ...(node.decisions ?? []),
+      ].flatMap((step) => tree(step, { frame: node, isHidden })),
     ];
   }
   return plan.nodes.flatMap((node) => tree(node));
@@ -164,18 +170,16 @@ export function planFlowEdges(
         (node) =>
           node.type === "group" &&
           collapsedGroups.has(node.id) &&
-          [...node.steps, ...(node.decisions ?? [])].some(
-            (step) => step.id === id,
-          ),
+          planContainedNodes({ nodes: [node] }).some((step) => step.id === id),
       )?.id ?? id
     );
   }
   const legacyFrames = new Set(
     plan.nodes.filter((node) => node.type === "group").map((node) => node.id),
   );
-  const boundary = plan.nodes.flatMap((node) =>
-    node.type === "loop" ? loopBoundaryEdges(node) : [],
-  );
+  const boundary = allPlanLoops(plan)
+    .filter((loop) => frame(loop.id) === loop.id)
+    .flatMap(loopBoundaryEdges);
   const links: PlanFlowEdge[] = planLinks(plan)
     .filter(
       (link) => !legacyFrames.has(link.from) && !legacyFrames.has(link.to),
@@ -321,25 +325,7 @@ export function planFlowSource(
 
 /** A node of the plan, a member of a frame or of a group inside a loop included. */
 function flowNode(plan: AgentPlanInput, id: string): AgentPlanNode | undefined {
-  return (
-    plan.nodes.find((entry) => entry.id === id) ??
-    plan.nodes
-      .flatMap((entry): readonly AgentPlanNode[] => {
-        if (entry.type === "group")
-          return [...entry.steps, ...(entry.decisions ?? [])];
-        return entry.type === "loop"
-          ? [
-              ...entry.steps.flatMap((step): readonly AgentPlanNode[] =>
-                step.type === "group"
-                  ? [step, ...step.steps, ...(step.decisions ?? [])]
-                  : [step],
-              ),
-              ...(entry.decisions ?? []),
-            ]
-          : [];
-      })
-      .find((entry) => entry.id === id)
-  );
+  return planContainedNodes(plan).find((node) => node.id === id);
 }
 
 /** One of the two data outputs of a stack, as an open connection. */

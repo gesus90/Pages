@@ -472,3 +472,46 @@ it("turns a complete library connection into a condition, a branch or an event",
     parameter: "event-in",
   });
 });
+
+it("projects a loop under its group with its own member origin and hides its boundary wires on collapse", () => {
+  const loop = loopNode(
+    "loop",
+    [agentStep("work"), scriptStep("script", 1)],
+    [flow("work", "script")],
+  );
+  const group = groupNode("group", [agentStep("before")], {
+    loops: [loop],
+    edges: [flow("before", "loop")],
+  });
+  const plan = planOf([group]);
+  const projected = planFlowNodes(plan, {
+    sources: EMPTY_SOURCES,
+    selectedId: null,
+    canEdit: true,
+  });
+  expect(projected.find((node) => node.id === "loop")).toMatchObject({
+    parentId: "group",
+    position: {
+      x: loop.x + PLAN_FRAME_PADDING,
+      y: loop.y + planGroupHeaderHeight(group),
+    },
+  });
+  expect(projected.find((node) => node.id === "work")?.parentId).toBe("loop");
+  expect(
+    planFlowEdges(plan, EMPTY_SOURCES, null).some(
+      (edge) => edge.id === "loop-in:loop:work",
+    ),
+  ).toBe(true);
+  const collapsed = new Set(["group"]);
+  expect(
+    planFlowNodes(plan, {
+      sources: EMPTY_SOURCES,
+      selectedId: null,
+      canEdit: true,
+      collapsedGroups: collapsed,
+    })
+      .filter((node) => node.id !== "group")
+      .every((node) => node.hidden),
+  ).toBe(true);
+  expect(planFlowEdges(plan, EMPTY_SOURCES, null, collapsed)).toHaveLength(0);
+});

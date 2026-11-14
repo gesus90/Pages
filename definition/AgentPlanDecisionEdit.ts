@@ -1,3 +1,4 @@
+import { allPlanLoops, mapPlanLoops } from "./AgentPlanGroupLoop";
 import { planEdgeKind } from "./AgentPlanBranching";
 import { planGroupEdges } from "./AgentPlanGroup";
 import {
@@ -47,6 +48,10 @@ export function findPlanDecision(
     const decision = planLoopDecisions(node).find((entry) => entry.id === id);
     if (decision) return { decision, place: { kind: "loop", loopId: node.id } };
   }
+  for (const loop of allPlanLoops(plan)) {
+    const decision = planLoopDecisions(loop).find((entry) => entry.id === id);
+    if (decision) return { decision, place: { kind: "loop", loopId: loop.id } };
+  }
   return null;
 }
 
@@ -67,6 +72,10 @@ function mapPlanDecisions<Plan extends AgentPlanInput>(
   plan: Plan,
   transform: (decision: AgentPlanDecision) => AgentPlanDecision | null,
 ): Plan {
+  plan = mapPlanLoops(plan, (loop) => ({
+    ...loop,
+    ...mapDecisions(loop.decisions, transform),
+  }));
   const nodes = plan.nodes.flatMap((node): readonly AgentPlanNode[] => {
     if (node.type === "decision") {
       const next = transform(node);
@@ -78,7 +87,6 @@ function mapPlanDecisions<Plan extends AgentPlanInput>(
     return [
       {
         ...node,
-        ...mapDecisions(node.decisions, transform),
         steps: node.steps.map((member) =>
           member.type === "group"
             ? { ...member, ...mapDecisions(member.decisions, transform) }
@@ -107,10 +115,18 @@ export function replacePlanDecision<Plan extends AgentPlanInput>(
 
 /** The container of a node inside a group or loop, or `null` for the top level. */
 function containerOf(plan: AgentPlanInput, id: string): string | null {
+  for (const loop of allPlanLoops(plan)) {
+    const inside = [
+      ...planLoopMembers(loop),
+      ...planLoopDecisions(loop),
+      ...planLoopGroups(loop),
+    ];
+    if (inside.some((entry) => entry.id === id)) return loop.id;
+  }
   for (const node of plan.nodes) {
     if (
       node.type === "group" &&
-      [...node.steps, ...(node.decisions ?? [])].some(
+      [...node.steps, ...(node.loops ?? []), ...(node.decisions ?? [])].some(
         (entry) => entry.id === id,
       )
     )
@@ -135,6 +151,10 @@ function withoutEdgesOf<Plan extends AgentPlanInput>(
   plan: Plan,
   id: string,
 ): Plan {
+  plan = mapPlanLoops(plan, (loop) => ({
+    ...loop,
+    edges: loop.edges.filter((edge) => !isEdgeOf(edge, id)),
+  }));
   return {
     ...plan,
     edges: plan.edges.filter((edge) => !isEdgeOf(edge, id)),
@@ -165,13 +185,11 @@ function withoutEdgesOf<Plan extends AgentPlanInput>(
 function edgesOf(plan: AgentPlanInput, id: string): readonly AgentPlanEdge[] {
   return [
     ...plan.edges,
+    ...allPlanLoops(plan).flatMap((loop) => loop.edges),
     ...plan.nodes.flatMap((node): readonly AgentPlanEdge[] => {
       if (node.type === "group") return planGroupEdges(node);
       if (node.type !== "loop") return [];
-      return [
-        ...node.edges,
-        ...planLoopGroups(node).flatMap((group) => group.edges ?? []),
-      ];
+      return [...planLoopGroups(node).flatMap((group) => group.edges ?? [])];
     }),
   ].filter((edge) => isEdgeOf(edge, id));
 }
@@ -183,6 +201,12 @@ function withEdge<Plan extends AgentPlanInput>(
   containerId: string | null,
 ): Plan {
   if (containerId === null) return { ...plan, edges: [...plan.edges, edge] };
+  if (allPlanLoops(plan).some((loop) => loop.id === containerId))
+    return mapPlanLoops(plan, (loop) =>
+      loop.id === containerId
+        ? { ...loop, edges: [...loop.edges, edge] }
+        : loop,
+    );
   return {
     ...plan,
     nodes: plan.nodes.map((node) => {
@@ -204,6 +228,12 @@ function withDecision<Plan extends AgentPlanInput>(
 ): Plan {
   if (containerId === null)
     return { ...plan, nodes: [...plan.nodes, decision] };
+  if (allPlanLoops(plan).some((loop) => loop.id === containerId))
+    return mapPlanLoops(plan, (loop) =>
+      loop.id === containerId
+        ? { ...loop, decisions: [...(loop.decisions ?? []), decision] }
+        : loop,
+    );
   return {
     ...plan,
     nodes: plan.nodes.map((node) =>
@@ -249,7 +279,9 @@ export function placePlanDecision<Plan extends AgentPlanInput>(
   },
 ): { readonly plan: Plan; readonly removedEdges: number } | null {
   const found = findPlanDecision(plan, move.decisionId);
-  const frame = plan.nodes.find((node) => node.id === move.frameId);
+  const frame =
+    plan.nodes.find((node) => node.id === move.frameId) ??
+    allPlanLoops(plan).find((loop) => loop.id === move.frameId);
   if (
     !found ||
     (move.frameId !== null && frame?.type !== "group" && frame?.type !== "loop")
@@ -324,6 +356,7 @@ export function withoutPlanEdges<Plan extends AgentPlanInput>(
 ): Plan {
   const keep = (edges: readonly AgentPlanEdge[]): readonly AgentPlanEdge[] =>
     edges.filter((edge) => !isRemoved(edge));
+  plan = mapPlanLoops(plan, (loop) => ({ ...loop, edges: keep(loop.edges) }));
   return {
     ...plan,
     edges: keep(plan.edges),

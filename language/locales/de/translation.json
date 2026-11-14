@@ -6045,6 +6045,7 @@
         "while_false": "Bedingung false"
       },
       "session": {
+          "inheritGroup": "Sitzung der Gruppe übernehmen",
         "title": "Agent-Sessions behalten",
         "infoLabel": "Zum Behalten der Sessions",
         "info": "An: Jeder Agent setzt seine eigene ACP-Session in jedem Run mit einem neuen Turn fort. Aus: Jeder Run öffnet je Agent eine neue Session und beendet sie mit dem Node; nur die gebundenen Eingaben werden weitergegeben.",

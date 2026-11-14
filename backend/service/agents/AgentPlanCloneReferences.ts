@@ -306,6 +306,11 @@ export class AgentPlanCloneReferences {
   ): Promise<typeof node> {
     const steps: AgentPlanStep[] = [];
     for (const step of node.steps) steps.push(await this.agent(step));
+    const loops: NonNullable<typeof node.loops>[number][] = [];
+    for (const loop of node.loops ?? []) {
+      const copied = await this.node(loop);
+      if (copied.type === "loop") loops.push(copied);
+    }
     const parameters: (typeof node.parameters)[number][] = [];
     for (const parameter of node.parameters)
       parameters.push({
@@ -317,6 +322,7 @@ export class AgentPlanCloneReferences {
     return {
       ...node,
       steps,
+      ...(node.loops ? { loops } : {}),
       parameters,
       decisions: await this.decisions(node.decisions),
       bindings: await this.bindings(node.bindings, node.id),

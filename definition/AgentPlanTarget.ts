@@ -1,5 +1,6 @@
+import { mapPlanLoops, planContainedNodes } from "./AgentPlanGroupLoop";
 import { runnerToolFor } from "./RunnerExecution";
-import { mapPlanLoopMembers, planLoopMembers } from "./AgentPlanLoop";
+import { mapPlanLoopMembers } from "./AgentPlanLoop";
 
 import type { AgentPlanExecutionTarget } from "./AgentPlanExecution";
 import type { AgentPlanInput, AgentPlanStep } from "./AgentPlan";
@@ -83,6 +84,9 @@ export function withInheritedPlanTarget<Plan extends AgentPlanInput>(
 ): Plan {
   const target = plan.executionTarget;
   if (target?.kind !== "remote") return plan;
+  plan = mapPlanLoops(plan, (loop) =>
+    mapPlanLoopMembers(loop, (step) => inherited(step, target)),
+  );
   return {
     ...plan,
     nodes: plan.nodes.map((node) => {
@@ -111,12 +115,11 @@ export function planTargetDeviations(
   plan: AgentPlanInput,
   target: AgentPlanExecutionTarget | undefined,
 ): readonly (AgentPlanStep | AgentPlanScript)[] {
-  return plan.nodes
-    .flatMap<AgentPlanStep | AgentPlanScript>((node) => {
-      if (node.type === "group") return node.steps;
-      if (node.type === "loop") return planLoopMembers(node);
-      return node.type === "agent" || node.type === "script" ? [node] : [];
-    })
+  return planContainedNodes(plan)
+    .filter(
+      (node): node is AgentPlanStep | AgentPlanScript =>
+        node.type === "agent" || node.type === "script",
+    )
     .filter(
       (node) =>
         node.executionTarget !== undefined &&
@@ -141,6 +144,7 @@ export function withPlanTargetFollowed<Plan extends AgentPlanInput>(
       ? { ...node, executionTarget: undefined }
       : node;
   }
+  plan = mapPlanLoops(plan, (loop) => mapPlanLoopMembers(loop, follow));
   return {
     ...plan,
     nodes: plan.nodes.map((node) => {
@@ -317,7 +321,11 @@ export function planTargetIssues(
 ): readonly AgentPlanTargetIssue[] {
   return plan.nodes.flatMap((node): AgentPlanTargetIssue[] => {
     if (node.type === "group" || node.type === "loop")
-      return (node.type === "group" ? node.steps : planLoopMembers(node))
+      return planContainedNodes({ nodes: [node] })
+        .filter(
+          (member): member is AgentPlanStep | AgentPlanScript =>
+            member.type === "agent" || member.type === "script",
+        )
         .filter((step) => effectivePlanTarget(step, plan).kind === "remote")
         .map((step): AgentPlanTargetIssue => ({
           nodeId: step.id,

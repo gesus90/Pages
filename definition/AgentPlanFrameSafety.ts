@@ -1,3 +1,4 @@
+import { planGroupContent } from "./AgentPlanGroupLoop";
 import { hasPlanGroupAliases } from "./AgentPlanGroup";
 import { findPlanNodeLocation } from "./AgentPlanLoopEdit";
 
@@ -12,7 +13,10 @@ function referencesFrame(node: AgentPlanNode, frameId: string): boolean {
     return (
       Object.values(node.bindings).some((binding) =>
         references(binding, frameId),
-      ) || node.steps.some((step) => referencesFrame(step, frameId))
+      ) ||
+      (node.type === "group" ? planGroupContent(node) : node.steps).some(
+        (step) => referencesFrame(step, frameId),
+      )
     );
   if (
     node.type !== "agent" &&

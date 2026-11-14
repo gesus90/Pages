@@ -1,3 +1,4 @@
+import { planGroupAgents } from "@/definition/AgentPlanGroupLoop";
 import { hasPlanGroupAliases } from "@/definition/AgentPlanGroup";
 import { AgentError } from "@/backend/error/AgentErrors";
 
@@ -95,7 +96,9 @@ async function bindGroupStep(
   step: AgentPlanStepSnapshot,
   shared: PreparedAgentParameters,
 ): Promise<AgentPlanStepSnapshot> {
-  const child = group.steps.find((entry) => entry.id === step.step.id);
+  const child = planGroupAgents(group).find(
+    (entry) => entry.id === step.step.id,
+  );
   if (!child) throw new AgentError("plan_invalid");
   const values = { ...step.prepared.parameters.values };
   for (const [name, binding] of Object.entries(child.bindings)) {
@@ -160,4 +163,27 @@ async function bindGroupStep(
     groupRuntimeFields(step),
   );
   return updated;
+}
+
+/** Preserves the current iteration's result bindings when shared group inputs are prepared. */
+export function withGroupIterationInputs(
+  prepared: AgentPlanStepSnapshot,
+  current: AgentPlanStepSnapshot,
+): AgentPlanStepSnapshot {
+  if (!current.loopId) return prepared;
+  const values = { ...prepared.prepared.parameters.values };
+  for (const [name, binding] of Object.entries(prepared.step.bindings)) {
+    if (binding.kind !== "previous") continue;
+    if (name in current.prepared.parameters.values)
+      values[name] = current.prepared.parameters.values[name] ?? null;
+    else delete values[name];
+  }
+  return {
+    ...prepared,
+    step: { ...prepared.step, bindings: current.step.bindings },
+    prepared: {
+      ...prepared.prepared,
+      parameters: { ...prepared.prepared.parameters, values },
+    },
+  };
 }

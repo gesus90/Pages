@@ -1,3 +1,5 @@
+import { planContainedNodes } from "./AgentPlanGroupLoop";
+
 import type { AcpProviderId } from "./AgentConfiguration";
 import type {
   AgentPlanBinding,
@@ -166,17 +168,7 @@ export function planBooleanParameterValue(
 export function allPlanDecisions(
   plan: Pick<AgentPlanInput, "nodes">,
 ): readonly AgentPlanDecision[] {
-  return plan.nodes.flatMap((node): readonly AgentPlanDecision[] => {
-    if (node.type === "decision") return [node];
-    if (node.type === "group") return node.decisions ?? [];
-    if (node.type !== "loop") return [];
-    return [
-      ...(node.decisions ?? []),
-      ...node.steps.flatMap((member) =>
-        member.type === "group" ? (member.decisions ?? []) : [],
-      ),
-    ];
-  });
+  return planContainedNodes(plan).filter((node) => node.type === "decision");
 }
 
 /** What one answer of a model says, or why it is no valid answer. */

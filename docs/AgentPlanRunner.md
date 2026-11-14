@@ -95,6 +95,54 @@ for authorization, stdin/stdout, limits, parallel joins, pause/stop and recovery
 Its [three-review repair example](../backend/service/agents/ScriptRuntime.md#example-three-reviews-repair-recheck-and-finish)
 shows explicit report bindings and a separate passing recheck gate.
 
+## Groups own loop sessions (PAGE-412)
+
+A session group may hold complete loops in its optional `loops` array alongside
+its direct agent `steps` and separate `decisions`. Loop membership stays in the
+loop's `steps`; all member coordinates remain relative to their immediate
+frame's member area. The editor and existing structured `placeNode` mutation
+move a whole loop into or out of a group. Settings, parameter and stack bindings,
+internal edges and external edges are retained. Flow enters/leaves the loop at
+its loop boundary; grouping does not open new result or flow paths across an
+iteration boundary. Unsupported deeper container nesting and duplicate node
+identities are rejected. Existing groups inside loops keep their former meaning.
+
+Preparation expands the outer group into the scheduling graph, preserves each
+loop as a scheduler node, and freezes the original group ownership separately
+in `snapshot.groups`. Every enclosed agent snapshot has the same `groupId`,
+including agents in multiple loops. Runtime compatibility checks compare all
+these agents' adapter, connection, model, effort, workspace, permissions, tools
+and isolation. A mismatch is refused without adjusting an agent or borrowing
+credentials.
+
+The first agent that actually runs creates the native session under
+`runId/groupId`. Each later agent execution reserves a turn in that owner's
+existing serial queue. Flow edges determine readiness; coordinates never add
+dependencies. Inner loops inherit the group session regardless of their stored
+`fresh/reuse` setting. The editor displays **Sitzung der Gruppe übernehmen**
+and hides the conflicting switch. That stored setting remains available when
+the loop leaves the group. Scripts take no agent turn; model decisions retain
+their separate sessions. Each turn carries its current assignment and inputs,
+including previous-iteration result bindings, with an explicit reminder that
+prior instructions are historical context and facts remain usable.
+
+Groups containing loops retain their owner through all iterations and later
+turns until the run scheduler's existing idle closeout. Neither the first visit
+to every agent nor an individual loop's completion closes this owner. Loop
+cleanup records mark their own cleanup as unnecessary while their inherited
+session remains open; the final group closeout updates each retained attempt and
+iteration and its session summary. Pause keeps the holder. Same-run adoption
+reconstructs the key from the persisted group link; an unavailable owner is
+remembered and fails with `plan_group_session_lost` instead of opening an empty
+replacement. Stop and final cleanup address only keys belonging to that run.
+Every independent full start has a fresh run key and fresh session.
+
+Group/loop links, ACP/native identifiers and turn numbers are recorded alongside
+the individual step attempts and iterations. Group progress counts agent turns
+separately from loop controller results; no consumption counters are aggregated
+into the group holder. Existing per-attempt accounting and TODO acceptance stay
+in force. No cross-run memory or new external MCP access is introduced.
+
 ## Plan snapshots and runner events (PAGE-142)
 
 Lokale ACP-Planagenten verwenden ab PAGE-224 einen unabhängigen nativen Sitzungsbesitzer mit dauerhaftem Journal und Wiederanbindung desselben Runs/Versuchs. Normaler Pages-Shutdown trennt die Beobachtung; Nutzer-Stop bleibt wirksam. Eigentumsprüfung, Kompatibilität und Abnahmegrenzen stehen in [LocalAgentSessions.md](./LocalAgentSessions.md).

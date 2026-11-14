@@ -114,7 +114,7 @@ export function PlanGroupFrame(props: GroupFrameProps): React.ReactElement {
         ) : null}
       </div>
       {!isCollapsed ? <GroupFooter {...props} /> : null}
-      {!isCollapsed && group.steps.length === 0 ? (
+      {!isCollapsed && group.steps.length === 0 && !group.loops?.length ? (
         <p
           className={cn(
             "absolute inset-x-5 top-28 text-muted-foreground",

@@ -135,6 +135,11 @@ export class AgentPlanGroupSessions {
     return this.sessions.get(key)?.instanceId;
   }
 
+  /** Remembers an unavailable owner so a restart cannot silently open an empty thread. */
+  public markLost(key: string): void {
+    this.opened.add(key);
+  }
+
   /** Restores the same retained native session without opening or prompting an adapter. */
   public restore(
     key: string,

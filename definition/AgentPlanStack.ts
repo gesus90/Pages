@@ -1,3 +1,5 @@
+import { allPlanLoops } from "./AgentPlanGroupLoop";
+
 import type { AgentParameterValue } from "./AgentParameters";
 import type {
   AgentPlanEdge,
@@ -176,7 +178,7 @@ export function planStackScope(
   plan: Pick<AgentPlanInput, "nodes" | "edges">,
   stackId: string,
 ): AgentPlanStackScope {
-  const loops = plan.nodes.filter((node) => node.type === "loop");
+  const loops = allPlanLoops(plan);
   const others = planStackFlowEdges(plan, stackId).map((edge) =>
     edge.from === stackId ? edge.to : edge.from,
   );

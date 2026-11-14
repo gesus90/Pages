@@ -69,8 +69,15 @@ async function pinLegacyNode(
         return upgraded.type === "agent" ? upgraded : step;
       }),
     );
-    return steps.some((step, index) => step !== node.steps[index])
-      ? { ...node, steps }
+    const loops = await Promise.all(
+      (node.loops ?? []).map(async (loop) => {
+        const upgraded = await pinLegacyNode(loop, profiles, connections);
+        return upgraded.type === "loop" ? upgraded : loop;
+      }),
+    );
+    return steps.some((step, index) => step !== node.steps[index]) ||
+      loops.some((loop, index) => loop !== node.loops?.[index])
+      ? { ...node, steps, ...(node.loops ? { loops } : {}) }
       : node;
   }
   if (node.type === "loop") {
