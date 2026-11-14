@@ -1,5 +1,12 @@
 import { execFile } from "node:child_process";
-import { chmod, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import {
+  chmod,
+  mkdtemp,
+  readFile,
+  readdir,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
@@ -40,11 +47,11 @@ function runHelper(
   action: "get" | "erase",
   request: string,
 ): Promise<{ stdout: string; stderr: string }> {
-  const helper = path.join(access.directory, "git-credential.sh");
+  const credentialHelperPath = path.join(access.directory, "git-credential.sh");
   return new Promise((resolve, reject) => {
     const child = execFile(
       "/bin/sh",
-      [helper, action],
+      [credentialHelperPath, action],
       (error, stdout, stderr) =>
         error ? reject(error) : resolve({ stdout, stderr }),
     );
@@ -128,9 +135,7 @@ it("never writes the token into the environment, and the directory vanishes at c
   expect(access.redact(`fatal: ${TOKEN}`)).toBe("fatal: [redacted]");
   await access.cleanup();
   expect(await readdir(dataDirectory)).toEqual([]);
-  await expect(
-    runHelper(access, "get", request("a/b")),
-  ).rejects.toBeDefined();
+  await expect(runHelper(access, "get", request("a/b"))).rejects.toBeDefined();
 });
 
 it("without a stored token prints a visible message and no credential", async () => {
@@ -143,5 +148,7 @@ it("without a stored token prints a visible message and no credential", async ()
   expect(stdout).toBe("");
   expect(stderr).toContain("no GitHub credential");
   expect(access.environment.GIT_TERMINAL_PROMPT).toBe("0");
-  expect(await readFile(path.join(access.directory, "config.yml"), "utf8")).not.toContain(TOKEN);
+  expect(
+    await readFile(path.join(access.directory, "config.yml"), "utf8"),
+  ).not.toContain(TOKEN);
 });
