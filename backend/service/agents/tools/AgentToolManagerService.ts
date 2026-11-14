@@ -280,6 +280,7 @@ export class AgentToolManagerService {
 
   private async restore(): Promise<void> {
     try {
+      await this.dependencies.files.initialize?.();
       for (const id of await this.dependencies.files.readEnabled())
         this.requested.add(id);
     } catch {

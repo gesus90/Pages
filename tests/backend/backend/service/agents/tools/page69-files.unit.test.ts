@@ -53,7 +53,7 @@ beforeEach(() => {
 it("publishes by atomic rename, keeps the old generation and restores it on rollback", async () => {
   const files = new AgentToolFiles("/memory/instance/tools");
   const tool = agentToolDefinition("codex");
-  const first = await files.candidate(tool);
+  const first = await files.candidate({ ...tool, version: "0.159.0" });
   await files.activate(tool, first);
   const second = await files.candidate(tool);
   await files.activate(tool, second);

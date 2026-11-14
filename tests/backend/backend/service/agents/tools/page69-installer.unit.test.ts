@@ -1,4 +1,4 @@
-import { writeFile } from "node:fs/promises";
+import { rm, writeFile } from "node:fs/promises";
 
 import { expect, it, vi } from "vitest";
 
@@ -10,6 +10,13 @@ import { toolLocation, toolWorld } from "./page69-tool-world";
 import type { CliProcessRunner } from "@/backend/agents/cli/CliProcessRunner";
 
 vi.mock("node:fs/promises", () => ({
+  mkdir: async () => undefined,
+  lstat: async () => ({
+    isDirectory: () => true,
+    isSymbolicLink: () => false,
+    mode: 0o700,
+  }),
+  rm: vi.fn(async () => undefined),
   writeFile: vi.fn(async () => undefined),
   symlink: vi.fn(async () => undefined),
   realpath: async (file: string) => file,
@@ -96,9 +103,15 @@ it("downloads only the package-selected browser revision into its own candidate"
       "chromium",
     ],
     environment: {
+      TMPDIR: expect.stringMatching(
+        /^\/memory\/tools\/probe\/tmp\/[\da-f-]{36}$/u,
+      ),
       PLAYWRIGHT_BROWSERS_PATH: "/memory/tools/chromium/candidate/browsers",
     },
   });
+  const directory = run.mock.calls[0]?.[0].environment?.TMPDIR;
+  expect(run.mock.calls[1]?.[0].environment?.TMPDIR).toBe(directory);
+  expect(rm).toHaveBeenCalledWith(directory, { recursive: true, force: true });
   expect(JSON.stringify(run.mock.calls)).not.toContain("install-deps");
 });
 

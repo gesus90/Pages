@@ -35,6 +35,13 @@ instance-owned tools directory, a supported Node/npm installation and outbound
 access to the official npm registry and Playwright browser CDN. It receives no
 additional host privileges. npm dependency scripts are disabled; the fixed
 Claude/OpenCode package setup scripts run separately in the private home.
+Installations sharing this instance's npm cache run sequentially; the cache is
+deleted after each attempt, including failure or cancellation. Every installation
+and health check uses its own `tools/probe/tmp/<uuid>` as `TMPDIR` and removes it
+afterward. At startup, Pages removes loose files and symbolic links directly in
+`tools/probe`, stale contents of `probe/tmp`, and the npm cache when no installation
+is running. The persistent `probe/home`, `probe/config`, `probe/work` and other
+probe subdirectories remain intact.
 
 Each install, repair and update creates a separate generation and verifies it
 before an atomic activation. Failed candidates are discarded; the previous
@@ -42,8 +49,11 @@ working release and login files stay intact. Explicit rollback health-checks the
 previous generation before publishing it. An update already at its approved
 target is a no-op. Active sessions keep their original paths; removal is blocked
 while a session, login, text request, probe or uncertain cleanup uses the tool.
-Old generations remain until an explicit managed removal; operators should
-monitor disk usage. Removal affects only the selected tool's managed directory,
+Periodic maintenance retains only the current release and a previous release of
+a different version, waiting while the tool is in use or being installed or
+checked. Repairing the same version keeps the genuine previous version; legacy
+duplicate previous pointers are cleared during maintenance. Removal affects only
+the selected tool's managed directory,
 never system packages or logins. A required removed tool is installed again on
 its next use. At startup, managed tools can automatically move to a newly
 reviewed registry target after a successful probe. An explicit rollback records

@@ -16,6 +16,8 @@ import path from "node:path";
 
 import { isAgentToolId } from "@/definition/AgentTools";
 
+import { AgentToolRunFiles } from "./AgentToolRunFiles";
+
 import type { CliHome } from "@/backend/agents/cli/CliContracts";
 import type {
   AgentToolId,
@@ -34,12 +36,24 @@ function missing(error: unknown): boolean {
   return error instanceof Error && "code" in error && error.code === "ENOENT";
 }
 
+function releaseVersion(name: string): string {
+  return name.replace(
+    /-[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/iu,
+    "",
+  );
+}
+
 /** Owns only the instance's tools directory; no credential path is accepted. */
 export class AgentToolFiles implements AgentToolStorage {
   public readonly root: string;
 
   public constructor(root: string) {
     this.root = path.resolve(root);
+  }
+
+  /** Clears leftovers before startup probes, preserving persistent probe directories. */
+  public async initialize(): Promise<void> {
+    await new AgentToolRunFiles(this).initialize();
   }
 
   /** Creates a private home for probes and npm, separate from every login. */
@@ -95,9 +109,13 @@ export class AgentToolFiles implements AgentToolStorage {
     )
       throw new Error("Invalid managed release");
     const previous = await this.pointer(tool);
+    const current = path.basename(location.release);
+    const isSameVersion = previous
+      ? releaseVersion(previous.current) === releaseVersion(current)
+      : false;
     await this.writeJson(path.join(this.root, tool.id, "active.json"), {
-      current: path.basename(location.release),
-      previous: previous?.current ?? null,
+      current,
+      previous: (isSameVersion ? previous?.previous : previous?.current) ?? null,
       approvedTarget: tool.version,
     });
     if (tool.hasTerminalEntry) await this.publishTerminalEntry(tool, location);
@@ -127,7 +145,14 @@ export class AgentToolFiles implements AgentToolStorage {
 
   /** Removes generations outside current/previous; the manager excludes installation and live users. */
   public async prune(tool: AgentToolDefinition): Promise<void> {
-    const pointer = await this.pointer(tool);
+    let pointer = await this.pointer(tool);
+    if (
+      pointer?.previous &&
+      releaseVersion(pointer.current) === releaseVersion(pointer.previous)
+    ) {
+      pointer = { ...pointer, previous: null };
+      await this.writeJson(path.join(this.root, tool.id, "active.json"), pointer);
+    }
     const kept = new Set([pointer?.current, pointer?.previous]);
     const releases = path.join(this.root, tool.id, "releases");
     const metadata = await lstat(releases).catch((error: unknown) => {

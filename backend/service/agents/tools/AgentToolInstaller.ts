@@ -5,6 +5,7 @@ import path from "node:path";
 import { containsWorkspacePath } from "@/backend/service/agents/AgentWorkspacePath";
 
 import { AgentToolReadinessError } from "./AgentToolReadinessError";
+import { AgentToolRunFiles } from "./AgentToolRunFiles";
 import { installAntigravityRelease } from "./AntigravityRelease";
 
 import type { CliLocator } from "@/backend/agents/cli/CliLocator";
@@ -14,6 +15,7 @@ import type {
   AgentToolInstallation,
   AgentToolLocation,
   AgentToolStorage,
+  AgentToolRunContext,
 } from "./AgentToolContracts";
 
 /** Resolves the browser installed by the package, without a runtime download. */
@@ -52,6 +54,21 @@ export class AgentToolInstaller implements AgentToolInstallation {
     candidate: AgentToolLocation,
     signal: AbortSignal,
   ): Promise<void> {
+    const runs = new AgentToolRunFiles(this.files);
+    await runs.install(() =>
+      runs.temporary((temporaryDirectory) =>
+        this.installRelease(tool, candidate, { signal, temporaryDirectory }),
+      ),
+    );
+  }
+
+  private async installRelease(
+    tool: AgentToolDefinition,
+    candidate: AgentToolLocation,
+    control: AgentToolRunContext,
+  ): Promise<void> {
+    const { signal, temporaryDirectory } = control;
+    signal.throwIfAborted();
     if (!candidate.release) throw new Error("Missing managed release");
     if (process.getuid?.() === 0)
       throw new AgentToolReadinessError(tool.id, "failed", "root_not_allowed");
@@ -62,13 +79,14 @@ export class AgentToolInstaller implements AgentToolInstallation {
           files: this.files,
           locator: this.locator,
           runner: this.runner,
+          temporaryDirectory,
         },
         signal,
       );
       return;
     }
     if (tool.kind === "browser") {
-      await this.browser(tool, candidate, signal);
+      await this.browser(tool, candidate, control);
       return;
     }
     if (!tool.packageName || !tool.version)
@@ -103,19 +121,22 @@ export class AgentToolInstaller implements AgentToolInstallation {
       ],
       provider: "codex_cli",
       home: await this.files.home(),
-      environment: this.environment(candidate.release),
+      environment: this.environment(candidate.release, temporaryDirectory),
       signal,
       stdin: "ignore",
       timeoutMs: 180_000,
     });
     if (result.exitCode !== 0 || result.errorCode)
       throw new Error("Managed npm installation failed");
-    await this.postinstall(tool, candidate.release, signal);
+    await this.postinstall(tool, candidate.release, control);
   }
 
-  private environment(release: string): Record<string, string> {
+  private environment(
+    release: string,
+    temporaryDirectory: string,
+  ): Record<string, string> {
     return {
-      TMPDIR: path.join(this.files.root, "probe"),
+      TMPDIR: temporaryDirectory,
       npm_config_cache: path.join(this.files.root, "npm-cache"),
       npm_config_userconfig: path.join(release, ".npm-user.rc"),
       npm_config_globalconfig: path.join(release, ".npm-global.rc"),
@@ -130,7 +151,7 @@ export class AgentToolInstaller implements AgentToolInstallation {
   private async postinstall(
     tool: AgentToolDefinition,
     release: string,
-    signal: AbortSignal,
+    control: AgentToolRunContext,
   ): Promise<void> {
     const scripts: Readonly<Record<string, string>> = {
       claude: "install.cjs",
@@ -144,8 +165,8 @@ export class AgentToolInstaller implements AgentToolInstallation {
       workingDirectory: release,
       provider: "codex_cli",
       home: await this.files.home(),
-      environment: this.environment(release),
-      signal,
+      environment: this.environment(release, control.temporaryDirectory),
+      signal: control.signal,
       stdin: "ignore",
       timeoutMs: 60_000,
     });
@@ -156,7 +177,7 @@ export class AgentToolInstaller implements AgentToolInstallation {
   private async browser(
     tool: AgentToolDefinition,
     candidate: AgentToolLocation,
-    signal: AbortSignal,
+    control: AgentToolRunContext,
   ): Promise<void> {
     const mcp = await this.resolve("playwright_mcp");
     if (!mcp || !candidate.release)
@@ -173,21 +194,21 @@ export class AgentToolInstaller implements AgentToolInstallation {
       provider: "codex_cli",
       home: await this.files.home(),
       environment: {
-        TMPDIR: path.join(this.files.root, "probe"),
+        TMPDIR: control.temporaryDirectory,
         PLAYWRIGHT_BROWSERS_PATH: path.join(candidate.release, "browsers"),
       },
-      signal,
+      signal: control.signal,
       stdin: "ignore",
       timeoutMs: 180_000,
     });
     if (result.exitCode !== 0 || result.errorCode)
       throw new Error("Browser download failed");
-    await this.linkBrowser(tool, candidate, { mcp, signal });
+    await this.linkBrowser(tool, candidate, { mcp, ...control });
   }
   private async linkBrowser(
     tool: AgentToolDefinition,
     candidate: AgentToolLocation,
-    control: { readonly mcp: AgentToolLocation; readonly signal: AbortSignal },
+    control: AgentToolRunContext & { readonly mcp: AgentToolLocation },
   ): Promise<void> {
     if (!candidate.release) throw new Error("Missing browser generation");
     const result = await this.runner.run({
@@ -196,6 +217,7 @@ export class AgentToolInstaller implements AgentToolInstallation {
       provider: "codex_cli",
       home: await this.files.home(),
       environment: {
+        TMPDIR: control.temporaryDirectory,
         PAGES_PLAYWRIGHT_ENTRY: control.mcp.file,
         PAGES_BROWSER: tool.id,
         PLAYWRIGHT_BROWSERS_PATH: path.join(candidate.release, "browsers"),

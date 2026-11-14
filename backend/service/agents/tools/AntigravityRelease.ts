@@ -63,6 +63,7 @@ export async function installAntigravityRelease(
     readonly files: AgentToolStorage;
     readonly locator: Pick<CliLocator, "locate">;
     readonly runner: Pick<CliProcessRunner, "run">;
+    readonly temporaryDirectory: string;
   },
   signal: AbortSignal,
 ): Promise<void> {
@@ -85,6 +86,7 @@ export async function installAntigravityRelease(
       ],
       provider: "antigravity",
       home: await input.files.home(),
+      environment: { TMPDIR: input.temporaryDirectory },
       signal,
       stdin: "ignore",
       timeoutMs: 60_000,

@@ -30,9 +30,16 @@ export interface AgentToolHealth {
   readonly runtimeVersion?: string;
 }
 
+/** Cancellation and disposable scratch directory shared by the steps of one run. */
+export interface AgentToolRunContext {
+  readonly signal: AbortSignal;
+  readonly temporaryDirectory: string;
+}
+
 /** Persistence boundary kept separate from credentials and the DuckDB connection store. */
 export interface AgentToolStorage {
   readonly root: string;
+  initialize?(): Promise<void>;
   home(): Promise<CliHome>;
   current(tool: AgentToolDefinition): Promise<AgentToolLocation | null>;
   candidate(tool: AgentToolDefinition): Promise<AgentToolLocation>;
