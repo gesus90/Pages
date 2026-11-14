@@ -161,6 +161,25 @@ const usage = z.object({
   isPartial: z.boolean(),
   reportedAt: z.string(),
 });
+const openCodeUsage = z.object({
+  id: z.string().min(1).max(200),
+  sessionId: z.string().min(1).max(200),
+  attemptId: identifier,
+  turn: count,
+  model: z.string().nullable(),
+  inputTokens: count.nullable(),
+  outputTokens: count.nullable(),
+  reasoningTokens: count.nullable(),
+  cacheReadTokens: count.nullable(),
+  cacheWriteTokens: count.nullable(),
+  costUsd: z.number().nonnegative().nullable(),
+  price: z.object({
+    amount: z.number().nonnegative().nullable(),
+    state: z.enum(["free", "catalog", "native", "unknown"]),
+    priceAsOf: z.string().nullable(),
+  }),
+  reportedAt: z.string(),
+});
 const errorCode = z
   .string()
   .refine((code) => Object.hasOwn(AGENT_ERROR_MESSAGES, code))
@@ -235,6 +254,7 @@ export const localMutationSchema = z.discriminatedUnion("kind", [
     retain: count,
   }),
   z.object({ kind: z.literal("usage"), usage }),
+  z.object({ kind: z.literal("opencode_usage"), usage: openCodeUsage }),
   z.object({
     kind: z.literal("started"),
     details: z.object({

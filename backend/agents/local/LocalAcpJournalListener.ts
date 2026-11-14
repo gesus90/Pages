@@ -6,6 +6,7 @@ import type {
   Usage,
 } from "@agentclientprotocol/sdk";
 import type { AcpSessionListener } from "@/backend/agents/acp/AcpChat";
+import type { OpenCodeMessageUsage } from "@/backend/agents/cli/OpenCodeSessionUsage";
 import type { AgentSessionRecorder } from "@/backend/service/agents/sessions/AgentSessionRecorder";
 import type { LocalSessionJournal } from "./LocalSessionJournal";
 
@@ -37,6 +38,22 @@ export class LocalAcpJournalListener implements AcpSessionListener {
   /** Fsyncs every genuine, already credential-redacted native update, including partial message chunks. */
   public readonly update = (update: SessionUpdate): void => {
     this.enqueue("update", update, () => this.recorder.update(update));
+  };
+
+  /** Persists each native OpenCode message through the owner's durable journal. */
+  public readonly openCodeMessages = (
+    messages: readonly OpenCodeMessageUsage[],
+    pricingDirectory: string,
+    freeModelId: string | null,
+    mapping: Readonly<Record<string, string>>,
+  ): void => {
+    this.pending = this.writes.run(async () => {
+      this.recorder.openCodeMessages(messages, pricingDirectory, freeModelId, mapping);
+      await this.recorder.drained();
+    });
+    void this.pending.catch((error: unknown) => {
+      this.failure ??= error;
+    });
   };
 
   /** Preserves the original native usage response before token projection. */

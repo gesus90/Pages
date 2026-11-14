@@ -51,7 +51,21 @@ function readConnectionInput(formData: FormData): AgentConnectionInput {
     testModel: readTextOrEmpty(formData, "testModel"),
     reasoningEffort: readTextOrEmpty(formData, "reasoningEffort"),
     scope: readScopeField(formData),
+    openRouterModelIds: readOpenRouterModelIds(formData),
   };
+}
+
+function readOpenRouterModelIds(formData: FormData): unknown {
+  const content = readText(formData, "openRouterModelIds");
+  if (content === null) return undefined;
+  if (content.length > 20_000)
+    throw new AgentError("opencode_price_mapping_invalid");
+  try {
+    return JSON.parse(content);
+  } catch (error: unknown) {
+    logCaughtError("settings_agents_actions", error);
+    throw new AgentError("opencode_price_mapping_invalid");
+  }
 }
 
 function readActive(formData: FormData): boolean {

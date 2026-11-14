@@ -6,6 +6,8 @@ import {
 } from "@agentclientprotocol/sdk";
 
 import { closeCliSession } from "@/backend/agents/cli/CliSessionCloseout";
+import { readOpenCodeSessionUsage } from "@/backend/agents/cli/OpenCodeSessionUsage";
+import { openRouterPriceCatalog } from "@/backend/service/agents/sessions/OpenRouterPriceCatalog";
 import { noteSessionEvent } from "@/backend/agents/cli/CliSessionEvents";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { readContinuationCapabilities } from "@/backend/service/agents/sessions/AgentSessionContinuation";
@@ -186,6 +188,8 @@ export class AcpSession implements PlanSession {
     );
     this.mcpReadiness = new AcpMcpReadiness(this.connection, this.state);
     if (context.driver.provider === "opencode") {
+      if (context.openCodePricingDirectory)
+        void openRouterPriceCatalog(context.openCodePricingDirectory).refresh();
       context.signal.addEventListener("abort", this.abortRequests, {
         once: true,
       });
@@ -409,6 +413,7 @@ export class AcpSession implements PlanSession {
       },
     });
     this.context.listener?.prompted(response.usage ?? null);
+    this.readOpenCodeUsage(sessionId);
     await this.context.listener?.drained?.();
     noteSessionEvent(this.state.events, `turn ${response.stopReason}`);
     if (
@@ -532,6 +537,7 @@ export class AcpSession implements PlanSession {
     });
     noteSessionEvent(this.state.events, `session ${sessionId}`);
     this.observer.identified(this.redact(sessionId));
+    this.readOpenCodeUsage(sessionId);
     return { sessionId, options: options ?? [] };
   }
 
@@ -575,8 +581,33 @@ export class AcpSession implements PlanSession {
     }
     reportAcpPlanActivity(update, this.observer, (text) => this.redact(text));
     this.context.listener?.update(update);
+    if (this.context.driver.provider === "opencode")
+      this.readOpenCodeUsage(notification.sessionId);
     this.checkReportedModel();
     this.reportProgress();
+  }
+
+  private readOpenCodeUsage(sessionId: string): void {
+    const path = this.context.openCodeUsagePath;
+    const directory = this.context.openCodePricingDirectory;
+    const receive = this.context.listener?.openCodeMessages;
+    if (
+      this.context.driver.provider !== "opencode" ||
+      !path ||
+      !directory ||
+      !receive
+    )
+      return;
+    try {
+      receive(
+        readOpenCodeSessionUsage(path, sessionId),
+        directory,
+        this.context.isFreeModel === true ? this.context.request.model : null,
+        this.context.openRouterModelIds ?? {},
+      );
+    } catch (error: unknown) {
+      logCaughtError("AcpSession.openCodeUsage", error);
+    }
   }
 
   /**

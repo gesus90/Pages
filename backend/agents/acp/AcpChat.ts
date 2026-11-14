@@ -10,6 +10,7 @@ import type {
   Usage,
 } from "@agentclientprotocol/sdk";
 import type { PicaCodexListener } from "./PicaCodexRequests";
+import type { OpenCodeMessageUsage } from "@/backend/agents/cli/OpenCodeSessionUsage";
 
 /**
  * The extension method that adds a prompt to the running turn; codex-acp and
@@ -54,6 +55,13 @@ export interface AcpSessionListener {
     capabilities: AgentCapabilities | null | undefined,
   ) => void;
   readonly update: (update: SessionUpdate) => void;
+  /** Native OpenCode message usage, including descendants, after a session update. */
+  readonly openCodeMessages?: (
+    messages: readonly OpenCodeMessageUsage[],
+    pricingDirectory: string,
+    freeModelId: string | null,
+    mapping: Readonly<Record<string, string>>,
+  ) => void;
   /**
    * The token usage the adapter returned with a prompt, or `null` without one;
    * `isContinued` marks a prompt a person's input cut short, whose turn goes on.

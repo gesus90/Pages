@@ -227,6 +227,17 @@ export class AgentActivityRepository {
             WHERE cost_scope = 'session'
                 AND cost_currency = 'USD'
             GROUP BY session_id
+        ),
+        plan_messages AS (
+            SELECT
+                usage.attempt_id,
+                usage.cost_usd
+            FROM agent_opencode_message_usage usage
+            INNER JOIN agent_session_attempts attempts
+                ON attempts.attempt_id = usage.attempt_id
+            WHERE attempts.user_id = $user_id
+                AND attempts.provider = 'opencode'
+                AND usage.reported_at >= $since
         )
         SELECT
             COALESCE((
@@ -235,12 +246,17 @@ export class AgentActivityRepository {
                 WHERE cost_currency = 'USD'
                     AND cost_scope IS DISTINCT FROM 'session'
             ), 0)
-            + COALESCE((SELECT SUM(amount) FROM session_totals), 0),
+            + COALESCE((SELECT SUM(amount) FROM session_totals), 0)
+            + COALESCE((SELECT SUM(cost_usd) FROM plan_messages), 0),
             (
                 SELECT COUNT(*)
                 FROM agent_jobs
                 WHERE cost_amount IS NULL
                     OR cost_currency IS DISTINCT FROM 'USD'
+            ) + (
+                SELECT COUNT(DISTINCT attempt_id)
+                FROM plan_messages
+                WHERE cost_usd IS NULL
             );
       `,
       { user_id: userId, since },

@@ -6,6 +6,7 @@ import {
 
 import { AgentPlanAgentTodoRepository } from "./AgentPlanAgentTodoRepository";
 import { AgentSessionEventRepository } from "./AgentSessionEventRepository";
+import { OpenCodeUsageRepository } from "./OpenCodeUsageRepository";
 import {
   ATTEMPT_COLUMNS,
   MESSAGE_COLUMNS,
@@ -16,6 +17,7 @@ import {
 } from "./AgentSessionRows";
 
 import type { SqlParameters } from "@/backend/database/Database";
+import type { StoredOpenCodeUsage } from "@/backend/service/agents/sessions/OpenCodeUsage";
 import type { AgentSessionDatabase } from "./AgentSessionDatabase";
 import type {
   AgentSessionAttemptRecord,
@@ -78,11 +80,25 @@ export class AgentSessionRepository implements AgentSessionStore {
   private readonly database: AgentSessionDatabase;
   private readonly events: AgentSessionEventRepository;
   private readonly agentTodos: AgentPlanAgentTodoRepository;
+  private readonly openCodeUsage: OpenCodeUsageRepository;
 
   public constructor(database: AgentSessionDatabase) {
     this.database = database;
     this.events = new AgentSessionEventRepository(database);
     this.agentTodos = new AgentPlanAgentTodoRepository(database);
+    this.openCodeUsage = new OpenCodeUsageRepository(database);
+  }
+
+  /** Persists one native message without moving its first attempt owner. */
+  public saveOpenCodeMessage(usage: StoredOpenCodeUsage): Promise<void> {
+    return this.openCodeUsage.save(usage);
+  }
+
+  /** Reads native message usage for all attempts of a run. */
+  public listRunOpenCodeMessages(
+    runId: string,
+  ): Promise<readonly StoredOpenCodeUsage[]> {
+    return this.openCodeUsage.listRun(runId);
   }
 
   /** Stores the state of an attempt; the event sequence is kept as it is. */

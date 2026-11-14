@@ -10,6 +10,7 @@ import type {
   AgentSessionTurnUsage,
 } from "@/definition/AgentSessionJournal";
 import type { LocalSessionJournal } from "./LocalSessionJournal";
+import type { StoredOpenCodeUsage } from "@/backend/service/agents/sessions/OpenCodeUsage";
 
 /** The real recorder writes to durable custody before the web process imports its public projection. */
 export class LocalSessionOutbox extends AgentSessionRepository {
@@ -47,5 +48,12 @@ export class LocalSessionOutbox extends AgentSessionRepository {
     usage: AgentSessionTurnUsage,
   ): Promise<void> {
     await this.journal.append({ kind: "usage", usage });
+  }
+
+  /** Keeps OpenCode message snapshots in local custody before public import. */
+  public override async saveOpenCodeMessage(
+    usage: StoredOpenCodeUsage,
+  ): Promise<void> {
+    await this.journal.append({ kind: "opencode_usage", usage });
   }
 }

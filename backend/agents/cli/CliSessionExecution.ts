@@ -1,3 +1,5 @@
+import path from "node:path";
+
 import { agentPlaywrightServer } from "@/backend/service/agents/tools/AgentPlaywrightSession";
 import {
   AgentToolPreflightError,
@@ -494,6 +496,22 @@ export class CliSessionExecution implements PlanSessionRunner {
         secure: () => this.secureAcp(input, start, github),
         cleanupAdapter: picaBundle?.cleanup,
         listener: input.chat?.listener ?? input.journal,
+        ...(driver.provider === "opencode"
+          ? {
+              openCodeUsagePath: path.join(
+                start.home.config,
+                "opencode",
+                "opencode.db",
+              ),
+              // The data directory is three levels above this connection's provider folder.
+              openCodePricingDirectory: path.resolve(
+                start.home.config,
+                "../../..",
+              ),
+              isFreeModel: input.agent.isFree === true,
+              openRouterModelIds: input.agent.connection.openRouterModelIds ?? {},
+            }
+          : {}),
         notificationHandled: () => channel.acknowledge(),
         acceptsTurnInput: input.chat === undefined,
       });

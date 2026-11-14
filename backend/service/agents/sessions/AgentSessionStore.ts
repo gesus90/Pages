@@ -1,4 +1,5 @@
 import type { AcpProviderId } from "@/definition/AgentConfiguration";
+import type { StoredOpenCodeUsage } from "./OpenCodeUsage";
 import type {
   AgentSessionContextUsage,
   AgentSessionEvent,
@@ -79,6 +80,9 @@ export interface AgentSessionStore {
   saveTurnUsage(usage: AgentSessionTurnUsage): Promise<void>;
   /** Every turn of every attempt of a run, for the run's sums. */
   listRunUsage(runId: string): Promise<readonly AgentSessionTurnUsage[]>;
+  /** Native OpenCode messages have stable IDs across turns and retries. */
+  saveOpenCodeMessage?(usage: StoredOpenCodeUsage): Promise<void>;
+  listRunOpenCodeMessages?(runId: string): Promise<readonly StoredOpenCodeUsage[]>;
   saveMessage(message: AgentSessionMessage): Promise<void>;
   /**
    * Moves a message to `status` only from one of `from`.

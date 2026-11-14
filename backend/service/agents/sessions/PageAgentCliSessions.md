@@ -152,6 +152,14 @@ Context occupancy and token counts are separate values:
 - Sums are kept per provider; different countings are never added up. A sum
   is `isPartial` when a turn lacked a count or the adapter reports partial
   turns, and lists every confirmed model it contains.
+- OpenCode additionally reads its native SQLite session and child sessions.
+  Each assistant message ID has one durable owner across turns and retries;
+  updated counters replace that message. The OpenCode step and run panel uses
+  these native message totals, including reasoning and cache, while the ACP
+  prompt total remains diagnostic. Missing message usage is shown as unreported.
+  Free models cost zero; other models use the saved daily OpenRouter catalogue,
+  an administrator's model ID mapping where present, then native message cost.
+  Each message keeps the catalogue timestamp used for its price.
 
 | Provider (adapter)               | Counting   | `inputTokens` contains cache reads                    | Partial turns              | Context (`used`/`size`)                | Cost                    | Load / resume                  |
 | -------------------------------- | ---------- | ----------------------------------------------------- | -------------------------- | -------------------------------------- | ----------------------- | ------------------------------ |
@@ -224,7 +232,8 @@ also checks its ticket entry through the revision-protected checklist service.
 QA-only tasks may be completed with `an die Abschluss-QA übergeben`.
 `usage_update` stores the context and the cost (`cost_amount`,
 `cost_currency`) of the attempt; the view sums the tokens per turn, attempt
-(`totals`) and node (`nodeTotals`).
+(`totals`) and node (`nodeTotals`). OpenCode's `openCode` view reports native
+message totals for the node and its full run as messages arrive.
 
 ### The TODO list of the CLI (PAGE-306)
 

@@ -22,13 +22,14 @@ interface AgentFormFields {
   readonly testModel: string;
   /** Empty keeps the provider or CLI default effort. */
   readonly reasoningEffort: string;
+  readonly openRouterModelIds: string;
   /** Who may use the models of the connection; sent as one JSON field. */
   readonly scope: AgentConnectionScope;
 }
 
 type StoredChoice = Pick<
   AgentFormFields,
-  "testModel" | "reasoningEffort" | "scope" | "zaiAccountType"
+  "testModel" | "reasoningEffort" | "scope" | "zaiAccountType" | "openRouterModelIds"
 >;
 
 /** The server lists targets by kind, the form in the order of the choices. */
@@ -61,6 +62,11 @@ function storedChoice(
     reasoningEffort: connection?.reasoningEffort ?? "",
     scope: connection?.scope ?? GLOBAL_CONNECTION_SCOPE,
     zaiAccountType: connection?.zaiAccountType ?? (connection ? "api" : ""),
+    openRouterModelIds: JSON.stringify(
+      connection?.openRouterModelIds ?? {},
+      null,
+      2,
+    ),
   };
 }
 
@@ -69,6 +75,7 @@ function isSameChoice(left: StoredChoice, right: StoredChoice): boolean {
     left.testModel === right.testModel &&
     left.reasoningEffort === right.reasoningEffort &&
     left.zaiAccountType === right.zaiAccountType &&
+    left.openRouterModelIds === right.openRouterModelIds &&
     isSameScope(left.scope, right.scope)
   );
 }
@@ -172,10 +179,11 @@ export function useAgentForm(
   }, [fetcher.data, fetcher.state, fields, onSaved, setFields, setSaved, t]);
   function handleSubmit(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
-    const { scope, zaiAccountType, ...text } = fields;
+    const { scope, zaiAccountType, openRouterModelIds, ...text } = fields;
     void fetcher.submit(
       {
         ...text,
+        ...(fields.provider === "opencode" ? { openRouterModelIds } : {}),
         ...(fields.provider === "zai" &&
         (!connection || zaiAccountType !== saved.zaiAccountType)
           ? { zaiAccountType }

@@ -71,6 +71,11 @@ export interface AcpSessionContext {
   readonly github?: string;
   /** Receives every update and the usage of every prompt, as a chat session shows them. */
   readonly listener?: AcpSessionListener;
+  /** Private native OpenCode database of this connection, never sent to the agent. */
+  readonly openCodeUsagePath?: string;
+  readonly openCodePricingDirectory?: string;
+  readonly isFreeModel?: boolean;
+  readonly openRouterModelIds?: Readonly<Record<string, string>>;
   /** Releases the process read only after a native notification and its journal writes were handled. */
   readonly notificationHandled?: () => void;
   /** A person may type into and interrupt the running turn of this plan node (PAGE-284). */

@@ -28,6 +28,7 @@ export interface AgentConnectionRecord {
   readonly cliLoggedInAt: string | null;
   readonly cliAccountLabel: string | null;
   readonly updatedAt: string;
+  readonly openRouterModelIds?: Readonly<Record<string, string>>;
 }
 
 export const CONNECTION_COLUMNS = `
@@ -41,7 +42,8 @@ export const CONNECTION_COLUMNS = `
     updated_at,
     reasoning_effort,
     is_active,
-    zai_account_type
+    zai_account_type,
+    openrouter_model_ids::text
 `;
 
 /** Maps explicit columns, rejecting an unsupported stored provider. */
@@ -54,6 +56,15 @@ export function readAgentConnection(
     readNullableTextColumn(row, 10, "zai_account_type") ?? "api";
   if (!isZaiAccountType(zaiAccountType))
     throw new AgentError("zai_account_type_invalid");
+  const mappingText = readTextColumn(row, 11, "openrouter_model_ids");
+  const mapping: unknown = JSON.parse(mappingText);
+  if (typeof mapping !== "object" || mapping === null || Array.isArray(mapping))
+    throw new AgentError("profile_invalid");
+  const openRouterModelIds = Object.fromEntries(
+    Object.entries(mapping).filter(
+      (entry): entry is [string, string] => typeof entry[1] === "string",
+    ),
+  );
   return {
     isActive: readBooleanColumn(row, 9, "is_active"),
     id: readTextColumn(row, 0, "id"),
@@ -66,5 +77,6 @@ export function readAgentConnection(
     cliAccountLabel: readNullableTextColumn(row, 6, "cli_account_label"),
     updatedAt: readTextColumn(row, 7, "updated_at"),
     reasoningEffort: readNullableTextColumn(row, 8, "reasoning_effort"),
+    openRouterModelIds,
   };
 }

@@ -7,6 +7,7 @@ import {
   isAgentConnectionScopeMode,
 } from "@/definition/AgentConnectionScope";
 import { isReasoningEffortToken } from "@/definition/AgentModelCatalog";
+import { isCatalogModelId } from "@/backend/agents/catalog/CatalogParsing";
 
 import type {
   AgentConnectionInput,
@@ -20,6 +21,33 @@ import type {
 
 const MAX_SCOPE_TARGETS = 200;
 const MAX_TARGET_ID_LENGTH = 100;
+
+/** Accepts only bounded full model IDs for an administrator's OpenRouter mapping. */
+export function readOpenCodePriceMapping(
+  input: unknown,
+  provider: AgentProviderId,
+): Readonly<Record<string, string>> | undefined {
+  if (input === undefined) return undefined;
+  if (provider !== "opencode")
+    throw new AgentError("opencode_price_mapping_invalid");
+  if (typeof input !== "object" || input === null || Array.isArray(input))
+    throw new AgentError("opencode_price_mapping_invalid");
+  const pairs = Object.entries(input);
+  if (pairs.length > 100)
+    throw new AgentError("opencode_price_mapping_invalid");
+  const mapping: Record<string, string> = {};
+  for (const [model, router] of pairs) {
+    if (
+      !isCatalogModelId(model) ||
+      !model.includes("/") ||
+      !isCatalogModelId(router) ||
+      !router.includes("/")
+    )
+      throw new AgentError("opencode_price_mapping_invalid");
+    mapping[model] = router;
+  }
+  return mapping;
+}
 
 /** Requires a deliberate z.ai account choice, preserving an existing choice on partial updates. */
 export function readZaiAccountType(

@@ -9,6 +9,7 @@ import {
 } from "./AgentSessionAttempts";
 import { decideContinuation } from "./AgentSessionContinuation";
 import { AgentSessionRecorder } from "./AgentSessionRecorder";
+import { sumOpenCodeUsage } from "./OpenCodeUsage";
 import { UNKNOWN_CONTEXT, sumTurnUsage } from "./AgentSessionUsage";
 import { checkSessionWorkspace } from "./AgentSessionWorkspace";
 import { followRemoteSession } from "./RemoteSessionFollower";
@@ -54,6 +55,24 @@ function nodeAttemptIds(
       entry.attemptId ? [entry.attemptId] : [],
     ),
   ]);
+}
+
+/** Every OpenCode attempt already started in the run, including loop iterations. */
+function runOpenCodeAttemptIds(run: AgentPlanRun): ReadonlySet<string> {
+  const nodes = [
+    ...run.steps,
+    ...(run.loops ?? []).flatMap((loop) =>
+      loop.iterations.flatMap((iteration) => iteration.nodes),
+    ),
+  ];
+  return new Set(
+    nodes.flatMap((node) => {
+      const session = node.session;
+      return session?.runner === "opencode" && session.attemptId
+        ? [...nodeAttemptIds(session.attemptId, session)]
+        : [];
+    }),
+  );
 }
 
 /** Reads and stops runs with every current right of their executor checked. */
@@ -247,6 +266,10 @@ export class AgentSessionService {
     const { run, attempt } = await this.authorize(userId, key);
     const stored = await this.dependencies.store.findAttempt(key.attemptId);
     const runTurns = await this.dependencies.store.listRunUsage(run.id);
+    const openCodeMessages =
+      attempt.record.runner === "opencode"
+        ? (await this.dependencies.store.listRunOpenCodeMessages?.(run.id)) ?? []
+        : [];
     const turns = runTurns.filter((turn) => turn.attemptId === key.attemptId);
     const nodeAttempts = nodeAttemptIds(key.attemptId, attempt.record);
     const isLive = this.live.has(key.attemptId) && isRunActive(run);
@@ -266,6 +289,19 @@ export class AgentSessionService {
       nodeTotals: sumTurnUsage(
         runTurns.filter((turn) => nodeAttempts.has(turn.attemptId)),
       ),
+      ...(attempt.record.runner === "opencode"
+        ? {
+            openCode: {
+              step: sumOpenCodeUsage(
+                openCodeMessages.filter((message) =>
+                  nodeAttempts.has(message.attemptId),
+                ),
+                nodeAttempts,
+              ),
+              run: sumOpenCodeUsage(openCodeMessages, runOpenCodeAttemptIds(run)),
+            },
+          }
+        : {}),
       continuation: decideContinuation({
         isAuthorized: true,
         isConfigurationCompatible: true,
