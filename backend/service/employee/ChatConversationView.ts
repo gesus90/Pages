@@ -50,6 +50,9 @@ export function toVirtualMessage(
       ? { attachments: message.attachments }
       : {}),
     ...(message.links.length > 0 ? { links: message.links } : {}),
+    ...(message.references && message.references.length > 0
+      ? { references: message.references }
+      : {}),
     ...(isOwn && !message.notice ? { canDelete: true } : {}),
     ...(message.clientMessageId.startsWith(CONVERSATION_PREVIEW_SEND_PREFIX)
       ? { isFromPreview: true }

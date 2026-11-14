@@ -17,7 +17,11 @@ import type { PicaBridge } from "./PicaBridge";
 import type { PicaAnswerFiles } from "./PicaAcpAnswerOutput";
 import type { PicaAttachmentReader } from "./PicaAcpContent";
 import type { PicaHostFileAttach } from "../PicaHostFileTools";
-import type { PicaImageGenerate, PicaMediaGenerate } from "../PicaTools";
+import type {
+  PicaAttachmentRead,
+  PicaImageGenerate,
+  PicaMediaGenerate,
+} from "../PicaTools";
 import type { LiveAnswerSink } from "@/backend/service/conversation/ConversationLiveAnswer";
 
 /** What a job needs from Pages; every write path is an existing one. */
@@ -66,6 +70,8 @@ export interface PicaAcpJobDependencies {
   readonly generateImages?: PicaImageGenerate;
   /** `video_erzeugen` and `audio_erzeugen` of an agent employee in a conversation, bound to the job's working folder (PAGE-384). */
   readonly generateMedia?: PicaMediaGenerate;
+  /** `anhaenge_suchen` and `anhang_lesen` of an agent employee in a conversation, bound to the job's working folder (PAGE-386). */
+  readonly readAttachments?: PicaAttachmentRead;
   /** The chat tools of an agent employee (PAGE-311); absent for Pica. */
   readonly agentChat?: AgentChatTools;
   /** Shows the answer of an agent employee on the chat page while it is written (PAGE-381); absent for Pica. */

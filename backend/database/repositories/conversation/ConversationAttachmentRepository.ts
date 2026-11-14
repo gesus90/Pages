@@ -12,7 +12,8 @@ import type {
   DatabaseValue,
 } from "@/backend/database/Database";
 
-const ATTACHMENT_COLUMNS = `
+/** The columns of an attachment row, in the order {@link toAttachment} reads them (PAGE-386 reads them too). */
+export const ATTACHMENT_COLUMNS = `
     conversation_attachments.id,
     conversation_attachments.conversation_id,
     conversation_attachments.message_id,
@@ -120,7 +121,13 @@ function readThumbnail(
   };
 }
 
-function toAttachment(
+/**
+ * Reads the first 21 columns of a row selected with {@link ATTACHMENT_COLUMNS}.
+ *
+ * @param row - The row of the query.
+ * @returns The stored attachment.
+ */
+export function toAttachment(
   row: readonly DatabaseValue[],
 ): StoredConversationAttachment {
   return {

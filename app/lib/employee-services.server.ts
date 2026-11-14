@@ -23,6 +23,7 @@ import { sharedConversationAnswerStream } from "@/backend/service/conversation/C
 
 import type { InstanceSecretCipher } from "@/backend/security/InstanceSecretCipher";
 import type { ConversationAttachments } from "@/backend/service/conversation/content/ConversationAttachments";
+import type { ConversationAttachmentLibrary } from "@/backend/service/conversation/content/ConversationAttachmentLibrary";
 import type { AgentImageToolDependencies } from "@/backend/service/employee/AgentImageTool";
 import type { AgentMediaToolDependencies } from "@/backend/service/employee/AgentMediaTool";
 import type { AgentSessionSettingsRepository } from "@/backend/database/repositories/employee/AgentSessionSettingsRepository";
@@ -331,6 +332,8 @@ interface LateServices {
   logbookClose: ((sessionId: string) => Promise<void>) | null;
   /** Stores the images agents generate in conversations (PAGE-382). */
   attachments: ConversationAttachments | null;
+  /** Lets agents search and read the attachments of their chats (PAGE-386). */
+  library: ConversationAttachmentLibrary | null;
 }
 
 function optionalImages(
@@ -530,6 +533,7 @@ function createEmployeeSessions(
     agentChat: () => late.agentChat,
     ...optionalImages(createImageTool(input, base, late)),
     ...createMediaTool(input, base, late),
+    attachments: () => (late.library ? { library: late.library } : null),
     createSessionId: () => createChatSessionId(),
     conversationContext: {
       readForAgent: (agentId, request) =>
@@ -575,6 +579,7 @@ function wireEmployeeConversations(
   late.contextReader = conversations.conversationContextReader;
   late.agentChat = conversations.agentChatService;
   late.attachments = conversations.conversationAttachments;
+  late.library = conversations.conversationAttachmentLibrary;
   const learning = createLearning(input, {
     dependencies: {
       store,
@@ -656,6 +661,7 @@ export function createEmployeeServices(
     logbook: null,
     logbookClose: null,
     attachments: null,
+    library: null,
   };
   const base = createEmployeeBase(input, late);
   const sessions = createEmployeeSessions(input, base, late);

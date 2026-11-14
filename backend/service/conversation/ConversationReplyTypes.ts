@@ -13,6 +13,7 @@ import type { ConversationReplyTrigger } from "@/definition/ConversationObserver
 import type { User } from "@/definition/User";
 import type { ConversationAgentGuard } from "./ConversationAgentGuard";
 import type { ConversationAgentFiles } from "./content/ConversationAgentFiles";
+import type { ConversationAttachmentReferences } from "./content/ConversationAttachmentReferences";
 import type { ConversationAttachments } from "./content/ConversationAttachments";
 import type { ConversationGeneratedImages } from "./content/ConversationGeneratedImages";
 import type { ConversationMessageContentReader } from "./content/ConversationMessageContent";
@@ -64,6 +65,8 @@ export interface ConversationReplyRunnerDependencies {
   readonly guard?: Pick<ConversationAgentGuard, "isPaused">;
   /** Reads the file lines of an answer (PAGE-298). */
   readonly agentFiles: Pick<ConversationAgentFiles, "select" | "open">;
+  /** Reads the lines of an answer that show earlier attachments of the chat again (PAGE-386); absent shows none. */
+  readonly references?: Pick<ConversationAttachmentReferences, "select" | "bind">;
   /** Stores the files an answer attaches and binds them to it. */
   readonly attachments: Pick<
     ConversationAttachments,

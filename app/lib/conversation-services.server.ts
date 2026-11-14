@@ -20,12 +20,17 @@ import { AgentChatSettingsService } from "@/backend/service/conversation/AgentCh
 import { ConversationAgentGuard } from "@/backend/service/conversation/ConversationAgentGuard";
 import { ChatViewPreferenceRepository } from "@/backend/database/repositories/conversation/ChatViewPreferenceRepository";
 import { ConversationAttachmentRepository } from "@/backend/database/repositories/conversation/ConversationAttachmentRepository";
+import { ConversationAttachmentLibraryRepository } from "@/backend/database/repositories/conversation/ConversationAttachmentLibraryRepository";
 import { ConversationEmbedDomainRepository } from "@/backend/database/repositories/conversation/ConversationEmbedDomainRepository";
 import { ConversationLinkPreviewRepository } from "@/backend/database/repositories/conversation/ConversationLinkPreviewRepository";
 import { currentAgentSimulationMode } from "@/backend/agents/simulation/AgentSimulationMode";
 import { ChatViewPreferenceService } from "@/backend/service/conversation/content/ChatViewPreferenceService";
 import { ConversationAgentFiles } from "@/backend/service/conversation/content/ConversationAgentFiles";
 import { ConversationAttachments } from "@/backend/service/conversation/content/ConversationAttachments";
+import { ConversationAttachmentContent } from "@/backend/service/conversation/content/ConversationAttachmentContent";
+import { ConversationAttachmentLibrary } from "@/backend/service/conversation/content/ConversationAttachmentLibrary";
+import { ConversationAttachmentReferences } from "@/backend/service/conversation/content/ConversationAttachmentReferences";
+import { FfmpegVideoFrameReader } from "@/backend/service/conversation/content/ConversationVideoFrames";
 import { ConversationLinks } from "@/backend/service/conversation/content/ConversationLinks";
 import { ConversationMessageContent } from "@/backend/service/conversation/content/ConversationMessageContent";
 import { HttpConversationLinkFetcher } from "@/backend/service/conversation/links/HttpConversationLinkFetcher";
@@ -91,6 +96,8 @@ export interface ConversationApplicationServices {
   readonly agentChatSettingsService: AgentChatSettingsService;
   /** The files of conversation messages (PAGE-298). */
   readonly conversationAttachments: ConversationAttachments;
+  /** The attachments of chats as their agents search and read them (PAGE-386). */
+  readonly conversationAttachmentLibrary: ConversationAttachmentLibrary;
   /** The links of messages and the domains that may be embedded (PAGE-298). */
   readonly conversationLinks: ConversationLinks;
   /** The card states and the split width of a person (PAGE-298). */
@@ -259,6 +266,7 @@ export function createConversationServices(
     conversationVoiceMaximumMs,
     conversationService,
     conversationAttachments: content.attachments,
+    conversationAttachmentLibrary: content.library,
     conversationLinks: content.links,
     chatViewPreferences: new ChatViewPreferenceService(
       new ChatViewPreferenceRepository(database),
@@ -368,6 +376,7 @@ function createReplies(
     publisher: input.events,
     guard: parts.guard,
     agentFiles: new ConversationAgentFiles(),
+    references: content.references,
     attachments: content.attachments,
     generatedImages: sharedConversationGeneratedImages(),
     content: content.reader,
@@ -383,6 +392,8 @@ interface ContentParts {
   readonly attachments: ConversationAttachments;
   readonly links: ConversationLinks;
   readonly reader: ConversationMessageContent;
+  readonly library: ConversationAttachmentLibrary;
+  readonly references: ConversationAttachmentReferences;
 }
 
 function hostOf(origin: string | undefined): string[] {
@@ -395,10 +406,17 @@ function createContent(
   directory: ConversationDirectory,
 ): ContentParts {
   const { database } = input;
+  const files = new WikiFileStore(path.join(input.directory, "conversation-files"));
   const attachments = new ConversationAttachments({
     attachments: new ConversationAttachmentRepository(database),
     conversations,
-    files: new WikiFileStore(path.join(input.directory, "conversation-files")),
+    files,
+    directory,
+  });
+  const libraryRows = new ConversationAttachmentLibraryRepository(database);
+  const references = new ConversationAttachmentReferences({
+    library: libraryRows,
+    conversations,
     directory,
   });
   const ownHosts = hostOf(input.publicUrl);
@@ -420,7 +438,18 @@ function createContent(
   return {
     attachments,
     links,
-    reader: new ConversationMessageContent(attachments, links),
+    reader: new ConversationMessageContent(attachments, links, references),
+    references,
+    library: new ConversationAttachmentLibrary({
+      library: libraryRows,
+      conversations,
+      files,
+      directory,
+      content: new ConversationAttachmentContent({
+        transcriber: createConversationTranscriber({ speech: input.speech }),
+        frames: new FfmpegVideoFrameReader(),
+      }),
+    }),
   };
 }
 

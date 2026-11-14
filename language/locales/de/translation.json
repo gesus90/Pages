@@ -4272,6 +4272,12 @@
       "noPreview": "Keine Vorschau",
       "you": "Du",
       "toMessage": "Zur Nachricht",
+      "reference": {
+        "from": "aus einer früheren Nachricht von {{name}}",
+        "fromUnknown": "aus einer früheren Nachricht",
+        "deleted": "gelöscht",
+        "deletedLabel": "Datei samt Nachricht gelöscht"
+      },
       "downloadAll": "Alle herunterladen",
       "downloadNamed": "{{name}} herunterladen",
       "viewerStrip": "Alle Bilder dieses Chats",

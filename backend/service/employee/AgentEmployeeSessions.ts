@@ -57,6 +57,7 @@ export type {
   QueuedAgentMessage,
 } from "./AgentEmployeeSessionTypes";
 import {
+  attachmentToolOf,
   chatToolsOf,
   imageToolOf,
   mediaToolOf,
@@ -851,6 +852,11 @@ export class AgentEmployeeSessions {
         agentId: agent.id,
         conversationId: chat.scope.conversationId,
         employee,
+        assignment,
+      }),
+      ...attachmentToolOf(this.dependencies.attachments?.(), {
+        agentId: agent.id,
+        conversationId: chat.scope.conversationId,
         assignment,
       }),
       ...(keptSession ? { keptSession } : {}),

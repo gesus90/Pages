@@ -1,15 +1,17 @@
 import { useMemo } from "react";
 
 import { AttachmentCards } from "./attachment-cards";
-import { ExpiredAttachment } from "./expired-attachment";
 import { LinkCards } from "./link-cards";
 import { parseMessageContent, textAttachmentKind } from "./message-content";
 import { PreviewCard } from "./preview-card";
 import { previewFileName, previewKindOf } from "./preview-kinds";
+import { ReferenceCards } from "./reference-cards";
 import { CodeCard, DiffCard, MarkdownCard } from "./text-cards";
+import { TextAttachmentCard } from "./text-attachment-card";
 
 import type {
   ConversationAttachment,
+  ConversationAttachmentReference,
   ConversationLink,
 } from "@/definition/ConversationContent";
 import type { CardOrigin } from "./card-types";
@@ -26,6 +28,8 @@ export interface MessageContentSource {
   readonly attachments?: readonly ConversationAttachment[];
   /** What the server knows of the URLs that stand alone in a line. */
   readonly links?: readonly ConversationLink[];
+  /** Earlier attachments of the chat an agent shows again (PAGE-386). */
+  readonly references?: readonly ConversationAttachmentReference[];
 }
 
 interface MessageContentViewProps {
@@ -149,31 +153,6 @@ function PartCard({
   }
 }
 
-/** An attachment whose text the chat renders: code, a diff or Markdown. */
-function TextAttachmentCard({
-  attachment,
-  origin,
-}: {
-  readonly attachment: ConversationAttachment;
-  readonly origin: CardOrigin;
-}): React.ReactElement | null {
-  const kind = textAttachmentKind(attachment);
-  // A file of an agent whose 72 hours ended keeps only its placeholder (PAGE-382).
-  if (attachment.expiredAt !== undefined)
-    return <ExpiredAttachment attachment={attachment} />;
-  const shared = {
-    cardKey: `att:${attachment.id}`,
-    name: attachment.name,
-    origin,
-    text: { source: null, sourceUrl: attachment.url },
-  };
-  if (kind === "diff") return <DiffCard {...shared} />;
-  if (kind === "markdown") return <MarkdownCard {...shared} />;
-  return kind === "code" ? (
-    <CodeCard {...shared} languageHint={attachment.name} />
-  ) : null;
-}
-
 /**
  * The content of one chat message (PAGE-298): its text as the chat shows
  * text, and in between and below it the cards.
@@ -184,7 +163,8 @@ function TextAttachmentCard({
  * JSON and CSV blocks become previews; an HTML block takes the CSS and
  * JavaScript blocks of the message into one preview (PAGE-383). Attachments follow
  * below: text files as code, diff or Markdown cards, everything else by its
- * MIME type. The component knows nothing of the page around it, so the Pica
+ * MIME type. Earlier attachments an agent shows again follow last, each as
+ * the card of its original (PAGE-386). The component knows nothing of the page around it, so the Pica
  * panel and groups render messages with it alike.
  */
 export function MessageContentView({
@@ -231,6 +211,7 @@ export function MessageContentView({
           />
         ))}
       <AttachmentCards attachments={media} origin={mediaOrigin} />
+      <ReferenceCards references={message.references ?? []} />
     </>
   );
 }

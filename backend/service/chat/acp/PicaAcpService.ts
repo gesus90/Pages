@@ -44,6 +44,7 @@ import type { PicaAcpRunner } from "./PicaAcpRunners";
 import type { AgentHostFileTarget } from "@/backend/service/employee/AgentHostFiles";
 import type { AgentImageToolInput } from "@/backend/service/employee/AgentImageTool";
 import type { AgentMediaToolInput } from "@/backend/service/employee/AgentMediaTool";
+import type { AgentAttachmentToolRun } from "@/backend/service/employee/AgentAttachmentTool";
 import type { AgentMediaKind } from "@/definition/AgentMediaGeneration";
 import type { PicaToolOutcome } from "../PicaToolSchemas";
 import type { PicaAcpWorkspace } from "./PicaAcpWorkspace";
@@ -163,6 +164,11 @@ export interface PicaAcpEmployeeRun {
     input: AgentMediaToolInput,
     signal: AbortSignal,
   ) => Promise<PicaToolOutcome>;
+  /**
+   * Searches and reads the attachments of the chat of the round; images are
+   * written into the job's working folder for the model to open (PAGE-386).
+   */
+  readonly readAttachments?: AgentAttachmentToolRun;
   /**
    * Called once when the job ended, however it ended, so the caller frees
    * the place of the session among the limits of the agent (PAGE-304).
@@ -573,6 +579,7 @@ export class PicaAcpService {
     const attachFile = input.employee?.attachFile;
     const generateImages = input.employee?.generateImages;
     const generateMedia = input.employee?.generateMedia;
+    const readAttachments = input.employee?.readAttachments;
     const job = new PicaAcpJob(
       {
         ...dependencies,
@@ -592,6 +599,12 @@ export class PicaAcpService {
           ? {
               generateMedia: (kind, parameters, signal) =>
                 generateMedia(kind, directory, parameters, signal),
+            }
+          : {}),
+        ...(readAttachments
+          ? {
+              readAttachments: (action, parameters, signal) =>
+                readAttachments(action, directory, parameters, signal),
             }
           : {}),
       },

@@ -33,6 +33,7 @@ import type {
 } from "@/definition/Conversation";
 import type { User } from "@/definition/User";
 import type { AgentFile } from "./content/ConversationAgentFiles";
+import type { PendingAttachmentReference } from "./content/ConversationAttachmentReferences";
 import type {
   ConversationAgentRequest,
   ConversationAgentTurn,
@@ -601,10 +602,14 @@ export class ConversationReplyRunner {
     },
   ): Promise<ConversationMessage | null> {
     const { conversation, memberIds } = job.round;
-    // A hint of Pages attaches nothing; an answer attaches its file lines.
+    // A hint of Pages attaches nothing; an answer attaches its file lines and shows its references (PAGE-386).
+    const referenced =
+      reply.notice === null && this.dependencies.references
+        ? await this.dependencies.references.select(conversation.id, job.agentId, reply.text)
+        : { text: reply.text, references: [] };
     const selection =
       reply.notice === null
-        ? await this.dependencies.agentFiles.select(reply.text)
+        ? await this.dependencies.agentFiles.select(referenced.text)
         : null;
     // The files are stored first, so a file that fails keeps its line with the reason.
     const files = selection
@@ -658,6 +663,7 @@ export class ConversationReplyRunner {
       return null;
     }
     await this.bindFiles(outcome.message, staged.attachmentIds);
+    await this.bindReferences(outcome.message, referenced.references);
     const content = await this.dependencies.content.describe([outcome.message]);
     const message = toConversationMessage(
       outcome.message,
@@ -734,6 +740,18 @@ export class ConversationReplyRunner {
       }
     }
     return { attachmentIds, failed };
+  }
+
+  /** Stores the references of the stored answer; a failure leaves the answer without its cards. */
+  private async bindReferences(
+    answer: StoredConversationMessage,
+    references: readonly PendingAttachmentReference[],
+  ): Promise<void> {
+    try {
+      await this.dependencies.references?.bind(answer, references);
+    } catch (error: unknown) {
+      logCaughtError(COMPONENT, error);
+    }
   }
 
   /** Binds the stored files to the stored answer; unbound ones are swept later. */

@@ -4272,6 +4272,12 @@
       "noPreview": "No preview",
       "you": "You",
       "toMessage": "Go to message",
+      "reference": {
+        "from": "from an earlier message by {{name}}",
+        "fromUnknown": "from an earlier message",
+        "deleted": "deleted",
+        "deletedLabel": "File deleted with its message"
+      },
       "downloadAll": "Download all",
       "downloadNamed": "Download {{name}}",
       "viewerStrip": "All images of this chat",

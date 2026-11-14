@@ -6,7 +6,7 @@ import type { ChatPreviewSection } from "@/definition/ChatPreview";
 import type { ChatDocument } from "./ChatDocumentReader";
 
 /** Inflated bytes one Office part and one reading may take. */
-const OFFICE_LIMITS = {
+export const OFFICE_LIMITS = {
   entryBytes: 16 * 1024 * 1024,
   totalBytes: 48 * 1024 * 1024,
 };
@@ -51,7 +51,8 @@ const DRAWING_MARKUP: TextMarkup = {
   lineBreak: "a:br",
 };
 
-interface XmlToken {
+/** One tag or one run of character data of an Office XML part. */
+export interface XmlToken {
   readonly isClosing: boolean;
   readonly isEmpty: boolean;
   readonly name: string;
@@ -59,7 +60,12 @@ interface XmlToken {
   readonly text: string | null;
 }
 
-function decodeEntities(text: string): string {
+/**
+ * Decodes the XML entities of character data or of an attribute value.
+ *
+ * @param text - The raw text.
+ */
+export function decodeEntities(text: string): string {
   return text.replace(
     ENTITY,
     (entity, decimal?: string, hex?: string, name?: string) => {
@@ -72,7 +78,12 @@ function decodeEntities(text: string): string {
   );
 }
 
-function* tokens(xml: string): Generator<XmlToken> {
+/**
+ * Splits an XML part into tags and character data; nothing is interpreted.
+ *
+ * @param xml - The text of the part.
+ */
+export function* tokens(xml: string): Generator<XmlToken> {
   for (const match of xml.matchAll(TOKEN)) {
     const [, slash, name, attributes, text] = match;
     if (text !== undefined) {
@@ -95,7 +106,14 @@ function* tokens(xml: string): Generator<XmlToken> {
   }
 }
 
-function attribute(attributes: string, name: string): string | null {
+/**
+ * Reads one attribute of a tag.
+ *
+ * @param attributes - The attribute text of the tag.
+ * @param name - The qualified attribute name.
+ * @returns The decoded value, or `null` without it.
+ */
+export function attribute(attributes: string, name: string): string | null {
   for (const match of attributes.matchAll(ATTRIBUTE))
     if (match[1] === name) return decodeEntities(match[2]);
   return null;
@@ -120,6 +138,8 @@ function readParagraphs(xml: string, markup: TextMarkup): string[] {
       current = "";
     }
   }
+  // A piece cut at a page break ends inside its paragraph.
+  if (current.trim() !== "") paragraphs.push(current.trimEnd());
   return paragraphs;
 }
 
@@ -138,9 +158,32 @@ function numbered(names: readonly string[], pattern: RegExp): string[] {
     .map(({ name }) => name);
 }
 
+/** A page break Word wrote: a hard one, or where it last laid out a new page. */
+const WORD_PAGE_BREAK =
+  /<w:br\b[^>]*w:type="page"[^>]*>|<w:lastRenderedPageBreak\b[^>]*>/gu;
+
+/**
+ * The text of a Word document; split into numbered pages where Word marked
+ * page breaks (PAGE-386), otherwise one section. Empty pieces between two
+ * marks of the same break count as no page.
+ */
 function readWordDocument(archive: ChatZipArchive): ChatDocument {
   const xml = archive.text("word/document.xml") ?? "";
-  const text = joinParagraphs(readParagraphs(xml, WORD_MARKUP));
+  const pieces = xml
+    .split(WORD_PAGE_BREAK)
+    .map((piece) => joinParagraphs(readParagraphs(piece, WORD_MARKUP)))
+    .filter((text) => text !== "");
+  if (pieces.length > 1)
+    return {
+      sections: pieces.map((text, index) => ({
+        kind: "page",
+        number: index + 1,
+        text,
+      })),
+      sheets: [],
+      isTruncated: false,
+    };
+  const text = pieces[0] ?? "";
   return {
     sections: text ? [{ kind: "document", number: 1, text }] : [],
     sheets: [],
@@ -351,4 +394,25 @@ export function readOfficeDocument(
     return readPresentation(archive);
   if (contentType === CHAT_OFFICE_TYPES.workbook) return readWorkbook(archive);
   return null;
+}
+
+/** Where the pictures of an Office or OpenDocument package lie. */
+const MEDIA_PART = /^(?:word\/media|ppt\/media|xl\/media|Pictures)\/[^/]+\.(?:png|jpe?g|gif|webp)$/iu;
+
+/**
+ * The pictures embedded in an Office or OpenDocument package (PAGE-386), in
+ * the order of their names; other embedded objects are never listed.
+ *
+ * @param bytes - The complete package.
+ * @returns The part names of the pictures; none for a package that cannot be read.
+ */
+export function officeMediaNames(bytes: Buffer): string[] {
+  try {
+    return new ChatZipArchive(bytes, OFFICE_LIMITS)
+      .names()
+      .filter((name) => MEDIA_PART.test(name))
+      .sort((left, right) => left.localeCompare(right, "en", { numeric: true }));
+  } catch {
+    return [];
+  }
 }

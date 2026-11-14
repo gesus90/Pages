@@ -105,6 +105,32 @@ export interface ConversationImage {
   readonly sentAt: string;
 }
 
+/**
+ * Whether the original of a reference is still there (PAGE-386): shown,
+ * removed after its 72 hours, or deleted with its message.
+ */
+export type ConversationReferenceState = "available" | "expired" | "deleted";
+
+/**
+ * An earlier attachment of the same chat that an agent shows again in its
+ * answer (PAGE-386). No copy exists: the card shows the original, and its
+ * remaining time and expiry are those of the original.
+ */
+export interface ConversationAttachmentReference {
+  readonly attachmentId: string;
+  readonly state: ConversationReferenceState;
+  /** The original as every client sees it; missing once it was deleted. */
+  readonly attachment?: ConversationAttachment;
+  /** The name of the original, also for the placeholder of a deleted one. */
+  readonly name: string;
+  /** The message that carries the original. */
+  readonly sourceMessageId: string;
+  /** The display name of the sender of that message. */
+  readonly senderName: string;
+  /** When that message was sent; missing once it was deleted. */
+  readonly sentAt?: string;
+}
+
 /** A URL that stands alone in a line of a message. */
 export interface ConversationLink {
   readonly url: string;

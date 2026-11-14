@@ -26,6 +26,7 @@ import type {
   ChatEmbedDomains,
   ChatViewPreferences,
   ConversationAttachment,
+  ConversationAttachmentReference,
   ConversationLink,
 } from "./ConversationContent";
 import type { ConversationDecisionView } from "./ConversationDecision";
@@ -197,6 +198,8 @@ export interface VirtualChatMessage {
   readonly isFromPreview?: boolean;
   /** What the server knows of the URLs that stand alone in a line (PAGE-298). */
   readonly links?: readonly ConversationLink[];
+  /** Earlier attachments of the chat an agent shows again (PAGE-386). */
+  readonly references?: readonly ConversationAttachmentReference[];
   /** Whether the person may delete the message: their own stored one (PAGE-298). */
   readonly canDelete?: boolean;
 }

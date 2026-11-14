@@ -131,6 +131,16 @@ export class ChatZipArchive {
    * @throws {ChatZipError} For an encrypted, damaged or too large part.
    */
   public text(name: string): string | null {
+    return this.bytes(name)?.toString("utf8") ?? null;
+  }
+
+  /**
+   * Reads one part as bytes, such as an image embedded in a document (PAGE-386).
+   *
+   * @returns The bytes, or `null` when the package has no such part.
+   * @throws {ChatZipError} For an encrypted, damaged or too large part.
+   */
+  public bytes(name: string): Buffer | null {
     const entry = this.entries.get(name);
     if (entry === undefined) return null;
     if ((entry.flags & ENCRYPTED_FLAG) !== 0)
@@ -140,7 +150,7 @@ export class ChatZipArchive {
     this.inflated += content.length;
     if (this.inflated > this.limits.totalBytes)
       throw new ChatZipError("tooLarge");
-    return content.toString("utf8");
+    return content;
   }
 
   private compressedBytes(entry: ZipEntry): Buffer {

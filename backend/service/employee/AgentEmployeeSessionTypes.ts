@@ -6,6 +6,7 @@ import { CHAT_LIMITS } from "@/definition/Chat";
 
 import type { AgentImageToolDependencies } from "./AgentImageTool";
 import type { AgentMediaToolDependencies } from "./AgentMediaTool";
+import type { AgentAttachmentToolDependencies } from "./AgentAttachmentTool";
 import type { ConversationAnswerStream } from "@/backend/service/conversation/ConversationAnswerStream";
 import type { LiveAnswerSink } from "@/backend/service/conversation/ConversationLiveAnswer";
 import type { ConversationDelivery } from "@/definition/ConversationLiveAnswer";
@@ -125,6 +126,12 @@ export interface AgentEmployeeSessionDependencies {
    * and no `audio_erzeugen`.
    */
   readonly media?: AgentMediaToolDependencies;
+  /**
+   * Searches and reads the attachments of the chat of a round (PAGE-386). A
+   * function, because the conversations are wired after the sessions; absent
+   * or `null` offers no `anhaenge_suchen` and no `anhang_lesen`.
+   */
+  readonly attachments?: () => AgentAttachmentToolDependencies | null;
   readonly today?: () => string;
   /** Opens the live answer of a direct chat for the chat page (PAGE-381); absent shows none. */
   readonly answers?: Pick<ConversationAnswerStream, "open">;

@@ -11,6 +11,7 @@
 
 import type {
   ConversationAttachment,
+  ConversationAttachmentReference,
   ConversationLink,
 } from "./ConversationContent";
 import type { ConversationDecisionView } from "./ConversationDecision";
@@ -201,6 +202,8 @@ export interface ConversationMessage {
   readonly attachments: readonly ConversationAttachment[];
   /** The URLs that stand alone in a line of the text (PAGE-298); empty without any. */
   readonly links: readonly ConversationLink[];
+  /** Earlier attachments of the chat an agent shows again (PAGE-386); missing without any. */
+  readonly references?: readonly ConversationAttachmentReference[];
 }
 
 /** A conversation as one member sees it. */

@@ -1,9 +1,12 @@
 import { agentImageTool } from "./AgentImageTool";
 import { agentMediaTool } from "./AgentMediaTool";
+import { agentAttachmentTool } from "./AgentAttachmentTool";
 
 import type { PicaAcpStart } from "../chat/acp/PicaAcpService";
 import type { AgentImageToolDependencies, AgentImageTurn } from "./AgentImageTool";
 import type { AgentMediaToolDependencies } from "./AgentMediaTool";
+import type { AgentAttachmentToolDependencies } from "./AgentAttachmentTool";
+import type { ResolvedAgentAssignment } from "@/backend/service/agents/AgentAssignmentResolution";
 import type { User } from "@/definition/User";
 import type {
   AgentChatScope,
@@ -165,5 +168,35 @@ export function mediaToolOf(
   if (!media || conversationId === null) return {};
   return {
     generateMedia: agentMediaTool(media, { ...turn, conversationId }),
+  };
+}
+
+/**
+ * `anhaenge_suchen` and `anhang_lesen` of a round in a conversation
+ * (PAGE-386), bound to that conversation; whether the model sees images comes
+ * from its catalog entry. A run of the agent's own and a direct chat outside
+ * the conversations get none.
+ *
+ * @param attachments - The library of the attachments; absent offers none.
+ * @param turn - The agent, the conversation of the round or `null`, and the
+ * model of the round.
+ */
+export function attachmentToolOf(
+  attachments: AgentAttachmentToolDependencies | null | undefined,
+  turn: {
+    readonly agentId: string;
+    readonly conversationId: string | null;
+    readonly assignment: Pick<ResolvedAgentAssignment, "supportsImages">;
+  },
+): Pick<NonNullable<PicaAcpStart["employee"]>, "readAttachments"> {
+  const { conversationId } = turn;
+  if (!attachments || conversationId === null) return {};
+  return {
+    readAttachments: agentAttachmentTool(attachments, {
+      agentId: turn.agentId,
+      conversationId,
+      // Unknown counts as able: the adapter still decides what reaches the model.
+      canSeeImages: turn.assignment.supportsImages !== false,
+    }),
   };
 }

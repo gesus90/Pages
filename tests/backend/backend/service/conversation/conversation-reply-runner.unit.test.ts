@@ -283,7 +283,7 @@ it("releases the stored files of a repeated answer", async () => {
   ]);
 });
 
-it("PAGE-344 gives the answered message's image to the answering agent", async () => {
+it("PAGE-386 names the answered message's image in one line instead of sending its content", async () => {
   const { runner, answer, dependencies } = fixture();
   const image = {
     id: "image-now",
@@ -298,11 +298,15 @@ it("PAGE-344 gives the answered message's image to the answering agent", async (
   );
   await runner.run(job);
   expect(answer).toHaveBeenCalledWith(
-    expect.objectContaining({ attachments: [image] }),
+    expect.objectContaining({ attachments: [] }),
   );
+  const prompt = String(answer.mock.calls[0]?.[0].prompt);
+  expect(prompt).toContain('"screenshot.png" · Bild · 3 B · Kennung image-now');
+  expect(prompt).toContain("anhang_lesen");
+  expect(prompt).not.toContain("/chat/files/image-now");
 });
 
-it("PAGE-344 delivers the image of an earlier context message", async () => {
+it("PAGE-386 names the image of an earlier context message without its content", async () => {
   const { runner, answer, messages, dependencies } = fixture();
   const previous = {
     ...message,
@@ -326,9 +330,11 @@ it("PAGE-344 delivers the image of an earlier context message", async () => {
   );
   await runner.run(job);
   expect(answer).toHaveBeenCalledWith(
-    expect.objectContaining({ attachments: [image] }),
+    expect.objectContaining({ attachments: [] }),
   );
-  expect(answer.mock.calls[0]?.[0].prompt).toContain("Anhang von #1");
+  expect(answer.mock.calls[0]?.[0].prompt).toContain(
+    "Anhang von #1: \"earlier.png\" · Bild · 3 B · Kennung earlier-image",
+  );
 });
 
 it("PAGE-344 supplies all 30 unseen messages, full text and attachments to a kept session", async () => {
@@ -375,7 +381,9 @@ it("PAGE-344 supplies all 30 unseen messages, full text and attachments to a kep
     expect(continued.prompt).not.toContain("Unique-1:");
     expect(continued.prompt).not.toContain("Unique-32:");
     expect(continued.prompt).not.toContain("[gekürzt]");
-    expect(continued.attachments).toEqual([image]);
+    // PAGE-386: the kept session gets the short line, the content only on request.
+    expect(continued.attachments).toEqual([]);
+    expect(continued.prompt).toContain("Kennung during-image");
     expect(continued.throughSequence).toBe(31);
     return "Complete answer";
   });
@@ -645,4 +653,36 @@ it("PAGE-382 lets generated images go when the round ends with a hint instead of
   expect(dependencies.attachments.release).toHaveBeenCalledWith("agent", [
     "generated-1",
   ]);
+});
+
+it("PAGE-386 shows an earlier attachment of the chat by its reference line and binds it to the stored answer", async () => {
+  const { messages, dependencies } = fixture();
+  const pending = {
+    attachmentId: "table",
+    name: "Kosten.xlsx",
+    mimeType: "text/csv",
+    sourceMessageId: "message-table",
+    sourceSenderId: "conan",
+  };
+  const references = {
+    select: vi.fn().mockResolvedValue({ text: "Siehe die Tabelle von Conan.", references: [pending] }),
+    bind: vi.fn().mockResolvedValue(undefined),
+  };
+  const withReferences = new ConversationReplyRunner({ ...dependencies, references });
+  vi.mocked(dependencies.runner.answer).mockResolvedValueOnce(
+    "Siehe die Tabelle von Conan.\n![Kosten](anhang:table)",
+  );
+  await withReferences.run(job);
+  expect(references.select).toHaveBeenCalledWith(
+    "group",
+    "agent",
+    "Siehe die Tabelle von Conan.\n![Kosten](anhang:table)",
+  );
+  expect(dependencies.agentFiles.select).toHaveBeenCalledWith("Siehe die Tabelle von Conan.");
+  expect(references.bind).toHaveBeenCalledWith(
+    expect.objectContaining({ id: "answer", conversationId: "group" }),
+    [pending],
+  );
+  expect(dependencies.attachments.stage).not.toHaveBeenCalled();
+  expect(messages.insert).toHaveBeenCalledOnce();
 });
