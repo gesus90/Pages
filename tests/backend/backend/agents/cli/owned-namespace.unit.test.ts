@@ -63,9 +63,9 @@ it.each([1000, 1001])(
 it("refuses a supervisor owned by another uid than this process", async () => {
   processUid.mockReturnValue(1001);
   files.stat.mockResolvedValue({ uid: 1000 });
-  await expect(
-    captureOwnedNamespace(123, "/synthetic-proc"),
-  ).rejects.toThrow("Supervisor identity unavailable");
+  await expect(captureOwnedNamespace(123, "/synthetic-proc")).rejects.toThrow(
+    "Supervisor identity unavailable",
+  );
 });
 
 it("keeps a matching live supervisor unconfirmed", async () => {
