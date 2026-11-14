@@ -13,13 +13,21 @@ export function planSteps(plan: AgentPlanInput): readonly AgentPlanStep[] {
   return allPlanSteps(plan);
 }
 
-/** Rejects ambiguous node identities on save; incomplete connections and values remain editable warnings. */
+/** Rejects ambiguous identities and bindings to unknown inputs on save. */
 export function validatePlanGraph(
   plan: AgentPlanInput,
   agents: readonly AgentDefinitionChoice[],
 ): void {
   const issues = planConnectionIssues(plan, agents).filter(
-    (issue) => issue.reason === "duplicateNode",
+    (issue) =>
+      issue.reason === "duplicateNode" ||
+      (issue.reason === "port" &&
+        planSteps(plan).some(
+          (step) =>
+            step.id === issue.nodeId &&
+            issue.port !== null &&
+            Object.hasOwn(step.bindings, issue.port),
+        )),
   );
   if (issues.length > 0) throw new AgentPlanValidationError(issues);
 }
