@@ -1,20 +1,15 @@
 import { randomUUID } from "node:crypto";
 
-import {
-  endTaggedProcesses,
-  readScopeSince,
-} from "@/backend/agents/cli/CliProcessScan";
-import { settleOwnedNamespace } from "@/backend/agents/cli/CliOwnedNamespace";
+import { readScopeSince } from "@/backend/agents/cli/CliProcessScan";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentPlanRecoveryError } from "@/backend/error/AgentPlanRecoveryError";
-import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
-import { isRemoteCloseoutUnconfirmed } from "@/definition/AgentPlanRemoteCloseout";
 import { logCaughtError } from "@/backend/logging/Logger";
 import { hasPlanBranching } from "@/definition/AgentPlanBranching";
 import { isActivePlanRun } from "@/definition/AgentPlanRunState";
 
 import { compatibleRecoverySessions } from "./AgentPlanRecoverySessions";
 import { recoveredPlanBranching } from "./AgentPlanRecoveredBranching";
+import { AgentPlanRecoveryProcessCleanup } from "./AgentPlanRecoveryProcessCleanup";
 import { serializePlanBranchState } from "../branching/AgentPlanBranchPersistence";
 
 import {
@@ -22,11 +17,7 @@ import {
   withRecoveredAgentContext,
 } from "./AgentPlanRecoveryContext";
 import { readPlanSnapshot } from "../AgentPlanSnapshot";
-import {
-  checkSessionProcesses,
-  needsNoSessionScan,
-} from "../AgentPlanRecovery";
-import { cleanupScanFailure } from "../AgentPlanCleanupFailure";
+import { checkSessionProcesses } from "../AgentPlanRecovery";
 import { prepareRecoveredPlan } from "../AgentPlanContinuation";
 import {
   closeRecoveryScripts,
@@ -166,9 +157,11 @@ function frozenNodes(snapshot: AgentPlanSnapshot): {
  */
 export class AgentPlanRecoveryActions {
   private readonly dependencies: RecoveryActionDependencies;
+  private readonly cleanup: AgentPlanRecoveryProcessCleanup;
 
   public constructor(dependencies: RecoveryActionDependencies) {
     this.dependencies = dependencies;
+    this.cleanup = new AgentPlanRecoveryProcessCleanup(dependencies);
   }
 
   /**
@@ -259,8 +252,8 @@ export class AgentPlanRecoveryActions {
     const { run } = facts;
     if (run.status === "succeeded") return;
     if (isActivePlanRun(run.status) && facts.isEngineActive !== false) {
-      await this.requestRemoteCleanup(run);
-      await this.endLocalProcesses(
+      await this.cleanup.requestRemoteCleanup(run);
+      await this.cleanup.endLocalProcesses(
         run,
         await readScopeSince(run.startedAt).catch(() => null),
       );
@@ -497,7 +490,7 @@ export class AgentPlanRecoveryActions {
     facts: RecoveryFacts,
     shouldRelease = true,
   ): Promise<AgentPlanRun> {
-    await this.requestRemoteCleanup(facts.run);
+    await this.cleanup.requestRemoteCleanup(facts.run);
     const { run } = await this.dependencies.executions.source(facts.run.id);
     const scope = await readScopeSince(run.startedAt).catch(
       (caughtError: unknown) => {
@@ -505,7 +498,7 @@ export class AgentPlanRecoveryActions {
         return null;
       },
     );
-    await this.endLocalProcesses(run, scope);
+    await this.cleanup.endLocalProcesses(run, scope);
     const checked = await closeRecoverySessions(
       await closeRecoveryScripts(run),
     );
@@ -515,7 +508,7 @@ export class AgentPlanRecoveryActions {
         "cleanup_unconfirmed",
         processes.failure ?? undefined,
       );
-    await this.reconcileResources(run.id);
+    await this.cleanup.reconcileResources(run.id);
     if (shouldRelease) await this.dependencies.executions.releaseChecked(run);
     return run;
   }
@@ -534,66 +527,6 @@ export class AgentPlanRecoveryActions {
     }
     await this.dependencies.resources?.releaseForResume?.(facts.run.id);
     await this.dependencies.executions.releaseChecked(facts.run);
-  }
-
-  private async reconcileResources(runId: string): Promise<void> {
-    const resources = this.dependencies.resources;
-    if (!resources) return;
-    try {
-      const remaining = await resources.reconcile(runId);
-      const state = resources.snapshot();
-      if (
-        remaining > 0 ||
-        state.problem !== null ||
-        state.active.some((entry) => entry.runId === runId)
-      )
-        throw new AgentPlanRecoveryError("cleanup_unconfirmed");
-    } catch (error: unknown) {
-      if (error instanceof AgentPlanRecoveryError) throw error;
-      logCaughtError("AgentPlanRecoveryActions", error);
-      throw new AgentPlanRecoveryError("cleanup_unconfirmed");
-    }
-  }
-
-  private async requestRemoteCleanup(run: AgentPlanRun): Promise<void> {
-    if (allPlanRunResults(run).some(isRemoteCloseoutUnconfirmed))
-      await this.dependencies.remoteExecution?.stop(run);
-  }
-
-  private async endLocalProcesses(
-    run: AgentPlanRun,
-    scope: Awaited<ReturnType<typeof readScopeSince>> | null,
-  ): Promise<void> {
-    for (const step of allPlanRunResults(run)) {
-      if (step.execution?.target.kind === "remote" || step.script) continue;
-      const instanceId = step.session?.instanceId;
-      const closeout = step.session?.closeout;
-      if (instanceId === undefined || closeout === "confirmed") continue;
-      const session = step.session;
-      // A turn refused before its start owns no process; the record that opened a shared session accounts for it.
-      if (session && needsNoSessionScan(session)) continue;
-      const cleanup = await (
-        session && session.runner !== "api" && session.namespace
-          ? settleOwnedNamespace(session.namespace, instanceId).then(
-              (ended) => ({
-                remaining: ended ? 0 : 1,
-              }),
-            )
-          : endTaggedProcesses(instanceId, scope)
-      ).catch((caughtError: unknown) => {
-        logCaughtError("AgentPlanRecoveryActions", caughtError);
-        throw new AgentPlanRecoveryError(
-          "cleanup_unconfirmed",
-          cleanupScanFailure(step.id, "local_session", caughtError),
-        );
-      });
-      if (cleanup.remaining > 0)
-        throw new AgentPlanRecoveryError("cleanup_unconfirmed", {
-          stepId: step.id,
-          kind: "local_session",
-          reason: "processes_remaining",
-        });
-    }
   }
 
   private async start(

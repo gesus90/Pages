@@ -2,6 +2,7 @@ import { readPlanRun } from "@/backend/agents/AgentPlanRunInput";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { logCaughtError } from "@/backend/logging/Logger";
 import { isActivePlanRun } from "@/definition/AgentPlanRunState";
+import { isPlanFlowNode } from "@/definition/AgentPlanGraph";
 
 import { readySteps } from "./AgentPlanRunState";
 import { stopPlanRun } from "./AgentPlanStop";
@@ -69,6 +70,31 @@ function hasSamePausedWork(
       );
     })
   );
+}
+
+/**
+ * The scheduler nodes a pause stands at, which a continuation must still find.
+ *
+ * @remarks
+ * A group summary is derived from its members and is no node of the plan; a
+ * running member already names the work the group's session continues.
+ */
+function pauseFrontier(active: ActivePlanRun): string[] {
+  const flowNodes = new Set(
+    active.snapshot.plan.nodes
+      .filter((node) => isPlanFlowNode(node))
+      .map((node) => node.id),
+  );
+  const running = active.view.steps
+    .filter((step) => step.status === "running" && flowNodes.has(step.id))
+    .map((step) => step.id);
+  return [
+    ...new Set([
+      ...running,
+      ...readySteps(active).map((node) => node.id),
+      ...(active.branching?.pending.map((event) => event.targetId) ?? []),
+    ]),
+  ];
 }
 
 /** Serial durable run commands; execution gates change only after the state and journal commit. */
@@ -147,16 +173,7 @@ export class AgentPlanRunCommands {
               ["waiting", "paused", "running"].includes(step.status),
             )
             .map((step) => step.id),
-          frontierStepIds: [
-            ...new Set([
-              ...active.view.steps
-                .filter((step) => step.status === "running")
-                .map((step) => step.id),
-              ...readySteps(active).map((node) => node.id),
-              ...(active.branching?.pending.map((event) => event.targetId) ??
-                []),
-            ]),
-          ],
+          frontierStepIds: pauseFrontier(active),
         },
         isWaitingForWorkspace: undefined,
         workspaceWait: undefined,

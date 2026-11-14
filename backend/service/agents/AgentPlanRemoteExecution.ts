@@ -15,6 +15,7 @@ import {
 } from "@/definition/RunnerExecution";
 
 import { AgentPlanRemoteSettlement } from "./AgentPlanRemoteSettlement";
+import { withRemoteProgress } from "./AgentPlanRemoteProgress";
 import { observeRemoteAttempt } from "./AgentPlanRemoteObservation";
 import { requireRemoteRunResources } from "./AgentPlanRemoteTargets";
 import {
@@ -79,8 +80,6 @@ import type {
   AgentPlanTasks,
   AgentPlanTicketChecklist,
 } from "./AgentPlanTasks";
-
-const OBSERVATION_STALE_MILLISECONDS = 45_000;
 
 /** Private snapshot: exact command, source inputs and authorized target, without credentials. */
 export interface RemotePlanStep {
@@ -405,6 +404,11 @@ export class AgentPlanRemoteExecution {
     await this.setPaused(run, false);
   }
 
+  /** Adds current transport health to confirmed job facts without mutating the stored execution state. */
+  public async withProgress(run: AgentPlanRun): Promise<AgentPlanRun> {
+    return withRemoteProgress(run, this.dependencies.runners);
+  }
+
   private async setPaused(run: AgentPlanRun, isPaused: boolean): Promise<void> {
     await Promise.all(
       allPlanRunResults(run).map(async (step) => {
@@ -426,45 +430,6 @@ export class AgentPlanRemoteExecution {
         }
       }),
     );
-  }
-
-  /** Adds current transport health to confirmed job facts without mutating the stored execution state. */
-  public async withProgress(run: AgentPlanRun): Promise<AgentPlanRun> {
-    const steps = await Promise.all(
-      run.steps.map(async (step) => {
-        const execution = step.execution;
-        if (execution?.target.kind !== "remote") return step;
-        const job = await this.dependencies.runners.progress(
-          execution.target.connectionId,
-          run.id,
-          execution.attemptId,
-        );
-        if (!job) return step;
-        return {
-          ...step,
-          remote: {
-            ...step.remote,
-            jobId: job.jobId,
-            sessionId: job.sessionId,
-            status: job.status,
-            cancellation: job.cancellation,
-            queueReason: job.queueReason,
-            historyPending: await this.dependencies.runners.historyPending(
-              job.jobId,
-            ),
-            observedAt: job.observedAt,
-            isObservationStale: isObservationStale(job),
-            startedAt: step.remote?.startedAt ?? null,
-            endedAt: step.remote?.endedAt ?? null,
-            closeout: step.remote?.closeout ?? ("pending" as const),
-            contact: this.dependencies.runners.contact(
-              execution.target.connectionId,
-            ),
-          },
-        };
-      }),
-    );
-    return { ...run, steps };
   }
 
   /** Lets the agent of a gated CLI step report through the tool, under the scope of its Pages credential. */
@@ -615,16 +580,6 @@ function remoteAcceptanceContract(
   return command.program.kind === "cli"
     ? remotePlanContract(step, tickets)
     : undefined;
-}
-
-/** The runner confirms a quiet worker every 15 to 30 seconds; 45 seconds without it leave the process state unknown. */
-function isObservationStale(job: RunnerJob): boolean {
-  if (job.status !== "accepted" && job.status !== "running") return false;
-  const observedAt = Date.parse(job.observedAt ?? "");
-  return (
-    !Number.isFinite(observedAt) ||
-    Date.now() - observedAt > OBSERVATION_STALE_MILLISECONDS
-  );
 }
 
 /** Reauthorizes remote model routes before handing local configurations to the local resolver. */

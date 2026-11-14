@@ -174,15 +174,17 @@ it("pauses during the fix, keeps the session and continues in it on resume", asy
   await expect.poll(() => world.read(started.id).status).toBe("paused");
 
   const paused = world.read(started.id);
-  expect(paused.pauseBoundary?.frontierStepIds).toEqual(["check"]);
+  expect(paused.pauseBoundary?.frontierStepIds).toEqual(["fix"]);
+  expect(stepOf(paused, "fix").status).toBe("running");
+  expect(stepOf(paused, "check").activation).toBe(1);
   expect(runtime.calls.map((call) => `${call.kind}:${call.stepId}`)).toEqual([
     "open:check",
     "open:fix",
   ]);
-  // The session that has to take the news stays open while the run is paused; the fix agent's own ended with its start.
+  // The checker keeps its session for the news; the Fix turn stays suspended.
   expect(runtime.closed).not.toContain("check");
 
-  // Another revision of a plan with a cycle cannot be adopted: the rounds behind it are not comparable.
+  // An unsaved revision cannot be adopted: continuation requires the current durable draft.
   await expect(
     world.engine.resume(started.id, {
       ...world.snapshot,
@@ -192,7 +194,7 @@ it("pauses during the fix, keeps the session and continues in it on resume", asy
       },
     }),
   ).rejects.toMatchObject({
-    code: new AgentError("plan_branching_revision").code,
+    code: new AgentError("plan_conflict").code,
   });
   expect(world.read(started.id).status).toBe("paused");
 

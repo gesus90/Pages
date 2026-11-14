@@ -70,8 +70,7 @@ export class LocalOwnerSession {
   private readonly bearer = localDeferred<string>();
   private closing: Promise<PlanSessionClosed> | null = null;
   private cancellation: Promise<void> | null = null;
-  private namespace:
-    import("@/definition/AcpResource").AcpNamespaceOwner | undefined;
+  private namespace: AcpNamespaceOwner | undefined;
   private isPaused = false;
   private executionMilliseconds = 0;
   private observedAt = Date.now();

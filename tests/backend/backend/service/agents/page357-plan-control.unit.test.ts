@@ -207,7 +207,7 @@ it("restores a paused run in a fresh engine and resumes its stored native identi
             session: {
               ...session,
               closeout: "confirmed" as const,
-              resultCode: 0,
+              resultCode: 0 as const,
             },
           }
         : {}),

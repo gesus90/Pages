@@ -346,8 +346,16 @@ it("keeps position, marks, loop target and progress through pause and resume of 
   ]);
   expect(loopRun(paused).count?.effective).toBe(3);
   expect(loopRun(paused).iterations.map((entry) => entry.status)).toEqual([
-    "succeeded",
+    "running",
   ]);
+  expect(loopRun(paused).iterations[0]?.nodes).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ id: "stack", status: "succeeded" }),
+      expect.objectContaining({ id: "work", status: "running" }),
+    ]),
+  );
+  expect(runtime.calls).toHaveLength(1);
+  expect(runtime.closed).toEqual([]);
   await world.engine.resume(started.id, world.snapshot);
   const run = await finishedRun(world, started.id);
   expect(run.status).toBe("succeeded");

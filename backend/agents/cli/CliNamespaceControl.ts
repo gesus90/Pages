@@ -10,6 +10,15 @@ import type { AcpNamespaceOwner } from "@/definition/AcpResource";
 
 const runFile = promisify(execFile);
 
+const SIGNAL_BY_ACTION: Readonly<
+  Record<"pause" | "resume" | "stop", NodeJS.Signals>
+> = { pause: "SIGSTOP", resume: "SIGCONT", stop: "SIGKILL" };
+
+function addNewPids(result: number[], pids: readonly number[]): void {
+  for (const pid of pids)
+    if (pid > 0 && !result.includes(pid)) result.push(pid);
+}
+
 async function descendants(
   pid: number,
   shouldSuspend: boolean,
@@ -24,8 +33,7 @@ async function descendants(
         `/proc/${parent}/task/${parent}/children`,
         "utf8",
       );
-      for (const child of children.trim().split(/\s+/u).map(Number))
-        if (child > 0 && !result.includes(child)) result.push(child);
+      addNewPids(result, children.trim().split(/\s+/u).map(Number));
     } catch (error: unknown) {
       if (!(
         error instanceof Error &&
@@ -68,14 +76,7 @@ export async function controlOwnedNamespace(
   const processes = await descendants(owner.pid, action === "pause");
   for (const pid of processes.reverse()) {
     try {
-      process.kill(
-        pid,
-        action === "pause"
-          ? "SIGSTOP"
-          : action === "resume"
-            ? "SIGCONT"
-            : "SIGKILL",
-      );
+      process.kill(pid, SIGNAL_BY_ACTION[action]);
     } catch (error: unknown) {
       if (!(
         error instanceof Error &&

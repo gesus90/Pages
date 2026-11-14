@@ -4,14 +4,19 @@ import type { RunnerReply } from "@/definition/RunnerProtocol";
 
 /** Durable reversible control of the original remote job, replayed on reconnect. */
 export class RunnerExecutionPause {
+  private readonly repository: Pick<RunnerRepository, "find" | "checkpoint">;
+  private readonly writes: SerialQueue;
+  private readonly deliver: (connectionId: string, reply: RunnerReply) => void;
+
   public constructor(
-    private readonly repository: Pick<RunnerRepository, "find" | "checkpoint">,
-    private readonly writes: SerialQueue,
-    private readonly deliver: (
-      connectionId: string,
-      reply: RunnerReply,
-    ) => void,
-  ) {}
+    repository: Pick<RunnerRepository, "find" | "checkpoint">,
+    writes: SerialQueue,
+    deliver: (connectionId: string, reply: RunnerReply) => void,
+  ) {
+    this.repository = repository;
+    this.writes = writes;
+    this.deliver = deliver;
+  }
 
   /** Persists the desired state before touching the transport; Stop always wins. */
   public async request(

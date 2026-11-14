@@ -10,6 +10,10 @@ import { isApiProvider } from "@/definition/AgentConnection";
 import { logCaughtError } from "@/backend/logging/Logger";
 
 import { planTurnTimeout } from "./AgentPlanTimeout";
+import {
+  controlledPlanSessionTurn,
+  planStepProgress,
+} from "./AgentPlanTurnControl";
 import { planPauseGate } from "./AgentPlanPauseGate";
 import { runPausablePlanRequest } from "./AgentPlanPausedRequest";
 import {
@@ -81,7 +85,6 @@ import type { AgentPlanTasks } from "./AgentPlanTasks";
 import type { AgentPlanSessionTerms } from "./AgentPlanStepAssessment";
 import type { AgentPlanStepReportService } from "./AgentPlanStepReportService";
 import type { AgentPlanStepProgressService } from "./AgentPlanStepProgressService";
-import type { AgentPlanStepProgressTodo } from "@/definition/AgentPlanStepProgress";
 import type { AgentRunArchive } from "./AgentRunArchive";
 import type { AgentSessionService } from "./sessions/AgentSessionService";
 import type { NodeRun, StepRunControl } from "./AgentPlanStepContext";
@@ -429,7 +432,7 @@ export class AgentPlanStepRunner {
       { contract, mcp, instanceId },
       {
         pin: (prompt) => this.pin(node, prompt),
-        progress: () => this.lastProgress(node),
+        progress: () => planStepProgress(node, this.dependencies.stepProgress),
         journal: (id) =>
           this.dependencies.execution.hasDurableLocalSessions
             ? undefined
@@ -478,24 +481,17 @@ export class AgentPlanStepRunner {
     offerGroupInstructions({ sessions, groups: this.groups, node, key, input });
   }
 
-  /** The live todo states of the step, which a new session after a failure continues from. */
-  private async lastProgress(
-    node: NodeRun,
-  ): Promise<readonly AgentPlanStepProgressTodo[]> {
-    const progress = await this.dependencies.stepProgress?.find(
-      node.run.id,
-      node.step.step.id,
-    );
-    return progress?.todos ?? [];
-  }
-
   private async finish(
     node: NodeRun,
     session: PlanSession,
     terms: AgentPlanSessionTerms,
   ): Promise<Partial<AgentPlanStepResult>> {
-    const turn = await session.turn;
-    await planPauseGate(node.run.id).wait(node.control.signal);
+    const turn = await controlledPlanSessionTurn(node, session, {
+      close: () => this.closeSession(node, session),
+      save: (changes) => this.complete(node, changes),
+    });
+    if (!turn)
+      return planNodeFailureResult(node, new AgentPlanCancelledError());
     if (node.record) node.record = withTurn(node.record, turn);
     await this.dependencies.sessions?.settle(node.record, turn);
     const reported = await this.turnReports.assess(node, turn, terms);

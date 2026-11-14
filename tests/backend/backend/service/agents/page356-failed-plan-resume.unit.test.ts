@@ -48,11 +48,11 @@ it("continues only QA and successors, retaining prepare output and both complete
   );
   expect(run.loops).toEqual(failed.loops);
   expect(run.stacks).toEqual(failed.stacks);
-  expect(run.origin).toMatchObject({
-    kind: "resume",
-    runId: failed.id,
-    reusedStepIds: expect.arrayContaining(["start", "prepare", "loop"]),
-  });
+  expect(run.origin).toMatchObject({ kind: "resume", runId: failed.id });
+  expect(run.origin).toHaveProperty(
+    "reusedStepIds",
+    expect.arrayContaining(["start", "prepare", "loop"]),
+  );
   expect(world.read(failed.id)).toEqual(failed);
 });
 

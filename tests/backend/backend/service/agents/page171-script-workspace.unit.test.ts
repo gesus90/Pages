@@ -233,8 +233,8 @@ it("does not treat a paused run's own reservation as a competing writer", async 
   const { plan, control } = await fixture(true, true, run);
 
   await expect(control.read("owner", plan.id)).resolves.toMatchObject({
-    canPlay: true,
-    canRestart: true,
+    canPlay: false,
+    canRestart: false,
     canStop: true,
     canResume: true,
     issue: null,

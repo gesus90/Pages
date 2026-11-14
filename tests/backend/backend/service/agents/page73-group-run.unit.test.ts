@@ -264,7 +264,7 @@ it.each([{ name: "provider error", turn: groupTurn({ failure: "failed" }) }])(
   },
 );
 
-it("pauses between steps and resumes their order in the retained native session", async () => {
+it("pauses during the first turn and resumes the group order in the retained native session", async () => {
   const runtime = executionFixture();
   const world = await groupEngine(runtime.execution);
   const run = await world.engine.start("owner", world.snapshot);
@@ -272,11 +272,11 @@ it("pauses between steps and resumes their order in the retained native session"
   await world.engine.pause(run.id);
   runtime.first.resolve(groupTurn());
   await vi.waitFor(() =>
-    expect(
-      world.stored.get(run.id)?.steps.find((step) => step.id === "first")
-        ?.status,
-    ).toBe("succeeded"),
+    expect(world.stored.get(run.id)?.status).toBe("paused"),
   );
+  expect(
+    world.stored.get(run.id)?.steps.find((step) => step.id === "first")?.status,
+  ).toBe("running");
   expect(runtime.next).not.toHaveBeenCalled();
   expect(runtime.close).not.toHaveBeenCalled();
   await world.engine.resume(run.id);
@@ -298,12 +298,12 @@ it.each([false, true])(
     if (isPaused) {
       await world.engine.pause(run.id);
       runtime.first.resolve(groupTurn());
-      await vi.waitFor(() =>
-        expect(
-          world.stored.get(run.id)?.steps.find((step) => step.id === "first")
-            ?.status,
-        ).toBe("succeeded"),
-      );
+      expect(world.stored.get(run.id)?.status).toBe("paused");
+      expect(
+        world.stored.get(run.id)?.steps.find((step) => step.id === "first")
+          ?.status,
+      ).toBe("running");
+      expect(runtime.close).not.toHaveBeenCalled();
     }
     await world.engine.stop(run.id);
     await vi.waitFor(() =>

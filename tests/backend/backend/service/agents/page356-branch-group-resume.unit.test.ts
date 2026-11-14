@@ -58,9 +58,9 @@ it("continues the failed event activation and its decisions without repeating co
       return {
         ...session,
         turn: session.turn.then(settle),
-        next: async (next) => {
+        next: async (next, nextSignal, nextObserver) => {
           if (!session.next) throw new Error("No shared turn");
-          return settle(await session.next(next));
+          return settle(await session.next(next, nextSignal, nextObserver));
         },
       };
     },
@@ -109,9 +109,9 @@ it("keeps the completed member of a failed group and starts only its open member
       const session = await runtime.execution.open(input, signal, observer);
       return {
         ...session,
-        next: async (next) => {
+        next: async (next, nextSignal, nextObserver) => {
           if (!session.next) throw new Error("No shared turn");
-          const answer = await session.next(next);
+          const answer = await session.next(next, nextSignal, nextObserver);
           return next.prompt.includes("Instruction review.") && ++reviews === 1
             ? failingTurn(answer)
             : answer;

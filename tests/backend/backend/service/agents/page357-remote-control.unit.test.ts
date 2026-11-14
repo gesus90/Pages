@@ -39,15 +39,15 @@ it("persists reversible Pause and Resume for the same remote job before transpor
     },
   };
   const saved: boolean[] = [];
-  const checkpoint = vi.fn(
-    async (_connectionId: string, state: RunnerState) => {
-      record = { ...record, state };
-    },
-  );
+  const checkpoint = vi.fn(async (connectionId: string, state: RunnerState) => {
+    expect(connectionId).toBe(world.connectionId);
+    record = { ...record, state };
+  });
   const control = new RunnerExecutionPause(
     { find: async () => record, checkpoint },
     new SerialQueue(),
-    (_connection, reply) => {
+    (connection, reply) => {
+      expect(connection).toBe(world.connectionId);
       expect(reply.type).toBe("execution-pause");
       saved.push(record.state.jobs[0]?.isPaused === true);
     },

@@ -129,7 +129,6 @@ function planNodes(build: StackNodes): readonly AgentPlanNode[] {
         preparation: {
           kind: "result" as const,
           stepId: "prepare",
-          output: "result",
         },
       },
     },

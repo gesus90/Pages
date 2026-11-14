@@ -126,24 +126,35 @@ async function collectProcess(
     unlisten?.();
     request.signal.removeEventListener("abort", abort);
   }
-  let isConfirmed = false;
+  const isConfirmed = await confirmScriptClosed(
+    child,
+    capture,
+    record.namespace !== undefined,
+  );
+  return capture.result(record, isConfirmed);
+}
+
+/** Ends the supervisor and confirms it is gone; only a confirmed end with an owned namespace counts. */
+async function confirmScriptClosed(
+  child: ReturnType<typeof spawn>,
+  capture: AgentPlanScriptCapture,
+  hasNamespace: boolean,
+): Promise<boolean> {
   try {
     if (!capture.isExited) child.kill("SIGTERM");
     const escalation = setTimeout(() => {
       if (!capture.isExited) child.kill("SIGKILL");
     }, 2000);
     try {
-      isConfirmed =
-        (await capture.confirmClosed()) && record.namespace !== undefined;
+      return (await capture.confirmClosed()) && hasNamespace;
     } finally {
       clearTimeout(escalation);
     }
   } catch {
-    isConfirmed = false;
+    return false;
   } finally {
     child.stdin?.destroy();
     child.stdout?.destroy();
     child.stderr?.destroy();
   }
-  return capture.result(record, isConfirmed);
 }

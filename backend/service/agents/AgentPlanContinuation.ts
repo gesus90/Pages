@@ -355,6 +355,7 @@ export function prepareRecoveredPlan(
     )
   )
     throw new AgentError("plan_context_changed");
+  requireSkippedScriptsDisabled(boundary, proposed);
   return keptContracts(boundary, previous, proposed);
 }
 
