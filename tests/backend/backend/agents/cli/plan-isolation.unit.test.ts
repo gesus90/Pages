@@ -102,3 +102,36 @@ it("mounts the account-owned SSH drop-ins over the system folder inside the name
   expect(mount).toBeGreaterThan(args.indexOf("/tmp"));
   expect(mount).toBeLessThan(args.indexOf("--"));
 });
+
+it("refuses a workspace inside a protected directory", async () => {
+  const isolation = new CliPlanIsolation(["/synthetic"], async () => true);
+  await expect(isolation.isolate(REQUEST)).rejects.toMatchObject({
+    code: "workspace_path_outside_roots",
+  });
+});
+
+it("mounts explicit read-only and credential paths in the isolated command", async () => {
+  const isolation = new CliPlanIsolation([], async () => true, {
+    readOnlyDirectories: ["/synthetic/shared"],
+    hiddenDirectories: ["/synthetic/private"],
+  });
+  const isolated = await isolation.isolate({
+    ...REQUEST,
+    readOnlyFiles: ["/synthetic/file"],
+    credentialDirectory: "/synthetic/credentials",
+    credentialFile: {
+      source: "/synthetic/source",
+      target: "/synthetic/target",
+    },
+  });
+  expect(isolated?.arguments).toEqual(
+    expect.arrayContaining([
+      "/synthetic/shared",
+      "/synthetic/private",
+      "/synthetic/file",
+      "/synthetic/credentials",
+      "/synthetic/source",
+      "/synthetic/target",
+    ]),
+  );
+});
