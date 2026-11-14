@@ -195,11 +195,12 @@ describe("all decisions of a plan", () => {
       loopOf("l-none", []),
     ]);
 
+    // A container's own decisions follow the nodes it contains, as planContainedNodes lists them.
     expect(allPlanDecisions(plan).map((entry) => entry.id)).toEqual([
       "top",
       "in-group",
-      "in-loop",
       "in-loop-group",
+      "in-loop",
     ]);
   });
 });
