@@ -188,3 +188,27 @@ it("explicitly rejects account deletion for Management", async () => {
     reason: "core_system",
   });
 });
+
+it("converts an audited management operation error to a no-store response", async () => {
+  const request = new Request("http://pages.invalid/projects");
+  const response = await managementRequestMiddleware(
+    {
+      request,
+      context: new RouterContextProvider(),
+      params: {},
+      url: new URL(request.url),
+      pattern: "/projects",
+    },
+    async () => {
+      throw new AgentOperationError("CONFLICT", { reason: "revision" });
+    },
+  );
+  expect(response).toBeInstanceOf(Response);
+  if (!(response instanceof Response)) throw new Error("Expected response");
+  expect(response.status).toBe(409);
+  expect(response.headers.get("cache-control")).toBe("no-store");
+  expect(await response.json()).toEqual({
+    error: "CONFLICT",
+    reason: "revision",
+  });
+});
