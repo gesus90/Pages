@@ -68,6 +68,12 @@ Argumente:
 }
 ```
 
+Für Uploads über die Plan-Brücke und die MCP-HTTP-Schnittstelle ist
+`onConflict: "fail"` der Standard bei Namenskonflikten; `"keep_both"` wählt
+einen freien Namen und `"rename"` ist ein gleichbedeutender Alias. Die
+MCP-HTTP-Schnittstelle akzeptiert auch das Feld `conflict`. `"overwrite"`
+ist auf diesen Upload-Wegen nicht erlaubt.
+
 `storage_update` speichert eine neue Version. Die bestehende Bestätigung für
 Ersetzen/Überschreiben bleibt erforderlich und an Konto, Aktion, Datei und
 Version gebunden. Pica hält den Bestätigungstoken serverseitig. Fehlende Rechte

@@ -69,6 +69,15 @@ it("registers Storage and repository tools with read/full/ticket session separat
   ).not.toContain("repository.log");
 });
 
+it("describes the upload conflict policies and their meaning", () => {
+  const upload = TOOL_ENTRIES.find((entry) => entry.tool.name === "storage_upload");
+  expect(upload?.tool.inputSchema.properties?.onConflict).toEqual({
+    type: "string",
+    enum: ["fail", "keep_both", "rename"],
+    description: expect.stringMatching(/fail \(default\).*keep_both chooses a free name.*rename is an alias for keep_both/u),
+  });
+});
+
 it("writes as the account and replays the durable receipt without a second folder", async () => {
   const testWorld = world();
   const input = {
@@ -167,7 +176,22 @@ it.each(["keep_both", "rename"])("uploads a free name through the plan bridge wi
   expect(testWorld.drive.calls.upload.mock.calls[0]?.[1]).toMatchObject({ name: "report (2).md" });
 });
 
-it("refuses conflicting and invalid upload policies through the plan bridge", async () => {
+it.each([undefined, "fail"])("does not replace a conflicting file with policy %s", async (policy) => {
+  const testWorld = world();
+  const input = {
+    operationId: "upload-conflict",
+    parentRef: "reports",
+    name: "report.md",
+    content: "new",
+    encoding: "text",
+    ...(policy === undefined ? {} : { onConflict: policy }),
+  };
+  expect(await testWorld.service.handle(IDENTITY, "storage.upload", input))
+    .toMatchObject({ result: { storage: { ok: false, error: { code: "name_conflict" } } } });
+  expect(testWorld.drive.calls.upload).not.toHaveBeenCalled();
+});
+
+it("refuses invalid upload policies through the plan bridge", async () => {
   const testWorld = world();
   const input = {
     operationId: "upload-conflict",
@@ -176,8 +200,6 @@ it("refuses conflicting and invalid upload policies through the plan bridge", as
     content: "new",
     encoding: "text",
   };
-  expect(await testWorld.service.handle(IDENTITY, "storage.upload", { ...input, onConflict: "fail" }))
-    .toMatchObject({ result: { storage: { ok: false, error: { code: "name_conflict" } } } });
   await expect(testWorld.service.handle(IDENTITY, "storage.upload", { ...input, onConflict: "unknown" }))
     .rejects.toMatchObject({ code: "INVALID_REQUEST", details: { problems: [expect.stringContaining("fail or keep_both")] } });
   await expect(testWorld.service.handle(IDENTITY, "storage.upload", { ...input, onConflict: "overwrite" }))

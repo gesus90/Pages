@@ -354,6 +354,13 @@ Pica uses the same reader and writer as this interface through native tools
 `storage_trash`, `storage_restore`, `storage_create_folder` and
 `storage_delete_permanently`.
 
+For the step-bound plan bridge and `/api/mcp/v1/storage/upload`, upload
+`onConflict` accepts `fail` (the default) or `keep_both` (choose a free name).
+`rename` is an alias for `keep_both`; the MCP HTTP endpoint also accepts the
+field `conflict` for existing clients. These upload paths reject `overwrite`;
+use `storage_update` with confirmation to replace an existing file. The
+separately described administrative HTTP interface retains its own policies.
+
 - Every tool is available to ordinary human and agent accounts. The shared
   account facade checks folder grants per call and returns `FORBIDDEN` for an
   unavailable folder or administrative action; no blanket `ADMIN_REQUIRED`.
