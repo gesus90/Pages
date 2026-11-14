@@ -84,10 +84,14 @@ const ONE_DAY_MS = 86_400_000;
 const catalogues = new Map<string, OpenRouterPriceCatalog>();
 
 /** Returns a shared daily catalogue in the connection's persistent private home. */
-export function openRouterPriceCatalog(directory: string): OpenRouterPriceCatalog {
+export function openRouterPriceCatalog(
+  directory: string,
+): OpenRouterPriceCatalog {
   const existing = catalogues.get(directory);
   if (existing) return existing;
-  const created = new OpenRouterPriceCatalog(path.join(directory, "openrouter-prices.json"));
+  const created = new OpenRouterPriceCatalog(
+    path.join(directory, "openrouter-prices.json"),
+  );
   catalogues.set(directory, created);
   return created;
 }
@@ -189,9 +193,10 @@ export class OpenRouterPriceCatalog {
     const [provider, ...parts] = model.split("/");
     const upstream = provider === "zai" ? "z-ai" : provider;
     const name = parts.join("/");
-    const matches = this.current.models.filter((entry) =>
-      entry.id.startsWith(`${upstream}/`) &&
-      entry.id.split("/").slice(1).join("/") === name,
+    const matches = this.current.models.filter(
+      (entry) =>
+        entry.id.startsWith(`${upstream}/`) &&
+        entry.id.split("/").slice(1).join("/") === name,
     );
     return matches.length === 1 ? (matches[0] ?? null) : null;
   }
@@ -219,7 +224,8 @@ export class OpenRouterPriceCatalog {
       if (!response.ok) throw new Error("OpenRouter catalogue unavailable");
       const payload: unknown = await response.json();
       const entries = object(payload)?.data;
-      if (!Array.isArray(entries)) throw new Error("Invalid OpenRouter catalogue");
+      if (!Array.isArray(entries))
+        throw new Error("Invalid OpenRouter catalogue");
       const models = entries.flatMap((entry) => {
         const parsed = modelPrice(entry);
         return parsed === null ? [] : [parsed];

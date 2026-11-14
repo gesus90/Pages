@@ -100,8 +100,7 @@ function suspendScript(script: RunningScript): void {
 }
 
 function resumeScript(script: RunningScript): void {
-  for (const pid of [...script.pausedPids].reverse())
-    signalPid(pid, "SIGCONT");
+  for (const pid of [...script.pausedPids].reverse()) signalPid(pid, "SIGCONT");
   script.pausedPids.clear();
 }
 
@@ -109,11 +108,7 @@ function resumeScript(script: RunningScript): void {
 export function suspendPlanScripts(runId: string): Set<string> {
   const suspended = new Set<string>();
   for (const script of runningScripts) {
-    if (
-      script.runId !== runId ||
-      script.isPaused ||
-      script.capture.isExited
-    )
+    if (script.runId !== runId || script.isPaused || script.capture.isExited)
       continue;
     suspendScript(script);
     script.isPaused = true;
@@ -234,24 +229,32 @@ async function collectProcess(
     runningScripts.delete(running);
     request.signal.removeEventListener("abort", abort);
   }
-  let isConfirmed = false;
+  return capture.result(
+    record,
+    await confirmScriptClosed(child, capture, record.namespace !== undefined),
+  );
+}
+
+async function confirmScriptClosed(
+  child: ReturnType<typeof spawn>,
+  capture: AgentPlanScriptCapture,
+  hasNamespace: boolean,
+): Promise<boolean> {
   try {
     if (!capture.isExited) child.kill("SIGTERM");
     const escalation = setTimeout(() => {
       if (!capture.isExited) child.kill("SIGKILL");
     }, 2000);
     try {
-      isConfirmed =
-        (await capture.confirmClosed()) && record.namespace !== undefined;
+      return (await capture.confirmClosed()) && hasNamespace;
     } finally {
       clearTimeout(escalation);
     }
   } catch {
-    isConfirmed = false;
+    return false;
   } finally {
     child.stdin?.destroy();
     child.stdout?.destroy();
     child.stderr?.destroy();
   }
-  return capture.result(record, isConfirmed);
 }

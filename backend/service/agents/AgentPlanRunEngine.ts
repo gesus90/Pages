@@ -3,9 +3,7 @@ import { AgentError } from "@/backend/error/AgentErrors";
 import { isPlanWriterWaitActive } from "@/definition/AgentPlanRunState";
 import { withBackgroundDatabaseWork } from "@/backend/database/executor/DatabaseWorkContext";
 import { withDatabaseLogMetrics } from "@/backend/logging/DatabaseLogMetrics";
-import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
 import {
-  captureLogContext,
   logCaughtError,
   logDiagnostic,
   logEvent,
@@ -16,14 +14,16 @@ import { planNodeOutcome } from "./AgentPlanNodeOutcome";
 import { persistPlanResourceWaits } from "./resources/PlanResourceWait";
 import {
   acquirePlanWriters,
-  retireActivePredecessor,
   finalizeScheduledPlanRun,
 } from "./AgentPlanRunLifecycle";
 import { adoptLocalPlanRun } from "./AgentPlanEngineAdoption";
+import { launchPlanRun, PLAN_RUN_ORIGIN } from "./AgentPlanEngineLaunch";
+import type {
+  PlanEngineLaunchHost,
+  PlanLaunchTerms,
+} from "./AgentPlanEngineLaunch";
 import { planNodeStop } from "./AgentPlanBlockerRules";
 import { savePlanSession } from "./AgentPlanSessionPersistence";
-import { capturePlanExecution } from "./AgentPlanExecutionSnapshot";
-import { hasRemotePlanTarget } from "./AgentPlanExecutionTargets";
 import { AgentPlanEngineStarts } from "./AgentPlanEngineStarts";
 import { AgentPlanRunCommands } from "./AgentPlanRunCommands";
 import { completePlanDrain } from "./AgentPlanDrain";
@@ -31,19 +31,15 @@ import { closeIdlePlanGroups } from "./AgentPlanGroupCloseout";
 import { runPlanInstruction } from "./AgentPlanInstructionControl";
 import {
   patchStep,
-  requestCancellation,
   updateBlocked,
   readySteps,
   canSchedule,
   canFinalize,
   isRequestStep,
-  endedPlanRun,
   countRunningPlanRequests,
   suspendedOpenCodeSessions,
 } from "./AgentPlanRunState";
-import { planWritingWorkspaces } from "./AgentPlanContinuation";
 import { settlePlanRun } from "./AgentPlanRunSettle";
-import { sharedAgentPlanRunObservers } from "./AgentPlanRunObservers";
 import {
   isStaleStart,
   settleEventPrompt,
@@ -79,9 +75,6 @@ export type { EngineDependencies } from "./AgentPlanEngineDependencies";
 
 export type { AgentPlanRunRecording } from "./AgentPlanRunRecording";
 import type { AgentPlanRunRecording } from "./AgentPlanRunRecording";
-
-/** Label of the database jobs of plan runs in the write-ahead log counters. */
-const PLAN_RUN_ORIGIN = "plan_run";
 
 /** Event-driven DAG scheduling; native ACP capacity is admitted by the shared resource service. */
 export class AgentPlanRunEngine {
@@ -331,91 +324,21 @@ export class AgentPlanRunEngine {
   }
 
   /** Persists the view and reserves writing copies before the first node is scheduled. */
-  private async launch(
+  private launch(
     view: AgentPlanRun,
     snapshot: AgentPlanSnapshot,
-    terms: {
-      readonly recording?: AgentPlanRunRecording;
-      readonly journal?: AgentPlanRunJournal;
-    },
+    terms: PlanLaunchTerms,
   ): Promise<AgentPlanRun> {
-    if (
-      (hasRemotePlanTarget(snapshot.plan) ||
-        snapshot.steps.some((step) => step.remoteTarget)) &&
-      !this.dependencies.remoteExecution
-    )
-      throw new AgentError("plan_remote_unavailable");
-    const { recording, journal } = terms;
-    const captured = capturePlanExecution(view, snapshot);
-    view = captured.run;
-    snapshot = captured.snapshot;
-    const logContext = { ...captureLogContext(), runId: view.id };
-    withLogContext(logContext, () =>
-      logEvent({
-        level: "info",
-        event: "agent.run.started",
-        component: "AgentPlanRunEngine",
-        message: "Agent plan run starting",
-        metadata: { userId: view.userId, origin: view.origin?.kind ?? null },
-      }),
-    );
-    await this.dependencies.runs.prepareSnapshot?.(view.id, snapshot);
-    const workspaceIds = planWritingWorkspaces(snapshot);
-    const releaseDefinition = await this.dependencies.files?.hold(
-      snapshot.steps.map((step) => step.step.agentId),
-    );
-    await this.writes.run(async () => {
-      try {
-        if (recording)
-          await recording((transaction) =>
-            this.dependencies.runs.insert(
-              transaction,
-              view,
-              snapshot,
-              workspaceIds,
-            ),
-          );
-        else
-          await this.dependencies.runs.create(
-            view,
-            snapshot,
-            workspaceIds,
-            journal,
-          );
-      } catch (error: unknown) {
-        logCaughtError("AgentPlanRunEngine", error);
+    return launchPlanRun(this.launchHost(), view, snapshot, terms);
+  }
 
-        await releaseDefinition?.();
-        throw error;
-      }
-      sharedAgentPlanRunObservers().notifyStarted(view);
-      // The run exists from here on, so its lifecycle no longer hangs on the request.
-      await withBackgroundDatabaseWork(PLAN_RUN_ORIGIN, () =>
-        retireActivePredecessor(view, this.active, this.dependencies),
-      );
-      this.active.set(view.id, {
-        logContext,
-        groupCloseout: "open",
-        hasPersistenceFailure: false,
-        view: view,
-        snapshot,
-        dispatched: new Set(),
-        controllers: new Map(),
-        executions: new Set(),
-        releaseDefinition,
-      });
-    });
-    return withBackgroundDatabaseWork(PLAN_RUN_ORIGIN, async () => {
-      try {
-        await this.pump();
-        return (await this.dependencies.runs.find(view.id)) ?? view;
-      } catch (error: unknown) {
-        logCaughtError("AgentPlanRunEngine", error);
-
-        await this.failStart(view.id);
-        throw error;
-      }
-    });
+  private launchHost(): PlanEngineLaunchHost {
+    return {
+      dependencies: this.dependencies,
+      active: this.active,
+      writes: this.writes,
+      pump: () => this.pump(),
+    };
   }
 
   /**
@@ -534,55 +457,6 @@ export class AgentPlanRunEngine {
       ),
     );
     return pending;
-  }
-
-  private async failStart(id: string): Promise<void> {
-    const active = this.active.get(id);
-    if (!active) return;
-    requestCancellation(active);
-    for (const controller of active.controllers.values()) controller.abort();
-    if (
-      active.executions.size > 0 ||
-      allPlanRunResults(active.view).some((step) => step.session)
-    ) {
-      await Promise.all([...active.executions]);
-      // Running adapters settle before normal finalization releases their definitions.
-      try {
-        await this.pump();
-      } catch (error: unknown) {
-        logCaughtError("AgentPlanRunEngine", error);
-
-        logDiagnostic(
-          "AgentPlanRunEngine",
-          "error",
-          "Pages could not finalize a failed plan start.",
-          error,
-        );
-      }
-      return;
-    }
-    active.view = {
-      ...endedPlanRun(active.view, "failed"),
-      steps: active.view.steps.map((step) => ({
-        ...step,
-        status: "cancelled",
-        cancellation: "not_started",
-      })),
-    };
-    await active.releaseDefinition?.();
-    this.active.delete(id);
-    try {
-      await this.dependencies.runs.update(active.view);
-    } catch (error: unknown) {
-      logCaughtError("AgentPlanRunEngine", error);
-
-      logDiagnostic(
-        "AgentPlanRunEngine",
-        "error",
-        "Pages could not persist a failed plan start; reservations remain held.",
-        error,
-      );
-    }
   }
 
   private async execute(

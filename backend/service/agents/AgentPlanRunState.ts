@@ -72,8 +72,8 @@ export function isSuspendedPlanController(
         loop.iterations.some((iteration) =>
           iteration.nodes.some(
             (step) =>
-              active.suspended?.has(step.id) ||
-              active.suspendedScripts?.has(step.id),
+              (active.suspended?.has(step.id) ?? false) ||
+              (active.suspendedScripts?.has(step.id) ?? false),
           ),
         ),
     ) ?? false
@@ -491,8 +491,11 @@ export function settlePlanPause(active: ActivePlanRun): void {
     )
   )
     return;
+  const groupIds = new Set(active.snapshot.groups?.map((group) => group.id));
   const pending = active.view.steps.filter(
-    (step) => step.status === "paused" || step.status === "running",
+    (step) =>
+      !groupIds.has(step.id) &&
+      (step.status === "paused" || step.status === "running"),
   );
   // A result on its way back to an agent is work that waits, though no node is paused for it.
   const returning = [
@@ -512,17 +515,19 @@ export function settlePlanPause(active: ActivePlanRun): void {
     .map((step) => step.id);
   const results = new Map(active.view.steps.map((step) => [step.id, step]));
   const frontier = [
-    ...pending
-      .filter((step) => step.status === "running")
-      .map((step) => step.id),
-    ...active.snapshot.plan.nodes
-      .filter(
-        (node) =>
-          pending.some((step) => step.id === node.id) &&
-          planReadiness(active.snapshot.plan, results, node.id) === "ready",
-      )
-      .map((node) => node.id),
-    ...returning,
+    ...new Set([
+      ...pending
+        .filter((step) => step.status === "running")
+        .map((step) => step.id),
+      ...active.snapshot.plan.nodes
+        .filter(
+          (node) =>
+            pending.some((step) => step.id === node.id) &&
+            planReadiness(active.snapshot.plan, results, node.id) === "ready",
+        )
+        .map((node) => node.id),
+      ...returning,
+    ]),
   ];
   if (frontier.length === 0) return;
   active.view = withGroupResults(

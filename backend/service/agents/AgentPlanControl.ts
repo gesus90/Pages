@@ -93,9 +93,7 @@ export function planControl(
   const isActive = isActivePlanRun(run.status);
   return {
     ...runControlMetadata(run, canIdentify),
-    canPlay:
-      canRunPlan(plan) &&
-      (!isOpenCodeRun(run) || !isActive),
+    canPlay: canRunPlan(plan) && (!isOpenCodeRun(run) || !isActive),
     waitReason: canIdentify && isActive ? run.waitReason : undefined,
     workspaceWait:
       canIdentify && isPlanWriterWaitActive(run)

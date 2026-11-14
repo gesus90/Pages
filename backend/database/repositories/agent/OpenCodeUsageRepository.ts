@@ -16,7 +16,10 @@ function nullableCount(
   return row[index] === null ? null : readCountColumn(row, index, column);
 }
 
-function nullableCost(row: readonly DatabaseValue[], index: number): number | null {
+function nullableCost(
+  row: readonly DatabaseValue[],
+  index: number,
+): number | null {
   const raw = row[index];
   const amount = typeof raw === "string" ? Number(raw) : raw;
   return typeof amount === "number" && Number.isFinite(amount) && amount >= 0
@@ -26,7 +29,12 @@ function nullableCost(row: readonly DatabaseValue[], index: number): number | nu
 
 function readUsage(row: readonly DatabaseValue[]): StoredOpenCodeUsage {
   const state = readTextColumn(row, 11, "price_state");
-  if (state !== "free" && state !== "catalog" && state !== "native" && state !== "unknown")
+  if (
+    state !== "free" &&
+    state !== "catalog" &&
+    state !== "native" &&
+    state !== "unknown"
+  )
     throw new Error("Invalid OpenCode price state");
   return {
     id: readTextColumn(row, 0, "message_id"),

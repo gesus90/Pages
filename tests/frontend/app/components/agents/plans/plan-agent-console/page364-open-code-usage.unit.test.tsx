@@ -31,17 +31,14 @@ const step: OpenCodeUsageTotal = {
 };
 
 it("shows the native OpenCode step and run totals with free cost", () => {
-  const markup = render(
-    step,
-    {
-        ...step,
-        messages: 9,
-        inputTokens: 20012,
-        outputTokens: 560,
-        reasoningTokens: 139,
-        cacheReadTokens: 58752,
-    },
-  );
+  const markup = render(step, {
+    ...step,
+    messages: 9,
+    inputTokens: 20012,
+    outputTokens: 560,
+    reasoningTokens: 139,
+    cacheReadTokens: 58752,
+  });
   expect(markup).toContain("Step");
   expect(markup).toContain("Run total");
   expect(markup).toContain("9,869");
@@ -54,16 +51,16 @@ it("shows the native OpenCode step and run totals with free cost", () => {
 it("distinguishes missing token reports from an unknown price", () => {
   const markup = render(
     {
-        ...step,
-        messages: 0,
-        inputTokens: null,
-        outputTokens: null,
-        reasoningTokens: null,
-        cacheReadTokens: null,
-        cacheWriteTokens: null,
-        costUsd: null,
-        costState: "unknown",
-        isIncomplete: true,
+      ...step,
+      messages: 0,
+      inputTokens: null,
+      outputTokens: null,
+      reasoningTokens: null,
+      cacheReadTokens: null,
+      cacheWriteTokens: null,
+      costUsd: null,
+      costState: "unknown",
+      isIncomplete: true,
     },
     step,
   );

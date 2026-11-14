@@ -23,6 +23,16 @@ function sum(
     : known.reduce((total, count) => total + count, 0);
 }
 
+function openCodeCostState(
+  costUsd: number | null,
+  messages: readonly StoredOpenCodeUsage[],
+): OpenCodeUsageTotal["costState"] {
+  if (costUsd === null) return "unknown";
+  return messages.every((message) => message.price.state === "free")
+    ? "free"
+    : "known";
+}
+
 /** Adds each stored native message exactly once and marks missing reports. */
 export function sumOpenCodeUsage(
   messages: readonly StoredOpenCodeUsage[],
@@ -39,10 +49,13 @@ export function sumOpenCodeUsage(
   const isIncomplete =
     messages.length === 0 ||
     [...expectedAttempts].some(
-      (attemptId) => !messages.some((message) => message.attemptId === attemptId),
+      (attemptId) =>
+        !messages.some((message) => message.attemptId === attemptId),
     ) ||
     messages.some((message) => fields.some((read) => read(message) === null));
-  const isCostUnknown = messages.some((message) => message.price.amount === null);
+  const isCostUnknown = messages.some(
+    (message) => message.price.amount === null,
+  );
   const costUsd =
     messages.length === 0 || isCostUnknown
       ? null
@@ -55,12 +68,7 @@ export function sumOpenCodeUsage(
     cacheReadTokens: counts[3] ?? null,
     cacheWriteTokens: counts[4] ?? null,
     costUsd,
-    costState:
-      costUsd === null
-        ? "unknown"
-        : messages.every((message) => message.price.state === "free")
-          ? "free"
-          : "known",
+    costState: openCodeCostState(costUsd, messages),
     isIncomplete,
     priceAsOf: [
       ...new Set(

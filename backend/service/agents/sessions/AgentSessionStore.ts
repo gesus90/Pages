@@ -82,7 +82,9 @@ export interface AgentSessionStore {
   listRunUsage(runId: string): Promise<readonly AgentSessionTurnUsage[]>;
   /** Native OpenCode messages have stable IDs across turns and retries. */
   saveOpenCodeMessage?(usage: StoredOpenCodeUsage): Promise<void>;
-  listRunOpenCodeMessages?(runId: string): Promise<readonly StoredOpenCodeUsage[]>;
+  listRunOpenCodeMessages?(
+    runId: string,
+  ): Promise<readonly StoredOpenCodeUsage[]>;
   saveMessage(message: AgentSessionMessage): Promise<void>;
   /**
    * Moves a message to `status` only from one of `from`.

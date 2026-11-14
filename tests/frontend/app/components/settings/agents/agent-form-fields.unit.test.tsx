@@ -20,6 +20,7 @@ function form(overrides: Partial<AgentForm> = {}): AgentForm {
       reasoningEffort: "high",
       scope: GLOBAL_CONNECTION_SCOPE,
       zaiAccountType: "",
+      openRouterModelIds: "",
     },
     setField: vi.fn(),
     isDirty: false,

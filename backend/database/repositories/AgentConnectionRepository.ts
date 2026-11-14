@@ -201,7 +201,9 @@ export class AgentConnectionRepository {
           zai_account_type: connection.zaiAccountType ?? "api",
           secret_encrypted: connection.secretEncrypted,
           test_model: connection.testModel,
-          openrouter_model_ids: JSON.stringify(connection.openRouterModelIds ?? {}),
+          openrouter_model_ids: JSON.stringify(
+            connection.openRouterModelIds ?? {},
+          ),
           actor_id: connection.actorId,
         },
       );

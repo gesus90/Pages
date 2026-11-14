@@ -1,12 +1,9 @@
-import path from "node:path";
-
 import { agentPlaywrightServer } from "@/backend/service/agents/tools/AgentPlaywrightSession";
 import {
   AgentToolPreflightError,
   AgentToolReadinessError,
 } from "@/backend/service/agents/tools/AgentToolReadinessError";
 import {
-  pinnedAgentToolDriver,
   agentToolAdapterVersion,
   prepareAgentToolSession,
   observeAgentToolSession,
@@ -20,7 +17,7 @@ import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
 import { isAcpPermissionMode } from "@/definition/AgentConfiguration";
 import { isApiProvider } from "@/definition/AgentConnection";
-import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import {
   verifyFullEnvironmentStart,
@@ -35,20 +32,14 @@ import {
 } from "./CliAssetWorkspace";
 import { CliIsolationGate } from "./CliIsolationGate";
 import { CliPlanIsolation } from "./CliPlanIsolation";
-import { createCliEnvironment } from "./CliEnvironment";
-import { ACP_WORKER_LIMITS } from "./CliWorkerUnit";
 import { cleanupFailedAcpStart } from "./CliAcpStartCleanup";
 import {
-  acpMcpServers,
-  acpSessionRequest,
   acpWorkerRequest,
-  isolationLabel,
   picaCodexBundle,
   picaNativeRunner,
 } from "./CliAcpLaunch";
 import { prepareSharedAgentEnvironment } from "./AgentSharedEnvironment";
 import { prepareClaudePlanSessionHome } from "./ClaudePlanSessionHome";
-import { captureOwnedNamespace } from "./CliOwnedNamespace";
 import { redactAcpJsonLine } from "./CliAcpRedaction";
 import { prepareAcpProtocol } from "./CliAcpProtocol";
 import { requireAcpIsolation, sessionRunOptionError } from "./CliSessionPlans";
@@ -59,7 +50,18 @@ import {
   sessionAcpProvider,
   validateSessionStatus,
 } from "./CliSessionChecks";
+import {
+  buildAcpSessionContext,
+  limitAcpWorkerUnit,
+  prepareAcpGitHubAccess,
+  registerAcpNamespace,
+  requireAcpMode,
+  secureAcpSession,
+  sessionContainment,
+  warnMissingWorkerUnits,
+} from "./CliAcpSpawn";
 
+import type { LimitedAcpRequest } from "./CliAcpSpawn";
 import type { VerifiedStart } from "./CliSessionChecks";
 import type { CliFullEnvironment } from "./CliFullEnvironment";
 import type { AgentToolManagerService } from "@/backend/service/agents/tools/AgentToolManagerService";
@@ -73,10 +75,9 @@ import type {
 } from "@/backend/agents/AgentPlanExecution";
 import type { AcpResourceScheduler } from "@/backend/service/agents/AcpResourceScheduler";
 import type { AcpDriver } from "@/backend/agents/acp/AcpDriver";
-import type { AcpNamespaceOwner } from "@/definition/AcpResource";
 import type { AcpLaunch } from "@/backend/agents/acp/AcpLaunch";
-import type { AcpPermissionMode } from "@/definition/AgentConfiguration";
 import type { CliProviderId } from "@/definition/AgentConnection";
+import type { AcpPermissionMode } from "@/definition/AgentConfiguration";
 import type { AgentCliRuntime } from "./AgentCliRuntime";
 import type { AgentCredentialStore } from "./AgentCredentialStore";
 import type {
@@ -128,27 +129,6 @@ interface SessionDependencies {
   readonly claudeHome?: typeof prepareClaudePlanSessionHome;
 }
 
-/** A PID namespace contains everything; otherwise only a worker unit frames the session. */
-function sessionContainment(
-  isIsolated: boolean,
-  request: CliSessionRequest,
-): CliSessionContainment {
-  if (isIsolated) return "pid_namespace";
-  return request.unit ? "worker_unit" : "none";
-}
-
-/** The stored run mode of an ACP start; a start without one is refused. */
-function requireAcpMode(
-  driver: AcpDriver,
-  input: AgentPlanSessionInput,
-): AcpPermissionMode {
-  const mode =
-    input.options.access === "full_environment" ? "yolo" : input.options.access;
-  if (!isAcpPermissionMode(mode))
-    throw new AgentError(driver.errors.modeRequired);
-  return mode;
-}
-
 function requireAdapter(adapter: string | null, driver: AcpDriver): string {
   if (adapter === null) throw new AgentError(driver.errors.adapterMissing);
   return adapter;
@@ -161,11 +141,19 @@ interface SessionControl {
   readonly lifecycle?: AcpStartLifecycle;
 }
 
-/** A session request, wrapped in its limited unit where the service manager provides one. */
-interface LimitedRequest {
-  readonly request: CliSessionRequest;
-  /** How the run record describes the limits. */
-  readonly label: string;
+interface StartAcpSessionOptions {
+  readonly driver: AcpDriver;
+  readonly input: AgentPlanSessionInput;
+  readonly start: VerifiedStart;
+  readonly control: SessionControl;
+  readonly mode: AcpPermissionMode;
+  readonly scoped: ClaudePlanSessionHome | null;
+  readonly adapter: string;
+  readonly github: CliGitHubAccess | null;
+  readonly profile: ReturnType<AcpDriver["profile"]>;
+  readonly launch: AcpLaunch;
+  readonly channel: ReturnType<typeof prepareAcpProtocol>["channel"];
+  readonly redact: ReturnType<typeof prepareAcpProtocol>["redact"];
 }
 
 /**
@@ -422,15 +410,34 @@ export class CliSessionExecution implements PlanSessionRunner {
     const mode = requireAcpMode(driver, input);
     const scoped = await this.scopedHome(driver, input, start);
     const adapter = requireAdapter(start.adapter, driver);
-    const github = await this.prepareGitHub(input, start, mode);
-    const { profile, launch, channel, redact } = prepareAcpProtocol(
+    const github = await prepareAcpGitHubAccess({
+      input,
+      start,
+      mode,
+      github: this.dependencies.github,
+      locator: this.dependencies.locator,
+    });
+    const prepared = prepareAcpProtocol(driver, input, start, github);
+    return this.startAcpSession({
       driver,
       input,
       start,
+      control,
+      mode,
+      scoped,
+      adapter,
       github,
-    );
+      ...prepared,
+    });
+  }
+
+  private async startAcpSession(
+    options: StartAcpSessionOptions,
+  ): Promise<PlanSession> {
+    const { driver, input, start, control, mode, adapter, github } = options;
+    const { profile, launch, channel, redact } = options;
     let child: CliSessionProcess | null = null;
-    let limited: LimitedRequest | null = null;
+    let limited: LimitedAcpRequest | null = null;
     let containment: CliSessionContainment = "none";
     let picaBundle: PicaCodexBundle | null = null;
     try {
@@ -455,22 +462,32 @@ export class CliSessionExecution implements PlanSessionRunner {
               start.owner ? redactAcpJsonLine(line, redact) : redact(line),
             ),
         }),
-        scoped,
+        options.scoped,
         input,
         start.owner,
       );
-      limited = await this.limit(request, input);
+      limited = await limitAcpWorkerUnit({
+        request,
+        input,
+        units: this.dependencies.units,
+        onMissingUnits: () => {
+          if (this.hasWarnedWithoutUnits) return;
+          this.hasWarnedWithoutUnits = true;
+          warnMissingWorkerUnits();
+        },
+      });
       containment = sessionContainment(isIsolated, limited.request);
       if (control.signal.aborted) throw new AgentPlanCancelledError();
       if (start.owner) await input.beforeStart?.();
       await control.lifecycle?.beforeSpawn(limited.request.unit?.name);
       child = this.dependencies.runner.startSession(limited.request);
-      const namespace = await this.registerNamespace(
+      const namespace = await registerAcpNamespace({
         input,
-        child.processId,
-        limited.request,
+        processId: child.processId,
+        request: limited.request,
         containment,
-      );
+        resources: this.dependencies.resources,
+      });
       await recordGitHubNamespace(github, namespace);
       connectChild(child, channel, {
         observer: control.observer,
@@ -479,41 +496,13 @@ export class CliSessionExecution implements PlanSessionRunner {
         signal: control.signal,
         namespace,
       });
-      return new AcpSession(child, channel.stream, {
-        instanceId: input.instanceId,
-        driver: pinnedAgentToolDriver(driver, start.adapterVersion),
-        profile,
-        request: acpSessionRequest(input, {
-          ...launch,
-          mcpServers: acpMcpServers(launch, start.browser, picaNative),
-        }),
-        observer: control.observer,
-        signal: control.signal,
-        isolation: `${start.owner ? "full environment: no isolation, full host owner access" : isolationLabel(isIsolated, mode, driver)}; ${limited.label}`,
+      return this.createAcpSession(options, {
+        child,
+        isIsolated,
+        limitedLabel: limited.label,
         containment,
-        github: github?.status,
-        redact,
-        secure: () => this.secureAcp(input, start, github),
-        cleanupAdapter: picaBundle?.cleanup,
-        listener: input.chat?.listener ?? input.journal,
-        ...(driver.provider === "opencode"
-          ? {
-              openCodeUsagePath: path.join(
-                start.home.config,
-                "opencode",
-                "opencode.db",
-              ),
-              // The data directory is three levels above this connection's provider folder.
-              openCodePricingDirectory: path.resolve(
-                start.home.config,
-                "../../..",
-              ),
-              isFreeModel: input.agent.isFree === true,
-              openRouterModelIds: input.agent.connection.openRouterModelIds ?? {},
-            }
-          : {}),
-        notificationHandled: () => channel.acknowledge(),
-        acceptsTurnInput: input.chat === undefined,
+        picaNative,
+        picaBundle,
       });
     } catch (error: unknown) {
       logCaughtError("CliSessionExecution", error);
@@ -527,6 +516,48 @@ export class CliSessionExecution implements PlanSessionRunner {
       control.lifecycle?.confirmStartEnded();
       throw error;
     }
+  }
+
+  private createAcpSession(
+    options: StartAcpSessionOptions,
+    runtime: {
+      readonly child: CliSessionProcess;
+      readonly isIsolated: boolean;
+      readonly limitedLabel: string;
+      readonly containment: CliSessionContainment;
+      readonly picaNative: PicaNativeArtifact | null;
+      readonly picaBundle: PicaCodexBundle | null;
+    },
+  ): AcpSession {
+    return new AcpSession(
+      runtime.child,
+      options.channel.stream,
+      buildAcpSessionContext({
+        driver: options.driver,
+        input: options.input,
+        start: options.start,
+        mode: options.mode,
+        launch: options.launch,
+        profile: options.profile,
+        observer: options.control.observer,
+        signal: options.control.signal,
+        isIsolated: runtime.isIsolated,
+        limitedLabel: runtime.limitedLabel,
+        containment: runtime.containment,
+        github: options.github,
+        redact: options.redact,
+        picaNative: runtime.picaNative,
+        picaBundle: runtime.picaBundle,
+        secure: () =>
+          secureAcpSession({
+            input: options.input,
+            start: options.start,
+            github: options.github,
+            store: this.dependencies.store,
+          }),
+        acknowledge: () => options.channel.acknowledge(),
+      }),
+    );
   }
 
   /**
@@ -613,118 +644,5 @@ export class CliSessionExecution implements PlanSessionRunner {
         "",
       sourceRunId: input.resourceContext?.sourceRunId,
     });
-  }
-
-  /**
-   * Persists the identity of the process frame before the first ACP request.
-   *
-   * @remarks
-   * The directly spawned process is the namespace init or, for a session
-   * without a namespace such as a YOLO chat, the client of its worker unit
-   * (PAGE-335, PAGE-340). Its PID, start, owner and boot together with the unit
-   * name let a later check prove the end of exactly this instance and let its
-   * lease leave `spawning`.
-   */
-  private async registerNamespace(
-    input: AgentPlanSessionInput,
-    processId: number | null,
-    request: CliSessionRequest,
-    containment: CliSessionContainment,
-  ): Promise<AcpNamespaceOwner | undefined> {
-    if (containment === "none") return undefined;
-    // A spawn that failed has no process; the unit frame still confirms its closeout.
-    if (!processId && containment === "worker_unit") return undefined;
-    if (!processId) throw new AcpCleanupUnconfirmedError();
-    const identity = await captureOwnedNamespace(processId);
-    const namespace = request.unit
-      ? { ...identity, unit: request.unit.name }
-      : identity;
-    await this.dependencies.resources?.registerNamespace(
-      input.instanceId,
-      namespace,
-    );
-    return namespace;
-  }
-
-  private async prepareGitHub(
-    input: AgentPlanSessionInput,
-    start: VerifiedStart,
-    mode: AcpPermissionMode,
-  ): Promise<CliGitHubAccess | null> {
-    if (start.owner || !this.dependencies.github) return null;
-    const access =
-      mode === "yolo" && input.github
-        ? await input.github()
-        : ({
-            status: "unavailable",
-            reason:
-              mode === "read_only"
-                ? "read-only session"
-                : "no authorized project connection",
-          } as const);
-    const gh =
-      access.status === "available"
-        ? (await this.dependencies.locator.locate("gh")).path
-        : null;
-    return this.dependencies.github.prepare({
-      instanceId: input.instanceId,
-      access,
-      gh,
-      bridge: mode === "yolo" ? await input.gitBridge?.() : undefined,
-      searchPath: createCliEnvironment(
-        start.home,
-        start.provider,
-        start.adapter ?? start.file,
-      ).PATH,
-    });
-  }
-
-  private async secureAcp(
-    input: AgentPlanSessionInput,
-    start: VerifiedStart,
-    github: CliGitHubAccess | null,
-  ): Promise<void> {
-    if (start.owner) return;
-    try {
-      await github?.cleanup();
-    } finally {
-      await this.dependencies.store.secure(
-        input.agent.connection.id,
-        start.provider,
-      );
-    }
-  }
-
-  /**
-   * Starts the worker in a limited unit of the service manager.
-   *
-   * @remarks
-   * Pica's conversations never start without one. A plan node starts
-   * without it, as before, where the host has no service manager for the
-   * server account; one warning says so.
-   */
-  private async limit(
-    request: CliSessionRequest,
-    input: AgentPlanSessionInput,
-  ): Promise<LimitedRequest> {
-    const { units } = this.dependencies;
-    if (units && (await units.isAvailable())) {
-      const wrapped = await units.wrap(request, input.instanceId);
-      return {
-        request: { ...wrapped.request, unit: wrapped.unit },
-        label: `unit ${wrapped.unit.name}: memory ${ACP_WORKER_LIMITS.memoryMax}, swap ${ACP_WORKER_LIMITS.memorySwapMax}, tasks ${ACP_WORKER_LIMITS.tasksMax}, CPU ${ACP_WORKER_LIMITS.cpuQuota}, OOM score ${ACP_WORKER_LIMITS.oomScoreAdjust}`,
-      };
-    }
-    if (input.chat || input.options.access === "full_environment")
-      throw new AgentError("acp_worker_unit_unavailable");
-    if (!this.hasWarnedWithoutUnits) {
-      this.hasWarnedWithoutUnits = true;
-      logDiagnostic(
-        "CliSessionExecution",
-        "warn",
-        "Pages runs plan agents without a limited service unit because the service manager of the server account does not start one.",
-      );
-    }
-    return { request, label: "no limited unit" };
   }
 }

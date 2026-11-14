@@ -1,31 +1,12 @@
-import {
-  PROTOCOL_VERSION,
-  RequestError,
-  client as acpClient,
-  methods,
-} from "@agentclientprotocol/sdk";
+import { client as acpClient, methods } from "@agentclientprotocol/sdk";
 
-import { closeCliSession } from "@/backend/agents/cli/CliSessionCloseout";
-import { readOpenCodeSessionUsage } from "@/backend/agents/cli/OpenCodeSessionUsage";
 import { openRouterPriceCatalog } from "@/backend/service/agents/sessions/OpenRouterPriceCatalog";
 import { noteSessionEvent } from "@/backend/agents/cli/CliSessionEvents";
 import { AgentError } from "@/backend/error/AgentErrors";
-import { readContinuationCapabilities } from "@/backend/service/agents/sessions/AgentSessionContinuation";
 import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 
-import { requireAcpMcpCapabilities } from "./AcpLaunch";
-import {
-  abortFailure,
-  acpErrorFailure,
-  disconnectedAcpOutcome,
-  stopFailure,
-  finishAcpTurn,
-} from "./AcpSessionOutcome";
-import {
-  ACP_STEERING_METHOD,
-  isAcpSteeringSupported,
-  requestAcpSteer,
-} from "./AcpChat";
+import { abortFailure, finishAcpTurn, stopFailure } from "./AcpSessionOutcome";
+import { ACP_STEERING_METHOD, requestAcpSteer } from "./AcpChat";
 import { acpPromptParams, isAcpMessageWithinBudget } from "./AcpPromptBudget";
 import { acpTurnPrompt } from "./AcpTicketAssets";
 import {
@@ -36,12 +17,10 @@ import {
 import { reportAcpPlanActivity } from "./AcpPlanActivity";
 import { AcpTurnControl } from "./AcpTurnControl";
 import { AcpMcpReadiness } from "./AcpMcpReadiness";
-import { closeAcpProtocol } from "./AcpProtocolClose";
 import { readAntigravityTurnFailure } from "./AntigravityTurnFailure";
 import { logAcpToolUpdate } from "./AcpSessionToolLogging";
 import {
   describeAcpSession,
-  requireVerifiedAcpAdapter,
   hasAcpConfigurationChanged,
   confirmAcpConfiguration,
 } from "./AcpSessionConfiguration";
@@ -51,6 +30,13 @@ import {
   createPicaCodexRequests,
   registerPicaCodexRequests,
 } from "./PicaCodexRegistration";
+import {
+  forwardOpenCodeSessionUsage,
+  initializeAcpSessionConnection,
+  openOrResumeAcpSession,
+  resolveAcpTurnFailure,
+  shutDownAcpSession,
+} from "./AcpSessionLifecycle";
 
 import type {
   AcpSessionContext,
@@ -107,7 +93,8 @@ export class AcpSession implements PlanSession {
   private readonly process: Pick<
     CliSessionProcess,
     "endInput" | "exited" | "cancel"
-  > & Partial<Pick<CliSessionProcess, "suspend" | "resume">>;
+  > &
+    Partial<Pick<CliSessionProcess, "suspend" | "resume">>;
   private readonly context: AcpSessionContext;
   private hasHistoryFailure = false;
   private notificationFailure: AgentErrorCode | null = null;
@@ -413,7 +400,7 @@ export class AcpSession implements PlanSession {
       },
     });
     this.context.listener?.prompted(response.usage ?? null);
-    this.readOpenCodeUsage(sessionId);
+    forwardOpenCodeSessionUsage(this.context, sessionId);
     await this.context.listener?.drained?.();
     noteSessionEvent(this.state.events, `turn ${response.stopReason}`);
     if (
@@ -451,75 +438,24 @@ export class AcpSession implements PlanSession {
   }
 
   private async initialize(): Promise<void> {
-    const response = await this.connection.agent.request(
-      methods.agent.initialize,
-      {
-        protocolVersion: PROTOCOL_VERSION,
-        clientCapabilities: {},
-      },
-    );
-    requireAcpMcpCapabilities(
-      this.context.request.mcpServers,
-      response.agentCapabilities?.mcpCapabilities,
-    );
-    this.promptCapabilities = response.agentCapabilities?.promptCapabilities;
-    this.isSteeringSupported =
-      !this.picaCodex && isAcpSteeringSupported(response._meta);
-    this.context.listener?.initialized?.(
-      this.isSteeringSupported,
-      this.promptCapabilities,
-    );
-    this.context.listener?.announced?.(response.agentCapabilities);
-    const adapter = requireVerifiedAcpAdapter(
-      this.state,
-      this.context.driver,
-      response,
-    );
-    const continuation =
-      this.context.profile.keepsSession === false
-        ? { canResume: false, canLoad: false }
-        : readContinuationCapabilities(response.agentCapabilities);
-    this.observer.capabilities?.({ ...continuation, adapter });
+    const initialized = await initializeAcpSessionConnection({
+      connection: this.connection,
+      context: this.context,
+      state: this.state,
+      observer: this.observer,
+      isPicaCodex: this.picaCodex !== null,
+    });
+    this.isSteeringSupported = initialized.isSteeringSupported;
+    this.promptCapabilities = initialized.promptCapabilities;
   }
 
   private async openSession(): Promise<OpenedSession> {
-    const { request } = this.context;
-    const resumeSessionId = request.resumeSessionId ?? null;
-    if (resumeSessionId !== null) return this.resumeSession(resumeSessionId);
-    const response = await this.connection.agent.request(
-      methods.agent.session.new,
-      {
-        cwd: request.directory,
-        mcpServers: [...request.mcpServers],
-        _meta: { ...request.sessionMeta },
-      },
-    );
-    return this.opened(response.sessionId, response.configOptions);
-  }
-
-  /** Continues an earlier protocol session of the same working directory. */
-  private async resumeSession(sessionId: string): Promise<OpenedSession> {
-    const { request } = this.context;
-    noteSessionEvent(this.state.events, "resume session");
-    try {
-      const response = await this.connection.agent.request(
-        methods.agent.session.resume,
-        {
-          sessionId,
-          cwd: request.directory,
-          mcpServers: [...request.mcpServers],
-          _meta: { ...request.sessionMeta },
-        },
-      );
-      return this.opened(sessionId, response.configOptions);
-    } catch (error: unknown) {
-      logCaughtError("AcpSession", error);
-
-      // The adapter refused the session; a lost connection fails as it always does.
-      if (error instanceof RequestError && !this.connection.signal.aborted)
-        throw new AgentError("acp_session_resume_failed");
-      throw error;
-    }
+    const opened = await openOrResumeAcpSession({
+      connection: this.connection,
+      context: this.context,
+      state: this.state,
+    });
+    return this.opened(opened.sessionId, opened.options);
   }
 
   private opened(
@@ -537,7 +473,7 @@ export class AcpSession implements PlanSession {
     });
     noteSessionEvent(this.state.events, `session ${sessionId}`);
     this.observer.identified(this.redact(sessionId));
-    this.readOpenCodeUsage(sessionId);
+    forwardOpenCodeSessionUsage(this.context, sessionId);
     return { sessionId, options: options ?? [] };
   }
 
@@ -582,32 +518,9 @@ export class AcpSession implements PlanSession {
     reportAcpPlanActivity(update, this.observer, (text) => this.redact(text));
     this.context.listener?.update(update);
     if (this.context.driver.provider === "opencode")
-      this.readOpenCodeUsage(notification.sessionId);
+      forwardOpenCodeSessionUsage(this.context, notification.sessionId);
     this.checkReportedModel();
     this.reportProgress();
-  }
-
-  private readOpenCodeUsage(sessionId: string): void {
-    const path = this.context.openCodeUsagePath;
-    const directory = this.context.openCodePricingDirectory;
-    const receive = this.context.listener?.openCodeMessages;
-    if (
-      this.context.driver.provider !== "opencode" ||
-      !path ||
-      !directory ||
-      !receive
-    )
-      return;
-    try {
-      receive(
-        readOpenCodeSessionUsage(path, sessionId),
-        directory,
-        this.context.isFreeModel === true ? this.context.request.model : null,
-        this.context.openRouterModelIds ?? {},
-      );
-    } catch (error: unknown) {
-      logCaughtError("AcpSession.openCodeUsage", error);
-    }
   }
 
   /**
@@ -665,39 +578,19 @@ export class AcpSession implements PlanSession {
     );
   }
 
-  private async failed(error: unknown): Promise<PlanSessionTurn> {
-    if (this.turnSignal.aborted) {
-      if (this.context.driver.provider === "opencode")
-        return this.ended(abortFailure(this.turnSignal), null);
-      // The stop or deadline ends the process; its exit tells which.
-      const exit = await this.process.exited;
-      return this.ended(
-        exit.errorCode === "check_timeout" ? "timeout" : "cancelled",
-        null,
-      );
-    }
-    const errorCode = acpErrorFailure(
+  private failed(error: unknown): Promise<PlanSessionTurn> {
+    return resolveAcpTurnFailure({
       error,
-      this.state,
-      this.context.driver,
-      this.connection.signal.aborted,
-    );
-    return errorCode === null
-      ? this.disconnected()
-      : this.ended("failed", errorCode);
-  }
-
-  private async disconnected(): Promise<PlanSessionTurn> {
-    const outcome = disconnectedAcpOutcome(
-      await this.process.exited,
-      this.state,
-      this.context.driver,
-      {
-        isPicaNative: this.picaCodex !== null,
-        redact: (line) => this.redact(line),
-      },
-    );
-    return this.ended(outcome.failure, outcome.errorCode);
+      turnSignal: this.turnSignal,
+      process: this.process,
+      connectionAborted: this.connection.signal.aborted,
+      state: this.state,
+      context: this.context,
+      isPicaNative: this.picaCodex !== null,
+      notificationFailure: this.notificationFailure,
+      hasHistoryFailure: this.hasHistoryFailure,
+      redact: (text) => this.redact(text),
+    });
   }
 
   private ended(
@@ -719,23 +612,14 @@ export class AcpSession implements PlanSession {
     return this.context.redact?.(text) ?? text;
   }
 
-  private async shutDown(): Promise<PlanSessionClosed> {
-    try {
-      await this.picaCodex?.cancelTurn();
-      await closeAcpProtocol(this.connection, this.state.sessionId);
-      this.connection.close();
-      const closed = await closeCliSession(
-        this.process,
-        this.context.instanceId,
-        undefined,
-        this.context.containment ?? "none",
-      );
-      if (closed.isConfirmed) this.context.cleanupAdapter?.();
-      return closed;
-    } finally {
-      this.picaCodex?.close();
-      this.context.signal.removeEventListener("abort", this.abortRequests);
-      await this.context.secure();
-    }
+  private shutDown(): Promise<PlanSessionClosed> {
+    return shutDownAcpSession({
+      connection: this.connection,
+      process: this.process,
+      context: this.context,
+      sessionId: this.state.sessionId,
+      picaCodex: this.picaCodex,
+      abortRequests: this.abortRequests,
+    });
   }
 }

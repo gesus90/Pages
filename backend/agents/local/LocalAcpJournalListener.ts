@@ -48,7 +48,12 @@ export class LocalAcpJournalListener implements AcpSessionListener {
     mapping: Readonly<Record<string, string>>,
   ): void => {
     this.pending = this.writes.run(async () => {
-      this.recorder.openCodeMessages(messages, pricingDirectory, freeModelId, mapping);
+      this.recorder.openCodeMessages(
+        messages,
+        pricingDirectory,
+        freeModelId,
+        mapping,
+      );
       await this.recorder.drained();
     });
     void this.pending.catch((error: unknown) => {

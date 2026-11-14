@@ -44,12 +44,7 @@ function isRecorderMutation(
   LocalSessionMutation,
   {
     kind:
-      | "usage"
-      | "opencode_usage"
-      | "events"
-      | "position"
-      | "frame"
-      | "attempt";
+      "usage" | "opencode_usage" | "events" | "position" | "frame" | "attempt";
   }
 > {
   return [

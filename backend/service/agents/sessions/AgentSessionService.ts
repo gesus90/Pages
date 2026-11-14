@@ -266,15 +266,15 @@ export class AgentSessionService {
     const { run, attempt } = await this.authorize(userId, key);
     const stored = await this.dependencies.store.findAttempt(key.attemptId);
     const runTurns = await this.dependencies.store.listRunUsage(run.id);
-    const openCodeMessages =
-      attempt.record.runner === "opencode"
-        ? (await this.dependencies.store.listRunOpenCodeMessages?.(run.id)) ?? []
-        : [];
     const turns = runTurns.filter((turn) => turn.attemptId === key.attemptId);
     const nodeAttempts = nodeAttemptIds(key.attemptId, attempt.record);
     const isLive = this.live.has(key.attemptId) && isRunActive(run);
     const state = this.state(run, attempt, stored);
-    const recorder = this.recorders.get(attempt.record.instanceId);
+    const openCode = await this.openCodeSessionSummary(
+      run,
+      attempt.record.runner,
+      nodeAttempts,
+    );
     return {
       key,
       provider: attempt.record.runner,
@@ -289,26 +289,14 @@ export class AgentSessionService {
       nodeTotals: sumTurnUsage(
         runTurns.filter((turn) => nodeAttempts.has(turn.attemptId)),
       ),
-      ...(attempt.record.runner === "opencode"
-        ? {
-            openCode: {
-              step: sumOpenCodeUsage(
-                openCodeMessages.filter((message) =>
-                  nodeAttempts.has(message.attemptId),
-                ),
-                nodeAttempts,
-              ),
-              run: sumOpenCodeUsage(openCodeMessages, runOpenCodeAttemptIds(run)),
-            },
-          }
-        : {}),
+      ...(openCode ? { openCode } : {}),
       continuation: decideContinuation({
         isAuthorized: true,
         isConfigurationCompatible: true,
         isProcessAlive: isLive,
         acpSessionId: attempt.record.sessionId,
         capabilities:
-          recorder?.capabilities ??
+          this.recorders.get(attempt.record.instanceId)?.capabilities ??
           attempt.record.continuationCapabilities ??
           null,
         // Plan nodes have no resume or load path yet; it is reported, never offered.
@@ -319,15 +307,7 @@ export class AgentSessionService {
           (await this.dependencies.hasPlanCheckpoint?.(run.id)) ?? false,
       }),
       messages: await this.dependencies.store.listMessages(key.attemptId),
-      actions: {
-        canSend: isLive,
-        canCancelTurn:
-          isLive &&
-          state === "running" &&
-          this.live.get(key.attemptId)?.turn.cancelTurn !== undefined,
-        canCancelRun: isRunActive(run),
-        canRecover: false,
-      },
+      actions: this.viewActions(run, key.attemptId, isLive, state),
     };
   }
 
@@ -458,6 +438,42 @@ export class AgentSessionService {
       { turn: null, kind: "status", text: "turn cancelled by the executor" },
     ]);
     return "turn_cancelled";
+  }
+
+  private async openCodeSessionSummary(
+    run: AgentPlanRun,
+    runner: AgentSessionView["provider"],
+    nodeAttempts: ReadonlySet<string>,
+  ): Promise<AgentSessionView["openCode"] | undefined> {
+    if (runner !== "opencode") return undefined;
+    const openCodeMessages =
+      (await this.dependencies.store.listRunOpenCodeMessages?.(run.id)) ?? [];
+    return {
+      step: sumOpenCodeUsage(
+        openCodeMessages.filter((message) =>
+          nodeAttempts.has(message.attemptId),
+        ),
+        nodeAttempts,
+      ),
+      run: sumOpenCodeUsage(openCodeMessages, runOpenCodeAttemptIds(run)),
+    };
+  }
+
+  private viewActions(
+    run: AgentPlanRun,
+    attemptId: string,
+    isLive: boolean,
+    state: AgentSessionView["state"],
+  ): AgentSessionView["actions"] {
+    return {
+      canSend: isLive,
+      canCancelTurn:
+        isLive &&
+        state === "running" &&
+        this.live.get(attemptId)?.turn.cancelTurn !== undefined,
+      canCancelRun: isRunActive(run),
+      canRecover: false,
+    };
   }
 
   private record(start: AgentSessionStart): AgentSessionRecorder {

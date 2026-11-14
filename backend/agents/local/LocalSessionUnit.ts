@@ -70,13 +70,13 @@ export async function startLocalSessionUnit(
     { flag: "wx", mode: 0o600 },
   );
   try {
-    await startPreparedLocalSessionUnit(
+    await startPreparedLocalSessionUnit({
       manifest,
       file,
       entrypoint,
       environment,
       isBuilt,
-    );
+    });
   } catch {
     // Process errors may include captured environment output; never forward them.
     try {
@@ -88,13 +88,18 @@ export async function startLocalSessionUnit(
   }
 }
 
+interface PreparedLocalUnitOptions {
+  readonly manifest: LocalOwnerManifest;
+  readonly file: string;
+  readonly entrypoint: string;
+  readonly environment: Readonly<Record<string, string>>;
+  readonly isBuilt: boolean;
+}
+
 async function startPreparedLocalSessionUnit(
-  manifest: LocalOwnerManifest,
-  file: string,
-  entrypoint: string,
-  environment: Readonly<Record<string, string>>,
-  isBuilt: boolean,
+  options: PreparedLocalUnitOptions,
 ): Promise<void> {
+  const { manifest, file, entrypoint, environment, isBuilt } = options;
   const manager = localManagerEnvironment();
   const listed = await runFile(
     "/usr/bin/systemctl",

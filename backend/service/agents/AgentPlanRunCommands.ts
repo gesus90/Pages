@@ -31,7 +31,10 @@ import type { EngineDependencies } from "./AgentPlanRunEngine";
 import type { AgentPlanRunJournal } from "./AgentPlanJournal";
 import type { AgentPlanSnapshot } from "./AgentPlanSnapshot";
 
-interface CommandDependencies extends Omit<EngineDependencies, "localSessions"> {
+interface CommandDependencies extends Omit<
+  EngineDependencies,
+  "localSessions"
+> {
   readonly localSessions?: Pick<LocalSessions, "suspend" | "resume">;
   readonly active: Map<string, ActivePlanRun>;
   readonly writes: SerialQueue;
@@ -80,6 +83,18 @@ function hasSamePausedWork(
       );
     })
   );
+}
+
+function pausingPlanRunView(previous: AgentPlanRun): AgentPlanRun {
+  return {
+    ...previous,
+    status: "pausing",
+    isWaitingForWorkspace: undefined,
+    workspaceWait: undefined,
+    steps: previous.steps.map((step) =>
+      step.status === "waiting" ? { ...step, status: "paused" } : step,
+    ),
+  };
 }
 
 /** Serial durable run commands; execution gates change only after the state and journal commit. */
@@ -157,20 +172,7 @@ export class AgentPlanRunCommands {
   public async pause(id: string, journal?: AgentPlanRunJournal): Promise<void> {
     await this.dependencies.writes.run(async () => {
       const active = this.dependencies.active.get(id);
-      if (
-        active &&
-        !active.view.stopRequested &&
-        ["paused", "pausing"].includes(active.view.status)
-      ) {
-        if (journal)
-          await this.dependencies.runs.update(
-            active.view,
-            undefined,
-            undefined,
-            journal,
-          );
-        return;
-      }
+      if (await this.syncPausedJournal(active, journal)) return;
       if (
         !active ||
         active.view.stopRequested ||
@@ -178,15 +180,7 @@ export class AgentPlanRunCommands {
       )
         throw new AgentError("plan_run_unavailable");
       const previous = active.view;
-      const proposed: AgentPlanRun = {
-        ...active.view,
-        status: "pausing",
-        isWaitingForWorkspace: undefined,
-        workspaceWait: undefined,
-        steps: active.view.steps.map((step) =>
-          step.status === "waiting" ? { ...step, status: "paused" } : step,
-        ),
-      };
+      const proposed = pausingPlanRunView(previous);
       await this.dependencies.runs.update(
         proposed,
         undefined,
@@ -195,32 +189,14 @@ export class AgentPlanRunCommands {
       );
       active.view = proposed;
       this.dependencies.resources?.pauseRun(id);
-      const suspended = new Map<string, string>();
-      let suspendedScripts = new Set<string>();
-      try {
-        suspendedScripts = this.dependencies.scripts?.suspend?.(id) ?? new Set();
-        for (const [stepId, instanceId] of suspendedOpenCodeSessions(proposed)) {
-          if (!(await this.dependencies.localSessions?.suspend(instanceId)))
-            throw new AgentError("plan_local_owner_unverified");
-          suspended.set(stepId, instanceId);
-        }
-      } catch (error: unknown) {
-        this.dependencies.scripts?.resume?.(id);
-        for (const instanceId of suspended.values())
-          await this.dependencies.localSessions?.resume(instanceId);
-        this.dependencies.resources?.resumeRun(id);
-        active.view = previous;
-        await this.dependencies.runs.update(previous);
-        throw error;
-      }
+      const { suspended, suspendedScripts } = await this.suspendRunningSteps(
+        active,
+        previous,
+        proposed,
+      );
       active.suspended = suspended;
       active.suspendedScripts = suspendedScripts;
-      for (const [stepId, controller] of active.controllers)
-        if (
-          !isSuspendedPlanController(active, stepId) &&
-          !active.dispatched.has(stepId)
-        )
-          controller.abort(new AgentPlanPausedError());
+      this.abortNonSuspendedControllers(active);
       settlePlanPause(active);
       if (active.view.status === "paused")
         await this.dependencies.runs.update(active.view);
@@ -237,21 +213,13 @@ export class AgentPlanRunCommands {
     journal?: AgentPlanRunJournal,
   ): Promise<void> {
     await this.dependencies.writes.run(async () => {
-      const active = this.dependencies.active.get(id);
-      if (
-        !active ||
-        this.dependencies.isClosing() ||
-        active.view.stopRequested ||
-        active.hasPersistenceFailure ||
-        active.view.status !== "paused" ||
-        (active.controllers.size !== 0 &&
-          !active.suspended?.size &&
-          !active.suspendedScripts?.size)
-      )
-        throw new AgentError("plan_run_unavailable");
+      const active = this.requireResumableRun(id);
       const previous = await this.pausedView(active);
       if (active.suspended?.size || active.suspendedScripts?.size) {
-        if (snapshot && snapshot.plan.revision !== active.snapshot.plan.revision)
+        if (
+          snapshot &&
+          snapshot.plan.revision !== active.snapshot.plan.revision
+        )
           throw new AgentError("plan_context_changed");
         await this.resumeSuspended(active, previous, journal);
         return;
@@ -265,6 +233,83 @@ export class AgentPlanRunCommands {
       this.dependencies.resources?.resumeRun(id);
     });
     await this.dependencies.pump();
+  }
+
+  private async syncPausedJournal(
+    active: ActivePlanRun | undefined,
+    journal?: AgentPlanRunJournal,
+  ): Promise<boolean> {
+    if (
+      !active ||
+      active.view.stopRequested ||
+      !["paused", "pausing"].includes(active.view.status)
+    )
+      return false;
+    if (journal)
+      await this.dependencies.runs.update(
+        active.view,
+        undefined,
+        undefined,
+        journal,
+      );
+    return true;
+  }
+
+  private async suspendRunningSteps(
+    active: ActivePlanRun,
+    previous: AgentPlanRun,
+    proposed: AgentPlanRun,
+  ): Promise<{
+    readonly suspended: Map<string, string>;
+    readonly suspendedScripts: Set<string>;
+  }> {
+    const id = active.view.id;
+    const suspended = new Map<string, string>();
+    let suspendedScripts = new Set<string>();
+    try {
+      suspendedScripts = this.dependencies.scripts?.suspend?.(id) ?? new Set();
+      for (const [stepId, instanceId] of suspendedOpenCodeSessions(proposed)) {
+        if (!(await this.dependencies.localSessions?.suspend(instanceId)))
+          throw new AgentError("plan_local_owner_unverified");
+        suspended.set(stepId, instanceId);
+      }
+      return { suspended, suspendedScripts };
+    } catch (error: unknown) {
+      this.dependencies.scripts?.resume?.(id);
+      for (const instanceId of suspended.values())
+        await this.dependencies.localSessions?.resume(instanceId);
+      this.dependencies.resources?.resumeRun(id);
+      active.view = previous;
+      await this.dependencies.runs.update(previous);
+      throw error;
+    }
+  }
+
+  private abortNonSuspendedControllers(active: ActivePlanRun): void {
+    for (const [stepId, controller] of active.controllers) {
+      if (
+        !isSuspendedPlanController(active, stepId) &&
+        !active.dispatched.has(stepId)
+      )
+        controller.abort(new AgentPlanPausedError());
+    }
+  }
+
+  private requireResumableRun(id: string): ActivePlanRun {
+    const active = this.dependencies.active.get(id);
+    const hasSuspended =
+      (active?.suspended?.size ?? 0) > 0 ||
+      (active?.suspendedScripts?.size ?? 0) > 0;
+    if (
+      !active ||
+      this.dependencies.isClosing() ||
+      active.view.stopRequested ||
+      active.hasPersistenceFailure ||
+      active.view.status !== "paused" ||
+      (active.controllers.size !== 0 && !hasSuspended)
+    )
+      throw new AgentError("plan_run_unavailable");
+    return active;
   }
 
   private async resumeSuspended(
@@ -282,6 +327,16 @@ export class AgentPlanRunCommands {
     };
     await this.dependencies.runs.update(next, undefined, undefined, journal);
     active.view = next;
+    await this.continueSuspendedWork(active, previous);
+    active.suspended?.clear();
+    active.suspendedScripts?.clear();
+    this.dependencies.resources?.resumeRun(active.view.id);
+  }
+
+  private async continueSuspendedWork(
+    active: ActivePlanRun,
+    previous: AgentPlanRun,
+  ): Promise<void> {
     const continued: string[] = [];
     try {
       for (const instanceId of active.suspended?.values() ?? []) {
@@ -298,9 +353,6 @@ export class AgentPlanRunCommands {
       await this.dependencies.runs.update(previous);
       throw error;
     }
-    active.suspended?.clear();
-    active.suspendedScripts?.clear();
-    this.dependencies.resources?.resumeRun(active.view.id);
   }
 
   private async pausedView(active: ActivePlanRun): Promise<AgentPlanRun> {

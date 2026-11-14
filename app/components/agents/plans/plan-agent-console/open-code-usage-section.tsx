@@ -19,6 +19,17 @@ function UsageFact(props: {
   );
 }
 
+function formatUsageCost(
+  total: OpenCodeUsageTotal,
+  freeLabel: string,
+  priceUnknownLabel: string,
+  dollars: Intl.NumberFormat,
+): string {
+  if (total.costState === "free") return `${freeLabel} · ${dollars.format(0)}`;
+  if (total.costUsd === null) return priceUnknownLabel;
+  return dollars.format(total.costUsd);
+}
+
 function UsageGroup(props: {
   readonly title: string;
   readonly total: OpenCodeUsageTotal;
@@ -34,12 +45,12 @@ function UsageGroup(props: {
     currency: "USD",
     maximumFractionDigits: 6,
   });
-  const cost =
-    props.total.costState === "free"
-      ? `${t(`${key}.free`)} · ${dollars.format(0)}`
-      : props.total.costUsd === null
-        ? t(`${key}.priceUnknown`)
-        : dollars.format(props.total.costUsd);
+  const cost = formatUsageCost(
+    props.total,
+    t(`${key}.free`),
+    t(`${key}.priceUnknown`),
+    dollars,
+  );
   return (
     <div className="space-y-1.5">
       <h4 className="text-sm font-semibold text-agent-console-foreground">
@@ -47,11 +58,26 @@ function UsageGroup(props: {
         {props.total.isIncomplete ? ` · ${t(`${key}.incomplete`)}` : ""}
       </h4>
       <dl className="space-y-1">
-        <UsageFact label={t(`${key}.inputTokens`)} text={count(props.total.inputTokens)} />
-        <UsageFact label={t(`${key}.outputTokens`)} text={count(props.total.outputTokens)} />
-        <UsageFact label={t(`${key}.reasoningTokens`)} text={count(props.total.reasoningTokens)} />
-        <UsageFact label={t(`${key}.cacheReadTokens`)} text={count(props.total.cacheReadTokens)} />
-        <UsageFact label={t(`${key}.cacheWriteTokens`)} text={count(props.total.cacheWriteTokens)} />
+        <UsageFact
+          label={t(`${key}.inputTokens`)}
+          text={count(props.total.inputTokens)}
+        />
+        <UsageFact
+          label={t(`${key}.outputTokens`)}
+          text={count(props.total.outputTokens)}
+        />
+        <UsageFact
+          label={t(`${key}.reasoningTokens`)}
+          text={count(props.total.reasoningTokens)}
+        />
+        <UsageFact
+          label={t(`${key}.cacheReadTokens`)}
+          text={count(props.total.cacheReadTokens)}
+        />
+        <UsageFact
+          label={t(`${key}.cacheWriteTokens`)}
+          text={count(props.total.cacheWriteTokens)}
+        />
         <UsageFact label={t(`${key}.cost`)} text={cost} />
       </dl>
       {props.total.priceAsOf.length > 0 ? (
@@ -64,7 +90,9 @@ function UsageGroup(props: {
 }
 
 /** Native OpenCode message usage of the current node and the complete run. */
-export function OpenCodeUsageSection(props: UsageSectionProps): React.ReactElement {
+export function OpenCodeUsageSection(
+  props: UsageSectionProps,
+): React.ReactElement {
   const { t } = useTranslation();
   const key = "plans.console.terminal.sidebar";
   return (

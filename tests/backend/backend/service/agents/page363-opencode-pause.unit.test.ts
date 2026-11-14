@@ -11,7 +11,11 @@ import { suspendedOpenCodeSessions } from "@/backend/service/agents/AgentPlanRun
 import { recoveryFixture } from "./page84-recovery-fixture";
 
 import type { ActivePlanRun } from "@/backend/service/agents/AgentPlanRunState";
-import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
+import type {
+  AgentPlanRun,
+  AgentPlanStepResult,
+  AgentPlanView,
+} from "@/definition/AgentPlan";
 
 it("pauses and resumes one running OpenCode turn three times without replacing its session", async () => {
   const fixture = await recoveryFixture();
@@ -77,9 +81,7 @@ it("pauses and resumes one running OpenCode turn three times without replacing i
     await commands.pause(running.id);
     expect(stored.status).toBe("paused");
     expect(stored.steps[0]?.status).toBe("running");
-    expect(stored.steps[0]?.session?.sessionId).toBe(
-      original.sessionId,
-    );
+    expect(stored.steps[0]?.session?.sessionId).toBe(original.sessionId);
     expect(controller.signal.aborted).toBe(false);
     expect(suspendedOpenCodeSessions(stored)).toEqual(
       new Map([["a", original.instanceId]]),
@@ -190,7 +192,12 @@ it("starts anew after an OpenCode end state and never offers resume or stop", as
         : step,
     ),
   };
-  const plan = { ...fixture.snapshot.plan, canEdit: true };
+  const plan: AgentPlanView = {
+    ...fixture.snapshot.plan,
+    canEdit: true,
+    projectName: "Project",
+    github: null,
+  };
   const control = planControl(plan, run, {
     userId: run.userId,
     hasReservation: false,
@@ -204,8 +211,14 @@ it("starts anew after an OpenCode end state and never offers resume or stop", as
     resumeKind: "stopped",
   });
   expect(isEndedResumable(run)).toBe(false);
-  expect(planControl(plan, { ...run, status: "running" }, {
-    userId: run.userId,
-    hasReservation: true,
-  }).canPlay).toBe(false);
+  expect(
+    planControl(
+      plan,
+      { ...run, status: "running" },
+      {
+        userId: run.userId,
+        hasReservation: true,
+      },
+    ).canPlay,
+  ).toBe(false);
 });

@@ -16,7 +16,6 @@ import {
   createLocalSessionLaunch,
   localClosedSchema,
   localLaunchSchema,
-  localMutationSchema,
 } from "./LocalSessionContracts";
 import { LocalSessionJournal } from "./LocalSessionJournal";
 import { LocalSessionImport } from "./LocalSessionImport";
@@ -41,7 +40,11 @@ import { forgetForcedLocalRun } from "./LocalSessionForcedRelease";
 import { waitForLocalOwnerReady } from "./LocalOwnerReady";
 import { pinLocalSessionTools } from "./LocalSessionTools";
 import { LocalFinishedSessions } from "./LocalFinishedSessions";
-import { readLocalCompletion } from "./LocalSessionCompletion";
+import {
+  createReattachedLocalSession,
+  readLocalCompletion,
+  readLocalMilestones,
+} from "./LocalSessionCompletion";
 import { localInstanceKey } from "./LocalSessionIdentity";
 
 import type { Database } from "@/backend/database/Database";
@@ -297,28 +300,7 @@ export class LocalSessions {
             record.attemptId,
           )
         : null;
-    const session = attached.session;
-    return {
-      turn:
-        result?.kind === "turn" ? Promise.resolve(result.result) : session.turn,
-      isDurable: true,
-      terminated: session.terminated,
-      get isDetached(): boolean {
-        return session.isDetached === true;
-      },
-      get isClosing(): boolean {
-        return session.isClosing === true;
-      },
-      detach: () => session.detach?.(),
-      close: () => session.close(),
-      next: (input, nextSignal, nextObserver) => {
-        if (!session.next)
-          throw new AgentError("plan_group_session_unsupported");
-        return session.next(input, nextSignal, nextObserver);
-      },
-      steer: (prompt) => session.steer?.(prompt) ?? Promise.resolve("inactive"),
-      interrupt: () => session.interrupt?.() ?? Promise.resolve(false),
-    };
+    return createReattachedLocalSession(attached.session, result);
   }
 
   /** Provides the original shared MCP slot without issuing a replacement credential. */
@@ -343,17 +325,11 @@ export class LocalSessions {
   public async milestones(
     instanceId: string,
   ): Promise<readonly LocalSessionMutation[]> {
-    const entry = (await this.owners.list(this.instanceKey)).find(
-      (candidate) => candidate.instanceId === instanceId,
-    );
-    if (!entry?.checkpointFile) return [];
-    const checkpoint: unknown = JSON.parse(
-      await requireAgentFiles(this.input.database).read(entry.checkpointFile),
-    );
-    if (!Array.isArray(checkpoint))
-      throw new Error("Invalid local session checkpoint");
-    return checkpoint.map((mutation: unknown) =>
-      localMutationSchema.parse(mutation),
+    return readLocalMilestones(
+      this.owners,
+      this.input.database,
+      this.instanceKey,
+      instanceId,
     );
   }
 

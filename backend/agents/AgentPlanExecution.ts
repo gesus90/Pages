@@ -251,74 +251,114 @@ export class AgentPlanExecution implements PlanExecution {
       throw new AgentError("provider_invalid");
     await this.authorizer.requireUser(input.userId, input.agent.connection.id);
     const release = this.operations.acquireExecution(input.agent.connection.id);
-    let session: PlanSession;
     const mustConfirmCleanup = ["opencode", "antigravity"].includes(
       input.agent.connection.provider,
     );
-    function observe(target: PlanSessionObserver): PlanSessionObserver {
-      if (!mustConfirmCleanup) return target;
-      return {
-        ...target,
-        retired: (closed, reason) => {
-          if (closed.isConfirmed) release();
-          target.retired?.(closed, reason);
-        },
-      };
-    }
+    let session: PlanSession;
     try {
-      session = await this.cli.open(input, signal, observe(observer));
+      session = await this.cli.open(
+        input,
+        signal,
+        wrapCleanupObserver(mustConfirmCleanup, release, observer),
+      );
     } catch (error: unknown) {
       logCaughtError("AgentPlanExecution", error);
-
       if (!mustConfirmCleanup || !(error instanceof AcpCleanupUnconfirmedError))
         release();
       throw error;
     }
-    const steer = session.steer?.bind(session);
-    const interrupt = session.interrupt?.bind(session);
-    const suspend = session.suspend?.bind(session);
-    const resume = session.resume?.bind(session);
-    const cancelTool = session.cancelTool?.bind(session);
-    return {
-      turn: session.turn,
-      terminated: session.terminated,
-      isDurable: session.isDurable,
-      get isDetached(): boolean {
-        return session.isDetached === true;
-      },
-      ...(session.detach ? { detach: () => session.detach?.() } : {}),
-      ...(steer ? { steer } : {}),
-      ...(interrupt ? { interrupt } : {}),
-      ...(suspend ? { suspend } : {}),
-      ...(resume ? { resume } : {}),
-      ...(cancelTool ? { cancelTool } : {}),
-      ...(session.next
-        ? {
-            next: async (
-              next: AgentPlanExecutionInput,
-              nextSignal: AbortSignal,
-              nextObserver: PlanSessionObserver,
-            ) => {
-              await this.authorizer.requireUser(
-                next.userId,
-                next.agent.connection.id,
-              );
-              await next.beforeStart?.();
-              if (!session.next) throw new AgentError("plan_step_failed");
-              return session.next(next, nextSignal, observe(nextObserver));
-            },
-          }
-        : {}),
-      close: async () => {
-        let isConfirmed = false;
-        try {
-          const closed = await session.close();
-          isConfirmed = closed.isConfirmed;
-          return closed;
-        } finally {
-          if (isConfirmed || !mustConfirmCleanup) release();
-        }
-      },
-    };
+    return wrapOpenedPlanSession({
+      session,
+      mustConfirmCleanup,
+      release,
+      requireUser: (userId, connectionId) =>
+        this.authorizer.requireUser(userId, connectionId),
+    });
   }
+}
+
+interface WrappedPlanSessionOptions {
+  readonly session: PlanSession;
+  readonly mustConfirmCleanup: boolean;
+  readonly release: () => void;
+  readonly requireUser: (userId: string, connectionId: string) => Promise<void>;
+}
+
+function wrapCleanupObserver(
+  mustConfirmCleanup: boolean,
+  release: () => void,
+  target: PlanSessionObserver,
+): PlanSessionObserver {
+  if (!mustConfirmCleanup) return target;
+  return {
+    ...target,
+    retired: (closed, reason) => {
+      if (closed.isConfirmed) release();
+      target.retired?.(closed, reason);
+    },
+  };
+}
+
+function bindPlanSessionControls(
+  session: PlanSession,
+): Pick<
+  PlanSession,
+  "detach" | "steer" | "interrupt" | "suspend" | "resume" | "cancelTool"
+> {
+  const steer = session.steer?.bind(session);
+  const interrupt = session.interrupt?.bind(session);
+  const suspend = session.suspend?.bind(session);
+  const resume = session.resume?.bind(session);
+  const cancelTool = session.cancelTool?.bind(session);
+  return {
+    ...(session.detach ? { detach: () => session.detach?.() } : {}),
+    ...(steer ? { steer } : {}),
+    ...(interrupt ? { interrupt } : {}),
+    ...(suspend ? { suspend } : {}),
+    ...(resume ? { resume } : {}),
+    ...(cancelTool ? { cancelTool } : {}),
+  };
+}
+
+function wrapOpenedPlanSession(
+  options: WrappedPlanSessionOptions,
+): PlanSession {
+  const { session, mustConfirmCleanup, release, requireUser } = options;
+  return {
+    turn: session.turn,
+    terminated: session.terminated,
+    isDurable: session.isDurable,
+    get isDetached(): boolean {
+      return session.isDetached === true;
+    },
+    ...bindPlanSessionControls(session),
+    ...(session.next
+      ? {
+          next: async (
+            next: AgentPlanExecutionInput,
+            nextSignal: AbortSignal,
+            nextObserver: PlanSessionObserver,
+          ) => {
+            await requireUser(next.userId, next.agent.connection.id);
+            await next.beforeStart?.();
+            if (!session.next) throw new AgentError("plan_step_failed");
+            return session.next(
+              next,
+              nextSignal,
+              wrapCleanupObserver(mustConfirmCleanup, release, nextObserver),
+            );
+          },
+        }
+      : {}),
+    close: async () => {
+      let isConfirmed = false;
+      try {
+        const closed = await session.close();
+        isConfirmed = closed.isConfirmed;
+        return closed;
+      } finally {
+        if (isConfirmed || !mustConfirmCleanup) release();
+      }
+    },
+  };
 }

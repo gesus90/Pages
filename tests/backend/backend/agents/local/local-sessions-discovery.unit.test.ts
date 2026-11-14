@@ -237,7 +237,7 @@ describe("discover readiness", () => {
     );
   });
 
-  it("gives up on an owner that never becomes ready after twenty seconds", async () => {
+  it("gives up on an owner that never becomes ready after sixty seconds", async () => {
     vi.useFakeTimers();
     try {
       mocks.records.readLocalRecord.mockRejectedValue(
@@ -256,7 +256,7 @@ describe("discover readiness", () => {
       const sessions = createSessions();
 
       const discovery = adopt(sessions);
-      await vi.advanceTimersByTimeAsync(19_999);
+      await vi.advanceTimersByTimeAsync(59_999);
       expect(sessions.unverified().size).toBe(0);
       await vi.advanceTimersByTimeAsync(1);
       await discovery;

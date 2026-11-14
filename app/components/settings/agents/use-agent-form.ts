@@ -29,7 +29,11 @@ interface AgentFormFields {
 
 type StoredChoice = Pick<
   AgentFormFields,
-  "testModel" | "reasoningEffort" | "scope" | "zaiAccountType" | "openRouterModelIds"
+  | "testModel"
+  | "reasoningEffort"
+  | "scope"
+  | "zaiAccountType"
+  | "openRouterModelIds"
 >;
 
 /** The server lists targets by kind, the form in the order of the choices. */

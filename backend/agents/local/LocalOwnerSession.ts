@@ -227,7 +227,7 @@ export class LocalOwnerSession {
 
   private async startNative(): Promise<void> {
     const input = await this.prepare(this.launch);
-    while (this.pauseGate) await this.pauseGate.promise;
+    while (await this.waitForPauseGate());
     if (this.controller.signal.aborted || this.closing)
       throw new AgentPlanCancelledError();
     await writeLocalRecord(
@@ -243,10 +243,8 @@ export class LocalOwnerSession {
       void this.checkStop();
     }, 250);
     let currentRun = await this.dependencies.runs.find(this.launch.runId);
-    while (this.pauseGate) {
-      await this.pauseGate.promise;
+    while (await this.waitForPauseGate())
       currentRun = await this.dependencies.runs.find(this.launch.runId);
-    }
     if (
       !canContinueLocalTurn(currentRun, this.launch) ||
       this.closing ||
@@ -552,6 +550,12 @@ export class LocalOwnerSession {
     } finally {
       this.checkingStop = false;
     }
+  }
+
+  private async waitForPauseGate(): Promise<boolean> {
+    if (!this.pauseGate) return false;
+    await this.pauseGate.promise;
+    return true;
   }
 }
 

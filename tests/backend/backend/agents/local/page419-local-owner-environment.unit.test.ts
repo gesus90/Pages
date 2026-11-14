@@ -7,7 +7,12 @@ import { SYSTEMD_ENVIRONMENT } from "../page419-environment-fixture";
 import { MANIFEST } from "./local-sessions-fixture";
 
 const boundary = vi.hoisted(() => ({
-  command: vi.fn(async () => ({ stdout: "", stderr: "" })),
+  command: vi.fn<
+    (
+      file: string,
+      args: readonly string[],
+    ) => Promise<{ stdout: string; stderr: string }>
+  >(async () => ({ stdout: "", stderr: "" })),
   writeFile:
     vi.fn<(file: string, content: string, options: unknown) => Promise<void>>(),
 }));
