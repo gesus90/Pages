@@ -44,6 +44,7 @@ export class CloneWorld {
   public readonly transaction: DatabaseTransaction = partial({});
   public readonly require = vi.fn(async () => this.source);
   public readonly validateTeams = vi.fn(async () => undefined);
+  public readonly requireFullEnvironment = vi.fn(async () => undefined);
   public readonly cloneSource = vi.fn(async (): Promise<unknown> =>
     Object.fromEntries(
       Object.entries(this.source).filter(
@@ -90,6 +91,7 @@ export class CloneWorld {
     access: partial({
       require: this.require,
       validateTeams: this.validateTeams,
+      requireFullEnvironment: this.requireFullEnvironment,
       team: async () => ({ departmentId: "development" }),
     }),
     workspaces: partial({ choices: this.choices, resolve: this.resolve }),
