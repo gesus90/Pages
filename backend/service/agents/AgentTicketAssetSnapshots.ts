@@ -6,12 +6,17 @@ import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 
 import { AgentError } from "@/backend/error/AgentErrors";
-import { digestStream } from "@/backend/storage/StreamDigest";
+import { logEvent } from "@/backend/logging/Logger";
+import {
+  digestStream,
+  StreamTooLargeError,
+} from "@/backend/storage/StreamDigest";
 
 import { assetRepresentation } from "./AgentAssetRepresentations";
 import { STREAMED_ASSET_REASON } from "./AgentTicketAssetService";
 import { reportTicketAssetChanges } from "./AgentTicketAssetReferences";
 
+import type { Stats } from "node:fs";
 import type {
   AgentTicketAsset,
   AgentTicketAssetContent,
@@ -41,55 +46,28 @@ export class AgentTicketAssetSnapshots {
   }
 
   /** Captures a measured original before the run starts; identical versions share one private copy. */
-  public async pin(file: SnapshotOriginal): Promise<AgentTicketAssetSnapshot> {
-    await mkdir(this.directory, { recursive: true, mode: 0o700 });
-    await this.requireDirectory();
-    const snapshot = { fileName: file.fileName, original: file.original };
-    const target = this.location(snapshot);
+  public async pin(
+    file: SnapshotOriginal,
+    asset?: AgentTicketAsset,
+  ): Promise<AgentTicketAssetSnapshot> {
     try {
-      await lstat(target);
+      return await this.pinOriginal(file, asset);
     } catch (error: unknown) {
-      if (!isMissing(error)) throw error;
-      await this.write(file, target);
+      throw snapshotFailure(error, asset);
     }
-    const checked = await this.open(snapshot);
-    checked.destroy();
-    return snapshot;
   }
 
   /** Verifies the saved copy and derives bounded model content without reading the current attachment. */
   public async read(
     snapshot: AgentTicketAssetSnapshot,
     inlineBytes: number,
+    asset?: AgentTicketAsset,
   ): Promise<AgentTicketAssetBytes | AgentTicketAssetStream> {
-    const stream = await this.open(snapshot);
-    const file = { ...snapshot, size: snapshot.original.size };
-    if (file.size > inlineBytes) {
-      stream.destroy();
-      return {
-        ...file,
-        content: { type: "file", reason: STREAMED_ASSET_REASON },
-        open: () => this.open(snapshot),
-      };
+    try {
+      return await this.readOriginal(snapshot, inlineBytes, asset);
+    } catch (error: unknown) {
+      throw snapshotFailure(error, asset);
     }
-    const chunks: Buffer[] = [];
-    let size = 0;
-    for await (const chunk of stream) {
-      if (!Buffer.isBuffer(chunk))
-        throw new AgentError("parameter_ticket_changed");
-      size += chunk.length;
-      if (size > snapshot.original.size)
-        throw new AgentError("parameter_ticket_changed");
-      chunks.push(chunk);
-    }
-    const bytes = Buffer.concat(chunks);
-    if (
-      size !== snapshot.original.size ||
-      createHash("sha256").update(bytes).digest("hex") !==
-        snapshot.original.digest
-    )
-      throw new AgentError("parameter_ticket_changed");
-    return { ...file, bytes, ...(await assetRepresentation(bytes)) };
   }
 
   /** Emits one calm run-log line for each observed change, without using current originals as input. */
@@ -133,29 +111,26 @@ export class AgentTicketAssetSnapshots {
   }
 
   /** Reopens only an intact private copy; missing copies are never rebuilt from changed originals. */
-  public async open(snapshot: AgentTicketAssetSnapshot): Promise<Readable> {
+  public async open(
+    snapshot: AgentTicketAssetSnapshot,
+    asset?: AgentTicketAsset,
+  ): Promise<Readable> {
     try {
       await this.requireDirectory();
       const location = this.location(snapshot);
+      const measured = await this.verify(snapshot);
+      // digestStream destroys its stream and can close its FileHandle on Node 24.
       const file = await open(
         location,
         constants.O_RDONLY | constants.O_NOFOLLOW,
       );
       try {
-        const before = await file.stat();
-        if (!before.isFile() || before.size !== snapshot.original.size)
-          throw new AgentError("parameter_ticket_changed");
-        const measured = await digestStream(
-          file.createReadStream({ autoClose: false }),
-          snapshot.original.size,
-        );
-        const after = await lstat(location);
+        const reopened = await file.stat();
         if (
-          measured.digest !== snapshot.original.digest ||
-          measured.size !== snapshot.original.size ||
-          after.isSymbolicLink() ||
-          after.ino !== before.ino ||
-          after.dev !== before.dev
+          !reopened.isFile() ||
+          reopened.dev !== measured.dev ||
+          reopened.ino !== measured.ino ||
+          reopened.size !== measured.size
         )
           throw new AgentError("parameter_ticket_changed");
         return file.createReadStream({
@@ -167,8 +142,93 @@ export class AgentTicketAssetSnapshots {
         await file.close();
         throw error;
       }
-    } catch {
+    } catch (error: unknown) {
+      throw snapshotFailure(error, asset);
+    }
+  }
+
+  private async pinOriginal(
+    file: SnapshotOriginal,
+    asset?: AgentTicketAsset,
+  ): Promise<AgentTicketAssetSnapshot> {
+    await mkdir(this.directory, { recursive: true, mode: 0o700 });
+    await this.requireDirectory();
+    const snapshot = { fileName: file.fileName, original: file.original };
+    const target = this.location(snapshot);
+    try {
+      await lstat(target);
+    } catch (error: unknown) {
+      if (!isMissing(error)) throw error;
+      await this.write(file, target);
+    }
+    const checked = await this.open(snapshot, asset);
+    checked.destroy();
+    return snapshot;
+  }
+
+  private async readOriginal(
+    snapshot: AgentTicketAssetSnapshot,
+    inlineBytes: number,
+    asset?: AgentTicketAsset,
+  ): Promise<AgentTicketAssetBytes | AgentTicketAssetStream> {
+    const stream = await this.open(snapshot, asset);
+    const file = { ...snapshot, size: snapshot.original.size };
+    if (file.size > inlineBytes) {
+      stream.destroy();
+      return {
+        ...file,
+        content: { type: "file", reason: STREAMED_ASSET_REASON },
+        open: () => this.open(snapshot, asset),
+      };
+    }
+    const chunks: Buffer[] = [];
+    let size = 0;
+    for await (const chunk of stream) {
+      if (!Buffer.isBuffer(chunk))
+        throw new AgentError("parameter_ticket_changed");
+      size += chunk.length;
+      if (size > snapshot.original.size)
+        throw new AgentError("parameter_ticket_changed");
+      chunks.push(chunk);
+    }
+    const bytes = Buffer.concat(chunks);
+    if (
+      size !== snapshot.original.size ||
+      createHash("sha256").update(bytes).digest("hex") !==
+        snapshot.original.digest
+    )
       throw new AgentError("parameter_ticket_changed");
+    return { ...file, bytes, ...(await assetRepresentation(bytes)) };
+  }
+
+  private async verify(snapshot: AgentTicketAssetSnapshot): Promise<Stats> {
+    const location = this.location(snapshot);
+    const file = await open(
+      location,
+      constants.O_RDONLY | constants.O_NOFOLLOW,
+    );
+    try {
+      const before = await file.stat();
+      if (!before.isFile() || before.size !== snapshot.original.size)
+        throw new AgentError("parameter_ticket_changed");
+      const measured = await digestStream(
+        file.createReadStream({ autoClose: true }),
+        snapshot.original.size,
+      );
+      const after = await lstat(location);
+      if (
+        measured.digest !== snapshot.original.digest ||
+        measured.size !== snapshot.original.size ||
+        !after.isFile() ||
+        after.isSymbolicLink() ||
+        after.ino !== before.ino ||
+        after.dev !== before.dev ||
+        after.size !== before.size
+      )
+        throw new AgentError("parameter_ticket_changed");
+      return before;
+    } finally {
+      await file.close();
     }
   }
 
@@ -243,4 +303,19 @@ function isMissing(error: unknown): boolean {
     "code" in error &&
     error.code === "ENOENT"
   );
+}
+
+function snapshotFailure(error: unknown, asset?: AgentTicketAsset): AgentError {
+  if (error instanceof AgentError) return error;
+  if (error instanceof StreamTooLargeError)
+    return new AgentError("parameter_ticket_changed");
+  logEvent({
+    level: "error",
+    event: "agent.ticket_assets.snapshot_io_failed",
+    component: "AgentTicketAssetSnapshots",
+    message: `Snapshot I/O failed for attachment ${asset?.id ?? "unknown"}`,
+    metadata: { source: asset?.source },
+    error,
+  });
+  return new AgentError("parameter_asset_unavailable");
 }

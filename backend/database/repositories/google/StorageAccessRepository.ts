@@ -49,7 +49,7 @@ export class StorageAccessRepository {
           target_id
       FROM storage_folder_grants
       WHERE permission_id = $permission_id
-          AND ($user_id IS NULL
+          AND (CAST($user_id AS TEXT) IS NULL
               OR (target_kind = 'role' AND target_id IN (
                   SELECT role_id FROM user_authorization WHERE user_id = $user_id
               ))
@@ -168,7 +168,7 @@ export class StorageAccessRepository {
           created_at
       FROM storage_activity
       WHERE permission_id = $permission_id
-          AND ($user_id IS NULL OR actor_id = $user_id)
+          AND (CAST($user_id AS TEXT) IS NULL OR actor_id = $user_id)
       ORDER BY created_at DESC, id DESC
       LIMIT 100;
     `,
