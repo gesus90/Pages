@@ -698,9 +698,15 @@ push, like any YOLO agent holding a credential.
 Each ACP session gets a temporary `GH_CONFIG_DIR` outside its connection HOME,
 with directory mode 0700 and file mode 0600. Only that directory is mounted
 read-only into its namespace. A destination filter delegates HTTPS Git
-credential responses to native `gh auth git-credential` only for the connected
-repository, with or without `.git`. Matching SSH remote URLs are rewritten to
-HTTPS for the process. Git settings travel through the environment and never
+credential responses for `https://github.com/` to native `gh auth git-credential`.
+The connected repository (with or without `.git`) additionally keeps its
+diagnostics; any other repository gets the same stored token, so `git fetch` of
+a private repository the token can read works over an `https://github.com/…`
+remote. GitHub's answer decides about access; without a stored token Git still
+fails without a prompt and shows Pages' hint. The token lives only in the
+session's temporary directory, which ends with the step. SSH aliases and push
+rights for other repositories are not part of this route. Matching SSH remote
+URLs of the connected repository are rewritten to HTTPS for the process. Git settings travel through the environment and never
 change the working copy's `.git/config`. Normal closeout and cancellation end
 session processes before removing the directory; failed launches clean it up,
 and startup recovery removes interrupted sessions' credential directories.

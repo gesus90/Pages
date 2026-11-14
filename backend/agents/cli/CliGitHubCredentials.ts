@@ -87,6 +87,9 @@ done
 const TOKEN_REPAIR =
   "A project manager must store a valid token for this repository under Project > Integrations > GitHub; the next session uses it. Local commits and branches are unchanged. Do not retry and do not look for other credentials; report this as blocked.";
 
+const OTHER_REPOSITORY_REPAIR =
+  "a repository outside this project: it is expired, revoked or wrong. A project manager must store a valid token under Project > Integrations > GitHub; the next session uses it. Do not retry and do not look for other credentials; report this as blocked.";
+
 function credentialHelper(
   repository: string,
   gh: string,
@@ -96,20 +99,30 @@ function credentialHelper(
     writeAccess === "denied"
       ? `printf '%s\\n' ${quoteCliArgument(`Pages: GitHub refused push access to ${repository} for the stored project token when this session started. Reading may work; publishing will not. ${TOKEN_REPAIR}`)} >&2\n  `
       : "";
-  // The wrapper only filters destinations; gh implements authentication and the protocol response.
+  // The wrapper only filters the host; gh implements authentication and the protocol response.
+  // The project's repository keeps its notices; any other github.com repository is served the same
+  // token so a step can fetch what that token may read. GitHub's own answer decides about access.
   return `#!/bin/sh
 ${READ_CREDENTIAL_REQUEST}
 repository=$(printf '%s' "$repository" | tr '[:upper:]' '[:lower:]')
 repository=\${repository%/}
 repository=\${repository%.git}
-[ "$repository" = ${quoteCliArgument(repository.toLowerCase())} ] || exit 0
+project=0
+[ "$repository" = ${quoteCliArgument(repository.toLowerCase())} ] && project=1
 case "$1" in
   get)
-  ${notice}printf 'protocol=https\\nhost=github.com\\n\\n' | ${quoteCliArgument(gh)} auth git-credential get
+  if [ "$project" = 1 ]; then
+  ${notice}:
+  fi
+  printf 'protocol=https\\nhost=github.com\\n\\n' | ${quoteCliArgument(gh)} auth git-credential get
   ;;
   erase)
   # Git erases a credential only after GitHub answered 401 for it.
-  printf '%s\\n' ${quoteCliArgument(`Pages: GitHub rejected the stored project token for ${repository}: it is expired, revoked or wrong. ${TOKEN_REPAIR}`)} >&2
+  if [ "$project" = 1 ]; then
+    printf '%s\\n' ${quoteCliArgument(`Pages: GitHub rejected the stored project token for ${repository}: it is expired, revoked or wrong. ${TOKEN_REPAIR}`)} >&2
+  else
+    printf '%s\\n' ${quoteCliArgument(`Pages: GitHub rejected the stored project token for ${OTHER_REPOSITORY_REPAIR}`)} >&2
+  fi
   ;;
 esac
 `;
