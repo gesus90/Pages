@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
 import { ConversationError } from "@/backend/error/ConversationError";
 import { FileTooLargeError } from "@/backend/storage/WikiFileStore";
@@ -11,6 +11,10 @@ import {
   conversationAttachmentNameSchema,
 } from "@/definition/ConversationContent";
 
+import {
+  conversationDocumentFactsOf,
+  readConversationDocumentFacts,
+} from "./ConversationDocumentFacts";
 import {
   conversationMediaFactsOf,
   readConversationMediaFacts,
@@ -29,7 +33,15 @@ import type {
 } from "@/definition/ConversationContent";
 import type { User } from "@/definition/User";
 import type { ConversationArchiveEntry } from "./ConversationZipArchive";
+import type { ConversationDocumentFactsInput } from "./ConversationDocumentFacts";
 import type { ConversationMediaFactsInput } from "./ConversationMediaFacts";
+
+/**
+ * What the browser read of a file (PAGE-384, PAGE-385): resolution and length
+ * of a video or a sound, page count and title of a PDF.
+ */
+export type ConversationFileFactsInput = ConversationMediaFactsInput &
+  ConversationDocumentFactsInput;
 
 /** Uploads that no message took are removed after a day. */
 const UNBOUND_LIFETIME_MILLISECONDS = 24 * 60 * 60 * 1000;
@@ -112,7 +124,23 @@ export function toConversationAttachment(
     ...(stored.expiresAt ? { expiresAt: stored.expiresAt } : {}),
     ...(stored.expiredAt ? { expiredAt: stored.expiredAt } : {}),
     ...conversationMediaFactsOf(stored.media),
+    ...conversationDocumentFactsOf(stored.document),
+    ...(stored.sha256 ? { sha256: stored.sha256 } : {}),
   };
+}
+
+/**
+ * Passes the chunks of an upload on and feeds them into a SHA-256 on the way
+ * (PAGE-385), so the checksum costs no second read of the file.
+ */
+async function* hashedChunks(
+  source: AsyncIterable<Uint8Array>,
+  hash: ReturnType<typeof createHash>,
+): AsyncGenerator<Uint8Array> {
+  for await (const chunk of source) {
+    hash.update(chunk);
+    yield chunk;
+  }
 }
 
 /**
@@ -253,8 +281,11 @@ export class ConversationAttachments {
     thumbnail: {
       readonly attachmentId: unknown;
       readonly mimeType: string;
-      /** Resolution and length the browser read while it made the image (PAGE-384). */
-      readonly facts?: ConversationMediaFactsInput;
+      /**
+       * Resolution and length the browser read while it made the image
+       * (PAGE-384), page count and title of a PDF (PAGE-385).
+       */
+      readonly facts?: ConversationFileFactsInput;
     },
     source: AsyncIterable<Uint8Array>,
   ): Promise<ConversationAttachment> {
@@ -280,17 +311,17 @@ export class ConversationAttachments {
 
   /**
    * Stores the resolution and length the browser read of a video or a sound
-   * (PAGE-384), once per attachment; the chat shows them before the
-   * original loads.
+   * (PAGE-384), or page count and title of a PDF (PAGE-385), once per
+   * attachment; the chat shows them before the original loads.
    *
    * @throws {ConversationError} `not_found` for an attachment of a
    * conversation of which the person is no member, `invalid` for an
-   * attachment that is no video or sound or facts without a usable value.
+   * attachment that is no video, sound or PDF or facts without a usable value.
    */
   public async recordMediaFacts(
     person: User,
     attachmentId: unknown,
-    facts: ConversationMediaFactsInput,
+    facts: ConversationFileFactsInput,
   ): Promise<ConversationAttachment> {
     const attachment = await this.requireVisible(person, attachmentId);
     if (!(await this.storeMediaFacts(attachment, facts)))
@@ -299,19 +330,26 @@ export class ConversationAttachments {
     return toConversationAttachment(current ?? attachment);
   }
 
-  /** Stores usable facts of a video or a sound that has none; `false` when none are usable. */
+  /**
+   * Stores usable facts of a video, a sound or a PDF that has none; `false`
+   * when none are usable.
+   */
   private async storeMediaFacts(
     attachment: StoredConversationAttachment,
-    input: ConversationMediaFactsInput,
+    input: ConversationFileFactsInput,
   ): Promise<boolean> {
-    const facts = readConversationMediaFacts(
-      conversationAttachmentKind(attachment.mimeType),
-      input,
-    );
-    if (facts === null) return false;
-    // Facts of another viewer that came first stay.
-    if (!attachment.media)
-      await this.dependencies.attachments.setMediaFacts(attachment.id, facts);
+    const kind = conversationAttachmentKind(attachment.mimeType);
+    const facts = readConversationMediaFacts(kind, input);
+    if (facts !== null) {
+      // Facts of another viewer that came first stay.
+      if (!attachment.media)
+        await this.dependencies.attachments.setMediaFacts(attachment.id, facts);
+      return true;
+    }
+    const document = readConversationDocumentFacts(kind, input);
+    if (document === null) return false;
+    if (!attachment.document)
+      await this.dependencies.attachments.setDocumentFacts(attachment.id, document);
     return true;
   }
 
@@ -565,12 +603,14 @@ export class ConversationAttachments {
       readonly expiresAt?: string;
     },
   ): Promise<StoredConversationAttachment> {
+    const hash = createHash("sha256");
     const file = await this.write(
-      source,
+      hashedChunks(source, hash),
       CONVERSATION_ATTACHMENT_MAXIMUM_BYTES,
     );
     const stored: StoredConversationAttachment = {
       ...attachment,
+      sha256: hash.digest("hex"),
       id: this.dependencies.createId?.() ?? randomUUID(),
       sizeBytes: file.size,
       storageName: file.storageName,

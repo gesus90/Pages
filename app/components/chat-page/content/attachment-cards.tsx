@@ -1,6 +1,8 @@
 import { AudioCard } from "./audio-player";
+import { BinaryFileRow } from "./binary-file-row";
+import { DocumentCard } from "./documents/document-card";
+import { fileViewOf } from "./documents/document-kinds";
 import { ExpiredAttachment } from "./expired-attachment";
-import { FileCard } from "./file-card";
 import { isAttachmentExpired } from "./file-retention";
 import { ImageCard } from "./image-card";
 import { ImageGallery } from "./image-gallery";
@@ -23,6 +25,34 @@ interface AttachmentCardProps {
   readonly origin: CardOrigin;
 }
 
+/**
+ * The card of a PDF, a document or any other file (PAGE-385): a PDF in its
+ * card, Word, PowerPoint, OpenDocument and tables as readable views, every
+ * other file and every document above the preview limit as a plain row.
+ */
+function FileAttachmentCard({
+  attachment,
+  origin,
+}: AttachmentCardProps): React.ReactElement {
+  const key = `att:${attachment.id}`;
+  const view = fileViewOf(attachment);
+  if (view.kind === "binary")
+    return <BinaryFileRow attachment={attachment} isTooLarge={view.isTooLarge} />;
+  if (view.kind === "pdf")
+    return (
+      <PdfCard card={{ key, descriptor: { kind: "pdf", attachment }, origin }} />
+    );
+  return (
+    <DocumentCard
+      card={{
+        key,
+        descriptor: { kind: view.view, attachment, format: view.format },
+        origin,
+      }}
+    />
+  );
+}
+
 /** The card of one attachment that is not an image. */
 function AttachmentCard({
   attachment,
@@ -30,12 +60,6 @@ function AttachmentCard({
 }: AttachmentCardProps): React.ReactElement {
   const key = `att:${attachment.id}`;
   switch (attachment.kind) {
-    case "pdf":
-      return (
-        <PdfCard
-          card={{ key, descriptor: { kind: "pdf", attachment }, origin }}
-        />
-      );
     case "video":
       return (
         <VideoCard
@@ -45,8 +69,9 @@ function AttachmentCard({
     case "audio":
       return <AudioCard attachment={attachment} />;
     case "image":
+    case "pdf":
     case "file":
-      return <FileCard attachment={attachment} />;
+      return <FileAttachmentCard attachment={attachment} origin={origin} />;
   }
 }
 
@@ -85,8 +110,8 @@ function ImageCards({
  *
  * @remarks
  * Every card remembers its state under `att:<attachment id>`, a gallery
- * under `gallery:<first image id>`. Images, videos and audio start
- * expanded, a PDF collapsed. Only preview images load in the message; an
+ * under `gallery:<first image id>`. Images, videos, audio, PDFs and
+ * documents start expanded (PAGE-385); binary files are plain rows. Only preview images load in the message; an
  * original loads when it is opened, played or loaded. A file of an agent
  * whose 72 hours ended shows a placeholder with name and date instead.
  *

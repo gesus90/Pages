@@ -78,15 +78,15 @@ it("opens pages, navigates by controls and keys, and changes zoom", async () => 
   const { container, unmount } = render(viewer("/one.pdf", onPageCount));
   await waitFor(() => expect(onPageCount).toHaveBeenCalledWith(3));
   expect(pdf.open).toHaveBeenCalledWith("/one.pdf", expect.any(AbortSignal));
-  expect(screen.getByText("Page 1 / 3")).toBeTruthy();
+  expect(screen.getByText("Page 1 of 3")).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Next page" }));
-  expect(screen.getByText("Page 2 / 3")).toBeTruthy();
+  expect(screen.getByText("Page 2 of 3")).toBeTruthy();
   const root = container.querySelector("[tabindex='0']");
   if (!root) throw new Error("Viewer is missing");
   fireEvent.keyDown(root, { key: "PageDown" });
-  expect(screen.getByText("Page 3 / 3")).toBeTruthy();
+  expect(screen.getByText("Page 3 of 3")).toBeTruthy();
   fireEvent.keyDown(root, { key: "ArrowLeft" });
-  expect(screen.getByText("Page 2 / 3")).toBeTruthy();
+  expect(screen.getByText("Page 2 of 3")).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: "Zoom in" }));
   expect(screen.getByText("125 %")).toBeTruthy();
   await waitFor(() =>

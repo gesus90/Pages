@@ -4,6 +4,7 @@ import { CONVERSATION_THUMBNAIL_MAXIMUM_BYTES } from "@/definition/ConversationC
 
 import { mediaFactsQuery, rememberMediaFacts } from "./media-facts";
 import { createThumbnail } from "./media-thumbnails";
+import { documentFactsQuery, rememberPdfFacts } from "./pdf-facts";
 import { useSeen } from "./use-seen";
 
 import type { ConversationAttachment } from "@/definition/ConversationContent";
@@ -68,13 +69,15 @@ async function createPreview(
   const response = await fetch(attachment.url, { signal });
   if (!response.ok) return null;
   let factsQuery = "";
-  // A video gives its resolution and length with the frame (PAGE-384).
+  // A video gives its resolution and length with the frame (PAGE-384), a
+  // PDF its page count and title with the first page (PAGE-385).
   const preview = await createThumbnail(
     await response.blob(),
     attachment.mimeType,
     (facts) => {
       rememberMediaFacts(attachment.id, facts);
-      factsQuery = mediaFactsQuery(facts);
+      rememberPdfFacts(attachment.id, facts);
+      factsQuery = mediaFactsQuery(facts) + documentFactsQuery(facts);
     },
   );
   if (preview && !signal.aborted)

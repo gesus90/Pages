@@ -64,8 +64,24 @@ it("selects text cards only for supported small files", () => {
     "markdown",
   );
   expect(
-    textAttachmentKind({ ...attachment, name: "unknown.xyzxyz" }),
+    textAttachmentKind({
+      ...attachment,
+      name: "unknown.xyzxyz",
+      mimeType: "application/octet-stream",
+    }),
   ).toBeNull();
+  // Plain text is a text card in plain text (PAGE-385), a table is no text card.
+  expect(
+    textAttachmentKind({ ...attachment, name: "unknown.xyzxyz" }),
+  ).toBe("code");
+  expect(
+    textAttachmentKind({
+      ...attachment,
+      name: "server.log",
+      mimeType: "application/octet-stream",
+    }),
+  ).toBe("code");
+  expect(textAttachmentKind({ ...attachment, name: "daten.csv" })).toBeNull();
   expect(textAttachmentKind({ ...attachment, kind: "image" })).toBeNull();
   expect(
     textAttachmentKind({ ...attachment, sizeBytes: 1024 * 1024 + 1 }),

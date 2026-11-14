@@ -18,7 +18,7 @@ import {
 
 import type { ChatPageServices } from "@/app/lib/chat-page-conversations.server";
 import type { ConversationErrorCode } from "@/definition/Conversation";
-import type { ConversationMediaFactsInput } from "@/backend/service/conversation/content/ConversationMediaFacts";
+import type { ConversationFileFactsInput } from "@/backend/service/conversation/content/ConversationAttachments";
 import type { ConversationAttachment } from "@/definition/ConversationContent";
 import type { User } from "@/definition/User";
 import type { Route } from "./+types/chat-page-files";
@@ -80,13 +80,18 @@ async function upload(
   );
 }
 
-/** The resolution and length the browser read of a video or a sound (PAGE-384), from the query. */
-function factsOf(url: URL): ConversationMediaFactsInput | undefined {
+/**
+ * The resolution and length the browser read of a video or a sound
+ * (PAGE-384), or page count and title of a PDF (PAGE-385), from the query.
+ */
+function factsOf(url: URL): ConversationFileFactsInput | undefined {
   const { searchParams } = url;
   const facts = {
     width: searchParams.get("width") ?? undefined,
     height: searchParams.get("height") ?? undefined,
     durationSeconds: searchParams.get("durationSeconds") ?? undefined,
+    pageCount: searchParams.get("pageCount") ?? undefined,
+    title: searchParams.get("title") ?? undefined,
   };
   return Object.values(facts).some((entry) => entry !== undefined)
     ? facts
@@ -135,7 +140,8 @@ async function run(
  * - `PUT /chat-page-api/files?attachmentId=…` with a WebP, JPEG or PNG image
  *   as body stores the preview image of an attachment that has none; with
  *   `width`, `height` and `durationSeconds` it also stores what the browser
- *   read of a video or a sound (PAGE-384).
+ *   read of a video or a sound (PAGE-384); with `pageCount` and `title` the
+ *   page count and title of a PDF (PAGE-385).
  * - `PATCH /chat-page-api/files?attachmentId=…&width=…&height=…&durationSeconds=…`
  *   stores only these facts, for a video or sound whose preview exists.
  * - `DELETE /chat-page-api/files?attachmentId=…` drops an own upload that

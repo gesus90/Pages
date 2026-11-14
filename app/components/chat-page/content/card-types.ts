@@ -2,6 +2,7 @@ import type {
   ConversationAttachment,
   ConversationLink,
 } from "@/definition/ConversationContent";
+import type { DocumentFormat } from "./documents/document-kinds";
 import type { PreviewFile, PreviewKind } from "./preview-kinds";
 
 /** Text a card shows: given with the message, or loaded from an attachment. */
@@ -39,6 +40,15 @@ export type ContentCardDescriptor =
   | {
       readonly kind: "image" | "pdf" | "video" | "audio" | "file";
       readonly attachment: ConversationAttachment;
+    }
+  | {
+      /**
+       * A document as a readable view (PAGE-385): Word and OpenDocument text,
+       * PowerPoint and OpenDocument slides, or a workbook or CSV table.
+       */
+      readonly kind: "word" | "slides" | "sheet";
+      readonly attachment: ConversationAttachment;
+      readonly format: DocumentFormat;
     }
   | { readonly kind: "web"; readonly link: ConversationLink }
   | { readonly kind: "link"; readonly link: ConversationLink };

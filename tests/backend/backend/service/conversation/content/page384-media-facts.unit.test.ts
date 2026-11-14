@@ -198,7 +198,7 @@ describe("the stored facts and videos of the repository (PAGE-384)", () => {
   const row = [
     "att-1", "conv-1", "msg-1", "agent-1", "fuchs.mp4", "video/mp4", 3, "store-1", 0,
     null, null, null, "2026-11-14T11:00:00.000Z", "2026-11-17T11:00:00.000Z", null,
-    1920, 1080, 8000, "agent-1", "2026-11-14T11:00:00.000Z",
+    1920, 1080, 8000, null, null, null, "agent-1", "2026-11-14T11:00:00.000Z",
   ];
 
   it("reads resolution and length after the expiry columns and the sender after them", async () => {

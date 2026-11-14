@@ -4230,7 +4230,10 @@
         "video": "Video",
         "audio": "Audio",
         "file": "Datei",
-        "gallery": "Galerie"
+        "gallery": "Galerie",
+        "word": "Dokument",
+        "slides": "Präsentation",
+        "sheet": "Tabelle"
       },
       "diff": {
         "before": "vorher",
@@ -4244,11 +4247,12 @@
         "zoom": "{{percent}} %",
         "previousPage": "Vorherige Seite",
         "nextPage": "Nächste Seite",
-        "page": "Seite {{page}} / {{count}}",
+        "page": "Seite {{page}} von {{count}}",
         "pages": "Seiten",
         "openPage": "Seite {{page}} öffnen",
         "loading": "PDF wird geladen …",
-        "failed": "Das PDF konnte nicht geladen werden."
+        "failed": "Das PDF konnte nicht geladen werden.",
+        "encrypted": "Dieses PDF ist verschlüsselt. Pages zeigt es nicht an; es bleibt herunterladbar."
       },
       "reload": "Neu laden",
       "newTab": "Neuer Tab",
@@ -4289,7 +4293,75 @@
         "count_other": "{{count}} Bilder",
         "pending": "Bild wird erzeugt …"
       },
-      "detected": "automatisch erkannt: {{kind}}"
+      "detected": "automatisch erkannt: {{kind}}",
+      "document": {
+        "format": {
+          "docx": "Word-Dokument",
+          "odt": "OpenDocument-Text",
+          "pptx": "PowerPoint",
+          "odp": "OpenDocument-Präsentation",
+          "xlsx": "Excel-Tabelle",
+          "ods": "OpenDocument-Tabelle",
+          "csv": "CSV-Tabelle",
+          "tsv": "TSV-Tabelle"
+        },
+        "pages_one": "{{count}} Seite",
+        "pages_other": "{{count}} Seiten",
+        "pageOf": "Seite {{page}} von {{count}}",
+        "openWhole": "Ganzes Dokument öffnen",
+        "loading": "Dokument wird gelesen …",
+        "failed": {
+          "encrypted": "Dieses Dokument ist verschlüsselt oder in einem älteren Format. Pages zeigt es nicht an; es bleibt herunterladbar.",
+          "unreadable": "Dieses Dokument konnte nicht gelesen werden. Es bleibt herunterladbar.",
+          "tooLarge": "Dieses Dokument ist zu groß für die Vorschau. Es bleibt herunterladbar."
+        },
+        "empty": "Das Dokument enthält keinen Text.",
+        "embedded": "Eingebettetes Objekt – wird nicht ausgeführt",
+        "image": "Bild",
+        "pageStart": "Seite {{page}}",
+        "contents": "Inhalt",
+        "noHeadings": "Keine Überschriften",
+        "truncated": "Nur der Anfang dieses sehr langen Dokuments wird gezeigt. Lade die Datei für den Rest herunter.",
+        "search": "Im Dokument suchen",
+        "searchPlaceholder": "Suchen …",
+        "matchOf": "{{current}} von {{count}}",
+        "noMatch": "Keine Treffer",
+        "previousMatch": "Vorheriger Treffer",
+        "nextMatch": "Nächster Treffer"
+      },
+      "slides": {
+        "count_one": "{{count}} Folie",
+        "count_other": "{{count}} Folien",
+        "slide": "Folie {{number}}",
+        "slideOf": "Folie {{number}} von {{count}}",
+        "previous": "Vorherige Folie",
+        "next": "Nächste Folie",
+        "openAll": "Alle Folien öffnen",
+        "empty": "Die Präsentation enthält keine Folien.",
+        "strip": "Folien",
+        "untitled": "Ohne Titel"
+      },
+      "sheet": {
+        "sheets": "Blätter",
+        "sheetCount_one": "{{count}} Blatt",
+        "sheetCount_other": "{{count}} Blätter",
+        "rows_one": "{{count}} Zeile",
+        "rows_other": "{{count}} Zeilen",
+        "rowsOf": "{{shown}} von {{count}} Zeilen",
+        "openWhole": "Ganze Tabelle öffnen",
+        "empty": "Dieses Blatt ist leer.",
+        "sortBy": "Nach {{column}} sortieren",
+        "selectHint": "Zellen markieren: klicken, ziehen oder mit Umschalt erweitern",
+        "summary": "Summe {{sum}} · {{count}} Zellen · {{numbers}} Zahlen",
+        "mean": "Mittelwert {{mean}}",
+        "pages": "Seiten der Tabelle",
+        "truncated": "Nur die ersten 50 000 Zeilen und 200 Spalten werden gezeigt."
+      },
+      "binary": {
+        "noChecksum": "Keine Prüfsumme",
+        "copyChecksum": "SHA-256-Prüfsumme kopieren",
+        "tooLarge": "Zu groß für die Vorschau (über 32 MB) – nur zum Herunterladen"
+      }
     },
     "embedDomains": {
       "title": "Eingebettete Domains",

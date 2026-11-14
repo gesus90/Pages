@@ -34,6 +34,9 @@ const OWN_LABELS: ReadonlyMap<string, string> = new Map([
   ["mmd", "Mermaid"],
   ["csv", "CSV"],
   ["tsv", "TSV"],
+  ["txt", "Text"],
+  ["text", "Text"],
+  ["log", "Log"],
 ]);
 
 /** The file names a preview gives blocks without a name, by role. */

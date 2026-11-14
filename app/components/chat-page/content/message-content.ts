@@ -1,5 +1,6 @@
 import { CARD_TEXT_MAXIMUM_BYTES } from "./card-types";
 import { detectCodeLanguage } from "./code-detection";
+import { documentFormatOf } from "./documents/document-kinds";
 import {
   companionRole,
   previewFileName,
@@ -45,6 +46,20 @@ type CodePart = Extract<MessagePart, { readonly kind: "code" }>;
 
 /** How the chat shows an attachment whose text it renders itself. */
 export type TextAttachmentKind = "code" | "diff" | "markdown";
+
+/**
+ * Endings of plain text files the chat shows as a text card (PAGE-385), such
+ * as notes and logs; their language stays plain text.
+ */
+const PLAIN_TEXT_ENDINGS: readonly string[] = ["txt", "text", "log", "ini", "cfg", "conf", "properties", "env", "rst", "adoc", "nfo"];
+
+/** Whether a file is plain text by its ending or by its type `text/plain`. */
+function isPlainText(attachment: Pick<ConversationAttachment, "name" | "mimeType">): boolean {
+  const dot = attachment.name.lastIndexOf(".");
+  const ending = dot >= 0 ? attachment.name.slice(dot + 1).toLowerCase() : "";
+  if (PLAIN_TEXT_ENDINGS.includes(ending)) return true;
+  return attachment.mimeType.split(";")[0]?.trim().toLowerCase() === "text/plain";
+}
 
 const FENCE_OPEN = /^ {0,3}(`{3,}|~{3,})\s*([^`]*)$/u;
 /** A URL alone in a line; the editor writes it as an autolink in angle brackets. */
@@ -229,19 +244,22 @@ export function parseMessageContent(text: string): MessagePart[] {
  * instead of offering it as a file.
  *
  * @param attachment - The attachment.
- * @returns The kind of text card; `null` for media, unknown types and text
- * above 1 MB.
+ * @returns The kind of text card; plain text such as `.txt` or `.log` is a
+ * code card in plain text (PAGE-385). `null` for media, documents and tables,
+ * unknown types and text above 1 MB.
  */
 export function textAttachmentKind(
   attachment: ConversationAttachment,
 ): TextAttachmentKind | null {
   if (
     attachment.kind !== "file" ||
-    attachment.sizeBytes > CARD_TEXT_MAXIMUM_BYTES
+    attachment.sizeBytes > CARD_TEXT_MAXIMUM_BYTES ||
+    documentFormatOf(attachment) !== null
   )
     return null;
   const language = resolveSyntaxLanguage(attachment.name);
   if (language === "diff") return "diff";
   if (language === "markdown") return "markdown";
-  return language === null ? null : "code";
+  if (language !== null) return "code";
+  return isPlainText(attachment) ? "code" : null;
 }

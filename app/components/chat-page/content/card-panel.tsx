@@ -6,6 +6,7 @@ import {
   ExternalLink,
   File as FileIcon,
   FileDiff,
+  FileSpreadsheet,
   FileText,
   Film,
   Globe,
@@ -14,6 +15,7 @@ import {
   Maximize2,
   Music,
   PanelRight,
+  Presentation,
   Rows2,
   X,
 } from "lucide-react";
@@ -34,6 +36,9 @@ import {
   CardHead,
 } from "./content-card";
 import { DiffCount, DiffView, useParsedDiff } from "./diff-view";
+import { DocumentViewer, isDocumentViewerCard } from "./document-viewer";
+import { DocumentPanel } from "./documents/document-panel";
+import { documentKindLabel } from "./documents/document-labels";
 import { WebView } from "./link-cards";
 import { PREVIEW_ICONS } from "./preview-card";
 import { codeKindLabel } from "./preview-kinds";
@@ -62,6 +67,9 @@ const KIND_ICONS: Readonly<
   video: Film,
   audio: Music,
   file: FileIcon,
+  word: FileText,
+  slides: Presentation,
+  sheet: FileSpreadsheet,
   web: Globe,
   link: Link2,
 };
@@ -77,6 +85,7 @@ function kindLabel(descriptor: ContentCardDescriptor, t: TFunction): string {
       ? t("chatPage.cards.detected", { kind })
       : kind;
   }
+  if ("format" in descriptor) return documentKindLabel(descriptor.format, t);
   return t(`chatPage.cards.kind.${descriptor.kind}`);
 }
 
@@ -243,6 +252,8 @@ function PanelBody({
   // A preview has its own panel; it never reaches the body of the text cards.
   if (descriptor.kind === "preview") return <></>;
   if (card && isVideoCard(card)) return <VideoPanelBody card={card} />;
+  // A document shows its whole readable view with its search (PAGE-385).
+  if ("format" in descriptor) return <DocumentPanel descriptor={descriptor} />;
   if ("attachment" in descriptor)
     return <AttachmentFullView attachment={descriptor.attachment} />;
   if ("link" in descriptor)
@@ -419,6 +430,7 @@ export function CardPanel({
 /**
  * The card that covers the page (PAGE-298): the viewer of a PDF or an
  * image, the full screen of a card, and "Daneben" on a narrow screen.
+ * PDFs and documents open on the dark surface of the viewer (PAGE-385).
  * Escape and the close button end it.
  */
 export function CardOverlay(): React.ReactElement | null {
@@ -437,6 +449,8 @@ export function CardOverlay(): React.ReactElement | null {
   if (!overlay) return null;
   if (isVideoCard(overlay))
     return <ChatVideoViewer card={overlay} onClose={closeOverlay} />;
+  if (isDocumentViewerCard(overlay))
+    return <DocumentViewer card={overlay} onClose={closeOverlay} />;
   if (overlay.descriptor.kind === "preview")
     return (
       <PreviewFullscreen

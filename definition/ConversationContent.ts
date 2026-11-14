@@ -70,6 +70,15 @@ export interface ConversationAttachment {
   readonly height?: number;
   /** Length of a video or a sound in seconds, once the browser read it (PAGE-384). */
   readonly durationSeconds?: number;
+  /**
+   * SHA-256 of the file in lower-case hex (PAGE-385), computed when Pages
+   * stored it; missing for files stored before.
+   */
+  readonly sha256?: string;
+  /** Page count of a PDF, once a browser read it (PAGE-385). */
+  readonly pageCount?: number;
+  /** Title of a PDF from its metadata, once a browser read it (PAGE-385). */
+  readonly documentTitle?: string;
 }
 
 /** The facts the browser reads of a video or a sound (PAGE-384), as it sends them. */

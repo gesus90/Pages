@@ -30,7 +30,10 @@ const ATTACHMENT_COLUMNS = `
     conversation_attachments.expired_at,
     conversation_attachments.media_width,
     conversation_attachments.media_height,
-    conversation_attachments.media_duration_ms`;
+    conversation_attachments.media_duration_ms,
+    conversation_attachments.sha256,
+    conversation_attachments.document_pages,
+    conversation_attachments.document_title`;
 
 /** The stored preview image of an attachment. */
 export interface StoredConversationThumbnail {
@@ -64,6 +67,17 @@ export interface StoredConversationAttachment {
   readonly expiredAt?: string | null;
   /** Resolution and length of a video or a sound as the browser read them (PAGE-384); `null` until then. */
   readonly media?: StoredConversationMediaFacts | null;
+  /** SHA-256 of the file in hex, computed while it was stored (PAGE-385); `null` for older files. */
+  readonly sha256?: string | null;
+  /** Page count and title of a PDF as the browser read them (PAGE-385); `null` until then. */
+  readonly document?: StoredConversationDocumentFacts | null;
+}
+
+/** Page count and title of a document (PAGE-385). */
+export interface StoredConversationDocumentFacts {
+  readonly pageCount: number | null;
+  /** The title from the metadata; `null` when the document names none. */
+  readonly title: string | null;
 }
 
 /** Resolution and length of a video or a sound (PAGE-384). */
@@ -89,7 +103,7 @@ export interface StoredConversationImage {
 /** What a new attachment is stored with. */
 export type NewConversationAttachment = Omit<
   StoredConversationAttachment,
-  "thumbnail" | "position" | "expiredAt" | "media"
+  "thumbnail" | "position" | "expiredAt" | "media" | "document"
 > & { readonly position?: number };
 
 type AttachmentDatabase = Pick<Database, "query" | "execute" | "transaction">;
@@ -124,7 +138,18 @@ function toAttachment(
     expiresAt: readNullableTextColumn(row, 13, "expires_at"),
     expiredAt: readNullableTextColumn(row, 14, "expired_at"),
     media: readMediaFacts(row),
+    sha256: readNullableTextColumn(row, 18, "sha256"),
+    document: readDocumentFacts(row),
   };
+}
+
+function readDocumentFacts(
+  row: readonly DatabaseValue[],
+): StoredConversationDocumentFacts | null {
+  const pageCount = readNullableCountColumn(row, 19, "document_pages");
+  const title = readNullableTextColumn(row, 20, "document_title");
+  if (pageCount === null && title === null) return null;
+  return { pageCount, title };
 }
 
 function readMediaFacts(
@@ -201,7 +226,8 @@ export class ConversationAttachmentRepository {
             storage_name,
             position,
             created_at,
-            expires_at
+            expires_at,
+            sha256
         )
         VALUES (
             $id,
@@ -214,7 +240,8 @@ export class ConversationAttachmentRepository {
             $storage_name,
             $position,
             $created_at,
-            $expires_at
+            $expires_at,
+            $sha256
         );
       `,
       {
@@ -229,6 +256,7 @@ export class ConversationAttachmentRepository {
         position: attachment.position ?? 0,
         created_at: attachment.createdAt,
         expires_at: attachment.expiresAt ?? null,
+        sha256: attachment.sha256 ?? null,
       },
     );
   }
@@ -482,6 +510,35 @@ export class ConversationAttachmentRepository {
   }
 
   /**
+   * Stores page count and title of a document that has none yet (PAGE-385).
+   *
+   * @returns `false` when the attachment has them already.
+   */
+  public async setDocumentFacts(
+    attachmentId: string,
+    facts: StoredConversationDocumentFacts,
+  ): Promise<boolean> {
+    const rows = await this.database.query(
+      `
+        UPDATE conversation_attachments
+        SET
+            document_pages = $page_count,
+            document_title = $title
+        WHERE id = $id
+            AND document_pages IS NULL
+            AND document_title IS NULL
+        RETURNING id;
+      `,
+      {
+        id: attachmentId,
+        page_count: facts.pageCount,
+        title: facts.title,
+      },
+    );
+    return rows.length === 1;
+  }
+
+  /**
    * Returns the images of the sent messages of a conversation, oldest
    * message first and in their order within a message (PAGE-382).
    */
@@ -526,8 +583,8 @@ export class ConversationAttachmentRepository {
       images.push({
         attachment,
         messageId: attachment.messageId,
-        senderId: readTextColumn(row, 18, "sender_id"),
-        sentAt: readTextColumn(row, 19, "sent_at"),
+        senderId: readTextColumn(row, 21, "sender_id"),
+        sentAt: readTextColumn(row, 22, "sent_at"),
       });
     }
     return images;

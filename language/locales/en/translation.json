@@ -4230,7 +4230,10 @@
         "video": "Video",
         "audio": "Audio",
         "file": "File",
-        "gallery": "Gallery"
+        "gallery": "Gallery",
+        "word": "Document",
+        "slides": "Presentation",
+        "sheet": "Spreadsheet"
       },
       "diff": {
         "before": "before",
@@ -4244,11 +4247,12 @@
         "zoom": "{{percent}} %",
         "previousPage": "Previous page",
         "nextPage": "Next page",
-        "page": "Page {{page}} / {{count}}",
+        "page": "Page {{page}} of {{count}}",
         "pages": "Pages",
         "openPage": "Open page {{page}}",
         "loading": "Loading PDF …",
-        "failed": "The PDF could not be loaded."
+        "failed": "The PDF could not be loaded.",
+        "encrypted": "This PDF is encrypted. Pages does not show it; it stays downloadable."
       },
       "reload": "Reload",
       "newTab": "New tab",
@@ -4289,7 +4293,75 @@
         "count_other": "{{count}} images",
         "pending": "Generating image …"
       },
-      "detected": "auto-detected: {{kind}}"
+      "detected": "auto-detected: {{kind}}",
+      "document": {
+        "format": {
+          "docx": "Word document",
+          "odt": "OpenDocument text",
+          "pptx": "PowerPoint",
+          "odp": "OpenDocument presentation",
+          "xlsx": "Excel spreadsheet",
+          "ods": "OpenDocument spreadsheet",
+          "csv": "CSV table",
+          "tsv": "TSV table"
+        },
+        "pages_one": "{{count}} page",
+        "pages_other": "{{count}} pages",
+        "pageOf": "Page {{page}} of {{count}}",
+        "openWhole": "Open whole document",
+        "loading": "Reading document …",
+        "failed": {
+          "encrypted": "This document is encrypted or in an older format. Pages does not show it; it stays downloadable.",
+          "unreadable": "This document could not be read. It stays downloadable.",
+          "tooLarge": "This document is too large for the preview. It stays downloadable."
+        },
+        "empty": "The document contains no text.",
+        "embedded": "Embedded object – not executed",
+        "image": "Image",
+        "pageStart": "Page {{page}}",
+        "contents": "Contents",
+        "noHeadings": "No headings",
+        "truncated": "Only the start of this very long document is shown. Download the file for the rest.",
+        "search": "Search the document",
+        "searchPlaceholder": "Search …",
+        "matchOf": "{{current}} of {{count}}",
+        "noMatch": "No matches",
+        "previousMatch": "Previous match",
+        "nextMatch": "Next match"
+      },
+      "slides": {
+        "count_one": "{{count}} slide",
+        "count_other": "{{count}} slides",
+        "slide": "Slide {{number}}",
+        "slideOf": "Slide {{number}} of {{count}}",
+        "previous": "Previous slide",
+        "next": "Next slide",
+        "openAll": "Open all slides",
+        "empty": "The presentation contains no slides.",
+        "strip": "Slides",
+        "untitled": "Untitled"
+      },
+      "sheet": {
+        "sheets": "Sheets",
+        "sheetCount_one": "{{count}} sheet",
+        "sheetCount_other": "{{count}} sheets",
+        "rows_one": "{{count}} row",
+        "rows_other": "{{count}} rows",
+        "rowsOf": "{{shown}} of {{count}} rows",
+        "openWhole": "Open whole table",
+        "empty": "This sheet is empty.",
+        "sortBy": "Sort by {{column}}",
+        "selectHint": "Mark cells: click, drag or extend with Shift",
+        "summary": "Sum {{sum}} · {{count}} cells · {{numbers}} numbers",
+        "mean": "Mean {{mean}}",
+        "pages": "Pages of the table",
+        "truncated": "Only the first 50,000 rows and 200 columns are shown."
+      },
+      "binary": {
+        "noChecksum": "No checksum",
+        "copyChecksum": "Copy SHA-256 checksum",
+        "tooLarge": "Too large for the preview (over 32 MB) – download only"
+      }
     },
     "embedDomains": {
       "title": "Embedded domains",
