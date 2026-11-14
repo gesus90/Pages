@@ -3,7 +3,11 @@ import { randomUUID } from "node:crypto";
 import { AgentPlanPausedError } from "@/backend/error/AgentPlanPausedError";
 import { AgentError } from "@/backend/error/AgentErrors";
 
-import { executeScriptProcess } from "./AgentPlanScriptProcess";
+import {
+  executeScriptProcess,
+  resumePlanScripts,
+  suspendPlanScripts,
+} from "./AgentPlanScriptProcess";
 import { planStackScriptInput } from "./stack/AgentPlanStackInputs";
 import { scriptInputJson } from "./AgentPlanScriptInputs";
 import { assessPlanScriptResult } from "./AgentPlanScriptResult";
@@ -35,6 +39,16 @@ export class AgentPlanScriptRunner {
     this.preparation = preparation;
   }
 
+  /** Holds active script process groups without losing their execution state. */
+  public suspend(runId: string): Set<string> {
+    return suspendPlanScripts(runId);
+  }
+
+  /** Continues active script process groups after a run resumes or stops. */
+  public resume(runId: string): void {
+    resumePlanScripts(runId);
+  }
+
   /** Persists an attempt before spawn and returns only after its owned resources have settled. */
   public async run(
     run: AgentPlanRun,
@@ -61,6 +75,8 @@ export class AgentPlanScriptRunner {
       );
       await this.preparation.reauthorize(run.userId, snapshot.plan, script);
       record = await executeScriptProcess({
+        runId: run.id,
+        stepId: script.step.id,
         record,
         program: script.interpreter.path,
         resources,

@@ -97,6 +97,8 @@ export function superviseAgentToolSession(
     ...(session.interrupt
       ? { interrupt: session.interrupt.bind(session) }
       : {}),
+    ...(session.suspend ? { suspend: session.suspend.bind(session) } : {}),
+    ...(session.resume ? { resume: session.resume.bind(session) } : {}),
     ...(session.cancelTool
       ? { cancelTool: session.cancelTool.bind(session) }
       : {}),

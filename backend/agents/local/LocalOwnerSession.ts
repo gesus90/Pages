@@ -36,6 +36,7 @@ import type {
   LocalSessionMutation,
 } from "./LocalSessionContracts";
 import type { LocalSessionJournal } from "./LocalSessionJournal";
+import type { LocalDeferred } from "./LocalDeferred";
 
 /** The API hands the bearer over right after it attached; a start without it fails. */
 const BEARER_WAIT_MS = 60_000;
@@ -55,6 +56,7 @@ export class LocalOwnerSession {
   private readonly outbox: LocalSessionOutbox;
   private readonly controller = new AbortController();
   private session: PlanSession | null = null;
+  private pauseGate: LocalDeferred<void> | null = null;
   private starting: Promise<void> | null = null;
   private readonly startupReady = localDeferred<void>();
   private recorder: AgentSessionRecorder | null = null;
@@ -140,17 +142,28 @@ export class LocalOwnerSession {
 
   /** A user's durable Stop ends only this owner's native session. */
   public cancel(): Promise<void> {
+    this.pauseGate?.resolve();
+    this.pauseGate = null;
     this.cancellation ??= this.cancelOnce();
     return this.cancellation;
   }
 
   /** Suspends the owned OpenCode adapter without cancelling its current turn. */
   public async suspend(): Promise<boolean> {
-    return (await this.session?.suspend?.()) ?? false;
+    if (!this.session) {
+      this.pauseGate ??= localDeferred<void>();
+      return true;
+    }
+    return (await this.session.suspend?.()) ?? false;
   }
 
   /** Continues the same owned OpenCode adapter and pending turn. */
   public async resume(): Promise<boolean> {
+    if (this.pauseGate) {
+      this.pauseGate.resolve();
+      this.pauseGate = null;
+      if (!this.session) return true;
+    }
     return (await this.session?.resume?.()) ?? false;
   }
 
@@ -214,6 +227,7 @@ export class LocalOwnerSession {
 
   private async startNative(): Promise<void> {
     const input = await this.prepare(this.launch);
+    while (this.pauseGate) await this.pauseGate.promise;
     if (this.controller.signal.aborted || this.closing)
       throw new AgentPlanCancelledError();
     await writeLocalRecord(
@@ -228,7 +242,11 @@ export class LocalOwnerSession {
     this.stopTimer = setInterval(() => {
       void this.checkStop();
     }, 250);
-    const currentRun = await this.dependencies.runs.find(this.launch.runId);
+    let currentRun = await this.dependencies.runs.find(this.launch.runId);
+    while (this.pauseGate) {
+      await this.pauseGate.promise;
+      currentRun = await this.dependencies.runs.find(this.launch.runId);
+    }
     if (
       !canContinueLocalTurn(currentRun, this.launch) ||
       this.closing ||

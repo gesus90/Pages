@@ -3,7 +3,11 @@ import { PassThrough } from "node:stream";
 
 import { beforeEach, expect, it, vi } from "vitest";
 
-import { executeScriptProcess } from "@/backend/service/agents/AgentPlanScriptProcess";
+import {
+  executeScriptProcess,
+  resumePlanScripts,
+  suspendPlanScripts,
+} from "@/backend/service/agents/AgentPlanScriptProcess";
 
 import type { AgentPlanScriptRun } from "@/definition/AgentPlanScript";
 import type * as ChildProcessModule from "node:child_process";
@@ -35,7 +39,7 @@ const NAMESPACE = {
   boot: "10000000-0000-4000-8000-000000000001",
 };
 
-function processFixture(): ChildProcess {
+function processFixture(exitOnInput = true): ChildProcess {
   const child = new ChildProcess();
   const stdin = new PassThrough();
   const stdout = new PassThrough();
@@ -54,11 +58,12 @@ function processFixture(): ChildProcess {
       }),
     },
   });
-  stdin.once("finish", () => {
-    stdout.write("result");
-    child.emit("exit", 0, null);
-    child.emit("close", 0, null);
-  });
+  if (exitOnInput)
+    stdin.once("finish", () => {
+      stdout.write("result");
+      child.emit("exit", 0, null);
+      child.emit("close", 0, null);
+    });
   return child;
 }
 
@@ -135,4 +140,43 @@ it("leaves cleanup unconfirmed when supervisor ownership cannot be recorded", as
   });
   expect(save).not.toHaveBeenCalled();
   expect(result.closeout).toBe("failed");
+});
+
+it("pauses a running script group immediately and resumes its remaining timeout", async () => {
+  const child = processFixture(false);
+  boundary.spawn.mockReturnValueOnce(child);
+  const signal = vi.spyOn(process, "kill").mockImplementation(() => true);
+  const save = vi.fn(async () => undefined);
+  try {
+    const execution = executeScriptProcess({
+      record: record(),
+      runId: "run-1",
+      stepId: "prepare",
+      program: "/synthetic/node",
+      resources: "/synthetic/resources",
+      input: "{}",
+      timeoutSeconds: 0.2,
+      signal: new AbortController().signal,
+      claimStart: () => undefined,
+      save,
+    });
+    await vi.waitFor(() => expect(save).toHaveBeenCalledOnce());
+    expect(suspendPlanScripts("run-1")).toEqual(new Set(["prepare"]));
+    expect(signal).toHaveBeenCalledWith(123, "SIGSTOP");
+    await new Promise((resolve) => setTimeout(resolve, 250));
+    resumePlanScripts("run-1");
+    expect(signal).toHaveBeenCalledWith(123, "SIGCONT");
+    child.stdout?.emit("data", Buffer.from("result"));
+    child.emit("exit", 0, null);
+    child.emit("close", 0, null);
+    const result = await execution;
+    expect(result).toMatchObject({
+      closeout: "confirmed",
+      failure: null,
+      stdout: "result",
+    });
+    expect(suspendPlanScripts("run-1").size).toBe(0);
+  } finally {
+    signal.mockRestore();
+  }
 });

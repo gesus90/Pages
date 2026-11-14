@@ -32,6 +32,15 @@ function isBlockedByBusiness(step: AgentPlanStepResult): boolean {
   return step.status === "failed" && step.failureStop?.failureClass === "harm";
 }
 
+/** OpenCode plans use a final Stop and start a fresh run after every end state. */
+function isOpenCodeRun(run: AgentPlanRun): boolean {
+  return allPlanRunResults(run).some(
+    (step) =>
+      step.execution?.modelAccess.provider === "opencode" ||
+      step.session?.runner === "opencode",
+  );
+}
+
 /**
  * The state "Fortsetzen" continues, which names the way the server takes.
  *
@@ -84,7 +93,9 @@ export function planControl(
   const isActive = isActivePlanRun(run.status);
   return {
     ...runControlMetadata(run, canIdentify),
-    canPlay: canRunPlan(plan),
+    canPlay:
+      canRunPlan(plan) &&
+      (!isOpenCodeRun(run) || !isActive),
     waitReason: canIdentify && isActive ? run.waitReason : undefined,
     workspaceWait:
       canIdentify && isPlanWriterWaitActive(run)
@@ -170,6 +181,7 @@ function runControlMetadata(
 
 /** Ended runs that "Fortsetzen" continues: failed, an open closeout, and a stopped run. */
 export function isEndedResumable(run: AgentPlanRun): boolean {
+  if (isOpenCodeRun(run)) return false;
   return isResumablePlanRunEnd(run.status) || run.status === "cancelled";
 }
 
@@ -182,10 +194,12 @@ export function isEndedResumable(run: AgentPlanRun): boolean {
  * Stop, also when a process hangs.
  */
 function isStoppable(run: AgentPlanRun): boolean {
+  if (isOpenCodeRun(run)) return isActivePlanRun(run.status);
   return isActivePlanRun(run.status) || isResumablePlanRunEnd(run.status);
 }
 
 function resumableStatus(run: AgentPlanRun, issue: string | null): boolean {
   if (run.status === "paused") return !run.stopRequested && !issue;
+  if (isOpenCodeRun(run)) return false;
   return isEndedResumable(run) && !issue;
 }

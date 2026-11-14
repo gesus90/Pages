@@ -102,7 +102,12 @@ function planProfile(mode: AcpPermissionMode): AcpSessionProfile {
         value: sessionMode,
         refusal: "plan_permission_mode_unenforceable",
       },
-      { id: "model", value: request.model, refusal: "plan_model_unavailable" },
+      {
+        id: "model",
+        value: request.model,
+        refusal: "plan_model_unavailable",
+        isResolvedByAdapter: true,
+      },
       {
         id: "effort",
         value: request.reasoningEffort ?? "default",

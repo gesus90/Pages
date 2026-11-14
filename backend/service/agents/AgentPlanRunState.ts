@@ -32,6 +32,8 @@ export interface ActivePlanRun {
   readonly controllers: Map<string, AbortController>;
   /** OpenCode adapters stopped inside their durable local owner. */
   suspended?: Map<string, string>;
+  /** Running script process groups held at the pause boundary. */
+  suspendedScripts?: Set<string>;
   /** The nodes of this run that are executing, so a caller can wait for exactly this run. */
   readonly executions: Set<Promise<void>>;
   releaseDefinition?: () => Promise<void>;
@@ -49,7 +51,7 @@ export function suspendedOpenCodeSessions(
     allPlanRunResults(run).flatMap((step) =>
       step.status === "running" &&
       step.session?.runner === "opencode" &&
-      step.session.processId !== null
+      step.session.closeout === "pending"
         ? [[step.id, step.session.instanceId] as const]
         : [],
     ),
@@ -62,12 +64,17 @@ export function isSuspendedPlanController(
   stepId: string,
 ): boolean {
   if (active.suspended?.has(stepId)) return true;
+  if (active.suspendedScripts?.has(stepId)) return true;
   return (
     active.view.loops?.some(
       (loop) =>
         loop.id === stepId &&
         loop.iterations.some((iteration) =>
-          iteration.nodes.some((step) => active.suspended?.has(step.id)),
+          iteration.nodes.some(
+            (step) =>
+              active.suspended?.has(step.id) ||
+              active.suspendedScripts?.has(step.id),
+          ),
         ),
     ) ?? false
   );

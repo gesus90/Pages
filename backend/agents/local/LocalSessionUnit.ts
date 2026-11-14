@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { existsSync } from "node:fs";
 import { rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
@@ -36,19 +37,18 @@ const OWNER_ENVIRONMENT = [
 export async function startLocalSessionUnit(
   manifest: LocalOwnerManifest,
 ): Promise<void> {
-  const entrypoint = fileURLToPath(
-    new URL(
-      import.meta.env?.PROD
-        ? "../../local-agent.mjs"
-        : "../../../local-agent.mjs",
-      import.meta.url,
-    ),
+  const builtEntrypoint = fileURLToPath(
+    new URL("../../local-agent.mjs", import.meta.url),
   );
+  const isBuilt = existsSync(builtEntrypoint);
+  const entrypoint = isBuilt
+    ? builtEntrypoint
+    : path.resolve(process.cwd(), "local-agent.mjs");
   const environment: Record<string, string> = {
-    NODE_ENV: import.meta.env?.PROD ? "production" : "development",
+    NODE_ENV: isBuilt ? "production" : "development",
     LANG: "C.UTF-8",
   };
-  if (!import.meta.env?.PROD) environment.PAGES_LOCAL_OWNER_SOURCE = "1";
+  if (!isBuilt) environment.PAGES_LOCAL_OWNER_SOURCE = "1";
   for (const name of OWNER_ENVIRONMENT) {
     const configured = process.env[name];
     if (configured !== undefined) environment[name] = configured;
@@ -75,6 +75,7 @@ export async function startLocalSessionUnit(
       file,
       entrypoint,
       environment,
+      isBuilt,
     );
   } catch {
     // Process errors may include captured environment output; never forward them.
@@ -92,6 +93,7 @@ async function startPreparedLocalSessionUnit(
   file: string,
   entrypoint: string,
   environment: Readonly<Record<string, string>>,
+  isBuilt: boolean,
 ): Promise<void> {
   const manager = localManagerEnvironment();
   const listed = await runFile(
@@ -111,7 +113,7 @@ async function startPreparedLocalSessionUnit(
     );
   const properties = [
     `WorkingDirectory=${path.dirname(entrypoint)}`,
-    "MemoryMax=512M",
+    `MemoryMax=${isBuilt ? "512M" : "1536M"}`,
     "MemorySwapMax=128M",
     // Readiness children and the source-mode compiler share this task budget.
     "TasksMax=256",

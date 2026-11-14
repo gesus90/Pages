@@ -120,6 +120,7 @@ export class AgentPlanRunCommands {
         active.view = previous;
         throw error;
       }
+      this.dependencies.scripts?.resume?.(id);
       for (const controller of active.controllers.values()) controller.abort();
     });
     this.schedulePump();
@@ -146,6 +147,7 @@ export class AgentPlanRunCommands {
         };
         await this.dependencies.runs.update(active.view);
       }
+      this.dependencies.scripts?.resume?.(id);
       for (const controller of active.controllers.values()) controller.abort();
     });
     this.schedulePump();
@@ -194,13 +196,16 @@ export class AgentPlanRunCommands {
       active.view = proposed;
       this.dependencies.resources?.pauseRun(id);
       const suspended = new Map<string, string>();
+      let suspendedScripts = new Set<string>();
       try {
+        suspendedScripts = this.dependencies.scripts?.suspend?.(id) ?? new Set();
         for (const [stepId, instanceId] of suspendedOpenCodeSessions(proposed)) {
           if (!(await this.dependencies.localSessions?.suspend(instanceId)))
             throw new AgentError("plan_local_owner_unverified");
           suspended.set(stepId, instanceId);
         }
       } catch (error: unknown) {
+        this.dependencies.scripts?.resume?.(id);
         for (const instanceId of suspended.values())
           await this.dependencies.localSessions?.resume(instanceId);
         this.dependencies.resources?.resumeRun(id);
@@ -209,6 +214,7 @@ export class AgentPlanRunCommands {
         throw error;
       }
       active.suspended = suspended;
+      active.suspendedScripts = suspendedScripts;
       for (const [stepId, controller] of active.controllers)
         if (
           !isSuspendedPlanController(active, stepId) &&
@@ -238,11 +244,13 @@ export class AgentPlanRunCommands {
         active.view.stopRequested ||
         active.hasPersistenceFailure ||
         active.view.status !== "paused" ||
-        (active.controllers.size !== 0 && !active.suspended?.size)
+        (active.controllers.size !== 0 &&
+          !active.suspended?.size &&
+          !active.suspendedScripts?.size)
       )
         throw new AgentError("plan_run_unavailable");
       const previous = await this.pausedView(active);
-      if (active.suspended?.size) {
+      if (active.suspended?.size || active.suspendedScripts?.size) {
         if (snapshot && snapshot.plan.revision !== active.snapshot.plan.revision)
           throw new AgentError("plan_context_changed");
         await this.resumeSuspended(active, previous, journal);
@@ -268,6 +276,9 @@ export class AgentPlanRunCommands {
       ...previous,
       status: "running",
       pauseBoundary: undefined,
+      steps: previous.steps.map((step) =>
+        step.status === "paused" ? { ...step, status: "waiting" } : step,
+      ),
     };
     await this.dependencies.runs.update(next, undefined, undefined, journal);
     active.view = next;
@@ -278,7 +289,9 @@ export class AgentPlanRunCommands {
           throw new AgentError("plan_local_owner_unverified");
         continued.push(instanceId);
       }
+      this.dependencies.scripts?.resume?.(active.view.id);
     } catch (error: unknown) {
+      this.dependencies.scripts?.suspend?.(active.view.id);
       for (const instanceId of continued)
         await this.dependencies.localSessions?.suspend(instanceId);
       active.view = previous;
@@ -286,6 +299,7 @@ export class AgentPlanRunCommands {
       throw error;
     }
     active.suspended?.clear();
+    active.suspendedScripts?.clear();
     this.dependencies.resources?.resumeRun(active.view.id);
   }
 

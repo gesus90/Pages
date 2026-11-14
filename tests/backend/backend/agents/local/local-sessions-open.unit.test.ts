@@ -126,6 +126,30 @@ beforeEach(() => {
 });
 
 describe("open", () => {
+  it("attaches before delivering a pause queued during owner launch", async () => {
+    const launch = Promise.withResolvers<void>();
+    mocks.unit.startLocalSessionUnit.mockImplementationOnce(() => launch.promise);
+    const sessions = createSessions();
+    const opening = sessions.open(
+      sessionInput(),
+      new AbortController().signal,
+      createObserver(),
+    );
+    await vi.waitFor(() =>
+      expect(mocks.unit.startLocalSessionUnit).toHaveBeenCalledOnce(),
+    );
+    expect(await sessions.suspend(INSTANCE_ID)).toBe(true);
+    launch.resolve();
+    await opening;
+
+    const commands = mocks.transport.sendLocalCommand.mock.calls.map(
+      (call) => call[1],
+    );
+    expect(commands.findIndex((command) => command.kind === "attach")).toBeLessThan(
+      commands.findIndex((command) => command.kind === "suspend"),
+    );
+  });
+
   it("reserves, launches, proves and attaches an owner, then hands the bearer over", async () => {
     const observer = createObserver();
     const beforeStart = vi.fn();

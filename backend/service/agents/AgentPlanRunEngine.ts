@@ -39,6 +39,7 @@ import {
   isRequestStep,
   endedPlanRun,
   countRunningPlanRequests,
+  suspendedOpenCodeSessions,
 } from "./AgentPlanRunState";
 import { planWritingWorkspaces } from "./AgentPlanContinuation";
 import { settlePlanRun } from "./AgentPlanRunSettle";
@@ -292,6 +293,14 @@ export class AgentPlanRunEngine {
     this.dependencies.localSessions?.detachAll();
     if (this.resourceTimer) clearTimeout(this.resourceTimer);
     for (const [id, active] of this.active) {
+      if (
+        active.view.status === "paused" &&
+        suspendedOpenCodeSessions(active.view).size > 0
+      ) {
+        this.active.delete(id);
+        for (const pending of active.executions) this.pending.delete(pending);
+        continue;
+      }
       if (!this.dependencies.localSessions?.detachRun(id)) continue;
       this.active.delete(id);
       for (const pending of active.executions) this.pending.delete(pending);

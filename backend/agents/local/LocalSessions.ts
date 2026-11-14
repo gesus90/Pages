@@ -87,6 +87,7 @@ export class LocalSessions {
   private readonly proven = new Set<string>();
   private readonly uncertain = new Set<string>();
   private readonly launching = new Set<string>();
+  private readonly pendingSuspensions = new Set<string>();
   private readonly attachments = new Map<string, string>();
   private isDetaching = false;
   private readonly finished = new LocalFinishedSessions((entry) =>
@@ -180,6 +181,10 @@ export class LocalSessions {
 
   /** Stops an owned OpenCode process group while its local owner keeps the turn. */
   public async suspend(instanceId: string): Promise<boolean> {
+    if (!this.entries.has(instanceId) || this.launching.has(instanceId)) {
+      this.pendingSuspensions.add(instanceId);
+      return true;
+    }
     const response = await this.control(this.requireEntry(instanceId), {
       kind: "suspend",
     });
@@ -193,6 +198,11 @@ export class LocalSessions {
 
   /** Continues the same owned OpenCode process group. */
   public async resume(instanceId: string): Promise<boolean> {
+    if (this.pendingSuspensions.delete(instanceId)) {
+      if (this.proven.has(instanceId))
+        await this.control(this.requireEntry(instanceId), { kind: "resume" });
+      return true;
+    }
     const response = await this.control(this.requireEntry(instanceId), {
       kind: "resume",
     });
@@ -442,15 +452,21 @@ export class LocalSessions {
       await this.owners.prove(entry.instanceId, owned.proof);
       this.entries.set(entry.instanceId, { ...entry, proof: owned.proof });
       this.proven.add(entry.instanceId);
-      this.launching.delete(entry.instanceId);
       const raw = await this.bind(entry, launch, admission.signal, observer);
       // The bearer travels only through the private socket into the owner's memory.
       if (input.mcp)
         await this.control(entry, { kind: "bearer", token: input.mcp.token });
+      if (this.pendingSuspensions.has(entry.instanceId)) {
+        await this.control(entry, { kind: "suspend" });
+        if (!this.pendingSuspensions.has(entry.instanceId))
+          await this.control(entry, { kind: "resume" });
+      }
+      this.launching.delete(entry.instanceId);
       // The scheduler wraps this exact proxy after the callback returns.
       return raw;
     } catch (error: unknown) {
       this.launching.delete(entry.instanceId);
+      this.pendingSuspensions.delete(entry.instanceId);
       this.uncertain.add(entry.instanceId);
       logCaughtError("LocalSessions", error);
       const failure = serializeLogError(error);
