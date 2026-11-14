@@ -3,6 +3,7 @@ import {
   fullEnvironmentProfile,
   redactFullEnvironment,
 } from "./CliFullEnvironment";
+import { describeOpenCodeAgent } from "./OpenCodeAgentModel";
 import { planAcpLaunch } from "./CliAcpLaunch";
 import { acpSessionSecrets, createAcpRedactor } from "./CliAcpRedaction";
 
@@ -37,7 +38,10 @@ export function prepareAcpProtocol(
         nativeProfile,
         input.fullEnvironment?.ownerName ?? "",
       )
-    : nativeProfile;
+    : {
+        ...nativeProfile,
+        unattended: describeOpenCodeAgent(input, nativeProfile.unattended),
+      };
   const launch = planAcpLaunch(driver, input, start.file, profile);
   const channel = new AcpLineChannel(
     input.chat !== undefined &&

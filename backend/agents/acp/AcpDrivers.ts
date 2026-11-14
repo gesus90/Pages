@@ -3,7 +3,10 @@ import { CLAUDE_ACP_DRIVER } from "./ClaudeAcpDriver";
 import { CODEX_ACP_DRIVER } from "./CodexAcpDriver";
 import { OPENCODE_ACP_DRIVER } from "./OpenCodeAcpDriver";
 
-import type { NativeAcpProviderId } from "@/definition/AgentConfiguration";
+import type {
+  AcpProviderId,
+  NativeAcpProviderId,
+} from "@/definition/AgentConfiguration";
 import type { AcpDriver } from "./AcpDriver";
 
 const DRIVERS: Readonly<Record<NativeAcpProviderId, AcpDriver>> = {
@@ -19,6 +22,8 @@ const DRIVERS: Readonly<Record<NativeAcpProviderId, AcpDriver>> = {
  * @param provider - A native ACP runner, shared by plans and Pica.
  * @returns What differs between the runners' verified ACP contracts.
  */
-export function acpDriverFor(provider: NativeAcpProviderId): AcpDriver {
+export function acpDriverFor(provider: AcpProviderId): AcpDriver {
+  if (provider === "openrouter" || provider === "zai")
+    return OPENCODE_ACP_DRIVER;
   return DRIVERS[provider];
 }

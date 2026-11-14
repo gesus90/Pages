@@ -146,13 +146,15 @@ function legacyConfirmation(
   // Pages fills in OpenCode's default effort itself; the adapter never confirmed it.
   if (
     value === undefined ||
-    (record.runner === "opencode" && value === "default")
+    (["opencode", "openrouter", "zai"].includes(record.runner) &&
+      value === "default")
   )
     return UNKNOWN;
   return {
     value,
-    source:
-      record.runner === "opencode" ? "adapter_selector" : "acp_config_option",
+    source: ["opencode", "openrouter", "zai"].includes(record.runner)
+      ? "adapter_selector"
+      : "acp_config_option",
     reportedAt: record.turnEndedAt,
   };
 }

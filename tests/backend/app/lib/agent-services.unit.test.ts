@@ -27,10 +27,7 @@ import { createApiProviderRegistry } from "@/backend/agents/providers/ApiProvide
 import { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
 import { InstanceSecretCipher } from "@/backend/security/InstanceSecretCipher";
 import { AgentCheckService } from "@/backend/service/agents/AgentCheckService";
-import {
-  OpenCodeProviderKeys,
-  OpenCodeProviderLinks,
-} from "@/backend/service/agents/OpenCodeProviderLinks";
+import { OpenCodeProviderLinks } from "@/backend/service/agents/OpenCodeProviderLinks";
 import { AgentCliLoginService } from "@/backend/service/agents/AgentCliLoginService";
 import { AgentConnectionService } from "@/backend/service/agents/AgentConnectionService";
 import { AgentOperationRegistry } from "@/backend/service/agents/AgentOperationRegistry";
@@ -131,7 +128,7 @@ vi.mock("@/backend/service/agents/AgentCheckService", () =>
   fakeClasses({ AgentCheckService: ["run"] }),
 );
 vi.mock("@/backend/service/agents/OpenCodeProviderLinks", () =>
-  fakeClasses({ OpenCodeProviderKeys: [], OpenCodeProviderLinks: [] }),
+  fakeClasses({ OpenCodeProviderLinks: [] }),
 );
 vi.mock("@/backend/service/agents/AgentCliLoginService", () =>
   fakeClasses({ AgentCliLoginService: [] }),
@@ -331,12 +328,7 @@ it("builds the CLI runtime on a managed tool locator", async () => {
     runner,
     cipher: only(vi.mocked(InstanceSecretCipher)),
     tools: TOOL_MANAGER,
-    linkedKeys: only(vi.mocked(OpenCodeProviderKeys)),
   });
-  expect(vi.mocked(OpenCodeProviderKeys).mock.calls[0]).toEqual([
-    only(vi.mocked(AgentConnectionRepository)),
-    only(vi.mocked(InstanceSecretCipher)),
-  ]);
   expect(services.agentToolManagerService).toBe(TOOL_MANAGER);
 });
 
@@ -455,12 +447,7 @@ it("checks connections with the shared registry and links OpenCode providers", a
     "connection-1",
     "auth",
   );
-  await expect(links.refreshCatalog("connection-2")).resolves.toEqual(
-    opaque("refreshed"),
-  );
-  expect(AgentCatalogRefresh.prototype.run).toHaveBeenCalledWith(
-    "connection-2",
-  );
+  expect(AgentCatalogRefresh.prototype.run).not.toHaveBeenCalled();
 });
 
 it("runs plan steps over the API and over isolated CLI sessions", () => {
@@ -485,6 +472,7 @@ it("runs plan steps over the API and over isolated CLI sessions", () => {
   ]);
   const nodeDirectory = path.dirname(process.execPath);
   expect(vi.mocked(CliSessionExecution).mock.calls[0][0]).toEqual({
+    apiCredentials: expect.any(Function),
     runtime: only(vi.mocked(AgentCliRuntime)),
     store: only(vi.mocked(AgentCredentialStore)),
     locator: vi.mocked(CliLocator).mock.instances[1],

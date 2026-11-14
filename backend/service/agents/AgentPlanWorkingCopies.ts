@@ -1,5 +1,4 @@
 import { AgentPlanWorkspaceConflictError } from "@/backend/error/AgentPlanWorkspaceConflictError";
-import { isApiProvider } from "@/definition/AgentConnection";
 import {
   agentRunOptionsFor,
   isAcpProvider,
@@ -22,7 +21,7 @@ function validateAgentWorkingCopies(
   plan: AgentPlan,
   steps: readonly AgentPlanStepSnapshot[],
 ): void {
-  const localSteps = steps.filter((step) => !isApiProvider(step.provider));
+  const localSteps = steps.filter((step) => isAcpProvider(step.provider));
   for (const first of localSteps) {
     for (const second of localSteps) {
       const firstDirectory = planStepDirectory(first);
@@ -81,7 +80,7 @@ function validateScriptWorkingCopies(
       workspace: script.workspace,
     })),
     ...steps
-      .filter((step) => !isApiProvider(step.provider))
+      .filter((step) => isAcpProvider(step.provider))
       .map((step) => ({
         id: step.step.id,
         name: step.name,

@@ -1,14 +1,9 @@
 import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
-import { openCodeModelProvider } from "@/definition/AgentConnection";
 import { catalogModelChoice } from "@/definition/AgentModelChoice";
 import { supportsModelCatalog } from "@/definition/AgentModelCatalog";
 
 import { resolveAgentAssignmentFor } from "./AgentAssignmentResolution";
 import { canUseAgentConnection } from "./AgentConnectionAccess";
-import {
-  canUseOpenCodeModel,
-  findOpenCodeLinks,
-} from "./OpenCodeProviderLinks";
 
 import type { AgentViewer } from "@/backend/auth/AgentProfilePolicy";
 import type { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
@@ -22,18 +17,11 @@ export async function connectionModels(
   viewer: AgentViewer,
 ): Promise<readonly PageAgentModel[]> {
   const choices: PageAgentModel[] = [];
-  const links = await findOpenCodeLinks(connections);
   for (const connection of await connections.list()) {
     if (!(await canUseAgentConnection(connections, viewer, connection.id)))
       continue;
     const catalog = await connections.catalogs().find(connection.id);
-    const models = await usableModels({
-      connections,
-      viewer,
-      connection,
-      models: selectionModels(connection, catalog.models),
-      links,
-    });
+    const models = selectionModels(connection, catalog.models);
     // Every model in this catalog shares the same connection grant and authentication.
     // Check those once per request, rather than repeating database reads for every model.
     if (!(await isAvailable({ connections, viewer, connection, models })))
@@ -46,33 +34,6 @@ export async function connectionModels(
   return choices;
 }
 
-// OpenCode lists a linked provider's models only to people the API connection of its key admits.
-async function usableModels(input: {
-  readonly connections: AgentConnectionRepository;
-  readonly viewer: AgentViewer;
-  readonly connection: AgentConnectionRecord;
-  readonly models: readonly AgentCatalogModel[];
-  readonly links: Awaited<ReturnType<typeof findOpenCodeLinks>>;
-}): Promise<readonly AgentCatalogModel[]> {
-  const { connections, viewer, connection, models, links } = input;
-  if (connection.provider !== "opencode") return models;
-  const admitted = new Map<string, boolean>();
-  const usable: AgentCatalogModel[] = [];
-  for (const model of models) {
-    const modelProvider = openCodeModelProvider(model.id);
-    const isAdmitted =
-      admitted.get(modelProvider) ??
-      (await canUseOpenCodeModel(connections, viewer, {
-        connection,
-        model: model.id,
-        links,
-      }));
-    admitted.set(modelProvider, isAdmitted);
-    if (isAdmitted) usable.push(model);
-  }
-  return usable;
-}
-
 function selectionModels(
   connection: AgentConnectionRecord,
   models: readonly AgentCatalogModel[],
@@ -82,7 +43,9 @@ function selectionModels(
     (connection.provider === "zai" && models.length === 0)
   )
     return manualModels(connection);
-  return models;
+  return connection.provider === "opencode"
+    ? models.filter((model) => model.id.startsWith("opencode/") && model.isFree)
+    : models;
 }
 
 function manualModels(

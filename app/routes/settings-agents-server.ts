@@ -43,7 +43,6 @@ export async function loader({
       agentChat,
       runDiagnosis,
       runners,
-      openCodeLinks,
       authorizationVersion,
     ] = await Promise.all([
       services.agentConnectionService.list(actor),
@@ -58,17 +57,12 @@ export async function loader({
       services.agentChatSettingsService.administration(actor),
       services.agentRunDiagnosisSettingsService.administration(actor),
       services.runnerService.overview(actor.userId),
-      services.openCodeProviderLinks.describe(),
       readAuthorizationVersion(services, actor.userId),
     ]);
     return routeData<AgentsLoaderData>(
       {
         access: "granted",
-        connections: connections.map((connection) =>
-          connection.provider === "opencode"
-            ? { ...connection, openCodeLinks }
-            : connection,
-        ),
+        connections,
         runners,
         runnerGitHubMode: services.runnerGitHubMode,
         cliTools,

@@ -50,14 +50,14 @@ it("keeps incompatible models and every configured provider in the plan catalog"
   const { profiles, connections } = planWorld();
   vi.spyOn(connections.catalogs(), "find").mockResolvedValue({
     ...emptyModelCatalog(),
-    models: [ZEN, { ...ZEN, id: "no-tools", isToolCapable: false }],
+    models: [ZEN, { ...ZEN, id: "opencode/no-tools", isToolCapable: false }],
   });
   const listed = await profiles.planModels("admin");
   expect(listed.map((model) => [model.provider, model.model])).toEqual([
     ["opencode", ZEN.id],
-    ["opencode", "no-tools"],
+    ["opencode", "opencode/no-tools"],
     ["openai", ZEN.id],
-    ["openai", "no-tools"],
+    ["openai", "opencode/no-tools"],
   ]);
 });
 

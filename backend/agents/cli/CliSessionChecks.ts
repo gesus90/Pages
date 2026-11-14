@@ -1,6 +1,6 @@
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
-import { isAcpProvider } from "@/definition/AgentConfiguration";
+import { nativeAcpProvider } from "@/definition/AgentConfiguration";
 import { openCodeModelProvider } from "@/definition/AgentConnection";
 
 import type { AgentPlanSessionInput } from "@/backend/agents/AgentPlanExecution";
@@ -39,7 +39,9 @@ export function sessionAcpProvider(
   input: AgentPlanSessionInput,
 ): NativeAcpProviderId | null {
   const provider = input.agent.connection.provider;
-  return isAcpProvider(provider) ? provider : null;
+  if (input.chat && (provider === "openrouter" || provider === "zai"))
+    return null;
+  return nativeAcpProvider(provider);
 }
 
 /** Refuses a start whose sign-in or model the status check does not confirm. */

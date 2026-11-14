@@ -144,35 +144,29 @@ function selectionWorld(): {
   };
 }
 
-it("proposes an exact linked API model and effort without mutating settings or silently executing", async () => {
+it("keeps API chat selection unchanged and offers no implicit OpenCode adoption", async () => {
   const world = selectionWorld();
   const view = await world.service.administration("owner");
   // PAGE-248: the form lists every usable model; Pica's own rule refuses rows there.
-  expect(view.models.some(isPicaModel)).toBe(true);
+  expect(view.models.some(isPicaModel)).toBe(false);
   expect(new Set(view.models.map((model) => model.provider))).toEqual(
-    new Set(["opencode", "google_ai_studio"]),
+    new Set(["google_ai_studio"]),
   );
   expect(view.settings.selection).toEqual(SELECTION);
-  expect(view.settings.adoption).toMatchObject({
-    connectionId: CLI.id,
-    model: MODEL.model,
-    reasoningEffort: "low",
-  });
+  expect(view.settings.adoption).toBeUndefined();
   expect(view.settings.error).toBe("picaModelSelectionRequired");
   expect(world.save).not.toHaveBeenCalled();
   await expect(world.service.resolve("owner")).rejects.toMatchObject({
     code: "picaModelSelectionRequired",
   });
-  await world.service.save("owner", {
-    isEnabled: true,
-    revision: 4,
-    selection: { ...SELECTION, connectionId: CLI.id, model: MODEL.model },
-  });
-  expect(world.save).toHaveBeenCalledWith(
-    expect.objectContaining({
+  await expect(
+    world.service.save("owner", {
+      isEnabled: true,
+      revision: 4,
       selection: { ...SELECTION, connectionId: CLI.id, model: MODEL.model },
     }),
-  );
+  ).rejects.toMatchObject({ code: "modelUnavailable" });
+  expect(world.save).not.toHaveBeenCalled();
 });
 
 it("requires a new selection for unavailable, ambiguous or incompatible opencode matches", async () => {

@@ -17,7 +17,14 @@ const MODEL: PropertySchema = {
       properties: {
         connectionId: PLAN_NODE_IDENTIFIER_SCHEMA,
         provider: {
-          enum: ["codex_cli", "claude_code", "opencode", "antigravity"],
+          enum: [
+            "codex_cli",
+            "claude_code",
+            "opencode",
+            "antigravity",
+            "openrouter",
+            "zai",
+          ],
         },
         model: { type: "string", minLength: 1, maxLength: 200 },
         reasoningEffort: { type: ["string", "null"], maxLength: 100 },

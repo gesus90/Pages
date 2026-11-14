@@ -5,10 +5,12 @@ import { planWorkWriteSchema } from "@/backend/agents/AgentPlanWorkInput";
 import { AgentPlanWorkRepository } from "@/backend/database/repositories/agent/AgentPlanWorkRepository";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { AgentError } from "@/backend/error/AgentErrors";
-import { isApiProvider } from "@/definition/AgentConnection";
 import { readPlanStepTickets } from "@/backend/agents/AgentPlanStepTickets";
 import { materializeTicketChecklist } from "@/backend/service/task/TicketChecklist";
-import { agentRunOptionsFor } from "@/definition/AgentConfiguration";
+import {
+  agentRunOptionsFor,
+  isAcpProvider,
+} from "@/definition/AgentConfiguration";
 import { logCaughtError } from "@/backend/logging/Logger";
 
 import { createAgentTaskContext } from "./AgentTaskAccess";
@@ -44,7 +46,7 @@ function requireWritableGateProvider(
   provider: AgentProviderId | null | undefined,
   options: AgentRunOptions | undefined,
 ): void {
-  if (!provider || isApiProvider(provider))
+  if (!provider || !isAcpProvider(provider))
     throw new AgentError("plan_work_gate_unavailable");
   if (agentRunOptionsFor(provider, options).access === "read_only")
     throw new AgentError("plan_work_gate_unavailable");

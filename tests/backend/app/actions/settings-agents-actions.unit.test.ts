@@ -302,7 +302,7 @@ it("rechecks linked access only when an update brings a new key", async () => {
   ]);
 });
 
-it("refreshes OpenCode links only after deleting a linked connection", async () => {
+it("keeps OpenCode independent when deleting API connections", async () => {
   services.openCodeProviderLinks.isLinkCandidate
     .mockResolvedValueOnce(true)
     .mockResolvedValueOnce(false);
@@ -314,7 +314,7 @@ it("refreshes OpenCode links only after deleting a linked connection", async () 
     [ACCOUNT, "c1"],
     [ACCOUNT, "c2"],
   ]);
-  expect(services.openCodeProviderLinks.refresh).toHaveBeenCalledOnce();
+  expect(services.openCodeProviderLinks.refresh).not.toHaveBeenCalled();
   expect(linked.body).toEqual({
     ok: true,
     connectionId: "c1",
@@ -347,7 +347,7 @@ it("refreshes the catalog of a connection", async () => {
   });
 });
 
-it("runs an access check and refreshes OpenCode links of a linked connection", async () => {
+it("runs an access check without refreshing unrelated OpenCode catalogs", async () => {
   services.agentCheckService.run.mockResolvedValue({ status: "ok" });
   services.openCodeProviderLinks.isLinkCandidate
     .mockResolvedValueOnce(true)
@@ -365,7 +365,7 @@ it("runs an access check and refreshes OpenCode links of a linked connection", a
     check: { status: "ok" },
     intent: "run-check",
   });
-  expect(services.openCodeProviderLinks.refresh).toHaveBeenCalledOnce();
+  expect(services.openCodeProviderLinks.refresh).not.toHaveBeenCalled();
 });
 
 it("runs a model check without touching OpenCode links", async () => {

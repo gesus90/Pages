@@ -1,4 +1,4 @@
-import { isApiProvider } from "@/definition/AgentConnection";
+import { isAcpProvider } from "@/definition/AgentConfiguration";
 
 import { sanitizeArtifactText } from "./AgentPlanOutput";
 import { planStepDirectory } from "./AgentPlanSnapshot";
@@ -99,7 +99,7 @@ export function reservedWorkspaceConflict(
       );
   for (const step of snapshot.steps) {
     const directory = planStepDirectory(step);
-    if (!isApiProvider(step.provider) && directory?.id === workspaceId)
+    if (isAcpProvider(step.provider) && directory?.id === workspaceId)
       entries.push(localWorkspaceEntry(directory, step.step.id, step.name));
   }
   for (const remote of snapshot.remoteSteps ?? []) {

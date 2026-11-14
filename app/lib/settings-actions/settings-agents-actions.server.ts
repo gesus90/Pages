@@ -146,7 +146,7 @@ const AGENT_ACTION_HANDLERS: Readonly<Record<string, AgentActionHandler>> = {
       actor,
       readConnectionInput(formData),
     );
-    // A stored key reaches OpenCode, and a new OpenCode connection signs in, without a further step.
+    // Verify this API connection, or activate the independent OpenCode free catalog.
     await services.openCodeProviderLinks.afterKeyChange(actor, connectionId);
     await services.openCodeProviderLinks.activate(actor, connectionId);
     return { ok: true, connectionId };
@@ -159,9 +159,7 @@ const AGENT_ACTION_HANDLERS: Readonly<Record<string, AgentActionHandler>> = {
     return { ok: true, connectionId: id };
   },
   "delete-connection": async ({ actor, services, id }) => {
-    const isLinked = await services.openCodeProviderLinks.isLinkCandidate(id);
     await services.agentConnectionService.remove(actor, id);
-    if (isLinked) await services.openCodeProviderLinks.refresh();
     return { ok: true, connectionId: id };
   },
   "configure-catalog": async ({ actor, services, formData, id }) => {
@@ -181,11 +179,6 @@ const AGENT_ACTION_HANDLERS: Readonly<Record<string, AgentActionHandler>> = {
     const kind = formData.get("kind");
     if (kind !== "auth" && kind !== "model") throw badRequest();
     const check = await services.agentCheckService.run(actor, id, kind);
-    if (
-      kind === "auth" &&
-      (await services.openCodeProviderLinks.isLinkCandidate(id))
-    )
-      await services.openCodeProviderLinks.refresh();
     return { ok: true, check };
   },
   "start-login": async ({ actor, services, id }) => ({

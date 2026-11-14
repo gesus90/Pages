@@ -377,7 +377,7 @@ async function bindStepParameters(
   readonly assetInputs: readonly AgentTicketInput[];
 }> {
   const references = stepReferences(step, live);
-  const isOpenCode = step.provider === "opencode";
+  const isOpenCode = ["opencode", "openrouter", "zai"].includes(step.provider);
   const parameters = await bindAgentParameters(
     isOpenCode
       ? {
@@ -495,7 +495,7 @@ function promptParameters(
   step: AgentPlanStepSnapshot,
 ): ReadonlySet<string> {
   const names = new Set(placeholderNames(template.markdown));
-  if (step.provider === "opencode")
+  if (["opencode", "openrouter", "zai"].includes(step.provider))
     for (const name of placeholderNames(step.step.instruction)) names.add(name);
   return names;
 }

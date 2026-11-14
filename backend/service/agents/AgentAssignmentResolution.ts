@@ -4,8 +4,6 @@ import { isApiProvider } from "@/definition/AgentConnection";
 import { supportsModelCatalog } from "@/definition/AgentModelCatalog";
 import { resolveClaudeModelAlias } from "@/definition/AgentModelVersion";
 
-import { requireOpenCodeModelAccess } from "./OpenCodeProviderLinks";
-
 import type { AgentViewer } from "@/backend/auth/AgentProfilePolicy";
 import type { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
 import type { AgentConnectionRecord } from "@/backend/database/repositories/agent/AgentConnectionRows";
@@ -96,6 +94,11 @@ export async function resolveAgentAssignment(
       connection.provider === "zai") &&
     connection.testModel === assignment.model;
   if (!model && !isManual) throw new AgentExecutionError("modelUnavailable");
+  if (
+    connection.provider === "opencode" &&
+    (!assignment.model.startsWith("opencode/") || !model?.isFree)
+  )
+    throw new AgentExecutionError("modelUnavailable");
   const effort = assignment.reasoningEffort;
   if (effort !== null && !model?.reasoningEfforts.includes(effort))
     throw new AgentExecutionError("reasoningUnsupported");
@@ -131,7 +134,5 @@ export async function resolveAgentAssignmentFor(
   if (scope !== null && !isInAgentConnectionScope(scope, viewer))
     throw new AgentExecutionError("accessDenied");
   const resolved = await resolveAgentAssignment(connections, assignment);
-  // An OpenCode model of a linked provider also needs the scope of the API connection whose key it uses.
-  await requireOpenCodeModelAccess(connections, viewer, resolved);
   return resolved;
 }

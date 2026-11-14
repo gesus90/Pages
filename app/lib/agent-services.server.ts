@@ -27,10 +27,8 @@ import { createApiProviderRegistry } from "@/backend/agents/providers/ApiProvide
 import { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
 import { InstanceSecretCipher } from "@/backend/security/InstanceSecretCipher";
 import { AgentCheckService } from "@/backend/service/agents/AgentCheckService";
-import {
-  OpenCodeProviderKeys,
-  OpenCodeProviderLinks,
-} from "@/backend/service/agents/OpenCodeProviderLinks";
+import { OpenCodeAgentCredentials } from "@/backend/service/agents/OpenCodeAgentCredentials";
+import { OpenCodeProviderLinks } from "@/backend/service/agents/OpenCodeProviderLinks";
 import { AgentCliLoginService } from "@/backend/service/agents/AgentCliLoginService";
 import { AgentConnectionService } from "@/backend/service/agents/AgentConnectionService";
 import { AgentOperationRegistry } from "@/backend/service/agents/AgentOperationRegistry";
@@ -118,7 +116,7 @@ export interface AgentApplicationServices
   readonly localSessions?: LocalSessions | null;
   /** Server-only project credentials, resolved live for YOLO plan nodes. */
   readonly agentPlanGitHubCredentials: AgentPlanGitHubCredentials;
-  /** Keeps OpenCode's providers in step with the API keys stored in Pages (PAGE-154). */
+  /** Checks changed API credentials and activates the independent OpenCode free catalog. */
   readonly openCodeProviderLinks: OpenCodeProviderLinks;
   /** Temporary native gh credentials, also cleaned during interrupted-run recovery. */
   readonly agentCliGitHubCredentials: CliGitHubCredentials;
@@ -221,7 +219,9 @@ function createExecutions(
     locator: input.locator,
     runner: input.runner,
   };
+  const apiCredentials = new OpenCodeAgentCredentials(repository, cipher);
   const direct = new CliSessionExecution({
+    apiCredentials: (connection) => apiCredentials.read(connection),
     ...cliAdapters,
     tools: input.tools,
     resources: isLocalSessionOwner() ? undefined : input.resources,
@@ -256,7 +256,6 @@ function createExecutions(
     openCodeProviderLinks: new OpenCodeProviderLinks({
       connections: repository,
       check: (actor, id) => agentCheckService.run(actor, id, "auth"),
-      refreshCatalog: (id) => input.catalog.run(id),
     }),
     agentPlanExecution: simulatedExecution(
       new AgentPlanExecution(
@@ -334,7 +333,6 @@ function createCliRuntime(input: {
   readonly dataDirectory: string;
   readonly agentsDirectory: string;
   readonly cipher: InstanceSecretCipher;
-  readonly repository: AgentConnectionRepository;
 }): {
   readonly store: AgentCredentialStore;
   readonly locator: CliLocator;
@@ -342,7 +340,7 @@ function createCliRuntime(input: {
   readonly runtime: AgentCliRuntime;
   readonly agentToolManagerService: AgentToolManagerService;
 } {
-  const { dataDirectory, agentsDirectory, cipher, repository } = input;
+  const { dataDirectory, agentsDirectory, cipher } = input;
   const binding = antigravityContextBinding(process.env);
   const store = binding
     ? new AgentCredentialStore(dataDirectory, undefined, binding)
@@ -362,7 +360,6 @@ function createCliRuntime(input: {
     runner,
     cipher,
     tools: agentToolManagerService,
-    linkedKeys: new OpenCodeProviderKeys(repository, cipher),
   });
   return { store, locator, runner, runtime, agentToolManagerService };
 }
@@ -428,7 +425,6 @@ export function createAgentServices(
     dataDirectory,
     agentsDirectory,
     cipher,
-    repository,
   });
   const { runtime, agentToolManagerService } = cliRuntime;
   startEnvironmentMaintenance(database, dataDirectory, agentToolManagerService);

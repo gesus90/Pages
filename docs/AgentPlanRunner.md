@@ -545,10 +545,11 @@ fields, 36 px rows and 20 × 20 provider tiles, with model and reasoning side by
 side. Its panel starts with a search field and lists the target's models under
 collapsible tools in a fixed order (Claude Code, Codex, Antigravity, OpenCode,
 OpenRouter, Z.AI, then other API connections), each header naming the access
-and model count. OpenRouter and Z.AI are tools of their own, visible with their
-stored API key and still run through OpenCode; a model reachable through both
-OpenCode and the direct API connection is listed once. Without an OpenCode key
-OpenCode offers only its free models. Rows show the short catalog name without
+and model count. OpenRouter and z.AI are independent agent providers with the
+catalogs of their own API connections and model IDs without an added runtime
+prefix. OpenCode lists only its own free `opencode/…` models, including when its connection has
+an explicitly stored key. Pages never attaches keys from other API connections
+to an OpenCode connection. Rows show the short catalog name without
 a trailing "Free". A green Free badge marks only a model whose catalog states a
 prompt and completion price of exactly zero for that very variant; a missing
 price is never free. Only chat models are listed: text in, text out, no image,
@@ -654,7 +655,26 @@ adapter of its CLI (`codex-acp` or `claude-agent-acp`, installed for the server
 account next to the CLI, whose sign-in it reuses; see
 [ACP adapters](AgentRuntime.md#acp-adapters-for-the-cli-runners)); an OpenCode connection starts
 its native `opencode acp` session in the node's workspace, without an adapter
-package or a fallback to `opencode run`; an API connection stays a request without tools. Play stores a stable snapshot of each node's effective
+package or a fallback to `opencode run`. OpenRouter and z.AI plan nodes use
+that same installed OpenCode ACP runtime internally. At the process boundary
+Pages prefixes their catalog model IDs with `openrouter/` or `zai/` and supplies
+only the selected connection's verified key in the isolated child environment.
+z.AI keeps its saved API or coding-plan endpoint. The editor, run panel, usage
+and journal retain OpenRouter or z.AI and the unprefixed catalog ID. Both offer
+Read only and YOLO with OpenCode's isolation, native files, shell, TODO events,
+pause, resume and stop. Full environment is unavailable for these two providers,
+so inherited host logins cannot add other provider keys. Other API providers
+remain requests without tools; chat and Pica keep their existing API policy.
+
+Migration 061 moves editable definitions, nodes in all saved plans (including
+groups and loops), decision/swarm assignments and pinned node templates from
+OpenCode plus `openrouter/<id>` or `zai/<id>` to the matching active API
+connection whose access check passed. Reasoning stays unchanged. If several
+connections qualify, the first by case-insensitive name and ID wins. Without
+a qualifying connection the assignment stays and reports Model unavailable;
+`opencode/…` assignments and completed runs with their snapshots stay unchanged.
+
+Play stores a stable snapshot of each node's effective
 configuration. Before a node starts, Pages uses that snapshot and binds every
 parameter (a placeholder is never sent unresolved) and fixes the node's **todo list** (task list items of the node
 instruction and of the bound tickets' descriptions) and **acceptance criteria**

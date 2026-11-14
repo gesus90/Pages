@@ -81,7 +81,14 @@ const attempt = z.object({
     attemptId: identifier,
   }),
   userId: identifier,
-  provider: z.enum(["codex_cli", "claude_code", "opencode", "antigravity"]),
+  provider: z.enum([
+    "codex_cli",
+    "claude_code",
+    "opencode",
+    "antigravity",
+    "openrouter",
+    "zai",
+  ]),
   instanceId: identifier,
   groupId: z.string().nullable(),
   state: z.enum([
@@ -147,7 +154,14 @@ const event = z.object({
 const usage = z.object({
   attemptId: identifier,
   turn: count,
-  provider: z.enum(["codex_cli", "claude_code", "opencode", "antigravity"]),
+  provider: z.enum([
+    "codex_cli",
+    "claude_code",
+    "opencode",
+    "antigravity",
+    "openrouter",
+    "zai",
+  ]),
   model: z.string().nullable(),
   inputTokens: count.nullable(),
   outputTokens: count.nullable(),

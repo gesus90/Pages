@@ -1,3 +1,4 @@
+import type { AcpProviderId } from "./AgentConfiguration";
 import type { ConversationObserverHealth } from "./ConversationObserver";
 
 /** Absolute admission ceiling, including the configured unlimited mode. */
@@ -37,7 +38,7 @@ export interface AcpResourceOptions {
 export interface AcpResourceOwner {
   readonly instanceId: string;
   readonly userId: string;
-  readonly provider: "codex_cli" | "claude_code" | "opencode" | "antigravity";
+  readonly provider: AcpProviderId;
   readonly runId: string | null;
   readonly stepId: string | null;
 }

@@ -16,14 +16,21 @@ import { AcpSession } from "@/backend/agents/acp/AcpSession";
 import { AcpCleanupUnconfirmedError } from "@/backend/error/AcpCleanupUnconfirmedError";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
-import { isAcpPermissionMode } from "@/definition/AgentConfiguration";
-import { isApiProvider } from "@/definition/AgentConnection";
+import {
+  isAcpPermissionMode,
+  isAcpProvider,
+  nativeAcpProvider,
+} from "@/definition/AgentConfiguration";
 import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 
 import {
   verifyFullEnvironmentStart,
   fullEnvironmentRequest,
 } from "./CliFullEnvironment";
+import {
+  describeOpenCodeAgent,
+  isOpenCodeApiAgent,
+} from "./OpenCodeAgentModel";
 import { connectChild } from "./CliSessionChannel";
 import {
   assetSession,
@@ -79,6 +86,7 @@ import type { AgentCliRuntime } from "./AgentCliRuntime";
 import type { AgentCredentialStore } from "./AgentCredentialStore";
 import type {
   CliHome,
+  CliCredentialAccess,
   CliSessionRequest,
   CliStatusOutcome,
 } from "./CliContracts";
@@ -111,6 +119,9 @@ export interface CliIsolationOptions {
 }
 
 interface SessionDependencies {
+  readonly apiCredentials?: (
+    connection: AgentPlanSessionInput["agent"]["connection"],
+  ) => Promise<CliCredentialAccess>;
   readonly tools?: AgentToolManagerService;
   readonly resources?: AcpResourceScheduler;
   readonly runtime: Pick<AgentCliRuntime, "adapter">;
@@ -213,8 +224,8 @@ export class CliSessionExecution implements PlanSessionRunner {
     signal: AbortSignal,
     observer: PlanSessionObserver,
   ): Promise<PlanSession> {
-    const provider = sessionAcpProvider(input);
-    if (provider !== null && this.dependencies.resources)
+    const provider = input.agent.connection.provider;
+    if (isAcpProvider(provider) && this.dependencies.resources)
       return this.dependencies.resources.openWithin({
         owner: {
           instanceId: input.instanceId,
@@ -279,10 +290,10 @@ export class CliSessionExecution implements PlanSessionRunner {
       if (!(error instanceof AcpCleanupUnconfirmedError))
         tools?.supervisor.release(input.instanceId);
       await cleanupSessionAssets(assets, error);
-      const provider = input.agent.connection.provider;
+      const provider = nativeAcpProvider(input.agent.connection.provider);
       if (
         hasVerified &&
-        !isApiProvider(provider) &&
+        provider !== null &&
         input.options.access !== "full_environment"
       )
         await this.dependencies.store
@@ -302,8 +313,9 @@ export class CliSessionExecution implements PlanSessionRunner {
     signal: AbortSignal,
     locations?: ReadonlyMap<AgentToolId, AgentToolLocation>,
   ): Promise<VerifiedStart> {
-    const { provider, id } = input.agent.connection;
-    if (isApiProvider(provider)) throw new AgentError("provider_invalid");
+    const { id } = input.agent.connection;
+    const provider = sessionAcpProvider(input);
+    if (provider === null) throw new AgentError("provider_invalid");
     const unsupported = sessionRunOptionError(input);
     if (unsupported !== null) throw new AgentError(unsupported);
     if (input.options.access === "full_environment")
@@ -317,7 +329,7 @@ export class CliSessionExecution implements PlanSessionRunner {
       if (home.sharedEnvironment)
         await prepareSharedAgentEnvironment(home.sharedEnvironment);
       const pinned = locations?.get(providerToolIds(provider)[0])?.file;
-      const status = await this.readStatus(provider, home, signal, pinned);
+      const status = await this.connectionStatus(input, home, signal, pinned);
       this.dependencies.tools?.recordAuthentication(
         id,
         provider,
@@ -353,6 +365,30 @@ export class CliSessionExecution implements PlanSessionRunner {
       await store.secure(id, provider);
       throw error;
     }
+  }
+
+  private async connectionStatus(
+    input: AgentPlanSessionInput,
+    home: CliHome,
+    signal: AbortSignal,
+    file?: string,
+  ): Promise<CliStatusOutcome> {
+    const connection = input.agent.connection;
+    if (!isOpenCodeApiAgent(connection.provider)) {
+      const provider = nativeAcpProvider(connection.provider);
+      if (provider === null) throw new AgentError("provider_invalid");
+      return this.readStatus(provider, home, signal, file);
+    }
+    const adapter = await this.dependencies.runtime.adapter("opencode", file);
+    const version = await adapter.version(home, signal);
+    if (!version.ok) throw new AgentError(version.errorCode);
+    const credentials = await this.dependencies.apiCredentials?.(connection);
+    if (!credentials) throw new AgentError("secret_unavailable");
+    return {
+      outcome: { ok: true, detail: {} },
+      accountLabel: null,
+      credentials,
+    };
   }
 
   private async readStatus(
@@ -485,12 +521,19 @@ export class CliSessionExecution implements PlanSessionRunner {
           ...launch,
           mcpServers: acpMcpServers(launch, start.browser, picaNative),
         }),
-        observer: control.observer,
+        observer: {
+          ...control.observer,
+          capabilities: (capabilities) =>
+            control.observer.capabilities?.({
+              ...capabilities,
+              adapter: describeOpenCodeAgent(input, capabilities.adapter),
+            }),
+        },
         signal: control.signal,
         isolation: `${start.owner ? "full environment: no isolation, full host owner access" : isolationLabel(isIsolated, mode, driver)}; ${limited.label}`,
         containment,
         github: github?.status,
-        redact,
+        redact: (text) => describeOpenCodeAgent(input, redact(text)),
         secure: () => this.secureAcp(input, start, github),
         cleanupAdapter: picaBundle?.cleanup,
         listener: input.chat?.listener ?? input.journal,

@@ -12,8 +12,10 @@ import { planStepTemplate } from "@/definition/AgentPlanConfiguration";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentPlanWorkspaceConflictError } from "@/backend/error/AgentPlanWorkspaceConflictError";
 import { remoteWorkspaceKeys } from "./AgentPlanRemoteWorkspaceKey";
-import { agentRunOptionsFor } from "@/definition/AgentConfiguration";
-import { isApiProvider } from "@/definition/AgentConnection";
+import {
+  agentRunOptionsFor,
+  isAcpProvider,
+} from "@/definition/AgentConfiguration";
 import { executablePlan, planStartIssues } from "@/definition/AgentPlanStart";
 import { AgentPlanValidationError } from "@/backend/error/AgentPlanValidationError";
 import {
@@ -412,7 +414,7 @@ function requirePreparedRuntime(
 ): void {
   if (step.prepared.workspace.projectId !== plan.projectId)
     throw new AgentError("plan_context_changed");
-  if (isApiProvider(step.provider)) return;
+  if (!isAcpProvider(step.provider)) return;
   if (planStepDirectory(step) === null)
     throw new AgentError("plan_directory_required");
   const unsupported = unsupportedRunOption(

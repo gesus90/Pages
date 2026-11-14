@@ -105,7 +105,8 @@ function requireConfiguration(
 function permissionModeRefusal(provider: AgentProviderId): AgentErrorCode {
   if (provider === "codex_cli") return "codex_permission_mode_required";
   if (provider === "claude_code") return "claude_permission_mode_required";
-  if (provider === "opencode") return "opencode_permission_mode_required";
+  if (["opencode", "openrouter", "zai"].includes(provider))
+    return "opencode_permission_mode_required";
   return "plan_run_option_unsupported";
 }
 

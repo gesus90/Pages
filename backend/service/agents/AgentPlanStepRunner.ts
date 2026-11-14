@@ -1,12 +1,12 @@
 import { randomUUID } from "node:crypto";
 
+import { isAcpProvider } from "@/definition/AgentConfiguration";
 import { AgentPlanPausedError } from "@/backend/error/AgentPlanPausedError";
 import { planContentDigest } from "@/backend/agents/AgentPlanContentDigest";
 import { agentToolFailureEvents } from "@/backend/service/agents/tools/AgentToolSession";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
 import { AgentProviderError } from "@/backend/error/AgentProviderError";
-import { isApiProvider } from "@/definition/AgentConnection";
 import { logCaughtError } from "@/backend/logging/Logger";
 
 import {
@@ -282,7 +282,7 @@ export class AgentPlanStepRunner {
         ]),
       };
     const guarded = guardPlanStepStart(node, prepared);
-    if (isApiProvider(prepared.input.agent.connection.provider))
+    if (!isAcpProvider(prepared.input.agent.connection.provider))
       return this.request(node, guarded);
     return this.session(node, guarded);
   }
