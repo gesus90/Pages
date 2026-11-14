@@ -29,7 +29,7 @@ import {
 } from "./CliFullEnvironment";
 import {
   describeOpenCodeAgent,
-  isOpenCodeApiAgent,
+  openCodeAgentObserver,
 } from "./OpenCodeAgentModel";
 import { connectChild } from "./CliSessionChannel";
 import {
@@ -40,7 +40,6 @@ import {
 } from "./CliAssetWorkspace";
 import { CliIsolationGate } from "./CliIsolationGate";
 import { CliPlanIsolation } from "./CliPlanIsolation";
-import { createCliEnvironment } from "./CliEnvironment";
 import { ACP_WORKER_LIMITS } from "./CliWorkerUnit";
 import { cleanupFailedAcpStart } from "./CliAcpStartCleanup";
 import {
@@ -60,8 +59,13 @@ import { requireAcpIsolation, sessionRunOptionError } from "./CliSessionPlans";
 import { requirePicaCodexProfile } from "./PicaCodexBundle";
 import { requirePicaNativeArtifact } from "./PicaNativeArtifact";
 import {
+  prepareGitHubAccess,
+  readConnectionStatus,
   recordGitHubNamespace,
+  requireAcpMode,
+  requireAdapter,
   sessionAcpProvider,
+  sessionContainment,
   validateSessionStatus,
 } from "./CliSessionChecks";
 
@@ -80,15 +84,12 @@ import type { AcpResourceScheduler } from "@/backend/service/agents/AcpResourceS
 import type { AcpDriver } from "@/backend/agents/acp/AcpDriver";
 import type { AcpNamespaceOwner } from "@/definition/AcpResource";
 import type { AcpLaunch } from "@/backend/agents/acp/AcpLaunch";
-import type { AcpPermissionMode } from "@/definition/AgentConfiguration";
-import type { CliProviderId } from "@/definition/AgentConnection";
 import type { AgentCliRuntime } from "./AgentCliRuntime";
 import type { AgentCredentialStore } from "./AgentCredentialStore";
 import type {
   CliHome,
   CliCredentialAccess,
   CliSessionRequest,
-  CliStatusOutcome,
 } from "./CliContracts";
 import type { CliLocator } from "./CliLocator";
 import type { CliProcessRunner } from "./CliProcessRunner";
@@ -135,32 +136,6 @@ interface SessionDependencies {
   readonly github?: Pick<CliGitHubCredentials, "prepare">;
   /** Prepares the private transcript home of a Claude plan session; defaults to the real folders. */
   readonly claudeHome?: typeof prepareClaudePlanSessionHome;
-}
-
-/** A PID namespace contains everything; otherwise only a worker unit frames the session. */
-function sessionContainment(
-  isIsolated: boolean,
-  request: CliSessionRequest,
-): CliSessionContainment {
-  if (isIsolated) return "pid_namespace";
-  return request.unit ? "worker_unit" : "none";
-}
-
-/** The stored run mode of an ACP start; a start without one is refused. */
-function requireAcpMode(
-  driver: AcpDriver,
-  input: AgentPlanSessionInput,
-): AcpPermissionMode {
-  const mode =
-    input.options.access === "full_environment" ? "yolo" : input.options.access;
-  if (!isAcpPermissionMode(mode))
-    throw new AgentError(driver.errors.modeRequired);
-  return mode;
-}
-
-function requireAdapter(adapter: string | null, driver: AcpDriver): string {
-  if (adapter === null) throw new AgentError(driver.errors.adapterMissing);
-  return adapter;
 }
 
 /** The stop signal and the observer of one session start. */
@@ -329,7 +304,11 @@ export class CliSessionExecution implements PlanSessionRunner {
       if (home.sharedEnvironment)
         await prepareSharedAgentEnvironment(home.sharedEnvironment);
       const pinned = locations?.get(providerToolIds(provider)[0])?.file;
-      const status = await this.connectionStatus(input, home, signal, pinned);
+      const status = await readConnectionStatus(this.dependencies, input, {
+        home,
+        signal,
+        file: pinned,
+      });
       this.dependencies.tools?.recordAuthentication(
         id,
         provider,
@@ -365,46 +344,6 @@ export class CliSessionExecution implements PlanSessionRunner {
       await store.secure(id, provider);
       throw error;
     }
-  }
-
-  private async connectionStatus(
-    input: AgentPlanSessionInput,
-    home: CliHome,
-    signal: AbortSignal,
-    file?: string,
-  ): Promise<CliStatusOutcome> {
-    const connection = input.agent.connection;
-    if (!isOpenCodeApiAgent(connection.provider)) {
-      const provider = nativeAcpProvider(connection.provider);
-      if (provider === null) throw new AgentError("provider_invalid");
-      return this.readStatus(provider, home, signal, file);
-    }
-    const adapter = await this.dependencies.runtime.adapter("opencode", file);
-    const version = await adapter.version(home, signal);
-    if (!version.ok) throw new AgentError(version.errorCode);
-    const credentials = await this.dependencies.apiCredentials?.(connection);
-    if (!credentials) throw new AgentError("secret_unavailable");
-    return {
-      outcome: { ok: true, detail: {} },
-      accountLabel: null,
-      credentials,
-    };
-  }
-
-  private async readStatus(
-    provider: CliProviderId,
-    home: CliHome,
-    signal: AbortSignal,
-    file?: string,
-  ): Promise<CliStatusOutcome> {
-    const adapter = file
-      ? await this.dependencies.runtime.adapter(provider, file)
-      : await this.dependencies.runtime.adapter(provider);
-    if (provider === "opencode") {
-      const version = await adapter.version(home, signal);
-      if (!version.ok) throw new AgentError(version.errorCode);
-    }
-    return adapter.readStatus(home, signal);
   }
 
   /** Finds the adapter and refuses configuration files Pages does not manage. */
@@ -456,7 +395,10 @@ export class CliSessionExecution implements PlanSessionRunner {
     const mode = requireAcpMode(driver, input);
     const scoped = await this.scopedHome(driver, input, start);
     const adapter = requireAdapter(start.adapter, driver);
-    const github = await this.prepareGitHub(input, start, mode);
+    const github = await prepareGitHubAccess(this.dependencies, input, {
+      start,
+      mode,
+    });
     const { profile, launch, channel, redact } = prepareAcpProtocol(
       driver,
       input,
@@ -499,19 +441,15 @@ export class CliSessionExecution implements PlanSessionRunner {
       if (start.owner) await input.beforeStart?.();
       await control.lifecycle?.beforeSpawn(limited.request.unit?.name);
       child = this.dependencies.runner.startSession(limited.request);
-      const namespace = await this.registerNamespace(
+      await this.connectWorker(child, {
         input,
-        child.processId,
-        limited.request,
+        request: limited.request,
         containment,
-      );
-      await recordGitHubNamespace(github, namespace);
-      connectChild(child, channel, {
+        github,
+        channel,
         observer: control.observer,
-        arguments: limited.request.arguments,
         unattended: profile.unattended,
         signal: control.signal,
-        namespace,
       });
       return new AcpSession(child, channel.stream, {
         instanceId: input.instanceId,
@@ -521,14 +459,7 @@ export class CliSessionExecution implements PlanSessionRunner {
           ...launch,
           mcpServers: acpMcpServers(launch, start.browser, picaNative),
         }),
-        observer: {
-          ...control.observer,
-          capabilities: (capabilities) =>
-            control.observer.capabilities?.({
-              ...capabilities,
-              adapter: describeOpenCodeAgent(input, capabilities.adapter),
-            }),
-        },
+        observer: openCodeAgentObserver(input, control.observer),
         signal: control.signal,
         isolation: `${start.owner ? "full environment: no isolation, full host owner access" : isolationLabel(isIsolated, mode, driver)}; ${limited.label}`,
         containment,
@@ -552,6 +483,35 @@ export class CliSessionExecution implements PlanSessionRunner {
       control.lifecycle?.confirmStartEnded();
       throw error;
     }
+  }
+
+  private async connectWorker(
+    child: CliSessionProcess,
+    options: {
+      readonly input: AgentPlanSessionInput;
+      readonly request: CliSessionRequest;
+      readonly containment: CliSessionContainment;
+      readonly github: CliGitHubAccess | null;
+      readonly channel: ReturnType<typeof prepareAcpProtocol>["channel"];
+      readonly observer: PlanSessionObserver;
+      readonly unattended: string;
+      readonly signal: AbortSignal;
+    },
+  ): Promise<void> {
+    const namespace = await this.registerNamespace(
+      options.input,
+      child.processId,
+      options.request,
+      options.containment,
+    );
+    await recordGitHubNamespace(options.github, namespace);
+    connectChild(child, options.channel, {
+      observer: options.observer,
+      arguments: options.request.arguments,
+      unattended: options.unattended,
+      signal: options.signal,
+      namespace,
+    });
   }
 
   /**
@@ -669,39 +629,6 @@ export class CliSessionExecution implements PlanSessionRunner {
       namespace,
     );
     return namespace;
-  }
-
-  private async prepareGitHub(
-    input: AgentPlanSessionInput,
-    start: VerifiedStart,
-    mode: AcpPermissionMode,
-  ): Promise<CliGitHubAccess | null> {
-    if (start.owner || !this.dependencies.github) return null;
-    const access =
-      mode === "yolo" && input.github
-        ? await input.github()
-        : ({
-            status: "unavailable",
-            reason:
-              mode === "read_only"
-                ? "read-only session"
-                : "no authorized project connection",
-          } as const);
-    const gh =
-      access.status === "available"
-        ? (await this.dependencies.locator.locate("gh")).path
-        : null;
-    return this.dependencies.github.prepare({
-      instanceId: input.instanceId,
-      access,
-      gh,
-      bridge: mode === "yolo" ? await input.gitBridge?.() : undefined,
-      searchPath: createCliEnvironment(
-        start.home,
-        start.provider,
-        start.adapter ?? start.file,
-      ).PATH,
-    });
   }
 
   private async secureAcp(

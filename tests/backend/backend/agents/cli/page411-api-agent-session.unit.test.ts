@@ -25,13 +25,10 @@ const native = vi.hoisted(() => ({ contexts: [] as AcpSessionContext[] }));
 vi.mock("@/backend/agents/acp/AcpSession", () => ({
   AcpSession: class {
     public readonly turn = Promise.resolve({ failure: null });
-    public constructor(
-      _process: unknown,
-      _stream: unknown,
-      context: AcpSessionContext,
-    ) {
-      native.contexts.push(context);
+    public constructor(...args: [unknown, unknown, AcpSessionContext]) {
+      native.contexts.push(args[2]);
     }
+    /** Closes the synthetic session. */
     public async close(): Promise<unknown> {
       return { isConfirmed: true };
     }
@@ -97,7 +94,9 @@ function world(): {
     openCodeCredentials({ modelProvider: connection.provider, apiKey: KEY }),
   );
   const process = bareInstance(CliSessionProcess.prototype);
-  const spawn = vi.fn((_request: CliSessionRequest) => process);
+  const spawn = vi.fn<(request: CliSessionRequest) => CliSessionProcess>(
+    () => process,
+  );
   vi.spyOn(process, "processId", "get").mockReturnValue(411);
   vi.spyOn(CliIsolationGate.prototype, "isolateSession").mockImplementation(
     async (request) => ({ request, isIsolated: true }),

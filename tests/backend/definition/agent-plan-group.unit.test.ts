@@ -62,7 +62,7 @@ function stepOf(id: string, agentId: string): AgentPlanStep {
 const AGENTS = [
   choice("codex", "codex_cli"),
   choice("claude", "claude_code"),
-  choice("api", "openrouter"),
+  choice("api", "openai"),
   choice("unknown-provider", null),
   choice("with-inputs", "claude_code", [
     {
@@ -146,7 +146,7 @@ describe("groups and their adapter class", () => {
   it("checks a provider change against the other members only", () => {
     const group = groupOf("g", [stepOf("a", "claude"), stepOf("b", "claude")]);
 
-    expect(planMemberProviderRefusal(group, "a", "openrouter", AGENTS)).toBe(
+    expect(planMemberProviderRefusal(group, "a", "openai", AGENTS)).toBe(
       "notAcp",
     );
     expect(planMemberProviderRefusal(group, "a", "codex_cli", AGENTS)).toBe(

@@ -177,8 +177,8 @@ it("refuses OpenRouter beside direct Claude Code as distinct technical adapters 
   );
   expect(issues).toEqual(
     expect.arrayContaining([
-      // OpenRouter is no ACP adapter at all, and direct Claude Code differs from the first member.
-      { nodeId: "first", port: "provider/adapter", reason: "groupProvider" },
+      // OpenRouter and direct Claude Code are distinct ACP adapters even with the same model label.
+      { nodeId: "second", port: "provider/adapter", reason: "groupProvider" },
       {
         nodeId: "second",
         port: "provider/adapter",

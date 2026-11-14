@@ -97,7 +97,7 @@ it("keeps a non-ACP DAG branch runnable while three ACP branches await RAM; abor
   const steps = ["one", "two", "three", "api"].map((id) => ({
     ...fixture.step,
     step: { ...fixture.step.step, id },
-    provider: id === "api" ? ("openrouter" as const) : ("codex_cli" as const),
+    provider: id === "api" ? ("openai" as const) : ("codex_cli" as const),
   }));
   const snapshot = {
     ...fixture.snapshot,
@@ -115,7 +115,7 @@ it("keeps a non-ACP DAG branch runnable while three ACP branches await RAM; abor
       closeGroups: async () => {},
       run: async (run, currentSnapshot, step, control) => {
         expect(currentSnapshot.steps).toContain(step);
-        if (step.provider === "openrouter")
+        if (step.provider === "openai")
           return { status: "succeeded", output: await api() };
         try {
           await resources.scheduler.open(

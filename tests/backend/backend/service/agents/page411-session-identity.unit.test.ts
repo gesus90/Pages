@@ -19,16 +19,22 @@ import type { Database } from "@/backend/database/Database";
 
 const MODEL = "deepseek/deepseek-v4.1-flash";
 
+function providerSessionRecord(
+  provider: "openrouter" | "zai",
+): ReturnType<typeof sessionRecord> {
+  const base = sessionRecord();
+  return {
+    ...base,
+    runner: provider,
+    requested: { ...base.requested, runner: provider, model: MODEL },
+    effective: { model: MODEL, reasoningEffort: "low" },
+  };
+}
+
 it.each(["openrouter", "zai"] as const)(
-  "retains %s's public identity in journals, usage and restarted process leases",
-  async (provider) => {
-    const base = sessionRecord();
-    const record = {
-      ...base,
-      runner: provider,
-      requested: { ...base.requested, runner: provider, model: MODEL },
-      effective: { model: MODEL, reasoningEffort: "low" },
-    };
+  "retains %s's public identity in journals and session starts",
+  (provider) => {
+    const record = providerSessionRecord(provider);
     expect(
       readPlanSessionRecord({
         ...record,
@@ -59,6 +65,12 @@ it.each(["openrouter", "zai"] as const)(
       value: MODEL,
       source: "adapter_selector",
     });
+  },
+);
+
+it.each(["openrouter", "zai"] as const)(
+  "retains %s's public identity in attempts, usage and restarted process leases",
+  async (provider) => {
     const attempt = readAttemptRow([
       "attempt",
       "plan",

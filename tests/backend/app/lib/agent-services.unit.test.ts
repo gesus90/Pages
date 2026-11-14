@@ -471,8 +471,10 @@ it("runs plan steps over the API and over isolated CLI sessions", () => {
     ["/srv/pages/data/worker-units"],
   ]);
   const nodeDirectory = path.dirname(process.execPath);
-  expect(vi.mocked(CliSessionExecution).mock.calls[0][0]).toEqual({
-    apiCredentials: expect.any(Function),
+  const { apiCredentials, ...cliDependencies } =
+    vi.mocked(CliSessionExecution).mock.calls[0][0];
+  expect(typeof apiCredentials).toBe("function");
+  expect(cliDependencies).toEqual({
     runtime: only(vi.mocked(AgentCliRuntime)),
     store: only(vi.mocked(AgentCredentialStore)),
     locator: vi.mocked(CliLocator).mock.instances[1],

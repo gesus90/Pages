@@ -65,6 +65,7 @@ export interface ModelOptions {
   /** The model name of the provider; the profile identifier is the first argument. */
   readonly model?: string;
   readonly name?: string;
+  readonly isFree?: boolean;
   /** Efforts the catalog lists; none lists no level. */
   readonly efforts?: readonly string[];
   readonly catalogDefault?: string | null;
@@ -153,7 +154,7 @@ function modelCatalog(model: string, options: ModelOptions): AgentModelCatalog {
     contextWindow: null,
     promptPrice: null,
     completionPrice: null,
-    isFree: false,
+    isFree: options.isFree ?? false,
     reasoning: options.reasoning ?? (efforts.length > 0 ? "levels" : "none"),
     reasoningEfforts: efforts,
     defaultReasoningEffort: options.catalogDefault ?? null,
@@ -459,7 +460,7 @@ export class PageAgentWorld {
     this.models.set(connectionId, {
       connection: connectionRecord(
         connectionId,
-        options.provider ?? "openrouter",
+        options.provider ?? "openai",
         options.isActive ?? true,
       ),
       isVerified: options.isVerified ?? true,

@@ -25,7 +25,12 @@ beforeEach(() => {
   world.addPerson("owner");
   world.addModel("codex", { provider: "codex_cli", efforts: ["high"] });
   world.addModel("claude", { provider: "claude_code", efforts: ["high"] });
-  world.addModel("opencode", { provider: "opencode", efforts: ["high"] });
+  world.addModel("opencode", {
+    provider: "opencode",
+    model: "opencode/free-model",
+    isFree: true,
+    efforts: ["high"],
+  });
 });
 
 /** The ACP runners: the model of each and the code that asks for a mode. */

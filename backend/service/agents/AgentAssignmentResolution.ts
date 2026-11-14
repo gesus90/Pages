@@ -69,6 +69,27 @@ async function requireVerifiedConnection(
   return connection;
 }
 
+function isManualModelSelection(
+  connection: AgentConnectionRecord,
+  storedModel: string,
+): boolean {
+  return (
+    (!supportsModelCatalog(connection.provider) ||
+      connection.provider === "zai") &&
+    connection.testModel === storedModel
+  );
+}
+
+function isAvailableConnectionModel(
+  connection: AgentConnectionRecord,
+  model: AgentCatalogModel | undefined,
+  storedModel: string,
+): boolean {
+  if (!model && !isManualModelSelection(connection, storedModel)) return false;
+  if (connection.provider !== "opencode") return true;
+  return storedModel.startsWith("opencode/") && model?.isFree === true;
+}
+
 /**
  * Requires verified access and capabilities from exactly the referenced connection.
  *
@@ -89,15 +110,7 @@ export async function resolveAgentAssignment(
   );
   const catalog = await connections.catalogs().find(connection.id);
   const model = findCatalogModel(connection, catalog.models, assignment.model);
-  const isManual =
-    (!supportsModelCatalog(connection.provider) ||
-      connection.provider === "zai") &&
-    connection.testModel === assignment.model;
-  if (!model && !isManual) throw new AgentExecutionError("modelUnavailable");
-  if (
-    connection.provider === "opencode" &&
-    (!assignment.model.startsWith("opencode/") || !model?.isFree)
-  )
+  if (!isAvailableConnectionModel(connection, model, assignment.model))
     throw new AgentExecutionError("modelUnavailable");
   const effort = assignment.reasoningEffort;
   if (effort !== null && !model?.reasoningEfforts.includes(effort))

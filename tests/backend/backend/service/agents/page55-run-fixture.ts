@@ -36,7 +36,7 @@ export interface ParameterRunFixture {
  */
 export async function parameterRunFixture(
   configuration: AgentConfiguration = emptyAgentConfiguration(),
-  provider: AgentProviderId = "openrouter",
+  provider: AgentProviderId = "openai",
   tickets?: Pick<AgentTicketParameterService, "resolve" | "readAssets">,
   tasks?: Pick<AgentPlanTasks, "snapshot">,
 ): Promise<ParameterRunFixture> {

@@ -71,7 +71,7 @@ function snapshotOf(projectId: string, planId: string): AgentPlanSnapshot {
           directoryParameter: template.directoryParameter,
           run: template.run,
         },
-        provider: "openrouter",
+        provider: "openai",
         model: "model",
         reasoningEffort: null,
         prepared: {

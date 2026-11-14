@@ -1,6 +1,9 @@
 import { apiProviderEndpoint } from "@/definition/AgentConnection";
 
-import type { AgentPlanSessionInput } from "@/backend/agents/AgentPlanExecution";
+import type {
+  AgentPlanSessionInput,
+  PlanSessionObserver,
+} from "@/backend/agents/AgentPlanExecution";
 import type { AgentProviderId } from "@/definition/AgentConnection";
 import type { AcpLaunch } from "@/backend/agents/acp/AcpLaunch";
 
@@ -61,4 +64,20 @@ export function describeOpenCodeAgent(
   return text
     .replaceAll(openCodeAgentModel(input), input.agent.model)
     .replaceAll("OpenCode", provider === "openrouter" ? "OpenRouter" : "z.AI");
+}
+
+/** Rewrites reported ACP capabilities so OpenRouter and z.AI keep their public adapter label. */
+export function openCodeAgentObserver(
+  input: AgentPlanSessionInput,
+  observer: PlanSessionObserver,
+): PlanSessionObserver {
+  if (!isOpenCodeApiAgent(input.agent.connection.provider)) return observer;
+  return {
+    ...observer,
+    capabilities: (capabilities) =>
+      observer.capabilities?.({
+        ...capabilities,
+        adapter: describeOpenCodeAgent(input, capabilities.adapter),
+      }),
+  };
 }
