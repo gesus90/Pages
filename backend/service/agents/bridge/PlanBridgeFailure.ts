@@ -392,6 +392,21 @@ function readStepReportRejection(
   return problems && { reason: input.reason, problems };
 }
 
+function readValidationRejection(
+  input: object,
+): AgentInputRejection | undefined {
+  if (
+    !("reason" in input) ||
+    input.reason !== "validation" ||
+    !("problems" in input) ||
+    !Array.isArray(input.problems) ||
+    input.problems.length !== 1 ||
+    input.problems[0] !== UPLOAD_CONFLICT_MESSAGE
+  )
+    return undefined;
+  return { reason: "validation", problems: [UPLOAD_CONFLICT_MESSAGE] };
+}
+
 function readReason(
   input: unknown,
 ):
@@ -403,14 +418,8 @@ function readReason(
   | undefined {
   if (typeof input !== "object" || input === null || !("reason" in input))
     return undefined;
-  if (
-    input.reason === "validation" &&
-    "problems" in input &&
-    Array.isArray(input.problems) &&
-    input.problems.length === 1 &&
-    input.problems[0] === UPLOAD_CONFLICT_MESSAGE
-  )
-    return { reason: "validation", problems: [UPLOAD_CONFLICT_MESSAGE] };
+  const validation = readValidationRejection(input);
+  if (validation) return validation;
   if (!isRejectionReason(input.reason)) return undefined;
   if (
     input.reason === "plan_recovery_cleanup_unconfirmed" &&

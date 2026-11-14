@@ -82,6 +82,26 @@ async function parameters(
   return { ...body.value, metadata: { ...query, ...body.value.metadata } };
 }
 
+function parseStorageInput(
+  operation: StorageOperation,
+  metadata: Readonly<Record<string, unknown>>,
+  simulation: boolean,
+): NonNullable<ReturnType<typeof readMcpStorageInput>> | Response {
+  const conflict =
+    operation === "upload" ? readUploadConflict(metadata) : undefined;
+  if (conflict === null)
+    return answer(
+      { error: "invalid_request", message: UPLOAD_CONFLICT_MESSAGE },
+      simulation,
+      400,
+    );
+  const input = readMcpStorageInput({
+    ...metadata,
+    ...(conflict === undefined ? {} : { onConflict: conflict }),
+  });
+  return input ?? failure({ code: "invalid_request" }, simulation);
+}
+
 /**
  * Serves the authenticated Storage MCP namespace, including JSON failures for unknown paths.
  *
@@ -114,19 +134,8 @@ export async function runMcpStorageRoute(
     }
     const body = await parameters(request, operation, simulation);
     if (body instanceof Response) return body;
-    const conflict =
-      operation === "upload" ? readUploadConflict(body.metadata) : undefined;
-    if (conflict === null)
-      return answer(
-        { error: "invalid_request", message: UPLOAD_CONFLICT_MESSAGE },
-        simulation,
-        400,
-      );
-    const input = readMcpStorageInput({
-      ...body.metadata,
-      ...(conflict === undefined ? {} : { onConflict: conflict }),
-    });
-    if (input === null) return failure({ code: "invalid_request" }, simulation);
+    const input = parseStorageInput(operation, body.metadata, simulation);
+    if (input instanceof Response) return input;
     const api = new McpStorageService(files);
     if (operation === "download") {
       const download = await api.download(input);

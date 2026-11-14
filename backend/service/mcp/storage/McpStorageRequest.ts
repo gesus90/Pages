@@ -49,11 +49,12 @@ export const UPLOAD_CONFLICT_MESSAGE =
 export function readUploadConflict(
   input: Readonly<Record<string, unknown>>,
 ): "fail" | "keep_both" | null {
-  const policy = Object.hasOwn(input, "onConflict")
-    ? input.onConflict
-    : Object.hasOwn(input, "conflict")
-      ? input.conflict
-      : "fail";
+  let policy: unknown = "fail";
+  if (Object.hasOwn(input, "onConflict")) {
+    policy = input.onConflict;
+  } else if (Object.hasOwn(input, "conflict")) {
+    policy = input.conflict;
+  }
   if (policy === "fail") return "fail";
   if (policy === "keep_both" || policy === "rename") return "keep_both";
   return null;

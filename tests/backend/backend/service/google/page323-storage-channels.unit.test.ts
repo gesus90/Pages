@@ -139,16 +139,33 @@ it.each([
     const request = new Request("http://pages/api/mcp/v1/storage/upload", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ parentRef: "reports", name: "report.md", content: "new", encoding: "text", [field]: policy }),
+      body: JSON.stringify({
+        parentRef: "reports",
+        name: "report.md",
+        content: "new",
+        encoding: "text",
+        [field]: policy,
+      }),
     });
     const response = await runMcpStorageRoute(request, "upload");
     const body: unknown = await response.json();
     if (policy === "keep_both" || policy === "rename") {
       expect(response.status).toBe(200);
-      expect(world.drive.calls.upload.mock.calls[0]?.[1]).toMatchObject({ name: "report (2).md" });
+      expect(world.drive.calls.upload.mock.calls[0]?.[1]).toMatchObject({
+        name: "report (2).md",
+      });
     } else {
-      expect(body).toMatchObject({ error: policy === "fail" || policy === undefined ? "name_conflict" : "invalid_request" });
-      if (policy !== "fail" && policy !== undefined) expect(body).toMatchObject({ message: expect.stringContaining("rename is an alias for keep_both") });
+      expect(body).toMatchObject({
+        error:
+          policy === "fail" || policy === undefined
+            ? "name_conflict"
+            : "invalid_request",
+      });
+      if (policy !== "fail" && policy !== undefined)
+        expect(body).toMatchObject({
+          message:
+            "onConflict must be fail or keep_both; rename is an alias for keep_both.",
+        });
       expect(world.drive.calls.upload).not.toHaveBeenCalled();
     }
   },
