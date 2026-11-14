@@ -1,3 +1,6 @@
+/** Default active execution budget for a worker without a configured node deadline. */
+export const CLI_DEFAULT_RUNTIME_MS = 24 * 60 * 60_000;
+
 /** Counts execution time while retaining the remaining budget during a pause. */
 export class CliPausableDeadline {
   private remaining: number;

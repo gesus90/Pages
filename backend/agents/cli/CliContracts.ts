@@ -89,6 +89,8 @@ export interface CliSessionRequest {
   readonly readOnlyFiles?: readonly string[];
   /** Variables added to the isolated environment; credentials stay out of the arguments. */
   readonly environment: Readonly<Record<string, string>>;
+  /** An independent plan owner enforces the active-time deadline across native pauses. */
+  readonly pausesRuntime?: boolean;
   readonly timeoutMs: number;
   readonly signal: AbortSignal;
   /** Receives every complete line of the standard output, in order. */

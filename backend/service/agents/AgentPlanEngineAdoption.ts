@@ -8,6 +8,11 @@ import {
   withAdoptedSession,
   reconcileAdoptedRun,
 } from "./AgentPlanAdoptedView";
+import {
+  setCodexRunPaused,
+  suspendedCodexRun,
+  usesImmediateCodexPause,
+} from "./AgentPlanImmediatePause";
 
 import type { AgentPlanSnapshot } from "./AgentPlanSnapshot";
 import type { SerialQueue } from "@/backend/concurrency/SerialQueue";
@@ -82,6 +87,13 @@ export async function adoptLocalPlanRun(
         ),
     },
   );
+  if (
+    usesImmediateCodexPause(snapshot) &&
+    (view.status === "paused" || view.status === "pausing")
+  ) {
+    await setCodexRunPaused(active, context.dependencies.localSessions, true);
+    active.view = suspendedCodexRun(active);
+  }
   for (const result of active.view.steps.filter(
     (step) => step.status === "running",
   )) {

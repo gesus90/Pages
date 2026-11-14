@@ -50,6 +50,14 @@ worker is derived from the same constants and reads
 `memory infinity, swap infinity, tasks 512, CPU 200%, OOM score 500`: the values of
 the unit, not the budget of the slice.
 
+PAGE-361 adds an exception to the wall-clock backstop for Codex plan workers:
+their independent native owner enforces the configured deadline, or 24 hours
+when none was configured, as active execution time. `RuntimeMaxSec=infinity`
+prevents systemd from killing a frozen worker during a long pause. The owner's
+deadline retains its remaining budget across pause/resume and a restart of
+Pages HTTP. The cgroup's resource limits and containment remain in force.
+Claude workers and Codex chats retain their existing wall-clock backstop.
+
 The capability probe (`probeWorkerUnits`) still starts a throw-away unit with
 `MemoryMax=32M`; it runs `/usr/bin/true`, never a worker.
 

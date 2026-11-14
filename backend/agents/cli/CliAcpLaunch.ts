@@ -1,6 +1,7 @@
 import { openCodeModelProvider } from "@/definition/AgentConnection";
 
 import { preparePicaCodexBundle } from "./PicaCodexBundle";
+import { CLI_DEFAULT_RUNTIME_MS } from "./CliPausableDeadline";
 
 import type { AgentPlanSessionInput } from "@/backend/agents/AgentPlanExecution";
 import type { AcpDriver } from "@/backend/agents/acp/AcpDriver";
@@ -88,6 +89,10 @@ function workerEnvironment(
 export function acpWorkerRequest(parts: AcpWorkerParts): CliSessionRequest {
   const { input, mode, picaBundle } = parts;
   const program = workerProgram(parts);
+  const pausesRuntime =
+    parts.provider === "codex_cli" &&
+    input.resourceContext !== undefined &&
+    input.chat === undefined;
   return {
     ...program,
     readOnlyFiles: [
@@ -102,7 +107,10 @@ export function acpWorkerRequest(parts: AcpWorkerParts): CliSessionRequest {
     isWorkingDirectoryReadOnly: picaBundle !== null || mode === "read_only",
     credentialDirectory: parts.github?.directory,
     environment: workerEnvironment(parts),
-    timeoutMs: input.options.timeoutMinutes * 60_000,
+    pausesRuntime,
+    timeoutMs:
+      input.options.timeoutMinutes * 60_000 ||
+      (pausesRuntime ? CLI_DEFAULT_RUNTIME_MS : 0),
     signal: parts.signal,
     onLine: parts.onLine,
   };

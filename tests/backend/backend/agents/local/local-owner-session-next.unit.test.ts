@@ -164,6 +164,43 @@ describe("LocalOwnerSession stop polling", () => {
     expect(doubles.open.mock.calls[0]?.[1]).toHaveProperty("aborted", false);
   });
 
+  it("does not freeze a draining Codex turn merely because a mixed plan is pausing", async () => {
+    const setPaused = vi.fn(async (_isPaused: boolean) => undefined);
+    const session = newSession({ turn: endlessTurn(), setPaused });
+    await startedOwner(session);
+    doubles.findRun.mockResolvedValue({
+      ...runWithAttempt(),
+      status: "pausing",
+    });
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(setPaused).not.toHaveBeenCalled();
+    expect(session.close).not.toHaveBeenCalled();
+    expect(doubles.open).toHaveBeenCalledOnce();
+  });
+
+  it("orders an explicit pause after an older running observation so stale polling cannot thaw it", async () => {
+    const setPaused = vi.fn(async (_isPaused: boolean) => undefined);
+    const session = newSession({ turn: endlessTurn(), setPaused });
+    const owner = await startedOwner(session);
+    await owner.setPaused(true);
+    let answer: (run: unknown) => void = () => undefined;
+    doubles.findRun.mockImplementationOnce(
+      () => new Promise((resolve) => {
+        answer = resolve;
+      }),
+    );
+    await vi.advanceTimersByTimeAsync(250);
+    const paused = owner.setPaused(true);
+    answer(runWithAttempt());
+    await paused;
+    expect(setPaused.mock.calls.map(([isPaused]) => isPaused)).toEqual([
+      true,
+      false,
+      true,
+    ]);
+    expect(session.close).not.toHaveBeenCalled();
+  });
+
   it("aborts pending native work before awaiting its closeout and journal drain", async () => {
     let finishTurn: (turn: PlanSessionTurn) => void = () => {};
     const session = newSession({

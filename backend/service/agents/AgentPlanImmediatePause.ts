@@ -14,6 +14,7 @@ export function usesImmediateCodexPause(snapshot: AgentPlanSnapshot): boolean {
     snapshot.steps.every(
       (step) => step.provider === "codex_cli" && !step.remoteTarget,
     ) &&
+    (snapshot.remoteSteps?.length ?? 0) === 0 &&
     snapshot.plan.executionTarget?.kind !== "remote"
   );
 }

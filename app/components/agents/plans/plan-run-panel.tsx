@@ -2,10 +2,7 @@ import { lazy, Suspense, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { expandPlanGroups } from "@/definition/AgentPlanGroup";
-import {
-  isActivePlanRun,
-  isCodexPlanRun,
-} from "@/definition/AgentPlanRunState";
+import { isActivePlanRun } from "@/definition/AgentPlanRunState";
 import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 
 import { keepPlanControlKeys } from "./plan-flow-keys";

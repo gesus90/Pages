@@ -506,8 +506,9 @@ export interface AgentPlanStepResult {
    * The TODO list the CLI reported as a structured plan in this attempt (PAGE-306).
    *
    * @remarks
-   * Absent when the CLI reported none. It is read-only information and never
-   * decides the step: `completion` and `completionGate` keep their meaning.
+   * Absent when the CLI reported none. Codex completion additionally requires
+   * a reported native list whose entries are all done; the configured business
+   * acceptance remains required.
    */
   readonly agentTodos?: AgentPlanAgentTodoList;
   /**
