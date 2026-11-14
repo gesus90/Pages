@@ -154,6 +154,8 @@ function buildWeekly(draft: AutomationDraft): Built<AutomationTrigger> {
 
 function buildEvent(draft: AutomationDraft): Built<AutomationTrigger> {
   const { eventType } = draft;
+  if (eventType === "storage.limit_exceeded")
+    return { value: { type: "event", eventType } };
   if (PLAN_EVENT_TYPES.has(eventType)) {
     const planId = draft.planId === "" ? null : draft.planId;
     const hasStep = eventType === "plan.step_changed";

@@ -361,6 +361,7 @@ async function initializeServices(
       tokenKey,
       tickets: taskServices.taskAttachmentService,
       wiki: workspaceServices.wikiService,
+      events: pagesEventPublisher,
     },
   );
   const planServices = await preparePlanService(database, {

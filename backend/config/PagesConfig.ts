@@ -30,6 +30,9 @@ const DATABASE_FILE_NAME = "pages.duckdb";
 /** Port the server listens on when neither a start parameter nor the configuration names one. */
 export const DEFAULT_PORT = 3000;
 
+/** Default instance size warning threshold: 20 decimal gigabytes. */
+export const DEFAULT_STORAGE_WARNING_BYTES = 20_000_000_000;
+
 const HIGHEST_PORT = 65_535;
 /** At least 256 bits when the secret holds random hex or base64. */
 const PAGES_CORE_SECRET_LENGTH = { minimum: 32, maximum: 512 } as const;
@@ -77,6 +80,8 @@ interface BaseConfig extends Partial<AcpResourceOptions> {
   readonly interpreterProfiles?: readonly InterpreterProfile[];
   /** Missing on older configurations: 30 calendar days, including today. */
   readonly logRetentionDays?: number;
+  /** Instance size warning in bytes; missing: 20 GB. */
+  readonly storageWarningBytes?: number;
   /**
    * Addresses or ranges of the reverse proxies whose `X-Forwarded-Proto` is
    * believed. Missing: no proxy is trusted and the header is ignored.
@@ -330,6 +335,7 @@ export function readPagesConfig(table: TomlTable, source: string): PagesConfig {
   const databasePath = readDatabasePath(table, source);
   const databaseUrl = readDatabaseUrl(table, source, firstRun);
   const logging = readLoggingConfig(table, source);
+  const storage = readStorageWarningBytes(table, source);
   const interpreters = readInterpreterConfig(table, source);
   const proxies = readProxyConfig(table, source);
   const picaBrowser = readPicaBrowserConfig(table, source);
@@ -347,6 +353,7 @@ export function readPagesConfig(table: TomlTable, source: string): PagesConfig {
       ...address,
       ...picaMobile,
       ...logging,
+      ...storage,
       ...interpreters,
       ...proxies,
       ...picaBrowser,
@@ -377,6 +384,7 @@ export function readPagesConfig(table: TomlTable, source: string): PagesConfig {
     ...address,
     ...picaMobile,
     ...logging,
+    ...storage,
     ...interpreters,
     ...proxies,
     ...picaBrowser,
@@ -605,6 +613,20 @@ function readInterpreterConfig(
   return { interpreterProfiles: parsed.data };
 }
 
+function readStorageWarningBytes(
+  table: TomlTable,
+  source: string,
+): Pick<BaseConfig, "storageWarningBytes"> {
+  const bytes = table.storageWarningBytes;
+  if (bytes === undefined) return {};
+  if (typeof bytes !== "number" || !Number.isSafeInteger(bytes) || bytes <= 0)
+    throw invalidConfig(
+      source,
+      '"storageWarningBytes" must be a positive safe integer.',
+    );
+  return { storageWarningBytes: bytes };
+}
+
 function readLoggingConfig(
   table: TomlTable,
   source: string,
@@ -646,6 +668,8 @@ export function writePagesConfig(
     document.interpreterProfiles = config.interpreterProfiles.map(
       (profile) => ({ ...profile }),
     );
+  if (config.storageWarningBytes !== undefined)
+    document.storageWarningBytes = config.storageWarningBytes;
   if (config.logRetentionDays !== undefined)
     document.logRetentionDays = config.logRetentionDays;
   if (config.trustedProxies !== undefined)

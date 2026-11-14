@@ -8061,6 +8061,7 @@
       "plan_succeeded": "Plan erfolgreich beendet",
       "plan_failed": "Plan fehlgeschlagen",
       "plan_step_changed": "Plan-Schritt gewechselt",
+      "storage_limit_exceeded": "Speichergrenze überschritten",
       "ticket_created": "Ticket angelegt",
       "ticket_status_changed": "Ticket-Status geändert",
       "ticketToStatus": "Ticket auf {{status}}"
@@ -8070,6 +8071,7 @@
       "plan_succeeded": "ein Plan erfolgreich endet",
       "plan_failed": "ein Plan fehlschlägt",
       "plan_step_changed": "ein Plan den Schritt wechselt",
+      "storage_limit_exceeded": "die Speichergrenze überschritten wird",
       "ticket_created": "ein Ticket angelegt wird",
       "ticket_status_changed": "ein Ticket den Status wechselt"
     },

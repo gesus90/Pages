@@ -33,7 +33,7 @@ const outboxEventSchema = z.object({
   kind: z
     .string()
     .max(100)
-    .regex(/^[a-z]+(\.[a-z]+)+$/u),
+    .regex(/^[a-z]+(\.[a-z_]+)+$/u),
   id: z.string().min(1).max(PAGES_CORE_LIMITS.idLength),
   audience: z
     .object({

@@ -8054,6 +8054,7 @@
       "plan_succeeded": "Plan succeeded",
       "plan_failed": "Plan failed",
       "plan_step_changed": "Plan step changed",
+      "storage_limit_exceeded": "Storage limit exceeded",
       "ticket_created": "Ticket created",
       "ticket_status_changed": "Ticket status changed",
       "ticketToStatus": "Ticket to {{status}}"
@@ -8063,6 +8064,7 @@
       "plan_succeeded": "a plan succeeds",
       "plan_failed": "a plan fails",
       "plan_step_changed": "a plan changes its step",
+      "storage_limit_exceeded": "the storage limit is exceeded",
       "ticket_created": "a ticket is created",
       "ticket_status_changed": "a ticket changes its status"
     },

@@ -1,7 +1,10 @@
 import { purgeObsoletePlanRuns } from "./AgentPlanRunPurge";
 import { SETTLED_PLAN_RUN } from "./AgentPlanRunRetention";
 
-import type { Database } from "@/backend/database/Database";
+import type {
+  Database,
+  DatabaseTransaction,
+} from "@/backend/database/Database";
 
 /** Whether a plan's transcript directories can be emptied or removed. */
 export type PlanHomeDisposition = "keep" | "empty" | "remove";
@@ -32,7 +35,7 @@ export class AgentEnvironmentRepository {
    * Leases carry no connection ID, so uncertain ownership protects every connection.
    */
   public async maintainConnectionCaches(
-    maintain: () => Promise<void>,
+    maintain: (transaction: DatabaseTransaction) => Promise<void>,
   ): Promise<void> {
     await this.database.transaction(async (transaction) => {
       const busy = await transaction.query(`
@@ -42,7 +45,7 @@ export class AgentEnvironmentRepository {
         LIMIT 1;
       `);
       if (busy.length > 0) return;
-      await maintain();
+      await maintain(transaction);
     });
   }
 

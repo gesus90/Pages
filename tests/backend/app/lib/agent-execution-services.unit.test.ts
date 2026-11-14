@@ -12,6 +12,7 @@ import { PlanAssetService } from "@/backend/service/agents/assets/PlanAssetServi
 import { resolveAgentsDirectory } from "@/backend/config/PagesConfig";
 import { getPagesRuntime } from "@/backend/runtime/PagesRuntime";
 
+import type { PagesEventPublisher } from "@/backend/service/events/PagesEventPublisher";
 import type { Mock } from "vitest";
 import type { AgentApplicationServices } from "@/app/lib/agent-services.server";
 import type { SystemApplicationServices } from "@/app/lib/system-services.server";
@@ -236,4 +237,16 @@ it("keeps Pages available when the tool startup checks fail", async () => {
     );
   });
   expect(fixture.startCatalog).toHaveBeenCalledOnce();
+});
+
+it("PAGE-418 passes the process publisher to periodic storage maintenance", async () => {
+  vi.mocked(createAgentServices).mockReturnValue(agentFixture().services);
+  const events = opaque<PagesEventPublisher>("events");
+  await startExecutionServices(DATABASE, "/srv/pages/data/pages.db", {
+    tokenKey: TOKEN_KEY,
+    tickets: TICKETS,
+    wiki: WIKI,
+    events,
+  });
+  expect(vi.mocked(createAgentServices).mock.calls[0]?.[3].events).toBe(events);
 });

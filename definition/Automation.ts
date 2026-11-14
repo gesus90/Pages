@@ -57,6 +57,7 @@ export const AUTOMATION_EVENT_TYPES = [
   "plan.step_changed",
   "ticket.created",
   "ticket.status_changed",
+  "storage.limit_exceeded",
 ] as const;
 /** An event an automation can wait for. */
 export type AutomationEventType = (typeof AUTOMATION_EVENT_TYPES)[number];

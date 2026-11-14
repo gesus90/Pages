@@ -1,9 +1,12 @@
+import type { StorageUsage } from "@/definition/StorageUsage";
+
 import type { DatabaseTransaction } from "@/backend/database/Database";
 
 /** One event as the outbox stores it: kind and object, never content. */
 export interface PagesEventRecord {
   readonly type: string;
   readonly id: string;
+  readonly storage?: StorageUsage;
   /** Project and department of a deleted ticket; absent for every other event. */
   readonly audience?: {
     readonly projectId: string;
@@ -37,6 +40,27 @@ export class PagesEventOutboxRepository {
    * @param event - Kind, object and, for a deleted ticket, its audience.
    */
   public async append(event: PagesEventRecord): Promise<void> {
+    if (event.storage) {
+      await this.transaction.execute(
+        `
+          INSERT INTO pages_event_outbox (
+              kind,
+              object_id,
+              storage_usage
+          ) VALUES (
+              $kind,
+              $object_id,
+              $storage_usage
+          );
+        `,
+        {
+          kind: event.type,
+          object_id: event.id,
+          storage_usage: JSON.stringify(event.storage),
+        },
+      );
+      return;
+    }
     await this.transaction.execute(
       `
         INSERT INTO pages_event_outbox (
