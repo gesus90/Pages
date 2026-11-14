@@ -55,12 +55,17 @@ function decision(fallback: "none" | "no_model"): object {
   const isFallback = fallback === "no_model";
   return {
     messageId: isFallback ? "fallback-message" : "decision-message",
-    outcome: isFallback ? "notice" : "responders",
+    outcome: isFallback ? "unavailable" : "responders",
     fallback,
     responders: isFallback ? [] : [{ id: "ed", name: "Ed" }],
-    suggested: [],
-    reason: isFallback ? "" : "Ed maintains the affected chat service.",
-    needsAnswer: isFallback ? null : true,
+    answerProbability: isFallback ? null : 0.82,
+    choices: isFallback
+      ? []
+      : [
+          { agentId: "ed", name: "Ed", probability: 0.78 },
+          { agentId: null, name: "", probability: 0.22 },
+        ],
+    model: isFallback ? null : "example/decision-model",
   };
 }
 
@@ -73,6 +78,7 @@ function messages(): readonly object[] {
       mentions: ["admin", "bakuman", "ed"],
       toolUses: [],
       createdAt: MOMENT,
+      decision: decision("none"),
     },
     {
       id: "decision-message",
@@ -80,7 +86,6 @@ function messages(): readonly object[] {
       content: "Please repair the chat service.",
       toolUses: [],
       createdAt: MOMENT,
-      decision: decision("none"),
     },
     {
       id: "fallback-message",

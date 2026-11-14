@@ -295,7 +295,7 @@ it.each(["ready", "noModel", "modelUnavailable"] as const)(
       i18n.t(`chatPage.decisionHealth.${status}`),
     );
     expect(health?.textContent).toContain(
-      i18n.t("chatPage.decision.fallbacks.model_failed"),
+      "Decision model failed · like “@ only”",
     );
   },
 );

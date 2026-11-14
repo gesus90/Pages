@@ -73,7 +73,7 @@ test("group mention suggestions filter, insert by mouse and dismiss without a ma
   await expect(list).toBeHidden();
 });
 
-test("messages distinguish own mentions and show the decision reason and fallback", async ({
+test("messages distinguish own mentions and show decision probabilities", async ({
   page,
 }) => {
   await openMentionChat(page);
@@ -91,16 +91,15 @@ test("messages distinguish own mentions and show the decision reason and fallbac
   await expect(otherMention).toHaveClass(/text-status-active/u);
   await expect(otherMention).not.toHaveAttribute("data-own-mention", "true");
 
-  await page.getByText("Decision: Ed answers", { exact: true }).click();
+  await page.getByText("Why?", { exact: true }).click();
   await expect(
-    page.getByText("Ed maintains the affected chat service.", { exact: true }),
+    page.getByText("Answer expected 82 % · Ed 78 %, nobody 22 %", {
+      exact: true,
+    }),
   ).toBeVisible();
-  const fallback = page.locator("details").filter({
-    hasText: "Decision: nobody answers",
-  });
-  await expect(fallback.getByText("Fallback", { exact: true })).toBeVisible();
-  await fallback.locator("summary").click();
-  await expect(fallback).toContainText("Yes: no decision model is usable.");
+  await expect(
+    page.getByText("Decision model: example/decision-model"),
+  ).toBeVisible();
 });
 
 test("the group shows whether its decision model is active or falls back", async ({
@@ -112,13 +111,13 @@ test("the group shows whether its decision model is active or falls back", async
   ).toContainText("Decision model active");
   await expect(
     page.locator("[role='status'][data-chat-decision-status='ready']"),
-  ).toContainText("Fallback: Yes: no decision model is usable.");
+  ).toContainText("No decision model · like “@ only”");
 
   await page.unroute("**/chat-page-api/page");
   await openMentionChat(page, "noModel");
   await expect(
     page.locator("[role='status'][data-chat-decision-status='noModel']"),
-  ).toContainText("No decision model · fallback");
+  ).toContainText("No decision model · @ only");
 
   await page.unroute("**/chat-page-api/page");
   await openMentionChat(page, "modelUnavailable");
@@ -126,5 +125,5 @@ test("the group shows whether its decision model is active or falls back", async
     page.locator(
       "[role='status'][data-chat-decision-status='modelUnavailable']",
     ),
-  ).toContainText("Decision model unavailable · fallback");
+  ).toContainText("Decision model unavailable · @ only");
 });

@@ -33,7 +33,7 @@ export function ChatDecisionHealth({
         ? t(`chatPage.replySettings.modes.${opened.group.replyMode}.label`)
         : t(`chatPage.decisionHealth.${status}`)}
       {hasFallback
-        ? ` · ${t("chatPage.decision.fallbackBadge")}: ${t(`chatPage.decision.fallbacks.${last.fallback}`)}`
+        ? ` · ${t(`chatPage.replySettings.decisions.result.unavailable.${last.fallback}`)}`
         : ""}
     </p>
   );

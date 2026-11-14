@@ -12,7 +12,7 @@ test("an administrator sets the idle time of chat sessions and sees the held ses
   const idle = page.getByRole("spinbutton", {
     name: "Idle time of a chat session (minutes)",
   });
-  await expect(idle).toHaveValue("10");
+  await expect(idle).toHaveValue("30");
   await idle.fill("25");
   const form = page.locator("form", { has: idle });
   await form.getByRole("button", { name: "Save" }).click();
