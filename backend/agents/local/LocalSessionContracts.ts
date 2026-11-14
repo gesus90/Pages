@@ -1,9 +1,12 @@
+import { randomUUID } from "node:crypto";
+
 import { z } from "zod";
 
-import { AGENT_ERROR_MESSAGES } from "@/backend/error/AgentErrors";
+import { AGENT_ERROR_MESSAGES, AgentError } from "@/backend/error/AgentErrors";
 import { readOwnedNamespace } from "@/definition/AcpNamespace";
 
 import type { CliSessionMcp } from "@/backend/agents/cli/CliSessionPlans";
+import type { AgentPlanExecutionInput } from "@/backend/service/agents/AgentPlanStepStart";
 
 const identifier = z.uuid();
 /** The id of a plan node; plans written as notation name their nodes freely. */
@@ -317,3 +320,49 @@ export type LocalOwnerProof = z.infer<typeof localOwnerProofSchema>;
 export type LocalSessionMutation = z.infer<typeof localMutationSchema>;
 export type LocalJournalRecord = z.infer<typeof localJournalRecordSchema>;
 export type LocalSessionCommand = z.infer<typeof localCommandSchema>;
+
+/**
+ * Builds and validates an immutable native turn request without exposing any
+ * plan bridge bearer token.
+ *
+ * @param input - Execution input carrying prompt, options and recording key.
+ * @param instanceId - UUID of the owning native session unit.
+ * @param mcp - Optional MCP address and allowed tool names without bearer.
+ * @param timeoutMinutes - Step timeout limit in minutes.
+ * @returns Validated native turn launch payload.
+ */
+export function createLocalSessionLaunch(
+  input: AgentPlanExecutionInput,
+  instanceId: string,
+  mcp: {
+    readonly url: string;
+    readonly tools: readonly string[] | null;
+  } | null,
+  timeoutMinutes: number,
+): LocalSessionLaunch {
+  const recording = input.recording;
+  if (!recording || recording.instanceId !== instanceId)
+    throw new AgentError("plan_context_changed");
+  const isInstruction = input.resourceContext?.isLocalInstruction === true;
+  const launch = localLaunchSchema.safeParse({
+    runId: recording.key.runId,
+    stepId: recording.key.stepId,
+    sessionScopeId:
+      input.resourceContext?.sessionScopeId ?? recording.key.stepId,
+    attemptId: recording.key.attemptId,
+    turnId: isInstruction ? randomUUID() : recording.key.attemptId,
+    isInstruction,
+    ...(input.fullEnvironment ? { isFullEnvironment: true } : {}),
+    instanceId,
+    userId: input.userId,
+    prompt: input.prompt,
+    instruction: input.acceptanceInstruction ?? "",
+    mcp: mcp
+      ? { url: mcp.url, tools: mcp.tools ? [...mcp.tools] : null }
+      : null,
+    timeoutMinutes,
+    resumeSessionId: "resumeSessionId" in input ? input.resumeSessionId : null,
+  });
+  if (!launch.success) throw new AgentError("plan_local_launch_invalid");
+  return launch.data;
+}

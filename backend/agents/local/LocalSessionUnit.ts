@@ -5,6 +5,7 @@ import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
 
 import { AgentError } from "@/backend/error/AgentErrors";
+import { omitSystemdServiceEnvironment } from "@/backend/agents/SystemdServiceEnvironment";
 
 import { localManagerEnvironment } from "./LocalSessionOwnership";
 
@@ -52,10 +53,8 @@ export async function startLocalSessionUnit(
     const configured = process.env[name];
     if (configured !== undefined) environment[name] = configured;
   }
-  if (manifest.launch.isFullEnvironment) {
-    for (const [name, configured] of Object.entries(process.env))
-      if (configured !== undefined) environment[name] = configured;
-  }
+  if (manifest.launch.isFullEnvironment)
+    Object.assign(environment, omitSystemdServiceEnvironment(process.env));
   const file = path.join(manifest.directory, "owner.env");
   await writeFile(
     file,

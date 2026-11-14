@@ -6,6 +6,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 
 import { acpDriverFor } from "@/backend/agents/acp/AcpDrivers";
+import { omitSystemdServiceEnvironment } from "@/backend/agents/SystemdServiceEnvironment";
 import { agentPlaywrightServer } from "@/backend/service/agents/tools/AgentPlaywrightSession";
 import { providerToolIds } from "@/backend/service/agents/tools/AgentToolRegistry";
 import { agentToolAdapterVersion } from "@/backend/service/agents/tools/AgentToolSession";
@@ -56,7 +57,7 @@ export async function prepareFullEnvironment(
       {
         cwd: input.directory,
         env: {
-          ...process.env,
+          ...omitSystemdServiceEnvironment(process.env),
           HOME: owner.homedir,
           USER: owner.username,
           LOGNAME: owner.username,
@@ -91,14 +92,15 @@ export async function prepareFullEnvironment(
       config: owner.homedir,
       work: input.directory,
     },
-    environment,
+    environment: omitSystemdServiceEnvironment(environment),
   };
 }
 
-/** Finds an executable using the owner's login PATH without invoking it. */
+/** Finds an executable in the owner's login PATH, then uses the isolated provider's tool resolution without invoking it. */
 export async function fullEnvironmentExecutable(
   binary: string,
   environment: CliFullEnvironment,
+  fallback: () => Promise<string | null>,
 ): Promise<string> {
   for (const directory of environment.environment.PATH.split(path.delimiter)) {
     const candidate = path.resolve(environment.home.work, directory, binary);
@@ -109,6 +111,8 @@ export async function fullEnvironmentExecutable(
       continue;
     }
   }
+  const managed = await fallback();
+  if (managed) return managed;
   throw new AgentError("cli_not_executable");
 }
 
@@ -182,7 +186,7 @@ export async function verifyFullEnvironmentStart(
   signal: AbortSignal,
   dependencies: {
     readonly locations?: ReadonlyMap<AgentToolId, AgentToolLocation>;
-    readonly locator: Pick<CliLocator, "locate">;
+    readonly locator: Pick<CliLocator, "find" | "locate">;
   },
 ): Promise<VerifiedStart> {
   const { locations, locator } = dependencies;
@@ -196,7 +200,13 @@ export async function verifyFullEnvironmentStart(
     opencode: "opencode",
     antigravity: "agy",
   };
-  const file = await fullEnvironmentExecutable(runnerNames[provider], owner);
+  const file = await fullEnvironmentExecutable(
+    runnerNames[provider],
+    owner,
+    async () =>
+      locations?.get(providerToolIds(provider)[0])?.file ??
+      (await locator.find(provider)).path,
+  );
   const adapterId = providerToolIds(provider).at(-1);
   const adapter =
     (adapterId ? locations?.get(adapterId)?.file : undefined) ??

@@ -8,10 +8,12 @@ import { requireAgentFiles } from "@/backend/storage/AgentPayloadFileStore";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AcpCleanupUnconfirmedError } from "@/backend/error/AcpCleanupUnconfirmedError";
 import { logCaughtError, logEvent } from "@/backend/logging/Logger";
+import { serializeLogError } from "@/backend/logging/LogError";
 import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
 import { isActivePlanRun } from "@/definition/AgentPlanRunState";
 
 import {
+  createLocalSessionLaunch,
   localClosedSchema,
   localLaunchSchema,
   localMutationSchema,
@@ -47,7 +49,6 @@ import type { AgentToolManagerService } from "@/backend/service/agents/tools/Age
 import type { LocalSessionEntry } from "@/backend/database/repositories/agent/LocalSessionRepository";
 import type { AcpResourceScheduler } from "@/backend/service/agents/AcpResourceScheduler";
 import type { AcpStartLifecycle } from "@/backend/service/agents/resources/AcpStartLifecycle";
-import type { AgentPlanExecutionInput } from "@/backend/service/agents/AgentPlanStepStart";
 import type {
   AgentPlanSessionInput,
   PlanSession,
@@ -189,7 +190,7 @@ export class LocalSessions {
     observer: PlanSessionObserver,
   ): Promise<PlanSession> {
     if (this.isDetaching) throw new AgentError("plan_run_unavailable");
-    const launch = this.launch(
+    const launch = createLocalSessionLaunch(
       input,
       input.instanceId,
       input.mcp ?? null,
@@ -426,6 +427,21 @@ export class LocalSessions {
       this.launching.delete(entry.instanceId);
       this.uncertain.add(entry.instanceId);
       logCaughtError("LocalSessions", error);
+      const failure = serializeLogError(error);
+      logEvent({
+        level: "warn",
+        event: "agent.local_owner.start_failed",
+        component: "LocalSessions",
+        message:
+          "Local native owner failed to start; its reservations remain uncertain",
+        metadata: {
+          runId: launch.runId,
+          stepId: launch.stepId,
+          attemptId: launch.attemptId,
+          kind: failure.type,
+          code: failure.code,
+        },
+      });
       throw new AcpCleanupUnconfirmedError();
     }
   }
@@ -467,8 +483,8 @@ export class LocalSessions {
           entry.instanceId,
           turnId,
         ),
-      nextLaunch: (input) =>
-        this.launch(input, entry.instanceId, launch.mcp, 0),
+      nextLaunch: (nextInput) =>
+        createLocalSessionLaunch(nextInput, entry.instanceId, launch.mcp, 0),
       namespace: async (mutation) => {
         const namespace = mutation.details.namespace;
         if (namespace && isActivePlanRun(run.status))
@@ -485,43 +501,6 @@ export class LocalSessions {
     await raw.attach();
     if (this.isDetaching) raw.detach();
     return raw;
-  }
-
-  private launch(
-    input: AgentPlanExecutionInput,
-    instanceId: string,
-    mcp: {
-      readonly url: string;
-      readonly tools: readonly string[] | null;
-    } | null,
-    timeoutMinutes: number,
-  ): LocalSessionLaunch {
-    const recording = input.recording;
-    if (!recording || recording.instanceId !== instanceId)
-      throw new AgentError("plan_context_changed");
-    const isInstruction = input.resourceContext?.isLocalInstruction === true;
-    const launch = localLaunchSchema.safeParse({
-      runId: recording.key.runId,
-      stepId: recording.key.stepId,
-      sessionScopeId:
-        input.resourceContext?.sessionScopeId ?? recording.key.stepId,
-      attemptId: recording.key.attemptId,
-      turnId: isInstruction ? randomUUID() : recording.key.attemptId,
-      isInstruction,
-      ...(input.fullEnvironment ? { isFullEnvironment: true } : {}),
-      instanceId,
-      userId: input.userId,
-      prompt: input.prompt,
-      instruction: input.acceptanceInstruction ?? "",
-      mcp: mcp
-        ? { url: mcp.url, tools: mcp.tools ? [...mcp.tools] : null }
-        : null,
-      timeoutMinutes,
-      resumeSessionId:
-        "resumeSessionId" in input ? input.resumeSessionId : null,
-    });
-    if (!launch.success) throw new AgentError("plan_local_launch_invalid");
-    return launch.data;
   }
 
   private requireEntry(instanceId: string): LocalSessionEntry {

@@ -49,7 +49,15 @@ substituting a different environment.
 
 The runner reads the account's home and login shell from the OS account record,
 loads its exported environment using that shell's `-lc` startup and preserves
-the resulting PATH. It sets HOME and XDG_RUNTIME_DIR to that account and uses
+the resulting PATH. The runner CLI is found in that login PATH first; if absent,
+Pages uses the same provider tool resolution as an isolated step: the pinned
+Pages-managed tool, or `CliLocator` when no tool is pinned. Only when neither
+lookup finds it does startup fail with `cli_not_executable`.
+Pages does not forward systemd-owned service variables (invocation and process
+identity, notification/watchdog, journal, memory pressure and socket activation
+state) to the local owner's environment file, the login shell or the worker's
+environment file. Each new unit keeps its own systemd identity.
+It sets HOME and XDG_RUNTIME_DIR to that account and uses
 its user D-Bus address. The trusted local session owner carries the host
 environment only for this explicit level. The ACP worker receives this
 environment instead of the isolated connection allowlist. No connection-home

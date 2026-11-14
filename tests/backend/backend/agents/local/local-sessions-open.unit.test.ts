@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { settleManagedLocalOwner } from "@/backend/agents/local/LocalOwnerControl";
 import { AcpCleanupUnconfirmedError } from "@/backend/error/AcpCleanupUnconfirmedError";
+import { AgentError } from "@/backend/error/AgentErrors";
+import { safeLogMetadata } from "@/backend/logging/LogRedaction";
 
 import {
   ATTEMPT_ID,
@@ -335,9 +337,17 @@ describe("open refusals", () => {
     ).rejects.toMatchObject({ code: "plan_local_owner_unverified" });
     expect(mocks.unit.startLocalSessionUnit).toHaveBeenCalledOnce();
   });
+});
 
+describe("open start failures", () => {
   it("keeps a failed start uncertain and reports unconfirmed cleanup", async () => {
-    const failure = new Error("systemd refused");
+    const failure = Object.assign(new TypeError("private process output"), {
+      code: "ECONNREFUSED",
+      stdout: "private stdout",
+      stderr: "private stderr",
+      path: "/synthetic/credentials/auth.json",
+      env: { PRIVATE_SETTING: "private environment" },
+    });
     mocks.unit.startLocalSessionUnit.mockRejectedValue(failure);
     const sessions = createSessions();
 
@@ -355,6 +365,20 @@ describe("open refusals", () => {
       "LocalSessions",
       failure,
     );
+    expect(mocks.logger.logEvent).toHaveBeenCalledExactlyOnceWith({
+      level: "warn",
+      event: "agent.local_owner.start_failed",
+      component: "LocalSessions",
+      message:
+        "Local native owner failed to start; its reservations remain uncertain",
+      metadata: {
+        runId: RUN_ID,
+        stepId: STEP_ID,
+        attemptId: ATTEMPT_ID,
+        kind: "TypeError",
+        code: "ECONNREFUSED",
+      },
+    });
     expect(mocks.owners.prove).not.toHaveBeenCalled();
   });
 
@@ -376,6 +400,47 @@ describe("open refusals", () => {
     ).rejects.toBeInstanceOf(AcpCleanupUnconfirmedError);
 
     expect(sessions.unverified().has(INSTANCE_ID)).toBe(true);
+  });
+});
+
+it.each([
+  [
+    new AgentError("plan_local_launch_invalid"),
+    "AgentError",
+    "plan_local_launch_invalid",
+  ],
+  [new Error("private output"), "Error", null],
+  ["private rejection", "NonError", null],
+  [
+    Object.assign(new Error("private output"), {
+      code: "/credentials/auth.json",
+    }),
+    "Error",
+    null,
+  ],
+])("logs only safe failure identifiers for %s", async (failure, kind, code) => {
+  mocks.unit.startLocalSessionUnit.mockRejectedValue(failure);
+
+  await expect(
+    createSessions().open(
+      sessionInput(),
+      new AbortController().signal,
+      createObserver(),
+    ),
+  ).rejects.toBeInstanceOf(AcpCleanupUnconfirmedError);
+
+  const event = mocks.logger.logEvent.mock.calls[0]?.[0];
+  expect(event).toMatchObject({
+    level: "warn",
+    event: "agent.local_owner.start_failed",
+  });
+  expect(event).not.toHaveProperty("error");
+  expect(safeLogMetadata(event?.metadata)).toEqual({
+    runId: RUN_ID,
+    stepId: STEP_ID,
+    attemptId: ATTEMPT_ID,
+    kind,
+    code,
   });
 });
 

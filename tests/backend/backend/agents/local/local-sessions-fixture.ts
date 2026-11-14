@@ -3,6 +3,7 @@ import path from "node:path";
 import { vi } from "vitest";
 
 import type { LocalSessionEntry } from "@/backend/database/repositories/agent/LocalSessionRepository";
+import type { ServerLogEvent } from "@/backend/logging/Logger";
 import type {
   PlanSession,
   PlanSessionClosed,
@@ -67,7 +68,10 @@ export const mocks = {
       vi.fn<(manifest: LocalOwnerManifest) => Promise<void>>(),
   },
   tools: { pinLocalSessionTools: vi.fn() },
-  logger: { logCaughtError: vi.fn(), logEvent: vi.fn() },
+  logger: {
+    logCaughtError: vi.fn(),
+    logEvent: vi.fn<(event: ServerLogEvent) => void>(),
+  },
   watch:
     vi.fn<
       (
