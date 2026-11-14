@@ -26,10 +26,13 @@ export function PageAgentModelFields(props: {
     (entry) => entry.id === props.draft.modelProfileId,
   );
   function selectModel(id: string): void {
+    const selected = props.models.find((entry) => entry.id === id);
     props.onChange({
       ...props.draft,
       modelProfileId: id,
-      reasoningEffort: props.draft.reasoningEffort,
+      reasoningEffort: selected?.reasoningEfforts.length
+        ? props.draft.reasoningEffort
+        : null,
     });
   }
   return (

@@ -1,15 +1,21 @@
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { withBackgroundDatabaseWork } from "@/backend/database/executor/DatabaseWorkContext";
 import { readAcpResourceOptions } from "@/backend/config/AcpResourceConfig";
+import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
 import { logCaughtError } from "@/backend/logging/Logger";
 import { isAcpSessionLimit, MAX_ACP_SESSIONS } from "@/definition/AcpResource";
 
-import { forceReleaseAcpRun, reconcileAcpRun } from "./resources/AcpRunRelease";
+import { forceReleaseAcpRun } from "./resources/AcpRunRelease";
+import {
+  cleanupAcpLease,
+  reconcileAcpLeases,
+  recoverAcpLease,
+} from "./resources/AcpLeaseRecovery";
+import { AcpWaitDiagnostics } from "./resources/AcpWaitDiagnostics";
 import { AcpLeaseAdmission } from "./resources/AcpLeaseAdmission";
 import { AcpLeaseChecks } from "./resources/AcpLeaseChecks";
 import {
-  closeLease,
   confirmFailedStart,
   endLeaseProcesses,
 } from "./resources/AcpLeaseProcesses";
@@ -61,13 +67,16 @@ export class AcpResourceScheduler {
   private readonly active = new Map<string, AcpResourceRecord>();
   private readonly sessions = new Map<string, PlanSession>();
   private readonly waiting: WaitingRequest[] = [];
+  private readonly waitDiagnostics = new AcpWaitDiagnostics();
+  private waitObserver:
+    ((waiting: AcpResourceSnapshot["waiting"]) => Promise<void>) | null = null;
   private readonly pausedRuns = new Set<string>();
   private readonly shutdownController = new AbortController();
   private readonly opening = new Set<Promise<PlanSession>>();
   private readonly checks: AcpLeaseChecks;
   /** The administrator's check and confirmed cleanup of the leases this service owns (PAGE-340). */
   public readonly leaseCleanup: AcpLeaseCleanup;
-  private unverifiedLocal: ReadonlySet<string> = new Set();
+  private unverifiedLocal: Set<string> = new Set();
   private availableMemory: number | null = null;
   private problem: AcpResourceSnapshot["problem"] = null;
   private timer: ReturnType<typeof setTimeout> | undefined;
@@ -126,7 +135,7 @@ export class AcpResourceScheduler {
     if (this.isReady || this.isClosing)
       throw new Error("ACP scheduler already initialized");
     const previous = await this.admission.recoverable();
-    this.unverifiedLocal = unverified;
+    this.unverifiedLocal = new Set(unverified);
     for (const record of previous) this.active.set(record.instanceId, record);
     // An adopted lease is dated now, after its processes started, so its start rules nothing out.
     const adopted = new Set<string>();
@@ -142,7 +151,15 @@ export class AcpResourceScheduler {
       await this.persist(() => this.store.save(record));
     }
     for (const record of this.active.values())
-      await this.recoverRecord(record, { preserved, retained, adopted });
+      await recoverAcpLease(
+        record,
+        { preserved, retained, adopted },
+        {
+          transition: (id, state) => this.transition(id, state),
+          cleanup: (lease, since) => this.cleanupLease(lease, since),
+          finish: (id, confirmed) => this.finish(id, confirmed),
+        },
+      );
     this.isReady = true;
     this.wake();
     // The periodic check runs with the service, also without queue or open settings page.
@@ -245,6 +262,13 @@ export class AcpResourceScheduler {
     this.reclaimIdle = reclaim;
   }
 
+  /** Installs the engine's serialized persistence of current admission reasons. */
+  public setWaitObserver(
+    observer: (waiting: AcpResourceSnapshot["waiting"]) => Promise<void>,
+  ): void {
+    this.waitObserver = observer;
+  }
+
   /** Suspends queued requests of a paused run; existing sessions continue to own capacity. */
   public pauseRun(runId: string): void {
     this.pausedRuns.add(runId);
@@ -315,12 +339,18 @@ export class AcpResourceScheduler {
   public async reconcile(runId?: string): Promise<number> {
     // An ended run's own leases first get their cleanup attempted again; the periodic check judges by evidence only.
     if (runId !== undefined)
-      await reconcileAcpRun(runId, {
-        active: this.active,
-        sessions: this.sessions,
-        cleanup: (record, since) => this.cleanupRecord(record, since),
-        finish: (id, confirmed) => this.finish(id, confirmed),
-      });
+      await reconcileAcpLeases(
+        [...this.active.values()].filter(
+          (record) =>
+            record.state === "cleanup_failed" &&
+            !this.sessions.has(record.instanceId) &&
+            record.runId === runId,
+        ),
+        {
+          cleanup: (record) => this.cleanupLease(record, record.since),
+          finish: (id, confirmed) => this.finish(id, confirmed),
+        },
+      );
     return this.checks.reconcile(runId);
   }
 
@@ -366,45 +396,15 @@ export class AcpResourceScheduler {
     this.reconcileTimer.unref();
   }
 
-  private async recoverRecord(
+  private cleanupLease(
     record: AcpResourceRecord,
-    context: {
-      readonly preserved: ReadonlySet<string>;
-      readonly retained: ReadonlySet<string>;
-      readonly adopted: ReadonlySet<string>;
-    },
-  ): Promise<void> {
-    if (context.preserved.has(record.instanceId)) {
-      if (record.state === "closing" || record.state === "cleanup_failed")
-        await this.transition(record.instanceId, "running");
-      return;
-    }
-    if (context.retained.has(record.instanceId)) {
-      await this.transition(record.instanceId, "cleanup_failed");
-      return;
-    }
-    try {
-      const cleanup = await this.cleanupRecord(
-        record,
-        context.adopted.has(record.instanceId) ? null : record.since,
-      );
-      await this.finish(record.instanceId, cleanup.remaining === 0);
-    } catch (caughtError: unknown) {
-      logCaughtError("AcpResourceScheduler", caughtError);
-
-      await this.transition(record.instanceId, "cleanup_failed");
-    }
-  }
-
-  private async cleanupRecord(
-    record: AcpResourceRecord,
-    startedAt: string | null,
+    since: string | null,
   ): Promise<{ readonly remaining: number }> {
-    if (this.unverifiedLocal.has(record.instanceId))
-      throw new Error(
-        "Local native owner is unverified; no cleanup is authorized",
-      );
-    return closeLease(record, startedAt, this.cleanup, this.settleUnits);
+    return cleanupAcpLease(record, since, {
+      unverified: this.unverifiedLocal,
+      cleanup: this.cleanup,
+      settleUnits: this.settleUnits,
+    });
   }
 
   private async openSession(request: AcpOpenRequest): Promise<PlanSession> {
@@ -437,10 +437,7 @@ export class AcpResourceScheduler {
         close: () => {
           const current = this.active.get(owner.instanceId);
           const fallback = { ...owner, state: "starting" as const, since: "" };
-          return this.cleanupRecord(
-            current ?? fallback,
-            current?.since ?? null,
-          );
+          return this.cleanupLease(current ?? fallback, current?.since ?? null);
         },
       });
       await this.finish(owner.instanceId, isConfirmed);
@@ -481,18 +478,27 @@ export class AcpResourceScheduler {
         transition: (state, stepId) =>
           this.transition(instanceId, state, stepId),
         finish: (isConfirmed) => this.finish(instanceId, isConfirmed),
-        settle: () => this.settleChatLease(instanceId),
+        settle: (error) => this.settleSessionLease(instanceId, error),
       },
       observer,
     );
   }
 
-  /** A chat lease whose native closeout stayed unconfirmed is proven from its identity and units. */
-  private async settleChatLease(instanceId: string): Promise<boolean> {
+  /** Reconciles a failed close using the recorded lease identity and worker units. */
+  private async settleSessionLease(
+    instanceId: string,
+    error?: unknown,
+  ): Promise<boolean> {
     const record = this.active.get(instanceId);
     if (!record) return true;
-    if (record.runId !== null) return false;
-    return (await this.cleanupRecord(record, record.since)).remaining === 0;
+    if (
+      record.runId !== null &&
+      (!(error instanceof AgentError) ||
+        (error.code !== "plan_local_control_failed" &&
+          error.code !== "plan_local_owner_unverified"))
+    )
+      return false;
+    return (await this.cleanupLease(record, record.since)).remaining === 0;
   }
 
   /**
@@ -543,6 +549,17 @@ export class AcpResourceScheduler {
   }
 
   private async pump(): Promise<void> {
+    try {
+      await this.admitWaiting();
+    } finally {
+      this.waitDiagnostics.report(this.waiting, (request) =>
+        this.waitReason(request),
+      );
+      await this.waitObserver?.(this.snapshot().waiting);
+    }
+  }
+
+  private async admitWaiting(): Promise<void> {
     await this.refreshOptions();
     await this.recheckBlockingLeases();
     // An idle chat session gives its place to a waiting start; its closeout wakes the queue.

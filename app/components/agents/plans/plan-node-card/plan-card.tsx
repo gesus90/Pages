@@ -9,6 +9,7 @@ import { keepPlanControlKeys } from "../plan-flow-keys";
 import { planNodeAccent, planNodeClass } from "../plan-layout";
 import { PlanNodeActions, PlanNodeEditButton } from "../plan-node-actions";
 import { PlanNodeIcon } from "../plan-node-icon";
+import { PlanNodeWarning } from "../plan-node-warning";
 import { PLAN_NODE_ICON, PLAN_NODE_TEXT } from "../plan-node-text";
 
 import type { AgentPlanNode } from "@/definition/AgentPlan";
@@ -69,7 +70,6 @@ export function PlanCard(props: PlanCardProps): React.ReactElement {
         graph.selectedId === node.id &&
           "ring-2 ring-info ring-offset-2 ring-offset-surface",
         needsSelection && !hasDestructiveIssue && "border-2 border-primary",
-        hasDestructiveIssue && "border-destructive",
       )}
     >
       <PlanCardHeader {...props} />
@@ -140,6 +140,7 @@ function PlanCardHeader(props: PlanCardProps): React.ReactElement {
         </span>
       </button>
       {props.status}
+      <PlanNodeWarning nodeId={node.id} issues={graph.issues} />
       {props.onEdit ? (
         <PlanNodeEditButton label={props.label} onEdit={props.onEdit} />
       ) : null}

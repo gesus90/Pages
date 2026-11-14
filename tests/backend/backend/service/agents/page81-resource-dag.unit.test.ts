@@ -137,6 +137,7 @@ it("keeps a non-ACP DAG branch runnable while three ACP branches await RAM; abor
     database.run(run.id).steps.find((step) => step.id === "api")?.status,
   ).toBe("succeeded");
   expect(resources.scheduler.snapshot().waiting).toHaveLength(3);
+  expect(database.run(run.id).waitReason).toBe("memory");
   expect(native).not.toHaveBeenCalled();
   await engine.stop(run.id);
   await vi.advanceTimersByTimeAsync(0);

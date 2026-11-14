@@ -9,17 +9,12 @@ import {
 } from "@/definition/AgentPlanLoop";
 import { unsupportedRunOption } from "@/backend/agents/cli/CliSessionPlans";
 import { planStepTemplate } from "@/definition/AgentPlanConfiguration";
-import { scanAgentPlaceholders } from "@/definition/AgentParameters";
 import { AgentError } from "@/backend/error/AgentErrors";
-import { logCaughtError } from "@/backend/logging/Logger";
-import { planAssets } from "@/definition/AgentPlanAsset";
-import { PLAN_HANDOVER_LIMITS } from "@/definition/AgentPlanHandover";
-import { planBindingNodes } from "@/definition/AgentPlanStackGraph";
 import { AgentPlanWorkspaceConflictError } from "@/backend/error/AgentPlanWorkspaceConflictError";
 import { remoteWorkspaceKeys } from "./AgentPlanRemoteWorkspaceKey";
 import { agentRunOptionsFor } from "@/definition/AgentConfiguration";
 import { isApiProvider } from "@/definition/AgentConnection";
-import { planExecutionIssues } from "@/definition/AgentPlanGraph";
+import { executablePlan, planStartIssues } from "@/definition/AgentPlanStart";
 import { AgentPlanValidationError } from "@/backend/error/AgentPlanValidationError";
 import {
   planTargetIssues,
@@ -27,7 +22,7 @@ import {
 } from "@/definition/AgentPlanTarget";
 
 import { validateGroupRuntimes } from "./AgentPlanGroupRuntime";
-import { assetRepresentation } from "./AgentAssetRepresentations";
+import { AgentPlanPreparationFailures } from "./AgentPlanPreparationFailures";
 import { remoteReferenceIssues } from "./AgentPlanReferences";
 import { planBindings } from "./AgentPlanBindings";
 import { arePlanNodesOrdered, planSteps } from "./AgentPlanGraph";
@@ -54,7 +49,6 @@ import type { AgentPlanGroup } from "@/definition/AgentPlanGroup";
 import type { AgentDefinitionChoice } from "@/definition/AgentAvailability";
 import type { AgentProfile } from "@/definition/AgentProfile";
 import type { AgentPlan, AgentPlanStep } from "@/definition/AgentPlan";
-import type { AgentPlanAssetFile } from "@/definition/AgentPlanAsset";
 import type { AgentPlanLoop } from "@/definition/AgentPlanLoop";
 import type { AgentProfileService } from "./AgentProfileService";
 import type { AgentParameterService } from "./AgentParameterService";
@@ -64,7 +58,6 @@ import type {
   AgentPlanScriptSnapshot,
 } from "./AgentPlanScriptPreparation";
 import type { AgentPlanTaskSnapshot } from "./AgentPlanBindings";
-import type { AgentPlanTemplate } from "@/definition/AgentPlanConfiguration";
 import type { PlanAssetService } from "./assets/PlanAssetService";
 import type {
   AgentPlanSnapshot,
@@ -96,7 +89,7 @@ interface StepPreparationContext {
   readonly remoteTargets: readonly AgentPlanRemoteTarget[];
 }
 
-/** Completes every validation before reserving directories or starting provider work. */
+/** Freezes the executable path; incomplete node configuration is deferred to dispatch. */
 export class AgentPlanPreparation {
   private readonly dependencies: PreparationDependencies;
 
@@ -106,6 +99,7 @@ export class AgentPlanPreparation {
 
   /** Checks live script start rights for the existing control panel without executing script content. */
   public async validateScripts(userId: string, plan: AgentPlan): Promise<void> {
+    plan = executablePlan(plan);
     if (hasRemotePlanTarget(plan)) {
       await this.prepare(userId, plan);
       return;
@@ -122,24 +116,34 @@ export class AgentPlanPreparation {
    * @remarks
    * Nodes without a target of their own take the plan's target here, so the
    * snapshot names the target of every node and a run keeps it, whatever
-   * the plan says later. A node that cannot run on its remote target refuses
-   * the start; it never runs on the Pages host instead.
+   * the plan says later. A node that cannot run on its remote target fails
+   * at dispatch; it never runs on the Pages host instead.
    */
   public async prepare(
     userId: string,
     plan: AgentPlan,
   ): Promise<AgentPlanSnapshot> {
+    const issues = planStartIssues(plan);
+    if (issues.length > 0) throw new AgentPlanValidationError(issues);
+    plan = executablePlan(plan);
+    const failures = new AgentPlanPreparationFailures();
     await this.dependencies.workspaceCatalog?.resolve(userId, plan);
     plan = withInheritedPlanTarget(plan);
-    await this.requireRemoteSupport(userId, plan);
+    await failures.capture(
+      expandPlanLoops(expandPlanGroups(plan))
+        .nodes.filter(
+          (node) =>
+            "executionTarget" in node &&
+            node.executionTarget?.kind === "remote",
+        )
+        .map((node) => node.id),
+      () => this.requireRemoteSupport(userId, plan),
+    );
     plan = withPortlessPlanGroups(plan);
     const catalog = await this.dependencies.profiles.catalog(
       userId,
       plan.projectId,
     );
-    const issues = planExecutionIssues(plan, catalog);
-    if (issues.length > 0) throw new AgentPlanValidationError(issues);
-    await requireReadablePlanAssets(this.dependencies.planAssets, userId, plan);
     const groups = [
       ...plan.nodes.filter((node) => node.type === "group"),
       ...plan.nodes.flatMap((node) =>
@@ -151,8 +155,6 @@ export class AgentPlanPreparation {
     const loops = plan.nodes.filter((node) => node.type === "loop");
     const flat = expandPlanLoops(plan);
     const steps = planSteps(flat);
-    if (steps.length === 0 && !flat.nodes.some(isScriptRuntimeNode))
-      throw new AgentError("plan_invalid");
     const { tasks, issues: referenceIssues } = await this.readTasks(
       userId,
       plan,
@@ -161,16 +163,19 @@ export class AgentPlanPreparation {
     const remoteSteps = await this.prepareRemote(userId, plan, {
       tasks,
       issues: referenceIssues,
+      failures,
     });
-    validateRemoteWorkingCopies(plan, remoteSteps);
+    await failures.capture([], async () =>
+      validateRemoteWorkingCopies(plan, remoteSteps),
+    );
     const remoteTargets =
       (await this.dependencies.remoteTargets?.list(userId, plan.projectId)) ??
       [];
-    const scripts = await this.prepareScripts(userId, flat, tasks);
+    const scripts = await this.prepareScripts(userId, flat, tasks, failures);
     for (const step of steps) {
       if (step.executionTarget?.kind === "remote") continue;
-      snapshots.push(
-        await this.prepareStep(userId, step, {
+      const prepared = await failures.capture(step.id, () =>
+        this.prepareStep(userId, step, {
           plan,
           flat,
           groups,
@@ -180,14 +185,21 @@ export class AgentPlanPreparation {
           remoteTargets,
         }),
       );
+      if (prepared) snapshots.push(prepared);
     }
-    validateGroupRuntimes(groups, snapshots);
-    validatePlanWorkingCopies(flat, snapshots, scripts ?? []);
+    for (const group of groups)
+      await failures.capture(group.id, async () =>
+        validateGroupRuntimes([group], snapshots),
+      );
+    await failures.capture([], async () =>
+      validatePlanWorkingCopies(flat, snapshots, scripts ?? []),
+    );
     return structuredClone({
       plan,
       groups,
       steps: snapshots,
       remoteSteps,
+      preparationFailures: failures.snapshot(),
       ...(scripts?.length ? { scripts } : {}),
     });
   }
@@ -248,6 +260,7 @@ export class AgentPlanPreparation {
     context: {
       readonly tasks: readonly AgentPlanTaskSnapshot[];
       readonly issues: readonly AgentPlanIssue[];
+      readonly failures: AgentPlanPreparationFailures;
     },
   ): Promise<readonly RemotePlanStep[]> {
     const steps: RemotePlanStep[] = [];
@@ -260,26 +273,16 @@ export class AgentPlanPreparation {
         !this.dependencies.remoteExecution
       )
         continue;
-      try {
-        steps.push(
-          await this.dependencies.remoteExecution.prepare(
-            userId,
-            plan,
-            node,
-            context.tasks,
-          ),
-        );
-      } catch (error: unknown) {
-        if (!(error instanceof AgentPlanValidationError)) throw error;
-        issues.push(...error.issues);
-      }
+      const remoteExecution = this.dependencies.remoteExecution;
+      const prepared = await context.failures.capture(node.id, () =>
+        remoteExecution.prepare(userId, plan, node, context.tasks),
+      );
+      if (prepared) steps.push(prepared);
     }
     if (issues.length)
-      throw new AgentPlanValidationError([
-        ...new Map(
-          issues.map((issue) => [JSON.stringify(issue), issue]),
-        ).values(),
-      ]);
+      await context.failures.capture([], async () => {
+        throw new AgentPlanValidationError(issues);
+      });
     return steps;
   }
 
@@ -312,7 +315,7 @@ export class AgentPlanPreparation {
           configuration: step.configuration,
         },
         bindings,
-        withoutEmptyStackInputs(template, step, bindings),
+        template,
       )
       .catch((error: unknown) => {
         const issues = remoteReferenceIssues(plan, step, error);
@@ -362,82 +365,28 @@ export class AgentPlanPreparation {
     userId: string,
     plan: AgentPlan,
     tasks: readonly AgentPlanTaskSnapshot[],
+    failures: AgentPlanPreparationFailures,
   ): Promise<readonly AgentPlanScriptSnapshot[] | undefined> {
-    const scripts = await this.dependencies.scripts?.prepare(
-      userId,
-      plan,
-      tasks,
-    );
-    if (plan.nodes.some(isEnabledScriptRuntimeNode) && !scripts)
-      throw new AgentError("plan_script_interpreter_unavailable");
+    const scripts: AgentPlanScriptSnapshot[] = [];
+    for (const node of plan.nodes.filter(isEnabledScriptRuntimeNode)) {
+      const prepared = await failures.capture(node.id, async () => {
+        if (!this.dependencies.scripts)
+          throw new AgentError("plan_script_interpreter_unavailable");
+        return this.dependencies.scripts.prepare(
+          userId,
+          {
+            ...plan,
+            nodes: plan.nodes.filter(
+              (entry) => entry.type !== "script" || entry.id === node.id,
+            ),
+          },
+          tasks,
+        );
+      });
+      if (prepared) scripts.push(...prepared);
+    }
     return scripts;
   }
-}
-
-/**
- * Reads the file of every asset node an input is connected to, before anything starts.
- *
- * @remarks
- * Without its file such a node gives no input, so a missing, refused,
- * changed or damaged file refuses the start with a finding on the node.
- * Stack entries are not read here: one damaged entry fails only its own turn.
- */
-async function requireReadablePlanAssets(
-  assets: PreparationDependencies["planAssets"],
-  userId: string,
-  plan: AgentPlan,
-): Promise<void> {
-  const used = new Set(
-    planBindingNodes(plan).flatMap((node) =>
-      Object.values(node.bindings).flatMap((binding) =>
-        binding.kind === "source" ? [binding.nodeId] : [],
-      ),
-    ),
-  );
-  const issues: AgentPlanIssue[] = [];
-  for (const node of planAssets(plan)) {
-    if (!node.file || !used.has(node.id)) continue;
-    const cause = await planAssetReadFailure(assets, userId, node.file);
-    if (cause)
-      issues.push({
-        nodeId: node.id,
-        port: "value-out",
-        reason: "assetUnreadable",
-        asset: { id: node.file.assetId, name: node.file.fileName, cause },
-      });
-  }
-  if (issues.length) throw new AgentPlanValidationError(issues);
-}
-
-/** Why a file cannot be handed over, or `null` when it reads completely and unchanged. */
-async function planAssetReadFailure(
-  assets: PreparationDependencies["planAssets"],
-  userId: string,
-  file: AgentPlanAssetFile,
-): Promise<string | null> {
-  if (!assets) return "parameter_asset_transfer_unsupported";
-  try {
-    const record = await assets.describe(userId, file.assetId);
-    if (record.digest !== file.digest) return "plan_asset_changed";
-    if (record.size > PLAN_HANDOVER_LIMITS.bytes) return "plan_asset_too_large";
-    // A file beyond the in-memory budget is handed over as an original only:
-    // here its bytes need to be there, and the copy for the step is compared
-    // with the pinned digest while it is made.
-    if (record.size > PLAN_HANDOVER_LIMITS.inlineBytes)
-      return (await assets.isReadable(userId, file.assetId))
-        ? null
-        : "plan_asset_unreadable";
-    await assetRepresentation(await assets.read(userId, file.assetId));
-    return null;
-  } catch (error: unknown) {
-    logCaughtError("AgentPlanPreparation", error);
-    return error instanceof AgentError ? error.code : "plan_asset_unreadable";
-  }
-}
-
-/** Scripts run as processes of the script runtime. */
-function isScriptRuntimeNode(node: AgentPlan["nodes"][number]): boolean {
-  return node.type === "script";
 }
 
 /** A disabled script never starts a process, so it needs no interpreter snapshot. */
@@ -459,43 +408,6 @@ function requirePreparedRuntime(
     agentRunOptionsFor(step.provider, step.template.run),
   );
   if (unsupported !== null) throw new AgentError(unsupported);
-}
-
-/**
- * The template the preparation checks, without the inputs an empty stack can never fill.
- *
- * @remarks
- * Such an input has no stand-in to check: an empty stack hands over nothing,
- * so the node behind it never starts with it. The node itself binds its
- * template again with the handed-over entry when it starts.
- */
-function withoutEmptyStackInputs(
-  template: AgentPlanTemplate,
-  step: AgentPlanStep,
-  bindings: Readonly<Record<string, unknown>>,
-): AgentPlanTemplate {
-  const empty = new Set(
-    Object.entries(step.bindings).flatMap(([name, binding]) =>
-      binding.kind === "stack" &&
-      binding.output === "content" &&
-      bindings[name] === null
-        ? [name]
-        : [],
-    ),
-  );
-  if (empty.size === 0) return template;
-  const { placeholders } = scanAgentPlaceholders(template.markdown);
-  let markdown = template.markdown;
-  for (const found of placeholders.toReversed())
-    if (empty.has(found.name))
-      markdown = markdown.slice(0, found.start) + markdown.slice(found.end);
-  // A file input of a stack is filled when the entry's turn starts and checked there.
-  const parameters = template.parameters.map((parameter) =>
-    empty.has(parameter.name) && parameter.type === "asset"
-      ? { ...parameter, isRequired: false }
-      : parameter,
-  );
-  return { ...template, markdown, parameters };
 }
 
 /**

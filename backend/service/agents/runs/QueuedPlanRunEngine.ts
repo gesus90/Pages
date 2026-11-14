@@ -27,7 +27,7 @@ import type {
   PlanRunCommandAction,
   PlanRunCommandReceipt,
 } from "@/definition/PagesRuns";
-import type { AgentPlanRunRecording } from "../AgentPlanEngineDependencies";
+import type { AgentPlanRunRecording } from "../AgentPlanRunRecording";
 import type { AgentPlanRunJournal } from "../AgentPlanJournal";
 import type { AgentPlanSnapshot } from "../AgentPlanSnapshot";
 import type { RecoveredRunStart } from "../AgentPlanRunStart";

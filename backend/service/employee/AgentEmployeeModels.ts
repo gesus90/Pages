@@ -1,12 +1,9 @@
 import { AgentJobAnswerError } from "@/backend/error/AgentJobAnswerError";
 import { AgentEmployeeError } from "@/backend/error/AgentEmployeeError";
 import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
-import {
-  consumerModels,
-  modelConsumerRefusal,
-} from "@/definition/AgentModelConsumers";
+import { modelConsumerRefusal } from "@/definition/AgentModelConsumers";
+import { catalogModelChoice } from "@/definition/AgentModelChoice";
 import { isApiProvider } from "@/definition/AgentConnection";
-import { isChatCapableModel } from "@/definition/AgentModelFilter";
 
 import {
   resolveAgentAssignment,
@@ -19,7 +16,10 @@ import type { AgentConnectionRepository } from "@/backend/database/repositories/
 import type { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import type { UserGroupRepository } from "@/backend/database/repositories/UserGroupRepository";
 import type { ResolvedAgentAssignment } from "../agents/AgentAssignmentResolution";
-import type { AgentEmployeeSettings } from "@/definition/AgentEmployee";
+import type {
+  AgentEmployeeAccess,
+  AgentEmployeeSettings,
+} from "@/definition/AgentEmployee";
 import type { PageAgentModel } from "@/definition/PageAgent";
 
 /** What the model choice of agents is read from. */
@@ -41,8 +41,8 @@ export interface AgentModelDescription {
  *
  * @remarks
  * The choice lists the models of the shared catalog the administrator may
- * use and that pass the "employee" rule: language models that answer over
- * an ACP chat adapter and call tools. Saving checks the same rule on the
+ * use, including disabled choices. The employee rule requires a chat adapter,
+ * a tool-capable model and sufficient access for its tools. Saving checks it on the
  * server, whatever a client sends, and so does every session start.
  */
 export class AgentEmployeeModels {
@@ -54,12 +54,9 @@ export class AgentEmployeeModels {
 
   /** Lists the models the person may give an agent. */
   public async models(userId: string): Promise<readonly PageAgentModel[]> {
-    return consumerModels(
-      "employee",
-      await connectionModels(
-        this.dependencies.connections,
-        await this.viewer(userId),
-      ),
+    return connectionModels(
+      this.dependencies.connections,
+      await this.viewer(userId),
     );
   }
 
@@ -85,7 +82,7 @@ export class AgentEmployeeModels {
         throw new AgentEmployeeError("modelNotAllowed");
       throw error;
     }
-    await this.requireEmployeeModel(assignment);
+    await this.requireEmployeeModel(assignment, settings.access);
     return assignment;
   }
 
@@ -97,7 +94,7 @@ export class AgentEmployeeModels {
    * @throws {AgentJobAnswerError} With `failureCode: cli_not_logged_in` for an unsigned CLI connection.
    */
   public async resolve(
-    settings: Omit<AgentEmployeeSettings, "access">,
+    settings: AgentEmployeeSettings,
   ): Promise<ResolvedAgentAssignment> {
     let assignment: ResolvedAgentAssignment;
     try {
@@ -120,7 +117,7 @@ export class AgentEmployeeModels {
       }
       throw new AgentEmployeeError("unavailable");
     }
-    await this.requireEmployeeModel(assignment);
+    await this.requireEmployeeModel(assignment, settings.access);
     return assignment;
   }
 
@@ -141,20 +138,22 @@ export class AgentEmployeeModels {
 
   private async requireEmployeeModel(
     assignment: ResolvedAgentAssignment,
+    access: AgentEmployeeAccess,
   ): Promise<void> {
     const catalog = await this.dependencies.connections
       .catalogs()
       .find(assignment.connection.id);
     const model = catalog.models.find((entry) => entry.id === assignment.model);
-    const refusal = modelConsumerRefusal("employee", {
-      provider: assignment.connection.provider,
-      model: assignment.model,
-      isFree: model?.isFree,
-      ...(model?.isToolCapable === undefined
-        ? {}
-        : { isToolCapable: model.isToolCapable }),
-      ...(model && !isChatCapableModel(model) ? { isChatCapable: false } : {}),
-    });
+    const refusal = modelConsumerRefusal(
+      "employee",
+      model
+        ? {
+            ...catalogModelChoice(assignment.connection, model),
+            isFree: model.isFree,
+          }
+        : { provider: assignment.connection.provider, model: assignment.model },
+      { employeeAccess: access },
+    );
     if (refusal !== null) throw new AgentEmployeeError("modelNotAllowed");
   }
 

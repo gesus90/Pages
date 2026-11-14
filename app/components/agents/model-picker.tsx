@@ -2,6 +2,8 @@ import { ChevronDown } from "lucide-react";
 import { useId } from "react";
 import { useTranslation } from "react-i18next";
 
+import { modelConsumerRefusal } from "@/definition/AgentModelConsumers";
+
 import { cn } from "@/app/lib/cn";
 
 import { findModelChoice, modelGroups } from "./model-picker/model-catalog";
@@ -14,6 +16,7 @@ import { FreeBadge } from "./model-picker/model-picker-rows";
 import { ToolMark } from "./model-picker/tool-mark";
 import { useModelPicker } from "./model-picker/use-model-picker";
 
+import type { AgentEmployeeAccess } from "@/definition/AgentEmployee";
 import type { AgentModelConsumer } from "@/definition/AgentModelConsumers";
 import type { PageAgentModel } from "@/definition/PageAgent";
 import type { ModelGroup } from "./model-picker/model-catalog";
@@ -23,12 +26,14 @@ import type {
 } from "./model-picker/use-model-picker";
 
 interface ModelPickerProps {
-  /** The decision consumer also accepts text models without tool calls. */
-  readonly consumer?: AgentModelConsumer;
   /** The selection key of the chosen model; empty while none is chosen. */
   readonly value: string;
-  /** The models this place may offer, already limited to its target and consumer. */
+  /** The models this place may offer, limited only to its execution target and access scope. */
   readonly models: readonly PageAgentModel[];
+  /** Central capability rule; plans are the default consumer. */
+  readonly consumer?: AgentModelConsumer;
+  /** Current draft access level when choosing a model for an employee. */
+  readonly employeeAccess?: AgentEmployeeAccess;
   /** The saved model ID, named while no listed model matches it. */
   readonly savedModel?: string;
   readonly disabled: boolean;
@@ -155,8 +160,16 @@ export function ModelPicker(props: ModelPickerProps): React.ReactElement {
   const { t } = useTranslation();
   const groups = modelGroups(props.models, {
     translate: t,
-    consumer: props.consumer,
-    refusalOf: props.refusalOf,
+    refusalOf: (model) => {
+      const refusal = modelConsumerRefusal(props.consumer ?? "plan", model, {
+        employeeAccess: props.employeeAccess,
+      });
+      if (refusal === "zenToolsMissing")
+        return t("settings.agents.error.picaZenUnsupported");
+      return refusal === null
+        ? (props.refusalOf?.(model) ?? null)
+        : t(`settings.agents.modelSelection.refusal.${refusal}`);
+    },
     selectedId: props.value,
   });
   const state = useModelPicker({

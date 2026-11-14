@@ -182,13 +182,14 @@ it("pauses during the fix, keeps the session and continues in it on resume", asy
   // The session that has to take the news stays open while the run is paused; the fix agent's own ended with its start.
   expect(runtime.closed).not.toContain("check");
 
-  // Another revision of a plan with a cycle cannot be adopted: the rounds behind it are not comparable.
+  // A changed cycle cannot reuse earlier rounds; input corrections keep the execution graph.
   await expect(
     world.engine.resume(started.id, {
       ...world.snapshot,
       plan: {
         ...world.snapshot.plan,
         revision: world.snapshot.plan.revision + 1,
+        edges: [],
       },
     }),
   ).rejects.toMatchObject({

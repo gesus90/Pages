@@ -3,6 +3,10 @@ import {
   AgentPlanSkippedStepError,
 } from "@/backend/error/AgentErrors";
 import { hasPlanBranching } from "@/definition/AgentPlanBranching";
+import {
+  planContinuationGraph,
+  planLoopContinuationShape,
+} from "@/definition/AgentPlanContinuationGraph";
 import { isPlanFlowNode } from "@/definition/AgentPlanGraph";
 import { isPlanOuterRunStep } from "@/definition/AgentPlanStack";
 import {
@@ -63,14 +67,15 @@ export function planWritingWorkspaces(
   ];
 }
 
-/** The rounds a cycle has behind it cannot be compared with another revision of its plan. */
+/** Earlier rounds retain their topology; a new revision may repair pending inputs. */
 function requireSameBranchingRevision(
   previous: AgentPlanSnapshot,
   next: AgentPlanSnapshot,
 ): void {
   if (
     (hasPlanBranching(previous.plan) || hasPlanBranching(next.plan)) &&
-    previous.plan.revision !== next.plan.revision
+    previous.plan.revision !== next.plan.revision &&
+    planContinuationGraph(previous.plan) !== planContinuationGraph(next.plan)
   )
     throw new AgentError("plan_branching_revision");
 }
@@ -206,12 +211,11 @@ function requireCompletedGroups(
 }
 
 /**
- * Refuses to change a loop that has already started.
+ * Keeps a started loop's execution contract while allowing pending inputs to be repaired.
  *
  * @remarks
- * Once a loop resolved its count and ran an iteration, its members, count,
- * mode, condition and session policy are fixed for the run; adopting another
- * version would make the recorded iterations mean something else.
+ * Resolved counts, membership, order, conditions and session routing stay
+ * fixed. An unfinished member may adopt corrected inputs in the saved revision.
  */
 function requireStartedLoops(
   run: AgentPlanRun,
@@ -222,6 +226,15 @@ function requireStartedLoops(
     if (record.count === null) continue;
     const old = previous.plan.nodes.find((node) => node.id === record.id);
     const adopted = next.plan.nodes.find((node) => node.id === record.id);
+    if (
+      old?.type === "loop" &&
+      adopted?.type === "loop" &&
+      !run.pauseBoundary?.completedStepIds.includes(record.id)
+    ) {
+      requirePendingLoopContext(previous, next, record.id);
+      if (planLoopContinuationShape(old) === planLoopContinuationShape(adopted))
+        continue;
+    }
     const members = (snapshot: AgentPlanSnapshot): string =>
       JSON.stringify(
         snapshot.steps.filter((step) => step.loopId === record.id),
@@ -229,6 +242,22 @@ function requireStartedLoops(
     if (
       JSON.stringify(old) !== JSON.stringify(adopted) ||
       members(previous) !== members(next)
+    )
+      throw new AgentError("plan_context_changed");
+  }
+}
+
+function requirePendingLoopContext(
+  previous: AgentPlanSnapshot,
+  next: AgentPlanSnapshot,
+  loopId: string,
+): void {
+  for (const step of next.steps.filter((entry) => entry.loopId === loopId)) {
+    const old = previous.steps.find((entry) => entry.step.id === step.step.id);
+    if (
+      old &&
+      JSON.stringify(groupRuntimeFields(old)) !==
+        JSON.stringify(groupRuntimeFields(step))
     )
       throw new AgentError("plan_context_changed");
   }

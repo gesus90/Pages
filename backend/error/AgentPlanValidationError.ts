@@ -7,7 +7,11 @@ export class AgentPlanValidationError extends AgentError {
   public readonly issues: readonly AgentPlanIssue[];
 
   public constructor(issues: readonly AgentPlanIssue[]) {
-    super("plan_invalid");
+    super(
+      issues.some((issue) => issue.reason === "startEndDisconnected")
+        ? "plan_start_end_disconnected"
+        : "plan_invalid",
+    );
     this.issues = issues;
   }
 }

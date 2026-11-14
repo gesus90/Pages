@@ -4,6 +4,8 @@ import { readFile, stat } from "node:fs/promises";
 import { promisify } from "node:util";
 import path from "node:path";
 
+import { hasEndedOwnedNamespace } from "@/backend/agents/cli/CliOwnedNamespace";
+
 import {
   localOwnerManifestSchema,
   localOwnerProofSchema,
@@ -76,6 +78,51 @@ export async function proveLocalOwner(
   await requireProcessBinding(manifest, proof);
   await requireUnitBinding(manifest, proof);
   return { manifest, proof };
+}
+
+/**
+ * Proves an unavailable owner ended without adopting, contacting or signalling it.
+ * Both private records must bind to the stored launch, and both unit and process must be gone.
+ */
+export async function hasEndedLocalOwner(
+  entry: LocalSessionEntry,
+  directory: string,
+): Promise<boolean> {
+  const manifest = localOwnerManifestSchema.parse(
+    await readLocalRecord(path.join(directory, "manifest.json")),
+  );
+  const proof = localOwnerProofSchema.parse(
+    await readLocalRecord(path.join(directory, "proof.json")),
+  );
+  if (manifest.directory !== directory)
+    throw new Error("Local owner directory binding mismatch");
+  requireLaunchBinding(entry, manifest);
+  requireProofBinding(entry, manifest, proof);
+  const shown = await runFile(
+    "/usr/bin/systemctl",
+    ["--user", "show", manifest.unit, "--property=LoadState,ActiveState"],
+    { env: localManagerEnvironment(), timeout: 10_000 },
+  );
+  const properties = new Map(
+    shown.stdout
+      .trim()
+      .split("\n")
+      .map((line) => {
+        const split = line.indexOf("=");
+        return [line.slice(0, split), line.slice(split + 1)];
+      }),
+  );
+  if (
+    properties.get("LoadState") !== "not-found" &&
+    properties.get("ActiveState") !== "inactive"
+  )
+    return false;
+  return hasEndedOwnedNamespace({
+    pid: proof.pid,
+    uid: proof.uid,
+    start: proof.start,
+    boot: proof.boot,
+  });
 }
 
 function requireLaunchBinding(

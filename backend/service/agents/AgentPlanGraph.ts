@@ -13,11 +13,13 @@ export function planSteps(plan: AgentPlanInput): readonly AgentPlanStep[] {
   return allPlanSteps(plan);
 }
 
-/** Checks ports against current authorized definitions, never client declarations. */
+/** Rejects ambiguous node identities on save; incomplete connections and values remain editable warnings. */
 export function validatePlanGraph(
   plan: AgentPlanInput,
   agents: readonly AgentDefinitionChoice[],
 ): void {
-  const issues = planConnectionIssues(plan, agents);
+  const issues = planConnectionIssues(plan, agents).filter(
+    (issue) => issue.reason === "duplicateNode",
+  );
   if (issues.length > 0) throw new AgentPlanValidationError(issues);
 }

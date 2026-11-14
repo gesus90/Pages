@@ -154,15 +154,24 @@ it("submits an empty selection when nothing is saved", () => {
   expect(trigger().textContent).toContain("Choose a model");
 });
 
-it("offers only the models Pica can chat with", () => {
+it("shows all providers and disables models Pica cannot chat with", () => {
   render(card());
   fireEvent.click(trigger());
   expect(screen.getByRole("treeitem", { name: "Haiku" })).toBeTruthy();
-  expect(screen.queryByText("GPT API")).toBeNull();
+  fireEvent.change(
+    screen.getByRole("combobox", { name: "Search model or provider" }),
+    { target: { value: "GPT API" } },
+  );
+  expect(screen.getByText("GPT API")).toBeTruthy();
+  expect(
+    screen
+      .getByRole("treeitem", { name: /GPT API/u })
+      .getAttribute("aria-disabled"),
+  ).toBe("true");
 });
 
 it("tells that no model qualifies when the list is empty", () => {
-  render(card({ models: [API_ONLY], settings: settings({ selection: null }) }));
+  render(card({ models: [], settings: settings({ selection: null }) }));
   fireEvent.click(trigger());
   expect(
     screen.getByText(/No connection that is set up offers a model/u),

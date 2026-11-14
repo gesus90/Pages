@@ -17,17 +17,9 @@ export function scriptInputJson(
       : undefined;
     if (binding?.kind === "result") {
       const result = run.steps.find((step) => step.id === binding.stepId);
-      if (result?.status !== "succeeded" || result.output === null)
-        throw new AgentError("plan_binding_invalid");
-      text = result.output;
+      text = result?.status === "succeeded" ? (result.output ?? "") : "";
     }
-    if (text === undefined) {
-      if (input.isRequired) throw new AgentError("plan_script_input_required");
-      continue;
-    }
-    if (input.isRequired && text.trim() === "")
-      throw new AgentError("plan_script_input_required");
-    entries.push([input.name, text]);
+    entries.push([input.name, text ?? ""]);
   }
   const json = JSON.stringify(Object.fromEntries(entries));
   if (Buffer.byteLength(json, "utf8") > PLAN_SCRIPT_BYTES.input)

@@ -10,7 +10,6 @@ import { AgentPlanRecoveryError } from "@/backend/error/AgentPlanRecoveryError";
 import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
 import { isRemoteCloseoutUnconfirmed } from "@/definition/AgentPlanRemoteCloseout";
 import { logCaughtError } from "@/backend/logging/Logger";
-import { hasPlanBranching } from "@/definition/AgentPlanBranching";
 import { isActivePlanRun } from "@/definition/AgentPlanRunState";
 
 import {
@@ -135,7 +134,9 @@ function frozenNodes(snapshot: AgentPlanSnapshot): {
   readonly hasBranching: boolean;
 } {
   return {
-    hasBranching: hasPlanBranching(snapshot.plan),
+    hasBranching: snapshot.plan.edges.some(
+      (edge) => edge.toPort === "event-in",
+    ),
     agentStepIds: [
       ...snapshot.steps.map((step) => step.step.id),
       ...(snapshot.remoteSteps ?? [])

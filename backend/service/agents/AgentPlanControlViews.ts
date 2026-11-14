@@ -65,6 +65,7 @@ export async function readPlanControlEntry(
     ...resumeSummary(control),
     cleanup: control.cleanup,
     workspaceWait: control.workspaceWait,
+    waitReason: control.waitReason,
     canPause: control.canPause && readable !== null,
     canResume: control.canResume && readable !== null,
     canStop: control.canStop && run !== null,

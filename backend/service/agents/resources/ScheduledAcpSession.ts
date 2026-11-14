@@ -22,7 +22,7 @@ interface LeaseLifecycle {
    * Proves the end of the processes from the durable evidence of the lease,
    * after the native closeout could not confirm it (PAGE-335).
    */
-  readonly settle?: () => Promise<boolean>;
+  readonly settle?: (error?: unknown) => Promise<boolean>;
 }
 
 /** Keeps one lease across turns until its owner closes the session or its process ends. */
@@ -164,17 +164,17 @@ export class ScheduledAcpSession implements PlanSession {
     } catch (error: unknown) {
       logCaughtError("ScheduledAcpSession", error);
 
-      await this.lifecycle.finish(await this.settleLease());
+      await this.lifecycle.finish(await this.settleLease(error));
       throw error;
     }
   }
 
   /** A failed proof keeps the lease, so the periodic check decides later. */
-  private async settleLease(): Promise<boolean> {
+  private async settleLease(error?: unknown): Promise<boolean> {
     try {
-      return (await this.lifecycle.settle?.()) ?? false;
-    } catch (error: unknown) {
-      logCaughtError("ScheduledAcpSession", error);
+      return (await this.lifecycle.settle?.(error)) ?? false;
+    } catch (caughtError: unknown) {
+      logCaughtError("ScheduledAcpSession", caughtError);
       return false;
     }
   }

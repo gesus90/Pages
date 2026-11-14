@@ -1,7 +1,11 @@
+import { isAcpWaitReason } from "@/definition/AcpResource";
 import { planRunCommandReceiptSchema } from "@/definition/PagesRuns";
 import { planResourceReleaseSchema } from "@/definition/AgentPlanResourceRelease";
 import { planWriterWaitSchema } from "@/definition/AgentPlanExecution";
-import { isPlanWriterWaitActive } from "@/definition/AgentPlanRunState";
+import {
+  isActivePlanRun,
+  isPlanWriterWaitActive,
+} from "@/definition/AgentPlanRunState";
 import { AgentError } from "@/backend/error/AgentErrors";
 
 import {
@@ -48,7 +52,11 @@ export function readPlanRun(input: unknown): AgentPlanRun {
     planRevision,
     status,
     stopRequested,
+    ...(isActivePlanRun(status) && isAcpWaitReason(run.waitReason)
+      ? { waitReason: run.waitReason }
+      : {}),
     ...readWriterWait(run, { status, stopRequested }),
+    ...readControlError(run),
     ...readPlanPauseBoundary(run.pauseBoundary),
     ...readPlanContinuation(run.continuation),
     steps: run.steps.map(readPlanStepResult),
@@ -80,9 +88,6 @@ function readOptionalRunFields(
     ...(run.startError === undefined
       ? {}
       : { startError: readPlanText(run.startError, 200) }),
-    ...(run.controlError === "plan_step_failed"
-      ? { controlError: run.controlError }
-      : {}),
     ...(run.recovery === undefined
       ? {}
       : { recovery: readPlanRecoveryReason(run.recovery) }),
@@ -143,4 +148,12 @@ function readRunCommand(input: unknown): Pick<AgentPlanRun, "command"> {
   return input === undefined
     ? {}
     : { command: planRunCommandReceiptSchema.parse(input) };
+}
+
+function readControlError(
+  run: Readonly<Record<string, unknown>>,
+): Partial<Pick<AgentPlanRun, "controlError">> {
+  return run.controlError === "plan_step_failed"
+    ? { controlError: run.controlError }
+    : {};
 }

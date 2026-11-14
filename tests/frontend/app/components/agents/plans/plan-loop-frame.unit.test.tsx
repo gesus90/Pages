@@ -108,11 +108,16 @@ const MEMBERS = [
 ];
 
 it("names an unnamed empty loop by default, marks its repair need and invites members", () => {
-  renderFrame({ loop: syntheticLoop({ name: "" }) });
+  renderFrame({
+    loop: syntheticLoop({ name: "" }),
+    issues: [{ nodeId: "loop", port: null, reason: "name" }],
+  });
   const name = i18n.t("plans.loops.defaultName");
   expect(frame(name).dataset.planLoop).toBe("loop");
   expect(
-    screen.getByLabelText(i18n.t("plans.loops.needsRepair")),
+    within(frame(name)).getByRole("img", {
+      name: i18n.t(["plans.panel.issueCause.name", "plans.validation.name"]),
+    }),
   ).toBeDefined();
   expect(screen.getByText(i18n.t("plans.loops.empty"))).toBeDefined();
   expect(titleButton(name).className).toContain("cursor-grab");

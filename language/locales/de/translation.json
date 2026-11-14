@@ -865,6 +865,7 @@
         "workspace_in_use": "Entfernen Sie die Verweise auf den Arbeitsbereich, bevor Sie die Registrierung neu zuordnen.",
         "plan_sources_failed": "Die aktuelle Agent-Vorlage konnte nicht geladen werden. Bitte erneut einfügen.",
         "plan_remote_unavailable": "Remote-Ausführung ist gesperrt: Runner, Modellroute oder Interpreter sind nicht bereit. Kein lokaler Ersatz.",
+        "plan_start_end_disconnected": "Start ist nicht mit End verbunden.",
         "plan_invalid": "Planfelder und Graphknoten prüfen.",
         "swarm_invalid": "Swarm prüfen: 1 bis 10 Helfer, eine Zeitgrenze von 1 bis 1440 Minuten und ein Arbeitsverzeichnis im Arbeitsbereich.",
         "swarm_remote_unsupported": "Swarm-Knoten laufen nur auf dem Pages-Rechner. Wähle ein lokales Ziel.",
@@ -1626,7 +1627,15 @@
         "aliasResolved": "Gespeichert ist der Alias „{{alias}}“. Er steht für {{model}} ({{id}}); beim Speichern wird diese konkrete Version hinterlegt.",
         "refusal": {
           "connectionUnavailable": "Anbindung ist ausgeschaltet.",
-          "accessUnverified": "Zugang der Anbindung ist nicht verifiziert."
+          "accessUnverified": "Zugang der Anbindung ist nicht verifiziert.",
+          "noChatAdapter": "Dieser Provider hat keinen Chat-Adapter für diese Verwendung.",
+          "noChat": "Dieses Modell kann keinen Chat mit den Pages-Werkzeugen führen.",
+          "employeeToolsMissing": "Dieses freie OpenCode-Modell benötigt Host-Werkzeuge. Für diesen Agent die Zugriffsstufe Arbeitsplatz oder YOLO wählen.",
+          "noToolCalls": "Dieses Modell kann die Werkzeuge eines Agent-Plans nicht aufrufen.",
+          "noSpeech": "Dieses Modell kann keine Sprache erkennen.",
+          "noSpeechOutput": "Dieses Modell kann keinen Text vorlesen.",
+          "speechOutputOnly": "Dieses Modell erzeugt ausschließlich Sprachausgabe.",
+          "transcriptionOnly": "Dieses Modell transkribiert ausschließlich Sprache."
         }
       },
       "runner": {
@@ -4908,6 +4917,7 @@
     "disconnect": "Datenverbindung für {{name}} entfernen",
     "startFailed": "Der Lauf konnte nicht gestartet werden: {{reason}}",
     "validation": {
+      "startEndDisconnected": "Start ist nicht mit End verbunden.",
       "ticketHandoff": "Agent-Ergebnisse sind Text und können keine Ticket-Assets weitergeben. Dieselbe Ticketquelle an den Ticketparameter des empfangenden Agents binden.",
       "resultSource": "Die gebundene Ergebnisquelle fehlt oder ist kein Agent. Die Datenverbindung lösen und das Ergebnis eines vorhandenen Agents verbinden.",
       "resultOrder": "Die Ergebnisquelle läuft nicht vor diesem Agent. Nur das Ergebnis eines Agents, der im Ablauf vorher liegt, kann verbunden werden.",
@@ -5473,10 +5483,10 @@
       "issueCause": {
         "agent": "Modellzugang fehlt oder ist nicht freigegeben.",
         "required": "Ein Pflichtparameter ist nicht verbunden.",
-        "requiredPort": "Pflichtparameter „{{port}}“ ist nicht verbunden. Die Verbindung zur vorgesehenen Parameterquelle muss vor dem Start bestehen.",
+        "requiredPort": "Eingang „{{port}}“ ohne Wert. Der Lauf startet trotzdem.",
         "flowIn": "Der Schritt hat keinen eingehenden Ablauf.",
         "flowOut": "Der Schritt hat keinen ausgehenden Ablauf.",
-        "unreachable": "Kein Start erreicht diesen Schritt.",
+        "unreachable": "Knoten außerhalb eines vollständigen Start→End-Ablaufs; wird beim Lauf übersprungen.",
         "end": "Von hier führt kein Ablauf zu einem Ende.",
         "remoteModel": "Das gewählte Modell oder seine Katalogrevision ist für diesen Runner nicht verfügbar. Ein aktuelles Modell dieses Remote-Arbeitsbereichs wählen.",
         "remoteInterpreter": "Der Interpreter gehört nicht zum Runner des Remote-Arbeitsbereichs. Einen Interpreter dieses Runners wählen oder das Script lokal ausführen.",

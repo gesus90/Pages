@@ -1,3 +1,4 @@
+import { isAcpWaitReason } from "@/definition/AcpResource";
 import { planWriterWaitSchema } from "@/definition/AgentPlanExecution";
 import { readPlanRun } from "@/backend/agents/AgentPlanRunInput";
 import { readPlanStartRejection } from "@/backend/agents/AgentPlanStartRejectionInput";
@@ -173,6 +174,7 @@ function readControlOptions(
   | "resumeKind"
   | "resumeBlock"
   | "workspaceWait"
+  | "waitReason"
   | "cleanup"
 > {
   if (
@@ -192,6 +194,9 @@ function readControlOptions(
       : { resumeAction: input.resumeAction }),
     ...readResumeBlocker(input),
     ...readResumeState(input),
+    ...(isAcpWaitReason(input.waitReason)
+      ? { waitReason: input.waitReason }
+      : {}),
     ...(input.workspaceWait === undefined
       ? {}
       : { workspaceWait: planWriterWaitSchema.parse(input.workspaceWait) }),

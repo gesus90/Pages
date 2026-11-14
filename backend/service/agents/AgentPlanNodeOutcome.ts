@@ -40,14 +40,18 @@ export async function planNodeOutcome(
   controller: AbortController,
   input: NodeOutcomeInput,
 ): Promise<Partial<AgentPlanStepResult>> {
+  const preparationFailure = planPreparationFailure(active, node);
+  if (preparationFailure) return preparationFailure;
   const isReattaching = isReattachingLocalNode(
     active,
     node.id,
     input.dependencies.localSessions,
   );
-  const isRestoredLoop =
-    node.type === "loop" &&
-    Boolean(input.dependencies.localSessions?.hasRun(active.view.id));
+  const isRestoredLoop = isRestoredLoopNode(
+    active,
+    node,
+    input.dependencies.localSessions,
+  );
   const restoredRemote = restoredRemoteStep(active, node.id);
   if (needsDispatchAuthorization(isReattaching, isRestoredLoop, restoredRemote))
     await guardPlanWorkDispatch(input.dependencies.workGate, active, node.id);
@@ -56,14 +60,13 @@ export async function planNodeOutcome(
     result: Partial<AgentPlanStepResult>,
   ): Promise<Partial<AgentPlanStepResult>> =>
     settlePlanWorkResult(input.dependencies.workGate, active, node, result);
-  if (restoredRemote && input.dependencies.remoteExecution)
-    return settle(
-      await input.dependencies.remoteExecution.observe(
-        active.view,
-        restoredRemote,
-        controller.signal,
-      ),
-    );
+  const observedRemote = await observeRestoredRemote(
+    active,
+    restoredRemote,
+    controller,
+    { input, settle },
+  );
+  if (observedRemote) return observedRemote;
   const remote = dispatchRemoteStepWithRetry(
     input.dependencies.remoteExecution
       ? {
@@ -104,6 +107,51 @@ export async function planNodeOutcome(
     input,
     isRestoredLoop,
   });
+}
+
+function planPreparationFailure(
+  active: ActivePlanRun,
+  node: AgentPlanNode,
+): Partial<AgentPlanStepResult> | null {
+  const failure = active.snapshot.preparationFailures?.[node.id];
+  if (failure) return { status: "failed", error: failure };
+  const group = active.snapshot.steps.find(
+    (step) => step.step.id === node.id,
+  )?.groupId;
+  const groupFailure = group
+    ? active.snapshot.preparationFailures?.[group]
+    : undefined;
+  return groupFailure ? { status: "failed", error: groupFailure } : null;
+}
+
+function isRestoredLoopNode(
+  active: ActivePlanRun,
+  node: AgentPlanNode,
+  local: EngineDependencies["localSessions"],
+): boolean {
+  return node.type === "loop" && Boolean(local?.hasRun(active.view.id));
+}
+
+async function observeRestoredRemote(
+  active: ActivePlanRun,
+  remote: RemotePlanStep | undefined,
+  controller: AbortController,
+  options: {
+    input: NodeOutcomeInput;
+    settle: (
+      result: Partial<AgentPlanStepResult>,
+    ) => Promise<Partial<AgentPlanStepResult>>;
+  },
+): Promise<Partial<AgentPlanStepResult> | null> {
+  const { input, settle } = options;
+  if (!remote || !input.dependencies.remoteExecution) return null;
+  return settle(
+    await input.dependencies.remoteExecution.observe(
+      active.view,
+      remote,
+      controller.signal,
+    ),
+  );
 }
 
 function isReattachingLocalNode(

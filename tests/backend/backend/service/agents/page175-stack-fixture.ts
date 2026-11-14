@@ -245,6 +245,9 @@ export type ScriptAnswer = (
 ) => string;
 
 export interface StackEngine {
+  readonly preparation: AgentPlanPreparation;
+  /** Stores a corrected revision at the in-memory database boundary. */
+  readonly savePlan: (snapshot: AgentPlanSnapshot) => void;
   readonly engine: AgentPlanRunEngine;
   readonly snapshot: AgentPlanSnapshot;
   readonly read: (id: string) => AgentPlanRun;
@@ -396,6 +399,8 @@ export async function stackEngine(
   });
   return {
     engine,
+    preparation,
+    savePlan: (saved) => database.savePlan(saved),
     snapshot,
     read: (id) => database.run(id),
     plan,

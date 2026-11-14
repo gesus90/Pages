@@ -48,7 +48,9 @@ export function catalogModelChoice(
     reasoningEffort: null,
     isManual: !supportsModelCatalog(connection.provider),
     ...(model.aliases ? { aliases: model.aliases } : {}),
-    ...(model.promptPrice === null && model.completionPrice === null
+    ...(model.promptPrice === null &&
+    model.completionPrice === null &&
+    !model.isFree
       ? {}
       : { isFree: model.isFree }),
     ...(model.isToolCapable === undefined

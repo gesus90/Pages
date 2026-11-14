@@ -16,7 +16,6 @@ import {
   findSavedModel,
   isClaudeModelAlias,
 } from "@/definition/AgentModelVersion";
-import { consumerModels } from "@/definition/AgentModelConsumers";
 import { agentModelKey } from "@/definition/AgentPlanConfiguration";
 import { modelsOfSameTarget } from "@/definition/AgentReasoningChoice";
 
@@ -36,11 +35,9 @@ interface PicaSettingsCardProps {
  * The fixed chat identity alongside the independently managed agent connections.
  *
  * @remarks
- * The model choice is the shared one of Pages, fed only with the models of
- * the administrator's tools that Pica can run, by the central rule of
- * `modelConsumerRefusal`; a model Pica cannot run is not listed. A saved
- * choice outside that list keeps its value and is named with a note. The
- * models come with the page and stay as loaded while the choice is used.
+ * The shared choice lists every accessible model. Pica's central rule marks
+ * unsupported models disabled with a reason. A saved invalid choice keeps
+ * its value; saving and starting validate it again on the server.
  */
 export function PicaSettingsCard({
   settings,
@@ -75,8 +72,6 @@ function PicaSettingsForm({
   readonly fetcher: FetcherWithComponents<AgentActionResult>;
 }): React.ReactElement {
   const { t } = useTranslation();
-  // The server lists only these models; a page state kept from before is limited the same way.
-  const picaModels = consumerModels("pica", models);
   const {
     isEnabled,
     setEnabled,
@@ -88,7 +83,7 @@ function PicaSettingsForm({
     hasResetEffort,
     aliasNotice,
     unlistedModel,
-  } = usePicaDraft(settings, picaModels);
+  } = usePicaDraft(settings, models);
   const isPending = fetcher.state !== "idle";
   const error = fetcher.data?.ok === false ? fetcher.data.error : null;
   return (
@@ -120,7 +115,7 @@ function PicaSettingsForm({
       </div>
       <PicaTarget />
       <PicaModelFields
-        models={picaModels}
+        models={models}
         modelKey={modelKey}
         effort={effort}
         savedModel={settings.selection?.model ?? ""}
@@ -195,6 +190,7 @@ function PicaModelFields(props: PicaModelFieldsProps): React.ReactElement {
   return (
     <ModelFieldRow>
       <ModelPicker
+        consumer="pica"
         value={props.modelKey}
         models={props.models}
         savedModel={props.savedModel}

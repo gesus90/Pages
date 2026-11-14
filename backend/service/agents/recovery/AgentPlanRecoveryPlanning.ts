@@ -33,7 +33,7 @@ export interface RecoveryFacts {
   readonly agentStepIds: readonly string[];
   /** The groups of the frozen plan; their summaries are derived, never checkpointed. */
   readonly groupIds: readonly string[];
-  /** The frozen plan has a decision or an event connection; absent counts as none. */
+  /** The frozen plan has event cycles whose earlier rounds lack checkpoints; absent counts as none. */
   readonly hasBranching?: boolean;
 }
 

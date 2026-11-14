@@ -56,6 +56,7 @@ export interface AgentPlanIssue {
   readonly nodeId: string | null;
   readonly port: string | null;
   readonly reason:
+    | "startEndDisconnected"
     | "remoteTicketUnavailable"
     | "remoteWikiUnavailable"
     | "remoteWorkspaceParameter"

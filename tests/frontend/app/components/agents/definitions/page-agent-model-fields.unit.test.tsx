@@ -226,3 +226,15 @@ it("keeps quiet about an alias of a model that is gone", () => {
 
   expect(screen.queryByRole("status")).toBeNull();
 });
+
+it("clears the previous effort when choosing a model with no reasoning levels", async () => {
+  const { onChange } = renderFields(draft(OPUS.id, "high"));
+  const rows = await openModelRows(modelPicker());
+  const row = rows.find(
+    (entry) => entry.getAttribute("aria-label") === "Sonnet",
+  );
+  if (!row) throw new Error("Missing synthetic model row");
+  fireEvent.click(row);
+  expect(onChange).toHaveBeenLastCalledWith(draft(MODEL.id, null));
+  expect(reasoningPicker().hasAttribute("disabled")).toBe(true);
+});

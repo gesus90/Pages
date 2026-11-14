@@ -57,6 +57,7 @@ export function remoteParameterResolvers(
   prepared: RemotePlanParameters,
 ): AgentReferenceResolvers {
   return {
+    allowIncomplete: true,
     ticket: (id) => {
       const ticket = prepared.tickets[id];
       return ticket

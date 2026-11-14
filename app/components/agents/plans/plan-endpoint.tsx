@@ -9,6 +9,7 @@ import { planInTargetClass } from "./plan-flow-ports";
 import { planNodeAccent, planNodeClass } from "./plan-layout";
 import { PlanNodeActions } from "./plan-node-actions";
 import { PlanNodeIcon } from "./plan-node-icon";
+import { PlanNodeWarning } from "./plan-node-warning";
 import { PLAN_NODE_ICON, PLAN_NODE_TEXT } from "./plan-node-text";
 import { PlanStatusBadge, planStatusClass, planStatusKey } from "./plan-status";
 
@@ -50,8 +51,6 @@ export function PlanEndpoint(props: PlanEndpointProps): React.ReactElement {
           : planNodeClass(node.type),
         graph.selectedId === node.id &&
           "ring-2 ring-info ring-offset-2 ring-offset-surface",
-        graph.issues.some((issue) => issue.nodeId === node.id) &&
-          "border-destructive",
       )}
       onKeyDown={keepPlanControlKeys}
     >
@@ -77,6 +76,7 @@ export function PlanEndpoint(props: PlanEndpointProps): React.ReactElement {
         />
         <span className="whitespace-nowrap">{label}</span>
       </button>
+      <PlanNodeWarning nodeId={node.id} issues={graph.issues} />
       {props.hasRun ? (
         <PlanStatusBadge
           compact

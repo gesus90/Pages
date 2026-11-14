@@ -1,4 +1,4 @@
-import { hasEndedOwnedNamespace } from "@/backend/agents/cli/CliOwnedNamespace";
+import { LocalControlCommandError } from "@/backend/agents/local/LocalControlFailure";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AcpCleanupUnconfirmedError } from "@/backend/error/AcpCleanupUnconfirmedError";
 import {
@@ -7,6 +7,7 @@ import {
   logEvent,
 } from "@/backend/logging/Logger";
 
+import { hasEndedLeaseProcesses } from "./resources/AcpLeaseProcesses";
 import {
   hasPlanStepTimedOut,
   planCompletedFailure,
@@ -27,9 +28,22 @@ export interface PlanSessionCloseout {
   readonly hasRecovered: boolean;
 }
 
+function canReconcileClose(
+  error: unknown,
+  record: AgentPlanSessionRecord | null,
+): error is AgentError {
+  if (!(error instanceof AgentError)) return false;
+  if (error.code === "plan_local_control_failed") return true;
+  return (
+    error.code === "plan_local_owner_unverified" &&
+    record?.acceptance?.verdict === "accepted"
+  );
+}
+
 /**
  * Preserves the turn verdict only when the recorded namespace has certainly ended.
- * Authentication failures and actual unconfirmed closeout results never recover here.
+ * Lost owner proof recovers only for accepted work with independently proven process end.
+ * Actual unconfirmed native closeout results never recover here.
  */
 export async function closePlanSession(
   session: PlanSession,
@@ -38,22 +52,28 @@ export async function closePlanSession(
   try {
     return { closed: await session.close(), hasRecovered: false };
   } catch (error: unknown) {
-    if (
-      !(error instanceof AgentError) ||
-      error.code !== "plan_local_control_failed"
-    )
-      throw error;
-    const hasEnded = record?.namespace
-      ? await hasEndedOwnedNamespace(record.namespace).catch(() => false)
+    if (!canReconcileClose(error, record)) throw error;
+    const hasEnded = record
+      ? await hasEndedLeaseProcesses(record.instanceId, record.namespace).catch(
+          () => false,
+        )
       : false;
+    const reason =
+      error instanceof LocalControlCommandError ? error.detail : error.code;
     logEvent({
       level: "warn",
       event: "plan.session.close_reconciled",
       component: "AgentPlanStepRunner",
       message: hasEnded
-        ? "Local close failed; independent namespace evidence confirms no remaining processes. Turn result retained."
-        : "Local close failed; remaining processes could not be ruled out.",
-      metadata: { code: error.code, isConfirmed: hasEnded },
+        ? `Local close failed (${reason}); independent namespace and worker evidence confirms no remaining processes. Turn result retained.`
+        : `Local close failed (${reason}); remaining processes could not be ruled out.`,
+      metadata: {
+        code: error.code,
+        ...(error instanceof LocalControlCommandError
+          ? { reason: error.detail }
+          : {}),
+        isConfirmed: hasEnded,
+      },
     });
     if (!hasEnded) throw new AcpCleanupUnconfirmedError();
     return {

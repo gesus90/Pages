@@ -54,7 +54,8 @@ export function planStepWithModel(
       runnerRoute: model.runnerRoute,
       model: model.model,
       provider: model.provider,
-      reasoningEffort,
+      reasoningEffort:
+        model.reasoningEfforts.length > 0 ? reasoningEffort : null,
     },
   };
 }

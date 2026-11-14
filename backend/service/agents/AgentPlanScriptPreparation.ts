@@ -208,13 +208,10 @@ function sourceInputs(
       ? bindings[input.name]
       : null;
     if (bound === null || bound === undefined) {
-      if (input.isRequired) throw new AgentError("plan_script_input_required");
+      entries.push([input.name, ""]);
       continue;
     }
-    if (bound.type !== "text") throw new AgentError("plan_binding_invalid");
-    if (input.isRequired && bound.text.trim() === "")
-      throw new AgentError("plan_script_input_required");
-    entries.push([input.name, bound.text]);
+    entries.push([input.name, bound.type === "text" ? bound.text : ""]);
   }
   return Object.fromEntries(entries);
 }

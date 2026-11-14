@@ -359,6 +359,14 @@ export class AgentPlanLoopIterationRunner {
     target: IterationTarget,
     member: IterationWork,
   ): Promise<Partial<AgentPlanStepResult>> {
+    const snapshot = target.host.snapshot();
+    const groupId = snapshot.steps.find(
+      (step) => step.step.id === member.id,
+    )?.groupId;
+    const failure =
+      snapshot.preparationFailures?.[member.id] ??
+      (groupId ? snapshot.preparationFailures?.[groupId] : undefined);
+    if (failure) return Promise.resolve({ status: "failed", error: failure });
     if (member.type === "decision") return this.runDecision(target, member);
     return member.type === "script"
       ? this.runScript(target, member.id)

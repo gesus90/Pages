@@ -153,6 +153,21 @@ export type AcpWaitReason =
   | "recovery"
   | "scheduler_error";
 
+/** Recognizes only public, secret-free ACP admission reasons. */
+export function isAcpWaitReason(input: unknown): input is AcpWaitReason {
+  return (
+    typeof input === "string" &&
+    [
+      "capacity",
+      "memory",
+      "memory_unknown",
+      "paused",
+      "recovery",
+      "scheduler_error",
+    ].includes(input)
+  );
+}
+
 /** Instance-wide diagnostics, served only after administrative authorization. */
 export interface AcpResourceSnapshot {
   readonly options: AcpResourceOptions;

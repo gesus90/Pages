@@ -181,6 +181,11 @@ function PlanControlNotes(props: PlanPanelHeadingProps): React.ReactElement {
         isPending={props.isPending}
         onResolve={props.onResolveBlock}
       />
+      {control?.waitReason ? (
+        <p role="status" className="px-4 pt-2 text-xs text-warning">
+          {t(`settings.agents.resources.${control.waitReason}`)}
+        </p>
+      ) : null}
       {control?.workspaceWait ? (
         <p
           role="status"

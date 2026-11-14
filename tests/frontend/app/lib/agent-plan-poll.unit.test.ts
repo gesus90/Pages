@@ -377,3 +377,13 @@ describe("refusing malformed control details", () => {
     );
   });
 });
+
+it("retains the current ACP admission reason from status polling", () => {
+  expect(
+    readPlanPollingResponse({
+      ok: true,
+      intent: "poll-control",
+      control: { ...CONTROL, waitReason: "capacity" },
+    }),
+  ).toMatchObject({ control: { waitReason: "capacity" } });
+});

@@ -173,9 +173,9 @@ it("reports why a plan cannot run", async () => {
 
   expect(plan.status.isRunnable).toBe(false);
   expect(plan.status.issues).toContainEqual({
-    nodeId: "review",
-    port: "flow-out",
-    problem: "flowOut",
+    nodeId: null,
+    port: null,
+    problem: "startEndDisconnected",
   });
 });
 

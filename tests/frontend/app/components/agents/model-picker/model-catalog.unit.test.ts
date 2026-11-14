@@ -71,15 +71,15 @@ describe("modelGroups ordering and filtering", () => {
     expect(groups[0].mark).toBe("claude");
   });
 
-  it("leaves out models the catalog rules out for chatting and keeps the others", () => {
+  it("keeps models the catalog rules out for chatting for the consumer to refuse", () => {
     const groups = groupsOf([
       pageModel("chat", { provider: "claude_code" }),
       pageModel("silent", { provider: "claude_code", isChatCapable: false }),
     ]);
 
     expect(groups).toHaveLength(1);
-    expect(groups[0].count).toBe(1);
-    expect(findModelChoice(groups, "silent")).toBeNull();
+    expect(groups[0].count).toBe(2);
+    expect(findModelChoice(groups, "silent")?.choice.model.id).toBe("silent");
   });
 
   it("keeps one entry per selection key", () => {
@@ -295,77 +295,44 @@ describe("modelGroups sources and access", () => {
   });
 });
 
-describe("modelGroups merged tools", () => {
-  it("lists an OpenCode model of a linked provider under that provider's tool", () => {
-    const groups = groupsOf([
-      pageModel("o", {
+describe("modelGroups provider boundaries", () => {
+  it("retains direct API and OpenCode access to the same model under their providers", () => {
+    const models = [
+      pageModel("direct", { provider: "openrouter", model: "vendor/thing" }),
+      pageModel("via", {
         provider: "opencode",
         model: "openrouter/vendor/thing",
-        modelName: "Thing",
       }),
-      pageModel("z", {
-        provider: "opencode",
-        model: "zai-coding-plan/glm",
-        modelName: "GLM",
-      }),
+      pageModel("zai", { provider: "opencode", model: "zai-coding-plan/glm" }),
+    ];
+    const groups = groupsOf(models, {
+      refusalOf: (model) => (model.id === "direct" ? "No chat adapter" : null),
+      selectedId: "direct",
+    });
+    expect(groups.map((group) => group.key)).toEqual([
+      "opencode",
+      "openrouter",
     ]);
-
-    expect(groups.map((group) => group.key)).toEqual(["openrouter", "zai"]);
-    expect(groups[0].context).toBe("API key");
-    expect(groups[0].sources[0].key).toBe("models");
-    expect(groups[0].sources[0].label).toBeNull();
+    expect(findModelChoice(groups, "direct")?.choice.refusal).toBe(
+      "No chat adapter",
+    );
+    expect(findModelChoice(groups, "via")?.group.key).toBe("opencode");
+    expect(findModelChoice(groups, "zai")?.group.key).toBe("opencode");
+    expect(groupsOf(models).map((group) => group.key)).toEqual(
+      groups.map((group) => group.key),
+    );
   });
 
-  it("shows a model that several accesses reach once, preferring the chosen entry", () => {
-    const direct = pageModel("direct", {
-      provider: "openrouter",
-      model: "vendor/thing",
-    });
-    const viaOpenCode = pageModel("via", {
-      provider: "opencode",
-      model: "openrouter/vendor/thing",
-    });
-
-    const preferred = groupsOf([direct, viaOpenCode]);
-    expect(preferred[0].count).toBe(1);
-    expect(preferred[0].sources[0].choices[0].model.id).toBe("via");
-
-    const chosen = groupsOf([direct, viaOpenCode], { selectedId: "direct" });
-    expect(chosen[0].sources[0].choices[0].model.id).toBe("direct");
-  });
-
-  it("prefers a usable entry over one the place refuses", () => {
-    const direct = pageModel("direct", {
-      provider: "openrouter",
-      model: "vendor/thing",
-    });
-    const viaOpenCode = pageModel("via", {
-      provider: "opencode",
-      model: "openrouter/vendor/thing",
-    });
-
-    const groups = groupsOf([direct, viaOpenCode], {
-      refusalOf: (model) => (model.id === "via" ? "No OpenCode here" : null),
-    });
-
-    expect(groups[0].sources[0].choices[0].model.id).toBe("direct");
-  });
-
-  it("keeps the current entry when a later one ranks no better", () => {
-    const first = pageModel("first", {
-      provider: "openrouter",
-      model: "vendor/thing",
-    });
-    const second = pageModel("second", {
-      provider: "openrouter",
-      model: "vendor/thing",
-    });
-
-    const groups = groupsOf([first, second]);
-
-    expect(groups[0].sources[0].choices.map((c) => c.model.id)).toEqual([
-      "first",
+  it("keeps each connection's selection key even for identical upstream IDs", () => {
+    const [group] = groupsOf([
+      pageModel("first", { provider: "openrouter", model: "vendor/thing" }),
+      pageModel("second", { provider: "openrouter", model: "vendor/thing" }),
     ]);
+    expect(
+      group.sources.flatMap((source) =>
+        source.choices.map((choice) => choice.model.id),
+      ),
+    ).toEqual(["first", "second"]);
   });
 });
 

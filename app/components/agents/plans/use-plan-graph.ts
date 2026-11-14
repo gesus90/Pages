@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 
 import { setPlanDecisionCondition } from "@/definition/AgentPlanBranchingEdit";
-import { planExecutionIssues } from "@/definition/AgentPlanGraph";
+import { planWarnings } from "@/definition/AgentPlanWarnings";
 import { replacePlanNode } from "@/definition/AgentPlanGroupEdit";
 import { findPlanNodeLocation } from "@/definition/AgentPlanLoopEdit";
 import { findPlanGroupLocation } from "@/definition/AgentPlanLoopGroupEdit";
@@ -90,7 +90,7 @@ function canvasIssues(
   draft: AgentPlanInput,
   sources: AgentPlanSources,
 ): readonly AgentPlanIssue[] {
-  return planExecutionIssues(draft, sources.agents);
+  return planWarnings(draft, sources.agents);
 }
 
 function hasNodeOrPort(plan: AgentPlanInput, id: string): boolean {

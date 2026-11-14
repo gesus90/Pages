@@ -19,6 +19,7 @@ import { readLocalRecord, writeLocalRecord } from "./LocalSessionFiles";
 import { captureLocalOwner } from "./LocalSessionOwnership";
 import { LocalSessionJournal } from "./LocalSessionJournal";
 import { LocalOwnerSession } from "./LocalOwnerSession";
+import { watchLocalOwnerRetirement } from "./LocalOwnerRetirement";
 import { LocalOwnerHttp } from "./LocalOwnerHttp";
 
 import type { LocalOwnerManifest } from "./LocalSessionContracts";
@@ -64,11 +65,20 @@ export async function startLocalSessionOwner(
   const channel = new LocalOwnerHttp(manifest, owner, journal, () =>
     shutdownProcess(0, "local_owner_released"),
   );
+  const stopRetirement = watchLocalOwnerRetirement({
+    readRun: () =>
+      new AgentPlanRunRepository(database).find(manifest.launch.runId),
+    retire: () => shutdownProcess(0, "local_owner_run_ended"),
+  });
   registerShutdownTask(
     async () => {
-      await owner.close();
-      await channel.close();
-      await database.close();
+      stopRetirement();
+      try {
+        await owner.close();
+      } finally {
+        await channel.close();
+        await database.close();
+      }
     },
     { step: "local_native_owner", budgetMs: 35_000 },
   );

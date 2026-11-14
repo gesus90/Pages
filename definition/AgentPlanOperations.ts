@@ -386,6 +386,8 @@ export interface AgentPlanStatusEntry {
   readonly latestRun: AgentPlanRunSummary | null;
   readonly isRunnable: boolean;
   readonly issues: readonly AgentPlanIssueEntry[];
+  /** Advisory node/field findings never change start availability. */
+  readonly warnings?: readonly AgentPlanIssueEntry[];
 }
 
 /** The department whose members and leaders share a plan. */
@@ -594,7 +596,7 @@ export interface AgentPlanTemplateEntry {
 export interface AgentPlanControlEntry
   extends
     AgentPlanOneShotState,
-    Pick<AgentPlanControl, "resumeKind" | "resumeBlock"> {
+    Pick<AgentPlanControl, "resumeKind" | "resumeBlock" | "waitReason"> {
   readonly canRestart?: boolean;
   readonly resumeAction?: "paused" | "recovery";
   readonly workspaceWait?: AgentPlanWriterWait;

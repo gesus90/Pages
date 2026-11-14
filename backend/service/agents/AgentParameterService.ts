@@ -152,6 +152,7 @@ export class AgentParameterService {
       }
     > = {};
     const parameters = await bindAgentParameters(configuration, bindings, {
+      allowIncomplete: template !== undefined,
       ticket: async (id) => {
         if (!this.dependencies.tickets)
           throw new AgentError("parameter_ticket_unavailable");

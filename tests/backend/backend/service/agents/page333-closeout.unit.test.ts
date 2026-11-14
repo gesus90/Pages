@@ -6,6 +6,7 @@ import { reportedTurn, runClosedStep } from "./page333-closeout-fixture";
 import { closed } from "./page81-resource-fixture";
 
 const boundaries = vi.hoisted(() => ({
+  hasRunningWorkerUnit: vi.fn<() => Promise<boolean>>(),
   hasEndedOwnedNamespace: vi.fn<() => Promise<boolean>>(),
   logEvent: vi.fn(),
   logCaughtError: vi.fn(),
@@ -14,10 +15,14 @@ const boundaries = vi.hoisted(() => ({
 vi.mock("@/backend/agents/cli/CliOwnedNamespace", () => ({
   hasEndedOwnedNamespace: boundaries.hasEndedOwnedNamespace,
 }));
+vi.mock("@/backend/agents/cli/CliWorkerUnit", () => ({
+  hasRunningWorkerUnit: boundaries.hasRunningWorkerUnit,
+}));
 vi.mock("@/backend/logging/Logger", () => boundaries);
 
 beforeEach(() => {
   vi.clearAllMocks();
+  boundaries.hasRunningWorkerUnit.mockReset().mockResolvedValue(false);
   boundaries.hasEndedOwnedNamespace.mockReset().mockResolvedValue(false);
 });
 
@@ -48,6 +53,7 @@ it("keeps plan_closeout_failed when independent process evidence finds a survivi
     error: "plan_closeout_failed",
     session: { closeout: "failed" },
   });
+  expect(node.result.session?.acceptance?.verdict).toBe("accepted");
   expect(boundaries.hasEndedOwnedNamespace).toHaveBeenCalledExactlyOnceWith({
     pid: 42,
     uid: 1000,
@@ -143,3 +149,48 @@ it("never replaces an explicit unconfirmed cleanup with an empty process check",
   });
   expect(boundaries.hasEndedOwnedNamespace).not.toHaveBeenCalled();
 });
+
+it.each(["active", "unreadable"])(
+  "keeps accepted work and fails closeout when worker units are %s",
+  async (state) => {
+    boundaries.hasEndedOwnedNamespace.mockResolvedValue(true);
+    if (state === "active")
+      boundaries.hasRunningWorkerUnit.mockResolvedValue(true);
+    else
+      boundaries.hasRunningWorkerUnit.mockRejectedValue(
+        new Error("private worker details"),
+      );
+    const node = await runClosedStep({
+      turn: Promise.resolve(reportedTurn()),
+      close: async () => {
+        throw new AgentError("plan_local_control_failed");
+      },
+    });
+    expect(node.result).toMatchObject({
+      status: "failed",
+      error: "plan_closeout_failed",
+      session: { acceptance: { verdict: "accepted" } },
+    });
+    expect(JSON.stringify(boundaries.logEvent.mock.calls)).not.toContain(
+      "private worker details",
+    );
+  },
+);
+
+it.each([true, false])(
+  "keeps accepted work after lost owner proof only when the process ended: %s",
+  async (hasEnded) => {
+    boundaries.hasEndedOwnedNamespace.mockResolvedValue(hasEnded);
+    const node = await runClosedStep({
+      turn: Promise.resolve(reportedTurn()),
+      close: async () => {
+        throw new AgentError("plan_local_owner_unverified");
+      },
+    });
+    expect(node.result).toMatchObject({
+      status: hasEnded ? "succeeded" : "failed",
+      error: hasEnded ? null : "plan_closeout_failed",
+      session: { acceptance: { verdict: "accepted" } },
+    });
+  },
+);

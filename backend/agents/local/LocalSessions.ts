@@ -1,7 +1,7 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
-import { watch } from "node:fs/promises";
 import path from "node:path";
 
+import { settleWorkerUnits } from "@/backend/agents/cli/CliWorkerUnit";
 import { LocalSessionRepository } from "@/backend/database/repositories/agent/LocalSessionRepository";
 import { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
 import { requireAgentFiles } from "@/backend/storage/AgentPayloadFileStore";
@@ -15,12 +15,15 @@ import {
   localClosedSchema,
   localLaunchSchema,
   localMutationSchema,
-  localOwnerProofSchema,
 } from "./LocalSessionContracts";
 import { LocalSessionJournal } from "./LocalSessionJournal";
 import { LocalSessionImport } from "./LocalSessionImport";
 import { LocalAttachedSession } from "./LocalAttachedSession";
-import { localManifestDigest, proveLocalOwner } from "./LocalSessionOwnership";
+import {
+  hasEndedLocalOwner,
+  localManifestDigest,
+  proveLocalOwner,
+} from "./LocalSessionOwnership";
 import {
   readLocalRecord,
   requireLocalDirectory,
@@ -33,6 +36,7 @@ import {
   registerLocalOwnerSettlement,
 } from "./LocalOwnerControl";
 import { forgetForcedLocalRun } from "./LocalSessionForcedRelease";
+import { waitForLocalOwnerReady } from "./LocalOwnerReady";
 import { pinLocalSessionTools } from "./LocalSessionTools";
 
 import type { Database } from "@/backend/database/Database";
@@ -114,7 +118,7 @@ export class LocalSessions {
           entry,
           this.directory(entry.instanceId),
         );
-        await this.waitForReady(this.directory(entry.instanceId));
+        await waitForLocalOwnerReady(this.directory(entry.instanceId));
         await this.owners.prove(entry.instanceId, owned.proof);
         this.entries.set(entry.instanceId, { ...entry, proof: owned.proof });
         this.proven.add(entry.instanceId);
@@ -411,7 +415,7 @@ export class LocalSessions {
     try {
       await admission.lifecycle.beforeSpawn();
       await startLocalSessionUnit(manifest);
-      await this.waitForReady(directory);
+      await waitForLocalOwnerReady(directory);
       const owned = await proveLocalOwner(entry, directory);
       await this.owners.prove(entry.instanceId, owned.proof);
       this.entries.set(entry.instanceId, { ...entry, proof: owned.proof });
@@ -554,10 +558,18 @@ export class LocalSessions {
     const entry = this.entries.get(instanceId);
     if (!entry) return null;
     if (entry.releasedAt) return true;
-    const owned = await proveLocalOwner(
-      this.requireEntry(instanceId),
-      this.directory(instanceId),
-    );
+    if (this.uncertain.has(instanceId)) return this.settleEndedOwner(entry);
+    let owned: Awaited<ReturnType<typeof proveLocalOwner>>;
+    try {
+      owned = await proveLocalOwner(
+        this.requireEntry(instanceId),
+        this.directory(instanceId),
+      );
+    } catch {
+      this.proven.delete(instanceId);
+      this.uncertain.add(instanceId);
+      return this.settleEndedOwner(entry);
+    }
     if (!this.attachments.has(instanceId)) {
       const token = randomUUID();
       await sendLocalCommand(owned.manifest, { kind: "attach", token });
@@ -571,14 +583,28 @@ export class LocalSessions {
     return closed.isConfirmed;
   }
 
+  private async settleEndedOwner(entry: LocalSessionEntry): Promise<boolean> {
+    const instanceId = entry.instanceId;
+    if (!(await hasEndedLocalOwner(entry, this.directory(instanceId))))
+      throw new AgentError("plan_local_owner_unverified");
+    if ((await settleWorkerUnits(instanceId)) !== 0) return false;
+    await this.recordReleased(entry);
+    return true;
+  }
+
   private async release(entry: LocalSessionEntry): Promise<void> {
     await this.control(entry, { kind: "release" });
+    await this.recordReleased(entry);
+  }
+
+  private async recordReleased(entry: LocalSessionEntry): Promise<void> {
     await this.owners.released(entry.instanceId);
     this.entries.set(entry.instanceId, {
       ...entry,
       releasedAt: new Date().toISOString(),
     });
     this.proven.delete(entry.instanceId);
+    this.uncertain.delete(entry.instanceId);
     this.attached.delete(entry.instanceId);
     this.input.tools.supervisor.release(entry.instanceId);
   }
@@ -615,34 +641,6 @@ export class LocalSessions {
         directory,
       );
       return owned.manifest.launch;
-    }
-  }
-
-  private async waitForReady(directory: string): Promise<void> {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 20_000);
-    try {
-      const events = watch(directory, { signal: controller.signal });
-      try {
-        localOwnerProofSchema.parse(
-          await readLocalRecord(path.join(directory, "proof.json")),
-        );
-        await readLocalRecord(path.join(directory, "ready.json"));
-        return;
-      } catch (error: unknown) {
-        if (!(
-          error instanceof Error &&
-          "code" in error &&
-          error.code === "ENOENT"
-        ))
-          throw error;
-      }
-      for await (const event of events) {
-        if (event.filename === "ready.json") return;
-      }
-    } finally {
-      clearTimeout(timer);
-      controller.abort();
     }
   }
 }

@@ -11,20 +11,8 @@ import type { AgentRunArchive } from "./AgentRunArchive";
 import type { AcpResourceScheduler } from "./AcpResourceScheduler";
 import type { AgentDefinitionFiles } from "./AgentDefinitionFiles";
 import type { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
-import type { DatabaseTransaction } from "@/backend/database/Database";
 
 /** Runtime boundaries shared with the run command aggregate. */
-/**
- * Creates the record of a new run inside a transaction that the caller opens.
- *
- * @remarks
- * The caller passes `create` the transaction in which it stores its own
- * changes; a failure of either rolls both back.
- */
-export type AgentPlanRunRecording = (
-  create: (transaction: DatabaseTransaction) => Promise<void>,
-) => Promise<void>;
-
 export interface EngineDependencies {
   readonly startResources?: Pick<
     AgentPlanStartResources,
@@ -40,7 +28,8 @@ export interface EngineDependencies {
   readonly decisions?: Pick<AgentPlanDecisionModel, "run">;
   /** Runs swarm nodes (PAGE-313); without it a swarm fails instead of running. */
   readonly swarms?: Pick<AgentPlanSwarmRunner, "run">;
-  readonly resources?: Pick<AcpResourceScheduler, "pauseRun" | "resumeRun">;
+  readonly resources?: Pick<AcpResourceScheduler, "pauseRun" | "resumeRun"> &
+    Partial<Pick<AcpResourceScheduler, "setWaitObserver">>;
   readonly runs: Pick<
     AgentPlanRunRepository,
     "insert" | "create" | "update" | "find"

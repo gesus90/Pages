@@ -1,4 +1,3 @@
-import { TriangleAlert } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { cn } from "@/app/lib/cn";
@@ -19,6 +18,7 @@ import { PlanLoopStatus } from "./plan-loop-status";
 import { planLoopRunOf, planLoopSummary } from "./plan-loop-summary";
 import { PlanNodeActions, PlanNodeEditButton } from "./plan-node-actions";
 import { PlanNodeIcon } from "./plan-node-icon";
+import { PlanNodeWarning } from "./plan-node-warning";
 import { PLAN_NODE_TEXT } from "./plan-node-text";
 import { planSuccessClass } from "./plan-status";
 
@@ -67,7 +67,6 @@ export function PlanLoopFrame(props: LoopFrameProps): React.ReactElement {
   const { t } = useTranslation();
   const { loop, graph } = props;
   const label = loop.name || t("plans.loops.defaultName");
-  const hasIssue = graph.issues.some((issue) => issue.nodeId === loop.id);
   const record = planLoopRunOf(props.run, loop.id);
   const isLeft = props.run !== null && isPlanLoopLeftRegularly(record);
   return (
@@ -97,7 +96,8 @@ export function PlanLoopFrame(props: LoopFrameProps): React.ReactElement {
         className="pointer-events-auto flex items-center gap-5 border-b border-plan-loop-edge/25 px-5"
         style={{ height: PLAN_LOOP_TITLE_HEIGHT }}
       >
-        <LoopTitle {...props} label={label} hasIssue={hasIssue} />
+        <LoopTitle {...props} label={label} />
+        <PlanNodeWarning nodeId={loop.id} issues={graph.issues} />
         <LoopHeaderActions {...props} label={label} />
       </div>
       <PlanLoopPortRows {...props} />
@@ -120,7 +120,6 @@ export function PlanLoopFrame(props: LoopFrameProps): React.ReactElement {
 function LoopTitle(
   props: LoopFrameProps & {
     readonly label: string;
-    readonly hasIssue: boolean;
   },
 ): React.ReactElement {
   const { t } = useTranslation();
@@ -146,12 +145,6 @@ function LoopTitle(
       >
         <PlanNodeIcon type="loop" className="size-3.5" />
         {t("plans.nodeType.loop")}
-        {props.hasIssue ? (
-          <TriangleAlert
-            className="size-3.5 text-destructive"
-            aria-label={t("plans.loops.needsRepair")}
-          />
-        ) : null}
       </span>
       <span className="block truncate">{label}</span>
     </button>

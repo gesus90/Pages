@@ -139,6 +139,7 @@ const EXACT_CODES: Readonly<Record<AgentRunErrorClass, ReadonlySet<string>>> = {
     "plan_session_unavailable",
     "plan_terminal_question",
     "plan_local_owner_unverified",
+    "plan_local_control_failed",
     "plan_local_launch_invalid",
     "plan_payload_missing",
     "plan_payload_corrupt",

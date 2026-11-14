@@ -1,10 +1,15 @@
-import { settleOwnedNamespace } from "@/backend/agents/cli/CliOwnedNamespace";
+import {
+  hasEndedOwnedNamespace,
+  settleOwnedNamespace,
+} from "@/backend/agents/cli/CliOwnedNamespace";
 import {
   endTaggedProcesses,
   readScopeSince,
 } from "@/backend/agents/cli/CliProcessScan";
 import { settleManagedLocalOwner } from "@/backend/agents/local/LocalOwnerControl";
+import { AgentError } from "@/backend/error/AgentErrors";
 import {
+  hasRunningWorkerUnit,
   settleRecordedWorkerUnit,
   settleWorkerUnits,
 } from "@/backend/agents/cli/CliWorkerUnit";
@@ -15,7 +20,10 @@ import { AgentToolPreflightError } from "../tools/AgentToolReadinessError";
 import { isUnitBound } from "./AcpLeaseEvidence";
 
 import type { PlanSession } from "@/backend/agents/AgentPlanExecution";
-import type { AcpResourceRecord } from "@/definition/AcpResource";
+import type {
+  AcpNamespaceOwner,
+  AcpResourceRecord,
+} from "@/definition/AcpResource";
 
 type LeaseCleanup = (
   instanceId: string,
@@ -53,8 +61,25 @@ export async function closeLease(
   cleanup: LeaseCleanup,
   settleUnits?: (instanceId: string) => Promise<number>,
 ): Promise<{ readonly remaining: number }> {
-  const managed = await settleManagedLocalOwner(record.instanceId);
-  if (managed !== null) return { remaining: managed ? 0 : 1 };
+  try {
+    const managed = await settleManagedLocalOwner(record.instanceId);
+    if (managed !== null) return { remaining: managed ? 0 : 1 };
+  } catch (error: unknown) {
+    if (
+      !(error instanceof AgentError) ||
+      (error.code !== "plan_local_control_failed" &&
+        error.code !== "plan_local_owner_unverified")
+    )
+      throw error;
+    return {
+      remaining: (await hasEndedLeaseProcesses(
+        record.instanceId,
+        record.namespace ?? undefined,
+      ))
+        ? 0
+        : 1,
+    };
+  }
   if (record.namespace)
     return {
       remaining: (await settleOwnedNamespace(
@@ -75,6 +100,15 @@ export async function closeLease(
     return { remaining: await settleWorkerUnits(record.instanceId) };
   }
   return cleanup(record.instanceId, startedAt);
+}
+
+/** Independently confirms both the session supervisor and every worker unit have ended. */
+export async function hasEndedLeaseProcesses(
+  instanceId: string,
+  namespace: AcpNamespaceOwner | undefined,
+): Promise<boolean> {
+  if (!namespace || !(await hasEndedOwnedNamespace(namespace))) return false;
+  return !(await hasRunningWorkerUnit(instanceId));
 }
 
 /**

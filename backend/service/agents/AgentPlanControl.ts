@@ -81,9 +81,11 @@ export function planControl(
     canRunPlan(plan) &&
     (run.userId === context.userId || isPlanAdministrator(plan));
   const issue = continuationIssue(plan, run);
+  const isActive = isActivePlanRun(run.status);
   return {
     ...runControlMetadata(run, canIdentify),
     canPlay: canRunPlan(plan),
+    waitReason: canIdentify && isActive ? run.waitReason : undefined,
     workspaceWait:
       canIdentify && isPlanWriterWaitActive(run)
         ? run.workspaceWait
