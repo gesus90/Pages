@@ -293,6 +293,21 @@ describe("LocalOwnerSession startup failures", () => {
 });
 
 describe("LocalOwnerSession cancelled start", () => {
+  it.each(["failed", "cancelled", "succeeded", "stopping"])(
+    "refuses native process creation when the run is already %s",
+    async (status) => {
+      doubles.findRun.mockResolvedValue({ ...runWithAttempt(), status });
+      const owner = newOwner();
+
+      await owner.start();
+
+      expect(doubles.open).not.toHaveBeenCalled();
+      expect(appended("turn")[0]).toMatchObject({
+        result: { failure: "cancelled" },
+      });
+    },
+  );
+
   it("records a stopped run as cancelled without opening the native session", async () => {
     doubles.findRun.mockResolvedValue({ stopRequested: true });
     const owner = newOwner();
