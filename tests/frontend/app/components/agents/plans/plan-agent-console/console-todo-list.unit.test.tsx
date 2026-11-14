@@ -182,18 +182,18 @@ it("waits exactly 1500 ms per uninterrupted hover and resets after leaving or ch
   const first = screen.getByRole("button", { name: /Finished task/ });
   const second = screen.getByRole("button", { name: /Failed task/ });
   fireEvent.mouseEnter(first);
-  act(() => vi.advanceTimersByTime(1499));
+  await act(() => vi.advanceTimersByTime(1499));
   expect(screen.queryByRole("tooltip", HIDDEN)).toBeNull();
   fireEvent.mouseLeave(first);
   fireEvent.mouseEnter(first);
-  act(() => vi.advanceTimersByTime(1499));
+  await act(() => vi.advanceTimersByTime(1499));
   expect(screen.queryByRole("tooltip", HIDDEN)).toBeNull();
   await act(async () => vi.advanceTimersByTime(1));
   expect(screen.getByRole("tooltip").textContent).toBe("Finished task");
   fireEvent.mouseLeave(first);
   expect(screen.queryByRole("tooltip", HIDDEN)).toBeNull();
   fireEvent.mouseEnter(second);
-  act(() => vi.advanceTimersByTime(1499));
+  await act(() => vi.advanceTimersByTime(1499));
   expect(screen.queryByRole("tooltip", HIDDEN)).toBeNull();
   await act(async () => vi.advanceTimersByTime(1));
   expect(screen.getByRole("tooltip").textContent).toBe("Failed task");
@@ -219,13 +219,13 @@ it("exposes full text on keyboard focus in a viewport-positioned portal and dism
   expect(floating.computePosition).toHaveBeenCalledWith(
     expect.any(HTMLElement),
     tooltip,
-    expect.objectContaining({
-      strategy: "fixed",
-      middleware: expect.arrayContaining([
-        expect.objectContaining({ name: "flip" }),
-        expect.objectContaining({ name: "shift" }),
-      ]),
-    }),
+    expect.objectContaining({ strategy: "fixed" }),
+  );
+  expect(floating.computePosition.mock.calls[0]?.[2].middleware).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ name: "flip" }),
+      expect.objectContaining({ name: "shift" }),
+    ]),
   );
   expect(fireEvent.keyDown(button, { key: "Escape" })).toBe(false);
   expect(screen.queryByRole("tooltip", HIDDEN)).toBeNull();
@@ -236,13 +236,13 @@ it("exposes full text on keyboard focus in a viewport-positioned portal and dism
   expect(screen.queryByRole("tooltip", HIDDEN)).toBeNull();
 });
 
-it("cancels a pending hover when a live source replacement removes the task", () => {
+it("cancels a pending hover when a live source replacement removes the task", async () => {
   const mounted = renderConsole(<ConsoleTodoList step={stepWithTodos()} />);
   fireEvent.mouseEnter(
     within(screen.getByRole("list")).getAllByRole("button")[0],
   );
-  act(() => vi.advanceTimersByTime(1000));
+  await act(() => vi.advanceTimersByTime(1000));
   mounted.rerender(<ConsoleTodoList step={stepWithTodos(NATIVE)} />);
-  act(() => vi.advanceTimersByTime(1500));
+  await act(() => vi.advanceTimersByTime(1500));
   expect(screen.queryByRole("tooltip", HIDDEN)).toBeNull();
 });
