@@ -1,5 +1,6 @@
 import { AGENT_LIMIT_CONSTRAINTS } from "@/definition/PagesAgentOperations";
 import { readPlanCleanupFailure } from "@/definition/AgentPlanCleanupResource";
+import { UPLOAD_CONFLICT_MESSAGE } from "@/backend/service/mcp/storage/McpStorageRequest";
 
 import type { AgentOperationError } from "@/backend/error/AgentOperationError";
 import type {
@@ -8,6 +9,7 @@ import type {
 } from "@/definition/AgentPlanOperations";
 import type {
   AgentLimitDetails,
+  AgentInputRejection,
   AgentOperationDetails,
   AgentPlanCleanupRejection,
   AgentPlanGraphRejection,
@@ -397,9 +399,18 @@ function readReason(
   | AgentStepReportRejection
   | AgentPlanGraphRejection
   | AgentPlanCleanupRejection
+  | AgentInputRejection
   | undefined {
   if (typeof input !== "object" || input === null || !("reason" in input))
     return undefined;
+  if (
+    input.reason === "validation" &&
+    "problems" in input &&
+    Array.isArray(input.problems) &&
+    input.problems.length === 1 &&
+    input.problems[0] === UPLOAD_CONFLICT_MESSAGE
+  )
+    return { reason: "validation", problems: [UPLOAD_CONFLICT_MESSAGE] };
   if (!isRejectionReason(input.reason)) return undefined;
   if (
     input.reason === "plan_recovery_cleanup_unconfirmed" &&

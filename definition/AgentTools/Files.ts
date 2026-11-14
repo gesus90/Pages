@@ -138,10 +138,14 @@ export const FILE_WRITE_TOOLS = [
       parentRef: IDENTIFIER_SCHEMA,
       name: NAME,
       ...CONTENT,
-      onConflict: { type: "string", enum: ["fail", "keep_both", "overwrite"] },
-      confirmation: IDENTIFIER_SCHEMA,
+      onConflict: {
+        type: "string",
+        enum: ["fail", "keep_both", "rename"],
+        description:
+          "fail (default) reports a name conflict; keep_both chooses a free name. rename is an alias for keep_both.",
+      },
     },
-    ["onConflict", "confirmation"],
+    ["onConflict"],
   ),
   write(
     "storage.update",

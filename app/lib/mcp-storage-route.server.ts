@@ -8,7 +8,11 @@ import {
   storageDownloadResponse,
   storageErrorResponse,
 } from "@/app/lib/storage-api.server";
-import { readMcpStorageInput } from "@/backend/service/mcp/storage/McpStorageRequest";
+import {
+  readMcpStorageInput,
+  readUploadConflict,
+  UPLOAD_CONFLICT_MESSAGE,
+} from "@/backend/service/mcp/storage/McpStorageRequest";
 import { McpStorageService } from "@/backend/service/mcp/storage/McpStorageService";
 import { toMcpUserError } from "@/backend/service/mcp/users/McpUserError";
 import {
@@ -110,7 +114,18 @@ export async function runMcpStorageRoute(
     }
     const body = await parameters(request, operation, simulation);
     if (body instanceof Response) return body;
-    const input = readMcpStorageInput(body.metadata);
+    const conflict =
+      operation === "upload" ? readUploadConflict(body.metadata) : undefined;
+    if (conflict === null)
+      return answer(
+        { error: "invalid_request", message: UPLOAD_CONFLICT_MESSAGE },
+        simulation,
+        400,
+      );
+    const input = readMcpStorageInput({
+      ...body.metadata,
+      ...(conflict === undefined ? {} : { onConflict: conflict }),
+    });
     if (input === null) return failure({ code: "invalid_request" }, simulation);
     const api = new McpStorageService(files);
     if (operation === "download") {

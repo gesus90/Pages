@@ -119,3 +119,29 @@ it("MCP checks folder rights for uploads and downloads and never grants cookie-b
   ).toBe(403);
   expect(world.drive.calls.createFolder).toHaveBeenCalledTimes(1);
 });
+
+it.each(["keep_both", "rename", "fail", "unknown", "overwrite"])(
+  "validates upload conflict policy %s at the MCP HTTP boundary",
+  async (policy) => {
+    const world = storageWorld();
+    services.get.mockResolvedValue({
+      mcpUserApi: { authenticate: async () => ({ id: "Ed" }) },
+      googleDriveFileService: world.files,
+    });
+    const request = new Request("http://pages/api/mcp/v1/storage/upload", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ parentRef: "reports", name: "report.md", content: "new", encoding: "text", onConflict: policy }),
+    });
+    const response = await runMcpStorageRoute(request, "upload");
+    const body: unknown = await response.json();
+    if (policy === "keep_both" || policy === "rename") {
+      expect(response.status).toBe(200);
+      expect(world.drive.calls.upload.mock.calls[0]?.[1]).toMatchObject({ name: "report (2).md" });
+    } else {
+      expect(body).toMatchObject({ error: policy === "fail" ? "name_conflict" : "invalid_request" });
+      if (policy !== "fail") expect(body).toMatchObject({ message: expect.stringContaining("fail or keep_both") });
+      expect(world.drive.calls.upload).not.toHaveBeenCalled();
+    }
+  },
+);

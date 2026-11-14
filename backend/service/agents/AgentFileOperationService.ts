@@ -2,7 +2,11 @@ import { createHash } from "node:crypto";
 
 import { STORAGE_OPERATIONS } from "@/definition/GoogleDriveFiles";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
-import { readMcpStorageInput } from "@/backend/service/mcp/storage/McpStorageRequest";
+import {
+  readMcpStorageInput,
+  readUploadConflict,
+  UPLOAD_CONFLICT_MESSAGE,
+} from "@/backend/service/mcp/storage/McpStorageRequest";
 import { McpStorageService } from "@/backend/service/mcp/storage/McpStorageService";
 import {
   AGENT_FILE_READ_OPERATIONS,
@@ -81,7 +85,17 @@ export class AgentFileOperationService {
     );
     if (tool) return this.repositoryRead(identity.userId, tool, parameters);
     const storageOperation = operation.slice("storage.".length);
-    const parsed = readMcpStorageInput(parameters);
+    const conflict =
+      storageOperation === "upload" ? readUploadConflict(parameters) : undefined;
+    if (conflict === null)
+      throw new AgentOperationError("INVALID_REQUEST", {
+        reason: "validation",
+        problems: [UPLOAD_CONFLICT_MESSAGE],
+      });
+    const parsed = readMcpStorageInput({
+      ...parameters,
+      ...(conflict === undefined ? {} : { onConflict: conflict }),
+    });
     if (!parsed) throw new AgentOperationError("INVALID_REQUEST");
     const api = new McpStorageService(
       this.dependencies.files.forAccount(identity.userId),

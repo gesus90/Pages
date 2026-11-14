@@ -1,6 +1,8 @@
 import { expect, it, vi } from "vitest";
 
 import { AgentFileOperationService } from "@/backend/service/agents/AgentFileOperationService";
+import { planOperationFailure } from "@/backend/service/agents/bridge/PlanBridgeFailure";
+import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { sessionOperations } from "@/backend/service/mcp/AgentOperationCatalog";
 import { TOOL_ENTRIES } from "@/definition/AgentTools/ToolCatalog";
 import { RepositoryReadError } from "@/definition/RepositoryRead";
@@ -149,6 +151,42 @@ it("reads capabilities and uploads text, while rejecting missing rights and oper
     }),
   ).rejects.toMatchObject({ code: "INVALID_REQUEST" });
   expect(testWorld.drive.calls.upload).toHaveBeenCalledTimes(1);
+});
+
+it.each(["keep_both", "rename"])("uploads a free name through the plan bridge with %s", async (policy) => {
+  const testWorld = world();
+  const result = await testWorld.service.handle(IDENTITY, "storage.upload", {
+    operationId: "upload-conflict",
+    parentRef: "reports",
+    name: "report.md",
+    content: "new",
+    encoding: "text",
+    onConflict: policy,
+  });
+  expect(result).toMatchObject({ result: { storage: { ok: true } } });
+  expect(testWorld.drive.calls.upload.mock.calls[0]?.[1]).toMatchObject({ name: "report (2).md" });
+});
+
+it("refuses conflicting and invalid upload policies through the plan bridge", async () => {
+  const testWorld = world();
+  const input = {
+    operationId: "upload-conflict",
+    parentRef: "reports",
+    name: "report.md",
+    content: "new",
+    encoding: "text",
+  };
+  expect(await testWorld.service.handle(IDENTITY, "storage.upload", { ...input, onConflict: "fail" }))
+    .toMatchObject({ result: { storage: { ok: false, error: { code: "name_conflict" } } } });
+  await expect(testWorld.service.handle(IDENTITY, "storage.upload", { ...input, onConflict: "unknown" }))
+    .rejects.toMatchObject({ code: "INVALID_REQUEST", details: { problems: [expect.stringContaining("fail or keep_both")] } });
+  await expect(testWorld.service.handle(IDENTITY, "storage.upload", { ...input, onConflict: "overwrite" }))
+    .rejects.toMatchObject({ code: "INVALID_REQUEST" });
+  expect(testWorld.drive.calls.upload).not.toHaveBeenCalled();
+  expect(planOperationFailure(new AgentOperationError("INVALID_REQUEST", {
+    reason: "validation",
+    problems: ["onConflict must be fail or keep_both; rename is an alias for keep_both."],
+  }))).toMatchObject({ details: { problems: [expect.stringContaining("fail or keep_both")] } });
 });
 
 it("dispatches repository reads with the verified account and translates refusal without diagnostics", async () => {
