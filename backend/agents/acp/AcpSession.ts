@@ -362,13 +362,7 @@ export class AcpSession implements PlanSession {
     sessionId: string,
     request: AcpPromptRequest,
   ): Promise<PlanSessionTurn> {
-    if (
-      hasAcpConfigurationChanged(
-        this.context.driver.provider,
-        this.expectedConfiguration,
-        this.state,
-      )
-    )
+    if (this.hasConfigurationChanged())
       return this.ended("failed", "plan_context_changed");
     const capabilities =
       this.context.request.modelSupportsImages === false
@@ -398,13 +392,7 @@ export class AcpSession implements PlanSession {
     await this.synchronizeNativeUsage();
     await this.context.listener?.drained?.();
     noteSessionEvent(this.state.events, `turn ${response.stopReason}`);
-    if (
-      hasAcpConfigurationChanged(
-        this.context.driver.provider,
-        this.expectedConfiguration,
-        this.state,
-      )
-    )
+    if (this.hasConfigurationChanged())
       return this.ended("failed", "plan_context_changed");
     if (this.isModelMismatch)
       return this.ended("failed", "plan_model_unavailable");
@@ -415,6 +403,14 @@ export class AcpSession implements PlanSession {
       this.state.isMcpUnavailable
         ? "plan_mcp_unavailable"
         : (this.state.providerFailure?.code ?? this.openCodeFailure),
+    );
+  }
+
+  private hasConfigurationChanged(): boolean {
+    return hasAcpConfigurationChanged(
+      this.context.driver.provider,
+      this.expectedConfiguration,
+      this.state,
     );
   }
 
@@ -552,7 +548,8 @@ export class AcpSession implements PlanSession {
       !request.model.startsWith("openrouter/") ||
       !openCodeDataHome ||
       !this.state.sessionId
-    ) return;
+    )
+      return;
     await listener?.nativeUsage?.(this.state.sessionId, openCodeDataHome);
   }
 
@@ -647,13 +644,10 @@ export class AcpSession implements PlanSession {
         null,
       );
     }
-    const errorCode = acpErrorFailure(
-      error,
-      this.state,
-      this.context.driver,
-      this.connection.signal.aborted,
-      this.context.request.model.startsWith("openrouter/"),
-    );
+    const errorCode = acpErrorFailure(error, this.state, this.context.driver, {
+      isDisconnected: this.connection.signal.aborted,
+      isOpenRouter: this.context.request.model.startsWith("openrouter/"),
+    });
     return errorCode === null
       ? this.disconnected()
       : this.ended("failed", errorCode);

@@ -247,7 +247,9 @@ export class AgentPlanStepProgressService {
         contract: current,
         todos: current.todos.map((todo) => ({
           id: todo.id,
-          status: todo.checked ? "done" : (previousStatuses.get(todo.id) ?? "open"),
+          status: todo.checked
+            ? "done"
+            : (previousStatuses.get(todo.id) ?? "open"),
         })),
       }),
     });

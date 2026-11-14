@@ -23,6 +23,8 @@ import type {
   AgentSessionHistoryWindow,
   AgentSessionKey,
   AgentSessionState,
+  AgentSessionTurnUsage,
+  AgentSessionUsageTotal,
   AgentSessionView,
 } from "@/definition/AgentSessionJournal";
 import type { AgentPlanSessionRecord } from "@/definition/AgentPlanSession";
@@ -56,6 +58,33 @@ function nodeAttemptIds(
       entry.attemptId ? [entry.attemptId] : [],
     ),
   ]);
+}
+
+function openRouterRunSummary(
+  run: AgentPlanRun,
+  runTurns: readonly AgentSessionTurnUsage[],
+): {
+  readonly openRouterRunTotal: AgentSessionUsageTotal | null;
+  readonly isOpenRouterRunIncomplete: boolean;
+} {
+  const openRouterTurns = runTurns.filter((turn) =>
+    turn.model?.startsWith("openrouter/"),
+  );
+  const reportedAttempts = new Set(
+    openRouterTurns.map((turn) => turn.attemptId),
+  );
+  const openRouterAttempts = allPlanRunResults(run).flatMap((step) =>
+    step.session?.runner === "opencode" &&
+    step.session.requested.model.startsWith("openrouter/")
+      ? [step.session.attemptId ?? `${step.session.instanceId}:${step.id}`]
+      : [],
+  );
+  return {
+    openRouterRunTotal: sumTurnUsage(openRouterTurns)[0] ?? null,
+    isOpenRouterRunIncomplete: openRouterAttempts.some(
+      (attemptId) => !reportedAttempts.has(attemptId),
+    ),
+  };
 }
 
 /** Reads and stops runs with every current right of their executor checked. */
@@ -255,14 +284,8 @@ export class AgentSessionService {
     const isLive = this.live.has(key.attemptId) && isRunActive(run);
     const state = this.state(run, attempt, stored);
     const recorder = this.recorders.get(attempt.record.instanceId);
-    const openRouterTurns = runTurns.filter((turn) => turn.model?.startsWith("openrouter/"));
-    const openRouterAttempts = allPlanRunResults(run).flatMap((step) =>
-      step.session?.runner === "opencode" &&
-      step.session.requested.model.startsWith("openrouter/")
-        ? [step.session.attemptId ?? `${step.session.instanceId}:${step.id}`]
-        : [],
-    );
-    const reportedAttempts = new Set(openRouterTurns.map((turn) => turn.attemptId));
+    const { openRouterRunTotal, isOpenRouterRunIncomplete } =
+      openRouterRunSummary(run, runTurns);
     return {
       key,
       provider: attempt.record.runner,
@@ -277,10 +300,8 @@ export class AgentSessionService {
       nodeTotals: sumTurnUsage(
         runTurns.filter((turn) => nodeAttempts.has(turn.attemptId)),
       ),
-      openRouterRunTotal: sumTurnUsage(openRouterTurns)[0] ?? null,
-      isOpenRouterRunIncomplete: openRouterAttempts.some(
-        (attemptId) => !reportedAttempts.has(attemptId),
-      ),
+      openRouterRunTotal,
+      isOpenRouterRunIncomplete,
       continuation: decideContinuation({
         isAuthorized: true,
         isConfigurationCompatible: true,
@@ -460,7 +481,11 @@ export class AgentSessionService {
     const recorder =
       existing ??
       new AgentSessionRecorder(
-        { journal: this.dependencies.journal, store: this.dependencies.store, pricing: this.dependencies.pricing },
+        {
+          journal: this.dependencies.journal,
+          store: this.dependencies.store,
+          pricing: this.dependencies.pricing,
+        },
         attempt,
       );
     if (existing) existing.bind(attempt);

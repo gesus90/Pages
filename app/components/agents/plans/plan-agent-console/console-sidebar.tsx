@@ -211,14 +211,24 @@ function contextShare(context: AgentSessionContextUsage): number | null {
 function openRouterCost(
   total: AgentSessionUsageTotal | null,
   language: string,
-  labels: { readonly free: string; readonly unknown: string; readonly missing: string },
+  labels: {
+    readonly free: string;
+    readonly unknown: string;
+    readonly missing: string;
+  },
 ): string {
   if (!total) return labels.missing;
   if (total.costState === "free") return labels.free;
-  if (total.costState === "unknown" || total.costAmount === null)
+  if (
+    total.costState === "unknown" ||
+    total.costAmount === null ||
+    total.costAmount === undefined
+  )
     return labels.unknown;
   return new Intl.NumberFormat(language, {
-    style: "currency", currency: "USD", minimumFractionDigits: 6,
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 6,
     maximumFractionDigits: 8,
   }).format(total.costAmount);
 }
@@ -228,7 +238,124 @@ function usageCount(
   numbers: Intl.NumberFormat,
   missing: string,
 ): string {
-  return count === null || count === undefined ? missing : numbers.format(count);
+  return count === null || count === undefined
+    ? missing
+    : numbers.format(count);
+}
+
+function formatStandardCost(
+  context: AgentSessionContextUsage,
+  language: string,
+  unknown: string,
+): string {
+  if (!context.cost) return unknown;
+  return new Intl.NumberFormat(language, {
+    style: "currency",
+    currency: context.cost.currency,
+  }).format(context.cost.amount);
+}
+
+function formatTurnTokens(options: {
+  readonly totals: readonly AgentSessionUsageTotal[];
+  readonly isOpenRouter: boolean;
+  readonly isTurnRunning: boolean;
+  readonly openRouterTotal: AgentSessionUsageTotal | null;
+  readonly numbers: Intl.NumberFormat;
+  readonly labels: {
+    readonly afterTurn: string;
+    readonly missing: string;
+    readonly unknown: string;
+  };
+}): string {
+  if (options.isTurnRunning && !options.isOpenRouter)
+    return options.labels.afterTurn;
+  if (options.isOpenRouter && !options.openRouterTotal)
+    return options.labels.missing;
+  const known = options.totals.flatMap((total) =>
+    total.totalTokens === null ? [] : [total.totalTokens],
+  );
+  if (known.length === 0) return options.labels.unknown;
+  return options.numbers.format(known.reduce((sum, value) => sum + value, 0));
+}
+
+function OpenRouterUsageFacts({
+  openRouterTotal,
+  view,
+  numbers,
+  language,
+  costLabels,
+}: {
+  readonly openRouterTotal: AgentSessionUsageTotal | null;
+  readonly view: AgentSessionView;
+  readonly numbers: Intl.NumberFormat;
+  readonly language: string;
+  readonly costLabels: {
+    readonly free: string;
+    readonly unknown: string;
+    readonly missing: string;
+  };
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const key = "plans.console.terminal.sidebar";
+  const missing = costLabels.missing;
+  const runTotal = view.openRouterRunTotal ?? null;
+  return (
+    <>
+      <Fact
+        label={t(`${key}.inputTokens`)}
+        value={usageCount(openRouterTotal?.inputTokens, numbers, missing)}
+      />
+      <Fact
+        label={t(`${key}.outputTokens`)}
+        value={usageCount(openRouterTotal?.outputTokens, numbers, missing)}
+      />
+      <Fact
+        label={t(`${key}.reasoningTokens`)}
+        value={usageCount(openRouterTotal?.reasoningTokens, numbers, missing)}
+      />
+      <Fact
+        label={t(`${key}.cacheReadTokens`)}
+        value={usageCount(openRouterTotal?.cacheReadTokens, numbers, missing)}
+      />
+      <Fact
+        label={t(`${key}.cacheWriteTokens`)}
+        value={usageCount(openRouterTotal?.cacheWriteTokens, numbers, missing)}
+      />
+      <Fact
+        label={t(`${key}.runTokens`)}
+        value={usageCount(runTotal?.totalTokens, numbers, missing)}
+      />
+      <Fact
+        label={t(`${key}.runCost`)}
+        value={openRouterCost(runTotal, language, costLabels)}
+      />
+      <Fact
+        label={t(`${key}.runInputTokens`)}
+        value={usageCount(runTotal?.inputTokens, numbers, missing)}
+      />
+      <Fact
+        label={t(`${key}.runOutputTokens`)}
+        value={usageCount(runTotal?.outputTokens, numbers, missing)}
+      />
+      <Fact
+        label={t(`${key}.runReasoningTokens`)}
+        value={usageCount(runTotal?.reasoningTokens, numbers, missing)}
+      />
+      <Fact
+        label={t(`${key}.runCacheReadTokens`)}
+        value={usageCount(runTotal?.cacheReadTokens, numbers, missing)}
+      />
+      <Fact
+        label={t(`${key}.runCacheWriteTokens`)}
+        value={usageCount(runTotal?.cacheWriteTokens, numbers, missing)}
+      />
+      {view.isOpenRouterRunIncomplete ? (
+        <p className="text-xs text-muted-foreground">
+          {t(`${key}.incomplete`)}
+        </p>
+      ) : null}
+    </>
+  );
 }
 
 function UsageSection(props: {
@@ -243,33 +370,37 @@ function UsageSection(props: {
   const { context } = props.view;
   const share = contextShare(context);
   const used = context.contextUsed;
+  const contextLimit =
+    context.contextLimit === null
+      ? unknown
+      : numbers.format(context.contextLimit);
   const contextValue =
-    used === null
-      ? unknown
-      : `${numbers.format(used)} / ${context.contextLimit === null ? unknown : numbers.format(context.contextLimit)}`;
+    used === null ? unknown : `${numbers.format(used)} / ${contextLimit}`;
   const totals = props.view.nodeTotals ?? props.view.totals;
-  const isOpenRouter = props.view.provider === "opencode" &&
+  const isOpenRouter =
+    props.view.provider === "opencode" &&
     props.view.model.requestedModel.value?.startsWith("openrouter/") === true;
-  const openRouterTotal = isOpenRouter ? totals[0] ?? null : null;
-  const missing = t(`${key}.notReported`);
-  const free = t(`${key}.free`);
-  const priceUnknown = t(`${key}.priceUnknown`);
-  const costLabels = { free, unknown: priceUnknown, missing };
-  const known = totals.flatMap((total) =>
-    total.totalTokens === null ? [] : [total.totalTokens],
-  );
-  const tokens =
-    known.length === 0
-      ? unknown
-      : numbers.format(known.reduce((sum, value) => sum + value, 0));
+  const openRouterTotal = isOpenRouter ? (totals[0] ?? null) : null;
+  const costLabels = {
+    free: t(`${key}.free`),
+    unknown: t(`${key}.priceUnknown`),
+    missing: t(`${key}.notReported`),
+  };
+  const tokens = formatTurnTokens({
+    totals,
+    isOpenRouter,
+    isTurnRunning: props.isTurnRunning,
+    openRouterTotal,
+    numbers,
+    labels: {
+      afterTurn: t(`${key}.afterTurn`),
+      missing: costLabels.missing,
+      unknown,
+    },
+  });
   const cost = isOpenRouter
     ? openRouterCost(openRouterTotal, i18n.language, costLabels)
-    : context.cost
-    ? new Intl.NumberFormat(i18n.language, {
-        style: "currency",
-        currency: context.cost.currency,
-      }).format(context.cost.amount)
-    : unknown;
+    : formatStandardCost(context, i18n.language, unknown);
   return (
     <SidebarSection title={t(`${key}.usage`)}>
       <dl className="space-y-1.5">
@@ -287,27 +418,16 @@ function UsageSection(props: {
             style={{ width: `${share ?? 0}%` }}
           />
         </div>
-        <Fact
-          label={t(`${key}.tokens`)}
-          value={props.isTurnRunning && !isOpenRouter ? t(`${key}.afterTurn`) : isOpenRouter && !openRouterTotal ? missing : tokens}
-        />
+        <Fact label={t(`${key}.tokens`)} value={tokens} />
         <Fact label={t(`${key}.cost`)} value={cost} />
         {isOpenRouter ? (
-          <>
-            <Fact label={t(`${key}.inputTokens`)} value={usageCount(openRouterTotal?.inputTokens, numbers, missing)} />
-            <Fact label={t(`${key}.outputTokens`)} value={usageCount(openRouterTotal?.outputTokens, numbers, missing)} />
-            <Fact label={t(`${key}.reasoningTokens`)} value={usageCount(openRouterTotal?.reasoningTokens, numbers, missing)} />
-            <Fact label={t(`${key}.cacheReadTokens`)} value={usageCount(openRouterTotal?.cacheReadTokens, numbers, missing)} />
-            <Fact label={t(`${key}.cacheWriteTokens`)} value={usageCount(openRouterTotal?.cacheWriteTokens, numbers, missing)} />
-            <Fact label={t(`${key}.runTokens`)} value={usageCount(props.view.openRouterRunTotal?.totalTokens, numbers, missing)} />
-            <Fact label={t(`${key}.runCost`)} value={openRouterCost(props.view.openRouterRunTotal ?? null, i18n.language, costLabels)} />
-            <Fact label={t(`${key}.runInputTokens`)} value={usageCount(props.view.openRouterRunTotal?.inputTokens, numbers, missing)} />
-            <Fact label={t(`${key}.runOutputTokens`)} value={usageCount(props.view.openRouterRunTotal?.outputTokens, numbers, missing)} />
-            <Fact label={t(`${key}.runReasoningTokens`)} value={usageCount(props.view.openRouterRunTotal?.reasoningTokens, numbers, missing)} />
-            <Fact label={t(`${key}.runCacheReadTokens`)} value={usageCount(props.view.openRouterRunTotal?.cacheReadTokens, numbers, missing)} />
-            <Fact label={t(`${key}.runCacheWriteTokens`)} value={usageCount(props.view.openRouterRunTotal?.cacheWriteTokens, numbers, missing)} />
-            {props.view.isOpenRouterRunIncomplete ? <p className="text-xs text-muted-foreground">{t(`${key}.incomplete`)}</p> : null}
-          </>
+          <OpenRouterUsageFacts
+            openRouterTotal={openRouterTotal}
+            view={props.view}
+            numbers={numbers}
+            language={i18n.language}
+            costLabels={costLabels}
+          />
         ) : null}
       </dl>
     </SidebarSection>

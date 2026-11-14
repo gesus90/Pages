@@ -34,7 +34,10 @@ export class OpenRouterPriceRepository implements OpenRouterPriceStore {
        ON CONFLICT (id) DO UPDATE SET
            fetched_at = excluded.fetched_at,
            prices = excluded.prices;`,
-      { fetched_at: snapshot.fetchedAt, prices: JSON.stringify(snapshot.prices) },
+      {
+        fetched_at: snapshot.fetchedAt,
+        prices: JSON.stringify(snapshot.prices),
+      },
     );
   }
 }

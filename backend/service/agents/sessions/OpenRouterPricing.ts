@@ -20,7 +20,10 @@ export interface CatalogSnapshot {
 
 /** Storage boundary for the public catalog, independent of live access. */
 export interface OpenRouterPriceStore {
-  load(): Promise<{ readonly fetchedAt: string; readonly prices: unknown } | null>;
+  load(): Promise<{
+    readonly fetchedAt: string;
+    readonly prices: unknown;
+  } | null>;
   save(snapshot: CatalogSnapshot): Promise<void>;
 }
 
@@ -55,11 +58,16 @@ function price(input: unknown): number | null {
 }
 
 function isDue(snapshot: CatalogSnapshot | null): boolean {
-  return snapshot === null || !Number.isFinite(Date.parse(snapshot.fetchedAt)) ||
-    Date.now() - Date.parse(snapshot.fetchedAt) >= DAY_MS;
+  return (
+    snapshot === null ||
+    !Number.isFinite(Date.parse(snapshot.fetchedAt)) ||
+    Date.now() - Date.parse(snapshot.fetchedAt) >= DAY_MS
+  );
 }
 
-function parseSavedPrices(input: unknown): Readonly<Record<string, OpenRouterPrices>> | null {
+function parseSavedPrices(
+  input: unknown,
+): Readonly<Record<string, OpenRouterPrices>> | null {
   const entries = record(input);
   if (!entries) return null;
   const prices: Record<string, OpenRouterPrices> = {};
@@ -70,31 +78,56 @@ function parseSavedPrices(input: unknown): Readonly<Record<string, OpenRouterPri
     const inputCacheRead = price(rates?.inputCacheRead);
     const inputCacheWrite = price(rates?.inputCacheWrite);
     const internalReasoning = price(rates?.internalReasoning);
-    if (prompt === null || completion === null || inputCacheRead === null || inputCacheWrite === null || internalReasoning === null)
+    if (
+      prompt === null ||
+      completion === null ||
+      inputCacheRead === null ||
+      inputCacheWrite === null ||
+      internalReasoning === null
+    )
       return null;
-    prices[model] = { prompt, completion, inputCacheRead, inputCacheWrite, internalReasoning };
+    prices[model] = {
+      prompt,
+      completion,
+      inputCacheRead,
+      inputCacheWrite,
+      internalReasoning,
+    };
   }
   return prices;
 }
 
-/** Parses only the five token rates that plan usage can bill. */
-export function parseOpenRouterCatalog(input: unknown): Readonly<Record<string, OpenRouterPrices>> {
-  const entries = record(input)?.data;
-  if (!Array.isArray(entries)) throw new Error("Invalid OpenRouter catalog");
-  const prices: Record<string, OpenRouterPrices> = {};
-  for (const entry of entries) {
-    const model = record(entry);
-    const pricing = record(model?.pricing);
-    const prompt = price(pricing?.prompt);
-    const completion = price(pricing?.completion);
-    if (typeof model?.id !== "string" || prompt === null || completion === null) continue;
-    prices[model.id] = {
+function parseCatalogModel(
+  entry: unknown,
+): readonly [string, OpenRouterPrices] | null {
+  const model = record(entry);
+  const pricing = record(model?.pricing);
+  const prompt = price(pricing?.prompt);
+  const completion = price(pricing?.completion);
+  if (typeof model?.id !== "string" || prompt === null || completion === null)
+    return null;
+  return [
+    model.id,
+    {
       prompt,
       completion,
       inputCacheRead: price(pricing?.input_cache_read) ?? prompt,
       inputCacheWrite: price(pricing?.input_cache_write) ?? prompt,
       internalReasoning: price(pricing?.internal_reasoning) ?? completion,
-    };
+    },
+  ];
+}
+
+/** Parses only the five token rates that plan usage can bill. */
+export function parseOpenRouterCatalog(
+  input: unknown,
+): Readonly<Record<string, OpenRouterPrices>> {
+  const entries = record(input)?.data;
+  if (!Array.isArray(entries)) throw new Error("Invalid OpenRouter catalog");
+  const prices: Record<string, OpenRouterPrices> = {};
+  for (const entry of entries) {
+    const parsed = parseCatalogModel(entry);
+    if (parsed) prices[parsed[0]] = parsed[1];
   }
   return prices;
 }
@@ -108,9 +141,13 @@ export function chargeOpenRouterMessage(
   const modelId = model.startsWith("openrouter/") ? model.slice(11) : model;
   const prices = snapshot?.prices[modelId] ?? null;
   const pricedAt = snapshot?.fetchedAt ?? null;
-  if (modelId.endsWith(":free") || (prices?.prompt === 0 && prices.completion === 0))
+  if (
+    modelId.endsWith(":free") ||
+    (prices?.prompt === 0 && prices.completion === 0)
+  )
     return { state: "free", amount: 0, prices, pricedAt };
-  if (!prices) return { state: "unknown", amount: null, prices: null, pricedAt };
+  if (!prices)
+    return { state: "unknown", amount: null, prices: null, pricedAt };
   return {
     state: "known",
     amount:
@@ -154,7 +191,8 @@ export class OpenRouterPricing {
 
   /** Fetches once per day; a failure retains the saved stand. */
   public async refreshIfDue(): Promise<void> {
-    if (!isDue(this.snapshot) || Date.now() - this.lastAttemptAt < DAY_MS) return;
+    if (!isDue(this.snapshot) || Date.now() - this.lastAttemptAt < DAY_MS)
+      return;
     if (this.refreshing) return this.refreshing;
     this.lastAttemptAt = Date.now();
     this.refreshing = this.fetchCatalog();
@@ -167,8 +205,11 @@ export class OpenRouterPricing {
 
   private async fetchCatalog(): Promise<void> {
     try {
-      const response = await fetch(CATALOG_URL, { signal: AbortSignal.timeout(10_000) });
-      if (!response.ok) throw new Error(`OpenRouter catalog HTTP ${response.status}`);
+      const response = await fetch(CATALOG_URL, {
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (!response.ok)
+        throw new Error(`OpenRouter catalog HTTP ${response.status}`);
       const prices = parseOpenRouterCatalog(await response.json());
       const fetchedAt = new Date().toISOString();
       await this.store.save({ fetchedAt, prices });

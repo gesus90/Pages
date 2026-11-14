@@ -300,11 +300,15 @@ export function readOpenRouterUsageRow(row: Row): AgentSessionTurnUsage {
     cacheReadTokens: readCountColumn(row, 6, "cache_read_tokens"),
     cacheWriteTokens: readCountColumn(row, 7, "cache_write_tokens"),
     totalTokens: [3, 4, 5, 6, 7].reduce(
-      (sum, index) => sum + readCountColumn(row, index, "token_count"), 0,
+      (sum, index) => sum + readCountColumn(row, index, "token_count"),
+      0,
     ),
     inputIncludesCache: false,
     isPartial: false,
-    costAmount: typeof cost === "number" || typeof cost === "string" ? Number(cost) : null,
+    costAmount:
+      typeof cost === "number" || typeof cost === "string"
+        ? Number(cost)
+        : null,
     costState: state,
     priceSnapshot: readNullableTextColumn(row, 12, "price_snapshot"),
     pricedAt: readNullableTextColumn(row, 13, "priced_at"),

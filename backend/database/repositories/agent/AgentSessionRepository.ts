@@ -275,7 +275,9 @@ export class AgentSessionRepository implements AgentSessionStore {
   }
 
   /** Stores one native message once even across retries and continuation attempts. */
-  public async saveOpenRouterUsage(usage: OpenRouterUsageRecord): Promise<boolean> {
+  public async saveOpenRouterUsage(
+    usage: OpenRouterUsageRecord,
+  ): Promise<boolean> {
     const rows = await this.database.query(
       `INSERT INTO agent_session_openrouter_usage (
           native_session_id, message_id, attempt_id, model,
@@ -354,7 +356,10 @@ export class AgentSessionRepository implements AgentSessionStore {
       WHERE agent_session_attempts.run_id = $run_id;`,
       { run_id: runId },
     );
-    return [...rows.map(readUsageRow), ...nativeRows.map(readOpenRouterUsageRow)];
+    return [
+      ...rows.map(readUsageRow),
+      ...nativeRows.map(readOpenRouterUsageRow),
+    ];
   }
 
   /** Stores a new instruction. */

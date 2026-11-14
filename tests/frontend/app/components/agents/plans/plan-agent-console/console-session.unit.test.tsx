@@ -337,11 +337,17 @@ it("shows live OpenRouter token kinds, free cost and incomplete run usage", () =
       reportedAt: null,
     },
   };
-  vi.mocked(useAgentSession).mockReturnValue(sessionData({ view: sessionView({
-    provider: "opencode", model, nodeTotals: [total],
-    openRouterRunTotal: { ...total, inputTokens: 200, totalTokens: 330 },
-    isOpenRouterRunIncomplete: true,
-  }) }));
+  vi.mocked(useAgentSession).mockReturnValue(
+    sessionData({
+      view: sessionView({
+        provider: "opencode",
+        model,
+        nodeTotals: [total],
+        openRouterRunTotal: { ...total, inputTokens: 200, totalTokens: 330 },
+        isOpenRouterRunIncomplete: true,
+      }),
+    }),
+  );
   renderSession(cliStep(), { isLive: true });
   expect(fact("Total tokens")).toBe("165");
   expect(fact("Input tokens")).toBe("100");
@@ -352,10 +358,16 @@ it("shows live OpenRouter token kinds, free cost and incomplete run usage", () =
   expect(screen.getByText(/Run total incomplete/u)).toBeTruthy();
 
   cleanup();
-  vi.mocked(useAgentSession).mockReturnValue(sessionData({ view: sessionView({
-    provider: "opencode", model, nodeTotals: [{ ...total, inputTokens: 150, totalTokens: 215 }],
-    openRouterRunTotal: { ...total, inputTokens: 250, totalTokens: 380 },
-  }) }));
+  vi.mocked(useAgentSession).mockReturnValue(
+    sessionData({
+      view: sessionView({
+        provider: "opencode",
+        model,
+        nodeTotals: [{ ...total, inputTokens: 150, totalTokens: 215 }],
+        openRouterRunTotal: { ...total, inputTokens: 250, totalTokens: 380 },
+      }),
+    }),
+  );
   renderSession(cliStep(), { isLive: true });
   expect(fact("Total tokens")).toBe("215");
   expect(fact("Run: total tokens")).toBe("380");
@@ -370,25 +382,47 @@ it("distinguishes an unknown OpenRouter price from missing session usage", () =>
       reportedAt: null,
     },
   };
-  vi.mocked(useAgentSession).mockReturnValue(sessionData({ view: sessionView({
-    provider: "opencode", model, nodeTotals: [], openRouterRunTotal: null,
-    isOpenRouterRunIncomplete: true,
-  }) }));
+  vi.mocked(useAgentSession).mockReturnValue(
+    sessionData({
+      view: sessionView({
+        provider: "opencode",
+        model,
+        nodeTotals: [],
+        openRouterRunTotal: null,
+        isOpenRouterRunIncomplete: true,
+      }),
+    }),
+  );
   renderSession(cliStep());
   expect(fact("Total tokens")).toBe("not reported");
   expect(fact("Cost")).toBe("not reported");
 
   cleanup();
   const total: AgentSessionUsageTotal = {
-    provider: "opencode", turns: 1, models: ["openrouter/example/unknown"],
-    inputTokens: 10, outputTokens: 2, reasoningTokens: 0,
-    cacheReadTokens: 0, cacheWriteTokens: 0, totalTokens: 12,
-    inputIncludesCache: false, isPartial: false,
-    costState: "unknown", costAmount: null,
+    provider: "opencode",
+    turns: 1,
+    models: ["openrouter/example/unknown"],
+    inputTokens: 10,
+    outputTokens: 2,
+    reasoningTokens: 0,
+    cacheReadTokens: 0,
+    cacheWriteTokens: 0,
+    totalTokens: 12,
+    inputIncludesCache: false,
+    isPartial: false,
+    costState: "unknown",
+    costAmount: null,
   };
-  vi.mocked(useAgentSession).mockReturnValue(sessionData({ view: sessionView({
-    provider: "opencode", model, nodeTotals: [total], openRouterRunTotal: total,
-  }) }));
+  vi.mocked(useAgentSession).mockReturnValue(
+    sessionData({
+      view: sessionView({
+        provider: "opencode",
+        model,
+        nodeTotals: [total],
+        openRouterRunTotal: total,
+      }),
+    }),
+  );
   renderSession(cliStep());
   expect(fact("Total tokens")).toBe("12");
   expect(fact("Cost")).toBe("Price unknown");

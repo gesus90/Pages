@@ -274,7 +274,10 @@ function useRunDecisions(
     else void startPlan();
   }
   async function startPlan(): Promise<void> {
-    if (control && ["cancelled", "succeeded", "failed"].includes(control.status)) {
+    if (
+      control &&
+      ["cancelled", "succeeded", "failed"].includes(control.status)
+    ) {
       submitRunAction(props, "play-plan");
       return;
     }

@@ -494,7 +494,8 @@ export class CliSessionExecution implements PlanSessionRunner {
         secure: () => this.secureAcp(input, start, github),
         cleanupAdapter: picaBundle?.cleanup,
         listener: input.chat?.listener ?? input.journal,
-        openCodeDataHome: driver.provider === "opencode" ? start.home.config : undefined,
+        openCodeDataHome:
+          driver.provider === "opencode" ? start.home.config : undefined,
         notificationHandled: () => channel.acknowledge(),
         acceptsTurnInput: input.chat === undefined,
       });

@@ -38,7 +38,9 @@ export function classifyOpenCodeFailure(
   )
     return "plan_runner_permission_denied";
   if (/\b403\b|forbidden/iu.test(text))
-    return isOpenRouter ? "openrouter_auth_failed" : "provider_permission_denied";
+    return isOpenRouter
+      ? "openrouter_auth_failed"
+      : "provider_permission_denied";
   if (/\b5\d\d\b|service unavailable|provider unavailable/iu.test(text))
     return "provider_unavailable";
   if (/fetch failed|ECONNREFUSED|ENOTFOUND|network error/iu.test(text))
@@ -77,8 +79,7 @@ export function openCodeToolFailure(
   // A call to a tool name that does not exist goes back to the model; it says nothing about the provider or model.
   if (/NoSuchToolError|tried to call unavailable tool/iu.test(text))
     return null;
-  if (isOpenRouter && /\b403\b/u.test(text))
-    return "openrouter_auth_failed";
+  if (isOpenRouter && /\b403\b/u.test(text)) return "openrouter_auth_failed";
   if (
     /\bFORBIDDEN\b|operation[^\n]{0,50}(?:not permitted|not allowed)/iu.test(
       text,

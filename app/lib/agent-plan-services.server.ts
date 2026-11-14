@@ -554,7 +554,9 @@ async function createPageAgentSessions(
   runs: AgentSessionRunAccess,
 ): Promise<AgentSessionService> {
   const store = new AgentSessionRepository(input.database);
-  const pricing = new OpenRouterPricing(new OpenRouterPriceRepository(input.database));
+  const pricing = new OpenRouterPricing(
+    new OpenRouterPriceRepository(input.database),
+  );
   await pricing.start();
   const journal = new AgentSessionJournal(store, {
     followExternalWrites:

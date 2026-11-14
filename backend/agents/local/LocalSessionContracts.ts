@@ -195,6 +195,7 @@ export const localTurnSchema = z.object({
         "provider_unreachable",
         "provider_unavailable",
         "provider_rate_limited",
+        "openrouter_rate_limited",
         "provider_quota_exhausted",
       ]),
       resetAt: z.string().nullable(),

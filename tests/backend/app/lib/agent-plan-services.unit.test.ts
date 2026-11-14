@@ -92,8 +92,11 @@ const DATABASE = partial<Database>({
       return [];
     if (statement.includes("FROM agent_run_diagnosis_settings")) return [];
     if (statement.includes("agent_run_logs")) return [];
+    if (statement.includes("FROM openrouter_price_catalog"))
+      return [[new Date().toISOString(), "{}"]];
     throw new Error(`Unexpected wiring query ${statement}`);
   },
+  execute: async () => undefined,
   transaction: async (work: (tx: unknown) => Promise<unknown>) =>
     work({
       execute: async () => undefined,
@@ -290,6 +293,7 @@ it("wires the plan service on one access, preparation and engine", async () => {
     [DATABASE, USERS],
   ]);
   expect(vi.mocked(AgentPlanPreparation).mock.calls[0][0]).toEqual({
+    access: ACCESS,
     workspaceCatalog: CATALOG,
     remoteExecution: options.remoteExecution,
     remoteTargets: options.remoteTargets,

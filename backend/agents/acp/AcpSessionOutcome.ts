@@ -131,7 +131,7 @@ export function disconnectedAcpFailure(
  * @param error - The error of the turn.
  * @param state - The session state; a provider failure is kept in it.
  * @param driver - The driver of the session.
- * @param isDisconnected - Whether the connection to the adapter ended.
+ * @param options - Whether the connection ended and whether OpenRouter ran.
  * @returns The error code of the turn, or `null` when the connection ended
  * and the exit of the process decides.
  */
@@ -139,10 +139,13 @@ export function acpErrorFailure(
   error: unknown,
   state: AcpSessionState,
   driver: Pick<AcpDriver, "provider" | "errors">,
-  isDisconnected: boolean,
-  isOpenRouter = false,
+  options: {
+    readonly isDisconnected: boolean;
+    readonly isOpenRouter?: boolean;
+  },
 ): AgentErrorCode | null {
   if (error instanceof AgentError) return error.code;
+  const isOpenRouter = options.isOpenRouter ?? false;
   const providerFailure =
     diagnosticProviderFailure(error) ?? state.providerFailure;
   if (providerFailure) {
@@ -153,7 +156,7 @@ export function acpErrorFailure(
     state.providerFailure = failure;
     return failure.code;
   }
-  if (isDisconnected) return null;
+  if (options.isDisconnected) return null;
   if (driver.provider === "opencode") {
     const code = openCodeAcpFailure(error, isOpenRouter);
     noteSessionEvent(state.events, `OpenCode failure: ${code}`);

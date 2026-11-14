@@ -240,12 +240,14 @@ function totalOf(
   const cacheSemantics = new Set(turns.map((turn) => turn.inputIncludesCache));
   const priced = turns.filter((turn) => turn.costState !== undefined);
   const hasUnknownCost = priced.some((turn) => turn.costState === "unknown");
-  const costAmount = priced.length === 0 || hasUnknownCost
-    ? null
-    : priced.reduce((sum, turn) => sum + (turn.costAmount ?? 0), 0);
+  const costAmount =
+    priced.length === 0 || hasUnknownCost
+      ? null
+      : priced.reduce((sum, turn) => sum + (turn.costAmount ?? 0), 0);
   let costState: "known" | "free" | "unknown" = "known";
   if (hasUnknownCost) costState = "unknown";
-  else if (priced.every((turn) => turn.costState === "free")) costState = "free";
+  else if (priced.every((turn) => turn.costState === "free"))
+    costState = "free";
   return {
     provider,
     turns: turns.length,
@@ -256,7 +258,12 @@ function totalOf(
     ],
     ...countsBy((field) => sumField(turns, field).sum),
     ...(turns.some((turn) => turn.reasoningTokens !== undefined)
-      ? { reasoningTokens: turns.reduce((sum, turn) => sum + (turn.reasoningTokens ?? 0), 0) }
+      ? {
+          reasoningTokens: turns.reduce(
+            (sum, turn) => sum + (turn.reasoningTokens ?? 0),
+            0,
+          ),
+        }
       : {}),
     ...(priced.length > 0
       ? {

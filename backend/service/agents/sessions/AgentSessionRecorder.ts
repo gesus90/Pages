@@ -233,7 +233,10 @@ function reportedModel(
   return typeof model === "string" && model.length > 0 ? model : null;
 }
 
-function nativeMessages(dataHome: string, sessionId: string): readonly OpenCodeNativeMessage[] {
+function nativeMessages(
+  dataHome: string,
+  sessionId: string,
+): readonly OpenCodeNativeMessage[] {
   try {
     return readOpenCodeNativeUsage(dataHome, sessionId);
   } catch (error: unknown) {
@@ -370,7 +373,10 @@ export class AgentSessionRecorder implements AcpSessionListener {
     this.flushMessage();
     const { provider, key } = this.attempt;
     const turn = this.turn();
-    if (provider === "opencode" && this.attempt.requestedModel?.startsWith("openrouter/")) {
+    if (
+      provider === "opencode" &&
+      this.attempt.requestedModel?.startsWith("openrouter/")
+    ) {
       this.turns.set(key.attemptId, turn + 1);
       this.record({
         kind: "status",
@@ -415,7 +421,11 @@ export class AgentSessionRecorder implements AcpSessionListener {
     const attemptId = this.attempt.key.attemptId;
     const reportedAt = this.clock();
     for (const message of nativeMessages(dataHome, sessionId)) {
-      const charge = chargeOpenRouterMessage(message.model, message.tokens, snapshot);
+      const charge = chargeOpenRouterMessage(
+        message.model,
+        message.tokens,
+        snapshot,
+      );
       const inserted = await save.call(this.dependencies.store, {
         sessionId: message.sessionId,
         messageId: message.messageId,
@@ -434,15 +444,19 @@ export class AgentSessionRecorder implements AcpSessionListener {
         reportedAt,
       });
       if (!inserted) continue;
-      this.record({ kind: "usage", text: `OpenRouter usage ${message.messageId}` });
+      this.record({
+        kind: "usage",
+        text: `OpenRouter usage ${message.messageId}`,
+      });
       if (
         charge.amount !== null &&
         message.nativeCost !== null &&
         Math.abs(charge.amount - message.nativeCost) > 0.00000001
-      ) this.record({
-        kind: "status",
-        text: `OpenRouter catalog cost $${charge.amount} differs from OpenCode $${message.nativeCost} for ${message.messageId}`,
-      });
+      )
+        this.record({
+          kind: "status",
+          text: `OpenRouter catalog cost $${charge.amount} differs from OpenCode $${message.nativeCost} for ${message.messageId}`,
+        });
     }
   };
 
@@ -567,7 +581,7 @@ export class AgentSessionRecorder implements AcpSessionListener {
         : this.attempt.confirmedModel;
     const cost = this.attempt.requestedModel?.startsWith("openrouter/")
       ? null
-      : readCost(update) ?? this.attempt.context.cost ?? null;
+      : (readCost(update) ?? this.attempt.context.cost ?? null);
     this.persist({
       ...this.attempt,
       context: {
