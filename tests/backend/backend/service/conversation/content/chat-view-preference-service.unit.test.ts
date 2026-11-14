@@ -51,3 +51,28 @@ it("stores the list state from the form and refuses anything else", async () => 
     );
   expect(setListCollapsed).toHaveBeenCalledTimes(2);
 });
+
+it("stores valid card and split choices and rejects invalid choices", async () => {
+  const setCardState = vi.fn().mockResolvedValue(undefined);
+  const setSplitWidth = vi.fn().mockResolvedValue(undefined);
+  const { repository } = repositoryDouble();
+  Object.assign(repository, { setCardState, setSplitWidth });
+  const service = new ChatViewPreferenceService(repository, () => NOW);
+
+  await service.setCardState(PERSON, { cardKey: "link:1", state: "expanded" });
+  await service.setSplitWidth(PERSON, "420");
+  expect(setCardState).toHaveBeenCalledWith(PERSON.id, {
+    cardKey: "link:1",
+    state: "expanded",
+    updatedAt: NOW.toISOString(),
+  });
+  expect(setSplitWidth).toHaveBeenCalledWith(PERSON.id, 420, NOW.toISOString());
+  await expect(
+    service.setCardState(PERSON, { cardKey: "bad key", state: "expanded" }),
+  ).rejects.toEqual(new ConversationError("invalid"));
+  await expect(service.setSplitWidth(PERSON, 359)).rejects.toEqual(
+    new ConversationError("invalid"),
+  );
+  expect(setCardState).toHaveBeenCalledTimes(1);
+  expect(setSplitWidth).toHaveBeenCalledTimes(1);
+});
