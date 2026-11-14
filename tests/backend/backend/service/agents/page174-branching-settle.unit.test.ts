@@ -224,6 +224,7 @@ it("keeps the failure of a fix agent that ran beside one that succeeded: the run
     ),
   });
   const world = await branchEngine(runtime.execution, {
+    withoutTodos: ["fixb"],
     nodes: (agent) => [
       { id: "start", type: "start", x: 0, y: 0 },
       agent("check", 300),

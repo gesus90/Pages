@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import { z } from "zod";
 
 import { readAgentObject } from "@/backend/agents/AgentPayload";
@@ -9,7 +11,20 @@ import {
   AGENT_STEP_PROGRESS_STATUSES,
 } from "@/definition/AgentPlanStepProgress";
 
+import {
+  readTodoState,
+  retainTodoState,
+  withNativeTodoState,
+} from "./AgentPlanTodoState";
+
 import { sanitizeArtifactText } from "./AgentPlanOutput";
+
+import type {
+  AgentPlanContract,
+  AgentPlanContractItem,
+} from "@/definition/AgentPlanSession";
+import type { AgentPlanAgentTodoRepository } from "@/backend/database/repositories/agent/AgentPlanAgentTodoRepository";
+import type { AgentTicketChecklistService } from "./AgentTicketChecklistService";
 
 import type {
   AgentPlanStepLiveProgress,
@@ -34,7 +49,6 @@ const callSchema = z.strictObject({
   todos: z.array(todoSchema).min(1).max(1000),
   activity: z.string().trim().min(1).max(AGENT_STEP_ACTIVITY_LENGTH).optional(),
 });
-const storedSchema = z.array(todoSchema);
 
 function rejection(
   code: "INVALID_REQUEST" | "FORBIDDEN" | "CONFLICT",
@@ -47,34 +61,11 @@ function rejection(
   });
 }
 
-/** The todo IDs of the attempt's contract, in their order. */
-function contractTodoIds(termsJson: string): readonly string[] {
+function contractOf(termsJson: string): AgentPlanContract {
   const terms = readAgentObject(JSON.parse(termsJson));
   const contract = readPlanContract(terms.contract);
   if (!contract) throw new Error("Invalid step report terms");
-  return contract.todos.map((todo) => todo.id);
-}
-
-function storedTodos(
-  stored: StoredPlanStepProgress | null,
-): readonly AgentPlanStepProgressTodo[] {
-  if (!stored) return [];
-  const parsed = storedSchema.safeParse(JSON.parse(stored.todosJson));
-  return parsed.success ? parsed.data : [];
-}
-
-/** The earlier state with the reported todos replaced, in the order of the contract. */
-function mergedTodos(
-  order: readonly string[],
-  earlier: readonly AgentPlanStepProgressTodo[],
-  reported: readonly AgentPlanStepProgressTodo[],
-): readonly AgentPlanStepProgressTodo[] {
-  const states = new Map(earlier.map((todo) => [todo.id, todo.status]));
-  for (const todo of reported) states.set(todo.id, todo.status);
-  return order.flatMap((id) => {
-    const status = states.get(id);
-    return status ? [{ id, status }] : [];
-  });
+  return contract;
 }
 
 /**
@@ -89,7 +80,7 @@ export function readStepLiveProgress(
   try {
     return {
       attemptId: stored.attemptId,
-      todos: storedTodos(stored),
+      todos: readTodoState(stored).todos,
       activity: stored.activity,
       updatedAt: stored.updatedAt,
     };
@@ -110,17 +101,31 @@ export function readStepLiveProgress(
  */
 export class AgentPlanStepProgressService {
   private readonly reports: Pick<AgentPlanStepReportRepository, "find">;
-  private readonly progress: AgentPlanStepProgressRepository;
+  private readonly progress: Pick<
+    AgentPlanStepProgressRepository,
+    "find" | "save" | "listForRun"
+  >;
   private readonly clock: () => string;
+  private readonly tickets:
+    Pick<AgentTicketChecklistService, "read" | "set"> | undefined;
+  private readonly agentTodos:
+    Pick<AgentPlanAgentTodoRepository, "findEntries"> | undefined;
 
   public constructor(dependencies: {
     readonly reports: Pick<AgentPlanStepReportRepository, "find">;
-    readonly progress: AgentPlanStepProgressRepository;
+    readonly progress: Pick<
+      AgentPlanStepProgressRepository,
+      "find" | "save" | "listForRun"
+    >;
     readonly clock?: () => string;
+    readonly tickets?: Pick<AgentTicketChecklistService, "read" | "set">;
+    readonly agentTodos?: Pick<AgentPlanAgentTodoRepository, "findEntries">;
   }) {
     this.reports = dependencies.reports;
     this.progress = dependencies.progress;
     this.clock = dependencies.clock ?? (() => new Date().toISOString());
+    this.tickets = dependencies.tickets;
+    this.agentTodos = dependencies.agentTodos;
   }
 
   /**
@@ -150,7 +155,11 @@ export class AgentPlanStepProgressService {
       throw rejection("CONFLICT", "step_report_closed", [
         "No turn of this step is running, so there is no progress to report.",
       ]);
-    const order = contractTodoIds(slot.termsJson);
+    const contract = await this.current(
+      { runId, stepId: slot.stepId, attemptId: slot.attemptId },
+      contractOf(slot.termsJson),
+    );
+    const order = contract.todos.map((todo) => todo.id);
     const unknown = parsed.data.todos.filter(
       (todo) => !order.includes(todo.id),
     );
@@ -164,7 +173,16 @@ export class AgentPlanStepProgressService {
         ),
       );
     const earlier = await this.progress.find(runId, slot.stepId);
-    const todos = mergedTodos(order, storedTodos(earlier), parsed.data.todos);
+    await this.checkTicketTodos(identity, contract, parsed.data.todos);
+    const states = new Map(
+      readTodoState(earlier).todos.map((todo) => [todo.id, todo.status]),
+    );
+    for (const todo of parsed.data.todos)
+      if (states.get(todo.id) !== "done") states.set(todo.id, todo.status);
+    const todos = contract.todos.map((todo): AgentPlanStepProgressTodo => ({
+      id: todo.id,
+      status: todo.checked ? "done" : (states.get(todo.id) ?? "open"),
+    }));
     const activity = parsed.data.activity
       ? sanitizeArtifactText(parsed.data.activity)
       : (earlier?.activity ?? null);
@@ -172,7 +190,7 @@ export class AgentPlanStepProgressService {
       runId,
       stepId: slot.stepId,
       attemptId: slot.attemptId,
-      todosJson: JSON.stringify(todos),
+      todosJson: JSON.stringify({ ...readTodoState(earlier), contract, todos }),
       activity,
       updatedAt: this.clock(),
     });
@@ -183,6 +201,76 @@ export class AgentPlanStepProgressService {
       todos,
       activity,
     };
+  }
+
+  /** Starts an attempt from its own iteration's work, retaining completed entries across resumes. */
+  public async initialize(
+    scope: {
+      readonly runId: string;
+      readonly stepId: string;
+      readonly attemptId: string;
+      readonly iteration: string;
+      readonly sourceRunId?: string;
+    },
+    contract: AgentPlanContract,
+  ): Promise<AgentPlanContract> {
+    const stored =
+      (await this.progress.find(scope.runId, scope.stepId)) ??
+      (scope.sourceRunId
+        ? await this.progress.find(scope.sourceRunId, scope.stepId)
+        : null);
+    const earlier = readTodoState(stored);
+    const sameTickets =
+      JSON.stringify(earlier.contract?.tickets.map((ticket) => ticket.id)) ===
+      JSON.stringify(contract.tickets.map((ticket) => ticket.id));
+    let current = contract;
+    if (earlier.scope === scope.iteration && sameTickets) {
+      const previous = stored
+        ? await this.current(stored, earlier.contract ?? contract)
+        : contract;
+      current = retainTodoState(contract, { ...earlier, contract: previous });
+    }
+    await this.progress.save({
+      runId: scope.runId,
+      stepId: scope.stepId,
+      attemptId: scope.attemptId,
+      activity: null,
+      updatedAt: this.clock(),
+      todosJson: JSON.stringify({
+        scope: scope.iteration,
+        contract: current,
+        todos: current.todos.map((todo) => ({
+          id: todo.id,
+          status: todo.checked ? "done" : "open",
+        })),
+      }),
+    });
+    return current;
+  }
+
+  /** Returns the effective contract, including persistent completion and structured agent plans. */
+  public async current(
+    scope: {
+      readonly runId: string;
+      readonly stepId: string;
+      readonly attemptId: string;
+    },
+    contract: AgentPlanContract,
+  ): Promise<AgentPlanContract> {
+    const stored = await this.progress.find(scope.runId, scope.stepId);
+    const earlier = readTodoState(stored);
+    const isCurrent = stored?.attemptId === scope.attemptId;
+    const statuses = new Map(
+      isCurrent ? earlier.todos.map((todo) => [todo.id, todo.status]) : [],
+    );
+    const todos = contract.todos.map((todo) => ({
+      ...todo,
+      ...(!todo.ticket && statuses.get(todo.id) === "done"
+        ? { checked: true }
+        : {}),
+    }));
+    const native = (await this.agentTodos?.findEntries(scope.attemptId)) ?? [];
+    return withNativeTodoState({ ...contract, todos }, native, statuses);
   }
 
   /**
@@ -215,5 +303,49 @@ export class AgentPlanStepProgressService {
   ): Promise<AgentPlanStepLiveProgress | null> {
     const row = await this.progress.find(runId, stepId);
     return row ? readStepLiveProgress(row) : null;
+  }
+  private async checkTicketTodos(
+    identity: AgentIdentity,
+    contract: AgentPlanContract,
+    reported: readonly AgentPlanStepProgressTodo[],
+  ): Promise<void> {
+    for (const todo of reported) {
+      const ticket = contract.todos.find(
+        (entry) => entry.id === todo.id,
+      )?.ticket;
+      if (!ticket || todo.status !== "done" || identity.run?.reach === "read")
+        continue;
+      await this.checkTicketTodo(identity, ticket);
+    }
+  }
+
+  private async checkTicketTodo(
+    identity: AgentIdentity,
+    ticket: NonNullable<AgentPlanContractItem["ticket"]>,
+  ): Promise<void> {
+    if (!this.tickets) throw new AgentOperationError("FORBIDDEN");
+    for (let attempt = 0; ; attempt += 1) {
+      const response = await this.tickets.read(identity, {
+        ticketId: ticket.id,
+      });
+      const checklist = readAgentObject(response.result);
+      try {
+        await this.tickets.set(identity, {
+          ticketId: ticket.id,
+          itemId: ticket.itemId,
+          checked: true,
+          expectedRevision: checklist.revision,
+          operationId: randomUUID(),
+        });
+        return;
+      } catch (error: unknown) {
+        if (
+          !(error instanceof AgentOperationError) ||
+          error.code !== "CONFLICT" ||
+          attempt >= 2
+        )
+          throw error;
+      }
+    }
   }
 }

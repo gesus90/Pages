@@ -11,7 +11,6 @@ import { PlanSwarmRun } from "./plan-swarm/plan-swarm-run";
 import { hasOpenPlanReport, PlanStatusBadge } from "./plan-status";
 import { PlanStatusConfiguration } from "./plan-status-configuration";
 import { isPlanDecisionResult, PlanStatusHistory } from "./plan-status-history";
-import { PlanStatusTodos } from "./plan-status-todos";
 import { PlanScriptRun } from "./plan-script-run";
 import { PlanRemoteScriptRun } from "./plan-remote-script-run";
 import { PlanStatusRetry, PlanStatusStop } from "./plan-status-retry";
@@ -47,18 +46,6 @@ function isScript(step: AgentPlanStepResult): boolean {
 /** An agent node, as opposed to a script or a decision. */
 function isAgentStep(step: AgentPlanStepResult): boolean {
   return !isScript(step) && !isPlanDecisionResult(step);
-}
-
-/**
- * Whether the step has ticket or contract todos to list; the list of the
- * agent beside the details names its own empty state (PAGE-306).
- */
-function hasTicketTodos(step: AgentPlanStepResult): boolean {
-  return (
-    isAgentStep(step) &&
-    ((step.progress?.todos.length ?? 0) > 0 ||
-      (step.session?.contract?.tickets.length ?? 0) > 0)
-  );
 }
 
 /** The line under the heading: what kind of node the step is. */
@@ -111,9 +98,6 @@ export function PlanStatusDetails({
         containerClassName="min-h-0 min-w-0 flex-1"
         className="flex flex-col gap-4 overflow-y-auto overscroll-contain px-4 py-3 text-xs leading-4.5 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset focus-visible:outline-none"
       >
-        {hasTicketTodos(step) ? (
-          <PlanStatusTodos key={step.id} step={step} number={number} />
-        ) : null}
         <section aria-label={t("plans.progress.step", { number })}>
           <div className="mb-3 flex items-start justify-between gap-3">
             <div className="min-w-0">

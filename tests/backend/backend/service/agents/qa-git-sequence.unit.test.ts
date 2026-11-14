@@ -25,9 +25,13 @@ function sequence(outputs: readonly string[]): {
 } {
   const prompts: string[] = [];
   const turns = [...outputs];
+  let previous = "";
   const turn = (input: { readonly prompt: string }): PlanSessionTurn => {
     prompts.push(input.prompt);
-    return groupTurn({ output: turns.shift() ?? "unexpected turn" });
+    previous = input.prompt.startsWith("Der Schritt ist noch nicht fertig.")
+      ? previous
+      : (turns.shift() ?? "unexpected turn");
+    return groupTurn({ output: previous });
   };
   return {
     prompts,
@@ -74,7 +78,13 @@ function closeoutPlan(
     bindings: {},
     steps: [
       { ...qa, id: "qa", bindings: {}, configuration: withoutInput(world) },
-      { ...mcp, id: "mcp", bindings: {}, configuration: withoutInput(world) },
+      {
+        ...mcp,
+        id: "mcp",
+        instruction: "- [ ] Check MCP",
+        bindings: {},
+        configuration: withoutInput(world),
+      },
       {
         ...qa,
         id: "git",
@@ -175,10 +185,10 @@ it.each([
   ["an open report", OPEN_REPORT],
   ["a blocked status over a complete report", BLOCKED_OVER_DONE],
   ["a blocked object over several lines", BLOCKED_OVER_LINES_DONE],
-])("keeps Git from starting after MCP QA with %s", async (_, output) => {
+])("keeps Git from starting after MCP QA with %s", async (name, output) => {
   const result = await runCloseout([PAGES_QA_OUTPUT, output, GROUP_REPORT]);
 
-  expect(result.prompts).toHaveLength(2);
+  expect(result.prompts).toHaveLength(name === "an open report" ? 5 : 2);
   expect(result.group).toMatchObject({ status: "failed", failedStepId: "mcp" });
   expect(result.isEndBlocked).toBe(true);
 });

@@ -48,9 +48,6 @@ import { ChatAgentOperationService } from "@/backend/service/agents/ChatAgentOpe
 import { PageAgentOperationService } from "@/backend/service/agents/PageAgentOperationService";
 import { AgentRunCredentialRepository } from "@/backend/database/repositories/mcp/AgentRunCredentialRepository";
 import { AgentPlanWorkGate } from "@/backend/service/agents/AgentPlanWorkGate";
-import { AgentPlanStepProgressService } from "@/backend/service/agents/AgentPlanStepProgressService";
-import { AgentPlanStepProgressRepository } from "@/backend/database/repositories/agent/AgentPlanStepProgressRepository";
-import { AgentPlanStepReportRepository } from "@/backend/database/repositories/agent/AgentPlanStepReportRepository";
 import { PagesAgentApiService } from "@/backend/service/PagesAgentApiService";
 import { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
 import { AgentIdentityService } from "@/backend/service/mcp/AgentIdentityService";
@@ -65,6 +62,8 @@ import { runnerAssetUpload } from "./agent-asset-return.server";
 import { createMcpDeviceServices } from "./mcp-device-services.server";
 
 import type { ManagementService } from "@/backend/service/management/ManagementService";
+import { createPlanTodoProgress } from "./agent-plan-todo-progress.server";
+
 import type { AgentFileDependencies } from "@/backend/service/agents/AgentFileOperationService";
 import type { AutomationService } from "@/backend/service/automation/AutomationService";
 import type { McpDeviceApplicationServices } from "./mcp-device-services.server";
@@ -431,7 +430,7 @@ function createBinaryAssetServices(input: {
   readonly database: Database;
   readonly users: Pick<UserService, "getById">;
   readonly identities: AgentIdentityService;
-  readonly workspace: Parameters<typeof createAssetServices>[1];
+  readonly workspace: McpWorkspace;
   readonly stepReports: AgentPlanStepReportService | undefined;
 }): ReturnType<typeof createAssetServices> & {
   readonly apiFor: (operations: AgentOperationRouter) => PagesAgentApiService;
@@ -469,10 +468,17 @@ function createBinaryAssetServices(input: {
           runs: runCredentials,
           workGate: new AgentPlanWorkGate(database, users),
           stepReports,
-          stepProgress: new AgentPlanStepProgressService({
-            reports: new AgentPlanStepReportRepository(database),
-            progress: new AgentPlanStepProgressRepository(database),
-          }),
+          stepProgress: createPlanTodoProgress(
+            database,
+            createAgentPlanningServices({
+              database,
+              users,
+              directory: workspace.directory,
+              events: workspace.events ?? new PagesEventPublisher(database),
+              cache: workspace.tickets?.cache ?? ServerCache.disabled(),
+              publisher: workspace.tickets?.publisher ?? null,
+            }).checklists,
+          ),
           swarms: new AgentPlanSwarmService({
             local: PROCESS_SWARM_REGISTRY,
             forward: async (call) =>

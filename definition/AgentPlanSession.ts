@@ -50,6 +50,10 @@ export interface AgentPlanContractItem {
   /** Short name the report refers to, such as `T1` or `K2`. */
   readonly id: string;
   readonly text: string;
+  /** Completion retained across attempts; absent in historical contracts. */
+  readonly checked?: boolean;
+  /** Structured plan entries created by the agent itself. */
+  readonly agent?: boolean;
   /** The checklist entry of a bound ticket, which the agent sets through MCP. */
   readonly ticket: {
     readonly id: string;
@@ -220,6 +224,8 @@ export interface AgentPlanSessionEffects {
  * exit is kept in `exit`; retained group turns await the shared closeout.
  */
 export interface AgentPlanSessionRecord {
+  /** Corrective TODO turns already returned to this attempt; survives pause and reattachment. */
+  readonly todoReturns?: number;
   /** Safe provider cause and release time, without upstream diagnostics. */
   readonly providerFailure?: AgentProviderFailure;
   /** Previous failed attempts and an automatic wait of this unfinished node. */

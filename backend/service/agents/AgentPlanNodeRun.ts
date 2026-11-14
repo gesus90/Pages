@@ -50,6 +50,7 @@ export function createNodeRun(
     control,
     record: retry ? (previous ?? null) : null,
     hasStarted: false,
+    todoReturns: previousTodoReturns(control, previous, loop),
     retry,
     retryResumeSessionId: null,
     retryAttemptNumber: 1,
@@ -63,4 +64,14 @@ export function createNodeRun(
     receivesEvents,
     reportsPassed: planReportsPassed(snapshot.plan, step.step.id),
   };
+}
+
+function previousTodoReturns(
+  control: StepRunControl,
+  previous: NodeRun["record"] | undefined,
+  loop: NodeRun["loop"],
+): number {
+  return !control.event && previous?.loop?.iteration === loop?.iteration
+    ? (previous?.todoReturns ?? 0)
+    : 0;
 }

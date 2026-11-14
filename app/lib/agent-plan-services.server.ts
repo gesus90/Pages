@@ -11,10 +11,10 @@ import { AgentWorkspaceCleanupRepository } from "@/backend/database/repositories
 import { AgentWorkspaceCleanupService } from "@/backend/service/agents/AgentWorkspaceCleanupService";
 import { AgentPlanStepReportService } from "@/backend/service/agents/AgentPlanStepReportService";
 import { AgentPlanWorkGate } from "@/backend/service/agents/AgentPlanWorkGate";
-import { AgentPlanStepProgressService } from "@/backend/service/agents/AgentPlanStepProgressService";
 import { AgentPlanAgentTodoService } from "@/backend/service/agents/AgentPlanAgentTodoService";
 import { AgentPlanAgentTodoRepository } from "@/backend/database/repositories/agent/AgentPlanAgentTodoRepository";
-import { AgentPlanStepProgressRepository } from "@/backend/database/repositories/agent/AgentPlanStepProgressRepository";
+
+import { createPlanTodoProgress } from "./agent-plan-todo-progress.server";
 
 import type { PicaMobileAutomationPush } from "@/backend/service/mobile/notifications/PicaMobileAutomationPush";
 import type { AgentPlanRemoteExecution } from "@/backend/service/agents/AgentPlanRemoteExecution";
@@ -180,10 +180,7 @@ function planRecords(input: {
       repository: new AgentPlanStartResourceRepository(input.database),
     }),
     workGate: new AgentPlanWorkGate(input.database, input.users),
-    stepProgress: new AgentPlanStepProgressService({
-      reports: new AgentPlanStepReportRepository(input.database),
-      progress: new AgentPlanStepProgressRepository(input.database),
-    }),
+    stepProgress: createPlanTodoProgress(input.database),
     agentTodos: new AgentPlanAgentTodoService(
       new AgentPlanAgentTodoRepository(input.database),
     ),
@@ -644,11 +641,9 @@ async function createPlanEngine(
       stepReports: new AgentPlanStepReportService(
         new AgentPlanStepReportRepository(input.database),
         parts.tasks,
+        createPlanTodoProgress(input.database),
       ),
-      stepProgress: new AgentPlanStepProgressService({
-        reports: new AgentPlanStepReportRepository(input.database),
-        progress: new AgentPlanStepProgressRepository(input.database),
-      }),
+      stepProgress: createPlanTodoProgress(input.database),
       archive: input.agents.agentRunArchive,
       sessions: parts.pageAgentSessions,
     }),

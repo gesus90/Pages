@@ -23,6 +23,8 @@ import { picaBrowserOptions } from "./pica-browser.server";
 import { startWikiMaintenanceScheduler } from "./services-background.server";
 
 import type { PasswordHasher } from "@/backend/auth/PasswordHasher";
+import { createPlanTodoProgress } from "./agent-plan-todo-progress.server";
+
 import type { SessionService } from "@/backend/auth/SessionService";
 import type { ServerCache } from "@/backend/cache/ServerCache";
 import type { Database } from "@/backend/database/Database";
@@ -107,6 +109,7 @@ function createWorkspaceServices(
     stepReports: new AgentPlanStepReportService(
       new AgentPlanStepReportRepository(context.database),
       new AgentPlanTasks(context.tasks.taskService, users),
+      createPlanTodoProgress(context.database),
     ),
     planRecovery: context.agents.agentPlanRecoveryService,
     planSessions: context.agents.agentSessionService,

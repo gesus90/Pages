@@ -31,7 +31,11 @@ function reconcileItems(
   );
   return current.map((item) => {
     const original = previous.find((entry) => sameRequirement(item, entry));
-    return { ...item, id: original?.id ?? `${prefix}${++nextId}` };
+    return {
+      ...item,
+      id: original?.id ?? `${prefix}${++nextId}`,
+      ...(!item.ticket && original?.checked ? { checked: true } : {}),
+    };
   });
 }
 
@@ -57,7 +61,10 @@ export function refreshPlanContract(
   });
   return {
     ...current,
-    todos: reconcileItems(current.todos, previous.todos, "T"),
+    todos: [
+      ...reconcileItems(current.todos, previous.todos, "T"),
+      ...previous.todos.filter((todo) => todo.agent),
+    ],
     criteria: reconcileItems(current.criteria, previous.criteria, "K"),
   };
 }

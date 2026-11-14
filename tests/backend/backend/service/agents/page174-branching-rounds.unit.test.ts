@@ -127,7 +127,10 @@ it("starts the checker once after a chain of two fixes, with the news of both an
   const world = await branchEngine(runtime.execution, {
     nodes: (agent) => [
       { id: "start", type: "start", x: 0, y: 0 },
-      agent("check", 300),
+      {
+        ...agent("check", 300),
+        instruction: "Review\n- [ ] Carry out the work",
+      },
       { id: "decision", type: "decision", x: 600, y: 0 },
       agent("fixa", 900),
       agent("fixb", 1200),

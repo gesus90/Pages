@@ -327,6 +327,7 @@ function todoListStatus(
   report: PlanReport | null,
   states: AgentPlanTicketStates,
 ): AgentPlanTodoStatus["status"] {
+  if (todo.checked && todo.ticket === null) return "done";
   const reported = report?.todos.get(todo.id);
   if (todo.ticket === null || states.canReportTicketTodos)
     return reported === "done" || reported === "open" ? reported : "missing";
