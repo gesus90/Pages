@@ -19,6 +19,7 @@ const QUIET_INTENTS: readonly string[] = [
   "history",
   "card-state",
   "split-width",
+  "list-collapsed",
 ];
 
 /**

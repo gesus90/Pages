@@ -17,6 +17,7 @@ const services = vi.hoisted(() => ({
     read: vi.fn(),
     setCardState: vi.fn(),
     setSplitWidth: vi.fn(),
+    setListCollapsed: vi.fn(),
   },
   conversationService: {
     setMuted: vi.fn(),
@@ -201,4 +202,22 @@ it("parses contacts and forwards content and agent controls", async () => {
     "g",
     "a",
   );
+});
+
+it("stores whether the person collapsed the list of the chat page (PAGE-325)", async () => {
+  const stored = await change({
+    intent: "list-collapsed",
+    isCollapsed: "true",
+  });
+  expect(services.chatViewPreferences.setListCollapsed).toHaveBeenCalledWith(
+    EMPLOYEE,
+    "true",
+  );
+  expect(stored.init?.status ?? 200).toBe(200);
+
+  services.chatViewPreferences.setListCollapsed.mockRejectedValue(
+    new ConversationError("invalid"),
+  );
+  const refused = await change({ intent: "list-collapsed", isCollapsed: "1" });
+  expect(refused.init?.status).toBe(400);
 });

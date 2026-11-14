@@ -1,6 +1,7 @@
 import { ConversationError } from "@/backend/error/ConversationError";
 import {
   chatCardStateSchema,
+  chatListCollapsedSchema,
   chatSplitWidthSchema,
 } from "@/definition/ConversationContent";
 
@@ -10,7 +11,8 @@ import type { User } from "@/definition/User";
 
 /**
  * What a person chose for the content cards of the chat and the split view
- * (PAGE-298), kept per account so it holds on every device.
+ * (PAGE-298) and for the list of the chat page (PAGE-325), kept per account
+ * so it holds on every device.
  */
 export class ChatViewPreferenceService {
   private readonly preferences: ChatViewPreferenceRepository;
@@ -30,13 +32,14 @@ export class ChatViewPreferenceService {
     this.now = now;
   }
 
-  /** Reads the card states and the split width of the person. */
+  /** Reads the card states, the split width and the list state of the person. */
   public async read(person: User): Promise<ChatViewPreferences> {
-    const [cardStates, splitWidth] = await Promise.all([
+    const [cardStates, splitWidth, isListCollapsed] = await Promise.all([
       this.preferences.cardStates(person.id),
       this.preferences.splitWidth(person.id),
+      this.preferences.isListCollapsed(person.id),
     ]);
-    return { cardStates, splitWidth };
+    return { cardStates, splitWidth, isListCollapsed };
   }
 
   /**
@@ -67,6 +70,21 @@ export class ChatViewPreferenceService {
     await this.preferences.setSplitWidth(
       person.id,
       width.data,
+      this.now().toISOString(),
+    );
+  }
+
+  /**
+   * Stores whether the person collapsed the list of the chat page (PAGE-325).
+   *
+   * @throws {ConversationError} `invalid` for anything but `true` or `false`.
+   */
+  public async setListCollapsed(person: User, input: unknown): Promise<void> {
+    const isCollapsed = chatListCollapsedSchema.safeParse(input);
+    if (!isCollapsed.success) throw new ConversationError("invalid");
+    await this.preferences.setListCollapsed(
+      person.id,
+      isCollapsed.data,
       this.now().toISOString(),
     );
   }

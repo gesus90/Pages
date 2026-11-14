@@ -67,7 +67,8 @@ export type ChatPageIntent =
   | "delete-message"
   | "embed-domain"
   | "card-state"
-  | "split-width";
+  | "split-width"
+  | "list-collapsed";
 
 /** What a change yields besides success: a created group, a page of older messages or a group context. */
 interface ChatIntentOutcome {
@@ -101,6 +102,7 @@ const INTENTS: readonly ChatPageIntent[] = [
   "embed-domain",
   "card-state",
   "split-width",
+  "list-collapsed",
 ];
 
 /** How a refused conversation request reads on the page (PAGE-278). */
@@ -307,13 +309,18 @@ async function markConfidential(
 
 /** The changes of the content of messages and of its cards (PAGE-298). */
 type ContentIntent =
-  "delete-message" | "embed-domain" | "card-state" | "split-width";
+  | "delete-message"
+  | "embed-domain"
+  | "card-state"
+  | "split-width"
+  | "list-collapsed";
 
 const CONTENT_INTENTS: readonly ContentIntent[] = [
   "delete-message",
   "embed-domain",
   "card-state",
   "split-width",
+  "list-collapsed",
 ];
 
 function isContentIntent(intent: ChatPageIntent): intent is ContentIntent {
@@ -322,7 +329,8 @@ function isContentIntent(intent: ChatPageIntent): intent is ContentIntent {
 
 /**
  * Deletes an own message, releases or withdraws an embed domain of a
- * conversation, or stores a card state or the split width (PAGE-298).
+ * conversation, or stores a card state or the split width (PAGE-298) or
+ * the state of the list (PAGE-325).
  */
 async function runContentIntent(
   services: ChatServices,
@@ -354,6 +362,12 @@ async function runContentIntent(
       await services.chatViewPreferences.setSplitWidth(
         person,
         formData.get("width"),
+      );
+      return;
+    case "list-collapsed":
+      await services.chatViewPreferences.setListCollapsed(
+        person,
+        formData.get("isCollapsed"),
       );
   }
 }
