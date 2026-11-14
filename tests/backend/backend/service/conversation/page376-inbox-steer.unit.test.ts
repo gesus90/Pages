@@ -181,6 +181,7 @@ function runnerFixture(delivered: number): RunnerFixture {
           history.find((entry) => entry.id === id) ?? null,
       ),
       history: vi.fn().mockResolvedValue(history),
+      contextCount: vi.fn().mockResolvedValue(history.length),
       insert,
     },
     directory: { read: vi.fn().mockResolvedValue(accounts()) },
@@ -199,7 +200,12 @@ function runnerFixture(delivered: number): RunnerFixture {
         .mockResolvedValue({ text: "Antwort", files: [], lines: ["Antwort"] }),
       open: vi.fn(),
     },
-    attachments: { stage: vi.fn(), bind: vi.fn(), release: vi.fn() },
+    attachments: {
+      stage: vi.fn(),
+      bind: vi.fn(),
+      release: vi.fn(),
+      open: vi.fn(),
+    },
     content: { describe: vi.fn().mockResolvedValue(new Map()) },
     now: () => new Date("2026-01-01T00:00:00Z"),
   };

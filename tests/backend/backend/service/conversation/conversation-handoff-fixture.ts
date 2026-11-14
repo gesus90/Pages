@@ -6,6 +6,7 @@ import { ConversationAccounts } from "@/backend/service/conversation/Conversatio
 import { ConversationEvents } from "@/backend/service/conversation/ConversationEvents";
 import { toConversationMessage } from "@/backend/service/conversation/ConversationReader";
 import { CONVERSATION_AGENT_SEND_PREFIX } from "@/definition/Conversation";
+import { CONVERSATION_NO_RULE_OVERRIDES } from "@/definition/ConversationDecision";
 import { conversationRoundLimits } from "@/definition/ConversationObserver";
 
 import type { ConversationFollowUp } from "@/backend/database/repositories/conversation/ConversationFollowUpRepository";
@@ -379,6 +380,7 @@ function memoryMessages(
   stored: StoredConversationMessage[],
 ): ConversationAgentRepliesDependencies["messages"] {
   return {
+    contextCount: vi.fn().mockResolvedValue(0),
     find: vi.fn(
       async (conversationId: string, id: string) =>
         stored.find((entry) => entry.id === id) ?? null,
@@ -513,9 +515,11 @@ function fixtureDependencies({
     },
     rounds,
     contexts: { promptContext: vi.fn().mockResolvedValue({ context: null }) },
-    routing: { choose: vi.fn().mockResolvedValue([]) },
     replySettings: { find: vi.fn(async () => settings.current) },
-    decisions: { decide: vi.fn().mockResolvedValue([]) },
+    decisions: {
+      decide: vi.fn().mockResolvedValue([]),
+      recordMention: vi.fn().mockResolvedValue(undefined),
+    },
     events: new ConversationEvents(),
     publisher: { publish: vi.fn() },
     guard: { isPaused: vi.fn().mockResolvedValue(false) },
@@ -527,7 +531,12 @@ function fixtureDependencies({
       })),
       open: vi.fn(),
     },
-    attachments: { stage: vi.fn(), bind: vi.fn(), release: vi.fn() },
+    attachments: {
+      stage: vi.fn(),
+      bind: vi.fn(),
+      release: vi.fn(),
+      open: vi.fn(),
+    },
     content: { describe: vi.fn().mockResolvedValue(new Map()) },
     now,
     wait: async () => undefined,
@@ -549,8 +558,7 @@ export function handoffFixture(): HandoffFixture {
     current: {
       conversationId: "group",
       mode: "mentions",
-      defaultResponderId: null,
-      maximumResponders: 2,
+      overrides: CONVERSATION_NO_RULE_OVERRIDES,
     },
   };
   const accounts = accountsOf(users);
