@@ -56,3 +56,49 @@ it("requires confirmation before selecting yolo", () => {
   );
   expect(change).toHaveBeenCalledWith("yolo");
 });
+
+it("locks a new agent's access and hides yolo when assignment is forbidden", () => {
+  const change = vi.fn();
+  render(
+    <I18nextProvider i18n={i18n}>
+      <AgentAccessSection
+        value="read_only"
+        savedValue={null}
+        onChange={change}
+        canChange
+        canAssignYolo={false}
+        environment={null}
+      />
+    </I18nextProvider>,
+  );
+  expect(
+    screen.getByText(i18n.t("agentEmployees.accessTab.createHint")),
+  ).toBeTruthy();
+  expect(screen.queryByRole("radio", { name: /yolo/i })).toBeNull();
+  expect(
+    screen.getByRole("radio", { name: /workspace/i }).hasAttribute("disabled"),
+  ).toBe(true);
+  expect(change).not.toHaveBeenCalled();
+});
+
+it("allows workspace when isolation is available and cancels yolo confirmation", () => {
+  const change = vi.fn();
+  render(
+    <I18nextProvider i18n={i18n}>
+      <AgentAccessSection
+        value="read_only"
+        savedValue="read_only"
+        onChange={change}
+        canChange
+        environment={{ isIsolationAvailable: true, mcpServers: [] }}
+      />
+    </I18nextProvider>,
+  );
+  fireEvent.click(screen.getByRole("radio", { name: /workspace/i }));
+  expect(change).toHaveBeenCalledWith("workspace");
+  fireEvent.click(screen.getByRole("radio", { name: /yolo/i }));
+  expect(screen.getByRole("dialog")).toBeTruthy();
+  fireEvent.keyDown(document, { key: "Escape" });
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(change).toHaveBeenCalledTimes(1);
+});
