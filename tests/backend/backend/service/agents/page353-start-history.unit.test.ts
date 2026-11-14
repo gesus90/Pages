@@ -52,12 +52,14 @@ it("late local and remote progress cannot overwrite a forced release or the prev
   expect(transaction.execute).not.toHaveBeenCalled();
 });
 
-it("a Play purge already in progress preserves a newly force-released run; explicit plan deletion can still delete it", async () => {
+it("a Play purge and explicit plan deletion remove a settled force-released run", async () => {
   let isDeleted = false;
   const transaction: DatabaseTransaction = {
-    query: vi.fn(async (statement, parameters) => {
-      if (statement.includes("FOR UPDATE"))
-        return parameters?.preserve_released ? [] : [["old-run"]];
+    query: vi.fn(async (statement) => {
+      if (statement.includes("FOR UPDATE")) {
+        expect(statement).not.toContain("resourceReleases");
+        return [["old-run"]];
+      }
       return [["old-run"]];
     }),
     execute: vi.fn(async (statement) => {
@@ -72,7 +74,8 @@ it("a Play purge already in progress preserves a newly force-released run; expli
     ): Promise<Result> => work(transaction),
   };
   await purgeEarlierPlanRuns(database, "new-run");
-  expect(isDeleted).toBe(false);
+  expect(isDeleted).toBe(true);
+  isDeleted = false;
   await purgeAllPlanRuns(database, "plan");
   expect(isDeleted).toBe(true);
 });

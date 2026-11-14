@@ -171,6 +171,7 @@ it("sweeps ended legacy runs without a new start, empties completed homes and re
     );
   }
   const maintenance = new AgentEnvironmentMaintenance("/memory/data", {
+    purgeObsoleteRuns: async () => undefined,
     canRemoveRun: async (id) => id === RUN,
     maintainPlan: async (id, maintain) => {
       await maintain("empty");
@@ -191,6 +192,7 @@ it("sweeps ended legacy runs without a new start, empties completed homes and re
     ),
   ).toBe(true);
   const deletion = new AgentEnvironmentMaintenance("/memory/data", {
+    purgeObsoleteRuns: async () => undefined,
     canRemoveRun: async () => false,
     maintainPlan: async (id, maintain) => {
       await maintain("remove");

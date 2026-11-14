@@ -28,14 +28,14 @@ export class AgentEnvironmentMaintenance {
   private readonly root: string;
   private readonly repository: Pick<
     AgentEnvironmentRepository,
-    "maintainPlan" | "canRemoveRun"
+    "maintainPlan" | "canRemoveRun" | "purgeObsoleteRuns"
   >;
 
   public constructor(
     root: string,
     repository: Pick<
       AgentEnvironmentRepository,
-      "maintainPlan" | "canRemoveRun"
+      "maintainPlan" | "canRemoveRun" | "purgeObsoleteRuns"
     >,
   ) {
     this.root = root;
@@ -44,6 +44,7 @@ export class AgentEnvironmentMaintenance {
 
   /** Sweeps every connection, including connections not used since the run ended. */
   public async run(): Promise<void> {
+    await this.repository.purgeObsoleteRuns();
     const agents = path.join(this.root, "agents");
     for (const connection of await entries(agents)) {
       if (!connection.isDirectory()) continue;
