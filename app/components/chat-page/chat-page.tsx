@@ -20,6 +20,7 @@ import { ChatPageLiveTools } from "./chat-page-tool-uses";
 import { ChatPageList } from "./chat-page-list";
 import { ChatPagePicker } from "./chat-page-picker";
 import { CardOverlay } from "./content/card-panel";
+import { MediaOverviewOverlay } from "./media/media-overview-panel";
 import {
   ChatContentProvider,
   useChatContent,
@@ -29,6 +30,7 @@ import { useChatToastSelection } from "./use-chat-toast-selection";
 import { useChatListCollapse } from "./use-chat-list-collapse";
 import { useChatCommandRunner } from "./use-chat-command-runner";
 import { useChatPage } from "./use-chat-page";
+import { useMessageReveal } from "./use-message-reveal";
 import { useVoiceSending } from "./use-voice-sending";
 import { formatVoiceDuration } from "./voice-audio";
 
@@ -272,9 +274,10 @@ function ListSlot({
 }: {
   readonly children: React.ReactNode;
 }): React.ReactElement {
-  const { beside } = useChatContent();
+  const { beside, media } = useChatContent();
+  const isSplit = beside !== null || media === "beside";
   return (
-    <div className={beside ? "hidden 2xl:contents" : "contents"}>
+    <div className={isSplit ? "hidden 2xl:contents" : "contents"}>
       {children}
     </div>
   );
@@ -296,7 +299,8 @@ function ListSlot({
  * stored conversations with people and of groups (PAGE-278). The list holds
  * only existing people and agents the person chose or who wrote to them, and
  * groups of them. Content of messages shows as cards; one of them opens
- * right of the chat in the split view or over the page (PAGE-298).
+ * right of the chat in the split view or over the page (PAGE-298), as does
+ * "Medien & Dateien" of the chat (PAGE-387).
  */
 export function ChatPage({
   directory,
@@ -315,6 +319,12 @@ export function ChatPage({
   const collapse = useChatListCollapse(
     directory.viewPreferences?.isListCollapsed === true,
   );
+  const revealMessage = useMessageReveal({
+    messageCount: page.messages.length,
+    hasOlder: page.hasOlder,
+    isLoadingOlder: page.isLoadingOlder,
+    loadOlder: page.loadOlder,
+  });
   return (
     <MentionDirectoryContext value={directory.mentionDirectory}>
       <section className="pages-page-fill pages-page-fixed flex w-full flex-col">
@@ -332,6 +342,7 @@ export function ChatPage({
             conversationKey={page.opened ? conversationKey(page.opened) : ""}
             directory={directory}
             onPreviewSend={page.sendFromPreview}
+            onRevealMessage={revealMessage}
           >
             <ListSlot>
               <ChatPageList
@@ -348,6 +359,7 @@ export function ChatPage({
             <SplitPanel
               storedWidth={directory.viewPreferences?.splitWidth ?? null}
             />
+            <MediaOverviewOverlay />
             <CardOverlay />
           </ChatContentProvider>
         </div>

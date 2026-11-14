@@ -25,6 +25,7 @@ import {
 import { CONVERSATION_DEFAULT_REPLY_MODE } from "@/definition/ConversationDecision";
 
 import { ChatPageMenuEntry, MENU_SECTION_LABEL } from "./chat-page-menu-entry";
+import { MediaMenuEntry, useMenuOpenings } from "./media/chat-page-media-entry";
 
 import type { VirtualGroup } from "@/definition/VirtualChat";
 import type { ConfidentialControl } from "./chat-page-confidential";
@@ -70,7 +71,8 @@ function ConfidentialEntry({
 }
 
 /**
- * The one menu of a group in the head of the chat (PAGE-376): who answers
+ * The one menu of a group in the head of the chat (PAGE-376): "Medien &
+ * Dateien" with its count first (PAGE-387), then who answers
  * (with the current mode as its remark, PAGE-379), the group context, the sessions of the agents, confidentiality, muting and
  * the members.
  *
@@ -86,8 +88,9 @@ export function ChatPageGroupMenu({
   onOpenDialog,
 }: ChatPageGroupMenuProps): React.ReactElement {
   const { t } = useTranslation();
+  const menu = useMenuOpenings();
   return (
-    <DropdownMenu>
+    <DropdownMenu open={menu.isOpen} onOpenChange={menu.onOpenChange}>
       <DropdownMenuTrigger asChild>
         <Button
           aria-label={t("chatPage.groupMenu.label")}
@@ -102,6 +105,7 @@ export function ChatPageGroupMenu({
         <DropdownMenuLabel className={MENU_SECTION_LABEL}>
           {t("chatPage.groupMenu.section", { name: group.name })}
         </DropdownMenuLabel>
+        <MediaMenuEntry conversationId={group.id} openings={menu.openings} />
         <ChatPageMenuEntry
           icon={MessageCircleQuestionMark}
           label={t("chatPage.groupMenu.reply")}

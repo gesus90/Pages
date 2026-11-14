@@ -59,6 +59,8 @@ interface Call {
 function stubControl(answer: (call: Call) => AgentChatControlResponse): Call[] {
   const calls: Call[] = [];
   vi.stubGlobal("fetch", async (input: RequestInfo | URL, init: RequestInit = {}) => {
+    // The count of "Medien & Dateien" the group menu reads (PAGE-387) is no control call.
+    if (String(input).startsWith("/chat/media/")) return new Response("Not Found", { status: 404 });
     const fields =
       init.body instanceof FormData
         ? Object.fromEntries([...init.body.entries()].map(([key, value]) => [key, String(value)]))

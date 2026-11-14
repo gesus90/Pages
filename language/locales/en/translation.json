@@ -4653,6 +4653,52 @@
       "previous": "Previous video",
       "next": "Next video",
       "viewer": "Video in full screen"
+    },
+    "chatMenu": {
+      "trigger": "Chat",
+      "label": "Chat menu",
+      "section": "Chat with {{name}}"
+    },
+    "media": {
+      "title": "Media & files",
+      "menuEntry": "Media & files",
+      "subtitle_one": "{{count}} entry",
+      "subtitle_other": "{{count}} entries",
+      "tabsLabel": "Tabs of media & files",
+      "tabs": {
+        "images": "Images",
+        "videos": "Videos",
+        "audio": "Audio",
+        "documents": "Documents",
+        "files": "Files",
+        "links": "Links"
+      },
+      "searchLabel": "Search by file name or link title",
+      "search": "Search name or title …",
+      "sender": "Sender",
+      "senderAll": "All senders",
+      "senderKind": {
+        "human": "Person",
+        "agent": "Agent"
+      },
+      "expiringSoon": "Expiring soon",
+      "hideExpired": "Hide expired",
+      "expired": "expired",
+      "mark": "Mark {{name}}",
+      "selected_one": "{{count}} marked",
+      "selected_other": "{{count}} marked",
+      "clearSelection": "Clear selection",
+      "downloadZip_one": "Download {{count}} file as ZIP",
+      "downloadZip_other": "Download {{count}} files as ZIP",
+      "reload": "Reload",
+      "empty": "No entries.",
+      "loading": "Loading …",
+      "failed": "Media & files could not be loaded.",
+      "detailLabel": "Paging through media & files",
+      "back": "Back to {{tab}}",
+      "previous": "Previous entry",
+      "next": "Next entry",
+      "position": "{{current}} of {{total}}"
     }
   },
   "workspaces": {

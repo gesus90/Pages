@@ -4653,6 +4653,52 @@
       "previous": "Voriges Video",
       "next": "Nächstes Video",
       "viewer": "Video im Vollbild"
+    },
+    "chatMenu": {
+      "trigger": "Chat",
+      "label": "Chat-Menü",
+      "section": "Chat mit {{name}}"
+    },
+    "media": {
+      "title": "Medien & Dateien",
+      "menuEntry": "Medien & Dateien",
+      "subtitle_one": "{{count}} Eintrag",
+      "subtitle_other": "{{count}} Einträge",
+      "tabsLabel": "Reiter von Medien & Dateien",
+      "tabs": {
+        "images": "Bilder",
+        "videos": "Videos",
+        "audio": "Audio",
+        "documents": "Dokumente",
+        "files": "Dateien",
+        "links": "Links"
+      },
+      "searchLabel": "Nach Dateinamen oder Linktitel suchen",
+      "search": "Name oder Titel suchen …",
+      "sender": "Absender",
+      "senderAll": "Alle Absender",
+      "senderKind": {
+        "human": "Person",
+        "agent": "Agent"
+      },
+      "expiringSoon": "Läuft bald ab",
+      "hideExpired": "Abgelaufene ausblenden",
+      "expired": "abgelaufen",
+      "mark": "{{name}} markieren",
+      "selected_one": "{{count}} markiert",
+      "selected_other": "{{count}} markiert",
+      "clearSelection": "Auswahl aufheben",
+      "downloadZip_one": "{{count}} Datei als ZIP herunterladen",
+      "downloadZip_other": "{{count}} Dateien als ZIP herunterladen",
+      "reload": "Neu laden",
+      "empty": "Keine Einträge.",
+      "loading": "Lädt …",
+      "failed": "Medien & Dateien konnten nicht geladen werden.",
+      "detailLabel": "Blättern in Medien & Dateien",
+      "back": "Zurück zu {{tab}}",
+      "previous": "Vorheriger Eintrag",
+      "next": "Nächster Eintrag",
+      "position": "{{current}} von {{total}}"
     }
   },
   "workspaces": {

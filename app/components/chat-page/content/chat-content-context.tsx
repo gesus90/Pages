@@ -22,6 +22,9 @@ export interface ChatImageRequest {
   readonly opener?: HTMLElement | null;
 }
 
+/** Where "Medien & Dateien" is open (PAGE-387): next to the chat, or over the page on a narrow screen. */
+export type ChatMediaPlacement = "beside" | "overlay";
+
 /** What the content cards of one opened conversation share (PAGE-298). */
 export interface ChatContent {
   /** The stored conversation; `null` for an agent's chat session or before the first message. */
@@ -43,6 +46,16 @@ export interface ChatContent {
   readonly viewer: ChatImageRequest | null;
   openViewer(request: ChatImageRequest): void;
   closeViewer(): void;
+  /** Where "Medien & Dateien" of the chat is open; `null` while closed (PAGE-387). */
+  readonly media: ChatMediaPlacement | null;
+  /** Opens "Medien & Dateien" next to the chat; as full screen on a narrow screen. */
+  openMedia(): void;
+  closeMedia(): void;
+  /**
+   * Scrolls the history to a message and gives it the focus, loading older
+   * pages until it is there (PAGE-387).
+   */
+  revealMessage(messageId: string): void;
   /** Whether a link may be embedded here: Pages itself, a local preview or a released domain. */
   isEmbeddable(link: ConversationLink): boolean;
   /** The domains members released for this conversation. */
@@ -74,6 +87,10 @@ const STANDALONE: ChatContent = {
   viewer: null,
   openViewer: () => undefined,
   closeViewer: () => undefined,
+  media: null,
+  openMedia: () => undefined,
+  closeMedia: () => undefined,
+  revealMessage: () => undefined,
   isEmbeddable: (link) => link.embeddable,
   releasedDomains: NO_DOMAINS,
   canRelease: false,
@@ -127,7 +144,10 @@ function useCardStates(
   };
 }
 
-/** The split view, the overlay and the image viewer; a new conversation closes them. */
+/**
+ * The split view, the overlay, the image viewer and "Medien & Dateien"; a new
+ * conversation closes them. "Medien & Dateien" and a card share the split view.
+ */
 function useOpenedCards(
   conversationKey: string,
 ): Pick<
@@ -141,20 +161,42 @@ function useOpenedCards(
   | "viewer"
   | "openViewer"
   | "closeViewer"
+  | "media"
+  | "openMedia"
+  | "closeMedia"
 > {
   const [beside, setBeside] = useState<OpenedCard | null>(null);
   const [overlay, setOverlay] = useState<OpenedCard | null>(null);
   const [viewer, setViewer] = useState<ChatImageRequest | null>(null);
+  const [media, setMedia] = useState<ChatMediaPlacement | null>(null);
 
   useEffect(() => {
     setBeside(null);
     setOverlay(null);
     setViewer(null);
+    setMedia(null);
   }, [conversationKey]);
 
+  function isNarrow(): boolean {
+    return window.innerWidth < CHAT_SPLIT_MINIMUM_VIEWPORT;
+  }
+
   function openBeside(card: OpenedCard): void {
-    if (window.innerWidth < CHAT_SPLIT_MINIMUM_VIEWPORT) setOverlay(card);
-    else setBeside(card);
+    if (isNarrow()) {
+      setOverlay(card);
+      return;
+    }
+    setBeside(card);
+    setMedia((current) => (current === "beside" ? null : current));
+  }
+
+  function openMedia(): void {
+    if (isNarrow()) {
+      setMedia("overlay");
+      return;
+    }
+    setBeside(null);
+    setMedia("beside");
   }
 
   return {
@@ -167,6 +209,9 @@ function useOpenedCards(
     viewer,
     openViewer: setViewer,
     closeViewer: () => setViewer(null),
+    media,
+    openMedia,
+    closeMedia: () => setMedia(null),
   };
 }
 
@@ -181,6 +226,8 @@ interface ChatContentProviderProps {
   readonly conversationKey: string;
   /** Sends the text of a preview as a message of the person (PAGE-383). */
   readonly onPreviewSend?: (text: string) => void;
+  /** Scrolls the history to a message, loading older pages (PAGE-387). */
+  readonly onRevealMessage?: (messageId: string) => void;
   readonly children: React.ReactNode;
 }
 
@@ -188,13 +235,15 @@ interface ChatContentProviderProps {
  * Shares the state of the content cards of the opened conversation: the
  * remembered card states, the one card of the split view, the overlay, the
  * image viewer (PAGE-382), the domains that may be embedded (PAGE-298) and
- * the way back from a preview into the chat (PAGE-383).
+ * the way back from a preview into the chat (PAGE-383), and "Medien & Dateien"
+ * with its way to a message (PAGE-387).
  */
 export function ChatContentProvider({
   directory,
   conversationId,
   conversationKey,
   onPreviewSend,
+  onRevealMessage,
   children,
 }: ChatContentProviderProps): React.ReactElement {
   const states = useCardStates(directory.viewPreferences?.cardStates ?? {});
@@ -227,6 +276,7 @@ export function ChatContentProvider({
       void releaser.submit(formData, { method: "post" });
     },
     sendFromPreview: onPreviewSend ?? STANDALONE.sendFromPreview,
+    revealMessage: onRevealMessage ?? STANDALONE.revealMessage,
   };
 
   return (

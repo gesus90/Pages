@@ -23,6 +23,7 @@ import { ConversationAttachmentRepository } from "@/backend/database/repositorie
 import { ConversationAttachmentLibraryRepository } from "@/backend/database/repositories/conversation/ConversationAttachmentLibraryRepository";
 import { ConversationEmbedDomainRepository } from "@/backend/database/repositories/conversation/ConversationEmbedDomainRepository";
 import { ConversationLinkPreviewRepository } from "@/backend/database/repositories/conversation/ConversationLinkPreviewRepository";
+import { ConversationMediaOverviewRepository } from "@/backend/database/repositories/conversation/ConversationMediaOverviewRepository";
 import { currentAgentSimulationMode } from "@/backend/agents/simulation/AgentSimulationMode";
 import { ChatViewPreferenceService } from "@/backend/service/conversation/content/ChatViewPreferenceService";
 import { ConversationAgentFiles } from "@/backend/service/conversation/content/ConversationAgentFiles";
@@ -32,6 +33,7 @@ import { ConversationAttachmentLibrary } from "@/backend/service/conversation/co
 import { ConversationAttachmentReferences } from "@/backend/service/conversation/content/ConversationAttachmentReferences";
 import { FfmpegVideoFrameReader } from "@/backend/service/conversation/content/ConversationVideoFrames";
 import { ConversationLinks } from "@/backend/service/conversation/content/ConversationLinks";
+import { ConversationMediaOverviewService } from "@/backend/service/conversation/content/ConversationMediaOverviewService";
 import { ConversationMessageContent } from "@/backend/service/conversation/content/ConversationMessageContent";
 import { HttpConversationLinkFetcher } from "@/backend/service/conversation/links/HttpConversationLinkFetcher";
 import { SimulatedConversationLinkFetcher } from "@/backend/service/conversation/links/SimulatedConversationLinkFetcher";
@@ -100,6 +102,8 @@ export interface ConversationApplicationServices {
   readonly conversationAttachmentLibrary: ConversationAttachmentLibrary;
   /** The links of messages and the domains that may be embedded (PAGE-298). */
   readonly conversationLinks: ConversationLinks;
+  /** "Medien & Dateien" of a chat: its files and links, and chosen files as ZIP (PAGE-387). */
+  readonly conversationMediaOverview: ConversationMediaOverviewService;
   /** The card states and the split width of a person (PAGE-298). */
   readonly chatViewPreferences: ChatViewPreferenceService;
 }
@@ -268,6 +272,7 @@ export function createConversationServices(
     conversationAttachments: content.attachments,
     conversationAttachmentLibrary: content.library,
     conversationLinks: content.links,
+    conversationMediaOverview: content.media,
     chatViewPreferences: new ChatViewPreferenceService(
       new ChatViewPreferenceRepository(database),
     ),
@@ -394,6 +399,7 @@ interface ContentParts {
   readonly reader: ConversationMessageContent;
   readonly library: ConversationAttachmentLibrary;
   readonly references: ConversationAttachmentReferences;
+  readonly media: ConversationMediaOverviewService;
 }
 
 function hostOf(origin: string | undefined): string[] {
@@ -420,8 +426,9 @@ function createContent(
     directory,
   });
   const ownHosts = hostOf(input.publicUrl);
+  const previews = new ConversationLinkPreviewRepository(database);
   const links = new ConversationLinks({
-    previews: new ConversationLinkPreviewRepository(database),
+    previews,
     domains: new ConversationEmbedDomainRepository(database),
     conversations,
     fetcher:
@@ -440,6 +447,14 @@ function createContent(
     links,
     reader: new ConversationMessageContent(attachments, links, references),
     references,
+    media: new ConversationMediaOverviewService({
+      library: libraryRows,
+      messages: new ConversationMediaOverviewRepository(database),
+      previews,
+      conversations,
+      files,
+      directory,
+    }),
     library: new ConversationAttachmentLibrary({
       library: libraryRows,
       conversations,

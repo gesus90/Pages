@@ -29,6 +29,7 @@ import {
 import { ChatPageMenuEntry } from "./chat-page-menu-entry";
 import { ChatPageModelDialog } from "./chat-page-model-dialog";
 import { ChatPageRemoveDialog } from "./chat-page-remove-dialog";
+import { ChatPageChatMenu } from "./media/chat-page-media-entry";
 
 import type { ReactNode } from "react";
 import type { AgentSettingsTab } from "@/app/components/agent-settings/agent-settings-tabs";
@@ -276,6 +277,10 @@ function ParticipantHeader({
           <ConfidentialButton control={mute.confidential} />
           {isAgent ? null : <ChatPageEmbedDomainsButton />}
           <MuteButton {...mute} />
+          <ChatPageChatMenu
+            conversationId={participant.conversationId ?? null}
+            name={participant.name}
+          />
           {isAnswering && isAgent ? (
             <Button onClick={onStop} size="sm" type="button" variant="outline">
               <Square aria-hidden="true" className="size-3.5" />

@@ -281,6 +281,11 @@ function workspaceResources(routes: RouteBuilder): RouteConfigEntry[] {
     resource("chat/messages/:id/files.zip", "routes/conversation-archive.ts"),
     resource("chat/images/:id", "routes/conversation-images.ts"),
     resource("chat/videos/:id", "routes/conversation-videos.ts"),
+    resource("chat/media/:id", "routes/conversation-media.ts"),
+    resource(
+      "chat/media/:id/files.zip",
+      "routes/conversation-media-archive.ts",
+    ),
     resource("chat/link-image", "routes/conversation-link-image.ts"),
     resource("chat/embed", "routes/chat-embed.ts"),
     resource("chat/preview-frame", "routes/chat-preview-frame.ts"),
