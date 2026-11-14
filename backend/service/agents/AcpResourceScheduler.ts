@@ -1,17 +1,12 @@
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { withBackgroundDatabaseWork } from "@/backend/database/executor/DatabaseWorkContext";
 import { readAcpResourceOptions } from "@/backend/config/AcpResourceConfig";
-import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
 import { logCaughtError } from "@/backend/logging/Logger";
 import { isAcpSessionLimit, MAX_ACP_SESSIONS } from "@/definition/AcpResource";
 
 import { forceReleaseAcpRun } from "./resources/AcpRunRelease";
-import {
-  cleanupAcpLease,
-  reconcileAcpLeases,
-  recoverAcpLease,
-} from "./resources/AcpLeaseRecovery";
+import { cleanupAcpLease, recoverAcpLease } from "./resources/AcpLeaseRecovery";
 import { AcpWaitDiagnostics } from "./resources/AcpWaitDiagnostics";
 import { AcpLeaseAdmission } from "./resources/AcpLeaseAdmission";
 import { AcpLeaseChecks } from "./resources/AcpLeaseChecks";
@@ -25,6 +20,11 @@ import {
   readScheduledAcpMemory,
 } from "./resources/AcpMemory";
 import { ScheduledAcpSession } from "./resources/ScheduledAcpSession";
+import {
+  registerAcpNamespace,
+  settleAcpSessionLease,
+  reconcileAcpRunLeases,
+} from "./resources/AcpLeaseOwnership";
 import { enqueueAcpRequest } from "./resources/AcpAdmissionRequest";
 
 import type { SchedulerDependencies } from "./resources/AcpSchedulerDependencies";
@@ -200,28 +200,9 @@ export class AcpResourceScheduler {
     instanceId: string,
     namespace: AcpNamespaceOwner,
   ): Promise<void> {
-    await this.persist(async () => {
-      const current = this.active.get(instanceId);
-      if (
-        current?.namespace &&
-        JSON.stringify(current.namespace) === JSON.stringify(namespace)
-      )
-        return;
-      if (
-        !current ||
-        current.state === "closing" ||
-        current.state === "cleanup_failed"
-      )
-        throw new Error("ACP reservation is not starting");
-      if (
-        current.namespace &&
-        JSON.stringify(current.namespace) !== JSON.stringify(namespace)
-      )
-        throw new Error("ACP namespace identity changed");
-      const record = { ...current, namespace, lifecycle: "process" as const };
-      await this.store.save(record);
-      this.active.set(instanceId, record);
-    });
+    await this.persist(() =>
+      registerAcpNamespace(this.store, this.active, instanceId, namespace),
+    );
   }
 
   /** Suspends queued requests of a paused run; existing sessions continue to own capacity. */
@@ -337,20 +318,11 @@ export class AcpResourceScheduler {
    * leases without containment evidence remain uncertain.
    */
   public async reconcile(runId?: string): Promise<number> {
-    // An ended run's own leases first get their cleanup attempted again; the periodic check judges by evidence only.
     if (runId !== undefined)
-      await reconcileAcpLeases(
-        [...this.active.values()].filter(
-          (record) =>
-            record.state === "cleanup_failed" &&
-            !this.sessions.has(record.instanceId) &&
-            record.runId === runId,
-        ),
-        {
-          cleanup: (record) => this.cleanupLease(record, record.since),
-          finish: (id, confirmed) => this.finish(id, confirmed),
-        },
-      );
+      await reconcileAcpRunLeases(runId, this.active, this.sessions, {
+        cleanup: (record) => this.cleanupLease(record, record.since),
+        finish: (id, confirmed) => this.finish(id, confirmed),
+      });
     return this.checks.reconcile(runId);
   }
 
@@ -489,16 +461,9 @@ export class AcpResourceScheduler {
     instanceId: string,
     error?: unknown,
   ): Promise<boolean> {
-    const record = this.active.get(instanceId);
-    if (!record) return true;
-    if (
-      record.runId !== null &&
-      (!(error instanceof AgentError) ||
-        (error.code !== "plan_local_control_failed" &&
-          error.code !== "plan_local_owner_unverified"))
-    )
-      return false;
-    return (await this.cleanupLease(record, record.since)).remaining === 0;
+    return settleAcpSessionLease(this.active.get(instanceId), error, (record) =>
+      this.cleanupLease(record, record.since),
+    );
   }
 
   /**

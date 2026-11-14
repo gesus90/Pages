@@ -9,50 +9,44 @@ import {
   CONVERSATION_TEXT_MAXIMUM_LENGTH,
 } from "@/definition/Conversation";
 
+import {
+  changedEvent,
+  failureCode,
+  failureText,
+  noticeFor,
+  NOTICE_TEXTS,
+} from "./ConversationReplyNotices";
 import { ConversationReplyContext } from "./ConversationReplyContext";
 import { findConversationMentions } from "./ConversationMentions";
 import { toConversationMessage } from "./ConversationReader";
 import { agentSelectionText } from "./content/ConversationAgentFiles";
 import { EMPTY_MESSAGE_CONTENT } from "./content/ConversationMessageContent";
 
-import type {
-  ConversationMessageRepository,
-  StoredConversationMessage,
-} from "@/backend/database/repositories/conversation/ConversationMessageRepository";
-import type {
-  ConversationRecord,
-  ConversationRepository,
-} from "@/backend/database/repositories/conversation/ConversationRepository";
-import type {
-  ConversationRoundRepository,
-  ConversationTargetState,
-} from "@/backend/database/repositories/conversation/ConversationRoundRepository";
-import type { PagesEvent } from "@/backend/service/events/PagesEventPublisher";
+import type { StoredConversationMessage } from "@/backend/database/repositories/conversation/ConversationMessageRepository";
+import type { ConversationTargetState } from "@/backend/database/repositories/conversation/ConversationRoundRepository";
 import type { AgentMessageQueue } from "@/definition/AgentSessionLimits";
 import type {
   ConversationMessage,
   ConversationNotice,
 } from "@/definition/Conversation";
-import type { ConversationReplyTrigger } from "@/definition/ConversationObserver";
 import type { User } from "@/definition/User";
-import type { ConversationAgentGuard } from "./ConversationAgentGuard";
-import type {
-  AgentFile,
-  ConversationAgentFiles,
-} from "./content/ConversationAgentFiles";
-import type { ConversationAttachments } from "./content/ConversationAttachments";
-import type { ConversationMessageContentReader } from "./content/ConversationMessageContent";
+import type { AgentFile } from "./content/ConversationAgentFiles";
 import type {
   ConversationAgentRequest,
   ConversationAgentTurn,
-  ConversationAgentRunner,
 } from "./ConversationAgentReplies";
-import type { ConversationContextReader } from "./ConversationContextReader";
+import type { ConversationAccounts } from "./ConversationDirectory";
+
 import type {
-  ConversationAccounts,
-  ConversationDirectory,
-} from "./ConversationDirectory";
-import type { ConversationEvents } from "./ConversationEvents";
+  ConversationReplyJob,
+  ConversationReplyRunnerDependencies,
+} from "./ConversationReplyTypes";
+
+export type {
+  ConversationRound,
+  ConversationReplyJob,
+  ConversationReplyRunnerDependencies,
+} from "./ConversationReplyTypes";
 
 const COMPONENT = "ConversationAgentReplies";
 
@@ -65,117 +59,6 @@ function defaultWait(milliseconds: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, milliseconds).unref();
   });
-}
-
-/** The message of a person and the conversation its round of answers belongs to. */
-export interface ConversationRound {
-  readonly originMessageId: string;
-  readonly conversation: ConversationRecord;
-  readonly memberIds: readonly string[];
-  /** The person who wrote the message. */
-  readonly person: User;
-}
-
-/** One claimed answer of one agent in a round. */
-export interface ConversationReplyJob {
-  readonly round: ConversationRound;
-  readonly agentId: string;
-  readonly trigger: ConversationReplyTrigger;
-  /** The message the agent answers: the person's, or the answer of another agent. */
-  readonly triggerMessageId: string;
-  readonly reason: string;
-  /** A single continuation of a consumed question batch. */
-  readonly isFollowUp?: boolean;
-  /**
-   * The messages since the agent's last one, oldest first: the round replies
-   * of a batch, or everything a resumed hand-over missed (PAGE-349).
-   */
-  readonly contextMessageIds?: readonly string[];
-}
-
-/** What one answer of an agent uses. */
-export interface ConversationReplyRunnerDependencies {
-  readonly conversations: Pick<ConversationRepository, "findForMember">;
-  readonly messages: Pick<
-    ConversationMessageRepository,
-    "find" | "history" | "insert" | "contextCount"
-  >;
-  readonly directory: Pick<ConversationDirectory, "read">;
-  readonly runner: ConversationAgentRunner;
-  readonly rounds: Pick<ConversationRoundRepository, "setTargetState">;
-  readonly contexts: Pick<ConversationContextReader, "promptContext">;
-  readonly events: Pick<ConversationEvents, "publish">;
-  readonly publisher: { publish(event: PagesEvent): void };
-  /** Pauses a chain of agent messages (PAGE-311); without it no chain is limited. */
-  readonly guard?: Pick<ConversationAgentGuard, "isPaused">;
-  /** Reads the file lines of an answer (PAGE-298). */
-  readonly agentFiles: Pick<ConversationAgentFiles, "select" | "open">;
-  /** Stores the files an answer attaches and binds them to it. */
-  readonly attachments: Pick<
-    ConversationAttachments,
-    "stage" | "bind" | "release" | "open"
-  >;
-  /** The attachments and links of the stored answer. */
-  readonly content: ConversationMessageContentReader;
-  readonly now?: () => Date;
-  /** Waits for a busy agent; tests pass a fast one. */
-  readonly wait?: (milliseconds: number) => Promise<void>;
-}
-
-const NOTICE_TEXTS: Readonly<
-  Record<ConversationNotice, (name: string) => string>
-> = {
-  agent_inactive: (name) =>
-    `${name} ist deaktiviert und antwortet nicht auf diese Nachricht.`,
-  agent_cost_limit: (name) =>
-    `${name} antwortet nicht: Das Kostenlimit des Agents ist erreicht.`,
-  agent_unavailable: (name) =>
-    `${name} antwortet nicht: Für den Agent ist gerade kein Modell nutzbar.`,
-  agent_failed: (name) =>
-    `${name} konnte nicht antworten, die Antwort ist fehlgeschlagen. Schreib die Nachricht erneut, um es noch einmal zu versuchen.`,
-  round_limit: () => "Abstimmung beendet, Grenze erreicht",
-  agent_stopped: (name) => `Die Antwort von ${name} wurde gestoppt.`,
-};
-
-function changedEvent(conversationId: string): PagesEvent {
-  return { type: "conversation.changed", id: conversationId };
-}
-
-function noticeFor(error: unknown): ConversationNotice {
-  if (
-    error instanceof AgentJobAnswerError ||
-    !(error instanceof AgentEmployeeError)
-  )
-    return "agent_failed";
-  if (error.code === "inactive") return "agent_inactive";
-  return error.code === "unavailable" ||
-    error.code === "accessUnsupported" ||
-    error.code === "modelNotAllowed"
-    ? "agent_unavailable"
-    : "agent_failed";
-}
-
-function failureCode(error: unknown): string {
-  if (error instanceof AgentJobAnswerError) return error.failureCode;
-  return error instanceof AgentEmployeeError ? error.code : "general";
-}
-
-function failureText(
-  error: unknown,
-  notice: ConversationNotice,
-  name: string,
-): string {
-  if (!(error instanceof AgentJobAnswerError))
-    return NOTICE_TEXTS[notice](name);
-  if (
-    error.failureCode === "cli_not_logged_in" ||
-    error.failureCode === "cli_auth_failed" ||
-    error.failureCode === "provider_auth_failed"
-  )
-    return `${name} antwortet nicht: Der Agent ist nicht angemeldet (${error.failureCode}).`;
-  if (error.isCancelled)
-    return `Die Antwort von ${name} wurde abgebrochen (${error.failureCode}); auch der einmalige Wiederholungsversuch wurde nicht abgeschlossen.`;
-  return `${name} konnte nicht antworten: Fehler ${error.failureCode}.`;
 }
 
 /**

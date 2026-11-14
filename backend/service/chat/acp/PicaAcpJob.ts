@@ -34,6 +34,7 @@ import {
 } from "./PicaAcpTurnResult";
 import { PicaAcpUpdates } from "./PicaAcpUpdates";
 import { PicaAcpPrompt } from "./PicaAcpPrompt";
+import { notePicaNativeTool } from "./PicaAcpNativeToolRecord";
 import { openPicaSession } from "./PicaAcpPoolOpening";
 
 import type { DatabaseLogMetrics } from "@/backend/logging/DatabaseLogMetrics";
@@ -53,7 +54,6 @@ import type { PicaAcpMessage } from "./PicaAcpSteering";
 import type { PicaAcpOutcome } from "./PicaAcpTurnResult";
 import type { PicaAcpJobDependencies } from "./PicaAcpJobDependencies";
 import type { PicaAcpPooledInput } from "./PicaAcpPoolOpening";
-import type { PicaNativeToolEvent } from "./PicaAcpToolCalls";
 import type { PicaAcpJobSpecification } from "./PicaAcpJobSpecification";
 
 export type { PicaAcpJobDependencies } from "./PicaAcpJobDependencies";
@@ -185,7 +185,11 @@ export class PicaAcpJob {
           ? {
               nativeTool: (event) => {
                 this.journal.note({ kind: "tool", ...event });
-                this.noteNativeTool(event);
+                notePicaNativeTool(
+                  event,
+                  this.notedNativeCalls,
+                  this.dependencies.recipes,
+                );
               },
             }
           : {}),
@@ -321,22 +325,6 @@ export class PicaAcpJob {
     });
     this.credential.open(lease);
     await this.journal.record({ kind: "phase", phase: "starting" });
-  }
-
-  /** Hands a finished host tool call to the record the dream run learns from (PAGE-378). */
-  private noteNativeTool(event: PicaNativeToolEvent): void {
-    // A call reports several updates; only its end counts, once.
-    if (event.status === "running" || this.notedNativeCalls.has(event.callId))
-      return;
-    this.notedNativeCalls.add(event.callId);
-    // The prefix keeps a host tool, which no recipe can call, apart from a Pages tool.
-    this.dependencies.recipes?.note({
-      tool: `host:${event.tool}`,
-      input: event.input ?? "",
-      output: event.output ?? "",
-      isOk: event.status === "completed",
-      error: event.error,
-    });
   }
 
   private async execute(signal: AbortSignal): Promise<void> {
