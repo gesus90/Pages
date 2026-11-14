@@ -395,6 +395,7 @@ it("gives agents and the chat the shared accounts, wiki, plans and events", asyn
         receipts: expect.any(StorageOperationRepository) as unknown,
       },
       wikiService: only(vi.mocked(WikiService)),
+      automations: (await getApplicationServices()).automationService,
       tickets: {
         cache: only(vi.mocked(ServerCache)),
         publisher: only(vi.mocked(TaskGitHubPublisher)),
@@ -410,6 +411,7 @@ it("gives agents and the chat the shared accounts, wiki, plans and events", asyn
         settings: only(vi.mocked(InstanceSettingsService)),
       },
       events: only(vi.mocked(PagesEventPublisher)),
+      management: expect.any(Function) as unknown,
     },
   );
   const [chatInput] = vi.mocked(createChatServices).mock.calls[0];
@@ -428,6 +430,7 @@ it("gives agents and the chat the shared accounts, wiki, plans and events", asyn
       ...world.agents,
       systemDashboardService: { opaque: "system dashboard" },
       ...world.plans,
+      automationService: (await getApplicationServices()).automationService,
     },
     router: world.mcp.chatOperationRouter,
     tickets: {

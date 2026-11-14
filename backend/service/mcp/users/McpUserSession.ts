@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
 
+import { AgentOperationError } from "@/backend/error/AgentOperationError";
+import { CAPABILITY } from "@/definition/Authorization";
 import { UserPolicyService } from "@/backend/auth/UserPolicyService";
 import { ServerCache } from "@/backend/cache/ServerCache";
 import { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
@@ -153,11 +155,21 @@ export class McpUserSession {
 
   /** Requires one capability of the actor's role, or the administrator. */
   public requireCapability(capability: Capability): void {
+    if (
+      this.policy.isManagement(this.actor) &&
+      !this.policy.has(this.actor, capability)
+    )
+      throw new AgentOperationError("FORBIDDEN", {
+        reason:
+          capability === CAPABILITY.MANAGE_ROLES ? "role_grant" : "core_system",
+      });
     requireMcpUserRight(this.policy.has(this.actor, capability));
   }
 
   /** Requires current personal administrator eligibility. */
   public requireAdministrator(): void {
+    if (this.policy.isManagement(this.actor) && !this.isAdministrator)
+      throw new AgentOperationError("FORBIDDEN", { reason: "role_grant" });
     requireMcpUserRight(this.isAdministrator);
   }
 

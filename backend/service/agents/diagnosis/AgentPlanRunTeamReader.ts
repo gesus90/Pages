@@ -76,9 +76,14 @@ export class AgentPlanRunTeamReader {
     return withReadScope(async () => {
       const stored = await findPlanRun(this.dependencies, userId, runId);
       if (!stored) throw new AgentError("plan_access_denied");
-      await this.dependencies.access.require(userId, stored.planId);
+      const plan = await this.dependencies.access.require(
+        userId,
+        stored.planId,
+      );
       const resources = await this.dependencies.runs.resources(runId);
-      const hiddenSources = await this.hiddenSources(userId, stored, resources);
+      const hiddenSources = plan.rights?.canReadAllRuns
+        ? []
+        : await this.hiddenSources(userId, stored, resources);
       const startedBy = await this.describeStarter(stored.userId);
       if (hiddenSources.length > 0) {
         const ticketSteps = new Set(

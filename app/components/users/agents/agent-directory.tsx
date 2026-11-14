@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useSubmit } from "react-router";
 
+import { userRoleLabel } from "@/app/lib/user-role-label";
 import { UserAvatar } from "@/app/components/common/user-avatar";
 import { Button } from "@/app/components/ui/button";
 import {
@@ -109,7 +110,12 @@ function AgentRow({
       </td>
       <td className="pages-selectable px-4 py-3 text-sm">{agent.modelName}</td>
       <td className="pages-selectable px-4 py-3 text-sm">
-        {agent.roleName ?? "—"}
+        {userRoleLabel(
+          agent.roleId && agent.roleName
+            ? { id: agent.roleId, name: agent.roleName }
+            : null,
+          t,
+        )}
       </td>
       <td className="px-4 py-3">
         <AgentStatus isActive={agent.isActive} />
@@ -226,7 +232,9 @@ export function AgentDirectory({
   );
   const canDelete =
     (directory.actor.isAdmin && directory.actor.mode === "admin") ||
-    (directory.actor.role?.name === "Verwaltung" && agents.canCreate);
+    (directory.actor.role?.id !== "role-administration" &&
+      directory.actor.role?.name === "Verwaltung" &&
+      agents.canCreate);
   return (
     <section className="flex min-h-0 flex-1 flex-col">
       <AgentToolbar

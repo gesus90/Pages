@@ -1,3 +1,5 @@
+import { getApplicationServices } from "@/app/lib/services.server";
+import { UserPolicyService } from "@/backend/auth/UserPolicyService";
 import {
   mcpProjectResponse,
   readMcpProjectBody,
@@ -12,13 +14,21 @@ import type { Route } from "./+types/api-mcp-v1-project";
 /** The methods of this resource for the parameters of the request. */
 function handlers(params: Route.LoaderArgs["params"]): McpProjectHandlers {
   return {
-    GET: async ({ api, context }) =>
-      mcpProjectResponse({
-        project: await api.reads.read(
-          context,
-          requireMcpProjectParameter(params.projectId),
-        ),
-      }),
+    GET: async ({ api, context }) => {
+      const projectId = requireMcpProjectParameter(params.projectId);
+      const services = await getApplicationServices();
+      const project = await api.reads.read(context, projectId);
+      const account = await services.administrationService.getContext(
+        context.actor.id,
+      );
+      const revision = new UserPolicyService("mcp").hasGlobalAccess(account)
+        ? await services.managementService.projectRevision(
+            context.actor.id,
+            projectId,
+          )
+        : undefined;
+      return mcpProjectResponse({ project: { ...project, revision } });
+    },
     PATCH: async ({ api, context, request }) => {
       const body = McpProjectRequest.patch(await readMcpProjectBody(request));
       return mcpProjectResponse({

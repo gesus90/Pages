@@ -26,7 +26,7 @@ export class ProjectPolicyService {
   ): boolean {
     return (
       actor.isActive &&
-      (this.users.isAdministrator(actor) ||
+      (this.users.hasGlobalAccess(actor) ||
         actor.allProjects ||
         (actor.role !== null && !actor.role.departmentBound) ||
         departmentIds.length === 0 ||
@@ -41,7 +41,7 @@ export class ProjectPolicyService {
   ): boolean {
     return (
       this.users.has(actor, CAPABILITY.MANAGE_PROJECTS) &&
-      (this.users.isAdministrator(actor) ||
+      (this.users.hasGlobalAccess(actor) ||
         actor.allProjects ||
         actor.managedDepartments.includes(departmentId))
     );
@@ -66,7 +66,7 @@ export class ProjectPolicyService {
   ): boolean {
     if (!actor.isActive) return false;
     return (
-      this.users.isAdministrator(actor) ||
+      this.users.hasGlobalAccess(actor) ||
       project.isProjectManager ||
       (this.users.has(actor, CAPABILITY.MANAGE_PROJECTS) &&
         (actor.allProjects ||
@@ -160,7 +160,7 @@ export class ProjectPolicyService {
     departmentIds: readonly string[],
   ): boolean {
     return (
-      this.users.isAdministrator(actor) ||
+      this.users.hasGlobalAccess(actor) ||
       actor.allProjects ||
       departmentIds.every((id) => actor.managedDepartments.includes(id))
     );

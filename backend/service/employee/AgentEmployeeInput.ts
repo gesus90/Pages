@@ -19,6 +19,7 @@ import type {
   AgentEmployeeDocuments,
   AgentEmployeeSettings,
 } from "@/definition/AgentEmployee";
+import type { AgentEmployeeChange } from "@/backend/database/repositories/employee/AgentEmployeeRepository";
 import type { AgentMemoryLimits } from "@/definition/AgentMemory";
 import type { PersonColor } from "@/definition/PersonColor";
 import type { AgentEmployeeVoice } from "@/definition/SpeechSynthesis";
@@ -235,5 +236,22 @@ export function readAgentEmployeeInput(input: unknown): AgentEmployeeInput {
     limits: readLimits(fields),
     isLearningEnabled: fields.isLearningEnabled !== false,
     voice: readVoice(fields),
+  };
+}
+
+/** The persisted shape of an agent's configuration, taken from a validated input. */
+export function employeeChange(input: AgentEmployeeInput): AgentEmployeeChange {
+  return {
+    connectionId: input.settings.connectionId,
+    model: input.settings.model,
+    reasoningEffort: input.settings.reasoningEffort,
+    access: input.settings.access,
+    soul: input.documents.soul,
+    instructions: input.documents.instructions,
+    isLearningEnabled: input.isLearningEnabled,
+    voiceId: input.voice.voiceId,
+    voiceSpeedTenths: input.voice.speedTenths,
+    memoryCharacters: input.limits.memoryCharacters,
+    dreamCharacters: input.limits.dreamCharacters,
   };
 }

@@ -1,14 +1,19 @@
 import { randomUUID } from "node:crypto";
 
+import { accountForChannel } from "@/backend/auth/McpActorContext";
 import { UserPolicyService } from "@/backend/auth/UserPolicyService";
 import { AdministrationError } from "@/backend/error/AdministrationError";
 import { AgentEmployeeError } from "@/backend/error/AgentEmployeeError";
 import { UsernameTakenError } from "@/backend/error/UserErrors";
-import { logEvent } from "@/backend/logging/Logger";
 import { isAgentProvider } from "@/definition/AgentConnection";
 import { CAPABILITY } from "@/definition/Authorization";
 
+import {
+  requireManagementTarget,
+  requireManagementRole,
+} from "../management/ManagementPolicy";
 import { activeAccount, findAccount } from "../AdministrationAccess";
+import { AgentAccessLevelChanges } from "./AgentAccessLevelChanges";
 import { AgentEmployeeDirectory } from "./AgentEmployeeDirectory";
 
 import type { ActorChannel } from "@/backend/auth/McpActorContext";
@@ -18,7 +23,6 @@ import type {
   AuthorizationSnapshot,
 } from "@/backend/database/repositories/AuthorizationRepository";
 import type { StoredUserAvatar } from "@/backend/database/repositories/UserRepository";
-import type { AgentEmployeeChange } from "@/backend/database/repositories/employee/AgentEmployeeRepository";
 import type { StoredAgentUsages } from "@/backend/database/repositories/employee/AgentEmployeeRemovalRepository";
 import type { EmployeeStore } from "@/backend/database/repositories/employee/EmployeeStore";
 import type {
@@ -29,7 +33,6 @@ import type {
 import type {
   AgentAccessEnvironment,
   AgentEmployee,
-  AgentEmployeeAccess,
 } from "@/definition/AgentEmployee";
 import type {
   AgentEmployeeDetailData,
@@ -37,6 +40,7 @@ import type {
 } from "@/definition/AgentEmployeePage";
 import type { AgentAccessEnvironmentService } from "./AgentAccessEnvironmentService";
 import type { AgentActivityService } from "./AgentActivityService";
+import { employeeChange } from "./AgentEmployeeInput";
 import type { AgentEmployeeInput } from "./AgentEmployeeInput";
 import type { AgentEmployeeModels } from "./AgentEmployeeModels";
 import type { AgentMemoryFile, AgentMemoryService } from "./AgentMemoryService";
@@ -95,22 +99,6 @@ export interface AgentEmployeeUpdate {
   readonly isActive?: boolean;
 }
 
-function employeeChange(input: AgentEmployeeInput): AgentEmployeeChange {
-  return {
-    connectionId: input.settings.connectionId,
-    model: input.settings.model,
-    reasoningEffort: input.settings.reasoningEffort,
-    access: input.settings.access,
-    soul: input.documents.soul,
-    instructions: input.documents.instructions,
-    isLearningEnabled: input.isLearningEnabled,
-    voiceId: input.voice.voiceId,
-    voiceSpeedTenths: input.voice.speedTenths,
-    memoryCharacters: input.limits.memoryCharacters,
-    dreamCharacters: input.limits.dreamCharacters,
-  };
-}
-
 function requireRole(
   snapshot: AuthorizationSnapshot,
   roleId: string,
@@ -148,10 +136,6 @@ async function requireIdle(
     throw new AgentEmployeeError("busy");
 }
 
-function actorName(actor: AccountAccess): string {
-  return `${actor.firstName} ${actor.lastName}`.trim();
-}
-
 /**
  * Creates, changes and removes agent employees in the user administration
  * (PAGE-266, PAGE-267).
@@ -167,17 +151,25 @@ function actorName(actor: AccountAccess): string {
  * account with the administrator role acts as an administrator.
  */
 export class AgentEmployeeAdministration {
+  private readonly channel: ActorChannel;
   private readonly dependencies: AgentEmployeeAdministrationDependencies;
   private readonly policy: UserPolicyService;
   private readonly directory: AgentEmployeeDirectory;
+  private readonly accessLevels: AgentAccessLevelChanges;
 
   public constructor(
     dependencies: AgentEmployeeAdministrationDependencies,
     channel: ActorChannel = "ui",
   ) {
+    this.channel = channel;
     this.dependencies = dependencies;
     this.policy = new UserPolicyService(channel);
     this.directory = new AgentEmployeeDirectory(dependencies);
+    this.accessLevels = new AgentAccessLevelChanges(
+      this.policy,
+      dependencies.activity,
+      dependencies.accessEnvironment,
+    );
   }
 
   /** The same administration with the administrator reading of another channel. */
@@ -195,14 +187,17 @@ export class AgentEmployeeAdministration {
     const actor = snapshot.accounts.find(
       (account) => account.userId === actorId,
     );
-    if (!actor || !this.policy.isAdministrator(actor))
+    if (!actor || !this.policy.hasGlobalAccess(actor))
       throw new AgentEmployeeError("forbidden");
   }
 
   /** Every agent the person may see, with its full panel, by name. */
   public async employees(actorId: string): Promise<AgentEmployee[]> {
     const snapshot = await this.dependencies.authorization.snapshot();
-    const actor = activeAccount(snapshot, actorId);
+    const actor = accountForChannel(
+      activeAccount(snapshot, actorId),
+      this.channel,
+    );
     if (!this.policy.canEnter(actor)) throw new AgentEmployeeError("forbidden");
     const items = await this.directory.list(snapshot, (target) =>
       this.policy.canSee(actor, target),
@@ -221,7 +216,10 @@ export class AgentEmployeeAdministration {
   /** The roles the person may assign and every department. */
   public async choices(actorId: string): Promise<AgentEmployeeChoices> {
     const snapshot = await this.dependencies.authorization.snapshot();
-    const actor = activeAccount(snapshot, actorId);
+    const actor = accountForChannel(
+      activeAccount(snapshot, actorId),
+      this.channel,
+    );
     this.require(this.policy.has(actor, CAPABILITY.MANAGE_USERS));
     return {
       roles: snapshot.roles.filter((role) =>
@@ -234,7 +232,10 @@ export class AgentEmployeeAdministration {
   /** The agents tab for a person who may enter the administration. */
   public async page(actorId: string): Promise<AgentEmployeePage> {
     const snapshot = await this.dependencies.authorization.snapshot();
-    const actor = activeAccount(snapshot, actorId);
+    const actor = accountForChannel(
+      activeAccount(snapshot, actorId),
+      this.channel,
+    );
     if (!this.policy.canEnter(actor)) throw new AgentEmployeeError("forbidden");
     const canCreate = this.policy.has(actor, CAPABILITY.MANAGE_USERS);
     return {
@@ -252,7 +253,10 @@ export class AgentEmployeeAdministration {
     agentId: string,
   ): Promise<AgentEmployeeDetail> {
     const snapshot = await this.dependencies.authorization.snapshot();
-    const actor = activeAccount(snapshot, actorId);
+    const actor = accountForChannel(
+      activeAccount(snapshot, actorId),
+      this.channel,
+    );
     const target = this.requireAgentAccount(snapshot, agentId);
     if (!this.policy.canSee(actor, target))
       throw new AgentEmployeeError("notFound");
@@ -267,11 +271,19 @@ export class AgentEmployeeAdministration {
       memoryDetails: await this.dependencies.memory.details(agentId),
       activity: await this.dependencies.activity.list(agentId),
       canEdit,
-      canChangeAccess: canEdit && this.policy.isAdministrator(actor),
+      canChangeAccess: canEdit && this.policy.hasGlobalAccess(actor),
+      canAssignYolo: this.policy.isAdministrator(actor),
       accessEnvironment:
-        (await this.dependencies.accessEnvironment?.environment(
-          isAgentProvider(agent.provider) ? agent.provider : null,
-        )) ?? NO_ACCESS_ENVIRONMENT,
+        this.policy.isManagement(actor) && !this.policy.isAdministrator(actor)
+          ? {
+              isIsolationAvailable:
+                (await this.dependencies.accessEnvironment?.isIsolationAvailable()) ??
+                false,
+              mcpServers: [],
+            }
+          : ((await this.dependencies.accessEnvironment?.environment(
+              isAgentProvider(agent.provider) ? agent.provider : null,
+            )) ?? NO_ACCESS_ENVIRONMENT),
     };
   }
 
@@ -287,7 +299,10 @@ export class AgentEmployeeAdministration {
     agentId: string,
   ): Promise<string> {
     const snapshot = await this.dependencies.authorization.snapshot();
-    const actor = activeAccount(snapshot, actorId);
+    const actor = accountForChannel(
+      activeAccount(snapshot, actorId),
+      this.channel,
+    );
     const target = this.requireAgentAccount(snapshot, agentId);
     if (!this.policy.canSee(actor, target))
       throw new AgentEmployeeError("notFound");
@@ -314,11 +329,19 @@ export class AgentEmployeeAdministration {
     const agentId = randomUUID();
     await this.write(async (repository) => {
       const snapshot = await repository.snapshot();
-      const actor = activeAccount(snapshot, actorId);
+      const actor = accountForChannel(
+        activeAccount(snapshot, actorId),
+        this.channel,
+      );
       this.require(this.policy.has(actor, CAPABILITY.MANAGE_USERS));
       const role = requireRole(snapshot, input.roleId);
+      requireManagementRole(actor, role.id);
       this.require(this.policy.canAssignRole(actor, role));
-      await this.requireAccessChange(actor, "read_only", input.settings.access);
+      await this.accessLevels.requireChange(
+        actor,
+        "read_only",
+        input.settings.access,
+      );
       const account = this.newAccount(agentId, role, input.displayName);
       if (input.departments.length > 0) {
         requireDepartments(snapshot, input.departments);
@@ -339,7 +362,7 @@ export class AgentEmployeeAdministration {
       });
       await store.employees().create(agentId, employeeChange(input));
       if (input.settings.access !== "read_only")
-        await this.recordAccessChange(store, {
+        await this.accessLevels.record(store, {
           agentId,
           actor,
           from: null,
@@ -370,12 +393,17 @@ export class AgentEmployeeAdministration {
     await this.dependencies.models.requireAllowed(actorId, input.settings);
     await this.write(async (repository) => {
       const snapshot = await repository.snapshot();
-      const actor = activeAccount(snapshot, actorId);
+      const actor = accountForChannel(
+        activeAccount(snapshot, actorId),
+        this.channel,
+      );
       const target = this.requireAgentAccount(snapshot, agentId);
       this.require(
         this.policy.canChange(actor, target, CAPABILITY.MANAGE_USERS),
       );
       const role = requireRole(snapshot, input.roleId);
+      if (!this.policy.isAdministrator(actor))
+        requireManagementTarget(actor, target, role.id);
       if (role.id !== target.role?.id)
         this.require(
           this.policy.canChange(actor, target, CAPABILITY.MANAGE_ROLES) &&
@@ -390,7 +418,7 @@ export class AgentEmployeeAdministration {
       const store = repository.employees();
       const previousAccess =
         (await store.employees().find(agentId))?.access ?? "read_only";
-      await this.requireAccessChange(
+      await this.accessLevels.requireChange(
         actor,
         previousAccess,
         input.settings.access,
@@ -417,7 +445,7 @@ export class AgentEmployeeAdministration {
       )
         throw new AgentEmployeeError("conflict");
       if (previousAccess !== input.settings.access)
-        await this.recordAccessChange(store, {
+        await this.accessLevels.record(store, {
           agentId,
           actor,
           from: previousAccess,
@@ -508,8 +536,12 @@ export class AgentEmployeeAdministration {
     agentId: string,
   ): Promise<AgentEmployeeRemovalScope> {
     const snapshot = await this.dependencies.authorization.snapshot();
-    const actor = activeAccount(snapshot, actorId);
+    const actor = accountForChannel(
+      activeAccount(snapshot, actorId),
+      this.channel,
+    );
     const target = this.requireAgentAccount(snapshot, agentId);
+    requireManagementTarget(actor, target);
     this.require(this.policy.canChange(actor, target, CAPABILITY.MANAGE_USERS));
     const removals = this.dependencies.authorization.employees().removals();
     const [agent, usages, isRunning] = await Promise.all([
@@ -536,6 +568,10 @@ export class AgentEmployeeAdministration {
     revision: number,
   ): Promise<void> {
     await this.write(async (repository) => {
+      const actor = activeAccount(await repository.snapshot(), actorId);
+      this.require(
+        !this.policy.isManagement(actor) || this.policy.isAdministrator(actor),
+      );
       await this.requireChangeable(repository, actorId, agentId);
       const store = repository.employees();
       const employee = await store.employees().find(agentId);
@@ -563,8 +599,12 @@ export class AgentEmployeeAdministration {
     version: { readonly id: string; readonly expectedRevision: number | null },
   ): Promise<void> {
     const snapshot = await this.dependencies.authorization.snapshot();
-    const actor = activeAccount(snapshot, actorId);
+    const actor = accountForChannel(
+      activeAccount(snapshot, actorId),
+      this.channel,
+    );
     const target = this.requireAgentAccount(snapshot, agentId);
+    requireManagementTarget(actor, target);
     this.require(this.policy.canChange(actor, target, CAPABILITY.MANAGE_USERS));
     await this.dependencies.memory.restore(agentId, version, actorId);
   }
@@ -581,8 +621,12 @@ export class AgentEmployeeAdministration {
     file: AgentMemoryFile,
   ): Promise<void> {
     const snapshot = await this.dependencies.authorization.snapshot();
-    const actor = activeAccount(snapshot, actorId);
+    const actor = accountForChannel(
+      activeAccount(snapshot, actorId),
+      this.channel,
+    );
     const target = this.requireAgentAccount(snapshot, agentId);
+    requireManagementTarget(actor, target);
     this.require(this.policy.canChange(actor, target, CAPABILITY.MANAGE_USERS));
     await this.dependencies.memory.reset(agentId, file, actorId);
   }
@@ -613,8 +657,12 @@ export class AgentEmployeeAdministration {
     agentId: string,
   ): Promise<AccountAccess> {
     const snapshot = await repository.snapshot();
-    const actor = activeAccount(snapshot, actorId);
+    const actor = accountForChannel(
+      activeAccount(snapshot, actorId),
+      this.channel,
+    );
     const target = this.requireAgentAccount(snapshot, agentId);
+    requireManagementTarget(actor, target);
     this.require(this.policy.canChange(actor, target, CAPABILITY.MANAGE_USERS));
     return target;
   }
@@ -627,57 +675,6 @@ export class AgentEmployeeAdministration {
   ): Promise<void> {
     if (!isActive) await requireIdle(repository.employees(), agentId);
     await repository.users().setActive(agentId, isActive);
-  }
-
-  /**
-   * Refuses a change of the access level by anyone but an administrator in
-   * active admin mode, and "Arbeitsplatz" on a host without the isolation
-   * it runs in (PAGE-303). An unchanged level needs neither.
-   */
-  private async requireAccessChange(
-    actor: AccountAccess,
-    from: AgentEmployeeAccess,
-    to: AgentEmployeeAccess,
-  ): Promise<void> {
-    if (from === to) return;
-    if (!this.policy.isAdministrator(actor))
-      throw new AgentEmployeeError("accessAdminRequired");
-    if (
-      to === "workspace" &&
-      !(await this.dependencies.accessEnvironment?.isIsolationAvailable())
-    )
-      throw new AgentEmployeeError("isolationUnavailable");
-  }
-
-  /** Records a change of the access level in the agent's activity and the server log. */
-  private async recordAccessChange(
-    store: EmployeeStore,
-    change: {
-      readonly agentId: string;
-      readonly actor: AccountAccess;
-      readonly from: AgentEmployeeAccess | null;
-      readonly to: AgentEmployeeAccess;
-    },
-  ): Promise<void> {
-    await this.dependencies.activity.recordAccessChange(store, {
-      agentId: change.agentId,
-      from: change.from,
-      to: change.to,
-      actorId: change.actor.userId,
-      actorName: actorName(change.actor),
-    });
-    logEvent({
-      level: "info",
-      event: "agent.access.changed",
-      component: "AgentEmployeeAdministration",
-      message: "Access level of an agent changed",
-      metadata: {
-        agentId: change.agentId,
-        actorId: change.actor.userId,
-        from: change.from,
-        to: change.to,
-      },
-    });
   }
 
   private require(isAllowed: boolean): void {

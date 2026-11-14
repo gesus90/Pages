@@ -1,3 +1,4 @@
+import { UserPolicyService } from "@/backend/auth/UserPolicyService";
 import { McpAuthorizationError } from "@/backend/error/McpAuthorizationError";
 import { CAPABILITY } from "@/definition/Authorization";
 
@@ -31,6 +32,7 @@ export class AgentIdentityService {
     return {
       userId,
       isAdmin: account.isAdmin,
+      isManagement: new UserPolicyService().isManagement(account),
       permissions: account.isAdmin
         ? Object.values(CAPABILITY)
         : (account.role?.permissions ?? []),

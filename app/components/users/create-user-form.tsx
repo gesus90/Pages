@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Form } from "react-router";
+
 import { Button } from "@/app/components/ui/button";
 import { Checkbox } from "@/app/components/ui/checkbox";
 import { DialogClose } from "@/app/components/ui/dialog";
@@ -17,6 +18,7 @@ interface CreateUserFormProps {
   readonly departments: readonly Department[];
   readonly roles: readonly UserRole[];
   readonly canCreateAdmin: boolean;
+  readonly isManagement?: boolean;
   readonly error: UsersErrorCode | null;
   readonly isSubmitting: boolean;
 }
@@ -26,6 +28,7 @@ export function CreateUserForm({
   roles,
   departments,
   canCreateAdmin,
+  isManagement = false,
   error,
   isSubmitting,
 }: CreateUserFormProps): React.ReactElement {
@@ -66,6 +69,7 @@ export function CreateUserForm({
           name="email"
           label={t("users.create.email")}
           type="email"
+          required={isManagement}
         />
         {roles.length > 1 || canCreateAdmin ? (
           <RoleSelect

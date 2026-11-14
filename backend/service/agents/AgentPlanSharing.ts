@@ -159,6 +159,9 @@ export class AgentPlanSharing {
     const isAdministrator = this.isAdministrator(viewer);
     if (isOwner || isAdministrator)
       return {
+        ...(this.policy.isManagement(viewer.actor) && !isAdministrator
+          ? { canReadAllRuns: true }
+          : {}),
         canRead: true,
         canEdit: true,
         canRun: true,
@@ -170,7 +173,14 @@ export class AgentPlanSharing {
     const team = this.teamRights(plan, viewer);
     return {
       ...team,
-      canRead: team.canRead || this.isSharedWith(plan, viewer),
+      ...(this.policy.isManagement(viewer.actor)
+        ? { canReadAllRuns: true }
+        : {}),
+      canRead:
+        this.policy.isManagement(viewer.actor) ||
+        team.canRead ||
+        this.isSharedWith(plan, viewer),
+      canEdit: this.policy.isManagement(viewer.actor) || team.canEdit,
       canChangeOwner: false,
       canDelete: false,
       isAdministrator: false,

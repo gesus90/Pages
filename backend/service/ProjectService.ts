@@ -6,10 +6,12 @@ import {
   stableIdKey,
 } from "@/backend/cache/ServerCache";
 import { ProjectManagementDeniedError } from "@/backend/error/ProjectErrors";
+import { extractRepoName } from "@/backend/github/GitHubRepositoryName";
 import { encryptGitHubToken } from "@/backend/github/GitHubTokenCrypto";
 import { CAPABILITY } from "@/definition/Authorization";
 import { isGitHubSyncInterval, isProjectRole } from "@/definition/Project";
 
+import { requireManagementMembershipChange } from "./management/ManagementMembershipPolicy";
 import { ProjectCreationService } from "./project/ProjectCreationService";
 import { ProjectAccessService } from "./project/ProjectAccessService";
 import { ProjectGoalService } from "./project/ProjectGoalService";
@@ -332,6 +334,11 @@ export class ProjectService {
     userId: string,
     role: ProjectRole,
   ): Promise<void> {
+    const account = await this.access.account(actor);
+    const target = (
+      await this.projectRepository.authorization().snapshot()
+    ).accounts.find((entry) => entry.userId === userId);
+    if (target) requireManagementMembershipChange(account, target);
     await this.requireProjectWrite(actor, projectId);
     await this.getById(actor, projectId);
 
@@ -355,6 +362,11 @@ export class ProjectService {
     userId: string,
     role: ProjectRole,
   ): Promise<void> {
+    const account = await this.access.account(actor);
+    const target = (
+      await this.projectRepository.authorization().snapshot()
+    ).accounts.find((entry) => entry.userId === userId);
+    if (target) requireManagementMembershipChange(account, target);
     await this.requireProjectWrite(actor, projectId);
     await this.getById(actor, projectId);
 
@@ -377,6 +389,11 @@ export class ProjectService {
     projectId: string,
     userId: string,
   ): Promise<void> {
+    const account = await this.access.account(actor);
+    const target = (
+      await this.projectRepository.authorization().snapshot()
+    ).accounts.find((entry) => entry.userId === userId);
+    if (target) requireManagementMembershipChange(account, target);
     await this.requireProjectWrite(actor, projectId);
     await this.getById(actor, projectId);
     await this.projectRepository.removeMember(projectId, userId);
@@ -784,14 +801,6 @@ export class ProjectService {
  */
 export function hashIntegrationToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
-}
-
-function extractRepoName(repoUrl: string): string | null {
-  const match = repoUrl.match(
-    /^https:\/\/github\.com\/([^/]+\/[^/]+?)(\.git)?\/?$/,
-  );
-
-  return match?.[1] ?? null;
 }
 
 // A blank time means the date has no time, so an empty string must not be stored.

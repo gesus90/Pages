@@ -260,6 +260,7 @@ describe("AgentPlanService stop and pause", () => {
   it("pauses an own run of an editable plan", async () => {
     const { service, mocks } = createPlanContext();
     const journal = vi.fn(async () => undefined);
+    mocks.runs.find.mockResolvedValue(planRun());
 
     await service.pause("owner", "run-1", journal);
 

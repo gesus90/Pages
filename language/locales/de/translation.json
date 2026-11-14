@@ -1,4 +1,18 @@
 {
+  "toast": {
+    "saveFailed": "Speichern fehlgeschlagen",
+    "retry": "Erneut versuchen",
+    "close": "Meldung schließen",
+    "open": "Öffnen",
+    "newMessages_one": "{{count}} neue",
+    "newMessages_other": "{{count}} neue",
+    "notifications_one": "Meldungen ({{count}})",
+    "notifications_other": "Meldungen ({{count}})",
+    "history": "Meldungen",
+    "empty": "Keine Meldungen",
+    "attachment": "Neue Datei",
+    "voice": "Sprachnachricht"
+  },
   "account": {
     "menu": "Kontomenü",
     "signOut": "Logout"
@@ -1735,6 +1749,16 @@
     }
   },
   "users": {
+    "management": {
+      "role": "Verwaltung",
+      "invitationSent": "Das Konto wurde angelegt. Die Einladung wurde ausschließlich per E-Mail an die Person versendet.",
+      "activity": "Verwaltungsprotokoll",
+      "at": "Zeitpunkt",
+      "actor": "Konto",
+      "action": "Aktion",
+      "target": "Ziel",
+      "change": "Änderung"
+    },
     "fields": {
       "firstName": "Vorname",
       "lastName": "Nachname",
@@ -8087,6 +8111,8 @@
       "unknown": "Die Änderung ist fehlgeschlagen."
     },
     "toast": {
+      "saveFailed": "Speichern fehlgeschlagen",
+      "retry": "Erneut versuchen",
       "accepted": "Lauf angenommen",
       "queued": "Lauf vorgemerkt"
     },

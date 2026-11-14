@@ -1,3 +1,4 @@
+import { managementRequestMiddleware } from "@/app/lib/management-middleware.server";
 import { databaseRequestMiddleware } from "@/app/lib/database-failure.server";
 import { requireFinishedSetup } from "@/app/lib/setup-gate.server";
 
@@ -15,4 +16,5 @@ import type { MiddlewareFunction } from "react-router";
 export const middleware: MiddlewareFunction[] = [
   ...databaseRequestMiddleware,
   requireFinishedSetup,
+  managementRequestMiddleware,
 ];

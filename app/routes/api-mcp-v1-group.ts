@@ -1,3 +1,4 @@
+import { runManagementRoute } from "@/app/lib/management-route.server";
 import {
   mcpUserChangeResponse,
   mcpUserResponse,
@@ -60,6 +61,10 @@ export async function loader({
   params,
   request,
 }: Route.LoaderArgs): Promise<Response> {
+  if (new URL(request.url).searchParams.get("view") === "management")
+    return runManagementRoute(request, "groups_read", {
+      groupId: params.groupId,
+    });
   if (isAdministrationView(request))
     return runMcpUserRoute(request, handlers(params));
   return runMcpAgentProfileRoute(request, ({ api, actor }) =>
@@ -75,5 +80,9 @@ export async function action({
   params,
   request,
 }: Route.ActionArgs): Promise<Response> {
+  if (request.method === "PATCH")
+    return runManagementRoute(request, "groups_update", {
+      groupId: params.groupId,
+    });
   return runMcpUserRoute(request, handlers(params));
 }

@@ -5,6 +5,7 @@ import {
 import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 import { AgentPayloadFileStore } from "@/backend/storage/AgentPayloadFileStore";
 
+import { managementAuditActor } from "./ManagementAuditContext";
 import { postgresErrorCode } from "./postgres/PostgresConnection";
 import { PostgresExecutor } from "./postgres/PostgresExecutor";
 import { requireByteOrderedDatabase } from "./postgres/PostgresLocale";
@@ -394,6 +395,7 @@ export class Database {
   private async ownTransaction<Result>(
     work: (transaction: DatabaseTransaction) => Promise<Result>,
   ): Promise<Result> {
+    const auditActor = managementAuditActor();
     const result = await this.executor.write(async (writer) => {
       const progress: TransactionProgress = {
         scope: undefined,
@@ -403,8 +405,14 @@ export class Database {
       try {
         return await runInTransaction(
           writer,
-          (transaction) =>
-            work({ ...transaction, agentFiles: this.agentFiles }),
+          async (transaction) => {
+            if (auditActor)
+              await transaction.query(
+                "SELECT set_config('pages.management_actor', $actor, TRUE);",
+                { actor: auditActor },
+              );
+            return work({ ...transaction, agentFiles: this.agentFiles });
+          },
           progress,
         );
       } finally {

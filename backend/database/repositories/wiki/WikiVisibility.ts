@@ -144,7 +144,7 @@ function createOwnVisibility(
     AND (
         page.scope = 'instance'
         OR (page.scope = 'project' AND ${projects.sql})
-        OR (page.scope = 'private' AND page.owner_id = $viewer_id)
+        OR (page.scope = 'private' AND (page.owner_id = $viewer_id OR $viewer_management = 1))
     )
     AND NOT EXISTS (
         SELECT 1
@@ -160,6 +160,7 @@ function createOwnVisibility(
       ...projects.parameters,
       ...anchors.parameters,
       viewer_id: scope.userId,
+      viewer_management: scope.canReadPrivate ? 1 : 0,
       viewer_is_admin: scope.isAdmin ? 1 : 0,
     },
   };

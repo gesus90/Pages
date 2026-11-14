@@ -44,6 +44,7 @@ import { AgentNavigation } from "@/app/components/settings/agents/agent-navigati
 import { cn } from "@/app/lib/cn";
 import { localState } from "@/app/lib/local-state/local-state-store";
 
+import { NotificationBell } from "./notification-bell";
 import styles from "./app-shell/app-shell.module.css";
 import { SidebarResizeHandle } from "./app-shell/sidebar-resize-handle";
 import { SidebarToggle } from "./app-shell/sidebar-toggle";
@@ -540,7 +541,8 @@ export function AppShell({
           alt="Pages"
           draggable={false}
         />
-        <div className="ml-auto flex items-center pr-1 md:pr-10 xl:pr-8">
+        <div className="ml-auto flex items-center gap-3">
+          <NotificationBell />
           <AccountMenu user={user} account={account} />
         </div>
       </header>

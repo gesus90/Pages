@@ -1,6 +1,7 @@
 import { useId, useRef } from "react";
 import { useTranslation } from "react-i18next";
 
+import { userRoleLabel } from "@/app/lib/user-role-label";
 import { ModelPicker } from "@/app/components/agents/model-picker";
 import {
   ModelFieldRow,
@@ -90,7 +91,7 @@ function AgentImageRow({
         <input
           ref={input}
           type="file"
-          accept="image/jpeg,image/png,image/webp"
+          accept="image/jpeg,image/png,image/webp,image/svg+xml"
           className="hidden"
           onChange={(event) => {
             const file = event.currentTarget.files?.[0];
@@ -204,7 +205,10 @@ function AgentRightsFields({
         disabled={isDisabled}
         placeholder={t("agentEmployees.fields.chooseRole")}
         onValueChange={(value) => onChange("roleId", value)}
-        options={roles.map((role) => ({ value: role.id, label: role.name }))}
+        options={roles.map((role) => ({
+          value: role.id,
+          label: userRoleLabel(role, t),
+        }))}
       />
       <fieldset className="mt-2 flex flex-col gap-2">
         <legend className={`${LABEL_CLASS_NAME} mb-2`}>

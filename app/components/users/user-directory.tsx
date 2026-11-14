@@ -2,9 +2,11 @@ import { Search } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useActionData } from "react-router";
+
 import { Input } from "@/app/components/ui/input";
 import { VerticalScrollArea } from "@/app/components/ui/vertical-scroll-area";
 import { CreateUserDialog } from "@/app/components/users/create-user-dialog";
+
 import { UserDirectoryTable } from "./user-directory/user-directory-table";
 
 import type {
@@ -69,6 +71,7 @@ export function UserDirectory({
         </div>
         {directory.canCreate ? (
           <CreateUserDialog
+            isManagement={directory.actor.role?.id === "role-administration"}
             assignableRoles={directory.assignableRoles}
             departments={directory.departments.filter((department) =>
               directory.adoptableDepartmentIds.includes(department.id),

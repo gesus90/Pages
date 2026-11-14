@@ -36,6 +36,7 @@ export interface AgentRunScope {
 
 /** Current account rights verified by Pages, independent of the browser role mode. */
 export interface AgentIdentity {
+  readonly isManagement?: boolean;
   readonly userId: string;
   readonly isAdmin: boolean;
   readonly permissions: readonly Capability[];

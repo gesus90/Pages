@@ -46,6 +46,7 @@ function resumable(
 ): PlanContext {
   const context = createPlanContext();
   boundary.readRun.mockResolvedValue(run);
+  context.mocks.runs.find.mockResolvedValue(run);
   boundary.controls.read.mockResolvedValue({ canEdit: false });
   return context;
 }

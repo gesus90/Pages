@@ -291,3 +291,46 @@ accounts (administrator, project leader with `manage_users` and
 and paired device tokens. It covered positive and refused calls, conflicts,
 repetitions, confirmations, revocation and the absence of temporary
 passwords in operation keys, history and server log. No live data was used.
+
+## PAGE-316: protected Management role and business contract
+
+`role-administration` (Verwaltung / Management) grants business-wide account,
+project, ticket, plan-reading/editing and wiki access directly in role mode.
+It never grants administrator mode, administrator-account access, credential
+management, account deletion, YOLO grants or core-system configuration.
+Only administrators assign or revoke this protected role.
+
+The user resources now use the PAGE-316 projection: `kind`, `role`, `status`,
+`departments`, `groups`, and on detail reads `email`, `projects`, `revision` and
+`agent`. Creation accepts `displayName`, `username`, `role`, `departmentIds`,
+`groupIds`, `kind`, human `email` and agent documents/model configuration.
+Human credentials are sent only through `AccountInvitationDelivery`; no public
+creation response contains authentication material. The standard adapter
+speaks to local `sendmail` without a shell.
+
+The added resources are `POST /users/{id}/status`, `PUT /users/{id}/avatar`,
+`PUT /projects/{id}/members` and `PUT /projects/{id}/departments`, all under
+`/api/mcp/v1/`. Group creation and patching also accept `description` and
+`leaderIds`. These mutations require `expectedRevision` except on creation,
+including avatar replacement, and optionally accept `operationId`. The opaque
+revision covers the complete current editable state, including changes from
+older UI clients. A stale request receives `CONFLICT` and `currentRevision`.
+The same operation ID and input replay the stored public result.
+
+Read group revisions through `GET /groups/{id}?view=management` or the companion
+`groups_read` tool; project reads include the revision used by membership and
+department replacement. All ten PAGE-316 contract tools and `groups_read` are
+registered in the common Pages tool catalog used by `pages-pica`.
+
+Failures of the new contract use uppercase `FORBIDDEN` with `reason`
+(`core_system`, `admin_target`, `self_escalation`, `role_grant`, `access_level`),
+`NOT_FOUND`, `CONFLICT`, `INVALID_REQUEST` with `reason`, or `PAYLOAD_TOO_LARGE`.
+Avatars are limited to 5 MiB, decoded with their declared image signature,
+and stored as server-rendered PNG; SVG is rebuilt from inert drawing elements
+without scripts, entities, styles, links or external resources before rendering.
+
+The verified management actor is carried into the database call. Migration
+`057_business_administration.sql` records sanitized before/after changes in
+`management_audit`; the service records completed reads too. Administrators
+see account, ISO time, operation, target and change in the user management
+activity tab. The role itself cannot read that audit view.

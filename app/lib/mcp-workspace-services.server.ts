@@ -1,5 +1,7 @@
 import path from "node:path";
 
+import { ManagementService } from "@/backend/service/management/ManagementService";
+import { SendmailInvitationDelivery } from "@/backend/service/management/SendmailInvitationDelivery";
 import { StorageOperationRepository } from "@/backend/database/repositories/google/StorageOperationRepository";
 import { isLocalSessionOwner } from "@/backend/agents/local/LocalSessionMode";
 import { AgentPlanStepReportRepository } from "@/backend/database/repositories/agent/AgentPlanStepReportRepository";
@@ -20,6 +22,7 @@ import { createMcpServices } from "./mcp-services.server";
 import { picaBrowserOptions } from "./pica-browser.server";
 import { startWikiMaintenanceScheduler } from "./services-background.server";
 
+import type { PasswordHasher } from "@/backend/auth/PasswordHasher";
 import type { SessionService } from "@/backend/auth/SessionService";
 import type { ServerCache } from "@/backend/cache/ServerCache";
 import type { Database } from "@/backend/database/Database";
@@ -66,6 +69,8 @@ interface McpWorkspaceContext {
     | "taskTemplateService"
   >;
   readonly serverCache: ServerCache;
+  /** The one password hasher of the application, shared with the account services. */
+  readonly hasher: PasswordHasher;
   readonly tokenKey: Buffer;
 }
 
@@ -73,6 +78,7 @@ interface McpWorkspaceContext {
 function createWorkspaceServices(
   context: McpWorkspaceContext,
   directory: string,
+  management: () => ManagementService,
 ): McpApplicationServices {
   // The publisher of the ticket pages, on its own repository: agent ticket changes
   // follow the same GitHub rule once they are committed.
@@ -86,6 +92,7 @@ function createWorkspaceServices(
   const { users, administration } = context.accounts;
   return createMcpServices(context.database, users, administration, {
     directory,
+    management,
     externalFiles: {
       files: context.tasks.googleDriveFileService,
       access: context.tasks.storageAccessService,
@@ -116,13 +123,22 @@ function createWorkspaceServices(
  * Builds the agent write services and the chat on the same operation catalog,
  * and shares the existing maintenance scheduler.
  */
-export async function startMcpWorkspace(
-  context: McpWorkspaceContext,
-): Promise<
-  McpApplicationServices & ChatApplicationServices & EmployeeApplicationServices
+export async function startMcpWorkspace(context: McpWorkspaceContext): Promise<
+  McpApplicationServices &
+    ChatApplicationServices &
+    EmployeeApplicationServices & {
+      readonly managementService: ManagementService;
+    }
 > {
   const directory = path.dirname(context.databasePath);
-  const services = createWorkspaceServices(context, directory);
+  // The management service needs the employee services, which need the agent
+  // services built here, so the agent services reach it through this slot.
+  const managementSlot: { service?: ManagementService } = {};
+  const services = createWorkspaceServices(context, directory, () => {
+    if (!managementSlot.service)
+      throw new Error("Management services are not initialized");
+    return managementSlot.service;
+  });
   const runtime = await getPagesRuntime();
   const picaSettings = await picaAcpSettings();
   const chat = createChatServices({
@@ -169,6 +185,14 @@ export async function startMcpWorkspace(
       publicUrl: runtime.getConfig().publicUrl,
     },
   });
+  const managementService = new ManagementService({
+    database: context.database,
+    cache: context.serverCache,
+    hasher: context.hasher,
+    agents: employees.agentEmployeeAdministration,
+    invitations: new SendmailInvitationDelivery(),
+  });
+  managementSlot.service = managementService;
   chat.picaAcpService?.setAgentDeletions(employees.agentDeletionService);
   if (!isLocalSessionOwner() && !isPagesRunsProcess())
     startWikiMaintenanceScheduler(
@@ -181,6 +205,7 @@ export async function startMcpWorkspace(
     );
   return {
     ...services,
+    managementService,
     ...chat,
     ...employees,
   };

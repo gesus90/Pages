@@ -38,8 +38,11 @@ export async function readVisiblePlanRuns(
   planId: string,
 ): Promise<readonly AgentPlanRunSummary[]> {
   return withReadScope(async () => {
-    await dependencies.access.require(userId, planId);
-    const bases = await dependencies.runs.visibilityBases(userId, planId);
+    const plan = await dependencies.access.require(userId, planId);
+    const bases = await dependencies.runs.visibilityBases(
+      plan.rights?.canReadAllRuns ? null : userId,
+      planId,
+    );
     const decided = new Map<string, boolean>();
     const visible: AgentPlanRunSummary[] = [];
     for (const basis of bases) {
@@ -51,7 +54,9 @@ export async function readVisiblePlanRuns(
       const key = JSON.stringify(used);
       let isReadable = decided.get(key);
       if (isReadable === undefined) {
-        isReadable = await mayRead(dependencies, userId, used);
+        isReadable =
+          plan.rights?.canReadAllRuns === true ||
+          (await mayRead(dependencies, userId, used));
         decided.set(key, isReadable);
       }
       if (isReadable)

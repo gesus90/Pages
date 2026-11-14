@@ -1,15 +1,18 @@
-import { useLoaderData } from "react-router";
+import { useLoaderData, useSearchParams } from "react-router";
 
+import { CHAT_PAGE_ENDPOINT, isChatDirectory } from "@/app/lib/chat-directory";
 import { ChatPage } from "@/app/components/chat-page/chat-page";
 import { sendToBackend } from "@/app/lib/backend-request";
 import { readRouteData } from "@/app/lib/local-state/route-data";
 
 import type { ShouldRevalidateFunctionArgs } from "react-router";
-import type { VirtualChatDirectory } from "@/definition/VirtualChat";
+import type {
+  VirtualChatDirectory,
+  VirtualChatSelection,
+} from "@/definition/VirtualChat";
 import type { Route } from "./+types/chat-page";
 
-/** The endpoint of the chat page; it reads with the rights of the signed-in account. */
-export const CHAT_PAGE_ENDPOINT = "/chat-page-api/page";
+export { CHAT_PAGE_ENDPOINT, isChatDirectory } from "@/app/lib/chat-directory";
 
 /** The changes after which the page keeps its data. */
 const QUIET_INTENTS: readonly string[] = [
@@ -17,20 +20,6 @@ const QUIET_INTENTS: readonly string[] = [
   "card-state",
   "split-width",
 ];
-
-/** Recognizes the answer of the chat page endpoint. */
-export function isChatDirectory(value: unknown): value is VirtualChatDirectory {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    "participants" in value &&
-    Array.isArray(value.participants) &&
-    "contactChoices" in value &&
-    Array.isArray(value.contactChoices) &&
-    "histories" in value &&
-    typeof value.histories === "object"
-  );
-}
 
 /**
  * Reads the participants, the dialog choices and the histories of the chat
@@ -69,5 +58,17 @@ export async function clientAction({
 
 /** Renders the chat page with people, agents and groups. */
 export default function ChatPageRoute(): React.ReactElement {
-  return <ChatPage directory={useLoaderData<typeof clientLoader>()} />;
+  const [params] = useSearchParams();
+  const kind = params.get("kind");
+  const id = params.get("id");
+  const requestedSelection: VirtualChatSelection | undefined =
+    (kind === "group" || kind === "participant") && id
+      ? { kind, id }
+      : undefined;
+  return (
+    <ChatPage
+      directory={useLoaderData<typeof clientLoader>()}
+      requestedSelection={requestedSelection}
+    />
+  );
 }

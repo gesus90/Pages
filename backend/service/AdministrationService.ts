@@ -1,31 +1,36 @@
-import { createHash, randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 
+import { AgentOperationError } from "@/backend/error/AgentOperationError";
+import { accountForChannel } from "@/backend/auth/McpActorContext";
 import { UserPolicyService } from "@/backend/auth/UserPolicyService";
 import { generateTemporaryPassword } from "@/backend/auth/TemporaryPassword";
 import { AdministrationError } from "@/backend/error/AdministrationError";
-import { EmailTakenError } from "@/backend/error/UserErrors";
-import { CAPABILITY } from "@/definition/Authorization";
+import { ADMINISTRATION_ROLE_ID, CAPABILITY } from "@/definition/Authorization";
 import { EMAIL_PATTERN } from "@/definition/User";
+import { holdsNulCharacter } from "@/backend/security/IdentityText";
 
+import {
+  requireManagementTarget,
+  requireManagementRole,
+} from "./management/ManagementPolicy";
 import {
   activeAccount,
   findAccount,
   requireAdministration,
+  requireKnownDepartments,
   validateAdministrationName,
 } from "./AdministrationAccess";
-import {
-  projectProjection,
-  updateProjectProjection,
-} from "./LegacyProjectAuthorization";
+import { updateProjectProjection } from "./LegacyProjectAuthorization";
 import { RoleAdministrationService } from "./RoleAdministrationService";
 import { DepartmentAdministrationService } from "./DepartmentAdministrationService";
 import { GroupAdministrationService } from "./GroupAdministrationService";
+import { UserCreationService } from "./UserCreationService";
 
+import type { AccountInvitationDelivery } from "@/definition/Management";
 import type {
   AuthorizationRepository,
   AuthorizationSnapshot,
 } from "@/backend/database/repositories/AuthorizationRepository";
-import { holdsNulCharacter } from "@/backend/security/IdentityText";
 import type {
   AccountAccess,
   AccountMode,
@@ -120,13 +125,14 @@ export class AdministrationService {
         users: await scope.listUsers(userId),
         assignableRoles: directory.roles,
         departments: directory.departments,
-        manageableDepartmentIds,
-        adoptableDepartmentIds: this.policy.has(
+        manageableDepartmentIds: this.policy.isManagement(actor)
+          ? snapshot.departments.map((department) => department.id)
+          : manageableDepartmentIds,
+        adoptableDepartmentIds: this.adoptableDepartmentIds(
           actor,
-          CAPABILITY.MANAGE_DEPARTMENTS,
-        )
-          ? manageableDepartmentIds
-          : actor.departments,
+          snapshot,
+          manageableDepartmentIds,
+        ),
         groups: await new GroupAdministrationService(
           repository,
           this.cache,
@@ -171,6 +177,7 @@ export class AdministrationService {
         (department) =>
           this.policy.isAdministrator(actor) ||
           this.policy.canManageDepartment(actor, department.id) ||
+          this.policy.isManagement(actor) ||
           actor.departments.includes(department.id) ||
           accounts.some((account) =>
             account.departments.includes(department.id),
@@ -224,6 +231,11 @@ export class AdministrationService {
           canManageAccess,
           canManageMemberships,
           canManageScope,
+          canResetPassword: canManageAccess && !this.policy.isManagement(actor),
+          canAssignRole:
+            canEditProfile &&
+            (account.role?.id !== ADMINISTRATION_ROLE_ID ||
+              this.policy.isAdministrator(actor)),
           canManage:
             canEditProfile ||
             canManageAccess ||
@@ -238,77 +250,17 @@ export class AdministrationService {
   public async createUser(
     userId: string,
     input: AccountCreateInput,
+    delivery?: AccountInvitationDelivery,
   ): Promise<{ readonly temporaryPassword: string }> {
     this.validateProfile(input);
     validateAdministrationName(input.firstName);
-    validateAdministrationName(input.lastName);
-    const result = await this.repository.transaction(async (repository) => {
-      const snapshot = await repository.snapshot();
-      const actor = activeAccount(snapshot, userId);
-      requireAdministration(this.policy.has(actor, CAPABILITY.MANAGE_USERS));
-      requireAdministration(
-        !input.isAdmin || this.policy.isAdministrator(actor),
-      );
-      const role =
-        snapshot.roles.find((candidate) => candidate.id === input.roleId) ??
-        null;
-      if (
-        (input.roleId !== null && role === null) ||
-        (!input.isAdmin && role === null)
-      ) {
-        throw new AdministrationError("invalidInput");
-      }
-      requireAdministration(
-        role === null || this.policy.canAssignRole(actor, role),
-      );
-      const account: AccountAccess = {
-        userId: randomUUID(),
-        role,
-        isAdmin: input.isAdmin,
-        mode: input.isAdmin ? "admin" : "role",
-        firstName: input.firstName.trim(),
-        lastName: input.lastName.trim(),
-        isActive: true,
-        departments: [],
-        managedDepartments: [],
-        allDepartments: false,
-        allProjects: false,
-        hasHadDepartment: false,
-      };
-      if (input.departments.length > 0) {
-        requireAdministration(
-          this.policy.canSetMemberships(actor, account, input.departments),
-        );
-        this.validateDepartments(snapshot, input.departments);
-      }
-      const temporaryPassword = generateTemporaryPassword();
-      if (input.email && (await repository.users().findByEmail(input.email))) {
-        throw new EmailTakenError(input.email);
-      }
-      await repository.users().insert({
-        id: account.userId,
-        username: input.username.trim(),
-        displayName: `${account.firstName} ${account.lastName}`,
-        email: input.email,
-        passwordHash: await this.hasher.hash(temporaryPassword),
-        mustChangePassword: true,
-        role: projectProjection(account),
-        authorization: {
-          roleId: role?.id ?? null,
-          isAdmin: input.isAdmin,
-          mode: account.mode,
-          firstName: account.firstName,
-          lastName: account.lastName,
-        },
-      });
-      await repository.saveAccount({
-        ...account,
-        departments: input.departments,
-      });
-      return { temporaryPassword };
-    });
-    this.cache.invalidateUsers();
-    return result;
+    if (!delivery) validateAdministrationName(input.lastName);
+    return new UserCreationService(
+      this.repository,
+      this.cache,
+      this.hasher,
+      this.channel,
+    ).create(userId, input, delivery);
   }
 
   /** Changes identity fields without giving implicit role or membership permissions. */
@@ -320,8 +272,12 @@ export class AdministrationService {
     this.validateProfile(input);
     await this.repository.transaction(async (repository) => {
       const snapshot = await repository.snapshot();
-      const actor = activeAccount(snapshot, userId);
+      const actor = accountForChannel(
+        activeAccount(snapshot, userId),
+        this.channel,
+      );
       const target = findAccount(snapshot, targetId);
+      requireManagementTarget(actor, target);
       requireAdministration(
         this.policy.canChange(actor, target, CAPABILITY.MANAGE_ROLES),
       );
@@ -375,13 +331,19 @@ export class AdministrationService {
     return this.repository.transaction(async (repository) => {
       const snapshot = await repository.snapshot();
       const target = findAccount(snapshot, targetId);
-      requireAdministration(
-        this.policy.canChange(
-          activeAccount(snapshot, userId),
-          target,
-          CAPABILITY.MANAGE_USERS,
-        ),
+      const actor = accountForChannel(
+        activeAccount(snapshot, userId),
+        this.channel,
       );
+      requireManagementTarget(actor, target);
+      requireAdministration(
+        this.policy.canChange(actor, target, CAPABILITY.MANAGE_USERS),
+      );
+      if (
+        this.policy.isManagement(actor) &&
+        !this.policy.isAdministrator(actor)
+      )
+        throw new AgentOperationError("FORBIDDEN", { reason: "core_system" });
       // An agent has no password to reset (PAGE-266).
       if (target.isAgent === true)
         throw new AdministrationError("invalidInput");
@@ -401,10 +363,14 @@ export class AdministrationService {
   ): Promise<void> {
     await this.repository.transaction(async (repository) => {
       const snapshot = await repository.snapshot();
-      requireAdministration(
-        this.policy.isAdministrator(activeAccount(snapshot, userId)),
-      );
-      this.validateDepartments(snapshot, scope.managedDepartments);
+      const actor = activeAccount(snapshot, userId);
+      if (
+        this.policy.isManagement(actor) &&
+        !this.policy.isAdministrator(actor)
+      )
+        throw new AgentOperationError("FORBIDDEN", { reason: "role_grant" });
+      requireAdministration(this.policy.isAdministrator(actor));
+      requireKnownDepartments(snapshot, scope.managedDepartments);
       await repository.saveAccount({
         ...findAccount(snapshot, targetId),
         ...scope,
@@ -468,19 +434,16 @@ export class AdministrationService {
   ): Promise<void> {
     await this.repository.transaction(async (repository) => {
       const snapshot = await repository.snapshot();
-      const actor = activeAccount(snapshot, userId);
+      const actor = accountForChannel(
+        activeAccount(snapshot, userId),
+        this.channel,
+      );
       const target = findAccount(snapshot, targetId);
+      requireManagementTarget(actor, target);
       requireAdministration(
         this.policy.canSetMemberships(actor, target, departments),
       );
-      if (
-        departments.some(
-          (id) =>
-            !snapshot.departments.some((department) => department.id === id),
-        )
-      ) {
-        throw new AdministrationError("invalidInput");
-      }
+      requireKnownDepartments(snapshot, departments);
       await repository.saveAccount({ ...target, departments });
     });
     this.cache.invalidateProjectMembership();
@@ -490,6 +453,10 @@ export class AdministrationService {
   public async setMode(userId: string, mode: AccountMode): Promise<void> {
     await this.repository.transaction(async (repository) => {
       const actor = activeAccount(await repository.snapshot(), userId);
+      if (this.policy.isManagement(actor) && !actor.isAdmin)
+        throw new AgentOperationError("FORBIDDEN", {
+          reason: "self_escalation",
+        });
       requireAdministration(
         actor.isAdmin && (mode === "admin" || actor.role !== null),
       );
@@ -507,9 +474,13 @@ export class AdministrationService {
   ): Promise<void> {
     await this.repository.transaction(async (repository) => {
       const snapshot = await repository.snapshot();
-      requireAdministration(
-        this.policy.isAdministrator(activeAccount(snapshot, userId)),
-      );
+      const actor = activeAccount(snapshot, userId);
+      if (
+        this.policy.isManagement(actor) &&
+        !this.policy.isAdministrator(actor)
+      )
+        throw new AgentOperationError("FORBIDDEN", { reason: "role_grant" });
+      requireAdministration(this.policy.isAdministrator(actor));
       const target = findAccount(snapshot, targetId);
       // An agent never becomes an administrator (PAGE-266).
       if (isAdmin && target.isAgent === true)
@@ -538,8 +509,12 @@ export class AdministrationService {
   ): Promise<void> {
     await this.repository.transaction(async (repository) => {
       const snapshot = await repository.snapshot();
-      const actor = activeAccount(snapshot, userId);
+      const actor = accountForChannel(
+        activeAccount(snapshot, userId),
+        this.channel,
+      );
       const target = findAccount(snapshot, targetId);
+      requireManagementTarget(actor, target);
       const role = snapshot.roles.find((candidate) => candidate.id === roleId);
       requireAdministration(
         this.policy.canChange(actor, target, CAPABILITY.MANAGE_ROLES),
@@ -547,7 +522,13 @@ export class AdministrationService {
       if (!role) {
         throw new AdministrationError("notFound");
       }
+      requireManagementRole(actor, role.id);
+      requireManagementTarget(actor, target, role.id);
       requireAdministration(this.policy.canAssignRole(actor, role));
+      requireAdministration(
+        target.role?.id !== ADMINISTRATION_ROLE_ID ||
+          this.policy.isAdministrator(actor),
+      );
       await repository.saveAccount({ ...target, role });
       await updateProjectProjection(repository);
     });
@@ -562,8 +543,12 @@ export class AdministrationService {
   ): Promise<void> {
     await this.repository.transaction(async (repository) => {
       const snapshot = await repository.snapshot();
-      const actor = activeAccount(snapshot, userId);
+      const actor = accountForChannel(
+        activeAccount(snapshot, userId),
+        this.channel,
+      );
       const target = findAccount(snapshot, targetId);
+      requireManagementTarget(actor, target);
       requireAdministration(
         this.policy.canChange(actor, target, CAPABILITY.MANAGE_USERS),
       );
@@ -607,17 +592,15 @@ export class AdministrationService {
     }
   }
 
-  private validateDepartments(
+  private adoptableDepartmentIds(
+    actor: AccountAccess,
     snapshot: AuthorizationSnapshot,
-    ids: readonly string[],
-  ): void {
-    if (
-      ids.some(
-        (id) =>
-          !snapshot.departments.some((department) => department.id === id),
-      )
-    ) {
-      throw new AdministrationError("invalidInput");
-    }
+    manageableDepartmentIds: readonly string[],
+  ): readonly string[] {
+    if (this.policy.isManagement(actor))
+      return snapshot.departments.map((department) => department.id);
+    if (this.policy.has(actor, CAPABILITY.MANAGE_DEPARTMENTS))
+      return manageableDepartmentIds;
+    return actor.departments;
   }
 }

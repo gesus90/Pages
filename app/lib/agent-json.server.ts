@@ -13,11 +13,11 @@ export async function readAgentJson(
     throw new AgentOperationError("INVALID_REQUEST");
   if (
     Number(request.headers.get("content-length")) >
-    PAGES_AGENT_LIMITS.wikiEnvelopeBytes
+    PAGES_AGENT_LIMITS.managementAvatarEnvelopeBytes
   )
     throw new AgentOperationError("PAYLOAD_TOO_LARGE", {
       constraint: "requestBytes",
-      limit: PAGES_AGENT_LIMITS.wikiEnvelopeBytes,
+      limit: PAGES_AGENT_LIMITS.managementAvatarEnvelopeBytes,
     });
   const reader = request.body?.getReader();
   if (!reader) throw new AgentOperationError("INVALID_REQUEST");
@@ -28,11 +28,11 @@ export async function readAgentJson(
       const chunk = await reader.read();
       if (chunk.done) break;
       length += chunk.value.byteLength;
-      if (length > PAGES_AGENT_LIMITS.wikiEnvelopeBytes) {
+      if (length > PAGES_AGENT_LIMITS.managementAvatarEnvelopeBytes) {
         await reader.cancel();
         throw new AgentOperationError("PAYLOAD_TOO_LARGE", {
           constraint: "requestBytes",
-          limit: PAGES_AGENT_LIMITS.wikiEnvelopeBytes,
+          limit: PAGES_AGENT_LIMITS.managementAvatarEnvelopeBytes,
         });
       }
       chunks.push(chunk.value);

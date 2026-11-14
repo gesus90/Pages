@@ -155,7 +155,7 @@ export class AgentPlanRunVisibilityRepository {
    * @param planId - The plan.
    */
   public async bases(
-    userId: string,
+    userId: string | null,
     planId: string,
   ): Promise<readonly AgentPlanRunVisibilityBasis[]> {
     const versions = await this.versions(userId, planId);
@@ -173,7 +173,7 @@ export class AgentPlanRunVisibilityRepository {
   }
 
   private async versions(
-    userId: string,
+    userId: string | null,
     planId: string,
   ): Promise<readonly RunVersion[]> {
     const rows = await this.database.query(
@@ -189,7 +189,7 @@ export class AgentPlanRunVisibilityRepository {
               WHERE continuations.run_id = runs.id
           ) AS basis_count
       FROM agent_plan_runs AS runs
-      WHERE runs.user_id = $user_id
+      WHERE (CAST($user_id AS TEXT) IS NULL OR runs.user_id = $user_id)
           AND runs.plan_id = $plan_id
       ORDER BY runs.started_at DESC, runs.id DESC;
     `,

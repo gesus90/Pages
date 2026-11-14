@@ -1,4 +1,5 @@
-import { CAPABILITY } from "@/definition/Authorization";
+import { ADMINISTRATION_ROLE_ID, CAPABILITY } from "@/definition/Authorization";
+
 import { accountForChannel } from "./McpActorContext";
 
 import type { ActorChannel } from "./McpActorContext";
@@ -29,10 +30,23 @@ export class UserPolicyService {
     );
   }
 
+  /** Recognizes the protected business role without granting core-system administration. */
+  public isManagement(actor: AccountAccess): boolean {
+    return actor.isActive && actor.role?.id === ADMINISTRATION_ROLE_ID;
+  }
+
+  /** Combines business-wide visibility with the existing administrator mode. */
+  public hasGlobalAccess(actor: AccountAccess): boolean {
+    return this.isAdministrator(actor) || this.isManagement(actor);
+  }
+
   /** Checks a capability independently of target visibility and hierarchy. */
   public has(actor: AccountAccess, capability: Capability): boolean {
     return (
       this.isAdministrator(actor) ||
+      (this.isManagement(actor) &&
+        capability !== CAPABILITY.MANAGE_ROLES &&
+        capability !== CAPABILITY.MANAGE_DEPARTMENTS) ||
       (actor.isActive &&
         actor.role !== null &&
         actor.role.permissions.includes(capability))
@@ -66,7 +80,7 @@ export class UserPolicyService {
     if (!this.canEnter(actor)) {
       return false;
     }
-    if (this.isAdministrator(actor) || target.departments.length === 0) {
+    if (this.hasGlobalAccess(actor) || target.departments.length === 0) {
       return true;
     }
     const canSeeMembers =
@@ -85,6 +99,15 @@ export class UserPolicyService {
     target: AccountAccess,
     capability: Capability,
   ): boolean {
+    if (this.isManagement(actor) && !this.isAdministrator(actor)) {
+      return (
+        !target.isAdmin &&
+        actor.userId !== target.userId &&
+        (capability === CAPABILITY.MANAGE_USERS ||
+          capability === CAPABILITY.MANAGE_ROLES ||
+          capability === CAPABILITY.MANAGE_DEPARTMENTS)
+      );
+    }
     const allowedRank =
       this.isAdministrator(actor) ||
       (actor.userId !== target.userId &&
@@ -98,9 +121,9 @@ export class UserPolicyService {
 
   /** Prevents assignment from granting a higher rank or additional capabilities. */
   public canAssignRole(actor: AccountAccess, role: UserRole): boolean {
-    if (this.isAdministrator(actor)) {
-      return true;
-    }
+    if (this.isAdministrator(actor)) return true;
+    if (role.id === ADMINISTRATION_ROLE_ID) return false;
+    if (this.isManagement(actor)) return true;
     return (
       actor.isActive &&
       actor.role !== null &&
@@ -117,9 +140,9 @@ export class UserPolicyService {
     next: UserRole,
     holders: readonly AccountAccess[],
   ): boolean {
-    if (this.isAdministrator(actor)) {
-      return true;
-    }
+    if (current.id === ADMINISTRATION_ROLE_ID) return false;
+    if (this.isAdministrator(actor)) return true;
+    if (this.isManagement(actor)) return false;
     return (
       actor.role !== null &&
       this.has(actor, CAPABILITY.MANAGE_ROLES) &&
@@ -141,9 +164,9 @@ export class UserPolicyService {
     if (next.length === 0 && target.hasHadDepartment) {
       return false;
     }
-    if (this.isAdministrator(actor)) {
-      return true;
-    }
+    if (this.isAdministrator(actor)) return true;
+    if (this.isManagement(actor))
+      return !target.isAdmin && target.userId !== actor.userId;
     const capability = this.has(actor, CAPABILITY.MANAGE_DEPARTMENTS)
       ? CAPABILITY.MANAGE_DEPARTMENTS
       : CAPABILITY.MANAGE_ROLES;
@@ -177,7 +200,7 @@ export class UserPolicyService {
   ): boolean {
     return (
       this.canManageGroups(actor) &&
-      (this.isAdministrator(actor) ||
+      (this.hasGlobalAccess(actor) ||
         members.length === 0 ||
         members.some((member) => this.canSee(actor, member)))
     );
@@ -190,7 +213,7 @@ export class UserPolicyService {
   ): boolean {
     return (
       this.canManageGroups(actor) &&
-      (this.isAdministrator(actor) ||
+      (this.hasGlobalAccess(actor) ||
         members.every((member) => this.canSee(actor, member)))
     );
   }

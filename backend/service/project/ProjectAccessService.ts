@@ -93,7 +93,7 @@ export class ProjectAccessService {
         projectIds,
         departments,
         visibility: {
-          departmentIds: this.users.isAdministrator(account)
+          departmentIds: this.users.hasGlobalAccess(account)
             ? null
             : account.departments,
           projectIds,

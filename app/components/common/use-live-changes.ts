@@ -85,9 +85,13 @@ function useGatheredRevalidation(): () => void {
  * between changes.
  *
  * @param version - The authorization fingerprint the page was loaded with.
+ * @param onChatChange - Refreshes notification previews on conversation changes and resyncs.
  * @returns Whether notices arrive right now.
  */
-export function useLiveChanges(version: string): boolean {
+export function useLiveChanges(
+  version: string,
+  onChatChange?: () => void,
+): boolean {
   const [isLive, setIsLive] = useState(false);
   const [needsFallback, setNeedsFallback] = useState(false);
   const { pathname } = useLocation();
@@ -103,15 +107,19 @@ export function useLiveChanges(version: string): boolean {
     }
     return openLiveConnection(version, {
       onChange: (change) => {
+        if (change.kind === "conversation") onChatChange?.();
         if (concerns(change, pathnameRef.current)) schedule();
       },
-      onResync: schedule,
+      onResync: () => {
+        schedule();
+        onChatChange?.();
+      },
       onLiveChange: (next) => {
         setIsLive(next);
         if (!next) setNeedsFallback(true);
       },
     });
-  }, [version, schedule]);
+  }, [version, schedule, onChatChange]);
   useEffect(() => {
     if (isLive || !needsFallback) return undefined;
     const timer = window.setInterval(() => {

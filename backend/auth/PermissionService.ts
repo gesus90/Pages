@@ -64,6 +64,15 @@ export class PermissionService {
     return this.hasPermission(actor.role, permission);
   }
 
+  /** Resolves the protected business role independently of administrator mode. */
+  public async isManagement(actor: User): Promise<boolean> {
+    return this.resolveAccount
+      ? new UserPolicyService().isManagement(
+          await this.resolveAccount(actor.id),
+        )
+      : false;
+  }
+
   /** Resolves legacy route permissions against current account facts in the running app. */
   public async allows(actor: User, permission: Permission): Promise<boolean> {
     const allowed = await this.evaluatePermission(actor, permission);

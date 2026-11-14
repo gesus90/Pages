@@ -60,6 +60,7 @@ import { createPreferenceServices } from "./preference-services.server";
 import { registerShutdownHandler } from "./services-shutdown.server";
 import { createAutomationServices } from "./automation-services.server";
 
+import type { ManagementService } from "@/backend/service/management/ManagementService";
 import type { WikiService } from "@/backend/service/WikiService";
 import type { AutomationApplicationServices } from "./automation-services.server";
 import type { TaskAttachmentService } from "@/backend/service/task/TaskAttachmentService";
@@ -99,6 +100,7 @@ export interface ApplicationServices
     SystemApplicationServices,
     AutomationApplicationServices,
     AgentPlanLoaderServices {
+  readonly managementService: ManagementService;
   readonly administrationService: AdministrationService;
   readonly agentPlanService: AgentPlanService;
   readonly agentLocalSessionPreparation: AgentLocalSessionPreparation;
@@ -298,6 +300,7 @@ async function initializeServices(
     projects: projectService,
     tasks: taskServices,
     serverCache,
+    hasher: passwordHasher,
     tokenKey,
   });
   return {

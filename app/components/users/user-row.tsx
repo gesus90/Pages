@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 
+import { userRoleLabel } from "@/app/lib/user-role-label";
 import { UserAvatar } from "@/app/components/common/user-avatar";
 import { UserPrivateWikiPages } from "@/app/components/users/user-private-wiki-pages";
 import { UserRowActions } from "@/app/components/users/user-row-actions";
@@ -60,7 +61,7 @@ export function UserRow({
         )}
       </td>
       <td className="pages-selectable px-4 py-3 text-sm text-foreground">
-        {user.account.role?.name ?? "—"}
+        {userRoleLabel(user.account.role, t)}
       </td>
       <td className="px-4 py-3">
         <span className="inline-flex items-center gap-2 text-sm">

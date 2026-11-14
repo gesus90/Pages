@@ -10,6 +10,7 @@ import { SURFACE_SCROLL_FADE_STYLE } from "@/app/lib/scroll-fade-style";
 import type { SessionSummary } from "@/definition/Session";
 
 interface SecurityCardProps {
+  readonly canChangePassword?: boolean;
   readonly sessions: readonly SessionSummary[];
   readonly onChangePassword: () => void;
   readonly onRevokeSession: (sessionId: string) => void;
@@ -19,6 +20,7 @@ interface SecurityCardProps {
 /** Renders the password entry and the list of active sessions. */
 export function SecurityCard({
   sessions,
+  canChangePassword = true,
   onChangePassword,
   onRevokeSession,
   onRevokeOtherSessions,
@@ -32,31 +34,33 @@ export function SecurityCard({
       title={t("settings.security.title")}
     >
       <div className="flex flex-col">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex min-w-0 items-center gap-3">
-            <span
-              className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground"
-              aria-hidden="true"
-            >
-              <KeyRound className="size-4" aria-hidden="true" />
-            </span>
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-foreground">
-                {t("settings.security.password.title")}
-              </p>
-              <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-                {t("settings.security.password.description")}
-              </p>
+        {canChangePassword ? (
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-center gap-3">
+              <span
+                className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground"
+                aria-hidden="true"
+              >
+                <KeyRound className="size-4" aria-hidden="true" />
+              </span>
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-foreground">
+                  {t("settings.security.password.title")}
+                </p>
+                <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
+                  {t("settings.security.password.description")}
+                </p>
+              </div>
             </div>
+            <Button
+              className="h-9 shrink-0 px-3 text-xs"
+              onClick={onChangePassword}
+              variant="outline"
+            >
+              {t("settings.security.password.action")}
+            </Button>
           </div>
-          <Button
-            className="h-9 shrink-0 px-3 text-xs"
-            onClick={onChangePassword}
-            variant="outline"
-          >
-            {t("settings.security.password.action")}
-          </Button>
-        </div>
+        ) : null}
 
         <div className="mt-6 pt-1">
           <div className="flex items-center gap-3">

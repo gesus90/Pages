@@ -1,3 +1,6 @@
+import { useTranslation } from "react-i18next";
+
+import { userRoleLabel } from "@/app/lib/user-role-label";
 import { Select } from "@/app/components/ui/select";
 
 import type { UserRole } from "@/definition/Authorization";
@@ -22,7 +25,11 @@ export function RoleSelect({
   onChange,
   className,
 }: RoleSelectProps): React.ReactElement {
-  const options = roles.map((role) => ({ label: role.name, value: role.id }));
+  const { t } = useTranslation();
+  const options = roles.map((role) => ({
+    label: userRoleLabel(role, t),
+    value: role.id,
+  }));
   if (unassignedLabel) options.unshift({ label: unassignedLabel, value: "" });
   return (
     <div className="flex flex-col gap-2">
