@@ -1,3 +1,5 @@
+import path from "node:path";
+
 import { createModelNodeRunners } from "./agent-plan-swarm.server";
 import { canProcessRuns } from "@/backend/runtime/RunsMode";
 import { registerShutdownTask } from "@/backend/runtime/ProcessLifecycle";
@@ -629,7 +631,10 @@ async function createPlanEngine(
     localSessions: input.agents.localSessions ?? undefined,
     workGate: new AgentPlanWorkGate(input.database, input.users),
     remoteExecution: parts.remoteExecution,
-    scripts: new AgentPlanScriptRunner(parts.scripts),
+    scripts: new AgentPlanScriptRunner(
+      parts.scripts,
+      path.join(path.dirname(runtime.getDatabasePath()), "shared-env"),
+    ),
     ...createModelNodeRunners(input, parts),
     runs: parts.runs,
     start: parts.start,

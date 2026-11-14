@@ -39,9 +39,14 @@ must explicitly resolve them from the working directory.
 There is no shell command-line concatenation, source interpolation, model call
 or ACP session.
 
-The environment is a fresh allowlist: PATH (interpreter/Node directories and
-standard executable directories), private HOME/TMPDIR/XDG directories, C.UTF-8
-locale, dumb terminal, NO_COLOR and the existing per-attempt ownership tag.
+The environment is a fresh allowlist: PATH (the instance-pinned pnpm,
+interpreter/Node directories and standard executable directories), private
+HOME/TMPDIR and XDG config/data/state directories, C.UTF-8 locale, dumb terminal,
+NO_COLOR and the existing per-attempt ownership tag.
+Packages, the pnpm global virtual store and browser caches use the instance-wide
+`data/shared-env` environment, writable at the same absolute path inside the
+script namespace. `XDG_CACHE_HOME` is shared; the other XDG locations and HOME
+remain private to the attempt. Pages prepares the pinned pnpm before spawn.
 The child inherits umask 0077; newly created files default to owner-only access.
 Provider keys, gateway tokens, GitHub credentials, proxy settings, SSH agents
 and interpreter startup hooks are not inherited. No arbitrary credential

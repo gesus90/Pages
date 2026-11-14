@@ -28,14 +28,20 @@ export class AgentEnvironmentMaintenance {
   private readonly root: string;
   private readonly repository: Pick<
     AgentEnvironmentRepository,
-    "maintainPlan" | "canRemoveRun" | "purgeObsoleteRuns"
+    | "maintainPlan"
+    | "canRemoveRun"
+    | "purgeObsoleteRuns"
+    | "maintainConnectionCaches"
   >;
 
   public constructor(
     root: string,
     repository: Pick<
       AgentEnvironmentRepository,
-      "maintainPlan" | "canRemoveRun" | "purgeObsoleteRuns"
+      | "maintainPlan"
+      | "canRemoveRun"
+      | "purgeObsoleteRuns"
+      | "maintainConnectionCaches"
     >,
   ) {
     this.root = root;
@@ -49,8 +55,39 @@ export class AgentEnvironmentMaintenance {
     for (const connection of await entries(agents)) {
       if (!connection.isDirectory()) continue;
       const root = path.join(agents, connection.name);
+      await this.repository.maintainConnectionCaches(() =>
+        this.connectionCaches(path.join(root, "home")),
+      );
       await this.legacyRuns(path.join(root, PLAN_SESSIONS_DIRECTORY));
       await this.planHomes(path.join(root, PLAN_HOMES_DIRECTORY));
+    }
+  }
+
+  private async connectionCaches(home: string): Promise<void> {
+    const folders: Readonly<Record<string, readonly string[]>> = {
+      data: ["pnpm"],
+      cache: [
+        "pnpm",
+        "ms-playwright",
+        "pages-browser-tests",
+        "node",
+        "node-gyp",
+        "google-chrome-headless",
+      ],
+      ".npm": ["_cacache", "_npx", "_logs"],
+    };
+    const parents = await entries(home);
+    for (const [parent, names] of Object.entries(folders)) {
+      if (
+        !parents.some((entry) => entry.name === parent && entry.isDirectory())
+      )
+        continue;
+      const directory = path.join(home, parent);
+      const children = await entries(directory);
+      for (const name of names) {
+        if (!children.some((entry) => entry.name === name)) continue;
+        await rm(path.join(directory, name), { recursive: true, force: true });
+      }
     }
   }
 

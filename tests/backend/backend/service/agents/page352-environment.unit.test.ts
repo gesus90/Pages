@@ -94,7 +94,9 @@ it("reuses plan/scope homes across runs and native recovery, with shared caches 
     expect(environment).toMatchObject({
       HOME: first.home.home,
       PNPM_HOME: `${SHARED}/pnpm`,
-      npm_config_store_dir: `${SHARED}/pnpm-store`,
+      npm_config_store_dir: `${SHARED}/pnpm/store`,
+      pnpm_config_store_dir: `${SHARED}/pnpm/store`,
+      pnpm_config_enable_global_virtual_store: "true",
       XDG_CACHE_HOME: `${SHARED}/cache`,
       npm_config_cache: `${SHARED}/cache/npm`,
       npm_config_cache_dir: `${SHARED}/cache/pnpm`,
@@ -172,6 +174,7 @@ it("sweeps ended legacy runs without a new start, empties completed homes and re
   }
   const maintenance = new AgentEnvironmentMaintenance("/memory/data", {
     purgeObsoleteRuns: async () => undefined,
+    maintainConnectionCaches: async (maintain) => maintain(),
     canRemoveRun: async (id) => id === RUN,
     maintainPlan: async (id, maintain) => {
       await maintain("empty");
@@ -193,6 +196,7 @@ it("sweeps ended legacy runs without a new start, empties completed homes and re
   ).toBe(true);
   const deletion = new AgentEnvironmentMaintenance("/memory/data", {
     purgeObsoleteRuns: async () => undefined,
+    maintainConnectionCaches: async (maintain) => maintain(),
     canRemoveRun: async () => false,
     maintainPlan: async (id, maintain) => {
       await maintain("remove");

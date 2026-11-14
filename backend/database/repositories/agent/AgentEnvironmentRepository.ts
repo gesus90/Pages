@@ -27,6 +27,25 @@ export class AgentEnvironmentRepository {
     return rows.length > 0;
   }
 
+  /**
+   * Removes legacy caches only during global quiescence, under the shared writer lock.
+   * Leases carry no connection ID, so uncertain ownership protects every connection.
+   */
+  public async maintainConnectionCaches(
+    maintain: () => Promise<void>,
+  ): Promise<void> {
+    await this.database.transaction(async (transaction) => {
+      const busy = await transaction.query(`
+        SELECT instance_id FROM acp_resource_leases
+        UNION ALL
+        SELECT instance_id FROM agent_local_session_owners WHERE released_at IS NULL
+        LIMIT 1;
+      `);
+      if (busy.length > 0) return;
+      await maintain();
+    });
+  }
+
   /** Holds the plan lock through deletion, excluding a concurrent new run. */
   public async maintainPlan(
     planId: string,

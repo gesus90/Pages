@@ -30,9 +30,14 @@ export interface ScriptRunControl {
 /** Executes script nodes as processes, with no model, agent identity or ACP session. */
 export class AgentPlanScriptRunner {
   private readonly preparation: AgentPlanScriptPreparation;
+  private readonly sharedEnvironment: string;
 
-  public constructor(preparation: AgentPlanScriptPreparation) {
+  public constructor(
+    preparation: AgentPlanScriptPreparation,
+    sharedEnvironment: string,
+  ) {
     this.preparation = preparation;
+    this.sharedEnvironment = sharedEnvironment;
   }
 
   /** Persists an attempt before spawn and returns only after its owned resources have settled. */
@@ -64,6 +69,7 @@ export class AgentPlanScriptRunner {
         record,
         program: script.interpreter.path,
         resources,
+        sharedEnvironment: this.sharedEnvironment,
         input,
         timeoutSeconds: script.step.timeoutSeconds,
         signal: control.signal,
