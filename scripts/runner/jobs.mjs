@@ -1,3 +1,5 @@
+import { join } from "node:path";
+import { pauseExecution } from "./processes.mjs";
 import { randomUUID } from "node:crypto";
 
 import { admitJob, releaseJob } from "./admission.mjs";
@@ -50,12 +52,33 @@ export class RunnerJobs {
     if (configuration.pending)
       return Math.max(0, this.#pendingSentAt + 2000 - Date.now());
     if (completionNotices.size) return 0;
+    if (configuration.jobs.some((job) => job.isPaused)) return 200;
     return schedule.delay(configuration.jobs);
   }
 
   /** Records dispatch before admission; identical retries do not create another worker. */
   async receive(message) {
     const { configuration, persist, schedule } = this.#context;
+    if (message.type === "execution-pause") {
+      const job = configuration.jobs.find(
+        (entry) => entry.jobId === message.job.jobId,
+      );
+      if (
+        !job ||
+        job.sessionId !== message.job.sessionId ||
+        job.plan?.attemptId !== message.job.plan?.attemptId
+      )
+        throw new Error("Execution pause identity mismatch");
+      if (job.cancellation) return;
+      job.isPaused = message.job.isPaused;
+      await persist();
+      await pauseExecution(
+        join(this.#context.directory, "jobs", job.jobId),
+        job.isPaused === true,
+      );
+      schedule.checked.delete(job.jobId);
+      return;
+    }
     if (message.type === "pause-queued") {
       const job = configuration.jobs.find(
         (entry) => entry.jobId === message.job.jobId,
@@ -118,7 +141,9 @@ export class RunnerJobs {
     }
     configuration.sequence = message.sequence;
     configuration.jobs = configuration.jobs.map((job) =>
-      job.jobId === pending.job.jobId ? pending.job : job,
+      job.jobId === pending.job.jobId
+        ? { ...pending.job, isPaused: job.isPaused }
+        : job,
     );
     configuration.pending = null;
     await persist();
@@ -128,6 +153,12 @@ export class RunnerJobs {
   async poll(channel) {
     const { configuration, completionNotices, schedule } = this.#context;
     if (channel.readyState !== WebSocket.OPEN) return;
+    for (const job of configuration.jobs)
+      if (job.isPaused && !job.cancellation)
+        await pauseExecution(
+          join(this.#context.directory, "jobs", job.jobId),
+          true,
+        );
     if (configuration.pending) {
       this.#send(channel, configuration.pending);
       return;
@@ -171,6 +202,7 @@ export class RunnerJobs {
 
   async #admit(job) {
     const { directory } = this.#context;
+    if (job.isPaused && !job.cancellation) return null;
     if (job.pauseRequestedAt && !job.cancellation) {
       await pauseQueuedJob(directory, job);
       return null;

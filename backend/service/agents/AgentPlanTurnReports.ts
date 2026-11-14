@@ -7,6 +7,7 @@ import type { AgentPlanSessionTerms } from "./AgentPlanStepAssessment";
 import type { NodeRun } from "./AgentPlanStepContext";
 import type { AgentPlanStepReportService } from "./AgentPlanStepReportService";
 import type { PreparedPlanStep } from "./AgentPlanStepStart";
+import type { AgentPlanStepProgressService } from "./AgentPlanStepProgressService";
 import type { AgentPlanTasks } from "./AgentPlanTasks";
 import type { PlanSessionTurn } from "@/backend/agents/AgentPlanExecution";
 
@@ -35,9 +36,10 @@ export class AgentPlanTurnReports {
   public constructor(
     reports: Pick<AgentPlanStepReportService, "open" | "close"> | undefined,
     tasks: Pick<AgentPlanTasks, "checklist">,
+    progress?: Pick<AgentPlanStepProgressService, "current">,
   ) {
     this.reports = reports;
-    this.assessment = new AgentPlanStepAssessment(tasks);
+    this.assessment = new AgentPlanStepAssessment(tasks, progress);
   }
 
   /** Lets the attempt of this turn report, under the scope its credential was issued for. */
@@ -84,6 +86,15 @@ export class AgentPlanTurnReports {
         userId: node.run.userId,
         projectId: node.snapshot.plan.projectId,
         provider: node.step.provider,
+        ...(node.record?.attemptId
+          ? {
+              progress: {
+                runId: node.run.id,
+                stepId: node.step.step.id,
+                attemptId: node.record.attemptId,
+              },
+            }
+          : {}),
       },
       stepReport,
     );

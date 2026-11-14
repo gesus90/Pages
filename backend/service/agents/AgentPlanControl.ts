@@ -37,7 +37,8 @@ function isBlockedByBusiness(step: AgentPlanStepResult): boolean {
  *
  * @remarks
  * A paused run continues at its pause point. Every ended, unfinished run
- * continues as a new linked run at its last safe state; the kind only tells
+ * continues as a new linked run at its last safe state. Stopped is display-only.
+ * The kind tells
  * the person why: a lost process (`interrupted`), a step that reported
  * `blocked`, an open closeout, an explicit stop, or a plain failure.
  */
@@ -84,12 +85,12 @@ export function planControl(
   const issue = continuationIssue(plan, run);
   return {
     ...runControlMetadata(run, canIdentify),
-    canPlay: canRunPlan(plan) && (!isActive || canIdentify),
+    canPlay: canRunPlan(plan) && !isActive,
     workspaceWait:
       canIdentify && isPlanWriterWaitActive(run)
         ? run.workspaceWait
         : undefined,
-    canRestart: canIdentify,
+    canRestart: canIdentify && !isActive,
     ...ownRunActions(run, canIdentify, issue),
     canEdit: plan.canEdit,
     ...foreignRunBlocker(plan, run, canIdentify),
@@ -167,9 +168,9 @@ function runControlMetadata(
   };
 }
 
-/** Ended runs that "Fortsetzen" continues: failed, an open closeout, and a stopped run. */
+/** Ended runs that "Fortsetzen" continues: failures and open closeouts, except an explicit Stop. */
 export function isEndedResumable(run: AgentPlanRun): boolean {
-  return isResumablePlanRunEnd(run.status) || run.status === "cancelled";
+  return !run.stopRequested && isResumablePlanRunEnd(run.status);
 }
 
 /**
@@ -181,10 +182,10 @@ export function isEndedResumable(run: AgentPlanRun): boolean {
  * Stop, also when a process hangs.
  */
 function isStoppable(run: AgentPlanRun): boolean {
-  return isActivePlanRun(run.status) || isResumablePlanRunEnd(run.status);
+  return isActivePlanRun(run.status);
 }
 
 function resumableStatus(run: AgentPlanRun, issue: string | null): boolean {
   if (run.status === "paused") return !run.stopRequested && !issue;
-  return isEndedResumable(run) && !issue;
+  return false;
 }

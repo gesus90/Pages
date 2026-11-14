@@ -200,19 +200,20 @@ same OS account. A matching host key is a conservative match, not proof of a
 shared physical filesystem; older runs and unrelated hosts, accounts or mount
 namespaces may lack that protection.
 
-Pause closes dispatch and lets already started processes drain. A stable pause
-is acknowledged only when they finish; arbitrary processes are never suspended
-or resumed. Resume adopts pending work at the durable boundary and retains
-completed scripts/results. Stop is persisted before aborting active work.
-Stop/timeout terminate only the fresh owned process group and tagged descendants,
-send TERM, escalate to KILL with a bounded grace period and confirm actual exit,
-stream closure and absence of live owned processes. No port owner, unrelated
-service or persisted PID is killed. Unconfirmed cleanup fails the step and
-retains its workspace reservation.
-Live ownership scans start at the monotonic boot time recorded just before
-spawn, so older unrelated processes with unreadable environments are excluded
-without relaxing ownership checks. Startup retries unconfirmed script closeouts
-through the existing reservation recovery, without replaying their work.
+Pause closes dispatch immediately and suspends the identity-checked owned
+namespace, including child processes. It retains the same attempt, workspace,
+locks and captured results. Resume continues that process and adopts saved edits
+for work that has not started. A private independent script owner keeps the
+process and bounded output capture alive when Pages or the plan service restarts.
+The execution timeout excludes paused time.
+
+Stop permanently records the run as stopped before aborting execution. Owned
+agent and script namespaces, including children, are killed; session cleanup is
+bounded to seven seconds. Workspace reservations and definition holds are released
+for the next Start. Unconfirmed cleanup (including an offline remote runner) is
+shown separately and does not reopen the stopped run or block a fresh Start.
+Remote Stop intent remains durable and is replayed when the runner reconnects.
+No unrelated process or service is signalled.
 
 An attempt is persisted before spawn. Known PID, streams, exit/signal, timestamps
 and cleanup state follow in `AgentPlanStepResult.script`. Success and its

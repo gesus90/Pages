@@ -21,6 +21,8 @@ import { RunApiPages } from "@/backend/service/agents/runs/RunApiPages";
 import { AgentRunCredentialService } from "@/backend/service/mcp/AgentRunCredentialService";
 import { RunnerPagesAccessService } from "@/backend/service/runner/RunnerPagesAccessService";
 
+import { createPlanTodoProgress } from "./agent-plan-todo-progress.server";
+
 import type { AgentPlanAccess } from "@/backend/service/agents/AgentPlanAccess";
 import type { AgentPlanSessionGrants } from "@/backend/service/agents/AgentPlanSessionAccess";
 import type { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
@@ -87,6 +89,7 @@ export async function createPlanRemoteServices(
     stepReports: new AgentPlanStepReportService(
       new AgentPlanStepReportRepository(input.database),
       planTasks,
+      createPlanTodoProgress(input.database),
     ),
     parameters,
     pages: transport.pages,

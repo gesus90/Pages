@@ -9,6 +9,12 @@ import { AgentProviderError } from "@/backend/error/AgentProviderError";
 import { isApiProvider } from "@/definition/AgentConnection";
 import { logCaughtError } from "@/backend/logging/Logger";
 
+import { planTurnTimeout } from "./AgentPlanTimeout";
+import {
+  planStepProgress,
+} from "./AgentPlanTurnControl";
+import { planPauseGate } from "./AgentPlanPauseGate";
+import { runPausablePlanRequest } from "./AgentPlanPausedRequest";
 import {
   closePlanSession,
   finishStartedPlanSession,
@@ -37,7 +43,11 @@ import { createNodeRun } from "./AgentPlanNodeRun";
 import { openEventTurn } from "./branching/AgentPlanEventSession";
 import { AgentPlanGroupSessions } from "./AgentPlanGroupSessions";
 import { AgentPlanTurnReports } from "./AgentPlanTurnReports";
-import { buildPlanContract } from "./AgentPlanContract";
+import { runPlanTodoTurns } from "./AgentPlanTodoContinuation";
+import {
+  buildSessionContract,
+  initializeSessionTodos,
+} from "./AgentPlanSessionContract";
 import {
   buildPlanSessionInput,
   planRequestPrompt,
@@ -45,13 +55,11 @@ import {
 } from "./AgentPlanSessionPrompt";
 import { sanitizePlanOutput } from "./AgentPlanOutput";
 import { runPlanNodeAttempts } from "./AgentPlanStepAttempts";
-import { planSessionReach } from "./AgentPlanSessionAccess";
 import {
   createSessionRecord,
   initialStepAttemptId,
   closedSessionChanges,
   isConfirmedPlanCancellation,
-  withTurn,
 } from "./AgentPlanSessionRecords";
 import { planStackNodeInput } from "./stack/AgentPlanStackInputs";
 
@@ -78,7 +86,6 @@ import type { AgentPlanTasks } from "./AgentPlanTasks";
 import type { AgentPlanSessionTerms } from "./AgentPlanStepAssessment";
 import type { AgentPlanStepReportService } from "./AgentPlanStepReportService";
 import type { AgentPlanStepProgressService } from "./AgentPlanStepProgressService";
-import type { AgentPlanStepProgressTodo } from "@/definition/AgentPlanStepProgress";
 import type { AgentRunArchive } from "./AgentRunArchive";
 import type { AgentSessionService } from "./sessions/AgentSessionService";
 import type { NodeRun, StepRunControl } from "./AgentPlanStepContext";
@@ -97,7 +104,8 @@ interface StepRunnerDependencies {
   /** Takes what a session reports through `report_step_result`. */
   readonly stepReports?: Pick<AgentPlanStepReportService, "open" | "close">;
   /** The live progress of a step, which a new session after a failure continues from (PAGE-284). */
-  readonly stepProgress?: Pick<AgentPlanStepProgressService, "find">;
+  readonly stepProgress?: Pick<AgentPlanStepProgressService, "find"> &
+    Partial<Pick<AgentPlanStepProgressService, "initialize" | "current">>;
   readonly archive?: Pick<AgentRunArchive, "input">;
   /** Records the PageAgentCLI history and usage of every ACP node. */
   readonly sessions?: Pick<
@@ -130,6 +138,13 @@ export class AgentPlanStepRunner {
     this.turnReports = new AgentPlanTurnReports(
       dependencies.stepReports,
       dependencies.tasks,
+      dependencies.stepProgress?.current
+        ? {
+            current: dependencies.stepProgress.current.bind(
+              dependencies.stepProgress,
+            ),
+          }
+        : undefined,
     );
   }
 
@@ -226,6 +241,8 @@ export class AgentPlanStepRunner {
     runId: string,
     status: "succeeded" | "failed" | "cancelled",
   ): Promise<void> {
+    if (status === "cancelled")
+      await this.dependencies.access.revoke(runId, null);
     await this.dependencies.execution.finishPlanRun?.(runId, status);
   }
 
@@ -263,18 +280,21 @@ export class AgentPlanStepRunner {
       node.step,
     );
     if (node.control.signal.aborted) throw new AgentPlanCancelledError();
-    if (prepared.options.timeoutMinutes > 0)
-      node.control = {
-        ...node.control,
-        signal: AbortSignal.any([
-          node.control.signal,
-          AbortSignal.timeout(prepared.options.timeoutMinutes * 60_000),
-        ]),
-      };
-    const guarded = guardPlanStepStart(node, prepared);
-    if (isApiProvider(prepared.input.agent.connection.provider))
-      return this.request(node, guarded);
-    return this.session(node, guarded);
+    const timeout = planTurnTimeout(
+      node.run.id,
+      prepared.options.timeoutMinutes * 60_000,
+      node.control.signal,
+    );
+    node.control = { ...node.control, signal: timeout.signal };
+    try {
+      await planPauseGate(node.run.id).wait(node.control.signal);
+      const guarded = guardPlanStepStart(node, prepared);
+      if (isApiProvider(prepared.input.agent.connection.provider))
+        return await this.request(node, guarded);
+      return await this.session(node, guarded);
+    } finally {
+      timeout.dispose();
+    }
   }
 
   private async pauseUnstarted(
@@ -321,10 +341,13 @@ export class AgentPlanStepRunner {
     node: NodeRun,
     prepared: PreparedPlanStep,
   ): Promise<Partial<AgentPlanStepResult>> {
+    const previous = node.run.steps.find(
+      (step) => step.id === node.step.step.id,
+    )?.session;
     await this.save(node, {
       ...createSessionRecord({
-        attemptId: initialStepAttemptId(node),
-        instanceId: randomUUID(),
+        attemptId: previous?.attemptId ?? initialStepAttemptId(node),
+        instanceId: previous?.instanceId ?? randomUUID(),
         prepared,
         contract: null,
         usesMcp: false,
@@ -339,7 +362,9 @@ export class AgentPlanStepRunner {
     };
     await this.pin(node, input.prompt);
     const output = sanitizePlanOutput(
-      await this.dependencies.execution.run(input, node.control.signal),
+      await runPausablePlanRequest(node.run.id, node.control.signal, (signal) =>
+        this.dependencies.execution.run(input, signal),
+      ),
     );
     const result = apiBusinessResult(output);
     await this.complete(node, {
@@ -353,29 +378,16 @@ export class AgentPlanStepRunner {
     node: NodeRun,
     prepared: PreparedPlanStep,
   ): Promise<Partial<AgentPlanStepResult>> {
-    const { run, step, snapshot } = node;
-    const directory = prepared.input.directory;
-    if (directory === null) throw new AgentError("plan_directory_required");
-    const tickets = await Promise.all(
-      step.taskIds.map((taskId) =>
-        this.dependencies.tasks.checklist(
-          run.userId,
-          snapshot.plan.projectId,
-          taskId,
-        ),
-      ),
+    const { run, step } = node;
+    if (prepared.input.directory === null)
+      throw new AgentError("plan_directory_required");
+    const initialTerms = await buildSessionContract(
+      node,
+      prepared,
+      this.dependencies.tasks,
     );
-    const reach = planSessionReach(
-      prepared.input.agent.connection.provider,
-      prepared.options,
-    );
-    const isReadOnly = reach === "read";
-    const instruction = prepared.instruction ?? step.step.instruction;
-    const contract = buildPlanContract(instruction, tickets, {
-      isReadOnly,
-      completion: step.step.completion,
-      completionGate: step.step.completionGate,
-    });
+    const { reach, instruction } = initialTerms;
+    let { contract } = initialTerms;
     const groupKey = `${run.id}/${node.sessionGroup ?? step.step.id}`;
     await openEventTurn(this.groups, node, groupKey);
     const instanceId = this.groups.instanceId(groupKey) ?? randomUUID();
@@ -388,12 +400,19 @@ export class AgentPlanStepRunner {
         contract,
         usesMcp: reach !== "tickets" || contract.tickets.length > 0,
       }),
+      todoReturns: node.todoReturns ?? 0,
       ...planSharedSessionLink(node, prepared, {
         groups: this.groups,
         key: groupKey,
         resume: groupResume,
       }),
     });
+    contract = await initializeSessionTodos(
+      node,
+      contract,
+      this.dependencies.stepProgress,
+    );
+    await this.complete(node, { contract });
     const mcp = this.groups.instanceId(groupKey)
       ? this.groups.mcp(groupKey)
       : await this.dependencies.access.grant({
@@ -416,7 +435,7 @@ export class AgentPlanStepRunner {
       { contract, mcp, instanceId },
       {
         pin: (prompt) => this.pin(node, prompt),
-        progress: () => this.lastProgress(node),
+        progress: () => planStepProgress(node, this.dependencies.stepProgress),
         journal: (id) =>
           this.dependencies.execution.hasDurableLocalSessions
             ? undefined
@@ -465,37 +484,32 @@ export class AgentPlanStepRunner {
     offerGroupInstructions({ sessions, groups: this.groups, node, key, input });
   }
 
-  /** The live todo states of the step, which a new session after a failure continues from. */
-  private async lastProgress(
-    node: NodeRun,
-  ): Promise<readonly AgentPlanStepProgressTodo[]> {
-    const progress = await this.dependencies.stepProgress?.find(
-      node.run.id,
-      node.step.step.id,
-    );
-    return progress?.todos ?? [];
-  }
-
   private async finish(
     node: NodeRun,
     session: PlanSession,
     terms: AgentPlanSessionTerms,
   ): Promise<Partial<AgentPlanStepResult>> {
-    const turn = await session.turn;
-    if (node.record) node.record = withTurn(node.record, turn);
-    await this.dependencies.sessions?.settle(node.record, turn);
-    const reported = await this.turnReports.assess(node, turn, terms);
-    const { assessed, output } = reported;
+    const reportedTurns = await runPlanTodoTurns(
+      { node, session, terms },
+      {
+        reports: this.turnReports,
+        start: this.dependencies.start,
+        sessions: this.dependencies.sessions,
+        hasDurableLocalSessions:
+          this.dependencies.execution.hasDurableLocalSessions,
+        observer: this.observer(node),
+        save: (changes) => this.complete(node, changes),
+        close: () => this.closeSession(node, session),
+      },
+    );
+    if (!reportedTurns)
+      return planNodeFailureResult(node, new AgentPlanCancelledError());
+    const { assessed, output, turn } = reportedTurns;
     const acceptance = assessed?.acceptance ?? null;
     const outcome = planAcceptanceOutcome(node, acceptance);
     const acceptanceFailure = outcome.failure;
     const passed =
       outcome.passed === undefined ? {} : { passed: outcome.passed };
-    // The closing report and the verdict are kept before the session is ended.
-    await this.complete(node, {
-      acceptance,
-      ...(assessed ? { contract: assessed.contract } : {}),
-    });
     if (!acceptanceFailure && this.retain(node, turn))
       return {
         status: "succeeded",

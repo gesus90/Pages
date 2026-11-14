@@ -1,14 +1,22 @@
 import { setTimeout as wait } from "node:timers/promises";
 
 import { AgentError } from "@/backend/error/AgentErrors";
+import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
+import { AgentPlanStartResourceRepository } from "@/backend/database/repositories/agent/AgentPlanStartResourceRepository";
+import { logCaughtError } from "@/backend/logging/Logger";
 import { PlanRunCommandRepository } from "@/backend/database/repositories/agent/PlanRunCommandRepository";
 import { isActivePlanRun } from "@/definition/AgentPlanRunState";
 
 import { capturePlanExecution } from "../AgentPlanExecutionSnapshot";
 import { initialPlanRun, recoveredPlanRun } from "../AgentPlanRunStart";
 import { planWritingWorkspaces } from "../AgentPlanContinuation";
-import { notifyRuns, queryRunOwnership } from "./RunsSocket";
+import { AgentPlanStartResources } from "../AgentPlanStartResources";
+import {
+  notifyRuns,
+  queryRunOwnership,
+  releaseRunsStartResources,
+} from "./RunsSocket";
 
 import type {
   Database,
@@ -31,6 +39,7 @@ export class QueuedPlanRunEngine implements PlanRunEnginePort {
   private readonly runs: AgentPlanRunRepository;
   private readonly commands: PlanRunCommandRepository;
   private readonly socketPath: string;
+  private readonly starts = new SerialQueue();
   private isClosing = false;
 
   public constructor(database: Database, socketPath: string) {
@@ -47,10 +56,12 @@ export class QueuedPlanRunEngine implements PlanRunEnginePort {
     recording?: AgentPlanRunRecording,
     journal?: AgentPlanRunJournal,
   ): Promise<AgentPlanRun> {
-    return this.enqueueStart(initialPlanRun(userId, snapshot), snapshot, {
-      recording,
-      journal,
-    });
+    return this.starts.run(() =>
+      this.enqueueStart(initialPlanRun(userId, snapshot), snapshot, {
+        recording,
+        journal,
+      }),
+    );
   }
 
   /** Preserves recovery's atomic journal and predecessor retirement at admission. */
@@ -60,10 +71,12 @@ export class QueuedPlanRunEngine implements PlanRunEnginePort {
     recovered: RecoveredRunStart,
     journal: AgentPlanRunJournal,
   ): Promise<AgentPlanRun> {
-    return this.enqueueStart(
-      recoveredPlanRun(userId, snapshot, recovered),
-      snapshot,
-      { journal },
+    return this.starts.run(() =>
+      this.enqueueStart(
+        recoveredPlanRun(userId, snapshot, recovered),
+        snapshot,
+        { journal },
+      ),
     );
   }
 
@@ -150,6 +163,25 @@ export class QueuedPlanRunEngine implements PlanRunEnginePort {
     },
   ): Promise<AgentPlanRun> {
     if (this.isClosing) throw new AgentError("plan_access_denied");
+    if (view.origin?.kind !== "resume") {
+      let warnings: readonly string[];
+      try {
+        warnings = await releaseRunsStartResources(
+          this.socketPath,
+          view,
+          snapshot,
+        );
+      } catch (error: unknown) {
+        logCaughtError("QueuedPlanRunEngine", error);
+        const resources = new AgentPlanStartResources({
+          repository: new AgentPlanStartResourceRepository(this.database),
+        });
+        warnings = await resources.release(view, snapshot, async (_id, record) => {
+          await record();
+        });
+      }
+      if (warnings.length) view = { ...view, startCleanupUnconfirmed: warnings };
+    }
     const captured = capturePlanExecution(view, snapshot);
     const receipt = this.commands.receipt(view.id, "start");
     await this.runs.prepareSnapshot(view.id, captured.snapshot);

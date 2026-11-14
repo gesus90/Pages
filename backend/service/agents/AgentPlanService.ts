@@ -1,5 +1,4 @@
 import { AgentError } from "@/backend/error/AgentErrors";
-import { isActivePlanRun } from "@/definition/AgentPlanRunState";
 import { ProjectRunsActiveError } from "@/backend/error/ProjectErrors";
 import { emptyAgentPlan } from "@/definition/AgentPlan";
 import { withReadScope } from "@/backend/database/ReadScope";
@@ -65,6 +64,7 @@ import type { AgentPlanTeam } from "./AgentPlanAccess";
 import type { AgentPlanStartRejectionPage } from "@/definition/AgentPlanStartRejection";
 import type { AgentPlanAuditEntry } from "@/definition/AgentPlanTeam";
 import type { AgentPlanAccessRequest } from "./AgentPlanTeamService";
+import type { AgentPlanStartOwner } from "@/definition/AgentPlanResourceRelease";
 
 export type { PlanDependencies } from "./AgentPlanDependencies";
 
@@ -551,7 +551,7 @@ export class AgentPlanService extends AgentPlanTeamReads {
    * @remarks
    * The person confirmed that the open run ends: it is stopped, its own
    * processes are ended by force and its working copies are released before the
-   * new run starts. A run that does not close in time refuses the start.
+   * new run starts. Unconfirmed cleanup is retained as a hint on the new run.
    */
   public async playReplacing(
     userId: string,
@@ -559,13 +559,16 @@ export class AgentPlanService extends AgentPlanTeamReads {
     revision: number,
     journal?: AgentPlanRunJournal,
   ): Promise<AgentPlanRun> {
-    const control = await this.control(userId, id);
-    const { runId } = control;
-    if (runId && isActivePlanRun(control.status))
-      await this.ended.endOpenRun(userId, runId, () =>
-        this.stop(userId, runId),
-      );
     return this.play(userId, id, revision, journal);
+  }
+
+  /** Names resource owners after checking current start rights and preparing the saved revision. */
+  public async startOwners(
+    userId: string,
+    id: string,
+    revision: number,
+  ): Promise<readonly AgentPlanStartOwner[]> {
+    return this.starts.owners(userId, id, revision);
   }
 
   /**
@@ -633,12 +636,7 @@ export class AgentPlanService extends AgentPlanTeamReads {
     await this.teams.recordRunAction(userId, run, "admin_run_controlled", {
       command: "stop",
     });
-    if (!(await this.ended.settleEnded(userId, run, journal))) {
-      await this.dependencies.engine.stop(id, journal);
-      if (!this.dependencies.engine.commandReceipt)
-        await this.dependencies.remoteExecution?.stop(run);
-      await this.ended.forceStuck(userId, run);
-    }
+    await this.dependencies.engine.stop(id, journal);
     return (await readPlanControlRun(this, userId, run.planId, id)).run;
   }
 

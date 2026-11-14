@@ -1,28 +1,23 @@
 import { randomUUID } from "node:crypto";
 
-import {
-  endTaggedProcesses,
-  readScopeSince,
-} from "@/backend/agents/cli/CliProcessScan";
-import { settleOwnedNamespace } from "@/backend/agents/cli/CliOwnedNamespace";
+import { readScopeSince } from "@/backend/agents/cli/CliProcessScan";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentPlanRecoveryError } from "@/backend/error/AgentPlanRecoveryError";
-import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
-import { isRemoteCloseoutUnconfirmed } from "@/definition/AgentPlanRemoteCloseout";
 import { logCaughtError } from "@/backend/logging/Logger";
 import { hasPlanBranching } from "@/definition/AgentPlanBranching";
 import { isActivePlanRun } from "@/definition/AgentPlanRunState";
+
+import { compatibleRecoverySessions } from "./AgentPlanRecoverySessions";
+import { recoveredPlanBranching } from "./AgentPlanRecoveredBranching";
+import { AgentPlanRecoveryProcessCleanup } from "./AgentPlanRecoveryProcessCleanup";
+import { serializePlanBranchState } from "../branching/AgentPlanBranchPersistence";
 
 import {
   recoveredAgentContext,
   withRecoveredAgentContext,
 } from "./AgentPlanRecoveryContext";
 import { readPlanSnapshot } from "../AgentPlanSnapshot";
-import {
-  checkSessionProcesses,
-  needsNoSessionScan,
-} from "../AgentPlanRecovery";
-import { cleanupScanFailure } from "../AgentPlanCleanupFailure";
+import { checkSessionProcesses } from "../AgentPlanRecovery";
 import { prepareRecoveredPlan } from "../AgentPlanContinuation";
 import {
   closeRecoveryScripts,
@@ -75,11 +70,13 @@ export interface RecoveryActionDependencies {
   readonly planRuns: Pick<
     AgentPlanRunRepository,
     "latest" | "hasReservation" | "release"
-  >;
+  > &
+    Partial<Pick<AgentPlanRunRepository, "engineState">>;
   readonly executions: AgentPlanRecoveryExecutionRepository;
   readonly checkpoints: Pick<AgentPlanCheckpointRepository, "list" | "append">;
   /** Rechecks the ACP leases of the run; absent without native capacity journal. */
-  readonly resources?: Pick<AcpResourceScheduler, "reconcile" | "snapshot">;
+  readonly resources?: Pick<AcpResourceScheduler, "reconcile" | "snapshot"> &
+    Partial<Pick<AcpResourceScheduler, "releaseForResume">>;
 }
 
 type RestartCommand = Extract<
@@ -155,14 +152,16 @@ function frozenNodes(snapshot: AgentPlanSnapshot): {
  * executor and the run's recovery revision, idempotent by its key and
  * journaled in the transaction that creates the new run. The earlier run
  * is never reopened or rewritten. Nothing starts while a process of the
- * earlier run may still be alive: ownership uses a stored namespace supervisor
- * and, where present, its server-owned worker unit.
+ * earlier run may still be alive except on an explicit failed-run resume,
+ * which relinquishes its reservations even when closeout cannot be proven.
  */
 export class AgentPlanRecoveryActions {
   private readonly dependencies: RecoveryActionDependencies;
+  private readonly cleanup: AgentPlanRecoveryProcessCleanup;
 
   public constructor(dependencies: RecoveryActionDependencies) {
     this.dependencies = dependencies;
+    this.cleanup = new AgentPlanRecoveryProcessCleanup(dependencies);
   }
 
   /**
@@ -210,6 +209,9 @@ export class AgentPlanRecoveryActions {
         checkpoints,
         executions,
         ...frozenNodes(snapshot),
+        branching: serializePlanBranchState(
+          await this.dependencies.planRuns.engineState?.(runId),
+        ),
       },
     };
   }
@@ -239,7 +241,7 @@ export class AgentPlanRecoveryActions {
    * A run that an engine still drives only has its hung processes ended; the
    * engine closes the record itself. Every other run, ended at a failure or
    * orphaned, becomes `cancelled` once the end of its processes is proven, and
-   * can be continued from its last safe state.
+   * cannot be continued; Start begins again.
    */
   public async stop(
     userId: string,
@@ -250,8 +252,8 @@ export class AgentPlanRecoveryActions {
     const { run } = facts;
     if (run.status === "succeeded") return;
     if (isActivePlanRun(run.status) && facts.isEngineActive !== false) {
-      await this.requestRemoteCleanup(run);
-      await this.endLocalProcesses(
+      await this.cleanup.requestRemoteCleanup(run);
+      await this.cleanup.endLocalProcesses(
         run,
         await readScopeSince(run.startedAt).catch(() => null),
       );
@@ -345,15 +347,18 @@ export class AgentPlanRecoveryActions {
     );
     if (facts.plan.revision !== command.revision)
       throw new AgentError("plan_conflict");
-    const plan = planResume(facts);
-    requireOption(resumeOption(facts, plan));
-    const mode = resumeSessionMode(plan, command.mode);
-    const reviewedStepIds = reviewedRetries(plan, command);
-    await this.settleCleanup(facts);
+    const planned = planResume(facts);
+    requireOption(resumeOption(facts, planned));
     const proposed = await this.dependencies.preparation.prepare(
       userId,
       facts.plan,
     );
+    const plan = compatibleRecoverySessions(planned, previous, proposed);
+    const mode = resumeSessionMode(plan, command.mode);
+    const reviewedStepIds = reviewedRetries(plan, command);
+    if (request.automaticAttempt === undefined)
+      await this.releaseForResume(facts);
+    else await this.settleCleanup(facts);
     const reusedStepIds = plan.reused.map((step) => step.id);
     const merged = prepareRecoveredPlan(
       boundaryOf(facts, reusedStepIds),
@@ -363,6 +368,11 @@ export class AgentPlanRecoveryActions {
     const loops = resumedLoopRuns(facts.run.loops ?? [], reusedStepIds);
     const recovery = {
       sourceRunId: facts.run.id,
+      branching: recoveredPlanBranching(
+        facts.run,
+        previous.plan,
+        facts.branching,
+      ),
       mode,
       retriedStepIds: plan.retriedStepIds,
       loopIterations: loops.iterations,
@@ -386,6 +396,7 @@ export class AgentPlanRecoveryActions {
             : { automaticAttempt: request.automaticAttempt }),
         }),
         reused: plan.reused,
+        pending: facts.run.steps,
         loops: loops.loops,
         // The resumed iteration reads the entry its stack handed over, and the next one takes the following entry.
         stacks: facts.run.stacks ?? [],
@@ -479,7 +490,7 @@ export class AgentPlanRecoveryActions {
     facts: RecoveryFacts,
     shouldRelease = true,
   ): Promise<AgentPlanRun> {
-    await this.requestRemoteCleanup(facts.run);
+    await this.cleanup.requestRemoteCleanup(facts.run);
     const { run } = await this.dependencies.executions.source(facts.run.id);
     const scope = await readScopeSince(run.startedAt).catch(
       (caughtError: unknown) => {
@@ -487,7 +498,7 @@ export class AgentPlanRecoveryActions {
         return null;
       },
     );
-    await this.endLocalProcesses(run, scope);
+    await this.cleanup.endLocalProcesses(run, scope);
     const checked = await closeRecoverySessions(
       await closeRecoveryScripts(run),
     );
@@ -497,69 +508,25 @@ export class AgentPlanRecoveryActions {
         "cleanup_unconfirmed",
         processes.failure ?? undefined,
       );
-    await this.reconcileResources(run.id);
+    await this.cleanup.reconcileResources(run.id);
     if (shouldRelease) await this.dependencies.executions.releaseChecked(run);
     return run;
   }
 
-  private async reconcileResources(runId: string): Promise<void> {
-    const resources = this.dependencies.resources;
-    if (!resources) return;
+  /** Resume explicitly relinquishes the failed run's reservations even without closeout proof. */
+  private async releaseForResume(facts: RecoveryFacts): Promise<void> {
     try {
-      const remaining = await resources.reconcile(runId);
-      const state = resources.snapshot();
-      if (
-        remaining > 0 ||
-        state.problem !== null ||
-        state.active.some((entry) => entry.runId === runId)
-      )
-        throw new AgentPlanRecoveryError("cleanup_unconfirmed");
+      await this.settleCleanup(facts, false);
     } catch (error: unknown) {
-      if (error instanceof AgentPlanRecoveryError) throw error;
+      if (
+        !(error instanceof AgentPlanRecoveryError) ||
+        error.code !== "cleanup_unconfirmed"
+      )
+        throw error;
       logCaughtError("AgentPlanRecoveryActions", error);
-      throw new AgentPlanRecoveryError("cleanup_unconfirmed");
     }
-  }
-
-  private async requestRemoteCleanup(run: AgentPlanRun): Promise<void> {
-    if (allPlanRunResults(run).some(isRemoteCloseoutUnconfirmed))
-      await this.dependencies.remoteExecution?.stop(run);
-  }
-
-  private async endLocalProcesses(
-    run: AgentPlanRun,
-    scope: Awaited<ReturnType<typeof readScopeSince>> | null,
-  ): Promise<void> {
-    for (const step of allPlanRunResults(run)) {
-      if (step.execution?.target.kind === "remote" || step.script) continue;
-      const instanceId = step.session?.instanceId;
-      const closeout = step.session?.closeout;
-      if (instanceId === undefined || closeout === "confirmed") continue;
-      const session = step.session;
-      // A turn refused before its start owns no process; the record that opened a shared session accounts for it.
-      if (session && needsNoSessionScan(session)) continue;
-      const cleanup = await (
-        session && session.runner !== "api" && session.namespace
-          ? settleOwnedNamespace(session.namespace, instanceId).then(
-              (ended) => ({
-                remaining: ended ? 0 : 1,
-              }),
-            )
-          : endTaggedProcesses(instanceId, scope)
-      ).catch((caughtError: unknown) => {
-        logCaughtError("AgentPlanRecoveryActions", caughtError);
-        throw new AgentPlanRecoveryError(
-          "cleanup_unconfirmed",
-          cleanupScanFailure(step.id, "local_session", caughtError),
-        );
-      });
-      if (cleanup.remaining > 0)
-        throw new AgentPlanRecoveryError("cleanup_unconfirmed", {
-          stepId: step.id,
-          kind: "local_session",
-          reason: "processes_remaining",
-        });
-    }
+    await this.dependencies.resources?.releaseForResume?.(facts.run.id);
+    await this.dependencies.executions.releaseChecked(facts.run);
   }
 
   private async start(

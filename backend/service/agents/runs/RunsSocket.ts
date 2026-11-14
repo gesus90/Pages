@@ -2,6 +2,8 @@ import { chmod, mkdir, lstat, unlink } from "node:fs/promises";
 import { createServer, request } from "node:http";
 import path from "node:path";
 
+import { z } from "zod";
+
 import { AgentPlanPausedError } from "@/backend/error/AgentPlanPausedError";
 import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
 import {
@@ -22,6 +24,9 @@ import { AgentError, isAgentErrorCode } from "@/backend/error/AgentErrors";
 import { logCaughtError } from "@/backend/logging/Logger";
 
 import { SwarmCallError } from "../swarm/SwarmRegistry";
+import { planWritingWorkspaces } from "../AgentPlanContinuation";
+import type { AgentPlanRun } from "@/definition/AgentPlan";
+import type { AgentPlanSnapshot } from "../AgentPlanSnapshot";
 
 import type { SwarmCall } from "../swarm/SwarmRegistry";
 import type { Server, IncomingMessage, ServerResponse } from "node:http";
@@ -62,6 +67,31 @@ export async function queryRunOwnership(
   );
   if (!reply.ok) throw new Error("Run ownership unavailable");
   return pagesRunsOwnershipReplySchema.parse(reply.result).active;
+}
+
+/** Hands forced start cleanup to the process that owns the native sessions. */
+export async function releaseRunsStartResources(
+  socketPath: string,
+  run: AgentPlanRun,
+  snapshot: AgentPlanSnapshot,
+): Promise<readonly string[]> {
+  const reply = pagesRunnerReplySchema.parse(
+    await socketRequest(socketPath, "/v1/engine", {
+      version: 1,
+      operation: "start_resources",
+      start: {
+        id: run.id,
+        userId: run.userId,
+        planId: run.planId,
+        ...(run.origin?.kind === "restart"
+          ? { sourceRunId: run.origin.runId }
+          : {}),
+      },
+      resourceKeys: planWritingWorkspaces(snapshot),
+    }),
+  );
+  if (!reply.ok) throw new Error("Start resource cleanup unavailable");
+  return z.array(z.string()).parse(reply.result);
 }
 
 /**

@@ -34,6 +34,7 @@ export async function dispatchPlanScript(
     },
     save: async (record) => {
       await dependencies.writes.run(async () => {
+        if (active.view.stopRequested) return;
         patchStep(active, stepId, { script: record });
         try {
           await dependencies.runs.update(active.view);

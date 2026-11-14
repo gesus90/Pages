@@ -114,15 +114,25 @@ export async function buildPlanSessionInput(
     acceptanceInstruction: prepared.instruction ?? node.step.step.instruction,
     mcp: terms.mcp,
     resumeSessionId,
-    resourceContext: {
-      runId: node.run.id,
-      stepId: node.step.step.id,
-      sessionScopeId: node.sessionGroup ?? node.step.step.id,
-      ...(node.run.origin?.mode === "native_resume"
-        ? { sourceRunId: node.run.origin.runId }
-        : {}),
-    },
+    resourceContext: planResourceContext(node),
     journal: dependencies.journal(terms.instanceId),
+  };
+}
+
+/** Names the run, step and session scope that the native work of a session is attributed to. */
+function planResourceContext(
+  node: NodeRun,
+): AgentPlanSessionInput["resourceContext"] {
+  return {
+    runId: node.run.id,
+    stepId: node.step.step.id,
+    sessionScopeId: node.sessionGroup ?? node.step.step.id,
+    ...(node.run.origin?.kind === "resume"
+      ? { recoveryRunId: node.run.origin.runId }
+      : {}),
+    ...(node.run.origin?.mode === "native_resume"
+      ? { sourceRunId: node.run.origin.runId }
+      : {}),
   };
 }
 

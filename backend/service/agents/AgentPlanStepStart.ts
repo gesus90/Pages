@@ -51,6 +51,8 @@ export interface AgentPlanExecutionInput extends TextExecutionInput {
     readonly sessionScopeId?: string;
     /** The failed run a native recovery resumes; its transcripts move to this run. */
     readonly sourceRunId?: string;
+    /** The ended predecessor whose stale reservations an explicit resume releases. */
+    readonly recoveryRunId?: string;
     readonly isLocalInstruction?: boolean;
     /** Gives up waiting for an ACP place after this long; a swarm helper uses it (PAGE-313). */
     readonly admissionDeadlineMs?: number;

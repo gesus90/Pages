@@ -151,12 +151,15 @@ it("ends the job as cancelled when the execution lease is gone", async () => {
 });
 
 it("stops a running script when the timeout elapses", async () => {
-  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+  // The clock is polled so that paused time does not count; it needs a faked Date.
+  vi.useFakeTimers({
+    toFake: ["setInterval", "clearInterval", "setTimeout", "clearTimeout", "Date"],
+  });
 
   await runWorker({
     exit: null,
     closeOnStop: true,
-    onInput: () => vi.advanceTimersByTime(5000),
+    onInput: () => vi.advanceTimersByTime(5100),
   });
 
   expect(await storedResult()).toMatchObject({

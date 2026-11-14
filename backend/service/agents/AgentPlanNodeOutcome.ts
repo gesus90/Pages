@@ -4,6 +4,7 @@ import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError
 import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { logCaughtError } from "@/backend/logging/Logger";
 
+import { planPauseGate } from "./AgentPlanPauseGate";
 import { dispatchRemoteStepWithRetry } from "./AgentPlanRemoteRetry";
 import {
   dispatchPlanLocalNode,
@@ -40,6 +41,7 @@ export async function planNodeOutcome(
   controller: AbortController,
   input: NodeOutcomeInput,
 ): Promise<Partial<AgentPlanStepResult>> {
+  await planPauseGate(active.view.id).wait(controller.signal);
   const isReattaching = isReattachingLocalNode(
     active,
     node.id,

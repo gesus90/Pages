@@ -1,5 +1,6 @@
 import type { ClaudeRunUsage } from "./ClaudeUsage";
 import type { PlanRunCommandReceipt } from "./PagesRuns";
+import type { AgentPlanResourceRelease } from "./AgentPlanResourceRelease";
 import type {
   AgentPlanWriterWait,
   AgentPlanExecutionTarget,
@@ -545,6 +546,10 @@ export interface AgentPlanStepResult {
 export interface AgentPlanRun {
   /** Read projection from durable usage; never part of run control. */
   readonly claudeUsage?: ClaudeRunUsage | null;
+  /** Durable forced-release journal; retained even when a later Play purges other old runs. */
+  readonly resourceReleases?: readonly AgentPlanResourceRelease[];
+  /** Old owner ids whose cleanup a fresh start could not confirm; informational only. */
+  readonly startCleanupUnconfirmed?: readonly string[];
   /** Durable command acknowledgement; execution state may still be unchanged. */
   readonly command?: PlanRunCommandReceipt;
   readonly id: string;
@@ -568,7 +573,7 @@ export interface AgentPlanRun {
   readonly continuation?: AgentPlanContinuation;
   readonly stopRequested: boolean;
   /** Safe failure of an additional session turn, separate from completed graph results. */
-  readonly controlError?: "plan_step_failed";
+  readonly controlError?: "plan_step_failed" | "plan_stop_unconfirmed";
   /** A running, non-stopped run currently awaits concrete writer admission; other states have no live wait. */
   readonly isWaitingForWorkspace?: boolean;
   readonly workspaceWait?: AgentPlanWriterWait;

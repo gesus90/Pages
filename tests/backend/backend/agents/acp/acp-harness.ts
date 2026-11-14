@@ -45,6 +45,8 @@ export interface SyntheticNode extends Pick<
   readonly model?: string;
   readonly reasoningEffort?: string | null;
   readonly controller?: AbortController;
+  readonly resumeSessionId?: string;
+  readonly canReplaceMissingSession?: boolean;
 }
 
 /** A running synthetic session and everything a test inspects. */
@@ -111,6 +113,8 @@ export function startAcpSession(
     request: {
       directory: WORKSPACE,
       prompt: PROMPT,
+      resumeSessionId: node.resumeSessionId,
+      canReplaceMissingSession: node.canReplaceMissingSession,
       ticketInputs: node.ticketInputs,
       readTicketAssets: node.readTicketAssets,
       model: node.model ?? (isClaude ? "claude-sonnet-5-5" : "gpt-synthetic"),

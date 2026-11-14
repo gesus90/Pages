@@ -117,6 +117,7 @@ export class AgentPlanLoopIterationRunner {
     const running = new Map<string, Promise<void>>();
     try {
       for (;;) {
+        if (!target.host.signal.aborted) await target.host.waitUntilRunning?.();
         if (await this.schedule(target, running)) continue;
         if (running.size === 0) break;
         await Promise.race(running.values());

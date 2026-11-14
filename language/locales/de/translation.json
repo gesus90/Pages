@@ -1004,7 +1004,7 @@
         "modelUnavailable": "Ein gespeichertes Modell steht im Katalog seines Ziels nicht (mehr) zur Verfügung. Es wurde nichts gespeichert oder gestartet und kein anderes Modell eingesetzt. Das betroffene Modell im markierten Node ausdrücklich neu wählen.",
         "reasoningUnsupported": "Eine gespeicherte Reasoning-Stufe wird vom gewählten Modell nicht unterstützt. Es wurde nichts gespeichert oder gestartet und keine andere Stufe eingesetzt. Die Stufe im markierten Node ausdrücklich neu wählen.",
         "opencode_free_tier_refused": "OpenCode Zen hat den kostenlosen Tarif für diese Anfrage abgelehnt („nur innerhalb von OpenCode“). Zen bedient seine kostenlosen Modelle nur in Sitzungen mit den OpenCode-eigenen Werkzeugen; Pica läuft bewusst ohne sie, Agent-Knoten in Plänen sind nicht betroffen. Es wurde kein anderes Modell verwendet. Für Pica bitte ein Modell eines Providers mit Schlüssel in Pages wählen, etwa ein kostenloses OpenRouter-Modell.",
-        "plan_stop_unconfirmed": "Die Stop-Frist ist abgelaufen oder die Bereinigung fehlgeschlagen. Ziel verbinden und unter Wiederherstellung → Freigeben die Bereinigung erneut anfordern. Reservierungen bleiben erhalten.",
+        "plan_stop_unconfirmed": "Der Lauf ist gestoppt. Die Prozessbereinigung ist noch nicht bestätigt. Ziel verbinden und unter Wiederherstellung → Freigeben erneut bereinigen. Ein neuer Start ist möglich.",
         "antigravity_acp_unsupported": "Antigravity benötigt den offiziellen ACP-Adapter 1.4.4. Es wurde kein Modell aufgerufen.",
         "antigravity_acp_session_failed": "Die Antigravity-ACP-Sitzung ist fehlgeschlagen. Adapter, Anmeldung und Kontingent am Ausführungsort prüfen.",
         "antigravity_configuration_unmanaged": "Zusätzliche Antigravity-Konfiguration könnte die Sitzungsrechte erweitern. Den isolierten Pages-Kontext verwenden.",
@@ -5457,7 +5457,7 @@
       "resumeHint_interrupted": "Fortsetzen macht nach dem Abbruch am letzten sicheren Stand weiter; eigene Prozesse und Reservierungen werden vorher freigegeben.",
       "resumeHint_blocked": "Fortsetzen versucht den blockierten Schritt neu, nachdem die Ursache behoben ist; die gesperrten Nachfolger werden wieder freigegeben.",
       "resumeHint_closeout_open": "Fortsetzen wiederholt nur den offenen Abschluss-Schritt.",
-      "resumeHint_stopped": "Fortsetzen macht am letzten sicheren Stand des gestoppten Laufs weiter; fertige Schritte laufen nicht erneut.",
+      "resumeHint_stopped": "Stop ist endgültig. Starte den Plan von vorn.",
       "allRuns": "Alle Läufe dieses Plans ansehen"
     },
     "ticketPicker": {
@@ -5840,8 +5840,8 @@
       "todoSummary": "{{completed}} erledigt · {{active}} in Arbeit · {{open}} als Nächstes",
       "agentTodos": {
         "heading": "Agent-TODO",
-        "empty": "Keine TODO-Liste gemeldet",
-        "count": "{{done}} von {{total}} erledigt",
+        "empty": "Keine TODOs",
+        "count": "{{done}} / {{total}} TODOs",
         "current": "Aktuell: {{text}}",
         "noCurrent": "Kein TODO in Arbeit gemeldet"
       }
@@ -6054,7 +6054,7 @@
       "noFailure": "Kein Knoten ist gescheitert.",
       "checkpoint": "Letzter verifizierter Stand",
       "checkpointValue": "Checkpoint {{version}} · {{step}} · {{time}}",
-      "checkpointNone": "Kein verifizierter Checkpoint – nichts kann übernommen werden.",
+      "checkpointNone": "Kein zusätzlicher Checkpoint. Gespeicherte erfolgreiche Ergebnisse bleiben erhalten.",
       "originLabel": "Herkunft",
       "origin": {
         "restart": "Von vorne neu gestartet nach Lauf {{run}}",
@@ -6098,7 +6098,7 @@
         "run_active": "Der Lauf ist noch aktiv. Zuerst stoppen.",
         "plan_run_active": "Ein anderer Lauf dieses Plans ist aktiv. Auf ihn warten oder ihn stoppen.",
         "plan_read_only": "Dieser Plan ist nur lesbar, nicht ausführbar.",
-        "cancelled_by_user": "Der Lauf wurde gestoppt. Er lässt sich fortsetzen, sobald ein sicherer Stand gespeichert ist.",
+        "cancelled_by_user": "Der Lauf wurde mit Stop beendet. Nur Start von vorn ist möglich.",
         "succeeded": "Der Lauf war erfolgreich; es gibt nichts fortzusetzen.",
         "superseded": "Es gibt einen neueren Lauf dieses Plans; nur der neueste Lauf kann fortgesetzt werden.",
         "already_continued": "Dieser Lauf wurde bereits neu gestartet oder fortgesetzt.",
@@ -6138,7 +6138,7 @@
       "cleanupHistory": "Letzter gespeicherter Bereinigungsfehler",
       "cleanupHistoryTime": "{{time}}",
       "cleanupHistoryHint": "Historischer Befund. Die aktuelle Freigabe und Prozesslage stehen bei den verfügbaren Aktionen.",
-      "freshDescription": "Den gespeicherten Plan von vorne starten. Logs, Sessions und Aufzeichnungen früherer Läufe dieses Plans werden entfernt; bereits erledigte Arbeit im Arbeitsbereich bleibt. Eigene frühere Jobs werden abgebrochen, und kollidierende Ausführung wartet auf bestätigtes Aufräumen.",
+      "freshDescription": "Den gespeicherten Plan von vorne starten. Schreibressourcen früherer Läufe werden zwangsweise freigegeben; aktive Besitzer werden beendet. Nicht bestätigtes Aufräumen blockiert den neuen Start nicht. Ergebnisse und Verlauf zwangsweise freigegebener Läufe bleiben erhalten.",
       "foreignStartTitle": "Neuen Lauf starten",
       "foreignStartDescription": "Der letzte Lauf dieses Plans gehört einer anderen Person und ist nicht abgeschlossen. Nur sie kann ihn fortsetzen. Starten setzt ihn nicht fort, sondern beginnt einen neuen eigenen Lauf von vorne; alle Schritte laufen erneut, und der beendete Lauf wird samt Logs, Sessions und Aufzeichnungen ersetzt.",
       "foreignStartConfirm": "Ich starte einen neuen Lauf von vorne. Der beendete Lauf der anderen Person wird dadurch nicht fortgesetzt.",
@@ -6164,6 +6164,10 @@
       "planChanged": "Seit diesem Lauf erneut gespeichert",
       "planUnchanged": "Seit diesem Lauf unverändert",
       "resumeConfirm": "Den Plan an der fehlgeschlagenen Stelle fortsetzen? Erfolgreiche Schritte und Loop-Durchläufe bleiben erhalten und laufen nicht erneut.",
+      "completedChangesIgnored": "Die aktuell gespeicherte Planrevision wird verwendet. Die folgenden erledigten Schritte behalten ihre bisherigen Ergebnisse, auch wenn sie inzwischen bearbeitet wurden.",
+      "continuedFrom": "Fortsetzung von Lauf {{run}}",
+      "inheritedSteps": "Übernommene Schritte (werden nicht erneut ausgeführt):",
+      "inherited": "Übernommen",
       "resumePending": "Wird fortgesetzt …"
     },
     "nodeInstruction": "Zusätzliche Node-Anweisung",
@@ -6716,9 +6720,14 @@
     },
     "openRun": {
       "title": "Offenen Lauf beenden und neu beginnen?",
-      "description": "Dieser Plan hat einen offenen Lauf. Starten beendet ihn (Prozesse enden, Reservierungen werden freigegeben) und beginnt einen neuen Lauf von vorn. Zum Weitermachen stattdessen Fortsetzen nutzen.",
+      "description": "Starten beendet die betroffenen offenen Läufe zwangsweise, gibt ihre Schreibressourcen frei und beginnt einen neuen Lauf von vorn. Nicht bestätigte Bereinigung wird als Hinweis angezeigt.",
       "cancel": "Abbrechen",
-      "confirm": "Beenden und neu beginnen"
+      "confirm": "Beenden und neu beginnen",
+      "affected": "Diese Läufe werden beendet:",
+      "cleanupHint": "Bereinigung für Lauf/Läufe {{runs}} nicht bestätigt. Die Ressourcen sind freigegeben; der neue Lauf startet trotzdem.",
+      "releaseHistory": "{{at}}: {{user}} hat die Ressourcen für den neuen Lauf {{run}} zwangsweise freigegeben.",
+      "processEnded": "Prozessende bestätigt",
+      "processUnconfirmed": "Prozessende nicht bestätigt"
     },
     "swarm": {
       "workers": "Helfer",

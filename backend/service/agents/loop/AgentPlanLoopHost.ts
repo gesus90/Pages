@@ -18,6 +18,8 @@ export interface LoopHost {
   /** The frozen plan; a resume may replace it while the loop is paused. */
   readonly snapshot: () => AgentPlanSnapshot;
   /** Whether new work may start: the run is running, not stopped, not paused. */
+  /** Waits at the same iteration while its run is paused. */
+  readonly waitUntilRunning?: () => Promise<void>;
   readonly canDispatch: () => boolean;
   /** Whether the run is pausing or paused, as opposed to stopped or failed. */
   readonly isPausing: () => boolean;

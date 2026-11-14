@@ -27,6 +27,7 @@ import type {
   StoredPlanStepReport,
 } from "@/backend/database/repositories/agent/AgentPlanStepReportRepository";
 import type { AgentPlanSessionTerms } from "./AgentPlanStepAssessment";
+import type { AgentPlanStepProgressService } from "./AgentPlanStepProgressService";
 import type { AgentPlanTasks } from "./AgentPlanTasks";
 
 const MAXIMUM_PROBLEMS = 50;
@@ -140,15 +141,22 @@ function identifierProblems(
  * tickets as they are then.
  */
 export class AgentPlanStepReportService {
-  private readonly repository: AgentPlanStepReportRepository;
+  private readonly repository: Pick<
+    AgentPlanStepReportRepository,
+    "open" | "close" | "find" | "save"
+  >;
   private readonly assessment: AgentPlanStepAssessment;
 
   public constructor(
-    repository: AgentPlanStepReportRepository,
+    repository: Pick<
+      AgentPlanStepReportRepository,
+      "open" | "close" | "find" | "save"
+    >,
     tasks: Pick<AgentPlanTasks, "checklist">,
+    progress?: Pick<AgentPlanStepProgressService, "current">,
   ) {
     this.repository = repository;
-    this.assessment = new AgentPlanStepAssessment(tasks);
+    this.assessment = new AgentPlanStepAssessment(tasks, progress);
   }
 
   /** Lets the given attempt report; it starts without a result unless it already held the slot, as after a restart. */
@@ -231,7 +239,11 @@ export class AgentPlanStepReportService {
     report: AgentPlanStepReport,
   ): Promise<void> {
     const terms = readTerms(slot.termsJson);
-    const assessed = await this.assess(userId, terms, report);
+    const assessed = await this.assess(
+      userId,
+      { ...terms, progress: slot },
+      report,
+    );
     // An unreadable ticket is a reason to report blocked, so it refuses only a claim of completion.
     if (!assessed && report.status === "done")
       throw rejection("CONFLICT", "step_report_invalid", [
@@ -242,7 +254,12 @@ export class AgentPlanStepReportService {
       ...(report.status === "done"
         ? (assessed?.acceptance.issues ?? [])
             .filter((issue) => !OUTSIDE_AGENT_ISSUE.test(issue))
-            .map(describePlanIssue)
+            .map((issue) => {
+              const todo = assessed?.contract.todos.find((entry) =>
+                issue.endsWith(`:${entry.id}`),
+              );
+              return `${describePlanIssue(issue)}${todo ? `: ${todo.text}` : ""}`;
+            })
         : []),
     ];
     if (problems.length > 0)
@@ -251,14 +268,19 @@ export class AgentPlanStepReportService {
 
   private async assess(
     userId: string,
-    terms: PlanStepReportTerms,
+    terms: PlanStepReportTerms & { readonly progress: StoredPlanStepReport },
     report: AgentPlanStepReport,
   ): Promise<Awaited<ReturnType<AgentPlanStepAssessment["assess"]>> | null> {
     try {
       return await this.assessment.assess(
         terms,
         "",
-        { userId, projectId: terms.projectId, provider: terms.provider },
+        {
+          userId,
+          projectId: terms.projectId,
+          provider: terms.provider,
+          progress: terms.progress,
+        },
         report,
       );
     } catch (error: unknown) {

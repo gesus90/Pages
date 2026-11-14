@@ -8,8 +8,6 @@ import type {
 import type { AgentPlanCompletionGate } from "@/definition/AgentPlanWork";
 import type { AgentPlanTicketChecklist } from "./AgentPlanTasks";
 
-/** The todo of a node whose instruction and tickets list none. */
-const DEFAULT_TODO = "Carry out the instruction of this node completely.";
 /** The criterion of a node whose tickets list no acceptance criteria. */
 const DEFAULT_CRITERION =
   "The result is in the workspace and the report names how each todo is proven.";
@@ -66,7 +64,7 @@ const STEP_REPORT_LINE =
 
 /** The live progress every provider reports while it works (PAGE-284). */
 const STEP_PROGRESS_LINE =
-  "- Report your progress live with the Pages MCP tool `update_step_progress`: set a todo to `active` right before you start it and to `done` right after you finished it, each time at once, and give `activity` as one short line of what you do now. It ends nothing and is no result; `report_step_result` stays the binding report.";
+  "- Mark each TODO done with `update_step_progress` as soon as it is complete; Pages also checks its ticket checkbox. TODOs requiring lint, check, typecheck, formatting, coverage or full test suites may be marked done with activity `an die Abschluss-QA übergeben`; this counts as completed. Report your progress live with the Pages MCP tool `update_step_progress`: set a todo to `active` right before you start it and to `done` right after you finished it, each time at once, and give `activity` as one short line of what you do now. It ends nothing and is no result; `report_step_result` stays the binding report.";
 
 function progressLines(assignment: AgentPlanAssignment): readonly string[] {
   return assignment.usesMcp ? [STEP_PROGRESS_LINE] : [];
@@ -134,15 +132,14 @@ function mcpLines(assignment: AgentPlanAssignment): readonly string[] {
  * @param instruction - The instruction of the node; its task list items become todos.
  * @param tickets - The tickets bound to the node, with their current checklists.
  * @param options - Whether the node may change anything, and how it completes.
- * @returns Todos, criteria and tickets; a node without any gets one default each.
+ * @returns Todos, criteria and tickets; an empty work list stays empty.
  *
  * @remarks
  * Task list items of a ticket description are todos, the acceptance criteria
- * of a ticket are criteria. Both keep their checklist item, so the agent sets
+ * of a ticket are also todos. Both keep their checklist item, so the agent sets
  * them through MCP and Pages checks the same entries afterwards; a read-only
  * node only reports them. A node that completes by its todo list has only
- * todos: the criteria of its tickets are not part of its contract, and no
- * default todo or criterion is invented.
+ * todos, including ticket criteria; no default todo or criterion is invented.
  */
 export function buildPlanContract(
   instruction: string,
@@ -151,26 +148,31 @@ export function buildPlanContract(
 ): AgentPlanContract {
   const isTodoList = options.completion === "todos";
   const todos: AgentPlanContractItem[] = readMarkdownTasks(instruction).map(
-    (task, index) => ({ id: `T${index + 1}`, text: task.text, ticket: null }),
+    (task, index) => ({
+      id: `T${index + 1}`,
+      text: task.text,
+      checked: task.checked,
+      ticket: null,
+    }),
   );
   const criteria: AgentPlanContractItem[] = [];
   for (const ticket of tickets)
     for (const item of ticket.checklist.items) {
       const reference = { id: ticket.id, key: ticket.key, itemId: item.id };
-      if (item.source === "description")
-        todos.push({
-          id: `T${todos.length + 1}`,
-          text: item.text,
-          ticket: reference,
-        });
-      else if (!isTodoList)
+      todos.push({
+        id: `T${todos.length + 1}`,
+        text: item.text,
+        checked: item.checked,
+        ticket: reference,
+      });
+      if (item.source === "criteria" && !isTodoList)
         criteria.push({
           id: `K${criteria.length + 1}`,
           text: item.text,
           ticket: reference,
         });
     }
-  if (!isTodoList) addDefaults(todos, criteria, options);
+  if (!isTodoList && todos.length > 0) addDefaultCriterion(criteria, options);
   return {
     ...(isTodoList ? { completion: "todos" as const } : {}),
     ...(options.completionGate
@@ -186,13 +188,10 @@ export function buildPlanContract(
   };
 }
 
-function addDefaults(
-  todos: AgentPlanContractItem[],
+function addDefaultCriterion(
   criteria: AgentPlanContractItem[],
   options: AgentPlanContractOptions,
 ): void {
-  if (todos.length === 0)
-    todos.push({ id: "T1", text: DEFAULT_TODO, ticket: null });
   if (criteria.length === 0)
     criteria.push({
       id: "K1",
@@ -255,7 +254,9 @@ function renderTodoAssignment(assignment: AgentPlanAssignment): string {
     (ticket) => `- ${ticket.key} (ID \`${ticket.id}\`)`,
   );
   const example = JSON.stringify({
-    todos: contract.todos.map((todo) => ({ id: todo.id, status: "open" })),
+    todos: contract.todos
+      .filter((todo) => !todo.checked)
+      .map((todo) => ({ id: todo.id, status: "open" })),
     decisions: [],
     summary: "<one sentence>",
   });
@@ -267,8 +268,8 @@ function renderTodoAssignment(assignment: AgentPlanAssignment): string {
     ...(tickets.length > 0 ? ["", "### Tickets", ...tickets] : []),
     "",
     "### Todo list",
-    ...(contract.todos.length > 0
-      ? contract.todos.map(itemLine)
+    ...(contract.todos.some((todo) => !todo.checked)
+      ? contract.todos.filter((todo) => !todo.checked).map(itemLine)
       : ["- The ticket lists no todo; the instruction above is the work."]),
     "",
     "### How to work",
@@ -310,7 +311,9 @@ export function renderPlanAssignment(assignment: AgentPlanAssignment): string {
     (ticket) => `- ${ticket.key} (ID \`${ticket.id}\`)`,
   );
   const example = JSON.stringify({
-    todos: contract.todos.map((todo) => ({ id: todo.id, status: "open" })),
+    todos: contract.todos
+      .filter((todo) => !todo.checked)
+      .map((todo) => ({ id: todo.id, status: "open" })),
     criteria: contract.criteria.map((criterion) => ({
       id: criterion.id,
       met: false,
@@ -327,7 +330,9 @@ export function renderPlanAssignment(assignment: AgentPlanAssignment): string {
     ...(tickets.length > 0 ? ["", "### Tickets", ...tickets] : []),
     "",
     "### Todo list",
-    ...contract.todos.map(itemLine),
+    ...(contract.todos.filter((todo) => !todo.checked).length
+      ? contract.todos.filter((todo) => !todo.checked).map(itemLine)
+      : ["- Keine offenen TODOs."]),
     "",
     "### Acceptance criteria",
     ...contract.criteria.map(itemLine),

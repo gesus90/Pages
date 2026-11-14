@@ -171,14 +171,16 @@ it.each([
   },
 );
 
+// An open report gives its TODOs back to the session three times before the step fails.
 it.each([
-  ["an open report", OPEN_REPORT],
-  ["a blocked status over a complete report", BLOCKED_OVER_DONE],
-  ["a blocked object over several lines", BLOCKED_OVER_LINES_DONE],
-])("keeps Git from starting after MCP QA with %s", async (_, output) => {
-  const result = await runCloseout([PAGES_QA_OUTPUT, output, GROUP_REPORT]);
+  ["an open report", OPEN_REPORT, 5],
+  ["a blocked status over a complete report", BLOCKED_OVER_DONE, 2],
+  ["a blocked object over several lines", BLOCKED_OVER_LINES_DONE, 2],
+])("keeps Git from starting after MCP QA with %s", async (_, output, turns) => {
+  const answers = Array.from({ length: turns - 1 }, () => output);
+  const result = await runCloseout([PAGES_QA_OUTPUT, ...answers, GROUP_REPORT]);
 
-  expect(result.prompts).toHaveLength(2);
+  expect(result.prompts).toHaveLength(turns);
   expect(result.group).toMatchObject({ status: "failed", failedStepId: "mcp" });
   expect(result.isEndBlocked).toBe(true);
 });

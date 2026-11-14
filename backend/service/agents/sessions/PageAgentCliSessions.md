@@ -252,6 +252,13 @@ node like `report_step_result` and allowed in read-only sessions. It stores
 the todo states and the activity per run and node in
 `agent_plan_step_progress` (migration 031), so a further attempt of the run
 starts from them; `withPlanProgress` projects them into `step.progress`.
+PAGE-358 initializes all ticket criteria and Markdown checkboxes, including
+node instruction checkboxes, before dispatch. The progress JSON stores the
+contract and iteration scope; earlier array-only rows remain readable. A
+new stack iteration starts with its current ticket, while pause and recovery
+retain completed work and render only open TODOs. Marking a ticket TODO done
+also checks its ticket entry through the revision-protected checklist service.
+QA-only tasks may be completed with `an die Abschluss-QA übergeben`.
 `usage_update` stores the context and the cost (`cost_amount`,
 `cost_currency`) of the attempt; the view sums the tokens per turn, attempt
 (`totals`) and node (`nodeTotals`).
@@ -268,8 +275,12 @@ of its last change; a plan replaces the list, an unchanged entry keeps its
 time. Text outside this structure is never read as a TODO.
 `withAgentTodos` adds the list as `agentTodos` to every node result of a run,
 loop members included, and `read_plan_run` and `read_plan_run_reports` return
-it. It never decides a step: `completion` and `completionGate` keep their
-meaning.
+it. PAGE-358 includes these entries in the step contract as `A` IDs and
+counts them together with ticket and instruction TODOs. Open work is returned
+to the same native session for up to three corrective turns, before cleanup
+and failure with the remaining TODO texts. Those turns use the existing local
+instruction route to keep distinct durable turn IDs within one attempt.
+`completionGate` retains its independently versioned ticket-work checks.
 
 ### One decision for completion and resume
 

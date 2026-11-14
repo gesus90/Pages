@@ -1,8 +1,10 @@
+import { z } from "zod";
+
 import {
   AGENT_SWARM_MAIN_OPERATIONS,
   AGENT_SWARM_WORKER_OPERATIONS,
 } from "./AgentPlanSwarmOperations";
-import { z } from "zod";
+import { planResourceStartSchema } from "./AgentPlanResourceRelease";
 
 /** Local control-plane protocol. Durable commands live in PostgreSQL, never in the socket. */
 export const PAGES_RUNS_PROTOCOL = 1;
@@ -57,6 +59,16 @@ export const pagesRunsOwnershipSchema = z
   .strict();
 export const pagesRunsOwnershipReplySchema = z
   .object({ active: z.boolean() })
+  .strict();
+
+/** An already authorized fresh start asks the elected owner to retire conflicting writers before admission. */
+export const pagesRunsStartResourcesSchema = z
+  .object({
+    version: z.literal(1),
+    operation: z.literal("start_resources"),
+    start: planResourceStartSchema,
+    resourceKeys: z.array(z.string().min(1).max(4096)).max(500),
+  })
   .strict();
 
 /** A swarm tool call the API hands to the engine process that runs the swarm (PAGE-313). */

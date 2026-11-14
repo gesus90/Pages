@@ -1,5 +1,6 @@
 import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
 
+import { planPauseGate } from "./AgentPlanPauseGate";
 import { readPlanSnapshot } from "./AgentPlanSnapshot";
 import { bindPlanBranchState } from "./branching/AgentPlanBranchPersistence";
 import { restorePlanInstruction } from "./AgentPlanInstructionControl";
@@ -60,6 +61,8 @@ export async function adoptLocalPlanRun(
     branching: await context.dependencies.runs.engineState?.(view.id),
   };
   bindPlanBranchState(active);
+  if (view.status === "paused" || view.status === "pausing")
+    planPauseGate(view.id).pause();
   context.active.set(view.id, active);
   await context.dependencies.steps.restore?.(
     view,
@@ -119,7 +122,8 @@ function canAdoptFrontier(
 ): boolean {
   return (
     Boolean(context.dependencies.runs.snapshot) &&
-    (context.dependencies.localSessions?.hasRun(run.id) === true ||
+    (run.status === "paused" ||
+      context.dependencies.localSessions?.hasRun(run.id) === true ||
       allPlanRunResults(run).every(
         (step) => step.status !== "running" || step.remote !== undefined,
       ))

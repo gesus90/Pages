@@ -88,9 +88,9 @@ const STACK_TASKS = {
   }),
 };
 
-/** A closing report for the one todo and criterion of every synthetic node. */
+/** A closing report for the description TODO and ticket criterion, which is also a TODO. */
 export function stackReport(text = "Erledigt."): string {
-  return `${text}\n\`\`\`pages-report\n{"todos":[{"id":"T1","status":"done"}],"criteria":[{"id":"K1","met":true,"evidence":"synthetic observable result"}],"decisions":[],"summary":"done"}\n\`\`\``;
+  return `${text}\n\`\`\`pages-report\n{"todos":[{"id":"T1","status":"done"},{"id":"T2","status":"done"}],"criteria":[{"id":"K1","met":true,"evidence":"synthetic observable result"}],"decisions":[],"summary":"done"}\n\`\`\``;
 }
 
 /** One call the synthetic model boundary received. */
@@ -242,6 +242,7 @@ export type ScriptAnswer = (
 ) => string;
 
 export interface StackEngine {
+  readonly database: RecoveryDatabase;
   readonly engine: AgentPlanRunEngine;
   readonly snapshot: AgentPlanSnapshot;
   readonly read: (id: string) => AgentPlanRun;
@@ -386,6 +387,7 @@ export async function stackEngine(
     scripts: scriptRunner(shape.script ?? (() => "{}"), scriptCalls),
   });
   return {
+    database,
     engine,
     snapshot,
     read: (id) => database.run(id),

@@ -3,6 +3,7 @@ import { setTimeout as wait } from "node:timers/promises";
 import {
   pagesRunsOwnershipSchema,
   pagesRunsSwarmSchema,
+  pagesRunsStartResourcesSchema,
 } from "@/definition/PagesRuns";
 import { withBackgroundDatabaseWork } from "@/backend/database/executor/DatabaseWorkContext";
 import { PlanRunCommandRepository } from "@/backend/database/repositories/agent/PlanRunCommandRepository";
@@ -51,6 +52,10 @@ export class PlanRunCommandWorker {
       socketPath,
       () => this.wake(),
       (input) => {
+        const start = pagesRunsStartResourcesSchema.safeParse(input);
+        if (start.success) return this.engine.prepareStartResources(
+          start.data.start, start.data.resourceKeys,
+        );
         const swarm = pagesRunsSwarmSchema.safeParse(input);
         if (swarm.success) return Promise.resolve(answerSwarmCall(swarm.data));
         const request = pagesRunsOwnershipSchema.parse(input);

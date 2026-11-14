@@ -31,6 +31,30 @@ function preserveCompletedSession(
   };
 }
 
+/** Accepts cleanup evidence for the stopped attempt without changing its frozen work. */
+function stoppedSession(
+  existing: AgentPlanSessionRecord | null | undefined,
+  next: AgentPlanSessionRecord,
+): AgentPlanSessionRecord | null {
+  if (
+    !existing ||
+    existing.instanceId !== next.instanceId ||
+    existing.attemptId !== next.attemptId ||
+    !["confirmed", "failed"].includes(next.closeout)
+  )
+    return null;
+  if (existing.closeout === "confirmed") return existing;
+  return {
+    ...existing,
+    closeout: next.closeout,
+    containment: next.containment,
+    leftoverProcesses: next.leftoverProcesses,
+    exit: next.exit,
+    endedAt: next.endedAt,
+    events: next.events,
+  };
+}
+
 /** Preserves reservations and closes dispatch if a session journal cannot be persisted. */
 export async function savePlanSession(
   active: ActivePlanRun,
@@ -43,13 +67,16 @@ export async function savePlanSession(
 ): Promise<void> {
   try {
     await dependencies.writes.run(async () => {
-      if (!isActivePlanRun(active.view.status)) return;
       const previous = active.view;
+      const isStopped =
+        previous.status === "cancelled" && previous.stopRequested;
+      if (!isActivePlanRun(previous.status) && !isStopped) return;
       const current = previous.steps.find((step) => step.id === stepId);
-      const merged =
-        current?.status === "succeeded"
-          ? preserveCompletedSession(current.session, session)
-          : session;
+      let merged: AgentPlanSessionRecord | null = session;
+      if (isStopped) merged = stoppedSession(current?.session, session);
+      else if (current?.status === "succeeded")
+        merged = preserveCompletedSession(current.session, session);
+      if (!merged) return;
       patchStep(active, stepId, { session: merged });
       try {
         await dependencies.runs.update(active.view);

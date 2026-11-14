@@ -123,10 +123,10 @@ it("distinguishes confirmed empty lists, unavailable reads and prompt placeholde
   const step = stepWithTodos([]);
   const mounted = mount(<PlanStatusTodoCount step={step} />);
   expect(screen.getByRole("img").getAttribute("aria-label")).toContain(
-    "Noch keine Arbeitsliste",
+    "Keine TODOs",
   );
-  expect(screen.getByText("0/0")).toBeTruthy();
-  expect(mounted.container.querySelectorAll("circle")).toHaveLength(1);
+  expect(screen.getByText("Keine TODOs")).toBeTruthy();
+  expect(mounted.container.querySelectorAll("circle")).toHaveLength(0);
   mounted.rerender(
     <I18nextProvider i18n={createI18n("de")}>
       <PlanStatusTodoCount
@@ -143,9 +143,9 @@ it("distinguishes confirmed empty lists, unavailable reads and prompt placeholde
     </I18nextProvider>,
   );
   expect(screen.getByRole("img").getAttribute("aria-label")).toContain(
-    "keine TODO-Liste",
+    "Keine TODOs",
   );
-  expect(mounted.container.querySelectorAll("circle")).toHaveLength(1);
+  expect(mounted.container.querySelectorAll("circle")).toHaveLength(0);
   expect(
     planTodoSummary({
       ...step,
@@ -162,13 +162,13 @@ it("distinguishes confirmed empty lists, unavailable reads and prompt placeholde
 
 it("allows new work to lower the observed fraction after reload instead of keeping a monotonic percentage", () => {
   const mounted = mount(<PlanStatusTodoCount step={stepWithTodos(["done"])} />);
-  expect(screen.getByText("1/1")).toBeTruthy();
+  expect(screen.getByText("1 / 1 TODOs")).toBeTruthy();
   mounted.rerender(
     <I18nextProvider i18n={createI18n("de")}>
       <PlanStatusTodoCount step={stepWithTodos(["done", "open"])} />
     </I18nextProvider>,
   );
-  expect(screen.getByText("1/2")).toBeTruthy();
+  expect(screen.getByText("1 / 2 TODOs")).toBeTruthy();
   expect(screen.getByRole("img").getAttribute("aria-label")).toContain(
     "SYN-162",
   );
@@ -261,7 +261,7 @@ it("shows equal status boxes and explicit completed, active and next labels as r
   ).toBe(true);
 });
 
-it("shows ticket TODOs before retained technical run details within the same scrollable panel", () => {
+it("shows each ticket TODO once beside retained technical run details", () => {
   mount(
     <PlanStatusDetails
       step={stepWithTodos(["done", "active", "open"])}
@@ -271,12 +271,12 @@ it("shows ticket TODOs before retained technical run details within the same scr
       onLocate={vi.fn()}
     />,
   );
-  const todos = screen.getByRole("heading", { name: "TODOs · SYN-162" });
+  const todos = screen.getByRole("heading", { name: "Agent-TODO" });
   const details = screen.getByRole("heading", {
     name: "Schritt 1 · Synthetic ticket agent",
   });
   expect(
-    todos.compareDocumentPosition(details) & Node.DOCUMENT_POSITION_FOLLOWING,
+    details.compareDocumentPosition(todos) & Node.DOCUMENT_POSITION_FOLLOWING,
   ).toBeTruthy();
   expect(screen.getByText("Gerade in Arbeit")).toBeTruthy();
   expect(
@@ -319,7 +319,7 @@ it("places the TODO count immediately before the existing clock and preserves th
       onToggle={onToggle}
     />,
   );
-  const count = screen.getByText("1/2").closest('[role="img"]');
+  const count = screen.getByText("1 / 2 TODOs").closest('[role="img"]');
   expect(count?.nextElementSibling?.textContent).toBe("1:01:44");
   expect(screen.getAllByRole("button", { expanded: false })).toHaveLength(1);
   fireEvent.click(screen.getByRole("button", { expanded: false }));

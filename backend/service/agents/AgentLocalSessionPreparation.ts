@@ -16,7 +16,10 @@ import { sessionStart } from "./sessions/AgentSessionAttempts";
 import type { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
 import type { AgentPlanSessionInput } from "@/backend/agents/AgentPlanExecution";
 import type { LocalSessionLaunch } from "@/backend/agents/local/LocalSessionContracts";
-import type { AgentPlanStepStart } from "./AgentPlanStepStart";
+import type {
+  AgentPlanExecutionInput,
+  AgentPlanStepStart,
+} from "./AgentPlanStepStart";
 import type { AgentSessionStart } from "./sessions/AgentSessionAttempts";
 import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
 import type { AgentPlanSessionRecord } from "@/definition/AgentPlanSession";
@@ -60,14 +63,7 @@ export class AgentLocalSessionPreparation {
       snapshot,
       stored.step,
     );
-    const directory = record.requested.directory;
-    if (
-      !directory ||
-      directory !== prepared.input.directory ||
-      prepared.input.agent.connection.id !== record.requested.connectionId ||
-      prepared.input.agent.model !== record.requested.model
-    )
-      throw new AgentError("plan_context_changed");
+    const directory = requirePreparedDirectory(record, prepared.input);
     const scope =
       planSessionGroup(
         step,
@@ -94,6 +90,9 @@ export class AgentLocalSessionPreparation {
           runId: run.id,
           stepId: step.step.id,
           sessionScopeId: launch.sessionScopeId,
+          ...(run.origin?.kind === "resume"
+            ? { recoveryRunId: run.origin.runId }
+            : {}),
           ...(run.origin?.mode === "native_resume"
             ? { sourceRunId: run.origin.runId }
             : {}),
@@ -112,6 +111,22 @@ export class AgentLocalSessionPreparation {
       throw new AgentError("plan_run_unavailable");
     return run;
   }
+}
+
+/** Returns the stored directory while the prepared start still matches the stored request. */
+function requirePreparedDirectory(
+  record: AgentPlanSessionRecord,
+  input: AgentPlanExecutionInput,
+): string {
+  const directory = record.requested.directory;
+  if (
+    !directory ||
+    directory !== input.directory ||
+    input.agent.connection.id !== record.requested.connectionId ||
+    input.agent.model !== record.requested.model
+  )
+    throw new AgentError("plan_context_changed");
+  return directory;
 }
 
 function requireLaunchRecord(

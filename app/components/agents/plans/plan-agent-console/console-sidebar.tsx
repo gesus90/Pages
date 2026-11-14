@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { PLAN_BLOCKER_RETRIES } from "@/definition/AgentPlanRetry";
 
 import { ClaudeUsageDetails } from "../claude-usage-details";
-import { agentTodoSummary } from "../plan-agent-todo-model";
+import { nativeAgentTodoSummary } from "../plan-agent-todo-model";
 import { hasSessionEnded, infrastructureRestarts } from "./console-step-state";
 import { formatClock } from "./console-time";
 import { useNow } from "./use-terminal-surface";
@@ -144,7 +144,7 @@ function AgentTodoList({
   readonly step: AgentPlanStepResult;
 }): React.ReactElement {
   const { t } = useTranslation();
-  const agent = agentTodoSummary(step);
+  const agent = nativeAgentTodoSummary(step);
   return (
     <SidebarSection
       title={t("plans.console.terminal.sidebar.agentTodos", {

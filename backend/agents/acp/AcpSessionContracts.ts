@@ -23,6 +23,8 @@ export interface AcpSessionRequest extends Pick<
   readonly promptContent?: AcpPromptContent;
   /** A protocol session to continue with `session/resume` instead of starting one. */
   readonly resumeSessionId?: string | null;
+  /** Explicit failed-plan recovery may replace an adapter session that no longer exists. */
+  readonly canReplaceMissingSession?: boolean;
 }
 
 /** The protocol session that was opened and the options it reported. */

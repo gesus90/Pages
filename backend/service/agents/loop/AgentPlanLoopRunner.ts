@@ -204,26 +204,9 @@ export class AgentPlanLoopRunner {
     if (!host.current(loop.id)?.count) await host.authorize();
     await this.begin(loop, host);
     for (;;) {
-      const completion = completionOf(this.record(loop, host));
-      if (completion)
-        return this.end(
-          loop,
-          host,
-          completedEnd(completion, this.record(loop, host)),
-        );
-      const hasDispatchedMembers =
-        this.record(loop, host)
-          .iterations.at(-1)
-          ?.nodes.some((node) => node.status === "running") === true;
-      if (host.signal.aborted && !hasDispatchedMembers)
-        return this.end(loop, host, { status: "cancelled" });
-      if (!host.canDispatch() && !hasDispatchedMembers)
-        return host.isPausing()
-          ? this.pause(loop, host)
-          : this.end(loop, host, {
-              status: "failed",
-              error: "plan_step_failed",
-            });
+      if (!host.signal.aborted) await host.waitUntilRunning?.();
+      const stopped = await this.endIfStopped(loop, host);
+      if (stopped) return stopped;
       const decided = await this.checkWhile(loop, host);
       if (decided) return this.end(loop, host, decided);
       const outcome = await this.iterate(loop, host);
@@ -237,6 +220,30 @@ export class AgentPlanLoopRunner {
           iterationFailure(this.record(loop, host).iterations.at(-1)),
         );
     }
+  }
+
+  /** Ends the loop when it is complete, cancelled, or can neither dispatch nor wait for running members. */
+  private async endIfStopped(
+    loop: AgentPlanLoop,
+    host: LoopHost,
+  ): Promise<Partial<AgentPlanStepResult> | null> {
+    const completion = completionOf(this.record(loop, host));
+    if (completion)
+      return this.end(
+        loop,
+        host,
+        completedEnd(completion, this.record(loop, host)),
+      );
+    const hasDispatchedMembers =
+      this.record(loop, host)
+        .iterations.at(-1)
+        ?.nodes.some((node) => node.status === "running") === true;
+    if (host.signal.aborted && !hasDispatchedMembers)
+      return this.end(loop, host, { status: "cancelled" });
+    if (host.canDispatch() || hasDispatchedMembers) return null;
+    return host.isPausing()
+      ? this.pause(loop, host)
+      : this.end(loop, host, { status: "failed", error: "plan_step_failed" });
   }
 
   /** Marks a failed iteration as a failed asset entry, so the loop goes on with the next one. */

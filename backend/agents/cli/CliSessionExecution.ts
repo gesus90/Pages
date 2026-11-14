@@ -219,6 +219,9 @@ export class CliSessionExecution implements PlanSessionRunner {
     signal: AbortSignal,
     observer: PlanSessionObserver,
   ): Promise<PlanSession> {
+    const recoveryRunId = input.resourceContext?.recoveryRunId;
+    if (recoveryRunId)
+      await this.dependencies.resources?.releaseForResume(recoveryRunId);
     const provider = sessionAcpProvider(input);
     if (provider !== null && this.dependencies.resources)
       return this.dependencies.resources.openWithin({

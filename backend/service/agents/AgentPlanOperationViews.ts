@@ -442,7 +442,16 @@ export function runDetail(
     ...(run.recovery?.automaticResume
       ? { automaticResume: run.recovery.automaticResume }
       : {}),
-    steps: run.steps.map(stepStatus),
+    ...(run.origin?.kind === "resume"
+      ? { continuedFromRunId: run.origin.runId }
+      : {}),
+    steps: run.steps.map((step) => ({
+      ...stepStatus(step),
+      ...(run.origin?.kind === "resume" &&
+      run.origin.reusedStepIds.includes(step.id)
+        ? { isInherited: true }
+        : {}),
+    })),
     loops: (run.loops ?? []).map((loop) => ({
       loopId: loop.id,
       status: loop.status,

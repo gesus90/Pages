@@ -1,4 +1,10 @@
-import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 
 import { PlanRunPanel } from "@/app/components/agents/plans/plan-run-panel";
@@ -121,6 +127,7 @@ function recovery(overrides: Partial<PlanRecovery> = {}): void {
 }
 
 beforeEach(() => {
+  vi.stubGlobal("fetch", vi.fn(async () => Response.json({ owners: [] })));
   recoveryHook.calls = [];
   recovery();
 });
@@ -269,7 +276,7 @@ it("reads no recovery for a plan the person may not edit", () => {
   expect(recoveryHook.calls[0]?.[0]).toBeNull();
 });
 
-it("offers a restart of an ended run in a dialog and starts nothing before the decision", async () => {
+it("starts a fresh run of an ended run at the first click without a dialog", async () => {
   recovery({ view: RESUMABLE });
   const { scene } = renderPanel({
     control: planControl({
@@ -282,15 +289,10 @@ it("offers a restart of an ended run in a dialog and starts nothing before the d
 
   fireEvent.click(button("play"));
 
-  const dialog = await screen.findByRole("dialog", {
-    name: i18n.t("plans.recovery.restart"),
-  });
-  expect(dialog).toBeDefined();
-  expect(scene.submissions).toHaveLength(0);
-  fireEvent.click(
-    screen.getByRole("button", { name: i18n.t("settings.agents.cancel") }),
-  );
-  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  await waitFor(() => expect(scene.submissions).toHaveLength(1));
+  expect(scene.submissions[0]?.get("intent")).toBe("play-plan");
+  expect(scene.submissions[0]?.get("replaceOpenRun")).toBeNull();
+  expect(screen.queryByRole("dialog")).toBeNull();
 });
 
 it("asks before a new run begins beside the ended run of another executor", async () => {
@@ -304,7 +306,7 @@ it("asks before a new run begins beside the ended run of another executor", asyn
   });
 
   fireEvent.click(button("play"));
-  const confirm = screen.getByRole("button", {
+  const confirm = await screen.findByRole("button", {
     name: i18n.t("plans.recovery.foreignStartAction"),
   });
   expect(confirm.hasAttribute("disabled")).toBe(true);
@@ -316,20 +318,30 @@ it("asks before a new run begins beside the ended run of another executor", asyn
   expect(screen.queryByRole("dialog")).toBeNull();
 });
 
-it("continues an ended run with one click and no dialog", async () => {
+it("shows the saved revision before continuing an ended run", async () => {
+  const submit = vi.fn<PlanRecovery["submit"]>(async () => null);
+  recovery({ view: RESUMABLE, submit });
   const { scene } = renderPanel({
     control: planControl({
       ...FAILED,
       resumeKind: "failed",
+      resumeAction: "recovery",
       canResume: true,
     }),
   });
-
   fireEvent.click(button("resume"));
-
-  await waitFor(() => expect(scene.submissions).toHaveLength(1));
-  expect(scene.submissions[0]?.get("intent")).toBe("resume-plan");
-  expect(screen.queryByRole("dialog")).toBeNull();
+  const dialog = await screen.findByRole("dialog");
+  expect(scene.submissions).toHaveLength(0);
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: i18n.t("plans.panel.resume") }),
+  );
+  await waitFor(() =>
+    expect(submit).toHaveBeenCalledWith({
+      action: "resume",
+      revision: 3,
+      confirmContinue: true,
+    }),
+  );
 });
 
 it("shows why Fortsetzen is off as text and carries out the action that lifts it", async () => {
@@ -398,23 +410,15 @@ it("releases the reservations or opens the restart when the block names that act
   ).toBeDefined();
 });
 
-it("asks before it ends an open run for a new one, and sends the confirmation", async () => {
-  const { scene } = renderPanel({
-    control: planControl({
-      runId: "run-1",
-      status: "running",
-      canPlay: true,
-      canRestart: true,
-      canStop: true,
-    }),
-  });
-
+it("names a running owner of another plan before Starten sends the confirmed replacement", async () => {
+  vi.stubGlobal("fetch", vi.fn(async () => Response.json({ owners: [{
+    runId: "foreign-running-run", planName: "Other plan", startedAt: "2026-11-13T11:11:00Z",
+  }] })));
+  const { scene } = renderPanel();
   fireEvent.click(button("play"));
   expect(scene.submissions).toHaveLength(0);
-  fireEvent.click(
-    screen.getByRole("button", { name: i18n.t("plans.openRun.confirm") }),
-  );
-
+  expect(await screen.findByText(/Other plan · foreign-running-run/u)).toBeDefined();
+  fireEvent.click(screen.getByRole("button", { name: i18n.t("plans.openRun.confirm") }));
   await waitFor(() => expect(scene.submissions).toHaveLength(1));
   expect(scene.submissions[0]?.get("replaceOpenRun")).toBe("true");
 });

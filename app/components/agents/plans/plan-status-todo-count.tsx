@@ -2,7 +2,6 @@ import { useTranslation } from "react-i18next";
 
 import { agentTodoSummary } from "./plan-agent-todo-model";
 import { PlanStatusDonut } from "./plan-status-donut";
-import { planTodoSummary } from "./plan-status-todo-model";
 
 import type { AgentPlanStepResult } from "@/definition/AgentPlan";
 import type { AgentTodoSummary } from "./plan-agent-todo-model";
@@ -29,7 +28,12 @@ function AgentTodoCount({
   const current = agent.current
     ? t("plans.progress.agentTodos.current", { text: agent.current.text })
     : t("plans.progress.agentTodos.noCurrent");
-  const description = [step?.name, count, current].filter(Boolean).join(": ");
+  const tickets = step?.progress?.tickets
+    ?.map((ticket) => ticket.key)
+    .join(", ");
+  const description = [tickets, step?.name, count, current]
+    .filter(Boolean)
+    .join(": ");
   return (
     <div
       role="img"
@@ -81,55 +85,13 @@ function NoAgentTodos({ step }: TodoCountProps): React.ReactElement {
  * The selected node's TODO progress, immediately before the existing runtime clock.
  *
  * @remarks
- * A list the CLI reported wins. Without one, a node with observed ticket
- * entries keeps its checklist count; every other agent step says that no
- * list was reported, and never guesses one from text.
+ * Counts the assignment and structured agent plans together, including before
+ * the agent reports progress. An empty assignment is shown explicitly.
  */
 export function PlanStatusTodoCount({
   step,
 }: TodoCountProps): React.ReactElement {
-  const { t } = useTranslation();
   const agent = agentTodoSummary(step);
   if (agent.isReported) return <AgentTodoCount step={step} agent={agent} />;
-  const summary = planTodoSummary(step);
-  if (!summary.isConfirmed && step?.session)
-    return <NoAgentTodos step={step} />;
-  const count = summary.isConfirmed
-    ? `${summary.completed}/${summary.total}`
-    : "—";
-  let label = t("plans.progress.noTodos");
-  if (summary.isConfirmed)
-    label = summary.total
-      ? t("plans.progress.todoCount", {
-          completed: summary.completed,
-          total: summary.total,
-        })
-      : t("plans.progress.emptyTodos");
-  const scope = [summary.tickets.join(", "), step?.name]
-    .filter(Boolean)
-    .join(" · ");
-  const description = [scope, label].filter(Boolean).join(": ");
-  return (
-    <div
-      role="img"
-      title={description}
-      aria-label={description}
-      className={COUNT_CLASS}
-    >
-      <PlanStatusDonut
-        completed={summary.isConfirmed ? summary.completed : 0}
-        total={summary.total}
-        tone="todos"
-      />
-      <span
-        aria-hidden="true"
-        className="text-xs leading-4.5 font-medium whitespace-nowrap tabular-nums"
-      >
-        {count}{" "}
-        <span className="text-muted-foreground">
-          {t("plans.progress.todoLabel")}
-        </span>
-      </span>
-    </div>
-  );
+  return <NoAgentTodos step={step} />;
 }

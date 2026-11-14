@@ -115,8 +115,10 @@ function readItem(input: unknown): AgentPlanContractItem {
   const item = readAgentObject(input);
   const ticket = item.ticket === null ? null : readAgentObject(item.ticket);
   return {
-    id: text(item.id, 20),
+    id: text(item.id, 200),
     text: text(item.text),
+    ...(item.checked === undefined ? {} : { checked: item.checked === true }),
+    ...(item.agent === true ? { agent: true } : {}),
     ticket:
       ticket === null
         ? null
@@ -314,8 +316,19 @@ function readActivity(input: unknown): AgentPlanActivity {
 
 function readRetryMetadata(
   record: Record<string, unknown>,
-): Pick<AgentPlanSessionRecord, "providerFailure" | "retry"> {
+): Pick<AgentPlanSessionRecord, "providerFailure" | "retry" | "todoReturns"> {
+  if (
+    record.todoReturns !== undefined &&
+    (typeof record.todoReturns !== "number" ||
+      !Number.isInteger(record.todoReturns) ||
+      record.todoReturns < 0 ||
+      record.todoReturns > 3)
+  )
+    throw invalid();
   return {
+    ...(record.todoReturns === undefined
+      ? {}
+      : { todoReturns: Number(record.todoReturns) }),
     ...(record.providerFailure === undefined
       ? {}
       : { providerFailure: readPlanProviderFailure(record.providerFailure) }),

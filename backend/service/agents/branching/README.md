@@ -222,9 +222,11 @@ that a retry must never replace.
   and only the first completion of a node has one. Only a plan with an event
   connection lets a node settle more than once, so only there is a completed
   node no longer immutable; a plan with a decision alone keeps that guard.
-- Such a run can only be **restarted**, never resumed from checkpoints
-  (`branching_unsupported`). After a restart of the server nothing runs again
-  by itself, as for every run.
+- Since PAGE-356 a failed run can be resumed from its durable results, private
+  event bookkeeping and activation history. Consumed events are not emitted
+  twice; the failed activation keeps its original news. Saved revisions apply
+  to unfinished work, and completed or skipped branches stay completed. Stop
+  remains terminal. See [recovery](../recovery/README.md).
 - **Pause and resume.** Pausing a run during a cycle waits for the nodes that
   run. A result on its way back is queued while the run is pausing and its
   target is named in the pause boundary (`pendingStepIds`, `frontierStepIds`),

@@ -59,6 +59,8 @@ export const runnerJobSchema = z.object({
   cancellation: runnerCancellationSchema.optional(),
   /** Durable queue-only pause; never authorizes interruption of a spawned worker. */
   pauseRequestedAt: z.string().datetime().optional(),
+  /** Reversible process suspension, independent of job result and cancellation. */
+  isPaused: z.boolean().optional(),
   queueReason: runnerQueueReasonSchema.nullable().optional(),
   observedAt: z.string().datetime().optional(),
   liveHistoryVersion: z.literal(1).optional(),
@@ -252,6 +254,11 @@ export interface RunnerRegistrationReply {
 
 /** Pages-to-runner responses. Reconciliation never implicitly restarts a job. */
 export type RunnerReply =
+  | {
+      readonly version: 1;
+      readonly type: "execution-pause";
+      readonly job: RunnerJob;
+    }
   | {
       readonly version: 1;
       readonly type: "catalog-ack";

@@ -78,6 +78,13 @@ export function RunDetail({
           })}
           {readable.isStarter ? ` · ${t("runDiagnosis.detail.ownRun")}` : ""}
         </p>
+        {run.continuedFromRunId ? (
+          <p className="text-xs text-muted-foreground">
+            {t("plans.recovery.continuedFrom", {
+              run: run.continuedFromRunId.slice(0, 8),
+            })}
+          </p>
+        ) : null}
         {run.errorClass ? <RunErrorHint errorClass={run.errorClass} /> : null}
         {readable.hiddenFields.length > 0 ? (
           <p

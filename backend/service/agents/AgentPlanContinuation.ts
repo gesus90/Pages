@@ -63,18 +63,6 @@ export function planWritingWorkspaces(
   ];
 }
 
-/** The rounds a cycle has behind it cannot be compared with another revision of its plan. */
-function requireSameBranchingRevision(
-  previous: AgentPlanSnapshot,
-  next: AgentPlanSnapshot,
-): void {
-  if (
-    (hasPlanBranching(previous.plan) || hasPlanBranching(next.plan)) &&
-    previous.plan.revision !== next.plan.revision
-  )
-    throw new AgentError("plan_branching_revision");
-}
-
 function requireBoundary(
   run: AgentPlanRun,
   previous: AgentPlanSnapshot,
@@ -83,7 +71,7 @@ function requireBoundary(
   const boundary = run.pauseBoundary;
   if (!boundary || run.stopRequested || run.status !== "paused")
     throw new AgentError("plan_run_unavailable");
-  requireSameBranchingRevision(previous, next);
+
   // A paused run keeps the context it started with, its plan target included.
   if (
     previous.plan.projectId !== next.plan.projectId ||
@@ -222,14 +210,14 @@ function requireStartedLoops(
     if (record.count === null) continue;
     const old = previous.plan.nodes.find((node) => node.id === record.id);
     const adopted = next.plan.nodes.find((node) => node.id === record.id);
-    const members = (snapshot: AgentPlanSnapshot): string =>
-      JSON.stringify(
-        snapshot.steps.filter((step) => step.loopId === record.id),
-      );
-    if (
-      JSON.stringify(old) !== JSON.stringify(adopted) ||
-      members(previous) !== members(next)
-    )
+    if (old?.type !== "loop" || adopted?.type !== "loop")
+      throw new AgentError("plan_context_changed");
+    const shape = (loop: typeof old): string =>
+      JSON.stringify({
+        ...loop,
+        steps: loop.steps.map((step) => ({ id: step.id, type: step.type })),
+      });
+    if (shape(old) !== shape(adopted))
       throw new AgentError("plan_context_changed");
   }
 }
@@ -305,7 +293,8 @@ function resumedSteps(
     planFlowSequence(next.plan).order,
   ).map((node) => {
     const previous = run.steps.find((step) => step.id === node.id);
-    if (previous?.status === "succeeded") return previous;
+    if (previous?.status === "succeeded" || previous?.status === "running")
+      return previous;
     const snapshot = next.steps.find((step) => step.step.id === node.id);
     return {
       id: node.id,
@@ -343,12 +332,11 @@ function resumedNodeName(node: AgentPlanNode): string {
  * @param previous - The frozen plan the ended run executed.
  * @param proposed - The saved revision, prepared with the executor's current rights.
  * @returns The snapshot of the new run: completed nodes keep their frozen contracts.
- * @throws {AgentError} `plan_context_changed` for another project or workspace,
- * `plan_completed_changed` when a completed node, its dependencies, its group
- * or a started loop changed, `plan_skipped_step_enabled` when a script this
- * run skipped is enabled in the saved revision.
+ * @throws {AgentError} `plan_context_changed` for another project, workspace or execution target.
  *
  * @remarks
+ * Pending nodes adopt the saved revision, including changes inside started
+ * loops. Completed results remain completed even when their definition changed.
  * Unlike a live continuation, no group session is required to still run: a
  * resumed run continues a group session through the adapter's resume or
  * opens a new one, and says which.
@@ -358,18 +346,16 @@ export function prepareRecoveredPlan(
   previous: AgentPlanSnapshot,
   proposed: AgentPlanSnapshot,
 ): AgentPlanSnapshot {
-  requireBoundary(boundary, previous, proposed);
-  requireCompletedGroups(boundary, previous, proposed);
-  for (const step of proposed.steps) {
-    const old = previous.steps.find((entry) => entry.step.id === step.step.id);
-    if (
-      old &&
-      old.groupId !== step.groupId &&
-      boundary.pauseBoundary?.completedStepIds.includes(step.step.id)
+  if (
+    previous.plan.projectId !== proposed.plan.projectId ||
+    previous.plan.workspaceId !== proposed.plan.workspaceId ||
+    !isSamePlanTarget(
+      previous.plan.executionTarget,
+      proposed.plan.executionTarget,
     )
-      throw new AgentError("plan_completed_changed");
-  }
-  requireStartedLoops(boundary, previous, proposed);
+  )
+    throw new AgentError("plan_context_changed");
+  requireSkippedScriptsDisabled(boundary, proposed);
   return keptContracts(boundary, previous, proposed);
 }
 
@@ -413,7 +399,14 @@ function keptContracts(
   previous: AgentPlanSnapshot,
   proposed: AgentPlanSnapshot,
 ): AgentPlanSnapshot {
-  const completed = new Set(run.pauseBoundary?.completedStepIds);
+  const completed = new Set([
+    ...(run.pauseBoundary?.completedStepIds ?? []),
+    ...run.steps
+      .filter(
+        (step) => step.status === "running" || step.status === "succeeded",
+      )
+      .map((step) => step.id),
+  ]);
   return {
     ...proposed,
     remoteSteps: proposed.remoteSteps?.map((step) =>

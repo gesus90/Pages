@@ -61,7 +61,10 @@ const REPORT = [
   "Done.",
   "```pages-report",
   JSON.stringify({
-    todos: [{ id: "T1", status: "done" }],
+    todos: [
+      { id: "T1", status: "done" },
+      { id: "T2", status: "done" },
+    ],
     criteria: [{ id: "K1", met: true, evidence: "src/review.md lines 1-9" }],
     decisions: [],
     summary: "Reviewed.",
@@ -281,7 +284,10 @@ it.each(PROVIDERS)(
         ],
       },
     });
-    expect(record?.acceptance?.todos).toEqual([{ id: "T1", status: "done" }]);
+    expect(record?.acceptance?.todos).toEqual([
+      { id: "T1", status: "done" },
+      { id: "T2", status: "done" },
+    ]);
     expect(record?.acceptance?.issues).toEqual([]);
     expect(node.close).toHaveBeenCalledTimes(1);
   },

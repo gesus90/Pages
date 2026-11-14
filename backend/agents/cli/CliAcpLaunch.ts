@@ -175,6 +175,7 @@ export function acpSessionRequest(
     mcpServers: input.chat?.mcpServers ?? launch.mcpServers,
     sessionMeta: launch.sessionMeta,
     promptContent: input.promptContent,
+    canReplaceMissingSession: input.resourceContext?.sourceRunId !== undefined,
     resumeSessionId:
       input.chat?.resumeSessionId ?? input.resumeSessionId ?? null,
   };
