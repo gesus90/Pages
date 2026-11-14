@@ -141,6 +141,7 @@ function scheduler(
       throw new Error("Process ownership is unverified");
     },
     settleUnits: async () => remainingUnits.value,
+    hasRunningUnit: async () => remainingUnits.value > 0,
   });
 }
 

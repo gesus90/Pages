@@ -8,6 +8,8 @@ import { AgentAssignmentRepository } from "@/backend/database/repositories/agent
 import { AgentCatalogRepository } from "@/backend/database/repositories/agent/AgentCatalogRepository";
 import { AgentCheckRepository } from "@/backend/database/repositories/agent/AgentCheckRepository";
 import { AgentConnectionScopeRepository } from "@/backend/database/repositories/agent/AgentConnectionScopeRepository";
+import { AgentEnvironmentRepository } from "@/backend/database/repositories/agent/AgentEnvironmentRepository";
+import { AgentPlanStartResourceRepository } from "@/backend/database/repositories/agent/AgentPlanStartResourceRepository";
 import { AgentPlanCheckpointRepository } from "@/backend/database/repositories/agent/AgentPlanCheckpointRepository";
 import { AgentPlanCleanupFailureRepository } from "@/backend/database/repositories/agent/AgentPlanCleanupFailureRepository";
 import { AgentPlanContinuationRepository } from "@/backend/database/repositories/agent/AgentPlanContinuationRepository";
@@ -81,6 +83,7 @@ import {
   WORKSPACE_FLOW,
 } from "./agent-profile-flows";
 import { AGENT_NUL_FLOW } from "./agent-nul-flow";
+import { AGENT_RESOURCE_MAINTENANCE_FLOW } from "./agent-resource-maintenance-flow";
 import { AGENT_ORDER_FLOW } from "./agent-order-flows";
 import {
   CHECKPOINT_FLOW,
@@ -126,6 +129,7 @@ import type { RepositoryFlow } from "./world";
 /** The flows of agents, plans, runners and remote machines, in dependency order. */
 export const AGENT_AREA_FLOWS: readonly RepositoryFlow[] = [
   PLAN_WORLD_FLOW,
+  AGENT_RESOURCE_MAINTENANCE_FLOW,
   ACP_RESOURCE_FLOW,
   ACP_CHAT_LEASE_FLOW,
   ASSIGNMENT_FLOW,
@@ -189,6 +193,8 @@ export const AGENT_AREA_CLASSES: Readonly<
   AgentCatalogRepository,
   AgentCheckRepository,
   AgentConnectionScopeRepository,
+  AgentEnvironmentRepository,
+  AgentPlanStartResourceRepository,
   AgentPlanCheckpointRepository,
   AgentPlanCleanupFailureRepository,
   AgentPlanContinuationRepository,

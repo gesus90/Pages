@@ -111,6 +111,7 @@ export class AcpResourceScheduler {
       active: this.active,
       sessions: this.sessions,
       pausedRuns: this.pausedRuns,
+      hasRunningUnit: dependencies.hasRunningUnit,
       unverifiedLocal: () => this.unverifiedLocal,
       persist: (task) => this.persist(task),
       wake: () => this.wake(),

@@ -23,4 +23,6 @@ export interface SchedulerDependencies {
    * (PAGE-335); throws when the service manager cannot be read.
    */
   readonly settleUnits?: (instanceId: string) => Promise<number>;
+  /** Checks whether any worker unit for the lease still runs. */
+  readonly hasRunningUnit?: (instanceId: string) => Promise<boolean>;
 }

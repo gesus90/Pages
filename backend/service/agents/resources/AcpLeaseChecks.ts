@@ -21,6 +21,7 @@ type DescribedLease = AcpResourceSnapshot["active"][number];
 async function reconciliationReason(
   record: AcpResourceRecord,
   unverifiedLocal: ReadonlySet<string>,
+  hasRunningUnit: (instanceId: string) => Promise<boolean>,
 ): Promise<string | null> {
   if (
     record.runId !== null ||
@@ -30,9 +31,7 @@ async function reconciliationReason(
   )
     return null;
   if (record.workerUnit)
-    return (await hasRunningWorkerUnit(record.instanceId))
-      ? null
-      : "unit_inactive";
+    return (await hasRunningUnit(record.instanceId)) ? null : "unit_inactive";
   return Date.now() - Date.parse(record.since) >= 15 * 60_000
     ? "unbound_expired"
     : null;
@@ -45,6 +44,7 @@ export interface AcpLeaseCheckHost {
   readonly active: Map<string, AcpResourceRecord>;
   readonly sessions: ReadonlyMap<string, PlanSession>;
   readonly pausedRuns: ReadonlySet<string>;
+  readonly hasRunningUnit?: (instanceId: string) => Promise<boolean>;
   unverifiedLocal(): ReadonlySet<string>;
   /** Whether this process role is responsible for the lease. */
   owns(record: AcpResourceRecord): boolean;
@@ -203,6 +203,7 @@ export class AcpLeaseChecks {
         reason = await reconciliationReason(
           record,
           this.host.unverifiedLocal(),
+          this.host.hasRunningUnit ?? hasRunningWorkerUnit,
         );
         if (reason && (await this.releaseIfUnchanged(record))) {
           logEvent({

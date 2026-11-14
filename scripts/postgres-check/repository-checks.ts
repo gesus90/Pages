@@ -9,6 +9,8 @@ import { AuthorizationRepository } from "@/backend/database/repositories/Authori
 import { GitHubRepository } from "@/backend/database/repositories/GitHubRepository";
 import { InstanceSettingsRepository } from "@/backend/database/repositories/InstanceSettingsRepository";
 import { LiveChangeNotificationRepository } from "@/backend/database/repositories/LiveChangeNotificationRepository";
+import { ManagementAuditRepository } from "@/backend/database/repositories/ManagementAuditRepository";
+import { ManagementRepository } from "@/backend/database/repositories/ManagementRepository";
 import { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
 import { SessionRepository } from "@/backend/database/repositories/SessionRepository";
 import { SystemMetricsRepository } from "@/backend/database/repositories/SystemMetricsRepository";
@@ -80,6 +82,7 @@ import {
   AGENT_AREA_FLOWS,
 } from "./repositories/agent-area";
 import { GITHUB_FLOW } from "./repositories/github-flow";
+import { MANAGEMENT_FLOW } from "./repositories/management-flow";
 import { CONNECTION_FLOW, INSTANCE_FLOW } from "./repositories/instance-flows";
 import {
   MESSAGING_AREA_CLASSES,
@@ -122,6 +125,7 @@ const FLOWS: readonly RepositoryFlow[] = [
   SETTINGS_FLOW,
   AUTHORIZATION_FLOW,
   GROUP_FLOW,
+  MANAGEMENT_FLOW,
   INSTANCE_FLOW,
   CONNECTION_FLOW,
   GITHUB_FLOW,
@@ -150,6 +154,8 @@ const AREA_CLASSES: Readonly<Record<string, { readonly prototype: object }>> = {
   GitHubRepository,
   InstanceSettingsRepository,
   LiveChangeNotificationRepository,
+  ManagementAuditRepository,
+  ManagementRepository,
   ProjectRepository,
   SessionRepository,
   SystemMetricsRepository,
