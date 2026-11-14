@@ -1,6 +1,7 @@
 import { beforeEach, expect, it, vi } from "vitest";
 
 import { AgentEnvironmentRepository } from "@/backend/database/repositories/agent/AgentEnvironmentRepository";
+import { WikiMaintenanceScheduler } from "@/backend/service/wiki/WikiMaintenanceScheduler";
 import { AgentEnvironmentMaintenance } from "@/backend/storage/AgentEnvironmentMaintenance";
 
 import { environmentFiles as files } from "./page352-files";
@@ -11,6 +12,13 @@ vi.mock("node:fs/promises", async () => {
   const { environmentFiles } = await import("./page352-files");
   return environmentFiles.module();
 });
+vi.mock("@/backend/logging/LoggedOperation", () => ({
+  loggedJob: async (
+    _component: string,
+    _event: string,
+    work: () => Promise<unknown>,
+  ) => work(),
+}));
 
 const ROOT = "/memory/page416";
 const CACHES = [
@@ -155,4 +163,37 @@ it("checks leases and unreleased local owners inside the writer transaction and 
   query.mockResolvedValue([["retained-owner"]]);
   await repository.maintainConnectionCaches(remove);
   expect(remove).not.toHaveBeenCalled();
+});
+
+it("cleans caches at scheduler startup and retries protected caches at the next interval", async () => {
+  vi.useFakeTimers();
+  const idleHome = seedConnection("startup");
+  let isBusy = false;
+  const cleanup = maintenance(() => isBusy);
+  const scheduler = new WikiMaintenanceScheduler(
+    { runMaintenance: () => cleanup.run() },
+    60_000,
+  );
+  try {
+    scheduler.start();
+    await vi.advanceTimersByTimeAsync(0);
+    for (const cache of CACHES)
+      expect(files.entries.has(`${idleHome}/${cache}`)).toBe(false);
+    const busyHome = seedConnection("next-interval");
+    isBusy = true;
+    await vi.advanceTimersByTimeAsync(60_000);
+    for (const cache of CACHES)
+      expect(files.entries.has(`${busyHome}/${cache}`)).toBe(true);
+    isBusy = false;
+    await vi.advanceTimersByTimeAsync(60_000);
+    for (const cache of CACHES)
+      expect(files.entries.has(`${busyHome}/${cache}`)).toBe(false);
+    for (const name of PRESERVED)
+      expect(files.entries.get(`${busyHome}/${name}`)?.content).toBe(
+        `next-interval:${name}`,
+      );
+  } finally {
+    scheduler.stop();
+    vi.useRealTimers();
+  }
 });

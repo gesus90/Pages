@@ -290,6 +290,7 @@ it("wires the plan service on one access, preparation and engine", async () => {
     [DATABASE, USERS],
   ]);
   expect(vi.mocked(AgentPlanPreparation).mock.calls[0][0]).toEqual({
+    access: ACCESS,
     workspaceCatalog: CATALOG,
     remoteExecution: options.remoteExecution,
     remoteTargets: options.remoteTargets,

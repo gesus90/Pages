@@ -156,6 +156,43 @@ it("binds the shared environment writable after protected instance folders are h
   );
 });
 
+it.each([
+  ["config", "get", "store-dir"],
+  ["install"],
+  ["exec", "tsc", "--version"],
+])(
+  "keeps pnpm command %j on the shared store inside the plan namespace",
+  async (...commandArguments) => {
+    const isolation = new CliPlanIsolation(["/memory/data"], async () => true);
+    const request = await isolation.isolate({
+      file: path.join(sharedPnpmBin(SHARED), "pnpm"),
+      arguments: commandArguments,
+      provider: "codex_cli",
+      home: HOME,
+      workingDirectory: "/workspace",
+      environment: {},
+      timeoutMs: 0,
+      signal: new AbortController().signal,
+      onLine: () => undefined,
+    });
+    if (!request) throw new Error("Expected the available plan namespace");
+    const environment = createCliRequestEnvironment(request);
+    expect(environment.pnpm_config_store_dir).toBe(`${SHARED}/pnpm/store`);
+    expect(environment.pnpm_config_enable_global_virtual_store).toBe("true");
+    expect(environment.PATH.split(path.delimiter)[0]).toBe(
+      sharedPnpmBin(SHARED),
+    );
+    const args = request.arguments;
+    const commandIndex = args.indexOf("--");
+    expect(args.slice(commandIndex + 1)).toEqual([
+      path.join(sharedPnpmBin(SHARED), "pnpm"),
+      ...commandArguments,
+    ]);
+    expect(args.join(" ")).toContain(`--bind ${SHARED} ${SHARED}`);
+    expect(args.indexOf(SHARED)).toBeGreaterThan(args.indexOf("--tmpfs"));
+  },
+);
+
 it("sweeps ended legacy runs without a new start, empties completed homes and removes deleted plans on all connections", async () => {
   const scope = "a".repeat(64);
   for (const connection of ["one", "two"]) {
