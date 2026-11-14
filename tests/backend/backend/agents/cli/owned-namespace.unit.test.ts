@@ -1,4 +1,6 @@
-import { beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+
+import type { MockInstance } from "vitest";
 
 import {
   captureOwnedNamespace,
@@ -23,7 +25,10 @@ const BOOT = "10000000-0000-4000-8000-000000000001";
 const OTHER_BOOT = "20000000-0000-4000-8000-000000000002";
 const OWNER = { pid: 123, uid: 1000, start: 12345, boot: BOOT };
 
+let processUid: MockInstance<() => number>;
+
 beforeEach(() => {
+  processUid = vi.spyOn(process, "getuid").mockReturnValue(OWNER.uid);
   files.readFile.mockReset();
   files.stat.mockReset().mockResolvedValue({ uid: OWNER.uid });
   files.stopWorkerUnits.mockReset().mockResolvedValue(0);
@@ -36,14 +41,31 @@ beforeEach(() => {
   });
 });
 
-it("records only the spawned supervisor identity and boot", async () => {
-  const owner = await captureOwnedNamespace(123, "/synthetic-proc");
-  expect(owner).toEqual({ ...OWNER, uid: process.getuid?.() });
-  expect(
-    files.readFile.mock.calls.every(
-      ([path]) => !String(path).includes("environ"),
-    ),
-  ).toBe(true);
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
+it.each([1000, 1001])(
+  "records only the spawned supervisor identity and boot for uid %i",
+  async (uid) => {
+    processUid.mockReturnValue(uid);
+    files.stat.mockResolvedValue({ uid });
+    const owner = await captureOwnedNamespace(123, "/synthetic-proc");
+    expect(owner).toEqual({ ...OWNER, uid });
+    expect(
+      files.readFile.mock.calls.every(
+        ([path]) => !String(path).includes("environ"),
+      ),
+    ).toBe(true);
+  },
+);
+
+it("refuses a supervisor owned by another uid than this process", async () => {
+  processUid.mockReturnValue(1001);
+  files.stat.mockResolvedValue({ uid: 1000 });
+  await expect(
+    captureOwnedNamespace(123, "/synthetic-proc"),
+  ).rejects.toThrow("Supervisor identity unavailable");
 });
 
 it("keeps a matching live supervisor unconfirmed", async () => {
