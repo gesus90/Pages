@@ -227,6 +227,18 @@ it("stores references and digests without copying original instructions, literal
   expect(serialized).not.toContain("synthetic-secret");
   // The shared credential masking (PAGE-328) replaces the whole key=value pair.
   expect(checkpoint.result.output).toBe("[redacted]");
+  const contextualRun = patchRecoveryStep(fixture.completed, "a", {
+    output: "Result: password=another-synthetic-secret done.",
+  });
+  const contextualCheckpoint = createPlanCheckpoint(
+    contextualRun,
+    snapshot,
+    "a",
+  );
+  expect(contextualCheckpoint.result.output).toBe("Result: [redacted] done.");
+  expect(JSON.stringify(contextualCheckpoint)).not.toContain(
+    "another-synthetic-secret",
+  );
   expect(checkpoint.inputs).toMatchObject([
     { name: "privateText", kind: "literal", reference: null },
     { name: "previous", kind: "result", reference: "prior" },
