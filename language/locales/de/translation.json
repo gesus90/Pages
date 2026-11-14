@@ -5407,6 +5407,7 @@
       "stop": "Stop",
       "expand": "Planpanel aufklappen",
       "collapse": "Planpanel einklappen",
+      "attention": "Hinweise vorhanden",
       "stopFirst": "Ein Lauf dieses Plans läuft. Ein neuer Start ist erst nach seinem Ende möglich.",
       "newRunHint": "Starten beginnt einen neuen Lauf des gespeicherten Plans; alle Schritte laufen neu. Logs, Sessions und Aufzeichnungen des vorherigen Laufs werden entfernt. Bereits ausgeführte Änderungen im Arbeitsbereich bleiben bestehen.",
       "contextHint": "Kontextwechsel wird mit dem Plan gespeichert. Ein pausierter Run bleibt an seinen bisherigen Projekt- und Arbeitsbereich gebunden.",

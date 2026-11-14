@@ -22,7 +22,7 @@ import {
   planWarningEntries,
 } from "./plan-panel-issues";
 import { PlanPanelStatus } from "./plan-panel-status";
-import { planPanelState } from "./plan-panel-status-model";
+import { planPanelAttention, planPanelState } from "./plan-panel-status-model";
 import { recoverableRunId, recoveryErrorText } from "./plan-recovery-panel";
 import { usePlanRecovery } from "./use-plan-recovery";
 import { usePlanStartOwners } from "./use-plan-start-owners";
@@ -138,6 +138,21 @@ function panelState(
     actionError,
     hasRefusedIssues: result?.ok === false && Boolean(result.issues?.length),
     isRunBlocked: isRunBlocked(props.run),
+  });
+}
+
+/** Whether the collapsed panel hides a warning or an error, which its marker then shows. */
+function panelAttention(
+  props: PlanRunPanelProps,
+  recoveryRunId: string | null,
+  recovery: ReturnType<typeof usePlanRecovery>,
+): ReturnType<typeof planPanelAttention> {
+  const plan = props.page.selected;
+  return planPanelAttention({
+    control: props.control,
+    isWorkspaceMissing: plan?.isWorkspaceMissing === true,
+    hasScheduledDeletion: Boolean(plan?.scheduledDeletionAt),
+    hasRecoveryError: recoveryRunId !== null && Boolean(recovery.error),
   });
 }
 
@@ -280,7 +295,14 @@ function useRunDecisions(
   return { recoveryAction, setRecoveryAction, action, resolveBlock, warnings };
 }
 
-/** Fixed within the editor, independent of graph position, viewport and zoom. */
+/**
+ * Fixed within the editor, independent of graph position, viewport and zoom.
+ *
+ * @remarks
+ * Collapsed, the panel shows the heading and the status marker only; notes,
+ * hints and the recovery refusal wait for the open panel, and the marker
+ * carries a dot while any of them is a warning or an error (PAGE-338).
+ */
 export function PlanRunPanel(props: PlanRunPanelProps): React.ReactElement {
   const { t } = useTranslation();
   const detailsId = useId();
@@ -334,23 +356,30 @@ export function PlanRunPanel(props: PlanRunPanelProps): React.ReactElement {
           onResolveBlock={resolveBlock}
           onManage={management.open}
         />
-        {recoveryRunId ? <RecoveryErrorLine recovery={recovery} /> : null}
-        <PlanStartFailure error={props.run?.startError} />
-        {startOwners.error ? (
-          <p role="alert" className="px-4 py-2 text-xs text-destructive">
-            {t(`settings.agents.error.${startOwners.error}`)}
-          </p>
+        {isOpen && recoveryRunId ? (
+          <RecoveryErrorLine recovery={recovery} />
         ) : null}
-        <PlanResourceReleases run={props.run} />
-        {warnings.length > 0 ? (
-          <div role="status" className="px-3 py-2">
-            <PlanPanelIssueList issues={warnings} />
-          </div>
+        {isOpen ? (
+          <>
+            <PlanStartFailure error={props.run?.startError} />
+            {startOwners.error ? (
+              <p role="alert" className="px-4 py-2 text-xs text-destructive">
+                {t(`settings.agents.error.${startOwners.error}`)}
+              </p>
+            ) : null}
+            <PlanResourceReleases run={props.run} />
+            {warnings.length > 0 ? (
+              <div role="status" className="px-3 py-2">
+                <PlanPanelIssueList issues={warnings} />
+              </div>
+            ) : null}
+          </>
         ) : null}
         <PlanPanelStatus
           state={state}
           isOpen={isOpen}
           detailsId={detailsId}
+          attention={panelAttention(props, recoveryRunId, recovery)}
           onToggle={() => setOpen(!isOpen)}
         />
         {isOpen ? (

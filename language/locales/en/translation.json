@@ -5407,6 +5407,7 @@
       "stop": "Stop",
       "expand": "Expand plan panel",
       "collapse": "Collapse plan panel",
+      "attention": "Notices present",
       "stopFirst": "A run of this plan is in progress. A new start is possible after it ends.",
       "newRunHint": "Start begins a new run of the saved plan; every step runs again. The logs, sessions and records of the previous run are removed. Changes already made in the workspace remain in place.",
       "contextHint": "Save applies the context to the plan. A paused run keeps its original project and workspace.",

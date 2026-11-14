@@ -17,6 +17,49 @@ const BUTTON_LABELS: Readonly<Partial<Record<AgentPlanResumeAction, string>>> =
     restart: "plans.resumeBlock.button.restart",
   };
 
+interface PlanResumeBlockProps {
+  readonly control: AgentPlanControl | undefined;
+  readonly isPending: boolean;
+  readonly onResolve: (action: AgentPlanResumeAction) => void;
+}
+
+/** The block of Fortsetzen a person sees, or `null` while Fortsetzen is possible. */
+function visibleBlock(
+  control: AgentPlanControl | undefined,
+): AgentPlanControl["resumeBlock"] | null {
+  if (!control?.resumeBlock || control.canResume) return null;
+  return control.resumeBlock;
+}
+
+/**
+ * The button that lifts the block of Fortsetzen, alone among the run controls of the collapsed panel (PAGE-338).
+ *
+ * @remarks
+ * The reason stays in the open panel; a block whose action no person can
+ * carry out shows no button.
+ */
+export function PlanResumeBlockButton({
+  control,
+  isPending,
+  onResolve,
+}: PlanResumeBlockProps): React.ReactElement | null {
+  const { t } = useTranslation();
+  const block = visibleBlock(control);
+  const label = block ? BUTTON_LABELS[block.action] : undefined;
+  if (!block || !label) return null;
+  return (
+    <Button
+      size="sm"
+      variant="outline"
+      disabled={isPending}
+      className="h-9 px-4 text-xs font-semibold [@media(pointer:coarse)]:min-h-11"
+      onClick={() => onResolve(block.action)}
+    >
+      {t(label)}
+    </Button>
+  );
+}
+
 /**
  * Says why Fortsetzen is off and offers the action that lifts the block.
  *
@@ -28,14 +71,10 @@ export function PlanResumeBlockNotice({
   control,
   isPending,
   onResolve,
-}: {
-  readonly control: AgentPlanControl | undefined;
-  readonly isPending: boolean;
-  readonly onResolve: (action: AgentPlanResumeAction) => void;
-}): React.ReactElement | null {
+}: PlanResumeBlockProps): React.ReactElement | null {
   const { t } = useTranslation();
-  const block = control?.resumeBlock;
-  if (!control || !block || control.canResume) return null;
+  const block = visibleBlock(control);
+  if (!block) return null;
   const label = BUTTON_LABELS[block.action];
   return (
     <div

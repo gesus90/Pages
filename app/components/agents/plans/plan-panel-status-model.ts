@@ -100,3 +100,40 @@ export function planPanelState(input: PlanPanelStateInput): PlanPanelState {
   if (input.isDirty) return { state: "unsaved", tone: "neutral" };
   return endedState(input) ?? { state: "ready", tone: "ready" };
 }
+
+/** How urgent the notices are that the collapsed panel hides (PAGE-338). */
+export type PlanPanelAttention = "warning" | "error";
+
+/** What the collapsed panel hides and the status marker therefore points at. */
+export interface PlanPanelAttentionInput {
+  readonly control: AgentPlanControl | undefined;
+  /** The plan lost its workspace and asks for another. */
+  readonly isWorkspaceMissing: boolean;
+  /** Pages deletes the one-time plan soon. */
+  readonly hasScheduledDeletion: boolean;
+  /** The last recovery request was refused. */
+  readonly hasRecoveryError: boolean;
+}
+
+/**
+ * Says whether the collapsed panel hides a warning or an error.
+ *
+ * @remarks
+ * A refused recovery request is an error; waiting for the workspace, an open
+ * cleanup obligation, a missing workspace, a block of Fortsetzen and a
+ * scheduled deletion are warnings. Without any, the marker shows no dot.
+ */
+export function planPanelAttention(
+  input: PlanPanelAttentionInput,
+): PlanPanelAttention | null {
+  if (input.hasRecoveryError) return "error";
+  const control = input.control;
+  const isResumeBlocked = Boolean(control?.resumeBlock && !control.canResume);
+  const hasWarning =
+    Boolean(control?.workspaceWait) ||
+    Boolean(control?.cleanup?.length) ||
+    isResumeBlocked ||
+    input.isWorkspaceMissing ||
+    input.hasScheduledDeletion;
+  return hasWarning ? "warning" : null;
+}

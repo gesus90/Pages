@@ -366,6 +366,7 @@ it("shows why Fortsetzen is off as text and carries out the action that lifts it
   }).onRecoveryDecided;
 
   expect(button("resume").hasAttribute("disabled")).toBe(true);
+  fireEvent.click(button("expand"));
   expect(
     screen
       .getAllByRole("status")
@@ -572,6 +573,7 @@ it("names an enabled skipped script as the block of an ended run and offers a ne
   });
 
   expect(button("resume").hasAttribute("disabled")).toBe(true);
+  fireEvent.click(button("expand"));
   expect(
     screen
       .getAllByRole("status")

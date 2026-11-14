@@ -13,13 +13,17 @@ import {
 } from "./plan-panel-fixture";
 
 import type { AgentPlanPage } from "@/definition/AgentPlan";
-import type { AgentPlanControl } from "@/definition/AgentPlanControl";
+import type {
+  AgentPlanControl,
+  AgentPlanResumeAction,
+} from "@/definition/AgentPlanControl";
 import type { PlanEditor } from "./plan-panel-fixture";
 
 interface HeadingOptions {
   readonly control?: AgentPlanControl;
   readonly isPending?: boolean;
   readonly isOpen?: boolean;
+  readonly onResolveBlock?: (action: AgentPlanResumeAction) => void;
 }
 
 function renderHeading(
@@ -45,7 +49,7 @@ function renderHeading(
         detailsId="details"
         onToggle={onToggle}
         onAction={vi.fn()}
-        onResolveBlock={vi.fn()}
+        onResolveBlock={options.onResolveBlock ?? vi.fn()}
         onManage={vi.fn()}
       />
     );
@@ -70,7 +74,7 @@ function saveLine(): string | null {
 }
 
 it("names the plan in its workspace and saves only an edited draft", async () => {
-  const { scene } = renderHeading(planPage());
+  const { scene } = renderHeading(planPage(), { isOpen: true });
 
   expect(
     screen
@@ -91,7 +95,7 @@ it("names the plan in its workspace and saves only an edited draft", async () =>
 
 it("shows the save as running until the server has answered and only then as stored", async () => {
   let release = (): void => undefined;
-  const { scene } = renderHeading(planPage());
+  const { scene } = renderHeading(planPage(), { isOpen: true });
   scene.answer = { ok: true, intent: "save-plan", revision: 4 };
   scene.hold = new Promise<void>((resolve) => {
     release = resolve;
@@ -134,7 +138,7 @@ it("names an untitled plan and a plan whose workspace is gone, which asks for an
     workspaceId: "gone",
     isWorkspaceMissing: true,
   });
-  renderHeading(planPage({ selected, plans: [selected] }));
+  renderHeading(planPage({ selected, plans: [selected] }), { isOpen: true });
 
   expect(
     screen.getByRole("heading", { name: i18n.t("plans.title") }),
@@ -148,7 +152,7 @@ it("names an untitled plan and a plan whose workspace is gone, which asks for an
 });
 
 it("leaves the context empty and saving closed for a new plan without a workspace", () => {
-  renderHeading(planPage({ selected: null }));
+  renderHeading(planPage({ selected: null }), { isOpen: true });
   fireEvent.click(screen.getByRole("button", { name: "Edit draft" }));
 
   expect(saveButton().hasAttribute("disabled")).toBe(true);
@@ -269,6 +273,7 @@ it.each(["running", "pausing", "stopping"] as const)(
   (status) => {
     renderHeading(planPage(), {
       control: planControl({ status, runId: "run", planRevision: 2 }),
+      isOpen: true,
     });
 
     expect(saveLine()).toBe(i18n.t("plans.panel.savedShort"));
@@ -284,6 +289,7 @@ it.each(["paused", "failed", "cancelled", "succeeded"] as const)(
   (status) => {
     renderHeading(planPage(), {
       control: planControl({ status, runId: "run", planRevision: 2 }),
+      isOpen: true,
     });
 
     expect(saveLine()).toBe(i18n.t("plans.panel.savedShort"));
@@ -326,4 +332,105 @@ it("shows the current ACP waitReason in the plan heading", () => {
   expect(
     screen.getByText(i18n.t("settings.agents.resources.capacity")),
   ).toBeDefined();
+});
+
+/** A control with every note of the heading at once (PAGE-338). */
+const NOISY = planControl({
+  status: "running",
+  runId: "run",
+  workspaceWait: {
+    resource: "workspace",
+    reason: "runner_offline",
+    runId: "other",
+    jobId: null,
+    attemptId: null,
+  },
+  cleanup: [
+    {
+      workspaceId: "workspace",
+      workspaceName: "Workspace",
+      runId: "old",
+      ownerId: "owner",
+      blocker: "runner_offline",
+      updatedAt: "2026-11-13T10:00:00.000Z",
+    },
+  ],
+});
+
+const MISSING = planView({ workspaceId: "gone", isWorkspaceMissing: true });
+
+it("shows no note of the heading while the panel is collapsed", () => {
+  renderHeading(planPage({ selected: MISSING, plans: [MISSING] }), {
+    control: NOISY,
+  });
+
+  expect(screen.getByRole("heading", { name: "Synthetic plan" })).toBeDefined();
+  expect(screen.queryByRole("status")).toBeNull();
+  for (const key of [
+    "plans.panel.savedShort",
+    "plans.panel.unsavedShort",
+    "plans.execution.editLocked",
+    "plans.manage.reassignWorkspace",
+  ])
+    expect(screen.queryByText(i18n.t(key))).toBeNull();
+  expect(
+    screen.queryByText(i18n.t("plans.recovery.cleanupBlocker.runner_offline"), {
+      exact: false,
+    }),
+  ).toBeNull();
+});
+
+it("shows every note of the heading in its order when the panel is open", () => {
+  renderHeading(planPage({ selected: MISSING, plans: [MISSING] }), {
+    control: NOISY,
+    isOpen: true,
+  });
+
+  const notes = screen.getAllByRole("status").map((note) => note.textContent);
+  expect(saveLine()).toBe(i18n.t("plans.panel.savedShort"));
+  expect(notes).toHaveLength(4);
+  expect(notes[0]).toBe(i18n.t("plans.execution.editLocked"));
+  expect(notes[1]).toContain(
+    i18n.t("plans.recovery.writerWait", {
+      resource: "workspace",
+      run: "other",
+    }),
+  );
+  expect(notes[2]).toContain(
+    i18n.t("plans.recovery.cleanupObligation", {
+      workspace: "Workspace",
+      run: "old",
+    }),
+  );
+  expect(notes[3]).toBe(i18n.t("plans.manage.reassignWorkspace"));
+});
+
+it("keeps the button that lifts a block among the controls of the collapsed panel", () => {
+  const onResolveBlock = vi.fn();
+  const control = planControl({
+    status: "failed",
+    runId: "run",
+    resumeKind: "failed",
+    resumeBlock: { code: "cleanup_unconfirmed", action: "release" },
+  });
+  const { unmount } = renderHeading(planPage(), { control, onResolveBlock });
+
+  expect(screen.queryByRole("status")).toBeNull();
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: i18n.t("plans.resumeBlock.button.release"),
+    }),
+  );
+  expect(onResolveBlock).toHaveBeenCalledWith("release");
+  unmount();
+
+  renderHeading(planPage(), { control, isOpen: true });
+  expect(
+    screen.getAllByRole("button", {
+      name: i18n.t("plans.resumeBlock.button.release"),
+    }),
+  ).toHaveLength(1);
+  expect(screen.getByRole("status").textContent).toContain(
+    i18n.t("plans.resumeBlock.reason.cleanup_unconfirmed"),
+  );
 });

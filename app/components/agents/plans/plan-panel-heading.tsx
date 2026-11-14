@@ -10,7 +10,10 @@ import { PlanOneShotBadge, PlanOneShotNotice } from "./plan-one-shot-notice";
 import { PlanAccessBadges } from "./plan-access-badges";
 import { PlanPanelMenu } from "./plan-panel-menu";
 import { PlanRunActions } from "./plan-run-actions";
-import { PlanResumeBlockNotice } from "./plan-resume-block-notice";
+import {
+  PlanResumeBlockButton,
+  PlanResumeBlockNotice,
+} from "./plan-resume-block-notice";
 
 import type { TFunction } from "i18next";
 import type { AgentPlanPage } from "@/definition/AgentPlan";
@@ -69,7 +72,9 @@ interface PlanPanelHeadingProps {
  *
  * @remarks
  * Saving the graph and the run controls are separate: Starten never saves,
- * and Speichern never starts a run.
+ * and Speichern never starts a run. Collapsed, the heading is one row
+ * without its notes; only the button that lifts a block of Fortsetzen joins
+ * the run controls (PAGE-338).
  */
 export function PlanPanelHeading(
   props: PlanPanelHeadingProps,
@@ -97,27 +102,7 @@ export function PlanPanelHeading(
           ) : null}
         </div>
         <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-9 px-4 text-xs font-semibold [@media(pointer:coarse)]:min-h-11"
-            onClick={editor.save}
-            aria-busy={editor.isSaving}
-            disabled={
-              !editor.canEdit ||
-              props.isPending ||
-              !editor.isDirty ||
-              !editor.draft.workspaceId
-            }
-          >
-            {editor.isSaving ? (
-              <Loader2
-                aria-hidden="true"
-                className="mr-1.5 size-3.5 animate-spin"
-              />
-            ) : null}
-            {t("plans.execution.save")}
-          </Button>
+          <PlanSaveButton editor={editor} isPending={props.isPending} />
           {/* On narrow screens the run controls take their own row below. */}
           <div className="max-sm:order-last max-sm:basis-full">
             <PlanRunActions
@@ -132,6 +117,13 @@ export function PlanPanelHeading(
               onAction={props.onAction}
             />
           </div>
+          {props.isOpen ? null : (
+            <PlanResumeBlockButton
+              control={control}
+              isPending={props.isPending}
+              onResolve={props.onResolveBlock}
+            />
+          )}
           <div className="flex items-center gap-1">
             <PlanPanelMenu
               page={props.page}
@@ -163,11 +155,43 @@ export function PlanPanelHeading(
         <PlanOneShotNotice
           plan={props.page.selected}
           status={control?.status}
+          isHidden={!props.isOpen}
         />
       ) : null}
-      <PlanSaveStatus editor={editor} control={control} />
-      <PlanControlNotes {...props} />
+      {props.isOpen ? (
+        <>
+          <PlanSaveStatus editor={editor} control={control} />
+          <PlanControlNotes {...props} />
+        </>
+      ) : null}
     </>
+  );
+}
+
+function PlanSaveButton({
+  editor,
+  isPending,
+}: Pick<PlanPanelHeadingProps, "editor" | "isPending">): React.ReactElement {
+  const { t } = useTranslation();
+  return (
+    <Button
+      size="sm"
+      variant="outline"
+      className="h-9 px-4 text-xs font-semibold [@media(pointer:coarse)]:min-h-11"
+      onClick={editor.save}
+      aria-busy={editor.isSaving}
+      disabled={
+        !editor.canEdit ||
+        isPending ||
+        !editor.isDirty ||
+        !editor.draft.workspaceId
+      }
+    >
+      {editor.isSaving ? (
+        <Loader2 aria-hidden="true" className="mr-1.5 size-3.5 animate-spin" />
+      ) : null}
+      {t("plans.execution.save")}
+    </Button>
   );
 }
 
