@@ -83,7 +83,7 @@ export async function openPicaSession(
         servers: start.channel ? bridgeServers(start.channel.descriptor) : null,
       });
       return {
-        session: await plans.open(input, start.signal, observer),
+        session: await plans.open(input, start.signal, start.observer),
         instanceId: input.instanceId,
       };
     },

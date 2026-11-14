@@ -4,6 +4,7 @@ import { AgentChatError } from "@/backend/error/AgentChatError";
 import { ConversationError } from "@/backend/error/ConversationError";
 import { redactCredentials } from "@/backend/security/AgentTextSafety";
 import {
+  CONVERSATION_AGENT_REPLY_PREFIX,
   CONVERSATION_AGENT_SEND_PREFIX,
   CONVERSATION_NAME_MAXIMUM_LENGTH,
   CONVERSATION_TEXT_MAXIMUM_LENGTH,
@@ -233,6 +234,35 @@ export class AgentChatService implements AgentChatTools {
     } finally {
       watch?.close();
     }
+  }
+
+  /**
+   * Stores the result of an automation in a chat of the agent as its message
+   * (PAGE-376). The message asks nobody to answer, whoever it mentions.
+   *
+   * @param agentId - The agent that ran the automation.
+   * @param input - The chat, the text and the key of the run, which makes a
+   * repeated post store the message once.
+   * @throws {AgentChatError} `agent_unavailable`, `invalid_message`,
+   * `credentials_in_message` or `chat_not_found`.
+   */
+  public async postResult(
+    agentId: string,
+    input: {
+      readonly conversationId: string;
+      readonly key: string;
+      readonly text: string;
+    },
+  ): Promise<void> {
+    const agent = await this.requireAgent(agentId);
+    const text = readText(input.text);
+    await this.translate(() =>
+      this.dependencies.service.send(agent, {
+        conversationId: input.conversationId,
+        clientMessageId: `${CONVERSATION_AGENT_REPLY_PREFIX}automation:${input.key}`,
+        text,
+      }),
+    );
   }
 
   private async outcome(

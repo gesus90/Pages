@@ -1,5 +1,6 @@
 import { AgentEmployeeError } from "@/backend/error/AgentEmployeeError";
 import { ConversationError } from "@/backend/error/ConversationError";
+import { CONVERSATION_DEFAULT_REPLY_MODE } from "@/definition/ConversationDecision";
 
 import {
   agentWrittenConversations,
@@ -27,11 +28,14 @@ import type {
 } from "@/backend/service/conversation/ConversationReader";
 import type { UserRepository } from "@/backend/database/repositories/UserRepository";
 import type { WikiLookupRepository } from "@/backend/database/repositories/wiki/WikiLookupRepository";
+import type { AgentChatSessionBrief } from "@/definition/AgentChatSession";
 import type { AgentEmployeeAccess } from "@/definition/AgentEmployee";
 import type { ConversationHistoryPage } from "@/definition/Conversation";
+import type { ConversationReplyMode } from "@/definition/ConversationDecision";
 import type { User } from "@/definition/User";
 import type { AgentToolCallView } from "./AgentToolCallView";
 import type { QueuedAgentMessage } from "./AgentEmployeeSessions";
+import type { AgentChatSessionService } from "./AgentChatSessionService";
 import type { AgentMessageQueue } from "@/definition/AgentSessionLimits";
 import type { ChatConversations } from "./ChatConversationView";
 import type {
@@ -54,6 +58,8 @@ interface AgentHistory {
   /** The tool calls of the answer in progress (PAGE-303). */
   readonly liveTools: readonly VirtualToolUse[];
   readonly accessLevel: AgentEmployeeAccess | undefined;
+  /** The session of the agent in this chat (PAGE-376); absent before the first message. */
+  readonly session?: AgentChatSessionBrief | undefined;
 }
 
 /** Messages of one history the page shows at most. */
@@ -88,11 +94,22 @@ export interface ChatDirectoryDependencies {
     agent: User,
     sessionId: string,
   ) => Promise<ReadonlySet<string>>;
+  /** The sessions of agents in the chats, for the head of the chat (PAGE-376). */
+  readonly agentSessions?: Pick<
+    AgentChatSessionService,
+    "directBrief" | "groupBriefs"
+  >;
+  /** How many messages of a conversation wait for one agent (PAGE-376). */
+  readonly queuedFor?: (conversationId: string, agentId: string) => number;
   /** The person's messages to an agent that wait for a free place (PAGE-304). */
   readonly queuedAgentMessages?: (
     agentId: string,
     personId: string,
   ) => readonly QueuedAgentMessage[];
+  /** The reply mode of groups, which the group menu names (PAGE-379); absent shows none. */
+  readonly replyModes?: (
+    conversationIds: readonly string[],
+  ) => Promise<ReadonlyMap<string, ConversationReplyMode>>;
   /** The conversations of agents only that administrators and leaders read (PAGE-311). */
   readonly oversight?: Pick<ConversationOversight, "views" | "history">;
   /** Tells whether a chain of agent messages paused a conversation (PAGE-311). */
@@ -112,6 +129,21 @@ interface AccountFacts {
 
 function avatarImage(user: User): string | null {
   return user.avatarType === "image" ? (user.avatarImageUrl ?? null) : null;
+}
+
+/** Marks the agents that nothing is shared from (PAGE-305). */
+function withConfidentiality(
+  participants: VirtualChatDirectory["participants"],
+  confidentialAgents: { has(id: string): boolean },
+): VirtualChatDirectory["participants"] {
+  return participants.map((participant) =>
+    participant.kind === "agent"
+      ? {
+          ...participant,
+          isConfidential: confidentialAgents.has(participant.id),
+        }
+      : participant,
+  );
 }
 
 function contactChoice(facts: AccountFacts): VirtualContactChoice {
@@ -270,6 +302,7 @@ export class ChatDirectoryService {
           view,
           accessLevel: history?.accessLevel,
           agentChat,
+          session: history?.session,
         }),
       );
       if (history) histories[contact.contactId] = history.messages;
@@ -284,6 +317,9 @@ export class ChatDirectoryService {
     const overseen = await this.overseenConversations(person, accounts);
     Object.assign(histories, overseen.histories);
     const paused = await this.pausedGroupIds(conversations);
+    const replyModes = await this.dependencies.replyModes?.([
+      ...conversations.groups.keys(),
+    ]);
     const shownIds = new Set(participants.map((participant) => participant.id));
     const chats = this.dependencies.store.chats();
     // Which chats nothing is shared from (PAGE-305).
@@ -292,25 +328,34 @@ export class ChatDirectoryService {
       chats.confidentialConversations(person.id),
     ]);
     return {
-      participants: participants.map((participant) =>
-        participant.kind === "agent"
-          ? {
-              ...participant,
-              isConfidential: confidentialAgents.has(participant.id),
-            }
-          : participant,
-      ),
+      participants: withConfidentiality(participants, confidentialAgents),
       groups: [
-        ...groupsOf(groups, shownIds, conversations, person).map((entry) => {
-          const working = this.workingAgents(entry.id, accounts);
-          return {
-            ...entry,
-            workingAgentNames: working.map((agent) => agent.name),
-            workingAgents: working,
-            isConfidential: confidentialGroups.has(entry.id),
-            ...(paused.has(entry.id) ? { isAgentPaused: true } : {}),
-          };
-        }),
+        ...(await Promise.all(
+          groupsOf(groups, shownIds, conversations, person).map(
+            async (entry) => {
+              const working = this.workingAgents(entry.id, accounts);
+              const agentSessions = await this.groupSessions(
+                entry.id,
+                working.map((agent) => agent.id),
+              );
+              return {
+                ...entry,
+                workingAgentNames: working.map((agent) => agent.name),
+                workingAgents: working,
+                isConfidential: confidentialGroups.has(entry.id),
+                ...(replyModes === undefined
+                  ? {}
+                  : {
+                      replyMode:
+                        replyModes.get(entry.id) ??
+                        CONVERSATION_DEFAULT_REPLY_MODE,
+                    }),
+                ...(paused.has(entry.id) ? { isAgentPaused: true } : {}),
+                ...(agentSessions.length > 0 ? { agentSessions } : {}),
+              };
+            },
+          ),
+        )),
         ...overseen.groups.filter(({ id }) => !conversations.groups.has(id)),
       ],
       histories,
@@ -489,6 +534,19 @@ export class ChatDirectoryService {
     return result;
   }
 
+  /** The sessions of the agents in a group, with what each agent does in it now (PAGE-376). */
+  private async groupSessions(
+    groupId: string,
+    workingIds: readonly string[],
+  ): Promise<AgentChatSessionBrief[]> {
+    const { agentSessions, queuedFor } = this.dependencies;
+    if (!agentSessions) return [];
+    return agentSessions.groupBriefs(groupId, (agentId) => ({
+      isWorking: workingIds.includes(agentId),
+      waitingMessages: queuedFor?.(groupId, agentId) ?? 0,
+    }));
+  }
+
   /** The agents answering in a group now, with their names. */
   private workingAgents(
     groupId: string,
@@ -555,6 +613,8 @@ export class ChatDirectoryService {
       readonly accessLevel?: AgentEmployeeAccess;
       /** The direct conversation in which the agent wrote to the person (PAGE-311). */
       readonly agentChat?: ConversationView | undefined;
+      /** The session of the agent in the direct chat (PAGE-376). */
+      readonly session?: AgentChatSessionBrief | undefined;
     },
   ): VirtualParticipant {
     const { user } = facts;
@@ -580,6 +640,7 @@ export class ChatDirectoryService {
         view?.summary.lastActivityAt,
       ),
       ...(state.accessLevel ? { accessLevel: state.accessLevel } : {}),
+      ...(state.session ? { session: state.session } : {}),
     };
   }
 
@@ -625,6 +686,7 @@ export class ChatDirectoryService {
         toolUses: calls.byMessage[message.id] ?? [],
         ...(written.length > 0 ? { createdAt: message.createdAt } : {}),
       }));
+    const isBusy = isWorking || queued.length > 0;
     const chat = markQueuedMessages(messages, waitingInChat(messages, waiting));
     return {
       messages: [
@@ -632,9 +694,17 @@ export class ChatDirectoryService {
         ...queued,
       ],
       // A message waiting for a place keeps the page reading the history.
-      isWorking: isWorking || queued.length > 0,
+      isWorking: isBusy,
       liveTools: calls.current,
       accessLevel,
+      session: await this.dependencies.agentSessions?.directBrief(
+        agent.id,
+        person.id,
+        {
+          isWorking: isBusy,
+          waitingMessages: waiting.size + queued.length,
+        },
+      ),
     };
   }
 }

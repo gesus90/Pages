@@ -7,6 +7,8 @@ import {
 } from "@react-router/dev/routes";
 
 import { agentRunRoutes } from "./lib/agent-run-routes";
+import { mcpTicketRoutes } from "./lib/mcp-ticket-routes";
+import type { RouteBuilder } from "./lib/route-builder";
 import { mcpAgentRoutes } from "./lib/mcp-agent-routes";
 import { automationRoutes } from "./lib/automation-routes";
 import { mcpAutomationRoutes } from "./lib/mcp-automation-routes";
@@ -39,31 +41,6 @@ export const FORWARDED_RESOURCE = "routes/backend-request.ts";
 
 /** Marks the route ids of the API table in the type-generation table. */
 const SERVER_ID_SUFFIX = "-server";
-
-/** The browser and the server module of a page; a page without server half has none. */
-interface PageModules {
-  readonly browser: string;
-  readonly server?: string;
-}
-
-/** Declares routes for one target, see {@link RouteTarget}. */
-interface RouteBuilder {
-  /** A server resource: real in the API, forwarded by the static app. */
-  readonly resource: (path: string, file: string) => RouteConfigEntry;
-  /** A page: its browser module in the static app, its server module in the API. */
-  readonly page: (
-    path: string,
-    modules: PageModules,
-    options?: { readonly id?: string; readonly children?: RouteConfigEntry[] },
-  ) => RouteConfigEntry[];
-  /** A layout without a path. */
-  readonly frame: (
-    modules: Required<PageModules>,
-    children: RouteConfigEntry[],
-  ) => RouteConfigEntry;
-  /** An index page. */
-  readonly indexPage: (modules: PageModules) => RouteConfigEntry[];
-}
 
 function readTarget(value: string | undefined): RouteTarget {
   return ROUTE_TARGETS.find((target) => target === value) ?? "spa";
@@ -99,56 +76,6 @@ function createRouteBuilder(target: "api" | "spa"): RouteBuilder {
       return modules.server ? [index(modules.server)] : [];
     },
   };
-}
-
-/** The ticket API of the stand-alone Pages MCP program, admitted by the device token (PAGE-242). */
-function mcpTicketRoutes(routes: RouteBuilder): RouteConfigEntry[] {
-  const { resource } = routes;
-  const tickets = "api/mcp/v1/tickets";
-  const ticket = `${tickets}/:key`;
-  return [
-    resource(tickets, "routes/api-mcp-v1-tickets.ts"),
-    resource(`${tickets}/options`, "routes/api-mcp-v1-tickets-options.ts"),
-    resource(ticket, "routes/api-mcp-v1-ticket.ts"),
-    resource(`${ticket}/history`, "routes/api-mcp-v1-ticket-history.ts"),
-    resource(`${ticket}/position`, "routes/api-mcp-v1-ticket-position.ts"),
-    resource(`${ticket}/move`, "routes/api-mcp-v1-ticket-move.ts"),
-    resource(`${ticket}/checklist`, "routes/api-mcp-v1-ticket-checklist.ts"),
-    resource(
-      `${ticket}/checklist/:itemId`,
-      "routes/api-mcp-v1-ticket-checklist-item.ts",
-    ),
-    resource(`${ticket}/links`, "routes/api-mcp-v1-ticket-links.ts"),
-    resource(`${ticket}/links/:linkId`, "routes/api-mcp-v1-ticket-link.ts"),
-    resource(
-      `${ticket}/attachments`,
-      "routes/api-mcp-v1-ticket-attachments.ts",
-    ),
-    resource(
-      `${ticket}/attachments/:attachmentId`,
-      "routes/api-mcp-v1-ticket-attachment.ts",
-    ),
-    resource(`${ticket}/archive`, "routes/api-mcp-v1-ticket-archive.ts"),
-    resource(`${ticket}/restore`, "routes/api-mcp-v1-ticket-restore.ts"),
-    resource(`${ticket}/delete`, "routes/api-mcp-v1-ticket-delete.ts"),
-    resource("api/mcp/v1/ticket-labels", "routes/api-mcp-v1-ticket-labels.ts"),
-    resource(
-      "api/mcp/v1/ticket-labels/:labelId",
-      "routes/api-mcp-v1-ticket-label.ts",
-    ),
-    resource(
-      "api/mcp/v1/ticket-labels/:labelId/delete",
-      "routes/api-mcp-v1-ticket-label-delete.ts",
-    ),
-    resource(
-      "api/mcp/v1/ticket-templates",
-      "routes/api-mcp-v1-ticket-templates.ts",
-    ),
-    resource(
-      "api/mcp/v1/ticket-templates/:templateId",
-      "routes/api-mcp-v1-ticket-template.ts",
-    ),
-  ];
 }
 
 /** The project API of the stand-alone Pages MCP program, admitted by the device token (PAGE-244). */
@@ -359,6 +286,22 @@ function workspaceResources(routes: RouteBuilder): RouteConfigEntry[] {
       "routes/chat-attachment-content.ts",
     ),
     resource("chat-page-api/page", "routes/chat-page-data.ts"),
+    resource(
+      "chat-page-api/agent-sessions",
+      "routes/chat-page-agent-sessions.ts",
+    ),
+    resource(
+      "chat-page-api/agent-logbook",
+      "routes/chat-page-agent-logbook.ts",
+    ),
+    resource(
+      "chat-page-api/agent-dreaming",
+      "routes/chat-page-agent-dreaming.ts",
+    ),
+    resource(
+      "chat-page-api/agent-lessons",
+      "routes/chat-page-agent-lessons.ts",
+    ),
     resource("chat-page-api/voice", "routes/chat-page-voice.ts"),
     resource("chat-page-api/files", "routes/chat-page-files.ts"),
     resource("chat/files/:id", "routes/conversation-file.ts"),

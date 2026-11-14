@@ -1,13 +1,24 @@
-import { readCountColumn, readTextColumn } from "@/backend/database/RowValue";
+import {
+  readCountColumn,
+  readNullableTextColumn,
+  readTextColumn,
+} from "@/backend/database/RowValue";
 import { AgentError } from "@/backend/error/AgentErrors";
 
-import type { Database } from "@/backend/database/Database";
+import type { Database, DatabaseValue } from "@/backend/database/Database";
 import type { AgentSessionLimits } from "@/definition/AgentSessionLimits";
+
+/** The model the instance names for the background summary of the Lagebuch (PAGE-377). */
+export interface StoredLogbookModel {
+  readonly connectionId: string;
+  readonly model: string;
+}
 
 /**
  * Persists the limits of the concurrent chat sessions of agents (PAGE-304)
- * the time of day of the dream run (PAGE-305) and the idle time of a
- * resting chat session (PAGE-335).
+ * the time of day of the dream run (PAGE-305), the idle time of a
+ * resting chat session (PAGE-335) and the instance model of the Lagebuch
+ * summary (PAGE-377).
  */
 export class AgentSessionSettingsRepository {
   private readonly database: Pick<Database, "query">;
@@ -67,5 +78,53 @@ export class AgentSessionSettingsRepository {
       },
     );
     if (rows.length === 0) throw new AgentError("profile_conflict");
+  }
+
+  /** The model the instance names for the background summary of the Lagebuch; `null` without one. */
+  public async logbookModel(): Promise<StoredLogbookModel | null> {
+    const [row] = await this.database.query(`
+      SELECT
+          logbook_connection_id,
+          logbook_model
+      FROM agent_session_settings
+      WHERE id = 1;
+    `);
+    if (!row) return null;
+    const connectionId = readNullableTextColumn(
+      row,
+      0,
+      "logbook_connection_id",
+    );
+    const model = readNullableTextColumn(row, 1, "logbook_model");
+    return connectionId !== null && model !== null
+      ? { connectionId, model }
+      : null;
+  }
+
+  /**
+   * Saves the model of the Lagebuch summary of the instance, `null` for none.
+   *
+   * @remarks
+   * The revision of the limits stays: the model is saved on its own and must
+   * not make a concurrent save of the limits conflict.
+   */
+  public async saveLogbookModel(
+    model: StoredLogbookModel | null,
+  ): Promise<void> {
+    const parameters: Record<string, DatabaseValue> = {
+      connection_id: model?.connectionId ?? null,
+      model: model?.model ?? null,
+    };
+    await this.database.query(
+      `
+      UPDATE agent_session_settings
+      SET logbook_connection_id = $connection_id,
+          logbook_model = $model,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = 1
+      RETURNING id;
+    `,
+      parameters,
+    );
   }
 }

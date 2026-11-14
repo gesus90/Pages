@@ -1,5 +1,6 @@
 import { withBackgroundDatabaseWork } from "@/backend/database/executor/DatabaseWorkContext";
 import { AutomationAgentJobRepository } from "@/backend/database/repositories/automation/AutomationAgentJobRepository";
+import { AutomationRepository } from "@/backend/database/repositories/automation/AutomationRepository";
 import { AutomationRunRepository } from "@/backend/database/repositories/automation/AutomationRunRepository";
 import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 import { AUTOMATION_ANSWER_BYTES } from "@/definition/Automation";
@@ -42,9 +43,13 @@ export interface AutomationAgentRunner {
   start(request: {
     readonly agentId: string;
     readonly creatorId: string;
-    /** The session key: one session per automation and purpose. */
+    /** The session key of a run without a target chat: one session per automation and purpose. */
     readonly sessionKey: string;
     readonly prompt: string;
+    /** The target chat of the automation (PAGE-376), as it names it; `null` for the direct chat of its owner. */
+    readonly chat?: string | null;
+    /** The run, which makes the result posted into a chat unique. */
+    readonly runKey?: string;
   }): Promise<AutomationAgentTurn>;
 }
 
@@ -171,6 +176,8 @@ export class AutomationAgentWorker {
         creatorId: job.creatorId,
         sessionKey: sessionKeyOf(job),
         prompt: job.prompt,
+        chat: await this.targetChat(job),
+        runKey: job.runId ?? job.id,
       });
     } catch (error: unknown) {
       if (error instanceof AutomationAgentBusyError) {
@@ -208,6 +215,19 @@ export class AutomationAgentWorker {
       logCaughtError(COMPONENT, error);
       await this.fail(job, errorCodeOf(error));
     }
+  }
+
+  /** The target chat the automation of an action names (PAGE-376); `null` for every other delivery. */
+  private async targetChat(
+    job: StoredAutomationAgentJob,
+  ): Promise<string | null> {
+    if (job.kind !== "action" || job.automationId === null) return null;
+    const automation = await new AutomationRepository(
+      this.dependencies.database,
+    ).find(job.automationId);
+    return automation?.action.type === "agent"
+      ? (automation.action.chat ?? null)
+      : null;
   }
 
   private async fail(

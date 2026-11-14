@@ -53,9 +53,21 @@ Code: `definition/Automation*.ts`, `definition/AgentTools/Automations.ts`
   queue of its agent (`automation_agent_jobs`) and is delivered by
   `AutomationAgentWorker` in the process that serves the agents' sessions, one
   delivery per agent at a time, in order of arrival. The input goes into the
-  agent's own automation session (`agent_conversations.purpose =
-'automation'`) and starts an ACP turn as the agent's account; the final
-  answer is stored (first 4 KiB).
+  one session of the target chat of the action (PAGE-376) and starts an ACP
+  turn as the agent's account; the final answer is stored (first 4 KiB). The
+  target chat is the optional `chat` of an agent action: `@Agentname` (the
+  agent that runs it) or no value is the direct chat of the automation's
+  owner with the agent (`agent_conversations.purpose = 'chat'`),
+  `[[Chatname]]` is the group of that name the owner and the agent belong to
+  (`purpose = 'conversation'`; the newest one if several carry the name). The
+  result appears there as a message of the agent: in a direct chat as the
+  answer of its session, in a group stored by `AgentChatService.postResult`
+  (a message that asks nobody to answer). A target that cannot be resolved
+  fails the delivery with `target_chat_invalid` or `target_chat_not_found`.
+  An owner who is no person (an agent) has no direct chat; the turn then keeps
+  its own automation session (`purpose = 'automation'`) as before. A
+  scheduled turn waits for the running answer of its chat instead of joining
+  it.
 - Scripts run like script nodes of plans (interpreter profile, workspace,
   allowlisted environment, release gate, limits), but in their own process
   group instead of a PID namespace: at the end of the script only its group

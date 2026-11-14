@@ -1,16 +1,22 @@
 import { AccountIdentityRepository } from "./AccountIdentityRepository";
 import { AgentActivityRepository } from "./AgentActivityRepository";
 import { AgentChatMemoryRepository } from "./AgentChatMemoryRepository";
+import { AgentChatSessionRepository } from "./AgentChatSessionRepository";
 import { AgentConversationRepository } from "./AgentConversationRepository";
 import { AgentDeletionRepository } from "./AgentDeletionRepository";
 import { AgentDeletionPurgeRepository } from "./AgentDeletionPurgeRepository";
+import { AgentDreamingRepository } from "./AgentDreamingRepository";
 import { AgentEmployeeRemovalRepository } from "./AgentEmployeeRemovalRepository";
 import { AgentEmployeeRepository } from "./AgentEmployeeRepository";
 import { AgentLearningSourceRepository } from "./AgentLearningSourceRepository";
+import { AgentLogbookRepository } from "./AgentLogbookRepository";
+import { AgentLogbookSessionRepository } from "./AgentLogbookSessionRepository";
 import { AgentProfileLoadRepository } from "./AgentProfileLoadRepository";
 import { AgentMemoryRepository } from "./AgentMemoryRepository";
+import { AgentRecipeRepository } from "./AgentRecipeRepository";
 import { AgentSessionSettingsRepository } from "./AgentSessionSettingsRepository";
 import { AgentTemplateRepository } from "./AgentTemplateRepository";
+import { AgentToolUseRepository } from "./AgentToolUseRepository";
 import { ChatContactRepository } from "./ChatContactRepository";
 import { ChatGroupRepository } from "./ChatGroupRepository";
 
@@ -79,6 +85,36 @@ export class EmployeeStore {
   /** The chat sessions of agents with people. */
   public conversations(): AgentConversationRepository {
     return new AgentConversationRepository(this.database);
+  }
+
+  /** The state of the chat sessions of agents: inbox position, context and tokens (PAGE-376). */
+  public chatSessions(): AgentChatSessionRepository {
+    return new AgentChatSessionRepository(this.database);
+  }
+
+  /** The entries and settings of the Lagebuch of agents (PAGE-377). */
+  public logbook(): AgentLogbookRepository {
+    return new AgentLogbookRepository(this.database);
+  }
+
+  /** The schedule and the run state of the dream run of agents (PAGE-378). */
+  public dreaming(): AgentDreamingRepository {
+    return new AgentDreamingRepository(this.database);
+  }
+
+  /** The recipes of agents (PAGE-378). */
+  public recipes(): AgentRecipeRepository {
+    return new AgentRecipeRepository(this.database);
+  }
+
+  /** The tool calls of the chat sessions of agents, which the dream run reads (PAGE-378). */
+  public toolUses(): AgentToolUseRepository {
+    return new AgentToolUseRepository(this.database);
+  }
+
+  /** What the chat sessions remember of the Lagebuch: hint stand and summary progress (PAGE-377). */
+  public logbookSessions(): AgentLogbookSessionRepository {
+    return new AgentLogbookSessionRepository(this.database);
   }
 
   /** Summaries and confidentiality of chats for the memory (PAGE-305). */

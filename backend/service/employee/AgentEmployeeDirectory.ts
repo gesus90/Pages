@@ -1,7 +1,7 @@
 import { AgentEmployeeError } from "@/backend/error/AgentEmployeeError";
 import { countWords } from "@/definition/AgentEmployee";
 
-import { nextDreamSlot } from "./AgentDreamSchedule";
+import { nextDreamRun } from "./AgentDreamSchedule";
 import { databaseTimeToIso } from "./AgentEmployeeText";
 
 import type {
@@ -34,9 +34,7 @@ function learningState(
     isEnabled: agent.isLearningEnabled,
     dreamTime,
     lastRunAt: databaseTimeToIso(agent.lastLearningAt),
-    nextRunAt: agent.isLearningEnabled
-      ? nextDreamSlot(new Date(), dreamTime).toISOString()
-      : null,
+    nextRunAt: nextDreamRun(agent, dreamTime)?.toISOString() ?? null,
     lastResult: agent.lastLearningResult,
   };
 }

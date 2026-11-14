@@ -1,11 +1,11 @@
 import {
-  readCountColumn,
-  readNullableTextColumn,
+  readNullableCountColumn,
   readTextColumn,
 } from "@/backend/database/RowValue";
+import { createInClause } from "@/backend/database/repositories/task/InClause";
 import {
-  CONVERSATION_DEFAULT_MAXIMUM_RESPONDERS,
   CONVERSATION_DEFAULT_REPLY_MODE,
+  CONVERSATION_NO_RULE_OVERRIDES,
   CONVERSATION_REPLY_MODES,
 } from "@/definition/ConversationDecision";
 
@@ -30,11 +30,12 @@ function readMode(value: string): ConversationReplyMode {
 }
 
 /**
- * How each group decides who answers a message without an @ (PAGE-317).
+ * How each group decides who answers a message without an @ (PAGE-317,
+ * PAGE-379).
  *
  * @remarks
- * A group without a stored row has the defaults: the observer of PAGE-296,
- * no default responder and two answering agents at most.
+ * A group without a stored row has the default mode and follows the rules of
+ * the instance; so does a stored value that is `NULL`.
  */
 export class ConversationReplySettingsRepository {
   private readonly database: Pick<Database, "query" | "execute">;
@@ -51,7 +52,9 @@ export class ConversationReplySettingsRepository {
       `
         SELECT
             mode,
-            default_responder_id,
+            answer_threshold,
+            responsibility_threshold,
+            second_threshold,
             max_responders
         FROM conversation_reply_settings
         WHERE conversation_id = $conversation_id;
@@ -62,30 +65,67 @@ export class ConversationReplySettingsRepository {
       return {
         conversationId,
         mode: CONVERSATION_DEFAULT_REPLY_MODE,
-        defaultResponderId: null,
-        maximumResponders: CONVERSATION_DEFAULT_MAXIMUM_RESPONDERS,
+        overrides: CONVERSATION_NO_RULE_OVERRIDES,
       };
     return {
       conversationId,
       mode: readMode(readTextColumn(row, 0, "mode")),
-      defaultResponderId: readNullableTextColumn(
-        row,
-        1,
-        "default_responder_id",
-      ),
-      maximumResponders: readCountColumn(row, 2, "max_responders"),
+      overrides: {
+        answerThreshold: readNullableCountColumn(row, 1, "answer_threshold"),
+        responsibilityThreshold: readNullableCountColumn(
+          row,
+          2,
+          "responsibility_threshold",
+        ),
+        secondThreshold: readNullableCountColumn(row, 3, "second_threshold"),
+        maximumResponders: readNullableCountColumn(row, 4, "max_responders"),
+      },
     };
+  }
+
+  /**
+   * Reads the mode of several groups at once.
+   *
+   * @param conversationIds - The groups.
+   * @returns The mode of each group that has stored settings; a group
+   * missing from the map has the default mode.
+   */
+  public async modes(
+    conversationIds: readonly string[],
+  ): Promise<ReadonlyMap<string, ConversationReplyMode>> {
+    const modes = new Map<string, ConversationReplyMode>();
+    if (conversationIds.length === 0) return modes;
+    const ids = createInClause("conversation", conversationIds);
+    const rows = await this.database.query(
+      `
+        SELECT
+            conversation_id,
+            mode
+        FROM conversation_reply_settings
+        WHERE conversation_id IN (${ids.placeholders});
+      `,
+      ids.parameters,
+    );
+    for (const row of rows)
+      modes.set(
+        readTextColumn(row, 0, "conversation_id"),
+        readMode(readTextColumn(row, 1, "mode")),
+      );
+    return modes;
   }
 
   /** Stores the settings of a group, replacing the earlier ones. */
   public async save(change: ConversationReplySettingsChange): Promise<void> {
     const { settings } = change;
+    const { overrides } = settings;
     await this.database.execute(
       `
         INSERT INTO conversation_reply_settings (
             conversation_id,
             mode,
-            default_responder_id,
+            answer_threshold,
+            responsibility_threshold,
+            second_threshold,
             max_responders,
             updated_by,
             updated_at
@@ -93,14 +133,18 @@ export class ConversationReplySettingsRepository {
         VALUES (
             $conversation_id,
             $mode,
-            $default_responder_id,
+            $answer_threshold,
+            $responsibility_threshold,
+            $second_threshold,
             $max_responders,
             $updated_by,
             $updated_at
         )
         ON CONFLICT (conversation_id) DO UPDATE
         SET mode = EXCLUDED.mode,
-            default_responder_id = EXCLUDED.default_responder_id,
+            answer_threshold = EXCLUDED.answer_threshold,
+            responsibility_threshold = EXCLUDED.responsibility_threshold,
+            second_threshold = EXCLUDED.second_threshold,
             max_responders = EXCLUDED.max_responders,
             updated_by = EXCLUDED.updated_by,
             updated_at = EXCLUDED.updated_at;
@@ -108,8 +152,10 @@ export class ConversationReplySettingsRepository {
       {
         conversation_id: settings.conversationId,
         mode: settings.mode,
-        default_responder_id: settings.defaultResponderId,
-        max_responders: settings.maximumResponders,
+        answer_threshold: overrides.answerThreshold,
+        responsibility_threshold: overrides.responsibilityThreshold,
+        second_threshold: overrides.secondThreshold,
+        max_responders: overrides.maximumResponders,
         updated_by: change.updatedBy,
         updated_at: change.updatedAt,
       },

@@ -1,4 +1,5 @@
 import { awaitAgentJobAnswer } from "./AgentJobAnswer";
+import { createLogbookMessage, readLogbookAnswer } from "./AgentLogbookPrompt";
 import { createDreamMessage, readDreamAnswer } from "./AgentLearningPrompt";
 import {
   createSummaryMessage,
@@ -10,10 +11,11 @@ import {
 import type { ChatSessionRepository } from "@/backend/database/repositories/chat/ChatSessionRepository";
 import type { StoredAgentEmployee } from "@/backend/database/repositories/employee/AgentEmployeeRepository";
 import type { AgentConversationPurpose } from "@/backend/database/repositories/employee/AgentConversationRepository";
-import type { AgentLearningSource } from "@/backend/database/repositories/employee/AgentLearningSourceRepository";
 import type { User } from "@/definition/User";
 import type { AgentEmployeeSessions } from "./AgentEmployeeSessions";
-import type { AgentDreamAnswerLesson } from "./AgentLearningPrompt";
+import type { AgentLogbookDraft } from "./AgentLogbookService";
+import type { LogbookSummaryMessage } from "./AgentLogbookPrompt";
+import type { AgentDreamAnswer, AgentDreamInput } from "./AgentLearningPrompt";
 import type {
   AgentExchange,
   AgentSummaryMessage,
@@ -31,6 +33,20 @@ const DREAM_TIMEOUT_MILLISECONDS = 30 * 60_000;
 export interface AgentMemoryCaller {
   readonly agent: User;
   readonly employee: StoredAgentEmployee;
+  /**
+   * The call belongs to the life of a chat session, such as the summary
+   * before its restart (PAGE-376), and does not wait until the agent has no
+   * chat to work in.
+   */
+  readonly runsNow?: boolean;
+  /**
+   * Runs the call on this model instead of the agent's own (PAGE-377), such as
+   * the cheap model of the background summary of the Lagebuch.
+   */
+  readonly model?: {
+    readonly connectionId: string;
+    readonly model: string;
+  };
 }
 
 /**
@@ -60,19 +76,33 @@ export interface AgentMemoryModel {
       readonly messages: readonly AgentSummaryMessage[];
     },
   ): Promise<string | null>;
+  /**
+   * The dream run (PAGE-378): the durable points of the Lagebuch for
+   * `MEMORY.md`, lessons about how the agent works and recipes; `null` when no
+   * usable answer arrived.
+   */
   dream(
     caller: AgentMemoryCaller,
+    input: AgentDreamInput,
+  ): Promise<AgentDreamAnswer | null>;
+  /**
+   * The entries of the Lagebuch a quiet chat brings that it lacks (PAGE-377);
+   * `null` when no usable answer arrived.
+   */
+  logbook(
+    caller: AgentMemoryCaller,
     input: {
-      readonly dream: string;
-      readonly sources: readonly AgentLearningSource[];
-      readonly today: string;
+      readonly chat: string;
+      readonly existing: readonly string[];
+      readonly messages: readonly LogbookSummaryMessage[];
     },
-  ): Promise<readonly AgentDreamAnswerLesson[] | null>;
+  ): Promise<readonly AgentLogbookDraft[] | null>;
 }
 
 /** What the model calls over the agent's own sessions use. */
 export interface AgentSessionMemoryModelDependencies {
-  readonly sessions: Pick<AgentEmployeeSessions, "run" | "job">;
+  readonly sessions: Pick<AgentEmployeeSessions, "run" | "job"> &
+    Partial<Pick<AgentEmployeeSessions, "whenOutOfChats">>;
   readonly messages: Pick<ChatSessionRepository, "messages">;
   readonly now?: () => Date;
   readonly wait?: (milliseconds: number) => Promise<void>;
@@ -82,6 +112,12 @@ export interface AgentSessionMemoryModelDependencies {
  * The model calls of the memory in sessions of the agent's own account,
  * with its own model: topic updates and summaries in its memory session,
  * the dream run in its dream session.
+ *
+ * @remarks
+ * Each call is a short run of its own that continues no earlier session
+ * (PAGE-376), and it starts only while the agent works in no chat; the
+ * summary before the restart of a chat session is the one call that does
+ * not wait.
  */
 export class AgentSessionMemoryModel implements AgentMemoryModel {
   private readonly dependencies: AgentSessionMemoryModelDependencies;
@@ -116,17 +152,30 @@ export class AgentSessionMemoryModel implements AgentMemoryModel {
     return answer === null ? null : readSummaryAnswer(answer);
   }
 
-  /** Asks for the lessons of the day. */
+  /** Asks for the topics, lessons and recipes of a dream run. */
   public async dream(
     caller: AgentMemoryCaller,
-    input: Parameters<AgentMemoryModel["dream"]>[1],
-  ): Promise<readonly AgentDreamAnswerLesson[] | null> {
+    input: AgentDreamInput,
+  ): Promise<AgentDreamAnswer | null> {
     const answer = await this.ask(caller, {
       purpose: "learning",
-      text: createDreamMessage(input.dream, input.sources, input.today),
+      text: createDreamMessage(input),
       timeoutMilliseconds: DREAM_TIMEOUT_MILLISECONDS,
     });
     return answer === null ? null : readDreamAnswer(answer, input.today);
+  }
+
+  /** Asks which entries of the Lagebuch the new messages of a quiet chat bring. */
+  public async logbook(
+    caller: AgentMemoryCaller,
+    input: Parameters<AgentMemoryModel["logbook"]>[1],
+  ): Promise<readonly AgentLogbookDraft[] | null> {
+    const answer = await this.ask(caller, {
+      purpose: "memory",
+      text: createLogbookMessage(input.chat, input.existing, input.messages),
+      timeoutMilliseconds: MEMORY_TIMEOUT_MILLISECONDS,
+    });
+    return answer === null ? null : readLogbookAnswer(answer);
   }
 
   private async ask(
@@ -137,6 +186,13 @@ export class AgentSessionMemoryModel implements AgentMemoryModel {
       readonly timeoutMilliseconds: number;
     },
   ): Promise<string | null> {
+    // Background work runs only while the agent works in no chat (PAGE-376).
+    if (
+      caller.runsNow !== true &&
+      this.dependencies.sessions.whenOutOfChats &&
+      !(await this.dependencies.sessions.whenOutOfChats(caller.agent.id))
+    )
+      return null;
     const started = await this.dependencies.sessions.run({
       agent: caller.agent,
       employee: caller.employee,
@@ -144,6 +200,7 @@ export class AgentSessionMemoryModel implements AgentMemoryModel {
       purpose: task.purpose,
       text: task.text,
       clientMessageId: null,
+      ...(caller.model ? { modelOverride: caller.model } : {}),
     });
     if (!started) return null;
     return awaitAgentJobAnswer(

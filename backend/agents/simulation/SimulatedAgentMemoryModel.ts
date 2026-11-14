@@ -2,14 +2,22 @@ import type {
   AgentMemoryCaller,
   AgentMemoryModel,
 } from "@/backend/service/employee/AgentMemoryModel";
-import type { AgentDreamAnswerLesson } from "@/backend/service/employee/AgentLearningPrompt";
+import type {
+  AgentDreamAnswer,
+  AgentDreamInput,
+} from "@/backend/service/employee/AgentLearningPrompt";
 import type { AgentTopicUpdate } from "@/backend/service/employee/AgentMemoryPrompt";
+import type { AgentLogbookDraft } from "@/backend/service/employee/AgentLogbookService";
 
 /** Words of a message that make the title of a simulated topic. */
 const TITLE_WORDS = 6;
 /** Lessons one simulated dream run derives at most. */
 const DREAM_LESSONS = 5;
+/** Topics one simulated dream run takes from the Lagebuch at most. */
+const DREAM_TOPICS = 3;
 const TICKET_KEY = /\b[A-Z][A-Z0-9]*-\d+\b/gu;
+/** Entries one simulated Lagebuch summary writes at most. */
+const LOGBOOK_ENTRIES = 3;
 
 function cut(text: string, maximum: number): string {
   const single = text.replace(/\s+/gu, " ").trim();
@@ -70,11 +78,15 @@ export class SimulatedAgentMemoryModel implements AgentMemoryModel {
     );
   }
 
-  /** A lesson per message of a person and per plan run, the newest first. */
+  /**
+   * A lesson per message of a person and per plan run, the newest first, a
+   * topic per decision of the Lagebuch and a knowledge recipe for the call the
+   * agent repeats most.
+   */
   public dream(
     caller: AgentMemoryCaller,
-    input: Parameters<AgentMemoryModel["dream"]>[1],
-  ): Promise<readonly AgentDreamAnswerLesson[] | null> {
+    input: AgentDreamInput,
+  ): Promise<AgentDreamAnswer | null> {
     const lessons = [...input.sources]
       .reverse()
       .filter(
@@ -91,6 +103,69 @@ export class SimulatedAgentMemoryModel implements AgentMemoryModel {
         evidence: `${source.kind === "plan" ? "Planlauf" : `Chat von ${caller.agent.displayName}`} ${source.at}`,
         date: input.today,
       }));
-    return Promise.resolve(lessons);
+    return Promise.resolve({
+      topics: this.dreamTopics(input),
+      discarded: [],
+      lessons,
+      recipes: this.dreamRecipes(input),
+      dropRecipes: [],
+    });
+  }
+
+  /** An entry per message that names a ticket or a decision, the newest first. */
+  public logbook(
+    caller: AgentMemoryCaller,
+    input: Parameters<AgentMemoryModel["logbook"]>[1],
+  ): Promise<readonly AgentLogbookDraft[] | null> {
+    const entries = [...input.messages]
+      .reverse()
+      .filter((message) => message.from !== caller.agent.displayName)
+      .filter((message) =>
+        /\b(?:[A-Z][A-Z0-9]*-\d+|beschlossen|entschieden|bis)\b/u.test(
+          message.text,
+        ),
+      )
+      .slice(0, LOGBOOK_ENTRIES)
+      .map((message) => ({
+        kind: /\b(?:beschlossen|entschieden)\b/u.test(message.text)
+          ? ("decision" as const)
+          : ("open" as const),
+        text: `${message.from}: ${cut(message.text, 200)}`,
+      }));
+    return Promise.resolve(entries);
+  }
+
+  /** A topic per decision of the Lagebuch, resting on that entry. */
+  private dreamTopics(input: AgentDreamInput): AgentDreamAnswer["topics"] {
+    return input.logbook
+      .map((entry, index) => ({ entry, number: index + 1 }))
+      .filter(({ entry }) => entry.kind === "Entscheidung")
+      .slice(0, DREAM_TOPICS)
+      .map(({ entry, number }) => ({
+        title: cut(entry.text, 60),
+        about: cut(entry.text, 300),
+        status: `Festgehalten im Lagebuch (${entry.chat})`,
+        nextStep: "",
+        tickets: [...new Set(entry.text.match(TICKET_KEY) ?? [])],
+        wikiPages: [],
+        isDone: false,
+        entries: [number],
+      }));
+  }
+
+  /** A knowledge recipe for the call the agent made again and again. */
+  private dreamRecipes(input: AgentDreamInput): AgentDreamAnswer["recipes"] {
+    const call = input.toolUse.repeated[0];
+    if (!call) return [];
+    return [
+      {
+        name: `${call.tool}-wiederholt`,
+        kind: "knowledge",
+        summary: `Fester Wert für ${call.tool}`,
+        keywords: [call.tool],
+        body: `${call.tool} wurde ${String(call.calls)}× mit ${call.input} aufgerufen; Ergebnis: ${call.output}`,
+        evidence: `Werkzeugaufrufe bis ${input.today}`,
+      },
+    ];
   }
 }

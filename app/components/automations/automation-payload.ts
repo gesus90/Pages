@@ -2,6 +2,7 @@ import {
   AUTOMATION_INTERVAL_SECONDS,
   AUTOMATION_UNIT_SECONDS,
 } from "@/definition/Automation";
+import { automationTargetChatSchema } from "@/definition/AutomationSchema";
 
 import { PLAN_EVENT_TYPES, sharingFromValue } from "./automation-draft";
 import { isClockTime, zonedInputToIso } from "./automation-zoned-time";
@@ -28,6 +29,7 @@ export type DraftProblem =
   | "project"
   | "agent"
   | "instruction"
+  | "chat"
   | "workspace"
   | "interpreter"
   | "content"
@@ -223,6 +225,26 @@ function buildScript(
   };
 }
 
+/**
+ * Builds the action of an agent: the target chat is checked as the server
+ * checks it and left out while it is empty, which means the direct chat of
+ * the owner with the agent.
+ */
+function buildAgentAction(draft: AutomationDraft): Built<AutomationAction> {
+  if (draft.agentId === "") return { problem: "agent" };
+  if (draft.instruction.trim() === "") return { problem: "instruction" };
+  const chat = automationTargetChatSchema.safeParse(draft.chat);
+  if (!chat.success) return { problem: "chat" };
+  return {
+    value: {
+      type: "agent",
+      agentId: draft.agentId,
+      instruction: draft.instruction,
+      ...(chat.data === "" ? {} : { chat: chat.data }),
+    },
+  };
+}
+
 /** Builds the action of a draft. */
 export function buildAction(
   draft: AutomationDraft,
@@ -230,15 +252,7 @@ export function buildAction(
 ): Built<AutomationAction> {
   switch (draft.actionType) {
     case "agent":
-      if (draft.agentId === "") return { problem: "agent" };
-      if (draft.instruction.trim() === "") return { problem: "instruction" };
-      return {
-        value: {
-          type: "agent",
-          agentId: draft.agentId,
-          instruction: draft.instruction,
-        },
-      };
+      return buildAgentAction(draft);
     case "plan":
       if (draft.actionPlanId === "") return { problem: "plan" };
       return { value: { type: "plan", planId: draft.actionPlanId } };

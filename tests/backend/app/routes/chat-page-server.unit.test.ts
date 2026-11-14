@@ -26,7 +26,11 @@ const services = vi.hoisted(() => ({
   agentEmployeeSessions: { stop: vi.fn(), cancelTool: vi.fn() },
   conversationAgentReplies: { stop: vi.fn() },
   conversationAgentGuard: { resume: vi.fn() },
-  conversationReplySettingsService: { read: vi.fn(), save: vi.fn() },
+  conversationReplySettingsService: {
+    read: vi.fn(),
+    save: vi.fn(),
+    decisions: vi.fn(),
+  },
   agentChatPrivacyService: { setConfidential: vi.fn() },
   conversationVoiceMaximumMs: 1200,
 }));
@@ -106,29 +110,72 @@ it("validates mute input and maps conversation errors", async () => {
   });
 });
 
-it("passes reply settings and converts an empty default responder to null", async () => {
+it("passes the mode and the rules of a group to the settings service", async () => {
   services.conversationReplySettingsService.save.mockResolvedValue({
-    mode: "all",
+    mode: "decision",
   });
   const result = await change({
     intent: "save-reply-settings",
     conversationId: "c",
-    mode: "all",
-    maximumResponders: "2",
+    mode: "decision",
+    useDefaults: "false",
+    answerThreshold: "70",
+    responsibilityThreshold: "55",
+    secondThreshold: "35",
+    maximumResponders: "3",
   });
   expect(services.conversationReplySettingsService.save).toHaveBeenCalledWith(
     EMPLOYEE,
     {
       conversationId: "c",
-      mode: "all",
-      defaultResponderId: null,
-      maximumResponders: 2,
+      mode: "decision",
+      rules: {
+        answerThreshold: 70,
+        responsibilityThreshold: 55,
+        secondThreshold: 35,
+        maximumResponders: 3,
+      },
     },
   );
   expect(result.data).toEqual({
     ok: true,
     intent: "save-reply-settings",
-    replySettings: { mode: "all" },
+    replySettings: { mode: "decision" },
+  });
+});
+
+it("returns a group to the defaults of the instance when asked to use them", async () => {
+  services.conversationReplySettingsService.save.mockResolvedValue({
+    mode: "mentions",
+  });
+  await change({
+    intent: "save-reply-settings",
+    conversationId: "c",
+    mode: "mentions",
+    useDefaults: "true",
+    answerThreshold: "70",
+  });
+  expect(services.conversationReplySettingsService.save).toHaveBeenCalledWith(
+    EMPLOYEE,
+    { conversationId: "c", mode: "mentions", rules: null },
+  );
+});
+
+it("lists the last decisions of a group", async () => {
+  services.conversationReplySettingsService.decisions.mockResolvedValue([
+    { messageId: "m1" },
+  ]);
+  const result = await change({
+    intent: "reply-decisions",
+    conversationId: "c",
+  });
+  expect(
+    services.conversationReplySettingsService.decisions,
+  ).toHaveBeenCalledWith(EMPLOYEE, "c");
+  expect(result.data).toEqual({
+    ok: true,
+    intent: "reply-decisions",
+    replyDecisions: [{ messageId: "m1" }],
   });
 });
 

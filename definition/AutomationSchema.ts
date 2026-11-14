@@ -7,6 +7,7 @@ import {
   AUTOMATION_INTERVAL_SECONDS,
   AUTOMATION_NAME_LENGTH,
   AUTOMATION_NOTIFICATION_MODES,
+  AUTOMATION_TARGET_CHAT_LENGTH,
   AUTOMATION_TIME_UNITS,
   AUTOMATION_UNIT_SECONDS,
 } from "./Automation";
@@ -27,6 +28,16 @@ const TIME_PATTERN = /^(?:[01]\d|2[0-3]):[0-5]\d$/u;
 
 /** A reference to another record; Pages checks that it exists and is usable. */
 export const automationReferenceSchema = z.string().min(1).max(200);
+
+/**
+ * The target chat of an agent action (PAGE-376): `@Agentname`, `[[Chatname]]`
+ * or empty for the direct chat of the owner with the agent.
+ */
+export const automationTargetChatSchema = z
+  .string()
+  .trim()
+  .max(AUTOMATION_TARGET_CHAT_LENGTH)
+  .regex(/^(?:@\S.*|\[\[[^\]]+\]\])?$/u);
 
 /**
  * Tells whether a name is an IANA time zone this runtime can compute with.
@@ -161,6 +172,7 @@ export const automationActionSchema: z.ZodType<AutomationAction> = z.union([
     type: z.literal("agent"),
     agentId: automationReferenceSchema,
     instruction: z.string().trim().min(1).max(AUTOMATION_INSTRUCTION_LENGTH),
+    chat: automationTargetChatSchema.nullable().optional(),
   }),
   z.strictObject({
     type: z.literal("script"),

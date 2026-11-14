@@ -35,7 +35,7 @@ export interface AgentConversationAnswerDependencies {
   readonly users: Pick<UserRepository, "findById">;
   readonly sessions: Pick<
     AgentEmployeeSessions,
-    "run" | "job" | "admit" | "stopSession"
+    "run" | "job" | "admit" | "stopSession" | "steerChat"
   >;
   readonly messages: Pick<ChatSessionRepository, "messages">;
   /** The simulated agent; set only while the simulation is on, never in production. */
@@ -100,6 +100,8 @@ export class AgentConversationAnswers implements ConversationAgentRunner {
       onAdmitted: request.onAdmitted,
     });
     if (!started) throw new AgentEmployeeError("busy");
+    // The round reached the session: its next round carries only what is newer (PAGE-376).
+    await this.advance(started.sessionId, request);
     const stop = (): void => {
       void this.dependencies.sessions
         .stopSession(agent, started.sessionId)
@@ -126,6 +128,59 @@ export class AgentConversationAnswers implements ConversationAgentRunner {
     } finally {
       signal?.removeEventListener("abort", stop);
     }
+  }
+
+  /**
+   * Hands the round to the answer the agent is giving in the conversation
+   * now (PAGE-376); the new messages join it and no second answer starts.
+   *
+   * @returns Whether the running answer took the round.
+   */
+  public async steer(request: ConversationAgentRequest): Promise<boolean> {
+    if (this.dependencies.simulation) return false;
+    const steered = await this.dependencies.sessions.steerChat(
+      request.agent,
+      { purpose: "conversation", conversationId: request.conversation.id },
+      request.prompt,
+    );
+    if (steered) await this.advanceByConversation(request);
+    return steered;
+  }
+
+  /**
+   * The newest message of the conversation the agent's session received; `0`
+   * before its first round (PAGE-376).
+   */
+  public async deliveredThrough(
+    agentId: string,
+    conversationId: string,
+  ): Promise<number> {
+    const session = await this.dependencies.store
+      .conversations()
+      .find(agentId, conversationId, "conversation");
+    return session
+      ? this.dependencies.store.chatSessions().delivered(session.sessionId)
+      : 0;
+  }
+
+  /** Records that the session received the conversation up to the answered message. */
+  private async advance(
+    sessionId: string,
+    request: ConversationAgentRequest,
+  ): Promise<void> {
+    if (request.throughSequence === undefined) return;
+    await this.dependencies.store
+      .chatSessions()
+      .saveDelivered(sessionId, request.throughSequence);
+  }
+
+  private async advanceByConversation(
+    request: ConversationAgentRequest,
+  ): Promise<void> {
+    const session = await this.dependencies.store
+      .conversations()
+      .find(request.agent.id, request.conversation.id, "conversation");
+    if (session) await this.advance(session.sessionId, request);
   }
 
   /** Hands the answer to the memory, which updates it in the background (PAGE-305). */

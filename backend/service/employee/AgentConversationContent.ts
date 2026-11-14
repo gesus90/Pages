@@ -7,12 +7,17 @@ import type { ConversationAgentRequest } from "@/backend/service/conversation/Co
 export function conversationTurnPreparation(
   request: ConversationAgentRequest,
 ):
-  | ((afterSequence: number | null) => Promise<PicaAcpConversationTurn>)
+  | ((
+      afterSequence: number | null,
+      isResumed?: boolean,
+    ) => Promise<PicaAcpConversationTurn>)
   | undefined {
   const { prepareTurn, openAttachment } = request;
   if (!prepareTurn || !openAttachment) return undefined;
-  return async (afterSequence) => {
-    const turn = await prepareTurn(afterSequence);
+  return async (afterSequence, isResumed) => {
+    const turn = isResumed
+      ? await prepareTurn(afterSequence, true)
+      : await prepareTurn(afterSequence);
     const attachments: StoredChatAttachment[] = turn.attachments.map(
       (file) => ({
         id: file.id,

@@ -1,4 +1,5 @@
 import { readAgentObject } from "@/backend/agents/AgentPayload";
+import { isDecisionModel } from "@/definition/ConversationDecision";
 import { isTranscriptionModel } from "@/definition/SpeechRecognition";
 import { isSpeechSynthesisModel } from "@/definition/SpeechSynthesis";
 
@@ -99,13 +100,37 @@ export function isSpeechOutputModel(
 }
 
 /**
- * Tells whether a listed model belongs in the shared catalog: a text model,
- * a transcription model or a speech output model.
+ * Tells whether a listed model gives decisions, by the catalog's own data (PAGE-379).
  *
  * @param entry - One raw model entry of a provider listing.
  * @param provider - The provider that listed the entry.
- * @returns `true` when {@link isTextModel}, {@link isSpeechModel} or
- * {@link isSpeechOutputModel} keeps it.
+ * @returns `true` for an OpenRouter model that states `decisions` among its
+ * outputs ({@link isDecisionModel}).
+ *
+ * @remarks
+ * {@link isTextModel} drops such a model, because it does not answer in text;
+ * it is kept for the decisions of group chats only. Its stored modalities rule
+ * out chatting, so Pica, agents and plan nodes leave it out.
+ */
+export function isDecisionOutputModel(
+  entry: unknown,
+  provider: ApiProviderId,
+): boolean {
+  if (provider !== "openrouter") return false;
+  const architecture = readAgentObject(readAgentObject(entry).architecture);
+  return isDecisionModel({
+    outputModalities: statedModalities(architecture.output_modalities),
+  });
+}
+
+/**
+ * Tells whether a listed model belongs in the shared catalog: a text model,
+ * a transcription model, a speech output model or a decision model.
+ *
+ * @param entry - One raw model entry of a provider listing.
+ * @param provider - The provider that listed the entry.
+ * @returns `true` when {@link isTextModel}, {@link isSpeechModel},
+ * {@link isSpeechOutputModel} or {@link isDecisionOutputModel} keeps it.
  */
 export function isCatalogModel(
   entry: unknown,
@@ -114,6 +139,7 @@ export function isCatalogModel(
   return (
     isTextModel(entry, provider) ||
     isSpeechModel(entry, provider) ||
-    isSpeechOutputModel(entry, provider)
+    isSpeechOutputModel(entry, provider) ||
+    isDecisionOutputModel(entry, provider)
   );
 }

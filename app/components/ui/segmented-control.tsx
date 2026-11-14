@@ -15,6 +15,8 @@ interface SegmentedControlProps<Value extends string> {
   readonly options: readonly SegmentedControlOption<Value>[];
   readonly ariaLabel: string;
   readonly className?: string;
+  /** Shows the choice but takes no change of it. */
+  readonly isDisabled?: boolean;
 }
 
 /**
@@ -33,6 +35,7 @@ export function SegmentedControl<Value extends string>({
   options,
   ariaLabel,
   className,
+  isDisabled = false,
 }: SegmentedControlProps<Value>): React.ReactElement {
   return (
     <div
@@ -50,11 +53,12 @@ export function SegmentedControl<Value extends string>({
           <button
             aria-pressed={isActive}
             className={cn(
-              "inline-flex h-7 items-center gap-1.5 rounded-lg px-3 text-xs font-medium whitespace-nowrap transition-colors select-none",
+              "inline-flex h-7 items-center gap-1.5 rounded-lg px-3 text-xs font-medium whitespace-nowrap transition-colors select-none disabled:cursor-not-allowed disabled:opacity-60",
               isActive
                 ? "bg-surface text-foreground shadow-selection"
                 : "text-muted-foreground hover:text-foreground",
             )}
+            disabled={isDisabled}
             key={option.value}
             onClick={() => onValueChange(option.value)}
             type="button"

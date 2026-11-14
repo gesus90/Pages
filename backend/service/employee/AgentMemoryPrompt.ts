@@ -60,7 +60,7 @@ function bounded(text: string, maximum: number): string {
 }
 
 /** The JSON object of an answer, fenced or bare; `null` without one. */
-function readJsonObject(answer: string): unknown {
+export function readJsonObject(answer: string): unknown {
   const fenced = /```(?:json)?\s*([\s\S]*?)```/u.exec(answer)?.[1];
   const candidate =
     fenced ?? answer.slice(answer.indexOf("{"), answer.lastIndexOf("}") + 1);

@@ -1,10 +1,8 @@
 import { withBackgroundDatabaseWork } from "@/backend/database/executor/DatabaseWorkContext";
 import { ConversationError } from "@/backend/error/ConversationError";
-import { ConversationObserverError } from "@/backend/error/ConversationObserverError";
 import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 import { CONVERSATION_AGENT_SEND_PREFIX } from "@/definition/Conversation";
 import { CONVERSATION_DECISION_LIMITS } from "@/definition/ConversationDecision";
-import { CONVERSATION_OBSERVER_LIMITS } from "@/definition/ConversationObserver";
 
 import { ConversationReplyRunner } from "./ConversationReplyRunner";
 
@@ -27,7 +25,6 @@ import type { ConversationAttachments } from "./content/ConversationAttachments"
 import type { ConversationMessageContentReader } from "./content/ConversationMessageContent";
 import type { ConversationContextReader } from "./ConversationContextReader";
 import type {
-  ConversationAccount,
   ConversationAccounts,
   ConversationDirectory,
 } from "./ConversationDirectory";
@@ -36,8 +33,6 @@ import type {
   ConversationEvents,
 } from "./ConversationEvents";
 import type { ConversationChatDecisions } from "./ConversationChatDecisions";
-import type { ConversationObserverRouting } from "./ConversationObserverRouting";
-import type { ObserverCandidate } from "./ConversationObserverPrompts";
 import type {
   ConversationReplyJob,
   ConversationRound,
@@ -63,14 +58,25 @@ export interface ConversationAgentRequest {
   /** The text of the answered message alone. */
   readonly lastMessage: string;
   readonly attachments?: readonly ConversationAttachment[];
-  /** Null starts with the bounded history; a cursor receives every later message. */
+  /**
+   * Null starts with the bounded history; a cursor receives every later
+   * message. A resumed agent session knows the chat up to the stored position
+   * of its session and receives only what is newer (PAGE-376).
+   */
   readonly prepareTurn?: (
     afterSequence: number | null,
+    isResumed?: boolean,
   ) => Promise<ConversationAgentTurn>;
   /** Reads only an attachment of this conversation, with the agent's current membership. */
   readonly openAttachment?: (
     attachmentId: string,
   ) => Promise<AsyncIterable<Uint8Array>>;
+  /**
+   * The sequence of the answered message, the newest one this round carries;
+   * the agent's session of the chat counts the messages up to it as received
+   * once the round is delivered (PAGE-376).
+   */
+  readonly throughSequence?: number;
   /** Stops the answer, also while it waits for a free place (PAGE-304). */
   readonly signal?: AbortSignal;
   /** Called when the answer waits because the limits of concurrent sessions are reached. */
@@ -89,6 +95,19 @@ export interface ConversationAgentRequest {
  */
 export interface ConversationAgentRunner {
   answer(request: ConversationAgentRequest): Promise<string>;
+  /**
+   * Hands the round to the answer the agent is giving in this conversation
+   * now, instead of starting a second one (PAGE-376).
+   *
+   * @returns Whether the running answer took it; `false` when none runs or it
+   * no longer takes messages, so the round waits for its own turn.
+   */
+  steer?(request: ConversationAgentRequest): Promise<boolean>;
+  /**
+   * The newest message of the conversation the agent's session received; `0`
+   * before the first round (PAGE-376).
+   */
+  deliveredThrough?(agentId: string, conversationId: string): Promise<number>;
 }
 
 /** What the answers of agents in conversations use. */
@@ -104,12 +123,13 @@ export interface ConversationAgentRepliesDependencies {
   readonly rounds: ConversationRoundRepository;
   /** The stored context of groups, for the prompt of an answer. */
   readonly contexts: Pick<ConversationContextReader, "promptContext">;
-  /** The observer that chooses agents by context (PAGE-296). */
-  readonly routing: Pick<ConversationObserverRouting, "choose">;
-  /** How each group decides who answers without an @ (PAGE-317). */
+  /** How each group decides who answers without an @ (PAGE-317, PAGE-379). */
   readonly replySettings: Pick<ConversationReplySettingsRepository, "find">;
-  /** The decision model that chooses agents for a group in decision mode (PAGE-317). */
-  readonly decisions: Pick<ConversationChatDecisions, "decide">;
+  /** The decision model that chooses agents for a group in decision mode (PAGE-379). */
+  readonly decisions: Pick<
+    ConversationChatDecisions,
+    "decide" | "recordMention"
+  >;
   /** The in-process channel: the replies follow it and publish to it. */
   readonly events: Pick<ConversationEvents, "subscribe" | "publish">;
   /** Tells the live view of this process about a change. */
@@ -178,27 +198,26 @@ function isAgentMember(
 }
 
 /**
- * The answers of agents in conversations (PAGE-276, PAGE-296).
+ * The answers of agents in conversations (PAGE-276, PAGE-296, PAGE-379).
  *
  * @remarks
  * In a direct conversation the agent answers every message of the person.
- * In a group the agents a person mentions with @ answer at once, each once,
- * and nobody is asked who should answer. A message of a person without such
- * a mention follows the setting of the group (PAGE-317): in `mentions` mode
- * nobody else answers, in `observer` mode the observer is asked once whether
- * an agent should contribute, and in `decision` mode the decision model of
- * the instance chooses, with the default responder as fallback; a failure
- * starts nobody by the observer and blocks nothing else. An answer can hand the
- * round over: the agents it mentions with @ answer, and an answer without
- * such a mention asks the observer once more. Every answer stays in the
- * round of the person's message: each agent answers a round once at most,
- * and the observer and hand-overs add at most
- * {@link CONVERSATION_OBSERVER_LIMITS.automaticRepliesPerOrigin} answers.
- * All of it is stored, so repeated events, concurrent jobs and a restart
- * start nothing twice. Agents start a round only with a message they chose
- * to send (PAGE-311); it asks exactly the agents it mentions, or the partner
- * of a direct conversation, and a conversation paused after a chain of agent
- * messages gets no answer.
+ * In a group a message that names members with @ wins: exactly the agents it
+ * names answer at once, each once, and nobody is asked who should answer. A
+ * message of a person without any @ follows the setting of the group: in
+ * `mentions` mode nobody answers, in `decision` mode the decision model of the
+ * instance is asked once and Pages answers with the thresholds of the group
+ * (at most the configured number of agents); without a usable model the group
+ * behaves like `mentions`. A message an agent sent without an @ asks nobody,
+ * so agents wake each other only by naming each other: an answer that names
+ * agents with @ hands the round over to them. Every answer stays in the round
+ * of the person's message: each agent answers a round once at most, and the
+ * decision model and the hand-overs add at most the automatic answers a round
+ * allows. All of it is stored, so repeated events, concurrent jobs and a
+ * restart start nothing twice. Agents start a round only with a message they
+ * chose to send (PAGE-311); it asks exactly the agents it mentions, or the
+ * partner of a direct conversation, and a conversation paused after a chain of
+ * agent messages gets no answer.
  *
  * Every agent answers in its own session of the conversation (PAGE-304), so
  * several agents answer side by side. A message that waits for the earlier
@@ -260,6 +279,11 @@ export class ConversationAgentReplies {
     conversationId: string,
   ): ReadonlyMap<string, AgentMessageQueue> {
     return this.replies.queuedMessages(conversationId);
+  }
+
+  /** How many messages of a conversation wait for the answer of one agent (PAGE-376). */
+  public queuedFor(conversationId: string, agentId: string): number {
+    return this.replies.queuedFor(conversationId, agentId);
   }
 
   /**
@@ -327,23 +351,21 @@ export class ConversationAgentReplies {
       isAgentMember(id, memberIds, accounts),
     );
     if (mentioned.length > 0) {
+      await this.recordMention(round, message, mentioned);
       await this.dispatchAll(
         round,
         mentioned.map((agentId) => ({ ...base, agentId, trigger: "mention" })),
       );
       return;
     }
-    // A message an agent chose to send asks only the agents it mentions.
-    if (sender.user.isAgent === true) return;
+    // A message that names only people is addressed to them, and a message an
+    // agent chose to send asks only the agents it mentions.
+    if (message.mentions.length > 0 || sender.user.isAgent === true) return;
     const settings = await this.dependencies.replySettings.find(
       conversation.id,
     );
     if (settings.mode === "mentions") return;
-    if (settings.mode === "decision") {
-      await this.decide(round, message, settings, accounts);
-      return;
-    }
-    await this.route(round, { trigger: message, from: null }, accounts);
+    await this.decide(round, message, settings, accounts);
   }
 
   private receive(event: ConversationEvent): void {
@@ -391,6 +413,31 @@ export class ConversationAgentReplies {
   }
 
   /**
+   * Stores that a person named agents with @ in a group of the decision mode,
+   * so the list of decisions shows it; it never stops the answers.
+   */
+  private async recordMention(
+    round: ConversationRound,
+    message: ConversationMessage,
+    agentIds: readonly string[],
+  ): Promise<void> {
+    if (round.person.isAgent === true) return;
+    try {
+      const { mode } = await this.dependencies.replySettings.find(
+        round.conversation.id,
+      );
+      if (mode !== "decision") return;
+      await this.dependencies.decisions.recordMention({
+        conversationId: round.conversation.id,
+        messageId: message.id,
+        agentIds,
+      });
+    } catch (error: unknown) {
+      logCaughtError(COMPONENT, error);
+    }
+  }
+
+  /**
    * Asks the decision model once for a message of a person and starts the
    * agents it settles on.
    */
@@ -423,9 +470,9 @@ export class ConversationAgentReplies {
   }
 
   /**
-   * The agents an answer hands over to: those it mentions, or in `observer`
-   * mode the observer's choice. An answer never starts a decision, and a long
-   * run of agent messages without a person starts no hand-over (PAGE-317).
+   * The agents an answer hands over to: only those it mentions with @. An
+   * answer never starts a decision, and a long run of agent messages without a
+   * person starts no hand-over (PAGE-317, PAGE-379).
    */
   private async handOver(
     round: ConversationRound,
@@ -436,18 +483,7 @@ export class ConversationAgentReplies {
     const mentioned = [...new Set(answer.mentions)].filter((id) =>
       isAgentMember(id, round.memberIds, accounts),
     );
-    if (mentioned.length === 0) {
-      const { mode } = await this.dependencies.replySettings.find(
-        round.conversation.id,
-      );
-      if (mode !== "observer") return;
-      await this.route(
-        round,
-        { trigger: answer, from: answer.sender },
-        accounts,
-      );
-      return;
-    }
+    if (mentioned.length === 0) return;
     const reason = `${answer.sender.name} hat dich in einer Antwort mit @ angesprochen.`;
     await this.dispatchAll(
       round,
@@ -460,129 +496,6 @@ export class ConversationAgentReplies {
         isAutomatic: true,
       })),
     );
-  }
-
-  /**
-   * Asks the observer once whether further agents should answer, and starts
-   * the chosen ones; nobody when it fails.
-   */
-  private async route(
-    round: ConversationRound,
-    judged: {
-      readonly trigger: ConversationMessage;
-      readonly from: ConversationMessage["sender"] | null;
-    },
-    accounts: ConversationAccounts,
-  ): Promise<void> {
-    const { rounds } = this.dependencies;
-    const candidates = this.candidates(round, judged.trigger, accounts);
-    if (candidates.length === 0) return;
-    const state = await rounds.round(round.originMessageId);
-    const asked = new Set(state?.agentIds ?? []);
-    const open = candidates.filter((candidate) => !asked.has(candidate.id));
-    const maximum =
-      CONVERSATION_OBSERVER_LIMITS.automaticRepliesPerOrigin -
-      (state?.automaticCount ?? 0);
-    if (open.length === 0 || maximum <= 0) return;
-    const isClaimed = await rounds.claimRouting({
-      triggerMessageId: judged.trigger.id,
-      origin: {
-        originMessageId: round.originMessageId,
-        conversationId: round.conversation.id,
-        personId: round.person.id,
-        createdAt: this.now(),
-      },
-    });
-    if (!isClaimed) return;
-    const choices = await this.choose(round, {
-      ...judged,
-      candidates: open,
-      maximum,
-      accounts,
-    });
-    if (choices === null) return;
-    await this.dispatchAll(
-      round,
-      choices.map((choice) => ({
-        agentId: choice.agentId,
-        trigger: judged.from ? "handoff" : "context",
-        triggerMessageId: judged.trigger.id,
-        requestedBy: judged.from?.id ?? null,
-        reason: choice.reason,
-        isAutomatic: true,
-      })),
-    );
-  }
-
-  /** Calls the observer and stores its decision; `null` when it gave none. */
-  private async choose(
-    round: ConversationRound,
-    judged: {
-      readonly trigger: ConversationMessage;
-      readonly from: ConversationMessage["sender"] | null;
-      readonly candidates: readonly ObserverCandidate[];
-      readonly maximum: number;
-      readonly accounts: ConversationAccounts;
-    },
-  ): Promise<{ readonly agentId: string; readonly reason: string }[] | null> {
-    const { rounds } = this.dependencies;
-    try {
-      const choices = await this.dependencies.routing.choose({
-        conversation: round.conversation,
-        triggerMessageId: judged.trigger.id,
-        personId: round.person.id,
-        candidates: judged.candidates,
-        maximum: judged.maximum,
-        handoff: judged.from
-          ? {
-              personName: round.person.displayName,
-              agentName: judged.from.name,
-            }
-          : null,
-        accounts: judged.accounts,
-      });
-      await rounds.finishRouting(judged.trigger.id, {
-        state: choices.length > 0 ? "routed" : "silent",
-        selection: choices,
-        errorCode: null,
-        finishedAt: this.now(),
-      });
-      return choices;
-    } catch (error: unknown) {
-      if (!(error instanceof ConversationObserverError))
-        logCaughtError(COMPONENT, error);
-      await rounds.finishRouting(judged.trigger.id, {
-        state: "failed",
-        selection: [],
-        errorCode:
-          error instanceof ConversationObserverError
-            ? error.code
-            : "observer_failed",
-        finishedAt: this.now(),
-      });
-      return null;
-    }
-  }
-
-  /** The active agent members the observer may choose: never the sender, never one without an account now. */
-  private candidates(
-    round: ConversationRound,
-    judged: ConversationMessage,
-    accounts: ConversationAccounts,
-  ): ObserverCandidate[] {
-    return round.memberIds
-      .filter((id) => id !== judged.sender.id)
-      .map((id) => accounts.find(id))
-      .filter(
-        (account): account is ConversationAccount =>
-          account?.user.isAgent === true && account.isAvailable,
-      )
-      .map((account) => ({
-        id: account.user.id,
-        name: account.user.displayName,
-        username: account.user.username,
-        role: account.role,
-      }));
   }
 
   /** Whether the newest messages up to the answer are all of agents, without a person between. */

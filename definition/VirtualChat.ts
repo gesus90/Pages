@@ -12,6 +12,8 @@
  */
 
 import type { AgentEmployeeAccess } from "./AgentEmployee";
+import type { AgentChatSessionBrief } from "./AgentChatSession";
+import type { ConversationReplyMode } from "./ConversationDecision";
 import type { AgentMessageQueue } from "./AgentSessionLimits";
 import type { ConversationNotice } from "./Conversation";
 import type {
@@ -67,6 +69,8 @@ export interface VirtualParticipant {
   readonly accessLevel?: AgentEmployeeAccess;
   /** Whether the person marked the direct chat with this agent confidential (PAGE-305). */
   readonly isConfidential?: boolean;
+  /** The session of this agent in its direct chat with the person (PAGE-376); absent before the first message. */
+  readonly session?: AgentChatSessionBrief;
 }
 
 /** A group of participants with one shared history. */
@@ -100,6 +104,10 @@ export interface VirtualGroup {
   readonly agentMembers?: readonly VirtualParticipant[];
   /** Agents wrote the most they may in a row and wait for a person to allow it to go on (PAGE-311). */
   readonly isAgentPaused?: boolean;
+  /** The sessions of the agents of the group in this group, one per agent (PAGE-376). */
+  readonly agentSessions?: readonly AgentChatSessionBrief[];
+  /** Who answers in the group (PAGE-379), which the entry "Wer antwortet?" of the group menu names. */
+  readonly replyMode?: ConversationReplyMode;
 }
 
 /** A tool a participant used for an answer, for example `list_tickets · 3 offen`. */
@@ -148,7 +156,11 @@ export interface VirtualChatMessage {
   readonly voice?: VirtualVoice;
   /** Present only for a hint why an agent did not answer (PAGE-276). */
   readonly notice?: ConversationNotice;
-  /** Present only for a message of a person that the decision of a group judged (PAGE-317). */
+  /**
+   * The decision of the decision model (PAGE-379): on the message of a person
+   * that nobody answered, which the chat shows as a quiet line; on the answer
+   * of an agent the decision model chose, which the chat shows as "Why?".
+   */
   readonly decision?: ConversationDecisionView;
   /**
    * Present while the answer to this message waits (PAGE-304): for the answer

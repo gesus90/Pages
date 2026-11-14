@@ -1,13 +1,9 @@
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { AgentError } from "@/backend/error/AgentErrors";
-import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
-import { ChatError } from "@/backend/error/ChatErrors";
-import { consumerModels } from "@/definition/AgentModelConsumers";
+import { isValidDecisionRules } from "@/definition/ConversationDecision";
 
-import { resolveAgentAssignment } from "../agents/AgentAssignmentResolution";
-import { connectionModels } from "../agents/AgentConnectionModels";
 import { requireAgentAdministrator } from "../agents/AgentServiceAccess";
-import { picaAcpRunner } from "./acp/PicaAcpRunners";
+import { findDecisionModel, listDecisionModels } from "./ChatDecisionModels";
 
 import type { AgentViewer } from "@/backend/auth/AgentProfilePolicy";
 import type { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
@@ -18,48 +14,55 @@ import type { AgentModelSelection } from "@/definition/AgentModelSelection";
 import type {
   ChatDecisionAdministration,
   ChatDecisionStatus,
+  ConversationDecisionModelView,
+  ConversationDecisionRules,
 } from "@/definition/ConversationDecision";
 import type { PageAgentModel } from "@/definition/PageAgent";
-import type { ResolvedAgentAssignment } from "../agents/AgentAssignmentResolution";
 
 /** What the setting is read and checked with. */
 export interface ChatDecisionSettingsDependencies {
   readonly settings: ChatDecisionSettingsRepository;
   readonly connections: AgentConnectionRepository;
   readonly groups: Pick<UserGroupRepository, "findIdsByMember">;
+  /** Whether the development simulation offers its decision model. */
+  readonly isSimulation: boolean;
 }
 
-/** A submitted change of the decision model. */
+/** A submitted change of the decision model and the default rules. */
 export interface ChatDecisionSettingsInput {
   readonly selection: AgentModelSelection | null;
+  readonly rules: ConversationDecisionRules;
   readonly revision: number;
 }
 
-function findListed(
-  models: readonly PageAgentModel[],
+/** The decision model that decides now: where it runs and which model it is. */
+export interface ResolvedDecisionModel {
+  readonly connectionId: string;
+  readonly model: string;
+}
+
+function statusOf(
   selection: AgentModelSelection | null,
-): PageAgentModel | null {
-  if (selection === null) return null;
-  return (
-    models.find(
-      (entry) =>
-        entry.connectionId === selection.connectionId &&
-        entry.model === selection.model,
-    ) ?? null
-  );
+  models: readonly PageAgentModel[],
+): ChatDecisionStatus {
+  if (selection === null) return "noModel";
+  return findDecisionModel(models, selection) === null
+    ? "modelUnavailable"
+    : "ready";
 }
 
 /**
- * The decision model of the instance (PAGE-317): the one model that chooses
- * which agent answers a message of a group chat.
+ * The decision model of the instance (PAGE-317, PAGE-379): the one OpenRouter
+ * decision model that judges which agent a message of a group chat means,
+ * together with the default thresholds of the groups.
  *
  * @remarks
  * It is one setting of the instance next to the speech recognition. Only an
  * administrator in the active admin mode reads the form and saves. The model
- * comes from the text models the shared catalog releases for chats (the rule
- * `pica` of `modelConsumerRefusal`); it has no tools and runs no action,
- * because its session is read-only and gets no MCP server. A saved model the
- * selection no longer lists keeps its value and counts as unavailable.
+ * comes from the OpenRouter models whose catalog states `decisions` among the
+ * outputs (the rule `decision` of `modelConsumerRefusal`); it runs no tool
+ * and no action, because it only gives probabilities. A saved model the
+ * catalog no longer lists keeps its value and counts as unavailable.
  */
 export class ChatDecisionSettingsService {
   private readonly dependencies: ChatDecisionSettingsDependencies;
@@ -81,22 +84,24 @@ export class ChatDecisionSettingsService {
     requireAgentAdministrator(actor);
     const [settings, models] = await Promise.all([
       this.dependencies.settings.read(),
-      this.listedModels(await this.viewer(actor)),
+      listDecisionModels(this.dependencies, await this.viewer(actor)),
     ]);
     return {
       settings,
-      status: this.status(settings.selection, models),
+      status: statusOf(settings.selection, models),
       models,
     };
   }
 
   /**
-   * Saves the decision model.
+   * Saves the decision model and the default rules.
    *
    * @param actor - The administrator in the admin mode.
-   * @param input - The choice with the revision it was read at; `null` removes it.
-   * @throws {AgentError} `provider_model_not_found` for a model the selection
-   * does not list, `profile_invalid` for a reasoning level it does not offer,
+   * @param input - The choice and rules with the revision they were read at;
+   * a `null` choice removes the model.
+   * @throws {AgentError} `provider_model_not_found` for a model the catalog
+   * does not list as a decision model, `profile_invalid` for rules out of
+   * range or a reasoning level, which decision models do not have,
    * `profile_conflict` after a concurrent change.
    */
   public async save(
@@ -104,65 +109,66 @@ export class ChatDecisionSettingsService {
     input: ChatDecisionSettingsInput,
   ): Promise<void> {
     requireAgentAdministrator(actor);
-    const { selection } = input;
+    const { selection, rules } = input;
+    if (!isValidDecisionRules(rules)) throw new AgentError("profile_invalid");
     if (selection !== null) {
-      const model = findListed(
-        await this.listedModels(await this.viewer(actor)),
-        selection,
-      );
-      if (model === null) throw new AgentError("provider_model_not_found");
-      if (
-        selection.reasoningEffort !== null &&
-        !model.reasoningEfforts.includes(selection.reasoningEffort)
-      )
+      if (selection.reasoningEffort !== null)
         throw new AgentError("profile_invalid");
+      const models = await listDecisionModels(
+        this.dependencies,
+        await this.viewer(actor),
+      );
+      if (findDecisionModel(models, selection) === null)
+        throw new AgentError("provider_model_not_found");
     }
     await this.writes.run(() =>
-      this.dependencies.settings.save({ selection, revision: input.revision }),
+      this.dependencies.settings.save({
+        selection,
+        rules,
+        revision: input.revision,
+      }),
     );
   }
 
   /**
    * The model that decides now, for every group of the instance.
    *
-   * @returns The resolved model, or `null` while none is chosen or the
-   * chosen one cannot run; the decision then falls back.
+   * @returns Where it runs and which model it is, or `null` while none is
+   * chosen or the chosen one is no longer listed; the groups then behave like
+   * "Nur @".
    */
-  public async resolve(): Promise<ResolvedAgentAssignment | null> {
+  public async resolve(): Promise<ResolvedDecisionModel | null> {
     const { selection } = await this.dependencies.settings.read();
     if (selection === null) return null;
-    try {
-      const assignment = await resolveAgentAssignment(
-        this.dependencies.connections,
-        selection,
-      );
-      // The runner must accept the choice; its own run mode stays out.
-      picaAcpRunner(assignment).runOptions(assignment);
-      return assignment;
-    } catch (error: unknown) {
-      if (error instanceof AgentExecutionError || error instanceof ChatError)
-        return null;
-      throw error;
-    }
+    const models = await listDecisionModels(this.dependencies, null);
+    if (findDecisionModel(models, selection) === null) return null;
+    return { connectionId: selection.connectionId, model: selection.model };
   }
 
-  private async listedModels(
-    viewer: AgentViewer,
-  ): Promise<readonly PageAgentModel[]> {
-    return consumerModels(
-      "pica",
-      await connectionModels(this.dependencies.connections, viewer),
+  /**
+   * The default thresholds and the most answering agents of the instance.
+   *
+   * @returns The rules a group follows without values of its own.
+   */
+  public async rules(): Promise<ConversationDecisionRules> {
+    return (await this.dependencies.settings.read()).rules;
+  }
+
+  /**
+   * The decision model as the popup of a group shows it.
+   *
+   * @returns Its state and name; it names no connection detail.
+   */
+  public async modelView(): Promise<ConversationDecisionModelView> {
+    const { selection } = await this.dependencies.settings.read();
+    if (selection === null) return { status: "noModel", name: null };
+    const model = findDecisionModel(
+      await listDecisionModels(this.dependencies, null),
+      selection,
     );
-  }
-
-  private status(
-    selection: AgentModelSelection | null,
-    models: readonly PageAgentModel[],
-  ): ChatDecisionStatus {
-    if (selection === null) return "noModel";
-    return findListed(models, selection) === null
-      ? "modelUnavailable"
-      : "ready";
+    return model === null
+      ? { status: "modelUnavailable", name: selection.model }
+      : { status: "ready", name: model.modelName ?? model.model };
   }
 
   private async viewer(actor: AccountAccess): Promise<AgentViewer> {

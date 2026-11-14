@@ -2,30 +2,44 @@ import { z } from "zod";
 
 import { ConversationError } from "@/backend/error/ConversationError";
 import {
-  CONVERSATION_MAXIMUM_RESPONDERS_RANGE,
+  CONVERSATION_DECISION_LIMITS,
+  CONVERSATION_NO_RULE_OVERRIDES,
   CONVERSATION_REPLY_MODES,
+  isValidDecisionRules,
+  resolveDecisionRules,
 } from "@/definition/ConversationDecision";
 
+import { decisionEntry } from "./ConversationDecisionViews";
 import { readConversationIdentifier } from "./ConversationReader";
 
+import type { ConversationDecisionRepository } from "@/backend/database/repositories/conversation/ConversationDecisionRepository";
 import type { ConversationReplySettingsRepository } from "@/backend/database/repositories/conversation/ConversationReplySettingsRepository";
 import type { ConversationRepository } from "@/backend/database/repositories/conversation/ConversationRepository";
 import type { PagesEvent } from "@/backend/service/events/PagesEventPublisher";
 import type {
-  ConversationDecisionAgent,
+  ConversationDecisionEntry,
+  ConversationDecisionHint,
   ConversationReplySettings,
   ConversationReplySettingsView,
 } from "@/definition/ConversationDecision";
 import type { User } from "@/definition/User";
+import type { ChatDecisionSettingsService } from "../chat/ChatDecisionSettingsService";
 import type { ConversationDirectory } from "./ConversationDirectory";
 
 /** What the settings of a group are read and checked with. */
 export interface ConversationReplySettingsDependencies {
   readonly conversations: Pick<
     ConversationRepository,
-    "findForMember" | "createdBy" | "memberIds"
+    "findForMember" | "createdBy"
   >;
   readonly settings: ConversationReplySettingsRepository;
+  /** The stored decisions, for the list and the hint. */
+  readonly decisions: Pick<
+    ConversationDecisionRepository,
+    "recent" | "latestFallback"
+  >;
+  /** The decision model and the default rules of the instance. */
+  readonly instance: Pick<ChatDecisionSettingsService, "rules" | "modelView">;
   readonly directory: Pick<ConversationDirectory, "read">;
   /** Tells the live view of this process about a change. */
   readonly publisher: { publish(event: PagesEvent): void };
@@ -36,23 +50,29 @@ const SETTINGS_INPUT = z
   .object({
     conversationId: z.string(),
     mode: z.enum(CONVERSATION_REPLY_MODES),
-    defaultResponderId: z.string().min(1).max(100).nullable(),
-    maximumResponders: z
-      .number()
-      .int()
-      .min(CONVERSATION_MAXIMUM_RESPONDERS_RANGE.minimum)
-      .max(CONVERSATION_MAXIMUM_RESPONDERS_RANGE.maximum),
+    // `null` leaves every value to the defaults of the instance.
+    rules: z
+      .object({
+        answerThreshold: z.number(),
+        responsibilityThreshold: z.number(),
+        secondThreshold: z.number(),
+        maximumResponders: z.number(),
+      })
+      .strict()
+      .nullable(),
   })
   .strict();
 
 /**
- * The settings "Wer antwortet?" of group chats (PAGE-317).
+ * The settings "Wer antwortet?" of group chats (PAGE-317, PAGE-379).
  *
  * @remarks
- * Every member reads them; only the account that manages the group, the one
- * that created it, changes them. The chat model is no part of them: it is the
- * decision model of the instance. The default responder must be an agent
- * member of the group. Direct conversations have no such setting.
+ * Every member reads them and the last decisions; only the account that
+ * manages the group, the one that created it, changes them. The mode is
+ * `mentions` or `decision`. The thresholds and the most answering agents are
+ * the group's own or, without a value of its own, the defaults of the
+ * instance. The decision model is no part of them: it is the one of the
+ * instance. Direct conversations have no such setting.
  */
 export class ConversationReplySettingsService {
   private readonly dependencies: ConversationReplySettingsDependencies;
@@ -77,10 +97,26 @@ export class ConversationReplySettingsService {
       person.id,
     );
     if (record?.kind !== "group") throw new ConversationError("not_found");
+    const { instance } = this.dependencies;
+    const [settings, defaults, decisionModel, canManage] = await Promise.all([
+      this.dependencies.settings.find(id),
+      instance.rules(),
+      instance.modelView(),
+      this.canManage(person, id),
+    ]);
+    const { overrides } = settings;
     return {
-      ...(await this.dependencies.settings.find(id)),
-      canManage: await this.canManage(person, id),
-      agents: await this.agentMembers(id),
+      conversationId: id,
+      mode: settings.mode,
+      rules: resolveDecisionRules(defaults, overrides),
+      defaults,
+      isDefault: Object.values(overrides).every((value) => value === null),
+      canManage,
+      decisionModel,
+      hint:
+        canManage && settings.mode === "decision"
+          ? await this.hint(id, decisionModel.status)
+          : null,
     };
   }
 
@@ -88,11 +124,12 @@ export class ConversationReplySettingsService {
    * Changes the settings of a group the person manages.
    *
    * @param person - The signed-in account.
-   * @param input - Group, mode, default responder and the most answering agents.
-   * @returns The stored settings.
+   * @param input - Group, mode and the rules; `rules: null` returns the
+   * thresholds and the most answering agents to the defaults of the instance.
+   * @returns The stored settings as {@link read} gives them.
    * @throws {ConversationError} `not_found` as {@link read}, `forbidden` for a
    * member who does not manage the group, `invalid` for input that does not
-   * fit or a default responder that is no agent member of the group.
+   * fit or rules out of range.
    */
   public async save(
     person: User,
@@ -102,13 +139,14 @@ export class ConversationReplySettingsService {
     if (!parsed.success) throw new ConversationError("invalid");
     const current = await this.read(person, parsed.data.conversationId);
     if (!current.canManage) throw new ConversationError("forbidden");
+    const { rules } = parsed.data;
+    if (rules !== null && !isValidDecisionRules(rules))
+      throw new ConversationError("invalid");
     const settings: ConversationReplySettings = {
       conversationId: current.conversationId,
       mode: parsed.data.mode,
-      defaultResponderId: parsed.data.defaultResponderId,
-      maximumResponders: parsed.data.maximumResponders,
+      overrides: rules ?? CONVERSATION_NO_RULE_OVERRIDES,
     };
-    await this.requireAgentMember(settings, current.agents);
     await this.dependencies.settings.save({
       settings,
       updatedBy: person.id,
@@ -118,7 +156,46 @@ export class ConversationReplySettingsService {
       type: "conversation.changed",
       id: settings.conversationId,
     });
-    return { ...settings, canManage: true, agents: current.agents };
+    return this.read(person, current.conversationId);
+  }
+
+  /**
+   * Lists the newest decisions of a group the person belongs to.
+   *
+   * @returns The decisions, newest first, with the text of their messages:
+   * the model's answer with its probabilities, "no answer", an @ addressing,
+   * or that the model was unavailable.
+   * @throws {ConversationError} `not_found` as {@link read}.
+   */
+  public async decisions(
+    person: User,
+    conversationId: unknown,
+  ): Promise<ConversationDecisionEntry[]> {
+    const id = readConversationIdentifier(conversationId);
+    const record = await this.dependencies.conversations.findForMember(
+      id,
+      person.id,
+    );
+    if (record?.kind !== "group") throw new ConversationError("not_found");
+    const [listed, accounts] = await Promise.all([
+      this.dependencies.decisions.recent(
+        id,
+        CONVERSATION_DECISION_LIMITS.listedDecisions,
+      ),
+      this.dependencies.directory.read(),
+    ]);
+    return listed.map((entry) => decisionEntry(entry, accounts));
+  }
+
+  /** Why decisions cannot run now; `null` when they can. */
+  private async hint(
+    conversationId: string,
+    status: "noModel" | "modelUnavailable" | "ready",
+  ): Promise<ConversationDecisionHint | null> {
+    if (status !== "ready") return status;
+    const fallback =
+      await this.dependencies.decisions.latestFallback(conversationId);
+    return fallback === "model_failed" ? "modelFailed" : null;
   }
 
   private async canManage(
@@ -129,31 +206,5 @@ export class ConversationReplySettingsService {
       (await this.dependencies.conversations.createdBy(conversationId)) ===
       person.id
     );
-  }
-
-  /** The agents among the members of the group, with their names. */
-  private async agentMembers(
-    conversationId: string,
-  ): Promise<ConversationDecisionAgent[]> {
-    const members = await this.dependencies.conversations.memberIds([
-      conversationId,
-    ]);
-    const accounts = await this.dependencies.directory.read();
-    return (members.get(conversationId) ?? []).flatMap((id) => {
-      const account = accounts.find(id);
-      return account?.user.isAgent === true
-        ? [{ id, name: account.user.displayName }]
-        : [];
-    });
-  }
-
-  private requireAgentMember(
-    settings: ConversationReplySettings,
-    agents: readonly ConversationDecisionAgent[],
-  ): void {
-    const { defaultResponderId } = settings;
-    if (defaultResponderId === null) return;
-    if (!agents.some((agent) => agent.id === defaultResponderId))
-      throw new ConversationError("invalid");
   }
 }

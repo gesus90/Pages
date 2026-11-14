@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useSubmit } from "react-router";
 
 import { userRoleLabel } from "@/app/lib/user-role-label";
+import { AgentSettingsDialog } from "@/app/components/agent-settings/agent-settings-dialog";
 import { UserAvatar } from "@/app/components/common/user-avatar";
 import { Button } from "@/app/components/ui/button";
 import {
@@ -20,6 +21,8 @@ import { AgentPanel } from "./agent-panel";
 import { AgentDeleteDialog } from "./agent-delete-dialog";
 import { AgentDeletedList } from "./agent-deleted-list";
 
+import type { AgentSettingsTab } from "@/app/components/agent-settings/agent-settings-tabs";
+import type { AgentSettingsIdentity } from "@/app/components/agent-settings/agent-settings-types";
 import type { AdministrationPageData } from "@/definition/Authorization";
 import type { AgentEmployeeListItem } from "@/definition/AgentEmployee";
 import type { AgentEmployeePageData } from "@/definition/AgentEmployeePage";
@@ -43,6 +46,10 @@ interface AgentRowProps {
   readonly canManage: boolean;
   readonly canDelete: boolean;
   readonly onEdit: (agentId: string) => void;
+  readonly onSettings: (
+    agent: AgentEmployeeListItem,
+    tab: AgentSettingsTab,
+  ) => void;
   readonly onDelete: (agentId: string) => void;
 }
 
@@ -73,6 +80,7 @@ function AgentRow({
   canManage,
   canDelete,
   onEdit,
+  onSettings,
   onDelete,
 }: AgentRowProps): React.ReactElement {
   const { t } = useTranslation();
@@ -141,6 +149,15 @@ function AgentRow({
                   : "agentEmployees.actions.view",
               )}
             </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => onSettings(agent, "sessions")}>
+              {t("agentEmployees.actions.settings")}
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => onSettings(agent, "logbook")}>
+              {t("agentEmployees.actions.logbook")}
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => onSettings(agent, "dreaming")}>
+              {t("agentEmployees.actions.dreaming")}
+            </DropdownMenuItem>
             {canManage ? (
               <DropdownMenuItem onSelect={() => setActive(!agent.isActive)}>
                 {t(
@@ -160,6 +177,83 @@ function AgentRow({
       </td>
     </tr>
   );
+}
+
+interface AgentTableProps {
+  readonly agents: readonly AgentEmployeeListItem[];
+  readonly canManage: boolean;
+  readonly canDelete: boolean;
+  readonly onEdit: (agentId: string) => void;
+  readonly onSettings: (
+    agent: AgentEmployeeListItem,
+    tab: AgentSettingsTab,
+  ) => void;
+  readonly onDelete: (agentId: string) => void;
+}
+
+/** The table of agents, or the hint that none matches. */
+function AgentTable({
+  agents,
+  canManage,
+  canDelete,
+  onEdit,
+  onSettings,
+  onDelete,
+}: AgentTableProps): React.ReactElement {
+  const { t } = useTranslation();
+  return (
+    <VerticalScrollArea
+      className="min-h-0 flex-1"
+      contentClassName="px-1 pt-1 pb-10"
+    >
+      <ManagementTable>
+        <thead className="sticky top-0 z-10 bg-muted/40 text-xs font-medium text-muted-foreground">
+          <tr>
+            {COLUMNS.map((column) => (
+              <th key={column} className="px-4 py-3 font-medium">
+                {t(`agentEmployees.columns.${column}`)}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-border/60">
+          {agents.map((agent) => (
+            <AgentRow
+              key={agent.id}
+              agent={agent}
+              canManage={canManage}
+              canDelete={canDelete}
+              onEdit={onEdit}
+              onSettings={onSettings}
+              onDelete={onDelete}
+            />
+          ))}
+          {agents.length === 0 ? (
+            <tr>
+              <td
+                colSpan={COLUMNS.length}
+                className="px-4 py-10 text-center text-sm text-muted-foreground"
+              >
+                {t("agentEmployees.empty")}
+              </td>
+            </tr>
+          ) : null}
+        </tbody>
+      </ManagementTable>
+    </VerticalScrollArea>
+  );
+}
+
+/** The name, job title and model of an agent as the popup shows them before its sessions arrive. */
+function settingsIdentity(agent: AgentEmployeeListItem): AgentSettingsIdentity {
+  return {
+    name: agent.displayName,
+    subtitle: [agent.position ?? "", agent.modelName]
+      .filter((line) => line !== "")
+      .join(" · "),
+    color: agent.avatarColor,
+    avatarImageUrl: agent.avatarImageUrl,
+  };
 }
 
 /** Search, "Agent erstellen" and the number of shown agents. */
@@ -213,6 +307,8 @@ function AgentToolbar({
 /**
  * The tab "Agents" of the user administration (PAGE-266): search, "Agent
  * erstellen", the count and the table of agents; people are never listed.
+ * The menu of a row opens the popup "Agent-Einstellungen" (PAGE-376), the
+ * same one the chat opens.
  */
 export function AgentDirectory({
   directory,
@@ -221,12 +317,15 @@ export function AgentDirectory({
   readonly directory: AdministrationPageData;
   readonly agents: AgentEmployeePageData;
 }): React.ReactElement {
-  const { t } = useTranslation();
   const [search, setSearch] = useState("");
   const [panel, setPanel] = useState<{
     readonly agentId: string | null;
   } | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [settings, setSettings] = useState<{
+    readonly agent: AgentEmployeeListItem;
+    readonly tab: AgentSettingsTab;
+  } | null>(null);
   const visible = agents.agents.filter((agent) =>
     matchesSearch(agent, search.trim().toLowerCase()),
   );
@@ -244,47 +343,25 @@ export function AgentDirectory({
         onCreate={() => setPanel({ agentId: null })}
         count={visible.length}
       />
-      <VerticalScrollArea
-        className="min-h-0 flex-1"
-        contentClassName="px-1 pt-1 pb-10"
-      >
-        <ManagementTable>
-          <thead className="sticky top-0 z-10 bg-muted/40 text-xs font-medium text-muted-foreground">
-            <tr>
-              {COLUMNS.map((column) => (
-                <th key={column} className="px-4 py-3 font-medium">
-                  {t(`agentEmployees.columns.${column}`)}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border/60">
-            {visible.map((agent) => (
-              <AgentRow
-                key={agent.id}
-                agent={agent}
-                canManage={agents.canCreate}
-                canDelete={canDelete}
-                onEdit={(agentId) => setPanel({ agentId })}
-                onDelete={setDeleteId}
-              />
-            ))}
-            {visible.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={COLUMNS.length}
-                  className="px-4 py-10 text-center text-sm text-muted-foreground"
-                >
-                  {t("agentEmployees.empty")}
-                </td>
-              </tr>
-            ) : null}
-          </tbody>
-        </ManagementTable>
-      </VerticalScrollArea>
+      <AgentTable
+        agents={visible}
+        canManage={agents.canCreate}
+        canDelete={canDelete}
+        onEdit={(agentId) => setPanel({ agentId })}
+        onSettings={(agent, tab) => setSettings({ agent, tab })}
+        onDelete={setDeleteId}
+      />
       {directory.actor.isAdmin && directory.actor.mode === "admin" ? (
         <AgentDeletedList />
       ) : null}
+      <AgentSettingsDialog
+        agentId={settings?.agent.id ?? null}
+        initialTab={settings?.tab ?? "sessions"}
+        identity={
+          settings === null ? undefined : settingsIdentity(settings.agent)
+        }
+        onClose={() => setSettings(null)}
+      />
       {deleteId ? (
         <AgentDeleteDialog
           agentId={deleteId}

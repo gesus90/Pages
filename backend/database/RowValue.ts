@@ -154,6 +154,29 @@ export function readCountColumn(
 }
 
 /**
+ * Reads an optional counting or numeric column from a database result row.
+ *
+ * @param row - Row returned by a query.
+ * @param index - Zero-based column position.
+ * @param column - Column name used in error messages.
+ * @returns The column value as a number, or `null` when the column is `NULL`.
+ * @throws When the column is neither numeric nor `NULL`.
+ */
+export function readNullableCountColumn(
+  row: readonly DatabaseValue[],
+  index: number,
+  column: string,
+): number | null {
+  const value = row[index];
+
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  return readCountColumn(row, index, column);
+}
+
+/**
  * Reads a column that holds a JSON list of text ids, such as `json_agg(id)::text`.
  *
  * @param row - Row returned by a query.

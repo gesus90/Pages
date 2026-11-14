@@ -42,6 +42,7 @@ import type {
 import type { ConversationAttachments } from "./content/ConversationAttachments";
 import type { ConversationMessageContentReader } from "./content/ConversationMessageContent";
 import type {
+  ConversationAgentRequest,
   ConversationAgentTurn,
   ConversationAgentRunner,
 } from "./ConversationAgentReplies";
@@ -201,6 +202,8 @@ export class ConversationReplyRunner {
   >();
   /** The stop of the running answer, by conversation and agent. */
   private readonly controllers = new Map<string, AbortController>();
+  /** The rounds handed to the running answer of an agent in a conversation (PAGE-376). */
+  private readonly steered = new Map<string, ConversationReplyJob[]>();
 
   public constructor(dependencies: ConversationReplyRunnerDependencies) {
     this.dependencies = dependencies;
@@ -228,6 +231,16 @@ export class ConversationReplyRunner {
   }
 
   /**
+   * How many messages of a conversation wait for the answer of one agent: for
+   * its running answer, or for a free place (PAGE-376).
+   */
+  public queuedFor(conversationId: string, agentId: string): number {
+    return [...(this.queued.get(conversationId)?.keys() ?? [])].filter((key) =>
+      key.endsWith(`:${agentId}`),
+    ).length;
+  }
+
+  /**
    * Stops the running answer of one agent in a conversation.
    *
    * @returns Whether an answer was running and is stopped now.
@@ -240,13 +253,32 @@ export class ConversationReplyRunner {
   }
 
   /**
-   * Runs a claimed answer after the earlier answers of the same agent in the
-   * same conversation.
+   * Runs a claimed answer: handed to the answer the agent is giving in the
+   * conversation now, or after the earlier answers of the same agent in the
+   * same conversation (PAGE-376).
    *
-   * @returns The stored answer, or `null` for a hint or no answer.
+   * @returns The stored answer, or `null` for a hint, no answer or a round
+   * the running answer took over.
    */
   public run(job: ConversationReplyJob): Promise<ConversationMessage | null> {
     const queueKey = `${job.round.conversation.id}:${job.agentId}`;
+    if (!this.queues.has(queueKey)) return this.enqueue(job, queueKey);
+    return this.steerElseEnqueue(job, queueKey);
+  }
+
+  /** Hands the round to the running answer; when that is not possible it waits for its own turn. */
+  private async steerElseEnqueue(
+    job: ConversationReplyJob,
+    queueKey: string,
+  ): Promise<ConversationMessage | null> {
+    if (await this.trySteer(job, queueKey)) return null;
+    return this.enqueue(job, queueKey);
+  }
+
+  private enqueue(
+    job: ConversationReplyJob,
+    queueKey: string,
+  ): Promise<ConversationMessage | null> {
     const previous = this.queues.get(queueKey);
     if (previous) this.markQueued(job, "chat");
     const next = (previous ?? Promise.resolve())
@@ -256,6 +288,55 @@ export class ConversationReplyRunner {
     return next.finally(() => {
       if (this.queues.get(queueKey) === next) this.queues.delete(queueKey);
     });
+  }
+
+  /**
+   * Hands a round to the answer the agent gives now (PAGE-376): the new
+   * messages join that answer, so the conversation gets no second answer and
+   * the agent no second session.
+   */
+  private async trySteer(
+    job: ConversationReplyJob,
+    queueKey: string,
+  ): Promise<boolean> {
+    const { runner, directory } = this.dependencies;
+    if (!runner.steer || !this.controllers.has(queueKey)) return false;
+    const accounts = await directory.read();
+    const agent = accounts.find(job.agentId);
+    if (agent?.user.isAgent !== true || !agent.user.isActive) return false;
+    try {
+      const request = await this.buildRequest(job, agent.user, accounts);
+      if (!(await runner.steer(request))) return false;
+    } catch (error: unknown) {
+      logCaughtError(COMPONENT, error);
+      return false;
+    }
+    await this.setState(job, "running");
+    this.steered.set(queueKey, [...(this.steered.get(queueKey) ?? []), job]);
+    this.markQueued(job, "chat");
+    return true;
+  }
+
+  /** Settles the rounds that joined the running answer once it ended. */
+  private async settleSteered(
+    queueKey: string,
+    outcome: {
+      readonly state: ConversationTargetState;
+      readonly replyMessageId?: string;
+      readonly notice?: ConversationNotice | null;
+    },
+  ): Promise<void> {
+    const jobs = this.steered.get(queueKey) ?? [];
+    this.steered.delete(queueKey);
+    for (const job of jobs) {
+      this.unmarkQueued(job);
+      await this.setState(job, outcome.state, {
+        ...(outcome.replyMessageId === undefined
+          ? {}
+          : { replyMessageId: outcome.replyMessageId }),
+        ...(outcome.notice === undefined ? {} : { notice: outcome.notice }),
+      });
+    }
   }
 
   /** Answers one message as one agent, or leaves a hint why it did not. */
@@ -294,7 +375,12 @@ export class ConversationReplyRunner {
         accounts,
         signal: controller.signal,
       });
-      return await this.post(job, accounts, { text, notice: null });
+      const posted = await this.post(job, accounts, { text, notice: null });
+      await this.settleSteered(controllerKey, {
+        state: "answered",
+        ...(posted ? { replyMessageId: posted.id } : {}),
+      });
+      return posted;
     } catch (error: unknown) {
       const notice = controller.signal.aborted
         ? "agent_stopped"
@@ -306,6 +392,7 @@ export class ConversationReplyRunner {
           : failureText(error, notice, agent.user.displayName),
         notice,
       });
+      await this.settleSteered(controllerKey, { state: "failed", notice });
       return null;
     } finally {
       if (this.controllers.get(controllerKey) === controller)
@@ -377,17 +464,17 @@ export class ConversationReplyRunner {
     this.dependencies.publisher.publish(changedEvent(conversationId));
   }
 
-  /** Asks the agent with the limited context; an empty answer counts as failed. */
-  private async ask(
+  /**
+   * What an agent is asked in a round (PAGE-376): the whole chat context for
+   * a session that does not know the chat yet, otherwise only the messages
+   * after the position of its session.
+   */
+  private async buildRequest(
     job: ConversationReplyJob,
     agent: User,
-    context: {
-      readonly accounts: ConversationAccounts;
-      readonly signal: AbortSignal;
-    },
-  ): Promise<string> {
-    const { accounts, signal } = context;
-    const { messages } = this.dependencies;
+    accounts: ConversationAccounts,
+  ): Promise<Omit<ConversationAgentRequest, "signal">> {
+    const { messages, runner } = this.dependencies;
     const { conversation } = job.round;
     const answered = await messages.find(conversation.id, job.triggerMessageId);
     const origin = await messages.find(
@@ -396,9 +483,13 @@ export class ConversationReplyRunner {
     );
     if (!answered || !origin)
       throw new Error("The answered message is missing.");
+    const deliveredThrough =
+      (await runner.deliveredThrough?.(agent.id, conversation.id)) ?? 0;
     const prepare = new ConversationReplyContext(this.dependencies);
+    // A session that was resumed knows the chat up to its stored position.
     const prepareTurn = (
       afterSequence: number | null,
+      isResumed = false,
     ): Promise<ConversationAgentTurn> =>
       prepare.forTurn({
         job,
@@ -407,9 +498,10 @@ export class ConversationReplyRunner {
         answered,
         origin,
         afterSequence,
+        deliveredThrough: isResumed ? deliveredThrough : 0,
       });
-    const initial = await prepareTurn(null);
-    const answer = await this.dependencies.runner.answer({
+    const initial = await prepareTurn(null, deliveredThrough > 0);
+    return {
       agent,
       person: job.round.person,
       conversation,
@@ -424,7 +516,23 @@ export class ConversationReplyRunner {
         return opened.stream;
       },
       lastMessage: answered.text,
-      signal,
+      throughSequence: initial.throughSequence,
+    };
+  }
+
+  /** Asks the agent; an empty answer counts as failed. */
+  private async ask(
+    job: ConversationReplyJob,
+    agent: User,
+    context: {
+      readonly accounts: ConversationAccounts;
+      readonly signal: AbortSignal;
+    },
+  ): Promise<string> {
+    const request = await this.buildRequest(job, agent, context.accounts);
+    const answer = await this.dependencies.runner.answer({
+      ...request,
+      signal: context.signal,
       onQueued: () => this.markQueued(job, "limit"),
       onAdmitted: () => this.unmarkQueued(job),
     });

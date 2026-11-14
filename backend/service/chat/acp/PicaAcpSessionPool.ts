@@ -40,6 +40,12 @@ export interface PicaAcpPoolStart {
   readonly listener: AcpSessionListener;
   /** The MCP credential of the session; `null` for a runner without the bridge. */
   readonly channel: PicaBridgeMcpChannel | null;
+  /**
+   * The observer the native session reports to: it keeps the agent session
+   * identifier for the resume after the idle time and passes it on to the
+   * job (PAGE-376).
+   */
+  readonly observer: PlanSessionObserver;
 }
 
 /** How a job asks the pool for its chat session. */
@@ -66,8 +72,11 @@ export interface PicaAcpPoolOpening {
 
 /** What the pool runs on. */
 export interface PicaAcpSessionPoolOptions {
-  /** The idle time of a resting session, from the agent settings; read for every rest. */
-  readonly idleMinutes: () => Promise<number>;
+  /**
+   * The idle time of a resting session of an agent, from the settings of the
+   * agent and the instance; read for every rest (PAGE-376).
+   */
+  readonly idleMinutes: (agentId: string) => Promise<number>;
   readonly now?: () => Date;
 }
 
@@ -79,6 +88,8 @@ interface PoolEntry {
   native: PlanSession | null;
   throughSequence: number | null;
   instanceId: string;
+  /** The identifier of the agent session, for the job that reuses the process. */
+  acpSessionId: string | null;
   isLent: boolean;
   isEnding: boolean;
   timer: ReturnType<typeof setTimeout> | null;
@@ -171,6 +182,18 @@ export class PicaAcpSessionPool {
     return true;
   }
 
+  /**
+   * Whether a chat has a live process.
+   *
+   * @returns `busy` while a job holds it, `idle` while it waits for the next
+   * round, `null` without a process.
+   */
+  public stateOf(chatSessionId: string): "busy" | "idle" | null {
+    const entry = this.entries.get(chatSessionId);
+    if (!entry?.native || entry.isEnding) return null;
+    return entry.isLent ? "busy" : "idle";
+  }
+
   /** The sessions the agents hold now, for the resource view. */
   public describe(): readonly AcpChatSessionView[] {
     return [...this.entries.values()]
@@ -194,6 +217,7 @@ export class PicaAcpSessionPool {
       native: null,
       throughSequence: null,
       instanceId: "",
+      acpSessionId: null,
       isLent: true,
       isEnding: false,
       timer: null,
@@ -208,6 +232,7 @@ export class PicaAcpSessionPool {
         signal: entry.controller.signal,
         listener: entry.listener,
         channel: entry.channel,
+        observer: this.identifying(entry, opening.observer),
       });
       entry.native = started.session;
       entry.instanceId = started.instanceId;
@@ -232,6 +257,9 @@ export class PicaAcpSessionPool {
     this.clearTimer(entry);
     entry.isLent = true;
     entry.lastActivityAt = this.now();
+    // The job saves the agent session through its last message, so the resume after the idle time finds it.
+    if (entry.acpSessionId !== null)
+      opening.observer.identified(entry.acpSessionId);
     entry.listener.attach(opening.listener);
     if (entry.channel) opening.bridge?.attach(entry.channel);
     const unlink = linkSignal(opening.signal, entry.controller);
@@ -333,11 +361,25 @@ export class PicaAcpSessionPool {
     };
   }
 
+  /** The observer of a new native session: it remembers the agent session identifier. */
+  private identifying(
+    entry: PoolEntry,
+    observer: PlanSessionObserver,
+  ): PlanSessionObserver {
+    return {
+      ...observer,
+      identified: (sessionId) => {
+        entry.acpSessionId = sessionId;
+        observer.identified(sessionId);
+      },
+    };
+  }
+
   /** Starts the idle time; a failed read of the settings keeps the default. */
   private async rest(entry: PoolEntry): Promise<void> {
     let minutes = AGENT_CHAT_IDLE_DEFAULT_MINUTES;
     try {
-      minutes = await this.options.idleMinutes();
+      minutes = await this.options.idleMinutes(entry.session.agentId);
     } catch (error: unknown) {
       logCaughtError("PicaAcpSessionPool", error);
     }

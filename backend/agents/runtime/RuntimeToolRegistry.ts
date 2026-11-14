@@ -36,6 +36,14 @@ export type RuntimeToolInvocation =
   | { readonly isValid: true; readonly output: unknown }
   | { readonly isValid: false; readonly output: null };
 
+/** A call that ended, as an observer of the registry hears of it. */
+export interface RuntimeToolCall {
+  readonly id: string;
+  /** The untrusted arguments of the call. */
+  readonly input: unknown;
+  readonly invocation: RuntimeToolInvocation;
+}
+
 /** Selects what a transport lists; a person's own catalog never names administrator tools. */
 export interface RuntimeToolListing {
   /** Lists the administrator tools too; defaults to `true`. */
@@ -105,6 +113,7 @@ async function authorizedContext(
 export class RuntimeToolRegistry {
   private readonly tools = new Map<string, RegisteredTool>();
   private readonly gate: RuntimeAdministratorGate | undefined;
+  private observer: ((call: RuntimeToolCall) => void) | null = null;
 
   /**
    * Creates a registry.
@@ -160,6 +169,18 @@ export class RuntimeToolRegistry {
       );
   }
 
+  /**
+   * Hears of every call that ended with an answer, whether its input was valid
+   * or not, such as for the record of an agent's tool use (PAGE-378). A call
+   * that throws is not reported. The observer must not throw; a second one
+   * replaces the first.
+   *
+   * @param observer - Called after each call.
+   */
+  public observe(observer: (call: RuntimeToolCall) => void): void {
+    this.observer = observer;
+  }
+
   /** The access class of a registered tool, or `null` for an unknown name. */
   public accessOf(id: string): RuntimeToolAccess | null {
     return this.tools.get(id)?.description.access ?? null;
@@ -181,7 +202,10 @@ export class RuntimeToolRegistry {
     context: RuntimeExecutionContext,
   ): Promise<RuntimeToolInvocation | null> {
     const tool = this.tools.get(id);
-    return tool ? tool.invoke(input, context) : null;
+    if (!tool) return null;
+    const invocation = await tool.invoke(input, context);
+    this.observer?.({ id, input, invocation });
+    return invocation;
   }
 
   private async requireAdministrator(

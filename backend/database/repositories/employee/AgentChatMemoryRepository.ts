@@ -111,6 +111,45 @@ export class AgentChatMemoryRepository {
   }
 
   /**
+   * Whether a stored conversation is confidential for an agent (PAGE-376): it
+   * is marked itself, or it is a direct conversation with a person whose chat
+   * with the agent is marked confidential.
+   *
+   * @param agentId - The agent that asks.
+   * @param conversationId - The conversation.
+   */
+  public async isConfidentialConversation(
+    agentId: string,
+    conversationId: string,
+  ): Promise<boolean> {
+    const [row] = await this.database.query(
+      `
+        SELECT (
+            conversations.is_confidential
+            OR (
+                conversations.kind = 'direct'
+                AND EXISTS (
+                    SELECT 1
+                    FROM conversation_members
+                    INNER JOIN agent_conversations
+                        ON agent_conversations.person_id = conversation_members.user_id
+                        AND agent_conversations.agent_id = $agent_id
+                        AND agent_conversations.purpose = 'chat'
+                        AND agent_conversations.is_confidential
+                    WHERE conversation_members.conversation_id = conversations.id
+                        AND conversation_members.user_id <> $agent_id
+                )
+            )
+        ) AS is_confidential
+        FROM conversations
+        WHERE conversations.id = $conversation_id;
+      `,
+      { agent_id: agentId, conversation_id: conversationId },
+    );
+    return row ? readBooleanColumn(row, 0, "is_confidential") : false;
+  }
+
+  /**
    * Marks the direct chat of a person with an agent confidential or not.
    *
    * @returns Whether the chat exists; a chat without any message has none yet.

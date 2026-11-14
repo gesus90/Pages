@@ -112,6 +112,13 @@ const AGENT_ACTION_HANDLERS: Readonly<Record<string, AgentActionHandler>> = {
     });
     return { ok: true };
   },
+  "save-agent-logbook-model": async ({ actor, services, formData }) => {
+    await services.agentSessionLimitService.saveLogbookModel(actor, {
+      connectionId: readTextOrEmpty(formData, "connectionId"),
+      model: readTextOrEmpty(formData, "model"),
+    });
+    return { ok: true };
+  },
   "save-agent-chat": async ({ actor, services, formData }) => {
     await services.agentChatSettingsService.save(actor, {
       hourlyMessageLimit: Number(readText(formData, "hourlyMessageLimit")),
@@ -232,6 +239,7 @@ const CONNECTION_FREE_INTENTS = new Set([
   "save-speech-synthesis",
   "save-chat-decision",
   "save-agent-session-limits",
+  "save-agent-logbook-model",
 ]);
 
 /** Dispatches only known intents after checking fresh account facts, preserving mode switching. */

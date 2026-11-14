@@ -1,6 +1,10 @@
 import { eventKey, nameOf, weekdaysLabel } from "./automation-labels";
 
-import type { Automation, AutomationTrigger } from "@/definition/Automation";
+import type {
+  Automation,
+  AutomationAgentAction,
+  AutomationTrigger,
+} from "@/definition/Automation";
 import type { LabelContext } from "./automation-time-format";
 
 const ALL_WEEKDAYS = 7;
@@ -44,25 +48,47 @@ function eventClause(
   return context.t(`automations.eventClauses.${eventKey(trigger.eventType)}`);
 }
 
+/** `[[Chatname]]` names a group as the target chat of an agent action; anything else is `@Agentname`, a direct chat. */
+const GROUP_TARGET = /^\[\[(.+)\]\]$/u;
+
+function chatSentence(
+  chat: string | null | undefined,
+  context: LabelContext,
+): string {
+  const target = chat?.trim() ?? "";
+  if (target === "") return "";
+  const { t } = context;
+  const group = GROUP_TARGET.exec(target)?.[1];
+  if (group !== undefined)
+    return t("automations.description.chatGroup", { chat: group });
+  return t("automations.description.chatDirect", {
+    chat: target.replace(/^@/u, ""),
+  });
+}
+
 function agentSentence(
   automation: Automation,
-  agentId: string,
+  action: AutomationAgentAction,
   context: LabelContext,
 ): string {
   const { t } = context;
-  const agent = nameOf(context, agentId);
-  if (automation.trigger.type === "once")
-    return t(
-      automation.deleteAfterSuccess
-        ? "automations.description.agent.onceDelete"
-        : "automations.description.agent.once",
-      { agent },
-    );
-  return t(`automations.description.agent.${timingOf(automation.trigger)}`, {
-    agent,
-    schedule: scheduleText(automation.trigger, context),
-    event: eventClause(automation.trigger, context),
-  });
+  const agent = nameOf(context, action.agentId);
+  const sentence =
+    automation.trigger.type === "once"
+      ? t(
+          automation.deleteAfterSuccess
+            ? "automations.description.agent.onceDelete"
+            : "automations.description.agent.once",
+          { agent },
+        )
+      : t(`automations.description.agent.${timingOf(automation.trigger)}`, {
+          agent,
+          schedule: scheduleText(automation.trigger, context),
+          event: eventClause(automation.trigger, context),
+        });
+  return [sentence, chatSentence(action.chat, context)]
+    .filter((part) => part !== "")
+    .join(" ");
 }
 
 function scriptForwardSentence(
@@ -93,7 +119,7 @@ export function automationDescription(
 ): string {
   const { action, trigger } = automation;
   if (action.type === "agent")
-    return agentSentence(automation, action.agentId, context);
+    return agentSentence(automation, action, context);
   const values = {
     schedule: scheduleText(trigger, context),
     event: eventClause(trigger, context),

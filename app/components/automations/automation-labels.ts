@@ -201,8 +201,9 @@ export function runTriggerChip(
 }
 
 /**
- * The line below an automation's name: "Agent · All Might", "Skript → bei
- * Fehler All Might wecken", "Skript" or "Plan starten · Pages Test".
+ * The line below an automation's name: "Agent · All Might", "Agent · All
+ * Might · Chat: [[Pages Team]]", "Skript → bei Fehler All Might wecken",
+ * "Skript" or "Plan starten · Pages Test".
  */
 export function actionLine(
   action: AutomationAction,
@@ -211,9 +212,12 @@ export function actionLine(
   const { t } = context;
   switch (action.type) {
     case "agent":
-      return t("automations.action.agent", {
-        agent: nameOf(context, action.agentId),
-      });
+      return t(
+        action.chat
+          ? "automations.action.agentChat"
+          : "automations.action.agent",
+        { agent: nameOf(context, action.agentId), chat: action.chat },
+      );
     case "plan":
       return t("automations.action.plan", {
         plan: nameOf(context, action.planId),

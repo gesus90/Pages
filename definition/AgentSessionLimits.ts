@@ -18,7 +18,7 @@ export const AGENT_SESSION_LIMIT_MAXIMUM = 64;
  * Minutes a chat session of an agent rests after its last round before it
  * ends and releases its process (PAGE-335).
  */
-export const AGENT_CHAT_IDLE_DEFAULT_MINUTES = 10;
+export const AGENT_CHAT_IDLE_DEFAULT_MINUTES = 30;
 /** The longest idle time of a resting chat session, one day. */
 export const AGENT_CHAT_IDLE_MAXIMUM_MINUTES = 1440;
 
@@ -38,6 +38,20 @@ export interface AgentSessionLimitsAdministration {
   readonly limits: AgentSessionLimits;
   readonly running: number;
   readonly waiting: number;
+  /**
+   * The model the instance names for the background summary of the Lagebuch
+   * (PAGE-377); `null` leaves the agent's own. Absent in an older kept answer.
+   */
+  readonly logbookModel?: {
+    readonly connectionId: string;
+    readonly model: string;
+  } | null;
+  /** The models an administrator may choose for it; absent in an older kept answer. */
+  readonly logbookModels?: readonly {
+    readonly connectionId: string;
+    readonly model: string;
+    readonly label: string;
+  }[];
 }
 
 /**

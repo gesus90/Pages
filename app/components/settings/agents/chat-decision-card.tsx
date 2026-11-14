@@ -4,22 +4,18 @@ import { useTranslation } from "react-i18next";
 import { useFetcher } from "react-router";
 
 import { ModelPicker } from "@/app/components/agents/model-picker";
-import {
-  ModelFieldRow,
-  ReasoningField,
-} from "@/app/components/agents/model-picker/model-field";
+import { ModelFieldRow } from "@/app/components/agents/model-picker/model-field";
+import { DecisionRulesFields } from "@/app/components/common/decision-rules-fields";
 import { SettingsCard } from "@/app/components/settings/settings-layout";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/lib/cn";
-import { reasoningOptions } from "@/app/lib/reasoning-options";
-import { consumerModels } from "@/definition/AgentModelConsumers";
 import { agentModelKey } from "@/definition/AgentPlanConfiguration";
-import { modelsOfSameTarget } from "@/definition/AgentReasoningChoice";
 
 import type { AgentActionResult } from "@/app/lib/settings-actions/settings-agents-response.server";
 import type {
   ChatDecisionAdministration,
   ChatDecisionStatus,
+  ConversationDecisionRules,
 } from "@/definition/ConversationDecision";
 import type { PageAgentModel } from "@/definition/PageAgent";
 import type { FetcherWithComponents } from "react-router";
@@ -37,15 +33,17 @@ interface ChatDecisionCardProps {
 }
 
 /**
- * The decision model of the instance (PAGE-317), next to speech recognition
- * and speech output and above Pica.
+ * The decision model of the instance (PAGE-317, PAGE-379), next to speech
+ * recognition and speech output and above Pica.
  *
  * @remarks
- * The card sets the model alone: connection, model and reasoning level, from
- * the text models the shared catalog releases for chats. The model only
- * chooses which agent answers a message of a group chat; it has no tools and
- * runs no action. Saving is allowed to administrators in the admin mode only,
- * which the server checks again.
+ * The card sets the decision model, chosen from the OpenRouter models that
+ * state `decisions` as their output, and the default thresholds and the most
+ * answering agents of the groups. The model only gives probabilities for
+ * which agent a message of a group chat means; Pages decides with the
+ * thresholds, and the model has no tools and runs no action. Saving is
+ * allowed to administrators in the admin mode only, which the server checks
+ * again.
  */
 export function ChatDecisionCard({
   administration,
@@ -69,11 +67,19 @@ export function ChatDecisionCard({
   );
 }
 
+/** The rule fields of the form, each sent as a hidden input under its own name. */
+const RULE_FIELDS: readonly (keyof ConversationDecisionRules)[] = [
+  "answerThreshold",
+  "responsibilityThreshold",
+  "secondThreshold",
+  "maximumResponders",
+];
+
 interface ChatDecisionDraft {
   readonly modelKey: string;
-  readonly effort: string;
+  readonly rules: ConversationDecisionRules;
   readonly selectModel: (key: string) => void;
-  readonly setEffort: (effort: string) => void;
+  readonly setRules: (rules: ConversationDecisionRules) => void;
   readonly selection: {
     readonly connectionId: string;
     readonly model: string;
@@ -87,20 +93,15 @@ function useChatDecisionDraft(
   const saved = administration.settings.selection;
   const savedKey = saved ? agentModelKey(saved.connectionId, saved.model) : "";
   const [modelKey, setModelKey] = useState(savedKey);
-  const [effort, setEffort] = useState(saved?.reasoningEffort ?? "");
+  const [rules, setRules] = useState(administration.settings.rules);
   const model = models.find((entry) => entry.id === modelKey);
-  function selectModel(key: string): void {
-    const next = models.find((entry) => entry.id === key);
-    if (effort && !next?.reasoningEfforts.includes(effort)) setEffort("");
-    setModelKey(key);
-  }
   // A saved model the choice no longer lists keeps its value until another is chosen.
   const kept = modelKey === savedKey ? saved : null;
   return {
     modelKey,
-    effort,
-    selectModel,
-    setEffort,
+    rules,
+    selectModel: setModelKey,
+    setRules,
     selection: model?.connectionId
       ? { connectionId: model.connectionId, model: model.model }
       : kept,
@@ -117,17 +118,8 @@ function ChatDecisionForm({
   readonly fetcher: FetcherWithComponents<AgentActionResult>;
 }): React.ReactElement {
   const { t } = useTranslation();
-  const models = consumerModels("pica", administration.models);
+  const { models } = administration;
   const draft = useChatDecisionDraft(administration, models);
-  const model = models.find((entry) => entry.id === draft.modelKey);
-  const effortOptions = reasoningOptions({
-    model,
-    modelName: model?.modelName ?? model?.name ?? "",
-    siblings: modelsOfSameTarget(models, model),
-    current: draft.effort,
-    defaultLabel: t("pageAgents.defaultReasoning"),
-    translate: t,
-  });
   const isPending = fetcher.state !== "idle";
   return (
     <fetcher.Form method="post" className="space-y-4">
@@ -143,7 +135,9 @@ function ChatDecisionForm({
         value={draft.selection?.connectionId ?? ""}
       />
       <input type="hidden" name="model" value={draft.selection?.model ?? ""} />
-      <input type="hidden" name="reasoningEffort" value={draft.effort} />
+      {RULE_FIELDS.map((rule) => (
+        <input key={rule} type="hidden" name={rule} value={draft.rules[rule]} />
+      ))}
       <ModelFieldRow>
         <ModelPicker
           value={draft.modelKey}
@@ -156,18 +150,20 @@ function ChatDecisionForm({
           isCatalogFailed={isCatalogFailed}
           onChange={draft.selectModel}
         />
-        <ReasoningField
-          value={draft.effort}
-          options={effortOptions}
-          disabled={isPending}
-          note={
-            model && model.reasoningEfforts.length === 0
-              ? t("settings.agents.assignments.noEffort")
-              : null
-          }
-          onChange={draft.setEffort}
-        />
       </ModelFieldRow>
+      <div className="space-y-2">
+        <h3 className="text-sm font-semibold text-foreground">
+          {t("chatDecision.defaults.title")}
+        </h3>
+        <p className="text-xs text-muted-foreground">
+          {t("chatDecision.defaults.description")}
+        </p>
+        <DecisionRulesFields
+          rules={draft.rules}
+          isDisabled={isPending}
+          onChange={draft.setRules}
+        />
+      </div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <span
           role="status"

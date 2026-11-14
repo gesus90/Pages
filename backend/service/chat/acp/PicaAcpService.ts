@@ -20,6 +20,8 @@ import type {
 } from "@/backend/service/chat/ChatRequestRegistry";
 import type { ResolvedAgentAssignment } from "@/backend/service/agents/AgentAssignmentResolution";
 import type { AgentChatTools } from "@/definition/AgentChat";
+import type { AgentLogbookTools } from "@/definition/AgentLogbook";
+import type { AgentRecipeTools } from "@/definition/AgentDreaming";
 import type { ChatSendResult } from "@/definition/Chat";
 import type {
   ChatJob,
@@ -94,6 +96,7 @@ export interface PicaAcpEmployeeRun {
   readonly runner: PicaAcpRunner;
   readonly prepareTurn?: (
     afterSequence: number | null,
+    isResumed?: boolean,
   ) => Promise<PicaAcpConversationTurn>;
   /** Browser access derived from the stored employee level, never model input. */
   readonly hasBrowser?: boolean;
@@ -105,6 +108,18 @@ export interface PicaAcpEmployeeRun {
   readonly searchMemory: (query: string) => Promise<unknown>;
   /** Reads a group of the agent's own account (PAGE-296). */
   readonly readConversationContext?: (input: unknown) => Promise<unknown>;
+  /** Reads the messages of the chat of the job's session after a position, for `chat_lesen` (PAGE-376). */
+  readonly readOwnChat?: (input: unknown) => Promise<unknown>;
+  /** The Lagebuch tools of the job's chat session (PAGE-377); absent for a run of the agent's own. */
+  readonly logbook?: AgentLogbookTools;
+  /** The recipe tool and the record of tool calls of the job's chat session (PAGE-378); absent for a run of the agent's own. */
+  readonly recipes?: AgentRecipeTools;
+  /**
+   * A short run of the agent's own, such as the upkeep of its memory
+   * (PAGE-376): it starts a new agent session and never continues an
+   * earlier one, so it carries no context of a chat.
+   */
+  readonly isFreshSession?: boolean;
   /**
    * Attaches a file of the job's working folder to a ticket or a wiki page
    * with the agent's rights; present only with host tools (PAGE-303).
@@ -481,10 +496,12 @@ export class PicaAcpService {
       : "person";
     this.dependencies.requests.requireAdmission(actor.id, id, admission);
     const directory = await this.dependencies.workspace.prepare(sessionId);
-    const resumeSessionId = await this.compatibleSession(actor.id, sessionId, {
-      agent,
-      profile: run.runner.profile,
-    });
+    const resumeSessionId = input.employee?.isFreshSession
+      ? null
+      : await this.compatibleSession(actor.id, sessionId, {
+          agent,
+          profile: run.runner.profile,
+        });
     const message = await this.store(actor, sessionId, input.request);
     await this.dependencies.jobs.create({
       id,
@@ -589,6 +606,9 @@ export class PicaAcpService {
       ...(employee.readConversationContext
         ? { readConversationContext: employee.readConversationContext }
         : {}),
+      ...(employee.readOwnChat ? { readOwnChat: employee.readOwnChat } : {}),
+      ...(employee.logbook ? { logbook: employee.logbook } : {}),
+      ...(employee.recipes ? { recipes: employee.recipes } : {}),
       ...(employee.agentChat ? { agentChat: employee.agentChat } : {}),
       access: {
         requireUser: (userId, connectionId) =>

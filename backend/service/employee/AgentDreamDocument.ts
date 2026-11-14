@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 import { countCharacters } from "@/definition/AgentMemory";
 
 /** Characters of one lesson. */
@@ -7,7 +9,7 @@ const EVIDENCE_CHARACTERS = 200;
 /** Share of common words from which two lessons count as similar. */
 const SIMILARITY = 0.6;
 const LESSON_LINE =
-  /^- (.+?) — Beleg: (.+?) · Datum: (\d{4}-\d{2}-\d{2})(?: · Stärke: (\d+))?\s*$/u;
+  /^- (.+?) — Beleg: (.+?) · Datum: (\d{4}-\d{2}-\d{2})(?: · Stärke: (\d+))?( · aus)?\s*$/u;
 
 /** One lesson of `DREAM.md`. */
 export interface AgentDreamLesson {
@@ -18,6 +20,8 @@ export interface AgentDreamLesson {
   readonly date: string;
   /** How often it was confirmed; the weakest falls out first. */
   readonly strength: number;
+  /** A lesson switched off stays in the file but is not loaded into a session (PAGE-378). */
+  readonly isActive: boolean;
 }
 
 function cut(text: string, maximum: number): string {
@@ -66,6 +70,8 @@ function mergeLessons(
     evidence: cut(evidence.join("; "), EVIDENCE_CHARACTERS),
     date: isNewer ? added.date : kept.date,
     strength: kept.strength + added.strength,
+    // What somebody switched off stays off, however often the run confirms it.
+    isActive: kept.isActive,
   };
 }
 
@@ -93,15 +99,44 @@ export function parseDreamDocument(
           evidence: "von Hand",
           date: today,
           strength: 1,
+          isActive: true,
         };
       return {
         text: match[1] ?? "",
         evidence: match[2] ?? "",
         date: match[3] ?? today,
         strength: Number(match[4] ?? "1"),
+        isActive: match[5] === undefined,
       };
     })
     .filter((lesson) => lesson.text !== "");
+}
+
+/**
+ * The identifier of a lesson: a short digest of its text, stable while the
+ * text stays, so the settings find the lesson they show (PAGE-378).
+ *
+ * @param text - The text of the lesson.
+ */
+export function lessonId(text: string): string {
+  return createHash("sha1")
+    .update(cut(text, LESSON_CHARACTERS))
+    .digest("hex")
+    .slice(0, 12);
+}
+
+/**
+ * `DREAM.md` as a session receives it: without the lessons that are switched off.
+ *
+ * @param text - The stored `DREAM.md`.
+ */
+export function activeDreamDocument(text: string): string {
+  return text
+    .replace(/\r\n/gu, "\n")
+    .split("\n")
+    .filter((line) => LESSON_LINE.exec(line.trim())?.[5] === undefined)
+    .join("\n")
+    .trim();
 }
 
 /** Writes the lessons as `DREAM.md`, one line each with evidence and date. */
@@ -111,7 +146,7 @@ export function renderDreamDocument(
   return lessons
     .map(
       (lesson) =>
-        `- ${cut(lesson.text, LESSON_CHARACTERS)} — Beleg: ${cut(lesson.evidence, EVIDENCE_CHARACTERS) || "–"} · Datum: ${lesson.date} · Stärke: ${lesson.strength}`,
+        `- ${cut(lesson.text, LESSON_CHARACTERS)} — Beleg: ${cut(lesson.evidence, EVIDENCE_CHARACTERS) || "–"} · Datum: ${lesson.date} · Stärke: ${lesson.strength}${lesson.isActive ? "" : " · aus"}`,
     )
     .join("\n");
 }
@@ -124,7 +159,8 @@ export function renderDreamDocument(
  * @param added - The lessons of the dream run.
  * @param maximum - The character limit of the agent.
  * @returns The lessons that fit, how many were merged with a similar one
- * and how many fell out, the weakest and then the oldest first.
+ * and how many fell out, the weakest and then the oldest first, with the
+ * texts of the new, the confirmed and the dropped lessons for the log.
  */
 export function mergeDreamLessons(
   current: readonly AgentDreamLesson[],
@@ -134,27 +170,33 @@ export function mergeDreamLessons(
   readonly lessons: readonly AgentDreamLesson[];
   readonly merged: number;
   readonly removed: number;
+  readonly addedTexts: readonly string[];
+  readonly mergedTexts: readonly string[];
+  readonly removedTexts: readonly string[];
 } {
   const lessons: AgentDreamLesson[] = [];
-  let merged = 0;
-  for (const lesson of [...current, ...added]) {
+  const addedTexts: string[] = [];
+  const mergedTexts: string[] = [];
+  for (const [position, lesson] of [...current, ...added].entries()) {
+    const isNew = position >= current.length;
     const index = lessons.findIndex((kept) =>
       isSimilar(kept.text, lesson.text),
     );
     const similar = index < 0 ? undefined : lessons[index];
     if (similar === undefined) {
       lessons.push(lesson);
+      if (isNew) addedTexts.push(lesson.text);
       continue;
     }
     lessons[index] = mergeLessons(similar, lesson);
-    merged += 1;
+    if (isNew) mergedTexts.push(lesson.text);
   }
   const dropOrder = [...lessons].sort(
     (left, right) =>
       left.strength - right.strength || left.date.localeCompare(right.date),
   );
   const kept = new Set(lessons);
-  let removed = 0;
+  const removedTexts: string[] = [];
   for (const lesson of dropOrder) {
     if (
       countCharacters(
@@ -163,11 +205,14 @@ export function mergeDreamLessons(
     )
       break;
     kept.delete(lesson);
-    removed += 1;
+    removedTexts.push(lesson.text);
   }
   return {
     lessons: lessons.filter((entry) => kept.has(entry)),
-    merged,
-    removed,
+    merged: mergedTexts.length,
+    removed: removedTexts.length,
+    addedTexts,
+    mergedTexts,
+    removedTexts,
   };
 }

@@ -1,5 +1,3 @@
-import { randomUUID } from "node:crypto";
-
 import { createRuntimeExecutionContext } from "@/backend/agents/runtime/RuntimeExecutionContext";
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { PicaAcpJobError } from "@/backend/error/PicaAcpJobError";
@@ -11,6 +9,10 @@ import {
 } from "@/backend/logging/Logger";
 
 import { continuedPicaBrief, picaSteerText } from "./PicaAcpContent";
+import {
+  type PicaAcpInputSources,
+  sessionPromptInput,
+} from "./PicaAcpJobInputs";
 import { PicaAcpJournal } from "./PicaAcpJournal";
 import { PicaAcpCredential } from "./PicaAcpCredential";
 import { PicaAcpUsage } from "./PicaAcpUsage";
@@ -27,7 +29,6 @@ import {
   turnBeganEvent,
 } from "./PicaAcpTurnResult";
 import { PicaAcpUpdates } from "./PicaAcpUpdates";
-import { chatMcpServers } from "./PicaAcpRunners";
 import { PicaAcpPrompt } from "./PicaAcpPrompt";
 import { openPicaSession } from "./PicaAcpPoolOpening";
 
@@ -42,54 +43,24 @@ import type {
 import type { RuntimeExecutionContext } from "@/backend/agents/runtime/RuntimeExecutionContext";
 import type { NewChatMessage } from "@/backend/database/repositories/chat/ChatSessionRepository";
 import type { AgentPlanExecutionInput } from "@/backend/service/agents/AgentPlanStepStart";
-import type { ResolvedAgentAssignment } from "@/backend/service/agents/AgentAssignmentResolution";
-import type { AgentRunOptions } from "@/definition/AgentConfiguration";
 import type { ChatSteerStatus } from "@/definition/ChatJob";
-import type { User } from "@/definition/User";
 import type { PicaMessageContent, PicaTurnBrief } from "./PicaAcpContent";
-import type { PicaAcpRunner } from "./PicaAcpRunners";
-import type {
-  PicaAcpConversationTurn,
-  PicaAcpMessage,
-} from "./PicaAcpSteering";
+import type { PicaAcpMessage } from "./PicaAcpSteering";
 import type { PicaAcpOutcome } from "./PicaAcpTurnResult";
 import type { PicaAcpJobDependencies } from "./PicaAcpJobDependencies";
-import type { PicaAcpJobPool, PicaAcpPooledInput } from "./PicaAcpPoolOpening";
+import type { PicaAcpPooledInput } from "./PicaAcpPoolOpening";
+import type { PicaNativeToolEvent } from "./PicaAcpToolCalls";
+import type { PicaAcpJobSpecification } from "./PicaAcpJobSpecification";
 
 export type { PicaAcpJobDependencies } from "./PicaAcpJobDependencies";
+export type {
+  PicaAcpJobSpecification,
+  PicaAcpRun,
+} from "./PicaAcpJobSpecification";
 
 /** What the agent reads after the person cancelled its running tool call. */
 const TOOL_CANCELLED_NOTE =
   "Die Person hat deinen laufenden Werkzeugaufruf abgebrochen. Starte ihn nicht erneut, sondern antworte mit dem bisherigen Stand und frag nach, wie es weitergehen soll.";
-
-/** The runner of a job and the run options it was validated with before anything was stored. */
-export interface PicaAcpRun {
-  readonly runner: PicaAcpRunner;
-  readonly options: AgentRunOptions;
-}
-
-/** One job: the conversation, the pinned agent and the message it answers. */
-export interface PicaAcpJobSpecification {
-  readonly id: string;
-  readonly actor: User;
-  readonly sessionId: string;
-  readonly agent: ResolvedAgentAssignment;
-  readonly run: PicaAcpRun;
-  /** The fixed working directory of the conversation. */
-  readonly directory: string;
-  readonly message: PicaAcpMessage;
-  /** Instructions and context with the transcript, for a new agent session. */
-  readonly brief: PicaTurnBrief;
-  /** The agent session to continue; `null` starts a new one. */
-  readonly resumeSessionId: string | null;
-  readonly prepareTurn?: (
-    afterSequence: number | null,
-  ) => Promise<PicaAcpConversationTurn>;
-  /** Runs a task in the queue of the conversation. */
-  readonly gate: <Result>(task: () => Promise<Result>) => Promise<Result>;
-  /** The chat session of an agent employee kept between rounds (PAGE-335); absent opens one per job. */
-  readonly pool?: PicaAcpJobPool;
-}
 
 /**
  * One Pica answer over ACP that runs on the server with the assigned CLI
@@ -130,6 +101,7 @@ export class PicaAcpJob {
   private isTurnRunning = false;
   private isStopRequested = false;
   private hasSteering: boolean | null = null;
+  private readonly notedNativeCalls = new Set<string>();
 
   public constructor(
     dependencies: PicaAcpJobDependencies,
@@ -198,8 +170,10 @@ export class PicaAcpJob {
         // Host tools of an agent employee show in the chat with input and result (PAGE-303).
         ...(specification.run.options.access === "yolo"
           ? {
-              nativeTool: (event) =>
-                this.journal.note({ kind: "tool", ...event }),
+              nativeTool: (event) => {
+                this.journal.note({ kind: "tool", ...event });
+                this.noteNativeTool(event);
+              },
             }
           : {}),
       },
@@ -336,6 +310,22 @@ export class PicaAcpJob {
     await this.journal.record({ kind: "phase", phase: "starting" });
   }
 
+  /** Hands a finished host tool call to the record the dream run learns from (PAGE-378). */
+  private noteNativeTool(event: PicaNativeToolEvent): void {
+    // A call reports several updates; only its end counts, once.
+    if (event.status === "running" || this.notedNativeCalls.has(event.callId))
+      return;
+    this.notedNativeCalls.add(event.callId);
+    // The prefix keeps a host tool, which no recipe can call, apart from a Pages tool.
+    this.dependencies.recipes?.note({
+      tool: `host:${event.tool}`,
+      input: event.input ?? "",
+      output: event.output ?? "",
+      isOk: event.status === "completed",
+      error: event.error,
+    });
+  }
+
   private async execute(signal: AbortSignal): Promise<void> {
     const { resumeSessionId } = this.specification;
     await this.beginTurn("message", this.specification.message);
@@ -377,7 +367,10 @@ export class PicaAcpJob {
       pool: this.specification.pool,
       prepare: prepareTurn
         ? async (afterSequence) => {
-            const prepared = await prepareTurn(afterSequence);
+            const prepared =
+              resumeSessionId === null
+                ? await prepareTurn(afterSequence)
+                : await prepareTurn(afterSequence, true);
             message = { ...message, ...prepared };
             return prepared.throughSequence;
           }
@@ -491,31 +484,22 @@ export class PicaAcpJob {
     resumeSessionId: string | null,
     pooled?: PicaAcpPooledInput,
   ): AgentPlanSessionInput {
-    const { agent, directory, run } = this.specification;
+    return sessionPromptInput(
+      { message, brief, resumeSessionId, pooled },
+      this.inputSources(),
+    );
+  }
+
+  private inputSources(): PicaAcpInputSources {
     return {
-      ...this.prompt.create(message, brief),
-      agent,
+      specification: this.specification,
       userId: this.userId,
-      directory,
-      options: run.options,
-      instanceId: randomUUID(),
-      chat: {
-        ...(this.dependencies.agentBrowsers
-          ? {
-              browserStateDirectory: this.dependencies.agentBrowsers.mount(
-                this.requireContext(),
-              ),
-            }
-          : {}),
-        ...chatMcpServers(
-          run.runner,
-          () => pooled?.servers ?? this.credential.mcpServers(),
-        ),
-        ...(run.runner.isUnisolated === true ? { isUnisolated: true } : {}),
-        resumeSessionId,
-        listener: pooled?.listener ?? this.updates,
-      },
-      beforeStart: () => this.authorize(),
+      browsers: this.dependencies.agentBrowsers,
+      credential: this.credential,
+      prompt: this.prompt,
+      updates: this.updates,
+      context: () => this.requireContext(),
+      authorize: () => this.authorize(),
     };
   }
 

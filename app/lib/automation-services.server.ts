@@ -29,6 +29,7 @@ import type { Database } from "@/backend/database/Database";
 import type { AgentPlanService } from "@/backend/service/agents/AgentPlanService";
 import type { AgentWorkspaceService } from "@/backend/service/agents/AgentWorkspaceService";
 import type { AutomationExecutionPorts } from "@/backend/service/automation/AutomationRunExecutor";
+import type { AgentChatService } from "@/backend/service/conversation/AgentChatService";
 import type { AgentEmployeeSessions } from "@/backend/service/employee/AgentEmployeeSessions";
 import type { PicaMobileAutomationPush } from "@/backend/service/mobile/notifications/PicaMobileAutomationPush";
 import type { ProjectService } from "@/backend/service/ProjectService";
@@ -205,6 +206,8 @@ export function startAutomationAgentWorker(input: {
   readonly database: Database;
   readonly automationService: AutomationService;
   readonly sessions: AgentEmployeeSessions;
+  /** Stores the result of a run in a group as the agent's message (PAGE-376). */
+  readonly chatPoster?: Pick<AgentChatService, "postResult">;
 }): void {
   if (isLocalSessionOwner() || isPagesRunsProcess()) return;
   const simulation = currentAgentSimulationMode();
@@ -216,6 +219,7 @@ export function startAutomationAgentWorker(input: {
       users: new UserRepository(input.database),
       sessions: input.sessions,
       messages: new ChatSessionRepository(input.database),
+      ...(input.chatPoster ? { chatPoster: input.chatPoster } : {}),
       simulation: simulation.isActive
         ? new SimulatedConversationAgent(simulation)
         : null,
