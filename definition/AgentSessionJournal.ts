@@ -1,4 +1,9 @@
 import type {
+  CodexAccounting,
+  CodexUsageSource,
+  CodexRunUsage,
+} from "./CodexPlanUsage";
+import type {
   AgentPlanRunner,
   AgentPlanSessionRecord,
 } from "./AgentPlanSession.js";
@@ -46,6 +51,8 @@ export interface AgentSessionCost {
  * derived from text lengths or from the context occupancy.
  */
 export interface AgentSessionTokenUsage {
+  readonly reasoningTokens?: number | null;
+  readonly accounting?: CodexAccounting;
   readonly inputTokens: number | null;
   readonly outputTokens: number | null;
   readonly cacheReadTokens: number | null;
@@ -59,6 +66,9 @@ export interface AgentSessionTokenUsage {
 
 /** The token usage of one turn, written once per turn. */
 export interface AgentSessionTurnUsage extends AgentSessionTokenUsage {
+  readonly stepId?: string;
+  /** Native receipt retained privately until projection; never returned with public usage. */
+  readonly codex?: CodexUsageSource;
   readonly attemptId: string;
   readonly turn: number;
   readonly provider: Exclude<AgentPlanRunner, "api">;
@@ -167,6 +177,7 @@ export interface AgentSessionActions {
 
 /** The read API of one PageAgentCLI session. */
 export interface AgentSessionView {
+  readonly codexRunUsage?: CodexRunUsage;
   readonly key: AgentSessionKey;
   readonly provider: AgentPlanRunner;
   readonly state: AgentSessionState;

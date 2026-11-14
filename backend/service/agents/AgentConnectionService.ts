@@ -24,6 +24,8 @@ import {
   requireAgentConnection,
 } from "./AgentServiceAccess";
 
+import { readCodexPriceMappings } from "./usage/CodexPriceMappings";
+
 import type { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
 import type { AgentConnectionRecord } from "@/backend/database/repositories/agent/AgentConnectionRows";
 import type { InstanceSecretCipher } from "@/backend/security/InstanceSecretCipher";
@@ -81,6 +83,7 @@ export class AgentConnectionService {
             : cli.describe(actor, connection),
         ]);
         return {
+          codexPriceMappings: connection.codexPriceMappings,
           isActive: connection.isActive,
           id: connection.id,
           name: connection.name,
@@ -127,6 +130,10 @@ export class AgentConnectionService {
         repository.insert({
           id,
           name: validated.name,
+          codexPriceMappings:
+            provider === "codex_cli"
+              ? readCodexPriceMappings(input.codexPriceMappings)
+              : undefined,
           provider,
           zaiAccountType,
           secretEncrypted:
@@ -183,6 +190,10 @@ export class AgentConnectionService {
       await this.withNameConflict(async () =>
         repository.update(id, {
           name: validated.name,
+          codexPriceMappings:
+            connection.provider === "codex_cli"
+              ? readCodexPriceMappings(input.codexPriceMappings)
+              : undefined,
           zaiAccountType,
           clearAccess: hasAccountChanged,
           secretEncrypted:

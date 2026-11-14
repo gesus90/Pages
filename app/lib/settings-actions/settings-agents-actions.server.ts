@@ -45,6 +45,7 @@ function readScopeField(formData: FormData): unknown {
 function readConnectionInput(formData: FormData): AgentConnectionInput {
   return {
     name: readTextOrEmpty(formData, "name"),
+    codexPriceMappings: readText(formData, "codexPriceMappings") ?? undefined,
     provider: readText(formData, "provider") ?? undefined,
     zaiAccountType: readText(formData, "zaiAccountType") ?? undefined,
     apiKey: readTextOrEmpty(formData, "apiKey"),

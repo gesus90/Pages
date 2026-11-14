@@ -118,6 +118,15 @@ export function configurationForTargets(
   };
 }
 
+function readMonthlyCostOptions(
+  input: unknown,
+): Pick<AgentRunOptions, "monthlyCostLimitUsd"> {
+  if (input === undefined) return {};
+  if (typeof input !== "number" || !Number.isFinite(input) || input < 0)
+    throw new AgentError("configuration_invalid");
+  return { monthlyCostLimitUsd: input };
+}
+
 /** Reads the run options of an agent; anything malformed is refused, never defaulted. */
 function readRunOptions(input: unknown): AgentRunOptions {
   const options = readAgentObject(input);
@@ -140,6 +149,7 @@ function readRunOptions(input: unknown): AgentRunOptions {
     shell: options.shell,
     web: options.web,
     timeoutMinutes: minutes,
+    ...readMonthlyCostOptions(options.monthlyCostLimitUsd),
     ...(options.browser === undefined
       ? {}
       : { browser: options.browser === true }),

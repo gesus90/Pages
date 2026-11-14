@@ -1,3 +1,4 @@
+import { codexRunUsage } from "../usage/CodexRunUsage";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { logCaughtError } from "@/backend/logging/Logger";
 
@@ -263,6 +264,7 @@ export class AgentSessionService {
       turns,
       totals: sumTurnUsage(turns),
       runTotals: sumTurnUsage(runTurns),
+      codexRunUsage: codexRunUsage(run, runTurns),
       nodeTotals: sumTurnUsage(
         runTurns.filter((turn) => nodeAttempts.has(turn.attemptId)),
       ),
@@ -429,6 +431,9 @@ export class AgentSessionService {
     // A later member continues the same native session: its last reports hold, with their time.
     const shared = existing?.current;
     const attempt: AgentSessionAttemptRecord = {
+      connectionId: start.connectionId,
+      agentId: start.agentId,
+      requestedModel: start.requestedModel,
       key: start.key,
       userId: start.userId,
       provider: start.provider,

@@ -1,3 +1,5 @@
+import { CodexPlanUsageRepository } from "@/backend/database/repositories/agent/CodexPlanUsageRepository";
+import { CodexAgentBudget } from "@/backend/service/agents/usage/CodexAgentBudget";
 import { createModelNodeRunners } from "./agent-plan-swarm.server";
 import { canProcessRuns } from "@/backend/runtime/RunsMode";
 import { registerShutdownTask } from "@/backend/runtime/ProcessLifecycle";
@@ -312,6 +314,9 @@ function createPlanStepStart(
   tasks: AgentPlanTasks,
 ): AgentPlanStepStart {
   return new AgentPlanStepStart({
+    codexBudget: new CodexAgentBudget(
+      new CodexPlanUsageRepository(input.database),
+    ),
     access,
     tasks,
     profiles: input.agents.agentProfileService,

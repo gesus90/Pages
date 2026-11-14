@@ -1065,7 +1065,9 @@
         "forbidden": "Only an active administrator may choose another owner. Keep yourself as owner or activate administrator mode.",
         "credentials_in_text": "The source contains credentials. Remove them from the plan and clone again.",
         "clone_failed": "The copy could not be stored. Try again or contact the project manager.",
-        "clone_request_invalid": "The clone request is invalid. Reload the plan and try again."
+        "clone_request_invalid": "The clone request is invalid. Reload the plan and try again.",
+        "codex_price_mapping_invalid": "Invalid OpenRouter price mapping.",
+        "codex_monthly_cost_limit": "Monthly Codex cost limit reached."
       },
       "description": "Manage named API and CLI connections and their usage scopes. Permitted models are available directly in Agent Plans.",
       "adminModeRequired": "The agent settings are only available in the admin mode. Your account is currently in the role mode.",
@@ -9137,5 +9139,23 @@
       "conflict": "The event was changed in the meantime. Please reload the view.",
       "too_large": "Too many events or invitees."
     }
+  },
+  "codexUsage": {
+    "title": "Codex usage",
+    "runTotal": "Run total (all steps and loop iterations)",
+    "inputTokens": "Input",
+    "cacheReadTokens": "of which cached",
+    "outputTokens": "Output",
+    "reasoningTokens": "of which reasoning",
+    "cost": "Cost",
+    "subscription": "included in subscription",
+    "equivalent": "Calculated equivalent: {{amount}}",
+    "notReported": "not reported",
+    "priceUnknown": "Price unknown",
+    "incomplete": "Incomplete total: usage was not fully reported.",
+    "mappings": "OpenRouter price mapping for Codex",
+    "mappingsHint": "Optional, one mapping per line: gpt-6-luna = openai/gpt-6-luna. Leave blank for unambiguous automatic matching.",
+    "monthlyLimit": "Monthly Codex cost limit (USD)",
+    "monthlyLimitHint": "Calculated equivalent including subscription usage; blank means unlimited. Further requests are refused once the limit is reached."
   }
 }

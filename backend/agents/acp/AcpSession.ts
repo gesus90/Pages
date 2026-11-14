@@ -32,6 +32,7 @@ import {
   readAcpUpdate,
 } from "./AcpEvents";
 import { reportAcpPlanActivity } from "./AcpPlanActivity";
+import { CodexThreadUsage } from "./CodexThreadUsage";
 import { AcpTurnControl } from "./AcpTurnControl";
 import { AcpMcpReadiness } from "./AcpMcpReadiness";
 import { closeAcpProtocol } from "./AcpProtocolClose";
@@ -128,6 +129,7 @@ export class AcpSession implements PlanSession {
   private expectedConfiguration: Readonly<Record<string, string>> | null = null;
   private configurationOptions: readonly SessionConfigOption[] = [];
   private readonly mcpReadiness: AcpMcpReadiness;
+  private readonly codexUsage: CodexThreadUsage | null;
   private readonly picaCodex: PicaCodexRequests | null;
   private closing: Promise<PlanSessionClosed> | null = null;
   /** The inputs and interruptions of a person in the running turn. */
@@ -148,6 +150,20 @@ export class AcpSession implements PlanSession {
     this.process = process;
     this.terminated = process.exited.then(() => undefined);
     this.context = context;
+    this.codexUsage =
+      context.codexHome && context.listener
+        ? new CodexThreadUsage(
+            context.codexHome,
+            context.request.model,
+            async (report) => {
+              context.listener?.update({
+                sessionUpdate: "session_info_update",
+                _meta: { pagesCodexUsage: report },
+              });
+              await context.listener?.drained?.();
+            },
+          )
+        : null;
     this.picaCodex = createPicaCodexRequests(
       context,
       () => this.state.sessionId,
@@ -319,6 +335,8 @@ export class AcpSession implements PlanSession {
     if (signal.aborted) cancel();
     try {
       signal.throwIfAborted();
+      if (this.context.driver.provider === "codex_cli")
+        await input.beforeStart?.();
       if (this.context.driver.provider === "antigravity") {
         if (
           input.agent.model !== this.context.request.model ||
@@ -385,21 +403,28 @@ export class AcpSession implements PlanSession {
     const response = await this.control.drive({
       first: await acpTurnPrompt(request, sessionId, capabilities),
       // Measured before writing: an oversized prompt is refused, never sent or repeated.
-      send: async (next) =>
-        this.connection.agent.request(
+      send: async (next) => {
+        await this.codexUsage?.start(
+          sessionId,
+          Boolean(this.context.request.resumeSessionId),
+        );
+        return this.connection.agent.request(
           methods.agent.session.prompt,
           acpPromptParams(sessionId, next, this.context.driver.provider),
-        ),
+        );
+      },
       settled: async () => {
         await this.picaCodex?.cancelTurn();
       },
       signal: this.turnSignal,
       isClosing: () => this.closing !== null,
       continued: async (cut) => {
+        await this.codexUsage?.finish(cut.usage ?? null);
         this.context.listener?.prompted(cut.usage ?? null, true);
         await this.context.listener?.drained?.();
       },
     });
+    await this.codexUsage?.finish(response.usage ?? null);
     this.context.listener?.prompted(response.usage ?? null);
     await this.context.listener?.drained?.();
     noteSessionEvent(this.state.events, `turn ${response.stopReason}`);
@@ -691,6 +716,7 @@ export class AcpSession implements PlanSession {
         undefined,
         this.context.containment ?? "none",
       );
+      await this.codexUsage?.close();
       if (closed.isConfirmed) this.context.cleanupAdapter?.();
       return closed;
     } finally {

@@ -36,6 +36,8 @@ export interface AgentRunOptions {
   readonly timeoutMinutes: number;
   /** Explicit opt-in to the administrator-enabled Playwright MCP; absent denies access. */
   readonly browser?: boolean;
+  /** Codex-only calendar-month equivalent USD budget; absent is unlimited. */
+  readonly monthlyCostLimitUsd?: number;
 }
 
 /** Limits of {@link AgentRunOptions.timeoutMinutes}. */
@@ -137,6 +139,9 @@ export function agentRunOptionsFor(
   return {
     ...acpRunOptions(run.access, run.timeoutMinutes),
     ...(run.browser === undefined ? {} : { browser: run.browser }),
+    ...(provider === "codex_cli" && run.monthlyCostLimitUsd !== undefined
+      ? { monthlyCostLimitUsd: run.monthlyCostLimitUsd }
+      : {}),
   };
 }
 

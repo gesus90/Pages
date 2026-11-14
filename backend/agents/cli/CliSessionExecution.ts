@@ -493,6 +493,10 @@ export class CliSessionExecution implements PlanSessionRunner {
         secure: () => this.secureAcp(input, start, github),
         cleanupAdapter: picaBundle?.cleanup,
         listener: input.chat?.listener ?? input.journal,
+        codexHome:
+          driver.provider === "codex_cli" && !input.chat
+            ? start.home.config
+            : undefined,
         notificationHandled: () => channel.acknowledge(),
         acceptsTurnInput: input.chat === undefined,
       });

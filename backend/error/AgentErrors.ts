@@ -2,6 +2,9 @@ import type { AgentUsage } from "@/definition/AgentUsage";
 
 /** Stable codes cross the HTTP boundary; upstream error text never does. */
 export const AGENT_ERROR_MESSAGES = {
+  codex_price_mapping_invalid:
+    "Invalid Codex to OpenRouter model price mapping.",
+  codex_monthly_cost_limit: "The agent reached its monthly Codex cost limit.",
   plan_start_end_disconnected: "Start is not connected to End.",
   workspace_unavailable:
     "No usable workspace of this project is available. Add or enable a workspace and try cloning again.",

@@ -68,7 +68,14 @@ export function patchPlanConfiguration(
     requireParameterKeys(
       run,
       [],
-      ["access", "shell", "web", "timeoutMinutes", "browser"],
+      [
+        "access",
+        "shell",
+        "web",
+        "timeoutMinutes",
+        "browser",
+        "monthlyCostLimitUsd",
+      ],
     );
   const contentPatch = Object.fromEntries(
     Object.entries(patch).filter(

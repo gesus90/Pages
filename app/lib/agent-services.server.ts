@@ -1,6 +1,8 @@
 import path from "node:path";
 import { homedir } from "node:os";
 
+import { OpenRouterPriceRepository } from "@/backend/database/repositories/agent/OpenRouterPriceRepository";
+import { OpenRouterPriceService } from "@/backend/service/agents/usage/OpenRouterPriceService";
 import { registerShutdownTask } from "@/backend/runtime/ProcessLifecycle";
 import { AgentEnvironmentRepository } from "@/backend/database/repositories/agent/AgentEnvironmentRepository";
 import { AgentEnvironmentMaintenance } from "@/backend/storage/AgentEnvironmentMaintenance";
@@ -446,6 +448,15 @@ export function createAgentServices(
     ticketAssets,
   });
   const refresh = createCatalogRefresh(repository, cipher, operations, runtime);
+  if (canProcessRuns() && !isLocalSessionOwner()) {
+    const prices = new OpenRouterPriceService(
+      new OpenRouterPriceRepository(database),
+    );
+    void prices.start();
+    registerShutdownTask(async () => {
+      prices.stop();
+    });
+  }
   const agentCliLoginService = new AgentCliLoginService({
     repository,
     ...cliRuntime,

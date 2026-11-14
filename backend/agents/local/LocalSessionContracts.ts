@@ -1,5 +1,10 @@
 import { z } from "zod";
 
+import {
+  codexAccountingSchema,
+  codexUsageSourceSchema,
+} from "@/definition/CodexPlanUsage";
+
 import { AGENT_ERROR_MESSAGES } from "@/backend/error/AgentErrors";
 import { readOwnedNamespace } from "@/definition/AcpNamespace";
 
@@ -73,6 +78,9 @@ export const localOwnerProofSchema = z.object({
 });
 
 const attempt = z.object({
+  connectionId: z.string().optional(),
+  agentId: z.string().optional(),
+  requestedModel: z.string().optional(),
   key: z.object({
     planId: identifier,
     runId: identifier,
@@ -144,6 +152,9 @@ const event = z.object({
   dedupeKey: z.string().nullable(),
 });
 const usage = z.object({
+  reasoningTokens: count.nullable().optional(),
+  accounting: codexAccountingSchema.optional(),
+  codex: codexUsageSourceSchema.optional(),
   attemptId: identifier,
   turn: count,
   provider: z.enum(["codex_cli", "claude_code", "opencode", "antigravity"]),

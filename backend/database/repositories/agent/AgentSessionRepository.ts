@@ -4,6 +4,8 @@ import {
   readPlanEventEntries,
 } from "@/definition/AgentPlanAgentTodos";
 
+import { CodexPlanUsageRepository } from "./CodexPlanUsageRepository";
+import { writeAgentSessionUsage } from "./AgentSessionUsageWriter";
 import { AgentPlanAgentTodoRepository } from "./AgentPlanAgentTodoRepository";
 import { AgentSessionEventRepository } from "./AgentSessionEventRepository";
 import {
@@ -70,6 +72,9 @@ function attemptParameters(attempt: AgentSessionAttemptRecord): SqlParameters {
     git_reference: gitReference(workspace?.git),
     workspace_at: workspace?.checkedAt ?? null,
     updated_at: attempt.updatedAt,
+    connection_id: attempt.connectionId ?? null,
+    agent_id: attempt.agentId ?? null,
+    requested_model: attempt.requestedModel ?? null,
   };
 }
 
@@ -115,7 +120,10 @@ export class AgentSessionRepository implements AgentSessionStore {
           workspace_at,
           updated_at,
           cost_amount,
-          cost_currency
+          cost_currency,
+          connection_id,
+          agent_id,
+          requested_model
       )
       VALUES (
           $attempt_id,
@@ -143,7 +151,10 @@ export class AgentSessionRepository implements AgentSessionStore {
           $workspace_at,
           $updated_at,
           $cost_amount,
-          $cost_currency
+          $cost_currency,
+          $connection_id,
+          $agent_id,
+          $requested_model
       )
       ON CONFLICT (attempt_id) DO UPDATE SET
           state = excluded.state,
@@ -214,62 +225,11 @@ export class AgentSessionRepository implements AgentSessionStore {
 
   /** Stores a turn's tokens; a second report of the same turn replaces the first. */
   public async saveTurnUsage(usage: AgentSessionTurnUsage): Promise<void> {
-    await this.database.execute(
-      `
-      INSERT INTO agent_session_turn_usage (
-          attempt_id,
-          turn,
-          provider,
-          model,
-          input_tokens,
-          output_tokens,
-          cache_read_tokens,
-          cache_write_tokens,
-          total_tokens,
-          input_includes_cache,
-          is_partial,
-          reported_at
-      )
-      VALUES (
-          $attempt_id,
-          $turn,
-          $provider,
-          $model,
-          $input_tokens,
-          $output_tokens,
-          $cache_read_tokens,
-          $cache_write_tokens,
-          $total_tokens,
-          $input_includes_cache,
-          $is_partial,
-          $reported_at
-      )
-      ON CONFLICT (attempt_id, turn) DO UPDATE SET
-          model = excluded.model,
-          input_tokens = excluded.input_tokens,
-          output_tokens = excluded.output_tokens,
-          cache_read_tokens = excluded.cache_read_tokens,
-          cache_write_tokens = excluded.cache_write_tokens,
-          total_tokens = excluded.total_tokens,
-          input_includes_cache = excluded.input_includes_cache,
-          is_partial = excluded.is_partial,
-          reported_at = excluded.reported_at;
-    `,
-      {
-        attempt_id: usage.attemptId,
-        turn: usage.turn,
-        provider: usage.provider,
-        model: usage.model,
-        input_tokens: usage.inputTokens,
-        output_tokens: usage.outputTokens,
-        cache_read_tokens: usage.cacheReadTokens,
-        cache_write_tokens: usage.cacheWriteTokens,
-        total_tokens: usage.totalTokens,
-        input_includes_cache: usage.inputIncludesCache,
-        is_partial: usage.isPartial,
-        reported_at: usage.reportedAt,
-      },
-    );
+    if (usage.provider === "codex_cli" && usage.codex) {
+      await new CodexPlanUsageRepository(this.database).save(usage);
+      return;
+    }
+    await writeAgentSessionUsage(this.database, usage);
   }
 
   /** Reads the turns of every attempt of a run. */
@@ -278,7 +238,7 @@ export class AgentSessionRepository implements AgentSessionStore {
   ): Promise<readonly AgentSessionTurnUsage[]> {
     const rows = await this.database.query(
       `
-      SELECT ${USAGE_COLUMNS}
+      SELECT ${USAGE_COLUMNS}, agent_session_attempts.step_id
       FROM agent_session_turn_usage
       INNER JOIN agent_session_attempts
           ON agent_session_attempts.attempt_id = agent_session_turn_usage.attempt_id

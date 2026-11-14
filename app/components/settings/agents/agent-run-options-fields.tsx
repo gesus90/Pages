@@ -9,6 +9,7 @@ import {
   isAcpProvider,
 } from "@/definition/AgentConfiguration";
 
+import { CodexCostLimitField } from "./agent-run-options-fields/codex-cost-limit-field";
 import { AcpModeField } from "./agent-run-options-fields/acp-mode-field";
 import { RunTimeoutField } from "./agent-run-options-fields/run-timeout-field";
 import {
@@ -53,6 +54,9 @@ export function AgentRunOptionsFields(props: {
       ...props.configuration,
       run: {
         ...acpRunOptions(mode, options.timeoutMinutes),
+        ...(options.monthlyCostLimitUsd === undefined
+          ? {}
+          : { monthlyCostLimitUsd: options.monthlyCostLimitUsd }),
         ...(options.browser === undefined
           ? {}
           : { browser: mode === "yolo" && options.browser }),
@@ -97,6 +101,12 @@ export function AgentRunOptionsFields(props: {
           />
           {t("agentTools.browserPermission")}
         </label>
+      ) : null}
+      {props.provider === "codex_cli" ? (
+        <CodexCostLimitField
+          limit={options.monthlyCostLimitUsd}
+          onChange={(monthlyCostLimitUsd) => change({ monthlyCostLimitUsd })}
+        />
       ) : null}
       {isAcp ? null : <RunnerToolFields options={options} onChange={change} />}
     </fieldset>

@@ -285,3 +285,30 @@ it("turns old profile grants into a shared configuration", () => {
     sharing: { isGlobal: false, targets: [] },
   });
 });
+
+it("retains a Codex monthly budget and rejects negative or non-finite limits", () => {
+  expect(
+    readAgentConfiguration({
+      ...CONFIGURATION,
+      run: { ...RUN, monthlyCostLimitUsd: 2.5 },
+    }).run?.monthlyCostLimitUsd,
+  ).toBe(2.5);
+  expect(
+    readAgentConfiguration({
+      ...CONFIGURATION,
+      run: { ...RUN, monthlyCostLimitUsd: 0 },
+    }).run?.monthlyCostLimitUsd,
+  ).toBe(0);
+  for (const monthlyCostLimitUsd of [
+    -1,
+    Number.NaN,
+    Number.POSITIVE_INFINITY,
+    "2.5",
+  ])
+    expect(() =>
+      readAgentConfiguration({
+        ...CONFIGURATION,
+        run: { ...RUN, monthlyCostLimitUsd },
+      }),
+    ).toThrow();
+});

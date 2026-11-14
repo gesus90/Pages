@@ -1065,7 +1065,9 @@
         "forbidden": "Nur ein aktiver Admin darf einen anderen Besitzer setzen. Behalte dich als Besitzer oder aktiviere den Admin-Modus.",
         "credentials_in_text": "Die Quelle enthält Zugangsdaten. Entferne diese aus dem Plan und klone erneut.",
         "clone_failed": "Die Kopie konnte nicht gespeichert werden. Versuche es erneut oder wende dich an die Projektleitung.",
-        "clone_request_invalid": "Die Angaben zum Klonen sind ungültig. Lade den Plan neu und versuche es erneut."
+        "clone_request_invalid": "Die Angaben zum Klonen sind ungültig. Lade den Plan neu und versuche es erneut.",
+        "codex_price_mapping_invalid": "Ungültige OpenRouter-Preiszuordnung.",
+        "codex_monthly_cost_limit": "Monatliches Codex-Kostenlimit erreicht."
       },
       "description": "Verwalten Sie die benannten API- und CLI-Anbindungen und ihre Nutzungsfreigaben. Freigegebene Modelle stehen direkt im Agent Plan zur Verfügung.",
       "adminModeRequired": "Die Agents-Einstellungen sind nur im Admin-Modus verfügbar. Ihr Konto ist derzeit im Rollenmodus.",
@@ -9144,5 +9146,23 @@
       "conflict": "Der Termin wurde inzwischen geändert. Bitte lade die Ansicht neu.",
       "too_large": "Das sind zu viele Termine oder Eingeladene."
     }
+  },
+  "codexUsage": {
+    "title": "Codex-Verbrauch",
+    "runTotal": "Summe des Laufs (alle Schritte und Schleifen)",
+    "inputTokens": "Eingabe",
+    "cacheReadTokens": "davon Cache",
+    "outputTokens": "Ausgabe",
+    "reasoningTokens": "davon Reasoning",
+    "cost": "Kosten",
+    "subscription": "im Abo",
+    "equivalent": "Rechnerischer Betrag: {{amount}}",
+    "notReported": "nicht gemeldet",
+    "priceUnknown": "Preis unbekannt",
+    "incomplete": "Summe unvollständig: Verbrauch wurde nicht vollständig gemeldet.",
+    "mappings": "OpenRouter-Preiszuordnung für Codex",
+    "mappingsHint": "Optional, eine Zuordnung je Zeile: gpt-6-luna = openai/gpt-6-luna. Leer lassen für eindeutige automatische Zuordnung.",
+    "monthlyLimit": "Monatliches Codex-Kostenlimit (USD)",
+    "monthlyLimitHint": "Rechnerische Kosten einschließlich Abo-Verbrauch; leer bedeutet unbegrenzt. Neue Anfragen werden nach Erreichen des Limits abgewiesen."
   }
 }
