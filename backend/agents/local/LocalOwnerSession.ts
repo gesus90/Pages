@@ -144,6 +144,16 @@ export class LocalOwnerSession {
     return this.cancellation;
   }
 
+  /** Suspends the owned OpenCode adapter without cancelling its current turn. */
+  public async suspend(): Promise<boolean> {
+    return (await this.session?.suspend?.()) ?? false;
+  }
+
+  /** Continues the same owned OpenCode adapter and pending turn. */
+  public async resume(): Promise<boolean> {
+    return (await this.session?.resume?.()) ?? false;
+  }
+
   /** Gracefully closes the native protocol once; detaching the web process never calls this. */
   public close(): Promise<PlanSessionClosed> {
     this.closing ??= this.closeOnce();

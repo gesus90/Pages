@@ -70,7 +70,9 @@ export class CliSessionProcess implements CliRunningProcess {
   private readonly callbacks: CliSessionCallbacks;
   private readonly signalGroup: CliGroupSignal;
   private readonly completion = new EventEmitter();
-  private readonly deadline: ReturnType<typeof setTimeout> | null;
+  private deadline: ReturnType<typeof setTimeout> | null;
+  private timeoutRemainingMs: number;
+  private timeoutStartedAt: number;
   private readonly abort: () => void;
   private escalation: ReturnType<typeof setTimeout> | null = null;
   private closing: ReturnType<typeof setTimeout> | null = null;
@@ -82,6 +84,7 @@ export class CliSessionProcess implements CliRunningProcess {
   private stderrTail = "";
   private isFinished = false;
   private isOverflowed = false;
+  private isSuspended = false;
 
   public constructor(
     child: ChildProcess,
@@ -97,6 +100,8 @@ export class CliSessionProcess implements CliRunningProcess {
     });
     this.callbacks = callbacks;
     this.signalGroup = signalGroup;
+    this.timeoutRemainingMs = callbacks.timeoutMs;
+    this.timeoutStartedAt = Date.now();
     this.abort = () =>
       this.cancel(
         callbacks.signal.reason instanceof DOMException &&
@@ -201,9 +206,43 @@ export class CliSessionProcess implements CliRunningProcess {
     if (this.child.stdin?.writable) this.child.stdin.end();
   }
 
+  /** Stops the adapter and its children without ending the ACP session. */
+  public suspend(): boolean {
+    if (this.isFinished || this.isSuspended || !this.child.pid) return false;
+    if (!this.sendSignal("SIGSTOP")) return false;
+    if (this.deadline !== null) {
+      clearTimeout(this.deadline);
+      this.deadline = null;
+      this.timeoutRemainingMs = Math.max(
+        1,
+        this.timeoutRemainingMs - (Date.now() - this.timeoutStartedAt),
+      );
+    }
+    this.isSuspended = true;
+    return true;
+  }
+
+  /** Continues the same adapter process and pending ACP turn. */
+  public resume(): boolean {
+    if (this.isFinished || !this.isSuspended) return false;
+    if (!this.sendSignal("SIGCONT")) return false;
+    this.isSuspended = false;
+    if (this.callbacks.timeoutMs > 0) {
+      this.timeoutStartedAt = Date.now();
+      this.deadline = setTimeout(
+        () => this.cancel("check_timeout"),
+        this.timeoutRemainingMs,
+      );
+    }
+    return true;
+  }
+
   /** Terminates the whole process group, with a kill after the grace period. */
   public cancel(code: AgentErrorCode): void {
     if (this.isFinished || this.escalation !== null) return;
+    if (this.isSuspended) this.resume();
+    if (this.deadline !== null) clearTimeout(this.deadline);
+    this.deadline = null;
     logEvent({
       level: "info",
       event: "cli.process.cancel_requested",
@@ -270,17 +309,19 @@ export class CliSessionProcess implements CliRunningProcess {
     await this.callbacks.onLine(line);
   }
 
-  private sendSignal(signal: NodeJS.Signals): void {
+  private sendSignal(signal: NodeJS.Signals): boolean {
     this.callbacks.unit?.signal(signal);
-    if (this.child.exitCode !== null || this.child.signalCode !== null) return;
-    if (this.child.pid === undefined) return;
+    if (this.child.exitCode !== null || this.child.signalCode !== null)
+      return false;
+    if (this.child.pid === undefined) return false;
     try {
       this.signalGroup(-this.child.pid, signal);
+      return true;
     } catch (caughtError: unknown) {
       logCaughtError("CliSessionProcess", caughtError);
 
       // The group may already have exited; a direct signal also covers spawn races.
-      this.child.kill(signal);
+      return this.child.kill(signal);
     }
   }
 

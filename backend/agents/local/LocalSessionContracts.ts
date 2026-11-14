@@ -290,6 +290,8 @@ export const localCommandSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("read"), after: count, limit: count.max(200) }),
   z.object({ kind: z.literal("ack"), sequence: count, digest: z.string() }),
   z.object({ kind: z.literal("cancel") }),
+  z.object({ kind: z.literal("suspend") }),
+  z.object({ kind: z.literal("resume") }),
   z.object({ kind: z.literal("interrupt") }),
   z.object({ kind: z.literal("close") }),
   z.object({ kind: z.literal("release") }),

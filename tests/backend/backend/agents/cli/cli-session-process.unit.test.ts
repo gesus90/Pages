@@ -174,6 +174,61 @@ it("terminates first and kills after the grace period", async () => {
   expect(signalGroup).toHaveBeenCalledTimes(2);
 });
 
+it("suspends and resumes the same process group without ending its session", async () => {
+  const fake = fakeChild();
+  const signalGroup = vi.fn();
+  const handle = unit(async () => "success");
+  const { session } = start(fake, { unit: handle }, signalGroup);
+
+  expect(session.suspend()).toBe(true);
+  expect(session.suspend()).toBe(false);
+  expect(session.resume()).toBe(true);
+  expect(session.resume()).toBe(false);
+  expect(signalGroup.mock.calls).toEqual([
+    [-77, "SIGSTOP"],
+    [-77, "SIGCONT"],
+  ]);
+  expect(handle.signal.mock.calls).toEqual([["SIGSTOP"], ["SIGCONT"]]);
+
+  fake.child.emit("close", 0, null);
+  await expect(session.exited).resolves.toMatchObject({ code: 0 });
+});
+
+it("continues a suspended group before Stop sends termination", async () => {
+  const fake = fakeChild();
+  const signalGroup = vi.fn();
+  const { session } = start(fake, {}, signalGroup);
+
+  expect(session.suspend()).toBe(true);
+  session.cancel("login_cancelled");
+
+  expect(signalGroup.mock.calls).toEqual([
+    [-77, "SIGSTOP"],
+    [-77, "SIGCONT"],
+    [-77, "SIGTERM"],
+  ]);
+  fake.child.emit("close", null, "SIGTERM");
+  await expect(session.exited).resolves.toMatchObject({
+    errorCode: "login_cancelled",
+  });
+});
+
+it("does not spend the session timeout while the process is suspended", async () => {
+  const fake = fakeChild();
+  const signalGroup = vi.fn();
+  const { session } = start(fake, { timeoutMs: 1_000 }, signalGroup);
+
+  await vi.advanceTimersByTimeAsync(300);
+  expect(session.suspend()).toBe(true);
+  await vi.advanceTimersByTimeAsync(2_000);
+  expect(signalGroup).not.toHaveBeenCalledWith(-77, "SIGKILL");
+  expect(session.resume()).toBe(true);
+  await vi.advanceTimersByTimeAsync(700);
+  expect(signalGroup).toHaveBeenCalledWith(-77, "SIGKILL");
+  fake.child.emit("close", null, "SIGKILL");
+  await session.exited;
+});
+
 it.each([
   ["a deadline", new DOMException("late", "TimeoutError"), "check_timeout"],
   ["a stop", new DOMException("stop", "AbortError"), "login_cancelled"],

@@ -273,7 +273,12 @@ export class AgentPlanStepRunner {
       node.step,
     );
     if (node.control.signal.aborted) throw new AgentPlanCancelledError();
-    if (prepared.options.timeoutMinutes > 0)
+    // The OpenCode process owns a pausable deadline; a turn-scoped timer would
+    // cancel its preserved session while the plan is paused.
+    if (
+      prepared.options.timeoutMinutes > 0 &&
+      prepared.input.agent.connection.provider !== "opencode"
+    )
       node.control = {
         ...node.control,
         signal: AbortSignal.any([

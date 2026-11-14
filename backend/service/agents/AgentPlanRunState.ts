@@ -30,6 +30,8 @@ export interface ActivePlanRun {
   snapshot: AgentPlanSnapshot;
   readonly dispatched: Set<string>;
   readonly controllers: Map<string, AbortController>;
+  /** OpenCode adapters stopped inside their durable local owner. */
+  suspended?: Map<string, string>;
   /** The nodes of this run that are executing, so a caller can wait for exactly this run. */
   readonly executions: Set<Promise<void>>;
   releaseDefinition?: () => Promise<void>;
@@ -37,6 +39,38 @@ export interface ActivePlanRun {
   isInterrupted?: boolean;
   /** Decisions, skipped branches and returning events; absent until a plan with them needs it. */
   branching?: PlanBranchingState;
+}
+
+/** Native OpenCode turns that a paused run must continue after a Pages restart. */
+export function suspendedOpenCodeSessions(
+  run: AgentPlanRun,
+): Map<string, string> {
+  return new Map(
+    allPlanRunResults(run).flatMap((step) =>
+      step.status === "running" &&
+      step.session?.runner === "opencode" &&
+      step.session.processId !== null
+        ? [[step.id, step.session.instanceId] as const]
+        : [],
+    ),
+  );
+}
+
+/** Whether a scheduler controller is waiting on an explicitly suspended OpenCode turn. */
+export function isSuspendedPlanController(
+  active: ActivePlanRun,
+  stepId: string,
+): boolean {
+  if (active.suspended?.has(stepId)) return true;
+  return (
+    active.view.loops?.some(
+      (loop) =>
+        loop.id === stepId &&
+        loop.iterations.some((iteration) =>
+          iteration.nodes.some((step) => active.suspended?.has(step.id)),
+        ),
+    ) ?? false
+  );
 }
 
 /** Updates one result and derives group summaries. */
@@ -443,8 +477,16 @@ export function countRunningPlanRequests(
 
 /** Settles pause only when every branch is quiet, preserving failures and real completion. */
 export function settlePlanPause(active: ActivePlanRun): void {
-  if (active.view.status !== "pausing" || active.controllers.size !== 0) return;
-  const pending = active.view.steps.filter((step) => step.status === "paused");
+  if (
+    active.view.status !== "pausing" ||
+    [...active.controllers.keys()].some(
+      (stepId) => !isSuspendedPlanController(active, stepId),
+    )
+  )
+    return;
+  const pending = active.view.steps.filter(
+    (step) => step.status === "paused" || step.status === "running",
+  );
   // A result on its way back to an agent is work that waits, though no node is paused for it.
   const returning = [
     ...new Set(active.branching?.pending.map((event) => event.targetId)),
@@ -463,6 +505,9 @@ export function settlePlanPause(active: ActivePlanRun): void {
     .map((step) => step.id);
   const results = new Map(active.view.steps.map((step) => [step.id, step]));
   const frontier = [
+    ...pending
+      .filter((step) => step.status === "running")
+      .map((step) => step.id),
     ...active.snapshot.plan.nodes
       .filter(
         (node) =>

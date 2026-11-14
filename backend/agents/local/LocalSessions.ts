@@ -178,6 +178,32 @@ export class LocalSessions {
     return this.proven.has(instanceId);
   }
 
+  /** Stops an owned OpenCode process group while its local owner keeps the turn. */
+  public async suspend(instanceId: string): Promise<boolean> {
+    const response = await this.control(this.requireEntry(instanceId), {
+      kind: "suspend",
+    });
+    return (
+      typeof response === "object" &&
+      response !== null &&
+      "changed" in response &&
+      response.changed === true
+    );
+  }
+
+  /** Continues the same owned OpenCode process group. */
+  public async resume(instanceId: string): Promise<boolean> {
+    const response = await this.control(this.requireEntry(instanceId), {
+      kind: "resume",
+    });
+    return (
+      typeof response === "object" &&
+      response !== null &&
+      "changed" in response &&
+      response.changed === true
+    );
+  }
+
   /** Exposes uncertain native identities only to recovery, never as live ownership. */
   public unverified(): ReadonlySet<string> {
     return this.uncertain;

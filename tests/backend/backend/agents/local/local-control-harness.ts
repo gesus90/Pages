@@ -95,7 +95,8 @@ export function request(
 
 /** Installs one authenticated owner and attaches a client to it. */
 export async function controlOwner(
-  owner: Pick<LocalOwnerSession, "close">,
+  owner: Pick<LocalOwnerSession, "close"> &
+    Partial<Pick<LocalOwnerSession, "suspend" | "resume">>,
 ): Promise<(command: LocalSessionCommand) => Promise<unknown>> {
   const { LocalOwnerHttp } =
     await import("@/backend/agents/local/LocalOwnerHttp");

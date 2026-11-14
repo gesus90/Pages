@@ -105,7 +105,7 @@ export class AcpSession implements PlanSession {
   private readonly process: Pick<
     CliSessionProcess,
     "endInput" | "exited" | "cancel"
-  >;
+  > & Partial<Pick<CliSessionProcess, "suspend" | "resume">>;
   private readonly context: AcpSessionContext;
   private hasHistoryFailure = false;
   private notificationFailure: AgentErrorCode | null = null;
@@ -138,7 +138,8 @@ export class AcpSession implements PlanSession {
    * @param context - Request, mode profile, observer and closeout of the node.
    */
   public constructor(
-    process: Pick<CliSessionProcess, "endInput" | "exited" | "cancel">,
+    process: Pick<CliSessionProcess, "endInput" | "exited" | "cancel"> &
+      Partial<Pick<CliSessionProcess, "suspend" | "resume">>,
     stream: Stream,
     context: AcpSessionContext,
   ) {
@@ -202,6 +203,22 @@ export class AcpSession implements PlanSession {
   public close(): Promise<PlanSessionClosed> {
     this.closing ??= this.shutDown();
     return this.closing;
+  }
+
+  /** Stops the OpenCode process group while its ACP turn remains pending. */
+  public suspend(): Promise<boolean> {
+    return Promise.resolve(
+      this.context.driver.provider === "opencode" &&
+        (this.process.suspend?.() ?? false),
+    );
+  }
+
+  /** Continues the suspended OpenCode process group. */
+  public resume(): Promise<boolean> {
+    return Promise.resolve(
+      this.context.driver.provider === "opencode" &&
+        (this.process.resume?.() ?? false),
+    );
   }
 
   /**

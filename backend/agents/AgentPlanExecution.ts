@@ -125,6 +125,9 @@ export interface PlanSession {
   steer?(prompt: readonly ContentBlock[]): Promise<AcpSteerOutcome>;
   /** Interrupts the running prompt of a plan turn, which then waits for a person's input (PAGE-284). */
   interrupt?(): Promise<boolean>;
+  /** Suspends or continues the native process while preserving its ACP session. */
+  suspend?(): Promise<boolean>;
+  resume?(): Promise<boolean>;
   /**
    * Cancels the running prompt of a chat turn, which stops the running tool
    * call, and continues the turn with the note (PAGE-303).
@@ -273,6 +276,8 @@ export class AgentPlanExecution implements PlanExecution {
     }
     const steer = session.steer?.bind(session);
     const interrupt = session.interrupt?.bind(session);
+    const suspend = session.suspend?.bind(session);
+    const resume = session.resume?.bind(session);
     const cancelTool = session.cancelTool?.bind(session);
     return {
       turn: session.turn,
@@ -284,6 +289,8 @@ export class AgentPlanExecution implements PlanExecution {
       ...(session.detach ? { detach: () => session.detach?.() } : {}),
       ...(steer ? { steer } : {}),
       ...(interrupt ? { interrupt } : {}),
+      ...(suspend ? { suspend } : {}),
+      ...(resume ? { resume } : {}),
       ...(cancelTool ? { cancelTool } : {}),
       ...(session.next
         ? {
