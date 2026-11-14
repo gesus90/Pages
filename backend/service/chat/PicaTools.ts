@@ -2,6 +2,12 @@ import { RuntimeToolRegistry } from "@/backend/agents/runtime/RuntimeToolRegistr
 import { redactCredentials } from "@/backend/security/AgentTextSafety";
 
 import { registerPicaRepositoryTools } from "./PicaRepositoryTools";
+import {
+  PICA_NATIVE_OPERATIONS,
+  READ_TOOLS,
+  WRITE_TOOLS,
+} from "./PicaToolBindings";
+import type { PicaToolBinding, ToolParameters } from "./PicaToolBindings";
 import { ChatResultBudget } from "./ChatResultBudget";
 import { registerPicaChatTools } from "./PicaChatTools";
 import { registerPicaEmployeeTools } from "./PicaEmployeeTools";
@@ -10,6 +16,7 @@ import { registerPicaHostFileTools } from "./PicaHostFileTools";
 import { registerPicaPlanTools } from "./PicaPlanTools";
 import { observePicaToolUse, registerPicaRecipeTool } from "./PicaRecipeTool";
 import { registerPicaAutomationTools } from "./PicaAutomationTools";
+import { registerPicaCalendarTools } from "./PicaCalendarTools";
 import { registerPicaAdminTools } from "./admin/PicaAdminTools";
 import { registerPicaOperatorTools } from "./admin/PicaOperatorTools";
 import { registerPicaStorageTools } from "./admin/PicaStorageTools";
@@ -19,11 +26,6 @@ import {
 } from "./browser/PicaBrowserTools";
 import { CHAT_MAXIMUM_ACTIONS } from "./ChatExecutionLimits";
 import { ChatAnswerFileError } from "./ChatAnswerFileService";
-import {
-  READ_TOOLS,
-  type PicaToolBinding,
-  type ToolParameters,
-} from "./PicaToolBindings";
 import {
   PICA_FILE_EXTENSIONS,
   PICA_FILE_SCHEMA,
@@ -46,12 +48,15 @@ import type { ChatAnswerFileService } from "./ChatAnswerFileService";
 import type { PicaHostFileAttach } from "./PicaHostFileTools";
 import type { ChatSessionService } from "./ChatSessionService";
 import type { ChatActionOutcome } from "./ChatPrompt";
+import type { ChatOperation } from "./ChatToolCatalog";
 import type { ChatToolExecutor } from "./ChatToolExecutor";
 import type {
   PicaReadTool,
   PicaToolOutcome,
   PicaWriteTool,
 } from "./PicaToolSchemas";
+
+export { PICA_NATIVE_OPERATIONS } from "./PicaToolBindings";
 
 /** Services captured by the server for the native tool catalog of one turn. */
 export interface PicaToolsInput {
@@ -118,176 +123,6 @@ type PicaFileParameters = z.infer<typeof PICA_FILE_SCHEMA>;
 
 const FILE_TOOL_DESCRIPTION =
   "Attach a file you write to your answer: Markdown (.md), text (.txt), CSV (.csv), JSON (.json) or an SVG image (.svg) without scripts or external references. Give the complete content. The person sees and downloads the file with your answer once it is stored. Use it only when the person asks for a file; never invent download links or paths.";
-
-const WRITE_TOOLS: Readonly<Record<PicaWriteTool, PicaToolBinding>> = {
-  tickets_create: {
-    description:
-      "Create a ticket in a project. statusId null takes the default status, parentId null creates no parent; without assignee the person works on it. departmentIds (any number of IDs from departments_list, an empty list for none) sets the departments that see the ticket; a ticket without department is visible to everyone with project access; leaving departmentIds out takes the selectable departments of the parent.",
-    operation: "ticket.create",
-  },
-  tickets_set_title: {
-    description: "Change only a ticket title with its expected old title.",
-    operation: "ticket.setTitle",
-  },
-  tickets_set_status: {
-    description: "Change only a ticket status with its expected old status ID.",
-    operation: "ticket.setStatus",
-  },
-  tickets_set_description: {
-    description:
-      "Replace a ticket description with its expected old description.",
-    operation: "ticket.setDescription",
-  },
-  tickets_set_assignee: {
-    description:
-      "Assign a ticket to a person or group, or to nobody with targetType none and targetId null, with the expected old assignee and group IDs.",
-    operation: "ticket.setAssignee",
-  },
-  tickets_set_tags: {
-    description:
-      "Set the tags of a ticket from the catalog, with the expected old tag IDs.",
-    operation: "ticket.setTags",
-  },
-  tickets_set_departments: {
-    description:
-      "Replace the departments of a ticket with departmentIds (any number from departments_list; an empty list makes the ticket visible to everyone with project access), with the expected old department IDs from tickets_read departments.",
-    operation: "ticket.setDepartments",
-  },
-  tickets_set_parent: {
-    description:
-      "Move a ticket under another parent ticket, or to none with parentId null, with the expected old parent ID.",
-    operation: "ticket.setParent",
-  },
-  tickets_set_milestone: {
-    description:
-      "Assign a ticket to a milestone of its project, or to none with milestoneId null, with the expected old milestone ID.",
-    operation: "ticket.assignMilestone",
-  },
-  tickets_delete: {
-    description:
-      "Move a ticket with all its descendants to the trash; the result names how many were moved.",
-    operation: "ticket.delete",
-  },
-  tickets_archive: {
-    description:
-      "Archive a visible ticket with the project's archive right. First call without confirmed to get the keys and titles of all affected tickets without changing anything; show that list and ask the person to confirm, then call with confirmed: true to execute and receive archived: the number changed. children defaults to include; keep leaves children without a parent and is refused for a task, whose subtasks always go along.",
-    operation: "ticket.archive",
-  },
-  tickets_restore: {
-    description:
-      "Restore an archived ticket and its descendants with the project's archive right; keeps the workflow status and records the acting account in history. Returns restored: the number changed and the ticket. To archive again, first call tickets_archive without confirmed, ask the person to confirm its affected list, then call with confirmed: true.",
-    operation: "ticket.restore",
-  },
-  projects_create: {
-    description:
-      "Create a project with status planned, active, paused or completed; departmentIds from departments_list are required when the instance has departments.",
-    operation: "projects.create",
-  },
-  projects_set_name: {
-    description: "Rename a project.",
-    operation: "projects.setName",
-  },
-  projects_set_description: {
-    description: "Replace the description of a project.",
-    operation: "projects.setDescription",
-  },
-  projects_set_status: {
-    description: "Set the status of a project.",
-    operation: "projects.setStatus",
-  },
-  projects_set_dates: {
-    description:
-      "Set the start and target date of a project as YYYY-MM-DD, or remove them with null.",
-    operation: "projects.setDates",
-  },
-  milestones_create: {
-    description:
-      "Create a milestone in a project; start and due date are YYYY-MM-DD or null.",
-    operation: "milestone.create",
-  },
-  milestones_set_name: {
-    description: "Rename a milestone with its expected old name.",
-    operation: "milestone.setName",
-  },
-  milestones_set_description: {
-    description:
-      "Replace a milestone description with its expected old description.",
-    operation: "milestone.setDescription",
-  },
-  milestones_set_status: {
-    description: "Set the status of a milestone with its expected old status.",
-    operation: "milestone.setStatus",
-  },
-  milestones_set_start_at: {
-    description:
-      "Set or remove the start date of a milestone with its expected old start date.",
-    operation: "milestone.setStartAt",
-  },
-  milestones_set_due_at: {
-    description:
-      "Set or remove the due date of a milestone with its expected old due date.",
-    operation: "milestone.setDueAt",
-  },
-  milestones_delete: {
-    description:
-      "Move a milestone of a project to the trash; its dependencies are removed, its tickets stay as they are.",
-    operation: "milestone.delete",
-  },
-  wiki_page_create: {
-    description:
-      "Create a wiki page with Markdown content of at most 50,000 characters in a project, or with projectId null in the instance or private wiki named by scope; parentId null puts it on the top level. Longer content returns INVALID_REQUEST with details.reason content_too_long and details.maxLength 50000.",
-    operation: "wiki.page.create",
-    // Pica uploads nothing, so a page it creates references no new files.
-    parameters: ({ icon, ...input }) => ({
-      ...input,
-      icon: icon ?? null,
-      assetIds: [],
-    }),
-  },
-  wiki_page_set_title: {
-    description: "Change the title of a wiki page with the revision read last.",
-    operation: "wiki.page.setTitle",
-  },
-  wiki_page_set_content: {
-    description:
-      "Replace the whole Markdown content of a wiki page with the revision read last. Content accepts at most 50,000 characters; longer content returns INVALID_REQUEST with details.reason content_too_long and details.maxLength 50000.",
-    operation: "wiki.page.setContent",
-  },
-  wiki_page_move: {
-    description:
-      "Move a wiki page to a project or wiki, under a parent and before a sibling, with the revision read last; parentId null is the top level, beforeId null the end.",
-    operation: "wiki.page.move",
-  },
-  wiki_page_delete: {
-    description:
-      "Move a wiki page with its subpages to the trash, with the revision read last.",
-    operation: "wiki.page.delete",
-  },
-  wiki_comment_add: {
-    description:
-      "Add a comment to a visible wiki page; parentId answers a comment, quote names a passage, both null otherwise.",
-    operation: "wiki.comment.add",
-  },
-  wiki_comment_edit: {
-    description: "Replace the text of a wiki comment.",
-    operation: "wiki.comment.edit",
-  },
-  wiki_comment_resolve: {
-    description: "Resolve a wiki comment thread, or open it again.",
-    operation: "wiki.comment.resolve",
-  },
-  wiki_comment_delete: {
-    description: "Delete a wiki comment.",
-    operation: "wiki.comment.delete",
-  },
-};
-
-/** The operations every person's native tools cover; the administrator catalog adds the rest. */
-export const PICA_NATIVE_OPERATIONS: ReadonlySet<string> = new Set(
-  [...Object.values(READ_TOOLS), ...Object.values(WRITE_TOOLS)].map(
-    ({ operation }) => operation,
-  ),
-);
 
 function isPicaReadTool(name: string): name is PicaReadTool {
   return Object.hasOwn(PICA_READ_SCHEMAS, name);
@@ -479,6 +314,24 @@ function registerAdministratorTools(
     });
 }
 
+/** Registers the plan, automation and calendar tools, which run through the operation catalog. */
+function registerOperationTools(
+  registry: RuntimeToolRegistry,
+  execute: PicaExecute,
+): void {
+  const dispatch = {
+    execute: (
+      operation: ChatOperation,
+      parameters: ToolParameters,
+      context: RuntimeExecutionContext,
+    ): Promise<PicaToolOutcome> =>
+      execute({ operation, description: "" }, parameters, context),
+  };
+  registerPicaPlanTools(registry, dispatch);
+  registerPicaAutomationTools(registry, dispatch);
+  registerPicaCalendarTools(registry, dispatch);
+}
+
 /**
  * Registers the tools a job of an agent employee offers beside the Pages
  * tools, and the deletion of agents; each is offered only when the job
@@ -603,14 +456,7 @@ export function createPicaTools(
       service: repositoryReads,
       spend: () => spend(input, budget),
     });
-  registerPicaPlanTools(registry, {
-    execute: (operation, parameters, context) =>
-      execute({ operation, description: "" }, parameters, context),
-  });
-  registerPicaAutomationTools(registry, {
-    execute: (operation, parameters, context) =>
-      execute({ operation, description: "" }, parameters, context),
-  });
+  registerOperationTools(registry, execute);
   if (input.answerFiles)
     registry.register<PicaFileParameters, PicaToolOutcome>({
       id: PICA_FILE_TOOL,

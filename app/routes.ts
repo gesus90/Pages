@@ -9,6 +9,8 @@ import {
 import { agentRunRoutes } from "./lib/agent-run-routes";
 import { mcpTicketRoutes } from "./lib/mcp-ticket-routes";
 import type { RouteBuilder } from "./lib/route-builder";
+import { mcpWorkspaceRoutes } from "./lib/mcp-workspace-routes";
+import { mcpCalendarRoutes } from "./lib/mcp-calendar-routes";
 import { mcpAgentRoutes } from "./lib/mcp-agent-routes";
 import { automationRoutes } from "./lib/automation-routes";
 import { mcpAutomationRoutes } from "./lib/mcp-automation-routes";
@@ -113,41 +115,6 @@ function mcpProjectRoutes(routes: RouteBuilder): RouteConfigEntry[] {
   ];
 }
 
-/** The workspace and remote connection API of the stand-alone Pages MCP program, admitted by the device token (PAGE-245). */
-function mcpWorkspaceRoutes(routes: RouteBuilder): RouteConfigEntry[] {
-  const { resource } = routes;
-  const workspaces = "api/mcp/v1/workspaces";
-  const workspace = `${workspaces}/:id`;
-  const connections = "api/mcp/v1/remote-connections";
-  const connection = `${connections}/:id`;
-  return [
-    resource(workspaces, "routes/api-mcp-v1-workspaces.ts"),
-    resource(`${workspaces}/folders`, "routes/api-mcp-v1-workspace-folders.ts"),
-    resource(workspace, "routes/api-mcp-v1-workspace.ts"),
-    resource(`${workspace}/check`, "routes/api-mcp-v1-workspace-check.ts"),
-    resource(`${workspace}/usages`, "routes/api-mcp-v1-workspace-usages.ts"),
-    resource(`${workspace}/remove`, "routes/api-mcp-v1-workspace-remove.ts"),
-    resource(connections, "routes/api-mcp-v1-remote-connections.ts"),
-    resource(
-      `${connections}/test`,
-      "routes/api-mcp-v1-remote-connection-test.ts",
-    ),
-    resource(connection, "routes/api-mcp-v1-remote-connection.ts"),
-    resource(
-      `${connection}/check`,
-      "routes/api-mcp-v1-remote-connection-check.ts",
-    ),
-    resource(
-      `${connection}/reconnect`,
-      "routes/api-mcp-v1-remote-connection-reconnect.ts",
-    ),
-    resource(
-      `${connection}/remove`,
-      "routes/api-mcp-v1-remote-connection-remove.ts",
-    ),
-  ];
-}
-
 /** The plan and node template API of the stand-alone Pages MCP program, admitted by the device token (PAGE-246). */
 function mcpPlanRoutes(routes: RouteBuilder): RouteConfigEntry[] {
   const { resource } = routes;
@@ -215,6 +182,7 @@ function publicRoutes(routes: RouteBuilder): RouteConfigEntry[] {
     resource("api/mcp/v1/device", "routes/api-mcp-v1-device.ts"),
     ...mcpTicketRoutes(routes),
     ...mcpProjectRoutes(routes),
+    ...mcpCalendarRoutes(routes),
     ...mcpWorkspaceRoutes(routes),
     ...mcpPlanRoutes(routes),
     ...mcpPlanNotationRoutes(routes.resource),
@@ -311,6 +279,11 @@ function workspaceResources(routes: RouteBuilder): RouteConfigEntry[] {
     ...page("chat", {
       browser: "routes/chat-page.tsx",
       server: "routes/chat-page-server.ts",
+    }),
+    resource("kalender-api/page", "routes/calendar-data.ts"),
+    ...page("kalender", {
+      browser: "routes/calendar.tsx",
+      server: "routes/calendar-server.ts",
     }),
   ];
 }

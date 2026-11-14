@@ -59,6 +59,7 @@ export default function AuthenticatedRoute(): React.ReactElement {
     region,
     branding,
     isPicaEnabled,
+    calendarInvitations,
     localState: keptState,
   } = useLoaderData<typeof clientLoader>();
   // Kept route answers apply only to this account under these rights.
@@ -86,6 +87,7 @@ export default function AuthenticatedRoute(): React.ReactElement {
         user={user}
         account={account}
         isOffline={isOffline}
+        calendarInvitations={calendarInvitations ?? 0}
       />
       {isPicaEnabled ? <ChatLauncher /> : null}
     </RegionProvider>

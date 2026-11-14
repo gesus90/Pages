@@ -10,6 +10,8 @@ import {
 } from "@/definition/PicaMobileProtocol";
 import type { PicaMobileCapability } from "@/definition/PicaMobileProtocol";
 
+import { PicaMobileCalendarHandler } from "./calendar/PicaMobileCalendarHandler";
+import { isPicaMobileCalendarMessage } from "./calendar/PicaMobileCalendarMessages";
 import { PicaMobileChatHandler } from "./chat/PicaMobileChatHandler";
 import { sharedPicaMobileConversationPresence } from "./conversations/PicaMobileConversationPresence";
 import { PicaMobileConversationsHandler } from "./conversations/PicaMobileConversationsHandler";
@@ -42,6 +44,7 @@ import type {
   PicaMobileDashboardProvider,
   PicaMobileSessionIdentity,
 } from "./PicaMobileDashboardProvider";
+import type { PicaMobileCalendarProvider } from "./calendar/PicaMobileCalendarProvider";
 import type { PicaMobileSpeechClientMessage } from "./speech/PicaMobileSpeechMessages";
 import type { PicaMobileSpeechProvider } from "./speech/PicaMobileSpeechProvider";
 import type {
@@ -104,6 +107,8 @@ export interface PicaMobileConnectionOptions {
    * announce `speech.v1` and treats the requests as unknown.
    */
   readonly speech?: PicaMobileSpeechProvider;
+  /** Answers `calendar.v1` and sends `calendar_changed`; without it `calendar.v1` is unknown. */
+  readonly calendar?: PicaMobileCalendarProvider;
   /** Where the connection notes the conversation it shows; the process's own by default. */
   readonly presence?: Pick<PicaMobileConversationPresence, "set">;
   /**
@@ -162,6 +167,7 @@ export class PicaMobileConnection {
   private readonly conversations: PicaMobileConversationsHandler;
   private readonly dashboard: PicaMobileDashboardHandler;
   private readonly speech: PicaMobileSpeechHandler;
+  private readonly calendar: PicaMobileCalendarHandler;
   private readonly now: () => number;
   private session: PicaMobileSessionIdentity | null = null;
   private isStopped = false;
@@ -201,6 +207,7 @@ export class PicaMobileConnection {
     this.plans = new PicaMobilePlansHandler(options.plans, host);
     this.dashboard = new PicaMobileDashboardHandler(options.dashboard, host);
     this.speech = new PicaMobileSpeechHandler(options.speech, host);
+    this.calendar = new PicaMobileCalendarHandler(options.calendar, host);
     this.chat = new PicaMobileChatHandler(
       options.chat,
       host,
@@ -235,7 +242,8 @@ export class PicaMobileConnection {
    *
    * @remarks
    * The socket takes frames up to the size of `chat_send`; every frame but
-   * `chat_send`, `conversation_send` and `voice_chunk` keeps the smaller
+   * `chat_send`, `conversation_send`, `voice_chunk`, `speech_chunk` and
+   * `calendar_event_save` keeps the smaller
    * limit: before authentication a larger one closes the connection, after
    * it a larger one is refused. Voice chunks count in their own budget, so
    * a recording does not use up the limit of the other messages.
@@ -328,6 +336,7 @@ export class PicaMobileConnection {
     this.plans.stop();
     this.conversations.stop();
     this.speech.stop();
+    this.calendar.stop();
 
     for (const timer of [
       this.heartbeatTimer,
@@ -426,6 +435,34 @@ export class PicaMobileConnection {
 
       return;
     }
+
+    if (isPicaMobileCalendarMessage(message)) {
+      await this.calendar.handle(message);
+
+      return;
+    }
+    await this.dispatchCore(message);
+  }
+
+  private async dispatchCore(
+    message: Extract<
+      PicaMobileClientMessage,
+      {
+        type:
+          | "auth"
+          | "ping"
+          | "dashboard_get"
+          | "avatar_get"
+          | "notification_register"
+          | "notification_unregister"
+          | "notification_event_get"
+          | "notification_settings_get"
+          | "notification_settings_set"
+          | "plans_sync"
+          | "plan_get";
+      }
+    >,
+  ): Promise<void> {
     switch (message.type) {
       case "auth":
         await this.authenticate(message);
@@ -582,6 +619,7 @@ export class PicaMobileConnection {
       }),
     );
     this.conversations.start();
+    this.calendar.start();
     logEvent({
       level: "info",
       event: "pica_mobile.connection.authenticated",

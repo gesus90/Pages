@@ -2,6 +2,7 @@ import {
   AtSign,
   BarChart,
   Bell,
+  CalendarPlus,
   CalendarDays,
   CheckSquare,
   Mail,
@@ -45,6 +46,10 @@ const NOTIFICATION_ITEMS: readonly {
   {
     key: "weeklySummary",
     icon: <BarChart className="size-4" aria-hidden="true" />,
+  },
+  {
+    key: "calendarInvitations",
+    icon: <CalendarPlus className="size-4" aria-hidden="true" />,
   },
 ];
 

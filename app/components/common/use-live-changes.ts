@@ -13,14 +13,17 @@ const FALLBACK_MILLISECONDS = 60_000;
 
 /** The pages that show objects of a kind. */
 const PATHS_BY_KIND: Readonly<Record<LiveChangeKind, readonly string[]>> = {
-  ticket: ["/tasks", "/aufgaben", "/projekte", "/dashboard"],
-  milestone: ["/tasks", "/aufgaben", "/projekte", "/dashboard"],
+  ticket: ["/tasks", "/aufgaben", "/projekte", "/dashboard", "/kalender"],
+  milestone: ["/tasks", "/aufgaben", "/projekte", "/dashboard", "/kalender"],
   wiki: ["/wiki"],
-  project: ["/tasks", "/aufgaben", "/projekte", "/dashboard"],
+  project: ["/tasks", "/aufgaben", "/projekte", "/dashboard", "/kalender"],
   conversation: ["/chat"],
+  calendar: ["/kalender"],
 };
 
 function concerns(change: LiveChange, pathname: string): boolean {
+  // The number of open invitations stands in the navigation of every page.
+  if (change.kind === "calendar") return true;
   return PATHS_BY_KIND[change.kind].some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   );

@@ -170,7 +170,10 @@
     "loading": "Ansicht wird geladen …",
     "storage": "Storage",
     "automations": "Automationen",
-    "runs": "Läufe"
+    "runs": "Läufe",
+    "calendar": "Kalender",
+    "calendarInvitations_one": "{{count}} offene Einladung",
+    "calendarInvitations_other": "{{count}} offene Einladungen"
   },
   "role": {
     "admin": "Administrator",
@@ -635,6 +638,10 @@
       "weeklySummary": {
         "title": "Wochenzusammenfassung",
         "description": "Eine Übersicht Ihrer Aktivitäten per E-Mail."
+      },
+      "calendarInvitations": {
+        "title": "Kalender-Einladungen",
+        "description": "Push in Pica Mobile, wenn Sie zu einem Termin eingeladen werden. Die Zahl am Kalender bleibt."
       },
       "deliveryPending": "Der Versand folgt in einer späteren Version. Ihre Auswahl wird schon jetzt gespeichert.",
       "automations": {
@@ -8909,6 +8916,170 @@
       "stepInputInvalid": "Gib ein JSON-Objekt ein, zum Beispiel {{example}}.",
       "noSteps": "Ein Ablauf braucht mindestens einen Schritt.",
       "addStep": "Schritt hinzufügen"
+    }
+  },
+  "calendar": {
+    "allDay": "ganztägig",
+    "today": "Heute",
+    "previous": "Zurück",
+    "next": "Weiter",
+    "week": "KW {{number}}",
+    "newEvent": "Termin",
+    "cancel": "Abbrechen",
+    "close": "Schließen",
+    "views": {
+      "label": "Ansicht",
+      "day": "Tag",
+      "week": "Woche",
+      "month": "Monat",
+      "list": "Liste"
+    },
+    "sidebar": {
+      "calendars": "Kalender",
+      "toggle": "Kalenderleiste ein- oder ausblenden"
+    },
+    "miniMonth": {
+      "previous": "Vorheriger Monat",
+      "next": "Nächster Monat"
+    },
+    "filters": {
+      "mine": "Meine Termine",
+      "invitations": "Einladungen",
+      "project": "Projekt {{name}}",
+      "deadlines": "Fälligkeiten und Meilensteine"
+    },
+    "month": {
+      "more_one": "+{{count}} weiterer",
+      "more_other": "+{{count}} weitere"
+    },
+    "list": {
+      "empty": "In den nächsten 30 Tagen stehen keine Termine an."
+    },
+    "entry": {
+      "from": "von {{name}}",
+      "inviteesMore": "{{first}} +{{count}}"
+    },
+    "invitee": {
+      "person": "mit {{name}}",
+      "agent": "mit {{name}}",
+      "group": "Gruppe {{name}}",
+      "department": "Abteilung {{name}}"
+    },
+    "inviteeName": {
+      "person": "{{name}}",
+      "agent": "{{name}} · Agent",
+      "group": "Gruppe {{name}}",
+      "department": "Abteilung {{name}}"
+    },
+    "response": {
+      "accepted": "Zugesagt",
+      "declined": "Abgesagt",
+      "open": "Offen"
+    },
+    "detail": {
+      "createdBy": "erstellt von {{name}}",
+      "invited": "Eingeladen: {{names}}",
+      "accepted_one": "{{count}} Zusage",
+      "accepted_other": "{{count}} Zusagen",
+      "declined_one": "{{count}} Absage",
+      "declined_other": "{{count}} Absagen",
+      "open_one": "{{count}} offen",
+      "open_other": "{{count}} offen",
+      "yourAnswer": "Deine Antwort",
+      "answer": {
+        "accepted": "Zusagen",
+        "declined": "Absagen"
+      },
+      "edit": "Bearbeiten",
+      "delete": "Löschen",
+      "confirmDelete": "Diesen Termin löschen?",
+      "source": {
+        "event": "Termin öffnen",
+        "project_event": "Zum Projekt",
+        "ticket": "Zum Ticket",
+        "milestone": "Zum Meilenstein"
+      }
+    },
+    "scope": {
+      "edit": "Welche Termine möchtest du ändern?",
+      "delete": "Welche Termine möchtest du löschen?",
+      "this": "Nur dieser Termin",
+      "following": "Dieser und alle folgenden",
+      "all": "Alle Termine der Serie"
+    },
+    "recurrence": {
+      "daily_one": "Täglich",
+      "daily_other": "Alle {{count}} Tage",
+      "workdays": "Jeden Werktag (Mo–Fr)",
+      "weekly_one": "Jede Woche am {{days}}",
+      "weekly_other": "Alle {{count}} Wochen am {{days}}",
+      "monthly_one": "Jeden Monat am {{day}}.",
+      "monthly_other": "Alle {{count}} Monate am {{day}}.",
+      "yearly_one": "Jedes Jahr am {{date}}",
+      "yearly_other": "Alle {{count}} Jahre am {{date}}",
+      "until": "bis {{date}}",
+      "times_one": "{{count}} Termin",
+      "times_other": "{{count}} Termine"
+    },
+    "form": {
+      "newTitle": "Neuer Termin",
+      "editTitle": "Termin bearbeiten",
+      "hint": "Titel, Zeit, Wiederholung, Kalender, Eingeladene und Beschreibung des Termins.",
+      "title": "Titel",
+      "date": "Datum",
+      "endDate": "Datum bis",
+      "from": "Von",
+      "to": "Bis",
+      "allDay": "Ganztägig",
+      "repeat": "Wiederholen",
+      "presets": {
+        "never": "Nie",
+        "daily": "Täglich",
+        "weekdays": "Jeden Werktag (Mo–Fr)",
+        "weekly": "Jede Woche am {{weekday}}",
+        "monthly": "Jeden Monat am {{day}}.",
+        "yearly": "Jedes Jahr am {{date}}",
+        "custom": "Benutzerdefiniert …"
+      },
+      "every": "Alle",
+      "unit": "Einheit",
+      "units": {
+        "daily_one": "Tag",
+        "daily_other": "Tage",
+        "weekly_one": "Woche",
+        "weekly_other": "Wochen",
+        "monthly_one": "Monat",
+        "monthly_other": "Monate",
+        "yearly_one": "Jahr",
+        "yearly_other": "Jahre"
+      },
+      "weekdays": "Wochentage",
+      "ends": "Endet",
+      "end": {
+        "never": "Endet nie",
+        "until": "Endet am",
+        "count": "Endet nach Anzahl Terminen"
+      },
+      "calendar": "Kalender",
+      "invitees": "Eingeladen · Personen, Agents, Gruppen oder Abteilungen",
+      "addInvitee": "Hinzufügen …",
+      "removeInvitee": "{{name}} entfernen",
+      "description": "Beschreibung",
+      "save": "Speichern",
+      "errors": {
+        "title": "Bitte gib einen Titel mit höchstens 200 Zeichen ein.",
+        "date": "Bitte gib ein gültiges Datum ein.",
+        "time": "Bitte gib gültige Uhrzeiten ein.",
+        "endBeforeStart": "Das Ende muss nach dem Beginn liegen.",
+        "until": "Das Ende der Serie darf nicht vor dem ersten Termin liegen."
+      }
+    },
+    "errors": {
+      "forbidden": "Dazu fehlt dir die Berechtigung.",
+      "not_found": "Dieser Termin ist nicht mehr vorhanden.",
+      "invalid_request": "Die Angaben sind ungültig.",
+      "conflict": "Der Termin wurde inzwischen geändert. Bitte lade die Ansicht neu.",
+      "too_large": "Das sind zu viele Termine oder Eingeladene."
     }
   }
 }

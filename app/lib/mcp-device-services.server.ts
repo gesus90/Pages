@@ -1,3 +1,4 @@
+import { AgentEmployeeRepository } from "@/backend/database/repositories/employee/AgentEmployeeRepository";
 import { McpDevicePairingRepository } from "@/backend/database/repositories/mcp/McpDevicePairingRepository";
 import { McpDeviceRepository } from "@/backend/database/repositories/mcp/McpDeviceRepository";
 import { McpDevicePairingService } from "@/backend/service/mcp/McpDevicePairingService";
@@ -9,6 +10,8 @@ import type { Database } from "@/backend/database/Database";
 export interface McpDeviceApplicationServices {
   readonly mcpDevicePairingService: McpDevicePairingService;
   readonly mcpDeviceService: McpDeviceService;
+  /** The stored access of agent accounts, so a read-only agent's token only reads (PAGE-301). */
+  readonly mcpAgentEmployees: Pick<AgentEmployeeRepository, "find">;
 }
 
 /**
@@ -25,5 +28,6 @@ export function createMcpDeviceServices(
       new McpDevicePairingRepository(database),
     ),
     mcpDeviceService: new McpDeviceService(new McpDeviceRepository(database)),
+    mcpAgentEmployees: new AgentEmployeeRepository(database),
   };
 }

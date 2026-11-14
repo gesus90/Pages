@@ -13,6 +13,8 @@ import {
   readRelayedEvent,
 } from "@/backend/service/events/LiveChangeRelay";
 
+import { CalendarParticipationRepository } from "@/backend/database/repositories/calendar/CalendarParticipationRepository";
+
 import { conversationMembership } from "./conversation-services.server";
 
 import type { Database } from "@/backend/database/Database";
@@ -54,9 +56,13 @@ export interface LiveChangeServices {
 export function createLiveChangeServices(
   context: LiveChangeContext,
 ): LiveChangeServices {
+  const calendar = new CalendarParticipationRepository(context.database);
   const audience = new LiveChangeAudience({
     ...context.audience,
     conversations: conversationMembership(context.database),
+    calendar: {
+      isAffected: (actor, objectId) => calendar.isAffected(actor.id, objectId),
+    },
   });
   const hub = new LiveChangeHub(context.events, audience);
   const services = { liveChangeHub: hub, liveChangeAudience: audience };

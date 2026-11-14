@@ -15,6 +15,11 @@ export interface ShellData {
   /** Company name and logo of the instance. */
   readonly branding: InstanceBranding;
   readonly isPicaEnabled: boolean;
+  /**
+   * Open calendar invitations of the account (PAGE-301); missing in answers
+   * kept from before the calendar.
+   */
+  readonly calendarInvitations?: number;
 }
 
 function isObject(value: unknown): value is object {

@@ -67,6 +67,10 @@ export class ProjectService {
   private management: ProjectManagementService;
   private templates: ProjectTemplateService;
   private goals: ProjectGoalService;
+  // Shared with every copy of forChannel, so the calendar hears all surfaces.
+  private dateChanges: { listener: ((projectId: string) => void) | null } = {
+    listener: null,
+  };
 
   /**
    * Creates a project service.
@@ -118,7 +122,18 @@ export class ProjectService {
     service.management = this.management.forChannel(channel);
     service.templates = new ProjectTemplateService(repository, cache, channel);
     service.goals = new ProjectGoalService(repository, cache, channel);
+    service.dateChanges = this.dateChanges;
     return service;
+  }
+
+  /**
+   * Registers who hears that the planning dates of a project changed; the
+   * calendar shows them (PAGE-301).
+   *
+   * @param listener - Receives the project; it must not throw.
+   */
+  public onDatesChanged(listener: (projectId: string) => void): void {
+    this.dateChanges.listener = listener;
   }
 
   /** Returns every non-archived project that the actor may access. */
@@ -511,6 +526,7 @@ export class ProjectService {
       title,
       type: event.type.trim().slice(0, 40) || "general",
     });
+    this.dateChanges.listener?.(projectId);
     await this.recordActivity(actor, projectId, {
       action: "event_created",
       category: "planning",
@@ -546,6 +562,7 @@ export class ProjectService {
       title,
       type: event.type.trim().slice(0, 40) || "general",
     });
+    this.dateChanges.listener?.(projectId);
   }
 
   /** Archives a planning date. */
@@ -558,6 +575,7 @@ export class ProjectService {
     await this.getById(actor, projectId);
     await this.requireEvent(projectId, eventId);
     await this.projectRepository.archiveEvent(eventId);
+    this.dateChanges.listener?.(projectId);
   }
 
   /** Returns the sanitized GitHub integration settings. */

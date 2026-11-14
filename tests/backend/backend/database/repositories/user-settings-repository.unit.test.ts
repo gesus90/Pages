@@ -18,6 +18,7 @@ const SETTINGS: StoredUserSettings = {
   notifyAssignments: true,
   notifyDueDates: false,
   notifyWeeklySummary: true,
+  notifyCalendarInvitations: false,
 };
 
 it("reads a stored language, null without a row, and refuses an unknown language", async () => {
@@ -72,10 +73,11 @@ it("maps the complete stored settings of a user", async () => {
         0,
         1,
         "arctic",
+        0,
       ],
     ],
     [],
-    [["xx", null, null, null, null, null, null, null, null, null, null]],
+    [["xx", null, null, null, null, null, null, null, null, null, null, null]],
   );
   const repository = new UserSettingsRepository(scripted.database);
 
@@ -119,11 +121,13 @@ it("upserts the complete settings and stores missing notification choices as nul
     notify_due_dates: false,
     notify_weekly_summary: true,
     theme: "arctic",
+    notify_calendar_invitations: false,
   });
   expect(scripted.statements[1]?.parameters).toMatchObject({
     user_id: "user-2",
     notify_email: null,
     notify_weekly_summary: null,
     theme: null,
+    notify_calendar_invitations: null,
   });
 });

@@ -41,6 +41,8 @@ function toNotifications(
     email: stored?.notifyEmail ?? defaults.email,
     mentions: stored?.notifyMentions ?? defaults.mentions,
     weeklySummary: stored?.notifyWeeklySummary ?? defaults.weeklySummary,
+    calendarInvitations:
+      stored?.notifyCalendarInvitations ?? defaults.calendarInvitations,
   };
 }
 
@@ -113,6 +115,7 @@ export class SettingsService {
       notifyAssignments: settings.notifications.assignments,
       notifyDueDates: settings.notifications.dueDates,
       notifyWeeklySummary: settings.notifications.weeklySummary,
+      notifyCalendarInvitations: settings.notifications.calendarInvitations,
     });
   }
 

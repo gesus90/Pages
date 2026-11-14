@@ -7,6 +7,7 @@ import {
   isChatAdminWriteOperation,
   requiresChatAdminConfirmation,
 } from "./ChatAdministrationCatalog";
+import { PICA_CALENDAR_WRITE_OPERATIONS } from "./PicaCalendarToolService";
 
 import type {
   AgentAdminReadOperation,
@@ -37,6 +38,7 @@ import type {
   AutomationReadOperation,
   AutomationWriteOperation,
 } from "@/definition/AutomationOperations";
+import type { PicaCalendarOperation } from "./PicaCalendarToolService";
 
 /**
  * Operations of the agent API that the chat never offers: imports and uploads
@@ -73,6 +75,7 @@ export type ChatOperation = Exclude<
   | ChatAgentWriteOperation
   | AutomationReadOperation
   | AutomationWriteOperation
+  | PicaCalendarOperation
   | "ticket.archive"
   | "ticket.restore",
   ExcludedOperation
@@ -113,6 +116,25 @@ const CHAT_AUTOMATION_OPERATIONS: Readonly<
   "automations.delete": `{${AUTOMATION_TARGET}} Automation samt Verlauf löschen; ein laufender oder vorgemerkter Lauf verhindert es, ${CONFIRMED}`,
 };
 
+const CALENDAR_TARGET =
+  "id (Eintrags- oder Termin-ID), scope: this|following|all, occurrenceStart?";
+
+/** The calendar of PAGE-301; every call uses the calendar rights of the account itself. */
+const CHAT_CALENDAR_OPERATIONS: Readonly<
+  Record<PicaCalendarOperation, string>
+> = {
+  "calendar.read":
+    "{from, to} Kalendereinträge eines Zeitraums von höchstens 92 Tagen mit Zusagen und Zeitzone lesen",
+  "calendar.invitees.search":
+    "{query, limit?} einladbare Personen, Agents, Gruppen und Abteilungen suchen",
+  "calendar.event.create":
+    "{title, start, end, allDay, description?, calendarProjectId?, invitees?, recurrence?} Termin mit Wiederholung und Einladungen anlegen",
+  "calendar.event.update": `{${CALENDAR_TARGET}, title?, description?, start?, end?, allDay?, calendarProjectId?, invitees?, recurrence?} Termin oder Teil einer Serie ändern`,
+  "calendar.event.respond":
+    "{id, response: accepted|declined} Einladung zusagen oder absagen",
+  "calendar.event.delete": `{${CALENDAR_TARGET}, confirmed?} Termin oder Teil einer Serie löschen; ohne confirmed nur Vorschau, ${CONFIRMED}`,
+};
+
 /**
  * Parameters and purpose of every chat operation, as the agent reads them.
  *
@@ -124,6 +146,7 @@ const CHAT_AUTOMATION_OPERATIONS: Readonly<
 const CHAT_OPERATIONS: Readonly<Record<ChatOperation, string>> = {
   ...CHAT_ADMIN_OPERATIONS,
   ...CHAT_AUTOMATION_OPERATIONS,
+  ...CHAT_CALENDAR_OPERATIONS,
   "agents.list":
     "{cursor?, limit?} sichtbare Benutzer-Agents mit Anweisung, Parametern und Konfiguration auflisten",
   "agents.read":
@@ -342,6 +365,7 @@ export function isChatWriteOperation(operation: ChatOperation): boolean {
     COMMENT_WRITES.has(operation) ||
     operation === "ticket.archive" ||
     operation === "ticket.restore" ||
+    PICA_CALENDAR_WRITE_OPERATIONS.some((write) => write === operation) ||
     PAGES_AGENT_WRITE_OPERATIONS.some((write) => write === operation)
   );
 }

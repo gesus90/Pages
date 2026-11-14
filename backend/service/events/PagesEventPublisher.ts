@@ -39,6 +39,7 @@ const PAGES_EVENT_TYPES = [
   "project.tickets.changed",
   "project.access.changed",
   "conversation.changed",
+  "calendar.changed",
 ] as const;
 
 const PAGES_EVENT_TYPE_SET: ReadonlySet<string> = new Set(PAGES_EVENT_TYPES);
@@ -65,6 +66,8 @@ export function isPagesEventType(kind: string): kind is PagesEvent["type"] {
  * departments changed or that was archived or deleted.
  * `conversation.changed` names a conversation that got a message, a text of
  * a voice message or a member (PAGE-278); only its members hear of it.
+ * `calendar.changed` names a calendar event, or `project:<projectId>` for
+ * the project dates of a project (PAGE-301); only affected accounts hear of it.
  * Whoever lost the
  * object can no longer be asked whether they saw it, so the live view lets
  * every open page read again instead of naming it.

@@ -5,6 +5,7 @@ import { PagesPicaMobileDashboard } from "@/backend/service/mobile/PicaMobileDas
 import { PicaMobileGateway } from "@/backend/service/mobile/PicaMobileGateway";
 import { PicaMobileRelay } from "@/backend/service/mobile/PicaMobileRelay";
 import { sharedConversationEvents } from "@/backend/service/conversation/ConversationEvents";
+import { PagesPicaMobileCalendar } from "@/backend/service/mobile/calendar/PagesPicaMobileCalendar";
 import { PagesPicaMobileChat } from "@/backend/service/mobile/chat/PagesPicaMobileChat";
 import { PagesPicaMobileConversations } from "@/backend/service/mobile/conversations/PagesPicaMobileConversations";
 import { PagesPicaMobileNotifications } from "@/backend/service/mobile/notifications/PagesPicaMobileNotifications";
@@ -33,6 +34,19 @@ function createRelay(config: PagesConfig): PicaMobileRelay | undefined {
         secret: pagesCoreSecret,
         port: picaMobileRelayPort,
       });
+}
+
+function createMobileCalendar(): PagesPicaMobileCalendar {
+  return new PagesPicaMobileCalendar(async () => {
+    const services = await getApplicationServices();
+
+    return {
+      authService: services.authService,
+      calendarService: services.calendarService,
+      liveChangeAudience: services.liveChangeAudience,
+      pagesEventPublisher: services.pagesEventPublisher,
+    };
+  });
 }
 
 /**
@@ -123,6 +137,7 @@ export function obtainPicaMobileGateway(
           speechRecognitionService: services.speechRecognitionService,
         };
       }),
+      calendar: createMobileCalendar(),
       serverVersion: PAGES_VERSION,
       listenAddress: runtime.getConfig().listenAddress,
       relay: createRelay(runtime.getConfig()),

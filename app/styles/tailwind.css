@@ -205,6 +205,60 @@
   --color-plan-swarm: #4338ca;
   --color-plan-swarm-edge: #6366f1;
   --color-plan-swarm-subtle: #eef0fd;
+  /* Calendars of the calendar page (PAGE-301): own events, invitations,
+     deadlines and a rotating set for projects. Entries fill with a muted mix
+     of their calendar color and the surface; the strength differs per theme.
+     An open invitation is outlined dashed. */
+  --color-calendar-mine: #ea580c;
+  --color-calendar-invitations: #2563eb;
+  --color-calendar-deadlines: #dc2626;
+  --color-calendar-project-1: #7c3aed;
+  --color-calendar-project-2: #059669;
+  --color-calendar-project-3: #0891b2;
+  --color-calendar-project-4: #db2777;
+  --color-calendar-project-5: #a16207;
+  --color-calendar-open: #64748b;
+  --color-calendar-now: var(--color-primary);
+  --color-calendar-mine-fill: color-mix(
+    in oklab,
+    var(--color-calendar-mine) var(--calendar-fill-strength),
+    var(--color-surface)
+  );
+  --color-calendar-invitations-fill: color-mix(
+    in oklab,
+    var(--color-calendar-invitations) var(--calendar-fill-strength),
+    var(--color-surface)
+  );
+  --color-calendar-deadlines-fill: color-mix(
+    in oklab,
+    var(--color-calendar-deadlines) var(--calendar-fill-strength),
+    var(--color-surface)
+  );
+  --color-calendar-project-1-fill: color-mix(
+    in oklab,
+    var(--color-calendar-project-1) var(--calendar-fill-strength),
+    var(--color-surface)
+  );
+  --color-calendar-project-2-fill: color-mix(
+    in oklab,
+    var(--color-calendar-project-2) var(--calendar-fill-strength),
+    var(--color-surface)
+  );
+  --color-calendar-project-3-fill: color-mix(
+    in oklab,
+    var(--color-calendar-project-3) var(--calendar-fill-strength),
+    var(--color-surface)
+  );
+  --color-calendar-project-4-fill: color-mix(
+    in oklab,
+    var(--color-calendar-project-4) var(--calendar-fill-strength),
+    var(--color-surface)
+  );
+  --color-calendar-project-5-fill: color-mix(
+    in oklab,
+    var(--color-calendar-project-5) var(--calendar-fill-strength),
+    var(--color-surface)
+  );
   /* Logic, the Decision node and its boolean wire, is violet and stays apart
      from the blue violet of parameters. The branches take success (true) and
      warning (false), the new-prompt wire takes info. */
@@ -511,6 +565,8 @@
   --space-small: 0.5rem;
   --space-medium: 1rem;
   --space-large: 1.5rem;
+  /* Share of the calendar color in the fill of a calendar entry (PAGE-301). */
+  --calendar-fill-strength: 16%;
 
   @variant dark {
     color-scheme: dark;
@@ -579,6 +635,16 @@
     --color-plan-swarm: #a5b4fc;
     --color-plan-swarm-edge: #7178e6;
     --color-plan-swarm-subtle: #1b1d3a;
+    --color-calendar-mine: #fb923c;
+    --color-calendar-invitations: #60a5fa;
+    --color-calendar-deadlines: #f87171;
+    --color-calendar-project-1: #a78bfa;
+    --color-calendar-project-2: #34d399;
+    --color-calendar-project-3: #22d3ee;
+    --color-calendar-project-4: #f472b6;
+    --color-calendar-project-5: #facc15;
+    --color-calendar-open: #cbd5e1;
+    --calendar-fill-strength: 24%;
     --color-plan-logic: #b79bff;
     --color-plan-logic-edge: #8a6fd8;
     --color-plan-logic-subtle: #221a3b;

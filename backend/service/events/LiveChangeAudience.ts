@@ -36,6 +36,13 @@ export interface LiveChangeAudienceDependencies {
   readonly conversations: {
     isMember(actor: User, conversationId: string): Promise<boolean>;
   };
+  /**
+   * Whether an account is affected by a calendar event, deleted ones
+   * included, or is a member of the project of `project:<id>` (PAGE-301).
+   */
+  readonly calendar?: {
+    isAffected(actor: User, objectId: string): Promise<boolean>;
+  };
 }
 
 /**
@@ -63,6 +70,7 @@ function kindOf(type: PagesEvent["type"]): LiveChangeKind | null {
   if (type.startsWith("wiki.")) return "wiki";
   if (type === "project.tickets.changed") return "project";
   if (type === "conversation.changed") return "conversation";
+  if (type === "calendar.changed") return "calendar";
   // A linked asset always arrives with the page that links it.
   return null;
 }
@@ -128,6 +136,10 @@ export class LiveChangeAudience {
     if (kind === "wiki") return this.dependencies.wiki.canView(actor, event.id);
     if (kind === "conversation")
       return this.dependencies.conversations.isMember(actor, event.id);
+    if (kind === "calendar")
+      return (
+        (await this.dependencies.calendar?.isAffected(actor, event.id)) ?? false
+      );
     if (kind === "milestone") return this.canSeeMilestone(actor, event.id);
     if (kind === "project") {
       await this.dependencies.projects.getById(actor, event.id);

@@ -170,7 +170,7 @@ vi.mock("@/backend/service/GitHubSyncService", () =>
   fakeClasses({ GitHubSyncService: [] }),
 );
 vi.mock("@/backend/service/ProjectService", () =>
-  fakeClasses({ ProjectService: ["setDeletionEffects"] }),
+  fakeClasses({ ProjectService: ["setDeletionEffects", "onDatesChanged"] }),
 );
 vi.mock("@/backend/service/project/ProjectDeletionStorage", () =>
   fakeClasses({ ProjectDeletionStorage: [] }),
