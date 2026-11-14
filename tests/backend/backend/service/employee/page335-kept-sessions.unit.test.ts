@@ -23,7 +23,11 @@ const agent: User = {
   displayName: "Ed",
   isAgent: true,
 };
-const employee = { revision: 7, access: "pages", connectionId: "connection" };
+const employee = {
+  revision: 7,
+  access: "read_only",
+  connectionId: "connection",
+};
 
 function fixture(): {
   readonly service: AgentEmployeeSessions;
@@ -149,3 +153,18 @@ it("PAGE-344 finishes a running answer after settings save but still enforces ac
     start: { job: { id: "complete-job" } },
   });
 });
+
+it.each(["read_only", "workspace", "yolo"] as const)(
+  "derives the browser grant of an employee job from %s",
+  async (access) => {
+    const { service, start } = fixture();
+    const request = round("chat");
+    await service.run({
+      ...request,
+      employee: { ...request.employee, access },
+    });
+    expect(start.mock.calls[0]?.[0]).toMatchObject({
+      employee: { hasBrowser: access !== "read_only" },
+    });
+  },
+);

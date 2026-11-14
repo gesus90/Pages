@@ -12,6 +12,7 @@ import { PICA_ADMIN_SCHEMAS, PicaAdminError } from "./PicaAdminContracts";
 import { launchPicaBrowser } from "./PicaBrowserSandbox";
 import { PicaStorageService } from "./PicaStorageService";
 
+import type { AgentBrowserService } from "../browser/AgentBrowserService";
 import type { AdministrationService } from "@/backend/service/AdministrationService";
 import type { UserService } from "@/backend/service/UserService";
 import type { RuntimeExecutionContext } from "@/backend/agents/runtime/RuntimeExecutionContext";
@@ -46,6 +47,7 @@ export interface PicaPrivilegedCall {
 
 /** Optional parts of the operator browser; a bare service refuses nothing it did not offer before. */
 export interface PicaAdminServiceOptions {
+  readonly agentBrowsers?: AgentBrowserService;
   /** Starts the isolated Chromium; the default is the mandatory namespace sandbox without fallback. */
   readonly launchBrowser?: () => Promise<Browser>;
   /** The local origins the operator browser may reach: this Pages instance and released services. */
@@ -78,6 +80,7 @@ export class PicaAdminService {
   private readonly files = new PicaAdminFiles();
   private readonly browsers = new PicaAdminBrowser();
   private readonly operatorBrowsers: PicaOperatorBrowser;
+  private readonly agentBrowsers: AgentBrowserService | undefined;
   private readonly scopes = new Map<string, AdminScope>();
   private readonly storage: PicaStorageService | null;
   private readonly hasAccountStorage: boolean;
@@ -90,6 +93,7 @@ export class PicaAdminService {
     options: PicaAdminServiceOptions = {},
   ) {
     this.accounts = accounts;
+    this.agentBrowsers = options.agentBrowsers;
     this.hasAccountStorage = options.storage?.forAccount !== undefined;
     this.storage = options.storage
       ? new PicaStorageService(
@@ -290,7 +294,9 @@ export class PicaAdminService {
   /** The browsers and saved sessions of an administrator, for the live view of the chat. */
   public async browserOverview(userId: string): Promise<PicaBrowserOverview> {
     await this.requireAdministrator(userId);
-    return this.operatorBrowsers.overview(userId);
+    const own = await this.operatorBrowsers.overview(userId);
+    const agents = await this.agentBrowsers?.overview();
+    return { ...own, browsers: [...own.browsers, ...(agents?.browsers ?? [])] };
   }
 
   /** The newest picture of one of the administrator's browsers. */
@@ -299,6 +305,8 @@ export class PicaAdminService {
     browserId: string,
   ): Promise<PicaBrowserFrame | null> {
     await this.requireAdministrator(userId);
+    if (this.agentBrowsers?.has(browserId))
+      return this.agentBrowsers.frame(browserId);
     return this.operatorBrowsers.frame(userId, browserId);
   }
 
@@ -309,6 +317,8 @@ export class PicaAdminService {
     command: PicaBrowserCommand,
   ): Promise<PicaBrowserView> {
     await this.requireAdministrator(userId);
+    if (this.agentBrowsers?.has(browserId))
+      return this.agentBrowsers.command(browserId, command, userId);
     return this.operatorBrowsers.command(userId, browserId, command);
   }
 

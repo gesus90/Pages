@@ -288,12 +288,14 @@ async function initializeServices(
   );
 
   const mcpServices = await startMcpWorkspace({
+    browserAuthentication: sessionService,
     database,
     databasePath,
     accounts: { users: userService, administration: administrationService },
     agents: { ...agentServices, ...planServices },
     wiki: workspaceServices.wikiService,
     instanceSettings: workspaceServices.instanceSettingsService,
+    projects: projectService,
     tasks: taskServices,
     serverCache,
     tokenKey,

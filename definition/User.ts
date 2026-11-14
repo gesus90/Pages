@@ -43,7 +43,7 @@ export interface User {
   readonly avatarColor?: string | null;
   readonly avatarImageUrl?: string | null;
   /**
-   * Marks an agent account (PAGE-266): no password, no sign-in, never an
+   * Marks an agent account (PAGE-266): no password login; issued job-bound browser sessions only, never an
    * administrator. Absent for every person.
    */
   readonly isAgent?: boolean;

@@ -36,17 +36,18 @@ export function ChatBrowserControls({
           {t("chat.browser.resume")}
         </Button>
       ) : null}
-      {state === "takeover" ? (
+      {!browser.isAgent && state === "takeover" ? (
         <Button size="xs" onClick={() => send("handback")}>
           <Undo2 aria-hidden="true" className="size-3.5" />
           {t("chat.browser.handback")}
         </Button>
-      ) : (
+      ) : null}
+      {!browser.isAgent && state !== "takeover" ? (
         <Button size="xs" variant="outline" onClick={() => send("takeover")}>
           <Hand aria-hidden="true" className="size-3.5" />
           {t("chat.browser.takeover")}
         </Button>
-      )}
+      ) : null}
       <Button size="xs" variant="destructive-soft" onClick={() => send("stop")}>
         <OctagonX aria-hidden="true" className="size-3.5" />
         {t("chat.browser.stop")}

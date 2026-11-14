@@ -20,11 +20,13 @@ import { createMcpServices } from "./mcp-services.server";
 import { picaBrowserOptions } from "./pica-browser.server";
 import { startWikiMaintenanceScheduler } from "./services-background.server";
 
+import type { SessionService } from "@/backend/auth/SessionService";
 import type { ServerCache } from "@/backend/cache/ServerCache";
 import type { Database } from "@/backend/database/Database";
 import type { AdministrationService } from "@/backend/service/AdministrationService";
 import type { InstanceSettingsService } from "@/backend/service/InstanceSettingsService";
 import type { UserService } from "@/backend/service/UserService";
+import type { ProjectService } from "@/backend/service/ProjectService";
 import type { WikiService } from "@/backend/service/WikiService";
 import type { AgentPlanServices } from "./agent-plan-services.server";
 import type { AgentApplicationServices } from "./agent-services.server";
@@ -36,6 +38,7 @@ import type { ApplicationServices } from "./services.server";
 
 /** What the workspace services are built from. */
 interface McpWorkspaceContext {
+  readonly browserAuthentication?: Pick<SessionService, "setAgentBrowsers">;
   readonly database: Database;
   readonly databasePath: string;
   readonly accounts: {
@@ -49,6 +52,7 @@ interface McpWorkspaceContext {
   readonly wiki: WikiService;
   /** The instance settings the chat administration changes with the regular rules. */
   readonly instanceSettings: InstanceSettingsService;
+  readonly projects: Pick<ProjectService, "findAll" | "getById">;
   /** The ticket services, whose GitHub synchronization and event publisher the workspace shares. */
   readonly tasks: Pick<
     ApplicationServices,
@@ -59,6 +63,7 @@ interface McpWorkspaceContext {
     | "pagesEventPublisher"
     | "taskService"
     | "taskAttachmentService"
+    | "taskTemplateService"
   >;
   readonly serverCache: ServerCache;
   readonly tokenKey: Buffer;
@@ -126,6 +131,13 @@ export async function startMcpWorkspace(
     accounts: context.accounts,
     agents: context.agents,
     router: services.chatOperationRouter,
+    tickets: {
+      tasks: context.tasks.taskService,
+      templates: context.tasks.taskTemplateService,
+      attachments: context.tasks.taskAttachmentService,
+      projects: context.projects,
+      users: context.accounts.users,
+    },
     acp: picaSettings,
     protectedOrigin: runtime.getConfig().publicUrl,
     storage: context.tasks.googleDriveFileService,
@@ -136,6 +148,7 @@ export async function startMcpWorkspace(
       config: () => runtime.getConfig(),
     }),
   });
+  context.browserAuthentication?.setAgentBrowsers(chat.agentBrowserSessions);
   const employees = createEmployeeServices({
     automations: context.agents.automationService,
     database: context.database,

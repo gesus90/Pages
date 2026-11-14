@@ -250,6 +250,7 @@ export class AgentPlanRemoteParameters {
         ? await this.dependencies.snapshots.read(
             asset.snapshot,
             PLAN_HANDOVER_LIMITS.inlineBytes,
+            asset.reference,
           )
         : await this.dependencies.assets.read(actor, asset.reference);
     if (
@@ -289,7 +290,7 @@ export class AgentPlanRemoteParameters {
       );
     await this.authorizeAsset(userId, asset, prepared);
     if (asset.snapshot && this.dependencies.snapshots)
-      return this.dependencies.snapshots.open(asset.snapshot);
+      return this.dependencies.snapshots.open(asset.snapshot, asset.reference);
     return this.dependencies.assets.stream(
       await this.activeActor(userId),
       asset.reference,
@@ -516,7 +517,7 @@ export class AgentPlanRemoteParameters {
       owner,
       reference,
       ...(owner.type === "ticket" && this.dependencies.snapshots
-        ? { snapshot: await this.dependencies.snapshots.pin(file) }
+        ? { snapshot: await this.dependencies.snapshots.pin(file, reference) }
         : {}),
       file: remoteAssetFile(parameter, reference, {
         fileName: file.fileName,

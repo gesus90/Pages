@@ -161,7 +161,11 @@ export class PicaAcpJob {
     );
     this.prompt = new PicaAcpPrompt(
       this.selections,
-      () => this.credential.usage(),
+      () =>
+        [
+          this.credential.usage(),
+          this.dependencies.agentBrowsers?.usage(this.requireContext()) ?? "",
+        ].join("\n\n"),
       specification.agent.supportsImages,
     );
     this.updates = new PicaAcpUpdates(
@@ -317,6 +321,8 @@ export class PicaAcpJob {
     });
     this.context =
       this.dependencies.adminTools?.bind(this.context) ?? this.context;
+    if (this.dependencies.agentBrowsers)
+      this.context = await this.dependencies.agentBrowsers.bind(this.context);
     const lease = this.dependencies.bridge.open({
       jobId: this.id,
       userId: this.userId,
@@ -494,6 +500,13 @@ export class PicaAcpJob {
       options: run.options,
       instanceId: randomUUID(),
       chat: {
+        ...(this.dependencies.agentBrowsers
+          ? {
+              browserStateDirectory: this.dependencies.agentBrowsers.mount(
+                this.requireContext(),
+              ),
+            }
+          : {}),
         ...chatMcpServers(
           run.runner,
           () => pooled?.servers ?? this.credential.mcpServers(),
@@ -652,17 +665,21 @@ export class PicaAcpJob {
     await attemptPicaCloseoutStep(() => this.steering.stopIntake());
     this.credential.revoke();
     await attemptPicaCloseoutStep(() => this.credential.settle());
-    const context = this.context;
-    if (context)
-      await attemptPicaCloseoutStep(async () => {
-        await this.dependencies.adminTools?.release(context);
-      });
     if (outcome.state === "stopped")
       await attemptPicaCloseoutStep(() => this.storeStoppedAnswer());
     await attemptPicaCloseoutStep(() =>
       this.journal.record({ kind: "phase", phase: "finishing" }),
     );
     await this.closeSession();
+    const context = this.context;
+    if (context)
+      await attemptPicaCloseoutStep(async () => {
+        await this.dependencies.adminTools?.release(context);
+      });
+    if (context)
+      await attemptPicaCloseoutStep(async () => {
+        await this.dependencies.agentBrowsers?.release(context);
+      });
     this.credential.close();
     await attemptPicaCloseoutStep(() => this.answerOutput.discard());
     await attemptPicaCloseoutStep(() => this.steering.close());

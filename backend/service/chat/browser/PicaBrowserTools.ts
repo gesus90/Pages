@@ -2,9 +2,11 @@ import { PICA_TOOL_OUTCOME } from "../PicaToolSchemas";
 import {
   PICA_BROWSER_SCHEMAS,
   isPicaBrowserTool,
+  isAgentBrowserTool,
 } from "./PicaBrowserContracts";
 
 import type { RuntimeToolRegistry } from "@/backend/agents/runtime/RuntimeToolRegistry";
+import type { AgentBrowserService } from "./AgentBrowserService";
 import type { PicaAdminService } from "../admin/PicaAdminService";
 import type { PicaToolOutcome } from "../PicaToolSchemas";
 import type { PicaBrowserTool } from "./PicaBrowserContracts";
@@ -54,6 +56,7 @@ export function registerPicaBrowserTools(
 ): void {
   for (const tool of Object.keys(PICA_BROWSER_SCHEMAS).filter(
     isPicaBrowserTool,
+    isAgentBrowserTool,
   )) {
     registry.register<Readonly<Record<string, unknown>>, PicaToolOutcome>({
       id: tool,
@@ -64,6 +67,45 @@ export function registerPicaBrowserTools(
       execute: (parameters, context) =>
         spend()
           ? service.runBrowser(tool, parameters, context)
+          : Promise.resolve({ ok: false, result: null, error: "STEP_LIMIT" }),
+    });
+  }
+}
+
+/** Registers the own-account browser tools for a server-authorized employee with host access. */
+export function registerAgentBrowserTools(
+  registry: RuntimeToolRegistry,
+  service: AgentBrowserService,
+  spend: () => boolean,
+): void {
+  for (const tool of Object.keys(PICA_BROWSER_SCHEMAS).filter(
+    isPicaBrowserTool,
+    isAgentBrowserTool,
+  )) {
+    if (!isAgentBrowserTool(tool)) continue;
+    const description = DESCRIPTIONS[tool]
+      .replaceAll("ADMIN ONLY: ", "")
+      .replace(
+        "the name of a saved signed-in session from browser_profiles",
+        "self, your own agent account in Pages",
+      )
+      .replace(
+        "the signed-in sessions the administrator saved for you",
+        "your own agent session (self)",
+      )
+      .replace(
+        "use browser_handover and let the administrator sign in",
+        "use the self profile for Pages; other credential entry is unavailable",
+      );
+    registry.register<Readonly<Record<string, unknown>>, PicaToolOutcome>({
+      id: tool,
+      access: "user",
+      description,
+      inputSchema: PICA_BROWSER_SCHEMAS[tool],
+      outputSchema: PICA_TOOL_OUTCOME,
+      execute: (parameters, context) =>
+        spend()
+          ? service.run(tool, parameters, context)
           : Promise.resolve({ ok: false, result: null, error: "STEP_LIMIT" }),
     });
   }

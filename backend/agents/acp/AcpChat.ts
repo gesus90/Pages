@@ -79,6 +79,8 @@ export interface AcpChatOptions {
    * conversation starts only inside it.
    */
   readonly isUnisolated?: boolean;
+  /** Private own-account runtime mount for Playwright; never the working folder. */
+  readonly browserStateDirectory?: string;
   /** The protocol session to continue with `session/resume`; `null` starts a new one. */
   readonly resumeSessionId: string | null;
   readonly listener: AcpSessionListener;

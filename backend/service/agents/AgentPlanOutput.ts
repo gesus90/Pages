@@ -5,7 +5,7 @@ export const PLAN_OUTPUT_LIMIT = 200_000;
 
 /** Redacts credential-shaped strings from final answers before persistence, display or result forwarding. */
 export function sanitizePlanOutput(output: string): string {
-  return output
+  return redactCredentials(output)
     .slice(0, PLAN_OUTPUT_LIMIT)
     .replace(
       /-----BEGIN [^-]*PRIVATE KEY-----[\s\S]*?-----END [^-]*PRIVATE KEY-----/gu,

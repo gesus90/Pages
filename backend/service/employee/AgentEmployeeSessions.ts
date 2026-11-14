@@ -691,6 +691,7 @@ export class AgentEmployeeSessions {
       ...(agentChat ? { agentChat } : {}),
       ...(keptSession ? { keptSession } : {}),
       runner: employeeAcpRunner(assignment, access, hostServers),
+      hasBrowser: hasHostTools(access),
       ...(hostFiles && hasHostTools(access)
         ? {
             attachFile: (directory, target, file) =>

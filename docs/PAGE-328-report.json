@@ -1,0 +1,523 @@
+{
+  "ticket": "PAGE-328",
+  "ticketId": "16c259fa-1849-4a71-964e-21b63ef93775",
+  "state": "implementation complete; Review pending final QA",
+  "workspace": "/home/igor/Repo/Pages-Session-1",
+  "branch": "work/pages-session-1-20261113T095553Z-93340c92",
+  "baseBeforeTicketCommit": "281a4895228cd3046197b806ae5883d15f2849e1",
+  "todos": [
+    {
+      "id": "T1",
+      "status": "done",
+      "evidence": "Browser access, own-account session issuance and authentication, private Playwright state, lifecycle cleanup, administrator controls, settings, translations, wiki source and focused tests implemented; selected unit checks passed; local commit and final fingerprint are bound in report_step_result."
+    }
+  ],
+  "criteria": [
+    {
+      "id": "K1",
+      "met": true,
+      "evidence": "Product changes and tests are present in the workspace. This report maps all acceptance criteria to source and tests; commit and fingerprint follow through report_step_result."
+    }
+  ],
+  "checklist": {
+    "revision": "1",
+    "items": [],
+    "note": "The ticket has numbered acceptance text but no checkbox entries; no nonexistent item was ticked."
+  },
+  "acceptanceEvidence": [
+    {
+      "criterion": 1,
+      "evidence": "page328-browser-tools exercises the real registry, employee service and browser manager with Playwright mocked; the own-account self state crosses the browser boundary. page328-browser-sessions verifies both workspace and yolo against SessionService and the real cookie codec."
+    },
+    {
+      "criterion": 2,
+      "evidence": "page328-browser-sessions refuses read_only without writing a file. page328-browser-tools excludes browser tools without the server capability; page335-kept-sessions verifies capability derivation from all three stored levels."
+    },
+    {
+      "criterion": 3,
+      "evidence": "page328-browser-auth feeds the issued storageState cookie through the real authentication middleware at /settings. page328-browser-job verifies actual ACP job completion, cancellation, failure and pooled continuation; the state file disappears and its cookie is revoked. page328-browser-mount verifies the private read-only namespace mount. All external boundaries are mocked as required by the pilot; no actual browser was started."
+    },
+    {
+      "criterion": 4,
+      "evidence": "page328-browser-auth authenticates the agent and asserts 403 from the system settings page loader, admin API loader and administrator permission middleware."
+    },
+    {
+      "criterion": 5,
+      "evidence": "page328-browser-privacy uses a placeholder token to assert redaction of raw and encoded cookies and private paths in logs, metadata, native tool output, journal text and plan report sanitizers; answer attachment staging refuses the content. page328-browser-attachments refuses absolute/traversal/symlink state paths and copied credentials before ticket/wiki upload."
+    },
+    {
+      "criterion": 6,
+      "evidence": "page328-browser-tools verifies the current-administrator facade can see, pause, resume and stop a live agent browser with session revocation; foreign/admin profiles and takeover are refused. Existing chat/browser UI and the Chats page show the live panel with agent names. page328-browser-access verifies the corresponding controls and access/profile display."
+    },
+    {
+      "criterion": 7,
+      "evidence": "Only changed-file Prettier and explicitly selected isolated Vitest files were run. No pnpm run check/lint/test scripts, full suites, application, browser, network/database functional tests, build or screenshot acceptance were started."
+    }
+  ],
+  "decisions": [
+    "Only self is offered to agents; optional additional external profiles are deferred. No administrator profile can be selected or saved by an agent.",
+    "The later explicit privacy requirement takes precedence over the earlier working-folder wording: storageState lives in the protected instance runtime, outside all work/chat folders, 0600 in 0700 directories; only its own conversation mount reaches isolated CLI sessions.",
+    "All changes of the employee configuration revoke an issued session, including every access-level reduction. Authentication rechecks fresh facts on every request; a 250 ms supervisor also closes idle revoked browsers.",
+    "Existing employee access levels apply to employee jobs in chats, groups, learning and automation. Plan steps keep their existing run options and executing identity; human-owned plan steps are not impersonated as employee accounts.",
+    "Wiki changes are local source updates in docs/wiki/PAGE-303.md and docs/PicaOperatorBrowser.md; publishing them to the live wiki is deferred because this run forbids live-data changes.",
+    "The pnpm version launcher and installed esbuild binary lack executable permissions. Tests and Prettier use their existing Node entrypoints and a private executable copy of the same esbuild binary in .git/page328-evidence; dependency versions and configuration are unchanged.",
+    "The existing page335 test fixture used an invalid access string pages; it now uses the documented read_only value and explicitly tests all valid access levels.",
+    "The first local commit failed because this checkout has no Git author configuration. The repository already uses Ed <ed@pages.local>; the ticket assigns implementation to Ed, so that agent identity is supplied only via git -c for this local commit, with no global configuration change."
+  ],
+  "validation": {
+    "prettier": {
+      "command": "node node_modules/prettier/bin/prettier.cjs --write <only changed files>",
+      "exitCode": 0,
+      "logs": [
+        ".git/page328-evidence/prettier.log",
+        ".git/page328-evidence/prettier-download.log",
+        ".git/page328-evidence/prettier-final-browser.log",
+        ".git/page328-evidence/prettier-runtime.log"
+      ]
+    },
+    "backend": {
+      "command": [
+        "node",
+        "node_modules/vitest/vitest.mjs",
+        "run",
+        "--config",
+        "vitest.backend.config.ts",
+        "tests/backend/backend/service/chat/browser/page328-browser-sessions.unit.test.ts",
+        "tests/backend/backend/service/chat/browser/page328-browser-tools.unit.test.ts",
+        "tests/backend/backend/service/chat/browser/page328-browser-privacy.unit.test.ts",
+        "tests/backend/backend/service/chat/browser/page328-browser-policy.unit.test.ts",
+        "tests/backend/app/server-lib/page328-browser-auth.unit.test.ts",
+        "tests/backend/backend/service/employee/page328-browser-attachments.unit.test.ts",
+        "tests/backend/backend/service/chat/acp/page328-browser-job.unit.test.ts",
+        "tests/backend/backend/agents/cli/page328-browser-mount.unit.test.ts",
+        "tests/backend/backend/service/chat/browser/pica-browser-session-control.unit.test.ts",
+        "tests/backend/backend/service/chat/browser/pica-browser-session-tabs.unit.test.ts",
+        "tests/backend/app/lib/chat-services.unit.test.ts",
+        "tests/backend/app/lib/services.unit.test.ts",
+        "tests/backend/backend/auth/session-service.unit.test.ts",
+        "tests/backend/backend/auth/session-service-revocation.unit.test.ts",
+        "tests/backend/app/server-lib/session-cookie.unit.test.ts",
+        "tests/backend/app/server-lib/auth-middleware.unit.test.ts",
+        "tests/backend/backend/auth/auth-service-login.unit.test.ts",
+        "tests/backend/backend/auth/auth-service-password.unit.test.ts",
+        "tests/backend/backend/service/chat/acp/pica-job-admin.unit.test.ts",
+        "tests/backend/backend/service/chat/acp/pica-updates.unit.test.ts",
+        "tests/backend/backend/service/chat/acp/page335-job-pool.unit.test.ts",
+        "tests/backend/backend/service/chat/acp/page103-job-turns.unit.test.ts",
+        "tests/backend/backend/service/chat/acp/pica-service-reads.unit.test.ts",
+        "tests/backend/backend/service/employee/agent-employee-sessions.unit.test.ts",
+        "tests/backend/backend/service/employee/page335-kept-sessions.unit.test.ts",
+        "tests/backend/backend/service/chat/admin/pica-admin-service.unit.test.ts",
+        "tests/backend/backend/service/chat/admin/pica-operator-tools.unit.test.ts",
+        "tests/backend/backend/service/chat/admin/pica-operator-execution.unit.test.ts",
+        "tests/backend/backend/service/agents/page161-runner-output.unit.test.ts",
+        "tests/backend/backend/service/agents/page161-acp-output.unit.test.ts"
+      ],
+      "exitCode": 0,
+      "files": 30,
+      "tests": 309,
+      "log": ".git/page328-evidence/backend-final.log",
+      "selectionReason": "Issued sessions, authorization, lifecycle, private filesystem boundary, native worker mounts, service wiring and affected human-login/administrator/pool/output callers."
+    },
+    "backendFollowups": [
+      {
+        "command": "node node_modules/vitest/vitest.mjs run --config vitest.backend.config.ts tests/backend/backend/service/chat/browser/pica-browser-session-control.unit.test.ts",
+        "exitCode": 0,
+        "files": 1,
+        "tests": 33,
+        "log": ".git/page328-evidence/download-final.log",
+        "reason": "Added the explicit agent download-refusal assertion."
+      },
+      {
+        "command": "node node_modules/vitest/vitest.mjs run --config vitest.backend.config.ts tests/backend/backend/service/chat/browser/pica-browser-session-control.unit.test.ts tests/backend/backend/service/chat/browser/pica-browser-session-tabs.unit.test.ts tests/backend/backend/service/chat/browser/page328-browser-tools.unit.test.ts",
+        "exitCode": 0,
+        "files": 3,
+        "tests": 68,
+        "log": ".git/page328-evidence/browser-final.log",
+        "reason": "Consolidated the shared employee tool policy and made the own-account session marker explicit."
+      },
+      {
+        "command": "node node_modules/vitest/vitest.mjs run --config vitest.backend.config.ts tests/backend/backend/service/chat/browser/page328-browser-sessions.unit.test.ts tests/backend/app/lib/chat-services.unit.test.ts",
+        "exitCode": 0,
+        "files": 2,
+        "tests": 44,
+        "log": ".git/page328-evidence/runtime-final.log",
+        "reason": "Placed production runtime files in the protected instance directory so a broad temporary workspace cannot enclose them."
+      }
+    ],
+    "backendDistinctTests": 310,
+    "frontend": {
+      "command": [
+        "node",
+        "node_modules/vitest/vitest.mjs",
+        "run",
+        "--config",
+        "vitest.frontend.config.ts",
+        "tests/frontend/app/components/users/agents/page328-browser-access.unit.test.tsx",
+        "tests/frontend/app/components/users/agents/agent-panel.unit.test.tsx",
+        "tests/frontend/app/components/chat-page/chat-page.unit.test.tsx",
+        "tests/frontend/app/lib/pica-browser-client.unit.test.ts"
+      ],
+      "exitCode": 0,
+      "files": 4,
+      "tests": 41,
+      "log": ".git/page328-evidence/frontend.log"
+    },
+    "testEnvironment": "Every Vitest invocation used ESBUILD_BINARY_PATH=$PWD/.git/page328-evidence/esbuild. Coverage stays enabled by the existing scope configuration.",
+    "earlierFailures": [
+      {
+        "command": "pnpm exec vitest run --config vitest.backend.config.ts <selected sessions test>",
+        "exitCode": 1,
+        "reason": "pnpm v11.23.0 launcher: Permission denied. Resolved by using the installed Node entrypoint."
+      },
+      {
+        "exitCode": 1,
+        "reason": "Direct Vitest initially could not execute the copied esbuild binary (EACCES). Resolved with a private executable copy; no version/configuration changes."
+      },
+      {
+        "exitCode": 1,
+        "reason": "Initial test helper hoisting/import order failed to replace the filesystem boundary. Split the mock boundary into its own module and registered it explicitly in each test; all affected tests now use mocks and pass."
+      },
+      {
+        "exitCode": 1,
+        "reason": "Caller tests caught two changed browser-service wiring expectations and premature revocation of a pooled native session. Wiring assertions now include the new real service; job cleanup detaches/closes the native lease before revoking browser state. Targeted reruns passed."
+      }
+    ],
+    "coverage": "Diagnostic only. Unchanged V8 configuration reports statements, branches, functions and lines, including untested modules, in each captured run log and coverage/backend or coverage/frontend. Selected runs are not full-project functional coverage; reports are not aggregated and no threshold/ignore/population changes were made. Later focused runs supersede only their affected source/test evidence.",
+    "notRun": [
+      "pnpm run check",
+      "pnpm run lint",
+      "pnpm run test:backend",
+      "pnpm run test:frontend",
+      "browser:test",
+      "postgres:check",
+      "build",
+      "full unit suites",
+      "qa-evidence coverage",
+      "qa-evidence verify-handoff"
+    ],
+    "qaHandoff": "Final QA owns affected-file ESLint and the project-wide check, plus any affected-unit validation it determines from preparation.base. No push, branch change, rebase, CI test tags or live-service/data/credential changes.",
+    "gitAttempt": {
+      "initialExitCode": 128,
+      "initialReason": "Author identity unknown; fatal: unable to auto-detect email address",
+      "resolution": "git -c user.name=Ed -c user.email=ed@pages.local commit; successful SHA is bound in report_step_result."
+    }
+  },
+  "limitations": [
+    "No real browser, application or screenshot acceptance was performed, as explicitly required by this pilot. The browser/authentication/storageState contract is covered with isolated unit assertions.",
+    "A server crash can leave a private runtime file; its in-memory token is immediately invalid after restart. Normal completion, failure, cancellation, disablement and revocation remove the file.",
+    "Live browser frames and controls use the existing administrator-gated interface; native host-tool activity retains its existing live tool journal.",
+    "Final QA and live wiki publication are still pending."
+  ],
+  "changedFiles": [
+    "app/components/chat-page/chat-page.tsx",
+    "app/components/chat/browser/chat-browser-card.tsx",
+    "app/components/chat/browser/chat-browser-controls.tsx",
+    "app/components/chat/browser/chat-browser-extras.tsx",
+    "app/components/users/agents/agent-access-section.tsx",
+    "app/lib/chat-services.server.ts",
+    "app/lib/mcp-workspace-services.server.ts",
+    "app/lib/services.server.ts",
+    "app/lib/session.server.ts",
+    "backend/agents/acp/AcpChat.ts",
+    "backend/agents/cli/CliAcpLaunch.ts",
+    "backend/auth/BrowserSessionCookie.ts",
+    "backend/auth/SessionService.ts",
+    "backend/logging/LogRedaction.ts",
+    "backend/security/AgentBrowserSecrets.ts",
+    "backend/security/AgentTextSafety.ts",
+    "backend/service/agents/AgentPlanOutput.ts",
+    "backend/service/chat/ChatAnswerFileService.ts",
+    "backend/service/chat/PicaTools.ts",
+    "backend/service/chat/acp/PicaAcpJob.ts",
+    "backend/service/chat/acp/PicaAcpJobDependencies.ts",
+    "backend/service/chat/acp/PicaAcpJournal.ts",
+    "backend/service/chat/acp/PicaAcpService.ts",
+    "backend/service/chat/acp/PicaAcpToolTurns.ts",
+    "backend/service/chat/admin/PicaAdminService.ts",
+    "backend/service/chat/browser/AgentBrowserRuntimeFiles.ts",
+    "backend/service/chat/browser/AgentBrowserService.ts",
+    "backend/service/chat/browser/AgentBrowserSessions.ts",
+    "backend/service/chat/browser/PicaBrowserContracts.ts",
+    "backend/service/chat/browser/PicaBrowserProxy.ts",
+    "backend/service/chat/browser/PicaBrowserSession.ts",
+    "backend/service/chat/browser/PicaBrowserTargets.ts",
+    "backend/service/chat/browser/PicaBrowserTools.ts",
+    "backend/service/chat/browser/PicaOperatorBrowser.ts",
+    "backend/service/employee/AgentEmployeeSessions.ts",
+    "backend/service/employee/AgentHostFiles.ts",
+    "definition/PicaBrowser.ts",
+    "definition/User.ts",
+    "docs/PAGE-328-report.json",
+    "docs/PicaOperatorBrowser.md",
+    "docs/wiki/PAGE-303.md",
+    "language/locales/de/translation.json",
+    "language/locales/en/translation.json",
+    "tests/backend/app/lib/chat-services.unit.test.ts",
+    "tests/backend/app/lib/services-fixture.ts",
+    "tests/backend/app/lib/services.unit.test.ts",
+    "tests/backend/app/server-lib/page328-browser-auth.unit.test.ts",
+    "tests/backend/backend/agents/cli/page328-browser-mount.unit.test.ts",
+    "tests/backend/backend/service/chat/acp/page103-job-fixture.ts",
+    "tests/backend/backend/service/chat/acp/page328-browser-job.unit.test.ts",
+    "tests/backend/backend/service/chat/browser/page328-browser-files.ts",
+    "tests/backend/backend/service/chat/browser/page328-browser-policy.unit.test.ts",
+    "tests/backend/backend/service/chat/browser/page328-browser-privacy.unit.test.ts",
+    "tests/backend/backend/service/chat/browser/page328-browser-sessions.unit.test.ts",
+    "tests/backend/backend/service/chat/browser/page328-browser-tools.unit.test.ts",
+    "tests/backend/backend/service/chat/browser/page328-browser-world.ts",
+    "tests/backend/backend/service/chat/browser/pica-browser-session-control.unit.test.ts",
+    "tests/backend/backend/service/employee/page328-browser-attachments.unit.test.ts",
+    "tests/backend/backend/service/employee/page335-kept-sessions.unit.test.ts",
+    "tests/frontend/app/components/users/agents/page328-browser-access.unit.test.tsx"
+  ],
+  "sourceBinding": "Run node scripts/qa-evidence.mjs fingerprint --scope pages after this report is formatted. The post-report fingerprint and local commit SHA are recorded in report_step_result to avoid a self-referential report hash.",
+  "reviewIteration": {
+    "baseCommit": "454e590314dc659d81c39b69bec379e2d390a9f1",
+    "context": "Current ticket iteration inspected and preserved the inherited PAGE-328 implementation. Earlier validation entries above are historical evidence; this section records this iteration's actual checks.",
+    "changes": [
+      "Closed a reproduced credential leak when raw browser tokens, encoded session cookies or private runtime paths were split across timed chat-journal flushes.",
+      "Retain an unfinished word until its next update; filter complete text before persistence. Preserve reset semantics and flush the remainder before turn/end markers and at drain.",
+      "Added six direct journal cases and one privacy regression testing every split position for raw token, encoded cookie and private path.",
+      "The PAGE-103 caller assertion still requires the exact retained answer, correct turn and no reset; it now reconstructs text events because the security fix may split a formerly single batch.",
+      "Documented the streaming filter in docs/PicaOperatorBrowser.md."
+    ],
+    "validation": {
+      "backend": {
+        "command": "ESBUILD_BINARY_PATH=\"$PWD/.git/page328-evidence/esbuild\" node node_modules/vitest/vitest.mjs run --config vitest.backend.config.ts tests/backend/backend/service/chat/browser/page328-browser-sessions.unit.test.ts tests/backend/backend/service/chat/browser/page328-browser-tools.unit.test.ts tests/backend/backend/service/chat/browser/page328-browser-privacy.unit.test.ts tests/backend/backend/service/chat/browser/page328-browser-policy.unit.test.ts tests/backend/app/server-lib/page328-browser-auth.unit.test.ts tests/backend/backend/service/employee/page328-browser-attachments.unit.test.ts tests/backend/backend/service/chat/acp/page328-browser-job.unit.test.ts tests/backend/backend/agents/cli/page328-browser-mount.unit.test.ts tests/backend/backend/service/chat/browser/pica-browser-session-control.unit.test.ts tests/backend/backend/service/chat/browser/pica-browser-session-tabs.unit.test.ts tests/backend/app/lib/chat-services.unit.test.ts tests/backend/app/lib/services.unit.test.ts tests/backend/backend/service/employee/page335-kept-sessions.unit.test.ts tests/backend/backend/service/chat/acp/pica-job-admin.unit.test.ts tests/backend/backend/service/chat/acp/page335-job-pool.unit.test.ts tests/backend/backend/service/chat/acp/page103-job-turns.unit.test.ts tests/backend/backend/service/chat/acp/pica-updates.unit.test.ts tests/backend/backend/service/chat/acp/pica-journal.unit.test.ts > .git/page328-evidence/iteration1-backend.log 2>&1",
+        "selectedFiles": [
+          "tests/backend/backend/service/chat/browser/page328-browser-sessions.unit.test.ts",
+          "tests/backend/backend/service/chat/browser/page328-browser-tools.unit.test.ts",
+          "tests/backend/backend/service/chat/browser/page328-browser-privacy.unit.test.ts",
+          "tests/backend/backend/service/chat/browser/page328-browser-policy.unit.test.ts",
+          "tests/backend/app/server-lib/page328-browser-auth.unit.test.ts",
+          "tests/backend/backend/service/employee/page328-browser-attachments.unit.test.ts",
+          "tests/backend/backend/service/chat/acp/page328-browser-job.unit.test.ts",
+          "tests/backend/backend/agents/cli/page328-browser-mount.unit.test.ts",
+          "tests/backend/backend/service/chat/browser/pica-browser-session-control.unit.test.ts",
+          "tests/backend/backend/service/chat/browser/pica-browser-session-tabs.unit.test.ts",
+          "tests/backend/app/lib/chat-services.unit.test.ts",
+          "tests/backend/app/lib/services.unit.test.ts",
+          "tests/backend/backend/service/employee/page335-kept-sessions.unit.test.ts",
+          "tests/backend/backend/service/chat/acp/pica-job-admin.unit.test.ts",
+          "tests/backend/backend/service/chat/acp/page335-job-pool.unit.test.ts",
+          "tests/backend/backend/service/chat/acp/page103-job-turns.unit.test.ts",
+          "tests/backend/backend/service/chat/acp/pica-updates.unit.test.ts",
+          "tests/backend/backend/service/chat/acp/pica-journal.unit.test.ts"
+        ],
+        "exitCode": 0,
+        "files": 18,
+        "tests": 171,
+        "log": ".git/page328-evidence/iteration1-backend.log",
+        "selectionReason": "PAGE-328 acceptance paths and their browser/authentication, service-wiring, native mount, UI-policy and employee-access boundaries; all PicaJobWorld callers affected by the journal batching change, plus direct journal lifecycle tests."
+      },
+      "frontend": {
+        "command": "ESBUILD_BINARY_PATH=\"$PWD/.git/page328-evidence/esbuild\" node node_modules/vitest/vitest.mjs run --config vitest.frontend.config.ts tests/frontend/app/components/users/agents/page328-browser-access.unit.test.tsx tests/frontend/app/components/users/agents/agent-panel.unit.test.tsx tests/frontend/app/components/chat-page/chat-page.unit.test.tsx tests/frontend/app/lib/pica-browser-client.unit.test.ts > .git/page328-evidence/iteration1-frontend.log 2>&1",
+        "selectedFiles": [
+          "tests/frontend/app/components/users/agents/page328-browser-access.unit.test.tsx",
+          "tests/frontend/app/components/users/agents/agent-panel.unit.test.tsx",
+          "tests/frontend/app/components/chat-page/chat-page.unit.test.tsx",
+          "tests/frontend/app/lib/pica-browser-client.unit.test.ts"
+        ],
+        "exitCode": 0,
+        "files": 4,
+        "tests": 41,
+        "log": ".git/page328-evidence/iteration1-frontend.log",
+        "selectionReason": "Inherited access/profile display and administrator browser controls, including agent panel, Chats-page composition and browser client."
+      },
+      "earlierFailures": [
+        {
+          "command": "ESBUILD_BINARY_PATH=\"$PWD/.git/page328-evidence/esbuild\" node node_modules/vitest/vitest.mjs run --config vitest.backend.config.ts tests/backend/backend/service/chat/browser/page328-browser-privacy.unit.test.ts",
+          "exitCode": 1,
+          "log": ".git/page328-evidence/iteration1-privacy-before.log",
+          "reason": "The new regression reproduced plaintext credential persistence across a timed split."
+        },
+        {
+          "command": "ESBUILD_BINARY_PATH=\"$PWD/.git/page328-evidence/esbuild\" node node_modules/vitest/vitest.mjs run --config vitest.backend.config.ts tests/backend/backend/service/chat/browser/page328-browser-privacy.unit.test.ts tests/backend/backend/service/chat/acp/pica-updates.unit.test.ts tests/backend/backend/service/chat/acp/page103-job-turns.unit.test.ts",
+          "exitCode": 1,
+          "log": ".git/page328-evidence/iteration1-privacy-after.log",
+          "reason": "Privacy regression passed; three PAGE-103 cases expected one text batch. They now assert the exact reconstructed answer and retained turn/reset semantics; final selection passed."
+        },
+        {
+          "command": "ESBUILD_BINARY_PATH=\"$PWD/.git/page328-evidence/esbuild\" node node_modules/vitest/vitest.mjs run --config vitest.backend.config.ts tests/backend/backend/service/chat/browser/page328-browser-privacy.unit.test.ts tests/backend/backend/service/chat/acp/page103-job-turns.unit.test.ts tests/backend/backend/service/chat/acp/pica-journal.unit.test.ts",
+          "exitCode": 0,
+          "files": 3,
+          "tests": 17,
+          "log": ".git/page328-evidence/iteration1-privacy-final.log",
+          "reason": "Intermediate successful verification; superseded by the final 171-test selection after adding turn/end-marker cases."
+        }
+      ],
+      "prettier": {
+        "command": "node node_modules/prettier/bin/prettier.cjs --write backend/service/chat/acp/PicaAcpJournal.ts docs/PicaOperatorBrowser.md docs/PAGE-328-report.json tests/backend/backend/service/chat/acp/page103-job-turns.unit.test.ts tests/backend/backend/service/chat/acp/pica-journal.unit.test.ts tests/backend/backend/service/chat/browser/page328-browser-privacy.unit.test.ts",
+        "exitCode": 0,
+        "log": ".git/page328-evidence/iteration1-prettier.log"
+      },
+      "evidenceNote": "Direct installed Node entrypoints and the inherited executable esbuild copy were used. Backend and Frontend ran sequentially with the unchanged V8 scope configuration. Raw logs remain in .git/page328-evidence and per-scope coverage remains in coverage/backend and coverage/frontend; generated evidence is not committed.",
+      "coverageNote": "Diagnostic selected-test coverage only; no thresholds, population changes, ignores or skips. Relevant backend metrics are captured below. No global coverage claim.",
+      "notRun": [
+        "pnpm run check",
+        "pnpm run lint",
+        "pnpm run test:backend",
+        "pnpm run test:frontend",
+        "browser:test",
+        "postgres:check",
+        "build",
+        "full unit suites",
+        "application/browser/network/database functional tests",
+        "screenshots",
+        "qa-evidence coverage",
+        "qa-evidence verify-handoff"
+      ],
+      "finalQa": "Pending: affected-file ESLint and project-wide check, and the QA agent's affected-unit evidence selection. The local commit is a ticket implementation handoff, not final QA approval.",
+      "moduleMetrics": {
+        "backend/security/AgentBrowserSecrets.ts": {
+          "lines": {
+            "total": 2,
+            "covered": 2,
+            "skipped": 0,
+            "pct": 100
+          },
+          "functions": {
+            "total": 2,
+            "covered": 2,
+            "skipped": 0,
+            "pct": 100
+          },
+          "statements": {
+            "total": 2,
+            "covered": 2,
+            "skipped": 0,
+            "pct": 100
+          },
+          "branches": {
+            "total": 0,
+            "covered": 0,
+            "skipped": 0,
+            "pct": 100
+          }
+        },
+        "backend/service/chat/acp/PicaAcpJournal.ts": {
+          "lines": {
+            "total": 39,
+            "covered": 33,
+            "skipped": 0,
+            "pct": 84.61
+          },
+          "functions": {
+            "total": 11,
+            "covered": 9,
+            "skipped": 0,
+            "pct": 81.81
+          },
+          "statements": {
+            "total": 42,
+            "covered": 36,
+            "skipped": 0,
+            "pct": 85.71
+          },
+          "branches": {
+            "total": 20,
+            "covered": 19,
+            "skipped": 0,
+            "pct": 95
+          }
+        },
+        "backend/service/chat/browser/AgentBrowserRuntimeFiles.ts": {
+          "lines": {
+            "total": 12,
+            "covered": 12,
+            "skipped": 0,
+            "pct": 100
+          },
+          "functions": {
+            "total": 5,
+            "covered": 5,
+            "skipped": 0,
+            "pct": 100
+          },
+          "statements": {
+            "total": 13,
+            "covered": 13,
+            "skipped": 0,
+            "pct": 100
+          },
+          "branches": {
+            "total": 3,
+            "covered": 2,
+            "skipped": 0,
+            "pct": 66.66
+          }
+        },
+        "backend/service/chat/browser/AgentBrowserService.ts": {
+          "lines": {
+            "total": 52,
+            "covered": 45,
+            "skipped": 0,
+            "pct": 86.53
+          },
+          "functions": {
+            "total": 20,
+            "covered": 16,
+            "skipped": 0,
+            "pct": 80
+          },
+          "statements": {
+            "total": 55,
+            "covered": 47,
+            "skipped": 0,
+            "pct": 85.45
+          },
+          "branches": {
+            "total": 18,
+            "covered": 16,
+            "skipped": 0,
+            "pct": 88.88
+          }
+        },
+        "backend/service/chat/browser/AgentBrowserSessions.ts": {
+          "lines": {
+            "total": 79,
+            "covered": 75,
+            "skipped": 0,
+            "pct": 94.93
+          },
+          "functions": {
+            "total": 23,
+            "covered": 21,
+            "skipped": 0,
+            "pct": 91.3
+          },
+          "statements": {
+            "total": 86,
+            "covered": 80,
+            "skipped": 0,
+            "pct": 93.02
+          },
+          "branches": {
+            "total": 37,
+            "covered": 34,
+            "skipped": 0,
+            "pct": 91.89
+          }
+        }
+      },
+      "coverageGaps": [
+        "PicaAcpJournal: persistence-error diagnostics and note-error handling; the fallback for an impossible missing regular-expression match is unobserved.",
+        "AgentBrowserSessions: abort while issuance is in flight and cleanup failure remain diagnostic gaps in this selected report.",
+        "AgentBrowserService: production shutdown and cleanup-error logging; AgentBrowserRuntimeFiles: pre-root shutdown branch."
+      ]
+    },
+    "decisions": [
+      "Preserve the existing own-account self profile and all prior ticket changes; additional external profiles remain optional and unimplemented.",
+      "Keep the privacy requirement's runtime-directory location rather than the earlier conflicting working-folder phrase.",
+      "The documentation requirement is fulfilled as the local wiki source update in docs/wiki/PAGE-303.md; publishing to the live wiki remains outside this run's authorization.",
+      "No delegation, push, rebase, branch switch, CI tag or live service/data/credential changes.",
+      "The inherited local Git author identity is supplied only to the local commit if repository configuration still has no identity."
+    ],
+    "openWork": [
+      "Final QA lint/check and QA acceptance",
+      "Publish the prepared wiki source after approval, outside this run"
+    ],
+    "result": "All seven ticket acceptance items have isolated-unit evidence as mapped above. No screenshot or real-browser acceptance was performed, in accordance with the pilot. No required ticket-agent check remains failed."
+  }
+}

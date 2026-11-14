@@ -87,8 +87,15 @@ function workerEnvironment(
  */
 export function acpWorkerRequest(parts: AcpWorkerParts): CliSessionRequest {
   const { input, mode, picaBundle } = parts;
+  const program = workerProgram(parts);
   return {
-    ...workerProgram(parts),
+    ...program,
+    readOnlyFiles: [
+      ...(program.readOnlyFiles ?? []),
+      ...(input.chat?.browserStateDirectory
+        ? [input.chat.browserStateDirectory]
+        : []),
+    ],
     provider: parts.provider,
     home: parts.home,
     workingDirectory: input.directory,

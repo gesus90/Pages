@@ -152,6 +152,11 @@ export function ChatBrowserCard({
 
   return (
     <li className="space-y-2 rounded-xl border border-border bg-surface p-2.5">
+      {browser.ownerName ? (
+        <p className="text-xs font-medium text-foreground">
+          {browser.ownerName}
+        </p>
+      ) : null}
       <ChatBrowserHeader
         browser={browser}
         isCollapsed={isCollapsed}

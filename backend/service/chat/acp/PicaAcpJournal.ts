@@ -1,3 +1,4 @@
+import { redactCredentials } from "@/backend/security/AgentTextSafety";
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 
@@ -36,9 +37,9 @@ export class PicaAcpJournal {
     this.jobId = jobId;
   }
 
-  /** Stores one entry after the text collected so far. */
+  /** Stores an entry after complete words; turn and end markers finalize retained text. */
   public record(event: ChatJobEvent): Promise<void> {
-    this.flushText();
+    this.flushText(event.kind === "end" || event.kind === "turn");
     return this.enqueue(event);
   }
 
@@ -54,26 +55,39 @@ export class PicaAcpJournal {
   public text(turn: number, isReset: boolean, delta: string): void {
     const pending = this.pendingText;
     if (pending !== null && (isReset || pending.turn !== turn))
-      this.flushText();
+      this.flushText(true);
     this.pendingText ??= { turn, isReset, delta: "" };
     this.pendingText.delta += delta;
     this.timer ??= setTimeout(() => this.flushText(), TEXT_FLUSH_MS);
     this.timer.unref();
   }
 
-  /** Resolves once every entry submitted so far is stored or failed. */
+  /** Finalizes retained text and resolves once every submitted entry is stored or failed. */
   public async drain(): Promise<void> {
-    this.flushText();
+    this.flushText(true);
     await this.writes.idle();
   }
 
-  private flushText(): void {
+  private flushText(shouldFinish = false): void {
     clearTimeout(this.timer);
     this.timer = undefined;
     const pending = this.pendingText;
     if (pending === null) return;
-    this.pendingText = null;
-    const event: ChatJobTextEvent = { kind: "text", ...pending };
+    // Keep an unfinished word so a credential split across updates reaches
+    // the filter intact, even when a timer or another event flushes the text.
+    const length = shouldFinish
+      ? pending.delta.length
+      : (/\S*$/u.exec(pending.delta)?.index ?? 0);
+    if (length === 0 && !shouldFinish) return;
+    const remainder = pending.delta.slice(length);
+    this.pendingText = remainder
+      ? { ...pending, isReset: false, delta: remainder }
+      : null;
+    const event: ChatJobTextEvent = {
+      kind: "text",
+      ...pending,
+      delta: redactCredentials(pending.delta.slice(0, length)),
+    };
     void this.enqueue(event).catch((caughtError: unknown) => {
       logCaughtError("PicaAcpJournal", caughtError);
 

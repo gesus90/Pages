@@ -1,5 +1,8 @@
 import { beforeEach, expect, it, vi } from "vitest";
 
+import { AgentBrowserService } from "@/backend/service/chat/browser/AgentBrowserService";
+import { AgentBrowserSessions } from "@/backend/service/chat/browser/AgentBrowserSessions";
+import { AgentEmployeeRepository } from "@/backend/database/repositories/employee/AgentEmployeeRepository";
 import { createChatServices } from "@/app/lib/chat-services.server";
 import { isSafeSvg } from "@/app/lib/settings-actions/svg-safety.server";
 import { PicaAdminService } from "@/backend/service/chat/admin/PicaAdminService";
@@ -24,6 +27,7 @@ import { PicaAcpWorkspace } from "@/backend/service/chat/acp/PicaAcpWorkspace";
 import { PicaBridge } from "@/backend/service/chat/acp/PicaBridge";
 import { readPicaInstructions } from "@/backend/service/chat/PicaInstructionFiles";
 import { PicaIdentityService } from "@/backend/service/chat/PicaIdentityService";
+import { PicaTicketLifecycleService } from "@/backend/service/chat/PicaTicketLifecycleService";
 import { WikiFileStore } from "@/backend/storage/WikiFileStore";
 
 import type { Mock } from "vitest";
@@ -37,6 +41,16 @@ const { fakeClasses, opaque, partial } = await vi.hoisted(
   async () => import("./service-wiring-fakes"),
 );
 
+vi.mock("@/backend/service/chat/browser/AgentBrowserService", () =>
+  fakeClasses({ AgentBrowserService: [] }),
+);
+vi.mock("@/backend/service/chat/browser/AgentBrowserSessions", () =>
+  fakeClasses({ AgentBrowserSessions: [] }),
+);
+vi.mock(
+  "@/backend/database/repositories/employee/AgentEmployeeRepository",
+  () => fakeClasses({ AgentEmployeeRepository: ["find"] }),
+);
 vi.mock("@/app/lib/settings-actions/svg-safety.server", () => ({
   isSafeSvg: vi.fn(),
 }));
@@ -105,6 +119,9 @@ vi.mock("@/backend/service/chat/PicaInstructionFiles", () => ({
 }));
 vi.mock("@/backend/service/chat/PicaIdentityService", () =>
   fakeClasses({ PicaIdentityService: [] }),
+);
+vi.mock("@/backend/service/chat/PicaTicketLifecycleService", () =>
+  fakeClasses({ PicaTicketLifecycleService: [] }),
 );
 vi.mock("@/backend/storage/WikiFileStore", () =>
   fakeClasses({ WikiFileStore: [] }),
@@ -322,7 +339,14 @@ it("gives Pica's administration tools the file storage next to the browser optio
   createChatServices(chatInput({ storage, picaBrowser: { launchBrowser } }));
 
   expect(vi.mocked(PicaAdminService).mock.calls).toEqual([
-    [ACCOUNTS, { launchBrowser, storage }],
+    [
+      ACCOUNTS,
+      {
+        launchBrowser,
+        storage,
+        agentBrowsers: vi.mocked(AgentBrowserService).mock.instances[0],
+      },
+    ],
   ]);
 });
 
@@ -407,7 +431,10 @@ it("runs tools as the current identity over the shared operation router", () => 
     identities: vi.mocked(PicaIdentityService).mock.instances[0],
   });
   expect(vi.mocked(PicaAdminService).mock.calls).toEqual([
-    [ACCOUNTS, undefined],
+    [
+      ACCOUNTS,
+      { agentBrowsers: vi.mocked(AgentBrowserService).mock.instances[0] },
+    ],
   ]);
   expect(services.picaAdminService).toBe(
     vi.mocked(PicaAdminService).mock.instances[0],
@@ -420,6 +447,16 @@ it("protects the public origin from Pica's administration tools", () => {
 
   expect(PicaAdminService.prototype.protectOrigin).toHaveBeenCalledWith(
     "https://pages.example",
+  );
+});
+
+it("gives the executor the shared ticket lifecycle with the UI services", () => {
+  const tickets = opaque<NonNullable<ChatServicesInput["tickets"]>>("tickets");
+  createChatServices(chatInput({ tickets }));
+
+  expect(vi.mocked(PicaTicketLifecycleService).mock.calls).toEqual([[tickets]]);
+  expect(vi.mocked(ChatToolExecutor).mock.calls[0][0].ticketLifecycle).toBe(
+    vi.mocked(PicaTicketLifecycleService).mock.instances[0],
   );
 });
 

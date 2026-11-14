@@ -3,7 +3,10 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { cn } from "@/app/lib/cn";
-import { AGENT_EMPLOYEE_ACCESS_MODES } from "@/definition/AgentEmployee";
+import {
+  AGENT_EMPLOYEE_ACCESS_MODES,
+  hasHostTools,
+} from "@/definition/AgentEmployee";
 
 import { AgentTemplateConfirm } from "./agent-template-confirm";
 
@@ -162,6 +165,13 @@ export function AgentAccessSection({
           {t("agentEmployees.accessTab.isolationMissing")}
         </p>
       ) : null}
+      <p className="text-sm text-foreground" role="status">
+        {t(
+          hasHostTools(savedValue ?? value)
+            ? "agentEmployees.accessTab.browserAllowed"
+            : "agentEmployees.accessTab.browserDenied",
+        )}
+      </p>
       <fieldset className="flex flex-col gap-2">
         <legend className="mb-2 text-sm font-semibold text-foreground">
           {t("agentEmployees.accessTab.legend")}

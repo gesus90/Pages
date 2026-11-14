@@ -104,6 +104,13 @@ function readTicketType(input: unknown): WorkItemType {
   return input;
 }
 
+function readArchivedFilter(input: unknown): { readonly archived?: boolean } {
+  if (input === undefined) return {};
+  if (typeof input !== "boolean")
+    throw new AgentOperationError("INVALID_REQUEST");
+  return { archived: input };
+}
+
 /**
  * Validates the filters and the window of a ticket search.
  *
@@ -123,6 +130,7 @@ export function readAgentTicketSearch(input: unknown): {
     "type",
     "parentId",
     "tagIds",
+    "archived",
     ...IDENTIFIER_FILTERS,
     ...WINDOW_KEYS,
   ]);
@@ -132,6 +140,7 @@ export function readAgentTicketSearch(input: unknown): {
     search: {
       projectId: readIdentifier(fields.projectId),
       ...readIdentifierFilters(fields),
+      ...readArchivedFilter(fields.archived),
       ...(fields.text === undefined
         ? {}
         : { text: readSearchText(fields.text) }),

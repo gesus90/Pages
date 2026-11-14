@@ -69,6 +69,7 @@ export async function resolveAgentTicketSearchFilters(
   if (parent !== null && parent.projectId !== search.projectId)
     throw new AgentOperationError("INVALID_REQUEST");
   return {
+    archived: search.archived === true ? "archived" : "active",
     type: search.type,
     statusId: search.statusId,
     milestoneId: search.milestoneId,

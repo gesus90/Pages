@@ -63,7 +63,7 @@ export class AgentTicketSearchService {
   }
 
   /**
-   * Searches the visible active tickets of one project.
+   * Searches the visible tickets of one project, active by default or archived with `archived: true`.
    *
    * @param identity - The verified owner of the call.
    * @param parameters - The raw operation parameters: `projectId`, optional filters, `cursor` and `limit`.

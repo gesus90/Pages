@@ -69,6 +69,8 @@ const savedSessionSchema = z
 export const picaBrowserViewSchema = z
   .object({
     browserId: z.string().uuid(),
+    isAgent: z.boolean().optional(),
+    ownerName: z.string().optional(),
     task: z.string(),
     state: z.enum(PICA_BROWSER_STATES),
     url: z.string(),

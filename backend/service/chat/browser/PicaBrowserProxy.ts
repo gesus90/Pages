@@ -25,6 +25,7 @@ export interface PicaBrowserCapturedFile {
 /** What the proxy needs from the browser it serves. */
 export interface PicaBrowserProxyHost {
   readonly signal: AbortSignal;
+  readonly hasOwnAccount?: boolean;
   readonly origins: () => PicaBrowserOrigins;
   readonly areWritesApproved: () => boolean;
   /** Rechecks the administrator right; throws when it ended. */
@@ -131,6 +132,20 @@ function joinHeaders(
   return joined;
 }
 
+/** Never forwards the Pages login cookie to a released service on another port or an external site. */
+export function browserRequestCookies(
+  cookies: readonly Pick<
+    Awaited<ReturnType<BrowserContext["cookies"]>>[number],
+    "name" | "value"
+  >[],
+  kind: PicaBrowserTarget["kind"],
+): string {
+  return cookies
+    .filter((entry) => entry.name !== "pages_session" || kind === "pages")
+    .map((entry) => `${entry.name}=${entry.value}`)
+    .join("; ");
+}
+
 function failureLabel(error: unknown): string {
   if (error instanceof PicaAdminError) return error.message;
   if (
@@ -222,14 +237,19 @@ export class PicaBrowserProxy {
       request.url(),
       this.host.origins(),
     );
-    requireWriteApproval(target, method, this.host.areWritesApproved());
+    requireWriteApproval(
+      target,
+      method,
+      this.host.areWritesApproved(),
+      this.host.hasOwnAccount === true,
+    );
     this.requireLocalInitiator(request, target);
     const cookies = await this.context.cookies(target.url.href);
     return this.transport.send({
       target,
       method,
       headers: await request.allHeaders(),
-      cookie: cookies.map((entry) => `${entry.name}=${entry.value}`).join("; "),
+      cookie: browserRequestCookies(cookies, target.kind),
       body: request.postDataBuffer(),
       signal: this.host.signal,
     });

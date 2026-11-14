@@ -95,6 +95,8 @@ export interface PicaAcpEmployeeRun {
   readonly prepareTurn?: (
     afterSequence: number | null,
   ) => Promise<PicaAcpConversationTurn>;
+  /** Browser access derived from the stored employee level, never model input. */
+  readonly hasBrowser?: boolean;
   /** Rechecks account availability while keeping this round's configuration pinned. */
   readonly requireCurrent: () => Promise<void>;
   /** Requires the connection pinned for this round, even if the next round's settings changed. */
@@ -571,10 +573,17 @@ export class PicaAcpService {
     employee: PicaAcpEmployeeRun | undefined,
   ): PicaAcpServiceDependencies {
     if (!employee)
-      return { ...this.dependencies, agentDeletions: this.agentDeletions };
+      return {
+        ...this.dependencies,
+        agentBrowsers: undefined,
+        agentDeletions: this.agentDeletions,
+      };
     return {
       ...this.dependencies,
       agentDeletions: undefined,
+      agentBrowsers: employee.hasBrowser
+        ? this.dependencies.agentBrowsers
+        : undefined,
       requireCurrent: () => employee.requireCurrent(),
       searchMemory: (query) => employee.searchMemory(query),
       ...(employee.readConversationContext

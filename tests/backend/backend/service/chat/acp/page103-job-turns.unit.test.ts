@@ -19,12 +19,13 @@ it.each(["codex_cli", "claude_code", "opencode"] as const)(
     await completion;
     expect(world.tools).toHaveBeenCalledTimes(256);
     expect(world.finish).toHaveBeenCalledWith("job", "failed", "stepLimit");
-    expect(world.events).toContainEqual({
-      kind: "text",
-      turn: 1,
-      isReset: false,
-      delta: "Partial answer",
-    });
+    const textEvents = world.events.filter((event) => event.kind === "text");
+    expect(textEvents.map((event) => event.delta).join("")).toBe(
+      "Partial answer",
+    );
+    expect(
+      textEvents.every((event) => event.turn === 1 && !event.isReset),
+    ).toBe(true);
     expect(world.close).toHaveBeenCalledOnce();
   },
 );

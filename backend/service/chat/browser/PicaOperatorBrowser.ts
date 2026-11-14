@@ -47,6 +47,11 @@ export interface PicaOperatorBrowserDependencies {
   readonly origins: () => PicaBrowserOrigins;
   /** Saved sessions; without a store, signed-in sessions cannot be kept. */
   readonly store: PicaBrowserSessionStore | null;
+  /** Own-account state of an agent; this path admits only the self profile. */
+  readonly ownerName?: (context: RuntimeExecutionContext) => string;
+  readonly selfState?: (
+    context: RuntimeExecutionContext,
+  ) => Awaited<ReturnType<PicaBrowserSession["storage"]>>;
   /** Reads a text file of the person's handover folder, for uploads. */
   readonly readFile: (
     context: RuntimeExecutionContext,
@@ -59,7 +64,7 @@ export interface PicaOperatorBrowserDependencies {
  *
  * @remarks
  * This is a separate path from the restricted admin browser. Every browser is
- * an isolated Chromium process that belongs to one administrator and one job.
+ * an isolated Chromium process that belongs to one account and one job.
  * Calls arrive through the privileged tool path, which resolved the
  * administrator right just before; the live methods are called by routes that
  * did the same for the person. A browser closes with its job, after 15 idle
@@ -107,7 +112,10 @@ export class PicaOperatorBrowser {
         { tool, input, context },
         {
           find: (browserId) => this.require(context, browserId),
-          forget: (session) => this.sessions.delete(session.id),
+          forget: (session) => {
+            this.startedAt.delete(session.id);
+            this.sessions.delete(session.id);
+          },
           readFile: this.dependencies.readFile,
         },
       );
@@ -126,17 +134,20 @@ export class PicaOperatorBrowser {
     for (const [id, session] of this.sessions) {
       if (session.scope !== scope) continue;
       this.sessions.delete(id);
+      this.startedAt.delete(id);
       await session.close();
     }
   }
 
   /** The browsers of a person, for the live view of the chat. */
-  public async overview(userId: string): Promise<PicaBrowserOverview> {
+  public async overview(userId: string | null): Promise<PicaBrowserOverview> {
     const owned = [...this.sessions.values()].filter(
-      (session) => session.userId === userId,
+      (session) => userId === null || session.userId === userId,
     );
     await Promise.all(owned.map((session) => session.refreshTitles()));
-    const saved = (await this.dependencies.store?.list(userId)) ?? [];
+    const saved = userId
+      ? ((await this.dependencies.store?.list(userId)) ?? [])
+      : [];
     return {
       browsers: owned.map((session) => session.view()),
       savedSessions: saved.map((entry) => ({
@@ -155,7 +166,7 @@ export class PicaOperatorBrowser {
    * @returns The picture, or `null` when none exists yet.
    */
   public async frame(
-    userId: string,
+    userId: string | null,
     browserId: string,
   ): Promise<PicaBrowserFrame | null> {
     const session = this.owned(userId, browserId);
@@ -186,13 +197,18 @@ export class PicaOperatorBrowser {
    * @returns The browser as it looks afterwards.
    */
   public async command(
-    userId: string,
+    userId: string | null,
     browserId: string,
     command: PicaBrowserCommand,
+    administratorId?: string,
   ): Promise<PicaBrowserView> {
     const session = this.owned(userId, browserId);
     session.touch();
-    this.audit(userId, session, command.command);
+    this.audit(
+      administratorId ?? userId ?? session.userId,
+      session,
+      command.command,
+    );
     switch (command.command) {
       case "pause":
         session.pause();
@@ -221,10 +237,10 @@ export class PicaOperatorBrowser {
         );
         break;
       case "saveSession":
-        await this.saveSession(userId, session, command.name);
+        await this.saveSession(session.userId, session, command.name);
         break;
       case "deleteSession":
-        await this.dependencies.store?.remove(userId, command.name);
+        await this.dependencies.store?.remove(session.userId, command.name);
         break;
       case "input":
         await applyAdministratorInput(session, command.input);
@@ -244,7 +260,7 @@ export class PicaOperatorBrowser {
    * @throws {PicaAdminError} `DOWNLOAD_NOT_FOUND`.
    */
   public download(
-    userId: string,
+    userId: string | null,
     browserId: string,
     downloadId: string,
   ): {
@@ -263,11 +279,18 @@ export class PicaOperatorBrowser {
     };
   }
 
+  /** Returns the job scope of a managed browser, without exposing session state. */
+  public scopeOf(browserId: string): string | null {
+    return this.sessions.get(browserId)?.scope ?? null;
+  }
+
   /** Lists the saved sessions the model may use. */
   private async profiles(
     context: RuntimeExecutionContext,
   ): Promise<PicaToolOutcome> {
-    const saved = (await this.dependencies.store?.list(context.userId)) ?? [];
+    const saved = this.dependencies.selfState
+      ? [{ name: "self", origins: this.dependencies.origins().pages }]
+      : ((await this.dependencies.store?.list(context.userId)) ?? []);
     return {
       ok: true,
       result: redactCredentials(
@@ -301,15 +324,15 @@ export class PicaOperatorBrowser {
       return browserFailureOutcome("RESOURCE_LIMIT");
     const origins = this.dependencies.origins();
     const address = input.url ? await checkedAddress(origins, input.url) : null;
-    const storage = input.profile
-      ? await this.savedState(context.userId, input.profile)
-      : undefined;
+    const storage = await this.initialStorage(context, input.profile);
     const session = new PicaBrowserSession({
       userId: context.userId,
       scope,
       conversationId: context.sessionId,
       task: input.task,
-      profile: input.profile ?? null,
+      profile: this.dependencies.selfState ? "self" : (input.profile ?? null),
+      isAgent: this.dependencies.selfState !== undefined,
+      ownerName: this.dependencies.ownerName?.(context),
       device: input.device ?? "desktop",
       browser: await this.dependencies.launch(),
       origins: this.dependencies.origins,
@@ -344,6 +367,18 @@ export class PicaOperatorBrowser {
     }
   }
 
+  private async initialStorage(
+    context: RuntimeExecutionContext,
+    profile: string | undefined,
+  ): Promise<Awaited<ReturnType<PicaBrowserSession["storage"]>> | undefined> {
+    if (this.dependencies.selfState) {
+      if (profile && profile !== "self")
+        throw new PicaAdminError("SESSION_DENIED");
+      return this.dependencies.selfState(context);
+    }
+    return profile ? this.savedState(context.userId, profile) : undefined;
+  }
+
   private async savedState(
     userId: string,
     name: string,
@@ -374,9 +409,9 @@ export class PicaOperatorBrowser {
     return session;
   }
 
-  private owned(userId: string, browserId: string): PicaBrowserSession {
+  private owned(userId: string | null, browserId: string): PicaBrowserSession {
     const session = this.sessions.get(browserId);
-    if (!session || session.userId !== userId)
+    if (!session || (userId !== null && session.userId !== userId))
       throw new PicaAdminError("SESSION_DENIED");
     return session;
   }

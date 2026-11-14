@@ -12,7 +12,10 @@ import { registerPicaAutomationTools } from "./PicaAutomationTools";
 import { registerPicaAdminTools } from "./admin/PicaAdminTools";
 import { registerPicaOperatorTools } from "./admin/PicaOperatorTools";
 import { registerPicaStorageTools } from "./admin/PicaStorageTools";
-import { registerPicaBrowserTools } from "./browser/PicaBrowserTools";
+import {
+  registerAgentBrowserTools,
+  registerPicaBrowserTools,
+} from "./browser/PicaBrowserTools";
 import { CHAT_MAXIMUM_ACTIONS } from "./ChatExecutionLimits";
 import { ChatAnswerFileError } from "./ChatAnswerFileService";
 import {
@@ -25,6 +28,7 @@ import {
   isPicaWriteTool,
 } from "./PicaToolSchemas";
 
+import type { AgentBrowserService } from "./browser/AgentBrowserService";
 import type { z } from "zod";
 import type { PicaAdminService } from "./admin/PicaAdminService";
 import type { AgentDeletionService } from "@/backend/service/employee/AgentDeletionService";
@@ -55,6 +59,8 @@ export interface PicaToolsInput {
   readonly sessions: Pick<ChatSessionService, "confirmationWord">;
   readonly authorize: () => Promise<void>;
   readonly adminTools?: PicaAdminService | undefined;
+  /** Present only for an employee whose stored access allows a browser. */
+  readonly agentBrowsers?: AgentBrowserService | undefined;
   readonly agentDeletions?: AgentDeletionService | undefined;
   /** Ends or marks the run when a call would exceed the actual execution budget. */
   readonly onLimit?: () => void;
@@ -121,7 +127,7 @@ const READ_TOOLS: Readonly<Record<PicaReadTool, PicaToolBinding>> = {
   },
   tickets_search: {
     description:
-      "Search visible tickets of a known project by key, title or description; assignedToMe keeps the person's own tickets, statusId and type filter further. Returns at most 20 tickets with status and isDone, and a paging cursor.",
+      "Search visible tickets of a known project by key, title or description; assignedToMe keeps the person's own tickets, statusId and type filter further. archived defaults to false (active tickets); true finds only archived tickets, subject to the project's archive right. Returns at most 20 tickets with status and isDone, and a paging cursor.",
     operation: "tickets.search",
     // The person is the one of the conversation; a model never names an account.
     parameters: ({ assignedToMe, ...input }, context) => ({
@@ -132,7 +138,7 @@ const READ_TOOLS: Readonly<Record<PicaReadTool, PicaToolBinding>> = {
   },
   tickets_read: {
     description:
-      "Read a visible ticket by ID or key, including the current title, description, status ID, parent, milestone, assignee, departments (a list; empty means visible to the whole project), tags and descendantCount before a change.",
+      "Read a visible ticket by ID or key, including isArchived, the current title, description, status ID, parent, milestone, assignee, departments (a list; empty means visible to the whole project), tags and descendantCount before a change.",
     operation: "ticket.read",
   },
   assignment_targets_search: {
@@ -219,6 +225,16 @@ const WRITE_TOOLS: Readonly<Record<PicaWriteTool, PicaToolBinding>> = {
     description:
       "Move a ticket with all its descendants to the trash; the result names how many were moved.",
     operation: "ticket.delete",
+  },
+  tickets_archive: {
+    description:
+      "Archive a visible ticket with the project's archive right. First call without confirmed to get the keys and titles of all affected tickets without changing anything; show that list and ask the person to confirm, then call with confirmed: true to execute and receive archived: the number changed. children defaults to include; keep leaves children without a parent and is refused for a task, whose subtasks always go along.",
+    operation: "ticket.archive",
+  },
+  tickets_restore: {
+    description:
+      "Restore an archived ticket and its descendants with the project's archive right; keeps the workflow status and records the acting account in history. Returns restored: the number changed and the ticket. To archive again, first call tickets_archive without confirmed, ask the person to confirm its affected list, then call with confirmed: true.",
+    operation: "ticket.restore",
   },
   projects_create: {
     description:
@@ -493,7 +509,8 @@ function registerAdministratorTools(
 ): void {
   const { input, service, budget, execute } = parts;
   registerPicaAdminTools(registry, service, () => spend(input, budget));
-  registerPicaBrowserTools(registry, service, () => spend(input, budget));
+  if (!input.agentBrowsers)
+    registerPicaBrowserTools(registry, service, () => spend(input, budget));
   registerPicaOperatorTools(registry, {
     native: PICA_NATIVE_OPERATIONS,
     run: (entry, parameters, context) =>
@@ -654,6 +671,10 @@ export function createPicaTools(
         createAnswerFile(input, budget, { parameters, context }),
     });
   registerAgentEmployeeTools(registry, input, budget);
+  if (input.agentBrowsers)
+    registerAgentBrowserTools(registry, input.agentBrowsers, () =>
+      spend(input, budget),
+    );
   if (input.adminTools)
     registerAdministratorTools(registry, {
       input,

@@ -95,7 +95,9 @@ vi.mock("@/backend/auth/PermissionService", () =>
   fakeClasses({ PermissionService: [] }),
 );
 vi.mock("@/backend/auth/SessionService", () =>
-  fakeClasses({ SessionService: ["removeExpiredSessions"] }),
+  fakeClasses({
+    SessionService: ["removeExpiredSessions", "setAgentBrowsers"],
+  }),
 );
 vi.mock("@/backend/cache/ServerCache", () => fakeClasses({ ServerCache: [] }));
 vi.mock("@/backend/service/integrations/GitHubJobWorker", () =>
@@ -313,7 +315,10 @@ export function servicesWorld(): ServicesWorld {
       chatOperationRouter: opaque("chat router"),
       pagesAgentApiService: opaque("agent api"),
     }),
-    chat: partial<ChatApplicationServices>({ chatService: opaque("chat") }),
+    chat: partial<ChatApplicationServices>({
+      chatService: opaque("chat"),
+      agentBrowserSessions: opaque("agent browser sessions"),
+    }),
     employee: partial<EmployeeApplicationServices>({
       agentDeletionService: { purgeExpired: vi.fn(async () => undefined) },
       agentEmployeeAdministration: opaque("employee admin"),

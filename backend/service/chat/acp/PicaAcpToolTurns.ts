@@ -23,6 +23,7 @@ export class PicaAcpToolTurns {
     | "tools"
     | "sessions"
     | "answerFiles"
+    | "agentBrowsers"
     | "adminTools"
     | "agentDeletions"
     | "searchMemory"
@@ -41,6 +42,7 @@ export class PicaAcpToolTurns {
       | "tools"
       | "sessions"
       | "answerFiles"
+      | "agentBrowsers"
       | "adminTools"
       | "agentDeletions"
       | "searchMemory"
@@ -78,6 +80,7 @@ export class PicaAcpToolTurns {
       sessions: this.dependencies.sessions,
       authorize: () => Promise.resolve(),
       answerFiles: this.dependencies.answerFiles,
+      agentBrowsers: this.dependencies.agentBrowsers,
       adminTools: this.dependencies.adminTools,
       agentDeletions: this.dependencies.agentDeletions,
       searchMemory: this.dependencies.searchMemory,
@@ -173,6 +176,7 @@ export class PicaAcpToolTurns {
         tools: this.dependencies.tools,
         sessions: this.dependencies.sessions,
         authorize: context.authorize,
+        agentBrowsers: this.dependencies.agentBrowsers,
         adminTools: this.dependencies.adminTools,
         agentDeletions: this.dependencies.agentDeletions,
         onLimit: () => this.controller.abort("stepLimit"),
