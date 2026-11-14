@@ -1,4 +1,4 @@
-import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import path from "node:path";
 
 import { settleWorkerUnits } from "@/backend/agents/cli/CliWorkerUnit";
@@ -39,6 +39,8 @@ import { forgetForcedLocalRun } from "./LocalSessionForcedRelease";
 import { waitForLocalOwnerReady } from "./LocalOwnerReady";
 import { pinLocalSessionTools } from "./LocalSessionTools";
 import { LocalFinishedSessions } from "./LocalFinishedSessions";
+import { readLocalCompletion } from "./LocalSessionCompletion";
+import { localInstanceKey } from "./LocalSessionIdentity";
 
 import type { Database } from "@/backend/database/Database";
 import type { AgentToolManagerService } from "@/backend/service/agents/tools/AgentToolManagerService";
@@ -94,10 +96,7 @@ export class LocalSessions {
     this.input = input;
     this.owners = new LocalSessionRepository(input.database);
     this.runs = new AgentPlanRunRepository(input.database);
-    this.instanceKey = createHash("sha256")
-      .update(input.tokenKey)
-      .update(path.resolve(input.configPath))
-      .digest("hex");
+    this.instanceKey = localInstanceKey(input.tokenKey, input.configPath);
     registerLocalOwnerSettlement((instanceId) =>
       this.settleManaged(instanceId),
     );
@@ -254,7 +253,12 @@ export class LocalSessions {
     await attached.raw.observe(signal, observer);
     const result =
       record.attemptId && !options.current
-        ? await this.completion(entry.instanceId, record.attemptId)
+        ? await readLocalCompletion(
+            this.owners,
+            this.input.database,
+            entry.instanceId,
+            record.attemptId,
+          )
         : null;
     const session = attached.session;
     return {
@@ -456,7 +460,13 @@ export class LocalSessions {
         token,
       }),
       control: (command) => this.control(entry, command),
-      completion: (turnId) => this.completion(entry.instanceId, turnId),
+      completion: (turnId) =>
+        readLocalCompletion(
+          this.owners,
+          this.input.database,
+          entry.instanceId,
+          turnId,
+        ),
       nextLaunch: (input) =>
         this.launch(input, entry.instanceId, launch.mcp, 0),
       namespace: async (mutation) => {
@@ -613,20 +623,6 @@ export class LocalSessions {
     this.uncertain.delete(entry.instanceId);
     this.attached.delete(entry.instanceId);
     this.input.tools.supervisor.release(entry.instanceId);
-  }
-
-  private async completion(
-    instanceId: string,
-    turnId: string,
-  ): Promise<LocalSessionMutation | null> {
-    const reference = await this.owners.result(instanceId, turnId);
-    return reference
-      ? localMutationSchema.parse(
-          JSON.parse(
-            await requireAgentFiles(this.input.database).read(reference),
-          ),
-        )
-      : null;
   }
 
   private async currentLaunch(instanceId: string): Promise<LocalSessionLaunch> {
