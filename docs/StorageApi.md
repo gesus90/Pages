@@ -1,5 +1,9 @@
 # Storage interface for files and folders (PAGE-270)
 
+[Documentation index](README.md) · [Access rights](#rights) ·
+[Google Drive sign-in](#google-drive-sign-in-page-170) ·
+[File area](#storage-google-drive-file-area-page-188)
+
 Pages Storage manages the files and folders of the Google Drive the instance
 is connected to (system settings → Google Drive, PAGE-170). Besides the
 Storage page, the server offers one documented, authenticated HTTP interface
@@ -411,3 +415,152 @@ curl -b "pages_session=…" -F parentRef=<folder> -F file=@bericht.pdf "$PAGES/s
 curl -b "pages_session=…" -H 'content-type: application/json' -d '{"ref":"<ref>"}' "$PAGES/storage-api/v1/delete_permanently"
 curl -b "pages_session=…" -H 'content-type: application/json' -d '{"ref":"<ref>","confirmation":"<token>"}' "$PAGES/storage-api/v1/delete_permanently"
 ```
+
+## Google Drive sign-in (PAGE-170)
+
+Under **Settings → System** the **Storage** card connects one Google Drive account
+to the instance. It offers only the sign-in, a truthful status and the errors
+that belong to it. The file area that uses this connection is the **Storage**
+navigation entry (PAGE-188, see the file-area section below).
+
+### Set up the Google OAuth client (once per instance)
+
+A Google account password is not an OAuth client and is never entered in Pages.
+An administrator of the Google Cloud project creates the client:
+
+1. In the [Google Cloud console](https://console.cloud.google.com/) choose or
+   create the project of the instance and enable the **Google Drive API**
+   (APIs & Services → Library).
+2. **OAuth consent screen / Google Auth Platform:** user type _External_ (or
+   _Internal_ for a Workspace organization), app name, support address. Add the
+   scopes `https://www.googleapis.com/auth/drive.file` and, for the folder
+   navigation of Storage, `https://www.googleapis.com/auth/drive.readonly`
+   (PAGE-188), nothing else.
+3. **Clients:** create an OAuth client of the type _Web application_ with the
+   authorized redirect URIs of every address Pages is reached at, exactly and
+   without wildcards:
+   `https://<public address>/settings-api/google-drive/callback` (the HTTPS
+   `publicUrl`) and `http://127.0.0.1:<port>/settings-api/google-drive/callback`
+   (the `port` of Pages, `3000` by default). `localhost` is no substitute for
+   `127.0.0.1`. The card lists both addresses while the client is missing.
+4. Set these environment variables on the Pages server (for a systemd instance
+   in `/etc/pages/<instance>/runtime.env`) and restart Pages:
+
+| Variable                           | Value                                      |
+| ---------------------------------- | ------------------------------------------ |
+| `PAGES_GOOGLE_DRIVE_CLIENT_ID`     | Client ID (`….apps.googleusercontent.com`) |
+| `PAGES_GOOGLE_DRIVE_CLIENT_SECRET` | Client secret                              |
+
+Allowed origins are fixed by the configuration: `http://127.0.0.1:<port>` and
+the HTTPS origin of `publicUrl` of `config.toml` (else `PAGES_PUBLIC_URL`). The
+sign-in uses the origin the administrator is on, so the local and the remote
+address work with one instance and one client, without switching a setting. A
+request on any other origin (another host name, `localhost`, plain HTTP on a
+public name) cannot start or finish a sign-in. `Host` and `X-Forwarded-*` never
+add an origin. Behind a reverse proxy the proxy has to pass the public `Host`
+and be listed in `trustedProxies` so that its `X-Forwarded-Proto: https` is
+believed; otherwise the request reads as `http://<public host>` and is refused.
+The attempt keeps the redirect URI it started with until the code exchange, and
+only a callback on that same origin finishes it. A loopback address means the
+machine of the browser, so the local way needs Pages reachable there, for
+example through an SSH port forward.
+
+### Sign-in, storage and account binding
+
+- Only an administrator in the admin mode sees the card and may sign in. The
+  sign-in uses Google's authorization code flow with PKCE, `access_type=offline`
+  and `prompt=consent`. Its one-time `state` lives 15 minutes, is stored only as
+  a hash and is bound to the administrator who started it; the callback needs
+  a Pages session of that administrator in the admin mode.
+- The instance holds one connection. The refresh token is stored encrypted with
+  the instance key (the key of the agent connection secrets) and bound to its
+  row; access tokens stay in process memory. Nothing exposes the connection or
+  a token to other accounts, the browser, a log or an address.
+- The connected account is identified by its Drive `permissionId`, which Drive
+  itself reports after the sign-in. A renewal that reports another account marks
+  the connection for a new sign-in. A new sign-in replaces the connection.
+
+### Proof, renewal and limits
+
+- Every visit of the card asks the server, which runs `about.get` with the
+  fields `user(permissionId,emailAddress)`: read-only, no file, no content.
+  **Connected** appears only when that request succeeded just now.
+- An expired access token is renewed with the stored refresh token, without a
+  Google sign-in, also after a reload, a new Pages sign-in or a restart. Each
+  renewal writes the log event `google_drive.access_token_renewed` and
+  `last_refreshed_at` in `google_drive_connection`; each confirmed request
+  writes `last_verified_at`.
+- Google can end the access at any time: the account owner revokes it, the
+  token is unused for six months, or the account exceeds the refresh token
+  limit per client. **While the OAuth app is in the publishing status
+  _Testing_ with user type _External_, Google lets refresh tokens expire after
+  7 days.** A lasting connection needs
+  the status _In production_ (or an _Internal_ Workspace app); `drive.file` is a
+  non-sensitive scope and needs no Google security assessment for that.
+  `drive.readonly` is a restricted scope: an unverified client in production
+  shows Google's warning and its user limit during the consent, which is enough
+  for the one administrator account of an instance.
+- When Google refuses the stored access (`invalid_grant`, a `401` after a
+  renewal, a missing scope), the card shows **Sign in again** with the reason.
+  A rejected client, a disabled Drive API or an unreachable Google shows a
+  concrete error and never **Connected**.
+
+## Storage: Google Drive file area (PAGE-188)
+
+The **Storage** entry of the global navigation opens the Google Drive of the
+existing connection above. It adds no sign-in, no token storage and no settings
+card of its own; a missing, expired or unconfirmed connection is explained in
+one sentence with a link to **Settings → System**.
+
+- **Pages rights:** the instance uses the Google account an administrator
+  connected. Current folder grants also admit non-admin accounts to selected
+  folders and their descendants (PAGE-323); see [Rights](#rights).
+- **Google rights:** every request takes a freshly confirmed access of the
+  connection (`about.get` proves the bound `permissionId`, the access token is
+  renewed with the stored refresh token when needed) and asks the official Drive
+  API v3 (`files.get`, `files.list`, `drives.list`, `drives.get`, `about.get`)
+  for navigation. The writer operations described above use the same connection.
+  Google decides with the rights and granted scopes of the bound account.
+  The access token goes only into the `Authorization` header; answers, addresses
+  and logs carry no token. Files open on Google's own page.
+- **Scopes:** with `drive.file` alone Google shows only files Pages created or
+  opened, never the existing folder tree. The sign-in therefore also asks for
+  `drive.readonly`; Storage reads the granted scopes of the stored connection
+  and, without a read scope, says so and points to a new sign-in under
+  **Settings → System**. A connection made before PAGE-188 needs that new
+  sign-in for the folder navigation. Shared drives are offered only with a read
+  scope.
+- **Navigation:** path from My Drive or a shared drive down to the folder, each
+  step clickable; folders first, then files, 200 per page with "Load more".
+  `/storage?folder=<id>` is an explicit target and is never redirected; plain
+  `/storage` opens the start folder, else My Drive.
+- **Folder change (PAGE-279):** opening a folder, a path step, My Drive, the
+  shared drives or the start folder changes only the address and the file card.
+  Frame, header, quota and toolbar stay in place; the frame's data is not read
+  again for it. Until the new folder arrives, the card shows the former one
+  dimmed and inert with a loading status, and uploads are off. A late answer
+  or page of a replaced folder is dropped and its request ended. A failed
+  request removes the former folder and lets the frame check session and
+  rights again.
+- **Start folder:** chosen in a compact folder dialog and saved per account in
+  `storage_start_folder` with the Drive identifier, the shared drive, the
+  readable name and path and the `permissionId` of the connection. It is a
+  navigation preference only, no share, limit or upload target. It is opened by
+  identifier: a rename keeps it and is reported; a deleted, trashed or no longer
+  accessible folder, or one saved for another Google account, is explained with
+  a new choice instead of opening another folder.
+- **Quota:** `about.get` `storageQuota.usage` and `limit` of the Google account,
+  the use across all Google services, not the size of a folder. Without a limit
+  Storage says "no limit reported"; an exceeded limit stays in the text while
+  the bar stops at 100 %. For addresses outside `gmail.com`/`googlemail.com`
+  the limit may be a Workspace pool of the organization, so share and free
+  storage are not calculated there. A failed request shows "not available",
+  never zero.
+- **Layout:** the card fills the space beside the navigation and keeps about
+  85 px above the Pica launcher (tablet and desktop), also while the list
+  scrolls. The multicolored Drive logo beside the path is Google's own product
+  logo, see `assets/google-drive/NOTICE.txt`.
+- **Further operations:** upload, versions, rename, move, trash and deletion
+  are documented in the API sections above. The original PAGE-188 read-only
+  scope is historical; it does not describe the current writer or folder grants.
+  This file area does not move existing ticket or wiki attachments.

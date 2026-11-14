@@ -52,7 +52,7 @@ Pages is a self-hosted project management and wiki application built with:
 - PostgreSQL
 - i18next
 
-The application uses server-side rendering and is intended to support multiple users.
+The application uses a static browser app with an API server and supports multiple users.
 
 ---
 
@@ -186,7 +186,7 @@ Keep the two Pages scripts `test:backend` and `test:frontend` separate. No root
 to `main` and on pull requests. The one exception (PAGE-290) is a pushed Git tag
 `ci_test` or `ci_test-<id>`: it starts the CI job `Pages tests (100% coverage)`
 with both unit suites, the browser suite, `postgres:check`, the build and a
-mandatory 100% coverage verdict per scope (see the README, "CI test tags"). Run
+mandatory 100% coverage verdict per scope (see [CI test tags](tests/README.md#ci-test-tags-page-290)). Run
 `pnpm run check` and `pnpm run lint` as non-test gates; neither demonstrates
 functional coverage.
 
@@ -228,9 +228,10 @@ functional coverage.
   including through a shared helper. Use mocks or stubs at an MCP boundary.
 - Keep future Pages scripts, discovery, setup, coverage and watch mode scoped to
   Pages. Do not add a root test aggregator.
-- The MCP concept of Pages is planned anew. Until then there is no `mcp/`
-  package and no access for external MCP clients; the Pica tool bridge and the
-  step-bound plan bridge are internal to Pages and no basis for one.
+- The standalone MCP client is maintained outside this repository. Pages owns
+  its paired-device HTTP API under `/api/mcp/v1/`; the Pica tool bridge and
+  step-bound plan bridge remain separate internal access paths. Unit tests
+  mock these boundaries and never start an MCP client, server or transport.
 
 ### QA gates without a person at the terminal
 

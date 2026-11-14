@@ -1,5 +1,8 @@
 # Runner-Setup über das Arbeitsverzeichnis (PAGE-144)
 
+[Documentation index](README.md) ·
+[Remote connections and directories](#remote-working-directories-page-138)
+
 Im Kontextmenü einer Remote-Verbindung (Agents → Arbeitsverzeichnis → Remote-Verbindungen → …) steht direkt unter „Konsole öffnen“ die Gruppe **Setup** mit der Zeile **Runner einrichten**. Ein Klick überträgt `pages_setup.sh`, prüft die Übertragung, macht die Datei für den Eigentümer ausführbar, öffnet das Konsolen-Fokuspanel und startet das Skript dort. Beim bloßen Verbinden wird nichts installiert.
 
 Ist die Installation bestätigt, steht dieselbe Zeile an derselben Stelle deaktiviert als **Bereits installiert**. Läuft ein Setup für die Verbindung, heißt sie **Setup läuft**. Die Deaktivierung ist nur ein Hinweis: Der Server verweigert den Start auch ohne Menü (`remote_setup_installed`, `remote_setup_running`).
@@ -103,3 +106,61 @@ Eine zusätzliche erlaubte Wurzel, ein anderer Anzeigename oder erneuerte SSH-Se
 Nach Neu-Kopplung liest Pages den vorhandenen Remote-OpenRouter-Katalog erneut. Fehlt er, erklärt die Modellauswahl den Zustand und führt zur Synchronisation in Einstellungen → Agents. Ein vorhandener Runner-Schlüssel wird dabei ohne erneute Übertragung benutzt; ein fehlender Schlüssel muss ausdrücklich hinterlegt werden. Die CLI-Modellpicker sind davon unabhängig.
 
 Die Remote-Workspace-Zeile prüft den eigenen GitHub-Schlüssel des Runners über `git ls-remote` und einen ausschließlich mit `git push --dry-run` ausgeführten Schreibprobeaufruf. Lesen und Schreiben werden getrennt ausgewiesen: nur lesend, kein Zugriff oder nicht prüfbar. Ein zufälliger, vorher als nicht vorhanden geprüfter Referenzname und ein privates temporäres Bare-Repository vermeiden Änderungen am Projekt; keine Remote-Referenz wird angelegt. Es werden keine Schlüsselrechte verändert. Fehlende Schlüssel, nicht bestätigte Hostdaten und Netzwerkfehler bleiben unbekannt. Die bisherigen Offline-Metadatenoperationen bleiben netzwerkfrei. Details einschließlich Betreiberpfaden und Protokoll stehen in [PagesRunner.md](./PagesRunner.md#katalog-und-github-rechte).
+
+## Remote working directories (PAGE-138)
+
+The page **Agents → Arbeitsverzeichnis** lists remote connections above the
+workspaces. A remote connection is SSH access to a Linux machine, for example
+an Ubuntu container on a NAS; Pages itself stays where it runs.
+
+- **Configuration.** Only administrators add, edit, test and remove
+  connections: name, host name or address, SSH port, SSH user, sign-in method
+  (password, private key, private key with passphrase) and exactly one
+  department. Members of that department use the connection; there is no
+  global or per-person sharing. Every action rereads account, memberships and
+  project rights, so a revoked membership blocks the next use.
+- **Secrets.** Passwords, keys and passphrases are encrypted with the existing
+  instance cipher (the key next to the database, or `PAGES_GITHUB_TOKEN_KEY`),
+  bound to the connection and the kind of secret. No response and no log
+  contains them; the dialog only says whether one is stored. They are separate
+  from Codex, Claude and OpenCode logins.
+- **Host key.** "Verbindung testen" checks reachability, host key and sign-in
+  separately. The machine's key is shown with its SHA-256 fingerprint and must
+  be confirmed before a password or key is sent; every later connection
+  accepts only that key. A new host or port drops the confirmed key. While no
+  key is confirmed, the status asks to confirm it in the dialog, because no
+  reconnect attempt can sign in without it.
+- **Workspace profiles.** A connection can carry several profiles. Each has a
+  stable identifier, one project (whose GitHub link is shown and used) and the
+  canonical absolute path that a read-only check over SSH found readable,
+  writable and traversable. A `host:path` text is no connection.
+- **Allowed directories.** Each connection lists the absolute directories its
+  profiles must lie in ("Erlaubte Verzeichnisse"); without an entry only the
+  SSH user's home `/home/<user>` is allowed. The check compares the canonical
+  path on the machine with the directories as written and as resolved there,
+  so neither `..` nor a symbolic link leads outside; a path outside is refused
+  as such. A changed list leaves the stored state of registered profiles as
+  it is; their row shows "Prüfung veraltet" until "Prüfen" applies the new
+  list. Profiles are not rechecked automatically.
+- **Logical connection.** Checks open one OpenSSH connection per remote
+  connection, watched by keepalive probes and closed after ten idle minutes.
+  A lost transport starts at most ten reconnect attempts at the growing
+  intervals of plan retries (1 s to 5 min); the page shows count, next attempt
+  and cause. A first connect or a test of a closed connection starts the same
+  series when the machine is not reachable or its host key is not confirmed
+  yet; a confirmed key that differs and a refused sign-in are refused at once,
+  because they need a person's input. Afterwards the connection is blocked
+  until "Erneut verbinden" starts a new series. A command whose transport
+  broke is reported as interrupted and is never repeated on its own.
+
+Pages runs the OpenSSH client of the server (`ssh`, `ssh-keyscan`,
+`ssh-keygen`, OpenSSH 8.4 or newer) with its own options: the account's
+`~/.ssh` configuration, keys, agent and `known_hosts` are not used. Private
+files of a running connection (pinned key, control socket, a key file that is
+removed after the sign-in) live in an owner-only `pages-ssh-*` folder in the
+temporary directory. The target needs a POSIX login shell.
+
+Agent Plans can select an authorized remote profile for supported script and
+agent nodes. The plan tools of Pica can read and select these targets under the
+same permissions; the separate workspace administration tools still manage
+local workspaces.
