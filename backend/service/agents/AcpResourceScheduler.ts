@@ -71,6 +71,8 @@ export class AcpResourceScheduler {
   private availableMemory: number | null = null;
   private problem: AcpResourceSnapshot["problem"] = null;
   private timer: ReturnType<typeof setTimeout> | undefined;
+  private reconcileTimer: ReturnType<typeof setTimeout> | undefined;
+  private reconcileTask: Promise<void> | null = null;
   private isReady = false;
   private isClosing = false;
   private isPumping = false;
@@ -145,6 +147,7 @@ export class AcpResourceScheduler {
     this.wake();
     // The periodic check runs with the service, also without queue or open settings page.
     this.checks.start();
+    this.scheduleReconcile(0);
   }
 
   /** Waits without a native process; the durable starting lease precedes the callback. */
@@ -256,7 +259,7 @@ export class AcpResourceScheduler {
   /** Refreshes RAM for monitoring even while capacity is full or the queue is empty. */
   public async inspect(): Promise<Omit<AcpResourceDiagnostics, "leftovers">> {
     await this.refreshOptions();
-    await this.refreshMemory();
+    this.availableMemory = await readScheduledAcpMemory(this.memory);
     return {
       ...this.snapshot(),
       ...(await this.admission.records((record) =>
@@ -304,16 +307,21 @@ export class AcpResourceScheduler {
    * @returns How many leases stay uncertain.
    *
    * @remarks
-   * A registered namespace supervisor is checked against its boot and start
-   * identity; legacy leases without containment evidence remain uncertain.
+   * With a run, the cleanup of its leases is attempted again first, and a
+   * lease is released only when it succeeded. A registered namespace
+   * supervisor is then checked against its boot and start identity; legacy
+   * leases without containment evidence remain uncertain.
    */
   public async reconcile(runId?: string): Promise<number> {
-    return reconcileAcpRun(runId, {
-      active: this.active,
-      sessions: this.sessions,
-      cleanup: (record, since) => this.cleanupRecord(record, since),
-      finish: (id, confirmed) => this.finish(id, confirmed),
-    });
+    // An ended run's own leases first get their cleanup attempted again; the periodic check judges by evidence only.
+    if (runId !== undefined)
+      await reconcileAcpRun(runId, {
+        active: this.active,
+        sessions: this.sessions,
+        cleanup: (record, since) => this.cleanupRecord(record, since),
+        finish: (id, confirmed) => this.finish(id, confirmed),
+      });
+    return this.checks.reconcile(runId);
   }
 
   /** Frees only an explicitly superseded run's capacity after its process cleanup was attempted. */
@@ -330,6 +338,8 @@ export class AcpResourceScheduler {
   public async shutdown(): Promise<void> {
     this.isClosing = true;
     clearTimeout(this.timer);
+    clearTimeout(this.reconcileTimer);
+    await this.reconcileTask;
     this.shutdownController.abort();
     await this.checks.stop();
     await Promise.allSettled([...this.opening]);
@@ -338,6 +348,22 @@ export class AcpResourceScheduler {
         .filter((session) => !session.isDetached)
         .map((session) => session.close()),
     );
+  }
+
+  private scheduleReconcile(delay: number): void {
+    if (this.isClosing) return;
+    this.reconcileTimer = setTimeout(() => {
+      this.reconcileTask = this.reconcile()
+        .then(() => undefined)
+        .catch((error: unknown) => {
+          logCaughtError("AcpResourceScheduler", error);
+        })
+        .finally(() => {
+          this.reconcileTask = null;
+          this.scheduleReconcile(5 * 60_000);
+        });
+    }, delay);
+    this.reconcileTimer.unref();
   }
 
   private async recoverRecord(
@@ -524,7 +550,7 @@ export class AcpResourceScheduler {
     while (this.canAdmit()) {
       const request = this.waiting.find((entry) => !this.isPaused(entry));
       if (!request) return;
-      await this.refreshMemory();
+      this.availableMemory = await readScheduledAcpMemory(this.memory);
       // A live reduction or shutdown may have happened during the memory probe.
       if (!this.canAdmit()) return;
       if (
@@ -654,10 +680,6 @@ export class AcpResourceScheduler {
       return;
     this.lastLeaseCheck = Date.now();
     await this.reconcile();
-  }
-
-  private async refreshMemory(): Promise<void> {
-    this.availableMemory = await readScheduledAcpMemory(this.memory);
   }
 
   private isPaused(request: WaitingRequest): boolean {

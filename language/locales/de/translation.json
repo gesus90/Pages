@@ -1440,6 +1440,28 @@
       },
       "resources": {
         "title": "ACP-Ressourcen",
+        "unconfirmedNotice": "{{count}} Reservierungen unbestätigt. Pages gibt sie frei, sobald die Bereinigung bestätigt ist.",
+        "filter": {
+          "label": "Reservierungen filtern",
+          "all": "Alle",
+          "unconfirmed": "Unbestätigt",
+          "active": "Aktiv",
+          "waiting": "Wartend"
+        },
+        "group": {
+          "unconfirmed": "Bereinigung unbestätigt",
+          "active": "Aktiv",
+          "waiting": "Wartend"
+        },
+        "badge": {
+          "cleanup_failed": "Unbestätigt",
+          "running": "Läuft",
+          "starting": "Startet",
+          "closing": "Wird beendet",
+          "idle": "Inaktiv",
+          "paused": "Pausiert",
+          "waiting": "Wartet"
+        },
         "unavailable": "Ressourcenstatus wird geladen oder ist nicht verfügbar.",
         "summary": "Reservierte Plätze: {{active}} (davon Bereinigung unbestätigt: {{unconfirmed}}) · Limit: {{limit}} · Wartende Anfragen: {{waiting}}",
         "ram": "Gemessener verfügbarer Host-RAM: {{available}} MiB · Reserve: {{reserve}} MiB",
@@ -6162,6 +6184,13 @@
         "native_resume": "Frühere Agent-Sitzung fortsetzen",
         "new_session": "Neuer Versuch"
       },
+      "restartDialogTitle": "Plan neu starten?",
+      "restartDialogDescription": "Der Plan startet einen neuen Lauf von vorne. Der Schritt ‚prepare‘ sichert nicht Gespeichertes und setzt die Arbeitskopie zurück.",
+      "restartDialogContext": "{{plan}} · letzter Lauf {{run}} {{state}}",
+      "restartDialogError": "Neustart abgelehnt: {{reason}} ({{code}}). Es wurde nichts gestartet.",
+      "restartDialogAction": "Neu starten",
+      "restartDialogPending": "Startet …",
+      "restartDialogRetry": "Erneut versuchen",
       "resumeAction": "Fortsetzen",
       "restart": "Von vorne starten",
       "restartHint": "Startet einen neuen Lauf mit dem gespeicherten Plan. Der frühere Lauf, seine Ergebnisse und sein Journal bleiben erhalten; vorhandene Dateien und Branches werden nicht zurückgesetzt.",

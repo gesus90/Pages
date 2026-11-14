@@ -1,97 +1,101 @@
-import { fireEvent, screen } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
 
-import { PlanRecoveryRestart } from "@/app/components/agents/plans/plan-recovery/plan-recovery-restart";
+import { PlanRecoveryResumeDialog } from "@/app/components/agents/plans/plan-recovery/plan-recovery-resume-dialog";
 
-import { i18n, recoveryView, renderTranslated } from "../plan-panel-fixture";
+import {
+  i18n,
+  recoveryState,
+  recoveryView,
+  renderTranslated,
+} from "../plan-panel-fixture";
 
-import type { AgentPlanRecoveryView } from "@/definition/AgentPlanRecovery";
+import type { PlanRecovery } from "../plan-panel-fixture";
 
-function renderRestart(
-  view: AgentPlanRecoveryView,
-  isPending = false,
-): ReturnType<typeof vi.fn> {
-  const onSubmit = vi.fn();
+function renderDialog(recovery: PlanRecovery): ReturnType<typeof vi.fn> {
+  const onClose = vi.fn();
   renderTranslated(
-    <PlanRecoveryRestart
-      view={view}
-      isPending={isPending}
-      onSubmit={onSubmit}
+    <PlanRecoveryResumeDialog
+      recovery={recovery}
+      planName="Example"
+      onClose={onClose}
     />,
   );
-  return onSubmit;
+  return onClose;
 }
 
-function restartButton(): HTMLElement {
-  return screen.getByRole("button", {
-    name: i18n.t("plans.recovery.restartAction"),
-  });
-}
-
-function confirmation(): HTMLElement {
-  return screen.getByRole("checkbox", {
-    name: i18n.t("plans.recovery.confirmRepeat"),
-  });
-}
-
-it("starts the saved revision again only after the repeat was confirmed", () => {
-  const onSubmit = renderRestart(
-    recoveryView({ restart: { available: true, reason: null } }),
+it("confirms with exactly two buttons and sends the reviewed steps immediately", async () => {
+  const submit = vi.fn<PlanRecovery["submit"]>(async () => ({
+    outcome: "started",
+    commandId: "command",
+    revision: 4,
+    runId: "new",
+  }));
+  const onClose = renderDialog(
+    recoveryState({
+      view: recoveryView({
+        runId: "12345678-abcd",
+        restart: { available: true, reason: null, reviewStepIds: ["script"] },
+      }),
+      submit,
+    }),
   );
-
-  expect(screen.getByText(i18n.t("plans.recovery.restartHint"))).toBeDefined();
-  expect(restartButton().hasAttribute("disabled")).toBe(true);
-  fireEvent.click(confirmation());
-  fireEvent.click(restartButton());
-
-  expect(onSubmit).toHaveBeenCalledWith({
+  const dialog = screen.getByRole("dialog");
+  expect(within(dialog).getAllByRole("button")).toHaveLength(2);
+  expect(dialog.querySelectorAll("input")).toHaveLength(0);
+  expect(dialog.textContent).toContain("Example");
+  expect(dialog.textContent).toContain("12345678");
+  fireEvent.click(
+    within(dialog).getByRole("button", {
+      name: i18n.t("plans.recovery.restartDialogAction"),
+    }),
+  );
+  expect(submit).toHaveBeenCalledWith({
     action: "restart",
     revision: 3,
     confirmRepeat: true,
-    reviewedStepIds: [],
+    reviewedStepIds: ["script"],
   });
-  expect(
-    screen.queryByRole("button", {
-      name: i18n.t("plans.recovery.releaseAction"),
-    }),
-  ).toBeNull();
+  await waitFor(() => expect(onClose).toHaveBeenCalled());
 });
 
-it("keeps an unavailable restart closed without exposing a separate manual cleanup action", () => {
-  const onSubmit = renderRestart(
-    recoveryView({ release: { available: true, reason: null } }),
-  );
-
-  expect(confirmation().hasAttribute("disabled")).toBe(true);
-  expect(restartButton().hasAttribute("disabled")).toBe(true);
-  fireEvent.click(restartButton());
+it("disables both buttons and displays the pending label while starting", () => {
+  renderDialog(recoveryState({ view: recoveryView(), isPending: true }));
+  const buttons = within(screen.getByRole("dialog")).getAllByRole("button");
+  expect(buttons.every((button) => button.hasAttribute("disabled"))).toBe(true);
   expect(
-    screen.queryByRole("button", {
-      name: i18n.t("plans.recovery.releaseAction"),
-    }),
-  ).toBeNull();
-  expect(onSubmit).not.toHaveBeenCalled();
+    screen
+      .getByRole("button", {
+        name: i18n.t("plans.recovery.restartDialogPending"),
+      })
+      .querySelector("svg"),
+  ).not.toBeNull();
 });
 
-it("disables every decision while one is on its way", () => {
-  const onSubmit = renderRestart(
-    recoveryView({
-      restart: { available: true, reason: null },
-      release: { available: true, reason: null },
+it("shows one refusal with reason and code and allows a retry", () => {
+  const submit = vi.fn<PlanRecovery["submit"]>(async () => null);
+  renderDialog(
+    recoveryState({
+      view: recoveryView(),
+      error: "cleanup_unconfirmed",
+      submit,
     }),
-    true,
   );
-
-  expect(screen.getByRole("group").hasAttribute("disabled")).toBe(true);
-  expect(restartButton().hasAttribute("disabled")).toBe(true);
-  expect(confirmation().closest("fieldset")?.hasAttribute("disabled")).toBe(
-    true,
+  const alerts = within(screen.getByRole("dialog")).getAllByRole("alert");
+  expect(alerts).toHaveLength(1);
+  expect(alerts[0]?.textContent).toContain(
+    i18n.t("plans.recovery.error.cleanup_unconfirmed"),
   );
+  expect(alerts[0]?.textContent).toContain("cleanup_unconfirmed");
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: i18n.t("plans.recovery.restartDialogRetry"),
+    }),
+  );
+  expect(submit).toHaveBeenCalledTimes(1);
   expect(
-    screen.queryByRole("button", {
-      name: i18n.t("plans.recovery.releaseAction"),
-    }),
-  ).toBeNull();
-  fireEvent.click(restartButton());
-  expect(onSubmit).not.toHaveBeenCalled();
+    screen
+      .getByRole("button", { name: i18n.t("settings.agents.cancel") })
+      .hasAttribute("disabled"),
+  ).toBe(false);
 });

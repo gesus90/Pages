@@ -1440,6 +1440,28 @@
       },
       "resources": {
         "title": "ACP resources",
+        "unconfirmedNotice": "{{count}} reservations unconfirmed. Pages releases them once cleanup is confirmed.",
+        "filter": {
+          "label": "Filter reservations",
+          "all": "All",
+          "unconfirmed": "Unconfirmed",
+          "active": "Active",
+          "waiting": "Waiting"
+        },
+        "group": {
+          "unconfirmed": "Cleanup unconfirmed",
+          "active": "Active",
+          "waiting": "Waiting"
+        },
+        "badge": {
+          "cleanup_failed": "Unconfirmed",
+          "running": "Running",
+          "starting": "Starting",
+          "closing": "Closing",
+          "idle": "Idle",
+          "paused": "Paused",
+          "waiting": "Waiting"
+        },
         "unavailable": "Resource status is loading or unavailable.",
         "summary": "Reserved slots: {{active}} (cleanup unconfirmed: {{unconfirmed}}) · Limit: {{limit}} · Waiting requests: {{waiting}}",
         "ram": "Measured available host RAM: {{available}} MiB · Reserve: {{reserve}} MiB",
@@ -6162,6 +6184,13 @@
         "native_resume": "Continue the earlier agent session",
         "new_session": "New attempt"
       },
+      "restartDialogTitle": "Restart plan?",
+      "restartDialogDescription": "The plan starts a new run from the beginning. The ‘prepare’ step saves unsaved work and resets the working copy.",
+      "restartDialogContext": "{{plan}} · last run {{run}} {{state}}",
+      "restartDialogError": "Restart refused: {{reason}} ({{code}}). Nothing was started.",
+      "restartDialogAction": "Restart",
+      "restartDialogPending": "Starting …",
+      "restartDialogRetry": "Try again",
       "resumeAction": "Continue",
       "restart": "Start from the start",
       "restartHint": "Starts a new run with the saved plan. The earlier run, its results and its journal stay as they are; existing files and branches are not reset.",

@@ -4,7 +4,10 @@ import {
   readScopeSince,
 } from "@/backend/agents/cli/CliProcessScan";
 import { settleManagedLocalOwner } from "@/backend/agents/local/LocalOwnerControl";
-import { settleWorkerUnits } from "@/backend/agents/cli/CliWorkerUnit";
+import {
+  settleRecordedWorkerUnit,
+  settleWorkerUnits,
+} from "@/backend/agents/cli/CliWorkerUnit";
 import { AcpCleanupUnconfirmedError } from "@/backend/error/AcpCleanupUnconfirmedError";
 import { logCaughtError } from "@/backend/logging/Logger";
 
@@ -48,7 +51,7 @@ export async function closeLease(
   record: AcpResourceRecord,
   startedAt: string | null,
   cleanup: LeaseCleanup,
-  settleUnits: (instanceId: string) => Promise<number> = settleWorkerUnits,
+  settleUnits?: (instanceId: string) => Promise<number>,
 ): Promise<{ readonly remaining: number }> {
   const managed = await settleManagedLocalOwner(record.instanceId);
   if (managed !== null) return { remaining: managed ? 0 : 1 };
@@ -62,8 +65,15 @@ export async function closeLease(
         : 1,
     };
   if (record.lifecycle === "not_spawned") return { remaining: 0 };
-  if (isUnitBound(record))
-    return { remaining: await settleUnits(record.instanceId) };
+  if (isUnitBound(record) && record.workerUnit) {
+    if (settleUnits) return { remaining: await settleUnits(record.instanceId) };
+    const remaining = await settleRecordedWorkerUnit(
+      record.instanceId,
+      record.workerUnit,
+    );
+    if (remaining > 0) return { remaining };
+    return { remaining: await settleWorkerUnits(record.instanceId) };
+  }
   return cleanup(record.instanceId, startedAt);
 }
 

@@ -300,7 +300,7 @@ it("offers a restart of an ended run in a dialog and starts nothing before the d
   fireEvent.click(button("play"));
 
   const dialog = await screen.findByRole("dialog", {
-    name: i18n.t("plans.recovery.restart"),
+    name: i18n.t("plans.recovery.restartDialogTitle"),
   });
   expect(dialog).toBeDefined();
   expect(scene.submissions).toHaveLength(0);
@@ -410,7 +410,7 @@ it("releases the reservations or opens the restart when the block names that act
   );
   expect(
     await screen.findByRole("dialog", {
-      name: i18n.t("plans.recovery.restart"),
+      name: i18n.t("plans.recovery.restartDialogTitle"),
     }),
   ).toBeDefined();
 });

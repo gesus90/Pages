@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
 
 import {
@@ -31,7 +31,11 @@ function renderPanel(runId: string | null, recovery: PlanRecovery): void {
 
 function renderRestart(recovery: PlanRecovery): void {
   renderTranslated(
-    <PlanRecoveryResumeDialog recovery={recovery} onClose={vi.fn()} />,
+    <PlanRecoveryResumeDialog
+      recovery={recovery}
+      planName="Plan"
+      onClose={vi.fn()}
+    />,
   );
 }
 
@@ -66,71 +70,6 @@ it("names why the recovery view could not be read", () => {
   expect(screen.getByRole("alert").textContent).toBe(
     errorText("workflow_unavailable"),
   );
-});
-
-it("shows the recovery state and refusal and requires confirmation before restarting", async () => {
-  const submit = vi.fn<PlanRecovery["submit"]>(async () => null);
-  renderRestart(
-    recoveryState({
-      view: recoveryView({ restart: { available: true, reason: null } }),
-      error: "synthetic_unknown",
-      submit,
-    }),
-  );
-  expect(
-    screen.getByRole("dialog", { name: i18n.t("plans.recovery.restart") }),
-  ).toBeDefined();
-  expect(
-    screen.getByText(i18n.t("plans.recovery.state.recoverable")),
-  ).toBeDefined();
-  expect(screen.getByRole("alert").textContent).toBe(
-    i18n.t("plans.panel.error"),
-  );
-  const restart = screen.getByRole("button", {
-    name: i18n.t("plans.recovery.restartAction"),
-  });
-  expect(restart.hasAttribute("disabled")).toBe(true);
-  fireEvent.click(
-    screen.getByRole("checkbox", {
-      name: i18n.t("plans.recovery.confirmRepeat"),
-    }),
-  );
-  fireEvent.click(restart);
-  await waitFor(() =>
-    expect(submit).toHaveBeenCalledWith({
-      action: "restart",
-      revision: 3,
-      confirmRepeat: true,
-      reviewedStepIds: [],
-    }),
-  );
-  expect(
-    screen.queryByRole("button", {
-      name: i18n.t("plans.recovery.releaseAction"),
-    }),
-  ).toBeNull();
-});
-
-it("disables restart and closing while a decision is pending", () => {
-  renderRestart(
-    recoveryState({
-      view: recoveryView({ restart: { available: true, reason: null } }),
-      isPending: true,
-    }),
-  );
-  expect(
-    screen
-      .getByRole("button", {
-        name: i18n.t("plans.recovery.restartAction"),
-      })
-      .hasAttribute("disabled"),
-  ).toBe(true);
-  expect(
-    screen
-      .getByRole("button", { name: i18n.t("settings.agents.cancel") })
-      .hasAttribute("disabled"),
-  ).toBe(true);
-  expect(screen.queryByRole("alert")).toBeNull();
 });
 
 it("names the affected resource and safe retry when a cleanup scan is denied", () => {

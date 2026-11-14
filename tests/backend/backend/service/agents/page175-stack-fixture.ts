@@ -22,7 +22,10 @@ import type {
 import type { AgentPlanScriptRunner } from "@/backend/service/agents/AgentPlanScriptRunner";
 import type { AgentPlanScriptSnapshot } from "@/backend/service/agents/AgentPlanScriptPreparation";
 import type { AgentPlanSnapshot } from "@/backend/service/agents/AgentPlanSnapshot";
-import type { AgentTicketParameterText } from "@/backend/service/agents/AgentTicketParameterService";
+import type {
+  AgentTicketParameterService,
+  AgentTicketParameterText,
+} from "@/backend/service/agents/AgentTicketParameterService";
 import type { AgentDefinitionChoice } from "@/definition/AgentAvailability";
 import type { AgentConfiguration } from "@/definition/AgentConfiguration";
 import type {
@@ -321,14 +324,20 @@ export async function stackEngine(
     readonly nodes: (build: StackNodes) => readonly AgentPlanNode[];
     readonly edges: readonly AgentPlanEdge[];
     readonly script?: ScriptAnswer;
+    readonly tickets?: AgentTicketParameterService;
   },
 ): Promise<StackEngine> {
-  const configuration = stackConfiguration();
+  const configuration = shape.tickets
+    ? {
+        ...stackConfiguration(),
+        markdown: "{{aufgabe}}\n{{aufgabe.assets}}\nTotal: {{anzahl}}",
+      }
+    : stackConfiguration();
   // The base node only supplies the runtime; it names no input that would need a value.
   const base = await parameterRunFixture(
     { ...configuration, markdown: "Base instruction." },
     "codex_cli",
-    {
+    shape.tickets ?? {
       readAssets: async () => [],
       resolve: async (userId, id) => ticketText(id),
     },
@@ -405,7 +414,10 @@ function stackPreparation(context: {
   >["input"]["agent"];
 }): AgentPlanPreparation {
   const { base, source, assignment } = context;
-  const configuration = stackConfiguration();
+  const configuration = {
+    ...emptyAgentConfiguration(),
+    ...source.configuration,
+  };
   return new AgentPlanPreparation({
     profiles: {
       catalog: async () => [source],
