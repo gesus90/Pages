@@ -2,6 +2,7 @@ import { expect, it, vi } from "vitest";
 
 import { ChatDecisionSettingsRepository } from "@/backend/database/repositories/chat/ChatDecisionSettingsRepository";
 import { ChatDecisionSettingsService } from "@/backend/service/chat/ChatDecisionSettingsService";
+import { CONVERSATION_DEFAULT_DECISION_RULES } from "@/definition/ConversationDecision";
 
 import { bareInstance } from "../tasks/bare-instance";
 import { ACTOR, modelWorld, ZEN } from "../employee/page347-model-fixture";
@@ -14,6 +15,7 @@ function decisionWorld(): {
   const settings = bareInstance(ChatDecisionSettingsRepository.prototype);
   vi.spyOn(settings, "read").mockResolvedValue({
     revision: 1,
+    rules: CONVERSATION_DEFAULT_DECISION_RULES,
     selection: {
       connectionId: "connection",
       model: ZEN.id,
@@ -25,6 +27,7 @@ function decisionWorld(): {
     settings,
     connections,
     groups: { findIdsByMember: async () => [] },
+    isSimulation: false,
   });
   return { service, settings };
 }
@@ -47,6 +50,7 @@ it.each(["connection", "api"])(
     await expect(
       service.save(ACTOR, {
         revision: 1,
+        rules: CONVERSATION_DEFAULT_DECISION_RULES,
         selection: { connectionId, model: ZEN.id, reasoningEffort: null },
       }),
     ).rejects.toMatchObject({ code: "provider_model_not_found" });
