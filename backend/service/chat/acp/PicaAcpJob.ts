@@ -1,3 +1,8 @@
+import type { PicaAcpJobSpecification } from "./PicaAcpJobSpecification";
+export type {
+  PicaAcpJobSpecification,
+  PicaAcpRun,
+} from "./PicaAcpJobSpecification";
 import { randomUUID } from "node:crypto";
 
 import { createRuntimeExecutionContext } from "@/backend/agents/runtime/RuntimeExecutionContext";
@@ -46,48 +51,18 @@ import type {
 import type { RuntimeExecutionContext } from "@/backend/agents/runtime/RuntimeExecutionContext";
 import type { NewChatMessage } from "@/backend/database/repositories/chat/ChatSessionRepository";
 import type { AgentPlanExecutionInput } from "@/backend/service/agents/AgentPlanStepStart";
-import type { ResolvedAgentAssignment } from "@/backend/service/agents/AgentAssignmentResolution";
-import type { AgentRunOptions } from "@/definition/AgentConfiguration";
 import type { ChatSteerStatus } from "@/definition/ChatJob";
-import type { User } from "@/definition/User";
 import type { PicaMessageContent, PicaTurnBrief } from "./PicaAcpContent";
-import type { PicaAcpRunner } from "./PicaAcpRunners";
 import type { PicaAcpMessage } from "./PicaAcpSteering";
 import type { PicaAcpOutcome } from "./PicaAcpTurnResult";
 import type { PicaAcpJobDependencies } from "./PicaAcpJobDependencies";
-import type { PicaAcpJobPool, PicaAcpPooledInput } from "./PicaAcpPoolOpening";
+import type { PicaAcpPooledInput } from "./PicaAcpPoolOpening";
 
 export type { PicaAcpJobDependencies } from "./PicaAcpJobDependencies";
 
 /** What the agent reads after the person cancelled its running tool call. */
 const TOOL_CANCELLED_NOTE =
   "Die Person hat deinen laufenden Werkzeugaufruf abgebrochen. Starte ihn nicht erneut, sondern antworte mit dem bisherigen Stand und frag nach, wie es weitergehen soll.";
-
-/** The runner of a job and the run options it was validated with before anything was stored. */
-export interface PicaAcpRun {
-  readonly runner: PicaAcpRunner;
-  readonly options: AgentRunOptions;
-}
-
-/** One job: the conversation, the pinned agent and the message it answers. */
-export interface PicaAcpJobSpecification {
-  readonly id: string;
-  readonly actor: User;
-  readonly sessionId: string;
-  readonly agent: ResolvedAgentAssignment;
-  readonly run: PicaAcpRun;
-  /** The fixed working directory of the conversation. */
-  readonly directory: string;
-  readonly message: PicaAcpMessage;
-  /** Instructions and context with the transcript, for a new agent session. */
-  readonly brief: PicaTurnBrief;
-  /** The agent session to continue; `null` starts a new one. */
-  readonly resumeSessionId: string | null;
-  /** Runs a task in the queue of the conversation. */
-  readonly gate: <Result>(task: () => Promise<Result>) => Promise<Result>;
-  /** The chat session of an agent employee kept between rounds (PAGE-335); absent opens one per job. */
-  readonly pool?: PicaAcpJobPool;
-}
 
 /**
  * One Pica answer over ACP that runs on the server with the assigned CLI
