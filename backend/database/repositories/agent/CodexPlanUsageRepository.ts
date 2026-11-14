@@ -44,6 +44,51 @@ function addCounts(
   };
 }
 
+function isSkippedTurnUsage(
+  usage: AgentSessionTurnUsage,
+  delta: CodexTokenCounts,
+  before: AgentSessionTurnUsage | null,
+): boolean {
+  const isNativeReplay =
+    usage.codex?.report &&
+    !usage.codex.report.promptTokens &&
+    Object.values(delta).every((count) => count === null || count === 0);
+  if (isNativeReplay) return true;
+  // A missing final ACP response must not erase live native usage already recorded for this turn.
+  return (
+    !usage.codex?.report &&
+    usage.inputTokens === null &&
+    usage.outputTokens === null &&
+    before !== null &&
+    (before.inputTokens !== null || before.outputTokens !== null)
+  );
+}
+
+function buildTurnUsageRecord(
+  usage: AgentSessionTurnUsage,
+  delta: CodexTokenCounts,
+  before: AgentSessionTurnUsage | null,
+  price: CodexPrice | null,
+): AgentSessionTurnUsage {
+  const tokens = usage.codex?.report ? addCounts(before, delta) : delta;
+  const totalTokens =
+    tokens.inputTokens === null || tokens.outputTokens === null
+      ? null
+      : tokens.inputTokens + tokens.outputTokens;
+  return {
+    ...usage,
+    ...tokens,
+    totalTokens,
+    reasoningTokens: tokens.reasoningTokens,
+    isPartial: usage.isPartial || before?.isPartial === true,
+    accounting: {
+      price,
+      costUsd: codexTokenCost(tokens, price),
+      isSubscription: true,
+    },
+  };
+}
+
 /** Atomically claims native thread growth and stores the same valuation used by display and monthly limits. */
 export class CodexPlanUsageRepository {
   private readonly database: AgentSessionDatabase;
@@ -66,37 +111,12 @@ export class CodexPlanUsageRepository {
         { attempt_id: usage.attemptId, turn: usage.turn },
       );
       const before = row ? readUsageRow(row) : null;
-      const isNativeReplay =
-        usage.codex?.report &&
-        !usage.codex.report.promptTokens &&
-        Object.values(delta).every((count) => count === null || count === 0);
-      if (isNativeReplay) return;
-      // A missing final ACP response must not erase live native usage already recorded for this turn.
-      if (
-        !usage.codex?.report &&
-        usage.inputTokens === null &&
-        usage.outputTokens === null &&
-        before &&
-        (before.inputTokens !== null || before.outputTokens !== null)
-      )
-        return;
-      const tokens = usage.codex?.report ? addCounts(before, delta) : delta;
+      if (isSkippedTurnUsage(usage, delta, before)) return;
       const price = await this.price(transaction, usage);
-      await writeAgentSessionUsage(transaction, {
-        ...usage,
-        ...tokens,
-        totalTokens:
-          tokens.inputTokens === null || tokens.outputTokens === null
-            ? null
-            : tokens.inputTokens + tokens.outputTokens,
-        reasoningTokens: tokens.reasoningTokens,
-        isPartial: usage.isPartial || before?.isPartial === true,
-        accounting: {
-          price,
-          costUsd: codexTokenCost(tokens, price),
-          isSubscription: true,
-        },
-      });
+      await writeAgentSessionUsage(
+        transaction,
+        buildTurnUsageRecord(usage, delta, before, price),
+      );
     });
   }
 

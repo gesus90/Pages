@@ -1,6 +1,7 @@
 import { AgentPlanAgentTodoService } from "@/backend/service/agents/AgentPlanAgentTodoService";
 import { AgentPlanStepProgressService } from "@/backend/service/agents/AgentPlanStepProgressService";
 import { AgentPlanStartResources } from "@/backend/service/agents/AgentPlanStartResources";
+import { CodexAgentBudget } from "@/backend/service/agents/usage/CodexAgentBudget";
 import "./agent-plan-services-mocks";
 import { beforeEach, expect, it, vi } from "vitest";
 
@@ -315,6 +316,7 @@ it("prepares scripts and step starts on the shared plan tasks", async () => {
     authorization: vi.mocked(AuthorizationRepository).mock.instances[1],
   });
   expect(vi.mocked(AgentPlanStepStart).mock.calls[0][0]).toEqual({
+    codexBudget: expect.any(CodexAgentBudget) as unknown,
     access: ACCESS,
     tasks,
     profiles: agents.agentProfileService,

@@ -45,12 +45,11 @@ async function probe(): Promise<void> {
       await wait(150);
       if ((await readFile(file, "utf8")) !== frozen)
         throw new Error("paused_children_still_writing");
-      if (cycle < 2) {
-        await session.setPaused(false);
-        await wait(100);
-        if ((await stat(file)).size <= frozen.length)
-          throw new Error("resume_did_not_continue");
-      }
+      if (cycle >= 2) break;
+      await session.setPaused(false);
+      await wait(100);
+      if ((await stat(file)).size <= frozen.length)
+        throw new Error("resume_did_not_continue");
     }
     const stopped = Date.now();
     controller.abort();

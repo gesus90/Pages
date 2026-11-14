@@ -58,21 +58,27 @@ function isSameScope(
   );
 }
 
+function formatCodexPriceMappings(
+  connection: AgentConnectionSummary | undefined,
+  kind: AgentAccessKind,
+): Pick<AgentFormFields, "codexPriceMappings"> {
+  const isCodexConnection =
+    connection?.provider === "codex_cli" ||
+    (!connection && kind === "cli_account");
+  if (!isCodexConnection) return {};
+  return {
+    codexPriceMappings: Object.entries(connection?.codexPriceMappings ?? {})
+      .map(([model, id]) => `${model} = ${id}`)
+      .join("\n"),
+  };
+}
+
 function storedChoice(
   connection: AgentConnectionSummary | undefined,
   kind: AgentAccessKind,
 ): StoredChoice {
   return {
-    ...(connection?.provider === "codex_cli" ||
-    (!connection && kind === "cli_account")
-      ? {
-          codexPriceMappings: Object.entries(
-            connection?.codexPriceMappings ?? {},
-          )
-            .map(([model, id]) => `${model} = ${id}`)
-            .join("\n"),
-        }
-      : {}),
+    ...formatCodexPriceMappings(connection, kind),
     testModel: connection?.testModel ?? "",
     reasoningEffort: connection?.reasoningEffort ?? "",
     scope: connection?.scope ?? GLOBAL_CONNECTION_SCOPE,

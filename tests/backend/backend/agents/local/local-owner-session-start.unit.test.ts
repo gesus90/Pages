@@ -294,7 +294,10 @@ describe("LocalOwnerSession startup failures", () => {
 
 describe("LocalOwnerSession cancelled start", () => {
   it("keeps a startup paused until Resume and then opens exactly one native session", async () => {
-    doubles.findRun.mockResolvedValue({ ...runWithAttempt(), status: "paused" });
+    doubles.findRun.mockResolvedValue({
+      ...runWithAttempt(),
+      status: "paused",
+    });
     const owner = newOwner();
     const started = owner.start();
     await vi.advanceTimersByTimeAsync(1_000);
@@ -310,7 +313,10 @@ describe("LocalOwnerSession cancelled start", () => {
   });
 
   it("stops a paused startup without dispatching its native prompt", async () => {
-    doubles.findRun.mockResolvedValue({ ...runWithAttempt(), status: "paused" });
+    doubles.findRun.mockResolvedValue({
+      ...runWithAttempt(),
+      status: "paused",
+    });
     const owner = newOwner();
     const started = owner.start();
     await vi.advanceTimersByTimeAsync(500);
@@ -336,7 +342,9 @@ describe("LocalOwnerSession cancelled start", () => {
       });
     },
   );
+});
 
+describe("LocalOwnerSession stopped and aborted start", () => {
   it("records a stopped run as cancelled without opening the native session", async () => {
     doubles.findRun.mockResolvedValue({ stopRequested: true });
     const owner = newOwner();

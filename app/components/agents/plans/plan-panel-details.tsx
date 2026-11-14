@@ -57,6 +57,42 @@ function PlanPanelNotes({
   );
 }
 
+function PlanPanelError({
+  error,
+}: {
+  readonly error: string | null;
+}): React.ReactElement | null {
+  const { t } = useTranslation();
+  if (!error) return null;
+  return (
+    <p
+      role="alert"
+      className="flex flex-wrap items-center gap-2 text-xs text-destructive"
+    >
+      {t(`settings.agents.error.${error}`, {
+        defaultValue: t("plans.panel.error"),
+      })}
+      {error === "plan_conflict" ? <PlanReloadButton /> : null}
+    </p>
+  );
+}
+
+function PlanPanelRecoveryAlert({
+  recoveryRunId,
+  recovery,
+}: {
+  readonly recoveryRunId?: string | null;
+  readonly recovery?: ReturnType<typeof usePlanRecovery>;
+}): React.ReactElement | null {
+  const { t } = useTranslation();
+  if (!recoveryRunId || !recovery?.error) return null;
+  return (
+    <p role="alert" className="text-xs text-destructive">
+      {recoveryErrorText(t, recovery.error)}
+    </p>
+  );
+}
+
 /**
  * The expanded part of the panel: findings, refusals, run notes, recovery and the plan choice.
  *
@@ -80,39 +116,27 @@ export function PlanPanelDetails(props: {
 }): React.ReactElement {
   const { t } = useTranslation();
   const { page, error } = props;
+  const run = props.run ?? null;
+  const rejection = props.control?.lastStartRejection;
   return (
     <div id={props.id} className="space-y-4 border-t border-border px-4 py-3.5">
       <PlanPanelIssueList issues={props.issues} />
-      <PlanCodexUsage run={props.run ?? null} />
-      <PlanEntryResultsOverview
-        plan={props.editor.draft}
-        run={props.run ?? null}
+      <PlanCodexUsage run={run} />
+      <PlanEntryResultsOverview plan={props.editor.draft} run={run} />
+      <PlanPanelRecoveryAlert
+        recoveryRunId={props.recoveryRunId}
+        recovery={props.recovery}
       />
-      {props.recoveryRunId && props.recovery?.error ? (
-        <p role="alert" className="text-xs text-destructive">
-          {recoveryErrorText(t, props.recovery.error)}
-        </p>
-      ) : null}
       <PlanWorkspaceConflict conflict={props.control?.workspaceConflict} />
-      <PlanStartRejection rejection={props.control?.lastStartRejection} />
-      {page.selected?.canEdit && props.control?.lastStartRejection ? (
+      <PlanStartRejection rejection={rejection} />
+      {page.selected?.canEdit && rejection ? (
         <PlanStartHistory
-          key={`${page.selected.id}:${props.control.lastStartRejection.id}`}
+          key={`${page.selected.id}:${rejection.id}`}
           planId={page.selected.id}
-          latestId={props.control.lastStartRejection.id}
+          latestId={rejection.id}
         />
       ) : null}
-      {error ? (
-        <p
-          role="alert"
-          className="flex flex-wrap items-center gap-2 text-xs text-destructive"
-        >
-          {t(`settings.agents.error.${error}`, {
-            defaultValue: t("plans.panel.error"),
-          })}
-          {error === "plan_conflict" ? <PlanReloadButton /> : null}
-        </p>
-      ) : null}
+      <PlanPanelError error={error} />
       {page.selected?.canEdit === false ? (
         <p className="text-xs wrap-anywhere text-muted-foreground">
           {t("plans.flow.storage.readOnly")}

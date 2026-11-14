@@ -50,9 +50,9 @@ export async function codexControlFixture(): Promise<{
   const update = vi.fn(async (run: AgentPlanRun) => {
     stored = structuredClone(run);
   });
-  const nativePause = vi.fn(
-    async (_runId: string, _isPaused: boolean) => undefined,
-  );
+  const nativePause = vi.fn<
+    (runId: string, isPaused: boolean) => Promise<void>
+  >(async () => undefined);
   const pump = vi.fn(async () => undefined);
   const commands = new AgentPlanRunCommands({
     active: new Map([[active.view.id, active]]),
@@ -67,7 +67,7 @@ export async function codexControlFixture(): Promise<{
       find: async () => structuredClone(stored),
     },
     start: { control: async () => undefined },
-    steps: { run: async () => ({}), closeGroups: async () => [] },
+    steps: { run: async () => ({}), closeGroups: async () => undefined },
   });
   return {
     active,

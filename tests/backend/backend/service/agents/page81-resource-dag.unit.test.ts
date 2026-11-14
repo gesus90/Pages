@@ -74,7 +74,7 @@ it("preserves group acceptance and DAG dependencies while two other plans wait g
     world.stored.get(first.id)?.steps.find((step) => step.id === "end")?.status,
   ).toBe("paused");
   await world.engine.resume(first.id);
-  await vi.advanceTimersByTimeAsync(0);
+  await vi.advanceTimersByTimeAsync(25);
   expect(next).toHaveBeenCalledOnce();
   expect(start).toHaveBeenCalledOnce();
   await world.engine.stop(other.id);

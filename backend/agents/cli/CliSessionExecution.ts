@@ -4,7 +4,6 @@ import {
   AgentToolReadinessError,
 } from "@/backend/service/agents/tools/AgentToolReadinessError";
 import {
-  pinnedAgentToolDriver,
   agentToolAdapterVersion,
   prepareAgentToolSession,
   observeAgentToolSession,
@@ -13,7 +12,6 @@ import {
 import { providerToolIds } from "@/backend/service/agents/tools/AgentToolRegistry";
 import { acpDriverFor } from "@/backend/agents/acp/AcpDrivers";
 import { AcpLineChannel } from "@/backend/agents/acp/AcpLineChannel";
-import { AcpSession } from "@/backend/agents/acp/AcpSession";
 import { AcpCleanupUnconfirmedError } from "@/backend/error/AcpCleanupUnconfirmedError";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
@@ -30,30 +28,29 @@ import {
 } from "./CliAssetWorkspace";
 import { CliIsolationGate } from "./CliIsolationGate";
 import { CliPlanIsolation } from "./CliPlanIsolation";
-import { createCliEnvironment } from "./CliEnvironment";
 import { ACP_WORKER_LIMITS } from "./CliWorkerUnit";
 import { cleanupFailedAcpStart } from "./CliAcpStartCleanup";
 import {
-  acpMcpServers,
-  acpSessionRequest,
   acpWorkerRequest,
-  isolationLabel,
   picaCodexBundle,
-  picaNativeRunner,
   planAcpLaunch,
 } from "./CliAcpLaunch";
 import { prepareSharedAgentEnvironment } from "./AgentSharedEnvironment";
-import { prepareClaudePlanSessionHome } from "./ClaudePlanSessionHome";
-import { captureOwnedNamespace } from "./CliOwnedNamespace";
 import { acpSessionSecrets, createAcpRedactor } from "./CliAcpRedaction";
 import { requireAcpIsolation, sessionRunOptionError } from "./CliSessionPlans";
-import { requirePicaCodexProfile } from "./PicaCodexBundle";
-import { requirePicaNativeArtifact } from "./PicaNativeArtifact";
 import {
   recordGitHubNamespace,
   sessionAcpProvider,
   validateSessionStatus,
 } from "./CliSessionChecks";
+import {
+  openCliAcpSession,
+  prepareCliGitHubAccess,
+  prepareScopedClaudeHome,
+  registerAcpNamespace,
+  secureCliAcpAccess,
+  selectPicaNativeArtifact,
+} from "./CliAcpSessionSetup";
 
 import type { AgentToolManagerService } from "@/backend/service/agents/tools/AgentToolManagerService";
 import type { AgentToolId } from "@/definition/AgentTools";
@@ -66,31 +63,33 @@ import type {
 } from "@/backend/agents/AgentPlanExecution";
 import type { AcpResourceScheduler } from "@/backend/service/agents/AcpResourceScheduler";
 import type { AcpDriver } from "@/backend/agents/acp/AcpDriver";
-import type { AcpNamespaceOwner } from "@/definition/AcpResource";
-import type { AcpLaunch } from "@/backend/agents/acp/AcpLaunch";
 import type { AcpPermissionMode } from "@/definition/AgentConfiguration";
 import type { CliProviderId } from "@/definition/AgentConnection";
 import type { AgentCliRuntime } from "./AgentCliRuntime";
 import type { AgentCredentialStore } from "./AgentCredentialStore";
 import type {
-  CliCredentialAccess,
   CliHome,
   CliSessionRequest,
   CliStatusOutcome,
 } from "./CliContracts";
 import type { CliLocator } from "./CliLocator";
 import type { CliProcessRunner } from "./CliProcessRunner";
+import type { CliGitHubCredentials } from "./CliGitHubCredentials";
 import type {
-  CliGitHubAccess,
-  CliGitHubCredentials,
-} from "./CliGitHubCredentials";
-import type { ClaudePlanSessionHome } from "./ClaudePlanSessionHome";
+  ClaudePlanSessionHome,
+  prepareClaudePlanSessionHome,
+} from "./ClaudePlanSessionHome";
 import type { CliSessionContainment } from "./CliSessionCloseout";
 import type { CliSessionProcess } from "./CliSessionProcess";
 import type { AcpStartLifecycle } from "@/backend/service/agents/resources/AcpStartLifecycle";
 import type { CliWorkerUnits } from "./CliWorkerUnit";
 import type { PicaCodexBundle } from "./PicaCodexBundle";
-import type { PicaNativeArtifact } from "./PicaNativeArtifact";
+import type {
+  LimitedRequest,
+  OpenCliAcpSessionContext,
+  SessionControl,
+  VerifiedStart,
+} from "./CliAcpSessionSetup";
 
 /** How CLI runs are kept away from the instance folders. */
 export interface CliIsolationOptions {
@@ -122,18 +121,6 @@ interface SessionDependencies {
   readonly claudeHome?: typeof prepareClaudePlanSessionHome;
 }
 
-/** What a session start has verified about its connection. */
-interface VerifiedStart {
-  readonly provider: CliProviderId;
-  readonly home: CliHome;
-  readonly file: string;
-  /** The ACP entry point of this CLI connection. */
-  readonly adapter: string | null;
-  readonly adapterVersion?: string | null;
-  readonly credentials?: CliCredentialAccess;
-  readonly browser?: Awaited<ReturnType<typeof agentPlaywrightServer>>;
-}
-
 /** A PID namespace contains everything; otherwise only a worker unit frames the session. */
 function sessionContainment(
   isIsolated: boolean,
@@ -157,20 +144,6 @@ function requireAcpMode(
 function requireAdapter(adapter: string | null, driver: AcpDriver): string {
   if (adapter === null) throw new AgentError(driver.errors.adapterMissing);
   return adapter;
-}
-
-/** The stop signal and the observer of one session start. */
-interface SessionControl {
-  readonly signal: AbortSignal;
-  readonly observer: PlanSessionObserver;
-  readonly lifecycle?: AcpStartLifecycle;
-}
-
-/** A session request, wrapped in its limited unit where the service manager provides one. */
-interface LimitedRequest {
-  readonly request: CliSessionRequest;
-  /** How the run record describes the limits. */
-  readonly label: string;
 }
 
 /**
@@ -415,17 +388,28 @@ export class CliSessionExecution implements PlanSessionRunner {
     control: SessionControl,
   ): Promise<PlanSession> {
     const mode = requireAcpMode(driver, input);
-    const scoped = await this.scopedHome(driver, input, start);
-    const adapter = requireAdapter(start.adapter, driver);
-    const purpose = input.chat ? "chat" : (input.purpose ?? "plan");
-    const profile = driver.profile(mode, purpose);
-    const launch = planAcpLaunch(driver, input, start.file, profile);
-    const channel = new AcpLineChannel(
-      input.chat !== undefined &&
-        ["codex_cli", "opencode"].includes(driver.provider),
+    const scoped = await prepareScopedClaudeHome(
+      driver,
+      input,
+      start,
+      this.dependencies.claudeHome,
     );
-    channel.enableAcknowledgement();
-    const github = await this.prepareGitHub(input, start, mode);
+    const adapter = requireAdapter(start.adapter, driver);
+    const profile = driver.profile(
+      mode,
+      input.chat ? "chat" : (input.purpose ?? "plan"),
+    );
+    const launch = planAcpLaunch(driver, input, start.file, profile);
+    const channel = this.openAcpChannel(
+      driver.provider,
+      input.chat !== undefined,
+    );
+    const github = await prepareCliGitHubAccess(
+      this.dependencies,
+      input,
+      start,
+      mode,
+    );
     const redact = createAcpRedactor({
       credentials: start.credentials,
       github,
@@ -436,7 +420,13 @@ export class CliSessionExecution implements PlanSessionRunner {
     let containment: CliSessionContainment = "none";
     let picaBundle: PicaCodexBundle | null = null;
     try {
-      const picaNative = this.selectPicaNative(driver, input, launch, profile);
+      const picaNative = selectPicaNativeArtifact({
+        driver,
+        input,
+        launch,
+        profile,
+        toolsDirectory: this.dependencies.tools?.directory,
+      });
       picaBundle = picaCodexBundle(picaNative, input.directory, adapter);
       const { request, isIsolated } = await this.isolateWorker(
         acpWorkerRequest({
@@ -462,43 +452,23 @@ export class CliSessionExecution implements PlanSessionRunner {
       if (control.signal.aborted) throw new AgentPlanCancelledError();
       await control.lifecycle?.beforeSpawn(limited.request.unit?.name);
       child = this.dependencies.runner.startSession(limited.request);
-      const namespace = await this.registerNamespace(
+      return await this.attachAcpSession({
+        child,
+        channel,
+        driver,
         input,
-        child.processId,
-        limited.request,
-        containment,
-      );
-      await recordGitHubNamespace(github, namespace);
-      connectChild(child, channel, {
-        observer: control.observer,
-        arguments: limited.request.arguments,
-        unattended: profile.unattended,
-        signal: control.signal,
-        namespace,
-      });
-      return new AcpSession(child, channel.stream, {
-        instanceId: input.instanceId,
-        driver: pinnedAgentToolDriver(driver, start.adapterVersion),
+        start,
+        control,
         profile,
-        request: acpSessionRequest(input, {
-          ...launch,
-          mcpServers: acpMcpServers(launch, start.browser, picaNative),
-        }),
-        observer: control.observer,
-        signal: control.signal,
-        isolation: `${isolationLabel(isIsolated, mode, driver)}; ${limited.label}`,
+        launch,
+        picaNative,
+        picaBundle,
+        isIsolated,
+        mode,
+        limited,
         containment,
-        github: github?.status,
+        github,
         redact,
-        secure: () => this.secureAcp(input, start, github),
-        cleanupAdapter: picaBundle?.cleanup,
-        listener: input.chat?.listener ?? input.journal,
-        codexHome:
-          driver.provider === "codex_cli" && !input.chat
-            ? start.home.config
-            : undefined,
-        notificationHandled: () => channel.acknowledge(),
-        acceptsTurnInput: input.chat === undefined,
       });
     } catch (error: unknown) {
       logCaughtError("CliSessionExecution", error);
@@ -512,6 +482,47 @@ export class CliSessionExecution implements PlanSessionRunner {
       control.lifecycle?.confirmStartEnded();
       throw error;
     }
+  }
+
+  private openAcpChannel(
+    provider: CliProviderId,
+    isChat: boolean,
+  ): AcpLineChannel {
+    const channel = new AcpLineChannel(
+      isChat && ["codex_cli", "opencode"].includes(provider),
+    );
+    channel.enableAcknowledgement();
+    return channel;
+  }
+
+  private async attachAcpSession(
+    context: Omit<OpenCliAcpSessionContext, "secure">,
+  ): Promise<PlanSession> {
+    const namespace = await registerAcpNamespace({
+      resources: this.dependencies.resources,
+      input: context.input,
+      processId: context.child.processId,
+      request: context.limited.request,
+      containment: context.containment,
+    });
+    await recordGitHubNamespace(context.github, namespace);
+    connectChild(context.child, context.channel, {
+      observer: context.control.observer,
+      arguments: context.limited.request.arguments,
+      unattended: context.profile.unattended,
+      signal: context.control.signal,
+      namespace,
+    });
+    return openCliAcpSession({
+      ...context,
+      secure: () =>
+        secureCliAcpAccess(
+          this.dependencies.store,
+          context.input,
+          context.start,
+          context.github,
+        ),
+    });
   }
 
   /**
@@ -537,139 +548,6 @@ export class CliSessionExecution implements PlanSessionRunner {
     if (isAcpPermissionMode(mode))
       requireAcpIsolation(isolated.isIsolated, mode, input);
     return isolated;
-  }
-
-  /**
-   * Selects the native build that gives a Pica chat its Pages-only tools.
-   *
-   * @remarks
-   * Codex and OpenCode offer no tool surface without MCP that Pages can use
-   * through the stock runner. Pica therefore starts only the verified native
-   * build, which refuses every built-in tool; without one the chat is refused.
-   * An agent employee with full access needs those tools, so its chat runs
-   * the stock runner inside the isolation and reaches the Pages tools over
-   * Pica's bridge.
-   */
-  private selectPicaNative(
-    driver: AcpDriver,
-    input: AgentPlanSessionInput,
-    launch: AcpLaunch,
-    profile: ReturnType<AcpDriver["profile"]>,
-  ): PicaNativeArtifact | null {
-    const runner = picaNativeRunner(driver.provider);
-    if (!input.chat || runner === null || profile.mode === "yolo") return null;
-    if (!input.chat.listener.picaCodex || launch.mcpServers.length > 0)
-      throw new AgentError(driver.errors.adapterUnsupported);
-    if (runner === "codex") requirePicaCodexProfile(profile);
-    return requirePicaNativeArtifact(
-      this.dependencies.tools?.directory,
-      runner,
-    );
-  }
-
-  /** A Claude plan session keeps its transcripts in a home of its own, so a retry resumes it and no other run reads it. */
-  private async scopedHome(
-    driver: AcpDriver,
-    input: AgentPlanSessionInput,
-    start: VerifiedStart,
-  ): Promise<ClaudePlanSessionHome | null> {
-    // An observer session keeps no transcript, so it needs no home of a plan run.
-    if (
-      driver.provider !== "claude_code" ||
-      input.chat ||
-      input.purpose === "observer"
-    )
-      return null;
-    const prepare =
-      this.dependencies.claudeHome ?? prepareClaudePlanSessionHome;
-    return prepare(start.home, {
-      planId: input.resourceContext?.planId ?? "",
-      runId: input.resourceContext?.runId ?? "",
-      scopeId:
-        input.resourceContext?.sessionScopeId ??
-        input.resourceContext?.stepId ??
-        "",
-      sourceRunId: input.resourceContext?.sourceRunId,
-    });
-  }
-
-  /**
-   * Persists the identity of the process frame before the first ACP request.
-   *
-   * @remarks
-   * The directly spawned process is the namespace init or, for a session
-   * without a namespace such as a YOLO chat, the client of its worker unit
-   * (PAGE-335, PAGE-340). Its PID, start, owner and boot together with the unit
-   * name let a later check prove the end of exactly this instance and let its
-   * lease leave `spawning`.
-   */
-  private async registerNamespace(
-    input: AgentPlanSessionInput,
-    processId: number | null,
-    request: CliSessionRequest,
-    containment: CliSessionContainment,
-  ): Promise<AcpNamespaceOwner | undefined> {
-    if (containment === "none") return undefined;
-    // A spawn that failed has no process; the unit frame still confirms its closeout.
-    if (!processId && containment === "worker_unit") return undefined;
-    if (!processId) throw new AcpCleanupUnconfirmedError();
-    const identity = await captureOwnedNamespace(processId);
-    const namespace = request.unit
-      ? { ...identity, unit: request.unit.name }
-      : identity;
-    await this.dependencies.resources?.registerNamespace(
-      input.instanceId,
-      namespace,
-    );
-    return namespace;
-  }
-
-  private async prepareGitHub(
-    input: AgentPlanSessionInput,
-    start: VerifiedStart,
-    mode: AcpPermissionMode,
-  ): Promise<CliGitHubAccess | null> {
-    if (!this.dependencies.github) return null;
-    const access =
-      mode === "yolo" && input.github
-        ? await input.github()
-        : ({
-            status: "unavailable",
-            reason:
-              mode === "read_only"
-                ? "read-only session"
-                : "no authorized project connection",
-          } as const);
-    const gh =
-      access.status === "available"
-        ? (await this.dependencies.locator.locate("gh")).path
-        : null;
-    return this.dependencies.github.prepare({
-      instanceId: input.instanceId,
-      access,
-      gh,
-      bridge: mode === "yolo" ? await input.gitBridge?.() : undefined,
-      searchPath: createCliEnvironment(
-        start.home,
-        start.provider,
-        start.adapter ?? start.file,
-      ).PATH,
-    });
-  }
-
-  private async secureAcp(
-    input: AgentPlanSessionInput,
-    start: VerifiedStart,
-    github: CliGitHubAccess | null,
-  ): Promise<void> {
-    try {
-      await github?.cleanup();
-    } finally {
-      await this.dependencies.store.secure(
-        input.agent.connection.id,
-        start.provider,
-      );
-    }
   }
 
   /**

@@ -123,7 +123,21 @@ async function collectProcess(
     unregisterPause?.();
     request.signal.removeEventListener("abort", abort);
   }
-  let isConfirmed = false;
+  const isConfirmed = await confirmScriptCloseout(
+    request,
+    capture,
+    child,
+    record.namespace !== undefined,
+  );
+  return capture.result(record, isConfirmed);
+}
+
+async function confirmScriptCloseout(
+  request: ScriptProcessRequest,
+  capture: AgentPlanScriptCapture,
+  child: ReturnType<typeof spawn>,
+  hasNamespace: boolean,
+): Promise<boolean> {
   try {
     if (!capture.isExited)
       child.kill(
@@ -135,17 +149,15 @@ async function collectProcess(
       if (!capture.isExited) child.kill("SIGKILL");
     }, 2000);
     try {
-      isConfirmed =
-        (await capture.confirmClosed()) && record.namespace !== undefined;
+      return (await capture.confirmClosed()) && hasNamespace;
     } finally {
       clearTimeout(escalation);
     }
   } catch {
-    isConfirmed = false;
+    return false;
   } finally {
     child.stdin?.destroy();
     child.stdout?.destroy();
     child.stderr?.destroy();
   }
-  return capture.result(record, isConfirmed);
 }

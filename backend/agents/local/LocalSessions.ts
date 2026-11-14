@@ -11,24 +11,23 @@ import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
 import { isActivePlanRun } from "@/definition/AgentPlanRunState";
 
-import {
-  localClosedSchema,
-  localLaunchSchema,
-  localMutationSchema,
-} from "./LocalSessionContracts";
+import { localClosedSchema } from "./LocalSessionContracts";
 import { LocalSessionJournal } from "./LocalSessionJournal";
 import { LocalSessionImport } from "./LocalSessionImport";
 import { LocalAttachedSession } from "./LocalAttachedSession";
+import {
+  createLocalSessionLaunch,
+  localSessionDirectory,
+  readCurrentLocalLaunch,
+  readLocalSessionMilestones,
+  readSharedLocalLaunch,
+} from "./LocalSessionLaunch";
 import {
   hasEndedLocalOwner,
   localManifestDigest,
   proveLocalOwner,
 } from "./LocalSessionOwnership";
-import {
-  readLocalRecord,
-  requireLocalDirectory,
-  writeLocalRecord,
-} from "./LocalSessionFiles";
+import { requireLocalDirectory, writeLocalRecord } from "./LocalSessionFiles";
 import { sendLocalCommand } from "./LocalSessionTransport";
 import { startLocalSessionUnit } from "./LocalSessionUnit";
 import {
@@ -47,7 +46,6 @@ import type { AgentToolManagerService } from "@/backend/service/agents/tools/Age
 import type { LocalSessionEntry } from "@/backend/database/repositories/agent/LocalSessionRepository";
 import type { AcpResourceScheduler } from "@/backend/service/agents/AcpResourceScheduler";
 import type { AcpStartLifecycle } from "@/backend/service/agents/resources/AcpStartLifecycle";
-import type { AgentPlanExecutionInput } from "@/backend/service/agents/AgentPlanStepStart";
 import type {
   AgentPlanSessionInput,
   PlanSession,
@@ -204,7 +202,7 @@ export class LocalSessions {
     observer: PlanSessionObserver,
   ): Promise<PlanSession> {
     if (this.isDetaching) throw new AgentError("plan_run_unavailable");
-    const launch = this.launch(
+    const launch = createLocalSessionLaunch(
       input,
       input.instanceId,
       input.mcp ?? null,
@@ -255,7 +253,10 @@ export class LocalSessions {
     await proveLocalOwner(entry, this.directory(entry.instanceId));
     let attached = this.attached.get(record.instanceId);
     if (!attached) {
-      const launch = await this.currentLaunch(entry.instanceId);
+      const launch = await readCurrentLocalLaunch(
+        this.directory(entry.instanceId),
+        entry,
+      );
       const raw = await this.bind(entry, launch, signal, observer);
       const session = await this.input.resources.adoptSession(
         entry.instanceId,
@@ -305,33 +306,18 @@ export class LocalSessions {
     turnId?: string,
   ): Promise<LocalSessionLaunch> {
     const entry = this.requireEntry(instanceId);
-    const owned = await proveLocalOwner(entry, this.directory(instanceId));
-    if (!turnId) return this.currentLaunch(instanceId);
-    if (owned.manifest.launch.turnId === turnId) return owned.manifest.launch;
-    if (!/^[a-f0-9-]{36}$/u.test(turnId))
-      throw new AgentError("plan_context_changed");
-    return localLaunchSchema.parse(
-      await readLocalRecord(
-        path.join(this.directory(instanceId), `turn-${turnId}.json`),
-      ),
-    );
+    return readSharedLocalLaunch(this.directory(instanceId), entry, turnId);
   }
 
   /** Reads the committed milestones used to restore retained native group bookkeeping. */
   public async milestones(
     instanceId: string,
   ): Promise<readonly LocalSessionMutation[]> {
-    const entry = (await this.owners.list(this.instanceKey)).find(
-      (candidate) => candidate.instanceId === instanceId,
-    );
-    if (!entry?.checkpointFile) return [];
-    const checkpoint: unknown = JSON.parse(
-      await requireAgentFiles(this.input.database).read(entry.checkpointFile),
-    );
-    if (!Array.isArray(checkpoint))
-      throw new Error("Invalid local session checkpoint");
-    return checkpoint.map((mutation: unknown) =>
-      localMutationSchema.parse(mutation),
+    return readLocalSessionMilestones(
+      this.owners,
+      this.instanceKey,
+      this.input.database,
+      instanceId,
     );
   }
 
@@ -483,7 +469,7 @@ export class LocalSessions {
           turnId,
         ),
       nextLaunch: (input) =>
-        this.launch(input, entry.instanceId, launch.mcp, 0),
+        createLocalSessionLaunch(input, entry.instanceId, launch.mcp, 0),
       namespace: async (mutation) => {
         const namespace = mutation.details.namespace;
         if (namespace && isActivePlanRun(run.status))
@@ -502,42 +488,6 @@ export class LocalSessions {
     return raw;
   }
 
-  private launch(
-    input: AgentPlanExecutionInput,
-    instanceId: string,
-    mcp: {
-      readonly url: string;
-      readonly tools: readonly string[] | null;
-    } | null,
-    timeoutMinutes: number,
-  ): LocalSessionLaunch {
-    const recording = input.recording;
-    if (!recording || recording.instanceId !== instanceId)
-      throw new AgentError("plan_context_changed");
-    const isInstruction = input.resourceContext?.isLocalInstruction === true;
-    const launch = localLaunchSchema.safeParse({
-      runId: recording.key.runId,
-      stepId: recording.key.stepId,
-      sessionScopeId:
-        input.resourceContext?.sessionScopeId ?? recording.key.stepId,
-      attemptId: recording.key.attemptId,
-      turnId: isInstruction ? randomUUID() : recording.key.attemptId,
-      isInstruction,
-      instanceId,
-      userId: input.userId,
-      prompt: input.prompt,
-      instruction: input.acceptanceInstruction ?? "",
-      mcp: mcp
-        ? { url: mcp.url, tools: mcp.tools ? [...mcp.tools] : null }
-        : null,
-      timeoutMinutes,
-      resumeSessionId:
-        "resumeSessionId" in input ? input.resumeSessionId : null,
-    });
-    if (!launch.success) throw new AgentError("plan_local_launch_invalid");
-    return launch.data;
-  }
-
   private requireEntry(instanceId: string): LocalSessionEntry {
     const entry = this.entries.get(instanceId);
     if (!entry || !this.proven.has(instanceId))
@@ -546,9 +496,7 @@ export class LocalSessions {
   }
 
   private directory(instanceId: string): string {
-    if (!/^[a-f0-9-]{36}$/u.test(instanceId))
-      throw new AgentError("plan_local_owner_unverified");
-    return path.join(this.input.dataDirectory, "local-sessions", instanceId);
+    return localSessionDirectory(this.input.dataDirectory, instanceId);
   }
 
   private async control(
@@ -614,7 +562,10 @@ export class LocalSessions {
     if (!run || isActivePlanRun(run.status)) return;
     const raw = await this.bind(
       entry,
-      await this.currentLaunch(entry.instanceId),
+      await readCurrentLocalLaunch(
+        this.directory(entry.instanceId),
+        this.requireEntry(entry.instanceId),
+      ),
       new AbortController().signal,
       { started: () => undefined, identified: () => undefined },
     );
@@ -638,26 +589,5 @@ export class LocalSessions {
     this.uncertain.delete(entry.instanceId);
     this.attached.delete(entry.instanceId);
     this.input.tools.supervisor.release(entry.instanceId);
-  }
-
-  private async currentLaunch(instanceId: string): Promise<LocalSessionLaunch> {
-    const directory = this.directory(instanceId);
-    try {
-      return localLaunchSchema.parse(
-        await readLocalRecord(path.join(directory, "current.json")),
-      );
-    } catch (error: unknown) {
-      if (!(
-        error instanceof Error &&
-        "code" in error &&
-        error.code === "ENOENT"
-      ))
-        throw error;
-      const owned = await proveLocalOwner(
-        this.requireEntry(instanceId),
-        directory,
-      );
-      return owned.manifest.launch;
-    }
   }
 }

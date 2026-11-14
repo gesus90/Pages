@@ -1,11 +1,11 @@
-import { setTimeout as wait } from "node:timers/promises";
-
 import { setScriptRunPaused } from "./AgentPlanScriptPause";
 
 import type { LocalSessions } from "@/backend/agents/local/LocalSessions";
 import type { AgentPlanRun } from "@/definition/AgentPlan";
 import type { ActivePlanRun } from "./AgentPlanRunState";
 import type { AgentPlanSnapshot } from "./AgentPlanSnapshot";
+
+const CODEX_PAUSE_POLL_MS = 25;
 
 /** Limits the native suspension path to local Codex plans; other providers keep their control path. */
 export function usesImmediateCodexPause(snapshot: AgentPlanSnapshot): boolean {
@@ -50,16 +50,29 @@ export function suspendedCodexRun(active: ActivePlanRun): AgentPlanRun {
   };
 }
 
+function waitPauseSlice(
+  milliseconds: number,
+  signal: AbortSignal,
+): Promise<void> {
+  if (signal.aborted) return Promise.resolve();
+  return new Promise((resolve) => {
+    const onAbort = (): void => {
+      clearTimeout(timer);
+      resolve();
+    };
+    const timer = setTimeout(() => {
+      signal.removeEventListener("abort", onAbort);
+      resolve();
+    }, milliseconds);
+    signal.addEventListener("abort", onAbort, { once: true });
+  });
+}
+
 /** Holds a completed native turn at the pause boundary before assessment or a corrective turn. */
 export async function waitForCodexResume(
   read: () => AgentPlanRun,
   signal: AbortSignal,
 ): Promise<void> {
-  while (["pausing", "paused"].includes(read().status) && !signal.aborted) {
-    try {
-      await wait(25, undefined, { signal });
-    } catch (error: unknown) {
-      if (!signal.aborted) throw error;
-    }
-  }
+  while (["pausing", "paused"].includes(read().status) && !signal.aborted)
+    await waitPauseSlice(CODEX_PAUSE_POLL_MS, signal);
 }

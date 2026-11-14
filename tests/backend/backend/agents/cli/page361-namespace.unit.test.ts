@@ -6,12 +6,14 @@ const boundary = vi.hoisted(() => ({
   ended: vi.fn(async () => false),
   command: vi.fn(
     (
-      _file: string,
-      _arguments: readonly string[],
-      _options: unknown,
-      callback: (error: Error | null, stdout: string, stderr: string) => void,
+      ...args: [
+        file: string,
+        commandArguments: readonly string[],
+        options: unknown,
+        callback: (error: Error | null, stdout: string, stderr: string) => void,
+      ]
     ) => {
-      callback(null, "", "");
+      args[3](null, "", "");
     },
   ),
 }));

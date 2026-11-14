@@ -105,21 +105,19 @@ it("shows unreported tokens and incomplete sums instead of zero, and unknown pri
 
 it("refreshes the run and step counters while a Codex agent is still working, and releases polling on unmount", async () => {
   const current = run();
-  const fetcher = vi
-    .fn<typeof fetch>()
-    .mockImplementation(
-      async () =>
-        new Response(
-          JSON.stringify({
-            view: {
-              codexRunUsage: {
-                total: SUMMARY,
-                steps: [{ stepId: "step", usage: SUMMARY }],
-              },
+  const fetcher = vi.fn<typeof fetch>().mockImplementation(
+    async () =>
+      new Response(
+        JSON.stringify({
+          view: {
+            codexRunUsage: {
+              total: SUMMARY,
+              steps: [{ stepId: "step", usage: SUMMARY }],
             },
-          }),
-        ),
-    );
+          },
+        }),
+      ),
+  );
   vi.stubGlobal("fetch", fetcher);
   const view = translated(<PlanCodexUsage run={current} />);
   await waitFor(() => expect(screen.getAllByText(/im Abo/u)).toHaveLength(2));

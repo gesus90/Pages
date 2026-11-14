@@ -153,11 +153,11 @@ Context occupancy and token counts are separate values:
   is `isPartial` when a turn lacked a count or the adapter reports partial
   turns, and lists every confirmed model it contains.
 
-| Provider (adapter)               | Counting   | `inputTokens` contains cache reads                    | Partial turns              | Context (`used`/`size`)                | Cost                    | Load / resume                  |
-| -------------------------------- | ---------- | ----------------------------------------------------- | -------------------------- | -------------------------------------- | ----------------------- | ------------------------------ |
-| Claude Code (`claude-agent-acp`) | per prompt | no; total = input + output + cache read + cache write | no                         | last top-level message, cache included | estimate, process total | resume (transcript on disk)    |
-| Codex (`codex-acp`), plans (PAGE-362) | native cumulative deltas reconciled with ACP prompt deltas | yes | missing reports marked incomplete | context only, never accounting | OpenRouter equivalent, subscription | load (replays history), resume |
-| OpenCode (native ACP)            | per prompt | not verified (`null`)                                 | yes (last model step only) | reported by the release source         | estimate, session total | resume                         |
+| Provider (adapter)                    | Counting                                                   | `inputTokens` contains cache reads                    | Partial turns                     | Context (`used`/`size`)                | Cost                                | Load / resume                  |
+| ------------------------------------- | ---------------------------------------------------------- | ----------------------------------------------------- | --------------------------------- | -------------------------------------- | ----------------------------------- | ------------------------------ |
+| Claude Code (`claude-agent-acp`)      | per prompt                                                 | no; total = input + output + cache read + cache write | no                                | last top-level message, cache included | estimate, process total             | resume (transcript on disk)    |
+| Codex (`codex-acp`), plans (PAGE-362) | native cumulative deltas reconciled with ACP prompt deltas | yes                                                   | missing reports marked incomplete | context only, never accounting         | OpenRouter equivalent, subscription | load (replays history), resume |
+| OpenCode (native ACP)                 | per prompt                                                 | not verified (`null`)                                 | yes (last model step only)        | reported by the release source         | estimate, session total             | resume                         |
 
 A later surface can show `112k In (3.6m Cache Read) · 1.2k Out` from
 `inputTokens`, `cacheReadTokens` and `outputTokens`; for Claude the cache is
@@ -275,7 +275,6 @@ whether or not tool events were recorded.
 - Codex's cache counting and OpenCode's are not verified against adapter
   sources in this change.
 
-
 ## Codex plan accounting (PAGE-362, 14 November 2026)
 
 This path applies only to `codex_cli` plan nodes. Claude Code, Pica chat and
@@ -377,7 +376,6 @@ Protocol references used for source inspection (no model execution):
 [official codex-acp package 2.2.2](https://www.npmjs.com/package/@agentclientprotocol/codex-acp/v/2.2.2),
 [OpenRouter models API](https://openrouter.ai/docs/api/api-reference/models/list-all-models-and-their-properties).
 
-
 Final focused validation of this iteration (exit 0 for each command):
 
 ```sh
@@ -388,14 +386,14 @@ pnpm exec vitest run --config vitest.frontend.config.ts --coverage.enabled=false
 # 4 files, 41 tests passed
 ```
 
-| Todo | Local proof |
-| --- | --- |
-| T1 | `page362-codex-usage`: native fields and ACP normalization; `page362-codex-persistence`: recorder and local-owner schema; Frontend `page362-codex-usage`: all token kinds. |
-| T2 | `page362-codex-persistence`: multiple turns, duplicate totals, repeated outbox receipts, resumed/stale baselines, delayed native records and rollback. Cache/Reasoning subsets are priced once in `page362-codex-usage`. |
-| T3 | `page362-codex-usage`: two actual loop iterations, replaced retries, per-step totals and whole-run totals, including incomplete sums. |
-| T4 | Backend calculation and frozen-price tests plus Frontend subscription-equivalent display and hint. |
-| T5 | Mocked startup/daily HTTP refresh retains the last good catalog offline; persistence tests calculate from the saved catalog and preserve frozen snapshots after changes. |
-| T6 | Backend automatic/ambiguous/manual mapping tests; Frontend field and hook submission tests cover editing, clearing and omitting unchanged mappings. Existing administrator authorization protects the connection write. |
-| T7 | Null prompt/report tests, stale-total/no-fabricated-zero regression and Frontend `nicht gemeldet`/incomplete-total assertions. |
-| T8 | Mocked native live polling, recorder updates before prompt completion, Frontend polling while running, and the monthly limit using persisted equivalents. |
-| T9 | This documentation, explicitly unconfirmed real-provider comparison, exited unit-test processes and released test timers; no temporary provider/server/database data was created. |
+| Todo | Local proof                                                                                                                                                                                                              |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| T1   | `page362-codex-usage`: native fields and ACP normalization; `page362-codex-persistence`: recorder and local-owner schema; Frontend `page362-codex-usage`: all token kinds.                                               |
+| T2   | `page362-codex-persistence`: multiple turns, duplicate totals, repeated outbox receipts, resumed/stale baselines, delayed native records and rollback. Cache/Reasoning subsets are priced once in `page362-codex-usage`. |
+| T3   | `page362-codex-usage`: two actual loop iterations, replaced retries, per-step totals and whole-run totals, including incomplete sums.                                                                                    |
+| T4   | Backend calculation and frozen-price tests plus Frontend subscription-equivalent display and hint.                                                                                                                       |
+| T5   | Mocked startup/daily HTTP refresh retains the last good catalog offline; persistence tests calculate from the saved catalog and preserve frozen snapshots after changes.                                                 |
+| T6   | Backend automatic/ambiguous/manual mapping tests; Frontend field and hook submission tests cover editing, clearing and omitting unchanged mappings. Existing administrator authorization protects the connection write.  |
+| T7   | Null prompt/report tests, stale-total/no-fabricated-zero regression and Frontend `nicht gemeldet`/incomplete-total assertions.                                                                                           |
+| T8   | Mocked native live polling, recorder updates before prompt completion, Frontend polling while running, and the monthly limit using persisted equivalents.                                                                |
+| T9   | This documentation, explicitly unconfirmed real-provider comparison, exited unit-test processes and released test timers; no temporary provider/server/database data was created.                                        |

@@ -236,8 +236,7 @@ export class LocalOwnerSession {
       await this.markCancelled();
       throw new AgentPlanCancelledError();
     }
-    if (currentRun?.status === "paused")
-      this.isPaused = true;
+    if (currentRun?.status === "paused") this.isPaused = true;
     while (this.isPaused && !this.controller.signal.aborted)
       await wait(25, undefined, { signal: this.controller.signal });
     this.controller.signal.throwIfAborted();

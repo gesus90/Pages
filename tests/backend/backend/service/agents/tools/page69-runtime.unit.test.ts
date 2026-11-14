@@ -85,7 +85,7 @@ it("ends the existing process group after cancellation and releases tools only a
   const closed = await session.close();
   expect(closed).toMatchObject({
     isConfirmed: true,
-    exit: { signal: "SIGTERM" },
+    exit: { signal: "SIGKILL" },
   });
   expect(fake.spawned).toHaveLength(1);
   expect(world.manager.supervisor.activities("codex_acp")).toEqual([]);

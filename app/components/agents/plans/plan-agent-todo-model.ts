@@ -14,6 +14,43 @@ export interface AgentTodoSummary {
   readonly isReported: boolean;
 }
 
+function assignedAgentTodos(
+  step: AgentPlanStepResult | undefined,
+): AgentPlanAgentTodo[] {
+  const progressTodos = step?.progress?.todos;
+  const source =
+    progressTodos ??
+    step?.session?.contract?.todos.map((todo) => ({
+      id: todo.id,
+      text: todo.text,
+      status: todo.checked ? ("done" as const) : ("open" as const),
+    })) ??
+    [];
+  const observedAt = step?.progress?.observedAt ?? "";
+  return source
+    .filter((todo) => todo.id !== "PAGES_PLAN")
+    .map((todo) => ({
+      id: todo.id,
+      text: todo.text,
+      status:
+        todo.status === "done" || todo.status === "active"
+          ? todo.status
+          : "open",
+      updatedAt: observedAt,
+    }));
+}
+
+function shouldReplaceAssignedTodo(
+  step: AgentPlanStepResult | undefined,
+  existing: AgentPlanAgentTodo | undefined,
+): boolean {
+  return (
+    step?.session?.runner === "codex_cli" ||
+    step?.execution?.modelAccess.provider === "codex_cli" ||
+    existing?.status !== "done"
+  );
+}
+
 /**
  * Counts ticket, instruction and structured agent TODOs of one node result.
  *
@@ -22,34 +59,15 @@ export interface AgentTodoSummary {
 export function agentTodoSummary(
   step: AgentPlanStepResult | undefined,
 ): AgentTodoSummary {
-  const assigned: AgentPlanAgentTodo[] = (
-    step?.progress?.todos ??
-    step?.session?.contract?.todos.map((todo) => ({
-      id: todo.id,
-      text: todo.text,
-      status: todo.checked ? ("done" as const) : ("open" as const),
-    })) ??
-    []
-  ).map((todo) => ({
-    id: todo.id,
-    text: todo.text,
-    status:
-      todo.status === "done" || todo.status === "active" ? todo.status : "open",
-    updatedAt: step?.progress?.observedAt ?? "",
-  }));
-  const native = step?.agentTodos?.todos ?? [];
   // The server-only native-plan obligation is a completion gate, not agent work.
-  const todos = assigned.filter((todo) => todo.id !== "PAGES_PLAN");
+  const todos = assignedAgentTodos(step);
+  const native = step?.agentTodos?.todos ?? [];
   for (const todo of native) {
     const existing = todos.findIndex(
       (entry) => entry.id === `A${todo.id}` || entry.text === todo.text,
     );
     if (existing < 0) todos.push(todo);
-    else if (
-      step?.session?.runner === "codex_cli" ||
-      step?.execution?.modelAccess.provider === "codex_cli" ||
-      todos[existing]?.status !== "done"
-    )
+    else if (shouldReplaceAssignedTodo(step, todos[existing]))
       todos[existing] = todo;
   }
   return {

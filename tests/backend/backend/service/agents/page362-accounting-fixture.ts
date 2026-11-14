@@ -31,33 +31,6 @@ export class CodexAccountingDatabase implements AgentSessionDatabase {
   public shouldFailWrite = false;
   public readonly statements: string[] = [];
 
-  /** Transaction failures restore both the counter claim and the turn valuation. */
-  public async transaction<Result>(
-    work: (transaction: DatabaseTransaction) => Promise<Result>,
-  ): Promise<Result> {
-    const before = {
-      watermarks: new Map(this.watermarks),
-      turns: new Map(this.turns),
-      prices: new Map(this.prices),
-      baselines: new Map(this.baselines),
-    };
-    try {
-      return await work(this);
-    } catch (error: unknown) {
-      this.watermarks.clear();
-      this.turns.clear();
-      this.prices.clear();
-      this.baselines.clear();
-      for (const [key, entry] of before.baselines)
-        this.baselines.set(key, entry);
-      for (const [key, entry] of before.watermarks)
-        this.watermarks.set(key, entry);
-      for (const [key, entry] of before.turns) this.turns.set(key, entry);
-      for (const [key, entry] of before.prices) this.prices.set(key, entry);
-      throw error;
-    }
-  }
-
   /** Models only the writes owned by PAGE-362. */
   public readonly execute = vi.fn(
     async (
@@ -147,4 +120,31 @@ export class CodexAccountingDatabase implements AgentSessionDatabase {
       throw new Error("Unexpected accounting query");
     },
   );
+
+  /** Transaction failures restore both the counter claim and the turn valuation. */
+  public async transaction<Result>(
+    work: (transaction: DatabaseTransaction) => Promise<Result>,
+  ): Promise<Result> {
+    const before = {
+      watermarks: new Map(this.watermarks),
+      turns: new Map(this.turns),
+      prices: new Map(this.prices),
+      baselines: new Map(this.baselines),
+    };
+    try {
+      return await work(this);
+    } catch (error: unknown) {
+      this.watermarks.clear();
+      this.turns.clear();
+      this.prices.clear();
+      this.baselines.clear();
+      for (const [key, entry] of before.baselines)
+        this.baselines.set(key, entry);
+      for (const [key, entry] of before.watermarks)
+        this.watermarks.set(key, entry);
+      for (const [key, entry] of before.turns) this.turns.set(key, entry);
+      for (const [key, entry] of before.prices) this.prices.set(key, entry);
+      throw error;
+    }
+  }
 }

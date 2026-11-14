@@ -13,6 +13,16 @@ const SCOPE = {
   iteration: "loop/1",
 };
 
+function stub<T>(value: unknown): T {
+  return value as T;
+}
+
+function problemContaining(fragment: string): readonly string[] {
+  return stub<readonly string[]>(
+    expect.arrayContaining([stub<string>(expect.stringContaining(fragment))]),
+  );
+}
+
 it("refuses Codex completion without a native plan even when every assigned TODO was checked", async () => {
   const fixture = todoFixture();
   await fixture.progress.initialize(SCOPE, fixture.contract);
@@ -33,9 +43,7 @@ it("refuses Codex completion without a native plan even when every assigned TODO
     reports.report(TODO_IDENTITY, { status: "done", message: "Finished" }),
   ).rejects.toMatchObject({
     details: {
-      problems: expect.arrayContaining([
-        expect.stringContaining("native update_plan"),
-      ]),
+      problems: problemContaining("native update_plan"),
     },
   });
   await expect(
@@ -46,9 +54,7 @@ it("refuses Codex completion without a native plan even when every assigned TODO
     }),
   ).rejects.toMatchObject({
     details: {
-      problems: expect.arrayContaining([
-        expect.stringContaining("native update_plan"),
-      ]),
+      problems: problemContaining("native update_plan"),
     },
   });
   fixture.native.set("attempt", [
@@ -58,9 +64,7 @@ it("refuses Codex completion without a native plan even when every assigned TODO
     reports.report(TODO_IDENTITY, { status: "done", message: "Finished" }),
   ).rejects.toMatchObject({
     details: {
-      problems: expect.arrayContaining([
-        expect.stringContaining("Complete the open TODOs"),
-      ]),
+      problems: problemContaining("Complete the open TODOs"),
     },
   });
   fixture.native.set("attempt", [

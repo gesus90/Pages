@@ -2,6 +2,17 @@ import { useTranslation } from "react-i18next";
 
 import type { CodexUsageSummary } from "@/definition/CodexPlanUsage";
 
+function costStatusLabel(
+  hasTokens: boolean,
+  isPriceUnknown: boolean,
+  t: (key: string) => string,
+): string {
+  if (!hasTokens) return t("codexUsage.notReported");
+  return isPriceUnknown
+    ? t("codexUsage.priceUnknown")
+    : t("codexUsage.subscription");
+}
+
 /** Token subsets and calculated subscription equivalent, shared by the panel and console. */
 export function CodexUsageFacts({
   usage,
@@ -27,11 +38,7 @@ export function CodexUsageFacts({
     "reasoningTokens",
   ] as const;
   const hasTokens = usage.inputTokens !== null || usage.outputTokens !== null;
-  const cost = hasTokens
-    ? usage.isPriceUnknown
-      ? t("codexUsage.priceUnknown")
-      : t("codexUsage.subscription")
-    : unknown;
+  const cost = costStatusLabel(hasTokens, usage.isPriceUnknown, t);
   return (
     <div className="space-y-1 text-xs">
       <dl className="flex flex-wrap gap-x-4 gap-y-1">

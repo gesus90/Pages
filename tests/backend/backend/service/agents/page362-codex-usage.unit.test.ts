@@ -321,8 +321,9 @@ it("refreshes startup/daily without credentials and preserves the last catalog o
   await service.start();
   await vi.advanceTimersByTimeAsync(1);
   expect(save).toHaveBeenCalledTimes(1);
+  const anySignal: AbortSignal = expect.any(AbortSignal) as AbortSignal;
   expect(request).toHaveBeenCalledWith("https://openrouter.ai/api/v1/models", {
-    signal: expect.any(AbortSignal),
+    signal: anySignal,
   });
   request.mockRejectedValue(new Error("offline"));
   await vi.advanceTimersByTimeAsync(24 * 60 * 60 * 1_000);

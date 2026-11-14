@@ -32,7 +32,9 @@ it.each(["paused", "pausing"] as const)(
     const start = vi.fn((restored: ActivePlanRun) => {
       expect(freeze).toHaveBeenCalledWith(previous.id, true);
       expect(restored.view.status).toBe("paused");
-      expect(restored.view.steps[0]?.session).toEqual(previous.steps[0]?.session);
+      expect(restored.view.steps[0]?.session).toEqual(
+        previous.steps[0]?.session,
+      );
     });
     const adopted = await adoptLocalPlanRun(previous, {
       active,
@@ -54,7 +56,11 @@ it.each(["paused", "pausing"] as const)(
           update: fixture.update,
         },
         start: { control: async () => undefined },
-        steps: { run: async () => ({}), closeGroups: async () => [], restore },
+        steps: {
+          run: async () => ({}),
+          closeGroups: async () => undefined,
+          restore,
+        },
       },
     });
     expect(adopted).toBe(true);

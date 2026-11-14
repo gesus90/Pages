@@ -111,7 +111,9 @@ describe("reading a plan polling response", () => {
       control: { canPlay: true, lastStartRejection: REJECTION },
     });
   });
+});
 
+describe("reading a plan run or error polling response", () => {
   it("reads a run through the run reader", () => {
     const run = { id: "run-1" };
     reader.readPlanRun.mockReturnValue(run);

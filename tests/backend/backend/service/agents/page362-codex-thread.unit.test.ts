@@ -97,7 +97,9 @@ it("baselines history before prompting, reports new complete records while worki
 
 it("keeps a thread with no native usage unreported and rejects path-shaped thread identifiers", async () => {
   filesystem.readdir.mockResolvedValue([]);
-  const reported = vi.fn(async (_report: CodexThreadReport) => undefined);
+  const reported = vi.fn<(report: CodexThreadReport) => Promise<void>>(
+    async () => undefined,
+  );
   const reader = new CodexThreadUsage(
     "/synthetic/codex",
     "gpt-6.1-sol",
