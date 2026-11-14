@@ -153,7 +153,13 @@ it("ends the job as cancelled when the execution lease is gone", async () => {
 it("stops a running script when the timeout elapses", async () => {
   // The clock is polled so that paused time does not count; it needs a faked Date.
   vi.useFakeTimers({
-    toFake: ["setInterval", "clearInterval", "setTimeout", "clearTimeout", "Date"],
+    toFake: [
+      "setInterval",
+      "clearInterval",
+      "setTimeout",
+      "clearTimeout",
+      "Date",
+    ],
   });
 
   await runWorker({

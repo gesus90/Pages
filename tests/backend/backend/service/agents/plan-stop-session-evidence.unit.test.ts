@@ -197,7 +197,6 @@ it.each([false, true])(
       node,
       {
         turn: Promise.reject(failure),
-        close: vi.fn(),
       },
       cleanup,
     );

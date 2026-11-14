@@ -14,7 +14,10 @@ import type { AgentPlanRunRepository } from "@/backend/database/repositories/age
 
 /** Runtime boundaries shared with the run command aggregate. */
 export interface EngineDependencies {
-  readonly startResources?: Pick<AgentPlanStartResources, "release" | "releaseResources" | "reconcile">;
+  readonly startResources?: Pick<
+    AgentPlanStartResources,
+    "release" | "releaseResources" | "reconcile"
+  >;
   /** Startup restores state and consumes pending controls before releasing dispatch. */
   readonly deferScheduling?: boolean;
   readonly localSessions?: LocalSessions;

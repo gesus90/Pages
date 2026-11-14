@@ -1,3 +1,4 @@
+import type { SqlParameters } from "@/backend/database/Database";
 import { AgentActivityRepository } from "@/backend/database/repositories/employee/AgentActivityRepository";
 import { expect, it, vi } from "vitest";
 
@@ -49,7 +50,11 @@ it("reads exactly the priced plan rows for the executing account rather than ada
 });
 
 it("saves a Claude budget and preserves it when an older client omits that field", async () => {
-  const query = vi.fn(async () => [["agent"]]);
+  const query = vi.fn(async (statement: string, parameters?: SqlParameters) => {
+    void statement;
+    void parameters;
+    return [["agent"]];
+  });
   const execute = vi.fn(async () => undefined);
   const repository = new AgentEmployeeRepository({ query, execute });
   const fields = {

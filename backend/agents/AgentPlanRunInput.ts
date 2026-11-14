@@ -49,12 +49,7 @@ export function readPlanRun(input: unknown): AgentPlanRun {
     planRevision,
     status,
     stopRequested,
-    ...(run.resourceReleases === undefined ? {} : {
-      resourceReleases: planResourceReleaseSchema.array().parse(run.resourceReleases),
-    }),
-    ...(run.startCleanupUnconfirmed === undefined ? {} : {
-      startCleanupUnconfirmed: readCleanupWarnings(run.startCleanupUnconfirmed),
-    }),
+    ...readCleanup(run),
     ...readWriterWait(run, { status, stopRequested }),
     ...(run.controlError === "plan_step_failed" ||
     run.controlError === "plan_stop_unconfirmed"
@@ -73,6 +68,27 @@ export function readPlanRun(input: unknown): AgentPlanRun {
     ...(run.stacks === undefined
       ? {}
       : { stacks: readPlanStackRuns(run.stacks) }),
+  };
+}
+
+function readCleanup(
+  run: Readonly<Record<string, unknown>>,
+): Pick<AgentPlanRun, "resourceReleases" | "startCleanupUnconfirmed"> {
+  return {
+    ...(run.resourceReleases === undefined
+      ? {}
+      : {
+          resourceReleases: planResourceReleaseSchema
+            .array()
+            .parse(run.resourceReleases),
+        }),
+    ...(run.startCleanupUnconfirmed === undefined
+      ? {}
+      : {
+          startCleanupUnconfirmed: readCleanupWarnings(
+            run.startCleanupUnconfirmed,
+          ),
+        }),
   };
 }
 

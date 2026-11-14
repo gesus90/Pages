@@ -88,11 +88,10 @@ export function PlanPanelDetails(props: {
         plan={props.editor.draft}
         run={props.run ?? null}
       />
-      {props.recoveryRunId && props.recovery?.error ? (
-        <p role="alert" className="text-xs text-destructive">
-          {recoveryErrorText(t, props.recovery.error)}
-        </p>
-      ) : null}
+      <PlanRecoveryError
+        runId={props.recoveryRunId}
+        recovery={props.recovery}
+      />
       <PlanWorkspaceConflict conflict={props.control?.workspaceConflict} />
       <PlanStartRejection rejection={props.control?.lastStartRejection} />
       {page.selected?.canEdit && props.control?.lastStartRejection ? (
@@ -122,5 +121,21 @@ export function PlanPanelDetails(props: {
       <PlanRunsLink page={page} />
       <PlanPanelContext page={page} />
     </div>
+  );
+}
+
+function PlanRecoveryError({
+  runId,
+  recovery,
+}: {
+  readonly runId?: string | null;
+  readonly recovery?: ReturnType<typeof usePlanRecovery>;
+}): React.ReactElement | null {
+  const { t } = useTranslation();
+  if (!runId || !recovery?.error) return null;
+  return (
+    <p role="alert" className="text-xs text-destructive">
+      {recoveryErrorText(t, recovery.error)}
+    </p>
   );
 }

@@ -106,7 +106,9 @@ export class AgentPlanRunEngine {
   public constructor(dependencies: EngineDependencies) {
     this.dependencies = dependencies;
     this.starts = new AgentPlanEngineStarts({
-      dependencies, active: this.active, writes: this.writes,
+      dependencies,
+      active: this.active,
+      writes: this.writes,
       reset: (id, record) => this.resetLogical(id, record),
     });
     this.isSchedulingEnabled = !dependencies.deferScheduling;
@@ -164,8 +166,10 @@ export class AgentPlanRunEngine {
     journal: AgentPlanRunJournal,
   ): Promise<AgentPlanRun> {
     if (this.isClosing) throw new AgentError("plan_access_denied");
-    return this.starts.run(recoveredPlanRun(userId, snapshot, recovered), snapshot, (run) =>
-      this.launch(run, snapshot, { journal }),
+    return this.starts.run(
+      recoveredPlanRun(userId, snapshot, recovered),
+      snapshot,
+      (run) => this.launch(run, snapshot, { journal }),
     );
   }
 
@@ -175,7 +179,10 @@ export class AgentPlanRunEngine {
   }
 
   /** Retires writers for a separate API producer before its run admission transaction. */
-  public async prepareStartResources(start: AgentPlanResourceStart, keys: readonly string[]): Promise<readonly string[]> {
+  public async prepareStartResources(
+    start: AgentPlanResourceStart,
+    keys: readonly string[],
+  ): Promise<readonly string[]> {
     return this.starts.prepare(start, keys);
   }
 

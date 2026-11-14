@@ -25,25 +25,44 @@ export class AgentPlanEngineStarts {
   }
 
   /** Runs a fresh start's cleanup and admission in the same engine queue. */
-  public run(run: AgentPlanRun, snapshot: AgentPlanSnapshot, launch: (run: AgentPlanRun) => Promise<AgentPlanRun>): Promise<AgentPlanRun> {
+  public run(
+    run: AgentPlanRun,
+    snapshot: AgentPlanSnapshot,
+    launch: (run: AgentPlanRun) => Promise<AgentPlanRun>,
+  ): Promise<AgentPlanRun> {
     return this.queue.run(async () => {
-      const warnings = run.origin?.kind === "resume" ? [] : await this.release(run, snapshot);
-      return launch(warnings.length ? { ...run, startCleanupUnconfirmed: warnings } : run);
+      const warnings =
+        run.origin?.kind === "resume" ? [] : await this.release(run, snapshot);
+      return launch(
+        warnings.length ? { ...run, startCleanupUnconfirmed: warnings } : run,
+      );
     });
   }
 
   /** Completes native cleanup for a separate API producer before it admits the prepared run. */
-  public prepare(start: AgentPlanResourceStart, keys: readonly string[]): Promise<readonly string[]> {
-    return this.queue.run(async () => await this.context.dependencies.startResources?.releaseResources(
-      start, keys, (id, record) => this.retire(id, record),
-    ) ?? []);
+  public prepare(
+    start: AgentPlanResourceStart,
+    keys: readonly string[],
+  ): Promise<readonly string[]> {
+    return this.queue.run(
+      async () =>
+        (await this.context.dependencies.startResources?.releaseResources(
+          start,
+          keys,
+          (id, record) => this.retire(id, record),
+        )) ?? [],
+    );
   }
 
   /** Applies durable retirements before consuming queued start commands. */
   public async reconcile(): Promise<void> {
     for (const id of this.context.active.keys()) {
       const stored = await this.context.dependencies.runs.find(id);
-      if (!stored?.stopRequested || !["cancelled", "failed"].includes(stored.status)) continue;
+      if (
+        !stored?.stopRequested ||
+        !["cancelled", "failed"].includes(stored.status)
+      )
+        continue;
       if (stored.resourceReleases?.length) {
         await this.retire(id, () => Promise.resolve(stored));
         await this.context.dependencies.startResources?.reconcile(stored);
@@ -51,11 +70,23 @@ export class AgentPlanEngineStarts {
     }
   }
 
-  private async release(run: AgentPlanRun, snapshot: AgentPlanSnapshot): Promise<readonly string[]> {
-    return await this.context.dependencies.startResources?.release(run, snapshot, (id, record) => this.retire(id, record)) ?? [];
+  private async release(
+    run: AgentPlanRun,
+    snapshot: AgentPlanSnapshot,
+  ): Promise<readonly string[]> {
+    return (
+      (await this.context.dependencies.startResources?.release(
+        run,
+        snapshot,
+        (id, record) => this.retire(id, record),
+      )) ?? []
+    );
   }
 
-  private async retire(id: string, record: () => Promise<AgentPlanRun>): Promise<void> {
+  private async retire(
+    id: string,
+    record: () => Promise<AgentPlanRun>,
+  ): Promise<void> {
     await this.context.writes.run(async () => {
       const retired = await record();
       const active = this.context.active.get(id);

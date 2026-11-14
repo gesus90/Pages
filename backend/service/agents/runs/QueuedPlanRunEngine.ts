@@ -35,14 +35,23 @@ import type { PlanRunEnginePort } from "./PlanRunEnginePort";
 
 /** API producer: commits requests without owning, recovering or terminating executions. */
 export class QueuedPlanRunEngine implements PlanRunEnginePort {
-  private readonly database: Database;
+  private readonly database: Pick<
+    Database,
+    "query" | "execute" | "transaction" | "agentFiles"
+  >;
   private readonly runs: AgentPlanRunRepository;
   private readonly commands: PlanRunCommandRepository;
   private readonly socketPath: string;
   private readonly starts = new SerialQueue();
   private isClosing = false;
 
-  public constructor(database: Database, socketPath: string) {
+  public constructor(
+    database: Pick<
+      Database,
+      "query" | "execute" | "transaction" | "agentFiles"
+    >,
+    socketPath: string,
+  ) {
     this.database = database;
     this.runs = new AgentPlanRunRepository(database);
     this.commands = new PlanRunCommandRepository(database);
@@ -176,11 +185,17 @@ export class QueuedPlanRunEngine implements PlanRunEnginePort {
         const resources = new AgentPlanStartResources({
           repository: new AgentPlanStartResourceRepository(this.database),
         });
-        warnings = await resources.release(view, snapshot, async (_id, record) => {
-          await record();
-        });
+        warnings = await resources.release(
+          view,
+          snapshot,
+          async (id, record) => {
+            void id;
+            await record();
+          },
+        );
       }
-      if (warnings.length) view = { ...view, startCleanupUnconfirmed: warnings };
+      if (warnings.length)
+        view = { ...view, startCleanupUnconfirmed: warnings };
     }
     const captured = capturePlanExecution(view, snapshot);
     const receipt = this.commands.receipt(view.id, "start");

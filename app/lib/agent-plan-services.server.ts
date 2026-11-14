@@ -1,4 +1,8 @@
-import { accountClaudeUsage } from "@/backend/service/agents/sessions/ClaudeUsageAccounting";
+import type { AgentSessionRunAccess } from "@/backend/service/agents/sessions/AgentSessionService";
+import { AgentSessionRepository } from "@/backend/database/repositories/agent/AgentSessionRepository";
+import { AgentPlanCheckpointRepository } from "@/backend/database/repositories/agent/AgentPlanCheckpointRepository";
+import { createPageAgentSessions } from "./agent-plan-page-sessions.server";
+import type { AgentSessionService } from "@/backend/service/agents/sessions/AgentSessionService";
 import { canProcessRuns } from "@/backend/runtime/RunsMode";
 import { registerShutdownTask } from "@/backend/runtime/ProcessLifecycle";
 import { PlanRunCommandWorker } from "@/backend/service/agents/runs/PlanRunCommandWorker";
@@ -27,7 +31,6 @@ import { AgentProfileRepository } from "@/backend/database/repositories/agent/Ag
 import { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
 import { AgentPlanStartResourceRepository } from "@/backend/database/repositories/agent/AgentPlanStartResourceRepository";
 import { AgentPlanStartResources } from "@/backend/service/agents/AgentPlanStartResources";
-import { AgentPlanCheckpointRepository } from "@/backend/database/repositories/agent/AgentPlanCheckpointRepository";
 import { AgentPlanRecoveryRepository } from "@/backend/database/repositories/agent/AgentPlanRecoveryRepository";
 import { AgentPlanRecoveryExecutionRepository } from "@/backend/database/repositories/agent/AgentPlanRecoveryExecutionRepository";
 import { AgentPlanAutoResume } from "@/backend/service/agents/recovery/AgentPlanAutoResume";
@@ -55,10 +58,6 @@ import { AgentPlanStepStart } from "@/backend/service/agents/AgentPlanStepStart"
 import { AgentRunCredentialService } from "@/backend/service/mcp/AgentRunCredentialService";
 import { AgentPlanPhases } from "@/backend/service/agents/AgentPlanPhases";
 import { AgentPlanTasks } from "@/backend/service/agents/AgentPlanTasks";
-import { AgentSessionRepository } from "@/backend/database/repositories/agent/AgentSessionRepository";
-import { AgentSessionInbox } from "@/backend/service/agents/sessions/AgentSessionInbox";
-import { AgentSessionJournal } from "@/backend/service/agents/sessions/AgentSessionJournal";
-import { AgentSessionService } from "@/backend/service/agents/sessions/AgentSessionService";
 import { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 import { getPagesRuntime } from "@/backend/runtime/PagesRuntime";
@@ -87,7 +86,6 @@ import type {
   AgentPlanMcpSettings,
   AgentPlanSessionGrants,
 } from "@/backend/service/agents/AgentPlanSessionAccess";
-import type { AgentSessionRunAccess } from "@/backend/service/agents/sessions/AgentSessionService";
 import type { TaskService } from "@/backend/service/TaskService";
 import type { UserService } from "@/backend/service/UserService";
 import type { PlanDependencies } from "@/backend/service/agents/AgentPlanService";
@@ -239,14 +237,13 @@ export async function createAgentPlanService(input: {
     input,
     runs,
   );
-  const pageAgentSessions = await createPageAgentSessions(input, {
-    run: (userId, id) => service.run(userId, id),
-    readableRun: (userId, id) => readableSessionRun(service, userId, id),
-    stop: (userId, id) => service.stop(userId, id),
-  });
+  const pageAgentSessions = await createPageAgentSessions(
+    input,
+    sessionRunAccess(() => service),
+  );
   const { remoteTargets, remoteExecution, pages } =
     await createPlanRemoteServices(input, access, runs, local);
-  const engine = await createPlanEngine(input, {
+  const engine = await createAttachedPlanEngine(input, {
     remoteExecution,
     scripts: scriptPreparation,
     runs,
@@ -255,8 +252,6 @@ export async function createAgentPlanService(input: {
     sessions,
     pageAgentSessions,
   });
-  // The runner services are built first; runner facts learn which runs an engine still drives.
-  attachRunOwnership(input.agents.runnerService, engine);
   const preparation = new AgentPlanPreparation({
     workspaceCatalog,
     remoteExecution,
@@ -293,21 +288,11 @@ export async function createAgentPlanService(input: {
   };
   const service = new AgentPlanService(dependencies);
   const views = await createPlanViews(input, dependencies, service);
-  await startOwnedPlanProcessing(input, {
-    service,
-    runs,
-    engine,
-    remoteExecution,
-  });
-  const recovery = startPlanRecovery(input, {
-    service,
-    access,
-    preparation,
-    engine,
-    runs,
-    remoteExecution,
-  });
-  resumeAdvisor.current = recovery;
+  const recovery = await startPlanRecovery(
+    input,
+    { service, access, preparation, engine, runs, remoteExecution },
+    resumeAdvisor,
+  );
   return {
     runnerPagesAccessService: pages,
     planBridgeGrants: grants,
@@ -317,6 +302,16 @@ export async function createAgentPlanService(input: {
     agentSessionService: pageAgentSessions,
     agentPlanRecoveryService: recovery,
     agentRunDiagnosisSettingsService: diagnosis.settings,
+  };
+}
+
+function sessionRunAccess(
+  service: () => AgentPlanService,
+): AgentSessionRunAccess {
+  return {
+    run: (userId, id) => service().run(userId, id),
+    readableRun: (userId, id) => readableSessionRun(service(), userId, id),
+    stop: (userId, id) => service().stop(userId, id),
   };
 }
 
@@ -372,11 +367,14 @@ async function startOwnedPlanProcessing(
 }
 
 /** Builds the recovery and lets the runs a restart interrupted continue; the wait runs in the background. */
-function startPlanRecovery(
+async function startPlanRecovery(
   input: Parameters<typeof createAgentPlanService>[0],
   parts: Parameters<typeof createRecoveryService>[1],
-): AgentPlanRecoveryService {
+  advisor: AgentPlanResumeAdvisorSlot,
+): Promise<AgentPlanRecoveryService> {
+  await startOwnedPlanProcessing(input, parts);
   const recovery = createRecoveryService(input, parts);
+  advisor.current = recovery;
   if (canProcessRuns())
     void new AgentPlanAutoResume({
       runs: parts.runs,
@@ -562,48 +560,6 @@ function createScriptRuntime(
   };
 }
 
-/**
- * Builds the PageAgentCLI sessions of plan nodes on the plan service's run access.
- *
- * @remarks
- * Deliveries a stopped server left on the way become `uncertain` before any
- * run starts; none is repeated automatically.
- */
-async function createPageAgentSessions(
-  input: {
-    readonly database: Database;
-    readonly agents: AgentApplicationServices;
-  },
-  runs: AgentSessionRunAccess,
-): Promise<AgentSessionService> {
-  const store = new AgentSessionRepository(input.database);
-  const journal = new AgentSessionJournal(store, {
-    followExternalWrites:
-      !canProcessRuns() || Boolean(input.agents.localSessions),
-  });
-  const inbox = new AgentSessionInbox(store, journal);
-  if (canProcessRuns()) await inbox.recover();
-  return new AgentSessionService({
-    runs,
-    store,
-    saveUsage: (usage) =>
-      usage.provider === "claude_code"
-        ? accountClaudeUsage(input.database, usage)
-        : store.saveTurnUsage(usage),
-    journal,
-    inbox,
-    hasPlanCheckpoint: async (runId) =>
-      (await new AgentPlanCheckpointRepository(input.database).find(runId)) !==
-      null,
-    isWaitingForCapacity: (runId, stepId) =>
-      input.agents.acpResourceScheduler
-        .snapshot()
-        .waiting.some(
-          (request) => request.runId === runId && request.stepId === stepId,
-        ),
-  });
-}
-
 /** A problem with these copies is reported and never keeps the server from starting. */
 async function repairAgentFiles(input: {
   readonly database: Database;
@@ -624,6 +580,15 @@ async function repairAgentFiles(input: {
     );
   }
   await input.agents.agentRunArchive.recover();
+}
+
+async function createAttachedPlanEngine(
+  input: Parameters<typeof createAgentPlanService>[0],
+  parts: Parameters<typeof createPlanEngine>[1],
+): Promise<PlanRunEnginePort> {
+  const engine = await createPlanEngine(input, parts);
+  attachRunOwnership(input.agents.runnerService, engine);
+  return engine;
 }
 
 async function createPlanEngine(

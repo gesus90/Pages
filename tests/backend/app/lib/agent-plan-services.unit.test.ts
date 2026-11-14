@@ -261,6 +261,7 @@ it("wires the plan service on one access, preparation and engine", async () => {
     workGate: vi.mocked(AgentPlanWorkGate).mock.instances[1],
     stepProgress: expect.any(AgentPlanStepProgressService) as unknown,
     agentTodos: expect.any(AgentPlanAgentTodoService) as unknown,
+    usage: vi.mocked(AgentSessionRepository).mock.instances[1],
     workspaceCatalog: CATALOG,
     remoteExecution: only(vi.mocked(AgentPlanRemoteExecution)),
     remoteTargets: only(vi.mocked(AgentPlanRemoteTargets)),
@@ -449,10 +450,13 @@ it("recovers interrupted session deliveries before the node sessions start", asy
 
   await createAgentPlanService(planInput(agents));
 
-  const store = only(vi.mocked(AgentSessionRepository));
+  const store = vi.mocked(AgentSessionRepository).mock.instances[0];
   const journal = only(vi.mocked(AgentSessionJournal));
   const inbox = only(vi.mocked(AgentSessionInbox));
-  expect(vi.mocked(AgentSessionRepository).mock.calls).toEqual([[DATABASE]]);
+  expect(vi.mocked(AgentSessionRepository).mock.calls).toEqual([
+    [DATABASE],
+    [DATABASE],
+  ]);
   expect(vi.mocked(AgentSessionJournal).mock.calls).toEqual([
     [store, { followExternalWrites: false }],
   ]);

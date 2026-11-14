@@ -23,9 +23,11 @@ export interface PendingPlanRunCommand {
 
 /** Transactional command inbox consumed by the single elected plan engine. */
 export class PlanRunCommandRepository {
-  private readonly database: Database;
+  private readonly database: Pick<Database, "query" | "execute" | "agentFiles">;
 
-  public constructor(database: Database) {
+  public constructor(
+    database: Pick<Database, "query" | "execute" | "agentFiles">,
+  ) {
     this.database = database;
   }
 

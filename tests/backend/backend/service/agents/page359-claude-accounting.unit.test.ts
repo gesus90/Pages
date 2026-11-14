@@ -28,12 +28,15 @@ const state = vi.hoisted((): AccountingState => ({
 }));
 vi.mock("@/backend/database/repositories/agent/ClaudeUsageRepository", () => ({
   ClaudeUsageRepository: class {
+    /** Reads the stored ledger. */
     public async lock(id: string): Promise<ClaudeLedger> {
       return state.ledger.get(id) ?? { settled: [], messages: {}, seen: [] };
     }
+    /** Stores the updated ledger. */
     public async save(id: string, ledger: ClaudeLedger): Promise<void> {
       state.ledger.set(id, ledger);
     }
+    /** Returns configured model overrides. */
     public async modelOverrides(): Promise<Readonly<Record<string, string>>> {
       return state.overrides;
     }
@@ -43,6 +46,7 @@ vi.mock(
   "@/backend/database/repositories/agent/OpenRouterPriceRepository",
   () => ({
     OpenRouterPriceRepository: class {
+      /** Returns the cached prices. */
       public async read(): Promise<{ fetchedAt: string; catalog: string }> {
         return {
           fetchedAt: "2026-11-13",
@@ -54,12 +58,14 @@ vi.mock(
 );
 vi.mock("@/backend/database/repositories/agent/AgentSessionRepository", () => ({
   AgentSessionRepository: class {
+    /** Finds the recorded turn. */
     public async findTurnUsage(
       id: string,
-      turn: number,
+      turnNumber: number,
     ): Promise<AgentSessionTurnUsage | null> {
-      return state.usage.get(`${id}:${turn}`) ?? null;
+      return state.usage.get(`${id}:${turnNumber}`) ?? null;
     }
+    /** Lists usage for an attempt. */
     public async listAttemptUsage(
       id: string,
     ): Promise<readonly AgentSessionTurnUsage[]> {
@@ -67,6 +73,7 @@ vi.mock("@/backend/database/repositories/agent/AgentSessionRepository", () => ({
         (usage) => usage.attemptId === id,
       );
     }
+    /** Stores the turn usage. */
     public async saveTurnUsage(usage: AgentSessionTurnUsage): Promise<void> {
       state.writes += 1;
       state.usage.set(`${usage.attemptId}:${usage.turn}`, usage);

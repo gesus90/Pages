@@ -113,7 +113,11 @@ export async function settleOwnedNamespace(
  * reused PID or a supervisor from another boot is already closed and is never
  * signalled. Explicit fresh starts use this after fencing the old scheduler.
  */
-export async function forceOwnedNamespace(owner: AcpNamespaceOwner, instanceId: string, root = "/proc"): Promise<boolean> {
+export async function forceOwnedNamespace(
+  owner: AcpNamespaceOwner,
+  instanceId: string,
+  root = "/proc",
+): Promise<boolean> {
   if (await settleOwnedNamespace(owner, instanceId, root)) return true;
   if (owner.unit) return false;
   if (owner.pid === process.pid) return false;

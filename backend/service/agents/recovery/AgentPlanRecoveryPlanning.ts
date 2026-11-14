@@ -126,7 +126,11 @@ export function resumeOption(
 ): AgentPlanRecoveryOption {
   const restart = restartOption(facts);
   if (!restart.available) return restart;
-  if (facts.latest && facts.latest.id !== facts.run.id && isActivePlanRun(facts.latest.status))
+  if (
+    facts.latest &&
+    facts.latest.id !== facts.run.id &&
+    isActivePlanRun(facts.latest.status)
+  )
     return blocked("plan_run_active");
   const { run } = facts;
   if (isActivePlanRun(run.status)) return blocked("run_active");

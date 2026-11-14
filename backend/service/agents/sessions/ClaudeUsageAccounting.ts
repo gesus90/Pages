@@ -19,6 +19,7 @@ import type { AgentSessionDatabase } from "@/backend/database/repositories/agent
 import type { AgentSessionTurnUsage } from "@/definition/AgentSessionJournal";
 import type {
   ClaudeAccounting,
+  ClaudeLedger,
   ClaudeModelUsage,
   ClaudePrice,
   ClaudeTokens,
@@ -124,21 +125,12 @@ export async function accountClaudeUsage(
       ? applyClaudeObservation(ledger, observation)
       : ledger;
     if (observation && next === ledger) return;
-    const models = observation
-      ? allocateClaudeTokens(
-          ledgerTotals(ledger),
-          ledgerTotals(next),
-          previous?.claudeAccounting?.models ?? [],
-        )
-      : [
-          {
-            model: usage.model ?? "unknown",
-            inputTokens: usage.inputTokens,
-            outputTokens: usage.outputTokens,
-            cacheReadTokens: usage.cacheReadTokens,
-            cacheWriteTokens: usage.cacheWriteTokens,
-          },
-        ];
+    const models = observedModels(
+      usage,
+      ledger,
+      next,
+      previous?.claudeAccounting,
+    );
     const frozen = (await sessions.listAttemptUsage(usage.attemptId)).flatMap(
       (entry) => entry.claudeAccounting?.models ?? [],
     );
@@ -156,4 +148,28 @@ export async function accountClaudeUsage(
     );
     if (observation) await repository.save(sessionId, next);
   });
+}
+
+function observedModels(
+  usage: AgentSessionTurnUsage,
+  ledger: ClaudeLedger,
+  next: ClaudeLedger,
+  previous: ClaudeAccounting | undefined,
+): readonly ClaudeModelUsage[] {
+  const observation = usage.claudeObservation;
+  return observation
+    ? allocateClaudeTokens(
+        ledgerTotals(ledger),
+        ledgerTotals(next),
+        previous?.models ?? [],
+      )
+    : [
+        {
+          model: usage.model ?? "unknown",
+          inputTokens: usage.inputTokens,
+          outputTokens: usage.outputTokens,
+          cacheReadTokens: usage.cacheReadTokens,
+          cacheWriteTokens: usage.cacheWriteTokens,
+        },
+      ];
 }

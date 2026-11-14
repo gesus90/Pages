@@ -188,3 +188,6 @@ export class AcpTurnControl {
     return next;
   }
 }
+
+/** Progress reaches the run record at most this often. */
+export const PROGRESS_INTERVAL_MS = 5_000;

@@ -53,9 +53,11 @@ export class PlanRunCommandWorker {
       () => this.wake(),
       (input) => {
         const start = pagesRunsStartResourcesSchema.safeParse(input);
-        if (start.success) return this.engine.prepareStartResources(
-          start.data.start, start.data.resourceKeys,
-        );
+        if (start.success)
+          return this.engine.prepareStartResources(
+            start.data.start,
+            start.data.resourceKeys,
+          );
         const swarm = pagesRunsSwarmSchema.safeParse(input);
         if (swarm.success) return Promise.resolve(answerSwarmCall(swarm.data));
         const request = pagesRunsOwnershipSchema.parse(input);

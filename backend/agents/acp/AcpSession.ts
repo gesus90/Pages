@@ -33,9 +33,9 @@ import {
   readAcpUpdate,
 } from "./AcpEvents";
 import { reportAcpPlanActivity } from "./AcpPlanActivity";
-import { AcpTurnControl } from "./AcpTurnControl";
+import { AcpTurnControl, PROGRESS_INTERVAL_MS } from "./AcpTurnControl";
 import { AcpMcpReadiness } from "./AcpMcpReadiness";
-import { closeAcpProtocol } from "./AcpProtocolClose";
+import { cancelAcpTurn, closeAcpProtocol } from "./AcpProtocolClose";
 import { readAntigravityTurnFailure } from "./AntigravityTurnFailure";
 import { logAcpToolUpdate } from "./AcpSessionToolLogging";
 import {
@@ -83,9 +83,6 @@ export type {
   AcpSessionRequest,
 } from "./AcpSessionContracts";
 
-/** Progress reaches the run record at most this often. */
-const PROGRESS_INTERVAL_MS = 5_000;
-
 /**
  * The ACP session of one plan node, from the handshake to the closeout.
  *
@@ -130,7 +127,9 @@ export class AcpSession implements PlanSession {
   private readonly picaCodex: PicaCodexRequests | null;
   private closing: Promise<PlanSessionClosed> | null = null;
   /** The inputs and interruptions of a person in the running turn. */
-  private readonly control = new AcpTurnControl(() => this.cancelTurn());
+  private readonly control = new AcpTurnControl(() =>
+    cancelAcpTurn(this.connection, this.state.sessionId, this.state.events),
+  );
 
   /**
    * Connects to the started adapter and begins the turn at once.
@@ -614,25 +613,11 @@ export class AcpSession implements PlanSession {
     noteSessionEvent(this.state.events, `model ${reportedModel}`);
     if (matchesReportedModel(this.context.request.model, reportedModel)) return;
     this.isModelMismatch = true;
-    void this.cancelTurn();
-  }
-
-  private async cancelTurn(): Promise<void> {
-    const { sessionId } = this.state;
-    if (sessionId === null) return;
-    try {
-      await this.connection.agent.notify(methods.agent.session.cancel, {
-        sessionId,
-      });
-    } catch (error: unknown) {
-      logCaughtError("AcpSession", error);
-
-      // The turn ends with the connection anyway; the mismatch is already recorded.
-      noteSessionEvent(
-        this.state.events,
-        `cancel ${error instanceof Error ? error.message : "failed"}`,
-      );
-    }
+    void cancelAcpTurn(
+      this.connection,
+      this.state.sessionId,
+      this.state.events,
+    );
   }
 
   private reportProgress(): void {

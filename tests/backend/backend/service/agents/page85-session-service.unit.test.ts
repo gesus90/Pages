@@ -177,6 +177,12 @@ it("records members of one process into separate attempts with their own turns a
     ["status", 1],
     ["error", 2],
   ]);
+  await expectMemberViews(world);
+});
+
+async function expectMemberViews(
+  world: ReturnType<typeof sessionWorld>,
+): Promise<void> {
   const viewA = await world.service.view("executor", KEY_A);
   expect(viewA.context).toMatchObject({
     contextUsed: 90_000,
@@ -212,7 +218,7 @@ it("records members of one process into separate attempts with their own turns a
   // The shared native session's last occupancy holds for the next member, with its own time.
   expect(viewB.context.contextUsed).toBe(90_000);
   expect(viewB.model.confirmedModel.source).toBe("acp_usage_report");
-});
+}
 
 it("rejects foreign readers and reads a legacy record without any process", async () => {
   const run = { current: groupRun() };

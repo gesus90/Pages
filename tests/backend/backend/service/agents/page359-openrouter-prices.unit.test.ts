@@ -84,7 +84,7 @@ it("persists a validated public catalog and retains it unchanged when the networ
   expect(await repository.read()).toEqual(cached);
   expect(repository.save).toHaveBeenCalledTimes(1);
   expect(request).toHaveBeenCalledWith("https://openrouter.ai/api/v1/models", {
-    signal: expect.any(AbortSignal),
+    signal: expect.any(AbortSignal) as unknown,
   });
   expect(JSON.stringify(request.mock.calls)).not.toContain("Authorization");
 });

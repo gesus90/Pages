@@ -290,15 +290,7 @@ export class AgentSessionService {
           (await this.dependencies.hasPlanCheckpoint?.(run.id)) ?? false,
       }),
       messages: await this.dependencies.store.listMessages(key.attemptId),
-      actions: {
-        canSend: isLive,
-        canCancelTurn:
-          isLive &&
-          state === "running" &&
-          this.live.get(key.attemptId)?.turn.cancelTurn !== undefined,
-        canCancelRun: isRunActive(run),
-        canRecover: false,
-      },
+      actions: this.sessionActions(key, run, state, isLive),
     };
   }
 
@@ -429,6 +421,23 @@ export class AgentSessionService {
       { turn: null, kind: "status", text: "turn cancelled by the executor" },
     ]);
     return "turn_cancelled";
+  }
+
+  private sessionActions(
+    key: AgentSessionKey,
+    run: AgentPlanRun,
+    state: AgentSessionView["state"],
+    isLive: boolean,
+  ): AgentSessionView["actions"] {
+    return {
+      canSend: isLive,
+      canCancelTurn:
+        isLive &&
+        state === "running" &&
+        this.live.get(key.attemptId)?.turn.cancelTurn !== undefined,
+      canCancelRun: isRunActive(run),
+      canRecover: false,
+    };
   }
 
   private record(start: AgentSessionStart): AgentSessionRecorder {
