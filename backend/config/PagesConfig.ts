@@ -683,17 +683,7 @@ export function writePagesConfig(
   if (config.speechRecognition !== undefined)
     document[SPEECH_RECOGNITION_KEY] = { ...config.speechRecognition };
 
-  const resourceKeys = [
-    "maxConcurrentAcpSessions",
-    "memoryAwareScheduling",
-    "minimumAvailableMemory",
-    "queueDiscipline",
-  ] as const;
-  for (const key of resourceKeys) {
-    const setting = config[key];
-    if (setting !== undefined) document[key] = setting;
-  }
-
+  writeResourceSettings(document, config);
   if (!config.firstRun && config.databaseUrl !== undefined)
     document[CONFIG_KEY.DATABASE_URL] = config.databaseUrl;
   else delete document[CONFIG_KEY.DATABASE_URL];
@@ -705,6 +695,19 @@ export function writePagesConfig(
   }
 
   return document;
+}
+
+function writeResourceSettings(document: TomlTable, config: PagesConfig): void {
+  const resourceKeys = [
+    "maxConcurrentAcpSessions",
+    "memoryAwareScheduling",
+    "minimumAvailableMemory",
+    "queueDiscipline",
+  ] as const;
+  for (const key of resourceKeys) {
+    const setting = config[key];
+    if (setting !== undefined) document[key] = setting;
+  }
 }
 
 function writePicaMobileSettings(

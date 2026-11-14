@@ -2,6 +2,7 @@ import { turnFailureCode } from "./AgentPlanSessionRecords";
 
 import type { NodeRun } from "./AgentPlanStepContext";
 import type { PlanSessionTurn } from "@/backend/agents/AgentPlanExecution";
+import type { AgentPlanGroup } from "@/definition/AgentPlanGroup";
 
 /** Keeps the existing native session until its actual group, loop or event lifetime ends. */
 export function retainPlanSession(
@@ -21,10 +22,31 @@ export function retainPlanSession(
   if (!group && node.loop?.policy !== "reuse" && !node.receivesEvents)
     return false;
   const key = `${node.run.id}/${node.sessionGroup ?? group?.id}`;
-  // Only the newest start of an event agent is kept: it alone holds the current record.
-  const nodes = (retained.get(key) ?? []).filter(
+  const nodes = retainedSiblings(node, retained.get(key) ?? []);
+  // A group inside a loop that reuses sessions keeps its session until the loop ends.
+  if (node.loop?.policy !== "reuse" && isGroupDone(node, group, nodes))
+    return false;
+  retained.set(key, [...nodes, node]);
+  return true;
+}
+
+/** Drops the older start of the same event agent; only the newest start holds the current record. */
+function retainedSiblings(
+  node: NodeRun,
+  siblings: readonly NodeRun[],
+): NodeRun[] {
+  return siblings.filter(
     (entry) => !node.receivesEvents || entry.step.step.id !== node.step.step.id,
   );
+}
+
+function isGroupDone(
+  node: NodeRun,
+  group: AgentPlanGroup | undefined,
+  nodes: readonly NodeRun[],
+): boolean {
+  // A loop may revisit its agents; retain the outer owner until the scheduler closes the run.
+  if (!group || group.loops?.length) return false;
   const succeeded = node.run.steps
     .filter((entry) => entry.status === "succeeded")
     .map((entry) => entry.id);
@@ -33,12 +55,5 @@ export function retainPlanSession(
     ...nodes.map((entry) => entry.step.step.id),
     node.step.step.id,
   ]);
-  // A loop may revisit its agents; retain the outer owner until the scheduler closes the run.
-  const isGroupDone =
-    !group?.loops?.length &&
-    group?.steps.every((step) => completed.has(step.id));
-  // A group inside a loop that reuses sessions keeps its session until the loop ends.
-  if (isGroupDone && node.loop?.policy !== "reuse") return false;
-  retained.set(key, [...nodes, node]);
-  return true;
+  return group.steps.every((step) => completed.has(step.id));
 }

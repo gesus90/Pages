@@ -5,7 +5,6 @@ import {
   planLoopOwner,
   placePlanLoopInGroup,
 } from "@/definition/AgentPlanGroupLoop";
-import { planGroupAdapter, planStepAdapter } from "@/definition/AgentPlanGroup";
 import {
   findPlanStep,
   placePlanStep,
@@ -39,9 +38,9 @@ import {
 } from "./plan-layout";
 import { boundedPlanCoordinate } from "./plan-node-factory";
 import { placePlanDecisionDrop } from "./plan-decision-placement";
+import { moveNotice, refusalNotice } from "./plan-group-notices";
 
 import type { Dispatch, SetStateAction } from "react";
-import type { AcpProviderId } from "@/definition/AgentConfiguration";
 import type {
   AgentPlanInput,
   AgentPlanPosition,
@@ -59,23 +58,9 @@ import type {
   PlanNodePlacement,
 } from "@/definition/AgentPlanLoopEdit";
 import type { PlanFrame } from "./plan-layout";
+import type { PlanGroupNotice } from "./plan-group-notices";
 
-/** What the editor tells about the last change of a group's membership. */
-export type PlanGroupNotice =
-  | { readonly kind: "repair"; readonly name: string }
-  | {
-      readonly kind: "refused";
-      readonly refusal: AgentPlanGroupRefusal;
-      readonly name: string;
-      readonly adapter: AcpProviderId | null;
-      readonly groupAdapter: AcpProviderId | null;
-    }
-  | {
-      readonly kind: "moved";
-      readonly frame: "group" | "loop" | "stack";
-      readonly removedEdges: number;
-      readonly removedBindings: number;
-    };
+export type { PlanGroupNotice } from "./plan-group-notices";
 
 /** A node dropped on the grid: where the pointer was and where the node's corner lands. */
 export interface PlanDrop {
@@ -196,41 +181,6 @@ function moveWithinFrame(
 function nextSlot(group: AgentPlanGroup): AgentPlanPosition {
   const right = Math.max(0, ...group.steps.map((step) => step.x + 320));
   return { x: boundedPlanCoordinate(right), y: 0 };
-}
-
-function refusalNotice(
-  refusal: AgentPlanGroupRefusal,
-  context: {
-    readonly step: AgentPlanStep;
-    readonly group: AgentPlanGroup;
-    readonly sources: AgentPlanSources;
-  },
-): PlanGroupNotice {
-  const { step, group, sources } = context;
-  return {
-    kind: "refused",
-    refusal,
-    name: planNodeLabel(step, sources),
-    adapter: planStepAdapter(step, sources.agents),
-    groupAdapter: planGroupAdapter(group, sources.agents),
-  };
-}
-
-/** Names the connections a move dropped; a move that dropped none needs no notice. */
-function moveNotice(
-  result: Pick<
-    PlanGroupMove<AgentPlanInput>,
-    "removedEdges" | "removedBindings"
-  >,
-  frame: "group" | "loop" | "stack",
-): PlanGroupNotice | null {
-  if (result.removedEdges + result.removedBindings === 0) return null;
-  return {
-    kind: "moved",
-    frame,
-    removedEdges: result.removedEdges,
-    removedBindings: result.removedBindings,
-  };
 }
 
 /** Moves an agent or script into a loop or out of it; a group frees an agent first. */

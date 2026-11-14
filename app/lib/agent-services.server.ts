@@ -454,13 +454,8 @@ export function createAgentServices(
     operations,
     ticketAssets,
   });
-  const refresh = createCatalogRefresh(repository, cipher, operations, runtime);
-  const agentCliLoginService = new AgentCliLoginService({
-    repository,
-    ...cliRuntime,
-    operations,
-    catalog: refresh,
-  });
+  const { refresh, agentCliLoginService, agentConnectionService } =
+    createLoginServices({ repository, cipher, operations, cliRuntime });
   const { access, ...decision } = createAccessServices(
     database,
     repository,
@@ -512,6 +507,37 @@ export function createAgentServices(
       capacity: 16,
     }),
     ...createAgentCatalogServices(repository, refresh, operations),
+    agentCliLoginService,
+    agentConnectionService,
+  };
+}
+
+/** Creates the catalog refresh, the CLI login service and the connection service that uses it. */
+function createLoginServices(input: {
+  readonly repository: AgentConnectionRepository;
+  readonly cipher: InstanceSecretCipher;
+  readonly operations: AgentOperationRegistry;
+  readonly cliRuntime: ReturnType<typeof createCliRuntime>;
+}): {
+  readonly refresh: ReturnType<typeof createCatalogRefresh>;
+  readonly agentCliLoginService: AgentCliLoginService;
+  readonly agentConnectionService: AgentConnectionService;
+} {
+  const { repository, cipher, operations, cliRuntime } = input;
+  const refresh = createCatalogRefresh(
+    repository,
+    cipher,
+    operations,
+    cliRuntime.runtime,
+  );
+  const agentCliLoginService = new AgentCliLoginService({
+    repository,
+    ...cliRuntime,
+    operations,
+    catalog: refresh,
+  });
+  return {
+    refresh,
     agentCliLoginService,
     agentConnectionService: new AgentConnectionService({
       repository,

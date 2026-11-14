@@ -13,6 +13,12 @@ import type { AgentPlanGroup } from "./AgentPlanGroup";
 import type { AgentPlanLoop } from "./AgentPlanLoop";
 import type { AgentPlanScript } from "./AgentPlanScript";
 
+/** What a removal takes away: the node the user removed and what it contained. */
+interface Removal {
+  readonly id: string;
+  readonly removed: ReadonlySet<string>;
+}
+
 /**
  * Removing a node also removes its flow and parameter references.
  *
@@ -27,89 +33,11 @@ export function removePlanNode<Plan extends AgentPlanInput>(
   id: string,
 ): Plan {
   const container = findContainer(draft, id);
-  const removed = new Set([id, ...containedIds(container)]);
-  function withoutReferences<
-    Node extends
-      | AgentPlanStep
-      | AgentPlanScript
-      | AgentPlanGitCloseout
-      | AgentPlanGroup
-      | AgentPlanLoop,
-  >(node: Node): Node {
-    const bindings = Object.fromEntries(
-      Object.entries(node.bindings).filter(
-        ([, binding]) => !isRemovedBinding(binding, removed),
-      ),
-    );
-    return { ...node, bindings };
-  }
-  const withoutDecisions = (
-    decisions: readonly AgentPlanDecision[] | undefined,
-  ): { readonly decisions?: readonly AgentPlanDecision[] } =>
-    withoutRemovedDecisions(decisions, removed);
-  const withoutDecisionInput = (
-    decision: AgentPlanDecision,
-  ): AgentPlanDecision => withoutRemovedInput(decision, removed);
-  function withoutMember(
-    node: AgentPlanGroup | AgentPlanLoop,
-  ): AgentPlanGroup | AgentPlanLoop {
-    if (node.type === "loop") {
-      const steps = node.steps
-        .filter((step) => step.id !== id)
-        .map((step) =>
-          step.type === "group"
-            ? withoutGroupMember(withoutReferences(step))
-            : withoutReferences(step),
-        );
-      return {
-        ...withoutReferences(node),
-        ...withoutDecisions(node.decisions),
-        steps,
-        edges: node.edges.filter(
-          (edge) => !removed.has(edge.from) && !removed.has(edge.to),
-        ),
-        condition:
-          node.condition && removed.has(node.condition.sourceNodeId)
-            ? { ...node.condition, sourceNodeId: "" }
-            : node.condition,
-        ...(node.while && removed.has(node.while.sourceNodeId)
-          ? { while: { ...node.while, sourceNodeId: "" } }
-          : {}),
-      };
-    }
-    return withoutGroupMember(withoutReferences(node));
-  }
-  function withoutGroupMember(node: AgentPlanGroup): AgentPlanGroup {
-    const steps = node.steps
-      .filter((step) => step.id !== id)
-      .map(withoutReferences);
-    const hasMember =
-      steps.length !== node.steps.length ||
-      (node.decisions ?? []).some((decision) => decision.id === id) ||
-      (node.loops ?? []).some((loop) => removed.has(loop.id));
-    return {
-      ...node,
-      ...withoutDecisions(node.decisions),
-      steps,
-      ...(node.loops
-        ? {
-            loops: node.loops
-              .filter((loop) => !removed.has(loop.id))
-              .map((loop) => {
-                const changed = withoutMember(loop);
-                return changed.type === "loop" ? changed : loop;
-              }),
-          }
-        : {}),
-      ...(hasMember
-        ? {
-            edges: planGroupEdges(node).filter(
-              (edge) => edge.from !== id && edge.to !== id,
-            ),
-          }
-        : {}),
-    };
-  }
+  const removal: Removal = {
+    id,
+    removed: new Set([id, ...containedIds(container)]),
+  };
+  const { removed } = removal;
   return {
     ...draft,
     nodes: draft.nodes
@@ -120,14 +48,105 @@ export function removePlanNode<Plan extends AgentPlanInput>(
           node.type === "script" ||
           node.type === "git_closeout"
         )
-          return withoutReferences(node);
-        if (node.type === "decision") return withoutDecisionInput(node);
+          return withoutReferences(node, removed);
+        if (node.type === "decision") return withoutRemovedInput(node, removed);
         if (node.type !== "group" && node.type !== "loop") return node;
-        return withoutMember(node);
+        return withoutMember(node, removal);
       }),
     edges: draft.edges.filter(
       (edge) => !removed.has(edge.from) && !removed.has(edge.to),
     ),
+  };
+}
+
+/** Drops the bindings that read a removed node. */
+function withoutReferences<
+  Node extends
+    | AgentPlanStep
+    | AgentPlanScript
+    | AgentPlanGitCloseout
+    | AgentPlanGroup
+    | AgentPlanLoop,
+>(node: Node, removed: ReadonlySet<string>): Node {
+  const bindings = Object.fromEntries(
+    Object.entries(node.bindings).filter(
+      ([, binding]) => !isRemovedBinding(binding, removed),
+    ),
+  );
+  return { ...node, bindings };
+}
+
+/** Removes the member from a group or loop that contains it, at any depth. */
+function withoutMember(
+  node: AgentPlanGroup | AgentPlanLoop,
+  removal: Removal,
+): AgentPlanGroup | AgentPlanLoop {
+  if (node.type === "loop") return withoutLoopMember(node, removal);
+  return withoutGroupMember(withoutReferences(node, removal.removed), removal);
+}
+
+function withoutLoopMember(
+  node: AgentPlanLoop,
+  removal: Removal,
+): AgentPlanLoop {
+  const { id, removed } = removal;
+  const steps = node.steps
+    .filter((step) => step.id !== id)
+    .map((step) =>
+      step.type === "group"
+        ? withoutGroupMember(withoutReferences(step, removed), removal)
+        : withoutReferences(step, removed),
+    );
+  return {
+    ...withoutReferences(node, removed),
+    ...withoutRemovedDecisions(node.decisions, removed),
+    steps,
+    edges: node.edges.filter(
+      (edge) => !removed.has(edge.from) && !removed.has(edge.to),
+    ),
+    condition:
+      node.condition && removed.has(node.condition.sourceNodeId)
+        ? { ...node.condition, sourceNodeId: "" }
+        : node.condition,
+    ...(node.while && removed.has(node.while.sourceNodeId)
+      ? { while: { ...node.while, sourceNodeId: "" } }
+      : {}),
+  };
+}
+
+function withoutGroupMember(
+  node: AgentPlanGroup,
+  removal: Removal,
+): AgentPlanGroup {
+  const { id, removed } = removal;
+  const steps = node.steps
+    .filter((step) => step.id !== id)
+    .map((step) => withoutReferences(step, removed));
+  const hasMember =
+    steps.length !== node.steps.length ||
+    (node.decisions ?? []).some((decision) => decision.id === id) ||
+    (node.loops ?? []).some((loop) => removed.has(loop.id));
+  return {
+    ...node,
+    ...withoutRemovedDecisions(node.decisions, removed),
+    steps,
+    ...(node.loops
+      ? {
+          loops: node.loops
+            .filter((loop) => !removed.has(loop.id))
+            .map((loop) => {
+              const changed = withoutMember(loop, removal);
+              return changed.type === "loop" ? changed : loop;
+            }),
+        }
+      : {}),
+    ...(hasMember
+      ? {
+          edges: planGroupEdges(node).filter(
+            (edge) => edge.from !== id && edge.to !== id,
+          ),
+        }
+      : {}),
   };
 }
 

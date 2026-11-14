@@ -1,8 +1,6 @@
 import { allPlanSteps } from "@/definition/AgentPlanGroup";
-import {
-  readPlanInput,
-  readPlanSharing,
-} from "@/backend/agents/AgentPlanInput";
+import { readPlanInput } from "@/backend/agents/AgentPlanInput";
+import { readPlanSharing } from "@/backend/agents/AgentPlanSettingsInput";
 import { requireCloneablePlan } from "@/backend/agents/AgentPlanCloneShape";
 import { isUniqueViolationOn } from "@/backend/database/Database";
 import {
