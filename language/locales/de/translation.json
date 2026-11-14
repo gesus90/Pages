@@ -5310,12 +5310,14 @@
           "stopped": "Gestoppt"
         },
         "sidebar": {
-          "todos": "To-dos {{done}} / {{total}}",
+          "todos": "To Do",
+          "todoCount": "{{done}} / {{total}}",
           "agentTodos": "Agent-TODO {{done}} / {{total}}",
           "noTodos": "Keine To-dos",
           "todoStatus": {
+            "failed": "fehlgeschlagen",
             "done": "erledigt",
-            "active": "aktiv",
+            "active": "in Bearbeitung",
             "open": "offen",
             "missing": "nicht lesbar",
             "unreported": "noch nicht gemeldet"
@@ -5949,6 +5951,7 @@
         "contract": "Aufgaben dieses Schritts · Fortschritt noch nicht gemeldet"
       },
       "todoState": {
+        "failed": "Fehlgeschlagen",
         "done": "Erledigt",
         "open": "Als Nächstes",
         "missing": "Meldung fehlt oder Eintrag nicht mehr vorhanden",

@@ -21,6 +21,7 @@ function readItem(input: unknown): AgentPlanProgressItem {
     status !== "done" &&
     status !== "active" &&
     status !== "open" &&
+    status !== "failed" &&
     status !== "missing" &&
     status !== "unreported"
   )

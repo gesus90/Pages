@@ -7,10 +7,10 @@ export const AGENT_STEP_PROGRESS_STATUSES = ["open", "active", "done"] as const;
 /** The longest activity line Pages keeps. */
 export const AGENT_STEP_ACTIVITY_LENGTH = 200;
 
-/** One todo as the agent reports its live state. */
+/** Internal live state; a stored task failure is retained without extending the runner tool protocol. */
 export interface AgentPlanStepProgressTodo {
   readonly id: string;
-  readonly status: (typeof AGENT_STEP_PROGRESS_STATUSES)[number];
+  readonly status: (typeof AGENT_STEP_PROGRESS_STATUSES)[number] | "failed";
 }
 
 /**
