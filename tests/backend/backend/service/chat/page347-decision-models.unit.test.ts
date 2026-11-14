@@ -32,13 +32,10 @@ function decisionWorld(): {
   return { service, settings };
 }
 
-it("lists all providers while a saved incompatible decision model remains unavailable", async () => {
+it("excludes other providers while a saved incompatible decision model remains unavailable", async () => {
   const { service } = decisionWorld();
   const view = await service.administration(ACTOR);
-  expect(view.models.map((model) => model.provider)).toEqual([
-    "opencode",
-    "openai",
-  ]);
+  expect(view.models).toEqual([]);
   expect(view.status).toBe("modelUnavailable");
   await expect(service.resolve()).resolves.toBeNull();
 });

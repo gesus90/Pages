@@ -242,11 +242,12 @@ it("continues to occupy capacity when startup recovery cannot prove process deat
   await world.scheduler.shutdown();
 });
 
-it("admits the waiting request once a later check proves the uncertain lease gone", async () => {
+it("admits the waiting request once an unbound uncertain lease expires", async () => {
   const world = resourceWorld();
   world.records.set("old", {
     ...owner("old"),
     state: "idle",
+    runId: null,
     since: "2026-10-16",
   });
   world.cleanup.mockRejectedValueOnce(new Error("unknown"));
@@ -258,9 +259,9 @@ it("admits the waiting request once a later check proves the uncertain lease gon
     new AbortController().signal,
     start,
   );
-  await vi.advanceTimersByTimeAsync(1000);
+  await vi.advanceTimersByTimeAsync(60_000);
   await (await pending).close();
-  expect(world.cleanup).toHaveBeenCalledTimes(2);
+  expect(world.cleanup).toHaveBeenCalledOnce();
   expect(world.records.has("old")).toBe(false);
   expect(start).toHaveBeenCalledOnce();
   await world.scheduler.shutdown();

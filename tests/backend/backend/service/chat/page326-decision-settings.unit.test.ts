@@ -1,11 +1,8 @@
-import { beforeEach, expect, it, vi } from "vitest";
+import { expect, it, vi } from "vitest";
 
 import { ChatDecisionSettingsService } from "@/backend/service/chat/ChatDecisionSettingsService";
-import { connectionModels } from "@/backend/service/agents/AgentConnectionModels";
-import { resolveAgentAssignment } from "@/backend/service/agents/AgentAssignmentResolution";
 import { catalogModelChoice } from "@/definition/AgentModelChoice";
 import { emptyModelCatalog } from "@/definition/AgentModelCatalog";
-import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { CONVERSATION_DEFAULT_DECISION_RULES } from "@/definition/ConversationDecision";
 
 import { partial } from "../../../app/lib/service-wiring-fakes";
@@ -17,13 +14,6 @@ import type {
   ChatDecisionEmptyReason,
   ChatDecisionSettings,
 } from "@/definition/ConversationDecision";
-
-vi.mock("@/backend/service/agents/AgentConnectionModels", () => ({
-  connectionModels: vi.fn(),
-}));
-vi.mock("@/backend/service/agents/AgentAssignmentResolution", () => ({
-  resolveAgentAssignment: vi.fn(),
-}));
 
 const administrator: AccountAccess = {
   userId: "admin",
@@ -41,6 +31,10 @@ const administrator: AccountAccess = {
   hasHadDepartment: false,
 };
 const assignment = textInput().agent;
+const connection = {
+  ...assignment.connection,
+  provider: "openrouter" as const,
+};
 const catalogModel: AgentCatalogModel = {
   id: assignment.model,
   name: "Text model",
@@ -52,18 +46,18 @@ const catalogModel: AgentCatalogModel = {
   reasoningEfforts: [],
   defaultReasoningEffort: null,
   isToolCapable: false,
+  outputModalities: ["decisions"],
 };
-const model = catalogModelChoice(assignment.connection, catalogModel);
+const model = {
+  ...catalogModelChoice(connection, catalogModel),
+  isChatCapable: undefined,
+  isDecisionCapable: true,
+};
 const selection = {
   connectionId: assignment.connection.id,
   model: assignment.model,
   reasoningEffort: null,
 };
-
-beforeEach(() => {
-  vi.mocked(connectionModels).mockResolvedValue([model]);
-  vi.mocked(resolveAgentAssignment).mockResolvedValue(assignment);
-});
 
 function fixture(
   saved: ChatDecisionSettings["selection"] = null,
@@ -85,8 +79,7 @@ function fixture(
     service: new ChatDecisionSettingsService({
       settings: partial({ read: async () => settings, save }),
       connections: partial({
-        list: async () =>
-          issue === "noConnections" ? [] : [assignment.connection],
+        list: async () => (issue === "noConnections" ? [] : [connection]),
         scopes: () =>
           partial({
             find: async () => ({
@@ -104,7 +97,16 @@ function fixture(
           partial({
             find: async () => ({
               ...emptyModelCatalog(),
-              models: issue === "emptyCatalog" ? [] : [catalogModel],
+              models:
+                issue === "emptyCatalog" || issue === "connectionUnavailable"
+                  ? []
+                  : [
+                      {
+                        ...catalogModel,
+                        outputModalities:
+                          issue === "noTextModels" ? ["text"] : ["decisions"],
+                      },
+                    ],
             }),
           }),
       }),
@@ -114,7 +116,7 @@ function fixture(
   };
 }
 
-it("lets an active administrator select a direct API text model without tools and shows ready", async () => {
+it("lets an active administrator select an OpenRouter decision model without tools and shows ready", async () => {
   const { service, save } = fixture();
   expect((await service.administration(administrator)).models).toEqual([model]);
   const input = {
@@ -128,7 +130,10 @@ it("lets an active administrator select a direct API text model without tools an
     status: "ready",
     settings: { selection },
   });
-  expect(await service.resolve()).toEqual(assignment);
+  expect(await service.resolve()).toEqual({
+    connectionId: selection.connectionId,
+    model: selection.model,
+  });
   expect(await service.currentStatus()).toBe("ready");
 });
 
@@ -143,12 +148,9 @@ it("rejects role mode and unsuitable submitted choices at the server boundary", 
       { selection, rules: CONVERSATION_DEFAULT_DECISION_RULES, revision: 1 },
     ),
   ).rejects.toThrow();
-  vi.mocked(connectionModels).mockResolvedValue([
-    { ...model, isSpeechOutputCapable: true },
-  ]);
   await expect(
     service.save(administrator, {
-      selection,
+      selection: { ...selection, model: "unknown" },
       rules: CONVERSATION_DEFAULT_DECISION_RULES,
       revision: 1,
     }),
@@ -157,17 +159,13 @@ it("rejects role mode and unsuitable submitted choices at the server boundary", 
 });
 
 it("explains an empty usable catalog and reports missing and unavailable runtime selections", async () => {
-  vi.mocked(connectionModels).mockResolvedValue([]);
-  const { service } = fixture();
+  const { service } = fixture(null, "noTextModels");
   expect(await service.administration(administrator)).toMatchObject({
     status: "noModel",
     emptyReason: "noTextModels",
   });
   expect(await service.currentStatus()).toBe("noModel");
-  const saved = fixture(selection).service;
-  vi.mocked(resolveAgentAssignment).mockRejectedValue(
-    new AgentExecutionError("connectionUnavailable"),
-  );
+  const saved = fixture(selection, "noTextModels").service;
   expect(await saved.currentStatus()).toBe("modelUnavailable");
 });
 
@@ -180,7 +178,6 @@ it.each([
 ] as const)(
   "reports the actual %s cause instead of an unexplained empty picker",
   async (issue) => {
-    vi.mocked(connectionModels).mockResolvedValue([]);
     expect(
       await fixture(null, issue).service.administration(administrator),
     ).toMatchObject({ emptyReason: issue, models: [] });

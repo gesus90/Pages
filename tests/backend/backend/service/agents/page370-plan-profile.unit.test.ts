@@ -42,7 +42,8 @@ it.each(["missing", "inactive"])(
     if (!profile) throw new Error("Missing fixture profile");
     if (problem === "missing") world.withdrawModel(agentId);
     else world.replace({ ...profile, isActive: false });
-    const reason = problem === "missing" ? "profileMissing" : "profileInactive";
+    const code =
+      problem === "missing" ? "agent_usage_denied" : "agent_inactive";
     const start = vi.fn(async (userId: string, snapshot: AgentPlanSnapshot) =>
       initialPlanRun(userId, snapshot),
     );
@@ -66,27 +67,15 @@ it.each(["missing", "inactive"])(
 
     await expect(
       actions.play("owner", plan.id, plan.revision),
-    ).rejects.toMatchObject({
-      code: "plan_invalid",
-    });
-    const rejectionError: unknown = await actions
-      .play("owner", plan.id, plan.revision)
-      .catch((error: unknown) => error);
-    expect(rejectionError).toMatchObject({
-      issues: [{ nodeId: "node", port: null, reason }],
-    });
+    ).rejects.toMatchObject({ code });
     await expect(
       actions.saveAndPlay("owner", plan.id, plan),
-    ).rejects.toMatchObject({ code: "plan_invalid" });
+    ).rejects.toMatchObject({ code });
     expect(start).not.toHaveBeenCalled();
     expect(save).not.toHaveBeenCalled();
-    expect(append).toHaveBeenCalledTimes(3);
+    expect(append).toHaveBeenCalledTimes(2);
     const rejection = readPlanStartRejection(append.mock.calls[0]?.[2]);
-    expect(rejection.issues).toContainEqual({
-      nodeId: "node",
-      port: null,
-      problem: reason,
-    });
+    expect(rejection.error).toBe(code);
   },
 );
 

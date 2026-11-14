@@ -263,7 +263,7 @@ describe("AgentPlanService.save of a stored plan", () => {
       departmentId: "dept-9",
     });
     expect(context.mocks.plans.save.mock.calls[0]?.[1]).toBe(false);
-    expect(context.mocks.access.team).not.toHaveBeenCalled();
+    expect(context.mocks.access.team).toHaveBeenCalledWith("member", null);
     expect(agentOf(plan)).toHaveProperty("configuration.model", "saved");
   });
 
