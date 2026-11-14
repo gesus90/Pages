@@ -33,7 +33,10 @@ import type { User } from "@/definition/User";
 import type { ChatAttachmentService } from "../ChatAttachmentService";
 import type { PicaAcpJobDependencies, PicaAcpRun } from "./PicaAcpJob";
 import type { PicaTurnBrief } from "./PicaAcpContent";
-import type { PicaAcpMessage } from "./PicaAcpSteering";
+import type {
+  PicaAcpConversationTurn,
+  PicaAcpMessage,
+} from "./PicaAcpSteering";
 import type { PicaAcpRunner } from "./PicaAcpRunners";
 import type { AgentHostFileTarget } from "@/backend/service/employee/AgentHostFiles";
 import type { PicaAcpWorkspace } from "./PicaAcpWorkspace";
@@ -84,16 +87,19 @@ export interface PicaAcpRequest {
  *
  * @remarks
  * The job runs as the agent's own account, with the runner of its stored
- * access. Its configuration, not Pica's settings, is checked again before
- * every turn and tool call, and Pica's switch does not admit it.
+ * access. Each round pins its configuration and checks account availability
+ * again before every turn and tool call. Pica's switch does not admit it.
  */
 export interface PicaAcpEmployeeRun {
   readonly runner: PicaAcpRunner;
+  readonly prepareTurn?: (
+    afterSequence: number | null,
+  ) => Promise<PicaAcpConversationTurn>;
   /** Browser access derived from the stored employee level, never model input. */
   readonly hasBrowser?: boolean;
-  /** Fails when the agent was deactivated, changed or reached its cost limit. */
+  /** Rechecks account availability while keeping this round's configuration pinned. */
   readonly requireCurrent: () => Promise<void>;
-  /** Fails when the connection of the job is no longer the agent's. */
+  /** Requires the connection pinned for this round, even if the next round's settings changed. */
   readonly requireConnection: (connectionId: string) => Promise<void>;
   /** Searches the agent's own memory archive. */
   readonly searchMemory: (query: string) => Promise<unknown>;
@@ -118,7 +124,8 @@ export interface PicaAcpEmployeeRun {
   /**
    * Keeps the session of the chat for the next round (PAGE-335): the label of
    * the conversation for the resource view and the revision of the agent,
-   * whose change starts a new session. Absent opens a session per job.
+   * retained as metadata. Only session configuration changes restart it.
+   * Absent opens a session per job.
    */
   readonly keptSession?: {
     readonly conversation: string;
@@ -139,6 +146,7 @@ export interface PicaAcpStart {
 
 interface RunningJob {
   readonly job: PicaAcpJob;
+  readonly isEmployee: boolean;
   /** Settles after the request registry released the job. */
   readonly completion: Promise<void>;
 }
@@ -390,7 +398,9 @@ export class PicaAcpService {
 
   /** Stops only Pica jobs at the existing cancellation boundary, retaining all chats. */
   public async stopAll(): Promise<void> {
-    const pending = [...this.running.entries()];
+    const pending = [...this.running.entries()].filter(
+      ([, entry]) => !entry.isEmployee,
+    );
     for (const [sessionId, entry] of pending)
       this.cancel(entry.job.userId, sessionId);
     await Promise.allSettled(pending.map(([, entry]) => entry.completion));
@@ -501,6 +511,7 @@ export class PicaAcpService {
         message,
         brief: input.brief,
         resumeSessionId,
+        prepareTurn: input.employee?.prepareTurn,
         gate: (task) => this.gate(sessionId, task),
         pool: this.keptSession(input, { sessionId, run, directory }),
       },
@@ -508,6 +519,7 @@ export class PicaAcpService {
     this.register(sessionId, job, {
       admission,
       onSettled: input.employee?.onSettled,
+      isEmployee: input.employee !== undefined,
     });
     const started = await this.dependencies.jobs.find(actor.id, id);
     if (started === null) throw new ChatError("sessionMissing");
@@ -548,7 +560,9 @@ export class PicaAcpService {
           job.run.runner.profile,
           job.run.options,
           job.directory,
-          kept.revision,
+          agent.connection.provider,
+          agent.connection.cliLoggedInAt,
+          job.run.runner.hostMcpServers,
         ]),
       },
     };
@@ -588,6 +602,7 @@ export class PicaAcpService {
     job: PicaAcpJob,
     options: {
       readonly admission: ChatRequestAdmission;
+      readonly isEmployee: boolean;
       readonly onSettled: (() => void) | undefined;
     },
   ): void {
@@ -620,7 +635,11 @@ export class PicaAcpService {
           this.running.delete(sessionId);
         options.onSettled?.();
       });
-    this.running.set(sessionId, { job, completion });
+    this.running.set(sessionId, {
+      job,
+      completion,
+      isEmployee: options.isEmployee,
+    });
   }
 
   private async refuse(id: string): Promise<void> {

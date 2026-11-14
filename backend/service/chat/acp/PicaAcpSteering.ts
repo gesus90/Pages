@@ -3,6 +3,7 @@ import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { AcpSteerOutcome } from "@/backend/agents/acp/AcpChat";
 import type { StoredChatAttachment } from "@/backend/database/repositories/chat/ChatAttachmentRepository";
+import type { PicaAttachmentReader } from "./PicaAcpContent";
 import type { ChatSteerStatus } from "@/definition/ChatJob";
 
 /** One message of a job: the message that started it, a steer or a follow-up. */
@@ -10,6 +11,12 @@ export interface PicaAcpMessage {
   readonly id: string;
   readonly text: string;
   readonly attachments: readonly StoredChatAttachment[];
+  readonly attachmentReader?: PicaAttachmentReader;
+}
+
+/** Conversation material prepared against the cursor of the actual native session. */
+export interface PicaAcpConversationTurn extends Omit<PicaAcpMessage, "id"> {
+  readonly throughSequence: number;
 }
 
 /** A message that needs a turn of its own, and who started that turn. */

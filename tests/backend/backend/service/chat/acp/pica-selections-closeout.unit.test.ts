@@ -1,6 +1,7 @@
 import { expect, it, vi } from "vitest";
 
 import { attemptPicaCloseoutStep } from "@/backend/service/chat/acp/PicaAcpCloseout";
+import { PicaAcpPrompt } from "@/backend/service/chat/acp/PicaAcpPrompt";
 import { PicaAcpSelections } from "@/backend/service/chat/acp/PicaAcpSelections";
 
 vi.mock("@/backend/logging/Logger", () => ({
@@ -55,4 +56,81 @@ it("logs a closeout failure without rejecting, and leaves successful steps unlog
   );
   await attemptPicaCloseoutStep(async () => undefined);
   expect(logCaughtError).toHaveBeenCalledOnce();
+});
+
+it("PAGE-344 constructs and records the negotiated prompt payload and reuses it for steering", async () => {
+  const reader = { readText: vi.fn(async () => "notes"), readBytes: vi.fn() };
+  const record = vi.fn(async () => undefined);
+  const selections = new PicaAcpSelections(reader, record);
+  const prompt = new PicaAcpPrompt(selections, () => "Turn-bound tools");
+  const message = {
+    id: "message",
+    text: "Read",
+    attachments: [
+      {
+        id: "file",
+        sessionId: "chat",
+        messageId: "message",
+        fileName: "notes.txt",
+        contentType: "text/plain",
+        storageName: "file",
+        size: 5,
+      },
+    ],
+  };
+  const input = prompt.create(message, {
+    instructions: "Instructions",
+    prompt: {
+      personName: "Person",
+      interfaceLanguage: "de",
+      today: "today",
+      history: [],
+    },
+  });
+  expect(input.prompt).toContain("notes.txt");
+  expect(input.prompt).toContain("Turn-bound tools");
+  prompt.negotiated({ embeddedContext: true });
+  if (!input.promptContent) throw new Error("Missing prompt content");
+  const blocks = await input.promptContent({ embeddedContext: true });
+  expect(blocks).toContainEqual({
+    type: "resource",
+    resource: {
+      uri: "pages-chat://attachment/file",
+      mimeType: "text/plain",
+      text: "notes",
+    },
+  });
+  await input.promptContent({ embeddedContext: true });
+  expect(record).toHaveBeenCalledOnce();
+  expect(reader.readText).toHaveBeenCalledOnce();
+  await expect(prompt.read(message)).resolves.toMatchObject({ blocks });
+});
+
+it("PAGE-344 names an image as unsupported when the selected model cannot read it", async () => {
+  const reader = { readText: vi.fn(), readBytes: vi.fn() };
+  const prompt = new PicaAcpPrompt(
+    new PicaAcpSelections(reader, vi.fn()),
+    () => "Tools",
+    false,
+  );
+  prompt.negotiated({ image: true });
+  const content = await prompt.read({
+    id: "message",
+    text: "Look",
+    attachments: [
+      {
+        id: "image",
+        sessionId: "chat",
+        messageId: "message",
+        fileName: "image.png",
+        contentType: "image/png",
+        storageName: "image",
+        size: 3,
+      },
+    ],
+  });
+  expect(content.items).toEqual([
+    expect.objectContaining({ transfer: "unsupported" }),
+  ]);
+  expect(reader.readBytes).not.toHaveBeenCalled();
 });

@@ -118,7 +118,9 @@ export class ChatRequestRegistry {
   public async cancelAll(): Promise<void> {
     this.isCancelling = true;
     try {
-      const pending = [...this.requests.values()];
+      const pending = [...this.requests.values()].filter(
+        (request) => request.admission === "person",
+      );
       for (const request of pending) request.controller.abort("cancelled");
       await Promise.allSettled(pending.map((request) => request.completed));
     } finally {

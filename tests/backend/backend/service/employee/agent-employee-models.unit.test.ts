@@ -106,3 +106,28 @@ it("rejects inactive viewers before requesting their model choices", async () =>
   });
   expect(connectionModels).not.toHaveBeenCalled();
 });
+
+it("PAGE-344 distinguishes actual CLI sign-out from an unavailable model before a round", async () => {
+  const { service, connections } = fixture();
+  vi.mocked(resolveAgentAssignment).mockRejectedValue(
+    new AgentExecutionError("connectionUnavailable"),
+  );
+  connections.find.mockResolvedValueOnce({
+    id: "connection",
+    provider: "codex_cli",
+    isActive: true,
+    cliLoggedInAt: null,
+  });
+  await expect(service.resolve(settings)).rejects.toMatchObject({
+    failureCode: "cli_not_logged_in",
+  });
+  connections.find.mockResolvedValueOnce({
+    id: "connection",
+    provider: "openai",
+    isActive: true,
+    cliLoggedInAt: null,
+  });
+  await expect(service.resolve(settings)).rejects.toMatchObject({
+    code: "unavailable",
+  });
+});

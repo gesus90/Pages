@@ -303,6 +303,29 @@ export class ConversationMessageRepository {
     return row ? toMessage(row) : null;
   }
 
+  /** Counts original content between a summary cursor and the answered message. */
+  public async contextCount(
+    conversationId: string,
+    range: { readonly afterSequence: number; readonly throughSequence: number },
+  ): Promise<number> {
+    const rows = await this.database.query(
+      `
+        SELECT COUNT(*)
+        FROM conversation_messages
+        WHERE conversation_id = $conversation_id
+            AND sequence > $after_sequence
+            AND sequence <= $through_sequence
+            AND notice IS NULL;
+      `,
+      {
+        conversation_id: conversationId,
+        after_sequence: range.afterSequence,
+        through_sequence: range.throughSequence,
+      },
+    );
+    return readCountColumn(rows[0] ?? [], 0, "context_count");
+  }
+
   /** Returns a message by its ID alone, for the rights check of its audio. */
   public async findById(
     messageId: string,

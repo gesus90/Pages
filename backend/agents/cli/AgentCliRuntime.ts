@@ -95,6 +95,14 @@ export class AgentCliRuntime {
   ): Promise<ProviderCheckOutcome> {
     if (isApiProvider(connection.provider))
       throw new AgentError("provider_invalid");
+    // Probes share the CLI's credential home. Defer them while its native
+    // session may refresh access; a transient probe must not invalidate that session.
+    if (
+      this.dependencies.runner.hasSession(
+        this.dependencies.store.paths(connection.id, connection.provider),
+      )
+    )
+      return { ok: false, errorCode: "check_in_progress", detail: {} };
     try {
       const adapter = await this.adapter(connection.provider);
       const home = await this.dependencies.store.prepare(

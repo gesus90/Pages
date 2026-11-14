@@ -19,6 +19,7 @@ import { AgentChatContext } from "./AgentChatContext";
 import { createAgentEmployeeInstructions } from "./AgentEmployeeInstructions";
 import { foldJobToolCalls } from "./AgentToolCallView";
 
+import type { PicaAcpConversationTurn } from "@/backend/service/chat/acp/PicaAcpSteering";
 import type { EmployeeStore } from "@/backend/database/repositories/employee/EmployeeStore";
 import type { StoredAgentEmployee } from "@/backend/database/repositories/employee/AgentEmployeeRepository";
 import type { AgentConversationPurpose } from "@/backend/database/repositories/employee/AgentConversationRepository";
@@ -141,6 +142,9 @@ export interface AgentJobRequest {
   readonly conversationId?: string;
   /** How the resource view names the conversation of a kept session (PAGE-335). */
   readonly conversationLabel?: string;
+  readonly prepareTurn?: (
+    afterSequence: number | null,
+  ) => Promise<PicaAcpConversationTurn>;
   readonly text: string;
   readonly clientMessageId: string | null;
   /** Ends the wait of the message in the queue (PAGE-304). */
@@ -218,8 +222,9 @@ function readMessage(input: unknown): AgentMessage {
  * the agent's role, departments and project memberships. It runs with the
  * model and access stored for the agent; full access only inside the
  * isolation the ACP execution never runs YOLO without. `SOUL.md` and
- * `AGENT.md` open every instruction, `MEMORY.md` follows as data. A change
- * of the agent ends a running session at its next turn or tool call.
+ * `AGENT.md` open every instruction, `MEMORY.md` follows as data. Settings
+ * apply to the next round; a running round keeps its configuration while
+ * every turn and tool call still checks that the account is active.
  *
  * Every chat of an agent has its own session with its own working directory
  * and history (PAGE-304): the direct chat per person, every conversation per
@@ -509,6 +514,7 @@ export class AgentEmployeeSessions {
           brief,
           employee: {
             ...run,
+            prepareTurn: request.prepareTurn,
             onSettled: () => {
               slot.release();
               this.recordAnswer(request, sessionId);
@@ -692,7 +698,7 @@ export class AgentEmployeeSessions {
               hostFiles.attach(agent, { directory, file, target }),
           }
         : {}),
-      requireCurrent: () => this.requireCurrent(agent.id, employee.revision),
+      requireCurrent: () => this.requireCurrent(agent.id),
       requireConnection: (connectionId) =>
         connectionId === employee.connectionId
           ? Promise.resolve()
@@ -721,19 +727,16 @@ export class AgentEmployeeSessions {
 
   /**
    * Checks a running job against the current state of its agent: still
-   * active and unchanged; otherwise the job ends.
+   * active and present; configuration changes apply to the next round.
    */
-  private async requireCurrent(
-    agentId: string,
-    revision: number,
-  ): Promise<void> {
+  private async requireCurrent(agentId: string): Promise<void> {
     const [agent, employee] = await Promise.all([
       this.dependencies.users.findById(agentId),
       this.dependencies.store.employees().find(agentId),
     ]);
     if (!agent?.isActive || agent.isAgent !== true || !employee)
       throw new ChatError("accessDenied");
-    if (employee.revision !== revision) throw new ChatError("contextChanged");
+    // Configuration is pinned for this turn; the next round reads the new settings.
   }
 
   private translate(error: unknown): unknown {

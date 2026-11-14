@@ -60,8 +60,15 @@ export class CodexCli implements CliLoginAdapter {
         accountLabel: null,
       };
     }
+    const isSignedOut = /(?:^|\n)Not logged in(?:[.\r\n]|$)/u.test(
+      `${result.stdout}\n${result.stderr}`,
+    );
     return {
-      outcome: { ok: false, errorCode: "cli_not_logged_in", detail: {} },
+      outcome: {
+        ok: false,
+        errorCode: isSignedOut ? "cli_not_logged_in" : "cli_unexpected_output",
+        detail: {},
+      },
       accountLabel: null,
     };
   }

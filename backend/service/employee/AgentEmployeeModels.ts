@@ -1,9 +1,11 @@
+import { AgentJobAnswerError } from "@/backend/error/AgentJobAnswerError";
 import { AgentEmployeeError } from "@/backend/error/AgentEmployeeError";
 import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import {
   consumerModels,
   modelConsumerRefusal,
 } from "@/definition/AgentModelConsumers";
+import { isApiProvider } from "@/definition/AgentConnection";
 import { isChatCapableModel } from "@/definition/AgentModelFilter";
 
 import {
@@ -92,6 +94,7 @@ export class AgentEmployeeModels {
    *
    * @throws {AgentEmployeeError} `unavailable` when the connection or model
    * is gone, `modelNotAllowed` when it no longer passes the employee rule.
+   * @throws {AgentJobAnswerError} With `failureCode: cli_not_logged_in` for an unsigned CLI connection.
    */
   public async resolve(
     settings: Omit<AgentEmployeeSettings, "access">,
@@ -103,9 +106,19 @@ export class AgentEmployeeModels {
         settings,
       );
     } catch (error: unknown) {
-      if (error instanceof AgentExecutionError)
-        throw new AgentEmployeeError("unavailable");
-      throw error;
+      if (!(error instanceof AgentExecutionError)) throw error;
+      if (error.code === "connectionUnavailable") {
+        const connection = await this.dependencies.connections.find(
+          settings.connectionId,
+        );
+        if (
+          connection?.isActive &&
+          !isApiProvider(connection.provider) &&
+          connection.cliLoggedInAt === null
+        )
+          throw new AgentJobAnswerError("failed", "cli_not_logged_in");
+      }
+      throw new AgentEmployeeError("unavailable");
     }
     await this.requireEmployeeModel(assignment);
     return assignment;

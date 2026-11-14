@@ -36,6 +36,8 @@ export function turnBeganEvent(
  * @throws {PicaAcpJobError} With the code of the runner, `timeout` or `providerFailed`.
  */
 export function requireCompleted(result: PlanSessionTurn): void {
+  if (result.failure === "cancelled" && result.errorCode === null)
+    throw new PicaAcpJobError("cancelled");
   if (result.errorCode !== null) throw new PicaAcpJobError(result.errorCode);
   if (result.failure === null) return;
   throw new PicaAcpJobError(

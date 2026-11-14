@@ -6,6 +6,7 @@ import { AgentEmployeeSessions } from "@/backend/service/employee/AgentEmployeeS
 import { deferred } from "../agents/page81-resource-fixture";
 
 import type { AgentEmployeeSessionDependencies } from "@/backend/service/employee/AgentEmployeeSessions";
+import type { PicaAcpStart } from "@/backend/service/chat/acp/PicaAcpService";
 import type { User } from "@/definition/User";
 
 const person: User = {
@@ -31,17 +32,23 @@ const employee = {
 function fixture(): {
   readonly service: AgentEmployeeSessions;
   readonly start: ReturnType<
-    typeof vi.fn<(input: unknown) => Promise<unknown>>
+    typeof vi.fn<(input: PicaAcpStart) => Promise<unknown>>
   >;
+  readonly currentEmployee: ReturnType<typeof vi.fn>;
+  readonly users: { findById: ReturnType<typeof vi.fn> };
   readonly settled: ReturnType<typeof vi.fn<() => Promise<undefined>>>;
 } {
-  const start = vi.fn<(input: unknown) => Promise<unknown>>(async () => ({
+  const start = vi.fn<(input: PicaAcpStart) => Promise<unknown>>(async () => ({
     job: { id: "job" },
     messageId: "message",
   }));
   const settled = vi.fn<() => Promise<undefined>>(async () => undefined);
+  const currentEmployee = vi.fn().mockResolvedValue(employee);
+  const users = { findById: vi.fn().mockResolvedValue(agent) };
   const dependencies = {
+    users,
     store: {
+      employees: () => ({ find: currentEmployee }),
       conversations: () => ({
         ensure: vi.fn(async () => ({ sessionId: "chat-session" })),
       }),
@@ -63,7 +70,7 @@ function fixture(): {
     brief: { instructions: "", prompt: {} },
     audience: { agentId: agent.id, chat: null, people: [] },
   }));
-  return { service, start, settled };
+  return { service, start, settled, currentEmployee, users };
 }
 
 function round(
@@ -120,6 +127,31 @@ it("keeps the session of a direct chat and none for a run of the agent's own", a
   });
   const learning: unknown = start.mock.calls[1]?.[0];
   expect(JSON.stringify(learning)).not.toContain("keptSession");
+});
+
+it("PAGE-344 finishes a running answer after settings save but still enforces account deactivation", async () => {
+  const { service, start, currentEmployee, users } = fixture();
+  start.mockImplementationOnce(async (input) => {
+    const requireCurrent = input.employee?.requireCurrent;
+    if (!requireCurrent) throw new Error("Missing authorization");
+    await requireCurrent();
+    currentEmployee.mockResolvedValue({
+      ...employee,
+      revision: 8,
+      model: "next-model",
+      access: "yolo",
+    });
+    await expect(requireCurrent()).resolves.toBeUndefined();
+    users.findById.mockResolvedValue({ ...agent, isActive: false });
+    await expect(requireCurrent()).rejects.toMatchObject({
+      code: "accessDenied",
+    });
+    users.findById.mockResolvedValue(agent);
+    return { job: { id: "complete-job" } };
+  });
+  await expect(service.run(round("conversation"))).resolves.toMatchObject({
+    start: { job: { id: "complete-job" } },
+  });
 });
 
 it.each(["read_only", "workspace", "yolo"] as const)(

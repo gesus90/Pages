@@ -1,14 +1,14 @@
 import { randomUUID } from "node:crypto";
 
+import { AgentJobAnswerError } from "@/backend/error/AgentJobAnswerError";
 import { AgentEmployeeError } from "@/backend/error/AgentEmployeeError";
 import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 import {
-  CONVERSATION_AGENT_CONTEXT_MESSAGES,
   CONVERSATION_AGENT_REPLY_PREFIX,
   CONVERSATION_TEXT_MAXIMUM_LENGTH,
 } from "@/definition/Conversation";
 
-import { createConversationAgentPrompt } from "./ConversationAgentPrompt";
+import { ConversationReplyContext } from "./ConversationReplyContext";
 import { findConversationMentions } from "./ConversationMentions";
 import { toConversationMessage } from "./ConversationReader";
 import { agentSelectionText } from "./content/ConversationAgentFiles";
@@ -41,7 +41,10 @@ import type {
 } from "./content/ConversationAgentFiles";
 import type { ConversationAttachments } from "./content/ConversationAttachments";
 import type { ConversationMessageContentReader } from "./content/ConversationMessageContent";
-import type { ConversationAgentRunner } from "./ConversationAgentReplies";
+import type {
+  ConversationAgentTurn,
+  ConversationAgentRunner,
+} from "./ConversationAgentReplies";
 import type { ConversationContextReader } from "./ConversationContextReader";
 import type {
   ConversationAccounts,
@@ -86,7 +89,7 @@ export interface ConversationReplyRunnerDependencies {
   readonly conversations: Pick<ConversationRepository, "findForMember">;
   readonly messages: Pick<
     ConversationMessageRepository,
-    "find" | "history" | "insert"
+    "find" | "history" | "insert" | "contextCount"
   >;
   readonly directory: Pick<ConversationDirectory, "read">;
   readonly runner: ConversationAgentRunner;
@@ -101,7 +104,7 @@ export interface ConversationReplyRunnerDependencies {
   /** Stores the files an answer attaches and binds them to it. */
   readonly attachments: Pick<
     ConversationAttachments,
-    "stage" | "bind" | "release"
+    "stage" | "bind" | "release" | "open"
   >;
   /** The attachments and links of the stored answer. */
   readonly content: ConversationMessageContentReader;
@@ -129,13 +132,40 @@ function changedEvent(conversationId: string): PagesEvent {
 }
 
 function noticeFor(error: unknown): ConversationNotice {
-  if (!(error instanceof AgentEmployeeError)) return "agent_failed";
+  if (
+    error instanceof AgentJobAnswerError ||
+    !(error instanceof AgentEmployeeError)
+  )
+    return "agent_failed";
   if (error.code === "inactive") return "agent_inactive";
   return error.code === "unavailable" ||
     error.code === "accessUnsupported" ||
     error.code === "modelNotAllowed"
     ? "agent_unavailable"
     : "agent_failed";
+}
+
+function failureCode(error: unknown): string {
+  if (error instanceof AgentJobAnswerError) return error.failureCode;
+  return error instanceof AgentEmployeeError ? error.code : "general";
+}
+
+function failureText(
+  error: unknown,
+  notice: ConversationNotice,
+  name: string,
+): string {
+  if (!(error instanceof AgentJobAnswerError))
+    return NOTICE_TEXTS[notice](name);
+  if (
+    error.failureCode === "cli_not_logged_in" ||
+    error.failureCode === "cli_auth_failed" ||
+    error.failureCode === "provider_auth_failed"
+  )
+    return `${name} antwortet nicht: Der Agent ist nicht angemeldet (${error.failureCode}).`;
+  if (error.isCancelled)
+    return `Die Antwort von ${name} wurde abgebrochen (${error.failureCode}); auch der einmalige Wiederholungsversuch wurde nicht abgeschlossen.`;
+  return `${name} konnte nicht antworten: Fehler ${error.failureCode}.`;
 }
 
 /**
@@ -271,7 +301,9 @@ export class ConversationReplyRunner {
         : noticeFor(error);
       this.logFailure(job, notice, error);
       await this.post(job, accounts, {
-        text: NOTICE_TEXTS[notice](agent.user.displayName),
+        text: controller.signal.aborted
+          ? NOTICE_TEXTS.agent_stopped(agent.user.displayName)
+          : failureText(error, notice, agent.user.displayName),
         notice,
       });
       return null;
@@ -300,10 +332,20 @@ export class ConversationReplyRunner {
     },
   ): Promise<string> {
     const deadline = this.nowMilliseconds() + BUSY_WAIT_MAXIMUM_MILLISECONDS;
+    let hasRetriedCancellation = false;
     for (;;) {
       try {
         return await this.ask(job, agent, context);
       } catch (error: unknown) {
+        if (
+          error instanceof AgentJobAnswerError &&
+          error.isCancelled &&
+          !context.signal.aborted &&
+          !hasRetriedCancellation
+        ) {
+          hasRetriedCancellation = true;
+          continue;
+        }
         const isBusy =
           error instanceof AgentEmployeeError && error.code === "busy";
         if (!isBusy || this.nowMilliseconds() > deadline) throw error;
@@ -354,34 +396,33 @@ export class ConversationReplyRunner {
     );
     if (!answered || !origin)
       throw new Error("The answered message is missing.");
-    const newestFirst = await messages.history(
-      conversation.id,
-      answered.sequence + 1,
-      CONVERSATION_AGENT_CONTEXT_MESSAGES,
-    );
-    const groupContext =
-      conversation.kind === "group"
-        ? (await this.dependencies.contexts.promptContext(conversation.id))
-            .context
-        : null;
+    const prepare = new ConversationReplyContext(this.dependencies);
+    const prepareTurn = (
+      afterSequence: number | null,
+    ): Promise<ConversationAgentTurn> =>
+      prepare.forTurn({
+        job,
+        agent,
+        accounts,
+        answered,
+        origin,
+        afterSequence,
+      });
+    const initial = await prepareTurn(null);
     const answer = await this.dependencies.runner.answer({
       agent,
       person: job.round.person,
       conversation,
-      prompt: createConversationAgentPrompt({
-        conversation,
-        agentId: agent.id,
-        newestFirst,
-        accounts,
-        trigger: {
-          kind: job.trigger,
-          reason: job.reason,
-          personId: job.round.person.id,
-          originSequence: origin.sequence,
-        },
-        context: groupContext,
-        memberIds: job.round.memberIds,
-      }),
+      prompt: initial.prompt,
+      attachments: initial.attachments,
+      prepareTurn,
+      openAttachment: async (attachmentId) => {
+        const opened = await this.dependencies.attachments.open(agent, {
+          attachmentId,
+          variant: "original",
+        });
+        return opened.stream;
+      },
       lastMessage: answered.text,
       signal,
       onQueued: () => this.markQueued(job, "limit"),
@@ -589,10 +630,12 @@ export class ConversationReplyRunner {
       component: COMPONENT,
       message: "An agent did not answer in a conversation.",
       metadata: {
-        conversationId: job.round.conversation.id,
+        sessionId: job.round.conversation.id,
+        source: "conversation",
         agentId: job.agentId,
-        trigger: job.trigger,
-        notice,
+        kind: job.trigger,
+        reason: notice,
+        code: failureCode(error),
       },
     });
   }

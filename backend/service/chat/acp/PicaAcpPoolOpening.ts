@@ -32,6 +32,7 @@ export interface PicaAcpPooledInput {
 export interface PicaAcpPoolRequest {
   /** The kept chat session of an agent employee; absent opens a session of the job alone. */
   readonly pool: PicaAcpJobPool | undefined;
+  readonly prepare?: (afterSequence: number | null) => Promise<number>;
   readonly plans: Pick<PlanExecution, "open">;
   readonly signal: AbortSignal;
   readonly observer: PlanSessionObserver;
@@ -54,13 +55,17 @@ export interface PicaAcpPoolRequest {
  *
  * @returns The session with the turn of the round running.
  */
-export function openPicaSession(
+export async function openPicaSession(
   request: PicaAcpPoolRequest,
 ): Promise<PlanSession> {
   const { credential, plans, observer, pool } = request;
-  if (!pool) return plans.open(request.input(), request.signal, observer);
+  if (!pool) {
+    await request.prepare?.(null);
+    return plans.open(request.input(), request.signal, observer);
+  }
   return pool.sessions.open({
     session: pool.session,
+    prepare: request.prepare,
     signal: request.signal,
     observer,
     listener: request.listener,
