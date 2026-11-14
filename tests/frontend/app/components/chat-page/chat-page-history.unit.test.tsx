@@ -256,3 +256,29 @@ it("never draws images of an own message or an answer", () => {
   expect(screen.getByText(/theirs/)).toBeTruthy();
   expect(container.querySelector("img")).toBeNull();
 });
+
+it("never shows a stored round_limit notice; the talk just goes on (PAGE-349)", () => {
+  renderHistory({
+    messages: [
+      answer("1", "ada", { content: "Erste Antwort" }),
+      answer("2", "bob", {
+        content: "Abstimmung beendet, Grenze erreicht",
+        notice: "round_limit",
+      }),
+      answer("3", "bob", { content: "Weiter geht es" }),
+    ],
+  });
+  expect(screen.getByText("Erste Antwort")).toBeTruthy();
+  expect(screen.getByText("Weiter geht es")).toBeTruthy();
+  expect(screen.queryByText("Discussion ended, limit reached")).toBeNull();
+  expect(screen.queryByText("Abstimmung beendet, Grenze erreicht")).toBeNull();
+  expect(screen.queryByRole("note")).toBeNull();
+});
+
+it("shows the empty hint when only a round_limit notice is stored", () => {
+  renderHistory({
+    name: "Team",
+    messages: [answer("1", "ada", { notice: "round_limit" })],
+  });
+  expect(screen.getByText("No messages with Team yet.")).toBeTruthy();
+});

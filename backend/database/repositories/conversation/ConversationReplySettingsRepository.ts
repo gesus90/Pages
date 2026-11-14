@@ -1,4 +1,5 @@
 import {
+  readCountColumn,
   readNullableCountColumn,
   readTextColumn,
 } from "@/backend/database/RowValue";
@@ -8,6 +9,8 @@ import {
   CONVERSATION_NO_RULE_OVERRIDES,
   CONVERSATION_REPLY_MODES,
 } from "@/definition/ConversationDecision";
+
+import { conversationRoundLimits } from "@/definition/ConversationObserver";
 
 import type { Database } from "@/backend/database/Database";
 import type {
@@ -55,7 +58,8 @@ export class ConversationReplySettingsRepository {
             answer_threshold,
             responsibility_threshold,
             second_threshold,
-            max_responders
+            max_responders,
+            replies_per_round
         FROM conversation_reply_settings
         WHERE conversation_id = $conversation_id;
       `,
@@ -66,6 +70,7 @@ export class ConversationReplySettingsRepository {
         conversationId,
         mode: CONVERSATION_DEFAULT_REPLY_MODE,
         overrides: CONVERSATION_NO_RULE_OVERRIDES,
+        ...conversationRoundLimits({}),
       };
     return {
       conversationId,
@@ -80,6 +85,9 @@ export class ConversationReplySettingsRepository {
         secondThreshold: readNullableCountColumn(row, 3, "second_threshold"),
         maximumResponders: readNullableCountColumn(row, 4, "max_responders"),
       },
+      ...conversationRoundLimits({
+        automaticRepliesPerOrigin: readCountColumn(row, 5, "replies_per_round"),
+      }),
     };
   }
 
@@ -118,6 +126,7 @@ export class ConversationReplySettingsRepository {
   public async save(change: ConversationReplySettingsChange): Promise<void> {
     const { settings } = change;
     const { overrides } = settings;
+    const limits = conversationRoundLimits(settings);
     await this.database.execute(
       `
         INSERT INTO conversation_reply_settings (
@@ -127,6 +136,7 @@ export class ConversationReplySettingsRepository {
             responsibility_threshold,
             second_threshold,
             max_responders,
+            replies_per_round,
             updated_by,
             updated_at
         )
@@ -137,6 +147,7 @@ export class ConversationReplySettingsRepository {
             $responsibility_threshold,
             $second_threshold,
             $max_responders,
+            $replies_per_round,
             $updated_by,
             $updated_at
         )
@@ -146,6 +157,7 @@ export class ConversationReplySettingsRepository {
             responsibility_threshold = EXCLUDED.responsibility_threshold,
             second_threshold = EXCLUDED.second_threshold,
             max_responders = EXCLUDED.max_responders,
+            replies_per_round = EXCLUDED.replies_per_round,
             updated_by = EXCLUDED.updated_by,
             updated_at = EXCLUDED.updated_at;
       `,
@@ -156,6 +168,7 @@ export class ConversationReplySettingsRepository {
         responsibility_threshold: overrides.responsibilityThreshold,
         second_threshold: overrides.secondThreshold,
         max_responders: overrides.maximumResponders,
+        replies_per_round: limits.automaticRepliesPerOrigin,
         updated_by: change.updatedBy,
         updated_at: change.updatedAt,
       },

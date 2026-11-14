@@ -106,7 +106,9 @@ export type ConversationNotice =
   | "agent_cost_limit"
   | "agent_unavailable"
   | "agent_failed"
-  | "agent_stopped";
+  | "agent_stopped"
+  /** Stored by PAGE-337 only; the chat never shows it (PAGE-349). */
+  | "round_limit";
 
 /** Where the text of a voice message stands. */
 export type ConversationTranscriptionState = "pending" | "done" | "failed";

@@ -276,6 +276,13 @@ async function runReplySettingsIntent(
               secondThreshold: Number(formData.get("secondThreshold")),
               maximumResponders: Number(formData.get("maximumResponders")),
             },
+      ...(formData.has("automaticRepliesPerOrigin")
+        ? {
+            automaticRepliesPerOrigin: Number(
+              formData.get("automaticRepliesPerOrigin"),
+            ),
+          }
+        : {}),
     }),
   };
 }

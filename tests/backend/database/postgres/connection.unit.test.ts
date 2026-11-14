@@ -1,5 +1,4 @@
 import { EventEmitter } from "node:events";
-
 import { describe, expect, it, vi } from "vitest";
 
 import {
@@ -28,7 +27,7 @@ function createClient(): {
   const query =
     vi.fn<(request: QueryConfig) => Promise<QueryResult | QueryResult[]>>();
   const release = vi.fn();
-  const client = Object.assign(emitter, { query, release });
+  const client: PoolClient = Object.assign(emitter, { query, release });
   return { client, emitter, query, release };
 }
 

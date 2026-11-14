@@ -34,8 +34,8 @@ export const CONVERSATION_DEFAULT_REPLY_MODE: ConversationReplyMode =
  * The range of the most agents that answer one message.
  *
  * @remarks
- * The upper end equals the automatic answers a message may start at all
- * (`CONVERSATION_OBSERVER_LIMITS.automaticRepliesPerOrigin`).
+ * This bounds the initial selection; the separate budget of contributions
+ * without @ per round (PAGE-349) bounds the observer and the decision model.
  */
 export const CONVERSATION_MAXIMUM_RESPONDERS_RANGE = {
   minimum: 1,
@@ -93,16 +93,17 @@ export const CONVERSATION_NO_RULE_OVERRIDES: ConversationDecisionRuleOverrides =
  * @remarks
  * `historyMessages`/`historyCharacters` bound what the model reads of the
  * history, `specializationCharacters` what it reads of one agent's `AGENT.md`,
- * `timeoutSeconds` the longest wait, `agentStreak` how many agent messages in
- * a row, without a person, still start a hand-over, `listedDecisions` how
- * many decisions the popup lists.
+ * `timeoutSeconds` the longest wait, `agentStreak` the most agent messages in
+ * a row without a message of a person (PAGE-349): once that many stand in a
+ * row, a further hand-over is stored instead of started and starts once a
+ * person writes again, `listedDecisions` how many decisions the popup lists.
  */
 export const CONVERSATION_DECISION_LIMITS = {
   historyMessages: 8,
   historyCharacters: 6_000,
   specializationCharacters: 400,
   timeoutSeconds: 30,
-  agentStreak: 10,
+  agentStreak: 20,
   listedDecisions: 30,
 } as const;
 
@@ -183,6 +184,8 @@ export interface ConversationReplySettings {
   readonly mode: ConversationReplyMode;
   /** The values the group set itself; the rest follows the instance. */
   readonly overrides: ConversationDecisionRuleOverrides;
+  /** Contributions without @ per group round; defaults to eight, at most nine (PAGE-349). */
+  readonly automaticRepliesPerOrigin?: number;
 }
 
 /**
@@ -208,6 +211,8 @@ export interface ConversationReplySettingsView {
   readonly mode: ConversationReplyMode;
   /** The rules that apply: the group's own values and the defaults for the rest. */
   readonly rules: ConversationDecisionRules;
+  /** Contributions without @ per group round (PAGE-349). */
+  readonly automaticRepliesPerOrigin: number;
   /** The defaults of the instance, which the group follows without values of its own. */
   readonly defaults: ConversationDecisionRules;
   /** Whether the group sets no value itself. */

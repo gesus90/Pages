@@ -10,6 +10,11 @@ import {
 } from "@/definition/ConversationDecision";
 
 import { decisionEntry } from "./ConversationDecisionViews";
+import {
+  CONVERSATION_ROUND_LIMITS_RANGE,
+  conversationRoundLimits,
+} from "@/definition/ConversationObserver";
+
 import { readConversationIdentifier } from "./ConversationReader";
 
 import type { ConversationDecisionRepository } from "@/backend/database/repositories/conversation/ConversationDecisionRepository";
@@ -60,6 +65,13 @@ const SETTINGS_INPUT = z
       })
       .strict()
       .nullable(),
+    // The most contributions without @ per group round; absent keeps the stored one (PAGE-349).
+    automaticRepliesPerOrigin: z
+      .number()
+      .int()
+      .min(1)
+      .max(CONVERSATION_ROUND_LIMITS_RANGE.automaticRepliesMaximum)
+      .optional(),
   })
   .strict();
 
@@ -109,6 +121,7 @@ export class ConversationReplySettingsService {
       conversationId: id,
       mode: settings.mode,
       rules: resolveDecisionRules(defaults, overrides),
+      ...conversationRoundLimits(settings),
       defaults,
       isDefault: Object.values(overrides).every((value) => value === null),
       canManage,
@@ -146,6 +159,11 @@ export class ConversationReplySettingsService {
       conversationId: current.conversationId,
       mode: parsed.data.mode,
       overrides: rules ?? CONVERSATION_NO_RULE_OVERRIDES,
+      ...conversationRoundLimits({
+        automaticRepliesPerOrigin:
+          parsed.data.automaticRepliesPerOrigin ??
+          current.automaticRepliesPerOrigin,
+      }),
     };
     await this.dependencies.settings.save({
       settings,

@@ -3952,7 +3952,8 @@
       "agent_cost_limit": "{{name}} antwortet nicht: Das Kostenlimit des Agents ist erreicht.",
       "agent_unavailable": "{{name}} antwortet nicht: Für den Agent ist gerade kein Modell nutzbar.",
       "agent_failed": "{{name}} konnte nicht antworten, die Antwort ist fehlgeschlagen. Schreib die Nachricht erneut, um es noch einmal zu versuchen.",
-      "agent_stopped": "Die Antwort von {{name}} wurde gestoppt."
+      "agent_stopped": "Die Antwort von {{name}} wurde gestoppt.",
+      "round_limit": "Abstimmung beendet, Grenze erreicht"
     },
     "stop": "Stoppen",
     "stopAgent": "{{name}} stoppen",
@@ -4092,6 +4093,9 @@
         "modelFailed": "Das Decision-Modell war zuletzt nicht erreichbar oder gab keine gültige Antwort. Die Gruppe verhält sich dann wie „Nur @“."
       },
       "reset": "Auf Standard zurücksetzen",
+      "roundLimits": "Grenze je Runde",
+      "automaticRepliesPerOrigin": "Beiträge ohne @ (Entscheidungsmodell)",
+      "followUpHint": "Agents dürfen einander mit @ ohne Grenze je Runde ansprechen. Nach 20 Agent-Nachrichten in Folge pausiert die Kette, bis eine Person schreibt.",
       "save": "Speichern",
       "saved": "Einstellung gespeichert.",
       "saveFailed": "Die Einstellung konnte nicht gespeichert werden.",

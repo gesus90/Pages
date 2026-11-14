@@ -35,6 +35,8 @@ function readSettings(
 export interface ReplySettingsDraft {
   readonly mode: ConversationReplyMode;
   readonly rules: ConversationDecisionRules | null;
+  /** The most contributions without @ per round (PAGE-349). */
+  readonly automaticRepliesPerOrigin: number;
 }
 
 /** The popup's view of the settings, the last decisions and the save. */
@@ -100,6 +102,10 @@ export function useReplySettings(
     formData.set("intent", "save-reply-settings");
     formData.set("conversationId", groupId);
     formData.set("mode", draft.mode);
+    formData.set(
+      "automaticRepliesPerOrigin",
+      String(draft.automaticRepliesPerOrigin),
+    );
     formData.set("useDefaults", String(draft.rules === null));
     if (draft.rules !== null)
       for (const [rule, value] of Object.entries(draft.rules))

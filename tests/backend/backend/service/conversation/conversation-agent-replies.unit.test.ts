@@ -101,12 +101,19 @@ function fixture(): {
     transaction: vi.fn(),
   });
   vi.spyOn(rounds, "claim").mockResolvedValue("duplicate");
+  vi.spyOn(rounds.followUps, "pending").mockResolvedValue([]);
   vi.spyOn(rounds, "round").mockResolvedValue(null);
   vi.spyOn(rounds, "claimRouting").mockResolvedValue(true);
   vi.spyOn(rounds, "finishRouting").mockResolvedValue(undefined);
+  vi.spyOn(rounds.handoffs, "pauseUnstarted").mockResolvedValue([]);
+  vi.spyOn(rounds.handoffs, "paused").mockResolvedValue([]);
+  vi.spyOn(rounds.handoffs, "request").mockResolvedValue([]);
   vi.spyOn(rounds, "interruptStale").mockResolvedValue(2);
   const dependencies: ConversationAgentRepliesDependencies = {
-    conversations: { findForMember: vi.fn().mockResolvedValue(conversation) },
+    conversations: {
+      findForMember: vi.fn().mockResolvedValue(conversation),
+      memberIds: vi.fn(),
+    },
     messages: {
       find: vi.fn(),
       history: vi.fn(),

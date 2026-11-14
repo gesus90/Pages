@@ -83,7 +83,8 @@ export class McpConversationApi {
    * @param body - `mode` (`mentions` or `decision`), the rules `answerThreshold`,
    * `responsibilityThreshold`, `secondThreshold` (whole percent) and
    * `maximumResponders`, or `useDefaults: true` to follow the defaults of the
-   * instance again.
+   * instance again; `automaticRepliesPerOrigin` bounds the contributions
+   * without @ per round (PAGE-349).
    * @returns The stored settings.
    * @throws {ConversationError} As {@link ConversationReplySettingsService.save}.
    */
@@ -98,6 +99,8 @@ export class McpConversationApi {
       conversationId: id,
       mode: body.mode ?? current.mode,
       rules: nextRules(current, body),
+      automaticRepliesPerOrigin:
+        body.automaticRepliesPerOrigin ?? current.automaticRepliesPerOrigin,
     });
   }
 }

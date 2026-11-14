@@ -1,10 +1,18 @@
 import { withBackgroundDatabaseWork } from "@/backend/database/executor/DatabaseWorkContext";
 import { ConversationError } from "@/backend/error/ConversationError";
 import { logCaughtError, logEvent } from "@/backend/logging/Logger";
-import { CONVERSATION_AGENT_SEND_PREFIX } from "@/definition/Conversation";
-import { CONVERSATION_DECISION_LIMITS } from "@/definition/ConversationDecision";
+import {
+  CONVERSATION_OBSERVER_LIMITS,
+  conversationRoundLimits,
+} from "@/definition/ConversationObserver";
 
+import {
+  answerableMessage,
+  isAskingMessage,
+} from "./ConversationAnswerableMessage";
+import { isAgentChainPaused } from "./ConversationAgentChain";
 import { ConversationReplyRunner } from "./ConversationReplyRunner";
+import { ConversationRoundFollowUps } from "./ConversationRoundFollowUps";
 
 import type { ConversationMessageRepository } from "@/backend/database/repositories/conversation/ConversationMessageRepository";
 import type {
@@ -12,6 +20,7 @@ import type {
   ConversationRepository,
 } from "@/backend/database/repositories/conversation/ConversationRepository";
 import type { ConversationReplySettingsRepository } from "@/backend/database/repositories/conversation/ConversationReplySettingsRepository";
+import type { ConversationHandoffRequest } from "@/backend/database/repositories/conversation/ConversationHandoffRepository";
 import type { ConversationRoundRepository } from "@/backend/database/repositories/conversation/ConversationRoundRepository";
 import type { PagesEvent } from "@/backend/service/events/PagesEventPublisher";
 import type { AgentMessageQueue } from "@/definition/AgentSessionLimits";
@@ -46,6 +55,9 @@ export interface ConversationAgentTurn {
   readonly attachments: readonly ConversationAttachment[];
   readonly throughSequence: number;
 }
+
+/** The most messages a resumed hand-over reads since the agent's last message. */
+const RESUME_CONTEXT_MESSAGES = 50;
 
 /** One answer an agent is asked for. */
 export interface ConversationAgentRequest {
@@ -114,7 +126,10 @@ export interface ConversationAgentRunner {
 
 /** What the answers of agents in conversations use. */
 export interface ConversationAgentRepliesDependencies {
-  readonly conversations: Pick<ConversationRepository, "findForMember">;
+  readonly conversations: Pick<
+    ConversationRepository,
+    "findForMember" | "memberIds"
+  >;
   readonly messages: Pick<
     ConversationMessageRepository,
     "find" | "history" | "insert" | "contextCount"
@@ -160,35 +175,9 @@ interface ReplyRequest {
   readonly requestedBy: string | null;
   readonly reason: string;
   readonly isAutomatic: boolean;
-}
-
-/**
- * Whether a message asks for an answer: one a person wrote, or one an agent
- * chose to send (PAGE-311). The answer of an agent asks nobody, so two agents
- * never answer each other on their own.
- */
-function isAskingMessage(message: ConversationMessage): boolean {
-  return (
-    message.sender.kind === "human" ||
-    message.clientMessageId.startsWith(CONVERSATION_AGENT_SEND_PREFIX)
-  );
-}
-
-/** The message of a person, or one an agent chose to send, whose text is known now; `null` for every other change. */
-function answerableMessage(
-  event: ConversationEvent,
-): ConversationMessage | null {
-  if (event.kind !== "message" && event.kind !== "message_updated") return null;
-  const { message } = event;
-  // A voice message is answered once its text is recognized.
-  const isWaiting =
-    message.voice !== undefined && message.voice.transcriptionState !== "done";
-  if (event.kind === "message_updated" && message.voice === undefined)
-    return null;
-  if (isWaiting || message.notice !== undefined) return null;
-  if (message.text.trim() === "" && message.attachments.length === 0)
-    return null;
-  return isAskingMessage(message) ? message : null;
+  readonly isFollowUp?: boolean;
+  /** The stored @ hand-over the answer takes (PAGE-349). */
+  readonly handoff?: "pending" | "paused";
 }
 
 function isAgentMember(
@@ -212,14 +201,19 @@ function isAgentMember(
  * (at most the configured number of agents); without a usable model the group
  * behaves like `mentions`. A message an agent sent without an @ asks nobody,
  * so agents wake each other only by naming each other: an answer that names
- * agents with @ hands the round over to them. Every answer stays in the round
- * of the person's message: each agent answers a round once at most, and the
- * decision model and the hand-overs add at most the automatic answers a round
- * allows. All of it is stored, so repeated events, concurrent jobs and a
- * restart start nothing twice. Agents start a round only with a message they
- * chose to send (PAGE-311); it asks exactly the agents it mentions, or the
- * partner of a direct conversation, and a conversation paused after a chain of
- * agent messages gets no answer.
+ * agents with @ hands the round over to them, also to agents that answered in
+ * the round before (PAGE-349). Every answer stays in the round of the
+ * person's message. An agent starts at most once per message that asks it,
+ * never for its own mention. Explicit @ hand-overs have no limit per round or
+ * per agent; contributions without @ (decision model) share the group's
+ * configured budget. Only the chain pause stops @ hand-overs: they are stored
+ * and logged, nothing shows in the chat, and the next message of a person
+ * starts each of them once. Replies to an agent's @ question are bundled into
+ * one continuation. All of it is stored, so repeated events, concurrent jobs
+ * and a restart start nothing twice. Agents start a round only with a message
+ * they chose to send (PAGE-311); it asks exactly the agents it mentions, or
+ * the partner of a direct conversation, and a conversation paused after a
+ * chain of agent messages gets no answer.
  *
  * Every agent answers in its own session of the conversation (PAGE-304), so
  * several agents answer side by side. A message that waits for the earlier
@@ -230,10 +224,25 @@ function isAgentMember(
 export class ConversationAgentReplies {
   private readonly dependencies: ConversationAgentRepliesDependencies;
   private readonly replies: ConversationReplyRunner;
+  private readonly followUps: ConversationRoundFollowUps;
 
   public constructor(dependencies: ConversationAgentRepliesDependencies) {
     this.dependencies = dependencies;
     this.replies = new ConversationReplyRunner(dependencies);
+    this.followUps = new ConversationRoundFollowUps(
+      dependencies,
+      async (round, start) => {
+        await this.dispatch(round, {
+          agentId: start.agentId,
+          trigger: "handoff",
+          triggerMessageId: start.questionMessageId,
+          requestedBy: null,
+          reason: start.reason,
+          isAutomatic: false,
+          isFollowUp: true,
+        });
+      },
+    );
   }
 
   /**
@@ -242,9 +251,13 @@ export class ConversationAgentReplies {
    * @returns Stops following.
    */
   public start(): () => void {
-    return this.dependencies.events.subscribe((event) => {
+    const unsubscribe = this.dependencies.events.subscribe((event) => {
       this.receive(event);
     });
+    return () => {
+      unsubscribe();
+      this.followUps.stop();
+    };
   }
 
   /**
@@ -254,9 +267,14 @@ export class ConversationAgentReplies {
    * @param startedAt - The start of this process.
    */
   public async recover(startedAt: Date): Promise<void> {
-    const interrupted = await this.dependencies.rounds.interruptStale(
+    const { rounds } = this.dependencies;
+    // First: hand-overs that never began are paused, not interrupted, so the next person resumes them.
+    const paused = await rounds.handoffs.pauseUnstarted(
       startedAt.toISOString(),
     );
+    for (const handoff of paused) this.logPaused(handoff, "restart");
+    const interrupted = await rounds.interruptStale(startedAt.toISOString());
+    await this.followUps.recover();
     if (interrupted > 0)
       logEvent({
         level: "info",
@@ -333,6 +351,21 @@ export class ConversationAgentReplies {
       memberIds,
       person: sender.user,
     };
+    // A message of a person ends the chain pause and starts what waited there (PAGE-349).
+    const resumed =
+      conversation.kind === "group" && sender.user.isAgent !== true
+        ? this.resumePaused(conversation.id)
+        : Promise.resolve();
+    await Promise.all([this.answerRound(round, message, accounts), resumed]);
+  }
+
+  /** Starts the answers the message of a round asks for. */
+  private async answerRound(
+    round: ConversationRound,
+    message: ConversationMessage,
+    accounts: ConversationAccounts,
+  ): Promise<void> {
+    const { conversation, memberIds, person: sender } = round;
     const base = {
       triggerMessageId: message.id,
       requestedBy: null,
@@ -341,7 +374,7 @@ export class ConversationAgentReplies {
     };
     if (conversation.kind === "direct") {
       const partners = memberIds.filter(
-        (id) => id !== sender.user.id && isAgentMember(id, memberIds, accounts),
+        (id) => id !== sender.id && isAgentMember(id, memberIds, accounts),
       );
       await this.dispatchAll(
         round,
@@ -349,8 +382,8 @@ export class ConversationAgentReplies {
       );
       return;
     }
-    const mentioned = [...new Set(message.mentions)].filter((id) =>
-      isAgentMember(id, memberIds, accounts),
+    const mentioned = [...new Set(message.mentions)].filter(
+      (id) => id !== sender.id && isAgentMember(id, memberIds, accounts),
     );
     if (mentioned.length > 0) {
       await this.recordMention(round, message, mentioned);
@@ -362,7 +395,7 @@ export class ConversationAgentReplies {
     }
     // A message that names only people is addressed to them, and a message an
     // agent chose to send asks only the agents it mentions.
-    if (message.mentions.length > 0 || sender.user.isAgent === true) return;
+    if (message.mentions.length > 0 || sender.isAgent === true) return;
     const settings = await this.dependencies.replySettings.find(
       conversation.id,
     );
@@ -392,12 +425,19 @@ export class ConversationAgentReplies {
     round: ConversationRound,
     request: ReplyRequest,
   ): Promise<void> {
+    const settings = await this.dependencies.replySettings.find(
+      round.conversation.id,
+    );
     const outcome = await this.dependencies.rounds.claim({
       originMessageId: round.originMessageId,
       conversationId: round.conversation.id,
       personId: round.person.id,
       createdAt: this.now(),
       ...request,
+      reason: Array.from(request.reason)
+        .slice(0, CONVERSATION_OBSERVER_LIMITS.routingReasonCharacters)
+        .join(""),
+      limits: conversationRoundLimits(settings),
     });
     if (outcome !== "claimed") {
       if (outcome === "limit") this.logLimit(round, request.agentId);
@@ -409,8 +449,10 @@ export class ConversationAgentReplies {
       trigger: request.trigger,
       triggerMessageId: request.triggerMessageId,
       reason: request.reason,
+      isFollowUp: request.isFollowUp,
+      contextMessageIds: await this.contextOf(round, request),
     });
-    if (answer && round.conversation.kind === "group")
+    if (round.conversation.kind === "group" && answer)
       await this.handOver(round, answer);
   }
 
@@ -437,6 +479,67 @@ export class ConversationAgentReplies {
     } catch (error: unknown) {
       logCaughtError(COMPONENT, error);
     }
+  }
+
+  /**
+   * The messages a continuation reads besides the history: a batch gets the
+   * round replies since its question, a resumed hand-over every message since
+   * the agent's last one. Both are read after the claim, so nothing bundled
+   * meanwhile is missing.
+   */
+  private async contextOf(
+    round: ConversationRound,
+    request: ReplyRequest,
+  ): Promise<readonly string[] | undefined> {
+    if (request.isFollowUp)
+      return this.dependencies.rounds.followUps.context(
+        round.originMessageId,
+        request.triggerMessageId,
+      );
+    if (request.handoff !== "paused") return undefined;
+    const newestFirst = await this.dependencies.messages.history(
+      round.conversation.id,
+      null,
+      RESUME_CONTEXT_MESSAGES,
+    );
+    const since = [];
+    for (const message of newestFirst) {
+      if (message.senderId === request.agentId) break;
+      if (message.notice === null) since.push(message.id);
+    }
+    return since.reverse();
+  }
+
+  /**
+   * Starts the hand-overs of a group that waited at the chain pause or across
+   * a restart, each exactly once: the claim takes the stored request.
+   */
+  private async resumePaused(conversationId: string): Promise<void> {
+    const { rounds } = this.dependencies;
+    const paused = await rounds.handoffs.paused(conversationId);
+    await Promise.all([
+      this.followUps.resume(conversationId),
+      ...paused.map(async (handoff) => {
+        const state = await rounds.round(handoff.originMessageId);
+        const round = state
+          ? await this.followUps.restore({
+              originMessageId: handoff.originMessageId,
+              conversationId,
+              personId: state.personId,
+            })
+          : null;
+        if (!round) return;
+        await this.dispatch(round, {
+          agentId: handoff.agentId,
+          trigger: "handoff",
+          triggerMessageId: handoff.triggerMessageId,
+          requestedBy: handoff.requestedBy,
+          reason: handoff.reason,
+          isAutomatic: false,
+          handoff: "paused",
+        });
+      }),
+    ]);
   }
 
   /**
@@ -472,64 +575,79 @@ export class ConversationAgentReplies {
   }
 
   /**
-   * The agents an answer hands over to: only those it mentions with @. An
-   * answer never starts a decision, and a long run of agent messages without a
-   * person starts no hand-over (PAGE-317, PAGE-379).
+   * The agents an answer hands over to: every other agent member it mentions
+   * with @, also one that answered in the round before. An answer never starts
+   * a decision. At the chain pause an @ hand-over is stored and logged instead
+   * of started (PAGE-349, PAGE-379).
    */
   private async handOver(
     round: ConversationRound,
     answer: ConversationMessage,
   ): Promise<void> {
     const accounts = await this.dependencies.directory.read();
-    if (await this.isAgentStreak(round, answer, accounts)) return;
-    const mentioned = [...new Set(answer.mentions)].filter((id) =>
-      isAgentMember(id, round.memberIds, accounts),
+    const isPaused = await isAgentChainPaused(
+      this.dependencies.messages,
+      accounts,
+      round.conversation.id,
+    );
+    const mentioned = [...new Set(answer.mentions)].filter(
+      (id) =>
+        id !== answer.sender.id && isAgentMember(id, round.memberIds, accounts),
     );
     if (mentioned.length === 0) return;
+    // A reply to an agent's own question joins its batch instead of starting it separately.
+    const bundled = await this.followUps.observe(round, answer, mentioned);
     const reason = `${answer.sender.name} hat dich in einer Antwort mit @ angesprochen.`;
+    const handoffs = mentioned
+      .filter((agentId) => !bundled.has(agentId))
+      .map((agentId) => ({
+        triggerMessageId: answer.id,
+        agentId,
+        originMessageId: round.originMessageId,
+        conversationId: round.conversation.id,
+        personId: round.person.id,
+        requestedBy: answer.sender.id,
+        reason,
+        state: isPaused ? ("paused" as const) : ("pending" as const),
+        pauseReason: isPaused ? ("agent_streak" as const) : null,
+        createdAt: this.now(),
+      }));
+    const stored = await this.dependencies.rounds.handoffs.request(handoffs);
+    if (isPaused) {
+      for (const handoff of stored) this.logPaused(handoff, "agent_streak");
+      return;
+    }
     await this.dispatchAll(
       round,
-      mentioned.map((agentId) => ({
-        agentId,
+      handoffs.map((handoff) => ({
+        agentId: handoff.agentId,
         trigger: "handoff",
         triggerMessageId: answer.id,
         requestedBy: answer.sender.id,
         reason,
-        isAutomatic: true,
+        isAutomatic: false,
+        handoff: "pending",
       })),
     );
   }
 
-  /** Whether the newest messages up to the answer are all of agents, without a person between. */
-  private async isAgentStreak(
-    round: ConversationRound,
-    answer: ConversationMessage,
-    accounts: ConversationAccounts,
-  ): Promise<boolean> {
-    const { messages } = this.dependencies;
-    const stored = await messages.find(round.conversation.id, answer.id);
-    if (!stored) return false;
-    const streak = CONVERSATION_DECISION_LIMITS.agentStreak;
-    const newestFirst = await messages.history(
-      round.conversation.id,
-      stored.sequence + 1,
-      streak,
-    );
-    const isStreak =
-      newestFirst.length >= streak &&
-      newestFirst.every(
-        (message) => accounts.find(message.senderId)?.user.isAgent === true,
-      );
-    if (isStreak)
-      logEvent({
-        level: "info",
-        event: "conversation.agent_reply.streak",
-        component: COMPONENT,
-        message:
-          "Agent messages in a row without a person started no further hand-over.",
-        metadata: { conversationId: round.conversation.id, streak },
-      });
-    return isStreak;
+  /** A stored @ hand-over waits for a message of a person; nothing shows in the chat. */
+  private logPaused(
+    handoff: ConversationHandoffRequest,
+    reason: "agent_streak" | "restart",
+  ): void {
+    logEvent({
+      level: "info",
+      event: "conversation.agent_reply.paused",
+      component: COMPONENT,
+      message: "A hand-over with @ was stored and waits until a person writes.",
+      metadata: {
+        conversationId: handoff.conversationId,
+        agentId: handoff.agentId,
+        triggerMessageId: handoff.triggerMessageId,
+        reason,
+      },
+    });
   }
 
   private logLimit(round: ConversationRound, agentId: string): void {
@@ -538,7 +656,7 @@ export class ConversationAgentReplies {
       event: "conversation.agent_reply.limit",
       component: COMPONENT,
       message:
-        "The limit of automatic answers of a round held back a further answer.",
+        "The limit of contributions without @ of a round held back a further answer.",
       metadata: { conversationId: round.conversation.id, agentId },
     });
   }

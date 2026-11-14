@@ -12,25 +12,59 @@
  * The fixed limits of quiet and cost.
  *
  * @remarks
- * - `automaticRepliesPerOrigin`: answers per message of a person that the
- *   observer or a hand-over of another agent starts; agents the person
- *   mentioned with @ do not count against it and are never cut off.
- * - `repliesPerAgentPerOrigin`: every agent answers a message of a person
- *   once at most, whatever path reaches it again.
+ * - `automaticRepliesPerOrigin`: contributions per group round that nobody
+ *   asked for with @, chosen by the observer or the decision model
+ *   (PAGE-349). Explicit @ hand-overs are not counted and not limited per
+ *   round or per agent; only the chain pause of
+ *   `CONVERSATION_DECISION_LIMITS.agentStreak` stops them.
  * - `routingCallsPerMessage`: observer calls per new message at most.
  * - `routingContextMessages`/`routingContextCharacters`: the history the
  *   observer reads to choose.
  * - `observerTimeoutMinutes`: the longest observer session.
  */
 export const CONVERSATION_OBSERVER_LIMITS = {
-  automaticRepliesPerOrigin: 3,
-  repliesPerAgentPerOrigin: 1,
+  automaticRepliesPerOrigin: 8,
+  followUpTimeoutMilliseconds: 3 * 60_000,
   routingCallsPerMessage: 1,
   routingContextMessages: 20,
   routingContextCharacters: 12_000,
   routingReasonCharacters: 300,
   observerTimeoutMinutes: 5,
 } as const;
+
+/** The range a group may set for contributions without @ per round (PAGE-349). */
+export const CONVERSATION_ROUND_LIMITS_RANGE = {
+  minimum: 1,
+  automaticRepliesMaximum: 9,
+} as const;
+
+/** The effective limits of one group's round. */
+export interface ConversationRoundLimits {
+  /** Contributions without @ (observer, decision model) per round. */
+  readonly automaticRepliesPerOrigin: number;
+}
+
+/** Resolves missing settings and clamps every caller to the safe round limits. */
+export function conversationRoundLimits(
+  settings: Partial<ConversationRoundLimits>,
+): ConversationRoundLimits {
+  return {
+    automaticRepliesPerOrigin: clampLimit(
+      settings.automaticRepliesPerOrigin,
+      CONVERSATION_OBSERVER_LIMITS.automaticRepliesPerOrigin,
+      CONVERSATION_ROUND_LIMITS_RANGE.automaticRepliesMaximum,
+    ),
+  };
+}
+
+function clampLimit(
+  input: number | undefined,
+  fallback: number,
+  maximum: number,
+): number {
+  if (input === undefined || !Number.isFinite(input)) return fallback;
+  return Math.max(1, Math.min(maximum, Math.floor(input)));
+}
 
 /**
  * The fixed limits of the group summaries.

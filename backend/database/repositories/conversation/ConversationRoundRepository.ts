@@ -1,16 +1,25 @@
-import { CONVERSATION_OBSERVER_LIMITS } from "@/definition/ConversationObserver";
+import { conversationRoundLimits } from "@/definition/ConversationObserver";
 import {
   readCountColumn,
   readNullableTextColumn,
   readTextColumn,
 } from "@/backend/database/RowValue";
 
+import { ConversationFollowUpRepository } from "./ConversationFollowUpRepository";
+import {
+  ConversationHandoffRepository,
+  takeHandoff,
+} from "./ConversationHandoffRepository";
+
 import type {
   Database,
   DatabaseTransaction,
 } from "@/backend/database/Database";
 import type { ConversationNotice } from "@/definition/Conversation";
-import type { ConversationReplyTrigger } from "@/definition/ConversationObserver";
+import type {
+  ConversationRoundLimits,
+  ConversationReplyTrigger,
+} from "@/definition/ConversationObserver";
 
 /** The message of a person a round of answers belongs to. */
 export interface ConversationRoundOrigin {
@@ -29,13 +38,26 @@ export interface ConversationReplyClaim extends ConversationRoundOrigin {
   /** The agent that handed the round over; `null` otherwise. */
   readonly requestedBy: string | null;
   readonly reason: string;
-  /** Whether the answer counts against the limit of automatic answers. */
+  /**
+   * Whether the answer was chosen without @, by the observer or the decision
+   * model, and counts against the limit of such contributions (PAGE-349).
+   */
   readonly isAutomatic: boolean;
+  /** The continuation of a ready batch of the agent's own question; consumes it. */
+  readonly isFollowUp?: boolean;
+  /**
+   * The stored @ hand-over this answer takes (PAGE-349): `pending` right
+   * after it was stored, `paused` when a person's message resumes it.
+   */
+  readonly handoff?: "pending" | "paused";
+  /** Effective group settings, clamped again before persistence. */
+  readonly limits?: ConversationRoundLimits;
 }
 
 /**
- * What became of a claim: the agent may answer, it was asked already, or the
- * limit of automatic answers is reached.
+ * What became of a claim: the agent may answer, it was started for this
+ * message already (or it is the sender itself), or the limit of contributions
+ * without @ is reached.
  */
 export type ConversationClaimOutcome = "claimed" | "duplicate" | "limit";
 
@@ -58,8 +80,9 @@ export interface ConversationReplyOrigin {
 /** A round as the next hand-over needs it. */
 export interface ConversationRoundState {
   readonly personId: string;
+  /** Contributions without @ so far; @ hand-overs are not counted (PAGE-349). */
   readonly automaticCount: number;
-  /** Every agent asked in the round, answered or not. */
+  /** One entry per claimed answer, including repeated agents and unfinished answers. */
   readonly agentIds: readonly string[];
 }
 
@@ -136,7 +159,7 @@ async function insertTarget(
           $created_at,
           $created_at
       )
-      ON CONFLICT (origin_message_id, agent_id) DO NOTHING
+      ON CONFLICT DO NOTHING
       RETURNING agent_id;
     `,
     {
@@ -154,20 +177,80 @@ async function insertTarget(
   return rows.length > 0;
 }
 
+/** Starts an interrupted answer of a resumed hand-over again, once. */
+async function reviveTarget(
+  transaction: Pick<DatabaseTransaction, "query">,
+  claim: ConversationReplyClaim,
+): Promise<boolean> {
+  const rows = await transaction.query(
+    `
+      UPDATE conversation_reply_targets
+      SET state = 'queued', updated_at = $now
+      WHERE trigger_message_id = $trigger_message_id
+          AND agent_id = $agent_id
+          AND state = 'interrupted'
+      RETURNING agent_id;
+    `,
+    {
+      trigger_message_id: claim.triggerMessageId,
+      agent_id: claim.agentId,
+      now: claim.createdAt,
+    },
+  );
+  return rows.length > 0;
+}
+
+/** Whether the message is a reply bundled into a question of the agent; the batch answers it. */
+async function isBundled(
+  transaction: Pick<DatabaseTransaction, "query">,
+  claim: ConversationReplyClaim,
+): Promise<boolean> {
+  const rows = await transaction.query(
+    `
+      SELECT 1
+      FROM conversation_follow_up_answers AS answers
+      INNER JOIN conversation_follow_up_questions AS questions
+          ON questions.question_message_id = answers.question_message_id
+      WHERE answers.reply_message_id = $trigger_message_id
+          AND questions.agent_id = $agent_id
+      LIMIT 1;
+    `,
+    { trigger_message_id: claim.triggerMessageId, agent_id: claim.agentId },
+  );
+  return rows.length > 0;
+}
+
+async function claimTarget(
+  transaction: DatabaseTransaction,
+  claim: ConversationReplyClaim,
+): Promise<boolean> {
+  if (await insertTarget(transaction, claim)) return true;
+  return claim.handoff === "paused" && (await reviveTarget(transaction, claim));
+}
+
 /**
  * The rounds of answers in conversations, their asked agents and the routing
- * decisions of the observer (PAGE-296).
+ * decisions of the observer (PAGE-296, PAGE-349).
  *
  * @remarks
- * Everything a loop guard needs is stored, never only held in memory: a
- * claim locks its round, so concurrent jobs, repeated events and a restart
- * can neither ask an agent twice nor exceed the limit of automatic answers.
+ * Everything a loop guard needs is stored, never only held in memory. An
+ * agent starts at most once per message that asks it: the unique key
+ * `(trigger_message_id, agent_id)` holds it against repeated events,
+ * concurrent jobs and a restart. Explicit @ hand-overs have no limit per round
+ * or per agent; only contributions without @ are counted, under the lock of
+ * their round.
  */
 export class ConversationRoundRepository {
   private readonly database: RoundDatabase;
+  /** Durable batches of questions and their addressed replies. */
+  public readonly followUps: ConversationFollowUpRepository;
+  /** Stored explicit @ hand-overs, pending or paused (PAGE-349). */
+  public readonly handoffs: ConversationHandoffRepository;
 
   public constructor(database: RoundDatabase) {
     this.database = database;
+    this.followUps = new ConversationFollowUpRepository(database);
+    this.handoffs = new ConversationHandoffRepository(database);
   }
 
   /** Stores the round of a message of a person once. */
@@ -176,7 +259,12 @@ export class ConversationRoundRepository {
   }
 
   /**
-   * Asks an agent to answer a round, once per agent and round.
+   * Claims the answer of one agent to one asking message, atomically.
+   *
+   * @remarks
+   * The answer target, the end of a stored hand-over, the consumption of a
+   * question batch and the count of contributions without @ commit together,
+   * so a failed claim leaves everything available again.
    *
    * @returns `claimed` when the agent may answer now.
    */
@@ -186,7 +274,7 @@ export class ConversationRoundRepository {
     return this.database.transaction(async (transaction) => {
       await ensureRoundRow(transaction, claim);
       // The lock orders concurrent claims of one round, so the limit holds.
-      const rows = await transaction.query(
+      const [round] = await transaction.query(
         `
           SELECT automatic_count
           FROM conversation_reply_rounds
@@ -195,26 +283,37 @@ export class ConversationRoundRepository {
         `,
         { origin_message_id: claim.originMessageId },
       );
-      const [row] = rows;
-      const automaticCount = row
-        ? readCountColumn(row, 0, "automatic_count")
+      // An agent never answers its own mention.
+      if (claim.requestedBy === claim.agentId) return "duplicate";
+      const automaticCount = round
+        ? readCountColumn(round, 0, "automatic_count")
         : 0;
-      const known = await transaction.query(
-        `
-          SELECT agent_id
-          FROM conversation_reply_targets
-          WHERE origin_message_id = $origin_message_id
-              AND agent_id = $agent_id;
-        `,
-        { origin_message_id: claim.originMessageId, agent_id: claim.agentId },
-      );
-      if (known.length > 0) return "duplicate";
+      const limits = conversationRoundLimits(claim.limits ?? {});
       if (
         claim.isAutomatic &&
-        automaticCount >= CONVERSATION_OBSERVER_LIMITS.automaticRepliesPerOrigin
+        automaticCount >= limits.automaticRepliesPerOrigin
       )
         return "limit";
-      if (!(await insertTarget(transaction, claim))) return "duplicate";
+      const handoff = claim.handoff;
+      if (
+        handoff &&
+        !(await takeHandoff(transaction, {
+          triggerMessageId: claim.triggerMessageId,
+          agentId: claim.agentId,
+          expected: handoff,
+          now: claim.createdAt,
+        }))
+      )
+        return "duplicate";
+      if (
+        !claim.isFollowUp &&
+        claim.trigger === "handoff" &&
+        (await isBundled(transaction, claim))
+      )
+        return "duplicate";
+      if (claim.isFollowUp && !(await this.consumeFollowUp(transaction, claim)))
+        return "duplicate";
+      if (!(await claimTarget(transaction, claim))) return "duplicate";
       if (claim.isAutomatic)
         await transaction.execute(
           `
@@ -230,7 +329,11 @@ export class ConversationRoundRepository {
 
   /** Records where the answer of an asked agent stands. */
   public async setTargetState(
-    target: { readonly originMessageId: string; readonly agentId: string },
+    target: {
+      readonly originMessageId: string;
+      readonly agentId: string;
+      readonly triggerMessageId?: string;
+    },
     change: {
       readonly state: ConversationTargetState;
       readonly replyMessageId?: string | null;
@@ -247,11 +350,13 @@ export class ConversationRoundRepository {
             notice = COALESCE($notice, notice),
             updated_at = $updated_at
         WHERE origin_message_id = $origin_message_id
-            AND agent_id = $agent_id;
+            AND agent_id = $agent_id
+            AND trigger_message_id = $trigger_message_id;
       `,
       {
         origin_message_id: target.originMessageId,
         agent_id: target.agentId,
+        trigger_message_id: target.triggerMessageId ?? target.originMessageId,
         state: change.state,
         reply_message_id: change.replyMessageId ?? null,
         notice: change.notice ?? null,
@@ -421,5 +526,41 @@ export class ConversationRoundRepository {
       { before },
     );
     return rows.length;
+  }
+
+  private async consumeFollowUp(
+    transaction: Pick<DatabaseTransaction, "query">,
+    claim: ConversationReplyClaim,
+  ): Promise<boolean> {
+    const rows = await transaction.query(
+      `
+      UPDATE conversation_follow_up_questions AS questions
+      SET consumed_at = $now
+      WHERE questions.question_message_id = $question
+          AND questions.origin_message_id = $origin
+          AND questions.agent_id = $agent
+          AND questions.consumed_at IS NULL
+          AND (questions.deadline_at <= $now OR NOT EXISTS (
+              SELECT 1
+              FROM conversation_follow_up_answers AS answers
+              WHERE answers.question_message_id = questions.question_message_id
+                  AND answers.reply_message_id IS NULL
+          ))
+          AND EXISTS (
+              SELECT 1
+              FROM conversation_follow_up_answers AS answers
+              WHERE answers.question_message_id = questions.question_message_id
+                  AND answers.reply_message_id IS NOT NULL
+          )
+      RETURNING questions.question_message_id;
+    `,
+      {
+        question: claim.triggerMessageId,
+        origin: claim.originMessageId,
+        agent: claim.agentId,
+        now: claim.createdAt,
+      },
+    );
+    return rows.length > 0;
   }
 }

@@ -46,7 +46,7 @@ function AnswersBody({
   return (
     <ReplyAnswersTab
       // The form restarts from what the server stored, so a saved change shows as stored.
-      key={`${settings.mode}:${JSON.stringify(settings.rules)}:${String(settings.isDefault)}`}
+      key={`${settings.mode}:${JSON.stringify(settings.rules)}:${String(settings.isDefault)}:${String(settings.automaticRepliesPerOrigin)}`}
       settings={settings}
       isSaving={state.isSaving}
       isSaved={state.isSaved}

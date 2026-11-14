@@ -2,6 +2,7 @@ import { TriangleAlert } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { ChatPageRoundLimits } from "@/app/components/chat-page/chat-page-round-limits";
 import { DecisionRulesFields } from "@/app/components/common/decision-rules-fields";
 import { Button } from "@/app/components/ui/button";
 import { SegmentedControl } from "@/app/components/ui/segmented-control";
@@ -84,6 +85,9 @@ export function ReplyAnswersTab({
   const [mode, setMode] = useState<ConversationReplyMode>(settings.mode);
   const [rules, setRules] = useState<ConversationDecisionRules>(settings.rules);
   const [isDefault, setIsDefault] = useState(settings.isDefault);
+  const [limits, setLimits] = useState({
+    automaticRepliesPerOrigin: settings.automaticRepliesPerOrigin,
+  });
   const canEdit = settings.canManage && !isSaving;
   const areRulesOff = !canEdit || mode === "mentions";
 
@@ -99,7 +103,11 @@ export function ReplyAnswersTab({
 
   function handleSubmit(event: React.SyntheticEvent): void {
     event.preventDefault();
-    onSave({ mode, rules: isDefault ? null : rules });
+    onSave({
+      mode,
+      rules: isDefault ? null : rules,
+      automaticRepliesPerOrigin: limits.automaticRepliesPerOrigin,
+    });
   }
 
   return (
@@ -125,6 +133,11 @@ export function ReplyAnswersTab({
         rules={rules}
         isDisabled={areRulesOff}
         onChange={handleRulesChange}
+      />
+      <ChatPageRoundLimits
+        limits={limits}
+        isDisabled={!canEdit}
+        onChange={setLimits}
       />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Button

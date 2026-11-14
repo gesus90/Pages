@@ -385,7 +385,7 @@ interface ChatPageHistoryProps {
  * A stored history loads older pages from its head (PAGE-275).
  */
 export function ChatPageHistory({
-  messages,
+  messages: allMessages,
   name,
   findParticipant,
   isAnswering = false,
@@ -394,6 +394,10 @@ export function ChatPageHistory({
 }: ChatPageHistoryProps): React.ReactElement {
   const { t } = useTranslation();
   const viewport = useRef<HTMLElement>(null);
+  // A stored round_limit notice of PAGE-337 never shows: the talk just goes on (PAGE-349).
+  const messages = allMessages.filter(
+    (message) => message.notice !== "round_limit",
+  );
   const newestId = messages.at(-1)?.id ?? null;
 
   // Keeps the newest message in view, as the Pica panel does; a loaded older

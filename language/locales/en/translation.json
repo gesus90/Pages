@@ -3952,7 +3952,8 @@
       "agent_cost_limit": "{{name}} does not answer: the agent's cost limit is reached.",
       "agent_unavailable": "{{name}} does not answer: no model can run the agent right now.",
       "agent_failed": "{{name}} could not answer; the answer failed. Send the message again to try once more.",
-      "agent_stopped": "The answer of {{name}} was stopped."
+      "agent_stopped": "The answer of {{name}} was stopped.",
+      "round_limit": "Discussion ended, limit reached"
     },
     "stop": "Stop",
     "stopAgent": "Stop {{name}}",
@@ -4092,6 +4093,9 @@
         "modelFailed": "The decision model was last unreachable or gave no valid answer. The group then behaves like “@ only”."
       },
       "reset": "Reset to default",
+      "roundLimits": "Limit per round",
+      "automaticRepliesPerOrigin": "Contributions without @ (decision model)",
+      "followUpHint": "Agents may address each other with @ without a limit per round. After 20 agent messages in a row the chain pauses until a person writes.",
       "save": "Save",
       "saved": "Setting saved.",
       "saveFailed": "The setting could not be saved.",
