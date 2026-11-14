@@ -417,3 +417,37 @@ it("marks incomplete model readings even when another model supplies every token
   });
   expect(state.usage.get("partial:1")?.isPartial).toBe(true);
 });
+
+it("keeps an unreported submodel visible when the main model reports complete usage", async () => {
+  const native = readClaudeSdkUsage({
+    sessionId: "native-session",
+    message: {
+      type: "result",
+      uuid: "partial-result",
+      modelUsage: {
+        [MODEL]: {
+          inputTokens: 100,
+          outputTokens: 20,
+          cacheReadInputTokens: 1000,
+          cacheCreationInputTokens: 200,
+        },
+        "claude-sonnet-5": {},
+      },
+    },
+  });
+  if (!native) throw new Error("Expected the main model's reported usage");
+  state.prices.push({ ...PRICE, modelId: "anthropic/claude-sonnet-5" });
+  await accountClaudeUsage(database, turn("partial", native));
+  expect(summarizeClaudeUsage([...state.usage.values()])).toMatchObject({
+    inputTokens: 100,
+    outputTokens: 20,
+    cacheReadTokens: 1000,
+    cacheWriteTokens: 200,
+    costUsd: null,
+    isIncomplete: true,
+    hasUnknownPrice: false,
+  });
+  expect(state.usage.get("partial:1")?.claudeAccounting?.models).toHaveLength(
+    2,
+  );
+});

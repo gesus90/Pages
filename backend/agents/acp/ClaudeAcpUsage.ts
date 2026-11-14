@@ -59,15 +59,15 @@ export function readClaudeSdkUsage(
       cacheReadTokens: usage.cacheReadInputTokens ?? null,
       cacheWriteTokens: usage.cacheCreationInputTokens ?? null,
     }));
-    const reported = mergeModels(models.filter(hasReportedTokens));
-    return reported.length === 0
-      ? null
-      : {
+    // Models without any counter stay in the reading so the step is marked as partially reported.
+    return models.some(hasReportedTokens)
+      ? {
           sessionId: envelope.sessionId,
           id: cycle.data.uuid,
           kind: "total",
-          models: reported,
-        };
+          models: mergeModels(models),
+        }
+      : null;
   }
   const message = assistant.safeParse(envelope.message);
   if (!message.success) return null;
