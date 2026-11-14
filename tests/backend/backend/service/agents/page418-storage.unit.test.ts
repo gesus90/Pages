@@ -97,11 +97,11 @@ it.each(["lease", "owner"] as const)(
     expect(boundary.prune).toHaveBeenCalledWith(
       path.join(sharedPnpmBin(SHARED), "pnpm"),
       ["store", "prune"],
-      expect.objectContaining({
-        cwd: SHARED,
-        env: expect.objectContaining(sharedAgentEnvironment(SHARED)),
-      }),
+      expect.objectContaining({ cwd: SHARED }),
     );
+    expect(boundary.prune.mock.calls[0]?.[2]).toMatchObject({
+      env: sharedAgentEnvironment(SHARED),
+    });
     await service(database).maintenance.run(NOW + DAY);
     expect(boundary.prune).toHaveBeenCalledOnce();
     await service(database).maintenance.run(NOW + DAY + 60_000);
@@ -272,12 +272,10 @@ it("measures the whole instance hourly, logs the five largest data directories a
     },
   });
   expect(logEvent).toHaveBeenCalledWith(
-    expect.objectContaining({
-      level: "warn",
-      message: expect.stringContaining('"folder7": 700 bytes'),
-    }),
+    expect.objectContaining({ level: "warn" }),
   );
   const message = vi.mocked(logEvent).mock.calls[0]?.[0].message;
+  expect(message).toContain('"folder7": 700 bytes');
   expect(message).not.toContain('"folder2"');
   expect(message).not.toContain('"folder1"');
   const restarted = service(database);

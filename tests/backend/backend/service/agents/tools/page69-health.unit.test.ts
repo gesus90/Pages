@@ -206,13 +206,13 @@ it("checks a browser with a real launch/close script through a mocked process bo
       BROWSER_PROBE_SCRIPT,
     ],
     environment: {
-      TMPDIR: expect.stringMatching(
-        /^\/memory\/tools\/probe\/tmp\/[\da-f-]{36}$/u,
-      ),
       PAGES_BROWSER: "chromium",
       PLAYWRIGHT_BROWSERS_PATH: "/memory/tools/chromium/synthetic/browsers",
     },
   });
+  expect(run.mock.calls[0]?.[0].environment?.TMPDIR).toMatch(
+    /^\/memory\/tools\/probe\/tmp\/[\da-f-]{36}$/u,
+  );
   expect(BROWSER_PROBE_SCRIPT).toContain("chromiumSandbox: true");
   expect(BROWSER_PROBE_SCRIPT).toContain("await browser.close()");
   run.mockResolvedValueOnce({

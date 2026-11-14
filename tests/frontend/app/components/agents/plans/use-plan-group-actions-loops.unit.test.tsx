@@ -330,7 +330,7 @@ it("places an entire loop into a group, keeps relative member coordinates and ta
   });
   const loop = loopWith([
     agentNode("work", "codex", { x: 40, y: 20 }),
-    scriptNode("script"),
+    scriptNode("script", 0),
   ]);
   const scene = mountGroupActions(planOf([group, { ...loop, x: 1400 }]));
   const origin = planMemberOrigin(group);

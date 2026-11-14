@@ -98,7 +98,8 @@ it.each(["success", "failure", "abort"])(
       }
       return "finished";
     });
-    if (outcome === "success") await expect(operation).resolves.toBe("finished");
+    if (outcome === "success")
+      await expect(operation).resolves.toBe("finished");
     else await expect(operation).rejects.toThrow();
     expect(memory.entries.has(temporaryDirectory)).toBe(false);
     expect(memory.entries.has(`${temporaryDirectory}/nested/log`)).toBe(false);

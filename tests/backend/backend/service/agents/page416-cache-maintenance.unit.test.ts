@@ -14,8 +14,8 @@ vi.mock("node:fs/promises", async () => {
 });
 vi.mock("@/backend/logging/LoggedOperation", () => ({
   loggedJob: async (
-    _component: string,
-    _event: string,
+    component: string,
+    event: string,
     work: () => Promise<unknown>,
   ) => work(),
 }));
@@ -52,7 +52,11 @@ function seedConnection(connection: string): string {
     files.seed(`${home}/${name}/entry`, "file", `${connection}:${name}`);
   for (const name of PRESERVED)
     files.seed(`${home}/${name}`, "file", `${connection}:${name}`);
-  files.seed(`${ROOT}/agents/${connection}/codex/auth.json`, "file", "credential");
+  files.seed(
+    `${ROOT}/agents/${connection}/codex/auth.json`,
+    "file",
+    "credential",
+  );
   return home;
 }
 

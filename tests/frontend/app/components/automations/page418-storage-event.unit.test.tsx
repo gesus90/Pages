@@ -7,6 +7,7 @@ import { buildTrigger } from "@/app/components/automations/automation-payload";
 import { eventLabel } from "@/app/components/automations/automation-labels";
 import { createI18n } from "@/app/lib/i18n";
 import { AUTOMATION_EVENT_TYPES } from "@/definition/Automation";
+import { LANGUAGE } from "@/language/Language";
 
 import { now, options } from "./automation-fixture";
 
@@ -40,7 +41,7 @@ it("saves a storage trigger without requiring a project and drops former object 
   });
 });
 
-it.each(["de", "en"])(
+it.each([LANGUAGE.GERMAN, LANGUAGE.ENGLISH])(
   "offers the storage event with a translated label and sizes without project or plan fields (%s)",
   (language) => {
     const context = {

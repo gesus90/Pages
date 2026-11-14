@@ -17,8 +17,10 @@ import { AgentEnvironmentMaintenance } from "@/backend/storage/AgentEnvironmentM
 import { AgentToolFiles } from "@/backend/service/agents/tools/AgentToolFiles";
 import { agentToolDefinition } from "@/backend/service/agents/tools/AgentToolRegistry";
 
+import { partial } from "../../../app/lib/service-wiring-fakes";
 import { environmentFiles as files } from "./page352-files";
 
+import type { DatabaseTransaction } from "@/backend/database/Database";
 import type { CliHome } from "@/backend/agents/cli/CliContracts";
 
 const setup = vi.hoisted(() => ({ npm: vi.fn() }));
@@ -211,7 +213,8 @@ it("sweeps ended legacy runs without a new start, empties completed homes and re
   }
   const maintenance = new AgentEnvironmentMaintenance("/memory/data", {
     purgeObsoleteRuns: async () => undefined,
-    maintainConnectionCaches: async (maintain) => maintain(),
+    maintainConnectionCaches: async (maintain) =>
+      maintain(partial<DatabaseTransaction>({})),
     canRemoveRun: async (id) => id === RUN,
     maintainPlan: async (id, maintain) => {
       await maintain("empty");
@@ -233,7 +236,8 @@ it("sweeps ended legacy runs without a new start, empties completed homes and re
   ).toBe(true);
   const deletion = new AgentEnvironmentMaintenance("/memory/data", {
     purgeObsoleteRuns: async () => undefined,
-    maintainConnectionCaches: async (maintain) => maintain(),
+    maintainConnectionCaches: async (maintain) =>
+      maintain(partial<DatabaseTransaction>({})),
     canRemoveRun: async () => false,
     maintainPlan: async (id, maintain) => {
       await maintain("remove");

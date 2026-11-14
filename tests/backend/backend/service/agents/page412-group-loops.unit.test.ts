@@ -30,6 +30,7 @@ import {
 } from "./page175-stack-fixture";
 
 import type { AgentPlanGroup } from "@/definition/AgentPlanGroup";
+import type { AgentPlanLoop } from "@/definition/AgentPlanLoop";
 import type { AgentPlanNode } from "@/definition/AgentPlan";
 import type { StackNodes } from "./page175-stack-fixture";
 
@@ -407,6 +408,7 @@ it("remembers an unavailable restored group owner instead of opening an empty re
       key: `${run.id}/group`,
       input: {
         ...prepared.input,
+        directory: prepared.input.directory ?? "",
         options: prepared.options,
         instanceId: "replacement",
       },
@@ -446,8 +448,8 @@ it("uses the existing structured mutation path for nested loop placement, settin
           value: { type: "text", text: "current input" },
         },
       },
-      { action: "disconnect", from: "work", to: "script" },
-      { action: "connect", from: "work", to: "script" },
+      { action: "disconnect", from: "work", to: "script", ports: null },
+      { action: "connect", from: "work", to: "script", ports: null },
     ],
     { agents: [] },
   ).plan;
@@ -471,7 +473,7 @@ it("uses the existing structured mutation path for nested loop placement, settin
     },
   });
   expect(planContainedEdges(restored)).toEqual(
-    expect.arrayContaining(planContainedEdges(world.plan)),
+    expect.arrayContaining([...planContainedEdges(world.plan)]),
   );
   expect(planConnectionIssues(restored, [])).toEqual([]);
 });
@@ -521,14 +523,14 @@ it("keeps stack inputs and agent-to-script results scoped to the current iterati
   });
   const world = await stackEngine(runtime.execution, {
     nodes: (build) => [
-      ...nodes(build).map((node) =>
+      ...nodes(build).map((node): AgentPlanNode =>
         node.type !== "group"
           ? node
           : {
               ...node,
               loops: node.loops
                 ?.filter((loop) => loop.id === "loop")
-                .map((loop) => ({
+                .map((loop): AgentPlanLoop => ({
                   ...loop,
                   runsSource: "parameter" as const,
                   bindings: {

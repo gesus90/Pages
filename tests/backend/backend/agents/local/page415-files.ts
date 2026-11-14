@@ -23,7 +23,11 @@ class JournalFiles {
   }
 
   /** Seeds private files and their containing directories. */
-  public seed(location: string, content: string, kind: Entry["kind"] = "file"): void {
+  public seed(
+    location: string,
+    content: string,
+    kind: Entry["kind"] = "file",
+  ): void {
     let parent = path.dirname(location);
     while (!this.entries.has(parent)) {
       this.entries.set(parent, { kind: "directory", content: "" });
@@ -42,19 +46,30 @@ class JournalFiles {
       lstat: async (location: string) => this.stats(location),
       readdir: async (directory: string) => {
         this.require(directory);
-        return [...this.entries.keys()].filter((location) => location !== directory && path.dirname(location) === directory).map((location) => path.basename(location));
+        return [...this.entries.keys()]
+          .filter(
+            (location) =>
+              location !== directory && path.dirname(location) === directory,
+          )
+          .map((location) => path.basename(location));
       },
       open: async (location: string, mode: string | number) => {
         if (mode === "wx") {
-          if (this.entries.has(location)) throw new Error("Synthetic file exists");
+          if (this.entries.has(location))
+            throw new Error("Synthetic file exists");
           this.seed(location, "");
         } else this.require(location);
         return {
-          writeFile: async (content: string | Buffer) => this.seed(location, content.toString()),
-          readFile: async (encoding?: string) => encoding ? this.require(location).content : Buffer.from(this.require(location).content),
+          writeFile: async (content: string | Buffer) =>
+            this.seed(location, content.toString()),
+          readFile: async (encoding?: string) =>
+            encoding
+              ? this.require(location).content
+              : Buffer.from(this.require(location).content),
           stat: async () => this.stats(location),
           sync: async () => {
-            if (this.failSync !== null && location.includes(this.failSync)) throw new Error("Synthetic fsync failure");
+            if (this.failSync !== null && location.includes(this.failSync))
+              throw new Error("Synthetic fsync failure");
             this.synchronized.push(location);
           },
           close: async () => undefined,
@@ -65,7 +80,8 @@ class JournalFiles {
         this.entries.delete(source);
       },
       rm: async (location: string) => {
-        if (location === this.failRemove) throw new Error("Synthetic unlink failure");
+        if (location === this.failRemove)
+          throw new Error("Synthetic unlink failure");
         this.removed.push(location);
         this.entries.delete(location);
       },
@@ -74,11 +90,20 @@ class JournalFiles {
 
   private require(location: string): Entry {
     const entry = this.entries.get(location);
-    if (entry === undefined) throw Object.assign(new Error("Synthetic missing file"), { code: "ENOENT" });
+    if (entry === undefined)
+      throw Object.assign(new Error("Synthetic missing file"), {
+        code: "ENOENT",
+      });
     return entry;
   }
 
-  private stats(location: string): { isDirectory: () => boolean; isFile: () => boolean; uid: number | undefined; mode: number; size: number } {
+  private stats(location: string): {
+    isDirectory: () => boolean;
+    isFile: () => boolean;
+    uid: number | undefined;
+    mode: number;
+    size: number;
+  } {
     const entry = this.require(location);
     return {
       isDirectory: () => entry.kind === "directory",

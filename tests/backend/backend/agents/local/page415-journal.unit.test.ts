@@ -6,7 +6,10 @@ import { LocalAcpJournalListener } from "@/backend/agents/local/LocalAcpJournalL
 import { localJournalRecordSchema } from "@/backend/agents/local/LocalSessionContracts";
 import { LocalSessionJournal } from "@/backend/agents/local/LocalSessionJournal";
 import { AgentPayloadFileStore } from "@/backend/storage/AgentPayloadFileStore";
-import { LocalJournalCompaction, journalPayloadPath } from "@/backend/storage/LocalJournalCompaction";
+import {
+  LocalJournalCompaction,
+  journalPayloadPath,
+} from "@/backend/storage/LocalJournalCompaction";
 import { LocalJournalGarbage } from "@/backend/storage/LocalJournalGarbage";
 
 import { journalFiles as files } from "./page415-files";
@@ -15,11 +18,17 @@ import { stub } from "./local-sessions-fixture";
 import type { AgentSessionRecorder } from "@/backend/service/agents/sessions/AgentSessionRecorder";
 import type { DatabaseTransaction } from "@/backend/database/Database";
 import type { GarbageDatabase } from "@/backend/storage/AgentDeferredGarbage";
-import type { LocalJournalRecord, LocalSessionMutation } from "@/backend/agents/local/LocalSessionContracts";
+import type {
+  LocalJournalRecord,
+  LocalSessionMutation,
+} from "@/backend/agents/local/LocalSessionContracts";
 
-vi.mock("node:fs/promises", async () => (await import("./page415-files")).journalFiles.module());
+vi.mock("node:fs/promises", async () =>
+  (await import("./page415-files")).journalFiles.module(),
+);
 vi.mock(import("@/backend/logging/Logger"), async (original) => ({
-  ...(await original()), logCaughtError: vi.fn(),
+  ...(await original()),
+  logCaughtError: vi.fn(),
 }));
 
 const ROOT = "/synthetic/page415";
@@ -34,10 +43,16 @@ afterEach(async () => {
   vi.useRealTimers();
 });
 
-function setup(scheduleCleanup?: () => void): { journal: LocalSessionJournal; store: AgentPayloadFileStore } {
+function setup(scheduleCleanup?: () => void): {
+  journal: LocalSessionJournal;
+  store: AgentPayloadFileStore;
+} {
   const store = new AgentPayloadFileStore(ROOT);
   stores.push(store);
-  return { store, journal: new LocalSessionJournal(DIRECTORY, "plan", store, scheduleCleanup) };
+  return {
+    store,
+    journal: new LocalSessionJournal(DIRECTORY, "plan", store, scheduleCleanup),
+  };
 }
 
 function frame(body: string): LocalSessionMutation {
@@ -63,31 +78,52 @@ function compaction(
   return new LocalJournalCompaction(ROOT, removePayload);
 }
 
-it.each([4095, 4096, 4097])("uses serialized UTF-8 bytes at the %i-byte boundary", async (size) => {
-  const { journal } = setup();
-  await journal.initialize();
-  const overhead = Buffer.byteLength(JSON.stringify(frame("")));
-  const mutation = frame("ä".repeat(Math.floor((size - overhead) / 2)) + "a".repeat((size - overhead) % 2));
-  expect(Buffer.byteLength(JSON.stringify(mutation))).toBe(size);
-  const record = await journal.append(mutation);
-  expect("content" in record).toBe(size <= 4096);
-  expect(payloadFiles()).toHaveLength(size <= 4096 ? 0 : 1);
-  expect(await journal.body(record)).toEqual(mutation);
-  expect(localJournalRecordSchema.parse(JSON.parse(files.entries.get(journalFile(1))?.content ?? "null"))).toEqual(record);
-});
+it.each([4095, 4096, 4097])(
+  "uses serialized UTF-8 bytes at the %i-byte boundary",
+  async (size) => {
+    const { journal } = setup();
+    await journal.initialize();
+    const overhead = Buffer.byteLength(JSON.stringify(frame("")));
+    const mutation = frame(
+      "ä".repeat(Math.floor((size - overhead) / 2)) +
+        "a".repeat((size - overhead) % 2),
+    );
+    expect(Buffer.byteLength(JSON.stringify(mutation))).toBe(size);
+    const record = await journal.append(mutation);
+    expect("content" in record).toBe(size <= 4096);
+    expect(payloadFiles()).toHaveLength(size <= 4096 ? 0 : 1);
+    expect(await journal.body(record)).toEqual(mutation);
+    expect(
+      localJournalRecordSchema.parse(
+        JSON.parse(files.entries.get(journalFile(1))?.content ?? "null"),
+      ),
+    ).toEqual(record);
+  },
+);
 
 it("reads and extends unchanged legacy reference records and detects altered inline content", async () => {
   const { journal, store } = setup();
   const mutation = frame("old");
   const payload = await store.write("plan", JSON.stringify(mutation));
-  const digest = createHash("sha256").update(JSON.stringify([1, "", payload])).digest("hex");
+  const digest = createHash("sha256")
+    .update(JSON.stringify([1, "", payload]))
+    .digest("hex");
   const legacy = { sequence: 1, previousDigest: "", payload, digest };
   files.seed(journalFile(1), JSON.stringify(legacy));
   await journal.initialize();
-  expect(await journal.body((await journal.page(0))[0] ?? legacy)).toEqual(mutation);
+  expect(await journal.body((await journal.page(0))[0] ?? legacy)).toEqual(
+    mutation,
+  );
   const next = await journal.append(frame("new"));
   expect(next.previousDigest).toBe(digest);
-  await expect(journal.body({ sequence: 2, previousDigest: digest, digest: next.digest, content: JSON.stringify(frame("altered")) })).rejects.toThrow("digest");
+  await expect(
+    journal.body({
+      sequence: 2,
+      previousDigest: digest,
+      digest: next.digest,
+      content: JSON.stringify(frame("altered")),
+    }),
+  ).rejects.toThrow("digest");
 });
 
 it("deletes only the durable prefix and anchors restart and repeated ACKs without old files", async () => {
@@ -100,8 +136,12 @@ it("deletes only the durable prefix and anchors restart and repeated ACKs withou
   await journal.acknowledge(2, second.digest);
   expect(schedule).toHaveBeenCalledTimes(2);
   expect(files.removed).toEqual([]);
-  const database = { query: vi.fn<DatabaseTransaction["query"]>().mockResolvedValue([]) };
-  const remove = vi.fn(async (payload: string) => { files.entries.delete(`${ROOT}/${journalPayloadPath(payload)}`); });
+  const database = {
+    query: vi.fn<DatabaseTransaction["query"]>().mockResolvedValue([]),
+  };
+  const remove = vi.fn(async (payload: string) => {
+    files.entries.delete(`${ROOT}/${journalPayloadPath(payload)}`);
+  });
   await compaction(remove).run(database);
   expect(remove).toHaveBeenCalledExactlyOnceWith(reference(second));
   expect(files.entries.has(journalFile(first.sequence))).toBe(false);
@@ -117,7 +157,10 @@ it("deletes only the durable prefix and anchors restart and repeated ACKs withou
   await compaction(remove).run(database);
   const emptyRestart = new LocalSessionJournal(DIRECTORY, "plan", store);
   await emptyRestart.initialize();
-  expect(await emptyRestart.append(frame("empty prefix"))).toMatchObject({ sequence: 5, previousDigest: fourth.digest });
+  expect(await emptyRestart.append(frame("empty prefix"))).toMatchObject({
+    sequence: 5,
+    previousDigest: fourth.digest,
+  });
 });
 
 it("keeps database-owned and unacknowledged shared payloads while removing journal files", async () => {
@@ -125,10 +168,19 @@ it("keeps database-owned and unacknowledged shared payloads while removing journ
   await journal.initialize();
   const result = await journal.append(frame("result".repeat(1000)));
   const shared = await journal.append(frame("shared".repeat(1000)));
-  const tail = { sequence: 3, previousDigest: shared.digest, payload: reference(shared), digest: "a".repeat(64) };
+  const tail = {
+    sequence: 3,
+    previousDigest: shared.digest,
+    payload: reference(shared),
+    digest: "a".repeat(64),
+  };
   files.seed(journalFile(3), JSON.stringify(tail));
   await journal.acknowledge(2, shared.digest);
-  const database = { query: vi.fn<DatabaseTransaction["query"]>().mockResolvedValue([[journalPayloadPath(reference(result))]]) };
+  const database = {
+    query: vi
+      .fn<DatabaseTransaction["query"]>()
+      .mockResolvedValue([[journalPayloadPath(reference(result))]]),
+  };
   const remove = vi.fn(async () => undefined);
   await compaction(remove).run(database);
   expect(remove).not.toHaveBeenCalled();
@@ -137,7 +189,15 @@ it("keeps database-owned and unacknowledged shared payloads while removing journ
   expect(files.entries.has(journalFile(2))).toBe(false);
   expect(files.entries.has(journalFile(3))).toBe(true);
   const sql = database.query.mock.calls[0]?.[0] ?? "";
-  for (const column of ["payload_file", "checkpoint_file", "snapshot_file", "engine_file", "body_file", "events_file", "packet_file"])
+  for (const column of [
+    "payload_file",
+    "checkpoint_file",
+    "snapshot_file",
+    "engine_file",
+    "body_file",
+    "events_file",
+    "packet_file",
+  ])
     expect(sql).toContain(`${column}::jsonb ->> 'path'`);
 });
 
@@ -147,7 +207,9 @@ it("retries a crash after payload deletion and leaves unconfirmed files on ACK f
   const record = await journal.append(frame("b".repeat(5000)));
   files.failSync = "ack.json";
   await expect(journal.acknowledge(1, record.digest)).rejects.toThrow("fsync");
-  const database = { query: vi.fn<DatabaseTransaction["query"]>().mockResolvedValue([]) };
+  const database = {
+    query: vi.fn<DatabaseTransaction["query"]>().mockResolvedValue([]),
+  };
   const remove = vi.fn(async () => undefined);
   const cleaner = compaction(remove);
   await cleaner.run(database);
@@ -167,8 +229,19 @@ it("processes an old released session in batches of at most 1000 deleted files",
   const { store } = setup();
   const payload = await store.write("plan", JSON.stringify(frame("legacy")));
   for (let sequence = 1; sequence <= 1001; sequence += 1)
-    files.seed(journalFile(sequence), JSON.stringify({ sequence, previousDigest: "", payload, digest: "a".repeat(64) }));
-  files.seed(`${DIRECTORY}/journal/ack.json`, JSON.stringify({ sequence: 1001, digest: "a".repeat(64) }));
+    files.seed(
+      journalFile(sequence),
+      JSON.stringify({
+        sequence,
+        previousDigest: "",
+        payload,
+        digest: "a".repeat(64),
+      }),
+    );
+  files.seed(
+    `${DIRECTORY}/journal/ack.json`,
+    JSON.stringify({ sequence: 1001, digest: "a".repeat(64) }),
+  );
   const batchSizes: number[] = [];
   const remove = vi.fn(async () => undefined);
   const query = vi.fn<DatabaseTransaction["query"]>(async () => {
@@ -178,7 +251,9 @@ it("processes an old released session in batches of at most 1000 deleted files",
   await compaction(remove).run({ query });
   expect(batchSizes).toEqual([0, 500, 1000]);
   expect(remove).toHaveBeenCalledTimes(1001);
-  expect(files.removed.filter((name) => /\d{16}\.json$/u.test(name))).toHaveLength(1001);
+  expect(
+    files.removed.filter((name) => /\d{16}\.json$/u.test(name)),
+  ).toHaveLength(1001);
   expect(files.entries.has(`${DIRECTORY}/journal/ack.json`)).toBe(true);
 });
 
@@ -213,14 +288,18 @@ it("the payload store removes acknowledged external files and startup schedules 
     query: vi.fn<DatabaseTransaction["query"]>().mockResolvedValue([]),
     execute: vi.fn(),
   });
-  const restarted = new LocalSessionJournal(DIRECTORY, "plan", store, () => store.scheduleJournalGarbage(database));
+  const restarted = new LocalSessionJournal(DIRECTORY, "plan", store, () =>
+    store.scheduleJournalGarbage(database),
+  );
   await restarted.initialize();
   expect(payloadFiles()).toHaveLength(1);
   await store.settleGarbage();
   expect(payloadFiles()).toHaveLength(0);
   expect(files.entries.has(journalFile(1))).toBe(false);
   expect(files.entries.has(journalFile(2))).toBe(true);
-  expect(files.removed.findIndex((name) => name.endsWith(".payload"))).toBeLessThan(files.removed.indexOf(journalFile(1)));
+  expect(
+    files.removed.findIndex((name) => name.endsWith(".payload")),
+  ).toBeLessThan(files.removed.indexOf(journalFile(1)));
 });
 
 it("does not delete anything until the observed ACK directory entry is synchronized", async () => {
@@ -255,19 +334,36 @@ it("accepts every native update only after its individual journal record is sync
   const { journal } = setup();
   await journal.initialize();
   const update = vi.fn(() => {
-    expect([...files.entries.keys()].some((name) => name.endsWith("0000000000000001.json"))).toBe(true);
+    expect(
+      [...files.entries.keys()].some((name) =>
+        name.endsWith("0000000000000001.json"),
+      ),
+    ).toBe(true);
     expect(files.synchronized).toContain(`${DIRECTORY}/journal`);
   });
-  const recorder = stub<AgentSessionRecorder>({ current: { key: { attemptId: ATTEMPT } }, update, drained: vi.fn() });
+  const recorder = stub<AgentSessionRecorder>({
+    current: { key: { attemptId: ATTEMPT } },
+    update,
+    drained: vi.fn(),
+  });
   const listener = new LocalAcpJournalListener(recorder, journal);
-  listener.update({ sessionUpdate: "agent_thought_chunk", content: { type: "text", text: "a" } });
-  listener.update({ sessionUpdate: "agent_thought_chunk", content: { type: "text", text: "b" } });
+  listener.update({
+    sessionUpdate: "agent_thought_chunk",
+    content: { type: "text", text: "a" },
+  });
+  listener.update({
+    sessionUpdate: "agent_thought_chunk",
+    content: { type: "text", text: "b" },
+  });
   await listener.drained();
   expect(update).toHaveBeenCalledTimes(2);
   expect(await journal.page(0)).toHaveLength(2);
   expect(payloadFiles()).toHaveLength(0);
   files.failSync = ".pending";
-  listener.update({ sessionUpdate: "agent_thought_chunk", content: { type: "text", text: "c" } });
+  listener.update({
+    sessionUpdate: "agent_thought_chunk",
+    content: { type: "text", text: "c" },
+  });
   await expect(listener.drained()).rejects.toThrow("fsync");
   expect(update).toHaveBeenCalledTimes(2);
 });

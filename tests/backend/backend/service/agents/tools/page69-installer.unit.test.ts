@@ -103,12 +103,12 @@ it("downloads only the package-selected browser revision into its own candidate"
       "chromium",
     ],
     environment: {
-      TMPDIR: expect.stringMatching(
-        /^\/memory\/tools\/probe\/tmp\/[\da-f-]{36}$/u,
-      ),
       PLAYWRIGHT_BROWSERS_PATH: "/memory/tools/chromium/candidate/browsers",
     },
   });
+  expect(run.mock.calls[0]?.[0].environment?.TMPDIR).toMatch(
+    /^\/memory\/tools\/probe\/tmp\/[\da-f-]{36}$/u,
+  );
   const directory = run.mock.calls[0]?.[0].environment?.TMPDIR;
   expect(run.mock.calls[1]?.[0].environment?.TMPDIR).toBe(directory);
   expect(rm).toHaveBeenCalledWith(directory, { recursive: true, force: true });

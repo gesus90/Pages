@@ -109,8 +109,7 @@ it.each(["absent", "empty", "populated", "link"])(
       "file",
     );
     if (kind === "empty") files.seed(`${root}/pnpm-store`);
-    if (kind === "populated")
-      files.seed(`${root}/pnpm-store/retained`, "file");
+    if (kind === "populated") files.seed(`${root}/pnpm-store/retained`, "file");
     if (kind === "link") files.seed(`${root}/pnpm-store`, "link");
     await prepareSharedAgentEnvironment(root);
     expect(files.entries.has(`${root}/pnpm/store`)).toBe(true);

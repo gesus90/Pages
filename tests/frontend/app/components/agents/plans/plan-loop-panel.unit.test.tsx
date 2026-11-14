@@ -17,7 +17,7 @@ import {
   syntheticLoop,
 } from "./plan-loop-fixture";
 
-import type { AgentPlanRun } from "@/definition/AgentPlan";
+import type { AgentPlanInput, AgentPlanRun } from "@/definition/AgentPlan";
 import type { AgentPlanLoop } from "@/definition/AgentPlanLoop";
 
 function Panel(props: {
@@ -171,7 +171,7 @@ it("shows no run section without a record and locks the name while disabled", ()
 it("shows group session inheritance without a conflicting session switch", () => {
   const loop = syntheticLoop({ sessionPolicy: "fresh" });
   function GroupPanel(): React.ReactElement {
-    const [draft, setDraft] = useState(() => ({
+    const [draft, setDraft] = useState<AgentPlanInput>(() => ({
       ...loopPlan(loop),
       nodes: [
         {

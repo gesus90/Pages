@@ -5,7 +5,6 @@ import { AutomationRepository } from "@/backend/database/repositories/automation
 import { AutomationRunRepository } from "@/backend/database/repositories/automation/AutomationRunRepository";
 import { PagesEventOutboxReaderRepository } from "@/backend/database/repositories/events/PagesEventOutboxReaderRepository";
 import { AutomationEventIntake } from "@/backend/service/automation/AutomationEventIntake";
-import { AutomationAccess } from "@/backend/service/automation/AutomationAccess";
 import { AUTOMATION_EVENT_EXAMPLES } from "@/backend/service/automation/AutomationEventData";
 import { AUTOMATION_EVENT_TYPES } from "@/definition/Automation";
 import { pagesCoreLiveRequestSchema } from "@/definition/PagesCoreContract";
@@ -15,6 +14,7 @@ import { partial } from "../../../app/lib/service-wiring-fakes";
 
 import type { Database } from "@/backend/database/Database";
 import type { StoredAutomation } from "@/backend/database/repositories/automation/AutomationRepository";
+import type { AutomationAccess } from "@/backend/service/automation/AutomationAccess";
 
 vi.mock("@/backend/logging/Logger", () => ({
   logEvent: vi.fn(),
@@ -167,7 +167,8 @@ it("reads numeric usage from the durable Pages event outbox", async () => {
       ],
     ]);
   const database = partial<Database>({
-    readTransaction: async (work) => work({ query, execute: vi.fn() }),
+    readTransaction: async (work: (transaction: unknown) => Promise<unknown>) =>
+      work({ query, execute: vi.fn() }),
   });
   const batch = await new PagesEventOutboxReaderRepository(database).readAfter(
     0,
