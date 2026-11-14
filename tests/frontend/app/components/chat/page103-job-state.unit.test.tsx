@@ -131,3 +131,154 @@ it("replaces a persisted partial with its stored message and does not erase a ne
       .live.text,
   ).toBe("Next partial");
 });
+
+it("applies journal events in order and retains the latest tool and session facts", () => {
+  const applied = applyChatJobUpdate(startChatLiveJob(JOB), {
+    job: JOB,
+    events: [
+      { sequence: 1, event: { kind: "phase", phase: "running" } },
+      {
+        sequence: 2,
+        event: { kind: "text", turn: 1, isReset: true, delta: "Hello" },
+      },
+      {
+        sequence: 3,
+        event: { kind: "text", turn: 1, isReset: false, delta: " world" },
+      },
+      {
+        sequence: 4,
+        event: {
+          kind: "tool",
+          callId: "a",
+          tool: "search",
+          status: "running",
+          error: null,
+        },
+      },
+      {
+        sequence: 5,
+        event: {
+          kind: "tool",
+          callId: "a",
+          tool: "search",
+          status: "completed",
+          error: null,
+        },
+      },
+      {
+        sequence: 6,
+        event: { kind: "steer", messageId: "m", status: "accepted" },
+      },
+      { sequence: 7, event: { kind: "session", isResumed: true } },
+      { sequence: 8, event: { kind: "capabilities", canSteer: true } },
+      {
+        sequence: 9,
+        event: {
+          kind: "usage",
+          usage: { context: { used: 4, size: 10 }, tokens: null, cost: null },
+        },
+      },
+      {
+        sequence: 10,
+        event: {
+          kind: "compaction",
+          status: "completed",
+          tokensBefore: 9,
+          tokensAfter: 4,
+        },
+      },
+    ],
+    cursor: 10,
+    hasMore: true,
+  });
+  expect(applied.isStale).toBe(false);
+  expect(applied.needsReload).toBe(false);
+  expect(applied.live).toMatchObject({
+    cursor: 10,
+    hasRead: true,
+    hasMore: true,
+    phase: "running",
+    text: "Hello world",
+    steers: { m: "accepted" },
+    isResumed: true,
+    canSteer: true,
+    usage: { context: { used: 4, size: 10 } },
+    compaction: { status: "completed" },
+    tools: [{ callId: "a", status: "completed" }],
+  });
+});
+
+it("starts a follow-up turn with fresh text and clears previous tools", () => {
+  const live = {
+    ...startChatLiveJob(JOB),
+    cursor: 10,
+    text: "Hello world",
+    textTurn: 1,
+    tools: [
+      {
+        kind: "tool" as const,
+        callId: "a",
+        tool: "search",
+        status: "completed" as const,
+        error: null,
+      },
+    ],
+  };
+  const next = applyChatJobUpdate(live, {
+    job: JOB,
+    events: [
+      {
+        sequence: 11,
+        event: {
+          kind: "turn",
+          turn: 2,
+          origin: "followUp",
+          startedAt: "later",
+        },
+      },
+      {
+        sequence: 12,
+        event: { kind: "text", turn: 2, isReset: false, delta: "Next" },
+      },
+    ],
+    cursor: 12,
+    hasMore: false,
+  });
+  expect(next.live).toMatchObject({
+    text: "Next",
+    textTurn: 2,
+    tools: [],
+    turnStartedAt: "later",
+  });
+});
+
+it("restarts stale journal reads and requests a reload for a different job", () => {
+  const live = { ...startChatLiveJob(JOB), cursor: 3, text: "old" };
+  const event = {
+    sequence: 2,
+    event: { kind: "phase" as const, phase: "running" as const },
+  };
+  const stale = applyChatJobUpdate(live, {
+    job: JOB,
+    events: [event],
+    cursor: 2,
+    hasMore: false,
+  });
+  expect(stale).toMatchObject({
+    isStale: true,
+    needsReload: false,
+    live: { cursor: 0, text: "" },
+  });
+  const other = applyChatJobUpdate(live, {
+    job: { ...JOB, id: "other" },
+    events: [],
+    cursor: 0,
+    hasMore: false,
+  });
+  expect(other).toMatchObject({
+    isStale: true,
+    needsReload: true,
+    live: { job: { id: "other" } },
+  });
+  expect(isChatJobRunning(null)).toBe(false);
+});
