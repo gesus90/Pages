@@ -37,6 +37,8 @@ export interface AgentSessionStart {
   readonly userId: string;
   readonly provider: AcpProviderId;
   readonly instanceId: string;
+  readonly connectionId?: string;
+  readonly requestedModel?: string;
   readonly groupId: string | null;
   /** The directory Pages assigned and checked when it prepared the node. */
   readonly directory: string | null;
@@ -87,6 +89,8 @@ export function sessionStart(
     },
     userId: node.run.userId,
     provider: record.runner,
+    connectionId: record.requested.connectionId,
+    requestedModel: record.requested.model,
     instanceId,
     groupId: node.step.groupId ?? null,
     directory: record.requested.directory,

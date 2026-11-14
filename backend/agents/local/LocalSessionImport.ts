@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { accountClaudeUsage } from "@/backend/service/agents/sessions/ClaudeUsageAccounting";
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { AgentSessionRepository } from "@/backend/database/repositories/agent/AgentSessionRepository";
 import { LocalSessionRepository } from "@/backend/database/repositories/agent/LocalSessionRepository";
@@ -132,7 +133,16 @@ export class LocalSessionImport {
         ...transaction,
         transaction: (work) => work(transaction),
       });
-      await this.persist(mutation, record.sequence, sessions);
+      if (
+        mutation.kind === "usage" &&
+        mutation.usage.provider === "claude_code"
+      ) {
+        await this.requireAttempt(mutation.usage.attemptId, sessions);
+        await accountClaudeUsage(
+          { ...transaction, transaction: (work) => work(transaction) },
+          mutation.usage,
+        );
+      } else await this.persist(mutation, record.sequence, sessions);
       if (mutation.kind === "turn")
         await owners.saveResult(
           this.entry.instanceId,

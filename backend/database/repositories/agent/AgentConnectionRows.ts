@@ -1,3 +1,4 @@
+import { claudePriceModelsSchema } from "@/definition/ClaudePriceModels";
 import {
   readBooleanColumn,
   readNullableTextColumn,
@@ -17,6 +18,7 @@ import type {
 
 /** Persistence metadata deliberately excludes the encrypted secret. */
 export interface AgentConnectionRecord {
+  readonly claudePriceModels?: Readonly<Record<string, string>>;
   readonly isActive: boolean;
   readonly id: string;
   readonly name: string;
@@ -41,7 +43,8 @@ export const CONNECTION_COLUMNS = `
     updated_at,
     reasoning_effort,
     is_active,
-    zai_account_type
+    zai_account_type,
+    claude_price_models
 `;
 
 /** Maps explicit columns, rejecting an unsupported stored provider. */
@@ -56,6 +59,11 @@ export function readAgentConnection(
     throw new AgentError("zai_account_type_invalid");
   return {
     isActive: readBooleanColumn(row, 9, "is_active"),
+    claudePriceModels: claudePriceModelsSchema.parse(
+      JSON.parse(
+        readNullableTextColumn(row, 11, "claude_price_models") ?? "{}",
+      ),
+    ),
     id: readTextColumn(row, 0, "id"),
     name: readTextColumn(row, 1, "name"),
     provider,

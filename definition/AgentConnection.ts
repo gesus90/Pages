@@ -305,6 +305,7 @@ export interface AgentCliState {
 
 /** Safe metadata; neither ciphertext nor key fragments belong in this contract. */
 export interface AgentConnectionSummary {
+  readonly claudePriceModels?: Readonly<Record<string, string>>;
   readonly isActive: boolean;
   readonly id: string;
   readonly name: string;
@@ -329,6 +330,7 @@ export interface AgentConnectionSummary {
 }
 
 export interface AgentConnectionInput {
+  readonly claudePriceModels?: unknown;
   readonly name: string;
   readonly provider?: string;
   readonly zaiAccountType?: string;

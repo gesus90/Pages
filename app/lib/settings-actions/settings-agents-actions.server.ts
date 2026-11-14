@@ -51,6 +51,9 @@ function readConnectionInput(formData: FormData): AgentConnectionInput {
     testModel: readTextOrEmpty(formData, "testModel"),
     reasoningEffort: readTextOrEmpty(formData, "reasoningEffort"),
     scope: readScopeField(formData),
+    ...(formData.has("claudePriceModels")
+      ? { claudePriceModels: readPriceModels(formData) }
+      : {}),
   };
 }
 
@@ -254,4 +257,15 @@ export async function handleAgentsAction(
     throw new AgentError("connection_not_found");
   const result = await AGENT_ACTION_HANDLERS[intent]({ ...context, actor, id });
   return Response.json({ ...result, intent }, { headers: AGENT_NO_STORE });
+}
+
+/** A mapping is sent only when the administrator changed it. */
+function readPriceModels(formData: FormData): unknown {
+  const content = readTextOrEmpty(formData, "claudePriceModels");
+  if (content.length > 80_000) throw new AgentError("test_model_invalid");
+  try {
+    return JSON.parse(content);
+  } catch {
+    throw new AgentError("test_model_invalid");
+  }
 }

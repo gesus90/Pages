@@ -1,3 +1,4 @@
+import type { ClaudeRunUsage } from "./ClaudeUsage";
 import type { PlanRunCommandReceipt } from "./PagesRuns";
 import type {
   AgentPlanWriterWait,
@@ -542,6 +543,8 @@ export interface AgentPlanStepResult {
 
 /** Only the executor may read this sanitized view or request its stop. */
 export interface AgentPlanRun {
+  /** Read projection from durable usage; never part of run control. */
+  readonly claudeUsage?: ClaudeRunUsage | null;
   /** Durable command acknowledgement; execution state may still be unchanged. */
   readonly command?: PlanRunCommandReceipt;
   readonly id: string;

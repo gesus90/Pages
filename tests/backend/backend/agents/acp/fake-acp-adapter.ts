@@ -54,6 +54,9 @@ export interface FakeTurn {
   readonly prompt: string;
   /** Sends one session update to the client. */
   readonly update: (update: SessionUpdate) => Promise<void>;
+  readonly native: (
+    message: Readonly<Record<string, unknown>>,
+  ) => Promise<void>;
   /** Asks the client for a permission, as Codex does before an action. */
   readonly ask: (
     request: Omit<RequestPermissionRequest, "sessionId">,
@@ -430,6 +433,8 @@ function fakeTurn(
         sessionId: SESSION_ID,
         update,
       }),
+    native: (message) =>
+      client.notify("_claude/sdkMessage", { sessionId: SESSION_ID, message }),
     ask: (request) =>
       client.request(methods.client.session.requestPermission, {
         ...request,

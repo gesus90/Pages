@@ -1,5 +1,6 @@
 import { logCaughtError } from "@/backend/logging/Logger";
 
+import type { ClaudeUsageObservation } from "@/definition/ClaudeUsage";
 import type {
   AgentCapabilities,
   ClientConnection,
@@ -54,11 +55,17 @@ export interface AcpSessionListener {
     capabilities: AgentCapabilities | null | undefined,
   ) => void;
   readonly update: (update: SessionUpdate) => void;
+  /** Sanitized accounting observations of Claude plan sessions only. */
+  readonly claudeUsage?: (observation: ClaudeUsageObservation) => void;
   /**
    * The token usage the adapter returned with a prompt, or `null` without one;
    * `isContinued` marks a prompt a person's input cut short, whose turn goes on.
    */
-  readonly prompted: (usage: Usage | null, isContinued?: boolean) => void;
+  readonly prompted: (
+    usage: Usage | null,
+    isContinued?: boolean,
+    nativeSessionId?: string,
+  ) => void;
   /** The connection to the adapter ended, for example because its process exited. */
   readonly closed: () => void;
   /** Waits for the journal writes caused by the last notification. */

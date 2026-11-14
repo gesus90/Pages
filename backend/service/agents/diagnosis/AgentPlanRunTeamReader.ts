@@ -3,7 +3,11 @@ import { AgentError } from "@/backend/error/AgentErrors";
 import { allRunAssetReferences } from "@/backend/agents/AgentPlanRunResources";
 
 import { isPlanHistoryReadFailure } from "../AgentPlanControlAccess";
-import { readAuthorizedPlanRun, findPlanRun } from "../AgentPlanRunReader";
+import {
+  readAuthorizedPlanRun,
+  findPlanRun,
+  withClaudeRunUsage,
+} from "../AgentPlanRunReader";
 import { withRunCommand } from "../runs/RunCommandView";
 import { hiddenContentFields, hideRunContent } from "./RunRedaction";
 
@@ -134,7 +138,10 @@ export class AgentPlanRunTeamReader {
   }
 
   private async withCommand(run: AgentPlanRun): Promise<AgentPlanRun> {
-    return withRunCommand(this.dependencies.engine, run);
+    return withRunCommand(
+      this.dependencies.engine,
+      await withClaudeRunUsage(this.dependencies, run),
+    );
   }
 
   private async hiddenSources(

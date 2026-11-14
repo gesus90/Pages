@@ -3,8 +3,8 @@ import { useTranslation } from "react-i18next";
 
 import { PLAN_BLOCKER_RETRIES } from "@/definition/AgentPlanRetry";
 
+import { ClaudeUsageDetails } from "../claude-usage-details";
 import { agentTodoSummary } from "../plan-agent-todo-model";
-
 import { hasSessionEnded, infrastructureRestarts } from "./console-step-state";
 import { formatClock } from "./console-time";
 import { useNow } from "./use-terminal-surface";
@@ -254,12 +254,18 @@ function UsageSection(props: {
             style={{ width: `${share ?? 0}%` }}
           />
         </div>
-        <Fact
-          label={t(`${key}.tokens`)}
-          value={props.isTurnRunning ? t(`${key}.afterTurn`) : tokens}
-        />
-        <Fact label={t(`${key}.cost`)} value={cost} />
       </dl>
+      {props.view.claudeUsage ? (
+        <ClaudeUsageDetails usage={props.view.claudeUsage} />
+      ) : (
+        <dl className="space-y-1.5">
+          <Fact
+            label={t(`${key}.tokens`)}
+            value={props.isTurnRunning ? t(`${key}.afterTurn`) : tokens}
+          />
+          <Fact label={t(`${key}.cost`)} value={cost} />
+        </dl>
+      )}
     </SidebarSection>
   );
 }

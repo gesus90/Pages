@@ -129,6 +129,9 @@ function readSettings(input: Record<string, unknown>): AgentEmployeeSettings {
     throw new AgentEmployeeError("invalidInput");
   return {
     connectionId,
+    claudeMonthlyCostLimitUsd: readClaudeMonthlyLimit(
+      input.claudeMonthlyCostLimitUsd,
+    ),
     model,
     reasoningEffort:
       typeof reasoningEffort === "string" && reasoningEffort !== ""
@@ -236,4 +239,14 @@ export function readAgentEmployeeInput(input: unknown): AgentEmployeeInput {
     isLearningEnabled: fields.isLearningEnabled !== false,
     voice: readVoice(fields),
   };
+}
+
+/** Empty disables the Claude-only budget; other provider budgets remain outside Pages. */
+function readClaudeMonthlyLimit(input: unknown): number | null | undefined {
+  if (input === undefined) return undefined;
+  if (input === null || input === "") return null;
+  const numeric = typeof input === "string" ? Number(input) : input;
+  if (typeof numeric !== "number" || !Number.isFinite(numeric) || numeric < 0)
+    throw new AgentEmployeeError("invalidInput");
+  return numeric;
 }

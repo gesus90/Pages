@@ -1,5 +1,6 @@
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 
+import type { ClaudeUsageObservation } from "@/definition/ClaudeUsage";
 import type {
   AgentCapabilities,
   SessionUpdate,
@@ -43,9 +44,17 @@ export class LocalAcpJournalListener implements AcpSessionListener {
   public readonly prompted = (
     usage: Usage | null,
     isContinued = false,
+    nativeSessionId?: string,
   ): void => {
     this.enqueue("prompted", usage, () =>
-      this.recorder.prompted(usage, isContinued),
+      this.recorder.prompted(usage, isContinued, nativeSessionId),
+    );
+  };
+
+  /** Preserves only token counters from native SDK frames, then projects them live. */
+  public readonly claudeUsage = (observation: ClaudeUsageObservation): void => {
+    this.enqueue("claudeUsage", observation, () =>
+      this.recorder.claudeUsage(observation),
     );
   };
 
@@ -62,7 +71,7 @@ export class LocalAcpJournalListener implements AcpSessionListener {
   };
 
   private enqueue(
-    channel: "announced" | "update" | "prompted" | "closed",
+    channel: "announced" | "update" | "prompted" | "closed" | "claudeUsage",
     input: unknown,
     apply: () => void,
   ): void {

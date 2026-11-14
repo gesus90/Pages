@@ -144,7 +144,10 @@ it("starts the adapter with the Claude CLI of the connection and keeps the MCP c
   });
   expect(JSON.stringify(launch.environment)).not.toContain("secret-run-token");
   expect(launch.sessionMeta).toEqual({
-    claudeCode: { options: profile.options },
+    claudeCode: {
+      options: profile.options,
+      emitRawSDKMessages: [{ type: "assistant" }, { type: "result" }],
+    },
   });
   expect(launch.mcpServers).toEqual([
     {

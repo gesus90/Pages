@@ -1041,7 +1041,8 @@
         "forbidden": "Nur ein aktiver Admin darf einen anderen Besitzer setzen. Behalte dich als Besitzer oder aktiviere den Admin-Modus.",
         "credentials_in_text": "Die Quelle enthält Zugangsdaten. Entferne diese aus dem Plan und klone erneut.",
         "clone_failed": "Die Kopie konnte nicht gespeichert werden. Versuche es erneut oder wende dich an die Projektleitung.",
-        "clone_request_invalid": "Die Angaben zum Klonen sind ungültig. Lade den Plan neu und versuche es erneut."
+        "clone_request_invalid": "Die Angaben zum Klonen sind ungültig. Lade den Plan neu und versuche es erneut.",
+        "claude_monthly_cost_limit": "Das Agent-Konto hat sein Monatslimit für Claude-Planarbeit erreicht."
       },
       "description": "Verwalten Sie die benannten API- und CLI-Anbindungen und ihre Nutzungsfreigaben. Freigegebene Modelle stehen direkt im Agent Plan zur Verfügung.",
       "adminModeRequired": "Die Agents-Einstellungen sind nur im Admin-Modus verfügbar. Ihr Konto ist derzeit im Rollenmodus.",
@@ -1666,7 +1667,13 @@
       "antigravityRedirectLabel": "Adresse nach der Google-Zustimmung",
       "antigravityRedirectHint": "Auf einem anderen Gerät, etwa einem Smartphone, leitet Google danach auf eine Adresse mit „127.0.0.1“ weiter, die dort nicht lädt. Diese vollständige Adresse aus der Adresszeile kopieren und hier einfügen. Sie gilt nur für diese Anmeldung und nur einmal.",
       "loginStartedByOther": "Diese Anmeldung hat eine andere Person gestartet. Nur sie sieht den Anmeldelink und kann die Anmeldung abschließen.",
-      "operatorBoundAccount": "Dieses Konto wird vom Betreiber verwaltet. Pages kann es prüfen, aber nicht an- oder abmelden."
+      "operatorBoundAccount": "Dieses Konto wird vom Betreiber verwaltet. Pages kann es prüfen, aber nicht an- oder abmelden.",
+      "claudePrices": {
+        "title": "Claude-Modellpreise (OpenRouter)",
+        "hint": "Ohne Eintrag wird das Modell automatisch zugeordnet. Für ein mehrdeutiges Modell hier die Anthropic-ID aus dem OpenRouter-Katalog eintragen.",
+        "model": "Weiteres Claude-Modell",
+        "another": "Weiteres Modell zuordnen"
+      }
     },
     "connections": {
       "title": "Verbindungen",
@@ -6792,6 +6799,19 @@
       "nodeFailed": "Swarm fehlgeschlagen: {{reason}}",
       "empty": "Hauptmodell plant die Aufteilung …",
       "result": "Ergebnis"
+    },
+    "claudeUsage": {
+      "title": "Claude-Verbrauch",
+      "input": "Eingabe-Token",
+      "output": "Ausgabe-Token",
+      "cacheRead": "Cache-Lese-Token",
+      "cacheWrite": "Cache-Schreib-Token",
+      "cost": "Kosten",
+      "unreported": "nicht gemeldet",
+      "unknownPrice": "Preis unbekannt",
+      "subscription": "im Abo",
+      "calculated": "Rechnerisch: {{amount}} (OpenRouter)",
+      "incomplete": "Summe unvollständig"
     }
   },
   "pageAgents": {
@@ -7582,7 +7602,9 @@
       "access": "Zugriff",
       "rights": "Rechte",
       "role": "Rolle",
-      "chooseRole": "Rolle wählen"
+      "chooseRole": "Rolle wählen",
+      "claudeMonthlyLimit": "Monatslimit für Claude-Planarbeit (USD)",
+      "claudeMonthlyLimitHint": "Leer: kein Limit. Gilt für Claude-Planschritte, die dieses Agent-Konto ausführt; auch im Abo zählt der OpenRouter-Rechenbetrag."
     },
     "access": {
       "read_only": "Nur Pages",

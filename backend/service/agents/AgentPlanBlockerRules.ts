@@ -31,6 +31,7 @@ import type { AgentPlanAcceptance } from "@/definition/AgentPlanSession";
  * no agent turn exists to send it back to.
  */
 const ERROR_CLASSES: Readonly<Record<AgentErrorCode, AgentPlanBlockerClass>> = {
+  claude_monthly_cost_limit: "open",
   workspace_unavailable: "open",
   source_not_visible: "harm",
   plan_schema_unsupported: "open",

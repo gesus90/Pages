@@ -15,6 +15,8 @@ import { Select } from "@/app/components/ui/select";
 import { reasoningOptions } from "@/app/lib/reasoning-options";
 import { modelsOfSameTarget } from "@/definition/AgentReasoningChoice";
 
+import { ClaudeMonthlyBudgetField } from "./claude-monthly-budget-field";
+
 import type { AgentDraft, AgentDraftChange } from "./agent-draft";
 import type { Department, UserRole } from "@/definition/Authorization";
 import type { PageAgentModel } from "@/definition/PageAgent";
@@ -268,6 +270,7 @@ export function AgentGeneralSection(
         hint={t("agentEmployees.fields.positionHint")}
       />
       <AgentModelRow {...props} />
+      <ClaudeMonthlyBudgetField {...props} />
       <AgentRightsFields {...props} />
     </div>
   );

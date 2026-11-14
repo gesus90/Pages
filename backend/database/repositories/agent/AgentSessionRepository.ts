@@ -45,6 +45,8 @@ function attemptParameters(attempt: AgentSessionAttemptRecord): SqlParameters {
     attempt;
   return {
     attempt_id: key.attemptId,
+    connection_id: attempt.connectionId ?? null,
+    requested_model: attempt.requestedModel ?? null,
     plan_id: key.planId,
     run_id: key.runId,
     step_id: key.stepId,
@@ -115,7 +117,9 @@ export class AgentSessionRepository implements AgentSessionStore {
           workspace_at,
           updated_at,
           cost_amount,
-          cost_currency
+          cost_currency,
+          connection_id,
+          requested_model
       )
       VALUES (
           $attempt_id,
@@ -143,7 +147,9 @@ export class AgentSessionRepository implements AgentSessionStore {
           $workspace_at,
           $updated_at,
           $cost_amount,
-          $cost_currency
+          $cost_currency,
+          $connection_id,
+          $requested_model
       )
       ON CONFLICT (attempt_id) DO UPDATE SET
           state = excluded.state,
@@ -228,7 +234,8 @@ export class AgentSessionRepository implements AgentSessionStore {
           total_tokens,
           input_includes_cache,
           is_partial,
-          reported_at
+          reported_at,
+          claude_accounting
       )
       VALUES (
           $attempt_id,
@@ -242,7 +249,8 @@ export class AgentSessionRepository implements AgentSessionStore {
           $total_tokens,
           $input_includes_cache,
           $is_partial,
-          $reported_at
+          $reported_at,
+          $claude_accounting
       )
       ON CONFLICT (attempt_id, turn) DO UPDATE SET
           model = excluded.model,
@@ -253,7 +261,8 @@ export class AgentSessionRepository implements AgentSessionStore {
           total_tokens = excluded.total_tokens,
           input_includes_cache = excluded.input_includes_cache,
           is_partial = excluded.is_partial,
-          reported_at = excluded.reported_at;
+          reported_at = excluded.reported_at,
+          claude_accounting = excluded.claude_accounting;
     `,
       {
         attempt_id: usage.attemptId,
@@ -268,8 +277,44 @@ export class AgentSessionRepository implements AgentSessionStore {
         input_includes_cache: usage.inputIncludesCache,
         is_partial: usage.isPartial,
         reported_at: usage.reportedAt,
+        claude_accounting: usage.claudeAccounting
+          ? JSON.stringify(usage.claudeAccounting)
+          : null,
       },
     );
+  }
+
+  /** Reads all frozen rates of a step so later turns keep its original price stand. */
+  public async listAttemptUsage(
+    attemptId: string,
+  ): Promise<readonly AgentSessionTurnUsage[]> {
+    const rows = await this.database.query(
+      `
+      SELECT ${USAGE_COLUMNS}
+      FROM agent_session_turn_usage
+      WHERE attempt_id = $attempt_id
+      ORDER BY turn;
+    `,
+      { attempt_id: attemptId },
+    );
+    return rows.map(readUsageRow);
+  }
+
+  /** Reads one turn while the Claude session ledger is locked. */
+  public async findTurnUsage(
+    attemptId: string,
+    turn: number,
+  ): Promise<AgentSessionTurnUsage | null> {
+    const [row] = await this.database.query(
+      `
+      SELECT ${USAGE_COLUMNS}
+      FROM agent_session_turn_usage
+      WHERE attempt_id = $attempt_id
+          AND turn = $turn;
+    `,
+      { attempt_id: attemptId, turn },
+    );
+    return row ? readUsageRow(row) : null;
   }
 
   /** Reads the turns of every attempt of a run. */

@@ -17,6 +17,7 @@ import type {
 export interface StoredAgentEmployee {
   readonly userId: string;
   readonly connectionId: string;
+  readonly claudeMonthlyCostLimitUsd?: number | null;
   readonly model: string;
   readonly reasoningEffort: string | null;
   readonly access: AgentEmployeeAccess;
@@ -47,6 +48,7 @@ export interface StoredAgentEmployee {
 /** What an administrator changes on an agent beside its account. */
 export interface AgentEmployeeChange {
   readonly connectionId: string;
+  readonly claudeMonthlyCostLimitUsd?: number | null;
   readonly model: string;
   readonly reasoningEffort: string | null;
   readonly access: AgentEmployeeAccess;
@@ -89,7 +91,8 @@ const COLUMNS = `
     voice_speed_tenths,
     dream,
     memory_characters,
-    dream_characters`;
+    dream_characters,
+    claude_monthly_cost_limit`;
 
 const STATUSES: readonly AgentLearningStatus[] = [
   "updated",
@@ -133,6 +136,7 @@ function readEmployee(row: readonly DatabaseValue[]): StoredAgentEmployee {
     throw new Error("Database returned an unsupported agent access.");
   return {
     userId: readTextColumn(row, 0, "user_id"),
+    claudeMonthlyCostLimitUsd: readClaudeLimit(row[21]),
     connectionId: readTextColumn(row, 1, "connection_id"),
     model: readTextColumn(row, 2, "model"),
     reasoningEffort: readNullableTextColumn(row, 3, "reasoning_effort"),
@@ -216,7 +220,8 @@ export class AgentEmployeeRepository {
             voice_id,
             voice_speed_tenths,
             memory_characters,
-            dream_characters
+            dream_characters,
+            claude_monthly_cost_limit
         )
         VALUES (
             $user_id,
@@ -230,7 +235,8 @@ export class AgentEmployeeRepository {
             $voice_id,
             $voice_speed_tenths,
             $memory_characters,
-            $dream_characters
+            $dream_characters,
+            $claude_monthly_cost_limit
         );
       `,
       { user_id: userId, ...this.parameters(change) },
@@ -252,6 +258,10 @@ export class AgentEmployeeRepository {
         UPDATE agent_employees
         SET
             connection_id = $connection_id,
+            claude_monthly_cost_limit = CASE
+                WHEN $has_claude_limit THEN $claude_monthly_cost_limit
+                ELSE claude_monthly_cost_limit
+            END,
             model = $model,
             reasoning_effort = $reasoning_effort,
             access = $access,
@@ -271,6 +281,7 @@ export class AgentEmployeeRepository {
       {
         user_id: userId,
         revision: expectedRevision,
+        has_claude_limit: change.claudeMonthlyCostLimitUsd !== undefined,
         ...this.parameters(change),
       },
     );
@@ -365,6 +376,7 @@ export class AgentEmployeeRepository {
   ): Readonly<Record<string, string | number | boolean | null>> {
     return {
       connection_id: change.connectionId,
+      claude_monthly_cost_limit: change.claudeMonthlyCostLimitUsd ?? null,
       model: change.model,
       reasoning_effort: change.reasoningEffort,
       access: change.access,
@@ -377,4 +389,11 @@ export class AgentEmployeeRepository {
       dream_characters: change.dreamCharacters,
     };
   }
+}
+
+function readClaudeLimit(input: unknown): number | null {
+  const numeric = typeof input === "string" ? Number(input) : input;
+  return typeof numeric === "number" && Number.isFinite(numeric) && numeric >= 0
+    ? numeric
+    : null;
 }

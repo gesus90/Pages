@@ -14,6 +14,7 @@ import {
 } from "@/definition/AgentConnection";
 import { supportsModelCatalog } from "@/definition/AgentModelCatalog";
 
+import { ClaudePriceFields } from "./claude-price-fields";
 import { AgentScopeFields } from "./agent-scope-fields";
 import { AgentZaiAccountField } from "./agent-zai-account-field";
 import { connectionMark, ProviderIcon } from "./provider-icon";
@@ -202,6 +203,7 @@ export function AgentFormFields({
       ) : null}
       <AgentZaiAccountField form={form} />
       <AgentManualModelField form={form} />
+      <ClaudePriceFields form={form} />
       <AgentScopeFields
         scope={form.fields.scope}
         directory={directory}

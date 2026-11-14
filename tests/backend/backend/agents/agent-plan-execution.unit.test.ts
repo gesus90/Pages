@@ -334,3 +334,35 @@ it("refuses to continue a session whose runner dropped its continuation", async 
     opened.next?.(input("codex_cli"), new AbortController().signal, OBSERVER),
   ).rejects.toMatchObject({ code: "plan_step_failed" });
 });
+
+it("PAGE-359 checks the Claude account budget before opening or continuing, without changing other providers", async () => {
+  const requireClaudeBudget = vi.fn(async () => {
+    throw new Error("budget reached");
+  });
+  const open = vi.fn(async () => session());
+  const execution = new AgentPlanExecution(
+    { run: async () => "answer" },
+    { open },
+    new AgentOperationRegistry(),
+    {
+      requireUser: async () => undefined,
+      requireClaudeBudget,
+    },
+  );
+  await expect(
+    execution.open(
+      input("claude_code"),
+      new AbortController().signal,
+      OBSERVER,
+    ),
+  ).rejects.toThrow("budget reached");
+  expect(open).not.toHaveBeenCalled();
+  const codex = await execution.open(
+    input("codex_cli"),
+    new AbortController().signal,
+    OBSERVER,
+  );
+  expect(open).toHaveBeenCalledTimes(1);
+  expect(requireClaudeBudget).toHaveBeenCalledTimes(1);
+  await codex.close();
+});

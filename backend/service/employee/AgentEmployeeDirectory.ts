@@ -108,6 +108,7 @@ export class AgentEmployeeDirectory {
       ),
       settings: {
         connectionId: employee.connectionId,
+        claudeMonthlyCostLimitUsd: employee.claudeMonthlyCostLimitUsd ?? null,
         model: employee.model,
         reasoningEffort: employee.reasoningEffort,
         access: employee.access,

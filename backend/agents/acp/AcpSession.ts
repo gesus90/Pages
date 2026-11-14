@@ -11,6 +11,7 @@ import { AgentError } from "@/backend/error/AgentErrors";
 import { readContinuationCapabilities } from "@/backend/service/agents/sessions/AgentSessionContinuation";
 import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 
+import { registerClaudeUsage } from "./ClaudeAcpUsage";
 import { requireAcpMcpCapabilities } from "./AcpLaunch";
 import {
   abortFailure,
@@ -64,6 +65,7 @@ import type {
   SessionConfigOption,
   StopReason,
   Stream,
+  Usage,
 } from "@agentclientprotocol/sdk";
 import type {
   PlanSession,
@@ -159,6 +161,13 @@ export class AcpSession implements PlanSession {
         decideAcpSessionPermission(this.context, this.state, request.params),
     );
     if (this.picaCodex) registerPicaCodexRequests(client, this.picaCodex);
+    registerClaudeUsage(client, context, {
+      session: () => this.state.sessionId,
+      failed: () => {
+        this.hasHistoryFailure = true;
+        this.process.cancel("plan_history_unavailable");
+      },
+    });
     this.connection = client
       .onNotification(methods.client.session.update, async (notification) => {
         try {
@@ -387,11 +396,11 @@ export class AcpSession implements PlanSession {
       signal: this.turnSignal,
       isClosing: () => this.closing !== null,
       continued: async (cut) => {
-        this.context.listener?.prompted(cut.usage ?? null, true);
+        this.reportPromptUsage(cut.usage ?? null, sessionId, true);
         await this.context.listener?.drained?.();
       },
     });
-    this.context.listener?.prompted(response.usage ?? null);
+    this.reportPromptUsage(response.usage ?? null, sessionId);
     await this.context.listener?.drained?.();
     noteSessionEvent(this.state.events, `turn ${response.stopReason}`);
     if (
@@ -412,6 +421,20 @@ export class AcpSession implements PlanSession {
         ? "plan_mcp_unavailable"
         : (this.state.providerFailure?.code ?? this.openCodeFailure),
     );
+  }
+
+  private reportPromptUsage(
+    usage: Usage | null,
+    sessionId: string,
+    isContinued = false,
+  ): void {
+    const listener = this.context.listener;
+    if (this.context.driver.provider === "claude_code") {
+      listener?.prompted(usage, isContinued, sessionId);
+      return;
+    }
+    if (isContinued) listener?.prompted(usage, true);
+    else listener?.prompted(usage);
   }
 
   /** Turns an adapter-reported failure into a failed node instead of a model answer. */

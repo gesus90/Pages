@@ -27,6 +27,7 @@ interface AccessDependencies {
   readonly connections: AgentConnectionRepository;
   readonly authorization: AuthorizationRepository;
   readonly groups: UserGroupRepository;
+  readonly claudeBudget?: { require(userId: string): Promise<void> };
 }
 
 /** Authorizes a person for a connection at the point where its model would run. */
@@ -35,6 +36,11 @@ export class AgentConnectionAccess {
 
   public constructor(dependencies: AccessDependencies) {
     this.dependencies = dependencies;
+  }
+
+  /** Checks the optional Claude plan budget independently of connection authorization. */
+  public async requireClaudeBudget(userId: string): Promise<void> {
+    await this.dependencies.claudeBudget?.require(userId);
   }
 
   /**

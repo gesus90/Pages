@@ -1,3 +1,4 @@
+import { ClaudeMonthlyBudgetRepository } from "@/backend/database/repositories/agent/ClaudeMonthlyBudgetRepository";
 import {
   readCountColumn,
   readNullableTextColumn,
@@ -247,9 +248,15 @@ export class AgentActivityRepository {
     );
     const row = rows[0];
     const known = row?.[0];
+    const plans = await new ClaudeMonthlyBudgetRepository(this.database).spent(
+      userId,
+      since,
+    );
     return {
-      known: typeof known === "number" ? known : 0,
-      unknownSessions: row ? readCountColumn(row, 1, "unknown_sessions") : 0,
+      known: (typeof known === "number" ? known : 0) + plans.known,
+      unknownSessions:
+        (row ? readCountColumn(row, 1, "unknown_sessions") : 0) +
+        plans.unknownSessions,
     };
   }
 

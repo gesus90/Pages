@@ -1,6 +1,8 @@
 import path from "node:path";
 import { homedir } from "node:os";
 
+import { ClaudeMonthlyBudget } from "@/backend/service/agents/sessions/ClaudeMonthlyBudget";
+import { ClaudeMonthlyBudgetRepository } from "@/backend/database/repositories/agent/ClaudeMonthlyBudgetRepository";
 import { ConfigFile } from "@/backend/config/ConfigFile";
 import { canProcessRuns } from "@/backend/runtime/RunsMode";
 import { createAgentToolManager } from "@/backend/service/agents/tools/AgentToolServices";
@@ -174,6 +176,9 @@ function createAccessServices(
   return {
     access: new AgentConnectionAccess({
       connections: repository,
+      claudeBudget: new ClaudeMonthlyBudget(
+        new ClaudeMonthlyBudgetRepository(database),
+      ),
       authorization: new AuthorizationRepository(database),
       groups,
     }),

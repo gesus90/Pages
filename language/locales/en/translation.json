@@ -1041,7 +1041,8 @@
         "forbidden": "Only an active administrator may choose another owner. Keep yourself as owner or activate administrator mode.",
         "credentials_in_text": "The source contains credentials. Remove them from the plan and clone again.",
         "clone_failed": "The copy could not be stored. Try again or contact the project manager.",
-        "clone_request_invalid": "The clone request is invalid. Reload the plan and try again."
+        "clone_request_invalid": "The clone request is invalid. Reload the plan and try again.",
+        "claude_monthly_cost_limit": "The agent account reached its monthly Claude plan budget."
       },
       "description": "Manage named API and CLI connections and their usage scopes. Permitted models are available directly in Agent Plans.",
       "adminModeRequired": "The agent settings are only available in the admin mode. Your account is currently in the role mode.",
@@ -1666,7 +1667,13 @@
       "antigravityRedirectLabel": "Address after Google's consent",
       "antigravityRedirectHint": "On another device, such as a smartphone, Google then redirects to an address with “127.0.0.1” that does not load there. Copy that complete address from the address bar and paste it here. It is valid only for this sign-in and only once.",
       "loginStartedByOther": "Another person started this sign-in. Only they see the sign-in link and can complete it.",
-      "operatorBoundAccount": "This account is managed by the operator. Pages can check it but cannot sign it in or out."
+      "operatorBoundAccount": "This account is managed by the operator. Pages can check it but cannot sign it in or out.",
+      "claudePrices": {
+        "title": "Claude model prices (OpenRouter)",
+        "hint": "Models are matched automatically. Set an explicit Anthropic ID from the OpenRouter catalog when a model is ambiguous.",
+        "model": "Another Claude model",
+        "another": "Map another model"
+      }
     },
     "connections": {
       "title": "Connections",
@@ -6792,6 +6799,19 @@
       "nodeFailed": "Swarm failed: {{reason}}",
       "empty": "The main model plans the split …",
       "result": "Result"
+    },
+    "claudeUsage": {
+      "title": "Claude usage",
+      "input": "Input tokens",
+      "output": "Output tokens",
+      "cacheRead": "Cache read tokens",
+      "cacheWrite": "Cache write tokens",
+      "cost": "Cost",
+      "unreported": "not reported",
+      "unknownPrice": "Price unknown",
+      "subscription": "included in subscription",
+      "calculated": "Calculated: {{amount}} (OpenRouter)",
+      "incomplete": "Incomplete total"
     }
   },
   "pageAgents": {
@@ -7582,7 +7602,9 @@
       "access": "Access",
       "rights": "Rights",
       "role": "Role",
-      "chooseRole": "Choose role"
+      "chooseRole": "Choose role",
+      "claudeMonthlyLimit": "Monthly Claude plan budget (USD)",
+      "claudeMonthlyLimitHint": "Blank: no limit. Applies to Claude plan steps executed by this agent account, including the calculated OpenRouter cost of subscription usage."
     },
     "access": {
       "read_only": "Pages only",

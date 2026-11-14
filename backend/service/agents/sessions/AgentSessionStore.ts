@@ -33,6 +33,8 @@ export interface AgentSessionAttemptRecord {
   readonly provider: AcpProviderId;
   /** The process instance; members of an ACP group share it. */
   readonly instanceId: string;
+  readonly connectionId?: string;
+  readonly requestedModel?: string;
   readonly groupId: string | null;
   readonly state: AgentSessionState;
   readonly context: AgentSessionContextUsage;

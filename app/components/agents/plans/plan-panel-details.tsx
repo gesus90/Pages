@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 
+import { PlanClaudeUsage } from "./plan-claude-usage";
 import { PlanPanelContext } from "./plan-panel-context";
 import { PlanPanelIssueList } from "./plan-panel-issues";
 import { PlanReloadButton } from "./plan-reload-button";
@@ -82,6 +83,7 @@ export function PlanPanelDetails(props: {
   return (
     <div id={props.id} className="space-y-4 border-t border-border px-4 py-3.5">
       <PlanPanelIssueList issues={props.issues} />
+      <PlanClaudeUsage usage={props.run?.claudeUsage} />
       <PlanEntryResultsOverview
         plan={props.editor.draft}
         run={props.run ?? null}

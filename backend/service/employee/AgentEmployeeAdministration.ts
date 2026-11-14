@@ -98,6 +98,7 @@ export interface AgentEmployeeUpdate {
 function employeeChange(input: AgentEmployeeInput): AgentEmployeeChange {
   return {
     connectionId: input.settings.connectionId,
+    claudeMonthlyCostLimitUsd: input.settings.claudeMonthlyCostLimitUsd,
     model: input.settings.model,
     reasoningEffort: input.settings.reasoningEffort,
     access: input.settings.access,

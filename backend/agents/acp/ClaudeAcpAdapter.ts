@@ -82,6 +82,9 @@ export function planClaudeAcpLaunch(
     sessionMeta: {
       claudeCode: {
         options: profile.options,
+        ...((specification.purpose ?? "plan") === "plan"
+          ? { emitRawSDKMessages: [{ type: "assistant" }, { type: "result" }] }
+          : {}),
       },
     },
   };

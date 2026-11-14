@@ -196,10 +196,19 @@ it("records members of one process into separate attempts with their own turns a
   });
   const viewB = await world.service.view("executor", KEY_B);
   expect(viewB.state).toBe("failed");
-  expect(viewB.turns).toEqual([]);
-  // B reported no tokens: its own sums are empty, the run's sums hold A's turn once.
-  expect(viewB.totals).toEqual([]);
-  expect(viewB.runTotals).toMatchObject([{ turns: 1, inputTokens: 112_000 }]);
+  expect(viewB.turns).toMatchObject([
+    {
+      inputTokens: null,
+      outputTokens: null,
+      totalTokens: null,
+      isPartial: true,
+    },
+  ]);
+  // A missing Claude report remains visible and marks the run incomplete without adding tokens.
+  expect(viewB.totals).toMatchObject([{ totalTokens: null, isPartial: true }]);
+  expect(viewB.runTotals).toMatchObject([
+    { turns: 2, inputTokens: 112_000, isPartial: true },
+  ]);
   // The shared native session's last occupancy holds for the next member, with its own time.
   expect(viewB.context.contextUsed).toBe(90_000);
   expect(viewB.model.confirmedModel.source).toBe("acp_usage_report");

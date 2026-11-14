@@ -1,3 +1,4 @@
+import { claudeAccountingSchema } from "@/definition/ClaudeUsage";
 import { readAgentPayload } from "@/backend/storage/AgentPayloadFileStore";
 import {
   readBooleanColumn,
@@ -100,7 +101,9 @@ export const ATTEMPT_COLUMNS = `
     agent_session_attempts.workspace_at,
     agent_session_attempts.updated_at,
     agent_session_attempts.cost_amount,
-    agent_session_attempts.cost_currency`;
+    agent_session_attempts.cost_currency,
+    agent_session_attempts.connection_id,
+    agent_session_attempts.requested_model`;
 
 /** The columns of a turn's usage, in the order {@link readUsageRow} reads them. */
 export const USAGE_COLUMNS = `
@@ -115,7 +118,8 @@ export const USAGE_COLUMNS = `
     agent_session_turn_usage.total_tokens,
     agent_session_turn_usage.input_includes_cache,
     agent_session_turn_usage.is_partial,
-    agent_session_turn_usage.reported_at`;
+    agent_session_turn_usage.reported_at,
+    agent_session_turn_usage.claude_accounting`;
 
 /** The columns of a message, in the order {@link readMessageRow} reads them. */
 export const MESSAGE_COLUMNS = `
@@ -209,6 +213,9 @@ export function readAttemptRow(row: Row): AgentSessionAttemptRecord {
     userId: readTextColumn(row, 4, "user_id"),
     provider: oneOf(readTextColumn(row, 5, "provider"), PROVIDERS, "provider"),
     instanceId: readTextColumn(row, 6, "instance_id"),
+    connectionId: readNullableTextColumn(row, 26, "connection_id") ?? undefined,
+    requestedModel:
+      readNullableTextColumn(row, 27, "requested_model") ?? undefined,
     groupId: readNullableTextColumn(row, 7, "group_id"),
     state: oneOf(readTextColumn(row, 8, "state"), STATES, "state"),
     context: readContext(row),
@@ -280,6 +287,13 @@ export function readUsageRow(row: Row): AgentSessionTurnUsage {
     ),
     isPartial: readBooleanColumn(row, 10, "is_partial"),
     reportedAt: readTextColumn(row, 11, "reported_at"),
+    ...(row[12] == null
+      ? {}
+      : {
+          claudeAccounting: claudeAccountingSchema.parse(
+            JSON.parse(readTextColumn(row, 12, "claude_accounting")),
+          ),
+        }),
   };
 }
 

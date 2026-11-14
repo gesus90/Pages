@@ -7,6 +7,7 @@ import { ANTIGRAVITY_ACP_DRIVER } from "@/backend/agents/acp/AntigravityAcpDrive
 
 import { FakeAdapterProcess, fakeCodexAgent } from "./fake-acp-adapter";
 
+import type { AcpSessionListener } from "@/backend/agents/acp/AcpChat";
 import type { TextExecutionInput } from "@/backend/agents/TextExecution";
 import type { Mock } from "vitest";
 import type { PlanSessionObserver } from "@/backend/agents/AgentPlanExecution";
@@ -39,6 +40,7 @@ export interface SyntheticNode extends Pick<
   readonly provider?: "codex_cli" | "claude_code" | "antigravity";
   /** Whether the node has the Pages MCP server; it has by default. */
   readonly hasMcp?: boolean;
+  readonly listener?: AcpSessionListener;
   readonly mode?: AcpPermissionMode;
   readonly model?: string;
   readonly reasoningEffort?: string | null;
@@ -121,6 +123,7 @@ export function startAcpSession(
     signal: controller.signal,
     isolation: "bubblewrap",
     secure,
+    listener: node.listener,
   });
   return { session, process, calls: fake.calls, observer, secure };
 }

@@ -2,6 +2,8 @@ import type { AgentUsage } from "@/definition/AgentUsage";
 
 /** Stable codes cross the HTTP boundary; upstream error text never does. */
 export const AGENT_ERROR_MESSAGES = {
+  claude_monthly_cost_limit:
+    "The agent account reached its configured monthly limit for Claude plan steps.",
   workspace_unavailable:
     "No usable workspace of this project is available. Add or enable a workspace and try cloning again.",
   source_not_visible:

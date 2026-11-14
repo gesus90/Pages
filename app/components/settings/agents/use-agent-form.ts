@@ -16,6 +16,7 @@ import type { Dispatch, FormEvent, SetStateAction } from "react";
 
 interface AgentFormFields {
   readonly name: string;
+  readonly claudePriceModels?: string;
   readonly provider: AgentProviderId;
   readonly zaiAccountType: string;
   readonly apiKey: string;
@@ -28,7 +29,11 @@ interface AgentFormFields {
 
 type StoredChoice = Pick<
   AgentFormFields,
-  "testModel" | "reasoningEffort" | "scope" | "zaiAccountType"
+  | "testModel"
+  | "reasoningEffort"
+  | "scope"
+  | "zaiAccountType"
+  | "claudePriceModels"
 >;
 
 /** The server lists targets by kind, the form in the order of the choices. */
@@ -58,6 +63,11 @@ function storedChoice(
 ): StoredChoice {
   return {
     testModel: connection?.testModel ?? "",
+    ...(connection?.provider === "claude_code"
+      ? {
+          claudePriceModels: JSON.stringify(connection.claudePriceModels ?? {}),
+        }
+      : {}),
     reasoningEffort: connection?.reasoningEffort ?? "",
     scope: connection?.scope ?? GLOBAL_CONNECTION_SCOPE,
     zaiAccountType: connection?.zaiAccountType ?? (connection ? "api" : ""),
@@ -67,6 +77,7 @@ function storedChoice(
 function isSameChoice(left: StoredChoice, right: StoredChoice): boolean {
   return (
     left.testModel === right.testModel &&
+    left.claudePriceModels === right.claudePriceModels &&
     left.reasoningEffort === right.reasoningEffort &&
     left.zaiAccountType === right.zaiAccountType &&
     isSameScope(left.scope, right.scope)
@@ -172,10 +183,14 @@ export function useAgentForm(
   }, [fetcher.data, fetcher.state, fields, onSaved, setFields, setSaved, t]);
   function handleSubmit(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
-    const { scope, zaiAccountType, ...text } = fields;
+    const { scope, zaiAccountType, claudePriceModels, ...text } = fields;
     void fetcher.submit(
       {
         ...text,
+        ...(fields.provider === "claude_code" &&
+        claudePriceModels !== saved.claudePriceModels
+          ? { claudePriceModels }
+          : {}),
         ...(fields.provider === "zai" &&
         (!connection || zaiAccountType !== saved.zaiAccountType)
           ? { zaiAccountType }

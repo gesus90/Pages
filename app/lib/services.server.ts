@@ -1,5 +1,7 @@
 import path from "node:path";
 
+import { OpenRouterPrices } from "@/backend/service/agents/sessions/OpenRouterPrices";
+import { OpenRouterPriceRepository } from "@/backend/database/repositories/agent/OpenRouterPriceRepository";
 import { RepositoryReadService } from "@/backend/service/github/RepositoryReadService";
 import { hasRunServiceOwnership } from "@/backend/runtime/RunsMode";
 import { GitHubCreationRepository } from "@/backend/database/repositories/integrations/GitHubCreationRepository";
@@ -223,6 +225,7 @@ async function initializeServices(
   databasePath: string,
 ): Promise<ApplicationServices> {
   await prepareServiceDatabase(database);
+  await new OpenRouterPrices(new OpenRouterPriceRepository(database)).start();
 
   const passwordHasher = new PasswordHasher();
   const serverCache = await createServiceCache();

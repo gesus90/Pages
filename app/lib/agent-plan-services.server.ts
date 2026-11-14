@@ -1,4 +1,4 @@
-import { createModelNodeRunners } from "./agent-plan-swarm.server";
+import { accountClaudeUsage } from "@/backend/service/agents/sessions/ClaudeUsageAccounting";
 import { canProcessRuns } from "@/backend/runtime/RunsMode";
 import { registerShutdownTask } from "@/backend/runtime/ProcessLifecycle";
 import { PlanRunCommandWorker } from "@/backend/service/agents/runs/PlanRunCommandWorker";
@@ -15,9 +15,6 @@ import { AgentPlanStepProgressService } from "@/backend/service/agents/AgentPlan
 import { AgentPlanAgentTodoService } from "@/backend/service/agents/AgentPlanAgentTodoService";
 import { AgentPlanAgentTodoRepository } from "@/backend/database/repositories/agent/AgentPlanAgentTodoRepository";
 import { AgentPlanStepProgressRepository } from "@/backend/database/repositories/agent/AgentPlanStepProgressRepository";
-
-import type { PicaMobileAutomationPush } from "@/backend/service/mobile/notifications/PicaMobileAutomationPush";
-import type { AgentPlanRemoteExecution } from "@/backend/service/agents/AgentPlanRemoteExecution";
 import { AgentPlanStepReportRepository } from "@/backend/database/repositories/agent/AgentPlanStepReportRepository";
 import { AgentRunCredentialRepository } from "@/backend/database/repositories/mcp/AgentRunCredentialRepository";
 import { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
@@ -42,7 +39,6 @@ import { AgentPlanRunEngine } from "@/backend/service/agents/AgentPlanRunEngine"
 import { AgentPlanActiveRunService } from "@/backend/service/agents/AgentPlanActiveRuns";
 import { AgentPlanOverviewService } from "@/backend/service/agents/AgentPlanOverview";
 import { AgentPlanRunHistoryService } from "@/backend/service/agents/AgentPlanRunHistoryService";
-
 import { AgentPlanOwnerRunReader } from "@/backend/service/agents/AgentPlanOwnerRunReader";
 import { AgentPlanService } from "@/backend/service/agents/AgentPlanService";
 import { AgentPlanManagement } from "@/backend/service/agents/AgentPlanManagement";
@@ -64,6 +60,7 @@ import { AuthorizationRepository } from "@/backend/database/repositories/Authori
 import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 import { getPagesRuntime } from "@/backend/runtime/PagesRuntime";
 
+import { createModelNodeRunners } from "./agent-plan-swarm.server";
 import { startOneShotPlanDeletion } from "./agent-plan-one-shot-services.server";
 import {
   createRunDiagnosis,
@@ -76,6 +73,8 @@ import {
 } from "./plan-access-services.server";
 import { createPicaMobileNotificationServices } from "./pica-mobile-notification-services.server";
 
+import type { PicaMobileAutomationPush } from "@/backend/service/mobile/notifications/PicaMobileAutomationPush";
+import type { AgentPlanRemoteExecution } from "@/backend/service/agents/AgentPlanRemoteExecution";
 import type { PlanRunEnginePort } from "@/backend/service/agents/runs/PlanRunEnginePort";
 import type { RunnerPagesAccessService } from "@/backend/service/runner/RunnerPagesAccessService";
 import type { PagesAgentApiService } from "@/backend/service/PagesAgentApiService";
@@ -185,6 +184,7 @@ function planRecords(input: {
   | "workGate"
   | "stepProgress"
   | "agentTodos"
+  | "usage"
   | "phases"
   | "archive"
   | "startRejections"
@@ -197,6 +197,7 @@ function planRecords(input: {
   return {
     ...planAccessRecords(input.database),
     workGate: new AgentPlanWorkGate(input.database, input.users),
+    usage: new AgentSessionRepository(input.database),
     stepProgress: new AgentPlanStepProgressService({
       reports: new AgentPlanStepReportRepository(input.database),
       progress: new AgentPlanStepProgressRepository(input.database),
@@ -582,6 +583,10 @@ async function createPageAgentSessions(
   return new AgentSessionService({
     runs,
     store,
+    saveUsage: (usage) =>
+      usage.provider === "claude_code"
+        ? accountClaudeUsage(input.database, usage)
+        : store.saveTurnUsage(usage),
     journal,
     inbox,
     hasPlanCheckpoint: async (runId) =>

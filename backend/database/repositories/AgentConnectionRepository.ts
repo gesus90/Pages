@@ -24,6 +24,7 @@ import type { AgentUsage } from "@/definition/AgentUsage";
 import type { AgentConnectionRecord } from "./agent/AgentConnectionRows";
 
 export interface AgentConnectionWrite {
+  readonly claudePriceModels?: Readonly<Record<string, string>>;
   readonly id: string;
   readonly name: string;
   readonly provider: AgentProviderId;
@@ -36,6 +37,7 @@ export interface AgentConnectionWrite {
 }
 
 export interface AgentConnectionChange {
+  readonly claudePriceModels?: Readonly<Record<string, string>>;
   readonly name: string;
   readonly zaiAccountType?: ZaiAccountType;
   readonly clearAccess?: boolean;
@@ -174,6 +176,7 @@ export class AgentConnectionRepository {
             id,
             name,
             provider,
+            claude_price_models,
             zai_account_type,
             secret_encrypted,
             test_model,
@@ -183,6 +186,7 @@ export class AgentConnectionRepository {
             $id,
             $name,
             $provider,
+            $claude_price_models,
             $zai_account_type,
             $secret_encrypted,
             $test_model,
@@ -194,6 +198,9 @@ export class AgentConnectionRepository {
           id: connection.id,
           name: connection.name,
           provider: connection.provider,
+          claude_price_models: JSON.stringify(
+            connection.claudePriceModels ?? {},
+          ),
           zai_account_type: connection.zaiAccountType ?? "api",
           secret_encrypted: connection.secretEncrypted,
           test_model: connection.testModel,
@@ -218,6 +225,7 @@ export class AgentConnectionRepository {
         UPDATE agent_connections
         SET
             name = $name,
+            claude_price_models = COALESCE($claude_price_models, claude_price_models),
             zai_account_type = COALESCE($zai_account_type, zai_account_type),
             secret_encrypted = COALESCE($secret_encrypted, secret_encrypted),
             test_model = $test_model,
@@ -229,6 +237,10 @@ export class AgentConnectionRepository {
         {
           id,
           name: change.name,
+          claude_price_models:
+            change.claudePriceModels === undefined
+              ? null
+              : JSON.stringify(change.claudePriceModels),
           zai_account_type: change.zaiAccountType ?? null,
           secret_encrypted: change.secretEncrypted,
           test_model: change.testModel,

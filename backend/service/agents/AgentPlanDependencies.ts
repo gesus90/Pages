@@ -1,3 +1,4 @@
+import type { AgentSessionStore } from "./sessions/AgentSessionStore";
 import type { AgentWorkspaceCleanupRepository } from "@/backend/database/repositories/agent/AgentWorkspaceCleanupRepository";
 import type { AgentPlanWorkGate } from "./AgentPlanWorkGate";
 import type { AgentPlanAgentTodoService } from "./AgentPlanAgentTodoService";
@@ -29,6 +30,8 @@ import type { AgentPlanScriptApprovalRepository } from "@/backend/database/repos
 
 /** What the plan service and its parts work with. */
 export interface PlanDependencies {
+  /** Durable accounting read projection, separate from run controls. */
+  readonly usage?: Pick<AgentSessionStore, "listRunUsage">;
   /** Changes teams and owner and records the history of plans (PAGE-329). */
   readonly accessChanges?: AgentPlanAccessRepository;
   /** Reads the history of plans (PAGE-329). */
