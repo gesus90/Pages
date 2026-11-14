@@ -164,7 +164,7 @@ it.each([
   "limits contributions without @ to eight per round: $count before, $outcome",
   async ({ count, outcome }) => {
     const boundary = scriptedDatabase();
-    boundary.answer([[count]], [["c"]]);
+    boundary.answer([[count]], outcome === "claimed" ? [["c"]] : []);
     expect(
       await new ConversationRoundRepository(boundary.database).claim({
         ...followUp,
