@@ -69,3 +69,23 @@ it("checks on focus and throttles repeated focus events", async () => {
   });
   expect(fetchMock).toHaveBeenCalledTimes(1);
 });
+
+it("revalidates a rejected response and clears an earlier offline state when live", async () => {
+  const fetchMock = vi
+    .fn()
+    .mockRejectedValueOnce(new TypeError("offline"))
+    .mockResolvedValueOnce(new Response(null, { status: 401 }));
+  vi.stubGlobal("fetch", fetchMock);
+  const { result, rerender } = renderHook(
+    ({ live }) => useAuthorizationRefresh("v1", live),
+    { initialProps: { live: false } },
+  );
+  await act(async () => vi.advanceTimersByTimeAsync(30_000));
+  expect(result.current).toBe(true);
+  rerender({ live: true });
+  expect(result.current).toBe(false);
+  rerender({ live: false });
+  await act(async () => vi.advanceTimersByTimeAsync(30_000));
+  expect(boundary.revalidate).toHaveBeenCalledOnce();
+  expect(result.current).toBe(false);
+});

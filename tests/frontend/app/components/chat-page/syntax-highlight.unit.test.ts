@@ -256,3 +256,18 @@ describe("highlightLines: Markdown and diff", () => {
     ]);
   });
 });
+
+it("keeps unfinished Markdown links as text and waits for the matching fence", () => {
+  expect(
+    highlightLines(
+      "[missing] and [target](unfinished\n```js\n~~~\n```\nafter",
+      "markdown",
+    ),
+  ).toEqual([
+    [{ kind: "plain", text: "[missing] and [target](unfinished" }],
+    [{ kind: "string", text: "```js" }],
+    [{ kind: "string", text: "~~~" }],
+    [{ kind: "string", text: "```" }],
+    [{ kind: "plain", text: "after" }],
+  ]);
+});
