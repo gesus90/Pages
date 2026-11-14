@@ -300,7 +300,7 @@ it.each(["ready", "noModel", "modelUnavailable"] as const)(
   },
 );
 
-it("shows the decision's reason without needing to expand its details", async () => {
+it("shows the decision probabilities and model in its expandable explanation", async () => {
   const { ChatPageDecision } =
     await import("@/app/components/chat-page/chat-page-decision");
   const { container } = render(
@@ -311,15 +311,17 @@ it("shows the decision's reason without needing to expand its details", async ()
           outcome: "responders",
           fallback: "none",
           responders: [{ id: "ed", name: "Ed" }],
-          suggested: [],
-          reason: "Ed entwickelt die betroffene Funktion.",
-          needsAnswer: true,
+          answerProbability: 0.82,
+          choices: [{ agentId: "ed", name: "Ed", probability: 0.78 }],
+          model: "decision-model",
         }}
       />
     </I18nextProvider>,
   );
   expect(container.querySelector("details")?.hasAttribute("open")).toBe(false);
-  expect(container.querySelector("[data-decision-reason]")?.textContent).toBe(
-    "Ed entwickelt die betroffene Funktion.",
+  expect(container.querySelector("details")?.textContent).toContain("82 %");
+  expect(container.querySelector("details")?.textContent).toContain("Ed 78 %");
+  expect(container.querySelector("details")?.textContent).toContain(
+    "decision-model",
   );
 });

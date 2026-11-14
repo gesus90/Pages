@@ -2,55 +2,89 @@ import { expect, it, vi } from "vitest";
 
 import { ConversationDecisionModel } from "@/backend/service/conversation/ConversationDecisionModel";
 
-import { textInput } from "../../agents/parsers/text-provider-input";
-
 const question = {
-  personId: "person",
-  material: {
-    groupName: "Pages Team",
-    candidates: [{ id: "ed", name: "Ed", username: "ed", role: "Developer" }],
-    lines: [],
-    maximum: 1,
-  },
+  groupName: "Pages Team",
+  candidates: [
+    {
+      id: "ed",
+      name: "Ed",
+      username: "ed",
+      role: "Developer",
+      specialization: "",
+    },
+  ],
+  lines: [],
 };
 
-it("runs an API decision as a bounded text request without ACP, tools or a workspace", async () => {
-  const run = vi
-    .fn()
-    .mockResolvedValue(
-      '{"responders":["ed"],"needsAnswer":true,"reason":"Entwicklung"}',
-    );
-  const open = vi.fn();
-  const service = new ConversationDecisionModel({
-    settings: { resolve: async () => textInput().agent },
-    plans: { run, open },
-    simulation: null,
-    directoryRoot: "unused",
+it("runs one bounded decision request with typed questions and no tools or workspace", async () => {
+  const decide = vi.fn().mockResolvedValue({
+    model: "decision-model",
+    answers: {
+      answer_expected: { type: "noul", noul: 0.9 },
+      agent_meant: {
+        type: "choice",
+        choice: "ed",
+        probabilities: { ed: 0.8, "(niemand)": 0.2 },
+      },
+    },
   });
-  expect(await service.ask(question)).toContain('"ed"');
-  expect(open).not.toHaveBeenCalled();
-  expect(run).toHaveBeenCalledWith(
-    expect.objectContaining({
-      userId: "person",
-      directory: null,
-      webSearch: false,
-      instructions: expect.stringContaining("höchstens einer") as unknown,
-      prompt: expect.stringContaining("Developer") as unknown,
-    }),
-    expect.any(AbortSignal),
-  );
+  const service = new ConversationDecisionModel({
+    settings: {
+      resolve: async () => ({
+        connectionId: "connection",
+        model: "decision-model",
+      }),
+    },
+    connections: {
+      findSecretEncrypted: vi.fn().mockResolvedValue("encrypted"),
+    },
+    cipher: { decrypt: vi.fn().mockReturnValue("key") },
+    client: { decide },
+    simulation: null,
+  });
+  expect(await service.ask(question)).toEqual({
+    model: "decision-model",
+    probabilities: {
+      answerProbability: 0.9,
+      options: [
+        { agentId: "ed", probability: 0.8 },
+        { agentId: null, probability: 0.2 },
+      ],
+    },
+  });
+  expect(decide).toHaveBeenCalledOnce();
+  expect(decide).toHaveBeenCalledWith({
+    apiKey: "key",
+    model: "decision-model",
+    state: expect.objectContaining({
+      gruppe: "Pages Team",
+      agents: [
+        expect.objectContaining({
+          username: "ed",
+          spezialisierung: "Ed: Developer",
+        }),
+      ],
+    }) as unknown,
+    questions: expect.objectContaining({
+      answer_expected: expect.objectContaining({ type: "noul" }) as unknown,
+      agent_meant: expect.objectContaining({ type: "choice" }) as unknown,
+    }) as unknown,
+  });
 });
 
 it("fails as no model before calling any execution path", async () => {
-  const run = vi.fn();
+  const decide = vi.fn();
+  const connections = { findSecretEncrypted: vi.fn() };
   const service = new ConversationDecisionModel({
     settings: { resolve: async () => null },
-    plans: { run, open: vi.fn() },
+    connections,
+    cipher: { decrypt: vi.fn() },
+    client: { decide },
     simulation: null,
-    directoryRoot: "unused",
   });
   await expect(service.ask(question)).rejects.toMatchObject({
     code: "decision_no_model",
   });
-  expect(run).not.toHaveBeenCalled();
+  expect(decide).not.toHaveBeenCalled();
+  expect(connections.findSecretEncrypted).not.toHaveBeenCalled();
 });

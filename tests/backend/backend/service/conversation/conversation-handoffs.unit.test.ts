@@ -153,9 +153,16 @@ it("limits contributions without @ to eight per round; @ hand-overs neither use 
   ).toBe("limit");
 });
 
-it("gives the observer only the places left by contributions without @", async () => {
+it("limits decision contributions to the places left without @", async () => {
   const fixture = started(handoffFixture());
-  fixture.settings.current = { ...fixture.settings.current, mode: "observer" };
+  fixture.settings.current = { ...fixture.settings.current, mode: "decision" };
+  vi.mocked(fixture.dependencies.decisions.decide).mockResolvedValue(
+    ["a", "b", "c"].map((agentId) => ({
+      agentId,
+      trigger: "context" as const,
+      reason: "Zuständig",
+    })),
+  );
   const origin = fixture.personWrites("Frage ohne @");
   fixture.memory.rounds.set(origin.id, {
     personId: "person",
@@ -172,9 +179,9 @@ it("gives the observer only the places left by contributions without @", async (
       replyMessageId: null,
     });
   await fixture.service.answer(origin, fixture.memberIds);
-  expect(fixture.dependencies.routing.choose).toHaveBeenCalledWith(
-    expect.objectContaining({ maximum: 2 }),
-  );
+  expect(fixture.dependencies.decisions.decide).toHaveBeenCalledOnce();
+  expect(fixture.started).toEqual(["a", "b"]);
+  expect(fixture.memory.rounds.get(origin.id)?.automaticCount).toBe(8);
 });
 
 it("tells the chain pause at 19, 20 and 21 agent messages in a row", async () => {

@@ -433,7 +433,6 @@ it("PAGE-326 keeps collective mentions in one origin and never invokes automatic
       }),
     );
   expect(dependencies.decisions.decide).not.toHaveBeenCalled();
-  expect(dependencies.routing.choose).not.toHaveBeenCalled();
 });
 
 it("PAGE-326 starts and stores the chosen agent's answer to a message without @ exactly once", async () => {
@@ -453,8 +452,7 @@ it("PAGE-326 starts and stores the chosen agent's answer to a message without @ 
   vi.mocked(dependencies.replySettings.find).mockResolvedValue({
     conversationId: "group",
     mode: "decision",
-    defaultResponderId: null,
-    maximumResponders: 1,
+    overrides: CONVERSATION_NO_RULE_OVERRIDES,
   });
   vi.mocked(dependencies.decisions.decide).mockResolvedValue([
     {

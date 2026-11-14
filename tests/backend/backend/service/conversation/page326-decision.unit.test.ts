@@ -3,7 +3,11 @@ import { expect, it, vi } from "vitest";
 import { ConversationChatDecisions } from "@/backend/service/conversation/ConversationChatDecisions";
 import { ConversationAccounts } from "@/backend/service/conversation/ConversationDirectory";
 import { ConversationObserverError } from "@/backend/error/ConversationObserverError";
-import { CONVERSATION_DEFAULT_REPLY_MODE } from "@/definition/ConversationDecision";
+import {
+  CONVERSATION_DEFAULT_REPLY_MODE,
+  CONVERSATION_DEFAULT_DECISION_RULES,
+  CONVERSATION_NO_RULE_OVERRIDES,
+} from "@/definition/ConversationDecision";
 import { ROLE } from "@/definition/Role";
 
 import type { ConversationDecisionRequest } from "@/backend/service/conversation/ConversationChatDecisions";
@@ -47,13 +51,17 @@ function fixture(): {
       ]),
     ),
   );
-  const ask = vi.fn().mockResolvedValue(
-    JSON.stringify({
-      responders: ["ed", "ed", "bakuman", "outsider"],
-      needsAnswer: true,
-      reason: "Ed entwickelt den Chat.",
-    }),
-  );
+  const ask = vi.fn().mockResolvedValue({
+    model: "decision-model",
+    probabilities: {
+      answerProbability: 0.9,
+      options: [
+        { agentId: "ed", probability: 0.8 },
+        { agentId: "bakuman", probability: 0.2 },
+        { agentId: null, probability: 0 },
+      ],
+    },
+  });
   const record = vi.fn();
   const request: ConversationDecisionRequest = {
     conversation: { id: "group", name: "Pages Team" },
@@ -75,8 +83,7 @@ function fixture(): {
     settings: {
       conversationId: "group",
       mode: "decision",
-      defaultResponderId: null,
-      maximumResponders: 3,
+      overrides: CONVERSATION_NO_RULE_OVERRIDES,
     },
   };
   const service = new ConversationChatDecisions({
@@ -93,6 +100,10 @@ function fixture(): {
     },
     decisions: { record },
     model: { ask },
+    defaults: {
+      rules: vi.fn().mockResolvedValue(CONVERSATION_DEFAULT_DECISION_RULES),
+    },
+    agents: { find: vi.fn().mockResolvedValue(null) },
     publisher: { publish: vi.fn() },
   });
   return { service, request, ask, record };
@@ -102,20 +113,32 @@ it("PAGE-326 defaults groups to the instance decision model", () => {
   expect(CONVERSATION_DEFAULT_REPLY_MODE).toBe("decision");
 });
 
-it("decides an unmentioned question once, selects at most one eligible agent and stores its visible reason", async () => {
+it("decides an unmentioned question once, selects the eligible agent and stores its probabilities", async () => {
   const { service, request, ask, record } = fixture();
   expect(await service.decide(request)).toEqual([
-    { agentId: "ed", trigger: "context", reason: "Ed entwickelt den Chat." },
+    {
+      agentId: "ed",
+      trigger: "context",
+      reason:
+        "Das Decision-Modell hat dich gewählt: Antwort erwartet 90 % · ed 80 %, bakuman 20 %, niemand 0 %.",
+    },
   ]);
   expect(ask).toHaveBeenCalledWith(
     expect.objectContaining({
-      material: expect.objectContaining({ maximum: 1 }) as unknown,
+      groupName: "Pages Team",
+      candidates: expect.arrayContaining([
+        expect.objectContaining({ id: "ed", role: "Developer" }),
+      ]) as unknown,
     }),
   );
   expect(record).toHaveBeenCalledWith(
     expect.objectContaining({
       responderIds: ["ed"],
-      reason: "Ed entwickelt den Chat.",
+      model: "decision-model",
+      answerProbability: 0.9,
+      choices: expect.arrayContaining([
+        expect.objectContaining({ agentId: "ed", probability: 0.8 }),
+      ]) as unknown,
       fallback: "none",
     }),
   );
@@ -123,20 +146,24 @@ it("decides an unmentioned question once, selects at most one eligible agent and
   expect(ask).toHaveBeenCalledOnce();
 });
 
-it("stores a visible explanation when nobody should answer", async () => {
+it("stores probabilities when nobody should answer", async () => {
   const { service, request, ask, record } = fixture();
-  ask.mockResolvedValue(
-    JSON.stringify({
-      responders: [],
-      needsAnswer: false,
-      reason: "Nur ein Gruß an die Menschen.",
-    }),
-  );
+  ask.mockResolvedValue({
+    model: "decision-model",
+    probabilities: {
+      answerProbability: 0.1,
+      options: [
+        { agentId: "ed", probability: 0.2 },
+        { agentId: null, probability: 0.8 },
+      ],
+    },
+  });
   expect(await service.decide(request)).toEqual([]);
   expect(record).toHaveBeenCalledWith(
     expect.objectContaining({
       outcome: "nobody",
-      reason: "Nur ein Gruß an die Menschen.",
+      model: "decision-model",
+      answerProbability: 0.1,
       fallback: "none",
     }),
   );
@@ -146,7 +173,8 @@ it.each(["missing", "failed", "invalid"])(
   "records the %s model fallback without losing the message",
   async (kind) => {
     const { service, request, ask, record } = fixture();
-    if (kind === "invalid") ask.mockResolvedValue("not JSON");
+    if (kind === "invalid")
+      ask.mockRejectedValue(new ConversationObserverError("decision_invalid"));
     else
       ask.mockRejectedValue(
         new ConversationObserverError(
@@ -156,7 +184,7 @@ it.each(["missing", "failed", "invalid"])(
     expect(await service.decide(request)).toEqual([]);
     expect(record).toHaveBeenCalledWith(
       expect.objectContaining({
-        outcome: "notice",
+        outcome: "unavailable",
         fallback: kind === "missing" ? "no_model" : "model_failed",
       }),
     );

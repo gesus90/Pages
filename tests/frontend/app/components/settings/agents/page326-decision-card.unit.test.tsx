@@ -21,20 +21,23 @@ const text = pageModel(agentModelKey("api", "text"), {
   connectionId: "api",
   model: "text",
   modelName: "Text Model",
-  provider: "openai",
+  provider: "openrouter",
+  isDecisionCapable: true,
   isToolCapable: false,
   isChatCapable: false,
   isTextCapable: true,
 });
 
-it("lists direct API text models for decisions while retaining other consumers' tool requirements", () => {
-  expect(modelGroups([text], { translate: i18n.t })).toHaveLength(0);
-  expect(
-    modelGroups([text], { translate: i18n.t, consumer: "decision" }),
-  ).toHaveLength(1);
+it("groups the supplied model with its provider and keeps it selectable", () => {
+  const groups = modelGroups([text], { translate: i18n.t });
+  expect(groups).toHaveLength(1);
+  expect(groups[0]?.sources[0]?.choices[0]).toMatchObject({
+    model: text,
+    refusal: null,
+  });
 });
 
-it("submits the selected text model and reasoning fields through the real picker", () => {
+it("submits the selected decision model through the real picker", () => {
   Element.prototype.scrollTo = vi.fn();
   const { container } = render(
     <I18nextProvider i18n={i18n}>
@@ -51,7 +54,7 @@ it("submits the selected text model and reasoning fields through the real picker
       />
     </I18nextProvider>,
   );
-  fireEvent.click(screen.getByRole("combobox", { name: /^Model/u }));
+  fireEvent.click(screen.getByRole("combobox", { name: /^Decision model/u }));
   const search = screen.getByRole("combobox", {
     name: "Search model or provider",
   });
@@ -85,12 +88,12 @@ it("shows ready for the saved model and recovery instructions for an empty catal
       />
     </I18nextProvider>,
   );
-  expect(screen.getByRole("status").textContent).toBe(
-    i18n.t("chatDecision.status.ready"),
-  );
+  expect(
+    screen.getByText(i18n.t("chatDecision.status.ready")).getAttribute("role"),
+  ).toBe("status");
   unmount();
   render(
-    <I18nextProvider i18n={i18n}>
+    <I18nextProvider i18n={createI18n("de")}>
       <ChatDecisionCard
         administration={{
           settings: {
@@ -106,6 +109,6 @@ it("shows ready for the saved model and recovery instructions for an empty catal
     </I18nextProvider>,
   );
   expect(screen.getByRole("note").textContent).toContain(
-    "no usable text model",
+    "OpenRouter-Anbindung einrichten",
   );
 });
