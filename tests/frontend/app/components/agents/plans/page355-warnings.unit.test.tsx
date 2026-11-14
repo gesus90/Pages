@@ -69,6 +69,10 @@ it.each<AgentPlanIssue>([
 });
 
 it("collects node and field warnings on Start and submits immediately without another dialog", async () => {
+  const inspectOwners = vi.fn<typeof fetch>(async () =>
+    Response.json({ owners: [] }),
+  );
+  vi.stubGlobal("fetch", inspectOwners);
   const work = requiredNode();
   const free = agentNode("free", "missing");
   const plan = planView({
@@ -110,6 +114,7 @@ it("collects node and field warnings on Start and submits immediately without an
     screen.getByRole("button", { name: i18n.t("plans.panel.play") }),
   );
   await waitFor(() => expect(scene.submissions).toHaveLength(1));
+  expect(inspectOwners).toHaveBeenCalledOnce();
   const summary = screen.getByRole("list", {
     name: i18n.t("plans.panel.issuesLabel"),
   });

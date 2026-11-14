@@ -3,11 +3,8 @@ import path from "node:path";
 import { RepositoryReadService } from "@/backend/service/github/RepositoryReadService";
 import { hasRunServiceOwnership } from "@/backend/runtime/RunsMode";
 import { GitHubCreationRepository } from "@/backend/database/repositories/integrations/GitHubCreationRepository";
-import { AuthService } from "@/backend/auth/AuthService";
-import { LoginThrottle } from "@/backend/auth/LoginThrottle";
 import { PasswordHasher } from "@/backend/auth/PasswordHasher";
 import { PermissionService } from "@/backend/auth/PermissionService";
-import { SessionService } from "@/backend/auth/SessionService";
 import { Database } from "@/backend/database/Database";
 import { withBackgroundDatabaseWork } from "@/backend/database/executor/DatabaseWorkContext";
 import { retireMatchingSetupIntent } from "@/backend/setup/SetupIntent";
@@ -16,7 +13,6 @@ import { GitHubJobClient } from "@/backend/service/integrations/GitHubJobClient"
 import { GitHubJobWorker } from "@/backend/service/integrations/GitHubJobWorker";
 import { canProcessIntegrations } from "@/backend/service/integrations/IntegrationProcessing";
 import { resolveGitHubTokenKey } from "@/backend/github/GitHubTokenKey";
-import { SessionRepository } from "@/backend/database/repositories/SessionRepository";
 import { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import { AdministrationService } from "@/backend/service/AdministrationService";
 import { GroupAdministrationService } from "@/backend/service/GroupAdministrationService";
@@ -39,7 +35,6 @@ import { UserService } from "@/backend/service/UserService";
 import { AnnouncingWikiService } from "@/backend/service/wiki/AnnouncingWikiService";
 import { WikiFileStore } from "@/backend/storage/WikiFileStore";
 import { getPagesRuntime } from "@/backend/runtime/PagesRuntime";
-import { SetupService } from "@/backend/setup/SetupService";
 import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 
 import {
@@ -47,7 +42,7 @@ import {
   prepareServiceDatabase,
   startGitHubWorker,
 } from "./services-background.server";
-import { prepareSessions } from "./session-services.server";
+import { createApplicationAuthentication } from "./session-services.server";
 import { startExecutionServices } from "./agent-execution-services.server";
 import { createTicketServices } from "./ticket-services.server";
 import { planMcpSettings } from "./bridge-settings.server";
@@ -78,6 +73,8 @@ import type { ChatApplicationServices } from "./chat-services.server";
 import type { EmployeeApplicationServices } from "./employee-services.server";
 import type { AgentPlanService } from "@/backend/service/agents/AgentPlanService";
 import type { AgentSessionService } from "@/backend/service/agents/sessions/AgentSessionService";
+import type { AuthService } from "@/backend/auth/AuthService";
+import type { SessionService } from "@/backend/auth/SessionService";
 import type { AgentPlanRecoveryService } from "@/backend/service/agents/recovery/AgentPlanRecoveryService";
 import type {
   AgentPlanLoaderServices,
@@ -216,14 +213,6 @@ function createAuthorizationServices(
   };
 }
 
-function createSessionAuth(
-  users: UserService,
-  sessions: SessionService,
-  hasher: PasswordHasher,
-): AuthService {
-  return new AuthService(users, sessions, hasher, new LoginThrottle());
-}
-
 function prepareCalendarService(
   database: Database,
   projectService: ProjectService,
@@ -285,18 +274,6 @@ function createProjectServices(
   };
 }
 
-async function createApplicationSessions(
-  database: Database,
-  users: UserRepository,
-  userService: UserService,
-  passwordHasher: PasswordHasher,
-): Promise<SessionService> {
-  return prepareSessions(
-    new SetupService(users, passwordHasher),
-    new SessionService(new SessionRepository(database), userService),
-  );
-}
-
 async function prepareServiceFoundation(database: Database): Promise<
   Pick<
     ApplicationServices,
@@ -338,6 +315,7 @@ async function initializeServices(
   database: Database,
   databasePath: string,
 ): Promise<ApplicationServices> {
+  const foundation = await prepareServiceFoundation(database);
   const {
     passwordHasher,
     serverCache,
@@ -346,7 +324,7 @@ async function initializeServices(
     permissionService,
     userRepository,
     userService,
-  } = await prepareServiceFoundation(database);
+  } = foundation;
   const { settingsService, designThemeService, boardPreferencesService } =
     createPreferenceServices(database, databasePath);
   const tokenKey = resolveGitHubTokenKey(databasePath);
@@ -391,11 +369,9 @@ async function initializeServices(
     tasks: taskServices.taskService,
     users: userService,
   });
-  const sessionService = await createApplicationSessions(
+  const { sessionService, authService } = await createApplicationAuthentication(
     database,
-    userRepository,
-    userService,
-    passwordHasher,
+    foundation,
   );
 
   const mcpServices = await startMcpWorkspace({
@@ -423,7 +399,7 @@ async function initializeServices(
       { settingsService, events: pagesEventPublisher },
     ),
     administrationService,
-    authService: createSessionAuth(userService, sessionService, passwordHasher),
+    authService,
     boardPreferencesService,
     designThemeService,
     groupAdministrationService,

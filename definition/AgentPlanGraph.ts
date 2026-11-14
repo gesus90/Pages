@@ -31,7 +31,7 @@ import {
 } from "./AgentPlanStackGraph";
 import { PLAN_ASSET_NAME_LENGTH, planAssets } from "./AgentPlanAsset";
 import { isPlanStackTriggered } from "./AgentPlanStack";
-import { planProfileProblem } from "./AgentPlanProfile";
+import { planAvailabilityIssues } from "./AgentPlanProfile";
 
 import type { AgentDefinitionChoice } from "./AgentAvailability";
 import type { AgentParameter } from "./AgentParameters";
@@ -473,20 +473,17 @@ function requiredParameterIssues(
   agent: AgentDefinitionChoice | undefined,
   plan: AgentPlanInput,
 ): AgentPlanIssue[] {
-  const profileProblem = planProfileProblem(step, agent ? [agent] : []);
   const configuration = step.configuration?.template ?? agent?.configuration;
   const markdown = configuration?.markdown ?? "";
   const nodeIssue = stepAgentIssue(step, agent, markdown);
   if (nodeIssue?.reason === "unsupportedRunNotes") return [nodeIssue];
-  if (profileProblem)
-    return [{ nodeId: step.id, port: null, reason: profileProblem }];
-  if (nodeIssue) return [nodeIssue];
+  const availabilityIssues = planAvailabilityIssues(step, agent, nodeIssue);
   const parameters = configuration?.parameters ?? [];
   const unfilled = placeholderIssues(step, parameters, {
     markdown,
     plan,
   });
-  return parameters.flatMap((parameter): AgentPlanIssue[] => {
+  const parameterIssues = parameters.flatMap((parameter): AgentPlanIssue[] => {
     const placeholder = unfilled.find((issue) => issue.port === parameter.name);
     if (placeholder) return [placeholder];
     if (
@@ -500,6 +497,7 @@ function requiredParameterIssues(
       return [];
     return [{ nodeId: step.id, port: parameter.name, reason: "required" }];
   });
+  return [...availabilityIssues, ...parameterIssues];
 }
 
 /** Checks the shared configuration and missing required inputs before Play. */

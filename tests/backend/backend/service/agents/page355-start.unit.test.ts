@@ -87,6 +87,11 @@ it("starts with a required ticket input missing, warns with node and field, and 
     port: "aufgabe",
     reason: "required",
   });
+  expect(planWarnings(world.plan, [])).toContainEqual({
+    nodeId: "work",
+    port: null,
+    reason: "profileMissing",
+  });
   expect(
     world.snapshot.steps[0]?.prepared.parameters.values.aufgabe,
   ).toBeNull();
