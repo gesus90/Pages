@@ -15,6 +15,7 @@ const OWNED_PROJECT_DELETIONS = [
   "DELETE FROM project_goals WHERE project_id = $project_id;",
   "DELETE FROM project_tags WHERE project_id = $project_id;",
   "DELETE FROM project_events WHERE project_id = $project_id;",
+  "DELETE FROM calendar_events WHERE project_id = $project_id;",
   "DELETE FROM project_activity WHERE project_id = $project_id;",
   "DELETE FROM project_integrations WHERE project_id = $project_id;",
   "DELETE FROM project_discord_connections WHERE project_id = $project_id;",

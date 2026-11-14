@@ -30,6 +30,14 @@ type LeaseCleanup = (
   startedAt: string | null,
 ) => Promise<{ readonly remaining: number }>;
 
+function isRecoverableControlError(error: unknown): boolean {
+  return (
+    error instanceof AgentError &&
+    (error.code === "plan_local_control_failed" ||
+      error.code === "plan_local_owner_unverified")
+  );
+}
+
 /** Ends only processes matching the lease identity and its recorded start boundary. */
 export async function endLeaseProcesses(
   instanceId: string,
@@ -65,12 +73,7 @@ export async function closeLease(
     const managed = await settleManagedLocalOwner(record.instanceId);
     if (managed !== null) return { remaining: managed ? 0 : 1 };
   } catch (error: unknown) {
-    if (
-      !(error instanceof AgentError) ||
-      (error.code !== "plan_local_control_failed" &&
-        error.code !== "plan_local_owner_unverified")
-    )
-      throw error;
+    if (!isRecoverableControlError(error)) throw error;
     return {
       remaining: (await hasEndedLeaseProcesses(
         record.instanceId,

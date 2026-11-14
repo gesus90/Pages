@@ -55,7 +55,7 @@ function entry<Operation extends ManagementOperation>(
       inputSchema: {
         type: "object",
         properties: isRead ? properties : { ...properties, operationId },
-        required,
+        required: isRead ? required : ["operationId", ...required],
         additionalProperties: false,
       },
       annotations: isRead ? READ_ANNOTATIONS : ADDITIVE_ANNOTATIONS,

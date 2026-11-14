@@ -272,7 +272,11 @@ it("hands a message that arrives during an answer to the running answer instead 
   // One stored answer, and the round of the second message points at it.
   expect(fixture.insert).toHaveBeenCalledOnce();
   expect(fixture.setTargetState).toHaveBeenCalledWith(
-    { originMessageId: "message-6", agentId: "agent" },
+    {
+      originMessageId: "message-6",
+      triggerMessageId: "message-6",
+      agentId: "agent",
+    },
     expect.objectContaining({ state: "answered", replyMessageId: "reply" }),
   );
   expect(fixture.runner.queuedMessages("group").size).toBe(0);

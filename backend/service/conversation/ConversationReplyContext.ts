@@ -7,6 +7,7 @@ import {
 } from "./ConversationAgentPrompt";
 
 import type { StoredConversationMessage } from "@/backend/database/repositories/conversation/ConversationMessageRepository";
+import type { StoredGroupContext } from "@/backend/database/repositories/conversation/ConversationGroupContextRepository";
 import type { User } from "@/definition/User";
 import type { ConversationAgentTurn } from "./ConversationAgentReplies";
 import type { ConversationAgentPromptInput } from "./ConversationAgentPrompt";
@@ -54,15 +55,7 @@ export class ConversationReplyContext {
       answered.sequence,
       newestFirst[0]?.sequence ?? 0,
     );
-    // The stored context is part of the opening of a chat, not of its later rounds.
-    const stored =
-      conversation.kind === "group" && isOpening
-        ? await this.dependencies.contexts.promptContext(conversation.id)
-        : null;
-    const context =
-      isOpening && (stored?.context?.throughSequence ?? 0) <= throughSequence
-        ? (stored?.context ?? null)
-        : null;
+    const context = await this.openingContext(round, throughSequence);
     const pendingMessages = isOpening
       ? await this.dependencies.messages.contextCount(conversation.id, {
           afterSequence: context?.throughSequence ?? 0,
@@ -96,6 +89,25 @@ export class ConversationReplyContext {
       ),
       throughSequence,
     };
+  }
+
+  private async openingContext(
+    round: ContextRound,
+    throughSequence: number,
+  ): Promise<StoredGroupContext | null> {
+    const { conversation } = round.job.round;
+    if (
+      conversation.kind !== "group" ||
+      round.afterSequence !== null ||
+      round.deliveredThrough !== 0
+    )
+      return null;
+    const { context } = await this.dependencies.contexts.promptContext(
+      conversation.id,
+    );
+    return context && context.throughSequence <= throughSequence
+      ? context
+      : null;
   }
 
   private async history(

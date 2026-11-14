@@ -295,6 +295,57 @@ function useRunDecisions(
   return { recoveryAction, setRecoveryAction, action, resolveBlock, warnings };
 }
 
+function PlanRunNotices({
+  isOpen,
+  recoveryRunId,
+  recovery,
+  startOwners,
+  run,
+  warnings,
+}: {
+  readonly isOpen: boolean;
+  readonly recoveryRunId: string | null;
+  readonly recovery: ReturnType<typeof usePlanRecovery>;
+  readonly startOwners: ReturnType<typeof usePlanStartOwners>;
+  readonly run: AgentPlanRun | null;
+  readonly warnings: ReturnType<typeof planWarningEntries>;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  return (
+    <>
+      {isOpen && recoveryRunId ? (
+        <RecoveryErrorLine recovery={recovery} />
+      ) : null}
+      <PlanStartFailure error={run?.startError} />
+      {startOwners.error ? (
+        <p role="alert" className="px-4 py-2 text-xs text-destructive">
+          {t(`settings.agents.error.${startOwners.error}`)}
+        </p>
+      ) : null}
+      <PlanResourceReleases run={run} />
+      {warnings.length > 0 ? (
+        <div role="status" className="px-3 py-2">
+          <PlanPanelIssueList issues={warnings} />
+        </div>
+      ) : null}
+    </>
+  );
+}
+
+function isPanelPending(
+  props: PlanRunPanelProps,
+  recovery: ReturnType<typeof usePlanRecovery>,
+  startOwners: ReturnType<typeof usePlanStartOwners>,
+): boolean {
+  return (
+    recovery.isPending ||
+    startOwners.isPending ||
+    props.editor.isPending ||
+    Boolean(props.error) ||
+    (!props.control && props.page.selected !== null)
+  );
+}
+
 /**
  * Fixed within the editor, independent of graph position, viewport and zoom.
  *
@@ -340,13 +391,7 @@ export function PlanRunPanel(props: PlanRunPanelProps): React.ReactElement {
           page={page}
           editor={editor}
           control={control}
-          isPending={
-            recovery.isPending ||
-            startOwners.isPending ||
-            editor.isPending ||
-            Boolean(props.error) ||
-            (!control && page.selected !== null)
-          }
+          isPending={isPanelPending(props, recovery, startOwners)}
           pendingIntent={pendingIntent(editor)}
           hasDeletedFrontier={presentation.hasDeletedFrontier}
           isOpen={isOpen}
@@ -356,21 +401,14 @@ export function PlanRunPanel(props: PlanRunPanelProps): React.ReactElement {
           onResolveBlock={resolveBlock}
           onManage={management.open}
         />
-        {isOpen && recoveryRunId ? (
-          <RecoveryErrorLine recovery={recovery} />
-        ) : null}
-        <PlanStartFailure error={props.run?.startError} />
-        {startOwners.error ? (
-          <p role="alert" className="px-4 py-2 text-xs text-destructive">
-            {t(`settings.agents.error.${startOwners.error}`)}
-          </p>
-        ) : null}
-        <PlanResourceReleases run={props.run} />
-        {warnings.length > 0 ? (
-          <div role="status" className="px-3 py-2">
-            <PlanPanelIssueList issues={warnings} />
-          </div>
-        ) : null}
+        <PlanRunNotices
+          isOpen={isOpen}
+          recoveryRunId={recoveryRunId}
+          recovery={recovery}
+          startOwners={startOwners}
+          run={props.run}
+          warnings={warnings}
+        />
         <PlanPanelStatus
           state={state}
           isOpen={isOpen}
