@@ -190,6 +190,11 @@ export interface VirtualChatMessage {
   readonly steeredInto?: readonly string[];
   /** The files of a stored message (PAGE-298). */
   readonly attachments?: readonly ConversationAttachment[];
+  /**
+   * The person sent this message from a preview of the chat (PAGE-383); the
+   * chat marks it "aus der Vorschau gesendet". Absent for every other message.
+   */
+  readonly isFromPreview?: boolean;
   /** What the server knows of the URLs that stand alone in a line (PAGE-298). */
   readonly links?: readonly ConversationLink[];
   /** Whether the person may delete the message: their own stored one (PAGE-298). */

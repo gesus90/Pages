@@ -5,6 +5,7 @@ import { shareChatGroup } from "@/app/lib/chat-page-conversations.server";
 import { getApplicationServices } from "@/app/lib/services.server";
 import { AgentEmployeeError } from "@/backend/error/AgentEmployeeError";
 import { parseAgentChatCommand } from "@/definition/AgentChatControl";
+import { CONVERSATION_PREVIEW_SEND_PREFIX } from "@/definition/Conversation";
 import { CONVERSATION_DEFAULT_REPLY_MODE } from "@/definition/ConversationDecision";
 import { ConversationError } from "@/backend/error/ConversationError";
 import { logCaughtError } from "@/backend/logging/Logger";
@@ -478,6 +479,8 @@ async function runTypedCommand(
   if (intent !== "send" && intent !== "send-group") return null;
   if (typeof typed !== "string" || parseAgentChatCommand(typed) === null)
     return null;
+  // A preview writes messages only, never commands (PAGE-383).
+  if (isPreviewMessage(formData)) return null;
   const chat =
     intent === "send"
       ? { kind: "direct" as const, agentId: String(formData.get("agentId")) }
@@ -492,6 +495,15 @@ async function runTypedCommand(
       typed,
     ),
   };
+}
+
+/** Whether a message comes from a preview of the chat (PAGE-383). */
+function isPreviewMessage(formData: FormData): boolean {
+  const clientMessageId = formData.get("clientMessageId");
+  return (
+    typeof clientMessageId === "string" &&
+    clientMessageId.startsWith(CONVERSATION_PREVIEW_SEND_PREFIX)
+  );
 }
 
 /** Runs one change of the person; returns a created group or a history page. */

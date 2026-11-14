@@ -759,6 +759,7 @@ export class ChatDirectoryService {
         content: message.content,
         toolUses: calls.byMessage[message.id] ?? [],
         ...(written.length > 0 ? { createdAt: message.createdAt } : {}),
+        ...(message.isFromPreview === true ? { isFromPreview: true } : {}),
       }));
     const isBusy = isWorking || queued.length > 0;
     const chat = markSteeredMessages(

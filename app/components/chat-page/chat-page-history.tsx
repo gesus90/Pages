@@ -1,4 +1,10 @@
-import { CircleAlert, Clock, CornerDownRight, Wrench } from "lucide-react";
+import {
+  AppWindow,
+  CircleAlert,
+  Clock,
+  CornerDownRight,
+  Wrench,
+} from "lucide-react";
 import { Fragment, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -209,6 +215,20 @@ function DeliveryBadge({
   );
 }
 
+/** Marks a message a person sent from a preview of the chat (PAGE-383). */
+function PreviewSentBadge(): React.ReactElement {
+  const { t } = useTranslation();
+  return (
+    <p
+      className="inline-flex items-center gap-1 text-xs text-muted-foreground"
+      data-from-preview=""
+    >
+      <AppWindow aria-hidden="true" className="size-3.5 shrink-0" />
+      {t("chatPage.preview.sentFromPreview")}
+    </p>
+  );
+}
+
 /** The frame of an own message sent during an answer: orange when it went in, dashed while it waits. */
 const DELIVERY_FRAMES: Readonly<Record<MessageDelivery["kind"], string>> = {
   injected: "rounded-[16px] ring-2 ring-primary ring-offset-2 ring-offset-background",
@@ -265,6 +285,7 @@ function OwnMessage({
         />
       )}
       </div>
+      {message.isFromPreview === true ? <PreviewSentBadge /> : null}
       {delivery ? (
         <DeliveryBadge delivery={delivery} live={live} />
       ) : (
@@ -528,6 +549,7 @@ function AnswerBubble({
           <AnswerNotice message={message} name={author.name} />
         </Bubble>
       )}
+      {message.isFromPreview === true ? <PreviewSentBadge /> : null}
       <ToolUses uses={message.toolUses} live={live} />
     </article>
   );

@@ -6,6 +6,7 @@ import {
   readTextColumn,
 } from "@/backend/database/RowValue";
 import { ChatError } from "@/backend/error/ChatErrors";
+import { CONVERSATION_PREVIEW_SEND_PREFIX } from "@/definition/Conversation";
 
 import type {
   Database,
@@ -53,6 +54,11 @@ function readMessage(row: readonly DatabaseValue[]): StoredChatMessage {
     createdAt: readTextColumn(row, 3, "created_at"),
     ...(readNullableBooleanColumn(row, 4, "is_stopped") === true
       ? { isStopped: true }
+      : {}),
+    ...(readNullableTextColumn(row, 5, "client_message_id")?.startsWith(
+      CONVERSATION_PREVIEW_SEND_PREFIX,
+    ) === true
+      ? { isFromPreview: true }
       : {}),
   };
 }
@@ -212,7 +218,8 @@ export class ChatSessionRepository {
           role,
           content,
           created_at,
-          is_stopped
+          is_stopped,
+          client_message_id
       FROM chat_messages
       WHERE session_id = $session_id
       ORDER BY position, id;
@@ -238,7 +245,8 @@ export class ChatSessionRepository {
           role,
           content,
           created_at,
-          is_stopped
+          is_stopped,
+          client_message_id
       FROM chat_messages
       WHERE session_id = $session_id
           AND client_message_id = $client_message_id;
@@ -302,7 +310,8 @@ export class ChatSessionRepository {
             role,
             content,
             created_at,
-            is_stopped;
+            is_stopped,
+            client_message_id;
       `,
         {
           id,

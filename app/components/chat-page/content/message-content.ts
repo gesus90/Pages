@@ -1,7 +1,14 @@
 import { CARD_TEXT_MAXIMUM_BYTES } from "./card-types";
+import { detectCodeLanguage } from "./code-detection";
+import {
+  companionRole,
+  previewFileName,
+  previewKindOf,
+} from "./preview-kinds";
 import { resolveSyntaxLanguage } from "./syntax-highlight";
 
 import type { ConversationAttachment } from "@/definition/ConversationContent";
+import type { PreviewFile } from "./preview-kinds";
 
 /** One part of a message text, in its order (PAGE-298). */
 export type MessagePart =
@@ -13,10 +20,28 @@ export type MessagePart =
       /** The language word of the fence, or the file name; empty without one. */
       readonly languageHint: string;
       readonly source: string;
+      /** Set when the fence named no language and Pages recognized it (PAGE-383). */
+      readonly isDetected?: true;
     }
   | { readonly kind: "diff"; readonly source: string }
-  | { readonly kind: "markdown"; readonly source: string }
+  | {
+      readonly kind: "markdown";
+      readonly source: string;
+      readonly isDetected?: true;
+    }
+  | {
+      /**
+       * An HTML block with the CSS and JavaScript blocks of the same message,
+       * shown as one preview (PAGE-383).
+       */
+      readonly kind: "preview";
+      /** The HTML file first, then the style sheets and the scripts. */
+      readonly files: readonly PreviewFile[];
+      readonly isDetected: boolean;
+    }
   | { readonly kind: "link"; readonly url: string };
+
+type CodePart = Extract<MessagePart, { readonly kind: "code" }>;
 
 /** How the chat shows an attachment whose text it renders itself. */
 export type TextAttachmentKind = "code" | "diff" | "markdown";
@@ -62,13 +87,81 @@ function readFenceInfo(info: string): {
   return { name, languageHint: cleanFirst === "" ? name : cleanFirst };
 }
 
+/** A fence without language and name: its language is recognized from the content. */
+function toDetectedPart(source: string): MessagePart {
+  const detected = detectCodeLanguage(source);
+  if (detected === null)
+    return { kind: "code", name: "", languageHint: "", source };
+  if (detected === "diff") return { kind: "diff", source };
+  if (detected === "markdown")
+    return { kind: "markdown", source, isDetected: true };
+  return {
+    kind: "code",
+    name: "",
+    languageHint: detected,
+    source,
+    isDetected: true,
+  };
+}
+
 function toFencePart(fence: OpenFence): MessagePart {
   const source = fence.lines.join("\n");
   const { name, languageHint } = readFenceInfo(fence.info);
+  // An explicit language always wins; only a bare fence is recognized.
+  if (languageHint === "") return toDetectedPart(source);
   const hint = languageHint.toLowerCase();
   if (DIFF_HINTS.includes(hint)) return { kind: "diff", source };
   if (MARKDOWN_HINTS.includes(hint)) return { kind: "markdown", source };
   return { kind: "code", name, languageHint, source };
+}
+
+function isCodePart(part: MessagePart): part is CodePart {
+  return part.kind === "code";
+}
+
+/**
+ * Joins the first HTML block of a message with its CSS and JavaScript blocks
+ * into one preview (PAGE-383); the joined blocks leave their places.
+ *
+ * @param parts - The parts of a message in their order.
+ * @returns The parts with the HTML block as a preview, or unchanged without one.
+ */
+export function joinPreviewParts(
+  parts: readonly MessagePart[],
+): MessagePart[] {
+  const html = parts
+    .filter(isCodePart)
+    .find((part) => previewKindOf(part.languageHint) === "html");
+  if (!html) return [...parts];
+  const companions = parts
+    .filter(isCodePart)
+    .filter((part) => companionRole(part.languageHint) !== null);
+  const counts = { css: 0, js: 0 };
+  const files: PreviewFile[] = [
+    {
+      name: previewFileName(html.name, "html"),
+      languageHint: html.languageHint,
+      source: html.source,
+    },
+  ];
+  for (const role of ["css", "js"] as const)
+    for (const part of companions) {
+      if (companionRole(part.languageHint) !== role) continue;
+      files.push({
+        name: previewFileName(part.name, role, counts[role]),
+        languageHint: part.languageHint,
+        source: part.source,
+      });
+      counts[role] += 1;
+    }
+  const preview: MessagePart = {
+    kind: "preview",
+    files,
+    isDetected: html.isDetected === true,
+  };
+  return parts
+    .filter((part) => !isCodePart(part) || !companions.includes(part))
+    .map((part) => (part === html ? preview : part));
 }
 
 function readUrlLine(line: string): string | null {
@@ -86,6 +179,11 @@ function readUrlLine(line: string): string | null {
  * Splits the text of a message into what the chat shows as text and what it
  * shows as cards: fenced code, ` ```diff ` blocks, ` ```markdown ` blocks and
  * a URL that stands alone in a line.
+ *
+ * @remarks
+ * A fence without a language gets the one its content shows clearly, else
+ * it stays plain text (PAGE-383). The first HTML block takes the CSS and
+ * JavaScript blocks of the message into one preview.
  *
  * @param text - The Markdown text of the message.
  * @returns The parts in their order; text between cards keeps its lines.
@@ -123,7 +221,7 @@ export function parseMessageContent(text: string): MessagePart[] {
   }
   if (fence !== null) parts.push(toFencePart(fence));
   flushText();
-  return parts;
+  return joinPreviewParts(parts);
 }
 
 /**

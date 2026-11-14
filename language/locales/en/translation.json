@@ -4289,7 +4289,8 @@
         "count_one": "{{count}} image",
         "count_other": "{{count}} images",
         "pending": "Generating image …"
-      }
+      },
+      "detected": "auto-detected: {{kind}}"
     },
     "embedDomains": {
       "title": "Embedded domains",
@@ -4509,6 +4510,58 @@
       "notDelivered": "could not be added",
       "reconnecting": "Connection lost – reconnecting …",
       "and": "and"
+    },
+    "preview": {
+      "sandbox": "Sandbox · no access to Pages",
+      "preview": "Preview",
+      "code": "Code",
+      "both": "Both",
+      "rendered": "View",
+      "source": "Source",
+      "view": "Choose view",
+      "files": "Files",
+      "fileCount_one": "{{count}} file",
+      "fileCount_other": "{{count}} files",
+      "name": "{{kind}} preview",
+      "fullscreenOpen": "Opened in full screen",
+      "sentFromPreview": "sent from the preview",
+      "device": {
+        "label": "Device",
+        "desktop": "Desktop",
+        "tablet": "Tablet",
+        "mobile": "Mobile"
+      },
+      "json": {
+        "tree": "JSON tree",
+        "copyValue": "Copy value",
+        "more_one": "Show {{count}} more entry",
+        "more_other": "Show {{count}} more entries",
+        "entries_one": "{{count}} entry",
+        "entries_other": "{{count}} entries",
+        "invalid": "Invalid JSON",
+        "place": "at line {{line}}, column {{column}}"
+      },
+      "csv": {
+        "search": "Search the table",
+        "rows_one": "{{count}} row",
+        "rows_other": "{{count}} rows",
+        "delimiter": {
+          "comma": "Delimiter: comma",
+          "semicolon": "Delimiter: semicolon",
+          "tab": "Delimiter: tab"
+        },
+        "pages": "Pages of the table",
+        "previous": "Previous",
+        "next": "Next",
+        "page": "Page {{page}} / {{count}}",
+        "noMatch": "No matching rows."
+      },
+      "mermaid": {
+        "error": "Error in the Mermaid diagram:",
+        "drawing": "Drawing the diagram …",
+        "diagram": "Mermaid diagram",
+        "resetZoom": "Reset zoom"
+      }
     }
   },
   "workspaces": {

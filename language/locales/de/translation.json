@@ -4289,7 +4289,8 @@
         "count_one": "{{count}} Bild",
         "count_other": "{{count}} Bilder",
         "pending": "Bild wird erzeugt …"
-      }
+      },
+      "detected": "automatisch erkannt: {{kind}}"
     },
     "embedDomains": {
       "title": "Eingebettete Domains",
@@ -4509,6 +4510,58 @@
       "notDelivered": "konnte nicht eingeschoben werden",
       "reconnecting": "Verbindung unterbrochen – verbinde neu …",
       "and": "und"
+    },
+    "preview": {
+      "sandbox": "Sandbox · kein Zugriff auf Pages",
+      "preview": "Vorschau",
+      "code": "Code",
+      "both": "Beides",
+      "rendered": "Ansicht",
+      "source": "Quelltext",
+      "view": "Ansicht wählen",
+      "files": "Dateien",
+      "fileCount_one": "{{count}} Datei",
+      "fileCount_other": "{{count}} Dateien",
+      "name": "{{kind}}-Vorschau",
+      "fullscreenOpen": "Im Vollbild geöffnet",
+      "sentFromPreview": "aus der Vorschau gesendet",
+      "device": {
+        "label": "Geräteansicht",
+        "desktop": "Desktop",
+        "tablet": "Tablet",
+        "mobile": "Mobil"
+      },
+      "json": {
+        "tree": "JSON-Baum",
+        "copyValue": "Wert kopieren",
+        "more_one": "{{count}} weiteren Eintrag zeigen",
+        "more_other": "Weitere {{count}} Einträge zeigen",
+        "entries_one": "{{count}} Eintrag",
+        "entries_other": "{{count}} Einträge",
+        "invalid": "Ungültiges JSON",
+        "place": "in Zeile {{line}}, Spalte {{column}}"
+      },
+      "csv": {
+        "search": "In der Tabelle suchen",
+        "rows_one": "{{count}} Zeile",
+        "rows_other": "{{count}} Zeilen",
+        "delimiter": {
+          "comma": "Trennzeichen: Komma",
+          "semicolon": "Trennzeichen: Semikolon",
+          "tab": "Trennzeichen: Tab"
+        },
+        "pages": "Seiten der Tabelle",
+        "previous": "Zurück",
+        "next": "Weiter",
+        "page": "Seite {{page}} / {{count}}",
+        "noMatch": "Keine passenden Zeilen."
+      },
+      "mermaid": {
+        "error": "Fehler im Mermaid-Diagramm:",
+        "drawing": "Diagramm wird gezeichnet …",
+        "diagram": "Mermaid-Diagramm",
+        "resetZoom": "Zoom zurücksetzen"
+      }
     }
   },
   "workspaces": {

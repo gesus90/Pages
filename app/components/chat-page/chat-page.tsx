@@ -331,6 +331,7 @@ export function ChatPage({
             conversationId={storedConversationId(page.opened)}
             conversationKey={page.opened ? conversationKey(page.opened) : ""}
             directory={directory}
+            onPreviewSend={page.sendFromPreview}
           >
             <ListSlot>
               <ChatPageList

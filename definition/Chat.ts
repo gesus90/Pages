@@ -86,6 +86,11 @@ export interface ChatMessage {
    * agent had written until then (PAGE-90). Absent for every other message.
    */
   readonly isStopped?: boolean;
+  /**
+   * The person sent this message from a preview of the chat (PAGE-383).
+   * Absent for every other message.
+   */
+  readonly isFromPreview?: boolean;
 }
 
 /** Administrator settings of the chat; access and model belong to the agents panel. */

@@ -51,6 +51,12 @@ export interface ChatContent {
   readonly canRelease: boolean;
   /** Releases a domain for the conversation, or takes the release back. */
   setDomainReleased(domain: string, isReleased: boolean): void;
+  /**
+   * Writes what a preview sends with `pages.chat.send(text)` into the opened
+   * conversation as a message of the person (PAGE-383); does nothing where
+   * no conversation is open.
+   */
+  sendFromPreview(text: string): void;
 }
 
 const NO_DOMAINS: readonly string[] = [];
@@ -72,6 +78,7 @@ const STANDALONE: ChatContent = {
   releasedDomains: NO_DOMAINS,
   canRelease: false,
   setDomainReleased: () => undefined,
+  sendFromPreview: () => undefined,
 };
 
 const ChatContentContext = createContext<ChatContent>(STANDALONE);
@@ -172,18 +179,22 @@ interface ChatContentProviderProps {
   readonly conversationId: string | null;
   /** Changes with the opened entry; the split view closes with it. */
   readonly conversationKey: string;
+  /** Sends the text of a preview as a message of the person (PAGE-383). */
+  readonly onPreviewSend?: (text: string) => void;
   readonly children: React.ReactNode;
 }
 
 /**
  * Shares the state of the content cards of the opened conversation: the
  * remembered card states, the one card of the split view, the overlay, the
- * image viewer (PAGE-382) and the domains that may be embedded (PAGE-298).
+ * image viewer (PAGE-382), the domains that may be embedded (PAGE-298) and
+ * the way back from a preview into the chat (PAGE-383).
  */
 export function ChatContentProvider({
   directory,
   conversationId,
   conversationKey,
+  onPreviewSend,
   children,
 }: ChatContentProviderProps): React.ReactElement {
   const states = useCardStates(directory.viewPreferences?.cardStates ?? {});
@@ -215,6 +226,7 @@ export function ChatContentProvider({
       formData.set("isReleased", String(isReleased));
       void releaser.submit(formData, { method: "post" });
     },
+    sendFromPreview: onPreviewSend ?? STANDALONE.sendFromPreview,
   };
 
   return (

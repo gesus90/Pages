@@ -4,6 +4,8 @@ import { AttachmentCards } from "./attachment-cards";
 import { ExpiredAttachment } from "./expired-attachment";
 import { LinkCards } from "./link-cards";
 import { parseMessageContent, textAttachmentKind } from "./message-content";
+import { PreviewCard } from "./preview-card";
+import { previewFileName, previewKindOf } from "./preview-kinds";
 import { CodeCard, DiffCard, MarkdownCard } from "./text-cards";
 
 import type {
@@ -58,6 +60,48 @@ interface PartViewProps {
   readonly links: readonly ConversationLink[];
 }
 
+type CodePart = Extract<MessagePart, { readonly kind: "code" }>;
+
+/** A code block: a preview for HTML, SVG, Mermaid, JSON and CSV (PAGE-383), else a code card. */
+function CodePartCard({
+  part,
+  cardKey,
+  origin,
+}: {
+  readonly part: CodePart;
+  readonly cardKey: string;
+  readonly origin: CardOrigin;
+}): React.ReactElement {
+  const kind = previewKindOf(part.languageHint);
+  const isDetected = part.isDetected === true;
+  if (kind === null)
+    return (
+      <CodeCard
+        cardKey={cardKey}
+        isDetected={isDetected}
+        languageHint={part.languageHint}
+        name={part.name}
+        origin={origin}
+        text={{ source: part.source }}
+      />
+    );
+  const file = {
+    name: previewFileName(part.name, kind),
+    languageHint: part.languageHint,
+    source: part.source,
+  };
+  return (
+    <PreviewCard
+      cardKey={cardKey}
+      files={[file]}
+      isDetected={isDetected}
+      kind={kind}
+      name={part.name}
+      origin={origin}
+    />
+  );
+}
+
 /** One card of the text of a message. */
 function PartCard({
   part,
@@ -68,20 +112,29 @@ function PartCard({
   const text = { source: "source" in part ? part.source : null };
   switch (part.kind) {
     case "code":
+      return <CodePartCard cardKey={cardKey} origin={origin} part={part} />;
+    case "preview":
       return (
-        <CodeCard
+        <PreviewCard
           cardKey={cardKey}
-          languageHint={part.languageHint}
-          name={part.name}
+          files={part.files}
+          isDetected={part.isDetected}
+          kind="html"
+          name=""
           origin={origin}
-          text={text}
         />
       );
     case "diff":
       return <DiffCard cardKey={cardKey} name="" origin={origin} text={text} />;
     case "markdown":
       return (
-        <MarkdownCard cardKey={cardKey} name="" origin={origin} text={text} />
+        <MarkdownCard
+          cardKey={cardKey}
+          isDetected={part.isDetected === true}
+          name=""
+          origin={origin}
+          text={text}
+        />
       );
     case "link":
       return (
@@ -127,7 +180,9 @@ function TextAttachmentCard({
  *
  * @remarks
  * Fenced code, ` ```diff ` blocks, ` ```markdown ` blocks and a URL alone
- * in a line become cards at their place in the text. Attachments follow
+ * in a line become cards at their place in the text. HTML, SVG, Mermaid,
+ * JSON and CSV blocks become previews; an HTML block takes the CSS and
+ * JavaScript blocks of the message into one preview (PAGE-383). Attachments follow
  * below: text files as code, diff or Markdown cards, everything else by its
  * MIME type. The component knows nothing of the page around it, so the Pica
  * panel and groups render messages with it alike.

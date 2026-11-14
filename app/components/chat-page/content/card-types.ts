@@ -2,6 +2,7 @@ import type {
   ConversationAttachment,
   ConversationLink,
 } from "@/definition/ConversationContent";
+import type { PreviewFile, PreviewKind } from "./preview-kinds";
 
 /** Text a card shows: given with the message, or loaded from an attachment. */
 export interface CardText {
@@ -18,9 +19,23 @@ export type ContentCardDescriptor =
       readonly name: string;
       /** The info of the code fence or the file name; decides the language. */
       readonly languageHint: string;
+      /** Pages recognized the language; the fence named none (PAGE-383). */
+      readonly isDetected?: boolean;
     })
   | (CardText & { readonly kind: "diff"; readonly name: string })
   | (CardText & { readonly kind: "markdown"; readonly name: string })
+  | {
+      /**
+       * A preview (PAGE-383): HTML and SVG in the sandbox, Mermaid as a
+       * diagram, JSON as a tree, CSV or TSV as a table.
+       */
+      readonly kind: "preview";
+      readonly name: string;
+      readonly previewKind: PreviewKind;
+      /** One file, or an HTML page with its style sheets and scripts. */
+      readonly files: readonly PreviewFile[];
+      readonly isDetected: boolean;
+    }
   | {
       readonly kind: "image" | "pdf" | "video" | "audio" | "file";
       readonly attachment: ConversationAttachment;

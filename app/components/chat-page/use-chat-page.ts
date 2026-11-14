@@ -1,7 +1,10 @@
 import { useState } from "react";
 import { useFetcher } from "react-router";
 
-import { CONVERSATION_VOICE_DEFAULT_DURATION_SECONDS } from "@/definition/Conversation";
+import {
+  CONVERSATION_PREVIEW_SEND_PREFIX,
+  CONVERSATION_VOICE_DEFAULT_DURATION_SECONDS,
+} from "@/definition/Conversation";
 
 import { useChatActivity } from "./use-chat-activity";
 import { useConversationRead } from "./use-conversation-read";
@@ -134,6 +137,11 @@ export interface ChatPageState {
     attachmentIds?: readonly string[],
     delivery?: ConversationDelivery,
   ): void;
+  /**
+   * Sends what a preview wrote with `pages.chat.send(text)` as an ordinary
+   * message of the person, marked "aus der Vorschau gesendet" (PAGE-383).
+   */
+  sendFromPreview(text: string): void;
   /** Stops every answer of the opened chat: the agent's, or those of the group's agents (PAGE-381). */
   stopAll(): void;
   /** What the history shows of the answers written now (PAGE-381). */
@@ -283,7 +291,17 @@ function pendingMessage(
     formData?.get("participantId") ??
     formData?.get("groupId");
   if (typeof text !== "string" || targetId !== selection?.id) return null;
-  const message = { id: "pending", authorId: null, content: text, toolUses: [] };
+  const clientMessageId = formData?.get("clientMessageId");
+  const message = {
+    id: "pending",
+    authorId: null,
+    content: text,
+    toolUses: [],
+    ...(typeof clientMessageId === "string" &&
+    clientMessageId.startsWith(CONVERSATION_PREVIEW_SEND_PREFIX)
+      ? { isFromPreview: true }
+      : {}),
+  };
   // Sent during an answer, it shows at once how it goes to the agents (PAGE-381).
   const delivery = formData?.get("delivery");
   const steered = formData?.get("steeredInto");
@@ -299,12 +317,13 @@ function messageForm(
   opened: OpenedConversation,
   content: string,
   attachmentIds: readonly string[],
+  clientMessageId: string = crypto.randomUUID(),
 ): FormData | null {
   const formData = new FormData();
   formData.set("text", content);
   if (attachmentIds.length > 0)
     formData.set("attachmentIds", JSON.stringify(attachmentIds));
-  formData.set("clientMessageId", crypto.randomUUID());
+  formData.set("clientMessageId", clientMessageId);
   if (opened.kind === "group") {
     formData.set("intent", "send-group");
     formData.set("groupId", opened.group.id);
@@ -436,6 +455,19 @@ export function useChatPage(
     void sender.submit(formData, { method: "post" });
   }
 
+  function sendFromPreview(text: string): void {
+    if (text.trim() === "" || !opened || !selection) return;
+    const formData = messageForm(
+      opened,
+      text,
+      [],
+      `${CONVERSATION_PREVIEW_SEND_PREFIX}${crypto.randomUUID()}`,
+    );
+    if (!formData) return;
+    activity.touch(selection);
+    void sender.submit(formData, { method: "post" });
+  }
+
   function stopAll(): void {
     if (opened?.kind !== "group") {
       controls.stop();
@@ -476,6 +508,7 @@ export function useChatPage(
       CONVERSATION_VOICE_DEFAULT_DURATION_SECONDS * 1000,
     sendFailure,
     send,
+    sendFromPreview,
     stopAll,
     live: liveChat.history,
     activity: liveChat.activity,

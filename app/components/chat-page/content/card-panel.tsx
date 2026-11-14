@@ -34,7 +34,9 @@ import {
 } from "./content-card";
 import { DiffCount, DiffView, useParsedDiff } from "./diff-view";
 import { WebView } from "./link-cards";
-import { syntaxLanguageLabel } from "./syntax-highlight";
+import { PREVIEW_ICONS } from "./preview-card";
+import { codeKindLabel } from "./preview-kinds";
+import { PreviewFullscreen, PreviewPanel } from "./preview-panel";
 import { copyText, saveTextFile, useCardText } from "./use-card-text";
 
 import type { TFunction } from "i18next";
@@ -43,7 +45,9 @@ import type { ContentCardDescriptor, OpenedCard } from "./card-types";
 import type { DiffLayout } from "./diff-view";
 
 /** The icon of each kind, as the head of the cards shows it (PAGE-382). */
-const KIND_ICONS: Readonly<Record<ContentCardDescriptor["kind"], LucideIcon>> = {
+const KIND_ICONS: Readonly<
+  Record<Exclude<ContentCardDescriptor["kind"], "preview">, LucideIcon>
+> = {
   code: Code,
   diff: FileDiff,
   markdown: FileText,
@@ -58,11 +62,22 @@ const KIND_ICONS: Readonly<Record<ContentCardDescriptor["kind"], LucideIcon>> = 
 
 /** The kind of a card as the head of the panel names it. */
 function kindLabel(descriptor: ContentCardDescriptor, t: TFunction): string {
+  if (descriptor.kind === "preview")
+    return codeKindLabel(descriptor.files[0]?.languageHint ?? "");
   if (descriptor.kind === "code") {
-    const label = syntaxLanguageLabel(descriptor.languageHint);
-    return label === "" ? t("chatPage.cards.kind.code") : label;
+    const label = codeKindLabel(descriptor.languageHint);
+    const kind = label === "" ? t("chatPage.cards.kind.code") : label;
+    return descriptor.isDetected === true
+      ? t("chatPage.cards.detected", { kind })
+      : kind;
   }
   return t(`chatPage.cards.kind.${descriptor.kind}`);
+}
+
+function iconOf(descriptor: ContentCardDescriptor): LucideIcon {
+  return descriptor.kind === "preview"
+    ? PREVIEW_ICONS[descriptor.previewKind]
+    : KIND_ICONS[descriptor.kind];
 }
 
 function nameOf(descriptor: ContentCardDescriptor): string {
@@ -188,6 +203,7 @@ function KindActions({
   readonly onLayout: (layout: DiffLayout) => void;
 }): React.ReactElement | null {
   const { t } = useTranslation();
+  if (descriptor.kind === "preview") return null;
   if ("attachment" in descriptor)
     return (
       <CardDownloadAction download={{ href: downloadUrl(descriptor.attachment) }} />
@@ -215,6 +231,8 @@ function PanelBody({
   readonly layout: DiffLayout;
 }): React.ReactElement {
   const { conversationId } = useChatContent();
+  // A preview has its own panel; it never reaches the body of the text cards.
+  if (descriptor.kind === "preview") return <></>;
   if ("attachment" in descriptor)
     return <AttachmentFullView attachment={descriptor.attachment} />;
   if ("link" in descriptor)
@@ -271,7 +289,8 @@ interface CardPanelProps {
  * screen and close, and below it the content.
  *
  * @remarks
- * A diff switches here between "Untereinander" and "Nebeneinander". The
+ * A diff switches here between "Untereinander" and "Nebeneinander"; a
+ * preview opens in its own panel with tabs and device widths (PAGE-383). The
  * frame and its controls use the tokens of the other panels; only images,
  * videos, PDF pages and embedded web pages keep their own colors.
  */
@@ -285,6 +304,18 @@ export function CardPanel({
   const { t } = useTranslation();
   const [layout, setLayout] = useState<DiffLayout>("split");
   const name = nameOf(card.descriptor);
+  if (card.descriptor.kind === "preview")
+    return (
+      <PreviewPanel
+        cardKey={card.key}
+        className={className}
+        descriptor={card.descriptor}
+        onClose={onClose}
+        onFullscreen={onFullscreen}
+        origin={card.origin}
+        style={style}
+      />
+    );
   return (
     <section
       aria-label={name}
@@ -323,7 +354,7 @@ export function CardPanel({
           </>
         }
         className="border-b border-border px-4"
-        icon={KIND_ICONS[card.descriptor.kind]}
+        icon={iconOf(card.descriptor)}
         name={name}
         subtitle={<PanelSubtitle card={card} />}
       />
@@ -353,6 +384,15 @@ export function CardOverlay(): React.ReactElement | null {
   }, [overlay, closeOverlay]);
 
   if (!overlay) return null;
+  if (overlay.descriptor.kind === "preview")
+    return (
+      <PreviewFullscreen
+        cardKey={overlay.key}
+        descriptor={overlay.descriptor}
+        onClose={closeOverlay}
+        origin={overlay.origin}
+      />
+    );
   return (
     <div
       aria-label={t("chatPage.cards.viewer")}

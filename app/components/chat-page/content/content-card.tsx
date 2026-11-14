@@ -4,6 +4,7 @@ import {
   Download,
   Maximize2,
   PanelRight,
+  RotateCw,
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
@@ -173,6 +174,8 @@ interface CardHeadProps {
   /** Kind · size or count · remaining time, in one small line. */
   readonly subtitle: React.ReactNode;
   readonly actions: React.ReactNode;
+  /** The tabs "Vorschau | Code" or "Ansicht | Quelltext" right next to the name (PAGE-383). */
+  readonly tabs?: React.ReactNode;
   readonly tone?: CardTone;
   readonly className?: string;
 }
@@ -188,6 +191,7 @@ export function CardHead({
   name,
   subtitle,
   actions,
+  tabs,
   tone = "light",
   className,
 }: CardHeadProps): React.ReactElement {
@@ -208,7 +212,12 @@ export function CardHead({
       >
         <Icon aria-hidden="true" className="size-4" />
       </span>
-      <p className="flex min-w-32 flex-1 flex-col leading-tight">
+      <p
+        className={cn(
+          "flex min-w-32 flex-col leading-tight",
+          tabs ? "max-w-[40%] shrink" : "flex-1",
+        )}
+      >
         <span
           className={cn(
             "truncate text-[13px] font-semibold",
@@ -226,7 +235,8 @@ export function CardHead({
           {subtitle}
         </span>
       </p>
-      <div className="flex flex-wrap items-center gap-1">{actions}</div>
+      {tabs ? <div className="flex shrink-0 items-center">{tabs}</div> : null}
+      <div className="ml-auto flex flex-wrap items-center gap-1">{actions}</div>
     </header>
   );
 }
@@ -258,6 +268,15 @@ export interface ContentCardProps {
   readonly defaultState: ChatCardState;
   /** The main action "Herunterladen" in the accent color (PAGE-382). */
   readonly download?: CardDownload;
+  /**
+   * Another main action in the accent color, shown also while collapsed,
+   * such as "Kopieren" of a code card or "Herunterladen" of a preview (PAGE-383).
+   */
+  readonly primary?: React.ReactNode;
+  /** The tabs of the card next to its name (PAGE-383). */
+  readonly tabs?: React.ReactNode;
+  /** Offers "Neu laden" after the line, for an HTML preview (PAGE-383). */
+  readonly onReload?: () => void;
   /** Further actions of the kind, after the download and before the line. */
   readonly actions?: React.ReactNode;
   /** Opens in the split view when given; cards without it have no "Daneben". */
@@ -270,12 +289,83 @@ export interface ContentCardProps {
 }
 
 /**
+ * The quiet actions after the line: "Neu laden" (only an expanded HTML
+ * preview), "Daneben", "Vollbild" and on the far right "Zuklappen".
+ */
+function CardViewActions({
+  cardKey,
+  isExpanded,
+  beside,
+  onFullscreen,
+  onReload,
+}: Pick<ContentCardProps, "cardKey" | "beside" | "onFullscreen" | "onReload"> & {
+  readonly isExpanded: boolean;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const content = useChatContent();
+  const isBeside = content.beside?.key === cardKey;
+  const ToggleIcon = isExpanded ? ChevronUp : ChevronDown;
+
+  function handleBeside(): void {
+    if (isBeside) content.closeBeside();
+    else if (beside) content.openBeside(beside);
+  }
+
+  return (
+    <>
+      {onReload && isExpanded ? (
+        <CardAction
+          icon={RotateCw}
+          isIconOnly
+          label={t("chatPage.cards.reload")}
+          onClick={onReload}
+          variant="quiet"
+        />
+      ) : null}
+      {beside ? (
+        <CardAction
+          icon={PanelRight}
+          isActive={isBeside}
+          isIconOnly
+          label={
+            isBeside ? t("chatPage.cards.besideOpen") : t("chatPage.cards.beside")
+          }
+          onClick={handleBeside}
+          variant="quiet"
+        />
+      ) : null}
+      {onFullscreen ? (
+        <CardAction
+          icon={Maximize2}
+          isIconOnly
+          label={t("chatPage.cards.fullscreen")}
+          onClick={onFullscreen}
+          variant="quiet"
+        />
+      ) : null}
+      <CardAction
+        icon={ToggleIcon}
+        isIconOnly
+        label={
+          isExpanded ? t("chatPage.cards.collapse") : t("chatPage.cards.expand")
+        }
+        onClick={() =>
+          content.setState(cardKey, isExpanded ? "collapsed" : "expanded")
+        }
+        variant="quiet"
+      />
+    </>
+  );
+}
+
+/**
  * The frame of a content card (PAGE-298, PAGE-382): the shared head and
  * below it the content.
  *
  * @remarks
- * The actions keep a fixed order: "Herunterladen" in the accent color, the
- * actions of the kind, a thin line, then "Daneben" and "Vollbild" as quiet
+ * The actions keep a fixed order: the main action in the accent color
+ * ("Herunterladen", or "Kopieren" for code), the actions of the kind, a thin
+ * line, then "Neu laden" (HTML previews), "Daneben" and "Vollbild" as quiet
  * icon buttons and "Zuklappen" on the far right; an action a kind lacks is
  * left out without moving the others. A card is collapsed to its head,
  * expanded in the message, or opened next to the chat; the person's last
@@ -291,22 +381,18 @@ export function ContentCard({
   retention,
   defaultState,
   download,
+  primary,
   actions,
+  tabs,
+  onReload,
   beside,
   onFullscreen,
   children,
   className,
 }: ContentCardProps): React.ReactElement {
-  const { t } = useTranslation();
   const content = useChatContent();
   const isExpanded = content.stateOf(cardKey, defaultState) === "expanded";
   const isBeside = content.beside?.key === cardKey;
-  const ToggleIcon = isExpanded ? ChevronUp : ChevronDown;
-
-  function handleBeside(): void {
-    if (isBeside) content.closeBeside();
-    else if (beside) content.openBeside(beside);
-  }
 
   const subtitle = (
     <>
@@ -334,49 +420,24 @@ export function ContentCard({
             {download ? (
               <CardDownloadAction download={download} />
             ) : null}
+            {primary}
             {isExpanded ? actions : null}
-            {download || (isExpanded && actions) ? <CardActionDivider /> : null}
-            {beside ? (
-              <CardAction
-                icon={PanelRight}
-                isActive={isBeside}
-                isIconOnly
-                label={
-                  isBeside
-                    ? t("chatPage.cards.besideOpen")
-                    : t("chatPage.cards.beside")
-                }
-                onClick={handleBeside}
-                variant="quiet"
-              />
+            {download || primary || (isExpanded && actions) ? (
+              <CardActionDivider />
             ) : null}
-            {onFullscreen ? (
-              <CardAction
-                icon={Maximize2}
-                isIconOnly
-                label={t("chatPage.cards.fullscreen")}
-                onClick={onFullscreen}
-                variant="quiet"
-              />
-            ) : null}
-            <CardAction
-              icon={ToggleIcon}
-              isIconOnly
-              label={
-                isExpanded
-                  ? t("chatPage.cards.collapse")
-                  : t("chatPage.cards.expand")
-              }
-              onClick={() =>
-                content.setState(cardKey, isExpanded ? "collapsed" : "expanded")
-              }
-              variant="quiet"
+            <CardViewActions
+              beside={beside}
+              cardKey={cardKey}
+              isExpanded={isExpanded}
+              onFullscreen={onFullscreen}
+              onReload={onReload}
             />
           </>
         }
         icon={icon}
         name={name}
         subtitle={subtitle}
+        tabs={isExpanded ? tabs : undefined}
       />
       {isExpanded ? (
         <div className="border-t border-border">{children}</div>

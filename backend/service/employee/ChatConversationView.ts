@@ -1,4 +1,7 @@
-import { CONVERSATION_AGENT_SEND_PREFIX } from "@/definition/Conversation";
+import {
+  CONVERSATION_AGENT_SEND_PREFIX,
+  CONVERSATION_PREVIEW_SEND_PREFIX,
+} from "@/definition/Conversation";
 
 import type { ConversationView } from "@/backend/service/conversation/ConversationReader";
 import type {
@@ -21,7 +24,8 @@ export function conversationVoiceUrl(messageId: string): string {
  *
  * @param message - The stored message.
  * @param person - The signed-in person; their own messages carry no author.
- * @returns The message with its author and, for a voice message, its audio.
+ * @returns The message with its author and, for a voice message, its audio;
+ * a message sent from a preview is marked as such (PAGE-383).
  */
 export function toVirtualMessage(
   message: ConversationMessage,
@@ -47,6 +51,9 @@ export function toVirtualMessage(
       : {}),
     ...(message.links.length > 0 ? { links: message.links } : {}),
     ...(isOwn && !message.notice ? { canDelete: true } : {}),
+    ...(message.clientMessageId.startsWith(CONVERSATION_PREVIEW_SEND_PREFIX)
+      ? { isFromPreview: true }
+      : {}),
   };
   if (!message.voice) return base;
   return {

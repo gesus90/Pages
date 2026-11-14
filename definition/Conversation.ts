@@ -46,6 +46,14 @@ export const CONVERSATION_AGENT_CHAIN_MAXIMUM = 10;
 /** Prefix of the `clientMessageId` of a message an agent chose to send (PAGE-311). */
 export const CONVERSATION_AGENT_SEND_PREFIX = "agent-send-";
 
+/**
+ * Prefix of the `clientMessageId` of a message a person sent from a preview
+ * of the chat with `pages.chat.send` (PAGE-383). Such a message is an
+ * ordinary message of the person; the chat marks it "aus der Vorschau
+ * gesendet", and it never runs as a chat command.
+ */
+export const CONVERSATION_PREVIEW_SEND_PREFIX = "preview-";
+
 /** Prefix of the `clientMessageId` of the answer to a message (PAGE-276). */
 export const CONVERSATION_AGENT_REPLY_PREFIX = "reply-";
 

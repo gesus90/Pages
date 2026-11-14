@@ -282,6 +282,7 @@ function workspaceResources(routes: RouteBuilder): RouteConfigEntry[] {
     resource("chat/images/:id", "routes/conversation-images.ts"),
     resource("chat/link-image", "routes/conversation-link-image.ts"),
     resource("chat/embed", "routes/chat-embed.ts"),
+    resource("chat/preview-frame", "routes/chat-preview-frame.ts"),
     ...page("chat", {
       browser: "routes/chat-page.tsx",
       server: "routes/chat-page-server.ts",
