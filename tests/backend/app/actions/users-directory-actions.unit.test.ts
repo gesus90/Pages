@@ -13,6 +13,7 @@ import { ACTOR, formOf, outcomeOf, servicesOf } from "./action-fixtures";
 import type { ActionOutcome, FormFields } from "./action-fixtures";
 
 const administration = {
+  getContext: vi.fn(),
   createUser: vi.fn(),
   setActive: vi.fn(),
   updateProfile: vi.fn(),
@@ -22,6 +23,7 @@ const administration = {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  administration.getContext.mockResolvedValue({ isActive: true, role: null });
 });
 
 async function submit(

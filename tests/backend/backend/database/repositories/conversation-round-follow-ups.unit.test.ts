@@ -296,7 +296,7 @@ it("keeps the default and the hard maximum of the limit without @ in persistence
   expect(await repository.find("group")).toMatchObject({
     automaticRepliesPerOrigin: 8,
   });
-  boundary.answer([["mentions", null, 2, 9]]);
+  boundary.answer([["mentions", null, null, null, null, 9]]);
   const settings = await repository.find("group");
   expect(settings).toMatchObject({ automaticRepliesPerOrigin: 9 });
   expect(settings).not.toHaveProperty("repliesPerAgentPerOrigin");

@@ -220,6 +220,7 @@ it("saves mode, thresholds and maximum of the group", () => {
     intent: "save-reply-settings",
     conversationId: "g",
     mode: "decision",
+    automaticRepliesPerOrigin: "8",
     useDefaults: "false",
     answerThreshold: "75",
     responsibilityThreshold: "50",
@@ -243,6 +244,7 @@ it("saves only the mode while the group follows the defaults of the instance", (
     intent: "save-reply-settings",
     conversationId: "g",
     mode: "mentions",
+    automaticRepliesPerOrigin: "8",
     useDefaults: "true",
   });
 });

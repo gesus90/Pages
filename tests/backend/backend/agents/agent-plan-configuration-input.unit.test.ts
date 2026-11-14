@@ -83,6 +83,10 @@ it("keeps a removed run-notes token for node diagnostics", () => {
   ).toBe("{{@run.notes}}");
 });
 
+it("keeps an unselected model in an unfinished draft", () => {
+  expect(readPlanConfiguration({ ...CONFIGURATION, model: "" }).model).toBe("");
+});
+
 it.each<[string, Record<string, unknown>]>([
   ["a revision that is no number", { revision: "2" }],
   ["a fractional revision", { revision: 1.5 }],

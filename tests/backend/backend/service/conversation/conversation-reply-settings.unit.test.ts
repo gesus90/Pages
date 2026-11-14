@@ -106,6 +106,7 @@ describe("read", () => {
     expect(view).toEqual({
       conversationId: "group",
       mode: "decision",
+      automaticRepliesPerOrigin: 8,
       rules: CONVERSATION_DEFAULT_DECISION_RULES,
       defaults: CONVERSATION_DEFAULT_DECISION_RULES,
       isDefault: true,
@@ -218,7 +219,12 @@ describe("save", () => {
       rules,
     });
     expect(context.dependencies.settings.save).toHaveBeenCalledWith({
-      settings: { conversationId: "group", mode: "decision", overrides: rules },
+      settings: {
+        conversationId: "group",
+        mode: "decision",
+        overrides: rules,
+        automaticRepliesPerOrigin: 8,
+      },
       updatedBy: "manager",
       updatedAt: "2026-01-01T00:00:00.000Z",
     });
@@ -242,6 +248,7 @@ describe("save", () => {
           conversationId: "group",
           mode: "mentions",
           overrides: CONVERSATION_NO_RULE_OVERRIDES,
+          automaticRepliesPerOrigin: 8,
         },
       }),
     );

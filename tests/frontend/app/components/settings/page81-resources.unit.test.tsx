@@ -1,4 +1,4 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { I18nextProvider } from "react-i18next";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
@@ -82,6 +82,10 @@ it("shows occupied slots, FIFO wait reasons, memory and failed cleanup without p
     leftovers: [],
   };
   const view = renderCard();
+  for (const button of screen.getAllByRole("button", {
+    name: "Technische Details",
+  }))
+    fireEvent.click(button);
   expect(
     screen.getByText(
       "Reservierte Plätze: 1 (davon Bereinigung unbestätigt: 1) · Limit: 1 · Wartende Anfragen: 1",

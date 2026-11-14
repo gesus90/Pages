@@ -118,6 +118,10 @@ afterEach(() => {
 
 it("offers a labeled numeric system form and counts every global lease state and both Pica/plan waiters", () => {
   render(card());
+  for (const button of screen.getAllByRole("button", {
+    name: "Technische Details",
+  }))
+    fireEvent.click(button);
   const input = screen.getByRole("spinbutton", {
     name: "Maximale ACP-Instanzen",
   });
@@ -282,7 +286,10 @@ it("reuses the same status view without offering the system form in Agents", () 
     ),
   ).toBeTruthy();
   expect(screen.queryByRole("spinbutton")).toBeNull();
-  expect(screen.queryByRole("button")).toBeNull();
+  expect(screen.queryByRole("button", { name: "Übernehmen" })).toBeNull();
+  expect(
+    screen.getAllByRole("button", { name: "Technische Details" }),
+  ).toHaveLength(7);
 });
 
 it("updates the confirmed occupancy immediately while the router still revalidates the page", () => {

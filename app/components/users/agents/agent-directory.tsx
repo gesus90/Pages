@@ -74,6 +74,34 @@ function AgentStatus({
   );
 }
 
+function AgentIdentity({
+  agent,
+}: {
+  readonly agent: AgentEmployeeListItem;
+}): React.ReactElement {
+  return (
+    <td className="px-4 py-3">
+      <div className="flex items-center gap-3">
+        <UserAvatar
+          size="sm"
+          name={agent.displayName}
+          avatarColor={agent.avatarColor}
+          avatarType={agent.avatarImageUrl ? "image" : "initials"}
+          avatarImageUrl={agent.avatarImageUrl}
+        />
+        <div className="flex min-w-0 flex-col">
+          <span className="pages-selectable text-sm font-medium text-foreground">
+            {agent.displayName}
+          </span>
+          <span className="truncate text-xs text-muted-foreground">
+            {agent.position ?? ""}
+          </span>
+        </div>
+      </div>
+    </td>
+  );
+}
+
 /** One agent: image with job title, username, model, role, status and actions. */
 function AgentRow({
   agent,
@@ -94,25 +122,7 @@ function AgentRow({
   }
   return (
     <tr className="transition-colors hover:bg-muted/40">
-      <td className="px-4 py-3">
-        <div className="flex items-center gap-3">
-          <UserAvatar
-            size="sm"
-            name={agent.displayName}
-            avatarColor={agent.avatarColor}
-            avatarType={agent.avatarImageUrl ? "image" : "initials"}
-            avatarImageUrl={agent.avatarImageUrl}
-          />
-          <div className="flex min-w-0 flex-col">
-            <span className="pages-selectable text-sm font-medium text-foreground">
-              {agent.displayName}
-            </span>
-            <span className="truncate text-xs text-muted-foreground">
-              {agent.position ?? ""}
-            </span>
-          </div>
-        </div>
-      </td>
+      <AgentIdentity agent={agent} />
       <td className="pages-selectable px-4 py-3 text-sm text-muted-foreground">
         {agent.username}
       </td>
@@ -329,11 +339,7 @@ export function AgentDirectory({
   const visible = agents.agents.filter((agent) =>
     matchesSearch(agent, search.trim().toLowerCase()),
   );
-  const canDelete =
-    (directory.actor.isAdmin && directory.actor.mode === "admin") ||
-    (directory.actor.role?.id !== "role-administration" &&
-      directory.actor.role?.name === "Verwaltung" &&
-      agents.canCreate);
+  const canDelete = canDeleteAgent(directory, agents);
   return (
     <section className="flex min-h-0 flex-1 flex-col">
       <AgentToolbar
@@ -386,5 +392,17 @@ export function AgentDirectory({
         />
       ) : null}
     </section>
+  );
+}
+
+function canDeleteAgent(
+  directory: AdministrationPageData,
+  agents: AgentEmployeePageData,
+): boolean {
+  return (
+    (directory.actor.isAdmin && directory.actor.mode === "admin") ||
+    (directory.actor.role?.id !== "role-administration" &&
+      directory.actor.role?.name === "Verwaltung" &&
+      agents.canCreate)
   );
 }

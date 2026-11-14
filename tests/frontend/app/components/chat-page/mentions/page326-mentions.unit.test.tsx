@@ -277,12 +277,12 @@ it.each(["ready", "noModel", "modelUnavailable"] as const)(
               toolUses: [],
               decision: {
                 messageId: "message",
-                outcome: "notice",
+                outcome: "unavailable",
                 fallback: "model_failed",
                 responders: [],
-                suggested: [],
-                reason: "",
-                needsAnswer: null,
+                answerProbability: null,
+                choices: [],
+                model: null,
               },
             },
           ]}

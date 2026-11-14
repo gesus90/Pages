@@ -62,7 +62,7 @@ it("offers only the bounded limit without @; no limit per agent remains (PAGE-34
   const onChange = renderLimits();
   expect(screen.getAllByRole("combobox")).toHaveLength(1);
   const perRound = screen.getByRole("combobox", {
-    name: "Contributions without @ (observer, decision model)",
+    name: "Contributions without @ (decision model)",
   });
   expect(perRound.querySelectorAll("option")).toHaveLength(9);
   fireEvent.change(perRound, { target: { value: "9" } });

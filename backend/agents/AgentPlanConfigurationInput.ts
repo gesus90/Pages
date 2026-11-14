@@ -47,7 +47,7 @@ export function readPlanConfiguration(input: unknown): AgentPlanConfiguration {
     ...(entry.connectionId === undefined
       ? {}
       : { connectionId: readText(entry.connectionId, 100) }),
-    model: readText(entry.model, 500, true),
+    model: readText(entry.model, 500, entry.model === ""),
     provider: entry.provider,
     reasoningEffort: entry.reasoningEffort,
     template: {

@@ -180,9 +180,7 @@ export function createConversationServices(
   const { database } = input;
   const conversations = new ConversationRepository(database);
   const messages = new ConversationMessageRepository(database);
-  const files = new WikiFileStore(
-    path.join(input.directory, "conversation-voice"),
-  );
+  const files = conversationVoiceFiles(input.directory);
   const store = new EmployeeStore(database);
   const directory = new ConversationDirectory({
     users: new UserRepository(database),
@@ -221,12 +219,12 @@ export function createConversationServices(
     guard: conversationAgentGuard,
     content,
   });
-  globalThis.pagesConversationAgentReplies?.();
-  globalThis.pagesConversationAgentReplies = conversationAgentReplies.start();
-  if (input.observer.isBackgroundOwner) {
-    startObserverBackground(conversationAgentReplies, observer.summaries);
-    sweepContent(content);
-  }
+  startConversationBackground(
+    conversationAgentReplies,
+    observer,
+    content,
+    input.observer.isBackgroundOwner,
+  );
   const conversationVoiceMaximumMs = voiceMaximumDurationMs(input.speech);
   const conversationService = new ConversationService({
     conversations,
@@ -275,6 +273,24 @@ export function createConversationServices(
       events,
     }),
   };
+}
+
+function conversationVoiceFiles(directory: string): WikiFileStore {
+  return new WikiFileStore(path.join(directory, "conversation-voice"));
+}
+
+function startConversationBackground(
+  replies: ConversationAgentReplies,
+  observer: ObserverParts,
+  content: ContentParts,
+  isBackgroundOwner: boolean,
+): void {
+  globalThis.pagesConversationAgentReplies?.();
+  globalThis.pagesConversationAgentReplies = replies.start();
+  if (isBackgroundOwner) {
+    startObserverBackground(replies, observer.summaries);
+    sweepContent(content);
+  }
 }
 
 /** The guard, the oversight and the settings of the chat between agents (PAGE-311). */

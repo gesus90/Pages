@@ -69,16 +69,18 @@ it('gives a group without a row the mode "@ + Decision" and no values of its own
     conversationId: "group",
     mode: "decision",
     overrides: CONVERSATION_NO_RULE_OVERRIDES,
+    automaticRepliesPerOrigin: 8,
   });
 });
 
 it('reads a stored group with its own values and keeps "Nur @"', async () => {
   const repository = new ConversationReplySettingsRepository(
-    database([["mentions", 80, null, 30, 1]]),
+    database([["mentions", 80, null, 30, 1, 8]]),
   );
   await expect(repository.find("group")).resolves.toEqual({
     conversationId: "group",
     mode: "mentions",
+    automaticRepliesPerOrigin: 8,
     overrides: {
       answerThreshold: 80,
       responsibilityThreshold: null,
@@ -90,7 +92,7 @@ it('reads a stored group with its own values and keeps "Nur @"', async () => {
 
 it('reads a mode of the removed kind as "@ + Decision"', async () => {
   const repository = new ConversationReplySettingsRepository(
-    database([["observer", null, null, null, null]]),
+    database([["observer", null, null, null, null, 8]]),
   );
   expect((await repository.find("group")).mode).toBe("decision");
 });
@@ -134,6 +136,7 @@ it("saves the values of a group, a missing one as NULL", async () => {
       responsibility_threshold: null,
       second_threshold: null,
       max_responders: null,
+      replies_per_round: 8,
       updated_by: "manager",
       updated_at: "2026-01-01T00:00:00Z",
     },
