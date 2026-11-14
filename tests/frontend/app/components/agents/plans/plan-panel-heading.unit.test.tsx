@@ -300,6 +300,7 @@ it.each(["paused", "failed", "cancelled", "succeeded"] as const)(
 
 it("shows a workspace holder and cleanup reason while the run waits for its lock", () => {
   renderHeading(planPage(), {
+    isOpen: true,
     control: planControl({
       status: "running",
       workspaceWait: {
@@ -327,6 +328,7 @@ it("shows a workspace holder and cleanup reason while the run waits for its lock
 
 it("shows the current ACP waitReason in the plan heading", () => {
   renderHeading(planPage(), {
+    isOpen: true,
     control: planControl({ status: "running", waitReason: "capacity" }),
   });
   expect(

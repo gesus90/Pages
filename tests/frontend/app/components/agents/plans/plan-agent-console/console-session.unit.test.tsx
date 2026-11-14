@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, screen } from "@testing-library/react";
+import { cleanup, fireEvent, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 import { ConsoleSession } from "@/app/components/agents/plans/plan-agent-console/console-session";
@@ -246,12 +246,18 @@ it("reads the todos and the activity the agent reported before the title of its 
     { isLive: true },
   );
   expect(screen.getByRole("heading", { name: "Todos 1 / 2" })).toBeTruthy();
-  const items = screen.getAllByRole("listitem").map((item) => item.textContent);
+  const section = screen.getByRole("heading", {
+    name: "Todos 1 / 2",
+  }).parentElement;
+  if (!section) throw new Error("Missing todo section");
+  const items = within(section)
+    .getAllByRole("listitem")
+    .map((item) => item.textContent);
   expect(items).toEqual([
     "doneRead requirements",
     "activeT2 Implement changes",
   ]);
-  const marks = screen
+  const marks = within(section)
     .getAllByRole("listitem")
     .map((item) => item.querySelector("[data-todo-mark]"));
   expect(marks.map((mark) => mark?.getAttribute("data-todo-mark"))).toEqual([

@@ -44,23 +44,31 @@ it("names the active run of another plan and sends nothing until its stop is con
 });
 
 it("also names affected owners in the existing restart confirmation", () => {
+  const recovery = recoveryState({
+    view: recoveryView({ restart: { available: true, reason: null } }),
+  });
   renderTranslated(
     <PlanRecoveryResumeDialog
       owners={OWNERS}
-      recovery={recoveryState({
-        view: recoveryView({ restart: { available: true, reason: null } }),
-      })}
+      recovery={recovery}
       onClose={vi.fn()}
     />,
   );
   expect(
     screen.getByText(/Another plan on this directory · old-run/u),
   ).toBeDefined();
-  expect(
-    screen
-      .getByRole("button", { name: i18n.t("plans.recovery.restartAction") })
-      .hasAttribute("disabled"),
-  ).toBe(true);
+  expect(recovery.submit).not.toHaveBeenCalled();
+  fireEvent.click(
+    screen.getByRole("button", {
+      name: i18n.t("plans.recovery.restartDialogAction"),
+    }),
+  );
+  expect(recovery.submit).toHaveBeenCalledWith({
+    action: "restart",
+    revision: 3,
+    confirmRepeat: true,
+    reviewedStepIds: [],
+  });
 });
 
 it("reads affected owners for the saved revision without issuing a start request", async () => {
