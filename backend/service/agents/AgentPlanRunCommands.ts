@@ -212,10 +212,7 @@ export class AgentPlanRunCommands {
       for (const [stepId, controller] of active.controllers)
         if (
           !isSuspendedPlanController(active, stepId) &&
-          (!active.dispatched.has(stepId) ||
-            active.snapshot.plan.nodes.some(
-              (node) => node.id === stepId && node.type === "script",
-            ))
+          !active.dispatched.has(stepId)
         )
           controller.abort(new AgentPlanPausedError());
       settlePlanPause(active);
