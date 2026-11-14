@@ -5,6 +5,7 @@ import "./agent-plan-services-mocks";
 import { beforeEach, expect, it, vi } from "vitest";
 
 import { AgentLocalSessionPreparation } from "@/backend/service/agents/AgentLocalSessionPreparation";
+import { AgentPlanStartResourceRepository } from "@/backend/database/repositories/agent/AgentPlanStartResourceRepository";
 import { AgentWorkspaceCleanupRepository } from "@/backend/database/repositories/agent/AgentWorkspaceCleanupRepository";
 import { createAgentPlanService } from "@/app/lib/agent-plan-services.server";
 import { AgentRunDiagnosisSettingsService } from "@/backend/service/agents/diagnosis/AgentRunDiagnosisSettingsService";
@@ -290,6 +291,7 @@ it("wires the plan service on one access, preparation and engine", async () => {
     [DATABASE, USERS],
   ]);
   expect(vi.mocked(AgentPlanPreparation).mock.calls[0][0]).toEqual({
+    access: ACCESS,
     workspaceCatalog: CATALOG,
     remoteExecution: options.remoteExecution,
     remoteTargets: options.remoteTargets,
@@ -539,6 +541,7 @@ it("restarts, resumes and releases disturbed runs on the same parts", async () =
       planRuns: only(vi.mocked(AgentPlanRunRepository)),
       resources: agents.acpResourceScheduler,
       executions: only(vi.mocked(AgentPlanRecoveryExecutionRepository)),
+      restartOwners: new AgentPlanStartResourceRepository(DATABASE),
     },
   });
 });

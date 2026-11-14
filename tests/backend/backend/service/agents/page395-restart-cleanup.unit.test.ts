@@ -186,8 +186,8 @@ async function restartWorld(
         order.push("processes");
         return new Set(["owned-instance"]);
       },
-      releaseRestart: async (_runId, _proven, retire) => {
-        order.push("leases");
+      releaseRestart: async (runId, proven, retire) => {
+        if (runId && proven.size > 0) order.push("leases");
         await retire();
       },
       reconcile: async () => 0,

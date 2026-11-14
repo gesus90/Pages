@@ -57,26 +57,29 @@ export class AgentWorkspaceCleanupService {
     this.isBusy = true;
     try {
       const runs = new Map<string, AgentPlanRun | null>();
-      for (const entry of await this.dependencies.obligations.pending()) {
-        try {
-          if (!runs.has(entry.runId))
-            runs.set(
-              entry.runId,
-              await this.dependencies.runs.find(entry.runId),
-            );
-          await this.settle(entry, runs.get(entry.runId) ?? null);
-        } catch (error: unknown) {
-          logCaughtError("AgentWorkspaceCleanupService", error);
-          await this.dependencies.obligations.failedAttempt(
-            entry,
-            "cleanup_check_failed",
-          );
-        }
-      }
+      for (const entry of await this.dependencies.obligations.pending())
+        await this.reconcileEntry(entry, runs);
     } catch (error: unknown) {
       logCaughtError("AgentWorkspaceCleanupService", error);
     } finally {
       this.isBusy = false;
+    }
+  }
+
+  private async reconcileEntry(
+    entry: AgentWorkspaceCleanup,
+    runs: Map<string, AgentPlanRun | null>,
+  ): Promise<void> {
+    try {
+      if (!runs.has(entry.runId))
+        runs.set(entry.runId, await this.dependencies.runs.find(entry.runId));
+      await this.settle(entry, runs.get(entry.runId) ?? null);
+    } catch (error: unknown) {
+      logCaughtError("AgentWorkspaceCleanupService", error);
+      await this.dependencies.obligations.failedAttempt(
+        entry,
+        "cleanup_check_failed",
+      );
     }
   }
 
@@ -89,12 +92,7 @@ export class AgentWorkspaceCleanupService {
       await obligations.failedAttempt(entry, "owner_evidence_unavailable");
       return;
     }
-    if (await obligations.claimStop(entry)) {
-      if (!run.stopRequested || isActivePlanRun(run.status))
-        await engine.stop(run.id);
-      if (allPlanRunResults(run).some((step) => step.remote))
-        await remote.stop(run);
-    }
+    await this.requestStop(entry, run);
     if ((await engine.isActive(run.id)) || isActivePlanRun(run.status)) {
       await obligations.failedAttempt(entry, "process_end_unconfirmed");
       return;
@@ -115,15 +113,32 @@ export class AgentWorkspaceCleanupService {
       );
       return;
     }
+    await obligations.failedAttempt(
+      entry,
+      this.blockerFor(progress, Boolean(processes.failure)),
+    );
+  }
+
+  private async requestStop(
+    entry: AgentWorkspaceCleanup,
+    run: AgentPlanRun,
+  ): Promise<void> {
+    const { engine, remote, obligations } = this.dependencies;
+    if (!(await obligations.claimStop(entry))) return;
+    if (!run.stopRequested || isActivePlanRun(run.status))
+      await engine.stop(run.id);
+    if (allPlanRunResults(run).some((step) => step.remote))
+      await remote.stop(run);
+  }
+
+  private blockerFor(progress: AgentPlanRun, scanFailed: boolean): string {
     const steps = allPlanRunResults(progress);
     const failure = steps.find((step) => step.remote?.cancellation?.failure)
       ?.remote?.cancellation?.failure;
-    const isOffline = steps.some(
-      (step) => step.remote?.contact?.state === "lost",
-    );
-    let blocker = failure ?? "process_end_unconfirmed";
-    if (!failure && isOffline) blocker = "runner_offline";
-    if (!failure && processes.failure) blocker = "process_scan_unavailable";
-    await obligations.failedAttempt(entry, blocker);
+    if (failure) return failure;
+    if (scanFailed) return "process_scan_unavailable";
+    if (steps.some((step) => step.remote?.contact?.state === "lost"))
+      return "runner_offline";
+    return "process_end_unconfirmed";
   }
 }

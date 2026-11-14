@@ -52,8 +52,8 @@ function repository(): {
   parameters: SqlParameters[];
 } {
   const parameters: SqlParameters[] = [];
-  const writes = vi.fn(async (_sql: string, input?: SqlParameters) => {
-    if (input) parameters.push(input);
+  const writes = vi.fn(async (sql: string, input?: SqlParameters) => {
+    if (sql && input) parameters.push(input);
   });
   const database: Pick<Database, "query" | "execute"> = {
     execute: writes,

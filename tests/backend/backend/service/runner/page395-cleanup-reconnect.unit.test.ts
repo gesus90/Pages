@@ -29,8 +29,8 @@ it("resets cleanup after a reconnect with the same durable session ID, once per 
     create: vi.fn(),
     remove: vi.fn(),
     reconnected,
-    checkpoint: async (_connection, state) => {
-      record = { ...record, state };
+    checkpoint: async (connectionId, state) => {
+      record = { ...record, connectionId, state };
     },
   };
   const service = new RunnerService(

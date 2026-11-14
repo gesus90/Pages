@@ -108,15 +108,15 @@ for these small synthetic runs are not the large payloads of the shared server.
 
 The first exploratory comparison measured:
 
-| Metric | origin/main | Session implementation |
-| --- | ---: | ---: |
-| Elapsed milliseconds | 600271 | 600540 |
-| `n_tup_upd` before → after | 45 → 2745 | 18 → 18 |
-| Updates in ten minutes | 2700 | 0 |
-| `seq_tup_read` before → after | 45 → 25911 | 0 → 0 |
-| CPU ticks | 830 | 505 |
-| CPU seconds | 8.30 | 5.05 |
-| CPU per core | 1.3827% | 0.8409% |
+| Metric                        | origin/main | Session implementation |
+| ----------------------------- | ----------: | ---------------------: |
+| Elapsed milliseconds          |      600271 |                 600540 |
+| `n_tup_upd` before → after    |   45 → 2745 |                18 → 18 |
+| Updates in ten minutes        |        2700 |                      0 |
+| `seq_tup_read` before → after |  45 → 25911 |                  0 → 0 |
+| CPU ticks                     |         830 |                    505 |
+| CPU seconds                   |        8.30 |                   5.05 |
+| CPU per core                  |     1.3827% |                0.8409% |
 
 The branch startup performed 18 one-time row updates: nine stop claims and nine
 transitions to `needs_decision`. The resulting reasons stayed at 5 + 4, with no
@@ -125,15 +125,15 @@ attempt, rather than extrapolating continued periodic writes from the short wind
 
 ## Evidence by Pages todo
 
-| Todo | Proof |
-| --- | --- |
-| T1 | Real PostgreSQL `n_tup_upd`/`seq_tup_read` deltas over ten minutes, above; all nine duties retain uncertainty. |
-| T2 | User + system CPU ticks of the exact standalone runs PID, same fixture and duration, above. |
-| T3 | `page395-workspace-cleanup.unit.test.tsx`: visible reason/decision state, actual retry POST and required release confirmation. `page395-cleanup-decisions.unit.test.ts`: current-owner authorization. |
-| T4 | `page395-process-evidence.unit.test.ts`: an owned namespace first remains alive, then ends; only the latter releases and completes the obligation. |
-| T5 | `page395-restart-cleanup.unit.test.ts`: failed/cancelled/stopping predecessors with failed session history; units and legacy lease policy. `page395-cleanup-decisions.unit.test.ts`: atomic lock/lease/binding release and retirement. |
-| T6 | `page395-restart-cleanup.unit.test.ts`: exactly three failures, no preparation/start and 409 with step/code; transient failure can succeed within the budget. |
-| T7 | Focused backend files above plus four retained PAGE-348 unit command tests. Full suite/coverage execution is an die Abschluss-QA übergeben. |
+| Todo | Proof                                                                                                                                                                                                                                  |
+| ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| T1   | Real PostgreSQL `n_tup_upd`/`seq_tup_read` deltas over ten minutes, above; all nine duties retain uncertainty.                                                                                                                         |
+| T2   | User + system CPU ticks of the exact standalone runs PID, same fixture and duration, above.                                                                                                                                            |
+| T3   | `page395-workspace-cleanup.unit.test.tsx`: visible reason/decision state, actual retry POST and required release confirmation. `page395-cleanup-decisions.unit.test.ts`: current-owner authorization.                                  |
+| T4   | `page395-process-evidence.unit.test.ts`: an owned namespace first remains alive, then ends; only the latter releases and completes the obligation.                                                                                     |
+| T5   | `page395-restart-cleanup.unit.test.ts`: failed/cancelled/stopping predecessors with failed session history; units and legacy lease policy. `page395-cleanup-decisions.unit.test.ts`: atomic lock/lease/binding release and retirement. |
+| T6   | `page395-restart-cleanup.unit.test.ts`: exactly three failures, no preparation/start and 409 with step/code; transient failure can succeed within the budget.                                                                          |
+| T7   | Focused backend files above plus four retained PAGE-348 unit command tests. Full suite/coverage execution is an die Abschluss-QA übergeben.                                                                                            |
 
 The run used no genuine agent/model calls. Shared test-server post-deployment
 measurements remain outside this ticket's acceptance. The native mobile app,
@@ -145,16 +145,16 @@ All 29 changed production files matched the frozen measurement copy, with aggreg
 SHA-256 `38ae305d6a191b059cca908b0e8fbdea3425cfa3f913778547a18beac43d6572`.
 The final source copy was not edited during this window.
 
-| Metric | origin/main | Final session sources |
-| --- | ---: | ---: |
-| Elapsed milliseconds | 600271 | 600387 |
-| `n_tup_upd` before → after | 45 → 2745 | 18 → 18 |
-| Updates in ten minutes | 2700 | 0 |
-| `seq_tup_read` before → after | 45 → 25911 | 0 → 0 |
-| Rows inserted before → after | 9 → 9 | 9 → 9 |
-| CPU ticks | 830 | 405 |
-| CPU seconds | 8.30 | 4.05 |
-| CPU per core | 1.3827% | 0.6746% |
+| Metric                        | origin/main | Final session sources |
+| ----------------------------- | ----------: | --------------------: |
+| Elapsed milliseconds          |      600271 |                600387 |
+| `n_tup_upd` before → after    |   45 → 2745 |               18 → 18 |
+| Updates in ten minutes        |        2700 |                     0 |
+| `seq_tup_read` before → after |  45 → 25911 |                 0 → 0 |
+| Rows inserted before → after  |       9 → 9 |                 9 → 9 |
+| CPU ticks                     |         830 |                   405 |
+| CPU seconds                   |        8.30 |                  4.05 |
+| CPU per core                  |     1.3827% |               0.6746% |
 
 That is 51.23% less CPU time and no steady-state cleanup writes. All nine rows
 remain `needs_decision`, split into `process_end_unconfirmed` ×5 and

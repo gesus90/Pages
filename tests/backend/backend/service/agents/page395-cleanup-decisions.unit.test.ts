@@ -108,8 +108,10 @@ it("accepts persisted restart evidence only for the exact verified run view", as
   };
   const repository = new AgentPlanRecoveryExecutionRepository({
     transaction: async (work) => work(transaction),
-    query: async (_statement, input) =>
-      input?.workspace_id === verifiedKey ? [[original.id]] : [],
+    query: async (statement, input) =>
+      statement.length > 0 && input?.workspace_id === verifiedKey
+        ? [[original.id]]
+        : [],
   });
   await repository.retireForRestart(original);
   expect(await repository.hasRestartProof(ended)).toBe(true);
