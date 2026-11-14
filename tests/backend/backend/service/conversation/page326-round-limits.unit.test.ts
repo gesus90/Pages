@@ -18,9 +18,10 @@ function fixture(): ConversationRoundRepository {
       statement: string,
       parameters?: SqlParameters,
     ): Promise<readonly DatabaseValue[][]> => {
-      const key = `${String(parameters?.origin_message_id)}:${String(parameters?.agent_id)}`;
+      const key = `${String(parameters?.trigger_message_id)}:${String(parameters?.agent_id)}`;
       if (statement.includes("SELECT automatic_count"))
         return [[automaticCount]];
+      if (statement.includes("FROM conversation_follow_up_answers")) return [];
       if (statement.includes("SELECT agent_id"))
         return targets.has(key) ? [["agent"]] : [];
       if (statement.includes("INSERT INTO conversation_reply_targets")) {
@@ -75,6 +76,10 @@ it("PAGE-326 permits each explicit collective recipient once per origin, even be
     expect(await rounds.claim(claim(id, true))).toBe("duplicate");
   }
   expect(
-    await rounds.claim({ ...claim("ed"), originMessageId: "next-origin" }),
+    await rounds.claim({
+      ...claim("ed"),
+      originMessageId: "next-origin",
+      triggerMessageId: "next-origin",
+    }),
   ).toBe("claimed");
 });

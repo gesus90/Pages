@@ -228,6 +228,22 @@ async function claimTarget(
   return claim.handoff === "paused" && (await reviveTarget(transaction, claim));
 }
 
+async function hasTarget(
+  transaction: Pick<DatabaseTransaction, "query">,
+  claim: ConversationReplyClaim,
+): Promise<boolean> {
+  const rows = await transaction.query(
+    `
+      SELECT agent_id
+      FROM conversation_reply_targets
+      WHERE trigger_message_id = $trigger_message_id
+          AND agent_id = $agent_id;
+    `,
+    { trigger_message_id: claim.triggerMessageId, agent_id: claim.agentId },
+  );
+  return rows.length > 0;
+}
+
 /**
  * The rounds of answers in conversations, their asked agents and the routing
  * decisions of the observer (PAGE-296, PAGE-349).
@@ -293,7 +309,7 @@ export class ConversationRoundRepository {
         claim.isAutomatic &&
         automaticCount >= limits.automaticRepliesPerOrigin
       )
-        return "limit";
+        return (await hasTarget(transaction, claim)) ? "duplicate" : "limit";
       const handoff = claim.handoff;
       if (
         handoff &&
