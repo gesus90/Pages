@@ -1,5 +1,21 @@
 import { Readable, Writable } from "node:stream";
 
+interface MemoryAssetStats {
+  readonly size: number;
+  readonly ino: number;
+  readonly dev: number;
+  readonly isDirectory: () => boolean;
+  readonly isFile: () => boolean;
+  readonly isSymbolicLink: () => boolean;
+}
+
+interface MemoryAssetHandle {
+  readonly stat: () => Promise<MemoryAssetStats>;
+  readonly close: () => Promise<void>;
+  readonly sync: () => Promise<void>;
+  readonly createReadStream: () => Readable;
+}
+
 /** Synthetic storage for private snapshots and workspace copies; no host file is opened. */
 export class MemoryAssetFiles {
   /** File bytes that a test may change to simulate tampering. */
@@ -45,16 +61,7 @@ export class MemoryAssetFiles {
       },
       realpath: async (file: string) => file,
       lstat: async (file: string) => this.metadata(file),
-      open: async (file: string) => {
-        if (this.links.has(file)) throw new Error("ELOOP");
-        if (!this.directories.has(file)) this.bytes(file);
-        return {
-          stat: async () => this.metadata(file),
-          close: async () => undefined,
-          sync: async () => undefined,
-          createReadStream: () => Readable.from([this.bytes(file)]),
-        };
-      },
+      open: (file: string) => this.open(file),
       writeFile: async (file: string, bytes: Uint8Array) => {
         this.contents.set(file, Buffer.from(bytes));
       },
@@ -71,13 +78,40 @@ export class MemoryAssetFiles {
     };
   }
 
+  /** Models Node 24: destroying a handle stream closes its handle even with autoClose false. */
+  public async open(file: string): Promise<MemoryAssetHandle> {
+    if (this.links.has(file))
+      throw Object.assign(new Error("ELOOP"), { code: "ELOOP" });
+    if (!this.directories.has(file)) this.bytes(file);
+    let isClosed = false;
+    return {
+      stat: async () => this.metadata(file),
+      close: async () => {
+        isClosed = true;
+      },
+      sync: async () => undefined,
+      createReadStream: () => {
+        if (isClosed)
+          throw Object.assign(new RangeError("File descriptor is -1"), {
+            code: "ERR_OUT_OF_RANGE",
+          });
+        return Readable.from([this.bytes(file)], {
+          destroy(error, done): void {
+            isClosed = true;
+            done(error);
+          },
+        });
+      },
+    };
+  }
+
   private bytes(file: string): Buffer {
     const bytes = this.contents.get(file);
     if (!bytes) throw Object.assign(new Error("ENOENT"), { code: "ENOENT" });
     return bytes;
   }
 
-  private metadata(file: string): object {
+  private metadata(file: string): MemoryAssetStats {
     const isDirectory = this.directories.has(file);
     return {
       size: isDirectory ? 0 : this.bytes(file).length,
