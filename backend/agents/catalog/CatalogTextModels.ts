@@ -9,12 +9,15 @@ function listsValue(list: unknown, value: string): boolean {
   return Array.isArray(list) && list.includes(value);
 }
 
-/** Text alone, or text beside images (PAGE-382): a model that answers in text. */
+/** What a model may output beside text and still answer in text (PAGE-382, PAGE-384). */
+const OUTPUT_BESIDE_TEXT: readonly unknown[] = ["text", "image", "video", "audio"];
+
+/** Text alone, or text beside images, videos or sounds: a model that answers in text. */
 function listsTextOutput(list: unknown): boolean {
   return (
     Array.isArray(list) &&
     list.includes("text") &&
-    list.every((item) => item === "text" || item === "image")
+    list.every((item) => OUTPUT_BESIDE_TEXT.includes(item))
   );
 }
 
@@ -33,9 +36,9 @@ function statedModalities(list: unknown): readonly string[] {
  *
  * @remarks
  * - OpenRouter states `architecture.input_modalities` and `output_modalities`;
- *   a text model accepts text and outputs text, alone or beside images
- *   (PAGE-382), so pure image, audio, video, speech, embedding, rerank and
- *   decision models stay out.
+ *   a text model accepts text and outputs text, alone or beside images,
+ *   videos or sounds (PAGE-382, PAGE-384), so pure image, audio, video,
+ *   speech, embedding, rerank and decision models stay out.
  * - Google states `supportedGenerationMethods`; Pages generates text through
  *   `generateContent`, so embedding, Imagen, Veo and answer-only models stay out.
  * - OpenAI, Anthropic and Z.AI listings carry no modality data, so no entry is

@@ -16,7 +16,10 @@ function isText(value: unknown): value is string {
   return typeof value === "string";
 }
 
-function readAttachment(value: unknown): ConversationAttachment | null {
+function readAttachment(
+  value: unknown,
+  wanted: "image" | "video",
+): ConversationAttachment | null {
   if (typeof value !== "object" || value === null) return null;
   const { id, name, url, mimeType, sizeBytes, kind } = value as Record<
     string,
@@ -24,15 +27,18 @@ function readAttachment(value: unknown): ConversationAttachment | null {
   >;
   if (!isText(id) || !isText(name) || !isText(url) || !isText(mimeType))
     return null;
-  if (typeof sizeBytes !== "number" || kind !== "image") return null;
+  if (typeof sizeBytes !== "number" || kind !== wanted) return null;
   // The server is the source; only the shape is checked here.
   return value as ConversationAttachment;
 }
 
-function readImage(value: unknown): ConversationImage | null {
+function readImage(
+  value: unknown,
+  wanted: "image" | "video",
+): ConversationImage | null {
   if (typeof value !== "object" || value === null) return null;
   const entry = value as Record<string, unknown>;
-  const attachment = readAttachment(entry.attachment);
+  const attachment = readAttachment(entry.attachment, wanted);
   if (!attachment || !isText(entry.messageId) || !isText(entry.sentAt))
     return null;
   return {
@@ -51,12 +57,27 @@ function readImage(value: unknown): ConversationImage | null {
  * @returns The images it lists; entries of another shape are left out.
  */
 export function readChatImages(body: unknown): ConversationImage[] {
-  if (typeof body !== "object" || body === null || !("images" in body))
-    return [];
-  const { images } = body;
-  if (!Array.isArray(images)) return [];
-  return images
-    .map((entry: unknown) => readImage(entry))
+  return readChatMedia(body, "image");
+}
+
+/**
+ * Reads the answer of `GET /chat/images/<id>` (PAGE-382) or
+ * `GET /chat/videos/<id>` (PAGE-384).
+ *
+ * @param body - The parsed JSON body.
+ * @param kind - `image` reads the list `images`, `video` the list `videos`.
+ * @returns The files it lists; entries of another shape or kind are left out.
+ */
+export function readChatMedia(
+  body: unknown,
+  kind: "image" | "video",
+): ConversationImage[] {
+  const key = kind === "video" ? "videos" : "images";
+  if (typeof body !== "object" || body === null || !(key in body)) return [];
+  const list: unknown = Reflect.get(body, key);
+  if (!Array.isArray(list)) return [];
+  return list
+    .map((entry: unknown) => readImage(entry, kind))
     .filter((image) => image !== null);
 }
 

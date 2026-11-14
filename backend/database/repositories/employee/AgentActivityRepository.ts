@@ -10,7 +10,7 @@ import type { AgentActivityCost } from "@/definition/AgentEmployee";
 /** A learning run or a change of the access level (PAGE-303), as the activity table stores it. */
 export interface StoredAgentEvent {
   readonly id: string;
-  readonly kind: "learning" | "access" | "image";
+  readonly kind: "learning" | "access" | "image" | "video" | "audio";
   readonly detail: string;
   readonly cost: AgentActivityCost;
   readonly createdAt: string;
@@ -58,7 +58,13 @@ function readCost(
 }
 
 function readEventKind(kind: string): StoredAgentEvent["kind"] {
-  if (kind === "access" || kind === "image") return kind;
+  if (
+    kind === "access" ||
+    kind === "image" ||
+    kind === "video" ||
+    kind === "audio"
+  )
+    return kind;
   return "learning";
 }
 
@@ -242,7 +248,7 @@ export class AgentActivityRepository {
                 SELECT SUM(cost_amount)
                 FROM agent_activity
                 WHERE user_id = $user_id
-                    AND kind = 'image'
+                    AND kind IN ('image', 'video', 'audio')
                     AND cost_state = 'known'
                     AND created_at >= $since
             ), 0),

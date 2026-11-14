@@ -5,6 +5,7 @@ import { redactCredentials } from "@/backend/security/AgentTextSafety";
 import { CHAT_LIMITS } from "@/definition/Chat";
 
 import type { AgentImageToolDependencies } from "./AgentImageTool";
+import type { AgentMediaToolDependencies } from "./AgentMediaTool";
 import type { ConversationAnswerStream } from "@/backend/service/conversation/ConversationAnswerStream";
 import type { LiveAnswerSink } from "@/backend/service/conversation/ConversationLiveAnswer";
 import type { ConversationDelivery } from "@/definition/ConversationLiveAnswer";
@@ -118,6 +119,12 @@ export interface AgentEmployeeSessionDependencies {
    * them to the answer (PAGE-382); absent offers no `bilder_erzeugen`.
    */
   readonly images?: AgentImageToolDependencies;
+  /**
+   * Generates videos and sounds with the model of a round in a conversation
+   * and hands them to the answer (PAGE-384); absent offers no `video_erzeugen`
+   * and no `audio_erzeugen`.
+   */
+  readonly media?: AgentMediaToolDependencies;
   readonly today?: () => string;
   /** Opens the live answer of a direct chat for the chat page (PAGE-381); absent shows none. */
   readonly answers?: Pick<ConversationAnswerStream, "open">;

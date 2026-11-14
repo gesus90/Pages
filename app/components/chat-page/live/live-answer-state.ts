@@ -50,6 +50,9 @@ export type LiveActivity =
   | { readonly kind: "working" }
   /** The agent generates images with its model (PAGE-382), such as "erzeugt 4 Bilder …". */
   | { readonly kind: "images"; readonly count: number }
+  /** The agent generates a video or a sound with its model (PAGE-384), such as "erzeugt Video …". */
+  | { readonly kind: "video" }
+  | { readonly kind: "audio" }
   | {
       readonly kind: "tool";
       /** The action the call stands for, such as `read` or `test`. */
@@ -260,6 +263,21 @@ export function isImageTool(tool: Pick<LiveAnswerTool, "name">): boolean {
 }
 
 /**
+ * What a call of `video_erzeugen` or `audio_erzeugen` generates (PAGE-384),
+ * under whatever prefix the agent's tool host names it.
+ *
+ * @param tool - A call of a live answer.
+ * @returns `video`, `audio`, or `null` for another tool.
+ */
+export function mediaToolKind(
+  tool: Pick<LiveAnswerTool, "name">,
+): "video" | "audio" | null {
+  const match = /(?:^|[_.:/-])(video|audio)_erzeugen$/u.exec(tool.name);
+  const kind = match?.[1];
+  return kind === "video" || kind === "audio" ? kind : null;
+}
+
+/**
  * How many images a call of `bilder_erzeugen` asks for (PAGE-382), read from
  * its bounded input; one when it names none.
  *
@@ -285,6 +303,8 @@ export function activityOf(view: LiveAnswerView | null): LiveActivity | null {
   const latest = running.at(-1);
   if (latest && isImageTool(latest))
     return { kind: "images", count: imageCount(latest) };
+  const media = latest ? mediaToolKind(latest) : null;
+  if (media) return { kind: media };
   if (latest)
     return {
       kind: "tool",

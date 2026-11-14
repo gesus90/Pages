@@ -13,6 +13,7 @@ import {
   Link2,
   Maximize2,
   Music,
+  PanelRight,
   Rows2,
   X,
 } from "lucide-react";
@@ -22,7 +23,7 @@ import { useTranslation } from "react-i18next";
 import { cn } from "@/app/lib/cn";
 
 import { AttachmentFullView } from "./attachment-full-view";
-import { downloadUrl } from "./card-types";
+import { downloadUrl, formatFileSize } from "./card-types";
 import { useChatContent } from "./chat-content-context";
 import { ChatMarkdown } from "./chat-markdown";
 import { CodeView } from "./code-view";
@@ -38,6 +39,11 @@ import { PREVIEW_ICONS } from "./preview-card";
 import { codeKindLabel } from "./preview-kinds";
 import { PreviewFullscreen, PreviewPanel } from "./preview-panel";
 import { copyText, saveTextFile, useCardText } from "./use-card-text";
+import { useMediaFacts } from "./media-facts";
+import { useRetention } from "./use-retention";
+import { ChatVideoViewer } from "./video-viewer";
+import { VideoPanelBody, isVideoCard } from "./video-panel";
+import { videoMeta } from "./video-player";
 
 import type { TFunction } from "i18next";
 import type { LucideIcon } from "lucide-react";
@@ -226,13 +232,17 @@ function KindActions({
 function PanelBody({
   descriptor,
   layout,
+  card,
 }: {
   readonly descriptor: ContentCardDescriptor;
   readonly layout: DiffLayout;
+  /** The opened card; a video shows its player and the other videos (PAGE-384). */
+  readonly card?: OpenedCard;
 }): React.ReactElement {
   const { conversationId } = useChatContent();
   // A preview has its own panel; it never reaches the body of the text cards.
   if (descriptor.kind === "preview") return <></>;
+  if (card && isVideoCard(card)) return <VideoPanelBody card={card} />;
   if ("attachment" in descriptor)
     return <AttachmentFullView attachment={descriptor.attachment} />;
   if ("link" in descriptor)
@@ -246,7 +256,31 @@ function PanelBody({
   return <TextPanel descriptor={descriptor} layout={layout} />;
 }
 
-/** The subtitle of the panel head: kind, sender and time, and the count of a diff. */
+/** Length, resolution and size of a video, the size of another file (PAGE-384). */
+function AttachmentMeta({
+  attachment,
+}: {
+  readonly attachment: Extract<ContentCardDescriptor, { readonly attachment: unknown }>["attachment"];
+}): React.ReactElement {
+  const { i18n } = useTranslation();
+  const facts = useMediaFacts(attachment);
+  const retention = useRetention(attachment.expiresAt);
+  const meta =
+    attachment.kind === "video"
+      ? videoMeta(facts, attachment.sizeBytes, i18n.language)
+      : formatFileSize(attachment.sizeBytes, i18n.language);
+  return (
+    <>
+      {` · ${meta}`}
+      {retention ? ` · ${retention}` : null}
+    </>
+  );
+}
+
+/**
+ * The subtitle of the panel head: kind, sender and time, the size, length
+ * and remaining time of a file, and the count of a diff.
+ */
 function PanelSubtitle({
   card,
 }: {
@@ -263,6 +297,9 @@ function PanelSubtitle({
       {[kindLabel(descriptor, t), origin.senderName, time]
         .filter((entry) => entry !== "")
         .join(" · ")}
+      {"attachment" in descriptor ? (
+        <AttachmentMeta attachment={descriptor.attachment} />
+      ) : null}
       {descriptor.kind === "diff" && descriptor.source !== null ? (
         <>
           {" · "}
@@ -277,6 +314,8 @@ interface CardPanelProps {
   readonly card: OpenedCard;
   /** Offers "Vollbild"; missing in the full screen itself. */
   readonly onFullscreen?: () => void;
+  /** Shown next to the chat: "Daneben" lights as the active view and closes it (PAGE-384). */
+  readonly isBeside?: boolean;
   readonly onClose: () => void;
   readonly className?: string;
   /** The width the person gave the split view. */
@@ -297,6 +336,7 @@ interface CardPanelProps {
 export function CardPanel({
   card,
   onFullscreen,
+  isBeside = false,
   onClose,
   className,
   style,
@@ -310,6 +350,7 @@ export function CardPanel({
         cardKey={card.key}
         className={className}
         descriptor={card.descriptor}
+        isBeside={isBeside}
         onClose={onClose}
         onFullscreen={onFullscreen}
         origin={card.origin}
@@ -335,6 +376,16 @@ export function CardPanel({
               onLayout={setLayout}
             />
             <CardActionDivider />
+            {isBeside ? (
+              <CardAction
+                icon={PanelRight}
+                isActive
+                isIconOnly
+                label={t("chatPage.cards.besideOpen")}
+                onClick={onClose}
+                variant="quiet"
+              />
+            ) : null}
             {onFullscreen ? (
               <CardAction
                 icon={Maximize2}
@@ -359,7 +410,7 @@ export function CardPanel({
         subtitle={<PanelSubtitle card={card} />}
       />
       <div className="flex min-h-0 flex-1 flex-col bg-panel-body">
-        <PanelBody descriptor={card.descriptor} layout={layout} />
+        <PanelBody card={card} descriptor={card.descriptor} layout={layout} />
       </div>
     </section>
   );
@@ -384,6 +435,8 @@ export function CardOverlay(): React.ReactElement | null {
   }, [overlay, closeOverlay]);
 
   if (!overlay) return null;
+  if (isVideoCard(overlay))
+    return <ChatVideoViewer card={overlay} onClose={closeOverlay} />;
   if (overlay.descriptor.kind === "preview")
     return (
       <PreviewFullscreen

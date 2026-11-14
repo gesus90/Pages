@@ -21,8 +21,12 @@ import type { ViewerImage } from "@/app/lib/viewer-images";
 import type { ConversationImage } from "@/definition/ConversationContent";
 import type { ChatContent, ChatImageRequest } from "./chat-content-context";
 
-/** The message element of the chat history, which takes the focus back. */
-function messageElement(messageId: string): HTMLElement | null {
+/**
+ * The message element of the chat history, which takes the focus back.
+ *
+ * @param messageId - The stored message; empty finds none.
+ */
+export function messageElement(messageId: string): HTMLElement | null {
   if (messageId === "") return null;
   // Compared by value, so an ID never needs escaping for a selector.
   return (

@@ -8,6 +8,11 @@ import {
 import { ConversationAgentFiles } from "@/backend/service/conversation/content/ConversationAgentFiles";
 import { sharedConversationGeneratedImages } from "@/backend/service/conversation/content/ConversationGeneratedImages";
 import { AgentImageGeneration } from "@/backend/service/employee/AgentImageGeneration";
+import { AgentMediaGeneration } from "@/backend/service/employee/AgentMediaGeneration";
+import {
+  GoogleMediaClient,
+  OpenRouterMediaClient,
+} from "@/backend/agents/providers/ProviderMediaClients";
 import { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import { ChatAcpSessionRepository } from "@/backend/database/repositories/chat/ChatAcpSessionRepository";
 import { ChatSessionRepository } from "@/backend/database/repositories/chat/ChatSessionRepository";
@@ -19,6 +24,7 @@ import { sharedConversationAnswerStream } from "@/backend/service/conversation/C
 import type { InstanceSecretCipher } from "@/backend/security/InstanceSecretCipher";
 import type { ConversationAttachments } from "@/backend/service/conversation/content/ConversationAttachments";
 import type { AgentImageToolDependencies } from "@/backend/service/employee/AgentImageTool";
+import type { AgentMediaToolDependencies } from "@/backend/service/employee/AgentMediaTool";
 import type { AgentSessionSettingsRepository } from "@/backend/database/repositories/employee/AgentSessionSettingsRepository";
 import { UserGroupRepository } from "@/backend/database/repositories/UserGroupRepository";
 import { UserRepository } from "@/backend/database/repositories/UserRepository";
@@ -370,6 +376,39 @@ function createImageTool(
   };
 }
 
+/**
+ * The generation of videos and sounds with an agent's own model in
+ * conversations (PAGE-384); without a cipher for the stored keys there is none.
+ */
+function createMediaTool(
+  input: EmployeeServicesInput,
+  base: EmployeeBase,
+  late: LateServices,
+): { readonly media?: AgentMediaToolDependencies } {
+  if (!input.cipher) return {};
+  return {
+    media: {
+      generation: new AgentMediaGeneration({
+        connections: new AgentConnectionRepository(input.database),
+        cipher: input.cipher,
+        models: base.models,
+        store: base.store,
+        clients: {
+          openrouter: new OpenRouterMediaClient(),
+          google_ai_studio: new GoogleMediaClient(),
+        },
+      }),
+      attachments: {
+        stage: (target, file) => lateAttachments(late).stage(target, file),
+        release: (senderId, attachmentIds) =>
+          lateAttachments(late).release(senderId, attachmentIds),
+      },
+      // Images, videos and sounds wait for the same answer.
+      pending: sharedConversationGeneratedImages(),
+    },
+  };
+}
+
 function lateSessions(late: LateServices): AgentEmployeeSessions {
   if (late.sessions === null)
     throw new Error("The agent sessions are used before they are wired.");
@@ -490,6 +529,7 @@ function createEmployeeSessions(
     recorder: base.recorder,
     agentChat: () => late.agentChat,
     ...optionalImages(createImageTool(input, base, late)),
+    ...createMediaTool(input, base, late),
     createSessionId: () => createChatSessionId(),
     conversationContext: {
       readForAgent: (agentId, request) =>

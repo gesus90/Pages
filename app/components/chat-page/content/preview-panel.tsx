@@ -4,6 +4,7 @@ import {
   Maximize2,
   MessageSquareText,
   Monitor,
+  PanelRight,
   RotateCw,
   Smartphone,
   Tablet,
@@ -125,6 +126,8 @@ interface PreviewPanelProps {
   readonly origin: CardOrigin;
   /** Offers "Vollbild". */
   readonly onFullscreen?: () => void;
+  /** Shown next to the chat: "Daneben" lights as the active view and closes it (PAGE-384). */
+  readonly isBeside?: boolean;
   readonly onClose: () => void;
   readonly className?: string;
   /** The width the person gave the split view. */
@@ -142,6 +145,7 @@ export function PreviewPanel({
   descriptor,
   origin,
   onFullscreen,
+  isBeside = false,
   onClose,
   className,
   style,
@@ -174,6 +178,16 @@ export function PreviewPanel({
                 isIconOnly
                 label={t("chatPage.cards.reload")}
                 onClick={() => setReloadKey(reloadKey + 1)}
+                variant="quiet"
+              />
+            ) : null}
+            {isBeside ? (
+              <CardAction
+                icon={PanelRight}
+                isActive
+                isIconOnly
+                label={t("chatPage.cards.besideOpen")}
+                onClick={onClose}
                 variant="quiet"
               />
             ) : null}

@@ -1,157 +1,158 @@
-import { Film, Maximize, Pause, Play } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { Film, Play } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { cn } from "@/app/lib/cn";
 
 import { downloadUrl, formatFileSize } from "./card-types";
-import { ContentCard } from "./content-card";
-import { useRetention } from "./use-retention";
+import { useChatContent } from "./chat-content-context";
+import { ContentCard, subtitleOf } from "./content-card";
+import { formatResolution, reportMediaFacts, useMediaFacts } from "./media-facts";
 import { useAttachmentPreview } from "./use-attachment-preview";
-import { formatMediaTime, useMediaPlayer } from "./use-media-player";
+import { formatSeconds, useMediaPlayer } from "./use-media-player";
+import { useRetention } from "./use-retention";
+import { VideoControlBar } from "./video-controls";
 
-import type { ConversationAttachment } from "@/definition/ConversationContent";
+import type {
+  ConversationAttachment,
+  ConversationMediaFacts,
+} from "@/definition/ConversationContent";
 import type { OpenedCard } from "./card-types";
 import type { MediaPlayer } from "./use-media-player";
 
-/** Steps of the progress bar from the start to the end. */
-const PROGRESS_STEPS = 1000;
-
-const CONTROL_CLASS =
-  "inline-flex h-7 min-w-7 shrink-0 cursor-pointer items-center justify-center rounded-md px-1 text-xs font-medium text-foreground tabular-nums hover:bg-surface-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary";
-
-/** Whether the given element covers the screen, and the action that switches it. */
-function useFullscreen(target: React.RefObject<HTMLElement | null>): {
-  readonly isFullscreen: boolean;
-  toggle(): void;
-} {
-  const [isFullscreen, setFullscreen] = useState(false);
-  useEffect(() => {
-    function handleChange(): void {
-      setFullscreen(
-        target.current !== null &&
-          document.fullscreenElement === target.current,
-      );
-    }
-    document.addEventListener("fullscreenchange", handleChange);
-    return () => document.removeEventListener("fullscreenchange", handleChange);
-  }, [target]);
-  function toggle(): void {
-    const element = target.current;
-    if (!element) return;
-    const change =
-      document.fullscreenElement === element
-        ? document.exitFullscreen()
-        : element.requestFullscreen();
-    void change.catch(() => undefined);
-  }
-  return { isFullscreen, toggle };
+/**
+ * The length, the resolution and the size of a video, as its head and the
+ * strips name them (PAGE-384).
+ *
+ * @param facts - Length and resolution, as far as known.
+ * @param sizeBytes - The size of the file.
+ * @param language - The language of the interface.
+ */
+export function videoMeta(
+  facts: ConversationMediaFacts,
+  sizeBytes: number,
+  language: string,
+): string {
+  return subtitleOf([
+    facts.durationSeconds === undefined ? null : formatSeconds(facts.durationSeconds),
+    formatResolution(facts),
+    formatFileSize(sizeBytes, language),
+  ]);
 }
 
-interface VideoControlsProps {
-  readonly player: MediaPlayer<HTMLVideoElement>;
-  readonly onFullscreen: () => void;
+const BADGE_CLASS =
+  "absolute bottom-2 rounded-md bg-viewer-control px-1.5 py-0.5 text-[11px] font-medium text-viewer-foreground tabular-nums";
+
+interface VideoPosterProps {
+  readonly attachment: ConversationAttachment;
+  readonly facts: ConversationMediaFacts;
+  readonly isPending: boolean;
+  readonly hasPreview: boolean;
+  readonly onPlay: () => void;
 }
 
-/** The bar below a video: Start/Pause, the seekable progress, the time, the speed and the full screen. */
-function VideoControls({
-  player,
-  onFullscreen,
-}: VideoControlsProps): React.ReactElement {
+/**
+ * The preview of a video not started yet (PAGE-384): a large round play
+ * button in the accent color, the resolution bottom left and the length
+ * bottom right.
+ */
+function VideoPoster({
+  attachment,
+  facts,
+  isPending,
+  hasPreview,
+  onPlay,
+}: VideoPosterProps): React.ReactElement {
   const { t, i18n } = useTranslation();
-  const PlayIcon = player.isPlaying ? Pause : Play;
-  const time = formatMediaTime(player.positionSeconds, player.durationSeconds);
-  const speed = `${new Intl.NumberFormat(i18n.language).format(player.speed)}×`;
+  const resolution = formatResolution(facts);
   return (
-    <div className="flex shrink-0 items-center gap-2 border-t border-border bg-surface px-2 py-1.5">
-      <button
-        aria-label={
-          player.isPlaying
-            ? t("chatPage.cards.pause")
-            : t("chatPage.cards.play")
-        }
-        className={CONTROL_CLASS}
-        onClick={player.toggle}
-        type="button"
-      >
-        <PlayIcon aria-hidden="true" className="size-4" />
-      </button>
-      <input
-        aria-label={t("chatPage.cards.seek")}
-        aria-valuetext={time}
-        className="h-1 min-w-0 flex-1 cursor-pointer accent-primary disabled:cursor-default disabled:opacity-50"
-        disabled={player.durationSeconds === null}
-        max={PROGRESS_STEPS}
-        min={0}
-        onChange={(event) =>
-          player.seek(Number(event.currentTarget.value) / PROGRESS_STEPS)
-        }
-        type="range"
-        value={Math.round(player.share * PROGRESS_STEPS)}
-      />
-      <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
-        {time}
+    <button
+      aria-label={t("chatPage.video.playNamed", { name: attachment.name })}
+      className="group absolute inset-0 flex cursor-pointer flex-col items-center justify-center gap-2 px-4 text-viewer-foreground focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
+      data-video-poster=""
+      onClick={onPlay}
+      type="button"
+    >
+      <span className="flex size-16 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-overlay group-hover:bg-primary-hover">
+        <Play aria-hidden="true" className="ml-0.5 size-7" fill="currentColor" />
       </span>
-      <button
-        aria-label={t("chatPage.cards.speed", { speed })}
-        className={CONTROL_CLASS}
-        onClick={player.nextSpeed}
-        title={t("chatPage.cards.speed", { speed })}
-        type="button"
-      >
-        {speed}
-      </button>
-      <button
-        aria-label={t("chatPage.cards.videoFullscreen")}
-        className={CONTROL_CLASS}
-        onClick={onFullscreen}
-        title={t("chatPage.cards.videoFullscreen")}
-        type="button"
-      >
-        <Maximize aria-hidden="true" className="size-4" />
-      </button>
-    </div>
+      {hasPreview ? null : (
+        <span className="max-w-full truncate text-xs text-viewer-muted">
+          {attachment.name} · {formatFileSize(attachment.sizeBytes, i18n.language)}
+          {isPending ? ` · ${t("chatPage.cards.previewPending")}` : null}
+        </span>
+      )}
+      {resolution === null ? null : (
+        <span className={cn(BADGE_CLASS, "left-2")} data-video-resolution="">
+          {resolution}
+        </span>
+      )}
+      {facts.durationSeconds === undefined ? null : (
+        <span className={cn(BADGE_CLASS, "right-2")} data-video-duration="">
+          {formatSeconds(facts.durationSeconds)}
+        </span>
+      )}
+    </button>
   );
+}
+
+/**
+ * The player of one video in the chat (PAGE-384), with its state; the
+ * full screen shows the same state with its own controls.
+ *
+ * @param attachment - The video.
+ * @param isTakingOver - Whether this view takes the video over from another view.
+ */
+export function useVideoPlayer(
+  attachment: ConversationAttachment,
+  isTakingOver: boolean,
+): MediaPlayer<HTMLVideoElement> {
+  return useMediaPlayer<HTMLVideoElement>({
+    attachmentId: attachment.id,
+    isTakingOver,
+    onMetadata: (metadata) => reportMediaFacts(attachment, metadata),
+  });
 }
 
 interface VideoPlayerProps {
   readonly attachment: ConversationAttachment;
-  /** Fills its container instead of keeping 16:9, for the split view and the full screen. */
+  /** Fills its container instead of keeping 16:9, for the split view. */
   readonly isFilling?: boolean;
+  /** The split view: takes the video over from the card and plays on where it was. */
+  readonly isTakingOver?: boolean;
+  /** "Vollbild" in the bar. */
+  readonly onFullscreen?: () => void;
 }
 
 /**
- * The video player of the chat (PAGE-298) with its own controls in the
- * colors of the theme.
+ * The video player of the chat (PAGE-298, PAGE-384) with its own controls
+ * in the colors of the theme.
  *
  * @remarks
  * Until the person starts it, only the preview image is loaded
- * (`preload="none"`); the original streams from then on. Without a preview
- * image the stage names the file while the browser creates one.
+ * (`preload="none"`) and the stage shows a large play button with the
+ * resolution and the length; the original streams from the start on, and
+ * the bar appears. The video joins the one playback of the page: it starts
+ * where it stopped in another view, and starting it pauses every other
+ * medium.
  */
 export function VideoPlayer({
   attachment,
   isFilling = false,
+  isTakingOver = false,
+  onFullscreen,
 }: VideoPlayerProps): React.ReactElement {
-  const { t, i18n } = useTranslation();
-  const frame = useRef<HTMLDivElement | null>(null);
-  const player = useMediaPlayer<HTMLVideoElement>();
-  const fullscreen = useFullscreen(frame);
+  const player = useVideoPlayer(attachment, isTakingOver);
   const preview = useAttachmentPreview(attachment);
-  const isLarge = isFilling || fullscreen.isFullscreen;
-  const isUntouched = !player.isPlaying && player.positionSeconds === 0;
+  const facts = useMediaFacts(attachment);
+  const isStarted = player.hasStarted || player.positionSeconds > 0;
   return (
     <div
-      ref={frame}
-      className={cn(
-        "flex flex-col bg-viewer-scrim",
-        isLarge && "min-h-0 flex-1",
-      )}
+      className={cn("flex flex-col bg-viewer-scrim", isFilling && "min-h-0 flex-1")}
       data-video-player={attachment.id}
     >
       <div
         ref={preview.target}
-        className={cn("relative", isLarge ? "min-h-0 flex-1" : "aspect-video")}
+        className={cn("relative", isFilling ? "min-h-0 flex-1" : "aspect-video")}
       >
         <video
           ref={player.media}
@@ -162,63 +163,72 @@ export function VideoPlayer({
           src={attachment.url}
           {...player.events}
         />
-        <button
-          aria-label={
-            player.isPlaying
-              ? t("chatPage.cards.pause")
-              : t("chatPage.cards.play")
-          }
-          className="group absolute inset-0 flex cursor-pointer flex-col items-center justify-center gap-2 px-4 text-viewer-foreground focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
-          onClick={player.toggle}
-          type="button"
-        >
-          {player.isPlaying ? null : (
-            <span className="flex size-14 items-center justify-center rounded-full bg-viewer-control ring-1 ring-viewer-edge group-hover:bg-viewer-control-hover">
-              <Play aria-hidden="true" className="size-6" />
-            </span>
-          )}
-          {preview.previewUrl === null && isUntouched ? (
-            <span className="max-w-full truncate text-xs text-viewer-muted">
-              {attachment.name} ·{" "}
-              {formatFileSize(attachment.sizeBytes, i18n.language)}
-              {preview.isPending
-                ? ` · ${t("chatPage.cards.previewPending")}`
-                : null}
-            </span>
-          ) : null}
-        </button>
+        {isStarted ? (
+          <button
+            aria-hidden="true"
+            className="absolute inset-0 cursor-pointer"
+            onClick={player.toggle}
+            tabIndex={-1}
+            type="button"
+          />
+        ) : (
+          <VideoPoster
+            attachment={attachment}
+            facts={facts}
+            hasPreview={preview.previewUrl !== null}
+            isPending={preview.isPending}
+            onPlay={player.toggle}
+          />
+        )}
       </div>
-      <VideoControls onFullscreen={fullscreen.toggle} player={player} />
+      {isStarted ? (
+        <VideoControlBar
+          className="shrink-0 border-t border-border bg-surface"
+          onFullscreen={onFullscreen}
+          player={player}
+          tone="light"
+        />
+      ) : null}
     </div>
   );
 }
 
 interface VideoCardProps {
-  /** The card of the video, as the split view opens it. */
+  /** The card of the video, as the split view and the full screen open it. */
   readonly card: OpenedCard & {
     readonly descriptor: { readonly kind: "video" };
   };
 }
 
-/** The card of a video of a message (PAGE-298): the player with Laden and Daneben. */
+/**
+ * The card of a video of a message (PAGE-298, PAGE-384): the shared head
+ * with kind, length, resolution, size and remaining time, Herunterladen,
+ * Daneben, Vollbild and Zuklappen, and the player.
+ */
 export function VideoCard({ card }: VideoCardProps): React.ReactElement {
   const { t, i18n } = useTranslation();
+  const content = useChatContent();
   const { attachment } = card.descriptor;
   const retention = useRetention(attachment.expiresAt);
+  const facts = useMediaFacts(attachment);
   return (
     <ContentCard
       beside={card}
-      download={{ href: downloadUrl(attachment) }}
-      retention={retention}
       cardKey={card.key}
       className="max-w-lg"
       defaultState="expanded"
+      download={{ href: downloadUrl(attachment) }}
       icon={Film}
       kindLabel={t("chatPage.cards.kind.video")}
-      meta={formatFileSize(attachment.sizeBytes, i18n.language)}
+      meta={videoMeta(facts, attachment.sizeBytes, i18n.language)}
       name={attachment.name}
+      onFullscreen={() => content.openOverlay(card)}
+      retention={retention}
     >
-      <VideoPlayer attachment={attachment} />
+      <VideoPlayer
+        attachment={attachment}
+        onFullscreen={() => content.openOverlay(card)}
+      />
     </ContentCard>
   );
 }

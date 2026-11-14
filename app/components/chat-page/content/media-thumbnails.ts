@@ -88,8 +88,18 @@ async function drawImage(source: Blob): Promise<HTMLCanvasElement | null> {
   }
 }
 
+/** What the browser read of a video while it drew its frame (PAGE-384). */
+export interface ThumbnailFacts {
+  readonly width: number;
+  readonly height: number;
+  readonly durationSeconds: number;
+}
+
 /** Draws the frame of a video near its start; half-way for a very short video. */
-async function drawVideo(source: Blob): Promise<HTMLCanvasElement | null> {
+async function drawVideo(
+  source: Blob,
+  onFacts?: (facts: ThumbnailFacts) => void,
+): Promise<HTMLCanvasElement | null> {
   const address = URL.createObjectURL(source);
   const video = document.createElement("video");
   video.muted = true;
@@ -99,6 +109,12 @@ async function drawVideo(source: Blob): Promise<HTMLCanvasElement | null> {
     const loaded = waitForEvent(video, "loadeddata");
     video.src = address;
     await loaded;
+    if (Number.isFinite(video.duration))
+      onFacts?.({
+        width: video.videoWidth,
+        height: video.videoHeight,
+        durationSeconds: video.duration,
+      });
     const halfDuration = Number.isFinite(video.duration)
       ? video.duration / 2
       : VIDEO_FRAME_SECONDS;
@@ -137,10 +153,11 @@ async function drawPdf(source: Blob): Promise<HTMLCanvasElement | null> {
 function drawSource(
   source: Blob,
   mimeType: string,
+  onFacts?: (facts: ThumbnailFacts) => void,
 ): Promise<HTMLCanvasElement | null> {
   const type = mimeType.toLowerCase();
   if (type.startsWith("image/")) return drawImage(source);
-  if (type.startsWith("video/")) return drawVideo(source);
+  if (type.startsWith("video/")) return drawVideo(source, onFacts);
   if (type === "application/pdf") return drawPdf(source);
   return Promise.resolve(null);
 }
@@ -175,15 +192,17 @@ async function encodeThumbnail(
  *
  * @param source - The file or blob with the original bytes.
  * @param mimeType - The media type that decides how the bytes are read.
+ * @param onFacts - Receives the resolution and length of a video (PAGE-384).
  * @returns The preview, or `null` when the browser cannot produce one, such
  * as for another type or for bytes it cannot decode.
  */
 export async function createThumbnail(
   source: Blob,
   mimeType: string,
+  onFacts?: (facts: ThumbnailFacts) => void,
 ): Promise<Blob | null> {
   try {
-    const canvas = await drawSource(source, mimeType);
+    const canvas = await drawSource(source, mimeType, onFacts);
     return canvas ? await encodeThumbnail(canvas) : null;
   } catch (error: unknown) {
     console.warn("No preview could be created.", error);

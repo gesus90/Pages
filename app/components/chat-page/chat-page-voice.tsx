@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import { cn } from "@/app/lib/cn";
 
+import { useExclusivePlayback } from "./content/use-media-player";
 import {
   decodeAudio,
   formatVoiceDuration,
@@ -45,7 +46,10 @@ function useVoicePeaks(url: string): readonly number[] | null {
 }
 
 /** Playing, the position and the seeking of one voice message. */
-function useVoicePlayer(durationMs: number): {
+function useVoicePlayer(
+  durationMs: number,
+  url: string,
+): {
   readonly audio: React.RefObject<HTMLAudioElement | null>;
   readonly isPlaying: boolean;
   readonly positionMs: number;
@@ -59,6 +63,8 @@ function useVoicePlayer(durationMs: number): {
   const audio = useRef<HTMLAudioElement | null>(null);
   const [isPlaying, setPlaying] = useState(false);
   const [positionMs, setPositionMs] = useState(0);
+  // Only one medium of the page plays at a time (PAGE-384).
+  const playback = useExclusivePlayback(audio, `voice:${url}`);
   function toggle(): void {
     const element = audio.current;
     if (!element) return;
@@ -78,11 +84,18 @@ function useVoicePlayer(durationMs: number): {
     toggle,
     seek,
     events: {
-      onPlay: () => setPlaying(true),
-      onPause: () => setPlaying(false),
+      onPlay: () => {
+        setPlaying(true);
+        playback.claim();
+      },
+      onPause: () => {
+        setPlaying(false);
+        playback.release();
+      },
       onEnded: () => {
         setPlaying(false);
         setPositionMs(0);
+        playback.release();
       },
       onTimeUpdate: (event) =>
         setPositionMs(event.currentTarget.currentTime * 1000),
@@ -97,16 +110,20 @@ export function VoiceWave({
   isOwn,
   label,
   onSeek,
+  isRestNeutral = false,
 }: {
   readonly peaks: readonly number[] | null;
   readonly share: number;
   readonly isOwn: boolean;
   readonly label: string;
   readonly onSeek: (share: number) => void;
+  /** Draws the part not played yet in the neutral border color instead of a pale accent (PAGE-384). */
+  readonly isRestNeutral?: boolean;
 }): React.ReactElement {
   const bars = peaks ?? FLAT_WAVE;
   const played = Math.round(share * bars.length);
   const color = isOwn ? "bg-primary-foreground" : "bg-primary";
+  const rest = isRestNeutral ? "bg-border" : cn(color, "opacity-40");
   function handleClick(event: React.MouseEvent<HTMLButtonElement>): void {
     const box = event.currentTarget.getBoundingClientRect();
     onSeek(Math.min(1, Math.max(0, (event.clientX - box.left) / box.width)));
@@ -123,11 +140,7 @@ export function VoiceWave({
         <span
           key={index}
           aria-hidden="true"
-          className={cn(
-            "flex-1 rounded-full",
-            color,
-            index < played ? undefined : "opacity-40",
-          )}
+          className={cn("flex-1 rounded-full", index < played ? color : rest)}
           style={{ height: `${Math.max(12, peak * 100)}%` }}
         />
       ))}
@@ -148,7 +161,7 @@ export function ChatPageVoice({
 }: ChatPageVoiceProps): React.ReactElement {
   const { t } = useTranslation();
   const peaks = useVoicePeaks(voice.url);
-  const player = useVoicePlayer(voice.durationMs);
+  const player = useVoicePlayer(voice.durationMs, voice.url);
   const muted = isOwn ? "text-primary-foreground/80" : "text-muted-foreground";
   const status: Readonly<Record<VirtualVoice["transcriptionState"], string>> = {
     pending: t("chatPage.voice.transcribing"),

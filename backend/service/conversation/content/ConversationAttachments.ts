@@ -11,6 +11,11 @@ import {
   conversationAttachmentNameSchema,
 } from "@/definition/ConversationContent";
 
+import {
+  conversationMediaFactsOf,
+  readConversationMediaFacts,
+} from "./ConversationMediaFacts";
+
 import type { ReadStream } from "node:fs";
 import type {
   ConversationAttachmentRepository,
@@ -24,6 +29,7 @@ import type {
 } from "@/definition/ConversationContent";
 import type { User } from "@/definition/User";
 import type { ConversationArchiveEntry } from "./ConversationZipArchive";
+import type { ConversationMediaFactsInput } from "./ConversationMediaFacts";
 
 /** Uploads that no message took are removed after a day. */
 const UNBOUND_LIFETIME_MILLISECONDS = 24 * 60 * 60 * 1000;
@@ -105,6 +111,7 @@ export function toConversationAttachment(
     createdAt: stored.createdAt,
     ...(stored.expiresAt ? { expiresAt: stored.expiresAt } : {}),
     ...(stored.expiredAt ? { expiredAt: stored.expiredAt } : {}),
+    ...conversationMediaFactsOf(stored.media),
   };
 }
 
@@ -243,13 +250,19 @@ export class ConversationAttachments {
    */
   public async uploadThumbnail(
     person: User,
-    thumbnail: { readonly attachmentId: unknown; readonly mimeType: string },
+    thumbnail: {
+      readonly attachmentId: unknown;
+      readonly mimeType: string;
+      /** Resolution and length the browser read while it made the image (PAGE-384). */
+      readonly facts?: ConversationMediaFactsInput;
+    },
     source: AsyncIterable<Uint8Array>,
   ): Promise<ConversationAttachment> {
     const attachment = await this.requireVisible(
       person,
       thumbnail.attachmentId,
     );
+    if (thumbnail.facts) await this.storeMediaFacts(attachment, thumbnail.facts);
     const mimeType = readAttachmentMimeType(thumbnail.mimeType);
     if (!CONVERSATION_THUMBNAIL_MIME_TYPES.some((type) => type === mimeType))
       throw new ConversationError("unsupported_format");
@@ -263,6 +276,43 @@ export class ConversationAttachments {
     if (!isStored) await this.dependencies.files.remove([file.storageName]);
     const current = await this.dependencies.attachments.find(attachment.id);
     return toConversationAttachment(current ?? attachment);
+  }
+
+  /**
+   * Stores the resolution and length the browser read of a video or a sound
+   * (PAGE-384), once per attachment; the chat shows them before the
+   * original loads.
+   *
+   * @throws {ConversationError} `not_found` for an attachment of a
+   * conversation of which the person is no member, `invalid` for an
+   * attachment that is no video or sound or facts without a usable value.
+   */
+  public async recordMediaFacts(
+    person: User,
+    attachmentId: unknown,
+    facts: ConversationMediaFactsInput,
+  ): Promise<ConversationAttachment> {
+    const attachment = await this.requireVisible(person, attachmentId);
+    if (!(await this.storeMediaFacts(attachment, facts)))
+      throw new ConversationError("invalid");
+    const current = await this.dependencies.attachments.find(attachment.id);
+    return toConversationAttachment(current ?? attachment);
+  }
+
+  /** Stores usable facts of a video or a sound that has none; `false` when none are usable. */
+  private async storeMediaFacts(
+    attachment: StoredConversationAttachment,
+    input: ConversationMediaFactsInput,
+  ): Promise<boolean> {
+    const facts = readConversationMediaFacts(
+      conversationAttachmentKind(attachment.mimeType),
+      input,
+    );
+    if (facts === null) return false;
+    // Facts of another viewer that came first stay.
+    if (!attachment.media)
+      await this.dependencies.attachments.setMediaFacts(attachment.id, facts);
+    return true;
   }
 
   /** Drops an own upload that no message took; anything else stays untouched. */
@@ -427,9 +477,35 @@ export class ConversationAttachments {
     person: User,
     conversationId: unknown,
   ): Promise<ConversationImage[]> {
+    return this.mediaOf(person, conversationId, "image");
+  }
+
+  /**
+   * The videos of a conversation for a member, in the order they were sent
+   * (PAGE-384): the split view offers the others below the open one, and the
+   * full screen pages through all of them.
+   *
+   * @throws {ConversationError} `not_found` for a conversation of which the
+   * person is no member.
+   */
+  public async videos(
+    person: User,
+    conversationId: unknown,
+  ): Promise<ConversationImage[]> {
+    return this.mediaOf(person, conversationId, "video");
+  }
+
+  private async mediaOf(
+    person: User,
+    conversationId: unknown,
+    kind: "image" | "video",
+  ): Promise<ConversationImage[]> {
     const id = readIdentifier(conversationId);
     await this.requireMember(person.id, id);
-    const stored = await this.dependencies.attachments.imagesOfConversation(id);
+    const stored =
+      kind === "image"
+        ? await this.dependencies.attachments.imagesOfConversation(id)
+        : await this.dependencies.attachments.mediaOfConversation(id, kind);
     const accounts = await this.dependencies.directory?.read();
     const now = this.now();
     return stored.map((image) => {

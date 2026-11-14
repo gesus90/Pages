@@ -2,6 +2,7 @@ import { AGENT_PROVIDERS } from "./AgentConnection";
 import { supportsModelCatalog } from "./AgentModelCatalog";
 import { isChatCapableModel, isTextCapableModel } from "./AgentModelFilter";
 import { isImageOutputModel } from "./AgentImageGeneration";
+import { isMediaOutputModel } from "./AgentMediaGeneration";
 import { agentModelKey } from "./AgentPlanConfiguration";
 import { isDecisionModel } from "./ConversationDecision";
 import { isTranscriptionModel } from "./SpeechRecognition";
@@ -69,5 +70,8 @@ export function catalogModelChoice(
     ...(isDecisionModel(model) ? { isDecisionCapable: true } : {}),
     // An agent generates images with its own model when the catalog states it (PAGE-382).
     ...(isImageOutputModel(model) ? { isImageOutputCapable: true } : {}),
+    // Likewise videos and sounds (PAGE-384).
+    ...(isMediaOutputModel(model, "video") ? { isVideoOutputCapable: true } : {}),
+    ...(isMediaOutputModel(model, "audio") ? { isAudioOutputCapable: true } : {}),
   };
 }

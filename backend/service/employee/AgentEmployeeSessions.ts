@@ -56,7 +56,11 @@ export type {
   AgentJobRequest,
   QueuedAgentMessage,
 } from "./AgentEmployeeSessionTypes";
-import { chatToolsOf, imageToolOf } from "./AgentEmployeeChatTools";
+import {
+  chatToolsOf,
+  imageToolOf,
+  mediaToolOf,
+} from "./AgentEmployeeChatTools";
 import { agentIdentity, employeeAssignment } from "./AgentEmployeeAssignments";
 
 /** Jobs of a conversation whose tool calls the chat page shows. */
@@ -838,6 +842,12 @@ export class AgentEmployeeSessions {
       // its own session and `chat_lesen` reads only that chat (PAGE-376).
       ...chatToolsOf(this.dependencies, agent, chat),
       ...imageToolOf(this.dependencies.images, {
+        agentId: agent.id,
+        conversationId: chat.scope.conversationId,
+        employee,
+        assignment,
+      }),
+      ...mediaToolOf(this.dependencies.media, {
         agentId: agent.id,
         conversationId: chat.scope.conversationId,
         employee,

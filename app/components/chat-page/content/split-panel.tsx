@@ -123,6 +123,7 @@ export function SplitPanel({
       <CardPanel
         card={beside}
         className="shrink-0 rounded-[14px] border border-border shadow-card"
+        isBeside
         onClose={closeBeside}
         onFullscreen={() => openOverlay(beside)}
         // The width belongs to the person, so it is the one inline style here.

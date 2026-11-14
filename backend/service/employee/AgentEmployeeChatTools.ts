@@ -1,7 +1,9 @@
 import { agentImageTool } from "./AgentImageTool";
+import { agentMediaTool } from "./AgentMediaTool";
 
 import type { PicaAcpStart } from "../chat/acp/PicaAcpService";
 import type { AgentImageToolDependencies, AgentImageTurn } from "./AgentImageTool";
+import type { AgentMediaToolDependencies } from "./AgentMediaTool";
 import type { User } from "@/definition/User";
 import type {
   AgentChatScope,
@@ -141,5 +143,27 @@ export function imageToolOf(
   if (!images || conversationId === null) return {};
   return {
     generateImages: agentImageTool(images, { ...turn, conversationId }),
+  };
+}
+
+/**
+ * `video_erzeugen` and `audio_erzeugen` of a round in a conversation
+ * (PAGE-384), bound to the model of the round; a run of the agent's own and a
+ * direct chat outside the conversations get none.
+ *
+ * @param media - The generation and storage of videos and sounds; absent offers none.
+ * @param turn - The agent, the conversation of the round or `null`, and the
+ * model of the round.
+ */
+export function mediaToolOf(
+  media: AgentMediaToolDependencies | undefined,
+  turn: Omit<AgentImageTurn, "conversationId"> & {
+    readonly conversationId: string | null;
+  },
+): Pick<NonNullable<PicaAcpStart["employee"]>, "generateMedia"> {
+  const { conversationId } = turn;
+  if (!media || conversationId === null) return {};
+  return {
+    generateMedia: agentMediaTool(media, { ...turn, conversationId }),
   };
 }

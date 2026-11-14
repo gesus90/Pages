@@ -1,6 +1,7 @@
 import { createInClause } from "@/backend/database/repositories/task/InClause";
 import {
   readCountColumn,
+  readNullableCountColumn,
   readNullableTextColumn,
   readTextColumn,
 } from "@/backend/database/RowValue";
@@ -26,7 +27,10 @@ const ATTACHMENT_COLUMNS = `
     conversation_attachments.thumbnail_size_bytes,
     conversation_attachments.created_at,
     conversation_attachments.expires_at,
-    conversation_attachments.expired_at`;
+    conversation_attachments.expired_at,
+    conversation_attachments.media_width,
+    conversation_attachments.media_height,
+    conversation_attachments.media_duration_ms`;
 
 /** The stored preview image of an attachment. */
 export interface StoredConversationThumbnail {
@@ -58,7 +62,20 @@ export interface StoredConversationAttachment {
   readonly expiresAt?: string | null;
   /** When the file and its preview image were removed; the row stays as a placeholder. */
   readonly expiredAt?: string | null;
+  /** Resolution and length of a video or a sound as the browser read them (PAGE-384); `null` until then. */
+  readonly media?: StoredConversationMediaFacts | null;
 }
+
+/** Resolution and length of a video or a sound (PAGE-384). */
+export interface StoredConversationMediaFacts {
+  /** Pixels; `null` for a sound. */
+  readonly width: number | null;
+  readonly height: number | null;
+  readonly durationMs: number | null;
+}
+
+/** An image or a video of a conversation with the message that carries it (PAGE-382, PAGE-384). */
+export type StoredConversationMedia = StoredConversationImage;
 
 /** An image of a conversation with the message that carries it (PAGE-382). */
 export interface StoredConversationImage {
@@ -72,7 +89,7 @@ export interface StoredConversationImage {
 /** What a new attachment is stored with. */
 export type NewConversationAttachment = Omit<
   StoredConversationAttachment,
-  "thumbnail" | "position" | "expiredAt"
+  "thumbnail" | "position" | "expiredAt" | "media"
 > & { readonly position?: number };
 
 type AttachmentDatabase = Pick<Database, "query" | "execute" | "transaction">;
@@ -106,7 +123,18 @@ function toAttachment(
     createdAt: readTextColumn(row, 12, "created_at"),
     expiresAt: readNullableTextColumn(row, 13, "expires_at"),
     expiredAt: readNullableTextColumn(row, 14, "expired_at"),
+    media: readMediaFacts(row),
   };
+}
+
+function readMediaFacts(
+  row: readonly DatabaseValue[],
+): StoredConversationMediaFacts | null {
+  const width = readNullableCountColumn(row, 15, "media_width");
+  const height = readNullableCountColumn(row, 16, "media_height");
+  const durationMs = readNullableCountColumn(row, 17, "media_duration_ms");
+  if (width === null && height === null && durationMs === null) return null;
+  return { width, height, durationMs };
 }
 
 /** Binds uploaded attachments of the sender to a message, in the given order. */
@@ -421,12 +449,57 @@ export class ConversationAttachmentRepository {
   }
 
   /**
+   * Stores the resolution and the length of a video or a sound once
+   * (PAGE-384); facts already stored stay.
+   *
+   * @returns `false` when the attachment has facts already or is missing.
+   */
+  public async setMediaFacts(
+    attachmentId: string,
+    facts: StoredConversationMediaFacts,
+  ): Promise<boolean> {
+    const rows = await this.database.query(
+      `
+        UPDATE conversation_attachments
+        SET
+            media_width = $width,
+            media_height = $height,
+            media_duration_ms = $duration_ms
+        WHERE id = $id
+            AND media_width IS NULL
+            AND media_height IS NULL
+            AND media_duration_ms IS NULL
+        RETURNING id;
+      `,
+      {
+        id: attachmentId,
+        width: facts.width,
+        height: facts.height,
+        duration_ms: facts.durationMs,
+      },
+    );
+    return rows.length === 1;
+  }
+
+  /**
    * Returns the images of the sent messages of a conversation, oldest
    * message first and in their order within a message (PAGE-382).
    */
   public async imagesOfConversation(
     conversationId: string,
   ): Promise<StoredConversationImage[]> {
+    return this.mediaOfConversation(conversationId, "image");
+  }
+
+  /**
+   * Returns the images or the videos of the sent messages of a conversation,
+   * oldest message first and in their order within a message (PAGE-382,
+   * PAGE-384).
+   */
+  public async mediaOfConversation(
+    conversationId: string,
+    kind: "image" | "video",
+  ): Promise<StoredConversationMedia[]> {
     const rows = await this.database.query(
       `
         SELECT${ATTACHMENT_COLUMNS},
@@ -436,12 +509,15 @@ export class ConversationAttachmentRepository {
         INNER JOIN conversation_messages
             ON conversation_messages.id = conversation_attachments.message_id
         WHERE conversation_attachments.conversation_id = $conversation_id
-            AND conversation_attachments.mime_type LIKE 'image/%'
+            AND conversation_attachments.mime_type LIKE $type_pattern
         ORDER BY
             conversation_messages.sequence,
             conversation_attachments.position;
       `,
-      { conversation_id: conversationId },
+      {
+        conversation_id: conversationId,
+        type_pattern: kind === "video" ? "video/%" : "image/%",
+      },
     );
     const images: StoredConversationImage[] = [];
     for (const row of rows) {
@@ -450,8 +526,8 @@ export class ConversationAttachmentRepository {
       images.push({
         attachment,
         messageId: attachment.messageId,
-        senderId: readTextColumn(row, 15, "sender_id"),
-        sentAt: readTextColumn(row, 16, "sent_at"),
+        senderId: readTextColumn(row, 18, "sender_id"),
+        sentAt: readTextColumn(row, 19, "sent_at"),
       });
     }
     return images;

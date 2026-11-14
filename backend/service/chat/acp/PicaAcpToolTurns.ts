@@ -34,6 +34,7 @@ export class PicaAcpToolTurns {
     | "attachHostFile"
     | "agentChat"
     | "generateImages"
+    | "generateMedia"
   >;
   private readonly controller = new AbortController();
   private turn = 0;
@@ -57,6 +58,7 @@ export class PicaAcpToolTurns {
       | "attachHostFile"
       | "agentChat"
       | "generateImages"
+      | "generateMedia"
     >,
     answerRunId: (turn: number) => string,
   ) {
@@ -99,6 +101,7 @@ export class PicaAcpToolTurns {
       attachHostFile: this.dependencies.attachHostFile,
       agentChat: this.dependencies.agentChat,
       generateImages: this.dependencies.generateImages,
+      generateMedia: this.dependencies.generateMedia,
     }).describe({ includeAdministrator: await this.isAdministrator(userId) });
   }
 
@@ -221,6 +224,9 @@ export class PicaAcpToolTurns {
           : {}),
         ...(this.dependencies.generateImages
           ? { generateImages: this.dependencies.generateImages }
+          : {}),
+        ...(this.dependencies.generateMedia
+          ? { generateMedia: this.dependencies.generateMedia }
           : {}),
       },
       state,

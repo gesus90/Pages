@@ -4264,7 +4264,6 @@
       "pause": "Pause",
       "seek": "Seek",
       "speed": "Speed: {{speed}}",
-      "videoFullscreen": "Video in full screen",
       "previewPending": "Creating preview …",
       "noPreview": "No preview",
       "you": "You",
@@ -4493,7 +4492,9 @@
         "images_one": "{{name}} is generating {{count}} image …",
         "images_other": "{{name}} is generating {{count}} images …",
         "generating_one": "Generating {{count}} image …",
-        "generating_other": "Generating {{count}} images …"
+        "generating_other": "Generating {{count}} images …",
+        "video": "{{name}} is generating a video …",
+        "audio": "{{name}} is generating a sound …"
       },
       "steer": "Redirect",
       "steerShortcut": "↵",
@@ -4562,6 +4563,18 @@
         "diagram": "Mermaid diagram",
         "resetZoom": "Reset zoom"
       }
+    },
+    "video": {
+      "playNamed": "Play {{name}}",
+      "mute": "Mute",
+      "unmute": "Unmute",
+      "captions": "Subtitles",
+      "pictureInPicture": "Picture in picture",
+      "others": "More videos in this chat",
+      "openOther": "Open {{name}} beside",
+      "previous": "Previous video",
+      "next": "Next video",
+      "viewer": "Video in full screen"
     }
   },
   "workspaces": {
@@ -8117,7 +8130,9 @@
         "ticket": "Ticket: {{message}}",
         "wiki": "Wiki: {{message}}",
         "access": "Access level: {{from}} → {{to}} (changed by {{person}})",
-        "image": "Images generated: {{count}} · {{model}}"
+        "image": "Images generated: {{count}} · {{model}}",
+        "video": "Video generated · {{model}}",
+        "audio": "Sound generated · {{model}}"
       },
       "state": {
         "running": "running",

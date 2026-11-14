@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import { CONVERSATION_THUMBNAIL_MAXIMUM_BYTES } from "@/definition/ConversationContent";
 
+import { mediaFactsQuery, rememberMediaFacts } from "./media-facts";
 import { createThumbnail } from "./media-thumbnails";
 import { useSeen } from "./use-seen";
 
@@ -43,10 +44,11 @@ function readThumbnailUrl(body: unknown): string | null {
 async function uploadPreview(
   attachmentId: string,
   preview: Blob,
+  factsQuery: string,
 ): Promise<void> {
   if (preview.size > CONVERSATION_THUMBNAIL_MAXIMUM_BYTES) return;
   const response = await fetch(
-    `/chat-page-api/files?attachmentId=${encodeURIComponent(attachmentId)}`,
+    `/chat-page-api/files?attachmentId=${encodeURIComponent(attachmentId)}${factsQuery}`,
     {
       method: "PUT",
       headers: { "Content-Type": preview.type },
@@ -65,12 +67,18 @@ async function createPreview(
 ): Promise<Blob | null> {
   const response = await fetch(attachment.url, { signal });
   if (!response.ok) return null;
+  let factsQuery = "";
+  // A video gives its resolution and length with the frame (PAGE-384).
   const preview = await createThumbnail(
     await response.blob(),
     attachment.mimeType,
+    (facts) => {
+      rememberMediaFacts(attachment.id, facts);
+      factsQuery = mediaFactsQuery(facts);
+    },
   );
   if (preview && !signal.aborted)
-    void uploadPreview(attachment.id, preview).catch(() => undefined);
+    void uploadPreview(attachment.id, preview, factsQuery).catch(() => undefined);
   return preview;
 }
 

@@ -43,6 +43,8 @@ import type {
 import type { PicaAcpRunner } from "./PicaAcpRunners";
 import type { AgentHostFileTarget } from "@/backend/service/employee/AgentHostFiles";
 import type { AgentImageToolInput } from "@/backend/service/employee/AgentImageTool";
+import type { AgentMediaToolInput } from "@/backend/service/employee/AgentMediaTool";
+import type { AgentMediaKind } from "@/definition/AgentMediaGeneration";
 import type { PicaToolOutcome } from "../PicaToolSchemas";
 import type { PicaAcpWorkspace } from "./PicaAcpWorkspace";
 import type { PicaAcpSessionPool } from "./PicaAcpSessionPool";
@@ -149,6 +151,16 @@ export interface PicaAcpEmployeeRun {
   readonly generateImages?: (
     directory: string,
     input: AgentImageToolInput,
+    signal: AbortSignal,
+  ) => Promise<PicaToolOutcome>;
+  /**
+   * Generates a video or a sound with the model of the round into the job's
+   * working folder and notes it for the answer, in a conversation (PAGE-384).
+   */
+  readonly generateMedia?: (
+    kind: AgentMediaKind,
+    directory: string,
+    input: AgentMediaToolInput,
     signal: AbortSignal,
   ) => Promise<PicaToolOutcome>;
   /**
@@ -560,6 +572,7 @@ export class PicaAcpService {
     });
     const attachFile = input.employee?.attachFile;
     const generateImages = input.employee?.generateImages;
+    const generateMedia = input.employee?.generateMedia;
     const job = new PicaAcpJob(
       {
         ...dependencies,
@@ -573,6 +586,12 @@ export class PicaAcpService {
           ? {
               generateImages: (parameters, signal) =>
                 generateImages(directory, parameters, signal),
+            }
+          : {}),
+        ...(generateMedia
+          ? {
+              generateMedia: (kind, parameters, signal) =>
+                generateMedia(kind, directory, parameters, signal),
             }
           : {}),
       },

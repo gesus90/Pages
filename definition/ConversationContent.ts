@@ -65,7 +65,25 @@ export interface ConversationAttachment {
    * date instead, and `url` answers no more.
    */
   readonly expiredAt?: string;
+  /** Width and height of a video in pixels, once the browser read them (PAGE-384). */
+  readonly width?: number;
+  readonly height?: number;
+  /** Length of a video or a sound in seconds, once the browser read it (PAGE-384). */
+  readonly durationSeconds?: number;
 }
+
+/** The facts the browser reads of a video or a sound (PAGE-384), as it sends them. */
+export interface ConversationMediaFacts {
+  readonly width?: number;
+  readonly height?: number;
+  readonly durationSeconds?: number;
+}
+
+/** Largest side of a video Pages stores as a fact, in pixels: 16K. */
+export const CONVERSATION_MEDIA_MAXIMUM_SIDE = 16_384;
+
+/** Longest video or sound Pages stores as a fact, in seconds: one day. */
+export const CONVERSATION_MEDIA_MAXIMUM_SECONDS = 24 * 60 * 60;
 
 /** An image of a conversation, as the image viewer pages through them (PAGE-382). */
 export interface ConversationImage {

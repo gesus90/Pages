@@ -11,11 +11,17 @@ import {
 } from "@/backend/service/employee/AgentLogbookInput";
 
 import { AGENT_IMAGE_TOOL_SCHEMA } from "@/backend/service/employee/AgentImageTool";
+import {
+  AGENT_AUDIO_TOOL_SCHEMA,
+  AGENT_VIDEO_TOOL_SCHEMA,
+} from "@/backend/service/employee/AgentMediaTool";
 
 import { PICA_TOOL_OUTCOME } from "./PicaToolSchemas";
 
 import type { RuntimeToolRegistry } from "@/backend/agents/runtime/RuntimeToolRegistry";
 import type { AgentImageToolInput } from "@/backend/service/employee/AgentImageTool";
+import type { AgentMediaToolInput } from "@/backend/service/employee/AgentMediaTool";
+import type { AgentMediaKind } from "@/definition/AgentMediaGeneration";
 import type { PicaToolsInput } from "./PicaTools";
 import type { PicaToolOutcome } from "./PicaToolSchemas";
 
@@ -79,6 +85,12 @@ const LOGBOOK_READ_DESCRIPTION =
 const IMAGE_DESCRIPTION =
   "Generate images with the model you work with in this chat; there is no other image model. Give beschreibung (what the images show, in detail), optionally anzahl (1 to 4), seitenverhaeltnis (such as 16:9) and vorlagen (absolute paths of existing images in your working folder or ~/Results/ to build on). Pages stores the images and attaches them to your answer itself: never write a file line or a path for them. If your model cannot output images, the tool says so and names the released models that can; tell the person exactly that, and never invent an image or pretend success. Pass a failure on in plain words.";
 
+const VIDEO_DESCRIPTION =
+  "Generate one video with the model you work with in this chat; there is no other video model. Give beschreibung (what the video shows and how it moves, in detail), optionally seitenverhaeltnis (16:9 or 9:16) and dauer (4 to 8 seconds). It can take some minutes. Pages stores the video and attaches it to your answer itself: never write a file line or a path for it. If your model cannot output video, the tool says so and names the released models that can; tell the person exactly that, and never invent a video or pretend success. Pass a failure on in plain words.";
+
+const AUDIO_DESCRIPTION =
+  "Generate one sound or spoken audio with the model you work with in this chat; there is no other audio model. Give beschreibung (the text to speak or the sound wanted, in detail) and optionally stimme (a voice name of the provider). Pages stores the sound and attaches it to your answer itself: never write a file line or a path for it. If your model cannot output audio, the tool says so and names the released models that can; tell the person exactly that, and never invent a sound or pretend success. Pass a failure on in plain words.";
+
 /** What the tools of an agent employee need from one turn. */
 type EmployeeToolsInput = Pick<
   PicaToolsInput,
@@ -88,6 +100,7 @@ type EmployeeToolsInput = Pick<
   | "readOwnChat"
   | "logbook"
   | "generateImages"
+  | "generateMedia"
 >;
 
 function refused(error: string): PicaToolOutcome {
@@ -242,12 +255,45 @@ function registerImageTool(
   });
 }
 
+/** Registers `video_erzeugen` and `audio_erzeugen` (PAGE-384); they use only the model and the connection of the round. */
+function registerMediaTools(
+  registry: RuntimeToolRegistry,
+  input: EmployeeToolsInput,
+  spend: () => boolean,
+): void {
+  const generate = input.generateMedia;
+  if (!generate) return;
+  const tools: readonly {
+    readonly id: string;
+    readonly kind: AgentMediaKind;
+    readonly description: string;
+    readonly schema: typeof AGENT_VIDEO_TOOL_SCHEMA | typeof AGENT_AUDIO_TOOL_SCHEMA;
+  }[] = [
+    { id: "video_erzeugen", kind: "video", description: VIDEO_DESCRIPTION, schema: AGENT_VIDEO_TOOL_SCHEMA },
+    { id: "audio_erzeugen", kind: "audio", description: AUDIO_DESCRIPTION, schema: AGENT_AUDIO_TOOL_SCHEMA },
+  ];
+  for (const tool of tools)
+    registry.register<AgentMediaToolInput, PicaToolOutcome>({
+      id: tool.id,
+      description: tool.description,
+      inputSchema: tool.schema,
+      outputSchema: PICA_TOOL_OUTCOME,
+      execute: async (parameters, context) => {
+        await input.authorize();
+        context.signal.throwIfAborted();
+        if (!spend()) return refused("STEP_LIMIT");
+        return generate(tool.kind, parameters, context.signal);
+      },
+    });
+}
+
 /**
  * Registers the tools only a job of an agent employee offers: the search of
  * its own memory archive (PAGE-266), the reading of the stored context of
  * its groups (PAGE-296), the reading of its own chat (PAGE-376), the
- * Lagebuch across its chats (PAGE-377) and the generation of images with its
- * own model in a conversation (PAGE-382). Each is
+ * Lagebuch across its chats (PAGE-377) and the generation of images
+ * (PAGE-382), videos and sounds (PAGE-384) with its own model in a
+ * conversation. Each is
  * offered only when the job provides it, and each call counts against the
  * budget of the turn.
  *
@@ -265,4 +311,5 @@ export function registerPicaEmployeeTools(
   registerOwnChatTool(registry, input, spend);
   registerLogbookTools(registry, input, spend);
   registerImageTool(registry, input, spend);
+  registerMediaTools(registry, input, spend);
 }

@@ -3,17 +3,17 @@ import { randomUUID } from "node:crypto";
 import { AgentImageError } from "@/backend/error/AgentImageError";
 import { logCaughtError } from "@/backend/logging/Logger";
 import {
-  linkedApiProviderOf,
-  openCodeModelProvider,
-} from "@/definition/AgentConnection";
-import {
   AGENT_IMAGE_LIMITS,
   AGENT_IMAGE_MIME_TYPES,
   isImageOutputModel,
 } from "@/definition/AgentImageGeneration";
 
-import { findOpenCodeLinks } from "../agents/OpenCodeProviderLinks";
 import { isChatModelChoice } from "./AgentChatModelChoices";
+import {
+  AgentProviderKeys,
+  generationRoute,
+  isOwnOpenCodeKey,
+} from "./AgentProviderKeys";
 
 import type {
   ProviderImage,
@@ -24,22 +24,13 @@ import type { AgentConnectionRecord } from "@/backend/database/repositories/agen
 import type { StoredAgentEmployee } from "@/backend/database/repositories/employee/AgentEmployeeRepository";
 import type { EmployeeStore } from "@/backend/database/repositories/employee/EmployeeStore";
 import type { InstanceSecretCipher } from "@/backend/security/InstanceSecretCipher";
+import type { GenerationProvider } from "./AgentProviderKeys";
 import type { AgentImageAspectRatio } from "@/definition/AgentImageGeneration";
 import type { PageAgentModel } from "@/definition/PageAgent";
 import type { ResolvedAgentAssignment } from "../agents/AgentAssignmentResolution";
 import type { AgentEmployeeModels } from "./AgentEmployeeModels";
 
-/** The providers whose documented image interface Pages calls. */
-type ImageProvider = "openrouter" | "google_ai_studio";
-
-/** How Pages reaches the image function of a model. */
-interface ImageRoute {
-  readonly provider: ImageProvider;
-  /** The model as the provider names it. */
-  readonly model: string;
-  /** The connection whose stored key the request uses. */
-  readonly keyConnection: "own" | "linked";
-}
+type ImageProvider = GenerationProvider;
 
 /** What the generation of images uses. */
 export interface AgentImageGenerationDependencies {
@@ -86,34 +77,8 @@ export interface AgentGeneratedImages {
   readonly modelName: string;
 }
 
-/**
- * The route to the image function of a model, from its connection alone.
- *
- * @remarks
- * OpenCode runs OpenRouter and Gemini models with the keys of the API
- * connections Pages links (`openrouter/…`, `google/…`); a key OpenCode keeps
- * for the connection itself is not reachable for Pages. A direct API
- * connection of OpenRouter or Google AI Studio uses its own key. Claude
- * Code, Codex and Antigravity offer no image interface Pages could call.
- */
-function imageRoute(
-  connection: Pick<AgentConnectionRecord, "provider" | "cliAccountLabel">,
-  model: string,
-): ImageRoute | null {
-  if (connection.provider === "openrouter" || connection.provider === "google_ai_studio")
-    return { provider: connection.provider, model, keyConnection: "own" };
-  if (connection.provider !== "opencode") return null;
-  const modelProvider = openCodeModelProvider(model);
-  const provider = linkedApiProviderOf(modelProvider);
-  if (provider !== "openrouter" && provider !== "google_ai_studio") return null;
-  // The connection's own key keeps precedence in OpenCode; Pages cannot use it.
-  if (connection.cliAccountLabel === modelProvider) return null;
-  return {
-    provider,
-    model: model.slice(modelProvider.length + 1),
-    keyConnection: "linked",
-  };
-}
+/** The route to the image function of a model (PAGE-382); see {@link generationRoute}. */
+const imageRoute = generationRoute;
 
 function modelLabel(model: PageAgentModel): string {
   return `${model.modelName ?? model.name} (${model.connectionName ?? model.provider})`;
@@ -133,9 +98,11 @@ function modelLabel(model: PageAgentModel): string {
  */
 export class AgentImageGeneration {
   private readonly dependencies: AgentImageGenerationDependencies;
+  private readonly keys: AgentProviderKeys;
 
   public constructor(dependencies: AgentImageGenerationDependencies) {
     this.dependencies = dependencies;
+    this.keys = new AgentProviderKeys(dependencies, "AgentImageGeneration");
   }
 
   /** Whether the model of the round can output images, and which models could. */
@@ -175,7 +142,7 @@ export class AgentImageGeneration {
       );
     const { connection, model } = request.assignment;
     const route = imageRoute(connection, model);
-    const apiKey = route ? await this.readKey(connection, route) : null;
+    const apiKey = route ? await this.keys.readKey(connection, route) : null;
     if (!route || apiKey === null) throw new AgentImageError("no_key");
     const signal = AbortSignal.any([
       request.signal,
@@ -220,11 +187,8 @@ export class AgentImageGeneration {
     if (!listed || !isImageOutputModel(listed)) return "no_image_output";
     const route = imageRoute(connection, model);
     if (!route)
-      return connection.provider === "opencode" &&
-        connection.cliAccountLabel === openCodeModelProvider(model)
-        ? "no_key"
-        : "no_image_interface";
-    return (await this.hasKey(connection, route)) ? null : "no_key";
+      return isOwnOpenCodeKey(connection, model) ? "no_key" : "no_image_interface";
+    return (await this.keys.hasKey(connection, route)) ? null : "no_key";
   }
 
   /** The models released for the agent that output images over a route Pages has. */
@@ -250,41 +214,6 @@ export class AgentImageGeneration {
       // The hint is a courtesy: without it the agent still says that it cannot.
       logCaughtError("AgentImageGeneration", error);
       return [];
-    }
-  }
-
-  private async hasKey(
-    connection: AgentConnectionRecord,
-    route: ImageRoute,
-  ): Promise<boolean> {
-    if (route.keyConnection === "own") return connection.hasApiKey;
-    const link = (await findOpenCodeLinks(this.dependencies.connections)).get(
-      route.provider,
-    );
-    return link?.isVerified === true;
-  }
-
-  /** The stored key of the route's connection; `null` when it is missing or unreadable. */
-  private async readKey(
-    connection: AgentConnectionRecord,
-    route: ImageRoute,
-  ): Promise<string | null> {
-    let keyConnectionId = connection.id;
-    if (route.keyConnection === "linked") {
-      const link = (await findOpenCodeLinks(this.dependencies.connections)).get(
-        route.provider,
-      );
-      if (!link?.isVerified) return null;
-      keyConnectionId = link.connection.id;
-    }
-    const encrypted =
-      await this.dependencies.connections.findSecretEncrypted(keyConnectionId);
-    if (encrypted === null) return null;
-    try {
-      return this.dependencies.cipher.decrypt(keyConnectionId, encrypted);
-    } catch (error: unknown) {
-      logCaughtError("AgentImageGeneration", error);
-      return null;
     }
   }
 
