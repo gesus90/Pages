@@ -1,6 +1,6 @@
 import { AGENT_PROVIDERS } from "./AgentConnection";
 import { supportsModelCatalog } from "./AgentModelCatalog";
-import { isChatCapableModel } from "./AgentModelFilter";
+import { isChatCapableModel, isTextCapableModel } from "./AgentModelFilter";
 import { agentModelKey } from "./AgentPlanConfiguration";
 import { isDecisionModel } from "./ConversationDecision";
 import { isTranscriptionModel } from "./SpeechRecognition";
@@ -55,6 +55,9 @@ export function catalogModelChoice(
       ? {}
       : { isToolCapable: model.isToolCapable }),
     ...(isChatCapableModel(model) ? {} : { isChatCapable: false }),
+    ...(model.isToolCapable === false && isTextCapableModel(model)
+      ? { isTextCapable: true }
+      : {}),
     // Marked everywhere, so Pica, agents and plans refuse it on the server too (PAGE-300).
     ...(isSpeechSynthesisModel(model) ? { isSpeechOutputCapable: true } : {}),
     // Likewise for a transcription model, which only speech recognition runs (PAGE-302).

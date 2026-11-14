@@ -128,6 +128,11 @@ export interface AgentChatCapabilityFacts {
  * @returns `false` only when a stated fact rules the model out.
  */
 export function isChatCapableModel(model: AgentChatCapabilityFacts): boolean {
+  return isTextCapableModel(model) && model.isToolCapable !== false;
+}
+
+/** Text-only decisions need the catalog's language capabilities, independently of tool calls. */
+export function isTextCapableModel(model: AgentChatCapabilityFacts): boolean {
   const { inputModalities, outputModalities } = model;
   if (isNamedNonChatModel(model.id)) return false;
   if (inputModalities && !inputModalities.includes("text")) return false;
@@ -137,5 +142,5 @@ export function isChatCapableModel(model: AgentChatCapabilityFacts): boolean {
     GENERATED_MEDIA.some((modality) => outputModalities.includes(modality))
   )
     return false;
-  return model.isToolCapable !== false;
+  return true;
 }

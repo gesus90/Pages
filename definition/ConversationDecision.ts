@@ -298,9 +298,19 @@ export interface ChatDecisionSettings {
  */
 export type ChatDecisionStatus = "noModel" | "modelUnavailable" | "ready";
 
+/** The catalog or connection issue the administrator can resolve. */
+export type ChatDecisionEmptyReason =
+  | "noConnections"
+  | "noVisibleConnections"
+  | "connectionUnavailable"
+  | "emptyCatalog"
+  | "noTextModels";
+
 /** What the settings card of the decision model shows. */
 export interface ChatDecisionAdministration {
   readonly settings: ChatDecisionSettings;
   readonly status: ChatDecisionStatus;
   readonly models: readonly PageAgentModel[];
+  /** Why the choice is empty, with recovery instructions in the card. */
+  readonly emptyReason?: ChatDecisionEmptyReason | null;
 }

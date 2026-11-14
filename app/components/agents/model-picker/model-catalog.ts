@@ -1,3 +1,4 @@
+import { modelConsumerRefusal } from "@/definition/AgentModelConsumers";
 import {
   AGENT_PROVIDERS,
   OPENCODE_FREE_PROVIDER,
@@ -5,6 +6,7 @@ import {
   openCodeModelProvider,
 } from "@/definition/AgentConnection";
 
+import type { AgentModelConsumer } from "@/definition/AgentModelConsumers";
 import type { AgentProviderId } from "@/definition/AgentConnection";
 import type { PageAgentModel } from "@/definition/PageAgent";
 import type { TFunction } from "i18next";
@@ -85,6 +87,8 @@ export interface ModelGroup {
 
 /** How a place names and limits the shared catalog. */
 export interface ModelGroupOptions {
+  /** A text-only decision deliberately does not require tool calls. */
+  readonly consumer?: AgentModelConsumer;
   readonly translate: TFunction;
   /** The reason a listed model cannot be chosen here, such as a group of another runner. */
   readonly refusalOf?: (model: PageAgentModel) => string | null;
@@ -377,7 +381,11 @@ export function modelGroups(
 ): readonly ModelGroup[] {
   const unique = new Map(
     models
-      .filter((model) => model.isChatCapable !== false)
+      .filter((model) =>
+        options.consumer === "decision"
+          ? modelConsumerRefusal("decision", model) === null
+          : model.isChatCapable !== false,
+      )
       .map((model) => [model.id, model]),
   );
   const drafts = new Map<string, GroupDraft>();

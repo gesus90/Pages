@@ -1,7 +1,8 @@
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { isValidDecisionRules } from "@/definition/ConversationDecision";
-
+import { isApiProvider } from "@/definition/AgentConnection";
+import { canUseAgentConnection } from "../agents/AgentConnectionAccess";
 import { requireAgentAdministrator } from "../agents/AgentServiceAccess";
 import { findDecisionModel, listDecisionModels } from "./ChatDecisionModels";
 
@@ -9,10 +10,12 @@ import type { AgentViewer } from "@/backend/auth/AgentProfilePolicy";
 import type { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
 import type { ChatDecisionSettingsRepository } from "@/backend/database/repositories/chat/ChatDecisionSettingsRepository";
 import type { UserGroupRepository } from "@/backend/database/repositories/UserGroupRepository";
+import type { AgentConnectionRecord } from "@/backend/database/repositories/agent/AgentConnectionRows";
 import type { AccountAccess } from "@/definition/Authorization";
 import type { AgentModelSelection } from "@/definition/AgentModelSelection";
 import type {
   ChatDecisionAdministration,
+  ChatDecisionEmptyReason,
   ChatDecisionStatus,
   ConversationDecisionModelView,
   ConversationDecisionRules,
@@ -82,14 +85,16 @@ export class ChatDecisionSettingsService {
     actor: AccountAccess,
   ): Promise<ChatDecisionAdministration> {
     requireAgentAdministrator(actor);
+    const viewer = await this.viewer(actor);
     const [settings, models] = await Promise.all([
       this.dependencies.settings.read(),
-      listDecisionModels(this.dependencies, await this.viewer(actor)),
+      listDecisionModels(this.dependencies, viewer),
     ]);
     return {
       settings,
       status: statusOf(settings.selection, models),
       models,
+      emptyReason: await this.emptyReason(models, viewer),
     };
   }
 
@@ -169,6 +174,59 @@ export class ChatDecisionSettingsService {
     return model === null
       ? { status: "modelUnavailable", name: selection.model }
       : { status: "ready", name: model.modelName ?? model.model };
+  }
+
+  /** Public health state without model names, connection details or credentials. */
+  public async currentStatus(): Promise<ChatDecisionStatus> {
+    return (await this.modelView()).status;
+  }
+
+  private async emptyReason(
+    models: readonly PageAgentModel[],
+    viewer: AgentViewer,
+  ): Promise<ChatDecisionEmptyReason | null> {
+    if (models.length > 0) return null;
+    const connections = this.dependencies.connections;
+    const active = (await connections.list()).filter((entry) => entry.isActive);
+    if (active.length === 0) return "noConnections";
+    const admitted = await Promise.all(
+      active.map(async (entry) =>
+        (await canUseAgentConnection(connections, viewer, entry.id))
+          ? entry
+          : null,
+      ),
+    );
+    const visible = admitted.filter((entry) => entry !== null);
+    if (visible.length === 0) return "noVisibleConnections";
+    const verified = await Promise.all(
+      visible.map(async (entry) =>
+        (await this.isVerified(entry)) ? entry : null,
+      ),
+    );
+    const usable = verified.filter((entry) => entry !== null);
+    if (usable.length === 0) return "connectionUnavailable";
+    const catalogs = await Promise.all(
+      usable.map(async (entry) => {
+        const catalog = await connections.catalogs().find(entry.id);
+        return (
+          catalog.models.length > 0 ||
+          (entry.provider === "zai" && entry.testModel !== null)
+        );
+      }),
+    );
+    return catalogs.some(Boolean) ? "noTextModels" : "emptyCatalog";
+  }
+
+  private async isVerified(
+    connection: AgentConnectionRecord,
+  ): Promise<boolean> {
+    if (!isApiProvider(connection.provider))
+      return connection.cliLoggedInAt !== null;
+    if (!connection.hasApiKey) return false;
+    return (
+      (await this.dependencies.connections.checks().find(connection.id, "auth"))
+        ?.status === "passed"
+    );
   }
 
   private async viewer(actor: AccountAccess): Promise<AgentViewer> {

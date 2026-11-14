@@ -1,5 +1,6 @@
 import {
   AGENT_PROVIDERS,
+  isApiProvider,
   OPENCODE_FREE_PROVIDER,
   openCodeModelProvider,
 } from "./AgentConnection";
@@ -67,6 +68,7 @@ type ConsumerModel = Pick<
   | "isFree"
   | "isToolCapable"
   | "isChatCapable"
+  | "isTextCapable"
   | "isSpeechCapable"
   | "isSpeechOutputCapable"
   | "isTranscriptionOnly"

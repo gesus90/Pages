@@ -14,6 +14,7 @@ import { FreeBadge } from "./model-picker/model-picker-rows";
 import { ToolMark } from "./model-picker/tool-mark";
 import { useModelPicker } from "./model-picker/use-model-picker";
 
+import type { AgentModelConsumer } from "@/definition/AgentModelConsumers";
 import type { PageAgentModel } from "@/definition/PageAgent";
 import type { ModelGroup } from "./model-picker/model-catalog";
 import type {
@@ -22,6 +23,8 @@ import type {
 } from "./model-picker/use-model-picker";
 
 interface ModelPickerProps {
+  /** The decision consumer also accepts text models without tool calls. */
+  readonly consumer?: AgentModelConsumer;
   /** The selection key of the chosen model; empty while none is chosen. */
   readonly value: string;
   /** The models this place may offer, already limited to its target and consumer. */
@@ -152,6 +155,7 @@ export function ModelPicker(props: ModelPickerProps): React.ReactElement {
   const { t } = useTranslation();
   const groups = modelGroups(props.models, {
     translate: t,
+    consumer: props.consumer,
     refusalOf: props.refusalOf,
     selectedId: props.value,
   });

@@ -4,11 +4,14 @@ import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 
 import styles from "@/app/components/chat/chat-composer.module.css";
-import { useChatEditor } from "@/app/components/chat/use-chat-editor";
 import { Button } from "@/app/components/ui/button";
 import { cn } from "@/app/lib/cn";
 import { readMarkdown } from "@/app/lib/editor/editor-markdown";
 import { EDITOR_NODE } from "@/app/lib/editor/editor-schema";
+
+import { MentionPicker } from "./mentions/mention-picker";
+import { useMentionEditor } from "./mentions/use-mention-editor";
+import { useMentionDirectory } from "./mentions/mention-context";
 
 import { ChatPageAttachMenu } from "./chat-page-attach-menu";
 import { ChatPageAttachmentStrip } from "./chat-page-attachment-strip";
@@ -23,6 +26,7 @@ import type { VoiceSending } from "./use-voice-sending";
 interface ChatPageComposerProps {
   /** Hint of the empty field, for a participant or a group. */
   readonly placeholder: string;
+  readonly memberIds?: readonly string[];
   readonly label: string;
   /** Sends the text with the IDs of the uploaded attachments, in their order. */
   readonly onSend: (content: string, attachmentIds: readonly string[]) => void;
@@ -116,11 +120,15 @@ export function ChatPageComposer({
   voice,
   attachments,
   mentionRef,
+  memberIds = [],
 }: ChatPageComposerProps): React.ReactElement {
   const { t } = useTranslation();
   const canAttach = attachments !== undefined;
   const uploads = useAttachmentUploads(attachments?.selection ?? null);
-  const input = useChatEditor({
+  const directory = useMentionDirectory();
+  const input = useMentionEditor({
+    directory,
+    memberIds,
     label,
     placeholder,
     onSubmit: () => handleSubmit(),
@@ -176,6 +184,7 @@ export function ChatPageComposer({
           {t("chatPage.attach.dropHint")}
         </p>
       ) : null}
+      <MentionPicker input={input} />
       <ChatPageAttachmentStrip uploads={uploads} />
       <div className={cn("pages-editor-scroll-surface", styles.input)}>
         <EditorContent editor={input.editor} />

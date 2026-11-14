@@ -1,13 +1,24 @@
+import type {
+  ConversationMentionDirectory,
+  ConversationMentionAlias,
+} from "@/definition/ConversationMention";
 import type { UserRepository } from "@/backend/database/repositories/UserRepository";
 import type { WikiLookupRepository } from "@/backend/database/repositories/wiki/WikiLookupRepository";
 import type { ConversationParticipant } from "@/definition/Conversation";
 import type { User } from "@/definition/User";
+
+import type {
+  ConversationAliasDirectory,
+  ConversationMentionAliases,
+} from "./ConversationMentionAliases";
 
 /** What the directory reads. */
 export interface ConversationDirectoryDependencies {
   readonly users: Pick<UserRepository, "findAll">;
   /** The active accounts, the same source as the participant dialog of the chat page. */
   readonly lookups: Pick<WikiLookupRepository, "listActiveUsers">;
+  /** Visible group and department names for mention expansion. */
+  readonly aliases?: Pick<ConversationMentionAliases, "read">;
   /** The job titles of agents by account. */
   readonly jobTitles: () => Promise<ReadonlyMap<string, string | null>>;
 }
@@ -25,14 +36,47 @@ export interface ConversationAccount {
 /** Every account of one reading, by ID. */
 export class ConversationAccounts {
   private readonly accounts: ReadonlyMap<string, ConversationAccount>;
+  private readonly aliasDirectory: ConversationAliasDirectory | undefined;
 
   /**
    * Wraps one reading of the accounts.
    *
    * @param accounts - The accounts by ID.
+   * @param aliasDirectory - Aliases visible to each sender, when the chat has any.
    */
-  public constructor(accounts: ReadonlyMap<string, ConversationAccount>) {
+  public constructor(
+    accounts: ReadonlyMap<string, ConversationAccount>,
+    aliasDirectory?: ConversationAliasDirectory,
+  ) {
     this.accounts = accounts;
+    this.aliasDirectory = aliasDirectory;
+  }
+
+  /** Only aliases visible to the sender may expand into recipients. */
+  public aliasesFor(senderId: string): readonly ConversationMentionAlias[] {
+    return this.aliasDirectory?.forPerson(senderId) ?? [];
+  }
+
+  /** Names for the picker and renderer; the sending boundary resolves membership again. */
+  public mentionsFor(senderId: string): ConversationMentionDirectory {
+    return {
+      selfId: senderId,
+      aliases: this.aliasesFor(senderId),
+      members: [...this.accounts.values()]
+        .filter((entry) => entry.isAvailable)
+        .map((entry) => ({
+          id: entry.user.id,
+          name: entry.user.displayName,
+          username: entry.user.username,
+          kind: entry.user.isAgent === true ? "agent" : "human",
+          role: entry.role,
+          color: entry.participant.color,
+          avatarImageUrl:
+            entry.user.avatarType === "image"
+              ? (entry.user.avatarImageUrl ?? null)
+              : null,
+        })),
+    };
   }
 
   /** Returns an account, or `undefined` for an unknown ID. */
@@ -80,10 +124,11 @@ export class ConversationDirectory {
 
   /** Reads every account once. */
   public async read(): Promise<ConversationAccounts> {
-    const [users, active, titles] = await Promise.all([
+    const [users, active, titles, aliases] = await Promise.all([
       this.dependencies.users.findAll(true),
       this.dependencies.lookups.listActiveUsers(),
       this.dependencies.jobTitles(),
+      this.dependencies.aliases?.read(),
     ]);
     const activeIds = new Set(active.map((user) => user.id));
     return new ConversationAccounts(
@@ -103,6 +148,7 @@ export class ConversationDirectory {
           },
         ]),
       ),
+      aliases,
     );
   }
 }

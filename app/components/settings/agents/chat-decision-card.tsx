@@ -138,8 +138,16 @@ function ChatDecisionForm({
       {RULE_FIELDS.map((rule) => (
         <input key={rule} type="hidden" name={rule} value={draft.rules[rule]} />
       ))}
+      {models.length === 0 ? (
+        <p role="note" className="text-sm text-muted-foreground">
+          {t(
+            `chatDecision.empty.${administration.emptyReason ?? "noTextModels"}`,
+          )}
+        </p>
+      ) : null}
       <ModelFieldRow>
         <ModelPicker
+          consumer="decision"
           value={draft.modelKey}
           models={models}
           savedModel={administration.settings.selection?.model ?? ""}

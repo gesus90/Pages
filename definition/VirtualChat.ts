@@ -11,9 +11,14 @@
  * first.
  */
 
+import type { ConversationMentionDirectory } from "./ConversationMention";
+import type {
+  ChatDecisionStatus,
+  ConversationReplyMode,
+} from "./ConversationDecision";
+
 import type { AgentEmployeeAccess } from "./AgentEmployee";
 import type { AgentChatSessionBrief } from "./AgentChatSession";
-import type { ConversationReplyMode } from "./ConversationDecision";
 import type { AgentMessageQueue } from "./AgentSessionLimits";
 import type { ConversationNotice } from "./Conversation";
 import type {
@@ -196,6 +201,9 @@ export interface VirtualContactChoice {
 
 /** Everything the chat page shows. */
 export interface VirtualChatDirectory {
+  /** Current public health, with no connection or credential details. */
+  readonly chatDecisionStatus?: ChatDecisionStatus;
+  readonly mentionDirectory?: ConversationMentionDirectory;
   /** The person's own participants, the latest activity first. */
   readonly participants: readonly VirtualParticipant[];
   /** The person's own groups, the latest activity first. */

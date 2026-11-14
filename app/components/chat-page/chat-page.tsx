@@ -4,6 +4,8 @@ import { useTranslation } from "react-i18next";
 import { ChatBrowserPanel } from "@/app/components/chat/browser/chat-browser-panel";
 import { Button } from "@/app/components/ui/button";
 
+import { MentionDirectoryContext } from "./mentions/mention-context";
+import { ChatDecisionHealth } from "./mentions/chat-decision-health";
 import { ChatPageComposer } from "./chat-page-composer";
 import { useConfidential } from "./chat-page-confidential";
 import { ChatPageDropZone } from "./chat-page-drop-zone";
@@ -24,6 +26,7 @@ import { useChatPage } from "./use-chat-page";
 import { useVoiceSending } from "./use-voice-sending";
 import { formatVoiceDuration } from "./voice-audio";
 
+import type { ChatDecisionStatus } from "@/definition/ConversationDecision";
 import type {
   VirtualChatDirectory,
   VirtualChatSelection,
@@ -121,6 +124,11 @@ function ConversationFoot({
         label={t("chatPage.inputLabel", { name })}
         placeholder={t(placeholderKey(opened), { name })}
         onSend={page.send}
+        memberIds={
+          opened.kind === "group"
+            ? opened.group.memberIds
+            : [opened.participant.id]
+        }
         attachments={
           hasVoice && page.selection ? { selection: page.selection } : undefined
         }
@@ -136,8 +144,10 @@ function ConversationFoot({
 /** The opened conversation directly on the page background, without card. */
 function ChatPageConversation({
   page,
+  status,
 }: {
   readonly page: ChatPageState;
+  readonly status?: ChatDecisionStatus;
 }): React.ReactElement {
   const { t } = useTranslation();
   const { opened } = page;
@@ -169,6 +179,11 @@ function ChatPageConversation({
         isMuted={page.isMuted}
         onToggleMute={page.toggleMute}
         confidential={confidential}
+      />
+      <ChatDecisionHealth
+        status={status}
+        opened={opened}
+        messages={page.messages}
       />
       {opened.kind === "group" && opened.group.isAgentPaused === true ? (
         <AgentPausedBanner onResume={page.resumeAgents} />
@@ -260,36 +275,41 @@ export function ChatPage({
     directory.viewPreferences?.isListCollapsed === true,
   );
   return (
-    <section className="pages-page-fill pages-page-fixed flex w-full flex-col">
-      <header className="shrink-0">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          {t("chatPage.title")}
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {t("chatPage.subtitle")}
-        </p>
-      </header>
-      <div className="mt-6 flex min-h-0 flex-1 flex-col gap-4 md:gap-8 lg:flex-row">
-        <ChatContentProvider
-          conversationId={storedConversationId(page.opened)}
-          conversationKey={page.opened ? conversationKey(page.opened) : ""}
-          directory={directory}
-        >
-          <ListSlot>
-            <ChatPageList
+    <MentionDirectoryContext value={directory.mentionDirectory}>
+      <section className="pages-page-fill pages-page-fixed flex w-full flex-col">
+        <header className="shrink-0">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {t("chatPage.title")}
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {t("chatPage.subtitle")}
+          </p>
+        </header>
+        <div className="mt-6 flex min-h-0 flex-1 flex-col gap-4 md:gap-8 lg:flex-row">
+          <ChatContentProvider
+            conversationId={storedConversationId(page.opened)}
+            conversationKey={page.opened ? conversationKey(page.opened) : ""}
+            directory={directory}
+          >
+            <ListSlot>
+              <ChatPageList
+                page={page}
+                directory={directory}
+                collapse={collapse}
+              />
+              <ChatPagePicker page={page} />
+            </ListSlot>
+            <ChatPageConversation
               page={page}
-              directory={directory}
-              collapse={collapse}
+              status={directory.chatDecisionStatus}
             />
-            <ChatPagePicker page={page} />
-          </ListSlot>
-          <ChatPageConversation page={page} />
-          <SplitPanel
-            storedWidth={directory.viewPreferences?.splitWidth ?? null}
-          />
-          <CardOverlay />
-        </ChatContentProvider>
-      </div>
-    </section>
+            <SplitPanel
+              storedWidth={directory.viewPreferences?.splitWidth ?? null}
+            />
+            <CardOverlay />
+          </ChatContentProvider>
+        </div>
+      </section>
+    </MentionDirectoryContext>
   );
 }

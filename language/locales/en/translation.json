@@ -4303,6 +4303,22 @@
       "list": "Agents and their sessions in this chat",
       "empty": "No agent takes part in this chat.",
       "noSession": "No session yet"
+    },
+    "mentions": {
+      "label": "Mentions",
+      "aliases": "Aliases",
+      "members": "In this group",
+      "outside": "Not in this group",
+      "cannotAnswer": "cannot answer here",
+      "agents_one": "{{count}} agent of this group",
+      "agents_other": "{{count}} agents of this group",
+      "noMatch": "Nobody matches “@{{query}}”.",
+      "keys": "↑ ↓ select · Enter / Tab insert · Esc close"
+    },
+    "decisionHealth": {
+      "ready": "Decision model active",
+      "noModel": "No decision model · @ only",
+      "modelUnavailable": "Decision model unavailable · @ only"
     }
   },
   "workspaces": {

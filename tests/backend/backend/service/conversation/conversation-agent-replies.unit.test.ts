@@ -383,3 +383,146 @@ it("PAGE-344 starts a reply for an image-only message", async () => {
     ),
   );
 });
+
+it("PAGE-326 keeps collective mentions in one origin and never invokes automatic routing", async () => {
+  const { service, dependencies, rounds } = fixture();
+  const accounts = await dependencies.directory.read();
+  const other = { ...agent, id: "designer", username: "designer" };
+  const otherAccount = {
+    user: other,
+    participant: {
+      id: other.id,
+      name: other.displayName,
+      kind: "agent",
+      color: null,
+    },
+    role: "Design",
+    isAvailable: true,
+  } as const;
+  const original = accounts.find("agent");
+  const sender = accounts.find("person");
+  if (!original || !sender) throw new Error("Missing fixture accounts");
+  const directory = new ConversationAccounts(
+    new Map([
+      ["agent", original],
+      ["person", sender],
+      [other.id, otherAccount],
+    ]),
+  );
+  vi.mocked(dependencies.directory.read).mockResolvedValue(directory);
+  const { findConversationMentions } =
+    await import("@/backend/service/conversation/ConversationMentions");
+  const memberIds = ["person", "agent", "designer"];
+  const mentions = findConversationMentions(
+    "@alle @all @team @agent",
+    memberIds,
+    { accounts: directory, senderId: "person" },
+  );
+  await service.answer(
+    { ...message, text: "@alle @all @team @agent", mentions },
+    memberIds,
+  );
+  expect(rounds.claim).toHaveBeenCalledTimes(2);
+  for (const agentId of ["agent", "designer"])
+    expect(rounds.claim).toHaveBeenCalledWith(
+      expect.objectContaining({
+        originMessageId: "origin",
+        agentId,
+        trigger: "mention",
+        isAutomatic: false,
+      }),
+    );
+  expect(dependencies.decisions.decide).not.toHaveBeenCalled();
+  expect(dependencies.routing.choose).not.toHaveBeenCalled();
+});
+
+it("PAGE-326 starts and stores the chosen agent's answer to a message without @ exactly once", async () => {
+  const { service, dependencies, rounds } = fixture();
+  const stored = {
+    id: "origin",
+    sequence: 1,
+    conversationId: "group",
+    clientMessageId: "client",
+    senderId: "person",
+    text: "Bitte repariere den Chat.",
+    mentions: [],
+    createdAt: "today",
+    voice: null,
+    notice: null,
+  };
+  vi.mocked(dependencies.replySettings.find).mockResolvedValue({
+    conversationId: "group",
+    mode: "decision",
+    defaultResponderId: null,
+    maximumResponders: 1,
+  });
+  vi.mocked(dependencies.decisions.decide).mockResolvedValue([
+    {
+      agentId: "agent",
+      trigger: "context",
+      reason: "Der Agent entwickelt den Chat.",
+    },
+  ]);
+  vi.mocked(rounds.claim)
+    .mockResolvedValueOnce("claimed")
+    .mockResolvedValue("duplicate");
+  vi.spyOn(rounds, "setTargetState").mockResolvedValue(undefined);
+  vi.mocked(dependencies.messages.find).mockResolvedValue(stored);
+  vi.mocked(dependencies.messages.history).mockResolvedValue([stored]);
+  vi.mocked(dependencies.contexts.promptContext).mockResolvedValue({
+    context: null,
+    view: {
+      conversationId: "group",
+      status: "unavailable",
+      summary: "",
+      decisions: [],
+      openItems: [],
+      responsibilities: [],
+      updatedAt: null,
+      throughSequence: 0,
+      pendingMessages: 1,
+      hasExcerpts: false,
+      sources: [],
+      errorCode: null,
+    },
+  });
+  vi.mocked(dependencies.runner.answer).mockResolvedValue(
+    "Ich übernehme die Chat-Reparatur.",
+  );
+  vi.mocked(dependencies.agentFiles.select).mockResolvedValue({
+    text: "Ich übernehme die Chat-Reparatur.",
+    files: [],
+    lines: ["Ich übernehme die Chat-Reparatur."],
+  });
+  vi.mocked(dependencies.messages.insert).mockResolvedValue({
+    isNew: true,
+    message: {
+      ...stored,
+      id: "answer",
+      senderId: "agent",
+      text: "Ich übernehme die Chat-Reparatur.",
+    },
+  });
+  vi.mocked(dependencies.content.describe).mockResolvedValue(new Map());
+  await service.answer({ ...message, text: stored.text }, ["person", "agent"]);
+  await service.answer({ ...message, text: stored.text }, ["person", "agent"]);
+  expect(dependencies.runner.answer).toHaveBeenCalledOnce();
+  expect(dependencies.runner.answer).toHaveBeenCalledWith(
+    expect.objectContaining({
+      agent,
+      lastMessage: stored.text,
+      prompt: expect.stringContaining(
+        "Der Agent entwickelt den Chat.",
+      ) as unknown,
+    }),
+  );
+  expect(dependencies.messages.insert).toHaveBeenCalledOnce();
+  expect(dependencies.messages.insert).toHaveBeenCalledWith(
+    expect.objectContaining({
+      senderId: "agent",
+      clientMessageId: expect.stringContaining("origin") as unknown,
+      text: "Ich übernehme die Chat-Reparatur.",
+    }),
+    expect.anything(),
+  );
+});

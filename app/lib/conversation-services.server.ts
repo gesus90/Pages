@@ -33,6 +33,7 @@ import { SimulatedConversationLinkFetcher } from "@/backend/service/conversation
 import { ConversationAgentReplies } from "@/backend/service/conversation/ConversationAgentReplies";
 import { ConversationChatDecisions } from "@/backend/service/conversation/ConversationChatDecisions";
 import { ConversationContextReader } from "@/backend/service/conversation/ConversationContextReader";
+import { ConversationMentionAliases } from "@/backend/service/conversation/ConversationMentionAliases";
 import { ConversationDirectory } from "@/backend/service/conversation/ConversationDirectory";
 import { sharedConversationEvents } from "@/backend/service/conversation/ConversationEvents";
 import { ConversationGroupSummaries } from "@/backend/service/conversation/ConversationGroupSummaries";
@@ -64,6 +65,7 @@ import type { User } from "@/definition/User";
 
 /** The stored conversations of the chat page and Pica Mobile (PAGE-278). */
 export interface ConversationApplicationServices {
+  readonly conversationDirectory: ConversationDirectory;
   readonly conversationReader: ConversationReader;
   readonly conversationService: ConversationService;
   /** The answers of agents in conversations (PAGE-276). */
@@ -186,6 +188,9 @@ export function createConversationServices(
     users: new UserRepository(database),
     lookups: new WikiLookupRepository(database),
     jobTitles: () => store.identities().jobTitles(),
+    aliases: new ConversationMentionAliases(
+      new AuthorizationRepository(database),
+    ),
   });
   const decisions = new ConversationDecisionRepository(database);
   const replySettings = new ConversationReplySettingsRepository(database);
@@ -236,6 +241,7 @@ export function createConversationServices(
     publisher: input.events,
   });
   return {
+    conversationDirectory: directory,
     conversationReader,
     conversationAgentReplies,
     conversationContextReader: observer.reader,
