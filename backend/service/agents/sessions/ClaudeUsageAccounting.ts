@@ -90,8 +90,10 @@ function pricedUsage(
         ),
     isPartial:
       usage.claudeObservation?.kind === "prompt" ||
-      tokens.inputTokens === null ||
-      tokens.outputTokens === null,
+      priced.length === 0 ||
+      priced.some((model) =>
+        CLAUDE_TOKEN_FIELDS.some((field) => model[field] === null),
+      ),
     claudeAccounting: {
       sessionId:
         claudeObservation?.sessionId ?? options.previous?.sessionId ?? "",

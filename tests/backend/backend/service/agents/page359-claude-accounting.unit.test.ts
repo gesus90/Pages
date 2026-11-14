@@ -388,3 +388,32 @@ it("seeds the native watermark from a prompt-only report so later full session t
   expect(state.usage.get("a:2")?.inputTokens).toBe(150);
   expect(summarizeClaudeUsage([...state.usage.values()]).inputTokens).toBe(250);
 });
+
+it("marks incomplete model readings even when another model supplies every token category", async () => {
+  const complete = observation("r1", 100, 20);
+  await accountClaudeUsage(
+    database,
+    turn("partial", {
+      ...complete,
+      models: [
+        ...complete.models,
+        {
+          model: "claude-sonnet-5",
+          inputTokens: null,
+          outputTokens: 5,
+          cacheReadTokens: null,
+          cacheWriteTokens: null,
+        },
+      ],
+    }),
+  );
+  const summary = summarizeClaudeUsage([...state.usage.values()]);
+  expect(summary).toMatchObject({
+    inputTokens: 100,
+    outputTokens: 25,
+    cacheReadTokens: 1000,
+    cacheWriteTokens: 200,
+    isIncomplete: true,
+  });
+  expect(state.usage.get("partial:1")?.isPartial).toBe(true);
+});
