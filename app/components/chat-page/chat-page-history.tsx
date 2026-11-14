@@ -1,4 +1,4 @@
-import { CircleAlert, Clock } from "lucide-react";
+import { CircleAlert, Clock, CornerDownRight, Wrench } from "lucide-react";
 import { Fragment, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -15,12 +15,42 @@ import { ChatPageToolUse } from "./chat-page-tool-uses";
 import { ChatPageVoice } from "./chat-page-voice";
 import { MessageContentView } from "./content/message-content-view";
 import { MessageDelete } from "./content/message-delete";
+import {
+  answerToolSummary,
+  ChatPageLiveAnswer,
+  ChatPageThoughts,
+} from "./live/chat-page-live-answer";
+import { formatSeconds } from "./live/live-answer-state";
 
 import type {
   VirtualChatMessage,
   VirtualParticipant,
   VirtualToolUse,
 } from "@/definition/VirtualChat";
+import type { LiveAnswerView, LiveDelivery } from "./live/live-answer-state";
+
+/** What the history shows of the answers agents are writing (PAGE-381). */
+export interface HistoryLive {
+  /** The answers written now, after the stored messages. */
+  readonly answers: readonly LiveAnswerView[];
+  /** The answers that ended, by their stored message, for its folded details. */
+  readonly ended: ReadonlyMap<string, LiveAnswerView>;
+  /** How messages sent during an answer reached the agents, by message. */
+  readonly deliveries: Readonly<Record<string, LiveDelivery>>;
+  /** Names an agent of the chat. */
+  readonly nameOf: (agentId: string) => string;
+  /** The model label of an agent in this chat, such as "Opus 5.5 · hoch". */
+  readonly modelOf?: (agentId: string) => string | undefined;
+  /** Cancels the running tool calls of an agent. */
+  readonly onCancelTool?: (agentId: string) => void;
+}
+
+const NO_LIVE: HistoryLive = {
+  answers: [],
+  ended: new Map(),
+  deliveries: {},
+  nameOf: (agentId) => agentId,
+};
 
 function hideImages(): boolean {
   return false;
@@ -67,6 +97,23 @@ function authorOf(message: VirtualChatMessage): VirtualParticipant | null {
   };
 }
 
+/** An agent outside the person's list, as a live answer names it. */
+function liveAuthor(view: LiveAnswerView, live: HistoryLive): VirtualParticipant {
+  return {
+    id: view.agentId,
+    name: live.nameOf(view.agentId),
+    kind: "agent",
+    role: "",
+    username: "",
+    color: null,
+    avatarImageUrl: null,
+    status: "working",
+    unreadCount: 0,
+    canChat: false,
+    lastActivityAt: "",
+  };
+}
+
 /**
  * Says that the answer to a message waits (PAGE-304): for the answer the
  * agent gives in this chat, or for a free place among the session limits.
@@ -89,21 +136,112 @@ function QueueBadge({
   );
 }
 
+/** "Eds", "Max’", or "Ed's": the owner of an answer in the page's language. */
+function possessive(name: string, language: string): string {
+  if (language.startsWith("en")) return `${name}'s`;
+  return /[sßxz]$/iu.test(name) ? `${name}’` : `${name}s`;
+}
+
+/** How a message sent during an answer reached the agents (PAGE-381). */
+type MessageDelivery =
+  | { readonly kind: "injected"; readonly agentIds: readonly string[] }
+  | { readonly kind: "waiting"; readonly agentIds: readonly string[] }
+  | { readonly kind: "failed" };
+
+/** What the stream told last wins over what the history was read with. */
+function deliveryOf(
+  message: VirtualChatMessage,
+  live: HistoryLive,
+): MessageDelivery | null {
+  const streamed = live.deliveries[message.id];
+  if (streamed?.delivery === "failed") return { kind: "failed" };
+  if (streamed)
+    return { kind: streamed.delivery, agentIds: [streamed.agentId] };
+  if (message.steeredInto && message.steeredInto.length > 0)
+    return { kind: "injected", agentIds: message.steeredInto };
+  if (message.queue === "chat") return { kind: "waiting", agentIds: [] };
+  return null;
+}
+
+/**
+ * Says how a message sent during an answer reached the agents (PAGE-381):
+ * "in Eds Antwort eingeschoben", or "wartet · geht nach Eds Antwort raus".
+ */
+function DeliveryBadge({
+  delivery,
+  live,
+}: {
+  readonly delivery: MessageDelivery;
+  readonly live: HistoryLive;
+}): React.ReactElement {
+  const { t, i18n } = useTranslation();
+  if (delivery.kind === "failed")
+    return (
+      <p className="text-xs text-destructive" role="status">
+        {t("chatPage.liveAnswer.notDelivered")}
+      </p>
+    );
+  const owner = delivery.agentIds
+    .map((id) => possessive(live.nameOf(id), i18n.language))
+    .join(` ${t("chatPage.liveAnswer.and")} `);
+  const isInjected = delivery.kind === "injected";
+  let text = t("chatPage.liveAnswer.waitingAnyone");
+  if (owner !== "")
+    text = t(
+      isInjected ? "chatPage.liveAnswer.injected" : "chatPage.liveAnswer.waiting",
+      { owner },
+    );
+  return (
+    <p
+      className={cn(
+        "inline-flex items-center gap-1 text-xs",
+        isInjected ? "text-primary" : "text-muted-foreground",
+      )}
+      role="status"
+    >
+      {isInjected ? (
+        <CornerDownRight aria-hidden="true" className="size-3.5 shrink-0" />
+      ) : (
+        <Clock aria-hidden="true" className="size-3.5 shrink-0" />
+      )}
+      {text}
+    </p>
+  );
+}
+
+/** The frame of an own message sent during an answer: orange when it went in, dashed while it waits. */
+const DELIVERY_FRAMES: Readonly<Record<MessageDelivery["kind"], string>> = {
+  injected: "rounded-[16px] ring-2 ring-primary ring-offset-2 ring-offset-background",
+  waiting:
+    "rounded-[16px] outline-dashed outline-2 outline-offset-2 outline-border",
+  failed: "",
+};
+
 const OWN_BUBBLE =
   "max-w-[62%] min-w-0 rounded-[14px] rounded-br-[4px] bg-primary px-4 py-2.5 text-primary-foreground";
 
 /** One own message: its text in primary bubbles, its cards between and below. */
 function OwnMessage({
   message,
+  live,
 }: {
   readonly message: VirtualChatMessage;
+  readonly live: HistoryLive;
 }): React.ReactElement {
   const { t } = useTranslation();
+  const delivery = deliveryOf(message, live);
   return (
     <article
       aria-label={t("chatPage.you")}
       className="group/message flex w-full min-w-0 flex-col items-end gap-2"
+      data-delivery={delivery?.kind}
     >
+      <div
+        className={cn(
+          "flex w-full min-w-0 flex-col items-end gap-2",
+          delivery ? DELIVERY_FRAMES[delivery.kind] : undefined,
+        )}
+      >
       {message.voice ? (
         <div className={OWN_BUBBLE}>
           <ChatPageVoice voice={message.voice} text={message.content} isOwn />
@@ -124,7 +262,12 @@ function OwnMessage({
           )}
         />
       )}
-      <QueueBadge queue={message.queue} />
+      </div>
+      {delivery ? (
+        <DeliveryBadge delivery={delivery} live={live} />
+      ) : (
+        <QueueBadge queue={message.queue} />
+      )}
       {message.canDelete === true ? (
         <MessageDelete messageId={message.id} />
       ) : null}
@@ -135,14 +278,16 @@ function OwnMessage({
 /** The person's own messages at the right, in primary bubbles. */
 function OwnRun({
   messages,
+  live,
 }: {
   readonly messages: readonly VirtualChatMessage[];
+  readonly live: HistoryLive;
 }): React.ReactElement {
   return (
     <div className="flex flex-col items-end gap-2">
       {messages.map((message) => (
         <Fragment key={message.id}>
-          <OwnMessage message={message} />
+          <OwnMessage message={message} live={live} />
           {message.decision ? (
             <ChatPageDecision decision={message.decision} />
           ) : null}
@@ -248,6 +393,8 @@ interface AnswerBubbleProps {
   readonly author: VirtualParticipant;
   /** Shows name and role as first line, for the first answer of a run. */
   readonly hasName: boolean;
+  /** The live answer this stored message ended, for its thoughts and tool times (PAGE-381). */
+  readonly live?: LiveAnswerView;
 }
 
 /** A bubble in the author's color. */
@@ -273,26 +420,51 @@ function Bubble({
   );
 }
 
-/** The tools an answer used, at its foot. */
+/**
+ * The tools an answer used, folded into one entry under it (PAGE-381), such
+ * as "4 Werkzeuge · 3,1 s"; opened, every call with its result and time.
+ */
 function ToolUses({
-  uses,
+  uses: stored,
+  live,
 }: {
   readonly uses: readonly VirtualToolUse[];
+  readonly live?: LiveAnswerView;
 }): React.ReactElement | null {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const { uses, durationMs } = answerToolSummary(stored, live?.tools);
   if (uses.length === 0) return null;
+  const tools = t("chatPage.liveAnswer.tools", { count: uses.length });
+  const summary =
+    durationMs === null
+      ? tools
+      : t("chatPage.liveAnswer.toolsSummary", {
+          tools,
+          duration: formatSeconds(durationMs, i18n.language),
+        });
   return (
-    <ul
-      aria-label={t("chatPage.toolUses")}
-      className="mt-1 flex flex-col gap-1.5"
-    >
-      {uses.map((use) => (
-        <ChatPageToolUse
-          key={use.callId ?? `${use.name}:${use.detail}`}
-          use={use}
-        />
-      ))}
-    </ul>
+    <details className="w-full max-w-[62%] min-w-0 text-xs">
+      <summary className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-1 text-muted-foreground">
+        <Wrench aria-hidden="true" className="size-3.5" />
+        {summary}
+      </summary>
+      <ul
+        aria-label={t("chatPage.toolUses")}
+        className="mt-1.5 flex flex-col gap-1.5"
+      >
+        {uses.map((use) => (
+          <ChatPageToolUse
+            key={use.callId ?? `${use.name}:${use.detail}`}
+            use={use}
+            durationLabel={
+              use.durationMs === undefined
+                ? undefined
+                : formatSeconds(use.durationMs, i18n.language)
+            }
+          />
+        ))}
+      </ul>
+    </details>
   );
 }
 
@@ -304,6 +476,7 @@ function AnswerBubble({
   message,
   author,
   hasName,
+  live,
 }: AnswerBubbleProps): React.ReactElement {
   const directory = useMentionDirectory();
   const isOwnMention =
@@ -324,6 +497,9 @@ function AnswerBubble({
         isOwnMention && "border-l-[3px] border-primary pl-2",
       )}
     >
+      {live?.thought ? (
+        <ChatPageThoughts thought={live.thought} isThinking={false} now={0} />
+      ) : null}
       {isPlain ? (
         <>
           {startsWithText ? null : name}
@@ -348,7 +524,7 @@ function AnswerBubble({
           <AnswerNotice message={message} name={author.name} />
         </Bubble>
       )}
-      <ToolUses uses={message.toolUses} />
+      <ToolUses uses={message.toolUses} live={live} />
     </article>
   );
 }
@@ -356,6 +532,7 @@ function AnswerBubble({
 interface AnswerRunProps {
   readonly messages: readonly VirtualChatMessage[];
   readonly author: VirtualParticipant;
+  readonly ended: ReadonlyMap<string, LiveAnswerView>;
 }
 
 /**
@@ -363,7 +540,11 @@ interface AnswerRunProps {
  * top, the name in the person color above the first bubble, the bubbles 8 px
  * apart on the same indent.
  */
-function AnswerRun({ messages, author }: AnswerRunProps): React.ReactElement {
+function AnswerRun({
+  messages,
+  author,
+  ended,
+}: AnswerRunProps): React.ReactElement {
   return (
     <div className="flex items-start gap-3">
       <ParticipantAvatar participant={author} size={32} />
@@ -374,6 +555,7 @@ function AnswerRun({ messages, author }: AnswerRunProps): React.ReactElement {
               message={message}
               author={author}
               hasName={index === 0}
+              live={ended.get(message.id)}
             />
             {message.decision ? (
               <ChatPageDecision decision={message.decision} />
@@ -431,6 +613,8 @@ interface ChatPageHistoryProps {
   readonly older?: OlderMessages;
   /** Who is answering; the conversation's name by default. */
   readonly answeringNames?: readonly string[];
+  /** The answers agents are writing now and what they told (PAGE-381). */
+  readonly live?: HistoryLive;
 }
 
 /**
@@ -445,6 +629,7 @@ export function ChatPageHistory({
   isAnswering = false,
   older = NO_OLDER,
   answeringNames = [],
+  live = NO_LIVE,
 }: ChatPageHistoryProps): React.ReactElement {
   const { t } = useTranslation();
   const viewport = useRef<HTMLElement>(null);
@@ -453,15 +638,20 @@ export function ChatPageHistory({
     (message) => message.notice !== "round_limit",
   );
   const newestId = messages.at(-1)?.id ?? null;
+  // The growing live text keeps the foot in view, as a new message does.
+  const liveLength = live.answers.reduce(
+    (sum, view) => sum + view.text.length + view.tools.length,
+    0,
+  );
 
   // Keeps the newest message in view, as the Pica panel does; a loaded older
   // page leaves the position alone.
   useEffect(() => {
     const element = viewport.current;
     if (element) element.scrollTop = element.scrollHeight;
-  }, [newestId, name, isAnswering]);
+  }, [newestId, name, isAnswering, liveLength]);
 
-  if (messages.length === 0 && !isAnswering)
+  if (messages.length === 0 && !isAnswering && live.answers.length === 0)
     return (
       <p className="flex min-h-40 flex-1 items-center justify-center px-4 text-center text-sm text-muted-foreground">
         {t("chatPage.emptyHistory", { name })}
@@ -484,18 +674,36 @@ export function ChatPageHistory({
               const [first] = run.messages;
               if (!first) return null;
               if (run.authorId === null)
-                return <OwnRun key={first.id} messages={run.messages} />;
+                return (
+                  <OwnRun key={first.id} messages={run.messages} live={live} />
+                );
               const author = findParticipant(run.authorId) ?? authorOf(first);
               return author ? (
                 <AnswerRun
                   key={first.id}
                   messages={run.messages}
                   author={author}
+                  ended={live.ended}
                 />
               ) : null;
             }),
       )}
-      {isAnswering ? (
+      {live.answers.map((view) => {
+        const author = findParticipant(view.agentId) ?? liveAuthor(view, live);
+        const { onCancelTool } = live;
+        return (
+          <ChatPageLiveAnswer
+            key={view.answerId}
+            view={view}
+            author={author}
+            modelLabel={live.modelOf?.(view.agentId)}
+            onCancelTool={
+              onCancelTool ? () => onCancelTool(view.agentId) : undefined
+            }
+          />
+        );
+      })}
+      {isAnswering && live.answers.length === 0 ? (
         <p
           className="animate-pulse text-sm text-muted-foreground"
           role="status"

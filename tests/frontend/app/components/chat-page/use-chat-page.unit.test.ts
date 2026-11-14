@@ -464,7 +464,7 @@ it("answers while the opened agent works, but never for a person", () => {
   expect(person.result.current.isAnswering).toBe(false);
 });
 
-it("reads the history again every three seconds while an agent answers", () => {
+it("never reads the history at fixed intervals while an agent answers (PAGE-381)", () => {
   vi.useFakeTimers();
   const { unmount } = renderHook(() =>
     useChatPage(
@@ -472,19 +472,9 @@ it("reads the history again every three seconds while an agent answers", () => {
     ),
   );
 
-  vi.advanceTimersByTime(2_999);
+  vi.advanceTimersByTime(30_000);
   expect(revalidate).not.toHaveBeenCalled();
-  vi.advanceTimersByTime(1);
-  expect(revalidate).toHaveBeenCalledTimes(1);
-
-  revalidator.state = "loading";
-  vi.advanceTimersByTime(3_000);
-  expect(revalidate).toHaveBeenCalledTimes(1);
-
   unmount();
-  revalidator.state = "idle";
-  vi.advanceTimersByTime(9_000);
-  expect(revalidate).toHaveBeenCalledTimes(1);
 });
 
 it("does not poll while nobody answers", () => {
@@ -683,5 +673,82 @@ it("opens the notification's requested chat initially without marking the defaul
   });
   expect(submissions("read").map((form) => form["conversationId"])).toEqual([
     "direct",
+  ]);
+});
+
+it("sends a message during an answer into it or after it, as the person chose (PAGE-381)", () => {
+  const { result } = renderHook(() =>
+    useChatPage(
+      directory({ participants: [participant("ed", { status: "working" })] }),
+    ),
+  );
+  act(() => result.current.send("Nimm B", [], "steer"));
+  act(() => result.current.send("Danach C", [], "after"));
+  const [steer, after] = submissions("send");
+  expect(steer).toMatchObject({ text: "Nimm B", delivery: "steer", agentId: "ed" });
+  expect(after).toMatchObject({ text: "Danach C", delivery: "after" });
+});
+
+it("sends a plain message while nobody answers, whatever was asked (PAGE-381)", () => {
+  const { result } = renderHook(() =>
+    useChatPage(directory({ participants: [participant("ed")] })),
+  );
+  act(() => result.current.send("Hallo", [], "steer"));
+  expect(submissions("send")[0]?.["delivery"]).toBeUndefined();
+});
+
+it("shows a message steered in or sent after the answer at once (PAGE-381)", () => {
+  const formData = new FormData();
+  formData.set("intent", "send");
+  formData.set("agentId", "ed");
+  formData.set("text", "Nimm B");
+  formData.set("delivery", "steer");
+  formData.set("steeredInto", "ed");
+  fetcher.formData = formData;
+  const { result } = renderHook(() =>
+    useChatPage(
+      directory({ participants: [participant("ed", { status: "working" })] }),
+    ),
+  );
+  expect(result.current.messages.at(-1)).toMatchObject({
+    id: "pending",
+    steeredInto: ["ed"],
+  });
+  formData.set("delivery", "after");
+  const later = renderHook(() =>
+    useChatPage(
+      directory({ participants: [participant("ed", { status: "working" })] }),
+    ),
+  );
+  expect(later.result.current.messages.at(-1)).toMatchObject({ queue: "chat" });
+});
+
+it("stops every answering agent of a group at once and names what each does (PAGE-381)", () => {
+  const { result } = renderHook(() =>
+    useChatPage(
+      directory({
+        participants: [participant("ed", { name: "Ed" }), participant("mei", { name: "Mei" })],
+        groups: [
+          group("team", {
+            memberIds: ["ed", "mei"],
+            workingAgents: [
+              { id: "ed", name: "Ed" },
+              { id: "mei", name: "Mei" },
+            ],
+            workingAgentNames: ["Ed", "Mei"],
+          }),
+        ],
+      }),
+    ),
+  );
+  expect(result.current.isAnswering).toBe(true);
+  expect(result.current.activity.map((entry) => entry.agent.name)).toEqual([
+    "Ed",
+    "Mei",
+  ]);
+  act(() => result.current.stopAll());
+  expect(submissions("stop-group").map((entries) => entries["agentId"])).toEqual([
+    "ed",
+    "mei",
   ]);
 });

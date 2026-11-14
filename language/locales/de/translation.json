@@ -4172,7 +4172,8 @@
     "toolStatus": {
       "running": "läuft",
       "completed": "fertig",
-      "failed": "fehlgeschlagen"
+      "failed": "fehlgeschlagen",
+      "cancelled": "abgebrochen"
     },
     "cancelTool": "Abbrechen",
     "toolInput": "Eingabe",
@@ -4438,6 +4439,49 @@
       "forbidden": "Dafür fehlt dir das Recht. Der Besitzer der Gruppe legt fest, wer Modell wechseln, neu starten und verdichten darf.",
       "chooseAgent": "Welchen Agenten meinst du?",
       "dismiss": "Hinweis schließen"
+    },
+    "liveAnswer": {
+      "live": "live",
+      "working": "arbeitet",
+      "onlyForYou": "nur für dich sichtbar",
+      "thinkingNow": "Denkt nach …",
+      "thoughts": "Gedanken",
+      "thoughtsSummary": "Gedanken · {{duration}}",
+      "tools_one": "{{count}} Werkzeug",
+      "tools_other": "{{count}} Werkzeuge",
+      "toolsSummary": "{{tools}} · {{duration}}",
+      "liveAnswer": "Antwort von {{name}}, wird geschrieben",
+      "caret": "schreibt",
+      "activityLabel": "Tätige Agenten",
+      "activity": {
+        "writing": "{{name}} schreibt …",
+        "thinking": "{{name}} denkt nach …",
+        "working": "{{name}} arbeitet …",
+        "read": "{{name}} liest {{target}}",
+        "edit": "{{name}} bearbeitet {{target}}",
+        "test": "{{name}} testet",
+        "run": "{{name}} führt {{target}} aus",
+        "search": "{{name}} sucht {{target}}",
+        "browse": "{{name}} öffnet {{target}}",
+        "use": "{{name}} nutzt {{target}}",
+        "running_one": "{{count}} Werkzeug läuft",
+        "running_other": "{{count}} Werkzeuge laufen"
+      },
+      "steer": "Umlenken",
+      "steerShortcut": "↵",
+      "after": "Danach senden",
+      "afterShortcut": "⌥↵",
+      "halt": "Anhalten",
+      "haltShortcut": "Esc",
+      "more": "Weitere Arten zu senden",
+      "steerHint": "Enter lenkt um · ⇧Enter neue Zeile",
+      "steerLabel": "{{name}} umlenken",
+      "injected": "in {{owner}} Antwort eingeschoben",
+      "waiting": "wartet · geht nach {{owner}} Antwort raus",
+      "waitingAnyone": "wartet · geht nach der laufenden Antwort raus",
+      "notDelivered": "konnte nicht eingeschoben werden",
+      "reconnecting": "Verbindung unterbrochen – verbinde neu …",
+      "and": "und"
     }
   },
   "workspaces": {

@@ -22,6 +22,7 @@ import { toConversationMessage } from "./ConversationReader";
 import { agentSelectionText } from "./content/ConversationAgentFiles";
 import { EMPTY_MESSAGE_CONTENT } from "./content/ConversationMessageContent";
 
+import type { LiveAnswerSink } from "./ConversationLiveAnswer";
 import type { StoredConversationMessage } from "@/backend/database/repositories/conversation/ConversationMessageRepository";
 import type { ConversationTargetState } from "@/backend/database/repositories/conversation/ConversationRoundRepository";
 import type { AgentMessageQueue } from "@/definition/AgentSessionLimits";
@@ -96,6 +97,11 @@ export class ConversationReplyRunner {
   private readonly controllers = new Map<string, AbortController>();
   /** The rounds handed to the running answer of an agent in a conversation (PAGE-376). */
   private readonly steered = new Map<string, ConversationReplyJob[]>();
+  /** Messages sent "after" the running answers, waiting for their agents to end (PAGE-381). */
+  private readonly idleWaiters = new Map<
+    string,
+    Set<{ readonly agentIds: readonly string[]; readonly resolve: () => void }>
+  >();
 
   public constructor(dependencies: ConversationReplyRunnerDependencies) {
     this.dependencies = dependencies;
@@ -119,6 +125,59 @@ export class ConversationReplyRunner {
       .get(conversationId)
       ?.values() ?? [])
       if (result.get(messageId) !== "limit") result.set(messageId, reason);
+    return result;
+  }
+
+  /**
+   * Holds a message until the given agents ended their running answers in a
+   * conversation (PAGE-381, "Danach senden"); meanwhile it shows as waiting
+   * for them.
+   *
+   * @param conversationId - The conversation.
+   * @param messageId - The message that waits.
+   * @param agentIds - The agents whose answers it waits for.
+   */
+  public async holdUntilIdle(
+    conversationId: string,
+    messageId: string,
+    agentIds: readonly string[],
+  ): Promise<void> {
+    const isBusy = (): boolean =>
+      agentIds.some((id) => this.working.get(conversationId)?.has(id) === true);
+    if (!isBusy()) return;
+    const entries = this.queued.get(conversationId) ?? new Map();
+    for (const agentId of agentIds)
+      entries.set(`${messageId}:${agentId}`, { messageId, reason: "chat" });
+    this.queued.set(conversationId, entries);
+    this.dependencies.publisher.publish(changedEvent(conversationId));
+    await new Promise<void>((resolve) => {
+      const waiters = this.idleWaiters.get(conversationId) ?? new Set();
+      waiters.add({ agentIds, resolve });
+      this.idleWaiters.set(conversationId, waiters);
+    });
+    for (const agentId of agentIds)
+      this.queued.get(conversationId)?.delete(`${messageId}:${agentId}`);
+    if (this.queued.get(conversationId)?.size === 0)
+      this.queued.delete(conversationId);
+    this.dependencies.publisher.publish(changedEvent(conversationId));
+  }
+
+  /**
+   * The messages of a conversation handed to running answers (PAGE-381), with
+   * the agents whose answers took them; they end with those answers.
+   */
+  public steeredMessages(
+    conversationId: string,
+  ): ReadonlyMap<string, readonly string[]> {
+    const result = new Map<string, string[]>();
+    for (const [queueKey, jobs] of this.steered) {
+      if (!queueKey.startsWith(`${conversationId}:`)) continue;
+      for (const job of jobs)
+        result.set(job.triggerMessageId, [
+          ...(result.get(job.triggerMessageId) ?? []),
+          job.agentId,
+        ]);
+    }
     return result;
   }
 
@@ -262,11 +321,13 @@ export class ConversationReplyRunner {
     const controller = new AbortController();
     this.controllers.set(controllerKey, controller);
     this.setWorking(job, true);
+    const liveAnswer = await this.openLiveAnswer(job);
     try {
       let posted: { readonly message: ConversationMessage | null } | undefined;
       const text = await this.askWhenFree(job, agent.user, {
         accounts,
         signal: controller.signal,
+        liveAnswer,
         consumeAnswer: async (answer) => {
           posted = {
             message: await this.post(job, accounts, {
@@ -279,6 +340,10 @@ export class ConversationReplyRunner {
       const message = posted
         ? posted.message
         : await this.post(job, accounts, { text, notice: null });
+      liveAnswer?.finish({
+        messageId: message?.id ?? null,
+        state: message ? "answered" : "failed",
+      });
       await this.settleSteered(controllerKey, {
         state: "answered",
         ...(message ? { replyMessageId: message.id } : {}),
@@ -289,6 +354,10 @@ export class ConversationReplyRunner {
         ? "agent_stopped"
         : noticeFor(error);
       this.logFailure(job, notice, error);
+      liveAnswer?.finish({
+        messageId: null,
+        state: controller.signal.aborted ? "stopped" : "failed",
+      });
       await this.post(job, accounts, {
         text: controller.signal.aborted
           ? NOTICE_TEXTS.agent_stopped(agent.user.displayName)
@@ -303,6 +372,40 @@ export class ConversationReplyRunner {
       this.unmarkQueued(job);
       this.setWorking(job, false);
     }
+  }
+
+  /**
+   * Opens the live answer of a job for the members (PAGE-381): every member
+   * sees its text and tools, its thoughts only the person of a direct
+   * conversation or the creator of a group.
+   */
+  private async openLiveAnswer(
+    job: ConversationReplyJob,
+  ): Promise<LiveAnswerSink | undefined> {
+    const stream = this.dependencies.answerStream;
+    if (!stream) return undefined;
+    const { conversation, memberIds } = job.round;
+    const recipientIds = memberIds.filter((id) => id !== job.agentId);
+    let thoughtRecipientIds = recipientIds;
+    if (conversation.kind === "group") {
+      const owner = await stream
+        .ownerOf(conversation.id)
+        .catch((error: unknown) => {
+          // Without a known owner nobody reads the thoughts.
+          logCaughtError(COMPONENT, error);
+          return null;
+        });
+      thoughtRecipientIds =
+        owner !== null && recipientIds.includes(owner) ? [owner] : [];
+    }
+    return stream.open({
+      agentId: job.agentId,
+      chatKind: "conversation",
+      chatId: conversation.id,
+      recipientIds,
+      thoughtRecipientIds,
+      isTurnStored: false,
+    });
   }
 
   /** Whether the round began with an agent in a conversation whose chain of agent messages is used up (PAGE-311). */
@@ -320,6 +423,7 @@ export class ConversationReplyRunner {
       readonly accounts: ConversationAccounts;
       readonly signal: AbortSignal;
       readonly consumeAnswer: (answer: string) => Promise<void>;
+      readonly liveAnswer?: LiveAnswerSink;
     },
   ): Promise<string> {
     const deadline = this.nowMilliseconds() + BUSY_WAIT_MAXIMUM_MILLISECONDS;
@@ -438,11 +542,13 @@ export class ConversationReplyRunner {
       readonly accounts: ConversationAccounts;
       readonly signal: AbortSignal;
       readonly consumeAnswer: (answer: string) => Promise<void>;
+      readonly liveAnswer?: LiveAnswerSink;
     },
   ): Promise<string> {
     const request = await this.buildRequest(job, agent, context.accounts);
     const answer = await this.dependencies.runner.answer({
       ...request,
+      ...(context.liveAnswer ? { liveAnswer: context.liveAnswer } : {}),
       consumeAnswer: context.consumeAnswer,
       signal: context.signal,
       onQueued: () => this.markQueued(job, "limit"),
@@ -657,6 +763,7 @@ export class ConversationReplyRunner {
     else agents.delete(job.agentId);
     if (agents.size === 0) this.working.delete(conversationId);
     else this.working.set(conversationId, agents);
+    if (!isWorking) this.releaseIdleWaiters(conversationId, agents);
     this.dependencies.publisher.publish(changedEvent(conversationId));
     this.dependencies.events.publish({
       kind: "typing",
@@ -665,6 +772,21 @@ export class ConversationReplyRunner {
       isTyping: isWorking,
       recipientIds: job.round.memberIds,
     });
+  }
+
+  /** Lets the messages go on whose agents no longer answer in the conversation. */
+  private releaseIdleWaiters(
+    conversationId: string,
+    working: ReadonlySet<string>,
+  ): void {
+    const waiters = this.idleWaiters.get(conversationId);
+    if (!waiters) return;
+    for (const waiter of waiters) {
+      if (waiter.agentIds.some((id) => working.has(id))) continue;
+      waiters.delete(waiter);
+      waiter.resolve();
+    }
+    if (waiters.size === 0) this.idleWaiters.delete(conversationId);
   }
 
   private logFailure(

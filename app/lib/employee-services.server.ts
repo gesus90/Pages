@@ -7,6 +7,8 @@ import { ChatSessionRepository } from "@/backend/database/repositories/chat/Chat
 import { ConversationMessageRepository } from "@/backend/database/repositories/conversation/ConversationMessageRepository";
 import { ConversationRepository } from "@/backend/database/repositories/conversation/ConversationRepository";
 import { EmployeeStore } from "@/backend/database/repositories/employee/EmployeeStore";
+import { sharedConversationAnswerStream } from "@/backend/service/conversation/ConversationAnswerStream";
+
 import type { AgentSessionSettingsRepository } from "@/backend/database/repositories/employee/AgentSessionSettingsRepository";
 import { UserGroupRepository } from "@/backend/database/repositories/UserGroupRepository";
 import { UserRepository } from "@/backend/database/repositories/UserRepository";
@@ -439,6 +441,7 @@ function createEmployeeSessions(
     toolGuard: new AgentChatToolGuard({ store: base.store }),
     logbook: () => late.logbook,
     recipes: new AgentRecipeService({ store: base.store }),
+    answers: sharedConversationAnswerStream(),
   });
 }
 

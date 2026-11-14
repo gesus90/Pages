@@ -117,7 +117,14 @@ export class PicaAcpJob {
     this.userId = specification.actor.id;
     this.dependencies = dependencies;
     this.specification = specification;
-    this.journal = new PicaAcpJournal(dependencies.jobs, specification.id);
+    // The chat page shows the answer while it is written (PAGE-381).
+    this.journal = new PicaAcpJournal(
+      dependencies.jobs,
+      specification.id,
+      dependencies.liveAnswer
+        ? (event) => dependencies.liveAnswer?.journaled(event)
+        : undefined,
+    );
     this.usage = new PicaAcpUsage(
       dependencies.jobs,
       this.journal,
@@ -168,6 +175,8 @@ export class PicaAcpJob {
           this.journal.note({ kind: "capabilities", canSteer });
         },
         text: (turn, isReset, delta) => this.journal.text(turn, isReset, delta),
+        thought: (turn, delta) =>
+          this.dependencies.liveAnswer?.thought(turn, delta),
         context: (context, cost) => this.usage.recordContext(context, cost),
         compaction: (compaction) =>
           this.journal.note({ kind: "compaction", ...compaction }),
@@ -215,10 +224,16 @@ export class PicaAcpJob {
   /**
    * Takes a message sent while the job runs; call it inside the queue of the conversation.
    *
+   * @param message - The stored message.
+   * @param isDeferred - The message waits for a turn of its own after the
+   * running one instead of joining it (PAGE-381).
    * @returns Its first status, or `null` once the job no longer takes messages.
    */
-  public steer(message: PicaAcpMessage): Promise<ChatSteerStatus | null> {
-    return this.steering.accept(message);
+  public steer(
+    message: PicaAcpMessage,
+    isDeferred = false,
+  ): Promise<ChatSteerStatus | null> {
+    return this.steering.accept(message, isDeferred);
   }
 
   /**
@@ -234,7 +249,9 @@ export class PicaAcpJob {
   public async cancelTool(): Promise<boolean> {
     const cancel = this.session?.cancelTool?.bind(this.session);
     if (!cancel || !this.isTurnRunning) return false;
-    return cancel(TOOL_CANCELLED_NOTE);
+    const isCancelled = await cancel(TOOL_CANCELLED_NOTE);
+    if (isCancelled) this.dependencies.liveAnswer?.cancelTools();
+    return isCancelled;
   }
 
   /** Marks the coming cancellation as the person's explicit stop. */

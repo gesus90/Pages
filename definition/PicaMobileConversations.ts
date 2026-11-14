@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import type { LiveAnswerEventPayload } from "./ConversationLiveAnswer";
 import type {
   ConversationContacts,
   ConversationErrorCode,
@@ -162,6 +163,9 @@ export interface PicaMobileConversationTyping {
  * The answers to `conversation_create`, `conversation_send`,
  * `conversation_read`, `conversation_mute` and `voice_finish` are events
  * with the request's identifier; Pages sends every other event on its own.
+ * The `answer_*` events carry the parts of an answer an agent is writing
+ * (PAGE-381); only a connection that announced `conversations.stream.v1`
+ * receives them, the web chat page, so Pica Mobile sees no new event.
  */
 export type PicaMobileConversationEventPayload =
   | {
@@ -170,7 +174,8 @@ export type PicaMobileConversationEventPayload =
     }
   | { readonly type: "conversation"; readonly data: ConversationSummary }
   | { readonly type: "read"; readonly data: ConversationReadState }
-  | { readonly type: "typing"; readonly data: PicaMobileConversationTyping };
+  | { readonly type: "typing"; readonly data: PicaMobileConversationTyping }
+  | LiveAnswerEventPayload;
 
 /** The payload of `conversation_error`. */
 export interface PicaMobileConversationErrorPayload {

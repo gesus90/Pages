@@ -11,6 +11,7 @@ import {
 } from "./ChatConversationView";
 import {
   markQueuedMessages,
+  markSteeredMessages,
   queuedChatMessages,
   waitingInChat,
 } from "./ChatMessageQueues";
@@ -90,6 +91,15 @@ export interface ChatDirectoryDependencies {
   readonly queuedMessages?: (
     conversationId: string,
   ) => ReadonlyMap<string, AgentMessageQueue>;
+  /** The messages of a stored conversation running answers took, with their agents (PAGE-381). */
+  readonly steeredMessages?: (
+    conversationId: string,
+  ) => ReadonlyMap<string, readonly string[]>;
+  /** The messages of a direct chat with an agent its running job took into its answer (PAGE-381). */
+  readonly injectedInJob?: (
+    agent: User,
+    sessionId: string,
+  ) => Promise<ReadonlySet<string>>;
   /** The messages of a direct chat with an agent its running job holds back (PAGE-304). */
   readonly waitingInJob?: (
     agent: User,
@@ -323,9 +333,12 @@ export class ChatDirectoryService {
         liveToolUses[contact.contactId] = history.liveTools;
     }
     for (const [groupId, view] of conversations.groups)
-      histories[groupId] = markQueuedMessages(
-        this.conversationHistory(view, person),
-        this.dependencies.queuedMessages?.(groupId) ?? new Map(),
+      histories[groupId] = markSteeredMessages(
+        markQueuedMessages(
+          this.conversationHistory(view, person),
+          this.dependencies.queuedMessages?.(groupId) ?? new Map(),
+        ),
+        this.dependencies.steeredMessages?.(groupId) ?? new Map(),
       );
     const overseen = await this.overseenConversations(person, accounts);
     Object.assign(histories, overseen.histories);
@@ -730,11 +743,13 @@ export class ChatDirectoryService {
         accessLevel,
       };
     const { sessionId } = conversation;
-    const [stored, isWorking, calls, waiting] = await Promise.all([
+    const [stored, isWorking, calls, waiting, injected] = await Promise.all([
       this.dependencies.messages.messages(sessionId),
       this.dependencies.isWorking(agent, sessionId),
       this.dependencies.toolCalls?.(agent, sessionId) ?? NO_TOOL_CALLS,
       this.dependencies.waitingInJob?.(agent, sessionId) ?? new Set<string>(),
+      this.dependencies.injectedInJob?.(agent, sessionId) ??
+        new Set<string>(),
     ]);
     const messages: VirtualChatMessage[] = stored
       .slice(-HISTORY_MESSAGES)
@@ -746,7 +761,10 @@ export class ChatDirectoryService {
         ...(written.length > 0 ? { createdAt: message.createdAt } : {}),
       }));
     const isBusy = isWorking || queued.length > 0;
-    const chat = markQueuedMessages(messages, waitingInChat(messages, waiting));
+    const chat = markSteeredMessages(
+      markQueuedMessages(messages, waitingInChat(messages, waiting)),
+      new Map([...injected].map((id) => [id, [agent.id]] as const)),
+    );
     return {
       messages: [
         ...(written.length === 0 ? chat : mergeByTime(chat, written)),

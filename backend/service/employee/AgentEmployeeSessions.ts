@@ -13,6 +13,7 @@ import { AgentChatContext } from "./AgentChatContext";
 import { createAgentEmployeeInstructions } from "./AgentEmployeeInstructions";
 import { foldJobToolCalls } from "./AgentToolCallView";
 
+import type { LiveAnswerSink } from "@/backend/service/conversation/ConversationLiveAnswer";
 import type { StoredAgentEmployee } from "@/backend/database/repositories/employee/AgentEmployeeRepository";
 import type { EmployeeStore } from "@/backend/database/repositories/employee/EmployeeStore";
 import type { ResolvedAgentAssignment } from "../agents/AgentAssignmentResolution";
@@ -70,6 +71,12 @@ const WAITING_STEERS: ReadonlySet<ChatSteerStatus> = new Set([
   "pending",
   "delivered",
   "followUp",
+]);
+
+/** Steers that joined the running turn or went to the adapter for it (PAGE-381). */
+const INJECTED_STEERS: ReadonlySet<ChatSteerStatus> = new Set([
+  "delivered",
+  "accepted",
 ]);
 
 /** The place of a session without limits, for a server without them. */
@@ -150,6 +157,7 @@ export class AgentEmployeeSessions {
         purpose: "chat",
         text: message.text,
         clientMessageId: message.clientMessageId,
+        isDeferred: message.delivery === "after",
         signal: entry.controller.signal,
         onQueued: () => {
           this.waiting.set(key, [...(this.waiting.get(key) ?? []), entry]);
@@ -237,6 +245,32 @@ export class AgentEmployeeSessions {
   }
 
   /**
+   * Cancels the running tool call of a chat of the agent, such as its answer
+   * in a group (PAGE-381); the agent answers with what it has.
+   *
+   * @returns Whether a running call was cancelled.
+   */
+  public async cancelChatTool(
+    agent: User,
+    target: {
+      readonly purpose: "chat" | "conversation";
+      readonly personId?: string;
+      readonly conversationId?: string;
+    },
+  ): Promise<boolean> {
+    const acp = this.dependencies.acp;
+    if (!acp) return false;
+    const conversation = await this.dependencies.store
+      .conversations()
+      .find(
+        agent.id,
+        target.conversationId ?? target.personId ?? agent.id,
+        target.purpose,
+      );
+    return conversation ? acp.cancelTool(agent, conversation.sessionId) : false;
+  }
+
+  /**
    * The tool calls of the newest jobs of a conversation of the agent, by the
    * answer they belong to (PAGE-303).
    *
@@ -273,6 +307,27 @@ export class AgentEmployeeSessions {
     return new Set(
       activity.steers
         .filter((steer) => WAITING_STEERS.has(steer.status))
+        .map((steer) => steer.messageId),
+    );
+  }
+
+  /**
+   * The messages of a conversation of the agent its running job took into
+   * its answer (PAGE-381): joined its turn or handed to the adapter for it.
+   *
+   * @returns Their message IDs; empty while no job runs.
+   */
+  public async injectedInJob(
+    agent: User,
+    sessionId: string,
+  ): Promise<ReadonlySet<string>> {
+    const acp = this.dependencies.acp;
+    if (!acp) return new Set();
+    const activity = await acp.activity(agent.id, sessionId);
+    if (activity.job?.state !== "running") return new Set();
+    return new Set(
+      activity.steers
+        .filter((steer) => INJECTED_STEERS.has(steer.status))
         .map((steer) => steer.messageId),
     );
   }
@@ -380,6 +435,7 @@ export class AgentEmployeeSessions {
       sessionId: conversation.sessionId,
       text: request.text,
       attachmentIds: [],
+      ...(request.isDeferred === true ? { isDeferred: true } : {}),
     };
     try {
       return await this.admitAndStart(acp, request, chatRequest);
@@ -450,6 +506,7 @@ export class AgentEmployeeSessions {
           brief,
           employee: {
             ...run,
+            ...this.liveAnswerOf(request),
             prepareTurn: request.prepareTurn,
             consumeAnswer: request.consumeAnswer,
             onSettled: () => {
@@ -470,6 +527,31 @@ export class AgentEmployeeSessions {
         await acp.settled(agent, sessionId);
       }
     }
+  }
+
+  /**
+   * The live answer of a round for the chat page (PAGE-381): the one the
+   * caller opened, such as a group's, or one of its own for the direct chat
+   * with a person, whose thoughts only that person reads. A run of the
+   * agent's own shows none.
+   */
+  private liveAnswerOf(
+    request: AgentJobRequest,
+  ): { readonly liveAnswer: LiveAnswerSink } | Record<string, never> {
+    if (request.liveAnswer) return { liveAnswer: request.liveAnswer };
+    const { answers } = this.dependencies;
+    const { person, agent } = request;
+    if (!answers || request.purpose !== "chat" || !person) return {};
+    return {
+      liveAnswer: answers.open({
+        agentId: agent.id,
+        chatKind: "agent",
+        chatId: agent.id,
+        recipientIds: [person.id],
+        thoughtRecipientIds: [person.id],
+        isTurnStored: true,
+      }),
+    };
   }
 
   /** Tells the session the entries of the Lagebuch its round just carried the hint line for (PAGE-377). */

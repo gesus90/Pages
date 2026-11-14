@@ -17,6 +17,7 @@ import type { PicaBridge } from "./PicaBridge";
 import type { PicaAnswerFiles } from "./PicaAcpAnswerOutput";
 import type { PicaAttachmentReader } from "./PicaAcpContent";
 import type { PicaHostFileAttach } from "../PicaHostFileTools";
+import type { LiveAnswerSink } from "@/backend/service/conversation/ConversationLiveAnswer";
 
 /** What a job needs from Pages; every write path is an existing one. */
 export interface PicaAcpJobDependencies {
@@ -62,4 +63,6 @@ export interface PicaAcpJobDependencies {
   readonly attachHostFile?: PicaHostFileAttach;
   /** The chat tools of an agent employee (PAGE-311); absent for Pica. */
   readonly agentChat?: AgentChatTools;
+  /** Shows the answer of an agent employee on the chat page while it is written (PAGE-381); absent for Pica. */
+  readonly liveAnswer?: LiveAnswerSink;
 }

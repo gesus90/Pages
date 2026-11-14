@@ -4,6 +4,9 @@ import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { redactCredentials } from "@/backend/security/AgentTextSafety";
 import { CHAT_LIMITS } from "@/definition/Chat";
 
+import type { ConversationAnswerStream } from "@/backend/service/conversation/ConversationAnswerStream";
+import type { LiveAnswerSink } from "@/backend/service/conversation/ConversationLiveAnswer";
+import type { ConversationDelivery } from "@/definition/ConversationLiveAnswer";
 import type { PicaAcpConversationTurn } from "@/backend/service/chat/acp/PicaAcpSteering";
 import type { EmployeeStore } from "@/backend/database/repositories/employee/EmployeeStore";
 import type { StoredAgentEmployee } from "@/backend/database/repositories/employee/AgentEmployeeRepository";
@@ -110,6 +113,8 @@ export interface AgentEmployeeSessionDependencies {
    */
   readonly recipes?: Pick<AgentRecipeService, "tools" | "brief">;
   readonly today?: () => string;
+  /** Opens the live answer of a direct chat for the chat page (PAGE-381); absent shows none. */
+  readonly answers?: Pick<ConversationAnswerStream, "open">;
   /** Waits between two looks of a background run at the chats of its agent; tests pass a fast one. */
   readonly wait?: (milliseconds: number) => Promise<void>;
 }
@@ -119,6 +124,8 @@ export interface AgentMessage {
   readonly agentId: string;
   readonly text: string;
   readonly clientMessageId: string | null;
+  /** How the person sent it while the agent answered (PAGE-381); absent joins the answer as before. */
+  readonly delivery?: ConversationDelivery;
 }
 
 /** What a job of an agent answers and with whom. */
@@ -163,6 +170,13 @@ export interface AgentJobRequest {
   readonly onQueued?: () => void;
   /** Called once when the message got its place and its answer begins. */
   readonly onAdmitted?: () => void;
+  /**
+   * The message waits for a turn of its own after the running answer instead
+   * of joining it (PAGE-381, "Danach senden").
+   */
+  readonly isDeferred?: boolean;
+  /** Shows the answer on the chat page while it is written (PAGE-381); a direct chat opens its own. */
+  readonly liveAnswer?: LiveAnswerSink;
 }
 
 /** A message of a person to an agent that waits for a free place (PAGE-304). */
@@ -233,7 +247,7 @@ export function isSessionBusy(error: unknown): boolean {
 /** Reads the untrusted input of a chat message into its checked fields. */
 export function readMessage(input: unknown): AgentMessage {
   const fields = readAgentObject(input);
-  const { agentId, text, clientMessageId } = fields;
+  const { agentId, text, clientMessageId, delivery } = fields;
   if (typeof agentId !== "string" || !IDENTIFIER.test(agentId))
     throw new AgentEmployeeError("invalidInput");
   if (typeof text !== "string") throw new AgentEmployeeError("invalidInput");
@@ -251,5 +265,6 @@ export function readMessage(input: unknown): AgentMessage {
       typeof clientMessageId === "string" && IDENTIFIER.test(clientMessageId)
         ? clientMessageId
         : null,
+    ...(delivery === "steer" || delivery === "after" ? { delivery } : {}),
   };
 }

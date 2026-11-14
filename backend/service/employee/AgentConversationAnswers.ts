@@ -35,7 +35,7 @@ export interface AgentConversationAnswerDependencies {
   readonly users: Pick<UserRepository, "findById">;
   readonly sessions: Pick<
     AgentEmployeeSessions,
-    "run" | "job" | "admit" | "stopSession" | "steerChat"
+    "run" | "job" | "admit" | "stopSession" | "steerChat" | "cancelChatTool"
   >;
   readonly messages: Pick<ChatSessionRepository, "messages">;
   /** The simulated agent; set only while the simulation is on, never in production. */
@@ -99,6 +99,7 @@ export class AgentConversationAnswers implements ConversationAgentRunner {
       signal,
       onQueued: request.onQueued,
       onAdmitted: request.onAdmitted,
+      ...(request.liveAnswer ? { liveAnswer: request.liveAnswer } : {}),
     });
     if (!started) throw new AgentEmployeeError("busy");
     // The round reached the session: its next round carries only what is newer (PAGE-376).
@@ -146,6 +147,24 @@ export class AgentConversationAnswers implements ConversationAgentRunner {
     );
     if (steered) await this.advanceByConversation(request);
     return steered;
+  }
+
+  /**
+   * Cancels the running tool calls of the agent's answer in a conversation
+   * (PAGE-381); the answer goes on with what it has.
+   *
+   * @returns Whether a running call was cancelled.
+   */
+  public async cancelTool(
+    agentId: string,
+    conversationId: string,
+  ): Promise<boolean> {
+    const agent = await this.dependencies.users.findById(agentId);
+    if (agent?.isAgent !== true) return false;
+    return this.dependencies.sessions.cancelChatTool(agent, {
+      purpose: "conversation",
+      conversationId,
+    });
   }
 
   /**

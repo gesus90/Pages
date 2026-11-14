@@ -33,6 +33,7 @@ import { useVoiceSending } from "./use-voice-sending";
 import { formatVoiceDuration } from "./voice-audio";
 
 import type { ChatDecisionStatus } from "@/definition/ConversationDecision";
+import type { ConversationDelivery } from "@/definition/ConversationLiveAnswer";
 import type {
   VirtualChatDirectory,
   VirtualChatSelection,
@@ -97,10 +98,25 @@ function ConversationFoot({
   const name = conversationName(opened);
 
   // A chat command steers an agent and is never sent as a message (PAGE-380).
-  function handleSend(content: string, attachmentIds: readonly string[]): void {
+  function handleSend(
+    content: string,
+    attachmentIds: readonly string[],
+    delivery?: ConversationDelivery,
+  ): void {
     if (attachmentIds.length === 0 && commands.runIfCommand(content)) return;
-    page.send(content, attachmentIds);
+    page.send(content, attachmentIds, delivery);
   }
+
+  // While agents answer, Enter steers them and Esc stops them (PAGE-381).
+  const workerNames = page.activity.map((entry) => entry.agent.name);
+  const answering = page.isAnswering
+    ? {
+        name: (workerNames.length > 0 ? workerNames : page.answeringNames).join(
+          ", ",
+        ),
+        onStop: page.stopAll,
+      }
+    : undefined;
 
   // An agent's history on the page is its chat session, which takes text only.
   const hasVoice =
@@ -139,6 +155,8 @@ function ConversationFoot({
         label={t("chatPage.inputLabel", { name })}
         placeholder={t(placeholderKey(opened), { name })}
         onSend={handleSend}
+        answering={answering}
+        activity={page.activity}
         aside={
           contextRingEntries(opened).length > 0 ? (
             <ChatPageContextRings opened={opened} chatName={name} />
@@ -219,8 +237,11 @@ function ChatPageConversation({
           onLoad: page.loadOlder,
         }}
         answeringNames={page.answeringNames}
+        live={page.live}
       />
-      <ChatPageLiveTools tools={page.liveTools} onCancel={page.cancelTool} />
+      {page.live.answers.length === 0 ? (
+        <ChatPageLiveTools tools={page.liveTools} onCancel={page.cancelTool} />
+      ) : null}
       <ChatBrowserPanel isOpen />
       <ConversationFoot
         key={conversationKey(opened)}

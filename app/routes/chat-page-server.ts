@@ -9,6 +9,7 @@ import { CONVERSATION_DEFAULT_REPLY_MODE } from "@/definition/ConversationDecisi
 import { ConversationError } from "@/backend/error/ConversationError";
 import { logCaughtError } from "@/backend/logging/Logger";
 
+import type { ConversationDelivery } from "@/definition/ConversationLiveAnswer";
 import type { ChatPageServices } from "@/app/lib/chat-page-conversations.server";
 import type { AgentChatCommandOutcome } from "@/definition/AgentChatControl";
 import type { ConversationErrorCode } from "@/definition/Conversation";
@@ -56,6 +57,7 @@ export type ChatPageIntent =
   | "stop"
   | "stop-group"
   | "cancel-tool"
+  | "cancel-group-tool"
   | "create-group"
   | "add-member"
   | "send-group"
@@ -91,6 +93,7 @@ const INTENTS: readonly ChatPageIntent[] = [
   "stop",
   "stop-group",
   "cancel-tool",
+  "cancel-group-tool",
   "create-group",
   "add-member",
   "send-group",
@@ -161,6 +164,13 @@ function readJson(value: FormDataEntryValue | null): unknown {
 
 type ChatServices = ChatPageServices;
 
+/** How the person sent a message while agents answered (PAGE-381); absent as before. */
+function readDelivery(
+  value: FormDataEntryValue | null,
+): ConversationDelivery | undefined {
+  return value === "steer" || value === "after" ? value : undefined;
+}
+
 /** Stores a message of a group or of a direct conversation with a person, or a read state. */
 async function runConversationIntent(
   services: ChatServices,
@@ -199,12 +209,17 @@ async function runConversationIntent(
   }
   const groupId = String(formData.get("groupId") ?? "");
   const isOwn = await shareChatGroup(services, person, groupId);
-  await conversationService.send(person, {
-    conversationId: groupId,
-    clientMessageId,
-    text,
-    attachmentIds,
-  });
+  const delivery = readDelivery(formData.get("delivery"));
+  await conversationService.send(
+    person,
+    {
+      conversationId: groupId,
+      clientMessageId,
+      text,
+      attachmentIds,
+    },
+    delivery === undefined ? {} : { delivery },
+  );
   if (isOwn)
     await services.chatGroupService.recordActivity(person, {
       kind: "group",
@@ -390,6 +405,7 @@ const AGENT_CONTROL_INTENTS = [
   "stop",
   "stop-group",
   "cancel-tool",
+  "cancel-group-tool",
   "resume-agents",
 ] as const;
 
@@ -427,6 +443,14 @@ async function runAgentControlIntent(
       await services.agentEmployeeSessions.cancelTool(
         person,
         formData.get("agentId"),
+      );
+      return;
+    case "cancel-group-tool":
+      // Only the running calls of this agent in this group end (PAGE-381).
+      await services.conversationAgentReplies.cancelTool(
+        person,
+        String(formData.get("groupId") ?? ""),
+        String(formData.get("agentId") ?? ""),
       );
       return;
     case "resume-agents":
@@ -501,6 +525,7 @@ async function runIntent(
         agentId: formData.get("agentId"),
         text: formData.get("text"),
         clientMessageId: formData.get("clientMessageId"),
+        delivery: readDelivery(formData.get("delivery")),
       });
       await recordParticipantActivity(
         services,

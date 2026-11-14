@@ -159,6 +159,10 @@ export function createChatDirectory(parts: {
     guard: conversations.conversationAgentGuard,
     queuedMessages: (conversationId) => replies.queuedMessages(conversationId),
     waitingInJob: (agent, sessionId) => sessions.waitingInJob(agent, sessionId),
+    injectedInJob: (agent, sessionId) =>
+      sessions.injectedInJob(agent, sessionId),
+    steeredMessages: (conversationId) =>
+      replies.steeredMessages(conversationId),
     queuedAgentMessages: (agentId, personId) =>
       sessions.queuedMessages(agentId, personId),
     agentSessions: parts.agentSessions,

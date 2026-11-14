@@ -14,6 +14,9 @@ import { isAgentChainPaused } from "./ConversationAgentChain";
 import { ConversationReplyRunner } from "./ConversationReplyRunner";
 import { ConversationRoundFollowUps } from "./ConversationRoundFollowUps";
 
+import type { LiveAnswerSink } from "./ConversationLiveAnswer";
+import type { ConversationDelivery } from "@/definition/ConversationLiveAnswer";
+import type { ConversationAnswerStreamPort } from "./ConversationReplyTypes";
 import type { ConversationMessageRepository } from "@/backend/database/repositories/conversation/ConversationMessageRepository";
 import type {
   ConversationRecord,
@@ -97,6 +100,8 @@ export interface ConversationAgentRequest {
   readonly onQueued?: () => void;
   /** Called when the answer got its place and begins. */
   readonly onAdmitted?: () => void;
+  /** Shows the answer to the members while it is written (PAGE-381). */
+  readonly liveAnswer?: LiveAnswerSink;
 }
 
 /**
@@ -122,6 +127,13 @@ export interface ConversationAgentRunner {
    * before the first round (PAGE-376).
    */
   deliveredThrough?(agentId: string, conversationId: string): Promise<number>;
+  /**
+   * Cancels the running tool calls of the agent's answer in the conversation
+   * (PAGE-381).
+   *
+   * @returns Whether a running call was cancelled.
+   */
+  cancelTool?(agentId: string, conversationId: string): Promise<boolean>;
 }
 
 /** What the answers of agents in conversations use. */
@@ -165,6 +177,8 @@ export interface ConversationAgentRepliesDependencies {
   readonly now?: () => Date;
   /** Waits for a busy agent; tests pass a fast one. */
   readonly wait?: (milliseconds: number) => Promise<void>;
+  /** Shows the answers to the members while they are written (PAGE-381); absent shows none. */
+  readonly answerStream?: ConversationAnswerStreamPort;
 }
 
 /** One agent a round asks for, and why. */
@@ -301,6 +315,13 @@ export class ConversationAgentReplies {
     return this.replies.queuedMessages(conversationId);
   }
 
+  /** The messages of a conversation handed to running answers, with their agents (PAGE-381). */
+  public steeredMessages(
+    conversationId: string,
+  ): ReadonlyMap<string, readonly string[]> {
+    return this.replies.steeredMessages(conversationId);
+  }
+
   /** How many messages of a conversation wait for the answer of one agent (PAGE-376). */
   public queuedFor(conversationId: string, agentId: string): number {
     return this.replies.queuedFor(conversationId, agentId);
@@ -327,6 +348,29 @@ export class ConversationAgentReplies {
   }
 
   /**
+   * Cancels the running tool calls of one agent's answer in a conversation of
+   * the person (PAGE-381); the answer goes on with what it has.
+   *
+   * @returns Whether a running call was cancelled.
+   * @throws {ConversationError} `not_found` for a conversation the person is no member of.
+   */
+  public async cancelTool(
+    person: User,
+    conversationId: string,
+    agentId: string,
+  ): Promise<boolean> {
+    const conversation = await this.dependencies.conversations.findForMember(
+      conversationId,
+      person.id,
+    );
+    if (!conversation) throw new ConversationError("not_found");
+    return (
+      (await this.dependencies.runner.cancelTool?.(agentId, conversationId)) ??
+      false
+    );
+  }
+
+  /**
    * Starts the answers a message of a person asks for and returns once they
    * and their hand-overs ended.
    *
@@ -336,6 +380,7 @@ export class ConversationAgentReplies {
   public async answer(
     message: ConversationMessage,
     memberIds: readonly string[],
+    delivery?: ConversationDelivery,
   ): Promise<void> {
     const accounts = await this.dependencies.directory.read();
     const sender = accounts.find(message.sender.id);
@@ -356,7 +401,53 @@ export class ConversationAgentReplies {
       conversation.kind === "group" && sender.user.isAgent !== true
         ? this.resumePaused(conversation.id)
         : Promise.resolve();
-    await Promise.all([this.answerRound(round, message, accounts), resumed]);
+    await Promise.all([
+      this.deliver(round, message, { accounts, delivery }),
+      resumed,
+    ]);
+  }
+
+  /**
+   * Hands a message a person sent while agents answered (PAGE-381): "after"
+   * waits until the answering agents ended, "steer" without an @ in a group
+   * goes into the answers of every agent answering now; an agent whose answer
+   * no longer takes it answers it afterwards. Otherwise the round starts as
+   * any other.
+   */
+  private async deliver(
+    round: ConversationRound,
+    message: ConversationMessage,
+    options: {
+      readonly accounts: ConversationAccounts;
+      readonly delivery: ConversationDelivery | undefined;
+    },
+  ): Promise<void> {
+    const { accounts, delivery } = options;
+    const { conversation, memberIds, person } = round;
+    const working = this.replies
+      .workingAgentIds(conversation.id)
+      .filter(
+        (id) => id !== person.id && isAgentMember(id, memberIds, accounts),
+      );
+    if (delivery === "after" && working.length > 0)
+      await this.replies.holdUntilIdle(conversation.id, message.id, working);
+    const isUnaddressed =
+      conversation.kind === "group" && message.mentions.length === 0;
+    if (delivery === "steer" && isUnaddressed && working.length > 0) {
+      await this.dispatchAll(
+        round,
+        working.map((agentId) => ({
+          agentId,
+          trigger: "mention",
+          triggerMessageId: message.id,
+          requestedBy: null,
+          reason: "",
+          isAutomatic: false,
+        })),
+      );
+      return;
+    }
+    await this.answerRound(round, message, accounts);
   }
 
   /** Starts the answers the message of a round asks for. */
@@ -406,8 +497,9 @@ export class ConversationAgentReplies {
   private receive(event: ConversationEvent): void {
     const message = answerableMessage(event);
     if (!message) return;
+    const delivery = event.kind === "message" ? event.delivery : undefined;
     void withBackgroundDatabaseWork("conversation_agent_reply", () =>
-      this.answer(message, event.recipientIds),
+      this.answer(message, event.recipientIds, delivery),
     ).catch((error: unknown) => {
       logCaughtError(COMPONENT, error);
     });

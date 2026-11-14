@@ -4172,7 +4172,8 @@
     "toolStatus": {
       "running": "running",
       "completed": "done",
-      "failed": "failed"
+      "failed": "failed",
+      "cancelled": "cancelled"
     },
     "cancelTool": "Cancel",
     "toolInput": "Input",
@@ -4438,6 +4439,49 @@
       "forbidden": "You lack the right for this. The group owner decides who may switch models, restart and compact.",
       "chooseAgent": "Which agent do you mean?",
       "dismiss": "Close hint"
+    },
+    "liveAnswer": {
+      "live": "live",
+      "working": "working",
+      "onlyForYou": "visible only to you",
+      "thinkingNow": "Thinking …",
+      "thoughts": "Thoughts",
+      "thoughtsSummary": "Thoughts · {{duration}}",
+      "tools_one": "{{count}} tool",
+      "tools_other": "{{count}} tools",
+      "toolsSummary": "{{tools}} · {{duration}}",
+      "liveAnswer": "Answer from {{name}}, being written",
+      "caret": "writing",
+      "activityLabel": "Active agents",
+      "activity": {
+        "writing": "{{name}} is writing …",
+        "thinking": "{{name}} is thinking …",
+        "working": "{{name}} is working …",
+        "read": "{{name}} is reading {{target}}",
+        "edit": "{{name}} is editing {{target}}",
+        "test": "{{name}} is testing",
+        "run": "{{name}} is running {{target}}",
+        "search": "{{name}} is searching {{target}}",
+        "browse": "{{name}} is opening {{target}}",
+        "use": "{{name}} is using {{target}}",
+        "running_one": "{{count}} tool running",
+        "running_other": "{{count}} tools running"
+      },
+      "steer": "Redirect",
+      "steerShortcut": "↵",
+      "after": "Send afterwards",
+      "afterShortcut": "⌥↵",
+      "halt": "Stop",
+      "haltShortcut": "Esc",
+      "more": "More ways to send",
+      "steerHint": "Enter redirects · ⇧Enter new line",
+      "steerLabel": "Redirect {{name}}",
+      "injected": "added to {{owner}} answer",
+      "waiting": "waiting · goes out after {{owner}} answer",
+      "waitingAnyone": "waiting · goes out after the running answer",
+      "notDelivered": "could not be added",
+      "reconnecting": "Connection lost – reconnecting …",
+      "and": "and"
     }
   },
   "workspaces": {

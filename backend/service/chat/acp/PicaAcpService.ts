@@ -11,6 +11,7 @@ import { PicaAcpJob } from "./PicaAcpJob";
 import { PicaAcpSessionGates } from "./PicaAcpSessionGates";
 import { picaAcpRunner } from "./PicaAcpRunners";
 
+import type { LiveAnswerSink } from "@/backend/service/conversation/ConversationLiveAnswer";
 import type { ChatAcpSessionRepository } from "@/backend/database/repositories/chat/ChatAcpSessionRepository";
 import type { ChatJobRepository } from "@/backend/database/repositories/chat/ChatJobRepository";
 import type { ChatSteerRepository } from "@/backend/database/repositories/chat/ChatSteerRepository";
@@ -85,6 +86,11 @@ export interface PicaAcpRequest {
   readonly sessionId: string;
   readonly text: string;
   readonly attachmentIds: unknown;
+  /**
+   * A message sent during an answer that waits for a turn of its own after
+   * the running one instead of joining it (PAGE-381, "Danach senden").
+   */
+  readonly isDeferred?: boolean;
 }
 
 /**
@@ -139,6 +145,8 @@ export interface PicaAcpEmployeeRun {
    * the place of the session among the limits of the agent (PAGE-304).
    */
   readonly onSettled?: () => void;
+  /** Shows the answer on the chat page while it is written (PAGE-381). */
+  readonly liveAnswer?: LiveAnswerSink;
   /** The Pages tools to read chats and send messages (PAGE-311); absent where none run. */
   readonly agentChat?: AgentChatTools;
   /**
@@ -482,7 +490,7 @@ export class PicaAcpService {
       { messageId: message.id, jobId: entry.job.id },
       sessionId,
     );
-    const status = await entry.job.steer(message);
+    const status = await entry.job.steer(message, request.isDeferred === true);
     if (status === null)
       await this.dependencies.steers.update(message.id, "failed");
     return {
@@ -640,6 +648,7 @@ export class PicaAcpService {
       ...(employee.logbook ? { logbook: employee.logbook } : {}),
       ...(employee.recipes ? { recipes: employee.recipes } : {}),
       ...(employee.agentChat ? { agentChat: employee.agentChat } : {}),
+      ...(employee.liveAnswer ? { liveAnswer: employee.liveAnswer } : {}),
       access: {
         requireUser: (userId, connectionId) =>
           employee.requireConnection(connectionId),

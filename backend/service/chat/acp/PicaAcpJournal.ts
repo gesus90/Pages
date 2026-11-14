@@ -20,6 +20,7 @@ const TEXT_FLUSH_MS = 400;
 export class PicaAcpJournal {
   private readonly repository: Pick<ChatJobRepository, "append">;
   private readonly jobId: string;
+  private readonly observer: ((event: ChatJobEvent) => void) | undefined;
   private readonly writes = new SerialQueue();
   private sequence = 0;
   private pendingText: {
@@ -29,17 +30,30 @@ export class PicaAcpJournal {
   } | null = null;
   private timer: ReturnType<typeof setTimeout> | undefined;
 
+  /**
+   * Creates the journal of a job.
+   *
+   * @param repository - Stores the entries.
+   * @param jobId - The job.
+   * @param observer - Hears every entry in its order before it is stored,
+   * text after complete words and with credentials masked, such as the live
+   * answer of the chat page (PAGE-381); it must not throw.
+   */
   public constructor(
     repository: Pick<ChatJobRepository, "append">,
     jobId: string,
+    observer?: (event: ChatJobEvent) => void,
   ) {
     this.repository = repository;
     this.jobId = jobId;
+    this.observer = observer;
   }
 
-  /** Stores an entry after complete words; turn and end markers finalize retained text. */
+  /** Stores an entry after complete words; turn, answer and end markers finalize retained text. */
   public record(event: ChatJobEvent): Promise<void> {
-    this.flushText(event.kind === "end" || event.kind === "turn");
+    this.flushText(
+      event.kind === "end" || event.kind === "turn" || event.kind === "answer",
+    );
     return this.enqueue(event);
   }
 
@@ -96,6 +110,7 @@ export class PicaAcpJournal {
   }
 
   private enqueue(event: ChatJobEvent): Promise<void> {
+    this.observe(event);
     return this.writes.run(async () => {
       const sequence = this.sequence + 1;
       try {
@@ -114,5 +129,14 @@ export class PicaAcpJournal {
       }
       this.sequence = sequence;
     });
+  }
+
+  private observe(event: ChatJobEvent): void {
+    try {
+      this.observer?.(event);
+    } catch (error: unknown) {
+      // The live view is a courtesy: it never stops the journal.
+      logCaughtError("PicaAcpJournal", error);
+    }
   }
 }

@@ -130,7 +130,9 @@ export interface VirtualToolUse {
   readonly detail: string;
   /** The ID of the call within its job (PAGE-303). */
   readonly callId?: string;
-  readonly status?: "running" | "completed" | "failed";
+  readonly status?: "running" | "completed" | "failed" | "cancelled";
+  /** How long the call took, in milliseconds, where the page saw it run (PAGE-381). */
+  readonly durationMs?: number;
   /** The command or input of the call, bounded and with credentials masked. */
   readonly input?: string;
   /** The result of the call, bounded and with credentials masked. */
@@ -181,6 +183,11 @@ export interface VirtualChatMessage {
    * the agent gives in this chat, or for a free place among the limits.
    */
   readonly queue?: AgentMessageQueue;
+  /**
+   * The agents whose running answer took this message of the person
+   * (PAGE-381), which the chat shows as "in Eds Antwort eingeschoben".
+   */
+  readonly steeredInto?: readonly string[];
   /** The files of a stored message (PAGE-298). */
   readonly attachments?: readonly ConversationAttachment[];
   /** What the server knows of the URLs that stand alone in a line (PAGE-298). */

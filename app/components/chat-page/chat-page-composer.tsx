@@ -17,19 +17,42 @@ import { ChatPageAttachMenu } from "./chat-page-attach-menu";
 import { ChatPageAttachmentStrip } from "./chat-page-attachment-strip";
 import { useFileDrop, usePageFileDrop } from "./chat-page-drop-zone";
 import { ChatPageVoiceInput } from "./chat-page-voice-input";
+import { ChatPageActivityRow } from "./live/chat-page-activity-row";
+import { ChatPageSteerControls } from "./live/chat-page-steer-controls";
 import { useAttachmentUploads } from "./use-attachment-uploads";
 
 import type { Editor } from "@tiptap/react";
+import type { ConversationDelivery } from "@/definition/ConversationLiveAnswer";
 import type { VirtualChatSelection } from "@/definition/VirtualChat";
+import type { AgentActivity } from "./live/chat-page-activity-row";
 import type { VoiceSending } from "./use-voice-sending";
+
+/** What the input offers while agents answer (PAGE-381). */
+export interface ComposerAnswering {
+  /** Who answers, for the labels, such as "Ed" or "Ed, Mei". */
+  readonly name: string;
+  /** Stops the running answers (Esc, "Anhalten"). */
+  readonly onStop: () => void;
+}
 
 interface ChatPageComposerProps {
   /** Hint of the empty field, for a participant or a group. */
   readonly placeholder: string;
   readonly memberIds?: readonly string[];
   readonly label: string;
-  /** Sends the text with the IDs of the uploaded attachments, in their order. */
-  readonly onSend: (content: string, attachmentIds: readonly string[]) => void;
+  /**
+   * Sends the text with the IDs of the uploaded attachments, in their order;
+   * while agents answer with how it goes to them (PAGE-381).
+   */
+  readonly onSend: (
+    content: string,
+    attachmentIds: readonly string[],
+    delivery?: ConversationDelivery,
+  ) => void;
+  /** Present while agents answer: Enter steers, ⌥↵ sends afterwards, Esc stops (PAGE-381). */
+  readonly answering?: ComposerAnswering;
+  /** The agents at work in the chat and what they do, above the field (PAGE-381). */
+  readonly activity?: readonly AgentActivity[];
   /** Voice messages of a stored conversation (PAGE-277); missing for an agent's chat. */
   readonly voice?: {
     readonly sending: VoiceSending;
@@ -123,6 +146,8 @@ export function ChatPageComposer({
   attachments,
   mentionRef,
   aside,
+  answering,
+  activity = [],
   memberIds = [],
 }: ChatPageComposerProps): React.ReactElement {
   const { t } = useTranslation();
@@ -134,7 +159,7 @@ export function ChatPageComposer({
     memberIds,
     label,
     placeholder,
-    onSubmit: () => handleSubmit(),
+    onSubmit: () => handleSubmit(false),
   });
   const record = useRef<(() => void) | null>(null);
   const drop = useFileDrop(canAttach ? uploads.add : null);
@@ -143,11 +168,30 @@ export function ChatPageComposer({
   const hasReady = uploads.items.some((item) => item.state === "ready");
   const canSend = !uploads.isUploading && (input.markdown !== "" || hasReady);
 
-  function handleSubmit(): void {
+  function handleSubmit(after = false): void {
     if (!canSend) return;
     const text = input.markdown;
     input.setMarkdown("");
-    onSend(text, uploads.take());
+    if (!answering) {
+      onSend(text, uploads.take());
+      return;
+    }
+    onSend(text, uploads.take(), after ? "after" : "steer");
+  }
+
+  // ⌥↵ sends after the running answer and Esc stops it, unless the mention list is open.
+  function handleKeyDownCapture(event: React.KeyboardEvent): void {
+    if (!answering || input.query !== null) return;
+    if (event.key === "Enter" && event.altKey && !event.shiftKey) {
+      event.preventDefault();
+      event.stopPropagation();
+      handleSubmit(true);
+      return;
+    }
+    if (event.key === "Escape") {
+      event.preventDefault();
+      answering.onStop();
+    }
   }
 
   function handlePaste(event: React.ClipboardEvent): void {
@@ -180,8 +224,10 @@ export function ChatPageComposer({
         isDragging && "ring-2 ring-primary",
       )}
       onPaste={handlePaste}
+      onKeyDownCapture={handleKeyDownCapture}
       {...drop.handlers}
     >
+      <ChatPageActivityRow entries={activity} />
       {isDragging ? (
         <p className="mb-2 text-sm text-muted-foreground">
           {t("chatPage.attach.dropHint")}
@@ -192,7 +238,7 @@ export function ChatPageComposer({
       <div className={cn("pages-editor-scroll-surface", styles.input)}>
         <EditorContent editor={input.editor} />
       </div>
-      <div className="mt-2 flex items-center gap-2">
+      <div className="mt-2 flex flex-wrap items-center gap-2">
         <ChatPageAttachMenu
           canAttach={canAttach}
           onFiles={uploads.add}
@@ -207,17 +253,27 @@ export function ChatPageComposer({
           />
         ) : null}
         {aside}
-        <Button
-          className={cn(
-            "h-11 gap-1 px-1.5 text-sm xl:h-9 xl:gap-1.5 xl:px-3",
-            aside === undefined || aside === null ? "ml-auto" : undefined,
-          )}
-          disabled={!canSend}
-          onClick={handleSubmit}
-        >
-          <SendHorizontal aria-hidden="true" className="size-4" />
-          {t("chatPage.send")}
-        </Button>
+        {answering ? (
+          <ChatPageSteerControls
+            name={answering.name}
+            canSend={canSend}
+            onSteer={() => handleSubmit(false)}
+            onAfter={() => handleSubmit(true)}
+            onStop={answering.onStop}
+          />
+        ) : (
+          <Button
+            className={cn(
+              "h-11 gap-1 px-1.5 text-sm xl:h-9 xl:gap-1.5 xl:px-3",
+              aside === undefined || aside === null ? "ml-auto" : undefined,
+            )}
+            disabled={!canSend}
+            onClick={() => handleSubmit(false)}
+          >
+            <SendHorizontal aria-hidden="true" className="size-4" />
+            {t("chatPage.send")}
+          </Button>
+        )}
       </div>
     </footer>
   );

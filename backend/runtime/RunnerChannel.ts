@@ -3,7 +3,11 @@ import { getApplicationServices } from "@/app/lib/services.server";
 import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { registerShutdownTask } from "./ProcessLifecycle";
-import { isRemoteConsoleChannel, RUNNER_CHANNEL_PATH } from "./ChannelPaths";
+import {
+  isConversationWebChannel,
+  isRemoteConsoleChannel,
+  RUNNER_CHANNEL_PATH,
+} from "./ChannelPaths";
 import type { IncomingMessage, Server } from "node:http";
 import type { Duplex } from "node:stream";
 import type { WebSocket } from "ws";
@@ -273,6 +277,8 @@ export function installRunnerChannel(server: Server): void {
   server.on("upgrade", (request, socket, head) => {
     // The console channel answers its own upgrades.
     if (isRemoteConsoleChannel(request.url)) return;
+    // The chat page's channel answers its own upgrades (PAGE-381).
+    if (isConversationWebChannel(request.url)) return;
     const deadline = setTimeout(() => socket.destroy(), 10_000);
     void upgrade({
       request,

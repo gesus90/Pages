@@ -1,6 +1,10 @@
 import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { ConversationMessage } from "@/definition/Conversation";
+import type {
+  ConversationDelivery,
+  LiveAnswerEventPayload,
+} from "@/definition/ConversationLiveAnswer";
 
 /**
  * A committed change of a conversation, as the process tells its listeners.
@@ -11,6 +15,11 @@ import type { ConversationMessage } from "@/definition/Conversation";
  * mute. `originId` names the Pica Mobile connection that caused the change,
  * which receives its own answer instead. `typing` tells every member that an
  * agent started or ended an answer (PAGE-276); nothing is stored for it.
+ * `answer` carries a part of an answer an agent is writing now (PAGE-381):
+ * its recipients are the members who may see that part, so a thought goes
+ * only to the person of a direct chat or the owner of a group. Nothing is
+ * stored for it either. `delivery` of a message says how a person sent it
+ * while agents answered: into their running answers or after them.
  */
 export type ConversationEvent =
   | {
@@ -18,6 +27,7 @@ export type ConversationEvent =
       readonly message: ConversationMessage;
       readonly recipientIds: readonly string[];
       readonly originId?: string;
+      readonly delivery?: ConversationDelivery;
     }
   | {
       readonly kind: "message_updated";
@@ -36,6 +46,12 @@ export type ConversationEvent =
       readonly conversationId: string;
       readonly participantId: string;
       readonly isTyping: boolean;
+      readonly recipientIds: readonly string[];
+      readonly originId?: string;
+    }
+  | {
+      readonly kind: "answer";
+      readonly payload: LiveAnswerEventPayload;
       readonly recipientIds: readonly string[];
       readonly originId?: string;
     }

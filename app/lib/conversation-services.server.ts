@@ -36,6 +36,7 @@ import { ConversationContextReader } from "@/backend/service/conversation/Conver
 import { ConversationMentionAliases } from "@/backend/service/conversation/ConversationMentionAliases";
 import { ConversationDirectory } from "@/backend/service/conversation/ConversationDirectory";
 import { sharedConversationEvents } from "@/backend/service/conversation/ConversationEvents";
+import { sharedConversationAnswerStream } from "@/backend/service/conversation/ConversationAnswerStream";
 import { ConversationGroupSummaries } from "@/backend/service/conversation/ConversationGroupSummaries";
 import { ConversationGroupSummaryScheduler } from "@/backend/service/conversation/ConversationGroupSummaryScheduler";
 import { ConversationObserverModel } from "@/backend/service/conversation/ConversationObserverModel";
@@ -366,6 +367,10 @@ function createReplies(
     agentFiles: new ConversationAgentFiles(),
     attachments: content.attachments,
     content: content.reader,
+    answerStream: {
+      open: (target) => sharedConversationAnswerStream().open(target),
+      ownerOf: (conversationId) => shared.conversations.createdBy(conversationId),
+    },
   });
 }
 

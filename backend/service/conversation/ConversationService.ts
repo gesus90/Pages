@@ -14,6 +14,7 @@ import { conversationAttachmentIdsSchema } from "@/definition/ConversationConten
 import { findConversationMentions } from "./ConversationMentions";
 import { readConversationIdentifier } from "./ConversationReader";
 
+import type { ConversationDelivery } from "@/definition/ConversationLiveAnswer";
 import type {
   ConversationMessageRepository,
   StoredConversationMessage,
@@ -75,6 +76,11 @@ export interface ConversationServiceDependencies {
 /** Who caused a change; the Pica Mobile connection receives its own answer instead of the event. */
 export interface ConversationChangeOptions {
   readonly originId?: string;
+  /**
+   * How a person sent a message while agents answered (PAGE-381): into their
+   * running answers or after them; absent starts its round as before.
+   */
+  readonly delivery?: ConversationDelivery;
 }
 
 /** The raw input of a new conversation. */
@@ -650,6 +656,9 @@ export class ConversationService {
       message: sent,
       recipientIds: memberIds,
       originId: message.options.originId,
+      ...(message.options.delivery === undefined
+        ? {}
+        : { delivery: message.options.delivery }),
     });
     if (outcome.message.voice) this.transcribeLater(outcome.message, memberIds);
     return sent;
@@ -707,6 +716,7 @@ export class ConversationService {
           readonly message: ConversationMessage;
           readonly recipientIds: readonly string[];
           readonly originId?: string;
+          readonly delivery?: ConversationDelivery;
         }
       | {
           readonly kind: "conversation";

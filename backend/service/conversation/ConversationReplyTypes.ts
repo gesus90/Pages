@@ -1,3 +1,7 @@
+import type {
+  LiveAnswerSink,
+  LiveAnswerTarget,
+} from "./ConversationLiveAnswer";
 import type { ConversationMessageRepository } from "@/backend/database/repositories/conversation/ConversationMessageRepository";
 import type {
   ConversationRecord,
@@ -69,4 +73,13 @@ export interface ConversationReplyRunnerDependencies {
   readonly now?: () => Date;
   /** Waits for a busy agent; tests pass a fast one. */
   readonly wait?: (milliseconds: number) => Promise<void>;
+  /** Shows the answers to the members while they are written (PAGE-381); absent shows none. */
+  readonly answerStream?: ConversationAnswerStreamPort;
+}
+
+/** Opens the live answers of conversations and names who reads their thoughts (PAGE-381). */
+export interface ConversationAnswerStreamPort {
+  open(target: LiveAnswerTarget): LiveAnswerSink;
+  /** The creator of a group, who alone reads the thoughts of its agents. */
+  ownerOf(conversationId: string): Promise<string | null>;
 }
