@@ -1,0 +1,834 @@
+{
+  "ticketId": "177aa3f1-3f62-4007-ba52-300e7904ae91",
+  "sessionInstance": "71269883-2af3-4bb0-a801-f19108496edd",
+  "readAt": "2026-11-13 17:52:42 UTC",
+  "evidence": "Fresh Pages read_wiki_page, read_wiki_links and read_wiki_tree calls; current content compared with local snapshots before reuse.",
+  "sources": [
+    {
+      "id": "93eb063a-a63c-4cac-8393-af182291a582",
+      "revision": 23,
+      "characters": 42794,
+      "sha256": "9daa6254e61617a2d3f21b14eba8bf746d8f636648fd05fc398dd545a434e741",
+      "reconstructedCharacters": 42794,
+      "reconstructedSha256": "9daa6254e61617a2d3f21b14eba8bf746d8f636648fd05fc398dd545a434e741",
+      "fragmentCount": 25,
+      "gaps": 0,
+      "overlaps": 0,
+      "result": "passed"
+    },
+    {
+      "id": "d645e528-e900-4673-9de1-4d817173ccf1",
+      "revision": 1,
+      "characters": 2285,
+      "sha256": "42e577dae6da476469cd58482b07a660f9c8ba8f885d36f25480b4d737174e81",
+      "reconstructedCharacters": 2285,
+      "reconstructedSha256": "42e577dae6da476469cd58482b07a660f9c8ba8f885d36f25480b4d737174e81",
+      "fragmentCount": 1,
+      "gaps": 0,
+      "overlaps": 0,
+      "result": "passed"
+    }
+  ],
+  "originalSourceLimitation": "Historical source revisions are represented by the previously recorded manifest hashes. This iteration read the current saved target revisions; it did not fetch historical revisions from Pages.",
+  "checks": [
+    {
+      "id": "T1",
+      "result": "passed",
+      "evidence": "All ten current Wiki texts equal the local snapshots. All 45079 original UTF-16 code units reconstruct without gaps or overlaps and match both recorded SHA-256 source hashes. All 21 previously changed page metadata records match the current Wiki."
+    },
+    {
+      "id": "T2",
+      "result": "passed",
+      "evidence": "All 10 reorganized pages below 20000 UTF-16 code units and Unicode code points. Maximum 11535. Unrelated linked Wiki pages are outside this split."
+    },
+    {
+      "id": "T3",
+      "result": "passed",
+      "evidence": "All 9 actual children linked both ways. Wiki tree and all 25 page/link results complete. All 174 per-page distinct Wiki targets resolve through Pages outgoing links; 20 contextual links on eleven pages and four general referrers confirmed."
+    },
+    {
+      "id": "T4",
+      "result": "passed",
+      "evidence": "All nine children contain four ordered, nonempty status sections. All 25 classified original fragments appear in their recorded section. Implemented continuation dated 11.11.2026 and pending decision model classified separately; original ambiguous states remain explicit."
+    }
+  ],
+  "pages": [
+    {
+      "id": "93eb063a-a63c-4cac-8393-af182291a582",
+      "title": "Agents: Festlegungen",
+      "revision": 24,
+      "parentId": "3dc864cf-57af-47cc-8cad-79c1627372a7",
+      "scope": "project",
+      "projectId": "ec6476da-edd0-408d-92a0-e580266d82f9",
+      "icon": null,
+      "cover": null,
+      "anchors": [],
+      "characters": 1893,
+      "unicodeCharacters": 1893,
+      "sha256": "243f726bf4e1eb447c57cb81f756ee762714aeceb5d9b77602c95568a29d0e4d",
+      "links": {
+        "outgoingIds": [
+          "3d67d542-5917-4176-9881-6245e9faead3",
+          "45bc1de4-9c18-4851-8e62-fc516075ca19",
+          "4d0a8535-ba0a-485c-aff0-6c07203426b1",
+          "702f7bd4-9d30-478c-a719-b0350dec7fb5",
+          "957716f3-ed65-4e80-886c-ece8821cd0dc",
+          "965bcb83-13d6-4db6-bf7a-eb6695a3a3d1",
+          "af35a9aa-2850-4ee4-9f90-2bf7b559eb34",
+          "b53d1a62-5462-4439-bf6d-cbbd854dd433",
+          "c64fb7a7-fd6b-4d2a-be1f-f5af9619e724",
+          "d01775a6-8af5-4054-93c5-eec98867bcc2",
+          "d645e528-e900-4673-9de1-4d817173ccf1"
+        ],
+        "nextCursor": null,
+        "incoming": [
+          {
+            "id": "3301f98d-8727-4c7b-97dc-8a8262d4e440",
+            "title": "Agent-Definitionen, Arbeitsplätze und Arbeitspläne: technische Umsetzung"
+          },
+          {
+            "id": "3d67d542-5917-4176-9881-6245e9faead3",
+            "title": "Agent-Verwaltung und Editor"
+          },
+          {
+            "id": "3dc864cf-57af-47cc-8cad-79c1627372a7",
+            "title": "Frontend"
+          },
+          {
+            "id": "45bc1de4-9c18-4851-8e62-fc516075ca19",
+            "title": "Remote-Verbindungen und Runner"
+          },
+          {
+            "id": "4d0a8535-ba0a-485c-aff0-6c07203426b1",
+            "title": "Laufsteuerung und Planpanel"
+          },
+          {
+            "id": "702f7bd4-9d30-478c-a719-b0350dec7fb5",
+            "title": "Arbeitsplätze"
+          },
+          {
+            "id": "8b665fab-daef-44ae-8189-15ebbf171a53",
+            "title": "AI-Anbindungen, Modellkatalog und Reasoning: technische Umsetzung"
+          },
+          {
+            "id": "957716f3-ed65-4e80-886c-ece8821cd0dc",
+            "title": "Agent-Plan"
+          },
+          {
+            "id": "965bcb83-13d6-4db6-bf7a-eb6695a3a3d1",
+            "title": "Gedächtnis und Dreaming"
+          },
+          {
+            "id": "98906a63-6435-48e5-b0b3-465ebb926754",
+            "title": "Produktkonzept"
+          },
+          {
+            "id": "b53d1a62-5462-4439-bf6d-cbbd854dd433",
+            "title": "Anbindungen"
+          },
+          {
+            "id": "c64fb7a7-fd6b-4d2a-be1f-f5af9619e724",
+            "title": "Modell und Reasoning"
+          },
+          {
+            "id": "d1e6ade3-73b9-4eb0-b9f9-d95d67a6cc60",
+            "title": "Ergänzungen und Herkunft der Festlegungen"
+          },
+          {
+            "id": "d645e528-e900-4673-9de1-4d817173ccf1",
+            "title": "Entscheidungsmodell für Chats: Festlegungen"
+          },
+          {
+            "id": "fd0b40e2-07f7-48f4-85c4-620cdf812288",
+            "title": "AI-Anbieter und Routing: technische Umsetzung"
+          }
+        ]
+      }
+    },
+    {
+      "id": "b53d1a62-5462-4439-bf6d-cbbd854dd433",
+      "title": "Anbindungen",
+      "revision": 1,
+      "parentId": "93eb063a-a63c-4cac-8393-af182291a582",
+      "scope": "project",
+      "projectId": "ec6476da-edd0-408d-92a0-e580266d82f9",
+      "icon": null,
+      "cover": null,
+      "anchors": [],
+      "characters": 5693,
+      "unicodeCharacters": 5693,
+      "sha256": "36c8ffcfc7f96ee5ecb81e93c7cbc8d1dc57940922dcfdf4546562bae16b9f3c",
+      "links": {
+        "outgoingIds": ["93eb063a-a63c-4cac-8393-af182291a582"],
+        "nextCursor": null
+      }
+    },
+    {
+      "id": "c64fb7a7-fd6b-4d2a-be1f-f5af9619e724",
+      "title": "Modell und Reasoning",
+      "revision": 1,
+      "parentId": "93eb063a-a63c-4cac-8393-af182291a582",
+      "scope": "project",
+      "projectId": "ec6476da-edd0-408d-92a0-e580266d82f9",
+      "icon": null,
+      "cover": null,
+      "anchors": [],
+      "characters": 3578,
+      "unicodeCharacters": 3578,
+      "sha256": "3281e6077664efc4a65de60c782ddbb033e97ddeeb46254a8ee1acea1f5e42c8",
+      "links": {
+        "outgoingIds": ["93eb063a-a63c-4cac-8393-af182291a582"],
+        "nextCursor": null
+      }
+    },
+    {
+      "id": "3d67d542-5917-4176-9881-6245e9faead3",
+      "title": "Agent-Verwaltung und Editor",
+      "revision": 1,
+      "parentId": "93eb063a-a63c-4cac-8393-af182291a582",
+      "scope": "project",
+      "projectId": "ec6476da-edd0-408d-92a0-e580266d82f9",
+      "icon": null,
+      "cover": null,
+      "anchors": [],
+      "characters": 7457,
+      "unicodeCharacters": 7457,
+      "sha256": "5fb3fa2471b55626f17022e2371af5ed1b086794b5b807279d340c7fca2d0c4c",
+      "links": {
+        "outgoingIds": [
+          "93eb063a-a63c-4cac-8393-af182291a582",
+          "bcf6d1ea-462e-4b02-8b8a-afdcab75af77"
+        ],
+        "nextCursor": null
+      }
+    },
+    {
+      "id": "702f7bd4-9d30-478c-a719-b0350dec7fb5",
+      "title": "Arbeitsplätze",
+      "revision": 1,
+      "parentId": "93eb063a-a63c-4cac-8393-af182291a582",
+      "scope": "project",
+      "projectId": "ec6476da-edd0-408d-92a0-e580266d82f9",
+      "icon": null,
+      "cover": null,
+      "anchors": [],
+      "characters": 5006,
+      "unicodeCharacters": 5006,
+      "sha256": "a630baf6914f3a48579aac6530a92aee22f461e4a48073be8698b3e72d58049f",
+      "links": {
+        "outgoingIds": [
+          "45bc1de4-9c18-4851-8e62-fc516075ca19",
+          "93eb063a-a63c-4cac-8393-af182291a582"
+        ],
+        "nextCursor": null
+      }
+    },
+    {
+      "id": "45bc1de4-9c18-4851-8e62-fc516075ca19",
+      "title": "Remote-Verbindungen und Runner",
+      "revision": 1,
+      "parentId": "93eb063a-a63c-4cac-8393-af182291a582",
+      "scope": "project",
+      "projectId": "ec6476da-edd0-408d-92a0-e580266d82f9",
+      "icon": null,
+      "cover": null,
+      "anchors": [],
+      "characters": 6808,
+      "unicodeCharacters": 6808,
+      "sha256": "d780fa178987576cca58c4b549648a175fa7902032ca586645f7edc1cee5cea2",
+      "links": {
+        "outgoingIds": [
+          "3301f98d-8727-4c7b-97dc-8a8262d4e440",
+          "93eb063a-a63c-4cac-8393-af182291a582"
+        ],
+        "nextCursor": null
+      }
+    },
+    {
+      "id": "957716f3-ed65-4e80-886c-ece8821cd0dc",
+      "title": "Agent-Plan",
+      "revision": 1,
+      "parentId": "93eb063a-a63c-4cac-8393-af182291a582",
+      "scope": "project",
+      "projectId": "ec6476da-edd0-408d-92a0-e580266d82f9",
+      "icon": null,
+      "cover": null,
+      "anchors": [],
+      "characters": 11535,
+      "unicodeCharacters": 11535,
+      "sha256": "1886da74259533a9144a777c1bfa7cf4476ca3e8b13f04136597d3d06ad4efba",
+      "links": {
+        "outgoingIds": [
+          "4d0a8535-ba0a-485c-aff0-6c07203426b1",
+          "6d5a37ed-6ab1-4c4e-8962-96b7f1224b5b",
+          "93eb063a-a63c-4cac-8393-af182291a582"
+        ],
+        "nextCursor": null
+      }
+    },
+    {
+      "id": "4d0a8535-ba0a-485c-aff0-6c07203426b1",
+      "title": "Laufsteuerung und Planpanel",
+      "revision": 1,
+      "parentId": "93eb063a-a63c-4cac-8393-af182291a582",
+      "scope": "project",
+      "projectId": "ec6476da-edd0-408d-92a0-e580266d82f9",
+      "icon": null,
+      "cover": null,
+      "anchors": [],
+      "characters": 6972,
+      "unicodeCharacters": 6972,
+      "sha256": "41a71ae0add9d9ed07c6f831016bccc493329fcba487cd3839df40f19f76ba51",
+      "links": {
+        "outgoingIds": [
+          "3301f98d-8727-4c7b-97dc-8a8262d4e440",
+          "93eb063a-a63c-4cac-8393-af182291a582"
+        ],
+        "nextCursor": null
+      }
+    },
+    {
+      "id": "965bcb83-13d6-4db6-bf7a-eb6695a3a3d1",
+      "title": "Gedächtnis und Dreaming",
+      "revision": 1,
+      "parentId": "93eb063a-a63c-4cac-8393-af182291a582",
+      "scope": "project",
+      "projectId": "ec6476da-edd0-408d-92a0-e580266d82f9",
+      "icon": null,
+      "cover": null,
+      "anchors": [],
+      "characters": 1180,
+      "unicodeCharacters": 1180,
+      "sha256": "a13c8c8fddec32749ac96c6c70852455b49b70b73cdb5374f46f8c8022673b73",
+      "links": {
+        "outgoingIds": ["93eb063a-a63c-4cac-8393-af182291a582"],
+        "nextCursor": null
+      }
+    },
+    {
+      "id": "d645e528-e900-4673-9de1-4d817173ccf1",
+      "title": "Entscheidungsmodell für Chats: Festlegungen",
+      "revision": 2,
+      "parentId": "93eb063a-a63c-4cac-8393-af182291a582",
+      "scope": "project",
+      "projectId": "ec6476da-edd0-408d-92a0-e580266d82f9",
+      "icon": null,
+      "cover": null,
+      "anchors": [],
+      "characters": 2724,
+      "unicodeCharacters": 2724,
+      "sha256": "fc415f425637d4dea829a814bf79b286a4af8faf02f2ffebc1de075b3cfd5ade",
+      "links": {
+        "outgoingIds": ["93eb063a-a63c-4cac-8393-af182291a582"],
+        "nextCursor": null
+      }
+    },
+    {
+      "id": "08d76d5e-d795-442d-b322-9f35e2181d24",
+      "title": "Agent Plan: Verbindliche Ticketauswahl-Referenz mit Suche, Phasen und Sortierung",
+      "revision": 3,
+      "parentId": "d01775a6-8af5-4054-93c5-eec98867bcc2",
+      "scope": "project",
+      "projectId": "ec6476da-edd0-408d-92a0-e580266d82f9",
+      "icon": null,
+      "cover": null,
+      "anchors": [],
+      "characters": 1631,
+      "unicodeCharacters": 1631,
+      "sha256": "975c1f14125de89ea4bfb81beba99b5e6692f3ec5ea04227676a426fc20e53ea",
+      "links": {
+        "outgoingIds": ["957716f3-ed65-4e80-886c-ece8821cd0dc"],
+        "nextCursor": null
+      }
+    },
+    {
+      "id": "129e8279-37b9-49b1-8a6d-fc6cd10b76cf",
+      "title": "Agent-Dateien und Dreaming-Agent: technische Festlegungen",
+      "revision": 4,
+      "parentId": "e1de1b22-2282-4f92-bb96-1d9fd7bb2fa8",
+      "scope": "project",
+      "projectId": "ec6476da-edd0-408d-92a0-e580266d82f9",
+      "icon": null,
+      "cover": null,
+      "anchors": [],
+      "characters": 4823,
+      "unicodeCharacters": 4823,
+      "sha256": "8b8b72ab1ac5b9c25a6f279f6dbfffa6d7bc86a1a11b57410ba82b5d607a26f0",
+      "links": {
+        "outgoingIds": [
+          "2ce348a3-0793-4256-a893-43ff601a9231",
+          "3301f98d-8727-4c7b-97dc-8a8262d4e440",
+          "75a00913-00e5-4f26-aa23-efcd4e0aea92",
+          "965bcb83-13d6-4db6-bf7a-eb6695a3a3d1"
+        ],
+        "nextCursor": null
+      }
+    },
+    {
+      "id": "2839df7f-a2ad-4c9e-936c-f3bd1949215a",
+      "title": "Einstellungen und Verwaltung",
+      "revision": 6,
+      "parentId": "3dc864cf-57af-47cc-8cad-79c1627372a7",
+      "scope": "project",
+      "projectId": "ec6476da-edd0-408d-92a0-e580266d82f9",
+      "icon": null,
+      "cover": null,
+      "anchors": [],
+      "characters": 7653,
+      "unicodeCharacters": 7653,
+      "sha256": "522e63e699173c0cbfa4261a8d0ff3ad80534e564f33f0ec7af70a2118e547f1",
+      "links": {
+        "outgoingIds": [
+          "0b6e45fd-4ca6-43eb-b505-7f33a0c2bc37",
+          "3dc864cf-57af-47cc-8cad-79c1627372a7",
+          "702f7bd4-9d30-478c-a719-b0350dec7fb5",
+          "b53d1a62-5462-4439-bf6d-cbbd854dd433",
+          "d01775a6-8af5-4054-93c5-eec98867bcc2"
+        ],
+        "nextCursor": null
+      }
+    },
+    {
+      "id": "2ce348a3-0793-4256-a893-43ff601a9231",
+      "title": "Zentrale Agent-Verwaltung und Zuweisungen: technische Festlegungen",
+      "revision": 4,
+      "parentId": "e1de1b22-2282-4f92-bb96-1d9fd7bb2fa8",
+      "scope": "project",
+      "projectId": "ec6476da-edd0-408d-92a0-e580266d82f9",
+      "icon": null,
+      "cover": null,
+      "anchors": [],
+      "characters": 6128,
+      "unicodeCharacters": 6128,
+      "sha256": "1ff432ae963683582aa67813519d3d0d2750c39b82ced1991bc76f550767ba65",
+      "links": {
+        "outgoingIds": [
+          "0489975c-a5bc-4bd3-8b25-d32f025b3fd4",
+          "129e8279-37b9-49b1-8a6d-fc6cd10b76cf",
+          "3301f98d-8727-4c7b-97dc-8a8262d4e440",
+          "3d67d542-5917-4176-9881-6245e9faead3",
+          "6d9ac5a3-3645-46fb-86f4-a75c48ce87fe",
+          "75a00913-00e5-4f26-aa23-efcd4e0aea92",
+          "d01775a6-8af5-4054-93c5-eec98867bcc2",
+          "ebc954d7-796a-4d6f-9e54-b9649bdb8da7",
+          "ef72c5bf-391a-486d-9acd-b4a3b1d40243"
+        ],
+        "nextCursor": null
+      }
+    },
+    {
+      "id": "3301f98d-8727-4c7b-97dc-8a8262d4e440",
+      "title": "Agent-Definitionen, Arbeitsplätze und Arbeitspläne: technische Umsetzung",
+      "revision": 17,
+      "parentId": "e1de1b22-2282-4f92-bb96-1d9fd7bb2fa8",
+      "scope": "project",
+      "projectId": "ec6476da-edd0-408d-92a0-e580266d82f9",
+      "icon": null,
+      "cover": null,
+      "anchors": [],
+      "characters": 38605,
+      "unicodeCharacters": 38605,
+      "sha256": "7f09b56a490d2d5b4357aac6f9a845e88fd1916a4ef942bf3e07b239d719d1d2",
+      "links": {
+        "outgoingIds": [
+          "129e8279-37b9-49b1-8a6d-fc6cd10b76cf",
+          "2ce348a3-0793-4256-a893-43ff601a9231",
+          "45bc1de4-9c18-4851-8e62-fc516075ca19",
+          "75a00913-00e5-4f26-aa23-efcd4e0aea92",
+          "93eb063a-a63c-4cac-8393-af182291a582",
+          "957716f3-ed65-4e80-886c-ece8821cd0dc",
+          "98906a63-6435-48e5-b0b3-465ebb926754",
+          "d01775a6-8af5-4054-93c5-eec98867bcc2",
+          "ef72c5bf-391a-486d-9acd-b4a3b1d40243"
+        ],
+        "nextCursor": null
+      }
+    },
+    {
+      "id": "4fd03334-b147-4fc5-b260-60c8a4bf2a19",
+      "title": "Assistenten",
+      "revision": 6,
+      "parentId": "3dc864cf-57af-47cc-8cad-79c1627372a7",
+      "scope": "project",
+      "projectId": "ec6476da-edd0-408d-92a0-e580266d82f9",
+      "icon": null,
+      "cover": null,
+      "anchors": [],
+      "characters": 4860,
+      "unicodeCharacters": 4860,
+      "sha256": "496a8d523618a645ca994645da76cc10aea7191c9262ba58815eea9d765f8bc6",
+      "links": {
+        "outgoingIds": [
+          "0489975c-a5bc-4bd3-8b25-d32f025b3fd4",
+          "3a28af49-5efc-40ab-9a7e-bf4715f99744",
+          "3dc864cf-57af-47cc-8cad-79c1627372a7",
+          "b53d1a62-5462-4439-bf6d-cbbd854dd433"
+        ],
+        "nextCursor": null
+      }
+    },
+    {
+      "id": "6d5a37ed-6ab1-4c4e-8962-96b7f1224b5b",
+      "title": "Pages-Schnittstelle und MCP: technische Umsetzung",
+      "revision": 7,
+      "parentId": "af35a9aa-2850-4ee4-9f90-2bf7b559eb34",
+      "scope": "project",
+      "projectId": "ec6476da-edd0-408d-92a0-e580266d82f9",
+      "icon": null,
+      "cover": null,
+      "anchors": [],
+      "characters": 16808,
+      "unicodeCharacters": 16808,
+      "sha256": "9db58a24801728fd7781b78ea16cc1d9c6063f72109d60bbb1214970881022be",
+      "links": {
+        "outgoingIds": [
+          "1e02e5d9-dc88-474b-adef-a28e779a17a3",
+          "3d67d542-5917-4176-9881-6245e9faead3",
+          "8d5ff60b-a3a9-4ef3-9a1f-378c336d2cd6",
+          "d9b7a3c8-a1b3-4902-9e31-6fb0aa60fd2d",
+          "dadc171b-0389-4166-92f5-0445ad6c0e02",
+          "f82cd43a-b787-47e7-a330-35efcfc87936"
+        ],
+        "nextCursor": null
+      }
+    },
+    {
+      "id": "6d9ac5a3-3645-46fb-86f4-a75c48ce87fe",
+      "title": "Rechte, Rollen und Modi: Festlegungen",
+      "revision": 6,
+      "parentId": "3dc864cf-57af-47cc-8cad-79c1627372a7",
+      "scope": "project",
+      "projectId": "ec6476da-edd0-408d-92a0-e580266d82f9",
+      "icon": null,
+      "cover": null,
+      "anchors": [],
+      "characters": 7957,
+      "unicodeCharacters": 7957,
+      "sha256": "082e959ea89fa60a010a6c7fa88cb57abe583977fb7f48635abb0083d7289218",
+      "links": {
+        "outgoingIds": [
+          "3dc864cf-57af-47cc-8cad-79c1627372a7",
+          "44f51444-6e67-43a3-be42-dab7821ef5ae",
+          "45bc1de4-9c18-4851-8e62-fc516075ca19",
+          "64fcca0a-5171-45a3-b8c7-4bcebdec8f3c",
+          "98906a63-6435-48e5-b0b3-465ebb926754",
+          "b53d1a62-5462-4439-bf6d-cbbd854dd433",
+          "d2b862d1-5a2e-4e4d-a723-8091e17c84a4",
+          "ef72c5bf-391a-486d-9acd-b4a3b1d40243"
+        ],
+        "nextCursor": null
+      }
+    },
+    {
+      "id": "98906a63-6435-48e5-b0b3-465ebb926754",
+      "title": "Produktkonzept",
+      "revision": 36,
+      "parentId": "b7bc5cf6-6054-4c71-b8ad-443c9a869932",
+      "scope": "project",
+      "projectId": "ec6476da-edd0-408d-92a0-e580266d82f9",
+      "icon": null,
+      "cover": null,
+      "anchors": [],
+      "characters": 17052,
+      "unicodeCharacters": 17052,
+      "sha256": "8a40c695d4fd68328693bb6ca75bcae28a7bc7d2888a21d53b4ef018fa0f0dc4",
+      "links": {
+        "outgoingIds": [
+          "03215cd3-4112-4526-8a03-279cfd515baf",
+          "0489975c-a5bc-4bd3-8b25-d32f025b3fd4",
+          "0b6e45fd-4ca6-43eb-b505-7f33a0c2bc37",
+          "129e8279-37b9-49b1-8a6d-fc6cd10b76cf",
+          "1e02e5d9-dc88-474b-adef-a28e779a17a3",
+          "3301f98d-8727-4c7b-97dc-8a8262d4e440",
+          "3cfbdabb-34fa-4511-b775-2ad35fab6c4a",
+          "3dc864cf-57af-47cc-8cad-79c1627372a7",
+          "4d0a8535-ba0a-485c-aff0-6c07203426b1",
+          "561a356f-221a-4bb9-b89d-a92e2b143022",
+          "64fcca0a-5171-45a3-b8c7-4bcebdec8f3c",
+          "6d5a37ed-6ab1-4c4e-8962-96b7f1224b5b",
+          "6d9ac5a3-3645-46fb-86f4-a75c48ce87fe",
+          "6f4a24af-67bf-48a3-a89c-67f882b75647",
+          "795d7529-d618-46bc-86e6-d84da32f5658",
+          "805f9a31-918c-4a98-8693-13cf21dc6bdd",
+          "930c289e-73e2-4c5c-8ee5-418949160f0e",
+          "93eb063a-a63c-4cac-8393-af182291a582",
+          "957716f3-ed65-4e80-886c-ece8821cd0dc",
+          "af35a9aa-2850-4ee4-9f90-2bf7b559eb34",
+          "b695348f-9dab-4c6f-926f-cf81f8f415e8",
+          "b8722814-5778-4fa7-ae2e-84b651b12c04",
+          "bcf6d1ea-462e-4b02-8b8a-afdcab75af77",
+          "d2b862d1-5a2e-4e4d-a723-8091e17c84a4",
+          "e79ef9b3-3c6c-4866-8eae-2ffdd95ff9b6",
+          "ee96a2bc-18b0-45aa-8da5-c3d38bfd0627",
+          "ef72c5bf-391a-486d-9acd-b4a3b1d40243",
+          "fd0b40e2-07f7-48f4-85c4-620cdf812288"
+        ],
+        "nextCursor": null
+      }
+    },
+    {
+      "id": "d9b7a3c8-a1b3-4902-9e31-6fb0aa60fd2d",
+      "title": "MCP-Pairing für stdio: technischer Vertrag",
+      "revision": 6,
+      "parentId": "af35a9aa-2850-4ee4-9f90-2bf7b559eb34",
+      "scope": "project",
+      "projectId": "ec6476da-edd0-408d-92a0-e580266d82f9",
+      "icon": null,
+      "cover": null,
+      "anchors": [],
+      "characters": 17519,
+      "unicodeCharacters": 17519,
+      "sha256": "0f6e175e56931330a12a26fd0920d520b7f975ed9c6274c7491b8f27283e9d30",
+      "links": {
+        "outgoingIds": [
+          "3d67d542-5917-4176-9881-6245e9faead3",
+          "6d5a37ed-6ab1-4c4e-8962-96b7f1224b5b",
+          "d1e6ade3-73b9-4eb0-b9f9-d95d67a6cc60",
+          "dadc171b-0389-4166-92f5-0445ad6c0e02"
+        ],
+        "nextCursor": null
+      }
+    },
+    {
+      "id": "e79ef9b3-3c6c-4866-8eae-2ffdd95ff9b6",
+      "title": "Funktionsaufgaben und Auflösung der Zuweisung: technische Umsetzung",
+      "revision": 6,
+      "parentId": "fd0b40e2-07f7-48f4-85c4-620cdf812288",
+      "scope": "project",
+      "projectId": "ec6476da-edd0-408d-92a0-e580266d82f9",
+      "icon": null,
+      "cover": null,
+      "anchors": [],
+      "characters": 9136,
+      "unicodeCharacters": 9136,
+      "sha256": "fd436161d34afec12e9264411b70b3728d73857ab3f5a471626474b6c65ed6fe",
+      "links": {
+        "outgoingIds": [
+          "0489975c-a5bc-4bd3-8b25-d32f025b3fd4",
+          "2ce348a3-0793-4256-a893-43ff601a9231",
+          "3d67d542-5917-4176-9881-6245e9faead3",
+          "4fd03334-b147-4fc5-b260-60c8a4bf2a19",
+          "8b665fab-daef-44ae-8189-15ebbf171a53",
+          "af35a9aa-2850-4ee4-9f90-2bf7b559eb34",
+          "d01775a6-8af5-4054-93c5-eec98867bcc2",
+          "ebc954d7-796a-4d6f-9e54-b9649bdb8da7",
+          "fd0b40e2-07f7-48f4-85c4-620cdf812288"
+        ],
+        "nextCursor": null
+      }
+    },
+    {
+      "id": "3dc864cf-57af-47cc-8cad-79c1627372a7",
+      "title": "Frontend",
+      "revision": 7,
+      "parentId": "a1836d77-5950-4c85-8bce-8859866bd73a",
+      "scope": "project",
+      "projectId": "ec6476da-edd0-408d-92a0-e580266d82f9",
+      "icon": null,
+      "cover": null,
+      "anchors": [],
+      "characters": 8822,
+      "unicodeCharacters": 8822,
+      "sha256": "0be0baf21fd59ce41184a361f764f689fd0377d17968b5ef3b5da820406c9c7a",
+      "links": {
+        "outgoingIds": [
+          "03215cd3-4112-4526-8a03-279cfd515baf",
+          "0b6e45fd-4ca6-43eb-b505-7f33a0c2bc37",
+          "2839df7f-a2ad-4c9e-936c-f3bd1949215a",
+          "328231ba-412b-4bb8-b05b-0bf8580595b8",
+          "3cfbdabb-34fa-4511-b775-2ad35fab6c4a",
+          "41df1ca5-5176-4ee8-93b0-fc3c9ae0e46c",
+          "44f51444-6e67-43a3-be42-dab7821ef5ae",
+          "4b7f9de6-1227-4c39-976b-2a3d85d95bc5",
+          "4fd03334-b147-4fc5-b260-60c8a4bf2a19",
+          "64fcca0a-5171-45a3-b8c7-4bcebdec8f3c",
+          "6b42aa9d-bd09-4d13-be27-42608b4df0ed",
+          "6d9ac5a3-3645-46fb-86f4-a75c48ce87fe",
+          "88554ea2-cae6-4d45-bbf1-98a2966f64ec",
+          "930c289e-73e2-4c5c-8ee5-418949160f0e",
+          "934aa04a-70e9-44ba-8425-4aeac84fbbc2",
+          "93eb063a-a63c-4cac-8393-af182291a582",
+          "983cd5f0-d375-4387-a543-b5ab59e2b0cb",
+          "a1836d77-5950-4c85-8bce-8859866bd73a",
+          "b1fa9195-a9d7-4109-a500-1797bf1329cc",
+          "d01775a6-8af5-4054-93c5-eec98867bcc2",
+          "d1e6ade3-73b9-4eb0-b9f9-d95d67a6cc60",
+          "d2b862d1-5a2e-4e4d-a723-8091e17c84a4",
+          "e2d2fba6-8296-4954-8f2c-f20d85f91c3b",
+          "ebc954d7-796a-4d6f-9e54-b9649bdb8da7",
+          "f833cd2d-73a6-4146-8cf2-045b9629ca1d"
+        ],
+        "nextCursor": null
+      }
+    },
+    {
+      "id": "8b665fab-daef-44ae-8189-15ebbf171a53",
+      "title": "AI-Anbindungen, Modellkatalog und Reasoning: technische Umsetzung",
+      "revision": 9,
+      "parentId": "fd0b40e2-07f7-48f4-85c4-620cdf812288",
+      "scope": "project",
+      "projectId": "ec6476da-edd0-408d-92a0-e580266d82f9",
+      "icon": null,
+      "cover": null,
+      "anchors": [],
+      "characters": 26833,
+      "unicodeCharacters": 26833,
+      "sha256": "4f6adc76d7d88a4d59dab254838aa4bb04e002c078b362900e0f26edf771f06a",
+      "links": {
+        "outgoingIds": [
+          "93eb063a-a63c-4cac-8393-af182291a582",
+          "d01775a6-8af5-4054-93c5-eec98867bcc2",
+          "e79ef9b3-3c6c-4866-8eae-2ffdd95ff9b6",
+          "ef72c5bf-391a-486d-9acd-b4a3b1d40243",
+          "fd0b40e2-07f7-48f4-85c4-620cdf812288"
+        ],
+        "nextCursor": null
+      }
+    },
+    {
+      "id": "d1e6ade3-73b9-4eb0-b9f9-d95d67a6cc60",
+      "title": "Ergänzungen und Herkunft der Festlegungen",
+      "revision": 3,
+      "parentId": "3dc864cf-57af-47cc-8cad-79c1627372a7",
+      "scope": "project",
+      "projectId": "ec6476da-edd0-408d-92a0-e580266d82f9",
+      "icon": null,
+      "cover": null,
+      "anchors": [],
+      "characters": 7590,
+      "unicodeCharacters": 7590,
+      "sha256": "5b01b3200ccadc18d231ed84e49ecee294dfd874a1591efd103f44b641f45205",
+      "links": {
+        "outgoingIds": [
+          "03215cd3-4112-4526-8a03-279cfd515baf",
+          "0b6e45fd-4ca6-43eb-b505-7f33a0c2bc37",
+          "328231ba-412b-4bb8-b05b-0bf8580595b8",
+          "3cfbdabb-34fa-4511-b775-2ad35fab6c4a",
+          "3dc864cf-57af-47cc-8cad-79c1627372a7",
+          "41df1ca5-5176-4ee8-93b0-fc3c9ae0e46c",
+          "4b7f9de6-1227-4c39-976b-2a3d85d95bc5",
+          "4fd03334-b147-4fc5-b260-60c8a4bf2a19",
+          "64fcca0a-5171-45a3-b8c7-4bcebdec8f3c",
+          "6d9ac5a3-3645-46fb-86f4-a75c48ce87fe",
+          "795d7529-d618-46bc-86e6-d84da32f5658",
+          "88554ea2-cae6-4d45-bbf1-98a2966f64ec",
+          "93eb063a-a63c-4cac-8393-af182291a582",
+          "983cd5f0-d375-4387-a543-b5ab59e2b0cb",
+          "d01775a6-8af5-4054-93c5-eec98867bcc2",
+          "d2b862d1-5a2e-4e4d-a723-8091e17c84a4",
+          "e2d2fba6-8296-4954-8f2c-f20d85f91c3b",
+          "ebc954d7-796a-4d6f-9e54-b9649bdb8da7",
+          "f833cd2d-73a6-4146-8cf2-045b9629ca1d"
+        ],
+        "nextCursor": null
+      }
+    },
+    {
+      "id": "fd0b40e2-07f7-48f4-85c4-620cdf812288",
+      "title": "AI-Anbieter und Routing: technische Umsetzung",
+      "revision": 5,
+      "parentId": "e1de1b22-2282-4f92-bb96-1d9fd7bb2fa8",
+      "scope": "project",
+      "projectId": "ec6476da-edd0-408d-92a0-e580266d82f9",
+      "icon": null,
+      "cover": null,
+      "anchors": [],
+      "characters": 5730,
+      "unicodeCharacters": 5730,
+      "sha256": "a26164464190ed667d68cca08026742c09b3515e5ac8f16606747f9652e1ee63",
+      "links": {
+        "outgoingIds": [
+          "0489975c-a5bc-4bd3-8b25-d32f025b3fd4",
+          "2ce348a3-0793-4256-a893-43ff601a9231",
+          "3301f98d-8727-4c7b-97dc-8a8262d4e440",
+          "4fd03334-b147-4fc5-b260-60c8a4bf2a19",
+          "8b665fab-daef-44ae-8189-15ebbf171a53",
+          "93eb063a-a63c-4cac-8393-af182291a582",
+          "98906a63-6435-48e5-b0b3-465ebb926754",
+          "af35a9aa-2850-4ee4-9f90-2bf7b559eb34",
+          "d01775a6-8af5-4054-93c5-eec98867bcc2",
+          "e79ef9b3-3c6c-4866-8eae-2ffdd95ff9b6",
+          "ebc954d7-796a-4d6f-9e54-b9649bdb8da7",
+          "ef72c5bf-391a-486d-9acd-b4a3b1d40243"
+        ],
+        "nextCursor": null
+      }
+    }
+  ],
+  "wikiWritesThisIteration": 0,
+  "sourceCodeChanges": 0,
+  "qa": "Lint, Check, Typecheck, Build, Formatprüfung, vollständige Testsuiten und Coverage: an die Abschluss-QA übergeben.",
+  "navigation": {
+    "children": [
+      {
+        "id": "3d67d542-5917-4176-9881-6245e9faead3",
+        "title": "Agent-Verwaltung und Editor",
+        "parentId": "93eb063a-a63c-4cac-8393-af182291a582"
+      },
+      {
+        "id": "45bc1de4-9c18-4851-8e62-fc516075ca19",
+        "title": "Remote-Verbindungen und Runner",
+        "parentId": "93eb063a-a63c-4cac-8393-af182291a582"
+      },
+      {
+        "id": "4d0a8535-ba0a-485c-aff0-6c07203426b1",
+        "title": "Laufsteuerung und Planpanel",
+        "parentId": "93eb063a-a63c-4cac-8393-af182291a582"
+      },
+      {
+        "id": "702f7bd4-9d30-478c-a719-b0350dec7fb5",
+        "title": "Arbeitsplätze",
+        "parentId": "93eb063a-a63c-4cac-8393-af182291a582"
+      },
+      {
+        "id": "957716f3-ed65-4e80-886c-ece8821cd0dc",
+        "title": "Agent-Plan",
+        "parentId": "93eb063a-a63c-4cac-8393-af182291a582"
+      },
+      {
+        "id": "965bcb83-13d6-4db6-bf7a-eb6695a3a3d1",
+        "title": "Gedächtnis und Dreaming",
+        "parentId": "93eb063a-a63c-4cac-8393-af182291a582"
+      },
+      {
+        "id": "b53d1a62-5462-4439-bf6d-cbbd854dd433",
+        "title": "Anbindungen",
+        "parentId": "93eb063a-a63c-4cac-8393-af182291a582"
+      },
+      {
+        "id": "c64fb7a7-fd6b-4d2a-be1f-f5af9619e724",
+        "title": "Modell und Reasoning",
+        "parentId": "93eb063a-a63c-4cac-8393-af182291a582"
+      },
+      {
+        "id": "d645e528-e900-4673-9de1-4d817173ccf1",
+        "title": "Entscheidungsmodell für Chats: Festlegungen",
+        "parentId": "93eb063a-a63c-4cac-8393-af182291a582"
+      }
+    ],
+    "completeProjectTree": true,
+    "checkedPages": 25,
+    "distinctWikiTargetsPerPageTotal": 174,
+    "verifiedContextualReferences": 20,
+    "contextualReferrers": 11,
+    "generalReferrers": 4
+  },
+  "classification": {
+    "childPages": 9,
+    "requiredSections": [
+      "# Umgesetzt",
+      "# Entschieden (noch nicht umgesetzt)",
+      "# Festlegungen ohne eindeutigen Umsetzungsstand",
+      "# Offen"
+    ],
+    "originalFragmentsAssignedToSections": 25,
+    "historicalUnclearStates": "Kept separate without inventing an implementation status.",
+    "manualReview": "Read current thematic texts. Explicit implemented notes, dated decisions and open points retained; open elaborations from mixed dated decisions are additionally summarized under Offen."
+  },
+  "functionalTests": {
+    "result": "passed",
+    "groups": 4,
+    "unitTests": "No product code or behavior changed; no unit tests added or executed. Task-specific document assertions ran against fresh Pages readbacks.",
+    "correctedTestHarness": "First T4 assertion used decided instead of the manifest status pending; corrected the assertion mapping and reran T4 successfully."
+  }
+}

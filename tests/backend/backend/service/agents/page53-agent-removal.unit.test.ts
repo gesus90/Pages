@@ -59,7 +59,7 @@ it.each([0, 1, 3])(
       expect(planExecutionIssues(plan.input, [])).toContainEqual({
         nodeId: "step",
         port: null,
-        reason: "agent",
+        reason: "profileMissing",
       });
     }
     const profiles = await repository.list();

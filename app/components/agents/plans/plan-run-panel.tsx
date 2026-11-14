@@ -14,6 +14,7 @@ import { PlanManagementDialogs } from "./plan-management/plan-management-dialogs
 import { PlanOpenRunStartDialog } from "./plan-open-run-start-dialog";
 import { usePlanManagement } from "./plan-management/use-plan-management";
 import { PlanPanelDetails } from "./plan-panel-details";
+import { PlanStartFailure } from "./plan-start-failure";
 import { PlanPanelHeading } from "./plan-panel-heading";
 import { planPanelIssues } from "./plan-panel-issues";
 import { PlanPanelStatus } from "./plan-panel-status";
@@ -290,6 +291,7 @@ export function PlanRunPanel(props: PlanRunPanelProps): React.ReactElement {
           onManage={management.open}
         />
         {recoveryRunId ? <RecoveryErrorLine recovery={recovery} /> : null}
+        <PlanStartFailure error={props.run?.startError} />
         <PlanPanelStatus
           state={state}
           isOpen={isOpen}

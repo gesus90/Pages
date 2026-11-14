@@ -53,13 +53,14 @@ it.each(["completed", "stopped", "failed"] as const)(
       job.complete({
         ...completedTurn(),
         failure: "failed",
+        errorCode: "acp_session_resume_failed",
       });
     else job.complete();
     await completion;
     expect(job.finish).toHaveBeenCalledWith(
       "job",
       outcome,
-      outcome === "failed" ? "providerFailed" : null,
+      outcome === "failed" ? "acp_session_resume_failed" : null,
     );
     expect(runtimeFiles.contents.has(`${directory}/storage-state.json`)).toBe(
       false,

@@ -91,6 +91,30 @@ it("keeps the details closed and reports the toggle", () => {
   expect(onToggle).toHaveBeenCalledTimes(1);
 });
 
+it.each([false, true])(
+  "keeps a failed start visible with run details open=%s after a later command",
+  (isOpen) => {
+    const run = runOf([runStep("alpha", { status: "cancelled" })], {
+      status: "failed",
+      startError: "profile_invalid",
+      command: {
+        id: "later-stop",
+        runId: "run-1",
+        action: "stop",
+        status: "applied",
+        acceptedAt: "2026-11-13T10:00:00.000Z",
+      },
+    });
+    renderStatus(canvasOf({ run }), vi.fn(), isOpen);
+
+    expect(screen.getByRole("alert").textContent).toBe(
+      i18n.t("plans.startFailed", {
+        reason: i18n.t("settings.agents.error.profile_invalid"),
+      }),
+    );
+  },
+);
+
 it("names the missing selection while no run is shown", () => {
   renderStatus(canvasOf());
 

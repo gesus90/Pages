@@ -7,14 +7,20 @@ import {
 import { withBackgroundDatabaseWork } from "@/backend/database/executor/DatabaseWorkContext";
 import { PlanRunCommandRepository } from "@/backend/database/repositories/agent/PlanRunCommandRepository";
 import { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
-import { AgentError } from "@/backend/error/AgentErrors";
+import { AgentError, isAgentErrorCode } from "@/backend/error/AgentErrors";
 import { AgentPlanRecoveryError } from "@/backend/error/AgentPlanRecoveryError";
-import { logCaughtError } from "@/backend/logging/Logger";
+import {
+  logCaughtError,
+  logEvent,
+  withLogContext,
+} from "@/backend/logging/Logger";
 import { recordServiceProgress } from "@/backend/runtime/ServiceWorkHealth";
 import { isActivePlanRun } from "@/definition/AgentPlanRunState";
+import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
 
 import { RunsSocket } from "./RunsSocket";
 import { answerSwarmCall } from "../swarm/SwarmRegistry";
+import { failedPlanStart } from "../AgentPlanStartFailure";
 
 import type { AgentPlanRun } from "@/definition/AgentPlan";
 import type { PendingPlanRunCommand } from "@/backend/database/repositories/agent/PlanRunCommandRepository";
@@ -122,7 +128,7 @@ export class PlanRunCommandWorker {
         snapshot = await this.commands.readSnapshot(command.snapshotFile);
       } catch (error: unknown) {
         logCaughtError("PlanRunCommandWorker", error);
-        await this.commands.failed(receipt.id, "payload_unreadable");
+        await this.reject(command, run, "plan_run_unreadable");
         return;
       }
       try {
@@ -134,7 +140,7 @@ export class PlanRunCommandWorker {
           throw error;
         const stored = await this.commands.latest(run.id);
         if (stored?.id !== receipt.id || stored.status !== "applied")
-          await this.commands.failed(receipt.id, error.code);
+          await this.reject(command, run, error.code);
         return;
       }
     }
@@ -147,6 +153,37 @@ export class PlanRunCommandWorker {
     )
       await this.remote.pause(current);
     await this.commands.delivered(receipt.id);
+  }
+
+  private async reject(
+    command: PendingPlanRunCommand,
+    run: AgentPlanRun,
+    code: string,
+  ): Promise<void> {
+    if (command.receipt.action !== "start" || !isActivePlanRun(run.status)) {
+      await this.commands.failed(command.receipt.id, code);
+      return;
+    }
+    // An adopted owner must settle its own processes; only an unstarted run can close here.
+    if (
+      this.engine.isActive(run.id) ||
+      allPlanRunResults(run).some((step) => step.status === "running")
+    )
+      throw new Error("Cannot reject a start while execution is owned.");
+    const failed = failedPlanStart(run, code);
+    await this.runs.update(failed, undefined, undefined, (transaction) =>
+      this.commands.failed(command.receipt.id, code, transaction),
+    );
+    const reason = isAgentErrorCode(code) ? new AgentError(code).message : code;
+    withLogContext({ runId: run.id }, () =>
+      logEvent({
+        level: "error",
+        event: "agent.run.completed",
+        component: "PlanRunCommandWorker",
+        message: `Agent plan start failed: ${reason} (${code})`,
+        metadata: { status: "failed", code },
+      }),
+    );
   }
 
   private async applyState(

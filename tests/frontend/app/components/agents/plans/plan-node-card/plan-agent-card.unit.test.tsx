@@ -2,6 +2,7 @@ import { screen } from "@testing-library/react";
 import { expect, it } from "vitest";
 
 import { PlanAgentCard } from "@/app/components/agents/plans/plan-node-card/plan-agent-card";
+import { copyPlanConfiguration } from "@/definition/AgentPlanConfiguration";
 
 import { SOURCES } from "../../page61-plan-fixture";
 import {
@@ -12,12 +13,15 @@ import {
   renderInFlow,
 } from "../plan-flow-fixture";
 
-import type { AgentPlanStep } from "@/definition/AgentPlan";
+import type { AgentPlanSources, AgentPlanStep } from "@/definition/AgentPlan";
 
-function renderAgent(step: AgentPlanStep): void {
+function renderAgent(
+  step: AgentPlanStep,
+  sources: AgentPlanSources = SOURCES,
+): void {
   renderInFlow(
     <PlanAgentCard step={step} result={undefined} hasRun={false} />,
-    flowContext({ draft: planOf([step]), sources: SOURCES }),
+    flowContext({ draft: planOf([step]), sources }),
   );
 }
 
@@ -44,4 +48,70 @@ it("shows no input group for an agent without inputs", () => {
   renderAgent({ ...agentStep("agent"), agentId: "deleted" });
 
   expect(screen.queryByRole("group")).toBeNull();
+});
+
+it.each([
+  { problem: "missing", hasConfiguration: true },
+  { problem: "missing", hasConfiguration: false },
+  { problem: "inactive", hasConfiguration: true },
+  { problem: "inactive", hasConfiguration: false },
+])(
+  "warns on the node about an invalid profile: %j",
+  ({ problem, hasConfiguration }) => {
+    const profile = SOURCES.agents[0];
+    if (!profile) throw new Error("Missing fixture profile");
+    const configuration = {
+      ...copyPlanConfiguration(profile),
+      name: "Prepare E2E",
+    };
+    const agents =
+      problem === "missing"
+        ? []
+        : [
+            {
+              ...profile,
+              availability: {
+                isUsable: false,
+                reason: "agent_inactive" as const,
+                personalChoices: [],
+              },
+            },
+          ];
+    renderAgent(
+      {
+        ...agentStep("node"),
+        agentId: profile.id,
+        ...(hasConfiguration ? { configuration } : {}),
+      },
+      { ...SOURCES, agents },
+    );
+    let expectedName =
+      problem === "missing" ? i18n.t("plans.missingAgent") : profile.name;
+    if (hasConfiguration) expectedName = "Prepare E2E";
+    expect(screen.getByRole("article", { name: expectedName })).toBeDefined();
+    expect(screen.getByRole("alert").textContent).toBe(
+      i18n.t(
+        `plans.validation.${problem === "missing" ? "profileMissing" : "profileInactive"}`,
+      ),
+    );
+  },
+);
+
+it("shows no profile warning for a valid agent", () => {
+  const profile = SOURCES.agents[0];
+  if (!profile) throw new Error("Missing fixture profile");
+  renderAgent({ ...agentStep("node"), agentId: profile.id });
+  expect(screen.queryByRole("alert")).toBeNull();
+});
+
+it("shows no profile warning for an independent model node", () => {
+  const profile = SOURCES.agents[0];
+  if (!profile) throw new Error("Missing fixture profile");
+  const configuration = copyPlanConfiguration(profile);
+  renderAgent({
+    ...agentStep("node"),
+    agentId: "independent",
+    configuration: { ...configuration, connectionId: "connection" },
+  });
+  expect(screen.queryByRole("alert")).toBeNull();
 });

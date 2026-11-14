@@ -31,6 +31,7 @@ import {
 } from "./AgentPlanStackGraph";
 import { PLAN_ASSET_NAME_LENGTH, planAssets } from "./AgentPlanAsset";
 import { isPlanStackTriggered } from "./AgentPlanStack";
+import { planProfileProblem } from "./AgentPlanProfile";
 
 import type { AgentDefinitionChoice } from "./AgentAvailability";
 import type { AgentParameter } from "./AgentParameters";
@@ -118,6 +119,8 @@ export interface AgentPlanIssue {
     | "flowOut"
     | "unreachable"
     | "agent"
+    | "profileMissing"
+    | "profileInactive"
     | "name"
     | "json"
     | "number"
@@ -275,7 +278,9 @@ function bindingIssues(
     !step.configuration &&
     !agents.some((entry) => entry.id === step.agentId)
   )
-    return [{ nodeId: step.id, port: null, reason: "agent" }];
+    // A draft may retain a missing profile; its inputs cannot be checked until
+    // a template is available. Execution reports the profile on the node.
+    return [];
   const parameters = inputParameters(step, agents);
   for (const [name, binding] of Object.entries(step.bindings)) {
     const parameter = parameters.find((entry) => entry.name === name);
@@ -467,9 +472,13 @@ function requiredParameterIssues(
   agent: AgentDefinitionChoice | undefined,
   plan: AgentPlanInput,
 ): AgentPlanIssue[] {
+  const profileProblem = planProfileProblem(step, agent ? [agent] : []);
   const configuration = step.configuration?.template ?? agent?.configuration;
   const markdown = configuration?.markdown ?? "";
   const nodeIssue = stepAgentIssue(step, agent, markdown);
+  if (nodeIssue?.reason === "unsupportedRunNotes") return [nodeIssue];
+  if (profileProblem)
+    return [{ nodeId: step.id, port: null, reason: profileProblem }];
   if (nodeIssue) return [nodeIssue];
   const parameters = configuration?.parameters ?? [];
   const unfilled = placeholderIssues(step, parameters, {

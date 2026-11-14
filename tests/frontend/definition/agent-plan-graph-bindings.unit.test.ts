@@ -30,12 +30,10 @@ describe("checking the binding of a node", () => {
   const text = parameterOf("text", "text");
   const count = parameterOf("count", "number");
 
-  it("names an agent that is neither configured nor offered, and checks nothing else", () => {
+  it("allows a draft without a profile and checks bindings once its template is available", () => {
     const unknown = agent("a", { text: { kind: "literal", value: null } });
 
-    expect(portIssues(unknown)).toEqual([
-      { nodeId: "a", port: null, reason: "agent" },
-    ]);
+    expect(portIssues(unknown)).toEqual([]);
     expect(of(connection([unknown], [], [choice("agent-1")]), "a")).toEqual([
       { nodeId: "a", port: "text", reason: "port" },
     ]);

@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 
 import { planStepSelection } from "@/definition/AgentPlanSelection";
 import { planNodeParameters } from "@/definition/AgentPlanGroup";
+import { planProfileProblem } from "@/definition/AgentPlanProfile";
 
 import { usePlanFlowContext } from "../plan-flow-context";
 import { PlanNodeExecutionContext } from "../plan-node-execution-context";
@@ -48,6 +49,7 @@ export function PlanAgentCard(props: {
   const parameters = planNodeParameters(step, sources.agents);
   const status = result?.status ?? "waiting";
   const hasOpenReport = hasOpenPlanReport(result);
+  const profileProblem = planProfileProblem(step, sources.agents);
   function edit(): void {
     graph.select(step.id);
     onEdit?.(step.id);
@@ -73,6 +75,15 @@ export function PlanAgentCard(props: {
       onEdit={edit}
     >
       <div className="flex flex-col gap-1.5 px-3 pt-1 pb-2">
+        {profileProblem ? (
+          <p
+            role="alert"
+            className="flex items-center gap-1 text-xs text-primary"
+          >
+            <CircleAlert aria-hidden="true" className="size-3 shrink-0" />
+            {t(`plans.validation.${profileProblem}`)}
+          </p>
+        ) : null}
         {planStepSelection(step) ? (
           <p className="flex items-center gap-1 text-xs font-medium text-primary">
             <CircleAlert aria-hidden="true" className="size-3" />

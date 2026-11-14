@@ -55,6 +55,19 @@ const RESUMABLE = recoveryView({
   },
 });
 
+it("shows a persisted start failure in the collapsed run panel", () => {
+  renderPanel({
+    control: FAILED,
+    run: { ...syntheticRun(), status: "failed", startError: "profile_invalid" },
+  });
+  expect(screen.getByRole("alert").textContent).toContain(
+    i18n.t("settings.agents.error.profile_invalid"),
+  );
+  expect(screen.getByRole("alert").textContent).toContain(
+    "The run could not start",
+  );
+});
+
 interface PanelOptions {
   readonly control?: AgentPlanControl;
   readonly page?: AgentPlanPage;
