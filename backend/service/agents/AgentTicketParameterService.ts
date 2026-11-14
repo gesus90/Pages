@@ -91,7 +91,10 @@ export class AgentTicketParameterService {
         if (!file.original)
           throw new AgentError("parameter_asset_transfer_unsupported");
         snapshots[`${file.asset.source}:${file.asset.id}`] =
-          await this.snapshots.pin({ ...file, original: file.original });
+          await this.snapshots.pin(
+            { ...file, original: file.original },
+            file.asset,
+          );
       }
       pinned.push({
         ...input,
@@ -229,7 +232,7 @@ export class AgentTicketParameterService {
       throw new AgentError("parameter_ticket_changed");
     const file =
       snapshot && this.snapshots
-        ? await this.snapshots.read(snapshot, inlineBytes)
+        ? await this.snapshots.read(snapshot, inlineBytes, asset)
         : await this.assets.readForHandover(actor, asset, inlineBytes);
     const expected = input.originals?.[`${asset.source}:${asset.id}`];
     if (expected !== undefined && expected !== file.original.digest)
