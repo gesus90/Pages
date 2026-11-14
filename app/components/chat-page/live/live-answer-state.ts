@@ -48,6 +48,8 @@ export type LiveActivity =
   | { readonly kind: "writing" }
   | { readonly kind: "thinking" }
   | { readonly kind: "working" }
+  /** The agent generates images with its model (PAGE-382), such as "erzeugt 4 Bilder …". */
+  | { readonly kind: "images"; readonly count: number }
   | {
       readonly kind: "tool";
       /** The action the call stands for, such as `read` or `test`. */
@@ -248,6 +250,28 @@ export function toolTarget(tool: Pick<LiveAnswerTool, "input">): string {
 }
 
 /**
+ * Whether a call is `bilder_erzeugen` (PAGE-382), under whatever prefix the
+ * agent's tool host names it.
+ *
+ * @param tool - A call of a live answer.
+ */
+export function isImageTool(tool: Pick<LiveAnswerTool, "name">): boolean {
+  return /(?:^|[_.:/-])bilder_erzeugen$/u.test(tool.name);
+}
+
+/**
+ * How many images a call of `bilder_erzeugen` asks for (PAGE-382), read from
+ * its bounded input; one when it names none.
+ *
+ * @param tool - A call of `bilder_erzeugen`.
+ */
+export function imageCount(tool: Pick<LiveAnswerTool, "input">): number {
+  const match = /"anzahl"\s*:\s*(\d+)/u.exec(tool.input ?? "");
+  const count = Number(match?.[1] ?? 1);
+  return Math.min(Math.max(Number.isFinite(count) ? count : 1, 1), 4);
+}
+
+/**
  * What an agent is doing in an answer: a running tool call, thinking,
  * writing, or working without a known step.
  *
@@ -259,6 +283,8 @@ export function activityOf(view: LiveAnswerView | null): LiveActivity | null {
   if (view.end !== null) return null;
   const running = view.tools.filter((tool) => tool.status === "running");
   const latest = running.at(-1);
+  if (latest && isImageTool(latest))
+    return { kind: "images", count: imageCount(latest) };
   if (latest)
     return {
       kind: "tool",

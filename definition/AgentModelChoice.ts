@@ -1,6 +1,7 @@
 import { AGENT_PROVIDERS } from "./AgentConnection";
 import { supportsModelCatalog } from "./AgentModelCatalog";
 import { isChatCapableModel, isTextCapableModel } from "./AgentModelFilter";
+import { isImageOutputModel } from "./AgentImageGeneration";
 import { agentModelKey } from "./AgentPlanConfiguration";
 import { isDecisionModel } from "./ConversationDecision";
 import { isTranscriptionModel } from "./SpeechRecognition";
@@ -66,5 +67,7 @@ export function catalogModelChoice(
     ...(isTranscriptionModel(model) ? { isTranscriptionOnly: true } : {}),
     // Likewise for a decision model, which only the decisions of group chats run (PAGE-379).
     ...(isDecisionModel(model) ? { isDecisionCapable: true } : {}),
+    // An agent generates images with its own model when the catalog states it (PAGE-382).
+    ...(isImageOutputModel(model) ? { isImageOutputCapable: true } : {}),
   };
 }

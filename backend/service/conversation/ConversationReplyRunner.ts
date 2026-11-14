@@ -8,6 +8,7 @@ import {
   CONVERSATION_AGENT_REPLY_PREFIX,
   CONVERSATION_TEXT_MAXIMUM_LENGTH,
 } from "@/definition/Conversation";
+import { CONVERSATION_ATTACHMENT_MAXIMUM_COUNT } from "@/definition/ConversationContent";
 
 import {
   changedEvent,
@@ -606,9 +607,10 @@ export class ConversationReplyRunner {
         ? await this.dependencies.agentFiles.select(reply.text)
         : null;
     // The files are stored first, so a file that fails keeps its line with the reason.
-    const staged = selection
+    const files = selection
       ? await this.stageFiles(conversation.id, job.agentId, selection.files)
       : { attachmentIds: [], failed: [] };
+    const staged = await this.withGeneratedImages(job, files, reply.notice);
     const text = Array.from(
       selection ? agentSelectionText(selection, staged.failed) : reply.text,
     )
@@ -669,6 +671,36 @@ export class ConversationReplyRunner {
       recipientIds: memberIds,
     });
     return reply.notice === null ? message : null;
+  }
+
+  /**
+   * Adds the images the agent generated during the answer (PAGE-382), after
+   * the files its lines named and within the most attachments of a message;
+   * a hint of Pages takes none and lets them go.
+   */
+  private async withGeneratedImages(
+    job: ConversationReplyJob,
+    files: { attachmentIds: string[]; failed: AgentFile[] },
+    notice: ConversationNotice | null,
+  ): Promise<{ attachmentIds: string[]; failed: AgentFile[] }> {
+    const generated =
+      this.dependencies.generatedImages?.take({
+        agentId: job.agentId,
+        conversationId: job.round.conversation.id,
+      }) ?? [];
+    if (generated.length === 0) return files;
+    const room =
+      notice === null
+        ? Math.max(
+            0,
+            CONVERSATION_ATTACHMENT_MAXIMUM_COUNT - files.attachmentIds.length,
+          )
+        : 0;
+    await this.releaseFiles(job.agentId, generated.slice(room));
+    return {
+      attachmentIds: [...files.attachmentIds, ...generated.slice(0, room)],
+      failed: files.failed,
+    };
   }
 
   /**

@@ -231,8 +231,21 @@ export class ConversationAgentFiles {
    * @param file - A file {@link ConversationAgentFiles.select} returned.
    * @returns The bytes of the file.
    */
-  public open(file: AgentFile): AsyncIterable<Uint8Array> {
+  public open(file: Pick<AgentFile, "path">): AsyncIterable<Uint8Array> {
     return createReadStream(file.path);
+  }
+
+  /**
+   * Checks one file by the rules of file lines, such as a template of a
+   * generated image (PAGE-382).
+   *
+   * @param target - The absolute path the agent named.
+   * @returns The checked file, or why it must not be used.
+   */
+  public inspect(
+    target: string,
+  ): Promise<Omit<AgentFile, "lineIndex"> | AgentFileRefusal> {
+    return this.check(target);
   }
 
   /** Checks one named file; the reason when it must not be attached. */

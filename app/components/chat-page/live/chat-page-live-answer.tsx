@@ -8,9 +8,12 @@ import { MentionMarkdown } from "../mentions/mention-markdown";
 import { ParticipantAvatar } from "../chat-page-avatar";
 import { participantColors } from "../chat-page-colors";
 import { ChatPageToolUse } from "../chat-page-tool-uses";
+import { GALLERY_TILES, GalleryPlaceholder } from "../content/image-gallery";
 import {
   elapsedMilliseconds,
   formatSeconds,
+  imageCount,
+  isImageTool,
   toolsDuration,
 } from "./live-answer-state";
 
@@ -281,8 +284,42 @@ export function ChatPageLiveAnswer({
           onCancel={isRunning ? onCancelTool : undefined}
         />
         <LiveText text={view.text} isWriting={isRunning} />
+        {isRunning ? <GeneratingImages tools={view.tools} /> : null}
       </div>
     </article>
+  );
+}
+
+/**
+ * The placeholders of the images an agent is generating right now
+ * (PAGE-382), as the gallery of its answer will show them.
+ */
+function GeneratingImages({
+  tools,
+}: {
+  readonly tools: readonly LiveAnswerTool[];
+}): React.ReactElement | null {
+  const { t } = useTranslation();
+  const count = tools
+    .filter((tool) => tool.status === "running" && isImageTool(tool))
+    .reduce((total, tool) => total + imageCount(tool), 0);
+  if (count === 0) return null;
+  const shown = Math.min(count, GALLERY_TILES);
+  return (
+    <section
+      aria-label={t("chatPage.liveAnswer.activity.generating", { count })}
+      className="w-full max-w-108 rounded-xl border border-border bg-surface p-1"
+      data-generating-images={count}
+    >
+      <p className="px-2 py-1.5 text-xs text-muted-foreground" role="status">
+        {t("chatPage.liveAnswer.activity.generating", { count })}
+      </p>
+      <ul className="grid grid-cols-2 gap-1">
+        {Array.from({ length: shown }, (_, index) => (
+          <GalleryPlaceholder key={index} />
+        ))}
+      </ul>
+    </section>
   );
 }
 

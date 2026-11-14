@@ -1,4 +1,7 @@
+import { agentImageTool } from "./AgentImageTool";
+
 import type { PicaAcpStart } from "../chat/acp/PicaAcpService";
+import type { AgentImageToolDependencies, AgentImageTurn } from "./AgentImageTool";
 import type { User } from "@/definition/User";
 import type {
   AgentChatScope,
@@ -116,5 +119,27 @@ function ownChatTools(
           }),
         }
       : {}),
+  };
+}
+
+/**
+ * `bilder_erzeugen` of a round in a conversation (PAGE-382), bound to the
+ * model of the round; a run of the agent's own and a direct chat outside the
+ * conversations get none.
+ *
+ * @param images - The generation and storage of images; absent offers none.
+ * @param turn - The agent, the conversation of the round or `null`, and the
+ * model of the round.
+ */
+export function imageToolOf(
+  images: AgentImageToolDependencies | undefined,
+  turn: Omit<AgentImageTurn, "conversationId"> & {
+    readonly conversationId: string | null;
+  },
+): Pick<NonNullable<PicaAcpStart["employee"]>, "generateImages"> {
+  const { conversationId } = turn;
+  if (!images || conversationId === null) return {};
+  return {
+    generateImages: agentImageTool(images, { ...turn, conversationId }),
   };
 }

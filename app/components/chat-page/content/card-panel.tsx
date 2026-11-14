@@ -1,9 +1,18 @@
 import {
+  Code,
   Columns2,
   Copy,
   Download,
   ExternalLink,
+  File as FileIcon,
+  FileDiff,
+  FileText,
+  Film,
+  Globe,
+  Image as ImageIcon,
+  Link2,
   Maximize2,
+  Music,
   Rows2,
   X,
 } from "lucide-react";
@@ -17,15 +26,35 @@ import { downloadUrl } from "./card-types";
 import { useChatContent } from "./chat-content-context";
 import { ChatMarkdown } from "./chat-markdown";
 import { CodeView } from "./code-view";
-import { CardAction } from "./content-card";
+import {
+  CardAction,
+  CardActionDivider,
+  CardDownloadAction,
+  CardHead,
+} from "./content-card";
 import { DiffCount, DiffView, useParsedDiff } from "./diff-view";
 import { WebView } from "./link-cards";
 import { syntaxLanguageLabel } from "./syntax-highlight";
 import { copyText, saveTextFile, useCardText } from "./use-card-text";
 
 import type { TFunction } from "i18next";
+import type { LucideIcon } from "lucide-react";
 import type { ContentCardDescriptor, OpenedCard } from "./card-types";
 import type { DiffLayout } from "./diff-view";
+
+/** The icon of each kind, as the head of the cards shows it (PAGE-382). */
+const KIND_ICONS: Readonly<Record<ContentCardDescriptor["kind"], LucideIcon>> = {
+  code: Code,
+  diff: FileDiff,
+  markdown: FileText,
+  image: ImageIcon,
+  pdf: FileText,
+  video: Film,
+  audio: Music,
+  file: FileIcon,
+  web: Globe,
+  link: Link2,
+};
 
 /** The kind of a card as the head of the panel names it. */
 function kindLabel(descriptor: ContentCardDescriptor, t: TFunction): string {
@@ -141,6 +170,7 @@ function TextActions({
           icon={Download}
           label={t("chatPage.cards.saveFile")}
           onClick={() => saveTextFile(descriptor.name, source)}
+          variant="primary"
         />
       )}
     </>
@@ -160,11 +190,7 @@ function KindActions({
   const { t } = useTranslation();
   if ("attachment" in descriptor)
     return (
-      <CardAction
-        href={downloadUrl(descriptor.attachment)}
-        icon={Download}
-        label={t("chatPage.cards.download")}
-      />
+      <CardDownloadAction download={{ href: downloadUrl(descriptor.attachment) }} />
     );
   if ("link" in descriptor)
     return (
@@ -215,7 +241,7 @@ function PanelSubtitle({
     descriptor.kind === "diff" ? (descriptor.source ?? "") : "",
   );
   return (
-    <span className="shrink-0 text-xs text-muted-foreground">
+    <span>
       {[kindLabel(descriptor, t), origin.senderName, time]
         .filter((entry) => entry !== "")
         .join(" · ")}
@@ -269,32 +295,38 @@ export function CardPanel({
       data-card-panel={card.key}
       style={style}
     >
-      <header className="flex min-h-12 flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-border px-4 py-2">
-        <p className="flex min-w-56 flex-1 items-baseline gap-2.5">
-          <span className="truncate text-sm font-semibold">{name}</span>
-          <PanelSubtitle card={card} />
-        </p>
-        <div className="flex flex-wrap items-center gap-1.5">
-          <KindActions
-            descriptor={card.descriptor}
-            layout={layout}
-            onLayout={setLayout}
-          />
-          {onFullscreen ? (
-            <CardAction
-              icon={Maximize2}
-              label={t("chatPage.cards.fullscreen")}
-              onClick={onFullscreen}
+      <CardHead
+        actions={
+          <>
+            <KindActions
+              descriptor={card.descriptor}
+              layout={layout}
+              onLayout={setLayout}
             />
-          ) : null}
-          <CardAction
-            icon={X}
-            isIconOnly
-            label={t("chatPage.cards.close")}
-            onClick={onClose}
-          />
-        </div>
-      </header>
+            <CardActionDivider />
+            {onFullscreen ? (
+              <CardAction
+                icon={Maximize2}
+                isIconOnly
+                label={t("chatPage.cards.fullscreen")}
+                onClick={onFullscreen}
+                variant="quiet"
+              />
+            ) : null}
+            <CardAction
+              icon={X}
+              isIconOnly
+              label={t("chatPage.cards.close")}
+              onClick={onClose}
+              variant="quiet"
+            />
+          </>
+        }
+        className="border-b border-border px-4"
+        icon={KIND_ICONS[card.descriptor.kind]}
+        name={name}
+        subtitle={<PanelSubtitle card={card} />}
+      />
       <div className="flex min-h-0 flex-1 flex-col bg-panel-body">
         <PanelBody descriptor={card.descriptor} layout={layout} />
       </div>

@@ -1,11 +1,12 @@
-import { Download, Film, Maximize, Pause, Play } from "lucide-react";
+import { Film, Maximize, Pause, Play } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { cn } from "@/app/lib/cn";
 
 import { downloadUrl, formatFileSize } from "./card-types";
-import { CardAction, ContentCard } from "./content-card";
+import { ContentCard } from "./content-card";
+import { useRetention } from "./use-retention";
 import { useAttachmentPreview } from "./use-attachment-preview";
 import { formatMediaTime, useMediaPlayer } from "./use-media-player";
 
@@ -203,16 +204,12 @@ interface VideoCardProps {
 export function VideoCard({ card }: VideoCardProps): React.ReactElement {
   const { t, i18n } = useTranslation();
   const { attachment } = card.descriptor;
+  const retention = useRetention(attachment.expiresAt);
   return (
     <ContentCard
-      actions={
-        <CardAction
-          href={downloadUrl(attachment)}
-          icon={Download}
-          label={t("chatPage.cards.download")}
-        />
-      }
       beside={card}
+      download={{ href: downloadUrl(attachment) }}
+      retention={retention}
       cardKey={card.key}
       className="max-w-lg"
       defaultState="expanded"

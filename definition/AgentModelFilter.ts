@@ -19,7 +19,7 @@ export interface AgentModelTraits {
 }
 
 // Speech output models (PAGE-300) generate audio as well, under a modality of their own.
-const GENERATED_MEDIA = ["image", "video", "audio", "speech"] as const;
+const GENERATED_MEDIA = ["video", "audio", "speech"] as const;
 
 function statesModality(
   modalities: unknown,
@@ -35,11 +35,14 @@ function statesModality(
 
 /**
  * The global filter for every chat model choice: an active language model
- * that reads and answers in text and generates no image, video or audio.
+ * that reads and answers in text and generates no video or audio.
  *
  * @remarks
  * A model that also reads images stays a chat model. A model that states it
- * reads no text, such as a pure transcription model, is not one.
+ * reads no text, such as a pure transcription model, is not one. A model
+ * that outputs images stays one only when it also states text output
+ * (PAGE-382): an agent working with it answers in text and generates its
+ * images with it; a pure image generator is none.
  *
  * @param traits - The model's properties as OpenCode states them.
  * @returns `true` when Pica and plans may list the model.
@@ -49,6 +52,8 @@ export function isChatModel(traits: AgentModelTraits): boolean {
     (traits.status === undefined || traits.status === "active") &&
     !statesModality(traits.input, "text", false) &&
     !statesModality(traits.output, "text", false) &&
+    (!statesModality(traits.output, "image", true) ||
+      statesModality(traits.output, "text", true)) &&
     GENERATED_MEDIA.every(
       (modality) => !statesModality(traits.output, modality, true),
     )
@@ -113,7 +118,8 @@ export interface AgentChatCapabilityFacts {
 
 /**
  * Whether a model can chat as an agent or for Pica: it reads and answers in
- * text, generates no image, video or audio, and calls tools.
+ * text, generates no video or audio, generates images only beside text
+ * (PAGE-382), and calls tools.
  *
  * @remarks
  * The facts come from the source and are stored with the catalog: OpenRouter's
@@ -142,5 +148,9 @@ export function isTextCapableModel(model: AgentChatCapabilityFacts): boolean {
     GENERATED_MEDIA.some((modality) => outputModalities.includes(modality))
   )
     return false;
-  return true;
+  // A model that outputs images chats when it also answers in text (PAGE-382).
+  return !(
+    outputModalities?.includes("image") === true &&
+    !outputModalities.includes("text")
+  );
 }

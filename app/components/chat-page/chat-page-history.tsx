@@ -233,8 +233,10 @@ function OwnMessage({
   return (
     <article
       aria-label={t("chatPage.you")}
-      className="group/message flex w-full min-w-0 flex-col items-end gap-2"
+      className="group/message flex w-full min-w-0 flex-col items-end gap-2 outline-none"
+      data-chat-message={message.id}
       data-delivery={delivery?.kind}
+      tabIndex={-1}
     >
       <div
         className={cn(
@@ -491,9 +493,11 @@ function AnswerBubble({
   return (
     <article
       aria-label={author.name}
+      data-chat-message={message.id}
       data-own-mention={isOwnMention ? "true" : undefined}
+      tabIndex={-1}
       className={cn(
-        "flex w-full min-w-0 flex-col items-start gap-2",
+        "flex w-full min-w-0 flex-col items-start gap-2 outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
         isOwnMention && "border-l-[3px] border-primary pl-2",
       )}
     >

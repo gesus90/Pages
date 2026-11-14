@@ -42,7 +42,7 @@ interface LinkCandidate {
  * invalid or unchecked key never reaches OpenCode.
  */
 export async function findOpenCodeLinks(
-  connections: AgentConnectionRepository,
+  connections: Pick<AgentConnectionRepository, "list" | "checks">,
 ): Promise<ReadonlyMap<OpenCodeLinkedProvider, LinkCandidate>> {
   const links = new Map<OpenCodeLinkedProvider, LinkCandidate>();
   for (const connection of await connections.list()) {

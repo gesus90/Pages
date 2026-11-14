@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 
 import { AttachmentCards } from "./attachment-cards";
+import { ExpiredAttachment } from "./expired-attachment";
 import { LinkCards } from "./link-cards";
 import { parseMessageContent, textAttachmentKind } from "./message-content";
 import { CodeCard, DiffCard, MarkdownCard } from "./text-cards";
@@ -104,6 +105,9 @@ function TextAttachmentCard({
   readonly origin: CardOrigin;
 }): React.ReactElement | null {
   const kind = textAttachmentKind(attachment);
+  // A file of an agent whose 72 hours ended keeps only its placeholder (PAGE-382).
+  if (attachment.expiredAt !== undefined)
+    return <ExpiredAttachment attachment={attachment} />;
   const shared = {
     cardKey: `att:${attachment.id}`,
     name: attachment.name,
@@ -141,6 +145,10 @@ export function MessageContentView({
   const media = attachments.filter(
     (attachment) => textAttachmentKind(attachment) === null,
   );
+  // A message on its way has no stored ID yet, so it offers no archive.
+  const mediaOrigin: CardOrigin = message.id.startsWith("pending")
+    ? origin
+    : { ...origin, messageId: message.id };
   return (
     <>
       {parts.map((part, index) =>
@@ -167,7 +175,7 @@ export function MessageContentView({
             origin={origin}
           />
         ))}
-      <AttachmentCards attachments={media} origin={origin} />
+      <AttachmentCards attachments={media} origin={mediaOrigin} />
     </>
   );
 }

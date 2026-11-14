@@ -23,6 +23,15 @@ function ActivityText({
   readonly activity: LiveActivity;
 }): React.ReactElement {
   const { t } = useTranslation();
+  if (activity.kind === "images")
+    return (
+      <>
+        {t("chatPage.liveAnswer.activity.images", {
+          name,
+          count: activity.count,
+        })}
+      </>
+    );
   if (activity.kind !== "tool")
     return <>{t(`chatPage.liveAnswer.activity.${activity.kind}`, { name })}</>;
   const target = activity.target === "" ? "…" : activity.target;

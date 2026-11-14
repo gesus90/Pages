@@ -17,7 +17,17 @@ interface ImageViewerProps {
   readonly onClose: () => void;
   /** Called when the viewer has closed; it may place the focus itself. */
   readonly onCloseAutoFocus?: (event: Event) => void;
+  /**
+   * Replaces the head with position, caption and close (PAGE-382); it must
+   * offer a way to close.
+   */
+  readonly header?: React.ReactNode;
+  /** Shown below the image, such as a strip of all images of a chat. */
+  readonly footer?: React.ReactNode;
 }
+
+/** The shortest horizontal swipe that pages, in pixels. */
+const SWIPE_DISTANCE = 50;
 
 /** Whether a key press belongs to the browser or the system, not to paging. */
 function hasModifier(event: React.KeyboardEvent): boolean {
@@ -31,8 +41,10 @@ function hasModifier(event: React.KeyboardEvent): boolean {
  * @remarks
  * A modal dialog, so it traps the focus, closes on Escape and hands the focus
  * back. It sits above whatever dialog it opened from. A single image has no
- * navigation. An image that cannot load is reported in its place and the
- * other images stay reachable.
+ * navigation. An image that cannot load or is no longer there is reported in
+ * its place and the other images stay reachable. On a touch screen a
+ * horizontal swipe pages. The chat gives it a head and a strip of its own
+ * (PAGE-382).
  */
 export function ImageViewer({
   images,
@@ -40,9 +52,12 @@ export function ImageViewer({
   onIndexChange,
   onClose,
   onCloseAutoFocus,
+  header,
+  footer,
 }: ImageViewerProps): React.ReactElement | null {
   const { t } = useTranslation();
   const content = useRef<HTMLDivElement>(null);
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
   const image = images[index];
 
   if (!image) {
@@ -68,6 +83,23 @@ export function ImageViewer({
       // drop the focus out of the dialog.
       content.current?.focus();
     }
+  }
+
+  function handleTouchStart(event: React.TouchEvent): void {
+    const touch = event.touches[0];
+    touchStart.current = touch ? { x: touch.clientX, y: touch.clientY } : null;
+  }
+
+  // A horizontal swipe pages on a touch screen; a vertical one scrolls nothing away.
+  function handleTouchEnd(event: React.TouchEvent): void {
+    const start = touchStart.current;
+    const touch = event.changedTouches[0];
+    touchStart.current = null;
+    if (!start || !touch || !hasNavigation) return;
+    const distance = touch.clientX - start.x;
+    if (Math.abs(distance) < SWIPE_DISTANCE) return;
+    if (Math.abs(distance) < Math.abs(touch.clientY - start.y)) return;
+    step(distance > 0 ? -1 : 1);
   }
 
   function handleKeyDown(event: React.KeyboardEvent): void {
@@ -109,19 +141,25 @@ export function ImageViewer({
           <DialogPrimitive.Title className="sr-only">
             {t("imageViewer.title")}
           </DialogPrimitive.Title>
-          <ViewerHeader
-            caption={image.alt}
-            linkHref={image.linkHref}
-            position={
-              hasNavigation
-                ? t("imageViewer.position", {
-                    current: index + 1,
-                    total: count,
-                  })
-                : null
-            }
-          />
-          <div className="relative flex min-h-0 flex-1">
+          {header ?? (
+            <ViewerHeader
+              caption={image.alt}
+              linkHref={image.linkHref}
+              position={
+                hasNavigation
+                  ? t("imageViewer.position", {
+                      current: index + 1,
+                      total: count,
+                    })
+                  : null
+              }
+            />
+          )}
+          <div
+            className="relative flex min-h-0 flex-1"
+            onTouchEnd={handleTouchEnd}
+            onTouchStart={handleTouchStart}
+          >
             {hasNavigation ? (
               <ViewerSteps
                 hasNext={index < count - 1}
@@ -134,8 +172,12 @@ export function ImageViewer({
               isPaged={hasNavigation}
               label={label}
               src={image.src}
+              {...(image.unavailable === undefined
+                ? {}
+                : { unavailable: image.unavailable })}
             />
           </div>
+          {footer}
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>

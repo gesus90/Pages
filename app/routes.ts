@@ -278,6 +278,8 @@ function workspaceResources(routes: RouteBuilder): RouteConfigEntry[] {
     resource("chat-page-api/files", "routes/chat-page-files.ts"),
     resource("chat/files/:id", "routes/conversation-file.ts"),
     resource("chat/files/:id/thumbnail", "routes/conversation-thumbnail.ts"),
+    resource("chat/messages/:id/files.zip", "routes/conversation-archive.ts"),
+    resource("chat/images/:id", "routes/conversation-images.ts"),
     resource("chat/link-image", "routes/conversation-link-image.ts"),
     resource("chat/embed", "routes/chat-embed.ts"),
     ...page("chat", {

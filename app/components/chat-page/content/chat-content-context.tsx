@@ -3,12 +3,24 @@ import { useFetcher } from "react-router";
 
 import { CHAT_SPLIT_MINIMUM_VIEWPORT } from "@/definition/ConversationContent";
 
+import { ChatImageViewer } from "./chat-image-viewer";
+
 import type {
   ChatCardState,
+  ConversationImage,
   ConversationLink,
 } from "@/definition/ConversationContent";
 import type { VirtualChatDirectory } from "@/definition/VirtualChat";
 import type { OpenedCard } from "./card-types";
+
+/** The image the viewer opens at, and the images it knows before it asks the server (PAGE-382). */
+export interface ChatImageRequest {
+  readonly attachmentId: string;
+  /** The images of the message that opened it, so the viewer shows at once. */
+  readonly images: readonly ConversationImage[];
+  /** The element that opened the viewer; it gets the focus back as a fallback. */
+  readonly opener?: HTMLElement | null;
+}
 
 /** What the content cards of one opened conversation share (PAGE-298). */
 export interface ChatContent {
@@ -27,6 +39,10 @@ export interface ChatContent {
   readonly overlay: OpenedCard | null;
   openOverlay(card: OpenedCard): void;
   closeOverlay(): void;
+  /** The image viewer over the chat, paging through all images of the conversation (PAGE-382). */
+  readonly viewer: ChatImageRequest | null;
+  openViewer(request: ChatImageRequest): void;
+  closeViewer(): void;
   /** Whether a link may be embedded here: Pages itself, a local preview or a released domain. */
   isEmbeddable(link: ConversationLink): boolean;
   /** The domains members released for this conversation. */
@@ -49,6 +65,9 @@ const STANDALONE: ChatContent = {
   overlay: null,
   openOverlay: () => undefined,
   closeOverlay: () => undefined,
+  viewer: null,
+  openViewer: () => undefined,
+  closeViewer: () => undefined,
   isEmbeddable: (link) => link.embeddable,
   releasedDomains: NO_DOMAINS,
   canRelease: false,
@@ -101,7 +120,7 @@ function useCardStates(
   };
 }
 
-/** The split view and the overlay; a new conversation closes both. */
+/** The split view, the overlay and the image viewer; a new conversation closes them. */
 function useOpenedCards(
   conversationKey: string,
 ): Pick<
@@ -112,13 +131,18 @@ function useOpenedCards(
   | "overlay"
   | "openOverlay"
   | "closeOverlay"
+  | "viewer"
+  | "openViewer"
+  | "closeViewer"
 > {
   const [beside, setBeside] = useState<OpenedCard | null>(null);
   const [overlay, setOverlay] = useState<OpenedCard | null>(null);
+  const [viewer, setViewer] = useState<ChatImageRequest | null>(null);
 
   useEffect(() => {
     setBeside(null);
     setOverlay(null);
+    setViewer(null);
   }, [conversationKey]);
 
   function openBeside(card: OpenedCard): void {
@@ -133,6 +157,9 @@ function useOpenedCards(
     overlay,
     openOverlay: setOverlay,
     closeOverlay: () => setOverlay(null),
+    viewer,
+    openViewer: setViewer,
+    closeViewer: () => setViewer(null),
   };
 }
 
@@ -150,8 +177,8 @@ interface ChatContentProviderProps {
 
 /**
  * Shares the state of the content cards of the opened conversation: the
- * remembered card states, the one card of the split view, the overlay and
- * the domains that may be embedded (PAGE-298).
+ * remembered card states, the one card of the split view, the overlay, the
+ * image viewer (PAGE-382) and the domains that may be embedded (PAGE-298).
  */
 export function ChatContentProvider({
   directory,
@@ -190,5 +217,12 @@ export function ChatContentProvider({
     },
   };
 
-  return <ChatContentContext value={value}>{children}</ChatContentContext>;
+  return (
+    <ChatContentContext value={value}>
+      {children}
+      {cards.viewer ? (
+        <ChatImageViewer content={value} request={cards.viewer} />
+      ) : null}
+    </ChatContentContext>
+  );
 }

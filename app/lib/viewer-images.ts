@@ -14,6 +14,11 @@ export interface ViewerImage {
   readonly alt: string;
   /** Target of the link around the image, `null` for a plain image. */
   readonly linkHref: string | null;
+  /**
+   * Why the image is not there, such as an expired file of a chat
+   * (PAGE-382); the viewer reports it in its place without loading it.
+   */
+  readonly unavailable?: string;
 }
 
 /** The images of one text in their displayed order and the one that opened. */

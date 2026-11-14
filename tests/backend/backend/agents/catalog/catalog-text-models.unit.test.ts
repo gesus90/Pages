@@ -24,9 +24,14 @@ describe("isTextModel for OpenRouter", () => {
     expect(isTextModel(entry, "openrouter")).toBe(true);
   });
 
+  it("PAGE-382 accepts a model that answers in text beside images", () => {
+    const entry = openRouterEntry(["text"], ["text", "image"]);
+    expect(isTextModel(entry, "openrouter")).toBe(true);
+  });
+
   it.each([
     ["an image generator", ["text"], ["image"]],
-    ["a model that also writes images", ["text"], ["text", "image"]],
+    ["a model that writes audio beside text", ["text"], ["text", "audio"]],
     ["a speech model", ["audio"], ["text"]],
     ["an embedding model", ["text"], ["embeddings"]],
     ["a model without outputs", ["text"], []],

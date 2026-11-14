@@ -1,4 +1,4 @@
-import { Download, Music, Pause, Play } from "lucide-react";
+import { Music, Pause, Play } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -7,7 +7,8 @@ import { cn } from "@/app/lib/cn";
 import { VoiceWave } from "../chat-page-voice";
 import { decodeAudio, wavePeaks } from "../voice-audio";
 import { downloadUrl, formatFileSize } from "./card-types";
-import { CardAction, ContentCard } from "./content-card";
+import { ContentCard } from "./content-card";
+import { useRetention } from "./use-retention";
 import { formatMediaTime, useMediaPlayer } from "./use-media-player";
 import { useSeen } from "./use-seen";
 
@@ -109,16 +110,12 @@ export function AudioCard({
   readonly attachment: ConversationAttachment;
 }): React.ReactElement {
   const { t, i18n } = useTranslation();
+  const retention = useRetention(attachment.expiresAt);
   return (
     <ContentCard
-      actions={
-        <CardAction
-          href={downloadUrl(attachment)}
-          icon={Download}
-          label={t("chatPage.cards.download")}
-        />
-      }
       cardKey={`att:${attachment.id}`}
+      download={{ href: downloadUrl(attachment) }}
+      retention={retention}
       className="max-w-md"
       defaultState="expanded"
       icon={Music}

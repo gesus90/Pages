@@ -4,6 +4,7 @@ import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { redactCredentials } from "@/backend/security/AgentTextSafety";
 import { CHAT_LIMITS } from "@/definition/Chat";
 
+import type { AgentImageToolDependencies } from "./AgentImageTool";
 import type { ConversationAnswerStream } from "@/backend/service/conversation/ConversationAnswerStream";
 import type { LiveAnswerSink } from "@/backend/service/conversation/ConversationLiveAnswer";
 import type { ConversationDelivery } from "@/definition/ConversationLiveAnswer";
@@ -112,6 +113,11 @@ export interface AgentEmployeeSessionDependencies {
    * calls and the list of recipes a round is told about. Absent offers none.
    */
   readonly recipes?: Pick<AgentRecipeService, "tools" | "brief">;
+  /**
+   * Generates images with the model of a round in a conversation and hands
+   * them to the answer (PAGE-382); absent offers no `bilder_erzeugen`.
+   */
+  readonly images?: AgentImageToolDependencies;
   readonly today?: () => string;
   /** Opens the live answer of a direct chat for the chat page (PAGE-381); absent shows none. */
   readonly answers?: Pick<ConversationAnswerStream, "open">;

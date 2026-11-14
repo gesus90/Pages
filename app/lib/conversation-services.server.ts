@@ -39,6 +39,8 @@ import { sharedConversationEvents } from "@/backend/service/conversation/Convers
 import { sharedConversationAnswerStream } from "@/backend/service/conversation/ConversationAnswerStream";
 import { ConversationGroupSummaries } from "@/backend/service/conversation/ConversationGroupSummaries";
 import { ConversationGroupSummaryScheduler } from "@/backend/service/conversation/ConversationGroupSummaryScheduler";
+import { ConversationAttachmentExpiry } from "@/backend/service/conversation/content/ConversationAttachmentExpiry";
+import { sharedConversationGeneratedImages } from "@/backend/service/conversation/content/ConversationGeneratedImages";
 import { ConversationObserverModel } from "@/backend/service/conversation/ConversationObserverModel";
 import { ConversationObserverMonitor } from "@/backend/service/conversation/ConversationObserverMonitor";
 import { ConversationOversight } from "@/backend/service/conversation/ConversationOversight";
@@ -147,6 +149,7 @@ export interface ConversationObserverInput {
 declare global {
   var pagesConversationAgentReplies: (() => void) | undefined;
   var pagesConversationSummaries: ConversationGroupSummaryScheduler | undefined;
+  var pagesConversationExpiry: ConversationAttachmentExpiry | undefined;
 }
 
 /**
@@ -193,7 +196,7 @@ export function createConversationServices(
   });
   const decisions = new ConversationDecisionRepository(database);
   const replySettings = new ConversationReplySettingsRepository(database);
-  const content = createContent(input, conversations);
+  const content = createContent(input, conversations, directory);
   const conversationReader = new ConversationReader({
     conversations,
     messages,
@@ -366,6 +369,7 @@ function createReplies(
     guard: parts.guard,
     agentFiles: new ConversationAgentFiles(),
     attachments: content.attachments,
+    generatedImages: sharedConversationGeneratedImages(),
     content: content.reader,
     answerStream: {
       open: (target) => sharedConversationAnswerStream().open(target),
@@ -388,12 +392,14 @@ function hostOf(origin: string | undefined): string[] {
 function createContent(
   input: ConversationServicesInput,
   conversations: ConversationRepository,
+  directory: ConversationDirectory,
 ): ContentParts {
   const { database } = input;
   const attachments = new ConversationAttachments({
     attachments: new ConversationAttachmentRepository(database),
     conversations,
     files: new WikiFileStore(path.join(input.directory, "conversation-files")),
+    directory,
   });
   const ownHosts = hostOf(input.publicUrl);
   const links = new ConversationLinks({
@@ -418,13 +424,21 @@ function createContent(
   };
 }
 
-/** Removes files and preview data nothing refers to any more, once at the start. */
+/**
+ * Removes files and preview data nothing refers to any more, once at the
+ * start, and starts the regular removal of agents' files after 72 hours
+ * (PAGE-382); a second wiring replaces the expiry of the first.
+ */
 function sweepContent(content: ContentParts): void {
   void Promise.all([content.attachments.sweep(), content.links.sweep()]).catch(
     (error: unknown) => {
       logCaughtError("ConversationContent", error);
     },
   );
+  void globalThis.pagesConversationExpiry?.shutdown();
+  const expiry = new ConversationAttachmentExpiry(content.attachments);
+  expiry.start();
+  globalThis.pagesConversationExpiry = expiry;
 }
 
 /** The parts of the group observer (PAGE-296). */

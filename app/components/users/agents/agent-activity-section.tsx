@@ -95,6 +95,8 @@ function EntryLine({
     message: text(detail.message),
     from: t(`agentEmployees.access.${text(detail.from) || "read_only"}`),
     to: t(`agentEmployees.access.${text(detail.to) || "read_only"}`),
+    count: typeof detail.count === "number" ? detail.count : 0,
+    model: text(detail.model),
     status: t(
       `agentEmployees.memory.result.${text(detail.status) || "unchanged"}`,
       {

@@ -4204,7 +4204,7 @@
     "cards": {
       "beside": "Daneben",
       "besideOpen": "Rechts geöffnet",
-      "collapse": "Einklappen",
+      "collapse": "Zuklappen",
       "expand": "Ausklappen",
       "showAllLines": "Alle {{count}} Zeilen zeigen",
       "lines_one": "{{count}} Zeile",
@@ -4229,7 +4229,8 @@
         "pdf": "PDF",
         "video": "Video",
         "audio": "Audio",
-        "file": "Datei"
+        "file": "Datei",
+        "gallery": "Galerie"
       },
       "diff": {
         "before": "vorher",
@@ -4257,7 +4258,7 @@
       "removeRelease": "Freigabe entfernen",
       "embeddedPage": "Eingebettete Seite von {{domain}}",
       "fullscreen": "Vollbild",
-      "download": "Laden",
+      "download": "Herunterladen",
       "open": "Öffnen",
       "play": "Abspielen",
       "pause": "Pause",
@@ -4266,7 +4267,29 @@
       "videoFullscreen": "Video im Vollbild",
       "previewPending": "Vorschau wird erstellt …",
       "noPreview": "Keine Vorschau",
-      "you": "Du"
+      "you": "Du",
+      "toMessage": "Zur Nachricht",
+      "downloadAll": "Alle herunterladen",
+      "downloadNamed": "{{name}} herunterladen",
+      "viewerStrip": "Alle Bilder dieses Chats",
+      "retention": {
+        "days_one": "noch {{count}} Tag",
+        "days_other": "noch {{count}} Tage",
+        "hours_one": "noch {{count}} Std.",
+        "hours_other": "noch {{count}} Std.",
+        "soon": "noch unter 1 Std."
+      },
+      "expired": {
+        "short": "abgelaufen",
+        "label": "abgelaufen · erzeugt am {{date}}"
+      },
+      "gallery": {
+        "name_one": "{{count}} Bild",
+        "name_other": "{{count}} Bilder",
+        "count_one": "{{count}} Bild",
+        "count_other": "{{count}} Bilder",
+        "pending": "Bild wird erzeugt …"
+      }
     },
     "embedDomains": {
       "title": "Eingebettete Domains",
@@ -4465,7 +4488,11 @@
         "browse": "{{name}} öffnet {{target}}",
         "use": "{{name}} nutzt {{target}}",
         "running_one": "{{count}} Werkzeug läuft",
-        "running_other": "{{count}} Werkzeuge laufen"
+        "running_other": "{{count}} Werkzeuge laufen",
+        "images_one": "{{name}} erzeugt {{count}} Bild …",
+        "images_other": "{{name}} erzeugt {{count}} Bilder …",
+        "generating_one": "{{count}} Bild wird erzeugt …",
+        "generating_other": "{{count}} Bilder werden erzeugt …"
       },
       "steer": "Umlenken",
       "steerShortcut": "↵",
@@ -8043,7 +8070,8 @@
         "learning": "Traumlauf: {{status}}",
         "ticket": "Ticket: {{message}}",
         "wiki": "Wiki: {{message}}",
-        "access": "Zugriffsstufe: {{from}} → {{to}} (geändert von {{person}})"
+        "access": "Zugriffsstufe: {{from}} → {{to}} (geändert von {{person}})",
+        "image": "Bilder erzeugt: {{count}} · {{model}}"
       },
       "state": {
         "running": "läuft",

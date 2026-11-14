@@ -42,6 +42,8 @@ import type {
 } from "./PicaAcpSteering";
 import type { PicaAcpRunner } from "./PicaAcpRunners";
 import type { AgentHostFileTarget } from "@/backend/service/employee/AgentHostFiles";
+import type { AgentImageToolInput } from "@/backend/service/employee/AgentImageTool";
+import type { PicaToolOutcome } from "../PicaToolSchemas";
 import type { PicaAcpWorkspace } from "./PicaAcpWorkspace";
 import type { PicaAcpSessionPool } from "./PicaAcpSessionPool";
 import type { PicaAcpJobPool } from "./PicaAcpPoolOpening";
@@ -140,6 +142,15 @@ export interface PicaAcpEmployeeRun {
     target: AgentHostFileTarget,
     file: string,
   ) => Promise<{ readonly ok: boolean; readonly error?: string }>;
+  /**
+   * Generates images with the model of the round into the job's working
+   * folder and notes them for the answer, in a conversation (PAGE-382).
+   */
+  readonly generateImages?: (
+    directory: string,
+    input: AgentImageToolInput,
+    signal: AbortSignal,
+  ) => Promise<PicaToolOutcome>;
   /**
    * Called once when the job ended, however it ended, so the caller frees
    * the place of the session among the limits of the agent (PAGE-304).
@@ -548,14 +559,23 @@ export class PicaAcpService {
       messageId: message.id,
     });
     const attachFile = input.employee?.attachFile;
+    const generateImages = input.employee?.generateImages;
     const job = new PicaAcpJob(
-      attachFile
-        ? {
-            ...dependencies,
-            attachHostFile: (target, file) =>
-              attachFile(directory, target, file),
-          }
-        : dependencies,
+      {
+        ...dependencies,
+        ...(attachFile
+          ? {
+              attachHostFile: (target, file) =>
+                attachFile(directory, target, file),
+            }
+          : {}),
+        ...(generateImages
+          ? {
+              generateImages: (parameters, signal) =>
+                generateImages(directory, parameters, signal),
+            }
+          : {}),
+      },
       {
         id,
         actor,

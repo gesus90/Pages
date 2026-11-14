@@ -98,14 +98,15 @@ export function CodeCard({
         source === null ? null : (
           <>
             <CardAction
-              icon={Copy}
-              label={t("chatPage.cards.copy")}
-              onClick={() => copyText(source)}
-            />
-            <CardAction
               icon={Download}
               label={t("chatPage.cards.saveFile")}
               onClick={() => saveTextFile(fileName, source)}
+              variant="primary"
+            />
+            <CardAction
+              icon={Copy}
+              label={t("chatPage.cards.copy")}
+              onClick={() => copyText(source)}
             />
           </>
         )
@@ -151,18 +152,19 @@ export function DiffCard({
     <ContentCard
       actions={
         <>
-          {source === null ? null : (
-            <CardAction
-              icon={Copy}
-              label={t("chatPage.cards.copy")}
-              onClick={() => copyText(source)}
-            />
-          )}
           {text.sourceUrl === undefined ? null : (
             <CardAction
               href={`${text.sourceUrl}?download=1`}
               icon={Download}
               label={t("chatPage.cards.wholeFile")}
+              variant="primary"
+            />
+          )}
+          {source === null ? null : (
+            <CardAction
+              icon={Copy}
+              label={t("chatPage.cards.copy")}
+              onClick={() => copyText(source)}
             />
           )}
         </>

@@ -4229,7 +4229,8 @@
         "pdf": "PDF",
         "video": "Video",
         "audio": "Audio",
-        "file": "File"
+        "file": "File",
+        "gallery": "Gallery"
       },
       "diff": {
         "before": "before",
@@ -4266,7 +4267,29 @@
       "videoFullscreen": "Video in full screen",
       "previewPending": "Creating preview …",
       "noPreview": "No preview",
-      "you": "You"
+      "you": "You",
+      "toMessage": "Go to message",
+      "downloadAll": "Download all",
+      "downloadNamed": "Download {{name}}",
+      "viewerStrip": "All images of this chat",
+      "retention": {
+        "days_one": "{{count}} day left",
+        "days_other": "{{count}} days left",
+        "hours_one": "{{count}} hr left",
+        "hours_other": "{{count}} hrs left",
+        "soon": "less than 1 hr left"
+      },
+      "expired": {
+        "short": "expired",
+        "label": "expired · created {{date}}"
+      },
+      "gallery": {
+        "name_one": "{{count}} image",
+        "name_other": "{{count}} images",
+        "count_one": "{{count}} image",
+        "count_other": "{{count}} images",
+        "pending": "Generating image …"
+      }
     },
     "embedDomains": {
       "title": "Embedded domains",
@@ -4465,7 +4488,11 @@
         "browse": "{{name}} is opening {{target}}",
         "use": "{{name}} is using {{target}}",
         "running_one": "{{count}} tool running",
-        "running_other": "{{count}} tools running"
+        "running_other": "{{count}} tools running",
+        "images_one": "{{name}} is generating {{count}} image …",
+        "images_other": "{{name}} is generating {{count}} images …",
+        "generating_one": "Generating {{count}} image …",
+        "generating_other": "Generating {{count}} images …"
       },
       "steer": "Redirect",
       "steerShortcut": "↵",
@@ -8036,7 +8063,8 @@
         "learning": "Dream run: {{status}}",
         "ticket": "Ticket: {{message}}",
         "wiki": "Wiki: {{message}}",
-        "access": "Access level: {{from}} → {{to}} (changed by {{person}})"
+        "access": "Access level: {{from}} → {{to}} (changed by {{person}})",
+        "image": "Images generated: {{count}} · {{model}}"
       },
       "state": {
         "running": "running",

@@ -4,6 +4,7 @@ import * as logging from "@/backend/logging/Logger";
 import { safeLogMetadata } from "@/backend/logging/LogRedaction";
 import { AgentJobAnswerError } from "@/backend/error/AgentJobAnswerError";
 import { ConversationAccounts } from "@/backend/service/conversation/ConversationDirectory";
+import { ConversationGeneratedImages } from "@/backend/service/conversation/content/ConversationGeneratedImages";
 import { ConversationReplyRunner } from "@/backend/service/conversation/ConversationReplyRunner";
 
 import type { ConversationAgentRequest } from "@/backend/service/conversation/ConversationAgentReplies";
@@ -596,4 +597,52 @@ it("copies and binds workspace files inside the job callback before its workspac
   );
   expect(dependencies.attachments.stage).toHaveBeenCalledOnce();
   expect(messages.insert).toHaveBeenCalledOnce();
+});
+
+it("PAGE-382 attaches the images the agent generated during its answer, after the files of its lines", async () => {
+  const { messages, dependencies } = fixture();
+  const generatedImages = new ConversationGeneratedImages();
+  generatedImages.add({ agentId: "agent", conversationId: "group" }, [
+    "generated-1",
+    "generated-2",
+  ]);
+  vi.mocked(dependencies.agentFiles.select).mockResolvedValueOnce({
+    text: "Hier:",
+    files: [
+      {
+        path: "/home/a/Results/eins.png",
+        name: "eins.png",
+        mimeType: "image/png",
+        sizeBytes: 3,
+        lineIndex: 1,
+      },
+    ],
+    lines: ["Hier:", "![Eins](file:/home/a/Results/eins.png)"],
+  });
+  vi.mocked(dependencies.attachments.stage).mockResolvedValueOnce(staged);
+  const runner = new ConversationReplyRunner({ ...dependencies, generatedImages });
+  await runner.run(job);
+  expect(messages.insert).toHaveBeenCalledWith(
+    expect.objectContaining({ text: "Hier:" }),
+    expect.anything(),
+  );
+  expect(dependencies.attachments.bind).toHaveBeenCalledWith(
+    { id: "answer", conversationId: "group", senderId: "agent" },
+    ["attachment-1", "generated-1", "generated-2"],
+  );
+  // Taken once: the next answer does not carry them again.
+  expect(generatedImages.count({ agentId: "agent", conversationId: "group" })).toBe(0);
+});
+
+it("PAGE-382 lets generated images go when the round ends with a hint instead of an answer", async () => {
+  const { dependencies, answer } = fixture();
+  const generatedImages = new ConversationGeneratedImages();
+  generatedImages.add({ agentId: "agent", conversationId: "group" }, ["generated-1"]);
+  answer.mockRejectedValueOnce(new Error("model failed"));
+  const runner = new ConversationReplyRunner({ ...dependencies, generatedImages });
+  await runner.run(job);
+  expect(dependencies.attachments.bind).not.toHaveBeenCalled();
+  expect(dependencies.attachments.release).toHaveBeenCalledWith("agent", [
+    "generated-1",
+  ]);
 });

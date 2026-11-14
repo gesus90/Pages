@@ -12,6 +12,13 @@ export const CONVERSATION_ATTACHMENT_MAXIMUM_BYTES = 512 * 1024 * 1024;
 /** Most attachments one message carries. */
 export const CONVERSATION_ATTACHMENT_MAXIMUM_COUNT = 10;
 
+/**
+ * How long Pages keeps a file an agent attached in a chat, generated images
+ * included, counted from its sending (PAGE-382): 72 hours. Uploads of people
+ * stay.
+ */
+export const CONVERSATION_AGENT_FILE_LIFETIME_MILLISECONDS = 72 * 60 * 60 * 1000;
+
 /** Largest preview image of an attachment, in bytes. */
 export const CONVERSATION_THUMBNAIL_MAXIMUM_BYTES = 1024 * 1024;
 
@@ -46,6 +53,29 @@ export interface ConversationAttachment {
   readonly url: string;
   /** The address of the preview image; missing until one was uploaded. */
   readonly thumbnailUrl?: string;
+  /** When the file was stored; missing in older answers of the server. */
+  readonly createdAt?: string;
+  /**
+   * When Pages removes the file (PAGE-382): set for files of agents, missing
+   * for uploads of people, which stay.
+   */
+  readonly expiresAt?: string;
+  /**
+   * When the file was removed; the chat shows a placeholder with name and
+   * date instead, and `url` answers no more.
+   */
+  readonly expiredAt?: string;
+}
+
+/** An image of a conversation, as the image viewer pages through them (PAGE-382). */
+export interface ConversationImage {
+  readonly attachment: ConversationAttachment;
+  readonly messageId: string;
+  readonly senderId: string;
+  /** The display name of the sender. */
+  readonly senderName: string;
+  /** When the message was sent. */
+  readonly sentAt: string;
 }
 
 /** A URL that stands alone in a line of a message. */

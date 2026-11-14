@@ -34,6 +34,7 @@ import type { User } from "@/definition/User";
 import type { ConversationAgentGuard } from "./ConversationAgentGuard";
 import type { ConversationAgentFiles } from "./content/ConversationAgentFiles";
 import type { ConversationAttachments } from "./content/ConversationAttachments";
+import type { ConversationGeneratedImages } from "./content/ConversationGeneratedImages";
 import type { ConversationMessageContentReader } from "./content/ConversationMessageContent";
 import type { ConversationContextReader } from "./ConversationContextReader";
 import type {
@@ -174,6 +175,8 @@ export interface ConversationAgentRepliesDependencies {
   >;
   /** The attachments and links of a stored answer. */
   readonly content: ConversationMessageContentReader;
+  /** The images the agent generated during the answer (PAGE-382); absent binds none. */
+  readonly generatedImages?: Pick<ConversationGeneratedImages, "take">;
   readonly now?: () => Date;
   /** Waits for a busy agent; tests pass a fast one. */
   readonly wait?: (milliseconds: number) => Promise<void>;

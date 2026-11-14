@@ -33,6 +33,18 @@ export interface CardOrigin {
   readonly senderName: string;
   /** ISO time the message was stored; missing for one still on its way. */
   readonly createdAt?: string;
+  /** The message, for "Alle herunterladen" and "Zur Nachricht" (PAGE-382); missing for one on its way. */
+  readonly messageId?: string;
+}
+
+/**
+ * The address of the ZIP archive of every file of a message that is still
+ * there (PAGE-382).
+ *
+ * @param messageId - The stored message.
+ */
+export function archiveUrl(messageId: string): string {
+  return `/chat/messages/${encodeURIComponent(messageId)}/files.zip`;
 }
 
 /** A card with its key, as the split view and the full screen open it. */
