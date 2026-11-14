@@ -6,6 +6,7 @@ import { resolveAgentAssignment } from "@/backend/service/agents/AgentAssignment
 import { catalogModelChoice } from "@/definition/AgentModelChoice";
 import { emptyModelCatalog } from "@/definition/AgentModelCatalog";
 import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
+import { CONVERSATION_DEFAULT_DECISION_RULES } from "@/definition/ConversationDecision";
 
 import { partial } from "../../../app/lib/service-wiring-fakes";
 import { textInput } from "../../agents/parsers/text-provider-input";
@@ -71,7 +72,11 @@ function fixture(
   readonly service: ChatDecisionSettingsService;
   readonly save: ReturnType<typeof vi.fn>;
 } {
-  let settings: ChatDecisionSettings = { selection: saved, revision: 1 };
+  let settings: ChatDecisionSettings = {
+    selection: saved,
+    rules: CONVERSATION_DEFAULT_DECISION_RULES,
+    revision: 1,
+  };
   const save = vi.fn(async (next: ChatDecisionSettings) => {
     settings = { ...next, revision: next.revision + 1 };
   });
@@ -104,6 +109,7 @@ function fixture(
           }),
       }),
       groups: { findIdsByMember: async () => [] },
+      isSimulation: false,
     }),
   };
 }
@@ -111,8 +117,13 @@ function fixture(
 it("lets an active administrator select a direct API text model without tools and shows ready", async () => {
   const { service, save } = fixture();
   expect((await service.administration(administrator)).models).toEqual([model]);
-  await service.save(administrator, { selection, revision: 1 });
-  expect(save).toHaveBeenCalledWith({ selection, revision: 1 });
+  const input = {
+    selection,
+    rules: CONVERSATION_DEFAULT_DECISION_RULES,
+    revision: 1,
+  };
+  await service.save(administrator, input);
+  expect(save).toHaveBeenCalledWith(input);
   expect(await service.administration(administrator)).toMatchObject({
     status: "ready",
     settings: { selection },
@@ -129,14 +140,18 @@ it("rejects role mode and unsuitable submitted choices at the server boundary", 
   await expect(
     service.save(
       { ...administrator, isAdmin: false },
-      { selection, revision: 1 },
+      { selection, rules: CONVERSATION_DEFAULT_DECISION_RULES, revision: 1 },
     ),
   ).rejects.toThrow();
   vi.mocked(connectionModels).mockResolvedValue([
     { ...model, isSpeechOutputCapable: true },
   ]);
   await expect(
-    service.save(administrator, { selection, revision: 1 }),
+    service.save(administrator, {
+      selection,
+      rules: CONVERSATION_DEFAULT_DECISION_RULES,
+      revision: 1,
+    }),
   ).rejects.toMatchObject({ code: "provider_model_not_found" });
   expect(save).not.toHaveBeenCalled();
 });

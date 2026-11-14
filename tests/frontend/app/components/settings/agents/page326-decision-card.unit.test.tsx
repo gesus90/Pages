@@ -6,6 +6,7 @@ import { ChatDecisionCard } from "@/app/components/settings/agents/chat-decision
 import { createI18n } from "@/app/lib/i18n";
 import { agentModelKey } from "@/definition/AgentPlanConfiguration";
 import { modelGroups } from "@/app/components/agents/model-picker/model-catalog";
+import { CONVERSATION_DEFAULT_DECISION_RULES } from "@/definition/ConversationDecision";
 
 import { pageModel } from "../../agents/plans/plan-model-fixture";
 
@@ -39,7 +40,11 @@ it("submits the selected text model and reasoning fields through the real picker
     <I18nextProvider i18n={i18n}>
       <ChatDecisionCard
         administration={{
-          settings: { selection: null, revision: 4 },
+          settings: {
+            selection: null,
+            rules: CONVERSATION_DEFAULT_DECISION_RULES,
+            revision: 4,
+          },
           status: "noModel",
           models: [text],
         }}
@@ -72,6 +77,7 @@ it("shows ready for the saved model and recovery instructions for an empty catal
               reasoningEffort: null,
             },
             revision: 5,
+            rules: CONVERSATION_DEFAULT_DECISION_RULES,
           },
           status: "ready",
           models: [text],
@@ -87,7 +93,11 @@ it("shows ready for the saved model and recovery instructions for an empty catal
     <I18nextProvider i18n={i18n}>
       <ChatDecisionCard
         administration={{
-          settings: { selection: null, revision: 6 },
+          settings: {
+            selection: null,
+            rules: CONVERSATION_DEFAULT_DECISION_RULES,
+            revision: 6,
+          },
           status: "noModel",
           models: [],
           emptyReason: "noTextModels",
