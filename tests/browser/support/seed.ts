@@ -181,6 +181,7 @@ async function saveSettings(client: PagesClient, theme: string): Promise<void> {
     intent: "update-settings",
     language: "en",
     "notification.assignments": "off",
+    "notification.calendarInvitations": "off",
     "notification.desktop": "off",
     "notification.dueDates": "off",
     "notification.email": "off",

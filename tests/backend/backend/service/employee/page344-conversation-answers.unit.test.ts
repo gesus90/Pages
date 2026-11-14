@@ -4,6 +4,7 @@ import { expect, it, vi } from "vitest";
 
 import { EmployeeStore } from "@/backend/database/repositories/employee/EmployeeStore";
 import { AgentConversationAnswers } from "@/backend/service/employee/AgentConversationAnswers";
+import { AGENT_DREAM_DEFAULT_SCHEDULE } from "@/definition/AgentDreaming";
 
 import { OWNER } from "../chat/page48-chat-fixture";
 
@@ -23,6 +24,8 @@ const employee: StoredAgentEmployee = {
   instructions: "",
   memory: "",
   dream: "",
+  dreamSchedule: AGENT_DREAM_DEFAULT_SCHEDULE,
+  dreamRequest: null,
   isLearningEnabled: false,
   learningIntervalHours: 24,
   learnedThrough: null,
@@ -69,6 +72,7 @@ function fixture(): {
       job: vi.fn(async () => completed),
       admit: vi.fn(),
       stopSession: vi.fn(),
+      steerChat: vi.fn(),
     },
     messages: {
       messages: vi.fn<

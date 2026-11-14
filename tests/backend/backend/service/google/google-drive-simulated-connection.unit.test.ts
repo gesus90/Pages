@@ -4,15 +4,13 @@ import { GoogleDriveSimulatedConnection } from "@/backend/service/google/GoogleD
 
 describe("GoogleDriveSimulatedConnection", () => {
   it("reports a confirmed simulated account and consent needs", async () => {
-    const readAccount = vi
-      .fn()
-      .mockResolvedValue({
-        ok: true,
-        value: {
-          emailAddress: "user@example.test",
-          permissionId: "permission",
-        },
-      });
+    const readAccount = vi.fn().mockResolvedValue({
+      ok: true,
+      value: {
+        emailAddress: "user@example.test",
+        permissionId: "permission",
+      },
+    });
     const connection = new GoogleDriveSimulatedConnection({
       client: { readAccount },
       grantedScopes: [],

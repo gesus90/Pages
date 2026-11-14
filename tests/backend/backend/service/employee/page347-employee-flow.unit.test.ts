@@ -1,5 +1,7 @@
 import { expect, it, vi } from "vitest";
 
+import { AGENT_DREAM_DEFAULT_SCHEDULE } from "@/definition/AgentDreaming";
+
 import { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import { AccountIdentityRepository } from "@/backend/database/repositories/employee/AccountIdentityRepository";
 import { AgentConversationRepository } from "@/backend/database/repositories/employee/AgentConversationRepository";
@@ -167,6 +169,8 @@ function employeeFor(
     instructions: "",
     memory: "",
     dream: "",
+    dreamSchedule: AGENT_DREAM_DEFAULT_SCHEDULE,
+    dreamRequest: null,
     isLearningEnabled: false,
     learningIntervalHours: 24,
     learnedThrough: null,
