@@ -141,6 +141,29 @@ describe("LocalOwnerSession stop polling", () => {
     },
   );
 
+  it("keeps the same pending native turn through three pause/resume cycles without closing or restarting it", async () => {
+    const setPaused = vi.fn(async (_isPaused: boolean) => undefined);
+    const session = newSession({ turn: endlessTurn(), setPaused });
+    const owner = await startedOwner(session);
+    for (let cycle = 0; cycle < 3; cycle += 1) {
+      doubles.findRun.mockResolvedValue({
+        ...runWithAttempt(),
+        status: "paused",
+      });
+      await owner.setPaused(true);
+      await vi.advanceTimersByTimeAsync(500);
+      expect(setPaused).toHaveBeenLastCalledWith(true);
+      expect(session.close).not.toHaveBeenCalled();
+      doubles.findRun.mockResolvedValue(runWithAttempt());
+      await owner.setPaused(false);
+      expect(setPaused).toHaveBeenLastCalledWith(false);
+    }
+    expect(setPaused).toHaveBeenCalledTimes(6);
+    expect(doubles.open).toHaveBeenCalledOnce();
+    expect(session.next).not.toHaveBeenCalled();
+    expect(doubles.open.mock.calls[0]?.[1]).toHaveProperty("aborted", false);
+  });
+
   it("aborts pending native work before awaiting its closeout and journal drain", async () => {
     let finishTurn: (turn: PlanSessionTurn) => void = () => {};
     const session = newSession({

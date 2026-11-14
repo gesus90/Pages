@@ -4,7 +4,7 @@ import { beforeEach, expect, it, vi } from "vitest";
 import { PlanRunPanel } from "@/app/components/agents/plans/plan-run-panel";
 import { createI18n } from "@/app/lib/i18n";
 
-import { syntheticRun } from "../page72-run-fixture";
+import { syntheticRun, syntheticSession } from "../page72-run-fixture";
 import { agentNode } from "./plan-group-fixture";
 import {
   actionScene,
@@ -285,6 +285,35 @@ it("reads no recovery for a plan the person may not edit", () => {
 
   expect(recoveryHook.calls[0]?.[0]).toBeNull();
 });
+
+it.each(["cancelled", "succeeded", "failed"] as const)(
+  "starts a fresh Codex run from %s on the first click without a recovery dialog",
+  async (status) => {
+    const run = {
+      ...syntheticRun(),
+      status,
+      steps: [
+        runStep("agent", {
+          session: { ...syntheticSession(), runner: "codex_cli" },
+        }),
+      ],
+    };
+    const { scene } = renderPanel({
+      run,
+      control: planControl({
+        runId: run.id,
+        status,
+        canPlay: true,
+        canRestart: true,
+        startWithoutConfirmation: true,
+      }),
+    });
+    fireEvent.click(button("play"));
+    await waitFor(() => expect(scene.submissions).toHaveLength(1));
+    expect(scene.submissions[0]?.get("intent")).toBe("play-plan");
+    expect(screen.queryByRole("dialog")).toBeNull();
+  },
+);
 
 it("offers a restart of an ended run in a dialog and starts nothing before the decision", async () => {
   recovery({ view: RESUMABLE });

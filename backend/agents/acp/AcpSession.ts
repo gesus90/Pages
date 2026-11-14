@@ -76,6 +76,12 @@ import type { AgentErrorCode } from "@/backend/error/AgentErrors";
 import type { AcpSteerOutcome } from "./AcpChat";
 import type { PicaCodexRequests } from "./PicaCodexRequests";
 
+type PausableSessionProcess = Pick<
+  CliSessionProcess,
+  "endInput" | "exited" | "cancel"
+> &
+  Partial<Pick<CliSessionProcess, "setPaused">>;
+
 export type {
   AcpSessionContext,
   AcpSessionRequest,
@@ -102,10 +108,7 @@ const PROGRESS_INTERVAL_MS = 5_000;
 export class AcpSession implements PlanSession {
   public readonly turn: Promise<PlanSessionTurn>;
   public readonly terminated: Promise<void>;
-  private readonly process: Pick<
-    CliSessionProcess,
-    "endInput" | "exited" | "cancel"
-  >;
+  private readonly process: PausableSessionProcess;
   private readonly context: AcpSessionContext;
   private hasHistoryFailure = false;
   private notificationFailure: AgentErrorCode | null = null;
@@ -138,7 +141,7 @@ export class AcpSession implements PlanSession {
    * @param context - Request, mode profile, observer and closeout of the node.
    */
   public constructor(
-    process: Pick<CliSessionProcess, "endInput" | "exited" | "cancel">,
+    process: PausableSessionProcess,
     stream: Stream,
     context: AcpSessionContext,
   ) {
@@ -196,6 +199,12 @@ export class AcpSession implements PlanSession {
         once: true,
       });
     this.turn = this.work();
+  }
+
+  /** Retains the same pending ACP request while its process frame is frozen. */
+  public async setPaused(isPaused: boolean): Promise<void> {
+    if (!this.process.setPaused) throw new Error("Session pause unavailable");
+    await this.process.setPaused(isPaused);
   }
 
   /** Ends the session once, then confirms that no process of it is left. */

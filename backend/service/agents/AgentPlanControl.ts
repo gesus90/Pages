@@ -3,6 +3,7 @@ import { canRunPlan, isPlanAdministrator } from "@/definition/AgentPlanTeam";
 import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
 import {
   isActivePlanRun,
+  isCodexPlanRun,
   isPlanWriterWaitActive,
   isResumablePlanRunEnd,
 } from "@/definition/AgentPlanRunState";
@@ -43,6 +44,7 @@ function isBlockedByBusiness(step: AgentPlanStepResult): boolean {
  */
 export function planResumeKind(run: AgentPlanRun): AgentPlanResumeKind | null {
   if (run.status === "paused") return "paused";
+  if (isCodexPlanRun(run)) return null;
   if (run.status === "work_done_closeout_open") return "closeout_open";
   if (run.status === "cancelled") return "stopped";
   if (run.status !== "failed") return null;
@@ -84,13 +86,14 @@ export function planControl(
   const isActive = isActivePlanRun(run.status);
   return {
     ...runControlMetadata(run, canIdentify),
-    canPlay: canRunPlan(plan),
+    canPlay: canRunPlan(plan) && (!isCodexPlanRun(run) || !isActive),
     waitReason: canIdentify && isActive ? run.waitReason : undefined,
     workspaceWait:
       canIdentify && isPlanWriterWaitActive(run)
         ? run.workspaceWait
         : undefined,
     canRestart: canIdentify,
+    ...(isCodexPlanRun(run) ? { startWithoutConfirmation: true } : {}),
     ...ownRunActions(run, canIdentify, issue),
     canEdit: plan.canEdit,
     ...foreignRunBlocker(plan, run, canIdentify),
@@ -170,7 +173,10 @@ function runControlMetadata(
 
 /** Ended runs that "Fortsetzen" continues: failed, an open closeout, and a stopped run. */
 export function isEndedResumable(run: AgentPlanRun): boolean {
-  return isResumablePlanRunEnd(run.status) || run.status === "cancelled";
+  return (
+    !isCodexPlanRun(run) &&
+    (isResumablePlanRunEnd(run.status) || run.status === "cancelled")
+  );
 }
 
 /**
@@ -182,6 +188,8 @@ export function isEndedResumable(run: AgentPlanRun): boolean {
  * Stop, also when a process hangs.
  */
 function isStoppable(run: AgentPlanRun): boolean {
+  if (isCodexPlanRun(run))
+    return ["running", "pausing", "paused"].includes(run.status);
   return isActivePlanRun(run.status) || isResumablePlanRunEnd(run.status);
 }
 

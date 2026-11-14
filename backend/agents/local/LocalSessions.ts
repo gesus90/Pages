@@ -172,6 +172,21 @@ export class LocalSessions {
     );
   }
 
+  /** Controls only independently proven owners of this instance and run. */
+  public async setRunPaused(runId: string, isPaused: boolean): Promise<void> {
+    const entries = [...this.entries.values()].filter(
+      (entry) => entry.runId === runId && !entry.releasedAt,
+    );
+    await Promise.all(
+      entries.map(async (entry) => {
+        if (this.launching.has(entry.instanceId)) return;
+        if (!this.proven.has(entry.instanceId))
+          throw new AgentError("plan_local_owner_unverified");
+        await this.control(entry, { kind: "pause", isPaused });
+      }),
+    );
+  }
+
   /** Whether this exact native instance may be reattached. */
   public has(instanceId: string): boolean {
     return this.proven.has(instanceId);

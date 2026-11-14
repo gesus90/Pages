@@ -192,6 +192,9 @@ export class LocalOwnerHttp {
       case "cancel":
         await this.session.cancel();
         return { ok: true };
+      case "pause":
+        await this.session.setPaused(command.isPaused);
+        return { ok: true };
       case "interrupt":
         return { interrupted: await this.session.interrupt() };
       case "close":

@@ -53,6 +53,12 @@ export class ScheduledAcpSession implements PlanSession {
       });
   }
 
+  /** Pausing keeps both capacity and native ownership unchanged. */
+  public async setPaused(isPaused: boolean): Promise<void> {
+    if (!this.session.setPaused) throw new Error("Session pause unavailable");
+    await this.session.setPaused(isPaused);
+  }
+
   /** Independent native owners retain their lease when HTTP detaches. */
   public get isDurable(): boolean {
     return this.session.isDurable === true;

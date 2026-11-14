@@ -1159,3 +1159,14 @@ interface the server listens on and the origin users reach it at; Pica's
 operator browser reads the origin as a Pages origin. Earlier files that name it
 as `[mcpHttp].publicUrl` are still read and are rewritten as `publicUrl` when
 Pages saves the file.
+
+
+## Lokale Codex-Steuerung (PAGE-361)
+
+Pläne mit ausschließlich lokalen Codex-Agent-Schritten halten beim Pausieren den laufenden ACP-Aufruf offen. Der unabhängige Sitzungsbesitzer friert die Worker-cgroup ein; Skripte werden vor dem Freigeben ihres Startsignals registriert und ihre eigenen Namespace-Prozesse über geprüfte pidfds angehalten. Die Ausführungsfristen zählen währenddessen nicht weiter. Die Engine speichert erst nach der Bestätigung `paused` und behält laufende Versuche, die aktuelle Iteration, Sitzungskennungen, Ergebnisse, TODOs und Reservierungen. Fortsetzen taut dieselben Prozesse auf; eine während des angehaltenen Zuges geänderte Planrevision wird abgewiesen. Die bestehende Wiederanbindung unabhängiger Sitzungsbesitzer stellt nach einem Pages-Neustart denselben pausierten Agent-Zug wieder her. Remote- und gemischte Provider-Pläne behalten ihren bisherigen Pausepfad.
+
+Codex bekommt ausdrücklich den Auftrag, vor der Arbeit seine native `update_plan`-Liste anzulegen und sie aktuell zu halten. Fehlende oder noch offene native TODOs verhindern einen erfolgreichen Abschlussbericht und werden über die vorhandenen Korrekturzüge an dieselbe Sitzung zurückgegeben. Die Ticket-Checkboxen werden weiterhin durch `update_step_progress` gesetzt. Das Lauf-Panel übernimmt native Codex-Statusänderungen auch dann, wenn die passende Ticket-Aufgabe bereits abgehakt war; aktive Ansichten lesen im Sekundentakt.
+
+Stop beendet einen Codex-Prozessrahmen bereits mit dem ersten Signal per SIGKILL. Ein gestoppter Codex-Lauf kann weder über Fortsetzen noch über den Recovery-Zugang wiederaufgenommen werden. Nach einem Endzustand schickt Start unmittelbar einen neuen Lauf ab; dessen bestehende Ressourcenbereinigung übernimmt alte Besitzer. Andere Provider behalten ihre bisherigen Fortsetzungs- und Bestätigungsregeln.
+
+Die isolierte Quelleninstanz und der getrennte Prozessversuch sind mit `pnpm exec tsx tests/browser/support/page361-isolated-probe.ts` bzw. `pnpm exec tsx tests/browser/support/page361-process-probe.ts` reproduzierbar. Beide räumen ihre temporären Daten auf. Der Quellen-Probe prüft nur Start, PostgreSQL-Setup und den nativen Prozess-Owner; er startet keinen Provider und ist kein Ersatz für den im Ticket verlangten GPT-6-Luna-Abnahmelauf. Am 14.11.2026 gelang das Setup auf den Ports 37771 und 46251, aber der Benutzer-D-Bus fehlte; zusätzlich verweigerte Bubblewrap neue Namespaces. Deshalb gibt es aus dieser Umgebung keine echten Codex-Plan-Lauf-IDs und keinen Nachweis für UI/MCP/Datenbank-Parität oder Fortsetzen nach einem tatsächlichen Serverneustart.

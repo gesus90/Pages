@@ -189,6 +189,14 @@ it("imports agent-created structured plans and requires their open work at repor
 
 it("accepts QA delegation as done, including its ticket checkbox, without running QA commands", async () => {
   const fixture = todoFixture("", "- [ ] pnpm run lint ausführen");
+  fixture.native.set("attempt", [
+    {
+      id: "1",
+      text: "pnpm run lint ausführen",
+      status: "done",
+      updatedAt: "now",
+    },
+  ]);
   await fixture.progress.initialize(SCOPE, fixture.contract);
   await fixture.progress.update(TODO_IDENTITY, {
     todos: [{ id: "T1", status: "done" }],
@@ -216,6 +224,9 @@ it("accepts QA delegation as done, including its ticket checkbox, without runnin
 
 it("returns open TODO texts with a refused completion report and accepts the corrected report in the same slot", async () => {
   const fixture = todoFixture();
+  fixture.native.set("attempt", [
+    { id: "1", text: "Local work", status: "done", updatedAt: "now" },
+  ]);
   await fixture.progress.initialize(SCOPE, fixture.contract);
   const reports = new AgentPlanStepReportService(
     {
@@ -235,6 +246,9 @@ it("returns open TODO texts with a refused completion report and accepts the cor
   await fixture.progress.update(TODO_IDENTITY, {
     todos: [{ id: "T1", status: "done" }],
   });
+  fixture.native.set("attempt", [
+    { id: "1", text: "Local work", status: "done", updatedAt: "later" },
+  ]);
   await expect(
     reports.report(TODO_IDENTITY, { status: "done", message: "Finished" }),
   ).resolves.toMatchObject({ status: "done" });

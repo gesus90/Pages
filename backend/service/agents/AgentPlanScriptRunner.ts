@@ -62,6 +62,7 @@ export class AgentPlanScriptRunner {
       await this.preparation.reauthorize(run.userId, snapshot.plan, script);
       record = await executeScriptProcess({
         record,
+        runId: run.id,
         program: script.interpreter.path,
         resources,
         input,

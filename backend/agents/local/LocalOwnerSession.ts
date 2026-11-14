@@ -1,3 +1,4 @@
+import { setTimeout as wait } from "node:timers/promises";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 
@@ -62,6 +63,7 @@ export class LocalOwnerSession {
   private opening: Promise<PlanSession> | null = null;
   private observing: Promise<void> | null = null;
   private isTurnPending = false;
+  private isPaused = false;
   private turns = 0;
   private canConfirmNoSession = true;
   private launch: LocalSessionLaunch;
@@ -136,6 +138,16 @@ export class LocalOwnerSession {
   /** Takes the plan bridge bearer into memory; the first one wins. */
   public receiveBearer(token: string): void {
     this.bearer.resolve(token);
+  }
+
+  /** Acknowledges the actual native freeze without ending the pending turn. */
+  public async setPaused(isPaused: boolean): Promise<void> {
+    if (this.isPaused === isPaused) return;
+    if (this.session) {
+      if (!this.session.setPaused) throw new Error("Session pause unavailable");
+      await this.session.setPaused(isPaused);
+    }
+    this.isPaused = isPaused;
   }
 
   /** A user's durable Stop ends only this owner's native session. */
@@ -227,6 +239,11 @@ export class LocalOwnerSession {
       await this.markCancelled();
       throw new AgentPlanCancelledError();
     }
+    if (currentRun?.status === "paused" || currentRun?.status === "pausing")
+      this.isPaused = true;
+    while (this.isPaused && !this.controller.signal.aborted)
+      await wait(25, undefined, { signal: this.controller.signal });
+    this.controller.signal.throwIfAborted();
     this.canConfirmNoSession = false;
     this.opening = this.dependencies.execution.open(
       input,
@@ -234,6 +251,7 @@ export class LocalOwnerSession {
       this.observer(),
     );
     this.session = await this.opening;
+    if (this.isPaused) await this.session.setPaused?.(true);
     this.observe(this.session.turn, this.launch);
     void this.session.terminated
       ?.then(() => this.close())
@@ -518,6 +536,10 @@ export class LocalOwnerSession {
     try {
       const run = await this.dependencies.runs.find(this.launch.runId);
       if (!canContinueLocalTurn(run, this.launch)) await this.cancel();
+      else if (this.recorder?.current.provider === "codex_cli")
+        await this.setPaused(
+          run?.status === "paused" || run?.status === "pausing",
+        );
     } catch (error: unknown) {
       // Database loss does not fabricate a user Stop or terminate a surviving native session.
       logCaughtError("LocalOwnerSession", error);

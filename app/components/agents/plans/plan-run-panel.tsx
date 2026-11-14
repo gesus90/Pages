@@ -2,7 +2,10 @@ import { lazy, Suspense, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { expandPlanGroups } from "@/definition/AgentPlanGroup";
-import { isActivePlanRun } from "@/definition/AgentPlanRunState";
+import {
+  isActivePlanRun,
+  isCodexPlanRun,
+} from "@/definition/AgentPlanRunState";
 import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 
 import { keepPlanControlKeys } from "./plan-flow-keys";
@@ -273,6 +276,14 @@ function useRunDecisions(
     else void startPlan();
   }
   async function startPlan(): Promise<void> {
+    if (
+      control?.startWithoutConfirmation &&
+      control.canPlay &&
+      !isActivePlanRun(control.status)
+    ) {
+      submitRunAction(props, "play-plan");
+      return;
+    }
     const owners = await startOwners.inspect();
     if (!owners) return;
     if (control?.runId && isActivePlanRun(control.status))

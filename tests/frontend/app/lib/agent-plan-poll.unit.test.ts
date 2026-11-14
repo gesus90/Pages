@@ -46,6 +46,17 @@ describe("reading a plan polling response", () => {
     });
   });
 
+  it("preserves the server decision to start Codex without another confirmation", () => {
+    expect(
+      readPlanPollingResponse({
+        ok: true,
+        control: { ...CONTROL, startWithoutConfirmation: true },
+      }),
+    ).toMatchObject({
+      control: { startWithoutConfirmation: true },
+    });
+  });
+
   it("reads the issues of the plan and keeps null node and port", () => {
     const response = readPlanPollingResponse({
       ok: true,

@@ -38,13 +38,19 @@ export function agentTodoSummary(
     updatedAt: step?.progress?.observedAt ?? "",
   }));
   const native = step?.agentTodos?.todos ?? [];
-  const todos = [...assigned];
+  // The server-only native-plan obligation is a completion gate, not agent work.
+  const todos = assigned.filter((todo) => todo.id !== "PAGES_PLAN");
   for (const todo of native) {
     const existing = todos.findIndex(
       (entry) => entry.id === `A${todo.id}` || entry.text === todo.text,
     );
     if (existing < 0) todos.push(todo);
-    else if (todos[existing]?.status !== "done") todos[existing] = todo;
+    else if (
+      step?.session?.runner === "codex_cli" ||
+      step?.execution?.modelAccess.provider === "codex_cli" ||
+      todos[existing]?.status !== "done"
+    )
+      todos[existing] = todo;
   }
   return {
     todos,

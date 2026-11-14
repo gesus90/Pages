@@ -4,6 +4,11 @@ import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError
 import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { logCaughtError } from "@/backend/logging/Logger";
 
+import {
+  waitForCodexResume,
+  usesImmediateCodexPause,
+} from "./AgentPlanImmediatePause";
+
 import { dispatchRemoteStepWithRetry } from "./AgentPlanRemoteRetry";
 import {
   dispatchPlanLocalNode,
@@ -93,6 +98,9 @@ export async function planNodeOutcome(
       signal: controller.signal,
       settle,
       ...eventStart(active, node.id),
+      waitUntilResumed: usesImmediateCodexPause(active.snapshot)
+        ? () => waitForCodexResume(() => active.view, controller.signal)
+        : undefined,
       awaitDispatch: () => {
         active.dispatched.delete(node.id);
       },

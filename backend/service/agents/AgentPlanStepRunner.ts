@@ -37,6 +37,7 @@ import { createNodeRun } from "./AgentPlanNodeRun";
 import { openEventTurn } from "./branching/AgentPlanEventSession";
 import { AgentPlanGroupSessions } from "./AgentPlanGroupSessions";
 import { AgentPlanTurnReports } from "./AgentPlanTurnReports";
+import { forgetScriptRunPause } from "./AgentPlanScriptPause";
 import { runPlanTodoTurns } from "./AgentPlanTodoContinuation";
 import {
   buildSessionContract,
@@ -236,7 +237,11 @@ export class AgentPlanStepRunner {
     runId: string,
     status: "succeeded" | "failed" | "cancelled",
   ): Promise<void> {
-    await this.dependencies.execution.finishPlanRun?.(runId, status);
+    try {
+      await this.dependencies.execution.finishPlanRun?.(runId, status);
+    } finally {
+      forgetScriptRunPause(runId);
+    }
   }
 
   /** Ends the sessions of a group or loop agent, or of the whole run, and tells how each one closed. */
@@ -273,7 +278,10 @@ export class AgentPlanStepRunner {
       node.step,
     );
     if (node.control.signal.aborted) throw new AgentPlanCancelledError();
-    if (prepared.options.timeoutMinutes > 0)
+    if (
+      prepared.options.timeoutMinutes > 0 &&
+      prepared.input.agent.connection.provider !== "codex_cli"
+    )
       node.control = {
         ...node.control,
         signal: AbortSignal.any([
@@ -410,9 +418,11 @@ export class AgentPlanStepRunner {
           stepId: node.sessionGroup ?? step.step.id,
           instanceId,
           tickets: contract.tickets,
-          lifetimeMs: node.sessionGroup
-            ? 0
-            : prepared.options.timeoutMinutes * 60_000,
+          lifetimeMs:
+            node.sessionGroup ||
+            prepared.input.agent.connection.provider === "codex_cli"
+              ? 0
+              : prepared.options.timeoutMinutes * 60_000,
           reach,
           canSetStatus: step.step.completion === "todos",
         });
@@ -446,7 +456,7 @@ export class AgentPlanStepRunner {
           node.control.signal,
           this.observer(node),
         );
-    node.control.claimStart?.();
+    if (!node.hasStarted) node.control.claimStart?.();
     this.offerInstructions(node, groupKey, input, session);
     node.hasStarted = true;
     return finishStartedPlanSession(session, () =>

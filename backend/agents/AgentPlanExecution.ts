@@ -132,6 +132,8 @@ export interface PlanSession {
   cancelTool?(note: string): Promise<boolean>;
   /** Whether the closeout has begun: the session takes no further turn, though its end is not yet reported. */
   readonly isClosing?: boolean;
+  /** Suspends native work without ending its turn or releasing the session. */
+  setPaused?(isPaused: boolean): Promise<void>;
   /** Ends the session and its helpers; resolves only after the confirmation. */
   close(): Promise<PlanSessionClosed>;
 }
@@ -285,6 +287,12 @@ export class AgentPlanExecution implements PlanExecution {
       ...(steer ? { steer } : {}),
       ...(interrupt ? { interrupt } : {}),
       ...(cancelTool ? { cancelTool } : {}),
+      ...(session.setPaused
+        ? {
+            setPaused: (isPaused: boolean) =>
+              session.setPaused?.(isPaused) ?? Promise.resolve(),
+          }
+        : {}),
       ...(session.next
         ? {
             next: async (
