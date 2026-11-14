@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Select } from "@/app/components/ui/select";
 import {
   ACP_PERMISSION_MODES,
-  isAcpPermissionMode,
+  isPlanPermissionMode,
 } from "@/definition/AgentConfiguration";
 
 import type {
@@ -12,23 +12,28 @@ import type {
 } from "@/definition/AgentConfiguration";
 
 /**
- * Chooses one of the two modes of an ACP agent: "Nur Lesen" or YOLO.
+ * Chooses an ACP mode, with full environment offered only by an authorized plan-node editor.
  *
  * @remarks
  * An agent saved with the earlier write mode shows no mode, so nobody gets
  * YOLO without choosing it; the agent cannot run until a mode is chosen.
  */
 export function AcpModeField(props: {
+  readonly canSelectFullEnvironment?: boolean;
   readonly options: AgentRunOptions;
   readonly disabled: boolean;
-  readonly onChange: (mode: AcpPermissionMode) => void;
+  readonly onChange: (mode: AcpPermissionMode | "full_environment") => void;
 }): React.ReactElement {
   const { t } = useTranslation();
-  const mode = isAcpPermissionMode(props.options.access)
+  const mode = isPlanPermissionMode(props.options.access)
     ? props.options.access
     : null;
   function choose(value: string): void {
-    if (isAcpPermissionMode(value)) props.onChange(value);
+    if (
+      isPlanPermissionMode(value) &&
+      (value !== "full_environment" || props.canSelectFullEnvironment)
+    )
+      props.onChange(value);
   }
   return (
     <label className="space-y-1.5 text-sm font-medium">
@@ -48,6 +53,17 @@ export function AcpModeField(props: {
                   value: "",
                   label: t("settings.agents.run.chooseMode"),
                   disabled: true,
+                },
+              ]
+            : []),
+          ...(props.canSelectFullEnvironment
+            ? [
+                {
+                  value: "full_environment",
+                  label: t("settings.agents.run.modes.full_environment.label"),
+                  description: t(
+                    "settings.agents.run.modes.full_environment.description",
+                  ),
                 },
               ]
             : []),

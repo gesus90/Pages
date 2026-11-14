@@ -55,7 +55,10 @@ export function createPlanSessionObserver(
           ...node.record.requested,
           unattended: details.unattended,
         },
-        effective: { arguments: details.arguments.join(" ").slice(0, 2_000) },
+        effective: {
+          ...node.record.effective,
+          arguments: details.arguments.join(" ").slice(0, 2_000),
+        },
       });
     },
     identified: (sessionId) => {
@@ -71,7 +74,13 @@ export function createPlanSessionObserver(
     },
     progressed: (events) => {
       write({
-        events: events.map((line) => sanitizePlanOutput(line)),
+        events: [
+          ...(node.record?.events.filter(
+            (line) =>
+              line.startsWith("Full environment –") && !events.includes(line),
+          ) ?? []),
+          ...events.map((line) => sanitizePlanOutput(line)),
+        ],
       });
     },
   };

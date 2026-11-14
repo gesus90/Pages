@@ -23,13 +23,16 @@ export function readPlanConfiguration(input: unknown): AgentPlanConfiguration {
         entry.reasoningEffort.length > 100))
   )
     throw new AgentError("configuration_invalid");
-  const configuration = readAgentConfiguration({
-    ...emptyAgentConfiguration(),
-    markdown: template.markdown,
-    parameters: template.parameters,
-    directoryParameter: template.directoryParameter,
-    ...(template.run === undefined ? {} : { run: template.run }),
-  });
+  const configuration = readAgentConfiguration(
+    {
+      ...emptyAgentConfiguration(),
+      markdown: template.markdown,
+      parameters: template.parameters,
+      directoryParameter: template.directoryParameter,
+      ...(template.run === undefined ? {} : { run: template.run }),
+    },
+    { isPlanNode: true },
+  );
   // Retain removed tokens for node diagnostics and explicit editing of stored plans.
   if (
     agentParameterIssues(configuration).some(

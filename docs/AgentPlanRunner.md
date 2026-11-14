@@ -11,6 +11,83 @@ PAGE-118 descriptions below describe the legacy department default; explicit
 - [Remote runner](PagesRunner.md)
 - [Script runtime](../backend/service/agents/ScriptRuntime.md)
 - [Runtime installation and adapters](AgentRuntime.md)
+- [Full environment: full host owner access (PAGE-407)](#full-environment-full-host-owner-access-page-407)
+
+## Full environment: full host owner access (PAGE-407)
+
+An administrator can explicitly choose **Full environment / Volle Umgebung** on
+an individual local ACP agent node, alongside Read only and YOLO. It is stored
+as `full_environment`; absent settings and both existing modes keep their
+current isolation. Reusable agent definitions do not grant this access level.
+Save, clone, template insertion/import and start recheck administrator authority
+on the server, including agents inside groups and loops. A non-administrator
+cannot save or start such a node, even through a direct API request. Removing
+the full-environment choice restores the normal mode-specific rules.
+
+Full environment runs the native CLI in YOLO mode **without bubblewrap**. It has
+no hidden directories, read-only mounts, path protection or network isolation.
+The real home is writable. Owner logins and configuration for Claude Code,
+Codex, OpenCode, Antigravity (`agy`), GitHub CLI, Git and SSH are available;
+`/run/user/<uid>`, the user bus, `systemd-run --user` and Docker have the same
+access as that Linux account. The node workspace is the working directory.
+There is deliberately no protected list: `~/.pages`, `/opt/pages`,
+`~/.openclaw`, `~/Agents`, live databases and live services are accessible.
+A full-environment step can alter or destroy them and can use the owner's
+credentials to act on external accounts.
+
+### Binding the host owner
+
+Pages users are application identities, not Linux accounts. The operator must
+explicitly bind one Pages owner ID with `PAGES_FULL_ENVIRONMENT_OWNER_ID` in the
+Pages service environment. Pages itself must run as that owner's non-root Linux
+account. This setting is an identity binding, never an implicit grant to a
+node: an active human administrator must still select the level and authorize
+every save and start. A different, inactive or non-administrator owner is
+refused. Pages does not use sudo, impersonate another OS user, create credentials
+or modify shell startup files. Remote targets refuse this level rather than
+substituting a different environment.
+
+The runner reads the account's home and login shell from the OS account record,
+loads its exported environment using that shell's `-lc` startup and preserves
+the resulting PATH. It sets HOME and XDG_RUNTIME_DIR to that account and uses
+its user D-Bus address. The trusted local session owner carries the host
+environment only for this explicit level. The ACP worker receives this
+environment instead of the isolated connection allowlist. No connection-home
+redirect, private Claude transcript home or project GitHub wrapper shadows the
+owner's logins. Native model and reasoning selections remain pinned. OpenCode's
+full profile allows every native tool, including reads of environment files;
+Codex apps and Claude user/project/local settings are available.
+
+### Lifecycle, visibility and secrets
+
+The worker still starts in its own transient systemd user unit, with the same
+runtime, resource limits, cancellation and closeout as existing YOLO workers.
+This unit is mandatory for full environment. Stop signals all processes in
+that worker cgroup and confirms unit settlement; failed cleanup remains
+unconfirmed and retains its reservation. Pause, continuation and timeout use
+the existing plan lifecycle and recheck current authorization. A service or
+container deliberately created through a host daemon is outside that cgroup;
+full host access cannot guarantee cleanup of deliberately detached external
+work. The agent must remove those resources itself, as a human shell user must.
+There is no security boundary against that behavior.
+
+The node, its editor and the running-step panel show **Full environment – full
+access with the rights of <owner>**. The journal records the choice before
+startup and each native session records the absence of isolation. Owner names
+are frozen for the running attempt. These records contain no environment dump
+or credential file contents.
+
+Existing credential redaction remains active. Full-environment output also
+masks credential-bearing exported variables and recognizable GitHub tokens,
+JWTs, private keys and credential assignments before recording ACP text.
+Login-shell failure output is discarded and replaced with a stable error code.
+Redaction is not a complete inventory of every arbitrary secret on the host:
+the agent must never print credentials or copy them into reports, logs or
+tickets. The unisolated owner can also write files directly, so this level
+cannot enforce that instruction as a host security policy.
+
+The repository wiki wording is in [PAGE-407](wiki/PAGE-407.md); its design
+context is in [the feature notes](reports/PAGE-407.md).
 
 Agent Plan supports direct Bash, Python and Node.js script steps through configured
 interpreter profiles. See the [script runtime contract](../backend/service/agents/ScriptRuntime.md)
@@ -598,8 +675,9 @@ earlier runner. Every runner works unattended:
 nothing waits for a person, and an action the options do not allow is refused
 instead of asked.
 
-A Codex CLI, Claude Code or OpenCode agent runs in exactly one of two permission modes,
-chosen on the Agent Plan node. **Read only** reads the workspace and Pages content
+A local ACP agent chooses Read only, YOLO or the administrator-only Full environment
+on its Agent Plan node. The following isolation rules describe Read only and YOLO;
+Full environment follows the explicit host-access contract above. **Read only** reads the workspace and Pages content
 and may search the web, but creates, changes and deletes no files, runs no
 commands and calls only reading Pages tool operations; the server offers no
 changing tool to it, and inside bubblewrap the workspace is mounted read-only.

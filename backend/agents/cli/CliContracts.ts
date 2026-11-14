@@ -69,6 +69,8 @@ export interface CliRunRequest {
 
 /** A streaming session in an authorized working directory. */
 export interface CliSessionRequest {
+  /** Full owner environment replaces the isolated allowlist only after server authorization. */
+  readonly fullEnvironment?: Readonly<Record<string, string>>;
   readonly file: string;
   /** The tool itself when `file` is a wrapper that starts it. */
   readonly toolFile?: string;

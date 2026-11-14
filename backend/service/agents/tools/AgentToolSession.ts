@@ -33,7 +33,8 @@ export async function prepareAgentToolSession(input: {
   if (
     request.options.browser === true &&
     !request.chat &&
-    request.options.access !== "yolo"
+    request.options.access !== "yolo" &&
+    request.options.access !== "full_environment"
   )
     throw new AgentToolReadinessError(
       "playwright_mcp",

@@ -16,7 +16,10 @@ export async function agentPlaywrightServer(
   locations: ReadonlyMap<AgentToolId, AgentToolLocation>,
 ): Promise<McpServerStdio | null> {
   if (input.options.browser !== true || input.chat) return null;
-  if (input.options.access !== "yolo")
+  if (
+    input.options.access !== "yolo" &&
+    input.options.access !== "full_environment"
+  )
     throw new AgentToolReadinessError(
       "playwright_mcp",
       "unsupported",

@@ -32,6 +32,7 @@ import type { AgentProviderId } from "@/definition/AgentConnection";
  * its access, shell and web switches. The timeout applies to all.
  */
 export function AgentRunOptionsFields(props: {
+  readonly canSelectFullEnvironment?: boolean;
   readonly configuration: AgentConfiguration;
   /** The provider of the chosen model; `null` while none is chosen. */
   readonly provider: AgentProviderId | null;
@@ -48,14 +49,14 @@ export function AgentRunOptionsFields(props: {
   function change(next: Partial<AgentRunOptions>): void {
     props.onChange({ ...props.configuration, run: { ...options, ...next } });
   }
-  function chooseMode(mode: AcpPermissionMode): void {
+  function chooseMode(mode: AcpPermissionMode | "full_environment"): void {
     props.onChange({
       ...props.configuration,
       run: {
         ...acpRunOptions(mode, options.timeoutMinutes),
         ...(options.browser === undefined
           ? {}
-          : { browser: mode === "yolo" && options.browser }),
+          : { browser: mode !== "read_only" && options.browser }),
       },
     });
   }
@@ -70,6 +71,7 @@ export function AgentRunOptionsFields(props: {
       <div className="grid gap-4 sm:grid-cols-2">
         {isAcp ? (
           <AcpModeField
+            canSelectFullEnvironment={props.canSelectFullEnvironment}
             options={options}
             disabled={props.disabled}
             onChange={chooseMode}
@@ -89,7 +91,8 @@ export function AgentRunOptionsFields(props: {
       <p className="text-xs text-muted-foreground">
         {t("settings.agents.run.timeoutHint")}
       </p>
-      {isAcp && options.access === "yolo" ? (
+      {isAcp &&
+      (options.access === "yolo" || options.access === "full_environment") ? (
         <label className="flex items-center gap-2 text-sm">
           <Checkbox
             checked={options.browser === true}

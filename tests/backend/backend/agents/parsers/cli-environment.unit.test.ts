@@ -64,6 +64,11 @@ describe("createCliEnvironment", () => {
       OPENAI_API_KEY: "synthetic-key",
       NODE_OPTIONS: "--require /tmp/hook.js",
       SSH_AUTH_SOCK: "/tmp/agent.sock",
+      DBUS_SESSION_BUS_ADDRESS: "unix:path=/run/user/1234/bus",
+      XDG_RUNTIME_DIR: "/run/user/1234",
+      DOCKER_HOST: "unix:///run/user/1234/docker.sock",
+      HOME: "/synthetic/operator",
+      PATH: "/synthetic/operator/bin",
     });
     expect(environment.HTTPS_PROXY).toBe("http://proxy.test:3128");
     expect(environment.NO_PROXY).toBe("localhost");
@@ -73,8 +78,13 @@ describe("createCliEnvironment", () => {
       "OPENAI_API_KEY",
       "NODE_OPTIONS",
       "SSH_AUTH_SOCK",
+      "DBUS_SESSION_BUS_ADDRESS",
+      "XDG_RUNTIME_DIR",
+      "DOCKER_HOST",
     ])
       expect(environment).not.toHaveProperty(name);
+    expect(environment.HOME).toBe(HOME.home);
+    expect(environment.PATH).not.toContain("/synthetic/operator/bin");
     expect(environment).not.toHaveProperty("HTTP_PROXY");
   });
 

@@ -30,6 +30,7 @@ export const localLaunchSchema = z.object({
   attemptId: identifier,
   turnId: identifier,
   isInstruction: z.boolean(),
+  isFullEnvironment: z.boolean().optional(),
   instanceId: identifier,
   userId: identifier,
   prompt: text,

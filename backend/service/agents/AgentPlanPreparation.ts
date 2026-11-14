@@ -1,5 +1,5 @@
 import { withPortlessPlanGroups } from "@/definition/AgentPlanGroupUpgrade";
-import { expandPlanGroups } from "@/definition/AgentPlanGroup";
+import { allPlanSteps, expandPlanGroups } from "@/definition/AgentPlanGroup";
 import {
   expandPlanLoops,
   planLoopEdges,
@@ -41,6 +41,7 @@ import type {
   AgentPlanRemoteExecution,
   RemotePlanStep,
 } from "./AgentPlanRemoteExecution";
+import type { AgentPlanAccess } from "./AgentPlanAccess";
 import type { AgentPlanRemoteTargets } from "./AgentPlanRemoteTargets";
 import type { AgentPlanWorkspaces } from "./AgentPlanWorkspaces";
 import type { AgentPlanIssue } from "@/definition/AgentPlanGraph";
@@ -65,6 +66,7 @@ import type {
 } from "./AgentPlanSnapshot";
 
 interface PreparationDependencies {
+  readonly access?: Pick<AgentPlanAccess, "requireFullEnvironment">;
   readonly workspaceCatalog?: AgentPlanWorkspaces;
   readonly remoteExecution?: AgentPlanRemoteExecution;
   readonly remoteTargets?: AgentPlanRemoteTargets;
@@ -123,6 +125,16 @@ export class AgentPlanPreparation {
     userId: string,
     plan: AgentPlan,
   ): Promise<AgentPlanSnapshot> {
+    if (
+      allPlanSteps(plan).some(
+        (step) =>
+          step.configuration?.template.run?.access === "full_environment",
+      )
+    ) {
+      if (!this.dependencies.access)
+        throw new AgentError("plan_full_environment_forbidden");
+      await this.dependencies.access.requireFullEnvironment(userId, plan);
+    }
     const issues = planStartIssues(plan);
     if (issues.length > 0) throw new AgentPlanValidationError(issues);
     plan = executablePlan(plan);

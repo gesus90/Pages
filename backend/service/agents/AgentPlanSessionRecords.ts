@@ -88,11 +88,17 @@ export function createSessionRecord(
       mcp: start.usesMcp,
       directory: isRequest ? null : directory,
     },
-    effective: null,
+    effective: start.prepared.input.fullEnvironment
+      ? { fullEnvironmentOwner: start.prepared.input.fullEnvironment.ownerName }
+      : null,
     definition: start.prepared.definition,
     contract: start.contract,
     acceptance: null,
-    events: [],
+    events: start.prepared.input.fullEnvironment
+      ? [
+          `Full environment – full access with the rights of ${start.prepared.input.fullEnvironment.ownerName}; no isolation`,
+        ]
+      : [],
   };
 }
 
@@ -116,7 +122,13 @@ export function withTurn(
         ([key, value]) => [key, sanitizePlanOutput(value).slice(0, 2_000)],
       ),
     ),
-    events: turn.events.map((line) => sanitizePlanOutput(line)),
+    events: [
+      ...record.events.filter(
+        (line) =>
+          line.startsWith("Full environment –") && !turn.events.includes(line),
+      ),
+      ...turn.events.map((line) => sanitizePlanOutput(line)),
+    ],
   };
 }
 

@@ -135,3 +135,31 @@ it("mounts explicit read-only and credential paths in the isolated command", asy
     ]),
   );
 });
+
+it("hides the host service manager and session bus in the account runtime directory", async () => {
+  vi.spyOn(process, "getuid").mockReturnValue(1234);
+  const isolation = new CliPlanIsolation([], async () => true);
+  const args = (await isolation.isolate(REQUEST))?.arguments ?? [];
+  const runtime = args.indexOf("/run/user/1234");
+  expect(args.slice(runtime - 1, runtime + 1)).toEqual([
+    "--tmpfs",
+    "/run/user/1234",
+  ]);
+  expect(args.lastIndexOf("/run/user/1234")).toBe(runtime);
+});
+
+it("keeps the host read-only and permits writes only to the workspace and connection home", async () => {
+  const isolation = new CliPlanIsolation([], async () => true);
+  const args = (await isolation.isolate(REQUEST))?.arguments ?? [];
+  const root = args.indexOf("--ro-bind");
+  expect(args.slice(root, root + 3)).toEqual(["--ro-bind", "/", "/"]);
+  const writableMounts = args.flatMap((argument, index) =>
+    argument === "--bind" ? [args.slice(index + 1, index + 3)] : [],
+  );
+  expect(writableMounts).toEqual([
+    [REQUEST.workingDirectory, REQUEST.workingDirectory],
+    [REQUEST.home.root, REQUEST.home.root],
+  ]);
+  const temporary = args.indexOf("/tmp");
+  expect(args[temporary - 1]).toBe("--tmpfs");
+});

@@ -108,8 +108,10 @@ export function createCliRequestEnvironment(
   request: Pick<
     CliRunRequest,
     "home" | "provider" | "file" | "toolFile" | "environment"
-  >,
+  > & { readonly fullEnvironment?: Readonly<Record<string, string>> },
 ): Record<string, string> {
+  if (request.fullEnvironment)
+    return { ...request.fullEnvironment, ...request.environment };
   const environment = {
     ...createCliEnvironment(
       request.home,

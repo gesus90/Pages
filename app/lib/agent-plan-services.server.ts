@@ -234,9 +234,8 @@ export async function createAgentPlanService(input: {
     sessions,
     pageAgentSessions,
   });
-  // The runner services are built first; runner facts learn which runs an engine still drives.
-  attachRunOwnership(input.agents.runnerService, engine);
   const preparation = new AgentPlanPreparation({
+    access,
     workspaceCatalog,
     remoteExecution,
     remoteTargets,
@@ -611,12 +610,15 @@ async function createPlanEngine(
   },
 ): Promise<PlanRunEnginePort> {
   const runtime = await getPagesRuntime();
-  if (!canProcessRuns())
-    return new QueuedPlanRunEngine(
+  if (!canProcessRuns()) {
+    const engine = new QueuedPlanRunEngine(
       input.database,
       runsSocketPath(runtime.getDatabasePath()),
     );
-  return new AgentPlanRunEngine({
+    attachRunOwnership(input.agents.runnerService, engine);
+    return engine;
+  }
+  const engine = new AgentPlanRunEngine({
     startResources: new AgentPlanStartResources({
       repository: new AgentPlanStartResourceRepository(input.database),
       remote: parts.remoteExecution,
@@ -650,4 +652,6 @@ async function createPlanEngine(
     archive: input.agents.agentRunArchive,
     files: input.agents.agentDefinitionFiles,
   });
+  attachRunOwnership(input.agents.runnerService, engine);
+  return engine;
 }

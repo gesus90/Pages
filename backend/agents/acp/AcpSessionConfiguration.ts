@@ -194,6 +194,10 @@ export function describeAcpSession(
       "ACP model selector; provider response does not report a separate model identity";
   }
   if (context.github) state.effective.github = context.github;
+  if (context.profile.permissions.fullEnvironmentOwner)
+    state.events.push(
+      `Full environment – full access with the rights of ${context.profile.permissions.fullEnvironmentOwner}; no isolation`,
+    );
 }
 
 /**

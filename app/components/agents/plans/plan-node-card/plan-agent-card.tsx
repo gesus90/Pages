@@ -15,6 +15,7 @@ import {
   isQueuedPlanStep,
   planRunCardClass,
 } from "../plan-status";
+import { PlanFullEnvironmentNotice } from "../plan-full-environment";
 import { PlanAgentInput } from "./plan-agent-input";
 import { PlanAgentModel } from "./plan-agent-model";
 import { PlanAgentEventIn, PlanAgentPassedOut } from "./plan-agent-branching";
@@ -89,6 +90,9 @@ export function PlanAgentCard(props: {
             <CircleAlert aria-hidden="true" className="size-3" />
             {t(`plans.manage.select.${planStepSelection(step)}`)}
           </p>
+        ) : null}
+        {step.configuration?.template.run?.access === "full_environment" ? (
+          <PlanFullEnvironmentNotice />
         ) : null}
         <PlanRunNotes result={result} />
         <PlanFlowPorts node={step} graph={graph} canEdit={canEdit} isCompact />

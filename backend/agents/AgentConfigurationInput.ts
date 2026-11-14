@@ -125,7 +125,8 @@ function readRunOptions(input: unknown): AgentRunOptions {
   if (
     (options.access !== "workspace_write" &&
       options.access !== "read_only" &&
-      options.access !== "yolo") ||
+      options.access !== "yolo" &&
+      options.access !== "full_environment") ||
     typeof options.shell !== "boolean" ||
     typeof options.web !== "boolean" ||
     (options.browser !== undefined && typeof options.browser !== "boolean") ||
@@ -146,10 +147,25 @@ function readRunOptions(input: unknown): AgentRunOptions {
   };
 }
 
+function readConfigurationRun(
+  input: unknown,
+  options?: { readonly isPlanNode?: boolean },
+): AgentRunOptions | undefined {
+  if (input === undefined) return undefined;
+  const run = readRunOptions(input);
+  if (run.access === "full_environment" && !options?.isPlanNode)
+    throw new AgentError("plan_full_environment_forbidden");
+  return run;
+}
+
 /** Parses stored and external task sections; references remain identifiers. */
-export function readAgentConfiguration(input: unknown): AgentConfiguration {
+export function readAgentConfiguration(
+  input: unknown,
+  options?: { readonly isPlanNode?: boolean },
+): AgentConfiguration {
   const configuration = readAgentObject(input);
   const sharing = readAgentObject(configuration.sharing);
+  const run = readConfigurationRun(configuration.run, options);
   if (
     !isAgentProfileTargetKind(configuration.scope) ||
     (configuration.accessMode !== "personal" &&
@@ -187,8 +203,6 @@ export function readAgentConfiguration(input: unknown): AgentConfiguration {
       targets,
       ...(sharing.operator === undefined ? {} : { operator: sharing.operator }),
     },
-    ...(configuration.run === undefined
-      ? {}
-      : { run: readRunOptions(configuration.run) }),
+    ...(run === undefined ? {} : { run }),
   };
 }

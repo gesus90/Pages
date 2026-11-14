@@ -148,7 +148,8 @@ export interface AgentPlanConfigurationEntry {
     readonly parameters: readonly AgentParameter[];
     readonly directoryParameter: string | null;
     readonly run?: {
-      readonly access: "read_only" | "workspace_write" | "yolo";
+      readonly access:
+        "read_only" | "workspace_write" | "yolo" | "full_environment";
       readonly shell: boolean;
       readonly web: boolean;
       readonly timeoutMinutes: number;

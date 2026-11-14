@@ -1065,7 +1065,10 @@
         "forbidden": "Nur ein aktiver Admin darf einen anderen Besitzer setzen. Behalte dich als Besitzer oder aktiviere den Admin-Modus.",
         "credentials_in_text": "Die Quelle enthält Zugangsdaten. Entferne diese aus dem Plan und klone erneut.",
         "clone_failed": "Die Kopie konnte nicht gespeichert werden. Versuche es erneut oder wende dich an die Projektleitung.",
-        "clone_request_invalid": "Die Angaben zum Klonen sind ungültig. Lade den Plan neu und versuche es erneut."
+        "clone_request_invalid": "Die Angaben zum Klonen sind ungültig. Lade den Plan neu und versuche es erneut.",
+        "plan_full_environment_forbidden": "Volle Umgebung erfordert die ausdrückliche Freigabe eines aktiven Administrators.",
+        "plan_full_environment_owner_unavailable": "Der Plan-Besitzer muss über PAGES_FULL_ENVIRONMENT_OWNER_ID dem Linux-Konto des Pages-Prozesses zugeordnet sein. Login-Shell prüfen.",
+        "plan_full_environment_local_only": "Volle Umgebung benötigt einen lokalen Knoten auf dem Host des Besitzers."
       },
       "description": "Verwalten Sie die benannten API- und CLI-Anbindungen und ihre Nutzungsfreigaben. Freigegebene Modelle stehen direkt im Agent Plan zur Verfügung.",
       "adminModeRequired": "Die Agents-Einstellungen sind nur im Admin-Modus verfügbar. Ihr Konto ist derzeit im Rollenmodus.",
@@ -1436,6 +1439,10 @@
           "yolo": {
             "label": "YOLO",
             "description": "Alle Werkzeuge des Runners ohne Rückfragen: Dateien im Workspace lesen, anlegen, ändern und löschen, Shell, Web und alle Pages-MCP-Werkzeuge mit deinen Pages-Rechten. Läuft nur in der Bubblewrap-Abschottung."
+          },
+          "full_environment": {
+            "label": "Volle Umgebung",
+            "description": "Keine Abschottung: alle Rechte, CLIs und Anmeldungen des Besitzers. Auch ~/.pages, /opt/pages, ~/.openclaw, ~/Agents, Live-Datenbank und Live-Dienst sind erreichbar."
           }
         }
       },
@@ -5338,7 +5345,8 @@
           "accessMode": {
             "yolo": "YOLO",
             "read_only": "Nur Lesen",
-            "workspace_write": "Arbeitsbereich"
+            "workspace_write": "Arbeitsbereich",
+            "full_environment": "Volle Umgebung"
           },
           "branch": "Branch",
           "restarts": "Neustarts",
@@ -6958,6 +6966,10 @@
       "nodeFailed": "Swarm fehlgeschlagen: {{reason}}",
       "empty": "Hauptmodell plant die Aufteilung …",
       "result": "Ergebnis"
+    },
+    "fullEnvironment": {
+      "access": "Volle Umgebung – voller Zugriff mit den Rechten von {{owner}}",
+      "risk": "Keine Abschottung oder geschützten Pfade und Dienste. Der Schritt kann Host-Anmeldungen verwenden, Live-Daten ändern und Dienste steuern."
     }
   },
   "pageAgents": {

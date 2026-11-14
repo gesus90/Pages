@@ -13,6 +13,7 @@ import {
 import { PlanManagementDialogs } from "./plan-management/plan-management-dialogs";
 import { PlanOpenRunStartDialog } from "./plan-open-run-start-dialog";
 import { usePlanManagement } from "./plan-management/use-plan-management";
+import { PlanFullEnvironmentRunNotice } from "./plan-full-environment";
 import { PlanPanelDetails } from "./plan-panel-details";
 import { PlanStartFailure } from "./plan-start-failure";
 import { PlanPanelHeading } from "./plan-panel-heading";
@@ -409,6 +410,7 @@ export function PlanRunPanel(props: PlanRunPanelProps): React.ReactElement {
           run={props.run}
           warnings={warnings}
         />
+        <PlanFullEnvironmentRunNotice run={props.run} />
         <PlanPanelStatus
           state={state}
           isOpen={isOpen}

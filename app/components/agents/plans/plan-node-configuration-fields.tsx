@@ -216,6 +216,7 @@ export function PlanNodeConfigurationFields(props: {
         })}
       />
       <PlanNodeContentFields
+        planTarget={props.planTarget}
         step={props.step}
         configuration={configuration}
         workspaces={props.workspaces}

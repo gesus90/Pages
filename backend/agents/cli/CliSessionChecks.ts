@@ -6,8 +6,25 @@ import { openCodeModelProvider } from "@/definition/AgentConnection";
 import type { AgentPlanSessionInput } from "@/backend/agents/AgentPlanExecution";
 import type { AcpNamespaceOwner } from "@/definition/AcpResource";
 import type { NativeAcpProviderId } from "@/definition/AgentConfiguration";
+import type { CliFullEnvironment } from "./CliFullEnvironment";
+import type { CliHome, CliCredentialAccess } from "./CliContracts";
+import type { CliProviderId } from "@/definition/AgentConnection";
+import type { agentPlaywrightServer } from "@/backend/service/agents/tools/AgentPlaywrightSession";
 import type { CliStatusOutcome } from "./CliContracts";
 import type { CliGitHubAccess } from "./CliGitHubCredentials";
+
+/** What a session start has verified about its connection. */
+export interface VerifiedStart {
+  readonly owner?: CliFullEnvironment;
+  readonly provider: CliProviderId;
+  readonly home: CliHome;
+  readonly file: string;
+  /** The ACP entry point of this CLI connection. */
+  readonly adapter: string | null;
+  readonly adapterVersion?: string | null;
+  readonly credentials?: CliCredentialAccess;
+  readonly browser?: Awaited<ReturnType<typeof agentPlaywrightServer>>;
+}
 
 /** Records the namespace of a session with its GitHub access, where both exist. */
 export async function recordGitHubNamespace(

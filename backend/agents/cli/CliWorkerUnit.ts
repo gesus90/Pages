@@ -4,6 +4,8 @@ import { mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 
+import { AgentError } from "@/backend/error/AgentErrors";
+
 import {
   logCaughtError,
   logDiagnostic,
@@ -96,8 +98,15 @@ function managerEnvironment(): Record<string, string> {
 }
 
 /** Quotes one value for an environment file of systemd, which never expands it. */
-function environmentLine(name: string, value: string): string {
-  if (/[\0\n\r]/u.test(value) || !/^[A-Za-z_][A-Za-z0-9_]*$/u.test(name))
+function environmentLine(
+  name: string,
+  value: string,
+  isFullEnvironment = false,
+): string {
+  if (
+    (isFullEnvironment ? /[\0\r]/u : /[\0\n\r]/u).test(value) ||
+    !/^[A-Za-z_][A-Za-z0-9_]*$/u.test(name)
+  )
     throw new Error("An environment value cannot be passed to a worker unit.");
   return `${name}="${value.replace(/[\\"$`]/gu, (character) => `\\${character}`)}"`;
 }
@@ -377,38 +386,56 @@ export class CliWorkerUnits {
     await writeFile(
       file,
       `${Object.entries(environment)
-        .map(([key, value]) => environmentLine(key, value))
+        .map(([key, value]) =>
+          environmentLine(key, value, request.fullEnvironment !== undefined),
+        )
         .join("\n")}\n`,
       { mode: 0o600, flag: "wx" },
     );
-    const unset = await this.managerVariables(environment);
-    const runtime =
-      request.timeoutMs > 0
-        ? Math.ceil(request.timeoutMs / 1000) + RUNTIME_GRACE_SECONDS
-        : UNBOUNDED_RUNTIME_SECONDS;
-    const unit = this.handle(name, file);
-    return {
-      unit,
-      request: {
-        ...request,
-        file: SYSTEMD_RUN,
-        toolFile: request.toolFile ?? request.file,
-        environment: { ...request.environment, ...managerEnvironment() },
-        arguments: [
-          "--user",
-          "--quiet",
-          "--pipe",
-          "--wait",
-          "--expand-environment=no",
-          `--unit=${name}`,
-          `--slice=${UNIT_SLICE}`,
-          ...unitProperties({ file, runtime, unset }),
-          "--",
-          request.file,
-          ...request.arguments,
-        ],
-      },
-    };
+    try {
+      const unset = await this.managerVariables(environment);
+      const runtime =
+        request.timeoutMs > 0
+          ? Math.ceil(request.timeoutMs / 1000) + RUNTIME_GRACE_SECONDS
+          : UNBOUNDED_RUNTIME_SECONDS;
+      const unit = this.handle(name, file);
+      return {
+        unit,
+        request: {
+          ...request,
+          file: SYSTEMD_RUN,
+          toolFile: request.toolFile ?? request.file,
+          environment: { ...request.environment, ...managerEnvironment() },
+          arguments: [
+            "--user",
+            "--quiet",
+            "--pipe",
+            "--wait",
+            "--expand-environment=no",
+            `--unit=${name}`,
+            `--slice=${UNIT_SLICE}`,
+            ...unitProperties({ file, runtime, unset }),
+            ...(request.fullEnvironment
+              ? [
+                  `--working-directory=${request.workingDirectory}`,
+                  "--property=KillMode=control-group",
+                ]
+              : []),
+            "--",
+            request.file,
+            ...request.arguments,
+          ],
+        },
+      };
+    } catch {
+      // Process errors may include captured environment output; never forward them.
+      try {
+        await rm(file, { force: true });
+      } catch {
+        throw new AgentError("credential_cleanup_failed");
+      }
+      throw new AgentError("acp_worker_unit_unavailable");
+    }
   }
 
   /** Repeats on every start, because a runtime property ends with the manager. */

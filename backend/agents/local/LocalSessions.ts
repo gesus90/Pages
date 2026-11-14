@@ -508,6 +508,7 @@ export class LocalSessions {
       attemptId: recording.key.attemptId,
       turnId: isInstruction ? randomUUID() : recording.key.attemptId,
       isInstruction,
+      ...(input.fullEnvironment ? { isFullEnvironment: true } : {}),
       instanceId,
       userId: input.userId,
       prompt: input.prompt,

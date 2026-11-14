@@ -81,7 +81,14 @@ export function planClaudeAcpLaunch(
     mcpServers: pagesMcpServers(mcp),
     sessionMeta: {
       claudeCode: {
-        options: profile.options,
+        options: specification.isFullEnvironment
+          ? {
+              ...profile.options,
+              settingSources: ["user", "project", "local"],
+              strictMcpConfig: false,
+              extraArgs: {},
+            }
+          : profile.options,
       },
     },
   };

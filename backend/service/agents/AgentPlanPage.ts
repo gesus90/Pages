@@ -64,6 +64,8 @@ async function loadPlanContext(
     throw new AgentError("plan_access_denied");
   return {
     userId,
+    isAdministrator:
+      (await service.team(userId, null)).isAdministrator === true,
     teamDepartmentId: (await service.team(userId, null)).departmentId,
     plans,
     workspaces,

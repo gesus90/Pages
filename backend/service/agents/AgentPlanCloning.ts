@@ -135,6 +135,7 @@ export class AgentPlanCloning {
         projectId: source.projectId,
         revision: 1,
       };
+      await this.dependencies.access.requireFullEnvironment(userId, plan);
       try {
         await this.store(userId, { source, plan, input, adjustments }, journal);
         return plan.id;

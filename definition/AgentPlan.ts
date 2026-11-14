@@ -376,6 +376,7 @@ export interface AgentPlanSources {
 }
 
 export interface AgentPlanPage {
+  readonly isAdministrator?: boolean;
   readonly userId: string;
   /** The department a plan created now would belong to; `null` when the person has none or several. */
   readonly teamDepartmentId?: string | null;

@@ -44,6 +44,25 @@ export function isSupportedCodexAcp(
   return true;
 }
 
+function sessionConfiguration(
+  specification: AcpLaunchSpecification & { readonly profile: CodexAcpProfile },
+): Readonly<Record<string, unknown>> {
+  const configuration: Record<string, unknown> = {
+    ...specification.profile.configuration,
+  };
+  if (specification.isFullEnvironment) {
+    delete configuration.forced_login_method;
+    delete configuration.cli_auth_credentials_store;
+    delete configuration.model_provider;
+    configuration.features = {
+      shell_tool: true,
+      unified_exec: true,
+      apps: true,
+    };
+  }
+  return configuration;
+}
+
 /**
  * Builds the start of the adapter for one session.
  *
@@ -65,7 +84,7 @@ export function planCodexAcpLaunch(
     environment: {
       [RUN_INSTANCE_VARIABLE]: instanceId,
       CODEX_PATH: specification.runnerFile,
-      CODEX_CONFIG: JSON.stringify(profile.configuration),
+      CODEX_CONFIG: JSON.stringify(sessionConfiguration(specification)),
       INITIAL_AGENT_MODE: profile.sessionMode,
       NO_BROWSER: "1",
     },

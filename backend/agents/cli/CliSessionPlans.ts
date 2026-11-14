@@ -1,7 +1,7 @@
 import { AgentError } from "@/backend/error/AgentErrors";
 import { isApiProvider } from "@/definition/AgentConnection";
 import { acpDriverFor } from "@/backend/agents/acp/AcpDrivers";
-import { isAcpPermissionMode } from "@/definition/AgentConfiguration";
+import { isPlanPermissionMode } from "@/definition/AgentConfiguration";
 
 import type { AgentPlanSessionInput } from "@/backend/agents/AgentPlanExecution";
 import type { AgentErrorCode } from "@/backend/error/AgentErrors";
@@ -39,7 +39,7 @@ export function unsupportedRunOption(
   provider: CliProviderId,
   options: AgentRunOptions,
 ): AgentErrorCode | null {
-  return isAcpPermissionMode(options.access)
+  return isPlanPermissionMode(options.access)
     ? null
     : acpDriverFor(provider).errors.modeRequired;
 }

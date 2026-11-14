@@ -45,7 +45,9 @@ function sessionAgent(specification: AcpLaunchSpecification): {
     };
   return {
     mode: specification.profile.permissions.sessionMode ?? "",
-    permission: openCodePlanPermissions(specification.profile.mode),
+    permission: specification.isFullEnvironment
+      ? { "*": "allow" }
+      : openCodePlanPermissions(specification.profile.mode),
     isPica,
   };
 }
@@ -87,7 +89,9 @@ export const OPENCODE_ACP_DRIVER: AcpDriver = {
         OPENCODE_CONFIG_CONTENT: JSON.stringify({
           model: model.model,
           small_model: model.model,
-          enabled_providers: [modelProvider],
+          ...(specification.isFullEnvironment
+            ? {}
+            : { enabled_providers: [modelProvider] }),
           default_agent: mode,
           share: "disabled",
           autoupdate: false,

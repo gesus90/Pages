@@ -1,8 +1,10 @@
 import { execFile } from "node:child_process";
-import { writeFile } from "node:fs/promises";
+import { rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
+
+import { AgentError } from "@/backend/error/AgentErrors";
 
 import { localManagerEnvironment } from "./LocalSessionOwnership";
 
@@ -24,6 +26,7 @@ const OWNER_ENVIRONMENT = [
   "NODE_EXTRA_CA_CERTS",
   "PAGES_GITHUB_TOKEN_KEY",
   "PAGES_CLI_ISOLATION",
+  "PAGES_FULL_ENVIRONMENT_OWNER_ID",
   "PAGES_AGENT_API_URL",
   "PAGES_WORKSPACE_ROOTS",
 ] as const;
@@ -49,14 +52,48 @@ export async function startLocalSessionUnit(
     const configured = process.env[name];
     if (configured !== undefined) environment[name] = configured;
   }
+  if (manifest.launch.isFullEnvironment) {
+    for (const [name, configured] of Object.entries(process.env))
+      if (configured !== undefined) environment[name] = configured;
+  }
   const file = path.join(manifest.directory, "owner.env");
   await writeFile(
     file,
     `${Object.entries(environment)
-      .map(([name, value]) => environmentLine(name, value))
+      .map(([name, value]) =>
+        environmentLine(
+          name,
+          value,
+          manifest.launch.isFullEnvironment === true,
+        ),
+      )
       .join("\n")}\n`,
     { flag: "wx", mode: 0o600 },
   );
+  try {
+    await startPreparedLocalSessionUnit(
+      manifest,
+      file,
+      entrypoint,
+      environment,
+    );
+  } catch {
+    // Process errors may include captured environment output; never forward them.
+    try {
+      await rm(file, { force: true });
+    } catch {
+      throw new AgentError("credential_cleanup_failed");
+    }
+    throw new AgentError("plan_local_launch_invalid");
+  }
+}
+
+async function startPreparedLocalSessionUnit(
+  manifest: LocalOwnerManifest,
+  file: string,
+  entrypoint: string,
+  environment: Readonly<Record<string, string>>,
+): Promise<void> {
   const manager = localManagerEnvironment();
   const listed = await runFile(
     "/usr/bin/systemctl",
@@ -111,8 +148,12 @@ export async function startLocalSessionUnit(
   );
 }
 
-function environmentLine(name: string, value: string): string {
-  if (/[\0\r\n]/u.test(value))
+function environmentLine(
+  name: string,
+  value: string,
+  isFullEnvironment = false,
+): string {
+  if ((isFullEnvironment ? /[\0\r]/u : /[\0\r\n]/u).test(value))
     throw new Error("Invalid local owner environment");
   return `${name}="${value.replace(/[\\"$`]/gu, (character) => `\\${character}`)}"`;
 }

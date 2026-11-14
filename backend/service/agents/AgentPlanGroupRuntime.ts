@@ -19,7 +19,10 @@ function profileFields(
   provider: AgentProviderId,
   options: AgentRunOptions,
 ): Readonly<Record<"tools" | "permissions" | "sandbox", string>> {
-  const mode = options.access === "yolo" ? "yolo" : "read_only";
+  const mode =
+    options.access === "yolo" || options.access === "full_environment"
+      ? "yolo"
+      : "read_only";
   const tools = {
     shell: options.shell,
     web: options.web,

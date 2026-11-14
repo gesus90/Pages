@@ -83,7 +83,9 @@ export function planSessionReach(
   options: AgentRunOptions,
 ): AgentRunReach {
   if (!isAcpProvider(provider)) return "tickets";
-  return options.access === "yolo" ? "full" : "read";
+  return options.access === "yolo" || options.access === "full_environment"
+    ? "full"
+    : "read";
 }
 
 /** Builds the same least-privilege Pages scope for local and remote attempts. */

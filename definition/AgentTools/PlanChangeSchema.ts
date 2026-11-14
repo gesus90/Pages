@@ -172,7 +172,14 @@ const CONFIGURATION: PropertySchema = {
           minProperties: 1,
           additionalProperties: false,
           properties: {
-            access: { enum: ["read_only", "workspace_write", "yolo"] },
+            access: {
+              enum: [
+                "read_only",
+                "workspace_write",
+                "yolo",
+                "full_environment",
+              ],
+            },
             shell: { type: "boolean" },
             web: { type: "boolean" },
             timeoutMinutes: { type: "integer", minimum: 0, maximum: 120 },

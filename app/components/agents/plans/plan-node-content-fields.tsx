@@ -1,11 +1,19 @@
+import { useContext } from "react";
 import { useTranslation } from "react-i18next";
 
 import { AgentParameterFields } from "@/app/components/settings/agents/agent-parameter-fields";
 import { AgentRunOptionsFields } from "@/app/components/settings/agents/agent-run-options-fields";
 import { Input } from "@/app/components/ui/input";
 import { Textarea } from "@/app/components/ui/textarea";
+import { effectivePlanTarget } from "@/definition/AgentPlanTarget";
 import { emptyAgentConfiguration } from "@/definition/AgentConfiguration";
 
+import {
+  PlanFullEnvironmentContext,
+  PlanFullEnvironmentEditorNotice,
+} from "./plan-full-environment";
+
+import type { AgentPlanExecutionTarget } from "@/definition/AgentPlanExecution";
 import type { AgentConfiguration } from "@/definition/AgentConfiguration";
 import type { AgentPlanStep } from "@/definition/AgentPlan";
 import type { AgentPlanConfiguration } from "@/definition/AgentPlanConfiguration";
@@ -17,10 +25,12 @@ export function PlanNodeContentFields(props: {
   readonly configuration: AgentPlanConfiguration;
   readonly disabled: boolean;
   readonly workspaces?: readonly AgentWorkspaceChoice[];
+  readonly planTarget?: AgentPlanExecutionTarget;
   readonly onChange: (step: AgentPlanStep) => void;
 }): React.ReactElement {
   const { t } = useTranslation();
   const { step, configuration } = props;
+  const fullEnvironment = useContext(PlanFullEnvironmentContext);
   function changeTemplate(next: AgentConfiguration): void {
     const removed = new Set(
       configuration.template.parameters
@@ -52,6 +62,7 @@ export function PlanNodeContentFields(props: {
   };
   return (
     <div className="space-y-4">
+      <PlanFullEnvironmentEditorNotice access={template.run?.access} />
       <label className="block space-y-1 text-sm">
         <span>{t("plans.nodeMarkdown")}</span>
         <Textarea
@@ -89,6 +100,11 @@ export function PlanNodeContentFields(props: {
           onChange={changeTemplate}
         />
         <AgentRunOptionsFields
+          canSelectFullEnvironment={
+            fullEnvironment.canSelect &&
+            effectivePlanTarget(step, { executionTarget: props.planTarget })
+              .kind !== "remote"
+          }
           configuration={template}
           provider={configuration.provider}
           disabled={props.disabled}

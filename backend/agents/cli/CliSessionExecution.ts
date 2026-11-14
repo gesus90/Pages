@@ -12,7 +12,6 @@ import {
 } from "@/backend/service/agents/tools/AgentToolSession";
 import { providerToolIds } from "@/backend/service/agents/tools/AgentToolRegistry";
 import { acpDriverFor } from "@/backend/agents/acp/AcpDrivers";
-import { AcpLineChannel } from "@/backend/agents/acp/AcpLineChannel";
 import { AcpSession } from "@/backend/agents/acp/AcpSession";
 import { AcpCleanupUnconfirmedError } from "@/backend/error/AcpCleanupUnconfirmedError";
 import { AgentError } from "@/backend/error/AgentErrors";
@@ -21,6 +20,10 @@ import { isAcpPermissionMode } from "@/definition/AgentConfiguration";
 import { isApiProvider } from "@/definition/AgentConnection";
 import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 
+import {
+  verifyFullEnvironmentStart,
+  fullEnvironmentRequest,
+} from "./CliFullEnvironment";
 import { connectChild } from "./CliSessionChannel";
 import {
   assetSession,
@@ -40,12 +43,12 @@ import {
   isolationLabel,
   picaCodexBundle,
   picaNativeRunner,
-  planAcpLaunch,
 } from "./CliAcpLaunch";
 import { prepareSharedAgentEnvironment } from "./AgentSharedEnvironment";
 import { prepareClaudePlanSessionHome } from "./ClaudePlanSessionHome";
 import { captureOwnedNamespace } from "./CliOwnedNamespace";
-import { acpSessionSecrets, createAcpRedactor } from "./CliAcpRedaction";
+import { redactAcpJsonLine } from "./CliAcpRedaction";
+import { prepareAcpProtocol } from "./CliAcpProtocol";
 import { requireAcpIsolation, sessionRunOptionError } from "./CliSessionPlans";
 import { requirePicaCodexProfile } from "./PicaCodexBundle";
 import { requirePicaNativeArtifact } from "./PicaNativeArtifact";
@@ -55,6 +58,8 @@ import {
   validateSessionStatus,
 } from "./CliSessionChecks";
 
+import type { VerifiedStart } from "./CliSessionChecks";
+import type { CliFullEnvironment } from "./CliFullEnvironment";
 import type { AgentToolManagerService } from "@/backend/service/agents/tools/AgentToolManagerService";
 import type { AgentToolId } from "@/definition/AgentTools";
 import type { AgentToolLocation } from "@/backend/service/agents/tools/AgentToolContracts";
@@ -73,7 +78,6 @@ import type { CliProviderId } from "@/definition/AgentConnection";
 import type { AgentCliRuntime } from "./AgentCliRuntime";
 import type { AgentCredentialStore } from "./AgentCredentialStore";
 import type {
-  CliCredentialAccess,
   CliHome,
   CliSessionRequest,
   CliStatusOutcome,
@@ -122,18 +126,6 @@ interface SessionDependencies {
   readonly claudeHome?: typeof prepareClaudePlanSessionHome;
 }
 
-/** What a session start has verified about its connection. */
-interface VerifiedStart {
-  readonly provider: CliProviderId;
-  readonly home: CliHome;
-  readonly file: string;
-  /** The ACP entry point of this CLI connection. */
-  readonly adapter: string | null;
-  readonly adapterVersion?: string | null;
-  readonly credentials?: CliCredentialAccess;
-  readonly browser?: Awaited<ReturnType<typeof agentPlaywrightServer>>;
-}
-
 /** A PID namespace contains everything; otherwise only a worker unit frames the session. */
 function sessionContainment(
   isIsolated: boolean,
@@ -148,7 +140,8 @@ function requireAcpMode(
   driver: AcpDriver,
   input: AgentPlanSessionInput,
 ): AcpPermissionMode {
-  const mode = input.options.access;
+  const mode =
+    input.options.access === "full_environment" ? "yolo" : input.options.access;
   if (!isAcpPermissionMode(mode))
     throw new AgentError(driver.errors.modeRequired);
   return mode;
@@ -287,7 +280,11 @@ export class CliSessionExecution implements PlanSessionRunner {
         tools?.supervisor.release(input.instanceId);
       await cleanupSessionAssets(assets, error);
       const provider = input.agent.connection.provider;
-      if (hasVerified && !isApiProvider(provider))
+      if (
+        hasVerified &&
+        !isApiProvider(provider) &&
+        input.options.access !== "full_environment"
+      )
         await this.dependencies.store
           .secure(input.agent.connection.id, provider)
           .catch((secureError: unknown) => {
@@ -309,6 +306,11 @@ export class CliSessionExecution implements PlanSessionRunner {
     if (isApiProvider(provider)) throw new AgentError("provider_invalid");
     const unsupported = sessionRunOptionError(input);
     if (unsupported !== null) throw new AgentError(unsupported);
+    if (input.options.access === "full_environment")
+      return verifyFullEnvironmentStart(input, signal, {
+        locator: this.dependencies.locator,
+        locations,
+      });
     const { store, locator } = this.dependencies;
     const home = await store.prepare(id, provider);
     try {
@@ -406,7 +408,8 @@ export class CliSessionExecution implements PlanSessionRunner {
    * "Nur Lesen" also gets its working copy read-only in the namespace. YOLO
    * runs the runner without an approval step, so only the namespace keeps it
    * inside its workspace and away from the instance folders and other
-   * credentials; without the namespace YOLO does not start.
+   * credentials; without the namespace YOLO does not start. An explicitly
+   * authorized full-environment node instead uses the owner’s host environment.
    */
   private async spawnAcp(
     driver: AcpDriver,
@@ -417,20 +420,13 @@ export class CliSessionExecution implements PlanSessionRunner {
     const mode = requireAcpMode(driver, input);
     const scoped = await this.scopedHome(driver, input, start);
     const adapter = requireAdapter(start.adapter, driver);
-    const purpose = input.chat ? "chat" : (input.purpose ?? "plan");
-    const profile = driver.profile(mode, purpose);
-    const launch = planAcpLaunch(driver, input, start.file, profile);
-    const channel = new AcpLineChannel(
-      input.chat !== undefined &&
-        ["codex_cli", "opencode"].includes(driver.provider),
-    );
-    channel.enableAcknowledgement();
     const github = await this.prepareGitHub(input, start, mode);
-    const redact = createAcpRedactor({
-      credentials: start.credentials,
+    const { profile, launch, channel, redact } = prepareAcpProtocol(
+      driver,
+      input,
+      start,
       github,
-      tokens: acpSessionSecrets(input, launch),
-    });
+    );
     let child: CliSessionProcess | null = null;
     let limited: LimitedRequest | null = null;
     let containment: CliSessionContainment = "none";
@@ -452,14 +448,19 @@ export class CliSessionExecution implements PlanSessionRunner {
           picaNative,
           picaBundle,
           signal: control.signal,
-          onLine: (line) => channel.receive(redact(line)),
+          onLine: (line) =>
+            channel.receive(
+              start.owner ? redactAcpJsonLine(line, redact) : redact(line),
+            ),
         }),
         scoped,
         input,
+        start.owner,
       );
       limited = await this.limit(request, input);
       containment = sessionContainment(isIsolated, limited.request);
       if (control.signal.aborted) throw new AgentPlanCancelledError();
+      if (start.owner) await input.beforeStart?.();
       await control.lifecycle?.beforeSpawn(limited.request.unit?.name);
       child = this.dependencies.runner.startSession(limited.request);
       const namespace = await this.registerNamespace(
@@ -486,7 +487,7 @@ export class CliSessionExecution implements PlanSessionRunner {
         }),
         observer: control.observer,
         signal: control.signal,
-        isolation: `${isolationLabel(isIsolated, mode, driver)}; ${limited.label}`,
+        isolation: `${start.owner ? "full environment: no isolation, full host owner access" : isolationLabel(isIsolated, mode, driver)}; ${limited.label}`,
         containment,
         github: github?.status,
         redact,
@@ -514,19 +515,25 @@ export class CliSessionExecution implements PlanSessionRunner {
    * Wraps a worker in the namespace, or refuses it where the namespace is required.
    *
    * @remarks
-   * Only the chat of an agent employee on YOLO runs on the host itself, with
-   * the rights of the server account (PAGE-303); every plan node and every
-   * other conversation keeps the rules of {@link requireAcpIsolation}.
+   * An explicitly authorized full-environment plan node and the YOLO chat
+   * of an agent employee run on the host itself. Every other session keeps
+   * the rules of {@link requireAcpIsolation}.
    */
   private async isolateWorker(
     worker: CliSessionRequest,
     scoped: ClaudePlanSessionHome | null,
     input: AgentPlanSessionInput,
+    owner?: CliFullEnvironment,
   ): Promise<{
     readonly request: CliSessionRequest;
     readonly isIsolated: boolean;
   }> {
     const mode = input.options.access;
+    if (owner && mode === "full_environment")
+      return {
+        request: fullEnvironmentRequest(worker, owner),
+        isIsolated: false,
+      };
     if (input.chat?.isUnisolated === true && mode === "yolo")
       return { request: worker, isIsolated: false };
     const isolated = await this.gate.isolateSession(worker, scoped);
@@ -571,6 +578,7 @@ export class CliSessionExecution implements PlanSessionRunner {
   ): Promise<ClaudePlanSessionHome | null> {
     // An observer session keeps no transcript, so it needs no home of a plan run.
     if (
+      input.options.access === "full_environment" ||
       driver.provider !== "claude_code" ||
       input.chat ||
       input.purpose === "observer"
@@ -625,7 +633,7 @@ export class CliSessionExecution implements PlanSessionRunner {
     start: VerifiedStart,
     mode: AcpPermissionMode,
   ): Promise<CliGitHubAccess | null> {
-    if (!this.dependencies.github) return null;
+    if (start.owner || !this.dependencies.github) return null;
     const access =
       mode === "yolo" && input.github
         ? await input.github()
@@ -658,6 +666,7 @@ export class CliSessionExecution implements PlanSessionRunner {
     start: VerifiedStart,
     github: CliGitHubAccess | null,
   ): Promise<void> {
+    if (start.owner) return;
     try {
       await github?.cleanup();
     } finally {
@@ -688,7 +697,8 @@ export class CliSessionExecution implements PlanSessionRunner {
         label: `unit ${wrapped.unit.name}: memory ${ACP_WORKER_LIMITS.memoryMax}, swap ${ACP_WORKER_LIMITS.memorySwapMax}, tasks ${ACP_WORKER_LIMITS.tasksMax}, CPU ${ACP_WORKER_LIMITS.cpuQuota}, OOM score ${ACP_WORKER_LIMITS.oomScoreAdjust}`,
       };
     }
-    if (input.chat) throw new AgentError("acp_worker_unit_unavailable");
+    if (input.chat || input.options.access === "full_environment")
+      throw new AgentError("acp_worker_unit_unavailable");
     if (!this.hasWarnedWithoutUnits) {
       this.hasWarnedWithoutUnits = true;
       logDiagnostic(

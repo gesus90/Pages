@@ -85,6 +85,7 @@ function readOptions(input: unknown): AgentRunOptions | null {
       "workspace_write",
       "read_only",
       "yolo",
+      "full_environment",
     ] as const),
     shell: options.shell,
     web: options.web,

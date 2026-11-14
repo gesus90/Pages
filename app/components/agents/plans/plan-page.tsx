@@ -7,6 +7,7 @@ import { planTargetDeviations } from "@/definition/AgentPlanTarget";
 import { PlanRunPanel } from "./plan-run-panel";
 import { sequencedRun } from "./plan-run-status-model";
 import { usePlanControl } from "./use-plan-control";
+import { PlanFullEnvironmentProvider } from "./plan-full-environment";
 import { PlanCanvas } from "./plan-canvas";
 import { PlanCanvasEmpty } from "./plan-canvas-empty";
 import { PlanLeaveGuard } from "./plan-leave-guard";
@@ -160,7 +161,9 @@ export function PlanPage({
 }): React.ReactElement {
   // The models come complete with the page; using a model choice reloads nothing.
   return (
-    <PlanEditorPage page={page} opening={opening} localState={localState} />
+    <PlanFullEnvironmentProvider page={page}>
+      <PlanEditorPage page={page} opening={opening} localState={localState} />
+    </PlanFullEnvironmentProvider>
   );
 }
 

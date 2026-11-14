@@ -11,10 +11,12 @@ import type { AgentParameter } from "./AgentParameters";
  * @remarks
  * `yolo` is the full access of an agent that runs over ACP: Codex CLI,
  * Claude Code or OpenCode. It exists for no other runner. `workspace_write` is the
- * earlier write mode; an ACP agent no longer runs with it until one of its two
- * modes is chosen.
+ * earlier write mode; an ACP agent no longer runs with it until a supported
+ * mode is chosen. `full_environment` is an explicit administrator-only plan
+ * node choice: native YOLO without host isolation, with the owner’s environment.
  */
-export type AgentRunAccess = "workspace_write" | "read_only" | "yolo";
+export type AgentRunAccess =
+  "workspace_write" | "read_only" | "yolo" | "full_environment";
 
 /**
  * How a runner may work and the duration limit of one invocation.
@@ -97,10 +99,15 @@ export function isAcpPermissionMode(
  * runner supports.
  */
 export function acpRunOptions(
-  mode: AcpPermissionMode,
+  mode: AcpPermissionMode | "full_environment",
   timeoutMinutes: number,
 ): AgentRunOptions {
-  return { access: mode, shell: mode === "yolo", web: true, timeoutMinutes };
+  return {
+    access: mode,
+    shell: mode !== "read_only",
+    web: true,
+    timeoutMinutes,
+  };
 }
 
 /** Options of an ACP agent that names none: read only, no deadline. */
@@ -133,7 +140,7 @@ export function agentRunOptionsFor(
   run: AgentRunOptions | undefined,
 ): AgentRunOptions {
   if (run === undefined) return defaultAgentRunOptions(provider);
-  if (!isAcpProvider(provider) || !isAcpPermissionMode(run.access)) return run;
+  if (!isAcpProvider(provider) || !isPlanPermissionMode(run.access)) return run;
   return {
     ...acpRunOptions(run.access, run.timeoutMinutes),
     ...(run.browser === undefined ? {} : { browser: run.browser }),
@@ -161,11 +168,12 @@ export function isAgentRunOptionsAllowed(
 ): boolean {
   if (
     run?.browser === true &&
-    (!isAcpProvider(provider) || run.access !== "yolo")
+    (!isAcpProvider(provider) || !isAgentWriteAccess(run.access))
   )
     return false;
-  if (!isAcpProvider(provider)) return run?.access !== "yolo";
-  if (run === undefined || isAcpPermissionMode(run.access)) return true;
+  if (!isAcpProvider(provider))
+    return run === undefined || !isAgentWriteAccess(run.access);
+  if (run === undefined || isPlanPermissionMode(run.access)) return true;
   return JSON.stringify(run) === JSON.stringify(previous);
 }
 
@@ -204,4 +212,16 @@ export function emptyAgentConfiguration(
     sharing: { isGlobal: false, targets: [] },
     run: DEFAULT_AGENT_RUN_OPTIONS,
   };
+}
+
+/** Whether a plan explicitly selects a supported native mode or the full host environment. */
+export function isPlanPermissionMode(
+  access: unknown,
+): access is AcpPermissionMode | "full_environment" {
+  return isAcpPermissionMode(access) || access === "full_environment";
+}
+
+/** Whether a node explicitly grants all native tools, with or without host isolation. */
+export function isAgentWriteAccess(access: AgentRunAccess): boolean {
+  return access === "yolo" || access === "full_environment";
 }

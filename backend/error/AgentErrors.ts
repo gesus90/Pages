@@ -2,6 +2,12 @@ import type { AgentUsage } from "@/definition/AgentUsage";
 
 /** Stable codes cross the HTTP boundary; upstream error text never does. */
 export const AGENT_ERROR_MESSAGES = {
+  plan_full_environment_forbidden:
+    "Full environment requires explicit authorization by an active human administrator.",
+  plan_full_environment_owner_unavailable:
+    "The plan owner must be the explicitly bound Linux host owner; check PAGES_FULL_ENVIRONMENT_OWNER_ID and the login shell.",
+  plan_full_environment_local_only:
+    "Full environment requires a local node on the explicitly bound owner's host.",
   plan_start_end_disconnected: "Start is not connected to End.",
   workspace_unavailable:
     "No usable workspace of this project is available. Add or enable a workspace and try cloning again.",

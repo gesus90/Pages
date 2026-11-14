@@ -1,6 +1,7 @@
 import { expect, it, vi } from "vitest";
 
 import {
+  requireAcpIsolation,
   sessionRunOptionError,
   unsupportedRunOption,
 } from "@/backend/agents/cli/CliSessionPlans";
@@ -64,3 +65,14 @@ it("checks the plan mode of a runner session", () => {
     ),
   ).toBeNull();
 });
+
+it.each(["codex_cli", "claude_code"] as const)(
+  "refuses unisolated YOLO plan steps for %s",
+  (provider) => {
+    const input = sessionInput(provider, acpRunOptions("yolo", 0));
+    expect(() => requireAcpIsolation(false, "yolo", input)).toThrow(
+      expect.objectContaining({ code: "plan_yolo_isolation_unavailable" }),
+    );
+    expect(() => requireAcpIsolation(true, "yolo", input)).not.toThrow();
+  },
+);

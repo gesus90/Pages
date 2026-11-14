@@ -52,3 +52,33 @@ export function acpSessionSecrets(
     }),
   ];
 }
+
+function redactJsonText(
+  input: unknown,
+  redact: (text: string) => string,
+): unknown {
+  if (typeof input === "string") return redact(input);
+  if (Array.isArray(input))
+    return input.map((entry: unknown) => redactJsonText(entry, redact));
+  if (input !== null && typeof input === "object")
+    return Object.fromEntries(
+      Object.entries(input).map(([key, entry]: [string, unknown]) => [
+        key,
+        redactJsonText(entry, redact),
+      ]),
+    );
+  return input;
+}
+
+/** Redacts parsed ACP text without allowing a credential pattern to consume JSON quotes or framing. */
+export function redactAcpJsonLine(
+  line: string,
+  redact: (text: string) => string,
+): string {
+  try {
+    const parsed: unknown = JSON.parse(line);
+    return JSON.stringify(redactJsonText(parsed, redact));
+  } catch {
+    return redact(line);
+  }
+}

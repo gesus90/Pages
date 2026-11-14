@@ -148,6 +148,7 @@ export function planAcpLaunch(
 ): AcpLaunch {
   return driver.plan({
     instanceId: input.instanceId,
+    isFullEnvironment: input.options.access === "full_environment",
     runnerFile: file,
     profile,
     mcp: input.mcp ?? null,
