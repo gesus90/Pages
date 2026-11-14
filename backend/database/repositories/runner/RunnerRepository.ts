@@ -98,6 +98,24 @@ export class RunnerRepository {
     });
   }
 
+  /** Wakes only obligations of a runner whose authenticated channel became available again. */
+  public async reconnected(connectionId: string): Promise<void> {
+    await this.database.execute(
+      `
+      UPDATE agent_workspace_cleanup AS cleanup
+      SET attempts = 0, next_attempt_at = 0, retry_started_at = utc_now(),
+          event_revision = event_revision + 1, state = 'pending',
+          updated_at = CASE WHEN cleanup.state <> 'pending' THEN utc_now() ELSE cleanup.updated_at END
+      FROM agent_plan_runs AS runs
+      WHERE runs.id = cleanup.run_id AND cleanup.state <> 'completed'
+          AND jsonb_path_exists(runs.view_json::jsonb,
+              '$.**.connectionId ? (@ == $connection)',
+              jsonb_build_object('connection', $connection_id::text));
+    `,
+      { connection_id: connectionId },
+    );
+  }
+
   /** Removes credentials and checkpoints after an explicit administrator revocation. */
   public async remove(connectionId: string): Promise<void> {
     await this.database.execute(

@@ -6240,6 +6240,9 @@
         "loop": "loop session"
       },
       "cleanupFailure": {
+        "worker_unit_active": "Step {{step}}: the worker unit is still active or its end is unconfirmed.",
+        "lease_too_recent": "Step {{step}}: the legacy reservation without a unit or namespace is not yet older than 15 minutes.",
+        "engine_active": "Step {{step}}: the earlier run is still executing.",
         "scan_access_denied": "The process scan for {{step}} ({{resource}}) was denied access. Correct the scan permissions and retry cleanup.",
         "scan_unavailable": "The process scan for {{step}} ({{resource}}) failed. Check that the process scanner is available and retry cleanup.",
         "processes_remaining": "Processes for {{step}} ({{resource}}) are still present. Wait for them to end and retry cleanup.",
@@ -6306,6 +6309,11 @@
       "foreignStartConfirm": "I start a new run from the beginning. The other person's ended run is not resumed by this.",
       "foreignStartCancel": "Cancel",
       "foreignStartAction": "Start new run",
+      "cleanupNeedsDecision": "Needs a decision. Automatic checks stopped.",
+      "cleanupRetry": "Check again",
+      "cleanupRelease": "Release as completed",
+      "cleanupReleaseConfirm": "I confirm that every process of this run has ended (for example after a verified host reboot). Release as completed?",
+      "cleanupDecisionFailed": "The decision could not be saved.",
       "cleanupObligation": "Pending cleanup for {{workspace}}, source run {{run}}.",
       "writerWait": "Queued for write resource {{resource}}; owner {{run}}.",
       "otherOwner": "another executor",

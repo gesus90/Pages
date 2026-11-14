@@ -1,3 +1,4 @@
+import { readAgentJson } from "@/app/lib/agent-json.server";
 import { authenticatedUserContext } from "@/app/lib/auth.server";
 import { getApplicationServices } from "@/app/lib/services.server";
 import {
@@ -64,5 +65,40 @@ export async function loader({
       { ...readAgentObject(detail), runId },
       { status: failure.status, headers: AGENT_NO_STORE },
     );
+  }
+}
+
+/** Accepts the owner's explicit retry or process-end attestation; never starts a run. */
+export async function action({
+  request,
+  context,
+}: Route.ActionArgs): Promise<Response> {
+  try {
+    if (request.method !== "POST")
+      return new Response(null, {
+        status: 405,
+        headers: { ...AGENT_NO_STORE, Allow: "POST" },
+      });
+    const user = context.get(authenticatedUserContext);
+    const origin = request.headers.get("Origin");
+    if (!user || (origin !== null && origin !== new URL(request.url).origin))
+      throw new AgentError("plan_access_denied");
+    const input = readAgentObject(await readAgentJson(request));
+    if (input.action !== "retry" && input.action !== "release")
+      throw new AgentError("plan_run_unavailable");
+    if (input.action === "release" && input.processEndVerified !== true)
+      throw new AgentError("plan_run_unavailable");
+    await (
+      await getApplicationServices()
+    ).agentPlanService.decideWorkspaceCleanup(user.id, {
+      planId: readPlanText(input.planId),
+      runId: readPlanText(input.runId),
+      workspaceId: readPlanText(input.workspaceId),
+      action: input.action,
+    });
+    return Response.json({ ok: true }, { headers: AGENT_NO_STORE });
+  } catch (error: unknown) {
+    logCaughtError("agent_workspace_cleanup_decision", error);
+    return agentFailureResponse(error, "cleanup-decision");
   }
 }

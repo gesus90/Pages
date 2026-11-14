@@ -12,6 +12,8 @@ import { isRemoteCloseoutUnconfirmed } from "@/definition/AgentPlanRemoteCloseou
 import { logCaughtError } from "@/backend/logging/Logger";
 import { isActivePlanRun } from "@/definition/AgentPlanRunState";
 
+import { cleanupRestartSource } from "./AgentPlanRestartCleanup";
+
 import {
   recoveredAgentContext,
   withRecoveredAgentContext,
@@ -38,6 +40,7 @@ import {
   reviewedRetries,
 } from "./AgentPlanRecoveryPlanning";
 
+import type { RestartOwners } from "./AgentPlanRestartCleanup";
 import type { PlanRunEnginePort } from "../runs/PlanRunEnginePort";
 import type { AgentPlanRun } from "@/definition/AgentPlan";
 import type {
@@ -66,11 +69,13 @@ import type { RecoveryFacts } from "./AgentPlanRecoveryPlanning";
 export interface RecoveryActionDependencies {
   readonly runs: Pick<AgentPlanService, "run"> &
     Partial<Pick<AgentPlanService, "controlRun" | "readableRun">>;
-  readonly remoteExecution?: Pick<AgentPlanRemoteExecution, "stop">;
+  readonly remoteExecution?: Pick<AgentPlanRemoteExecution, "stop"> &
+    Partial<Pick<AgentPlanRemoteExecution, "withProgress">>;
+  readonly restartOwners?: RestartOwners;
   readonly access: Pick<AgentPlanAccess, "require">;
   readonly preparation: Pick<AgentPlanPreparation, "prepare">;
   readonly engine: Pick<AgentPlanRunEngine, "startRecovered"> &
-    Partial<Pick<PlanRunEnginePort, "isActive">>;
+    Partial<Pick<PlanRunEnginePort, "isActive" | "stop">>;
   readonly planRuns: Pick<
     AgentPlanRunRepository,
     "latest" | "hasReservation" | "release"
@@ -78,7 +83,8 @@ export interface RecoveryActionDependencies {
   readonly executions: AgentPlanRecoveryExecutionRepository;
   readonly checkpoints: Pick<AgentPlanCheckpointRepository, "list" | "append">;
   /** Rechecks the ACP leases of the run; absent without native capacity journal. */
-  readonly resources?: Pick<AcpResourceScheduler, "reconcile" | "snapshot">;
+  readonly resources?: Pick<AcpResourceScheduler, "reconcile" | "snapshot"> &
+    Partial<Pick<AcpResourceScheduler, "prepareRestart" | "releaseRestart">>;
 }
 
 type RestartCommand = Extract<
@@ -290,6 +296,7 @@ export class AgentPlanRecoveryActions {
       throw new AgentPlanRecoveryError("review_required");
     if (facts.plan.revision !== request.command.revision)
       throw new AgentError("plan_conflict");
+    await cleanupRestartSource(this.dependencies, facts.run);
     let snapshot: AgentPlanSnapshot;
     try {
       snapshot = await this.dependencies.preparation.prepare(

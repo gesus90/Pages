@@ -41,7 +41,8 @@ export async function attemptPlanStartCleanup(
 export async function cleanupPlanStartOwner(
   run: AgentPlanRun,
   localOwners: readonly string[],
-  remote?: Pick<AgentPlanRemoteExecution, "stop" | "withProgress">,
+  remote?: Pick<AgentPlanRemoteExecution, "stop"> &
+    Partial<Pick<AgentPlanRemoteExecution, "withProgress">>,
 ): Promise<readonly AgentPlanReleasedProcess[]> {
   const steps = new Map<string, AgentPlanStepResult>();
   for (const step of allPlanRunResults(run)) {
@@ -60,7 +61,7 @@ export async function cleanupPlanStartOwner(
       processId: null,
       kind: "remote_attempt" as const,
       confirmed: await attemptPlanStartCleanup(async () => {
-        if (!remote) return false;
+        if (!remote?.withProgress) return false;
         await remote.stop(attempt);
         return !allPlanRunResults(await remote.withProgress(attempt)).some(
           isRemoteCloseoutUnconfirmed,

@@ -17,7 +17,8 @@ export interface RegistrationGrant {
 export type RunnerStore = Pick<
   RunnerRepository,
   "find" | "create" | "checkpoint" | "remove"
->;
+> &
+  Partial<Pick<RunnerRepository, "reconnected">>;
 export type RunnerConnectionAccess = Pick<
   RemoteConnectionService,
   "scope" | "scopeForRunner" | "requireUsable"

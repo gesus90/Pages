@@ -101,7 +101,7 @@ async function requireProjectRunCloseout(
     SELECT run_id AS instance_id
     FROM agent_workspace_cleanup
     WHERE run_id IN (${PLAN_RUNS})
-        AND state = 'pending'
+        AND state <> 'completed'
     LIMIT 1;
   `,
     parameters,

@@ -504,6 +504,7 @@ function createRecoveryService(
       planRuns: parts.runs,
       remoteExecution: parts.remoteExecution,
       resources: input.agents.acpResourceScheduler,
+      restartOwners: new AgentPlanStartResourceRepository(input.database),
       executions: new AgentPlanRecoveryExecutionRepository(input.database),
     },
   });

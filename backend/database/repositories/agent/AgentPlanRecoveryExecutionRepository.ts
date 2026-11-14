@@ -224,6 +224,85 @@ export class AgentPlanRecoveryExecutionRepository {
     });
   }
 
+  /** Recognizes cleanup evidence only for this exact, unchanged historical run view. */
+  public async hasRestartProof(run: AgentPlanRun): Promise<boolean> {
+    const rows = await this.database.query(
+      `
+      SELECT run_id
+      FROM agent_workspace_cleanup
+      WHERE workspace_id = $workspace_id
+          AND run_id = $run_id
+          AND owner_id = $owner_id
+          AND state = 'completed'
+          AND blocker = 'restart_processes_ended';
+    `,
+      {
+        workspace_id: `verified:${run.id}:${planContentDigest(run)}`,
+        run_id: run.id,
+        owner_id: run.userId,
+      },
+    );
+    return rows.length > 0;
+  }
+
+  /** Releases proven restart resources before ending the predecessor; its command revision stays valid. */
+  public async retireForRestart(run: AgentPlanRun): Promise<void> {
+    await this.database.transaction(async (transaction) => {
+      await requireUnchangedRun(transaction, run);
+      await transaction.execute(
+        "DELETE FROM acp_resource_leases WHERE run_id = $run_id;",
+        { run_id: run.id },
+      );
+      await transaction.execute(
+        "DELETE FROM agent_plan_workspace_locks WHERE run_id = $run_id;",
+        { run_id: run.id },
+      );
+      await transaction.execute(
+        `
+        UPDATE agent_local_session_owners SET released_at = utc_now(), importer_token = NULL
+        WHERE run_id = $run_id AND released_at IS NULL;
+      `,
+        { run_id: run.id },
+      );
+      const ended = run.status === "succeeded" ? run : cancelledRun(run);
+      await transaction.execute(
+        `
+        UPDATE agent_plan_runs SET status = $status, view_json = $view_json WHERE id = $run_id;
+      `,
+        {
+          run_id: run.id,
+          status: ended.status,
+          view_json: JSON.stringify(ended),
+        },
+      );
+      await transaction.execute(
+        `
+        UPDATE agent_workspace_cleanup
+        SET state = 'completed', blocker = 'restart_processes_ended', updated_at = utc_now()
+        WHERE run_id = $run_id AND state <> 'completed';
+      `,
+        { run_id: run.id },
+      );
+      const canonical = readPlanRun(JSON.parse(JSON.stringify(ended)));
+      await transaction.execute(
+        `
+        INSERT INTO agent_workspace_cleanup (
+            workspace_id, run_id, owner_id, removed_by, workspace_name, state, blocker
+        ) VALUES (
+            $workspace_id, $run_id, $owner_id, $owner_id, $name, 'completed', 'restart_processes_ended'
+        )
+        ON CONFLICT (workspace_id, run_id) DO NOTHING;
+      `,
+        {
+          workspace_id: `verified:${run.id}:${planContentDigest(canonical)}`,
+          run_id: run.id,
+          owner_id: run.userId,
+          name: run.planName,
+        },
+      );
+    });
+  }
+
   /** Restores logical control while retaining every physical cleanup reservation and prior job identity. */
   public async recordReset(
     write: RecoveryExecutionWrite,

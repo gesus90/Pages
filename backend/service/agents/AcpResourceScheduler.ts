@@ -5,6 +5,7 @@ import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError
 import { logCaughtError } from "@/backend/logging/Logger";
 import { isAcpSessionLimit, MAX_ACP_SESSIONS } from "@/definition/AcpResource";
 
+import { endRestartLease } from "./resources/AcpRestartLease";
 import { forceReleaseAcpRun } from "./resources/AcpRunRelease";
 import { cleanupAcpLease, recoverAcpLease } from "./resources/AcpLeaseRecovery";
 import { AcpWaitDiagnostics } from "./resources/AcpWaitDiagnostics";
@@ -325,6 +326,51 @@ export class AcpResourceScheduler {
         finish: (id, confirmed) => this.finish(id, confirmed),
       });
     return this.checks.reconcile(runId);
+  }
+
+  /** Stops all durable leases of an explicitly restarting run before releasing any capacity. */
+  public async prepareRestart(runId: string): Promise<ReadonlySet<string>> {
+    this.pausedRuns.delete(runId);
+    for (const request of [...this.waiting])
+      if (request.owner.runId === runId) request.abort();
+    const records = (await this.store.list()).filter(
+      (record) => record.runId === runId,
+    );
+    for (const record of records) {
+      await endRestartLease(record);
+      const session = this.sessions.get(record.instanceId);
+      if (
+        session &&
+        !(await session.close()).isConfirmed &&
+        !record.workerUnit &&
+        !record.namespace
+      )
+        throw new Error("Session closeout unconfirmed");
+    }
+    return new Set(records.map((record) => record.instanceId));
+  }
+
+  /** Frees a previously checked restart's durable leases, then wakes waiting admissions. */
+  public async releaseRestart(
+    runId: string,
+    proven: ReadonlySet<string>,
+    retire: () => Promise<void>,
+  ): Promise<void> {
+    const records = (await this.store.list()).filter(
+      (record) => record.runId === runId,
+    );
+    for (const record of records) {
+      if (!proven.has(record.instanceId))
+        throw new Error("Restart lease changed");
+      await endRestartLease(record);
+    }
+    // The run repository releases leases, bindings and locks and ends the run atomically.
+    await retire();
+    for (const record of records) {
+      this.sessions.delete(record.instanceId);
+      this.active.delete(record.instanceId);
+    }
+    this.wake();
   }
 
   /** Frees only an explicitly superseded run's capacity after its process cleanup was attempted. */

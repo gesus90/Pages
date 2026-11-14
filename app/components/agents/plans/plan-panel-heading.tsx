@@ -1,3 +1,4 @@
+import { PlanWorkspaceCleanup } from "./plan-workspace-cleanup";
 import { ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
@@ -224,21 +225,10 @@ function PlanControlNotes(props: PlanPanelHeadingProps): React.ReactElement {
           })}
         </p>
       ) : null}
-      {control?.cleanup?.map((entry) => (
-        <p
-          key={`${entry.workspaceId}:${entry.runId}`}
-          role="status"
-          className="px-4 pt-2 text-xs wrap-anywhere text-warning"
-        >
-          {t("plans.recovery.cleanupObligation", {
-            workspace: entry.workspaceName,
-            run: entry.runId,
-          })}{" "}
-          {t(`plans.recovery.cleanupBlocker.${entry.blocker}`, {
-            defaultValue: entry.blocker,
-          })}
-        </p>
-      ))}
+      <PlanWorkspaceCleanup
+        entries={control?.cleanup ?? []}
+        planId={props.page.selected?.id ?? ""}
+      />
       {props.page.selected?.isWorkspaceMissing ? (
         <p
           role="status"

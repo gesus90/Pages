@@ -8,6 +8,7 @@ import {
   requireManagementPlanAccess,
   requireManagementScriptExecution,
 } from "../management/ManagementPlanAccess";
+import { decideWorkspaceCleanup } from "./AgentWorkspaceCleanupDecision";
 import { reviseAgentPlan } from "./AgentPlanRevision";
 import { AgentPlanSettings } from "./AgentPlanSettings";
 import { planDependenciesForChannel } from "./AgentPlanChannel";
@@ -729,6 +730,14 @@ export class AgentPlanService extends AgentPlanTeamReads {
     await this.run(userId, id);
     await this.dependencies.engine.resume(id, snapshot, journal);
     return this.run(userId, id);
+  }
+
+  /** Applies the executor's explicit cleanup decision without starting another run. */
+  public async decideWorkspaceCleanup(
+    userId: string,
+    input: Parameters<typeof decideWorkspaceCleanup>[2],
+  ): Promise<void> {
+    await decideWorkspaceCleanup(this.dependencies, userId, input);
   }
 
   /** Public control metadata lets shared readers see true state without disclosing run output. */

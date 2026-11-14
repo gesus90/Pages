@@ -6240,6 +6240,9 @@
         "loop": "Loop-Sitzung"
       },
       "cleanupFailure": {
+        "worker_unit_active": "Schritt {{step}}: Die Worker-Unit ist noch aktiv oder ihr Ende ist unbestätigt.",
+        "lease_too_recent": "Schritt {{step}}: Die ältere Reservierung ohne Unit und Namespace ist noch keine 15 Minuten alt.",
+        "engine_active": "Schritt {{step}}: Der frühere Lauf wird noch ausgeführt.",
         "scan_access_denied": "Die Prozessprüfung für {{step}} ({{resource}}) wurde wegen fehlender Berechtigung abgelehnt. Berechtigung für die Prozessprüfung korrigieren und Bereinigung erneut versuchen.",
         "scan_unavailable": "Die Prozessprüfung für {{step}} ({{resource}}) ist fehlgeschlagen. Verfügbarkeit der Prozessprüfung kontrollieren und Bereinigung erneut versuchen.",
         "processes_remaining": "Für {{step}} ({{resource}}) sind noch Prozesse vorhanden. Auf deren Ende warten und Bereinigung erneut versuchen.",
@@ -6306,6 +6309,11 @@
       "foreignStartConfirm": "Ich starte einen neuen Lauf von vorne. Der beendete Lauf der anderen Person wird dadurch nicht fortgesetzt.",
       "foreignStartCancel": "Abbrechen",
       "foreignStartAction": "Neuen Lauf starten",
+      "cleanupNeedsDecision": "Braucht Entscheidung. Automatische Prüfung angehalten.",
+      "cleanupRetry": "Erneut prüfen",
+      "cleanupRelease": "Als erledigt freigeben",
+      "cleanupReleaseConfirm": "Ich bestätige, dass alle Prozesse dieses Laufs beendet sind (zum Beispiel durch einen überprüften Host-Neustart). Als erledigt freigeben?",
+      "cleanupDecisionFailed": "Die Entscheidung konnte nicht gespeichert werden.",
       "cleanupObligation": "Ausstehende Bereinigung für {{workspace}}, Ursprungslauf {{run}}.",
       "writerWait": "Wartet auf Schreibressource {{resource}}; Besitzer {{run}}.",
       "otherOwner": "anderer Ausführender",
