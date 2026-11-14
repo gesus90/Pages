@@ -283,6 +283,35 @@ export function readUsageRow(row: Row): AgentSessionTurnUsage {
   };
 }
 
+/** Reads one native OpenRouter message joined to its Pages attempt. */
+export function readOpenRouterUsageRow(row: Row): AgentSessionTurnUsage {
+  const state = readTextColumn(row, 11, "cost_state");
+  if (state !== "known" && state !== "free" && state !== "unknown")
+    throw new Error("Invalid OpenRouter cost state");
+  const cost = row[10];
+  return {
+    attemptId: readTextColumn(row, 0, "attempt_id"),
+    turn: readCountColumn(row, 1, "turn"),
+    provider: "opencode",
+    model: readTextColumn(row, 2, "model"),
+    inputTokens: readCountColumn(row, 3, "input_tokens"),
+    outputTokens: readCountColumn(row, 4, "output_tokens"),
+    reasoningTokens: readCountColumn(row, 5, "reasoning_tokens"),
+    cacheReadTokens: readCountColumn(row, 6, "cache_read_tokens"),
+    cacheWriteTokens: readCountColumn(row, 7, "cache_write_tokens"),
+    totalTokens: [3, 4, 5, 6, 7].reduce(
+      (sum, index) => sum + readCountColumn(row, index, "token_count"), 0,
+    ),
+    inputIncludesCache: false,
+    isPartial: false,
+    costAmount: typeof cost === "number" || typeof cost === "string" ? Number(cost) : null,
+    costState: state,
+    priceSnapshot: readNullableTextColumn(row, 12, "price_snapshot"),
+    pricedAt: readNullableTextColumn(row, 13, "priced_at"),
+    reportedAt: readTextColumn(row, 8, "reported_at"),
+  };
+}
+
 /** Reads a message selected with {@link MESSAGE_COLUMNS}. */
 export function readMessageRow(row: Row): AgentSessionMessage {
   const kind = readTextColumn(row, 3, "kind");

@@ -12,6 +12,8 @@ import {
   readContextUsage,
   readTurnTokens,
 } from "./AgentSessionUsage";
+import { readOpenCodeNativeUsage } from "./OpenCodeNativeUsage";
+import { chargeOpenRouterMessage } from "./OpenRouterPricing";
 
 import type {
   AgentCapabilities,
@@ -29,6 +31,8 @@ import type {
   AgentSessionStore,
 } from "./AgentSessionStore";
 import type { AgentSessionCost } from "@/definition/AgentSessionJournal";
+import type { OpenRouterPricing } from "./OpenRouterPricing";
+import type { OpenCodeNativeMessage } from "./OpenCodeNativeUsage";
 
 /** The key under which claude-agent-acp names the model of a usage update. */
 const CLAUDE_MODEL_KEY = "_claude/model";
@@ -38,6 +42,7 @@ export interface AgentSessionRecorderDependencies {
   readonly journal: AgentSessionJournal;
   readonly store: AgentSessionStore;
   readonly clock?: () => string;
+  readonly pricing?: OpenRouterPricing;
 }
 
 /** Updates of agent activity that end the current message. */
@@ -228,6 +233,15 @@ function reportedModel(
   return typeof model === "string" && model.length > 0 ? model : null;
 }
 
+function nativeMessages(dataHome: string, sessionId: string): readonly OpenCodeNativeMessage[] {
+  try {
+    return readOpenCodeNativeUsage(dataHome, sessionId);
+  } catch (error: unknown) {
+    logCaughtError("AgentSessionRecorder", error);
+    return [];
+  }
+}
+
 /**
  * Records what the adapter process of a plan session reports into the attempt whose turn runs.
  *
@@ -356,6 +370,15 @@ export class AgentSessionRecorder implements AcpSessionListener {
     this.flushMessage();
     const { provider, key } = this.attempt;
     const turn = this.turn();
+    if (provider === "opencode" && this.attempt.requestedModel?.startsWith("openrouter/")) {
+      this.turns.set(key.attemptId, turn + 1);
+      this.record({
+        kind: "status",
+        text: isContinued ? `turn ${turn} continued` : `turn ${turn} ended`,
+        turn,
+      });
+      return;
+    }
     const capability = ACP_USAGE_CAPABILITIES[provider];
     const delta = readTurnTokens(capability, usage, this.lastUsage);
     this.lastUsage = usage ?? this.lastUsage;
@@ -378,6 +401,49 @@ export class AgentSessionRecorder implements AcpSessionListener {
         reportedAt,
       }),
     );
+  };
+
+  /** Reads each completed native OpenCode message once, including sub-sessions. */
+  public readonly nativeUsage = async (
+    sessionId: string,
+    dataHome: string,
+  ): Promise<void> => {
+    if (!this.attempt.requestedModel?.startsWith("openrouter/")) return;
+    const save = this.dependencies.store.saveOpenRouterUsage;
+    if (!save) return;
+    const snapshot = this.dependencies.pricing?.current() ?? null;
+    const attemptId = this.attempt.key.attemptId;
+    const reportedAt = this.clock();
+    for (const message of nativeMessages(dataHome, sessionId)) {
+      const charge = chargeOpenRouterMessage(message.model, message.tokens, snapshot);
+      const inserted = await save.call(this.dependencies.store, {
+        sessionId: message.sessionId,
+        messageId: message.messageId,
+        attemptId,
+        model: message.model,
+        inputTokens: message.tokens.input,
+        outputTokens: message.tokens.output,
+        reasoningTokens: message.tokens.reasoning,
+        cacheReadTokens: message.tokens.cacheRead,
+        cacheWriteTokens: message.tokens.cacheWrite,
+        nativeCost: message.nativeCost,
+        costAmount: charge.amount,
+        costState: charge.state,
+        priceSnapshot: charge.prices ? JSON.stringify(charge.prices) : null,
+        pricedAt: charge.pricedAt,
+        reportedAt,
+      });
+      if (!inserted) continue;
+      this.record({ kind: "usage", text: `OpenRouter usage ${message.messageId}` });
+      if (
+        charge.amount !== null &&
+        message.nativeCost !== null &&
+        Math.abs(charge.amount - message.nativeCost) > 0.00000001
+      ) this.record({
+        kind: "status",
+        text: `OpenRouter catalog cost $${charge.amount} differs from OpenCode $${message.nativeCost} for ${message.messageId}`,
+      });
+    }
   };
 
   /** Records that the connection to the adapter ended. */
@@ -499,7 +565,9 @@ export class AgentSessionRecorder implements AcpSessionListener {
       model !== null && this.attempt.confirmedModel.value === null
         ? { value: model, source: "acp_usage_report" as const, reportedAt }
         : this.attempt.confirmedModel;
-    const cost = readCost(update) ?? this.attempt.context.cost ?? null;
+    const cost = this.attempt.requestedModel?.startsWith("openrouter/")
+      ? null
+      : readCost(update) ?? this.attempt.context.cost ?? null;
     this.persist({
       ...this.attempt,
       context: {

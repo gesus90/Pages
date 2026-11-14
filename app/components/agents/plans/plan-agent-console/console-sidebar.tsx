@@ -13,6 +13,7 @@ import type { AgentPlanStepResult } from "@/definition/AgentPlan";
 import type { AgentPlanProgressItem } from "@/definition/AgentPlanProgress";
 import type {
   AgentSessionContextUsage,
+  AgentSessionUsageTotal,
   AgentSessionView,
 } from "@/definition/AgentSessionJournal";
 
@@ -207,6 +208,29 @@ function contextShare(context: AgentSessionContextUsage): number | null {
   return Math.min(100, (contextUsed / contextLimit) * 100);
 }
 
+function openRouterCost(
+  total: AgentSessionUsageTotal | null,
+  language: string,
+  labels: { readonly free: string; readonly unknown: string; readonly missing: string },
+): string {
+  if (!total) return labels.missing;
+  if (total.costState === "free") return labels.free;
+  if (total.costState === "unknown" || total.costAmount === null)
+    return labels.unknown;
+  return new Intl.NumberFormat(language, {
+    style: "currency", currency: "USD", minimumFractionDigits: 6,
+    maximumFractionDigits: 8,
+  }).format(total.costAmount);
+}
+
+function usageCount(
+  count: number | null | undefined,
+  numbers: Intl.NumberFormat,
+  missing: string,
+): string {
+  return count === null || count === undefined ? missing : numbers.format(count);
+}
+
 function UsageSection(props: {
   readonly view: AgentSessionView;
   /** A turn runs now: its tokens arrive with its end. */
@@ -224,6 +248,13 @@ function UsageSection(props: {
       ? unknown
       : `${numbers.format(used)} / ${context.contextLimit === null ? unknown : numbers.format(context.contextLimit)}`;
   const totals = props.view.nodeTotals ?? props.view.totals;
+  const isOpenRouter = props.view.provider === "opencode" &&
+    props.view.model.requestedModel.value?.startsWith("openrouter/") === true;
+  const openRouterTotal = isOpenRouter ? totals[0] ?? null : null;
+  const missing = t(`${key}.notReported`);
+  const free = t(`${key}.free`);
+  const priceUnknown = t(`${key}.priceUnknown`);
+  const costLabels = { free, unknown: priceUnknown, missing };
   const known = totals.flatMap((total) =>
     total.totalTokens === null ? [] : [total.totalTokens],
   );
@@ -231,7 +262,9 @@ function UsageSection(props: {
     known.length === 0
       ? unknown
       : numbers.format(known.reduce((sum, value) => sum + value, 0));
-  const cost = context.cost
+  const cost = isOpenRouter
+    ? openRouterCost(openRouterTotal, i18n.language, costLabels)
+    : context.cost
     ? new Intl.NumberFormat(i18n.language, {
         style: "currency",
         currency: context.cost.currency,
@@ -256,9 +289,26 @@ function UsageSection(props: {
         </div>
         <Fact
           label={t(`${key}.tokens`)}
-          value={props.isTurnRunning ? t(`${key}.afterTurn`) : tokens}
+          value={props.isTurnRunning && !isOpenRouter ? t(`${key}.afterTurn`) : isOpenRouter && !openRouterTotal ? missing : tokens}
         />
         <Fact label={t(`${key}.cost`)} value={cost} />
+        {isOpenRouter ? (
+          <>
+            <Fact label={t(`${key}.inputTokens`)} value={usageCount(openRouterTotal?.inputTokens, numbers, missing)} />
+            <Fact label={t(`${key}.outputTokens`)} value={usageCount(openRouterTotal?.outputTokens, numbers, missing)} />
+            <Fact label={t(`${key}.reasoningTokens`)} value={usageCount(openRouterTotal?.reasoningTokens, numbers, missing)} />
+            <Fact label={t(`${key}.cacheReadTokens`)} value={usageCount(openRouterTotal?.cacheReadTokens, numbers, missing)} />
+            <Fact label={t(`${key}.cacheWriteTokens`)} value={usageCount(openRouterTotal?.cacheWriteTokens, numbers, missing)} />
+            <Fact label={t(`${key}.runTokens`)} value={usageCount(props.view.openRouterRunTotal?.totalTokens, numbers, missing)} />
+            <Fact label={t(`${key}.runCost`)} value={openRouterCost(props.view.openRouterRunTotal ?? null, i18n.language, costLabels)} />
+            <Fact label={t(`${key}.runInputTokens`)} value={usageCount(props.view.openRouterRunTotal?.inputTokens, numbers, missing)} />
+            <Fact label={t(`${key}.runOutputTokens`)} value={usageCount(props.view.openRouterRunTotal?.outputTokens, numbers, missing)} />
+            <Fact label={t(`${key}.runReasoningTokens`)} value={usageCount(props.view.openRouterRunTotal?.reasoningTokens, numbers, missing)} />
+            <Fact label={t(`${key}.runCacheReadTokens`)} value={usageCount(props.view.openRouterRunTotal?.cacheReadTokens, numbers, missing)} />
+            <Fact label={t(`${key}.runCacheWriteTokens`)} value={usageCount(props.view.openRouterRunTotal?.cacheWriteTokens, numbers, missing)} />
+            {props.view.isOpenRouterRunIncomplete ? <p className="text-xs text-muted-foreground">{t(`${key}.incomplete`)}</p> : null}
+          </>
+        ) : null}
       </dl>
     </SidebarSection>
   );

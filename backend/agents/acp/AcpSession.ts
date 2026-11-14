@@ -163,6 +163,8 @@ export class AcpSession implements PlanSession {
       .onNotification(methods.client.session.update, async (notification) => {
         try {
           this.receive(notification.params);
+          if (notification.params.update.sessionUpdate === "usage_update")
+            await this.synchronizeNativeUsage();
           await this.context.listener?.drained?.();
         } catch (error: unknown) {
           logCaughtError("AcpSession", error);
@@ -388,10 +390,12 @@ export class AcpSession implements PlanSession {
       isClosing: () => this.closing !== null,
       continued: async (cut) => {
         this.context.listener?.prompted(cut.usage ?? null, true);
+        await this.synchronizeNativeUsage();
         await this.context.listener?.drained?.();
       },
     });
     this.context.listener?.prompted(response.usage ?? null);
+    await this.synchronizeNativeUsage();
     await this.context.listener?.drained?.();
     noteSessionEvent(this.state.events, `turn ${response.stopReason}`);
     if (
@@ -538,6 +542,18 @@ export class AcpSession implements PlanSession {
     if (driver.provider === "opencode")
       this.state.effective.reasoningEffort ??= "default";
     this.expectedConfiguration = { ...this.state.effective };
+  }
+
+  /** Reads completed OpenRouter messages only for a plan's OpenCode session. */
+  private async synchronizeNativeUsage(): Promise<void> {
+    const { listener, openCodeDataHome, request, driver } = this.context;
+    if (
+      driver.provider !== "opencode" ||
+      !request.model.startsWith("openrouter/") ||
+      !openCodeDataHome ||
+      !this.state.sessionId
+    ) return;
+    await listener?.nativeUsage?.(this.state.sessionId, openCodeDataHome);
   }
 
   private receive(notification: SessionNotification): void {

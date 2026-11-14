@@ -59,6 +59,8 @@ export interface AcpSessionListener {
    * `isContinued` marks a prompt a person's input cut short, whose turn goes on.
    */
   readonly prompted: (usage: Usage | null, isContinued?: boolean) => void;
+  /** Synchronizes completed native OpenCode messages after each usage report. */
+  readonly nativeUsage?: (sessionId: string, dataHome: string) => Promise<void>;
   /** The connection to the adapter ended, for example because its process exited. */
   readonly closed: () => void;
   /** Waits for the journal writes caused by the last notification. */

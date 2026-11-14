@@ -40,6 +40,7 @@ export interface AgentSessionStart {
   readonly groupId: string | null;
   /** The directory Pages assigned and checked when it prepared the node. */
   readonly directory: string | null;
+  readonly model: string;
 }
 
 const UNKNOWN: AgentSessionReportedValue = {
@@ -90,6 +91,7 @@ export function sessionStart(
     instanceId,
     groupId: node.step.groupId ?? null,
     directory: record.requested.directory,
+    model: record.requested.model,
   };
 }
 

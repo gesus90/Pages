@@ -57,9 +57,11 @@ import { AgentRunCredentialService } from "@/backend/service/mcp/AgentRunCredent
 import { AgentPlanPhases } from "@/backend/service/agents/AgentPlanPhases";
 import { AgentPlanTasks } from "@/backend/service/agents/AgentPlanTasks";
 import { AgentSessionRepository } from "@/backend/database/repositories/agent/AgentSessionRepository";
+import { OpenRouterPriceRepository } from "@/backend/database/repositories/agent/OpenRouterPriceRepository";
 import { AgentSessionInbox } from "@/backend/service/agents/sessions/AgentSessionInbox";
 import { AgentSessionJournal } from "@/backend/service/agents/sessions/AgentSessionJournal";
 import { AgentSessionService } from "@/backend/service/agents/sessions/AgentSessionService";
+import { OpenRouterPricing } from "@/backend/service/agents/sessions/OpenRouterPricing";
 import { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 import { getPagesRuntime } from "@/backend/runtime/PagesRuntime";
@@ -552,6 +554,8 @@ async function createPageAgentSessions(
   runs: AgentSessionRunAccess,
 ): Promise<AgentSessionService> {
   const store = new AgentSessionRepository(input.database);
+  const pricing = new OpenRouterPricing(new OpenRouterPriceRepository(input.database));
+  await pricing.start();
   const journal = new AgentSessionJournal(store, {
     followExternalWrites:
       !canProcessRuns() || Boolean(input.agents.localSessions),
@@ -563,6 +567,7 @@ async function createPageAgentSessions(
     store,
     journal,
     inbox,
+    pricing,
     hasPlanCheckpoint: async (runId) =>
       (await new AgentPlanCheckpointRepository(input.database).find(runId)) !==
       null,

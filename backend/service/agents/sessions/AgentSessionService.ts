@@ -1,4 +1,5 @@
 import { AgentError } from "@/backend/error/AgentErrors";
+import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
 import { logCaughtError } from "@/backend/logging/Logger";
 
 import {
@@ -10,6 +11,7 @@ import {
 import { decideContinuation } from "./AgentSessionContinuation";
 import { AgentSessionRecorder } from "./AgentSessionRecorder";
 import { UNKNOWN_CONTEXT, sumTurnUsage } from "./AgentSessionUsage";
+import type { OpenRouterPricing } from "./OpenRouterPricing";
 import { checkSessionWorkspace } from "./AgentSessionWorkspace";
 import { followRemoteSession } from "./RemoteSessionFollower";
 
@@ -101,6 +103,7 @@ export interface AgentSessionServiceDependencies {
   /** A Pages completion is independent of native ACP continuation capabilities. */
   readonly hasPlanCheckpoint?: (runId: string) => Promise<boolean>;
   readonly clock?: () => string;
+  readonly pricing?: OpenRouterPricing;
 }
 
 const UNKNOWN_VALUE = { value: null, source: null, reportedAt: null } as const;
@@ -252,6 +255,14 @@ export class AgentSessionService {
     const isLive = this.live.has(key.attemptId) && isRunActive(run);
     const state = this.state(run, attempt, stored);
     const recorder = this.recorders.get(attempt.record.instanceId);
+    const openRouterTurns = runTurns.filter((turn) => turn.model?.startsWith("openrouter/"));
+    const openRouterAttempts = allPlanRunResults(run).flatMap((step) =>
+      step.session?.runner === "opencode" &&
+      step.session.requested.model.startsWith("openrouter/")
+        ? [step.session.attemptId ?? `${step.session.instanceId}:${step.id}`]
+        : [],
+    );
+    const reportedAttempts = new Set(openRouterTurns.map((turn) => turn.attemptId));
     return {
       key,
       provider: attempt.record.runner,
@@ -265,6 +276,10 @@ export class AgentSessionService {
       runTotals: sumTurnUsage(runTurns),
       nodeTotals: sumTurnUsage(
         runTurns.filter((turn) => nodeAttempts.has(turn.attemptId)),
+      ),
+      openRouterRunTotal: sumTurnUsage(openRouterTurns)[0] ?? null,
+      isOpenRouterRunIncomplete: openRouterAttempts.some(
+        (attemptId) => !reportedAttempts.has(attemptId),
       ),
       continuation: decideContinuation({
         isAuthorized: true,
@@ -440,11 +455,12 @@ export class AgentSessionService {
       confirmedReasoning: shared?.confirmedReasoning ?? UNKNOWN_VALUE,
       workspace: null,
       updatedAt: this.clock(),
+      requestedModel: start.model,
     };
     const recorder =
       existing ??
       new AgentSessionRecorder(
-        { journal: this.dependencies.journal, store: this.dependencies.store },
+        { journal: this.dependencies.journal, store: this.dependencies.store, pricing: this.dependencies.pricing },
         attempt,
       );
     if (existing) existing.bind(attempt);

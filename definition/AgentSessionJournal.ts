@@ -55,6 +55,13 @@ export interface AgentSessionTokenUsage {
   readonly inputIncludesCache: boolean | null;
   /** The adapter counted only part of the work, or a turn of the sum reported nothing. */
   readonly isPartial: boolean;
+  /** Reasoning tokens are separate from normal output for OpenRouter through OpenCode. */
+  readonly reasoningTokens?: number | null;
+  /** USD charge calculated from the saved public price stand. */
+  readonly costAmount?: number | null;
+  readonly costState?: "known" | "free" | "unknown";
+  readonly pricedAt?: string | null;
+  readonly priceSnapshot?: string | null;
 }
 
 /** The token usage of one turn, written once per turn. */
@@ -182,6 +189,10 @@ export interface AgentSessionView {
   readonly runTotals: readonly AgentSessionUsageTotal[];
   /** Sums of every attempt of this node in the run, without counting a turn twice (PAGE-284). */
   readonly nodeTotals?: readonly AgentSessionUsageTotal[];
+  /** OpenRouter messages in every iteration of this run. */
+  readonly openRouterRunTotal?: AgentSessionUsageTotal | null;
+  /** A run step exists without native usage, including an active step before its first report. */
+  readonly isOpenRouterRunIncomplete?: boolean;
   readonly continuation: AgentSessionContinuation;
   readonly messages: readonly AgentSessionMessage[];
   readonly actions: AgentSessionActions;

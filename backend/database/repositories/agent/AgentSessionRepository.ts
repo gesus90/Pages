@@ -13,6 +13,7 @@ import {
   readAttemptRow,
   readMessageRow,
   readUsageRow,
+  readOpenRouterUsageRow,
 } from "./AgentSessionRows";
 
 import type { SqlParameters } from "@/backend/database/Database";
@@ -20,6 +21,7 @@ import type { AgentSessionDatabase } from "./AgentSessionDatabase";
 import type {
   AgentSessionAttemptRecord,
   AgentSessionStore,
+  OpenRouterUsageRecord,
   NewAgentSessionEvent,
   StoredSessionEvents,
 } from "@/backend/service/agents/sessions/AgentSessionStore";
@@ -272,6 +274,42 @@ export class AgentSessionRepository implements AgentSessionStore {
     );
   }
 
+  /** Stores one native message once even across retries and continuation attempts. */
+  public async saveOpenRouterUsage(usage: OpenRouterUsageRecord): Promise<boolean> {
+    const rows = await this.database.query(
+      `INSERT INTO agent_session_openrouter_usage (
+          native_session_id, message_id, attempt_id, model,
+          input_tokens, output_tokens, reasoning_tokens,
+          cache_read_tokens, cache_write_tokens, native_cost,
+          cost_amount, cost_state, price_snapshot, priced_at, reported_at
+      ) VALUES (
+          $native_session_id, $message_id, $attempt_id, $model,
+          $input_tokens, $output_tokens, $reasoning_tokens,
+          $cache_read_tokens, $cache_write_tokens, $native_cost,
+          $cost_amount, $cost_state, $price_snapshot, $priced_at, $reported_at
+      ) ON CONFLICT (native_session_id, message_id) DO NOTHING
+      RETURNING message_id;`,
+      {
+        native_session_id: usage.sessionId,
+        message_id: usage.messageId,
+        attempt_id: usage.attemptId,
+        model: usage.model,
+        input_tokens: usage.inputTokens,
+        output_tokens: usage.outputTokens,
+        reasoning_tokens: usage.reasoningTokens,
+        cache_read_tokens: usage.cacheReadTokens,
+        cache_write_tokens: usage.cacheWriteTokens,
+        native_cost: usage.nativeCost,
+        cost_amount: usage.costAmount,
+        cost_state: usage.costState,
+        price_snapshot: usage.priceSnapshot,
+        priced_at: usage.pricedAt,
+        reported_at: usage.reportedAt,
+      },
+    );
+    return rows.length > 0;
+  }
+
   /** Reads the turns of every attempt of a run. */
   public async listRunUsage(
     runId: string,
@@ -289,7 +327,34 @@ export class AgentSessionRepository implements AgentSessionStore {
     `,
       { run_id: runId },
     );
-    return rows.map(readUsageRow);
+    const nativeRows = await this.database.query(
+      `SELECT
+          agent_session_openrouter_usage.attempt_id,
+          ROW_NUMBER() OVER (
+              PARTITION BY agent_session_openrouter_usage.attempt_id
+              ORDER BY agent_session_openrouter_usage.reported_at,
+                  agent_session_openrouter_usage.native_session_id,
+                  agent_session_openrouter_usage.message_id
+          ) AS turn,
+          agent_session_openrouter_usage.model,
+          agent_session_openrouter_usage.input_tokens,
+          agent_session_openrouter_usage.output_tokens,
+          agent_session_openrouter_usage.reasoning_tokens,
+          agent_session_openrouter_usage.cache_read_tokens,
+          agent_session_openrouter_usage.cache_write_tokens,
+          agent_session_openrouter_usage.reported_at,
+          agent_session_openrouter_usage.native_cost,
+          agent_session_openrouter_usage.cost_amount,
+          agent_session_openrouter_usage.cost_state,
+          agent_session_openrouter_usage.price_snapshot::TEXT,
+          agent_session_openrouter_usage.priced_at
+      FROM agent_session_openrouter_usage
+      INNER JOIN agent_session_attempts
+          ON agent_session_attempts.attempt_id = agent_session_openrouter_usage.attempt_id
+      WHERE agent_session_attempts.run_id = $run_id;`,
+      { run_id: runId },
+    );
+    return [...rows.map(readUsageRow), ...nativeRows.map(readOpenRouterUsageRow)];
   }
 
   /** Stores a new instruction. */
