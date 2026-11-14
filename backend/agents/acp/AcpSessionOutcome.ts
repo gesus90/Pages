@@ -108,8 +108,9 @@ export function finishAcpTurn(
 export function classifiedAcpFailure(
   driver: Pick<AcpDriver, "errors">,
   text: string,
+  isOpenRouter = false,
 ): AgentErrorCode {
-  const code = classifyOpenCodeFailure(text);
+  const code = classifyOpenCodeFailure(text, isOpenRouter);
   return code === "opencode_acp_session_failed"
     ? driver.errors.sessionFailed
     : code;
@@ -119,8 +120,9 @@ export function classifiedAcpFailure(
 export function disconnectedAcpFailure(
   driver: Pick<AcpDriver, "provider" | "errors">,
   stderr: string,
+  isOpenRouter = false,
 ): AgentErrorCode {
-  return classifiedAcpFailure(driver, stderr);
+  return classifiedAcpFailure(driver, stderr, isOpenRouter);
 }
 
 /**
@@ -138,17 +140,22 @@ export function acpErrorFailure(
   state: AcpSessionState,
   driver: Pick<AcpDriver, "provider" | "errors">,
   isDisconnected: boolean,
+  isOpenRouter = false,
 ): AgentErrorCode | null {
   if (error instanceof AgentError) return error.code;
   const providerFailure =
     diagnosticProviderFailure(error) ?? state.providerFailure;
   if (providerFailure) {
-    state.providerFailure = providerFailure;
-    return providerFailure.code;
+    const failure =
+      isOpenRouter && providerFailure.code === "provider_rate_limited"
+        ? { ...providerFailure, code: "openrouter_rate_limited" as const }
+        : providerFailure;
+    state.providerFailure = failure;
+    return failure.code;
   }
   if (isDisconnected) return null;
   if (driver.provider === "opencode") {
-    const code = openCodeAcpFailure(error);
+    const code = openCodeAcpFailure(error, isOpenRouter);
     noteSessionEvent(state.events, `OpenCode failure: ${code}`);
     return code;
   }
@@ -174,6 +181,7 @@ export function disconnectedAcpOutcome(
   driver: Pick<AcpDriver, "provider" | "errors">,
   options: {
     readonly isPicaNative: boolean;
+    readonly isOpenRouter?: boolean;
     readonly redact: (line: string) => string;
   },
 ): {
@@ -199,6 +207,7 @@ export function disconnectedAcpOutcome(
     errorCode: disconnectedAcpFailure(
       driver,
       options.isPicaNative ? "" : exit.stderrTail,
+      options.isOpenRouter,
     ),
   };
 }

@@ -33,10 +33,14 @@ interface PlanRunActionsProps {
 /** What the middle button does: drain a running run, or continue whatever can be continued. */
 type MiddleMode = "pause" | "resume";
 
-/** Fortsetzen stands for every state of {@link AgentPlanControl.resumeKind}; the server picks the way. */
+/** Ended runs keep a disabled Resume button so Start is the only next action. */
 function middleMode(props: PlanRunActionsProps): MiddleMode {
   const { control } = props;
-  return control?.resumeKind || control?.status === "paused"
+  return control?.resumeKind ||
+    control?.status === "paused" ||
+    control?.status === "cancelled" ||
+    control?.status === "succeeded" ||
+    control?.status === "failed"
     ? "resume"
     : "pause";
 }
@@ -87,11 +91,8 @@ function ActionContent({
  * Starten, Pause or Fortsetzen, and Stop, in this order and of one width.
  *
  * @remarks
- * Starten starts a new run of the saved revision and nothing else; Pause lets
- * running steps finish and dispatches nothing new; Stop ends the whole run.
- * Fortsetzen replaces Pause while a run can be continued, whether it is paused,
- * failed, interrupted, blocked, stopped or has only its closeout open; one
- * click is enough, because the server chooses the technical way. Stop stays
+ * Starten starts a new run of the saved revision. Pause gates dispatch and
+ * Stop ends the whole run. Fortsetzen acts only on a paused run. Stop stays
  * available while a stop hangs, where it ends the run's processes by force.
  * The buttons only mirror the server's answer: every action is checked again
  * when it arrives.

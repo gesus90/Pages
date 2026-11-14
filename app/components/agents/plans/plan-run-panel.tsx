@@ -274,6 +274,10 @@ function useRunDecisions(
     else void startPlan();
   }
   async function startPlan(): Promise<void> {
+    if (control && ["cancelled", "succeeded", "failed"].includes(control.status)) {
+      submitRunAction(props, "play-plan");
+      return;
+    }
     const owners = await startOwners.inspect();
     if (!owners) return;
     if (control?.runId && isActivePlanRun(control.status))

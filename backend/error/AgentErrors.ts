@@ -460,10 +460,12 @@ export const AGENT_ERROR_MESSAGES = {
   test_model_required: "Choose a model before running a model test.",
   provider_unreachable: "The provider could not be reached.",
   provider_auth_failed: "The provider rejected the API key.",
+  openrouter_auth_failed: "The OpenRouter key is invalid or missing.",
   provider_permission_denied: "The provider denied access.",
   provider_quota_exhausted: "The provider quota or balance is exhausted.",
   provider_rate_limited:
     "The provider rate limit was reached. Try again later.",
+  openrouter_rate_limited: "OpenRouter rate limit reached.",
   provider_model_not_found: "The model is unavailable.",
   provider_request_rejected: "The provider rejected the test request.",
   provider_unavailable: "The provider is temporarily unavailable.",

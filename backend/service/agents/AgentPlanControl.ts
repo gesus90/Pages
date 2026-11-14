@@ -36,15 +36,13 @@ function isBlockedByBusiness(step: AgentPlanStepResult): boolean {
  * The state "Fortsetzen" continues, which names the way the server takes.
  *
  * @remarks
- * A paused run continues at its pause point. Every ended, unfinished run
- * continues as a new linked run at its last safe state; the kind only tells
- * the person why: a lost process (`interrupted`), a step that reported
- * `blocked`, an open closeout, an explicit stop, or a plain failure.
+ * A paused run continues at its pause point. Failed runs retain a reason for
+ * recovery diagnostics, but the run panel offers Start as their next action.
+ * An explicit stop cannot be resumed.
  */
 export function planResumeKind(run: AgentPlanRun): AgentPlanResumeKind | null {
   if (run.status === "paused") return "paused";
   if (run.status === "work_done_closeout_open") return "closeout_open";
-  if (run.status === "cancelled") return "stopped";
   if (run.status !== "failed") return null;
   if (run.stopRequested) return "stopped";
   if (run.recovery?.state === "interrupted") return "interrupted";
@@ -84,7 +82,7 @@ export function planControl(
   const isActive = isActivePlanRun(run.status);
   return {
     ...runControlMetadata(run, canIdentify),
-    canPlay: canRunPlan(plan),
+    canPlay: canRunPlan(plan) && !isActive,
     waitReason: canIdentify && isActive ? run.waitReason : undefined,
     workspaceWait:
       canIdentify && isPlanWriterWaitActive(run)
@@ -168,9 +166,9 @@ function runControlMetadata(
   };
 }
 
-/** Ended runs that "Fortsetzen" continues: failed, an open closeout, and a stopped run. */
+/** Ended runs that recovery may continue; an explicit Stop is final. */
 export function isEndedResumable(run: AgentPlanRun): boolean {
-  return isResumablePlanRunEnd(run.status) || run.status === "cancelled";
+  return isResumablePlanRunEnd(run.status) && !run.stopRequested;
 }
 
 /**
@@ -186,6 +184,5 @@ function isStoppable(run: AgentPlanRun): boolean {
 }
 
 function resumableStatus(run: AgentPlanRun, issue: string | null): boolean {
-  if (run.status === "paused") return !run.stopRequested && !issue;
-  return isEndedResumable(run) && !issue;
+  return run.status === "paused" && !run.stopRequested && !issue;
 }

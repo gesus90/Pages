@@ -551,7 +551,10 @@ export class AcpSession implements PlanSession {
       this.configurationOptions = update.configOptions;
     readAcpUpdate(this.state, update, this.context.profile.reportedOptions);
     if (this.context.driver.provider === "opencode") {
-      const failure = openCodeToolFailure(update);
+      const failure = openCodeToolFailure(
+        update,
+        this.context.request.model.startsWith("openrouter/"),
+      );
       this.openCodeFailure ??= failure;
       if (failure === "plan_runner_permission_denied")
         this.state.permissionDenials += 1;
@@ -633,6 +636,7 @@ export class AcpSession implements PlanSession {
       this.state,
       this.context.driver,
       this.connection.signal.aborted,
+      this.context.request.model.startsWith("openrouter/"),
     );
     return errorCode === null
       ? this.disconnected()
@@ -646,6 +650,7 @@ export class AcpSession implements PlanSession {
       this.context.driver,
       {
         isPicaNative: this.picaCodex !== null,
+        isOpenRouter: this.context.request.model.startsWith("openrouter/"),
         redact: (line) => this.redact(line),
       },
     );

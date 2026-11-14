@@ -162,19 +162,19 @@ it("keeps polling an active address that answers without a run at the idle pace"
   expect(fetchMock).toHaveBeenCalledTimes(2);
 });
 
-it("reads an active run's control every two seconds and an idle control every 16", async () => {
+it("reads an active run's control every second and an idle control every 16", async () => {
   fetchMock.mockImplementation(() =>
     Promise.resolve(answer({ ok: true, control: control("running") })),
   );
   renderHook(() => usePlanPoll("/control", undefined));
   await flush();
   await flush(10_000);
-  expect(fetchMock).toHaveBeenCalledTimes(6);
+  expect(fetchMock).toHaveBeenCalledTimes(11);
   fetchMock.mockReset();
   fetchMock.mockImplementation(() =>
     Promise.resolve(answer({ ok: true, control: control("failed") })),
   );
-  await flush(2_000);
+  await flush(1_000);
   expect(fetchMock).toHaveBeenCalledTimes(1);
   await flush(15_999);
   expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -203,7 +203,7 @@ it("keeps the pace of an active run through unchanged answers", async () => {
   renderHook(() => usePlanPoll("/control", undefined));
   await flush();
   await flush(4_000);
-  expect(fetchMock).toHaveBeenCalledTimes(3);
+  expect(fetchMock).toHaveBeenCalledTimes(5);
 });
 
 it("reads nothing while the tab is hidden and at once on its return", async () => {
@@ -222,7 +222,7 @@ it("reads nothing while the tab is hidden and at once on its return", async () =
     "If-None-Match": '"c1"',
     "X-Plan-Observation": "open",
   });
-  await flush(2_000);
+  await flush(1_000);
   expect(fetchMock).toHaveBeenCalledTimes(3);
   expect(headersOf(2)).toEqual({
     "If-None-Match": '"c1"',
@@ -274,7 +274,7 @@ it("does not start a second read when the tab returns during a read", async () =
   await setTabVisibility("visible");
   expect(fetchMock).toHaveBeenCalledTimes(1);
   respond(answer({ ok: true, control: control("running") }));
-  await flush(2_000);
+  await flush(1_000);
   expect(fetchMock).toHaveBeenCalledTimes(2);
   expect(headersOf(1)).toEqual({ "X-Plan-Observation": "open" });
 });
@@ -340,13 +340,13 @@ it("keeps the last answer through a connection failure and retries", async () =>
     .mockResolvedValueOnce(new Response("not json"));
   const { result } = renderHook(() => usePlanPoll("/poll", undefined));
   await flush();
-  await flush(2_000);
+  await flush(1_000);
   expect(result.current).toMatchObject({
     url: "/poll",
     response: { ok: true, run: { id: running.id } },
     error: "plan_connection_unavailable",
   });
-  await flush(2_000);
+  await flush(1_000);
   expect(fetchMock).toHaveBeenCalledTimes(3);
   expect(result.current.error).toBe("plan_connection_unavailable");
 });

@@ -26,6 +26,8 @@ it.each([
   ["permission for bash was denied", "plan_runner_permission_denied"],
   ["403 Forbidden", "provider_permission_denied"],
   ["HTTP 503", "provider_unavailable"],
+  ["HTTP 501", "provider_unavailable"],
+  ["HTTP 599", "provider_unavailable"],
   ["service unavailable", "provider_unavailable"],
   ["fetch failed: ECONNREFUSED", "provider_unreachable"],
   ["something else", "opencode_acp_session_failed"],
@@ -36,6 +38,39 @@ it.each([
 it("reads an authentication request of the agent as a failed sign-in", () => {
   expect(openCodeAcpFailure(RequestError.authRequired())).toBe(
     "provider_auth_failed",
+  );
+});
+
+it("treats OpenRouter 401 and 403 as final key failures", () => {
+  expect(classifyOpenCodeFailure("HTTP 401", true)).toBe(
+    "openrouter_auth_failed",
+  );
+  expect(classifyOpenCodeFailure("HTTP 403", true)).toBe(
+    "openrouter_auth_failed",
+  );
+  expect(openCodeAcpFailure(RequestError.authRequired(), true)).toBe(
+    "openrouter_auth_failed",
+  );
+  expect(openCodeToolFailure(failedTool("HTTP 403"), true)).toBe(
+    "openrouter_auth_failed",
+  );
+  expect(openCodeToolFailure(failedTool("403 Forbidden"), true)).toBe(
+    "openrouter_auth_failed",
+  );
+  expect(classifyOpenCodeFailure("HTTP 403")).toBe(
+    "provider_permission_denied",
+  );
+});
+
+it("classifies an OpenRouter rate limit for automatic retry", () => {
+  expect(classifyOpenCodeFailure("HTTP 429", true)).toBe(
+    "openrouter_rate_limited",
+  );
+  expect(openCodeAcpFailure(new Error("rate limit reached"), true)).toBe(
+    "openrouter_rate_limited",
+  );
+  expect(openCodeToolFailure(failedTool("HTTP 429"), true)).toBe(
+    "openrouter_rate_limited",
   );
 });
 

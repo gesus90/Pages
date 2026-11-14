@@ -37,6 +37,7 @@ export function isPlanRetryCode(code: unknown): code is AgentPlanRetryCode {
     code === "provider_unreachable" ||
     code === "provider_unavailable" ||
     code === "provider_rate_limited" ||
+    code === "openrouter_rate_limited" ||
     code === "provider_quota_exhausted"
   );
 }
