@@ -274,6 +274,21 @@ export class AgentChatSessionRepository {
     );
   }
 
+  /**
+   * Deletes the row of a chat session (PAGE-380): its agent left the group
+   * or the group was dissolved, so the session never runs again.
+   */
+  public async remove(sessionId: string): Promise<void> {
+    await this.database.execute(
+      `
+        DELETE FROM agent_conversations
+        WHERE chat_session_id = $session_id
+            AND purpose IN ('chat', 'conversation');
+      `,
+      { session_id: sessionId },
+    );
+  }
+
   /** The tokens all chat sessions of an agent used on one day. */
   public async tokensOn(agentId: string, day: string): Promise<number> {
     const [row] = await this.database.query(

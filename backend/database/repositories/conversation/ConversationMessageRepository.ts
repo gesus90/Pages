@@ -78,6 +78,7 @@ const NOTICES: readonly ConversationNotice[] = [
   "agent_failed",
   "agent_stopped",
   "round_limit",
+  "session_event",
 ];
 
 /** The outcome of storing a message. */

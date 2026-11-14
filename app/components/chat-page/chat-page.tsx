@@ -6,7 +6,12 @@ import { Button } from "@/app/components/ui/button";
 
 import { MentionDirectoryContext } from "./mentions/mention-context";
 import { ChatDecisionHealth } from "./mentions/chat-decision-health";
+import { ChatPageCommandOutcome } from "./chat-page-command-outcome";
 import { ChatPageComposer } from "./chat-page-composer";
+import {
+  ChatPageContextRings,
+  contextRingEntries,
+} from "./chat-page-context-rings";
 import { useConfidential } from "./chat-page-confidential";
 import { ChatPageDropZone } from "./chat-page-drop-zone";
 import { ChatPageHeader } from "./chat-page-header";
@@ -22,6 +27,7 @@ import {
 import { SplitPanel } from "./content/split-panel";
 import { useChatToastSelection } from "./use-chat-toast-selection";
 import { useChatListCollapse } from "./use-chat-list-collapse";
+import { useChatCommandRunner } from "./use-chat-command-runner";
 import { useChatPage } from "./use-chat-page";
 import { useVoiceSending } from "./use-voice-sending";
 import { formatVoiceDuration } from "./voice-audio";
@@ -87,7 +93,15 @@ function ConversationFoot({
 }): React.ReactElement {
   const { t } = useTranslation();
   const sending = useVoiceSending(page.selection, page.voiceMaximumMs);
+  const commands = useChatCommandRunner(opened);
   const name = conversationName(opened);
+
+  // A chat command steers an agent and is never sent as a message (PAGE-380).
+  function handleSend(content: string, attachmentIds: readonly string[]): void {
+    if (attachmentIds.length === 0 && commands.runIfCommand(content)) return;
+    page.send(content, attachmentIds);
+  }
+
   // An agent's history on the page is its chat session, which takes text only.
   const hasVoice =
     opened.kind === "group" || opened.participant.kind === "human";
@@ -119,11 +133,17 @@ function ConversationFoot({
           })}
         </p>
       ) : null}
+      <ChatPageCommandOutcome runner={commands} />
       <ChatPageComposer
         key={conversationKey(opened)}
         label={t("chatPage.inputLabel", { name })}
         placeholder={t(placeholderKey(opened), { name })}
-        onSend={page.send}
+        onSend={handleSend}
+        aside={
+          contextRingEntries(opened).length > 0 ? (
+            <ChatPageContextRings opened={opened} chatName={name} />
+          ) : undefined
+        }
         memberIds={
           opened.kind === "group"
             ? opened.group.memberIds

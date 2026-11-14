@@ -1,6 +1,7 @@
 import { AccountIdentityRepository } from "./AccountIdentityRepository";
 import { AgentActivityRepository } from "./AgentActivityRepository";
 import { AgentChatMemoryRepository } from "./AgentChatMemoryRepository";
+import { AgentChatModelRepository } from "./AgentChatModelRepository";
 import { AgentChatSessionRepository } from "./AgentChatSessionRepository";
 import { AgentConversationRepository } from "./AgentConversationRepository";
 import { AgentDeletionRepository } from "./AgentDeletionRepository";
@@ -19,6 +20,7 @@ import { AgentTemplateRepository } from "./AgentTemplateRepository";
 import { AgentToolUseRepository } from "./AgentToolUseRepository";
 import { ChatContactRepository } from "./ChatContactRepository";
 import { ChatGroupRepository } from "./ChatGroupRepository";
+import { ChatSessionControllerRepository } from "./ChatSessionControllerRepository";
 
 import type {
   Database,
@@ -90,6 +92,16 @@ export class EmployeeStore {
   /** The state of the chat sessions of agents: inbox position, context and tokens (PAGE-376). */
   public chatSessions(): AgentChatSessionRepository {
     return new AgentChatSessionRepository(this.database);
+  }
+
+  /** The models agents answer with in single chats (PAGE-380). */
+  public chatModels(): AgentChatModelRepository {
+    return new AgentChatModelRepository(this.database);
+  }
+
+  /** The members of groups allowed to steer the agents of a group (PAGE-380). */
+  public sessionControllers(): ChatSessionControllerRepository {
+    return new ChatSessionControllerRepository(this.database);
   }
 
   /** The entries and settings of the Lagebuch of agents (PAGE-377). */

@@ -3998,7 +3998,8 @@
       "agent_unavailable": "{{name}} antwortet nicht: Für den Agent ist gerade kein Modell nutzbar.",
       "agent_failed": "{{name}} konnte nicht antworten, die Antwort ist fehlgeschlagen. Schreib die Nachricht erneut, um es noch einmal zu versuchen.",
       "agent_stopped": "Die Antwort von {{name}} wurde gestoppt.",
-      "round_limit": "Abstimmung beendet, Grenze erreicht"
+      "round_limit": "Abstimmung beendet, Grenze erreicht",
+      "session_event": "Systemzeile"
     },
     "stop": "Stoppen",
     "stopAgent": "{{name}} stoppen",
@@ -4301,7 +4302,13 @@
       "soon": "folgt",
       "openDirect": "Direkt-Chat mit {{name}} öffnen",
       "mention": "{{name}} erwähnen",
-      "failed": "Die Sitzungsaktion ist fehlgeschlagen."
+      "failed": "Die Sitzungsaktion ist fehlgeschlagen.",
+      "model": "Modell in diesem Chat …",
+      "compact": "Jetzt verdichten",
+      "renew": "Neu starten",
+      "noRight": "Nur wer vom Besitzer der Gruppe berechtigt ist, darf Modell und Sitzung ändern.",
+      "remove": "Aus Gruppe entfernen …",
+      "ownerOnly": "nur Besitzer"
     },
     "groupMenu": {
       "trigger": "Gruppe",
@@ -4311,7 +4318,9 @@
       "context": "Gruppenkontext …",
       "sessions": "Sitzungen der Agenten in diesem Chat …",
       "confidential": "Vertraulichkeit",
-      "members": "Mitglieder verwalten …"
+      "members": "Mitglieder …",
+      "controllers": "Modell wechseln, neu starten und verdichten dürfen …",
+      "dissolve": "Gruppe auflösen …"
     },
     "agentSessions": {
       "title": "Sitzungen der Agenten in {{name}}",
@@ -4335,6 +4344,100 @@
       "ready": "Decision-Modell aktiv",
       "noModel": "Kein Decision-Modell · nur @",
       "modelUnavailable": "Decision-Modell nicht verfügbar · nur @"
+    },
+    "control": {
+      "failure": {
+        "forbidden": "Dafür fehlt dir das Recht. Es wurde nichts geändert.",
+        "notFound": "Den Chat oder den Agenten gibt es nicht mehr.",
+        "invalidInput": "Die Angaben sind ungültig. Es wurde nichts geändert.",
+        "unavailable": "Pages ist gerade nicht erreichbar. Bitte noch einmal versuchen.",
+        "modelNotAllowed": "Dieses Modell oder diese Denkstufe steht für den Agenten nicht zur Wahl."
+      }
+    },
+    "modelChoice": {
+      "title": "Modell für {{agent}} in „{{chat}}“",
+      "standardOf": "Standard des Agenten: {{model}}",
+      "loading": "Wird geladen …",
+      "search": "Modell suchen …",
+      "none": "Kein Modell passt.",
+      "standard": "Standard",
+      "onlyText": "Nur Textmodelle der für {{agent}} freigegebenen Verbindungen.",
+      "effortLabel": "Denkstufe",
+      "effortDefault": "Standard",
+      "effort": {
+        "none": "ohne",
+        "minimal": "minimal",
+        "low": "niedrig",
+        "medium": "mittel",
+        "high": "hoch",
+        "xhigh": "sehr hoch",
+        "max": "max"
+      },
+      "reset": "Auf Standard zurücksetzen",
+      "cancel": "Abbrechen",
+      "switch": "Wechseln",
+      "hint": "{{agent}} beendet erst die laufende Antwort, dann startet die Sitzung mit {{model}} neu. Zusammenfassung, MEMORY.md und DREAM.md werden übernommen.",
+      "badgeHint": "In diesem Chat antwortet der Agent mit {{model}} statt mit seinem Standardmodell."
+    },
+    "removeMember": {
+      "title": "{{name}} aus „{{group}}“ entfernen?",
+      "description": "{{name}} sieht die Gruppe danach nicht mehr.",
+      "session": "Die Sitzung von {{name}} in dieser Gruppe wird geschlossen und gelöscht.",
+      "sessionPercent": "Die Sitzung von {{name}} in dieser Gruppe wird geschlossen und gelöscht ({{percent}} % Kontext).",
+      "model": "Die Festlegung {{model}} für diesen Chat entfällt.",
+      "running": "Läuft gerade eine Antwort, wird sie abgebrochen.",
+      "kept": "Bleibt erhalten: MEMORY.md, DREAM.md, Lektionen, Rezepte und Lagebuch von {{name}}. Vorher hält {{name}} seinen Stand im Lagebuch fest.",
+      "confirm": "Entfernen"
+    },
+    "dissolve": {
+      "title": "Gruppe „{{name}}“ auflösen?",
+      "description_one": "Die Gruppe verschwindet für {{count}} Mitglied.",
+      "description_other": "Die Gruppe verschwindet für alle {{count}} Mitglieder.",
+      "onlyHere": "nur hier",
+      "noSession": "keine Sitzung",
+      "sessions": "Diese Agenten-Sitzungen werden geschlossen und gelöscht:",
+      "noAgents": "In dieser Gruppe ist kein Agent.",
+      "history": "Der Chat-Verlauf wird mit Anhängen, Vorschauen und Entscheidungen endgültig gelöscht. Es gibt kein Archiv.",
+      "kept": "Bleibt erhalten: MEMORY.md, DREAM.md, Lektionen, Rezepte und Lagebuch aller Agenten. Vor dem Schließen hält jeder Agent seinen Stand im Lagebuch fest.",
+      "confirm": "Gruppe auflösen"
+    },
+    "groupMembers": {
+      "title": "Mitglieder von „{{name}}“",
+      "owner": "Besitzer",
+      "remove": "Entfernen",
+      "controlOwner": "immer (Besitzer)",
+      "controlAgent": "Agenten nie",
+      "control": "darf steuern",
+      "addPlaceholder": "Person oder Agent hinzufügen …",
+      "ownerDescription": "Nur du als Besitzer kannst Mitglieder hinzufügen und entfernen und festlegen, wer Modell wechseln, neu starten und verdichten darf.",
+      "memberDescription": "Mitglieder hinzufügen und entfernen kann nur der Besitzer der Gruppe.",
+      "knowledgeHint": "Wird ein Agent entfernt, schließt Pages seine Sitzung in dieser Gruppe und löscht sie samt Modell-Festlegung. MEMORY.md, DREAM.md, Lektionen, Rezepte und Lagebuch bleiben erhalten."
+    },
+    "contextRing": {
+      "title": "{{agent}} · Sitzung in „{{chat}}“",
+      "onlyHere": "nur dieser Chat",
+      "unknown": "Belegung noch unbekannt",
+      "fill": "{{percent}} % · {{used}} / {{size}} Token",
+      "restart": "Neustart ab {{percent}} % · {{state}}",
+      "noSession": "noch keine Sitzung",
+      "label": "Kontext von {{agent}}: {{percent}} %",
+      "group": "Kontext der Agenten in diesem Chat"
+    },
+    "command": {
+      "current": "{{agent}} antwortet in diesem Chat mit {{model}}.",
+      "chooseModel": "Zur Wahl stehen:",
+      "ambiguous": "„{{query}}“ passt auf mehrere Modelle. Bitte wählen:",
+      "done": {
+        "model": "Das Modell von {{agent}} in diesem Chat ist geändert.",
+        "new": "Die Sitzung von {{agent}} startet neu.",
+        "compact": "Die Sitzung von {{agent}} wird verdichtet."
+      },
+      "unknownModel": "Kein Modell heißt „{{query}}“.",
+      "unknownEffort": "„{{effort}}“ ist keine Denkstufe dieses Modells. Möglich: {{efforts}}.",
+      "unknownAgent": "In dieser Gruppe gibt es keinen Agenten „{{mention}}“.",
+      "forbidden": "Dafür fehlt dir das Recht. Der Besitzer der Gruppe legt fest, wer Modell wechseln, neu starten und verdichten darf.",
+      "chooseAgent": "Welchen Agenten meinst du?",
+      "dismiss": "Hinweis schließen"
     }
   },
   "workspaces": {

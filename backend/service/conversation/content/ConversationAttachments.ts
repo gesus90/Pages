@@ -324,6 +324,20 @@ export class ConversationAttachments {
   }
 
   /**
+   * Collects the files and preview images of every attachment of a
+   * conversation before it is deleted (PAGE-380).
+   *
+   * @returns Removes the files once the conversation is gone.
+   */
+  public async collectConversation(
+    conversationId: string,
+  ): Promise<() => Promise<void>> {
+    const attachments =
+      await this.dependencies.attachments.forConversation(conversationId);
+    return () => this.removeFiles(attachments);
+  }
+
+  /**
    * Removes uploads no message took within a day, and files no attachment
    * lists any more.
    *

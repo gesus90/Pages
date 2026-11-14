@@ -2,6 +2,7 @@ import { useId } from "react";
 import { useTranslation } from "react-i18next";
 
 import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
+import { cn } from "@/app/lib/cn";
 
 import { ChatContextDetails } from "./chat-context-details";
 import { useChatContextDetails } from "./use-chat-context-details";
@@ -17,15 +18,30 @@ interface ContextCaptionProps {
   readonly percent: number | null;
 }
 
-function ContextRing({
+/**
+ * The doughnut that shows how full a context is; the chat page of agents
+ * reuses it for every agent of a chat (PAGE-380).
+ *
+ * @param props - `percent` is the fill, `null` while unknown; `label` replaces
+ * the question mark inside, such as the initial of an agent; `isBusy` pulses
+ * while a compaction runs.
+ */
+export function ContextRing({
   percent,
+  label,
+  isBusy = false,
 }: {
   readonly percent: number | null;
+  readonly label?: string;
+  readonly isBusy?: boolean;
 }): React.ReactElement {
   return (
     <span
       aria-hidden="true"
-      className="relative inline-flex size-7 shrink-0 items-center justify-center"
+      className={cn(
+        "relative inline-flex size-7 shrink-0 items-center justify-center",
+        isBusy && "animate-pulse",
+      )}
     >
       <svg className="size-full -rotate-90" viewBox="0 0 36 36" fill="none">
         <circle
@@ -47,7 +63,12 @@ function ContextRing({
           />
         ) : null}
       </svg>
-      {percent === null ? <span className="absolute text-xs">?</span> : null}
+      {label !== undefined ? (
+        <span className="absolute text-[10px] font-semibold">{label}</span>
+      ) : null}
+      {label === undefined && percent === null ? (
+        <span className="absolute text-xs">?</span>
+      ) : null}
     </span>
   );
 }

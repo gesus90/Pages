@@ -175,8 +175,9 @@ it("opens the menu of an agent with a click on its chip and shows its state in t
   expect(screen.getByText("Status: working · 58 % context")).toBeTruthy();
   for (const name of [
     "Stop session",
-    "Summarize session",
-    "Restart session",
+    /^Model in this chat …/,
+    /^Compact now/,
+    /^Restart/,
     /^Agent settings …\s*Sessions$/,
     /^Logbook …/,
     /^Dreaming, lessons & recipes …/,
@@ -210,9 +211,7 @@ it("says that there is no session yet and switches the session entries off", () 
   renderGroup([]);
   openByClick(chip());
   expect(screen.getByText("No session in this chat yet")).toBeTruthy();
-  for (const name of ["Stop session", "Summarize session", "Restart session"]) {
-    expect(isOff(item(name))).toBe(true);
-  }
+  expect(isOff(item("Stop session"))).toBe(true);
   expect(isOff(item(/^Agent settings/))).toBe(false);
 });
 
@@ -220,15 +219,9 @@ it("stops only a session that works", () => {
   renderGroup([sessionBrief({ state: "ready" })]);
   openByClick(chip());
   expect(isOff(item("Stop session"))).toBe(true);
-  expect(isOff(item("Summarize session"))).toBe(false);
-  expect(isOff(item("Restart session"))).toBe(false);
 });
 
-it.each([
-  ["Stop session", "stop"],
-  ["Summarize session", "summarize"],
-  ["Restart session", "restart"],
-] as const)(
+it.each([["Stop session", "stop"]] as const)(
   "sends %s with the session of this chat and reads the page again",
   async (name, intent) => {
     const { calls } = stubSessionEndpoint(() => ({
@@ -252,7 +245,7 @@ it("tells when the server refused the session action and does not read the page 
   stubSessionEndpoint(() => ({ ok: false, error: "forbidden" }));
   renderGroup([WORKING]);
   openByClick(chip());
-  fireEvent.click(item("Restart session"));
+  fireEvent.click(item("Stop session"));
   expect((await screen.findByRole("alert")).textContent).toBe(
     "The session action failed.",
   );
@@ -446,8 +439,9 @@ it("words the status and the entries in German", () => {
   expect(screen.getByText("Status: arbeitet · 58 % Kontext")).toBeTruthy();
   for (const name of [
     "Sitzung anhalten",
-    "Sitzung zusammenfassen",
-    "Sitzung neu starten",
+    /^Modell in diesem Chat …/,
+    /^Jetzt verdichten/,
+    /^Neu starten/,
     "Direkt-Chat mit Ed öffnen",
     "Ed erwähnen",
   ]) {

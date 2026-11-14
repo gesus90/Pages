@@ -43,6 +43,9 @@ import type {
   StoredConversationVoiceFile,
 } from "./ConversationVoiceStore";
 
+/** The start of the `clientMessageId` of a system line (PAGE-380). */
+export const SYSTEM_LINE_PREFIX = "session-event:";
+
 /** What the writes of conversations use. */
 export interface ConversationServiceDependencies {
   readonly conversations: ConversationRepository;
@@ -52,11 +55,14 @@ export interface ConversationServiceDependencies {
     "summary" | "readState" | "memberIds" | "messages"
   >;
   /** The files of messages (PAGE-298). */
-  readonly attachments: Pick<ConversationAttachments, "bind" | "collect">;
+  readonly attachments: Pick<
+    ConversationAttachments,
+    "bind" | "collect" | "collectConversation"
+  >;
   readonly directory: Pick<ConversationDirectory, "read">;
   readonly voices: ConversationVoiceStore;
-  /** Opens stored audio for the recognition. */
-  readonly files: Pick<WikiFileStore, "open">;
+  /** Opens stored audio for the recognition and removes the audio of a deleted conversation. */
+  readonly files: Pick<WikiFileStore, "open" | "remove">;
   readonly transcriber: ConversationTranscriber;
   /** The in-process channel the Pica Mobile connections and the push follow. */
   readonly events: Pick<ConversationEvents, "publish">;
@@ -473,6 +479,104 @@ export class ConversationService {
       originId: options.originId,
     });
     return this.dependencies.reader.summary(person, conversationId);
+  }
+
+  /**
+   * Stores a system line of a chat in the name of the person who caused it
+   * (PAGE-380): a changed model, a restarted or compacted session, a removed
+   * member. Every member sees it; it asks no agent for an answer.
+   *
+   * @throws {ConversationError} `not_found` for a conversation of which the
+   * person is no member.
+   */
+  public async postSystemLine(
+    person: User,
+    line: { readonly conversationId: string; readonly text: string },
+  ): Promise<void> {
+    const [summary, accounts] = await Promise.all([
+      this.dependencies.reader.summary(person, line.conversationId),
+      this.dependencies.directory.read(),
+    ]);
+    const memberIds = summary.members.map((member) => member.id);
+    const outcome = await this.dependencies.messages.insert(
+      {
+        id: this.createId(),
+        conversationId: summary.id,
+        senderId: person.id,
+        clientMessageId: `${SYSTEM_LINE_PREFIX}${this.createId()}`,
+        text: Array.from(line.text)
+          .slice(0, CONVERSATION_TEXT_MAXIMUM_LENGTH)
+          .join(""),
+        mentions: [],
+        createdAt: this.now(),
+        voice: null,
+        notice: "session_event",
+      },
+      changedEvent(summary.id),
+    );
+    const [sent] = await this.dependencies.reader.messages(
+      [outcome.message],
+      accounts,
+    );
+    if (!sent) return;
+    this.announce(summary.id, {
+      kind: "message",
+      message: sent,
+      recipientIds: memberIds,
+    });
+  }
+
+  /**
+   * Removes a member from a group (PAGE-380); the caller checked that the
+   * person created it. The removed member no longer sees the group.
+   *
+   * @throws {ConversationError} `not_found` for a conversation of which the
+   * person is no member, `invalid` for the person themselves or a direct
+   * conversation.
+   */
+  public async removeMember(
+    person: User,
+    target: { readonly conversationId: string; readonly memberId: string },
+  ): Promise<void> {
+    const conversationId = readConversationIdentifier(target.conversationId);
+    const summary = await this.dependencies.reader.summary(
+      person,
+      conversationId,
+    );
+    if (summary.kind !== "group" || target.memberId === person.id)
+      throw new ConversationError("invalid");
+    const recipientIds = summary.members.map((member) => member.id);
+    if (!recipientIds.includes(target.memberId)) return;
+    await this.dependencies.conversations.removeMember(
+      conversationId,
+      target.memberId,
+      changedEvent(conversationId),
+    );
+    this.announce(conversationId, { kind: "conversation", recipientIds });
+  }
+
+  /**
+   * Deletes a group for good with its history, attachments, preview images,
+   * voice messages and decisions (PAGE-380); there is no archive. The caller
+   * checked that the person created it.
+   *
+   * @throws {ConversationError} `not_found` for a conversation of which the
+   * person is no member, `invalid` for a direct conversation.
+   */
+  public async removeGroup(person: User, conversationId: string): Promise<void> {
+    const id = readConversationIdentifier(conversationId);
+    const summary = await this.dependencies.reader.summary(person, id);
+    if (summary.kind !== "group") throw new ConversationError("invalid");
+    const recipientIds = summary.members.map((member) => member.id);
+    const removeAttachments =
+      await this.dependencies.attachments.collectConversation(id);
+    const voices = await this.dependencies.conversations.remove(
+      id,
+      changedEvent(id),
+    );
+    await removeAttachments();
+    if (voices.length > 0) await this.dependencies.files.remove(voices);
+    this.announce(id, { kind: "conversation", recipientIds });
   }
 
   /** The members of a conversation the person may write to, with the accounts that name them. */

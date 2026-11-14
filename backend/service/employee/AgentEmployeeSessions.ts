@@ -14,6 +14,7 @@ import { createAgentEmployeeInstructions } from "./AgentEmployeeInstructions";
 import { foldJobToolCalls } from "./AgentToolCallView";
 
 import type { StoredAgentEmployee } from "@/backend/database/repositories/employee/AgentEmployeeRepository";
+import type { EmployeeStore } from "@/backend/database/repositories/employee/EmployeeStore";
 import type { ResolvedAgentAssignment } from "../agents/AgentAssignmentResolution";
 import type {
   PicaAcpEmployeeRun,
@@ -38,6 +39,7 @@ import type {
 import {
   IDENTIFIER,
   chatKey,
+  chatModelKey,
   isChatPurpose,
   isSessionBusy,
   keptSessionOf,
@@ -428,7 +430,7 @@ export class AgentEmployeeSessions {
         await this.restartIfNeeded(request, sessionId);
         const assignment = await this.assignment(
           employee,
-          request.modelOverride,
+          request.modelOverride ?? (await this.chatModel(request)),
         );
         const { brief, audience, logbookNewest } = await this.brief(
           request,
@@ -593,6 +595,32 @@ export class AgentEmployeeSessions {
     const employee = await this.dependencies.store.employees().find(agentId);
     if (!employee) throw new AgentEmployeeError("notFound");
     return { agent, employee };
+  }
+
+  /**
+   * The model chosen for the agent in the chat of a round (PAGE-380); a run of
+   * the agent's own and a chat without a choice answer with its own model.
+   */
+  private async chatModel(
+    request: AgentJobRequest,
+  ): Promise<AgentJobRequest["modelOverride"]> {
+    const key = chatModelKey(request);
+    if (key === null) return undefined;
+    let stored: Awaited<ReturnType<ReturnType<EmployeeStore["chatModels"]>["find"]>>;
+    try {
+      stored = await this.dependencies.store.chatModels().find(key);
+    } catch (error: unknown) {
+      // A failed read must not fail the round: the agent answers with its own model.
+      logCaughtError("AgentEmployeeSessions", error);
+      return undefined;
+    }
+    return stored
+      ? {
+          connectionId: stored.connectionId,
+          model: stored.model,
+          reasoningEffort: stored.reasoningEffort,
+        }
+      : undefined;
   }
 
   private assignment(

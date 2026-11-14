@@ -152,6 +152,51 @@ function OwnRun({
   );
 }
 
+/** A stretch of the history: messages in runs, or one system line between them (PAGE-380). */
+type HistorySegment =
+  | { readonly kind: "messages"; readonly messages: VirtualChatMessage[] }
+  | { readonly kind: "system"; readonly message: VirtualChatMessage };
+
+/** Splits the history at its system lines, which never join a run of messages. */
+function historySegments(
+  messages: readonly VirtualChatMessage[],
+): HistorySegment[] {
+  const segments: HistorySegment[] = [];
+  for (const message of messages) {
+    if (message.notice === "session_event") {
+      segments.push({ kind: "system", message });
+      continue;
+    }
+    const last = segments.at(-1);
+    if (last?.kind === "messages") last.messages.push(message);
+    else segments.push({ kind: "messages", messages: [message] });
+  }
+  return segments;
+}
+
+/**
+ * A system line every member sees (PAGE-380), such as "Igor hat Ed in diesem
+ * Chat auf Claude Opus 5.5 · hoch umgestellt": centered between rules.
+ */
+function SystemLine({
+  message,
+}: {
+  readonly message: VirtualChatMessage;
+}): React.ReactElement {
+  return (
+    <p
+      className="flex items-center gap-3 text-xs text-muted-foreground"
+      role="note"
+    >
+      <span aria-hidden="true" className="h-px flex-1 bg-border" />
+      <span className="rounded-full border border-border bg-surface px-3 py-1 text-center">
+        {message.content}
+      </span>
+      <span aria-hidden="true" className="h-px flex-1 bg-border" />
+    </p>
+  );
+}
+
 /** The voice message, or the hint why an agent did not answer (PAGE-276). */
 function AnswerNotice({
   message,
@@ -432,16 +477,24 @@ export function ChatPageHistory({
       role="log"
     >
       <OlderButton older={older} />
-      {groupRuns(messages).map((run) => {
-        const [first] = run.messages;
-        if (!first) return null;
-        if (run.authorId === null)
-          return <OwnRun key={first.id} messages={run.messages} />;
-        const author = findParticipant(run.authorId) ?? authorOf(first);
-        return author ? (
-          <AnswerRun key={first.id} messages={run.messages} author={author} />
-        ) : null;
-      })}
+      {historySegments(messages).flatMap((segment) =>
+        segment.kind === "system"
+          ? [<SystemLine key={segment.message.id} message={segment.message} />]
+          : groupRuns(segment.messages).map((run) => {
+              const [first] = run.messages;
+              if (!first) return null;
+              if (run.authorId === null)
+                return <OwnRun key={first.id} messages={run.messages} />;
+              const author = findParticipant(run.authorId) ?? authorOf(first);
+              return author ? (
+                <AnswerRun
+                  key={first.id}
+                  messages={run.messages}
+                  author={author}
+                />
+              ) : null;
+            }),
+      )}
       {isAnswering ? (
         <p
           className="animate-pulse text-sm text-muted-foreground"

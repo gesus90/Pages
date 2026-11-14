@@ -3998,7 +3998,8 @@
       "agent_unavailable": "{{name}} does not answer: no model can run the agent right now.",
       "agent_failed": "{{name}} could not answer; the answer failed. Send the message again to try once more.",
       "agent_stopped": "The answer of {{name}} was stopped.",
-      "round_limit": "Discussion ended, limit reached"
+      "round_limit": "Discussion ended, limit reached",
+      "session_event": "System line"
     },
     "stop": "Stop",
     "stopAgent": "Stop {{name}}",
@@ -4301,7 +4302,13 @@
       "soon": "soon",
       "openDirect": "Open direct chat with {{name}}",
       "mention": "Mention {{name}}",
-      "failed": "The session action failed."
+      "failed": "The session action failed.",
+      "model": "Model in this chat …",
+      "compact": "Compact now",
+      "renew": "Restart",
+      "noRight": "Only members the group owner allowed may change the model and the session.",
+      "remove": "Remove from group …",
+      "ownerOnly": "owner only"
     },
     "groupMenu": {
       "trigger": "Group",
@@ -4311,7 +4318,9 @@
       "context": "Group context …",
       "sessions": "Sessions of the agents in this chat …",
       "confidential": "Confidentiality",
-      "members": "Manage members …"
+      "members": "Members …",
+      "controllers": "Who may switch models, restart and compact …",
+      "dissolve": "Dissolve group …"
     },
     "agentSessions": {
       "title": "Sessions of the agents in {{name}}",
@@ -4335,6 +4344,100 @@
       "ready": "Decision model active",
       "noModel": "No decision model · @ only",
       "modelUnavailable": "Decision model unavailable · @ only"
+    },
+    "control": {
+      "failure": {
+        "forbidden": "You lack the right for this. Nothing was changed.",
+        "notFound": "The chat or the agent no longer exists.",
+        "invalidInput": "The input is invalid. Nothing was changed.",
+        "unavailable": "Pages cannot be reached right now. Please try again.",
+        "modelNotAllowed": "This model or reasoning level is not available for the agent."
+      }
+    },
+    "modelChoice": {
+      "title": "Model for {{agent}} in “{{chat}}”",
+      "standardOf": "Agent default: {{model}}",
+      "loading": "Loading …",
+      "search": "Search model …",
+      "none": "No model matches.",
+      "standard": "Default",
+      "onlyText": "Only text models of the connections released for {{agent}}.",
+      "effortLabel": "Reasoning level",
+      "effortDefault": "Default",
+      "effort": {
+        "none": "none",
+        "minimal": "minimal",
+        "low": "low",
+        "medium": "medium",
+        "high": "high",
+        "xhigh": "very high",
+        "max": "max"
+      },
+      "reset": "Reset to default",
+      "cancel": "Cancel",
+      "switch": "Switch",
+      "hint": "{{agent}} finishes the running answer first, then the session restarts with {{model}}. The summary, MEMORY.md and DREAM.md are carried over.",
+      "badgeHint": "In this chat the agent answers with {{model}} instead of its default model."
+    },
+    "removeMember": {
+      "title": "Remove {{name}} from “{{group}}”?",
+      "description": "{{name}} will no longer see the group.",
+      "session": "The session of {{name}} in this group is closed and deleted.",
+      "sessionPercent": "The session of {{name}} in this group is closed and deleted ({{percent}} % context).",
+      "model": "The choice {{model}} for this chat is dropped.",
+      "running": "A running answer is cancelled.",
+      "kept": "Kept: MEMORY.md, DREAM.md, lessons, recipes and logbook of {{name}}. {{name}} records its state in the logbook first.",
+      "confirm": "Remove"
+    },
+    "dissolve": {
+      "title": "Dissolve group “{{name}}”?",
+      "description_one": "The group disappears for {{count}} member.",
+      "description_other": "The group disappears for all {{count}} members.",
+      "onlyHere": "only here",
+      "noSession": "no session",
+      "sessions": "These agent sessions are closed and deleted:",
+      "noAgents": "There is no agent in this group.",
+      "history": "The chat history is deleted for good with its attachments, previews and decisions. There is no archive.",
+      "kept": "Kept: MEMORY.md, DREAM.md, lessons, recipes and logbook of all agents. Each agent records its state in the logbook before closing.",
+      "confirm": "Dissolve group"
+    },
+    "groupMembers": {
+      "title": "Members of “{{name}}”",
+      "owner": "Owner",
+      "remove": "Remove",
+      "controlOwner": "always (owner)",
+      "controlAgent": "agents never",
+      "control": "may steer",
+      "addPlaceholder": "Add person or agent …",
+      "ownerDescription": "Only you as the owner can add and remove members and decide who may switch models, restart and compact.",
+      "memberDescription": "Only the owner of the group can add and remove members.",
+      "knowledgeHint": "When an agent is removed, Pages closes and deletes its session in this group together with its model choice. MEMORY.md, DREAM.md, lessons, recipes and logbook stay."
+    },
+    "contextRing": {
+      "title": "{{agent}} · session in “{{chat}}”",
+      "onlyHere": "this chat only",
+      "unknown": "Usage not known yet",
+      "fill": "{{percent}} % · {{used}} / {{size}} tokens",
+      "restart": "Restart at {{percent}} % · {{state}}",
+      "noSession": "no session yet",
+      "label": "Context of {{agent}}: {{percent}} %",
+      "group": "Context of the agents in this chat"
+    },
+    "command": {
+      "current": "{{agent}} answers with {{model}} in this chat.",
+      "chooseModel": "Available:",
+      "ambiguous": "“{{query}}” matches several models. Please choose:",
+      "done": {
+        "model": "The model of {{agent}} in this chat is changed.",
+        "new": "The session of {{agent}} restarts.",
+        "compact": "The session of {{agent}} is being compacted."
+      },
+      "unknownModel": "No model is called “{{query}}”.",
+      "unknownEffort": "“{{effort}}” is no reasoning level of this model. Possible: {{efforts}}.",
+      "unknownAgent": "There is no agent “{{mention}}” in this group.",
+      "forbidden": "You lack the right for this. The group owner decides who may switch models, restart and compact.",
+      "chooseAgent": "Which agent do you mean?",
+      "dismiss": "Close hint"
     }
   },
   "workspaces": {

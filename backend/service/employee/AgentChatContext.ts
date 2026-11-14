@@ -150,6 +150,8 @@ export class AgentChatContext {
     const boundary = stored
       ? transcript.findIndex((message) => message.id === stored.throughId)
       : -1;
+    // An empty summary marks a session renewed with `/new` (PAGE-380): it knows nothing of the old one.
+    const isRenewed = stored?.summary === "" && boundary >= 0;
     return {
       audience,
       memory: renderMemoryDocument({
@@ -165,17 +167,25 @@ export class AgentChatContext {
         // A topic already loaded with MEMORY.md is not repeated.
         (match) => !entries.some((entry) => entry.title === match.title),
       ),
-      history:
-        boundary < 0
-          ? transcript
-          : transcript.slice(
-              Math.min(
-                boundary + 1,
-                Math.max(0, transcript.length - RECENT_MESSAGES),
-              ),
-            ),
+      history: isRenewed
+        ? transcript.slice(boundary + 1)
+        : this.historyAfter(transcript, boundary),
       // A stale boundary never hides the transcript behind a summary.
-      summary: stored && boundary >= 0 ? stored.summary : null,
+      summary: stored && boundary >= 0 && !isRenewed ? stored.summary : null,
     };
+  }
+
+  private historyAfter(
+    transcript: readonly StoredChatMessage[],
+    boundary: number,
+  ): readonly StoredChatMessage[] {
+    return boundary < 0
+      ? transcript
+      : transcript.slice(
+          Math.min(
+            boundary + 1,
+            Math.max(0, transcript.length - RECENT_MESSAGES),
+          ),
+        );
   }
 }

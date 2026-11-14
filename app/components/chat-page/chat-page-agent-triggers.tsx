@@ -2,11 +2,13 @@ import { Bot, ChevronDown } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/app/components/ui/button";
+import { shortModelName } from "@/definition/AgentChatControl";
 
 import { ParticipantAvatar } from "./chat-page-avatar";
 import { AgentSessionStatus } from "./chat-page-agent-status";
 import { ChatPageAgentMenu, useAgentMenuState } from "./chat-page-agent-menu";
 
+import type { AgentChatModelLabel } from "@/definition/AgentChatControl";
 import type { AgentChatSessionBrief } from "@/definition/AgentChatSession";
 import type { VirtualParticipant } from "@/definition/VirtualChat";
 import type { AgentMenuOptions, AgentMenuState } from "./chat-page-agent-menu";
@@ -15,6 +17,27 @@ interface AgentTriggerProps {
   readonly agent: VirtualParticipant;
   readonly brief: AgentChatSessionBrief | undefined;
   readonly options: AgentMenuOptions;
+}
+
+/**
+ * The short name of the model of an agent, such as "Opus", where the chat
+ * deviates from the agent's own model (PAGE-380); nothing otherwise.
+ */
+export function ChatModelBadge({
+  model,
+}: {
+  readonly model: AgentChatModelLabel | undefined;
+}): React.ReactElement | null {
+  const { t } = useTranslation();
+  if (model?.isOverride !== true) return null;
+  return (
+    <span
+      className="rounded-full border border-primary/40 bg-primary-subtle px-1.5 text-[11px] text-primary"
+      title={t("chatPage.modelChoice.badgeHint", { model: model.name })}
+    >
+      {shortModelName(model.name)}
+    </span>
+  );
 }
 
 /**
@@ -44,6 +67,7 @@ export function ChatPageAgentChip({
         >
           <ParticipantAvatar participant={agent} size={22} />
           {agent.name}
+          <ChatModelBadge model={options.control?.model} />
           <AgentSessionStatus brief={brief} />
         </button>
       </ChatPageAgentMenu>

@@ -8,6 +8,7 @@ import type { PicaAcpConversationTurn } from "@/backend/service/chat/acp/PicaAcp
 import type { EmployeeStore } from "@/backend/database/repositories/employee/EmployeeStore";
 import type { StoredAgentEmployee } from "@/backend/database/repositories/employee/AgentEmployeeRepository";
 import type { AgentConversationPurpose } from "@/backend/database/repositories/employee/AgentConversationRepository";
+import type { AgentChatModelKey } from "@/backend/database/repositories/employee/AgentChatModelRepository";
 import type { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import type { ChatSessionRepository } from "@/backend/database/repositories/chat/ChatSessionRepository";
 import type { UserRepository } from "@/backend/database/repositories/UserRepository";
@@ -153,6 +154,8 @@ export interface AgentJobRequest {
   readonly modelOverride?: {
     readonly connectionId: string;
     readonly model: string;
+    /** The reasoning level of a model chosen for one chat (PAGE-380); absent follows the model's default. */
+    readonly reasoningEffort?: string | null;
   };
   /** Ends the wait of the message in the queue (PAGE-304). */
   readonly signal?: AbortSignal;
@@ -191,6 +194,19 @@ export function keptSessionOf(
     request.conversationLabel ??
     (person ? `Chat mit ${person.displayName}` : request.agent.displayName);
   return { conversation, revision: employee.revision };
+}
+
+/**
+ * The chat whose model choice a round follows (PAGE-380): the direct chat of
+ * its person or its group; `null` for a run of the agent's own.
+ */
+export function chatModelKey(request: AgentJobRequest): AgentChatModelKey | null {
+  const { purpose, person, conversationId, agent } = request;
+  if (purpose === "chat" && person)
+    return { agentId: agent.id, chatKind: "direct", chatId: person.id };
+  if (purpose === "conversation" && conversationId !== undefined)
+    return { agentId: agent.id, chatKind: "group", chatId: conversationId };
+  return null;
 }
 
 /** A direct chat and a conversation are chats; every other purpose is a run of the agent's own. */

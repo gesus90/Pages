@@ -227,6 +227,21 @@ export class ConversationAttachmentRepository {
     return byMessage;
   }
 
+  /** Returns every attachment of a conversation, bound or not, for a dissolved group (PAGE-380). */
+  public async forConversation(
+    conversationId: string,
+  ): Promise<StoredConversationAttachment[]> {
+    const rows = await this.database.query(
+      `
+        SELECT${ATTACHMENT_COLUMNS}
+        FROM conversation_attachments
+        WHERE conversation_attachments.conversation_id = $conversation_id;
+      `,
+      { conversation_id: conversationId },
+    );
+    return rows.map(toAttachment);
+  }
+
   /**
    * Binds uploaded attachments to a message of their uploader.
    *

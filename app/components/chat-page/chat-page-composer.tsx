@@ -39,6 +39,8 @@ interface ChatPageComposerProps {
   readonly attachments?: { readonly selection: VirtualChatSelection };
   /** Receives what puts `@username ` into the field, for the menu of an agent in the chat head (PAGE-376). */
   readonly mentionRef?: React.RefObject<((username: string) => void) | null>;
+  /** What stands before "Abschicken", such as the context rings of the agents (PAGE-380). */
+  readonly aside?: React.ReactNode;
 }
 
 /** A web address alone, which the chat shows as a link card. */
@@ -120,6 +122,7 @@ export function ChatPageComposer({
   voice,
   attachments,
   mentionRef,
+  aside,
   memberIds = [],
 }: ChatPageComposerProps): React.ReactElement {
   const { t } = useTranslation();
@@ -203,8 +206,12 @@ export function ChatPageComposer({
             recordRef={record}
           />
         ) : null}
+        {aside}
         <Button
-          className="ml-auto h-11 gap-1 px-1.5 text-sm xl:h-9 xl:gap-1.5 xl:px-3"
+          className={cn(
+            "h-11 gap-1 px-1.5 text-sm xl:h-9 xl:gap-1.5 xl:px-3",
+            aside === undefined || aside === null ? "ml-auto" : undefined,
+          )}
           disabled={!canSend}
           onClick={handleSubmit}
         >

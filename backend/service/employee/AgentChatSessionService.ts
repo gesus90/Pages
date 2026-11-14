@@ -220,7 +220,11 @@ export class AgentChatSessionService {
     const session = await this.dependencies.store
       .chatSessions()
       .find(conversation.sessionId);
-    return session ? this.brief(session, signals) : undefined;
+    if (!session) return undefined;
+    return {
+      ...this.brief(session, signals),
+      restartPercent: (await this.settings(agentId)).restartPercent,
+    };
   }
 
   /**
@@ -236,8 +240,11 @@ export class AgentChatSessionService {
     const sessions = await this.dependencies.store
       .chatSessions()
       .forChat("group", conversationId);
-    return sessions.map((session) =>
-      this.brief(session, signals(session.agentId)),
+    return Promise.all(
+      sessions.map(async (session) => ({
+        ...this.brief(session, signals(session.agentId)),
+        restartPercent: (await this.settings(session.agentId)).restartPercent,
+      })),
     );
   }
 
@@ -257,6 +264,8 @@ export class AgentChatSessionService {
       }),
       contextPercent: contextPercentOf(session),
       waitingMessages: signals.waitingMessages,
+      contextUsed: session.contextUsed,
+      contextSize: session.contextSize,
     };
   }
 

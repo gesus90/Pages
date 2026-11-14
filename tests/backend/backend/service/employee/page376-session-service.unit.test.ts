@@ -311,6 +311,10 @@ it("shows the head of a chat the short state of each agent's session", async () 
       state: "working",
       contextPercent: 58,
       waitingMessages: 2,
+      // PAGE-380: the context ring at the input field names tokens and threshold.
+      contextUsed: 58,
+      contextSize: 100,
+      restartPercent: 80,
     },
   ]);
   const direct = await service.directBrief("agent", "igor", {

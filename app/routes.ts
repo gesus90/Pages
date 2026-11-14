@@ -259,6 +259,10 @@ function workspaceResources(routes: RouteBuilder): RouteConfigEntry[] {
       "routes/chat-page-agent-sessions.ts",
     ),
     resource(
+      "chat-page-api/agent-control",
+      "routes/chat-page-agent-control.ts",
+    ),
+    resource(
       "chat-page-api/agent-logbook",
       "routes/chat-page-agent-logbook.ts",
     ),

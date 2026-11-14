@@ -114,10 +114,25 @@ export function agentWrittenConversations(
       (member: ConversationParticipant) => member.id !== person.id,
     );
     if (other?.kind !== "agent") continue;
-    if (view.messages.some((message) => isAgentWritten(message, other.id)))
+    if (view.messages.some((message) => isShownWithAgentChat(message, other.id)))
       written.set(other.id, view);
   }
   return written;
+}
+
+/**
+ * Whether a message of the direct conversation with an agent joins the chat
+ * with it: one the agent chose to write (PAGE-311), or a system line such as
+ * a changed model or a restarted session (PAGE-380).
+ *
+ * @param message - A message of the direct conversation.
+ * @param agentId - The agent of the chat.
+ */
+export function isShownWithAgentChat(
+  message: ConversationMessage,
+  agentId: string,
+): boolean {
+  return message.notice === "session_event" || isAgentWritten(message, agentId);
 }
 
 /** Whether the agent chose to write the message (PAGE-311), instead of answering one. */

@@ -108,7 +108,13 @@ export type ConversationNotice =
   | "agent_failed"
   | "agent_stopped"
   /** Stored by PAGE-337 only; the chat never shows it (PAGE-349). */
-  | "round_limit";
+  | "round_limit"
+  /**
+   * A system line of the chat (PAGE-380): a person changed the model of an
+   * agent, restarted or compacted its session, or removed a member. Its text
+   * is the line; it never asks an agent for an answer.
+   */
+  | "session_event";
 
 /** Where the text of a voice message stands. */
 export type ConversationTranscriptionState = "pending" | "done" | "failed";

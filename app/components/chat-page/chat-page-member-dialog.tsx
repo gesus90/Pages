@@ -18,7 +18,16 @@ import type {
   VirtualParticipant,
 } from "@/definition/VirtualChat";
 
-function matches(participant: VirtualParticipant, query: string): boolean {
+/**
+ * Whether a participant matches the search by name, job title or username.
+ *
+ * @param participant - A participant of the person's list.
+ * @param query - The search text.
+ */
+export function matchesParticipant(
+  participant: VirtualParticipant,
+  query: string,
+): boolean {
   const needle = query.trim().toLocaleLowerCase();
   return (
     needle === "" ||
@@ -28,7 +37,8 @@ function matches(participant: VirtualParticipant, query: string): boolean {
   );
 }
 
-function CandidateList({
+/** The participants a group can take, as buttons that add one. */
+export function CandidateList({
   candidates,
   hasCandidates,
   onChoose,
@@ -132,7 +142,7 @@ export function ChatPageMemberDialog({
     (participant) => !group.memberIds.includes(participant.id),
   );
   const candidates = available.filter((participant) =>
-    matches(participant, query),
+    matchesParticipant(participant, query),
   );
 
   function handleOpenChange(open: boolean): void {

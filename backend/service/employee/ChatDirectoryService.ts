@@ -4,7 +4,7 @@ import { CONVERSATION_DEFAULT_REPLY_MODE } from "@/definition/ConversationDecisi
 
 import {
   agentWrittenConversations,
-  isAgentWritten,
+  isShownWithAgentChat,
   sharedGroup,
   splitConversations,
   toVirtualMessage,
@@ -29,6 +29,7 @@ import type {
 import type { UserRepository } from "@/backend/database/repositories/UserRepository";
 import type { WikiLookupRepository } from "@/backend/database/repositories/wiki/WikiLookupRepository";
 import type { AgentChatSessionBrief } from "@/definition/AgentChatSession";
+import type { AgentChatModelLabel } from "@/definition/AgentChatControl";
 import type { AgentEmployeeAccess } from "@/definition/AgentEmployee";
 import type { ConversationHistoryPage } from "@/definition/Conversation";
 import type { ConversationReplyMode } from "@/definition/ConversationDecision";
@@ -99,6 +100,18 @@ export interface ChatDirectoryDependencies {
     AgentChatSessionService,
     "directBrief" | "groupBriefs"
   >;
+  /** The models of agents in chats and the rights of the person in a group (PAGE-380); absent shows none. */
+  readonly chatControl?: {
+    modelLabels(chat: {
+      readonly kind: "direct" | "group";
+      readonly chatId: string;
+      readonly agentIds: readonly string[];
+    }): Promise<Record<string, AgentChatModelLabel>>;
+    groupRights(
+      person: User,
+      groupId: string,
+    ): Promise<{ readonly isOwner: boolean; readonly canControl: boolean }>;
+  };
   /** How many messages of a conversation wait for one agent (PAGE-376). */
   readonly queuedFor?: (conversationId: string, agentId: string) => number;
   /** The person's messages to an agent that wait for a free place (PAGE-304). */
@@ -328,7 +341,10 @@ export class ChatDirectoryService {
       chats.confidentialConversations(person.id),
     ]);
     return {
-      participants: withConfidentiality(participants, confidentialAgents),
+      participants: withConfidentiality(
+        await this.withChatModels(person, participants),
+        confidentialAgents,
+      ),
       groups: [
         ...(await Promise.all(
           groupsOf(groups, shownIds, conversations, person).map(
@@ -352,6 +368,7 @@ export class ChatDirectoryService {
                     }),
                 ...(paused.has(entry.id) ? { isAgentPaused: true } : {}),
                 ...(agentSessions.length > 0 ? { agentSessions } : {}),
+                ...(await this.groupControl(person, entry, accounts)),
               };
             },
           ),
@@ -534,6 +551,48 @@ export class ChatDirectoryService {
     return result;
   }
 
+  /** The model each agent of the person's list answers with in its direct chat (PAGE-380). */
+  private async withChatModels(
+    person: User,
+    participants: readonly VirtualParticipant[],
+  ): Promise<VirtualParticipant[]> {
+    const { chatControl } = this.dependencies;
+    if (!chatControl) return [...participants];
+    const labels = await chatControl.modelLabels({
+      kind: "direct",
+      chatId: person.id,
+      agentIds: participants
+        .filter((participant) => participant.kind === "agent")
+        .map((participant) => participant.id),
+    });
+    return participants.map((participant) => {
+      const label = labels[participant.id];
+      return label ? { ...participant, chatModel: label } : participant;
+    });
+  }
+
+  /** The models of the agents of a group and the rights of the person in it (PAGE-380). */
+  private async groupControl(
+    person: User,
+    group: Pick<VirtualGroup, "id" | "memberIds">,
+    accounts: ReadonlyMap<string, AccountFacts>,
+  ): Promise<Partial<VirtualGroup>> {
+    const { chatControl } = this.dependencies;
+    if (!chatControl) return {};
+    const agentIds = group.memberIds.filter(
+      (id) => accounts.get(id)?.user.isAgent === true,
+    );
+    const [agentModels, rights] = await Promise.all([
+      chatControl.modelLabels({ kind: "group", chatId: group.id, agentIds }),
+      chatControl.groupRights(person, group.id),
+    ]);
+    return {
+      agentModels,
+      isOwner: rights.isOwner,
+      canControlSessions: rights.canControl,
+    };
+  }
+
   /** The sessions of the agents in a group, with what each agent does in it now (PAGE-376). */
   private async groupSessions(
     groupId: string,
@@ -661,7 +720,7 @@ export class ChatDirectoryService {
     );
     // What the agent wrote to the person on its own joins the chat by time (PAGE-311).
     const written = (agentChat?.messages ?? [])
-      .filter((message) => isAgentWritten(message, agent.id))
+      .filter((message) => isShownWithAgentChat(message, agent.id))
       .map((message) => toVirtualMessage(message, person));
     if (!conversation)
       return {

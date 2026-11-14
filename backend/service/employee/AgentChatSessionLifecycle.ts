@@ -15,9 +15,14 @@ const COMPONENT = "AgentChatSessionLifecycle";
 /** What the lifecycle of chat sessions runs on. */
 export interface AgentChatSessionLifecycleDependencies {
   readonly store: EmployeeStore;
-  readonly messages: Pick<ChatSessionRepository, "messages">;
+  readonly messages: Pick<ChatSessionRepository, "messages" | "remove">;
   /** Pica's ACP path; `null` where the server runs no ACP chat. */
   readonly acp: Pick<PicaAcpService, "update" | "stop" | "settled"> | null;
+  /**
+   * Writes the state of a chat into the Lagebuch before its session closes
+   * (PAGE-380); a confidential chat writes nothing. Absent writes nothing.
+   */
+  readonly logbook?: (sessionId: string) => Promise<void>;
   /** The live processes of the chat sessions; `null` without the ACP path. */
   readonly pool: Pick<PicaAcpSessionPool, "close"> | null;
   readonly acpSessions: Pick<ChatAcpSessionRepository, "remove">;
@@ -137,7 +142,8 @@ export class AgentChatSessionLifecycle {
     const summary = await summaries().summarize(
       { agent, employee, runsNow: true },
       {
-        previous: stored?.summary ?? null,
+        // The empty summary of a renewed session (PAGE-380) is no summary.
+        previous: stored?.summary === "" ? null : (stored?.summary ?? null),
         messages: range.map((message) => ({
           from: message.role === "user" ? "chat" : agent.displayName,
           text: message.content,
@@ -161,13 +167,43 @@ export class AgentChatSessionLifecycle {
    * @param sessionId - The chat session.
    */
   public restart(agent: User, sessionId: string): Promise<void> {
-    const running = this.restarts.get(sessionId);
-    if (running) return running;
-    const task = this.performRestart(agent, sessionId).finally(() => {
-      this.restarts.delete(sessionId);
-    });
-    this.restarts.set(sessionId, task);
-    return task;
+    return this.exclusive(sessionId, () =>
+      this.performRestart(agent, sessionId),
+    );
+  }
+
+  /**
+   * Replaces a session by a new, empty one (PAGE-380, `/new`): the running
+   * answer ends first, the state goes into the Lagebuch, then the process
+   * ends and the agent session is forgotten. The next round starts with
+   * `MEMORY.md` and `DREAM.md` but without a summary of the old session or
+   * its messages. Rounds of the session wait for it, as for a restart.
+   *
+   * @param agent - The account of the agent.
+   * @param sessionId - The chat session.
+   */
+  public renew(agent: User, sessionId: string): Promise<void> {
+    return this.exclusive(sessionId, () => this.performRenew(agent, sessionId));
+  }
+
+  /**
+   * Closes a session for good and deletes it with its messages (PAGE-380):
+   * for an agent removed from a group or a dissolved group. The state goes
+   * into the Lagebuch first; `MEMORY.md`, `DREAM.md`, lessons, recipes and
+   * the Lagebuch stay.
+   *
+   * @param agent - The account of the agent.
+   * @param sessionId - The chat session.
+   * @param options - `isAborted` stops a running answer instead of waiting for it.
+   */
+  public close(
+    agent: User,
+    sessionId: string,
+    options: { readonly isAborted: boolean },
+  ): Promise<void> {
+    return this.exclusive(sessionId, () =>
+      this.performClose(agent, sessionId, options),
+    );
   }
 
   /** Stops the answer the agent gives in the session now; the session stays. */
@@ -226,6 +262,71 @@ export class AgentChatSessionLifecycle {
       message: "A chat session of an agent restarted with its summary.",
       metadata: { agentId: agent.id, sessionId },
     });
+  }
+
+  /** Runs one change of a session at a time; a concurrent call shares the running one. */
+  private exclusive(
+    sessionId: string,
+    work: () => Promise<void>,
+  ): Promise<void> {
+    const running = this.restarts.get(sessionId);
+    if (running) return running;
+    const task = work().finally(() => {
+      this.restarts.delete(sessionId);
+    });
+    this.restarts.set(sessionId, task);
+    return task;
+  }
+
+  private async performRenew(agent: User, sessionId: string): Promise<void> {
+    await this.dependencies.acp?.settled(agent, sessionId);
+    await this.writeLogbook(sessionId);
+    const transcript = await this.dependencies.messages.messages(sessionId);
+    const last = transcript.at(-1);
+    // An empty summary up to the newest message hides the old session from the new one.
+    if (last)
+      await this.dependencies.store
+        .chats()
+        .saveSummary(sessionId, { summary: "", throughId: last.id });
+    await this.forget(agent, sessionId);
+    logEvent({
+      level: "info",
+      event: "agent.chat_session.renewed",
+      component: COMPONENT,
+      message: "A chat session of an agent was replaced by an empty one.",
+      metadata: { agentId: agent.id, sessionId },
+    });
+  }
+
+  private async performClose(
+    agent: User,
+    sessionId: string,
+    options: { readonly isAborted: boolean },
+  ): Promise<void> {
+    const { acp, pool, acpSessions, messages, store } = this.dependencies;
+    if (options.isAborted) await acp?.stop(agent, sessionId);
+    await acp?.settled(agent, sessionId);
+    await this.writeLogbook(sessionId);
+    await pool?.close(sessionId);
+    await acpSessions.remove(agent.id, sessionId);
+    await messages.remove(agent.id, sessionId);
+    await store.chatSessions().remove(sessionId);
+    logEvent({
+      level: "info",
+      event: "agent.chat_session.closed",
+      component: COMPONENT,
+      message: "A chat session of an agent was closed and deleted.",
+      metadata: { agentId: agent.id, sessionId },
+    });
+  }
+
+  /** The Lagebuch entry before a session closes; a failure never holds the close back. */
+  private async writeLogbook(sessionId: string): Promise<void> {
+    try {
+      await this.dependencies.logbook?.(sessionId);
+    } catch (error: unknown) {
+      logCaughtError(COMPONENT, error);
+    }
   }
 
   /** Ends the process, forgets the agent session and starts the inbox anew. */

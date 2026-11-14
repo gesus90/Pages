@@ -1,7 +1,9 @@
 import {
   Bell,
   BellOff,
+  Ban,
   ChevronDown,
+  Diamond,
   Layers,
   MessageCircleQuestionMark,
   NotebookText,
@@ -28,7 +30,12 @@ import type { VirtualGroup } from "@/definition/VirtualChat";
 import type { ConfidentialControl } from "./chat-page-confidential";
 
 /** The dialogs the group menu opens, besides the popup of an agent. */
-export type GroupDialogKind = "context" | "reply" | "sessions" | "members";
+export type GroupDialogKind =
+  | "context"
+  | "reply"
+  | "sessions"
+  | "members"
+  | "dissolve";
 
 interface ChatPageGroupMenuProps {
   readonly group: VirtualGroup;
@@ -127,6 +134,22 @@ export function ChatPageGroupMenu({
           label={t("chatPage.groupMenu.members")}
           onSelect={() => onOpenDialog("members")}
         />
+        {group.isOwner === true ? (
+          <>
+            <ChatPageMenuEntry
+              icon={Diamond}
+              label={t("chatPage.groupMenu.controllers")}
+              onSelect={() => onOpenDialog("members")}
+            />
+            <DropdownMenuSeparator />
+            <ChatPageMenuEntry
+              icon={Ban}
+              label={t("chatPage.groupMenu.dissolve")}
+              isDestructive
+              onSelect={() => onOpenDialog("dissolve")}
+            />
+          </>
+        ) : null}
       </DropdownMenuContent>
     </DropdownMenu>
   );

@@ -55,6 +55,7 @@ import {
   simulatedAgent,
 } from "./employee-service-factories.server";
 
+import { createAgentChatControl } from "./agent-chat-control-services.server";
 import { createConversationServices } from "./conversation-services.server";
 import { defaultAgentTemplateTexts } from "./agent-template-texts.server";
 
@@ -75,12 +76,15 @@ import type { PicaSettingsService } from "@/backend/service/chat/PicaSettingsSer
 import type { ConversationContextReader } from "@/backend/service/conversation/ConversationContextReader";
 import type { PagesEventPublisher } from "@/backend/service/events/PagesEventPublisher";
 import type { ConversationApplicationServices } from "./conversation-services.server";
+import type { AgentChatControlServices } from "./agent-chat-control-services.server";
 
 /**
  * Agents as employees, the chat directory and person colors (PAGE-266), with
  * the stored conversations the chat page shows (PAGE-278).
  */
-export interface EmployeeApplicationServices extends ConversationApplicationServices {
+export interface EmployeeApplicationServices
+  extends ConversationApplicationServices,
+    AgentChatControlServices {
   readonly agentEmployeeAdministration: AgentEmployeeAdministration;
   readonly agentDeletionService: AgentDeletionService;
   /** The templates of `AGENT.md` (PAGE-283). */
@@ -173,6 +177,7 @@ interface EmployeeParts {
   readonly conversations: ConversationApplicationServices;
   readonly learning: AgentLearningService;
   readonly privacy: AgentChatPrivacyService;
+  readonly lifecycle: AgentChatSessionLifecycle;
 }
 
 /** The tab "Lagebuch": what a viewer sees of the Lagebuch of an agent and what they change. */
@@ -233,6 +238,15 @@ function assembleEmployeeServices(
   });
   return {
     ...parts.conversations,
+    ...createAgentChatControl({
+      database: input.database,
+      store,
+      users: parts.users,
+      models,
+      lifecycle: parts.lifecycle,
+      conversationService: parts.conversations.conversationService,
+      replies: parts.conversations.conversationAgentReplies,
+    }),
     agentEmployeeAdministration: new AgentEmployeeAdministration({
       authorization,
       cache: input.cache,
@@ -272,6 +286,7 @@ function assembleEmployeeServices(
       sessions,
       agentSessions: parts.agentSessions,
       conversations: parts.conversations,
+      models,
     }),
     chatGroupService: new ChatGroupService({ store }),
     personColorService: new PersonColorService(authorization, input.cache),
@@ -289,6 +304,8 @@ interface LateServices {
   agentChat: AgentChatTools | null;
   contextReader: ConversationContextReader | null;
   logbook: AgentLogbookService | null;
+  /** Writes the state of a chat into the Lagebuch before its session closes (PAGE-380). */
+  logbookClose: ((sessionId: string) => Promise<void>) | null;
 }
 
 function lateSessions(late: LateServices): AgentEmployeeSessions {
@@ -341,6 +358,9 @@ function createEmployeeBase(
     pool: input.pool ?? null,
     acpSessions: new ChatAcpSessionRepository(database),
     summaries: () => memoryModel,
+    logbook: async (sessionId) => {
+      await late.logbookClose?.(sessionId);
+    },
   });
   return {
     store,
@@ -472,17 +492,26 @@ function wireEmployeeConversations(
       : null,
   });
   late.logbook = logbookService;
+  const summarizer = new AgentLogbookSummarizer({
+    store,
+    users,
+    reader: chatReader,
+    model: () => memoryModel,
+    logbook: logbookService,
+    instanceModel: () => sessionSettings.logbookModel(),
+  });
+  // A session that closes for good writes its state down as at rest; a confidential one is never pending (PAGE-380).
+  if (hasModel)
+    late.logbookClose = async (sessionId) => {
+      const pending = (await store.logbookSessions().pending()).find(
+        (session) => session.sessionId === sessionId,
+      );
+      if (pending) await summarizer.summarize(pending);
+    };
   if (isBackgroundOwner && hasModel)
     new AgentLogbookScheduler({
       store,
-      summarizer: new AgentLogbookSummarizer({
-        store,
-        users,
-        reader: chatReader,
-        model: () => memoryModel,
-        logbook: logbookService,
-        instanceModel: () => sessionSettings.logbookModel(),
-      }),
+      summarizer,
       isWorking: (agentId) => sessions.isWorkingInChat(agentId),
     }).start();
   const agentSessions = new AgentChatSessionService({
@@ -520,6 +549,7 @@ export function createEmployeeServices(
     agentChat: null,
     contextReader: null,
     logbook: null,
+    logbookClose: null,
   };
   const base = createEmployeeBase(input, late);
   const sessions = createEmployeeSessions(input, base, late);

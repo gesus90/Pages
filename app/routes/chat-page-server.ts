@@ -4,11 +4,13 @@ import { authenticatedUserContext } from "@/app/lib/auth.server";
 import { shareChatGroup } from "@/app/lib/chat-page-conversations.server";
 import { getApplicationServices } from "@/app/lib/services.server";
 import { AgentEmployeeError } from "@/backend/error/AgentEmployeeError";
+import { parseAgentChatCommand } from "@/definition/AgentChatControl";
 import { CONVERSATION_DEFAULT_REPLY_MODE } from "@/definition/ConversationDecision";
 import { ConversationError } from "@/backend/error/ConversationError";
 import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { ChatPageServices } from "@/app/lib/chat-page-conversations.server";
+import type { AgentChatCommandOutcome } from "@/definition/AgentChatControl";
 import type { ConversationErrorCode } from "@/definition/Conversation";
 import type {
   ConversationDecisionEntry,
@@ -38,6 +40,8 @@ export type ChatPageActionData =
       readonly replySettings?: ConversationReplySettingsView;
       /** The last decisions of a group, the answer of `reply-decisions` (PAGE-379). */
       readonly replyDecisions?: readonly ConversationDecisionEntry[];
+      /** What a chat command answered instead of a sent message (PAGE-380). */
+      readonly commandOutcome?: AgentChatCommandOutcome;
     }
   | {
       readonly ok: false;
@@ -78,6 +82,7 @@ interface ChatIntentOutcome {
   readonly groupContext?: ConversationGroupContextView;
   readonly replySettings?: ConversationReplySettingsView;
   readonly replyDecisions?: readonly ConversationDecisionEntry[];
+  readonly commandOutcome?: AgentChatCommandOutcome;
 }
 
 const INTENTS: readonly ChatPageIntent[] = [
@@ -432,6 +437,39 @@ async function runAgentControlIntent(
   }
 }
 
+/**
+ * A chat command typed into the direct chat with an agent or a group runs as
+ * a command (PAGE-380): it is never stored as a message, so it reaches no
+ * agent and asks for no answer and no decision.
+ *
+ * @returns The outcome of the command, or `null` for a message.
+ */
+async function runTypedCommand(
+  services: ChatServices,
+  person: User,
+  intent: ChatPageIntent,
+  formData: FormData,
+): Promise<ChatIntentOutcome | null> {
+  const typed = formData.get("text");
+  if (intent !== "send" && intent !== "send-group") return null;
+  if (typeof typed !== "string" || parseAgentChatCommand(typed) === null)
+    return null;
+  const chat =
+    intent === "send"
+      ? { kind: "direct" as const, agentId: String(formData.get("agentId")) }
+      : {
+          kind: "group" as const,
+          conversationId: String(formData.get("groupId") ?? ""),
+        };
+  return {
+    commandOutcome: await services.agentChatCommandService.run(
+      person,
+      chat,
+      typed,
+    ),
+  };
+}
+
 /** Runs one change of the person; returns a created group or a history page. */
 async function runIntent(
   services: ChatServices,
@@ -439,6 +477,8 @@ async function runIntent(
   intent: ChatPageIntent,
   formData: FormData,
 ): Promise<ChatIntentOutcome> {
+  const command = await runTypedCommand(services, person, intent, formData);
+  if (command !== null) return command;
   if (isMemberIntent(intent))
     return runMemberIntent(services, person, intent, formData);
   if (isContentIntent(intent)) {

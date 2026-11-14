@@ -183,6 +183,35 @@ export class ChatGroupRepository {
     });
   }
 
+  /** Removes a participant from one of the owner's groups (PAGE-380); removing a non-member changes nothing. */
+  public async removeMember(
+    ownerId: string,
+    groupId: string,
+    contactId: string,
+  ): Promise<void> {
+    await this.database.execute(
+      `
+        DELETE FROM chat_group_members
+        WHERE owner_id = $owner_id
+            AND group_id = $group_id
+            AND contact_id = $contact_id;
+      `,
+      { owner_id: ownerId, group_id: groupId, contact_id: contactId },
+    );
+  }
+
+  /** Deletes one of the owner's groups with its member list (PAGE-380). */
+  public async remove(ownerId: string, groupId: string): Promise<void> {
+    await this.database.execute(
+      `
+        DELETE FROM chat_groups
+        WHERE owner_id = $owner_id
+            AND id = $group_id;
+      `,
+      { owner_id: ownerId, group_id: groupId },
+    );
+  }
+
   /**
    * Records a sent message as the last activity of a group.
    *

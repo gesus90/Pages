@@ -1,4 +1,5 @@
 import { DropdownMenuItem } from "@/app/components/ui/dropdown-menu";
+import { cn } from "@/app/lib/cn";
 
 import type { LucideIcon } from "lucide-react";
 
@@ -12,6 +13,8 @@ interface ChatPageMenuEntryProps {
   /** A short remark at the right edge. */
   readonly note?: string;
   readonly isDisabled?: boolean;
+  /** Shows an entry that removes or deletes in the destructive color (PAGE-380). */
+  readonly isDestructive?: boolean;
   readonly onSelect: () => void;
 }
 
@@ -21,11 +24,15 @@ export function ChatPageMenuEntry({
   label,
   note,
   isDisabled = false,
+  isDestructive = false,
   onSelect,
 }: ChatPageMenuEntryProps): React.ReactElement {
   return (
     <DropdownMenuItem
-      className="min-h-9 gap-2.5 text-[13px]"
+      className={cn(
+        "min-h-9 gap-2.5 text-[13px]",
+        isDestructive && "text-destructive",
+      )}
       disabled={isDisabled}
       onSelect={onSelect}
     >

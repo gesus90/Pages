@@ -159,10 +159,7 @@ it("mutes a group from the group menu", () => {
   expect(onToggleMute).toHaveBeenCalledTimes(1);
 });
 
-it("adds one of the person's participants that is not yet a member", () => {
-  const { onAddMember } = renderHeader({ opened: groupOpened([ADA]) });
-  fireEvent.click(screen.getByRole("button", { name: "Add participant" }));
-  expect(screen.queryByText("Planner")).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: /Bob/ }));
-  expect(onAddMember).toHaveBeenCalledWith("g", "bob");
+it("shows no dashed plus in the head: adding members moved into the group menu (PAGE-380)", () => {
+  renderHeader({ opened: groupOpened([ADA]) });
+  expect(screen.queryByRole("button", { name: "Add participant" })).toBeNull();
 });

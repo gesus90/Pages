@@ -136,7 +136,7 @@ it("replaces the single buttons of the head by one menu", () => {
     "Sessions of the agents in this chat …",
     /^Confidentiality\s*Not confidential$/,
     "Mute",
-    "Manage members …",
+    "Members …",
   ]) {
     expect(entry(name)).toBeTruthy();
   }
@@ -227,19 +227,41 @@ it("leaves out the entries of what the group cannot do", () => {
   ).toBeNull();
 });
 
-it("opens the member choice from the menu and from the dashed plus", () => {
-  const { onAddMember } = renderGroup({ memberIds: ["ed"] });
+it("opens the members from the menu, where the dashed plus of the head moved to (PAGE-380)", async () => {
+  vi.stubGlobal("fetch", async () =>
+    Response.json({
+      ok: true,
+      members: {
+        groupId: "g",
+        canManage: true,
+        members: [
+          {
+            id: "igor",
+            name: "Igor",
+            kind: "human",
+            username: "igor",
+            role: "",
+            color: null,
+            avatarImageUrl: null,
+            isOwner: true,
+            canControl: true,
+          },
+        ],
+      },
+    }),
+  );
+  const { onAddMember } = renderGroup({ memberIds: ["ed"], isOwner: true });
+  expect(screen.queryByRole("button", { name: "Add participant" })).toBeNull();
   openMenu();
-  fireEvent.click(entry("Manage members …"));
-  expect(
-    screen.getByRole("dialog", { name: "Add participant to Team" }),
-  ).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: /Bob/ }));
+  fireEvent.click(entry("Members …"));
+  const dialog = screen.getByRole("dialog", { name: "Members of “Team”" });
+  expect(await within(dialog).findByText("Owner")).toBeTruthy();
+  fireEvent.change(within(dialog).getByPlaceholderText("Add person or agent …"), {
+    target: { value: "Bo" },
+  });
+  fireEvent.click(within(dialog).getByRole("button", { name: /Bob/ }));
   expect(onAddMember).toHaveBeenCalledWith("g", "bob");
-  fireEvent.click(screen.getByRole("button", { name: "Add participant" }));
-  expect(
-    screen.getByRole("dialog", { name: "Add participant to Team" }),
-  ).toBeTruthy();
+  vi.unstubAllGlobals();
 });
 
 it("lists the session of every agent of the group with its state, context and waiting messages", () => {
