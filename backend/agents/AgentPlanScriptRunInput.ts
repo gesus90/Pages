@@ -7,6 +7,9 @@ import type { AgentPlanScriptRun } from "@/definition/AgentPlanScript";
 
 /** Additive persisted process record, also used inside immutable completion checkpoints. */
 export const planScriptRunSchema = z.strictObject({
+  temporaryScope: z
+    .strictObject({ runId: z.uuid(), stepId: z.string().min(1).max(200) })
+    .optional(),
   attemptId: z.uuid(),
   instanceId: z.uuid(),
   interpreterProfileId: z.string().min(1).max(80),

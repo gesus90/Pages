@@ -19,3 +19,11 @@ it.each([
     agentErrorCode(() => readPlanScriptRun({ ...SCRIPT_RUN, ...change })),
   ).toBe("plan_invalid");
 });
+
+it("retains disk scratch identity for interrupted script recovery", () => {
+  const record = {
+    ...SCRIPT_RUN,
+    temporaryScope: { runId: SCRIPT_RUN.instanceId, stepId: "script-check" },
+  };
+  expect(readPlanScriptRun(record)).toEqual(record);
+});

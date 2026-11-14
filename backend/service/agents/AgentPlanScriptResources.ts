@@ -2,36 +2,58 @@ import { mkdir, readFile, rm, writeFile, lstat } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
+import {
+  planTemporaryDirectory,
+  preparePlanTemporaryDirectory,
+} from "@/backend/agents/PlanRunTemporaryDirectory";
+
 import { RUN_INSTANCE_VARIABLE } from "@/backend/agents/cli/CliProcessScan";
 import { correlationEnvironment } from "@/backend/logging/LogCorrelation";
 
-function runtimeDirectory(instanceId: string): string {
+import type { PlanTemporaryScope } from "@/backend/agents/PlanRunTemporaryDirectory";
+
+function runtimeDirectory(
+  instanceId: string,
+  scope?: PlanTemporaryScope,
+): string {
   if (!/^[a-f0-9-]{36}$/u.test(instanceId))
     throw new Error("Invalid script instance");
-  return path.join(os.tmpdir(), `pages-plan-script-${instanceId}`);
+  return scope
+    ? path.join(planTemporaryDirectory(scope), `resources-${instanceId}`)
+    : path.join(os.tmpdir(), `pages-plan-script-${instanceId}`);
 }
 
 /** Creates only this attempt's private source and home, outside the working copy. */
 export async function createScriptResources(
   instanceId: string,
   content: string,
+  scope?: PlanTemporaryScope,
 ): Promise<string> {
-  const directory = runtimeDirectory(instanceId);
+  if (scope) await preparePlanTemporaryDirectory(scope);
+  const directory = runtimeDirectory(instanceId, scope);
   await mkdir(directory, { mode: 0o700 });
-  await writeFile(path.join(directory, "owner"), instanceId, {
-    mode: 0o600,
-    flag: "wx",
-  });
-  await writeFile(path.join(directory, "script.cjs"), content, {
-    mode: 0o600,
-    flag: "wx",
-  });
+  try {
+    await writeFile(path.join(directory, "owner"), instanceId, {
+      mode: 0o600,
+      flag: "wx",
+    });
+    await writeFile(path.join(directory, "script.cjs"), content, {
+      mode: 0o600,
+      flag: "wx",
+    });
+  } catch (error: unknown) {
+    await rm(directory, { recursive: true, force: true });
+    throw error;
+  }
   return directory;
 }
 
 /** Removes a private runtime directory only after checking its location, ownership and marker. */
-export async function removeScriptResources(instanceId: string): Promise<void> {
-  const directory = runtimeDirectory(instanceId);
+export async function removeScriptResources(
+  instanceId: string,
+  scope?: PlanTemporaryScope,
+): Promise<void> {
+  const directory = runtimeDirectory(instanceId, scope);
   let metadata;
   try {
     metadata = await lstat(directory);
@@ -56,6 +78,7 @@ export function scriptEnvironment(input: {
   readonly directory: string;
   readonly interpreter: string;
   readonly instanceId: string;
+  readonly temporaryDirectory?: string;
 }): Record<string, string> {
   const { directory } = input;
   return {
@@ -69,7 +92,17 @@ export function scriptEnvironment(input: {
       ]),
     ].join(path.delimiter),
     HOME: directory,
-    TMPDIR: directory,
+    TMPDIR: input.temporaryDirectory ?? directory,
+    ...(input.temporaryDirectory
+      ? {
+          TEMP: input.temporaryDirectory,
+          TMP: input.temporaryDirectory,
+          NODE_COMPILE_CACHE: path.join(
+            input.temporaryDirectory,
+            "node-compile-cache",
+          ),
+        }
+      : {}),
     XDG_CONFIG_HOME: path.join(directory, "config"),
     XDG_CACHE_HOME: path.join(directory, "cache"),
     XDG_DATA_HOME: path.join(directory, "data"),

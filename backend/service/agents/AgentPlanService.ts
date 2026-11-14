@@ -8,6 +8,7 @@ import {
   requireManagementPlanAccess,
   requireManagementScriptExecution,
 } from "../management/ManagementPlanAccess";
+import { cleanupOrphanedPlanTemporaryDirectories } from "./AgentPlanTemporaryCleanup";
 import { reviseAgentPlan } from "./AgentPlanRevision";
 import { AgentPlanSettings } from "./AgentPlanSettings";
 import { planDependenciesForChannel } from "./AgentPlanChannel";
@@ -135,6 +136,9 @@ export class AgentPlanService extends AgentPlanTeamReads {
     retained: ReadonlySet<string> = new Set(),
   ): Promise<void> {
     await recoverPlanStartup(this.dependencies, retained);
+    await cleanupOrphanedPlanTemporaryDirectories((runId) =>
+      this.dependencies.runs.find(runId),
+    );
   }
 
   /**

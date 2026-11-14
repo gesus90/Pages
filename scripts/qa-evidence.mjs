@@ -4,6 +4,9 @@ import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { withCommandTemporaryDirectory } from "./command-temporary-directory.mjs";
+import { runStep } from "./run-browser-tests.mjs";
+
 import { isFingerprintedFile, walkFiles } from "./source-population.mjs";
 
 /** The four metrics that must be complete in every coverage scope. */
@@ -447,26 +450,25 @@ function coverageCommand(root, input) {
   return result.issues.length === 0 && result.gaps.length === 0 ? 0 : 1;
 }
 
-function preflightCommand(root, scope, shouldInstall) {
+async function preflightCommand(root, scope, shouldInstall, signal) {
   const directory = PACKAGES[scope];
   let issues = dependencyIssues(root, directory);
   if (issues.length > 0 && shouldInstall) {
     // `CI` allows the purge of stale modules without a terminal; the frozen
     // lockfile keeps the installed versions exactly the reviewed ones.
-    const install = spawnSync(
+    const code = await runStep(
       "pnpm",
       ["--dir", directory, "install", "--frozen-lockfile"],
       {
         cwd: root,
         env: { ...process.env, CI: "true" },
-        stdio: ["ignore", "inherit", "inherit"],
+        timeoutMilliseconds: 30 * 60_000,
+        signal,
       },
     );
-    if (install.status !== 0) {
-      console.error(
-        `[qa] FAILED: install of ${scope} ended with ${install.status}.`,
-      );
-      return 1;
+    if (code !== 0) {
+      console.error(`[qa] FAILED: install of ${scope} ended with ${code}.`);
+      return code;
     }
     issues = dependencyIssues(root, directory);
   }
@@ -505,7 +507,8 @@ function readOption(args, name) {
   return index === -1 ? undefined : args[index + 1];
 }
 
-function main(args) {
+async function main(args, signal) {
+  signal.throwIfAborted();
   const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
   const [command] = args;
   const scope = readOption(args, "--scope");
@@ -527,7 +530,7 @@ function main(args) {
     return handoffCommand(root, scope, readOption(args, "--file"));
   }
   if (command === "preflight") {
-    return preflightCommand(root, scope, args.includes("--install"));
+    return preflightCommand(root, scope, args.includes("--install"), signal);
   }
   if (command === "fingerprint") {
     return fingerprintCommand(root, scope, readOption(args, "--manifest"));
@@ -540,5 +543,12 @@ if (
   process.argv[1] &&
   path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
 ) {
-  process.exitCode = main(process.argv.slice(2));
+  try {
+    process.exitCode = await withCommandTemporaryDirectory(({ signal }) =>
+      main(process.argv.slice(2), signal),
+    );
+  } catch (error) {
+    console.error(error);
+    process.exitCode = process.exitCode || 1;
+  }
 }

@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 
+import { removePlanTemporaryStep } from "@/backend/agents/PlanRunTemporaryDirectory";
 import { AgentPlanPausedError } from "@/backend/error/AgentPlanPausedError";
 import { AgentError } from "@/backend/error/AgentErrors";
 
@@ -58,6 +59,7 @@ export class AgentPlanScriptRunner {
       const resources = await createScriptResources(
         record.instanceId,
         script.step.content,
+        { runId: run.id, stepId: script.step.id },
       );
       await this.preparation.reauthorize(run.userId, snapshot.plan, script);
       record = await executeScriptProcess({
@@ -71,7 +73,15 @@ export class AgentPlanScriptRunner {
         save: control.save,
       });
       if (record.closeout === "confirmed")
-        await removeScriptResources(record.instanceId);
+        await removeScriptResources(record.instanceId, record.temporaryScope);
+      if (
+        record.closeout === "confirmed" &&
+        !(control.signal.reason instanceof AgentPlanPausedError)
+      )
+        await removePlanTemporaryStep({
+          runId: run.id,
+          stepId: script.step.id,
+        });
       return completedResult(record, script);
     } catch (error: unknown) {
       record = await closeUnstartedRecord(record);
@@ -85,6 +95,7 @@ function initialRecord(
   script: AgentPlanScriptSnapshot,
 ): AgentPlanScriptRun {
   return {
+    temporaryScope: { runId: run.id, stepId: script.step.id },
     attemptId:
       run.steps.find((step) => step.id === script.step.id)?.execution
         ?.attemptId ?? randomUUID(),
@@ -137,7 +148,7 @@ async function closeUnstartedRecord(
 ): Promise<AgentPlanScriptRun | undefined> {
   if (!record || record.closeout === "failed") return record;
   try {
-    await removeScriptResources(record.instanceId);
+    await removeScriptResources(record.instanceId, record.temporaryScope);
     return {
       ...record,
       closeout: "confirmed",

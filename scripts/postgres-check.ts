@@ -3,11 +3,13 @@
  *
  * It starts a server of its own in a temporary directory on a free loopback
  * port, runs the checks through the database facade, stops the server and
- * retains the private directory. It touches no other instance, does not use the
+ * removes the private directory. It touches no other instance, does not use the
  * `postgresql` service, and is no part of `test:backend` or CI: unit tests never
  * start a database server. Later tickets add their checks here.
  */
 import path from "node:path";
+
+import { withCommandTemporaryDirectory } from "./command-temporary-directory.mjs";
 
 import { Database } from "@/backend/database/Database";
 import { closeLogging, initializeLogging } from "@/backend/logging/Logger";
@@ -25,8 +27,6 @@ import {
   requirePostgresPrograms,
   TemporaryPostgres,
 } from "./postgres-check/temporary-instance";
-
-const EXIT_AFTER_SIGNAL = 130;
 
 /** Keeps what the process writes, so the search for the URL covers it too. */
 function captureConsole(): () => string {
@@ -75,34 +75,31 @@ async function runChecks(
   );
 }
 
-async function main(): Promise<void> {
+async function main({
+  signal,
+}: {
+  readonly signal: AbortSignal;
+}): Promise<void> {
   await requirePostgresPrograms();
   const readConsole = captureConsole();
-  const instance = await TemporaryPostgres.prepare();
-  const removeAfterSignal = (): void => {
-    void instance.remove().finally(() => process.exit(EXIT_AFTER_SIGNAL));
-  };
-  process.once("SIGINT", removeAfterSignal);
-  process.once("SIGTERM", removeAfterSignal);
+  const instance = await TemporaryPostgres.prepare(signal);
   try {
     await runChecks(instance, readConsole);
   } finally {
-    process.off("SIGINT", removeAfterSignal);
-    process.off("SIGTERM", removeAfterSignal);
     await closeLogging();
     await instance.remove();
   }
   console.info(
-    `ok   owned server stopped; private evidence retained in ${instance.directory}`,
+    `ok   owned server stopped; private directory removed: ${instance.directory}`,
   );
   console.info("postgres:check passed");
 }
 
 try {
-  await main();
+  await withCommandTemporaryDirectory(main);
 } catch (error: unknown) {
   console.error(
     error instanceof PostgresProgramsMissingError ? error.message : error,
   );
-  process.exitCode = 1;
+  process.exitCode = process.exitCode || 1;
 }

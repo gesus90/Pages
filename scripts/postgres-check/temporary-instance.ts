@@ -2,13 +2,15 @@ import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import {
   access,
+  mkdir,
   mkdtemp,
+  rm,
   readdir,
   readFile,
   writeFile,
 } from "node:fs/promises";
 import { createServer } from "node:net";
-import { tmpdir } from "node:os";
+import { homedir } from "node:os";
 import path from "node:path";
 
 import type { ChildProcessWithoutNullStreams } from "node:child_process";
@@ -73,6 +75,8 @@ function postgresProgramEnvironment(): NodeJS.ProcessEnv {
     XDG_DATA_HOME: process.env.XDG_DATA_HOME,
     XDG_STATE_HOME: process.env.XDG_STATE_HOME,
     TMPDIR: process.env.TMPDIR,
+    TEMP: process.env.TEMP,
+    TMP: process.env.TMP,
     PGHOST: process.env.PGHOST,
     PGPORT: process.env.PGPORT,
     PGDATABASE: process.env.PGDATABASE,
@@ -92,10 +96,12 @@ function postgresProgramEnvironment(): NodeJS.ProcessEnv {
 export function runProgram(
   name: string,
   parameters: readonly string[],
+  signal?: AbortSignal,
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     let output = "";
     const child = spawn(programPath(name), parameters, {
+      signal,
       env: postgresProgramEnvironment(),
       stdio: ["ignore", "pipe", "pipe"],
     });
@@ -104,9 +110,13 @@ export function runProgram(
     };
     child.stdout.on("data", collect);
     child.stderr.on("data", collect);
-    child.on("error", reject);
-    child.on("exit", (code) => {
-      if (code === 0) resolve();
+    let failure: Error | null = null;
+    child.on("error", (error: Error) => {
+      failure = error;
+    });
+    child.on("close", (code) => {
+      if (failure) reject(failure);
+      else if (code === 0) resolve();
       else reject(new Error(`${name} failed:\n${output}`));
     });
   });
@@ -255,17 +265,14 @@ export async function startOwnedPostgres(
 }
 
 function temporaryPostgresRoot(): string {
-  const candidate = tmpdir();
-  const prefix = path.join(candidate, "pages-postgres-check-");
-  if (prefix.length + 21 > 107) {
-    return "/tmp";
-  }
-  return candidate;
+  return (
+    process.env.TMPDIR || path.join(homedir(), ".pages", "data", "check-tmp")
+  );
 }
 
 /**
  * A PostgreSQL server of its own in a temporary directory, on a free loopback
- * port and password authentication. The private files remain after shutdown.
+ * port and password authentication. The private files are removed after confirmed shutdown.
  */
 export class TemporaryPostgres {
   /** Temporary directory, also the home of the logs of the check. */
@@ -274,8 +281,20 @@ export class TemporaryPostgres {
   private readonly password: string;
   private owner: OwnedPostgres | null = null;
   private removal: Promise<void> | null = null;
+  private readonly signal?: AbortSignal;
+  private readonly interrupt = (): void => {
+    void this.stop().catch((error: unknown) => console.error(error));
+  };
 
-  private constructor(directory: string, port: number, password: string) {
+  private constructor(input: {
+    directory: string;
+    port: number;
+    password: string;
+    signal?: AbortSignal;
+  }) {
+    const { directory, port, password, signal } = input;
+    this.signal = signal;
+    signal?.addEventListener("abort", this.interrupt, { once: true });
     this.directory = directory;
     this.port = port;
     this.password = password;
@@ -286,16 +305,26 @@ export class TemporaryPostgres {
    *
    * @returns The instance, which owes a {@link remove} from now on.
    */
-  public static async prepare(): Promise<TemporaryPostgres> {
+  public static async prepare(
+    signal?: AbortSignal,
+  ): Promise<TemporaryPostgres> {
+    signal?.throwIfAborted();
+    await mkdir(temporaryPostgresRoot(), { recursive: true, mode: 0o700 });
     const directory = await mkdtemp(
       path.join(temporaryPostgresRoot(), "pages-postgres-check-"),
     );
-    const port = await freeLoopbackPort();
-    return new TemporaryPostgres(
-      directory,
-      port,
-      randomBytes(24).toString("hex"),
-    );
+    try {
+      const port = await freeLoopbackPort();
+      return new TemporaryPostgres({
+        directory,
+        port,
+        password: randomBytes(24).toString("hex"),
+        signal,
+      });
+    } catch (error: unknown) {
+      await rm(directory, { recursive: true, force: true });
+      throw error;
+    }
   }
 
   /** The correct connection URL. */
@@ -325,17 +354,22 @@ export class TemporaryPostgres {
 
   /** Creates the cluster and starts its server. */
   public async start(): Promise<void> {
+    this.signal?.throwIfAborted();
     const data = this.dataDirectory();
     const passwordFile = path.join(this.directory, "password");
     await writeFile(passwordFile, this.password, { mode: 0o600 });
-    await runProgram("initdb", [
-      `--pgdata=${data}`,
-      `--username=${USER_NAME}`,
-      `--pwfile=${passwordFile}`,
-      "--auth=scram-sha-256",
-      "--encoding=UTF8",
-      "--locale=C.UTF-8",
-    ]);
+    await runProgram(
+      "initdb",
+      [
+        `--pgdata=${data}`,
+        `--username=${USER_NAME}`,
+        `--pwfile=${passwordFile}`,
+        "--auth=scram-sha-256",
+        "--encoding=UTF8",
+        "--locale=C.UTF-8",
+      ],
+      this.signal,
+    );
     try {
       this.owner = await startOwnedPostgres({
         logFile: this.serverLog,
@@ -347,7 +381,7 @@ export class TemporaryPostgres {
           "-c",
           "listen_addresses=127.0.0.1",
           "-c",
-          `unix_socket_directories=${this.directory}`,
+          "unix_socket_directories=",
         ],
       });
       await this.waitUntilReady();
@@ -362,20 +396,24 @@ export class TemporaryPostgres {
     return path.join(this.directory, "server.log");
   }
 
-  /** Stops only the owned server and retains its private files and logs. */
+  /** Stops only the owned server, then removes its private files and logs. */
   public remove(): Promise<void> {
-    this.removal ??= this.stop();
+    this.signal?.removeEventListener("abort", this.interrupt);
+    this.removal ??= this.stop().then(() =>
+      rm(this.directory, { recursive: true, force: true }),
+    );
     return this.removal;
   }
 
   private async waitUntilReady(): Promise<void> {
     const deadline = Date.now() + START_TIMEOUT_MS;
     while (Date.now() < deadline) {
+      this.signal?.throwIfAborted();
       if (!this.owner?.isRunning())
         throw new Error("PostgreSQL exited during startup.");
       try {
         await runProgram("pg_isready", [
-          `--host=${this.directory}`,
+          "--host=127.0.0.1",
           `--port=${String(this.port)}`,
           "--quiet",
         ]);

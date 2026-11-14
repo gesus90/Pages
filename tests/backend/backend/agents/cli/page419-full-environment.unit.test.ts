@@ -40,6 +40,20 @@ const boundary = vi.hoisted(() => ({
   access: vi.fn<(file: string, mode: number) => Promise<void>>(),
 }));
 
+vi.mock(
+  "@/backend/agents/PlanRunTemporaryDirectory",
+  async (importOriginal) => ({
+    ...(await importOriginal<
+      typeof import("@/backend/agents/PlanRunTemporaryDirectory")
+    >()),
+    preparePlanTemporaryDirectory: vi.fn(async () => "/disk/run/checks"),
+  }),
+);
+
+vi.mock("@/backend/agents/cli/CliSshConfigOverlay", () => ({
+  sshConfigOverlayArguments: vi.fn(async () => []),
+}));
+
 vi.mock("node:child_process", async () => {
   const { promisify } = await import("node:util");
   return {
@@ -253,4 +267,29 @@ it("removes parent systemd state before the login shell and from its returned en
   expect(workerFile).toContain('LOGIN_SETTING="preserved"');
   for (const name of Object.keys(SYSTEMD_ENVIRONMENT))
     expect(workerFile).not.toContain(`${name}=`);
+});
+
+it("prepares the owner login shell with the plan's disk-backed temporary mount", async () => {
+  await prepareFullEnvironment(
+    {
+      ...fullInput(),
+      resourceContext: { planId: "plan", runId: "run", stepId: "checks" },
+    },
+    new AbortController().signal,
+  );
+  const [file, arguments_, options] = boundary.shell.mock.calls[0] ?? [];
+  expect(file).toBe("/usr/bin/bwrap");
+  expect(arguments_).toEqual(
+    expect.arrayContaining(["--bind", "/disk/run/checks", "/tmp"]),
+  );
+  expect(arguments_?.slice(-3)).toEqual([
+    "/synthetic/zsh",
+    "-lc",
+    "exec /usr/bin/env -0",
+  ]);
+  expect(options?.env).toMatchObject({
+    TMPDIR: "/tmp",
+    TMP: "/tmp",
+    TEMP: "/tmp",
+  });
 });

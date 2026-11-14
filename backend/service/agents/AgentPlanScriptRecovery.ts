@@ -54,7 +54,7 @@ async function closeInterruptedScript(
   }
   if (isConfirmed) {
     try {
-      await removeScriptResources(script.instanceId);
+      await removeScriptResources(script.instanceId, script.temporaryScope);
     } catch {
       onFailure?.({
         stepId: step.id,

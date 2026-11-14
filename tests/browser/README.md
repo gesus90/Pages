@@ -50,16 +50,20 @@ the end:
 
 - `node server.mjs --config <tmp>/config.toml --port 3100` from the production
   build, with a private `HOME`, configuration and attachment store in
-  `/tmp/pages-browser-*`, listening on `127.0.0.1` only. A separate private
+  `$TMPDIR/pages-browser-*`, listening on `127.0.0.1` only. A separate private
   PostgreSQL instance supplies the empty setup database. The server
-  sees none of the caller's environment except `PATH`. Nothing of a running Pages
+  sees only `PATH` and the temporary-directory/cache variables of the caller. Nothing of a running Pages
   installation, its data directory or port 3000 is read or written.
 - It completes the setup wizard over HTTP, as a browser form would, then
   creates the accounts and data below. There is no manual sign-in: the sessions
   are written to Playwright storage state files and picked by the tests with
   `test.use({ account: "reader" })` (default: `admin`).
 - At the end both owned servers are stopped and their private directories are
-  retained, including the logs, for inspection.
+  removed, including on failure or SIGINT/SIGTERM. Reports in
+  `PAGES_BROWSER_RESULTS` stay outside this temporary directory. The command
+  owns scratch below `TMPDIR` (or `~/.pages/data/check-tmp` when unset).
+  Plan nodes bind `~/.pages/data/run-tmp/<run>/<step>` as `/tmp` and delete it
+  after confirmed process shutdown; a pause retains it for continuation.
 
 | Seeded                         | What it is for                                                                      |
 | ------------------------------ | ----------------------------------------------------------------------------------- |

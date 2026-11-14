@@ -32,6 +32,8 @@ import {
   cleanupSessionAssets,
 } from "./CliAssetWorkspace";
 import { CliIsolationGate } from "./CliIsolationGate";
+import { preparePlanTemporaryDirectory } from "../PlanRunTemporaryDirectory";
+import { isolateFullEnvironmentTemporaryDirectory } from "./CliFullEnvironmentTemporaryDirectory";
 import { CliPlanIsolation } from "./CliPlanIsolation";
 import { createCliEnvironment } from "./CliEnvironment";
 import { ACP_WORKER_LIMITS } from "./CliWorkerUnit";
@@ -409,7 +411,8 @@ export class CliSessionExecution implements PlanSessionRunner {
    * runs the runner without an approval step, so only the namespace keeps it
    * inside its workspace and away from the instance folders and other
    * credentials; without the namespace YOLO does not start. An explicitly
-   * authorized full-environment node instead uses the owner’s host environment.
+   * authorized full-environment node keeps owner access with only a private
+   * temporary mount and a PID namespace for process cleanup.
    */
   private async spawnAcp(
     driver: AcpDriver,
@@ -487,7 +490,7 @@ export class CliSessionExecution implements PlanSessionRunner {
         }),
         observer: control.observer,
         signal: control.signal,
-        isolation: `${start.owner ? "full environment: no isolation, full host owner access" : isolationLabel(isIsolated, mode, driver)}; ${limited.label}`,
+        isolation: `${start.owner ? "full environment: full host owner access, private disk /tmp" : isolationLabel(isIsolated, mode, driver)}; ${limited.label}`,
         containment,
         github: github?.status,
         redact,
@@ -529,10 +532,21 @@ export class CliSessionExecution implements PlanSessionRunner {
     readonly isIsolated: boolean;
   }> {
     const mode = input.options.access;
+    const context = input.resourceContext;
+    if (context && !input.chat)
+      worker = {
+        ...worker,
+        temporaryDirectory: await preparePlanTemporaryDirectory({
+          runId: context.runId,
+          stepId: context.sessionScopeId ?? context.stepId,
+        }),
+      };
     if (owner && mode === "full_environment")
       return {
-        request: fullEnvironmentRequest(worker, owner),
-        isIsolated: false,
+        request: await isolateFullEnvironmentTemporaryDirectory(
+          fullEnvironmentRequest(worker, owner),
+        ),
+        isIsolated: worker.temporaryDirectory !== undefined,
       };
     if (input.chat?.isUnisolated === true && mode === "yolo")
       return { request: worker, isIsolated: false };

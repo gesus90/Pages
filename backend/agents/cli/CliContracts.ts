@@ -69,6 +69,8 @@ export interface CliRunRequest {
 
 /** A streaming session in an authorized working directory. */
 export interface CliSessionRequest {
+  /** Host disk directory mounted as /tmp for a plan node. */
+  readonly temporaryDirectory?: string;
   /** Full owner environment replaces the isolated allowlist only after server authorization. */
   readonly fullEnvironment?: Readonly<Record<string, string>>;
   readonly file: string;

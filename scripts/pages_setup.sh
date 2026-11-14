@@ -457,6 +457,11 @@ cat > "$interpreters_temporary" <<'INTERPRETERS'
 __PAGES_RUNNER_INTERPRETERS__
 INTERPRETERS
 mv -f -- "$interpreters_temporary" "$runner_directory/interpreters.mjs"
+scratch_temporary=$(mktemp "$runner_directory/.temporary.XXXXXX")
+cat > "$scratch_temporary" <<'TEMPORARY'
+__PAGES_RUNNER_TEMPORARY__
+TEMPORARY
+mv -f -- "$scratch_temporary" "$runner_directory/temporary.mjs"
 processes_temporary=$(mktemp "$runner_directory/.processes.XXXXXX")
 cat > "$processes_temporary" <<'PROCESSES'
 __PAGES_RUNNER_PROCESSES__

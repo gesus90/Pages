@@ -54,12 +54,14 @@ export class CliIsolationGate {
 
   private async isolate(request: CliSessionRequest): Promise<IsolatedRequest> {
     if (this.isolation === null) {
-      if (this.isRequired) throw new AgentError("cli_isolation_unavailable");
+      if (this.isRequired || request.temporaryDirectory)
+        throw new AgentError("cli_isolation_unavailable");
       return { request, isIsolated: false };
     }
     const isolated = await this.isolation.isolate(request);
     if (isolated !== null) return { request: isolated, isIsolated: true };
-    if (this.isRequired) throw new AgentError("cli_isolation_unavailable");
+    if (this.isRequired || request.temporaryDirectory)
+      throw new AgentError("cli_isolation_unavailable");
     if (!this.hasWarned) {
       this.hasWarned = true;
       logDiagnostic(

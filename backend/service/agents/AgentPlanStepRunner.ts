@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 
+import { removePlanTemporaryStep } from "@/backend/agents/PlanRunTemporaryDirectory";
 import { AgentPlanPausedError } from "@/backend/error/AgentPlanPausedError";
 import { planContentDigest } from "@/backend/agents/AgentPlanContentDigest";
 import { agentToolFailureEvents } from "@/backend/service/agents/tools/AgentToolSession";
@@ -191,6 +192,17 @@ export class AgentPlanStepRunner {
       return this.failure(node, error);
     } finally {
       slot?.release();
+      if (
+        !node.sessionGroup &&
+        node.record?.closeout === "confirmed" &&
+        !(control.signal.reason instanceof AgentPlanPausedError)
+      )
+        await removePlanTemporaryStep({
+          runId: run.id,
+          stepId: step.step.id,
+        }).catch((error: unknown) =>
+          logCaughtError("AgentPlanStepRunner", error),
+        );
     }
   }
 

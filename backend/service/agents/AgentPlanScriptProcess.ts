@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import path from "node:path";
 import { Writable } from "node:stream";
 
+import { planTemporaryMountDirectory } from "@/backend/agents/PlanRunTemporaryDirectory";
 import { captureOwnedNamespace } from "@/backend/agents/cli/CliOwnedNamespace";
 import { sshConfigOverlayArguments } from "@/backend/agents/cli/CliSshConfigOverlay";
 
@@ -49,6 +50,11 @@ export async function executeScriptProcess(
         "/proc",
         "--dev",
         "/dev",
+        "--bind",
+        request.record.temporaryScope
+          ? planTemporaryMountDirectory(request.record.temporaryScope)
+          : request.resources,
+        "/tmp",
         ...sshConfigOverlay,
         "--chdir",
         request.record.directory,
@@ -69,6 +75,7 @@ export async function executeScriptProcess(
             directory: request.resources,
             interpreter: request.program,
             instanceId: request.record.instanceId,
+            temporaryDirectory: "/tmp",
           }),
           ...request.environment,
         },

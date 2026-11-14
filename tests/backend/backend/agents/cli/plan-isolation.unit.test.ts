@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
+import { sshConfigOverlayArguments } from "@/backend/agents/cli/CliSshConfigOverlay";
 import { CliPlanIsolation } from "@/backend/agents/cli/CliPlanIsolation";
 
 import type { CliSessionRequest } from "@/backend/agents/cli/CliContracts";
@@ -10,11 +11,11 @@ vi.mock("node:fs/promises", () => ({
 }));
 
 vi.mock("@/backend/agents/cli/CliSshConfigOverlay", () => ({
-  sshConfigOverlayArguments: async () => [
+  sshConfigOverlayArguments: vi.fn(async () => [
     "--ro-bind",
     "/synthetic/ssh-copies",
     "/etc/ssh/ssh_config.d",
-  ],
+  ]),
 }));
 
 const REQUEST: CliSessionRequest = {
@@ -162,4 +163,29 @@ it("keeps the host read-only and permits writes only to the workspace and connec
   ]);
   const temporary = args.indexOf("/tmp");
   expect(args[temporary - 1]).toBe("--tmpfs");
+});
+
+it("binds plan disk scratch over /tmp and overrides all temporary and compile-cache variables", async () => {
+  const isolation = new CliPlanIsolation(["/synthetic/data"], async () => true);
+  const isolated = await isolation.isolate({
+    ...REQUEST,
+    temporaryDirectory: "/synthetic/data/run-tmp/run/step/tmp",
+    environment: { TMPDIR: "/host", NODE_COMPILE_CACHE: "/host-cache" },
+  });
+  expect(sshConfigOverlayArguments).toHaveBeenLastCalledWith(
+    "/synthetic/data/run-tmp/run/step/ssh_config.d",
+  );
+  const args = isolated?.arguments ?? [];
+  const temporary = args.indexOf("/tmp");
+  expect(args.slice(temporary - 2, temporary + 1)).toEqual([
+    "--bind",
+    "/synthetic/data/run-tmp/run/step/tmp",
+    "/tmp",
+  ]);
+  expect(isolated?.environment).toMatchObject({
+    TMPDIR: "/tmp",
+    TEMP: "/tmp",
+    TMP: "/tmp",
+    NODE_COMPILE_CACHE: "/tmp/node-compile-cache",
+  });
 });
