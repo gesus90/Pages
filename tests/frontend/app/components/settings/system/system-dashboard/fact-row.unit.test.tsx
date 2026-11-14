@@ -53,7 +53,7 @@ it.each([
 
     const commit = screen.getByText("Build 281a4895");
     expect(commit.getAttribute("title")).toBe(BUILD.commit);
-    expect(commit.parentElement?.textContent).toBe(
+    expect(commit.closest("dd")?.textContent).toBe(
       `0.1.0 · Build 281a4895 · ${date}`,
     );
   },
@@ -74,7 +74,7 @@ it.each([
       },
     });
 
-    expect(screen.getByText("Build 281a4895").parentElement?.textContent).toBe(
+    expect(screen.getByText("Build 281a4895").closest("dd")?.textContent).toBe(
       `0.1.0 · Build 281a4895 · ${date}`,
     );
   },
@@ -109,7 +109,7 @@ it.each([
       facts: { ...FACTS, build: { ...BUILD, builtAt } },
     });
 
-    expect(screen.getByText("Build 281a4895").parentElement?.textContent).toBe(
+    expect(screen.getByText("Build 281a4895").closest("dd")?.textContent).toBe(
       `0.1.0 · Build 281a4895 · ${date}`,
     );
   },
@@ -124,7 +124,7 @@ it("uses the browser's local zone when the visitor has no explicit zone", () => 
   );
   renderFacts({ timezone: null });
 
-  expect(screen.getByText("Build 281a4895").parentElement?.textContent).toBe(
+  expect(screen.getByText("Build 281a4895").closest("dd")?.textContent).toBe(
     "0.1.0 · Build 281a4895 · 13.11.2026 04:12",
   );
 });
@@ -138,7 +138,7 @@ it.each([
     renderFacts({ language, facts: { ...FACTS, build: null } });
 
     const build = screen.getByText(`Build ${unknown}`);
-    expect(build.parentElement?.textContent).toBe(
+    expect(build.closest("dd")?.textContent).toBe(
       `0.1.0 · Build ${unknown} · ${unknown}`,
     );
     expect(build.hasAttribute("title")).toBe(false);
@@ -152,4 +152,40 @@ it("keeps the waiting state until system facts arrive", () => {
     view.container.querySelector('[data-fact="version"] dd')?.textContent,
   ).toBe("—");
   expect(screen.queryByText(/Build/u)).toBeNull();
+});
+
+it("keeps version with build and the build date each in one unbreakable part", () => {
+  renderFacts();
+
+  const commit = screen.getByText("Build 281a4895");
+  const head = commit.parentElement;
+  expect(head?.className).toBe("whitespace-nowrap");
+  expect(head?.textContent).toBe("0.1.0 · Build 281a4895");
+  expect(commit.getAttribute("title")).toBe(BUILD.commit);
+  const parts = Array.from(
+    commit.closest("dd")?.querySelectorAll(":scope > span") ?? [],
+  );
+  expect(parts.map((part) => [part.className, part.textContent])).toEqual([
+    ["whitespace-nowrap", "0.1.0 · Build 281a4895"],
+    ["whitespace-nowrap", "· 13.11.2026 10:12"],
+  ]);
+});
+
+it("lays out two, then four columns and from 60rem two rows of four with a wider first column", () => {
+  const view = renderFacts();
+
+  const list = view.container.querySelector("dl");
+  const classes = list?.className.split(" ") ?? [];
+  expect(classes).toEqual(
+    expect.arrayContaining([
+      "grid",
+      "grid-cols-2",
+      "gap-x-6",
+      "gap-y-4",
+      "@min-[34rem]:grid-cols-4",
+      "@min-[60rem]:grid-cols-[minmax(0,1.6fr)_repeat(3,minmax(0,1fr))]",
+    ]),
+  );
+  expect(classes.some((name) => name.includes("repeat(8"))).toBe(false);
+  expect(list?.querySelectorAll(":scope > [data-fact]")).toHaveLength(8);
 });
