@@ -359,21 +359,17 @@ export function PlanRunPanel(props: PlanRunPanelProps): React.ReactElement {
         {isOpen && recoveryRunId ? (
           <RecoveryErrorLine recovery={recovery} />
         ) : null}
-        {isOpen ? (
-          <>
-            <PlanStartFailure error={props.run?.startError} />
-            {startOwners.error ? (
-              <p role="alert" className="px-4 py-2 text-xs text-destructive">
-                {t(`settings.agents.error.${startOwners.error}`)}
-              </p>
-            ) : null}
-            <PlanResourceReleases run={props.run} />
-            {warnings.length > 0 ? (
-              <div role="status" className="px-3 py-2">
-                <PlanPanelIssueList issues={warnings} />
-              </div>
-            ) : null}
-          </>
+        <PlanStartFailure error={props.run?.startError} />
+        {startOwners.error ? (
+          <p role="alert" className="px-4 py-2 text-xs text-destructive">
+            {t(`settings.agents.error.${startOwners.error}`)}
+          </p>
+        ) : null}
+        <PlanResourceReleases run={props.run} />
+        {warnings.length > 0 ? (
+          <div role="status" className="px-3 py-2">
+            <PlanPanelIssueList issues={warnings} />
+          </div>
         ) : null}
         <PlanPanelStatus
           state={state}
