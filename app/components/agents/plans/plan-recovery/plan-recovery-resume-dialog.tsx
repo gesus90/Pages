@@ -20,12 +20,12 @@ import type {
 /** Confirms a restart and shows a server refusal without closing the dialog. */
 export function PlanRecoveryResumeDialog({
   recovery,
-  planName,
+  planName = "",
   onClose,
   owners = [],
 }: {
   readonly recovery: ReturnType<typeof usePlanRecovery>;
-  readonly planName: string;
+  readonly planName?: string;
   readonly onClose: () => void;
   readonly owners?: readonly AgentPlanStartOwner[];
 }): React.ReactElement | null {

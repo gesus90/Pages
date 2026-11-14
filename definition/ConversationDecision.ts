@@ -211,8 +211,8 @@ export interface ConversationReplySettingsView {
   readonly mode: ConversationReplyMode;
   /** The rules that apply: the group's own values and the defaults for the rest. */
   readonly rules: ConversationDecisionRules;
-  /** Contributions without @ per group round (PAGE-349). */
-  readonly automaticRepliesPerOrigin: number;
+  /** Contributions without @ per group round (PAGE-349); absent means the default. */
+  readonly automaticRepliesPerOrigin?: number;
   /** The defaults of the instance, which the group follows without values of its own. */
   readonly defaults: ConversationDecisionRules;
   /** Whether the group sets no value itself. */

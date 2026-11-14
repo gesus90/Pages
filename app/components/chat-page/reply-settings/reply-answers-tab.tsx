@@ -7,6 +7,7 @@ import { DecisionRulesFields } from "@/app/components/common/decision-rules-fiel
 import { Button } from "@/app/components/ui/button";
 import { SegmentedControl } from "@/app/components/ui/segmented-control";
 import { CONVERSATION_REPLY_MODES } from "@/definition/ConversationDecision";
+import { conversationRoundLimits } from "@/definition/ConversationObserver";
 
 import type {
   ConversationDecisionRules,
@@ -85,9 +86,7 @@ export function ReplyAnswersTab({
   const [mode, setMode] = useState<ConversationReplyMode>(settings.mode);
   const [rules, setRules] = useState<ConversationDecisionRules>(settings.rules);
   const [isDefault, setIsDefault] = useState(settings.isDefault);
-  const [limits, setLimits] = useState({
-    automaticRepliesPerOrigin: settings.automaticRepliesPerOrigin,
-  });
+  const [limits, setLimits] = useState(conversationRoundLimits(settings));
   const canEdit = settings.canManage && !isSaving;
   const areRulesOff = !canEdit || mode === "mentions";
 

@@ -1,6 +1,5 @@
 import {
   AGENT_PROVIDERS,
-  isApiProvider,
   OPENCODE_FREE_PROVIDER,
   openCodeModelProvider,
 } from "./AgentConnection";
