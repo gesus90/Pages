@@ -136,7 +136,10 @@ export class LocalSessionJournal {
     await this.writes.run(() => this.acknowledgeOnce(sequence, digest));
   }
 
-  private async acknowledgeOnce(sequence: number, digest: string): Promise<void> {
+  private async acknowledgeOnce(
+    sequence: number,
+    digest: string,
+  ): Promise<void> {
     if (sequence < this.acknowledged) return;
     if (sequence === this.acknowledged) {
       if (digest !== this.acknowledgedDigest)

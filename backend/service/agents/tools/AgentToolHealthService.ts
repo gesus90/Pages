@@ -146,7 +146,9 @@ export class AgentToolHealthService implements AgentToolHealthChecks {
       : { status: "unsupported", diagnostic: "version_unsupported", version };
   }
 
-  private async sandbox(control: AgentToolRunContext): Promise<AgentToolHealth> {
+  private async sandbox(
+    control: AgentToolRunContext,
+  ): Promise<AgentToolHealth> {
     const isAvailable = await probeBubblewrap(async (file, args) => {
       const result = await this.runner.run({
         file,

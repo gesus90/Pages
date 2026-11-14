@@ -6045,7 +6045,7 @@
         "while_false": "condition false"
       },
       "session": {
-          "inheritGroup": "Inherit the group session",
+        "inheritGroup": "Inherit the group session",
         "title": "Keep agent sessions",
         "infoLabel": "About keeping sessions",
         "info": "On: each agent continues its own ACP session with a new turn in every run. Off: each run opens a new session per agent and ends it with the node; only the bound inputs carry over.",

@@ -24,9 +24,7 @@ interface StoredRecord {
 }
 
 function isMissing(error: unknown): boolean {
-  return (
-    error instanceof Error && "code" in error && error.code === "ENOENT"
-  );
+  return error instanceof Error && "code" in error && error.code === "ENOENT";
 }
 
 /** Extracts file identity without depending on the serialized metadata's property order. */
@@ -79,7 +77,9 @@ export class LocalJournalCompaction {
   }
 
   /** Includes released sessions; a failed session does not prevent cleanup of the others. */
-  public async run(database: Pick<DatabaseTransaction, "query">): Promise<void> {
+  public async run(
+    database: Pick<DatabaseTransaction, "query">,
+  ): Promise<void> {
     const root = path.join(this.directory, "local-sessions");
     const references = new AgentPayloadReferenceRepository(database);
     for (const name of await directoryNames(root)) {
@@ -106,7 +106,11 @@ export class LocalJournalCompaction {
     if (anchor.sequence === 0) return;
     // Another process may observe ACK's rename before its writer has synced the directory.
     await syncLocalDirectory(directory);
-    const retained = await this.retainedPayloads(directory, names, anchor.sequence);
+    const retained = await this.retainedPayloads(
+      directory,
+      names,
+      anchor.sequence,
+    );
     let batch: StoredRecord[] = [];
     for (const name of names) {
       if (Number(name.slice(0, 16)) > anchor.sequence) continue;

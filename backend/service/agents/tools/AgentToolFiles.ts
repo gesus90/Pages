@@ -115,7 +115,8 @@ export class AgentToolFiles implements AgentToolStorage {
       : false;
     await this.writeJson(path.join(this.root, tool.id, "active.json"), {
       current,
-      previous: (isSameVersion ? previous?.previous : previous?.current) ?? null,
+      previous:
+        (isSameVersion ? previous?.previous : previous?.current) ?? null,
       approvedTarget: tool.version,
     });
     if (tool.hasTerminalEntry) await this.publishTerminalEntry(tool, location);
@@ -151,7 +152,10 @@ export class AgentToolFiles implements AgentToolStorage {
       releaseVersion(pointer.current) === releaseVersion(pointer.previous)
     ) {
       pointer = { ...pointer, previous: null };
-      await this.writeJson(path.join(this.root, tool.id, "active.json"), pointer);
+      await this.writeJson(
+        path.join(this.root, tool.id, "active.json"),
+        pointer,
+      );
     }
     const kept = new Set([pointer?.current, pointer?.previous]);
     const releases = path.join(this.root, tool.id, "releases");
