@@ -88,6 +88,16 @@ export interface ConversationRoundState {
 
 type RoundDatabase = Pick<Database, "query" | "execute" | "transaction">;
 
+function exceedsAutomaticLimit(
+  claim: ConversationReplyClaim,
+  automaticCount: number,
+): boolean {
+  const limits = conversationRoundLimits(claim.limits ?? {});
+  return (
+    claim.isAutomatic && automaticCount >= limits.automaticRepliesPerOrigin
+  );
+}
+
 const TRIGGERS: readonly ConversationReplyTrigger[] = [
   "direct",
   "mention",
@@ -304,11 +314,7 @@ export class ConversationRoundRepository {
       const automaticCount = round
         ? readCountColumn(round, 0, "automatic_count")
         : 0;
-      const limits = conversationRoundLimits(claim.limits ?? {});
-      if (
-        claim.isAutomatic &&
-        automaticCount >= limits.automaticRepliesPerOrigin
-      )
+      if (exceedsAutomaticLimit(claim, automaticCount))
         return (await hasTarget(transaction, claim)) ? "duplicate" : "limit";
       const handoff = claim.handoff;
       if (
