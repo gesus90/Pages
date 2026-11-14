@@ -94,11 +94,13 @@ export async function temporaryPlanRunIds(): Promise<readonly string[]> {
 }
 
 /** Temp variables inside the step's mount namespace, including Node's explicit cache override. */
-export function planTemporaryEnvironment(): Readonly<Record<string, string>> {
+export function planTemporaryEnvironment(
+  directory = "/tmp",
+): Readonly<Record<string, string>> {
   return {
-    TMPDIR: "/tmp",
-    TEMP: "/tmp",
-    TMP: "/tmp",
-    NODE_COMPILE_CACHE: "/tmp/node-compile-cache",
+    TMPDIR: directory,
+    TEMP: directory,
+    TMP: directory,
+    NODE_COMPILE_CACHE: path.join(directory, "node-compile-cache"),
   };
 }

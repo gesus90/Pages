@@ -54,7 +54,7 @@ async function readOwnerShellEnvironment(
       })
     : null;
   const shellArguments = ["-lc", "exec /usr/bin/env -0"];
-  const arguments_ = temporaryDirectory
+  const bwrapArguments = temporaryDirectory
     ? await fullEnvironmentTemporaryArguments({
         temporaryDirectory,
         workingDirectory: input.directory,
@@ -65,7 +65,7 @@ async function readOwnerShellEnvironment(
   try {
     const result = await execFileAsync(
       temporaryDirectory ? "/usr/bin/bwrap" : owner.shell,
-      [...arguments_],
+      [...bwrapArguments],
       {
         cwd: input.directory,
         env: {

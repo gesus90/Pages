@@ -1,6 +1,8 @@
 import { AgentError } from "@/backend/error/AgentErrors";
 import { logDiagnostic } from "@/backend/logging/Logger";
 
+import { planTemporaryEnvironment } from "../PlanRunTemporaryDirectory";
+
 import type { ClaudePlanSessionHome } from "./ClaudePlanSessionHome";
 import type { CliSessionRequest } from "./CliContracts";
 import type { CliPlanIsolation } from "./CliPlanIsolation";
@@ -9,6 +11,17 @@ import type { CliPlanIsolation } from "./CliPlanIsolation";
 export interface IsolatedRequest {
   readonly request: CliSessionRequest;
   readonly isIsolated: boolean;
+}
+
+function unisolatedRequest(request: CliSessionRequest): CliSessionRequest {
+  if (!request.temporaryDirectory) return request;
+  return {
+    ...request,
+    environment: {
+      ...request.environment,
+      ...planTemporaryEnvironment(request.temporaryDirectory),
+    },
+  };
 }
 
 /**
@@ -54,14 +67,12 @@ export class CliIsolationGate {
 
   private async isolate(request: CliSessionRequest): Promise<IsolatedRequest> {
     if (this.isolation === null) {
-      if (this.isRequired || request.temporaryDirectory)
-        throw new AgentError("cli_isolation_unavailable");
-      return { request, isIsolated: false };
+      if (this.isRequired) throw new AgentError("cli_isolation_unavailable");
+      return { request: unisolatedRequest(request), isIsolated: false };
     }
     const isolated = await this.isolation.isolate(request);
     if (isolated !== null) return { request: isolated, isIsolated: true };
-    if (this.isRequired || request.temporaryDirectory)
-      throw new AgentError("cli_isolation_unavailable");
+    if (this.isRequired) throw new AgentError("cli_isolation_unavailable");
     if (!this.hasWarned) {
       this.hasWarned = true;
       logDiagnostic(
@@ -70,6 +81,6 @@ export class CliIsolationGate {
         "Pages runs CLI agents without a mount namespace because bubblewrap does not work on this host. Install it, or set PAGES_CLI_ISOLATION=required to refuse such runs.",
       );
     }
-    return { request, isIsolated: false };
+    return { request: unisolatedRequest(request), isIsolated: false };
   }
 }

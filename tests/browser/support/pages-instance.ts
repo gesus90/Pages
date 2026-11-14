@@ -109,9 +109,9 @@ async function stopServer(child: ChildProcess): Promise<void> {
 }
 
 function pagesInstanceRoot(): string {
-  return (
-    process.env.TMPDIR || path.join(os.homedir(), ".pages", "data", "check-tmp")
-  );
+  const configured = process.env.TMPDIR?.trim();
+  if (configured && configured.length > 0) return configured;
+  return path.join(os.homedir(), ".pages", "data", "check-tmp");
 }
 
 /**

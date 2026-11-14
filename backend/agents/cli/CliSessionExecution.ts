@@ -20,10 +20,7 @@ import { isAcpPermissionMode } from "@/definition/AgentConfiguration";
 import { isApiProvider } from "@/definition/AgentConnection";
 import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 
-import {
-  verifyFullEnvironmentStart,
-  fullEnvironmentRequest,
-} from "./CliFullEnvironment";
+import { verifyFullEnvironmentStart } from "./CliFullEnvironment";
 import { connectChild } from "./CliSessionChannel";
 import {
   assetSession,
@@ -32,8 +29,7 @@ import {
   cleanupSessionAssets,
 } from "./CliAssetWorkspace";
 import { CliIsolationGate } from "./CliIsolationGate";
-import { preparePlanTemporaryDirectory } from "../PlanRunTemporaryDirectory";
-import { isolateFullEnvironmentTemporaryDirectory } from "./CliFullEnvironmentTemporaryDirectory";
+import { attachPlanWorkerTemporaryDirectory } from "./CliFullEnvironmentTemporaryDirectory";
 import { CliPlanIsolation } from "./CliPlanIsolation";
 import { createCliEnvironment } from "./CliEnvironment";
 import { ACP_WORKER_LIMITS } from "./CliWorkerUnit";
@@ -532,22 +528,13 @@ export class CliSessionExecution implements PlanSessionRunner {
     readonly isIsolated: boolean;
   }> {
     const mode = input.options.access;
-    const context = input.resourceContext;
-    if (context && !input.chat)
-      worker = {
-        ...worker,
-        temporaryDirectory: await preparePlanTemporaryDirectory({
-          runId: context.runId,
-          stepId: context.sessionScopeId ?? context.stepId,
-        }),
-      };
-    if (owner && mode === "full_environment")
-      return {
-        request: await isolateFullEnvironmentTemporaryDirectory(
-          fullEnvironmentRequest(worker, owner),
-        ),
-        isIsolated: worker.temporaryDirectory !== undefined,
-      };
+    const attached = await attachPlanWorkerTemporaryDirectory(
+      worker,
+      input,
+      owner,
+    );
+    if (attached.fullEnvironment) return attached.fullEnvironment;
+    worker = attached.worker;
     if (input.chat?.isUnisolated === true && mode === "yolo")
       return { request: worker, isIsolated: false };
     const isolated = await this.gate.isolateSession(worker, scoped);

@@ -9,13 +9,25 @@ import { readPlanScriptRun } from "@/backend/agents/AgentPlanScriptRunInput";
 
 import { SCRIPT_RUN, UUID } from "../../agents/agent-plan-record-fixture";
 
-const boundary = vi.hoisted(() => ({ spawn: vi.fn() }));
+import type * as ChildProcess from "node:child_process";
+import type * as OperatingSystem from "node:os";
+
+const boundary = vi.hoisted(() => ({
+  spawn:
+    vi.fn<
+      (
+        command: string,
+        args: readonly string[],
+        options: { readonly env?: NodeJS.ProcessEnv },
+      ) => unknown
+    >(),
+}));
 vi.mock("node:child_process", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("node:child_process")>()),
+  ...(await importOriginal<typeof ChildProcess>()),
   spawn: boundary.spawn,
 }));
 vi.mock("node:os", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("node:os")>()),
+  ...(await importOriginal<typeof OperatingSystem>()),
   homedir: () => "/disk/account",
 }));
 vi.mock("@/backend/agents/cli/CliOwnedNamespace", () => ({
@@ -71,7 +83,7 @@ it("binds script scratch over /tmp and waits for the owned supervisor to close",
       "/tmp",
     ]),
   );
-  expect(options.env).toMatchObject({
+  expect(options?.env).toMatchObject({
     TMPDIR: "/tmp",
     TMP: "/tmp",
     TEMP: "/tmp",

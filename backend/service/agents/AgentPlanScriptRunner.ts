@@ -72,8 +72,11 @@ export class AgentPlanScriptRunner {
         claimStart: control.claimStart,
         save: control.save,
       });
-      if (record.closeout === "confirmed")
-        await removeScriptResources(record.instanceId, record.temporaryScope);
+      if (record.closeout === "confirmed") {
+        if (record.temporaryScope)
+          await removeScriptResources(record.instanceId, record.temporaryScope);
+        else await removeScriptResources(record.instanceId);
+      }
       if (
         record.closeout === "confirmed" &&
         !(control.signal.reason instanceof AgentPlanPausedError)
@@ -148,7 +151,9 @@ async function closeUnstartedRecord(
 ): Promise<AgentPlanScriptRun | undefined> {
   if (!record || record.closeout === "failed") return record;
   try {
-    await removeScriptResources(record.instanceId, record.temporaryScope);
+    if (record.temporaryScope)
+      await removeScriptResources(record.instanceId, record.temporaryScope);
+    else await removeScriptResources(record.instanceId);
     return {
       ...record,
       closeout: "confirmed",

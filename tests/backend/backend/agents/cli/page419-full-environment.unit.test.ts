@@ -14,6 +14,7 @@ import type { ExecFileOptions } from "node:child_process";
 import type * as FileSystem from "node:fs/promises";
 import type { Mock } from "vitest";
 import type { AgentPlanSessionInput } from "@/backend/agents/AgentPlanExecution";
+import type * as PlanRunTemporaryDirectory from "@/backend/agents/PlanRunTemporaryDirectory";
 import type { CliLocator } from "@/backend/agents/cli/CliLocator";
 import type { CliProviderId } from "@/definition/AgentConnection";
 import type { AgentToolLocation } from "@/backend/service/agents/tools/AgentToolContracts";
@@ -31,7 +32,7 @@ const boundary = vi.hoisted(() => ({
     vi.fn<
       (
         file: string,
-        arguments_: readonly string[],
+        shellArgs: readonly string[],
         options: ExecFileOptions,
       ) => Promise<{ stdout: string; stderr: string }>
     >(),
@@ -43,9 +44,7 @@ const boundary = vi.hoisted(() => ({
 vi.mock(
   "@/backend/agents/PlanRunTemporaryDirectory",
   async (importOriginal) => ({
-    ...(await importOriginal<
-      typeof import("@/backend/agents/PlanRunTemporaryDirectory")
-    >()),
+    ...(await importOriginal<typeof PlanRunTemporaryDirectory>()),
     preparePlanTemporaryDirectory: vi.fn(async () => "/disk/run/checks"),
   }),
 );
@@ -277,12 +276,12 @@ it("prepares the owner login shell with the plan's disk-backed temporary mount",
     },
     new AbortController().signal,
   );
-  const [file, arguments_, options] = boundary.shell.mock.calls[0] ?? [];
+  const [file, shellArgs, options] = boundary.shell.mock.calls[0] ?? [];
   expect(file).toBe("/usr/bin/bwrap");
-  expect(arguments_).toEqual(
+  expect(shellArgs).toEqual(
     expect.arrayContaining(["--bind", "/disk/run/checks", "/tmp"]),
   );
-  expect(arguments_?.slice(-3)).toEqual([
+  expect(shellArgs?.slice(-3)).toEqual([
     "/synthetic/zsh",
     "-lc",
     "exec /usr/bin/env -0",

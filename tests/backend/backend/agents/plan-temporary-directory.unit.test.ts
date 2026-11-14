@@ -12,8 +12,8 @@ const filesystem = vi.hoisted(() => ({
   mkdir: vi.fn(async () => undefined),
   chmod: vi.fn(async () => undefined),
   lstat: vi.fn(async () => ({
-    isDirectory: () => true,
-    isSymbolicLink: () => false,
+    isDirectory: (): boolean => true,
+    isSymbolicLink: (): boolean => false,
     uid: process.getuid?.(),
   })),
   statfs: vi.fn(async () => ({ type: 0xef53 })),

@@ -22,7 +22,8 @@ beforeEach(() => {
   vi.useFakeTimers();
   child = Object.assign(new EventEmitter(), { pid: 424242 });
   boundary.spawn.mockReturnValue(child);
-  vi.spyOn(process, "kill").mockImplementation((_pid, signal) => {
+  vi.spyOn(process, "kill").mockImplementation((processId, signal) => {
+    void processId;
     if (signal === 0) throw Object.assign(new Error("gone"), { code: "ESRCH" });
     return true;
   });

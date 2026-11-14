@@ -43,7 +43,11 @@ beforeEach(() => {
   vi.stubEnv("TMPDIR", `/disk/${"long-directory/".repeat(12)}`);
   boundary.createServer.mockImplementation(() => ({
     on: vi.fn(),
-    listen: (_port: number, _address: string, ready: () => void) => ready(),
+    listen: (port: number, address: string, ready: () => void) => {
+      void port;
+      void address;
+      ready();
+    },
     address: () => ({ port: 54321 }),
     close: (closed: () => void) => closed(),
   }));

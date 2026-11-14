@@ -1,10 +1,52 @@
 import path from "node:path";
 
-import { planTemporaryEnvironment } from "../PlanRunTemporaryDirectory";
+import {
+  planTemporaryEnvironment,
+  preparePlanTemporaryDirectory,
+} from "../PlanRunTemporaryDirectory";
 
+import { fullEnvironmentRequest } from "./CliFullEnvironment";
 import { sshConfigOverlayArguments } from "./CliSshConfigOverlay";
 
+import type { AgentPlanSessionInput } from "@/backend/agents/AgentPlanExecution";
+import type { CliFullEnvironment } from "./CliFullEnvironment";
 import type { CliSessionRequest } from "./CliContracts";
+
+/** Attaches the plan step's disk-backed temporary directory to a worker request, and isolates full-environment runs. */
+export async function attachPlanWorkerTemporaryDirectory(
+  worker: CliSessionRequest,
+  input: AgentPlanSessionInput,
+  owner?: CliFullEnvironment,
+): Promise<{
+  readonly worker: CliSessionRequest;
+  readonly fullEnvironment?: {
+    readonly request: CliSessionRequest;
+    readonly isIsolated: boolean;
+  };
+}> {
+  const context = input.resourceContext;
+  const preparedWorker =
+    context && !input.chat
+      ? {
+          ...worker,
+          temporaryDirectory: await preparePlanTemporaryDirectory({
+            runId: context.runId,
+            stepId: context.sessionScopeId ?? context.stepId,
+          }),
+        }
+      : worker;
+  if (owner && input.options.access === "full_environment")
+    return {
+      worker: preparedWorker,
+      fullEnvironment: {
+        request: await isolateFullEnvironmentTemporaryDirectory(
+          fullEnvironmentRequest(preparedWorker, owner),
+        ),
+        isIsolated: preparedWorker.temporaryDirectory !== undefined,
+      },
+    };
+  return { worker: preparedWorker };
+}
 
 /** Keeps the owner's complete host access while giving this plan its own disk-backed /tmp and PID lifetime. */
 export async function isolateFullEnvironmentTemporaryDirectory(
