@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { readdir } from "node:fs/promises";
 import path from "node:path";
 
@@ -13,6 +12,10 @@ import {
   requireLocalDirectory,
   writeLocalRecord,
 } from "./LocalSessionFiles";
+import {
+  localJournalDigest,
+  readLocalJournalAcknowledgement,
+} from "./LocalJournalRecords";
 
 import type { AgentPayloadFileStore } from "@/backend/storage/AgentPayloadFileStore";
 import type {
@@ -20,60 +23,74 @@ import type {
   LocalSessionMutation,
 } from "./LocalSessionContracts";
 
-/** A small index over immutable, synchronized PAGE-223 payload files. */
+/** Durable individual mutations with a compact, acknowledged chain anchor. */
 export class LocalSessionJournal {
   private readonly directory: string;
   private readonly planId: string;
   private readonly files: AgentPayloadFileStore;
   private readonly writes = new SerialQueue();
+  private readonly scheduleCleanup: () => void;
   private sequence = 0;
   private digest = "";
   private acknowledged = 0;
+  private acknowledgedDigest = "";
 
   public constructor(
     directory: string,
     planId: string,
     files: AgentPayloadFileStore,
+    scheduleCleanup: () => void = () => undefined,
   ) {
     this.directory = path.join(directory, "journal");
     this.planId = planId;
     this.files = files;
+    this.scheduleCleanup = scheduleCleanup;
   }
 
   /** Recovers the verified tail without reading complete event bodies into memory. */
   public async initialize(): Promise<void> {
     await requireLocalDirectory(this.directory);
+    const acknowledgement = await readLocalJournalAcknowledgement(
+      this.directory,
+    );
+    this.acknowledged = acknowledgement.sequence;
+    this.acknowledgedDigest = acknowledgement.digest;
+    this.sequence = acknowledgement.sequence;
+    this.digest = acknowledgement.digest;
     const names = (await readdir(this.directory))
       .filter((name) => /^\d{16}\.json$/u.test(name))
       .sort();
     for (const name of names) {
+      if (Number(name.slice(0, 16)) <= this.acknowledged) continue;
       const record = localJournalRecordSchema.parse(
         await readLocalRecord(path.join(this.directory, name)),
       );
       if (
         record.sequence !== this.sequence + 1 ||
         record.previousDigest !== this.digest ||
-        record.digest !== this.hash(record)
+        record.digest !== localJournalDigest(record)
       )
         throw new Error("Local native journal is not contiguous");
       this.sequence = record.sequence;
       this.digest = record.digest;
     }
+    this.scheduleCleanup();
   }
 
   /** Fsyncs the body and index before any reader can receive this event. */
   public append(mutation: LocalSessionMutation): Promise<LocalJournalRecord> {
     return this.writes.run(async () => {
-      const payload = await this.files.write(
-        this.planId,
-        JSON.stringify(localMutationSchema.parse(mutation)),
-      );
+      const content = JSON.stringify(localMutationSchema.parse(mutation));
+      const body =
+        Buffer.byteLength(content) <= 4096
+          ? { content }
+          : { payload: await this.files.write(this.planId, content) };
       const base = {
         sequence: this.sequence + 1,
         previousDigest: this.digest,
-        payload,
+        ...body,
       };
-      const record = { ...base, digest: this.hash(base) };
+      const record = { ...base, digest: localJournalDigest(base) };
       await writeLocalRecord(this.file(record.sequence), record);
       this.sequence = record.sequence;
       this.digest = record.digest;
@@ -87,11 +104,12 @@ export class LocalSessionJournal {
     limit = 100,
   ): Promise<readonly LocalJournalRecord[]> {
     const records: LocalJournalRecord[] = [];
+    const start = Math.max(after, this.acknowledged);
     const end = Math.min(
       this.sequence,
-      after + Math.min(200, Math.max(1, limit)),
+      start + Math.min(200, Math.max(1, limit)),
     );
-    for (let sequence = after + 1; sequence <= end; sequence += 1)
+    for (let sequence = start + 1; sequence <= end; sequence += 1)
       records.push(
         localJournalRecordSchema.parse(
           await readLocalRecord(this.file(sequence)),
@@ -102,28 +120,47 @@ export class LocalSessionJournal {
 
   /** Checks both the index digest and the PAGE-223 body checksum. */
   public async body(record: LocalJournalRecord): Promise<LocalSessionMutation> {
-    if (record.digest !== this.hash(record))
+    if (record.digest !== localJournalDigest(record))
       throw new Error("Invalid local journal digest");
     return localMutationSchema.parse(
-      JSON.parse(await this.files.read(record.payload)),
+      JSON.parse(
+        "content" in record
+          ? record.content
+          : await this.files.read(record.payload),
+      ),
     );
   }
 
   /** Accepts only an acknowledgement of an existing immutable record. */
   public async acknowledge(sequence: number, digest: string): Promise<void> {
+    await this.writes.run(() => this.acknowledgeOnce(sequence, digest));
+  }
+
+  private async acknowledgeOnce(sequence: number, digest: string): Promise<void> {
+    if (sequence < this.acknowledged) return;
+    if (sequence === this.acknowledged) {
+      if (digest !== this.acknowledgedDigest)
+        throw new Error("Local journal acknowledgement mismatch");
+      this.scheduleCleanup();
+      return;
+    }
     if (sequence < 1 || sequence > this.sequence)
       throw new Error("Invalid local journal acknowledgement");
     const record = localJournalRecordSchema.parse(
       await readLocalRecord(this.file(sequence)),
     );
-    if (record.digest !== digest)
+    if (
+      record.digest !== digest ||
+      record.digest !== localJournalDigest(record)
+    )
       throw new Error("Local journal acknowledgement mismatch");
-    if (sequence <= this.acknowledged) return;
     await writeLocalRecord(path.join(this.directory, "ack.json"), {
       sequence,
       digest,
     });
     this.acknowledged = sequence;
+    this.acknowledgedDigest = digest;
+    this.scheduleCleanup();
   }
 
   private file(sequence: number): string {
@@ -131,21 +168,5 @@ export class LocalSessionJournal {
       this.directory,
       `${String(sequence).padStart(16, "0")}.json`,
     );
-  }
-
-  private hash(record: {
-    readonly sequence: number;
-    readonly previousDigest: string;
-    readonly payload: string;
-  }): string {
-    return createHash("sha256")
-      .update(
-        JSON.stringify([
-          record.sequence,
-          record.previousDigest,
-          record.payload,
-        ]),
-      )
-      .digest("hex");
   }
 }

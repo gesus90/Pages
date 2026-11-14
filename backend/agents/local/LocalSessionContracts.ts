@@ -272,11 +272,24 @@ export const localMutationSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("closed"), result: localClosedSchema }),
 ]);
 
-/** A journal reference is small; the immutable body uses the PAGE-223 file store. */
-export const localJournalRecordSchema = z.object({
+const journalHeader = {
   sequence: count,
   previousDigest: z.string(),
-  payload: z.string().max(2048),
+  digest: z.string().regex(/^[a-f0-9]{64}$/u),
+};
+
+/** Small serialized mutations stay inline; older payload references remain readable. */
+export const localJournalRecordSchema = z.union([
+  z.object({ ...journalHeader, payload: z.string().max(2048) }),
+  z.object({
+    ...journalHeader,
+    content: z.string().refine((content) => Buffer.byteLength(content) <= 4096),
+  }),
+]);
+
+/** Durable chain anchor retained after acknowledged journal records are removed. */
+export const localJournalAcknowledgementSchema = z.object({
+  sequence: count,
   digest: z.string().regex(/^[a-f0-9]{64}$/u),
 });
 

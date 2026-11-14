@@ -50,10 +50,12 @@ export async function startLocalSessionOwner(
     manifest.launch.runId,
   );
   if (!run) throw new Error("Local owner run is missing");
+  const files = requireAgentFiles(database);
   const journal = new LocalSessionJournal(
     directory,
     run.planId,
-    requireAgentFiles(database),
+    files,
+    () => files.scheduleJournalGarbage(database),
   );
   await journal.initialize();
   const owner = new LocalOwnerSession(manifest, journal, {
