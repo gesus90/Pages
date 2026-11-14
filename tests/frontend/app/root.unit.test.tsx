@@ -291,3 +291,28 @@ it("never shows the message of an unexpected error", async () => {
   expect(document.body.textContent).not.toContain("secret stack detail");
   expect(document.querySelector("main p.text-primary")).toBeNull();
 });
+
+it.each([
+  { body: null, title: "Vorübergehend nicht verfügbar" },
+  {
+    body: { error: "database_outcome_unknown" },
+    title: "Änderung nicht bestätigt",
+  },
+])("offers a reload for a 503 response", async ({ body, title }) => {
+  await mountDocument({
+    loader: () => {
+      throw new Response(JSON.stringify(body), {
+        status: 503,
+        headers: { "Content-Type": "application/json" },
+      });
+    },
+    ErrorBoundary: () => (
+      <Layout>
+        <ErrorBoundary />
+      </Layout>
+    ),
+  });
+  expect(document.body.textContent).toContain(title);
+  expect(document.querySelector('main a[href="/"]')).toBeTruthy();
+  expect(document.querySelectorAll('main a[href="/"]')).toHaveLength(2);
+});
