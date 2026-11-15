@@ -8,11 +8,11 @@ import {
   isImageOutputModel,
 } from "@/definition/AgentImageGeneration";
 
-import { isChatModelChoice } from "./AgentChatModelChoices";
 import {
   AgentProviderKeys,
   generationRoute,
   isOwnOpenCodeKey,
+  isReleasedGenerationModel,
 } from "./AgentProviderKeys";
 
 import type {
@@ -208,7 +208,7 @@ export class AgentImageGeneration {
         .filter(
           (model) =>
             model.isImageOutputCapable === true &&
-            isChatModelChoice(model, employee) &&
+            isReleasedGenerationModel(model) &&
             !(
               model.connectionId === current.connection.id &&
               model.model === current.model

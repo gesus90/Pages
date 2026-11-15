@@ -17,6 +17,7 @@ import type {
   AgentSessionContextUsage,
   AgentSessionView,
 } from "@/definition/AgentSessionJournal";
+import type { CodexRunUsage } from "@/definition/CodexPlanUsage";
 
 interface ConsoleSidebarProps {
   readonly step: AgentPlanStepResult;
@@ -51,7 +52,6 @@ function Fact(props: {
   );
 }
 
-
 /** What the agent does now: its own report, its ACP plan, or where the node stands. */
 function activityText(
   step: AgentPlanStepResult,
@@ -77,6 +77,58 @@ function contextShare(context: AgentSessionContextUsage): number | null {
   return Math.min(100, (contextUsed / contextLimit) * 100);
 }
 
+/** The codex step usage of this step, only for the codex provider. */
+function codexStep(
+  view: AgentSessionView,
+): CodexRunUsage["steps"][number] | null {
+  return view.provider === "codex_cli"
+    ? (view.codexRunUsage?.steps.find(
+        (step) => step.stepId === view.key.stepId,
+      ) ?? null)
+    : null;
+}
+
+/** The context fact: how much of the model's window the run used. */
+function contextValueText(
+  context: AgentSessionContextUsage,
+  numbers: Intl.NumberFormat,
+  unknown: string,
+): string {
+  const used = context.contextUsed;
+  return used === null
+    ? unknown
+    : `${numbers.format(used)} / ${context.contextLimit === null ? unknown : numbers.format(context.contextLimit)}`;
+}
+
+/** The total tokens of the node, summed over its step totals. */
+function tokensText(
+  view: AgentSessionView,
+  numbers: Intl.NumberFormat,
+  unknown: string,
+): string {
+  const totals = view.nodeTotals ?? view.totals;
+  const known = totals.flatMap((total) =>
+    total.totalTokens === null ? [] : [total.totalTokens],
+  );
+  return known.length === 0
+    ? unknown
+    : numbers.format(known.reduce((sum, value) => sum + value, 0));
+}
+
+/** The cost of the run in the session's currency, as the interface formats it. */
+function costText(
+  context: AgentSessionContextUsage,
+  language: string,
+  unknown: string,
+): string {
+  const cost = context.cost;
+  if (!cost) return unknown;
+  return new Intl.NumberFormat(language, {
+    style: "currency",
+    currency: cost.currency,
+  }).format(cost.amount);
+}
+
 function UsageSection(props: {
   readonly view: AgentSessionView;
   /** A turn runs now: its tokens arrive with its end. */
@@ -90,36 +142,17 @@ function UsageSection(props: {
   const numbers = new Intl.NumberFormat(i18n.language);
   const { context } = props.view;
   const share = contextShare(context);
-  const used = context.contextUsed;
-  const contextValue =
-    used === null
-      ? unknown
-      : `${numbers.format(used)} / ${context.contextLimit === null ? unknown : numbers.format(context.contextLimit)}`;
-  const codex =
-    props.view.provider === "codex_cli"
-      ? props.view.codexRunUsage?.steps.find(
-          (step) => step.stepId === props.view.key.stepId,
-        )
-      : null;
-  const totals = props.view.nodeTotals ?? props.view.totals;
-  const known = totals.flatMap((total) =>
-    total.totalTokens === null ? [] : [total.totalTokens],
-  );
-  const tokens =
-    known.length === 0
-      ? unknown
-      : numbers.format(known.reduce((sum, value) => sum + value, 0));
-  const cost = context.cost
-    ? new Intl.NumberFormat(i18n.language, {
-        style: "currency",
-        currency: context.cost.currency,
-      }).format(context.cost.amount)
-    : unknown;
+  const codex = codexStep(props.view);
+  const tokens = tokensText(props.view, numbers, unknown);
+  const cost = costText(context, i18n.language, unknown);
   return (
     <SidebarSection title={t(`${key}.usage`)}>
       {codex ? <CodexUsageFacts usage={codex.usage} /> : null}
       <dl className="space-y-1.5">
-        <Fact label={t(`${key}.context`)} value={contextValue} />
+        <Fact
+          label={t(`${key}.context`)}
+          value={contextValueText(context, numbers, unknown)}
+        />
         <div
           role="meter"
           aria-label={t(`${key}.context`)}

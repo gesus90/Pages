@@ -4,7 +4,6 @@ import { canonicalClaudeModel } from "@/definition/ClaudePriceModels";
 import { logCaughtError } from "@/backend/logging/Logger";
 import { claudePriceSchema } from "@/definition/ClaudeUsage";
 
-
 import type { ClaudePrice } from "@/definition/ClaudeUsage";
 
 const DAY_MS = 86_400_000;
@@ -57,13 +56,17 @@ export function findClaudePrice(
 
 /** Refreshes the public catalog at startup and daily, preserving the successful disk cache on failure. */
 export class OpenRouterPrices {
-  private readonly repository: { readonly save: (fetchedAt: string, catalog: string) => Promise<void> };
+  private readonly repository: {
+    readonly save: (fetchedAt: string, catalog: string) => Promise<void>;
+  };
   private readonly request: typeof fetch;
   private readonly now: () => Date;
   private refreshing: Promise<void> | null = null;
 
   public constructor(
-    repository: { readonly save: (fetchedAt: string, catalog: string) => Promise<void> },
+    repository: {
+      readonly save: (fetchedAt: string, catalog: string) => Promise<void>;
+    },
     request: typeof fetch = fetch,
     now: () => Date = () => new Date(),
   ) {

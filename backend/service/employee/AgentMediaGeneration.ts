@@ -8,11 +8,11 @@ import {
   isMediaOutputModel,
 } from "@/definition/AgentMediaGeneration";
 
-import { isChatModelChoice } from "./AgentChatModelChoices";
 import {
   AgentProviderKeys,
   generationRoute,
   isOwnOpenCodeKey,
+  isReleasedGenerationModel,
 } from "./AgentProviderKeys";
 
 import type {
@@ -221,7 +221,7 @@ export class AgentMediaGeneration {
         .filter((model) => {
           if (
             !isKindCapable(model, kind) ||
-            !isChatModelChoice(model, employee)
+            !isReleasedGenerationModel(model)
           )
             return false;
           if (

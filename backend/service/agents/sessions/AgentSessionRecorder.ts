@@ -2,21 +2,26 @@ import { canonicalClaudeModel } from "@/definition/ClaudePriceModels";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { openRouterPriceCatalog } from "./OpenRouterPriceCatalog";
 import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
-import {
-  AGENT_TODO_LIMIT,
-  AGENT_TODO_TEXT_LENGTH,
-} from "@/definition/AgentPlanAgentTodos";
+import { codexPromptTokens } from "../usage/CodexPromptTokens";
 
 import { codexThreadReportSchema } from "@/definition/CodexPlanUsage";
 
-import { codexPromptTokens } from "../usage/CodexPromptTokens";
 import { readContinuationCapabilities } from "./AgentSessionContinuation";
-import { MAXIMUM_EVENT_TEXT } from "./AgentSessionJournal";
+import {
+  activityEvent,
+  describeInput,
+  describeOutput,
+  progressText,
+  readCost,
+  reportedModel,
+  toolText,
+} from "./AgentSessionToolText";
 import {
   ACP_USAGE_CAPABILITIES,
   readContextUsage,
   readTurnTokens,
 } from "./AgentSessionUsage";
+import type { TurnTokenDelta } from "./AgentSessionUsage";
 
 import type { ClaudeUsageObservation } from "@/definition/ClaudeUsage";
 import type { AgentSessionTurnUsage } from "@/definition/AgentSessionJournal";
@@ -35,11 +40,8 @@ import type {
   AgentSessionAttemptRecord,
   AgentSessionStore,
 } from "./AgentSessionStore";
-import type { AgentSessionCost } from "@/definition/AgentSessionJournal";
 import type { OpenCodeMessageUsage } from "@/backend/agents/cli/OpenCodeSessionUsage";
-
-/** The key under which claude-agent-acp names the model of a usage update. */
-const CLAUDE_MODEL_KEY = "_claude/model";
+import type { ToolCallState } from "./AgentSessionToolText";
 
 /** What a recorder writes to. */
 export interface AgentSessionRecorderDependencies {
@@ -67,175 +69,6 @@ const LIVE_MESSAGE_MS = 1_000;
 
 /** The Pages tool whose calls become todo lines instead of tool lines (PAGE-284). */
 const PROGRESS_TOOL = /update_step_progress/u;
-
-/** Longest command or output kept of one tool call; the journal limits the event as a whole. */
-const TOOL_TEXT = 3_000;
-
-/** What a tool call reported so far: its title, kind and input. */
-interface ToolCallState {
-  title: string;
-  kind: string;
-  input: string;
-  /** The raw input, kept only for a call of `update_step_progress`. */
-  raw?: unknown;
-  /** The start was recorded; an adapter that names the arguments only later is announced then. */
-  isAnnounced?: boolean;
-}
-
-function readRecord(value: unknown): Record<string, unknown> | null {
-  return typeof value === "object" && value !== null && !Array.isArray(value)
-    ? Object.fromEntries(Object.entries(value))
-    : null;
-}
-
-function shortened(text: string): string {
-  return text.length > TOOL_TEXT ? `${text.slice(0, TOOL_TEXT)} …` : text;
-}
-
-/** The command, file or query a tool call works on, as the adapter reported it. */
-function describeInput(raw: unknown): string {
-  if (raw === undefined || raw === null) return "";
-  if (typeof raw === "string") return shortened(raw);
-  const input = readRecord(raw);
-  // An adapter announces a call before its arguments; an empty input says nothing yet.
-  if (input && Object.keys(input).length === 0) return "";
-  const command = input?.command ?? input?.cmd;
-  if (typeof command === "string") return shortened(command);
-  if (Array.isArray(command)) return shortened(command.map(String).join(" "));
-  for (const field of [
-    "file_path",
-    "filePath",
-    "path",
-    "pattern",
-    "query",
-    "url",
-  ]) {
-    const value = input?.[field];
-    if (typeof value === "string") return shortened(value);
-  }
-  return shortened(JSON.stringify(raw));
-}
-
-/** What a tool call returned: its text content, diffs and raw output. */
-function describeOutput(
-  update: Extract<SessionUpdate, { sessionUpdate: "tool_call_update" }>,
-): string {
-  const parts: string[] = [];
-  for (const entry of update.content ?? []) {
-    if (entry.type === "content" && entry.content.type === "text")
-      parts.push(entry.content.text);
-    else if (entry.type === "diff")
-      parts.push(`diff ${entry.path}\n${entry.newText}`);
-  }
-  const raw = update.rawOutput;
-  const output = readRecord(raw);
-  if (parts.length === 0 && typeof raw === "string") parts.push(raw);
-  else if (parts.length === 0 && output) {
-    for (const field of [
-      "formatted_output",
-      "output",
-      "stdout",
-      "stderr",
-      "result",
-    ]) {
-      const value = output[field];
-      if (typeof value === "string" && value.trim()) parts.push(value);
-    }
-    if (parts.length === 0) parts.push(JSON.stringify(raw));
-  }
-  return shortened(parts.join("\n").trim());
-}
-
-/**
- * The text of a tool call: its title, its kind, the command and, once it ended, its output.
- *
- * @remarks
- * A call without a title is named by its kind, never by the internal ID of
- * the call, which says nothing to a reader. The kind line (`@kind read`)
- * lets the Pages terminal name the call the same way for every provider
- * (PAGE-284).
- */
-function toolText(state: ToolCallState, output = ""): string {
-  const title = state.title.trim() || state.kind;
-  return [
-    title,
-    `@kind ${state.kind}`,
-    state.input ? `$ ${state.input}` : "",
-    output,
-  ]
-    .filter((part) => part !== "")
-    .join("\n");
-}
-
-/**
- * The journal text of a structured plan update (PAGE-306): JSON with the status and text of each entry.
- *
- * @remarks
- * The journal shortens a text beyond its limit, which would break the JSON.
- * A list that does not fit loses its last entries instead, so the text always
- * stays readable and the entries that are kept stay exact.
- */
-function planText(
-  entries: Extract<SessionUpdate, { sessionUpdate: "plan" }>["entries"],
-): string {
-  const kept = entries.slice(0, AGENT_TODO_LIMIT).map((entry) => ({
-    content: entry.content.trim().slice(0, AGENT_TODO_TEXT_LENGTH),
-    status: entry.status,
-  }));
-  let text = JSON.stringify({ entries: kept });
-  while (text.length > MAXIMUM_EVENT_TEXT && kept.length > 0) {
-    kept.pop();
-    text = JSON.stringify({ entries: kept });
-  }
-  return text;
-}
-
-/** The event an update of plans or modes is recorded as; `null` for other updates. */
-function activityEvent(
-  update: SessionUpdate,
-): Omit<AgentSessionEventInput, "turn"> | null {
-  if (update.sessionUpdate === "plan")
-    return { kind: "plan", text: planText(update.entries) };
-  if (update.sessionUpdate === "current_mode_update")
-    return { kind: "status", text: `mode ${update.currentModeId}` };
-  return null;
-}
-
-/**
- * The todo states and activity of a successful `update_step_progress` call, as JSON.
- *
- * @returns `null` when the call reported no readable todos.
- */
-function progressText(raw: unknown): string | null {
-  const input = readRecord(raw);
-  if (!input || !Array.isArray(input.todos)) return null;
-  const todos = input.todos.flatMap((entry: unknown) => {
-    const todo = readRecord(entry);
-    return typeof todo?.id === "string" && typeof todo.status === "string"
-      ? [{ id: todo.id.slice(0, 200), status: todo.status.slice(0, 20) }]
-      : [];
-  });
-  if (todos.length === 0) return null;
-  const activity =
-    typeof input.activity === "string" ? input.activity.slice(0, 200) : null;
-  return JSON.stringify({ todos, activity });
-}
-
-function readCost(
-  update: Extract<SessionUpdate, { sessionUpdate: "usage_update" }>,
-): AgentSessionCost | null {
-  const cost = update.cost;
-  return cost && Number.isFinite(cost.amount) && cost.currency
-    ? { amount: cost.amount, currency: cost.currency.slice(0, 10) }
-    : null;
-}
-
-function reportedModel(
-  update: Extract<SessionUpdate, { sessionUpdate: "usage_update" }>,
-): string | null {
-  const model = update._meta?.[CLAUDE_MODEL_KEY];
-  return typeof model === "string" && model.length > 0 ? model : null;
-}
 
 /**
  * Records what the adapter process of a plan session reports into the attempt whose turn runs.
@@ -370,15 +203,10 @@ export class AgentSessionRecorder implements AcpSessionListener {
     this.flushThought();
     this.flushMessage();
     const attempt = this.attempt;
-    const { provider, key } = attempt;
+    const { key } = attempt;
     const turn = this.turn();
-    const capability = ACP_USAGE_CAPABILITIES[provider];
-    const isEmptyClaudeTally =
-      provider === "claude_code" && usage?.totalTokens === 0 && !this.hasClaudeObservation;
-    const delta =
-      provider === "codex_cli"
-        ? codexPromptTokens(usage)
-        : readTurnTokens(capability, isEmptyClaudeTally ? null : usage, this.lastUsage);
+    const isEmptyClaudeTally = this.isEmptyClaudeTally(usage);
+    const delta = this.promptTokens(usage, isEmptyClaudeTally);
     this.lastUsage = usage ?? this.lastUsage;
     this.turns.set(key.attemptId, turn + 1);
     this.record({
@@ -386,73 +214,16 @@ export class AgentSessionRecorder implements AcpSessionListener {
       text: isContinued ? `turn ${turn} continued` : `turn ${turn} ended`,
       turn,
     });
-    if (provider === "codex_cli" && this.hasNativeCodexUsage) {
+    if (attempt.provider === "codex_cli" && this.hasNativeCodexUsage) {
       this.hasNativeCodexUsage = false;
       if (usage !== null) return;
     }
-    if (provider === "claude_code" && this.hasClaudeObservation) {
+    if (attempt.provider === "claude_code" && this.hasClaudeObservation) {
       this.hasClaudeObservation = false;
       return;
     }
-    if (delta === null && provider !== "claude_code") return;
-    const reportedAt = this.clock();
-    const model =
-      provider === "claude_code"
-        ? (this.attempt.confirmedModel.value ??
-          this.attempt.requestedModel ??
-          null)
-        : this.attempt.confirmedModel.value;
-    this.enqueue(() =>
-      (
-        this.dependencies.saveUsage ??
-        this.dependencies.store.saveTurnUsage.bind(this.dependencies.store)
-      )({
-        ...(delta?.tokens ?? {
-          inputTokens: null,
-          outputTokens: null,
-          cacheReadTokens: null,
-          cacheWriteTokens: null,
-          totalTokens: null,
-          inputIncludesCache: false,
-          isPartial: true,
-        }),
-        ...(provider === "claude_code" && nativeSessionId && delta
-          ? {
-              claudeObservation: {
-                sessionId: nativeSessionId,
-                id: `${key.attemptId}:${turn}`,
-                kind: "prompt" as const,
-                models: [
-                  {
-                    model: canonicalClaudeModel(model ?? "unknown"),
-                    inputTokens: delta.tokens.inputTokens,
-                    outputTokens: delta.tokens.outputTokens,
-                    cacheReadTokens: delta.tokens.cacheReadTokens,
-                    cacheWriteTokens: delta.tokens.cacheWriteTokens,
-                  },
-                ],
-              },
-            }
-          : {}),
-        attemptId: key.attemptId,
-        turn,
-        provider,
-        model:
-          provider === "codex_cli"
-            ? (model ?? attempt.requestedModel ?? null)
-            : model,
-        ...(provider === "codex_cli"
-          ? {
-              codex: {
-                connectionId: attempt.connectionId ?? "",
-                agentId: attempt.agentId ?? "",
-                report: null,
-              },
-            }
-          : {}),
-        reportedAt,
-      }),
-    );
+    if (delta === null && attempt.provider !== "claude_code") return;
+    this.savePromptedTurn(delta, usage, turn, nativeSessionId);
   };
 
   /** Allocates native Claude reports to the current step and turn while work is running. */
@@ -554,6 +325,95 @@ export class AgentSessionRecorder implements AcpSessionListener {
     await this.writes;
     if (this.hasWriteFailure) throw new AgentError("plan_history_unavailable");
   };
+
+  /** Whether a Claude adapter reported an empty tally that its observation replaces. */
+  private isEmptyClaudeTally(usage: Usage | null): boolean {
+    return (
+      this.attempt.provider === "claude_code" &&
+      usage?.totalTokens === 0 &&
+      !this.hasClaudeObservation
+    );
+  }
+
+  /** The tokens the ended prompt added, as the provider reports them. */
+  private promptTokens(
+    usage: Usage | null,
+    isEmptyClaudeTally: boolean,
+  ): TurnTokenDelta | null {
+    return this.attempt.provider === "codex_cli"
+      ? codexPromptTokens(usage)
+      : readTurnTokens(
+          ACP_USAGE_CAPABILITIES[this.attempt.provider],
+          isEmptyClaudeTally ? null : usage,
+          this.lastUsage,
+        );
+  }
+
+  /** Saves the usage of the ended prompt with the provider's report. */
+  private savePromptedTurn(
+    delta: TurnTokenDelta | null,
+    usage: Usage | null,
+    turn: number,
+    nativeSessionId?: string,
+  ): void {
+    const attempt = this.attempt;
+    const { provider, key } = attempt;
+    const model =
+      provider === "claude_code"
+        ? (attempt.confirmedModel.value ?? attempt.requestedModel ?? null)
+        : attempt.confirmedModel.value;
+    this.enqueue(() =>
+      (
+        this.dependencies.saveUsage ??
+        this.dependencies.store.saveTurnUsage.bind(this.dependencies.store)
+      )({
+        ...(delta?.tokens ?? {
+          inputTokens: null,
+          outputTokens: null,
+          cacheReadTokens: null,
+          cacheWriteTokens: null,
+          totalTokens: null,
+          inputIncludesCache: false,
+          isPartial: true,
+        }),
+        ...(provider === "claude_code" && nativeSessionId && delta
+          ? {
+              claudeObservation: {
+                sessionId: nativeSessionId,
+                id: `${key.attemptId}:${turn}`,
+                kind: "prompt" as const,
+                models: [
+                  {
+                    model: canonicalClaudeModel(model ?? "unknown"),
+                    inputTokens: delta.tokens.inputTokens,
+                    outputTokens: delta.tokens.outputTokens,
+                    cacheReadTokens: delta.tokens.cacheReadTokens,
+                    cacheWriteTokens: delta.tokens.cacheWriteTokens,
+                  },
+                ],
+              },
+            }
+          : {}),
+        attemptId: key.attemptId,
+        turn,
+        provider,
+        model:
+          provider === "codex_cli"
+            ? (model ?? attempt.requestedModel ?? null)
+            : model,
+        ...(provider === "codex_cli"
+          ? {
+              codex: {
+                connectionId: attempt.connectionId ?? "",
+                agentId: attempt.agentId ?? "",
+                report: null,
+              },
+            }
+          : {}),
+        reportedAt: this.clock(),
+      }),
+    );
+  }
 
   /**
    * The event of a tool call: one when it starts, with its command, and one

@@ -11,6 +11,7 @@ const catalogModel = z.object({
     prompt: rate,
     completion: rate,
     input_cache_read: rate.nullish(),
+    input_cache_write: rate.nullish(),
     internal_reasoning: rate.nullish(),
   }),
 });

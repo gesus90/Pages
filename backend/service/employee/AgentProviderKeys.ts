@@ -4,9 +4,28 @@ import { openCodeModelProvider } from "@/definition/AgentConnection";
 import type { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
 import type { AgentConnectionRecord } from "@/backend/database/repositories/agent/AgentConnectionRows";
 import type { InstanceSecretCipher } from "@/backend/security/InstanceSecretCipher";
+import type { PageAgentModel } from "@/definition/PageAgent";
 
 /** The providers whose documented generation interfaces Pages calls (PAGE-382, PAGE-384). */
 export type GenerationProvider = "openrouter" | "google_ai_studio";
+
+/**
+ * Whether a catalog model is a released text+generation candidate (PAGE-382,
+ * PAGE-384). Direct generation providers (`openrouter`, `google_ai_studio`) do
+ * not register an ACP chat adapter, while speech, transcription, decision and
+ * non-chat/non-tool models stay excluded.
+ */
+export function isReleasedGenerationModel(model: PageAgentModel): boolean {
+  if (model.connectionId === undefined) return false;
+  if (
+    model.isSpeechOutputCapable === true ||
+    model.isTranscriptionOnly === true ||
+    model.isDecisionCapable === true ||
+    model.isSpeechCapable === true
+  )
+    return false;
+  return model.isChatCapable !== false && model.isToolCapable !== false;
+}
 
 /** How Pages reaches the generation function of a model. */
 export interface GenerationRoute {

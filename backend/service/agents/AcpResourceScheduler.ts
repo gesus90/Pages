@@ -4,13 +4,16 @@ import { withBackgroundDatabaseWork } from "@/backend/database/executor/Database
 import { readAcpResourceOptions } from "@/backend/config/AcpResourceConfig";
 import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
 import { logCaughtError } from "@/backend/logging/Logger";
-import { isAcpSessionLimit, MAX_ACP_SESSIONS } from "@/definition/AcpResource";
+import { isAcpSessionLimit } from "@/definition/AcpResource";
 
 import {
   prepareRestartLeases,
   releaseRestartLeases,
 } from "./resources/AcpRestartLease";
-import { forceReleaseAcpRun } from "./resources/AcpRunRelease";
+import {
+  forceReleaseAcpRun,
+  releaseAcpForResume,
+} from "./resources/AcpRunRelease";
 import { cleanupAcpLease, recoverAcpLease } from "./resources/AcpLeaseRecovery";
 import { AcpWaitDiagnostics } from "./resources/AcpWaitDiagnostics";
 import { AcpLeaseAdmission } from "./resources/AcpLeaseAdmission";
@@ -20,18 +23,34 @@ import {
   endLeaseProcesses,
 } from "./resources/AcpLeaseProcesses";
 import {
-  acpMemoryWaitReason,
   readAcpAvailableMemory,
   readScheduledAcpMemory,
 } from "./resources/AcpMemory";
-import { ScheduledAcpSession } from "./resources/ScheduledAcpSession";
+import { buildAcpResourceSnapshot } from "./resources/AcpResourceSnapshot";
+import {
+  acquireAcpRequest,
+  admitAcpWaiting,
+  deferAcpRequest,
+  markAcpStorageFailed,
+} from "./resources/AcpResourceAdmission";
+import {
+  acpAdmissionCap,
+  acpRequestWaitReason,
+  isAcpRequestPaused,
+} from "./resources/AcpResourceSnapshot";
+import type { ScheduledAcpSession } from "./resources/ScheduledAcpSession";
+import { wrapAcpSession } from "./resources/AcpScheduledSessionWrap";
 import {
   registerAcpNamespace,
-  settleAcpSessionLease,
   reconcileAcpRunLeases,
 } from "./resources/AcpLeaseOwnership";
-import { enqueueAcpRequest } from "./resources/AcpAdmissionRequest";
 import { AcpLeaseReconciler } from "./AcpLeaseReconciler";
+import {
+  finishAcpLease,
+  saveAcpActive,
+  transitionAcpLease,
+} from "./resources/AcpLeaseJournal";
+import type { AcpLeaseJournalContext } from "./resources/AcpLeaseJournal";
 
 import type { SchedulerDependencies } from "./resources/AcpSchedulerDependencies";
 import type { AcpLeaseCleanup } from "./resources/AcpLeaseCleanup";
@@ -220,7 +239,12 @@ export class AcpResourceScheduler {
     namespace: AcpNamespaceOwner,
   ): Promise<void> {
     await this.persist(async () => {
-      await registerAcpNamespace(this.store, this.active, instanceId, namespace);
+      await registerAcpNamespace(
+        this.store,
+        this.active,
+        instanceId,
+        namespace,
+      );
       const runId = this.active.get(instanceId)?.runId;
       if (runId && this.pausedRuns.has(runId))
         await controlOwnedNamespace(namespace, "pause");
@@ -323,21 +347,17 @@ export class AcpResourceScheduler {
 
   /** Returns secret-free global diagnostics; callers must require administrative access. */
   public snapshot(): AcpResourceSnapshot {
-    return {
+    return buildAcpResourceSnapshot(this.checks, {
       options: this.options,
       limitSource: this.limitSource,
       availableMemory: this.availableMemory,
       problem: this.problem,
-      check: this.checks.summary(),
-      active: [...this.active.values()].map((entry) =>
-        this.checks.describe(entry),
-      ),
-      waiting: this.waiting.map((request) => ({
-        ...request.owner,
-        since: request.since,
-        reason: this.waitReason(request),
-      })),
-    };
+      isReady: this.isReady,
+      active: [...this.active.values()],
+      waiting: this.waiting,
+      pausedRuns: this.pausedRuns,
+      cap: this.admissionCap(),
+    });
   }
 
   /**
@@ -397,22 +417,13 @@ export class AcpResourceScheduler {
 
   /** Releases only the reservations of an ended run whose executor explicitly resumes it. */
   public async releaseForResume(runId: string): Promise<void> {
-    await this.persist(async () => {
-      const stored = await this.store.list();
-      const records = new Map(
-        [...stored, ...this.active.values()].map((record) => [
-          record.instanceId,
-          record,
-        ]),
-      );
-      for (const record of records.values()) {
-        if (record.runId !== runId) continue;
-        await this.store.remove(record.instanceId);
-        this.active.delete(record.instanceId);
-        this.sessions.delete(record.instanceId);
-      }
+    await releaseAcpForResume(runId, {
+      store: this.store,
+      active: this.active,
+      sessions: this.sessions,
+      persist: (task) => this.persist(task),
+      wake: () => this.wake(),
     });
-    this.wake();
   }
 
   /** Cancels all waiters and drains sessions; uncertain leases survive server exit. */
@@ -502,15 +513,13 @@ export class AcpResourceScheduler {
     signal: AbortSignal,
     deadlineMs?: number,
   ): Promise<void> {
-    if (signal.aborted || this.isClosing)
-      return Promise.reject(new AgentPlanCancelledError());
-    if (
-      this.active.has(owner.instanceId) ||
-      this.waiting.some((entry) => entry.owner.instanceId === owner.instanceId)
-    )
-      return Promise.reject(new Error("ACP instance already reserved"));
-    return enqueueAcpRequest(
-      { waiting: this.waiting, wake: () => this.wake() },
+    return acquireAcpRequest(
+      {
+        isClosing: () => this.isClosing,
+        active: this.active,
+        waiting: this.waiting,
+        wake: () => this.wake(),
+      },
       owner,
       signal,
       deadlineMs,
@@ -522,19 +531,12 @@ export class AcpResourceScheduler {
     session: PlanSession,
     observer: PlanSessionObserver | undefined,
   ): ScheduledAcpSession {
-    return new ScheduledAcpSession(
-      session,
-      {
-        transition: (state, stepId) =>
-          this.transition(instanceId, state, stepId),
-        finish: (isConfirmed) => this.finish(instanceId, isConfirmed),
-        settle: (error) =>
-          settleAcpSessionLease(this.active.get(instanceId), error, (record) =>
-            this.cleanupLease(record),
-          ),
-      },
-      observer,
-    );
+    return wrapAcpSession(instanceId, session, observer, {
+      active: this.active,
+      transition: (id, state, stepId) => this.transition(id, state, stepId),
+      finish: (id, isConfirmed) => this.finish(id, isConfirmed),
+      cleanupLease: (record) => this.cleanupLease(record),
+    });
   }
 
   /**
@@ -591,77 +593,51 @@ export class AcpResourceScheduler {
   }
 
   private async admitWaiting(): Promise<void> {
-    await this.refreshOptions();
-    await this.recheckBlockingLeases();
-    // An idle chat session gives its place to a waiting start; its closeout wakes the queue.
-    if (
-      this.isReady &&
-      this.active.size >= this.admissionCap() &&
-      this.waiting.some((request) => !this.isPaused(request))
-    )
-      this.reclaimIdle?.();
-    while (this.canAdmit()) {
-      const request = this.waiting.find((entry) => !this.isPaused(entry));
-      if (!request) return;
-      this.availableMemory = await readScheduledAcpMemory(this.memory);
-      // A live reduction or shutdown may have happened during the memory probe.
-      if (
-        !this.canAdmit() ||
-        acpMemoryWaitReason(this.options, this.availableMemory)
-      )
-        return;
-      if (
-        request.signal.aborted ||
-        !this.waiting.includes(request) ||
-        this.isPaused(request)
-      )
-        continue;
-      this.waiting.splice(this.waiting.indexOf(request), 1);
-      request.signal.removeEventListener("abort", request.abort);
-      const record: AcpResourceRecord = {
-        ...request.owner,
-        state: "starting",
-        since: request.since,
-        lifecycle: "reserved",
-      };
-      this.active.set(record.instanceId, record);
-      try {
-        const reserved = await this.persist(() =>
-          this.admission.reserve(record, this.admissionCap()),
-        );
-        if (!reserved) {
-          this.deferRequest(request);
-          return;
-        }
-        request.resolve();
-      } catch (caughtError: unknown) {
-        this.storageFailed(record, caughtError);
-        request.reject(new Error("ACP reservation could not be persisted"));
-      }
-    }
+    await admitAcpWaiting({
+      isReady: () => this.isReady,
+      isClosing: () => this.isClosing,
+      problem: () => this.problem,
+      options: () => this.options,
+      availableMemory: () => this.availableMemory,
+      active: this.active,
+      waiting: this.waiting,
+      memory: () => this.memory(),
+      refreshOptions: () => this.refreshOptions(),
+      recheckBlockingLeases: () => this.recheckBlockingLeases(),
+      reclaimIdle: this.reclaimIdle ?? undefined,
+      isPaused: (request) => this.isPaused(request),
+      cap: () => this.admissionCap(),
+      probeMemory: () => this.probeMemory(),
+      reserve: (record) => this.reserveAcp(record),
+      defer: (request) => this.deferRequest(request),
+      storageFailed: (record, error) => this.storageFailed(record, error),
+    });
+  }
+
+  /** Reads current memory and records it for wait reasons and monitoring. */
+  private async probeMemory(): Promise<void> {
+    this.availableMemory = await readScheduledAcpMemory(this.memory);
+  }
+
+  /** Reserves a lease durably, in the order of the scheduler. */
+  private reserveAcp(record: AcpResourceRecord): Promise<boolean> {
+    return this.persist(() =>
+      this.admission.reserve(record, this.admissionCap()),
+    );
   }
 
   private deferRequest(request: WaitingRequest): void {
-    this.active.delete(request.owner.instanceId);
-    if (request.signal.aborted) {
-      request.reject(new AgentPlanCancelledError());
-      return;
-    }
-    this.waiting.unshift(request);
-    request.signal.addEventListener("abort", request.abort, { once: true });
+    deferAcpRequest(this.active, this.waiting, request);
   }
 
   private storageFailed(record: AcpResourceRecord, error: unknown): void {
-    logCaughtError("AcpResourceScheduler", error);
-    this.problem = "storage";
-    this.active.set(record.instanceId, { ...record, state: "cleanup_failed" });
+    markAcpStorageFailed(this.active, record, error, () => {
+      this.problem = "storage";
+    });
   }
 
   private async saveActive(record: AcpResourceRecord): Promise<void> {
-    this.active.set(record.instanceId, record);
-    await this.store.save(record).catch((caughtError: unknown) => {
-      this.storageFailed(record, caughtError);
-    });
+    await saveAcpActive(record, this.leaseJournal());
   }
 
   private async transition(
@@ -669,37 +645,29 @@ export class AcpResourceScheduler {
     state: AcpResourceState,
     stepId?: string,
   ): Promise<void> {
-    await this.persist(async () => {
-      const current = this.active.get(instanceId);
-      if (!current) return;
-      const patch = stepId === undefined ? { state } : { state, stepId };
-      await this.saveActive({ ...current, ...patch });
-    });
+    await transitionAcpLease(instanceId, state, stepId, this.leaseJournal());
   }
 
   private async finish(
     instanceId: string,
     isConfirmed: boolean,
   ): Promise<boolean> {
-    const released = await this.persist(async () => {
-      const current = this.active.get(instanceId);
-      if (!current) return true;
-      this.sessions.delete(instanceId);
-      if (isConfirmed) {
-        try {
-          await this.store.remove(instanceId);
-          this.active.delete(instanceId);
-          return true;
-        } catch (caughtError: unknown) {
-          logCaughtError("AcpResourceScheduler", caughtError);
-          this.problem = "storage";
-        }
-      }
-      await this.saveActive({ ...current, state: "cleanup_failed" });
-      return false;
-    });
-    this.wake();
-    return released;
+    return finishAcpLease(instanceId, isConfirmed, this.leaseJournal());
+  }
+
+  /** The durable lease bookkeeping this scheduler provides. */
+  private leaseJournal(): AcpLeaseJournalContext {
+    return {
+      store: this.store,
+      active: this.active,
+      sessions: this.sessions,
+      persist: (task) => this.persist(task),
+      storageFailed: (record, error) => this.storageFailed(record, error),
+      markStorageProblem: () => {
+        this.problem = "storage";
+      },
+      wake: () => this.wake(),
+    };
   }
 
   /** A waiting request blocked only by uncertain leases gets them checked again, bounded in time. */
@@ -720,33 +688,22 @@ export class AcpResourceScheduler {
   }
 
   private isPaused(request: WaitingRequest): boolean {
-    return (
-      request.owner.runId !== null && this.pausedRuns.has(request.owner.runId)
-    );
+    return isAcpRequestPaused(this.pausedRuns, request);
   }
 
   private admissionCap(): number {
-    return this.options.maxConcurrentAcpSessions === 0
-      ? MAX_ACP_SESSIONS
-      : this.options.maxConcurrentAcpSessions;
-  }
-
-  private canAdmit(): boolean {
-    return (
-      this.isReady &&
-      !this.isClosing &&
-      !this.problem &&
-      this.active.size < this.admissionCap()
-    );
+    return acpAdmissionCap(this.options);
   }
 
   private waitReason(request: WaitingRequest): AcpWaitReason {
-    if (this.isPaused(request)) return "paused";
-    if (!this.isReady) return "recovery";
-    if (this.problem) return "scheduler_error";
-    if (this.active.size >= this.admissionCap()) return "capacity";
-    return (
-      acpMemoryWaitReason(this.options, this.availableMemory) ?? "capacity"
-    );
+    return acpRequestWaitReason({
+      isPaused: this.isPaused(request),
+      isReady: this.isReady,
+      problem: this.problem,
+      activeCount: this.active.size,
+      cap: this.admissionCap(),
+      options: this.options,
+      availableMemory: this.availableMemory,
+    });
   }
 }

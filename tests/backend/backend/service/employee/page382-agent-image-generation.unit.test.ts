@@ -71,13 +71,10 @@ function catalogModel(
 function imageChoice(): PageAgentModel {
   return {
     ...catalogModelChoice(
-      { id: "opencode-1", name: "OpenCode", provider: "opencode" },
-      catalogModel("openrouter/google/gemini-2.5-flash-image", [
-        "text",
-        "image",
-      ]),
+      { id: "openrouter-1", name: "OpenRouter", provider: "openrouter" },
+      catalogModel("google/gemini-2.5-flash-image", ["text", "image"]),
     ),
-    connectionName: "OpenCode",
+    connectionName: "OpenRouter",
   };
 }
 
@@ -110,10 +107,7 @@ function generation(
         ({
           find: vi.fn().mockResolvedValue({
             models: options.models ?? [
-              catalogModel("openrouter/google/gemini-2.5-flash-image", [
-                "text",
-                "image",
-              ]),
+              catalogModel("google/gemini-2.5-flash-image", ["text", "image"]),
               catalogModel("anthropic/claude-opus", ["text"]),
             ],
           }),
@@ -150,8 +144,8 @@ function generation(
 
 const employee = { userId: "agent-1", access: "read_only" as const };
 const imageAssignment = {
-  connection: connection(),
-  model: "openrouter/google/gemini-2.5-flash-image",
+  connection: OPENROUTER_LINK,
+  model: "google/gemini-2.5-flash-image",
 };
 const textAssignment = {
   connection: connection({ id: "claude-1", provider: "claude_code" }),
@@ -218,14 +212,20 @@ describe("generating images with the model of the round (PAGE-382)", () => {
       canGenerate: false,
       modelName: "claude-opus-5-5",
       reason: "no_image_output",
-      alternatives: ["gemini-2.5-flash-image (OpenCode)"],
+      alternatives: ["gemini-2.5-flash-image (OpenRouter)"],
     });
   });
 
   it("refuses without a verified key of the linked connection", async () => {
     const { service } = generation({ isLinkVerified: false });
     expect(
-      await service.capability({ employee, assignment: imageAssignment }),
+      await service.capability({
+        employee,
+        assignment: {
+          ...imageAssignment,
+          connection: connection({ ...OPENROUTER_LINK, hasApiKey: false }),
+        },
+      }),
     ).toMatchObject({ canGenerate: false, reason: "no_key" });
   });
 
@@ -402,7 +402,7 @@ describe("the tool bilder_erzeugen execution (PAGE-382)", () => {
     expect(outcome.result).toContain(
       "Mit dem Modell claude-opus-5-5 kann ich keine Bilder erzeugen.",
     );
-    expect(outcome.result).toContain("gemini-2.5-flash-image (OpenCode)");
+    expect(outcome.result).toContain("gemini-2.5-flash-image (OpenRouter)");
     expect(outcome.result).toContain("/model");
     expect(stage).not.toHaveBeenCalled();
     expect(

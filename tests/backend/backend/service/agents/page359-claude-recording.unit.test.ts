@@ -117,12 +117,12 @@ it("records absent Claude usage as null while other providers keep their existin
   });
   recorder.bind({
     ...attempt(),
-    provider: "codex_cli",
-    key: { ...attempt().key, attemptId: "codex" },
+    provider: "antigravity",
+    key: { ...attempt().key, attemptId: "other" },
   });
   recorder.prompted(null);
   await recorder.drained();
-  expect(store.usage.has("codex/1")).toBe(false);
+  expect(store.usage.has("other/1")).toBe(false);
 });
 
 it("sums both loop iterations and retry attempts once, including a missing-report attempt", () => {

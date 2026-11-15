@@ -2,11 +2,7 @@ import { canonicalClaudeModel } from "@/definition/ClaudePriceModels";
 import { ClaudeUsageRepository } from "@/backend/database/repositories/agent/ClaudeUsageRepository";
 import { OpenRouterPriceRepository } from "@/backend/database/repositories/agent/OpenRouterPriceRepository";
 import { AgentSessionRepository } from "@/backend/database/repositories/agent/AgentSessionRepository";
-import {
-  claudePriceSchema,
-  addClaudeTokens,
-  CLAUDE_TOKEN_FIELDS,
-} from "@/definition/ClaudeUsage";
+import { addClaudeTokens, CLAUDE_TOKEN_FIELDS } from "@/definition/ClaudeUsage";
 
 import {
   allocateClaudeTokens,
@@ -105,6 +101,11 @@ function pricedUsage(
   };
 }
 
+function formatRate(value: number): string {
+  if (Number.isInteger(value)) return String(value);
+  return value.toFixed(12).replace(/0+$/u, "").replace(/\.$/u, "");
+}
+
 /** Applies a native observation once, allocates its increment and freezes the first price of each model. */
 export async function accountClaudeUsage(
   database: AgentSessionDatabase,
@@ -136,12 +137,20 @@ export async function accountClaudeUsage(
     );
     const cache = await new OpenRouterPriceRepository(transaction).read();
     const prices = cache
-      ? cache.models.filter((model) => model.id.startsWith("anthropic/")).map((model) => ({
-          modelId: model.id, fetchedAt: cache.fetchedAt,
-          prompt: String(model.pricing.prompt), completion: String(model.pricing.completion),
-          cacheRead: String(model.pricing.input_cache_read ?? model.pricing.prompt),
-          cacheWrite: String(model.pricing.prompt),
-        }))
+      ? cache.models
+          .filter((model) => model.id.startsWith("anthropic/"))
+          .map((model) => ({
+            modelId: model.id,
+            fetchedAt: cache.fetchedAt,
+            prompt: formatRate(model.pricing.prompt),
+            completion: formatRate(model.pricing.completion),
+            cacheRead: formatRate(
+              model.pricing.input_cache_read ?? model.pricing.prompt,
+            ),
+            cacheWrite: formatRate(
+              model.pricing.input_cache_write ?? model.pricing.prompt,
+            ),
+          }))
       : [];
     const overrides = await repository.modelOverrides(usage.attemptId);
     await sessions.saveTurnUsage(

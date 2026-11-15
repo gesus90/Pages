@@ -156,31 +156,27 @@ function useFormFields(
   return { fields, setFields, saved, setSaved };
 }
 
-/** Keeps secrets only in the open form and clears them after a successful save. */
-export function useAgentForm(
-  kind: AgentAccessKind,
-  connection: AgentConnectionSummary | undefined,
-  onSaved: (id: string) => void,
-): {
+type AgentFetcher = ReturnType<typeof useFetcher<AgentActionResult>>;
+
+/**
+ * Adopts a successful connection save.
+ *
+ * @remarks
+ * Secrets only live in the open form and are cleared once the save went
+ * through; the saved values adopt the trimmed ones and the counters of
+ * single-use inputs reset.
+ */
+function useAgentFormSaved(input: {
+  readonly fetcher: AgentFetcher;
   readonly fields: AgentFormFields;
-  readonly setField: <Key extends keyof AgentFormFields>(
-    key: Key,
-    value: AgentFormFields[Key],
-  ) => void;
-  readonly isDirty: boolean;
-  readonly isSaving: boolean;
-  /** Counts successful saves so single-use inputs such as a replaced key can reset. */
-  readonly savedCount: number;
-  readonly error: Extract<AgentActionResult, { ok: false }>["error"] | null;
-  readonly handleSubmit: (event: FormEvent<HTMLFormElement>) => void;
-} {
-  const { t } = useTranslation();
-  const fetcher = useFetcher<AgentActionResult>();
-  const { fields, setFields, saved, setSaved } = useFormFields(
-    kind,
-    connection,
-  );
-  const [savedCount, setSavedCount] = useState(0);
+  readonly setFields: Dispatch<SetStateAction<AgentFormFields>>;
+  readonly setSaved: Dispatch<SetStateAction<AgentFormFields>>;
+  readonly setSavedCount: Dispatch<SetStateAction<number>>;
+  readonly t: ReturnType<typeof useTranslation>["t"];
+  readonly onSaved: (id: string) => void;
+}): void {
+  const { fetcher, fields, setFields, setSaved, setSavedCount, t, onSaved } =
+    input;
   const handled = useRef<AgentActionResult | undefined>(undefined);
   useEffect(() => {
     if (
@@ -208,44 +204,129 @@ export function useAgentForm(
     setSavedCount((count) => count + 1);
     showSuccessToast(t("settings.agents.saved"));
     onSaved(fetcher.data.connectionId);
-  }, [fetcher.data, fetcher.state, fields, onSaved, setFields, setSaved, t]);
-  function handleSubmit(event: FormEvent<HTMLFormElement>): void {
+  }, [
+    fetcher.data,
+    fetcher.state,
+    fields,
+    onSaved,
+    setFields,
+    setSaved,
+    setSavedCount,
+    t,
+  ]);
+}
+
+/** The provider maps the request carries; an unchanged one is not sent again. */
+function changedProviderFields(
+  fields: AgentFormFields,
+  saved: AgentFormFields,
+  connection: AgentConnectionSummary | undefined,
+): Record<string, string> {
+  return {
+    ...(fields.provider === "codex_cli" &&
+    (!connection || fields.codexPriceMappings !== saved.codexPriceMappings)
+      ? { codexPriceMappings: fields.codexPriceMappings ?? "" }
+      : {}),
+    ...(fields.provider === "claude_code" &&
+    fields.claudePriceModels !== saved.claudePriceModels
+      ? { claudePriceModels: fields.claudePriceModels ?? "" }
+      : {}),
+    ...(fields.provider === "opencode"
+      ? { openRouterModelIds: fields.openRouterModelIds ?? "" }
+      : {}),
+    ...(fields.provider === "zai" &&
+    (!connection || fields.zaiAccountType !== saved.zaiAccountType)
+      ? { zaiAccountType: fields.zaiAccountType }
+      : {}),
+  };
+}
+
+/**
+ * The scope the request carries.
+ *
+ * @remarks
+ * An unchanged scope is not sent, so a form opened earlier cannot overwrite a
+ * scope that another administrator saved since.
+ */
+function changedScopeField(
+  fields: AgentFormFields,
+  saved: AgentFormFields,
+  connection: AgentConnectionSummary | undefined,
+): Record<string, string> {
+  return !connection || !isSameScope(fields.scope, saved.scope)
+    ? { scope: JSON.stringify(fields.scope) }
+    : {};
+}
+
+/** The fields one save request carries for the action. */
+function buildSubmitPayload(
+  fields: AgentFormFields,
+  saved: AgentFormFields,
+  connection: AgentConnectionSummary | undefined,
+): Record<string, string> {
+  return {
+    name: fields.name,
+    provider: fields.provider,
+    apiKey: fields.apiKey,
+    testModel: fields.testModel,
+    reasoningEffort: fields.reasoningEffort,
+    ...changedProviderFields(fields, saved, connection),
+    ...changedScopeField(fields, saved, connection),
+    intent: connection ? "update-connection" : "create-connection",
+    connectionId: connection?.id ?? "",
+  };
+}
+
+/** Submits the open form to the settings action. */
+function useAgentFormSubmit(
+  fetcher: AgentFetcher,
+  fields: AgentFormFields,
+  saved: AgentFormFields,
+  connection: AgentConnectionSummary | undefined,
+): (event: FormEvent<HTMLFormElement>) => void {
+  return (event) => {
     event.preventDefault();
-    const {
-      scope,
-      zaiAccountType,
-      codexPriceMappings,
-      claudePriceModels,
-      openRouterModelIds,
-      ...text
-    } = fields;
-    void fetcher.submit(
-      {
-        ...text,
-        ...(fields.provider === "codex_cli" &&
-        (!connection || codexPriceMappings !== saved.codexPriceMappings)
-          ? { codexPriceMappings: codexPriceMappings ?? "" }
-          : {}),
-        ...(fields.provider === "claude_code" &&
-        claudePriceModels !== saved.claudePriceModels
-          ? { claudePriceModels: claudePriceModels ?? "" }
-          : {}),
-        ...(fields.provider === "opencode" ? { openRouterModelIds: openRouterModelIds ?? "" } : {}),
-        ...(fields.provider === "zai" &&
-        (!connection || zaiAccountType !== saved.zaiAccountType)
-          ? { zaiAccountType }
-          : {}),
-        // An unchanged scope is not sent, so a form opened earlier cannot
-        // overwrite a scope that another administrator saved since.
-        ...(!connection || !isSameScope(scope, saved.scope)
-          ? { scope: JSON.stringify(scope) }
-          : {}),
-        intent: connection ? "update-connection" : "create-connection",
-        connectionId: connection?.id ?? "",
-      },
-      { method: "post" },
-    );
-  }
+    void fetcher.submit(buildSubmitPayload(fields, saved, connection), {
+      method: "post",
+    });
+  };
+}
+
+/** Keeps secrets only in the open form and clears them after a successful save. */
+export function useAgentForm(
+  kind: AgentAccessKind,
+  connection: AgentConnectionSummary | undefined,
+  onSaved: (id: string) => void,
+): {
+  readonly fields: AgentFormFields;
+  readonly setField: <Key extends keyof AgentFormFields>(
+    key: Key,
+    value: AgentFormFields[Key],
+  ) => void;
+  readonly isDirty: boolean;
+  readonly isSaving: boolean;
+  /** Counts successful saves so single-use inputs such as a replaced key can reset. */
+  readonly savedCount: number;
+  readonly error: Extract<AgentActionResult, { ok: false }>["error"] | null;
+  readonly handleSubmit: (event: FormEvent<HTMLFormElement>) => void;
+} {
+  const { t } = useTranslation();
+  const fetcher = useFetcher<AgentActionResult>();
+  const { fields, setFields, saved, setSaved } = useFormFields(
+    kind,
+    connection,
+  );
+  const [savedCount, setSavedCount] = useState(0);
+  useAgentFormSaved({
+    fetcher,
+    fields,
+    setFields,
+    setSaved,
+    setSavedCount,
+    t,
+    onSaved,
+  });
+  const handleSubmit = useAgentFormSubmit(fetcher, fields, saved, connection);
   return {
     fields,
     setField: (key, value) =>
