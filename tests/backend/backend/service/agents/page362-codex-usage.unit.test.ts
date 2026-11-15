@@ -191,6 +191,7 @@ it("resolves exact or unambiguous OpenAI IDs and honors explicit mappings withou
             prompt: "0.1",
             completion: "0.2",
             input_cache_read: "0.01",
+            input_cache_write: "0.12",
             internal_reasoning: "0.3",
           },
         },
@@ -200,6 +201,7 @@ it("resolves exact or unambiguous OpenAI IDs and honors explicit mappings withou
     },
     "2026-11-14",
   );
+  expect(catalog.models[0]?.pricing.input_cache_write).toBe(0.12);
   expect(resolveCodexPrice(catalog, "gpt-6-luna")?.modelId).toBe(
     "openai/gpt-6-luna-2026-11-01",
   );

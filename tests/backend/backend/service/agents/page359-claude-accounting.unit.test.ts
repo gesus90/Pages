@@ -11,6 +11,7 @@ import type {
   ClaudeUsageObservation,
 } from "@/definition/ClaudeUsage";
 import type { AgentSessionDatabase } from "@/backend/database/repositories/agent/AgentSessionDatabase";
+import type { OpenRouterPrices } from "@/backend/service/agents/usage/OpenRouterPrices";
 
 interface AccountingState {
   readonly ledger: Map<string, ClaudeLedger>;
@@ -47,10 +48,18 @@ vi.mock(
   () => ({
     OpenRouterPriceRepository: class {
       /** Returns the cached prices. */
-      public async read(): Promise<{ fetchedAt: string; catalog: string }> {
+      public async read(): Promise<OpenRouterPrices> {
         return {
-          fetchedAt: "2026-11-13",
-          catalog: JSON.stringify(state.prices),
+          fetchedAt: "2026-11-13T00:00:00Z",
+          models: state.prices.map((price) => ({
+            id: price.modelId,
+            pricing: {
+              prompt: Number(price.prompt),
+              completion: Number(price.completion),
+              input_cache_read: Number(price.cacheRead),
+              input_cache_write: Number(price.cacheWrite),
+            },
+          })),
         };
       }
     },
@@ -91,7 +100,7 @@ const PRICE: ClaudePrice = {
   fetchedAt: "2026-11-13T00:00:00Z",
   prompt: "0.000001",
   completion: "0.000005",
-  cacheRead: "0.0000001",
+  cacheRead: "1e-7",
   cacheWrite: "0.00000125",
 };
 
