@@ -161,24 +161,13 @@ it.each([
 ])(
   "fails the group after $name and never starts its next agent",
   async ({ name, output }) => {
-    const needsReturn = [
-      "missing report",
-      "invalid report",
-      "open todo",
-    ].includes(name);
+    // Only open todos return to the shared session. A missing report is a
+    // form failure of the step; a shared session without native resume blocks
+    // its retry (PlanRetries.md, "Safe continuation"), so the group fails at once.
+    const needsReturn = ["invalid report", "open todo"].includes(name);
     const runtime = executionFixture();
     const world = await groupEngine(runtime.execution);
-    const snapshot = {
-      ...world.snapshot,
-      steps: world.snapshot.steps.map((step) => ({
-        ...step,
-        step: {
-          ...step.step,
-          instruction: `${step.step.instruction}\n- [ ] Carry out the work`,
-        },
-      })),
-    };
-    const run = await world.engine.start("owner", snapshot);
+    const run = await world.engine.start("owner", world.snapshot);
     await vi.waitFor(() => expect(runtime.open).toHaveBeenCalledOnce());
     runtime.first.resolve(groupTurn({ output }));
     if (needsReturn) {
@@ -422,12 +411,10 @@ it("applies the group acceptance gate to TODO-only steps as well", async () => {
   const run = await world.engine.start("owner", snapshot);
   await vi.waitFor(() => expect(runtime.open).toHaveBeenCalledOnce());
   runtime.first.resolve(groupTurn({ output: "Completed without report" }));
-  await vi.waitFor(() => expect(runtime.next).toHaveBeenCalled());
-  runtime.second.resolve(groupTurn({ output: "Completed without report" }));
   await vi.waitFor(() =>
     expect(world.stored.get(run.id)?.status).toBe("failed"),
   );
-  expect(runtime.next).toHaveBeenCalledTimes(3);
+  expect(runtime.next).not.toHaveBeenCalled();
   expect(
     world.stored.get(run.id)?.steps.find((step) => step.id === "first")?.error,
   ).toBe("plan_group_acceptance_failed");
