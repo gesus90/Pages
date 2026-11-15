@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import { cn } from "@/app/lib/cn";
 
+import { useListEntryMenu } from "./chat-menu/use-list-entry-menu";
 import { GroupAvatars, ParticipantStatusAvatar } from "./chat-page-avatar";
 
 import type { ReactNode } from "react";
@@ -93,6 +94,8 @@ interface RailEntryProps {
   readonly label: string;
   readonly count: number;
   readonly isMuted: boolean;
+  /** The conversation of the entry, whose chat menu a right click opens (PAGE-389). */
+  readonly selection: VirtualChatSelection;
   readonly isSelected: boolean;
   readonly isTabStop: boolean;
   readonly onSelect: () => void;
@@ -108,12 +111,14 @@ function RailEntry({
   label,
   count,
   isMuted,
+  selection,
   isSelected,
   isTabStop,
   onSelect,
   onTip,
   children,
 }: RailEntryProps): React.ReactElement {
+  const menu = useListEntryMenu(selection, onSelect);
   function handleClick(event: React.MouseEvent<HTMLButtonElement>): void {
     onTip(null);
     // A click from the keyboard has no pointer and so no click count.
@@ -141,6 +146,7 @@ function RailEntry({
       onMouseLeave={() => onTip(null)}
       tabIndex={isTabStop ? 0 : -1}
       type="button"
+      {...menu}
     >
       {children}
       <RailBadge count={count} isMuted={isMuted} />
@@ -230,6 +236,7 @@ export function ChatPageListRail({
               label={entryLabel(group.name, group.unreadCount)}
               count={group.unreadCount}
               isMuted={group.isMuted === true}
+              selection={{ kind: "group", id: group.id }}
               isSelected={isEntrySelected(page.selection, {
                 kind: "group",
                 id: group.id,
@@ -254,6 +261,7 @@ export function ChatPageListRail({
               label={entryLabel(participant.name, participant.unreadCount)}
               count={participant.unreadCount}
               isMuted={participant.isMuted === true}
+              selection={{ kind: "participant", id: participant.id }}
               isSelected={isEntrySelected(page.selection, {
                 kind: "participant",
                 id: participant.id,

@@ -3,11 +3,13 @@ import { useTranslation } from "react-i18next";
 
 import { cn } from "@/app/lib/cn";
 
+import { useListEntryMenu } from "./chat-menu/use-list-entry-menu";
 import { GroupAvatars, ParticipantStatusAvatar } from "./chat-page-avatar";
 
 import type { TFunction } from "i18next";
 import type { ReactNode } from "react";
 import type {
+  VirtualChatSelection,
   VirtualGroup,
   VirtualParticipant,
 } from "@/definition/VirtualChat";
@@ -32,26 +34,36 @@ const ENTRY_CLASS_NAME =
   "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors";
 
 interface EntryButtonProps {
+  /** The conversation of the entry, whose chat menu a right click opens (PAGE-389). */
+  readonly selection: VirtualChatSelection;
   readonly isSelected: boolean;
   readonly onSelect: () => void;
   readonly children: ReactNode;
 }
 
+/**
+ * The button of a conversation: a click opens it, a right click or a long
+ * press opens it with its chat menu at the point (PAGE-389).
+ */
 function EntryButton({
+  selection,
   isSelected,
   onSelect,
   children,
 }: EntryButtonProps): React.ReactElement {
+  const menu = useListEntryMenu(selection, onSelect);
   return (
     <button
       data-chat-list-item=""
       aria-current={isSelected ? "true" : undefined}
       className={cn(
         ENTRY_CLASS_NAME,
+        "select-none [-webkit-touch-callout:none]",
         isSelected ? "bg-primary-subtle" : "hover:bg-sidebar-hover",
       )}
       onClick={onSelect}
       type="button"
+      {...menu}
     >
       {children}
     </button>
@@ -145,7 +157,11 @@ export function GroupEntry({
   onSelect,
 }: GroupEntryProps): React.ReactElement {
   return (
-    <EntryButton isSelected={isSelected} onSelect={onSelect}>
+    <EntryButton
+      selection={{ kind: "group", id: group.id }}
+      isSelected={isSelected}
+      onSelect={onSelect}
+    >
       <span className="flex size-10 shrink-0 items-center justify-center">
         <GroupAvatars members={members} size="list" />
       </span>
@@ -173,7 +189,11 @@ export function ParticipantEntry({
 }: ParticipantEntryProps): React.ReactElement {
   const { t } = useTranslation();
   return (
-    <EntryButton isSelected={isSelected} onSelect={onSelect}>
+    <EntryButton
+      selection={{ kind: "participant", id: participant.id }}
+      isSelected={isSelected}
+      onSelect={onSelect}
+    >
       <ParticipantStatusAvatar participant={participant} />
       <EntryText
         title={participant.name}

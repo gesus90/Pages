@@ -4090,8 +4090,6 @@
         "general": "Die Sprachnachricht konnte nicht gesendet werden. Versuch es noch einmal."
       }
     },
-    "mute": "Stummschalten",
-    "unmute": "Stummschaltung aufheben",
     "muted": "Stummgeschaltet",
     "loadOlder": "Ältere Nachrichten laden",
     "loadingOlder": "Lädt …",
@@ -4187,9 +4185,6 @@
       "chat": "In Warteschlange – wird direkt nach der laufenden Antwort beantwortet",
       "limit": "In Warteschlange – die Höchstzahl gleichzeitiger Agent-Sitzungen ist erreicht; die Antwort beginnt, sobald eine Sitzung frei wird"
     },
-    "confidentialOn": "Vertraulich",
-    "confidentialOff": "Nicht vertraulich",
-    "confidentialHint": "Aus einem vertraulichen Chat teilen Agents nichts mit anderen Chats und lernen nichts für DREAM.md.",
     "agentConversation": "Agent-Gespräch",
     "agentConversationSubtitle": "Gespräch zwischen Agents · nur lesbar",
     "agentConversationReadOnly": "Dies ist ein Gespräch zwischen Agents. Du liest es als Administrator oder Leitung und schreibst hier nicht mit.",
@@ -4413,18 +4408,6 @@
       "noRight": "Nur wer vom Besitzer der Gruppe berechtigt ist, darf Modell und Sitzung ändern.",
       "remove": "Aus Gruppe entfernen …",
       "ownerOnly": "nur Besitzer"
-    },
-    "groupMenu": {
-      "trigger": "Gruppe",
-      "label": "Gruppen-Menü",
-      "section": "Gruppe „{{name}}“",
-      "reply": "Wer antwortet? …",
-      "context": "Gruppenkontext …",
-      "sessions": "Sitzungen der Agenten in diesem Chat …",
-      "confidential": "Vertraulichkeit",
-      "members": "Mitglieder …",
-      "controllers": "Modell wechseln, neu starten und verdichten dürfen …",
-      "dissolve": "Gruppe auflösen …"
     },
     "agentSessions": {
       "title": "Sitzungen der Agenten in {{name}}",
@@ -4657,9 +4640,28 @@
       "viewer": "Video im Vollbild"
     },
     "chatMenu": {
-      "trigger": "Chat",
       "label": "Chat-Menü",
-      "section": "Chat mit {{name}}"
+      "groupSubtitle_one": "Gruppe · {{count}} Mitglied",
+      "groupSubtitle_other": "Gruppe · {{count}} Mitglieder",
+      "directSubtitle": "Direkt-Chat · {{kind}}",
+      "sections": {
+        "content": "Inhalte",
+        "collaboration": "Zusammenarbeit",
+        "settings": "Einstellungen"
+      },
+      "context": "Gruppenkontext",
+      "members": "Mitglieder",
+      "reply": "Wer antwortet?",
+      "model": "Modell für diesen Chat",
+      "modelDefault": "Standard",
+      "modelChanged_one": "{{count}} angepasst",
+      "modelChanged_other": "{{count}} angepasst",
+      "sessions": "Sitzungen der Agenten",
+      "newSession": "Neue Sitzung",
+      "embedDomains": "Eingebettete Webseiten",
+      "confidential": "Vertraulich",
+      "mute": "Stummschalten",
+      "dissolve": "Gruppe auflösen"
     },
     "media": {
       "title": "Medien & Dateien",

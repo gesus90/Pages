@@ -275,7 +275,7 @@ describe("the entry in the chat menu (PAGE-387)", () => {
         </ChatContentProvider>
       </I18nextProvider>,
     );
-    fireEvent.pointerDown(screen.getByRole("button", { name: "Group menu" }), { button: 0, ctrlKey: false });
+    fireEvent.pointerDown(screen.getByRole("button", { name: "Chat menu" }), { button: 0, ctrlKey: false });
   }
 
   it("is the first entry of the group menu, shows the count and opens the overview next to the chat", async () => {

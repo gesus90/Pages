@@ -1,4 +1,4 @@
-import { Bell, BellOff, Square, TriangleAlert, UserMinus } from "lucide-react";
+import { Square, TriangleAlert, UserMinus } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -18,10 +18,7 @@ import {
   ChatPageAgentChip,
 } from "./chat-page-agent-triggers";
 import { GroupAvatars, ParticipantAvatar } from "./chat-page-avatar";
-import { ConfidentialButton } from "./chat-page-confidential";
-import { ChatPageEmbedDomainsButton } from "./chat-page-embed-domains";
 import { ChatPageGroupDialogs } from "./chat-page-group-dialogs";
-import { ChatPageGroupMenu } from "./chat-page-group-menu";
 import {
   AgentConversationBadge,
   participantSubtitle,
@@ -29,7 +26,10 @@ import {
 import { ChatPageMenuEntry } from "./chat-page-menu-entry";
 import { ChatPageModelDialog } from "./chat-page-model-dialog";
 import { ChatPageRemoveDialog } from "./chat-page-remove-dialog";
-import { ChatPageChatMenu } from "./media/chat-page-media-entry";
+import {
+  DirectChatMenu,
+  GroupChatMenu,
+} from "./chat-menu/chat-page-header-menu";
 
 import type { ReactNode } from "react";
 import type { AgentSettingsTab } from "@/app/components/agent-settings/agent-settings-tabs";
@@ -45,8 +45,8 @@ import type {
 import type { AgentChatControlTarget } from "@/definition/AgentChatControl";
 import type { AgentMenuOptions } from "./chat-page-agent-menu";
 import type { RemovalCandidate } from "./chat-page-remove-dialog";
-import type { ConfidentialControl } from "./chat-page-confidential";
-import type { GroupDialogKind } from "./chat-page-group-menu";
+import type { ChatMenuSwitches } from "./chat-menu/chat-page-header-menu";
+import type { GroupDialogKind } from "./chat-page-group-dialogs";
 import type { OpenedConversation } from "./use-chat-page";
 
 function HeaderFrame({
@@ -149,36 +149,8 @@ function groupAgentOptions(
   };
 }
 
-/** Whether the opened stored conversation is muted, and the change of it. */
-interface MuteControl {
-  /** `null` when there is nothing to mute, as with an agent. */
-  readonly isMuted: boolean | null;
-  readonly onToggleMute: () => void;
-  /** The confidential mark of a chat with agents (PAGE-305); absent shows none. */
-  readonly confidential?: ConfidentialControl;
-}
-
-/** Mutes or unmutes the conversation for the person alone (PAGE-275). */
-function MuteButton({
-  isMuted,
-  onToggleMute,
-}: Omit<MuteControl, "confidential">): React.ReactElement | null {
-  const { t } = useTranslation();
-  if (isMuted === null) return null;
-  const Icon = isMuted ? BellOff : Bell;
-  return (
-    <Button
-      aria-pressed={isMuted}
-      onClick={onToggleMute}
-      size="sm"
-      type="button"
-      variant="outline"
-    >
-      <Icon aria-hidden="true" className="size-3.5" />
-      {isMuted ? t("chatPage.unmute") : t("chatPage.mute")}
-    </Button>
-  );
-}
+/** Whether the opened stored conversation is muted and confidential, and the changes of both. */
+type MuteControl = ChatMenuSwitches;
 
 /**
  * The access level of an agent as a label (PAGE-303); YOLO stands out in the
@@ -274,19 +246,17 @@ function ParticipantHeader({
               />
             </>
           ) : null}
-          <ConfidentialButton control={mute.confidential} />
-          {isAgent ? null : <ChatPageEmbedDomainsButton />}
-          <MuteButton {...mute} />
-          <ChatPageChatMenu
-            conversationId={participant.conversationId ?? null}
-            name={participant.name}
-          />
           {isAnswering && isAgent ? (
             <Button onClick={onStop} size="sm" type="button" variant="outline">
               <Square aria-hidden="true" className="size-3.5" />
               {t("chatPage.stop")}
             </Button>
           ) : null}
+          <DirectChatMenu
+            participant={participant}
+            switches={mute}
+            onOpenModel={links.onOpenModel}
+          />
         </>
       }
     />
@@ -437,7 +407,18 @@ function GroupHeader({
         avatar={<GroupAvatars members={members} size="header" />}
         title={group.name}
         subtitle={t("chatPage.agentConversationSubtitle")}
-        aside={<AgentConversationBadge group={group} />}
+        aside={
+          <>
+            <AgentConversationBadge group={group} />
+            <GroupChatMenu
+              group={group}
+              members={members}
+              switches={mute}
+              onOpenDialog={setDialog}
+              onOpenModel={links.onOpenModel}
+            />
+          </>
+        }
       />
     );
   return (
@@ -456,16 +437,16 @@ function GroupHeader({
               participants={participants}
               links={links}
             />
-            <ChatPageGroupMenu
-              group={group}
-              isMuted={mute.isMuted}
-              onToggleMute={mute.onToggleMute}
-              confidential={mute.confidential}
-              onOpenDialog={setDialog}
-            />
             {onStopAgent ? (
               <GroupStopButtons group={group} onStopAgent={onStopAgent} />
             ) : null}
+            <GroupChatMenu
+              group={group}
+              members={members}
+              switches={mute}
+              onOpenDialog={setDialog}
+              onOpenModel={links.onOpenModel}
+            />
           </>
         }
       />
@@ -524,16 +505,16 @@ interface SettingsTarget {
  * An agent shows its job title, a person the username, both with their kind
  * and status; a person has no task, model or tools. A stop button shows while
  * an agent answers. A group shows its description and the members as chips,
- * and a stop button for every agent answering in it (PAGE-304). Adding and
- * removing members moved into "Mitglieder" of the group menu (PAGE-380); the
- * creator also removes a member from its chip. An agent whose model in this
- * chat deviates from its own shows the short name of that model.
- * What the group offers beyond that sits in one menu (PAGE-376): who answers
- * without an @ (PAGE-317), its stored context (PAGE-296), the sessions of its
- * agents, the confidential mark (PAGE-305), muting (PAGE-275) and the
- * members. Its settings list the domains released for embedding (PAGE-298):
- * in the member dialog of a group, behind a button of their own in a
- * conversation with a person.
+ * and a stop button for every agent answering in it (PAGE-304). The
+ * creator removes a member from its chip. An agent whose model in this chat
+ * deviates from its own shows the short name of that model.
+ * Everything else the chat offers sits in the chat menu ☰ at the right edge
+ * of every head (PAGE-389): "Medien & Dateien" (PAGE-387), the group context
+ * (PAGE-296), the members (PAGE-380), who answers (PAGE-379), the model per
+ * chat, a new session of an agent, the domains released for embedding in a
+ * chat with a person (PAGE-298), the switches for the confidential mark
+ * (PAGE-305) and muting (PAGE-275) and the dissolution of a group. A right
+ * click on a chat of the list opens the same menu.
  *
  * An agent shows what its session does in this chat, as a word on its chip
  * in a group and next to the button "Agent" in a direct chat. A click or a
@@ -541,8 +522,7 @@ interface SettingsTarget {
  * direct chat and its mention. The one popup "Agent-Einstellungen" belongs to
  * the head, so the menus and the sessions dialog of the group share it.
  * A stored conversation with a person or of a group can be muted for the
- * person alone; a chat with an agent can be marked confidential, which a
- * button of the head switches.
+ * person alone; a chat with agents can be marked confidential.
  */
 export function ChatPageHeader({
   opened,

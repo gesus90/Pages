@@ -4,6 +4,10 @@ import { useTranslation } from "react-i18next";
 import { ChatBrowserPanel } from "@/app/components/chat/browser/chat-browser-panel";
 import { Button } from "@/app/components/ui/button";
 
+import {
+  ChatMenuRequestContext,
+  useChatMenuRequestState,
+} from "./chat-menu/chat-menu-request";
 import { MentionDirectoryContext } from "./mentions/mention-context";
 import { ChatDecisionHealth } from "./mentions/chat-decision-health";
 import { ChatPageCommandOutcome } from "./chat-page-command-outcome";
@@ -300,7 +304,9 @@ function ListSlot({
  * only existing people and agents the person chose or who wrote to them, and
  * groups of them. Content of messages shows as cards; one of them opens
  * right of the chat in the split view or over the page (PAGE-298), as does
- * "Medien & Dateien" of the chat (PAGE-387).
+ * "Medien & Dateien" of the chat (PAGE-387). A right click or a long press
+ * on a conversation of the list opens it with its chat menu at the point
+ * (PAGE-389).
  */
 export function ChatPage({
   directory,
@@ -319,6 +325,7 @@ export function ChatPage({
   const collapse = useChatListCollapse(
     directory.viewPreferences?.isListCollapsed === true,
   );
+  const chatMenu = useChatMenuRequestState();
   const revealMessage = useMessageReveal({
     messageCount: page.messages.length,
     hasOlder: page.hasOlder,
@@ -327,43 +334,45 @@ export function ChatPage({
   });
   return (
     <MentionDirectoryContext value={directory.mentionDirectory}>
-      <section className="pages-page-fill pages-page-fixed flex w-full flex-col">
-        <header className="shrink-0">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {t("chatPage.title")}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {t("chatPage.subtitle")}
-          </p>
-        </header>
-        <div className="mt-6 flex min-h-0 flex-1 flex-col gap-4 md:gap-8 lg:flex-row">
-          <ChatContentProvider
-            conversationId={storedConversationId(page.opened)}
-            conversationKey={page.opened ? conversationKey(page.opened) : ""}
-            directory={directory}
-            onPreviewSend={page.sendFromPreview}
-            onRevealMessage={revealMessage}
-          >
-            <ListSlot>
-              <ChatPageList
+      <ChatMenuRequestContext value={chatMenu}>
+        <section className="pages-page-fill pages-page-fixed flex w-full flex-col">
+          <header className="shrink-0">
+            <h1 className="text-2xl font-semibold tracking-tight">
+              {t("chatPage.title")}
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {t("chatPage.subtitle")}
+            </p>
+          </header>
+          <div className="mt-6 flex min-h-0 flex-1 flex-col gap-4 md:gap-8 lg:flex-row">
+            <ChatContentProvider
+              conversationId={storedConversationId(page.opened)}
+              conversationKey={page.opened ? conversationKey(page.opened) : ""}
+              directory={directory}
+              onPreviewSend={page.sendFromPreview}
+              onRevealMessage={revealMessage}
+            >
+              <ListSlot>
+                <ChatPageList
+                  page={page}
+                  directory={directory}
+                  collapse={collapse}
+                />
+                <ChatPagePicker page={page} />
+              </ListSlot>
+              <ChatPageConversation
                 page={page}
-                directory={directory}
-                collapse={collapse}
+                status={directory.chatDecisionStatus}
               />
-              <ChatPagePicker page={page} />
-            </ListSlot>
-            <ChatPageConversation
-              page={page}
-              status={directory.chatDecisionStatus}
-            />
-            <SplitPanel
-              storedWidth={directory.viewPreferences?.splitWidth ?? null}
-            />
-            <MediaOverviewOverlay />
-            <CardOverlay />
-          </ChatContentProvider>
-        </div>
-      </section>
+              <SplitPanel
+                storedWidth={directory.viewPreferences?.splitWidth ?? null}
+              />
+              <MediaOverviewOverlay />
+              <CardOverlay />
+            </ChatContentProvider>
+          </div>
+        </section>
+      </ChatMenuRequestContext>
     </MentionDirectoryContext>
   );
 }

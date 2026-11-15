@@ -264,11 +264,11 @@ describe("the menu of an agent in a chat (PAGE-380)", () => {
     renderHeader({
       opened: { kind: "group", group: teamGroup({ isOwner: true }), members: [ED, MEI, ANNA] },
     });
-    fireEvent.pointerDown(screen.getByRole("button", { name: "Gruppen-Menü" }), {
+    fireEvent.pointerDown(screen.getByRole("button", { name: "Chat-Menü" }), {
       button: 0,
       ctrlKey: false,
     });
-    fireEvent.click(item("Gruppe auflösen …"));
+    fireEvent.click(item("Gruppe auflösen"));
     const dialog = await screen.findByRole("dialog", { name: "Gruppe „Pages Team“ auflösen?" });
     expect(within(dialog).getByText("Diese Agenten-Sitzungen werden geschlossen und gelöscht:")).toBeTruthy();
     expect(within(dialog).getByText("Ed")).toBeTruthy();
@@ -281,14 +281,12 @@ describe("the menu of an agent in a chat (PAGE-380)", () => {
 
   it("offers neither the setting of who steers nor the dissolution to another member", () => {
     renderHeader();
-    fireEvent.pointerDown(screen.getByRole("button", { name: "Gruppen-Menü" }), {
+    fireEvent.pointerDown(screen.getByRole("button", { name: "Chat-Menü" }), {
       button: 0,
       ctrlKey: false,
     });
-    expect(screen.queryByRole("menuitem", { name: "Gruppe auflösen …" })).toBeNull();
-    expect(
-      screen.queryByRole("menuitem", { name: /Modell wechseln, neu starten und verdichten dürfen/ }),
-    ).toBeNull();
+    expect(screen.queryByRole("menuitem", { name: "Gruppe auflösen" })).toBeNull();
+    expect(screen.queryByRole("menuitem", { name: /^Modell für diesen Chat/ })).toBeNull();
   });
 });
 

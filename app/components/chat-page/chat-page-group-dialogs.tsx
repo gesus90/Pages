@@ -10,8 +10,11 @@ import type {
   VirtualParticipant,
 } from "@/definition/VirtualChat";
 import type { AgentSessionEntry } from "./chat-page-agent-sessions-dialog";
-import type { GroupDialogKind } from "./chat-page-group-menu";
+import type { ChatMenuGroupDialog } from "./chat-menu/chat-menu-model";
 import type { RemovalCandidate } from "./chat-page-remove-dialog";
+
+/** The dialogs of a group the chat menu opens, besides the popup of an agent (PAGE-389). */
+export type GroupDialogKind = ChatMenuGroupDialog;
 
 interface ChatPageGroupDialogsProps {
   readonly group: VirtualGroup;
@@ -44,7 +47,7 @@ function sessionEntries(
 }
 
 /**
- * The dialogs of the group menu: who answers, the group context, the
+ * The dialogs of the chat menu of a group: who answers, the group context, the
  * sessions of the agents in the group, the members with who steers the
  * agents (PAGE-380) and the dissolution. One of them is open at a time.
  */

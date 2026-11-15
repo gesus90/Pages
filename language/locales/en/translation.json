@@ -4090,8 +4090,6 @@
         "general": "The voice message could not be sent. Please try again."
       }
     },
-    "mute": "Mute",
-    "unmute": "Unmute",
     "muted": "Muted",
     "loadOlder": "Load older messages",
     "loadingOlder": "Loading …",
@@ -4187,9 +4185,6 @@
       "chat": "Queued – answered right after the current answer",
       "limit": "Queued – the maximum of concurrent agent sessions is reached; the answer starts as soon as a session is free"
     },
-    "confidentialOn": "Confidential",
-    "confidentialOff": "Not confidential",
-    "confidentialHint": "Agents share nothing from a confidential chat with other chats and learn nothing from it for DREAM.md.",
     "agentConversation": "Agent conversation",
     "agentConversationSubtitle": "Conversation between agents · read-only",
     "agentConversationReadOnly": "This is a conversation between agents. You read it as an administrator or leader and do not write in it.",
@@ -4413,18 +4408,6 @@
       "noRight": "Only members the group owner allowed may change the model and the session.",
       "remove": "Remove from group …",
       "ownerOnly": "owner only"
-    },
-    "groupMenu": {
-      "trigger": "Group",
-      "label": "Group menu",
-      "section": "Group “{{name}}”",
-      "reply": "Who answers? …",
-      "context": "Group context …",
-      "sessions": "Sessions of the agents in this chat …",
-      "confidential": "Confidentiality",
-      "members": "Members …",
-      "controllers": "Who may switch models, restart and compact …",
-      "dissolve": "Dissolve group …"
     },
     "agentSessions": {
       "title": "Sessions of the agents in {{name}}",
@@ -4657,9 +4640,28 @@
       "viewer": "Video in full screen"
     },
     "chatMenu": {
-      "trigger": "Chat",
       "label": "Chat menu",
-      "section": "Chat with {{name}}"
+      "groupSubtitle_one": "Group · {{count}} member",
+      "groupSubtitle_other": "Group · {{count}} members",
+      "directSubtitle": "Direct chat · {{kind}}",
+      "sections": {
+        "content": "Content",
+        "collaboration": "Collaboration",
+        "settings": "Settings"
+      },
+      "context": "Group context",
+      "members": "Members",
+      "reply": "Who answers?",
+      "model": "Model for this chat",
+      "modelDefault": "Default",
+      "modelChanged_one": "{{count}} changed",
+      "modelChanged_other": "{{count}} changed",
+      "sessions": "Sessions of the agents",
+      "newSession": "New session",
+      "embedDomains": "Embedded websites",
+      "confidential": "Confidential",
+      "mute": "Mute",
+      "dissolve": "Dissolve group"
     },
     "media": {
       "title": "Media & files",

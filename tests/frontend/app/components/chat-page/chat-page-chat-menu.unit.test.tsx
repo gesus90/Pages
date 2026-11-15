@@ -83,7 +83,7 @@ function renderGroup(
 }
 
 function openMenu(): void {
-  fireEvent.pointerDown(screen.getByRole("button", { name: "Group menu" }), {
+  fireEvent.pointerDown(screen.getByRole("button", { name: "Chat menu" }), {
     button: 0,
     ctrlKey: false,
   });
@@ -91,6 +91,10 @@ function openMenu(): void {
 
 function entry(name: RegExp | string): HTMLElement {
   return screen.getByRole("menuitem", { name });
+}
+
+function toggle(name: RegExp | string): HTMLElement {
+  return screen.getByRole("menuitemcheckbox", { name });
 }
 
 function submitted(call: number): Record<string, unknown> {
@@ -117,49 +121,80 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-it("replaces the single buttons of the head by one menu", () => {
-  renderGroup();
+it("replaces the single buttons of the head by the chat menu ☰ at its right edge", () => {
+  renderGroup(
+    { workingAgents: [{ id: "ed", name: "Ed" }] },
+    { onStopAgent: vi.fn() },
+  );
   for (const name of [
     "Group context",
     "Who answers?",
     "Confidential",
     "Not confidential",
     "Mute",
+    "Embedded websites",
+    "Group menu",
   ]) {
     expect(screen.queryByRole("button", { name })).toBeNull();
   }
+  const trigger = screen.getByRole("button", { name: "Chat menu" });
+  const aside = trigger.parentElement as HTMLElement;
+  // The menu is the last control of the head; chips and stop buttons stay.
+  expect(aside.lastElementChild).toBe(trigger);
+  expect(within(aside).getByRole("list", { name: "Members" })).toBeTruthy();
+  expect(within(aside).getByRole("button", { name: "Stop Ed" })).toBeTruthy();
+  expect(trigger.getAttribute("aria-expanded")).toBe("false");
   openMenu();
-  expect(screen.getByText("Group “Team”")).toBeTruthy();
-  for (const name of [
-    /^Who answers\? …/,
-    "Group context …",
-    "Sessions of the agents in this chat …",
-    /^Confidentiality\s*Not confidential$/,
-    "Mute",
-    "Members …",
-  ]) {
-    expect(entry(name)).toBeTruthy();
-  }
+  expect(trigger.getAttribute("data-state")).toBe("open");
+});
+
+it("builds the group menu with its head and sections", () => {
+  renderGroup();
+  openMenu();
+  const menu = screen.getByRole("menu");
+  expect(within(menu).getByText("Team")).toBeTruthy();
+  expect(within(menu).getByText("Group · 4 members")).toBeTruthy();
+  const content = within(menu).getByRole("group", { name: "Content" });
+  expect(
+    within(content)
+      .getAllByRole("menuitem")
+      .map((item) => item.dataset.chatMenuEntry),
+  ).toEqual(["media", "context"]);
+  const collaboration = within(menu).getByRole("group", {
+    name: "Collaboration",
+  });
+  expect(
+    within(collaboration)
+      .getAllByRole("menuitem")
+      .map((item) => item.dataset.chatMenuEntry),
+  ).toEqual(["members", "reply", "sessions"]);
+  expect(within(entry(/^Members/)).getByText("4")).toBeTruthy();
+  const settings = within(menu).getByRole("group", { name: "Settings" });
+  expect(
+    within(settings)
+      .getAllByRole("menuitemcheckbox")
+      .map((item) => item.textContent),
+  ).toEqual(["Confidential", "Mute"]);
 });
 
 it("names the current mode as the remark of the entry who answers", () => {
   renderGroup({ replyMode: "mentions" });
   openMenu();
-  expect(within(entry(/^Who answers\? …/)).getByText("@ only")).toBeTruthy();
+  expect(within(entry(/^Who answers\?/)).getByText("@ only")).toBeTruthy();
 });
 
 it('names "@ + Decision" for a group without a mode of its own', () => {
   renderGroup();
   openMenu();
   expect(
-    within(entry(/^Who answers\? …/)).getByText("@ + Decision"),
+    within(entry(/^Who answers\?/)).getByText("@ + Decision"),
   ).toBeTruthy();
 });
 
 it("opens who answers and reads its settings and its last decisions", () => {
   renderGroup();
   openMenu();
-  fireEvent.click(entry(/^Who answers\? …/));
+  fireEvent.click(entry(/^Who answers\?/));
   expect(
     screen.getByRole("dialog", { name: "Who answers in “Team”?" }),
   ).toBeTruthy();
@@ -176,7 +211,7 @@ it("opens who answers and reads its settings and its last decisions", () => {
 it("opens the group context and reads it", () => {
   renderGroup();
   openMenu();
-  fireEvent.click(entry("Group context …"));
+  fireEvent.click(entry("Group context"));
   expect(
     screen.getByRole("dialog", { name: "Group context of Team" }),
   ).toBeTruthy();
@@ -186,45 +221,117 @@ it("opens the group context and reads it", () => {
   });
 });
 
-it("shows the confidential state as the remark of its entry", () => {
+it("shows the confidential and the mute state as switches", () => {
   renderGroup(
     {},
-    { confidential: { isConfidential: true, onToggle: vi.fn() } },
+    {
+      isMuted: true,
+      confidential: { isConfidential: true, onToggle: vi.fn() },
+    },
   );
   openMenu();
+  expect(toggle("Confidential").getAttribute("aria-checked")).toBe("true");
+  expect(toggle("Mute").getAttribute("aria-checked")).toBe("true");
+});
+
+it("switches confidential directly in the menu, which stays open", () => {
+  const { onToggleConfidential } = renderGroup();
+  openMenu();
+  expect(toggle("Confidential").getAttribute("aria-checked")).toBe("false");
+  fireEvent.click(toggle("Confidential"));
+  expect(onToggleConfidential).toHaveBeenCalledTimes(1);
+  expect(screen.getByRole("menu")).toBeTruthy();
+});
+
+it("mutes the group directly in the menu", () => {
+  const { onToggleMute } = renderGroup();
+  openMenu();
+  fireEvent.click(toggle("Mute"));
+  expect(onToggleMute).toHaveBeenCalledTimes(1);
+  expect(screen.getByRole("menu")).toBeTruthy();
+});
+
+it("leaves out the switches of what the group cannot do", () => {
+  renderGroup({}, { isMuted: null, confidential: undefined });
+  openMenu();
+  expect(screen.queryByRole("menuitemcheckbox")).toBeNull();
+  expect(screen.queryByRole("group", { name: "Settings" })).toBeNull();
+});
+
+it("offers dissolving, apart and red, only to the creator of the group", () => {
+  renderGroup({ isOwner: true });
+  openMenu();
+  const dissolve = entry("Dissolve group");
+  expect(dissolve.className).toContain("text-destructive");
+  fireEvent.click(dissolve);
+  expect(screen.getByRole("dialog", { name: /Dissolve/ })).toBeTruthy();
+});
+
+it("leaves out dissolving for a member who did not create the group", () => {
+  renderGroup({ isOwner: false });
+  openMenu();
+  expect(screen.queryByRole("menuitem", { name: "Dissolve group" })).toBeNull();
+});
+
+it("offers the model per chat only with the right to steer the agents", () => {
+  renderGroup({ canControlSessions: false });
+  openMenu();
   expect(
-    within(entry(/^Confidentiality/)).getByText("Confidential"),
+    screen.queryByRole("menuitem", { name: /^Model for this chat/ }),
+  ).toBeNull();
+});
+
+it("asks which agent's model changes when several agents take part", async () => {
+  vi.stubGlobal("fetch", async () => Response.json({ ok: true, models: [] }));
+  renderGroup({
+    canControlSessions: true,
+    agentModels: { ed: { name: "Claude Opus 5.5", reasoningEffort: "high", isOverride: true, contextWindow: null } },
+  });
+  openMenu();
+  const model = entry(/^Model for this chat/);
+  expect(within(model).getByText("1 changed")).toBeTruthy();
+  fireEvent.keyDown(model, { key: "ArrowRight" });
+  const edEntry = await screen.findByRole("menuitem", { name: /^Ed/ });
+  expect(within(edEntry).getByText("Opus · high")).toBeTruthy();
+  expect(
+    within(screen.getByRole("menuitem", { name: /^Mei/ })).getByText("Default"),
+  ).toBeTruthy();
+  fireEvent.click(edEntry);
+  expect(
+    await screen.findByRole("dialog", { name: /Model for Ed/ }),
   ).toBeTruthy();
 });
 
-it("calls the confidential change of the head", () => {
-  const { onToggleConfidential } = renderGroup();
+it("moves through the entries with the arrow keys and closes with Esc", async () => {
+  renderGroup();
   openMenu();
-  fireEvent.click(entry(/^Confidentiality/));
-  expect(onToggleConfidential).toHaveBeenCalledTimes(1);
-});
-
-it("mutes the group from the menu", () => {
-  const { onToggleMute } = renderGroup();
-  openMenu();
-  fireEvent.click(entry("Mute"));
-  expect(onToggleMute).toHaveBeenCalledTimes(1);
-});
-
-it("names the entry Unmute for a muted group", () => {
-  renderGroup({}, { isMuted: true });
-  openMenu();
-  expect(entry("Unmute")).toBeTruthy();
-});
-
-it("leaves out the entries of what the group cannot do", () => {
-  renderGroup({}, { isMuted: null, confidential: undefined });
-  openMenu();
-  expect(screen.queryByRole("menuitem", { name: "Mute" })).toBeNull();
-  expect(screen.queryByRole("menuitem", { name: "Unmute" })).toBeNull();
+  const menu = screen.getByRole("menu");
+  await waitFor(() => expect(document.activeElement).toBe(menu));
+  fireEvent.keyDown(menu, { key: "ArrowDown" });
+  await waitFor(() =>
+    expect(document.activeElement?.getAttribute("data-chat-menu-entry")).toBe(
+      "media",
+    ),
+  );
+  fireEvent.keyDown(document.activeElement as HTMLElement, {
+    key: "ArrowDown",
+  });
+  await waitFor(() =>
+    expect(document.activeElement?.getAttribute("data-chat-menu-entry")).toBe(
+      "context",
+    ),
+  );
+  fireEvent.keyDown(document.activeElement as HTMLElement, { key: "Enter" });
   expect(
-    screen.queryByRole("menuitem", { name: /Confidentiality/ }),
-  ).toBeNull();
+    await screen.findByRole("dialog", { name: "Group context of Team" }),
+  ).toBeTruthy();
+});
+
+it("closes with Esc", () => {
+  renderGroup();
+  openMenu();
+  fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
+  expect(screen.queryByRole("menu")).toBeNull();
 });
 
 it("opens the members from the menu, where the dashed plus of the head moved to (PAGE-380)", async () => {
@@ -253,12 +360,15 @@ it("opens the members from the menu, where the dashed plus of the head moved to 
   const { onAddMember } = renderGroup({ memberIds: ["ed"], isOwner: true });
   expect(screen.queryByRole("button", { name: "Add participant" })).toBeNull();
   openMenu();
-  fireEvent.click(entry("Members …"));
+  fireEvent.click(entry(/^Members/));
   const dialog = screen.getByRole("dialog", { name: "Members of “Team”" });
   expect(await within(dialog).findByText("Owner")).toBeTruthy();
-  fireEvent.change(within(dialog).getByPlaceholderText("Add person or agent …"), {
-    target: { value: "Bo" },
-  });
+  fireEvent.change(
+    within(dialog).getByPlaceholderText("Add person or agent …"),
+    {
+      target: { value: "Bo" },
+    },
+  );
   fireEvent.click(within(dialog).getByRole("button", { name: /Bob/ }));
   expect(onAddMember).toHaveBeenCalledWith("g", "bob");
   vi.unstubAllGlobals();
@@ -267,7 +377,7 @@ it("opens the members from the menu, where the dashed plus of the head moved to 
 it("lists the session of every agent of the group with its state, context and waiting messages", () => {
   renderGroup({ agentSessions: [WORKING] });
   openMenu();
-  fireEvent.click(entry("Sessions of the agents in this chat …"));
+  fireEvent.click(entry("Sessions of the agents"));
   const dialog = screen.getByRole("dialog", {
     name: "Sessions of the agents in Team",
   });
@@ -298,7 +408,7 @@ it("stops, summarizes and restarts a session from the sessions dialog and reads 
   }));
   renderGroup({ agentSessions: [WORKING] });
   openMenu();
-  fireEvent.click(entry("Sessions of the agents in this chat …"));
+  fireEvent.click(entry("Sessions of the agents"));
   fireEvent.click(
     screen.getByRole("button", { name: "Summarize session: Ed" }),
   );
@@ -318,7 +428,7 @@ it("tells when a session action of the sessions dialog was refused", async () =>
   stubSessionEndpoint(() => ({ ok: false, error: "unavailable" }));
   renderGroup({ agentSessions: [WORKING] });
   openMenu();
-  fireEvent.click(entry("Sessions of the agents in this chat …"));
+  fireEvent.click(entry("Sessions of the agents"));
   fireEvent.click(screen.getByRole("button", { name: "Restart session: Ed" }));
   expect((await screen.findByRole("alert")).textContent).toBe(
     "The session action failed.",
@@ -329,7 +439,7 @@ it("opens the popup of an agent from the sessions dialog and leaves that dialog"
   stubSessionEndpoint(() => ({ ok: true, overview: sessionOverview() }));
   renderGroup({ agentSessions: [WORKING] });
   openMenu();
-  fireEvent.click(entry("Sessions of the agents in this chat …"));
+  fireEvent.click(entry("Sessions of the agents"));
   const [settingsLink] = screen.getAllByRole("button", {
     name: "Agent settings …",
   });
@@ -342,13 +452,17 @@ it("opens the popup of an agent from the sessions dialog and leaves that dialog"
   ).toBeNull();
 });
 
-it("says that no agent takes part when the group has only people", () => {
+it("leaves out the sessions and the model when the group has only people", () => {
   render(
     <I18nextProvider i18n={i18n}>
       <ChatPageHeader
         opened={{
           kind: "group",
-          group: group("g", { name: "People", memberIds: ["bob"] }),
+          group: group("g", {
+            name: "People",
+            memberIds: ["bob"],
+            canControlSessions: true,
+          }),
           members: [BOB],
         }}
         participants={[BOB]}
@@ -361,8 +475,13 @@ it("says that no agent takes part when the group has only people", () => {
     </I18nextProvider>,
   );
   openMenu();
-  fireEvent.click(entry("Sessions of the agents in this chat …"));
-  expect(screen.getByText("No agent takes part in this chat.")).toBeTruthy();
+  expect(
+    screen.queryByRole("menuitem", { name: "Sessions of the agents" }),
+  ).toBeNull();
+  expect(
+    screen.queryByRole("menuitem", { name: /^Model for this chat/ }),
+  ).toBeNull();
+  expect(screen.getByText("Group · 2 members")).toBeTruthy();
 });
 
 it("keeps the stop button of an answering agent next to the menu", () => {
@@ -372,7 +491,11 @@ it("keeps the stop button of an answering agent next to the menu", () => {
   expect(onStopAgent).toHaveBeenCalledWith("ed");
 });
 
-it("shows no group menu for a conversation of agents only", () => {
+it("offers only the media in a conversation of agents only", () => {
   renderGroup({ isAgentConversation: true });
-  expect(screen.queryByRole("button", { name: "Group menu" })).toBeNull();
+  openMenu();
+  expect(
+    screen.getAllByRole("menuitem").map((item) => item.dataset.chatMenuEntry),
+  ).toEqual(["media"]);
+  expect(screen.queryByRole("menuitemcheckbox")).toBeNull();
 });
