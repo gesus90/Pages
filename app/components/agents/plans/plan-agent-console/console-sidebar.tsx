@@ -6,6 +6,7 @@ import { PLAN_BLOCKER_RETRIES } from "@/definition/AgentPlanRetry";
 import { agentTodoSummary } from "../plan-agent-todo-model";
 
 import { hasSessionEnded, infrastructureRestarts } from "./console-step-state";
+import { AntigravityUsageSection } from "./antigravity-usage-section";
 import { formatClock } from "./console-time";
 import { useNow } from "./use-terminal-surface";
 
@@ -258,7 +259,14 @@ function UsageSection(props: {
           label={t(`${key}.tokens`)}
           value={props.isTurnRunning ? t(`${key}.afterTurn`) : tokens}
         />
-        <Fact label={t(`${key}.cost`)} value={cost} />
+        <Fact
+          label={t(
+            props.view.provider === "antigravity"
+              ? `${key}.antigravity.providerCost`
+              : `${key}.cost`,
+          )}
+          value={cost}
+        />
       </dl>
     </SidebarSection>
   );
@@ -370,6 +378,7 @@ export function ConsoleSidebar(props: ConsoleSidebarProps): React.ReactElement {
           props.view.state === "running" && !hasSessionEnded(props.step)
         }
       />
+      <AntigravityUsageSection view={props.view} />
       <SessionSection step={props.step} view={props.view} />
     </aside>
   );

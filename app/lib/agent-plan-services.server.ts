@@ -1,4 +1,7 @@
-import { createModelNodeRunners } from "./agent-plan-swarm.server";
+import path from "node:path";
+
+import { resolveDefaultDataDirectory } from "@/backend/config/PagesConfig";
+import { OpenRouterPriceCatalog } from "@/backend/service/agents/sessions/OpenRouterPriceCatalog";
 import { canProcessRuns } from "@/backend/runtime/RunsMode";
 import { registerShutdownTask } from "@/backend/runtime/ProcessLifecycle";
 import { PlanRunCommandWorker } from "@/backend/service/agents/runs/PlanRunCommandWorker";
@@ -15,6 +18,7 @@ import { AgentPlanAgentTodoService } from "@/backend/service/agents/AgentPlanAge
 import { AgentPlanAgentTodoRepository } from "@/backend/database/repositories/agent/AgentPlanAgentTodoRepository";
 
 import { createPlanTodoProgress } from "./agent-plan-todo-progress.server";
+import { createModelNodeRunners } from "./agent-plan-swarm.server";
 
 import type { PicaMobileAutomationPush } from "@/backend/service/mobile/notifications/PicaMobileAutomationPush";
 import type { AgentPlanRemoteExecution } from "@/backend/service/agents/AgentPlanRemoteExecution";
@@ -558,11 +562,18 @@ async function createPageAgentSessions(
   });
   const inbox = new AgentSessionInbox(store, journal);
   if (canProcessRuns()) await inbox.recover();
+  const runtime = await getPagesRuntime();
   return new AgentSessionService({
     runs,
     store,
     journal,
     inbox,
+    priceCatalog: new OpenRouterPriceCatalog(
+      path.join(
+        resolveDefaultDataDirectory(runtime.configFile.path),
+        "openrouter-prices.json",
+      ),
+    ),
     hasPlanCheckpoint: async (runId) =>
       (await new AgentPlanCheckpointRepository(input.database).find(runId)) !==
       null,

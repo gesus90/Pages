@@ -5335,6 +5335,28 @@
           "context": "Context",
           "tokens": "Total tokens",
           "afterTurn": "after the turn",
+          "antigravity": {
+            "title": "Antigravity · captured usage",
+            "step": "Step (all attempts and loops)",
+            "run": "Run (Antigravity)",
+            "inputTokens": "Input",
+            "outputTokens": "Output",
+            "cacheReadTokens": "Cache read",
+            "cacheWriteTokens": "Cache write",
+            "reasoningTokens": "Reasoning",
+            "estimate": "Reference value (OpenRouter)",
+            "subscription": "Subscription charges: unknown. The OpenRouter comparison is not a subscription invoice.",
+            "partial": "Incomplete usage; only reported work is captured.",
+            "priceAsOf": "Catalogue as of: {{dates}}",
+            "providerCost": "Provider report (session)",
+            "gap": {
+              "model": "No exact OpenRouter model match.",
+              "tokens": "Required usage counts are missing or invalid.",
+              "cache_semantics": "Cache counting has not been confirmed.",
+              "price": "Required prices are missing.",
+              "attempt": "At least one attempt has no usage report."
+            }
+          },
           "cost": "Cost",
           "unknown": "unknown",
           "session": "Session",

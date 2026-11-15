@@ -97,6 +97,11 @@ instance-wide leases and confirmed process cleanup use the shared ACP engine.
 Unconfirmed cleanup retains the connection lock. ACP usage is kept as reported;
 unreported prices remain unknown and token counts exclude delegated work.
 
+PAGE-368 adds a separate mathematical OpenRouter comparison of captured ACP
+usage, with explicit gaps and subscription charges kept separate. The reduced
+implementation, targeted tests and deferred live/historical-price evidence are
+documented in [the PAGE-368 handoff](../../../docs/PAGE-368.md).
+
 Adapter 1.4.4 reports its own failures (exhausted quota, failed MCP load,
 execution error, lost connection) as ordinary agent text and still ends the
 turn with `end_turn`. Pages recognizes those fixed wordings, which belong to the

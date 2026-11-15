@@ -7,6 +7,7 @@ import type {
   AgentSessionKey,
   AgentSessionState,
 } from "./AgentSessionEvents.js";
+import type { AntigravityUsageTotal } from "./AgentSessionPricing";
 
 export type {
   AgentSessionKey,
@@ -182,6 +183,11 @@ export interface AgentSessionView {
   readonly runTotals: readonly AgentSessionUsageTotal[];
   /** Sums of every attempt of this node in the run, without counting a turn twice (PAGE-284). */
   readonly nodeTotals?: readonly AgentSessionUsageTotal[];
+  /** Captured Antigravity usage, independent of the subscription invoice. */
+  readonly antigravity?: {
+    readonly step: AntigravityUsageTotal;
+    readonly run: AntigravityUsageTotal;
+  };
   readonly continuation: AgentSessionContinuation;
   readonly messages: readonly AgentSessionMessage[];
   readonly actions: AgentSessionActions;

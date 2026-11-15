@@ -8,12 +8,14 @@ import {
   sessionStart,
 } from "./AgentSessionAttempts";
 import { decideContinuation } from "./AgentSessionContinuation";
+import { antigravityUsage } from "./AntigravityUsage";
 import { AgentSessionRecorder } from "./AgentSessionRecorder";
 import { UNKNOWN_CONTEXT, sumTurnUsage } from "./AgentSessionUsage";
 import { checkSessionWorkspace } from "./AgentSessionWorkspace";
 import { followRemoteSession } from "./RemoteSessionFollower";
 
 import type { AcpSessionListener } from "@/backend/agents/acp/AcpChat";
+import type { OpenRouterPriceCatalog } from "./OpenRouterPriceCatalog";
 import type { PlanSessionTurn } from "@/backend/agents/AgentPlanExecution";
 import type { AgentPlanRun } from "@/definition/AgentPlan";
 import type {
@@ -54,6 +56,39 @@ function nodeAttemptIds(
       entry.attemptId ? [entry.attemptId] : [],
     ),
   ]);
+}
+
+function antigravityAttempts(
+  run: AgentPlanRun,
+  stepId: string,
+): {
+  readonly stepAttempts: ReadonlySet<string>;
+  readonly runAttempts: ReadonlySet<string>;
+  readonly confirmedModels: ReadonlyMap<string, string>;
+} {
+  const attempts = listSessionAttempts(run).filter(
+    (attempt) => attempt.record.runner === "antigravity",
+  );
+  return {
+    confirmedModels: new Map(
+      attempts.flatMap((attempt) => {
+        const model = attempt.record.effective?.model;
+        return model ? [[attempt.key.attemptId, model] as const] : [];
+      }),
+    ),
+    stepAttempts: new Set(
+      attempts
+        .filter((attempt) => attempt.key.stepId === stepId)
+        .flatMap((attempt) => [
+          ...nodeAttemptIds(attempt.key.attemptId, attempt.record),
+        ]),
+    ),
+    runAttempts: new Set(
+      attempts.flatMap((attempt) => [
+        ...nodeAttemptIds(attempt.key.attemptId, attempt.record),
+      ]),
+    ),
+  };
 }
 
 /** Reads and stops runs with every current right of their executor checked. */
@@ -101,6 +136,7 @@ export interface AgentSessionServiceDependencies {
   /** A Pages completion is independent of native ACP continuation capabilities. */
   readonly hasPlanCheckpoint?: (runId: string) => Promise<boolean>;
   readonly clock?: () => string;
+  readonly priceCatalog?: Pick<OpenRouterPriceCatalog, "calculate">;
 }
 
 const UNKNOWN_VALUE = { value: null, source: null, reportedAt: null } as const;
@@ -266,6 +302,15 @@ export class AgentSessionService {
       nodeTotals: sumTurnUsage(
         runTurns.filter((turn) => nodeAttempts.has(turn.attemptId)),
       ),
+      ...(attempt.record.runner === "antigravity"
+        ? {
+            antigravity: await antigravityUsage({
+              turns: runTurns,
+              ...antigravityAttempts(run, key.stepId),
+              catalog: this.dependencies.priceCatalog,
+            }),
+          }
+        : {}),
       continuation: decideContinuation({
         isAuthorized: true,
         isConfigurationCompatible: true,

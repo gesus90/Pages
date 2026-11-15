@@ -365,12 +365,20 @@ export class AgentSessionRecorder implements AcpSessionListener {
       text: isContinued ? `turn ${turn} continued` : `turn ${turn} ended`,
       turn,
     });
-    if (delta === null) return;
+    if (delta === null && provider !== "antigravity") return;
     const reportedAt = this.clock();
     const model = this.attempt.confirmedModel.value;
     this.enqueue(() =>
       this.dependencies.store.saveTurnUsage({
-        ...delta.tokens,
+        ...(delta?.tokens ?? {
+          inputTokens: null,
+          outputTokens: null,
+          cacheReadTokens: null,
+          cacheWriteTokens: null,
+          totalTokens: null,
+          inputIncludesCache: null,
+          isPartial: true,
+        }),
         attemptId: key.attemptId,
         turn,
         provider,
