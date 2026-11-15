@@ -1,4 +1,5 @@
 import type {
+  NotificationChoices,
   PicaMobileNotificationEventPayload,
   PicaMobileNotificationLocale,
   PicaMobileNotificationPreview,
@@ -94,6 +95,6 @@ export interface PicaMobileNotificationProvider {
   /** Changes the notification choices of the session's account, never of another. */
   changeSettings(
     session: PicaMobileSessionIdentity,
-    change: { readonly teamRuns?: boolean },
+    change: Partial<NotificationChoices>,
   ): Promise<PicaMobileSettingsOutcome>;
 }

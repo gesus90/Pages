@@ -3,11 +3,13 @@ import {
   readNullableTextColumn,
   readTextColumn,
 } from "@/backend/database/RowValue";
+import { DEFAULT_NOTIFICATION_CHOICES } from "@/definition/PicaMobileNotifications";
 
 import type { Database, DatabaseValue } from "@/backend/database/Database";
+import type { NotificationChoices } from "@/definition/PicaMobileNotifications";
 
 /** The notification choices of one account. */
-export interface NotificationPreferenceRecord {
+export interface NotificationPreferenceRecord extends NotificationChoices {
   readonly accountId: string;
   /** Whether runs other people start in plans of the account's teams are announced. */
   readonly teamRuns: boolean;
@@ -18,7 +20,13 @@ export interface NotificationPreferenceRecord {
 const PREFERENCE_COLUMNS = `
     account_id,
     team_runs,
-    team_runs_since`;
+    team_runs_since,
+    receive_notifications,
+    chats,
+    pica,
+    plan_interruptions,
+    plan_completions,
+    plan_all_statuses`;
 
 function toPreference(
   row: readonly DatabaseValue[],
@@ -31,16 +39,22 @@ function toPreference(
     teamRunsSince: teamRuns
       ? readNullableTextColumn(row, 2, "team_runs_since")
       : null,
+    receiveNotifications: readBooleanColumn(row, 3, "receive_notifications"),
+    chats: readBooleanColumn(row, 4, "chats"),
+    pica: readBooleanColumn(row, 5, "pica"),
+    planInterruptions: readBooleanColumn(row, 6, "plan_interruptions"),
+    planCompletions: readBooleanColumn(row, 7, "plan_completions"),
+    planAllStatuses: readBooleanColumn(row, 8, "plan_all_statuses"),
   };
 }
 
 /**
- * Persistence of the notification choices an account makes in Pica Mobile.
+ * Persistence of the notification choices an account makes in Pages and Pica Mobile.
  *
  * @remarks
  * A choice belongs to the account on this Pages instance, never to a device or
  * a session, so it survives a new registration and a restart. An account
- * without a stored choice has every choice off.
+ * without a stored choice gets the PAGE-421 defaults, including team runs off.
  */
 export class PicaMobileNotificationPreferenceRepository {
   private readonly database: Pick<Database, "execute" | "query">;
@@ -71,8 +85,58 @@ export class PicaMobileNotificationPreferenceRepository {
     );
 
     return row === undefined
-      ? { accountId, teamRuns: false, teamRunsSince: null }
+      ? { accountId, ...DEFAULT_NOTIFICATION_CHOICES, teamRunsSince: null }
       : toPreference(row);
+  }
+
+  /** Changes only the supplied account choices, preserving every absent one. */
+  public async setChoices(
+    accountId: string,
+    change: Partial<Omit<NotificationChoices, "teamRuns">>,
+    now: string,
+  ): Promise<NotificationPreferenceRecord> {
+    await this.database.execute(
+      `
+        INSERT INTO pica_mobile_notification_preferences (
+            account_id,
+            receive_notifications,
+            chats,
+            pica,
+            plan_interruptions,
+            plan_completions,
+            plan_all_statuses,
+            updated_at
+        ) VALUES (
+            $account_id,
+            COALESCE($receive_notifications, TRUE),
+            COALESCE($chats, TRUE),
+            COALESCE($pica, TRUE),
+            COALESCE($plan_interruptions, TRUE),
+            COALESCE($plan_completions, TRUE),
+            COALESCE($plan_all_statuses, FALSE),
+            $now
+        )
+        ON CONFLICT (account_id) DO UPDATE SET
+            receive_notifications = COALESCE($receive_notifications, pica_mobile_notification_preferences.receive_notifications),
+            chats = COALESCE($chats, pica_mobile_notification_preferences.chats),
+            pica = COALESCE($pica, pica_mobile_notification_preferences.pica),
+            plan_interruptions = COALESCE($plan_interruptions, pica_mobile_notification_preferences.plan_interruptions),
+            plan_completions = COALESCE($plan_completions, pica_mobile_notification_preferences.plan_completions),
+            plan_all_statuses = COALESCE($plan_all_statuses, pica_mobile_notification_preferences.plan_all_statuses),
+            updated_at = excluded.updated_at;
+      `,
+      {
+        account_id: accountId,
+        now,
+        receive_notifications: change.receiveNotifications ?? null,
+        chats: change.chats ?? null,
+        pica: change.pica ?? null,
+        plan_interruptions: change.planInterruptions ?? null,
+        plan_completions: change.planCompletions ?? null,
+        plan_all_statuses: change.planAllStatuses ?? null,
+      },
+    );
+    return this.find(accountId);
   }
 
   /**

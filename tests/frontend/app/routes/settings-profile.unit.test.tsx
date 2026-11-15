@@ -5,6 +5,7 @@ import { beforeEach, expect, it, vi } from "vitest";
 import { handleSettingsAction } from "@/app/lib/settings-actions/settings-actions.server";
 import { getSessionToken } from "@/app/lib/session.server";
 import SettingsProfileRoute from "@/app/routes/settings-profile";
+import { DEFAULT_NOTIFICATION_CHOICES } from "@/definition/PicaMobileNotifications";
 import { action, loader } from "@/app/routes/settings-profile-server";
 
 import {
@@ -28,6 +29,7 @@ const services = vi.hoisted(() => ({
   administrationService: { getContext: vi.fn() },
   designThemeService: { getSelection: vi.fn() },
   automationService: { notificationMode: vi.fn() },
+  picaMobileNotifications: { readChoices: vi.fn() },
 }));
 
 const AUDIENCE = vi.hoisted(() => ({
@@ -68,7 +70,13 @@ vi.mock("@/app/components/settings/profile-card", () => ({
   ),
 }));
 vi.mock("@/app/components/settings/notifications-card", () => ({
-  NotificationsCard: (): React.ReactElement => <p>notifications</p>,
+  NotificationsCard: (props: {
+    readonly onChoiceChange: (key: "chats") => void;
+  }): React.ReactElement => (
+    <button type="button" onClick={() => props.onChoiceChange("chats")}>
+      toggle chat choice
+    </button>
+  ),
 }));
 vi.mock("@/app/components/settings/security-card", () => ({
   SecurityCard: (props: {
@@ -123,6 +131,7 @@ function loaded(
     user: ACTOR,
     email: null,
     settings: SETTINGS,
+    notificationChoices: DEFAULT_NOTIFICATION_CHOICES,
     designThemes: { themes: [] },
     sessions: [],
     canEditProfile,
@@ -138,6 +147,9 @@ beforeEach(() => {
   services.sessionService.getSessionSummaries.mockResolvedValue([]);
   services.designThemeService.getSelection.mockResolvedValue({ themes: [] });
   services.automationService.notificationMode.mockResolvedValue("error");
+  services.picaMobileNotifications.readChoices.mockResolvedValue(
+    DEFAULT_NOTIFICATION_CHOICES,
+  );
 });
 
 it("requires the user of the authentication middleware", async () => {
@@ -155,6 +167,7 @@ it("lets an administrator in the admin mode edit the profile", async () => {
   ).resolves.toEqual({
     account,
     automationNotification: "error",
+    notificationChoices: DEFAULT_NOTIFICATION_CHOICES,
     audience: AUDIENCE,
     canEditProfile: true,
     designThemes: { themes: [] },
@@ -249,4 +262,21 @@ it("opens the dialogs and revokes a single session", async () => {
   });
   expect(submitted[0]?.get("intent")).toBe("revoke-session");
   expect(submitted[0]?.get("sessionId")).toBe("s-2");
+});
+
+it("submits the complete account choices when one choice changes", async () => {
+  const submitted: FormData[] = [];
+  renderRoute(SettingsProfileRoute, {
+    loaderData: loaded(accountAccess(), true),
+    action: async ({ request }) => {
+      submitted.push(await request.formData());
+      return null;
+    },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "toggle chat choice" }));
+  await vi.waitFor(() => expect(submitted).toHaveLength(1));
+  expect(submitted[0]?.get("intent")).toBe("update-notification-choices");
+  expect(submitted[0]?.get("chats")).toBe("off");
+  expect(submitted[0]?.get("planInterruptions")).toBe("on");
+  expect(submitted[0]?.get("receiveNotifications")).toBe("on");
 });

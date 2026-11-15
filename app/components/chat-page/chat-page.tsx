@@ -21,6 +21,7 @@ import {
 } from "./content/chat-content-context";
 import { SplitPanel } from "./content/split-panel";
 import { useChatToastSelection } from "./use-chat-toast-selection";
+import { useVisibleChatPresence } from "./use-visible-chat-presence";
 import { useChatListCollapse } from "./use-chat-list-collapse";
 import { useChatPage } from "./use-chat-page";
 import { useVoiceSending } from "./use-voice-sending";
@@ -271,6 +272,7 @@ export function ChatPage({
     requested: requestedSelection,
     select: page.select,
   });
+  useVisibleChatPresence(page.selection, storedConversationId(page.opened));
   const collapse = useChatListCollapse(
     directory.viewPreferences?.isListCollapsed === true,
   );

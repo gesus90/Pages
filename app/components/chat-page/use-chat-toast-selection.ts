@@ -20,7 +20,17 @@ export function useChatToastSelection(options: {
   }, [kind, id, select]);
   const key = options.selection ? toastChatKey(options.selection) : null;
   useEffect(() => {
-    dispatch({ type: "open-chat", key });
-    return () => dispatch({ type: "open-chat", key: null });
+    const update = (): void => {
+      dispatch({
+        type: "open-chat",
+        key: document.visibilityState === "visible" ? key : null,
+      });
+    };
+    update();
+    document.addEventListener("visibilitychange", update);
+    return () => {
+      document.removeEventListener("visibilitychange", update);
+      dispatch({ type: "open-chat", key: null });
+    };
   }, [key, dispatch]);
 }

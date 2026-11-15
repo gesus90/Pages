@@ -3,6 +3,7 @@ import type {
   PicaMobileNotificationPreferenceRepository,
 } from "@/backend/database/repositories/mobile/PicaMobileNotificationPreferenceRepository";
 import type {
+  NotificationChoices,
   PicaMobileNotificationEventPayload,
   PicaMobileNotificationSettingsPayload,
 } from "@/definition/PicaMobileNotifications";
@@ -23,7 +24,7 @@ export interface PicaMobileNotificationParts {
   readonly dispatcher: PicaMobileNotificationDispatcher;
   readonly preferences: Pick<
     PicaMobileNotificationPreferenceRepository,
-    "find" | "setTeamRuns"
+    "find" | "setTeamRuns" | "setChoices"
   >;
   /** Whether a usable push sender is configured. */
   readonly isPushAvailable: boolean;
@@ -33,9 +34,7 @@ export interface PicaMobileNotificationParts {
 }
 
 /** What an account asks to change; an absent choice stays as it is. */
-export interface PicaMobileSettingsChange {
-  readonly teamRuns?: boolean;
-}
+export type PicaMobileSettingsChange = Partial<NotificationChoices>;
 
 /**
  * The outcome of a change of the choices.
@@ -52,7 +51,7 @@ export type PicaMobileSettingsResult =
   | { readonly kind: "pushUnavailable" };
 
 /**
- * The notification backend of Pica Mobile for plan runs.
+ * The notification backend of Pica Mobile and account notification choices.
  *
  * @remarks
  * It registers devices, records the events of runs, sends the pushes and
@@ -108,6 +107,23 @@ export class PicaMobileNotificationService {
     return this.toSettings(await this.parts.preferences.find(accountId));
   }
 
+  /** Reads the stored account choices for the Pages settings card and browser. */
+  public async readChoices(accountId: string): Promise<NotificationChoices> {
+    return this.parts.preferences.find(accountId);
+  }
+
+  /** Saves a Pages choice without changing device registration. */
+  public async changeChoices(
+    accountId: string,
+    change: Partial<NotificationChoices>,
+  ): Promise<NotificationPreferenceRecord> {
+    const now = (this.parts.now?.() ?? new Date()).toISOString();
+    if (change.teamRuns !== undefined) {
+      await this.parts.preferences.setTeamRuns(accountId, change.teamRuns, now);
+    }
+    return this.parts.preferences.setChoices(accountId, change, now);
+  }
+
   /**
    * Changes the choices of an account.
    *
@@ -116,29 +132,24 @@ export class PicaMobileNotificationService {
    * @returns The choices as Pages delivers them now, or why nothing changed.
    *
    * @remarks
-   * Switching a choice off is always possible. Switching it on is refused
-   * while this Pages has no push sender, so it is never reported as on
-   * without being delivered.
+   * Switching team runs on is refused while Pages has no push sender. The
+   * other choices remain stored for the browser and future device delivery.
    */
   public async changeSettings(
     accountId: string,
     change: PicaMobileSettingsChange,
   ): Promise<PicaMobileSettingsResult> {
-    const { preferences, isPushAvailable } = this.parts;
+    const { isPushAvailable } = this.parts;
 
-    if (change.teamRuns === undefined) {
+    if (Object.keys(change).length === 0) {
       return { kind: "ready", payload: await this.readSettings(accountId) };
     }
 
-    if (change.teamRuns && !isPushAvailable) {
+    if (change.teamRuns === true && !isPushAvailable) {
       return { kind: "pushUnavailable" };
     }
 
-    const stored = await preferences.setTeamRuns(
-      accountId,
-      change.teamRuns,
-      (this.parts.now?.() ?? new Date()).toISOString(),
-    );
+    const stored = await this.changeChoices(accountId, change);
 
     return { kind: "ready", payload: this.toSettings(stored) };
   }
@@ -166,6 +177,12 @@ export class PicaMobileNotificationService {
         isAvailable,
         isEnabled: isAvailable && preference.teamRuns,
       },
+      receiveNotifications: preference.receiveNotifications,
+      chats: preference.chats,
+      pica: preference.pica,
+      planInterruptions: preference.planInterruptions,
+      planCompletions: preference.planCompletions,
+      planAllStatuses: preference.planAllStatuses,
     };
   }
 }

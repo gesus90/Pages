@@ -1,9 +1,10 @@
 import { UserRound } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useLoaderData, useSubmit } from "react-router";
 
 import { ADMINISTRATION_ROLE_ID } from "@/definition/Authorization";
+import { NOTIFICATION_CHOICE_KEYS } from "@/definition/PicaMobileNotifications";
 import { ChangePasswordDialog } from "@/app/components/settings/change-password-dialog";
 import { NotificationsCard } from "@/app/components/settings/notifications-card";
 import { ProfileCard } from "@/app/components/settings/profile-card";
@@ -27,6 +28,7 @@ import { readRouteData } from "@/app/lib/local-state/route-data";
 import { sendToBackend } from "@/app/lib/backend-request";
 
 import type { AutomationNotificationMode } from "@/definition/Automation";
+import type { NotificationChoices } from "@/definition/PicaMobileNotifications";
 import type { LocalStateRouteKind } from "@/app/components/common/use-local-state-route";
 import type { LocalStateAudience } from "@/app/lib/local-state/local-state-audience";
 import type { WithLocalState } from "@/app/lib/local-state/local-state-loader";
@@ -42,6 +44,7 @@ export interface SettingsLoaderData {
   readonly account: AccountAccess;
   /** When the person hears about runs of their automations (PAGE-297). */
   readonly automationNotification: AutomationNotificationMode;
+  readonly notificationChoices: NotificationChoices;
   readonly user: User;
   readonly email: string | null;
   readonly settings: UserSettings;
@@ -65,6 +68,8 @@ function isSettingsLoaderData(value: unknown): value is SettingsLoaderData {
     typeof value.user === "object" &&
     "settings" in value &&
     typeof value.settings === "object" &&
+    "notificationChoices" in value &&
+    typeof value.notificationChoices === "object" &&
     "sessions" in value &&
     Array.isArray(value.sessions) &&
     "designThemes" in value &&
@@ -76,7 +81,7 @@ function isSettingsLoaderData(value: unknown): value is SettingsLoaderData {
 
 /** The personal settings, kept per account and rights. */
 const SETTINGS_PROFILE_STATE: LocalStateRouteKind<SettingsLoaderData> = {
-  schemaVersion: 2,
+  schemaVersion: 3,
   isPayload: isSettingsLoaderData,
   isCurrent: (profile) => isCurrentLocalStateAudience(profile.audience),
   ownerOf: (profile) => profile.audience.userId,
@@ -121,6 +126,7 @@ export default function SettingsProfileRoute(): React.ReactElement {
     sessions,
     canEditProfile,
     automationNotification: loadedAutomationNotification,
+    notificationChoices: loadedNotificationChoices,
   } = useLocalStateRoute(
     useLoaderData<typeof clientLoader>(),
     SETTINGS_PROFILE_STATE,
@@ -131,6 +137,11 @@ export default function SettingsProfileRoute(): React.ReactElement {
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
   const [automationNotification, setAutomationNotification] =
     useState<AutomationNotificationMode>(loadedAutomationNotification);
+  const [notificationChoices, setNotificationChoices] =
+    useState<NotificationChoices>(loadedNotificationChoices);
+  useEffect(() => {
+    setNotificationChoices(loadedNotificationChoices);
+  }, [loadedNotificationChoices]);
   const [isRevokeAllDialogOpen, setIsRevokeAllDialogOpen] = useState(false);
 
   function handleAutomationNotification(
@@ -140,6 +151,18 @@ export default function SettingsProfileRoute(): React.ReactElement {
     const formData = new FormData();
     formData.set("intent", "update-automation-notification");
     formData.set("mode", mode);
+    void submit(formData, { method: "post" });
+  }
+
+  function handleNotificationChoice(key: keyof NotificationChoices): void {
+    const choice = !notificationChoices[key];
+    const updated = { ...notificationChoices, [key]: choice };
+    setNotificationChoices(updated);
+    const formData = new FormData();
+    formData.set("intent", "update-notification-choices");
+    for (const notificationKey of NOTIFICATION_CHOICE_KEYS) {
+      formData.set(notificationKey, updated[notificationKey] ? "on" : "off");
+    }
     void submit(formData, { method: "post" });
   }
 
@@ -171,6 +194,8 @@ export default function SettingsProfileRoute(): React.ReactElement {
             <NotificationsCard
               notifications={settings.notifications}
               onToggle={toggleNotification}
+              choices={notificationChoices}
+              onChoiceChange={handleNotificationChoice}
               automationNotification={automationNotification}
               onAutomationNotificationChange={handleAutomationNotification}
             />

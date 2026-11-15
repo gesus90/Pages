@@ -5,9 +5,11 @@ import { PICA_MOBILE_NOTIFICATION_EVENT_TYPE } from "@/definition/PicaMobileNoti
 
 import { buildPicaMobilePushMessage } from "./PicaMobilePushMessage";
 import { findStepName } from "./PicaMobileRunNames";
+import { wantsPlanEvent } from "./NotificationChoicePolicy";
 
 import type { DeliveryRecord } from "@/backend/database/repositories/mobile/PicaMobileNotificationDeliveryRepository";
 import type { PicaMobileNotificationDeliveryRepository } from "@/backend/database/repositories/mobile/PicaMobileNotificationDeliveryRepository";
+import type { PicaMobileNotificationPreferenceRepository } from "@/backend/database/repositories/mobile/PicaMobileNotificationPreferenceRepository";
 import type {
   PicaMobileNotificationEventRepository,
   StoredNotificationEvent,
@@ -41,6 +43,10 @@ export interface PicaMobileNotificationDispatcherOptions {
   >;
   /** The relation to the run, the team choice and the rights on the run. */
   readonly runs: Pick<PicaMobileNotificationAccess, "read">;
+  readonly preferences: Pick<
+    PicaMobileNotificationPreferenceRepository,
+    "find"
+  >;
   readonly accounts: PicaMobileAccountChecks;
   readonly vault: Pick<PicaMobilePushTokenVault, "decrypt">;
   /** `null` while no sender is configured: pending pushes then only wait out their validity. */
@@ -397,6 +403,15 @@ export class PicaMobileNotificationDispatcher {
 
     if (event === null) {
       return { kind: "drop", outcome: "event_missing" };
+    }
+
+    if (
+      !wantsPlanEvent(
+        await this.options.preferences.find(delivery.accountId),
+        event.type,
+      )
+    ) {
+      return { kind: "drop", outcome: "choice_disabled" };
     }
 
     if (event.occurredAt < registration.registeredAt) {

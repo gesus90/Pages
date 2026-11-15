@@ -5,12 +5,52 @@ import { useNavigate } from "react-router";
 import { showToast } from "@/app/components/ui/toast";
 import { toastChatKey } from "@/app/components/ui/toast/toast-types";
 import { CHAT_PAGE_ENDPOINT, isChatDirectory } from "@/app/lib/chat-directory";
+import { backendRequestHeaders } from "@/app/lib/backend-request";
 import { readRouteData } from "@/app/lib/local-state/route-data";
 
 import {
   chatNotificationSnapshots,
   newChatMessages,
 } from "./chat-notification-snapshot";
+
+import type { NotificationChoices } from "@/definition/PicaMobileNotifications";
+
+interface ChatNotificationActivity {
+  readonly chatKeys: readonly string[];
+  readonly conversationIds: readonly string[];
+  readonly choices: NotificationChoices;
+}
+
+function isChatNotificationActivity(
+  value: unknown,
+): value is ChatNotificationActivity {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "chatKeys" in value &&
+    Array.isArray(value.chatKeys) &&
+    "conversationIds" in value &&
+    Array.isArray(value.conversationIds) &&
+    "choices" in value &&
+    typeof value.choices === "object" &&
+    value.choices !== null
+  );
+}
+
+async function readActivity(
+  signal: AbortSignal,
+): Promise<ChatNotificationActivity> {
+  const response = await fetch("/chat-page-api/presence", {
+    headers: backendRequestHeaders({ Accept: "application/json" }),
+    signal,
+  });
+  if (!response.ok) throw new Error("Chat notification presence unavailable.");
+  const payload: unknown = await response.json();
+  if (!isChatNotificationActivity(payload)) {
+    throw new Error("Chat notification presence invalid.");
+  }
+  return payload;
+}
 
 /** Agent session answers have no conversation event, so also read the directory at a slow interval. */
 const CHAT_REFRESH_MILLISECONDS = 15_000;
@@ -33,17 +73,30 @@ export function useChatNotifications(userId: string): () => void {
       }
       isReading = true;
       try {
-        const directory = await readRouteData({
-          endpoint: CHAT_PAGE_ENDPOINT,
-          signal: controller.signal,
-          isPayload: isChatDirectory,
-        });
+        const [directory, activity] = await Promise.all([
+          readRouteData({
+            endpoint: CHAT_PAGE_ENDPOINT,
+            signal: controller.signal,
+            isPayload: isChatDirectory,
+          }),
+          readActivity(controller.signal),
+        ]);
         if (controller.signal.aborted) return;
         const snapshots = chatNotificationSnapshots(directory);
         for (const snapshot of snapshots) {
           const incoming = previous ? newChatMessages(snapshot, previous) : [];
           const latest = incoming.at(-1);
-          if (!latest || snapshot.isMuted) continue;
+          const choices = activity.choices;
+          if (
+            !latest ||
+            snapshot.isMuted ||
+            !choices.receiveNotifications ||
+            !choices.chats ||
+            activity.chatKeys.includes(toastChatKey(snapshot.chat)) ||
+            (snapshot.conversationId !== null &&
+              activity.conversationIds.includes(snapshot.conversationId))
+          )
+            continue;
           const query = new URLSearchParams({
             kind: snapshot.chat.kind,
             id: snapshot.chat.id,

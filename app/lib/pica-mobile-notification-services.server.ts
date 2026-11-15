@@ -164,6 +164,7 @@ export async function createPicaMobileNotificationServices(
     sender,
     instanceId: readInstanceId,
     ttlSeconds: settings.replayTtlSeconds,
+    preferences,
   };
   followConversationMessages({ database: input.database, ...push });
   const dispatcher = new PicaMobileNotificationDispatcher({
@@ -172,6 +173,7 @@ export async function createPicaMobileNotificationServices(
     events: eventRepository,
     registrations: registrationRepository,
     runs: runAccess,
+    preferences,
     accounts,
     vault,
     sender,

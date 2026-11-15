@@ -14,9 +14,11 @@ import { SettingsCard } from "@/app/components/settings/settings-layout";
 import { ToggleRow } from "@/app/components/settings/toggle-row";
 
 import { AutomationNotificationRow } from "./automation-notification-row";
+import { NotificationChoiceSection } from "./notification-choice-section";
 
 import type { AutomationNotificationMode } from "@/definition/Automation";
 import type { UserNotificationKey, UserSettings } from "@/definition/Settings";
+import type { NotificationChoices } from "@/definition/PicaMobileNotifications";
 import type { ReactNode } from "react";
 
 const NOTIFICATION_ITEMS: readonly {
@@ -56,6 +58,8 @@ const NOTIFICATION_ITEMS: readonly {
 interface NotificationsCardProps {
   readonly notifications: UserSettings["notifications"];
   readonly onToggle: (key: UserNotificationKey) => void;
+  readonly choices: NotificationChoices;
+  readonly onChoiceChange: (key: keyof NotificationChoices) => void;
   /** When the person hears about runs of their automations (PAGE-297). */
   readonly automationNotification: AutomationNotificationMode;
   readonly onAutomationNotificationChange: (
@@ -67,6 +71,8 @@ interface NotificationsCardProps {
 export function NotificationsCard({
   notifications,
   onToggle,
+  choices,
+  onChoiceChange,
   automationNotification,
   onAutomationNotificationChange,
 }: NotificationsCardProps): React.ReactElement {
@@ -78,6 +84,10 @@ export function NotificationsCard({
       icon={<Bell className="size-4" aria-hidden="true" />}
       title={t("settings.notifications.title")}
     >
+      <NotificationChoiceSection choices={choices} onChange={onChoiceChange} />
+      <h3 className="px-3 pt-4 text-sm font-semibold text-foreground">
+        {t("settings.notifications.choices.more")}
+      </h3>
       <p className="mb-3 rounded-xl bg-muted/50 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
         {t("settings.notifications.deliveryPending")}
       </p>

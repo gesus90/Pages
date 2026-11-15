@@ -157,8 +157,8 @@ export const PICA_MOBILE_SERVER_MESSAGE_TYPE = {
  * named only while the server has a usable FCM sender; without it a
  * registration is refused. There is no `notifications.push.apns`.
  * `notifications.team.v1` stands for `notification_settings_get` and
- * `notification_settings_set` with their answer `notification_settings` and
- * for the pushes about runs of the account's teams; a server names it only
+ * `notification_settings_set` with their answer `notification_settings`,
+ * the account's notification choices and pushes about team runs; a server names it only
  * together with `notifications.v1`.
  * `plans.v1` stands for `plans_sync` and `plan_get` with their answers and
  * for the `plans` messages the server sends on its own. `chat.v1` stands for

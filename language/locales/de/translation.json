@@ -615,6 +615,39 @@
     "notifications": {
       "title": "Benachrichtigungen",
       "description": "Legen Sie fest, wie Sie über Aktivitäten informiert werden.",
+      "choices": {
+        "receiveNotifications": {
+          "title": "Benachrichtigungen erhalten",
+          "description": "Push in Pica Mobile und im Browser. Aus schaltet Chats, Pica und Agent-Pläne ab."
+        },
+        "chats": {
+          "title": "Chats",
+          "description": "Gruppen, Direktchats und Chats mit Agents."
+        },
+        "pica": {
+          "title": "Pica",
+          "description": "Antworten und Hinweise von Pica im Chat."
+        },
+        "plans": "Agent-Pläne",
+        "planInterruptions": {
+          "title": "Abbrüche und Blockaden",
+          "description": "Fehler und abgebrochene Läufe."
+        },
+        "planCompletions": {
+          "title": "Fertigstellung",
+          "description": "Erfolgreich abgeschlossene Läufe."
+        },
+        "planAllStatuses": {
+          "title": "Alle Statusänderungen",
+          "description": "Auch wenn ein Schritt beginnt."
+        },
+        "teamRuns": {
+          "title": "Läufe anderer im Team",
+          "description": "Auch Läufe deiner Teams. Welche Meldungen kommen, bestimmen die Häkchen oben."
+        },
+        "visibleChatRule": "Ist ein Chat sichtbar offen, kommen dafür keine Benachrichtigungen.",
+        "more": "Weitere"
+      },
       "email": {
         "title": "E-Mail-Benachrichtigungen",
         "description": "Wichtige Updates per E-Mail erhalten."

@@ -615,6 +615,39 @@
     "notifications": {
       "title": "Notifications",
       "description": "Choose how you are informed about activity.",
+      "choices": {
+        "receiveNotifications": {
+          "title": "Receive notifications",
+          "description": "Push in Pica Mobile and the browser. Turning this off disables chats, Pica and agent plans."
+        },
+        "chats": {
+          "title": "Chats",
+          "description": "Groups, direct chats and chats with agents."
+        },
+        "pica": {
+          "title": "Pica",
+          "description": "Pica's replies and notices in chat."
+        },
+        "plans": "Agent plans",
+        "planInterruptions": {
+          "title": "Cancellations and blockers",
+          "description": "Failed and cancelled runs."
+        },
+        "planCompletions": {
+          "title": "Completion",
+          "description": "Successfully completed runs."
+        },
+        "planAllStatuses": {
+          "title": "All status changes",
+          "description": "Includes step starts."
+        },
+        "teamRuns": {
+          "title": "Other team members' runs",
+          "description": "Also runs by your teams. The choices above decide which events arrive."
+        },
+        "visibleChatRule": "A visibly open chat receives no notifications for that chat.",
+        "more": "More"
+      },
       "email": {
         "title": "Email notifications",
         "description": "Receive important updates by email."

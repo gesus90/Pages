@@ -1157,7 +1157,7 @@ Was Pages einmal an den Push-Dienst übergeben hat, liegt dort und auf dem Gerä
 
 ## Erweiterung notifications.team.v1
 
-Die Erweiterung (PAGE-263) lässt ein Konto Push-Meldungen zu Läufen anderer Personen in Plänen seiner Teams ein- und ausschalten. Sie ergänzt `notifications.v1`, ändert keine bestehende Nachricht und keine Push-Nutzlast. Eine App, die sie nicht kennt, behält ihr bisheriges Verhalten: die Einstellung ist für jedes Konto aus, bis eine App sie einschaltet. Pages nennt `notifications.team.v1` immer zusammen mit `notifications.v1`; ein Pages ohne die Capability beantwortet die beiden Nachrichten mit `unknown_type`.
+Die Erweiterung (PAGE-263, PAGE-421) speichert Benachrichtigungsarten je Konto. Sie ergänzt `notifications.v1` und ändert keine bestehende Push-Nutzlast. Eine ältere App, die nur `teamRuns` sendet, bleibt gültig. Pages nennt `notifications.team.v1` immer zusammen mit `notifications.v1`; ein Pages ohne die Capability beantwortet die beiden Nachrichten mit `unknown_type`.
 
 **`notification_settings_get`** (Client → Pages, nur nach `auth`) hat den Payload `{}`; unbekannte Felder werden ignoriert. **`notification_settings_set`** ändert die genannten Einstellungen; fehlende bleiben, wie sie sind:
 
@@ -1170,7 +1170,7 @@ Die Erweiterung (PAGE-263) lässt ein Konto Push-Meldungen zu Läufen anderer Pe
 }
 ```
 
-`teamRuns` muss `true` oder `false` sein, sonst `invalid_message`. Ein Konto- oder Gerätefeld nimmt die Nachricht nicht an: es gilt immer das Konto der authentifizierten Sitzung, fremde Konten lassen sich nicht einstellen. Beide Anfragen beantwortet Pages mit **`notification_settings`** und derselben `requestId`:
+Optionale Felder von `notification_settings_set` sind `teamRuns`, `receiveNotifications`, `chats`, `pica`, `planInterruptions`, `planCompletions` und `planAllStatuses`. Jedes vorhandene Feld muss `true` oder `false` sein, sonst `invalid_message`; fehlende Felder bleiben gespeichert. Die App zeigt den Hauptschalter `receiveNotifications` nur an; er wird in der Pages-Karte bedient. Ein Konto- oder Gerätefeld nimmt die Nachricht nicht an: es gilt immer das Konto der authentifizierten Sitzung, fremde Konten lassen sich nicht einstellen. Beide Anfragen beantwortet Pages mit **`notification_settings`** und derselben `requestId`:
 
 ```json
 {
@@ -1179,7 +1179,13 @@ Die Erweiterung (PAGE-263) lässt ein Konto Push-Meldungen zu Läufen anderer Pe
   "requestId": "s1",
   "payload": {
     "accountId": "…",
-    "teamRuns": { "isAvailable": true, "isEnabled": true }
+    "teamRuns": { "isAvailable": true, "isEnabled": true },
+    "receiveNotifications": true,
+    "chats": true,
+    "pica": true,
+    "planInterruptions": true,
+    "planCompletions": true,
+    "planAllStatuses": false
   }
 }
 ```
@@ -1189,6 +1195,8 @@ Die Erweiterung (PAGE-263) lässt ein Konto Push-Meldungen zu Läufen anderer Pe
 | `accountId`            | immer `connected.payload.user.id`.                                                                                                                                                     |
 | `teamRuns.isAvailable` | `false`, solange Pages keinen verwendbaren FCM-Sender hat. Dann ist auch `isEnabled` `false`, gleich was das Konto gespeichert hat: Nicht Lieferbares erscheint nie als eingeschaltet. |
 | `teamRuns.isEnabled`   | ob Pages dem Konto Team-Läufe meldet.                                                                                                                                                  |
+
+Die sechs neuen Felder sind optional im Protokoll, damit ältere Server und Apps weiter zusammenarbeiten. Für bestehende und neue Konten sind Hauptschalter, Chats, Pica, Abbrüche und Blockaden sowie Fertigstellung an; `planAllStatuses` ist aus. Der Hauptschalter betrifft nur Chats, Pica und Agent-Pläne, nicht E-Mail, Desktop, Erwähnungen, Aufgaben, Fälligkeiten, Kalender oder Automationen. `planAllStatuses` umfasst auch Schrittstarts und überstimmt bei der Zustellung die beiden einzeln gespeicherten Plan-Häkchen, ohne sie zu verändern. `teamRuns` bestimmt nur, ob auch Läufe anderer Teammitglieder berücksichtigt werden; die drei Plan-Häkchen bestimmen für eigene und fremde Läufe dieselben Ereignisarten.
 
 Regeln:
 
