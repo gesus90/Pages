@@ -589,29 +589,7 @@ export class LocalOwnerSession {
           await this.close();
           return;
         }
-        if (!canContinueLocalTurn(run, this.launch)) {
-          if (this.namespace)
-            await controlOwnedNamespace(this.namespace, "stop");
-          await this.cancel();
-        } else if (
-          this.recorder?.current.provider === "codex_cli" &&
-          // Immediate pauses arrive by IPC. Other plans drain their turns first.
-          run?.status !== "pausing"
-        )
-          await this.changePause(run?.status === "paused");
-        else if (
-          this.namespace &&
-          this.recorder?.current.provider !== "codex_cli"
-        ) {
-          const paused = run?.status === "paused" || run?.status === "pausing";
-          if (paused !== this.isPaused) {
-            await controlOwnedNamespace(
-              this.namespace,
-              paused ? "pause" : "resume",
-            );
-            this.isPaused = paused;
-          }
-        }
+        await this.applyRunControl(run);
       });
     } catch (error: unknown) {
       // Database loss does not fabricate a user Stop or terminate a surviving native session.
@@ -619,6 +597,27 @@ export class LocalOwnerSession {
     } finally {
       this.checkingStop = false;
     }
+  }
+
+  private async applyRunControl(
+    run: Awaited<ReturnType<AgentPlanRunRepository["find"]>>,
+  ): Promise<void> {
+    if (!canContinueLocalTurn(run, this.launch)) {
+      if (this.namespace) await controlOwnedNamespace(this.namespace, "stop");
+      await this.cancel();
+      return;
+    }
+    if (this.recorder?.current.provider === "codex_cli") {
+      // Immediate pauses arrive by IPC. Other plans drain their turns first.
+      if (run?.status !== "pausing")
+        await this.changePause(run?.status === "paused");
+      return;
+    }
+    if (!this.namespace) return;
+    const paused = run?.status === "paused" || run?.status === "pausing";
+    if (paused === this.isPaused) return;
+    await controlOwnedNamespace(this.namespace, paused ? "pause" : "resume");
+    this.isPaused = paused;
   }
 
   private async changePause(isPaused: boolean): Promise<void> {
