@@ -3,6 +3,12 @@ import { expect, it, vi } from "vitest";
 
 import { PageAgentForm } from "@/app/components/agents/definitions/page-agent-form";
 import { Dialog } from "@/app/components/ui/dialog";
+import {
+  acpRunOptions,
+  emptyAgentConfiguration,
+} from "@/definition/AgentConfiguration";
+
+import type { PageAgent } from "@/definition/PageAgent";
 
 import {
   heldAnswer,
@@ -21,11 +27,12 @@ vi.mock("@/app/components/editor/block-editor", () => ({
 
 function renderForm(
   answer?: Parameters<typeof renderAgentRoute>[1],
+  agent: PageAgent = pageAgent(),
 ): ReturnType<typeof vi.fn> {
   const onSaved = vi.fn();
   renderAgentRoute(
     <Dialog open>
-      <PageAgentForm agent={pageAgent()} page={PAGE} onSaved={onSaved} />
+      <PageAgentForm agent={agent} page={PAGE} onSaved={onSaved} />
     </Dialog>,
     answer,
   );
@@ -86,7 +93,15 @@ it("asks before Escape drops a changed draft", async () => {
 
 it("ignores a close request while the save is pending", async () => {
   const held = heldAnswer();
-  const onSaved = renderForm(held.answer);
+  const onSaved = renderForm(
+    held.answer,
+    pageAgent({
+      configuration: {
+        ...emptyAgentConfiguration(),
+        run: acpRunOptions("read_only", 0),
+      },
+    }),
+  );
 
   fireEvent.click(
     screen.getByRole("button", { name: i18n.t("pageAgents.save") }),

@@ -198,21 +198,24 @@ describe("refusing an agent that does not fit a group", () => {
     });
   });
 
-  it("refuses an API agent that no ACP session can run", () => {
+  it("refuses an OpenRouter agent in a Codex group", () => {
     const scene = mountGroupActions(
-      planOf([sessionGroup(), agentNode("b", "api", { x: 1200, y: 0 })]),
+      planOf([
+        sessionGroup({ steps: [agentNode("a", "codex")] }),
+        agentNode("b", "api", { x: 1200, y: 0 }),
+      ]),
     );
 
     scene.run((actions) => actions.place("b", dropAt(300, 250)));
 
     expect(scene.actions().notice).toMatchObject({
       kind: "refused",
-      refusal: "notAcp",
+      refusal: "otherAdapter",
       name: "Api",
-      adapter: null,
-      groupAdapter: null,
+      adapter: "openrouter",
+      groupAdapter: "codex_cli",
     });
-    expect(groupOf(scene.draft()).steps).toEqual([]);
+    expect(groupOf(scene.draft()).steps.map((step) => step.id)).toEqual(["a"]);
   });
 
   it("keeps the connection of an agent that joins a group", () => {
@@ -504,14 +507,14 @@ describe("telling why a group refused an agent", () => {
     const group = sessionGroup({ steps: [agentNode("m", "codex")] });
 
     scene.run((actions) =>
-      actions.refuse("notAcp", agentNode("b", "api"), group),
+      actions.refuse("otherAdapter", agentNode("b", "api"), group),
     );
 
     expect(scene.actions().notice).toEqual({
       kind: "refused",
-      refusal: "notAcp",
+      refusal: "otherAdapter",
       name: "Api",
-      adapter: null,
+      adapter: "openrouter",
       groupAdapter: "codex_cli",
     });
   });

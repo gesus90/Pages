@@ -90,7 +90,7 @@ function sound(id: string, name: string): ConversationAttachment {
     kind: "audio",
     url: `/chat/files/${id}`,
     createdAt: "2026-11-14T10:00:00.000Z",
-    expiresAt: "2026-11-17T10:00:00.000Z",
+    expiresAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
   };
 }
 

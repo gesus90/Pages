@@ -154,15 +154,7 @@ function UsageSection(props: {
       </dl>
       {props.view.claudeUsage ? (
         <ClaudeUsageDetails usage={props.view.claudeUsage} />
-      ) : (
-        <dl className="space-y-1.5">
-          <Fact
-            label={t(`${key}.tokens`)}
-            value={props.isTurnRunning ? t(`${key}.afterTurn`) : tokens}
-          />
-          <Fact label={t(`${key}.cost`)} value={cost} />
-        </dl>
-      )}
+      ) : null}
     </SidebarSection>
   );
 }

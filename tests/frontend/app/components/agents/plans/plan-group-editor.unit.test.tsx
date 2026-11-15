@@ -143,6 +143,7 @@ it("lets an empty group take any usable ACP agent and tells why an insertion fai
     "Codex One · Codex CLI · codex-model",
     "Codex Two · Codex CLI · codex-two-model",
     "Claude · Claude Code · claude-model",
+    "Api · OpenRouter · api-model",
   ]);
   fireEvent.click(
     screen.getByRole("option", { name: "Claude · Claude Code · claude-model" }),
