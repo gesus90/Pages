@@ -438,7 +438,7 @@ export class AcpResourceScheduler {
     });
   }
 
-  private async openSession(request: AcpOpenRequest): Promise<PlanSession> {
+  private openSession(request: AcpOpenRequest): Promise<PlanSession> {
     return openScheduledSession(request, {
       shutdown: this.shutdownController.signal,
       isClosing: () => this.isClosing,
