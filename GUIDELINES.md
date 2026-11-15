@@ -459,6 +459,12 @@ main implementation
 
 Keep related code close together.
 
+Temporary files at runtime belong in `~/.pages/tmp`, each kind in its own subfolder. Resolve the path with `pagesTempDirectory()` from `backend/config/PagesTempDirectory.ts`, never with `tmpdir()` or a literal `/tmp`: the Pages services have a private `/tmp` that agents, script owners and worker units do not see.
+
+```ts
+const root = pagesTempDirectory("plan-scripts"); // ~/.pages/tmp/plan-scripts
+```
+
 ---
 
 ## 10. Async Code

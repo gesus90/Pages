@@ -182,6 +182,8 @@ describe("adoptedPlanView", () => {
           completion: null,
           cleanup: "not_needed",
           startedAt: "2026-11-15T14:20:14.000Z",
+          endedAt: null,
+          error: null,
         },
       ],
     };

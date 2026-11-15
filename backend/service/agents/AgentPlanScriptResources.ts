@@ -1,5 +1,4 @@
 import { mkdir, readFile, rm, writeFile, lstat } from "node:fs/promises";
-import os from "node:os";
 import path from "node:path";
 
 import {
@@ -8,11 +7,12 @@ import {
 } from "@/backend/agents/cli/AgentSharedEnvironment";
 import { RUN_INSTANCE_VARIABLE } from "@/backend/agents/cli/CliProcessScan";
 import { correlationEnvironment } from "@/backend/logging/LogCorrelation";
+import { pagesTempDirectory } from "@/backend/config/PagesTempDirectory";
 
 /**
- * The root of the script runtimes in the account's home.
+ * The root of the script runtimes in the Pages temporary folder.
  *
- * @returns A folder the plan service and the script owner see alike.
+ * @returns `~/.pages/tmp/plan-scripts`, which the plan service and the script owner see alike.
  *
  * @remarks
  * The script owner runs in a unit of the account's service manager, which
@@ -21,7 +21,7 @@ import { correlationEnvironment } from "@/backend/logging/LogCorrelation";
  * script step failed before its process started.
  */
 export function scriptRuntimeRoot(): string {
-  return path.join(os.homedir(), ".local", "state", "pages", "plan-scripts");
+  return pagesTempDirectory("plan-scripts");
 }
 
 /** Resolves one private script runtime, shared with its independent capture owner. */

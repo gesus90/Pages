@@ -36,9 +36,9 @@ beforeEach(() => {
   vi.spyOn(os, "tmpdir").mockReturnValue("/private-service-tmp");
 });
 
-it("keeps script runtimes in the account's home, not in the private /tmp of the plan service", () => {
+it("keeps script runtimes in ~/.pages/tmp, not in the private /tmp of the plan service", () => {
   expect(scriptRuntimeRoot()).toBe(
-    path.join(HOME, ".local", "state", "pages", "plan-scripts"),
+    path.join(HOME, ".pages", "tmp", "plan-scripts"),
   );
   expect(scriptRuntimeDirectory(INSTANCE)).toBe(
     path.join(scriptRuntimeRoot(), `pages-plan-script-${INSTANCE}`),
