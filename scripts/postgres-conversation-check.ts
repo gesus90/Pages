@@ -9,6 +9,8 @@
  */
 import path from "node:path";
 
+import { withCommandTemporaryDirectory } from "./command-temporary-directory.mjs";
+
 import { Database } from "@/backend/database/Database";
 import { closeLogging, initializeLogging } from "@/backend/logging/Logger";
 
@@ -20,9 +22,13 @@ import {
 } from "./postgres-check/temporary-instance";
 import { readMigrations } from "./read-database-migrations";
 
-async function main(): Promise<void> {
+async function main({
+  signal,
+}: {
+  readonly signal: AbortSignal;
+}): Promise<void> {
   await requirePostgresPrograms();
-  const instance = await TemporaryPostgres.prepare();
+  const instance = await TemporaryPostgres.prepare(signal);
   try {
     await initializeLogging(path.join(instance.directory, "config.toml"));
     await instance.start();
@@ -45,10 +51,10 @@ async function main(): Promise<void> {
 }
 
 try {
-  await main();
+  await withCommandTemporaryDirectory(main);
 } catch (error: unknown) {
   console.error(
     error instanceof PostgresProgramsMissingError ? error.message : error,
   );
-  process.exitCode = 1;
+  process.exitCode = process.exitCode || 1;
 }

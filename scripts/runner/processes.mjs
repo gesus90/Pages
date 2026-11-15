@@ -1,6 +1,7 @@
 import { cleanupPagesFiles } from "./pages.mjs";
 import { readdir, readFile, readlink, rm } from "node:fs/promises";
 import { join } from "node:path";
+import { removeRunnerTemporaryDirectory } from "./temporary.mjs";
 import { identity, readRecord, readOwnedLaunch, store } from "./journal.mjs";
 
 export const STOP_TERM_MILLISECONDS = 2000;
@@ -92,6 +93,9 @@ async function settleSupervisor(folder, launch, options) {
   if (options.removeRuntime !== false) {
     await cleanupPagesFiles(folder);
     await rm(join(folder, "runtime"), { recursive: true, force: true });
+    await removeRunnerTemporaryDirectory(
+      await readRecord(join(folder, "claim.json")),
+    );
   }
   return "confirmed";
 }

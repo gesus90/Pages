@@ -13,6 +13,12 @@ import { agentToolAdapterVersion } from "@/backend/service/agents/tools/AgentToo
 import { AgentError } from "@/backend/error/AgentErrors";
 import { redactCredentials } from "@/backend/security/AgentTextSafety";
 
+import {
+  preparePlanTemporaryDirectory,
+  planTemporaryEnvironment,
+} from "../PlanRunTemporaryDirectory";
+import { fullEnvironmentTemporaryArguments } from "./CliFullEnvironmentTemporaryDirectory";
+
 import { sessionAcpProvider } from "./CliSessionChecks";
 
 import type { AgentPlanSessionInput } from "@/backend/agents/AgentPlanExecution";
@@ -29,6 +35,57 @@ const execFileAsync = promisify(execFile);
 export interface CliFullEnvironment {
   readonly home: CliHome;
   readonly environment: Readonly<Record<string, string>>;
+}
+
+async function readOwnerShellEnvironment(
+  input: AgentPlanSessionInput,
+  signal: AbortSignal,
+  owner: {
+    readonly shell: string;
+    readonly homedir: string;
+    readonly username: string;
+  },
+): Promise<string> {
+  const context = input.resourceContext;
+  const temporaryDirectory = context
+    ? await preparePlanTemporaryDirectory({
+        runId: context.runId,
+        stepId: context.sessionScopeId ?? context.stepId,
+      })
+    : null;
+  const shellArguments = ["-lc", "exec /usr/bin/env -0"];
+  const bwrapArguments = temporaryDirectory
+    ? await fullEnvironmentTemporaryArguments({
+        temporaryDirectory,
+        workingDirectory: input.directory,
+        file: owner.shell,
+        arguments: shellArguments,
+      })
+    : shellArguments;
+  try {
+    const result = await execFileAsync(
+      temporaryDirectory ? "/usr/bin/bwrap" : owner.shell,
+      [...bwrapArguments],
+      {
+        cwd: input.directory,
+        env: {
+          ...omitSystemdServiceEnvironment(process.env),
+          HOME: owner.homedir,
+          USER: owner.username,
+          LOGNAME: owner.username,
+          SHELL: owner.shell,
+          ...(temporaryDirectory ? planTemporaryEnvironment() : {}),
+        },
+        signal,
+        timeout: 10_000,
+        maxBuffer: 1024 * 1024,
+      },
+    );
+    return result.stdout;
+  } catch {
+    // Child-process errors include their captured output, which may contain credentials.
+    throw new AgentError("plan_full_environment_owner_unavailable");
+  }
 }
 
 /** Reads the login shell environment under the current Linux identity; never changes identity or host configuration. */
@@ -49,30 +106,11 @@ export async function prepareFullEnvironment(
   const owner = userInfo();
   if (process.platform !== "linux" || owner.uid < 1 || !owner.shell)
     throw new AgentError("plan_full_environment_owner_unavailable");
-  let output: string;
-  try {
-    const result = await execFileAsync(
-      owner.shell,
-      ["-lc", "exec /usr/bin/env -0"],
-      {
-        cwd: input.directory,
-        env: {
-          ...omitSystemdServiceEnvironment(process.env),
-          HOME: owner.homedir,
-          USER: owner.username,
-          LOGNAME: owner.username,
-          SHELL: owner.shell,
-        },
-        signal,
-        timeout: 10_000,
-        maxBuffer: 1024 * 1024,
-      },
-    );
-    output = result.stdout;
-  } catch {
-    // Child-process errors include their captured output, which may contain credentials.
-    throw new AgentError("plan_full_environment_owner_unavailable");
-  }
+  const output = await readOwnerShellEnvironment(input, signal, {
+    shell: owner.shell,
+    homedir: owner.homedir,
+    username: owner.username,
+  });
   const environment: Record<string, string> = {};
   for (const entry of output.split("\0")) {
     const delimiter = entry.indexOf("=");

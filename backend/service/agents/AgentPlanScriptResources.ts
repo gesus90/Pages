@@ -5,9 +5,15 @@ import {
   sharedAgentEnvironment,
   sharedPnpmBin,
 } from "@/backend/agents/cli/AgentSharedEnvironment";
+import {
+  planTemporaryDirectory,
+  preparePlanTemporaryDirectory,
+} from "@/backend/agents/PlanRunTemporaryDirectory";
 import { RUN_INSTANCE_VARIABLE } from "@/backend/agents/cli/CliProcessScan";
 import { correlationEnvironment } from "@/backend/logging/LogCorrelation";
 import { pagesTempDirectory } from "@/backend/config/PagesTempDirectory";
+
+import type { PlanTemporaryScope } from "@/backend/agents/PlanRunTemporaryDirectory";
 
 /**
  * The root of the script runtimes in the Pages temporary folder.
@@ -25,10 +31,15 @@ export function scriptRuntimeRoot(): string {
 }
 
 /** Resolves one private script runtime, shared with its independent capture owner. */
-export function scriptRuntimeDirectory(instanceId: string): string {
+export function scriptRuntimeDirectory(
+  instanceId: string,
+  scope?: PlanTemporaryScope,
+): string {
   if (!/^[a-f0-9-]{36}$/u.test(instanceId))
     throw new Error("Invalid script instance");
-  return path.join(scriptRuntimeRoot(), `pages-plan-script-${instanceId}`);
+  return scope
+    ? path.join(planTemporaryDirectory(scope), `resources-${instanceId}`)
+    : path.join(scriptRuntimeRoot(), `pages-plan-script-${instanceId}`);
 }
 
 /** Creates the root of the script runtimes and refuses one that is not the account's private folder. */
@@ -48,9 +59,11 @@ async function prepareScriptRuntimeRoot(): Promise<void> {
 export async function createScriptResources(
   instanceId: string,
   content: string,
+  scope?: PlanTemporaryScope,
 ): Promise<string> {
-  const directory = scriptRuntimeDirectory(instanceId);
-  await prepareScriptRuntimeRoot();
+  const directory = scriptRuntimeDirectory(instanceId, scope);
+  if (scope) await preparePlanTemporaryDirectory(scope);
+  else await prepareScriptRuntimeRoot();
   try {
     await mkdir(directory, { mode: 0o700 });
   } catch (error: unknown) {
@@ -81,8 +94,11 @@ export async function createScriptResources(
 }
 
 /** Removes a private runtime directory only after checking its location, ownership and marker. */
-export async function removeScriptResources(instanceId: string): Promise<void> {
-  const directory = scriptRuntimeDirectory(instanceId);
+export async function removeScriptResources(
+  instanceId: string,
+  scope?: PlanTemporaryScope,
+): Promise<void> {
+  const directory = scriptRuntimeDirectory(instanceId, scope);
   let metadata;
   try {
     metadata = await lstat(directory);
@@ -108,6 +124,7 @@ export function scriptEnvironment(input: {
   readonly interpreter: string;
   readonly instanceId: string;
   readonly sharedEnvironment?: string;
+  readonly temporaryDirectory?: string;
 }): Record<string, string> {
   const { directory, sharedEnvironment } = input;
   return {
@@ -130,7 +147,17 @@ export function scriptEnvironment(input: {
       ]),
     ].join(path.delimiter),
     HOME: directory,
-    TMPDIR: directory,
+    TMPDIR: input.temporaryDirectory ?? directory,
+    ...(input.temporaryDirectory
+      ? {
+          TEMP: input.temporaryDirectory,
+          TMP: input.temporaryDirectory,
+          NODE_COMPILE_CACHE: path.join(
+            input.temporaryDirectory,
+            "node-compile-cache",
+          ),
+        }
+      : {}),
     XDG_CONFIG_HOME: path.join(directory, "config"),
     XDG_DATA_HOME: path.join(directory, "data"),
     XDG_STATE_HOME: path.join(directory, "state"),

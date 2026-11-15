@@ -14,6 +14,7 @@ import type { ExecFileOptions } from "node:child_process";
 import type * as FileSystem from "node:fs/promises";
 import type { Mock } from "vitest";
 import type { AgentPlanSessionInput } from "@/backend/agents/AgentPlanExecution";
+import type * as PlanRunTemporaryDirectory from "@/backend/agents/PlanRunTemporaryDirectory";
 import type { CliLocator } from "@/backend/agents/cli/CliLocator";
 import type { CliProviderId } from "@/definition/AgentConnection";
 import type { AgentToolLocation } from "@/backend/service/agents/tools/AgentToolContracts";
@@ -31,13 +32,25 @@ const boundary = vi.hoisted(() => ({
     vi.fn<
       (
         file: string,
-        arguments_: readonly string[],
+        shellArgs: readonly string[],
         options: ExecFileOptions,
       ) => Promise<{ stdout: string; stderr: string }>
     >(),
   writeFile:
     vi.fn<(file: string, content: string, options: unknown) => Promise<void>>(),
   access: vi.fn<(file: string, mode: number) => Promise<void>>(),
+}));
+
+vi.mock(
+  "@/backend/agents/PlanRunTemporaryDirectory",
+  async (importOriginal) => ({
+    ...(await importOriginal<typeof PlanRunTemporaryDirectory>()),
+    preparePlanTemporaryDirectory: vi.fn(async () => "/disk/run/checks"),
+  }),
+);
+
+vi.mock("@/backend/agents/cli/CliSshConfigOverlay", () => ({
+  sshConfigOverlayArguments: vi.fn(async () => []),
 }));
 
 vi.mock("node:child_process", async () => {
@@ -253,4 +266,29 @@ it("removes parent systemd state before the login shell and from its returned en
   expect(workerFile).toContain('LOGIN_SETTING="preserved"');
   for (const name of Object.keys(SYSTEMD_ENVIRONMENT))
     expect(workerFile).not.toContain(`${name}=`);
+});
+
+it("prepares the owner login shell with the plan's disk-backed temporary mount", async () => {
+  await prepareFullEnvironment(
+    {
+      ...fullInput(),
+      resourceContext: { planId: "plan", runId: "run", stepId: "checks" },
+    },
+    new AbortController().signal,
+  );
+  const [file, shellArgs, options] = boundary.shell.mock.calls[0] ?? [];
+  expect(file).toBe("/usr/bin/bwrap");
+  expect(shellArgs).toEqual(
+    expect.arrayContaining(["--bind", "/disk/run/checks", "/tmp"]),
+  );
+  expect(shellArgs?.slice(-3)).toEqual([
+    "/synthetic/zsh",
+    "-lc",
+    "exec /usr/bin/env -0",
+  ]);
+  expect(options?.env).toMatchObject({
+    TMPDIR: "/tmp",
+    TMP: "/tmp",
+    TEMP: "/tmp",
+  });
 });

@@ -107,6 +107,13 @@ vi.mock("../../../../../scripts/runner/interpreters.mjs", () => ({
   interpreterCatalog: vi.fn(),
 }));
 
+vi.mock("../../../../../scripts/runner/temporary.mjs", () => ({
+  prepareRunnerTemporaryDirectory: vi.fn(
+    async () => "/synthetic/disk/run/step",
+  ),
+  removeRunnerTemporaryDirectory: vi.fn(async () => undefined),
+}));
+
 export const JOB_ID = "11111111-2222-3333-4444-555555555555";
 
 export const state = {

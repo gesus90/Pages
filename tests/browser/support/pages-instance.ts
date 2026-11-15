@@ -33,6 +33,10 @@ const SETUP_LINK = /\/setup\?token=([A-Za-z0-9_-]{43})/u;
 function createEnvironment(home: string): NodeJS.ProcessEnv {
   return {
     HOME: home,
+    TMPDIR: process.env.TMPDIR,
+    TEMP: process.env.TEMP,
+    TMP: process.env.TMP,
+    NODE_COMPILE_CACHE: process.env.NODE_COMPILE_CACHE,
     NODE_ENV: "production",
     PATH: process.env.PATH,
     XDG_CACHE_HOME: path.join(home, "cache"),
@@ -105,19 +109,9 @@ async function stopServer(child: ChildProcess): Promise<void> {
 }
 
 function pagesInstanceRoot(): string {
-  const candidate = os.tmpdir();
-  const sample = path.join(
-    candidate,
-    "pages-browser-123456",
-    "home",
-    "data",
-    "runs-control",
-    "engine.sock",
-  );
-  if (sample.length > 107) {
-    return "/tmp";
-  }
-  return candidate;
+  const configured = process.env.TMPDIR?.trim();
+  if (configured && configured.length > 0) return configured;
+  return path.join(os.homedir(), ".pages", "data", "check-tmp");
 }
 
 /**
@@ -156,6 +150,7 @@ export async function startPagesInstance(
     );
   }
 
+  await mkdir(pagesInstanceRoot(), { recursive: true, mode: 0o700 });
   const directory = await mkdtemp(
     path.join(pagesInstanceRoot(), "pages-browser-"),
   );
@@ -209,7 +204,7 @@ export async function startPagesInstance(
     };
   } catch (error: unknown) {
     await stopServer(child);
-    console.error(`Pages did not start; see the retained log at ${logFile}.`);
+    await rm(directory, { recursive: true, force: true });
     throw error;
   }
 }

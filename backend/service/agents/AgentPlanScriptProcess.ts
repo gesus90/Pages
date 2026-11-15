@@ -6,6 +6,7 @@ import { Writable } from "node:stream";
 import { CliPausableDeadline } from "@/backend/agents/cli/CliPausableDeadline";
 
 import { prepareSharedAgentEnvironment } from "@/backend/agents/cli/AgentSharedEnvironment";
+import { planTemporaryMountDirectory } from "@/backend/agents/PlanRunTemporaryDirectory";
 import { captureOwnedNamespace } from "@/backend/agents/cli/CliOwnedNamespace";
 import { sshConfigOverlayArguments } from "@/backend/agents/cli/CliSshConfigOverlay";
 
@@ -164,6 +165,11 @@ export async function executeScriptProcess(
         "/proc",
         "--dev",
         "/dev",
+        "--bind",
+        request.record.temporaryScope
+          ? planTemporaryMountDirectory(request.record.temporaryScope)
+          : request.resources,
+        "/tmp",
         ...sshConfigOverlay,
         "--bind",
         request.sharedEnvironment,
@@ -188,6 +194,7 @@ export async function executeScriptProcess(
             interpreter: request.program,
             instanceId: request.record.instanceId,
             sharedEnvironment: request.sharedEnvironment,
+            temporaryDirectory: "/tmp",
           }),
           ...request.environment,
         },

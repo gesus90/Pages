@@ -64,6 +64,8 @@ export type AgentPlanScriptFailure =
 
 /** Process diagnostics within the existing node result; identifiers never authorize killing a PID. */
 export interface AgentPlanScriptRun {
+  /** Disk scratch identity; absent only for attempts from before PAGE-408. */
+  readonly temporaryScope?: { readonly runId: string; readonly stepId: string };
   readonly attemptId: string;
   readonly instanceId: string;
   readonly interpreterProfileId: string;

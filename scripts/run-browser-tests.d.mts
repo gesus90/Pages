@@ -45,6 +45,7 @@ export function runStep(
     readonly cwd: string;
     readonly env: NodeJS.ProcessEnv;
     readonly timeoutMilliseconds: number;
+    readonly signal?: AbortSignal;
   },
 ): Promise<number>;
 

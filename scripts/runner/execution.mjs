@@ -17,6 +17,10 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { homedir } from "node:os";
 import {
+  prepareRunnerTemporaryDirectory,
+  removeRunnerTemporaryDirectory,
+} from "./temporary.mjs";
+import {
   cancellationFor,
   hasExecutionLease,
   cancelJob,
@@ -234,6 +238,7 @@ export async function claimJob(directory, job) {
       ? await antigravityContextProof()
       : "[]";
   const sshConfig = await sshConfigOverlay(join(folder, "ssh_config.d"));
+  const temporaryDirectory = await prepareRunnerTemporaryDirectory(job);
   const child = spawn(
     "/usr/bin/bwrap",
     [
@@ -246,7 +251,8 @@ export async function claimJob(directory, job) {
       "/proc",
       "--dev",
       "/dev",
-      "--tmpfs",
+      "--bind",
+      temporaryDirectory,
       "/tmp",
       "--tmpfs",
       ownership,
@@ -263,6 +269,10 @@ export async function claimJob(directory, job) {
       env: {
         PATH: "/usr/bin:/bin",
         HOME: directory,
+        TMPDIR: "/tmp",
+        TEMP: "/tmp",
+        TMP: "/tmp",
+        NODE_COMPILE_CACHE: "/tmp/node-compile-cache",
         LANG: "C.UTF-8",
         NODE_OPTIONS: "--max-old-space-size=128",
         PAGES_REMOTE_JOB: job.jobId,
@@ -308,6 +318,7 @@ export async function claimJob(directory, job) {
     child.stdin.end("go\n");
   } catch (error) {
     child.stdin.destroy();
+    if (!child.pid) await removeRunnerTemporaryDirectory(job);
     throw error;
   }
   child.unref();
@@ -659,7 +670,10 @@ function spawnScript(command, folder, jobId, accountTaskCount) {
       env: {
         PATH: "/usr/local/bin:/usr/bin:/bin",
         HOME: runtime,
-        TMPDIR: runtime,
+        TMPDIR: "/tmp",
+        TEMP: "/tmp",
+        TMP: "/tmp",
+        NODE_COMPILE_CACHE: "/tmp/node-compile-cache",
         LANG: "C.UTF-8",
         LC_ALL: "C.UTF-8",
         PAGES_REMOTE_JOB: jobId,

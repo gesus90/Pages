@@ -140,10 +140,20 @@ it("starts a script worker in a bubblewrap PID namespace and releases it", async
   ];
   expect(program).toBe("/usr/bin/bwrap");
   expect(args).toContain("--unshare-pid");
+  const temporary = args.indexOf("/tmp");
+  expect(args.slice(temporary - 2, temporary + 1)).toEqual([
+    "--bind",
+    "/synthetic/disk/run/step",
+    "/tmp",
+  ]);
   expect(args.slice(-2)).toEqual(["--job", state.folder]);
   expect(options.detached).toBe(true);
   expect(options.env).toMatchObject({
     HOME: state.directory,
+    TMPDIR: "/tmp",
+    TEMP: "/tmp",
+    TMP: "/tmp",
+    NODE_COMPILE_CACHE: "/tmp/node-compile-cache",
     PAGES_REMOTE_JOB: JOB_ID,
     PAGES_RUNNER_CLI_HOME: "/synthetic/home",
     PAGES_RUNNER_JOB_NAMESPACE: "1",

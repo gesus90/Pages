@@ -6,6 +6,8 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { withCommandTemporaryDirectory } from "./command-temporary-directory.mjs";
+
 /** Port the suite prefers; a busy one is replaced, a process on it stays untouched. */
 const PREFERRED_PORT = 3100;
 
@@ -180,45 +182,98 @@ async function choosePort(environment) {
     : freeLoopbackPort();
 }
 
+async function settleProcessGroup(processId) {
+  if (!processId) return;
+  const began = Date.now();
+  while (Date.now() - began < STOP_GRACE_MILLISECONDS + 2000) {
+    try {
+      process.kill(
+        -processId,
+        Date.now() - began < STOP_GRACE_MILLISECONDS ? "SIGTERM" : "SIGKILL",
+      );
+      process.kill(-processId, 0);
+    } catch (error) {
+      if (error.code === "ESRCH") return;
+      throw Object.assign(error, { retainTemporaryDirectory: true });
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw Object.assign(
+    new Error("Command process group did not stop; scratch retained."),
+    { retainTemporaryDirectory: true },
+  );
+}
+
 /**
  * Runs one step to its end; a time limit or a signal is a failure, never a pass.
  *
  * @returns The exit code of the step, {@link TIMEOUT_EXIT_CODE} after its limit.
  */
 export function runStep(command, args, options) {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
+    if (options.signal?.aborted) {
+      resolve(130);
+      return;
+    }
     const child = spawn(command, args, {
+      detached: true,
       cwd: options.cwd,
       env: options.env,
       stdio: ["ignore", "inherit", "inherit"],
     });
     let hasTimedOut = false;
     let killTimer;
-    const forward = (signal) => child.kill(signal);
+    let interruption = null;
+    const signalGroup = (signal) => {
+      if (!child.pid) return;
+      try {
+        process.kill(-child.pid, signal);
+      } catch (error) {
+        if (error.code !== "ESRCH") throw error;
+      }
+    };
+    const forward = (signal) => {
+      interruption = signal;
+      signalGroup(signal);
+      killTimer ??= setTimeout(
+        () => signalGroup("SIGKILL"),
+        STOP_GRACE_MILLISECONDS,
+      );
+    };
+    const interruptTerm = () => forward("SIGTERM");
+    const interruptInt = () => forward("SIGINT");
+    const abort = () => forward("SIGTERM");
+    options.signal?.addEventListener("abort", abort, { once: true });
     const limit = setTimeout(() => {
       hasTimedOut = true;
-      child.kill("SIGTERM");
+      signalGroup("SIGTERM");
       killTimer = setTimeout(
-        () => child.kill("SIGKILL"),
+        () => signalGroup("SIGKILL"),
         STOP_GRACE_MILLISECONDS,
       );
     }, options.timeoutMilliseconds);
-    process.on("SIGINT", forward);
-    process.on("SIGTERM", forward);
-    const finish = (code) => {
+    process.on("SIGINT", interruptInt);
+    process.on("SIGTERM", interruptTerm);
+    const finish = async (code) => {
       clearTimeout(limit);
       clearTimeout(killTimer);
-      process.off("SIGINT", forward);
-      process.off("SIGTERM", forward);
+      process.off("SIGINT", interruptInt);
+      process.off("SIGTERM", interruptTerm);
+      options.signal?.removeEventListener("abort", abort);
+      await settleProcessGroup(child.pid);
       resolve(code);
     };
-    child.once("error", () => finish(SETUP_EXIT_CODE));
+    let hasSpawnFailed = false;
+    child.once("error", () => {
+      hasSpawnFailed = true;
+    });
     child.once("close", (code, signal) => {
-      if (hasTimedOut) finish(TIMEOUT_EXIT_CODE);
-      else
-        finish(
-          signal === null ? (code ?? 1) : 128 + os.constants.signals[signal],
-        );
+      let result =
+        signal === null ? (code ?? 1) : 128 + os.constants.signals[signal];
+      if (hasSpawnFailed) result = SETUP_EXIT_CODE;
+      else if (hasTimedOut) result = TIMEOUT_EXIT_CODE;
+      else if (interruption) result = 128 + os.constants.signals[interruption];
+      void finish(result).catch(reject);
     });
   });
 }
@@ -237,7 +292,8 @@ async function readBrowserRevision(repositoryRoot) {
   return browser.revision;
 }
 
-async function provideBrowser(repositoryRoot, environment, limit) {
+async function provideBrowser(repositoryRoot, environment, limit, signal) {
+  signal.throwIfAborted();
   const realHome = os.userInfo().homedir;
   const revision = await readBrowserRevision(repositoryRoot);
   const inspected = browserCacheCandidates(environment, realHome).map(
@@ -265,6 +321,7 @@ async function provideBrowser(repositoryRoot, environment, limit) {
       cwd: repositoryRoot,
       env: installEnvironment,
       timeoutMilliseconds: limit,
+      signal,
     },
   );
   const installed = inspectBrowserCache(directory, revision);
@@ -277,7 +334,7 @@ async function provideBrowser(repositoryRoot, environment, limit) {
 }
 
 /** Builds the application and runs the suite with a browser that starts. */
-async function main() {
+async function main({ signal }) {
   const repositoryRoot = path.resolve(
     path.dirname(fileURLToPath(import.meta.url)),
     "..",
@@ -287,7 +344,12 @@ async function main() {
   const results = await createRunDirectory(
     resultsDirectory(process.env, realHome, repositoryRoot, new Date()),
   );
-  const browsers = await provideBrowser(repositoryRoot, process.env, limit);
+  const browsers = await provideBrowser(
+    repositoryRoot,
+    process.env,
+    limit,
+    signal,
+  );
   const port = await choosePort(process.env);
   const environment = {
     ...process.env,
@@ -304,6 +366,7 @@ async function main() {
     cwd: repositoryRoot,
     env: environment,
     timeoutMilliseconds: limit,
+    signal,
   };
   // The static app and the API are built in two passes (PAGE-235).
   const built = await runStep(
@@ -335,11 +398,11 @@ if (
   path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
 ) {
   try {
-    process.exitCode = await main();
+    process.exitCode = await withCommandTemporaryDirectory(main);
   } catch (error) {
     console.error(
       `[browser] Setup failed: ${error instanceof Error ? error.message : String(error)}`,
     );
-    process.exitCode = SETUP_EXIT_CODE;
+    process.exitCode = process.exitCode || SETUP_EXIT_CODE;
   }
 }

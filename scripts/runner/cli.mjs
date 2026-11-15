@@ -22,6 +22,14 @@ export function cliEnvironment() {
     throw new Error("Invalid remote CLI home");
   return {
     HOME: home,
+    ...(process.env.PAGES_RUNNER_JOB_NAMESPACE === "1"
+      ? {
+          TMPDIR: "/tmp",
+          TEMP: "/tmp",
+          TMP: "/tmp",
+          NODE_COMPILE_CACHE: "/tmp/node-compile-cache",
+        }
+      : {}),
     PATH:
       process.env.PAGES_RUNNER_CLI_PATH ?? process.env.PATH ?? "/usr/bin:/bin",
     CODEX_HOME: join(home, ".codex"),

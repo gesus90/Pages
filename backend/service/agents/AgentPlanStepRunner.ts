@@ -13,6 +13,7 @@ import { planStepProgress } from "./AgentPlanTurnControl";
 import { planPauseGate } from "./AgentPlanPauseGate";
 import { runPausablePlanRequest } from "./AgentPlanPausedRequest";
 import { withGroupIterationInputs } from "./AgentPlanGroupParameters";
+import { cleanupFinishedStepTemporaryDirectory } from "./AgentPlanTemporaryCleanup";
 import {
   finishStartedPlanSession,
   planSessionCloseoutFailure,
@@ -168,6 +169,7 @@ export class AgentPlanStepRunner {
       return this.failure(node, error);
     } finally {
       slot?.release();
+      await cleanupFinishedStepTemporaryDirectory(node, control.signal.reason);
     }
   }
 

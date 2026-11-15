@@ -22,7 +22,6 @@ import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 
 import {
   verifyFullEnvironmentStart,
-  fullEnvironmentRequest,
 } from "./CliFullEnvironment";
 import {
   describeOpenCodeAgent,
@@ -36,6 +35,7 @@ import {
   cleanupSessionAssets,
 } from "./CliAssetWorkspace";
 import { CliIsolationGate } from "./CliIsolationGate";
+import { attachPlanWorkerTemporaryDirectory } from "./CliFullEnvironmentTemporaryDirectory";
 import { CliPlanIsolation } from "./CliPlanIsolation";
 import { ACP_WORKER_LIMITS } from "./CliWorkerUnit";
 import { cleanupFailedAcpStart } from "./CliAcpStartCleanup";
@@ -368,7 +368,8 @@ export class CliSessionExecution implements PlanSessionRunner {
    * runs the runner without an approval step, so only the namespace keeps it
    * inside its workspace and away from the instance folders and other
    * credentials; without the namespace YOLO does not start. An explicitly
-   * authorized full-environment node instead uses the owner’s host environment.
+   * authorized full-environment node keeps owner access with only a private
+   * temporary mount and a PID namespace for process cleanup.
    */
   private async spawnAcp(
     driver: AcpDriver,
@@ -522,11 +523,13 @@ export class CliSessionExecution implements PlanSessionRunner {
     readonly isIsolated: boolean;
   }> {
     const mode = input.options.access;
-    if (owner && mode === "full_environment")
-      return {
-        request: fullEnvironmentRequest(worker, owner),
-        isIsolated: false,
-      };
+    const attached = await attachPlanWorkerTemporaryDirectory(
+      worker,
+      input,
+      owner,
+    );
+    if (attached.fullEnvironment) return attached.fullEnvironment;
+    worker = attached.worker;
     if (input.chat?.isUnisolated === true && mode === "yolo")
       return { request: worker, isIsolated: false };
     const isolated = await this.gate.isolateSession(worker, scoped);

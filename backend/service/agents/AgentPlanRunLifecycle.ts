@@ -4,6 +4,7 @@ import {
   logCaughtError,
   logEvent,
 } from "@/backend/logging/Logger";
+import { cleanupEndedPlanTemporaryDirectory } from "./AgentPlanTemporaryCleanup";
 import { planWritingWorkspaces } from "./AgentPlanContinuation";
 import { withGroupResults } from "./AgentPlanGroupResults";
 import { requireWriterRepository } from "./AgentPlanEngineDependencies";
@@ -127,6 +128,9 @@ export async function finalizeScheduledPlanRun(
       .catch((error: unknown) =>
         logCaughtError("AgentPlanRunLifecycle", error),
       );
+  await cleanupEndedPlanTemporaryDirectory(active.view).catch(
+    (error: unknown) => logCaughtError("AgentPlanRunLifecycle", error),
+  );
   withLogContext({ ...active.logContext, runId: active.view.id }, () =>
     logEvent({
       level: "info",

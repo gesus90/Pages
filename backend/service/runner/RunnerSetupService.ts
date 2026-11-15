@@ -27,6 +27,7 @@ import runnerJobs from "@/scripts/runner/jobs.mjs?raw";
 import runnerAdmission from "@/scripts/runner/admission.mjs?raw";
 import runnerInterpreters from "@/scripts/runner/interpreters.mjs?raw";
 import runnerRevocation from "@/scripts/runner/revocation.mjs?raw";
+import runnerTemporary from "@/scripts/runner/temporary.mjs?raw";
 import runnerProcesses from "@/scripts/runner/processes.mjs?raw";
 
 import type { RemoteConnectionService } from "@/backend/service/remote/RemoteConnectionService";
@@ -54,6 +55,7 @@ const setupScript = setupTemplate
   .replace("__PAGES_RUNNER_JOBS__", () => runnerJobs)
   .replace("__PAGES_RUNNER_ADMISSION__", () => runnerAdmission)
   .replace("__PAGES_RUNNER_INTERPRETERS__", () => runnerInterpreters)
+  .replace("__PAGES_RUNNER_TEMPORARY__", () => runnerTemporary)
   .replace("__PAGES_RUNNER_PROCESSES__", () => runnerProcesses)
   .replace("__PAGES_RUNNER_REVOCATION__", () => runnerRevocation)
   .replace("__PAGES_RUNNER_GITHUB__", () => runnerGitHub);

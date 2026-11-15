@@ -2,6 +2,7 @@ import { planPauseGate } from "./AgentPlanPauseGate";
 
 import { randomUUID } from "node:crypto";
 
+import { removePlanTemporaryStep } from "@/backend/agents/PlanRunTemporaryDirectory";
 import { AgentPlanPausedError } from "@/backend/error/AgentPlanPausedError";
 import { AgentError } from "@/backend/error/AgentErrors";
 
@@ -79,9 +80,14 @@ export class AgentPlanScriptRunner {
         run.steps.find((step) => step.id === script.step.id)?.script ??
         initialRecord(run, script);
       await control.save(record);
+      const scope = record.temporaryScope;
       const resources = record.processId
-        ? scriptRuntimeDirectory(record.instanceId)
-        : await createScriptResources(record.instanceId, script.step.content);
+        ? scriptRuntimeDirectory(record.instanceId, scope)
+        : await createScriptResources(
+            record.instanceId,
+            script.step.content,
+            scope,
+          );
       await this.preparation.reauthorize(run.userId, snapshot.plan, script);
       record = await executeOwnedScript({
         runId: run.id,
@@ -96,8 +102,14 @@ export class AgentPlanScriptRunner {
         save: control.save,
       });
       await planPauseGate(run.id).wait(control.signal);
-      if (record.closeout === "confirmed")
-        await removeScriptResources(record.instanceId);
+      if (record.closeout === "confirmed") {
+        await removeScriptResources(record.instanceId, record.temporaryScope);
+        if (!(control.signal.reason instanceof AgentPlanPausedError))
+          await removePlanTemporaryStep({
+            runId: run.id,
+            stepId: script.step.id,
+          });
+      }
       return completedResult(record, script);
     } catch (error: unknown) {
       record = await closeUnstartedRecord(record);
@@ -111,6 +123,7 @@ function initialRecord(
   script: AgentPlanScriptSnapshot,
 ): AgentPlanScriptRun {
   return {
+    temporaryScope: { runId: run.id, stepId: script.step.id },
     attemptId:
       run.steps.find((step) => step.id === script.step.id)?.execution
         ?.attemptId ?? randomUUID(),
@@ -163,7 +176,9 @@ async function closeUnstartedRecord(
 ): Promise<AgentPlanScriptRun | undefined> {
   if (!record || record.closeout === "failed") return record;
   try {
-    await removeScriptResources(record.instanceId);
+    if (record.temporaryScope)
+      await removeScriptResources(record.instanceId, record.temporaryScope);
+    else await removeScriptResources(record.instanceId);
     return {
       ...record,
       closeout: "confirmed",

@@ -8,6 +8,7 @@ import { AgentError } from "@/backend/error/AgentErrors";
 import { containsWorkspacePath } from "@/backend/service/agents/AgentWorkspacePath";
 import { logCaughtError } from "@/backend/logging/Logger";
 
+import { planTemporaryEnvironment } from "../PlanRunTemporaryDirectory";
 import { sshConfigOverlayArguments } from "./CliSshConfigOverlay";
 
 import type { CliSessionRequest } from "./CliContracts";
@@ -52,6 +53,16 @@ export async function probeBubblewrap(
 
     return false;
   }
+}
+
+interface IsolationMounts {
+  readonly homeRoot: string;
+  readonly workingDirectory: string;
+  readonly readOnly: readonly string[];
+  readonly readOnlyFiles: readonly string[];
+  readonly privateHomes: readonly string[];
+  readonly hidden: readonly string[];
+  readonly sshConfigOverlay: readonly string[];
 }
 
 /**
@@ -137,69 +148,100 @@ export class CliPlanIsolation {
     const hidden = resolved.filter((entry): entry is string => entry !== null);
     if (hidden.some((entry) => containsWorkspacePath(entry, workingDirectory)))
       throw new AgentError("workspace_path_outside_roots");
-    // The namespace puts a tmpfs over exactly `/tmp`, so the immutable copies stay out of reach of the run that mounts them.
+    // Keep immutable copies outside the writable /tmp mount, hidden with the instance folders.
     const sshConfigOverlay = await sshConfigOverlayArguments(
-      path.join("/tmp", `pages-ssh-config-${process.getuid?.() ?? 0}`),
+      request.temporaryDirectory
+        ? path.join(path.dirname(request.temporaryDirectory), "ssh_config.d")
+        : path.join("/tmp", `pages-ssh-config-${process.getuid?.() ?? 0}`),
     );
     return {
       ...request,
+      environment: {
+        ...request.environment,
+        ...(request.temporaryDirectory ? planTemporaryEnvironment() : {}),
+      },
       file: BUBBLEWRAP,
       toolFile: request.file,
-      arguments: [
-        "--die-with-parent",
-        "--unshare-pid",
-        "--new-session",
-        "--ro-bind",
-        "/",
-        "/",
-        "--proc",
-        "/proc",
-        "--dev",
-        "/dev",
-        "--tmpfs",
-        "/tmp",
-        ...sshConfigOverlay,
-        ...privateHomes.flatMap((entry) => ["--tmpfs", entry]),
-        request.isWorkingDirectoryReadOnly === true ? "--ro-bind" : "--bind",
-        workingDirectory,
-        workingDirectory,
-        ...[...new Set(hidden)]
-          .sort((first, second) => first.length - second.length)
-          .flatMap((entry) => ["--tmpfs", entry]),
-        ...readOnly.flatMap((entry) => ["--ro-bind", entry, entry]),
-        ...readOnlyFiles.flatMap((entry) => ["--ro-bind", entry, entry]),
-        "--bind",
+      arguments: this.mountArguments(request, {
         homeRoot,
-        homeRoot,
-        ...(request.home.sharedEnvironment
-          ? [
-              "--bind",
-              request.home.sharedEnvironment,
-              request.home.sharedEnvironment,
-            ]
-          : []),
-        // A refreshed login must reach the connection: the CLI rotates its token and writes the file in place.
-        ...(request.credentialFile
-          ? [
-              "--bind",
-              request.credentialFile.source,
-              request.credentialFile.target,
-            ]
-          : []),
-        ...(request.credentialDirectory
-          ? [
-              "--ro-bind",
-              request.credentialDirectory,
-              request.credentialDirectory,
-            ]
-          : []),
-        "--chdir",
         workingDirectory,
-        "--",
-        request.file,
-        ...request.arguments,
-      ],
+        readOnly,
+        readOnlyFiles,
+        privateHomes,
+        hidden,
+        sshConfigOverlay,
+      }),
     };
+  }
+
+  private mountArguments(
+    request: CliSessionRequest,
+    mounts: IsolationMounts,
+  ): readonly string[] {
+    const {
+      homeRoot,
+      workingDirectory,
+      readOnly,
+      readOnlyFiles,
+      privateHomes,
+      hidden,
+      sshConfigOverlay,
+    } = mounts;
+    return [
+      "--die-with-parent",
+      "--unshare-pid",
+      "--new-session",
+      "--ro-bind",
+      "/",
+      "/",
+      "--proc",
+      "/proc",
+      "--dev",
+      "/dev",
+      ...(request.temporaryDirectory
+        ? ["--bind", request.temporaryDirectory, "/tmp"]
+        : ["--tmpfs", "/tmp"]),
+      ...sshConfigOverlay,
+      ...privateHomes.flatMap((entry) => ["--tmpfs", entry]),
+      request.isWorkingDirectoryReadOnly === true ? "--ro-bind" : "--bind",
+      workingDirectory,
+      workingDirectory,
+      ...[...new Set(hidden)]
+        .sort((first, second) => first.length - second.length)
+        .flatMap((entry) => ["--tmpfs", entry]),
+      ...readOnly.flatMap((entry) => ["--ro-bind", entry, entry]),
+      ...readOnlyFiles.flatMap((entry) => ["--ro-bind", entry, entry]),
+      "--bind",
+      homeRoot,
+      homeRoot,
+      ...(request.home.sharedEnvironment
+        ? [
+            "--bind",
+            request.home.sharedEnvironment,
+            request.home.sharedEnvironment,
+          ]
+        : []),
+      // A refreshed login must reach the connection: the CLI rotates its token and writes the file in place.
+      ...(request.credentialFile
+        ? [
+            "--bind",
+            request.credentialFile.source,
+            request.credentialFile.target,
+          ]
+        : []),
+      ...(request.credentialDirectory
+        ? [
+            "--ro-bind",
+            request.credentialDirectory,
+            request.credentialDirectory,
+          ]
+        : []),
+      "--chdir",
+      workingDirectory,
+      "--",
+      request.file,
+      ...request.arguments,
+    ];
   }
 
   private async existingDirectories(

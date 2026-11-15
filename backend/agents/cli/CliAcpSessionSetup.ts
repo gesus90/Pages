@@ -112,7 +112,7 @@ export function openCliAcpSession(
     }),
     observer: control.observer,
     signal: control.signal,
-    isolation: `${start.owner ? "full environment: no isolation, full host owner access" : isolationLabel(isIsolated, mode, driver)}; ${limited.label}`,
+    isolation: `${start.owner ? "full environment: full host owner access, private disk /tmp" : isolationLabel(isIsolated, mode, driver)}; ${limited.label}`,
     containment,
     github: github?.status,
     redact,

@@ -1,17 +1,21 @@
 import { beforeEach, expect, it, vi } from "vitest";
 
 import { CliProcessRunner } from "@/backend/agents/cli/CliProcessRunner";
-import { CliSessionExecution } from "@/backend/agents/cli/CliSessionExecution";
+import {
+  CliSessionExecution,
+  type CliIsolationOptions,
+} from "@/backend/agents/cli/CliSessionExecution";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
 import {
   DEFAULT_AGENT_RUN_OPTIONS,
   acpRunOptions,
+  type AgentRunOptions,
 } from "@/definition/AgentConfiguration";
 
 import { resourceWorld } from "../../service/agents/page81-resource-fixture";
 
-import { fakeCliSpawn } from "./fake-cli-spawn";
+import { fakeCliSpawn, type FakeCliSpawn } from "./fake-cli-spawn";
 
 import type { AcpResourceScheduler } from "@/backend/service/agents/AcpResourceScheduler";
 import type { Mock } from "vitest";
@@ -19,20 +23,25 @@ import type {
   AgentPlanSessionInput,
   PlanSessionObserver,
 } from "@/backend/agents/AgentPlanExecution";
-import type { CliIsolationOptions } from "@/backend/agents/cli/CliSessionExecution";
 import type {
   CliHome,
   CliToolAdapter,
 } from "@/backend/agents/cli/CliContracts";
-import type { AgentRunOptions } from "@/definition/AgentConfiguration";
 import type { CliProviderId } from "@/definition/AgentConnection";
 import type { FakeAdapterOptions } from "../acp/fake-acp-adapter";
-import type { FakeCliSpawn } from "./fake-cli-spawn";
 
 import type * as OwnedNamespaceModule from "@/backend/agents/cli/CliOwnedNamespace";
+import type * as PlanRunTemporaryDirectory from "@/backend/agents/PlanRunTemporaryDirectory";
 import type * as WorkerUnitModule from "@/backend/agents/cli/CliWorkerUnit";
 
 const files = vi.hoisted(() => ({ existing: new Set<string>() }));
+vi.mock(
+  "@/backend/agents/PlanRunTemporaryDirectory",
+  async (importOriginal) => ({
+    ...(await importOriginal<typeof PlanRunTemporaryDirectory>()),
+    preparePlanTemporaryDirectory: async () => "/synthetic/run-tmp/step/tmp",
+  }),
+);
 // This fixture spawns an in-memory adapter, so its synthetic PID has no /proc entry.
 vi.mock("@/backend/agents/cli/CliOwnedNamespace", async (importOriginal) => ({
   ...(await importOriginal<typeof OwnedNamespaceModule>()),
@@ -437,12 +446,9 @@ it.each([
   "refuses $provider with $scenario before any process starts",
   async ({ provider, setup, options, code }) => {
     const { execution, fake, secure } = harness({ ...setup, provider });
+    const signal = new AbortController().signal;
     await expect(
-      execution.open(
-        input(provider, options),
-        new AbortController().signal,
-        observer(),
-      ),
+      execution.open(input(provider, options), signal, observer()),
     ).rejects.toEqual(new AgentError(code));
     expect(fake.spawned).toEqual([]);
     // A refusal after the credential folder was prepared restores its modes.
@@ -458,12 +464,9 @@ it.each([`${HOME.config}/config.toml`, `${WORKSPACE}/.codex/config.toml`])(
     files.existing.add(file);
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const { execution, fake } = harness();
+    const signal = new AbortController().signal;
     await expect(
-      execution.open(
-        input("codex_cli", READ_ONLY),
-        new AbortController().signal,
-        observer(),
-      ),
+      execution.open(input("codex_cli", READ_ONLY), signal, observer()),
     ).rejects.toEqual(new AgentError("plan_codex_configuration_unmanaged"));
     expect(fake.spawned).toEqual([]);
     expect(warn).toHaveBeenCalledWith(expect.stringContaining(file));
@@ -478,9 +481,10 @@ it("globally queues Codex and Claude adapters before any native spawn and rechec
     resources: world.scheduler,
     provider: "claude_code",
   });
+  const signal = new AbortController().signal;
   const first = await codex.execution.open(
     input("codex_cli", READ_ONLY),
-    new AbortController().signal,
+    signal,
     observer(),
   );
   await first.turn;
@@ -491,7 +495,7 @@ it("globally queues Codex and Claude adapters before any native spawn and rechec
       instanceId: "claude-queued",
       beforeStart,
     },
-    new AbortController().signal,
+    signal,
     observer(),
   );
   expect(claude.fake.spawned).toHaveLength(0);
@@ -510,20 +514,23 @@ it("globally queues Codex and Claude adapters before any native spawn and rechec
   await world.scheduler.shutdown();
 });
 
+const failingObserver: PlanSessionObserver = {
+  started: () => {
+    throw new Error("observer failed");
+  },
+  identified: () => {},
+};
+
 it("cleans a partially started native adapter when observer startup fails without losing its slot", async () => {
   const world = resourceWorld();
   await world.scheduler.recover();
   const runtime = harness({ resources: world.scheduler });
+  const signal = new AbortController().signal;
   await expect(
     runtime.execution.open(
       input("codex_cli", READ_ONLY),
-      new AbortController().signal,
-      {
-        started: () => {
-          throw new Error("observer failed");
-        },
-        identified: () => {},
-      },
+      signal,
+      failingObserver,
     ),
   ).rejects.toThrow("observer failed");
   expect(scan.endTaggedProcesses).toHaveBeenCalled();
@@ -538,16 +545,12 @@ it("keeps a partial-start lease when process cleanup is unconfirmed even if cred
   const runtime = harness({ resources: world.scheduler });
   scan.endTaggedProcesses.mockResolvedValueOnce({ found: 1, remaining: 1 });
   runtime.secure.mockRejectedValue(new Error("secure failed"));
+  const signal = new AbortController().signal;
   await expect(
     runtime.execution.open(
       input("codex_cli", READ_ONLY),
-      new AbortController().signal,
-      {
-        started: () => {
-          throw new Error("observer failed");
-        },
-        identified: () => {},
-      },
+      signal,
+      failingObserver,
     ),
   ).rejects.toMatchObject({ code: "plan_closeout_failed" });
   expect(world.cleanup).not.toHaveBeenCalled();
@@ -577,7 +580,6 @@ it("frames an unisolated YOLO chat by its worker unit: identity and unit before 
   scan.endTaggedProcesses.mockRejectedValue(
     new Error("Process ownership is unverified for legacy session"),
   );
-
   const session = await execution.open(
     {
       ...input("claude_code", YOLO),
@@ -591,7 +593,6 @@ it("frames an unisolated YOLO chat by its worker unit: identity and unit before 
     new AbortController().signal,
     watcher,
   );
-
   expect(fake.spawned[0]?.file).not.toBe("/usr/bin/bwrap");
   expect(world.records.get("instance-synthetic")).toMatchObject({
     lifecycle: "process",
@@ -603,7 +604,6 @@ it("frames an unisolated YOLO chat by its worker unit: identity and unit before 
   });
   await session.turn;
   const closed = await session.close();
-
   expect(closed.isConfirmed).toBe(true);
   expect(settle).toHaveBeenCalled();
   expect(workerUnits.settleWorkerUnits).toHaveBeenCalledWith(
