@@ -65,6 +65,26 @@ interface AudioPlayerProps {
   readonly className?: string;
 }
 
+function AudioDownloadLink({
+  attachment,
+  label,
+}: {
+  readonly attachment: ConversationAttachment;
+  readonly label: string;
+}): React.ReactElement {
+  return (
+    <a
+      className="flex size-8 items-center justify-center rounded-md bg-primary text-primary-foreground hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+      download=""
+      href={downloadUrl(attachment)}
+      title={label}
+    >
+      <Download aria-hidden="true" className="size-4" />
+      <span className="sr-only">{label}</span>
+    </a>
+  );
+}
+
 /**
  * A sound of the chat as one row (PAGE-298, PAGE-384): the round
  * Start/Pause in the accent color, name and infos in a fixed width, the
@@ -162,15 +182,10 @@ export function AudioPlayer({
       >
         {speed}
       </button>
-      <a
-        className="flex size-8 items-center justify-center rounded-md bg-primary text-primary-foreground hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-        download=""
-        href={downloadUrl(attachment)}
-        title={t("chatPage.cards.download")}
-      >
-        <Download aria-hidden="true" className="size-4" />
-        <span className="sr-only">{t("chatPage.cards.download")}</span>
-      </a>
+      <AudioDownloadLink
+        attachment={attachment}
+        label={t("chatPage.cards.download")}
+      />
       <audio
         ref={player.media}
         className="hidden"

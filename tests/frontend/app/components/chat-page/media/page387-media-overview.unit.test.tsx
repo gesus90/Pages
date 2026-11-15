@@ -344,7 +344,9 @@ describe("the panel Medien & Dateien (PAGE-387)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Hide expired" }));
     expect(document.querySelector('[data-media-row="gone"]')).toBeNull();
   });
+});
 
+describe("the panel Medien & Dateien selection and detail view (PAGE-387)", () => {
   it("downloads marked files of several tabs as one ZIP", async () => {
     renderPanel();
     await waitFor(() =>

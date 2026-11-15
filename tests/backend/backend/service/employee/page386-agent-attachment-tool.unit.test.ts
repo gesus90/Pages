@@ -118,7 +118,9 @@ describe("PAGE-386 anhaenge_suchen and anhang_lesen", () => {
     ).toBe("png-bytes");
     expect(outcome).not.toHaveProperty("images");
   });
+});
 
+describe("PAGE-386 attachment tool validation and access control", () => {
   it("passes the parts a reading asks for", async () => {
     const attachments = library();
     attachments.read.mockResolvedValueOnce({ result: {}, images: [] });
@@ -202,7 +204,9 @@ describe("PAGE-386 anhaenge_suchen and anhang_lesen", () => {
       error: "ATTACHMENT_READ_FAILED",
     });
   });
+});
 
+describe("PAGE-386 attachment tool registration", () => {
   it("binds the tools to the conversation of the round and to what its model sees", async () => {
     const attachments = library();
     expect(

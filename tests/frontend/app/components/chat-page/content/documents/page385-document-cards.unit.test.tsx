@@ -293,7 +293,9 @@ describe("Word, PowerPoint and tables in the chat (PAGE-385)", () => {
       "https://tracker.example/pixel.png",
     );
   });
+});
 
+describe("PowerPoint and tables in the chat (PAGE-385)", () => {
   it("turns the slides of a .pptx in the card and with the arrow keys in the full screen", async () => {
     const { container } = render(
       <Chat attachments={[file("deck", "Pitch.pptx")]} />,

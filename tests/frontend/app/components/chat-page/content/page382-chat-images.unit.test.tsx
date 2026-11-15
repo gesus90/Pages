@@ -243,30 +243,30 @@ describe("images of a message in the chat (PAGE-382)", () => {
   });
 });
 
+const viewerOlder = image("older");
+const viewerFirst = image("first", {
+  expiresAt: new Date(Date.now() + 30 * HOUR).toISOString(),
+});
+const viewerSecond = image("second");
+const viewerGone = image("gone", { expiredAt: "2026-11-14T11:00:00.000Z" });
+
+function stubImages(
+  images: readonly ConversationImage[],
+): ReturnType<typeof vi.fn> {
+  const fetchMock = vi.fn().mockResolvedValue(Response.json({ images }));
+  vi.stubGlobal("fetch", fetchMock);
+  return fetchMock;
+}
+
 describe("the image viewer of the chat (PAGE-382)", () => {
-  const older = image("older");
-  const first = image("first", {
-    expiresAt: new Date(Date.now() + 30 * HOUR).toISOString(),
-  });
-  const second = image("second");
-  const gone = image("gone", { expiredAt: "2026-11-14T11:00:00.000Z" });
-
-  function stubImages(
-    images: readonly ConversationImage[],
-  ): ReturnType<typeof vi.fn> {
-    const fetchMock = vi.fn().mockResolvedValue(Response.json({ images }));
-    vi.stubGlobal("fetch", fetchMock);
-    return fetchMock;
-  }
-
   it("opens at the clicked image and pages with the arrow keys through all images of the chat", async () => {
     const fetchMock = stubImages([
-      chatImage(older, "msg-1", "Igor"),
-      chatImage(first, "msg-2", "Ed"),
-      chatImage(second, "msg-2", "Ed"),
-      chatImage(gone, "msg-3", "Mei"),
+      chatImage(viewerOlder, "msg-1", "Igor"),
+      chatImage(viewerFirst, "msg-2", "Ed"),
+      chatImage(viewerSecond, "msg-2", "Ed"),
+      chatImage(viewerGone, "msg-3", "Mei"),
     ]);
-    render(<Chat attachments={[first, second]} />);
+    render(<Chat attachments={[viewerFirst, viewerSecond]} />);
     fireEvent.click(
       screen.getAllByRole("button", { name: /^Vollbild: first.png/u })[0],
     );
@@ -306,6 +306,11 @@ describe("the image viewer of the chat (PAGE-382)", () => {
       within(within(dialog).getByRole("navigation")).getAllByRole("button"),
     ).toHaveLength(4);
   });
+});
+
+describe("the image viewer navigation and fallback (PAGE-382)", () => {
+  const first = viewerFirst;
+  const second = viewerSecond;
 
   it("closes with Escape and hands the focus back to the message", async () => {
     stubImages([

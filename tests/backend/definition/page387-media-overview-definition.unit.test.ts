@@ -140,7 +140,9 @@ describe("tabs, search and filters of Medien & Dateien (PAGE-387)", () => {
       filterMediaLinks(LINKS, { ...OPEN_MEDIA_FILTER, senderId: "ed" }),
     ).toHaveLength(1);
   });
+});
 
+describe("expiration, counts and archive URLs of Medien & Dateien (PAGE-387)", () => {
   it("shows under 'läuft bald ab' only files of agents with less than 24 hours left, and no link", () => {
     const expiring = FILES[1];
     if (!expiring) throw new Error("Missing fixture entry");

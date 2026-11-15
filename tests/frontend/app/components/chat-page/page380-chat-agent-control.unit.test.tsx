@@ -210,7 +210,9 @@ describe("the menu of an agent in a chat (PAGE-380)", () => {
     await waitFor(() => expect(calls).toHaveLength(2));
     expect(calls[1]?.fields.intent).toBe("compact");
   });
+});
 
+describe("switching an agent model from the chat menu (PAGE-380)", () => {
   it("chooses model and level in the dialog and switches", async () => {
     const calls = stubControl((call) =>
       call.fields.intent === "models" || call.fields.intent === "set-model"
@@ -338,7 +340,9 @@ describe("removing members and dissolving groups (PAGE-380)", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Entfernen" }));
     await waitFor(() => expect(calls[0]?.fields.memberId).toBe("anna"));
   });
+});
 
+describe("dissolving groups from the chat menu (PAGE-380)", () => {
   it("asks before the owner dissolves the group, naming the sessions, the history and what stays", async () => {
     const calls = stubControl(() => ({ ok: true }));
     renderHeader({
@@ -507,7 +511,9 @@ describe("system lines and chat commands (PAGE-380)", () => {
     );
     expect(person.result.current.runIfCommand("/new")).toBe(false);
   });
+});
 
+describe("chat command outcome UI (PAGE-380)", () => {
   it("asks which agent a group command means and runs the completed command", () => {
     const run = vi.fn();
     const runner: ChatCommandRunner = {

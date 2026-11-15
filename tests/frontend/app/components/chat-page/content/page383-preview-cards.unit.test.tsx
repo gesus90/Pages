@@ -280,24 +280,24 @@ describe("writing back from a preview (PAGE-383)", () => {
   });
 });
 
-describe("Mermaid, JSON and CSV previews (PAGE-383)", () => {
-  function single(
-    kind: "mermaid" | "json" | "csv" | "tsv",
-    source: string,
-    languageHint: string = kind,
-  ): React.ReactElement {
-    return wrap(
-      <PreviewCard
-        cardKey={kind}
-        files={[{ name: `data.${kind}`, languageHint, source }]}
-        isDetected={false}
-        kind={kind}
-        name=""
-        origin={origin}
-      />,
-    );
-  }
+function single(
+  kind: "mermaid" | "json" | "csv" | "tsv",
+  source: string,
+  languageHint: string = kind,
+): React.ReactElement {
+  return wrap(
+    <PreviewCard
+      cardKey={kind}
+      files={[{ name: `data.${kind}`, languageHint, source }]}
+      isDetected={false}
+      kind={kind}
+      name=""
+      origin={origin}
+    />,
+  );
+}
 
+describe("Mermaid and JSON previews (PAGE-383)", () => {
   it("draws a Mermaid diagram with zoom", async () => {
     mermaid.render.mockResolvedValue({
       isValid: true,
@@ -346,7 +346,9 @@ describe("Mermaid, JSON and CSV previews (PAGE-383)", () => {
     );
     expect(actions.copy).toHaveBeenCalledWith("Ada");
   });
+});
 
+describe("invalid JSON, CSV and TSV previews (PAGE-383)", () => {
   it("keeps invalid JSON as code with the place of the error", () => {
     render(single("json", '{\n  "a": 1,\n  "b": }'));
     expect(screen.queryByRole("tree")).toBeNull();

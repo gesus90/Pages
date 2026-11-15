@@ -177,7 +177,9 @@ describe("Word and OpenDocument text as a readable view (PAGE-385)", () => {
       /AutoOpen|calc|ignored/u,
     );
   });
+});
 
+describe("OpenDocument text and invalid document errors (PAGE-385)", () => {
   it("reads an .odt with heading, emphasis, ordered list, table, image and page count", async () => {
     const document = await read<WordDocument>(odtFixture(), "odt");
     expect(document.title).toBe("Sitzung");

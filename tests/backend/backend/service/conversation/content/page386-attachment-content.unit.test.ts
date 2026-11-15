@@ -177,7 +177,9 @@ describe("PAGE-386 documents by page and slide", () => {
       ],
     });
   });
+});
 
+describe("PAGE-386 OpenDocument pages, slides and redaction", () => {
   it("reads OpenDocument text with its page breaks and presentations by slide", async () => {
     const { content } = reader();
     const odt = buildZip([

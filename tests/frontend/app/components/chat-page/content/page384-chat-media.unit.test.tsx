@@ -261,7 +261,9 @@ describe("the video card (PAGE-384)", () => {
       screen.getAllByRole("button", { name: "Rechts geöffnet" }).length,
     ).toBeGreaterThan(0);
   });
+});
 
+describe("the video card fullscreen viewer (PAGE-384)", () => {
   it("pages through the videos of the chat in full screen with the keys and hides the controls", async () => {
     const { container } = render(<Chat attachments={[video("v1")]} />);
     fireEvent.click(screen.getAllByRole("button", { name: "Vollbild" })[0]);

@@ -150,7 +150,9 @@ describe("the chat commands (PAGE-380)", () => {
       efforts: ["low", "medium", "high"],
     });
   });
+});
 
+describe("the chat session commands and permissions (PAGE-380)", () => {
   it("asks which agent a group command without `@Agent` means, instead of steering all", async () => {
     const outcome = await service().run(igor, GROUP, "/new");
     expect(outcome).toEqual({

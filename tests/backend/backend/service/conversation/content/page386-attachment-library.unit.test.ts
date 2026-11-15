@@ -318,7 +318,9 @@ describe("PAGE-386 reading from the history", () => {
     expect(String(read.result.hinweis)).toContain("abgelaufen");
     expect(content.read).not.toHaveBeenCalled();
   });
+});
 
+describe("PAGE-386 deleted files, voice messages and access loss", () => {
   it("reports a file deleted with its message, or of another chat, as deleted", async () => {
     const { service, content } = fixture([]);
     const read = await service.read(

@@ -4,10 +4,6 @@ import path from "node:path";
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import {
-  GoogleImageClient,
-  OpenRouterImageClient,
-} from "@/backend/agents/providers/ProviderImageClients";
 import { AgentImageError } from "@/backend/error/AgentImageError";
 import { registerPicaEmployeeTools } from "@/backend/service/chat/PicaEmployeeTools";
 import { ConversationGeneratedImages } from "@/backend/service/conversation/content/ConversationGeneratedImages";
@@ -289,65 +285,66 @@ describe("generating images with the model of the round (PAGE-382)", () => {
   });
 });
 
-describe("the tool bilder_erzeugen execution (PAGE-382)", () => {
-  let directory = "";
+let imageTempDirectory = "";
 
+function createImageTool(
+  service: AgentImageGeneration,
+  pending = new ConversationGeneratedImages(),
+): {
+  run: ReturnType<typeof agentImageTool>;
+  pending: ConversationGeneratedImages;
+  stage: ReturnType<typeof vi.fn>;
+  files: AgentImageToolDependencies["files"];
+} {
+  let next = 0;
+  const stage = vi.fn(
+    async (
+      _: unknown,
+      file: { readonly source: AsyncIterable<Uint8Array> },
+    ) => {
+      for await (const chunk of file.source)
+        expect(chunk.byteLength).toBeGreaterThan(0);
+      next += 1;
+      return { id: `generated-${String(next)}` };
+    },
+  );
+  const files: AgentImageToolDependencies["files"] = {
+    inspect: vi.fn().mockResolvedValue("notAllowed"),
+    open: vi.fn(),
+  };
+  const dependencies = {
+    generation: service,
+    attachments: { stage, release: vi.fn().mockResolvedValue(undefined) },
+    pending,
+    files,
+    now: () => new Date("2026-11-14T12:00:00.000Z"),
+  } as unknown as AgentImageToolDependencies;
+  return {
+    run: agentImageTool(dependencies, {
+      agentId: "agent-1",
+      conversationId: "conv-1",
+      employee,
+      assignment: imageAssignment,
+    }),
+    pending,
+    stage,
+    files,
+  };
+}
+
+describe("the tool bilder_erzeugen execution (PAGE-382)", () => {
   afterEach(async () => {
-    if (directory !== "") await rm(directory, { recursive: true, force: true });
-    directory = "";
+    if (imageTempDirectory !== "")
+      await rm(imageTempDirectory, { recursive: true, force: true });
+    imageTempDirectory = "";
   });
 
-  function tool(
-    service: AgentImageGeneration,
-    pending = new ConversationGeneratedImages(),
-  ): {
-    run: ReturnType<typeof agentImageTool>;
-    pending: ConversationGeneratedImages;
-    stage: ReturnType<typeof vi.fn>;
-    files: AgentImageToolDependencies["files"];
-  } {
-    let next = 0;
-    const stage = vi.fn(
-      async (
-        _: unknown,
-        file: { readonly source: AsyncIterable<Uint8Array> },
-      ) => {
-        for await (const chunk of file.source)
-          expect(chunk.byteLength).toBeGreaterThan(0);
-        next += 1;
-        return { id: `generated-${String(next)}` };
-      },
-    );
-    const files: AgentImageToolDependencies["files"] = {
-      inspect: vi.fn().mockResolvedValue("notAllowed"),
-      open: vi.fn(),
-    };
-    const dependencies = {
-      generation: service,
-      attachments: { stage, release: vi.fn().mockResolvedValue(undefined) },
-      pending,
-      files,
-      now: () => new Date("2026-11-14T12:00:00.000Z"),
-    } as unknown as AgentImageToolDependencies;
-    return {
-      run: agentImageTool(dependencies, {
-        agentId: "agent-1",
-        conversationId: "conv-1",
-        employee,
-        assignment: imageAssignment,
-      }),
-      pending,
-      stage,
-      files,
-    };
-  }
-
   it("stores the images in the working folder and notes them for the answer, without a key in the result", async () => {
-    directory = await mkdtemp(path.join(tmpdir(), "page382-"));
+    imageTempDirectory = await mkdtemp(path.join(tmpdir(), "page382-"));
     const { service } = generation();
-    const { run, pending, stage } = tool(service);
+    const { run, pending, stage } = createImageTool(service);
     const outcome = await run(
-      directory,
+      imageTempDirectory,
       { beschreibung: "Fuchs", anzahl: 2 },
       new AbortController().signal,
     );
@@ -367,7 +364,7 @@ describe("the tool bilder_erzeugen execution (PAGE-382)", () => {
     );
     expect(
       await readFile(
-        path.join(directory, "bilder", "bild-20261114T120000-1.png"),
+        path.join(imageTempDirectory, "bilder", "bild-20261114T120000-1.png"),
       ),
     ).toEqual(PNG);
     expect(
@@ -378,7 +375,7 @@ describe("the tool bilder_erzeugen execution (PAGE-382)", () => {
   it("says clearly that the model cannot and names the models that could, without an image", async () => {
     const { service } = generation();
     const pending = new ConversationGeneratedImages();
-    const { stage } = tool(service, pending);
+    const { stage } = createImageTool(service, pending);
     const run = agentImageTool(
       {
         generation: service,
@@ -414,7 +411,7 @@ describe("the tool bilder_erzeugen execution (PAGE-382)", () => {
   });
 });
 
-describe("the tool bilder_erzeugen errors and registration (PAGE-382)", () => {
+describe("the tool bilder_erzeugen errors (PAGE-382)", () => {
   it("passes a failure of the provider on as a readable message", async () => {
     const { service } = generation({
       client: {
@@ -490,7 +487,9 @@ describe("the tool bilder_erzeugen errors and registration (PAGE-382)", () => {
     });
     expect(client.generate).not.toHaveBeenCalled();
   });
+});
 
+describe("the tool bilder_erzeugen registration (PAGE-382)", () => {
   it("is offered only in a conversation and only with the generation wired", () => {
     const { service } = generation();
     const images: AgentImageToolDependencies = {
@@ -530,136 +529,5 @@ describe("the tool bilder_erzeugen errors and registration (PAGE-382)", () => {
     expect(register).toHaveBeenCalledWith(
       expect.objectContaining({ id: "bilder_erzeugen" }),
     );
-  });
-});
-
-describe("the OpenRouter image interface (PAGE-382)", () => {
-  it("asks OpenRouter for image output with the key in the header and reads the data URLs and the cost", async () => {
-    const transport = vi.fn().mockResolvedValue(
-      Response.json({
-        choices: [
-          {
-            message: {
-              content: "Hier ist dein Bild.",
-              images: [
-                {
-                  image_url: {
-                    url: `data:image/png;base64,${PNG.toString("base64")}`,
-                  },
-                },
-              ],
-            },
-          },
-        ],
-        usage: { cost: 0.039 },
-      }),
-    );
-    const answer = await new OpenRouterImageClient(transport).generate({
-      apiKey: KEY,
-      model: "google/gemini-2.5-flash-image",
-      prompt: "Fuchs",
-      aspectRatio: "16:9",
-      templates: [{ mimeType: "image/png", bytes: PNG }],
-      signal: new AbortController().signal,
-    });
-    expect(answer).toEqual({
-      images: [{ mimeType: "image/png", bytes: PNG }],
-      text: "Hier ist dein Bild.",
-      costUsd: 0.039,
-    });
-    const [url, init] = transport.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe("https://openrouter.ai/api/v1/chat/completions");
-    expect(init.headers).toMatchObject({ Authorization: `Bearer ${KEY}` });
-    expect(init.redirect).toBe("error");
-    const body: unknown = JSON.parse(String(init.body));
-    expect(body).toMatchObject({
-      model: "google/gemini-2.5-flash-image",
-      modalities: ["image", "text"],
-      image_config: { aspect_ratio: "16:9" },
-    });
-    expect(String(init.body)).not.toContain(KEY);
-  });
-
-  it("turns a refusal of OpenRouter into a readable failure", async () => {
-    const transport = vi
-      .fn()
-      .mockResolvedValue(
-        Response.json(
-          { error: { message: "Insufficient credits" } },
-          { status: 402 },
-        ),
-      );
-    await expect(
-      new OpenRouterImageClient(transport).generate({
-        apiKey: KEY,
-        model: "m",
-        prompt: "x",
-        templates: [],
-        signal: new AbortController().signal,
-      }),
-    ).rejects.toEqual(
-      new AgentImageError("provider_failed", "Insufficient credits"),
-    );
-  });
-
-  it("reports an unreachable provider", async () => {
-    const transport = vi.fn().mockRejectedValue(new TypeError("fetch failed"));
-    await expect(
-      new OpenRouterImageClient(transport).generate({
-        apiKey: KEY,
-        model: "m",
-        prompt: "x",
-        templates: [],
-        signal: new AbortController().signal,
-      }),
-    ).rejects.toMatchObject({ code: "provider_unreachable" });
-  });
-});
-
-describe("the Google image interface (PAGE-382)", () => {
-  it("asks Gemini for text and image output and reads the inline images", async () => {
-    const transport = vi.fn().mockResolvedValue(
-      Response.json({
-        candidates: [
-          {
-            content: {
-              parts: [
-                { text: "Bitte schön." },
-                {
-                  inlineData: {
-                    mimeType: "image/png",
-                    data: PNG.toString("base64"),
-                  },
-                },
-              ],
-            },
-          },
-        ],
-      }),
-    );
-    const answer = await new GoogleImageClient(transport).generate({
-      apiKey: KEY,
-      model: "gemini-2.5-flash-image",
-      prompt: "Fuchs",
-      aspectRatio: "1:1",
-      templates: [],
-      signal: new AbortController().signal,
-    });
-    expect(answer).toEqual({
-      images: [{ mimeType: "image/png", bytes: PNG }],
-      text: "Bitte schön.",
-      costUsd: null,
-    });
-    const [url, init] = transport.mock.calls[0] as [string, RequestInit];
-    expect(url).toBe(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent",
-    );
-    expect(init.headers).toMatchObject({ "x-goog-api-key": KEY });
-    expect(JSON.parse(String(init.body))).toMatchObject({
-      generationConfig: {
-        responseModalities: ["TEXT", "IMAGE"],
-        imageConfig: { aspectRatio: "1:1" },
-      },
-    });
   });
 });

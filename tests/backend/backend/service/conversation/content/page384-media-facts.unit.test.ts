@@ -159,7 +159,9 @@ describe("resolution and length of videos and sounds (PAGE-384)", () => {
     });
     expect(attachment.width).toBeUndefined();
   });
+});
 
+describe("storing resolution and length of videos and sounds (PAGE-384)", () => {
   it("stores what a member's browser read once", async () => {
     const { service, repository } = setup();
     await service.recordMediaFacts(member, "att-1", {
