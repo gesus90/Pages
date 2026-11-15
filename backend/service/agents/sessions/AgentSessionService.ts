@@ -23,6 +23,7 @@ import type {
   AgentSessionHistoryWindow,
   AgentSessionKey,
   AgentSessionState,
+  AgentSessionTurnUsage,
   AgentSessionView,
 } from "@/definition/AgentSessionJournal";
 import type { AgentPlanSessionRecord } from "@/definition/AgentPlanSession";
@@ -302,15 +303,12 @@ export class AgentSessionService {
       nodeTotals: sumTurnUsage(
         runTurns.filter((turn) => nodeAttempts.has(turn.attemptId)),
       ),
-      ...(attempt.record.runner === "antigravity"
-        ? {
-            antigravity: await antigravityUsage({
-              turns: runTurns,
-              ...antigravityAttempts(run, key.stepId),
-              catalog: this.dependencies.priceCatalog,
-            }),
-          }
-        : {}),
+      ...(await this.antigravityView(
+        attempt.record.runner,
+        run,
+        key.stepId,
+        runTurns,
+      )),
       continuation: decideContinuation({
         isAuthorized: true,
         isConfigurationCompatible: true,
@@ -330,10 +328,7 @@ export class AgentSessionService {
       messages: await this.dependencies.store.listMessages(key.attemptId),
       actions: {
         canSend: isLive,
-        canCancelTurn:
-          isLive &&
-          state === "running" &&
-          this.live.get(key.attemptId)?.turn.cancelTurn !== undefined,
+        canCancelTurn: this.canCancelTurn(key.attemptId, isLive, state),
         canCancelRun: isRunActive(run),
         canRecover: false,
       },
@@ -467,6 +462,34 @@ export class AgentSessionService {
       { turn: null, kind: "status", text: "turn cancelled by the executor" },
     ]);
     return "turn_cancelled";
+  }
+
+  private canCancelTurn(
+    attemptId: string,
+    isLive: boolean,
+    state: AgentSessionState,
+  ): boolean {
+    return (
+      isLive &&
+      state === "running" &&
+      this.live.get(attemptId)?.turn.cancelTurn !== undefined
+    );
+  }
+
+  private async antigravityView(
+    runner: string,
+    run: AgentPlanRun,
+    stepId: string,
+    turns: readonly AgentSessionTurnUsage[],
+  ): Promise<Pick<AgentSessionView, "antigravity">> {
+    if (runner !== "antigravity") return {};
+    return {
+      antigravity: await antigravityUsage({
+        turns,
+        ...antigravityAttempts(run, stepId),
+        catalog: this.dependencies.priceCatalog,
+      }),
+    };
   }
 
   private record(start: AgentSessionStart): AgentSessionRecorder {

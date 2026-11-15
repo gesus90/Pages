@@ -161,6 +161,9 @@ beforeEach(() => {
   vi.mocked(PlanRunCommandWorker.prototype.start).mockResolvedValue(undefined);
   vi.mocked(getPagesRuntime).mockResolvedValue(
     partial<PagesRuntime>({
+      configFile: partial<PagesRuntime["configFile"]>({
+        path: "/synthetic/config.json",
+      }),
       getConfig: () => ({
         firstRun: false,
         port: 3100,
@@ -330,6 +333,9 @@ it("reads the interpreter profiles of script nodes when they are needed", async 
   const snapshot = vi.fn(async () => opaque("interpreters"));
   vi.mocked(getPagesRuntime).mockResolvedValue(
     partial<PagesRuntime>({
+      configFile: partial<PagesRuntime["configFile"]>({
+        path: "/synthetic/config.json",
+      }),
       interpreterProfiles: { snapshot },
       getDatabasePath: () => "/synthetic/data/pages",
       getConfig: () => ({

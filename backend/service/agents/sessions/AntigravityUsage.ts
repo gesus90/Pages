@@ -13,6 +13,37 @@ interface PricedTurn {
   readonly price: AgentSessionEstimate;
 }
 
+function totalAmount(
+  turns: readonly PricedTurn[],
+  gaps: ReadonlySet<AgentPriceGap>,
+): number | null {
+  const amounts = turns.map((turn) => turn.price.amountUsd);
+  return gaps.size || amounts.some((amount) => amount === null)
+    ? null
+    : amounts.reduce<number>((sum, amount) => sum + (amount ?? 0), 0);
+}
+
+function tokenTotals(
+  tokens: ReturnType<typeof sumTurnUsage>[number] | undefined,
+): Pick<
+  AntigravityUsageTotal,
+  | "inputTokens"
+  | "outputTokens"
+  | "cacheReadTokens"
+  | "cacheWriteTokens"
+  | "totalTokens"
+  | "inputIncludesCache"
+> {
+  return {
+    inputTokens: tokens?.inputTokens ?? null,
+    outputTokens: tokens?.outputTokens ?? null,
+    cacheReadTokens: tokens?.cacheReadTokens ?? null,
+    cacheWriteTokens: tokens?.cacheWriteTokens ?? null,
+    totalTokens: tokens?.totalTokens ?? null,
+    inputIncludesCache: tokens?.inputIncludesCache ?? null,
+  };
+}
+
 function total(
   turns: readonly PricedTurn[],
   attempts: ReadonlySet<string>,
@@ -29,21 +60,12 @@ function total(
     )
   )
     gaps.add("attempt");
-  const amounts = turns.map((turn) => turn.price.amountUsd);
   return {
-    inputTokens: tokens?.inputTokens ?? null,
-    outputTokens: tokens?.outputTokens ?? null,
-    cacheReadTokens: tokens?.cacheReadTokens ?? null,
-    cacheWriteTokens: tokens?.cacheWriteTokens ?? null,
-    totalTokens: tokens?.totalTokens ?? null,
-    inputIncludesCache: tokens?.inputIncludesCache ?? null,
+    ...tokenTotals(tokens),
     isPartial: (tokens?.isPartial ?? true) || gaps.size > 0,
     turns: turns.length,
     reasoningTokens: null,
-    amountUsd:
-      gaps.size || amounts.some((amount) => amount === null)
-        ? null
-        : amounts.reduce<number>((sum, amount) => sum + (amount ?? 0), 0),
+    amountUsd: totalAmount(turns, gaps),
     priceAsOf: [
       ...new Set(
         turns.flatMap((turn) =>

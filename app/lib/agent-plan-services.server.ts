@@ -1,7 +1,3 @@
-import path from "node:path";
-
-import { resolveDefaultDataDirectory } from "@/backend/config/PagesConfig";
-import { OpenRouterPriceCatalog } from "@/backend/service/agents/sessions/OpenRouterPriceCatalog";
 import { canProcessRuns } from "@/backend/runtime/RunsMode";
 import { registerShutdownTask } from "@/backend/runtime/ProcessLifecycle";
 import { PlanRunCommandWorker } from "@/backend/service/agents/runs/PlanRunCommandWorker";
@@ -17,6 +13,7 @@ import { AgentPlanWorkGate } from "@/backend/service/agents/AgentPlanWorkGate";
 import { AgentPlanAgentTodoService } from "@/backend/service/agents/AgentPlanAgentTodoService";
 import { AgentPlanAgentTodoRepository } from "@/backend/database/repositories/agent/AgentPlanAgentTodoRepository";
 
+import { createPriceCatalog } from "./agent-plan-pricing.server";
 import { createPlanTodoProgress } from "./agent-plan-todo-progress.server";
 import { createModelNodeRunners } from "./agent-plan-swarm.server";
 
@@ -568,12 +565,7 @@ async function createPageAgentSessions(
     store,
     journal,
     inbox,
-    priceCatalog: new OpenRouterPriceCatalog(
-      path.join(
-        resolveDefaultDataDirectory(runtime.configFile.path),
-        "openrouter-prices.json",
-      ),
-    ),
+    priceCatalog: createPriceCatalog(runtime.configFile.path),
     hasPlanCheckpoint: async (runId) =>
       (await new AgentPlanCheckpointRepository(input.database).find(runId)) !==
       null,

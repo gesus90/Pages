@@ -99,12 +99,12 @@ it("reports Antigravity's structured TODO activity while its prompt is still run
     { provider: "antigravity", controller, reasoningEffort: "low" },
   );
   try {
-    await vi.waitFor(() =>
-      expect(world.observer.activity).toHaveBeenCalledWith({
-        reportedAt: expect.any(String),
-        titles: ["Current work"],
-      }),
-    );
+    await vi.waitFor(() => expect(world.observer.activity).toHaveBeenCalled());
+    const activity = world.observer.activity.mock.calls[0]?.[0];
+    expect(activity).toEqual({
+      reportedAt: expect.any(String) as unknown,
+      titles: ["Current work"],
+    });
     expect(world.process.cancelled).toEqual([]);
   } finally {
     controller.abort();
