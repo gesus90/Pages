@@ -7,6 +7,14 @@ import type {
 } from "@/definition/AcpResource";
 import type { WaitingRequest } from "./AcpAdmissionRequest";
 
+/** Keeps queued requests of paused runs in their original position. */
+export function isPausedWaiting(
+  request: WaitingRequest,
+  pausedRuns: ReadonlySet<string>,
+): boolean {
+  return request.owner.runId !== null && pausedRuns.has(request.owner.runId);
+}
+
 /** Controls the namespaces of every lease held by a run. */
 export async function controlAcpRun(
   records: Iterable<AcpResourceRecord>,

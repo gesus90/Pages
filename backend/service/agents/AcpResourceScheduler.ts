@@ -14,6 +14,7 @@ import { forceReleaseAcpRun } from "./resources/AcpRunRelease";
 import {
   controlAcpRun,
   schedulerSnapshot,
+  isPausedWaiting,
 } from "./resources/AcpSchedulerViews";
 import { cleanupAcpLease } from "./resources/AcpLeaseRecovery";
 import {
@@ -553,11 +554,13 @@ export class AcpResourceScheduler {
     if (
       this.isReady &&
       this.active.size >= this.admissionCap() &&
-      this.waiting.some((request) => !this.isPaused(request))
+      this.waiting.some((request) => !isPausedWaiting(request, this.pausedRuns))
     )
       this.reclaimIdle?.();
     while (this.canAdmit()) {
-      const request = this.waiting.find((entry) => !this.isPaused(entry));
+      const request = this.waiting.find(
+        (entry) => !isPausedWaiting(entry, this.pausedRuns),
+      );
       if (!request) return;
       this.availableMemory = await readScheduledAcpMemory(this.memory);
       // A live reduction or shutdown may have happened during the memory probe.
@@ -569,7 +572,7 @@ export class AcpResourceScheduler {
       if (
         request.signal.aborted ||
         !this.waiting.includes(request) ||
-        this.isPaused(request)
+        isPausedWaiting(request, this.pausedRuns)
       )
         continue;
       this.waiting.splice(this.waiting.indexOf(request), 1);
@@ -675,12 +678,6 @@ export class AcpResourceScheduler {
     await this.reconcile();
   }
 
-  private isPaused(request: WaitingRequest): boolean {
-    return (
-      request.owner.runId !== null && this.pausedRuns.has(request.owner.runId)
-    );
-  }
-
   private admissionCap(): number {
     return this.options.maxConcurrentAcpSessions === 0
       ? MAX_ACP_SESSIONS
@@ -697,7 +694,7 @@ export class AcpResourceScheduler {
   }
 
   private waitReason(request: WaitingRequest): AcpWaitReason {
-    if (this.isPaused(request)) return "paused";
+    if (isPausedWaiting(request, this.pausedRuns)) return "paused";
     if (!this.isReady) return "recovery";
     if (this.problem) return "scheduler_error";
     if (this.active.size >= this.admissionCap()) return "capacity";
