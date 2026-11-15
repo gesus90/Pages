@@ -1,18 +1,17 @@
-import { Check } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { PLAN_BLOCKER_RETRIES } from "@/definition/AgentPlanRetry";
 
 import { ClaudeUsageDetails } from "../claude-usage-details";
-import { nativeAgentTodoSummary } from "../plan-agent-todo-model";
+
 import { hasSessionEnded, infrastructureRestarts } from "./console-step-state";
 import { formatClock } from "./console-time";
+import { ConsoleTodoList } from "./console-todo-list";
 import { useNow } from "./use-terminal-surface";
 
 import { CodexUsageFacts } from "../codex-usage-facts";
 
 import type { AgentPlanStepResult } from "@/definition/AgentPlan";
-import type { AgentPlanProgressItem } from "@/definition/AgentPlanProgress";
 import type {
   AgentSessionContextUsage,
   AgentSessionView,
@@ -21,46 +20,6 @@ import type {
 interface ConsoleSidebarProps {
   readonly step: AgentPlanStepResult;
   readonly view: AgentSessionView;
-}
-
-/**
- * The checkbox of a todo, which only shows its state (PAGE-289): done filled
- * with a check, active a filled square, open empty.
- */
-function TodoCheckbox({
-  status,
-}: {
-  readonly status: AgentPlanProgressItem["status"];
-}): React.ReactElement {
-  const box =
-    "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-[4px] border";
-  if (status === "done")
-    return (
-      <span
-        aria-hidden="true"
-        data-todo-mark="done"
-        className={`${box} border-agent-terminal-success bg-agent-terminal-success text-agent-terminal-surface`}
-      >
-        <Check className="size-3" strokeWidth={3} />
-      </span>
-    );
-  if (status === "active")
-    return (
-      <span
-        aria-hidden="true"
-        data-todo-mark="active"
-        className={`${box} border-agent-terminal-accent`}
-      >
-        <span className="size-2 rounded-[2px] bg-agent-terminal-accent" />
-      </span>
-    );
-  return (
-    <span
-      aria-hidden="true"
-      data-todo-mark="open"
-      className={`${box} border-agent-console-muted`}
-    />
-  );
 }
 
 function SidebarSection(props: {
@@ -91,98 +50,6 @@ function Fact(props: {
   );
 }
 
-function TodoList({
-  todos,
-}: {
-  readonly todos: readonly AgentPlanProgressItem[];
-}): React.ReactElement {
-  const { t } = useTranslation();
-  const done = todos.filter((todo) => todo.status === "done").length;
-  return (
-    <SidebarSection
-      title={t("plans.console.terminal.sidebar.todos", {
-        done,
-        total: todos.length,
-      })}
-    >
-      {todos.length === 0 ? (
-        <p className="text-sm text-agent-console-muted">
-          {t("plans.console.terminal.sidebar.noTodos")}
-        </p>
-      ) : (
-        <ul className="space-y-1 text-sm text-agent-console-foreground">
-          {todos.map((todo) => {
-            return (
-              <li key={todo.id} className="flex min-w-0 items-start gap-2">
-                <TodoCheckbox status={todo.status} />
-                <span className="sr-only">
-                  {t(
-                    `plans.console.terminal.sidebar.todoStatus.${todo.status}`,
-                  )}
-                </span>
-                <span className="min-w-0 truncate" title={todo.text}>
-                  {todo.contractId ? `${todo.contractId} ` : ""}
-                  {todo.text}
-                </span>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </SidebarSection>
-  );
-}
-
-/**
- * The TODO list the CLI reported as a structured plan, next to the events (PAGE-306).
- *
- * @remarks
- * It only shows the state; the active mark belongs to the entry the agent
- * reported as in progress. Without a list it says so and guesses nothing.
- */
-function AgentTodoList({
-  step,
-}: {
-  readonly step: AgentPlanStepResult;
-}): React.ReactElement {
-  const { t } = useTranslation();
-  const agent = nativeAgentTodoSummary(step);
-  return (
-    <SidebarSection
-      title={t("plans.console.terminal.sidebar.agentTodos", {
-        done: agent.done,
-        total: agent.total,
-      })}
-    >
-      {agent.isReported ? (
-        <ul
-          data-agent-todo-list=""
-          className="max-h-56 space-y-1 overflow-y-auto text-sm text-agent-console-foreground"
-        >
-          {agent.todos.map((todo) => (
-            <li key={todo.id} className="flex min-w-0 items-start gap-2">
-              <TodoCheckbox status={todo.status} />
-              <span className="sr-only">
-                {t(`plans.console.terminal.sidebar.todoStatus.${todo.status}`)}
-              </span>
-              <span
-                className={
-                  todo.status === "active" ? "min-w-0 font-semibold" : "min-w-0"
-                }
-              >
-                {todo.text}
-              </span>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="text-sm text-agent-console-muted">
-          {t("plans.progress.agentTodos.empty")}
-        </p>
-      )}
-    </SidebarSection>
-  );
-}
 
 /** What the agent does now: its own report, its ACP plan, or where the node stands. */
 function activityText(
@@ -379,10 +246,9 @@ export function ConsoleSidebar(props: ConsoleSidebarProps): React.ReactElement {
   return (
     <aside
       aria-label={t("plans.console.details")}
-      className="shrink-0 space-y-5 overflow-y-auto border-t border-agent-console-border bg-agent-console-surface px-5 pt-5 pb-8 min-[680px]:w-[300px] min-[680px]:border-t-0 min-[680px]:border-l min-[680px]:pb-28"
+      className="min-w-0 shrink-0 space-y-5 overflow-y-auto border-t border-agent-console-border bg-agent-console-surface px-5 pt-5 pb-8 min-[680px]:w-[300px] min-[680px]:border-t-0 min-[680px]:border-l min-[680px]:pb-28"
     >
-      <AgentTodoList step={props.step} />
-      <TodoList todos={props.step.progress?.todos ?? []} />
+      <ConsoleTodoList step={props.step} />
       <SidebarSection title={t("plans.console.terminal.sidebar.activity")}>
         <p className="text-sm text-agent-console-muted">
           {activityText(props.step, t)}

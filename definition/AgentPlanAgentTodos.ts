@@ -1,5 +1,10 @@
 /** Where one TODO of the agent's own list stands, as the agent reported it. */
-export const AGENT_TODO_STATUSES = ["open", "active", "done"] as const;
+export const AGENT_TODO_STATUSES = [
+  "open",
+  "active",
+  "done",
+  "failed",
+] as const;
 
 /** The most TODOs of one list Pages keeps. */
 export const AGENT_TODO_LIMIT = 40;
@@ -36,9 +41,11 @@ export interface AgentPlanEntry {
   readonly status: string;
 }
 
-function entryStatus(status: string): AgentPlanAgentTodo["status"] {
+function entryStatus(status: string): AgentPlanAgentTodo["status"] | null {
   if (status === "in_progress") return "active";
-  return status === "completed" ? "done" : "open";
+  if (status === "completed") return "done";
+  if (status === "failed") return "failed";
+  return status === "pending" ? "open" : null;
 }
 
 /**
@@ -85,9 +92,15 @@ export function mergeAgentTodos(
   return entries.slice(0, AGENT_TODO_LIMIT).map((entry, index) => {
     const id = String(index + 1);
     const text = entry.content.trim().slice(0, AGENT_TODO_TEXT_LENGTH);
-    const status = entryStatus(entry.status);
-    const earlier = previous.find((todo) => todo.id === id);
-    const isUnchanged = earlier?.text === text && earlier.status === status;
+    const earlier = previous.find(
+      (todo) => todo.id === id && todo.text === text,
+    );
+    // Unknown/missing states cannot erase evidence, and completed work stays completed.
+    const status =
+      earlier?.status === "done"
+        ? "done"
+        : (entryStatus(entry.status) ?? earlier?.status ?? "open");
+    const isUnchanged = earlier?.status === status;
     return {
       id,
       text,

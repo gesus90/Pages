@@ -43,6 +43,7 @@ export function readTodoState(
       return typeof todo.id === "string" &&
         (todo.status === "open" ||
           todo.status === "active" ||
+          todo.status === "failed" ||
           todo.status === "done")
         ? [{ id: todo.id, status: todo.status }]
         : [];

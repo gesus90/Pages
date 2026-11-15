@@ -5326,12 +5326,14 @@
           "stopped": "Stopped"
         },
         "sidebar": {
-          "todos": "Todos {{done}} / {{total}}",
+          "todos": "To Do",
+          "todoCount": "{{done}} / {{total}}",
           "agentTodos": "Agent TODO {{done}} / {{total}}",
           "noTodos": "No todos",
           "todoStatus": {
+            "failed": "failed",
             "done": "done",
-            "active": "active",
+            "active": "in progress",
             "open": "open",
             "missing": "unreadable",
             "unreported": "not reported yet"
@@ -5966,6 +5968,7 @@
         "contract": "Tasks of this step · progress not reported yet"
       },
       "todoState": {
+        "failed": "Failed",
         "done": "Done",
         "open": "Up next",
         "missing": "Report missing or item no longer present",

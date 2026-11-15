@@ -32,7 +32,9 @@ export interface AgentPlanProgress {
 export interface AgentPlanProgressItem {
   readonly id: string;
   readonly text: string;
-  readonly status: "done" | "active" | "open" | "missing" | "unreported";
+  /** Failed requires an explicit report identifying this task; the run's outcome is insufficient. */
+  readonly status:
+    "done" | "active" | "open" | "failed" | "missing" | "unreported";
   /** The ID of the step contract, such as `T1`, under which the agent reports it. */
   readonly contractId?: string;
   readonly ticket?: {

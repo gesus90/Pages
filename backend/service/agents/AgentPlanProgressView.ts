@@ -44,7 +44,9 @@ function contractStatus(
   accepted: AgentPlanProgressItem["status"] | undefined,
   live: AgentPlanProgressItem["status"] | null,
 ): AgentPlanProgressItem["status"] {
-  if (accepted === "done" || accepted === "open") return accepted;
+  if (accepted === "done") return accepted;
+  if (live === "failed") return live;
+  if (accepted === "open") return accepted;
   return live ?? accepted ?? "open";
 }
 
@@ -133,7 +135,10 @@ async function liveProgress(
       availability: "unavailable",
       todos: contractItems(step, live).map((item) => ({
         ...item,
-        status: "missing",
+        status:
+          item.status === "done" || item.status === "failed"
+            ? item.status
+            : "missing",
       })),
     };
   }

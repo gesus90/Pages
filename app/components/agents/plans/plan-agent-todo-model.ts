@@ -33,7 +33,9 @@ function assignedAgentTodos(
       id: todo.id,
       text: todo.text,
       status:
-        todo.status === "done" || todo.status === "active"
+        todo.status === "done" ||
+        todo.status === "active" ||
+        todo.status === "failed"
           ? todo.status
           : "open",
       updatedAt: observedAt,

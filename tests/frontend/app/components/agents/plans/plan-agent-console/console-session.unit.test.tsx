@@ -194,9 +194,12 @@ it("lays out the terminal with its input line and the sidebar of a live session"
   expect(
     screen.getByRole("complementary", { name: "Session details" }),
   ).toBeTruthy();
-  for (const title of ["Todos 0 / 0", "Activity", "Usage", "Session"])
+  for (const title of ["To Do", "Activity", "Usage", "Session"])
     expect(screen.getByRole("heading", { name: title })).toBeTruthy();
-  expect(screen.getByText("No todos")).toBeTruthy();
+  expect(
+    within(screen.getByRole("region", { name: "To Do" })).getByText("0 / 3"),
+  ).toBeTruthy();
+  expect(screen.getAllByRole("listitem")).toHaveLength(3);
   expect(activity()).toBe("–");
   expect(fact("Model")).toBe("synthetic-model");
   expect(fact("Total tokens")).toBe("unknown");
@@ -245,18 +248,13 @@ it("reads the todos and the activity the agent reported before the title of its 
     }),
     { isLive: true },
   );
-  expect(screen.getByRole("heading", { name: "Todos 1 / 2" })).toBeTruthy();
-  const section = screen.getByRole("heading", {
-    name: "Todos 1 / 2",
-  }).parentElement;
-  if (!section) throw new Error("Missing todo section");
+  expect(screen.getByRole("heading", { name: "To Do" })).toBeTruthy();
+  const section = screen.getByRole("region", { name: "To Do" });
+  expect(within(section).getByText("1 / 2")).toBeTruthy();
   const items = within(section)
     .getAllByRole("listitem")
     .map((item) => item.textContent);
-  expect(items).toEqual([
-    "doneRead requirements",
-    "activeT2 Implement changes",
-  ]);
+  expect(items).toEqual(["Read requirements", "T2 Implement changes"]);
   const marks = within(section)
     .getAllByRole("listitem")
     .map((item) => item.querySelector("[data-todo-mark]"));
@@ -264,9 +262,10 @@ it("reads the todos and the activity the agent reported before the title of its 
     "done",
     "active",
   ]);
-  expect(
-    marks.every((mark) => mark?.getAttribute("aria-hidden") === "true"),
-  ).toBe(true);
+  expect(marks.map((mark) => mark?.getAttribute("aria-label"))).toEqual([
+    "done",
+    "in progress",
+  ]);
   expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
   expect(activity()).toBe("Writing the tests");
 });

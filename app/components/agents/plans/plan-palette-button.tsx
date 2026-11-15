@@ -16,13 +16,15 @@ import type { ButtonProps } from "@/app/components/ui/button";
 
 interface PaletteButtonProps extends ButtonProps {
   readonly tooltip: string;
+  /** Continuous hover time before opening; keyboard focus always opens immediately. */
+  readonly hoverDelayMs?: number;
   /** A press shows the tooltip until the next press elsewhere, so touch and pointer users can read it. */
   readonly showsOnPress?: boolean;
   /** Layout of the tooltip anchor when used in a bounded sequence. */
   readonly wrapperClassName?: string;
 }
 
-function usePaletteTooltipVisibility(): {
+function usePaletteTooltipVisibility(hoverDelayMs: number): {
   readonly isOpen: boolean;
   readonly enter: () => void;
   readonly leave: () => void;
@@ -37,6 +39,17 @@ function usePaletteTooltipVisibility(): {
   const [isFocused, setFocused] = useState(false);
   const [isDismissed, setDismissed] = useState(false);
   const [isPinned, setPinned] = useState(false);
+  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  function clearHoverTimer(): void {
+    if (hoverTimer.current !== null) clearTimeout(hoverTimer.current);
+    hoverTimer.current = null;
+  }
+  useEffect(() => {
+    const timer = hoverTimer;
+    return () => {
+      if (timer.current !== null) clearTimeout(timer.current);
+    };
+  }, []);
   return {
     isOpen: ((isHovered || isFocused) && !isDismissed) || isPinned,
     isPinned,
@@ -46,10 +59,20 @@ function usePaletteTooltipVisibility(): {
     },
     unpin: () => setPinned(false),
     enter: () => {
-      setHovered(true);
+      clearHoverTimer();
       setDismissed(false);
+      if (hoverDelayMs === 0) setHovered(true);
+      else {
+        hoverTimer.current = setTimeout(() => {
+          hoverTimer.current = null;
+          setHovered(true);
+        }, hoverDelayMs);
+      }
     },
-    leave: () => setHovered(false),
+    leave: () => {
+      clearHoverTimer();
+      setHovered(false);
+    },
     focus: () => {
       setFocused(true);
       setDismissed(false);
@@ -92,6 +115,7 @@ async function placeTooltip(
 /** A Pages button with a hover/focus description above the editor overlays. */
 export function PlanPaletteButton({
   tooltip,
+  hoverDelayMs = 0,
   showsOnPress = false,
   wrapperClassName,
   ...properties
@@ -99,7 +123,7 @@ export function PlanPaletteButton({
   const tooltipId = useId();
   const trigger = useRef<HTMLSpanElement>(null);
   const floating = useRef<HTMLSpanElement>(null);
-  const visibility = usePaletteTooltipVisibility();
+  const visibility = usePaletteTooltipVisibility(hoverDelayMs);
   const { isOpen, enter, leave, focus, blur, dismiss } = visibility;
   const { isPinned, togglePin, unpin } = visibility;
   useEffect(() => {
@@ -140,6 +164,7 @@ export function PlanPaletteButton({
       onClickCapture={showsOnPress ? togglePin : dismiss}
       onKeyDown={(event) => {
         if (event.key !== "Escape") return;
+        if (isOpen) event.preventDefault();
         dismiss();
         unpin();
       }}
@@ -155,7 +180,7 @@ export function PlanPaletteButton({
               id={tooltipId}
               role="tooltip"
               style={{ visibility: "hidden" }}
-              className="pointer-events-none fixed z-50 max-w-[min(18rem,calc(100vw-1rem))] rounded-lg border border-border bg-surface px-3 py-2 text-xs leading-relaxed whitespace-pre-line text-foreground shadow-panel"
+              className="pointer-events-none fixed z-50 max-w-[min(18rem,calc(100vw-1rem))] rounded-lg border border-border bg-surface px-3 py-2 text-xs leading-relaxed whitespace-pre-line text-foreground shadow-panel wrap-anywhere"
             >
               {tooltip}
             </span>,
