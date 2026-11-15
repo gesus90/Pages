@@ -4,6 +4,7 @@ import { AgentConnectionRepository } from "@/backend/database/repositories/Agent
 import { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import { ChatAcpSessionRepository } from "@/backend/database/repositories/chat/ChatAcpSessionRepository";
 import { ChatSessionRepository } from "@/backend/database/repositories/chat/ChatSessionRepository";
+import { AgentChatHistoryRepository } from "@/backend/database/repositories/conversation/AgentChatHistoryRepository";
 import { ConversationMessageRepository } from "@/backend/database/repositories/conversation/ConversationMessageRepository";
 import { ConversationRepository } from "@/backend/database/repositories/conversation/ConversationRepository";
 import { EmployeeStore } from "@/backend/database/repositories/employee/EmployeeStore";
@@ -16,6 +17,7 @@ import { UserSettingsRepository } from "@/backend/database/repositories/UserSett
 import { WikiLookupRepository } from "@/backend/database/repositories/wiki/WikiLookupRepository";
 import { ConversationError } from "@/backend/error/ConversationError";
 import { ConversationDirectory } from "@/backend/service/conversation/ConversationDirectory";
+import { AgentChatHistoryService } from "@/backend/service/conversation/AgentChatHistoryService";
 import { isPagesRunsProcess } from "@/backend/runtime/RunsMode";
 import { createChatSessionId } from "@/backend/service/chat/ChatSessionWords";
 import type { AgentAccessEnvironmentService } from "@/backend/service/employee/AgentAccessEnvironmentService";
@@ -426,6 +428,9 @@ function createEmployeeSessions(
     agentChat: () => late.agentChat,
     chatQuestions: () => late.chatQuestions,
     chatTasks: () => late.chatTasks,
+    chatHistory: new AgentChatHistoryService({
+      history: new AgentChatHistoryRepository(input.database),
+    }),
     createSessionId: () => createChatSessionId(),
     conversationContext: {
       readForAgent: (agentId, request) =>

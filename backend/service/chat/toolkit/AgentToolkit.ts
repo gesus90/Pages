@@ -1,14 +1,22 @@
 import { logEvent } from "@/backend/logging/Logger";
 
-import { isChatDeleteOperation, isChatOperation, isChatWriteOperation } from "../ChatToolCatalog";
+import {
+  isChatDeleteOperation,
+  isChatOperation,
+  isChatWriteOperation,
+} from "../ChatToolCatalog";
 import { PicaPlanConfirmation } from "../PicaPlanConfirmation";
 import { PICA_TOOL_OUTCOME } from "../PicaToolSchemas";
 
+import { registerAgentChatHistoryTools } from "./AgentChatHistoryTools";
 import { registerAgentChatInteractionTools } from "./AgentChatInteractionTools";
 import { registerAgentChatTaskTools } from "./AgentChatTaskTools";
 import { AgentShellJobs } from "./AgentShellJobs";
 import { createAgentShellLauncher } from "./AgentShellLauncher";
-import { AGENT_TOOLKIT_TOOLS, isBridgeToolAllowed } from "./AgentToolkitCatalog";
+import {
+  AGENT_TOOLKIT_TOOLS,
+  isBridgeToolAllowed,
+} from "./AgentToolkitCatalog";
 import { toolkitRefusal } from "./AgentToolkitOutcome";
 import { readPublicWebPage } from "./AgentWebTools";
 
@@ -17,6 +25,7 @@ import type {
   RuntimeToolCall,
   RuntimeToolRegistry,
 } from "@/backend/agents/runtime/RuntimeToolRegistry";
+import type { AgentChatHistory } from "@/definition/AgentChatHistory";
 import type { AgentChatInteractions } from "@/definition/AgentChatQuestion";
 import type { AgentChatTasks } from "@/definition/AgentChatTask";
 import type { AgentToolPolicy } from "@/definition/AgentToolGroups";
@@ -63,6 +72,8 @@ export interface AgentToolkitJobInput {
   readonly interactions?: AgentChatInteractions;
   /** The scheduled tasks bound to the job's chat (PAGE-392). */
   readonly chatTasks?: AgentChatTasks;
+  /** The history search bound to the job's agent and chat (PAGE-393). */
+  readonly history?: AgentChatHistory;
 }
 
 /**
@@ -88,11 +99,14 @@ export function createAgentToolkitJob(
     readPage: input.readPage ?? readPublicWebPage,
     ...(input.interactions ? { interactions: input.interactions } : {}),
     ...(input.chatTasks ? { chatTasks: input.chatTasks } : {}),
+    ...(input.history ? { history: input.history } : {}),
   };
 }
 
 /** Ends the background runs of a job whose chat job ended. */
-export async function closeAgentToolkitJob(job: AgentToolkitJob): Promise<void> {
+export async function closeAgentToolkitJob(
+  job: AgentToolkitJob,
+): Promise<void> {
   await job.shellJobs.close();
 }
 
@@ -270,6 +284,10 @@ export function registerAgentToolkitTools(
       turnId: turn.id,
       admit,
     });
+  const { history } = binding.job;
+  // The history search reads chats: the chat group decides (PAGE-393).
+  if (history && binding.job.policy.chat !== "off")
+    registerAgentChatHistoryTools(registry, { history, admit });
   const { chatTasks } = binding.job;
   if (chatTasks)
     registerAgentChatTaskTools(registry, {
@@ -287,7 +305,12 @@ export function registerAgentToolkitTools(
       outputSchema: PICA_TOOL_OUTCOME,
       execute: async (parameters, context) => {
         if (!(await admit(context))) return toolkitRefusal("STEP_LIMIT");
-        return await runToolkitTool(tool, { binding, parameters, context, turn });
+        return await runToolkitTool(tool, {
+          binding,
+          parameters,
+          context,
+          turn,
+        });
       },
     });
   }

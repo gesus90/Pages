@@ -1,8 +1,12 @@
 import type { z } from "zod";
 import type { RuntimeExecutionContext } from "@/backend/agents/runtime/RuntimeExecutionContext";
+import type { AgentChatHistory } from "@/definition/AgentChatHistory";
 import type { AgentChatInteractions } from "@/definition/AgentChatQuestion";
 import type { AgentChatTasks } from "@/definition/AgentChatTask";
-import type { AgentToolGroup, AgentToolPolicy } from "@/definition/AgentToolGroups";
+import type {
+  AgentToolGroup,
+  AgentToolPolicy,
+} from "@/definition/AgentToolGroups";
 import type { PicaToolOutcome } from "../PicaToolSchemas";
 import type { AgentShellJobs } from "./AgentShellJobs";
 import type { AgentShellLauncher } from "./AgentShellLauncher";
@@ -41,6 +45,11 @@ export interface AgentToolkitJob {
    * absent for a run without a chat, which plans none.
    */
   readonly chatTasks?: AgentChatTasks;
+  /**
+   * The search over the earlier messages of the agent's chats (PAGE-393),
+   * bound to its agent and chat; absent offers no history tools.
+   */
+  readonly history?: AgentChatHistory;
 }
 
 /** One tool of the toolkit, before Pages applies the policy. */

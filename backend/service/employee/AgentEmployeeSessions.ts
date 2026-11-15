@@ -29,6 +29,7 @@ import type {
 } from "@/definition/ChatJob";
 import type { User } from "@/definition/User";
 import type { AgentChatInteractions } from "@/definition/AgentChatQuestion";
+import type { AgentChatHistory } from "@/definition/AgentChatHistory";
 import type { AgentChatTasks } from "@/definition/AgentChatTask";
 import type { AgentRecipeBrief } from "./AgentRecipeService";
 import type { AgentChatToolScope } from "./AgentChatToolGuard";
@@ -781,9 +782,9 @@ export class AgentEmployeeSessions {
   }
 
   /**
-   * The interim messages and questions (PAGE-391) and the scheduled tasks
-   * (PAGE-392) of a job, bound to its chat; a run of the agent's own has no
-   * chat and offers none of them.
+   * The interim messages and questions (PAGE-391), the scheduled tasks
+   * (PAGE-392) and the history search (PAGE-393) of a job, bound to its
+   * chat; a run of the agent's own has no chat and offers none of them.
    */
   private chatInteractions(
     agent: User,
@@ -791,9 +792,11 @@ export class AgentEmployeeSessions {
   ): {
     readonly interactions?: AgentChatInteractions;
     readonly chatTasks?: AgentChatTasks;
+    readonly history?: AgentChatHistory;
   } {
     const questions = this.dependencies.chatQuestions?.() ?? null;
     const tasks = this.dependencies.chatTasks?.() ?? null;
+    const history = this.dependencies.chatHistory ?? null;
     const { own } = chat;
     if (!own) return {};
     const bound =
@@ -807,6 +810,19 @@ export class AgentEmployeeSessions {
     return {
       ...(questions ? { interactions: questions.bind(agent.id, bound) } : {}),
       ...(tasks ? { chatTasks: tasks.bind(agent.id, bound) } : {}),
+      ...(history
+        ? {
+            history: history.bind(
+              agent.id,
+              bound.kind === "direct"
+                ? bound
+                : {
+                    kind: "conversation",
+                    conversationId: bound.conversationId,
+                  },
+            ),
+          }
+        : {}),
     };
   }
 

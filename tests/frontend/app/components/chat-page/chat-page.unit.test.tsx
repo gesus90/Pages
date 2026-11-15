@@ -39,7 +39,9 @@ vi.mock("@/app/components/chat-page/chat-page-header", () => ({
   ChatPageHeader: () => null,
 }));
 vi.mock("@/app/components/chat-page/chat-page-history", () => ({
-  ChatPageHistory: () => null,
+  ChatPageHistory: ({ focusMessageId }: { focusMessageId?: string }) => (
+    <p data-testid="history" data-focus={focusMessageId ?? ""} />
+  ),
 }));
 vi.mock("@/app/components/chat-page/chat-page-tool-uses", () => ({
   ChatPageLiveTools: () => null,
@@ -134,4 +136,27 @@ it("shows the list expanded without a stored choice and fills the screen", () =>
   expect(
     screen.getByRole("heading", { level: 1 }).closest("section")?.className,
   ).toContain("pages-page-fixed");
+});
+
+it("hands the message of a 'Zur Nachricht' link to the history of its chat only (PAGE-393)", () => {
+  const contents = directory({ groups: [group("team"), group("other")] });
+  const view = render(
+    <I18nextProvider i18n={createI18n("en")}>
+      <ChatPage
+        directory={contents}
+        requestedSelection={{ kind: "group", id: "team" }}
+        requestedMessageId="message-7"
+      />
+    </I18nextProvider>,
+  );
+  expect(screen.getByTestId("history").getAttribute("data-focus")).toBe(
+    "message-7",
+  );
+  view.unmount();
+  render(
+    <I18nextProvider i18n={createI18n("en")}>
+      <ChatPage directory={contents} requestedMessageId="message-7" />
+    </I18nextProvider>,
+  );
+  expect(screen.getByTestId("history").getAttribute("data-focus")).toBe("");
 });

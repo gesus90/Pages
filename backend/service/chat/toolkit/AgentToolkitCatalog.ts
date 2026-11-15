@@ -10,13 +10,20 @@ import {
 } from "../PicaChatToolSchemas";
 import { PICA_FILE_TOOL, PICA_WRITE_SCHEMAS } from "../PicaToolSchemas";
 
+import {
+  AGENT_HISTORY_READ_TOOL,
+  AGENT_HISTORY_SEARCH_TOOL,
+} from "./AgentChatHistoryTools";
 import { AGENT_ASK_TOOL, AGENT_SAY_TOOL } from "./AgentChatInteractionTools";
 import { AGENT_TASK_WRITE_TOOLS } from "./AgentChatTaskTools";
 import { AGENT_FILE_TOOLS } from "./AgentFileTools";
 import { AGENT_SHELL_TOOLS } from "./AgentShellTools";
 import { AGENT_WEB_TOOLS } from "./AgentWebTools";
 
-import type { AgentToolGroup, AgentToolPolicy } from "@/definition/AgentToolGroups";
+import type {
+  AgentToolGroup,
+  AgentToolPolicy,
+} from "@/definition/AgentToolGroups";
 import type { AgentToolkitTool } from "./AgentToolkitContracts";
 
 /** Every tool the toolkit adds to the bridge (PAGE-390). */
@@ -26,7 +33,7 @@ export const AGENT_TOOLKIT_TOOLS: readonly AgentToolkitTool[] = [
   ...AGENT_WEB_TOOLS,
 ];
 
-/** The tools of the chat group: answer files, chats, memory, Lagebuch, recipes, interim messages and questions. */
+/** The tools of the chat group: answer files, chats, memory, Lagebuch, history search, recipes, interim messages and questions. */
 const CHAT_TOOLS: ReadonlySet<string> = new Set([
   PICA_FILE_TOOL,
   PICA_CHATS_LIST_TOOL,
@@ -38,6 +45,8 @@ const CHAT_TOOLS: ReadonlySet<string> = new Set([
   "lagebuch_merken",
   "lagebuch_suchen",
   "lagebuch_lesen",
+  AGENT_HISTORY_SEARCH_TOOL,
+  AGENT_HISTORY_READ_TOOL,
   RECIPE_TOOL,
   AGENT_SAY_TOOL,
   AGENT_ASK_TOOL,

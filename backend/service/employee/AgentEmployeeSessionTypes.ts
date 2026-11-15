@@ -17,6 +17,7 @@ import type {
   PicaAcpService,
 } from "../chat/acp/PicaAcpService";
 import type { AgentChatQuestionService } from "@/backend/service/conversation/AgentChatQuestionService";
+import type { AgentChatHistoryService } from "@/backend/service/conversation/AgentChatHistoryService";
 import type { AgentChatTaskService } from "./AgentChatTaskService";
 import type { AgentChatTools } from "@/definition/AgentChat";
 import type { User } from "@/definition/User";
@@ -85,6 +86,11 @@ export interface AgentEmployeeSessionDependencies {
    * because the automations are wired after the sessions; `null` plans none.
    */
   readonly chatTasks?: () => Pick<AgentChatTaskService, "bind"> | null;
+  /**
+   * The search over the earlier messages of the agents' chats (PAGE-393);
+   * absent offers no history tools.
+   */
+  readonly chatHistory?: Pick<AgentChatHistoryService, "bind">;
   /** An unused ID for a new chat session. */
   readonly createSessionId: () => string;
   /**

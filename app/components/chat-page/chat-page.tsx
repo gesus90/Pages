@@ -141,13 +141,31 @@ function ConversationFoot({
   );
 }
 
+/**
+ * The message a "Zur Nachricht" link points to, once its chat is the opened
+ * one (PAGE-393); another chat never looks for it.
+ */
+function focusOf(
+  selection: VirtualChatSelection | null,
+  requested: VirtualChatSelection | undefined,
+  messageId: string | undefined,
+): { readonly focusMessageId?: string } {
+  if (messageId === undefined || !requested || !selection) return {};
+  return selection.kind === requested.kind && selection.id === requested.id
+    ? { focusMessageId: messageId }
+    : {};
+}
+
 /** The opened conversation directly on the page background, without card. */
 function ChatPageConversation({
   page,
   status,
+  focusMessageId,
 }: {
   readonly page: ChatPageState;
   readonly status?: ChatDecisionStatus;
+  /** The message a "Zur Nachricht" link points to (PAGE-393). */
+  readonly focusMessageId?: string;
 }): React.ReactElement {
   const { t } = useTranslation();
   const { opened } = page;
@@ -199,6 +217,7 @@ function ChatPageConversation({
           onLoad: page.loadOlder,
         }}
         answeringNames={page.answeringNames}
+        {...(focusMessageId === undefined ? {} : { focusMessageId })}
       />
       <ChatPageLiveTools tools={page.liveTools} onCancel={page.cancelTool} />
       <ChatBrowserPanel isOpen />
@@ -260,9 +279,12 @@ function ListSlot({
 export function ChatPage({
   directory,
   requestedSelection,
+  requestedMessageId,
 }: {
   readonly directory: VirtualChatDirectory;
   readonly requestedSelection?: VirtualChatSelection;
+  /** The message of a "Zur Nachricht" link in the requested chat (PAGE-393). */
+  readonly requestedMessageId?: string;
 }): React.ReactElement {
   const { t } = useTranslation();
   const page = useChatPage(directory, requestedSelection);
@@ -302,6 +324,11 @@ export function ChatPage({
             <ChatPageConversation
               page={page}
               status={directory.chatDecisionStatus}
+              {...focusOf(
+                page.selection,
+                requestedSelection,
+                requestedMessageId,
+              )}
             />
             <SplitPanel
               storedWidth={directory.viewPreferences?.splitWidth ?? null}

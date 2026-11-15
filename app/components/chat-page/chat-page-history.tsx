@@ -16,6 +16,7 @@ import { ChatPageToolUse } from "./chat-page-tool-uses";
 import { ChatPageVoice } from "./chat-page-voice";
 import { MessageContentView } from "./content/message-content-view";
 import { MessageDelete } from "./content/message-delete";
+import { useMessageFocus } from "./use-message-focus";
 
 import type {
   VirtualChatMessage,
@@ -90,6 +91,10 @@ function QueueBadge({
   );
 }
 
+/** How the message a "Zur Nachricht" link points to is marked for a moment (PAGE-393). */
+const FOCUS_MARK =
+  "rounded-lg transition-shadow data-[message-focus=true]:ring-2 data-[message-focus=true]:ring-primary data-[message-focus=true]:ring-offset-4";
+
 const OWN_BUBBLE =
   "max-w-[62%] min-w-0 rounded-[14px] rounded-br-[4px] bg-primary px-4 py-2.5 text-primary-foreground";
 
@@ -103,7 +108,11 @@ function OwnMessage({
   return (
     <article
       aria-label={t("chatPage.you")}
-      className="group/message flex w-full min-w-0 flex-col items-end gap-2"
+      className={cn(
+        "group/message flex w-full min-w-0 flex-col items-end gap-2",
+        FOCUS_MARK,
+      )}
+      data-message-id={message.id}
     >
       {message.voice ? (
         <div className={OWN_BUBBLE}>
@@ -221,7 +230,9 @@ function Bubble({
     <div
       className={cn(
         "flex max-w-[62%] min-w-0 flex-col gap-1 rounded-[14px] rounded-bl-[4px] border px-4 py-2.5",
-        isQuiet ? "border-dashed bg-transparent py-1.5" : colors.bubble.className,
+        isQuiet
+          ? "border-dashed bg-transparent py-1.5"
+          : colors.bubble.className,
       )}
       data-message-bubble=""
       data-interim={isQuiet ? "true" : undefined}
@@ -319,9 +330,11 @@ function AnswerBubble({
   return (
     <article
       aria-label={author.name}
+      data-message-id={message.id}
       data-own-mention={isOwnMention ? "true" : undefined}
       className={cn(
         "flex w-full min-w-0 flex-col items-start gap-2",
+        FOCUS_MARK,
         isOwnMention && "border-l-[3px] border-primary pl-2",
       )}
     >
@@ -428,6 +441,8 @@ interface ChatPageHistoryProps {
   readonly older?: OlderMessages;
   /** Who is answering; the conversation's name by default. */
   readonly answeringNames?: readonly string[];
+  /** The message a "Zur Nachricht" link points to (PAGE-393); shown and marked once. */
+  readonly focusMessageId?: string;
 }
 
 /**
@@ -442,6 +457,7 @@ export function ChatPageHistory({
   isAnswering = false,
   older = NO_OLDER,
   answeringNames = [],
+  focusMessageId,
 }: ChatPageHistoryProps): React.ReactElement {
   const { t } = useTranslation();
   const viewport = useRef<HTMLElement>(null);
@@ -457,6 +473,11 @@ export function ChatPageHistory({
     const element = viewport.current;
     if (element) element.scrollTop = element.scrollHeight;
   }, [newestId, name, isAnswering]);
+  useMessageFocus(viewport, {
+    messageId: focusMessageId,
+    messageIds: messages.map((message) => message.id),
+    older,
+  });
 
   if (messages.length === 0 && !isAnswering)
     return (
