@@ -230,7 +230,9 @@ export function useAgentForm(
         claudePriceModels !== saved.claudePriceModels
           ? { claudePriceModels: claudePriceModels ?? "" }
           : {}),
-        ...(fields.provider === "opencode" ? { openRouterModelIds: openRouterModelIds ?? "" } : {}),
+        ...(fields.provider === "opencode"
+          ? { openRouterModelIds: openRouterModelIds ?? "" }
+          : {}),
         ...(fields.provider === "zai" &&
         (!connection || zaiAccountType !== saved.zaiAccountType)
           ? { zaiAccountType }

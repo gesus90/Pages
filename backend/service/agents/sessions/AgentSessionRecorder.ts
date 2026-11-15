@@ -374,11 +374,17 @@ export class AgentSessionRecorder implements AcpSessionListener {
     const turn = this.turn();
     const capability = ACP_USAGE_CAPABILITIES[provider];
     const isEmptyClaudeTally =
-      provider === "claude_code" && usage?.totalTokens === 0 && !this.hasClaudeObservation;
+      provider === "claude_code" &&
+      usage?.totalTokens === 0 &&
+      !this.hasClaudeObservation;
     const delta =
       provider === "codex_cli"
         ? codexPromptTokens(usage)
-        : readTurnTokens(capability, isEmptyClaudeTally ? null : usage, this.lastUsage);
+        : readTurnTokens(
+            capability,
+            isEmptyClaudeTally ? null : usage,
+            this.lastUsage,
+          );
     this.lastUsage = usage ?? this.lastUsage;
     this.turns.set(key.attemptId, turn + 1);
     this.record({

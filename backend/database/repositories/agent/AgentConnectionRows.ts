@@ -78,7 +78,9 @@ export function readAgentConnection(
         ? codexPriceMappingsSchema.parse(JSON.parse(row[11]))
         : {},
     claudePriceModels: claudePriceModelsSchema.parse(
-      JSON.parse(readNullableTextColumn(row, 12, "claude_price_models") ?? "{}"),
+      JSON.parse(
+        readNullableTextColumn(row, 12, "claude_price_models") ?? "{}",
+      ),
     ),
     id: readTextColumn(row, 0, "id"),
     name: readTextColumn(row, 1, "name"),

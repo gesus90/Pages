@@ -112,10 +112,12 @@ it("accepts Codex without native plan events through progress, checked ticket TO
   expect(assessed.acceptance.todos).toEqual([{ id: "T1", status: "done" }]);
   expect(assessed.contract.todos.map((todo) => todo.id)).toEqual(["T1"]);
   expect(fixture.ticket().checklist.items[0]?.checked).toBe(true);
-  expect((await fixture.progress.listForRun("run")).get("agent")).toMatchObject({
-    activity: "Implementation finished",
-    todos: [{ id: "T1", status: "done" }],
-  });
+  expect((await fixture.progress.listForRun("run")).get("agent")).toMatchObject(
+    {
+      activity: "Implementation finished",
+      todos: [{ id: "T1", status: "done" }],
+    },
+  );
 });
 
 it.each(["open", "active", "failed"] as const)(
@@ -181,7 +183,9 @@ it.each(["claude_code", "opencode", "antigravity"] as const)(
       todos: [{ id: "T1", status: "done" }],
     });
     fixture.native.set("attempt", []);
-    expect((await assess(fixture, provider)).acceptance.verdict).toBe("accepted");
+    expect((await assess(fixture, provider)).acceptance.verdict).toBe(
+      "accepted",
+    );
   },
 );
 

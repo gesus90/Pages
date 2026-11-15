@@ -9,9 +9,7 @@ import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError
 import { logCaughtError } from "@/backend/logging/Logger";
 
 import { planTurnTimeout } from "./AgentPlanTimeout";
-import {
-  planStepProgress,
-} from "./AgentPlanTurnControl";
+import { planStepProgress } from "./AgentPlanTurnControl";
 import { planPauseGate } from "./AgentPlanPauseGate";
 import { runPausablePlanRequest } from "./AgentPlanPausedRequest";
 import { withGroupIterationInputs } from "./AgentPlanGroupParameters";
@@ -92,8 +90,6 @@ import type { LocalSessions } from "@/backend/agents/local/LocalSessions";
 import type { StepSessionCloseoutTarget } from "./AgentPlanStepSessionCloseout";
 
 export type { StepRunControl } from "./AgentPlanStepContext";
-
-
 
 /**
  * Runs one agent node: request or session, acceptance, closeout and result code.
