@@ -39,7 +39,8 @@ export async function action({
   const user = context.get(authenticatedUserContext);
   if (!user) throw new Response("Forbidden", { status: 403 });
   if (request.method !== "POST") return new Response(null, { status: 405 });
-  if (!sharedPresenceHeartbeatLimit().permit(user.id)) return new Response(null, { status: 429 });
+  if (!sharedPresenceHeartbeatLimit().permit(user.id))
+    return new Response(null, { status: 429 });
   let payload: unknown;
   try {
     payload = await request.json();

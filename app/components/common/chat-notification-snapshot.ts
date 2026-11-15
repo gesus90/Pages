@@ -77,5 +77,7 @@ export function chatMessageAuthor(
   const participant = directory.participants.find(
     (entry) => entry.id === message.authorId,
   );
-  return participant ? { kind: participant.kind, name: participant.name } : null;
+  return participant
+    ? { kind: participant.kind, name: participant.name }
+    : null;
 }

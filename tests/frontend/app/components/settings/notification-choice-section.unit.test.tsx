@@ -63,9 +63,10 @@ it("shows and saves each account choice while leaving More enabled", () => {
   fireEvent.click(
     screen.getByRole("switch", { name: "Benachrichtigungen erhalten" }),
   );
-  expect(
-    screen.getByRole("checkbox", { name: /^Chats/u }),
-  ).toHaveProperty("disabled", true);
+  expect(screen.getByRole("checkbox", { name: /^Chats/u })).toHaveProperty(
+    "disabled",
+    true,
+  );
   expect(screen.getByRole("checkbox", { name: /^Pica/u })).toHaveProperty(
     "disabled",
     true,

@@ -35,7 +35,12 @@ it("keeps at most 20 browser tabs per account and pushes out the one renewed lon
   let now = 0;
   const presence = new PicaMobileConversationPresence(() => now);
   for (let index = 0; index < BROWSER_CONNECTIONS_PER_ACCOUNT; index += 1) {
-    presence.setBrowser("account", `tab-${index}`, `group:c${index}`, `c${index}`);
+    presence.setBrowser(
+      "account",
+      `tab-${index}`,
+      `group:c${index}`,
+      `c${index}`,
+    );
     now += 1;
   }
   presence.setBrowser("account", "tab-0", "group:c0", "c0");
