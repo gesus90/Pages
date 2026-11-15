@@ -9,11 +9,39 @@ import {
 import { RUN_INSTANCE_VARIABLE } from "@/backend/agents/cli/CliProcessScan";
 import { correlationEnvironment } from "@/backend/logging/LogCorrelation";
 
+/**
+ * The root of the script runtimes in the account's home.
+ *
+ * @returns A folder the plan service and the script owner see alike.
+ *
+ * @remarks
+ * The script owner runs in a unit of the account's service manager, which
+ * does not see a private `/tmp` of the plan service (`PrivateTmp=true`). A
+ * runtime below `tmpdir()` therefore did not exist for the owner, and every
+ * script step failed before its process started.
+ */
+export function scriptRuntimeRoot(): string {
+  return path.join(os.homedir(), ".local", "state", "pages", "plan-scripts");
+}
+
 /** Resolves one private script runtime, shared with its independent capture owner. */
 export function scriptRuntimeDirectory(instanceId: string): string {
   if (!/^[a-f0-9-]{36}$/u.test(instanceId))
     throw new Error("Invalid script instance");
-  return path.join(os.tmpdir(), `pages-plan-script-${instanceId}`);
+  return path.join(scriptRuntimeRoot(), `pages-plan-script-${instanceId}`);
+}
+
+/** Creates the root of the script runtimes and refuses one that is not the account's private folder. */
+async function prepareScriptRuntimeRoot(): Promise<void> {
+  const root = scriptRuntimeRoot();
+  await mkdir(root, { recursive: true, mode: 0o700 });
+  const metadata = await lstat(root);
+  if (
+    !metadata.isDirectory() ||
+    metadata.isSymbolicLink() ||
+    metadata.uid !== process.getuid?.()
+  )
+    throw new Error("The script runtime root is not a private directory");
 }
 
 /** Creates only this attempt's private source and home, outside the working copy. */
@@ -22,6 +50,7 @@ export async function createScriptResources(
   content: string,
 ): Promise<string> {
   const directory = scriptRuntimeDirectory(instanceId);
+  await prepareScriptRuntimeRoot();
   try {
     await mkdir(directory, { mode: 0o700 });
   } catch (error: unknown) {
