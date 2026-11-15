@@ -259,6 +259,10 @@ function workspaceResources(routes: RouteBuilder): RouteConfigEntry[] {
       "routes/chat-page-agent-sessions.ts",
     ),
     resource(
+      "chat-page-api/agent-control",
+      "routes/chat-page-agent-control.ts",
+    ),
+    resource(
       "chat-page-api/agent-logbook",
       "routes/chat-page-agent-logbook.ts",
     ),
@@ -274,8 +278,17 @@ function workspaceResources(routes: RouteBuilder): RouteConfigEntry[] {
     resource("chat-page-api/files", "routes/chat-page-files.ts"),
     resource("chat/files/:id", "routes/conversation-file.ts"),
     resource("chat/files/:id/thumbnail", "routes/conversation-thumbnail.ts"),
+    resource("chat/messages/:id/files.zip", "routes/conversation-archive.ts"),
+    resource("chat/images/:id", "routes/conversation-images.ts"),
+    resource("chat/videos/:id", "routes/conversation-videos.ts"),
+    resource("chat/media/:id", "routes/conversation-media.ts"),
+    resource(
+      "chat/media/:id/files.zip",
+      "routes/conversation-media-archive.ts",
+    ),
     resource("chat/link-image", "routes/conversation-link-image.ts"),
     resource("chat/embed", "routes/chat-embed.ts"),
+    resource("chat/preview-frame", "routes/chat-preview-frame.ts"),
     ...page("chat", {
       browser: "routes/chat-page.tsx",
       server: "routes/chat-page-server.ts",

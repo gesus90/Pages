@@ -1,13 +1,8 @@
-import { randomUUID } from "node:crypto";
-
 import { AgentJobAnswerError } from "@/backend/error/AgentJobAnswerError";
 import { redactCredentials } from "@/backend/security/AgentTextSafety";
 import { AgentEmployeeError } from "@/backend/error/AgentEmployeeError";
 import { logCaughtError, logEvent } from "@/backend/logging/Logger";
-import {
-  CONVERSATION_AGENT_REPLY_PREFIX,
-  CONVERSATION_TEXT_MAXIMUM_LENGTH,
-} from "@/definition/Conversation";
+import { CONVERSATION_TEXT_MAXIMUM_LENGTH } from "@/definition/Conversation";
 
 import {
   changedEvent,
@@ -17,12 +12,9 @@ import {
   NOTICE_TEXTS,
 } from "./ConversationReplyNotices";
 import { ConversationReplyContext } from "./ConversationReplyContext";
-import { findConversationMentions } from "./ConversationMentions";
-import { toConversationMessage } from "./ConversationReader";
-import { agentSelectionText } from "./content/ConversationAgentFiles";
-import { EMPTY_MESSAGE_CONTENT } from "./content/ConversationMessageContent";
+import { postConversationReply } from "./ConversationReplyPosting";
 
-import type { StoredConversationMessage } from "@/backend/database/repositories/conversation/ConversationMessageRepository";
+import type { LiveAnswerSink } from "./ConversationLiveAnswer";
 import type { ConversationTargetState } from "@/backend/database/repositories/conversation/ConversationRoundRepository";
 import type { AgentMessageQueue } from "@/definition/AgentSessionLimits";
 import type {
@@ -30,7 +22,6 @@ import type {
   ConversationNotice,
 } from "@/definition/Conversation";
 import type { User } from "@/definition/User";
-import type { AgentFile } from "./content/ConversationAgentFiles";
 import type {
   ConversationAgentRequest,
   ConversationAgentTurn,
@@ -96,6 +87,11 @@ export class ConversationReplyRunner {
   private readonly controllers = new Map<string, AbortController>();
   /** The rounds handed to the running answer of an agent in a conversation (PAGE-376). */
   private readonly steered = new Map<string, ConversationReplyJob[]>();
+  /** Messages sent "after" the running answers, waiting for their agents to end (PAGE-381). */
+  private readonly idleWaiters = new Map<
+    string,
+    Set<{ readonly agentIds: readonly string[]; readonly resolve: () => void }>
+  >();
 
   public constructor(dependencies: ConversationReplyRunnerDependencies) {
     this.dependencies = dependencies;
@@ -119,6 +115,59 @@ export class ConversationReplyRunner {
       .get(conversationId)
       ?.values() ?? [])
       if (result.get(messageId) !== "limit") result.set(messageId, reason);
+    return result;
+  }
+
+  /**
+   * Holds a message until the given agents ended their running answers in a
+   * conversation (PAGE-381, "Danach senden"); meanwhile it shows as waiting
+   * for them.
+   *
+   * @param conversationId - The conversation.
+   * @param messageId - The message that waits.
+   * @param agentIds - The agents whose answers it waits for.
+   */
+  public async holdUntilIdle(
+    conversationId: string,
+    messageId: string,
+    agentIds: readonly string[],
+  ): Promise<void> {
+    const isBusy = (): boolean =>
+      agentIds.some((id) => this.working.get(conversationId)?.has(id) === true);
+    if (!isBusy()) return;
+    const entries = this.queued.get(conversationId) ?? new Map();
+    for (const agentId of agentIds)
+      entries.set(`${messageId}:${agentId}`, { messageId, reason: "chat" });
+    this.queued.set(conversationId, entries);
+    this.dependencies.publisher.publish(changedEvent(conversationId));
+    await new Promise<void>((resolve) => {
+      const waiters = this.idleWaiters.get(conversationId) ?? new Set();
+      waiters.add({ agentIds, resolve });
+      this.idleWaiters.set(conversationId, waiters);
+    });
+    for (const agentId of agentIds)
+      this.queued.get(conversationId)?.delete(`${messageId}:${agentId}`);
+    if (this.queued.get(conversationId)?.size === 0)
+      this.queued.delete(conversationId);
+    this.dependencies.publisher.publish(changedEvent(conversationId));
+  }
+
+  /**
+   * The messages of a conversation handed to running answers (PAGE-381), with
+   * the agents whose answers took them; they end with those answers.
+   */
+  public steeredMessages(
+    conversationId: string,
+  ): ReadonlyMap<string, readonly string[]> {
+    const result = new Map<string, string[]>();
+    for (const [queueKey, jobs] of this.steered) {
+      if (!queueKey.startsWith(`${conversationId}:`)) continue;
+      for (const job of jobs)
+        result.set(job.triggerMessageId, [
+          ...(result.get(job.triggerMessageId) ?? []),
+          job.agentId,
+        ]);
+    }
     return result;
   }
 
@@ -257,16 +306,27 @@ export class ConversationReplyRunner {
       await this.setState(job, "failed");
       return null;
     }
+    return this.runReplyTurn(job, accounts, agent.user);
+  }
+
+  /** Executes one reply turn after eligibility checks pass. */
+  private async runReplyTurn(
+    job: ConversationReplyJob,
+    accounts: ConversationAccounts,
+    agentUser: User,
+  ): Promise<ConversationMessage | null> {
     await this.setState(job, "running");
     const controllerKey = `${job.round.conversation.id}:${job.agentId}`;
     const controller = new AbortController();
     this.controllers.set(controllerKey, controller);
     this.setWorking(job, true);
+    const liveAnswer = await this.openLiveAnswer(job);
     try {
       let posted: { readonly message: ConversationMessage | null } | undefined;
-      const text = await this.askWhenFree(job, agent.user, {
+      const text = await this.askWhenFree(job, agentUser, {
         accounts,
         signal: controller.signal,
+        liveAnswer,
         consumeAnswer: async (answer) => {
           posted = {
             message: await this.post(job, accounts, {
@@ -279,6 +339,10 @@ export class ConversationReplyRunner {
       const message = posted
         ? posted.message
         : await this.post(job, accounts, { text, notice: null });
+      liveAnswer?.finish({
+        messageId: message?.id ?? null,
+        state: message ? "answered" : "failed",
+      });
       await this.settleSteered(controllerKey, {
         state: "answered",
         ...(message ? { replyMessageId: message.id } : {}),
@@ -289,10 +353,14 @@ export class ConversationReplyRunner {
         ? "agent_stopped"
         : noticeFor(error);
       this.logFailure(job, notice, error);
+      liveAnswer?.finish({
+        messageId: null,
+        state: controller.signal.aborted ? "stopped" : "failed",
+      });
       await this.post(job, accounts, {
         text: controller.signal.aborted
-          ? NOTICE_TEXTS.agent_stopped(agent.user.displayName)
-          : failureText(error, notice, agent.user.displayName),
+          ? NOTICE_TEXTS.agent_stopped(agentUser.displayName)
+          : failureText(error, notice, agentUser.displayName),
         notice,
       });
       await this.settleSteered(controllerKey, { state: "failed", notice });
@@ -303,6 +371,40 @@ export class ConversationReplyRunner {
       this.unmarkQueued(job);
       this.setWorking(job, false);
     }
+  }
+
+  /**
+   * Opens the live answer of a job for the members (PAGE-381): every member
+   * sees its text and tools, its thoughts only the person of a direct
+   * conversation or the creator of a group.
+   */
+  private async openLiveAnswer(
+    job: ConversationReplyJob,
+  ): Promise<LiveAnswerSink | undefined> {
+    const stream = this.dependencies.answerStream;
+    if (!stream) return undefined;
+    const { conversation, memberIds } = job.round;
+    const recipientIds = memberIds.filter((id) => id !== job.agentId);
+    let thoughtRecipientIds = recipientIds;
+    if (conversation.kind === "group") {
+      const owner = await stream
+        .ownerOf(conversation.id)
+        .catch((error: unknown) => {
+          // Without a known owner nobody reads the thoughts.
+          logCaughtError(COMPONENT, error);
+          return null;
+        });
+      thoughtRecipientIds =
+        owner !== null && recipientIds.includes(owner) ? [owner] : [];
+    }
+    return stream.open({
+      agentId: job.agentId,
+      chatKind: "conversation",
+      chatId: conversation.id,
+      recipientIds,
+      thoughtRecipientIds,
+      isTurnStored: false,
+    });
   }
 
   /** Whether the round began with an agent in a conversation whose chain of agent messages is used up (PAGE-311). */
@@ -320,6 +422,7 @@ export class ConversationReplyRunner {
       readonly accounts: ConversationAccounts;
       readonly signal: AbortSignal;
       readonly consumeAnswer: (answer: string) => Promise<void>;
+      readonly liveAnswer?: LiveAnswerSink;
     },
   ): Promise<string> {
     const deadline = this.nowMilliseconds() + BUSY_WAIT_MAXIMUM_MILLISECONDS;
@@ -438,11 +541,13 @@ export class ConversationReplyRunner {
       readonly accounts: ConversationAccounts;
       readonly signal: AbortSignal;
       readonly consumeAnswer: (answer: string) => Promise<void>;
+      readonly liveAnswer?: LiveAnswerSink;
     },
   ): Promise<string> {
     const request = await this.buildRequest(job, agent, context.accounts);
     const answer = await this.dependencies.runner.answer({
       ...request,
+      ...(context.liveAnswer ? { liveAnswer: context.liveAnswer } : {}),
       consumeAnswer: context.consumeAnswer,
       signal: context.signal,
       onQueued: () => this.markQueued(job, "limit"),
@@ -493,143 +598,17 @@ export class ConversationReplyRunner {
       readonly notice: ConversationNotice | null;
     },
   ): Promise<ConversationMessage | null> {
-    const { conversation, memberIds } = job.round;
-    // A hint of Pages attaches nothing; an answer attaches its file lines.
-    const selection =
-      reply.notice === null
-        ? await this.dependencies.agentFiles.select(reply.text)
-        : null;
-    // The files are stored first, so a file that fails keeps its line with the reason.
-    const staged = selection
-      ? await this.stageFiles(conversation.id, job.agentId, selection.files)
-      : { attachmentIds: [], failed: [] };
-    const text = Array.from(
-      selection ? agentSelectionText(selection, staged.failed) : reply.text,
-    )
-      .slice(0, CONVERSATION_TEXT_MAXIMUM_LENGTH)
-      .join("");
-    // An answer mentions as a person's message does, so it can hand over (PAGE-296).
-    const mentions =
-      reply.notice === null && conversation.kind === "group"
-        ? findConversationMentions(text, memberIds, {
-            accounts,
-            senderId: job.agentId,
-          })
-        : [];
-    let outcome: Awaited<
-      ReturnType<ConversationReplyRunnerDependencies["messages"]["insert"]>
-    >;
-    try {
-      outcome = await this.dependencies.messages.insert(
-        {
-          id: randomUUID(),
-          conversationId: conversation.id,
-          senderId: job.agentId,
-          // One key per asking message (PAGE-349): an agent may answer a round again and again;
-          // the answer to the round's own message keeps its earlier key.
-          clientMessageId: `${CONVERSATION_AGENT_REPLY_PREFIX}${job.round.originMessageId}${job.triggerMessageId === job.round.originMessageId ? "" : `:${job.triggerMessageId}`}`,
-          text,
-          mentions,
-          createdAt: this.now(),
-          voice: null,
-          notice: reply.notice,
-        },
-        changedEvent(conversation.id),
-      );
-    } catch (error: unknown) {
-      await this.releaseFiles(job.agentId, staged.attachmentIds);
-      throw error;
-    }
-    await this.setState(job, reply.notice === null ? "answered" : "failed", {
-      replyMessageId: outcome.message.id,
-      notice: reply.notice,
-    });
-    if (!outcome.isNew) {
-      // A repeated store keeps the first answer; the copies of this one go.
-      await this.releaseFiles(job.agentId, staged.attachmentIds);
-      return null;
-    }
-    await this.bindFiles(outcome.message, staged.attachmentIds);
-    const content = await this.dependencies.content.describe([outcome.message]);
-    const message = toConversationMessage(
-      outcome.message,
+    return postConversationReply(
+      {
+        dependencies: this.dependencies,
+        now: () => this.now(),
+        setState: (targetJob, state, details) =>
+          this.setState(targetJob, state, details),
+      },
+      job,
       accounts,
-      content.get(outcome.message.id) ?? EMPTY_MESSAGE_CONTENT,
+      reply,
     );
-    this.dependencies.publisher.publish(changedEvent(conversation.id));
-    this.dependencies.events.publish({
-      kind: "message",
-      message,
-      recipientIds: memberIds,
-    });
-    return reply.notice === null ? message : null;
-  }
-
-  /**
-   * Copies the files an answer named into the file store, without a message
-   * yet.
-   *
-   * @returns The stored attachments in their order, and the files that failed.
-   */
-  private async stageFiles(
-    conversationId: string,
-    agentId: string,
-    files: readonly AgentFile[],
-  ): Promise<{ attachmentIds: string[]; failed: AgentFile[] }> {
-    const attachmentIds: string[] = [];
-    const failed: AgentFile[] = [];
-    for (const file of files) {
-      try {
-        const stored = await this.dependencies.attachments.stage(
-          { conversationId, senderId: agentId },
-          {
-            name: file.name,
-            mimeType: file.mimeType,
-            source: this.dependencies.agentFiles.open(file),
-          },
-        );
-        attachmentIds.push(stored.id);
-      } catch (error: unknown) {
-        // The line of the file stays in the answer with the reason.
-        logCaughtError(COMPONENT, error);
-        failed.push(file);
-      }
-    }
-    return { attachmentIds, failed };
-  }
-
-  /** Binds the stored files to the stored answer; unbound ones are swept later. */
-  private async bindFiles(
-    answer: StoredConversationMessage,
-    attachmentIds: readonly string[],
-  ): Promise<void> {
-    if (attachmentIds.length === 0) return;
-    try {
-      await this.dependencies.attachments.bind(
-        {
-          id: answer.id,
-          conversationId: answer.conversationId,
-          senderId: answer.senderId,
-        },
-        attachmentIds,
-      );
-    } catch (error: unknown) {
-      logCaughtError(COMPONENT, error);
-      await this.releaseFiles(answer.senderId, attachmentIds);
-    }
-  }
-
-  /** Removes stored files no answer took; a failure leaves them to the sweep. */
-  private async releaseFiles(
-    agentId: string,
-    attachmentIds: readonly string[],
-  ): Promise<void> {
-    if (attachmentIds.length === 0) return;
-    try {
-      await this.dependencies.attachments.release(agentId, attachmentIds);
-    } catch (error: unknown) {
-      logCaughtError(COMPONENT, error);
-    }
   }
 
   private async setState(
@@ -657,6 +636,7 @@ export class ConversationReplyRunner {
     else agents.delete(job.agentId);
     if (agents.size === 0) this.working.delete(conversationId);
     else this.working.set(conversationId, agents);
+    if (!isWorking) this.releaseIdleWaiters(conversationId, agents);
     this.dependencies.publisher.publish(changedEvent(conversationId));
     this.dependencies.events.publish({
       kind: "typing",
@@ -665,6 +645,21 @@ export class ConversationReplyRunner {
       isTyping: isWorking,
       recipientIds: job.round.memberIds,
     });
+  }
+
+  /** Lets the messages go on whose agents no longer answer in the conversation. */
+  private releaseIdleWaiters(
+    conversationId: string,
+    working: ReadonlySet<string>,
+  ): void {
+    const waiters = this.idleWaiters.get(conversationId);
+    if (!waiters) return;
+    for (const waiter of waiters) {
+      if (waiter.agentIds.some((id) => working.has(id))) continue;
+      waiters.delete(waiter);
+      waiter.resolve();
+    }
+    if (waiters.size === 0) this.idleWaiters.delete(conversationId);
   }
 
   private logFailure(

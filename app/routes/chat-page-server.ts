@@ -1,21 +1,21 @@
 import { data } from "react-router";
 
 import { authenticatedUserContext } from "@/app/lib/auth.server";
-import { shareChatGroup } from "@/app/lib/chat-page-conversations.server";
 import { getApplicationServices } from "@/app/lib/services.server";
 import { AgentEmployeeError } from "@/backend/error/AgentEmployeeError";
-import { CONVERSATION_DEFAULT_REPLY_MODE } from "@/definition/ConversationDecision";
 import { ConversationError } from "@/backend/error/ConversationError";
 import { logCaughtError } from "@/backend/logging/Logger";
+import { CONVERSATION_DEFAULT_REPLY_MODE } from "@/definition/ConversationDecision";
 
-import type { ChatPageServices } from "@/app/lib/chat-page-conversations.server";
+import { runChatPageIntent } from "./chat-page-intents.server";
+
+import type { AgentChatCommandOutcome } from "@/definition/AgentChatControl";
 import type { ConversationErrorCode } from "@/definition/Conversation";
 import type {
   ConversationDecisionEntry,
   ConversationReplySettingsView,
 } from "@/definition/ConversationDecision";
 import type { ConversationGroupContextView } from "@/definition/ConversationObserver";
-import type { User } from "@/definition/User";
 import type {
   VirtualChatDirectory,
   VirtualChatHistoryPage,
@@ -38,6 +38,8 @@ export type ChatPageActionData =
       readonly replySettings?: ConversationReplySettingsView;
       /** The last decisions of a group, the answer of `reply-decisions` (PAGE-379). */
       readonly replyDecisions?: readonly ConversationDecisionEntry[];
+      /** What a chat command answered instead of a sent message (PAGE-380). */
+      readonly commandOutcome?: AgentChatCommandOutcome;
     }
   | {
       readonly ok: false;
@@ -52,6 +54,7 @@ export type ChatPageIntent =
   | "stop"
   | "stop-group"
   | "cancel-tool"
+  | "cancel-group-tool"
   | "create-group"
   | "add-member"
   | "send-group"
@@ -71,21 +74,13 @@ export type ChatPageIntent =
   | "split-width"
   | "list-collapsed";
 
-/** What a change yields besides success: a created group, a page of older messages or a group context. */
-interface ChatIntentOutcome {
-  readonly groupId?: string;
-  readonly history?: VirtualChatHistoryPage;
-  readonly groupContext?: ConversationGroupContextView;
-  readonly replySettings?: ConversationReplySettingsView;
-  readonly replyDecisions?: readonly ConversationDecisionEntry[];
-}
-
 const INTENTS: readonly ChatPageIntent[] = [
   "save-contacts",
   "send",
   "stop",
   "stop-group",
   "cancel-tool",
+  "cancel-group-tool",
   "create-group",
   "add-member",
   "send-group",
@@ -142,384 +137,6 @@ const FAILURE_STATUS: Readonly<Record<string, number>> = {
 
 function readIntent(value: FormDataEntryValue | null): ChatPageIntent | null {
   return INTENTS.find((intent) => intent === value) ?? null;
-}
-
-function readJson(value: FormDataEntryValue | null): unknown {
-  if (typeof value !== "string") return null;
-  try {
-    return JSON.parse(value);
-  } catch (error: unknown) {
-    if (error instanceof SyntaxError) return null;
-    throw error;
-  }
-}
-
-type ChatServices = ChatPageServices;
-
-/** Stores a message of a group or of a direct conversation with a person, or a read state. */
-async function runConversationIntent(
-  services: ChatServices,
-  person: User,
-  intent: "send-group" | "send-direct" | "read",
-  formData: FormData,
-): Promise<void> {
-  const { conversationService } = services;
-  const text = formData.get("text");
-  const clientMessageId = formData.get("clientMessageId");
-  const attachmentIds = readJson(formData.get("attachmentIds")) ?? undefined;
-  if (intent === "read") {
-    await conversationService.markRead(person, {
-      conversationId: String(formData.get("conversationId") ?? ""),
-      upToMessageId: String(formData.get("upToMessageId") ?? ""),
-    });
-    return;
-  }
-  if (intent === "send-direct") {
-    const conversation = await conversationService.openDirect(
-      person,
-      String(formData.get("participantId") ?? ""),
-    );
-    await conversationService.send(person, {
-      conversationId: conversation.id,
-      clientMessageId,
-      text,
-      attachmentIds,
-    });
-    await recordParticipantActivity(
-      services,
-      person,
-      formData.get("participantId"),
-    );
-    return;
-  }
-  const groupId = String(formData.get("groupId") ?? "");
-  const isOwn = await shareChatGroup(services, person, groupId);
-  await conversationService.send(person, {
-    conversationId: groupId,
-    clientMessageId,
-    text,
-    attachmentIds,
-  });
-  if (isOwn)
-    await services.chatGroupService.recordActivity(person, {
-      kind: "group",
-      id: groupId,
-    });
-}
-
-/**
- * Mutes a stored conversation for the person alone, or reads a page of its
- * older messages (PAGE-275); both answer `not_found` to a non-member. Marks
- * a chat with agents confidential (PAGE-305).
- */
-async function runMemberIntent(
-  services: ChatServices,
-  person: User,
-  intent: (typeof MEMBER_INTENTS)[number],
-  formData: FormData,
-): Promise<ChatIntentOutcome> {
-  if (intent === "confidential") {
-    await markConfidential(services, person, formData);
-    return {};
-  }
-  if (intent === "history")
-    return {
-      history: await services.chatDirectoryService.olderMessages(person, {
-        conversationId: formData.get("conversationId"),
-        beforeId: formData.get("beforeId"),
-      }),
-    };
-  const isMuted = formData.get("isMuted");
-  if (isMuted !== "true" && isMuted !== "false")
-    throw new ConversationError("invalid");
-  await services.conversationService.setMuted(person, {
-    conversationId: String(formData.get("conversationId") ?? ""),
-    isMuted: isMuted === "true",
-  });
-  return {};
-}
-
-/** Reads or changes who answers in a group; only the one who manages the group changes it (PAGE-317). */
-async function runReplySettingsIntent(
-  services: ChatServices,
-  person: User,
-  intent: "reply-settings" | "save-reply-settings" | "reply-decisions",
-  formData: FormData,
-): Promise<ChatIntentOutcome> {
-  const { conversationReplySettingsService } = services;
-  if (intent === "reply-settings")
-    return {
-      replySettings: await conversationReplySettingsService.read(
-        person,
-        formData.get("conversationId"),
-      ),
-    };
-  if (intent === "reply-decisions")
-    return {
-      replyDecisions: await conversationReplySettingsService.decisions(
-        person,
-        formData.get("conversationId"),
-      ),
-    };
-  return {
-    replySettings: await conversationReplySettingsService.save(person, {
-      conversationId: formData.get("conversationId"),
-      mode: formData.get("mode"),
-      // Without values of its own a group follows the defaults of the instance (PAGE-379).
-      rules:
-        formData.get("useDefaults") === "true"
-          ? null
-          : {
-              answerThreshold: Number(formData.get("answerThreshold")),
-              responsibilityThreshold: Number(
-                formData.get("responsibilityThreshold"),
-              ),
-              secondThreshold: Number(formData.get("secondThreshold")),
-              maximumResponders: Number(formData.get("maximumResponders")),
-            },
-      ...(formData.has("automaticRepliesPerOrigin")
-        ? {
-            automaticRepliesPerOrigin: Number(
-              formData.get("automaticRepliesPerOrigin"),
-            ),
-          }
-        : {}),
-    }),
-  };
-}
-
-/** The changes of one member of a chat that leave everybody else's view alone. */
-const MEMBER_INTENTS = ["mute", "history", "confidential"] as const;
-
-function isMemberIntent(
-  intent: ChatPageIntent,
-): intent is (typeof MEMBER_INTENTS)[number] {
-  return MEMBER_INTENTS.some((candidate) => candidate === intent);
-}
-
-/** Marks a chat with agents confidential or not; nothing of it is shared or learned (PAGE-305). */
-async function markConfidential(
-  services: ChatServices,
-  person: User,
-  formData: FormData,
-): Promise<void> {
-  const fields = ["agentId", "conversationId", "isConfidential"].flatMap(
-    (key) => {
-      const entry = formData.get(key);
-      return typeof entry === "string" ? [[key, entry] as const] : [];
-    },
-  );
-  await services.agentChatPrivacyService.setConfidential(
-    person,
-    Object.fromEntries(fields),
-  );
-}
-
-/** The changes of the content of messages and of its cards (PAGE-298). */
-type ContentIntent =
-  | "delete-message"
-  | "embed-domain"
-  | "card-state"
-  | "split-width"
-  | "list-collapsed";
-
-const CONTENT_INTENTS: readonly ContentIntent[] = [
-  "delete-message",
-  "embed-domain",
-  "card-state",
-  "split-width",
-  "list-collapsed",
-];
-
-function isContentIntent(intent: ChatPageIntent): intent is ContentIntent {
-  return CONTENT_INTENTS.some((known) => known === intent);
-}
-
-/**
- * Deletes an own message, releases or withdraws an embed domain of a
- * conversation, or stores a card state or the split width (PAGE-298) or
- * the state of the list (PAGE-325).
- */
-async function runContentIntent(
-  services: ChatServices,
-  person: User,
-  intent: ContentIntent,
-  formData: FormData,
-): Promise<void> {
-  switch (intent) {
-    case "delete-message":
-      await services.conversationService.deleteMessage(
-        person,
-        formData.get("messageId"),
-      );
-      return;
-    case "embed-domain":
-      await services.conversationLinks.setReleased(person, {
-        conversationId: formData.get("conversationId"),
-        domain: formData.get("domain"),
-        isReleased: formData.get("isReleased") === "true",
-      });
-      return;
-    case "card-state":
-      await services.chatViewPreferences.setCardState(person, {
-        cardKey: formData.get("cardKey"),
-        state: formData.get("state"),
-      });
-      return;
-    case "split-width":
-      await services.chatViewPreferences.setSplitWidth(
-        person,
-        formData.get("width"),
-      );
-      return;
-    case "list-collapsed":
-      await services.chatViewPreferences.setListCollapsed(
-        person,
-        formData.get("isCollapsed"),
-      );
-  }
-}
-
-/** The changes that stop or release the answers of agents (PAGE-304, PAGE-311). */
-const AGENT_CONTROL_INTENTS = [
-  "stop",
-  "stop-group",
-  "cancel-tool",
-  "resume-agents",
-] as const;
-
-type AgentControlIntent = (typeof AGENT_CONTROL_INTENTS)[number];
-
-function isAgentControlIntent(
-  intent: ChatPageIntent,
-): intent is AgentControlIntent {
-  return AGENT_CONTROL_INTENTS.some((candidate) => candidate === intent);
-}
-
-/** Stops the answer of an agent or one of its tool calls, or lets paused agents go on. */
-async function runAgentControlIntent(
-  services: ChatServices,
-  person: User,
-  intent: AgentControlIntent,
-  formData: FormData,
-): Promise<void> {
-  switch (intent) {
-    case "stop":
-      await services.agentEmployeeSessions.stop(
-        person,
-        formData.get("agentId"),
-      );
-      return;
-    case "stop-group":
-      // Only the answer of this agent in this conversation stops (PAGE-304).
-      await services.conversationAgentReplies.stop(
-        person,
-        String(formData.get("groupId") ?? ""),
-        String(formData.get("agentId") ?? ""),
-      );
-      return;
-    case "cancel-tool":
-      await services.agentEmployeeSessions.cancelTool(
-        person,
-        formData.get("agentId"),
-      );
-      return;
-    case "resume-agents":
-      await services.conversationAgentGuard.resume(
-        person,
-        String(formData.get("conversationId") ?? ""),
-      );
-  }
-}
-
-/** Runs one change of the person; returns a created group or a history page. */
-async function runIntent(
-  services: ChatServices,
-  person: User,
-  intent: ChatPageIntent,
-  formData: FormData,
-): Promise<ChatIntentOutcome> {
-  if (isMemberIntent(intent))
-    return runMemberIntent(services, person, intent, formData);
-  if (isContentIntent(intent)) {
-    await runContentIntent(services, person, intent, formData);
-    return {};
-  }
-  if (isAgentControlIntent(intent)) {
-    await runAgentControlIntent(services, person, intent, formData);
-    return {};
-  }
-  switch (intent) {
-    case "save-contacts":
-      await services.chatDirectoryService.saveContacts(
-        person,
-        readJson(formData.get("contacts")),
-      );
-      return {};
-    case "send":
-      await services.agentEmployeeSessions.send(person, {
-        agentId: formData.get("agentId"),
-        text: formData.get("text"),
-        clientMessageId: formData.get("clientMessageId"),
-      });
-      await recordParticipantActivity(
-        services,
-        person,
-        formData.get("agentId"),
-      );
-      return {};
-    case "create-group": {
-      const groupId = await services.chatGroupService.create(person, {
-        name: formData.get("name"),
-        description: formData.get("description"),
-        memberIds: readJson(formData.get("memberIds")),
-      });
-      await shareChatGroup(services, person, groupId);
-      return { groupId };
-    }
-    case "add-member":
-      await services.chatGroupService.addMember(
-        person,
-        formData.get("groupId"),
-        formData.get("participantId"),
-      );
-      await shareChatGroup(services, person, formData.get("groupId"));
-      return {};
-    case "send-group":
-    case "send-direct":
-    case "read":
-      await runConversationIntent(services, person, intent, formData);
-      return {};
-    case "group-context":
-      return {
-        groupContext: await services.conversationContextReader.forMember(
-          person,
-          formData.get("conversationId"),
-        ),
-      };
-    case "reply-settings":
-    case "save-reply-settings":
-    case "reply-decisions":
-      return runReplySettingsIntent(services, person, intent, formData);
-  }
-}
-
-/** A message to an agent outside the person's own list changes no order. */
-async function recordParticipantActivity(
-  services: ChatServices,
-  person: User,
-  agentId: FormDataEntryValue | null,
-): Promise<void> {
-  if (typeof agentId !== "string") return;
-  try {
-    await services.chatGroupService.recordActivity(person, {
-      kind: "participant",
-      id: agentId,
-    });
-  } catch (error: unknown) {
-    if (!(error instanceof AgentEmployeeError) || error.code !== "notFound")
-      throw error;
-  }
 }
 
 /**
@@ -602,7 +219,7 @@ export async function action({
   if (!intent) throw new Response("Bad Request", { status: 400 });
   const services = await getApplicationServices();
   try {
-    const outcome = await runIntent(services, person, intent, formData);
+    const outcome = await runChatPageIntent(services, person, intent, formData);
     return data<ChatPageActionData>({ ok: true, intent, ...outcome });
   } catch (error: unknown) {
     if (error instanceof ConversationError) {

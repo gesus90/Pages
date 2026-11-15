@@ -1,5 +1,3 @@
-import { Globe } from "lucide-react";
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/app/components/ui/button";
@@ -91,42 +89,31 @@ export function ChatPageOpenedEmbedDomains(): React.ReactElement | null {
 }
 
 /**
- * The header button of a conversation without a member dialog, such as one
- * with a person, and the small dialog with the released domains it opens.
- *
- * @returns The button with its dialog, or `null` when the conversation is
- * not stored and so has nothing released.
+ * The small dialog with the released domains of the opened conversation,
+ * which the entry "Eingebettete Webseiten" of the chat menu of a
+ * conversation with a person opens (PAGE-298, PAGE-389).
  */
-export function ChatPageEmbedDomainsButton(): React.ReactElement | null {
+export function ChatPageEmbedDomainsDialog({
+  isOpen,
+  onOpenChange,
+}: {
+  readonly isOpen: boolean;
+  readonly onOpenChange: (isOpen: boolean) => void;
+}): React.ReactElement {
   const { t } = useTranslation();
-  const content = useChatContent();
-  const [isOpen, setIsOpen] = useState(false);
-  if (content.conversationId === null) return null;
   return (
-    <>
-      <Button
-        aria-haspopup="dialog"
-        onClick={() => setIsOpen(true)}
-        size="sm"
-        type="button"
-        variant="outline"
-      >
-        <Globe aria-hidden="true" className="size-3.5" />
-        {t("chatPage.embedDomains.title")}
-      </Button>
-      <Dialog onOpenChange={setIsOpen} open={isOpen}>
-        <DialogContent size="sm">
-          <DialogTitle className="text-lg font-semibold">
-            {t("chatPage.embedDomains.dialogTitle")}
-          </DialogTitle>
-          <DialogDescription className="sr-only">
-            {t("chatPage.embedDomains.description")}
-          </DialogDescription>
-          <div className="mt-4">
-            <ChatPageOpenedEmbedDomains />
-          </div>
-        </DialogContent>
-      </Dialog>
-    </>
+    <Dialog onOpenChange={onOpenChange} open={isOpen}>
+      <DialogContent size="sm">
+        <DialogTitle className="text-lg font-semibold">
+          {t("chatPage.embedDomains.dialogTitle")}
+        </DialogTitle>
+        <DialogDescription className="sr-only">
+          {t("chatPage.embedDomains.description")}
+        </DialogDescription>
+        <div className="mt-4">
+          <ChatPageOpenedEmbedDomains />
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

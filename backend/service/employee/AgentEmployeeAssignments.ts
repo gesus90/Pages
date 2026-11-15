@@ -46,7 +46,7 @@ export async function resolveAgentModel(
       ...employee,
       connectionId: override.connectionId,
       model: override.model,
-      reasoningEffort: null,
+      reasoningEffort: override.reasoningEffort ?? null,
     });
   } catch (error: unknown) {
     if (!(error instanceof AgentEmployeeError)) throw error;

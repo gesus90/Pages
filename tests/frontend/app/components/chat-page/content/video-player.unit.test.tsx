@@ -38,17 +38,19 @@ it("plays, seeks and changes speed with the video controls", () => {
   if (!video) throw new Error("Video missing");
   expect(video.getAttribute("preload")).toBe("none");
   expect(screen.getByText(/clip.mp4/).textContent).toContain("1 KB");
-  const seek = screen.getByRole("slider");
-  expect(seek.hasAttribute("disabled")).toBe(true);
-  fireEvent.click(screen.getAllByRole("button", { name: "Play" })[0]);
+  // Before the start only the preview with its play button shows (PAGE-384).
+  expect(screen.queryByRole("slider")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Play clip.mp4" }));
   expect(play).toHaveBeenCalledOnce();
   fireEvent.play(video);
-  expect(screen.getAllByRole("button", { name: "Pause" })).toHaveLength(2);
+  const seek = screen.getByRole("slider");
+  expect(seek.hasAttribute("disabled")).toBe(true);
+  expect(screen.getByRole("button", { name: "Pause" })).toBeTruthy();
   Object.defineProperty(video, "duration", { configurable: true, value: 120 });
   fireEvent.durationChange(video);
   fireEvent.change(seek, { target: { value: "500" } });
   expect(video.currentTime).toBe(60);
-  expect(seek.getAttribute("aria-valuetext")).toBe("1:00 / 2:00");
+  expect(seek.getAttribute("aria-valuetext")).toBe("1:00");
   fireEvent.click(screen.getByRole("button", { name: /speed/i }));
   expect(video.playbackRate).toBe(1.5);
 });

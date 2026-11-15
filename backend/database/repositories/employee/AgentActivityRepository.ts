@@ -11,7 +11,7 @@ import type { AgentActivityCost } from "@/definition/AgentEmployee";
 /** A learning run or a change of the access level (PAGE-303), as the activity table stores it. */
 export interface StoredAgentEvent {
   readonly id: string;
-  readonly kind: "learning" | "access";
+  readonly kind: "learning" | "access" | "image" | "video" | "audio";
   readonly detail: string;
   readonly cost: AgentActivityCost;
   readonly createdAt: string;
@@ -56,6 +56,17 @@ function readCost(
     amount: null,
     isEstimated: false,
   };
+}
+
+function readEventKind(kind: string): StoredAgentEvent["kind"] {
+  if (
+    kind === "access" ||
+    kind === "image" ||
+    kind === "video" ||
+    kind === "audio"
+  )
+    return kind;
+  return "learning";
 }
 
 function readJobCost(row: readonly DatabaseValue[]): AgentActivityCost {
@@ -141,10 +152,7 @@ export class AgentActivityRepository {
     );
     return rows.map((row) => ({
       id: readTextColumn(row, 0, "id"),
-      kind:
-        readTextColumn(row, 1, "kind") === "access"
-          ? ("access" as const)
-          : ("learning" as const),
+      kind: readEventKind(readTextColumn(row, 1, "kind")),
       detail: readTextColumn(row, 2, "detail"),
       cost: readCost(row[3], readTextColumn(row, 4, "cost_state"), false),
       createdAt: readTextColumn(row, 5, "created_at"),
@@ -236,7 +244,15 @@ export class AgentActivityRepository {
                 WHERE cost_currency = 'USD'
                     AND cost_scope IS DISTINCT FROM 'session'
             ), 0)
-            + COALESCE((SELECT SUM(amount) FROM session_totals), 0),
+            + COALESCE((SELECT SUM(amount) FROM session_totals), 0)
+            + COALESCE((
+                SELECT SUM(cost_amount)
+                FROM agent_activity
+                WHERE user_id = $user_id
+                    AND kind IN ('image', 'video', 'audio')
+                    AND cost_state = 'known'
+                    AND created_at >= $since
+            ), 0),
             (
                 SELECT COUNT(*)
                 FROM agent_jobs

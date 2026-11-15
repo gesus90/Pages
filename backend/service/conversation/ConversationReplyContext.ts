@@ -39,7 +39,7 @@ export class ConversationReplyContext {
     this.dependencies = dependencies;
   }
 
-  /** Rechecks membership and reads attachments only for the messages actually delivered. */
+  /** Rechecks membership and names the attachments of the messages actually delivered. */
   public async forTurn(round: ContextRound): Promise<ConversationAgentTurn> {
     const { job, agent, accounts, answered, origin, afterSequence } = round;
     const { deliveredThrough } = round;
@@ -84,9 +84,10 @@ export class ConversationReplyContext {
     const content = await this.dependencies.content.describe(selected);
     return {
       prompt: createConversationAgentPrompt({ ...input, content }),
-      attachments: selected.flatMap(
-        (message) => content.get(message.id)?.attachments ?? [],
-      ),
+      // The content of files is not laid into every round (PAGE-386): the
+      // prompt names each file in one line, and the agent reads it with
+      // `anhang_lesen` when it needs it.
+      attachments: [],
       throughSequence,
     };
   }

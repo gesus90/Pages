@@ -1,6 +1,7 @@
 import { createInClause } from "@/backend/database/repositories/task/InClause";
 import {
   readCountColumn,
+  readNullableCountColumn,
   readNullableTextColumn,
   readTextColumn,
 } from "@/backend/database/RowValue";
@@ -11,7 +12,8 @@ import type {
   DatabaseValue,
 } from "@/backend/database/Database";
 
-const ATTACHMENT_COLUMNS = `
+/** The columns of an attachment row, in the order {@link toAttachment} reads them (PAGE-386 reads them too). */
+export const ATTACHMENT_COLUMNS = `
     conversation_attachments.id,
     conversation_attachments.conversation_id,
     conversation_attachments.message_id,
@@ -24,7 +26,15 @@ const ATTACHMENT_COLUMNS = `
     conversation_attachments.thumbnail_storage_name,
     conversation_attachments.thumbnail_mime_type,
     conversation_attachments.thumbnail_size_bytes,
-    conversation_attachments.created_at`;
+    conversation_attachments.created_at,
+    conversation_attachments.expires_at,
+    conversation_attachments.expired_at,
+    conversation_attachments.media_width,
+    conversation_attachments.media_height,
+    conversation_attachments.media_duration_ms,
+    conversation_attachments.sha256,
+    conversation_attachments.document_pages,
+    conversation_attachments.document_title`;
 
 /** The stored preview image of an attachment. */
 export interface StoredConversationThumbnail {
@@ -49,12 +59,52 @@ export interface StoredConversationAttachment {
   readonly position: number;
   readonly thumbnail: StoredConversationThumbnail | null;
   readonly createdAt: string;
+  /**
+   * When an attachment of an agent's answer is removed (PAGE-382); `null` or
+   * absent for an upload of a person, which stays.
+   */
+  readonly expiresAt?: string | null;
+  /** When the file and its preview image were removed; the row stays as a placeholder. */
+  readonly expiredAt?: string | null;
+  /** Resolution and length of a video or a sound as the browser read them (PAGE-384); `null` until then. */
+  readonly media?: StoredConversationMediaFacts | null;
+  /** SHA-256 of the file in hex, computed while it was stored (PAGE-385); `null` for older files. */
+  readonly sha256?: string | null;
+  /** Page count and title of a PDF as the browser read them (PAGE-385); `null` until then. */
+  readonly document?: StoredConversationDocumentFacts | null;
+}
+
+/** Page count and title of a document (PAGE-385). */
+export interface StoredConversationDocumentFacts {
+  readonly pageCount: number | null;
+  /** The title from the metadata; `null` when the document names none. */
+  readonly title: string | null;
+}
+
+/** Resolution and length of a video or a sound (PAGE-384). */
+export interface StoredConversationMediaFacts {
+  /** Pixels; `null` for a sound. */
+  readonly width: number | null;
+  readonly height: number | null;
+  readonly durationMs: number | null;
+}
+
+/** An image or a video of a conversation with the message that carries it (PAGE-382, PAGE-384). */
+export type StoredConversationMedia = StoredConversationImage;
+
+/** An image of a conversation with the message that carries it (PAGE-382). */
+export interface StoredConversationImage {
+  readonly attachment: StoredConversationAttachment;
+  readonly messageId: string;
+  readonly senderId: string;
+  /** When the message was sent. */
+  readonly sentAt: string;
 }
 
 /** What a new attachment is stored with. */
 export type NewConversationAttachment = Omit<
   StoredConversationAttachment,
-  "thumbnail" | "position"
+  "thumbnail" | "position" | "expiredAt" | "media" | "document"
 > & { readonly position?: number };
 
 type AttachmentDatabase = Pick<Database, "query" | "execute" | "transaction">;
@@ -71,7 +121,13 @@ function readThumbnail(
   };
 }
 
-function toAttachment(
+/**
+ * Reads the first 21 columns of a row selected with {@link ATTACHMENT_COLUMNS}.
+ *
+ * @param row - The row of the query.
+ * @returns The stored attachment.
+ */
+export function toAttachment(
   row: readonly DatabaseValue[],
 ): StoredConversationAttachment {
   return {
@@ -86,7 +142,31 @@ function toAttachment(
     position: readCountColumn(row, 8, "position"),
     thumbnail: readThumbnail(row),
     createdAt: readTextColumn(row, 12, "created_at"),
+    expiresAt: readNullableTextColumn(row, 13, "expires_at"),
+    expiredAt: readNullableTextColumn(row, 14, "expired_at"),
+    media: readMediaFacts(row),
+    sha256: readNullableTextColumn(row, 18, "sha256"),
+    document: readDocumentFacts(row),
   };
+}
+
+function readDocumentFacts(
+  row: readonly DatabaseValue[],
+): StoredConversationDocumentFacts | null {
+  const pageCount = readNullableCountColumn(row, 19, "document_pages");
+  const title = readNullableTextColumn(row, 20, "document_title");
+  if (pageCount === null && title === null) return null;
+  return { pageCount, title };
+}
+
+function readMediaFacts(
+  row: readonly DatabaseValue[],
+): StoredConversationMediaFacts | null {
+  const width = readNullableCountColumn(row, 15, "media_width");
+  const height = readNullableCountColumn(row, 16, "media_height");
+  const durationMs = readNullableCountColumn(row, 17, "media_duration_ms");
+  if (width === null && height === null && durationMs === null) return null;
+  return { width, height, durationMs };
 }
 
 /** Binds uploaded attachments of the sender to a message, in the given order. */
@@ -152,7 +232,9 @@ export class ConversationAttachmentRepository {
             size_bytes,
             storage_name,
             position,
-            created_at
+            created_at,
+            expires_at,
+            sha256
         )
         VALUES (
             $id,
@@ -164,7 +246,9 @@ export class ConversationAttachmentRepository {
             $size_bytes,
             $storage_name,
             $position,
-            $created_at
+            $created_at,
+            $expires_at,
+            $sha256
         );
       `,
       {
@@ -178,6 +262,8 @@ export class ConversationAttachmentRepository {
         storage_name: attachment.storageName,
         position: attachment.position ?? 0,
         created_at: attachment.createdAt,
+        expires_at: attachment.expiresAt ?? null,
+        sha256: attachment.sha256 ?? null,
       },
     );
   }
@@ -225,6 +311,21 @@ export class ConversationAttachmentRepository {
       byMessage.set(attachment.messageId, known);
     }
     return byMessage;
+  }
+
+  /** Returns every attachment of a conversation, bound or not, for a dissolved group (PAGE-380). */
+  public async forConversation(
+    conversationId: string,
+  ): Promise<StoredConversationAttachment[]> {
+    const rows = await this.database.query(
+      `
+        SELECT${ATTACHMENT_COLUMNS}
+        FROM conversation_attachments
+        WHERE conversation_attachments.conversation_id = $conversation_id;
+      `,
+      { conversation_id: conversationId },
+    );
+    return rows.map(toAttachment);
   }
 
   /**
@@ -329,6 +430,173 @@ export class ConversationAttachmentRepository {
     return rows.map(toAttachment);
   }
 
+  /**
+   * Marks every attachment whose time ran out by a moment as expired and
+   * drops its preview image (PAGE-382).
+   *
+   * @param dueBefore - Attachments with `expires_at` up to this moment expire.
+   * @param expiredAt - The moment stored as `expired_at`.
+   * @returns The file names the expired attachments listed before, for their
+   * removal; the rows stay as placeholders.
+   */
+  public async expireDue(
+    dueBefore: string,
+    expiredAt: string,
+  ): Promise<string[]> {
+    const rows = await this.database.query(
+      `
+        WITH due AS (
+            SELECT
+                id,
+                storage_name,
+                thumbnail_storage_name
+            FROM conversation_attachments
+            WHERE expires_at IS NOT NULL
+                AND expires_at <= $due_before
+                AND expired_at IS NULL
+            FOR UPDATE
+        )
+        UPDATE conversation_attachments
+        SET
+            expired_at = $expired_at,
+            thumbnail_storage_name = NULL,
+            thumbnail_mime_type = NULL,
+            thumbnail_size_bytes = NULL
+        FROM due
+        WHERE conversation_attachments.id = due.id
+        RETURNING
+            due.storage_name,
+            due.thumbnail_storage_name;
+      `,
+      { due_before: dueBefore, expired_at: expiredAt },
+    );
+    const names: string[] = [];
+    for (const row of rows) {
+      names.push(readTextColumn(row, 0, "storage_name"));
+      const thumbnail = readNullableTextColumn(
+        row,
+        1,
+        "thumbnail_storage_name",
+      );
+      if (thumbnail !== null) names.push(thumbnail);
+    }
+    return names;
+  }
+
+  /**
+   * Stores the resolution and the length of a video or a sound once
+   * (PAGE-384); facts already stored stay.
+   *
+   * @returns `false` when the attachment has facts already or is missing.
+   */
+  public async setMediaFacts(
+    attachmentId: string,
+    facts: StoredConversationMediaFacts,
+  ): Promise<boolean> {
+    const rows = await this.database.query(
+      `
+        UPDATE conversation_attachments
+        SET
+            media_width = $width,
+            media_height = $height,
+            media_duration_ms = $duration_ms
+        WHERE id = $id
+            AND media_width IS NULL
+            AND media_height IS NULL
+            AND media_duration_ms IS NULL
+        RETURNING id;
+      `,
+      {
+        id: attachmentId,
+        width: facts.width,
+        height: facts.height,
+        duration_ms: facts.durationMs,
+      },
+    );
+    return rows.length === 1;
+  }
+
+  /**
+   * Stores page count and title of a document that has none yet (PAGE-385).
+   *
+   * @returns `false` when the attachment has them already.
+   */
+  public async setDocumentFacts(
+    attachmentId: string,
+    facts: StoredConversationDocumentFacts,
+  ): Promise<boolean> {
+    const rows = await this.database.query(
+      `
+        UPDATE conversation_attachments
+        SET
+            document_pages = $page_count,
+            document_title = $title
+        WHERE id = $id
+            AND document_pages IS NULL
+            AND document_title IS NULL
+        RETURNING id;
+      `,
+      {
+        id: attachmentId,
+        page_count: facts.pageCount,
+        title: facts.title,
+      },
+    );
+    return rows.length === 1;
+  }
+
+  /**
+   * Returns the images of the sent messages of a conversation, oldest
+   * message first and in their order within a message (PAGE-382).
+   */
+  public async imagesOfConversation(
+    conversationId: string,
+  ): Promise<StoredConversationImage[]> {
+    return this.mediaOfConversation(conversationId, "image");
+  }
+
+  /**
+   * Returns the images or the videos of the sent messages of a conversation,
+   * oldest message first and in their order within a message (PAGE-382,
+   * PAGE-384).
+   */
+  public async mediaOfConversation(
+    conversationId: string,
+    kind: "image" | "video",
+  ): Promise<StoredConversationMedia[]> {
+    const rows = await this.database.query(
+      `
+        SELECT${ATTACHMENT_COLUMNS},
+            conversation_messages.sender_id,
+            conversation_messages.created_at AS sent_at
+        FROM conversation_attachments
+        INNER JOIN conversation_messages
+            ON conversation_messages.id = conversation_attachments.message_id
+        WHERE conversation_attachments.conversation_id = $conversation_id
+            AND conversation_attachments.mime_type LIKE $type_pattern
+        ORDER BY
+            conversation_messages.sequence,
+            conversation_attachments.position;
+      `,
+      {
+        conversation_id: conversationId,
+        type_pattern: kind === "video" ? "video/%" : "image/%",
+      },
+    );
+    const images: StoredConversationImage[] = [];
+    for (const row of rows) {
+      const attachment = toAttachment(row);
+      if (attachment.messageId === null) continue;
+      images.push({
+        attachment,
+        messageId: attachment.messageId,
+        senderId: readTextColumn(row, 21, "sender_id"),
+        sentAt: readTextColumn(row, 22, "sent_at"),
+      });
+    }
+    return images;
+  }
+
   /** Returns every file name the attachments still list, for the sweep of the file store. */
   public async storageNames(): Promise<Set<string>> {
     const rows = await this.database.query(
@@ -336,7 +604,8 @@ export class ConversationAttachmentRepository {
         SELECT
             storage_name,
             thumbnail_storage_name
-        FROM conversation_attachments;
+        FROM conversation_attachments
+        WHERE expired_at IS NULL;
       `,
     );
     const names = new Set<string>();

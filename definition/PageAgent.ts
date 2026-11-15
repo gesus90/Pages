@@ -99,6 +99,24 @@ export interface PageAgentModel {
    */
   readonly isDecisionCapable?: boolean;
   /**
+   * `true` for a model whose catalog states `image` among the outputs
+   * (PAGE-382). It still chats when it also states text; an agent working
+   * with it in a chat generates images with it.
+   */
+  readonly isImageOutputCapable?: boolean;
+  /**
+   * `true` for a model whose catalog states `video` among the outputs
+   * (PAGE-384). It still chats when it also states text; an agent working
+   * with it in a chat generates videos with it.
+   */
+  readonly isVideoOutputCapable?: boolean;
+  /**
+   * `true` for a model whose catalog states `audio` among the outputs
+   * (PAGE-384). It still chats when it also states text; an agent working
+   * with it in a chat generates sounds with it.
+   */
+  readonly isAudioOutputCapable?: boolean;
+  /**
    * `true` when the last server refresh of the model's catalog failed.
    *
    * @remarks

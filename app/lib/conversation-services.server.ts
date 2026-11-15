@@ -20,13 +20,20 @@ import { AgentChatSettingsService } from "@/backend/service/conversation/AgentCh
 import { ConversationAgentGuard } from "@/backend/service/conversation/ConversationAgentGuard";
 import { ChatViewPreferenceRepository } from "@/backend/database/repositories/conversation/ChatViewPreferenceRepository";
 import { ConversationAttachmentRepository } from "@/backend/database/repositories/conversation/ConversationAttachmentRepository";
+import { ConversationAttachmentLibraryRepository } from "@/backend/database/repositories/conversation/ConversationAttachmentLibraryRepository";
 import { ConversationEmbedDomainRepository } from "@/backend/database/repositories/conversation/ConversationEmbedDomainRepository";
 import { ConversationLinkPreviewRepository } from "@/backend/database/repositories/conversation/ConversationLinkPreviewRepository";
+import { ConversationMediaOverviewRepository } from "@/backend/database/repositories/conversation/ConversationMediaOverviewRepository";
 import { currentAgentSimulationMode } from "@/backend/agents/simulation/AgentSimulationMode";
 import { ChatViewPreferenceService } from "@/backend/service/conversation/content/ChatViewPreferenceService";
 import { ConversationAgentFiles } from "@/backend/service/conversation/content/ConversationAgentFiles";
 import { ConversationAttachments } from "@/backend/service/conversation/content/ConversationAttachments";
+import { ConversationAttachmentContent } from "@/backend/service/conversation/content/ConversationAttachmentContent";
+import { ConversationAttachmentLibrary } from "@/backend/service/conversation/content/ConversationAttachmentLibrary";
+import { ConversationAttachmentReferences } from "@/backend/service/conversation/content/ConversationAttachmentReferences";
+import { FfmpegVideoFrameReader } from "@/backend/service/conversation/content/ConversationVideoFrames";
 import { ConversationLinks } from "@/backend/service/conversation/content/ConversationLinks";
+import { ConversationMediaOverviewService } from "@/backend/service/conversation/content/ConversationMediaOverviewService";
 import { ConversationMessageContent } from "@/backend/service/conversation/content/ConversationMessageContent";
 import { HttpConversationLinkFetcher } from "@/backend/service/conversation/links/HttpConversationLinkFetcher";
 import { SimulatedConversationLinkFetcher } from "@/backend/service/conversation/links/SimulatedConversationLinkFetcher";
@@ -36,8 +43,11 @@ import { ConversationContextReader } from "@/backend/service/conversation/Conver
 import { ConversationMentionAliases } from "@/backend/service/conversation/ConversationMentionAliases";
 import { ConversationDirectory } from "@/backend/service/conversation/ConversationDirectory";
 import { sharedConversationEvents } from "@/backend/service/conversation/ConversationEvents";
+import { sharedConversationAnswerStream } from "@/backend/service/conversation/ConversationAnswerStream";
 import { ConversationGroupSummaries } from "@/backend/service/conversation/ConversationGroupSummaries";
 import { ConversationGroupSummaryScheduler } from "@/backend/service/conversation/ConversationGroupSummaryScheduler";
+import { ConversationAttachmentExpiry } from "@/backend/service/conversation/content/ConversationAttachmentExpiry";
+import { sharedConversationGeneratedImages } from "@/backend/service/conversation/content/ConversationGeneratedImages";
 import { ConversationObserverModel } from "@/backend/service/conversation/ConversationObserverModel";
 import { ConversationObserverMonitor } from "@/backend/service/conversation/ConversationObserverMonitor";
 import { ConversationOversight } from "@/backend/service/conversation/ConversationOversight";
@@ -88,8 +98,12 @@ export interface ConversationApplicationServices {
   readonly agentChatSettingsService: AgentChatSettingsService;
   /** The files of conversation messages (PAGE-298). */
   readonly conversationAttachments: ConversationAttachments;
+  /** The attachments of chats as their agents search and read them (PAGE-386). */
+  readonly conversationAttachmentLibrary: ConversationAttachmentLibrary;
   /** The links of messages and the domains that may be embedded (PAGE-298). */
   readonly conversationLinks: ConversationLinks;
+  /** "Medien & Dateien" of a chat: its files and links, and chosen files as ZIP (PAGE-387). */
+  readonly conversationMediaOverview: ConversationMediaOverviewService;
   /** The card states and the split width of a person (PAGE-298). */
   readonly chatViewPreferences: ChatViewPreferenceService;
 }
@@ -146,6 +160,7 @@ export interface ConversationObserverInput {
 declare global {
   var pagesConversationAgentReplies: (() => void) | undefined;
   var pagesConversationSummaries: ConversationGroupSummaryScheduler | undefined;
+  var pagesConversationExpiry: ConversationAttachmentExpiry | undefined;
 }
 
 /**
@@ -192,7 +207,7 @@ export function createConversationServices(
   });
   const decisions = new ConversationDecisionRepository(database);
   const replySettings = new ConversationReplySettingsRepository(database);
-  const content = createContent(input, conversations);
+  const content = createContent(input, conversations, directory);
   const conversationReader = new ConversationReader({
     conversations,
     messages,
@@ -225,6 +240,55 @@ export function createConversationServices(
     content,
     input.observer.isBackgroundOwner,
   );
+  return assembleConversationServices({
+    input,
+    conversations,
+    messages,
+    directory,
+    files,
+    decisions,
+    replySettings,
+    content,
+    conversationReader,
+    events,
+    observer,
+    agentChat,
+    conversationAgentReplies,
+  });
+}
+
+function assembleConversationServices(parts: {
+  readonly input: ConversationServicesInput;
+  readonly conversations: ConversationRepository;
+  readonly messages: ConversationMessageRepository;
+  readonly directory: ConversationDirectory;
+  readonly files: WikiFileStore;
+  readonly decisions: ConversationDecisionRepository;
+  readonly replySettings: ConversationReplySettingsRepository;
+  readonly content: ContentParts;
+  readonly conversationReader: ConversationReader;
+  readonly events: ConversationEvents;
+  readonly observer: ObserverParts;
+  readonly agentChat: ReturnType<typeof createAgentChatParts>;
+  readonly conversationAgentReplies: ConversationAgentReplies;
+}): ConversationApplicationServices {
+  const {
+    input,
+    conversations,
+    messages,
+    directory,
+    files,
+    decisions,
+    replySettings,
+    content,
+    conversationReader,
+    events,
+    observer,
+    agentChat,
+    conversationAgentReplies,
+  } = parts;
+  const { database } = input;
+  const { guard: conversationAgentGuard } = agentChat;
   const conversationVoiceMaximumMs = voiceMaximumDurationMs(input.speech);
   const conversationService = new ConversationService({
     conversations,
@@ -255,7 +319,9 @@ export function createConversationServices(
     conversationVoiceMaximumMs,
     conversationService,
     conversationAttachments: content.attachments,
+    conversationAttachmentLibrary: content.library,
     conversationLinks: content.links,
+    conversationMediaOverview: content.media,
     chatViewPreferences: new ChatViewPreferenceService(
       new ChatViewPreferenceRepository(database),
     ),
@@ -364,8 +430,15 @@ function createReplies(
     publisher: input.events,
     guard: parts.guard,
     agentFiles: new ConversationAgentFiles(),
+    references: content.references,
     attachments: content.attachments,
+    generatedImages: sharedConversationGeneratedImages(),
     content: content.reader,
+    answerStream: {
+      open: (target) => sharedConversationAnswerStream().open(target),
+      ownerOf: (conversationId) =>
+        shared.conversations.createdBy(conversationId),
+    },
   });
 }
 
@@ -374,6 +447,9 @@ interface ContentParts {
   readonly attachments: ConversationAttachments;
   readonly links: ConversationLinks;
   readonly reader: ConversationMessageContent;
+  readonly library: ConversationAttachmentLibrary;
+  readonly references: ConversationAttachmentReferences;
+  readonly media: ConversationMediaOverviewService;
 }
 
 function hostOf(origin: string | undefined): string[] {
@@ -383,16 +459,28 @@ function hostOf(origin: string | undefined): string[] {
 function createContent(
   input: ConversationServicesInput,
   conversations: ConversationRepository,
+  directory: ConversationDirectory,
 ): ContentParts {
   const { database } = input;
+  const files = new WikiFileStore(
+    path.join(input.directory, "conversation-files"),
+  );
   const attachments = new ConversationAttachments({
     attachments: new ConversationAttachmentRepository(database),
     conversations,
-    files: new WikiFileStore(path.join(input.directory, "conversation-files")),
+    files,
+    directory,
+  });
+  const libraryRows = new ConversationAttachmentLibraryRepository(database);
+  const references = new ConversationAttachmentReferences({
+    library: libraryRows,
+    conversations,
+    directory,
   });
   const ownHosts = hostOf(input.publicUrl);
+  const previews = new ConversationLinkPreviewRepository(database);
   const links = new ConversationLinks({
-    previews: new ConversationLinkPreviewRepository(database),
+    previews,
     domains: new ConversationEmbedDomainRepository(database),
     conversations,
     fetcher:
@@ -409,17 +497,44 @@ function createContent(
   return {
     attachments,
     links,
-    reader: new ConversationMessageContent(attachments, links),
+    reader: new ConversationMessageContent(attachments, links, references),
+    references,
+    media: new ConversationMediaOverviewService({
+      library: libraryRows,
+      messages: new ConversationMediaOverviewRepository(database),
+      previews,
+      conversations,
+      files,
+      directory,
+    }),
+    library: new ConversationAttachmentLibrary({
+      library: libraryRows,
+      conversations,
+      files,
+      directory,
+      content: new ConversationAttachmentContent({
+        transcriber: createConversationTranscriber({ speech: input.speech }),
+        frames: new FfmpegVideoFrameReader(),
+      }),
+    }),
   };
 }
 
-/** Removes files and preview data nothing refers to any more, once at the start. */
+/**
+ * Removes files and preview data nothing refers to any more, once at the
+ * start, and starts the regular removal of agents' files after 72 hours
+ * (PAGE-382); a second wiring replaces the expiry of the first.
+ */
 function sweepContent(content: ContentParts): void {
   void Promise.all([content.attachments.sweep(), content.links.sweep()]).catch(
     (error: unknown) => {
       logCaughtError("ConversationContent", error);
     },
   );
+  void globalThis.pagesConversationExpiry?.shutdown();
+  const expiry = new ConversationAttachmentExpiry(content.attachments);
+  expiry.start();
+  globalThis.pagesConversationExpiry = expiry;
 }
 
 /** The parts of the group observer (PAGE-296). */

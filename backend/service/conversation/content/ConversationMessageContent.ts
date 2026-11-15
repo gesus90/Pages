@@ -1,8 +1,10 @@
 import type { StoredConversationMessage } from "@/backend/database/repositories/conversation/ConversationMessageRepository";
 import type {
   ConversationAttachment,
+  ConversationAttachmentReference,
   ConversationLink,
 } from "@/definition/ConversationContent";
+import type { ConversationAttachmentReferences } from "./ConversationAttachmentReferences";
 import type { ConversationAttachments } from "./ConversationAttachments";
 import type { ConversationLinks } from "./ConversationLinks";
 
@@ -10,6 +12,8 @@ import type { ConversationLinks } from "./ConversationLinks";
 export interface MessageContent {
   readonly attachments: readonly ConversationAttachment[];
   readonly links: readonly ConversationLink[];
+  /** Earlier attachments of the chat the message shows again (PAGE-386); missing without any. */
+  readonly references?: readonly ConversationAttachmentReference[];
 }
 
 /** Reads the content of stored messages by message ID. */
@@ -32,19 +36,29 @@ export const EMPTY_MESSAGE_CONTENT: MessageContent = {
 export class ConversationMessageContent implements ConversationMessageContentReader {
   private readonly attachments: Pick<ConversationAttachments, "forMessages">;
   private readonly links: Pick<ConversationLinks, "forMessages">;
+  private readonly references: Pick<
+    ConversationAttachmentReferences,
+    "forMessages"
+  > | null;
 
   /**
    * Creates the reader.
    *
    * @param attachments - The attachments of messages.
    * @param links - The links of messages.
+   * @param references - The earlier attachments messages show again (PAGE-386); none without it.
    */
   public constructor(
     attachments: Pick<ConversationAttachments, "forMessages">,
     links: Pick<ConversationLinks, "forMessages">,
+    references: Pick<
+      ConversationAttachmentReferences,
+      "forMessages"
+    > | null = null,
   ) {
     this.attachments = attachments;
     this.links = links;
+    this.references = references;
   }
 
   /**
@@ -56,21 +70,28 @@ export class ConversationMessageContent implements ConversationMessageContentRea
   public async describe(
     messages: readonly StoredConversationMessage[],
   ): Promise<Map<string, MessageContent>> {
-    const [attachments, links] = await Promise.all([
-      this.attachments.forMessages(messages.map((message) => message.id)),
+    const ids = messages.map((message) => message.id);
+    const [attachments, links, references] = await Promise.all([
+      this.attachments.forMessages(ids),
       // A hint of Pages in an agent's name links nothing.
       this.links.forMessages(
         messages.filter((message) => message.notice === null),
       ),
+      this.references?.forMessages(ids) ??
+        new Map<string, ConversationAttachmentReference[]>(),
     ]);
     return new Map(
-      messages.map((message) => [
-        message.id,
-        {
-          attachments: attachments.get(message.id) ?? [],
-          links: links.get(message.id) ?? [],
-        },
-      ]),
+      messages.map((message) => {
+        const shown = references.get(message.id) ?? [];
+        return [
+          message.id,
+          {
+            attachments: attachments.get(message.id) ?? [],
+            links: links.get(message.id) ?? [],
+            ...(shown.length > 0 ? { references: shown } : {}),
+          },
+        ];
+      }),
     );
   }
 }

@@ -4007,7 +4007,8 @@
       "agent_unavailable": "{{name}} antwortet nicht: Für den Agent ist gerade kein Modell nutzbar.",
       "agent_failed": "{{name}} konnte nicht antworten, die Antwort ist fehlgeschlagen. Schreib die Nachricht erneut, um es noch einmal zu versuchen.",
       "agent_stopped": "Die Antwort von {{name}} wurde gestoppt.",
-      "round_limit": "Abstimmung beendet, Grenze erreicht"
+      "round_limit": "Abstimmung beendet, Grenze erreicht",
+      "session_event": "Systemzeile"
     },
     "stop": "Stoppen",
     "stopAgent": "{{name}} stoppen",
@@ -4079,6 +4080,8 @@
       "failed": "Der Text konnte nicht erkannt werden. Die Aufnahme bleibt abspielbar.",
       "pause": "Sprachnachricht anhalten",
       "seek": "Zu einer Stelle der Sprachnachricht springen",
+      "showText": "Text anzeigen",
+      "hideText": "Text ausblenden",
       "record": "Sprachnachricht aufnehmen",
       "pickFile": "Audiodatei senden (WAV oder MP3)",
       "recording": "Aufnahme {{elapsed}} von höchstens {{maximum}}",
@@ -4096,8 +4099,6 @@
         "general": "Die Sprachnachricht konnte nicht gesendet werden. Versuch es noch einmal."
       }
     },
-    "mute": "Stummschalten",
-    "unmute": "Stummschaltung aufheben",
     "muted": "Stummgeschaltet",
     "loadOlder": "Ältere Nachrichten laden",
     "loadingOlder": "Lädt …",
@@ -4180,7 +4181,8 @@
     "toolStatus": {
       "running": "läuft",
       "completed": "fertig",
-      "failed": "fehlgeschlagen"
+      "failed": "fehlgeschlagen",
+      "cancelled": "abgebrochen"
     },
     "cancelTool": "Abbrechen",
     "toolInput": "Eingabe",
@@ -4192,9 +4194,6 @@
       "chat": "In Warteschlange – wird direkt nach der laufenden Antwort beantwortet",
       "limit": "In Warteschlange – die Höchstzahl gleichzeitiger Agent-Sitzungen ist erreicht; die Antwort beginnt, sobald eine Sitzung frei wird"
     },
-    "confidentialOn": "Vertraulich",
-    "confidentialOff": "Nicht vertraulich",
-    "confidentialHint": "Aus einem vertraulichen Chat teilen Agents nichts mit anderen Chats und lernen nichts für DREAM.md.",
     "agentConversation": "Agent-Gespräch",
     "agentConversationSubtitle": "Gespräch zwischen Agents · nur lesbar",
     "agentConversationReadOnly": "Dies ist ein Gespräch zwischen Agents. Du liest es als Administrator oder Leitung und schreibst hier nicht mit.",
@@ -4211,7 +4210,7 @@
     "cards": {
       "beside": "Daneben",
       "besideOpen": "Rechts geöffnet",
-      "collapse": "Einklappen",
+      "collapse": "Zuklappen",
       "expand": "Ausklappen",
       "showAllLines": "Alle {{count}} Zeilen zeigen",
       "lines_one": "{{count}} Zeile",
@@ -4236,7 +4235,11 @@
         "pdf": "PDF",
         "video": "Video",
         "audio": "Audio",
-        "file": "Datei"
+        "file": "Datei",
+        "gallery": "Galerie",
+        "word": "Dokument",
+        "slides": "Präsentation",
+        "sheet": "Tabelle"
       },
       "diff": {
         "before": "vorher",
@@ -4250,11 +4253,12 @@
         "zoom": "{{percent}} %",
         "previousPage": "Vorherige Seite",
         "nextPage": "Nächste Seite",
-        "page": "Seite {{page}} / {{count}}",
+        "page": "Seite {{page}} von {{count}}",
         "pages": "Seiten",
         "openPage": "Seite {{page}} öffnen",
         "loading": "PDF wird geladen …",
-        "failed": "Das PDF konnte nicht geladen werden."
+        "failed": "Das PDF konnte nicht geladen werden.",
+        "encrypted": "Dieses PDF ist verschlüsselt. Pages zeigt es nicht an; es bleibt herunterladbar."
       },
       "reload": "Neu laden",
       "newTab": "Neuer Tab",
@@ -4264,16 +4268,112 @@
       "removeRelease": "Freigabe entfernen",
       "embeddedPage": "Eingebettete Seite von {{domain}}",
       "fullscreen": "Vollbild",
-      "download": "Laden",
+      "download": "Herunterladen",
       "open": "Öffnen",
       "play": "Abspielen",
       "pause": "Pause",
       "seek": "Im Verlauf springen",
       "speed": "Geschwindigkeit: {{speed}}",
-      "videoFullscreen": "Video im Vollbild",
       "previewPending": "Vorschau wird erstellt …",
       "noPreview": "Keine Vorschau",
-      "you": "Du"
+      "you": "Du",
+      "toMessage": "Zur Nachricht",
+      "reference": {
+        "from": "aus einer früheren Nachricht von {{name}}",
+        "fromUnknown": "aus einer früheren Nachricht",
+        "deleted": "gelöscht",
+        "deletedLabel": "Datei samt Nachricht gelöscht"
+      },
+      "downloadAll": "Alle herunterladen",
+      "downloadNamed": "{{name}} herunterladen",
+      "viewerStrip": "Alle Bilder dieses Chats",
+      "retention": {
+        "days_one": "noch {{count}} Tag",
+        "days_other": "noch {{count}} Tage",
+        "hours_one": "noch {{count}} Std.",
+        "hours_other": "noch {{count}} Std.",
+        "soon": "noch unter 1 Std."
+      },
+      "expired": {
+        "short": "abgelaufen",
+        "label": "abgelaufen · erzeugt am {{date}}"
+      },
+      "gallery": {
+        "name_one": "{{count}} Bild",
+        "name_other": "{{count}} Bilder",
+        "count_one": "{{count}} Bild",
+        "count_other": "{{count}} Bilder",
+        "pending": "Bild wird erzeugt …"
+      },
+      "detected": "automatisch erkannt: {{kind}}",
+      "document": {
+        "format": {
+          "docx": "Word-Dokument",
+          "odt": "OpenDocument-Text",
+          "pptx": "PowerPoint",
+          "odp": "OpenDocument-Präsentation",
+          "xlsx": "Excel-Tabelle",
+          "ods": "OpenDocument-Tabelle",
+          "csv": "CSV-Tabelle",
+          "tsv": "TSV-Tabelle"
+        },
+        "pages_one": "{{count}} Seite",
+        "pages_other": "{{count}} Seiten",
+        "pageOf": "Seite {{page}} von {{count}}",
+        "openWhole": "Ganzes Dokument öffnen",
+        "loading": "Dokument wird gelesen …",
+        "failed": {
+          "encrypted": "Dieses Dokument ist verschlüsselt oder in einem älteren Format. Pages zeigt es nicht an; es bleibt herunterladbar.",
+          "unreadable": "Dieses Dokument konnte nicht gelesen werden. Es bleibt herunterladbar.",
+          "tooLarge": "Dieses Dokument ist zu groß für die Vorschau. Es bleibt herunterladbar."
+        },
+        "empty": "Das Dokument enthält keinen Text.",
+        "embedded": "Eingebettetes Objekt – wird nicht ausgeführt",
+        "image": "Bild",
+        "pageStart": "Seite {{page}}",
+        "contents": "Inhalt",
+        "noHeadings": "Keine Überschriften",
+        "truncated": "Nur der Anfang dieses sehr langen Dokuments wird gezeigt. Lade die Datei für den Rest herunter.",
+        "search": "Im Dokument suchen",
+        "searchPlaceholder": "Suchen …",
+        "matchOf": "{{current}} von {{count}}",
+        "noMatch": "Keine Treffer",
+        "previousMatch": "Vorheriger Treffer",
+        "nextMatch": "Nächster Treffer"
+      },
+      "slides": {
+        "count_one": "{{count}} Folie",
+        "count_other": "{{count}} Folien",
+        "slide": "Folie {{number}}",
+        "slideOf": "Folie {{number}} von {{count}}",
+        "previous": "Vorherige Folie",
+        "next": "Nächste Folie",
+        "openAll": "Alle Folien öffnen",
+        "empty": "Die Präsentation enthält keine Folien.",
+        "strip": "Folien",
+        "untitled": "Ohne Titel"
+      },
+      "sheet": {
+        "sheets": "Blätter",
+        "sheetCount_one": "{{count}} Blatt",
+        "sheetCount_other": "{{count}} Blätter",
+        "rows_one": "{{count}} Zeile",
+        "rows_other": "{{count}} Zeilen",
+        "rowsOf": "{{shown}} von {{count}} Zeilen",
+        "openWhole": "Ganze Tabelle öffnen",
+        "empty": "Dieses Blatt ist leer.",
+        "sortBy": "Nach {{column}} sortieren",
+        "selectHint": "Zellen markieren: klicken, ziehen oder mit Umschalt erweitern",
+        "summary": "Summe {{sum}} · {{count}} Zellen · {{numbers}} Zahlen",
+        "mean": "Mittelwert {{mean}}",
+        "pages": "Seiten der Tabelle",
+        "truncated": "Nur die ersten 50 000 Zeilen und 200 Spalten werden gezeigt."
+      },
+      "binary": {
+        "noChecksum": "Keine Prüfsumme",
+        "copyChecksum": "SHA-256-Prüfsumme kopieren",
+        "tooLarge": "Zu groß für die Vorschau (über 32 MB) – nur zum Herunterladen"
+      }
     },
     "embedDomains": {
       "title": "Eingebettete Domains",
@@ -4310,17 +4410,13 @@
       "soon": "folgt",
       "openDirect": "Direkt-Chat mit {{name}} öffnen",
       "mention": "{{name}} erwähnen",
-      "failed": "Die Sitzungsaktion ist fehlgeschlagen."
-    },
-    "groupMenu": {
-      "trigger": "Gruppe",
-      "label": "Gruppen-Menü",
-      "section": "Gruppe „{{name}}“",
-      "reply": "Wer antwortet? …",
-      "context": "Gruppenkontext …",
-      "sessions": "Sitzungen der Agenten in diesem Chat …",
-      "confidential": "Vertraulichkeit",
-      "members": "Mitglieder verwalten …"
+      "failed": "Die Sitzungsaktion ist fehlgeschlagen.",
+      "model": "Modell in diesem Chat …",
+      "compact": "Jetzt verdichten",
+      "renew": "Neu starten",
+      "noRight": "Nur wer vom Besitzer der Gruppe berechtigt ist, darf Modell und Sitzung ändern.",
+      "remove": "Aus Gruppe entfernen …",
+      "ownerOnly": "nur Besitzer"
     },
     "agentSessions": {
       "title": "Sitzungen der Agenten in {{name}}",
@@ -4344,6 +4440,278 @@
       "ready": "Decision-Modell aktiv",
       "noModel": "Kein Decision-Modell · nur @",
       "modelUnavailable": "Decision-Modell nicht verfügbar · nur @"
+    },
+    "control": {
+      "failure": {
+        "forbidden": "Dafür fehlt dir das Recht. Es wurde nichts geändert.",
+        "notFound": "Den Chat oder den Agenten gibt es nicht mehr.",
+        "invalidInput": "Die Angaben sind ungültig. Es wurde nichts geändert.",
+        "unavailable": "Pages ist gerade nicht erreichbar. Bitte noch einmal versuchen.",
+        "modelNotAllowed": "Dieses Modell oder diese Denkstufe steht für den Agenten nicht zur Wahl."
+      }
+    },
+    "modelChoice": {
+      "title": "Modell für {{agent}} in „{{chat}}“",
+      "standardOf": "Standard des Agenten: {{model}}",
+      "loading": "Wird geladen …",
+      "search": "Modell suchen …",
+      "none": "Kein Modell passt.",
+      "standard": "Standard",
+      "onlyText": "Nur Textmodelle der für {{agent}} freigegebenen Verbindungen.",
+      "effortLabel": "Denkstufe",
+      "effortDefault": "Standard",
+      "effort": {
+        "none": "ohne",
+        "minimal": "minimal",
+        "low": "niedrig",
+        "medium": "mittel",
+        "high": "hoch",
+        "xhigh": "sehr hoch",
+        "max": "max"
+      },
+      "reset": "Auf Standard zurücksetzen",
+      "cancel": "Abbrechen",
+      "switch": "Wechseln",
+      "hint": "{{agent}} beendet erst die laufende Antwort, dann startet die Sitzung mit {{model}} neu. Zusammenfassung, MEMORY.md und DREAM.md werden übernommen.",
+      "badgeHint": "In diesem Chat antwortet der Agent mit {{model}} statt mit seinem Standardmodell."
+    },
+    "removeMember": {
+      "title": "{{name}} aus „{{group}}“ entfernen?",
+      "description": "{{name}} sieht die Gruppe danach nicht mehr.",
+      "session": "Die Sitzung von {{name}} in dieser Gruppe wird geschlossen und gelöscht.",
+      "sessionPercent": "Die Sitzung von {{name}} in dieser Gruppe wird geschlossen und gelöscht ({{percent}} % Kontext).",
+      "model": "Die Festlegung {{model}} für diesen Chat entfällt.",
+      "running": "Läuft gerade eine Antwort, wird sie abgebrochen.",
+      "kept": "Bleibt erhalten: MEMORY.md, DREAM.md, Lektionen, Rezepte und Lagebuch von {{name}}. Vorher hält {{name}} seinen Stand im Lagebuch fest.",
+      "confirm": "Entfernen"
+    },
+    "dissolve": {
+      "title": "Gruppe „{{name}}“ auflösen?",
+      "description_one": "Die Gruppe verschwindet für {{count}} Mitglied.",
+      "description_other": "Die Gruppe verschwindet für alle {{count}} Mitglieder.",
+      "onlyHere": "nur hier",
+      "noSession": "keine Sitzung",
+      "sessions": "Diese Agenten-Sitzungen werden geschlossen und gelöscht:",
+      "noAgents": "In dieser Gruppe ist kein Agent.",
+      "history": "Der Chat-Verlauf wird mit Anhängen, Vorschauen und Entscheidungen endgültig gelöscht. Es gibt kein Archiv.",
+      "kept": "Bleibt erhalten: MEMORY.md, DREAM.md, Lektionen, Rezepte und Lagebuch aller Agenten. Vor dem Schließen hält jeder Agent seinen Stand im Lagebuch fest.",
+      "confirm": "Gruppe auflösen"
+    },
+    "groupMembers": {
+      "title": "Mitglieder von „{{name}}“",
+      "owner": "Besitzer",
+      "remove": "Entfernen",
+      "controlOwner": "immer (Besitzer)",
+      "controlAgent": "Agenten nie",
+      "control": "darf steuern",
+      "addPlaceholder": "Person oder Agent hinzufügen …",
+      "ownerDescription": "Nur du als Besitzer kannst Mitglieder hinzufügen und entfernen und festlegen, wer Modell wechseln, neu starten und verdichten darf.",
+      "memberDescription": "Mitglieder hinzufügen und entfernen kann nur der Besitzer der Gruppe.",
+      "knowledgeHint": "Wird ein Agent entfernt, schließt Pages seine Sitzung in dieser Gruppe und löscht sie samt Modell-Festlegung. MEMORY.md, DREAM.md, Lektionen, Rezepte und Lagebuch bleiben erhalten."
+    },
+    "contextRing": {
+      "title": "{{agent}} · Sitzung in „{{chat}}“",
+      "onlyHere": "nur dieser Chat",
+      "unknown": "Belegung noch unbekannt",
+      "fill": "{{percent}} % · {{used}} / {{size}} Token",
+      "restart": "Neustart ab {{percent}} % · {{state}}",
+      "noSession": "noch keine Sitzung",
+      "label": "Kontext von {{agent}}: {{percent}} %",
+      "group": "Kontext der Agenten in diesem Chat"
+    },
+    "command": {
+      "current": "{{agent}} antwortet in diesem Chat mit {{model}}.",
+      "chooseModel": "Zur Wahl stehen:",
+      "ambiguous": "„{{query}}“ passt auf mehrere Modelle. Bitte wählen:",
+      "done": {
+        "model": "Das Modell von {{agent}} in diesem Chat ist geändert.",
+        "new": "Die Sitzung von {{agent}} startet neu.",
+        "compact": "Die Sitzung von {{agent}} wird verdichtet."
+      },
+      "unknownModel": "Kein Modell heißt „{{query}}“.",
+      "unknownEffort": "„{{effort}}“ ist keine Denkstufe dieses Modells. Möglich: {{efforts}}.",
+      "unknownAgent": "In dieser Gruppe gibt es keinen Agenten „{{mention}}“.",
+      "forbidden": "Dafür fehlt dir das Recht. Der Besitzer der Gruppe legt fest, wer Modell wechseln, neu starten und verdichten darf.",
+      "chooseAgent": "Welchen Agenten meinst du?",
+      "dismiss": "Hinweis schließen"
+    },
+    "liveAnswer": {
+      "live": "live",
+      "working": "arbeitet",
+      "onlyForYou": "nur für dich sichtbar",
+      "thinkingNow": "Denkt nach …",
+      "thoughts": "Gedanken",
+      "thoughtsSummary": "Gedanken · {{duration}}",
+      "tools_one": "{{count}} Werkzeug",
+      "tools_other": "{{count}} Werkzeuge",
+      "toolsSummary": "{{tools}} · {{duration}}",
+      "liveAnswer": "Antwort von {{name}}, wird geschrieben",
+      "caret": "schreibt",
+      "activityLabel": "Tätige Agenten",
+      "activity": {
+        "writing": "{{name}} schreibt …",
+        "thinking": "{{name}} denkt nach …",
+        "working": "{{name}} arbeitet …",
+        "read": "{{name}} liest {{target}}",
+        "edit": "{{name}} bearbeitet {{target}}",
+        "test": "{{name}} testet",
+        "run": "{{name}} führt {{target}} aus",
+        "search": "{{name}} sucht {{target}}",
+        "browse": "{{name}} öffnet {{target}}",
+        "use": "{{name}} nutzt {{target}}",
+        "running_one": "{{count}} Werkzeug läuft",
+        "running_other": "{{count}} Werkzeuge laufen",
+        "images_one": "{{name}} erzeugt {{count}} Bild …",
+        "images_other": "{{name}} erzeugt {{count}} Bilder …",
+        "generating_one": "{{count}} Bild wird erzeugt …",
+        "generating_other": "{{count}} Bilder werden erzeugt …",
+        "video": "{{name}} erzeugt Video …",
+        "audio": "{{name}} erzeugt Sound …"
+      },
+      "steer": "Umlenken",
+      "steerShortcut": "↵",
+      "after": "Danach senden",
+      "afterShortcut": "⌥↵",
+      "halt": "Anhalten",
+      "haltShortcut": "Esc",
+      "more": "Weitere Arten zu senden",
+      "steerHint": "Enter lenkt um · ⇧Enter neue Zeile",
+      "steerLabel": "{{name}} umlenken",
+      "injected": "in {{owner}} Antwort eingeschoben",
+      "waiting": "wartet · geht nach {{owner}} Antwort raus",
+      "waitingAnyone": "wartet · geht nach der laufenden Antwort raus",
+      "notDelivered": "konnte nicht eingeschoben werden",
+      "reconnecting": "Verbindung unterbrochen – verbinde neu …",
+      "and": "und"
+    },
+    "preview": {
+      "sandbox": "Sandbox · kein Zugriff auf Pages",
+      "preview": "Vorschau",
+      "code": "Code",
+      "both": "Beides",
+      "rendered": "Ansicht",
+      "source": "Quelltext",
+      "view": "Ansicht wählen",
+      "files": "Dateien",
+      "fileCount_one": "{{count}} Datei",
+      "fileCount_other": "{{count}} Dateien",
+      "name": "{{kind}}-Vorschau",
+      "fullscreenOpen": "Im Vollbild geöffnet",
+      "sentFromPreview": "aus der Vorschau gesendet",
+      "device": {
+        "label": "Geräteansicht",
+        "desktop": "Desktop",
+        "tablet": "Tablet",
+        "mobile": "Mobil"
+      },
+      "json": {
+        "tree": "JSON-Baum",
+        "copyValue": "Wert kopieren",
+        "more_one": "{{count}} weiteren Eintrag zeigen",
+        "more_other": "Weitere {{count}} Einträge zeigen",
+        "entries_one": "{{count}} Eintrag",
+        "entries_other": "{{count}} Einträge",
+        "invalid": "Ungültiges JSON",
+        "place": "in Zeile {{line}}, Spalte {{column}}"
+      },
+      "csv": {
+        "search": "In der Tabelle suchen",
+        "rows_one": "{{count}} Zeile",
+        "rows_other": "{{count}} Zeilen",
+        "delimiter": {
+          "comma": "Trennzeichen: Komma",
+          "semicolon": "Trennzeichen: Semikolon",
+          "tab": "Trennzeichen: Tab"
+        },
+        "pages": "Seiten der Tabelle",
+        "previous": "Zurück",
+        "next": "Weiter",
+        "page": "Seite {{page}} / {{count}}",
+        "noMatch": "Keine passenden Zeilen."
+      },
+      "mermaid": {
+        "error": "Fehler im Mermaid-Diagramm:",
+        "drawing": "Diagramm wird gezeichnet …",
+        "diagram": "Mermaid-Diagramm",
+        "resetZoom": "Zoom zurücksetzen"
+      }
+    },
+    "video": {
+      "playNamed": "{{name}} abspielen",
+      "mute": "Ton aus",
+      "unmute": "Ton an",
+      "captions": "Untertitel",
+      "pictureInPicture": "Bild-in-Bild",
+      "others": "Weitere Videos in diesem Chat",
+      "openOther": "{{name}} daneben öffnen",
+      "previous": "Voriges Video",
+      "next": "Nächstes Video",
+      "viewer": "Video im Vollbild"
+    },
+    "chatMenu": {
+      "label": "Chat-Menü",
+      "groupSubtitle_one": "Gruppe · {{count}} Mitglied",
+      "groupSubtitle_other": "Gruppe · {{count}} Mitglieder",
+      "directSubtitle": "Direkt-Chat · {{kind}}",
+      "sections": {
+        "content": "Inhalte",
+        "collaboration": "Zusammenarbeit",
+        "settings": "Einstellungen"
+      },
+      "context": "Gruppenkontext",
+      "members": "Mitglieder",
+      "reply": "Wer antwortet?",
+      "model": "Modell für diesen Chat",
+      "modelDefault": "Standard",
+      "modelChanged_one": "{{count}} angepasst",
+      "modelChanged_other": "{{count}} angepasst",
+      "sessions": "Sitzungen der Agenten",
+      "newSession": "Neue Sitzung",
+      "embedDomains": "Eingebettete Webseiten",
+      "confidential": "Vertraulich",
+      "mute": "Stummschalten",
+      "dissolve": "Gruppe auflösen"
+    },
+    "media": {
+      "title": "Medien & Dateien",
+      "menuEntry": "Medien & Dateien",
+      "subtitle_one": "{{count}} Eintrag",
+      "subtitle_other": "{{count}} Einträge",
+      "tabsLabel": "Reiter von Medien & Dateien",
+      "tabs": {
+        "images": "Bilder",
+        "videos": "Videos",
+        "audio": "Audio",
+        "documents": "Dokumente",
+        "files": "Dateien",
+        "links": "Links"
+      },
+      "searchLabel": "Nach Dateinamen oder Linktitel suchen",
+      "search": "Name oder Titel suchen …",
+      "sender": "Absender",
+      "senderAll": "Alle Absender",
+      "senderKind": {
+        "human": "Person",
+        "agent": "Agent"
+      },
+      "expiringSoon": "Läuft bald ab",
+      "hideExpired": "Abgelaufene ausblenden",
+      "expired": "abgelaufen",
+      "mark": "{{name}} markieren",
+      "selected_one": "{{count}} markiert",
+      "selected_other": "{{count}} markiert",
+      "clearSelection": "Auswahl aufheben",
+      "downloadZip_one": "{{count}} Datei als ZIP herunterladen",
+      "downloadZip_other": "{{count}} Dateien als ZIP herunterladen",
+      "reload": "Neu laden",
+      "empty": "Keine Einträge.",
+      "loading": "Lädt …",
+      "failed": "Medien & Dateien konnten nicht geladen werden.",
+      "detailLabel": "Blättern in Medien & Dateien",
+      "back": "Zurück zu {{tab}}",
+      "previous": "Vorheriger Eintrag",
+      "next": "Nächster Eintrag",
+      "position": "{{current}} von {{total}}"
     }
   },
   "workspaces": {
@@ -7932,7 +8300,10 @@
         "learning": "Traumlauf: {{status}}",
         "ticket": "Ticket: {{message}}",
         "wiki": "Wiki: {{message}}",
-        "access": "Zugriffsstufe: {{from}} → {{to}} (geändert von {{person}})"
+        "access": "Zugriffsstufe: {{from}} → {{to}} (geändert von {{person}})",
+        "image": "Bilder erzeugt: {{count}} · {{model}}",
+        "video": "Video erzeugt · {{model}}",
+        "audio": "Sound erzeugt · {{model}}"
       },
       "state": {
         "running": "läuft",

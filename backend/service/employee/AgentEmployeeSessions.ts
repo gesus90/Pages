@@ -5,15 +5,19 @@ import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { ChatError } from "@/backend/error/ChatErrors";
 import { withBackgroundDatabaseWork } from "@/backend/database/executor/DatabaseWorkContext";
 import { logCaughtError } from "@/backend/logging/Logger";
-import { hasHostTools } from "@/definition/AgentEmployee";
 
-import { employeeAcpRunner } from "../chat/acp/EmployeeAcpRunners";
 import { AgentChatActivity } from "./AgentChatActivity";
 import { AgentChatContext } from "./AgentChatContext";
-import { createAgentEmployeeInstructions } from "./AgentEmployeeInstructions";
+import {
+  buildEmployeeBrief,
+  buildEmployeeRun,
+  recordEmployeeAnswer,
+} from "./AgentEmployeeSessionLaunch";
 import { foldJobToolCalls } from "./AgentToolCallView";
 
+import type { LiveAnswerSink } from "@/backend/service/conversation/ConversationLiveAnswer";
 import type { StoredAgentEmployee } from "@/backend/database/repositories/employee/AgentEmployeeRepository";
+import type { EmployeeStore } from "@/backend/database/repositories/employee/EmployeeStore";
 import type { ResolvedAgentAssignment } from "../agents/AgentAssignmentResolution";
 import type {
   PicaAcpEmployeeRun,
@@ -26,7 +30,6 @@ import type {
   ChatSteerStatus,
 } from "@/definition/ChatJob";
 import type { User } from "@/definition/User";
-import type { AgentRecipeBrief } from "./AgentRecipeService";
 import type { AgentChatToolScope } from "./AgentChatToolGuard";
 import type { AgentMemoryAudience } from "./AgentMemorySharing";
 import type { AgentToolCallView } from "./AgentToolCallView";
@@ -38,6 +41,7 @@ import type {
 import {
   IDENTIFIER,
   chatKey,
+  chatModelKey,
   isChatPurpose,
   isSessionBusy,
   keptSessionOf,
@@ -53,8 +57,7 @@ export type {
   AgentJobRequest,
   QueuedAgentMessage,
 } from "./AgentEmployeeSessionTypes";
-import { chatToolsOf } from "./AgentEmployeeChatTools";
-import { agentIdentity, employeeAssignment } from "./AgentEmployeeAssignments";
+import { employeeAssignment } from "./AgentEmployeeAssignments";
 
 /** Jobs of a conversation whose tool calls the chat page shows. */
 const TOOL_CALL_JOBS = 20;
@@ -68,6 +71,12 @@ const WAITING_STEERS: ReadonlySet<ChatSteerStatus> = new Set([
   "pending",
   "delivered",
   "followUp",
+]);
+
+/** Steers that joined the running turn or went to the adapter for it (PAGE-381). */
+const INJECTED_STEERS: ReadonlySet<ChatSteerStatus> = new Set([
+  "delivered",
+  "accepted",
 ]);
 
 /** The place of a session without limits, for a server without them. */
@@ -148,6 +157,7 @@ export class AgentEmployeeSessions {
         purpose: "chat",
         text: message.text,
         clientMessageId: message.clientMessageId,
+        isDeferred: message.delivery === "after",
         signal: entry.controller.signal,
         onQueued: () => {
           this.waiting.set(key, [...(this.waiting.get(key) ?? []), entry]);
@@ -235,6 +245,32 @@ export class AgentEmployeeSessions {
   }
 
   /**
+   * Cancels the running tool call of a chat of the agent, such as its answer
+   * in a group (PAGE-381); the agent answers with what it has.
+   *
+   * @returns Whether a running call was cancelled.
+   */
+  public async cancelChatTool(
+    agent: User,
+    target: {
+      readonly purpose: "chat" | "conversation";
+      readonly personId?: string;
+      readonly conversationId?: string;
+    },
+  ): Promise<boolean> {
+    const acp = this.dependencies.acp;
+    if (!acp) return false;
+    const conversation = await this.dependencies.store
+      .conversations()
+      .find(
+        agent.id,
+        target.conversationId ?? target.personId ?? agent.id,
+        target.purpose,
+      );
+    return conversation ? acp.cancelTool(agent, conversation.sessionId) : false;
+  }
+
+  /**
    * The tool calls of the newest jobs of a conversation of the agent, by the
    * answer they belong to (PAGE-303).
    *
@@ -271,6 +307,27 @@ export class AgentEmployeeSessions {
     return new Set(
       activity.steers
         .filter((steer) => WAITING_STEERS.has(steer.status))
+        .map((steer) => steer.messageId),
+    );
+  }
+
+  /**
+   * The messages of a conversation of the agent its running job took into
+   * its answer (PAGE-381): joined its turn or handed to the adapter for it.
+   *
+   * @returns Their message IDs; empty while no job runs.
+   */
+  public async injectedInJob(
+    agent: User,
+    sessionId: string,
+  ): Promise<ReadonlySet<string>> {
+    const acp = this.dependencies.acp;
+    if (!acp) return new Set();
+    const activity = await acp.activity(agent.id, sessionId);
+    if (activity.job?.state !== "running") return new Set();
+    return new Set(
+      activity.steers
+        .filter((steer) => INJECTED_STEERS.has(steer.status))
         .map((steer) => steer.messageId),
     );
   }
@@ -378,6 +435,7 @@ export class AgentEmployeeSessions {
       sessionId: conversation.sessionId,
       text: request.text,
       attachmentIds: [],
+      ...(request.isDeferred === true ? { isDeferred: true } : {}),
     };
     try {
       return await this.admitAndStart(acp, request, chatRequest);
@@ -428,7 +486,7 @@ export class AgentEmployeeSessions {
         await this.restartIfNeeded(request, sessionId);
         const assignment = await this.assignment(
           employee,
-          request.modelOverride,
+          request.modelOverride ?? (await this.chatModel(request)),
         );
         const { brief, audience, logbookNewest } = await this.brief(
           request,
@@ -448,6 +506,7 @@ export class AgentEmployeeSessions {
           brief,
           employee: {
             ...run,
+            ...this.liveAnswerOf(request),
             prepareTurn: request.prepareTurn,
             consumeAnswer: request.consumeAnswer,
             onSettled: () => {
@@ -470,6 +529,31 @@ export class AgentEmployeeSessions {
     }
   }
 
+  /**
+   * The live answer of a round for the chat page (PAGE-381): the one the
+   * caller opened, such as a group's, or one of its own for the direct chat
+   * with a person, whose thoughts only that person reads. A run of the
+   * agent's own shows none.
+   */
+  private liveAnswerOf(
+    request: AgentJobRequest,
+  ): { readonly liveAnswer: LiveAnswerSink } | Record<string, never> {
+    if (request.liveAnswer) return { liveAnswer: request.liveAnswer };
+    const { answers } = this.dependencies;
+    const { person, agent } = request;
+    if (!answers || request.purpose !== "chat" || !person) return {};
+    return {
+      liveAnswer: answers.open({
+        agentId: agent.id,
+        chatKind: "agent",
+        chatId: agent.id,
+        recipientIds: [person.id],
+        thoughtRecipientIds: [person.id],
+        isTurnStored: true,
+      }),
+    };
+  }
+
   /** Tells the session the entries of the Lagebuch its round just carried the hint line for (PAGE-377). */
   private async markLogbookSeen(
     sessionId: string,
@@ -482,43 +566,6 @@ export class AgentEmployeeSessions {
     } catch (error: unknown) {
       // The hint is a courtesy: a failed note must not fail the round.
       logCaughtError("AgentEmployeeSessions", error);
-    }
-  }
-
-  /**
-   * What a round of a chat is told about the recipes of its agent (PAGE-378);
-   * a run of the agent's own gets none, and a failed read leaves them out.
-   */
-  private async recipeBrief(
-    request: AgentJobRequest,
-    isChat: boolean,
-  ): Promise<AgentRecipeBrief | null> {
-    const recipes = this.dependencies.recipes;
-    if (!recipes || !isChat) return null;
-    try {
-      return await recipes.brief(request.agent.id, request.text);
-    } catch (error: unknown) {
-      logCaughtError("AgentEmployeeSessions", error);
-      return null;
-    }
-  }
-
-  /**
-   * The hint line of the Lagebuch for a round of a chat (PAGE-377). A run of
-   * the agent's own has none, and a failed read leaves the line out.
-   */
-  private async logbookHint(
-    request: AgentJobRequest,
-    sessionId: string,
-  ): Promise<{ readonly line: string | null; readonly newest: number }> {
-    const logbook = this.dependencies.logbook?.();
-    if (!logbook || !isChatPurpose(request.purpose))
-      return { line: null, newest: 0 };
-    try {
-      return await logbook.hint({ agentId: request.agent.id, sessionId });
-    } catch (error: unknown) {
-      logCaughtError("AgentEmployeeSessions", error);
-      return { line: null, newest: 0 };
     }
   }
 
@@ -595,6 +642,34 @@ export class AgentEmployeeSessions {
     return { agent, employee };
   }
 
+  /**
+   * The model chosen for the agent in the chat of a round (PAGE-380); a run of
+   * the agent's own and a chat without a choice answer with its own model.
+   */
+  private async chatModel(
+    request: AgentJobRequest,
+  ): Promise<AgentJobRequest["modelOverride"]> {
+    const key = chatModelKey(request);
+    if (key === null) return undefined;
+    let stored: Awaited<
+      ReturnType<ReturnType<EmployeeStore["chatModels"]>["find"]>
+    >;
+    try {
+      stored = await this.dependencies.store.chatModels().find(key);
+    } catch (error: unknown) {
+      // A failed read must not fail the round: the agent answers with its own model.
+      logCaughtError("AgentEmployeeSessions", error);
+      return undefined;
+    }
+    return stored
+      ? {
+          connectionId: stored.connectionId,
+          model: stored.model,
+          reasoningEffort: stored.reasoningEffort,
+        }
+      : undefined;
+  }
+
   private assignment(
     employee: StoredAgentEmployee,
     override?: AgentJobRequest["modelOverride"],
@@ -617,50 +692,12 @@ export class AgentEmployeeSessions {
     /** The newest entry of the Lagebuch the round's hint line covers (PAGE-377). */
     readonly logbookNewest: number;
   }> {
-    const { agent, employee, person } = request;
-    const [identity, settings, context, hint] = await Promise.all([
-      agentIdentity(this.dependencies, agent.id),
-      person ? this.dependencies.languages.findByUserId(person.id) : null,
-      this.context.forJob(request, { sessionId, message: request.text }),
-      this.logbookHint(request, sessionId),
-    ]);
-    const recipes = await this.recipeBrief(request, context.isChat);
-    return {
-      audience: context.audience,
-      logbookNewest: hint.newest,
-      brief: {
-        instructions: createAgentEmployeeInstructions({
-          name: agent.displayName,
-          ...identity,
-          soul: employee.soul,
-          instructions: employee.instructions,
-          memory: context.memory,
-          dream: context.dream,
-          related: context.related,
-          access: employee.access,
-          personName: context.isChat ? (person?.displayName ?? null) : null,
-          hasLogbook:
-            context.isChat && (this.dependencies.logbook?.() ?? null) !== null,
-          logbookHint: hint.line,
-          ...(recipes ? { recipes } : {}),
-        }),
-        // A continued agent session knows its chat; only a new or restarted one
-        // gets the summary and the last messages (PAGE-376).
-        keepsContext: false,
-        prompt: {
-          personName: person?.displayName ?? agent.displayName,
-          interfaceLanguage: settings?.language ?? "de",
-          today:
-            this.dependencies.today?.() ??
-            new Date().toISOString().slice(0, 10),
-          // A run of the agent's own reads its sources from the message alone.
-          history: context.history,
-          summary: context.summary,
-          nativeTools: true,
-          assistantName: agent.displayName,
-        },
-      },
-    };
+    return buildEmployeeBrief(
+      this.dependencies,
+      this.context,
+      request,
+      sessionId,
+    );
   }
 
   /**
@@ -668,32 +705,7 @@ export class AgentEmployeeSessions {
    * the person's messages since the previous answer and the answer itself.
    */
   private recordAnswer(request: AgentJobRequest, sessionId: string): void {
-    const { recorder } = this.dependencies;
-    const { person } = request;
-    if (!recorder || request.purpose !== "chat" || !person) return;
-    void withBackgroundDatabaseWork("agent_memory_answer", async () => {
-      const transcript = await this.dependencies.messages.messages(sessionId);
-      const answer = transcript.at(-1);
-      if (answer?.role !== "assistant") return;
-      const previous = transcript
-        .slice(0, -1)
-        .findLastIndex((message) => message.role === "assistant");
-      const message = transcript
-        .slice(previous + 1, -1)
-        .map((entry) => entry.content)
-        .join("\n\n");
-      await recorder.record({
-        agent: request.agent,
-        chat: { kind: "person", personId: person.id },
-        chatLabel: `Chat mit ${person.displayName}`,
-        personName: person.displayName,
-        message,
-        answer: answer.content,
-        sessionId,
-      });
-    }).catch((error: unknown) => {
-      logCaughtError("AgentEmployeeSessions", error);
-    });
+    recordEmployeeAnswer(this.dependencies, request, sessionId);
   }
 
   /**
@@ -715,42 +727,12 @@ export class AgentEmployeeSessions {
       readonly connectionId: string;
     },
   ): Promise<NonNullable<PicaAcpStart["employee"]>> {
-    const { assignment, audience, keptSession, chat } = job;
-    const { access } = employee;
-    const hostServers =
-      (await this.dependencies.accessEnvironment?.chatServers(
-        assignment.connection.provider,
-        access,
-      )) ?? [];
-    const { hostFiles } = this.dependencies;
-    return {
-      // The chat tools stay bound to the job's chat: a confidential chat keeps
-      // its own session and `chat_lesen` reads only that chat (PAGE-376).
-      ...chatToolsOf(this.dependencies, agent, chat),
-      ...(keptSession ? { keptSession } : {}),
-      // A run of the agent's own is short and carries no chat (PAGE-376).
-      ...(keptSession ? {} : { isFreshSession: true }),
-      runner: employeeAcpRunner(assignment, access, hostServers),
-      hasBrowser: hasHostTools(access),
-      ...(hostFiles && hasHostTools(access)
-        ? {
-            attachFile: (directory, target, file) =>
-              hostFiles.attach(agent, { directory, file, target }),
-          }
-        : {}),
-      requireCurrent: () => this.requireCurrent(agent.id),
-      requireConnection: (connectionId) =>
-        connectionId === job.connectionId
-          ? Promise.resolve()
-          : Promise.reject(new ChatError("contextChanged")),
-      searchMemory: async (query) => ({
-        entries: await this.dependencies.memory.search(
-          agent.id,
-          query,
-          audience,
-        ),
-      }),
-    };
+    return buildEmployeeRun(
+      this.dependencies,
+      () => this.requireCurrent(agent.id),
+      { agent, employee },
+      job,
+    );
   }
 
   /**

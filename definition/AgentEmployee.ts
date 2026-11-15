@@ -234,7 +234,14 @@ export interface AgentArchiveEntry {
 
 /** What one line of the activity reports. */
 export type AgentActivityKind =
-  "session" | "learning" | "ticket" | "wiki" | "access";
+  | "session"
+  | "learning"
+  | "ticket"
+  | "wiki"
+  | "access"
+  | "image"
+  | "video"
+  | "audio";
 
 /** How much a session or learning run cost, as far as the model reported it. */
 export interface AgentActivityCost {

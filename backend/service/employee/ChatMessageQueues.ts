@@ -57,3 +57,22 @@ export function queuedChatMessages(
     queue: "limit",
   }));
 }
+
+/**
+ * Marks the messages of a history that running answers took (PAGE-381); the
+ * chat shows such a message as taken rather than waiting.
+ *
+ * @param messages - The history, oldest first.
+ * @param steered - The agents whose answers took a message, by its ID.
+ * @returns The history with `steeredInto` on every such message.
+ */
+export function markSteeredMessages(
+  messages: readonly VirtualChatMessage[],
+  steered: ReadonlyMap<string, readonly string[]>,
+): VirtualChatMessage[] {
+  return messages.map((message) => {
+    const agentIds = steered.get(message.id);
+    if (!agentIds || agentIds.length === 0) return message;
+    return { ...message, steeredInto: agentIds };
+  });
+}

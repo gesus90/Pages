@@ -2,6 +2,8 @@ import type {
   ConversationAttachment,
   ConversationLink,
 } from "@/definition/ConversationContent";
+import type { DocumentFormat } from "./documents/document-kinds";
+import type { PreviewFile, PreviewKind } from "./preview-kinds";
 
 /** Text a card shows: given with the message, or loaded from an attachment. */
 export interface CardText {
@@ -18,12 +20,35 @@ export type ContentCardDescriptor =
       readonly name: string;
       /** The info of the code fence or the file name; decides the language. */
       readonly languageHint: string;
+      /** Pages recognized the language; the fence named none (PAGE-383). */
+      readonly isDetected?: boolean;
     })
   | (CardText & { readonly kind: "diff"; readonly name: string })
   | (CardText & { readonly kind: "markdown"; readonly name: string })
   | {
+      /**
+       * A preview (PAGE-383): HTML and SVG in the sandbox, Mermaid as a
+       * diagram, JSON as a tree, CSV or TSV as a table.
+       */
+      readonly kind: "preview";
+      readonly name: string;
+      readonly previewKind: PreviewKind;
+      /** One file, or an HTML page with its style sheets and scripts. */
+      readonly files: readonly PreviewFile[];
+      readonly isDetected: boolean;
+    }
+  | {
       readonly kind: "image" | "pdf" | "video" | "audio" | "file";
       readonly attachment: ConversationAttachment;
+    }
+  | {
+      /**
+       * A document as a readable view (PAGE-385): Word and OpenDocument text,
+       * PowerPoint and OpenDocument slides, or a workbook or CSV table.
+       */
+      readonly kind: "word" | "slides" | "sheet";
+      readonly attachment: ConversationAttachment;
+      readonly format: DocumentFormat;
     }
   | { readonly kind: "web"; readonly link: ConversationLink }
   | { readonly kind: "link"; readonly link: ConversationLink };
@@ -33,6 +58,18 @@ export interface CardOrigin {
   readonly senderName: string;
   /** ISO time the message was stored; missing for one still on its way. */
   readonly createdAt?: string;
+  /** The message, for "Alle herunterladen" and "Zur Nachricht" (PAGE-382); missing for one on its way. */
+  readonly messageId?: string;
+}
+
+/**
+ * The address of the ZIP archive of every file of a message that is still
+ * there (PAGE-382).
+ *
+ * @param messageId - The stored message.
+ */
+export function archiveUrl(messageId: string): string {
+  return `/chat/messages/${encodeURIComponent(messageId)}/files.zip`;
 }
 
 /** A card with its key, as the split view and the full screen open it. */

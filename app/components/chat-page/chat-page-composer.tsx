@@ -17,19 +17,42 @@ import { ChatPageAttachMenu } from "./chat-page-attach-menu";
 import { ChatPageAttachmentStrip } from "./chat-page-attachment-strip";
 import { useFileDrop, usePageFileDrop } from "./chat-page-drop-zone";
 import { ChatPageVoiceInput } from "./chat-page-voice-input";
+import { ChatPageActivityRow } from "./live/chat-page-activity-row";
+import { ChatPageSteerControls } from "./live/chat-page-steer-controls";
 import { useAttachmentUploads } from "./use-attachment-uploads";
 
 import type { Editor } from "@tiptap/react";
+import type { ConversationDelivery } from "@/definition/ConversationLiveAnswer";
 import type { VirtualChatSelection } from "@/definition/VirtualChat";
+import type { AgentActivity } from "./live/chat-page-activity-row";
 import type { VoiceSending } from "./use-voice-sending";
+
+/** What the input offers while agents answer (PAGE-381). */
+export interface ComposerAnswering {
+  /** Who answers, for the labels, such as "Ed" or "Ed, Mei". */
+  readonly name: string;
+  /** Stops the running answers (Esc, "Anhalten"). */
+  readonly onStop: () => void;
+}
 
 interface ChatPageComposerProps {
   /** Hint of the empty field, for a participant or a group. */
   readonly placeholder: string;
   readonly memberIds?: readonly string[];
   readonly label: string;
-  /** Sends the text with the IDs of the uploaded attachments, in their order. */
-  readonly onSend: (content: string, attachmentIds: readonly string[]) => void;
+  /**
+   * Sends the text with the IDs of the uploaded attachments, in their order;
+   * while agents answer with how it goes to them (PAGE-381).
+   */
+  readonly onSend: (
+    content: string,
+    attachmentIds: readonly string[],
+    delivery?: ConversationDelivery,
+  ) => void;
+  /** Present while agents answer: Enter steers, ⌥↵ sends afterwards, Esc stops (PAGE-381). */
+  readonly answering?: ComposerAnswering;
+  /** The agents at work in the chat and what they do, above the field (PAGE-381). */
+  readonly activity?: readonly AgentActivity[];
   /** Voice messages of a stored conversation (PAGE-277); missing for an agent's chat. */
   readonly voice?: {
     readonly sending: VoiceSending;
@@ -39,6 +62,8 @@ interface ChatPageComposerProps {
   readonly attachments?: { readonly selection: VirtualChatSelection };
   /** Receives what puts `@username ` into the field, for the menu of an agent in the chat head (PAGE-376). */
   readonly mentionRef?: React.RefObject<((username: string) => void) | null>;
+  /** What stands before "Abschicken", such as the context rings of the agents (PAGE-380). */
+  readonly aside?: React.ReactNode;
 }
 
 /** A web address alone, which the chat shows as a link card. */
@@ -97,6 +122,136 @@ function pastedFiles(event: React.ClipboardEvent): File[] {
   return [...clipboard.files];
 }
 
+function answeringSendDelivery(
+  answering: ComposerAnswering | undefined,
+  after: boolean,
+): ConversationDelivery | undefined {
+  if (!answering) return undefined;
+  return after ? "after" : "steer";
+}
+
+interface ComposerFooterActionsProps {
+  readonly canAttach: boolean;
+  readonly uploads: ReturnType<typeof useAttachmentUploads>;
+  readonly onInsert: (text: string) => void;
+  readonly voice: ChatPageComposerProps["voice"];
+  readonly recordRef: React.RefObject<(() => void) | null>;
+  readonly aside: React.ReactNode;
+  readonly answering: ComposerAnswering | undefined;
+  readonly canSend: boolean;
+  readonly onSubmit: (after: boolean) => void;
+}
+
+function ComposerFooterActions({
+  canAttach,
+  uploads,
+  onInsert,
+  voice,
+  recordRef,
+  aside,
+  answering,
+  canSend,
+  onSubmit,
+}: ComposerFooterActionsProps): React.ReactElement {
+  const { t } = useTranslation();
+  const hasAside = aside !== undefined && aside !== null;
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-2">
+      <ChatPageAttachMenu
+        canAttach={canAttach}
+        onFiles={uploads.add}
+        onInsert={onInsert}
+        onVoice={voice ? () => recordRef.current?.() : undefined}
+      />
+      {voice ? (
+        <ChatPageVoiceInput
+          sending={voice.sending}
+          maximumMs={voice.maximumMs}
+          recordRef={recordRef}
+        />
+      ) : null}
+      {aside}
+      {answering ? (
+        <ChatPageSteerControls
+          name={answering.name}
+          canSend={canSend}
+          onSteer={() => onSubmit(false)}
+          onAfter={() => onSubmit(true)}
+          onStop={answering.onStop}
+        />
+      ) : (
+        <Button
+          className={cn(
+            "h-11 gap-1 px-1.5 text-sm xl:h-9 xl:gap-1.5 xl:px-3",
+            !hasAside && "ml-auto",
+          )}
+          disabled={!canSend}
+          onClick={() => onSubmit(false)}
+        >
+          <SendHorizontal aria-hidden="true" className="size-4" />
+          {t("chatPage.send")}
+        </Button>
+      )}
+    </div>
+  );
+}
+
+interface ComposerBindingsOptions {
+  readonly canAttach: boolean;
+  readonly answering: ComposerAnswering | undefined;
+  readonly input: ReturnType<typeof useMentionEditor>;
+  readonly uploads: ReturnType<typeof useAttachmentUploads>;
+  readonly mentionRef?: React.RefObject<((username: string) => void) | null>;
+  readonly onSubmitAfter: () => void;
+}
+
+function useComposerBindings({
+  canAttach,
+  answering,
+  input,
+  uploads,
+  mentionRef,
+  onSubmitAfter,
+}: ComposerBindingsOptions): {
+  readonly handleKeyDownCapture: (event: React.KeyboardEvent) => void;
+  readonly handlePaste: (event: React.ClipboardEvent) => void;
+} {
+  useEffect(() => {
+    if (!mentionRef) return undefined;
+    mentionRef.current = (username) => {
+      if (input.editor) appendMention(input.editor, username);
+    };
+    return () => {
+      mentionRef.current = null;
+    };
+  }, [mentionRef, input.editor]);
+
+  // ⌥↵ sends after the running answer and Esc stops it, unless the mention list is open.
+  function handleKeyDownCapture(event: React.KeyboardEvent): void {
+    if (!answering || input.query !== null) return;
+    if (event.key === "Enter" && event.altKey && !event.shiftKey) {
+      event.preventDefault();
+      event.stopPropagation();
+      onSubmitAfter();
+      return;
+    }
+    if (event.key === "Escape") {
+      event.preventDefault();
+      answering.onStop();
+    }
+  }
+
+  function handlePaste(event: React.ClipboardEvent): void {
+    if (!canAttach) return;
+    const files = pastedFiles(event);
+    if (files.length === 0) return;
+    event.preventDefault();
+    uploads.add(files);
+  }
+
+  return { handleKeyDownCapture, handlePaste };
+}
+
 /**
  * The input at the foot of the chat page, with the chat editor of the Pica
  * panel, the "+" menu and "Abschicken".
@@ -120,6 +275,9 @@ export function ChatPageComposer({
   voice,
   attachments,
   mentionRef,
+  aside,
+  answering,
+  activity = [],
   memberIds = [],
 }: ChatPageComposerProps): React.ReactElement {
   const { t } = useTranslation();
@@ -131,42 +289,30 @@ export function ChatPageComposer({
     memberIds,
     label,
     placeholder,
-    onSubmit: () => handleSubmit(),
+    onSubmit: () => handleSubmit(false),
   });
   const record = useRef<(() => void) | null>(null);
-  const drop = useFileDrop(canAttach ? uploads.add : null);
-  const isDraggingOnPage = usePageFileDrop(canAttach ? uploads.add : null);
+  const onAddFiles = canAttach ? uploads.add : null;
+  const drop = useFileDrop(onAddFiles);
+  const isDraggingOnPage = usePageFileDrop(onAddFiles);
   const isDragging = drop.isDragging || isDraggingOnPage;
   const hasReady = uploads.items.some((item) => item.state === "ready");
   const canSend = !uploads.isUploading && (input.markdown !== "" || hasReady);
 
-  function handleSubmit(): void {
+  function handleSubmit(after = false): void {
     if (!canSend) return;
     const text = input.markdown;
     input.setMarkdown("");
-    onSend(text, uploads.take());
+    onSend(text, uploads.take(), answeringSendDelivery(answering, after));
   }
 
-  function handlePaste(event: React.ClipboardEvent): void {
-    if (!canAttach) return;
-    const files = pastedFiles(event);
-    if (files.length === 0) return;
-    event.preventDefault();
-    uploads.add(files);
-  }
-
-  function handleInsert(text: string): void {
-    if (input.editor) appendTemplate(input.editor, text);
-  }
-
-  useEffect(() => {
-    if (!mentionRef) return undefined;
-    mentionRef.current = (username) => {
-      if (input.editor) appendMention(input.editor, username);
-    };
-    return () => {
-      mentionRef.current = null;
-    };
+  const { handleKeyDownCapture, handlePaste } = useComposerBindings({
+    canAttach,
+    answering,
+    input,
+    uploads,
+    mentionRef,
+    onSubmitAfter: () => handleSubmit(true),
   });
 
   return (
@@ -177,8 +323,10 @@ export function ChatPageComposer({
         isDragging && "ring-2 ring-primary",
       )}
       onPaste={handlePaste}
+      onKeyDownCapture={handleKeyDownCapture}
       {...drop.handlers}
     >
+      <ChatPageActivityRow entries={activity} />
       {isDragging ? (
         <p className="mb-2 text-sm text-muted-foreground">
           {t("chatPage.attach.dropHint")}
@@ -189,29 +337,19 @@ export function ChatPageComposer({
       <div className={cn("pages-editor-scroll-surface", styles.input)}>
         <EditorContent editor={input.editor} />
       </div>
-      <div className="mt-2 flex items-center gap-2">
-        <ChatPageAttachMenu
-          canAttach={canAttach}
-          onFiles={uploads.add}
-          onInsert={handleInsert}
-          onVoice={voice ? () => record.current?.() : undefined}
-        />
-        {voice ? (
-          <ChatPageVoiceInput
-            sending={voice.sending}
-            maximumMs={voice.maximumMs}
-            recordRef={record}
-          />
-        ) : null}
-        <Button
-          className="ml-auto h-11 gap-1 px-1.5 text-sm xl:h-9 xl:gap-1.5 xl:px-3"
-          disabled={!canSend}
-          onClick={handleSubmit}
-        >
-          <SendHorizontal aria-hidden="true" className="size-4" />
-          {t("chatPage.send")}
-        </Button>
-      </div>
+      <ComposerFooterActions
+        answering={answering}
+        aside={aside}
+        canAttach={canAttach}
+        canSend={canSend}
+        onInsert={(text) => {
+          if (input.editor) appendTemplate(input.editor, text);
+        }}
+        onSubmit={handleSubmit}
+        recordRef={record}
+        uploads={uploads}
+        voice={voice}
+      />
     </footer>
   );
 }

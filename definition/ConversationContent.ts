@@ -12,6 +12,14 @@ export const CONVERSATION_ATTACHMENT_MAXIMUM_BYTES = 512 * 1024 * 1024;
 /** Most attachments one message carries. */
 export const CONVERSATION_ATTACHMENT_MAXIMUM_COUNT = 10;
 
+/**
+ * How long Pages keeps a file an agent attached in a chat, generated images
+ * included, counted from its sending (PAGE-382): 72 hours. Uploads of people
+ * stay.
+ */
+export const CONVERSATION_AGENT_FILE_LIFETIME_MILLISECONDS =
+  72 * 60 * 60 * 1000;
+
 /** Largest preview image of an attachment, in bytes. */
 export const CONVERSATION_THUMBNAIL_MAXIMUM_BYTES = 1024 * 1024;
 
@@ -46,6 +54,82 @@ export interface ConversationAttachment {
   readonly url: string;
   /** The address of the preview image; missing until one was uploaded. */
   readonly thumbnailUrl?: string;
+  /** When the file was stored; missing in older answers of the server. */
+  readonly createdAt?: string;
+  /**
+   * When Pages removes the file (PAGE-382): set for files of agents, missing
+   * for uploads of people, which stay.
+   */
+  readonly expiresAt?: string;
+  /**
+   * When the file was removed; the chat shows a placeholder with name and
+   * date instead, and `url` answers no more.
+   */
+  readonly expiredAt?: string;
+  /** Width and height of a video in pixels, once the browser read them (PAGE-384). */
+  readonly width?: number;
+  readonly height?: number;
+  /** Length of a video or a sound in seconds, once the browser read it (PAGE-384). */
+  readonly durationSeconds?: number;
+  /**
+   * SHA-256 of the file in lower-case hex (PAGE-385), computed when Pages
+   * stored it; missing for files stored before.
+   */
+  readonly sha256?: string;
+  /** Page count of a PDF, once a browser read it (PAGE-385). */
+  readonly pageCount?: number;
+  /** Title of a PDF from its metadata, once a browser read it (PAGE-385). */
+  readonly documentTitle?: string;
+}
+
+/** The facts the browser reads of a video or a sound (PAGE-384), as it sends them. */
+export interface ConversationMediaFacts {
+  readonly width?: number;
+  readonly height?: number;
+  readonly durationSeconds?: number;
+}
+
+/** Largest side of a video Pages stores as a fact, in pixels: 16K. */
+export const CONVERSATION_MEDIA_MAXIMUM_SIDE = 16_384;
+
+/** Longest video or sound Pages stores as a fact, in seconds: one day. */
+export const CONVERSATION_MEDIA_MAXIMUM_SECONDS = 24 * 60 * 60;
+
+/** An image of a conversation, as the image viewer pages through them (PAGE-382). */
+export interface ConversationImage {
+  readonly attachment: ConversationAttachment;
+  readonly messageId: string;
+  readonly senderId: string;
+  /** The display name of the sender. */
+  readonly senderName: string;
+  /** When the message was sent. */
+  readonly sentAt: string;
+}
+
+/**
+ * Whether the original of a reference is still there (PAGE-386): shown,
+ * removed after its 72 hours, or deleted with its message.
+ */
+export type ConversationReferenceState = "available" | "expired" | "deleted";
+
+/**
+ * An earlier attachment of the same chat that an agent shows again in its
+ * answer (PAGE-386). No copy exists: the card shows the original, and its
+ * remaining time and expiry are those of the original.
+ */
+export interface ConversationAttachmentReference {
+  readonly attachmentId: string;
+  readonly state: ConversationReferenceState;
+  /** The original as every client sees it; missing once it was deleted. */
+  readonly attachment?: ConversationAttachment;
+  /** The name of the original, also for the placeholder of a deleted one. */
+  readonly name: string;
+  /** The message that carries the original. */
+  readonly sourceMessageId: string;
+  /** The display name of the sender of that message. */
+  readonly senderName: string;
+  /** When that message was sent; missing once it was deleted. */
+  readonly sentAt?: string;
 }
 
 /** A URL that stands alone in a line of a message. */

@@ -4,9 +4,18 @@ import { useTranslation } from "react-i18next";
 import { ChatBrowserPanel } from "@/app/components/chat/browser/chat-browser-panel";
 import { Button } from "@/app/components/ui/button";
 
+import {
+  ChatMenuRequestContext,
+  useChatMenuRequestState,
+} from "./chat-menu/chat-menu-request";
 import { MentionDirectoryContext } from "./mentions/mention-context";
 import { ChatDecisionHealth } from "./mentions/chat-decision-health";
+import { ChatPageCommandOutcome } from "./chat-page-command-outcome";
 import { ChatPageComposer } from "./chat-page-composer";
+import {
+  ChatPageContextRings,
+  contextRingEntries,
+} from "./chat-page-context-rings";
 import { useConfidential } from "./chat-page-confidential";
 import { ChatPageDropZone } from "./chat-page-drop-zone";
 import { ChatPageHeader } from "./chat-page-header";
@@ -15,6 +24,7 @@ import { ChatPageLiveTools } from "./chat-page-tool-uses";
 import { ChatPageList } from "./chat-page-list";
 import { ChatPagePicker } from "./chat-page-picker";
 import { CardOverlay } from "./content/card-panel";
+import { MediaOverviewOverlay } from "./media/media-overview-panel";
 import {
   ChatContentProvider,
   useChatContent,
@@ -22,11 +32,14 @@ import {
 import { SplitPanel } from "./content/split-panel";
 import { useChatToastSelection } from "./use-chat-toast-selection";
 import { useChatListCollapse } from "./use-chat-list-collapse";
+import { useChatCommandRunner } from "./use-chat-command-runner";
 import { useChatPage } from "./use-chat-page";
+import { useMessageReveal } from "./use-message-reveal";
 import { useVoiceSending } from "./use-voice-sending";
 import { formatVoiceDuration } from "./voice-audio";
 
 import type { ChatDecisionStatus } from "@/definition/ConversationDecision";
+import type { ConversationDelivery } from "@/definition/ConversationLiveAnswer";
 import type {
   VirtualChatDirectory,
   VirtualChatSelection,
@@ -74,6 +87,29 @@ function AgentPausedBanner({
   );
 }
 
+function readOnlyFootText(
+  t: (key: string, options?: Record<string, unknown>) => string,
+  opened: OpenedConversation,
+  name: string,
+): string | null {
+  if (opened.kind === "group" && opened.group.isAgentConversation === true)
+    return t("chatPage.agentConversationReadOnly");
+  if (opened.kind === "participant" && !opened.participant.canChat)
+    return opened.participant.kind === "agent"
+      ? t("chatPage.agentInactive", { name })
+      : t("chatPage.personInactive", { name });
+  return null;
+}
+
+function composerAnswering(
+  page: ChatPageState,
+): { readonly name: string; readonly onStop: () => void } | undefined {
+  if (!page.isAnswering) return undefined;
+  const workerNames = page.activity.map((entry) => entry.agent.name);
+  const names = workerNames.length > 0 ? workerNames : page.answeringNames;
+  return { name: names.join(", "), onStop: page.stopAll };
+}
+
 /** The input at the foot, or why nothing can be sent to the opened participant. */
 function ConversationFoot({
   page,
@@ -87,24 +123,36 @@ function ConversationFoot({
 }): React.ReactElement {
   const { t } = useTranslation();
   const sending = useVoiceSending(page.selection, page.voiceMaximumMs);
+  const commands = useChatCommandRunner(opened);
   const name = conversationName(opened);
+
+  // A chat command steers an agent and is never sent as a message (PAGE-380).
+  function handleSend(
+    content: string,
+    attachmentIds: readonly string[],
+    delivery?: ConversationDelivery,
+  ): void {
+    if (attachmentIds.length === 0 && commands.runIfCommand(content)) return;
+    page.send(content, attachmentIds, delivery);
+  }
+
+  const readOnlyMessage = readOnlyFootText(t, opened, name);
+  if (readOnlyMessage !== null)
+    return (
+      <p className="mr-22 shrink-0 rounded-[14px] bg-surface p-4 text-sm text-muted-foreground shadow-card">
+        {readOnlyMessage}
+      </p>
+    );
+
   // An agent's history on the page is its chat session, which takes text only.
   const hasVoice =
     opened.kind === "group" || opened.participant.kind === "human";
-  if (opened.kind === "group" && opened.group.isAgentConversation === true)
-    return (
-      <p className="mr-22 shrink-0 rounded-[14px] bg-surface p-4 text-sm text-muted-foreground shadow-card">
-        {t("chatPage.agentConversationReadOnly")}
-      </p>
-    );
-  if (opened.kind === "participant" && !opened.participant.canChat)
-    return (
-      <p className="mr-22 shrink-0 rounded-[14px] bg-surface p-4 text-sm text-muted-foreground shadow-card">
-        {opened.participant.kind === "agent"
-          ? t("chatPage.agentInactive", { name })
-          : t("chatPage.personInactive", { name })}
-      </p>
-    );
+  const memberIds =
+    opened.kind === "group" ? opened.group.memberIds : [opened.participant.id];
+  const aside =
+    contextRingEntries(opened).length > 0 ? (
+      <ChatPageContextRings opened={opened} chatName={name} />
+    ) : undefined;
   return (
     <div className="flex shrink-0 flex-col gap-2">
       {page.sendFailure ? (
@@ -119,16 +167,16 @@ function ConversationFoot({
           })}
         </p>
       ) : null}
+      <ChatPageCommandOutcome runner={commands} />
       <ChatPageComposer
         key={conversationKey(opened)}
         label={t("chatPage.inputLabel", { name })}
         placeholder={t(placeholderKey(opened), { name })}
-        onSend={page.send}
-        memberIds={
-          opened.kind === "group"
-            ? opened.group.memberIds
-            : [opened.participant.id]
-        }
+        onSend={handleSend}
+        answering={composerAnswering(page)}
+        activity={page.activity}
+        aside={aside}
+        memberIds={memberIds}
         attachments={
           hasVoice && page.selection ? { selection: page.selection } : undefined
         }
@@ -199,8 +247,11 @@ function ChatPageConversation({
           onLoad: page.loadOlder,
         }}
         answeringNames={page.answeringNames}
+        live={page.live}
       />
-      <ChatPageLiveTools tools={page.liveTools} onCancel={page.cancelTool} />
+      {page.live.answers.length === 0 ? (
+        <ChatPageLiveTools tools={page.liveTools} onCancel={page.cancelTool} />
+      ) : null}
       <ChatBrowserPanel isOpen />
       <ConversationFoot
         key={conversationKey(opened)}
@@ -231,9 +282,10 @@ function ListSlot({
 }: {
   readonly children: React.ReactNode;
 }): React.ReactElement {
-  const { beside } = useChatContent();
+  const { beside, media } = useChatContent();
+  const isSplit = beside !== null || media === "beside";
   return (
-    <div className={beside ? "hidden 2xl:contents" : "contents"}>
+    <div className={isSplit ? "hidden 2xl:contents" : "contents"}>
       {children}
     </div>
   );
@@ -255,7 +307,10 @@ function ListSlot({
  * stored conversations with people and of groups (PAGE-278). The list holds
  * only existing people and agents the person chose or who wrote to them, and
  * groups of them. Content of messages shows as cards; one of them opens
- * right of the chat in the split view or over the page (PAGE-298).
+ * right of the chat in the split view or over the page (PAGE-298), as does
+ * "Medien & Dateien" of the chat (PAGE-387). A right click or a long press
+ * on a conversation of the list opens it with its chat menu at the point
+ * (PAGE-389).
  */
 export function ChatPage({
   directory,
@@ -274,42 +329,54 @@ export function ChatPage({
   const collapse = useChatListCollapse(
     directory.viewPreferences?.isListCollapsed === true,
   );
+  const chatMenu = useChatMenuRequestState();
+  const revealMessage = useMessageReveal({
+    messageCount: page.messages.length,
+    hasOlder: page.hasOlder,
+    isLoadingOlder: page.isLoadingOlder,
+    loadOlder: page.loadOlder,
+  });
   return (
     <MentionDirectoryContext value={directory.mentionDirectory}>
-      <section className="pages-page-fill pages-page-fixed flex w-full flex-col">
-        <header className="shrink-0">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {t("chatPage.title")}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {t("chatPage.subtitle")}
-          </p>
-        </header>
-        <div className="mt-6 flex min-h-0 flex-1 flex-col gap-4 md:gap-8 lg:flex-row">
-          <ChatContentProvider
-            conversationId={storedConversationId(page.opened)}
-            conversationKey={page.opened ? conversationKey(page.opened) : ""}
-            directory={directory}
-          >
-            <ListSlot>
-              <ChatPageList
+      <ChatMenuRequestContext value={chatMenu}>
+        <section className="pages-page-fill pages-page-fixed flex w-full flex-col">
+          <header className="shrink-0">
+            <h1 className="text-2xl font-semibold tracking-tight">
+              {t("chatPage.title")}
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {t("chatPage.subtitle")}
+            </p>
+          </header>
+          <div className="mt-6 flex min-h-0 flex-1 flex-col gap-4 md:gap-8 lg:flex-row">
+            <ChatContentProvider
+              conversationId={storedConversationId(page.opened)}
+              conversationKey={page.opened ? conversationKey(page.opened) : ""}
+              directory={directory}
+              onPreviewSend={page.sendFromPreview}
+              onRevealMessage={revealMessage}
+            >
+              <ListSlot>
+                <ChatPageList
+                  page={page}
+                  directory={directory}
+                  collapse={collapse}
+                />
+                <ChatPagePicker page={page} />
+              </ListSlot>
+              <ChatPageConversation
                 page={page}
-                directory={directory}
-                collapse={collapse}
+                status={directory.chatDecisionStatus}
               />
-              <ChatPagePicker page={page} />
-            </ListSlot>
-            <ChatPageConversation
-              page={page}
-              status={directory.chatDecisionStatus}
-            />
-            <SplitPanel
-              storedWidth={directory.viewPreferences?.splitWidth ?? null}
-            />
-            <CardOverlay />
-          </ChatContentProvider>
-        </div>
-      </section>
+              <SplitPanel
+                storedWidth={directory.viewPreferences?.splitWidth ?? null}
+              />
+              <MediaOverviewOverlay />
+              <CardOverlay />
+            </ChatContentProvider>
+          </div>
+        </section>
+      </ChatMenuRequestContext>
     </MentionDirectoryContext>
   );
 }

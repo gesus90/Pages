@@ -97,6 +97,9 @@ export function toConversationMessage(
     ...(stored.notice === null ? {} : { notice: stored.notice }),
     attachments: content.attachments,
     links: content.links,
+    ...(content.references && content.references.length > 0
+      ? { references: content.references }
+      : {}),
   };
   if (!stored.voice) return message;
   return {

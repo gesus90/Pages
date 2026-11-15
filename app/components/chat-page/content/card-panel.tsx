@@ -1,9 +1,21 @@
 import {
+  Code,
   Columns2,
   Copy,
   Download,
-  ExternalLink,
+  File as FileIcon,
+  FileDiff,
+  FileSpreadsheet,
+  FileText,
+  Film,
+  Globe,
+  Image as ImageIcon,
+  Link2,
   Maximize2,
+  Music,
+  PanelRight,
+  Presentation,
+  RotateCw,
   Rows2,
   X,
 } from "lucide-react";
@@ -13,32 +25,79 @@ import { useTranslation } from "react-i18next";
 import { cn } from "@/app/lib/cn";
 
 import { AttachmentFullView } from "./attachment-full-view";
-import { downloadUrl } from "./card-types";
+import { downloadUrl, formatFileSize } from "./card-types";
 import { useChatContent } from "./chat-content-context";
 import { ChatMarkdown } from "./chat-markdown";
 import { CodeView } from "./code-view";
-import { CardAction } from "./content-card";
+import {
+  CardAction,
+  CardActionDivider,
+  CardDownloadAction,
+  CardHead,
+} from "./content-card";
 import { DiffCount, DiffView, useParsedDiff } from "./diff-view";
-import { WebView } from "./link-cards";
-import { syntaxLanguageLabel } from "./syntax-highlight";
+import { DocumentViewer, isDocumentViewerCard } from "./document-viewer";
+import { DocumentPanel } from "./documents/document-panel";
+import { documentKindLabel } from "./documents/document-labels";
+import { linkTitleOf, OpenInNewTabAction, WebView } from "./link-cards";
+import { PREVIEW_ICONS } from "./preview-card";
+import { codeKindLabel } from "./preview-kinds";
+import { PreviewFullscreen, PreviewPanel } from "./preview-panel";
 import { copyText, saveTextFile, useCardText } from "./use-card-text";
+import { useMediaFacts } from "./media-facts";
+import { useRetention } from "./use-retention";
+import { ChatVideoViewer } from "./video-viewer";
+import { VideoPanelBody, isVideoCard } from "./video-panel";
+import { videoMeta } from "./video-player";
 
 import type { TFunction } from "i18next";
+import type { LucideIcon } from "lucide-react";
 import type { ContentCardDescriptor, OpenedCard } from "./card-types";
 import type { DiffLayout } from "./diff-view";
 
+/** The icon of each kind, as the head of the cards shows it (PAGE-382). */
+const KIND_ICONS: Readonly<
+  Record<Exclude<ContentCardDescriptor["kind"], "preview">, LucideIcon>
+> = {
+  code: Code,
+  diff: FileDiff,
+  markdown: FileText,
+  image: ImageIcon,
+  pdf: FileText,
+  video: Film,
+  audio: Music,
+  file: FileIcon,
+  word: FileText,
+  slides: Presentation,
+  sheet: FileSpreadsheet,
+  web: Globe,
+  link: Link2,
+};
+
 /** The kind of a card as the head of the panel names it. */
 function kindLabel(descriptor: ContentCardDescriptor, t: TFunction): string {
+  if (descriptor.kind === "preview")
+    return codeKindLabel(descriptor.files[0]?.languageHint ?? "");
   if (descriptor.kind === "code") {
-    const label = syntaxLanguageLabel(descriptor.languageHint);
-    return label === "" ? t("chatPage.cards.kind.code") : label;
+    const label = codeKindLabel(descriptor.languageHint);
+    const kind = label === "" ? t("chatPage.cards.kind.code") : label;
+    return descriptor.isDetected === true
+      ? t("chatPage.cards.detected", { kind })
+      : kind;
   }
+  if ("format" in descriptor) return documentKindLabel(descriptor.format, t);
   return t(`chatPage.cards.kind.${descriptor.kind}`);
+}
+
+function iconOf(descriptor: ContentCardDescriptor): LucideIcon {
+  return descriptor.kind === "preview"
+    ? PREVIEW_ICONS[descriptor.previewKind]
+    : KIND_ICONS[descriptor.kind];
 }
 
 function nameOf(descriptor: ContentCardDescriptor): string {
   if ("attachment" in descriptor) return descriptor.attachment.name;
-  if ("link" in descriptor) return new URL(descriptor.link.url).host;
+  if ("link" in descriptor) return linkTitleOf(descriptor.link);
   return descriptor.name;
 }
 
@@ -111,9 +170,19 @@ function TextActions({
 }): React.ReactElement {
   const { t } = useTranslation();
   const { source } = useCardText(descriptor, true);
+  const isDiff = descriptor.kind === "diff";
   return (
     <>
-      {descriptor.kind === "diff" ? (
+      {/* "Kopieren" is the main action of a diff and leads its actions (PAGE-388). */}
+      {source !== null && isDiff ? (
+        <CardAction
+          icon={Copy}
+          label={t("chatPage.cards.copy")}
+          onClick={() => copyText(source)}
+          variant="primary"
+        />
+      ) : null}
+      {isDiff ? (
         <>
           <CardAction
             icon={Rows2}
@@ -129,7 +198,7 @@ function TextActions({
           />
         </>
       ) : null}
-      {source === null || descriptor.kind === "markdown" ? null : (
+      {source === null || descriptor.kind !== "code" ? null : (
         <CardAction
           icon={Copy}
           label={t("chatPage.cards.copy")}
@@ -141,6 +210,7 @@ function TextActions({
           icon={Download}
           label={t("chatPage.cards.saveFile")}
           onClick={() => saveTextFile(descriptor.name, source)}
+          variant="primary"
         />
       )}
     </>
@@ -157,24 +227,15 @@ function KindActions({
   readonly layout: DiffLayout;
   readonly onLayout: (layout: DiffLayout) => void;
 }): React.ReactElement | null {
-  const { t } = useTranslation();
+  if (descriptor.kind === "preview") return null;
   if ("attachment" in descriptor)
     return (
-      <CardAction
-        href={downloadUrl(descriptor.attachment)}
-        icon={Download}
-        label={t("chatPage.cards.download")}
+      <CardDownloadAction
+        download={{ href: downloadUrl(descriptor.attachment) }}
       />
     );
   if ("link" in descriptor)
-    return (
-      <CardAction
-        href={descriptor.link.url}
-        icon={ExternalLink}
-        isNewTab
-        label={t("chatPage.cards.newTab")}
-      />
-    );
+    return <OpenInNewTabAction link={descriptor.link} />;
   return (
     <TextActions descriptor={descriptor} layout={layout} onLayout={onLayout} />
   );
@@ -184,11 +245,22 @@ function KindActions({
 function PanelBody({
   descriptor,
   layout,
+  card,
+  reloadCount,
 }: {
   readonly descriptor: ContentCardDescriptor;
   readonly layout: DiffLayout;
+  /** The opened card; a video shows its player and the other videos (PAGE-384). */
+  readonly card?: OpenedCard;
+  /** Counts "Neu laden" of an embedded page (PAGE-388). */
+  readonly reloadCount: number;
 }): React.ReactElement {
   const { conversationId } = useChatContent();
+  // A preview has its own panel; it never reaches the body of the text cards.
+  if (descriptor.kind === "preview") return <></>;
+  if (card && isVideoCard(card)) return <VideoPanelBody card={card} />;
+  // A document shows its whole readable view with its search (PAGE-385).
+  if ("format" in descriptor) return <DocumentPanel descriptor={descriptor} />;
   if ("attachment" in descriptor)
     return <AttachmentFullView attachment={descriptor.attachment} />;
   if ("link" in descriptor)
@@ -197,12 +269,40 @@ function PanelBody({
         className="flex min-h-0 flex-1 flex-col"
         conversationId={conversationId}
         link={descriptor.link}
+        reloadCount={reloadCount}
       />
     );
   return <TextPanel descriptor={descriptor} layout={layout} />;
 }
 
-/** The subtitle of the panel head: kind, sender and time, and the count of a diff. */
+/** Length, resolution and size of a video, the size of another file (PAGE-384). */
+function AttachmentMeta({
+  attachment,
+}: {
+  readonly attachment: Extract<
+    ContentCardDescriptor,
+    { readonly attachment: unknown }
+  >["attachment"];
+}): React.ReactElement {
+  const { i18n } = useTranslation();
+  const facts = useMediaFacts(attachment);
+  const retention = useRetention(attachment.expiresAt);
+  const meta =
+    attachment.kind === "video"
+      ? videoMeta(facts, attachment.sizeBytes, i18n.language)
+      : formatFileSize(attachment.sizeBytes, i18n.language);
+  return (
+    <>
+      {` · ${meta}`}
+      {retention ? ` · ${retention}` : null}
+    </>
+  );
+}
+
+/**
+ * The subtitle of the panel head: kind, sender and time, the size, length
+ * and remaining time of a file, and the count of a diff.
+ */
 function PanelSubtitle({
   card,
 }: {
@@ -215,10 +315,18 @@ function PanelSubtitle({
     descriptor.kind === "diff" ? (descriptor.source ?? "") : "",
   );
   return (
-    <span className="shrink-0 text-xs text-muted-foreground">
-      {[kindLabel(descriptor, t), origin.senderName, time]
+    <span>
+      {[
+        kindLabel(descriptor, t),
+        "link" in descriptor ? descriptor.link.url : "",
+        origin.senderName,
+        time,
+      ]
         .filter((entry) => entry !== "")
         .join(" · ")}
+      {"attachment" in descriptor ? (
+        <AttachmentMeta attachment={descriptor.attachment} />
+      ) : null}
       {descriptor.kind === "diff" && descriptor.source !== null ? (
         <>
           {" · "}
@@ -229,10 +337,70 @@ function PanelSubtitle({
   );
 }
 
+/**
+ * The quiet actions of the panel after the line (PAGE-388): "Neu laden" for
+ * an embedded page, "Daneben" lit as the active view, "Vollbild" and on the
+ * far right "Schließen".
+ */
+function PanelViewActions({
+  isBeside,
+  onReload,
+  onFullscreen,
+  onClose,
+}: {
+  readonly isBeside: boolean;
+  readonly onReload?: () => void;
+  readonly onFullscreen?: () => void;
+  readonly onClose: () => void;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  return (
+    <>
+      {onReload ? (
+        <CardAction
+          icon={RotateCw}
+          isIconOnly
+          label={t("chatPage.cards.reload")}
+          onClick={onReload}
+          variant="quiet"
+        />
+      ) : null}
+      {isBeside ? (
+        <CardAction
+          icon={PanelRight}
+          isActive
+          isIconOnly
+          label={t("chatPage.cards.besideOpen")}
+          onClick={onClose}
+          variant="quiet"
+        />
+      ) : null}
+      {onFullscreen ? (
+        <CardAction
+          icon={Maximize2}
+          isIconOnly
+          label={t("chatPage.cards.fullscreen")}
+          onClick={onFullscreen}
+          variant="quiet"
+        />
+      ) : null}
+      <CardAction
+        icon={X}
+        isIconOnly
+        label={t("chatPage.cards.close")}
+        onClick={onClose}
+        variant="quiet"
+      />
+    </>
+  );
+}
+
 interface CardPanelProps {
   readonly card: OpenedCard;
   /** Offers "Vollbild"; missing in the full screen itself. */
   readonly onFullscreen?: () => void;
+  /** Shown next to the chat: "Daneben" lights as the active view and closes it (PAGE-384). */
+  readonly isBeside?: boolean;
   readonly onClose: () => void;
   readonly className?: string;
   /** The width the person gave the split view. */
@@ -245,20 +413,35 @@ interface CardPanelProps {
  * screen and close, and below it the content.
  *
  * @remarks
- * A diff switches here between "Untereinander" and "Nebeneinander". The
+ * A diff switches here between "Untereinander" and "Nebeneinander"; a
+ * preview opens in its own panel with tabs and device widths (PAGE-383). The
  * frame and its controls use the tokens of the other panels; only images,
  * videos, PDF pages and embedded web pages keep their own colors.
  */
 export function CardPanel({
   card,
   onFullscreen,
+  isBeside = false,
   onClose,
   className,
   style,
 }: CardPanelProps): React.ReactElement {
-  const { t } = useTranslation();
   const [layout, setLayout] = useState<DiffLayout>("split");
+  const [reloadCount, setReloadCount] = useState(0);
   const name = nameOf(card.descriptor);
+  if (card.descriptor.kind === "preview")
+    return (
+      <PreviewPanel
+        cardKey={card.key}
+        className={className}
+        descriptor={card.descriptor}
+        isBeside={isBeside}
+        onClose={onClose}
+        onFullscreen={onFullscreen}
+        origin={card.origin}
+        style={style}
+      />
+    );
   return (
     <section
       aria-label={name}
@@ -269,34 +452,39 @@ export function CardPanel({
       data-card-panel={card.key}
       style={style}
     >
-      <header className="flex min-h-12 flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-border px-4 py-2">
-        <p className="flex min-w-56 flex-1 items-baseline gap-2.5">
-          <span className="truncate text-sm font-semibold">{name}</span>
-          <PanelSubtitle card={card} />
-        </p>
-        <div className="flex flex-wrap items-center gap-1.5">
-          <KindActions
-            descriptor={card.descriptor}
-            layout={layout}
-            onLayout={setLayout}
-          />
-          {onFullscreen ? (
-            <CardAction
-              icon={Maximize2}
-              label={t("chatPage.cards.fullscreen")}
-              onClick={onFullscreen}
+      <CardHead
+        actions={
+          <>
+            <KindActions
+              descriptor={card.descriptor}
+              layout={layout}
+              onLayout={setLayout}
             />
-          ) : null}
-          <CardAction
-            icon={X}
-            isIconOnly
-            label={t("chatPage.cards.close")}
-            onClick={onClose}
-          />
-        </div>
-      </header>
+            <CardActionDivider />
+            <PanelViewActions
+              isBeside={isBeside}
+              onClose={onClose}
+              onFullscreen={onFullscreen}
+              onReload={
+                "link" in card.descriptor
+                  ? () => setReloadCount((count) => count + 1)
+                  : undefined
+              }
+            />
+          </>
+        }
+        className="border-b border-border px-4"
+        icon={iconOf(card.descriptor)}
+        name={name}
+        subtitle={<PanelSubtitle card={card} />}
+      />
       <div className="flex min-h-0 flex-1 flex-col bg-panel-body">
-        <PanelBody descriptor={card.descriptor} layout={layout} />
+        <PanelBody
+          card={card}
+          descriptor={card.descriptor}
+          layout={layout}
+          reloadCount={reloadCount}
+        />
       </div>
     </section>
   );
@@ -305,6 +493,7 @@ export function CardPanel({
 /**
  * The card that covers the page (PAGE-298): the viewer of a PDF or an
  * image, the full screen of a card, and "Daneben" on a narrow screen.
+ * PDFs and documents open on the dark surface of the viewer (PAGE-385).
  * Escape and the close button end it.
  */
 export function CardOverlay(): React.ReactElement | null {
@@ -321,6 +510,19 @@ export function CardOverlay(): React.ReactElement | null {
   }, [overlay, closeOverlay]);
 
   if (!overlay) return null;
+  if (isVideoCard(overlay))
+    return <ChatVideoViewer card={overlay} onClose={closeOverlay} />;
+  if (isDocumentViewerCard(overlay))
+    return <DocumentViewer card={overlay} onClose={closeOverlay} />;
+  if (overlay.descriptor.kind === "preview")
+    return (
+      <PreviewFullscreen
+        cardKey={overlay.key}
+        descriptor={overlay.descriptor}
+        onClose={closeOverlay}
+        origin={overlay.origin}
+      />
+    );
   return (
     <div
       aria-label={t("chatPage.cards.viewer")}

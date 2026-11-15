@@ -5,15 +5,20 @@ import { ConversationError } from "@/backend/error/ConversationError";
 import { logCaughtError } from "@/backend/logging/Logger";
 import {
   CONVERSATION_GROUP_MAXIMUM_MEMBERS,
-  CONVERSATION_NAME_MAXIMUM_LENGTH,
   CONVERSATION_TEXT_MAXIMUM_LENGTH,
 } from "@/definition/Conversation";
 
-import { conversationAttachmentIdsSchema } from "@/definition/ConversationContent";
-
 import { findConversationMentions } from "./ConversationMentions";
 import { readConversationIdentifier } from "./ConversationReader";
+import {
+  conversationChangedEvent,
+  readConversationGroupName,
+  readMessageAttachmentIds,
+  readMessageText,
+  transcribeConversationVoice,
+} from "./ConversationServiceHelpers";
 
+import type { ConversationDelivery } from "@/definition/ConversationLiveAnswer";
 import type {
   ConversationMessageRepository,
   StoredConversationMessage,
@@ -43,6 +48,9 @@ import type {
   StoredConversationVoiceFile,
 } from "./ConversationVoiceStore";
 
+/** The start of the `clientMessageId` of a system line (PAGE-380). */
+export const SYSTEM_LINE_PREFIX = "session-event:";
+
 /** What the writes of conversations use. */
 export interface ConversationServiceDependencies {
   readonly conversations: ConversationRepository;
@@ -52,11 +60,14 @@ export interface ConversationServiceDependencies {
     "summary" | "readState" | "memberIds" | "messages"
   >;
   /** The files of messages (PAGE-298). */
-  readonly attachments: Pick<ConversationAttachments, "bind" | "collect">;
+  readonly attachments: Pick<
+    ConversationAttachments,
+    "bind" | "collect" | "collectConversation"
+  >;
   readonly directory: Pick<ConversationDirectory, "read">;
   readonly voices: ConversationVoiceStore;
-  /** Opens stored audio for the recognition. */
-  readonly files: Pick<WikiFileStore, "open">;
+  /** Opens stored audio for the recognition and removes the audio of a deleted conversation. */
+  readonly files: Pick<WikiFileStore, "open" | "remove">;
   readonly transcriber: ConversationTranscriber;
   /** The in-process channel the Pica Mobile connections and the push follow. */
   readonly events: Pick<ConversationEvents, "publish">;
@@ -69,6 +80,11 @@ export interface ConversationServiceDependencies {
 /** Who caused a change; the Pica Mobile connection receives its own answer instead of the event. */
 export interface ConversationChangeOptions {
   readonly originId?: string;
+  /**
+   * How a person sent a message while agents answered (PAGE-381): into their
+   * running answers or after them; absent starts its round as before.
+   */
+  readonly delivery?: ConversationDelivery;
 }
 
 /** The raw input of a new conversation. */
@@ -99,35 +115,6 @@ export interface ConversationGroupAdoption {
   readonly id: string;
   readonly name: string;
   readonly memberIds: readonly string[];
-}
-
-function changedEvent(conversationId: string): PagesEvent {
-  return { type: "conversation.changed", id: conversationId };
-}
-
-/** Reads the attachments a message names; none when it names none. */
-function readAttachmentIds(input: unknown): readonly string[] {
-  if (input === undefined || input === null) return [];
-  const ids = conversationAttachmentIdsSchema.safeParse(input);
-  if (!ids.success) throw new ConversationError("invalid");
-  return ids.data;
-}
-
-/** Reads the text of a message; it may be empty only next to attachments. */
-function readText(input: unknown, hasAttachments: boolean): string {
-  if (typeof input !== "string") throw new ConversationError("invalid");
-  const text = input.trim();
-  if (text === "" && !hasAttachments) throw new ConversationError("invalid");
-  if (Array.from(text).length > CONVERSATION_TEXT_MAXIMUM_LENGTH)
-    throw new ConversationError("too_long");
-  return text;
-}
-
-function readGroupName(input: string | null | undefined): string {
-  const name = (input ?? "").trim();
-  if (name === "" || Array.from(name).length > CONVERSATION_NAME_MAXIMUM_LENGTH)
-    throw new ConversationError("invalid");
-  return name;
 }
 
 /**
@@ -178,7 +165,7 @@ export class ConversationService {
       participantIds.length >= CONVERSATION_GROUP_MAXIMUM_MEMBERS
     )
       throw new ConversationError("invalid");
-    const name = readGroupName(creation.name);
+    const name = readConversationGroupName(creation.name);
     return this.store(person, {
       conversation: {
         id: this.createId(),
@@ -247,7 +234,7 @@ export class ConversationService {
         conversation: {
           id,
           kind: "group",
-          name: readGroupName(group.name),
+          name: readConversationGroupName(group.name),
           directKey: null,
           memberIds,
         },
@@ -262,7 +249,7 @@ export class ConversationService {
     await conversations.addMembers(
       id,
       { ids: added, joinedAt: this.now() },
-      changedEvent(id),
+      conversationChangedEvent(id),
     );
     this.announce(id, {
       kind: "conversation",
@@ -284,8 +271,8 @@ export class ConversationService {
     sending: ConversationSending,
     options: ConversationChangeOptions = {},
   ): Promise<ConversationMessage> {
-    const attachmentIds = readAttachmentIds(sending.attachmentIds);
-    const text = readText(sending.text, attachmentIds.length > 0);
+    const attachmentIds = readMessageAttachmentIds(sending.attachmentIds);
+    const text = readMessageText(sending.text, attachmentIds.length > 0);
     const clientMessageId = readConversationIdentifier(sending.clientMessageId);
     const context = await this.writable(person, sending.conversationId);
     return this.insert(person, {
@@ -399,7 +386,7 @@ export class ConversationService {
     const removeFiles = await attachments.collect(stored.id);
     const removed = await messages.remove(
       { id: stored.id, senderId: person.id },
-      changedEvent(summary.id),
+      conversationChangedEvent(summary.id),
     );
     if (!removed) throw new ConversationError("forbidden");
     await removeFiles();
@@ -475,6 +462,107 @@ export class ConversationService {
     return this.dependencies.reader.summary(person, conversationId);
   }
 
+  /**
+   * Stores a system line of a chat in the name of the person who caused it
+   * (PAGE-380): a changed model, a restarted or compacted session, a removed
+   * member. Every member sees it; it asks no agent for an answer.
+   *
+   * @throws {ConversationError} `not_found` for a conversation of which the
+   * person is no member.
+   */
+  public async postSystemLine(
+    person: User,
+    line: { readonly conversationId: string; readonly text: string },
+  ): Promise<void> {
+    const [summary, accounts] = await Promise.all([
+      this.dependencies.reader.summary(person, line.conversationId),
+      this.dependencies.directory.read(),
+    ]);
+    const memberIds = summary.members.map((member) => member.id);
+    const outcome = await this.dependencies.messages.insert(
+      {
+        id: this.createId(),
+        conversationId: summary.id,
+        senderId: person.id,
+        clientMessageId: `${SYSTEM_LINE_PREFIX}${this.createId()}`,
+        text: Array.from(line.text)
+          .slice(0, CONVERSATION_TEXT_MAXIMUM_LENGTH)
+          .join(""),
+        mentions: [],
+        createdAt: this.now(),
+        voice: null,
+        notice: "session_event",
+      },
+      conversationChangedEvent(summary.id),
+    );
+    const [sent] = await this.dependencies.reader.messages(
+      [outcome.message],
+      accounts,
+    );
+    if (!sent) return;
+    this.announce(summary.id, {
+      kind: "message",
+      message: sent,
+      recipientIds: memberIds,
+    });
+  }
+
+  /**
+   * Removes a member from a group (PAGE-380); the caller checked that the
+   * person created it. The removed member no longer sees the group.
+   *
+   * @throws {ConversationError} `not_found` for a conversation of which the
+   * person is no member, `invalid` for the person themselves or a direct
+   * conversation.
+   */
+  public async removeMember(
+    person: User,
+    target: { readonly conversationId: string; readonly memberId: string },
+  ): Promise<void> {
+    const conversationId = readConversationIdentifier(target.conversationId);
+    const summary = await this.dependencies.reader.summary(
+      person,
+      conversationId,
+    );
+    if (summary.kind !== "group" || target.memberId === person.id)
+      throw new ConversationError("invalid");
+    const recipientIds = summary.members.map((member) => member.id);
+    if (!recipientIds.includes(target.memberId)) return;
+    await this.dependencies.conversations.removeMember(
+      conversationId,
+      target.memberId,
+      conversationChangedEvent(conversationId),
+    );
+    this.announce(conversationId, { kind: "conversation", recipientIds });
+  }
+
+  /**
+   * Deletes a group for good with its history, attachments, preview images,
+   * voice messages and decisions (PAGE-380); there is no archive. The caller
+   * checked that the person created it.
+   *
+   * @throws {ConversationError} `not_found` for a conversation of which the
+   * person is no member, `invalid` for a direct conversation.
+   */
+  public async removeGroup(
+    person: User,
+    conversationId: string,
+  ): Promise<void> {
+    const id = readConversationIdentifier(conversationId);
+    const summary = await this.dependencies.reader.summary(person, id);
+    if (summary.kind !== "group") throw new ConversationError("invalid");
+    const recipientIds = summary.members.map((member) => member.id);
+    const removeAttachments =
+      await this.dependencies.attachments.collectConversation(id);
+    const voices = await this.dependencies.conversations.remove(
+      id,
+      conversationChangedEvent(id),
+    );
+    await removeAttachments();
+    if (voices.length > 0) await this.dependencies.files.remove(voices);
+    this.announce(id, { kind: "conversation", recipientIds });
+  }
+
   /** The members of a conversation the person may write to, with the accounts that name them. */
   private async writable(
     person: User,
@@ -529,7 +617,7 @@ export class ConversationService {
           ? { ...message.voice, transcriptionState: "pending" }
           : null,
       },
-      changedEvent(summary.id),
+      conversationChangedEvent(summary.id),
     );
     if (!outcome.isNew && message.voice)
       await this.dependencies.voices.discard(message.voice);
@@ -546,6 +634,9 @@ export class ConversationService {
       message: sent,
       recipientIds: memberIds,
       originId: message.options.originId,
+      ...(message.options.delivery === undefined
+        ? {}
+        : { delivery: message.options.delivery }),
     });
     if (outcome.message.voice) this.transcribeLater(outcome.message, memberIds);
     return sent;
@@ -561,7 +652,7 @@ export class ConversationService {
     } catch (error: unknown) {
       await this.dependencies.messages.remove(
         stored,
-        changedEvent(stored.conversationId),
+        conversationChangedEvent(stored.conversationId),
       );
       throw error;
     }
@@ -583,7 +674,7 @@ export class ConversationService {
     const { conversation } = input;
     const stored = await this.dependencies.conversations.create(
       { ...conversation, createdBy: person.id, createdAt: this.now() },
-      changedEvent(conversation.id),
+      conversationChangedEvent(conversation.id),
     );
     if (stored.isNew)
       this.announce(stored.id, {
@@ -603,6 +694,7 @@ export class ConversationService {
           readonly message: ConversationMessage;
           readonly recipientIds: readonly string[];
           readonly originId?: string;
+          readonly delivery?: ConversationDelivery;
         }
       | {
           readonly kind: "conversation";
@@ -610,7 +702,9 @@ export class ConversationService {
           readonly originId?: string;
         },
   ): void {
-    this.dependencies.publisher.publish(changedEvent(conversationId));
+    this.dependencies.publisher.publish(
+      conversationChangedEvent(conversationId),
+    );
     this.dependencies.events.publish(
       event.kind === "conversation" ? { ...event, conversationId } : event,
     );
@@ -632,40 +726,17 @@ export class ConversationService {
     stored: StoredConversationMessage,
     memberIds: readonly string[],
   ): Promise<void> {
-    const { voice } = stored;
-    if (!voice) return;
-    const outcome = await this.dependencies.transcriber.transcribe({
-      open: () => this.dependencies.files.open(voice.storageName),
-      mimeType: voice.mimeType,
-      sizeBytes: voice.sizeBytes,
-    });
-    const accounts = await this.dependencies.directory.read();
-    const text = outcome.ok
-      ? Array.from(outcome.text.trim())
-          .slice(0, CONVERSATION_TEXT_MAXIMUM_LENGTH)
-          .join("")
-      : "";
-    // A group asks its agents by mention; the recognized text may name one.
-    const mentions = findConversationMentions(text, memberIds, {
-      accounts,
-      senderId: stored.senderId,
-    });
-    const updated = await this.dependencies.messages.completeTranscription(
-      stored.id,
-      { state: outcome.ok ? "done" : "failed", text, mentions },
-      changedEvent(stored.conversationId),
+    await transcribeConversationVoice(
+      this.dependencies,
+      stored,
+      memberIds,
+      (message) =>
+        this.announce(stored.conversationId, {
+          kind: "message_updated",
+          message,
+          recipientIds: memberIds,
+        }),
     );
-    if (!updated) return;
-    const [message] = await this.dependencies.reader.messages(
-      [updated],
-      accounts,
-    );
-    if (!message) return;
-    this.announce(stored.conversationId, {
-      kind: "message_updated",
-      message,
-      recipientIds: memberIds,
-    });
   }
 
   private now(): string {

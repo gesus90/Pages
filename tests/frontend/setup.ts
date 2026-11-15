@@ -95,3 +95,33 @@ Object.defineProperty(document, "fonts", {
 
 // jsdom does not implement scrolling; pickers scroll their active option into view.
 Element.prototype.scrollIntoView ??= (): void => {};
+
+/**
+ * A WebSocket that never connects: the chat page opens `conversations.v1`
+ * (PAGE-381), and unit tests reach no network. A test that needs frames
+ * passes its own socket.
+ */
+class SilentWebSocket extends EventTarget {
+  public static readonly CONNECTING = 0;
+  public static readonly OPEN = 1;
+  public static readonly CLOSING = 2;
+  public static readonly CLOSED = 3;
+  public readonly url: string;
+  public readyState = 0;
+
+  /** Remembers the address; nothing is opened. */
+  public constructor(url: string | URL) {
+    super();
+    this.url = String(url);
+  }
+
+  /** Drops the frame; there is no peer. */
+  public send(): void {}
+
+  /** Marks the socket closed without an event, as nothing was open. */
+  public close(): void {
+    this.readyState = SilentWebSocket.CLOSED;
+  }
+}
+
+globalThis.WebSocket = SilentWebSocket as unknown as typeof WebSocket;

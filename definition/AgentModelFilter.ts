@@ -18,8 +18,8 @@ export interface AgentModelTraits {
   readonly toolCall: unknown;
 }
 
-// Speech output models (PAGE-300) generate audio as well, under a modality of their own.
-const GENERATED_MEDIA = ["image", "video", "audio", "speech"] as const;
+// What a model may generate beside text and still chat (PAGE-382, PAGE-384).
+const MEDIA_BESIDE_TEXT = ["image", "video", "audio"] as const;
 
 function statesModality(
   modalities: unknown,
@@ -35,11 +35,15 @@ function statesModality(
 
 /**
  * The global filter for every chat model choice: an active language model
- * that reads and answers in text and generates no image, video or audio.
+ * that reads and answers in text and generates no video or audio.
  *
  * @remarks
  * A model that also reads images stays a chat model. A model that states it
- * reads no text, such as a pure transcription model, is not one.
+ * reads no text, such as a pure transcription model, is not one. A model
+ * that outputs images, videos or sounds stays one only when it also states
+ * text output (PAGE-382, PAGE-384): an agent working with it answers in text
+ * and generates them with it; a pure image, video or audio generator and a
+ * speech output model are none.
  *
  * @param traits - The model's properties as OpenCode states them.
  * @returns `true` when Pica and plans may list the model.
@@ -49,9 +53,11 @@ export function isChatModel(traits: AgentModelTraits): boolean {
     (traits.status === undefined || traits.status === "active") &&
     !statesModality(traits.input, "text", false) &&
     !statesModality(traits.output, "text", false) &&
-    GENERATED_MEDIA.every(
-      (modality) => !statesModality(traits.output, modality, true),
-    )
+    !statesModality(traits.output, "speech", true) &&
+    (statesModality(traits.output, "text", true) ||
+      MEDIA_BESIDE_TEXT.every(
+        (modality) => !statesModality(traits.output, modality, true),
+      ))
   );
 }
 
@@ -113,7 +119,8 @@ export interface AgentChatCapabilityFacts {
 
 /**
  * Whether a model can chat as an agent or for Pica: it reads and answers in
- * text, generates no image, video or audio, and calls tools.
+ * text, generates images, videos and sounds only beside text (PAGE-382,
+ * PAGE-384), no speech, and calls tools.
  *
  * @remarks
  * The facts come from the source and are stored with the catalog: OpenRouter's
@@ -137,10 +144,8 @@ export function isTextCapableModel(model: AgentChatCapabilityFacts): boolean {
   if (isNamedNonChatModel(model.id)) return false;
   if (inputModalities && !inputModalities.includes("text")) return false;
   if (outputModalities && !outputModalities.includes("text")) return false;
-  if (
-    outputModalities &&
-    GENERATED_MEDIA.some((modality) => outputModalities.includes(modality))
-  )
-    return false;
-  return true;
+  // A model that outputs images, videos or sounds chats, because it also
+  // answers in text as checked above (PAGE-382, PAGE-384); a speech output
+  // model (PAGE-300) does not.
+  return outputModalities?.includes("speech") !== true;
 }

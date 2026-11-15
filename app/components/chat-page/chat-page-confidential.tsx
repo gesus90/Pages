@@ -1,8 +1,4 @@
-import { ShieldCheck, ShieldOff } from "lucide-react";
-import { useTranslation } from "react-i18next";
 import { useFetcher } from "react-router";
-
-import { Button } from "@/app/components/ui/button";
 
 import type { OpenedConversation } from "./use-chat-page";
 
@@ -63,30 +59,4 @@ export function useConfidential(
   }
 
   return { isConfidential, onToggle };
-}
-
-/** Switches the mark of the opened chat; it shows only for chats with agents. */
-export function ConfidentialButton({
-  control,
-}: {
-  readonly control: ConfidentialControl | undefined;
-}): React.ReactElement | null {
-  const { t } = useTranslation();
-  if (!control || control.isConfidential === null) return null;
-  const Icon = control.isConfidential ? ShieldCheck : ShieldOff;
-  return (
-    <Button
-      aria-pressed={control.isConfidential}
-      onClick={control.onToggle}
-      size="sm"
-      type="button"
-      variant="outline"
-      title={t("chatPage.confidentialHint")}
-    >
-      <Icon aria-hidden="true" className="size-3.5" />
-      {control.isConfidential
-        ? t("chatPage.confidentialOn")
-        : t("chatPage.confidentialOff")}
-    </Button>
-  );
 }

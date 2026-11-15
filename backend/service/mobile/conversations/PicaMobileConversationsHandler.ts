@@ -7,6 +7,7 @@ import {
 import { encodePicaMobileConversation } from "../PicaMobileMessages";
 import { PicaMobileVoiceUploads } from "./PicaMobileVoiceUploads";
 
+import type { ConversationAnswerStream } from "@/backend/service/conversation/ConversationAnswerStream";
 import type { ConversationEvent } from "@/backend/service/conversation/ConversationEvents";
 import type { PicaMobileSessionIdentity } from "../PicaMobileDashboardProvider";
 import type { PicaMobileConversationClientMessage } from "../PicaMobileMessages";
@@ -23,6 +24,13 @@ import type { PicaMobileVoiceMessage } from "./PicaMobileVoiceUploads";
 export interface PicaMobileConversationsHandlerOptions {
   readonly connectionId: string;
   readonly presence: Pick<PicaMobileConversationPresence, "set">;
+  /**
+   * The answers agents are writing (PAGE-381): present only for the
+   * connection of the signed-in browser, which receives their parts and a
+   * snapshot after the authentication; absent, as for Pica Mobile, the
+   * connection receives none of them.
+   */
+  readonly answers?: Pick<ConversationAnswerStream, "snapshots">;
 }
 
 const COMPONENT = "PicaMobileConversationsHandler";
@@ -107,6 +115,7 @@ export class PicaMobileConversationsHandler {
     const { provider } = this;
     if (provider === undefined || this.isStopped || this.stopFollowing) return;
     this.stopFollowing = provider.follow((event) => this.receive(event));
+    this.sendSnapshots();
   }
 
   /** Stops the events, drops unfinished uploads and closes the open conversation. */
@@ -220,6 +229,28 @@ export class PicaMobileConversationsHandler {
     this.host.send(frame);
   }
 
+  /**
+   * Sends the answers the account may read that are written now or ended a
+   * short while ago (PAGE-381), before any later part of them; a part a
+   * snapshot already holds is told apart by its number.
+   */
+  private sendSnapshots(): void {
+    const { answers } = this.options;
+    const session = this.host.session();
+    if (answers === undefined || session === null) return;
+    this.host.enqueue(() => {
+      if (this.isStopped || !this.host.isOpen()) return Promise.resolve();
+      for (const snapshot of answers.snapshots(session.userId))
+        this.sendFrame(
+          encodePicaMobileConversation(null, {
+            type: "conversation_event",
+            payload: { type: "answer_snapshot", data: snapshot },
+          }),
+        );
+      return Promise.resolve();
+    });
+  }
+
   /** Queues the event of a change for the account of this connection. */
   private receive(event: ConversationEvent): void {
     const session = this.host.session();
@@ -230,6 +261,8 @@ export class PicaMobileConversationsHandler {
       !event.recipientIds.includes(session.userId)
     )
       return;
+    // Only the browser's connection takes the parts of live answers (PAGE-381).
+    if (event.kind === "answer" && this.options.answers === undefined) return;
     this.host.enqueue(() => this.send(session, event));
   }
 
@@ -245,10 +278,15 @@ export class PicaMobileConversationsHandler {
       this.host.endSession(null);
       return;
     }
-    const frame = encodePicaMobileConversation(null, {
-      type: "conversation_event",
-      payload,
-    });
+    this.sendFrame(
+      encodePicaMobileConversation(null, {
+        type: "conversation_event",
+        payload,
+      }),
+    );
+  }
+
+  private sendFrame(frame: string): void {
     if (frame.length <= PICA_MOBILE_MAXIMUM_CHAT_FRAME_LENGTH)
       this.host.send(frame);
   }

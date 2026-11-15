@@ -6,7 +6,9 @@ import {
   conversationAttachmentKind,
 } from "@/definition/ConversationContent";
 
+import { mediaFactsQuery } from "./content/media-facts";
 import { createThumbnail } from "./content/media-thumbnails";
+import { documentFactsQuery, rememberPdfFacts } from "./content/pdf-facts";
 
 import type { VirtualChatSelection } from "@/definition/VirtualChat";
 
@@ -144,9 +146,14 @@ async function deleteUpload(attachmentId: string): Promise<void> {
 async function storeThumbnail(attachmentId: string, file: File): Promise<void> {
   if (!THUMBNAIL_KINDS.includes(conversationAttachmentKind(file.type))) return;
   try {
-    const thumbnail = await createThumbnail(file, file.type);
+    let factsQuery = "";
+    // The facts read with the preview are stored with it (PAGE-384, PAGE-385).
+    const thumbnail = await createThumbnail(file, file.type, (facts) => {
+      rememberPdfFacts(attachmentId, facts);
+      factsQuery += mediaFactsQuery(facts) + documentFactsQuery(facts);
+    });
     if (!thumbnail) return;
-    await fetch(attachmentAddress(attachmentId), {
+    await fetch(`${attachmentAddress(attachmentId)}${factsQuery}`, {
       method: "PUT",
       headers: { "Content-Type": thumbnail.type },
       body: thumbnail,

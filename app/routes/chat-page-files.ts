@@ -18,6 +18,7 @@ import {
 
 import type { ChatPageServices } from "@/app/lib/chat-page-conversations.server";
 import type { ConversationErrorCode } from "@/definition/Conversation";
+import type { ConversationFileFactsInput } from "@/backend/service/conversation/content/ConversationAttachments";
 import type { ConversationAttachment } from "@/definition/ConversationContent";
 import type { User } from "@/definition/User";
 import type { Route } from "./+types/chat-page-files";
@@ -31,7 +32,7 @@ const STATUS: Readonly<Record<ConversationErrorCode, number>> = {
   unsupported_format: 415,
 };
 
-const METHODS: readonly string[] = ["POST", "PUT", "DELETE"];
+const METHODS: readonly string[] = ["POST", "PUT", "PATCH", "DELETE"];
 
 /** Refuses a body the header already names as too large, before a byte is read. */
 function checkLength(request: Request, maximumBytes: number): void {
@@ -79,21 +80,51 @@ async function upload(
   );
 }
 
+/**
+ * The resolution and length the browser read of a video or a sound
+ * (PAGE-384), or page count and title of a PDF (PAGE-385), from the query.
+ */
+function factsOf(url: URL): ConversationFileFactsInput | undefined {
+  const { searchParams } = url;
+  const facts = {
+    width: searchParams.get("width") ?? undefined,
+    height: searchParams.get("height") ?? undefined,
+    durationSeconds: searchParams.get("durationSeconds") ?? undefined,
+    pageCount: searchParams.get("pageCount") ?? undefined,
+    title: searchParams.get("title") ?? undefined,
+  };
+  return Object.values(facts).some((entry) => entry !== undefined)
+    ? facts
+    : undefined;
+}
+
 async function run(
   services: ChatPageServices,
   person: User,
   request: Request,
 ): Promise<ConversationAttachment | null> {
-  const attachmentId = new URL(request.url).searchParams.get("attachmentId");
+  const url = new URL(request.url);
+  const attachmentId = url.searchParams.get("attachmentId");
   if (request.method === "POST") return upload(services, person, request);
+  if (request.method === "PATCH")
+    return services.conversationAttachments.recordMediaFacts(
+      person,
+      attachmentId,
+      factsOf(url) ?? {},
+    );
   if (request.method === "DELETE") {
     await services.conversationAttachments.discard(person, attachmentId);
     return null;
   }
   checkLength(request, CONVERSATION_THUMBNAIL_MAXIMUM_BYTES);
+  const facts = factsOf(url);
   return services.conversationAttachments.uploadThumbnail(
     person,
-    { attachmentId, mimeType: request.headers.get("content-type") ?? "" },
+    {
+      attachmentId,
+      mimeType: request.headers.get("content-type") ?? "",
+      ...(facts ? { facts } : {}),
+    },
     bodyOf(request),
   );
 }
@@ -107,7 +138,12 @@ async function run(
  *   opened) with the file as body and its type as `Content-Type` stores an
  *   attachment for a message sent afterwards with its ID.
  * - `PUT /chat-page-api/files?attachmentId=…` with a WebP, JPEG or PNG image
- *   as body stores the preview image of an attachment that has none.
+ *   as body stores the preview image of an attachment that has none; with
+ *   `width`, `height` and `durationSeconds` it also stores what the browser
+ *   read of a video or a sound (PAGE-384); with `pageCount` and `title` the
+ *   page count and title of a PDF (PAGE-385).
+ * - `PATCH /chat-page-api/files?attachmentId=…&width=…&height=…&durationSeconds=…`
+ *   stores only these facts, for a video or sound whose preview exists.
  * - `DELETE /chat-page-api/files?attachmentId=…` drops an own upload that
  *   no message took.
  *

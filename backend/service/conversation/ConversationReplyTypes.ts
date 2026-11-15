@@ -1,3 +1,7 @@
+import type {
+  LiveAnswerSink,
+  LiveAnswerTarget,
+} from "./ConversationLiveAnswer";
 import type { ConversationMessageRepository } from "@/backend/database/repositories/conversation/ConversationMessageRepository";
 import type {
   ConversationRecord,
@@ -9,7 +13,9 @@ import type { ConversationReplyTrigger } from "@/definition/ConversationObserver
 import type { User } from "@/definition/User";
 import type { ConversationAgentGuard } from "./ConversationAgentGuard";
 import type { ConversationAgentFiles } from "./content/ConversationAgentFiles";
+import type { ConversationAttachmentReferences } from "./content/ConversationAttachmentReferences";
 import type { ConversationAttachments } from "./content/ConversationAttachments";
+import type { ConversationGeneratedImages } from "./content/ConversationGeneratedImages";
 import type { ConversationMessageContentReader } from "./content/ConversationMessageContent";
 import type { ConversationAgentRunner } from "./ConversationAgentReplies";
 import type { ConversationContextReader } from "./ConversationContextReader";
@@ -59,6 +65,11 @@ export interface ConversationReplyRunnerDependencies {
   readonly guard?: Pick<ConversationAgentGuard, "isPaused">;
   /** Reads the file lines of an answer (PAGE-298). */
   readonly agentFiles: Pick<ConversationAgentFiles, "select" | "open">;
+  /** Reads the lines of an answer that show earlier attachments of the chat again (PAGE-386); absent shows none. */
+  readonly references?: Pick<
+    ConversationAttachmentReferences,
+    "select" | "bind"
+  >;
   /** Stores the files an answer attaches and binds them to it. */
   readonly attachments: Pick<
     ConversationAttachments,
@@ -66,7 +77,18 @@ export interface ConversationReplyRunnerDependencies {
   >;
   /** The attachments and links of the stored answer. */
   readonly content: ConversationMessageContentReader;
+  /** The images the agent generated during the answer (PAGE-382); absent binds none. */
+  readonly generatedImages?: Pick<ConversationGeneratedImages, "take">;
   readonly now?: () => Date;
   /** Waits for a busy agent; tests pass a fast one. */
   readonly wait?: (milliseconds: number) => Promise<void>;
+  /** Shows the answers to the members while they are written (PAGE-381); absent shows none. */
+  readonly answerStream?: ConversationAnswerStreamPort;
+}
+
+/** Opens the live answers of conversations and names who reads their thoughts (PAGE-381). */
+export interface ConversationAnswerStreamPort {
+  open(target: LiveAnswerTarget): LiveAnswerSink;
+  /** The creator of a group, who alone reads the thoughts of its agents. */
+  ownerOf(conversationId: string): Promise<string | null>;
 }

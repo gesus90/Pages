@@ -12,6 +12,8 @@ interface ViewerStageProps {
   readonly label: string;
   /** Whether arrows share the screen; below the image on a narrow one. */
   readonly isPaged: boolean;
+  /** Why the image is not there; reported in its place, nothing loads (PAGE-382). */
+  readonly unavailable?: string;
 }
 
 /**
@@ -26,9 +28,11 @@ export function ViewerStage({
   src,
   label,
   isPaged,
+  unavailable,
 }: ViewerStageProps): React.ReactElement {
   const { t } = useTranslation();
-  const [state, setState] = useState<LoadState>("loading");
+  const [loaded, setState] = useState<LoadState>("loading");
+  const state: LoadState = unavailable === undefined ? loaded : "failed";
 
   return (
     <div
@@ -43,7 +47,9 @@ export function ViewerStage({
           role="alert"
         >
           <ImageOff aria-hidden="true" className="size-10" />
-          <p className="text-base font-semibold">{t("imageViewer.failed")}</p>
+          <p className="text-base font-semibold">
+            {unavailable ?? t("imageViewer.failed")}
+          </p>
           <p className="text-sm break-all text-viewer-muted">{label}</p>
         </div>
       ) : (

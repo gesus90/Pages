@@ -1,8 +1,8 @@
-import { Download, File as FileIcon } from "lucide-react";
+import { File as FileIcon } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { downloadUrl, formatFileSize } from "./card-types";
-import { CardAction, ContentCard } from "./content-card";
+import { CardDownloadAction } from "./content-card";
 
 import type { ConversationAttachment } from "@/definition/ConversationContent";
 
@@ -60,43 +60,7 @@ export function FileDetails({
       <p className="text-xs text-muted-foreground">
         {type} · {size}
       </p>
-      <CardAction
-        href={downloadUrl(attachment)}
-        icon={Download}
-        label={t("chatPage.cards.download")}
-      />
+      <CardDownloadAction download={{ href: downloadUrl(attachment) }} />
     </div>
-  );
-}
-
-/**
- * The card of a file the chat has no view for (PAGE-298): one line with
- * name, type and size, and Laden.
- */
-export function FileCard({
-  attachment,
-}: {
-  readonly attachment: ConversationAttachment;
-}): React.ReactElement {
-  const { t, i18n } = useTranslation();
-  return (
-    <ContentCard
-      actions={
-        <CardAction
-          href={downloadUrl(attachment)}
-          icon={Download}
-          label={t("chatPage.cards.download")}
-        />
-      }
-      cardKey={`att:${attachment.id}`}
-      className="max-w-lg"
-      defaultState="expanded"
-      icon={FileIcon}
-      kindLabel={t("chatPage.cards.kind.file")}
-      meta={formatFileSize(attachment.sizeBytes, i18n.language)}
-      name={attachment.name}
-    >
-      <FileDetails attachment={attachment} />
-    </ContentCard>
   );
 }

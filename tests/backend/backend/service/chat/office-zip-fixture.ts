@@ -3,7 +3,8 @@ import { deflateRawSync } from "node:zlib";
 /** One part of a synthetic ZIP package. */
 export interface ZipPart {
   readonly name: string;
-  readonly content: string;
+  /** Text is stored as UTF-8; bytes such as an embedded picture as they are. */
+  readonly content: string | Buffer;
 }
 
 /** A part that no Office reader looks at, for packages that need some directory entry. */
@@ -19,7 +20,10 @@ export function buildZip(parts: readonly ZipPart[]): Buffer {
   let offset = 0;
   for (const part of parts) {
     const name = Buffer.from(part.name, "utf8");
-    const raw = Buffer.from(part.content, "utf8");
+    const raw =
+      typeof part.content === "string"
+        ? Buffer.from(part.content, "utf8")
+        : part.content;
     const compressed = deflateRawSync(raw);
     const local = Buffer.alloc(30);
     local.writeUInt32LE(0x04034b50, 0);

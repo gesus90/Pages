@@ -32,9 +32,8 @@ import {
   requireCompleted,
   turnBeganEvent,
 } from "./PicaAcpTurnResult";
-import { PicaAcpUpdates } from "./PicaAcpUpdates";
 import { PicaAcpPrompt } from "./PicaAcpPrompt";
-import { notePicaNativeTool } from "./PicaAcpNativeToolRecord";
+import { createPicaAcpUpdates } from "./PicaAcpJobUpdates";
 import { openPicaSession } from "./PicaAcpPoolOpening";
 
 import type { DatabaseLogMetrics } from "@/backend/logging/DatabaseLogMetrics";
@@ -55,6 +54,7 @@ import type { PicaAcpOutcome } from "./PicaAcpTurnResult";
 import type { PicaAcpJobDependencies } from "./PicaAcpJobDependencies";
 import type { PicaAcpPooledInput } from "./PicaAcpPoolOpening";
 import type { PicaAcpJobSpecification } from "./PicaAcpJobSpecification";
+import type { PicaAcpUpdates } from "./PicaAcpUpdates";
 
 export type { PicaAcpJobDependencies } from "./PicaAcpJobDependencies";
 export type {
@@ -117,7 +117,14 @@ export class PicaAcpJob {
     this.userId = specification.actor.id;
     this.dependencies = dependencies;
     this.specification = specification;
-    this.journal = new PicaAcpJournal(dependencies.jobs, specification.id);
+    // The chat page shows the answer while it is written (PAGE-381).
+    this.journal = new PicaAcpJournal(
+      dependencies.jobs,
+      specification.id,
+      dependencies.liveAnswer
+        ? (event) => dependencies.liveAnswer?.journaled(event)
+        : undefined,
+    );
     this.usage = new PicaAcpUsage(
       dependencies.jobs,
       this.journal,
@@ -153,49 +160,25 @@ export class PicaAcpJob {
         ].join("\n\n"),
       specification.agent.supportsImages,
     );
-    this.updates = new PicaAcpUpdates(
-      {
-        picaCodex: {
-          catalog: () => this.credential.catalog(this.requireContext().signal),
-          capture: () => this.credential.capture(this.requireContext()),
-        },
-        ...(specification.agent.connection.provider === "claude_code"
-          ? { picaHelper: () => this.credential.helperPath() }
-          : {}),
-        steering: (canSteer, capabilities) => {
-          this.prompt.negotiated(capabilities);
-          this.hasSteering = canSteer;
-          this.journal.note({ kind: "capabilities", canSteer });
-        },
-        text: (turn, isReset, delta) => this.journal.text(turn, isReset, delta),
-        context: (context, cost) => this.usage.recordContext(context, cost),
-        compaction: (compaction) =>
-          this.journal.note({ kind: "compaction", ...compaction }),
-        promptEnded: (turn, tokens) => {
-          if (this.isSteerBinding && turn === this.turn)
-            this.endedDuringSteer = true;
-          if (this.credential.boundTurn === turn) this.credential.revoke();
-          this.usage.recordTokens(turn, tokens);
-        },
-        threadStatus: (isActive) => this.thread.observe(isActive),
-        content: (turn, block) => this.answerOutput.take(turn, block),
-        closed: () => this.thread.close(),
-        // Host tools of an agent employee show in the chat with input and result (PAGE-303).
-        ...(specification.run.options.access === "yolo"
-          ? {
-              nativeTool: (event) => {
-                this.journal.note({ kind: "tool", ...event });
-                notePicaNativeTool(
-                  event,
-                  this.notedNativeCalls,
-                  this.dependencies.recipes,
-                );
-              },
-            }
-          : {}),
+    this.updates = createPicaAcpUpdates({
+      specification,
+      dependencies,
+      credential: this.credential,
+      prompt: this.prompt,
+      journal: this.journal,
+      usage: this.usage,
+      thread: this.thread,
+      answerOutput: this.answerOutput,
+      notedNativeCalls: this.notedNativeCalls,
+      context: () => this.requireContext(),
+      onSteering: (canSteer) => {
+        this.hasSteering = canSteer;
       },
-      specification.run.runner,
-    );
+      onPromptEnded: (turn) => {
+        if (this.isSteerBinding && turn === this.turn)
+          this.endedDuringSteer = true;
+      },
+    });
     this.steering = new PicaAcpSteering({
       gate: specification.gate,
       status: (messageId, status) => this.answerStore.steer(messageId, status),
@@ -215,10 +198,16 @@ export class PicaAcpJob {
   /**
    * Takes a message sent while the job runs; call it inside the queue of the conversation.
    *
+   * @param message - The stored message.
+   * @param isDeferred - The message waits for a turn of its own after the
+   * running one instead of joining it (PAGE-381).
    * @returns Its first status, or `null` once the job no longer takes messages.
    */
-  public steer(message: PicaAcpMessage): Promise<ChatSteerStatus | null> {
-    return this.steering.accept(message);
+  public steer(
+    message: PicaAcpMessage,
+    isDeferred = false,
+  ): Promise<ChatSteerStatus | null> {
+    return this.steering.accept(message, isDeferred);
   }
 
   /**
@@ -234,7 +223,9 @@ export class PicaAcpJob {
   public async cancelTool(): Promise<boolean> {
     const cancel = this.session?.cancelTool?.bind(this.session);
     if (!cancel || !this.isTurnRunning) return false;
-    return cancel(TOOL_CANCELLED_NOTE);
+    const isCancelled = await cancel(TOOL_CANCELLED_NOTE);
+    if (isCancelled) this.dependencies.liveAnswer?.cancelTools();
+    return isCancelled;
   }
 
   /** Marks the coming cancellation as the person's explicit stop. */

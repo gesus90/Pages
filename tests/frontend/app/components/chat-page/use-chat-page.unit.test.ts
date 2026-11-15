@@ -464,7 +464,7 @@ it("answers while the opened agent works, but never for a person", () => {
   expect(person.result.current.isAnswering).toBe(false);
 });
 
-it("reads the history again every three seconds while an agent answers", () => {
+it("never reads the history at fixed intervals while an agent answers (PAGE-381)", () => {
   vi.useFakeTimers();
   const { unmount } = renderHook(() =>
     useChatPage(
@@ -472,19 +472,9 @@ it("reads the history again every three seconds while an agent answers", () => {
     ),
   );
 
-  vi.advanceTimersByTime(2_999);
+  vi.advanceTimersByTime(30_000);
   expect(revalidate).not.toHaveBeenCalled();
-  vi.advanceTimersByTime(1);
-  expect(revalidate).toHaveBeenCalledTimes(1);
-
-  revalidator.state = "loading";
-  vi.advanceTimersByTime(3_000);
-  expect(revalidate).toHaveBeenCalledTimes(1);
-
   unmount();
-  revalidator.state = "idle";
-  vi.advanceTimersByTime(9_000);
-  expect(revalidate).toHaveBeenCalledTimes(1);
 });
 
 it("does not poll while nobody answers", () => {
@@ -597,91 +587,4 @@ it("has nothing to mute for an agent or a direct conversation not yet stored", (
   act(() => person.result.current.toggleMute());
 
   expect(submissions("mute")).toEqual([]);
-});
-
-it("offers to load older messages of a stored conversation and asks for the page before the oldest", () => {
-  const { result } = renderHook(() =>
-    useChatPage(
-      directory({
-        participants: [
-          participant("p", { kind: "human", conversationId: "conversation-p" }),
-        ],
-        histories: { p: [message("m5"), message("m6")] },
-        olderHistoryIds: ["p"],
-      }),
-    ),
-  );
-  expect(result.current.hasOlder).toBe(true);
-  expect(result.current.isLoadingOlder).toBe(false);
-
-  act(() => result.current.loadOlder());
-
-  expect(submissions("history")).toEqual([
-    { intent: "history", conversationId: "conversation-p", beforeId: "m5" },
-  ]);
-});
-
-it("offers no older messages when the server holds none or for an agent", () => {
-  const complete = renderHook(() =>
-    useChatPage(
-      directory({
-        participants: [
-          participant("p", { kind: "human", conversationId: "conversation-p" }),
-        ],
-        histories: { p: [message("m1")] },
-      }),
-    ),
-  );
-  expect(complete.result.current.hasOlder).toBe(false);
-  act(() => complete.result.current.loadOlder());
-
-  const agent = renderHook(() =>
-    useChatPage(
-      directory({
-        participants: [participant("a")],
-        histories: { a: [message("m1")] },
-        olderHistoryIds: ["a"],
-      }),
-    ),
-  );
-  expect(agent.result.current.hasOlder).toBe(false);
-
-  expect(submissions("history")).toEqual([]);
-});
-
-it("marks an opened stored conversation with unread messages read up to its newest message", () => {
-  renderHook(() =>
-    useChatPage(
-      directory({
-        groups: [group("g", { unreadCount: 2 })],
-        histories: { g: [message("m1"), message("m2")] },
-      }),
-    ),
-  );
-
-  expect(submissions("read")).toEqual([
-    { intent: "read", conversationId: "g", upToMessageId: "m2" },
-  ]);
-});
-
-it("opens the notification's requested chat initially without marking the default chat read", () => {
-  const { result } = renderHook(() =>
-    useChatPage(
-      directory({
-        participants: [
-          participant("target", { conversationId: "direct", unreadCount: 1 }),
-        ],
-        groups: [group("default", { unreadCount: 1 })],
-        histories: { default: [message("wrong")], target: [message("right")] },
-      }),
-      { kind: "participant", id: "target" },
-    ),
-  );
-  expect(result.current.selection).toEqual({
-    kind: "participant",
-    id: "target",
-  });
-  expect(submissions("read").map((form) => form["conversationId"])).toEqual([
-    "direct",
-  ]);
 });

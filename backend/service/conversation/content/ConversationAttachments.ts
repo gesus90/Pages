@@ -1,14 +1,24 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
 import { ConversationError } from "@/backend/error/ConversationError";
 import { FileTooLargeError } from "@/backend/storage/WikiFileStore";
 import {
+  CONVERSATION_AGENT_FILE_LIFETIME_MILLISECONDS,
   CONVERSATION_ATTACHMENT_MAXIMUM_BYTES,
   CONVERSATION_THUMBNAIL_MAXIMUM_BYTES,
   CONVERSATION_THUMBNAIL_MIME_TYPES,
   conversationAttachmentKind,
   conversationAttachmentNameSchema,
 } from "@/definition/ConversationContent";
+
+import {
+  conversationDocumentFactsOf,
+  readConversationDocumentFacts,
+} from "./ConversationDocumentFacts";
+import {
+  conversationMediaFactsOf,
+  readConversationMediaFacts,
+} from "./ConversationMediaFacts";
 
 import type { ReadStream } from "node:fs";
 import type {
@@ -17,8 +27,21 @@ import type {
 } from "@/backend/database/repositories/conversation/ConversationAttachmentRepository";
 import type { ConversationRepository } from "@/backend/database/repositories/conversation/ConversationRepository";
 import type { WikiFileStore } from "@/backend/storage/WikiFileStore";
-import type { ConversationAttachment } from "@/definition/ConversationContent";
+import type {
+  ConversationAttachment,
+  ConversationImage,
+} from "@/definition/ConversationContent";
 import type { User } from "@/definition/User";
+import type { ConversationArchiveEntry } from "./ConversationZipArchive";
+import type { ConversationDocumentFactsInput } from "./ConversationDocumentFacts";
+import type { ConversationMediaFactsInput } from "./ConversationMediaFacts";
+
+/**
+ * What the browser read of a file (PAGE-384, PAGE-385): resolution and length
+ * of a video or a sound, page count and title of a PDF.
+ */
+export type ConversationFileFactsInput = ConversationMediaFactsInput &
+  ConversationDocumentFactsInput;
 
 /** Uploads that no message took are removed after a day. */
 const UNBOUND_LIFETIME_MILLISECONDS = 24 * 60 * 60 * 1000;
@@ -27,12 +50,22 @@ const SWEEP_GRACE_MILLISECONDS = 60 * 60 * 1000;
 const IDENTIFIER = /^[a-zA-Z0-9-]{1,100}$/u;
 const MIME_TYPE = /^[\w.+-]{1,100}\/[\w.+-]{1,100}$/u;
 const FALLBACK_MIME_TYPE = "application/octet-stream";
+/**
+ * How long before its moment the regular expiry removes a file (PAGE-382):
+ * one interval of {@link ConversationAttachmentExpiry}, so no file outlives
+ * its 72 hours while the next run is still waiting.
+ */
+export const CONVERSATION_EXPIRY_LEAD_MILLISECONDS = 5 * 60 * 1000;
 
 /** What the attachments of conversations use. */
 export interface ConversationAttachmentsDependencies {
   readonly attachments: ConversationAttachmentRepository;
   readonly conversations: Pick<ConversationRepository, "findForMember">;
   readonly files: Pick<WikiFileStore, "write" | "open" | "remove" | "sweep">;
+  /** The names of the senders of images, for the image viewer (PAGE-382). */
+  readonly directory?: {
+    read(): Promise<{ participant(id: string): { readonly name: string } }>;
+  };
   readonly now?: () => Date;
   readonly createId?: () => string;
 }
@@ -76,6 +109,7 @@ export function toConversationAttachment(
   stored: StoredConversationAttachment,
 ): ConversationAttachment {
   const url = conversationAttachmentUrl(stored.id);
+  const isExpired = Boolean(stored.expiredAt);
   return {
     id: stored.id,
     name: stored.name,
@@ -83,8 +117,46 @@ export function toConversationAttachment(
     sizeBytes: stored.sizeBytes,
     kind: conversationAttachmentKind(stored.mimeType),
     url,
-    ...(stored.thumbnail ? { thumbnailUrl: `${url}/thumbnail` } : {}),
+    ...(stored.thumbnail && !isExpired
+      ? { thumbnailUrl: `${url}/thumbnail` }
+      : {}),
+    createdAt: stored.createdAt,
+    ...(stored.expiresAt ? { expiresAt: stored.expiresAt } : {}),
+    ...(stored.expiredAt ? { expiredAt: stored.expiredAt } : {}),
+    ...conversationMediaFactsOf(stored.media),
+    ...conversationDocumentFactsOf(stored.document),
+    ...(stored.sha256 ? { sha256: stored.sha256 } : {}),
   };
+}
+
+/**
+ * Passes the chunks of an upload on and feeds them into a SHA-256 on the way
+ * (PAGE-385), so the checksum costs no second read of the file.
+ */
+async function* hashedChunks(
+  source: AsyncIterable<Uint8Array>,
+  hash: ReturnType<typeof createHash>,
+): AsyncGenerator<Uint8Array> {
+  for await (const chunk of source) {
+    hash.update(chunk);
+    yield chunk;
+  }
+}
+
+/**
+ * Whether the file of an attachment is gone or its time ran out (PAGE-382).
+ *
+ * @param stored - The stored attachment.
+ * @param now - The moment of the request.
+ */
+export function isConversationAttachmentExpired(
+  stored: Pick<StoredConversationAttachment, "expiresAt" | "expiredAt">,
+  now: Date,
+): boolean {
+  if (stored.expiredAt) return true;
+  return (
+    Boolean(stored.expiresAt) && String(stored.expiresAt) <= now.toISOString()
+  );
 }
 
 /** Reads a declared MIME type; anything unusual counts as plain bytes. */
@@ -157,7 +229,8 @@ export class ConversationAttachments {
    * Stores a file an agent's answer attaches, before the answer is stored
    * (PAGE-298, B2). It stays without a message until
    * {@link ConversationAttachments.bind} takes it; {@link ConversationAttachments.sweep}
-   * removes it after a day otherwise.
+   * removes it after a day otherwise. Pages keeps it at most 72 hours from
+   * now (PAGE-382): {@link ConversationAttachments.expire} removes it then.
    *
    * @param target - The conversation and the agent that sends the answer.
    * @param file - Name, type and bytes of the file.
@@ -171,12 +244,16 @@ export class ConversationAttachments {
       readonly source: AsyncIterable<Uint8Array>;
     },
   ): Promise<StoredConversationAttachment> {
+    const now = this.now().getTime();
     return this.store(file.source, {
       conversationId: target.conversationId,
       messageId: null,
       uploaderId: target.senderId,
       name: file.name,
       mimeType: file.mimeType,
+      expiresAt: new Date(
+        now + CONVERSATION_AGENT_FILE_LIFETIME_MILLISECONDS,
+      ).toISOString(),
     });
   }
 
@@ -203,13 +280,23 @@ export class ConversationAttachments {
    */
   public async uploadThumbnail(
     person: User,
-    thumbnail: { readonly attachmentId: unknown; readonly mimeType: string },
+    thumbnail: {
+      readonly attachmentId: unknown;
+      readonly mimeType: string;
+      /**
+       * Resolution and length the browser read while it made the image
+       * (PAGE-384), page count and title of a PDF (PAGE-385).
+       */
+      readonly facts?: ConversationFileFactsInput;
+    },
     source: AsyncIterable<Uint8Array>,
   ): Promise<ConversationAttachment> {
     const attachment = await this.requireVisible(
       person,
       thumbnail.attachmentId,
     );
+    if (thumbnail.facts)
+      await this.storeMediaFacts(attachment, thumbnail.facts);
     const mimeType = readAttachmentMimeType(thumbnail.mimeType);
     if (!CONVERSATION_THUMBNAIL_MIME_TYPES.some((type) => type === mimeType))
       throw new ConversationError("unsupported_format");
@@ -221,6 +308,27 @@ export class ConversationAttachments {
     );
     // Another viewer was faster; its image stays.
     if (!isStored) await this.dependencies.files.remove([file.storageName]);
+    const current = await this.dependencies.attachments.find(attachment.id);
+    return toConversationAttachment(current ?? attachment);
+  }
+
+  /**
+   * Stores the resolution and length the browser read of a video or a sound
+   * (PAGE-384), or page count and title of a PDF (PAGE-385), once per
+   * attachment; the chat shows them before the original loads.
+   *
+   * @throws {ConversationError} `not_found` for an attachment of a
+   * conversation of which the person is no member, `invalid` for an
+   * attachment that is no video, sound or PDF or facts without a usable value.
+   */
+  public async recordMediaFacts(
+    person: User,
+    attachmentId: unknown,
+    facts: ConversationFileFactsInput,
+  ): Promise<ConversationAttachment> {
+    const attachment = await this.requireVisible(person, attachmentId);
+    if (!(await this.storeMediaFacts(attachment, facts)))
+      throw new ConversationError("invalid");
     const current = await this.dependencies.attachments.find(attachment.id);
     return toConversationAttachment(current ?? attachment);
   }
@@ -324,13 +432,27 @@ export class ConversationAttachments {
   }
 
   /**
+   * Collects the files and preview images of every attachment of a
+   * conversation before it is deleted (PAGE-380).
+   *
+   * @returns Removes the files once the conversation is gone.
+   */
+  public async collectConversation(
+    conversationId: string,
+  ): Promise<() => Promise<void>> {
+    const attachments =
+      await this.dependencies.attachments.forConversation(conversationId);
+    return () => this.removeFiles(attachments);
+  }
+
+  /**
    * Removes uploads no message took within a day, and files no attachment
    * lists any more.
    *
    * @returns How many files were removed.
    */
   public async sweep(): Promise<number> {
-    const now = (this.dependencies.now?.() ?? new Date()).getTime();
+    const now = this.now().getTime();
     const stale = await this.dependencies.attachments.removeUnboundBefore(
       new Date(now - UNBOUND_LIFETIME_MILLISECONDS).toISOString(),
     );
@@ -339,6 +461,142 @@ export class ConversationAttachments {
       await this.dependencies.attachments.storageNames(),
       SWEEP_GRACE_MILLISECONDS,
     );
+  }
+
+  /**
+   * Removes the files and preview images of attachments whose 72 hours end
+   * before the next run (PAGE-382); the rows stay as placeholders.
+   *
+   * @remarks
+   * The rows are marked first, so no request serves a file any more; a file
+   * that cannot be removed now is no longer listed and the next
+   * {@link ConversationAttachments.sweep} removes it.
+   *
+   * @returns How many files and preview images were removed.
+   */
+  public async expire(): Promise<number> {
+    const now = this.now();
+    const names = await this.dependencies.attachments.expireDue(
+      new Date(
+        now.getTime() + CONVERSATION_EXPIRY_LEAD_MILLISECONDS,
+      ).toISOString(),
+      now.toISOString(),
+    );
+    if (names.length > 0) await this.dependencies.files.remove(names);
+    return names.length;
+  }
+
+  /**
+   * The images of a conversation for a member, in the order they were sent
+   * (PAGE-382): the image viewer pages through all of them.
+   *
+   * @throws {ConversationError} `not_found` for a conversation of which the
+   * person is no member.
+   */
+  public async images(
+    person: User,
+    conversationId: unknown,
+  ): Promise<ConversationImage[]> {
+    return this.mediaOf(person, conversationId, "image");
+  }
+
+  /**
+   * The videos of a conversation for a member, in the order they were sent
+   * (PAGE-384): the split view offers the others below the open one, and the
+   * full screen pages through all of them.
+   *
+   * @throws {ConversationError} `not_found` for a conversation of which the
+   * person is no member.
+   */
+  public async videos(
+    person: User,
+    conversationId: unknown,
+  ): Promise<ConversationImage[]> {
+    return this.mediaOf(person, conversationId, "video");
+  }
+
+  /**
+   * The files of one message that are still there, for "Alle herunterladen"
+   * (PAGE-382).
+   *
+   * @throws {ConversationError} `not_found` for a message without such
+   * files or of a conversation of which the person is no member.
+   */
+  public async archive(
+    person: User,
+    messageId: unknown,
+  ): Promise<{ readonly entries: ConversationArchiveEntry[] }> {
+    const id = readIdentifier(messageId);
+    const stored = await this.dependencies.attachments.forMessages([id]);
+    const attachments = stored.get(id) ?? [];
+    const [first] = attachments;
+    if (!first) throw new ConversationError("not_found");
+    await this.requireMember(person.id, first.conversationId);
+    const now = this.now();
+    const entries = attachments
+      .filter((attachment) => !isConversationAttachmentExpired(attachment, now))
+      .map((attachment) => ({
+        name: attachment.name,
+        sizeBytes: attachment.sizeBytes,
+        open: () => this.dependencies.files.open(attachment.storageName),
+      }));
+    if (entries.length === 0) throw new ConversationError("not_found");
+    return { entries };
+  }
+
+  /**
+   * Stores usable facts of a video, a sound or a PDF that has none; `false`
+   * when none are usable.
+   */
+  private async storeMediaFacts(
+    attachment: StoredConversationAttachment,
+    input: ConversationFileFactsInput,
+  ): Promise<boolean> {
+    const kind = conversationAttachmentKind(attachment.mimeType);
+    const facts = readConversationMediaFacts(kind, input);
+    if (facts !== null) {
+      // Facts of another viewer that came first stay.
+      if (!attachment.media)
+        await this.dependencies.attachments.setMediaFacts(attachment.id, facts);
+      return true;
+    }
+    const document = readConversationDocumentFacts(kind, input);
+    if (document === null) return false;
+    if (!attachment.document)
+      await this.dependencies.attachments.setDocumentFacts(
+        attachment.id,
+        document,
+      );
+    return true;
+  }
+
+  private async mediaOf(
+    person: User,
+    conversationId: unknown,
+    kind: "image" | "video",
+  ): Promise<ConversationImage[]> {
+    const id = readIdentifier(conversationId);
+    await this.requireMember(person.id, id);
+    const stored =
+      kind === "image"
+        ? await this.dependencies.attachments.imagesOfConversation(id)
+        : await this.dependencies.attachments.mediaOfConversation(id, kind);
+    const accounts = await this.dependencies.directory?.read();
+    const now = this.now();
+    return stored.map((image) => {
+      const attachment = toConversationAttachment(image.attachment);
+      return {
+        attachment:
+          isConversationAttachmentExpired(image.attachment, now) &&
+          !attachment.expiredAt
+            ? { ...attachment, expiredAt: now.toISOString() }
+            : attachment,
+        messageId: image.messageId,
+        senderId: image.senderId,
+        senderName: accounts?.participant(image.senderId).name ?? "",
+        sentAt: image.sentAt,
+      };
+    });
   }
 
   private async store(
@@ -350,20 +608,25 @@ export class ConversationAttachments {
       readonly name: string;
       readonly mimeType: string;
       readonly position?: number;
+      readonly expiresAt?: string;
     },
   ): Promise<StoredConversationAttachment> {
+    const hash = createHash("sha256");
     const file = await this.write(
-      source,
+      hashedChunks(source, hash),
       CONVERSATION_ATTACHMENT_MAXIMUM_BYTES,
     );
     const stored: StoredConversationAttachment = {
       ...attachment,
+      sha256: hash.digest("hex"),
       id: this.dependencies.createId?.() ?? randomUUID(),
       sizeBytes: file.size,
       storageName: file.storageName,
       position: attachment.position ?? 0,
       thumbnail: null,
-      createdAt: (this.dependencies.now?.() ?? new Date()).toISOString(),
+      createdAt: this.now().toISOString(),
+      expiresAt: attachment.expiresAt ?? null,
+      expiredAt: null,
     };
     try {
       await this.dependencies.attachments.insert(stored);
@@ -428,6 +691,13 @@ export class ConversationAttachments {
     // An upload that is not sent yet is its uploader's alone.
     if (attachment.messageId === null && attachment.uploaderId !== person.id)
       throw new ConversationError("not_found");
+    // A file whose time ran out is gone for everybody, even before the next run of the expiry.
+    if (isConversationAttachmentExpired(attachment, this.now()))
+      throw new ConversationError("not_found");
     return attachment;
+  }
+
+  private now(): Date {
+    return this.dependencies.now?.() ?? new Date();
   }
 }

@@ -4007,7 +4007,8 @@
       "agent_unavailable": "{{name}} does not answer: no model can run the agent right now.",
       "agent_failed": "{{name}} could not answer; the answer failed. Send the message again to try once more.",
       "agent_stopped": "The answer of {{name}} was stopped.",
-      "round_limit": "Discussion ended, limit reached"
+      "round_limit": "Discussion ended, limit reached",
+      "session_event": "System line"
     },
     "stop": "Stop",
     "stopAgent": "Stop {{name}}",
@@ -4079,6 +4080,8 @@
       "failed": "The text could not be recognized. The recording stays playable.",
       "pause": "Pause voice message",
       "seek": "Jump to a point of the voice message",
+      "showText": "Show text",
+      "hideText": "Hide text",
       "record": "Record voice message",
       "pickFile": "Send audio file (WAV or MP3)",
       "recording": "Recording {{elapsed}} of at most {{maximum}}",
@@ -4096,8 +4099,6 @@
         "general": "The voice message could not be sent. Please try again."
       }
     },
-    "mute": "Mute",
-    "unmute": "Unmute",
     "muted": "Muted",
     "loadOlder": "Load older messages",
     "loadingOlder": "Loading …",
@@ -4180,7 +4181,8 @@
     "toolStatus": {
       "running": "running",
       "completed": "done",
-      "failed": "failed"
+      "failed": "failed",
+      "cancelled": "cancelled"
     },
     "cancelTool": "Cancel",
     "toolInput": "Input",
@@ -4192,9 +4194,6 @@
       "chat": "Queued – answered right after the current answer",
       "limit": "Queued – the maximum of concurrent agent sessions is reached; the answer starts as soon as a session is free"
     },
-    "confidentialOn": "Confidential",
-    "confidentialOff": "Not confidential",
-    "confidentialHint": "Agents share nothing from a confidential chat with other chats and learn nothing from it for DREAM.md.",
     "agentConversation": "Agent conversation",
     "agentConversationSubtitle": "Conversation between agents · read-only",
     "agentConversationReadOnly": "This is a conversation between agents. You read it as an administrator or leader and do not write in it.",
@@ -4236,7 +4235,11 @@
         "pdf": "PDF",
         "video": "Video",
         "audio": "Audio",
-        "file": "File"
+        "file": "File",
+        "gallery": "Gallery",
+        "word": "Document",
+        "slides": "Presentation",
+        "sheet": "Spreadsheet"
       },
       "diff": {
         "before": "before",
@@ -4250,11 +4253,12 @@
         "zoom": "{{percent}} %",
         "previousPage": "Previous page",
         "nextPage": "Next page",
-        "page": "Page {{page}} / {{count}}",
+        "page": "Page {{page}} of {{count}}",
         "pages": "Pages",
         "openPage": "Open page {{page}}",
         "loading": "Loading PDF …",
-        "failed": "The PDF could not be loaded."
+        "failed": "The PDF could not be loaded.",
+        "encrypted": "This PDF is encrypted. Pages does not show it; it stays downloadable."
       },
       "reload": "Reload",
       "newTab": "New tab",
@@ -4270,10 +4274,106 @@
       "pause": "Pause",
       "seek": "Seek",
       "speed": "Speed: {{speed}}",
-      "videoFullscreen": "Video in full screen",
       "previewPending": "Creating preview …",
       "noPreview": "No preview",
-      "you": "You"
+      "you": "You",
+      "toMessage": "Go to message",
+      "reference": {
+        "from": "from an earlier message by {{name}}",
+        "fromUnknown": "from an earlier message",
+        "deleted": "deleted",
+        "deletedLabel": "File deleted with its message"
+      },
+      "downloadAll": "Download all",
+      "downloadNamed": "Download {{name}}",
+      "viewerStrip": "All images of this chat",
+      "retention": {
+        "days_one": "{{count}} day left",
+        "days_other": "{{count}} days left",
+        "hours_one": "{{count}} hr left",
+        "hours_other": "{{count}} hrs left",
+        "soon": "less than 1 hr left"
+      },
+      "expired": {
+        "short": "expired",
+        "label": "expired · created {{date}}"
+      },
+      "gallery": {
+        "name_one": "{{count}} image",
+        "name_other": "{{count}} images",
+        "count_one": "{{count}} image",
+        "count_other": "{{count}} images",
+        "pending": "Generating image …"
+      },
+      "detected": "auto-detected: {{kind}}",
+      "document": {
+        "format": {
+          "docx": "Word document",
+          "odt": "OpenDocument text",
+          "pptx": "PowerPoint",
+          "odp": "OpenDocument presentation",
+          "xlsx": "Excel spreadsheet",
+          "ods": "OpenDocument spreadsheet",
+          "csv": "CSV table",
+          "tsv": "TSV table"
+        },
+        "pages_one": "{{count}} page",
+        "pages_other": "{{count}} pages",
+        "pageOf": "Page {{page}} of {{count}}",
+        "openWhole": "Open whole document",
+        "loading": "Reading document …",
+        "failed": {
+          "encrypted": "This document is encrypted or in an older format. Pages does not show it; it stays downloadable.",
+          "unreadable": "This document could not be read. It stays downloadable.",
+          "tooLarge": "This document is too large for the preview. It stays downloadable."
+        },
+        "empty": "The document contains no text.",
+        "embedded": "Embedded object – not executed",
+        "image": "Image",
+        "pageStart": "Page {{page}}",
+        "contents": "Contents",
+        "noHeadings": "No headings",
+        "truncated": "Only the start of this very long document is shown. Download the file for the rest.",
+        "search": "Search the document",
+        "searchPlaceholder": "Search …",
+        "matchOf": "{{current}} of {{count}}",
+        "noMatch": "No matches",
+        "previousMatch": "Previous match",
+        "nextMatch": "Next match"
+      },
+      "slides": {
+        "count_one": "{{count}} slide",
+        "count_other": "{{count}} slides",
+        "slide": "Slide {{number}}",
+        "slideOf": "Slide {{number}} of {{count}}",
+        "previous": "Previous slide",
+        "next": "Next slide",
+        "openAll": "Open all slides",
+        "empty": "The presentation contains no slides.",
+        "strip": "Slides",
+        "untitled": "Untitled"
+      },
+      "sheet": {
+        "sheets": "Sheets",
+        "sheetCount_one": "{{count}} sheet",
+        "sheetCount_other": "{{count}} sheets",
+        "rows_one": "{{count}} row",
+        "rows_other": "{{count}} rows",
+        "rowsOf": "{{shown}} of {{count}} rows",
+        "openWhole": "Open whole table",
+        "empty": "This sheet is empty.",
+        "sortBy": "Sort by {{column}}",
+        "selectHint": "Mark cells: click, drag or extend with Shift",
+        "summary": "Sum {{sum}} · {{count}} cells · {{numbers}} numbers",
+        "mean": "Mean {{mean}}",
+        "pages": "Pages of the table",
+        "truncated": "Only the first 50,000 rows and 200 columns are shown."
+      },
+      "binary": {
+        "noChecksum": "No checksum",
+        "copyChecksum": "Copy SHA-256 checksum",
+        "tooLarge": "Too large for the preview (over 32 MB) – download only"
+      }
     },
     "embedDomains": {
       "title": "Embedded domains",
@@ -4310,17 +4410,13 @@
       "soon": "soon",
       "openDirect": "Open direct chat with {{name}}",
       "mention": "Mention {{name}}",
-      "failed": "The session action failed."
-    },
-    "groupMenu": {
-      "trigger": "Group",
-      "label": "Group menu",
-      "section": "Group “{{name}}”",
-      "reply": "Who answers? …",
-      "context": "Group context …",
-      "sessions": "Sessions of the agents in this chat …",
-      "confidential": "Confidentiality",
-      "members": "Manage members …"
+      "failed": "The session action failed.",
+      "model": "Model in this chat …",
+      "compact": "Compact now",
+      "renew": "Restart",
+      "noRight": "Only members the group owner allowed may change the model and the session.",
+      "remove": "Remove from group …",
+      "ownerOnly": "owner only"
     },
     "agentSessions": {
       "title": "Sessions of the agents in {{name}}",
@@ -4344,6 +4440,278 @@
       "ready": "Decision model active",
       "noModel": "No decision model · @ only",
       "modelUnavailable": "Decision model unavailable · @ only"
+    },
+    "control": {
+      "failure": {
+        "forbidden": "You lack the right for this. Nothing was changed.",
+        "notFound": "The chat or the agent no longer exists.",
+        "invalidInput": "The input is invalid. Nothing was changed.",
+        "unavailable": "Pages cannot be reached right now. Please try again.",
+        "modelNotAllowed": "This model or reasoning level is not available for the agent."
+      }
+    },
+    "modelChoice": {
+      "title": "Model for {{agent}} in “{{chat}}”",
+      "standardOf": "Agent default: {{model}}",
+      "loading": "Loading …",
+      "search": "Search model …",
+      "none": "No model matches.",
+      "standard": "Default",
+      "onlyText": "Only text models of the connections released for {{agent}}.",
+      "effortLabel": "Reasoning level",
+      "effortDefault": "Default",
+      "effort": {
+        "none": "none",
+        "minimal": "minimal",
+        "low": "low",
+        "medium": "medium",
+        "high": "high",
+        "xhigh": "very high",
+        "max": "max"
+      },
+      "reset": "Reset to default",
+      "cancel": "Cancel",
+      "switch": "Switch",
+      "hint": "{{agent}} finishes the running answer first, then the session restarts with {{model}}. The summary, MEMORY.md and DREAM.md are carried over.",
+      "badgeHint": "In this chat the agent answers with {{model}} instead of its default model."
+    },
+    "removeMember": {
+      "title": "Remove {{name}} from “{{group}}”?",
+      "description": "{{name}} will no longer see the group.",
+      "session": "The session of {{name}} in this group is closed and deleted.",
+      "sessionPercent": "The session of {{name}} in this group is closed and deleted ({{percent}} % context).",
+      "model": "The choice {{model}} for this chat is dropped.",
+      "running": "A running answer is cancelled.",
+      "kept": "Kept: MEMORY.md, DREAM.md, lessons, recipes and logbook of {{name}}. {{name}} records its state in the logbook first.",
+      "confirm": "Remove"
+    },
+    "dissolve": {
+      "title": "Dissolve group “{{name}}”?",
+      "description_one": "The group disappears for {{count}} member.",
+      "description_other": "The group disappears for all {{count}} members.",
+      "onlyHere": "only here",
+      "noSession": "no session",
+      "sessions": "These agent sessions are closed and deleted:",
+      "noAgents": "There is no agent in this group.",
+      "history": "The chat history is deleted for good with its attachments, previews and decisions. There is no archive.",
+      "kept": "Kept: MEMORY.md, DREAM.md, lessons, recipes and logbook of all agents. Each agent records its state in the logbook before closing.",
+      "confirm": "Dissolve group"
+    },
+    "groupMembers": {
+      "title": "Members of “{{name}}”",
+      "owner": "Owner",
+      "remove": "Remove",
+      "controlOwner": "always (owner)",
+      "controlAgent": "agents never",
+      "control": "may steer",
+      "addPlaceholder": "Add person or agent …",
+      "ownerDescription": "Only you as the owner can add and remove members and decide who may switch models, restart and compact.",
+      "memberDescription": "Only the owner of the group can add and remove members.",
+      "knowledgeHint": "When an agent is removed, Pages closes and deletes its session in this group together with its model choice. MEMORY.md, DREAM.md, lessons, recipes and logbook stay."
+    },
+    "contextRing": {
+      "title": "{{agent}} · session in “{{chat}}”",
+      "onlyHere": "this chat only",
+      "unknown": "Usage not known yet",
+      "fill": "{{percent}} % · {{used}} / {{size}} tokens",
+      "restart": "Restart at {{percent}} % · {{state}}",
+      "noSession": "no session yet",
+      "label": "Context of {{agent}}: {{percent}} %",
+      "group": "Context of the agents in this chat"
+    },
+    "command": {
+      "current": "{{agent}} answers with {{model}} in this chat.",
+      "chooseModel": "Available:",
+      "ambiguous": "“{{query}}” matches several models. Please choose:",
+      "done": {
+        "model": "The model of {{agent}} in this chat is changed.",
+        "new": "The session of {{agent}} restarts.",
+        "compact": "The session of {{agent}} is being compacted."
+      },
+      "unknownModel": "No model is called “{{query}}”.",
+      "unknownEffort": "“{{effort}}” is no reasoning level of this model. Possible: {{efforts}}.",
+      "unknownAgent": "There is no agent “{{mention}}” in this group.",
+      "forbidden": "You lack the right for this. The group owner decides who may switch models, restart and compact.",
+      "chooseAgent": "Which agent do you mean?",
+      "dismiss": "Close hint"
+    },
+    "liveAnswer": {
+      "live": "live",
+      "working": "working",
+      "onlyForYou": "visible only to you",
+      "thinkingNow": "Thinking …",
+      "thoughts": "Thoughts",
+      "thoughtsSummary": "Thoughts · {{duration}}",
+      "tools_one": "{{count}} tool",
+      "tools_other": "{{count}} tools",
+      "toolsSummary": "{{tools}} · {{duration}}",
+      "liveAnswer": "Answer from {{name}}, being written",
+      "caret": "writing",
+      "activityLabel": "Active agents",
+      "activity": {
+        "writing": "{{name}} is writing …",
+        "thinking": "{{name}} is thinking …",
+        "working": "{{name}} is working …",
+        "read": "{{name}} is reading {{target}}",
+        "edit": "{{name}} is editing {{target}}",
+        "test": "{{name}} is testing",
+        "run": "{{name}} is running {{target}}",
+        "search": "{{name}} is searching {{target}}",
+        "browse": "{{name}} is opening {{target}}",
+        "use": "{{name}} is using {{target}}",
+        "running_one": "{{count}} tool running",
+        "running_other": "{{count}} tools running",
+        "images_one": "{{name}} is generating {{count}} image …",
+        "images_other": "{{name}} is generating {{count}} images …",
+        "generating_one": "Generating {{count}} image …",
+        "generating_other": "Generating {{count}} images …",
+        "video": "{{name}} is generating a video …",
+        "audio": "{{name}} is generating a sound …"
+      },
+      "steer": "Redirect",
+      "steerShortcut": "↵",
+      "after": "Send afterwards",
+      "afterShortcut": "⌥↵",
+      "halt": "Stop",
+      "haltShortcut": "Esc",
+      "more": "More ways to send",
+      "steerHint": "Enter redirects · ⇧Enter new line",
+      "steerLabel": "Redirect {{name}}",
+      "injected": "added to {{owner}} answer",
+      "waiting": "waiting · goes out after {{owner}} answer",
+      "waitingAnyone": "waiting · goes out after the running answer",
+      "notDelivered": "could not be added",
+      "reconnecting": "Connection lost – reconnecting …",
+      "and": "and"
+    },
+    "preview": {
+      "sandbox": "Sandbox · no access to Pages",
+      "preview": "Preview",
+      "code": "Code",
+      "both": "Both",
+      "rendered": "View",
+      "source": "Source",
+      "view": "Choose view",
+      "files": "Files",
+      "fileCount_one": "{{count}} file",
+      "fileCount_other": "{{count}} files",
+      "name": "{{kind}} preview",
+      "fullscreenOpen": "Opened in full screen",
+      "sentFromPreview": "sent from the preview",
+      "device": {
+        "label": "Device",
+        "desktop": "Desktop",
+        "tablet": "Tablet",
+        "mobile": "Mobile"
+      },
+      "json": {
+        "tree": "JSON tree",
+        "copyValue": "Copy value",
+        "more_one": "Show {{count}} more entry",
+        "more_other": "Show {{count}} more entries",
+        "entries_one": "{{count}} entry",
+        "entries_other": "{{count}} entries",
+        "invalid": "Invalid JSON",
+        "place": "at line {{line}}, column {{column}}"
+      },
+      "csv": {
+        "search": "Search the table",
+        "rows_one": "{{count}} row",
+        "rows_other": "{{count}} rows",
+        "delimiter": {
+          "comma": "Delimiter: comma",
+          "semicolon": "Delimiter: semicolon",
+          "tab": "Delimiter: tab"
+        },
+        "pages": "Pages of the table",
+        "previous": "Previous",
+        "next": "Next",
+        "page": "Page {{page}} / {{count}}",
+        "noMatch": "No matching rows."
+      },
+      "mermaid": {
+        "error": "Error in the Mermaid diagram:",
+        "drawing": "Drawing the diagram …",
+        "diagram": "Mermaid diagram",
+        "resetZoom": "Reset zoom"
+      }
+    },
+    "video": {
+      "playNamed": "Play {{name}}",
+      "mute": "Mute",
+      "unmute": "Unmute",
+      "captions": "Subtitles",
+      "pictureInPicture": "Picture in picture",
+      "others": "More videos in this chat",
+      "openOther": "Open {{name}} beside",
+      "previous": "Previous video",
+      "next": "Next video",
+      "viewer": "Video in full screen"
+    },
+    "chatMenu": {
+      "label": "Chat menu",
+      "groupSubtitle_one": "Group · {{count}} member",
+      "groupSubtitle_other": "Group · {{count}} members",
+      "directSubtitle": "Direct chat · {{kind}}",
+      "sections": {
+        "content": "Content",
+        "collaboration": "Collaboration",
+        "settings": "Settings"
+      },
+      "context": "Group context",
+      "members": "Members",
+      "reply": "Who answers?",
+      "model": "Model for this chat",
+      "modelDefault": "Default",
+      "modelChanged_one": "{{count}} changed",
+      "modelChanged_other": "{{count}} changed",
+      "sessions": "Sessions of the agents",
+      "newSession": "New session",
+      "embedDomains": "Embedded websites",
+      "confidential": "Confidential",
+      "mute": "Mute",
+      "dissolve": "Dissolve group"
+    },
+    "media": {
+      "title": "Media & files",
+      "menuEntry": "Media & files",
+      "subtitle_one": "{{count}} entry",
+      "subtitle_other": "{{count}} entries",
+      "tabsLabel": "Tabs of media & files",
+      "tabs": {
+        "images": "Images",
+        "videos": "Videos",
+        "audio": "Audio",
+        "documents": "Documents",
+        "files": "Files",
+        "links": "Links"
+      },
+      "searchLabel": "Search by file name or link title",
+      "search": "Search name or title …",
+      "sender": "Sender",
+      "senderAll": "All senders",
+      "senderKind": {
+        "human": "Person",
+        "agent": "Agent"
+      },
+      "expiringSoon": "Expiring soon",
+      "hideExpired": "Hide expired",
+      "expired": "expired",
+      "mark": "Mark {{name}}",
+      "selected_one": "{{count}} marked",
+      "selected_other": "{{count}} marked",
+      "clearSelection": "Clear selection",
+      "downloadZip_one": "Download {{count}} file as ZIP",
+      "downloadZip_other": "Download {{count}} files as ZIP",
+      "reload": "Reload",
+      "empty": "No entries.",
+      "loading": "Loading …",
+      "failed": "Media & files could not be loaded.",
+      "detailLabel": "Paging through media & files",
+      "back": "Back to {{tab}}",
+      "previous": "Previous entry",
+      "next": "Next entry",
+      "position": "{{current}} of {{total}}"
     }
   },
   "workspaces": {
@@ -7925,7 +8293,10 @@
         "learning": "Dream run: {{status}}",
         "ticket": "Ticket: {{message}}",
         "wiki": "Wiki: {{message}}",
-        "access": "Access level: {{from}} → {{to}} (changed by {{person}})"
+        "access": "Access level: {{from}} → {{to}} (changed by {{person}})",
+        "image": "Images generated: {{count}} · {{model}}",
+        "video": "Video generated · {{model}}",
+        "audio": "Sound generated · {{model}}"
       },
       "state": {
         "running": "running",

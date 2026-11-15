@@ -3,10 +3,15 @@ import { useMemo } from "react";
 import { AttachmentCards } from "./attachment-cards";
 import { LinkCards } from "./link-cards";
 import { parseMessageContent, textAttachmentKind } from "./message-content";
+import { PreviewCard } from "./preview-card";
+import { previewFileName, previewKindOf } from "./preview-kinds";
+import { ReferenceCards } from "./reference-cards";
 import { CodeCard, DiffCard, MarkdownCard } from "./text-cards";
+import { TextAttachmentCard } from "./text-attachment-card";
 
 import type {
   ConversationAttachment,
+  ConversationAttachmentReference,
   ConversationLink,
 } from "@/definition/ConversationContent";
 import type { CardOrigin } from "./card-types";
@@ -23,6 +28,8 @@ export interface MessageContentSource {
   readonly attachments?: readonly ConversationAttachment[];
   /** What the server knows of the URLs that stand alone in a line. */
   readonly links?: readonly ConversationLink[];
+  /** Earlier attachments of the chat an agent shows again (PAGE-386). */
+  readonly references?: readonly ConversationAttachmentReference[];
 }
 
 interface MessageContentViewProps {
@@ -57,6 +64,48 @@ interface PartViewProps {
   readonly links: readonly ConversationLink[];
 }
 
+type CodePart = Extract<MessagePart, { readonly kind: "code" }>;
+
+/** A code block: a preview for HTML, SVG, Mermaid, JSON and CSV (PAGE-383), else a code card. */
+function CodePartCard({
+  part,
+  cardKey,
+  origin,
+}: {
+  readonly part: CodePart;
+  readonly cardKey: string;
+  readonly origin: CardOrigin;
+}): React.ReactElement {
+  const kind = previewKindOf(part.languageHint);
+  const isDetected = part.isDetected === true;
+  if (kind === null)
+    return (
+      <CodeCard
+        cardKey={cardKey}
+        isDetected={isDetected}
+        languageHint={part.languageHint}
+        name={part.name}
+        origin={origin}
+        text={{ source: part.source }}
+      />
+    );
+  const file = {
+    name: previewFileName(part.name, kind),
+    languageHint: part.languageHint,
+    source: part.source,
+  };
+  return (
+    <PreviewCard
+      cardKey={cardKey}
+      files={[file]}
+      isDetected={isDetected}
+      kind={kind}
+      name={part.name}
+      origin={origin}
+    />
+  );
+}
+
 /** One card of the text of a message. */
 function PartCard({
   part,
@@ -67,20 +116,29 @@ function PartCard({
   const text = { source: "source" in part ? part.source : null };
   switch (part.kind) {
     case "code":
+      return <CodePartCard cardKey={cardKey} origin={origin} part={part} />;
+    case "preview":
       return (
-        <CodeCard
+        <PreviewCard
           cardKey={cardKey}
-          languageHint={part.languageHint}
-          name={part.name}
+          files={part.files}
+          isDetected={part.isDetected}
+          kind="html"
+          name=""
           origin={origin}
-          text={text}
         />
       );
     case "diff":
       return <DiffCard cardKey={cardKey} name="" origin={origin} text={text} />;
     case "markdown":
       return (
-        <MarkdownCard cardKey={cardKey} name="" origin={origin} text={text} />
+        <MarkdownCard
+          cardKey={cardKey}
+          isDetected={part.isDetected === true}
+          name=""
+          origin={origin}
+          text={text}
+        />
       );
     case "link":
       return (
@@ -95,37 +153,18 @@ function PartCard({
   }
 }
 
-/** An attachment whose text the chat renders: code, a diff or Markdown. */
-function TextAttachmentCard({
-  attachment,
-  origin,
-}: {
-  readonly attachment: ConversationAttachment;
-  readonly origin: CardOrigin;
-}): React.ReactElement | null {
-  const kind = textAttachmentKind(attachment);
-  const shared = {
-    cardKey: `att:${attachment.id}`,
-    name: attachment.name,
-    origin,
-    text: { source: null, sourceUrl: attachment.url },
-  };
-  if (kind === "diff") return <DiffCard {...shared} />;
-  if (kind === "markdown") return <MarkdownCard {...shared} />;
-  return kind === "code" ? (
-    <CodeCard {...shared} languageHint={attachment.name} />
-  ) : null;
-}
-
 /**
  * The content of one chat message (PAGE-298): its text as the chat shows
  * text, and in between and below it the cards.
  *
  * @remarks
  * Fenced code, ` ```diff ` blocks, ` ```markdown ` blocks and a URL alone
- * in a line become cards at their place in the text. Attachments follow
+ * in a line become cards at their place in the text. HTML, SVG, Mermaid,
+ * JSON and CSV blocks become previews; an HTML block takes the CSS and
+ * JavaScript blocks of the message into one preview (PAGE-383). Attachments follow
  * below: text files as code, diff or Markdown cards, everything else by its
- * MIME type. The component knows nothing of the page around it, so the Pica
+ * MIME type. Earlier attachments an agent shows again follow last, each as
+ * the card of its original (PAGE-386). The component knows nothing of the page around it, so the Pica
  * panel and groups render messages with it alike.
  */
 export function MessageContentView({
@@ -141,6 +180,10 @@ export function MessageContentView({
   const media = attachments.filter(
     (attachment) => textAttachmentKind(attachment) === null,
   );
+  // A message on its way has no stored ID yet, so it offers no archive.
+  const mediaOrigin: CardOrigin = message.id.startsWith("pending")
+    ? origin
+    : { ...origin, messageId: message.id };
   return (
     <>
       {parts.map((part, index) =>
@@ -167,7 +210,8 @@ export function MessageContentView({
             origin={origin}
           />
         ))}
-      <AttachmentCards attachments={media} origin={origin} />
+      <AttachmentCards attachments={media} origin={mediaOrigin} />
+      <ReferenceCards references={message.references ?? []} />
     </>
   );
 }

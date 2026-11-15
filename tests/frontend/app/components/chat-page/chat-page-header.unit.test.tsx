@@ -1,8 +1,15 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { I18nextProvider } from "react-i18next";
 import { expect, it, vi } from "vitest";
 
 import { ChatPageHeader } from "@/app/components/chat-page/chat-page-header";
+import { ChatContentProvider } from "@/app/components/chat-page/content/chat-content-context";
 import { createI18n } from "@/app/lib/i18n";
 
 import { group, participant } from "./chat-page-fixture";
@@ -108,25 +115,160 @@ it("offers no stop button for a person even if the page is answering", () => {
   expect(screen.queryByRole("button", { name: "Stop" })).toBeNull();
 });
 
-it("offers no mute button when there is nothing to mute", () => {
+function openChatMenu(): void {
+  fireEvent.pointerDown(screen.getByRole("button", { name: "Chat menu" }), {
+    button: 0,
+    ctrlKey: false,
+  });
+}
+
+function menuEntries(): readonly (string | undefined)[] {
+  return Array.from(
+    screen
+      .getByRole("menu")
+      .querySelectorAll<HTMLElement>("[data-chat-menu-entry]"),
+  ).map((item) => item.dataset.chatMenuEntry);
+}
+
+it("keeps no single buttons for confidential, muting or embedded websites in the head", () => {
+  renderHeader({
+    isMuted: false,
+    confidential: { isConfidential: false, onToggle: vi.fn() },
+  });
+  for (const name of [/mute/i, /confidential/i, "Embedded websites"]) {
+    expect(screen.queryByRole("button", { name })).toBeNull();
+  }
+  expect(screen.getByRole("button", { name: "Chat menu" })).toBeTruthy();
+});
+
+it("offers no mute switch when there is nothing to mute", () => {
   renderHeader({ isMuted: null });
-  expect(screen.queryByRole("button", { name: /mute/i })).toBeNull();
+  openChatMenu();
+  expect(screen.queryByRole("menuitemcheckbox", { name: "Mute" })).toBeNull();
 });
 
-it("mutes an unmuted conversation", () => {
-  const { onToggleMute } = renderHeader({ isMuted: false });
-  const button = screen.getByRole("button", { name: "Mute" });
-  expect(button.getAttribute("aria-pressed")).toBe("false");
-  fireEvent.click(button);
+it("mutes an unmuted conversation from the chat menu", () => {
+  const { onToggleMute } = renderHeader({
+    opened: { kind: "participant", participant: BOB },
+    isMuted: false,
+  });
+  openChatMenu();
+  const mute = screen.getByRole("menuitemcheckbox", { name: "Mute" });
+  expect(mute.getAttribute("aria-checked")).toBe("false");
+  fireEvent.click(mute);
   expect(onToggleMute).toHaveBeenCalledTimes(1);
 });
 
-it("unmutes a muted conversation", () => {
-  const { onToggleMute } = renderHeader({ isMuted: true });
-  const button = screen.getByRole("button", { name: "Unmute" });
-  expect(button.getAttribute("aria-pressed")).toBe("true");
-  fireEvent.click(button);
+it("unmutes a muted conversation from the chat menu", () => {
+  const { onToggleMute } = renderHeader({
+    opened: { kind: "participant", participant: BOB },
+    isMuted: true,
+  });
+  openChatMenu();
+  const mute = screen.getByRole("menuitemcheckbox", { name: "Mute" });
+  expect(mute.getAttribute("aria-checked")).toBe("true");
+  fireEvent.click(mute);
   expect(onToggleMute).toHaveBeenCalledTimes(1);
+});
+
+it("offers media, model, a new session and the confidential switch for an agent", () => {
+  const onToggle = vi.fn();
+  renderHeader({
+    opened: {
+      kind: "participant",
+      participant: {
+        ...ADA,
+        chatModel: {
+          name: "Claude Opus 5.5",
+          reasoningEffort: "high",
+          isOverride: true,
+          contextWindow: null,
+        },
+      },
+    },
+    confidential: { isConfidential: false, onToggle },
+  });
+  openChatMenu();
+  expect(screen.getByText("Direct chat · Agent")).toBeTruthy();
+  expect(menuEntries()).toEqual(["media", "model", "new", "confidential"]);
+  expect(
+    within(
+      screen.getByRole("menuitem", { name: /^Model for this chat/ }),
+    ).getByText("Opus · high"),
+  ).toBeTruthy();
+  fireEvent.click(
+    screen.getByRole("menuitemcheckbox", { name: "Confidential" }),
+  );
+  expect(onToggle).toHaveBeenCalledTimes(1);
+});
+
+it("opens the model of the agent in this chat from the chat menu", () => {
+  vi.stubGlobal("fetch", async () => Response.json({ ok: true, models: [] }));
+  renderHeader();
+  openChatMenu();
+  fireEvent.click(
+    screen.getByRole("menuitem", { name: /^Model for this chat/ }),
+  );
+  expect(
+    screen.getByRole("dialog", { name: "Model for Ada in “Ada”" }),
+  ).toBeTruthy();
+  vi.unstubAllGlobals();
+});
+
+it("starts a new session of the agent as /new does", async () => {
+  const bodies: Record<string, string>[] = [];
+  vi.stubGlobal(
+    "fetch",
+    async (_: RequestInfo | URL, init: RequestInit = {}) => {
+      if (init.body instanceof FormData)
+        bodies.push(
+          Object.fromEntries(
+            [...init.body.entries()].map(([key, value]) => [
+              key,
+              String(value),
+            ]),
+          ),
+        );
+      return Response.json({ ok: true });
+    },
+  );
+  renderHeader();
+  openChatMenu();
+  fireEvent.click(screen.getByRole("menuitem", { name: /^New session/ }));
+  await waitFor(() =>
+    expect(bodies).toEqual([{ intent: "new", kind: "direct", agentId: "ada" }]),
+  );
+  vi.unstubAllGlobals();
+});
+
+it("offers embedded websites for a stored chat with a person, but no model", () => {
+  const stored = { ...BOB, conversationId: "c-bob" };
+  render(
+    <I18nextProvider i18n={i18n}>
+      <ChatContentProvider
+        conversationId="c-bob"
+        conversationKey="participant:bob"
+        directory={{ viewPreferences: { cardStates: {}, splitWidth: null } }}
+      >
+        <ChatPageHeader
+          opened={{ kind: "participant", participant: stored }}
+          participants={[stored]}
+          isAnswering={false}
+          onStop={vi.fn()}
+          onAddMember={vi.fn()}
+          isMuted={false}
+          onToggleMute={vi.fn()}
+        />
+      </ChatContentProvider>
+    </I18nextProvider>,
+  );
+  openChatMenu();
+  expect(screen.getByText("Direct chat · Person")).toBeTruthy();
+  expect(menuEntries()).toEqual(["media", "embed", "mute"]);
+  fireEvent.click(screen.getByRole("menuitem", { name: "Embedded websites" }));
+  expect(
+    screen.getByRole("dialog", { name: "Conversation settings" }),
+  ).toBeTruthy();
 });
 
 it("shows a group with its description and member chips", () => {
@@ -145,24 +287,18 @@ it("offers no stop button in a group", () => {
   expect(screen.queryByRole("button", { name: "Stop" })).toBeNull();
 });
 
-it("mutes a group from the group menu", () => {
+it("mutes a group from the chat menu", () => {
   const { onToggleMute } = renderHeader({
     opened: groupOpened([ADA]),
     isMuted: false,
   });
   expect(screen.queryByRole("button", { name: "Mute" })).toBeNull();
-  fireEvent.pointerDown(screen.getByRole("button", { name: "Group menu" }), {
-    button: 0,
-    ctrlKey: false,
-  });
-  fireEvent.click(screen.getByRole("menuitem", { name: "Mute" }));
+  openChatMenu();
+  fireEvent.click(screen.getByRole("menuitemcheckbox", { name: "Mute" }));
   expect(onToggleMute).toHaveBeenCalledTimes(1);
 });
 
-it("adds one of the person's participants that is not yet a member", () => {
-  const { onAddMember } = renderHeader({ opened: groupOpened([ADA]) });
-  fireEvent.click(screen.getByRole("button", { name: "Add participant" }));
-  expect(screen.queryByText("Planner")).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: /Bob/ }));
-  expect(onAddMember).toHaveBeenCalledWith("g", "bob");
+it("shows no dashed plus in the head: adding members moved into the group menu (PAGE-380)", () => {
+  renderHeader({ opened: groupOpened([ADA]) });
+  expect(screen.queryByRole("button", { name: "Add participant" })).toBeNull();
 });

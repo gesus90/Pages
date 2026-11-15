@@ -17,6 +17,10 @@ interface AttachmentPreviewButtonProps {
   readonly onOpen: () => void;
   /** Sizes and fits the preview image. */
   readonly imageClassName: string;
+  /** Replaces the frame of the button, such as for a tile of a gallery (PAGE-382). */
+  readonly className?: string;
+  /** Hides the name and size of the placeholder, for a small tile. */
+  readonly isCompact?: boolean;
 }
 
 /**
@@ -33,6 +37,8 @@ export function AttachmentPreviewButton({
   label,
   onOpen,
   imageClassName,
+  className,
+  isCompact = false,
 }: AttachmentPreviewButtonProps): React.ReactElement {
   const { t, i18n } = useTranslation();
   const preview = useAttachmentPreview(attachment);
@@ -40,14 +46,22 @@ export function AttachmentPreviewButton({
     <button
       ref={preview.target}
       aria-label={`${label}: ${attachment.name}`}
-      className="block w-full cursor-pointer bg-panel-body focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
+      className={cn(
+        "block w-full cursor-pointer bg-panel-body focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary",
+        className,
+      )}
       data-attachment-preview={
         preview.previewUrl === null ? "missing" : "image"
       }
       onClick={onOpen}
       type="button"
     >
-      {preview.previewUrl === null ? (
+      {preview.previewUrl === null && isCompact ? (
+        <span className="flex size-full items-center justify-center">
+          <Icon aria-hidden="true" className="size-6 text-muted-foreground" />
+        </span>
+      ) : null}
+      {preview.previewUrl === null && !isCompact ? (
         <span className="flex min-h-36 flex-col items-center justify-center gap-1.5 px-4 py-6 text-center">
           <Icon aria-hidden="true" className="size-6 text-muted-foreground" />
           <span className="max-w-full truncate text-[13px] font-medium text-foreground">
@@ -65,7 +79,8 @@ export function AttachmentPreviewButton({
               : t("chatPage.cards.noPreview")}
           </span>
         </span>
-      ) : (
+      ) : null}
+      {preview.previewUrl === null ? null : (
         <img
           alt=""
           className={cn("mx-auto block", imageClassName)}

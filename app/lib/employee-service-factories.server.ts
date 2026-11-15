@@ -9,15 +9,19 @@ import { SimulatedConversationObserver } from "@/backend/agents/simulation/Simul
 import type { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import type { ChatSessionRepository } from "@/backend/database/repositories/chat/ChatSessionRepository";
 import { ConversationReplySettingsRepository } from "@/backend/database/repositories/conversation/ConversationReplySettingsRepository";
+import { ConversationRepository } from "@/backend/database/repositories/conversation/ConversationRepository";
 import type { EmployeeStore } from "@/backend/database/repositories/employee/EmployeeStore";
 import { AgentSessionSettingsRepository } from "@/backend/database/repositories/employee/AgentSessionSettingsRepository";
 import type { UserRepository } from "@/backend/database/repositories/UserRepository";
 import { WikiLookupRepository } from "@/backend/database/repositories/wiki/WikiLookupRepository";
 import { createChatSessionId } from "@/backend/service/chat/ChatSessionWords";
 import { AgentAccessEnvironmentService } from "@/backend/service/employee/AgentAccessEnvironmentService";
+import { AgentChatAccess } from "@/backend/service/employee/AgentChatAccess";
+import { chatModelLabels } from "@/backend/service/employee/AgentChatModelChoices";
 import { AgentChatPrivacyService } from "@/backend/service/employee/AgentChatPrivacyService";
 import type { AgentChatSessionService } from "@/backend/service/employee/AgentChatSessionService";
 import { AgentDeletionService } from "@/backend/service/employee/AgentDeletionService";
+import type { AgentEmployeeModels } from "@/backend/service/employee/AgentEmployeeModels";
 import type { AgentEmployeeSessions } from "@/backend/service/employee/AgentEmployeeSessions";
 import { AgentLearningScheduler } from "@/backend/service/employee/AgentLearningScheduler";
 import { AgentLearningService } from "@/backend/service/employee/AgentLearningService";
@@ -137,6 +141,7 @@ export function createChatDirectory(parts: {
   readonly sessions: AgentEmployeeSessions;
   readonly agentSessions: AgentChatSessionService;
   readonly conversations: ConversationApplicationServices;
+  readonly models: AgentEmployeeModels;
 }): ChatDirectoryService {
   const { sessions, conversations } = parts;
   const replies = conversations.conversationAgentReplies;
@@ -154,6 +159,10 @@ export function createChatDirectory(parts: {
     guard: conversations.conversationAgentGuard,
     queuedMessages: (conversationId) => replies.queuedMessages(conversationId),
     waitingInJob: (agent, sessionId) => sessions.waitingInJob(agent, sessionId),
+    injectedInJob: (agent, sessionId) =>
+      sessions.injectedInJob(agent, sessionId),
+    steeredMessages: (conversationId) =>
+      replies.steeredMessages(conversationId),
     queuedAgentMessages: (agentId, personId) =>
       sessions.queuedMessages(agentId, personId),
     agentSessions: parts.agentSessions,
@@ -163,6 +172,22 @@ export function createChatDirectory(parts: {
       new ConversationReplySettingsRepository(parts.database).modes(
         conversationIds,
       ),
+    chatControl: {
+      modelLabels: (chat) =>
+        chatModelLabels({ store: parts.store, models: parts.models }, chat),
+      groupRights: async (person, groupId) => {
+        const access = new AgentChatAccess({
+          store: parts.store,
+          users: parts.users,
+          conversations: new ConversationRepository(parts.database),
+        });
+        const [isOwner, canControl] = await Promise.all([
+          access.isOwner(person, groupId),
+          access.canControlGroup(person, groupId),
+        ]);
+        return { isOwner, canControl };
+      },
+    },
   });
 }
 

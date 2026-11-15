@@ -19,12 +19,14 @@ import type {
 
 import type { AgentEmployeeAccess } from "./AgentEmployee";
 import type { AgentChatSessionBrief } from "./AgentChatSession";
+import type { AgentChatModelLabel } from "./AgentChatControl";
 import type { AgentMessageQueue } from "./AgentSessionLimits";
 import type { ConversationNotice } from "./Conversation";
 import type {
   ChatEmbedDomains,
   ChatViewPreferences,
   ConversationAttachment,
+  ConversationAttachmentReference,
   ConversationLink,
 } from "./ConversationContent";
 import type { ConversationDecisionView } from "./ConversationDecision";
@@ -76,6 +78,8 @@ export interface VirtualParticipant {
   readonly isConfidential?: boolean;
   /** The session of this agent in its direct chat with the person (PAGE-376); absent before the first message. */
   readonly session?: AgentChatSessionBrief;
+  /** The model this agent answers with in its direct chat with the person (PAGE-380). */
+  readonly chatModel?: AgentChatModelLabel;
 }
 
 /** A group of participants with one shared history. */
@@ -111,6 +115,12 @@ export interface VirtualGroup {
   readonly isAgentPaused?: boolean;
   /** The sessions of the agents of the group in this group, one per agent (PAGE-376). */
   readonly agentSessions?: readonly AgentChatSessionBrief[];
+  /** The model each agent of the group answers with in it, by agent (PAGE-380). */
+  readonly agentModels?: Readonly<Record<string, AgentChatModelLabel>>;
+  /** Whether the person created the group, so adds and removes members and dissolves it (PAGE-380). */
+  readonly isOwner?: boolean;
+  /** Whether the person may change the model of its agents and restart or compact their sessions (PAGE-380). */
+  readonly canControlSessions?: boolean;
   /** Who answers in the group (PAGE-379), which the entry "Wer antwortet?" of the group menu names. */
   readonly replyMode?: ConversationReplyMode;
 }
@@ -121,7 +131,9 @@ export interface VirtualToolUse {
   readonly detail: string;
   /** The ID of the call within its job (PAGE-303). */
   readonly callId?: string;
-  readonly status?: "running" | "completed" | "failed";
+  readonly status?: "running" | "completed" | "failed" | "cancelled";
+  /** How long the call took, in milliseconds, where the page saw it run (PAGE-381). */
+  readonly durationMs?: number;
   /** The command or input of the call, bounded and with credentials masked. */
   readonly input?: string;
   /** The result of the call, bounded and with credentials masked. */
@@ -172,10 +184,22 @@ export interface VirtualChatMessage {
    * the agent gives in this chat, or for a free place among the limits.
    */
   readonly queue?: AgentMessageQueue;
+  /**
+   * The agents whose running answer took this message of the person
+   * (PAGE-381), which the chat shows as "in Eds Antwort eingeschoben".
+   */
+  readonly steeredInto?: readonly string[];
   /** The files of a stored message (PAGE-298). */
   readonly attachments?: readonly ConversationAttachment[];
+  /**
+   * The person sent this message from a preview of the chat (PAGE-383); the
+   * chat marks it "aus der Vorschau gesendet". Absent for every other message.
+   */
+  readonly isFromPreview?: boolean;
   /** What the server knows of the URLs that stand alone in a line (PAGE-298). */
   readonly links?: readonly ConversationLink[];
+  /** Earlier attachments of the chat an agent shows again (PAGE-386). */
+  readonly references?: readonly ConversationAttachmentReference[];
   /** Whether the person may delete the message: their own stored one (PAGE-298). */
   readonly canDelete?: boolean;
 }

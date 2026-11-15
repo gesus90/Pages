@@ -50,6 +50,27 @@ function createMobileCalendar(): PagesPicaMobileCalendar {
 }
 
 /**
+ * The answers of `conversations.v1` from the stored conversations of Pages,
+ * for the endpoint of Pica Mobile and the channel of the browser (PAGE-381).
+ *
+ * @returns A provider that resolves the services on its first request.
+ */
+export function createMobileConversations(): PagesPicaMobileConversations {
+  return new PagesPicaMobileConversations({
+    resolveServices: async () => {
+      const services = await getApplicationServices();
+
+      return {
+        authService: services.authService,
+        conversationReader: services.conversationReader,
+        conversationService: services.conversationService,
+      };
+    },
+    events: sharedConversationEvents(),
+  });
+}
+
+/**
  * Returns the Pica Mobile endpoint of the process, creating it on first use.
  *
  * @param runtime - Runtime of the process.
@@ -109,18 +130,7 @@ export function obtainPicaMobileGateway(
           picaAdminService: services.picaAdminService,
         };
       }),
-      conversations: new PagesPicaMobileConversations({
-        resolveServices: async () => {
-          const services = await getApplicationServices();
-
-          return {
-            authService: services.authService,
-            conversationReader: services.conversationReader,
-            conversationService: services.conversationService,
-          };
-        },
-        events: sharedConversationEvents(),
-      }),
+      conversations: createMobileConversations(),
       attachments: async () => {
         const services = await getApplicationServices();
 

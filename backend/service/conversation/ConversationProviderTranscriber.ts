@@ -35,8 +35,24 @@ function readTranscript(body: unknown): string | null {
   return typeof body.text === "string" ? body.text : null;
 }
 
+/** File names by type, so the endpoint reads sounds and videos of the chat by their format (PAGE-386). */
+const FILE_NAMES: Readonly<Record<string, string>> = {
+  "audio/mpeg": "voice.mp3",
+  "audio/mp4": "voice.m4a",
+  "audio/x-m4a": "voice.m4a",
+  "audio/ogg": "voice.ogg",
+  "audio/webm": "voice.webm",
+  "audio/flac": "voice.flac",
+  "video/mp4": "video.mp4",
+  "video/webm": "video.webm",
+  "video/quicktime": "video.mov",
+};
+
 function fileName(mimeType: string): string {
-  return mimeType === "audio/mpeg" ? "voice.mp3" : "voice.wav";
+  return (
+    FILE_NAMES[mimeType.split(";")[0]?.trim().toLowerCase() ?? ""] ??
+    "voice.wav"
+  );
 }
 
 /**

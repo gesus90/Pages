@@ -244,6 +244,64 @@ export class ConversationRepository {
     });
   }
 
+  /**
+   * Removes one member from a conversation (PAGE-380); the member no longer
+   * sees it or its history.
+   *
+   * @param conversationId - The conversation.
+   * @param userId - The member.
+   * @param event - The live event that commits with the change.
+   */
+  public async removeMember(
+    conversationId: string,
+    userId: string,
+    event: PagesEventRecord,
+  ): Promise<void> {
+    await this.database.transaction(async (transaction) => {
+      await transaction.execute(
+        `
+          DELETE FROM conversation_members
+          WHERE conversation_id = $conversation_id
+              AND user_id = $user_id;
+        `,
+        { conversation_id: conversationId, user_id: userId },
+      );
+      await new PagesEventOutboxRepository(transaction).append(event);
+    });
+  }
+
+  /**
+   * Deletes a conversation for good (PAGE-380): its members, messages,
+   * attachment rows, decisions and settings go with it.
+   *
+   * @returns The storage names of the voice messages, whose audio the caller removes.
+   */
+  public async remove(
+    conversationId: string,
+    event: PagesEventRecord,
+  ): Promise<string[]> {
+    return this.database.transaction(async (transaction) => {
+      const voices = await transaction.query(
+        `
+          SELECT voice_storage_name
+          FROM conversation_messages
+          WHERE conversation_id = $conversation_id
+              AND voice_storage_name IS NOT NULL;
+        `,
+        { conversation_id: conversationId },
+      );
+      await transaction.execute(
+        `
+          DELETE FROM conversations
+          WHERE id = $conversation_id;
+        `,
+        { conversation_id: conversationId },
+      );
+      await new PagesEventOutboxRepository(transaction).append(event);
+      return voices.map((row) => readTextColumn(row, 0, "voice_storage_name"));
+    });
+  }
+
   /** Returns a conversation as the member sees it, or `null` for a non-member. */
   public async findForMember(
     conversationId: string,

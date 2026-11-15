@@ -1,4 +1,4 @@
-import { CircleStop, LoaderCircle, Terminal, Zap } from "lucide-react";
+import { Ban, CircleStop, LoaderCircle, Terminal, Zap } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/app/components/ui/button";
@@ -38,6 +38,10 @@ function StatusIcon({
         className="size-3.5 animate-spin text-primary"
       />
     );
+  if (use.status === "cancelled")
+    return (
+      <Ban aria-hidden="true" className="size-3.5 text-muted-foreground" />
+    );
   const Icon = use.isNative === true ? Terminal : Zap;
   return (
     <Icon
@@ -58,10 +62,13 @@ function StatusIcon({
 export function ChatPageToolUse({
   use,
   onCancel,
+  durationLabel,
 }: {
   readonly use: VirtualToolUse;
   /** Cancels the running call; absent for a call of a stored answer. */
   readonly onCancel?: () => void;
+  /** How long the call ran, such as "1,2 s" (PAGE-381); absent where unknown. */
+  readonly durationLabel?: string;
 }): React.ReactElement {
   const { t } = useTranslation();
   const status = t(`chatPage.toolStatus.${use.status ?? "completed"}`);
@@ -73,7 +80,17 @@ export function ChatPageToolUse({
         <summary className="flex cursor-pointer items-center gap-1.5 px-2 py-1 font-mono">
           <StatusIcon use={use} />
           <span className="min-w-0 truncate">{use.name}</span>
+          {use.input ? (
+            <span className="hidden min-w-0 truncate text-muted-foreground sm:inline">
+              {use.input.split("\n")[0]}
+            </span>
+          ) : null}
           <span className="sr-only">{status}</span>
+          {durationLabel === undefined ? null : (
+            <span className="ml-auto shrink-0 text-muted-foreground">
+              {durationLabel}
+            </span>
+          )}
           {use.status === "running" && onCancel ? (
             <Button
               className="ml-auto h-6 px-2 text-xs"

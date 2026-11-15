@@ -188,6 +188,8 @@ export class PagesPicaMobileConversations implements PicaMobileConversationsProv
   ): Promise<PicaMobileConversationEventPayload | null | "sessionEnded"> {
     if (event.kind === "message" || event.kind === "message_updated")
       return { type: event.kind, data: event.message };
+    // The recipients of a live part are the members who may read it (PAGE-381).
+    if (event.kind === "answer") return event.payload;
     if (event.kind === "typing")
       return {
         type: "typing",

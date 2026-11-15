@@ -1,3 +1,5 @@
+import { CONVERSATION_WEB_SOCKET_PATH } from "@/definition/ConversationLiveAnswer";
+
 import type { RemoteConsoleScope } from "@/backend/service/remote/RemoteConsoleService";
 
 // The WebSocket paths of runners and consoles on the Pages port. The API's
@@ -70,4 +72,19 @@ export function isRemoteConsoleChannel(url: string | undefined): boolean {
  */
 export function isRunnerChannel(url: string | undefined): boolean {
   return RUNNER_CHANNEL_PATH.test(url ?? "");
+}
+
+/**
+ * Whether an upgrade request addresses the `conversations.v1` channel of the
+ * signed-in browser (PAGE-381).
+ *
+ * @param url - The request target, path and query.
+ * @returns `true` for the channel path of the chat page.
+ */
+export function isConversationWebChannel(url: string | undefined): boolean {
+  if (!URL.canParse(url ?? "/", "http://pages.invalid")) return false;
+  return (
+    new URL(url ?? "/", "http://pages.invalid").pathname ===
+    CONVERSATION_WEB_SOCKET_PATH
+  );
 }

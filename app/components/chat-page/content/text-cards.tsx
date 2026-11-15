@@ -1,4 +1,5 @@
 import { Code, Copy, Download, FileDiff, FileText } from "lucide-react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { useChatContent } from "./chat-content-context";
@@ -6,8 +7,9 @@ import { ChatMarkdown } from "./chat-markdown";
 import { CodeView } from "./code-view";
 import { CardAction, ContentCard } from "./content-card";
 import { DiffCount, DiffView, useParsedDiff } from "./diff-view";
-import { syntaxLanguageLabel } from "./syntax-highlight";
+import { codeKindLabel } from "./preview-kinds";
 import { copyText, saveTextFile, useCardText } from "./use-card-text";
+import { ViewTabs } from "./view-tabs";
 
 import type { ChatCardState } from "@/definition/ConversationContent";
 import type {
@@ -72,55 +74,69 @@ function opened(
 }
 
 /**
- * A code card (PAGE-298): syntax colors by the language of the fence or the
- * file ending, line numbers, at most 20 lines until "Alle Zeilen zeigen".
- * Up to 15 lines it is expanded by default, longer code is collapsed.
+ * A code card (PAGE-298): syntax colors by the language of the fence, the
+ * file ending or, for a fence without language, the recognized language
+ * ("automatisch erkannt: SQL", PAGE-383), line numbers, at most 20 lines
+ * until "Alle Zeilen zeigen". Up to 15 lines it is expanded by default,
+ * longer code is collapsed. "Kopieren" is its main action.
  */
 export function CodeCard({
   cardKey,
   name,
   languageHint,
+  isDetected = false,
   text,
   origin,
-}: TextCardProps & { readonly languageHint: string }): React.ReactElement {
+}: TextCardProps & {
+  readonly languageHint: string;
+  readonly isDetected?: boolean;
+}): React.ReactElement {
   const { t } = useTranslation();
+  const content = useChatContent();
   const lines = text.source === null ? null : lineCount(text.source);
   const defaultState =
     lines !== null && lines <= CODE_EXPANDED_LINES ? "expanded" : "collapsed";
   const loaded = useShownText(cardKey, text, defaultState);
-  const label = syntaxLanguageLabel(languageHint);
+  const label = codeKindLabel(languageHint);
   const kindLabel = label === "" ? t("chatPage.cards.kind.code") : label;
   const fileName = name === "" ? t("chatPage.cards.codeFile") : name;
   const { source } = loaded;
+  const card = opened(
+    cardKey,
+    { kind: "code", name: fileName, languageHint, isDetected, ...text },
+    origin,
+  );
+  let headKind = name === "" ? t("chatPage.cards.kind.code") : kindLabel;
+  if (isDetected) headKind = t("chatPage.cards.detected", { kind: kindLabel });
   return (
     <ContentCard
       actions={
         source === null ? null : (
-          <>
-            <CardAction
-              icon={Copy}
-              label={t("chatPage.cards.copy")}
-              onClick={() => copyText(source)}
-            />
-            <CardAction
-              icon={Download}
-              label={t("chatPage.cards.saveFile")}
-              onClick={() => saveTextFile(fileName, source)}
-            />
-          </>
+          <CardAction
+            icon={Download}
+            label={t("chatPage.cards.saveFile")}
+            onClick={() => saveTextFile(fileName, source)}
+          />
         )
       }
-      beside={opened(
-        cardKey,
-        { kind: "code", name: fileName, languageHint, ...text },
-        origin,
-      )}
+      beside={card}
       cardKey={cardKey}
       defaultState={defaultState}
       icon={Code}
-      kindLabel={name === "" ? t("chatPage.cards.kind.code") : kindLabel}
+      kindLabel={headKind}
       meta={lines === null ? null : t("chatPage.cards.lines", { count: lines })}
       name={name === "" ? kindLabel : name}
+      onFullscreen={() => content.openOverlay(card)}
+      primary={
+        source === null ? null : (
+          <CardAction
+            icon={Copy}
+            label={t("chatPage.cards.copy")}
+            onClick={() => copyText(source)}
+            variant="primary"
+          />
+        )
+      }
     >
       {source === null ? (
         <TextPlaceholder loaded={loaded} />
@@ -132,8 +148,14 @@ export function CodeCard({
 }
 
 /**
- * A diff card (PAGE-298): green added and red removed lines with the
- * counter `+N −M` in the head; collapsed by default.
+ * A diff card (PAGE-298, PAGE-388): green added and red removed lines; the
+ * head names the file and below it "Diff · +N −M"; collapsed by default.
+ *
+ * @remarks
+ * "Kopieren" is the main action in the accent color, "Ganze Datei" stays a
+ * framed action of the kind, then "Daneben", "Vollbild" and "Zuklappen".
+ * Split view and full screen switch between "Untereinander" and
+ * "Nebeneinander".
  */
 export function DiffCard({
   cardKey,
@@ -142,38 +164,42 @@ export function DiffCard({
   origin,
 }: TextCardProps): React.ReactElement {
   const { t } = useTranslation();
+  const content = useChatContent();
   const loaded = useShownText(cardKey, text, "collapsed");
   const diff = useParsedDiff(loaded.source ?? "");
   const { source } = loaded;
   const title =
     diff.fileName ?? (name === "" ? t("chatPage.cards.kind.diff") : name);
+  const card = opened(cardKey, { kind: "diff", name: title, ...text }, origin);
   return (
     <ContentCard
       actions={
-        <>
-          {source === null ? null : (
-            <CardAction
-              icon={Copy}
-              label={t("chatPage.cards.copy")}
-              onClick={() => copyText(source)}
-            />
-          )}
-          {text.sourceUrl === undefined ? null : (
-            <CardAction
-              href={`${text.sourceUrl}?download=1`}
-              icon={Download}
-              label={t("chatPage.cards.wholeFile")}
-            />
-          )}
-        </>
+        text.sourceUrl === undefined ? null : (
+          <CardAction
+            href={`${text.sourceUrl}?download=1`}
+            icon={Download}
+            label={t("chatPage.cards.wholeFile")}
+          />
+        )
       }
-      beside={opened(cardKey, { kind: "diff", name: title, ...text }, origin)}
+      beside={card}
       cardKey={cardKey}
       defaultState="collapsed"
       icon={FileDiff}
       kindLabel={t("chatPage.cards.kind.diff")}
       meta={source === null ? null : <DiffCount diff={diff} />}
       name={title}
+      onFullscreen={() => content.openOverlay(card)}
+      primary={
+        source === null ? null : (
+          <CardAction
+            icon={Copy}
+            label={t("chatPage.cards.copy")}
+            onClick={() => copyText(source)}
+            variant="primary"
+          />
+        )
+      }
     >
       {source === null ? (
         <TextPlaceholder loaded={loaded} />
@@ -184,19 +210,28 @@ export function DiffCard({
   );
 }
 
+/** The tab of a Markdown card: rendered or as source. */
+type MarkdownTab = "rendered" | "source";
+
 /**
  * A Markdown card (PAGE-298): the text rendered as the chat renders
- * Markdown, its code blocks in the syntax colors of the code cards.
+ * Markdown, its code blocks in the syntax colors of the code cards, with
+ * the tabs "Ansicht | Quelltext" (PAGE-383). A fence without language
+ * whose content is Markdown says "automatisch erkannt: Markdown".
  */
 export function MarkdownCard({
   cardKey,
   name,
   text,
   origin,
-}: TextCardProps): React.ReactElement {
+  isDetected = false,
+}: TextCardProps & { readonly isDetected?: boolean }): React.ReactElement {
   const { t } = useTranslation();
+  const [tab, setTab] = useState<MarkdownTab>("rendered");
   const loaded = useShownText(cardKey, text, "expanded");
   const title = name === "" ? t("chatPage.cards.kind.markdown") : name;
+  const kind = t("chatPage.cards.kind.markdown");
+  const { source } = loaded;
   return (
     <ContentCard
       beside={opened(
@@ -207,18 +242,49 @@ export function MarkdownCard({
       cardKey={cardKey}
       defaultState="expanded"
       icon={FileText}
-      kindLabel={t("chatPage.cards.kind.markdown")}
-      meta={t("chatPage.cards.rendered")}
+      kindLabel={isDetected ? t("chatPage.cards.detected", { kind }) : kind}
+      meta={
+        source === null
+          ? t("chatPage.cards.rendered")
+          : t("chatPage.cards.lines", { count: lineCount(source) })
+      }
       name={title}
+      primary={
+        source === null ? null : (
+          <CardAction
+            icon={Copy}
+            label={t("chatPage.cards.copy")}
+            onClick={() => copyText(source)}
+            variant="primary"
+          />
+        )
+      }
+      tabs={
+        <ViewTabs
+          label={t("chatPage.preview.view")}
+          onChange={setTab}
+          options={[
+            { value: "rendered", label: t("chatPage.preview.rendered") },
+            { value: "source", label: t("chatPage.preview.source") },
+          ]}
+          value={tab}
+        />
+      }
     >
-      {loaded.source === null ? (
-        <TextPlaceholder loaded={loaded} />
-      ) : (
+      {source === null ? <TextPlaceholder loaded={loaded} /> : null}
+      {source !== null && tab === "rendered" ? (
         <ChatMarkdown
           className="max-h-[32rem] overflow-auto bg-panel-body px-4 py-3"
-          source={loaded.source}
+          source={source}
         />
-      )}
+      ) : null}
+      {source !== null && tab === "source" ? (
+        <CodeView
+          className="max-h-[32rem]"
+          languageHint="markdown"
+          source={source}
+        />
+      ) : null}
     </ContentCard>
   );
 }

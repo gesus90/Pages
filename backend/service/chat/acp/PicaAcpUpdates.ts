@@ -35,6 +35,8 @@ export interface PicaAcpUpdateSink {
   ) => void;
   /** New text of the current message of a turn; `isReset` begins another message. */
   readonly text: (turn: number, isReset: boolean, delta: string) => void;
+  /** A piece of the thoughts the model reported in a turn (PAGE-381); a model without them reports none. */
+  readonly thought?: (turn: number, delta: string) => void;
   /** The latest occupancy, `null` while the adapter reports none that holds, and the cost. */
   readonly context: (
     context: ChatContextUsage | null,
@@ -253,6 +255,11 @@ export class PicaAcpUpdates implements AcpSessionListener {
       update.content.type !== "text"
     )
       this.sink.content?.(this.turn, update.content);
+    if (
+      update.sessionUpdate === "agent_thought_chunk" &&
+      update.content.type === "text"
+    )
+      this.sink.thought?.(this.turn, update.content.text);
     readAcpUpdate(this.state, update, {});
     this.show();
   };

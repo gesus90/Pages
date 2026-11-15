@@ -62,6 +62,12 @@ export interface AgentChatSessionBrief {
   readonly contextPercent: number | null;
   /** Messages of the chat that wait for their turn in the session. */
   readonly waitingMessages: number;
+  /** The tokens the context holds after the last round (PAGE-380); `null` before it. */
+  readonly contextUsed?: number | null;
+  /** The context size the adapter reported (PAGE-380); `null` before the first round. */
+  readonly contextSize?: number | null;
+  /** The context fill, in percent, at which the session restarts (PAGE-380). */
+  readonly restartPercent?: number;
 }
 
 /** One chat session of an agent as the tab "Sitzungen" lists it. */

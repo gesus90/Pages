@@ -75,17 +75,21 @@ export class PicaAcpSteering {
   /**
    * Takes a stored message; call it inside the queue of the conversation.
    *
+   * @param message - The stored message.
+   * @param isDeferred - The message waits for a turn of its own after the
+   * running one instead of joining it (PAGE-381, "Danach senden").
    * @returns `pending`, or `null` once the job no longer takes messages.
    */
   public async accept(
     message: PicaAcpMessage,
+    isDeferred = false,
   ): Promise<ChatSteerStatus | null> {
     if (this.isClosed) return null;
     this.open.add(message.id);
     await this.host.status(message.id, "pending");
     // The steering request answers now; the delivery belongs to the job.
     const delivery = withBackgroundDatabaseWork("pica_job", () =>
-      this.route(message),
+      isDeferred ? this.defer(message) : this.route(message),
     );
     this.deliveries.add(delivery);
     void delivery.finally(() => this.deliveries.delete(delivery));
@@ -191,6 +195,16 @@ export class PicaAcpSteering {
         this.open.delete(message.id);
         await this.host.status(message.id, "failed");
         return;
+    }
+  }
+
+  /** Queues a message for its own turn; a refused status leaves it failed. */
+  private async defer(message: PicaAcpMessage): Promise<void> {
+    try {
+      await this.queue(message);
+    } catch (caughtError: unknown) {
+      logCaughtError("PicaAcpSteering", caughtError);
+      this.open.delete(message.id);
     }
   }
 

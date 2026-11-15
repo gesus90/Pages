@@ -9,6 +9,7 @@ import {
 import { createI18n } from "@/app/lib/i18n";
 
 import type { OpenedCard } from "@/app/components/chat-page/content/card-types";
+import type * as LinkCardsModule from "@/app/components/chat-page/content/link-cards";
 
 const actions = vi.hoisted(() => ({
   copy: vi.fn(),
@@ -46,9 +47,13 @@ vi.mock("@/app/components/chat-page/content/chat-markdown", () => ({
 vi.mock("@/app/components/chat-page/content/attachment-full-view", () => ({
   AttachmentFullView: () => <div>Attachment body</div>,
 }));
-vi.mock("@/app/components/chat-page/content/link-cards", () => ({
-  WebView: () => <div>Web body</div>,
-}));
+vi.mock(
+  "@/app/components/chat-page/content/link-cards",
+  async (importOriginal) => ({
+    ...(await importOriginal<typeof LinkCardsModule>()),
+    WebView: () => <div>Web body</div>,
+  }),
+);
 
 function wrap(element: React.ReactNode): React.ReactElement {
   return <I18nextProvider i18n={createI18n("en")}>{element}</I18nextProvider>;
@@ -127,7 +132,7 @@ it("opens a link in a new tab and closes the overlay with Escape", () => {
   expect(screen.getByRole("dialog")).toBeTruthy();
   expect(screen.getByText("Web body")).toBeTruthy();
   expect(
-    screen.getByRole("link", { name: "New tab" }).getAttribute("href"),
+    screen.getByRole("link", { name: "Open in new tab" }).getAttribute("href"),
   ).toBe("https://example.org/path");
   fireEvent.keyDown(window, { key: "Escape" });
   expect(actions.close).toHaveBeenCalledOnce();

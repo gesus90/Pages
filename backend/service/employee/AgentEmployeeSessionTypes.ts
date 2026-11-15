@@ -4,10 +4,17 @@ import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
 import { redactCredentials } from "@/backend/security/AgentTextSafety";
 import { CHAT_LIMITS } from "@/definition/Chat";
 
+import type { AgentImageToolDependencies } from "./AgentImageTool";
+import type { AgentMediaToolDependencies } from "./AgentMediaTool";
+import type { AgentAttachmentToolDependencies } from "./AgentAttachmentTool";
+import type { ConversationAnswerStream } from "@/backend/service/conversation/ConversationAnswerStream";
+import type { LiveAnswerSink } from "@/backend/service/conversation/ConversationLiveAnswer";
+import type { ConversationDelivery } from "@/definition/ConversationLiveAnswer";
 import type { PicaAcpConversationTurn } from "@/backend/service/chat/acp/PicaAcpSteering";
 import type { EmployeeStore } from "@/backend/database/repositories/employee/EmployeeStore";
 import type { StoredAgentEmployee } from "@/backend/database/repositories/employee/AgentEmployeeRepository";
 import type { AgentConversationPurpose } from "@/backend/database/repositories/employee/AgentConversationRepository";
+import type { AgentChatModelKey } from "@/backend/database/repositories/employee/AgentChatModelRepository";
 import type { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import type { ChatSessionRepository } from "@/backend/database/repositories/chat/ChatSessionRepository";
 import type { UserRepository } from "@/backend/database/repositories/UserRepository";
@@ -108,7 +115,26 @@ export interface AgentEmployeeSessionDependencies {
    * calls and the list of recipes a round is told about. Absent offers none.
    */
   readonly recipes?: Pick<AgentRecipeService, "tools" | "brief">;
+  /**
+   * Generates images with the model of a round in a conversation and hands
+   * them to the answer (PAGE-382); absent offers no `bilder_erzeugen`.
+   */
+  readonly images?: AgentImageToolDependencies;
+  /**
+   * Generates videos and sounds with the model of a round in a conversation
+   * and hands them to the answer (PAGE-384); absent offers no `video_erzeugen`
+   * and no `audio_erzeugen`.
+   */
+  readonly media?: AgentMediaToolDependencies;
+  /**
+   * Searches and reads the attachments of the chat of a round (PAGE-386). A
+   * function, because the conversations are wired after the sessions; absent
+   * or `null` offers no `anhaenge_suchen` and no `anhang_lesen`.
+   */
+  readonly attachments?: () => AgentAttachmentToolDependencies | null;
   readonly today?: () => string;
+  /** Opens the live answer of a direct chat for the chat page (PAGE-381); absent shows none. */
+  readonly answers?: Pick<ConversationAnswerStream, "open">;
   /** Waits between two looks of a background run at the chats of its agent; tests pass a fast one. */
   readonly wait?: (milliseconds: number) => Promise<void>;
 }
@@ -118,6 +144,8 @@ export interface AgentMessage {
   readonly agentId: string;
   readonly text: string;
   readonly clientMessageId: string | null;
+  /** How the person sent it while the agent answered (PAGE-381); absent joins the answer as before. */
+  readonly delivery?: ConversationDelivery;
 }
 
 /** What a job of an agent answers and with whom. */
@@ -153,6 +181,8 @@ export interface AgentJobRequest {
   readonly modelOverride?: {
     readonly connectionId: string;
     readonly model: string;
+    /** The reasoning level of a model chosen for one chat (PAGE-380); absent follows the model's default. */
+    readonly reasoningEffort?: string | null;
   };
   /** Ends the wait of the message in the queue (PAGE-304). */
   readonly signal?: AbortSignal;
@@ -160,6 +190,13 @@ export interface AgentJobRequest {
   readonly onQueued?: () => void;
   /** Called once when the message got its place and its answer begins. */
   readonly onAdmitted?: () => void;
+  /**
+   * The message waits for a turn of its own after the running answer instead
+   * of joining it (PAGE-381, "Danach senden").
+   */
+  readonly isDeferred?: boolean;
+  /** Shows the answer on the chat page while it is written (PAGE-381); a direct chat opens its own. */
+  readonly liveAnswer?: LiveAnswerSink;
 }
 
 /** A message of a person to an agent that waits for a free place (PAGE-304). */
@@ -193,6 +230,21 @@ export function keptSessionOf(
   return { conversation, revision: employee.revision };
 }
 
+/**
+ * The chat whose model choice a round follows (PAGE-380): the direct chat of
+ * its person or its group; `null` for a run of the agent's own.
+ */
+export function chatModelKey(
+  request: AgentJobRequest,
+): AgentChatModelKey | null {
+  const { purpose, person, conversationId, agent } = request;
+  if (purpose === "chat" && person)
+    return { agentId: agent.id, chatKind: "direct", chatId: person.id };
+  if (purpose === "conversation" && conversationId !== undefined)
+    return { agentId: agent.id, chatKind: "group", chatId: conversationId };
+  return null;
+}
+
 /** A direct chat and a conversation are chats; every other purpose is a run of the agent's own. */
 export function isChatPurpose(purpose: AgentConversationPurpose): boolean {
   return purpose === "chat" || purpose === "conversation";
@@ -217,7 +269,7 @@ export function isSessionBusy(error: unknown): boolean {
 /** Reads the untrusted input of a chat message into its checked fields. */
 export function readMessage(input: unknown): AgentMessage {
   const fields = readAgentObject(input);
-  const { agentId, text, clientMessageId } = fields;
+  const { agentId, text, clientMessageId, delivery } = fields;
   if (typeof agentId !== "string" || !IDENTIFIER.test(agentId))
     throw new AgentEmployeeError("invalidInput");
   if (typeof text !== "string") throw new AgentEmployeeError("invalidInput");
@@ -235,5 +287,6 @@ export function readMessage(input: unknown): AgentMessage {
       typeof clientMessageId === "string" && IDENTIFIER.test(clientMessageId)
         ? clientMessageId
         : null,
+    ...(delivery === "steer" || delivery === "after" ? { delivery } : {}),
   };
 }

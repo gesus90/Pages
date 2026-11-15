@@ -22,6 +22,7 @@ import { createMcpServices } from "./mcp-services.server";
 import { picaBrowserOptions } from "./pica-browser.server";
 import { startWikiMaintenanceScheduler } from "./services-background.server";
 
+import { InstanceSecretCipher } from "@/backend/security/InstanceSecretCipher";
 import type { PasswordHasher } from "@/backend/auth/PasswordHasher";
 import { createPlanTodoProgress } from "./agent-plan-todo-progress.server";
 
@@ -175,6 +176,7 @@ export async function startMcpWorkspace(context: McpWorkspaceContext): Promise<
     acp: chat.picaAcpService,
     pool: chat.picaAcpSessionPool,
     workspaceRoot: picaSettings.workspaceRoot,
+    cipher: new InstanceSecretCipher(context.tokenKey),
     observer: context.agents,
     hostFiles: {
       tickets: context.tasks.taskAttachmentService,

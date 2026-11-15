@@ -40,6 +40,14 @@ import type { AgentBrowserService } from "./browser/AgentBrowserService";
 import type { z } from "zod";
 import type { PicaAdminService } from "./admin/PicaAdminService";
 import type { AgentDeletionService } from "@/backend/service/employee/AgentDeletionService";
+import type { AgentImageToolInput } from "@/backend/service/employee/AgentImageTool";
+import type { AgentMediaToolInput } from "@/backend/service/employee/AgentMediaTool";
+import type {
+  AgentAttachmentAction,
+  AgentAttachmentReadInput,
+  AgentAttachmentSearchInput,
+} from "@/backend/service/employee/AgentAttachmentTool";
+import type { AgentMediaKind } from "@/definition/AgentMediaGeneration";
 import type { RuntimeExecutionContext } from "@/backend/agents/runtime/RuntimeExecutionContext";
 import type { AgentChatTools } from "@/definition/AgentChat";
 import type { AgentLogbookTools } from "@/definition/AgentLogbook";
@@ -117,7 +125,44 @@ export interface PicaToolsInput {
    * (PAGE-311); without it the chat tools are not offered.
    */
   readonly agentChat?: AgentChatTools | undefined;
+  /**
+   * Generates images with the model of the round of an agent employee in a
+   * conversation (PAGE-382); without it `bilder_erzeugen` is not offered.
+   */
+  readonly generateImages?: PicaImageGenerate | undefined;
+  /**
+   * Generates a video or a sound with the model of the round of an agent
+   * employee in a conversation (PAGE-384); without it `video_erzeugen` and
+   * `audio_erzeugen` are not offered.
+   */
+  readonly generateMedia?: PicaMediaGenerate | undefined;
+  /**
+   * Searches and reads the attachments of the chat of the round of an agent
+   * employee (PAGE-386); without it `anhaenge_suchen` and `anhang_lesen` are
+   * not offered.
+   */
+  readonly readAttachments?: PicaAttachmentRead | undefined;
 }
+
+/** `anhaenge_suchen` and `anhang_lesen` of one job, bound to its working folder (PAGE-386). */
+export type PicaAttachmentRead = (
+  action: AgentAttachmentAction,
+  input: AgentAttachmentSearchInput | AgentAttachmentReadInput,
+  signal: AbortSignal,
+) => Promise<PicaToolOutcome>;
+
+/** `video_erzeugen` and `audio_erzeugen` of one job, bound to its working folder (PAGE-384). */
+export type PicaMediaGenerate = (
+  kind: AgentMediaKind,
+  input: AgentMediaToolInput,
+  signal: AbortSignal,
+) => Promise<PicaToolOutcome>;
+
+/** `bilder_erzeugen` of one job, bound to its working folder (PAGE-382). */
+export type PicaImageGenerate = (
+  input: AgentImageToolInput,
+  signal: AbortSignal,
+) => Promise<PicaToolOutcome>;
 
 type PicaFileParameters = z.infer<typeof PICA_FILE_SCHEMA>;
 

@@ -1,12 +1,31 @@
 import { isLocalSessionOwner } from "@/backend/agents/local/LocalSessionMode";
 import { currentAgentSimulationMode } from "@/backend/agents/simulation/AgentSimulationMode";
 import { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
+import {
+  GoogleImageClient,
+  OpenRouterImageClient,
+} from "@/backend/agents/providers/ProviderImageClients";
+import { ConversationAgentFiles } from "@/backend/service/conversation/content/ConversationAgentFiles";
+import { sharedConversationGeneratedImages } from "@/backend/service/conversation/content/ConversationGeneratedImages";
+import { AgentImageGeneration } from "@/backend/service/employee/AgentImageGeneration";
+import { AgentMediaGeneration } from "@/backend/service/employee/AgentMediaGeneration";
+import {
+  GoogleMediaClient,
+  OpenRouterMediaClient,
+} from "@/backend/agents/providers/ProviderMediaClients";
 import { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import { ChatAcpSessionRepository } from "@/backend/database/repositories/chat/ChatAcpSessionRepository";
 import { ChatSessionRepository } from "@/backend/database/repositories/chat/ChatSessionRepository";
 import { ConversationMessageRepository } from "@/backend/database/repositories/conversation/ConversationMessageRepository";
 import { ConversationRepository } from "@/backend/database/repositories/conversation/ConversationRepository";
 import { EmployeeStore } from "@/backend/database/repositories/employee/EmployeeStore";
+import { sharedConversationAnswerStream } from "@/backend/service/conversation/ConversationAnswerStream";
+
+import type { InstanceSecretCipher } from "@/backend/security/InstanceSecretCipher";
+import type { ConversationAttachments } from "@/backend/service/conversation/content/ConversationAttachments";
+import type { ConversationAttachmentLibrary } from "@/backend/service/conversation/content/ConversationAttachmentLibrary";
+import type { AgentImageToolDependencies } from "@/backend/service/employee/AgentImageTool";
+import type { AgentMediaToolDependencies } from "@/backend/service/employee/AgentMediaTool";
 import type { AgentSessionSettingsRepository } from "@/backend/database/repositories/employee/AgentSessionSettingsRepository";
 import { UserGroupRepository } from "@/backend/database/repositories/UserGroupRepository";
 import { UserRepository } from "@/backend/database/repositories/UserRepository";
@@ -55,6 +74,7 @@ import {
   simulatedAgent,
 } from "./employee-service-factories.server";
 
+import { createAgentChatControl } from "./agent-chat-control-services.server";
 import { createConversationServices } from "./conversation-services.server";
 import { defaultAgentTemplateTexts } from "./agent-template-texts.server";
 
@@ -75,12 +95,14 @@ import type { PicaSettingsService } from "@/backend/service/chat/PicaSettingsSer
 import type { ConversationContextReader } from "@/backend/service/conversation/ConversationContextReader";
 import type { PagesEventPublisher } from "@/backend/service/events/PagesEventPublisher";
 import type { ConversationApplicationServices } from "./conversation-services.server";
+import type { AgentChatControlServices } from "./agent-chat-control-services.server";
 
 /**
  * Agents as employees, the chat directory and person colors (PAGE-266), with
  * the stored conversations the chat page shows (PAGE-278).
  */
-export interface EmployeeApplicationServices extends ConversationApplicationServices {
+export interface EmployeeApplicationServices
+  extends ConversationApplicationServices, AgentChatControlServices {
   readonly agentEmployeeAdministration: AgentEmployeeAdministration;
   readonly agentDeletionService: AgentDeletionService;
   /** The templates of `AGENT.md` (PAGE-283). */
@@ -128,6 +150,11 @@ export interface EmployeeServicesInput {
   };
   /** The folder of the chat workspaces, whose files an agent deletion removes (PAGE-321). */
   readonly workspaceRoot: string;
+  /**
+   * Decrypts the stored keys of connections, for the images an agent
+   * generates with its own model (PAGE-382); without it no agent generates images.
+   */
+  readonly cipher?: InstanceSecretCipher;
   /** Where the stored conversations keep their audio and announce their changes (PAGE-278). */
   readonly conversations: {
     readonly directory: string;
@@ -173,6 +200,7 @@ interface EmployeeParts {
   readonly conversations: ConversationApplicationServices;
   readonly learning: AgentLearningService;
   readonly privacy: AgentChatPrivacyService;
+  readonly lifecycle: AgentChatSessionLifecycle;
 }
 
 /** The tab "Lagebuch": what a viewer sees of the Lagebuch of an agent and what they change. */
@@ -233,6 +261,15 @@ function assembleEmployeeServices(
   });
   return {
     ...parts.conversations,
+    ...createAgentChatControl({
+      database: input.database,
+      store,
+      users: parts.users,
+      models,
+      lifecycle: parts.lifecycle,
+      conversationService: parts.conversations.conversationService,
+      replies: parts.conversations.conversationAgentReplies,
+    }),
     agentEmployeeAdministration: new AgentEmployeeAdministration({
       authorization,
       cache: input.cache,
@@ -272,6 +309,7 @@ function assembleEmployeeServices(
       sessions,
       agentSessions: parts.agentSessions,
       conversations: parts.conversations,
+      models,
     }),
     chatGroupService: new ChatGroupService({ store }),
     personColorService: new PersonColorService(authorization, input.cache),
@@ -289,6 +327,90 @@ interface LateServices {
   agentChat: AgentChatTools | null;
   contextReader: ConversationContextReader | null;
   logbook: AgentLogbookService | null;
+  /** Writes the state of a chat into the Lagebuch before its session closes (PAGE-380). */
+  logbookClose: ((sessionId: string) => Promise<void>) | null;
+  /** Stores the images agents generate in conversations (PAGE-382). */
+  attachments: ConversationAttachments | null;
+  /** Lets agents search and read the attachments of their chats (PAGE-386). */
+  library: ConversationAttachmentLibrary | null;
+}
+
+function optionalImages(images: AgentImageToolDependencies | undefined): {
+  readonly images?: AgentImageToolDependencies;
+} {
+  return images ? { images } : {};
+}
+
+function lateAttachments(late: LateServices): ConversationAttachments {
+  if (late.attachments === null)
+    throw new Error(
+      "The conversation attachments are used before they are wired.",
+    );
+  return late.attachments;
+}
+
+/**
+ * The generation of images with an agent's own model in conversations
+ * (PAGE-382); without a cipher for the stored keys there is none.
+ */
+function createImageTool(
+  input: EmployeeServicesInput,
+  base: EmployeeBase,
+  late: LateServices,
+): AgentImageToolDependencies | undefined {
+  if (!input.cipher) return undefined;
+  return {
+    generation: new AgentImageGeneration({
+      connections: new AgentConnectionRepository(input.database),
+      cipher: input.cipher,
+      models: base.models,
+      store: base.store,
+      clients: {
+        openrouter: new OpenRouterImageClient(),
+        google_ai_studio: new GoogleImageClient(),
+      },
+    }),
+    attachments: {
+      stage: (target, file) => lateAttachments(late).stage(target, file),
+      release: (senderId, attachmentIds) =>
+        lateAttachments(late).release(senderId, attachmentIds),
+    },
+    pending: sharedConversationGeneratedImages(),
+    files: new ConversationAgentFiles(),
+  };
+}
+
+/**
+ * The generation of videos and sounds with an agent's own model in
+ * conversations (PAGE-384); without a cipher for the stored keys there is none.
+ */
+function createMediaTool(
+  input: EmployeeServicesInput,
+  base: EmployeeBase,
+  late: LateServices,
+): { readonly media?: AgentMediaToolDependencies } {
+  if (!input.cipher) return {};
+  return {
+    media: {
+      generation: new AgentMediaGeneration({
+        connections: new AgentConnectionRepository(input.database),
+        cipher: input.cipher,
+        models: base.models,
+        store: base.store,
+        clients: {
+          openrouter: new OpenRouterMediaClient(),
+          google_ai_studio: new GoogleMediaClient(),
+        },
+      }),
+      attachments: {
+        stage: (target, file) => lateAttachments(late).stage(target, file),
+        release: (senderId, attachmentIds) =>
+          lateAttachments(late).release(senderId, attachmentIds),
+      },
+      // Images, videos and sounds wait for the same answer.
+      pending: sharedConversationGeneratedImages(),
+    },
+  };
 }
 
 function lateSessions(late: LateServices): AgentEmployeeSessions {
@@ -341,6 +463,9 @@ function createEmployeeBase(
     pool: input.pool ?? null,
     acpSessions: new ChatAcpSessionRepository(database),
     summaries: () => memoryModel,
+    logbook: async (sessionId) => {
+      await late.logbookClose?.(sessionId);
+    },
   });
   return {
     store,
@@ -407,6 +532,9 @@ function createEmployeeSessions(
       : {}),
     recorder: base.recorder,
     agentChat: () => late.agentChat,
+    ...optionalImages(createImageTool(input, base, late)),
+    ...createMediaTool(input, base, late),
+    attachments: () => (late.library ? { library: late.library } : null),
     createSessionId: () => createChatSessionId(),
     conversationContext: {
       readForAgent: (agentId, request) =>
@@ -419,6 +547,7 @@ function createEmployeeSessions(
     toolGuard: new AgentChatToolGuard({ store: base.store }),
     logbook: () => late.logbook,
     recipes: new AgentRecipeService({ store: base.store }),
+    answers: sharedConversationAnswerStream(),
   });
 }
 
@@ -450,6 +579,8 @@ function wireEmployeeConversations(
   });
   late.contextReader = conversations.conversationContextReader;
   late.agentChat = conversations.agentChatService;
+  late.attachments = conversations.conversationAttachments;
+  late.library = conversations.conversationAttachmentLibrary;
   const learning = createLearning(input, {
     dependencies: {
       store,
@@ -472,17 +603,26 @@ function wireEmployeeConversations(
       : null,
   });
   late.logbook = logbookService;
+  const summarizer = new AgentLogbookSummarizer({
+    store,
+    users,
+    reader: chatReader,
+    model: () => memoryModel,
+    logbook: logbookService,
+    instanceModel: () => sessionSettings.logbookModel(),
+  });
+  // A session that closes for good writes its state down as at rest; a confidential one is never pending (PAGE-380).
+  if (hasModel)
+    late.logbookClose = async (sessionId) => {
+      const pending = (await store.logbookSessions().pending()).find(
+        (session) => session.sessionId === sessionId,
+      );
+      if (pending) await summarizer.summarize(pending);
+    };
   if (isBackgroundOwner && hasModel)
     new AgentLogbookScheduler({
       store,
-      summarizer: new AgentLogbookSummarizer({
-        store,
-        users,
-        reader: chatReader,
-        model: () => memoryModel,
-        logbook: logbookService,
-        instanceModel: () => sessionSettings.logbookModel(),
-      }),
+      summarizer,
       isWorking: (agentId) => sessions.isWorkingInChat(agentId),
     }).start();
   const agentSessions = new AgentChatSessionService({
@@ -520,6 +660,9 @@ export function createEmployeeServices(
     agentChat: null,
     contextReader: null,
     logbook: null,
+    logbookClose: null,
+    attachments: null,
+    library: null,
   };
   const base = createEmployeeBase(input, late);
   const sessions = createEmployeeSessions(input, base, late);

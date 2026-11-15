@@ -1,6 +1,7 @@
 import { ChatPageAgentSessionsDialog } from "./chat-page-agent-sessions-dialog";
+import { ChatPageDissolveDialog } from "./chat-page-dissolve-dialog";
 import { ChatPageGroupContext } from "./chat-page-group-context";
-import { ChatPageMemberDialog } from "./chat-page-member-dialog";
+import { ChatPageGroupMembers } from "./chat-page-group-members";
 import { ChatPageReplySettings } from "./chat-page-reply-settings";
 
 import type { AgentSettingsTab } from "@/app/components/agent-settings/agent-settings-tabs";
@@ -9,7 +10,11 @@ import type {
   VirtualParticipant,
 } from "@/definition/VirtualChat";
 import type { AgentSessionEntry } from "./chat-page-agent-sessions-dialog";
-import type { GroupDialogKind } from "./chat-page-group-menu";
+import type { ChatMenuGroupDialog } from "./chat-menu/chat-menu-model";
+import type { RemovalCandidate } from "./chat-page-remove-dialog";
+
+/** The dialogs of a group the chat menu opens, besides the popup of an agent (PAGE-389). */
+export type GroupDialogKind = ChatMenuGroupDialog;
 
 interface ChatPageGroupDialogsProps {
   readonly group: VirtualGroup;
@@ -17,6 +22,8 @@ interface ChatPageGroupDialogsProps {
   /** The person's own participants, which the member dialog offers. */
   readonly participants: readonly VirtualParticipant[];
   readonly onAddMember: (groupId: string, participantId: string) => void;
+  /** Asks to remove a member of the group (PAGE-380). */
+  readonly onRemoveMember: (member: RemovalCandidate) => void;
   /** The dialog that is open; `null` while none is. */
   readonly dialog: GroupDialogKind | null;
   readonly onDialogChange: (dialog: GroupDialogKind | null) => void;
@@ -40,15 +47,16 @@ function sessionEntries(
 }
 
 /**
- * The dialogs of the group menu and of the plus behind the member chips:
- * who answers, the group context, the sessions of the agents in the group
- * and the members. One of them is open at a time.
+ * The dialogs of the chat menu of a group: who answers, the group context, the
+ * sessions of the agents in the group, the members with who steers the
+ * agents (PAGE-380) and the dissolution. One of them is open at a time.
  */
 export function ChatPageGroupDialogs({
   group,
   members,
   participants,
   onAddMember,
+  onRemoveMember,
   dialog,
   onDialogChange,
   onOpenSettings,
@@ -80,12 +88,19 @@ export function ChatPageGroupDialogs({
           onOpenSettings(agent, "sessions");
         }}
       />
-      <ChatPageMemberDialog
+      <ChatPageGroupMembers
         group={group}
         participants={participants}
         onAdd={onAddMember}
+        onRemove={onRemoveMember}
         isOpen={dialog === "members"}
         onOpenChange={(isOpen) => handleOpenChange("members", isOpen)}
+      />
+      <ChatPageDissolveDialog
+        group={group}
+        members={members}
+        isOpen={dialog === "dissolve"}
+        onOpenChange={(isOpen) => handleOpenChange("dissolve", isOpen)}
       />
     </>
   );

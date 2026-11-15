@@ -1,26 +1,35 @@
-import { Bell, BellOff, Square, TriangleAlert } from "lucide-react";
+import { Square, TriangleAlert, UserMinus } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { AgentSettingsDialog } from "@/app/components/agent-settings/agent-settings-dialog";
 import { Button } from "@/app/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/app/components/ui/dropdown-menu";
 
 import { AgentSessionStatus } from "./chat-page-agent-status";
 import { useAgentMenuState } from "./chat-page-agent-menu";
 import {
+  ChatModelBadge,
   ChatPageAgentButton,
   ChatPageAgentChip,
 } from "./chat-page-agent-triggers";
 import { GroupAvatars, ParticipantAvatar } from "./chat-page-avatar";
-import { ConfidentialButton } from "./chat-page-confidential";
-import { ChatPageEmbedDomainsButton } from "./chat-page-embed-domains";
 import { ChatPageGroupDialogs } from "./chat-page-group-dialogs";
-import { ChatPageGroupMenu } from "./chat-page-group-menu";
 import {
   AgentConversationBadge,
   participantSubtitle,
 } from "./chat-page-list-entries";
-import { ChatPageAddMemberButton } from "./chat-page-member-dialog";
+import { ChatPageMenuEntry } from "./chat-page-menu-entry";
+import { ChatPageModelDialog } from "./chat-page-model-dialog";
+import { ChatPageRemoveDialog } from "./chat-page-remove-dialog";
+import {
+  DirectChatMenu,
+  GroupChatMenu,
+} from "./chat-menu/chat-page-header-menu";
 
 import type { ReactNode } from "react";
 import type { AgentSettingsTab } from "@/app/components/agent-settings/agent-settings-tabs";
@@ -33,9 +42,11 @@ import type {
   VirtualGroup,
   VirtualParticipant,
 } from "@/definition/VirtualChat";
+import type { AgentChatControlTarget } from "@/definition/AgentChatControl";
 import type { AgentMenuOptions } from "./chat-page-agent-menu";
-import type { ConfidentialControl } from "./chat-page-confidential";
-import type { GroupDialogKind } from "./chat-page-group-menu";
+import type { RemovalCandidate } from "./chat-page-remove-dialog";
+import type { ChatMenuSwitches } from "./chat-menu/chat-page-header-menu";
+import type { GroupDialogKind } from "./chat-page-group-dialogs";
 import type { OpenedConversation } from "./use-chat-page";
 
 function HeaderFrame({
@@ -84,59 +95,62 @@ interface HeaderLinks {
   readonly onSelect?: (selection: VirtualChatSelection) => void;
   /** Puts `@username` into the input field. */
   readonly onMention?: (username: string) => void;
+  /** Opens "Modell in diesem Chat …" for an agent (PAGE-380). */
+  readonly onOpenModel: (
+    agent: VirtualParticipant,
+    target: AgentChatControlTarget,
+  ) => void;
+  /** Asks to remove a member of the opened group (PAGE-380). */
+  readonly onRemove: (member: RemovalCandidate) => void;
 }
 
 /** The menu of an agent chip in a group: its direct chat and mention make sense only there. */
 function groupAgentOptions(
   links: HeaderLinks,
+  group: VirtualGroup,
   participants: readonly VirtualParticipant[],
   agent: VirtualParticipant,
 ): AgentMenuOptions {
   const { onSelect, onMention } = links;
   const hasDirectChat = participants.some((entry) => entry.id === agent.id);
+  const target: AgentChatControlTarget = {
+    kind: "group",
+    agentId: agent.id,
+    conversationId: group.id,
+  };
+  const model = group.agentModels?.[agent.id];
   return {
+    control: {
+      target,
+      canControl: group.canControlSessions === true,
+      ...(model ? { model } : {}),
+      onOpenModel: (entry) => links.onOpenModel(entry, target),
+      onRemove: (entry) =>
+        links.onRemove({
+          id: entry.id,
+          name: entry.name,
+          kind: "agent",
+          brief: group.agentSessions?.find(
+            (session) => session.agentId === entry.id,
+          ),
+          ...(model ? { model } : {}),
+        }),
+      canRemove: group.isOwner === true,
+    },
     onOpenSettings: links.onOpenSettings,
     onOpenDirect:
       onSelect !== undefined && hasDirectChat
-        ? (target) => onSelect({ kind: "participant", id: target.id })
+        ? (participant) => onSelect({ kind: "participant", id: participant.id })
         : undefined,
     onMention:
       onMention === undefined
         ? undefined
-        : (target) => onMention(target.username),
+        : (participant) => onMention(participant.username),
   };
 }
 
-/** Whether the opened stored conversation is muted, and the change of it. */
-interface MuteControl {
-  /** `null` when there is nothing to mute, as with an agent. */
-  readonly isMuted: boolean | null;
-  readonly onToggleMute: () => void;
-  /** The confidential mark of a chat with agents (PAGE-305); absent shows none. */
-  readonly confidential?: ConfidentialControl;
-}
-
-/** Mutes or unmutes the conversation for the person alone (PAGE-275). */
-function MuteButton({
-  isMuted,
-  onToggleMute,
-}: Omit<MuteControl, "confidential">): React.ReactElement | null {
-  const { t } = useTranslation();
-  if (isMuted === null) return null;
-  const Icon = isMuted ? BellOff : Bell;
-  return (
-    <Button
-      aria-pressed={isMuted}
-      onClick={onToggleMute}
-      size="sm"
-      type="button"
-      variant="outline"
-    >
-      <Icon aria-hidden="true" className="size-3.5" />
-      {isMuted ? t("chatPage.unmute") : t("chatPage.mute")}
-    </Button>
-  );
-}
+/** Whether the opened stored conversation is muted and confidential, and the changes of both. */
+type MuteControl = ChatMenuSwitches;
 
 /**
  * The access level of an agent as a label (PAGE-303); YOLO stands out in the
@@ -168,6 +182,26 @@ function AccessBadge({
       })}
     </span>
   );
+}
+
+/** The menu of the agent of a direct chat: the person who talks with it may always steer it (PAGE-380). */
+function directAgentOptions(
+  links: HeaderLinks,
+  participant: VirtualParticipant,
+): AgentMenuOptions {
+  const target: AgentChatControlTarget = {
+    kind: "direct",
+    agentId: participant.id,
+  };
+  return {
+    onOpenSettings: links.onOpenSettings,
+    control: {
+      target,
+      canControl: true,
+      ...(participant.chatModel ? { model: participant.chatModel } : {}),
+      onOpenModel: (agent) => links.onOpenModel(agent, target),
+    },
+  };
 }
 
 function ParticipantHeader({
@@ -202,39 +236,75 @@ function ParticipantHeader({
           <AccessBadge participant={participant} />
           {isAgent ? (
             <>
+              <ChatModelBadge model={participant.chatModel} />
               <AgentSessionStatus brief={participant.session} />
               <ChatPageAgentButton
                 agent={participant}
                 brief={participant.session}
-                options={{ onOpenSettings: links.onOpenSettings }}
+                options={directAgentOptions(links, participant)}
                 state={menu}
               />
             </>
           ) : null}
-          <ConfidentialButton control={mute.confidential} />
-          {isAgent ? null : <ChatPageEmbedDomainsButton />}
-          <MuteButton {...mute} />
           {isAnswering && isAgent ? (
             <Button onClick={onStop} size="sm" type="button" variant="outline">
               <Square aria-hidden="true" className="size-3.5" />
               {t("chatPage.stop")}
             </Button>
           ) : null}
+          <DirectChatMenu
+            participant={participant}
+            switches={mute}
+            onOpenModel={links.onOpenModel}
+          />
         </>
       }
     />
   );
 }
 
+/** A person among the member chips; the creator of the group removes one from its menu (PAGE-380). */
 function MemberChip({
   member,
+  onRemove,
 }: {
   readonly member: VirtualParticipant;
+  /** Absent for everybody but the creator of the group. */
+  readonly onRemove?: () => void;
 }): React.ReactElement {
-  return (
-    <li className="inline-flex items-center gap-1.5 rounded-full bg-surface py-1 pr-2.5 pl-1 text-[13px] text-foreground shadow-xs">
+  const { t } = useTranslation();
+  const [isOpen, setIsOpen] = useState(false);
+  const chip = (
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-surface py-1 pr-2.5 pl-1 text-[13px] text-foreground shadow-xs">
       <ParticipantAvatar participant={member} size={22} />
       {member.name}
+    </span>
+  );
+  if (onRemove === undefined) return <li>{chip}</li>;
+  return (
+    <li>
+      <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            className="rounded-full focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
+            onContextMenu={(event) => {
+              event.preventDefault();
+              setIsOpen(true);
+            }}
+          >
+            {chip}
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="w-60">
+          <ChatPageMenuEntry
+            icon={UserMinus}
+            label={t("chatPage.agentMenu.remove")}
+            isDestructive
+            onSelect={onRemove}
+          />
+        </DropdownMenuContent>
+      </DropdownMenu>
     </li>
   );
 }
@@ -297,10 +367,23 @@ function MemberChips({
             brief={group.agentSessions?.find(
               (session) => session.agentId === member.id,
             )}
-            options={groupAgentOptions(links, participants, member)}
+            options={groupAgentOptions(links, group, participants, member)}
           />
         ) : (
-          <MemberChip key={member.id} member={member} />
+          <MemberChip
+            key={member.id}
+            member={member}
+            onRemove={
+              group.isOwner === true
+                ? () =>
+                    links.onRemove({
+                      id: member.id,
+                      name: member.name,
+                      kind: "human",
+                    })
+                : undefined
+            }
+          />
         ),
       )}
     </ul>
@@ -324,7 +407,18 @@ function GroupHeader({
         avatar={<GroupAvatars members={members} size="header" />}
         title={group.name}
         subtitle={t("chatPage.agentConversationSubtitle")}
-        aside={<AgentConversationBadge group={group} />}
+        aside={
+          <>
+            <AgentConversationBadge group={group} />
+            <GroupChatMenu
+              group={group}
+              members={members}
+              switches={mute}
+              onOpenDialog={setDialog}
+              onOpenModel={links.onOpenModel}
+            />
+          </>
+        }
       />
     );
   return (
@@ -343,17 +437,16 @@ function GroupHeader({
               participants={participants}
               links={links}
             />
-            <ChatPageAddMemberButton onClick={() => setDialog("members")} />
-            <ChatPageGroupMenu
-              group={group}
-              isMuted={mute.isMuted}
-              onToggleMute={mute.onToggleMute}
-              confidential={mute.confidential}
-              onOpenDialog={setDialog}
-            />
             {onStopAgent ? (
               <GroupStopButtons group={group} onStopAgent={onStopAgent} />
             ) : null}
+            <GroupChatMenu
+              group={group}
+              members={members}
+              switches={mute}
+              onOpenDialog={setDialog}
+              onOpenModel={links.onOpenModel}
+            />
           </>
         }
       />
@@ -362,6 +455,7 @@ function GroupHeader({
         members={members}
         participants={participants}
         onAddMember={onAddMember}
+        onRemoveMember={links.onRemove}
         dialog={dialog}
         onDialogChange={setDialog}
         onOpenSettings={links.onOpenSettings}
@@ -392,6 +486,12 @@ function currentChatOf(
   return sessionId === undefined ? undefined : { sessionId };
 }
 
+/** The agent and chat the choice "Modell in diesem Chat …" is open for (PAGE-380). */
+interface ModelTarget {
+  readonly agent: VirtualParticipant;
+  readonly target: AgentChatControlTarget;
+}
+
 /** The agent and tab the popup "Agent-Einstellungen" is open for. */
 interface SettingsTarget {
   readonly agent: VirtualParticipant;
@@ -404,15 +504,17 @@ interface SettingsTarget {
  * @remarks
  * An agent shows its job title, a person the username, both with their kind
  * and status; a person has no task, model or tools. A stop button shows while
- * an agent answers. A group shows its description, the members as chips and
- * the dashed plus that adds one of the person's participants (PAGE-259),
- * and a stop button for every agent answering in it (PAGE-304).
- * What the group offers beyond that sits in one menu (PAGE-376): who answers
- * without an @ (PAGE-317), its stored context (PAGE-296), the sessions of its
- * agents, the confidential mark (PAGE-305), muting (PAGE-275) and the
- * members. Its settings list the domains released for embedding (PAGE-298):
- * in the member dialog of a group, behind a button of their own in a
- * conversation with a person.
+ * an agent answers. A group shows its description and the members as chips,
+ * and a stop button for every agent answering in it (PAGE-304). The
+ * creator removes a member from its chip. An agent whose model in this chat
+ * deviates from its own shows the short name of that model.
+ * Everything else the chat offers sits in the chat menu ☰ at the right edge
+ * of every head (PAGE-389): "Medien & Dateien" (PAGE-387), the group context
+ * (PAGE-296), the members (PAGE-380), who answers (PAGE-379), the model per
+ * chat, a new session of an agent, the domains released for embedding in a
+ * chat with a person (PAGE-298), the switches for the confidential mark
+ * (PAGE-305) and muting (PAGE-275) and the dissolution of a group. A right
+ * click on a chat of the list opens the same menu.
  *
  * An agent shows what its session does in this chat, as a word on its chip
  * in a group and next to the button "Agent" in a direct chat. A click or a
@@ -420,8 +522,7 @@ interface SettingsTarget {
  * direct chat and its mention. The one popup "Agent-Einstellungen" belongs to
  * the head, so the menus and the sessions dialog of the group share it.
  * A stored conversation with a person or of a group can be muted for the
- * person alone; a chat with an agent can be marked confidential, which a
- * button of the head switches.
+ * person alone; a chat with agents can be marked confidential.
  */
 export function ChatPageHeader({
   opened,
@@ -451,11 +552,17 @@ export function ChatPageHeader({
 }): React.ReactElement {
   const mute: MuteControl = { isMuted, onToggleMute, confidential };
   const [target, setTarget] = useState<SettingsTarget | null>(null);
+  const [modelFor, setModelFor] = useState<ModelTarget | null>(null);
+  const [removal, setRemoval] = useState<RemovalCandidate | null>(null);
   const links: HeaderLinks = {
     onOpenSettings: (agent, tab) => setTarget({ agent, tab }),
     onSelect,
     onMention,
+    onOpenModel: (agent, control) => setModelFor({ agent, target: control }),
+    onRemove: setRemoval,
   };
+  const chatName =
+    opened.kind === "group" ? opened.group.name : opened.participant.name;
   return (
     <>
       {opened.kind === "group" ? (
@@ -484,6 +591,20 @@ export function ChatPageHeader({
         currentChat={currentChatOf(opened)}
         onClose={() => setTarget(null)}
       />
+      <ChatPageModelDialog
+        target={modelFor?.target ?? null}
+        agentName={modelFor?.agent.name ?? ""}
+        chatName={chatName}
+        onClose={() => setModelFor(null)}
+      />
+      {opened.kind === "group" ? (
+        <ChatPageRemoveDialog
+          groupId={opened.group.id}
+          groupName={opened.group.name}
+          member={removal}
+          onClose={() => setRemoval(null)}
+        />
+      ) : null}
     </>
   );
 }

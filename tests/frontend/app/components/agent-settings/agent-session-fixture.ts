@@ -94,6 +94,9 @@ export function stubSessionEndpoint(
       input: RequestInfo | URL,
       init: RequestInit = {},
     ): Promise<Response> => {
+      // The count of "Medien & Dateien" a chat menu reads (PAGE-387) is no call of this endpoint.
+      if (String(input).startsWith("/chat/media/"))
+        return new Response("Not Found", { status: 404 });
       const call: EndpointCall = {
         url: String(input),
         method: init.method ?? "GET",

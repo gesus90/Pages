@@ -1,12 +1,14 @@
 import {
   AtSign,
   BookOpen,
+  Diamond,
   ListCollapse,
   MessageSquare,
   Moon,
   RotateCw,
   Settings,
   Square,
+  UserMinus,
 } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -25,8 +27,12 @@ import {
   DropdownMenuTrigger,
 } from "@/app/components/ui/dropdown-menu";
 import { cn } from "@/app/lib/cn";
+import { shortModelName } from "@/definition/AgentChatControl";
 
+import { targetFields } from "./agent-control-api";
 import { ChatPageMenuEntry, MENU_SECTION_LABEL } from "./chat-page-menu-entry";
+import { effortLabel } from "./chat-page-model-dialog";
+import { useAgentControl } from "./use-agent-control";
 import { useAgentSessionActions } from "./use-agent-session-actions";
 
 import type { LucideIcon } from "lucide-react";
@@ -35,8 +41,28 @@ import type {
   AgentChatSessionAction,
   AgentChatSessionBrief,
 } from "@/definition/AgentChatSession";
+import type {
+  AgentChatControlTarget,
+  AgentChatModelLabel,
+} from "@/definition/AgentChatControl";
 import type { VirtualParticipant } from "@/definition/VirtualChat";
+import type { AgentControlRequest } from "./use-agent-control";
 import type { AgentSessionActions } from "./use-agent-session-actions";
+
+/** What the menu of an agent steers in the opened chat (PAGE-380). */
+export interface AgentMenuControl {
+  readonly target: AgentChatControlTarget;
+  /** Whether the person may change the model and restart or compact the session. */
+  readonly canControl: boolean;
+  /** The model the agent answers with in this chat. */
+  readonly model?: AgentChatModelLabel;
+  /** Opens the choice "Modell in diesem Chat …". */
+  readonly onOpenModel: (agent: VirtualParticipant) => void;
+  /** Asks to remove the agent from the group; absent outside a group. */
+  readonly onRemove?: (agent: VirtualParticipant) => void;
+  /** Whether the person created the group, so may remove the agent. */
+  readonly canRemove?: boolean;
+}
 
 /** What the menu of an agent can lead to besides the session buttons. */
 export interface AgentMenuOptions {
@@ -49,6 +75,8 @@ export interface AgentMenuOptions {
   readonly onOpenDirect?: (agent: VirtualParticipant) => void;
   /** Puts `@username` into the input field; left out in the direct chat with the agent. */
   readonly onMention?: (agent: VirtualParticipant) => void;
+  /** The model and session of the agent in this chat (PAGE-380); absent shows none of it. */
+  readonly control?: AgentMenuControl;
 }
 
 /** Whether the menu of an agent is open; a right click opens it, too. */
@@ -74,11 +102,63 @@ export function useAgentMenuState(): AgentMenuState {
 const SESSION_ENTRIES: readonly {
   readonly action: AgentChatSessionAction;
   readonly icon: LucideIcon;
-}[] = [
-  { action: "stop", icon: Square },
-  { action: "summarize", icon: ListCollapse },
-  { action: "restart", icon: RotateCw },
-];
+}[] = [{ action: "stop", icon: Square }];
+
+/** The model of the chat as the menu names it, such as "Opus · hoch". */
+function modelNote(
+  t: (key: string, options?: Record<string, unknown>) => string,
+  model: AgentChatModelLabel | undefined,
+): string | undefined {
+  if (model === undefined) return undefined;
+  const name = shortModelName(model.name);
+  return model.reasoningEffort === null
+    ? name
+    : `${name} · ${effortLabel(t, model.reasoningEffort)}`;
+}
+
+/** "Modell in diesem Chat …", "Jetzt verdichten" and "Neu starten" (PAGE-380); off with a hint without the right. */
+function ControlEntries({
+  agent,
+  control,
+  request,
+}: {
+  readonly agent: VirtualParticipant;
+  readonly control: AgentMenuControl;
+  readonly request: AgentControlRequest;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const isOff = !control.canControl || request.isPending;
+  const hint = control.canControl ? undefined : t("chatPage.agentMenu.noRight");
+
+  function run(intent: "new" | "compact"): void {
+    void request.send({ intent, ...targetFields(control.target) });
+  }
+
+  return (
+    <>
+      <ChatPageMenuEntry
+        icon={Diamond}
+        label={t("chatPage.agentMenu.model")}
+        note={modelNote(t, control.model)}
+        onSelect={() => control.onOpenModel(agent)}
+      />
+      <ChatPageMenuEntry
+        icon={ListCollapse}
+        label={t("chatPage.agentMenu.compact")}
+        note={hint ?? "/compact"}
+        isDisabled={isOff}
+        onSelect={() => run("compact")}
+      />
+      <ChatPageMenuEntry
+        icon={RotateCw}
+        label={t("chatPage.agentMenu.renew")}
+        note={hint ?? "/new"}
+        isDisabled={isOff}
+        onSelect={() => run("new")}
+      />
+    </>
+  );
+}
 
 /** "Status: arbeitet · 58 % Kontext", or that the chat has no session yet. */
 function SessionStatusLine({
@@ -116,10 +196,14 @@ function SessionSection({
   agent,
   brief,
   actions,
+  control,
+  request,
 }: {
   readonly agent: VirtualParticipant;
   readonly brief: AgentChatSessionBrief | undefined;
   readonly actions: AgentSessionActions;
+  readonly control: AgentMenuControl | undefined;
+  readonly request: AgentControlRequest;
 }): React.ReactElement {
   const { t } = useTranslation();
 
@@ -133,6 +217,9 @@ function SessionSection({
         {t("chatPage.agentMenu.section", { name: agent.name })}
       </DropdownMenuLabel>
       <SessionStatusLine brief={brief} />
+      {control === undefined ? null : (
+        <ControlEntries agent={agent} control={control} request={request} />
+      )}
       {SESSION_ENTRIES.map(({ action, icon }) => (
         <ChatPageMenuEntry
           key={action}
@@ -232,6 +319,34 @@ function AgentSection({
           onSelect={() => onMention(agent)}
         />
       )}
+      <RemoveEntry agent={agent} control={options.control} />
+    </>
+  );
+}
+
+/** "Aus Gruppe entfernen …" (PAGE-380): only the creator of the group may; others see it off with a hint. */
+function RemoveEntry({
+  agent,
+  control,
+}: {
+  readonly agent: VirtualParticipant;
+  readonly control: AgentMenuControl | undefined;
+}): React.ReactElement | null {
+  const { t } = useTranslation();
+  const onRemove = control?.onRemove;
+  if (onRemove === undefined) return null;
+  const canRemove = control?.canRemove === true;
+  return (
+    <>
+      <DropdownMenuSeparator />
+      <ChatPageMenuEntry
+        icon={UserMinus}
+        label={t("chatPage.agentMenu.remove")}
+        note={canRemove ? undefined : t("chatPage.agentMenu.ownerOnly")}
+        isDisabled={!canRemove}
+        isDestructive
+        onSelect={() => onRemove(agent)}
+      />
     </>
   );
 }
@@ -248,8 +363,9 @@ interface ChatPageAgentMenuProps {
 
 /**
  * The menu of an agent in the chat (PAGE-376): its session in this chat with
- * the buttons "Sitzung anhalten", "Sitzung zusammenfassen" and "Sitzung neu
- * starten", then the agent's settings, its direct chat and its mention.
+ * "Modell in diesem Chat …", "Jetzt verdichten", "Neu starten" (PAGE-380) and
+ * "Sitzung anhalten", then the agent's settings, its direct chat, its
+ * mention and, in a group, "Aus Gruppe entfernen …".
  *
  * @remarks
  * A click on `children` opens it, and so does a right click wherever the
@@ -265,18 +381,27 @@ export function ChatPageAgentMenu({
 }: ChatPageAgentMenuProps): React.ReactElement {
   const { t } = useTranslation();
   const actions = useAgentSessionActions();
+  const request = useAgentControl();
   return (
     <>
       <DropdownMenu open={state.isOpen} onOpenChange={state.setIsOpen}>
         <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-72">
-          <SessionSection agent={agent} brief={brief} actions={actions} />
+          <SessionSection
+            agent={agent}
+            brief={brief}
+            actions={actions}
+            control={options.control}
+            request={request}
+          />
           <AgentSection agent={agent} options={options} />
         </DropdownMenuContent>
       </DropdownMenu>
-      {actions.failure === null ? null : (
+      {actions.failure === null && request.failure === null ? null : (
         <span className="text-xs text-destructive" role="alert">
-          {t("chatPage.agentMenu.failed")}
+          {request.failure === null
+            ? t("chatPage.agentMenu.failed")
+            : t(`chatPage.control.failure.${request.failure}`)}
         </span>
       )}
     </>

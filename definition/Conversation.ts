@@ -11,6 +11,7 @@
 
 import type {
   ConversationAttachment,
+  ConversationAttachmentReference,
   ConversationLink,
 } from "./ConversationContent";
 import type { ConversationDecisionView } from "./ConversationDecision";
@@ -45,6 +46,14 @@ export const CONVERSATION_AGENT_CHAIN_MAXIMUM = 10;
 
 /** Prefix of the `clientMessageId` of a message an agent chose to send (PAGE-311). */
 export const CONVERSATION_AGENT_SEND_PREFIX = "agent-send-";
+
+/**
+ * Prefix of the `clientMessageId` of a message a person sent from a preview
+ * of the chat with `pages.chat.send` (PAGE-383). Such a message is an
+ * ordinary message of the person; the chat marks it "aus der Vorschau
+ * gesendet", and it never runs as a chat command.
+ */
+export const CONVERSATION_PREVIEW_SEND_PREFIX = "preview-";
 
 /** Prefix of the `clientMessageId` of the answer to a message (PAGE-276). */
 export const CONVERSATION_AGENT_REPLY_PREFIX = "reply-";
@@ -108,7 +117,13 @@ export type ConversationNotice =
   | "agent_failed"
   | "agent_stopped"
   /** Stored by PAGE-337 only; the chat never shows it (PAGE-349). */
-  | "round_limit";
+  | "round_limit"
+  /**
+   * A system line of the chat (PAGE-380): a person changed the model of an
+   * agent, restarted or compacted its session, or removed a member. Its text
+   * is the line; it never asks an agent for an answer.
+   */
+  | "session_event";
 
 /** Where the text of a voice message stands. */
 export type ConversationTranscriptionState = "pending" | "done" | "failed";
@@ -187,6 +202,8 @@ export interface ConversationMessage {
   readonly attachments: readonly ConversationAttachment[];
   /** The URLs that stand alone in a line of the text (PAGE-298); empty without any. */
   readonly links: readonly ConversationLink[];
+  /** Earlier attachments of the chat an agent shows again (PAGE-386); missing without any. */
+  readonly references?: readonly ConversationAttachmentReference[];
 }
 
 /** A conversation as one member sees it. */

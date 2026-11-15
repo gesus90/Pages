@@ -1,4 +1,4 @@
-# Pica Mobile: WebSocket-Anbindung (PAGE-148, PAGE-164, PAGE-193, PAGE-200, PAGE-201, PAGE-263, PAGE-278, PAGE-281)
+# Pica Mobile: WebSocket-Anbindung (PAGE-148, PAGE-164, PAGE-193, PAGE-200, PAGE-201, PAGE-263, PAGE-278, PAGE-281, PAGE-381)
 
 Pages stellt für die App Pica Mobile einen WebSocket-Endpunkt bereit. Dieses Dokument ist der Vertrag zwischen Pages und der App: Es beschreibt, wie ein Administrator den Endpunkt einrichtet, wie eine Verbindung aufgebaut wird und welche Nachrichten in Version 1 des Formats gelten.
 
@@ -870,6 +870,23 @@ Agents nehmen an Unterhaltungen teil (PAGE-276). In einer Direktunterhaltung ant
 | `typing`          | `{ conversationId, participantId, isTyping }`                     | alle Mitglieder, wenn ein Agent eine Antwort beginnt (`true`) und beendet (`false`) |
 
 Die Verbindung, die eine Änderung ausgelöst hat, erhält sie als Antwort und nicht noch einmal als Ereignis; andere Verbindungen desselben Kontos erhalten das Ereignis.
+
+### Live-Antworten für die Chat-Seite (PAGE-381, `conversations.stream.v1`)
+
+Die Chat-Seite im Browser spricht dasselbe `conversations.v1` über `ws(s)://<Pages-Host>/chat/conversations/socket` am Port von Pages. Die Verbindung nimmt die Sitzung aus dem Cookie der Seite (`auth` mit `{ method: "session", token: "cookie" }`, das echte Token liest die Seite nicht); nur der eigene Origin von Pages darf sie öffnen, und Sitzung und Rechte werden wie bei der App geprüft. Diese Verbindung nennt zusätzlich `conversations.stream.v1` und erhält als `conversation_event` die Teile einer entstehenden Antwort. Der Endpunkt von Pica Mobile nennt die Erweiterung nie und sendet diese Ereignisse nie; die App sieht keine Änderung.
+
+Jeder Teil trägt `chatKind` (`agent` für den Direkt-Chat mit einem Agenten, dann ist `chatId` die ID des Agenten; `conversation` für eine gespeicherte Unterhaltung, dann ist `chatId` deren ID), `agentId`, `answerId`, `seq` (zählt je Antwort ab 1; ein Teil mit bekannter oder kleinerer Nummer ist eine Wiederholung) und `at`.
+
+| `type`            | zusätzliche `data`                                                                                                                             | Wer es erhält                                                |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| `answer_text`     | `{ delta, isReset }` (ganze Wörter, Zugangsdaten maskiert)                                                                                     | alle Mitglieder                                              |
+| `answer_thought`  | `{ delta, startedAt }`                                                                                                                         | nur die Person des Direkt-Chats bzw. der Besitzer der Gruppe |
+| `answer_tool`     | `{ tool: { callId, name, status, input?, output?, error?, startedAt, endedAt? } }`, `status` `running`, `completed`, `failed` oder `cancelled` | alle Mitglieder                                              |
+| `answer_steer`    | `{ messageId, delivery }`, `delivery` `injected`, `waiting` oder `failed`                                                                      | alle Mitglieder                                              |
+| `answer_end`      | `{ messageId, state }`; danach gilt die gespeicherte Nachricht `messageId`                                                                     | alle Mitglieder                                              |
+| `answer_snapshot` | der ganze Stand einer laufenden oder vor kurzem beendeten Antwort, nach jeder Anmeldung                                                        | alle Mitglieder, Gedanken nur für Berechtigte                |
+
+Eine Nachricht, die die Seite während einer Antwort sendet, trägt im Formular `delivery`: `steer` schiebt sie in die laufende Antwort (in Gruppen ohne `@` in die Antworten aller gerade antwortenden Agenten, mit `@Name` nur in die des Genannten), `after` stellt sie hinter die laufende Antwort. Nimmt eine Antwort sie nicht mehr an, wartet sie auf ihre eigene Runde und ist als wartend markiert.
 
 ### Fehler
 

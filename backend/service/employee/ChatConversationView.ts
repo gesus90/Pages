@@ -1,4 +1,7 @@
-import { CONVERSATION_AGENT_SEND_PREFIX } from "@/definition/Conversation";
+import {
+  CONVERSATION_AGENT_SEND_PREFIX,
+  CONVERSATION_PREVIEW_SEND_PREFIX,
+} from "@/definition/Conversation";
 
 import type { ConversationView } from "@/backend/service/conversation/ConversationReader";
 import type {
@@ -21,7 +24,8 @@ export function conversationVoiceUrl(messageId: string): string {
  *
  * @param message - The stored message.
  * @param person - The signed-in person; their own messages carry no author.
- * @returns The message with its author and, for a voice message, its audio.
+ * @returns The message with its author and, for a voice message, its audio;
+ * a message sent from a preview is marked as such (PAGE-383).
  */
 export function toVirtualMessage(
   message: ConversationMessage,
@@ -46,7 +50,13 @@ export function toVirtualMessage(
       ? { attachments: message.attachments }
       : {}),
     ...(message.links.length > 0 ? { links: message.links } : {}),
+    ...(message.references && message.references.length > 0
+      ? { references: message.references }
+      : {}),
     ...(isOwn && !message.notice ? { canDelete: true } : {}),
+    ...(message.clientMessageId.startsWith(CONVERSATION_PREVIEW_SEND_PREFIX)
+      ? { isFromPreview: true }
+      : {}),
   };
   if (!message.voice) return base;
   return {
@@ -114,10 +124,27 @@ export function agentWrittenConversations(
       (member: ConversationParticipant) => member.id !== person.id,
     );
     if (other?.kind !== "agent") continue;
-    if (view.messages.some((message) => isAgentWritten(message, other.id)))
+    if (
+      view.messages.some((message) => isShownWithAgentChat(message, other.id))
+    )
       written.set(other.id, view);
   }
   return written;
+}
+
+/**
+ * Whether a message of the direct conversation with an agent joins the chat
+ * with it: one the agent chose to write (PAGE-311), or a system line such as
+ * a changed model or a restarted session (PAGE-380).
+ *
+ * @param message - A message of the direct conversation.
+ * @param agentId - The agent of the chat.
+ */
+export function isShownWithAgentChat(
+  message: ConversationMessage,
+  agentId: string,
+): boolean {
+  return message.notice === "session_event" || isAgentWritten(message, agentId);
 }
 
 /** Whether the agent chose to write the message (PAGE-311), instead of answering one. */

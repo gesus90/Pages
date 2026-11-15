@@ -1,25 +1,32 @@
-import { ExternalLink, Globe, Link2, RotateCw, Unlink } from "lucide-react";
+import { ExternalLink, Globe, Link2, Unlink } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { cn } from "@/app/lib/cn";
 
 import { useChatContent } from "./chat-content-context";
-import { CardAction, ContentCard } from "./content-card";
+import {
+  CardAction,
+  CardActionDivider,
+  CardHead,
+  ContentCard,
+} from "./content-card";
 
 import type { ConversationLink } from "@/definition/ConversationContent";
-import type { CardOrigin } from "./card-types";
-
-const BAR_BUTTON_CLASS =
-  "inline-flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-surface-hover hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary";
+import type { CardOrigin, OpenedCard } from "./card-types";
 
 /** The host with its port, as the head of a web card names the page. */
-function hostOf(link: ConversationLink): string {
+export function hostOf(link: ConversationLink): string {
   try {
     return new URL(link.url).host || link.domain;
   } catch {
     return link.domain;
   }
+}
+
+/** The title of a page in the head of its card: its own title, else its host (PAGE-388). */
+export function linkTitleOf(link: ConversationLink): string {
+  return link.title === "" ? hostOf(link) : link.title;
 }
 
 /**
@@ -39,67 +46,59 @@ interface WebViewProps {
   readonly link: ConversationLink;
   /** The stored conversation whose releases apply; `null` without one. */
   readonly conversationId: string | null;
+  /** Counts "Neu laden" in the head; every change mounts the frame anew. */
+  readonly reloadCount?: number;
   /** Replaces the fixed height of the card body, to fill a container. */
   readonly className?: string;
 }
 
 /**
- * An embedded, usable web page (PAGE-298): a bar with reload, the address and
- * "open in a new tab", and below it the page.
+ * An embedded, usable web page (PAGE-298): the page in the frame document
+ * of Pages.
  *
  * @remarks
  * Used as the body of a web card, in the split view and in the overlay. The
- * page keeps its own colors; the frame and the controls follow the theme.
- * Reloading mounts the frame anew, because the document inside belongs to
- * another origin and cannot be reloaded from here.
+ * head of the card carries the address, "Im neuen Tab öffnen" and "Neu
+ * laden" (PAGE-388). The page keeps its own colors. Reloading mounts the
+ * frame anew, because the document inside belongs to another origin and
+ * cannot be reloaded from here.
  */
 export function WebView({
   link,
   conversationId,
+  reloadCount = 0,
   className,
 }: WebViewProps): React.ReactElement {
   const { t } = useTranslation();
-  const [reloadCount, setReloadCount] = useState(0);
-  const address = link.title === "" ? link.url : `${link.url} · ${link.title}`;
-
   return (
     <div className={cn("flex min-w-0 flex-col", className ?? "h-[360px]")}>
-      <div className="flex shrink-0 items-center gap-1.5 border-b border-border bg-surface px-2 py-1.5">
-        <button
-          aria-label={t("chatPage.cards.reload")}
-          className={BAR_BUTTON_CLASS}
-          onClick={() => setReloadCount((count) => count + 1)}
-          title={t("chatPage.cards.reload")}
-          type="button"
-        >
-          <RotateCw aria-hidden="true" className="size-3.5" />
-        </button>
-        <input
-          aria-label={t("chatPage.cards.address")}
-          className="h-7 min-w-0 flex-1 truncate rounded-md bg-muted px-2.5 text-xs text-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary"
-          readOnly
-          type="text"
-          value={address}
-        />
-        <a
-          aria-label={t("chatPage.cards.openInNewTab")}
-          className={BAR_BUTTON_CLASS}
-          href={link.url}
-          rel="noopener noreferrer"
-          target="_blank"
-          title={t("chatPage.cards.openInNewTab")}
-        >
-          <ExternalLink aria-hidden="true" className="size-3.5" />
-        </a>
-      </div>
       <iframe
         key={reloadCount}
         className="min-h-0 w-full flex-1 border-0 bg-surface"
+        data-reload={reloadCount}
         referrerPolicy="no-referrer"
         src={embedAddress(link, conversationId)}
         title={t("chatPage.cards.embeddedPage", { domain: hostOf(link) })}
       />
     </div>
+  );
+}
+
+/** The main action of a link or web card: "Im neuen Tab öffnen" in the accent color. */
+export function OpenInNewTabAction({
+  link,
+}: {
+  readonly link: ConversationLink;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  return (
+    <CardAction
+      href={link.url}
+      icon={ExternalLink}
+      isNewTab
+      label={t("chatPage.cards.openInNewTab")}
+      variant="primary"
+    />
   );
 }
 
@@ -109,7 +108,12 @@ interface LinkCardProps {
   readonly origin: CardOrigin;
 }
 
-/** A page that may be embedded here: collapsed to its head until asked for. */
+/**
+ * A page that may be embedded here (PAGE-298, PAGE-388): collapsed to its
+ * head until asked for. The head names title and address; the actions are
+ * "Im neuen Tab öffnen", "Freigabe entfernen" where the release can be
+ * taken back, "Neu laden", "Daneben", "Vollbild" and "Zuklappen".
+ */
 function WebCard({ link, cardKey, origin }: LinkCardProps): React.ReactElement {
   const { t } = useTranslation();
   const content = useChatContent();
@@ -117,48 +121,83 @@ function WebCard({ link, cardKey, origin }: LinkCardProps): React.ReactElement {
   // Only a release of a member can be taken back here, not Pages itself, a
   // local preview or a domain the administrator released.
   const isReleasedHere = content.releasedDomains.includes(link.domain);
+  const card: OpenedCard = {
+    key: cardKey,
+    descriptor: { kind: "web", link },
+    origin,
+  };
 
   return (
     <ContentCard
       actions={
-        <>
+        isReleasedHere ? (
           <CardAction
-            icon={RotateCw}
-            label={t("chatPage.cards.reload")}
-            onClick={() => setReloadCount((count) => count + 1)}
+            icon={Unlink}
+            label={t("chatPage.cards.removeRelease")}
+            onClick={() => content.setDomainReleased(link.domain, false)}
+            variant="quiet"
           />
-          <CardAction
-            href={link.url}
-            icon={ExternalLink}
-            isNewTab
-            label={t("chatPage.cards.newTab")}
-          />
-          {isReleasedHere ? (
-            <CardAction
-              icon={Unlink}
-              label={t("chatPage.cards.removeRelease")}
-              onClick={() => content.setDomainReleased(link.domain, false)}
-            />
-          ) : null}
-        </>
+        ) : null
       }
-      beside={{ key: cardKey, descriptor: { kind: "web", link }, origin }}
+      beside={card}
       cardKey={cardKey}
       defaultState="collapsed"
       icon={Globe}
       kindLabel={t("chatPage.cards.kind.web")}
-      name={hostOf(link)}
+      meta={link.url}
+      name={linkTitleOf(link)}
+      onFullscreen={() => content.openOverlay(card)}
+      onReload={() => setReloadCount((count) => count + 1)}
+      primary={<OpenInNewTabAction link={link} />}
     >
       <WebView
-        key={reloadCount}
         conversationId={content.conversationId}
         link={link}
+        reloadCount={reloadCount}
       />
     </ContentCard>
   );
 }
 
-/** A page that may not be embedded here: its preview, opened in a new tab. */
+/** Description and preview image of a link card; a click opens the page. */
+function LinkPreview({
+  link,
+}: {
+  readonly link: ConversationLink;
+}): React.ReactElement | null {
+  if (link.description === "" && link.imageUrl === null) return null;
+  return (
+    <a
+      className="flex min-h-[72px] border-t border-border hover:bg-surface-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+      href={link.url}
+      rel="noopener noreferrer"
+      tabIndex={-1}
+      target="_blank"
+    >
+      {link.imageUrl === null ? null : (
+        <img
+          alt=""
+          className="w-[130px] shrink-0 self-stretch bg-muted object-cover"
+          loading="lazy"
+          src={link.imageUrl}
+        />
+      )}
+      {link.description === "" ? null : (
+        <span className="line-clamp-3 min-w-0 flex-1 self-center px-3.5 py-3 text-[13px] leading-snug text-muted-foreground">
+          {link.description}
+        </span>
+      )}
+    </a>
+  );
+}
+
+/**
+ * A page that may not be embedded here (PAGE-298, PAGE-388): the shared
+ * head with the link icon, the title and below it the domain, then
+ * description and preview image. Its main action opens a new tab; a member
+ * can release its domain for the conversation with the quiet "In diesem
+ * Chat einbetten".
+ */
 function LinkCard({
   link,
 }: {
@@ -170,52 +209,31 @@ function LinkCard({
   return (
     <section
       aria-label={link.title === "" ? link.domain : link.title}
-      className="flex w-full max-w-xl min-w-0 flex-col gap-1.5"
+      className="w-full max-w-xl min-w-0 overflow-hidden rounded-xl border border-border bg-surface text-foreground shadow-xs"
       data-link-card={link.domain}
     >
-      <a
-        className="flex min-h-[72px] overflow-hidden rounded-xl border border-border bg-surface text-foreground shadow-xs hover:bg-surface-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-        href={link.url}
-        rel="noopener noreferrer"
-        target="_blank"
-      >
-        {link.imageUrl === null ? null : (
-          <img
-            alt=""
-            className="w-[130px] shrink-0 self-stretch bg-muted object-cover"
-            loading="lazy"
-            src={link.imageUrl}
-          />
-        )}
-        <span className="flex min-w-0 flex-1 flex-col justify-center gap-0.5 px-3.5 py-3">
-          <span className="truncate text-xs text-muted-foreground">
-            {link.domain}
-          </span>
-          {link.title === "" ? null : (
-            <span className="truncate text-sm font-semibold">{link.title}</span>
-          )}
-          {link.description === "" ? null : (
-            <span className="line-clamp-2 text-[13px] leading-snug text-muted-foreground">
-              {link.description}
-            </span>
-          )}
-        </span>
-      </a>
-      <div className="flex flex-wrap items-center gap-1.5">
-        <CardAction
-          href={link.url}
-          icon={ExternalLink}
-          isNewTab
-          label={t("chatPage.cards.newTab")}
-        />
-        {content.canRelease ? (
-          <CardAction
-            icon={Link2}
-            label={t("chatPage.cards.embedHere")}
-            onClick={() => content.setDomainReleased(link.domain, true)}
-          />
-        ) : null}
-      </div>
+      <CardHead
+        actions={
+          <>
+            <OpenInNewTabAction link={link} />
+            {content.canRelease ? (
+              <>
+                <CardActionDivider />
+                <CardAction
+                  icon={Link2}
+                  label={t("chatPage.cards.embedHere")}
+                  onClick={() => content.setDomainReleased(link.domain, true)}
+                  variant="quiet"
+                />
+              </>
+            ) : null}
+          </>
+        }
+        icon={Link2}
+        name={linkTitleOf(link)}
+        subtitle={link.domain}
+      />
+      <LinkPreview link={link} />
     </section>
   );
 }

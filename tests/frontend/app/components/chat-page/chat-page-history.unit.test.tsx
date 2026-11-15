@@ -13,11 +13,11 @@ import type { VirtualChatMessage } from "@/definition/VirtualChat";
 vi.mock("@/app/components/chat-page/chat-page-voice", () => ({
   ChatPageVoice: ({
     text,
-    isOwn,
+    senderName,
   }: {
     readonly text: string;
-    readonly isOwn: boolean;
-  }) => <div data-testid="voice" data-own={String(isOwn)} data-text={text} />,
+    readonly senderName: string;
+  }) => <div data-testid="voice" data-sender={senderName} data-text={text} />,
 }));
 
 const i18n = createI18n("en");
@@ -84,7 +84,7 @@ it("draws own messages as separate right-hand articles in message order", () => 
   ]);
 });
 
-it("draws an own voice message with the player marked as own", () => {
+it("draws an own voice message as a row of its own, sent by the person", () => {
   renderHistory({
     messages: [
       {
@@ -95,8 +95,10 @@ it("draws an own voice message with the player marked as own", () => {
     ],
   });
   const voice = screen.getByTestId("voice");
-  expect(voice.getAttribute("data-own")).toBe("true");
+  expect(voice.getAttribute("data-sender")).toBe("You");
   expect(voice.getAttribute("data-text")).toBe("spoken text");
+  // The row is a card of its own, not inside the primary bubble (PAGE-388).
+  expect(voice.parentElement?.className ?? "").not.toContain("bg-primary");
 });
 
 it("groups consecutive answers of one author under one name line", () => {
@@ -195,7 +197,7 @@ it("explains with a note in the agent's name why no answer came", () => {
   );
 });
 
-it("plays an answer voice message as the other side's", () => {
+it("plays an answer voice message with the name of its sender", () => {
   renderHistory({
     messages: [
       answer("1", "ada", {
@@ -205,7 +207,7 @@ it("plays an answer voice message as the other side's", () => {
     ],
   });
   const voice = screen.getByTestId("voice");
-  expect(voice.getAttribute("data-own")).toBe("false");
+  expect(voice.getAttribute("data-sender")).toBe("Ada");
   expect(voice.getAttribute("data-text")).toBe("recognized");
 });
 

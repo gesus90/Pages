@@ -4,6 +4,8 @@ import { useFetcher } from "react-router";
 
 import { CHAT_SPLIT_MINIMUM_WIDTH } from "@/definition/ConversationContent";
 
+import { MediaOverviewPanel } from "../media/media-overview-panel";
+
 import { CardPanel } from "./card-panel";
 import { useChatContent } from "./chat-content-context";
 
@@ -86,13 +88,14 @@ function useSplitWidth(stored: number | null): {
 
 /**
  * The split view right of the chat (PAGE-298): the one card opened with
- * "Daneben", behind a divider that changes its width.
+ * "Daneben", or "Medien & Dateien" of the chat (PAGE-387), behind a divider
+ * that changes its width.
  *
  * @remarks
  * The chat stays usable left of it. Dragging the divider, or the arrow
  * keys on it, changes the width; at least 360 px remain for either side, and
- * the width is remembered for the person. Renders nothing while no card is
- * opened.
+ * the width is remembered for the person. Renders nothing while neither a
+ * card nor "Medien & Dateien" is opened beside.
  *
  * @param storedWidth - The width the person chose last, or `null`.
  */
@@ -102,9 +105,11 @@ export function SplitPanel({
   readonly storedWidth: number | null;
 }): React.ReactElement | null {
   const { t } = useTranslation();
-  const { beside, closeBeside, openOverlay } = useChatContent();
+  const { beside, closeBeside, openOverlay, media } = useChatContent();
   const split = useSplitWidth(storedWidth);
-  if (!beside) return null;
+  if (!beside && media !== "beside") return null;
+  // The width belongs to the person, so it is the one inline style here.
+  const width = { width: split.width, minWidth: CHAT_SPLIT_MINIMUM_WIDTH };
   return (
     <>
       <div
@@ -120,14 +125,21 @@ export function SplitPanel({
       >
         <span className="h-full w-px bg-border group-hover:w-0.5 group-hover:bg-primary group-focus-visible:w-0.5 group-focus-visible:bg-primary" />
       </div>
-      <CardPanel
-        card={beside}
-        className="shrink-0 rounded-[14px] border border-border shadow-card"
-        onClose={closeBeside}
-        onFullscreen={() => openOverlay(beside)}
-        // The width belongs to the person, so it is the one inline style here.
-        style={{ width: split.width, minWidth: CHAT_SPLIT_MINIMUM_WIDTH }}
-      />
+      {beside ? (
+        <CardPanel
+          card={beside}
+          className="shrink-0 rounded-[14px] border border-border shadow-card"
+          isBeside
+          onClose={closeBeside}
+          onFullscreen={() => openOverlay(beside)}
+          style={width}
+        />
+      ) : (
+        <MediaOverviewPanel
+          className="shrink-0 rounded-[14px] border border-border shadow-card"
+          style={width}
+        />
+      )}
     </>
   );
 }

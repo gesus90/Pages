@@ -25,8 +25,24 @@ describe("isTextModel for OpenRouter", () => {
   });
 
   it.each([
+    ["audio", ["text", "audio"]],
+    ["video", ["text", "video"]],
+  ])("PAGE-384 accepts a model that answers in text beside %s", (_, output) => {
+    expect(isTextModel(openRouterEntry(["text"], output), "openrouter")).toBe(
+      true,
+    );
+  });
+
+  it("PAGE-382 accepts a model that answers in text beside images", () => {
+    const entry = openRouterEntry(["text"], ["text", "image"]);
+    expect(isTextModel(entry, "openrouter")).toBe(true);
+  });
+
+  it.each([
     ["an image generator", ["text"], ["image"]],
-    ["a model that also writes images", ["text"], ["text", "image"]],
+    ["a pure video generator", ["text"], ["video"]],
+    ["a pure audio generator", ["text"], ["audio"]],
+    ["a speech output model beside text", ["text"], ["text", "speech"]],
     ["a speech model", ["audio"], ["text"]],
     ["an embedding model", ["text"], ["embeddings"]],
     ["a model without outputs", ["text"], []],

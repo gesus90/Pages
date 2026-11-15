@@ -173,6 +173,12 @@ export const PICA_MOBILE_SERVER_MESSAGE_TYPE = {
  * chunked voice upload `voice_start`, `voice_chunk`, `voice_finish`,
  * `voice_cancel`, with their answers, the `conversation_event` messages the
  * server sends on its own, and the voice endpoint on the same port.
+ * `conversations.stream.v1` (PAGE-381) adds the `answer_*` events of
+ * `conversation_event` to `conversations.v1`: the text, thoughts, tool calls,
+ * steered messages and end of the answer an agent is writing, and a snapshot
+ * of every such answer after the authentication. Only the connection of the
+ * signed-in browser on the Pages port names it; the endpoint of Pica Mobile
+ * never does and never sends these events.
  * `plans.flow.v1` stands for the opt-in `flow` of `plans_sync` and
  * `plan_get` (PAGE-281): the frozen structure of a run with every node, its
  * states, loop iterations, progress and revision in `plan`, and the `state`
@@ -202,6 +208,7 @@ export const PICA_MOBILE_CAPABILITY = {
   CHAT_V1: "chat.v1",
   CHAT_DELETE: "chat.delete",
   CONVERSATIONS_V1: "conversations.v1",
+  CONVERSATIONS_STREAM_V1: "conversations.stream.v1",
   NOTIFICATIONS_V1: "notifications.v1",
   NOTIFICATIONS_PUSH_FCM: "notifications.push.fcm",
   NOTIFICATIONS_TEAM_V1: "notifications.team.v1",

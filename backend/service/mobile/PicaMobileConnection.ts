@@ -56,6 +56,7 @@ import type { PicaMobileFrameKind } from "./PicaMobileFrameBudget";
 import type { PicaMobileChatProvider } from "./chat/PicaMobileChatProvider";
 import type { PicaMobileConversationPresence } from "./conversations/PicaMobileConversationPresence";
 import type { PicaMobileConversationsProvider } from "./conversations/PicaMobileConversationsProvider";
+import type { ConversationAnswerStream } from "@/backend/service/conversation/ConversationAnswerStream";
 import type { PicaMobileNotificationProvider } from "./notifications/PicaMobileNotificationProvider";
 import type { PicaMobilePlansHost } from "./plans/PicaMobilePlansHandler";
 import type { PicaMobilePlansProvider } from "./plans/PicaMobilePlansProvider";
@@ -111,6 +112,12 @@ export interface PicaMobileConnectionOptions {
   readonly calendar?: PicaMobileCalendarProvider;
   /** Where the connection notes the conversation it shows; the process's own by default. */
   readonly presence?: Pick<PicaMobileConversationPresence, "set">;
+  /**
+   * The answers agents are writing (PAGE-381), for the connection of the
+   * signed-in browser alone: it announces `conversations.stream.v1` and
+   * receives their parts. The endpoint of Pica Mobile never sets it.
+   */
+  readonly answers?: Pick<ConversationAnswerStream, "snapshots">;
   /**
    * `http://<Host>` of the handshake; `chat_send` protects it as the web
    * route protects its origin. Absent for a missing or invalid host.
@@ -219,6 +226,7 @@ export class PicaMobileConnection {
       {
         connectionId: options.connectionId,
         presence: options.presence ?? sharedPicaMobileConversationPresence(),
+        ...(options.answers ? { answers: options.answers } : {}),
       },
     );
   }

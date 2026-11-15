@@ -1,12 +1,20 @@
-import { useEffect, useState } from "react";
-import { useFetcher, useRevalidator } from "react-router";
+import { useState } from "react";
+import { useFetcher } from "react-router";
 
-import { CONVERSATION_VOICE_DEFAULT_DURATION_SECONDS } from "@/definition/Conversation";
+import {
+  CONVERSATION_PREVIEW_SEND_PREFIX,
+  CONVERSATION_VOICE_DEFAULT_DURATION_SECONDS,
+} from "@/definition/Conversation";
 
 import { useChatActivity } from "./use-chat-activity";
 import { useConversationRead } from "./use-conversation-read";
 import { useOlderHistory } from "./use-older-history";
+import { useLiveChat } from "./live/use-live-chat";
+import { useConversationStream } from "./live/use-conversation-stream";
 
+import type { ConversationDelivery } from "@/definition/ConversationLiveAnswer";
+import type { HistoryLive } from "./chat-page-history";
+import type { AgentActivity } from "./live/chat-page-activity-row";
 import type {
   VirtualChatDirectory,
   VirtualChatMessage,
@@ -25,6 +33,7 @@ import type {
 function useAgentControls(opened: OpenedConversation | null): {
   readonly stop: () => void;
   readonly cancelTool: () => void;
+  readonly cancelAgentTool: (agentId: string) => void;
   readonly stopGroupAgent: (agentId: string) => void;
   readonly resumeAgents: () => void;
 } {
@@ -51,16 +60,26 @@ function useAgentControls(opened: OpenedConversation | null): {
     formData.set("conversationId", opened.group.id);
     void fetcher.submit(formData, { method: "post" });
   }
+  // The running tool calls of one agent of the opened chat (PAGE-381).
+  function cancelAgentTool(agentId: string): void {
+    if (opened?.kind !== "group") {
+      submit("cancel-tool");
+      return;
+    }
+    const formData = new FormData();
+    formData.set("intent", "cancel-group-tool");
+    formData.set("groupId", opened.group.id);
+    formData.set("agentId", agentId);
+    void fetcher.submit(formData, { method: "post" });
+  }
   return {
     stop: () => submit("stop"),
     cancelTool: () => submit("cancel-tool"),
+    cancelAgentTool,
     stopGroupAgent,
     resumeAgents,
   };
 }
-
-/** How often the page reads the history again while an agent answers. */
-const ANSWER_POLL_MILLISECONDS = 3_000;
 
 /** The opened group or participant with what its view shows. */
 export type OpenedConversation =
@@ -110,9 +129,27 @@ export interface ChatPageState {
   readonly sendFailure: VirtualChatSendFailure | null;
   /**
    * Sends a message to the opened agent, person or group; with uploaded
-   * attachments (PAGE-298) the text may be empty.
+   * attachments (PAGE-298) the text may be empty. While agents answer,
+   * `delivery` puts it into their answers or after them (PAGE-381).
    */
-  send(content: string, attachmentIds?: readonly string[]): void;
+  send(
+    content: string,
+    attachmentIds?: readonly string[],
+    delivery?: ConversationDelivery,
+  ): void;
+  /**
+   * Sends what a preview wrote with `pages.chat.send(text)` as an ordinary
+   * message of the person, marked "aus der Vorschau gesendet" (PAGE-383).
+   */
+  sendFromPreview(text: string): void;
+  /** Stops every answer of the opened chat: the agent's, or those of the group's agents (PAGE-381). */
+  stopAll(): void;
+  /** What the history shows of the answers written now (PAGE-381). */
+  readonly live: HistoryLive;
+  /** The agents at work in the opened chat and what they do (PAGE-381). */
+  readonly activity: readonly AgentActivity[];
+  /** Whether the channel of the live answers is open (PAGE-381). */
+  readonly isLive: boolean;
   /** Adds one of the person's participants to a group. */
   addMember(groupId: string, participantId: string): void;
   /** Stops the answer of the opened agent. */
@@ -254,7 +291,32 @@ function pendingMessage(
     formData?.get("participantId") ??
     formData?.get("groupId");
   if (typeof text !== "string" || targetId !== selection?.id) return null;
-  return { id: "pending", authorId: null, content: text, toolUses: [] };
+  const clientMessageId = formData?.get("clientMessageId");
+  const baseMessage: VirtualChatMessage = {
+    id: "pending",
+    authorId: null,
+    content: text,
+    toolUses: [],
+    ...(typeof clientMessageId === "string" &&
+    clientMessageId.startsWith(CONVERSATION_PREVIEW_SEND_PREFIX)
+      ? { isFromPreview: true }
+      : {}),
+  };
+  return withPendingDelivery(baseMessage, formData);
+}
+
+/** Attaches how a message sent mid-answer goes to the agents (PAGE-381). */
+function withPendingDelivery(
+  message: VirtualChatMessage,
+  formData: FormData | undefined,
+): VirtualChatMessage {
+  const delivery = formData?.get("delivery");
+  if (delivery === "after") return { ...message, queue: "chat" };
+  const steered = formData?.get("steeredInto");
+  const agentIds = typeof steered === "string" ? steered.split(",") : [];
+  if (delivery === "steer" && agentIds.length > 0)
+    return { ...message, steeredInto: agentIds };
+  return message;
 }
 
 /** The form of a message to the opened conversation, or `null` when nothing can be sent. */
@@ -262,12 +324,13 @@ function messageForm(
   opened: OpenedConversation,
   content: string,
   attachmentIds: readonly string[],
+  clientMessageId: string = crypto.randomUUID(),
 ): FormData | null {
   const formData = new FormData();
   formData.set("text", content);
   if (attachmentIds.length > 0)
     formData.set("attachmentIds", JSON.stringify(attachmentIds));
-  formData.set("clientMessageId", crypto.randomUUID());
+  formData.set("clientMessageId", clientMessageId);
   if (opened.kind === "group") {
     formData.set("intent", "send-group");
     formData.set("groupId", opened.group.id);
@@ -305,18 +368,6 @@ function answeringState(
   };
 }
 
-/** Reads the history again while the opened agent answers. */
-function useAnswerPolling(isAnswering: boolean): void {
-  const revalidator = useRevalidator();
-  useEffect(() => {
-    if (!isAnswering) return undefined;
-    const timer = window.setInterval(() => {
-      if (revalidator.state === "idle") void revalidator.revalidate();
-    }, ANSWER_POLL_MILLISECONDS);
-    return () => window.clearInterval(timer);
-  }, [isAnswering, revalidator]);
-}
-
 /** Groups and participants that match the search in the fields of PAGE-259. */
 function searchLists(lists: ChatLists, query: string): ChatLists {
   return {
@@ -339,6 +390,62 @@ function searchLists(lists: ChatLists, query: string): ChatLists {
   };
 }
 
+function createSendActions(context: {
+  readonly opened: OpenedConversation | null;
+  readonly selection: VirtualChatSelection | null;
+  readonly isAnswering: boolean;
+  readonly workingAgentIds: readonly string[];
+  readonly touch: (selection: VirtualChatSelection) => void;
+  readonly submit: ReturnType<typeof useFetcher>["submit"];
+  readonly controls: ReturnType<typeof useAgentControls>;
+}): Pick<ChatPageState, "send" | "sendFromPreview" | "stopAll"> {
+  const {
+    opened,
+    selection,
+    isAnswering,
+    workingAgentIds,
+    touch,
+    submit,
+    controls,
+  } = context;
+  function send(
+    content: string,
+    attachmentIds: readonly string[] = [],
+    delivery?: ConversationDelivery,
+  ): void {
+    const isEmpty = content.trim() === "" && attachmentIds.length === 0;
+    if (isEmpty || !opened || !selection) return;
+    const formData = messageForm(opened, content, attachmentIds);
+    if (!formData) return;
+    if (isAnswering && delivery) {
+      formData.set("delivery", delivery);
+      formData.set("steeredInto", workingAgentIds.join(","));
+    }
+    touch(selection);
+    void submit(formData, { method: "post" });
+  }
+  function sendFromPreview(text: string): void {
+    if (text.trim() === "" || !opened || !selection) return;
+    const formData = messageForm(
+      opened,
+      text,
+      [],
+      `${CONVERSATION_PREVIEW_SEND_PREFIX}${crypto.randomUUID()}`,
+    );
+    if (!formData) return;
+    touch(selection);
+    void submit(formData, { method: "post" });
+  }
+  function stopAll(): void {
+    if (opened?.kind !== "group") {
+      controls.stop();
+      return;
+    }
+    for (const agentId of workingAgentIds) controls.stopGroupAgent(agentId);
+  }
+  return { send, sendFromPreview, stopAll };
+}
+
 /**
  * Selection, search and the conversation with agents and groups on the chat
  * page.
@@ -346,10 +453,12 @@ function searchLists(lists: ChatLists, query: string): ChatLists {
  * @remarks
  * Both lists come newest activity first; the first group opens at first,
  * else the first agent of the list. A sent message goes over the page's
- * action and shows at once: to an agent, which answers over ACP while the
- * page reads the history again, or into the stored conversation with a
- * person or of a group (PAGE-278), whose other members see it live. Opening
- * a conversation with unread messages marks it read.
+ * action and shows at once: to an agent, which answers over ACP, or into the
+ * stored conversation with a person or of a group (PAGE-278), whose other
+ * members see it live. Answers arrive over `conversations.v1` while they are
+ * written (PAGE-381); the page reads its data again when an answer ended,
+ * never at fixed intervals. Opening a conversation with unread messages
+ * marks it read.
  */
 export function useChatPage(
   directory: VirtualChatDirectory,
@@ -362,6 +471,7 @@ export function useChatPage(
     () => requestedSelection ?? firstSelection(lists),
   );
   const sender = useFetcher();
+  const stream = useConversationStream();
 
   const found = searchLists(lists, query);
   const opened = openConversation(lists, selection);
@@ -377,30 +487,26 @@ export function useChatPage(
   );
   const mute = useMute(conversation);
   const messages = pending ? [...older.messages, pending] : older.messages;
-  const { isAnswering, answeringNames } = answeringState(
+  const answering = answeringState(opened, pending !== null);
+  const liveChat = useLiveChat({
     opened,
-    pending !== null,
-  );
-  const sendFailure = readSendFailure(sender);
-  useAnswerPolling(isAnswering);
+    state: stream.state,
+    messages,
+    findParticipant: (id) =>
+      lists.participants.find((participant) => participant.id === id),
+    onCancelTool: controls.cancelAgentTool,
+  });
+  const isAnswering = answering.isAnswering || liveChat.isWriting;
   useConversationRead(opened, stored);
-
-  function send(content: string, attachmentIds: readonly string[] = []): void {
-    const isEmpty = content.trim() === "" && attachmentIds.length === 0;
-    if (isEmpty || !opened || !selection) return;
-    const formData = messageForm(opened, content, attachmentIds);
-    if (!formData) return;
-    activity.touch(selection);
-    void sender.submit(formData, { method: "post" });
-  }
-
-  function findParticipant(id: string): VirtualParticipant | undefined {
-    return lists.participants.find((participant) => participant.id === id);
-  }
-
-  function findMembers(group: VirtualGroup): VirtualParticipant[] {
-    return membersOf(group, lists.participants);
-  }
+  const actions = createSendActions({
+    opened,
+    selection,
+    isAnswering,
+    workingAgentIds: liveChat.workingAgentIds,
+    touch: activity.touch,
+    submit: sender.submit,
+    controls,
+  });
 
   return {
     query,
@@ -419,19 +525,23 @@ export function useChatPage(
     isMuted: mute.isMuted,
     toggleMute: mute.toggle,
     isAnswering,
-    answeringNames,
+    answeringNames: answering.answeringNames,
     voiceMaximumMs:
       directory.voiceMaximumMs ??
       CONVERSATION_VOICE_DEFAULT_DURATION_SECONDS * 1000,
-    sendFailure,
-    send,
+    sendFailure: readSendFailure(sender),
+    ...actions,
+    live: liveChat.history,
+    activity: liveChat.activity,
+    isLive: stream.isConnected,
     addMember: activity.addMember,
     stop: controls.stop,
     stopGroupAgent: controls.stopGroupAgent,
     liveTools: isAnswering ? (directory.liveToolUses?.[historyId] ?? []) : [],
     cancelTool: controls.cancelTool,
     resumeAgents: controls.resumeAgents,
-    findParticipant,
-    findMembers,
+    findParticipant: (id) =>
+      lists.participants.find((participant) => participant.id === id),
+    findMembers: (group) => membersOf(group, lists.participants),
   };
 }

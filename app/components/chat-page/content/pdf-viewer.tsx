@@ -5,6 +5,9 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/app/components/ui/button";
 import { ScrollViewport } from "@/app/components/ui/scroll-viewport";
 import { cn } from "@/app/lib/cn";
+import { isPdfPasswordError } from "@/app/lib/pdf-errors";
+
+import { DocumentSearch } from "./documents/document-search";
 
 import type { KeyboardEvent, RefObject } from "react";
 import type { PdfPreview } from "@/app/lib/pdf-preview";
@@ -40,12 +43,29 @@ export interface PdfViewerProps {
   readonly url: string;
   /** Tells the page count once the document is open. */
   readonly onPageCount?: (pageCount: number) => void;
+  /**
+   * The full screen (PAGE-385): the page lies on the dark surface of the
+   * viewer and the arrow keys turn the page wherever the focus is.
+   */
+  readonly isFullscreen?: boolean;
   readonly className?: string;
 }
 
 interface PdfDocumentState {
   readonly preview: PdfPreview | null;
   readonly hasFailed: boolean;
+  /** The PDF is protected by a password; Pages never asks for it (PAGE-385). */
+  readonly isEncrypted?: boolean;
+}
+
+/** The pages that hold a search and the one shown (PAGE-385). */
+interface PdfSearch {
+  readonly query: string;
+  readonly setQuery: (query: string) => void;
+  /** `null` while the pages are searched. */
+  readonly pages: readonly number[] | null;
+  readonly current: number;
+  readonly step: (direction: number) => void;
 }
 
 interface PageRenderInput {
@@ -63,6 +83,8 @@ interface PdfToolbarProps {
   readonly pageCount: number;
   readonly onZoomStep: (direction: number) => void;
   readonly onPageStep: (direction: number) => void;
+  /** The search in the text of the pages (PAGE-385). */
+  readonly search?: PdfSearch;
 }
 
 interface PdfThumbnailProps {
@@ -82,6 +104,8 @@ interface PdfPageAreaProps {
   readonly preview: PdfPreview;
   readonly pageNumber: number;
   readonly zoomPercent: number;
+  /** Lays the page on the dark surface of the full screen (PAGE-385). */
+  readonly isDark?: boolean;
 }
 
 function clamp(amount: number, minimum: number, maximum: number): number {
@@ -110,6 +134,10 @@ function usePdfDocument(url: string): PdfDocumentState {
         setState({ preview, hasFailed: false });
       } catch (error: unknown) {
         if (controller.signal.aborted) return;
+        if (isPdfPasswordError(error)) {
+          setState({ preview: null, hasFailed: true, isEncrypted: true });
+          return;
+        }
         console.warn("The PDF could not be opened.", error);
         setState({ preview: null, hasFailed: true });
       }
@@ -160,6 +188,7 @@ function PdfToolbar({
   pageCount,
   onZoomStep,
   onPageStep,
+  search,
 }: PdfToolbarProps): React.ReactElement {
   const { t } = useTranslation();
   const isOpen = pageCount > 0;
@@ -213,8 +242,87 @@ function PdfToolbar({
       >
         <ChevronRight className="size-4" aria-hidden="true" />
       </Button>
+      {search && isOpen ? (
+        <DocumentSearch
+          className="ml-3 w-56 max-w-full"
+          current={search.current}
+          matchCount={
+            search.query.trim() === "" ? null : (search.pages?.length ?? null)
+          }
+          onQuery={search.setQuery}
+          onStep={search.step}
+          query={search.query}
+        />
+      ) : null}
     </div>
   );
+}
+
+/** Searches the text of the pages and opens the first page that holds the search. */
+function usePdfSearch(
+  preview: PdfPreview | null,
+  onPage: (pageNumber: number) => void,
+): PdfSearch {
+  const [query, setQueryState] = useState("");
+  const [pages, setPages] = useState<readonly number[] | null>([]);
+  const [current, setCurrent] = useState(0);
+
+  useEffect(() => {
+    if (!preview || query.trim() === "") {
+      setPages([]);
+      return undefined;
+    }
+    let isCurrent = true;
+    setPages(null);
+    preview.findPages(query).then(
+      (found) => {
+        if (!isCurrent) return;
+        setPages(found);
+        setCurrent(0);
+        if (found[0] !== undefined) onPage(found[0]);
+      },
+      (error: unknown) => {
+        if (isCurrent) setPages([]);
+        console.warn("The PDF could not be searched.", error);
+      },
+    );
+    return (): void => {
+      isCurrent = false;
+    };
+  }, [preview, query, onPage]);
+
+  return {
+    query,
+    setQuery: setQueryState,
+    pages,
+    current,
+    step(direction) {
+      if (!pages || pages.length === 0) return;
+      const next = (current + direction + pages.length) % pages.length;
+      setCurrent(next);
+      const page = pages[next];
+      if (page !== undefined) onPage(page);
+    },
+  };
+}
+
+/** Turns the page with the arrow and page keys wherever the focus is, in the full screen. */
+function useWindowPageKeys(
+  isActive: boolean,
+  onPageStep: (direction: number) => void,
+): void {
+  useEffect(() => {
+    if (!isActive) return undefined;
+    function handleKey(event: globalThis.KeyboardEvent): void {
+      const direction = PAGE_KEY_STEPS.get(event.key);
+      if (direction === undefined || event.target instanceof HTMLInputElement)
+        return;
+      event.preventDefault();
+      onPageStep(direction);
+    }
+    window.addEventListener("keydown", handleKey);
+    return (): void => window.removeEventListener("keydown", handleKey);
+  }, [isActive, onPageStep]);
 }
 
 /** One page of the sidebar; it is drawn only once it scrolls near the visible part. */
@@ -315,6 +423,7 @@ function PdfPageArea({
   preview,
   pageNumber,
   zoomPercent,
+  isDark = false,
 }: PdfPageAreaProps): React.ReactElement {
   const viewport = useRef<HTMLElement | null>(null);
   const canvas = useRef<HTMLCanvasElement | null>(null);
@@ -337,7 +446,7 @@ function PdfPageArea({
     <ScrollViewport
       ref={viewport}
       axis="both"
-      containerClassName="flex-1 bg-muted"
+      containerClassName={cn("flex-1", isDark ? "bg-viewer-scrim" : "bg-muted")}
       className="flex p-4"
       onViewportMeasure={handleMeasure}
     >
@@ -350,16 +459,45 @@ function PdfPageArea({
   );
 }
 
+/** The message of a PDF that is loading, failed or is encrypted. */
+function PdfStatus({
+  state,
+  isDark,
+}: {
+  readonly state: PdfDocumentState;
+  readonly isDark: boolean;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  let key = "chatPage.cards.pdf.loading";
+  if (state.isEncrypted === true) key = "chatPage.cards.pdf.encrypted";
+  else if (state.hasFailed) key = "chatPage.cards.pdf.failed";
+  return (
+    <p
+      role={state.hasFailed ? "alert" : "status"}
+      className={cn(
+        "flex min-h-0 flex-1 items-center justify-center p-6 text-center text-sm",
+        isDark
+          ? "bg-viewer-scrim text-viewer-muted"
+          : "bg-muted text-muted-foreground",
+      )}
+    >
+      {t(key)}
+    </p>
+  );
+}
+
 function PdfViewerDocument({
   url,
   onPageCount,
+  isFullscreen = false,
   className,
 }: PdfViewerProps): React.ReactElement {
-  const { t } = useTranslation();
-  const { preview, hasFailed } = usePdfDocument(url);
+  const state = usePdfDocument(url);
+  const { preview } = state;
   const [pageNumber, setPageNumber] = useState(1);
   const [zoomPercent, setZoomPercent] = useState(100);
   const pageCount = preview?.pageCount ?? 0;
+  const search = usePdfSearch(preview, setPageNumber);
 
   useEffect(() => {
     if (preview) onPageCount?.(preview.pageCount);
@@ -369,6 +507,8 @@ function PdfViewerDocument({
     if (pageCount === 0) return;
     setPageNumber((current) => clamp(current + direction, 1, pageCount));
   }
+
+  useWindowPageKeys(isFullscreen, handlePageStep);
 
   function handleZoomStep(direction: number): void {
     setZoomPercent((current) =>
@@ -382,6 +522,8 @@ function PdfViewerDocument({
 
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>): void {
     const direction = PAGE_KEY_STEPS.get(event.key);
+    // The full screen turns the page from the window; an input keeps its keys.
+    if (isFullscreen || event.target instanceof HTMLInputElement) return;
     if (direction === undefined || pageCount === 0) return;
     event.preventDefault();
     handlePageStep(direction);
@@ -402,6 +544,7 @@ function PdfViewerDocument({
         pageCount={pageCount}
         onZoomStep={handleZoomStep}
         onPageStep={handlePageStep}
+        search={search}
       />
       {preview ? (
         <div className="flex min-h-0 flex-1">
@@ -414,33 +557,27 @@ function PdfViewerDocument({
             preview={preview}
             pageNumber={pageNumber}
             zoomPercent={zoomPercent}
+            isDark={isFullscreen}
           />
         </div>
       ) : (
-        <p
-          role={hasFailed ? "alert" : "status"}
-          className="flex min-h-0 flex-1 items-center justify-center bg-muted p-6 text-center text-sm text-muted-foreground"
-        >
-          {t(
-            hasFailed
-              ? "chatPage.cards.pdf.failed"
-              : "chatPage.cards.pdf.loading",
-          )}
-        </p>
+        <PdfStatus isDark={isFullscreen} state={state} />
       )}
     </div>
   );
 }
 
 /**
- * Shows a PDF with a toolbar for zoom and pages, page thumbnails and the
- * current page. It fills its container and brings no title or close button;
- * the surrounding dialog or panel provides name, download and close.
+ * Shows a PDF with a toolbar for zoom, "Seite X von Y" and a search in the
+ * text (PAGE-385), page thumbnails and the current page. It fills its
+ * container and brings no title or close button; the surrounding dialog or
+ * panel provides name, download and close.
  *
  * @remarks
- * The arrow and page keys turn the page while the viewer has the focus. The
- * document is closed and its download aborted when the viewer goes away or
- * gets another address.
+ * The arrow and page keys turn the page while the viewer has the focus, in
+ * the full screen wherever the focus is. An encrypted PDF names that it stays
+ * downloadable; Pages never asks for its password. The document is closed and
+ * its download aborted when the viewer goes away or gets another address.
  *
  * @param props - The address of the PDF and the optional page count callback.
  */

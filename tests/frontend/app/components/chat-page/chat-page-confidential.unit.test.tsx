@@ -1,18 +1,7 @@
-import {
-  act,
-  fireEvent,
-  render,
-  renderHook,
-  screen,
-} from "@testing-library/react";
-import { I18nextProvider } from "react-i18next";
+import { act, renderHook } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 
-import {
-  ConfidentialButton,
-  useConfidential,
-} from "@/app/components/chat-page/chat-page-confidential";
-import { createI18n } from "@/app/lib/i18n";
+import { useConfidential } from "@/app/components/chat-page/chat-page-confidential";
 
 import { group, participant } from "./chat-page-fixture";
 
@@ -73,23 +62,4 @@ it("offers no toggle for a person or missing conversation", () => {
   act(() => result.current.onToggle());
   expect(fetcher.submit).not.toHaveBeenCalled();
   rerender({ current: opened });
-});
-
-it("renders the toggle state and invokes its callback", () => {
-  const onToggle = vi.fn();
-  const { rerender } = render(
-    <I18nextProvider i18n={createI18n("en")}>
-      <ConfidentialButton control={{ isConfidential: false, onToggle }} />
-    </I18nextProvider>,
-  );
-  const button = screen.getByRole("button");
-  expect(button.getAttribute("aria-pressed")).toBe("false");
-  fireEvent.click(button);
-  expect(onToggle).toHaveBeenCalledOnce();
-  rerender(
-    <I18nextProvider i18n={createI18n("en")}>
-      <ConfidentialButton control={{ isConfidential: null, onToggle }} />
-    </I18nextProvider>,
-  );
-  expect(screen.queryByRole("button")).toBeNull();
 });

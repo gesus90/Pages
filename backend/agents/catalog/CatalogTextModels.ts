@@ -9,8 +9,21 @@ function listsValue(list: unknown, value: string): boolean {
   return Array.isArray(list) && list.includes(value);
 }
 
-function listsOnly(list: unknown, value: string): boolean {
-  return Array.isArray(list) && list.length === 1 && list[0] === value;
+/** What a model may output beside text and still answer in text (PAGE-382, PAGE-384). */
+const OUTPUT_BESIDE_TEXT: readonly unknown[] = [
+  "text",
+  "image",
+  "video",
+  "audio",
+];
+
+/** Text alone, or text beside images, videos or sounds: a model that answers in text. */
+function listsTextOutput(list: unknown): boolean {
+  return (
+    Array.isArray(list) &&
+    list.includes("text") &&
+    list.every((item) => OUTPUT_BESIDE_TEXT.includes(item))
+  );
 }
 
 function statedModalities(list: unknown): readonly string[] {
@@ -28,7 +41,8 @@ function statedModalities(list: unknown): readonly string[] {
  *
  * @remarks
  * - OpenRouter states `architecture.input_modalities` and `output_modalities`;
- *   a text model accepts text and outputs only text, so image, audio, video,
+ *   a text model accepts text and outputs text, alone or beside images,
+ *   videos or sounds (PAGE-382, PAGE-384), so pure image, audio, video,
  *   speech, embedding, rerank and decision models stay out.
  * - Google states `supportedGenerationMethods`; Pages generates text through
  *   `generateContent`, so embedding, Imagen, Veo and answer-only models stay out.
@@ -41,7 +55,7 @@ export function isTextModel(entry: unknown, provider: ApiProviderId): boolean {
     const architecture = readAgentObject(model.architecture);
     return (
       listsValue(architecture.input_modalities, "text") &&
-      listsOnly(architecture.output_modalities, "text")
+      listsTextOutput(architecture.output_modalities)
     );
   }
   if (provider === "google_ai_studio")
