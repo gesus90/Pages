@@ -2,7 +2,11 @@ import { createHash } from "node:crypto";
 
 import { STORAGE_OPERATIONS } from "@/definition/GoogleDriveFiles";
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
-import { readMcpStorageInput } from "@/backend/service/mcp/storage/McpStorageRequest";
+import {
+  readMcpStorageInput,
+  readUploadConflict,
+  UPLOAD_CONFLICT_MESSAGE,
+} from "@/backend/service/mcp/storage/McpStorageRequest";
 import { McpStorageService } from "@/backend/service/mcp/storage/McpStorageService";
 import {
   AGENT_FILE_READ_OPERATIONS,
@@ -51,6 +55,25 @@ function storageResult(result: StorageResult<object>): PagesAgentReadResponse {
   return { apiVersion: "1", result: { storage: result } };
 }
 
+function parseStorageParameters(
+  storageOperation: string,
+  parameters: Readonly<Record<string, unknown>>,
+): NonNullable<ReturnType<typeof readMcpStorageInput>> {
+  const conflict =
+    storageOperation === "upload" ? readUploadConflict(parameters) : undefined;
+  if (conflict === null)
+    throw new AgentOperationError("INVALID_REQUEST", {
+      reason: "validation",
+      problems: [UPLOAD_CONFLICT_MESSAGE],
+    });
+  const parsed = readMcpStorageInput({
+    ...parameters,
+    ...(conflict === undefined ? {} : { onConflict: conflict }),
+  });
+  if (!parsed) throw new AgentOperationError("INVALID_REQUEST");
+  return parsed;
+}
+
 /** Implements the bridge operations without starting a transport or exposing a checkout. */
 export class AgentFileOperationService {
   private readonly dependencies: AgentFileDependencies;
@@ -81,8 +104,7 @@ export class AgentFileOperationService {
     );
     if (tool) return this.repositoryRead(identity.userId, tool, parameters);
     const storageOperation = operation.slice("storage.".length);
-    const parsed = readMcpStorageInput(parameters);
-    if (!parsed) throw new AgentOperationError("INVALID_REQUEST");
+    const parsed = parseStorageParameters(storageOperation, parameters);
     const api = new McpStorageService(
       this.dependencies.files.forAccount(identity.userId),
     );
