@@ -8,7 +8,6 @@ import { CodexPlanUsageRepository } from "@/backend/database/repositories/agent/
 import { CodexAgentBudget } from "@/backend/service/agents/usage/CodexAgentBudget";
 import path from "node:path";
 
-import { createModelNodeRunners } from "./agent-plan-swarm.server";
 import { canProcessRuns } from "@/backend/runtime/RunsMode";
 import { registerShutdownTask } from "@/backend/runtime/ProcessLifecycle";
 import { PlanRunCommandWorker } from "@/backend/service/agents/runs/PlanRunCommandWorker";
@@ -25,6 +24,7 @@ import { AgentPlanAgentTodoService } from "@/backend/service/agents/AgentPlanAge
 import { AgentPlanAgentTodoRepository } from "@/backend/database/repositories/agent/AgentPlanAgentTodoRepository";
 
 import { createPlanTodoProgress } from "./agent-plan-todo-progress.server";
+import { createModelNodeRunners } from "./agent-plan-swarm.server";
 
 import { AgentPlanStepReportRepository } from "@/backend/database/repositories/agent/AgentPlanStepReportRepository";
 import { AgentRunCredentialRepository } from "@/backend/database/repositories/mcp/AgentRunCredentialRepository";

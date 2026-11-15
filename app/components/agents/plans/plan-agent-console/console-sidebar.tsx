@@ -5,6 +5,7 @@ import { PLAN_BLOCKER_RETRIES } from "@/definition/AgentPlanRetry";
 import { ClaudeUsageDetails } from "../claude-usage-details";
 
 import { hasSessionEnded, infrastructureRestarts } from "./console-step-state";
+import { AntigravityUsageSection } from "./antigravity-usage-section";
 import { formatClock } from "./console-time";
 import { ConsoleTodoList } from "./console-todo-list";
 import { OpenCodeUsageSection } from "./open-code-usage-section";
@@ -150,7 +151,16 @@ function UsageSection(props: {
               : tokens
           }
         />
-        {codex ? null : <Fact label={t(`${key}.cost`)} value={cost} />}
+        {codex ? null : (
+          <Fact
+            label={t(
+              props.view.provider === "antigravity"
+                ? `${key}.antigravity.providerCost`
+                : `${key}.cost`,
+            )}
+          value={cost}
+        />
+        )}
       </dl>
       {props.view.claudeUsage ? (
         <ClaudeUsageDetails usage={props.view.claudeUsage} />
@@ -264,6 +274,7 @@ export function ConsoleSidebar(props: ConsoleSidebarProps): React.ReactElement {
           props.view.state === "running" && !hasSessionEnded(props.step)
         }
       />
+      <AntigravityUsageSection view={props.view} />
       <SessionSection step={props.step} view={props.view} />
     </aside>
   );

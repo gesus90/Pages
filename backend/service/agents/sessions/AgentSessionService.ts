@@ -10,6 +10,7 @@ import {
   sessionStart,
 } from "./AgentSessionAttempts";
 import { decideContinuation } from "./AgentSessionContinuation";
+import { antigravityUsage } from "./AntigravityUsage";
 import { AgentSessionRecorder } from "./AgentSessionRecorder";
 import { sumOpenCodeUsage } from "./OpenCodeUsage";
 import { UNKNOWN_CONTEXT, sumTurnUsage } from "./AgentSessionUsage";
@@ -18,6 +19,7 @@ import { followRemoteSession } from "./RemoteSessionFollower";
 
 import type { ClaudeUsageSummary } from "@/definition/ClaudeUsage";
 import type { AcpSessionListener } from "@/backend/agents/acp/AcpChat";
+import type { AntigravityPriceCatalog } from "./AntigravityPriceCatalog";
 import type { PlanSessionTurn } from "@/backend/agents/AgentPlanExecution";
 import type { AgentPlanRun } from "@/definition/AgentPlan";
 import type {
@@ -79,6 +81,39 @@ function runOpenCodeAttemptIds(run: AgentPlanRun): ReadonlySet<string> {
   );
 }
 
+function antigravityAttempts(
+  run: AgentPlanRun,
+  stepId: string,
+): {
+  readonly stepAttempts: ReadonlySet<string>;
+  readonly runAttempts: ReadonlySet<string>;
+  readonly confirmedModels: ReadonlyMap<string, string>;
+} {
+  const attempts = listSessionAttempts(run).filter(
+    (attempt) => attempt.record.runner === "antigravity",
+  );
+  return {
+    confirmedModels: new Map(
+      attempts.flatMap((attempt) => {
+        const model = attempt.record.effective?.model;
+        return model ? [[attempt.key.attemptId, model] as const] : [];
+      }),
+    ),
+    stepAttempts: new Set(
+      attempts
+        .filter((attempt) => attempt.key.stepId === stepId)
+        .flatMap((attempt) => [
+          ...nodeAttemptIds(attempt.key.attemptId, attempt.record),
+        ]),
+    ),
+    runAttempts: new Set(
+      attempts.flatMap((attempt) => [
+        ...nodeAttemptIds(attempt.key.attemptId, attempt.record),
+      ]),
+    ),
+  };
+}
+
 /** Reads and stops runs with every current right of their executor checked. */
 export interface AgentSessionRunAccess {
   run(userId: string, runId: string): Promise<AgentPlanRun>;
@@ -125,6 +160,7 @@ export interface AgentSessionServiceDependencies {
   readonly hasPlanCheckpoint?: (runId: string) => Promise<boolean>;
   readonly clock?: () => string;
   readonly saveUsage?: (usage: AgentSessionTurnUsage) => Promise<void>;
+  readonly priceCatalog?: Pick<AntigravityPriceCatalog, "calculate">;
 }
 
 const UNKNOWN_VALUE = { value: null, source: null, reportedAt: null } as const;
@@ -299,6 +335,12 @@ export class AgentSessionService {
         runTurns.filter((turn) => nodeAttempts.has(turn.attemptId)),
       ),
       ...(openCode ? { openCode } : {}),
+      ...(await this.antigravityView(
+        attempt.record.runner,
+        run,
+        key.stepId,
+        runTurns,
+      )),
       continuation: decideContinuation({
         isAuthorized: true,
         isConfigurationCompatible: true,
@@ -482,6 +524,22 @@ export class AgentSessionService {
         this.live.get(key.attemptId)?.turn.cancelTurn !== undefined,
       canCancelRun: isRunActive(run),
       canRecover: false,
+    };
+  }
+
+  private async antigravityView(
+    runner: string,
+    run: AgentPlanRun,
+    stepId: string,
+    turns: readonly AgentSessionTurnUsage[],
+  ): Promise<Pick<AgentSessionView, "antigravity">> {
+    if (runner !== "antigravity") return {};
+    return {
+      antigravity: await antigravityUsage({
+        turns,
+        ...antigravityAttempts(run, stepId),
+        catalog: this.dependencies.priceCatalog,
+      }),
     };
   }
 

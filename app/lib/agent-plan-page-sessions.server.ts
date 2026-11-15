@@ -1,3 +1,7 @@
+import { getPagesRuntime } from "@/backend/runtime/PagesRuntime";
+
+import { createPriceCatalog } from "./agent-plan-pricing.server";
+
 import { accountClaudeUsage } from "@/backend/service/agents/sessions/ClaudeUsageAccounting";
 import { canProcessRuns } from "@/backend/runtime/RunsMode";
 import { AgentPlanCheckpointRepository } from "@/backend/database/repositories/agent/AgentPlanCheckpointRepository";
@@ -30,9 +34,11 @@ export async function createPageAgentSessions(
   });
   const inbox = new AgentSessionInbox(store, journal);
   if (canProcessRuns()) await inbox.recover();
+  const runtime = await getPagesRuntime();
   return new AgentSessionService({
     runs,
     store,
+    priceCatalog: createPriceCatalog(runtime.configFile.path),
     saveUsage: (usage) =>
       usage.provider === "claude_code"
         ? accountClaudeUsage(input.database, usage)

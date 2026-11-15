@@ -5752,6 +5752,28 @@
           "context": "Kontext",
           "tokens": "Tokens gesamt",
           "afterTurn": "nach Turn-Ende",
+          "antigravity": {
+            "title": "Antigravity · erfasster Verbrauch",
+            "step": "Schritt (alle Versuche und Schleifen)",
+            "run": "Lauf (Antigravity)",
+            "inputTokens": "Eingabe",
+            "outputTokens": "Ausgabe",
+            "cacheReadTokens": "Cache gelesen",
+            "cacheWriteTokens": "Cache geschrieben",
+            "reasoningTokens": "Reasoning",
+            "estimate": "Rechnerisch (OpenRouter)",
+            "subscription": "Abo-Kosten: nicht ermittelt. Der OpenRouter-Vergleich ist keine Abo-Abrechnung.",
+            "partial": "Unvollständiger Verbrauch; nur die gemeldete Arbeit wird erfasst.",
+            "priceAsOf": "Katalogstand: {{dates}}",
+            "providerCost": "Provider-Meldung (Session)",
+            "gap": {
+              "model": "Kein eindeutiger OpenRouter-Modelltreffer.",
+              "tokens": "Benötigte Verbrauchsdaten fehlen oder sind ungültig.",
+              "cache_semantics": "Die Cache-Zählweise ist nicht bestätigt.",
+              "price": "Benötigte Preise fehlen.",
+              "attempt": "Für mindestens einen Versuch fehlen Verbrauchsmeldungen."
+            }
+          },
           "cost": "Kosten",
           "notReported": "nicht gemeldet",
           "priceUnknown": "Preis unbekannt",

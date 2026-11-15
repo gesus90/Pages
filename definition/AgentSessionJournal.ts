@@ -16,6 +16,7 @@ import type {
   AgentSessionKey,
   AgentSessionState,
 } from "./AgentSessionEvents.js";
+import type { AntigravityUsageTotal } from "./AgentSessionPricing";
 
 export type {
   AgentSessionKey,
@@ -219,6 +220,11 @@ export interface AgentSessionView {
   readonly openCode?: {
     readonly step: OpenCodeUsageTotal;
     readonly run: OpenCodeUsageTotal;
+  };
+  /** Captured Antigravity usage, independent of the subscription invoice. */
+  readonly antigravity?: {
+    readonly step: AntigravityUsageTotal;
+    readonly run: AntigravityUsageTotal;
   };
   readonly continuation: AgentSessionContinuation;
   readonly messages: readonly AgentSessionMessage[];
