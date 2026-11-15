@@ -1,3 +1,4 @@
+import { claudeRunUsage } from "@/definition/ClaudeUsageSummary";
 import { withReadScope } from "@/backend/database/ReadScope";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { allRunAssetReferences } from "@/backend/agents/AgentPlanRunResources";
@@ -27,6 +28,7 @@ export type PlanRunReadDependencies = Pick<
   | "workGate"
   | "stepProgress"
   | "agentTodos"
+  | "usage"
 > & {
   readonly engine?: Pick<PlanRunEnginePort, "commandReceipt">;
   readonly remoteExecution?: Pick<
@@ -130,7 +132,10 @@ async function withRunViews(
     progressView,
     (await dependencies.agentTodos?.listForRun(run.id)) ?? new Map(),
   );
-  return withRunCommand(dependencies.engine, withTodos);
+  return withRunCommand(
+    dependencies.engine,
+    await withClaudeRunUsage(dependencies, withTodos),
+  );
 }
 
 async function loadAuthorizedPlanRun(
@@ -199,4 +204,19 @@ async function requireRemoteRead(
       (workspaceId) => !registered || registered.has(workspaceId),
     ),
   });
+}
+
+/** Adds only public accounting after the caller checked run/resource access. */
+export async function withClaudeRunUsage(
+  dependencies: Pick<PlanRunReadDependencies, "usage">,
+  run: AgentPlanRun,
+): Promise<AgentPlanRun> {
+  if (!dependencies.usage) return run;
+  return {
+    ...run,
+    claudeUsage: claudeRunUsage(
+      run,
+      await dependencies.usage.listRunUsage(run.id),
+    ),
+  };
 }

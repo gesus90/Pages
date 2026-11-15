@@ -85,3 +85,15 @@ from the answer. This needs no sign-in, opens no session and calls no model.
 Behaviour beyond `initialize` (steering, usage, compaction) is read from the
 adapter's `dist/acp-agent.js`, `dist/context-compaction.js` and
 `dist/tool-calls/reporters/compaction.js`.
+
+## Plan accounting (PAGE-359)
+
+The plan profile additionally requests `_meta.claudeCode.emitRawSDKMessages` for
+`assistant` and `result`. The adapter sends `_claude/sdkMessage` notifications.
+Plans retain only sanitized token observations, deduplicate assistant message IDs
+and reconcile them with cumulative `result.modelUsage`; unlike the flat prompt
+usage, that model breakdown also includes subagents and internal work. A durable
+session watermark prevents charging old readings after resume. Pica's chat usage
+path above stays unchanged. Plan prices come from the cached public OpenRouter
+catalog, frozen per step/model, with explicit administrator mappings when needed.
+See `backend/service/agents/sessions/PageAgentCliSessions.md`.

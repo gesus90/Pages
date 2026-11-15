@@ -78,3 +78,17 @@ export function agentTodoSummary(
     isReported: todos.length > 0,
   };
 }
+
+/** Counts the structured TODOs reported by the agent. */
+export function nativeAgentTodoSummary(
+  step: AgentPlanStepResult | undefined,
+): AgentTodoSummary {
+  const todos = step?.agentTodos?.todos ?? [];
+  return {
+    todos,
+    done: todos.filter((todo) => todo.status === "done").length,
+    total: todos.length,
+    current: activeAgentTodo(todos),
+    isReported: todos.length > 0,
+  };
+}

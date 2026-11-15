@@ -17,6 +17,7 @@ import type { Dispatch, FormEvent, SetStateAction } from "react";
 interface AgentFormFields {
   readonly codexPriceMappings?: string;
   readonly name: string;
+  readonly claudePriceModels?: string;
   readonly provider: AgentProviderId;
   readonly zaiAccountType: string;
   readonly apiKey: string;
@@ -34,6 +35,7 @@ type StoredChoice = Pick<
   | "scope"
   | "zaiAccountType"
   | "codexPriceMappings"
+  | "claudePriceModels"
 >;
 
 /** The server lists targets by kind, the form in the order of the choices. */
@@ -80,6 +82,11 @@ function storedChoice(
   return {
     ...formatCodexPriceMappings(connection, kind),
     testModel: connection?.testModel ?? "",
+    ...(connection?.provider === "claude_code"
+      ? {
+          claudePriceModels: JSON.stringify(connection.claudePriceModels ?? {}),
+        }
+      : {}),
     reasoningEffort: connection?.reasoningEffort ?? "",
     scope: connection?.scope ?? GLOBAL_CONNECTION_SCOPE,
     zaiAccountType: connection?.zaiAccountType ?? (connection ? "api" : ""),
@@ -90,6 +97,7 @@ function isSameChoice(left: StoredChoice, right: StoredChoice): boolean {
   return (
     left.codexPriceMappings === right.codexPriceMappings &&
     left.testModel === right.testModel &&
+    left.claudePriceModels === right.claudePriceModels &&
     left.reasoningEffort === right.reasoningEffort &&
     left.zaiAccountType === right.zaiAccountType &&
     isSameScope(left.scope, right.scope)
@@ -195,13 +203,17 @@ export function useAgentForm(
   }, [fetcher.data, fetcher.state, fields, onSaved, setFields, setSaved, t]);
   function handleSubmit(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
-    const { scope, zaiAccountType, codexPriceMappings, ...text } = fields;
+    const { scope, zaiAccountType, codexPriceMappings, claudePriceModels, ...text } = fields;
     void fetcher.submit(
       {
         ...text,
         ...(fields.provider === "codex_cli" &&
         (!connection || codexPriceMappings !== saved.codexPriceMappings)
           ? { codexPriceMappings: codexPriceMappings ?? "" }
+          : {}),
+        ...(fields.provider === "claude_code" &&
+        claudePriceModels !== saved.claudePriceModels
+          ? { claudePriceModels: claudePriceModels ?? "" }
           : {}),
         ...(fields.provider === "zai" &&
         (!connection || zaiAccountType !== saved.zaiAccountType)

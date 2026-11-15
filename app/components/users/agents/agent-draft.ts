@@ -18,6 +18,7 @@ export interface AgentDraft {
   readonly modelKey: string;
   readonly reasoningEffort: string;
   readonly access: AgentEmployeeAccess;
+  readonly claudeMonthlyCostLimitUsd?: string;
   readonly roleId: string;
   readonly departments: readonly string[];
   readonly soul: string;
@@ -58,6 +59,7 @@ export function createAgentDraft(
       modelKey: "",
       reasoningEffort: "",
       access: "read_only",
+      claudeMonthlyCostLimitUsd: "",
       roleId: defaults.roleId,
       departments: [],
       soul: defaults.soul,
@@ -78,6 +80,10 @@ export function createAgentDraft(
     modelKey: agentModelKey(agent.settings.connectionId, agent.settings.model),
     reasoningEffort: agent.settings.reasoningEffort ?? "",
     access: agent.settings.access,
+    claudeMonthlyCostLimitUsd:
+      agent.settings.claudeMonthlyCostLimitUsd == null
+        ? ""
+        : String(agent.settings.claudeMonthlyCostLimitUsd),
     roleId: agent.roleId ?? defaults.roleId,
     departments: agent.departmentIds,
     soul: agent.documents.soul,
@@ -130,6 +136,7 @@ export function agentDraftPayload(
     ...selectionOf(draft, models, agent),
     reasoningEffort: draft.reasoningEffort,
     access: draft.access,
+    claudeMonthlyCostLimitUsd: draft.claudeMonthlyCostLimitUsd,
     soul: draft.soul,
     instructions: draft.instructions,
     // Unchanged files are not sent, so a save keeps what Pages wrote since loading (PAGE-305).

@@ -27,6 +27,7 @@ import {
   reconcileAcpRunLeases,
 } from "./resources/AcpLeaseOwnership";
 import { enqueueAcpRequest } from "./resources/AcpAdmissionRequest";
+import { AcpLeaseReconciler } from "./AcpLeaseReconciler";
 
 import type { SchedulerDependencies } from "./resources/AcpSchedulerDependencies";
 import type { AcpLeaseCleanup } from "./resources/AcpLeaseCleanup";
@@ -75,6 +76,7 @@ export class AcpResourceScheduler {
   private readonly shutdownController = new AbortController();
   private readonly opening = new Set<Promise<PlanSession>>();
   private readonly checks: AcpLeaseChecks;
+  private readonly reconciler: AcpLeaseReconciler;
   /** The administrator's check and confirmed cleanup of the leases this service owns (PAGE-340). */
   public readonly leaseCleanup: AcpLeaseCleanup;
   private unverifiedLocal: Set<string> = new Set();
@@ -119,6 +121,17 @@ export class AcpResourceScheduler {
       owns: (record) => this.admission.owns(record),
     });
     this.leaseCleanup = this.checks.cleanup;
+    this.reconciler = new AcpLeaseReconciler({
+      store: this.store,
+      active: this.active,
+      sessions: this.sessions,
+      unverifiedLocal: () => this.unverifiedLocal,
+      cleanup: this.cleanup,
+      settleUnits: this.settleUnits,
+      persist: (task) => this.persist(task),
+      transition: (instanceId, state) => this.transition(instanceId, state),
+      finish: (instanceId, isConfirmed) => this.finish(instanceId, isConfirmed),
+    });
   }
 
   /**

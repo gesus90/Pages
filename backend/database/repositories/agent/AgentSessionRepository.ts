@@ -47,6 +47,8 @@ function attemptParameters(attempt: AgentSessionAttemptRecord): SqlParameters {
     attempt;
   return {
     attempt_id: key.attemptId,
+    connection_id: attempt.connectionId ?? null,
+    requested_model: attempt.requestedModel ?? null,
     plan_id: key.planId,
     run_id: key.runId,
     step_id: key.stepId,
@@ -72,9 +74,7 @@ function attemptParameters(attempt: AgentSessionAttemptRecord): SqlParameters {
     git_reference: gitReference(workspace?.git),
     workspace_at: workspace?.checkedAt ?? null,
     updated_at: attempt.updatedAt,
-    connection_id: attempt.connectionId ?? null,
     agent_id: attempt.agentId ?? null,
-    requested_model: attempt.requestedModel ?? null,
   };
 }
 
@@ -230,6 +230,39 @@ export class AgentSessionRepository implements AgentSessionStore {
       return;
     }
     await writeAgentSessionUsage(this.database, usage);
+  }
+
+  /** Reads all frozen rates of a step so later turns keep its original price stand. */
+  public async listAttemptUsage(
+    attemptId: string,
+  ): Promise<readonly AgentSessionTurnUsage[]> {
+    const rows = await this.database.query(
+      `
+      SELECT ${USAGE_COLUMNS}
+      FROM agent_session_turn_usage
+      WHERE attempt_id = $attempt_id
+      ORDER BY turn;
+    `,
+      { attempt_id: attemptId },
+    );
+    return rows.map(readUsageRow);
+  }
+
+  /** Reads one turn while the Claude session ledger is locked. */
+  public async findTurnUsage(
+    attemptId: string,
+    turn: number,
+  ): Promise<AgentSessionTurnUsage | null> {
+    const [row] = await this.database.query(
+      `
+      SELECT ${USAGE_COLUMNS}
+      FROM agent_session_turn_usage
+      WHERE attempt_id = $attempt_id
+          AND turn = $turn;
+    `,
+      { attempt_id: attemptId, turn },
+    );
+    return row ? readUsageRow(row) : null;
   }
 
   /** Reads the turns of every attempt of a run. */

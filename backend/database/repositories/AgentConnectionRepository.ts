@@ -25,6 +25,7 @@ import type { AgentConnectionRecord } from "./agent/AgentConnectionRows";
 
 export interface AgentConnectionWrite {
   readonly codexPriceMappings?: Readonly<Record<string, string>>;
+  readonly claudePriceModels?: Readonly<Record<string, string>>;
   readonly id: string;
   readonly name: string;
   readonly provider: AgentProviderId;
@@ -38,6 +39,7 @@ export interface AgentConnectionWrite {
 
 export interface AgentConnectionChange {
   readonly codexPriceMappings?: Readonly<Record<string, string>>;
+  readonly claudePriceModels?: Readonly<Record<string, string>>;
   readonly name: string;
   readonly zaiAccountType?: ZaiAccountType;
   readonly clearAccess?: boolean;
@@ -176,6 +178,7 @@ export class AgentConnectionRepository {
             id,
             name,
             provider,
+            claude_price_models,
             zai_account_type,
             codex_price_mappings,
             secret_encrypted,
@@ -186,6 +189,7 @@ export class AgentConnectionRepository {
             $id,
             $name,
             $provider,
+            $claude_price_models,
             $zai_account_type,
             $codex_price_mappings,
             $secret_encrypted,
@@ -198,6 +202,9 @@ export class AgentConnectionRepository {
           id: connection.id,
           name: connection.name,
           provider: connection.provider,
+          claude_price_models: JSON.stringify(
+            connection.claudePriceModels ?? {},
+          ),
           zai_account_type: connection.zaiAccountType ?? "api",
           codex_price_mappings: JSON.stringify(
             connection.codexPriceMappings ?? {},
@@ -225,6 +232,7 @@ export class AgentConnectionRepository {
         UPDATE agent_connections
         SET
             name = $name,
+            claude_price_models = COALESCE($claude_price_models, claude_price_models),
             zai_account_type = COALESCE($zai_account_type, zai_account_type),
             codex_price_mappings = COALESCE($codex_price_mappings, codex_price_mappings),
             secret_encrypted = COALESCE($secret_encrypted, secret_encrypted),
@@ -237,6 +245,10 @@ export class AgentConnectionRepository {
         {
           id,
           name: change.name,
+          claude_price_models:
+            change.claudePriceModels === undefined
+              ? null
+              : JSON.stringify(change.claudePriceModels),
           zai_account_type: change.zaiAccountType ?? null,
           codex_price_mappings:
             change.codexPriceMappings === undefined

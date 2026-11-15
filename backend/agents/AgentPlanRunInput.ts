@@ -1,4 +1,5 @@
 import { isAcpWaitReason } from "@/definition/AcpResource";
+import { claudeRunUsageSchema } from "@/definition/ClaudeUsage";
 import { planRunCommandReceiptSchema } from "@/definition/PagesRuns";
 import { planResourceReleaseSchema } from "@/definition/AgentPlanResourceRelease";
 import { planWriterWaitSchema } from "@/definition/AgentPlanExecution";
@@ -40,6 +41,7 @@ export function readPlanRun(input: unknown): AgentPlanRun {
     throw new AgentError("plan_invalid");
   return {
     id: readPlanText(run.id),
+    ...readClaudeUsage(run.claudeUsage),
     planId: readPlanText(run.planId),
     planName: readPlanText(run.planName, 120),
     userId: readPlanText(run.userId),
@@ -148,6 +150,12 @@ function readRunCommand(input: unknown): Pick<AgentPlanRun, "command"> {
   return input === undefined
     ? {}
     : { command: planRunCommandReceiptSchema.parse(input) };
+}
+
+function readClaudeUsage(input: unknown): Pick<AgentPlanRun, "claudeUsage"> {
+  if (input === undefined) return {};
+  if (input === null) return { claudeUsage: null };
+  return { claudeUsage: claudeRunUsageSchema.parse(input) };
 }
 
 function readControlError(

@@ -1,4 +1,5 @@
 import { withTurn } from "./AgentPlanSessionRecords";
+import { controlledPlanSessionTurn } from "./AgentPlanTurnControl";
 import { renderPlanAssignment } from "./AgentPlanContract";
 import { sessionStart } from "./sessions/AgentSessionAttempts";
 
@@ -16,6 +17,7 @@ import type {
 import type { AgentPlanStepStart } from "./AgentPlanStepStart";
 import type { AgentSessionService } from "./sessions/AgentSessionService";
 import type { AgentPlanSessionRecord } from "@/definition/AgentPlanSession";
+import type { PlanSessionCloseout } from "./AgentPlanSessionCloseout";
 
 const MAXIMUM_TODO_RETURNS = 3;
 
@@ -26,22 +28,27 @@ interface ContinuationDependencies {
   readonly hasDurableLocalSessions?: boolean;
   readonly observer: PlanSessionObserver;
   readonly save: (changes: Partial<AgentPlanSessionRecord>) => Promise<void>;
+  readonly close: () => Promise<PlanSessionCloseout>;
 }
 
-/** Gives incomplete work back to the same native session, with at most three corrective turns. */
+/**
+ * Gives incomplete work back to the same native session, with at most three corrective turns.
+ *
+ * @returns The final assessment, or `null` when Stop or a timeout ended a turn and its cleanup was recorded.
+ */
 export async function runPlanTodoTurns(
   input: {
     readonly node: NodeRun;
     readonly session: PlanSession;
     readonly terms: AgentPlanSessionTerms;
-    readonly initialTurn: PlanSessionTurn;
   },
   dependencies: ContinuationDependencies,
-): Promise<PlanTurnAssessment & { readonly turn: PlanSessionTurn }> {
+): Promise<(PlanTurnAssessment & { readonly turn: PlanSessionTurn }) | null> {
   const { node, session } = input;
   let terms = input.terms;
-  let turn = input.initialTurn;
+  let turn = await controlledTurn(node, session.turn, dependencies);
   for (;;) {
+    if (!turn) return null;
     await node.control.waitUntilResumed?.();
     if (
       node.step.provider === "codex_cli" &&
@@ -82,12 +89,28 @@ export async function runPlanTodoTurns(
     node.todoReturns = todoReturnCount(node) + 1;
     await dependencies.save({ todoReturns: node.todoReturns });
     terms = { ...terms, contract: assessed.contract };
-    turn = await nextTodoTurn(
-      { node, session, terms },
+    turn = await controlledTurn(
+      node,
+      nextTodoTurn(
+        { node, session, terms },
+        dependencies,
+        open.map((todo) => todo.id),
+      ),
       dependencies,
-      open.map((todo) => todo.id),
     );
   }
+}
+
+async function controlledTurn(
+  node: NodeRun,
+  pending: Promise<PlanSessionTurn>,
+  dependencies: ContinuationDependencies,
+): Promise<PlanSessionTurn | null> {
+  return controlledPlanSessionTurn(
+    node,
+    { turn: pending },
+    { close: dependencies.close, save: dependencies.save },
+  );
 }
 
 function canContinueTodos(
@@ -104,7 +127,9 @@ function canContinueTodos(
     input.session.next !== undefined &&
     !input.node.control.signal.aborted &&
     input.turn.permissionDenials === 0 &&
-    !input.assessed.acceptance.issues.includes("business_blocked")
+    !input.assessed.acceptance.issues.includes("business_blocked") &&
+    // Without any report the agent never said "done": the step retry handles that case.
+    !input.assessed.acceptance.issues.includes("report_missing")
   );
 }
 

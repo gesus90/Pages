@@ -12,6 +12,8 @@ export const AGENT_ERROR_MESSAGES = {
     "Invalid Codex to OpenRouter model price mapping.",
   codex_monthly_cost_limit: "The agent reached its monthly Codex cost limit.",
   plan_start_end_disconnected: "Start is not connected to End.",
+  claude_monthly_cost_limit:
+    "The agent account reached its configured monthly limit for Claude plan steps.",
   workspace_unavailable:
     "No usable workspace of this project is available. Add or enable a workspace and try cloning again.",
   source_not_visible:

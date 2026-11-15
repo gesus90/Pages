@@ -1,3 +1,4 @@
+import type { StepRunnerDependencies } from "./AgentPlanStepRunnerDependencies";
 import { randomUUID } from "node:crypto";
 
 import { AgentPlanPausedError } from "@/backend/error/AgentPlanPausedError";
@@ -9,7 +10,6 @@ import { logCaughtError } from "@/backend/logging/Logger";
 
 import { planTurnTimeout } from "./AgentPlanTimeout";
 import {
-  controlledPlanSessionTurn,
   planStepProgress,
 } from "./AgentPlanTurnControl";
 import { planPauseGate } from "./AgentPlanPauseGate";
@@ -70,23 +70,17 @@ import { planStackNodeInput } from "./stack/AgentPlanStackInputs";
 
 import type {
   AgentPlanSessionInput,
-  PlanExecution,
   PlanSession,
   PlanSessionObserver,
   PlanSessionTurn,
 } from "@/backend/agents/AgentPlanExecution";
 import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
 import type { AgentPlanSessionRecord } from "@/definition/AgentPlanSession";
-import type { AgentPlanSessionAccess } from "./AgentPlanSessionAccess";
 import type {
   AgentPlanSnapshot,
   AgentPlanStepSnapshot,
 } from "./AgentPlanSnapshot";
-import type {
-  AgentPlanStepStart,
-  PreparedPlanStep,
-} from "./AgentPlanStepStart";
-import type { AgentPlanTasks } from "./AgentPlanTasks";
+import type { PreparedPlanStep } from "./AgentPlanStepStart";
 import type { AgentPlanSessionTerms } from "./AgentPlanStepAssessment";
 import type { AgentPlanStepReportService } from "./AgentPlanStepReportService";
 import type { AgentPlanStepProgressService } from "./AgentPlanStepProgressService";
@@ -98,26 +92,7 @@ import type { StepSessionCloseoutTarget } from "./AgentPlanStepSessionCloseout";
 
 export type { StepRunControl } from "./AgentPlanStepContext";
 
-interface StepRunnerDependencies {
-  readonly localSessions?: LocalSessions;
-  readonly start: Pick<AgentPlanStepStart, "prepare"> &
-    Partial<Pick<AgentPlanStepStart, "prepareGroup">>;
-  readonly execution: PlanExecution;
-  readonly tasks: Pick<AgentPlanTasks, "checklist"> &
-    Partial<Pick<AgentPlanTasks, "snapshot">>;
-  readonly access: Pick<AgentPlanSessionAccess, "grant" | "revoke">;
-  /** Takes what a session reports through `report_step_result`. */
-  readonly stepReports?: Pick<AgentPlanStepReportService, "open" | "close">;
-  /** The live progress of a step, which a new session after a failure continues from (PAGE-284). */
-  readonly stepProgress?: Pick<AgentPlanStepProgressService, "find"> &
-    Partial<Pick<AgentPlanStepProgressService, "initialize" | "current">>;
-  readonly archive?: Pick<AgentRunArchive, "input">;
-  /** Records the PageAgentCLI history and usage of every ACP node. */
-  readonly sessions?: Pick<
-    AgentSessionService,
-    "listen" | "settle" | "released" | "offer" | "abandon"
-  >;
-}
+
 
 /**
  * Runs one agent node: request or session, acceptance, closeout and result code.
@@ -481,14 +456,8 @@ export class AgentPlanStepRunner {
     session: PlanSession,
     terms: AgentPlanSessionTerms,
   ): Promise<Partial<AgentPlanStepResult>> {
-    const initialTurn = await controlledPlanSessionTurn(node, session, {
-      close: () => this.closeSession(node, session),
-      save: (changes) => this.complete(node, changes),
-    });
-    if (!initialTurn)
-      return planNodeFailureResult(node, new AgentPlanCancelledError());
-    const { assessed, output, turn } = await runPlanTodoTurns(
-      { node, session, terms, initialTurn },
+    const reportedTurns = await runPlanTodoTurns(
+      { node, session, terms },
       {
         reports: this.turnReports,
         start: this.dependencies.start,
@@ -497,8 +466,12 @@ export class AgentPlanStepRunner {
           this.dependencies.execution.hasDurableLocalSessions,
         observer: this.observer(node),
         save: (changes) => this.complete(node, changes),
+        close: () => this.closeSession(node, session),
       },
     );
+    if (!reportedTurns)
+      return planNodeFailureResult(node, new AgentPlanCancelledError());
+    const { assessed, output, turn } = reportedTurns;
     const acceptance = assessed?.acceptance ?? null;
     const outcome = planAcceptanceOutcome(node, acceptance);
     const acceptanceFailure = outcome.failure;

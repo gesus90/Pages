@@ -1,4 +1,5 @@
 import { codexAccountingSchema } from "@/definition/CodexPlanUsage";
+import { claudeAccountingSchema } from "@/definition/ClaudeUsage";
 import { readAgentPayload } from "@/backend/storage/AgentPayloadFileStore";
 import {
   readBooleanColumn,
@@ -121,7 +122,8 @@ export const USAGE_COLUMNS = `
     agent_session_turn_usage.is_partial,
     agent_session_turn_usage.reported_at,
     agent_session_turn_usage.reasoning_tokens,
-    agent_session_turn_usage.codex_accounting`;
+    agent_session_turn_usage.codex_accounting,
+    agent_session_turn_usage.claude_accounting`;
 
 /** The columns of a message, in the order {@link readMessageRow} reads them. */
 export const MESSAGE_COLUMNS = `
@@ -291,6 +293,9 @@ export function readUsageRow(row: Row): AgentSessionTurnUsage {
     ),
     isPartial: readBooleanColumn(row, 10, "is_partial"),
     reportedAt: readTextColumn(row, 11, "reported_at"),
+    ...(typeof row[14] === "string"
+      ? { claudeAccounting: claudeAccountingSchema.parse(JSON.parse(row[14])) }
+      : {}),
     reasoningTokens: nullableCount(row, 12, "reasoning_tokens"),
     ...(typeof row[13] === "string"
       ? { accounting: codexAccountingSchema.parse(JSON.parse(row[13])) }

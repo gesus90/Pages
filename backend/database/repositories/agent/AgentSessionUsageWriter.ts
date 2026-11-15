@@ -22,7 +22,8 @@ export async function writeAgentSessionUsage(
           is_partial,
           reported_at,
           reasoning_tokens,
-          codex_accounting
+          codex_accounting,
+          claude_accounting
       )
       VALUES (
           $attempt_id,
@@ -38,7 +39,8 @@ export async function writeAgentSessionUsage(
           $is_partial,
           $reported_at,
           $reasoning_tokens,
-          $codex_accounting
+          $codex_accounting,
+          $claude_accounting
       )
       ON CONFLICT (attempt_id, turn) DO UPDATE SET
           model = excluded.model,
@@ -51,7 +53,8 @@ export async function writeAgentSessionUsage(
           is_partial = excluded.is_partial,
           reported_at = excluded.reported_at,
           reasoning_tokens = excluded.reasoning_tokens,
-          codex_accounting = excluded.codex_accounting;
+          codex_accounting = excluded.codex_accounting,
+          claude_accounting = excluded.claude_accounting;
     `,
     {
       attempt_id: usage.attemptId,
@@ -67,6 +70,9 @@ export async function writeAgentSessionUsage(
       is_partial: usage.isPartial,
       reported_at: usage.reportedAt,
       reasoning_tokens: usage.reasoningTokens ?? null,
+      claude_accounting: usage.claudeAccounting
+        ? JSON.stringify(usage.claudeAccounting)
+        : null,
       codex_accounting: usage.accounting
         ? JSON.stringify(usage.accounting)
         : null,

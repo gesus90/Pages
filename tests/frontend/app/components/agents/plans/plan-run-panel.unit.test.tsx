@@ -461,25 +461,32 @@ it("releases the reservations or opens the restart when the block names that act
   ).toBeDefined();
 });
 
-it("asks before it ends an open run for a new one, and sends the confirmation", async () => {
-  const { scene } = renderPanel({
-    control: planControl({
-      runId: "run-1",
-      status: "running",
-      canPlay: true,
-      canRestart: true,
-      canStop: true,
-    }),
-  });
-
+it("names a running owner of another plan before Starten sends the confirmed replacement", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () =>
+      Response.json({
+        owners: [
+          {
+            runId: "foreign-running-run",
+            planName: "Other plan",
+            startedAt: "2026-11-13T11:11:00Z",
+          },
+        ],
+      }),
+    ),
+  );
+  const { scene } = renderPanel();
   fireEvent.click(button("play"));
   expect(scene.submissions).toHaveLength(0);
+  expect(
+    await screen.findByText(/Other plan · foreign-running-run/u),
+  ).toBeDefined();
   fireEvent.click(
     await screen.findByRole("button", {
       name: i18n.t("plans.openRun.confirm"),
     }),
   );
-
   await waitFor(() => expect(scene.submissions).toHaveLength(1));
   expect(scene.submissions[0]?.get("replaceOpenRun")).toBe("true");
 });

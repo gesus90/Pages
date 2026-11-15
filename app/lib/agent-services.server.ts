@@ -7,6 +7,8 @@ import { registerShutdownTask } from "@/backend/runtime/ProcessLifecycle";
 import { AgentEnvironmentRepository } from "@/backend/database/repositories/agent/AgentEnvironmentRepository";
 import { AgentEnvironmentMaintenance } from "@/backend/storage/AgentEnvironmentMaintenance";
 import { WikiMaintenanceScheduler } from "@/backend/service/wiki/WikiMaintenanceScheduler";
+import { ClaudeMonthlyBudget } from "@/backend/service/agents/sessions/ClaudeMonthlyBudget";
+import { ClaudeMonthlyBudgetRepository } from "@/backend/database/repositories/agent/ClaudeMonthlyBudgetRepository";
 import { ConfigFile } from "@/backend/config/ConfigFile";
 import { canProcessRuns } from "@/backend/runtime/RunsMode";
 import { createAgentToolManager } from "@/backend/service/agents/tools/AgentToolServices";
@@ -181,6 +183,9 @@ function createAccessServices(
   return {
     access: new AgentConnectionAccess({
       connections: repository,
+      claudeBudget: new ClaudeMonthlyBudget(
+        new ClaudeMonthlyBudgetRepository(database),
+      ),
       authorization: new AuthorizationRepository(database),
       groups,
     }),

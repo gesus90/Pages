@@ -18,9 +18,10 @@ import { acpTurnPrompt } from "./AcpTicketAssets";
 import { createAcpSessionState, readAcpUpdate } from "./AcpEvents";
 import { reportAcpPlanActivity } from "./AcpPlanActivity";
 import { CodexThreadUsage } from "./CodexThreadUsage";
-import { AcpTurnControl } from "./AcpTurnControl";
+import { AcpTurnControl, PROGRESS_INTERVAL_MS } from "./AcpTurnControl";
+import { registerClaudeUsage } from "./ClaudeAcpUsage";
 import { AcpMcpReadiness } from "./AcpMcpReadiness";
-import { closeAcpProtocol } from "./AcpProtocolClose";
+import { cancelAcpTurn, closeAcpProtocol } from "./AcpProtocolClose";
 import { readAntigravityTurnFailure } from "./AntigravityTurnFailure";
 import { logAcpToolUpdate } from "./AcpSessionToolLogging";
 import {
@@ -54,6 +55,7 @@ import type {
   SessionConfigOption,
   StopReason,
   Stream,
+  Usage,
 } from "@agentclientprotocol/sdk";
 import type {
   PlanSession,
@@ -76,9 +78,6 @@ export type {
   AcpSessionContext,
   AcpSessionRequest,
 } from "./AcpSessionContracts";
-
-/** Progress reaches the run record at most this often. */
-const PROGRESS_INTERVAL_MS = 5_000;
 
 /**
  * The ACP session of one plan node, from the handshake to the closeout.
@@ -122,7 +121,9 @@ export class AcpSession implements PlanSession {
   private readonly picaCodex: PicaCodexRequests | null;
   private closing: Promise<PlanSessionClosed> | null = null;
   /** The inputs and interruptions of a person in the running turn. */
-  private readonly control = new AcpTurnControl(() => this.cancelTurn());
+  private readonly control = new AcpTurnControl(() =>
+    cancelAcpTurn(this.connection, this.state.sessionId, this.state.events),
+  );
 
   /**
    * Connects to the started adapter and begins the turn at once.
@@ -167,6 +168,13 @@ export class AcpSession implements PlanSession {
         decideAcpSessionPermission(this.context, this.state, request.params),
     );
     if (this.picaCodex) registerPicaCodexRequests(client, this.picaCodex);
+    registerClaudeUsage(client, context, {
+      session: () => this.state.sessionId,
+      failed: () => {
+        this.hasHistoryFailure = true;
+        this.process.cancel("plan_history_unavailable");
+      },
+    });
     this.connection = client
       .onNotification(methods.client.session.update, async (notification) => {
         try {
@@ -409,12 +417,12 @@ export class AcpSession implements PlanSession {
       isClosing: () => this.closing !== null,
       continued: async (cut) => {
         await this.codexUsage?.finish(cut.usage ?? null);
-        this.context.listener?.prompted(cut.usage ?? null, true);
+        this.reportPromptUsage(cut.usage ?? null, sessionId, true);
         await this.context.listener?.drained?.();
       },
     });
     await this.codexUsage?.finish(response.usage ?? null);
-    this.context.listener?.prompted(response.usage ?? null);
+    this.reportPromptUsage(response.usage ?? null, sessionId);
     await this.context.listener?.drained?.();
     noteSessionEvent(this.state.events, `turn ${response.stopReason}`);
     if (
@@ -435,6 +443,20 @@ export class AcpSession implements PlanSession {
         ? "plan_mcp_unavailable"
         : (this.state.providerFailure?.code ?? this.openCodeFailure),
     );
+  }
+
+  private reportPromptUsage(
+    usage: Usage | null,
+    sessionId: string,
+    isContinued = false,
+  ): void {
+    const listener = this.context.listener;
+    if (this.context.driver.provider === "claude_code") {
+      listener?.prompted(usage, isContinued, sessionId);
+      return;
+    }
+    if (isContinued) listener?.prompted(usage, true);
+    else listener?.prompted(usage);
   }
 
   /** Turns an adapter-reported failure into a failed node instead of a model answer. */
@@ -531,25 +553,11 @@ export class AcpSession implements PlanSession {
     noteSessionEvent(this.state.events, `model ${reportedModel}`);
     if (matchesReportedModel(this.context.request.model, reportedModel)) return;
     this.isModelMismatch = true;
-    void this.cancelTurn();
-  }
-
-  private async cancelTurn(): Promise<void> {
-    const { sessionId } = this.state;
-    if (sessionId === null) return;
-    try {
-      await this.connection.agent.notify(methods.agent.session.cancel, {
-        sessionId,
-      });
-    } catch (error: unknown) {
-      logCaughtError("AcpSession", error);
-
-      // The turn ends with the connection anyway; the mismatch is already recorded.
-      noteSessionEvent(
-        this.state.events,
-        `cancel ${error instanceof Error ? error.message : "failed"}`,
-      );
-    }
+    void cancelAcpTurn(
+      this.connection,
+      this.state.sessionId,
+      this.state.events,
+    );
   }
 
   private reportProgress(): void {

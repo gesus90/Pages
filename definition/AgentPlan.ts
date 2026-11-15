@@ -1,4 +1,5 @@
 import type { AcpWaitReason } from "./AcpResource";
+import type { ClaudeRunUsage } from "./ClaudeUsage";
 import type { PlanRunCommandReceipt } from "./PagesRuns";
 import type { AgentPlanResourceRelease } from "./AgentPlanResourceRelease";
 import type {
@@ -548,6 +549,8 @@ export interface AgentPlanStepResult {
 export interface AgentPlanRun {
   /** Safe code of a rejected background start, retained independently of later commands. */
   readonly startError?: string;
+  /** Read projection from durable usage; never part of run control. */
+  readonly claudeUsage?: ClaudeRunUsage | null;
   /** Durable forced-release journal; retained even when a later Play purges other old runs. */
   readonly resourceReleases?: readonly AgentPlanResourceRelease[];
   /** Old owner ids whose cleanup a fresh start could not confirm; informational only. */

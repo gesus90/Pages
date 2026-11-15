@@ -4,10 +4,14 @@ import type {
   CodexRunUsage,
 } from "./CodexPlanUsage";
 import type {
+  ClaudeAccounting,
+  ClaudeUsageObservation,
+  ClaudeUsageSummary,
+} from "./ClaudeUsage";
+import type {
   AgentPlanRunner,
   AgentPlanSessionRecord,
 } from "./AgentPlanSession.js";
-
 import type {
   AgentSessionKey,
   AgentSessionState,
@@ -69,6 +73,9 @@ export interface AgentSessionTurnUsage extends AgentSessionTokenUsage {
   readonly stepId?: string;
   /** Native receipt retained privately until projection; never returned with public usage. */
   readonly codex?: CodexUsageSource;
+  /** Private pending observation, removed by the accounting service before SQL persistence. */
+  readonly claudeObservation?: ClaudeUsageObservation;
+  readonly claudeAccounting?: ClaudeAccounting;
   readonly attemptId: string;
   readonly turn: number;
   readonly provider: Exclude<AgentPlanRunner, "api">;
@@ -191,6 +198,7 @@ export interface AgentSessionView {
   readonly totals: readonly AgentSessionUsageTotal[];
   /** Sums of every attempt of the run, one per provider counting. */
   readonly runTotals: readonly AgentSessionUsageTotal[];
+  readonly claudeUsage?: ClaudeUsageSummary;
   /** Sums of every attempt of this node in the run, without counting a turn twice (PAGE-284). */
   readonly nodeTotals?: readonly AgentSessionUsageTotal[];
   readonly continuation: AgentSessionContinuation;

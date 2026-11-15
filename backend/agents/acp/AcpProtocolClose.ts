@@ -1,5 +1,6 @@
 import { methods } from "@agentclientprotocol/sdk";
 
+import { noteSessionEvent } from "@/backend/agents/cli/CliSessionEvents";
 import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { ClientConnection } from "@agentclientprotocol/sdk";
@@ -22,5 +23,23 @@ export async function closeAcpProtocol(
     logCaughtError("AcpSession", caughtError);
   } finally {
     clearTimeout(wait);
+  }
+}
+
+/** Requests cancellation and records a failure while the connection is closing. */
+export async function cancelAcpTurn(
+  connection: ClientConnection,
+  sessionId: string | null,
+  events: string[],
+): Promise<void> {
+  if (sessionId === null) return;
+  try {
+    await connection.agent.notify(methods.agent.session.cancel, { sessionId });
+  } catch (error: unknown) {
+    logCaughtError("AcpSession", error);
+    noteSessionEvent(
+      events,
+      `cancel ${error instanceof Error ? error.message : "failed"}`,
+    );
   }
 }

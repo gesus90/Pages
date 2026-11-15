@@ -1,4 +1,5 @@
 import { codexRunUsage } from "../usage/CodexRunUsage";
+import { summarizeClaudeUsage } from "@/definition/ClaudeUsageSummary";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { logCaughtError } from "@/backend/logging/Logger";
 
@@ -14,6 +15,7 @@ import { UNKNOWN_CONTEXT, sumTurnUsage } from "./AgentSessionUsage";
 import { checkSessionWorkspace } from "./AgentSessionWorkspace";
 import { followRemoteSession } from "./RemoteSessionFollower";
 
+import type { ClaudeUsageSummary } from "@/definition/ClaudeUsage";
 import type { AcpSessionListener } from "@/backend/agents/acp/AcpChat";
 import type { PlanSessionTurn } from "@/backend/agents/AgentPlanExecution";
 import type { AgentPlanRun } from "@/definition/AgentPlan";
@@ -22,6 +24,7 @@ import type {
   AgentSessionHistoryWindow,
   AgentSessionKey,
   AgentSessionState,
+  AgentSessionTurnUsage,
   AgentSessionView,
 } from "@/definition/AgentSessionJournal";
 import type { AgentPlanSessionRecord } from "@/definition/AgentPlanSession";
@@ -102,6 +105,7 @@ export interface AgentSessionServiceDependencies {
   /** A Pages completion is independent of native ACP continuation capabilities. */
   readonly hasPlanCheckpoint?: (runId: string) => Promise<boolean>;
   readonly clock?: () => string;
+  readonly saveUsage?: (usage: AgentSessionTurnUsage) => Promise<void>;
 }
 
 const UNKNOWN_VALUE = { value: null, source: null, reportedAt: null } as const;
@@ -265,6 +269,9 @@ export class AgentSessionService {
       totals: sumTurnUsage(turns),
       runTotals: sumTurnUsage(runTurns),
       codexRunUsage: codexRunUsage(run, runTurns),
+      ...(attempt.record.runner === "claude_code"
+        ? { claudeUsage: this.claudeNodeUsage(runTurns, nodeAttempts) }
+        : {}),
       nodeTotals: sumTurnUsage(
         runTurns.filter((turn) => nodeAttempts.has(turn.attemptId)),
       ),
@@ -285,15 +292,7 @@ export class AgentSessionService {
           (await this.dependencies.hasPlanCheckpoint?.(run.id)) ?? false,
       }),
       messages: await this.dependencies.store.listMessages(key.attemptId),
-      actions: {
-        canSend: isLive,
-        canCancelTurn:
-          isLive &&
-          state === "running" &&
-          this.live.get(key.attemptId)?.turn.cancelTurn !== undefined,
-        canCancelRun: isRunActive(run),
-        canRecover: false,
-      },
+      actions: this.sessionActions(key, run, state, isLive),
     };
   }
 
@@ -426,6 +425,23 @@ export class AgentSessionService {
     return "turn_cancelled";
   }
 
+  private sessionActions(
+    key: AgentSessionKey,
+    run: AgentPlanRun,
+    state: AgentSessionView["state"],
+    isLive: boolean,
+  ): AgentSessionView["actions"] {
+    return {
+      canSend: isLive,
+      canCancelTurn:
+        isLive &&
+        state === "running" &&
+        this.live.get(key.attemptId)?.turn.cancelTurn !== undefined,
+      canCancelRun: isRunActive(run),
+      canRecover: false,
+    };
+  }
+
   private record(start: AgentSessionStart): AgentSessionRecorder {
     const existing = this.recorders.get(start.instanceId);
     // A later member continues the same native session: its last reports hold, with their time.
@@ -449,7 +465,11 @@ export class AgentSessionService {
     const recorder =
       existing ??
       new AgentSessionRecorder(
-        { journal: this.dependencies.journal, store: this.dependencies.store },
+        {
+          journal: this.dependencies.journal,
+          store: this.dependencies.store,
+          saveUsage: this.dependencies.saveUsage,
+        },
         attempt,
       );
     if (existing) existing.bind(attempt);
@@ -599,6 +619,20 @@ export class AgentSessionService {
       hasEarlier: page.tail === true && events.length > selected.length,
       retainedFrom: null,
       source: "legacy_record",
+    };
+  }
+
+  private claudeNodeUsage(
+    turns: readonly AgentSessionTurnUsage[],
+    attempts: ReadonlySet<string>,
+  ): ClaudeUsageSummary {
+    const own = turns.filter((turn) => attempts.has(turn.attemptId));
+    const usage = summarizeClaudeUsage(own);
+    return {
+      ...usage,
+      isIncomplete:
+        usage.isIncomplete ||
+        [...attempts].some((id) => !own.some((turn) => turn.attemptId === id)),
     };
   }
 

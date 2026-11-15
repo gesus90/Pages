@@ -6,6 +6,7 @@ import {
   codexAccountingSchema,
   codexUsageSourceSchema,
 } from "@/definition/CodexPlanUsage";
+import { claudeAccountingSchema, claudeObservationSchema } from "@/definition/ClaudeUsage";
 import { AGENT_ERROR_MESSAGES, AgentError } from "@/backend/error/AgentErrors";
 import { readOwnedNamespace } from "@/definition/AcpNamespace";
 
@@ -170,6 +171,8 @@ const usage = z.object({
   inputIncludesCache: z.boolean().nullable(),
   isPartial: z.boolean(),
   reportedAt: z.string(),
+  claudeObservation: claudeObservationSchema.optional(),
+  claudeAccounting: claudeAccountingSchema.optional(),
 });
 const errorCode = z
   .string()
@@ -234,7 +237,13 @@ export const localMutationSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("frame"),
     attemptId: identifier,
-    channel: z.enum(["announced", "update", "prompted", "closed"]),
+    channel: z.enum([
+      "announced",
+      "update",
+      "prompted",
+      "closed",
+      "claudeUsage",
+    ]),
     body: z.string().max(8 * 1024 * 1024),
   }),
   z.object({ kind: z.literal("attempt"), attempt }),

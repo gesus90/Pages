@@ -1070,7 +1070,8 @@
         "plan_full_environment_owner_unavailable": "Der Plan-Besitzer muss über PAGES_FULL_ENVIRONMENT_OWNER_ID dem Linux-Konto des Pages-Prozesses zugeordnet sein. Login-Shell prüfen.",
         "plan_full_environment_local_only": "Volle Umgebung benötigt einen lokalen Knoten auf dem Host des Besitzers.",
         "codex_price_mapping_invalid": "Ungültige OpenRouter-Preiszuordnung.",
-        "codex_monthly_cost_limit": "Monatliches Codex-Kostenlimit erreicht."
+        "codex_monthly_cost_limit": "Monatliches Codex-Kostenlimit erreicht.",
+        "claude_monthly_cost_limit": "Das Agent-Konto hat sein Monatslimit für Claude-Planarbeit erreicht."
       },
       "description": "Verwalten Sie die benannten API- und CLI-Anbindungen und ihre Nutzungsfreigaben. Freigegebene Modelle stehen direkt im Agent Plan zur Verfügung.",
       "adminModeRequired": "Die Agents-Einstellungen sind nur im Admin-Modus verfügbar. Ihr Konto ist derzeit im Rollenmodus.",
@@ -1729,7 +1730,13 @@
       "antigravityRedirectLabel": "Adresse nach der Google-Zustimmung",
       "antigravityRedirectHint": "Auf einem anderen Gerät, etwa einem Smartphone, leitet Google danach auf eine Adresse mit „127.0.0.1“ weiter, die dort nicht lädt. Diese vollständige Adresse aus der Adresszeile kopieren und hier einfügen. Sie gilt nur für diese Anmeldung und nur einmal.",
       "loginStartedByOther": "Diese Anmeldung hat eine andere Person gestartet. Nur sie sieht den Anmeldelink und kann die Anmeldung abschließen.",
-      "operatorBoundAccount": "Dieses Konto wird vom Betreiber verwaltet. Pages kann es prüfen, aber nicht an- oder abmelden."
+      "operatorBoundAccount": "Dieses Konto wird vom Betreiber verwaltet. Pages kann es prüfen, aber nicht an- oder abmelden.",
+      "claudePrices": {
+        "title": "Claude-Modellpreise (OpenRouter)",
+        "hint": "Ohne Eintrag wird das Modell automatisch zugeordnet. Für ein mehrdeutiges Modell hier die Anthropic-ID aus dem OpenRouter-Katalog eintragen.",
+        "model": "Weiteres Claude-Modell",
+        "another": "Weiteres Modell zuordnen"
+      }
     },
     "connections": {
       "title": "Verbindungen",
@@ -6976,6 +6983,19 @@
     "fullEnvironment": {
       "access": "Volle Umgebung – voller Zugriff mit den Rechten von {{owner}}",
       "risk": "Keine Abschottung oder geschützten Pfade und Dienste. Der Schritt kann Host-Anmeldungen verwenden, Live-Daten ändern und Dienste steuern."
+    },
+    "claudeUsage": {
+      "title": "Claude-Verbrauch",
+      "input": "Eingabe-Token",
+      "output": "Ausgabe-Token",
+      "cacheRead": "Cache-Lese-Token",
+      "cacheWrite": "Cache-Schreib-Token",
+      "cost": "Kosten",
+      "unreported": "nicht gemeldet",
+      "unknownPrice": "Preis unbekannt",
+      "subscription": "im Abo",
+      "calculated": "Rechnerisch: {{amount}} (OpenRouter)",
+      "incomplete": "Summe unvollständig"
     }
   },
   "pageAgents": {
@@ -7802,7 +7822,9 @@
       "access": "Zugriff",
       "rights": "Rechte",
       "role": "Rolle",
-      "chooseRole": "Rolle wählen"
+      "chooseRole": "Rolle wählen",
+      "claudeMonthlyLimit": "Monatslimit für Claude-Planarbeit (USD)",
+      "claudeMonthlyLimitHint": "Leer: kein Limit. Gilt für Claude-Planschritte, die dieses Agent-Konto ausführt; auch im Abo zählt der OpenRouter-Rechenbetrag."
     },
     "access": {
       "read_only": "Nur Pages",

@@ -307,6 +307,7 @@ export interface AgentCliState {
 export interface AgentConnectionSummary {
   /** Codex model ID to public OpenRouter price ID; administrator-only metadata. */
   readonly codexPriceMappings?: Readonly<Record<string, string>>;
+  readonly claudePriceModels?: Readonly<Record<string, string>>;
   readonly isActive: boolean;
   readonly id: string;
   readonly name: string;
@@ -332,6 +333,7 @@ export interface AgentConnectionSummary {
 
 export interface AgentConnectionInput {
   readonly codexPriceMappings?: unknown;
+  readonly claudePriceModels?: unknown;
   readonly name: string;
   readonly provider?: string;
   readonly zaiAccountType?: string;

@@ -32,7 +32,7 @@ export async function planStepProgress(
  */
 export async function controlledPlanSessionTurn(
   node: NodeRun,
-  session: PlanSession,
+  session: Pick<PlanSession, "turn"> | PlanSession,
   cleanup: {
     readonly close: () => Promise<PlanSessionCloseout>;
     readonly save: (changes: Partial<AgentPlanSessionRecord>) => Promise<void>;

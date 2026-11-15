@@ -89,6 +89,9 @@ export function planClaudeAcpLaunch(
               extraArgs: {},
             }
           : profile.options,
+        ...((specification.purpose ?? "plan") === "plan"
+          ? { emitRawSDKMessages: [{ type: "assistant" }, { type: "result" }] }
+          : {}),
       },
     },
   };

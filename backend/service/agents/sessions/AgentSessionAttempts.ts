@@ -94,11 +94,11 @@ export function sessionStart(
     },
     userId: node.run.userId,
     provider: record.runner,
+    connectionId: record.requested.connectionId,
+    requestedModel: record.requested.model,
     instanceId,
     groupId: node.step.groupId ?? null,
     directory: record.requested.directory,
-    connectionId: record.requested.connectionId,
-    requestedModel: record.requested.model,
     agentId: node.step.step.personalAgentId ?? node.step.step.agentId,
   };
 }

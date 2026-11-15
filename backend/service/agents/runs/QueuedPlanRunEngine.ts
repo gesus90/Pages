@@ -35,14 +35,23 @@ import type { PlanRunEnginePort } from "./PlanRunEnginePort";
 
 /** API producer: commits requests without owning, recovering or terminating executions. */
 export class QueuedPlanRunEngine implements PlanRunEnginePort {
-  private readonly database: Database;
+  private readonly database: Pick<
+    Database,
+    "query" | "execute" | "transaction" | "agentFiles"
+  >;
   private readonly runs: AgentPlanRunRepository;
   private readonly commands: PlanRunCommandRepository;
   private readonly socketPath: string;
   private readonly starts = new SerialQueue();
   private isClosing = false;
 
-  public constructor(database: Database, socketPath: string) {
+  public constructor(
+    database: Pick<
+      Database,
+      "query" | "execute" | "transaction" | "agentFiles"
+    >,
+    socketPath: string,
+  ) {
     this.database = database;
     this.runs = new AgentPlanRunRepository(database);
     this.commands = new PlanRunCommandRepository(database);

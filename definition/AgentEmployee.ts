@@ -105,6 +105,8 @@ export function countWords(text: string): number {
 
 /** Model and access of an agent. */
 export interface AgentEmployeeSettings {
+  /** Optional budget for Claude plan steps, using their computed OpenRouter cost. */
+  readonly claudeMonthlyCostLimitUsd?: number | null;
   readonly connectionId: string;
   readonly model: string;
   readonly reasoningEffort: string | null;

@@ -19,8 +19,9 @@ const ACTIVITY_ENTRIES = 60;
  *
  * @remarks
  * Costs are summed per calendar month (UTC) in US dollars from the known
- * costs of the agent's sessions and learning runs. Pages sets no limit; the
- * owner sets limits at the providers (PAGE-283). A model that reports no cost
+ * costs of the agent's sessions, learning runs and Claude plan steps. Only
+ * Claude plan work has an optional Pages budget (PAGE-359); other limits
+ * stay at the providers (PAGE-283). A model that reports no cost
  * leaves its sessions unknown; they are counted and shown, never guessed.
  */
 export class AgentActivityService {

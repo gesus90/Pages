@@ -1,4 +1,5 @@
 import { codexPriceMappingsSchema } from "@/backend/service/agents/usage/CodexPriceMappings";
+import { claudePriceModelsSchema } from "@/definition/ClaudePriceModels";
 import {
   readBooleanColumn,
   readNullableTextColumn,
@@ -19,6 +20,7 @@ import type {
 /** Persistence metadata deliberately excludes the encrypted secret. */
 export interface AgentConnectionRecord {
   readonly codexPriceMappings?: Readonly<Record<string, string>>;
+  readonly claudePriceModels?: Readonly<Record<string, string>>;
   readonly isActive: boolean;
   readonly id: string;
   readonly name: string;
@@ -44,7 +46,8 @@ export const CONNECTION_COLUMNS = `
     reasoning_effort,
     is_active,
     zai_account_type,
-    codex_price_mappings
+    codex_price_mappings,
+    claude_price_models
 `;
 
 /** Maps explicit columns, rejecting an unsupported stored provider. */
@@ -63,6 +66,9 @@ export function readAgentConnection(
       typeof row[11] === "string"
         ? codexPriceMappingsSchema.parse(JSON.parse(row[11]))
         : {},
+    claudePriceModels: claudePriceModelsSchema.parse(
+      JSON.parse(readNullableTextColumn(row, 12, "claude_price_models") ?? "{}"),
+    ),
     id: readTextColumn(row, 0, "id"),
     name: readTextColumn(row, 1, "name"),
     provider,

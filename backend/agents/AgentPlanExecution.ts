@@ -248,7 +248,7 @@ export class AgentPlanExecution implements PlanExecution {
   ): Promise<PlanSession> {
     if (isApiProvider(input.agent.connection.provider))
       throw new AgentError("provider_invalid");
-    await this.authorizer.requireUser(input.userId, input.agent.connection.id);
+    await this.authorize(input);
     const release = this.operations.acquireExecution(input.agent.connection.id);
     let session: PlanSession;
     const mustConfirmCleanup = ["opencode", "antigravity"].includes(
@@ -300,10 +300,7 @@ export class AgentPlanExecution implements PlanExecution {
               nextSignal: AbortSignal,
               nextObserver: PlanSessionObserver,
             ) => {
-              await this.authorizer.requireUser(
-                next.userId,
-                next.agent.connection.id,
-              );
+              await this.authorize(next);
               await next.beforeStart?.();
               if (!session.next) throw new AgentError("plan_step_failed");
               return session.next(next, nextSignal, observe(nextObserver));
@@ -321,5 +318,10 @@ export class AgentPlanExecution implements PlanExecution {
         }
       },
     };
+  }
+  private async authorize(input: AgentPlanExecutionInput): Promise<void> {
+    await this.authorizer.requireUser(input.userId, input.agent.connection.id);
+    if (input.agent.connection.provider === "claude_code")
+      await this.authorizer.requireClaudeBudget?.(input.userId);
   }
 }

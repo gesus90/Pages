@@ -181,6 +181,7 @@ it.each([
   },
 );
 
+// An open report gives its TODOs back to the session three times before the step fails.
 it.each([
   ["an open report", OPEN_REPORT],
   ["a blocked status over a complete report", BLOCKED_OVER_DONE],

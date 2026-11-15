@@ -1,3 +1,4 @@
+import { ClaudeMonthlyBudget } from "@/backend/service/agents/sessions/ClaudeMonthlyBudget";
 import path from "node:path";
 
 import { beforeEach, expect, it, vi } from "vitest";
@@ -394,6 +395,7 @@ it("wires access, assignments, tool startup and the chat request registry", () =
   const repository = only(vi.mocked(AgentConnectionRepository));
   expect(vi.mocked(AgentConnectionAccess).mock.calls[0][0]).toEqual({
     connections: repository,
+    claudeBudget: expect.any(ClaudeMonthlyBudget) as unknown,
     authorization: only(vi.mocked(AuthorizationRepository)),
     groups: only(vi.mocked(UserGroupRepository)),
   });

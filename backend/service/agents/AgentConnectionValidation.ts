@@ -1,3 +1,4 @@
+import { claudePriceModelsSchema } from "@/definition/ClaudePriceModels";
 import { readAgentObject } from "@/backend/agents/AgentPayload";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { isApiProvider, isZaiAccountType } from "@/definition/AgentConnection";
@@ -126,4 +127,16 @@ export function readAgentConnectionScope(input: unknown): AgentConnectionScope {
   }
   if (targets.length === 0) throw new AgentError("connection_scope_invalid");
   return { mode: "restricted", targets };
+}
+
+/** Validates admin model mappings while preserving omitted settings on update. */
+export function readClaudePriceModels(
+  input: unknown,
+  provider: AgentProviderId,
+): Readonly<Record<string, string>> | undefined {
+  if (input === undefined) return undefined;
+  if (provider !== "claude_code") throw new AgentError("test_model_invalid");
+  const parsed = claudePriceModelsSchema.safeParse(input);
+  if (!parsed.success) throw new AgentError("test_model_invalid");
+  return parsed.data;
 }

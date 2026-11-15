@@ -130,6 +130,9 @@ function readSettings(input: Record<string, unknown>): AgentEmployeeSettings {
     throw new AgentEmployeeError("invalidInput");
   return {
     connectionId,
+    claudeMonthlyCostLimitUsd: readClaudeMonthlyLimit(
+      input.claudeMonthlyCostLimitUsd,
+    ),
     model,
     reasoningEffort:
       typeof reasoningEffort === "string" && reasoningEffort !== ""
@@ -239,10 +242,21 @@ export function readAgentEmployeeInput(input: unknown): AgentEmployeeInput {
   };
 }
 
+/** Empty disables the Claude-only budget. */
+function readClaudeMonthlyLimit(input: unknown): number | null | undefined {
+  if (input === undefined) return undefined;
+  if (input === null || input === "") return null;
+  const numeric = typeof input === "string" ? Number(input) : input;
+  if (typeof numeric !== "number" || !Number.isFinite(numeric) || numeric < 0)
+    throw new AgentEmployeeError("invalidInput");
+  return numeric;
+}
+
 /** The persisted shape of an agent's configuration, taken from a validated input. */
 export function employeeChange(input: AgentEmployeeInput): AgentEmployeeChange {
   return {
     connectionId: input.settings.connectionId,
+    claudeMonthlyCostLimitUsd: input.settings.claudeMonthlyCostLimitUsd,
     model: input.settings.model,
     reasoningEffort: input.settings.reasoningEffort,
     access: input.settings.access,

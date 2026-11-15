@@ -1,3 +1,4 @@
+import { OpenRouterPrices } from "@/backend/service/agents/sessions/OpenRouterPrices";
 import { beforeEach, expect, it, vi } from "vitest";
 
 import {
@@ -39,6 +40,7 @@ function shutdownTask(index: 0 | 1 | 2): () => Promise<void> {
 beforeEach(() => {
   vi.resetAllMocks();
   world = servicesWorld();
+  vi.spyOn(OpenRouterPrices.prototype, "start").mockResolvedValue();
   vi.mocked(GitHubJobWorker.prototype.start).mockResolvedValue(undefined);
 });
 

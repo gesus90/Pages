@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 
 import { PlanCodexUsage } from "./plan-codex-usage";
+import { PlanClaudeUsage } from "./plan-claude-usage";
 import { PlanPanelContext } from "./plan-panel-context";
 import { PlanPanelIssueList } from "./plan-panel-issues";
 import { PlanReloadButton } from "./plan-reload-button";
@@ -122,6 +123,7 @@ export function PlanPanelDetails(props: {
     <div id={props.id} className="space-y-4 border-t border-border px-4 py-3.5">
       <PlanPanelIssueList issues={props.issues} />
       <PlanCodexUsage run={run} />
+      <PlanClaudeUsage usage={run?.claudeUsage} />
       <PlanEntryResultsOverview plan={props.editor.draft} run={run} />
       <PlanPanelRecoveryAlert
         recoveryRunId={props.recoveryRunId}
@@ -146,5 +148,21 @@ export function PlanPanelDetails(props: {
       <PlanRunsLink page={page} />
       <PlanPanelContext page={page} />
     </div>
+  );
+}
+
+function PlanRecoveryError({
+  runId,
+  recovery,
+}: {
+  readonly runId?: string | null;
+  readonly recovery?: ReturnType<typeof usePlanRecovery>;
+}): React.ReactElement | null {
+  const { t } = useTranslation();
+  if (!runId || !recovery?.error) return null;
+  return (
+    <p role="alert" className="text-xs text-destructive">
+      {recoveryErrorText(t, recovery.error)}
+    </p>
   );
 }

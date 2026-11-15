@@ -16,6 +16,7 @@ import { logCaughtError } from "@/backend/logging/Logger";
 
 import {
   readAgentConnectionScope,
+  readClaudePriceModels,
   readZaiAccountType,
   validateAgentInput,
 } from "./AgentConnectionValidation";
@@ -85,6 +86,7 @@ export class AgentConnectionService {
         return {
           codexPriceMappings: connection.codexPriceMappings,
           isActive: connection.isActive,
+          claudePriceModels: connection.claudePriceModels,
           id: connection.id,
           name: connection.name,
           provider: connection.provider,
@@ -134,6 +136,10 @@ export class AgentConnectionService {
             provider === "codex_cli"
               ? readCodexPriceMappings(input.codexPriceMappings)
               : undefined,
+          claudePriceModels: readClaudePriceModels(
+            input.claudePriceModels,
+            provider,
+          ),
           provider,
           zaiAccountType,
           secretEncrypted:
@@ -194,6 +200,10 @@ export class AgentConnectionService {
             connection.provider === "codex_cli"
               ? readCodexPriceMappings(input.codexPriceMappings)
               : undefined,
+          claudePriceModels: readClaudePriceModels(
+            input.claudePriceModels,
+            connection.provider,
+          ),
           zaiAccountType,
           clearAccess: hasAccountChanged,
           secretEncrypted:

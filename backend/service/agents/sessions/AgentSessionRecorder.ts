@@ -1,3 +1,4 @@
+import { canonicalClaudeModel } from "@/definition/ClaudePriceModels";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 import {
@@ -16,6 +17,8 @@ import {
   readTurnTokens,
 } from "./AgentSessionUsage";
 
+import type { ClaudeUsageObservation } from "@/definition/ClaudeUsage";
+import type { AgentSessionTurnUsage } from "@/definition/AgentSessionJournal";
 import type {
   AgentCapabilities,
   SessionUpdate,
@@ -41,6 +44,7 @@ export interface AgentSessionRecorderDependencies {
   readonly journal: AgentSessionJournal;
   readonly store: AgentSessionStore;
   readonly clock?: () => string;
+  readonly saveUsage?: (usage: AgentSessionTurnUsage) => Promise<void>;
 }
 
 /** Updates of agent activity that end the current message. */
@@ -257,6 +261,7 @@ export class AgentSessionRecorder implements AcpSessionListener {
   private hasWriteFailure = false;
   private hasNativeCodexUsage = false;
   private lastUsage: Usage | null = null;
+  private hasClaudeObservation = false;
   private continuation: AcpContinuationCapabilities | null = null;
   private writes: Promise<void> = Promise.resolve();
 
@@ -289,6 +294,7 @@ export class AgentSessionRecorder implements AcpSessionListener {
   public bind(attempt: AgentSessionAttemptRecord): void {
     this.flushMessage();
     this.attempt = attempt;
+    this.hasClaudeObservation = false;
     if (!this.turns.has(attempt.key.attemptId))
       this.turns.set(attempt.key.attemptId, 1);
     this.persist(attempt);
@@ -356,6 +362,7 @@ export class AgentSessionRecorder implements AcpSessionListener {
   public readonly prompted = (
     usage: Usage | null,
     isContinued = false,
+    nativeSessionId?: string,
   ): void => {
     this.flushThought();
     this.flushMessage();
@@ -363,10 +370,12 @@ export class AgentSessionRecorder implements AcpSessionListener {
     const { provider, key } = attempt;
     const turn = this.turn();
     const capability = ACP_USAGE_CAPABILITIES[provider];
+    const isEmptyClaudeTally =
+      provider === "claude_code" && usage?.totalTokens === 0 && !this.hasClaudeObservation;
     const delta =
       provider === "codex_cli"
         ? codexPromptTokens(usage)
-        : readTurnTokens(capability, usage, this.lastUsage);
+        : readTurnTokens(capability, isEmptyClaudeTally ? null : usage, this.lastUsage);
     this.lastUsage = usage ?? this.lastUsage;
     this.turns.set(key.attemptId, turn + 1);
     this.record({
@@ -378,12 +387,50 @@ export class AgentSessionRecorder implements AcpSessionListener {
       this.hasNativeCodexUsage = false;
       if (usage !== null) return;
     }
-    if (delta === null) return;
+    if (provider === "claude_code" && this.hasClaudeObservation) {
+      this.hasClaudeObservation = false;
+      return;
+    }
+    if (delta === null && provider !== "claude_code") return;
     const reportedAt = this.clock();
-    const model = this.attempt.confirmedModel.value;
+    const model =
+      provider === "claude_code"
+        ? (this.attempt.confirmedModel.value ??
+          this.attempt.requestedModel ??
+          null)
+        : this.attempt.confirmedModel.value;
     this.enqueue(() =>
-      this.dependencies.store.saveTurnUsage({
-        ...delta.tokens,
+      (
+        this.dependencies.saveUsage ??
+        this.dependencies.store.saveTurnUsage.bind(this.dependencies.store)
+      )({
+        ...(delta?.tokens ?? {
+          inputTokens: null,
+          outputTokens: null,
+          cacheReadTokens: null,
+          cacheWriteTokens: null,
+          totalTokens: null,
+          inputIncludesCache: false,
+          isPartial: true,
+        }),
+        ...(provider === "claude_code" && nativeSessionId && delta
+          ? {
+              claudeObservation: {
+                sessionId: nativeSessionId,
+                id: `${key.attemptId}:${turn}`,
+                kind: "prompt" as const,
+                models: [
+                  {
+                    model: canonicalClaudeModel(model ?? "unknown"),
+                    inputTokens: delta.tokens.inputTokens,
+                    outputTokens: delta.tokens.outputTokens,
+                    cacheReadTokens: delta.tokens.cacheReadTokens,
+                    cacheWriteTokens: delta.tokens.cacheWriteTokens,
+                  },
+                ],
+              },
+            }
+          : {}),
         attemptId: key.attemptId,
         turn,
         provider,
@@ -403,6 +450,39 @@ export class AgentSessionRecorder implements AcpSessionListener {
         reportedAt,
       }),
     );
+  };
+
+  /** Allocates native Claude reports to the current step and turn while work is running. */
+  public readonly claudeUsage = (observation: ClaudeUsageObservation): void => {
+    if (this.attempt.provider !== "claude_code") return;
+    this.hasClaudeObservation = true;
+    const usage: AgentSessionTurnUsage = {
+      attemptId: this.attempt.key.attemptId,
+      turn: this.turn(),
+      provider: "claude_code",
+      model:
+        this.attempt.confirmedModel.value ??
+        this.attempt.requestedModel ??
+        null,
+      inputTokens: null,
+      outputTokens: null,
+      cacheReadTokens: null,
+      cacheWriteTokens: null,
+      totalTokens: null,
+      inputIncludesCache: false,
+      isPartial: false,
+      reportedAt: this.clock(),
+      claudeObservation: observation,
+    };
+    this.enqueue(async () => {
+      await (
+        this.dependencies.saveUsage ??
+        this.dependencies.store.saveTurnUsage.bind(this.dependencies.store)
+      )(usage);
+      await this.dependencies.journal.append(usage.attemptId, [
+        { kind: "usage", turn: usage.turn, text: "Claude usage updated" },
+      ]);
+    });
   };
 
   /** Records that the connection to the adapter ended. */

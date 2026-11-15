@@ -163,6 +163,42 @@ A later surface can show `112k In (3.6m Cache Read) · 1.2k Out` from
 `inputTokens`, `cacheReadTokens` and `outputTokens`; for Claude the cache is
 not part of the input. Codex plan input includes cache; the remaining providers keep their existing counting.
 
+## Claude plan accounting (PAGE-359)
+
+Claude plans opt into the ACP adapter's `_claude/sdkMessage` extension for
+`assistant` and `result` messages. Only model IDs, token counters and message
+identities enter the accounting journal. Assistant readings replace the previous
+reading of that same message and update the UI live. The authoritative cumulative
+`result.modelUsage` reconciles those provisional readings, including subagents,
+sidechains and internal calls. The overlapping flat `PromptResponse.usage` is not
+added again. When only that response is available it retains the adapter's
+verified per-prompt counting. A default all-zero response without native usage is
+shown as not reported.
+
+A PostgreSQL session ledger keeps its high watermark and observed identities
+across attempts and resumed runs. Ledger, allocated turn counters and the local
+owner import acknowledgement commit together. Every loop iteration and retry has
+its own attempt; run totals sum all those turns. Missing attempts or token
+categories mark a total incomplete.
+
+The public OpenRouter model catalog is fetched without credentials at service
+startup and every 24 hours. The last validated catalog survives network failures
+in PostgreSQL. Claude IDs are matched by model/version, ignoring deployment dates
+and context suffixes; ambiguous or absent matches remain unknown. Administrators
+can override a model's Anthropic OpenRouter ID in its connection settings. Each
+step freezes its first rates per model, with their catalog retrieval time, for
+all its turns. Cache read/write rates fall back to the prompt rate when omitted.
+Old rows are not repriced.
+
+The supported Claude connection authenticates through claude.ai, so the run panel
+and terminal show token categories and "included in subscription", with the
+calculated USD amount. Unknown prices and missing usage have distinct labels.
+Agent-account monthly spending adds those exact plan amounts to its existing chat
+costs. An optional Claude-plan budget in the agent panel refuses the next Claude
+step when that account's calculated UTC calendar-month plan spending reaches its
+limit; a blank limit disables it. Other providers keep their existing accounting
+and have no new Pages budget.
+
 ## Operating limits
 
 - Following and reading never start a process or extend a lease. A retained
