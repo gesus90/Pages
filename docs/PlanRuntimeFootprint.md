@@ -65,7 +65,7 @@ Runner-/Mobile-WebSocket-Heartbeats. `RunApiBridge`-Cleanup (500 ms) gehört
 weiterhin ausschließlich zur API. Die Automationsausführung der API startet
 Pläne bei `runsMode = separate` über die bestehende Befehls-Inbox.
 
-## Belege und ausstehende Ressourcenmessung
+## Vorhandene Funktionsbelege und verbleibende QA
 
 Ergebnis der gezielten Läufe ohne Coverage: 16 Dateien / 180 Tests grün;
 ein zusätzlicher Test zur Installation der Planbeobachter vor Recovery grün;
@@ -79,20 +79,25 @@ Purge-Reentranz, Wiederholungsfrist und schreibfreie geschützte/leer gelaufene
 Bereinigung. Bestehende fokussierte Tests sichern lokale Sitzungen und
 Plansteuerung ab. Externe Grenzen werden gemockt; kein Providerlauf ist nötig.
 
-Die konkrete Iterationsvorgabe erlaubt ausschließlich Funktionstests und
-verbietet Build, Instanz-/Datenbanktests, Gesamtsuiten und Coverage. Deshalb
-wurden keine Wegwerf-Instanz und kein Vorher/Nachher-Build gestartet. Es gibt
-keinen gemessenen RSS-/CPU-Wert und keinen Nachweis des Ziels unter 60 MB.
-Die Messkriterien bleiben deshalb offen. Lint, Check, Typecheck, Build,
-Gesamtsuiten und Coverage sind **an die Abschluss-QA übergeben**.
+Igor hat Speicher- und CPU-Messungen am 15.11.2026 aus dem Ticketumfang
+gestrichen. Ein MB-Ziel, eine Vorher-/Nachher-Messung, eine Benchmarkkampagne
+oder eine dafür zu startende Wegwerf-Instanz sind keine Aufgabe oder
+Abschlussvoraussetzung. Ressourcenmessungen wurden nicht durchgeführt;
+daraus wird kein gemessener Speicher- oder CPU-Erfolg abgeleitet.
 
-Für die spätere Ressourcenabnahme müssen `origin/main` und dieser Commit
-unter identischen Bedingungen in einer getrennten Wegwerf-Instanz gemessen
-werden: API und Runs auf freien Ports, eigenes PostgreSQL und ausschließlich
-eigene Unitnamen/Pfade; Leerlauf sowie geschützte Aufräumpflichten und ein
-laufender Plan. Jeweils gleiche Aufwärm-/Messdauer, Owner-Zahl und Eingaben;
-`systemctl --user show` mit `MemoryCurrent`, `MemoryPeak`, `CPUUsageNSec` und
-`MainPID`, zusätzlich Hauptprozess-RSS und Tabellenänderungen. Danach alle
-eigenen Prozesse, Units und Daten entfernen. Gemeinsamer Testserver,
-`/opt/pages`, Port 3000, `~/.pages`, Live-Datenbank und Session-Pläne bleiben
-unberührt.
+Die technische Umsetzung liegt in Commit `7fdda59c`. Die vorhandenen
+Funktionsbelege bleiben erhalten und werden wegen der entfallenen
+Messanforderungen nicht wiederholt. Lint, Check, Typecheck, Build,
+Gesamtsuiten und Coverage sind **an die Abschluss-QA übergeben**; sie wurden
+vom Ticket-Agenten nicht als grün nachgewiesen.
+
+Die bereits dokumentierten QA-Hinweise bleiben bestehen: 19 abweichende
+Erwartungen in `page414-retention.unit.test.ts` verlangen `state = 'pending'`
+statt der unveränderten Schutzbedingung `state <> 'completed'`; zwei
+Erwartungen in `page363-opencode-pause.unit.test.ts` passen nicht zur
+vorhandenen Codex-basierten Pause-Implementierung. Diese Tests und
+Verhaltensregeln wurden nicht abgeschwächt oder fachfremd geändert.
+
+Gemeinsamer Testserver, `/opt/pages`, Port 3000, `~/.pages`, Live-Dienste,
+Live-Datenbank und Session-Pläne bleiben unberührt. Es erfolgen kein Push,
+Rebase, Branchwechsel oder Deployment.
