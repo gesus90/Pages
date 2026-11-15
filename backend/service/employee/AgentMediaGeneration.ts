@@ -47,7 +47,8 @@ export interface AgentMediaGenerationDependencies {
 }
 
 /** Why a model cannot generate the kind. */
-export type AgentMediaRefusal = "no_media_output" | "no_media_interface" | "no_key";
+export type AgentMediaRefusal =
+  "no_media_output" | "no_media_interface" | "no_key";
 
 /** Whether the model of a round can output the kind, and else which models could. */
 export type AgentMediaCapability =
@@ -118,7 +119,9 @@ export class AgentMediaGeneration {
   }
 
   /** Whether the model of the round can output the kind, and which models could. */
-  public async capability(round: AgentMediaRound): Promise<AgentMediaCapability> {
+  public async capability(
+    round: AgentMediaRound,
+  ): Promise<AgentMediaCapability> {
     const { connection, model } = round.assignment;
     const catalog = await this.dependencies.connections
       .catalogs()
@@ -141,10 +144,15 @@ export class AgentMediaGeneration {
    * @throws {AgentMediaError} When the model cannot, the key is missing, the
    * provider refused, or no file came back.
    */
-  public async generate(request: AgentMediaRequest): Promise<AgentGeneratedMedia> {
+  public async generate(
+    request: AgentMediaRequest,
+  ): Promise<AgentGeneratedMedia> {
     const capability = await this.capability(request);
     if (!capability.canGenerate)
-      throw new AgentMediaError(capability.reason, capability.alternatives.join(", "));
+      throw new AgentMediaError(
+        capability.reason,
+        capability.alternatives.join(", "),
+      );
     const { connection, model } = request.assignment;
     const route = generationRoute(connection, model);
     const apiKey = route ? await this.keys.readKey(connection, route) : null;
@@ -163,11 +171,15 @@ export class AgentMediaGeneration {
         AbortSignal.timeout(timeoutSeconds * 1000),
       ]),
       ...(request.aspectRatio ? { aspectRatio: request.aspectRatio } : {}),
-      ...(request.durationSeconds ? { durationSeconds: request.durationSeconds } : {}),
+      ...(request.durationSeconds
+        ? { durationSeconds: request.durationSeconds }
+        : {}),
       ...(request.voice ? { voice: request.voice } : {}),
     });
     const types = agentMediaMimeTypes(request.kind);
-    const media = answer.media.find((entry) => Object.hasOwn(types, entry.mimeType));
+    const media = answer.media.find((entry) =>
+      Object.hasOwn(types, entry.mimeType),
+    );
     await this.recordCost(request.employee.userId, {
       kind: request.kind,
       count: media ? 1 : 0,
@@ -188,15 +200,16 @@ export class AgentMediaGeneration {
     listed: { readonly outputModalities?: readonly string[] } | undefined,
   ): Promise<AgentMediaRefusal | null> {
     const { connection, model } = round.assignment;
-    if (!listed || !isMediaOutputModel(listed, round.kind)) return "no_media_output";
+    if (!listed || !isMediaOutputModel(listed, round.kind))
+      return "no_media_output";
     const route = generationRoute(connection, model);
     if (!route)
-      return isOwnOpenCodeKey(connection, model) ? "no_key" : "no_media_interface";
+      return isOwnOpenCodeKey(connection, model)
+        ? "no_key"
+        : "no_media_interface";
     if (!this.dependencies.clients[route.provider].kinds.includes(round.kind))
       return "no_media_interface";
-    return (await this.keys.hasKey(connection, route))
-      ? null
-      : "no_key";
+    return (await this.keys.hasKey(connection, route)) ? null : "no_key";
   }
 
   /** The models released for the agent that output the kind over an interface Pages has. */
@@ -206,7 +219,10 @@ export class AgentMediaGeneration {
       const models = await this.dependencies.models.models(employee.userId);
       return models
         .filter((model) => {
-          if (!isKindCapable(model, kind) || !isChatModelChoice(model, employee))
+          if (
+            !isKindCapable(model, kind) ||
+            !isChatModelChoice(model, employee)
+          )
             return false;
           if (
             model.connectionId === assignment.connection.id &&
@@ -217,7 +233,10 @@ export class AgentMediaGeneration {
             { provider: model.provider, cliAccountLabel: null },
             model.model,
           );
-          return route !== null && this.dependencies.clients[route.provider].kinds.includes(kind);
+          return (
+            route !== null &&
+            this.dependencies.clients[route.provider].kinds.includes(kind)
+          );
         })
         .map(modelLabel);
     } catch (error: unknown) {
@@ -247,7 +266,11 @@ export class AgentMediaGeneration {
         cost:
           generation.costUsd === null
             ? { state: "unknown", amount: null, isEstimated: false }
-            : { state: "known", amount: generation.costUsd, isEstimated: false },
+            : {
+                state: "known",
+                amount: generation.costUsd,
+                isEstimated: false,
+              },
       });
     } catch (error: unknown) {
       // A cost that cannot be recorded must not take the file away.

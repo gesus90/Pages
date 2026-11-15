@@ -397,7 +397,8 @@ export function readOfficeDocument(
 }
 
 /** Where the pictures of an Office or OpenDocument package lie. */
-const MEDIA_PART = /^(?:word\/media|ppt\/media|xl\/media|Pictures)\/[^/]+\.(?:png|jpe?g|gif|webp)$/iu;
+const MEDIA_PART =
+  /^(?:word\/media|ppt\/media|xl\/media|Pictures)\/[^/]+\.(?:png|jpe?g|gif|webp)$/iu;
 
 /**
  * The pictures embedded in an Office or OpenDocument package (PAGE-386), in
@@ -411,7 +412,9 @@ export function officeMediaNames(bytes: Buffer): string[] {
     return new ChatZipArchive(bytes, OFFICE_LIMITS)
       .names()
       .filter((name) => MEDIA_PART.test(name))
-      .sort((left, right) => left.localeCompare(right, "en", { numeric: true }));
+      .sort((left, right) =>
+        left.localeCompare(right, "en", { numeric: true }),
+      );
   } catch {
     return [];
   }

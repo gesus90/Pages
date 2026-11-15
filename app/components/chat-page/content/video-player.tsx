@@ -6,7 +6,11 @@ import { cn } from "@/app/lib/cn";
 import { downloadUrl, formatFileSize } from "./card-types";
 import { useChatContent } from "./chat-content-context";
 import { ContentCard, subtitleOf } from "./content-card";
-import { formatResolution, reportMediaFacts, useMediaFacts } from "./media-facts";
+import {
+  formatResolution,
+  reportMediaFacts,
+  useMediaFacts,
+} from "./media-facts";
 import { useAttachmentPreview } from "./use-attachment-preview";
 import { formatSeconds, useMediaPlayer } from "./use-media-player";
 import { useRetention } from "./use-retention";
@@ -33,7 +37,9 @@ export function videoMeta(
   language: string,
 ): string {
   return subtitleOf([
-    facts.durationSeconds === undefined ? null : formatSeconds(facts.durationSeconds),
+    facts.durationSeconds === undefined
+      ? null
+      : formatSeconds(facts.durationSeconds),
     formatResolution(facts),
     formatFileSize(sizeBytes, language),
   ]);
@@ -73,11 +79,16 @@ function VideoPoster({
       type="button"
     >
       <span className="flex size-16 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-overlay group-hover:bg-primary-hover">
-        <Play aria-hidden="true" className="ml-0.5 size-7" fill="currentColor" />
+        <Play
+          aria-hidden="true"
+          className="ml-0.5 size-7"
+          fill="currentColor"
+        />
       </span>
       {hasPreview ? null : (
         <span className="max-w-full truncate text-xs text-viewer-muted">
-          {attachment.name} · {formatFileSize(attachment.sizeBytes, i18n.language)}
+          {attachment.name} ·{" "}
+          {formatFileSize(attachment.sizeBytes, i18n.language)}
           {isPending ? ` · ${t("chatPage.cards.previewPending")}` : null}
         </span>
       )}
@@ -147,12 +158,18 @@ export function VideoPlayer({
   const isStarted = player.hasStarted || player.positionSeconds > 0;
   return (
     <div
-      className={cn("flex flex-col bg-viewer-scrim", isFilling && "min-h-0 flex-1")}
+      className={cn(
+        "flex flex-col bg-viewer-scrim",
+        isFilling && "min-h-0 flex-1",
+      )}
       data-video-player={attachment.id}
     >
       <div
         ref={preview.target}
-        className={cn("relative", isFilling ? "min-h-0 flex-1" : "aspect-video")}
+        className={cn(
+          "relative",
+          isFilling ? "min-h-0 flex-1" : "aspect-video",
+        )}
       >
         <video
           ref={player.media}

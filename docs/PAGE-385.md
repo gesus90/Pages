@@ -62,7 +62,7 @@ Ergebnis sind reine Daten (`document-model.ts`), die React als Text rendert.
   ältere Dateien zeigen „Keine Prüfsumme“.
 - Seitenzahl und Titel eines PDF liest der Browser beim Erzeugen der Vorschau
   und speichert sie einmal je Anhang (`PUT`/`PATCH
-  /chat-page-api/files?attachmentId=…&pageCount=…&title=…`, nur Mitglieder).
+/chat-page-api/files?attachmentId=…&pageCount=…&title=…`, nur Mitglieder).
 - Aufbewahrung und Rechte bleiben wie bei allen Anhängen: Dateien von Agenten
   72 Stunden mit Restzeit und Platzhalter „abgelaufen“; nur Mitglieder eines
   Chats sehen und laden dessen Dateien.

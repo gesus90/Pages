@@ -61,7 +61,10 @@ export function resetDocumentReadings(): void {
  * @param source - The document.
  * @param isWanted - Whether the view is shown; nothing loads before.
  */
-export function useDocument(source: DocumentSource, isWanted: boolean): DocumentState {
+export function useDocument(
+  source: DocumentSource,
+  isWanted: boolean,
+): DocumentState {
   const [state, setState] = useState<DocumentState>({ status: "loading" });
   const { url, format, name } = source;
 
@@ -74,7 +77,11 @@ export function useDocument(source: DocumentSource, isWanted: boolean): Document
       },
       (error: unknown) => {
         if (!isCurrent) return;
-        setState({ status: "failed", reason: error instanceof DocumentReadError ? error.reason : "unreadable" });
+        setState({
+          status: "failed",
+          reason:
+            error instanceof DocumentReadError ? error.reason : "unreadable",
+        });
       },
     );
     return () => {
@@ -92,8 +99,12 @@ export function useDocument(source: DocumentSource, isWanted: boolean): Document
  * @param images - The images by their ID.
  * @returns The addresses by image ID; empty until they exist.
  */
-export function useDocumentImages(images: ReadonlyMap<string, Blob> | undefined): ReadonlyMap<string, string> {
-  const [addresses, setAddresses] = useState<ReadonlyMap<string, string>>(new Map());
+export function useDocumentImages(
+  images: ReadonlyMap<string, Blob> | undefined,
+): ReadonlyMap<string, string> {
+  const [addresses, setAddresses] = useState<ReadonlyMap<string, string>>(
+    new Map(),
+  );
 
   useEffect(() => {
     if (!images || images.size === 0) return undefined;

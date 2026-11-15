@@ -19,9 +19,14 @@ const PREVIEW_BLOCKS = 14;
  *
  * @param blocks - Every block of the document.
  */
-export function firstPageBlocks(blocks: readonly DocumentBlock[]): readonly DocumentBlock[] {
+export function firstPageBlocks(
+  blocks: readonly DocumentBlock[],
+): readonly DocumentBlock[] {
   const pageEnd = blocks.findIndex((block) => block.kind === "pageBreak");
-  return blocks.slice(0, Math.min(pageEnd < 0 ? blocks.length : pageEnd, PREVIEW_BLOCKS));
+  return blocks.slice(
+    0,
+    Math.min(pageEnd < 0 ? blocks.length : pageEnd, PREVIEW_BLOCKS),
+  );
 }
 
 interface WordPreviewProps {
@@ -34,7 +39,10 @@ interface WordPreviewProps {
  * The start of a Word or OpenDocument text in a card (PAGE-385), in the
  * Pages design, with "Seite 1 von N · Ganzes Dokument öffnen".
  */
-export function WordPreview({ document, onOpen }: WordPreviewProps): React.ReactElement {
+export function WordPreview({
+  document,
+  onOpen,
+}: WordPreviewProps): React.ReactElement {
   const { t } = useTranslation();
   const images = useDocumentImages(document.images);
   const blocks = firstPageBlocks(document.blocks);
@@ -42,16 +50,30 @@ export function WordPreview({ document, onOpen }: WordPreviewProps): React.React
     <div className="flex flex-col">
       <div className="relative max-h-96 overflow-hidden px-5 py-4">
         {blocks.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t("chatPage.cards.document.empty")}</p>
+          <p className="text-sm text-muted-foreground">
+            {t("chatPage.cards.document.empty")}
+          </p>
         ) : (
           <DocumentBlocks blocks={blocks} images={images} />
         )}
-        <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-linear-to-t from-surface" />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-linear-to-t from-surface"
+        />
       </div>
       <p className="flex flex-wrap items-center gap-x-2 border-t border-border px-3 py-2 text-xs text-muted-foreground">
-        <span>{t("chatPage.cards.document.pageOf", { page: 1, count: document.pageCount })}</span>
+        <span>
+          {t("chatPage.cards.document.pageOf", {
+            page: 1,
+            count: document.pageCount,
+          })}
+        </span>
         <span aria-hidden="true">·</span>
-        <button className="font-medium text-primary hover:underline" onClick={onOpen} type="button">
+        <button
+          className="font-medium text-primary hover:underline"
+          onClick={onOpen}
+          type="button"
+        >
           {t("chatPage.cards.document.openWhole")}
         </button>
       </p>
@@ -67,26 +89,48 @@ interface HeadingEntry {
 
 function headingsOf(blocks: readonly DocumentBlock[]): HeadingEntry[] {
   return blocks.flatMap((block, index) =>
-    block.kind === "heading" ? [{ index, level: block.level, text: runsText(block.runs).trim() }] : [],
+    block.kind === "heading"
+      ? [{ index, level: block.level, text: runsText(block.runs).trim() }]
+      : [],
   );
 }
 
 /** The table of contents of a document from its headings. */
-function Contents({ headings, onOpen }: { readonly headings: readonly HeadingEntry[]; readonly onOpen: (index: number) => void }): React.ReactElement {
+function Contents({
+  headings,
+  onOpen,
+}: {
+  readonly headings: readonly HeadingEntry[];
+  readonly onOpen: (index: number) => void;
+}): React.ReactElement {
   const { t } = useTranslation();
   return (
-    <nav aria-label={t("chatPage.cards.document.contents")} className="hidden w-56 shrink-0 flex-col overflow-y-auto border-r border-border bg-panel-body p-3 @min-[720px]:flex">
-      <p className="mb-2 text-xs font-semibold text-muted-foreground uppercase">{t("chatPage.cards.document.contents")}</p>
+    <nav
+      aria-label={t("chatPage.cards.document.contents")}
+      className="hidden w-56 shrink-0 flex-col overflow-y-auto border-r border-border bg-panel-body p-3 @min-[720px]:flex"
+    >
+      <p className="mb-2 text-xs font-semibold text-muted-foreground uppercase">
+        {t("chatPage.cards.document.contents")}
+      </p>
       {headings.length === 0 ? (
-        <p className="text-xs text-muted-foreground">{t("chatPage.cards.document.noHeadings")}</p>
+        <p className="text-xs text-muted-foreground">
+          {t("chatPage.cards.document.noHeadings")}
+        </p>
       ) : (
         <ul className="flex flex-col gap-0.5">
           {headings.map((heading) => (
             <li key={heading.index}>
               <button
-                className={cn("w-full truncate rounded-md px-2 py-1 text-left text-xs hover:bg-surface-hover", heading.level <= 1 ? "font-semibold" : "text-muted-foreground")}
+                className={cn(
+                  "w-full truncate rounded-md px-2 py-1 text-left text-xs hover:bg-surface-hover",
+                  heading.level <= 1
+                    ? "font-semibold"
+                    : "text-muted-foreground",
+                )}
                 onClick={() => onOpen(heading.index)}
-                style={{ paddingInlineStart: `${String(0.5 + (heading.level - 1) * 0.75)}rem` }}
+                style={{
+                  paddingInlineStart: `${String(0.5 + (heading.level - 1) * 0.75)}rem`,
+                }}
                 type="button"
               >
                 {heading.text}
@@ -104,7 +148,11 @@ function Contents({ headings, onOpen }: { readonly headings: readonly HeadingEnt
  * screen (PAGE-385): a table of contents from the headings, a search with
  * its matches marked, and the document as a readable page in the Pages design.
  */
-export function WordPanel({ document }: { readonly document: WordDocument }): React.ReactElement {
+export function WordPanel({
+  document,
+}: {
+  readonly document: WordDocument;
+}): React.ReactElement {
   const { t } = useTranslation();
   const images = useDocumentImages(document.images);
   const search = useBlockSearch(document.blocks.map(blockText));
@@ -119,14 +167,30 @@ export function WordPanel({ document }: { readonly document: WordDocument }): Re
           onStep={search.step}
           query={search.query}
         />
-        <span className="ml-auto text-xs text-muted-foreground">{t("chatPage.cards.document.pages", { count: document.pageCount })}</span>
+        <span className="ml-auto text-xs text-muted-foreground">
+          {t("chatPage.cards.document.pages", { count: document.pageCount })}
+        </span>
       </div>
       <div className="flex min-h-0 flex-1">
-        <Contents headings={headingsOf(document.blocks)} onOpen={search.reveal} />
-        <div ref={search.container} className="min-h-0 flex-1 overflow-y-auto bg-panel-body p-4 @min-[720px]:p-8">
+        <Contents
+          headings={headingsOf(document.blocks)}
+          onOpen={search.reveal}
+        />
+        <div
+          ref={search.container}
+          className="min-h-0 flex-1 overflow-y-auto bg-panel-body p-4 @min-[720px]:p-8"
+        >
           <article className="mx-auto max-w-3xl rounded-xl border border-border bg-surface px-6 py-6 shadow-xs @min-[720px]:px-10">
-            <DocumentBlocks blocks={document.blocks} images={images} query={search.query} />
-            {document.isTruncated ? <p className="mt-4 text-xs text-muted-foreground">{t("chatPage.cards.document.truncated")}</p> : null}
+            <DocumentBlocks
+              blocks={document.blocks}
+              images={images}
+              query={search.query}
+            />
+            {document.isTruncated ? (
+              <p className="mt-4 text-xs text-muted-foreground">
+                {t("chatPage.cards.document.truncated")}
+              </p>
+            ) : null}
           </article>
         </div>
       </div>

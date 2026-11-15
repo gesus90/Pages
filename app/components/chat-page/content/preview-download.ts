@@ -74,7 +74,12 @@ export function createZipArchive(
   let offset = 0;
   for (const file of files) {
     const content = encoder.encode(file.source);
-    const entry = { name: encoder.encode(file.name), content, crc: crc32(content), offset };
+    const entry = {
+      name: encoder.encode(file.name),
+      content,
+      crc: crc32(content),
+      offset,
+    };
     const local = header(30, (view) => {
       view.setUint32(0, 0x04034b50, true);
       writeCommon(view, 4, entry);
@@ -113,7 +118,10 @@ export function createZipArchive(
 }
 
 function mimeTypeOf(name: string): string {
-  return MIME_TYPES[name.slice(name.lastIndexOf(".") + 1).toLowerCase()] ?? "text/plain";
+  return (
+    MIME_TYPES[name.slice(name.lastIndexOf(".") + 1).toLowerCase()] ??
+    "text/plain"
+  );
 }
 
 /**
@@ -143,7 +151,10 @@ export function downloadPreviewFiles(files: readonly PreviewFile[]): void {
   const [first] = files;
   if (!first) return;
   if (files.length === 1) {
-    saveBlobFile(first.name, new Blob([first.source], { type: mimeTypeOf(first.name) }));
+    saveBlobFile(
+      first.name,
+      new Blob([first.source], { type: mimeTypeOf(first.name) }),
+    );
     return;
   }
   const archive = createZipArchive(files);

@@ -8,11 +8,18 @@ import { createI18n } from "@/app/lib/i18n";
 
 import { directory, group, message, participant } from "./chat-page-fixture";
 
+interface FetcherState {
+  state: string;
+  data: unknown;
+  formData: FormData | undefined;
+  submit: typeof submit;
+}
+
 const submit = vi.hoisted(() => vi.fn());
-const fetcher = vi.hoisted(() => ({
+const fetcher = vi.hoisted((): FetcherState => ({
   state: "idle",
-  data: undefined as unknown,
-  formData: undefined as FormData | undefined,
+  data: undefined,
+  formData: undefined,
   submit,
 }));
 vi.mock("react-router", () => ({
@@ -24,7 +31,9 @@ function sent(): Record<string, string>[] {
   return submit.mock.calls.map((call: unknown[]) => {
     const formData = call[0];
     if (!(formData instanceof FormData)) throw new Error("no form submitted");
-    return Object.fromEntries([...formData.entries()].map(([key, entry]) => [key, String(entry)]));
+    return Object.fromEntries(
+      [...formData.entries()].map(([key, entry]) => [key, String(entry)]),
+    );
   });
 }
 
@@ -35,15 +44,23 @@ beforeEach(() => {
 });
 
 it("sends the text of a preview into the opened group as an ordinary message marked by its client ID (PAGE-383)", () => {
-  const { result } = renderHook(() => useChatPage(directory({ groups: [group("g")] })));
+  const { result } = renderHook(() =>
+    useChatPage(directory({ groups: [group("g")] })),
+  );
   act(() => result.current.sendFromPreview("Variante B nehmen @ed"));
   const [entries] = sent();
-  expect(entries).toMatchObject({ intent: "send-group", groupId: "g", text: "Variante B nehmen @ed" });
+  expect(entries).toMatchObject({
+    intent: "send-group",
+    groupId: "g",
+    text: "Variante B nehmen @ed",
+  });
   expect(entries?.["clientMessageId"]).toMatch(/^preview-[0-9a-f-]{36}$/u);
 });
 
 it("sends the text of a preview to an agent of a direct chat, and nothing for blank text (PAGE-383)", () => {
-  const { result } = renderHook(() => useChatPage(directory({ participants: [participant("ed")] })));
+  const { result } = renderHook(() =>
+    useChatPage(directory({ participants: [participant("ed")] })),
+  );
   act(() => result.current.sendFromPreview("   "));
   expect(submit).not.toHaveBeenCalled();
   act(() => result.current.sendFromPreview("B"));
@@ -57,8 +74,14 @@ it("shows the message of a preview on its way with its mark (PAGE-383)", () => {
   formData.set("clientMessageId", "preview-1");
   fetcher.formData = formData;
   fetcher.state = "submitting";
-  const { result } = renderHook(() => useChatPage(directory({ groups: [group("g")] })));
-  expect(result.current.messages.at(-1)).toMatchObject({ id: "pending", content: "B", isFromPreview: true });
+  const { result } = renderHook(() =>
+    useChatPage(directory({ groups: [group("g")] })),
+  );
+  expect(result.current.messages.at(-1)).toMatchObject({
+    id: "pending",
+    content: "B",
+    isFromPreview: true,
+  });
 });
 
 it("marks own and other messages sent from a preview in the history (PAGE-383)", () => {

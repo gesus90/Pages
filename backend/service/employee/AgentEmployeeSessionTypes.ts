@@ -234,7 +234,9 @@ export function keptSessionOf(
  * The chat whose model choice a round follows (PAGE-380): the direct chat of
  * its person or its group; `null` for a run of the agent's own.
  */
-export function chatModelKey(request: AgentJobRequest): AgentChatModelKey | null {
+export function chatModelKey(
+  request: AgentJobRequest,
+): AgentChatModelKey | null {
   const { purpose, person, conversationId, agent } = request;
   if (purpose === "chat" && person)
     return { agentId: agent.id, chatKind: "direct", chatId: person.id };

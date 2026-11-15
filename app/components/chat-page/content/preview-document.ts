@@ -98,7 +98,9 @@ function insertScripts(html: string, scripts: string): string {
 }
 
 function htmlDocument(files: readonly PreviewFile[]): string {
-  const page = files.find((file) => previewKindOf(file.languageHint) === "html");
+  const page = files.find(
+    (file) => previewKindOf(file.languageHint) === "html",
+  );
   const html = page?.source ?? "";
   const head = `${BASE_STYLE}${BRIDGE_SCRIPT}${stylesOf(files)}`;
   const scripts = scriptsOf(files);
@@ -159,28 +161,29 @@ export function canSendFromPreview(check: PreviewSendCheck): boolean {
 /**
  * Reads the text of a message a preview sent to Pages.
  *
- * @param data - The data of the message event.
+ * @param payload - The data of the message event.
  * @returns The trimmed text, cut to 4,000 characters, or `null` for any
  * other message.
  */
-export function readPreviewSend(data: unknown): string | null {
-  if (typeof data !== "object" || data === null) return null;
-  if (!("type" in data) || data.type !== PREVIEW_SEND_MESSAGE) return null;
-  if (!("text" in data) || typeof data.text !== "string") return null;
-  const text = data.text.trim().slice(0, PREVIEW_SEND_MAXIMUM_LENGTH);
+export function readPreviewSend(payload: unknown): string | null {
+  if (typeof payload !== "object" || payload === null) return null;
+  if (!("type" in payload) || payload.type !== PREVIEW_SEND_MESSAGE)
+    return null;
+  if (!("text" in payload) || typeof payload.text !== "string") return null;
+  const text = payload.text.trim().slice(0, PREVIEW_SEND_MAXIMUM_LENGTH);
   return text === "" ? null : text;
 }
 
 /**
  * Tells whether a message of a frame says that its document is ready.
  *
- * @param data - The data of the message event.
+ * @param payload - The data of the message event.
  */
-export function isPreviewReady(data: unknown): boolean {
+export function isPreviewReady(payload: unknown): boolean {
   return (
-    typeof data === "object" &&
-    data !== null &&
-    "type" in data &&
-    data.type === PREVIEW_READY_MESSAGE
+    typeof payload === "object" &&
+    payload !== null &&
+    "type" in payload &&
+    payload.type === PREVIEW_READY_MESSAGE
   );
 }

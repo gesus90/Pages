@@ -146,7 +146,7 @@ function attach(
  * Pages port (PAGE-381).
  *
  * @param server - The Pages HTTP server.
- * @param options - Proxies whose `X-Forwarded-Proto` is believed, and test hooks.
+ * @param settings - Proxies whose `X-Forwarded-Proto` is believed, and test hooks.
  *
  * @remarks
  * The connection is the one of Pica Mobile with the same messages, rights
@@ -195,7 +195,8 @@ export function installConversationWebChannel(
           }),
         );
       } catch (error: unknown) {
-        if (!(error instanceof ChannelRefusal)) logCaughtError(COMPONENT, error);
+        if (!(error instanceof ChannelRefusal))
+          logCaughtError(COMPONENT, error);
         refuseUpgrade(socket, error);
       } finally {
         clearTimeout(deadline);

@@ -107,7 +107,9 @@ export function ChatPageRemoveDialog({
         <DialogDescription className="mt-1 text-sm text-muted-foreground">
           {t("chatPage.removeMember.description", { name: member?.name ?? "" })}
         </DialogDescription>
-        {member?.kind === "agent" ? <AgentConsequences member={member} /> : null}
+        {member?.kind === "agent" ? (
+          <AgentConsequences member={member} />
+        ) : null}
         {request.failure === null ? null : (
           <p className="mt-3 text-sm text-destructive" role="alert">
             {t(`chatPage.control.failure.${request.failure}`)}

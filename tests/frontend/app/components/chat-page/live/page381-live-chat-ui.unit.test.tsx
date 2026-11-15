@@ -162,7 +162,9 @@ it("replaces the live answer by the stored message, with folded thoughts and one
     live: live({ answers: [], ended: new Map([["m1", ended]]) }),
   });
   expect(screen.getAllByText("Fertig")).toHaveLength(1);
-  expect(screen.queryByRole("article", { name: /wird geschrieben/u })).toBeNull();
+  expect(
+    screen.queryByRole("article", { name: /wird geschrieben/u }),
+  ).toBeNull();
   const thoughts = screen.getByText(/Gedanken · 12 s/u).closest("details");
   expect(thoughts?.open).toBe(false);
   const tools = screen.getByText("2 Werkzeuge · 3,1 s").closest("details");
@@ -173,14 +175,26 @@ it("replaces the live answer by the stored message, with folded thoughts and one
 it("marks a message steered into the answer and one that waits for it", () => {
   renderHistory({
     messages: [
-      { ...message("m1"), authorId: null, content: "Nimm B", steeredInto: ["ed"] },
-      { ...message("m2"), authorId: null, content: "Danach noch C", queue: "chat" },
+      {
+        ...message("m1"),
+        authorId: null,
+        content: "Nimm B",
+        steeredInto: ["ed"],
+      },
+      {
+        ...message("m2"),
+        authorId: null,
+        content: "Danach noch C",
+        queue: "chat",
+      },
       { ...message("m3"), authorId: null, content: "Und D" },
     ],
     live: live({ deliveries: { m3: { delivery: "waiting", agentId: "ed" } } }),
   });
   expect(screen.getByText("in Eds Antwort eingeschoben")).toBeTruthy();
-  expect(screen.getByText("wartet · geht nach der laufenden Antwort raus")).toBeTruthy();
+  expect(
+    screen.getByText("wartet · geht nach der laufenden Antwort raus"),
+  ).toBeTruthy();
   expect(screen.getByText("wartet · geht nach Eds Antwort raus")).toBeTruthy();
 });
 
@@ -191,20 +205,33 @@ it("names every agent at work and what it does", () => {
         entries={[
           {
             agent: ED,
-            activity: { kind: "tool", action: "read", target: "ConversationEvents.ts", running: 1 },
+            activity: {
+              kind: "tool",
+              action: "read",
+              target: "ConversationEvents.ts",
+              running: 1,
+            },
           },
           {
             agent: participant("mei", { name: "Mei" }),
             activity: { kind: "tool", action: "test", target: "", running: 1 },
           },
-          { agent: participant("ai", { name: "Ai" }), activity: { kind: "thinking" } },
-          { agent: participant("bo", { name: "Bo" }), activity: { kind: "writing" } },
+          {
+            agent: participant("ai", { name: "Ai" }),
+            activity: { kind: "thinking" },
+          },
+          {
+            agent: participant("bo", { name: "Bo" }),
+            activity: { kind: "writing" },
+          },
         ]}
       />
     </I18nextProvider>,
   );
   const row = screen.getByRole("list", { name: "Tätige Agenten" });
-  expect(row.textContent).toContain("Ed liest ConversationEvents.ts · 1 Werkzeug läuft");
+  expect(row.textContent).toContain(
+    "Ed liest ConversationEvents.ts · 1 Werkzeug läuft",
+  );
   expect(row.textContent).toContain("Mei testet · 1 Werkzeug läuft");
   expect(row.textContent).toContain("Ai denkt nach …");
   expect(row.textContent).toContain("Bo schreibt …");
@@ -249,7 +276,9 @@ async function type(text: string): Promise<HTMLElement> {
 it("offers only Senden while nobody answers", async () => {
   renderComposer();
   await screen.findByRole("textbox", { name: "Nachricht" });
-  expect(screen.getByRole("button", { name: /Abschicken|Senden/u })).toBeTruthy();
+  expect(
+    screen.getByRole("button", { name: /Abschicken|Senden/u }),
+  ).toBeTruthy();
   expect(screen.queryByRole("button", { name: "Ed umlenken" })).toBeNull();
 });
 
@@ -260,7 +289,7 @@ it("steers with Umlenken, sends afterwards with ⌥↵ and stops with Esc while 
   const input = await type("Nimm B");
   await vi.waitFor(() =>
     expect(
-      (screen.getByRole("button", { name: "Ed umlenken" }) as HTMLButtonElement)
+      screen.getByRole<HTMLButtonElement>("button", { name: "Ed umlenken" })
         .disabled,
     ).toBe(false),
   );

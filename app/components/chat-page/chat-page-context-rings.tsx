@@ -59,6 +59,44 @@ function compact(amount: number): string {
   return String(amount);
 }
 
+/** Model name and optional reasoning effort and per-chat override badge. */
+function RingModelLine({
+  model,
+}: {
+  readonly model: AgentChatModelLabel | undefined;
+}): React.ReactElement | null {
+  const { t } = useTranslation();
+  if (!model) return null;
+  const label =
+    model.reasoningEffort === null
+      ? model.name
+      : `${model.name} · ${effortLabel(t, model.reasoningEffort)}`;
+  return (
+    <span className="mt-1 flex items-center gap-1.5">
+      {label}
+      {model.isOverride ? (
+        <span className="rounded-full bg-primary-subtle px-1.5 text-[11px] text-primary">
+          {t("chatPage.contextRing.onlyHere")}
+        </span>
+      ) : null}
+    </span>
+  );
+}
+
+function ringFillText(
+  t: (key: string, options?: Record<string, unknown>) => string,
+  percent: number | null,
+  used: number | null,
+  size: number | null,
+): string {
+  if (percent === null) return t("chatPage.contextRing.unknown");
+  return t("chatPage.contextRing.fill", {
+    percent,
+    used: used === null ? "–" : compact(used),
+    size: size === null ? "–" : compact(size),
+  });
+}
+
 /** The details of one ring: model, fill, restart threshold and state. */
 function RingDetails({
   entry,
@@ -73,40 +111,22 @@ function RingDetails({
   const { brief, model, agent } = entry;
   const used = brief?.contextUsed ?? null;
   const size = brief?.contextSize ?? model?.contextWindow ?? null;
+  const stateLabel =
+    brief === undefined
+      ? t("chatPage.contextRing.noSession")
+      : t(`agentSessions.state.${brief.state}`);
   return (
     <>
       <span className="block font-semibold">
         {t("chatPage.contextRing.title", { agent: agent.name, chat: chatName })}
       </span>
-      {model ? (
-        <span className="mt-1 flex items-center gap-1.5">
-          {model.reasoningEffort === null
-            ? model.name
-            : `${model.name} · ${effortLabel(t, model.reasoningEffort)}`}
-          {model.isOverride ? (
-            <span className="rounded-full bg-primary-subtle px-1.5 text-[11px] text-primary">
-              {t("chatPage.contextRing.onlyHere")}
-            </span>
-          ) : null}
-        </span>
-      ) : null}
-      <span className="mt-1 block">
-        {percent === null
-          ? t("chatPage.contextRing.unknown")
-          : t("chatPage.contextRing.fill", {
-              percent,
-              used: used === null ? "–" : compact(used),
-              size: size === null ? "–" : compact(size),
-            })}
-      </span>
+      <RingModelLine model={model} />
+      <span className="mt-1 block">{ringFillText(t, percent, used, size)}</span>
       <span className="mt-1 block">
         {t("chatPage.contextRing.restart", {
           percent:
             brief?.restartPercent ?? AGENT_CHAT_SESSION_RESTART_DEFAULT_PERCENT,
-          state:
-            brief === undefined
-              ? t("chatPage.contextRing.noSession")
-              : t(`agentSessions.state.${brief.state}`),
+          state: stateLabel,
         })}
       </span>
     </>
@@ -192,7 +212,11 @@ export function ChatPageContextRings({
       role="group"
     >
       {entries.map((entry) => (
-        <AgentContextRing key={entry.agent.id} entry={entry} chatName={chatName} />
+        <AgentContextRing
+          key={entry.agent.id}
+          entry={entry}
+          chatName={chatName}
+        />
       ))}
     </span>
   );

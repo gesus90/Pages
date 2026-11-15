@@ -1,4 +1,8 @@
-import { readOpenSheets, readOpenSlides, readOpenText } from "./open-document-reader";
+import {
+  readOpenSheets,
+  readOpenSlides,
+  readOpenText,
+} from "./open-document-reader";
 import { readCsvDocument, readWorkbook } from "./sheet-reader";
 import { readSlidesDocument } from "./slides-reader";
 import { readWordDocument } from "./word-reader";
@@ -22,7 +26,10 @@ export class DocumentReadError extends Error {
 }
 
 const PACKAGE_READERS: Readonly<
-  Record<Exclude<DocumentFormat, "csv" | "tsv">, (archive: ZipArchive) => Promise<ReadDocument | null>>
+  Record<
+    Exclude<DocumentFormat, "csv" | "tsv">,
+    (archive: ZipArchive) => Promise<ReadDocument | null>
+  >
 > = {
   docx: readWordDocument,
   odt: readOpenText,
@@ -50,13 +57,15 @@ export async function readDocument(
   options: { readonly format: DocumentFormat; readonly name: string },
 ): Promise<ReadDocument> {
   const { format, name } = options;
-  if (format === "csv" || format === "tsv") return readCsvDocument(bytes, { name, isTab: format === "tsv" });
+  if (format === "csv" || format === "tsv")
+    return readCsvDocument(bytes, { name, isTab: format === "tsv" });
   try {
     const document = await PACKAGE_READERS[format](openZip(bytes));
     if (document === null) throw new DocumentReadError("unreadable");
     return document;
   } catch (error: unknown) {
-    if (error instanceof ZipReadError) throw new DocumentReadError(error.reason);
+    if (error instanceof ZipReadError)
+      throw new DocumentReadError(error.reason);
     if (error instanceof DocumentReadError) throw error;
     console.warn("The document could not be read.", error);
     throw new DocumentReadError("unreadable");

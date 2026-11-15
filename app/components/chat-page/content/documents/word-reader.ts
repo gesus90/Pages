@@ -1,8 +1,26 @@
 import { MAXIMUM_BLOCKS, mergeRuns } from "./document-model";
-import { PackageImages, isSwitchedOn, readOfficeTitle, readRelations } from "./office-package";
-import { attributeOf, childNamed, childrenNamed, descendantNamed, descendantsNamed, parseXml, relationIdOf, textOf } from "./xml-nodes";
+import {
+  PackageImages,
+  isSwitchedOn,
+  readOfficeTitle,
+  readRelations,
+} from "./office-package";
+import {
+  attributeOf,
+  childNamed,
+  childrenNamed,
+  descendantNamed,
+  descendantsNamed,
+  parseXml,
+  relationIdOf,
+  textOf,
+} from "./xml-nodes";
 
-import type { DocumentBlock, DocumentRun, WordDocument } from "./document-model";
+import type {
+  DocumentBlock,
+  DocumentRun,
+  WordDocument,
+} from "./document-model";
 import type { OfficeRelation } from "./office-package";
 import type { ZipArchive } from "./zip-entries";
 
@@ -21,15 +39,25 @@ interface WordContext {
 }
 
 /** The emphasis of a run from its properties. */
-function runStyle(run: Element, link: string | undefined): Omit<DocumentRun, "text"> {
+function runStyle(
+  run: Element,
+  link: string | undefined,
+): Omit<DocumentRun, "text"> {
   const properties = childNamed(run, "rPr");
   const underline = properties ? childNamed(properties, "u") : null;
   return {
-    ...(properties && isSwitchedOn(childNamed(properties, "b")) ? { isBold: true } : {}),
-    ...(properties && isSwitchedOn(childNamed(properties, "i")) ? { isItalic: true } : {}),
-    ...(underline && attributeOf(underline, "val") !== "none" ? { isUnderline: true } : {}),
+    ...(properties && isSwitchedOn(childNamed(properties, "b"))
+      ? { isBold: true }
+      : {}),
+    ...(properties && isSwitchedOn(childNamed(properties, "i"))
+      ? { isItalic: true }
+      : {}),
+    ...(underline && attributeOf(underline, "val") !== "none"
+      ? { isUnderline: true }
+      : {}),
     ...(properties &&
-    (isSwitchedOn(childNamed(properties, "strike")) || isSwitchedOn(childNamed(properties, "dstrike")))
+    (isSwitchedOn(childNamed(properties, "strike")) ||
+      isSwitchedOn(childNamed(properties, "dstrike")))
       ? { isStrike: true }
       : {}),
     ...(link === undefined ? {} : { link }),
@@ -37,7 +65,9 @@ function runStyle(run: Element, link: string | undefined): Omit<DocumentRun, "te
 }
 
 /** Heading levels by paragraph style ID, from the names and outline levels of `styles.xml`. */
-async function readHeadingLevels(archive: ZipArchive): Promise<Map<string, number>> {
+async function readHeadingLevels(
+  archive: ZipArchive,
+): Promise<Map<string, number>> {
   const levels = new Map<string, number>();
   const text = await archive.readText("word/styles.xml");
   const root = text === null ? null : parseXml(text);
@@ -50,13 +80,16 @@ async function readHeadingLevels(archive: ZipArchive): Promise<Map<string, numbe
     const match = HEADING_NAME.exec(name);
     if (name.toLowerCase() === "title") levels.set(id, 1);
     else if (match) levels.set(id, Number(match[1]));
-    else if (outline !== null && Number(outline) < 6) levels.set(id, Number(outline) + 1);
+    else if (outline !== null && Number(outline) < 6)
+      levels.set(id, Number(outline) + 1);
   }
   return levels;
 }
 
 /** Which list levels count instead of using bullets, from `numbering.xml`. */
-async function readOrderedLevels(archive: ZipArchive): Promise<Map<string, boolean>> {
+async function readOrderedLevels(
+  archive: ZipArchive,
+): Promise<Map<string, boolean>> {
   const ordered = new Map<string, boolean>();
   const text = await archive.readText("word/numbering.xml");
   const root = text === null ? null : parseXml(text);
@@ -66,11 +99,17 @@ async function readOrderedLevels(archive: ZipArchive): Promise<Map<string, boole
     abstract.set(attributeOf(definition, "abstractNumId") ?? "", definition);
   for (const numbering of childrenNamed(root, "num")) {
     const id = attributeOf(numbering, "numId");
-    const definition = abstract.get(attributeOf(childNamed(numbering, "abstractNumId"), "val") ?? "");
+    const definition = abstract.get(
+      attributeOf(childNamed(numbering, "abstractNumId"), "val") ?? "",
+    );
     if (id === null || !definition) continue;
     for (const level of childrenNamed(definition, "lvl")) {
-      const format = attributeOf(childNamed(level, "numFmt"), "val") ?? "bullet";
-      ordered.set(`${id}:${attributeOf(level, "ilvl") ?? "0"}`, !["bullet", "none"].includes(format));
+      const format =
+        attributeOf(childNamed(level, "numFmt"), "val") ?? "bullet";
+      ordered.set(
+        `${id}:${attributeOf(level, "ilvl") ?? "0"}`,
+        !["bullet", "none"].includes(format),
+      );
     }
   }
   return ordered;
@@ -80,41 +119,67 @@ async function readOrderedLevels(archive: ZipArchive): Promise<Map<string, boole
 async function readPageCount(archive: ZipArchive): Promise<number | null> {
   const text = await archive.readText("docProps/app.xml");
   const root = text === null ? null : parseXml(text);
-  const pages = root ? Number(textOf(descendantNamed(root, "Pages"))) : Number.NaN;
+  const pages = root
+    ? Number(textOf(descendantNamed(root, "Pages")))
+    : Number.NaN;
   return Number.isInteger(pages) && pages > 0 ? pages : null;
 }
 
 /** Reads the images of a drawing or an old VML picture inside the package. */
-async function readDrawing(element: Element, context: WordContext): Promise<void> {
-  const blips = [...descendantsNamed(element, "blip"), ...descendantsNamed(element, "imagedata")];
+async function readDrawing(
+  element: Element,
+  context: WordContext,
+): Promise<void> {
+  const blips = [
+    ...descendantsNamed(element, "blip"),
+    ...descendantsNamed(element, "imagedata"),
+  ];
   const description =
-    attributeOf(descendantNamed(element, "docPr"), "descr") ?? attributeOf(descendantNamed(element, "docPr"), "name") ?? "";
+    attributeOf(descendantNamed(element, "docPr"), "descr") ??
+    attributeOf(descendantNamed(element, "docPr"), "name") ??
+    "";
   for (const blip of blips) {
     // `r:embed` lies inside the file; `r:link` points outside and is never loaded.
     const id = attributeOf(blip, "embed") ?? relationIdOf(blip);
-    const imageId = id === null ? null : await context.images.addRelation(context.relations.get(id));
-    if (imageId !== null) context.blocks.push({ kind: "image", imageId, description });
+    const imageId =
+      id === null
+        ? null
+        : await context.images.addRelation(context.relations.get(id));
+    if (imageId !== null)
+      context.blocks.push({ kind: "image", imageId, description });
   }
 }
 
 /** The runs of one run element; drawings become their own blocks. */
-async function readRun(run: Element, context: WordContext, link: string | undefined): Promise<DocumentRun[]> {
+async function readRun(
+  run: Element,
+  context: WordContext,
+  link: string | undefined,
+): Promise<DocumentRun[]> {
   const style = runStyle(run, link);
   const runs: DocumentRun[] = [];
   for (const child of run.children) {
     const name = child.localName;
     if (name === "t") runs.push({ ...style, text: child.textContent ?? "" });
     else if (name === "tab") runs.push({ ...style, text: "\t" });
-    else if (name === "br" && attributeOf(child, "type") === "page") context.pageBreaks += 1;
-    else if (name === "br" || name === "cr") runs.push({ ...style, text: "\n" });
-    else if (name === "drawing" || name === "pict") await readDrawing(child, context);
-    else if (name === "object") context.blocks.push({ kind: "embedded", description: "OLE" });
+    else if (name === "br" && attributeOf(child, "type") === "page")
+      context.pageBreaks += 1;
+    else if (name === "br" || name === "cr")
+      runs.push({ ...style, text: "\n" });
+    else if (name === "drawing" || name === "pict")
+      await readDrawing(child, context);
+    else if (name === "object")
+      context.blocks.push({ kind: "embedded", description: "OLE" });
   }
   return runs;
 }
 
 /** The runs of a paragraph, through links, insertions, fields and smart tags. */
-async function readInline(parent: Element, context: WordContext, link?: string): Promise<DocumentRun[]> {
+async function readInline(
+  parent: Element,
+  context: WordContext,
+  link?: string,
+): Promise<DocumentRun[]> {
   const runs: DocumentRun[] = [];
   for (const child of parent.children) {
     const name = child.localName;
@@ -123,27 +188,49 @@ async function readInline(parent: Element, context: WordContext, link?: string):
       const relation = context.relations.get(relationIdOf(child) ?? "");
       const target = relation?.isExternal ? relation.target : link;
       runs.push(...(await readInline(child, context, target)));
-    } else if (["ins", "smartTag", "fldSimple", "sdt", "sdtContent", "customXml"].includes(name))
+    } else if (
+      [
+        "ins",
+        "smartTag",
+        "fldSimple",
+        "sdt",
+        "sdtContent",
+        "customXml",
+      ].includes(name)
+    )
       runs.push(...(await readInline(child, context, link)));
   }
   return runs;
 }
 
 /** Turns a paragraph into a heading, a list item or a paragraph. */
-function paragraphBlock(paragraph: Element, runs: DocumentRun[], context: WordContext): DocumentBlock | null {
+function paragraphBlock(
+  paragraph: Element,
+  runs: DocumentRun[],
+  context: WordContext,
+): DocumentBlock | null {
   const properties = childNamed(paragraph, "pPr");
-  const styleId = attributeOf(properties ? childNamed(properties, "pStyle") : null, "val") ?? "";
+  const styleId =
+    attributeOf(properties ? childNamed(properties, "pStyle") : null, "val") ??
+    "";
   const merged = mergeRuns(runs);
   const level = context.headingLevels.get(styleId);
   const numbering = properties ? childNamed(properties, "numPr") : null;
-  const numId = attributeOf(numbering ? childNamed(numbering, "numId") : null, "val");
+  const numId = attributeOf(
+    numbering ? childNamed(numbering, "numId") : null,
+    "val",
+  );
   if (merged.length === 0) return null;
-  if (level !== undefined) return { kind: "heading", level: Math.min(level, 6), runs: merged };
+  if (level !== undefined)
+    return { kind: "heading", level: Math.min(level, 6), runs: merged };
   if (numbering && numId !== null && numId !== "0") {
-    const listLevel = Number(attributeOf(childNamed(numbering, "ilvl"), "val") ?? "0");
+    const listLevel = Number(
+      attributeOf(childNamed(numbering, "ilvl"), "val") ?? "0",
+    );
     return {
       kind: "listItem",
-      isOrdered: context.orderedLevels.get(`${numId}:${String(listLevel)}`) ?? false,
+      isOrdered:
+        context.orderedLevels.get(`${numId}:${String(listLevel)}`) ?? false,
       level: Number.isFinite(listLevel) ? listLevel : 0,
       runs: merged,
     };
@@ -151,7 +238,10 @@ function paragraphBlock(paragraph: Element, runs: DocumentRun[], context: WordCo
   return { kind: "paragraph", runs: merged };
 }
 
-async function readParagraph(paragraph: Element, context: WordContext): Promise<void> {
+async function readParagraph(
+  paragraph: Element,
+  context: WordContext,
+): Promise<void> {
   const breaksBefore = context.pageBreaks;
   const imageIndex = context.blocks.length;
   const runs = await readInline(paragraph, context);
@@ -162,18 +252,25 @@ async function readParagraph(paragraph: Element, context: WordContext): Promise<
     context.blocks.push({ kind: "pageBreak" });
 }
 
+async function readTableCell(
+  cell: Element,
+  context: WordContext,
+): Promise<DocumentRun[]> {
+  const runs: DocumentRun[] = [];
+  for (const paragraph of descendantsNamed(cell, "p")) {
+    if (runs.length > 0) runs.push({ text: "\n" });
+    runs.push(...(await readInline(paragraph, { ...context, blocks: [] })));
+  }
+  return mergeRuns(runs);
+}
+
 /** The cell text of a table: its paragraphs joined by line breaks, nested tables as text. */
 async function readTable(table: Element, context: WordContext): Promise<void> {
   const rows: DocumentRun[][][] = [];
   for (const row of childrenNamed(table, "tr")) {
     const cells: DocumentRun[][] = [];
     for (const cell of childrenNamed(row, "tc")) {
-      const runs: DocumentRun[] = [];
-      for (const paragraph of descendantsNamed(cell, "p")) {
-        if (runs.length > 0) runs.push({ text: "\n" });
-        runs.push(...(await readInline(paragraph, { ...context, blocks: [] })));
-      }
-      cells.push(mergeRuns(runs));
+      cells.push(await readTableCell(cell, context));
     }
     rows.push(cells);
   }
@@ -186,7 +283,8 @@ async function readBody(body: Element, context: WordContext): Promise<void> {
     const name = child.localName;
     if (name === "p") await readParagraph(child, context);
     else if (name === "tbl") await readTable(child, context);
-    else if (name === "sdt" || name === "sdtContent" || name === "customXml") await readBody(child, context);
+    else if (name === "sdt" || name === "sdtContent" || name === "customXml")
+      await readBody(child, context);
   }
 }
 
@@ -202,7 +300,9 @@ async function readBody(body: Element, context: WordContext): Promise<void> {
  * @param archive - The opened package.
  * @returns The document, or `null` when it holds no `word/document.xml`.
  */
-export async function readWordDocument(archive: ZipArchive): Promise<WordDocument | null> {
+export async function readWordDocument(
+  archive: ZipArchive,
+): Promise<WordDocument | null> {
   const text = await archive.readText(DOCUMENT_PART);
   const root = text === null ? null : parseXml(text);
   const body = root ? descendantNamed(root, "body") : null;
@@ -218,7 +318,9 @@ export async function readWordDocument(archive: ZipArchive): Promise<WordDocumen
   };
   await readBody(body, context);
   const renderedBreaks = descendantsNamed(body, "lastRenderedPageBreak").length;
-  const pageCount = (await readPageCount(archive)) ?? Math.max(context.pageBreaks, renderedBreaks) + 1;
+  const pageCount =
+    (await readPageCount(archive)) ??
+    Math.max(context.pageBreaks, renderedBreaks) + 1;
   return {
     kind: "word",
     title: await readOfficeTitle(archive),

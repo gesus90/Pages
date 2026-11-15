@@ -156,7 +156,10 @@ async function drawPdf(
   });
   try {
     const title = await preview.readTitle();
-    onFacts?.({ pageCount: preview.pageCount, ...(title === null ? {} : { title }) });
+    onFacts?.({
+      pageCount: preview.pageCount,
+      ...(title === null ? {} : { title }),
+    });
     const page = document.createElement("canvas");
     // The preview multiplies by the pixel ratio; the page is wanted in real pixels.
     const width = THUMBNAIL_MAXIMUM_SIDE / (window.devicePixelRatio || 1);

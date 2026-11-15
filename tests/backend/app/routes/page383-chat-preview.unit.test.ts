@@ -8,7 +8,10 @@ import { toVirtualMessage } from "@/backend/service/employee/ChatConversationVie
 import { EMPLOYEE } from "../server-lib/request-fixtures";
 import { routeArguments } from "../server-lib/route-arguments";
 
-import type { DatabaseTransaction, DatabaseValue } from "@/backend/database/Database";
+import type {
+  DatabaseTransaction,
+  DatabaseValue,
+} from "@/backend/database/Database";
 import type { ConversationMessage } from "@/definition/Conversation";
 
 const services = vi.hoisted(() => ({
@@ -30,7 +33,9 @@ it("serves the preview frame with its own open network policy, sandboxed and fra
   const response = loader();
   const policy = response.headers.get("Content-Security-Policy") ?? "";
   expect(response.headers.get("Content-Type")).toBe("text/html; charset=utf-8");
-  expect(policy).toContain("default-src * data: blob: 'unsafe-inline' 'unsafe-eval'");
+  expect(policy).toContain(
+    "default-src * data: blob: 'unsafe-inline' 'unsafe-eval'",
+  );
   expect(policy).toContain("frame-ancestors 'self'");
   expect(policy).toContain("sandbox allow-scripts allow-forms allow-modals");
   // No own origin, no navigation of Pages, no new windows.
@@ -40,7 +45,9 @@ it("serves the preview frame with its own open network policy, sandboxed and fra
   const document = await response.text();
   expect(document).toContain("event.source !== parent");
   expect(document).toContain("pages-preview:render");
-  expect(document).toContain('parent.postMessage({ type: "pages-preview:ready" }, "*")');
+  expect(document).toContain(
+    'parent.postMessage({ type: "pages-preview:ready" }, "*")',
+  );
 });
 
 it("stores a message from a preview as a message of the person, never as a command (PAGE-383)", async () => {
@@ -71,7 +78,7 @@ const stored: ConversationMessage = {
   id: "m1",
   conversationId: "team",
   clientMessageId: "preview-abc",
-  sender: { id: EMPLOYEE.id, kind: "person", name: "Ada", color: null },
+  sender: { id: EMPLOYEE.id, kind: "human", name: "Ada", color: null },
   text: "Variante B nehmen",
   createdAt: "2026-11-14T10:00:00.000Z",
   mentions: [],
@@ -84,7 +91,8 @@ it("marks a stored message sent from a preview for every member, and no other (P
   const other = { ...EMPLOYEE, id: "someone-else" };
   expect(toVirtualMessage(stored, other).isFromPreview).toBe(true);
   expect(
-    toVirtualMessage({ ...stored, clientMessageId: "c1" }, EMPLOYEE).isFromPreview,
+    toVirtualMessage({ ...stored, clientMessageId: "c1" }, EMPLOYEE)
+      .isFromPreview,
   ).toBeUndefined();
 });
 
@@ -93,7 +101,7 @@ it("reads the preview mark of a direct chat message with an agent from its clien
     ["m1", "user", "Variante B", "today", null, "preview-xyz"],
     ["m2", "user", "Hallo", "today", null, "browser-1"],
   ];
-  const query = vi.fn(async () => rows);
+  const query = vi.fn<DatabaseTransaction["query"]>(async () => rows);
   const execute = vi.fn(async () => undefined);
   const repository = new ChatSessionRepository({
     query,

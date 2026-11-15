@@ -26,7 +26,9 @@ function cleaned(facts: ConversationMediaFacts): ConversationMediaFacts {
   const duration = facts.durationSeconds ?? 0;
   return {
     ...(width > 0 && height > 0 ? { width, height } : {}),
-    ...(Number.isFinite(duration) && duration > 0 ? { durationSeconds: duration } : {}),
+    ...(Number.isFinite(duration) && duration > 0
+      ? { durationSeconds: duration }
+      : {}),
   };
 }
 
@@ -125,7 +127,8 @@ export function formatResolution(facts: ConversationMediaFacts): string | null {
   const shorter = Math.min(width, height);
   if (width < height) return `${String(width)} × ${String(height)}`;
   if (shorter >= 2160) return "4K";
-  if ([1440, 1080, 720, 480, 360].includes(shorter)) return `${String(shorter)}p`;
+  if ([1440, 1080, 720, 480, 360].includes(shorter))
+    return `${String(shorter)}p`;
   return `${String(width)} × ${String(height)}`;
 }
 

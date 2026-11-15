@@ -28,7 +28,8 @@ interface JsonScan {
 
 const LITERALS: readonly string[] = ["true", "false", "null"];
 const NUMBER_AT = /-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/uy;
-const STRING_AT = /"(?:[^"\\\u0000-\u001f]|\\(?:["\\/bfnrt]|u[0-9a-fA-F]{4}))*"/uy;
+const STRING_AT =
+  /"(?:[^"\\\u0000-\u001f]|\\(?:["\\/bfnrt]|u[0-9a-fA-F]{4}))*"/uy;
 
 class JsonBreak extends Error {}
 
@@ -81,7 +82,9 @@ function scanValue(scan: JsonScan): void {
   if (character === "{") return scanEntries(scan, "}", true);
   if (character === "[") return scanEntries(scan, "]", false);
   if (character === '"') return scanPattern(scan, STRING_AT);
-  const literal = LITERALS.find((word) => scan.text.startsWith(word, scan.index));
+  const literal = LITERALS.find((word) =>
+    scan.text.startsWith(word, scan.index),
+  );
   if (literal !== undefined) {
     scan.index += literal.length;
     return;
@@ -112,7 +115,11 @@ export function readJson(source: string): JsonReading {
     return { isValid: true, value: JSON.parse(source) };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
-    return { isValid: false, message, ...positionOf(source, errorOffset(source)) };
+    return {
+      isValid: false,
+      message,
+      ...positionOf(source, errorOffset(source)),
+    };
   }
 }
 

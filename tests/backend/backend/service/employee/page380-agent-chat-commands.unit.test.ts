@@ -3,7 +3,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AgentEmployeeError } from "@/backend/error/AgentEmployeeError";
 import { AgentChatCommandService } from "@/backend/service/employee/AgentChatCommandService";
 
-import type { AgentChatCommandDependencies } from "@/backend/service/employee/AgentChatCommandService";
 import type {
   AgentChatModelChoice,
   AgentChatModelOverview,
@@ -18,10 +17,26 @@ const igor: User = {
   isActive: true,
   mustChangePassword: false,
 };
-const ed: User = { ...igor, id: "ed", username: "ed", displayName: "Ed", isAgent: true };
-const mei: User = { ...igor, id: "mei", username: "mei", displayName: "Mei", isAgent: true };
+const ed: User = {
+  ...igor,
+  id: "ed",
+  username: "ed",
+  displayName: "Ed",
+  isAgent: true,
+};
+const mei: User = {
+  ...igor,
+  id: "mei",
+  username: "mei",
+  displayName: "Mei",
+  isAgent: true,
+};
 
-function choice(model: string, name: string, aliases: string[] = []): AgentChatModelChoice {
+function choice(
+  model: string,
+  name: string,
+  aliases: string[] = [],
+): AgentChatModelChoice {
   return {
     connectionId: "claude",
     model,
@@ -67,7 +82,7 @@ function service(): AgentChatCommandService {
     users: { findById: async (id: string) => users.get(id) ?? null },
     access: { groupMembers },
     control,
-  } as unknown as AgentChatCommandDependencies);
+  });
 }
 
 const DIRECT = { kind: "direct" as const, agentId: "ed" };
@@ -88,9 +103,17 @@ describe("the chat commands (PAGE-380)", () => {
     expect(control.setModel).toHaveBeenCalledWith(
       igor,
       { kind: "group", agentId: "ed", conversationId: "team" },
-      { connectionId: "claude", model: "claude-opus-5-5", reasoningEffort: "high" },
+      {
+        connectionId: "claude",
+        model: "claude-opus-5-5",
+        reasoningEffort: "high",
+      },
     );
-    expect(outcome).toEqual({ status: "done", command: "model", agentName: "Ed" });
+    expect(outcome).toEqual({
+      status: "done",
+      command: "model",
+      agentName: "Ed",
+    });
   });
 
   it("shows the current model and the choice for `/model` and resets with `/model reset`", async () => {
@@ -108,8 +131,14 @@ describe("the chat commands (PAGE-380)", () => {
 
   it("lists the matches of an ambiguous name instead of guessing", async () => {
     const outcome = await service().run(igor, GROUP, "/model @ed claude");
-    expect(outcome).toMatchObject({ status: "chooseModel", query: "claude", mention: "ed" });
-    expect(outcome.status === "chooseModel" ? outcome.matches : []).toHaveLength(3);
+    expect(outcome).toMatchObject({
+      status: "chooseModel",
+      query: "claude",
+      mention: "ed",
+    });
+    expect(
+      outcome.status === "chooseModel" ? outcome.matches : [],
+    ).toHaveLength(3);
     expect(control.setModel).not.toHaveBeenCalled();
     expect(await service().run(igor, DIRECT, "/model gemini")).toEqual({
       status: "unknownModel",
@@ -164,14 +193,18 @@ describe("the chat commands (PAGE-380)", () => {
     expect(await service().run(ed, GROUP, "/model @mei opus")).toEqual({
       status: "forbidden",
     });
-    expect(await service().run(mei, DIRECT, "/new")).toEqual({ status: "forbidden" });
+    expect(await service().run(mei, DIRECT, "/new")).toEqual({
+      status: "forbidden",
+    });
     expect(control.setModel).not.toHaveBeenCalled();
     expect(control.renew).not.toHaveBeenCalled();
     expect(groupMembers).not.toHaveBeenCalled();
   });
 
   it("refuses a text that is no command", async () => {
-    await expect(service().run(igor, DIRECT, "Hallo /new")).rejects.toMatchObject({
+    await expect(
+      service().run(igor, DIRECT, "Hallo /new"),
+    ).rejects.toMatchObject({
       code: "invalidInput",
     });
   });

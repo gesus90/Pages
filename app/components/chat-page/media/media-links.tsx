@@ -16,7 +16,10 @@ function MediaLinkRow({
   readonly actions: Pick<MediaItemActions, "toMessage" | "senderName">;
 }): React.ReactElement {
   const { t, i18n } = useTranslation();
-  const origin = [actions.senderName(link.senderId), formatSentAt(link.sentAt, i18n.language)]
+  const origin = [
+    actions.senderName(link.senderId),
+    formatSentAt(link.sentAt, i18n.language),
+  ]
     .filter((part) => part !== "")
     .join(" · ");
   return (
@@ -28,11 +31,18 @@ function MediaLinkRow({
         {link.imageUrl === null ? (
           <Globe aria-hidden="true" className="size-4" />
         ) : (
-          <img alt="" className="size-full object-cover" loading="lazy" src={link.imageUrl} />
+          <img
+            alt=""
+            className="size-full object-cover"
+            loading="lazy"
+            src={link.imageUrl}
+          />
         )}
       </span>
       <p className="flex min-w-0 flex-col leading-tight">
-        <span className="truncate text-xs font-medium text-primary">{link.domain}</span>
+        <span className="truncate text-xs font-medium text-primary">
+          {link.domain}
+        </span>
         <a
           className="truncate text-[13px] font-semibold text-foreground hover:underline focus-visible:outline-2 focus-visible:outline-primary"
           href={link.url}
@@ -76,7 +86,11 @@ export function MediaLinks({
   return (
     <ul className="flex flex-col gap-2 p-3">
       {links.map((link) => (
-        <MediaLinkRow key={`${link.messageId}:${link.url}`} actions={actions} link={link} />
+        <MediaLinkRow
+          key={`${link.messageId}:${link.url}`}
+          actions={actions}
+          link={link}
+        />
       ))}
     </ul>
   );

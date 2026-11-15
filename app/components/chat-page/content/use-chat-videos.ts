@@ -27,7 +27,9 @@ export function useChatVideos(
   conversationId: string | null,
   opened: ConversationImage,
 ): ChatVideos {
-  const [loaded, setLoaded] = useState<readonly ConversationImage[] | null>(null);
+  const [loaded, setLoaded] = useState<readonly ConversationImage[] | null>(
+    null,
+  );
   const [isLoading, setLoading] = useState(conversationId !== null);
   const attachmentId = opened.attachment.id;
 
@@ -38,7 +40,10 @@ export function useChatVideos(
       try {
         const response = await fetch(
           `/chat/videos/${encodeURIComponent(conversationId ?? "")}`,
-          { signal: controller.signal, headers: { Accept: "application/json" } },
+          {
+            signal: controller.signal,
+            headers: { Accept: "application/json" },
+          },
         );
         if (!response.ok) return;
         const videos = readChatMedia(await response.json(), "video");
@@ -65,8 +70,15 @@ export function useChatVideos(
  */
 export function videoCardOf(video: ConversationImage): {
   readonly key: string;
-  readonly descriptor: { readonly kind: "video"; readonly attachment: ConversationImage["attachment"] };
-  readonly origin: { readonly senderName: string; readonly createdAt: string; readonly messageId: string };
+  readonly descriptor: {
+    readonly kind: "video";
+    readonly attachment: ConversationImage["attachment"];
+  };
+  readonly origin: {
+    readonly senderName: string;
+    readonly createdAt: string;
+    readonly messageId: string;
+  };
 } {
   return {
     key: `att:${video.attachment.id}`,
@@ -86,7 +98,11 @@ export function videoCardOf(video: ConversationImage): {
  */
 export function videoEntryOf(card: {
   readonly descriptor: { readonly attachment: ConversationImage["attachment"] };
-  readonly origin: { readonly senderName: string; readonly createdAt?: string; readonly messageId?: string };
+  readonly origin: {
+    readonly senderName: string;
+    readonly createdAt?: string;
+    readonly messageId?: string;
+  };
 }): ConversationImage {
   return {
     attachment: card.descriptor.attachment,

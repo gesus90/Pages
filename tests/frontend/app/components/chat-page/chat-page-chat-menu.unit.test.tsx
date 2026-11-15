@@ -285,7 +285,14 @@ it("asks which agent's model changes when several agents take part", async () =>
   vi.stubGlobal("fetch", async () => Response.json({ ok: true, models: [] }));
   renderGroup({
     canControlSessions: true,
-    agentModels: { ed: { name: "Claude Opus 5.5", reasoningEffort: "high", isOverride: true, contextWindow: null } },
+    agentModels: {
+      ed: {
+        name: "Claude Opus 5.5",
+        reasoningEffort: "high",
+        isOverride: true,
+        contextWindow: null,
+      },
+    },
   });
   openMenu();
   const model = entry(/^Model for this chat/);

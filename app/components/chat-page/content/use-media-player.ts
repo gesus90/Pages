@@ -125,6 +125,66 @@ function useMediaSession(
   return handle;
 }
 
+interface BuildMediaEventsInput {
+  readonly attachmentId: string | undefined;
+  readonly onMetadata: MediaPlayerOptions["onMetadata"];
+  readonly session: React.RefObject<MediaHandle | null>;
+  readonly setPlaying: (playing: boolean) => void;
+  readonly setStarted: (started: boolean) => void;
+  readonly setPosition: (seconds: number) => void;
+  readonly setDuration: (seconds: number | null) => void;
+  readonly setBuffered: (seconds: number) => void;
+  readonly setMuted: (muted: boolean) => void;
+}
+
+function buildMediaEvents<TElement extends HTMLMediaElement>({
+  attachmentId,
+  onMetadata,
+  session,
+  setPlaying,
+  setStarted,
+  setPosition,
+  setDuration,
+  setBuffered,
+  setMuted,
+}: BuildMediaEventsInput): MediaPlayer<TElement>["events"] {
+  return {
+    onPlay: () => {
+      setPlaying(true);
+      setStarted(true);
+      if (session.current) claimPlayback(session.current);
+    },
+    onPause: () => {
+      setPlaying(false);
+      if (session.current) releasePlayback(session.current);
+    },
+    onEnded: () => {
+      setPlaying(false);
+      if (session.current) releasePlayback(session.current);
+    },
+    onTimeUpdate: (event) => {
+      const { currentTime } = event.currentTarget;
+      setPosition(currentTime);
+      if (attachmentId !== undefined) savePosition(attachmentId, currentTime);
+    },
+    onDurationChange: (event) => {
+      const { duration } = event.currentTarget;
+      setDuration(Number.isFinite(duration) ? duration : null);
+    },
+    onProgress: (event) => setBuffered(bufferedEnd(event.currentTarget)),
+    onVolumeChange: (event) => setMuted(event.currentTarget.muted),
+    onLoadedMetadata: (event) => {
+      const element = event.currentTarget;
+      if (!onMetadata || !Number.isFinite(element.duration)) return;
+      onMetadata({
+        durationSeconds: element.duration,
+        width: element instanceof HTMLVideoElement ? element.videoWidth : 0,
+        height: element instanceof HTMLVideoElement ? element.videoHeight : 0,
+      });
+    },
+  };
+}
+
 /**
  * The state of an own player around a `<video>` or `<audio>` element
  * (PAGE-298, PAGE-384): give `media` as its ref and spread `events` onto it.
@@ -216,41 +276,17 @@ export function useMediaPlayer<TElement extends HTMLMediaElement>(
     skip,
     nextSpeed,
     toggleMute,
-    events: {
-      onPlay: () => {
-        setPlaying(true);
-        setStarted(true);
-        if (session.current) claimPlayback(session.current);
-      },
-      onPause: () => {
-        setPlaying(false);
-        if (session.current) releasePlayback(session.current);
-      },
-      onEnded: () => {
-        setPlaying(false);
-        if (session.current) releasePlayback(session.current);
-      },
-      onTimeUpdate: (event) => {
-        const { currentTime } = event.currentTarget;
-        setPosition(currentTime);
-        if (attachmentId !== undefined) savePosition(attachmentId, currentTime);
-      },
-      onDurationChange: (event) => {
-        const { duration } = event.currentTarget;
-        setDuration(Number.isFinite(duration) ? duration : null);
-      },
-      onProgress: (event) => setBuffered(bufferedEnd(event.currentTarget)),
-      onVolumeChange: (event) => setMuted(event.currentTarget.muted),
-      onLoadedMetadata: (event) => {
-        const element = event.currentTarget;
-        if (!onMetadata || !Number.isFinite(element.duration)) return;
-        onMetadata({
-          durationSeconds: element.duration,
-          width: element instanceof HTMLVideoElement ? element.videoWidth : 0,
-          height: element instanceof HTMLVideoElement ? element.videoHeight : 0,
-        });
-      },
-    },
+    events: buildMediaEvents({
+      attachmentId,
+      onMetadata,
+      session,
+      setPlaying,
+      setStarted,
+      setPosition,
+      setDuration,
+      setBuffered,
+      setMuted,
+    }),
   };
 }
 
@@ -314,7 +350,8 @@ export function formatFixedMediaTime(
   positionSeconds: number,
   durationSeconds: number | null,
 ): string {
-  const length = durationSeconds === null ? "–:––" : formatSeconds(durationSeconds);
+  const length =
+    durationSeconds === null ? "–:––" : formatSeconds(durationSeconds);
   return `${formatSeconds(positionSeconds)} / ${length}`;
 }
 

@@ -1,14 +1,8 @@
-import { randomUUID } from "node:crypto";
-
 import { AgentJobAnswerError } from "@/backend/error/AgentJobAnswerError";
 import { redactCredentials } from "@/backend/security/AgentTextSafety";
 import { AgentEmployeeError } from "@/backend/error/AgentEmployeeError";
 import { logCaughtError, logEvent } from "@/backend/logging/Logger";
-import {
-  CONVERSATION_AGENT_REPLY_PREFIX,
-  CONVERSATION_TEXT_MAXIMUM_LENGTH,
-} from "@/definition/Conversation";
-import { CONVERSATION_ATTACHMENT_MAXIMUM_COUNT } from "@/definition/ConversationContent";
+import { CONVERSATION_TEXT_MAXIMUM_LENGTH } from "@/definition/Conversation";
 
 import {
   changedEvent,
@@ -18,13 +12,9 @@ import {
   NOTICE_TEXTS,
 } from "./ConversationReplyNotices";
 import { ConversationReplyContext } from "./ConversationReplyContext";
-import { findConversationMentions } from "./ConversationMentions";
-import { toConversationMessage } from "./ConversationReader";
-import { agentSelectionText } from "./content/ConversationAgentFiles";
-import { EMPTY_MESSAGE_CONTENT } from "./content/ConversationMessageContent";
+import { postConversationReply } from "./ConversationReplyPosting";
 
 import type { LiveAnswerSink } from "./ConversationLiveAnswer";
-import type { StoredConversationMessage } from "@/backend/database/repositories/conversation/ConversationMessageRepository";
 import type { ConversationTargetState } from "@/backend/database/repositories/conversation/ConversationRoundRepository";
 import type { AgentMessageQueue } from "@/definition/AgentSessionLimits";
 import type {
@@ -32,8 +22,6 @@ import type {
   ConversationNotice,
 } from "@/definition/Conversation";
 import type { User } from "@/definition/User";
-import type { AgentFile } from "./content/ConversationAgentFiles";
-import type { PendingAttachmentReference } from "./content/ConversationAttachmentReferences";
 import type {
   ConversationAgentRequest,
   ConversationAgentTurn,
@@ -318,6 +306,15 @@ export class ConversationReplyRunner {
       await this.setState(job, "failed");
       return null;
     }
+    return this.runReplyTurn(job, accounts, agent.user);
+  }
+
+  /** Executes one reply turn after eligibility checks pass. */
+  private async runReplyTurn(
+    job: ConversationReplyJob,
+    accounts: ConversationAccounts,
+    agentUser: User,
+  ): Promise<ConversationMessage | null> {
     await this.setState(job, "running");
     const controllerKey = `${job.round.conversation.id}:${job.agentId}`;
     const controller = new AbortController();
@@ -326,7 +323,7 @@ export class ConversationReplyRunner {
     const liveAnswer = await this.openLiveAnswer(job);
     try {
       let posted: { readonly message: ConversationMessage | null } | undefined;
-      const text = await this.askWhenFree(job, agent.user, {
+      const text = await this.askWhenFree(job, agentUser, {
         accounts,
         signal: controller.signal,
         liveAnswer,
@@ -362,8 +359,8 @@ export class ConversationReplyRunner {
       });
       await this.post(job, accounts, {
         text: controller.signal.aborted
-          ? NOTICE_TEXTS.agent_stopped(agent.user.displayName)
-          : failureText(error, notice, agent.user.displayName),
+          ? NOTICE_TEXTS.agent_stopped(agentUser.displayName)
+          : failureText(error, notice, agentUser.displayName),
         notice,
       });
       await this.settleSteered(controllerKey, { state: "failed", notice });
@@ -601,191 +598,17 @@ export class ConversationReplyRunner {
       readonly notice: ConversationNotice | null;
     },
   ): Promise<ConversationMessage | null> {
-    const { conversation, memberIds } = job.round;
-    // A hint of Pages attaches nothing; an answer attaches its file lines and shows its references (PAGE-386).
-    const referenced =
-      reply.notice === null && this.dependencies.references
-        ? await this.dependencies.references.select(conversation.id, job.agentId, reply.text)
-        : { text: reply.text, references: [] };
-    const selection =
-      reply.notice === null
-        ? await this.dependencies.agentFiles.select(referenced.text)
-        : null;
-    // The files are stored first, so a file that fails keeps its line with the reason.
-    const files = selection
-      ? await this.stageFiles(conversation.id, job.agentId, selection.files)
-      : { attachmentIds: [], failed: [] };
-    const staged = await this.withGeneratedImages(job, files, reply.notice);
-    const text = Array.from(
-      selection ? agentSelectionText(selection, staged.failed) : reply.text,
-    )
-      .slice(0, CONVERSATION_TEXT_MAXIMUM_LENGTH)
-      .join("");
-    // An answer mentions as a person's message does, so it can hand over (PAGE-296).
-    const mentions =
-      reply.notice === null && conversation.kind === "group"
-        ? findConversationMentions(text, memberIds, {
-            accounts,
-            senderId: job.agentId,
-          })
-        : [];
-    let outcome: Awaited<
-      ReturnType<ConversationReplyRunnerDependencies["messages"]["insert"]>
-    >;
-    try {
-      outcome = await this.dependencies.messages.insert(
-        {
-          id: randomUUID(),
-          conversationId: conversation.id,
-          senderId: job.agentId,
-          // One key per asking message (PAGE-349): an agent may answer a round again and again;
-          // the answer to the round's own message keeps its earlier key.
-          clientMessageId: `${CONVERSATION_AGENT_REPLY_PREFIX}${job.round.originMessageId}${job.triggerMessageId === job.round.originMessageId ? "" : `:${job.triggerMessageId}`}`,
-          text,
-          mentions,
-          createdAt: this.now(),
-          voice: null,
-          notice: reply.notice,
-        },
-        changedEvent(conversation.id),
-      );
-    } catch (error: unknown) {
-      await this.releaseFiles(job.agentId, staged.attachmentIds);
-      throw error;
-    }
-    await this.setState(job, reply.notice === null ? "answered" : "failed", {
-      replyMessageId: outcome.message.id,
-      notice: reply.notice,
-    });
-    if (!outcome.isNew) {
-      // A repeated store keeps the first answer; the copies of this one go.
-      await this.releaseFiles(job.agentId, staged.attachmentIds);
-      return null;
-    }
-    await this.bindFiles(outcome.message, staged.attachmentIds);
-    await this.bindReferences(outcome.message, referenced.references);
-    const content = await this.dependencies.content.describe([outcome.message]);
-    const message = toConversationMessage(
-      outcome.message,
+    return postConversationReply(
+      {
+        dependencies: this.dependencies,
+        now: () => this.now(),
+        setState: (targetJob, state, details) =>
+          this.setState(targetJob, state, details),
+      },
+      job,
       accounts,
-      content.get(outcome.message.id) ?? EMPTY_MESSAGE_CONTENT,
+      reply,
     );
-    this.dependencies.publisher.publish(changedEvent(conversation.id));
-    this.dependencies.events.publish({
-      kind: "message",
-      message,
-      recipientIds: memberIds,
-    });
-    return reply.notice === null ? message : null;
-  }
-
-  /**
-   * Adds the images the agent generated during the answer (PAGE-382), after
-   * the files its lines named and within the most attachments of a message;
-   * a hint of Pages takes none and lets them go.
-   */
-  private async withGeneratedImages(
-    job: ConversationReplyJob,
-    files: { attachmentIds: string[]; failed: AgentFile[] },
-    notice: ConversationNotice | null,
-  ): Promise<{ attachmentIds: string[]; failed: AgentFile[] }> {
-    const generated =
-      this.dependencies.generatedImages?.take({
-        agentId: job.agentId,
-        conversationId: job.round.conversation.id,
-      }) ?? [];
-    if (generated.length === 0) return files;
-    const room =
-      notice === null
-        ? Math.max(
-            0,
-            CONVERSATION_ATTACHMENT_MAXIMUM_COUNT - files.attachmentIds.length,
-          )
-        : 0;
-    await this.releaseFiles(job.agentId, generated.slice(room));
-    return {
-      attachmentIds: [...files.attachmentIds, ...generated.slice(0, room)],
-      failed: files.failed,
-    };
-  }
-
-  /**
-   * Copies the files an answer named into the file store, without a message
-   * yet.
-   *
-   * @returns The stored attachments in their order, and the files that failed.
-   */
-  private async stageFiles(
-    conversationId: string,
-    agentId: string,
-    files: readonly AgentFile[],
-  ): Promise<{ attachmentIds: string[]; failed: AgentFile[] }> {
-    const attachmentIds: string[] = [];
-    const failed: AgentFile[] = [];
-    for (const file of files) {
-      try {
-        const stored = await this.dependencies.attachments.stage(
-          { conversationId, senderId: agentId },
-          {
-            name: file.name,
-            mimeType: file.mimeType,
-            source: this.dependencies.agentFiles.open(file),
-          },
-        );
-        attachmentIds.push(stored.id);
-      } catch (error: unknown) {
-        // The line of the file stays in the answer with the reason.
-        logCaughtError(COMPONENT, error);
-        failed.push(file);
-      }
-    }
-    return { attachmentIds, failed };
-  }
-
-  /** Stores the references of the stored answer; a failure leaves the answer without its cards. */
-  private async bindReferences(
-    answer: StoredConversationMessage,
-    references: readonly PendingAttachmentReference[],
-  ): Promise<void> {
-    try {
-      await this.dependencies.references?.bind(answer, references);
-    } catch (error: unknown) {
-      logCaughtError(COMPONENT, error);
-    }
-  }
-
-  /** Binds the stored files to the stored answer; unbound ones are swept later. */
-  private async bindFiles(
-    answer: StoredConversationMessage,
-    attachmentIds: readonly string[],
-  ): Promise<void> {
-    if (attachmentIds.length === 0) return;
-    try {
-      await this.dependencies.attachments.bind(
-        {
-          id: answer.id,
-          conversationId: answer.conversationId,
-          senderId: answer.senderId,
-        },
-        attachmentIds,
-      );
-    } catch (error: unknown) {
-      logCaughtError(COMPONENT, error);
-      await this.releaseFiles(answer.senderId, attachmentIds);
-    }
-  }
-
-  /** Removes stored files no answer took; a failure leaves them to the sweep. */
-  private async releaseFiles(
-    agentId: string,
-    attachmentIds: readonly string[],
-  ): Promise<void> {
-    if (attachmentIds.length === 0) return;
-    try {
-      await this.dependencies.attachments.release(agentId, attachmentIds);
-    } catch (error: unknown) {
-      logCaughtError(COMPONENT, error);
-    }
   }
 
   private async setState(

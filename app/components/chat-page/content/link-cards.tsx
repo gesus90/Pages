@@ -121,7 +121,11 @@ function WebCard({ link, cardKey, origin }: LinkCardProps): React.ReactElement {
   // Only a release of a member can be taken back here, not Pages itself, a
   // local preview or a domain the administrator released.
   const isReleasedHere = content.releasedDomains.includes(link.domain);
-  const card: OpenedCard = { key: cardKey, descriptor: { kind: "web", link }, origin };
+  const card: OpenedCard = {
+    key: cardKey,
+    descriptor: { kind: "web", link },
+    origin,
+  };
 
   return (
     <ContentCard

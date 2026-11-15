@@ -74,7 +74,10 @@ export function useTicking(isRunning: boolean): number {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     if (!isRunning) return undefined;
-    const timer = window.setInterval(() => setNow(Date.now()), TICK_MILLISECONDS);
+    const timer = window.setInterval(
+      () => setNow(Date.now()),
+      TICK_MILLISECONDS,
+    );
     return () => window.clearInterval(timer);
   }, [isRunning]);
   return now;
@@ -127,7 +130,10 @@ export function ChatPageThoughts({
         className="inline-flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground"
         role="status"
       >
-        <Brain aria-hidden="true" className="size-3.5 animate-pulse text-primary" />
+        <Brain
+          aria-hidden="true"
+          className="size-3.5 animate-pulse text-primary"
+        />
         <span className="font-medium text-foreground">
           {t("chatPage.liveAnswer.thinkingNow")}
         </span>
@@ -243,7 +249,8 @@ export function ChatPageLiveAnswer({
         size={32}
         className={cn(
           "shrink-0 rounded-full",
-          isRunning && "ring-2 ring-primary ring-offset-2 ring-offset-background",
+          isRunning &&
+            "ring-2 ring-primary ring-offset-2 ring-offset-background",
         )}
       />
       <div className="flex min-w-0 flex-1 flex-col items-start gap-2">
@@ -333,7 +340,10 @@ function GeneratingImages({
 export function answerToolSummary(
   uses: readonly VirtualToolUse[],
   live: readonly LiveAnswerTool[] | undefined,
-): { readonly uses: readonly VirtualToolUse[]; readonly durationMs: number | null } {
+): {
+  readonly uses: readonly VirtualToolUse[];
+  readonly durationMs: number | null;
+} {
   if (!live || live.length === 0) return { uses, durationMs: null };
   const now = Date.now();
   const timed = live.map((tool) => liveToolUse(tool, now));

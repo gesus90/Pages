@@ -3,7 +3,8 @@ import { CHAT_DOCUMENT_BYTES } from "@/definition/ChatPreview";
 import type { ConversationAttachment } from "@/definition/ConversationContent";
 
 /** The formats the chat shows as a readable view or a table (PAGE-385). */
-export type DocumentFormat = "docx" | "odt" | "pptx" | "odp" | "xlsx" | "ods" | "csv" | "tsv";
+export type DocumentFormat =
+  "docx" | "odt" | "pptx" | "odp" | "xlsx" | "ods" | "csv" | "tsv";
 
 /** How a format is shown: a document, slides or a table. */
 export type DocumentView = "word" | "slides" | "sheet";
@@ -11,7 +12,11 @@ export type DocumentView = "word" | "slides" | "sheet";
 /** How the chat shows a file that is neither an image, a video nor a sound. */
 export type FileView =
   | { readonly kind: "pdf" }
-  | { readonly kind: "document"; readonly format: DocumentFormat; readonly view: DocumentView }
+  | {
+      readonly kind: "document";
+      readonly format: DocumentFormat;
+      readonly view: DocumentView;
+    }
   | {
       /** Only offered for download: a binary file, an older format, or a document above the limit. */
       readonly kind: "binary";
@@ -30,9 +35,15 @@ const VIEWS: Readonly<Record<DocumentFormat, DocumentView>> = {
 };
 
 const MIME_FORMATS: ReadonlyMap<string, DocumentFormat> = new Map([
-  ["application/vnd.openxmlformats-officedocument.wordprocessingml.document", "docx"],
+  [
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "docx",
+  ],
   ["application/vnd.oasis.opendocument.text", "odt"],
-  ["application/vnd.openxmlformats-officedocument.presentationml.presentation", "pptx"],
+  [
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "pptx",
+  ],
   ["application/vnd.oasis.opendocument.presentation", "odp"],
   ["application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "xlsx"],
   ["application/vnd.oasis.opendocument.spreadsheet", "ods"],
@@ -51,11 +62,17 @@ function isDocumentFormat(ending: string): ending is DocumentFormat {
  * @param attachment - The file.
  * @returns The format, or `null` for a file the chat shows no view of.
  */
-export function documentFormatOf(attachment: Pick<ConversationAttachment, "name" | "mimeType">): DocumentFormat | null {
+export function documentFormatOf(
+  attachment: Pick<ConversationAttachment, "name" | "mimeType">,
+): DocumentFormat | null {
   const dot = attachment.name.lastIndexOf(".");
   const ending = dot > 0 ? attachment.name.slice(dot + 1).toLowerCase() : "";
   if (isDocumentFormat(ending)) return ending;
-  return MIME_FORMATS.get(attachment.mimeType.split(";")[0]?.trim().toLowerCase() ?? "") ?? null;
+  return (
+    MIME_FORMATS.get(
+      attachment.mimeType.split(";")[0]?.trim().toLowerCase() ?? "",
+    ) ?? null
+  );
 }
 
 /**
@@ -65,10 +82,16 @@ export function documentFormatOf(attachment: Pick<ConversationAttachment, "name"
  *
  * @param attachment - The file.
  */
-export function fileViewOf(attachment: Pick<ConversationAttachment, "name" | "mimeType" | "sizeBytes" | "kind">): FileView {
+export function fileViewOf(
+  attachment: Pick<
+    ConversationAttachment,
+    "name" | "mimeType" | "sizeBytes" | "kind"
+  >,
+): FileView {
   const format = documentFormatOf(attachment);
   const isDocument = attachment.kind === "pdf" || format !== null;
-  if (isDocument && attachment.sizeBytes > CHAT_DOCUMENT_BYTES) return { kind: "binary", isTooLarge: true };
+  if (isDocument && attachment.sizeBytes > CHAT_DOCUMENT_BYTES)
+    return { kind: "binary", isTooLarge: true };
   if (attachment.kind === "pdf") return { kind: "pdf" };
   if (format === null) return { kind: "binary", isTooLarge: false };
   return { kind: "document", format, view: VIEWS[format] };

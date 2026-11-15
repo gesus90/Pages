@@ -27,7 +27,8 @@ export function messageImages(
     messageId: origin.messageId ?? "",
     senderId: "",
     senderName: origin.senderName,
-    sentAt: origin.createdAt ?? attachment.createdAt ?? new Date(0).toISOString(),
+    sentAt:
+      origin.createdAt ?? attachment.createdAt ?? new Date(0).toISOString(),
   }));
 }
 
@@ -46,7 +47,9 @@ export function openImageViewer(
   },
 ): void {
   const opener =
-    document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
   content.openViewer({
     attachmentId: opened.attachment.id,
     images: messageImages(opened.images, opened.origin),

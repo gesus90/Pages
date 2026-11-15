@@ -22,24 +22,29 @@ class FakeSocket extends EventTarget {
     this.url = url;
   }
 
+  /** Records an outgoing frame sent over the fake socket. */
   public send(frame: string): void {
     this.sent.push(frame);
   }
 
+  /** Marks the fake socket as closed. */
   public close(): void {
     this.isClosed = true;
   }
 
+  /** Dispatches an open event on the fake socket. */
   public open(): void {
     this.dispatchEvent(new Event("open"));
   }
 
+  /** Dispatches a message event containing the serialized frame. */
   public receive(frame: unknown): void {
     this.dispatchEvent(
       new MessageEvent("message", { data: JSON.stringify(frame) }),
     );
   }
 
+  /** Dispatches a close event on the fake socket. */
   public drop(): void {
     this.dispatchEvent(new Event("close"));
   }
@@ -70,7 +75,9 @@ function textFrame(seq: number, delta: string): unknown {
 
 function setup(): {
   readonly sockets: FakeSocket[];
-  readonly result: { readonly current: ReturnType<typeof useConversationStream> };
+  readonly result: {
+    readonly current: ReturnType<typeof useConversationStream>;
+  };
   readonly unmount: () => void;
 } {
   const sockets: FakeSocket[] = [];
@@ -107,7 +114,7 @@ it("connects to conversations.v1 on the Pages port and signs in with the page's 
   });
 });
 
-it("shows the parts of an answer as they arrive and reads the page once at its end", () => {
+it("shows the parts of an answer as they arrive and reads the page once at its end", async () => {
   const { sockets, result } = setup();
   const socket = sockets[0];
   act(() => {
@@ -141,11 +148,11 @@ it("shows the parts of an answer as they arrive and reads the page once at its e
   });
   expect(revalidate).toHaveBeenCalledOnce();
   // No reading at fixed intervals afterwards.
-  act(() => vi.advanceTimersByTime(60_000));
+  await act(() => vi.advanceTimersByTime(60_000));
   expect(revalidate).toHaveBeenCalledOnce();
 });
 
-it("connects again after a lost connection and reads the state of the page once", () => {
+it("connects again after a lost connection and reads the state of the page once", async () => {
   const { sockets, result } = setup();
   act(() => {
     sockets[0]?.open();
@@ -154,9 +161,9 @@ it("connects again after a lost connection and reads the state of the page once"
   expect(revalidate).not.toHaveBeenCalled();
   act(() => sockets[0]?.drop());
   expect(result.current.isConnected).toBe(false);
-  act(() => vi.advanceTimersByTime(999));
+  await act(() => vi.advanceTimersByTime(999));
   expect(sockets).toHaveLength(1);
-  act(() => vi.advanceTimersByTime(1));
+  await act(() => vi.advanceTimersByTime(1));
   expect(sockets).toHaveLength(2);
   act(() => {
     sockets[1]?.open();
@@ -167,23 +174,28 @@ it("connects again after a lost connection and reads the state of the page once"
   expect(revalidate).toHaveBeenCalledOnce();
 });
 
-it("waits longer after every failed attempt and closes the channel with the page", () => {
+it("waits longer after every failed attempt and closes the channel with the page", async () => {
   const { sockets, unmount } = setup();
   act(() => sockets[0]?.drop());
-  act(() => vi.advanceTimersByTime(1_000));
+  await act(() => vi.advanceTimersByTime(1_000));
   act(() => sockets[1]?.drop());
-  act(() => vi.advanceTimersByTime(1_999));
+  await act(() => vi.advanceTimersByTime(1_999));
   expect(sockets).toHaveLength(2);
-  act(() => vi.advanceTimersByTime(1));
+  await act(() => vi.advanceTimersByTime(1));
   expect(sockets).toHaveLength(3);
   unmount();
   expect(sockets[2]?.isClosed).toBe(true);
-  act(() => vi.advanceTimersByTime(60_000));
+  await act(() => vi.advanceTimersByTime(60_000));
   expect(sockets).toHaveLength(3);
 });
 
 it("ignores every frame that is no part of a live answer", () => {
-  expect(readLivePayload({ type: "conversation_event", payload: { type: "message", data: {} } })).toBeNull();
+  expect(
+    readLivePayload({
+      type: "conversation_event",
+      payload: { type: "message", data: {} },
+    }),
+  ).toBeNull();
   expect(readLivePayload({ type: "error" })).toBeNull();
   expect(readLivePayload(null)).toBeNull();
   expect(

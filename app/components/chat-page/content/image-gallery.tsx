@@ -65,7 +65,9 @@ function GalleryTile({
       ) : null}
       {/* Always shown on a touch screen; on a wide one while hovering or focused. */}
       <a
-        aria-label={t("chatPage.cards.downloadNamed", { name: attachment.name })}
+        aria-label={t("chatPage.cards.downloadNamed", {
+          name: attachment.name,
+        })}
         className="absolute top-1.5 right-1.5 inline-flex size-7 items-center justify-center rounded-md bg-surface text-foreground shadow-xs ring-1 ring-border transition-opacity hover:text-primary focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-primary sm:opacity-0 sm:group-hover:opacity-100"
         download=""
         href={downloadUrl(attachment)}
@@ -87,7 +89,10 @@ export function GalleryPlaceholder(): React.ReactElement {
         "flex animate-pulse items-center justify-center border border-dashed border-border",
       )}
     >
-      <Loader2 aria-hidden="true" className="size-5 animate-spin text-muted-foreground" />
+      <Loader2
+        aria-hidden="true"
+        className="size-5 animate-spin text-muted-foreground"
+      />
       <span className="sr-only">{t("chatPage.cards.gallery.pending")}</span>
     </li>
   );
@@ -120,7 +125,10 @@ export function ImageGallery({
   const [first] = kept;
   const shown = attachments.slice(0, GALLERY_TILES);
   const more = attachments.length - shown.length;
-  const size = kept.reduce((total, attachment) => total + attachment.sizeBytes, 0);
+  const size = kept.reduce(
+    (total, attachment) => total + attachment.sizeBytes,
+    0,
+  );
   const open = (attachment: ConversationAttachment): void =>
     openImageViewer(content, { attachment, images: attachments, origin });
   return (
@@ -149,7 +157,9 @@ export function ImageGallery({
       {...(first ? { onFullscreen: () => open(first) } : {})}
     >
       <ul
-        aria-label={t("chatPage.cards.gallery.name", { count: attachments.length })}
+        aria-label={t("chatPage.cards.gallery.name", {
+          count: attachments.length,
+        })}
         className="grid grid-cols-2 gap-1 p-1"
         data-image-gallery=""
       >

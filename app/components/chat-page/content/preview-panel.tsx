@@ -16,11 +16,7 @@ import { useTranslation } from "react-i18next";
 import { cn } from "@/app/lib/cn";
 
 import { CardAction, CardActionDivider, CardHead } from "./content-card";
-import {
-  PREVIEW_ICONS,
-  PreviewTabs,
-  previewKindLabel,
-} from "./preview-card";
+import { PREVIEW_ICONS, PreviewTabs, previewKindLabel } from "./preview-card";
 import { downloadPreviewFiles } from "./preview-download";
 import { PreviewCode, PreviewView } from "./preview-views";
 import { copyText } from "./use-card-text";
@@ -90,9 +86,21 @@ function DeviceTabs({
       label={t("chatPage.preview.device.label")}
       onChange={onChange}
       options={[
-        { value: "desktop", label: t("chatPage.preview.device.desktop"), icon: Monitor },
-        { value: "tablet", label: t("chatPage.preview.device.tablet"), icon: Tablet },
-        { value: "mobile", label: t("chatPage.preview.device.mobile"), icon: Smartphone },
+        {
+          value: "desktop",
+          label: t("chatPage.preview.device.desktop"),
+          icon: Monitor,
+        },
+        {
+          value: "tablet",
+          label: t("chatPage.preview.device.tablet"),
+          icon: Tablet,
+        },
+        {
+          value: "mobile",
+          label: t("chatPage.preview.device.mobile"),
+          icon: Smartphone,
+        },
       ]}
       tone={tone}
       value={value}
@@ -239,14 +247,25 @@ export function PreviewPanel({
 /** Whether a key press belongs to a field, where letters are typed, not shortcuts. */
 function isTyping(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
-  return target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName);
+  return (
+    target.isContentEditable ||
+    ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)
+  );
 }
 
 /** The keys R (reload) and C (code on and off) of the full screen; Escape closes it in the overlay. */
-function useFullscreenKeys(onReload: () => void, onToggleCode: () => void): void {
+function useFullscreenKeys(
+  onReload: () => void,
+  onToggleCode: () => void,
+): void {
   useEffect(() => {
     function handleKey(event: KeyboardEvent): void {
-      if (event.ctrlKey || event.metaKey || event.altKey || isTyping(event.target))
+      if (
+        event.ctrlKey ||
+        event.metaKey ||
+        event.altKey ||
+        isTyping(event.target)
+      )
         return;
       const key = event.key.toLowerCase();
       if (key === "r") onReload();
@@ -261,9 +280,9 @@ function useFullscreenKeys(onReload: () => void, onToggleCode: () => void): void
 
 /** Scrolls the card of a preview into view in the history. */
 function showCard(cardKey: string): void {
-  const card = [...document.querySelectorAll<HTMLElement>("[data-content-card]")].find(
-    (element) => element.dataset.contentCard === cardKey,
-  );
+  const card = [
+    ...document.querySelectorAll<HTMLElement>("[data-content-card]"),
+  ].find((element) => element.dataset.contentCard === cardKey);
   card?.scrollIntoView({ block: "center" });
 }
 
@@ -284,7 +303,9 @@ function FullscreenHead({
 }): React.ReactElement {
   const { t } = useTranslation();
   const { descriptor, origin, onClose, cardKey } = props;
-  const file = descriptor.files.find((entry) => entry.name === state.file) ?? descriptor.files[0];
+  const file =
+    descriptor.files.find((entry) => entry.name === state.file) ??
+    descriptor.files[0];
   return (
     <CardHead
       actions={
@@ -292,12 +313,30 @@ function FullscreenHead({
           <DownloadAction descriptor={descriptor} tone="dark" />
           <CardActionDivider tone="dark" />
           {isSandboxed(descriptor) && state.mode !== "code" ? (
-            <DeviceTabs onChange={state.setDevice} tone="dark" value={state.device} />
+            <DeviceTabs
+              onChange={state.setDevice}
+              tone="dark"
+              value={state.device}
+            />
           ) : null}
           {descriptor.previewKind === "html" ? (
-            <CardAction icon={RotateCw} isIconOnly label={t("chatPage.cards.reload")} onClick={state.reload} tone="dark" variant="quiet" />
+            <CardAction
+              icon={RotateCw}
+              isIconOnly
+              label={t("chatPage.cards.reload")}
+              onClick={state.reload}
+              tone="dark"
+              variant="quiet"
+            />
           ) : null}
-          <CardAction icon={Copy} isIconOnly label={t("chatPage.cards.copy")} onClick={() => copyText(file?.source ?? "")} tone="dark" variant="quiet" />
+          <CardAction
+            icon={Copy}
+            isIconOnly
+            label={t("chatPage.cards.copy")}
+            onClick={() => copyText(file?.source ?? "")}
+            tone="dark"
+            variant="quiet"
+          />
           <CardAction
             icon={MessageSquareText}
             isIconOnly
@@ -309,7 +348,14 @@ function FullscreenHead({
             tone="dark"
             variant="quiet"
           />
-          <CardAction icon={X} isIconOnly label={t("chatPage.cards.close")} onClick={onClose} tone="dark" variant="quiet" />
+          <CardAction
+            icon={X}
+            isIconOnly
+            label={t("chatPage.cards.close")}
+            onClick={onClose}
+            tone="dark"
+            variant="quiet"
+          />
         </>
       }
       className="border-b border-viewer-edge px-4"
@@ -363,7 +409,9 @@ function useFullscreenState(firstFile: string): {
  * file or ZIP, "Zur Nachricht" and "Schließen". Escape closes it, R loads it
  * again and C shows or hides the code.
  */
-export function PreviewFullscreen(props: PreviewFullscreenProps): React.ReactElement {
+export function PreviewFullscreen(
+  props: PreviewFullscreenProps,
+): React.ReactElement {
   const { t } = useTranslation();
   const { descriptor } = props;
   const state = useFullscreenState(descriptor.files[0]?.name ?? "");
@@ -377,7 +425,12 @@ export function PreviewFullscreen(props: PreviewFullscreenProps): React.ReactEle
       role="dialog"
     >
       <FullscreenHead props={props} state={state} />
-      <div className={cn("grid min-h-0 flex-1 gap-3 p-3", isBoth && "lg:grid-cols-2")}>
+      <div
+        className={cn(
+          "grid min-h-0 flex-1 gap-3 p-3",
+          isBoth && "lg:grid-cols-2",
+        )}
+      >
         {state.mode === "code" ? null : (
           <PreviewView
             className="h-full min-h-0"

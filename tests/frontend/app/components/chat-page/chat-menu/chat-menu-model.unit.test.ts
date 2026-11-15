@@ -157,7 +157,9 @@ describe("the chat menu of a group (PAGE-389)", () => {
       "dissolve",
     ]);
   });
+});
 
+describe("the chat menu actions of a group (PAGE-389)", () => {
   it("switches confidential and muting at once", () => {
     const input = groupInput({ isConfidential: true, isMuted: false });
     const model = groupChatMenu(input);

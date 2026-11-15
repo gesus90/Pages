@@ -40,7 +40,10 @@ function PreviewFrame({
   files,
   title,
   className,
-}: Pick<SandboxFrameProps, "files" | "title" | "className">): React.ReactElement {
+}: Pick<
+  SandboxFrameProps,
+  "files" | "title" | "className"
+>): React.ReactElement {
   const frame = useRef<HTMLIFrameElement>(null);
   const { sendFromPreview } = useChatContent();
   const html = buildPreviewDocument(files);
@@ -85,7 +88,9 @@ export function SandboxFrame({
     <div
       className={cn(
         "flex min-h-0 flex-col overflow-hidden rounded-lg border",
-        isDark ? "border-viewer-edge bg-viewer-control" : "border-border bg-muted",
+        isDark
+          ? "border-viewer-edge bg-viewer-control"
+          : "border-border bg-muted",
         className,
       )}
       data-sandbox-device={device}

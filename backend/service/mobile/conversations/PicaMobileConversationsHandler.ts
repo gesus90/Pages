@@ -240,11 +240,11 @@ export class PicaMobileConversationsHandler {
     if (answers === undefined || session === null) return;
     this.host.enqueue(() => {
       if (this.isStopped || !this.host.isOpen()) return Promise.resolve();
-      for (const data of answers.snapshots(session.userId))
+      for (const snapshot of answers.snapshots(session.userId))
         this.sendFrame(
           encodePicaMobileConversation(null, {
             type: "conversation_event",
-            payload: { type: "answer_snapshot", data },
+            payload: { type: "answer_snapshot", data: snapshot },
           }),
         );
       return Promise.resolve();

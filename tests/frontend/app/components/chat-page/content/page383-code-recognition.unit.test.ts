@@ -1,7 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { detectCodeLanguage } from "@/app/components/chat-page/content/code-detection";
-import { readCsv, selectCsvRows, splitCsv } from "@/app/components/chat-page/content/csv-parse";
+import {
+  readCsv,
+  selectCsvRows,
+  splitCsv,
+} from "@/app/components/chat-page/content/csv-parse";
 import { readJson } from "@/app/components/chat-page/content/json-parse";
 import { parseMessageContent } from "@/app/components/chat-page/content/message-content";
 import {
@@ -19,7 +23,7 @@ describe("recognition of a fence without language (PAGE-383)", () => {
   it.each([
     ["SELECT id, name\nFROM users\nWHERE active = true;", "sql"],
     ['{"name": "Ada", "tags": ["a", "b"]}', "json"],
-    ["<div class=\"box\">\n  <button>Go</button>\n</div>", "html"],
+    ['<div class="box">\n  <button>Go</button>\n</div>', "html"],
     ["<!doctype html>\n<html><body>Hi</body></html>", "html"],
     ['<svg viewBox="0 0 10 10"><circle r="4"/></svg>', "svg"],
     ["graph TD\n  A --> B", "mermaid"],
@@ -27,11 +31,20 @@ describe("recognition of a fence without language (PAGE-383)", () => {
     ["name,age,city\nAda,36,London\nEd,41,Bonn", "csv"],
     ["name;age\nAda;36\nEd;41", "csv"],
     ["name\tage\nAda\t36", "tsv"],
-    ["def greet(name):\n    print(name)\n\nif __name__ == \"__main__\":\n    greet('x')", "python"],
+    [
+      "def greet(name):\n    print(name)\n\nif __name__ == \"__main__\":\n    greet('x')",
+      "python",
+    ],
     ["#!/bin/bash\necho hi", "shell"],
     ["npm install\npnpm run build", "shell"],
-    ["interface User {\n  name: string;\n}\nconst user: User = { name: 'x' };", "typescript"],
-    ["const total = items.reduce((sum, item) => sum + item, 0);\nconsole.log(total);", "javascript"],
+    [
+      "interface User {\n  name: string;\n}\nconst user: User = { name: 'x' };",
+      "typescript",
+    ],
+    [
+      "const total = items.reduce((sum, item) => sum + item, 0);\nconsole.log(total);",
+      "javascript",
+    ],
     [".card {\n  color: red;\n  padding: 4px;\n}", "css"],
     ["name: pages\nversion: 2\nservices:\n  - web", "yaml"],
     ["# Title\n\n- one\n- two\n\n**bold** text", "markdown"],
@@ -52,17 +65,22 @@ describe("recognition of a fence without language (PAGE-383)", () => {
 
 describe("parts of a message (PAGE-383)", () => {
   it("marks a recognized block, while an explicit language always wins", () => {
-    expect(parseMessageContent("```\nSELECT * FROM t;\n```")).toEqual([
+    expect(parseMessageContent("```\nSELECT id FROM t;\n```")).toEqual([
       {
         kind: "code",
         name: "",
         languageHint: "sql",
-        source: "SELECT * FROM t;",
+        source: "SELECT id FROM t;",
         isDetected: true,
       },
     ]);
-    expect(parseMessageContent("```text\nSELECT * FROM t;\n```")).toEqual([
-      { kind: "code", name: "", languageHint: "text", source: "SELECT * FROM t;" },
+    expect(parseMessageContent("```text\nSELECT id FROM t;\n```")).toEqual([
+      {
+        kind: "code",
+        name: "",
+        languageHint: "text",
+        source: "SELECT id FROM t;",
+      },
     ]);
     expect(parseMessageContent("```\nplain words only\n```")).toEqual([
       { kind: "code", name: "", languageHint: "", source: "plain words only" },
@@ -93,8 +111,16 @@ describe("parts of a message (PAGE-383)", () => {
     expect(parts.map((part) => part.kind)).toEqual(["text", "preview", "code"]);
     const preview = parts[1];
     expect(preview?.kind === "preview" ? preview.files : []).toEqual([
-      { name: "index.html", languageHint: "html", source: "<button id=b>Go</button>" },
-      { name: "style.css", languageHint: "css", source: "button { color: red; }" },
+      {
+        name: "index.html",
+        languageHint: "html",
+        source: "<button id=b>Go</button>",
+      },
+      {
+        name: "style.css",
+        languageHint: "css",
+        source: "button { color: red; }",
+      },
       {
         name: "app.js",
         languageHint: "js",
@@ -116,32 +142,50 @@ describe("parts of a message (PAGE-383)", () => {
 describe("the sandboxed preview document (PAGE-383)", () => {
   it("puts styles into the head, scripts at the end of the body and the bridge first", () => {
     const html = buildPreviewDocument([
-      { name: "index.html", languageHint: "html", source: "<html><head><title>x</title></head><body><p>Hi</p></body></html>" },
+      {
+        name: "index.html",
+        languageHint: "html",
+        source:
+          "<html><head><title>x</title></head><body><p>Hi</p></body></html>",
+      },
       { name: "style.css", languageHint: "css", source: "p{color:red}" },
       { name: "app.js", languageHint: "js", source: "var s = '</script>';" },
     ]);
     const bridge = html.indexOf('Object.defineProperty(window,"pages"');
     expect(bridge).toBeGreaterThan(-1);
     expect(bridge).toBeLessThan(html.indexOf("<title>"));
-    expect(html.indexOf("<style>p{color:red}</style>")).toBeLessThan(html.indexOf("</head>"));
+    expect(html.indexOf("<style>p{color:red}</style>")).toBeLessThan(
+      html.indexOf("</head>"),
+    );
     expect(html).toContain("<script>var s = '<\\/script>';</script></body>");
   });
 
   it("wraps a fragment and an SVG into whole documents", () => {
-    const fragment = buildPreviewDocument([{ name: "index.html", languageHint: "html", source: "<p>Hi</p>" }]);
+    const fragment = buildPreviewDocument([
+      { name: "index.html", languageHint: "html", source: "<p>Hi</p>" },
+    ]);
     expect(fragment.startsWith("<!doctype html><html><head>")).toBe(true);
     expect(fragment).toContain("<body><p>Hi</p></body>");
-    const svg = buildPreviewDocument([{ name: "a.svg", languageHint: "svg", source: "<svg></svg>" }]);
+    const svg = buildPreviewDocument([
+      { name: "a.svg", languageHint: "svg", source: "<svg></svg>" },
+    ]);
     expect(svg).toContain("<body><svg></svg></body>");
     expect(svg).toContain("place-items:center");
   });
 
   it("accepts only send messages with text", () => {
-    expect(readPreviewSend({ type: "pages-preview:send", text: "  B  " })).toBe("B");
-    expect(readPreviewSend({ type: "pages-preview:send", text: "   " })).toBeNull();
+    expect(readPreviewSend({ type: "pages-preview:send", text: "  B  " })).toBe(
+      "B",
+    );
+    expect(
+      readPreviewSend({ type: "pages-preview:send", text: "   " }),
+    ).toBeNull();
     expect(readPreviewSend({ type: "other", text: "B" })).toBeNull();
     expect(readPreviewSend("B")).toBeNull();
-    expect(readPreviewSend({ type: "pages-preview:send", text: "x".repeat(5000) })?.length).toBe(4000);
+    expect(
+      readPreviewSend({ type: "pages-preview:send", text: "x".repeat(5000) })
+        ?.length,
+    ).toBe(4000);
   });
 });
 
@@ -161,31 +205,57 @@ describe("the check before a preview writes into the chat (PAGE-383)", () => {
 
   it("needs the focus in the frame, a fresh user activation and a second since the last message", () => {
     const frame = focusedFrame();
-    vi.stubGlobal("navigator", { ...navigator, userActivation: { isActive: true } });
-    expect(canSendFromPreview({ frame, lastSentAt: 0, now: 10_000 })).toBe(true);
-    expect(canSendFromPreview({ frame, lastSentAt: 9_500, now: 10_000 })).toBe(false);
-    vi.stubGlobal("navigator", { ...navigator, userActivation: { isActive: false } });
-    expect(canSendFromPreview({ frame, lastSentAt: 0, now: 10_000 })).toBe(false);
+    vi.stubGlobal("navigator", {
+      ...navigator,
+      userActivation: { isActive: true },
+    });
+    expect(canSendFromPreview({ frame, lastSentAt: 0, now: 10_000 })).toBe(
+      true,
+    );
+    expect(canSendFromPreview({ frame, lastSentAt: 9_500, now: 10_000 })).toBe(
+      false,
+    );
+    vi.stubGlobal("navigator", {
+      ...navigator,
+      userActivation: { isActive: false },
+    });
+    expect(canSendFromPreview({ frame, lastSentAt: 0, now: 10_000 })).toBe(
+      false,
+    );
   });
 
   it("refuses without focus in the frame and without the activation interface", () => {
     const frame = focusedFrame();
     vi.stubGlobal("navigator", { ...navigator, userActivation: undefined });
-    expect(canSendFromPreview({ frame, lastSentAt: 0, now: 10_000 })).toBe(false);
-    vi.stubGlobal("navigator", { ...navigator, userActivation: { isActive: true } });
+    expect(canSendFromPreview({ frame, lastSentAt: 0, now: 10_000 })).toBe(
+      false,
+    );
+    vi.stubGlobal("navigator", {
+      ...navigator,
+      userActivation: { isActive: true },
+    });
     frame.blur();
-    expect(canSendFromPreview({ frame, lastSentAt: 0, now: 10_000 })).toBe(false);
+    expect(canSendFromPreview({ frame, lastSentAt: 0, now: 10_000 })).toBe(
+      false,
+    );
   });
 });
 
 describe("JSON, CSV and the archive (PAGE-383)", () => {
   it("reads valid JSON and names the place of an error", () => {
-    expect(readJson('{"a": [1, 2]}')).toEqual({ isValid: true, value: { a: [1, 2] } });
+    expect(readJson('{"a": [1, 2]}')).toEqual({
+      isValid: true,
+      value: { a: [1, 2] },
+    });
     const broken = readJson('{\n  "a": 1,\n  "b": }');
     expect(broken.isValid).toBe(false);
-    expect(broken.isValid ? null : [broken.line, broken.column]).toEqual([3, 8]);
-    const unclosed = readJson('[1, 2');
-    expect(unclosed.isValid ? null : [unclosed.line, unclosed.column]).toEqual([1, 6]);
+    expect(broken.isValid ? null : [broken.line, broken.column]).toEqual([
+      3, 8,
+    ]);
+    const unclosed = readJson("[1, 2");
+    expect(unclosed.isValid ? null : [unclosed.line, unclosed.column]).toEqual([
+      1, 6,
+    ]);
   });
 
   it("recognizes the delimiter, keeps quoted fields and fills short rows", () => {
@@ -199,13 +269,27 @@ describe("JSON, CSV and the archive (PAGE-383)", () => {
   });
 
   it("filters rows by the search and sorts numbers as numbers", () => {
-    const rows = [["Ada", "10"], ["Ed", "9"], ["Mei", "100"]];
-    expect(selectCsvRows(rows, { query: "", sort: { column: 1, direction: "ascending" } })).toEqual([
+    const rows = [
+      ["Ada", "10"],
+      ["Ed", "9"],
+      ["Mei", "100"],
+    ];
+    expect(
+      selectCsvRows(rows, {
+        query: "",
+        sort: { column: 1, direction: "ascending" },
+      }),
+    ).toEqual([
       ["Ed", "9"],
       ["Ada", "10"],
       ["Mei", "100"],
     ]);
-    expect(selectCsvRows(rows, { query: "e", sort: { column: 0, direction: "descending" } })).toEqual([
+    expect(
+      selectCsvRows(rows, {
+        query: "e",
+        sort: { column: 0, direction: "descending" },
+      }),
+    ).toEqual([
       ["Mei", "100"],
       ["Ed", "9"],
     ]);

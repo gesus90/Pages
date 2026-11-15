@@ -27,7 +27,10 @@ export class ConversationGeneratedImages {
   ): string[] {
     const key = keyOf(target);
     const known = this.pending.get(key) ?? [];
-    const room = Math.max(0, CONVERSATION_ATTACHMENT_MAXIMUM_COUNT - known.length);
+    const room = Math.max(
+      0,
+      CONVERSATION_ATTACHMENT_MAXIMUM_COUNT - known.length,
+    );
     this.pending.set(key, [...known, ...attachmentIds.slice(0, room)]);
     return attachmentIds.slice(room);
   }
@@ -65,6 +68,7 @@ declare global {
 
 /** The notes of generated images every wiring of the process shares. */
 export function sharedConversationGeneratedImages(): ConversationGeneratedImages {
-  globalThis.pagesConversationGeneratedImages ??= new ConversationGeneratedImages();
+  globalThis.pagesConversationGeneratedImages ??=
+    new ConversationGeneratedImages();
   return globalThis.pagesConversationGeneratedImages;
 }

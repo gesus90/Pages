@@ -20,7 +20,8 @@ function original(
       messageId: `message-${id}`,
       uploaderId: "conan",
       name: "Kosten.xlsx",
-      mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      mimeType:
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       sizeBytes: 900,
       storageName: `store-${id}`,
       position: 0,
@@ -36,42 +37,70 @@ function original(
   };
 }
 
-function fixture(originals: StoredLibraryAttachment[]) {
+function fixture(originals: StoredLibraryAttachment[]): {
+  references: ConversationAttachmentReferences;
+  library: {
+    attachment: ReturnType<typeof vi.fn>;
+    insertReferences: ReturnType<typeof vi.fn>;
+    referencesForMessages: ReturnType<typeof vi.fn>;
+    findMany: ReturnType<typeof vi.fn>;
+  };
+  conversations: { findForMember: ReturnType<typeof vi.fn> };
+} {
   const library = {
-    attachment: vi.fn(async (conversationId: string, id: string) =>
-      originals.find(
-        (entry) => entry.attachment.id === id && entry.attachment.conversationId === conversationId,
-      ) ?? null,
+    attachment: vi.fn(
+      async (conversationId: string, id: string) =>
+        originals.find(
+          (entry) =>
+            entry.attachment.id === id &&
+            entry.attachment.conversationId === conversationId,
+        ) ?? null,
     ),
     insertReferences: vi.fn().mockResolvedValue(undefined),
     referencesForMessages: vi.fn().mockResolvedValue(new Map()),
-    findMany: vi.fn(async (ids: readonly string[]) =>
-      new Map(originals.filter((entry) => ids.includes(entry.attachment.id)).map((entry) => [entry.attachment.id, entry])),
+    findMany: vi.fn(
+      async (ids: readonly string[]) =>
+        new Map(
+          originals
+            .filter((entry) => ids.includes(entry.attachment.id))
+            .map((entry) => [entry.attachment.id, entry]),
+        ),
     ),
   };
-  const conversations = { findForMember: vi.fn().mockResolvedValue({ id: "group" }) };
+  const conversations = {
+    findForMember: vi.fn().mockResolvedValue({ id: "group" }),
+  };
   const directory = {
     read: vi.fn().mockResolvedValue({
-      participant: (id: string) => ({ id, name: id === "conan" ? "Conan" : id, kind: "agent", color: null }),
+      participant: (id: string) => ({
+        id,
+        name: id === "conan" ? "Conan" : id,
+        kind: "agent",
+        color: null,
+      }),
     }),
   };
   const references = new ConversationAttachmentReferences({
     library,
     conversations,
-    directory: directory as never,
+    directory,
     now: () => NOW,
   });
   return { references, library, conversations };
 }
 
-function storedReference(attachmentId: string, conversationId = "group"): StoredAttachmentReference {
+function storedReference(
+  attachmentId: string,
+  conversationId = "group",
+): StoredAttachmentReference {
   return {
     messageId: "answer",
     position: 0,
     conversationId,
     attachmentId,
     name: "Kosten.xlsx",
-    mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    mimeType:
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     sourceMessageId: `message-${attachmentId}`,
     sourceSenderId: "conan",
     createdAt: NOW.toISOString(),
@@ -86,33 +115,56 @@ describe("PAGE-386 reference lines in an answer", () => {
       "mei",
       "Siehe die Tabelle von Conan:\n![Kosten](anhang:table)\nDie Summe stimmt.",
     );
-    expect(selection.text).toBe("Siehe die Tabelle von Conan:\nDie Summe stimmt.");
+    expect(selection.text).toBe(
+      "Siehe die Tabelle von Conan:\nDie Summe stimmt.",
+    );
     expect(selection.references).toEqual([
       {
         attachmentId: "table",
         name: "Kosten.xlsx",
-        mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        mimeType:
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         sourceMessageId: "message-table",
         sourceSenderId: "conan",
       },
     ]);
-    await references.bind({ id: "answer", conversationId: "group" }, selection.references);
+    await references.bind(
+      { id: "answer", conversationId: "group" },
+      selection.references,
+    );
     expect(library.insertReferences).toHaveBeenCalledWith([
-      expect.objectContaining({ messageId: "answer", conversationId: "group", attachmentId: "table", position: 0 }),
+      expect.objectContaining({
+        messageId: "answer",
+        conversationId: "group",
+        attachmentId: "table",
+        position: 0,
+      }),
     ]);
   });
 
   it("refuses an attachment of another chat and keeps the line with the reason", async () => {
-    const { references } = fixture([original("secret", { conversationId: "other" })]);
-    const selection = await references.select("group", "mei", "![x](anhang:secret)");
+    const { references } = fixture([
+      original("secret", { conversationId: "other" }),
+    ]);
+    const selection = await references.select(
+      "group",
+      "mei",
+      "![x](anhang:secret)",
+    );
     expect(selection.references).toEqual([]);
-    expect(selection.text).toBe("![x](anhang:secret) (Anhang nicht gezeigt: in diesem Chat nicht vorhanden)");
+    expect(selection.text).toBe(
+      "![x](anhang:secret) (Anhang nicht gezeigt: in diesem Chat nicht vorhanden)",
+    );
   });
 
   it("shows nothing for an agent that is no member of the chat", async () => {
     const { references, conversations, library } = fixture([original("table")]);
     conversations.findForMember.mockResolvedValue(null);
-    const selection = await references.select("group", "mallory", "![x](anhang:table)");
+    const selection = await references.select(
+      "group",
+      "mallory",
+      "![x](anhang:table)",
+    );
     expect(selection.references).toEqual([]);
     expect(library.attachment).not.toHaveBeenCalled();
   });
@@ -153,9 +205,16 @@ describe("PAGE-386 reference cards", () => {
       senderName: "Conan",
       sourceMessageId: "message-table",
       sentAt: "2026-11-15T09:00:00.000Z",
-      attachment: { id: "table", url: "/chat/files/table", name: "Kosten.xlsx" },
+      attachment: {
+        id: "table",
+        url: "/chat/files/table",
+        name: "Kosten.xlsx",
+      },
     });
-    expect(old).toMatchObject({ state: "expired", attachment: { expiredAt: NOW.toISOString() } });
+    expect(old).toMatchObject({
+      state: "expired",
+      attachment: { expiredAt: NOW.toISOString() },
+    });
     expect(gone).toEqual({
       attachmentId: "gone",
       state: "deleted",

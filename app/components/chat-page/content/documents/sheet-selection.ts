@@ -41,7 +41,10 @@ export interface SheetSort {
  * @param selection - The mark, or `null`.
  * @param position - The cell.
  */
-export function isSelected(selection: CellSelection | null, position: CellPosition): boolean {
+export function isSelected(
+  selection: CellSelection | null,
+  position: CellPosition,
+): boolean {
   if (!selection) return false;
   const { anchor, focus } = selection;
   return (
@@ -59,22 +62,28 @@ export function isSelected(selection: CellSelection | null, position: CellPositi
  * @param rows - The shown rows.
  * @param selection - The mark, or `null`.
  */
-export function summarizeSelection(rows: readonly ShownRow[], selection: CellSelection | null): SelectionSummary {
+export function summarizeSelection(
+  rows: readonly ShownRow[],
+  selection: CellSelection | null,
+): SelectionSummary {
+  if (!selection) return { cellCount: 0, numberCount: 0, sum: 0, mean: null };
   const summary = { cellCount: 0, numberCount: 0, sum: 0 };
-  if (selection) {
-    const top = Math.min(selection.anchor.row, selection.focus.row);
-    const bottom = Math.max(selection.anchor.row, selection.focus.row);
-    const left = Math.min(selection.anchor.column, selection.focus.column);
-    const right = Math.max(selection.anchor.column, selection.focus.column);
-    for (const row of rows.slice(top, bottom + 1))
-      for (const cell of row.cells.slice(left, right + 1)) {
-        summary.cellCount += 1;
-        if (cell.number === null) continue;
-        summary.numberCount += 1;
-        summary.sum += cell.number;
-      }
+  const top = Math.min(selection.anchor.row, selection.focus.row);
+  const bottom = Math.max(selection.anchor.row, selection.focus.row);
+  const left = Math.min(selection.anchor.column, selection.focus.column);
+  const right = Math.max(selection.anchor.column, selection.focus.column);
+  for (const row of rows.slice(top, bottom + 1)) {
+    for (const cell of row.cells.slice(left, right + 1)) {
+      summary.cellCount += 1;
+      if (cell.number === null) continue;
+      summary.numberCount += 1;
+      summary.sum += cell.number;
+    }
   }
-  return { ...summary, mean: summary.numberCount === 0 ? null : summary.sum / summary.numberCount };
+  return {
+    ...summary,
+    mean: summary.numberCount === 0 ? null : summary.sum / summary.numberCount,
+  };
 }
 
 /**
@@ -87,29 +96,48 @@ export function summarizeSelection(rows: readonly ShownRow[], selection: CellSel
  */
 export function selectSheetRows(
   rows: readonly (readonly SheetCell[])[],
-  options: { readonly query: string; readonly sort: SheetSort | null; readonly firstNumber: number },
+  options: {
+    readonly query: string;
+    readonly sort: SheetSort | null;
+    readonly firstNumber: number;
+  },
 ): ShownRow[] {
   const query = options.query.trim().toLocaleLowerCase();
   const shown = rows
     .map((cells, index) => ({ number: options.firstNumber + index, cells }))
-    .filter(({ cells }) => query === "" || cells.some((cell) => cell.text.toLocaleLowerCase().includes(query)));
+    .filter(
+      ({ cells }) =>
+        query === "" ||
+        cells.some((cell) => cell.text.toLocaleLowerCase().includes(query)),
+    );
   const { sort } = options;
   if (sort === null) return shown;
-  const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
+  const collator = new Intl.Collator(undefined, {
+    numeric: true,
+    sensitivity: "base",
+  });
   const factor = sort.direction === "ascending" ? 1 : -1;
   return shown.sort((first, second) => {
     const left = first.cells[sort.column] ?? { text: "", number: null };
     const right = second.cells[sort.column] ?? { text: "", number: null };
-    if (left.number !== null && right.number !== null) return (left.number - right.number) * factor;
+    if (left.number !== null && right.number !== null)
+      return (left.number - right.number) * factor;
     // Numbers come before text, empty cells last, in both directions.
-    if (left.text === "" || right.text === "") return Number(left.text === "") - Number(right.text === "");
-    if (left.number !== null || right.number !== null) return (left.number === null ? 1 : -1) * factor;
+    if (left.text === "" || right.text === "")
+      return Number(left.text === "") - Number(right.text === "");
+    if (left.number !== null || right.number !== null)
+      return (left.number === null ? 1 : -1) * factor;
     return collator.compare(left.text, right.text) * factor;
   });
 }
 
 /** The next order of a column: ascending, descending, then as written. */
-export function nextSheetSort(current: SheetSort | null, column: number): SheetSort | null {
+export function nextSheetSort(
+  current: SheetSort | null,
+  column: number,
+): SheetSort | null {
   if (current?.column !== column) return { column, direction: "ascending" };
-  return current.direction === "ascending" ? { column, direction: "descending" } : null;
+  return current.direction === "ascending"
+    ? { column, direction: "descending" }
+    : null;
 }

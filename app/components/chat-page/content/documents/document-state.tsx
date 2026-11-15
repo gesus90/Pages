@@ -20,14 +20,26 @@ export function DocumentStateMessage({
   const { t } = useTranslation();
   if (state.status === "loading")
     return (
-      <p className={cn("p-4 text-sm text-muted-foreground", className)} role="status">
+      <p
+        className={cn("p-4 text-sm text-muted-foreground", className)}
+        role="status"
+      >
         {t("chatPage.cards.document.loading")}
       </p>
     );
   const Icon = state.reason === "encrypted" ? Lock : TriangleAlert;
   return (
-    <p className={cn("flex items-start gap-2 p-4 text-sm text-muted-foreground", className)} role="alert">
-      <Icon aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-primary" />
+    <p
+      className={cn(
+        "flex items-start gap-2 p-4 text-sm text-muted-foreground",
+        className,
+      )}
+      role="alert"
+    >
+      <Icon
+        aria-hidden="true"
+        className="mt-0.5 size-4 shrink-0 text-primary"
+      />
       {t(`chatPage.cards.document.failed.${state.reason}`)}
     </p>
   );

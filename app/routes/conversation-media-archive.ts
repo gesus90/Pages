@@ -60,8 +60,7 @@ export async function loader({
   } catch (error: unknown) {
     if (error instanceof Response) throw error;
     logCaughtError("conversation_media_archive", error);
-    if (error instanceof ConversationError)
-      throw refusalOf(error);
+    if (error instanceof ConversationError) throw refusalOf(error);
     throw error;
   }
 }

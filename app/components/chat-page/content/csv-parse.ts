@@ -18,11 +18,16 @@ interface CsvCursor {
 function endRow(cursor: CsvCursor): void {
   cursor.row.push(cursor.field);
   cursor.field = "";
-  if (cursor.row.length > 1 || cursor.row[0] !== "") cursor.rows.push(cursor.row);
+  if (cursor.row.length > 1 || cursor.row[0] !== "")
+    cursor.rows.push(cursor.row);
   cursor.row = [];
 }
 
-function readQuoted(cursor: CsvCursor, character: string, next: string | undefined): number {
+function readQuoted(
+  cursor: CsvCursor,
+  character: string,
+  next: string | undefined,
+): number {
   if (character !== '"') {
     cursor.field += character;
     return 1;
@@ -107,17 +112,24 @@ export function selectCsvRows(
 ): (readonly string[])[] {
   const query = options.query.trim().toLowerCase();
   const matching = rows.filter(
-    (row) => query === "" || row.some((field) => field.toLowerCase().includes(query)),
+    (row) =>
+      query === "" || row.some((field) => field.toLowerCase().includes(query)),
   );
   const { sort } = options;
   if (sort === null) return matching;
-  const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
+  const collator = new Intl.Collator(undefined, {
+    numeric: true,
+    sensitivity: "base",
+  });
   const factor = sort.direction === "ascending" ? 1 : -1;
   return [...matching].sort((first, second) => {
     const left = first[sort.column] ?? "";
     const right = second[sort.column] ?? "";
     if (NUMBER.test(left) && NUMBER.test(right))
-      return (Number(left.replace(",", ".")) - Number(right.replace(",", "."))) * factor;
+      return (
+        (Number(left.replace(",", ".")) - Number(right.replace(",", "."))) *
+        factor
+      );
     return collator.compare(left, right) * factor;
   });
 }

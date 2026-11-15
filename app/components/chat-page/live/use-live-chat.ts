@@ -86,7 +86,8 @@ function runningByAgent(
   views: readonly LiveAnswerView[],
 ): ReadonlyMap<string, LiveAnswerView> {
   const result = new Map<string, LiveAnswerView>();
-  for (const view of views) if (view.end === null) result.set(view.agentId, view);
+  for (const view of views)
+    if (view.end === null) result.set(view.agentId, view);
   return result;
 }
 

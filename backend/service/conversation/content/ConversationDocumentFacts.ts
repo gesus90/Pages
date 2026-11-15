@@ -26,7 +26,10 @@ function readPageCount(input: unknown): number | null {
 
 function readTitle(input: unknown): string | null {
   if (typeof input !== "string") return null;
-  const title = input.replace(CONTROL_CHARACTERS, " ").replace(/\s+/gu, " ").trim();
+  const title = input
+    .replace(CONTROL_CHARACTERS, " ")
+    .replace(/\s+/gu, " ")
+    .trim();
   if (title === "") return null;
   return [...title].slice(0, MAXIMUM_TITLE_LENGTH).join("");
 }

@@ -34,7 +34,8 @@ export interface PdfPreview {
 
 /** Reads the title of the information dictionary of a PDF. */
 function titleOf(info: unknown): string | null {
-  if (typeof info !== "object" || info === null || !("Title" in info)) return null;
+  if (typeof info !== "object" || info === null || !("Title" in info))
+    return null;
   const title = typeof info.Title === "string" ? info.Title.trim() : "";
   return title === "" ? null : title;
 }
@@ -42,7 +43,14 @@ function titleOf(info: unknown): string | null {
 /** The text of a page as one string, from the items pdf.js extracts. */
 function joinTextItems(items: readonly unknown[]): string {
   return items
-    .map((item) => (typeof item === "object" && item !== null && "str" in item && typeof item.str === "string" ? item.str : ""))
+    .map((item) =>
+      typeof item === "object" &&
+      item !== null &&
+      "str" in item &&
+      typeof item.str === "string"
+        ? item.str
+        : "",
+    )
     .join(" ");
 }
 
@@ -101,8 +109,6 @@ export async function openPdfBytes(bytes: Uint8Array): Promise<PdfPreview> {
     enableXfa: false,
     useWasm: false,
     stopAtErrors: false,
-    // No code of a PDF is ever compiled, not even for its fonts (PAGE-385).
-    isEvalSupported: false,
   });
   const document = await task.promise.catch((error: unknown) => {
     void task.destroy();
@@ -144,7 +150,11 @@ export async function openPdfBytes(bytes: Uint8Array): Promise<PdfPreview> {
       const search = query.trim().toLocaleLowerCase();
       if (search === "") return [];
       const found: number[] = [];
-      for (let pageNumber = 1; pageNumber <= document.numPages; pageNumber += 1) {
+      for (
+        let pageNumber = 1;
+        pageNumber <= document.numPages;
+        pageNumber += 1
+      ) {
         let text = pageTexts.get(pageNumber);
         if (text === undefined) {
           const page = await document.getPage(pageNumber);

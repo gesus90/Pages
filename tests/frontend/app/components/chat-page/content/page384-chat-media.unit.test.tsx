@@ -1,12 +1,25 @@
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { I18nextProvider } from "react-i18next";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AttachmentCards } from "@/app/components/chat-page/content/attachment-cards";
-import { AUDIO_ROW_COLUMNS, AudioCard } from "@/app/components/chat-page/content/audio-player";
+import {
+  AUDIO_ROW_COLUMNS,
+  AudioCard,
+} from "@/app/components/chat-page/content/audio-player";
 import { CardOverlay } from "@/app/components/chat-page/content/card-panel";
 import { ChatContentProvider } from "@/app/components/chat-page/content/chat-content-context";
-import { formatResolution, resetMediaFacts } from "@/app/components/chat-page/content/media-facts";
+import {
+  formatResolution,
+  resetMediaFacts,
+} from "@/app/components/chat-page/content/media-facts";
 import {
   claimPlayback,
   positionOf,
@@ -23,23 +36,35 @@ import {
   VIEWER_CONTROLS_IDLE_MILLISECONDS,
   viewerKeyAction,
 } from "@/app/components/chat-page/content/use-video-viewer-keys";
-import { activityOf, mediaToolKind } from "@/app/components/chat-page/live/live-answer-state";
+import {
+  activityOf,
+  mediaToolKind,
+} from "@/app/components/chat-page/live/live-answer-state";
 import { createI18n } from "@/app/lib/i18n";
 
-import type { ConversationAttachment, ConversationImage } from "@/definition/ConversationContent";
+import type {
+  ConversationAttachment,
+  ConversationImage,
+} from "@/definition/ConversationContent";
 import type { LiveAnswerView } from "@/app/components/chat-page/live/live-answer-state";
 
 vi.mock("react-router", () => ({ useFetcher: () => ({ submit: vi.fn() }) }));
 
 class HiddenObserver {
+  /** No-op intersection observe stub. */
   public observe(): void {}
+  /** No-op intersection unobserve stub. */
   public unobserve(): void {}
+  /** No-op intersection disconnect stub. */
   public disconnect(): void {}
 }
 
 const i18n = createI18n("de");
 
-function video(id: string, overrides: Partial<ConversationAttachment> = {}): ConversationAttachment {
+function video(
+  id: string,
+  overrides: Partial<ConversationAttachment> = {},
+): ConversationAttachment {
   return {
     id,
     name: `${id}.mp4`,
@@ -69,11 +94,24 @@ function sound(id: string, name: string): ConversationAttachment {
   };
 }
 
-function entry(attachment: ConversationAttachment, messageId: string): ConversationImage {
-  return { attachment, messageId, senderId: "ed", senderName: "Ed", sentAt: "2026-11-14T10:00:00.000Z" };
+function entry(
+  attachment: ConversationAttachment,
+  messageId: string,
+): ConversationImage {
+  return {
+    attachment,
+    messageId,
+    senderId: "ed",
+    senderName: "Ed",
+    sentAt: "2026-11-14T10:00:00.000Z",
+  };
 }
 
-function Chat({ attachments }: { readonly attachments: readonly ConversationAttachment[] }): React.ReactElement {
+function Chat({
+  attachments,
+}: {
+  readonly attachments: readonly ConversationAttachment[];
+}): React.ReactElement {
   return (
     <I18nextProvider i18n={i18n}>
       <ChatContentProvider
@@ -83,7 +121,10 @@ function Chat({ attachments }: { readonly attachments: readonly ConversationAtta
       >
         <div className="flex">
           <article data-chat-message="msg-1" tabIndex={-1}>
-            <AttachmentCards attachments={attachments} origin={{ senderName: "Ed", messageId: "msg-1" }} />
+            <AttachmentCards
+              attachments={attachments}
+              origin={{ senderName: "Ed", messageId: "msg-1" }}
+            />
           </article>
           <SplitPanel storedWidth={null} />
         </div>
@@ -93,7 +134,11 @@ function Chat({ attachments }: { readonly attachments: readonly ConversationAtta
   );
 }
 
-const VIDEOS = [video("v1"), video("v2", { durationSeconds: 8, width: 720, height: 1280 }), video("v3")];
+const VIDEOS = [
+  video("v1"),
+  video("v2", { durationSeconds: 8, width: 720, height: 1280 }),
+  video("v3"),
+];
 
 beforeEach(() => {
   vi.stubGlobal("IntersectionObserver", HiddenObserver);
@@ -103,18 +148,26 @@ beforeEach(() => {
     vi.fn((url: string) =>
       Promise.resolve(
         url.startsWith("/chat/videos/")
-          ? Response.json({ videos: VIDEOS.map((attachment, index) => entry(attachment, `msg-${String(index + 1)}`)) })
+          ? Response.json({
+              videos: VIDEOS.map((attachment, index) =>
+                entry(attachment, `msg-${String(index + 1)}`),
+              ),
+            })
           : new Response(null, { status: 404 }),
       ),
     ),
   );
-  vi.spyOn(HTMLMediaElement.prototype, "play").mockImplementation(function play(this: HTMLMediaElement) {
+  vi.spyOn(HTMLMediaElement.prototype, "play").mockImplementation(function play(
+    this: HTMLMediaElement,
+  ) {
     this.dispatchEvent(new Event("play"));
     return Promise.resolve();
   });
-  vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(function pause(this: HTMLMediaElement) {
-    this.dispatchEvent(new Event("pause"));
-  });
+  vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(
+    function pause(this: HTMLMediaElement) {
+      this.dispatchEvent(new Event("pause"));
+    },
+  );
 });
 
 afterEach(() => {
@@ -131,8 +184,12 @@ describe("the video card (PAGE-384)", () => {
     const element = container.querySelector("video");
     expect(element?.getAttribute("preload")).toBe("none");
     expect(element?.getAttribute("poster")).toBe("/chat/files/v1/thumbnail");
-    expect(container.querySelector("[data-video-resolution]")?.textContent).toBe("1080p");
-    expect(container.querySelector("[data-video-duration]")?.textContent).toBe("1:52");
+    expect(
+      container.querySelector("[data-video-resolution]")?.textContent,
+    ).toBe("1080p");
+    expect(container.querySelector("[data-video-duration]")?.textContent).toBe(
+      "1:52",
+    );
     const card = container.querySelector("[data-content-card='att:v1']");
     if (!(card instanceof HTMLElement)) throw new Error("card missing");
     expect(within(card).getByText(/Video · 1:52 · 1080p · 2 KB/u)).toBeTruthy();
@@ -141,7 +198,12 @@ describe("the video card (PAGE-384)", () => {
     const actions = [...(head?.querySelectorAll("a, button") ?? [])].map(
       (action) => action.getAttribute("title") ?? action.textContent,
     );
-    expect(actions).toEqual(["Herunterladen", "Daneben", "Vollbild", "Zuklappen"]);
+    expect(actions).toEqual([
+      "Herunterladen",
+      "Daneben",
+      "Vollbild",
+      "Zuklappen",
+    ]);
     expect(head?.querySelector("a")?.className).toContain("bg-primary");
     expect(screen.queryByRole("slider")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "v1.mp4 abspielen" }));
@@ -152,7 +214,9 @@ describe("the video card (PAGE-384)", () => {
   it("opens beside, keeps the chat, offers the other videos and plays on where the card was", async () => {
     const { container } = render(<Chat attachments={[video("v1")]} />);
     fireEvent.click(screen.getByRole("button", { name: "v1.mp4 abspielen" }));
-    const cardVideo = container.querySelector("[data-video-player='v1'] video") as HTMLVideoElement;
+    const cardVideo = container.querySelector(
+      "[data-video-player='v1'] video",
+    ) as HTMLVideoElement;
     cardVideo.currentTime = 42;
     fireEvent.timeUpdate(cardVideo);
     fireEvent.click(screen.getByRole("button", { name: "Daneben" }));
@@ -162,34 +226,69 @@ describe("the video card (PAGE-384)", () => {
       return found as HTMLElement;
     });
     // The chat stays: the card is still there.
-    expect(container.querySelector("[data-content-card='att:v1']")).not.toBeNull();
+    expect(
+      container.querySelector("[data-content-card='att:v1']"),
+    ).not.toBeNull();
     const panelVideo = panel.querySelector("video") as HTMLVideoElement;
     expect(panelVideo.currentTime).toBe(42);
     // The split view took the playing video over: the card paused, the panel plays.
-    const pause = HTMLMediaElement.prototype.pause as unknown as { mock: { contexts: unknown[] } };
-    const play = HTMLMediaElement.prototype.play as unknown as { mock: { contexts: unknown[] } };
+    const pause = HTMLMediaElement.prototype.pause as unknown as {
+      mock: { contexts: unknown[] };
+    };
+    const play = HTMLMediaElement.prototype.play as unknown as {
+      mock: { contexts: unknown[] };
+    };
     expect(pause.mock.contexts).toContain(cardVideo);
     expect(play.mock.contexts.at(-1)).toBe(panelVideo);
-    const others = await waitFor(() => within(panel).getByRole("navigation", { name: "Weitere Videos in diesem Chat" }));
-    expect(within(others).getAllByRole("button").map((button) => button.getAttribute("data-video-tile"))).toEqual(["v2", "v3"]);
-    fireEvent.click(within(others).getByRole("button", { name: "v2.mp4 daneben öffnen" }));
-    await waitFor(() => expect(container.querySelector("[data-video-panel='v2']")).not.toBeNull());
+    const others = await waitFor(() =>
+      within(panel).getByRole("navigation", {
+        name: "Weitere Videos in diesem Chat",
+      }),
+    );
+    expect(
+      within(others)
+        .getAllByRole("button")
+        .map((button) => button.getAttribute("data-video-tile")),
+    ).toEqual(["v2", "v3"]);
+    fireEvent.click(
+      within(others).getByRole("button", { name: "v2.mp4 daneben öffnen" }),
+    );
+    await waitFor(() =>
+      expect(container.querySelector("[data-video-panel='v2']")).not.toBeNull(),
+    );
     // The head of the split view lights its "Daneben" as the active view.
-    expect(screen.getAllByRole("button", { name: "Rechts geöffnet" }).length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByRole("button", { name: "Rechts geöffnet" }).length,
+    ).toBeGreaterThan(0);
   });
 
   it("pages through the videos of the chat in full screen with the keys and hides the controls", async () => {
     const { container } = render(<Chat attachments={[video("v1")]} />);
-    fireEvent.click(screen.getAllByRole("button", { name: "Vollbild" })[0] as HTMLElement);
-    const dialog = await screen.findByRole("dialog", { name: "Video im Vollbild" });
-    await waitFor(() => expect(within(dialog).getByRole("status").textContent).toContain("1 / 3"));
+    fireEvent.click(screen.getAllByRole("button", { name: "Vollbild" })[0]);
+    const dialog = await screen.findByRole("dialog", {
+      name: "Video im Vollbild",
+    });
+    await waitFor(() =>
+      expect(within(dialog).getByRole("status").textContent).toContain("1 / 3"),
+    );
     fireEvent.keyDown(window, { key: "ArrowRight", shiftKey: true });
-    await waitFor(() => expect(within(dialog).getByRole("status").textContent).toContain("2 / 3"));
+    await waitFor(() =>
+      expect(within(dialog).getByRole("status").textContent).toContain("2 / 3"),
+    );
     expect(container.querySelector("[data-video-viewer='v2']")).not.toBeNull();
     fireEvent.keyDown(window, { key: "ArrowLeft", shiftKey: true });
-    await waitFor(() => expect(container.querySelector("[data-video-viewer='v1']")).not.toBeNull());
-    const stageVideo = container.querySelector("[data-video-viewer='v1'] video") as HTMLVideoElement;
-    Object.defineProperty(stageVideo, "duration", { configurable: true, value: 112 });
+    await waitFor(() =>
+      expect(
+        container.querySelector("[data-video-viewer='v1']"),
+      ).not.toBeNull(),
+    );
+    const stageVideo = container.querySelector(
+      "[data-video-viewer='v1'] video",
+    ) as HTMLVideoElement;
+    Object.defineProperty(stageVideo, "duration", {
+      configurable: true,
+      value: 112,
+    });
     fireEvent.durationChange(stageVideo);
     fireEvent.keyDown(window, { key: "ArrowRight" });
     expect(stageVideo.currentTime).toBe(5);
@@ -197,16 +296,34 @@ describe("the video card (PAGE-384)", () => {
     expect(stageVideo.muted).toBe(true);
     vi.useFakeTimers();
     fireEvent.keyDown(window, { key: " " });
-    expect(container.querySelector("[data-controls-visible]")?.getAttribute("data-controls-visible")).toBe("true");
+    expect(
+      container
+        .querySelector("[data-controls-visible]")
+        ?.getAttribute("data-controls-visible"),
+    ).toBe("true");
     act(() => {
       vi.advanceTimersByTime(VIEWER_CONTROLS_IDLE_MILLISECONDS + 10);
     });
-    expect(container.querySelector("[data-controls-visible]")?.getAttribute("data-controls-visible")).toBe("false");
-    fireEvent.pointerMove(container.querySelector("[data-video-viewer]") as HTMLElement);
-    expect(container.querySelector("[data-controls-visible]")?.getAttribute("data-controls-visible")).toBe("true");
+    expect(
+      container
+        .querySelector("[data-controls-visible]")
+        ?.getAttribute("data-controls-visible"),
+    ).toBe("false");
+    fireEvent.pointerMove(
+      container.querySelector("[data-video-viewer]") as HTMLElement,
+    );
+    expect(
+      container
+        .querySelector("[data-controls-visible]")
+        ?.getAttribute("data-controls-visible"),
+    ).toBe("true");
     vi.useRealTimers();
     fireEvent.keyDown(window, { key: "Escape" });
-    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Video im Vollbild" })).toBeNull());
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("dialog", { name: "Video im Vollbild" }),
+      ).toBeNull(),
+    );
   });
 });
 
@@ -270,16 +387,24 @@ describe("sound rows (PAGE-384)", () => {
     const { container } = render(
       <I18nextProvider i18n={i18n}>
         <AudioCard attachment={sound("s1", "kurz.wav")} />
-        <AudioCard attachment={sound("s2", `${"ein sehr langer Name ".repeat(8)}.wav`)} />
+        <AudioCard
+          attachment={sound("s2", `${"ein sehr langer Name ".repeat(8)}.wav`)}
+        />
       </I18nextProvider>,
     );
     const rows = [...container.querySelectorAll("[data-audio-player]")];
     expect(rows).toHaveLength(2);
     for (const row of rows) {
       expect(row.className).toContain(AUDIO_ROW_COLUMNS);
-      expect(row.querySelector("[data-audio-time]")?.textContent).toBe("0:00 / –:––");
-      expect(row.querySelector("[data-audio-name] span")?.className).toContain("truncate");
-      expect(row.querySelector("a[download]")?.className).toContain("bg-primary");
+      expect(row.querySelector("[data-audio-time]")?.textContent).toBe(
+        "0:00 / –:––",
+      );
+      expect(row.querySelector("[data-audio-name] span")?.className).toContain(
+        "truncate",
+      );
+      expect(row.querySelector("a[download]")?.className).toContain(
+        "bg-primary",
+      );
     }
     expect(screen.queryByRole("button", { name: /Daneben/u })).toBeNull();
     expect(screen.queryByRole("button", { name: "Vollbild" })).toBeNull();
@@ -295,10 +420,16 @@ describe("sound rows (PAGE-384)", () => {
     );
     const [first, second] = [...container.querySelectorAll("audio")];
     const buttons = screen.getAllByRole("button", { name: "Abspielen" });
-    fireEvent.click(buttons[0] as HTMLElement);
-    fireEvent.click(buttons[1] as HTMLElement);
+    fireEvent.click(buttons[0]);
+    fireEvent.click(buttons[1]);
     expect(HTMLMediaElement.prototype.pause).toHaveBeenCalledTimes(1);
-    expect((HTMLMediaElement.prototype.pause as unknown as { mock: { contexts: unknown[] } }).mock.contexts[0]).toBe(first);
+    expect(
+      (
+        HTMLMediaElement.prototype.pause as unknown as {
+          mock: { contexts: unknown[] };
+        }
+      ).mock.contexts[0],
+    ).toBe(first);
     expect(second).toBeTruthy();
   });
 
@@ -325,7 +456,10 @@ describe("helpers of the chat media (PAGE-384)", () => {
       close: vi.fn(),
     };
     const key = (value: string, shiftKey = false): void =>
-      viewerKeyAction({ key: value, shiftKey, ctrlKey: false, metaKey: false, altKey: false }, actions)?.();
+      viewerKeyAction(
+        { key: value, shiftKey, ctrlKey: false, metaKey: false, altKey: false },
+        actions,
+      )?.();
     key(" ");
     key("ArrowLeft");
     key("ArrowRight", true);
@@ -338,11 +472,29 @@ describe("helpers of the chat media (PAGE-384)", () => {
     expect(actions.toggleFullscreen).toHaveBeenCalledOnce();
     expect(actions.toggleMute).toHaveBeenCalledOnce();
     expect(actions.close).toHaveBeenCalledOnce();
-    expect(viewerKeyAction({ key: "f", shiftKey: false, ctrlKey: true, metaKey: false, altKey: false }, actions)).toBeNull();
+    expect(
+      viewerKeyAction(
+        {
+          key: "f",
+          shiftKey: false,
+          ctrlKey: true,
+          metaKey: false,
+          altKey: false,
+        },
+        actions,
+      ),
+    ).toBeNull();
   });
 
   it("reads the video list and shows the hint while an agent generates", () => {
-    expect(readChatMedia({ videos: [entry(video("v1"), "m"), { attachment: { kind: "image" } }] }, "video")).toHaveLength(1);
+    expect(
+      readChatMedia(
+        {
+          videos: [entry(video("v1"), "m"), { attachment: { kind: "image" } }],
+        },
+        "video",
+      ),
+    ).toHaveLength(1);
     expect(mediaToolKind({ name: "pages__video_erzeugen" })).toBe("video");
     expect(mediaToolKind({ name: "audio_erzeugen" })).toBe("audio");
     expect(mediaToolKind({ name: "bilder_erzeugen" })).toBeNull();
@@ -351,9 +503,13 @@ describe("helpers of the chat media (PAGE-384)", () => {
       text: "",
       thought: null,
       lastAt: 0,
-      tools: [{ id: "t", name: "video_erzeugen", status: "running", input: "{}" }],
+      tools: [
+        { id: "t", name: "video_erzeugen", status: "running", input: "{}" },
+      ],
     } as unknown as LiveAnswerView;
     expect(activityOf(view)).toEqual({ kind: "video" });
-    expect(i18n.t("chatPage.liveAnswer.activity.video", { name: "Ed" })).toBe("Ed erzeugt Video …");
+    expect(i18n.t("chatPage.liveAnswer.activity.video", { name: "Ed" })).toBe(
+      "Ed erzeugt Video …",
+    );
   });
 });

@@ -122,6 +122,136 @@ function pastedFiles(event: React.ClipboardEvent): File[] {
   return [...clipboard.files];
 }
 
+function answeringSendDelivery(
+  answering: ComposerAnswering | undefined,
+  after: boolean,
+): ConversationDelivery | undefined {
+  if (!answering) return undefined;
+  return after ? "after" : "steer";
+}
+
+interface ComposerFooterActionsProps {
+  readonly canAttach: boolean;
+  readonly uploads: ReturnType<typeof useAttachmentUploads>;
+  readonly onInsert: (text: string) => void;
+  readonly voice: ChatPageComposerProps["voice"];
+  readonly recordRef: React.RefObject<(() => void) | null>;
+  readonly aside: React.ReactNode;
+  readonly answering: ComposerAnswering | undefined;
+  readonly canSend: boolean;
+  readonly onSubmit: (after: boolean) => void;
+}
+
+function ComposerFooterActions({
+  canAttach,
+  uploads,
+  onInsert,
+  voice,
+  recordRef,
+  aside,
+  answering,
+  canSend,
+  onSubmit,
+}: ComposerFooterActionsProps): React.ReactElement {
+  const { t } = useTranslation();
+  const hasAside = aside !== undefined && aside !== null;
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-2">
+      <ChatPageAttachMenu
+        canAttach={canAttach}
+        onFiles={uploads.add}
+        onInsert={onInsert}
+        onVoice={voice ? () => recordRef.current?.() : undefined}
+      />
+      {voice ? (
+        <ChatPageVoiceInput
+          sending={voice.sending}
+          maximumMs={voice.maximumMs}
+          recordRef={recordRef}
+        />
+      ) : null}
+      {aside}
+      {answering ? (
+        <ChatPageSteerControls
+          name={answering.name}
+          canSend={canSend}
+          onSteer={() => onSubmit(false)}
+          onAfter={() => onSubmit(true)}
+          onStop={answering.onStop}
+        />
+      ) : (
+        <Button
+          className={cn(
+            "h-11 gap-1 px-1.5 text-sm xl:h-9 xl:gap-1.5 xl:px-3",
+            !hasAside && "ml-auto",
+          )}
+          disabled={!canSend}
+          onClick={() => onSubmit(false)}
+        >
+          <SendHorizontal aria-hidden="true" className="size-4" />
+          {t("chatPage.send")}
+        </Button>
+      )}
+    </div>
+  );
+}
+
+interface ComposerBindingsOptions {
+  readonly canAttach: boolean;
+  readonly answering: ComposerAnswering | undefined;
+  readonly input: ReturnType<typeof useMentionEditor>;
+  readonly uploads: ReturnType<typeof useAttachmentUploads>;
+  readonly mentionRef?: React.RefObject<((username: string) => void) | null>;
+  readonly onSubmitAfter: () => void;
+}
+
+function useComposerBindings({
+  canAttach,
+  answering,
+  input,
+  uploads,
+  mentionRef,
+  onSubmitAfter,
+}: ComposerBindingsOptions): {
+  readonly handleKeyDownCapture: (event: React.KeyboardEvent) => void;
+  readonly handlePaste: (event: React.ClipboardEvent) => void;
+} {
+  useEffect(() => {
+    if (!mentionRef) return undefined;
+    mentionRef.current = (username) => {
+      if (input.editor) appendMention(input.editor, username);
+    };
+    return () => {
+      mentionRef.current = null;
+    };
+  }, [mentionRef, input.editor]);
+
+  // ⌥↵ sends after the running answer and Esc stops it, unless the mention list is open.
+  function handleKeyDownCapture(event: React.KeyboardEvent): void {
+    if (!answering || input.query !== null) return;
+    if (event.key === "Enter" && event.altKey && !event.shiftKey) {
+      event.preventDefault();
+      event.stopPropagation();
+      onSubmitAfter();
+      return;
+    }
+    if (event.key === "Escape") {
+      event.preventDefault();
+      answering.onStop();
+    }
+  }
+
+  function handlePaste(event: React.ClipboardEvent): void {
+    if (!canAttach) return;
+    const files = pastedFiles(event);
+    if (files.length === 0) return;
+    event.preventDefault();
+    uploads.add(files);
+  }
+
+  return { handleKeyDownCapture, handlePaste };
+}
+
 /**
  * The input at the foot of the chat page, with the chat editor of the Pica
  * panel, the "+" menu and "Abschicken".
@@ -162,8 +292,9 @@ export function ChatPageComposer({
     onSubmit: () => handleSubmit(false),
   });
   const record = useRef<(() => void) | null>(null);
-  const drop = useFileDrop(canAttach ? uploads.add : null);
-  const isDraggingOnPage = usePageFileDrop(canAttach ? uploads.add : null);
+  const onAddFiles = canAttach ? uploads.add : null;
+  const drop = useFileDrop(onAddFiles);
+  const isDraggingOnPage = usePageFileDrop(onAddFiles);
   const isDragging = drop.isDragging || isDraggingOnPage;
   const hasReady = uploads.items.some((item) => item.state === "ready");
   const canSend = !uploads.isUploading && (input.markdown !== "" || hasReady);
@@ -172,48 +303,16 @@ export function ChatPageComposer({
     if (!canSend) return;
     const text = input.markdown;
     input.setMarkdown("");
-    if (!answering) {
-      onSend(text, uploads.take());
-      return;
-    }
-    onSend(text, uploads.take(), after ? "after" : "steer");
+    onSend(text, uploads.take(), answeringSendDelivery(answering, after));
   }
 
-  // ⌥↵ sends after the running answer and Esc stops it, unless the mention list is open.
-  function handleKeyDownCapture(event: React.KeyboardEvent): void {
-    if (!answering || input.query !== null) return;
-    if (event.key === "Enter" && event.altKey && !event.shiftKey) {
-      event.preventDefault();
-      event.stopPropagation();
-      handleSubmit(true);
-      return;
-    }
-    if (event.key === "Escape") {
-      event.preventDefault();
-      answering.onStop();
-    }
-  }
-
-  function handlePaste(event: React.ClipboardEvent): void {
-    if (!canAttach) return;
-    const files = pastedFiles(event);
-    if (files.length === 0) return;
-    event.preventDefault();
-    uploads.add(files);
-  }
-
-  function handleInsert(text: string): void {
-    if (input.editor) appendTemplate(input.editor, text);
-  }
-
-  useEffect(() => {
-    if (!mentionRef) return undefined;
-    mentionRef.current = (username) => {
-      if (input.editor) appendMention(input.editor, username);
-    };
-    return () => {
-      mentionRef.current = null;
-    };
+  const { handleKeyDownCapture, handlePaste } = useComposerBindings({
+    canAttach,
+    answering,
+    input,
+    uploads,
+    mentionRef,
+    onSubmitAfter: () => handleSubmit(true),
   });
 
   return (
@@ -238,43 +337,19 @@ export function ChatPageComposer({
       <div className={cn("pages-editor-scroll-surface", styles.input)}>
         <EditorContent editor={input.editor} />
       </div>
-      <div className="mt-2 flex flex-wrap items-center gap-2">
-        <ChatPageAttachMenu
-          canAttach={canAttach}
-          onFiles={uploads.add}
-          onInsert={handleInsert}
-          onVoice={voice ? () => record.current?.() : undefined}
-        />
-        {voice ? (
-          <ChatPageVoiceInput
-            sending={voice.sending}
-            maximumMs={voice.maximumMs}
-            recordRef={record}
-          />
-        ) : null}
-        {aside}
-        {answering ? (
-          <ChatPageSteerControls
-            name={answering.name}
-            canSend={canSend}
-            onSteer={() => handleSubmit(false)}
-            onAfter={() => handleSubmit(true)}
-            onStop={answering.onStop}
-          />
-        ) : (
-          <Button
-            className={cn(
-              "h-11 gap-1 px-1.5 text-sm xl:h-9 xl:gap-1.5 xl:px-3",
-              aside === undefined || aside === null ? "ml-auto" : undefined,
-            )}
-            disabled={!canSend}
-            onClick={() => handleSubmit(false)}
-          >
-            <SendHorizontal aria-hidden="true" className="size-4" />
-            {t("chatPage.send")}
-          </Button>
-        )}
-      </div>
+      <ComposerFooterActions
+        answering={answering}
+        aside={aside}
+        canAttach={canAttach}
+        canSend={canSend}
+        onInsert={(text) => {
+          if (input.editor) appendTemplate(input.editor, text);
+        }}
+        onSubmit={handleSubmit}
+        recordRef={record}
+        uploads={uploads}
+        voice={voice}
+      />
     </footer>
   );
 }

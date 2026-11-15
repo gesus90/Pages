@@ -11,9 +11,14 @@ import type { Database } from "@/backend/database/Database";
  * rows along.
  */
 export class ChatSessionControllerRepository {
-  private readonly database: Pick<Database, "query" | "execute" | "transaction">;
+  private readonly database: Pick<
+    Database,
+    "query" | "execute" | "transaction"
+  >;
 
-  public constructor(database: Pick<Database, "query" | "execute" | "transaction">) {
+  public constructor(
+    database: Pick<Database, "query" | "execute" | "transaction">,
+  ) {
     this.database = database;
   }
 

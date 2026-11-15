@@ -8,12 +8,18 @@ import { useNow } from "./use-now";
 import { useChatVideos, videoCardOf, videoEntryOf } from "./use-chat-videos";
 import { VideoPlayer } from "./video-player";
 
-import type { ConversationImage } from "@/definition/ConversationContent";
+import type {
+  ConversationAttachment,
+  ConversationImage,
+} from "@/definition/ConversationContent";
 import type { OpenedCard } from "./card-types";
 
 /** The card of a video, as the split view shows it. */
 export type VideoOpenedCard = OpenedCard & {
-  readonly descriptor: Extract<OpenedCard["descriptor"], { readonly kind: "video" }>;
+  readonly descriptor: {
+    readonly kind: "video";
+    readonly attachment: ConversationAttachment;
+  };
 };
 
 /**
@@ -32,7 +38,11 @@ interface VideoTileProps {
 }
 
 /** One small preview of another video of the chat; only its preview image loads. */
-function VideoTile({ video, isGone, onSelect }: VideoTileProps): React.ReactElement {
+function VideoTile({
+  video,
+  isGone,
+  onSelect,
+}: VideoTileProps): React.ReactElement {
   const { t } = useTranslation();
   const { attachment } = video;
   const Glyph = isGone ? Clock : Film;
@@ -59,7 +69,11 @@ function VideoTile({ video, isGone, onSelect }: VideoTileProps): React.ReactElem
         )}
         {isGone ? null : (
           <span className="absolute flex size-7 items-center justify-center rounded-full bg-primary text-primary-foreground">
-            <Play aria-hidden="true" className="ml-px size-3.5" fill="currentColor" />
+            <Play
+              aria-hidden="true"
+              className="ml-px size-3.5"
+              fill="currentColor"
+            />
           </span>
         )}
         {attachment.durationSeconds === undefined ? null : (
@@ -68,8 +82,12 @@ function VideoTile({ video, isGone, onSelect }: VideoTileProps): React.ReactElem
           </span>
         )}
       </span>
-      <span className="truncate text-xs font-medium text-foreground">{attachment.name}</span>
-      <span className="truncate text-[11px] text-muted-foreground">{video.senderName}</span>
+      <span className="truncate text-xs font-medium text-foreground">
+        {attachment.name}
+      </span>
+      <span className="truncate text-[11px] text-muted-foreground">
+        {video.senderName}
+      </span>
     </button>
   );
 }
@@ -133,7 +151,10 @@ export function VideoPanelBody({
   const { videos } = useChatVideos(content.conversationId, videoEntryOf(card));
   const { attachment } = card.descriptor;
   return (
-    <div className="flex min-h-0 flex-1 flex-col" data-video-panel={attachment.id}>
+    <div
+      className="flex min-h-0 flex-1 flex-col"
+      data-video-panel={attachment.id}
+    >
       <VideoPlayer
         key={attachment.id}
         attachment={attachment}

@@ -35,9 +35,18 @@ vi.mock("react-router", () => ({
 }));
 
 const i18n = createI18n("de");
-const ED = participant("ed", { name: "Ed", username: "ed", role: "Entwickler" });
+const ED = participant("ed", {
+  name: "Ed",
+  username: "ed",
+  role: "Entwickler",
+});
 const MEI = participant("mei", { name: "Mei", username: "mei", role: "Test" });
-const ANNA = participant("anna", { name: "Anna", kind: "human", role: "", username: "anna" });
+const ANNA = participant("anna", {
+  name: "Anna",
+  kind: "human",
+  role: "",
+  username: "anna",
+});
 
 const BRIEF: AgentChatSessionBrief = {
   sessionId: "s-ed",
@@ -58,17 +67,26 @@ interface Call {
 /** Replaces `fetch` by the control endpoint and records every request. */
 function stubControl(answer: (call: Call) => AgentChatControlResponse): Call[] {
   const calls: Call[] = [];
-  vi.stubGlobal("fetch", async (input: RequestInfo | URL, init: RequestInit = {}) => {
-    // The count of "Medien & Dateien" the group menu reads (PAGE-387) is no control call.
-    if (String(input).startsWith("/chat/media/")) return new Response("Not Found", { status: 404 });
-    const fields =
-      init.body instanceof FormData
-        ? Object.fromEntries([...init.body.entries()].map(([key, value]) => [key, String(value)]))
-        : {};
-    const call = { url: String(input), fields };
-    calls.push(call);
-    return Response.json(answer(call));
-  });
+  vi.stubGlobal(
+    "fetch",
+    async (input: RequestInfo | URL, init: RequestInit = {}) => {
+      // The count of "Medien & Dateien" the group menu reads (PAGE-387) is no control call.
+      if (String(input).startsWith("/chat/media/"))
+        return new Response("Not Found", { status: 404 });
+      const fields =
+        init.body instanceof FormData
+          ? Object.fromEntries(
+              [...init.body.entries()].map(([key, value]) => [
+                key,
+                String(value),
+              ]),
+            )
+          : {};
+      const call = { url: String(input), fields };
+      calls.push(call);
+      return Response.json(answer(call));
+    },
+  );
   return calls;
 }
 
@@ -78,14 +96,26 @@ function teamGroup(overrides: Partial<VirtualGroup> = {}): VirtualGroup {
     memberIds: ["ed", "mei", "anna"],
     agentSessions: [BRIEF],
     agentModels: {
-      ed: { name: "Claude Opus 5.5", reasoningEffort: "high", isOverride: true, contextWindow: null },
-      mei: { name: "Claude Sonnet 5.5", reasoningEffort: null, isOverride: false, contextWindow: null },
+      ed: {
+        name: "Claude Opus 5.5",
+        reasoningEffort: "high",
+        isOverride: true,
+        contextWindow: null,
+      },
+      mei: {
+        name: "Claude Sonnet 5.5",
+        reasoningEffort: null,
+        isOverride: false,
+        contextWindow: null,
+      },
     },
     ...overrides,
   });
 }
 
-function renderHeader(props: Partial<ComponentProps<typeof ChatPageHeader>> = {}): void {
+function renderHeader(
+  props: Partial<ComponentProps<typeof ChatPageHeader>> = {},
+): void {
   render(
     <I18nextProvider i18n={i18n}>
       <ChatPageHeader
@@ -103,7 +133,10 @@ function renderHeader(props: Partial<ComponentProps<typeof ChatPageHeader>> = {}
 }
 
 function openChip(name: RegExp): void {
-  fireEvent.pointerDown(screen.getByRole("button", { name }), { button: 0, ctrlKey: false });
+  fireEvent.pointerDown(screen.getByRole("button", { name }), {
+    button: 0,
+    ctrlKey: false,
+  });
 }
 
 function item(name: RegExp | string): HTMLElement {
@@ -125,9 +158,15 @@ afterEach(() => {
 describe("the menu of an agent in a chat (PAGE-380)", () => {
   it("shows the deviating model in the head, e.g. „Ed · Opus“", () => {
     renderHeader();
-    expect(within(screen.getByRole("button", { name: /^Ed/ })).getByText("Opus")).toBeTruthy();
+    expect(
+      within(screen.getByRole("button", { name: /^Ed/ })).getByText("Opus"),
+    ).toBeTruthy();
     // Mei answers with its own model, so no hint.
-    expect(within(screen.getByRole("button", { name: /^Mei/ })).queryByText("Sonnet")).toBeNull();
+    expect(
+      within(screen.getByRole("button", { name: /^Mei/ })).queryByText(
+        "Sonnet",
+      ),
+    ).toBeNull();
   });
 
   it("switches restart and compaction off with a hint for a member without the right", () => {
@@ -136,7 +175,9 @@ describe("the menu of an agent in a chat (PAGE-380)", () => {
     expect(item(/^Modell in diesem Chat …\s*Opus · hoch$/)).toBeTruthy();
     expect(isOff(item(/^Jetzt verdichten/))).toBe(true);
     expect(isOff(item(/^Neu starten/))).toBe(true);
-    expect(screen.getAllByText(/Nur wer vom Besitzer der Gruppe berechtigt ist/)).toHaveLength(2);
+    expect(
+      screen.getAllByText(/Nur wer vom Besitzer der Gruppe berechtigt ist/),
+    ).toHaveLength(2);
     // Removing is for the owner alone.
     const remove = item(/^Aus Gruppe entfernen …/);
     expect(isOff(remove)).toBe(true);
@@ -157,7 +198,12 @@ describe("the menu of an agent in a chat (PAGE-380)", () => {
     await waitFor(() => expect(router.revalidate).toHaveBeenCalledOnce());
     expect(calls[0]).toEqual({
       url: "/chat-page-api/agent-control",
-      fields: { intent: "new", kind: "group", agentId: "ed", conversationId: "team" },
+      fields: {
+        intent: "new",
+        kind: "group",
+        agentId: "ed",
+        conversationId: "team",
+      },
     });
     openChip(/^Ed/);
     fireEvent.click(item(/^Jetzt verdichten/));
@@ -207,16 +253,27 @@ describe("the menu of an agent in a chat (PAGE-380)", () => {
     });
     openChip(/^Ed/);
     fireEvent.click(item(/^Modell in diesem Chat …/));
-    const dialog = await screen.findByRole("dialog", { name: "Modell für Ed in „Pages Team“" });
-    fireEvent.click(await within(dialog).findByRole("button", { name: "Claude Opus 5.5" }));
+    const dialog = await screen.findByRole("dialog", {
+      name: "Modell für Ed in „Pages Team“",
+    });
+    fireEvent.click(
+      await within(dialog).findByRole("button", { name: "Claude Opus 5.5" }),
+    );
     fireEvent.click(within(dialog).getByRole("button", { name: "hoch" }));
     expect(
-      (within(dialog).getByRole("button", { name: "Auf Standard zurücksetzen" }) as HTMLButtonElement)
-        .disabled,
+      within(dialog).getByRole<HTMLButtonElement>("button", {
+        name: "Auf Standard zurücksetzen",
+      }).disabled,
     ).toBe(true);
     fireEvent.click(within(dialog).getByRole("button", { name: "Wechseln" }));
-    await waitFor(() => expect(calls.some((call) => call.fields.intent === "set-model")).toBe(true));
-    expect(calls.find((call) => call.fields.intent === "set-model")?.fields).toEqual({
+    await waitFor(() =>
+      expect(calls.some((call) => call.fields.intent === "set-model")).toBe(
+        true,
+      ),
+    );
+    expect(
+      calls.find((call) => call.fields.intent === "set-model")?.fields,
+    ).toEqual({
       intent: "set-model",
       connectionId: "claude",
       model: "claude-opus-5-5",
@@ -226,7 +283,9 @@ describe("the menu of an agent in a chat (PAGE-380)", () => {
       conversationId: "team",
     });
   });
+});
 
+describe("removing members and dissolving groups (PAGE-380)", () => {
   it("lets the owner remove an agent after a short question naming what stays", async () => {
     const calls = stubControl(() => ({ ok: true }));
     renderHeader({
@@ -238,23 +297,44 @@ describe("the menu of an agent in a chat (PAGE-380)", () => {
     });
     openChip(/^Ed/);
     fireEvent.click(item(/^Aus Gruppe entfernen …/));
-    const dialog = await screen.findByRole("dialog", { name: "Ed aus „Pages Team“ entfernen?" });
+    const dialog = await screen.findByRole("dialog", {
+      name: "Ed aus „Pages Team“ entfernen?",
+    });
     expect(within(dialog).getByText(/62 % Kontext/)).toBeTruthy();
-    expect(within(dialog).getByText(/Claude Opus 5.5 für diesen Chat entfällt/)).toBeTruthy();
-    expect(within(dialog).getByText(/MEMORY.md, DREAM.md, Lektionen, Rezepte und Lagebuch/)).toBeTruthy();
+    expect(
+      within(dialog).getByText(/Claude Opus 5.5 für diesen Chat entfällt/),
+    ).toBeTruthy();
+    expect(
+      within(dialog).getByText(
+        /MEMORY.md, DREAM.md, Lektionen, Rezepte und Lagebuch/,
+      ),
+    ).toBeTruthy();
     fireEvent.click(within(dialog).getByRole("button", { name: "Entfernen" }));
     await waitFor(() => expect(calls).toHaveLength(1));
-    expect(calls[0]?.fields).toEqual({ intent: "remove-member", groupId: "team", memberId: "ed" });
+    expect(calls[0]?.fields).toEqual({
+      intent: "remove-member",
+      groupId: "team",
+      memberId: "ed",
+    });
   });
 
   it("lets the owner remove a person from its chip", async () => {
     const calls = stubControl(() => ({ ok: true }));
     renderHeader({
-      opened: { kind: "group", group: teamGroup({ isOwner: true }), members: [ED, MEI, ANNA] },
+      opened: {
+        kind: "group",
+        group: teamGroup({ isOwner: true }),
+        members: [ED, MEI, ANNA],
+      },
     });
-    fireEvent.pointerDown(screen.getByRole("button", { name: /Anna/ }), { button: 0, ctrlKey: false });
+    fireEvent.pointerDown(screen.getByRole("button", { name: /Anna/ }), {
+      button: 0,
+      ctrlKey: false,
+    });
     fireEvent.click(item("Aus Gruppe entfernen …"));
-    const dialog = await screen.findByRole("dialog", { name: "Anna aus „Pages Team“ entfernen?" });
+    const dialog = await screen.findByRole("dialog", {
+      name: "Anna aus „Pages Team“ entfernen?",
+    });
     fireEvent.click(within(dialog).getByRole("button", { name: "Entfernen" }));
     await waitFor(() => expect(calls[0]?.fields.memberId).toBe("anna"));
   });
@@ -262,21 +342,37 @@ describe("the menu of an agent in a chat (PAGE-380)", () => {
   it("asks before the owner dissolves the group, naming the sessions, the history and what stays", async () => {
     const calls = stubControl(() => ({ ok: true }));
     renderHeader({
-      opened: { kind: "group", group: teamGroup({ isOwner: true }), members: [ED, MEI, ANNA] },
+      opened: {
+        kind: "group",
+        group: teamGroup({ isOwner: true }),
+        members: [ED, MEI, ANNA],
+      },
     });
     fireEvent.pointerDown(screen.getByRole("button", { name: "Chat-Menü" }), {
       button: 0,
       ctrlKey: false,
     });
     fireEvent.click(item("Gruppe auflösen"));
-    const dialog = await screen.findByRole("dialog", { name: "Gruppe „Pages Team“ auflösen?" });
-    expect(within(dialog).getByText("Diese Agenten-Sitzungen werden geschlossen und gelöscht:")).toBeTruthy();
+    const dialog = await screen.findByRole("dialog", {
+      name: "Gruppe „Pages Team“ auflösen?",
+    });
+    expect(
+      within(dialog).getByText(
+        "Diese Agenten-Sitzungen werden geschlossen und gelöscht:",
+      ),
+    ).toBeTruthy();
     expect(within(dialog).getByText("Ed")).toBeTruthy();
     expect(within(dialog).getByText("Mei")).toBeTruthy();
     expect(within(dialog).getByText(/endgültig gelöscht/)).toBeTruthy();
-    expect(within(dialog).getByText(/Bleibt erhalten: MEMORY.md, DREAM.md/)).toBeTruthy();
-    fireEvent.click(within(dialog).getByRole("button", { name: "Gruppe auflösen" }));
-    await waitFor(() => expect(calls[0]?.fields).toEqual({ intent: "dissolve", groupId: "team" }));
+    expect(
+      within(dialog).getByText(/Bleibt erhalten: MEMORY.md, DREAM.md/),
+    ).toBeTruthy();
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: "Gruppe auflösen" }),
+    );
+    await waitFor(() =>
+      expect(calls[0]?.fields).toEqual({ intent: "dissolve", groupId: "team" }),
+    );
   });
 
   it("offers neither the setting of who steers nor the dissolution to another member", () => {
@@ -285,8 +381,12 @@ describe("the menu of an agent in a chat (PAGE-380)", () => {
       button: 0,
       ctrlKey: false,
     });
-    expect(screen.queryByRole("menuitem", { name: "Gruppe auflösen" })).toBeNull();
-    expect(screen.queryByRole("menuitem", { name: /^Modell für diesen Chat/ })).toBeNull();
+    expect(
+      screen.queryByRole("menuitem", { name: "Gruppe auflösen" }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("menuitem", { name: /^Modell für diesen Chat/ }),
+    ).toBeNull();
   });
 });
 
@@ -295,19 +395,26 @@ describe("the context rings at the input field (PAGE-380)", () => {
     render(
       <I18nextProvider i18n={i18n}>
         <ChatPageContextRings
-          opened={{ kind: "group", group: teamGroup(), members: [ED, MEI, ANNA] }}
+          opened={{
+            kind: "group",
+            group: teamGroup(),
+            members: [ED, MEI, ANNA],
+          }}
           chatName="Pages Team"
         />
       </I18nextProvider>,
     );
-    const rings = within(screen.getByRole("group", { name: "Kontext der Agenten in diesem Chat" }))
-      .getAllByRole("button");
+    const rings = within(
+      screen.getByRole("group", { name: "Kontext der Agenten in diesem Chat" }),
+    ).getAllByRole("button");
     expect(rings.map((ring) => ring.getAttribute("aria-label"))).toEqual([
       "Kontext von Ed: 62 %",
       "Kontext von Mei: – %",
     ]);
-    fireEvent.focus(rings[0] as HTMLElement);
-    const tooltip = screen.getAllByRole("tooltip").find((entry) => !entry.hidden);
+    fireEvent.focus(rings[0]);
+    const tooltip = screen
+      .getAllByRole("tooltip")
+      .find((entry) => !entry.hidden);
     expect(tooltip?.textContent).toContain("Ed · Sitzung in „Pages Team“");
     expect(tooltip?.textContent).toContain("Claude Opus 5.5 · hoch");
     expect(tooltip?.textContent).toContain("nur dieser Chat");
@@ -319,7 +426,10 @@ describe("the context rings at the input field (PAGE-380)", () => {
     const { rerender } = render(
       <I18nextProvider i18n={i18n}>
         <ChatPageContextRings
-          opened={{ kind: "participant", participant: { ...ED, session: BRIEF } }}
+          opened={{
+            kind: "participant",
+            participant: { ...ED, session: BRIEF },
+          }}
           chatName="Ed"
         />
       </I18nextProvider>,
@@ -327,7 +437,10 @@ describe("the context rings at the input field (PAGE-380)", () => {
     expect(screen.getAllByRole("button")).toHaveLength(1);
     rerender(
       <I18nextProvider i18n={i18n}>
-        <ChatPageContextRings opened={{ kind: "participant", participant: ANNA }} chatName="Anna" />
+        <ChatPageContextRings
+          opened={{ kind: "participant", participant: ANNA }}
+          chatName="Anna"
+        />
       </I18nextProvider>,
     );
     expect(screen.queryAllByRole("button")).toHaveLength(0);
@@ -340,11 +453,16 @@ describe("system lines and chat commands (PAGE-380)", () => {
       <I18nextProvider i18n={i18n}>
         <ChatPageHistory
           messages={[
-            { ...message("m1"), authorId: null, content: "@Ed schau dir das an" },
+            {
+              ...message("m1"),
+              authorId: null,
+              content: "@Ed schau dir das an",
+            },
             {
               ...message("line"),
               authorId: null,
-              content: "Igor hat Ed in diesem Chat auf Claude Opus 5.5 · hoch umgestellt.",
+              content:
+                "Igor hat Ed in diesem Chat auf Claude Opus 5.5 · hoch umgestellt.",
               notice: "session_event",
             },
           ]}
@@ -354,7 +472,9 @@ describe("system lines and chat commands (PAGE-380)", () => {
       </I18nextProvider>,
     );
     const note = screen.getByRole("note");
-    expect(note.textContent).toBe("Igor hat Ed in diesem Chat auf Claude Opus 5.5 · hoch umgestellt.");
+    expect(note.textContent).toBe(
+      "Igor hat Ed in diesem Chat auf Claude Opus 5.5 · hoch umgestellt.",
+    );
   });
 
   it("runs a typed command instead of sending it and leaves other text a message", async () => {
@@ -362,7 +482,11 @@ describe("system lines and chat commands (PAGE-380)", () => {
       ok: true,
       outcome: { status: "done", command: "compact", agentName: "Ed" },
     }));
-    const opened = { kind: "group" as const, group: teamGroup(), members: [ED, MEI, ANNA] };
+    const opened = {
+      kind: "group" as const,
+      group: teamGroup(),
+      members: [ED, MEI, ANNA],
+    };
     const { result } = renderHook(() => useChatCommandRunner(opened));
     expect(result.current.runIfCommand("Hallo zusammen")).toBe(false);
     let isCommand = false;

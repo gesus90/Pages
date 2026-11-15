@@ -34,6 +34,72 @@ function hasModifier(event: React.KeyboardEvent): boolean {
   return event.altKey || event.ctrlKey || event.metaKey || event.shiftKey;
 }
 
+/** Horizontal paging direction of a touch swipe, or `null` when too short/vertical. */
+function swipeDirection(
+  start: { readonly x: number; readonly y: number } | null,
+  touch: React.Touch | undefined,
+): -1 | 1 | null {
+  if (!start || !touch) return null;
+  const distance = touch.clientX - start.x;
+  if (Math.abs(distance) < SWIPE_DISTANCE) return null;
+  if (Math.abs(distance) < Math.abs(touch.clientY - start.y)) return null;
+  return distance > 0 ? -1 : 1;
+}
+
+function useViewerInput(context: {
+  readonly index: number;
+  readonly count: number;
+  readonly hasNavigation: boolean;
+  readonly onIndexChange: (index: number) => void;
+  readonly onClose: () => void;
+  readonly content: React.RefObject<HTMLDivElement | null>;
+}): {
+  readonly step: (direction: -1 | 1) => void;
+  readonly handleTouchStart: (event: React.TouchEvent) => void;
+  readonly handleTouchEnd: (event: React.TouchEvent) => void;
+  readonly handleKeyDown: (event: React.KeyboardEvent) => void;
+} {
+  const { index, count, hasNavigation, onIndexChange, onClose, content } =
+    context;
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
+
+  function step(direction: -1 | 1): void {
+    const target = stepViewerIndex(index, count, direction);
+    if (target === null) return;
+    onIndexChange(target);
+    // Focus stays inside the dialog when the used arrow turns unavailable.
+    if (stepViewerIndex(target, count, direction) === null)
+      content.current?.focus();
+  }
+
+  function handleTouchStart(event: React.TouchEvent): void {
+    const touch = event.touches[0];
+    touchStart.current = touch ? { x: touch.clientX, y: touch.clientY } : null;
+  }
+
+  function handleTouchEnd(event: React.TouchEvent): void {
+    const start = touchStart.current;
+    touchStart.current = null;
+    if (!hasNavigation) return;
+    const direction = swipeDirection(start, event.changedTouches[0]);
+    if (direction !== null) step(direction);
+  }
+
+  function handleKeyDown(event: React.KeyboardEvent): void {
+    if (event.key === "Escape") {
+      onClose();
+      return;
+    }
+    if (!hasNavigation || hasModifier(event)) return;
+    if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+      event.preventDefault();
+      step(event.key === "ArrowLeft" ? -1 : 1);
+    }
+  }
+
+  return { step, handleTouchStart, handleTouchEnd, handleKeyDown };
+}
+
 /**
  * A full-screen viewer for one image of a list, with arrows and the arrow
  * keys to page through the list.
@@ -57,66 +123,23 @@ export function ImageViewer({
 }: ImageViewerProps): React.ReactElement | null {
   const { t } = useTranslation();
   const content = useRef<HTMLDivElement>(null);
-  const touchStart = useRef<{ x: number; y: number } | null>(null);
-  const image = images[index];
-
-  if (!image) {
-    return null;
-  }
-
   const count = images.length;
   const hasNavigation = count > 1;
+  const { step, handleTouchStart, handleTouchEnd, handleKeyDown } =
+    useViewerInput({
+      index,
+      count,
+      hasNavigation,
+      onIndexChange,
+      onClose,
+      content,
+    });
+  const image = images[index];
+
+  if (!image) return null;
+
   const label =
     image.alt || t("imageViewer.unnamed", { current: index + 1, total: count });
-
-  function step(direction: -1 | 1): void {
-    const target = stepViewerIndex(index, count, direction);
-
-    if (target === null) {
-      return;
-    }
-
-    onIndexChange(target);
-
-    if (stepViewerIndex(target, count, direction) === null) {
-      // The arrow that was used turns unavailable; a disabled control would
-      // drop the focus out of the dialog.
-      content.current?.focus();
-    }
-  }
-
-  function handleTouchStart(event: React.TouchEvent): void {
-    const touch = event.touches[0];
-    touchStart.current = touch ? { x: touch.clientX, y: touch.clientY } : null;
-  }
-
-  // A horizontal swipe pages on a touch screen; a vertical one scrolls nothing away.
-  function handleTouchEnd(event: React.TouchEvent): void {
-    const start = touchStart.current;
-    const touch = event.changedTouches[0];
-    touchStart.current = null;
-    if (!start || !touch || !hasNavigation) return;
-    const distance = touch.clientX - start.x;
-    if (Math.abs(distance) < SWIPE_DISTANCE) return;
-    if (Math.abs(distance) < Math.abs(touch.clientY - start.y)) return;
-    step(distance > 0 ? -1 : 1);
-  }
-
-  function handleKeyDown(event: React.KeyboardEvent): void {
-    if (event.key === "Escape") {
-      onClose();
-      return;
-    }
-
-    if (!hasNavigation || hasModifier(event)) {
-      return;
-    }
-
-    if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
-      event.preventDefault();
-      step(event.key === "ArrowLeft" ? -1 : 1);
-    }
-  }
 
   return (
     <DialogPrimitive.Root

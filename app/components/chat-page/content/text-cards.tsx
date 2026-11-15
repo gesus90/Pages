@@ -279,7 +279,11 @@ export function MarkdownCard({
         />
       ) : null}
       {source !== null && tab === "source" ? (
-        <CodeView className="max-h-[32rem]" languageHint="markdown" source={source} />
+        <CodeView
+          className="max-h-[32rem]"
+          languageHint="markdown"
+          source={source}
+        />
       ) : null}
     </ContentCard>
   );

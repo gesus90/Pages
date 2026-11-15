@@ -81,7 +81,9 @@ async function createPreview(
     },
   );
   if (preview && !signal.aborted)
-    void uploadPreview(attachment.id, preview, factsQuery).catch(() => undefined);
+    void uploadPreview(attachment.id, preview, factsQuery).catch(
+      () => undefined,
+    );
   return preview;
 }
 

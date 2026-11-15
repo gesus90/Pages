@@ -19,7 +19,10 @@ export const DOCUMENT_ICONS: Readonly<Record<DocumentView, LucideIcon>> = {
  * @param format - The format.
  * @param t - The translation of the page.
  */
-export function documentKindLabel(format: DocumentFormat, t: TFunction): string {
+export function documentKindLabel(
+  format: DocumentFormat,
+  t: TFunction,
+): string {
   return t(`chatPage.cards.document.format.${format}`);
 }
 
@@ -31,11 +34,21 @@ export function documentKindLabel(format: DocumentFormat, t: TFunction): string 
  * @param t - The translation of the page.
  * @returns For example "3 Seiten", "12 Folien" or "2 Blätter · 140 Zeilen"; empty before.
  */
-export function documentExtent(document: ReadDocument | null, t: TFunction): string {
+export function documentExtent(
+  document: ReadDocument | null,
+  t: TFunction,
+): string {
   if (document === null) return "";
-  if (document.kind === "word") return t("chatPage.cards.document.pages", { count: document.pageCount });
-  if (document.kind === "slides") return t("chatPage.cards.slides.count", { count: document.slides.length });
-  const rows = document.sheets.reduce((sum, sheet) => sum + Math.max(0, sheet.rows.length - 1), 0);
-  const sheets = t("chatPage.cards.sheet.sheetCount", { count: document.sheets.length });
+  if (document.kind === "word")
+    return t("chatPage.cards.document.pages", { count: document.pageCount });
+  if (document.kind === "slides")
+    return t("chatPage.cards.slides.count", { count: document.slides.length });
+  const rows = document.sheets.reduce(
+    (sum, sheet) => sum + Math.max(0, sheet.rows.length - 1),
+    0,
+  );
+  const sheets = t("chatPage.cards.sheet.sheetCount", {
+    count: document.sheets.length,
+  });
   return `${sheets} · ${t("chatPage.cards.sheet.rows", { count: rows })}`;
 }

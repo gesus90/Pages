@@ -51,7 +51,10 @@ export class ConversationMessageContent implements ConversationMessageContentRea
   public constructor(
     attachments: Pick<ConversationAttachments, "forMessages">,
     links: Pick<ConversationLinks, "forMessages">,
-    references: Pick<ConversationAttachmentReferences, "forMessages"> | null = null,
+    references: Pick<
+      ConversationAttachmentReferences,
+      "forMessages"
+    > | null = null,
   ) {
     this.attachments = attachments;
     this.links = links;

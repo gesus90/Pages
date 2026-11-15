@@ -1,4 +1,11 @@
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { I18nextProvider } from "react-i18next";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -30,8 +37,11 @@ vi.mock("react-router", () => ({ useFetcher: () => ({ submit: vi.fn() }) }));
 
 /** Previews load only when seen; jsdom has no observer, so nothing is ever seen. */
 class HiddenObserver {
+  /** No-op intersection observe stub. */
   public observe(): void {}
+  /** No-op intersection unobserve stub. */
   public unobserve(): void {}
+  /** No-op intersection disconnect stub. */
   public disconnect(): void {}
 }
 
@@ -127,26 +137,34 @@ describe("remaining time of files of agents (PAGE-382)", () => {
   const now = Date.parse("2026-11-14T12:00:00.000Z");
 
   it("names days, then hours in the last day", () => {
-    expect(retentionLabel(new Date(now + 50 * HOUR).toISOString(), now, t)).toBe(
-      "noch 2 Tage",
-    );
-    expect(retentionLabel(new Date(now + 5.5 * HOUR).toISOString(), now, t)).toBe(
-      "noch 5 Std.",
-    );
-    expect(retentionLabel(new Date(now + 10 * 60 * 1000).toISOString(), now, t)).toBe(
-      "noch unter 1 Std.",
-    );
+    expect(
+      retentionLabel(new Date(now + 50 * HOUR).toISOString(), now, t),
+    ).toBe("noch 2 Tage");
+    expect(
+      retentionLabel(new Date(now + 5.5 * HOUR).toISOString(), now, t),
+    ).toBe("noch 5 Std.");
+    expect(
+      retentionLabel(new Date(now + 10 * 60 * 1000).toISOString(), now, t),
+    ).toBe("noch unter 1 Std.");
   });
 
   it("names nothing for an upload of a person or an expired file", () => {
     expect(retentionLabel(undefined, now, t)).toBeNull();
-    expect(retentionLabel(new Date(now - HOUR).toISOString(), now, t)).toBeNull();
+    expect(
+      retentionLabel(new Date(now - HOUR).toISOString(), now, t),
+    ).toBeNull();
   });
 
   it("knows an expired file by the server or by its moment", () => {
-    expect(isAttachmentExpired({ expiredAt: "2026-11-14T11:00:00.000Z" }, now)).toBe(true);
-    expect(isAttachmentExpired({ expiresAt: "2026-11-14T11:00:00.000Z" }, now)).toBe(true);
-    expect(isAttachmentExpired({ expiresAt: "2026-11-15T11:00:00.000Z" }, now)).toBe(false);
+    expect(
+      isAttachmentExpired({ expiredAt: "2026-11-14T11:00:00.000Z" }, now),
+    ).toBe(true);
+    expect(
+      isAttachmentExpired({ expiresAt: "2026-11-14T11:00:00.000Z" }, now),
+    ).toBe(true);
+    expect(
+      isAttachmentExpired({ expiresAt: "2026-11-15T11:00:00.000Z" }, now),
+    ).toBe(false);
     expect(isAttachmentExpired({}, now)).toBe(false);
     expect(
       earliestExpiry([
@@ -168,7 +186,9 @@ describe("images of a message in the chat (PAGE-382)", () => {
     const tiles = within(gallery).getAllByRole("listitem");
     expect(tiles).toHaveLength(4);
     expect(tiles[3].textContent).toContain("+2");
-    const all = within(gallery).getByRole("link", { name: "Alle herunterladen" });
+    const all = within(gallery).getByRole("link", {
+      name: "Alle herunterladen",
+    });
     expect(all.getAttribute("href")).toBe("/chat/messages/msg-2/files.zip");
     expect(
       within(gallery)
@@ -178,8 +198,9 @@ describe("images of a message in the chat (PAGE-382)", () => {
     expect(gallery.textContent).toContain("noch 1 Tag");
     // Head order: download in the accent color first, then the quiet buttons.
     const head = gallery.querySelector("[data-card-head]");
-    const labels = [...(head as HTMLElement).querySelectorAll("a, button")]
-      .map((element) => element.getAttribute("title") ?? element.textContent);
+    const labels = [...(head as HTMLElement).querySelectorAll("a, button")].map(
+      (element) => element.getAttribute("title") ?? element.textContent,
+    );
     expect(labels).toEqual(["Alle herunterladen", "Vollbild", "Zuklappen"]);
     expect(all.className).toContain("bg-primary");
   });
@@ -188,9 +209,15 @@ describe("images of a message in the chat (PAGE-382)", () => {
     render(<Chat attachments={[image("only")]} />);
     const card = screen.getByRole("region", { name: "only.png" });
     const head = card.querySelector("[data-card-head]") as HTMLElement;
-    const labels = [...head.querySelectorAll("a, button")]
-      .map((element) => element.getAttribute("title") ?? element.textContent);
-    expect(labels).toEqual(["Herunterladen", "Daneben", "Vollbild", "Zuklappen"]);
+    const labels = [...head.querySelectorAll("a, button")].map(
+      (element) => element.getAttribute("title") ?? element.textContent,
+    );
+    expect(labels).toEqual([
+      "Herunterladen",
+      "Daneben",
+      "Vollbild",
+      "Zuklappen",
+    ]);
   });
 
   it("puts a calm placeholder with name and date where an expired file was", () => {
@@ -218,11 +245,15 @@ describe("images of a message in the chat (PAGE-382)", () => {
 
 describe("the image viewer of the chat (PAGE-382)", () => {
   const older = image("older");
-  const first = image("first", { expiresAt: new Date(Date.now() + 30 * HOUR).toISOString() });
+  const first = image("first", {
+    expiresAt: new Date(Date.now() + 30 * HOUR).toISOString(),
+  });
   const second = image("second");
   const gone = image("gone", { expiredAt: "2026-11-14T11:00:00.000Z" });
 
-  function stubImages(images: readonly ConversationImage[]): ReturnType<typeof vi.fn> {
+  function stubImages(
+    images: readonly ConversationImage[],
+  ): ReturnType<typeof vi.fn> {
     const fetchMock = vi.fn().mockResolvedValue(Response.json({ images }));
     vi.stubGlobal("fetch", fetchMock);
     return fetchMock;
@@ -236,14 +267,24 @@ describe("the image viewer of the chat (PAGE-382)", () => {
       chatImage(gone, "msg-3", "Mei"),
     ]);
     render(<Chat attachments={[first, second]} />);
-    fireEvent.click(screen.getAllByRole("button", { name: /^Vollbild: first.png/u })[0] as HTMLElement);
+    fireEvent.click(
+      screen.getAllByRole("button", { name: /^Vollbild: first.png/u })[0],
+    );
     const dialog = await screen.findByRole("dialog");
-    expect(fetchMock).toHaveBeenCalledWith("/chat/images/conv-1", expect.anything());
-    await waitFor(() => expect(position(dialog).textContent).toContain("2 / 4"));
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/chat/images/conv-1",
+      expect.anything(),
+    );
+    await waitFor(() =>
+      expect(position(dialog).textContent).toContain("2 / 4"),
+    );
     expect(position(dialog).textContent).toContain("Ed");
     expect(position(dialog).textContent).toContain("noch 1 Tag");
-    expect(within(dialog).getByRole("link", { name: "Herunterladen" }).getAttribute("href")).toBe("/chat/files/first?download=1",
-    );
+    expect(
+      within(dialog)
+        .getByRole("link", { name: "Herunterladen" })
+        .getAttribute("href"),
+    ).toBe("/chat/files/first?download=1");
     fireEvent.keyDown(dialog, { key: "ArrowLeft" });
     expect(position(dialog).textContent).toContain("1 / 4");
     expect(position(dialog).textContent).toContain("Igor");
@@ -252,8 +293,12 @@ describe("the image viewer of the chat (PAGE-382)", () => {
     fireEvent.keyDown(dialog, { key: "ArrowRight" });
     // The expired image is reported in its place; paging stays possible.
     expect(position(dialog).textContent).toContain("4 / 4");
-    expect(within(dialog).getByRole("alert").textContent).toContain("abgelaufen · erzeugt am");
-    expect(within(dialog).queryByRole("link", { name: "Herunterladen" })).toBeNull();
+    expect(within(dialog).getByRole("alert").textContent).toContain(
+      "abgelaufen · erzeugt am",
+    );
+    expect(
+      within(dialog).queryByRole("link", { name: "Herunterladen" }),
+    ).toBeNull();
     fireEvent.keyDown(dialog, { key: "ArrowLeft" });
     expect(position(dialog).textContent).toContain("3 / 4");
     // The strip below lists every image of the chat.
@@ -263,9 +308,14 @@ describe("the image viewer of the chat (PAGE-382)", () => {
   });
 
   it("closes with Escape and hands the focus back to the message", async () => {
-    stubImages([chatImage(first, "msg-2", "Ed"), chatImage(second, "msg-2", "Ed")]);
+    stubImages([
+      chatImage(first, "msg-2", "Ed"),
+      chatImage(second, "msg-2", "Ed"),
+    ]);
     render(<Chat attachments={[first, second]} />);
-    fireEvent.click(screen.getAllByRole("button", { name: /^Vollbild: second.png/u })[0] as HTMLElement);
+    fireEvent.click(
+      screen.getAllByRole("button", { name: /^Vollbild: second.png/u })[0],
+    );
     const dialog = await screen.findByRole("dialog");
     await act(async () => {
       fireEvent.keyDown(dialog, { key: "Escape" });
@@ -273,16 +323,23 @@ describe("the image viewer of the chat (PAGE-382)", () => {
     });
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     await waitFor(() =>
-      expect(document.activeElement).toBe(document.querySelector('[data-chat-message="msg-2"]')),
+      expect(document.activeElement).toBe(
+        document.querySelector('[data-chat-message="msg-2"]'),
+      ),
     );
   });
 
   it("opens the shown image next to the chat with Daneben", async () => {
     // Below 1100 px "Daneben" opens as full screen instead.
     vi.stubGlobal("innerWidth", 1600);
-    stubImages([chatImage(first, "msg-2", "Ed"), chatImage(second, "msg-2", "Ed")]);
+    stubImages([
+      chatImage(first, "msg-2", "Ed"),
+      chatImage(second, "msg-2", "Ed"),
+    ]);
     render(<Chat attachments={[first, second]} />);
-    fireEvent.click(screen.getAllByRole("button", { name: /^Vollbild: first.png/u })[0] as HTMLElement);
+    fireEvent.click(
+      screen.getAllByRole("button", { name: /^Vollbild: first.png/u })[0],
+    );
     const dialog = await screen.findByRole("dialog");
     fireEvent.click(within(dialog).getByRole("button", { name: "Daneben" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
@@ -290,17 +347,28 @@ describe("the image viewer of the chat (PAGE-382)", () => {
   });
 
   it("keeps the images of the message when the list of the chat cannot be read", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("", { status: 404 })));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response("", { status: 404 })),
+    );
     render(<Chat attachments={[first, second]} />);
-    fireEvent.click(screen.getAllByRole("button", { name: /^Vollbild: second.png/u })[0] as HTMLElement);
+    fireEvent.click(
+      screen.getAllByRole("button", { name: /^Vollbild: second.png/u })[0],
+    );
     const dialog = await screen.findByRole("dialog");
-    await waitFor(() => expect(position(dialog).textContent).toContain("2 / 2"));
+    await waitFor(() =>
+      expect(position(dialog).textContent).toContain("2 / 2"),
+    );
   });
 
   it("reads only well-formed images from the server", () => {
     expect(
       readChatImages({
-        images: [chatImage(first, "msg-2", "Ed"), { attachment: { id: 3 } }, null],
+        images: [
+          chatImage(first, "msg-2", "Ed"),
+          { attachment: { id: 3 } },
+          null,
+        ],
       }),
     ).toHaveLength(1);
     expect(readChatImages(null)).toEqual([]);
@@ -328,7 +396,7 @@ describe("the hint while an agent generates images (PAGE-382)", () => {
       },
     ],
     end: null,
-  }) as LiveAnswerView;
+  });
 
   it("names how many images the agent generates", () => {
     expect(activityOf(view('{"beschreibung":"Fuchs","anzahl":4}'))).toEqual({
@@ -338,8 +406,8 @@ describe("the hint while an agent generates images (PAGE-382)", () => {
     expect(imageCount({ input: "{}" })).toBe(1);
     expect(isImageTool({ name: "bilder_erzeugen" })).toBe(true);
     expect(isImageTool({ name: "read_file" })).toBe(false);
-    expect(i18n.t("chatPage.liveAnswer.activity.images", { name: "Ed", count: 4 })).toBe(
-      "Ed erzeugt 4 Bilder …",
-    );
+    expect(
+      i18n.t("chatPage.liveAnswer.activity.images", { name: "Ed", count: 4 }),
+    ).toBe("Ed erzeugt 4 Bilder …");
   });
 });

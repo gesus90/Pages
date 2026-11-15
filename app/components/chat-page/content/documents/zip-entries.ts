@@ -55,8 +55,15 @@ export interface ZipArchive {
 }
 
 function findEndRecord(view: DataView): number {
-  const lowest = Math.max(0, view.byteLength - END_RECORD_BYTES - LONGEST_COMMENT_BYTES);
-  for (let offset = view.byteLength - END_RECORD_BYTES; offset >= lowest; offset -= 1) {
+  const lowest = Math.max(
+    0,
+    view.byteLength - END_RECORD_BYTES - LONGEST_COMMENT_BYTES,
+  );
+  for (
+    let offset = view.byteLength - END_RECORD_BYTES;
+    offset >= lowest;
+    offset -= 1
+  ) {
     if (view.getUint32(offset, true) === END_SIGNATURE) return offset;
   }
   return -1;
@@ -71,12 +78,17 @@ function readCentralDirectory(bytes: Uint8Array): Map<string, ZipEntry> {
   const decoder = new TextDecoder();
   const entries = new Map<string, ZipEntry>();
   for (let index = 0; index < count; index += 1) {
-    if (offset + 46 > bytes.length || view.getUint32(offset, true) !== CENTRAL_SIGNATURE)
+    if (
+      offset + 46 > bytes.length ||
+      view.getUint32(offset, true) !== CENTRAL_SIGNATURE
+    )
       throw new ZipReadError("unreadable");
     const nameLength = view.getUint16(offset + 28, true);
     const extraLength = view.getUint16(offset + 30, true);
     const commentLength = view.getUint16(offset + 32, true);
-    const name = decoder.decode(bytes.subarray(offset + 46, offset + 46 + nameLength));
+    const name = decoder.decode(
+      bytes.subarray(offset + 46, offset + 46 + nameLength),
+    );
     entries.set(name, {
       method: view.getUint16(offset + 10, true),
       isEncrypted: (view.getUint16(offset + 8, true) & ENCRYPTED_FLAG) !== 0,
@@ -89,11 +101,14 @@ function readCentralDirectory(bytes: Uint8Array): Map<string, ZipEntry> {
   return entries;
 }
 
-/** Inflates raw deflate data with the browser's own decompression, within a limit. */
-async function inflate(data: Uint8Array, limit: number): Promise<Uint8Array<ArrayBuffer>> {
-  const source = new ReadableStream<Uint8Array>({
+/** Inflates raw deflate bytes with the browser's own decompression, within a limit. */
+async function inflate(
+  chunk: Uint8Array,
+  limit: number,
+): Promise<Uint8Array<ArrayBuffer>> {
+  const source = new ReadableStream<BufferSource>({
     start(controller) {
-      controller.enqueue(data);
+      controller.enqueue(chunk.slice());
       controller.close();
     },
   });
@@ -152,15 +167,26 @@ export function openZip(bytes: Uint8Array): ZipArchive {
     if (!entry) return null;
     if (entry.isEncrypted) throw new ZipReadError("encrypted");
     const local = entry.localOffset;
-    if (local + 30 > bytes.length || view.getUint32(local, true) !== LOCAL_SIGNATURE)
+    if (
+      local + 30 > bytes.length ||
+      view.getUint32(local, true) !== LOCAL_SIGNATURE
+    )
       throw new ZipReadError("unreadable");
-    const start = local + 30 + view.getUint16(local + 26, true) + view.getUint16(local + 28, true);
-    const data = bytes.subarray(start, start + entry.compressedSize);
-    const limit = Math.min(ZIP_LIMITS.entryBytes, ZIP_LIMITS.totalBytes - inflated);
+    const start =
+      local +
+      30 +
+      view.getUint16(local + 26, true) +
+      view.getUint16(local + 28, true);
+    const compressed = bytes.subarray(start, start + entry.compressedSize);
+    const limit = Math.min(
+      ZIP_LIMITS.entryBytes,
+      ZIP_LIMITS.totalBytes - inflated,
+    );
     if (entry.size > limit) throw new ZipReadError("tooLarge");
     let content: Uint8Array<ArrayBuffer>;
-    if (entry.method === METHOD_STORED) content = data.slice();
-    else if (entry.method === METHOD_DEFLATED) content = await inflate(data, limit);
+    if (entry.method === METHOD_STORED) content = compressed.slice();
+    else if (entry.method === METHOD_DEFLATED)
+      content = await inflate(compressed, limit);
     else throw new ZipReadError("unreadable");
     inflated += content.byteLength;
     return content;

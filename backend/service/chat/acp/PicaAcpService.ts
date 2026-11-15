@@ -8,6 +8,11 @@ import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 
 import { readChatSessionId } from "../ChatSessionService";
 import { PicaAcpJob } from "./PicaAcpJob";
+import {
+  employeeJobDependencies,
+  employeeToolDependencies,
+  keptPicaSession,
+} from "./PicaAcpJobSetup";
 import { PicaAcpSessionGates } from "./PicaAcpSessionGates";
 import { picaAcpRunner } from "./PicaAcpRunners";
 
@@ -49,7 +54,6 @@ import type { AgentMediaKind } from "@/definition/AgentMediaGeneration";
 import type { PicaToolOutcome } from "../PicaToolSchemas";
 import type { PicaAcpWorkspace } from "./PicaAcpWorkspace";
 import type { PicaAcpSessionPool } from "./PicaAcpSessionPool";
-import type { PicaAcpJobPool } from "./PicaAcpPoolOpening";
 
 /** A job of a conversation with its journal (PAGE-303). */
 export interface ChatJobJournal {
@@ -540,17 +544,14 @@ export class PicaAcpService {
   ): Promise<ChatJobStart> {
     const { actor, agent } = input;
     const dependencies = {
-      ...this.jobDependencies(input.employee),
+      ...employeeJobDependencies(
+        this.dependencies,
+        input.employee,
+        this.agentDeletions,
+      ),
       consumeAnswer: input.employee?.consumeAnswer,
-      workspaceClosed: async () => {
-        // A resting pooled process still owns its cwd and continues in it next round (PAGE-335); the folder goes with the process.
-        if (this.dependencies.pool?.keepWorkspace(sessionId, releaseWorkspace))
-          return;
-        // A pooled process still owns its cwd inode. End it before unlinking;
-        // the saved native session ID resumes it in the recreated directory.
-        await this.dependencies.pool?.closeForWorkspace(sessionId);
-        await releaseWorkspace();
-      },
+      workspaceClosed: () =>
+        this.releaseJobWorkspace(sessionId, releaseWorkspace),
     };
     await dependencies.requireCurrent?.(actor.id, agent);
     if (this.deleting.has(sessionId)) throw new ChatError("sessionMissing");
@@ -576,37 +577,10 @@ export class PicaAcpService {
       userId: actor.id,
       messageId: message.id,
     });
-    const attachFile = input.employee?.attachFile;
-    const generateImages = input.employee?.generateImages;
-    const generateMedia = input.employee?.generateMedia;
-    const readAttachments = input.employee?.readAttachments;
     const job = new PicaAcpJob(
       {
         ...dependencies,
-        ...(attachFile
-          ? {
-              attachHostFile: (target, file) =>
-                attachFile(directory, target, file),
-            }
-          : {}),
-        ...(generateImages
-          ? {
-              generateImages: (parameters, signal) =>
-                generateImages(directory, parameters, signal),
-            }
-          : {}),
-        ...(generateMedia
-          ? {
-              generateMedia: (kind, parameters, signal) =>
-                generateMedia(kind, directory, parameters, signal),
-            }
-          : {}),
-        ...(readAttachments
-          ? {
-              readAttachments: (action, parameters, signal) =>
-                readAttachments(action, directory, parameters, signal),
-            }
-          : {}),
+        ...employeeToolDependencies(input.employee, directory),
       },
       {
         id,
@@ -620,7 +594,11 @@ export class PicaAcpService {
         resumeSessionId,
         prepareTurn: input.employee?.prepareTurn,
         gate: (task) => this.gate(sessionId, task),
-        pool: this.keptSession(input, { sessionId, run, directory }),
+        pool: keptPicaSession(input, this.dependencies.pool, {
+          sessionId,
+          run,
+          directory,
+        }),
       },
     );
     const started = await this.dependencies.jobs.find(actor.id, id);
@@ -633,79 +611,17 @@ export class PicaAcpService {
     return { job: started, messageId: message.id };
   }
 
-  /**
-   * The kept chat session of an agent employee's job (PAGE-335).
-   *
-   * @remarks
-   * Every value that shapes the native session is part of its fingerprint, so
-   * a changed connection, model, effort, access, folder or agent starts a new
-   * one instead of continuing the resting one.
-   */
-  private keptSession(
-    input: PicaAcpStart,
-    job: {
-      readonly sessionId: string;
-      readonly run: PicaAcpRun;
-      readonly directory: string;
-    },
-  ): PicaAcpJobPool | undefined {
-    const kept = input.employee?.keptSession;
-    const { pool } = this.dependencies;
-    if (!kept || !pool) return undefined;
-    const { agent, actor } = input;
-    return {
-      sessions: pool,
-      session: {
-        chatSessionId: job.sessionId,
-        agentId: actor.id,
-        agentName: actor.displayName,
-        conversation: kept.conversation,
-        fingerprint: JSON.stringify([
-          agent.connection.id,
-          agent.model,
-          agent.reasoningEffort,
-          job.run.runner.profile,
-          job.run.options,
-          job.directory,
-          agent.connection.provider,
-          agent.connection.cliLoggedInAt,
-          job.run.runner.hostMcpServers,
-        ]),
-      },
-    };
-  }
-
-  /** The dependencies of a job: Pica's, or those bound to the configuration of an agent employee. */
-  private jobDependencies(
-    employee: PicaAcpEmployeeRun | undefined,
-  ): PicaAcpServiceDependencies {
-    if (!employee)
-      return {
-        ...this.dependencies,
-        agentBrowsers: undefined,
-        agentDeletions: this.agentDeletions,
-      };
-    return {
-      ...this.dependencies,
-      agentDeletions: undefined,
-      agentBrowsers: employee.hasBrowser
-        ? this.dependencies.agentBrowsers
-        : undefined,
-      requireCurrent: () => employee.requireCurrent(),
-      searchMemory: (query) => employee.searchMemory(query),
-      ...(employee.readConversationContext
-        ? { readConversationContext: employee.readConversationContext }
-        : {}),
-      ...(employee.readOwnChat ? { readOwnChat: employee.readOwnChat } : {}),
-      ...(employee.logbook ? { logbook: employee.logbook } : {}),
-      ...(employee.recipes ? { recipes: employee.recipes } : {}),
-      ...(employee.agentChat ? { agentChat: employee.agentChat } : {}),
-      ...(employee.liveAnswer ? { liveAnswer: employee.liveAnswer } : {}),
-      access: {
-        requireUser: (userId, connectionId) =>
-          employee.requireConnection(connectionId),
-      },
-    };
+  private async releaseJobWorkspace(
+    sessionId: string,
+    releaseWorkspace: () => Promise<void>,
+  ): Promise<void> {
+    // A resting pooled process still owns its cwd and continues in it next round (PAGE-335); the folder goes with the process.
+    if (this.dependencies.pool?.keepWorkspace(sessionId, releaseWorkspace))
+      return;
+    // A pooled process still owns its cwd inode. End it before unlinking;
+    // the saved native session ID resumes it in the recreated directory.
+    await this.dependencies.pool?.closeForWorkspace(sessionId);
+    await releaseWorkspace();
   }
 
   private register(

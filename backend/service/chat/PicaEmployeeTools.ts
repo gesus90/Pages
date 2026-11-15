@@ -316,10 +316,21 @@ function registerMediaTools(
     readonly id: string;
     readonly kind: AgentMediaKind;
     readonly description: string;
-    readonly schema: typeof AGENT_VIDEO_TOOL_SCHEMA | typeof AGENT_AUDIO_TOOL_SCHEMA;
+    readonly schema:
+      typeof AGENT_VIDEO_TOOL_SCHEMA | typeof AGENT_AUDIO_TOOL_SCHEMA;
   }[] = [
-    { id: "video_erzeugen", kind: "video", description: VIDEO_DESCRIPTION, schema: AGENT_VIDEO_TOOL_SCHEMA },
-    { id: "audio_erzeugen", kind: "audio", description: AUDIO_DESCRIPTION, schema: AGENT_AUDIO_TOOL_SCHEMA },
+    {
+      id: "video_erzeugen",
+      kind: "video",
+      description: VIDEO_DESCRIPTION,
+      schema: AGENT_VIDEO_TOOL_SCHEMA,
+    },
+    {
+      id: "audio_erzeugen",
+      kind: "audio",
+      description: AUDIO_DESCRIPTION,
+      schema: AGENT_AUDIO_TOOL_SCHEMA,
+    },
   ];
   for (const tool of tools)
     registry.register<AgentMediaToolInput, PicaToolOutcome>({

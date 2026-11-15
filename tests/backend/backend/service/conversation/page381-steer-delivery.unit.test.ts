@@ -8,6 +8,7 @@ import { CONVERSATION_NO_RULE_OVERRIDES } from "@/definition/ConversationDecisio
 
 import { deferred } from "../agents/page81-resource-fixture";
 
+import type { MockInstance } from "vitest";
 import type { StoredConversationMessage } from "@/backend/database/repositories/conversation/ConversationMessageRepository";
 import type {
   ConversationAgentRepliesDependencies,
@@ -29,8 +30,20 @@ const person: User = {
   isActive: true,
   mustChangePassword: false,
 };
-const ed: User = { ...person, id: "ed", username: "ed", displayName: "Ed", isAgent: true };
-const mei: User = { ...person, id: "mei", username: "mei", displayName: "Mei", isAgent: true };
+const ed: User = {
+  ...person,
+  id: "ed",
+  username: "ed",
+  displayName: "Ed",
+  isAgent: true,
+};
+const mei: User = {
+  ...person,
+  id: "mei",
+  username: "mei",
+  displayName: "Mei",
+  isAgent: true,
+};
 const conversation = {
   id: "team",
   kind: "group",
@@ -51,7 +64,8 @@ function accounts(): ConversationAccounts {
           participant: {
             id: user.id,
             name: user.displayName,
-            kind: user.isAgent === true ? ("agent" as const) : ("human" as const),
+            kind:
+              user.isAgent === true ? ("agent" as const) : ("human" as const),
             color: null,
           },
           role: "",
@@ -96,7 +110,7 @@ function runnerDependencies(
     conversations: { findForMember: vi.fn().mockResolvedValue(conversation) },
     messages: {
       find: vi.fn(
-        async (_conversationId: string, id: string) =>
+        async (_: string, id: string) =>
           history.find((entry) => entry.id === id) ?? null,
       ),
       history: vi.fn().mockResolvedValue(history),
@@ -120,7 +134,12 @@ function runnerDependencies(
       select: vi.fn().mockResolvedValue({ text: "x", files: [], lines: ["x"] }),
       open: vi.fn(),
     },
-    attachments: { stage: vi.fn(), bind: vi.fn(), release: vi.fn(), open: vi.fn() },
+    attachments: {
+      stage: vi.fn(),
+      bind: vi.fn(),
+      release: vi.fn(),
+      open: vi.fn(),
+    },
     content: { describe: vi.fn().mockResolvedValue(new Map()) },
     now: () => new Date("2026-11-14T10:00:00Z"),
     answerStream: { open, ownerOf: vi.fn().mockResolvedValue("igor") },
@@ -144,9 +163,7 @@ function job(messageId: string, agentId = "ed"): ConversationReplyJob {
 }
 
 it("streams a group answer to the members, its thoughts only to the owner, and ends it with the stored reply", async () => {
-  const { dependencies, sink, open } = runnerDependencies(
-    async () => "Fertig",
-  );
+  const { dependencies, sink, open } = runnerDependencies(async () => "Fertig");
   const runner = new ConversationReplyRunner(dependencies);
   await runner.run(job("m1"));
   expect(open).toHaveBeenCalledWith({
@@ -168,7 +185,7 @@ it("streams a group answer to the members, its thoughts only to the owner, and e
 it("ends a stopped group answer as stopped", async () => {
   const { dependencies, sink } = runnerDependencies(
     (request) =>
-      new Promise<string>((_resolve, reject) => {
+      new Promise<string>((_, reject) => {
         request.signal?.addEventListener("abort", () =>
           reject(new Error("stopped")),
         );
@@ -179,7 +196,10 @@ it("ends a stopped group answer as stopped", async () => {
   await vi.waitFor(() => expect(dependencies.runner.answer).toHaveBeenCalled());
   runner.stop("team", "ed");
   await answer;
-  expect(sink.finish).toHaveBeenCalledWith({ messageId: null, state: "stopped" });
+  expect(sink.finish).toHaveBeenCalledWith({
+    messageId: null,
+    state: "stopped",
+  });
 });
 
 it("names the messages a running answer took and forgets them when it ends", async () => {
@@ -201,7 +221,9 @@ it("holds a message sent after the answer until the agent ended it, showing it a
   const { dependencies } = runnerDependencies(() => running.promise);
   const runner = new ConversationReplyRunner(dependencies);
   const first = runner.run(job("m1"));
-  await vi.waitFor(() => expect(runner.workingAgentIds("team")).toEqual(["ed"]));
+  await vi.waitFor(() =>
+    expect(runner.workingAgentIds("team")).toEqual(["ed"]),
+  );
   let isReleased = false;
   const held = runner.holdUntilIdle("team", "m2", ["ed"]).then(() => {
     isReleased = true;
@@ -239,7 +261,7 @@ function repliesFixture(working: readonly string[]): {
   readonly service: ConversationAgentReplies;
   readonly dependencies: ConversationAgentRepliesDependencies;
   readonly rounds: ConversationRoundRepository;
-  readonly hold: ReturnType<typeof vi.spyOn>;
+  readonly hold: MockInstance<ConversationReplyRunner["holdUntilIdle"]>;
 } {
   const rounds = new ConversationRoundRepository({
     query: vi.fn(),
@@ -254,7 +276,12 @@ function repliesFixture(working: readonly string[]): {
       findForMember: vi.fn().mockResolvedValue(conversation),
       memberIds: vi.fn(),
     },
-    messages: { find: vi.fn(), history: vi.fn(), insert: vi.fn(), contextCount: vi.fn() },
+    messages: {
+      find: vi.fn(),
+      history: vi.fn(),
+      insert: vi.fn(),
+      contextCount: vi.fn(),
+    },
     directory: { read: vi.fn().mockResolvedValue(accounts()) },
     runner: { answer: vi.fn() },
     rounds,
@@ -273,12 +300,17 @@ function repliesFixture(working: readonly string[]): {
     events: { subscribe: vi.fn().mockReturnValue(vi.fn()), publish: vi.fn() },
     publisher: { publish: vi.fn() },
     agentFiles: { select: vi.fn(), open: vi.fn() },
-    attachments: { stage: vi.fn(), bind: vi.fn(), release: vi.fn(), open: vi.fn() },
+    attachments: {
+      stage: vi.fn(),
+      bind: vi.fn(),
+      release: vi.fn(),
+      open: vi.fn(),
+    },
     content: { describe: vi.fn() },
     now: () => new Date("2026-11-14T10:00:00Z"),
   };
   const service = new ConversationAgentReplies(dependencies);
-  const replies: ConversationReplyRunner = Reflect.get(service, "replies");
+  const replies = Reflect.get(service, "replies") as ConversationReplyRunner;
   vi.spyOn(replies, "workingAgentIds").mockReturnValue([...working]);
   const hold = vi.spyOn(replies, "holdUntilIdle").mockResolvedValue(undefined);
   return { service, dependencies, rounds, hold };

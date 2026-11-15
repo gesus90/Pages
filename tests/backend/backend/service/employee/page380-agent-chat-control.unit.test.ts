@@ -31,14 +31,16 @@ const anna = user("anna", { displayName: "Anna" });
 const mei = user("mei", { displayName: "Mei" });
 const ed = user("ed", { displayName: "Ed", isAgent: true });
 
-function model(fields: Partial<PageAgentModel> & { model: string }): PageAgentModel {
+function model(
+  fields: Partial<PageAgentModel> & { model: string },
+): PageAgentModel {
   return {
     id: `anthropic:${fields.model}`,
     connectionId: "anthropic",
     connectionName: "Anthropic",
     name: fields.model,
     modelName: fields.model,
-    reasoning: "supported",
+    reasoning: "levels",
     reasoningEfforts: ["low", "medium", "high"],
     catalogDefaultReasoningEffort: "medium",
     reasoningEffort: null,
@@ -96,13 +98,20 @@ const CATALOG: PageAgentModel[] = [
 interface Fixture {
   readonly control: AgentChatControlService;
   readonly overrides: Map<string, StoredAgentChatModel>;
-  readonly lifecycle: { restart: ReturnType<typeof vi.fn>; renew: ReturnType<typeof vi.fn> };
+  readonly lifecycle: {
+    restart: ReturnType<typeof vi.fn>;
+    renew: ReturnType<typeof vi.fn>;
+  };
   readonly setNeedsRestart: ReturnType<typeof vi.fn>;
   readonly systemLine: ReturnType<typeof vi.fn>;
   readonly modelsOf: ReturnType<typeof vi.fn>;
 }
 
-function key(entry: { agentId: string; chatKind: string; chatId: string }): string {
+function key(entry: {
+  agentId: string;
+  chatKind: string;
+  chatId: string;
+}): string {
   return `${entry.agentId}:${entry.chatKind}:${entry.chatId}`;
 }
 
@@ -110,7 +119,9 @@ function fixture(options: { readonly controllers?: string[] } = {}): Fixture {
   const overrides = new Map<string, StoredAgentChatModel>();
   const setNeedsRestart = vi.fn(async () => undefined);
   const chatModels = {
-    find: vi.fn(async (entry: StoredAgentChatModel) => overrides.get(key(entry)) ?? null),
+    find: vi.fn(
+      async (entry: StoredAgentChatModel) => overrides.get(key(entry)) ?? null,
+    ),
     save: vi.fn(async (entry: StoredAgentChatModel) => {
       overrides.set(key(entry), entry);
     }),
@@ -141,7 +152,9 @@ function fixture(options: { readonly controllers?: string[] } = {}): Fixture {
       list: vi.fn(async () => options.controllers ?? []),
     }),
   };
-  const accounts = new Map([igor, anna, mei, ed].map((entry) => [entry.id, entry]));
+  const accounts = new Map(
+    [igor, anna, mei, ed].map((entry) => [entry.id, entry]),
+  );
   const access = new AgentChatAccess({
     store,
     users: { findById: async (id: string) => accounts.get(id) ?? null },
@@ -168,7 +181,14 @@ function fixture(options: { readonly controllers?: string[] } = {}): Fixture {
     systemLine,
     now: () => new Date("2026-11-14T12:00:00.000Z"),
   } as unknown as AgentChatControlDependencies);
-  return { control, overrides, lifecycle, setNeedsRestart, systemLine, modelsOf };
+  return {
+    control,
+    overrides,
+    lifecycle,
+    setNeedsRestart,
+    systemLine,
+    modelsOf,
+  };
 }
 
 const DIRECT = { kind: "direct" as const, agentId: "ed" };
@@ -199,11 +219,16 @@ describe("the model choice of an agent in a chat (PAGE-380)", () => {
       name: "Claude Sonnet 5.5",
     });
     expect(overview.override).toBeNull();
-    expect(isChatModelChoice(model({ model: "x", isSpeechCapable: true }), { access: "workspace" })).toBe(false);
+    expect(
+      isChatModelChoice(model({ model: "x", isSpeechCapable: true }), {
+        access: "workspace",
+      }),
+    ).toBe(false);
   });
 
   it("switches the direct chat to another model: stored, the session ends on purpose and a system line follows", async () => {
-    const { control, overrides, lifecycle, setNeedsRestart, systemLine } = fixture();
+    const { control, overrides, lifecycle, setNeedsRestart, systemLine } =
+      fixture();
     const overview = await control.setModel(igor, DIRECT, {
       connectionId: "anthropic",
       model: "claude-opus-5-5",
@@ -263,7 +288,9 @@ describe("the model choice of an agent in a chat (PAGE-380)", () => {
         reasoningEffort: "ultra",
       }),
     ).rejects.toMatchObject({ code: "modelNotAllowed" });
-    await expect(control.setModel(igor, DIRECT, { model: 3 })).rejects.toMatchObject({
+    await expect(
+      control.setModel(igor, DIRECT, { model: 3 }),
+    ).rejects.toMatchObject({
       code: "invalidInput",
     });
     expect(overrides.size).toBe(0);
@@ -272,7 +299,8 @@ describe("the model choice of an agent in a chat (PAGE-380)", () => {
 
 describe("who steers the agents of a group (PAGE-380)", () => {
   it("lets only the owner by default; another member gets forbidden and nothing happens", async () => {
-    const { control, overrides, lifecycle, systemLine, setNeedsRestart } = fixture();
+    const { control, overrides, lifecycle, systemLine, setNeedsRestart } =
+      fixture();
     await expect(
       control.setModel(anna, GROUP, {
         connectionId: "anthropic",
@@ -280,8 +308,12 @@ describe("who steers the agents of a group (PAGE-380)", () => {
         reasoningEffort: null,
       }),
     ).rejects.toEqual(new AgentEmployeeError("forbidden"));
-    await expect(control.renew(anna, GROUP)).rejects.toMatchObject({ code: "forbidden" });
-    await expect(control.compact(anna, GROUP)).rejects.toMatchObject({ code: "forbidden" });
+    await expect(control.renew(anna, GROUP)).rejects.toMatchObject({
+      code: "forbidden",
+    });
+    await expect(control.compact(anna, GROUP)).rejects.toMatchObject({
+      code: "forbidden",
+    });
     await settle();
     expect(overrides.size).toBe(0);
     expect(setNeedsRestart).not.toHaveBeenCalled();
@@ -299,15 +331,19 @@ describe("who steers the agents of a group (PAGE-380)", () => {
       model: "claude-opus-5-5",
       reasoningEffort: "high",
     });
-    expect(overrides.get("ed:group:team")).toMatchObject({ model: "claude-opus-5-5" });
+    expect(overrides.get("ed:group:team")).toMatchObject({
+      model: "claude-opus-5-5",
+    });
     await expect(control.setModel(mei, GROUP, null)).rejects.toMatchObject({
       code: "forbidden",
     });
     // An agent is never allowed, not even listed as a controller.
     const agentFixture = fixture({ controllers: ["ed"] });
-    await expect(agentFixture.control.compact(ed, GROUP)).rejects.toMatchObject({
-      code: "forbidden",
-    });
+    await expect(agentFixture.control.compact(ed, GROUP)).rejects.toMatchObject(
+      {
+        code: "forbidden",
+      },
+    );
     await expect(agentFixture.control.renew(ed, DIRECT)).rejects.toMatchObject({
       code: "notFound",
     });
@@ -334,7 +370,9 @@ describe("/new and /compact from the menu (PAGE-380)", () => {
     await settle();
     expect(lifecycle.renew).toHaveBeenCalledWith(ed, "session-ed");
     expect(lifecycle.restart).not.toHaveBeenCalled();
-    expect(overrides.get("ed:group:team")).toMatchObject({ model: "claude-opus-5-5" });
+    expect(overrides.get("ed:group:team")).toMatchObject({
+      model: "claude-opus-5-5",
+    });
     expect(systemLine).toHaveBeenLastCalledWith(igor, {
       kind: "group",
       chatId: "team",
@@ -351,7 +389,9 @@ describe("/new and /compact from the menu (PAGE-380)", () => {
     expect(lifecycle.restart).toHaveBeenCalledWith(ed, "session-ed");
     expect(systemLine).toHaveBeenCalledWith(
       igor,
-      expect.objectContaining({ text: "Igor hat die Sitzung von Ed verdichtet." }),
+      expect.objectContaining({
+        text: "Igor hat die Sitzung von Ed verdichtet.",
+      }),
     );
   });
 });

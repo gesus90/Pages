@@ -1,11 +1,7 @@
 import { CARD_TEXT_MAXIMUM_BYTES } from "./card-types";
 import { detectCodeLanguage } from "./code-detection";
 import { documentFormatOf } from "./documents/document-kinds";
-import {
-  companionRole,
-  previewFileName,
-  previewKindOf,
-} from "./preview-kinds";
+import { companionRole, previewFileName, previewKindOf } from "./preview-kinds";
 import { resolveSyntaxLanguage } from "./syntax-highlight";
 
 import type { ConversationAttachment } from "@/definition/ConversationContent";
@@ -51,14 +47,30 @@ export type TextAttachmentKind = "code" | "diff" | "markdown";
  * Endings of plain text files the chat shows as a text card (PAGE-385), such
  * as notes and logs; their language stays plain text.
  */
-const PLAIN_TEXT_ENDINGS: readonly string[] = ["txt", "text", "log", "ini", "cfg", "conf", "properties", "env", "rst", "adoc", "nfo"];
+const PLAIN_TEXT_ENDINGS: readonly string[] = [
+  "txt",
+  "text",
+  "log",
+  "ini",
+  "cfg",
+  "conf",
+  "properties",
+  "env",
+  "rst",
+  "adoc",
+  "nfo",
+];
 
 /** Whether a file is plain text by its ending or by its type `text/plain`. */
-function isPlainText(attachment: Pick<ConversationAttachment, "name" | "mimeType">): boolean {
+function isPlainText(
+  attachment: Pick<ConversationAttachment, "name" | "mimeType">,
+): boolean {
   const dot = attachment.name.lastIndexOf(".");
   const ending = dot >= 0 ? attachment.name.slice(dot + 1).toLowerCase() : "";
   if (PLAIN_TEXT_ENDINGS.includes(ending)) return true;
-  return attachment.mimeType.split(";")[0]?.trim().toLowerCase() === "text/plain";
+  return (
+    attachment.mimeType.split(";")[0]?.trim().toLowerCase() === "text/plain"
+  );
 }
 
 const FENCE_OPEN = /^ {0,3}(`{3,}|~{3,})\s*([^`]*)$/u;
@@ -141,9 +153,7 @@ function isCodePart(part: MessagePart): part is CodePart {
  * @param parts - The parts of a message in their order.
  * @returns The parts with the HTML block as a preview, or unchanged without one.
  */
-export function joinPreviewParts(
-  parts: readonly MessagePart[],
-): MessagePart[] {
+export function joinPreviewParts(parts: readonly MessagePart[]): MessagePart[] {
   const html = parts
     .filter(isCodePart)
     .find((part) => previewKindOf(part.languageHint) === "html");

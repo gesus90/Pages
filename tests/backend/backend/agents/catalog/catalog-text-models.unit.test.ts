@@ -28,7 +28,9 @@ describe("isTextModel for OpenRouter", () => {
     ["audio", ["text", "audio"]],
     ["video", ["text", "video"]],
   ])("PAGE-384 accepts a model that answers in text beside %s", (_, output) => {
-    expect(isTextModel(openRouterEntry(["text"], output), "openrouter")).toBe(true);
+    expect(isTextModel(openRouterEntry(["text"], output), "openrouter")).toBe(
+      true,
+    );
   });
 
   it("PAGE-382 accepts a model that answers in text beside images", () => {

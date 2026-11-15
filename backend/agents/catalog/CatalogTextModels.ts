@@ -10,7 +10,12 @@ function listsValue(list: unknown, value: string): boolean {
 }
 
 /** What a model may output beside text and still answer in text (PAGE-382, PAGE-384). */
-const OUTPUT_BESIDE_TEXT: readonly unknown[] = ["text", "image", "video", "audio"];
+const OUTPUT_BESIDE_TEXT: readonly unknown[] = [
+  "text",
+  "image",
+  "video",
+  "audio",
+];
 
 /** Text alone, or text beside images, videos or sounds: a model that answers in text. */
 function listsTextOutput(list: unknown): boolean {

@@ -45,7 +45,10 @@ export interface LiveAnswerSink {
 
 /** What the answer reports to the stream it belongs to. */
 export interface LiveAnswerHost {
-  publish(payload: LiveAnswerEventPayload, recipientIds: readonly string[]): void;
+  publish(
+    payload: LiveAnswerEventPayload,
+    recipientIds: readonly string[],
+  ): void;
   now(): Date;
   createId(): string;
 }
@@ -142,7 +145,12 @@ export class ConversationLiveAnswer implements LiveAnswerSink {
             state: END_STATES[event.state] ?? "failed",
           });
         return;
-      default:
+      case "session":
+      case "phase":
+      case "turn":
+      case "usage":
+      case "compaction":
+      case "capabilities":
         return;
     }
   }

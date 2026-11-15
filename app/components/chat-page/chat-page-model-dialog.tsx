@@ -150,6 +150,89 @@ function EffortChoice({
   );
 }
 
+function ModelSearchBody({
+  agentName,
+  choice,
+  overview,
+  canControl,
+}: {
+  readonly agentName: string;
+  readonly choice: ModelChoiceState;
+  readonly overview: AgentChatModelOverview;
+  readonly canControl: boolean;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  return (
+    <>
+      <label className="relative mt-4 block">
+        <span className="sr-only">{t("chatPage.modelChoice.search")}</span>
+        <Search
+          aria-hidden="true"
+          className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
+        />
+        <input
+          className="h-10 w-full rounded-xl border border-border bg-surface pr-3 pl-9 text-sm outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-primary"
+          onChange={(event) => choice.setQuery(event.target.value)}
+          placeholder={t("chatPage.modelChoice.search")}
+          type="search"
+          value={choice.query}
+        />
+      </label>
+      <div className="mt-3 max-h-[40dvh] overflow-y-auto">
+        <ModelList choice={choice} overview={overview} />
+      </div>
+      <p className="mt-2 text-xs text-muted-foreground">
+        {t("chatPage.modelChoice.onlyText", { agent: agentName })}
+      </p>
+      <EffortChoice choice={choice} isDisabled={!canControl} />
+    </>
+  );
+}
+
+interface ModelDialogFooterProps {
+  readonly canControl: boolean;
+  readonly hasOverride: boolean;
+  readonly canSwitch: boolean;
+  readonly isPending: boolean;
+  readonly onReset: () => void;
+  readonly onClose: () => void;
+  readonly onSwitch: () => void;
+}
+
+function ModelDialogFooter({
+  canControl,
+  hasOverride,
+  canSwitch,
+  isPending,
+  onReset,
+  onClose,
+  onSwitch,
+}: ModelDialogFooterProps): React.ReactElement {
+  const { t } = useTranslation();
+  return (
+    <div className="mt-4 flex flex-wrap justify-end gap-2">
+      <Button
+        variant="outline"
+        disabled={!canControl || !hasOverride}
+        isPending={isPending}
+        onClick={onReset}
+      >
+        {t("chatPage.modelChoice.reset")}
+      </Button>
+      <Button variant="outline" onClick={onClose}>
+        {t("chatPage.modelChoice.cancel")}
+      </Button>
+      <Button
+        disabled={!canControl || !canSwitch}
+        isPending={isPending}
+        onClick={onSwitch}
+      >
+        {t("chatPage.modelChoice.switch")}
+      </Button>
+    </div>
+  );
+}
+
 interface ChatPageModelDialogProps {
   /** The chat and agent the dialog is open for; `null` while it is closed. */
   readonly target: AgentChatControlTarget | null;
@@ -200,7 +283,10 @@ export function ChatPageModelDialog({
     <Dialog open={target !== null} onOpenChange={(open) => !open && onClose()}>
       <DialogContent size="md">
         <DialogTitle className="text-lg font-semibold">
-          {t("chatPage.modelChoice.title", { agent: agentName, chat: chatName })}
+          {t("chatPage.modelChoice.title", {
+            agent: agentName,
+            chat: chatName,
+          })}
         </DialogTitle>
         <DialogDescription className="mt-1 text-sm text-muted-foreground">
           {overview
@@ -210,29 +296,12 @@ export function ChatPageModelDialog({
             : t("chatPage.modelChoice.loading")}
         </DialogDescription>
         {overview ? (
-          <>
-            <label className="relative mt-4 block">
-              <span className="sr-only">{t("chatPage.modelChoice.search")}</span>
-              <Search
-                aria-hidden="true"
-                className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground"
-              />
-              <input
-                className="h-10 w-full rounded-xl border border-border bg-surface pr-3 pl-9 text-sm outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-primary"
-                onChange={(event) => choice.setQuery(event.target.value)}
-                placeholder={t("chatPage.modelChoice.search")}
-                type="search"
-                value={choice.query}
-              />
-            </label>
-            <div className="mt-3 max-h-[40dvh] overflow-y-auto">
-              <ModelList choice={choice} overview={overview} />
-            </div>
-            <p className="mt-2 text-xs text-muted-foreground">
-              {t("chatPage.modelChoice.onlyText", { agent: agentName })}
-            </p>
-            <EffortChoice choice={choice} isDisabled={!canControl} />
-          </>
+          <ModelSearchBody
+            agentName={agentName}
+            canControl={canControl}
+            choice={choice}
+            overview={overview}
+          />
         ) : null}
         {overview && !canControl ? (
           <p className="mt-3 text-sm text-muted-foreground" role="note">
@@ -244,26 +313,15 @@ export function ChatPageModelDialog({
             {t(`chatPage.control.failure.${request.failure}`)}
           </p>
         )}
-        <div className="mt-4 flex flex-wrap justify-end gap-2">
-          <Button
-            variant="outline"
-            disabled={!canControl || overview?.override === null}
-            isPending={request.isPending}
-            onClick={() => void submit({ intent: "reset-model" })}
-          >
-            {t("chatPage.modelChoice.reset")}
-          </Button>
-          <Button variant="outline" onClick={onClose}>
-            {t("chatPage.modelChoice.cancel")}
-          </Button>
-          <Button
-            disabled={!canControl || pick === null}
-            isPending={request.isPending}
-            onClick={handleSwitch}
-          >
-            {t("chatPage.modelChoice.switch")}
-          </Button>
-        </div>
+        <ModelDialogFooter
+          canControl={canControl}
+          canSwitch={pick !== null}
+          hasOverride={overview !== null && overview.override !== null}
+          isPending={request.isPending}
+          onClose={onClose}
+          onReset={() => void submit({ intent: "reset-model" })}
+          onSwitch={handleSwitch}
+        />
         <p className="mt-3 text-xs text-muted-foreground">
           {t("chatPage.modelChoice.hint", {
             agent: agentName,

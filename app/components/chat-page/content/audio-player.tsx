@@ -10,7 +10,11 @@ import { downloadUrl, formatFileSize } from "./card-types";
 import { subtitleOf } from "./content-card";
 import { reportMediaFacts, useMediaFacts } from "./media-facts";
 import { useRetention } from "./use-retention";
-import { formatFixedMediaTime, formatSeconds, useMediaPlayer } from "./use-media-player";
+import {
+  formatFixedMediaTime,
+  formatSeconds,
+  useMediaPlayer,
+} from "./use-media-player";
 import { useSeen } from "./use-seen";
 import { speedLabel } from "./video-controls";
 
@@ -82,11 +86,14 @@ export function AudioPlayer({
   const player = useMediaPlayer<HTMLAudioElement>({
     attachmentId: attachment.id,
     onMetadata: (metadata) =>
-      reportMediaFacts(attachment, { durationSeconds: metadata.durationSeconds }),
+      reportMediaFacts(attachment, {
+        durationSeconds: metadata.durationSeconds,
+      }),
   });
   const facts = useMediaFacts(attachment);
   const retention = useRetention(attachment.expiresAt);
-  const durationSeconds = player.durationSeconds ?? facts.durationSeconds ?? null;
+  const durationSeconds =
+    player.durationSeconds ?? facts.durationSeconds ?? null;
   const PlayIcon = player.isPlaying ? Pause : Play;
   const speed = speedLabel(player.speed, i18n.language);
   const info = subtitleOf([
@@ -107,7 +114,11 @@ export function AudioPlayer({
       data-audio-player={attachment.id}
     >
       <button
-        aria-label={player.isPlaying ? t("chatPage.cards.pause") : t("chatPage.cards.play")}
+        aria-label={
+          player.isPlaying
+            ? t("chatPage.cards.pause")
+            : t("chatPage.cards.play")
+        }
         className="flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-full bg-primary text-primary-foreground hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         onClick={player.toggle}
         type="button"
@@ -115,12 +126,18 @@ export function AudioPlayer({
         <PlayIcon aria-hidden="true" className="size-4" />
       </button>
       <p className="flex min-w-0 flex-col leading-tight" data-audio-name="">
-        <span className="truncate text-[13px] font-semibold" title={attachment.name}>
+        <span
+          className="truncate text-[13px] font-semibold"
+          title={attachment.name}
+        >
           {attachment.name}
         </span>
         <span className="truncate text-xs text-muted-foreground">{info}</span>
       </p>
-      <div className="order-last col-span-full flex min-w-0 sm:order-none sm:col-span-1" data-audio-wave="">
+      <div
+        className="order-last col-span-full flex min-w-0 sm:order-none sm:col-span-1"
+        data-audio-wave=""
+      >
         <VoiceWave
           isOwn={false}
           isRestNeutral
@@ -130,7 +147,10 @@ export function AudioPlayer({
           share={player.share}
         />
       </div>
-      <span className="text-right text-xs whitespace-nowrap text-muted-foreground tabular-nums" data-audio-time="">
+      <span
+        className="text-right text-xs whitespace-nowrap text-muted-foreground tabular-nums"
+        data-audio-time=""
+      >
         {formatFixedMediaTime(player.positionSeconds, durationSeconds)}
       </span>
       <button

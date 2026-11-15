@@ -1,4 +1,12 @@
-import { Binary, Check, Copy, Database, File as FileIcon, FileArchive, FileText } from "lucide-react";
+import {
+  Binary,
+  Check,
+  Copy,
+  Database,
+  File as FileIcon,
+  FileArchive,
+  FileText,
+} from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -22,13 +30,74 @@ export const BINARY_ROW_COLUMNS =
   "grid-cols-[2rem_minmax(0,1fr)_auto] sm:grid-cols-[2rem_minmax(0,1fr)_10.5rem_8.5rem]";
 
 /** Endings of more than one part that name one kind, such as `tar.gz`. */
-const DOUBLE_ENDINGS: readonly string[] = ["tar.gz", "tar.bz2", "tar.xz", "tar.zst"];
+const DOUBLE_ENDINGS: readonly string[] = [
+  "tar.gz",
+  "tar.bz2",
+  "tar.xz",
+  "tar.zst",
+];
 
 const ICON_ENDINGS: readonly (readonly [LucideIcon, readonly string[]])[] = [
-  [FileArchive, ["zip", "7z", "rar", "gz", "tgz", "bz2", "xz", "zst", "tar", "tar.gz", "tar.bz2", "tar.xz", "tar.zst", "jar", "war"]],
+  [
+    FileArchive,
+    [
+      "zip",
+      "7z",
+      "rar",
+      "gz",
+      "tgz",
+      "bz2",
+      "xz",
+      "zst",
+      "tar",
+      "tar.gz",
+      "tar.bz2",
+      "tar.xz",
+      "tar.zst",
+      "jar",
+      "war",
+    ],
+  ],
   [Database, ["sqlite", "sqlite3", "db", "mdb", "accdb", "dump", "bak"]],
-  [Binary, ["exe", "msi", "dmg", "pkg", "deb", "rpm", "apk", "app", "bin", "so", "dll", "dylib", "iso", "img", "wasm", "o"]],
-  [FileText, ["doc", "xls", "ppt", "rtf", "docx", "xlsx", "pptx", "odt", "ods", "odp", "csv", "tsv", "pdf"]],
+  [
+    Binary,
+    [
+      "exe",
+      "msi",
+      "dmg",
+      "pkg",
+      "deb",
+      "rpm",
+      "apk",
+      "app",
+      "bin",
+      "so",
+      "dll",
+      "dylib",
+      "iso",
+      "img",
+      "wasm",
+      "o",
+    ],
+  ],
+  [
+    FileText,
+    [
+      "doc",
+      "xls",
+      "ppt",
+      "rtf",
+      "docx",
+      "xlsx",
+      "pptx",
+      "odt",
+      "ods",
+      "odp",
+      "csv",
+      "tsv",
+      "pdf",
+    ],
+  ],
 ];
 
 /** Characters of the checksum shown on each side of the ellipsis. */
@@ -51,7 +120,9 @@ export function fileEndingOf(name: string): string {
 /** The icon of a file by its ending: archive, database, program, document or file. */
 function iconOf(ending: string): LucideIcon {
   const lower = ending.toLowerCase();
-  return ICON_ENDINGS.find(([, endings]) => endings.includes(lower))?.[0] ?? FileIcon;
+  return (
+    ICON_ENDINGS.find(([, endings]) => endings.includes(lower))?.[0] ?? FileIcon
+  );
 }
 
 /**
@@ -64,11 +135,19 @@ export function shortChecksum(sha256: string): string {
 }
 
 /** The shortened SHA-256 with a button that copies it whole. */
-function Checksum({ sha256 }: { readonly sha256: string | undefined }): React.ReactElement {
+function Checksum({
+  sha256,
+}: {
+  readonly sha256: string | undefined;
+}): React.ReactElement {
   const { t } = useTranslation();
   const [isCopied, setCopied] = useState(false);
   if (sha256 === undefined)
-    return <span className="text-xs text-muted-foreground">{t("chatPage.cards.binary.noChecksum")}</span>;
+    return (
+      <span className="text-xs text-muted-foreground">
+        {t("chatPage.cards.binary.noChecksum")}
+      </span>
+    );
 
   function handleCopy(): void {
     if (sha256 === undefined) return;
@@ -89,9 +168,17 @@ function Checksum({ sha256 }: { readonly sha256: string | undefined }): React.Re
     >
       <span className="flex min-w-0 flex-col leading-tight">
         <span className="text-[10px] text-muted-foreground">SHA-256</span>
-        <span className="truncate font-mono text-xs text-foreground">{shortChecksum(sha256)}</span>
+        <span className="truncate font-mono text-xs text-foreground">
+          {shortChecksum(sha256)}
+        </span>
       </span>
-      <Icon aria-hidden="true" className={cn("size-3.5 shrink-0", isCopied ? "text-primary" : "text-muted-foreground")} />
+      <Icon
+        aria-hidden="true"
+        className={cn(
+          "size-3.5 shrink-0",
+          isCopied ? "text-primary" : "text-muted-foreground",
+        )}
+      />
     </button>
   );
 }
@@ -108,29 +195,46 @@ interface BinaryFileRowProps {
  * "Herunterladen" in the accent color. No preview, no "Daneben", no full
  * screen; the file is never opened in the browser.
  */
-export function BinaryFileRow({ attachment, isTooLarge = false }: BinaryFileRowProps): React.ReactElement {
+export function BinaryFileRow({
+  attachment,
+  isTooLarge = false,
+}: BinaryFileRowProps): React.ReactElement {
   const { t, i18n } = useTranslation();
   const retention = useRetention(attachment.expiresAt);
   const ending = fileEndingOf(attachment.name);
   const Icon = iconOf(ending);
-  const meta = [ending || t("chatPage.cards.kind.file"), formatFileSize(attachment.sizeBytes, i18n.language), retention]
+  const meta = [
+    ending || t("chatPage.cards.kind.file"),
+    formatFileSize(attachment.sizeBytes, i18n.language),
+    retention,
+  ]
     .filter((part) => part !== null && part !== "")
     .join(" · ");
   return (
     <section
       aria-label={attachment.name}
-      className={cn("grid w-full max-w-2xl min-w-0 items-center gap-x-3 rounded-xl border border-border bg-surface px-3 py-2 text-foreground shadow-xs", BINARY_ROW_COLUMNS)}
+      className={cn(
+        "grid w-full max-w-2xl min-w-0 items-center gap-x-3 rounded-xl border border-border bg-surface px-3 py-2 text-foreground shadow-xs",
+        BINARY_ROW_COLUMNS,
+      )}
       data-binary-file={attachment.id}
     >
       <span className="flex size-8 items-center justify-center rounded-lg bg-primary-subtle text-primary">
         <Icon aria-hidden="true" className="size-4" />
       </span>
       <p className="flex min-w-0 flex-col leading-tight">
-        <span className="truncate text-[13px] font-semibold" title={attachment.name}>
+        <span
+          className="truncate text-[13px] font-semibold"
+          title={attachment.name}
+        >
           {attachment.name}
         </span>
         <span className="truncate text-xs text-muted-foreground">{meta}</span>
-        {isTooLarge ? <span className="truncate text-xs text-primary">{t("chatPage.cards.binary.tooLarge")}</span> : null}
+        {isTooLarge ? (
+          <span className="truncate text-xs text-primary">
+            {t("chatPage.cards.binary.tooLarge")}
+          </span>
+        ) : null}
       </p>
       <span className="order-last col-span-full min-w-0 pl-11 sm:order-none sm:col-span-1 sm:pl-0">
         <Checksum sha256={attachment.sha256} />

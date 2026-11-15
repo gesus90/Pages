@@ -72,6 +72,7 @@ function fixture(): {
       job: vi.fn(async () => completed),
       admit: vi.fn(),
       stopSession: vi.fn(),
+      cancelChatTool: vi.fn(),
       steerChat: vi.fn(),
     },
     messages: {

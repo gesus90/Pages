@@ -170,7 +170,10 @@ export interface ConversationAgentRepliesDependencies {
   /** Reads the file lines of an answer (PAGE-298). */
   readonly agentFiles: Pick<ConversationAgentFiles, "select" | "open">;
   /** Reads the lines of an answer that show earlier attachments of the chat again (PAGE-386); absent shows none. */
-  readonly references?: Pick<ConversationAttachmentReferences, "select" | "bind">;
+  readonly references?: Pick<
+    ConversationAttachmentReferences,
+    "select" | "bind"
+  >;
   /** Stores the files an answer attaches and binds them to it. */
   readonly attachments: Pick<
     ConversationAttachments,

@@ -1,10 +1,4 @@
-import {
-  AppWindow,
-  CircleAlert,
-  Clock,
-  CornerDownRight,
-  Wrench,
-} from "lucide-react";
+import { CircleAlert, Wrench } from "lucide-react";
 import { Fragment, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -17,10 +11,10 @@ import { useMentionDirectory } from "./mentions/mention-context";
 import { ParticipantAvatar } from "./chat-page-avatar";
 import { participantColors } from "./chat-page-colors";
 import { ChatPageDecision } from "./chat-page-decision";
+import { hideImages, OwnRun, PreviewSentBadge } from "./chat-page-history-own";
 import { ChatPageToolUse } from "./chat-page-tool-uses";
 import { ChatPageVoice } from "./chat-page-voice";
 import { MessageContentView } from "./content/message-content-view";
-import { MessageDelete } from "./content/message-delete";
 import {
   answerToolSummary,
   ChatPageLiveAnswer,
@@ -57,10 +51,6 @@ const NO_LIVE: HistoryLive = {
   deliveries: {},
   nameOf: (agentId) => agentId,
 };
-
-function hideImages(): boolean {
-  return false;
-}
 
 /** Consecutive messages of one author: `null` for the person's own messages. */
 interface MessageRun {
@@ -104,7 +94,10 @@ function authorOf(message: VirtualChatMessage): VirtualParticipant | null {
 }
 
 /** An agent outside the person's list, as a live answer names it. */
-function liveAuthor(view: LiveAnswerView, live: HistoryLive): VirtualParticipant {
+function liveAuthor(
+  view: LiveAnswerView,
+  live: HistoryLive,
+): VirtualParticipant {
   return {
     id: view.agentId,
     name: live.nameOf(view.agentId),
@@ -118,208 +111,6 @@ function liveAuthor(view: LiveAnswerView, live: HistoryLive): VirtualParticipant
     canChat: false,
     lastActivityAt: "",
   };
-}
-
-/**
- * Says that the answer to a message waits (PAGE-304): for the answer the
- * agent gives in this chat, or for a free place among the session limits.
- */
-function QueueBadge({
-  queue,
-}: {
-  readonly queue: VirtualChatMessage["queue"];
-}): React.ReactElement | null {
-  const { t } = useTranslation();
-  if (queue === undefined) return null;
-  return (
-    <p
-      className="inline-flex items-center gap-1 text-xs text-muted-foreground"
-      role="status"
-    >
-      <Clock aria-hidden="true" className="size-3.5 shrink-0" />
-      {t(`chatPage.queue.${queue}`)}
-    </p>
-  );
-}
-
-/** "Eds", "Max’", or "Ed's": the owner of an answer in the page's language. */
-function possessive(name: string, language: string): string {
-  if (language.startsWith("en")) return `${name}'s`;
-  return /[sßxz]$/iu.test(name) ? `${name}’` : `${name}s`;
-}
-
-/** How a message sent during an answer reached the agents (PAGE-381). */
-type MessageDelivery =
-  | { readonly kind: "injected"; readonly agentIds: readonly string[] }
-  | { readonly kind: "waiting"; readonly agentIds: readonly string[] }
-  | { readonly kind: "failed" };
-
-/** What the stream told last wins over what the history was read with. */
-function deliveryOf(
-  message: VirtualChatMessage,
-  live: HistoryLive,
-): MessageDelivery | null {
-  const streamed = live.deliveries[message.id];
-  if (streamed?.delivery === "failed") return { kind: "failed" };
-  if (streamed)
-    return { kind: streamed.delivery, agentIds: [streamed.agentId] };
-  if (message.steeredInto && message.steeredInto.length > 0)
-    return { kind: "injected", agentIds: message.steeredInto };
-  if (message.queue === "chat") return { kind: "waiting", agentIds: [] };
-  return null;
-}
-
-/**
- * Says how a message sent during an answer reached the agents (PAGE-381):
- * "in Eds Antwort eingeschoben", or "wartet · geht nach Eds Antwort raus".
- */
-function DeliveryBadge({
-  delivery,
-  live,
-}: {
-  readonly delivery: MessageDelivery;
-  readonly live: HistoryLive;
-}): React.ReactElement {
-  const { t, i18n } = useTranslation();
-  if (delivery.kind === "failed")
-    return (
-      <p className="text-xs text-destructive" role="status">
-        {t("chatPage.liveAnswer.notDelivered")}
-      </p>
-    );
-  const owner = delivery.agentIds
-    .map((id) => possessive(live.nameOf(id), i18n.language))
-    .join(` ${t("chatPage.liveAnswer.and")} `);
-  const isInjected = delivery.kind === "injected";
-  let text = t("chatPage.liveAnswer.waitingAnyone");
-  if (owner !== "")
-    text = t(
-      isInjected ? "chatPage.liveAnswer.injected" : "chatPage.liveAnswer.waiting",
-      { owner },
-    );
-  return (
-    <p
-      className={cn(
-        "inline-flex items-center gap-1 text-xs",
-        isInjected ? "text-primary" : "text-muted-foreground",
-      )}
-      role="status"
-    >
-      {isInjected ? (
-        <CornerDownRight aria-hidden="true" className="size-3.5 shrink-0" />
-      ) : (
-        <Clock aria-hidden="true" className="size-3.5 shrink-0" />
-      )}
-      {text}
-    </p>
-  );
-}
-
-/** Marks a message a person sent from a preview of the chat (PAGE-383). */
-function PreviewSentBadge(): React.ReactElement {
-  const { t } = useTranslation();
-  return (
-    <p
-      className="inline-flex items-center gap-1 text-xs text-muted-foreground"
-      data-from-preview=""
-    >
-      <AppWindow aria-hidden="true" className="size-3.5 shrink-0" />
-      {t("chatPage.preview.sentFromPreview")}
-    </p>
-  );
-}
-
-/** The frame of an own message sent during an answer: orange when it went in, dashed while it waits. */
-const DELIVERY_FRAMES: Readonly<Record<MessageDelivery["kind"], string>> = {
-  injected: "rounded-[16px] ring-2 ring-primary ring-offset-2 ring-offset-background",
-  waiting:
-    "rounded-[16px] outline-dashed outline-2 outline-offset-2 outline-border",
-  failed: "",
-};
-
-const OWN_BUBBLE =
-  "max-w-[62%] min-w-0 rounded-[14px] rounded-br-[4px] bg-primary px-4 py-2.5 text-primary-foreground";
-
-/** One own message: its text in primary bubbles, its cards between and below. */
-function OwnMessage({
-  message,
-  live,
-}: {
-  readonly message: VirtualChatMessage;
-  readonly live: HistoryLive;
-}): React.ReactElement {
-  const { t } = useTranslation();
-  const delivery = deliveryOf(message, live);
-  return (
-    <article
-      aria-label={t("chatPage.you")}
-      className="group/message flex w-full min-w-0 flex-col items-end gap-2 outline-none"
-      data-chat-message={message.id}
-      data-delivery={delivery?.kind}
-      tabIndex={-1}
-    >
-      <div
-        className={cn(
-          "flex w-full min-w-0 flex-col items-end gap-2",
-          delivery ? DELIVERY_FRAMES[delivery.kind] : undefined,
-        )}
-      >
-      {message.voice ? (
-        <ChatPageVoice
-          senderName={t("chatPage.cards.you")}
-          text={message.content}
-          voice={message.voice}
-        />
-      ) : (
-        <MessageContentView
-          message={message}
-          origin={{
-            senderName: t("chatPage.cards.you"),
-            createdAt: message.createdAt,
-          }}
-          renderText={(text) => (
-            <MentionMarkdown
-              className={cn(OWN_BUBBLE, "text-[15px]")}
-              isDisplayableImage={hideImages}
-              source={text}
-            />
-          )}
-        />
-      )}
-      </div>
-      {message.isFromPreview === true ? <PreviewSentBadge /> : null}
-      {delivery ? (
-        <DeliveryBadge delivery={delivery} live={live} />
-      ) : (
-        <QueueBadge queue={message.queue} />
-      )}
-      {message.canDelete === true ? (
-        <MessageDelete messageId={message.id} />
-      ) : null}
-    </article>
-  );
-}
-
-/** The person's own messages at the right, in primary bubbles. */
-function OwnRun({
-  messages,
-  live,
-}: {
-  readonly messages: readonly VirtualChatMessage[];
-  readonly live: HistoryLive;
-}): React.ReactElement {
-  return (
-    <div className="flex flex-col items-end gap-2">
-      {messages.map((message) => (
-        <Fragment key={message.id}>
-          <OwnMessage message={message} live={live} />
-          {message.decision ? (
-            <ChatPageDecision decision={message.decision} />
-          ) : null}
-        </Fragment>
-      ))}
-    </div>
-  );
 }
 
 /** A stretch of the history: messages in runs, or one system line between them (PAGE-380). */

@@ -240,6 +240,55 @@ export function createConversationServices(
     content,
     input.observer.isBackgroundOwner,
   );
+  return assembleConversationServices({
+    input,
+    conversations,
+    messages,
+    directory,
+    files,
+    decisions,
+    replySettings,
+    content,
+    conversationReader,
+    events,
+    observer,
+    agentChat,
+    conversationAgentReplies,
+  });
+}
+
+function assembleConversationServices(parts: {
+  readonly input: ConversationServicesInput;
+  readonly conversations: ConversationRepository;
+  readonly messages: ConversationMessageRepository;
+  readonly directory: ConversationDirectory;
+  readonly files: WikiFileStore;
+  readonly decisions: ConversationDecisionRepository;
+  readonly replySettings: ConversationReplySettingsRepository;
+  readonly content: ContentParts;
+  readonly conversationReader: ConversationReader;
+  readonly events: ConversationEvents;
+  readonly observer: ObserverParts;
+  readonly agentChat: ReturnType<typeof createAgentChatParts>;
+  readonly conversationAgentReplies: ConversationAgentReplies;
+}): ConversationApplicationServices {
+  const {
+    input,
+    conversations,
+    messages,
+    directory,
+    files,
+    decisions,
+    replySettings,
+    content,
+    conversationReader,
+    events,
+    observer,
+    agentChat,
+    conversationAgentReplies,
+  } = parts;
+  const { database } = input;
+  const { guard: conversationAgentGuard } = agentChat;
   const conversationVoiceMaximumMs = voiceMaximumDurationMs(input.speech);
   const conversationService = new ConversationService({
     conversations,
@@ -387,7 +436,8 @@ function createReplies(
     content: content.reader,
     answerStream: {
       open: (target) => sharedConversationAnswerStream().open(target),
-      ownerOf: (conversationId) => shared.conversations.createdBy(conversationId),
+      ownerOf: (conversationId) =>
+        shared.conversations.createdBy(conversationId),
     },
   });
 }
@@ -412,7 +462,9 @@ function createContent(
   directory: ConversationDirectory,
 ): ContentParts {
   const { database } = input;
-  const files = new WikiFileStore(path.join(input.directory, "conversation-files"));
+  const files = new WikiFileStore(
+    path.join(input.directory, "conversation-files"),
+  );
   const attachments = new ConversationAttachments({
     attachments: new ConversationAttachmentRepository(database),
     conversations,

@@ -39,17 +39,25 @@ function iconOf(file: ConversationMediaFile): LucideIcon {
   if (file.tab === "audio") return Music;
   if (file.tab === "files") return FileIcon;
   const format = documentFormatOf(file.attachment);
-  return format === "xlsx" || format === "ods" || format === "csv" || format === "tsv"
+  return format === "xlsx" ||
+    format === "ods" ||
+    format === "csv" ||
+    format === "tsv"
     ? FileSpreadsheet
     : FileText;
 }
 
 /** Kind, size and, for a sound, its length. */
-function useKindAndSize(file: ConversationMediaFile, t: TFunction, language: string): string {
+function useKindAndSize(
+  file: ConversationMediaFile,
+  t: TFunction,
+  language: string,
+): string {
   const facts = useMediaFacts(file.attachment);
   const { attachment } = file;
   return [
-    fileEndingOf(attachment.name) || t(`chatPage.cards.kind.${attachment.kind}`),
+    fileEndingOf(attachment.name) ||
+      t(`chatPage.cards.kind.${attachment.kind}`),
     file.tab === "audio" && facts.durationSeconds !== undefined
       ? formatSeconds(facts.durationSeconds)
       : null,
@@ -70,7 +78,11 @@ function Retention({
   const { t } = useTranslation();
   if (now === null) return null;
   if (isMediaExpired(file.attachment, now))
-    return <span className="text-xs text-muted-foreground">{t("chatPage.media.expired")}</span>;
+    return (
+      <span className="text-xs text-muted-foreground">
+        {t("chatPage.media.expired")}
+      </span>
+    );
   const label = retentionLabel(file.attachment.expiresAt, now, t);
   return label === null ? null : (
     <span className="text-xs font-medium text-primary" data-media-retention="">
@@ -89,10 +101,14 @@ function MediaRow({
 }): React.ReactElement {
   const { t, i18n } = useTranslation();
   const { attachment } = file;
-  const isExpired = actions.now !== null && isMediaExpired(attachment, actions.now);
+  const isExpired =
+    actions.now !== null && isMediaExpired(attachment, actions.now);
   const Icon = isExpired ? Clock : iconOf(file);
   const meta = useKindAndSize(file, t, i18n.language);
-  const origin = [actions.senderName(file.senderId), formatSentAt(file.sentAt, i18n.language)]
+  const origin = [
+    actions.senderName(file.senderId),
+    formatSentAt(file.sentAt, i18n.language),
+  ]
     .filter((part) => part !== "")
     .join(" · ");
   return (
@@ -124,9 +140,13 @@ function MediaRow({
           {attachment.name}
         </button>
         <span className="truncate text-xs text-muted-foreground">{meta}</span>
-        <span className="truncate text-xs text-muted-foreground @xl:hidden">{origin}</span>
+        <span className="truncate text-xs text-muted-foreground @xl:hidden">
+          {origin}
+        </span>
       </p>
-      <span className="hidden truncate text-xs text-muted-foreground @xl:block">{origin}</span>
+      <span className="hidden truncate text-xs text-muted-foreground @xl:block">
+        {origin}
+      </span>
       <span className="hidden @xl:block">
         <Retention file={file} now={actions.now} />
       </span>
@@ -142,7 +162,10 @@ function MediaRow({
           variant="quiet"
         />
         {isExpired ? null : (
-          <CardDownloadAction download={{ href: downloadUrl(attachment) }} isIconOnly />
+          <CardDownloadAction
+            download={{ href: downloadUrl(attachment) }}
+            isIconOnly
+          />
         )}
       </span>
     </li>

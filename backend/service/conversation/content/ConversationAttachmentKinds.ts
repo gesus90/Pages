@@ -55,8 +55,16 @@ const IMAGE_TYPES: ReadonlySet<string> = new Set([
   "image/webp",
 ]);
 
-const WORD_EXTENSIONS: ReadonlySet<string> = new Set([".docx", ".docm", ".odt"]);
-const SLIDE_EXTENSIONS: ReadonlySet<string> = new Set([".pptx", ".pptm", ".odp"]);
+const WORD_EXTENSIONS: ReadonlySet<string> = new Set([
+  ".docx",
+  ".docm",
+  ".odt",
+]);
+const SLIDE_EXTENSIONS: ReadonlySet<string> = new Set([
+  ".pptx",
+  ".pptm",
+  ".odp",
+]);
 const SHEET_EXTENSIONS: ReadonlySet<string> = new Set([
   ".xlsx",
   ".xlsm",
@@ -113,7 +121,10 @@ export function attachmentExtension(name: string): string {
   return path.extname(name).toLowerCase();
 }
 
-function officeKind(type: string, extension: string): AgentAttachmentKind | null {
+function officeKind(
+  type: string,
+  extension: string,
+): AgentAttachmentKind | null {
   if (WORD_TYPES.has(type) || WORD_EXTENSIONS.has(extension)) return "word";
   if (SLIDE_TYPES.has(type) || SLIDE_EXTENSIONS.has(extension)) return "slides";
   if (SHEET_TYPES.has(type) || SHEET_EXTENSIONS.has(extension)) return "sheet";

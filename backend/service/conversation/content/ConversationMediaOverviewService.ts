@@ -11,7 +11,10 @@ import {
 import { conversationLinkImageUrl } from "./ConversationLinks";
 import { findMessageLinks } from "./ConversationMessageLinks";
 
-import type { ConversationAttachmentLibraryRepository, StoredLibraryAttachment } from "@/backend/database/repositories/conversation/ConversationAttachmentLibraryRepository";
+import type {
+  ConversationAttachmentLibraryRepository,
+  StoredLibraryAttachment,
+} from "@/backend/database/repositories/conversation/ConversationAttachmentLibraryRepository";
 import type { ConversationLinkPreviewRepository } from "@/backend/database/repositories/conversation/ConversationLinkPreviewRepository";
 import type {
   ConversationMediaOverviewRepository,
@@ -38,8 +41,14 @@ interface MediaAccounts {
 
 /** What "Medien & Dateien" of a chat reads (PAGE-387). */
 export interface ConversationMediaOverviewDependencies {
-  readonly library: Pick<ConversationAttachmentLibraryRepository, "attachments">;
-  readonly messages: Pick<ConversationMediaOverviewRepository, "linkedMessages">;
+  readonly library: Pick<
+    ConversationAttachmentLibraryRepository,
+    "attachments"
+  >;
+  readonly messages: Pick<
+    ConversationMediaOverviewRepository,
+    "linkedMessages"
+  >;
   readonly previews: Pick<ConversationLinkPreviewRepository, "find">;
   readonly conversations: Pick<ConversationRepository, "findForMember">;
   readonly files: Pick<WikiFileStore, "open">;
@@ -178,7 +187,9 @@ export class ConversationMediaOverviewService {
       message,
       links: findMessageLinks(message.text),
     }));
-    const urls = [...new Set(found.flatMap((entry) => entry.links.map((link) => link.url)))];
+    const urls = [
+      ...new Set(found.flatMap((entry) => entry.links.map((link) => link.url))),
+    ];
     if (urls.length === 0) return [];
     // Only stored preview data: the overview never fetches a linked page.
     const previews = await this.dependencies.previews.find(urls);
@@ -188,7 +199,12 @@ export class ConversationMediaOverviewService {
         return {
           url: link.url,
           domain: hostOf(link.url),
-          title: preview?.title || link.label,
+          title:
+            preview?.title !== undefined &&
+            preview.title !== null &&
+            preview.title !== ""
+              ? preview.title
+              : link.label,
           imageUrl: preview?.image ? conversationLinkImageUrl(link.url) : null,
           messageId: message.messageId,
           senderId: message.senderId,

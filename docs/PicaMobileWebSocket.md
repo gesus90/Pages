@@ -877,14 +877,14 @@ Die Chat-Seite im Browser spricht dasselbe `conversations.v1` über `ws(s)://<Pa
 
 Jeder Teil trägt `chatKind` (`agent` für den Direkt-Chat mit einem Agenten, dann ist `chatId` die ID des Agenten; `conversation` für eine gespeicherte Unterhaltung, dann ist `chatId` deren ID), `agentId`, `answerId`, `seq` (zählt je Antwort ab 1; ein Teil mit bekannter oder kleinerer Nummer ist eine Wiederholung) und `at`.
 
-| `type`            | zusätzliche `data`                                    | Wer es erhält                                                                    |
-| ----------------- | ----------------------------------------------------- | -------------------------------------------------------------------------------- |
-| `answer_text`     | `{ delta, isReset }` (ganze Wörter, Zugangsdaten maskiert) | alle Mitglieder                                                               |
-| `answer_thought`  | `{ delta, startedAt }`                                | nur die Person des Direkt-Chats bzw. der Besitzer der Gruppe                     |
-| `answer_tool`     | `{ tool: { callId, name, status, input?, output?, error?, startedAt, endedAt? } }`, `status` `running`, `completed`, `failed` oder `cancelled` | alle Mitglieder |
-| `answer_steer`    | `{ messageId, delivery }`, `delivery` `injected`, `waiting` oder `failed` | alle Mitglieder                                       |
-| `answer_end`      | `{ messageId, state }`; danach gilt die gespeicherte Nachricht `messageId` | alle Mitglieder                                       |
-| `answer_snapshot` | der ganze Stand einer laufenden oder vor kurzem beendeten Antwort, nach jeder Anmeldung | alle Mitglieder, Gedanken nur für Berechtigte |
+| `type`            | zusätzliche `data`                                                                                                                             | Wer es erhält                                                |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| `answer_text`     | `{ delta, isReset }` (ganze Wörter, Zugangsdaten maskiert)                                                                                     | alle Mitglieder                                              |
+| `answer_thought`  | `{ delta, startedAt }`                                                                                                                         | nur die Person des Direkt-Chats bzw. der Besitzer der Gruppe |
+| `answer_tool`     | `{ tool: { callId, name, status, input?, output?, error?, startedAt, endedAt? } }`, `status` `running`, `completed`, `failed` oder `cancelled` | alle Mitglieder                                              |
+| `answer_steer`    | `{ messageId, delivery }`, `delivery` `injected`, `waiting` oder `failed`                                                                      | alle Mitglieder                                              |
+| `answer_end`      | `{ messageId, state }`; danach gilt die gespeicherte Nachricht `messageId`                                                                     | alle Mitglieder                                              |
+| `answer_snapshot` | der ganze Stand einer laufenden oder vor kurzem beendeten Antwort, nach jeder Anmeldung                                                        | alle Mitglieder, Gedanken nur für Berechtigte                |
 
 Eine Nachricht, die die Seite während einer Antwort sendet, trägt im Formular `delivery`: `steer` schiebt sie in die laufende Antwort (in Gruppen ohne `@` in die Antworten aller gerade antwortenden Agenten, mit `@Name` nur in die des Genannten), `after` stellt sie hinter die laufende Antwort. Nimmt eine Antwort sie nicht mehr an, wartet sie auf ihre eigene Runde und ist als wartend markiert.
 

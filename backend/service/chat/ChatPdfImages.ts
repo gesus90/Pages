@@ -26,12 +26,12 @@ function isPdfImageData(value: unknown): value is PdfImageData {
   if (typeof value !== "object" || value === null) return false;
   const width: unknown = Reflect.get(value, "width");
   const height: unknown = Reflect.get(value, "height");
-  const data: unknown = Reflect.get(value, "data");
+  const pixels: unknown = Reflect.get(value, "data");
   return (
     typeof width === "number" &&
     typeof height === "number" &&
     typeof Reflect.get(value, "kind") === "number" &&
-    (data instanceof Uint8Array || data instanceof Uint8ClampedArray)
+    (pixels instanceof Uint8Array || pixels instanceof Uint8ClampedArray)
   );
 }
 
@@ -49,10 +49,10 @@ function crc32(bytes: Buffer): number {
   return (crc ^ 0xffffffff) >>> 0;
 }
 
-function chunk(type: string, data: Buffer): Buffer {
+function chunk(type: string, payload: Buffer): Buffer {
   const length = Buffer.alloc(4);
-  length.writeUInt32BE(data.length);
-  const body = Buffer.concat([Buffer.from(type, "ascii"), data]);
+  length.writeUInt32BE(payload.length);
+  const body = Buffer.concat([Buffer.from(type, "ascii"), payload]);
   const checksum = Buffer.alloc(4);
   checksum.writeUInt32BE(crc32(body));
   return Buffer.concat([length, body, checksum]);
@@ -60,19 +60,24 @@ function chunk(type: string, data: Buffer): Buffer {
 
 /** The RGBA value of one pixel of a decoded image. */
 function pixel(image: PdfImageData, index: number): readonly number[] {
-  const { data, kind, width } = image;
+  const { data: pixels, kind, width } = image;
   if (kind === RGBA_32BPP) {
     const at = index * 4;
-    return [data[at] ?? 0, data[at + 1] ?? 0, data[at + 2] ?? 0, data[at + 3] ?? 255];
+    return [
+      pixels[at] ?? 0,
+      pixels[at + 1] ?? 0,
+      pixels[at + 2] ?? 0,
+      pixels[at + 3] ?? 255,
+    ];
   }
   if (kind === RGB_24BPP) {
     const at = index * 3;
-    return [data[at] ?? 0, data[at + 1] ?? 0, data[at + 2] ?? 0, 255];
+    return [pixels[at] ?? 0, pixels[at + 1] ?? 0, pixels[at + 2] ?? 0, 255];
   }
   // One bit per pixel, rows padded to whole bytes, 1 is white.
   const row = Math.floor(index / width);
   const column = index % width;
-  const byte = data[row * Math.ceil(width / 8) + Math.floor(column / 8)] ?? 0;
+  const byte = pixels[row * Math.ceil(width / 8) + Math.floor(column / 8)] ?? 0;
   const value = (byte >> (7 - (column % 8))) & 1 ? 255 : 0;
   return [value, value, value, 255];
 }
@@ -107,7 +112,9 @@ export function encodePdfImagePng(image: PdfImageData): Buffer | null {
 
 /** Resolves one image object of a page, or `null` when it does not resolve in time. */
 function resolveImage(
-  objects: { get(objId: string, callback?: (data: unknown) => void): unknown },
+  objects: {
+    get(objId: string, callback?: (resolved: unknown) => void): unknown;
+  },
   name: string,
   deadline: number,
 ): Promise<unknown> {
@@ -116,9 +123,9 @@ function resolveImage(
       () => resolve(null),
       Math.max(0, deadline - Date.now()),
     );
-    objects.get(name, (data: unknown) => {
+    objects.get(name, (resolved: unknown) => {
       clearTimeout(timer);
-      resolve(data);
+      resolve(resolved);
     });
   });
 }
@@ -159,15 +166,16 @@ export async function readPdfPageImages(
     const operators = await page.getOperatorList();
     const names: string[] = [];
     operators.fnArray.forEach((operation, index) => {
-      const [name]: unknown[] = operators.argsArray[index] ?? [];
+      const rawArgs: unknown = operators.argsArray[index];
+      const name: unknown = Array.isArray(rawArgs) ? rawArgs[0] : undefined;
       if (operation === pdfjs.OPS.paintImageXObject && typeof name === "string")
         names.push(name);
     });
     const images: Buffer[] = [];
     for (const name of [...new Set(names)].slice(0, MAXIMUM_IMAGES)) {
       const objects = name.startsWith("g_") ? page.commonObjs : page.objs;
-      const data = await resolveImage(objects, name, deadline);
-      const png = isPdfImageData(data) ? encodePdfImagePng(data) : null;
+      const resolved = await resolveImage(objects, name, deadline);
+      const png = isPdfImageData(resolved) ? encodePdfImagePng(resolved) : null;
       if (png) images.push(png);
     }
     page.cleanup();

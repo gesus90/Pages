@@ -230,9 +230,12 @@ function KindActions({
   if (descriptor.kind === "preview") return null;
   if ("attachment" in descriptor)
     return (
-      <CardDownloadAction download={{ href: downloadUrl(descriptor.attachment) }} />
+      <CardDownloadAction
+        download={{ href: downloadUrl(descriptor.attachment) }}
+      />
     );
-  if ("link" in descriptor) return <OpenInNewTabAction link={descriptor.link} />;
+  if ("link" in descriptor)
+    return <OpenInNewTabAction link={descriptor.link} />;
   return (
     <TextActions descriptor={descriptor} layout={layout} onLayout={onLayout} />
   );
@@ -276,7 +279,10 @@ function PanelBody({
 function AttachmentMeta({
   attachment,
 }: {
-  readonly attachment: Extract<ContentCardDescriptor, { readonly attachment: unknown }>["attachment"];
+  readonly attachment: Extract<
+    ContentCardDescriptor,
+    { readonly attachment: unknown }
+  >["attachment"];
 }): React.ReactElement {
   const { i18n } = useTranslation();
   const facts = useMediaFacts(attachment);

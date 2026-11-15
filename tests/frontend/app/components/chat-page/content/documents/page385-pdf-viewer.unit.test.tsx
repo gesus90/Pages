@@ -1,4 +1,10 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { I18nextProvider } from "react-i18next";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -13,11 +19,17 @@ const pdf = vi.hoisted(() => ({
   findPages: vi.fn(),
 }));
 
-vi.mock("@/app/lib/pdf-preview", () => ({ openPdfPreview: pdf.open, openPdfBytes: pdf.openBytes }));
+vi.mock("@/app/lib/pdf-preview", () => ({
+  openPdfPreview: pdf.open,
+  openPdfBytes: pdf.openBytes,
+}));
 
 class HiddenObserver {
+  /** No-op intersection observe stub. */
   public observe(): void {}
+  /** No-op intersection unobserve stub. */
   public unobserve(): void {}
+  /** No-op intersection disconnect stub. */
   public disconnect(): void {}
 }
 
@@ -39,7 +51,11 @@ function passwordError(): Error {
   return error;
 }
 
-function Viewer({ isFullscreen = false }: { readonly isFullscreen?: boolean }): React.ReactElement {
+function Viewer({
+  isFullscreen = false,
+}: {
+  readonly isFullscreen?: boolean;
+}): React.ReactElement {
   return (
     <I18nextProvider i18n={i18n}>
       <PdfViewer isFullscreen={isFullscreen} url="/chat/files/p1" />
@@ -59,7 +75,9 @@ describe("the PDF viewer next to the chat and in the full screen (PAGE-385)", ()
   it("searches the text, jumps to the pages that hold it and steps through them", async () => {
     render(<Viewer />);
     expect(await screen.findByText("Seite 1 von 5")).toBeTruthy();
-    fireEvent.change(screen.getByRole("searchbox"), { target: { value: "Umsatz" } });
+    fireEvent.change(screen.getByRole("searchbox"), {
+      target: { value: "Umsatz" },
+    });
     expect(await screen.findByText("Seite 2 von 5")).toBeTruthy();
     expect(pdf.findPages).toHaveBeenCalledWith("Umsatz");
     expect(screen.getByText("1 von 2")).toBeTruthy();
@@ -87,7 +105,9 @@ describe("the PDF viewer next to the chat and in the full screen (PAGE-385)", ()
   it("names an encrypted PDF instead of asking for its password", async () => {
     pdf.open.mockRejectedValue(passwordError());
     render(<Viewer />);
-    expect((await screen.findByRole("alert")).textContent).toContain("verschlüsselt");
+    expect((await screen.findByRole("alert")).textContent).toContain(
+      "verschlüsselt",
+    );
     expect(isPdfPasswordError(new Error("x"))).toBe(false);
   });
 });
@@ -95,14 +115,23 @@ describe("the PDF viewer next to the chat and in the full screen (PAGE-385)", ()
 describe("the facts read with the preview of a PDF (PAGE-385)", () => {
   it("tells the page count and the title, or that the PDF is encrypted", async () => {
     pdf.openBytes.mockResolvedValue(preview());
-    const getContext = vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
+    const getContext = vi
+      .spyOn(HTMLCanvasElement.prototype, "getContext")
+      .mockReturnValue(null);
     const facts = vi.fn();
     await createThumbnail(new Blob(["%PDF"]), "application/pdf", facts);
-    expect(facts).toHaveBeenCalledWith({ pageCount: 5, title: "Quartalsbericht" });
+    expect(facts).toHaveBeenCalledWith({
+      pageCount: 5,
+      title: "Quartalsbericht",
+    });
     pdf.openBytes.mockRejectedValue(passwordError());
     const locked = vi.fn();
-    expect(await createThumbnail(new Blob(["%PDF"]), "application/pdf", locked)).toBeNull();
-    await waitFor(() => expect(locked).toHaveBeenCalledWith({ isEncrypted: true }));
+    expect(
+      await createThumbnail(new Blob(["%PDF"]), "application/pdf", locked),
+    ).toBeNull();
+    await waitFor(() =>
+      expect(locked).toHaveBeenCalledWith({ isEncrypted: true }),
+    );
     getContext.mockRestore();
   });
 });

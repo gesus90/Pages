@@ -1,4 +1,10 @@
-import { Clock, Image as ImageIcon, MessageSquareText, PanelRight, X } from "lucide-react";
+import {
+  Clock,
+  Image as ImageIcon,
+  MessageSquareText,
+  PanelRight,
+  X,
+} from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -13,7 +19,11 @@ import {
   CardHead,
   subtitleOf,
 } from "./content-card";
-import { isAttachmentExpired, retentionLabel, storedDate } from "./file-retention";
+import {
+  isAttachmentExpired,
+  retentionLabel,
+  storedDate,
+} from "./file-retention";
 import { useChatImages } from "./use-chat-images";
 import { useNow } from "./use-now";
 
@@ -217,7 +227,10 @@ function viewerImages(
 }
 
 interface ChatImageViewerProps {
-  readonly content: Pick<ChatContent, "conversationId" | "closeViewer" | "openBeside">;
+  readonly content: Pick<
+    ChatContent,
+    "conversationId" | "closeViewer" | "openBeside"
+  >;
   readonly request: ChatImageRequest;
 }
 
@@ -247,7 +260,9 @@ export function ChatImageViewer({
   const found = images.findIndex((image) => image.attachment.id === currentId);
   const index = Math.max(found, 0);
   const image = images[index];
-  const opened = images.find((entry) => entry.attachment.id === request.attachmentId);
+  const opened = images.find(
+    (entry) => entry.attachment.id === request.attachmentId,
+  );
   if (!image) return null;
 
   function close(target: { messageId: string; isScrolled: boolean }): void {
@@ -299,9 +314,14 @@ export function ChatImageViewer({
           now={now}
           onBeside={handleBeside}
           onClose={() =>
-            close({ messageId: opened?.messageId ?? image.messageId, isScrolled: false })
+            close({
+              messageId: opened?.messageId ?? image.messageId,
+              isScrolled: false,
+            })
           }
-          onToMessage={() => close({ messageId: image.messageId, isScrolled: true })}
+          onToMessage={() =>
+            close({ messageId: image.messageId, isScrolled: true })
+          }
           position={t("imageViewer.position", {
             current: index + 1,
             total: images.length,
@@ -315,7 +335,10 @@ export function ChatImageViewer({
       )}
       index={index}
       onClose={() =>
-        close({ messageId: opened?.messageId ?? image.messageId, isScrolled: false })
+        close({
+          messageId: opened?.messageId ?? image.messageId,
+          isScrolled: false,
+        })
       }
       onCloseAutoFocus={handleCloseAutoFocus}
       onIndexChange={(position) =>

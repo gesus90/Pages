@@ -34,7 +34,8 @@ export interface MediaOverviewState {
  */
 export function useMediaOverviewState(): MediaOverviewState {
   const [tab, setTab] = useState<ConversationMediaTab>("images");
-  const [filter, setFilter] = useState<ConversationMediaFilter>(OPEN_MEDIA_FILTER);
+  const [filter, setFilter] =
+    useState<ConversationMediaFilter>(OPEN_MEDIA_FILTER);
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [detailId, setDetailId] = useState<string | null>(null);
 
@@ -66,7 +67,8 @@ export function useMediaOverviewState(): MediaOverviewState {
       setDetailId(null);
     },
     filter,
-    changeFilter: (change) => setFilter((current) => ({ ...current, ...change })),
+    changeFilter: (change) =>
+      setFilter((current) => ({ ...current, ...change })),
     selected,
     toggleSelected,
     toggleAll,

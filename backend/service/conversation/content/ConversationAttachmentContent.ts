@@ -1,7 +1,11 @@
 import { redactCredentials } from "@/backend/security/AgentTextSafety";
 import { CHAT_DOCUMENT_BYTES } from "@/definition/ChatPreview";
 
-import { readDocumentForAgent, AGENT_READ_CHARACTERS, AGENT_SEARCH_CHARACTERS } from "./ConversationDocumentContent";
+import {
+  readDocumentForAgent,
+  AGENT_READ_CHARACTERS,
+  AGENT_SEARCH_CHARACTERS,
+} from "./ConversationDocumentContent";
 
 import type { Readable } from "node:stream";
 import type { ConversationTranscriber } from "../ConversationTranscriber";
@@ -114,12 +118,25 @@ function textResult(
       zeilen: lines.length,
       von: from,
       bis: from + shown.length - 1,
-      text: Array.from(shown.join("\n")).slice(0, AGENT_READ_CHARACTERS).join(""),
-      ...(next === null ? {} : { weiterAb: next, hinweis: `Begrenzt auf ${String(AGENT_READ_CHARACTERS)} Zeichen; weiter mit von ${String(next)}.` }),
-      ...(isCut ? { begrenzt: `Nur die ersten ${String(TEXT_FILE_BYTES / 1024 / 1024)} MB der Datei wurden gelesen.` } : {}),
+      text: Array.from(shown.join("\n"))
+        .slice(0, AGENT_READ_CHARACTERS)
+        .join(""),
+      ...(next === null
+        ? {}
+        : {
+            weiterAb: next,
+            hinweis: `Begrenzt auf ${String(AGENT_READ_CHARACTERS)} Zeichen; weiter mit von ${String(next)}.`,
+          }),
+      ...(isCut
+        ? {
+            begrenzt: `Nur die ersten ${String(TEXT_FILE_BYTES / 1024 / 1024)} MB der Datei wurden gelesen.`,
+          }
+        : {}),
     },
     [],
-    Array.from(redactCredentials(text)).slice(0, AGENT_SEARCH_CHARACTERS).join(""),
+    Array.from(redactCredentials(text))
+      .slice(0, AGENT_SEARCH_CHARACTERS)
+      .join(""),
   );
 }
 
@@ -163,7 +180,8 @@ export class ConversationAttachmentContent {
         return this.text(source, request);
       case "binary":
         return reading({
-          hinweis: "Pages öffnet diese Datei nicht: Sie ist eine Binärdatei oder hat ein unbekanntes Format. Bekannt sind nur Name, Art, Größe und Prüfsumme.",
+          hinweis:
+            "Pages öffnet diese Datei nicht: Sie ist eine Binärdatei oder hat ein unbekanntes Format. Bekannt sind nur Name, Art, Größe und Prüfsumme.",
         });
       case "pdf":
       case "word":
@@ -177,14 +195,15 @@ export class ConversationAttachmentContent {
     source: AgentAttachmentSource,
     canSeeImages: boolean,
   ): Promise<AgentAttachmentReading> {
-    if (!canSeeImages) return reading({ hinweis: AGENT_NO_IMAGE_SIGHT, bildSichtbar: false });
-    if (source.sizeBytes > AGENT_IMAGE_BYTES) return tooLarge(AGENT_IMAGE_BYTES, "das Bild zu zeigen");
-    const data = await readLimited(source.open(), AGENT_IMAGE_BYTES);
-    if (!data) return tooLarge(AGENT_IMAGE_BYTES, "das Bild zu zeigen");
-    return reading(
-      { bildSichtbar: true },
-      [{ label: source.name, mimeType: source.mimeType, data }],
-    );
+    if (!canSeeImages)
+      return reading({ hinweis: AGENT_NO_IMAGE_SIGHT, bildSichtbar: false });
+    if (source.sizeBytes > AGENT_IMAGE_BYTES)
+      return tooLarge(AGENT_IMAGE_BYTES, "das Bild zu zeigen");
+    const bytes = await readLimited(source.open(), AGENT_IMAGE_BYTES);
+    if (!bytes) return tooLarge(AGENT_IMAGE_BYTES, "das Bild zu zeigen");
+    return reading({ bildSichtbar: true }, [
+      { label: source.name, mimeType: source.mimeType, data: bytes },
+    ]);
   }
 
   private async text(
@@ -196,7 +215,9 @@ export class ConversationAttachmentContent {
     let size = 0;
     try {
       for await (const chunk of stream) {
-        const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk));
+        const bytes = Buffer.isBuffer(chunk)
+          ? chunk
+          : Buffer.from(String(chunk));
         chunks.push(bytes);
         size += bytes.length;
         if (size >= TEXT_FILE_BYTES) break;
@@ -205,7 +226,11 @@ export class ConversationAttachmentContent {
       stream.destroy();
     }
     const bytes = Buffer.concat(chunks).subarray(0, TEXT_FILE_BYTES);
-    return textResult(bytes.toString("utf8"), request, source.sizeBytes > TEXT_FILE_BYTES);
+    return textResult(
+      bytes.toString("utf8"),
+      request,
+      source.sizeBytes > TEXT_FILE_BYTES,
+    );
   }
 
   private async document(
@@ -215,7 +240,8 @@ export class ConversationAttachmentContent {
   ): Promise<AgentAttachmentReading> {
     if (request.image !== undefined && !canSeeImages)
       return reading({ hinweis: AGENT_NO_IMAGE_SIGHT, bildSichtbar: false });
-    if (source.sizeBytes > CHAT_DOCUMENT_BYTES) return tooLarge(CHAT_DOCUMENT_BYTES, "sie zu lesen");
+    if (source.sizeBytes > CHAT_DOCUMENT_BYTES)
+      return tooLarge(CHAT_DOCUMENT_BYTES, "sie zu lesen");
     const bytes = await readLimited(source.open(), CHAT_DOCUMENT_BYTES);
     if (!bytes) return tooLarge(CHAT_DOCUMENT_BYTES, "sie zu lesen");
     return readDocumentForAgent(
@@ -228,7 +254,8 @@ export class ConversationAttachmentContent {
   private async transcript(
     source: AgentAttachmentSource,
   ): Promise<{ readonly text: string | null; readonly note: string | null }> {
-    if (source.knownText !== null) return { text: source.knownText, note: null };
+    if (source.knownText !== null)
+      return { text: source.knownText, note: null };
     if (source.sizeBytes > AGENT_TRANSCRIPTION_BYTES)
       return {
         text: null,
@@ -247,11 +274,15 @@ export class ConversationAttachmentContent {
     };
   }
 
-  private async audio(source: AgentAttachmentSource): Promise<AgentAttachmentReading> {
+  private async audio(
+    source: AgentAttachmentSource,
+  ): Promise<AgentAttachmentReading> {
     const { text, note } = await this.transcript(source);
     return reading(
       {
-        ...(source.durationSeconds === null ? {} : { laengeSekunden: source.durationSeconds }),
+        ...(source.durationSeconds === null
+          ? {}
+          : { laengeSekunden: source.durationSeconds }),
         ...(text === null ? { hinweis: note } : { gesprochenerText: text }),
       },
       [],
@@ -267,29 +298,46 @@ export class ConversationAttachmentContent {
     const stills = canSeeImages ? await this.stills(source) : [];
     return reading(
       {
-        ...(source.durationSeconds === null ? {} : { laengeSekunden: source.durationSeconds }),
+        ...(source.durationSeconds === null
+          ? {}
+          : { laengeSekunden: source.durationSeconds }),
         ...(text === null ? { tonspur: note } : { textDerTonspur: text }),
         ...(canSeeImages
           ? { standbilder: stills.map((still) => still.label) }
-          : { standbilder: [], hinweis: "Dein Modell kann keine Bilder sehen; du kennst nur den Text der Tonspur. Sage das, statt das Bild zu erraten." }),
+          : {
+              standbilder: [],
+              hinweis:
+                "Dein Modell kann keine Bilder sehen; du kennst nur den Text der Tonspur. Sage das, statt das Bild zu erraten.",
+            }),
       },
       stills,
       text,
     );
   }
 
-  private async stills(source: AgentAttachmentSource): Promise<AgentReadImage[]> {
-    const frames = await this.dependencies.frames?.frames(source.open, source.durationSeconds);
+  private async stills(
+    source: AgentAttachmentSource,
+  ): Promise<AgentReadImage[]> {
+    const frames = await this.dependencies.frames?.frames(
+      source.open,
+      source.durationSeconds,
+    );
     if (frames && frames.length > 0)
-      return frames.map((data, index) => ({
+      return frames.map((frame, index) => ({
         label: `Standbild ${String(index + 1)} von ${String(frames.length)}`,
         mimeType: "image/jpeg",
-        data,
+        data: frame,
       }));
     if (!source.preview) return [];
     const preview = await readLimited(source.preview.open(), AGENT_IMAGE_BYTES);
     return preview
-      ? [{ label: "Vorschaubild des Videos", mimeType: source.preview.mimeType, data: preview }]
+      ? [
+          {
+            label: "Vorschaubild des Videos",
+            mimeType: source.preview.mimeType,
+            data: preview,
+          },
+        ]
       : [];
   }
 }

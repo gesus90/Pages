@@ -5,7 +5,11 @@ import { useChatContent } from "../chat-content-context";
 import { ContentCard } from "../content-card";
 import { useRetention } from "../use-retention";
 
-import { DOCUMENT_ICONS, documentExtent, documentKindLabel } from "./document-labels";
+import {
+  DOCUMENT_ICONS,
+  documentExtent,
+  documentKindLabel,
+} from "./document-labels";
 import { DocumentStateMessage } from "./document-state";
 import { SheetPreview } from "./sheet-view";
 import { SlidesPreview } from "./slides-view";
@@ -16,14 +20,23 @@ import type { OpenedCard } from "../card-types";
 import type { ReadDocument } from "./document-model";
 
 /** A card of a document as the split view and the full screen open it. */
-export type DocumentCardDescriptor = Extract<OpenedCard["descriptor"], { readonly kind: "word" | "slides" | "sheet" }>;
+export type DocumentCardDescriptor = Extract<
+  OpenedCard["descriptor"],
+  { readonly kind: "word" | "slides" | "sheet" }
+>;
 
 interface DocumentCardProps {
   readonly card: OpenedCard & { readonly descriptor: DocumentCardDescriptor };
 }
 
 /** The start of a read document, by its kind. */
-function DocumentPreview({ document, onOpen }: { readonly document: ReadDocument; readonly onOpen: () => void }): React.ReactElement {
+function DocumentPreview({
+  document,
+  onOpen,
+}: {
+  readonly document: ReadDocument;
+  readonly onOpen: () => void;
+}): React.ReactElement {
   switch (document.kind) {
     case "word":
       return <WordPreview document={document} onOpen={onOpen} />;
@@ -50,9 +63,15 @@ export function DocumentCard({ card }: DocumentCardProps): React.ReactElement {
   const content = useChatContent();
   const { attachment, format, kind } = card.descriptor;
   const isExpanded = content.stateOf(card.key, "expanded") === "expanded";
-  const state = useDocument({ url: attachment.url, format, name: attachment.name }, isExpanded);
+  const state = useDocument(
+    { url: attachment.url, format, name: attachment.name },
+    isExpanded,
+  );
   const retention = useRetention(attachment.expiresAt);
-  const extent = documentExtent(state.status === "ready" ? state.document : null, t);
+  const extent = documentExtent(
+    state.status === "ready" ? state.document : null,
+    t,
+  );
   const size = formatFileSize(attachment.sizeBytes, i18n.language);
 
   function handleOpen(): void {
@@ -73,7 +92,11 @@ export function DocumentCard({ card }: DocumentCardProps): React.ReactElement {
       onFullscreen={() => content.openOverlay(card)}
       retention={retention}
     >
-      {state.status === "ready" ? <DocumentPreview document={state.document} onOpen={handleOpen} /> : <DocumentStateMessage state={state} />}
+      {state.status === "ready" ? (
+        <DocumentPreview document={state.document} onOpen={handleOpen} />
+      ) : (
+        <DocumentStateMessage state={state} />
+      )}
     </ContentCard>
   );
 }

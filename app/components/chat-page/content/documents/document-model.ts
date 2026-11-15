@@ -17,7 +17,11 @@ export interface DocumentRun {
 
 /** One block of a document or a slide. */
 export type DocumentBlock =
-  | { readonly kind: "heading"; readonly level: number; readonly runs: readonly DocumentRun[] }
+  | {
+      readonly kind: "heading";
+      readonly level: number;
+      readonly runs: readonly DocumentRun[];
+    }
   | { readonly kind: "paragraph"; readonly runs: readonly DocumentRun[] }
   | {
       readonly kind: "listItem";
@@ -31,7 +35,11 @@ export type DocumentBlock =
       /** Rows of cells; a cell holds the runs of its paragraphs, separated by line breaks. */
       readonly rows: readonly (readonly (readonly DocumentRun[])[])[];
     }
-  | { readonly kind: "image"; readonly imageId: string; readonly description: string }
+  | {
+      readonly kind: "image";
+      readonly imageId: string;
+      readonly description: string;
+    }
   | {
       /** An embedded object or program of the file; named, never executed. */
       readonly kind: "embedded";
@@ -143,7 +151,10 @@ export function mergeRuns(runs: readonly DocumentRun[]): DocumentRun[] {
       previous.isStrike === run.isStrike &&
       previous.link === run.link
     )
-      merged[merged.length - 1] = { ...previous, text: previous.text + run.text };
+      merged[merged.length - 1] = {
+        ...previous,
+        text: previous.text + run.text,
+      };
     else merged.push(run);
   }
   return merged;

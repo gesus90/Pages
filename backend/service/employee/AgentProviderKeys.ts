@@ -40,7 +40,10 @@ export function generationRoute(
   connection: Pick<AgentConnectionRecord, "provider" | "cliAccountLabel">,
   model: string,
 ): GenerationRoute | null {
-  if (connection.provider === "openrouter" || connection.provider === "google_ai_studio")
+  if (
+    connection.provider === "openrouter" ||
+    connection.provider === "google_ai_studio"
+  )
     return { provider: connection.provider, model, keyConnection: "own" };
   if (connection.provider !== "opencode") return null;
   const modelProvider = openCodeModelProvider(model);

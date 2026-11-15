@@ -31,7 +31,11 @@ function head(seq: number, at = "2026-11-14T10:00:00.000Z"): LiveAnswerHead {
   };
 }
 
-function text(seq: number, delta: string, isReset = false): LiveAnswerEventPayload {
+function text(
+  seq: number,
+  delta: string,
+  isReset = false,
+): LiveAnswerEventPayload {
   return { type: "answer_text", data: { ...head(seq), delta, isReset } };
 }
 
@@ -79,7 +83,12 @@ it("keeps a part once when it comes again, also after a snapshot that holds it",
     },
   };
   // After a reconnect: the snapshot, then the parts the server sent meanwhile.
-  const state = apply(text(1, "Hallo "), snapshot, text(2, "Welt"), text(3, "!"));
+  const state = apply(
+    text(1, "Hallo "),
+    snapshot,
+    text(2, "Welt"),
+    text(3, "!"),
+  );
   expect(state.answers["a1"]?.text).toBe("Hallo Welt!");
   // An older snapshot never takes back what the page already has.
   const later = applyLiveAnswerEvent(
@@ -101,7 +110,10 @@ it("follows a tool call in its place and remembers how a message went in", () =>
   expect(state.answers["a1"]?.tools).toEqual([
     expect.objectContaining({ callId: "c1", status: "completed" }),
   ]);
-  expect(state.deliveries["m9"]).toEqual({ delivery: "waiting", agentId: "ed" });
+  expect(state.deliveries["m9"]).toEqual({
+    delivery: "waiting",
+    agentId: "ed",
+  });
   expect(toolsDuration(state.answers["a1"]?.tools ?? [])).toBe(3100);
 });
 
@@ -114,7 +126,9 @@ it("shows an answer until its stored message is in the history, and never both",
   expect(shownLiveAnswers(views, new Set())).toHaveLength(1);
   expect(shownLiveAnswers(views, new Set(["m1"]))).toHaveLength(0);
   expect(endedByMessage(views).get("m1")?.text).toBe("Fertig");
-  expect(answersOfChat(ended, { chatKind: "conversation", chatId: "ed" })).toEqual([]);
+  expect(
+    answersOfChat(ended, { chatKind: "conversation", chatId: "ed" }),
+  ).toEqual([]);
   // A stopped answer without a stored message leaves the history at once.
   const stopped = apply(text(1, "Halb"), {
     type: "answer_end",
@@ -134,7 +148,9 @@ it("names what an agent does: a running tool, thinking, writing or working", () 
     type: "answer_thought",
     data: { ...head(1), delta: "Hm", startedAt: "2026-11-14T10:00:00.000Z" },
   });
-  expect(activityOf(thinking.answers["a1"] ?? null)).toEqual({ kind: "thinking" });
+  expect(activityOf(thinking.answers["a1"] ?? null)).toEqual({
+    kind: "thinking",
+  });
   expect(activityOf(apply(text(1, "Ich")).answers["a1"] ?? null)).toEqual({
     kind: "writing",
   });

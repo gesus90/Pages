@@ -7,16 +7,16 @@ JavaScript) and SVG as an interactive preview in a sandbox.
 
 ## Where things are
 
-| Part                                                         | Place                                                                     |
-| ------------------------------------------------------------ | ------------------------------------------------------------------------- |
-| Recognition of a fence without language                      | `app/components/chat-page/content/code-detection.ts`                      |
-| Split of a message, joining HTML with its CSS and JS blocks  | `app/components/chat-page/content/message-content.ts`                     |
-| Kinds of preview, file names                                 | `app/components/chat-page/content/preview-kinds.ts`                       |
-| Preview document, `pages.chat.send`, the check of a send     | `app/components/chat-page/content/preview-document.ts`                    |
-| Frame document with its own policy                           | `app/routes/chat-preview-frame.ts` (`GET /chat/preview-frame`)            |
-| Cards, split view and full screen of a preview               | `preview-card.tsx`, `preview-panel.tsx`, `preview-views.tsx`              |
-| Sandbox frame, Mermaid, JSON tree, CSV table, ZIP download   | `sandbox-frame.tsx`, `mermaid-*.ts(x)`, `json-*.ts(x)`, `csv-*.ts(x)`, `preview-download.ts` |
-| Marker "aus der Vorschau gesendet"                           | `CONVERSATION_PREVIEW_SEND_PREFIX` in `definition/Conversation.ts`        |
+| Part                                                        | Place                                                                                        |
+| ----------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| Recognition of a fence without language                     | `app/components/chat-page/content/code-detection.ts`                                         |
+| Split of a message, joining HTML with its CSS and JS blocks | `app/components/chat-page/content/message-content.ts`                                        |
+| Kinds of preview, file names                                | `app/components/chat-page/content/preview-kinds.ts`                                          |
+| Preview document, `pages.chat.send`, the check of a send    | `app/components/chat-page/content/preview-document.ts`                                       |
+| Frame document with its own policy                          | `app/routes/chat-preview-frame.ts` (`GET /chat/preview-frame`)                               |
+| Cards, split view and full screen of a preview              | `preview-card.tsx`, `preview-panel.tsx`, `preview-views.tsx`                                 |
+| Sandbox frame, Mermaid, JSON tree, CSV table, ZIP download  | `sandbox-frame.tsx`, `mermaid-*.ts(x)`, `json-*.ts(x)`, `csv-*.ts(x)`, `preview-download.ts` |
+| Marker "aus der Vorschau gesendet"                          | `CONVERSATION_PREVIEW_SEND_PREFIX` in `definition/Conversation.ts`                           |
 
 ## Recognition
 

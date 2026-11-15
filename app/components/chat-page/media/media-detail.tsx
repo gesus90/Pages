@@ -1,4 +1,9 @@
-import { ArrowLeft, ChevronLeft, ChevronRight, MessageSquareText } from "lucide-react";
+import {
+  ArrowLeft,
+  ChevronLeft,
+  ChevronRight,
+  MessageSquareText,
+} from "lucide-react";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 
@@ -28,7 +33,10 @@ function useDetailKeys(onStep: (step: number) => void): void {
   useEffect(() => {
     function handleKey(event: KeyboardEvent): void {
       const target = event.target;
-      if (target instanceof HTMLElement && target.closest("input, textarea, select, [contenteditable]"))
+      if (
+        target instanceof HTMLElement &&
+        target.closest("input, textarea, select, [contenteditable]")
+      )
         return;
       if (event.key === "ArrowLeft") onStep(-1);
       if (event.key === "ArrowRight") onStep(1);
@@ -72,15 +80,32 @@ export function MediaDetail({
       >
         <CardAction
           icon={ArrowLeft}
-          label={t("chatPage.media.back", { tab: t(`chatPage.media.tabs.${tab}`) })}
+          label={t("chatPage.media.back", {
+            tab: t(`chatPage.media.tabs.${tab}`),
+          })}
           onClick={() => onSelect(null)}
           variant="quiet"
         />
         <span className="ml-auto text-xs text-muted-foreground tabular-nums">
-          {t("chatPage.media.position", { current: index + 1, total: files.length })}
+          {t("chatPage.media.position", {
+            current: index + 1,
+            total: files.length,
+          })}
         </span>
-        <CardAction icon={ChevronLeft} isIconOnly label={t("chatPage.media.previous")} onClick={() => step(-1)} variant="quiet" />
-        <CardAction icon={ChevronRight} isIconOnly label={t("chatPage.media.next")} onClick={() => step(1)} variant="quiet" />
+        <CardAction
+          icon={ChevronLeft}
+          isIconOnly
+          label={t("chatPage.media.previous")}
+          onClick={() => step(-1)}
+          variant="quiet"
+        />
+        <CardAction
+          icon={ChevronRight}
+          isIconOnly
+          label={t("chatPage.media.next")}
+          onClick={() => step(1)}
+          variant="quiet"
+        />
         <CardAction
           icon={MessageSquareText}
           label={t("chatPage.cards.toMessage")}

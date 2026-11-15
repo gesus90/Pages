@@ -32,7 +32,11 @@ function subscribe(listener: () => void): () => void {
  */
 export function documentFactsQuery(facts: PdfFacts): string {
   const parameters = new URLSearchParams();
-  if (facts.pageCount !== undefined && Number.isInteger(facts.pageCount) && facts.pageCount > 0)
+  if (
+    facts.pageCount !== undefined &&
+    Number.isInteger(facts.pageCount) &&
+    facts.pageCount > 0
+  )
     parameters.set("pageCount", String(facts.pageCount));
   const title = facts.title?.trim() ?? "";
   if (title !== "") parameters.set("title", title.slice(0, 300));
@@ -63,15 +67,24 @@ export function resetPdfFacts(): void {
  *
  * @param attachment - The PDF.
  */
-export function usePdfFacts(attachment: Pick<ConversationAttachment, "id" | "pageCount" | "documentTitle">): PdfFacts {
+export function usePdfFacts(
+  attachment: Pick<
+    ConversationAttachment,
+    "id" | "pageCount" | "documentTitle"
+  >,
+): PdfFacts {
   const noted = useSyncExternalStore(
     subscribe,
     () => known.get(attachment.id) ?? NO_FACTS,
     () => NO_FACTS,
   );
   return {
-    ...(attachment.pageCount === undefined ? {} : { pageCount: attachment.pageCount }),
-    ...(attachment.documentTitle === undefined ? {} : { title: attachment.documentTitle }),
+    ...(attachment.pageCount === undefined
+      ? {}
+      : { pageCount: attachment.pageCount }),
+    ...(attachment.documentTitle === undefined
+      ? {}
+      : { title: attachment.documentTitle }),
     ...noted,
   };
 }

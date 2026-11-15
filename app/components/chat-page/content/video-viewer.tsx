@@ -72,7 +72,8 @@ function useViewerExtras(
     void change.catch(() => undefined);
   }
   const canPictureInPicture =
-    typeof document !== "undefined" && document.pictureInPictureEnabled === true;
+    typeof document !== "undefined" &&
+    document.pictureInPictureEnabled === true;
   return {
     ...(hasCaptions ? { onCaptions: toggleCaptions, isCaptionsOn } : {}),
     ...(canPictureInPicture ? { onPictureInPicture: pictureInPicture } : {}),
@@ -98,7 +99,10 @@ function ViewerHead({
   onBeside,
   onToMessage,
   onClose,
-}: Pick<ViewerScreenProps, "video" | "position" | "onBeside" | "onToMessage" | "onClose">): React.ReactElement {
+}: Pick<
+  ViewerScreenProps,
+  "video" | "position" | "onBeside" | "onToMessage" | "onClose"
+>): React.ReactElement {
   const { t, i18n } = useTranslation();
   const now = useNow();
   const facts = useMediaFacts(video.attachment);
@@ -107,11 +111,35 @@ function ViewerHead({
     <CardHead
       actions={
         <>
-          <CardDownloadAction download={{ href: downloadUrl(attachment) }} tone="dark" />
+          <CardDownloadAction
+            download={{ href: downloadUrl(attachment) }}
+            tone="dark"
+          />
           <CardActionDivider tone="dark" />
-          <CardAction icon={PanelRight} isIconOnly label={t("chatPage.cards.beside")} onClick={onBeside} tone="dark" variant="quiet" />
-          <CardAction icon={MessageSquareText} isIconOnly label={t("chatPage.cards.toMessage")} onClick={onToMessage} tone="dark" variant="quiet" />
-          <CardAction icon={X} isIconOnly label={t("chatPage.cards.close")} onClick={onClose} tone="dark" variant="quiet" />
+          <CardAction
+            icon={PanelRight}
+            isIconOnly
+            label={t("chatPage.cards.beside")}
+            onClick={onBeside}
+            tone="dark"
+            variant="quiet"
+          />
+          <CardAction
+            icon={MessageSquareText}
+            isIconOnly
+            label={t("chatPage.cards.toMessage")}
+            onClick={onToMessage}
+            tone="dark"
+            variant="quiet"
+          />
+          <CardAction
+            icon={X}
+            isIconOnly
+            label={t("chatPage.cards.close")}
+            onClick={onClose}
+            tone="dark"
+            variant="quiet"
+          />
         </>
       }
       className="px-3 sm:px-4"
@@ -163,7 +191,10 @@ function ViewerScreen(props: ViewerScreenProps): React.ReactElement {
   );
   return (
     <div
-      className={cn("relative flex min-h-0 flex-1 flex-col", !controls.isVisible && "cursor-none")}
+      className={cn(
+        "relative flex min-h-0 flex-1 flex-col",
+        !controls.isVisible && "cursor-none",
+      )}
       data-controls-visible={controls.isVisible ? "true" : "false"}
       data-video-viewer={attachment.id}
       onPointerDown={controls.wake}
@@ -179,14 +210,22 @@ function ViewerScreen(props: ViewerScreenProps): React.ReactElement {
         {...player.events}
       />
       <button
-        aria-label={player.isPlaying ? t("chatPage.cards.pause") : t("chatPage.cards.play")}
+        aria-label={
+          player.isPlaying
+            ? t("chatPage.cards.pause")
+            : t("chatPage.cards.play")
+        }
         className="absolute inset-0 flex cursor-pointer items-center justify-center"
         onClick={player.toggle}
         type="button"
       >
         {player.isPlaying ? null : (
           <span className="flex size-16 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-overlay">
-            <Play aria-hidden="true" className="ml-0.5 size-7" fill="currentColor" />
+            <Play
+              aria-hidden="true"
+              className="ml-0.5 size-7"
+              fill="currentColor"
+            />
           </span>
         )}
       </button>
@@ -195,16 +234,36 @@ function ViewerScreen(props: ViewerScreenProps): React.ReactElement {
       </div>
       {hasNeighbours ? (
         <>
-          <button aria-label={t("chatPage.video.previous")} className={cn(ARROW_CLASS, "left-3", fade)} onClick={onPrevious} type="button">
+          <button
+            aria-label={t("chatPage.video.previous")}
+            className={cn(ARROW_CLASS, "left-3", fade)}
+            onClick={onPrevious}
+            type="button"
+          >
             <ChevronLeft aria-hidden="true" className="size-6" />
           </button>
-          <button aria-label={t("chatPage.video.next")} className={cn(ARROW_CLASS, "right-3", fade)} onClick={onNext} type="button">
+          <button
+            aria-label={t("chatPage.video.next")}
+            className={cn(ARROW_CLASS, "right-3", fade)}
+            onClick={onNext}
+            type="button"
+          >
             <ChevronRight aria-hidden="true" className="size-6" />
           </button>
         </>
       ) : null}
-      <div className={cn("relative z-10 mt-auto bg-viewer-scrim/80 pb-[env(safe-area-inset-bottom)]", fade)}>
-        <VideoControlBar className="px-3 py-2 sm:px-4" extras={extras} player={player} tone="dark" />
+      <div
+        className={cn(
+          "relative z-10 mt-auto bg-viewer-scrim/80 pb-[env(safe-area-inset-bottom)]",
+          fade,
+        )}
+      >
+        <VideoControlBar
+          className="px-3 py-2 sm:px-4"
+          extras={extras}
+          player={player}
+          tone="dark"
+        />
       </div>
     </div>
   );
@@ -282,7 +341,10 @@ export function ChatVideoViewer({
         onNext={() => go(1)}
         onPrevious={() => go(-1)}
         onToMessage={() => close(true)}
-        position={t("imageViewer.position", { current: index + 1, total: videos.length })}
+        position={t("imageViewer.position", {
+          current: index + 1,
+          total: videos.length,
+        })}
         stage={stage}
         video={video}
       />

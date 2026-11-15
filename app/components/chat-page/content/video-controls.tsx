@@ -20,8 +20,7 @@ import type { MediaPlayer } from "./use-media-player";
 const PROGRESS_STEPS = 1000;
 
 const CONTROL_CLASSES: Readonly<Record<CardTone, string>> = {
-  light:
-    "text-muted-foreground hover:bg-surface-hover hover:text-foreground",
+  light: "text-muted-foreground hover:bg-surface-hover hover:text-foreground",
   dark: "text-viewer-foreground hover:bg-viewer-control-hover",
 };
 
@@ -86,7 +85,10 @@ export function MediaProgress({
   const { t } = useTranslation();
   const isDark = tone === "dark";
   return (
-    <div className="relative flex h-4 min-w-0 flex-1 items-center" data-media-progress="">
+    <div
+      className="relative flex h-4 min-w-0 flex-1 items-center"
+      data-media-progress=""
+    >
       <span
         aria-hidden="true"
         className={cn(
@@ -95,7 +97,10 @@ export function MediaProgress({
         )}
       >
         <span
-          className={cn("absolute inset-y-0 left-0", isDark ? "bg-viewer-edge" : "bg-border")}
+          className={cn(
+            "absolute inset-y-0 left-0",
+            isDark ? "bg-viewer-edge" : "bg-border",
+          )}
           data-media-buffered={player.bufferedShare.toFixed(3)}
           style={{ width: `${String(player.bufferedShare * 100)}%` }}
         />
@@ -166,7 +171,11 @@ export function VideoControlBar({
       data-video-controls={tone}
     >
       <button
-        aria-label={player.isPlaying ? t("chatPage.cards.pause") : t("chatPage.cards.play")}
+        aria-label={
+          player.isPlaying
+            ? t("chatPage.cards.pause")
+            : t("chatPage.cards.play")
+        }
         className="inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full bg-primary text-primary-foreground hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         onClick={player.toggle}
         type="button"
@@ -176,7 +185,9 @@ export function VideoControlBar({
       <span className={timeClass}>{formatSeconds(player.positionSeconds)}</span>
       <MediaProgress player={player} tone={tone} />
       <span className={timeClass}>
-        {player.durationSeconds === null ? "–:––" : formatSeconds(player.durationSeconds)}
+        {player.durationSeconds === null
+          ? "–:––"
+          : formatSeconds(player.durationSeconds)}
       </span>
       <ControlButton
         label={t("chatPage.cards.speed", { speed })}
@@ -196,7 +207,9 @@ export function VideoControlBar({
         </ControlButton>
       ) : null}
       <ControlButton
-        label={player.isMuted ? t("chatPage.video.unmute") : t("chatPage.video.mute")}
+        label={
+          player.isMuted ? t("chatPage.video.unmute") : t("chatPage.video.mute")
+        }
         onClick={player.toggleMute}
         tone={tone}
       >

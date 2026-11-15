@@ -22,7 +22,10 @@ interface ViewTabsProps<Value extends string> {
 }
 
 const TONE_CLASSES: Readonly<
-  Record<CardTone, { readonly frame: string; readonly idle: string; readonly active: string }>
+  Record<
+    CardTone,
+    { readonly frame: string; readonly idle: string; readonly active: string }
+  >
 > = {
   light: {
     frame: "border-border bg-muted",

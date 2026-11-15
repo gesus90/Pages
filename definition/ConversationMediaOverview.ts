@@ -21,7 +21,8 @@ export type ConversationMediaTab = (typeof CONVERSATION_MEDIA_TABS)[number];
 export type ConversationMediaFileTab = Exclude<ConversationMediaTab, "links">;
 
 /** A file of an agent counts as expiring soon below this remaining time: 24 hours. */
-export const CONVERSATION_MEDIA_EXPIRING_SOON_MILLISECONDS = 24 * 60 * 60 * 1000;
+export const CONVERSATION_MEDIA_EXPIRING_SOON_MILLISECONDS =
+  24 * 60 * 60 * 1000;
 
 /** Most files one ZIP of the overview takes. */
 export const CONVERSATION_MEDIA_ARCHIVE_MAXIMUM = 200;
@@ -164,7 +165,8 @@ export function isMediaExpired(
 ): boolean {
   if (attachment.expiredAt !== undefined) return true;
   return (
-    attachment.expiresAt !== undefined && Date.parse(attachment.expiresAt) <= now
+    attachment.expiresAt !== undefined &&
+    Date.parse(attachment.expiresAt) <= now
   );
 }
 

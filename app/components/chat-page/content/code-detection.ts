@@ -65,8 +65,10 @@ const TYPESCRIPT_SIGNS: readonly RegExp[] = [
 ];
 const CSS_RULE_START = /^\s*[^{}();=]+\{\s*$/mu;
 const CSS_DECLARATION = /^\s*-{0,2}[a-z][\w-]*\s*:\s*[^;{}]+;\s*$/mu;
-const CSS_AT_RULE = /^\s*@(?:media|import|keyframes|font-face|supports|layer|tailwind)\b/mu;
-const YAML_LINE = /^\s*(?:-\s+.*|-\s*$|[\w"'.-]+\s*:(?:\s+.*)?|#.*|---|\.\.\.)$/u;
+const CSS_AT_RULE =
+  /^\s*@(?:media|import|keyframes|font-face|supports|layer|tailwind)\b/mu;
+const YAML_LINE =
+  /^\s*(?:-\s+.*|-\s*$|[\w"'.-]+\s*:(?:\s+.*)?|#.*|---|\.\.\.)$/u;
 const YAML_KEY = /^\s*[\w"'.-]+\s*:(?:\s+\S.*)?$/u;
 const MARKDOWN_SIGNS: readonly RegExp[] = [
   /^#{1,6}\s+\S/mu,
@@ -135,7 +137,9 @@ function isDiff(lines: readonly string[]): boolean {
 }
 
 function isShell(lines: readonly string[]): boolean {
-  if (/^#!\s*\/(?:usr\/)?bin\/(?:env\s+)?(?:ba|z|da)?sh\b/u.test(lines[0] ?? ""))
+  if (
+    /^#!\s*\/(?:usr\/)?bin\/(?:env\s+)?(?:ba|z|da)?sh\b/u.test(lines[0] ?? "")
+  )
     return true;
   const commands = lines.filter((line) => !line.trim().startsWith("#"));
   if (commands.length === 0) return false;

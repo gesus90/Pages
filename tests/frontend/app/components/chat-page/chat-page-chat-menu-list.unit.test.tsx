@@ -50,12 +50,12 @@ function Harness({
 }): React.ReactElement {
   const menu = useChatMenuRequestState();
   const [selected, setSelected] = useState<string | null>(null);
-  const opened: Opened | null =
-    selected === "g"
-      ? { kind: "group", group: TEAM, members: [ED, BOB] }
-      : selected === "bob"
-        ? { kind: "participant", participant: BOB }
-        : null;
+  let opened: Opened | null = null;
+  if (selected === "g") {
+    opened = { kind: "group", group: TEAM, members: [ED, BOB] };
+  } else if (selected === "bob") {
+    opened = { kind: "participant", participant: BOB };
+  }
   return (
     <I18nextProvider i18n={i18n}>
       <ChatContentProvider
@@ -177,7 +177,7 @@ it("opens the menu below the entry for the context menu key of the keyboard", ()
   ).toBe("16px");
 });
 
-it("opens the menu with a long press of a finger and swallows the click after it", () => {
+it("opens the menu with a long press of a finger and swallows the click after it", async () => {
   vi.useFakeTimers();
   render(<Harness onToggleMute={vi.fn()} />);
   const button = entryButton(/^Team/);
@@ -186,9 +186,9 @@ it("opens the menu with a long press of a finger and swallows the click after it
     clientX: 30,
     clientY: 40,
   });
-  act(() => vi.advanceTimersByTime(LONG_PRESS_MS - 1));
+  await act(() => vi.advanceTimersByTime(LONG_PRESS_MS - 1));
   expect(screen.queryByRole("menu")).toBeNull();
-  act(() => vi.advanceTimersByTime(1));
+  await act(() => vi.advanceTimersByTime(1));
   expect(screen.getByRole("menu")).toBeTruthy();
   fireEvent.pointerUp(button, { pointerType: "touch" });
   // The click the finger fires on release neither closes nor reopens anything.
@@ -197,7 +197,7 @@ it("opens the menu with a long press of a finger and swallows the click after it
   expect(screen.getByRole("menu")).toBeTruthy();
 });
 
-it("opens nothing for a short tap or a finger that scrolls", () => {
+it("opens nothing for a short tap or a finger that scrolls", async () => {
   vi.useFakeTimers();
   render(<Harness onToggleMute={vi.fn()} />);
   const button = entryButton(/^Team/);
@@ -207,7 +207,7 @@ it("opens nothing for a short tap or a finger that scrolls", () => {
     clientY: 40,
   });
   fireEvent.pointerUp(button, { pointerType: "touch" });
-  act(() => vi.advanceTimersByTime(LONG_PRESS_MS));
+  await act(() => vi.advanceTimersByTime(LONG_PRESS_MS));
   expect(screen.queryByRole("menu")).toBeNull();
   fireEvent.pointerDown(button, {
     pointerType: "touch",
@@ -219,7 +219,7 @@ it("opens nothing for a short tap or a finger that scrolls", () => {
     clientX: 30,
     clientY: 90,
   });
-  act(() => vi.advanceTimersByTime(LONG_PRESS_MS));
+  await act(() => vi.advanceTimersByTime(LONG_PRESS_MS));
   expect(screen.queryByRole("menu")).toBeNull();
 });
 

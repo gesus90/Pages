@@ -13,28 +13,43 @@
 export function parseXml(text: string): Element | null {
   const document = new DOMParser().parseFromString(text, "application/xml");
   const root = document.documentElement;
-  if (root.localName === "parsererror" || root.getElementsByTagName("parsererror").length > 0)
+  if (
+    root.localName === "parsererror" ||
+    root.getElementsByTagName("parsererror").length > 0
+  )
     return null;
   return root;
 }
 
 /** The child elements of an element with one of the local names, in order. */
-export function childrenNamed(element: Element, ...names: readonly string[]): Element[] {
-  return [...element.children].filter((child) => names.includes(child.localName));
+export function childrenNamed(
+  element: Element,
+  ...names: readonly string[]
+): Element[] {
+  return [...element.children].filter((child) =>
+    names.includes(child.localName),
+  );
 }
 
 /** The first child element with the local name, or `null`. */
 export function childNamed(element: Element, name: string): Element | null {
-  return [...element.children].find((child) => child.localName === name) ?? null;
+  return (
+    [...element.children].find((child) => child.localName === name) ?? null
+  );
 }
 
 /** Every descendant element with the local name, in document order. */
 export function descendantsNamed(element: Element, name: string): Element[] {
-  return [...element.getElementsByTagName("*")].filter((child) => child.localName === name);
+  return [...element.getElementsByTagName("*")].filter(
+    (child) => child.localName === name,
+  );
 }
 
 /** The first descendant element with the local name, or `null`. */
-export function descendantNamed(element: Element, name: string): Element | null {
+export function descendantNamed(
+  element: Element,
+  name: string,
+): Element | null {
   return descendantsNamed(element, name)[0] ?? null;
 }
 
@@ -46,7 +61,10 @@ export function descendantNamed(element: Element, name: string): Element | null 
  * @param name - The local name, such as `val` for `w:val`.
  * @returns The value, or `null` without the attribute.
  */
-export function attributeOf(element: Element | null, name: string): string | null {
+export function attributeOf(
+  element: Element | null,
+  name: string,
+): string | null {
   if (!element) return null;
   for (const attribute of element.attributes)
     if (attribute.localName === name) return attribute.value;
@@ -85,6 +103,10 @@ export function resolvePartPath(base: string, target: string): string {
 export function relationIdOf(element: Element | null): string | null {
   if (!element) return null;
   for (const attribute of element.attributes)
-    if (attribute.localName === "id" && (attribute.namespaceURI ?? "").endsWith("/relationships")) return attribute.value;
+    if (
+      attribute.localName === "id" &&
+      (attribute.namespaceURI ?? "").endsWith("/relationships")
+    )
+      return attribute.value;
   return null;
 }

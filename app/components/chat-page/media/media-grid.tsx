@@ -23,7 +23,8 @@ function TilePreview({
 }): React.ReactElement {
   const { attachment } = file;
   const source =
-    attachment.thumbnailUrl ?? (attachment.kind === "image" ? attachment.url : undefined);
+    attachment.thumbnailUrl ??
+    (attachment.kind === "image" ? attachment.url : undefined);
   if (source === undefined) {
     const Icon = attachment.kind === "video" ? Film : ImageIcon;
     return <Icon aria-hidden="true" className="size-6 text-muted-foreground" />;
@@ -49,7 +50,10 @@ function VideoLength({
   if (file.attachment.kind !== "video" || facts.durationSeconds === undefined)
     return null;
   return (
-    <span className={`${BADGE_CLASS} right-1.5 bottom-1.5`} data-media-length="">
+    <span
+      className={`${BADGE_CLASS} right-1.5 bottom-1.5`}
+      data-media-length=""
+    >
       {formatSeconds(facts.durationSeconds)}
     </span>
   );
@@ -77,7 +81,8 @@ function MediaTile({
         {t("chatPage.media.expired")}
       </li>
     );
-  const retention = now === null ? null : retentionLabel(attachment.expiresAt, now, t);
+  const retention =
+    now === null ? null : retentionLabel(attachment.expiresAt, now, t);
   const isSelected = actions.selected.has(attachment.id);
   return (
     <li className="relative" data-media-tile={attachment.id}>
@@ -92,7 +97,9 @@ function MediaTile({
         <TilePreview file={file} />
         <VideoLength file={file} />
         {retention === null ? null : (
-          <span className={`${BADGE_CLASS} bottom-1.5 left-1.5`}>{retention}</span>
+          <span className={`${BADGE_CLASS} bottom-1.5 left-1.5`}>
+            {retention}
+          </span>
         )}
       </button>
       <span className="absolute top-1.5 left-1.5 rounded-md bg-surface/80 p-0.5">
@@ -121,13 +128,21 @@ export function MediaGrid({
   return (
     <div className="flex flex-col gap-4 p-3">
       {groupByMonth(files, i18n.language).map((group) => (
-        <section key={group.key} aria-label={group.label} data-media-month={group.key}>
+        <section
+          key={group.key}
+          aria-label={group.label}
+          data-media-month={group.key}
+        >
           <h3 className="mb-2 text-xs font-semibold text-muted-foreground">
             {group.label}
           </h3>
           <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4 2xl:grid-cols-5">
             {group.files.map((file) => (
-              <MediaTile key={file.attachment.id} actions={actions} file={file} />
+              <MediaTile
+                key={file.attachment.id}
+                actions={actions}
+                file={file}
+              />
             ))}
           </ul>
         </section>

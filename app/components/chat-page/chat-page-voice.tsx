@@ -207,7 +207,10 @@ function VoiceTranscript({
   if (text === "") return null;
   const ToggleIcon = isShown ? ChevronUp : ChevronDown;
   return (
-    <div className="border-t border-border px-3 py-1.5" data-voice-transcript="">
+    <div
+      className="border-t border-border px-3 py-1.5"
+      data-voice-transcript=""
+    >
       <button
         aria-expanded={isShown}
         className="inline-flex h-7 cursor-pointer items-center gap-1 rounded-md px-1.5 text-xs font-medium text-muted-foreground hover:bg-surface-hover hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
@@ -218,7 +221,9 @@ function VoiceTranscript({
         {isShown ? t("chatPage.voice.hideText") : t("chatPage.voice.showText")}
       </button>
       {isShown ? (
-        <p className="px-1.5 pt-1 pb-1.5 text-[15px] whitespace-pre-wrap">{text}</p>
+        <p className="px-1.5 pt-1 pb-1.5 text-[15px] whitespace-pre-wrap">
+          {text}
+        </p>
       ) : null}
     </div>
   );
@@ -274,8 +279,12 @@ export function ChatPageVoice({
           <PlayIcon aria-hidden="true" className="size-4" />
         </button>
         <p className="flex min-w-0 flex-col leading-tight" data-voice-sender="">
-          <span className="truncate text-[13px] font-semibold">{senderName}</span>
-          <span className="truncate text-xs text-muted-foreground">{length}</span>
+          <span className="truncate text-[13px] font-semibold">
+            {senderName}
+          </span>
+          <span className="truncate text-xs text-muted-foreground">
+            {length}
+          </span>
         </p>
         <div
           className="order-last col-span-full flex min-w-0 sm:order-none sm:col-span-1"
@@ -294,7 +303,10 @@ export function ChatPageVoice({
           className="text-right text-xs whitespace-nowrap text-muted-foreground tabular-nums"
           data-voice-time=""
         >
-          {formatFixedMediaTime(player.positionMs / 1000, voice.durationMs / 1000)}
+          {formatFixedMediaTime(
+            player.positionMs / 1000,
+            voice.durationMs / 1000,
+          )}
         </span>
         <button
           aria-label={t("chatPage.cards.speed", { speed })}

@@ -102,8 +102,7 @@ import type { AgentChatControlServices } from "./agent-chat-control-services.ser
  * the stored conversations the chat page shows (PAGE-278).
  */
 export interface EmployeeApplicationServices
-  extends ConversationApplicationServices,
-    AgentChatControlServices {
+  extends ConversationApplicationServices, AgentChatControlServices {
   readonly agentEmployeeAdministration: AgentEmployeeAdministration;
   readonly agentDeletionService: AgentDeletionService;
   /** The templates of `AGENT.md` (PAGE-283). */
@@ -336,15 +335,17 @@ interface LateServices {
   library: ConversationAttachmentLibrary | null;
 }
 
-function optionalImages(
-  images: AgentImageToolDependencies | undefined,
-): { readonly images?: AgentImageToolDependencies } {
+function optionalImages(images: AgentImageToolDependencies | undefined): {
+  readonly images?: AgentImageToolDependencies;
+} {
   return images ? { images } : {};
 }
 
 function lateAttachments(late: LateServices): ConversationAttachments {
   if (late.attachments === null)
-    throw new Error("The conversation attachments are used before they are wired.");
+    throw new Error(
+      "The conversation attachments are used before they are wired.",
+    );
   return late.attachments;
 }
 

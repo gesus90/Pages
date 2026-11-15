@@ -32,9 +32,8 @@ import {
   requireCompleted,
   turnBeganEvent,
 } from "./PicaAcpTurnResult";
-import { PicaAcpUpdates } from "./PicaAcpUpdates";
 import { PicaAcpPrompt } from "./PicaAcpPrompt";
-import { notePicaNativeTool } from "./PicaAcpNativeToolRecord";
+import { createPicaAcpUpdates } from "./PicaAcpJobUpdates";
 import { openPicaSession } from "./PicaAcpPoolOpening";
 
 import type { DatabaseLogMetrics } from "@/backend/logging/DatabaseLogMetrics";
@@ -55,6 +54,7 @@ import type { PicaAcpOutcome } from "./PicaAcpTurnResult";
 import type { PicaAcpJobDependencies } from "./PicaAcpJobDependencies";
 import type { PicaAcpPooledInput } from "./PicaAcpPoolOpening";
 import type { PicaAcpJobSpecification } from "./PicaAcpJobSpecification";
+import type { PicaAcpUpdates } from "./PicaAcpUpdates";
 
 export type { PicaAcpJobDependencies } from "./PicaAcpJobDependencies";
 export type {
@@ -160,51 +160,25 @@ export class PicaAcpJob {
         ].join("\n\n"),
       specification.agent.supportsImages,
     );
-    this.updates = new PicaAcpUpdates(
-      {
-        picaCodex: {
-          catalog: () => this.credential.catalog(this.requireContext().signal),
-          capture: () => this.credential.capture(this.requireContext()),
-        },
-        ...(specification.agent.connection.provider === "claude_code"
-          ? { picaHelper: () => this.credential.helperPath() }
-          : {}),
-        steering: (canSteer, capabilities) => {
-          this.prompt.negotiated(capabilities);
-          this.hasSteering = canSteer;
-          this.journal.note({ kind: "capabilities", canSteer });
-        },
-        text: (turn, isReset, delta) => this.journal.text(turn, isReset, delta),
-        thought: (turn, delta) =>
-          this.dependencies.liveAnswer?.thought(turn, delta),
-        context: (context, cost) => this.usage.recordContext(context, cost),
-        compaction: (compaction) =>
-          this.journal.note({ kind: "compaction", ...compaction }),
-        promptEnded: (turn, tokens) => {
-          if (this.isSteerBinding && turn === this.turn)
-            this.endedDuringSteer = true;
-          if (this.credential.boundTurn === turn) this.credential.revoke();
-          this.usage.recordTokens(turn, tokens);
-        },
-        threadStatus: (isActive) => this.thread.observe(isActive),
-        content: (turn, block) => this.answerOutput.take(turn, block),
-        closed: () => this.thread.close(),
-        // Host tools of an agent employee show in the chat with input and result (PAGE-303).
-        ...(specification.run.options.access === "yolo"
-          ? {
-              nativeTool: (event) => {
-                this.journal.note({ kind: "tool", ...event });
-                notePicaNativeTool(
-                  event,
-                  this.notedNativeCalls,
-                  this.dependencies.recipes,
-                );
-              },
-            }
-          : {}),
+    this.updates = createPicaAcpUpdates({
+      specification,
+      dependencies,
+      credential: this.credential,
+      prompt: this.prompt,
+      journal: this.journal,
+      usage: this.usage,
+      thread: this.thread,
+      answerOutput: this.answerOutput,
+      notedNativeCalls: this.notedNativeCalls,
+      context: () => this.requireContext(),
+      onSteering: (canSteer) => {
+        this.hasSteering = canSteer;
       },
-      specification.run.runner,
-    );
+      onPromptEnded: (turn) => {
+        if (this.isSteerBinding && turn === this.turn)
+          this.endedDuringSteer = true;
+      },
+    });
     this.steering = new PicaAcpSteering({
       gate: specification.gate,
       status: (messageId, status) => this.answerStore.steer(messageId, status),

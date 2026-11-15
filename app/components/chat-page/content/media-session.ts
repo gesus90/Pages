@@ -102,7 +102,8 @@ export function takeOver(handle: MediaHandle): MediaHandover {
   pendingHandBacks.clear();
   let isPlaying = justPlaying.delete(handle.attachmentId);
   for (const other of handles) {
-    if (other === handle || other.attachmentId !== handle.attachmentId) continue;
+    if (other === handle || other.attachmentId !== handle.attachmentId)
+      continue;
     const element = other.element();
     if (element) savePosition(handle.attachmentId, element.currentTime);
     if (!other.isPlaying) continue;

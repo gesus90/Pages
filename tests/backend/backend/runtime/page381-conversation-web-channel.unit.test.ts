@@ -52,9 +52,9 @@ function authenticator(isActive: boolean): PicaMobileAuthenticator {
   };
 }
 
-const context = (isActive = true): Parameters<
-  typeof admitConversationWebChannel
->[1] => ({
+const context = (
+  isActive = true,
+): Parameters<typeof admitConversationWebChannel>[1] => ({
   isForwardedHttps: () => false,
   authenticator: authenticator(isActive),
 });
@@ -147,10 +147,12 @@ it("opens a conversations.v1 connection for the signed-in browser", async () => 
   });
   mocks.upgrade.mockImplementation(
     (
-      _request: unknown,
-      _socket: unknown,
-      _head: unknown,
-      callback: (opened: EventEmitter) => void,
+      ...[, , , callback]: [
+        unknown,
+        unknown,
+        unknown,
+        (opened: EventEmitter) => void,
+      ]
     ) => callback(channel),
   );
   const auth = authenticator(true);
@@ -186,7 +188,9 @@ it("opens a conversations.v1 connection for the signed-in browser", async () => 
     false,
   );
   await vi.waitFor(() => expect(channel.send).toHaveBeenCalled());
-  const connected: unknown = JSON.parse(String(channel.send.mock.calls[0]?.[0]));
+  const connected: unknown = JSON.parse(
+    String(channel.send.mock.calls[0]?.[0]),
+  );
   expect(connected).toMatchObject({
     type: "connected",
     payload: {

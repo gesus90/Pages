@@ -26,8 +26,16 @@ function choice(
 }
 
 const CHOICES = [
-  choice({ model: "claude-opus-5-5", name: "Claude Opus 5.5", aliases: ["opus"] }),
-  choice({ model: "claude-sonnet-5-5", name: "Claude Sonnet 5.5", aliases: ["sonnet"] }),
+  choice({
+    model: "claude-opus-5-5",
+    name: "Claude Opus 5.5",
+    aliases: ["opus"],
+  }),
+  choice({
+    model: "claude-sonnet-5-5",
+    name: "Claude Sonnet 5.5",
+    aliases: ["sonnet"],
+  }),
   choice({
     connectionId: "openrouter",
     connectionName: "OpenRouter",
@@ -71,11 +79,13 @@ describe("parseAgentChatCommand (PAGE-380)", () => {
 describe("matchAgentChatModels (PAGE-380)", () => {
   it("prefers an exact alias, name or ID over a partial match", () => {
     // "opus" is the alias of Claude Opus and part of the OpenRouter model; the alias wins.
-    expect(matchAgentChatModels("opus", CHOICES).map((entry) => entry.model)).toEqual([
-      "claude-opus-5-5",
-    ]);
     expect(
-      matchAgentChatModels("Claude Sonnet 5.5", CHOICES).map((entry) => entry.model),
+      matchAgentChatModels("opus", CHOICES).map((entry) => entry.model),
+    ).toEqual(["claude-opus-5-5"]);
+    expect(
+      matchAgentChatModels("Claude Sonnet 5.5", CHOICES).map(
+        (entry) => entry.model,
+      ),
     ).toEqual(["claude-sonnet-5-5"]);
   });
 

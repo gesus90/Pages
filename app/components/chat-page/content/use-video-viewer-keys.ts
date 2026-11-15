@@ -24,7 +24,10 @@ export interface VideoViewerKeyActions {
  * @param actions - What the keys do.
  */
 export function viewerKeyAction(
-  event: Pick<KeyboardEvent, "key" | "shiftKey" | "ctrlKey" | "metaKey" | "altKey">,
+  event: Pick<
+    KeyboardEvent,
+    "key" | "shiftKey" | "ctrlKey" | "metaKey" | "altKey"
+  >,
   actions: VideoViewerKeyActions,
 ): (() => void) | null {
   if (event.ctrlKey || event.metaKey || event.altKey) return null;
@@ -33,9 +36,13 @@ export function viewerKeyAction(
     case "Spacebar":
       return actions.toggle;
     case "ArrowLeft":
-      return event.shiftKey ? actions.previous : () => actions.skip(-VIEWER_SKIP_SECONDS);
+      return event.shiftKey
+        ? actions.previous
+        : () => actions.skip(-VIEWER_SKIP_SECONDS);
     case "ArrowRight":
-      return event.shiftKey ? actions.next : () => actions.skip(VIEWER_SKIP_SECONDS);
+      return event.shiftKey
+        ? actions.next
+        : () => actions.skip(VIEWER_SKIP_SECONDS);
     case "f":
     case "F":
       return actions.toggleFullscreen;
@@ -70,7 +77,8 @@ export function useVideoViewerKeys(actions: VideoViewerKeyActions): void {
       action();
     }
     window.addEventListener("keydown", handleKey, { capture: true });
-    return () => window.removeEventListener("keydown", handleKey, { capture: true });
+    return () =>
+      window.removeEventListener("keydown", handleKey, { capture: true });
   }, []);
 }
 
@@ -90,7 +98,10 @@ export function useIdleControls(isPlaying: boolean): {
   const [moved, setMoved] = useState(0);
   useEffect(() => {
     if (!isPlaying) return undefined;
-    const timer = window.setTimeout(() => setIdle(true), VIEWER_CONTROLS_IDLE_MILLISECONDS);
+    const timer = window.setTimeout(
+      () => setIdle(true),
+      VIEWER_CONTROLS_IDLE_MILLISECONDS,
+    );
     return () => window.clearTimeout(timer);
   }, [isPlaying, moved]);
   useEffect(() => {

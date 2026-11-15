@@ -85,11 +85,7 @@ export interface AgentChatModelOverview {
 
 /** Why a request of the control was refused. */
 export type AgentChatControlFailure =
-  | "forbidden"
-  | "notFound"
-  | "invalidInput"
-  | "unavailable"
-  | "modelNotAllowed";
+  "forbidden" | "notFound" | "invalidInput" | "unavailable" | "modelNotAllowed";
 
 /** A member of a group as the member dialog lists it. */
 export interface ChatGroupMemberView {

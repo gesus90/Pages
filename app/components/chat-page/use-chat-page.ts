@@ -292,7 +292,7 @@ function pendingMessage(
     formData?.get("groupId");
   if (typeof text !== "string" || targetId !== selection?.id) return null;
   const clientMessageId = formData?.get("clientMessageId");
-  const message = {
+  const baseMessage: VirtualChatMessage = {
     id: "pending",
     authorId: null,
     content: text,
@@ -302,11 +302,18 @@ function pendingMessage(
       ? { isFromPreview: true }
       : {}),
   };
-  // Sent during an answer, it shows at once how it goes to the agents (PAGE-381).
+  return withPendingDelivery(baseMessage, formData);
+}
+
+/** Attaches how a message sent mid-answer goes to the agents (PAGE-381). */
+function withPendingDelivery(
+  message: VirtualChatMessage,
+  formData: FormData | undefined,
+): VirtualChatMessage {
   const delivery = formData?.get("delivery");
+  if (delivery === "after") return { ...message, queue: "chat" };
   const steered = formData?.get("steeredInto");
   const agentIds = typeof steered === "string" ? steered.split(",") : [];
-  if (delivery === "after") return { ...message, queue: "chat" };
   if (delivery === "steer" && agentIds.length > 0)
     return { ...message, steeredInto: agentIds };
   return message;
@@ -383,6 +390,62 @@ function searchLists(lists: ChatLists, query: string): ChatLists {
   };
 }
 
+function createSendActions(context: {
+  readonly opened: OpenedConversation | null;
+  readonly selection: VirtualChatSelection | null;
+  readonly isAnswering: boolean;
+  readonly workingAgentIds: readonly string[];
+  readonly touch: (selection: VirtualChatSelection) => void;
+  readonly submit: ReturnType<typeof useFetcher>["submit"];
+  readonly controls: ReturnType<typeof useAgentControls>;
+}): Pick<ChatPageState, "send" | "sendFromPreview" | "stopAll"> {
+  const {
+    opened,
+    selection,
+    isAnswering,
+    workingAgentIds,
+    touch,
+    submit,
+    controls,
+  } = context;
+  function send(
+    content: string,
+    attachmentIds: readonly string[] = [],
+    delivery?: ConversationDelivery,
+  ): void {
+    const isEmpty = content.trim() === "" && attachmentIds.length === 0;
+    if (isEmpty || !opened || !selection) return;
+    const formData = messageForm(opened, content, attachmentIds);
+    if (!formData) return;
+    if (isAnswering && delivery) {
+      formData.set("delivery", delivery);
+      formData.set("steeredInto", workingAgentIds.join(","));
+    }
+    touch(selection);
+    void submit(formData, { method: "post" });
+  }
+  function sendFromPreview(text: string): void {
+    if (text.trim() === "" || !opened || !selection) return;
+    const formData = messageForm(
+      opened,
+      text,
+      [],
+      `${CONVERSATION_PREVIEW_SEND_PREFIX}${crypto.randomUUID()}`,
+    );
+    if (!formData) return;
+    touch(selection);
+    void submit(formData, { method: "post" });
+  }
+  function stopAll(): void {
+    if (opened?.kind !== "group") {
+      controls.stop();
+      return;
+    }
+    for (const agentId of workingAgentIds) controls.stopGroupAgent(agentId);
+  }
+  return { send, sendFromPreview, stopAll };
+}
+
 /**
  * Selection, search and the conversation with agents and groups on the chat
  * page.
@@ -434,56 +497,16 @@ export function useChatPage(
     onCancelTool: controls.cancelAgentTool,
   });
   const isAnswering = answering.isAnswering || liveChat.isWriting;
-  const { answeringNames } = answering;
-  const sendFailure = readSendFailure(sender);
   useConversationRead(opened, stored);
-
-  function send(
-    content: string,
-    attachmentIds: readonly string[] = [],
-    delivery?: ConversationDelivery,
-  ): void {
-    const isEmpty = content.trim() === "" && attachmentIds.length === 0;
-    if (isEmpty || !opened || !selection) return;
-    const formData = messageForm(opened, content, attachmentIds);
-    if (!formData) return;
-    if (isAnswering && delivery) {
-      formData.set("delivery", delivery);
-      formData.set("steeredInto", liveChat.workingAgentIds.join(","));
-    }
-    activity.touch(selection);
-    void sender.submit(formData, { method: "post" });
-  }
-
-  function sendFromPreview(text: string): void {
-    if (text.trim() === "" || !opened || !selection) return;
-    const formData = messageForm(
-      opened,
-      text,
-      [],
-      `${CONVERSATION_PREVIEW_SEND_PREFIX}${crypto.randomUUID()}`,
-    );
-    if (!formData) return;
-    activity.touch(selection);
-    void sender.submit(formData, { method: "post" });
-  }
-
-  function stopAll(): void {
-    if (opened?.kind !== "group") {
-      controls.stop();
-      return;
-    }
-    for (const agentId of liveChat.workingAgentIds)
-      controls.stopGroupAgent(agentId);
-  }
-
-  function findParticipant(id: string): VirtualParticipant | undefined {
-    return lists.participants.find((participant) => participant.id === id);
-  }
-
-  function findMembers(group: VirtualGroup): VirtualParticipant[] {
-    return membersOf(group, lists.participants);
-  }
+  const actions = createSendActions({
+    opened,
+    selection,
+    isAnswering,
+    workingAgentIds: liveChat.workingAgentIds,
+    touch: activity.touch,
+    submit: sender.submit,
+    controls,
+  });
 
   return {
     query,
@@ -502,14 +525,12 @@ export function useChatPage(
     isMuted: mute.isMuted,
     toggleMute: mute.toggle,
     isAnswering,
-    answeringNames,
+    answeringNames: answering.answeringNames,
     voiceMaximumMs:
       directory.voiceMaximumMs ??
       CONVERSATION_VOICE_DEFAULT_DURATION_SECONDS * 1000,
-    sendFailure,
-    send,
-    sendFromPreview,
-    stopAll,
+    sendFailure: readSendFailure(sender),
+    ...actions,
     live: liveChat.history,
     activity: liveChat.activity,
     isLive: stream.isConnected,
@@ -519,7 +540,8 @@ export function useChatPage(
     liveTools: isAnswering ? (directory.liveToolUses?.[historyId] ?? []) : [],
     cancelTool: controls.cancelTool,
     resumeAgents: controls.resumeAgents,
-    findParticipant,
-    findMembers,
+    findParticipant: (id) =>
+      lists.participants.find((participant) => participant.id === id),
+    findMembers: (group) => membersOf(group, lists.participants),
   };
 }

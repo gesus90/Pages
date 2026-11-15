@@ -45,8 +45,9 @@ export class ConversationAttachmentExpiry {
 
   /** Runs once unless a run is going. */
   public runDue(): Promise<void> {
-    this.run ??= withBackgroundDatabaseWork("conversation_attachment_expiry", () =>
-      this.attachments.expire(),
+    this.run ??= withBackgroundDatabaseWork(
+      "conversation_attachment_expiry",
+      () => this.attachments.expire(),
     )
       .then(() => undefined)
       .catch((error: unknown) => {

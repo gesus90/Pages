@@ -23,7 +23,11 @@ import { useMediaOverview } from "./media-overview-api";
 import { MediaDetail } from "./media-detail";
 import { MediaGrid } from "./media-grid";
 import { MediaLinks } from "./media-links";
-import { mediaCardOf, mediaImageOf, senderNameOf } from "./media-overview-model";
+import {
+  mediaCardOf,
+  mediaImageOf,
+  senderNameOf,
+} from "./media-overview-model";
 import { MediaFilters, MediaTabs } from "./media-overview-toolbar";
 import { MediaRows } from "./media-rows";
 import { useMediaOverviewState } from "./use-media-overview-state";
@@ -50,19 +54,30 @@ function shownMediaOf(
   state: MediaOverviewState,
   now: number | null,
 ): ShownMedia {
-  const files = overview ? filterMediaFiles(overview.files, state.filter, now ?? 0) : [];
+  const files = overview
+    ? filterMediaFiles(overview.files, state.filter, now ?? 0)
+    : [];
   const links = overview ? filterMediaLinks(overview.links, state.filter) : [];
-  return { files, links, tabFiles: files.filter((file) => file.tab === state.tab) };
+  return {
+    files,
+    links,
+    tabFiles: files.filter((file) => file.tab === state.tab),
+  };
 }
 
 /** Opens a file in its view: images in the viewer, videos in their full screen, the rest large in the panel. */
 function itemActionsOf(
   content: ChatContent,
   shown: ShownMedia,
-  context: { readonly overview: ConversationMediaOverview | null; readonly state: MediaOverviewState; readonly now: number | null },
+  context: {
+    readonly overview: ConversationMediaOverview | null;
+    readonly state: MediaOverviewState;
+    readonly now: number | null;
+  },
 ): MediaItemActions {
   const { overview, state, now } = context;
-  const senderName = (senderId: string): string => senderNameOf(overview?.senders ?? [], senderId);
+  const senderName = (senderId: string): string =>
+    senderNameOf(overview?.senders ?? [], senderId);
   return {
     selected: state.selected,
     toggleSelected: state.toggleSelected,
@@ -77,7 +92,9 @@ function itemActionsOf(
       if (file.tab === "images") {
         content.openViewer({
           attachmentId: file.attachment.id,
-          images: shown.tabFiles.map((entry) => mediaImageOf(entry, senderName(entry.senderId))),
+          images: shown.tabFiles.map((entry) =>
+            mediaImageOf(entry, senderName(entry.senderId)),
+          ),
         });
         return;
       }
@@ -107,25 +124,45 @@ function OverviewHead({
   const { t } = useTranslation();
   const marked = [...state.selected];
   const canArchive =
-    conversationId !== null && marked.length > 0 && marked.length <= CONVERSATION_MEDIA_ARCHIVE_MAXIMUM;
+    conversationId !== null &&
+    marked.length > 0 &&
+    marked.length <= CONVERSATION_MEDIA_ARCHIVE_MAXIMUM;
   return (
     <CardHead
       actions={
         <>
           {marked.length > 0 ? (
-            <CardAction label={t("chatPage.media.clearSelection")} onClick={state.clearSelected} variant="quiet" />
+            <CardAction
+              label={t("chatPage.media.clearSelection")}
+              onClick={state.clearSelected}
+              variant="quiet"
+            />
           ) : null}
           {canArchive ? (
             <CardDownloadAction
               download={{
                 href: mediaArchiveUrl(conversationId, marked),
-                label: t("chatPage.media.downloadZip", { count: marked.length }),
+                label: t("chatPage.media.downloadZip", {
+                  count: marked.length,
+                }),
               }}
             />
           ) : null}
           <CardActionDivider />
-          <CardAction icon={RotateCw} isIconOnly label={t("chatPage.media.reload")} onClick={onReload} variant="quiet" />
-          <CardAction icon={X} isIconOnly label={t("chatPage.cards.close")} onClick={onClose} variant="quiet" />
+          <CardAction
+            icon={RotateCw}
+            isIconOnly
+            label={t("chatPage.media.reload")}
+            onClick={onReload}
+            variant="quiet"
+          />
+          <CardAction
+            icon={X}
+            isIconOnly
+            label={t("chatPage.cards.close")}
+            onClick={onClose}
+            variant="quiet"
+          />
         </>
       }
       className="border-b border-border px-4"
@@ -141,7 +178,10 @@ function OverviewHead({
 }
 
 /** Why a tab shows nothing: it failed, is on its way, or is empty. */
-function emptyKey(status: { readonly isLoading: boolean; readonly isFailed: boolean }): string {
+function emptyKey(status: {
+  readonly isLoading: boolean;
+  readonly isFailed: boolean;
+}): string {
   if (status.isFailed) return "failed";
   return status.isLoading ? "loading" : "empty";
 }
@@ -159,15 +199,22 @@ function TabBody({
   readonly status: { readonly isLoading: boolean; readonly isFailed: boolean };
 }): React.ReactElement {
   const { t } = useTranslation();
-  const isEmpty = state.tab === "links" ? shown.links.length === 0 : shown.tabFiles.length === 0;
+  const isEmpty =
+    state.tab === "links"
+      ? shown.links.length === 0
+      : shown.tabFiles.length === 0;
   if (isEmpty) {
     return (
-      <p className="p-6 text-center text-sm text-muted-foreground" role="status">
+      <p
+        className="p-6 text-center text-sm text-muted-foreground"
+        role="status"
+      >
         {t(`chatPage.media.${emptyKey(status)}`)}
       </p>
     );
   }
-  if (state.tab === "links") return <MediaLinks actions={actions} links={shown.links} />;
+  if (state.tab === "links")
+    return <MediaLinks actions={actions} links={shown.links} />;
   if (state.tab === "images" || state.tab === "videos")
     return <MediaGrid actions={actions} files={shown.tabFiles} />;
   return <MediaRows actions={actions} files={shown.tabFiles} />;
@@ -206,7 +253,10 @@ export function MediaOverviewPanel({
   return (
     <section
       aria-label={t("chatPage.media.title")}
-      className={cn("@container flex min-h-0 min-w-0 flex-col overflow-hidden bg-surface text-foreground", className)}
+      className={cn(
+        "@container flex min-h-0 min-w-0 flex-col overflow-hidden bg-surface text-foreground",
+        className,
+      )}
       data-media-overview=""
       style={style}
     >
@@ -219,10 +269,21 @@ export function MediaOverviewPanel({
       />
       {state.detailId === null ? (
         <>
-          <MediaTabs counts={mediaTabCounts(shown.files, shown.links)} state={state} />
+          <MediaTabs
+            counts={mediaTabCounts(shown.files, shown.links)}
+            state={state}
+          />
           <MediaFilters senders={overview?.senders ?? []} state={state} />
-          <div className="min-h-0 flex-1 overflow-y-auto border-t border-border bg-panel-body" role="tabpanel">
-            <TabBody actions={actions} shown={shown} state={state} status={loaded} />
+          <div
+            className="min-h-0 flex-1 overflow-y-auto border-t border-border bg-panel-body"
+            role="tabpanel"
+          >
+            <TabBody
+              actions={actions}
+              shown={shown}
+              state={state}
+              status={loaded}
+            />
           </div>
         </>
       ) : (

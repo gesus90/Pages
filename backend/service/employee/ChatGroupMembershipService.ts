@@ -205,11 +205,11 @@ export class ChatGroupMembershipService {
     const users = await Promise.all(
       memberIds.map((memberId) => this.dependencies.users.findById(memberId)),
     );
-    const agents = users.filter(
-      (user): user is User => user?.isAgent === true,
-    );
+    const agents = users.filter((user): user is User => user?.isAgent === true);
     // The agents lose their sessions at once; each writes its state down first.
-    await Promise.all(agents.map((agent) => this.closeAgent(viewer, id, agent)));
+    await Promise.all(
+      agents.map((agent) => this.closeAgent(viewer, id, agent)),
+    );
     const { store } = this.dependencies;
     await store.chatModels().removeForChat("group", id);
     await store.groups().remove(viewer.id, id);

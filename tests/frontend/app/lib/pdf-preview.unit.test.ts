@@ -104,7 +104,6 @@ describe("opening a pdf preview", () => {
       enableXfa: false,
       useWasm: false,
       stopAtErrors: false,
-      isEvalSupported: false,
     });
     expect(preview.pageCount).toBe(3);
   });

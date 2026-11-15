@@ -17,7 +17,8 @@ export const CONVERSATION_ATTACHMENT_MAXIMUM_COUNT = 10;
  * included, counted from its sending (PAGE-382): 72 hours. Uploads of people
  * stay.
  */
-export const CONVERSATION_AGENT_FILE_LIFETIME_MILLISECONDS = 72 * 60 * 60 * 1000;
+export const CONVERSATION_AGENT_FILE_LIFETIME_MILLISECONDS =
+  72 * 60 * 60 * 1000;
 
 /** Largest preview image of an attachment, in bytes. */
 export const CONVERSATION_THUMBNAIL_MAXIMUM_BYTES = 1024 * 1024;

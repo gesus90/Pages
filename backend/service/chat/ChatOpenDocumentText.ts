@@ -45,7 +45,10 @@ class ParagraphCollector {
     else if (token.name === "text:line-break") this.current += "\n";
     else if (token.name === "text:s")
       this.current += " ".repeat(
-        Math.min(Number(attribute(token.attributes, "text:c") ?? "1") || 1, 100),
+        Math.min(
+          Number(attribute(token.attributes, "text:c") ?? "1") || 1,
+          100,
+        ),
       );
   }
 
@@ -61,7 +64,8 @@ class ParagraphCollector {
   }
 
   private flush(): void {
-    if (this.current.trim() !== "") this.paragraphs.push(this.current.trimEnd());
+    if (this.current.trim() !== "")
+      this.paragraphs.push(this.current.trimEnd());
     this.current = "";
   }
 }
@@ -179,7 +183,11 @@ class SheetCollector {
   private tableRow(token: XmlToken): void {
     if (!token.isClosing) {
       this.row = [];
-      this.rowRepeat = repeated(token, "table:number-rows-repeated", MAXIMUM_ROWS);
+      this.rowRepeat = repeated(
+        token,
+        "table:number-rows-repeated",
+        MAXIMUM_ROWS,
+      );
       if (token.isEmpty) this.endRow();
       return;
     }

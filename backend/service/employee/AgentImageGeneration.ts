@@ -121,7 +121,10 @@ export class AgentImageGeneration {
       canGenerate: false,
       modelName,
       reason,
-      alternatives: await this.alternatives(request.employee, request.assignment),
+      alternatives: await this.alternatives(
+        request.employee,
+        request.assignment,
+      ),
     };
   }
 
@@ -169,7 +172,8 @@ export class AgentImageGeneration {
     const costUsd = costs.every((cost) => cost !== null)
       ? costs.reduce<number>((sum, cost) => sum + (cost ?? 0), 0)
       : null;
-    const text = answers.map((answer) => answer.text).find((entry) => entry !== "") ?? "";
+    const text =
+      answers.map((answer) => answer.text).find((entry) => entry !== "") ?? "";
     await this.recordCost(request.employee.userId, {
       count: images.length,
       model: capability.modelName,
@@ -187,7 +191,9 @@ export class AgentImageGeneration {
     if (!listed || !isImageOutputModel(listed)) return "no_image_output";
     const route = imageRoute(connection, model);
     if (!route)
-      return isOwnOpenCodeKey(connection, model) ? "no_key" : "no_image_interface";
+      return isOwnOpenCodeKey(connection, model)
+        ? "no_key"
+        : "no_image_interface";
     return (await this.keys.hasKey(connection, route)) ? null : "no_key";
   }
 
@@ -203,7 +209,10 @@ export class AgentImageGeneration {
           (model) =>
             model.isImageOutputCapable === true &&
             isChatModelChoice(model, employee) &&
-            !(model.connectionId === current.connection.id && model.model === current.model) &&
+            !(
+              model.connectionId === current.connection.id &&
+              model.model === current.model
+            ) &&
             imageRoute(
               { provider: model.provider, cliAccountLabel: null },
               model.model,
@@ -236,7 +245,11 @@ export class AgentImageGeneration {
         cost:
           generation.costUsd === null
             ? { state: "unknown", amount: null, isEstimated: false }
-            : { state: "known", amount: generation.costUsd, isEstimated: false },
+            : {
+                state: "known",
+                amount: generation.costUsd,
+                isEstimated: false,
+              },
       });
     } catch (error: unknown) {
       // A cost that cannot be recorded must not take the images away.

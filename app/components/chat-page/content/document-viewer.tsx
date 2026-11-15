@@ -2,7 +2,12 @@ import { FileText, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { downloadUrl, formatFileSize } from "./card-types";
-import { CardAction, CardActionDivider, CardDownloadAction, CardHead } from "./content-card";
+import {
+  CardAction,
+  CardActionDivider,
+  CardDownloadAction,
+  CardHead,
+} from "./content-card";
 import { DocumentPanel } from "./documents/document-panel";
 import { DOCUMENT_ICONS, documentKindLabel } from "./documents/document-labels";
 import { PdfViewer } from "./pdf-viewer";
@@ -25,7 +30,9 @@ export interface DocumentViewerCard extends OpenedCard {
  *
  * @param card - The opened card.
  */
-export function isDocumentViewerCard(card: OpenedCard): card is DocumentViewerCard {
+export function isDocumentViewerCard(
+  card: OpenedCard,
+): card is DocumentViewerCard {
   return ["pdf", "word", "slides", "sheet"].includes(card.descriptor.kind);
 }
 
@@ -35,14 +42,27 @@ export function isDocumentViewerCard(card: OpenedCard): card is DocumentViewerCa
  * "Herunterladen" in the accent color, the line and "Schließen". A PDF and
  * slides turn with the arrow keys; Escape closes (see `CardOverlay`).
  */
-export function DocumentViewer({ card, onClose }: { readonly card: DocumentViewerCard; readonly onClose: () => void }): React.ReactElement {
+export function DocumentViewer({
+  card,
+  onClose,
+}: {
+  readonly card: DocumentViewerCard;
+  readonly onClose: () => void;
+}): React.ReactElement {
   const { t, i18n } = useTranslation();
   const { descriptor } = card;
   const { attachment } = descriptor;
   const retention = useRetention(attachment.expiresAt);
   const kind =
-    descriptor.kind === "pdf" ? t("chatPage.cards.kind.pdf") : documentKindLabel(descriptor.format, t);
-  const subtitle = [kind, card.origin.senderName, formatFileSize(attachment.sizeBytes, i18n.language), retention]
+    descriptor.kind === "pdf"
+      ? t("chatPage.cards.kind.pdf")
+      : documentKindLabel(descriptor.format, t);
+  const subtitle = [
+    kind,
+    card.origin.senderName,
+    formatFileSize(attachment.sizeBytes, i18n.language),
+    retention,
+  ]
     .filter((part) => part !== null && part !== "")
     .join(" · ");
   return (
@@ -56,20 +76,36 @@ export function DocumentViewer({ card, onClose }: { readonly card: DocumentViewe
       <CardHead
         actions={
           <>
-            <CardDownloadAction download={{ href: downloadUrl(attachment) }} tone="dark" />
+            <CardDownloadAction
+              download={{ href: downloadUrl(attachment) }}
+              tone="dark"
+            />
             <CardActionDivider tone="dark" />
-            <CardAction icon={X} isIconOnly label={t("chatPage.cards.close")} onClick={onClose} tone="dark" variant="quiet" />
+            <CardAction
+              icon={X}
+              isIconOnly
+              label={t("chatPage.cards.close")}
+              onClick={onClose}
+              tone="dark"
+              variant="quiet"
+            />
           </>
         }
         className="shrink-0 px-4"
-        icon={descriptor.kind === "pdf" ? FileText : DOCUMENT_ICONS[descriptor.kind]}
+        icon={
+          descriptor.kind === "pdf" ? FileText : DOCUMENT_ICONS[descriptor.kind]
+        }
         name={attachment.name}
         subtitle={subtitle}
         tone="dark"
       />
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:mx-10 lg:mb-10 lg:rounded-2xl">
         {descriptor.kind === "pdf" ? (
-          <PdfViewer className="min-h-0 flex-1" isFullscreen url={attachment.url} />
+          <PdfViewer
+            className="min-h-0 flex-1"
+            isFullscreen
+            url={attachment.url}
+          />
         ) : (
           <div className="flex min-h-0 flex-1 flex-col bg-panel-body">
             <DocumentPanel descriptor={descriptor} isFullscreen />

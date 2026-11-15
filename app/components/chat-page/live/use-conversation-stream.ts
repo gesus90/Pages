@@ -50,11 +50,11 @@ export function readLivePayload(frame: unknown): LiveAnswerEventPayload | null {
   if (!isRecord(frame) || frame.type !== "conversation_event") return null;
   const { payload } = frame;
   if (!isRecord(payload) || !isLiveType(payload.type)) return null;
-  const { data } = payload;
+  const { data: eventData } = payload;
   if (
-    !isRecord(data) ||
-    typeof data.answerId !== "string" ||
-    typeof data.seq !== "number"
+    !isRecord(eventData) ||
+    typeof eventData.answerId !== "string" ||
+    typeof eventData.seq !== "number"
   )
     return null;
   return payload as unknown as LiveAnswerEventPayload;

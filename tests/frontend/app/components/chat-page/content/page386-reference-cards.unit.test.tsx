@@ -15,8 +15,11 @@ vi.mock("react-router", () => ({ useFetcher: () => ({ submit: vi.fn() }) }));
 
 /** Previews load only when seen; jsdom has no observer, so nothing is ever seen. */
 class HiddenObserver {
+  /** No-op intersection observe stub. */
   public observe(): void {}
+  /** No-op intersection unobserve stub. */
   public unobserve(): void {}
+  /** No-op intersection disconnect stub. */
   public disconnect(): void {}
 }
 
@@ -48,7 +51,9 @@ function reference(
   };
 }
 
-function renderCards(references: readonly ConversationAttachmentReference[]): void {
+function renderCards(
+  references: readonly ConversationAttachmentReference[],
+): void {
   render(
     <I18nextProvider i18n={i18n}>
       <ChatContentProvider
@@ -76,7 +81,9 @@ describe("PAGE-386 cards of earlier attachments", () => {
     const scrollIntoView = vi.fn();
     Element.prototype.scrollIntoView = scrollIntoView;
     renderCards([reference()]);
-    expect(screen.getByText("aus einer früheren Nachricht von Conan")).toBeTruthy();
+    expect(
+      screen.getByText("aus einer früheren Nachricht von Conan"),
+    ).toBeTruthy();
     // The original's own card: no copy, the same file and checksum.
     expect(screen.getByText("build.zip")).toBeTruthy();
     const card = document.querySelector('[data-attachment-reference="zip-1"]');
@@ -92,11 +99,19 @@ describe("PAGE-386 cards of earlier attachments", () => {
     renderCards([
       reference({
         state: "expired",
-        attachment: { ...ZIP, expiresAt: "2026-11-15T09:00:00.000Z", expiredAt: "2026-11-15T09:00:00.000Z" },
+        attachment: {
+          ...ZIP,
+          expiresAt: "2026-11-15T09:00:00.000Z",
+          expiredAt: "2026-11-15T09:00:00.000Z",
+        },
       }),
       reference({ attachmentId: "gone", state: "deleted", name: "alt.csv" }),
     ]);
-    expect(document.querySelector('[data-reference-state="expired"] [data-attachment-expired]')).toBeTruthy();
+    expect(
+      document.querySelector(
+        '[data-reference-state="expired"] [data-attachment-expired]',
+      ),
+    ).toBeTruthy();
     const deleted = document.querySelector('[data-reference-state="deleted"]');
     expect(deleted?.textContent).toContain("alt.csv");
     expect(deleted?.textContent).toContain("gelöscht");

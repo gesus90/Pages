@@ -226,9 +226,7 @@ export class AgentChatCommandService {
     const members = await Promise.all(
       memberIds.map((id) => this.dependencies.users.findById(id)),
     );
-    return members.filter(
-      (member): member is User => member?.isAgent === true,
-    );
+    return members.filter((member): member is User => member?.isAgent === true);
   }
 
   private done(

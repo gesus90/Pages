@@ -56,7 +56,10 @@ export const AGENT_ATTACHMENT_SEARCH_SCHEMA = z
 /** The input of `anhang_lesen` (PAGE-386). */
 export const AGENT_ATTACHMENT_READ_SCHEMA = z
   .object({
-    kennung: z.string().trim().regex(/^(?:sprachnachricht:)?[a-zA-Z0-9-]{1,100}$/u),
+    kennung: z
+      .string()
+      .trim()
+      .regex(/^(?:sprachnachricht:)?[a-zA-Z0-9-]{1,100}$/u),
     von: z.number().int().min(1).max(100_000).optional(),
     bis: z.number().int().min(1).max(100_000).optional(),
     blatt: z.string().trim().max(200).optional(),
@@ -66,10 +69,14 @@ export const AGENT_ATTACHMENT_READ_SCHEMA = z
   .strict();
 
 /** The checked input of `anhaenge_suchen`. */
-export type AgentAttachmentSearchInput = z.infer<typeof AGENT_ATTACHMENT_SEARCH_SCHEMA>;
+export type AgentAttachmentSearchInput = z.infer<
+  typeof AGENT_ATTACHMENT_SEARCH_SCHEMA
+>;
 
 /** The checked input of `anhang_lesen`. */
-export type AgentAttachmentReadInput = z.infer<typeof AGENT_ATTACHMENT_READ_SCHEMA>;
+export type AgentAttachmentReadInput = z.infer<
+  typeof AGENT_ATTACHMENT_READ_SCHEMA
+>;
 
 /** Which of the two tools is called. */
 export type AgentAttachmentAction = "suchen" | "lesen";
@@ -91,7 +98,7 @@ export interface AgentAttachmentToolDependencies {
 export type AgentAttachmentToolRun = (
   action: AgentAttachmentAction,
   directory: string,
-  input: AgentAttachmentSearchInput | AgentAttachmentReadInput,
+  input: unknown,
   signal: AbortSignal,
 ) => Promise<PicaToolOutcome>;
 
@@ -136,7 +143,10 @@ async function writeImages(
   const files: { datei: string; was: string }[] = [];
   for (const [index, image] of images.entries()) {
     const extension = IMAGE_EXTENSIONS[image.mimeType] ?? "png";
-    const file = path.join(folder, `${safeKey}-${String(index + 1)}.${extension}`);
+    const file = path.join(
+      folder,
+      `${safeKey}-${String(index + 1)}.${extension}`,
+    );
     await writeFile(file, image.data, { mode: 0o600 });
     files.push({ datei: file, was: image.label });
   }
@@ -196,7 +206,8 @@ async function read(
       ...(files.length > 0
         ? {
             bilder: files,
-            bildHinweis: "Öffne jede genannte Bilddatei mit deinem Werkzeug zum Lesen von Dateien, um sie zu sehen. Hänge sie nicht als Datei an.",
+            bildHinweis:
+              "Öffne jede genannte Bilddatei mit deinem Werkzeug zum Lesen von Dateien, um sie zu sehen. Hänge sie nicht als Datei an.",
           }
         : {}),
     },
@@ -226,7 +237,11 @@ export function agentAttachmentTool(
     signal.throwIfAborted();
     try {
       if (action === "suchen")
-        return await search(dependencies, turn, AGENT_ATTACHMENT_SEARCH_SCHEMA.parse(input));
+        return await search(
+          dependencies,
+          turn,
+          AGENT_ATTACHMENT_SEARCH_SCHEMA.parse(input),
+        );
       return await read(dependencies, turn, {
         directory,
         input: AGENT_ATTACHMENT_READ_SCHEMA.parse(input),
@@ -235,13 +250,19 @@ export function agentAttachmentTool(
       if (error instanceof ConversationError && error.code === "not_found")
         return outcome(
           false,
-          { meldung: "Du bist kein Mitglied dieses Chats (mehr); seine Anhänge kannst du nicht lesen." },
+          {
+            meldung:
+              "Du bist kein Mitglied dieses Chats (mehr); seine Anhänge kannst du nicht lesen.",
+          },
           "ATTACHMENT_ACCESS_DENIED",
         );
       logCaughtError("AgentAttachmentTool", error);
       return outcome(
         false,
-        { meldung: "Der Anhang ließ sich gerade nicht lesen. Sage das der Person, statt den Inhalt zu erraten." },
+        {
+          meldung:
+            "Der Anhang ließ sich gerade nicht lesen. Sage das der Person, statt den Inhalt zu erraten.",
+        },
         "ATTACHMENT_READ_FAILED",
       );
     }

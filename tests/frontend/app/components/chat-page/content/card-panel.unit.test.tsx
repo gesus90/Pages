@@ -47,10 +47,13 @@ vi.mock("@/app/components/chat-page/content/chat-markdown", () => ({
 vi.mock("@/app/components/chat-page/content/attachment-full-view", () => ({
   AttachmentFullView: () => <div>Attachment body</div>,
 }));
-vi.mock("@/app/components/chat-page/content/link-cards", async (importOriginal) => ({
-  ...(await importOriginal<typeof LinkCardsModule>()),
-  WebView: () => <div>Web body</div>,
-}));
+vi.mock(
+  "@/app/components/chat-page/content/link-cards",
+  async (importOriginal) => ({
+    ...(await importOriginal<typeof LinkCardsModule>()),
+    WebView: () => <div>Web body</div>,
+  }),
+);
 
 function wrap(element: React.ReactNode): React.ReactElement {
   return <I18nextProvider i18n={createI18n("en")}>{element}</I18nextProvider>;

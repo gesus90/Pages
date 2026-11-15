@@ -7,7 +7,10 @@ import type { LiveActivity } from "./live-answer-state";
 
 /** One agent at work in the opened chat and what it does. */
 export interface AgentActivity {
-  readonly agent: Pick<VirtualParticipant, "id" | "name" | "color" | "avatarImageUrl">;
+  readonly agent: Pick<
+    VirtualParticipant,
+    "id" | "name" | "color" | "avatarImageUrl"
+  >;
   readonly activity: LiveActivity;
 }
 

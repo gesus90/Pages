@@ -124,7 +124,9 @@ function openChatMenu(): void {
 
 function menuEntries(): readonly (string | undefined)[] {
   return Array.from(
-    screen.getByRole("menu").querySelectorAll<HTMLElement>("[data-chat-menu-entry]"),
+    screen
+      .getByRole("menu")
+      .querySelectorAll<HTMLElement>("[data-chat-menu-entry]"),
   ).map((item) => item.dataset.chatMenuEntry);
 }
 
@@ -176,7 +178,12 @@ it("offers media, model, a new session and the confidential switch for an agent"
       kind: "participant",
       participant: {
         ...ADA,
-        chatModel: { name: "Claude Opus 5.5", reasoningEffort: "high", isOverride: true, contextWindow: null },
+        chatModel: {
+          name: "Claude Opus 5.5",
+          reasoningEffort: "high",
+          isOverride: true,
+          contextWindow: null,
+        },
       },
     },
     confidential: { isConfidential: false, onToggle },
@@ -212,7 +219,7 @@ it("starts a new session of the agent as /new does", async () => {
   const bodies: Record<string, string>[] = [];
   vi.stubGlobal(
     "fetch",
-    async (_input: RequestInfo | URL, init: RequestInit = {}) => {
+    async (_: RequestInfo | URL, init: RequestInit = {}) => {
       if (init.body instanceof FormData)
         bodies.push(
           Object.fromEntries(

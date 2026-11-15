@@ -30,7 +30,10 @@ function useMermaid(source: string): MermaidResult | null {
       .catch((error: unknown) => {
         console.warn("Mermaid could not be loaded", error);
         if (isCurrent)
-          setResult({ source, result: { isValid: false, message: String(error) } });
+          setResult({
+            source,
+            result: { isValid: false, message: String(error) },
+          });
       });
     return () => {
       isCurrent = false;
@@ -55,9 +58,14 @@ function MermaidError({
         className="flex items-start gap-2 border-b border-border bg-destructive-subtle px-3 py-2 text-xs text-destructive"
         role="alert"
       >
-        <TriangleAlert aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />
+        <TriangleAlert
+          aria-hidden="true"
+          className="mt-0.5 size-3.5 shrink-0"
+        />
         <p className="min-w-0">
-          <span className="font-semibold">{t("chatPage.preview.mermaid.error")}</span>{" "}
+          <span className="font-semibold">
+            {t("chatPage.preview.mermaid.error")}
+          </span>{" "}
           <span className="font-mono whitespace-pre-wrap">{message}</span>
         </p>
       </div>
@@ -89,7 +97,9 @@ export function MermaidDiagram({
   if (!result.isValid)
     return <MermaidError message={result.message} source={source} />;
   return (
-    <div className={cn("relative flex min-h-0 flex-col bg-panel-body", className)}>
+    <div
+      className={cn("relative flex min-h-0 flex-col bg-panel-body", className)}
+    >
       <div className="absolute top-2 right-2 z-10 flex items-center gap-0.5 rounded-md border border-border bg-surface p-0.5 shadow-xs">
         <CardAction
           icon={ZoomOut}

@@ -49,7 +49,10 @@ const FILE_NAMES: Readonly<Record<string, string>> = {
 };
 
 function fileName(mimeType: string): string {
-  return FILE_NAMES[mimeType.split(";")[0]?.trim().toLowerCase() ?? ""] ?? "voice.wav";
+  return (
+    FILE_NAMES[mimeType.split(";")[0]?.trim().toLowerCase() ?? ""] ??
+    "voice.wav"
+  );
 }
 
 /**

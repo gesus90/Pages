@@ -33,7 +33,8 @@ const MODEL_COLUMNS = `
 function toModel(row: readonly DatabaseValue[]): StoredAgentChatModel {
   return {
     agentId: readTextColumn(row, 0, "agent_id"),
-    chatKind: readTextColumn(row, 1, "chat_kind") === "group" ? "group" : "direct",
+    chatKind:
+      readTextColumn(row, 1, "chat_kind") === "group" ? "group" : "direct",
     chatId: readTextColumn(row, 2, "chat_id"),
     connectionId: readTextColumn(row, 3, "connection_id"),
     model: readTextColumn(row, 4, "model"),
@@ -57,7 +58,9 @@ export class AgentChatModelRepository {
   }
 
   /** The choice of one agent in one chat; `null` follows the agent's own model. */
-  public async find(key: AgentChatModelKey): Promise<StoredAgentChatModel | null> {
+  public async find(
+    key: AgentChatModelKey,
+  ): Promise<StoredAgentChatModel | null> {
     const [row] = await this.database.query(
       `
         SELECT${MODEL_COLUMNS}

@@ -11,13 +11,17 @@ export type FixturePart = readonly [string, string | Uint8Array];
  * @param parts - The parts in their order.
  * @param options - `isEncrypted` marks every part as encrypted.
  */
-export function zipOf(parts: readonly FixturePart[], options: { readonly isEncrypted?: boolean } = {}): Uint8Array {
+export function zipOf(
+  parts: readonly FixturePart[],
+  options: { readonly isEncrypted?: boolean } = {},
+): Uint8Array {
   const locals: Buffer[] = [];
   const centrals: Buffer[] = [];
   let offset = 0;
   for (const [name, content] of parts) {
-    const raw = typeof content === "string" ? Buffer.from(content) : Buffer.from(content);
-    const data = deflateRawSync(raw);
+    const raw =
+      typeof content === "string" ? Buffer.from(content) : Buffer.from(content);
+    const compressed = deflateRawSync(raw);
     const nameBytes = Buffer.from(name);
     const flags = options.isEncrypted ? 1 : 0;
     const local = Buffer.alloc(30);
@@ -25,7 +29,7 @@ export function zipOf(parts: readonly FixturePart[], options: { readonly isEncry
     local.writeUInt16LE(20, 4);
     local.writeUInt16LE(flags, 6);
     local.writeUInt16LE(8, 8);
-    local.writeUInt32LE(data.length, 18);
+    local.writeUInt32LE(compressed.length, 18);
     local.writeUInt32LE(raw.length, 22);
     local.writeUInt16LE(nameBytes.length, 26);
     const central = Buffer.alloc(46);
@@ -34,13 +38,13 @@ export function zipOf(parts: readonly FixturePart[], options: { readonly isEncry
     central.writeUInt16LE(20, 6);
     central.writeUInt16LE(flags, 8);
     central.writeUInt16LE(8, 10);
-    central.writeUInt32LE(data.length, 20);
+    central.writeUInt32LE(compressed.length, 20);
     central.writeUInt32LE(raw.length, 24);
     central.writeUInt16LE(nameBytes.length, 28);
     central.writeUInt32LE(offset, 42);
-    locals.push(local, nameBytes, data);
+    locals.push(local, nameBytes, compressed);
     centrals.push(central, nameBytes);
-    offset += local.length + nameBytes.length + data.length;
+    offset += local.length + nameBytes.length + compressed.length;
   }
   const directory = Buffer.concat(centrals);
   const end = Buffer.alloc(22);
@@ -52,11 +56,15 @@ export function zipOf(parts: readonly FixturePart[], options: { readonly isEncry
   return new Uint8Array(Buffer.concat([...locals, directory, end]));
 }
 
-const W = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:wp="http://schemas.openxmlformats.org/drawingprocessingml/2006/wordprocessingDrawing"';
+const W =
+  'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:wp="http://schemas.openxmlformats.org/drawingprocessingml/2006/wordprocessingDrawing"';
 
 /** A tiny PNG of one pixel. */
 export const PIXEL_PNG = new Uint8Array(
-  Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64"),
+  Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+    "base64",
+  ),
 );
 
 /** A Word document with headings, emphasis, a list, a table, an image, a link, a macro and an external picture. */
@@ -89,13 +97,17 @@ export function docxFixture(): Uint8Array {
     ["word/numbering.xml", numbering],
     ["word/_rels/document.xml.rels", relations],
     ["word/media/image1.png", PIXEL_PNG],
-    ["word/vbaProject.bin", "Sub AutoOpen(): Shell \"calc\": End Sub"],
+    ["word/vbaProject.bin", 'Sub AutoOpen(): Shell "calc": End Sub'],
     ["docProps/app.xml", "<Properties><Pages>3</Pages></Properties>"],
-    ["docProps/core.xml", '<cp:coreProperties xmlns:cp="c" xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>Bericht Q3</dc:title></cp:coreProperties>'],
+    [
+      "docProps/core.xml",
+      '<cp:coreProperties xmlns:cp="c" xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:title>Bericht Q3</dc:title></cp:coreProperties>',
+    ],
   ]);
 }
 
-const P = 'xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"';
+const P =
+  'xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"';
 
 function slideXml(title: string, body: string, extra = ""): string {
   return `<p:sld ${P}><p:cSld><p:spTree>
@@ -114,12 +126,16 @@ export function pptxFixture(): Uint8Array {
     ["ppt/_rels/presentation.xml.rels", relations],
     ["ppt/slides/slide1.xml", slideXml("Willkommen", "Agenda")],
     ["ppt/slides/slide2.xml", slideXml("Zahlen", "Wachstum", picture)],
-    ["ppt/slides/_rels/slide2.xml.rels", `<Relationships><Relationship Id="rId9" Target="../media/image1.png"/></Relationships>`],
+    [
+      "ppt/slides/_rels/slide2.xml.rels",
+      `<Relationships><Relationship Id="rId9" Target="../media/image1.png"/></Relationships>`,
+    ],
     ["ppt/media/image1.png", PIXEL_PNG],
   ]);
 }
 
-const S = 'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"';
+const S =
+  'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"';
 
 /** A workbook with two visible sheets, a hidden one, a formula, a date and a percentage. */
 export function xlsxFixture(): Uint8Array {
@@ -139,11 +155,15 @@ export function xlsxFixture(): Uint8Array {
     ["xl/styles.xml", styles],
     ["xl/worksheets/sheet1.xml", sheet1],
     ["xl/worksheets/sheet2.xml", `<worksheet ${S}><sheetData/></worksheet>`],
-    ["xl/worksheets/sheet3.xml", `<worksheet ${S}><sheetData><row r="1"><c r="B1"><v>7</v></c></row></sheetData></worksheet>`],
+    [
+      "xl/worksheets/sheet3.xml",
+      `<worksheet ${S}><sheetData><row r="1"><c r="B1"><v>7</v></c></row></sheetData></worksheet>`,
+    ],
   ]);
 }
 
-const O = 'xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0" xmlns:table="urn:oasis:names:tc:opendocument:xmlns:table:1.0" xmlns:draw="urn:oasis:names:tc:opendocument:xmlns:drawing:1.0" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:style="urn:oasis:names:tc:opendocument:xmlns:style:1.0" xmlns:fo="urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0" xmlns:presentation="urn:oasis:names:tc:opendocument:xmlns:presentation:1.0" xmlns:meta="urn:oasis:names:tc:opendocument:xmlns:meta:1.0" xmlns:dc="http://purl.org/dc/elements/1.1/"';
+const O =
+  'xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0" xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0" xmlns:table="urn:oasis:names:tc:opendocument:xmlns:table:1.0" xmlns:draw="urn:oasis:names:tc:opendocument:xmlns:drawing:1.0" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:style="urn:oasis:names:tc:opendocument:xmlns:style:1.0" xmlns:fo="urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0" xmlns:presentation="urn:oasis:names:tc:opendocument:xmlns:presentation:1.0" xmlns:meta="urn:oasis:names:tc:opendocument:xmlns:meta:1.0" xmlns:dc="http://purl.org/dc/elements/1.1/"';
 
 /** An OpenDocument text with a heading, emphasis, an ordered list, a table, an image and an external picture. */
 export function odtFixture(): Uint8Array {
@@ -164,7 +184,7 @@ export function odtFixture(): Uint8Array {
     ["content.xml", content],
     ["meta.xml", meta],
     ["Pictures/a.png", PIXEL_PNG],
-    ["Basic/Standard/Module1.xml", "<script>Shell(\"calc\")</script>"],
+    ["Basic/Standard/Module1.xml", '<script>Shell("calc")</script>'],
   ]);
 }
 
@@ -174,7 +194,10 @@ export function odpFixture(): Uint8Array {
 <draw:page draw:name="Seite 1"><draw:frame presentation:class="title"><draw:text-box><text:p>Start</text:p></draw:text-box></draw:frame><draw:frame presentation:class="outline"><draw:text-box><text:list><text:list-item><text:p>Ziel</text:p></text:list-item></text:list></draw:text-box></draw:frame></draw:page>
 <draw:page draw:name="Seite 2"><draw:frame><draw:image xlink:href="Pictures/a.png"/></draw:frame></draw:page>
 </office:presentation></office:body></office:document-content>`;
-  return zipOf([["content.xml", content], ["Pictures/a.png", PIXEL_PNG]]);
+  return zipOf([
+    ["content.xml", content],
+    ["Pictures/a.png", PIXEL_PNG],
+  ]);
 }
 
 /** An OpenDocument spreadsheet with repeated empty rows and cells. */

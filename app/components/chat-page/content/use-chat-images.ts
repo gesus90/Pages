@@ -114,7 +114,10 @@ export function useChatImages(
       try {
         const response = await fetch(
           `/chat/images/${encodeURIComponent(conversationId ?? "")}`,
-          { signal: controller.signal, headers: { Accept: "application/json" } },
+          {
+            signal: controller.signal,
+            headers: { Accept: "application/json" },
+          },
         );
         if (!response.ok) return;
         const images = readChatImages(await response.json());

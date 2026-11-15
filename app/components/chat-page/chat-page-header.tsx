@@ -140,12 +140,12 @@ function groupAgentOptions(
     onOpenSettings: links.onOpenSettings,
     onOpenDirect:
       onSelect !== undefined && hasDirectChat
-        ? (target) => onSelect({ kind: "participant", id: target.id })
+        ? (participant) => onSelect({ kind: "participant", id: participant.id })
         : undefined,
     onMention:
       onMention === undefined
         ? undefined
-        : (target) => onMention(target.username),
+        : (participant) => onMention(participant.username),
   };
 }
 

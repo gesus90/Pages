@@ -24,7 +24,11 @@ import type {
   AgentMediaRequest,
 } from "./AgentMediaGeneration";
 
-const PROMPT = z.string().trim().min(1).max(AGENT_MEDIA_LIMITS.promptCharacters);
+const PROMPT = z
+  .string()
+  .trim()
+  .min(1)
+  .max(AGENT_MEDIA_LIMITS.promptCharacters);
 
 /** The input of `video_erzeugen` (PAGE-384). */
 export const AGENT_VIDEO_TOOL_SCHEMA = z
@@ -54,11 +58,14 @@ export const AGENT_AUDIO_TOOL_SCHEMA = z
 
 /** The checked input of `video_erzeugen` or `audio_erzeugen`. */
 export type AgentMediaToolInput = Partial<
-  z.infer<typeof AGENT_VIDEO_TOOL_SCHEMA> & z.infer<typeof AGENT_AUDIO_TOOL_SCHEMA>
+  z.infer<typeof AGENT_VIDEO_TOOL_SCHEMA> &
+    z.infer<typeof AGENT_AUDIO_TOOL_SCHEMA>
 > & { readonly beschreibung: string };
 
 /** The word for each kind in the answers to the agent. */
-const KIND_WORDS: Readonly<Record<AgentMediaKind, { readonly noun: string; readonly plural: string }>> = {
+const KIND_WORDS: Readonly<
+  Record<AgentMediaKind, { readonly noun: string; readonly plural: string }>
+> = {
   video: { noun: "Video", plural: "Videos" },
   audio: { noun: "Sound", plural: "Sounds oder Sprache" },
 };
@@ -132,7 +139,10 @@ function unableOutcome(
   );
 }
 
-function failureOutcome(kind: AgentMediaKind, error: AgentMediaError): PicaToolOutcome {
+function failureOutcome(
+  kind: AgentMediaKind,
+  error: AgentMediaError,
+): PicaToolOutcome {
   const detail = error.detail === "" ? "" : ` (${error.detail})`;
   return outcome(
     false,
@@ -160,8 +170,12 @@ export function mediaFileName(
   moment: Date,
   mimeType: string,
 ): string {
-  const stamp = moment.toISOString().replace(/[-:]/gu, "").replace(/\..*$/u, "");
-  const extension = agentMediaMimeTypes(kind)[mimeType] ?? (kind === "video" ? ".mp4" : ".wav");
+  const stamp = moment
+    .toISOString()
+    .replace(/[-:]/gu, "")
+    .replace(/\..*$/u, "");
+  const extension =
+    agentMediaMimeTypes(kind)[mimeType] ?? (kind === "video" ? ".mp4" : ".wav");
   return `${kind === "video" ? "video" : "sound"}-${stamp}${extension}`;
 }
 
@@ -186,7 +200,10 @@ export function agentMediaTool(
   turn: AgentMediaTurn,
 ): AgentMediaToolRun {
   return async (kind, directory, input, signal) => {
-    const capability = await dependencies.generation.capability({ ...turn, kind });
+    const capability = await dependencies.generation.capability({
+      ...turn,
+      kind,
+    });
     if (!capability.canGenerate) return unableOutcome(kind, capability);
     try {
       const generated = await dependencies.generation.generate({
@@ -197,10 +214,17 @@ export function agentMediaTool(
         ...(kind === "video" && input.seitenverhaeltnis
           ? { aspectRatio: input.seitenverhaeltnis }
           : {}),
-        ...(kind === "video" && input.dauer ? { durationSeconds: input.dauer } : {}),
+        ...(kind === "video" && input.dauer
+          ? { durationSeconds: input.dauer }
+          : {}),
         ...(kind === "audio" && input.stimme ? { voice: input.stimme } : {}),
       });
-      return await storeMedia(dependencies, { turn, kind, directory, generated });
+      return await storeMedia(dependencies, {
+        turn,
+        kind,
+        directory,
+        generated,
+      });
     } catch (error: unknown) {
       if (error instanceof AgentMediaError) return failureOutcome(kind, error);
       throw error;
@@ -226,16 +250,22 @@ async function storeMedia(
   await writeFile(file, generated.media.bytes, { mode: 0o600 });
   const stored = await dependencies.attachments.stage(
     { conversationId: turn.conversationId, senderId: turn.agentId },
-    { name, mimeType: generated.media.mimeType, source: bytesOf(generated.media.bytes) },
+    {
+      name,
+      mimeType: generated.media.mimeType,
+      source: bytesOf(generated.media.bytes),
+    },
   );
   const beyond = dependencies.pending.add(
     { agentId: turn.agentId, conversationId: turn.conversationId },
     [stored.id],
   );
   if (beyond.length > 0)
-    await dependencies.attachments.release(turn.agentId, beyond).catch((error: unknown) => {
-      logCaughtError("AgentMediaTool", error);
-    });
+    await dependencies.attachments
+      .release(turn.agentId, beyond)
+      .catch((error: unknown) => {
+        logCaughtError("AgentMediaTool", error);
+      });
   const isAttached = beyond.length === 0;
   return outcome(
     isAttached,

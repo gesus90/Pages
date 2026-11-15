@@ -17,7 +17,11 @@ import type { PreviewFile, PreviewKind } from "./preview-kinds";
 import type { PreviewDevice } from "./sandbox-frame";
 
 /** Code of an invalid JSON block with the place of its first error. */
-function JsonError({ source }: { readonly source: string }): React.ReactElement {
+function JsonError({
+  source,
+}: {
+  readonly source: string;
+}): React.ReactElement {
   const { t } = useTranslation();
   const reading = readJson(source);
   const place = reading.isValid
@@ -32,12 +36,19 @@ function JsonError({ source }: { readonly source: string }): React.ReactElement 
         className="flex items-start gap-2 border-b border-border bg-warning-subtle px-3 py-2 text-xs text-foreground"
         role="alert"
       >
-        <TriangleAlert aria-hidden="true" className="mt-0.5 size-3.5 shrink-0 text-warning" />
+        <TriangleAlert
+          aria-hidden="true"
+          className="mt-0.5 size-3.5 shrink-0 text-warning"
+        />
         <span>
-          <span className="font-semibold">{t("chatPage.preview.json.invalid")}</span>
+          <span className="font-semibold">
+            {t("chatPage.preview.json.invalid")}
+          </span>
           {place === "" ? null : ` ${place}`}
           {reading.isValid ? null : (
-            <span className="block font-mono text-muted-foreground">{reading.message}</span>
+            <span className="block font-mono text-muted-foreground">
+              {reading.message}
+            </span>
           )}
         </span>
       </p>
@@ -105,7 +116,11 @@ export function PreviewView({
     case "csv":
     case "tsv":
       return (
-        <CsvTableView className={className} languageHint={kind} source={source} />
+        <CsvTableView
+          className={className}
+          languageHint={kind}
+          source={source}
+        />
       );
   }
 }
@@ -145,7 +160,10 @@ export function PreviewCode({
           <ViewTabs
             label={t("chatPage.preview.files")}
             onChange={handleSelect}
-            options={files.map((entry) => ({ value: entry.name, label: entry.name }))}
+            options={files.map((entry) => ({
+              value: entry.name,
+              label: entry.name,
+            }))}
             tone={tone}
             value={file?.name ?? ""}
           />

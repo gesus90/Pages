@@ -71,9 +71,9 @@ it("selects text cards only for supported small files", () => {
     }),
   ).toBeNull();
   // Plain text is a text card in plain text (PAGE-385), a table is no text card.
-  expect(
-    textAttachmentKind({ ...attachment, name: "unknown.xyzxyz" }),
-  ).toBe("code");
+  expect(textAttachmentKind({ ...attachment, name: "unknown.xyzxyz" })).toBe(
+    "code",
+  );
   expect(
     textAttachmentKind({
       ...attachment,

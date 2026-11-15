@@ -17,7 +17,8 @@ export function isAttachmentExpired(
 ): boolean {
   if (attachment.expiredAt !== undefined) return true;
   return (
-    attachment.expiresAt !== undefined && Date.parse(attachment.expiresAt) <= now
+    attachment.expiresAt !== undefined &&
+    Date.parse(attachment.expiresAt) <= now
   );
 }
 
@@ -39,7 +40,9 @@ export function retentionLabel(
   const left = Date.parse(expiresAt) - now;
   if (!Number.isFinite(left) || left <= 0) return null;
   if (left >= DAY)
-    return t("chatPage.cards.retention.days", { count: Math.floor(left / DAY) });
+    return t("chatPage.cards.retention.days", {
+      count: Math.floor(left / DAY),
+    });
   if (left >= HOUR)
     return t("chatPage.cards.retention.hours", {
       count: Math.floor(left / HOUR),

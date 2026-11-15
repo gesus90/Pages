@@ -42,7 +42,8 @@ function dosDateTime(moment: Date): { time: number; date: number } {
       (moment.getHours() << 11) |
       (moment.getMinutes() << 5) |
       Math.floor(moment.getSeconds() / 2),
-    date: ((year - 1980) << 9) | ((moment.getMonth() + 1) << 5) | moment.getDate(),
+    date:
+      ((year - 1980) << 9) | ((moment.getMonth() + 1) << 5) | moment.getDate(),
   };
 }
 
@@ -163,7 +164,8 @@ export async function* zipArchive(
   entries: readonly ConversationArchiveEntry[],
   modified: Date,
 ): AsyncGenerator<Uint8Array> {
-  if (archiveSize(entries) > MAXIMUM_OFFSET) throw new ZipArchiveTooLargeError();
+  if (archiveSize(entries) > MAXIMUM_OFFSET)
+    throw new ZipArchiveTooLargeError();
   const stamp = dosDateTime(modified);
   const names = archiveNames(entries.map((entry) => entry.name));
   const written: WrittenEntry[] = [];
@@ -178,7 +180,9 @@ export async function* zipArchive(
     offset += header.length + size;
     if (offset > MAXIMUM_OFFSET) throw new ZipArchiveTooLargeError();
   }
-  const central = Buffer.concat(written.map((entry) => centralHeader(entry, stamp)));
+  const central = Buffer.concat(
+    written.map((entry) => centralHeader(entry, stamp)),
+  );
   yield central;
   yield endRecord(written.length, central.length, offset);
 }

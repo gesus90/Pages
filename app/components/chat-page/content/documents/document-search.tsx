@@ -25,7 +25,15 @@ interface DocumentSearchProps {
  * the number of matches and, where it helps, the previous and next match.
  * Enter jumps to the next one.
  */
-export function DocumentSearch({ query, onQuery, matchCount, current = 0, onStep, tone = "light", className }: DocumentSearchProps): React.ReactElement {
+export function DocumentSearch({
+  query,
+  onQuery,
+  matchCount,
+  current = 0,
+  onStep,
+  tone = "light",
+  className,
+}: DocumentSearchProps): React.ReactElement {
   const { t } = useTranslation();
   const isDark = tone === "dark";
   const hasMatches = matchCount !== null && matchCount > 0;
@@ -37,11 +45,16 @@ export function DocumentSearch({ query, onQuery, matchCount, current = 0, onStep
   }
 
   return (
-    <div className={cn("flex min-w-0 items-center gap-1", className)} role="search">
+    <div
+      className={cn("flex min-w-0 items-center gap-1", className)}
+      role="search"
+    >
       <label
         className={cn(
           "flex h-7 min-w-0 flex-1 items-center gap-1.5 rounded-md border px-2 text-xs",
-          isDark ? "border-viewer-edge bg-viewer-control text-viewer-foreground" : "border-border bg-surface text-foreground",
+          isDark
+            ? "border-viewer-edge bg-viewer-control text-viewer-foreground"
+            : "border-border bg-surface text-foreground",
         )}
       >
         <Search aria-hidden="true" className="size-3.5 shrink-0 opacity-60" />
@@ -56,14 +69,39 @@ export function DocumentSearch({ query, onQuery, matchCount, current = 0, onStep
         />
       </label>
       {query.trim() !== "" && matchCount !== null ? (
-        <span aria-live="polite" className={cn("shrink-0 text-xs tabular-nums", isDark ? "text-viewer-muted" : "text-muted-foreground")}>
-          {hasMatches ? t("chatPage.cards.document.matchOf", { current: current + 1, count: matchCount }) : t("chatPage.cards.document.noMatch")}
+        <span
+          aria-live="polite"
+          className={cn(
+            "shrink-0 text-xs tabular-nums",
+            isDark ? "text-viewer-muted" : "text-muted-foreground",
+          )}
+        >
+          {hasMatches
+            ? t("chatPage.cards.document.matchOf", {
+                current: current + 1,
+                count: matchCount,
+              })
+            : t("chatPage.cards.document.noMatch")}
         </span>
       ) : null}
       {onStep && hasMatches ? (
         <>
-          <CardAction icon={ChevronUp} isIconOnly label={t("chatPage.cards.document.previousMatch")} onClick={() => onStep(-1)} tone={tone} variant="quiet" />
-          <CardAction icon={ChevronDown} isIconOnly label={t("chatPage.cards.document.nextMatch")} onClick={() => onStep(1)} tone={tone} variant="quiet" />
+          <CardAction
+            icon={ChevronUp}
+            isIconOnly
+            label={t("chatPage.cards.document.previousMatch")}
+            onClick={() => onStep(-1)}
+            tone={tone}
+            variant="quiet"
+          />
+          <CardAction
+            icon={ChevronDown}
+            isIconOnly
+            label={t("chatPage.cards.document.nextMatch")}
+            onClick={() => onStep(1)}
+            tone={tone}
+            variant="quiet"
+          />
         </>
       ) : null}
     </div>

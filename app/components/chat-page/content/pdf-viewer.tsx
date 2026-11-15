@@ -246,7 +246,9 @@ function PdfToolbar({
         <DocumentSearch
           className="ml-3 w-56 max-w-full"
           current={search.current}
-          matchCount={search.query.trim() === "" ? null : (search.pages?.length ?? null)}
+          matchCount={
+            search.query.trim() === "" ? null : (search.pages?.length ?? null)
+          }
           onQuery={search.setQuery}
           onStep={search.step}
           query={search.query}
@@ -257,7 +259,10 @@ function PdfToolbar({
 }
 
 /** Searches the text of the pages and opens the first page that holds the search. */
-function usePdfSearch(preview: PdfPreview | null, onPage: (pageNumber: number) => void): PdfSearch {
+function usePdfSearch(
+  preview: PdfPreview | null,
+  onPage: (pageNumber: number) => void,
+): PdfSearch {
   const [query, setQueryState] = useState("");
   const [pages, setPages] = useState<readonly number[] | null>([]);
   const [current, setCurrent] = useState(0);
@@ -302,12 +307,16 @@ function usePdfSearch(preview: PdfPreview | null, onPage: (pageNumber: number) =
 }
 
 /** Turns the page with the arrow and page keys wherever the focus is, in the full screen. */
-function useWindowPageKeys(isActive: boolean, onPageStep: (direction: number) => void): void {
+function useWindowPageKeys(
+  isActive: boolean,
+  onPageStep: (direction: number) => void,
+): void {
   useEffect(() => {
     if (!isActive) return undefined;
     function handleKey(event: globalThis.KeyboardEvent): void {
       const direction = PAGE_KEY_STEPS.get(event.key);
-      if (direction === undefined || event.target instanceof HTMLInputElement) return;
+      if (direction === undefined || event.target instanceof HTMLInputElement)
+        return;
       event.preventDefault();
       onPageStep(direction);
     }
@@ -451,7 +460,13 @@ function PdfPageArea({
 }
 
 /** The message of a PDF that is loading, failed or is encrypted. */
-function PdfStatus({ state, isDark }: { readonly state: PdfDocumentState; readonly isDark: boolean }): React.ReactElement {
+function PdfStatus({
+  state,
+  isDark,
+}: {
+  readonly state: PdfDocumentState;
+  readonly isDark: boolean;
+}): React.ReactElement {
   const { t } = useTranslation();
   let key = "chatPage.cards.pdf.loading";
   if (state.isEncrypted === true) key = "chatPage.cards.pdf.encrypted";
@@ -461,7 +476,9 @@ function PdfStatus({ state, isDark }: { readonly state: PdfDocumentState; readon
       role={state.hasFailed ? "alert" : "status"}
       className={cn(
         "flex min-h-0 flex-1 items-center justify-center p-6 text-center text-sm",
-        isDark ? "bg-viewer-scrim text-viewer-muted" : "bg-muted text-muted-foreground",
+        isDark
+          ? "bg-viewer-scrim text-viewer-muted"
+          : "bg-muted text-muted-foreground",
       )}
     >
       {t(key)}

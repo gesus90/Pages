@@ -90,7 +90,12 @@ function FilterToggle({
 function senderOptions(
   senders: readonly ConversationMediaSender[],
   t: (key: string) => string,
-): { value: string; label: string; icon?: React.ReactNode; description?: string }[] {
+): {
+  value: string;
+  label: string;
+  icon?: React.ReactNode;
+  description?: string;
+}[] {
   return [
     { value: "", label: t("chatPage.media.senderAll") },
     ...senders.map((sender) => {
@@ -138,7 +143,9 @@ export function MediaFilters({
       <Select
         ariaLabel={t("chatPage.media.sender")}
         className="max-w-48"
-        onValueChange={(value) => changeFilter({ senderId: value === "" ? null : value })}
+        onValueChange={(value) =>
+          changeFilter({ senderId: value === "" ? null : value })
+        }
         options={senderOptions(senders, t)}
         value={filter.senderId ?? ""}
       />
@@ -146,13 +153,17 @@ export function MediaFilters({
         icon={Clock}
         isOn={filter.isExpiringSoon}
         label={t("chatPage.media.expiringSoon")}
-        onToggle={() => changeFilter({ isExpiringSoon: !filter.isExpiringSoon })}
+        onToggle={() =>
+          changeFilter({ isExpiringSoon: !filter.isExpiringSoon })
+        }
       />
       <FilterToggle
         icon={EyeOff}
         isOn={filter.isExpiredHidden}
         label={t("chatPage.media.hideExpired")}
-        onToggle={() => changeFilter({ isExpiredHidden: !filter.isExpiredHidden })}
+        onToggle={() =>
+          changeFilter({ isExpiredHidden: !filter.isExpiredHidden })
+        }
       />
     </div>
   );

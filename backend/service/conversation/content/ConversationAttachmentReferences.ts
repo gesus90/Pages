@@ -68,7 +68,9 @@ export interface ConversationAttachmentReferencesDependencies {
 export class ConversationAttachmentReferences {
   private readonly dependencies: ConversationAttachmentReferencesDependencies;
 
-  public constructor(dependencies: ConversationAttachmentReferencesDependencies) {
+  public constructor(
+    dependencies: ConversationAttachmentReferencesDependencies,
+  ) {
     this.dependencies = dependencies;
   }
 
@@ -87,7 +89,10 @@ export class ConversationAttachmentReferences {
   ): Promise<AttachmentReferenceSelection> {
     if (!text.includes("anhang:")) return { text, references: [] };
     const isMember =
-      (await this.dependencies.conversations.findForMember(conversationId, agentId)) !== null;
+      (await this.dependencies.conversations.findForMember(
+        conversationId,
+        agentId,
+      )) !== null;
     const lines: string[] = [];
     const references: PendingAttachmentReference[] = [];
     let isCode = false;
@@ -99,14 +104,18 @@ export class ConversationAttachmentReferences {
         continue;
       }
       if (references.length >= CONVERSATION_ATTACHMENT_MAXIMUM_COUNT) {
-        lines.push(`${line.trimEnd()} (Anhang nicht gezeigt: ${REFUSALS.tooMany})`);
+        lines.push(
+          `${line.trimEnd()} (Anhang nicht gezeigt: ${REFUSALS.tooMany})`,
+        );
         continue;
       }
       const original = isMember
         ? await this.dependencies.library.attachment(conversationId, id)
         : null;
       if (!original) {
-        lines.push(`${line.trimEnd()} (Anhang nicht gezeigt: ${REFUSALS.missing})`);
+        lines.push(
+          `${line.trimEnd()} (Anhang nicht gezeigt: ${REFUSALS.missing})`,
+        );
         continue;
       }
       references.push(pendingOf(original));
@@ -145,12 +154,15 @@ export class ConversationAttachmentReferences {
   public async forMessages(
     messageIds: readonly string[],
   ): Promise<Map<string, ConversationAttachmentReference[]>> {
-    const stored = await this.dependencies.library.referencesForMessages(messageIds);
+    const stored =
+      await this.dependencies.library.referencesForMessages(messageIds);
     const result = new Map<string, ConversationAttachmentReference[]>();
     if (stored.size === 0) return result;
     const all = [...stored.values()].flat();
     const [originals, accounts] = await Promise.all([
-      this.dependencies.library.findMany([...new Set(all.map((entry) => entry.attachmentId))]),
+      this.dependencies.library.findMany([
+        ...new Set(all.map((entry) => entry.attachmentId)),
+      ]),
       this.dependencies.directory.read(),
     ]);
     const now = this.dependencies.now?.() ?? new Date();
@@ -168,7 +180,9 @@ export class ConversationAttachmentReferences {
   }
 }
 
-function pendingOf(original: StoredLibraryAttachment): PendingAttachmentReference {
+function pendingOf(
+  original: StoredLibraryAttachment,
+): PendingAttachmentReference {
   return {
     attachmentId: original.attachment.id,
     name: original.attachment.name,
@@ -196,7 +210,10 @@ function viewOf(
   };
   if (!isPresent) return { ...base, state: "deleted" };
   const attachment = toConversationAttachment(original.attachment);
-  const isExpired = isConversationAttachmentExpired(original.attachment, context.now);
+  const isExpired = isConversationAttachmentExpired(
+    original.attachment,
+    context.now,
+  );
   return {
     ...base,
     state: isExpired ? "expired" : "available",

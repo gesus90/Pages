@@ -137,7 +137,9 @@ export function CsvTableView({
         </label>
         <span>
           {t("chatPage.preview.csv.rows", { count: rows.length })} ·{" "}
-          {t(`chatPage.preview.csv.delimiter.${DELIMITER_KEYS[table.delimiter] ?? "comma"}`)}
+          {t(
+            `chatPage.preview.csv.delimiter.${DELIMITER_KEYS[table.delimiter] ?? "comma"}`,
+          )}
         </span>
       </div>
       <div className="min-h-0 flex-1 overflow-auto">

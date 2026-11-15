@@ -37,10 +37,14 @@ function FileAttachmentCard({
   const key = `att:${attachment.id}`;
   const view = fileViewOf(attachment);
   if (view.kind === "binary")
-    return <BinaryFileRow attachment={attachment} isTooLarge={view.isTooLarge} />;
+    return (
+      <BinaryFileRow attachment={attachment} isTooLarge={view.isTooLarge} />
+    );
   if (view.kind === "pdf")
     return (
-      <PdfCard card={{ key, descriptor: { kind: "pdf", attachment }, origin }} />
+      <PdfCard
+        card={{ key, descriptor: { kind: "pdf", attachment }, origin }}
+      />
     );
   return (
     <DocumentCard

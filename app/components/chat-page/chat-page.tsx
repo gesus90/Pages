@@ -87,6 +87,29 @@ function AgentPausedBanner({
   );
 }
 
+function readOnlyFootText(
+  t: (key: string, options?: Record<string, unknown>) => string,
+  opened: OpenedConversation,
+  name: string,
+): string | null {
+  if (opened.kind === "group" && opened.group.isAgentConversation === true)
+    return t("chatPage.agentConversationReadOnly");
+  if (opened.kind === "participant" && !opened.participant.canChat)
+    return opened.participant.kind === "agent"
+      ? t("chatPage.agentInactive", { name })
+      : t("chatPage.personInactive", { name });
+  return null;
+}
+
+function composerAnswering(
+  page: ChatPageState,
+): { readonly name: string; readonly onStop: () => void } | undefined {
+  if (!page.isAnswering) return undefined;
+  const workerNames = page.activity.map((entry) => entry.agent.name);
+  const names = workerNames.length > 0 ? workerNames : page.answeringNames;
+  return { name: names.join(", "), onStop: page.stopAll };
+}
+
 /** The input at the foot, or why nothing can be sent to the opened participant. */
 function ConversationFoot({
   page,
@@ -113,34 +136,23 @@ function ConversationFoot({
     page.send(content, attachmentIds, delivery);
   }
 
-  // While agents answer, Enter steers them and Esc stops them (PAGE-381).
-  const workerNames = page.activity.map((entry) => entry.agent.name);
-  const answering = page.isAnswering
-    ? {
-        name: (workerNames.length > 0 ? workerNames : page.answeringNames).join(
-          ", ",
-        ),
-        onStop: page.stopAll,
-      }
-    : undefined;
+  const readOnlyMessage = readOnlyFootText(t, opened, name);
+  if (readOnlyMessage !== null)
+    return (
+      <p className="mr-22 shrink-0 rounded-[14px] bg-surface p-4 text-sm text-muted-foreground shadow-card">
+        {readOnlyMessage}
+      </p>
+    );
 
   // An agent's history on the page is its chat session, which takes text only.
   const hasVoice =
     opened.kind === "group" || opened.participant.kind === "human";
-  if (opened.kind === "group" && opened.group.isAgentConversation === true)
-    return (
-      <p className="mr-22 shrink-0 rounded-[14px] bg-surface p-4 text-sm text-muted-foreground shadow-card">
-        {t("chatPage.agentConversationReadOnly")}
-      </p>
-    );
-  if (opened.kind === "participant" && !opened.participant.canChat)
-    return (
-      <p className="mr-22 shrink-0 rounded-[14px] bg-surface p-4 text-sm text-muted-foreground shadow-card">
-        {opened.participant.kind === "agent"
-          ? t("chatPage.agentInactive", { name })
-          : t("chatPage.personInactive", { name })}
-      </p>
-    );
+  const memberIds =
+    opened.kind === "group" ? opened.group.memberIds : [opened.participant.id];
+  const aside =
+    contextRingEntries(opened).length > 0 ? (
+      <ChatPageContextRings opened={opened} chatName={name} />
+    ) : undefined;
   return (
     <div className="flex shrink-0 flex-col gap-2">
       {page.sendFailure ? (
@@ -161,18 +173,10 @@ function ConversationFoot({
         label={t("chatPage.inputLabel", { name })}
         placeholder={t(placeholderKey(opened), { name })}
         onSend={handleSend}
-        answering={answering}
+        answering={composerAnswering(page)}
         activity={page.activity}
-        aside={
-          contextRingEntries(opened).length > 0 ? (
-            <ChatPageContextRings opened={opened} chatName={name} />
-          ) : undefined
-        }
-        memberIds={
-          opened.kind === "group"
-            ? opened.group.memberIds
-            : [opened.participant.id]
-        }
+        aside={aside}
+        memberIds={memberIds}
         attachments={
           hasVoice && page.selection ? { selection: page.selection } : undefined
         }

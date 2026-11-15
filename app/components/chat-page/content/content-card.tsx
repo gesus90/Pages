@@ -34,16 +34,14 @@ const VARIANT_CLASSES: Readonly<
   Record<CardTone, Readonly<Record<CardActionVariant, string>>>
 > = {
   light: {
-    primary:
-      "bg-primary px-2.5 text-primary-foreground hover:bg-primary-hover",
+    primary: "bg-primary px-2.5 text-primary-foreground hover:bg-primary-hover",
     quiet:
       "justify-center px-1.5 text-muted-foreground hover:bg-surface-hover hover:text-foreground",
     default:
       "border border-border bg-surface px-2 text-foreground hover:bg-surface-hover",
   },
   dark: {
-    primary:
-      "bg-primary px-2.5 text-primary-foreground hover:bg-primary-hover",
+    primary: "bg-primary px-2.5 text-primary-foreground hover:bg-primary-hover",
     quiet:
       "justify-center px-1.5 text-viewer-foreground hover:bg-viewer-control-hover",
     default:
@@ -207,7 +205,9 @@ export function CardHead({
       <span
         className={cn(
           "flex size-8 shrink-0 items-center justify-center rounded-lg",
-          isDark ? "bg-viewer-control text-primary" : "bg-primary-subtle text-primary",
+          isDark
+            ? "bg-viewer-control text-primary"
+            : "bg-primary-subtle text-primary",
         )}
       >
         <Icon aria-hidden="true" className="size-4" />
@@ -249,7 +249,9 @@ export function CardHead({
 export function subtitleOf(
   parts: readonly (string | null | undefined)[],
 ): string {
-  return parts.filter((part) => part !== null && part !== undefined && part !== "").join(" · ");
+  return parts
+    .filter((part) => part !== null && part !== undefined && part !== "")
+    .join(" · ");
 }
 
 /** Props of the frame every content card of the chat shares. */
@@ -298,7 +300,10 @@ function CardViewActions({
   beside,
   onFullscreen,
   onReload,
-}: Pick<ContentCardProps, "cardKey" | "beside" | "onFullscreen" | "onReload"> & {
+}: Pick<
+  ContentCardProps,
+  "cardKey" | "beside" | "onFullscreen" | "onReload"
+> & {
   readonly isExpanded: boolean;
 }): React.ReactElement {
   const { t } = useTranslation();
@@ -328,7 +333,9 @@ function CardViewActions({
           isActive={isBeside}
           isIconOnly
           label={
-            isBeside ? t("chatPage.cards.besideOpen") : t("chatPage.cards.beside")
+            isBeside
+              ? t("chatPage.cards.besideOpen")
+              : t("chatPage.cards.beside")
           }
           onClick={handleBeside}
           variant="quiet"
@@ -353,6 +360,66 @@ function CardViewActions({
           content.setState(cardKey, isExpanded ? "collapsed" : "expanded")
         }
         variant="quiet"
+      />
+    </>
+  );
+}
+
+function CardSubtitle({
+  name,
+  kindLabel,
+  meta,
+  retention,
+}: {
+  readonly name: string;
+  readonly kindLabel: string;
+  readonly meta?: React.ReactNode;
+  readonly retention?: string | null;
+}): React.ReactElement {
+  const showKind = kindLabel !== name;
+  return (
+    <>
+      {showKind ? kindLabel : null}
+      {meta && showKind ? " · " : null}
+      {meta}
+      {retention ? ` · ${retention}` : null}
+    </>
+  );
+}
+
+function CardHeaderActions({
+  download,
+  primary,
+  actions,
+  beside,
+  cardKey,
+  isExpanded,
+  onFullscreen,
+  onReload,
+}: {
+  readonly download?: CardDownload;
+  readonly primary?: React.ReactNode;
+  readonly actions?: React.ReactNode;
+  readonly beside?: OpenedCard;
+  readonly cardKey: string;
+  readonly isExpanded: boolean;
+  readonly onFullscreen?: () => void;
+  readonly onReload?: () => void;
+}): React.ReactElement {
+  const expandedActions = isExpanded ? actions : null;
+  const hasLeading = Boolean(download ?? primary ?? expandedActions);
+  return (
+    <>
+      {download ? <CardDownloadAction download={download} /> : null}
+      {primary}
+      {expandedActions}
+      {hasLeading ? <CardActionDivider /> : null}
+      <CardViewActions
+        beside={beside}
+        cardKey={cardKey}
+        isExpanded={isExpanded}
+        onFullscreen={onFullscreen}
+        onReload={onReload}
       />
     </>
   );
@@ -394,15 +461,6 @@ export function ContentCard({
   const isExpanded = content.stateOf(cardKey, defaultState) === "expanded";
   const isBeside = content.beside?.key === cardKey;
 
-  const subtitle = (
-    <>
-      {kindLabel === name ? null : kindLabel}
-      {meta && kindLabel !== name ? " · " : null}
-      {meta}
-      {retention ? ` · ${retention}` : null}
-    </>
-  );
-
   return (
     <section
       aria-label={name}
@@ -416,27 +474,27 @@ export function ContentCard({
     >
       <CardHead
         actions={
-          <>
-            {download ? (
-              <CardDownloadAction download={download} />
-            ) : null}
-            {primary}
-            {isExpanded ? actions : null}
-            {download || primary || (isExpanded && actions) ? (
-              <CardActionDivider />
-            ) : null}
-            <CardViewActions
-              beside={beside}
-              cardKey={cardKey}
-              isExpanded={isExpanded}
-              onFullscreen={onFullscreen}
-              onReload={onReload}
-            />
-          </>
+          <CardHeaderActions
+            actions={actions}
+            beside={beside}
+            cardKey={cardKey}
+            download={download}
+            isExpanded={isExpanded}
+            onFullscreen={onFullscreen}
+            onReload={onReload}
+            primary={primary}
+          />
         }
         icon={icon}
         name={name}
-        subtitle={subtitle}
+        subtitle={
+          <CardSubtitle
+            kindLabel={kindLabel}
+            meta={meta}
+            name={name}
+            retention={retention}
+          />
+        }
         tabs={isExpanded ? tabs : undefined}
       />
       {isExpanded ? (

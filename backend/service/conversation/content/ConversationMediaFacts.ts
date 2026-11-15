@@ -31,7 +31,11 @@ function readSide(input: unknown): number | null {
 
 function readDurationMs(input: unknown): number | null {
   const value = readNumber(input);
-  if (value === null || value <= 0 || value > CONVERSATION_MEDIA_MAXIMUM_SECONDS)
+  if (
+    value === null ||
+    value <= 0 ||
+    value > CONVERSATION_MEDIA_MAXIMUM_SECONDS
+  )
     return null;
   return Math.round(value * 1000);
 }
@@ -79,6 +83,8 @@ export function conversationMediaFactsOf(
     ...(media.width !== null && media.height !== null
       ? { width: media.width, height: media.height }
       : {}),
-    ...(media.durationMs !== null ? { durationSeconds: media.durationMs / 1000 } : {}),
+    ...(media.durationMs !== null
+      ? { durationSeconds: media.durationMs / 1000 }
+      : {}),
   };
 }

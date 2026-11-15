@@ -33,7 +33,12 @@ export const AGENT_IMAGE_TOOL_SCHEMA = z
       .trim()
       .min(1)
       .max(AGENT_IMAGE_LIMITS.promptCharacters),
-    anzahl: z.number().int().min(1).max(AGENT_IMAGE_LIMITS.maximumCount).optional(),
+    anzahl: z
+      .number()
+      .int()
+      .min(1)
+      .max(AGENT_IMAGE_LIMITS.maximumCount)
+      .optional(),
     seitenverhaeltnis: z.enum(AGENT_IMAGE_ASPECT_RATIOS).optional(),
     vorlagen: z
       .array(z.string().trim().min(1).max(4000))
@@ -47,7 +52,8 @@ export type AgentImageToolInput = z.infer<typeof AGENT_IMAGE_TOOL_SCHEMA>;
 
 /** What the tool says to the agent for each failure, in the language of its prompt. */
 const FAILURE_TEXTS: Readonly<Record<AgentImageErrorCode, string>> = {
-  no_image_output: "Dieses Modell kann laut seinem Katalog keine Bilder ausgeben.",
+  no_image_output:
+    "Dieses Modell kann laut seinem Katalog keine Bilder ausgeben.",
   no_image_interface:
     "Für die Verbindung dieses Modells hat Pages keine Schnittstelle zur Bilderzeugung.",
   no_key:
@@ -152,7 +158,10 @@ function isTemplate(
 
 /** The name of a generated image: the moment and its number, with the extension of its type. */
 function imageName(moment: Date, index: number, mimeType: string): string {
-  const stamp = moment.toISOString().replace(/[-:]/gu, "").replace(/\..*$/u, "");
+  const stamp = moment
+    .toISOString()
+    .replace(/[-:]/gu, "")
+    .replace(/\..*$/u, "");
   return `bild-${stamp}-${String(index + 1)}${AGENT_IMAGE_MIME_TYPES[mimeType] ?? ".png"}`;
 }
 
@@ -206,7 +215,8 @@ async function readTemplates(
   const templates: ProviderImage[] = [];
   for (const target of paths) {
     const checked = await dependencies.files.inspect(target);
-    if (!isTemplate(checked)) throw new AgentImageError("invalid_template", target);
+    if (!isTemplate(checked))
+      throw new AgentImageError("invalid_template", target);
     templates.push({
       mimeType: checked.mimeType,
       bytes: await readAll(dependencies.files.open(checked)),
@@ -265,7 +275,10 @@ async function storeImages(
       modell: generated.modelName,
       ...(generated.text === "" ? {} : { textDesModells: generated.text }),
       ...(beyond.length > 0
-        ? { hinweis: "Eine Nachricht trägt höchstens zehn Anhänge; die übrigen Bilder entfallen." }
+        ? {
+            hinweis:
+              "Eine Nachricht trägt höchstens zehn Anhänge; die übrigen Bilder entfallen.",
+          }
         : {}),
       anweisung:
         "Pages hängt diese Bilder deiner Antwort an. Schreibe keine Dateizeile und keinen Pfad dafür; beschreibe kurz, was du erzeugt hast. Als Vorlage für weitere Bilder taugen die Pfade.",

@@ -51,7 +51,8 @@ type PreviewDescriptor = Extract<
 
 function lineCount(files: readonly PreviewFile[]): number {
   return files.reduce(
-    (sum, file) => sum + (file.source === "" ? 0 : file.source.split("\n").length),
+    (sum, file) =>
+      sum + (file.source === "" ? 0 : file.source.split("\n").length),
     0,
   );
 }
@@ -79,7 +80,10 @@ export function previewKindLabel(
  * @param files - The files of the preview.
  * @param t - The translation function.
  */
-export function previewMeta(files: readonly PreviewFile[], t: TFunction): string {
+export function previewMeta(
+  files: readonly PreviewFile[],
+  t: TFunction,
+): string {
   const lines = t("chatPage.cards.lines", { count: lineCount(files) });
   if (files.length < 2) return lines;
   return `${t("chatPage.preview.fileCount", { count: files.length })} · ${lines}`;
@@ -115,8 +119,13 @@ function OpenedElsewhere({
 }): React.ReactElement {
   const { t } = useTranslation();
   return (
-    <p className="bg-panel-body px-3 py-4 text-sm text-muted-foreground" role="status">
-      {isBeside ? t("chatPage.cards.besideOpen") : t("chatPage.preview.fullscreenOpen")}
+    <p
+      className="bg-panel-body px-3 py-4 text-sm text-muted-foreground"
+      role="status"
+    >
+      {isBeside
+        ? t("chatPage.cards.besideOpen")
+        : t("chatPage.preview.fullscreenOpen")}
     </p>
   );
 }
@@ -157,7 +166,9 @@ export function PreviewCard({
   const kindLabel = previewKindLabel({ files, isDetected }, t);
   const title =
     name === ""
-      ? t("chatPage.preview.name", { kind: codeKindLabel(files[0]?.languageHint ?? "") })
+      ? t("chatPage.preview.name", {
+          kind: codeKindLabel(files[0]?.languageHint ?? ""),
+        })
       : name;
   const descriptor: PreviewDescriptor = {
     kind: "preview",

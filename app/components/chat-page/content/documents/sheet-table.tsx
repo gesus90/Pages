@@ -8,7 +8,12 @@ import { isSelected } from "./sheet-selection";
 import { columnLetters } from "./sheet-reader";
 
 import type { SheetCell } from "./document-model";
-import type { CellPosition, CellSelection, SheetSort, ShownRow } from "./sheet-selection";
+import type {
+  CellPosition,
+  CellSelection,
+  SheetSort,
+  ShownRow,
+} from "./sheet-selection";
 
 /** Props of the grid of one sheet. */
 export interface SheetTableProps {
@@ -28,8 +33,15 @@ export interface SheetTableProps {
   readonly className?: string;
 }
 
-function SortIcon({ sort, column }: { readonly sort: SheetSort | null | undefined; readonly column: number }): React.ReactElement {
-  if (sort?.column !== column) return <ArrowUpDown aria-hidden="true" className="size-3 opacity-40" />;
+function SortIcon({
+  sort,
+  column,
+}: {
+  readonly sort: SheetSort | null | undefined;
+  readonly column: number;
+}): React.ReactElement {
+  if (sort?.column !== column)
+    return <ArrowUpDown aria-hidden="true" className="size-3 opacity-40" />;
   const Icon = sort.direction === "ascending" ? ArrowUp : ArrowDown;
   return <Icon aria-hidden="true" className="size-3 text-primary" />;
 }
@@ -43,12 +55,20 @@ interface HeadCellProps {
 }
 
 /** A column head: the letters of the column and below them the text of the first row. */
-function HeadCell({ column, cell, sort, onSort, isHeadFixed }: HeadCellProps): React.ReactElement {
+function HeadCell({
+  column,
+  cell,
+  sort,
+  onSort,
+  isHeadFixed,
+}: HeadCellProps): React.ReactElement {
   const { t } = useTranslation();
   const letters = columnLetters(column);
   const label = (
     <span className="flex min-w-0 flex-col items-start leading-tight">
-      <span className="text-[10px] font-normal text-muted-foreground">{letters}</span>
+      <span className="text-[10px] font-normal text-muted-foreground">
+        {letters}
+      </span>
       <span className="max-w-64 truncate">{cell?.text ?? ""}</span>
     </span>
   );
@@ -56,12 +76,20 @@ function HeadCell({ column, cell, sort, onSort, isHeadFixed }: HeadCellProps): R
   return (
     <th
       aria-sort={ariaSort}
-      className={cn("border-r border-b border-border bg-panel-body px-2 py-1 text-left font-semibold whitespace-nowrap", isHeadFixed && "sticky top-0 z-10")}
+      className={cn(
+        "border-r border-b border-border bg-panel-body px-2 py-1 text-left font-semibold whitespace-nowrap",
+        isHeadFixed && "sticky top-0 z-10",
+      )}
       scope="col"
     >
       {onSort ? (
         <button
-          aria-label={t("chatPage.cards.sheet.sortBy", { column: cell?.text || letters })}
+          aria-label={t("chatPage.cards.sheet.sortBy", {
+            column:
+              cell?.text !== undefined && cell.text !== ""
+                ? cell.text
+                : letters,
+          })}
           className="flex w-full items-center justify-between gap-2 focus-visible:outline-2 focus-visible:outline-primary"
           onClick={() => onSort(column)}
           type="button"
@@ -95,19 +123,41 @@ export function SheetTable({
 }: SheetTableProps): React.ReactElement {
   const columns = Array.from({ length: columnCount }, (_, column) => column);
   return (
-    <table className={cn("border-separate border-spacing-0 text-xs tabular-nums", className)} data-sheet-table="">
+    <table
+      className={cn(
+        "border-separate border-spacing-0 text-xs tabular-nums",
+        className,
+      )}
+      data-sheet-table=""
+    >
       <thead>
         <tr>
-          <th aria-hidden="true" className={cn("sticky left-0 z-20 w-10 border-r border-b border-border bg-panel-body", isHeadFixed && "top-0")} />
+          <th
+            aria-hidden="true"
+            className={cn(
+              "sticky left-0 z-20 w-10 border-r border-b border-border bg-panel-body",
+              isHeadFixed && "top-0",
+            )}
+          />
           {columns.map((column) => (
-            <HeadCell key={column} cell={head[column]} column={column} isHeadFixed={isHeadFixed} onSort={onSort} sort={sort} />
+            <HeadCell
+              key={column}
+              cell={head[column]}
+              column={column}
+              isHeadFixed={isHeadFixed}
+              onSort={onSort}
+              sort={sort}
+            />
           ))}
         </tr>
       </thead>
       <tbody>
         {rows.map((row, rowIndex) => (
           <tr key={row.number}>
-            <th className="sticky left-0 border-r border-b border-border bg-panel-body px-2 py-1 text-right font-normal text-muted-foreground" scope="row">
+            <th
+              className="sticky left-0 border-r border-b border-border bg-panel-body px-2 py-1 text-right font-normal text-muted-foreground"
+              scope="row"
+            >
               {row.number}
             </th>
             {columns.map((column) => {
@@ -120,7 +170,9 @@ export function SheetTable({
                   aria-selected={onSelect ? isMarked : undefined}
                   className={cn(
                     "max-w-80 truncate border-r border-b border-border px-2 py-1 whitespace-pre",
-                    cell?.number !== null && cell?.number !== undefined && "text-right",
+                    cell?.number !== null &&
+                      cell?.number !== undefined &&
+                      "text-right",
                     onSelect && "cursor-cell select-none",
                     isMarked && "bg-primary-subtle",
                   )}
@@ -149,17 +201,28 @@ interface SheetTabsProps {
 }
 
 /** The tabs of the sheets of a workbook; a single CSV table has one. */
-export function SheetTabs({ names, active, onSelect, className }: SheetTabsProps): React.ReactElement | null {
+export function SheetTabs({
+  names,
+  active,
+  onSelect,
+  className,
+}: SheetTabsProps): React.ReactElement | null {
   const { t } = useTranslation();
   return (
-    <div aria-label={t("chatPage.cards.sheet.sheets")} className={cn("flex gap-1 overflow-x-auto", className)} role="tablist">
+    <div
+      aria-label={t("chatPage.cards.sheet.sheets")}
+      className={cn("flex gap-1 overflow-x-auto", className)}
+      role="tablist"
+    >
       {names.map((name, index) => (
         <button
           key={`${name}-${String(index)}`}
           aria-selected={index === active}
           className={cn(
             "shrink-0 rounded-md px-2.5 py-1 text-xs font-medium focus-visible:outline-2 focus-visible:outline-primary",
-            index === active ? "bg-primary-subtle text-primary" : "text-muted-foreground hover:bg-surface-hover hover:text-foreground",
+            index === active
+              ? "bg-primary-subtle text-primary"
+              : "text-muted-foreground hover:bg-surface-hover hover:text-foreground",
           )}
           onClick={() => onSelect(index)}
           role="tab"

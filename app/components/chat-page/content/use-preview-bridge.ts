@@ -43,7 +43,13 @@ export function usePreviewBridge(
       const text = readPreviewSend(event.data);
       if (text === null) return;
       const now = Date.now();
-      if (!canSendFromPreview({ frame: element, lastSentAt: lastSentAt.current, now }))
+      if (
+        !canSendFromPreview({
+          frame: element,
+          lastSentAt: lastSentAt.current,
+          now,
+        })
+      )
         return;
       lastSentAt.current = now;
       onSend(text);

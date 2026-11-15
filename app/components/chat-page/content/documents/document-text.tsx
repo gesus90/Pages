@@ -27,28 +27,50 @@ export function safeLinkOf(target: string): string | null {
  * @param query - The search; empty keeps the text whole.
  * @returns The pieces, each marked whether it matches.
  */
-export function splitMatches(text: string, query: string): { readonly text: string; readonly isMatch: boolean }[] {
+export function splitMatches(
+  text: string,
+  query: string,
+): { readonly text: string; readonly isMatch: boolean }[] {
   const search = query.trim().toLocaleLowerCase();
   if (search === "") return [{ text, isMatch: false }];
   const lower = text.toLocaleLowerCase();
   const pieces: { text: string; isMatch: boolean }[] = [];
   let index = 0;
-  for (let found = lower.indexOf(search); found >= 0; found = lower.indexOf(search, index)) {
-    if (found > index) pieces.push({ text: text.slice(index, found), isMatch: false });
-    pieces.push({ text: text.slice(found, found + search.length), isMatch: true });
+  for (
+    let found = lower.indexOf(search);
+    found >= 0;
+    found = lower.indexOf(search, index)
+  ) {
+    if (found > index)
+      pieces.push({ text: text.slice(index, found), isMatch: false });
+    pieces.push({
+      text: text.slice(found, found + search.length),
+      isMatch: true,
+    });
     index = found + search.length;
   }
-  if (index < text.length) pieces.push({ text: text.slice(index), isMatch: false });
+  if (index < text.length)
+    pieces.push({ text: text.slice(index), isMatch: false });
   return pieces;
 }
 
 /** Text with its matches of the search marked in the accent color. */
-export function MarkedText({ text, query }: { readonly text: string; readonly query: string }): React.ReactElement {
+export function MarkedText({
+  text,
+  query,
+}: {
+  readonly text: string;
+  readonly query: string;
+}): React.ReactElement {
   return (
     <>
       {splitMatches(text, query).map((piece, index) =>
         piece.isMatch ? (
-          <mark key={index} className="rounded-sm bg-primary-subtle text-primary" data-search-match="">
+          <mark
+            key={index}
+            className="rounded-sm bg-primary-subtle text-primary"
+            data-search-match=""
+          >
             {piece.text}
           </mark>
         ) : (
@@ -60,7 +82,13 @@ export function MarkedText({ text, query }: { readonly text: string; readonly qu
 }
 
 /** One run of a document with its emphasis; a link is offered, never followed by itself. */
-function Run({ run, query }: { readonly run: DocumentRun; readonly query: string }): React.ReactElement {
+function Run({
+  run,
+  query,
+}: {
+  readonly run: DocumentRun;
+  readonly query: string;
+}): React.ReactElement {
   const className = cn(
     run.isBold && "font-semibold",
     run.isItalic && "italic",
@@ -82,7 +110,11 @@ function Run({ run, query }: { readonly run: DocumentRun; readonly query: string
         {content}
       </a>
     );
-  return className === "" ? content : <span className={className}>{content}</span>;
+  return className === "" ? (
+    content
+  ) : (
+    <span className={className}>{content}</span>
+  );
 }
 
 /**

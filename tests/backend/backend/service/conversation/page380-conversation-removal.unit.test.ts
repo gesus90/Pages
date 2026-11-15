@@ -48,37 +48,57 @@ function systemMessage(): ConversationMessage {
   } as unknown as ConversationMessage;
 }
 
-function fixture() {
+function fixture(): {
+  readonly removeFiles: ReturnType<typeof vi.fn>;
+  readonly conversations: {
+    removeMember: ReturnType<typeof vi.fn>;
+    remove: ReturnType<typeof vi.fn>;
+  };
+  readonly messages: { insert: ReturnType<typeof vi.fn> };
+  readonly attachments: { collectConversation: ReturnType<typeof vi.fn> };
+  readonly files: { remove: ReturnType<typeof vi.fn> };
+  readonly events: { publish: ReturnType<typeof vi.fn> };
+  readonly service: ConversationService;
+} {
   const removeFiles = vi.fn();
+  const conversations = {
+    removeMember: vi.fn(),
+    remove: vi.fn().mockResolvedValue(["voice-1.wav"]),
+  };
+  const messages = {
+    insert: vi.fn(async (message: Record<string, unknown>) => ({
+      message: { ...message, sequence: 9 },
+      isNew: true,
+    })),
+  };
+  const attachments = {
+    collectConversation: vi.fn().mockResolvedValue(removeFiles),
+  };
+  const files = { remove: vi.fn() };
+  const events = { publish: vi.fn() };
   const dependencies = {
-    conversations: {
-      removeMember: vi.fn(),
-      remove: vi.fn().mockResolvedValue(["voice-1.wav"]),
-    },
-    messages: {
-      insert: vi.fn(async (message: Record<string, unknown>) => ({
-        message: { ...message, sequence: 9 },
-        isNew: true,
-      })),
-    },
+    conversations,
+    messages,
     reader: {
       summary: vi.fn().mockResolvedValue(summary),
       messages: vi.fn().mockResolvedValue([systemMessage()]),
     },
-    attachments: {
-      collectConversation: vi.fn().mockResolvedValue(removeFiles),
-    },
+    attachments,
     directory: {
       read: vi.fn().mockResolvedValue(new ConversationAccounts(new Map())),
     },
-    files: { remove: vi.fn() },
-    events: { publish: vi.fn() },
+    files,
+    events,
     publisher: { publish: vi.fn() },
     now: () => new Date("2026-11-14T00:00:00Z"),
     createId: () => "new-id",
   };
   return {
-    ...dependencies,
+    conversations,
+    messages,
+    attachments,
+    files,
+    events,
     removeFiles,
     service: new ConversationService(
       dependencies as unknown as ConversationServiceDependencies,
@@ -104,7 +124,10 @@ describe("system lines of a chat (PAGE-380)", () => {
       { type: "conversation.changed", id: "team" },
     );
     expect(events.publish).toHaveBeenCalledWith(
-      expect.objectContaining({ kind: "message", recipientIds: ["igor", "ed", "anna"] }),
+      expect.objectContaining({
+        kind: "message",
+        recipientIds: ["igor", "ed", "anna"],
+      }),
     );
     // A system line never starts an answer or a decision.
     expect(
@@ -120,7 +143,10 @@ describe("system lines of a chat (PAGE-380)", () => {
 describe("removing a member and a group (PAGE-380)", () => {
   it("takes a member out of the conversation and tells every former member", async () => {
     const { service, conversations, events } = fixture();
-    await service.removeMember(owner, { conversationId: "team", memberId: "anna" });
+    await service.removeMember(owner, {
+      conversationId: "team",
+      memberId: "anna",
+    });
     expect(conversations.removeMember).toHaveBeenCalledWith("team", "anna", {
       type: "conversation.changed",
       id: "team",

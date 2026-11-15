@@ -100,13 +100,16 @@ function outcomeText(
     case "unknownEffort":
       return t("chatPage.command.unknownEffort", {
         effort: outcome.effort,
-        efforts: outcome.efforts.map((effort) => effortLabel(t, effort)).join(", "),
+        efforts: outcome.efforts
+          .map((effort) => effortLabel(t, effort))
+          .join(", "),
       });
     case "unknownAgent":
       return t("chatPage.command.unknownAgent", { mention: outcome.mention });
     case "forbidden":
       return t("chatPage.command.forbidden");
-    default:
+    case "chooseModel":
+    case "chooseAgent":
       return "";
   }
 }

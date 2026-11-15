@@ -56,9 +56,9 @@ function toBase64(image: ProviderImage): string {
 
 function readDataUrl(url: string): ProviderImage | null {
   const match = DATA_URL.exec(url);
-  const [, mimeType = "", data = ""] = match ?? [];
+  const [, mimeType = "", encoded = ""] = match ?? [];
   if (!match || !Object.hasOwn(AGENT_IMAGE_MIME_TYPES, mimeType)) return null;
-  return { mimeType, bytes: Buffer.from(data, "base64") };
+  return { mimeType, bytes: Buffer.from(encoded, "base64") };
 }
 
 /** Reads a JSON answer up to the limit of {@link AGENT_IMAGE_LIMITS}. */
@@ -293,11 +293,14 @@ export class GoogleImageClient implements ProviderImageClient {
     const answered = answer.data.candidates?.[0]?.content?.parts ?? [];
     const images: ProviderImage[] = [];
     for (const part of answered) {
-      const data = part.inlineData;
-      if (data && Object.hasOwn(AGENT_IMAGE_MIME_TYPES, data.mimeType))
+      const inlineImage = part.inlineData;
+      if (
+        inlineImage &&
+        Object.hasOwn(AGENT_IMAGE_MIME_TYPES, inlineImage.mimeType)
+      )
         images.push({
-          mimeType: data.mimeType,
-          bytes: Buffer.from(data.data, "base64"),
+          mimeType: inlineImage.mimeType,
+          bytes: Buffer.from(inlineImage.data, "base64"),
         });
     }
     return {

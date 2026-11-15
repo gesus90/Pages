@@ -25,7 +25,10 @@ interface PdfSummaryProps {
  * The small preview of the first page with title, page count and "Öffnen"
  * (PAGE-385); an encrypted PDF names that it stays downloadable.
  */
-function PdfSummary({ attachment, onOpen }: PdfSummaryProps): React.ReactElement {
+function PdfSummary({
+  attachment,
+  onOpen,
+}: PdfSummaryProps): React.ReactElement {
   const { t } = useTranslation();
   const facts = usePdfFacts(attachment);
   return (
@@ -40,19 +43,34 @@ function PdfSummary({ attachment, onOpen }: PdfSummaryProps): React.ReactElement
         onOpen={onOpen}
       />
       <div className="flex min-w-0 flex-1 flex-col justify-center gap-1">
-        <p className="line-clamp-2 text-sm font-semibold text-foreground" data-pdf-title="">
+        <p
+          className="line-clamp-2 text-sm font-semibold text-foreground"
+          data-pdf-title=""
+        >
           {facts.title ?? attachment.name}
         </p>
         {facts.pageCount === undefined ? null : (
-          <p className="text-xs text-muted-foreground">{t("chatPage.cards.document.pages", { count: facts.pageCount })}</p>
+          <p className="text-xs text-muted-foreground">
+            {t("chatPage.cards.document.pages", { count: facts.pageCount })}
+          </p>
         )}
         {facts.isEncrypted === true ? (
-          <p className="flex items-start gap-1.5 text-xs text-muted-foreground" role="note">
-            <Lock aria-hidden="true" className="mt-0.5 size-3.5 shrink-0 text-primary" />
+          <p
+            className="flex items-start gap-1.5 text-xs text-muted-foreground"
+            role="note"
+          >
+            <Lock
+              aria-hidden="true"
+              className="mt-0.5 size-3.5 shrink-0 text-primary"
+            />
             {t("chatPage.cards.pdf.encrypted")}
           </p>
         ) : (
-          <button className="self-start text-xs font-medium text-primary hover:underline" onClick={onOpen} type="button">
+          <button
+            className="self-start text-xs font-medium text-primary hover:underline"
+            onClick={onOpen}
+            type="button"
+          >
             {t("chatPage.cards.open")}
           </button>
         )}
@@ -84,7 +102,11 @@ export function PdfCard({ card }: PdfCardProps): React.ReactElement {
       download={{ href: downloadUrl(attachment) }}
       icon={FileText}
       kindLabel={t("chatPage.cards.kind.pdf")}
-      meta={facts.pageCount === undefined ? size : `${t("chatPage.cards.document.pages", { count: facts.pageCount })} · ${size}`}
+      meta={
+        facts.pageCount === undefined
+          ? size
+          : `${t("chatPage.cards.document.pages", { count: facts.pageCount })} · ${size}`
+      }
       name={attachment.name}
       onFullscreen={open}
       retention={retention}

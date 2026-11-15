@@ -67,7 +67,10 @@ export type ToolAction =
   "read" | "edit" | "test" | "run" | "search" | "browse" | "use";
 
 /** The state before anything arrived. */
-export const EMPTY_LIVE_STATE: LiveAnswerState = { answers: {}, deliveries: {} };
+export const EMPTY_LIVE_STATE: LiveAnswerState = {
+  answers: {},
+  deliveries: {},
+};
 
 const TOOL_ACTIONS: readonly {
   readonly pattern: RegExp;
@@ -75,7 +78,10 @@ const TOOL_ACTIONS: readonly {
 }[] = [
   { pattern: /\b(?:vitest|jest|pytest|test)\b/iu, action: "test" },
   { pattern: /read|view|cat|open/iu, action: "read" },
-  { pattern: /edit|write|patch|apply|create|save|update|set_/iu, action: "edit" },
+  {
+    pattern: /edit|write|patch|apply|create|save|update|set_/iu,
+    action: "edit",
+  },
   { pattern: /grep|glob|search|find|list|query/iu, action: "search" },
   { pattern: /fetch|browse|web|url|http/iu, action: "browse" },
   { pattern: /bash|shell|exec|command|terminal|run/iu, action: "run" },
@@ -236,7 +242,9 @@ export function shownLiveAnswers(
 }
 
 /** What the name of a tool and its input say it does. */
-export function toolAction(tool: Pick<LiveAnswerTool, "name" | "input">): ToolAction {
+export function toolAction(
+  tool: Pick<LiveAnswerTool, "name" | "input">,
+): ToolAction {
   const words = `${tool.name} ${tool.input ?? ""}`;
   for (const { pattern, action } of TOOL_ACTIONS)
     if (pattern.test(words)) return action;

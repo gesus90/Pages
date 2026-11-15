@@ -105,9 +105,7 @@ it("begins a new answer for the next turn of a direct chat", () => {
   live.journaled({ kind: "answer", turn: 2, messageId: "message-2" });
   live.journaled({ kind: "end", state: "completed", errorCode: null });
 
-  const answerIds = new Set(
-    events.map((event) => event.payload.data.answerId),
-  );
+  const answerIds = new Set(events.map((event) => event.payload.data.answerId));
   expect([...answerIds]).toEqual(["answer-1", "answer-2"]);
   expect(
     events.filter((event) => event.payload.type === "answer_end"),
@@ -204,9 +202,9 @@ it("follows tool calls with their state and duration and cancels a running one a
   });
   // A group answer ignores the stored turn; the caller ends it with the reply.
   live.journaled({ kind: "answer", turn: 1, messageId: "session-message" });
-  expect(
-    events.some((event) => event.payload.type === "answer_end"),
-  ).toBe(false);
+  expect(events.some((event) => event.payload.type === "answer_end")).toBe(
+    false,
+  );
   live.finish({ messageId: "reply", state: "answered" });
 
   const tools = stream.snapshots("anna")[0]?.tools ?? [];

@@ -35,15 +35,20 @@ beforeEach(() => {
 });
 
 function post(fields: Record<string, string>): Promise<Response> {
-  const request = new Request("http://pages.invalid/chat-page-api/agent-control", {
-    method: "POST",
-    body: new URLSearchParams(fields),
-  });
+  const request = new Request(
+    "http://pages.invalid/chat-page-api/agent-control",
+    {
+      method: "POST",
+      body: new URLSearchParams(fields),
+    },
+  );
   return action(routeArguments(request, EMPLOYEE, {}));
 }
 
 it("sets the model of an agent in a group and answers with the choice (PAGE-380)", async () => {
-  services.agentChatControlService.setModel.mockResolvedValue({ agentId: "ed" });
+  services.agentChatControlService.setModel.mockResolvedValue({
+    agentId: "ed",
+  });
   const response = await post({
     intent: "set-model",
     kind: "group",
@@ -54,11 +59,18 @@ it("sets the model of an agent in a group and answers with the choice (PAGE-380)
     reasoningEffort: "high",
   });
   expect(response.status).toBe(200);
-  expect(await response.json()).toEqual({ ok: true, overview: { agentId: "ed" } });
+  expect(await response.json()).toEqual({
+    ok: true,
+    overview: { agentId: "ed" },
+  });
   expect(services.agentChatControlService.setModel).toHaveBeenCalledWith(
     EMPLOYEE,
     { kind: "group", agentId: "ed", conversationId: "team" },
-    { connectionId: "claude", model: "claude-opus-5-5", reasoningEffort: "high" },
+    {
+      connectionId: "claude",
+      model: "claude-opus-5-5",
+      reasoningEffort: "high",
+    },
   );
 });
 
@@ -79,16 +91,29 @@ it("maps a missing right to 403 and an unknown intent to 400 (PAGE-380)", async 
   services.chatGroupMembershipService.removeMember.mockRejectedValue(
     new AgentEmployeeError("forbidden"),
   );
-  const refused = await post({ intent: "remove-member", groupId: "team", memberId: "ed" });
+  const refused = await post({
+    intent: "remove-member",
+    groupId: "team",
+    memberId: "ed",
+  });
   expect(refused.status).toBe(403);
   expect(await refused.json()).toEqual({ ok: false, error: "forbidden" });
   expect((await post({ intent: "agent-tool" })).status).toBe(400);
 });
 
 it("removes a member and dissolves a group for the owner (PAGE-380)", async () => {
-  services.chatGroupMembershipService.members.mockResolvedValue({ groupId: "team" });
-  const removed = await post({ intent: "remove-member", groupId: "team", memberId: "ed" });
-  expect(await removed.json()).toEqual({ ok: true, members: { groupId: "team" } });
+  services.chatGroupMembershipService.members.mockResolvedValue({
+    groupId: "team",
+  });
+  const removed = await post({
+    intent: "remove-member",
+    groupId: "team",
+    memberId: "ed",
+  });
+  expect(await removed.json()).toEqual({
+    ok: true,
+    members: { groupId: "team" },
+  });
   await post({ intent: "dissolve", groupId: "team" });
   expect(services.chatGroupMembershipService.dissolve).toHaveBeenCalledWith(
     EMPLOYEE,
@@ -97,7 +122,9 @@ it("removes a member and dissolves a group for the owner (PAGE-380)", async () =
 });
 
 it("runs a typed command of the chat page instead of sending it to an agent (PAGE-380)", async () => {
-  services.agentChatCommandService.run.mockResolvedValue({ status: "forbidden" });
+  services.agentChatCommandService.run.mockResolvedValue({
+    status: "forbidden",
+  });
   const request = new Request("http://pages.invalid/chat", {
     method: "POST",
     body: new URLSearchParams({

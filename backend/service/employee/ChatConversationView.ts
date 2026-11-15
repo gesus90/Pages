@@ -124,7 +124,9 @@ export function agentWrittenConversations(
       (member: ConversationParticipant) => member.id !== person.id,
     );
     if (other?.kind !== "agent") continue;
-    if (view.messages.some((message) => isShownWithAgentChat(message, other.id)))
+    if (
+      view.messages.some((message) => isShownWithAgentChat(message, other.id))
+    )
       written.set(other.id, view);
   }
   return written;

@@ -3,7 +3,10 @@ import { agentMediaTool } from "./AgentMediaTool";
 import { agentAttachmentTool } from "./AgentAttachmentTool";
 
 import type { PicaAcpStart } from "../chat/acp/PicaAcpService";
-import type { AgentImageToolDependencies, AgentImageTurn } from "./AgentImageTool";
+import type {
+  AgentImageToolDependencies,
+  AgentImageTurn,
+} from "./AgentImageTool";
 import type { AgentMediaToolDependencies } from "./AgentMediaTool";
 import type { AgentAttachmentToolDependencies } from "./AgentAttachmentTool";
 import type { ResolvedAgentAssignment } from "@/backend/service/agents/AgentAssignmentResolution";

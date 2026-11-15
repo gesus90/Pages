@@ -55,7 +55,11 @@ interface JsonNodeProps {
   readonly depth: number;
 }
 
-function NodeName({ name }: { readonly name: string | null }): React.ReactElement | null {
+function NodeName({
+  name,
+}: {
+  readonly name: string | null;
+}): React.ReactElement | null {
   if (name === null) return null;
   return (
     <>
@@ -104,7 +108,10 @@ function JsonNode({ name, value, depth }: JsonNodeProps): React.ReactElement {
   const [isOpen, setOpen] = useState(depth < EXPANDED_DEPTH);
   if (kind !== "object" && kind !== "array")
     return (
-      <li className="group/json flex items-center whitespace-pre-wrap" role="treeitem">
+      <li
+        className="group/json flex items-center whitespace-pre-wrap"
+        role="treeitem"
+      >
         <NodeName name={name} />
         <span className={KIND_CLASSES[kind]}>{primitiveLabel(value)}</span>
         <CopyValue value={value} />
@@ -121,7 +128,10 @@ function JsonNode({ name, value, depth }: JsonNodeProps): React.ReactElement {
           onClick={() => setOpen(!isOpen)}
           type="button"
         >
-          <Toggle aria-hidden="true" className="size-3 shrink-0 text-muted-foreground" />
+          <Toggle
+            aria-hidden="true"
+            className="size-3 shrink-0 text-muted-foreground"
+          />
           <NodeName name={name} />
           <span className={KIND_CLASSES[kind]}>{brackets}</span>
         </button>

@@ -22,7 +22,14 @@ import type { User } from "@/definition/User";
 
 const NOW = new Date("2026-11-14T12:00:00.000Z");
 const HOUR = 60 * 60 * 1000;
-const member = { id: "person-1" } as User;
+const member: User = {
+  id: "person-1",
+  username: "person-1",
+  displayName: "Igor",
+  role: "employee",
+  isActive: true,
+  mustChangePassword: false,
+};
 
 function stored(
   overrides: Partial<StoredConversationAttachment> = {},
@@ -51,17 +58,30 @@ function streamOf(text: string): PassThrough {
   return stream;
 }
 
+interface AttachmentRepositoryMock {
+  insert: ReturnType<typeof vi.fn>;
+  find: ReturnType<typeof vi.fn>;
+  forMessages: ReturnType<typeof vi.fn>;
+  expireDue: ReturnType<typeof vi.fn>;
+  imagesOfConversation: ReturnType<typeof vi.fn>;
+}
+
 function setup(
-  attachments: Partial<ConversationAttachmentsDependencies["attachments"]> = {},
+  attachments: Partial<AttachmentRepositoryMock> = {},
   isMember = true,
 ): {
   service: ConversationAttachments;
   dependencies: {
-    attachments: Record<string, ReturnType<typeof vi.fn>>;
-    files: Record<string, ReturnType<typeof vi.fn>>;
+    attachments: AttachmentRepositoryMock;
+    files: {
+      write: ReturnType<typeof vi.fn>;
+      open: ReturnType<typeof vi.fn>;
+      remove: ReturnType<typeof vi.fn>;
+      sweep: ReturnType<typeof vi.fn>;
+    };
   };
 } {
-  const repository = {
+  const repository: AttachmentRepositoryMock = {
     insert: vi.fn().mockResolvedValue(undefined),
     find: vi.fn(),
     forMessages: vi.fn().mockResolvedValue(new Map()),
@@ -183,7 +203,9 @@ describe("files of agents expire after 72 hours (PAGE-382)", () => {
     });
     expect(opened.name).toBe("fuchs.png");
   });
+});
 
+describe("expired attachment representation and runner (PAGE-382)", () => {
   it("shows an expired attachment with name and dates but without a preview", () => {
     const attachment = toConversationAttachment(
       stored({
@@ -268,7 +290,9 @@ describe("images of a chat for the viewer (PAGE-382)", () => {
     await expect(service.images(member, "conv-1")).rejects.toEqual(
       new ConversationError("not_found"),
     );
-    expect(dependencies.attachments.imagesOfConversation).not.toHaveBeenCalled();
+    expect(
+      dependencies.attachments.imagesOfConversation,
+    ).not.toHaveBeenCalled();
   });
 });
 
@@ -281,7 +305,11 @@ describe("all files of a message as ZIP (PAGE-382)", () => {
             "msg-1",
             [
               stored(),
-              stored({ id: "att-2", storageName: "store-2", name: "fuchs.png" }),
+              stored({
+                id: "att-2",
+                storageName: "store-2",
+                name: "fuchs.png",
+              }),
               stored({
                 id: "att-3",
                 storageName: "store-3",
@@ -354,9 +382,7 @@ describe("all files of a message as ZIP (PAGE-382)", () => {
     expect(zip.readUInt32LE(0)).toBe(0x04034b50);
     expect(zip.readUInt16LE(8)).toBe(0);
     const nameLength = zip.readUInt16LE(26);
-    expect(zip.subarray(30, 30 + nameLength).toString("utf8")).toBe(
-      "eins.png",
-    );
+    expect(zip.subarray(30, 30 + nameLength).toString("utf8")).toBe("eins.png");
     expect(
       zip.subarray(30 + nameLength, 30 + nameLength + 5).toString("utf8"),
     ).toBe("hallo");

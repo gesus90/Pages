@@ -23,7 +23,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function isFileTab(value: unknown): value is ConversationMediaFileTab {
-  return CONVERSATION_MEDIA_TABS.some((tab) => tab !== "links" && tab === value);
+  return CONVERSATION_MEDIA_TABS.some(
+    (tab) => tab !== "links" && tab === value,
+  );
 }
 
 function readAttachment(candidate: unknown): ConversationAttachment | null {
@@ -117,7 +119,9 @@ export function useMediaOverview(
   conversationId: string | null,
   reloadKey: string | null,
 ): LoadedMediaOverview {
-  const [overview, setOverview] = useState<ConversationMediaOverview | null>(null);
+  const [overview, setOverview] = useState<ConversationMediaOverview | null>(
+    null,
+  );
   const [isLoading, setLoading] = useState(false);
   const [isFailed, setFailed] = useState(false);
 
@@ -131,7 +135,9 @@ export function useMediaOverview(
           signal: controller.signal,
           headers: { Accept: "application/json" },
         });
-        const read = response.ok ? readMediaOverview(await response.json()) : null;
+        const read = response.ok
+          ? readMediaOverview(await response.json())
+          : null;
         setOverview(read);
         setFailed(read === null);
       } catch (error: unknown) {

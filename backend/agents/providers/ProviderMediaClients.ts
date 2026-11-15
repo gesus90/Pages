@@ -95,24 +95,47 @@ interface OpenRouterStream {
   costUsd: number | null;
 }
 
-function readOpenRouterLine(line: string, collected: OpenRouterStream): void {
-  if (!line.startsWith("data:")) return;
-  const data = line.slice(5).trim();
-  if (data === "" || data === "[DONE]") return;
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(data);
-  } catch {
-    return;
-  }
+/** One streaming delta payload from OpenRouter audio/text chat completions. */
+interface OpenRouterDelta {
+  readonly content?: string | null;
+  readonly audio?: {
+    readonly data?: string;
+    readonly transcript?: string;
+  };
+}
+
+function appendOpenRouterDelta(
+  delta: OpenRouterDelta,
+  collected: OpenRouterStream,
+): void {
+  const audioChunk = delta.audio?.data;
+  if (audioChunk !== undefined && audioChunk !== "")
+    collected.audio.push(audioChunk);
+  const text = delta.audio?.transcript ?? delta.content ?? "";
+  if (text !== "") collected.text.push(text);
+}
+
+function collectOpenRouterChunk(
+  parsed: unknown,
+  collected: OpenRouterStream,
+): void {
   const chunk = OPENROUTER_CHUNK.safeParse(parsed);
   if (!chunk.success) return;
   const delta = chunk.data.choices?.[0]?.delta;
-  if (delta?.audio?.data) collected.audio.push(delta.audio.data);
-  const text = delta?.audio?.transcript ?? delta?.content ?? "";
-  if (text !== "") collected.text.push(text);
+  if (delta) appendOpenRouterDelta(delta, collected);
   const cost = chunk.data.usage?.cost;
   if (cost !== undefined) collected.costUsd = cost;
+}
+
+function readOpenRouterLine(line: string, collected: OpenRouterStream): void {
+  if (!line.startsWith("data:")) return;
+  const payload = line.slice(5).trim();
+  if (payload === "" || payload === "[DONE]") return;
+  try {
+    collectOpenRouterChunk(JSON.parse(payload), collected);
+  } catch {
+    // Ignore malformed SSE lines from the stream.
+  }
 }
 
 /**
@@ -145,7 +168,8 @@ export class OpenRouterMediaClient implements ProviderMediaClient {
   public async generate(
     request: ProviderMediaRequest,
   ): Promise<ProviderMediaAnswer> {
-    if (request.kind !== "audio") throw new AgentMediaError("no_media_interface");
+    if (request.kind !== "audio")
+      throw new AgentMediaError("no_media_interface");
     const response = await sendMediaRequest(
       "openrouter",
       {
@@ -244,7 +268,10 @@ function googleAudioOf(part: {
 }): ProviderMedia | null {
   const bytes = Buffer.from(part.data, "base64");
   if (isRawPcm(part.mimeType))
-    return { mimeType: "audio/wav", bytes: pcmToWav(bytes, pcmRateOf(part.mimeType)) };
+    return {
+      mimeType: "audio/wav",
+      bytes: pcmToWav(bytes, pcmRateOf(part.mimeType)),
+    };
   const type = part.mimeType.split(";")[0]?.trim().toLowerCase() ?? "";
   const mimeType = type === "audio/x-wav" ? "audio/wav" : type;
   return Object.hasOwn(AGENT_AUDIO_MIME_TYPES, mimeType)
@@ -345,7 +372,9 @@ export class GoogleMediaClient implements ProviderMediaClient {
     const parts = answer.data.candidates?.[0]?.content?.parts ?? [];
     return {
       media: parts
-        .map((part) => (part.inlineData ? googleAudioOf(part.inlineData) : null))
+        .map((part) =>
+          part.inlineData ? googleAudioOf(part.inlineData) : null,
+        )
         .filter((media) => media !== null),
       text: boundedDetail(parts.map((part) => part.text ?? "").join(" ")),
       costUsd: null,
@@ -366,7 +395,9 @@ export class GoogleMediaClient implements ProviderMediaClient {
           body: JSON.stringify({
             instances: [{ prompt: request.prompt }],
             parameters: {
-              ...(request.aspectRatio ? { aspectRatio: request.aspectRatio } : {}),
+              ...(request.aspectRatio
+                ? { aspectRatio: request.aspectRatio }
+                : {}),
               ...(request.durationSeconds
                 ? { durationSeconds: request.durationSeconds }
                 : {}),
@@ -435,7 +466,10 @@ export class GoogleMediaClient implements ProviderMediaClient {
     request: ProviderMediaRequest,
   ): Promise<ProviderMedia> {
     if (!isGoogleAddress(uri))
-      throw new AgentMediaError("provider_failed", "Unbekannte Download-Adresse");
+      throw new AgentMediaError(
+        "provider_failed",
+        "Unbekannte Download-Adresse",
+      );
     const first = await sendMediaRequest(
       "google_ai_studio",
       {
@@ -456,15 +490,22 @@ export class GoogleMediaClient implements ProviderMediaClient {
             "google_storage",
             {
               url: new URL(location, uri).toString(),
-              init: { method: "GET", signal: request.signal, redirect: "follow" },
+              init: {
+                method: "GET",
+                signal: request.signal,
+                redirect: "follow",
+              },
             },
             this.transport,
           )
         : first;
     const type =
-      file.headers.get("content-type")?.split(";")[0]?.trim().toLowerCase() ?? "";
+      file.headers.get("content-type")?.split(";")[0]?.trim().toLowerCase() ??
+      "";
     return {
-      mimeType: Object.hasOwn(AGENT_VIDEO_MIME_TYPES, type) ? type : "video/mp4",
+      mimeType: Object.hasOwn(AGENT_VIDEO_MIME_TYPES, type)
+        ? type
+        : "video/mp4",
       bytes: await readMediaBytes(file),
     };
   }

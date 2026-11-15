@@ -71,7 +71,11 @@ export function catalogModelChoice(
     // An agent generates images with its own model when the catalog states it (PAGE-382).
     ...(isImageOutputModel(model) ? { isImageOutputCapable: true } : {}),
     // Likewise videos and sounds (PAGE-384).
-    ...(isMediaOutputModel(model, "video") ? { isVideoOutputCapable: true } : {}),
-    ...(isMediaOutputModel(model, "audio") ? { isAudioOutputCapable: true } : {}),
+    ...(isMediaOutputModel(model, "video")
+      ? { isVideoOutputCapable: true }
+      : {}),
+    ...(isMediaOutputModel(model, "audio")
+      ? { isAudioOutputCapable: true }
+      : {}),
   };
 }

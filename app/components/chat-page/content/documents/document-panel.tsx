@@ -17,10 +17,17 @@ interface DocumentPanelProps {
  * text with its table of contents, the slides with their strip, or the table
  * with tabs, search, sorting and sums; all with a search.
  */
-export function DocumentPanel({ descriptor, isFullscreen = false }: DocumentPanelProps): React.ReactElement {
+export function DocumentPanel({
+  descriptor,
+  isFullscreen = false,
+}: DocumentPanelProps): React.ReactElement {
   const { attachment, format } = descriptor;
-  const state = useDocument({ url: attachment.url, format, name: attachment.name }, true);
-  if (state.status !== "ready") return <DocumentStateMessage className="m-auto" state={state} />;
+  const state = useDocument(
+    { url: attachment.url, format, name: attachment.name },
+    true,
+  );
+  if (state.status !== "ready")
+    return <DocumentStateMessage className="m-auto" state={state} />;
   const { document } = state;
   switch (document.kind) {
     case "word":

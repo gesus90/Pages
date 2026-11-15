@@ -15,7 +15,11 @@ function readField(
   text: string,
   start: number,
   delimiter: string,
-): { readonly value: string; readonly next: number; readonly isRowEnd: boolean } {
+): {
+  readonly value: string;
+  readonly next: number;
+  readonly isRowEnd: boolean;
+} {
   if (text[start] !== '"') {
     let end = start;
     while (
@@ -55,13 +59,25 @@ function finishField(
   text: string,
   value: string,
   end: number,
-): { readonly value: string; readonly next: number; readonly isRowEnd: boolean } {
+): {
+  readonly value: string;
+  readonly next: number;
+  readonly isRowEnd: boolean;
+} {
   if (end >= text.length) return { value, next: end, isRowEnd: true };
   if (text[end] === "\r" && text[end + 1] === "\n")
     return { value, next: end + 2, isRowEnd: true };
   if (text[end] === "\n" || text[end] === "\r")
     return { value, next: end + 1, isRowEnd: true };
   return { value, next: end + 1, isRowEnd: false };
+}
+
+function delimitedSeparator(
+  firstLine: string,
+  isTabSeparated: boolean,
+): string {
+  if (isTabSeparated) return "\t";
+  return firstLine.split(";").length > firstLine.split(",").length ? ";" : ",";
 }
 
 /**
@@ -80,11 +96,7 @@ export function readDelimitedSheet(
 ): { readonly sheet: ChatDocumentSheet; readonly isTruncated: boolean } {
   const source = text.startsWith("\uFEFF") ? text.slice(1) : text;
   const firstLine = source.split("\n", 1)[0] ?? "";
-  const delimiter = isTabSeparated
-    ? "\t"
-    : firstLine.split(";").length > firstLine.split(",").length
-      ? ";"
-      : ",";
+  const delimiter = delimitedSeparator(firstLine, isTabSeparated);
   const rows: string[][] = [];
   let row: string[] = [];
   let cursor = 0;
@@ -115,7 +127,10 @@ export interface SheetWindow {
   readonly sheet: string;
   readonly header: readonly string[];
   /** The data rows, each with its number below the header row. */
-  readonly rows: readonly { readonly number: number; readonly cells: readonly string[] }[];
+  readonly rows: readonly {
+    readonly number: number;
+    readonly cells: readonly string[];
+  }[];
   /** Data rows and columns of the whole sheet. */
   readonly totalRows: number;
   readonly totalColumns: number;
@@ -142,12 +157,12 @@ export function sheetWindow(
       ? sheets[0]
       : sheets.find((entry) => entry.name.trim().toLowerCase() === named);
   if (!sheet) return null;
-  const [header = [], ...data] = sheet.rows;
+  const [header = [], ...dataRows] = sheet.rows;
   const start = Math.max(1, request.fromRow ?? 1);
   const rows: { number: number; cells: readonly string[] }[] = [];
   let characters = header.join("\t").length;
-  for (let number = start; number <= data.length; number += 1) {
-    const cells = data[number - 1] ?? [];
+  for (let number = start; number <= dataRows.length; number += 1) {
+    const cells = dataRows[number - 1] ?? [];
     characters += cells.join("\t").length + 1;
     if (
       rows.length >= SHEET_WINDOW_ROWS ||
@@ -161,9 +176,9 @@ export function sheetWindow(
     sheet: sheet.name,
     header,
     rows,
-    totalRows: data.length,
+    totalRows: dataRows.length,
     totalColumns: Math.max(0, ...sheet.rows.map((entry) => entry.length)),
-    nextRow: last < data.length ? last + 1 : null,
+    nextRow: last < dataRows.length ? last + 1 : null,
   };
 }
 

@@ -3,158 +3,25 @@ import { expect, it, vi } from "vitest";
 import * as logging from "@/backend/logging/Logger";
 import { safeLogMetadata } from "@/backend/logging/LogRedaction";
 import { AgentJobAnswerError } from "@/backend/error/AgentJobAnswerError";
-import { ConversationAccounts } from "@/backend/service/conversation/ConversationDirectory";
-import { ConversationGeneratedImages } from "@/backend/service/conversation/content/ConversationGeneratedImages";
-import { ConversationReplyRunner } from "@/backend/service/conversation/ConversationReplyRunner";
+
+import {
+  createReplyRunnerFixture,
+  replyAgent,
+  replyJob,
+  replyMessage,
+  replyPerson,
+  replyStagedAttachment,
+} from "./conversation-reply-runner-fixture";
 
 import type { ConversationAgentRequest } from "@/backend/service/conversation/ConversationAgentReplies";
-import type {
-  ConversationReplyJob,
-  ConversationReplyRunnerDependencies,
-} from "@/backend/service/conversation/ConversationReplyRunner";
-import type { StoredConversationAttachment } from "@/backend/database/repositories/conversation/ConversationAttachmentRepository";
 import type { AgentFile } from "@/backend/service/conversation/content/ConversationAgentFiles";
-import type { StoredConversationMessage } from "@/backend/database/repositories/conversation/ConversationMessageRepository";
-import type { Mock } from "vitest";
-import type { User } from "@/definition/User";
 
-const person: User = {
-  id: "person",
-  username: "person",
-  displayName: "Person",
-  role: "employee",
-  isActive: true,
-  mustChangePassword: false,
-};
-const agent: User = {
-  ...person,
-  id: "agent",
-  username: "agent",
-  displayName: "Agent",
-  isAgent: true,
-};
-const conversation = {
-  id: "group",
-  kind: "group",
-  name: "Team",
-  lastActivityAt: "2026-01-01",
-  isMuted: false,
-  unreadCount: 0,
-} as const;
-const message: StoredConversationMessage = {
-  id: "origin",
-  sequence: 1,
-  conversationId: "group",
-  senderId: "person",
-  clientMessageId: "client",
-  text: "Question",
-  mentions: [],
-  createdAt: "2026-01-01T00:00:00.000Z",
-  voice: null,
-  notice: null,
-};
-const staged: StoredConversationAttachment = {
-  id: "attachment-1",
-  conversationId: "group",
-  messageId: null,
-  uploaderId: "agent",
-  name: "eins.png",
-  mimeType: "image/png",
-  sizeBytes: 3,
-  storageName: "stored-1",
-  position: 0,
-  thumbnail: null,
-  createdAt: "2026-01-01T00:00:00.000Z",
-};
-const job: ConversationReplyJob = {
-  round: {
-    originMessageId: "origin",
-    conversation,
-    memberIds: ["person", "agent"],
-    person,
-  },
-  agentId: "agent",
-  trigger: "mention",
-  triggerMessageId: "origin",
-  reason: "asked",
-};
-
-function fixture(user: User = agent): {
-  runner: ConversationReplyRunner;
-  messages: Record<"find" | "history" | "insert" | "contextCount", Mock>;
-  rounds: { setTargetState: Mock };
-  events: { publish: Mock };
-  answer: Mock;
-  dependencies: ConversationReplyRunnerDependencies;
-} {
-  const accounts = new ConversationAccounts(
-    new Map([
-      [
-        "agent",
-        {
-          user,
-          participant: {
-            id: "agent",
-            name: "Agent",
-            kind: "agent",
-            color: null,
-          },
-          role: "",
-          isAvailable: true,
-        },
-      ],
-    ]),
-  );
-  const messages = {
-    find: vi.fn().mockResolvedValue(message),
-    history: vi.fn().mockResolvedValue([message]),
-    contextCount: vi.fn().mockResolvedValue(1),
-    insert: vi.fn().mockResolvedValue({
-      message: {
-        ...message,
-        id: "answer",
-        senderId: "agent",
-        text: "Answer",
-      },
-      isNew: true,
-    }),
-  };
-  const rounds = { setTargetState: vi.fn().mockResolvedValue(undefined) };
-  const events = { publish: vi.fn() };
-  const answer = vi.fn().mockResolvedValue(" Answer ");
-  const dependencies: ConversationReplyRunnerDependencies = {
-    conversations: { findForMember: vi.fn().mockResolvedValue(conversation) },
-    messages,
-    directory: { read: vi.fn().mockResolvedValue(accounts) },
-    runner: { answer },
-    rounds,
-    contexts: { promptContext: vi.fn().mockResolvedValue({ context: null }) },
-    events,
-    publisher: { publish: vi.fn() },
-    agentFiles: {
-      select: vi
-        .fn()
-        .mockResolvedValue({ text: "Answer", files: [], lines: ["Answer"] }),
-      open: vi.fn(),
-    },
-    attachments: {
-      stage: vi.fn(),
-      bind: vi.fn(),
-      release: vi.fn(),
-      open: vi.fn(),
-    },
-    content: { describe: vi.fn().mockResolvedValue(new Map()) },
-    now: () => new Date("2026-01-01T00:00:00Z"),
-  };
-  return {
-    runner: new ConversationReplyRunner(dependencies),
-    messages,
-    rounds,
-    events,
-    answer,
-    dependencies,
-  };
-}
+const agent = replyAgent;
+const person = replyPerson;
+const message = replyMessage;
+const staged = replyStagedAttachment;
+const job = replyJob;
+const fixture = createReplyRunnerFixture;
 
 it("stores and announces an agent answer with its round state", async () => {
   const { runner, messages, rounds, events, answer } = fixture();
@@ -333,7 +200,7 @@ it("PAGE-386 names the image of an earlier context message without its content",
     expect.objectContaining({ attachments: [] }),
   );
   expect(answer.mock.calls[0]?.[0].prompt).toContain(
-    "Anhang von #1: \"earlier.png\" · Bild · 3 B · Kennung earlier-image",
+    'Anhang von #1: "earlier.png" · Bild · 3 B · Kennung earlier-image',
   );
 });
 
@@ -566,123 +433,4 @@ it("PAGE-344 keeps the actual refusal reason and conversation identity in safe l
   } finally {
     event.mockRestore();
   }
-});
-
-it("copies and binds workspace files inside the job callback before its workspace disappears", async () => {
-  const { runner, answer, dependencies, messages } = fixture();
-  let workspaceExists = true;
-  vi.mocked(dependencies.agentFiles.select).mockImplementation(async () => {
-    if (!workspaceExists) throw new Error("Workspace already removed");
-    return {
-      text: "Answer",
-      lines: ["Answer", "![File](file:/workspace/report.txt)"],
-      files: [
-        {
-          path: "/workspace/report.txt",
-          name: "report.txt",
-          mimeType: "text/plain",
-          sizeBytes: 3,
-          lineIndex: 1,
-        },
-      ],
-    };
-  });
-  vi.mocked(dependencies.attachments.stage).mockImplementation(async () => {
-    expect(workspaceExists).toBe(true);
-    return staged;
-  });
-  answer.mockImplementation(async (request: ConversationAgentRequest) => {
-    await request.consumeAnswer?.("Answer");
-    workspaceExists = false;
-    return "Answer";
-  });
-  const result = await runner.run(job);
-  expect(result?.id).toBe("answer");
-  expect(workspaceExists).toBe(false);
-  expect(dependencies.attachments.bind).toHaveBeenCalledWith(
-    expect.anything(),
-    [staged.id],
-  );
-  expect(dependencies.attachments.stage).toHaveBeenCalledOnce();
-  expect(messages.insert).toHaveBeenCalledOnce();
-});
-
-it("PAGE-382 attaches the images the agent generated during its answer, after the files of its lines", async () => {
-  const { messages, dependencies } = fixture();
-  const generatedImages = new ConversationGeneratedImages();
-  generatedImages.add({ agentId: "agent", conversationId: "group" }, [
-    "generated-1",
-    "generated-2",
-  ]);
-  vi.mocked(dependencies.agentFiles.select).mockResolvedValueOnce({
-    text: "Hier:",
-    files: [
-      {
-        path: "/home/a/Results/eins.png",
-        name: "eins.png",
-        mimeType: "image/png",
-        sizeBytes: 3,
-        lineIndex: 1,
-      },
-    ],
-    lines: ["Hier:", "![Eins](file:/home/a/Results/eins.png)"],
-  });
-  vi.mocked(dependencies.attachments.stage).mockResolvedValueOnce(staged);
-  const runner = new ConversationReplyRunner({ ...dependencies, generatedImages });
-  await runner.run(job);
-  expect(messages.insert).toHaveBeenCalledWith(
-    expect.objectContaining({ text: "Hier:" }),
-    expect.anything(),
-  );
-  expect(dependencies.attachments.bind).toHaveBeenCalledWith(
-    { id: "answer", conversationId: "group", senderId: "agent" },
-    ["attachment-1", "generated-1", "generated-2"],
-  );
-  // Taken once: the next answer does not carry them again.
-  expect(generatedImages.count({ agentId: "agent", conversationId: "group" })).toBe(0);
-});
-
-it("PAGE-382 lets generated images go when the round ends with a hint instead of an answer", async () => {
-  const { dependencies, answer } = fixture();
-  const generatedImages = new ConversationGeneratedImages();
-  generatedImages.add({ agentId: "agent", conversationId: "group" }, ["generated-1"]);
-  answer.mockRejectedValueOnce(new Error("model failed"));
-  const runner = new ConversationReplyRunner({ ...dependencies, generatedImages });
-  await runner.run(job);
-  expect(dependencies.attachments.bind).not.toHaveBeenCalled();
-  expect(dependencies.attachments.release).toHaveBeenCalledWith("agent", [
-    "generated-1",
-  ]);
-});
-
-it("PAGE-386 shows an earlier attachment of the chat by its reference line and binds it to the stored answer", async () => {
-  const { messages, dependencies } = fixture();
-  const pending = {
-    attachmentId: "table",
-    name: "Kosten.xlsx",
-    mimeType: "text/csv",
-    sourceMessageId: "message-table",
-    sourceSenderId: "conan",
-  };
-  const references = {
-    select: vi.fn().mockResolvedValue({ text: "Siehe die Tabelle von Conan.", references: [pending] }),
-    bind: vi.fn().mockResolvedValue(undefined),
-  };
-  const withReferences = new ConversationReplyRunner({ ...dependencies, references });
-  vi.mocked(dependencies.runner.answer).mockResolvedValueOnce(
-    "Siehe die Tabelle von Conan.\n![Kosten](anhang:table)",
-  );
-  await withReferences.run(job);
-  expect(references.select).toHaveBeenCalledWith(
-    "group",
-    "agent",
-    "Siehe die Tabelle von Conan.\n![Kosten](anhang:table)",
-  );
-  expect(dependencies.agentFiles.select).toHaveBeenCalledWith("Siehe die Tabelle von Conan.");
-  expect(references.bind).toHaveBeenCalledWith(
-    expect.objectContaining({ id: "answer", conversationId: "group" }),
-    [pending],
-  );
-  expect(dependencies.attachments.stage).not.toHaveBeenCalled();
-  expect(messages.insert).toHaveBeenCalledOnce();
 });

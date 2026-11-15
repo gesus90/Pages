@@ -1,5 +1,8 @@
 import { redactCredentials } from "@/backend/security/AgentTextSafety";
-import { chatDocumentText, readChatDocument } from "@/backend/service/chat/ChatDocumentReader";
+import {
+  chatDocumentText,
+  readChatDocument,
+} from "@/backend/service/chat/ChatDocumentReader";
 import {
   OFFICE_LIMITS,
   officeMediaNames,
@@ -7,7 +10,10 @@ import {
 } from "@/backend/service/chat/ChatOfficeText";
 import { readOpenDocument } from "@/backend/service/chat/ChatOpenDocumentText";
 import { readPdfPageImages } from "@/backend/service/chat/ChatPdfImages";
-import { ChatZipArchive, ChatZipError } from "@/backend/service/chat/ChatZipArchive";
+import {
+  ChatZipArchive,
+  ChatZipError,
+} from "@/backend/service/chat/ChatZipArchive";
 import { CHAT_OFFICE_TYPES } from "@/definition/ChatPreview";
 
 import { attachmentExtension } from "./ConversationAttachmentKinds";
@@ -76,8 +82,10 @@ const MEDIA_TYPES: Readonly<Record<string, string>> = {
 const UNAVAILABLE_TEXTS: Readonly<Record<string, string>> = {
   unsupported: "Pages kann den Text dieses Formats nicht lesen.",
   tooLarge: "Das Dokument ist zu groß, um es zu lesen.",
-  encrypted: "Das Dokument ist verschlüsselt oder mit einem Passwort geschützt.",
-  noText: "Das Dokument enthält keinen lesbaren Text (vielleicht ein Scan); Bilder lassen sich mit `bild` lesen.",
+  encrypted:
+    "Das Dokument ist verschlüsselt oder mit einem Passwort geschützt.",
+  noText:
+    "Das Dokument enthält keinen lesbaren Text (vielleicht ein Scan); Bilder lassen sich mit `bild` lesen.",
   unreadable: "Das Dokument ist beschädigt oder unlesbar.",
 };
 
@@ -86,6 +94,14 @@ function officeType(kind: AgentAttachmentKind): string {
   if (kind === "slides") return CHAT_OFFICE_TYPES.presentation;
   if (kind === "sheet") return CHAT_OFFICE_TYPES.workbook;
   return CHAT_OFFICE_TYPES.document;
+}
+
+function openDocumentKind(
+  kind: AgentAttachmentKind,
+): "presentation" | "spreadsheet" | "text" {
+  if (kind === "slides") return "presentation";
+  if (kind === "sheet") return "spreadsheet";
+  return "text";
 }
 
 /**
@@ -104,14 +120,14 @@ async function readAnyDocument(
       bytes.toString("utf8"),
       extension === ".tsv",
     );
-    return { status: "read", document: { sections: [], sheets: [sheet], isTruncated } };
+    return {
+      status: "read",
+      document: { sections: [], sheets: [sheet], isTruncated },
+    };
   }
   try {
     const document = extension.startsWith(".od")
-      ? readOpenDocument(
-          kind === "slides" ? "presentation" : kind === "sheet" ? "spreadsheet" : "text",
-          bytes,
-        )
+      ? readOpenDocument(openDocumentKind(kind), bytes)
       : readOfficeDocument(officeType(kind), bytes);
     if (document === null) return { status: "unsupported" };
     const isEmpty =
@@ -119,7 +135,9 @@ async function readAnyDocument(
       document.sheets.every((sheet) => sheet.rows.length === 0);
     return isEmpty ? { status: "noText" } : { status: "read", document };
   } catch (error: unknown) {
-    return { status: error instanceof ChatZipError ? error.reason : "unreadable" };
+    return {
+      status: error instanceof ChatZipError ? error.reason : "unreadable",
+    };
   }
 }
 
@@ -133,7 +151,10 @@ function heading(section: ChatPreviewSection): string {
 function sectionWindow(
   sections: readonly ChatPreviewSection[],
   request: AgentAttachmentReadRequest,
-): { readonly parts: { readonly ort: string; readonly text: string }[]; readonly next: number | null } {
+): {
+  readonly parts: { readonly ort: string; readonly text: string }[];
+  readonly next: number | null;
+} {
   const from = Math.max(1, request.from ?? 1);
   const to = request.to ?? Number.MAX_SAFE_INTEGER;
   const parts: { ort: string; text: string }[] = [];
@@ -153,35 +174,46 @@ function sectionWindow(
 }
 
 /** The pictures of a package by number, or why the number has none. */
-function embeddedImage(
-  bytes: Buffer,
-  number: number,
-): AgentReadImage | string {
+function embeddedImage(bytes: Buffer, number: number): AgentReadImage | string {
   const names = officeMediaNames(bytes);
   const name = names[number - 1];
   if (name === undefined)
     return `Das Dokument hat ${String(names.length)} eingebettete Bilder; Bild ${String(number)} gibt es nicht.`;
-  const data = new ChatZipArchive(bytes, OFFICE_LIMITS).bytes(name);
+  const imageBytes = new ChatZipArchive(bytes, OFFICE_LIMITS).bytes(name);
   const mimeType = MEDIA_TYPES[attachmentExtension(name)];
-  if (!data || !mimeType) return "Das Bild ließ sich nicht lesen.";
-  return { label: `Bild ${String(number)} aus dem Dokument`, mimeType, data };
+  if (!imageBytes || !mimeType) return "Das Bild ließ sich nicht lesen.";
+  return {
+    label: `Bild ${String(number)} aus dem Dokument`,
+    mimeType,
+    data: imageBytes,
+  };
 }
 
 /** The images a request asks for: a picture of a package, or the images of a PDF page. */
 async function requestedImages(
-  input: { readonly kind: AgentAttachmentKind; readonly bytes: Buffer; readonly number: number },
+  input: {
+    readonly kind: AgentAttachmentKind;
+    readonly bytes: Buffer;
+    readonly number: number;
+  },
   readers: DocumentReaders,
-): Promise<{ readonly images: AgentReadImage[]; readonly note: string | null }> {
+): Promise<{
+  readonly images: AgentReadImage[];
+  readonly note: string | null;
+}> {
   if (input.kind === "pdf") {
     const read = readers.pdfImages ?? readPdfPageImages;
     const pngs = await read(input.bytes, input.number);
     if (pngs.length === 0)
-      return { images: [], note: `Auf Seite ${String(input.number)} ließen sich keine Bilder lesen.` };
+      return {
+        images: [],
+        note: `Auf Seite ${String(input.number)} ließen sich keine Bilder lesen.`,
+      };
     return {
-      images: pngs.map((data, index) => ({
+      images: pngs.map((png, index) => ({
         label: `Bild ${String(index + 1)} auf Seite ${String(input.number)}`,
         mimeType: "image/png",
-        data,
+        data: png,
       })),
       note: null,
     };
@@ -206,13 +238,20 @@ function sheetResult(
     ...(request.fromRow === undefined ? {} : { fromRow: request.fromRow }),
   });
   if (!window)
-    return { blaetter, hinweis: `Ein Blatt „${request.sheet ?? ""}“ gibt es nicht.` };
-  const redact = (cells: readonly string[]): string[] => cells.map(redactCredentials);
+    return {
+      blaetter,
+      hinweis: `Ein Blatt „${request.sheet ?? ""}“ gibt es nicht.`,
+    };
+  const redact = (cells: readonly string[]): string[] =>
+    cells.map(redactCredentials);
   return {
     blaetter,
     blatt: window.sheet,
     kopfzeile: redact(window.header),
-    zeilen: window.rows.map((row) => ({ nr: row.number, werte: redact(row.cells) })),
+    zeilen: window.rows.map((row) => ({
+      nr: row.number,
+      werte: redact(row.cells),
+    })),
     zeilenGesamt: window.totalRows,
     spaltenGesamt: window.totalColumns,
     naechsteZeile: window.nextRow,
@@ -222,7 +261,10 @@ function sheetResult(
           hinweis: `Gezeigt sind ${String(window.rows.length)} von ${String(window.totalRows)} Zeilen. Weitere mit zeileAb ${String(window.nextRow)}.`,
         }),
     ...(document.isTruncated
-      ? { begrenzt: "Die Tabelle ist größer als das, was Pages liest; weitere Zeilen oder Blätter fehlen." }
+      ? {
+          begrenzt:
+            "Die Tabelle ist größer als das, was Pages liest; weitere Zeilen oder Blätter fehlen.",
+        }
       : {}),
   };
 }
@@ -240,9 +282,15 @@ function documentResult(
     abschnitte: window.parts,
     ...(window.next === null
       ? {}
-      : { weiterAb: window.next, hinweis: `Begrenzt auf ${String(AGENT_READ_CHARACTERS)} Zeichen; weiter mit von ${String(window.next)}.` }),
+      : {
+          weiterAb: window.next,
+          hinweis: `Begrenzt auf ${String(AGENT_READ_CHARACTERS)} Zeichen; weiter mit von ${String(window.next)}.`,
+        }),
     ...(document.isTruncated
-      ? { begrenzt: "Das Dokument ist länger als das, was Pages liest; spätere Teile fehlen." }
+      ? {
+          begrenzt:
+            "Das Dokument ist länger als das, was Pages liest; spätere Teile fehlen.",
+        }
       : {}),
   };
 }
@@ -270,19 +318,35 @@ export async function readDocumentForAgent(
 ): Promise<AgentAttachmentReading> {
   const { name, kind, bytes, request } = input;
   if (request.image !== undefined) {
-    const found = await requestedImages({ kind, bytes, number: request.image }, readers);
+    const found = await requestedImages(
+      { kind, bytes, number: request.image },
+      readers,
+    );
     return {
-      result: found.note === null ? { bilder: found.images.map((image) => image.label) } : { hinweis: found.note },
+      result:
+        found.note === null
+          ? { bilder: found.images.map((image) => image.label) }
+          : { hinweis: found.note },
       images: found.images,
       searchText: null,
     };
   }
   const reading = await readAnyDocument(name, kind, bytes);
   if (reading.status !== "read")
-    return { result: { hinweis: UNAVAILABLE_TEXTS[reading.status] ?? UNAVAILABLE_TEXTS.unreadable }, images: [], searchText: null };
+    return {
+      result: {
+        hinweis:
+          UNAVAILABLE_TEXTS[reading.status] ?? UNAVAILABLE_TEXTS.unreadable,
+      },
+      images: [],
+      searchText: null,
+    };
   const { document } = reading;
   const pictures = kind === "pdf" ? 0 : officeMediaNames(bytes).length;
-  const result = kind === "sheet" ? sheetResult(document, request) : documentResult(document, kind, request);
+  const result =
+    kind === "sheet"
+      ? sheetResult(document, request)
+      : documentResult(document, kind, request);
   const searchText =
     kind === "sheet"
       ? sheetsSearchText(document.sheets)
@@ -291,9 +355,15 @@ export async function readDocumentForAgent(
     result: {
       ...result,
       ...(pictures > 0 ? { eingebetteteBilder: pictures } : {}),
-      ...(kind === "pdf" ? { bilderLesen: "Bilder einer Seite liest du mit bild = Seitennummer." } : {}),
+      ...(kind === "pdf"
+        ? {
+            bilderLesen: "Bilder einer Seite liest du mit bild = Seitennummer.",
+          }
+        : {}),
     },
     images: [],
-    searchText: Array.from(redactCredentials(searchText)).slice(0, AGENT_SEARCH_CHARACTERS).join(""),
+    searchText: Array.from(redactCredentials(searchText))
+      .slice(0, AGENT_SEARCH_CHARACTERS)
+      .join(""),
   };
 }

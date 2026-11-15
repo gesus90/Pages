@@ -29,18 +29,26 @@ export function useBlockSearch(texts: readonly string[]): BlockSearch {
   const matches =
     search === ""
       ? []
-      : texts.flatMap((text, index) => (text.toLocaleLowerCase().includes(search) ? [index] : []));
+      : texts.flatMap((text, index) =>
+          text.toLocaleLowerCase().includes(search) ? [index] : [],
+        );
   const target = matches[Math.min(current, matches.length - 1)];
 
   function reveal(index: number): void {
-    const element = container.current?.querySelector(`[data-block-index="${String(index)}"]`);
-    if (element instanceof HTMLElement) element.scrollIntoView({ block: "center" });
+    const element = container.current?.querySelector(
+      `[data-block-index="${String(index)}"]`,
+    );
+    if (element instanceof HTMLElement)
+      element.scrollIntoView({ block: "center" });
   }
 
   useEffect(() => {
     if (target === undefined) return;
-    const element = container.current?.querySelector(`[data-block-index="${String(target)}"]`);
-    if (element instanceof HTMLElement) element.scrollIntoView({ block: "center" });
+    const element = container.current?.querySelector(
+      `[data-block-index="${String(target)}"]`,
+    );
+    if (element instanceof HTMLElement)
+      element.scrollIntoView({ block: "center" });
   }, [target]);
 
   return {
@@ -53,7 +61,9 @@ export function useBlockSearch(texts: readonly string[]): BlockSearch {
     current: Math.max(0, Math.min(current, matches.length - 1)),
     step(direction) {
       if (matches.length === 0) return;
-      setCurrent((index) => (index + direction + matches.length) % matches.length);
+      setCurrent(
+        (index) => (index + direction + matches.length) % matches.length,
+      );
     },
     container,
     reveal,

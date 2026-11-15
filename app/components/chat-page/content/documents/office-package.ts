@@ -1,5 +1,12 @@
 import { imageTypeOf } from "./document-model";
-import { attributeOf, childrenNamed, parseXml, resolvePartPath, textOf, descendantNamed } from "./xml-nodes";
+import {
+  attributeOf,
+  childrenNamed,
+  parseXml,
+  resolvePartPath,
+  textOf,
+  descendantNamed,
+} from "./xml-nodes";
 
 import type { ZipArchive } from "./zip-entries";
 
@@ -77,7 +84,9 @@ export class PackageImages {
    *
    * @param relation - The relation, or `undefined`.
    */
-  public async addRelation(relation: OfficeRelation | undefined): Promise<string | null> {
+  public async addRelation(
+    relation: OfficeRelation | undefined,
+  ): Promise<string | null> {
     if (!relation || relation.isExternal) return null;
     return this.add(relation.target);
   }
@@ -89,7 +98,9 @@ export class PackageImages {
  * @param archive - The package.
  * @returns The title, or `null` when the file names none.
  */
-export async function readOfficeTitle(archive: ZipArchive): Promise<string | null> {
+export async function readOfficeTitle(
+  archive: ZipArchive,
+): Promise<string | null> {
   const text = await archive.readText("docProps/core.xml");
   const root = text === null ? null : parseXml(text);
   const title = root ? textOf(descendantNamed(root, "title")).trim() : "";

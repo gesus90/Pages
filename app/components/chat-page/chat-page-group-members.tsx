@@ -58,7 +58,10 @@ function useGroupMembers(
           setView(response.members);
       })
       .catch((error: unknown) => {
-        console.warn("[pages] The members of the group could not be read.", error);
+        console.warn(
+          "[pages] The members of the group could not be read.",
+          error,
+        );
       });
     return () => {
       isCurrent = false;

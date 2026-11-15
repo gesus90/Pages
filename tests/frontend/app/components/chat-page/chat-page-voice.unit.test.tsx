@@ -147,9 +147,7 @@ it("draws the row in the theme tokens with the accent color for play only", () =
   expect(
     screen.getByRole("button", { name: "Play voice message" }).className,
   ).toContain("bg-primary");
-  expect(waveButton().querySelector("span")?.className).toContain(
-    "bg-border",
-  );
+  expect(waveButton().querySelector("span")?.className).toContain("bg-border");
   expect(screen.getByText("Voice message · 1:05").className).toContain(
     "text-muted-foreground",
   );

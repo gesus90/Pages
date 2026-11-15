@@ -31,15 +31,20 @@ const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
 function connection(
   overrides: Partial<AgentConnectionRecord> = {},
 ): AgentConnectionRecord {
-  return {
+  const record: AgentConnectionRecord = {
     id: "opencode-1",
     name: "OpenCode",
     provider: "opencode",
     isActive: true,
     hasApiKey: false,
+    testModel: null,
+    reasoningEffort: null,
+    cliLoggedInAt: null,
     cliAccountLabel: null,
+    updatedAt: "2026-11-14T00:00:00.000Z",
     ...overrides,
-  } as AgentConnectionRecord;
+  };
+  return record;
 }
 
 const OPENROUTER_LINK = connection({
@@ -71,7 +76,10 @@ function imageChoice(): PageAgentModel {
   return {
     ...catalogModelChoice(
       { id: "opencode-1", name: "OpenCode", provider: "opencode" },
-      catalogModel("openrouter/google/gemini-2.5-flash-image", ["text", "image"]),
+      catalogModel("openrouter/google/gemini-2.5-flash-image", [
+        "text",
+        "image",
+      ]),
     ),
     connectionName: "OpenCode",
   };
@@ -156,7 +164,9 @@ const textAssignment = {
 
 describe("which models generate images (PAGE-382)", () => {
   it("decides from the stated output modalities, never from the name", () => {
-    expect(isImageOutputModel({ outputModalities: ["text", "image"] })).toBe(true);
+    expect(isImageOutputModel({ outputModalities: ["text", "image"] })).toBe(
+      true,
+    );
     expect(isImageOutputModel({ outputModalities: ["text"] })).toBe(false);
     expect(isImageOutputModel({})).toBe(false);
     expect(
@@ -171,8 +181,12 @@ describe("which models generate images (PAGE-382)", () => {
     const choice = imageChoice();
     expect(choice.isImageOutputCapable).toBe(true);
     expect(choice.isChatCapable).toBeUndefined();
-    expect(isTextCapableModel({ id: "m", outputModalities: ["text", "image"] })).toBe(true);
-    expect(isTextCapableModel({ id: "m", outputModalities: ["image"] })).toBe(false);
+    expect(
+      isTextCapableModel({ id: "m", outputModalities: ["text", "image"] }),
+    ).toBe(true);
+    expect(isTextCapableModel({ id: "m", outputModalities: ["image"] })).toBe(
+      false,
+    );
     expect(
       isChatModel({
         status: "active",
@@ -181,7 +195,11 @@ describe("which models generate images (PAGE-382)", () => {
       }),
     ).toBe(true);
     expect(
-      isChatModel({ status: "active", output: { text: false, image: true }, toolCall: true }),
+      isChatModel({
+        status: "active",
+        output: { text: false, image: true },
+        toolCall: true,
+      }),
     ).toBe(false);
   });
 });
@@ -249,9 +267,11 @@ describe("generating images with the model of the round (PAGE-382)", () => {
   it("fails clearly when the model answers without an image", async () => {
     const { service } = generation({
       client: {
-        generate: vi
-          .fn()
-          .mockResolvedValue({ images: [], text: "Das darf ich nicht zeichnen.", costUsd: null }),
+        generate: vi.fn().mockResolvedValue({
+          images: [],
+          text: "Das darf ich nicht zeichnen.",
+          costUsd: null,
+        }),
       },
     });
     await expect(
@@ -263,11 +283,13 @@ describe("generating images with the model of the round (PAGE-382)", () => {
         templates: [],
         signal: new AbortController().signal,
       }),
-    ).rejects.toEqual(new AgentImageError("no_images", "Das darf ich nicht zeichnen."));
+    ).rejects.toEqual(
+      new AgentImageError("no_images", "Das darf ich nicht zeichnen."),
+    );
   });
 });
 
-describe("the tool bilder_erzeugen (PAGE-382)", () => {
+describe("the tool bilder_erzeugen execution (PAGE-382)", () => {
   let directory = "";
 
   afterEach(async () => {
@@ -285,11 +307,17 @@ describe("the tool bilder_erzeugen (PAGE-382)", () => {
     files: AgentImageToolDependencies["files"];
   } {
     let next = 0;
-    const stage = vi.fn(async (_target: unknown, file: { readonly source: AsyncIterable<Uint8Array> }) => {
-      for await (const chunk of file.source) expect(chunk.byteLength).toBeGreaterThan(0);
-      next += 1;
-      return { id: `generated-${String(next)}` };
-    });
+    const stage = vi.fn(
+      async (
+        _: unknown,
+        file: { readonly source: AsyncIterable<Uint8Array> },
+      ) => {
+        for await (const chunk of file.source)
+          expect(chunk.byteLength).toBeGreaterThan(0);
+        next += 1;
+        return { id: `generated-${String(next)}` };
+      },
+    );
     const files: AgentImageToolDependencies["files"] = {
       inspect: vi.fn().mockResolvedValue("notAllowed"),
       open: vi.fn(),
@@ -318,7 +346,11 @@ describe("the tool bilder_erzeugen (PAGE-382)", () => {
     directory = await mkdtemp(path.join(tmpdir(), "page382-"));
     const { service } = generation();
     const { run, pending, stage } = tool(service);
-    const outcome = await run(directory, { beschreibung: "Fuchs", anzahl: 2 }, new AbortController().signal);
+    const outcome = await run(
+      directory,
+      { beschreibung: "Fuchs", anzahl: 2 },
+      new AbortController().signal,
+    );
     expect(outcome.ok).toBe(true);
     expect(outcome.result).not.toContain(KEY);
     const result: unknown = JSON.parse(outcome.result ?? "{}");
@@ -328,15 +360,19 @@ describe("the tool bilder_erzeugen (PAGE-382)", () => {
     });
     expect(stage).toHaveBeenCalledWith(
       { conversationId: "conv-1", senderId: "agent-1" },
-      expect.objectContaining({ name: "bild-20261114T120000-1.png", mimeType: "image/png" }),
+      expect.objectContaining({
+        name: "bild-20261114T120000-1.png",
+        mimeType: "image/png",
+      }),
     );
     expect(
-      await readFile(path.join(directory, "bilder", "bild-20261114T120000-1.png")),
+      await readFile(
+        path.join(directory, "bilder", "bild-20261114T120000-1.png"),
+      ),
     ).toEqual(PNG);
-    expect(pending.take({ agentId: "agent-1", conversationId: "conv-1" })).toEqual([
-      "generated-1",
-      "generated-2",
-    ]);
+    expect(
+      pending.take({ agentId: "agent-1", conversationId: "conv-1" }),
+    ).toEqual(["generated-1", "generated-2"]);
   });
 
   it("says clearly that the model cannot and names the models that could, without an image", async () => {
@@ -350,30 +386,72 @@ describe("the tool bilder_erzeugen (PAGE-382)", () => {
         pending,
         files: { inspect: vi.fn(), open: vi.fn() },
       } as unknown as AgentImageToolDependencies,
-      { agentId: "agent-1", conversationId: "conv-1", employee, assignment: textAssignment },
+      {
+        agentId: "agent-1",
+        conversationId: "conv-1",
+        employee,
+        assignment: textAssignment,
+      },
     );
-    const outcome = await run("/tmp/unused", { beschreibung: "Fuchs" }, new AbortController().signal);
-    expect(outcome).toMatchObject({ ok: false, error: "IMAGE_OUTPUT_UNSUPPORTED" });
+    const outcome = await run(
+      "/tmp/unused",
+      { beschreibung: "Fuchs" },
+      new AbortController().signal,
+    );
+    expect(outcome).toMatchObject({
+      ok: false,
+      error: "IMAGE_OUTPUT_UNSUPPORTED",
+    });
     expect(outcome.result).toContain(
       "Mit dem Modell claude-opus-5-5 kann ich keine Bilder erzeugen.",
     );
     expect(outcome.result).toContain("gemini-2.5-flash-image (OpenCode)");
     expect(outcome.result).toContain("/model");
     expect(stage).not.toHaveBeenCalled();
-    expect(pending.count({ agentId: "agent-1", conversationId: "conv-1" })).toBe(0);
+    expect(
+      pending.count({ agentId: "agent-1", conversationId: "conv-1" }),
+    ).toBe(0);
   });
+});
 
+describe("the tool bilder_erzeugen errors and registration (PAGE-382)", () => {
   it("passes a failure of the provider on as a readable message", async () => {
     const { service } = generation({
       client: {
         generate: vi
           .fn()
-          .mockRejectedValue(new AgentImageError("provider_failed", "Guthaben aufgebraucht")),
+          .mockRejectedValue(
+            new AgentImageError("provider_failed", "Guthaben aufgebraucht"),
+          ),
       },
     });
-    const { run, stage } = tool(service);
-    const outcome = await run("/tmp/unused", { beschreibung: "Fuchs" }, new AbortController().signal);
-    expect(outcome).toMatchObject({ ok: false, error: "IMAGE_PROVIDER_FAILED" });
+    const stage = vi.fn();
+    const run = agentImageTool(
+      {
+        generation: service,
+        attachments: { stage, release: vi.fn().mockResolvedValue(undefined) },
+        pending: new ConversationGeneratedImages(),
+        files: {
+          inspect: vi.fn().mockResolvedValue("notAllowed"),
+          open: vi.fn(),
+        },
+      },
+      {
+        agentId: "agent-1",
+        conversationId: "conv-1",
+        employee,
+        assignment: imageAssignment,
+      },
+    );
+    const outcome = await run(
+      "/tmp/unused",
+      { beschreibung: "Fuchs" },
+      new AbortController().signal,
+    );
+    expect(outcome).toMatchObject({
+      ok: false,
+      error: "IMAGE_PROVIDER_FAILED",
+    });
     expect(outcome.result).toContain("Die Bilderzeugung ist fehlgeschlagen");
     expect(outcome.result).toContain("Guthaben aufgebraucht");
     expect(stage).not.toHaveBeenCalled();
@@ -381,41 +459,81 @@ describe("the tool bilder_erzeugen (PAGE-382)", () => {
 
   it("refuses a template outside the allowed places", async () => {
     const { service, client } = generation();
-    const { run } = tool(service);
+    const run = agentImageTool(
+      {
+        generation: service,
+        attachments: {
+          stage: vi.fn(),
+          release: vi.fn().mockResolvedValue(undefined),
+        },
+        pending: new ConversationGeneratedImages(),
+        files: {
+          inspect: vi.fn().mockResolvedValue("notAllowed"),
+          open: vi.fn(),
+        },
+      },
+      {
+        agentId: "agent-1",
+        conversationId: "conv-1",
+        employee,
+        assignment: imageAssignment,
+      },
+    );
     const outcome = await run(
       "/tmp/unused",
       { beschreibung: "Fuchs", vorlagen: ["/home/igor/.ssh/id_rsa"] },
       new AbortController().signal,
     );
-    expect(outcome).toMatchObject({ ok: false, error: "IMAGE_INVALID_TEMPLATE" });
+    expect(outcome).toMatchObject({
+      ok: false,
+      error: "IMAGE_INVALID_TEMPLATE",
+    });
     expect(client.generate).not.toHaveBeenCalled();
   });
 
   it("is offered only in a conversation and only with the generation wired", () => {
-    const images = {} as AgentImageToolDependencies;
+    const { service } = generation();
+    const images: AgentImageToolDependencies = {
+      generation: service,
+      attachments: { stage: vi.fn(), release: vi.fn() },
+      pending: new ConversationGeneratedImages(),
+      files: { inspect: vi.fn(), open: vi.fn() },
+    };
     const turn = { agentId: "a", employee, assignment: imageAssignment };
-    expect(imageToolOf(undefined, { ...turn, conversationId: "c" })).toEqual({});
-    expect(imageToolOf(images, { ...turn, conversationId: null })).toEqual({});
-    expect(imageToolOf(images, { ...turn, conversationId: "c" }).generateImages).toBeTypeOf(
-      "function",
+    expect(imageToolOf(undefined, { ...turn, conversationId: "c" })).toEqual(
+      {},
     );
+    expect(imageToolOf(images, { ...turn, conversationId: null })).toEqual({});
+    expect(
+      imageToolOf(images, { ...turn, conversationId: "c" }).generateImages,
+    ).toBeTypeOf("function");
   });
 
   it("registers bilder_erzeugen only for a job that generates images", () => {
     const register = vi.fn();
-    const registry = { register } as unknown as Parameters<typeof registerPicaEmployeeTools>[0];
-    registerPicaEmployeeTools(registry, { authorize: () => Promise.resolve() }, () => true);
-    expect(register).not.toHaveBeenCalledWith(expect.objectContaining({ id: "bilder_erzeugen" }));
+    const registry = { register } as unknown as Parameters<
+      typeof registerPicaEmployeeTools
+    >[0];
+    registerPicaEmployeeTools(
+      registry,
+      { authorize: () => Promise.resolve() },
+      () => true,
+    );
+    expect(register).not.toHaveBeenCalledWith(
+      expect.objectContaining({ id: "bilder_erzeugen" }),
+    );
     registerPicaEmployeeTools(
       registry,
       { authorize: () => Promise.resolve(), generateImages: vi.fn() },
       () => true,
     );
-    expect(register).toHaveBeenCalledWith(expect.objectContaining({ id: "bilder_erzeugen" }));
+    expect(register).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "bilder_erzeugen" }),
+    );
   });
 });
 
-describe("the image interfaces of the providers (PAGE-382)", () => {
+describe("the OpenRouter image interface (PAGE-382)", () => {
   it("asks OpenRouter for image output with the key in the header and reads the data URLs and the cost", async () => {
     const transport = vi.fn().mockResolvedValue(
       Response.json({
@@ -424,7 +542,11 @@ describe("the image interfaces of the providers (PAGE-382)", () => {
             message: {
               content: "Hier ist dein Bild.",
               images: [
-                { image_url: { url: `data:image/png;base64,${PNG.toString("base64")}` } },
+                {
+                  image_url: {
+                    url: `data:image/png;base64,${PNG.toString("base64")}`,
+                  },
+                },
               ],
             },
           },
@@ -462,7 +584,10 @@ describe("the image interfaces of the providers (PAGE-382)", () => {
     const transport = vi
       .fn()
       .mockResolvedValue(
-        Response.json({ error: { message: "Insufficient credits" } }, { status: 402 }),
+        Response.json(
+          { error: { message: "Insufficient credits" } },
+          { status: 402 },
+        ),
       );
     await expect(
       new OpenRouterImageClient(transport).generate({
@@ -472,7 +597,9 @@ describe("the image interfaces of the providers (PAGE-382)", () => {
         templates: [],
         signal: new AbortController().signal,
       }),
-    ).rejects.toEqual(new AgentImageError("provider_failed", "Insufficient credits"));
+    ).rejects.toEqual(
+      new AgentImageError("provider_failed", "Insufficient credits"),
+    );
   });
 
   it("reports an unreachable provider", async () => {
@@ -487,7 +614,9 @@ describe("the image interfaces of the providers (PAGE-382)", () => {
       }),
     ).rejects.toMatchObject({ code: "provider_unreachable" });
   });
+});
 
+describe("the Google image interface (PAGE-382)", () => {
   it("asks Gemini for text and image output and reads the inline images", async () => {
     const transport = vi.fn().mockResolvedValue(
       Response.json({
@@ -496,7 +625,12 @@ describe("the image interfaces of the providers (PAGE-382)", () => {
             content: {
               parts: [
                 { text: "Bitte schön." },
-                { inlineData: { mimeType: "image/png", data: PNG.toString("base64") } },
+                {
+                  inlineData: {
+                    mimeType: "image/png",
+                    data: PNG.toString("base64"),
+                  },
+                },
               ],
             },
           },

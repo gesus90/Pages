@@ -31,7 +31,11 @@ export function groupByMonth(
     month: "long",
     year: "numeric",
   });
-  const groups: { key: string; label: string; files: ConversationMediaFile[] }[] = [];
+  const groups: {
+    key: string;
+    label: string;
+    files: ConversationMediaFile[];
+  }[] = [];
   for (const file of files) {
     const sent = new Date(file.sentAt);
     const key = Number.isNaN(sent.getTime()) ? "" : file.sentAt.slice(0, 7);
@@ -48,7 +52,11 @@ export function groupByMonth(
 /** The card a document, a sound or another file opens as next to the chat. */
 function descriptorOf(file: ConversationMediaFile): ContentCardDescriptor {
   const { attachment } = file;
-  if (attachment.kind === "image" || attachment.kind === "video" || attachment.kind === "audio")
+  if (
+    attachment.kind === "image" ||
+    attachment.kind === "video" ||
+    attachment.kind === "audio"
+  )
     return { kind: attachment.kind, attachment };
   const view = fileViewOf(attachment);
   if (view.kind === "pdf") return { kind: "pdf", attachment };
@@ -56,8 +64,13 @@ function descriptorOf(file: ConversationMediaFile): ContentCardDescriptor {
     return { kind: view.view, attachment, format: view.format };
   const text = view.isTooLarge ? null : textAttachmentKind(attachment);
   if (text === null) return { kind: "file", attachment };
-  const shared = { name: attachment.name, source: null, sourceUrl: attachment.url };
-  if (text === "code") return { ...shared, kind: "code", languageHint: attachment.name };
+  const shared = {
+    name: attachment.name,
+    source: null,
+    sourceUrl: attachment.url,
+  };
+  if (text === "code")
+    return { ...shared, kind: "code", languageHint: attachment.name };
   return { ...shared, kind: text };
 }
 

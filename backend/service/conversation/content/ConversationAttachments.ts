@@ -154,7 +154,9 @@ export function isConversationAttachmentExpired(
   now: Date,
 ): boolean {
   if (stored.expiredAt) return true;
-  return Boolean(stored.expiresAt) && String(stored.expiresAt) <= now.toISOString();
+  return (
+    Boolean(stored.expiresAt) && String(stored.expiresAt) <= now.toISOString()
+  );
 }
 
 /** Reads a declared MIME type; anything unusual counts as plain bytes. */
@@ -293,7 +295,8 @@ export class ConversationAttachments {
       person,
       thumbnail.attachmentId,
     );
-    if (thumbnail.facts) await this.storeMediaFacts(attachment, thumbnail.facts);
+    if (thumbnail.facts)
+      await this.storeMediaFacts(attachment, thumbnail.facts);
     const mimeType = readAttachmentMimeType(thumbnail.mimeType);
     if (!CONVERSATION_THUMBNAIL_MIME_TYPES.some((type) => type === mimeType))
       throw new ConversationError("unsupported_format");
@@ -328,29 +331,6 @@ export class ConversationAttachments {
       throw new ConversationError("invalid");
     const current = await this.dependencies.attachments.find(attachment.id);
     return toConversationAttachment(current ?? attachment);
-  }
-
-  /**
-   * Stores usable facts of a video, a sound or a PDF that has none; `false`
-   * when none are usable.
-   */
-  private async storeMediaFacts(
-    attachment: StoredConversationAttachment,
-    input: ConversationFileFactsInput,
-  ): Promise<boolean> {
-    const kind = conversationAttachmentKind(attachment.mimeType);
-    const facts = readConversationMediaFacts(kind, input);
-    if (facts !== null) {
-      // Facts of another viewer that came first stay.
-      if (!attachment.media)
-        await this.dependencies.attachments.setMediaFacts(attachment.id, facts);
-      return true;
-    }
-    const document = readConversationDocumentFacts(kind, input);
-    if (document === null) return false;
-    if (!attachment.document)
-      await this.dependencies.attachments.setDocumentFacts(attachment.id, document);
-    return true;
   }
 
   /** Drops an own upload that no message took; anything else stays untouched. */
@@ -497,7 +477,9 @@ export class ConversationAttachments {
   public async expire(): Promise<number> {
     const now = this.now();
     const names = await this.dependencies.attachments.expireDue(
-      new Date(now.getTime() + CONVERSATION_EXPIRY_LEAD_MILLISECONDS).toISOString(),
+      new Date(
+        now.getTime() + CONVERSATION_EXPIRY_LEAD_MILLISECONDS,
+      ).toISOString(),
       now.toISOString(),
     );
     if (names.length > 0) await this.dependencies.files.remove(names);
@@ -533,35 +515,6 @@ export class ConversationAttachments {
     return this.mediaOf(person, conversationId, "video");
   }
 
-  private async mediaOf(
-    person: User,
-    conversationId: unknown,
-    kind: "image" | "video",
-  ): Promise<ConversationImage[]> {
-    const id = readIdentifier(conversationId);
-    await this.requireMember(person.id, id);
-    const stored =
-      kind === "image"
-        ? await this.dependencies.attachments.imagesOfConversation(id)
-        : await this.dependencies.attachments.mediaOfConversation(id, kind);
-    const accounts = await this.dependencies.directory?.read();
-    const now = this.now();
-    return stored.map((image) => {
-      const attachment = toConversationAttachment(image.attachment);
-      return {
-        attachment:
-          isConversationAttachmentExpired(image.attachment, now) &&
-          !attachment.expiredAt
-            ? { ...attachment, expiredAt: now.toISOString() }
-            : attachment,
-        messageId: image.messageId,
-        senderId: image.senderId,
-        senderName: accounts?.participant(image.senderId).name ?? "",
-        sentAt: image.sentAt,
-      };
-    });
-  }
-
   /**
    * The files of one message that are still there, for "Alle herunterladen"
    * (PAGE-382).
@@ -589,6 +542,61 @@ export class ConversationAttachments {
       }));
     if (entries.length === 0) throw new ConversationError("not_found");
     return { entries };
+  }
+
+  /**
+   * Stores usable facts of a video, a sound or a PDF that has none; `false`
+   * when none are usable.
+   */
+  private async storeMediaFacts(
+    attachment: StoredConversationAttachment,
+    input: ConversationFileFactsInput,
+  ): Promise<boolean> {
+    const kind = conversationAttachmentKind(attachment.mimeType);
+    const facts = readConversationMediaFacts(kind, input);
+    if (facts !== null) {
+      // Facts of another viewer that came first stay.
+      if (!attachment.media)
+        await this.dependencies.attachments.setMediaFacts(attachment.id, facts);
+      return true;
+    }
+    const document = readConversationDocumentFacts(kind, input);
+    if (document === null) return false;
+    if (!attachment.document)
+      await this.dependencies.attachments.setDocumentFacts(
+        attachment.id,
+        document,
+      );
+    return true;
+  }
+
+  private async mediaOf(
+    person: User,
+    conversationId: unknown,
+    kind: "image" | "video",
+  ): Promise<ConversationImage[]> {
+    const id = readIdentifier(conversationId);
+    await this.requireMember(person.id, id);
+    const stored =
+      kind === "image"
+        ? await this.dependencies.attachments.imagesOfConversation(id)
+        : await this.dependencies.attachments.mediaOfConversation(id, kind);
+    const accounts = await this.dependencies.directory?.read();
+    const now = this.now();
+    return stored.map((image) => {
+      const attachment = toConversationAttachment(image.attachment);
+      return {
+        attachment:
+          isConversationAttachmentExpired(image.attachment, now) &&
+          !attachment.expiredAt
+            ? { ...attachment, expiredAt: now.toISOString() }
+            : attachment,
+        messageId: image.messageId,
+        senderId: image.senderId,
+        senderName: accounts?.participant(image.senderId).name ?? "",
+        sentAt: image.sentAt,
+      };
+    });
   }
 
   private async store(

@@ -70,8 +70,8 @@ function wrap(element: React.ReactNode): React.ReactElement {
 }
 
 /** The accessible names of the buttons and links of a head, in their order. */
-function actionNames(head: HTMLElement): string[] {
-  return [...head.querySelectorAll("a, button")].map(
+function actionNames(header: HTMLElement): string[] {
+  return [...header.querySelectorAll("a, button")].map(
     (element) =>
       element.getAttribute("aria-label") ??
       element.getAttribute("title") ??
@@ -95,14 +95,25 @@ beforeEach(() => {
 });
 
 it("gives a link card the shared head: link icon, title, domain and the main action first", () => {
-  render(wrap(<LinkCards links={[LINK]} messageId="m" origin={{ senderName: "Ada" }} />));
+  render(
+    wrap(
+      <LinkCards links={[LINK]} messageId="m" origin={{ senderName: "Ada" }} />,
+    ),
+  );
 
   const card = screen.getByRole("region", { name: "Example page" });
   const cardHead = head(card);
   expect(cardHead.querySelector(".bg-primary-subtle svg")).toBeTruthy();
-  expect(within(cardHead).getByText("Example page").className).toContain("font-semibold");
-  expect(within(cardHead).getByText("example.org").className).toContain("text-muted-foreground");
-  expect(actionNames(cardHead)).toEqual(["Open in new tab", "Embed in this chat"]);
+  expect(within(cardHead).getByText("Example page").className).toContain(
+    "font-semibold",
+  );
+  expect(within(cardHead).getByText("example.org").className).toContain(
+    "text-muted-foreground",
+  );
+  expect(actionNames(cardHead)).toEqual([
+    "Open in new tab",
+    "Embed in this chat",
+  ]);
   const open = within(cardHead).getByRole("link", { name: "Open in new tab" });
   expect(open.className).toContain("bg-primary");
   expect(open.getAttribute("target")).toBe("_blank");
@@ -113,7 +124,11 @@ it("gives a link card the shared head: link icon, title, domain and the main act
 });
 
 it("keeps the release of a link card a quiet action that releases the domain", () => {
-  render(wrap(<LinkCards links={[LINK]} messageId="m" origin={{ senderName: "Ada" }} />));
+  render(
+    wrap(
+      <LinkCards links={[LINK]} messageId="m" origin={{ senderName: "Ada" }} />,
+    ),
+  );
 
   const embed = screen.getByRole("button", { name: "Embed in this chat" });
   expect(embed.className).not.toContain("bg-primary ");
@@ -123,9 +138,15 @@ it("keeps the release of a link card a quiet action that releases the domain", (
 
 it("offers no release without the right to release", () => {
   content.canRelease = false;
-  render(wrap(<LinkCards links={[LINK]} messageId="m" origin={{ senderName: "Ada" }} />));
+  render(
+    wrap(
+      <LinkCards links={[LINK]} messageId="m" origin={{ senderName: "Ada" }} />,
+    ),
+  );
 
-  expect(screen.queryByRole("button", { name: "Embed in this chat" })).toBeNull();
+  expect(
+    screen.queryByRole("button", { name: "Embed in this chat" }),
+  ).toBeNull();
 });
 
 it("names a link without title by its host and shows no body without preview", () => {
@@ -147,11 +168,17 @@ it("names a link without title by its host and shows no body without preview", (
 it("gives an embedded page the fixed order: new tab, reload, beside, full screen, collapse", () => {
   content.embeddable = true;
   content.expanded = true;
-  render(wrap(<LinkCards links={[LINK]} messageId="m" origin={{ senderName: "Ada" }} />));
+  render(
+    wrap(
+      <LinkCards links={[LINK]} messageId="m" origin={{ senderName: "Ada" }} />,
+    ),
+  );
 
   const card = screen.getByRole("region", { name: "Example page" });
   const cardHead = head(card);
-  expect(within(cardHead).getByText(/https:\/\/example\.org\/path/u)).toBeTruthy();
+  expect(
+    within(cardHead).getByText(/https:\/\/example\.org\/path/u),
+  ).toBeTruthy();
   expect(actionNames(cardHead)).toEqual([
     "Open in new tab",
     "Reload",
@@ -159,9 +186,9 @@ it("gives an embedded page the fixed order: new tab, reload, beside, full screen
     "Full screen",
     "Collapse",
   ]);
-  expect(within(cardHead).getByRole("link", { name: "Open in new tab" }).className).toContain(
-    "bg-primary",
-  );
+  expect(
+    within(cardHead).getByRole("link", { name: "Open in new tab" }).className,
+  ).toContain("bg-primary");
   expect(cardHead.querySelector("[aria-hidden='true'].bg-border")).toBeTruthy();
   // The page is framed only through the frame document of Pages, without referrer.
   const frame = card.querySelector("iframe");
@@ -175,13 +202,22 @@ it("gives an embedded page the fixed order: new tab, reload, beside, full screen
 it("reloads the embedded page and opens it in full screen", () => {
   content.embeddable = true;
   content.expanded = true;
-  render(wrap(<LinkCards links={[LINK]} messageId="m" origin={{ senderName: "Ada" }} />));
+  render(
+    wrap(
+      <LinkCards links={[LINK]} messageId="m" origin={{ senderName: "Ada" }} />,
+    ),
+  );
 
   fireEvent.click(screen.getByRole("button", { name: "Reload" }));
-  expect(document.querySelector("iframe")?.getAttribute("data-reload")).toBe("1");
+  expect(document.querySelector("iframe")?.getAttribute("data-reload")).toBe(
+    "1",
+  );
   fireEvent.click(screen.getByRole("button", { name: "Full screen" }));
   expect(content.openOverlay).toHaveBeenCalledWith(
-    expect.objectContaining({ key: "m:l0", descriptor: { kind: "web", link: LINK } }),
+    expect.objectContaining({
+      key: "m:l0",
+      descriptor: { kind: "web", link: LINK },
+    }),
   );
 });
 
@@ -189,7 +225,11 @@ it("lets a member take back a release of the embedded page", () => {
   content.embeddable = true;
   content.expanded = true;
   content.released = ["example.org"];
-  render(wrap(<LinkCards links={[LINK]} messageId="m" origin={{ senderName: "Ada" }} />));
+  render(
+    wrap(
+      <LinkCards links={[LINK]} messageId="m" origin={{ senderName: "Ada" }} />,
+    ),
+  );
 
   fireEvent.click(screen.getByRole("button", { name: "Remove release" }));
   expect(content.setDomainReleased).toHaveBeenCalledWith("example.org", false);
@@ -221,10 +261,14 @@ it("gives a diff card the head Diff · +N −M and Copy as main action", () => {
   expect(copy.className).toContain("bg-primary");
   fireEvent.click(copy);
   expect(content.copy).toHaveBeenCalledWith(DIFF);
-  fireEvent.click(within(cardHead).getByRole("button", { name: "Full screen" }));
-  expect(content.openOverlay).toHaveBeenCalledWith(
-    expect.objectContaining({ key: "d", descriptor: expect.objectContaining({ kind: "diff" }) }),
+  fireEvent.click(
+    within(cardHead).getByRole("button", { name: "Full screen" }),
   );
+  expect(content.openOverlay).toHaveBeenCalledOnce();
+  expect(content.openOverlay.mock.calls[0]?.[0]).toMatchObject({
+    key: "d",
+    descriptor: { kind: "diff" },
+  });
 });
 
 it("keeps Whole file as a framed action after Copy for a stored diff", () => {
@@ -253,7 +297,15 @@ it("leads the diff panel with Copy and keeps the switch between stacked and side
     descriptor: { kind: "diff", name: "app.ts", source: DIFF },
     origin: { senderName: "Ada" },
   };
-  render(wrap(<CardPanel card={card} onClose={() => undefined} onFullscreen={() => undefined} />));
+  render(
+    wrap(
+      <CardPanel
+        card={card}
+        onClose={() => undefined}
+        onFullscreen={() => undefined}
+      />,
+    ),
+  );
 
   const panelHead = head(screen.getByRole("region", { name: "app.ts" }));
   expect(actionNames(panelHead)).toEqual([
@@ -263,7 +315,9 @@ it("leads the diff panel with Copy and keeps the switch between stacked and side
     "Full screen",
     "Close",
   ]);
-  expect(within(panelHead).getByRole("button", { name: "Copy" }).className).toContain("bg-primary");
+  expect(
+    within(panelHead).getByRole("button", { name: "Copy" }).className,
+  ).toContain("bg-primary");
   const stacked = within(panelHead).getByRole("button", { name: "Stacked" });
   fireEvent.click(stacked);
   expect(stacked.getAttribute("aria-pressed")).toBe("true");
@@ -275,12 +329,25 @@ it("gives an embedded page in the panel new tab, reload, full screen and close",
     descriptor: { kind: "web", link: LINK },
     origin: { senderName: "Ada" },
   };
-  render(wrap(<CardPanel card={card} onClose={() => undefined} onFullscreen={() => undefined} />));
+  render(
+    wrap(
+      <CardPanel
+        card={card}
+        onClose={() => undefined}
+        onFullscreen={() => undefined}
+      />,
+    ),
+  );
 
   const panel = screen.getByRole("region", { name: "Example page" });
   const panelHead = head(panel);
   expect(panelHead.textContent).toContain(LINK.url);
-  expect(actionNames(panelHead)).toEqual(["Open in new tab", "Reload", "Full screen", "Close"]);
+  expect(actionNames(panelHead)).toEqual([
+    "Open in new tab",
+    "Reload",
+    "Full screen",
+    "Close",
+  ]);
   fireEvent.click(within(panelHead).getByRole("button", { name: "Reload" }));
   expect(panel.querySelector("iframe")?.getAttribute("data-reload")).toBe("1");
 });

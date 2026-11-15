@@ -76,7 +76,10 @@ function host(): PicaMobilePlansHost & { readonly frames: unknown[] } {
     frames,
     session: () => SESSION,
     isOpen: () => true,
-    send: (frame) => frames.push(JSON.parse(frame)),
+    send: (frame) => {
+      frames.push(JSON.parse(frame));
+      return true;
+    },
     reject: vi.fn(),
     rejectUnauthenticated: vi.fn(),
     acknowledge: vi.fn(),
@@ -118,10 +121,14 @@ function provider(): {
 it("never sends the parts of live answers to Pica Mobile, whose other events go on as before", async () => {
   const connection = host();
   const { provider: conversations, emit } = provider();
-  const handler = new PicaMobileConversationsHandler(conversations, connection, {
-    connectionId: "mobile",
-    presence: { set: vi.fn() },
-  });
+  const handler = new PicaMobileConversationsHandler(
+    conversations,
+    connection,
+    {
+      connectionId: "mobile",
+      presence: { set: vi.fn() },
+    },
+  );
   handler.start();
   emit(TEXT_EVENT);
   emit(MESSAGE_EVENT);
@@ -136,26 +143,31 @@ it("sends the browser a snapshot of running answers and then their parts", async
   const connection = host();
   const { provider: conversations, emit } = provider();
   const snapshots = vi.fn().mockReturnValue([SNAPSHOT]);
-  const handler = new PicaMobileConversationsHandler(conversations, connection, {
-    connectionId: "web",
-    presence: { set: vi.fn() },
-    answers: { snapshots },
-  });
+  const handler = new PicaMobileConversationsHandler(
+    conversations,
+    connection,
+    {
+      connectionId: "web",
+      presence: { set: vi.fn() },
+      answers: { snapshots },
+    },
+  );
   handler.start();
   emit(TEXT_EVENT);
   emit({ ...TEXT_EVENT, recipientIds: ["anna"] });
   await vi.waitFor(() => expect(connection.frames).toHaveLength(2));
   expect(snapshots).toHaveBeenCalledWith("igor");
-  expect(connection.frames).toEqual([
+  expect(connection.frames).toHaveLength(2);
+  expect(connection.frames[0]).toEqual(
     expect.objectContaining({
       requestId: null,
       type: "conversation_event",
       payload: { type: "answer_snapshot", data: SNAPSHOT },
     }),
-    expect.objectContaining({
-      payload: expect.objectContaining({ type: "answer_text" }),
-    }),
-  ]);
+  );
+  expect(connection.frames[1]).toMatchObject({
+    payload: { type: "answer_text" },
+  });
 });
 
 it("announces conversations.stream.v1 only for the browser's connection", async () => {
