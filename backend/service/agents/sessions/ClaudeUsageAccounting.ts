@@ -142,7 +142,9 @@ export async function accountClaudeUsage(
             cacheRead: String(
               model.pricing.input_cache_read ?? model.pricing.prompt,
             ),
-            cacheWrite: String(model.pricing.prompt),
+            cacheWrite: String(
+              model.pricing.input_cache_write ?? model.pricing.prompt,
+            ),
           }))
       : [];
     const overrides = await repository.modelOverrides(usage.attemptId);

@@ -46,11 +46,26 @@ vi.mock(
   "@/backend/database/repositories/agent/OpenRouterPriceRepository",
   () => ({
     OpenRouterPriceRepository: class {
-      /** Returns the cached prices. */
-      public async read(): Promise<{ fetchedAt: string; catalog: string }> {
+      /** Returns the cached catalog in the stored OpenRouter shape. */
+      public async read(): Promise<{
+        fetchedAt: string;
+        models: {
+          id: string;
+          pricing: Record<string, string>;
+        }[];
+      } | null> {
+        if (state.prices.length === 0) return null;
         return {
-          fetchedAt: "2026-11-13",
-          catalog: JSON.stringify(state.prices),
+          fetchedAt: state.prices[0]?.fetchedAt ?? PRICE.fetchedAt,
+          models: state.prices.map((price) => ({
+            id: price.modelId,
+            pricing: {
+              prompt: price.prompt,
+              completion: price.completion,
+              input_cache_read: price.cacheRead,
+              input_cache_write: price.cacheWrite,
+            },
+          })),
         };
       }
     },
