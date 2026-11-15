@@ -94,6 +94,10 @@ interface NavigationLinksProps {
   readonly onNavigate?: () => void;
 }
 
+function linkClassName({ isActive }: NavLinkRenderProps): string {
+  return getLinkClassName(isActive);
+}
+
 function getLinkClassName(isActive: boolean): string {
   return cn(
     "flex min-h-12 items-center gap-4 rounded-xl px-5 text-lg font-medium text-muted-foreground transition-colors hover:bg-sidebar-hover hover:text-foreground xl:min-h-10 xl:gap-3 xl:px-3 xl:text-sm",
@@ -112,9 +116,7 @@ function ChatNavigationLink({
 
   return (
     <NavLink
-      className={({ isActive }: NavLinkRenderProps) =>
-        getLinkClassName(isActive)
-      }
+      className={linkClassName}
       to="/chat"
       prefetch="intent"
       onClick={onNavigate}
@@ -138,9 +140,7 @@ function WikiNavigationLink({
 
   return (
     <NavLink
-      className={({ isActive }: NavLinkRenderProps) =>
-        getLinkClassName(isActive)
-      }
+      className={linkClassName}
       to="/wiki"
       prefetch="intent"
       onClick={onNavigate}
@@ -161,9 +161,7 @@ function AutomationsNavigationLink({
 
   return (
     <NavLink
-      className={({ isActive }: NavLinkRenderProps) =>
-        getLinkClassName(isActive)
-      }
+      className={linkClassName}
       to="/automationen"
       prefetch="intent"
       onClick={onNavigate}
@@ -186,13 +184,7 @@ function StorageNavigationLink({
   const { t } = useTranslation();
 
   return (
-    <NavLink
-      className={({ isActive }: NavLinkRenderProps) =>
-        getLinkClassName(isActive)
-      }
-      to="/storage"
-      onClick={onNavigate}
-    >
+    <NavLink className={linkClassName} to="/storage" onClick={onNavigate}>
       <HardDrive className="size-6 text-primary xl:size-5" aria-hidden="true" />
       {t("navigation.storage")}
     </NavLink>
@@ -214,9 +206,7 @@ function NavigationLinks({
       aria-label={t("navigation.label")}
     >
       <NavLink
-        className={({ isActive }: NavLinkRenderProps) =>
-          getLinkClassName(isActive)
-        }
+        className={linkClassName}
         to="/dashboard"
         prefetch="intent"
         onClick={onNavigate}
@@ -230,9 +220,7 @@ function NavigationLinks({
       {canViewProjects ? (
         <>
           <NavLink
-            className={({ isActive }: NavLinkRenderProps) =>
-              getLinkClassName(isActive)
-            }
+            className={linkClassName}
             to="/projekte"
             prefetch="intent"
             onClick={onNavigate}
@@ -244,9 +232,7 @@ function NavigationLinks({
             {t("navigation.projects")}
           </NavLink>
           <NavLink
-            className={({ isActive }: NavLinkRenderProps) =>
-              getLinkClassName(isActive)
-            }
+            className={linkClassName}
             to="/aufgaben"
             prefetch="intent"
             onClick={onNavigate}
@@ -276,9 +262,7 @@ function NavigationLinks({
       <div className="mt-auto flex flex-col gap-1 pt-2">
         {canViewUsers ? (
           <NavLink
-            className={({ isActive }: NavLinkRenderProps) =>
-              getLinkClassName(isActive)
-            }
+            className={linkClassName}
             to="/users"
             prefetch="intent"
             onClick={onNavigate}
@@ -291,9 +275,7 @@ function NavigationLinks({
           </NavLink>
         ) : null}
         <NavLink
-          className={({ isActive }: NavLinkRenderProps) =>
-            getLinkClassName(isActive)
-          }
+          className={linkClassName}
           to="/settings"
           prefetch="intent"
           onClick={onNavigate}
