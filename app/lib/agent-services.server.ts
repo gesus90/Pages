@@ -1,8 +1,6 @@
 import path from "node:path";
 import { homedir } from "node:os";
 
-import { OpenRouterPriceRepository } from "@/backend/database/repositories/agent/OpenRouterPriceRepository";
-import { OpenRouterPriceService } from "@/backend/service/agents/usage/OpenRouterPriceService";
 import { registerShutdownTask } from "@/backend/runtime/ProcessLifecycle";
 import { AgentEnvironmentRepository } from "@/backend/database/repositories/agent/AgentEnvironmentRepository";
 import { StorageMaintenanceRepository } from "@/backend/database/repositories/storage/StorageMaintenanceRepository";
@@ -70,6 +68,7 @@ import { ProjectRepository } from "@/backend/database/repositories/ProjectReposi
 import { AgentPlanGitHubCredentials } from "@/backend/service/agents/AgentPlanGitHubCredentials";
 import { CliGitHubCredentials } from "@/backend/agents/cli/CliGitHubCredentials";
 
+import { startOpenRouterPrices } from "./agent-price-services.server";
 import { createAgentConfigurationServices } from "./agent-workspace-services.server";
 import { createRemoteServices } from "./remote-services.server";
 import { createRunnerServices } from "./runner-services.server";
@@ -643,20 +642,5 @@ function startEnvironmentMaintenance(
       scheduler.stop();
     },
     { step: "agent_environment_maintenance" },
-  );
-}
-
-/** Starts periodic OpenRouter model price synchronization and registers shutdown cleanup. */
-function startOpenRouterPrices(database: Database): void {
-  if (!canProcessRuns() || isLocalSessionOwner()) return;
-  const prices = new OpenRouterPriceService(
-    new OpenRouterPriceRepository(database),
-  );
-  void prices.start();
-  registerShutdownTask(
-    async () => {
-      prices.stop();
-    },
-    { step: "openrouter_prices" },
   );
 }
