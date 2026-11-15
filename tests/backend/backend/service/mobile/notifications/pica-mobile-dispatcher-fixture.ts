@@ -1,12 +1,14 @@
 import { vi } from "vitest";
 
 import { PicaMobileNotificationDispatcher } from "@/backend/service/mobile/notifications/PicaMobileNotificationDispatcher";
+import { DEFAULT_NOTIFICATION_CHOICES } from "@/definition/PicaMobileNotifications";
 
 import { partial } from "../../../../app/lib/service-wiring-fakes";
 
 import type { Mock } from "vitest";
 import type { DeliveryRecord } from "@/backend/database/repositories/mobile/PicaMobileNotificationDeliveryRepository";
 import type { PicaMobileNotificationDeliveryRepository } from "@/backend/database/repositories/mobile/PicaMobileNotificationDeliveryRepository";
+import type { PicaMobileNotificationPreferenceRepository } from "@/backend/database/repositories/mobile/PicaMobileNotificationPreferenceRepository";
 import type {
   PicaMobileNotificationEventRepository,
   StoredNotificationEvent,
@@ -162,6 +164,9 @@ export interface DispatcherHarness {
     >;
   };
   readonly runs: { readonly read: Mock<PicaMobileNotificationAccess["read"]> };
+  readonly preferences: {
+    readonly find: Mock<PicaMobileNotificationPreferenceRepository["find"]>;
+  };
   readonly accounts: {
     readonly isBindingValid: Mock<PicaMobileAccountChecks["isBindingValid"]>;
   };
@@ -216,6 +221,14 @@ export function createHarness(choices: HarnessChoices = {}): DispatcherHarness {
   const runs: DispatcherHarness["runs"] = {
     read: vi.fn(async () => grantedAccess()),
   };
+  const preferences: DispatcherHarness["preferences"] = {
+    find: vi.fn(async (accountId) => ({
+      accountId,
+      ...DEFAULT_NOTIFICATION_CHOICES,
+      planAllStatuses: true,
+      teamRunsSince: null,
+    })),
+  };
   const accounts: DispatcherHarness["accounts"] = {
     isBindingValid: vi.fn(async () => true),
   };
@@ -237,6 +250,7 @@ export function createHarness(choices: HarnessChoices = {}): DispatcherHarness {
         registrations,
       ),
     runs,
+    preferences,
     accounts: partial<PicaMobileAccountChecks>(accounts),
     vault,
     sender: choices.hasSender === false ? null : sender,
@@ -249,6 +263,7 @@ export function createHarness(choices: HarnessChoices = {}): DispatcherHarness {
     events,
     registrations,
     runs,
+    preferences,
     accounts,
     vault,
     sender,

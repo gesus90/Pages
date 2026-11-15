@@ -35,6 +35,7 @@ export interface AgentConnectionWrite {
   readonly actorId: string;
   /** Absent keeps the system-wide behaviour every connection had before scopes. */
   readonly scope?: AgentConnectionScope;
+  readonly openRouterModelIds?: Readonly<Record<string, string>>;
 }
 
 export interface AgentConnectionChange {
@@ -51,6 +52,7 @@ export interface AgentConnectionChange {
   readonly actorId: string;
   /** Absent keeps the stored scope. */
   readonly scope?: AgentConnectionScope;
+  readonly openRouterModelIds?: Readonly<Record<string, string>>;
 }
 
 /** Facade for connection persistence and atomic credential/check changes. */
@@ -183,6 +185,7 @@ export class AgentConnectionRepository {
             codex_price_mappings,
             secret_encrypted,
             test_model,
+            openrouter_model_ids,
             created_by,
             updated_by
         ) VALUES (
@@ -194,6 +197,7 @@ export class AgentConnectionRepository {
             $codex_price_mappings,
             $secret_encrypted,
             $test_model,
+            $openrouter_model_ids,
             $actor_id,
             $actor_id
         );
@@ -211,6 +215,9 @@ export class AgentConnectionRepository {
           ),
           secret_encrypted: connection.secretEncrypted,
           test_model: connection.testModel,
+          openrouter_model_ids: JSON.stringify(
+            connection.openRouterModelIds ?? {},
+          ),
           actor_id: connection.actorId,
         },
       );
@@ -238,6 +245,7 @@ export class AgentConnectionRepository {
             secret_encrypted = COALESCE($secret_encrypted, secret_encrypted),
             test_model = $test_model,
             reasoning_effort = $reasoning_effort,
+            openrouter_model_ids = COALESCE($openrouter_model_ids, openrouter_model_ids),
             updated_by = $actor_id,
             updated_at = utc_now()
         WHERE id = $id;
@@ -257,6 +265,10 @@ export class AgentConnectionRepository {
           secret_encrypted: change.secretEncrypted,
           test_model: change.testModel,
           reasoning_effort: change.reasoningEffort,
+          openrouter_model_ids:
+            change.openRouterModelIds === undefined
+              ? null
+              : JSON.stringify(change.openRouterModelIds),
           actor_id: change.actorId,
         },
       );

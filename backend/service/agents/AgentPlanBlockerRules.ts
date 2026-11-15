@@ -287,6 +287,7 @@ const ERROR_CLASSES: Readonly<Record<AgentErrorCode, AgentPlanBlockerClass>> = {
   connection_limit_reached: "open",
   connection_not_found: "open",
   connection_scope_invalid: "open",
+  opencode_price_mapping_invalid: "open",
   secret_unavailable: "harm",
   check_in_progress: "infrastructure",
   check_timeout: "infrastructure",

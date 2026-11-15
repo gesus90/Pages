@@ -7,6 +7,7 @@ import { ClaudeUsageDetails } from "../claude-usage-details";
 import { hasSessionEnded, infrastructureRestarts } from "./console-step-state";
 import { formatClock } from "./console-time";
 import { ConsoleTodoList } from "./console-todo-list";
+import { OpenCodeUsageSection } from "./open-code-usage-section";
 import { useNow } from "./use-terminal-surface";
 
 import { CodexUsageFacts } from "../codex-usage-facts";
@@ -82,6 +83,8 @@ function UsageSection(props: {
   readonly isTurnRunning: boolean;
 }): React.ReactElement {
   const { t, i18n } = useTranslation();
+  if (props.view.openCode)
+    return <OpenCodeUsageSection {...props.view.openCode} />;
   const key = "plans.console.terminal.sidebar";
   const unknown = t(`${key}.unknown`);
   const numbers = new Intl.NumberFormat(i18n.language);

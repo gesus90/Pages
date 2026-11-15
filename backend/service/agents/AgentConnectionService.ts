@@ -17,6 +17,7 @@ import { logCaughtError } from "@/backend/logging/Logger";
 import {
   readAgentConnectionScope,
   readClaudePriceModels,
+  readOpenCodePriceMapping,
   readZaiAccountType,
   validateAgentInput,
 } from "./AgentConnectionValidation";
@@ -95,6 +96,9 @@ export class AgentConnectionService {
           hasApiKey: connection.hasApiKey,
           testModel: connection.testModel,
           reasoningEffort: connection.reasoningEffort,
+          ...(connection.provider === "opencode"
+            ? { openRouterModelIds: connection.openRouterModelIds ?? {} }
+            : {}),
           scope: scopes.get(connection.id) ?? UNSET_CONNECTION_SCOPE,
           cli: cliState,
           checks: { auth, model },
@@ -114,6 +118,8 @@ export class AgentConnectionService {
       const provider = input.provider;
       if (!isAgentProvider(provider)) throw new AgentError("provider_invalid");
       const validated = validateAgentInput(input, provider);
+      const openRouterModelIds =
+        readOpenCodePriceMapping(input.openRouterModelIds, provider) ?? {};
       const zaiAccountType = readZaiAccountType(input, provider);
       const scope =
         input.scope === undefined
@@ -149,6 +155,7 @@ export class AgentConnectionService {
           testModel: validated.testModel,
           actorId: actor.userId,
           scope,
+          ...(provider === "opencode" ? { openRouterModelIds } : {}),
         }),
       );
       return id;
@@ -171,6 +178,10 @@ export class AgentConnectionService {
       )
         throw new AgentError("provider_immutable");
       const validated = validateAgentInput(input, connection.provider);
+      const openRouterModelIds = readOpenCodePriceMapping(
+        input.openRouterModelIds,
+        connection.provider,
+      );
       const zaiAccountType = readZaiAccountType(
         input,
         connection.provider,
@@ -215,6 +226,7 @@ export class AgentConnectionService {
           clearModel: !isModelUnchanged,
           actorId: actor.userId,
           ...(scope ? { scope } : {}),
+          ...(openRouterModelIds ? { openRouterModelIds } : {}),
         }),
       );
     });

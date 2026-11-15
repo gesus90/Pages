@@ -92,6 +92,7 @@ export class CliSessionProcess implements CliRunningProcess {
   private stderrTail = "";
   private isFinished = false;
   private isOverflowed = false;
+  private isSuspended = false;
 
   public constructor(
     child: ChildProcess,
@@ -215,9 +216,29 @@ export class CliSessionProcess implements CliRunningProcess {
     return this.pauseChanges.run(() => this.changePause(isPaused));
   }
 
+  /** Stops the process group and pauses its deadline. */
+  public suspend(): boolean {
+    if (this.isFinished || this.isSuspended || !this.child.pid) return false;
+    if (!this.sendSignal("SIGSTOP")) return false;
+    this.deadline.pause();
+    this.isSuspended = true;
+    return true;
+  }
+
+  /** Continues the process group and its deadline. */
+  public resume(): boolean {
+    if (this.isFinished || !this.isSuspended) return false;
+    if (!this.sendSignal("SIGCONT")) return false;
+    this.isSuspended = false;
+    this.deadline.resume();
+    return true;
+  }
+
   /** Terminates the whole process group, with a kill after the grace period. */
   public cancel(code: AgentErrorCode): void {
     if (this.isFinished || this.escalation !== null) return;
+    if (this.isSuspended) this.resume();
+    this.deadline.close();
     logEvent({
       level: "info",
       event: "cli.process.cancel_requested",
@@ -316,17 +337,19 @@ export class CliSessionProcess implements CliRunningProcess {
     await this.callbacks.onLine(line);
   }
 
-  private sendSignal(signal: NodeJS.Signals): void {
+  private sendSignal(signal: NodeJS.Signals): boolean {
     this.callbacks.unit?.signal(signal);
-    if (this.child.exitCode !== null || this.child.signalCode !== null) return;
-    if (this.child.pid === undefined) return;
+    if (this.child.exitCode !== null || this.child.signalCode !== null)
+      return false;
+    if (this.child.pid === undefined) return false;
     try {
       this.signalGroup(-this.child.pid, signal);
+      return true;
     } catch (caughtError: unknown) {
       logCaughtError("CliSessionProcess", caughtError);
 
       // The group may already have exited; a direct signal also covers spawn races.
-      this.child.kill(signal);
+      return this.child.kill(signal);
     }
   }
 

@@ -12,6 +12,7 @@ export interface ChatNotificationSnapshot {
   readonly name: string;
   readonly avatarImageUrl: string | null;
   readonly isMuted: boolean;
+  readonly conversationId: string | null;
   readonly unreadCount: number;
   readonly messages: readonly VirtualChatMessage[];
 }
@@ -26,6 +27,7 @@ export function chatNotificationSnapshots(
       name: participant.name,
       avatarImageUrl: participant.avatarImageUrl,
       isMuted: participant.isMuted === true,
+      conversationId: participant.conversationId ?? null,
       unreadCount: participant.unreadCount,
       messages: directory.histories[participant.id] ?? [],
     })),
@@ -36,6 +38,7 @@ export function chatNotificationSnapshots(
         name: group.name,
         avatarImageUrl: null,
         isMuted: group.isMuted === true,
+        conversationId: group.id,
         unreadCount: group.unreadCount,
         messages: directory.histories[group.id] ?? [],
       })),

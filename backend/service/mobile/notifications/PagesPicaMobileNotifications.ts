@@ -2,6 +2,7 @@ import { readCurrentSessionUser } from "../PicaMobileSessionUser";
 
 import type { AuthService } from "@/backend/auth/AuthService";
 import type { SessionService } from "@/backend/auth/SessionService";
+import type { NotificationChoices } from "@/definition/PicaMobileNotifications";
 import type { PicaMobileSessionIdentity } from "../PicaMobileDashboardProvider";
 import type {
   PicaMobileEventOutcome,
@@ -155,7 +156,7 @@ export class PagesPicaMobileNotifications implements PicaMobileNotificationProvi
   /** Changes the notification choices of the account of the session. */
   public async changeSettings(
     session: PicaMobileSessionIdentity,
-    change: { readonly teamRuns?: boolean },
+    change: Partial<NotificationChoices>,
   ): Promise<PicaMobileSettingsOutcome> {
     const services = await this.resolveServices();
     const user = await readCurrentSessionUser(services.authService, session);

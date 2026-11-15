@@ -6,6 +6,7 @@ import { useChatNotifications } from "@/app/components/common/use-chat-notificat
 import { useChatToastSelection } from "@/app/components/chat-page/use-chat-toast-selection";
 import { showToast, Toaster, ToastProvider } from "@/app/components/ui/toast";
 import { createI18n } from "@/app/lib/i18n";
+import { DEFAULT_NOTIFICATION_CHOICES } from "@/definition/PicaMobileNotifications";
 
 import {
   directory,
@@ -72,10 +73,23 @@ async function flush(): Promise<void> {
 
 beforeEach(() => {
   vi.useFakeTimers();
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () =>
+      Response.json({
+        chatKeys: [],
+        conversationIds: [],
+        choices: DEFAULT_NOTIFICATION_CHOICES,
+      }),
+    ),
+  );
   boundary.read.mockReset();
   boundary.navigate.mockReset();
 });
-afterEach(() => vi.useRealTimers());
+afterEach(() => {
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
 
 it("establishes a baseline, announces only new incoming messages across pages and opens the exact chat", async () => {
   boundary.read.mockResolvedValue(conversation(["old"]));
@@ -170,6 +184,41 @@ it("retries after a failed background read and drops the previous account's base
     conversation(["old", "other-account-message"]),
   );
   renderWatcher("other");
+  await flush();
+  expect(screen.queryByRole("status")).toBeNull();
+});
+
+it("suppresses only a visibly open chat reported by another connection", async () => {
+  boundary.read.mockResolvedValue(conversation(["old"]));
+  renderWatcher();
+  await flush();
+  vi.mocked(fetch).mockResolvedValue(
+    Response.json({
+      chatKeys: ["group:team"],
+      conversationIds: ["team"],
+      choices: DEFAULT_NOTIFICATION_CHOICES,
+    }),
+  );
+  boundary.read.mockResolvedValue(conversation(["old", "new"]));
+  fireEvent.click(screen.getByText("Refresh"));
+  await flush();
+  expect(screen.queryByText("Group team")).toBeNull();
+  expect(screen.getByText("Name agent")).toBeTruthy();
+});
+
+it("respects the account main choice for chat toasts", async () => {
+  boundary.read.mockResolvedValue(conversation(["old"]));
+  renderWatcher();
+  await flush();
+  vi.mocked(fetch).mockResolvedValue(
+    Response.json({
+      chatKeys: [],
+      conversationIds: [],
+      choices: { ...DEFAULT_NOTIFICATION_CHOICES, receiveNotifications: false },
+    }),
+  );
+  boundary.read.mockResolvedValue(conversation(["old", "new"]));
+  fireEvent.click(screen.getByText("Refresh"));
   await flush();
   expect(screen.queryByRole("status")).toBeNull();
 });

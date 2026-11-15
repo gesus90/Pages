@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { Writable } from "node:stream";
 
@@ -16,8 +17,9 @@ import type { AgentPlanScriptRun } from "@/definition/AgentPlanScript";
 
 /** One authorized attempt; source and JSON input are always separate transports. */
 export interface ScriptProcessRequest {
-  readonly record: AgentPlanScriptRun;
   readonly runId?: string;
+  readonly stepId?: string;
+  readonly record: AgentPlanScriptRun;
   readonly program: string;
   readonly resources: string;
   readonly sharedEnvironment: string;
@@ -28,6 +30,111 @@ export interface ScriptProcessRequest {
   readonly signal: AbortSignal;
   readonly claimStart: () => void;
   readonly save: (record: AgentPlanScriptRun) => Promise<void>;
+}
+
+interface RunningScript {
+  readonly runId: string;
+  readonly stepId: string;
+  readonly child: ReturnType<typeof spawn>;
+  readonly capture: AgentPlanScriptCapture;
+  remainingMs: number;
+  startedAt: number;
+  timer?: NodeJS.Timeout;
+  isPaused: boolean;
+  pausedPids: Set<number>;
+}
+
+const runningScripts = new Set<RunningScript>();
+
+function armTimeout(script: RunningScript): void {
+  script.startedAt = Date.now();
+  script.timer = setTimeout(
+    () => script.capture.interrupt("timeout"),
+    script.remainingMs,
+  );
+}
+
+function childrenOf(pid: number): number[] {
+  try {
+    return readFileSync(`/proc/${pid}/task/${pid}/children`, "utf8")
+      .trim()
+      .split(/\s+/u)
+      .map(Number)
+      .filter((child) => Number.isSafeInteger(child) && child > 0);
+  } catch (error: unknown) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT")
+      return [];
+    throw error;
+  }
+}
+
+function descendantPids(root: number): Set<number> {
+  const found = new Set<number>();
+  const pending = [root];
+  while (pending.length > 0) {
+    const pid = pending.pop();
+    if (pid === undefined || found.has(pid)) continue;
+    found.add(pid);
+    pending.push(...childrenOf(pid));
+  }
+  return found;
+}
+
+function signalPid(pid: number, signal: NodeJS.Signals): void {
+  try {
+    process.kill(pid, signal);
+  } catch (error: unknown) {
+    if (error instanceof Error && "code" in error && error.code === "ESRCH")
+      return;
+    throw error;
+  }
+}
+
+function suspendScript(script: RunningScript): void {
+  const root = script.child.pid;
+  if (!root || script.capture.isExited) return;
+  for (let pass = 0; pass < 3; pass += 1) {
+    const before = script.pausedPids.size;
+    for (const pid of descendantPids(root)) {
+      if (script.pausedPids.has(pid)) continue;
+      signalPid(pid, "SIGSTOP");
+      script.pausedPids.add(pid);
+    }
+    if (script.pausedPids.size === before) break;
+  }
+}
+
+function resumeScript(script: RunningScript): void {
+  for (const pid of [...script.pausedPids].reverse()) signalPid(pid, "SIGCONT");
+  script.pausedPids.clear();
+}
+
+/** Stops every active script of a run at its process-group boundary. */
+export function suspendPlanScripts(runId: string): Set<string> {
+  const suspended = new Set<string>();
+  for (const script of runningScripts) {
+    if (script.runId !== runId || script.isPaused || script.capture.isExited)
+      continue;
+    suspendScript(script);
+    script.isPaused = true;
+    script.remainingMs = Math.max(
+      0,
+      script.remainingMs - (Date.now() - script.startedAt),
+    );
+    clearTimeout(script.timer);
+    suspended.add(script.stepId);
+  }
+  return suspended;
+}
+
+/** Continues scripts in the same process group and restores their remaining timeout. */
+export function resumePlanScripts(runId: string): void {
+  for (const script of runningScripts) {
+    if (script.runId !== runId || !script.isPaused) continue;
+    resumeScript(script);
+    script.isPaused = false;
+    armTimeout(script);
+  }
 }
 
 /** Spawns one interpreter without a shell, closes stdin once, and waits for confirmed process cleanup. */

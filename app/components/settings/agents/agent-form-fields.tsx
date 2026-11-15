@@ -201,6 +201,7 @@ export function AgentFormFields({
       <AgentManualModelField form={form} />
       <CodexPriceMappingFields form={form} />
       <ClaudePriceFields form={form} />
+      <AgentOpenRouterModelsField form={form} />
       <AgentScopeFields
         scope={form.fields.scope}
         directory={directory}
@@ -211,6 +212,39 @@ export function AgentFormFields({
         {t("settings.agents.assignments.connectionHint")}
       </p>
     </fieldset>
+  );
+}
+
+function AgentOpenRouterModelsField({
+  form,
+}: {
+  readonly form: AgentForm;
+}): React.ReactElement | null {
+  const { t } = useTranslation();
+  if (form.fields.provider !== "opencode") return null;
+  return (
+    <div className="space-y-2">
+      <label className="text-sm font-medium" htmlFor="openrouter-model-ids">
+        {t("settings.agents.openRouterModelIds")}
+      </label>
+      <textarea
+        id="openrouter-model-ids"
+        className="min-h-28 w-full rounded-md border border-input bg-surface px-3 py-2 font-mono text-sm text-foreground"
+        value={form.fields.openRouterModelIds}
+        onChange={(event) =>
+          form.setField("openRouterModelIds", event.target.value)
+        }
+        spellCheck={false}
+        aria-describedby="openrouter-model-ids-hint"
+        aria-invalid={form.error === "opencode_price_mapping_invalid"}
+      />
+      <p
+        id="openrouter-model-ids-hint"
+        className="text-xs text-muted-foreground"
+      >
+        {t("settings.agents.openRouterModelIdsHint")}
+      </p>
+    </div>
   );
 }
 

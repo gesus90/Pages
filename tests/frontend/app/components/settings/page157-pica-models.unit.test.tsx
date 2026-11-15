@@ -53,6 +53,7 @@ function accountForm(provider: AgentProviderId, account = ""): AgentForm {
       reasoningEffort: "",
       scope: GLOBAL_CONNECTION_SCOPE,
       zaiAccountType: account,
+      openRouterModelIds: "",
     },
     setField: vi.fn(),
     isDirty: false,

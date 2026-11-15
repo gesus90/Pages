@@ -7,7 +7,7 @@ import { readLocalRecord } from "./LocalSessionFiles";
 /** Waits for a local owner to write its readiness proof. */
 export async function waitForLocalOwnerReady(directory: string): Promise<void> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 20_000);
+  const timer = setTimeout(() => controller.abort(), 60_000);
   try {
     const events = watch(directory, { signal: controller.signal });
     try {

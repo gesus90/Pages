@@ -68,6 +68,25 @@ it("returns 200 and confirmed exit zero when the CLI exits before close, and rep
   });
 });
 
+it("routes pause and continuation to the same authenticated local owner", async () => {
+  const suspend = vi.fn(async () => true);
+  const resume = vi.fn(async () => true);
+  const control = await controlOwner({
+    close: async () => CLOSED,
+    suspend,
+    resume,
+  });
+
+  await expect(control({ kind: "suspend" })).resolves.toEqual({
+    changed: true,
+  });
+  await expect(control({ kind: "resume" })).resolves.toEqual({
+    changed: true,
+  });
+  expect(suspend).toHaveBeenCalledOnce();
+  expect(resume).toHaveBeenCalledOnce();
+});
+
 it.each([
   {
     failure: new AgentError("plan_history_unavailable"),

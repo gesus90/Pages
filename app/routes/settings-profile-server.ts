@@ -22,17 +22,22 @@ export async function loader({
   }
 
   const services = await getApplicationServices();
-  const [settings, email, sessions, automationNotification] = await Promise.all(
-    [
-      services.settingsService.getUserSettings(user.id),
-      services.userService.findProfileEmail(user.id),
-      services.sessionService.getSessionSummaries(
-        user.id,
-        await getSessionToken(request),
-      ),
-      services.automationService.notificationMode(user.id),
-    ],
-  );
+  const [
+    settings,
+    email,
+    sessions,
+    automationNotification,
+    notificationChoices,
+  ] = await Promise.all([
+    services.settingsService.getUserSettings(user.id),
+    services.userService.findProfileEmail(user.id),
+    services.sessionService.getSessionSummaries(
+      user.id,
+      await getSessionToken(request),
+    ),
+    services.automationService.notificationMode(user.id),
+    services.picaMobileNotifications.readChoices(user.id),
+  ]);
   const account = await services.administrationService.getContext(user.id);
   const canEditProfile = new UserPolicyService().isAdministrator(account);
   const designThemes = await services.designThemeService.getSelection(user.id, {
@@ -42,6 +47,7 @@ export async function loader({
   return {
     account,
     automationNotification,
+    notificationChoices,
     audience: await readLocalStateAudience(services, user),
     canEditProfile,
     designThemes,

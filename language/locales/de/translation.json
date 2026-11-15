@@ -615,6 +615,39 @@
     "notifications": {
       "title": "Benachrichtigungen",
       "description": "Legen Sie fest, wie Sie über Aktivitäten informiert werden.",
+      "choices": {
+        "receiveNotifications": {
+          "title": "Benachrichtigungen erhalten",
+          "description": "Push in Pica Mobile und im Browser. Aus schaltet Chats, Pica und Agent-Pläne ab."
+        },
+        "chats": {
+          "title": "Chats",
+          "description": "Gruppen, Direktchats und Chats mit Agents."
+        },
+        "pica": {
+          "title": "Pica",
+          "description": "Antworten und Hinweise von Pica im Chat."
+        },
+        "plans": "Agent-Pläne",
+        "planInterruptions": {
+          "title": "Abbrüche und Blockaden",
+          "description": "Fehler und abgebrochene Läufe."
+        },
+        "planCompletions": {
+          "title": "Fertigstellung",
+          "description": "Erfolgreich abgeschlossene Läufe."
+        },
+        "planAllStatuses": {
+          "title": "Alle Statusänderungen",
+          "description": "Auch wenn ein Schritt beginnt."
+        },
+        "teamRuns": {
+          "title": "Läufe anderer im Team",
+          "description": "Auch Läufe deiner Teams. Welche Meldungen kommen, bestimmen die Häkchen oben."
+        },
+        "visibleChatRule": "Ist ein Chat sichtbar offen, kommen dafür keine Benachrichtigungen.",
+        "more": "Weitere"
+      },
       "email": {
         "title": "E-Mail-Benachrichtigungen",
         "description": "Wichtige Updates per E-Mail erhalten."
@@ -784,6 +817,7 @@
         "connection_limit_reached": "Es können höchstens 50 Anbindungen gespeichert werden.",
         "connection_not_found": "Diese Anbindung existiert nicht.",
         "connection_scope_invalid": "Wählen Sie „Global“ oder 1 bis 200 Nutzer, Gruppen oder Abteilungen.",
+        "opencode_price_mapping_invalid": "Ein JSON-Objekt mit vollständigen OpenCode-Modell-IDs und OpenRouter-Modell-IDs eingeben.",
         "secret_unavailable": "Der gespeicherte Key kann nicht entschlüsselt werden. Ersetzen Sie den API-Key.",
         "check_in_progress": "Für diese Anbindung läuft bereits ein Vorgang.",
         "check_timeout": "Die Zeitgrenze der Prüfung wurde überschritten.",
@@ -1725,6 +1759,8 @@
         "missing": "kein Schlüssel in Pages – unter „API-Schlüssel“ hinzufügen"
       },
       "openCodeLinkedHint": "auch über opencode nutzbar",
+      "openRouterModelIds": "OpenRouter-Preis-IDs für OpenCode-Modelle",
+      "openRouterModelIdsHint": "JSON-Objekt, zum Beispiel {\"zai/glm-5.3\":\"z-ai/glm-5.3\"}. Für automatische Zuordnung {} belassen.",
       "antigravityHint": "Google-Anmeldung über den offiziellen ACP-Adapter im isolierten Pages-Kontext dieser Anbindung. Google leitet danach auf den Loopback-Callback des Adapters (127.0.0.1) am Pages-Server weiter: Ein Browser auf dem Server schließt die Anmeldung direkt ab, von einem anderen Gerät wird die Adresse aus dem Browser hier eingefügt. Pica kann diese Anbindung nutzen; dort stehen nur Picas autorisierte Pages-Werkzeuge zur Verfügung, keine eingebauten Antigravity-Werkzeuge.",
       "antigravityLoginHint": "Anmeldeseite öffnen, Google-Konto wählen und selbst zustimmen. Läuft dieser Browser auf dem Pages-Server, schließt die Anmeldung danach automatisch ab.",
       "antigravityRedirectLabel": "Adresse nach der Google-Zustimmung",
@@ -5717,6 +5753,18 @@
           "tokens": "Tokens gesamt",
           "afterTurn": "nach Turn-Ende",
           "cost": "Kosten",
+          "notReported": "nicht gemeldet",
+          "priceUnknown": "Preis unbekannt",
+          "free": "kostenlos",
+          "incomplete": "unvollständig",
+          "stepTotal": "Schritt",
+          "runTotal": "Laufsumme",
+          "inputTokens": "Eingabe-Token",
+          "outputTokens": "Ausgabe-Token",
+          "reasoningTokens": "Reasoning-Token",
+          "cacheReadTokens": "Cache-Lese-Token",
+          "cacheWriteTokens": "Cache-Schreib-Token",
+          "priceAsOf": "Preisstand {{date}}",
           "unknown": "unbekannt",
           "session": "Session",
           "runtime": "Laufzeit",

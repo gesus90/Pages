@@ -1,4 +1,5 @@
 import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
+import { suspendedOpenCodeSessions } from "./AgentPlanRunState";
 
 import { planPauseGate } from "./AgentPlanPauseGate";
 import { readPlanSnapshot } from "./AgentPlanSnapshot";
@@ -59,6 +60,8 @@ export async function adoptLocalPlanRun(
     hasPersistenceFailure: uncertain,
     dispatched: new Set(),
     controllers: new Map(),
+    suspended:
+      view.status === "paused" ? suspendedOpenCodeSessions(view) : new Map(),
     executions: new Set(),
     releaseDefinition: await context.dependencies.files?.hold(
       snapshot.steps.map((step) => step.step.agentId),

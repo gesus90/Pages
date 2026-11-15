@@ -47,7 +47,7 @@ const NAMESPACE = {
   boot: "10000000-0000-4000-8000-000000000001",
 };
 
-function processFixture(): ChildProcess {
+function processFixture(exitOnInput = true): ChildProcess {
   const child = new ChildProcess();
   const stdin = new PassThrough();
   const stdout = new PassThrough();
@@ -66,11 +66,12 @@ function processFixture(): ChildProcess {
       }),
     },
   });
-  stdin.once("finish", () => {
-    stdout.write("result");
-    child.emit("exit", 0, null);
-    child.emit("close", 0, null);
-  });
+  if (exitOnInput)
+    stdin.once("finish", () => {
+      stdout.write("result");
+      child.emit("exit", 0, null);
+      child.emit("close", 0, null);
+    });
   return child;
 }
 

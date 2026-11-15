@@ -298,6 +298,8 @@ export interface AgentConnectionSummary {
   /** Who may use the models of this connection; administrators only receive it. */
   readonly scope: AgentConnectionScope;
   readonly cli: AgentCliState | null;
+  /** Administrator-chosen OpenRouter IDs for ambiguous OpenCode models. */
+  readonly openRouterModelIds?: Readonly<Record<string, string>>;
   readonly checks: {
     readonly auth: AgentCheckSummary | null;
     readonly model: AgentCheckSummary | null;
@@ -314,6 +316,8 @@ export interface AgentConnectionInput {
   readonly apiKey?: string;
   readonly testModel?: string;
   readonly reasoningEffort?: string;
+  /** Untrusted JSON mapping, validated before persistence. */
+  readonly openRouterModelIds?: unknown;
   /**
    * Untrusted usage scope from the request, validated by the service.
    *

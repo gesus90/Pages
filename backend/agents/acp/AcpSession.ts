@@ -1,5 +1,6 @@
 import { client as acpClient, methods } from "@agentclientprotocol/sdk";
 
+import { openRouterPriceCatalog } from "@/backend/service/agents/sessions/OpenRouterPriceCatalog";
 import { closeCliSession } from "@/backend/agents/cli/CliSessionCloseout";
 import { noteSessionEvent } from "@/backend/agents/cli/CliSessionEvents";
 import { AgentError } from "@/backend/error/AgentErrors";
@@ -39,6 +40,10 @@ import {
   createPicaCodexRequests,
   registerPicaCodexRequests,
 } from "./PicaCodexRegistration";
+import {
+  forwardOpenCodeSessionUsage,
+  resolveAcpTurnFailure,
+} from "./AcpSessionLifecycle";
 
 import type { AcpHandshakeTarget } from "./AcpSessionHandshake";
 import type {
@@ -72,7 +77,7 @@ type PausableSessionProcess = Pick<
   CliSessionProcess,
   "endInput" | "exited" | "cancel"
 > &
-  Partial<Pick<CliSessionProcess, "setPaused">>;
+  Partial<Pick<CliSessionProcess, "setPaused" | "suspend" | "resume">>;
 
 export type {
   AcpSessionContext,
@@ -201,6 +206,8 @@ export class AcpSession implements PlanSession {
     );
     this.mcpReadiness = new AcpMcpReadiness(this.connection, this.state);
     if (context.driver.provider === "opencode") {
+      if (context.openCodePricingDirectory)
+        void openRouterPriceCatalog(context.openCodePricingDirectory).refresh();
       context.signal.addEventListener("abort", this.abortRequests, {
         once: true,
       });
@@ -224,6 +231,22 @@ export class AcpSession implements PlanSession {
   public close(): Promise<PlanSessionClosed> {
     this.closing ??= this.shutDown();
     return this.closing;
+  }
+
+  /** Stops the OpenCode process group while its ACP turn remains pending. */
+  public suspend(): Promise<boolean> {
+    return Promise.resolve(
+      this.context.driver.provider === "opencode" &&
+        (this.process.suspend?.() ?? false),
+    );
+  }
+
+  /** Continues the suspended OpenCode process group. */
+  public resume(): Promise<boolean> {
+    return Promise.resolve(
+      this.context.driver.provider === "opencode" &&
+        (this.process.resume?.() ?? false),
+    );
   }
 
   /**
@@ -423,6 +446,7 @@ export class AcpSession implements PlanSession {
     });
     await this.codexUsage?.finish(response.usage ?? null);
     this.reportPromptUsage(response.usage ?? null, sessionId);
+    forwardOpenCodeSessionUsage(this.context, sessionId);
     await this.context.listener?.drained?.();
     noteSessionEvent(this.state.events, `turn ${response.stopReason}`);
     if (
@@ -492,8 +516,10 @@ export class AcpSession implements PlanSession {
     this.isSteeringSupported = initialized.isSteeringSupported;
   }
 
-  private openSession(): Promise<OpenedSession> {
-    return openAcpSession(this.handshakeTarget());
+  private async openSession(): Promise<OpenedSession> {
+    const opened = await openAcpSession(this.handshakeTarget());
+    forwardOpenCodeSessionUsage(this.context, opened.sessionId);
+    return opened;
   }
 
   private async configure(
@@ -527,6 +553,8 @@ export class AcpSession implements PlanSession {
     }
     reportAcpPlanActivity(update, this.observer, (text) => this.redact(text));
     this.context.listener?.update(update);
+    if (this.context.driver.provider === "opencode")
+      forwardOpenCodeSessionUsage(this.context, notification.sessionId);
     this.checkReportedModel();
     this.reportProgress();
   }
@@ -572,39 +600,19 @@ export class AcpSession implements PlanSession {
     );
   }
 
-  private async failed(error: unknown): Promise<PlanSessionTurn> {
-    if (this.turnSignal.aborted) {
-      if (this.context.driver.provider === "opencode")
-        return this.ended(abortFailure(this.turnSignal), null);
-      // The stop or deadline ends the process; its exit tells which.
-      const exit = await this.process.exited;
-      return this.ended(
-        exit.errorCode === "check_timeout" ? "timeout" : "cancelled",
-        null,
-      );
-    }
-    const errorCode = acpErrorFailure(
+  private failed(error: unknown): Promise<PlanSessionTurn> {
+    return resolveAcpTurnFailure({
       error,
-      this.state,
-      this.context.driver,
-      this.connection.signal.aborted,
-    );
-    return errorCode === null
-      ? this.disconnected()
-      : this.ended("failed", errorCode);
-  }
-
-  private async disconnected(): Promise<PlanSessionTurn> {
-    const outcome = disconnectedAcpOutcome(
-      await this.process.exited,
-      this.state,
-      this.context.driver,
-      {
-        isPicaNative: this.picaCodex !== null,
-        redact: (line) => this.redact(line),
-      },
-    );
-    return this.ended(outcome.failure, outcome.errorCode);
+      turnSignal: this.turnSignal,
+      process: this.process,
+      connectionAborted: this.connection.signal.aborted,
+      state: this.state,
+      context: this.context,
+      isPicaNative: this.picaCodex !== null,
+      notificationFailure: this.notificationFailure,
+      hasHistoryFailure: this.hasHistoryFailure,
+      redact: (text) => this.redact(text),
+    });
   }
 
   private ended(

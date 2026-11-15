@@ -195,6 +195,10 @@ export class LocalOwnerHttp {
       case "pause":
         await this.session.setPaused(command.isPaused);
         return { ok: true };
+      case "suspend":
+        return { changed: await this.session.suspend() };
+      case "resume":
+        return { changed: await this.session.resume() };
       case "interrupt":
         return { interrupted: await this.session.interrupt() };
       case "close":

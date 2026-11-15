@@ -188,6 +188,25 @@ const usage = z.object({
   claudeObservation: claudeObservationSchema.optional(),
   claudeAccounting: claudeAccountingSchema.optional(),
 });
+const openCodeUsage = z.object({
+  id: z.string().min(1).max(200),
+  sessionId: z.string().min(1).max(200),
+  attemptId: identifier,
+  turn: count,
+  model: z.string().nullable(),
+  inputTokens: count.nullable(),
+  outputTokens: count.nullable(),
+  reasoningTokens: count.nullable(),
+  cacheReadTokens: count.nullable(),
+  cacheWriteTokens: count.nullable(),
+  costUsd: z.number().nonnegative().nullable(),
+  price: z.object({
+    amount: z.number().nonnegative().nullable(),
+    state: z.enum(["free", "catalog", "native", "unknown"]),
+    priceAsOf: z.string().nullable(),
+  }),
+  reportedAt: z.string(),
+});
 const errorCode = z
   .string()
   .refine((code) => Object.hasOwn(AGENT_ERROR_MESSAGES, code))
@@ -268,6 +287,7 @@ export const localMutationSchema = z.discriminatedUnion("kind", [
     retain: count,
   }),
   z.object({ kind: z.literal("usage"), usage }),
+  z.object({ kind: z.literal("opencode_usage"), usage: openCodeUsage }),
   z.object({
     kind: z.literal("started"),
     details: z.object({
@@ -336,6 +356,8 @@ export const localCommandSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("read"), after: count, limit: count.max(200) }),
   z.object({ kind: z.literal("ack"), sequence: count, digest: z.string() }),
   z.object({ kind: z.literal("cancel") }),
+  z.object({ kind: z.literal("suspend") }),
+  z.object({ kind: z.literal("resume") }),
   z.object({ kind: z.literal("interrupt") }),
   z.object({ kind: z.literal("pause"), isPaused: z.boolean() }),
   z.object({ kind: z.literal("close") }),

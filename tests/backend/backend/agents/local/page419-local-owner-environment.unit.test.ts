@@ -1,4 +1,5 @@
 import { beforeEach, expect, it, vi } from "vitest";
+import path from "node:path";
 
 import { startLocalSessionUnit } from "@/backend/agents/local/LocalSessionUnit";
 
@@ -6,7 +7,12 @@ import { SYSTEMD_ENVIRONMENT } from "../page419-environment-fixture";
 import { MANIFEST } from "./local-sessions-fixture";
 
 const boundary = vi.hoisted(() => ({
-  command: vi.fn(async () => ({ stdout: "", stderr: "" })),
+  command: vi.fn<
+    (
+      file: string,
+      args: readonly string[],
+    ) => Promise<{ stdout: string; stderr: string }>
+  >(async () => ({ stdout: "", stderr: "" })),
   writeFile:
     vi.fn<(file: string, content: string, options: unknown) => Promise<void>>(),
 }));
@@ -68,4 +74,12 @@ it("keeps the isolated owner file restricted to the existing allowlist", async (
     'NODE_ENV="development"\nLANG="C.UTF-8"\nPAGES_LOCAL_OWNER_SOURCE="1"\nPATH="/synthetic/bin"\nHOME="/synthetic/home"\nPAGES_FULL_ENVIRONMENT_OWNER_ID="owner"\n',
     { flag: "wx", mode: 0o600 },
   );
+});
+
+it("starts the source owner from the project entrypoint", async () => {
+  await startLocalSessionUnit(MANIFEST);
+
+  const launch = boundary.command.mock.calls[1]?.[1];
+  expect(launch).toContain(path.resolve(process.cwd(), "local-agent.mjs"));
+  expect(launch).toContain("MemoryMax=1536M");
 });

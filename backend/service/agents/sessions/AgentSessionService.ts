@@ -11,6 +11,7 @@ import {
 } from "./AgentSessionAttempts";
 import { decideContinuation } from "./AgentSessionContinuation";
 import { AgentSessionRecorder } from "./AgentSessionRecorder";
+import { sumOpenCodeUsage } from "./OpenCodeUsage";
 import { UNKNOWN_CONTEXT, sumTurnUsage } from "./AgentSessionUsage";
 import { checkSessionWorkspace } from "./AgentSessionWorkspace";
 import { followRemoteSession } from "./RemoteSessionFollower";
@@ -58,6 +59,24 @@ function nodeAttemptIds(
       entry.attemptId ? [entry.attemptId] : [],
     ),
   ]);
+}
+
+/** Every OpenCode attempt already started in the run, including loop iterations. */
+function runOpenCodeAttemptIds(run: AgentPlanRun): ReadonlySet<string> {
+  const nodes = [
+    ...run.steps,
+    ...(run.loops ?? []).flatMap((loop) =>
+      loop.iterations.flatMap((iteration) => iteration.nodes),
+    ),
+  ];
+  return new Set(
+    nodes.flatMap((node) => {
+      const session = node.session;
+      return session?.runner === "opencode" && session.attemptId
+        ? [...nodeAttemptIds(session.attemptId, session)]
+        : [];
+    }),
+  );
 }
 
 /** Reads and stops runs with every current right of their executor checked. */
@@ -256,7 +275,11 @@ export class AgentSessionService {
     const nodeAttempts = nodeAttemptIds(key.attemptId, attempt.record);
     const isLive = this.live.has(key.attemptId) && isRunActive(run);
     const state = this.state(run, attempt, stored);
-    const recorder = this.recorders.get(attempt.record.instanceId);
+    const openCode = await this.openCodeSessionSummary(
+      run,
+      attempt.record.runner,
+      nodeAttempts,
+    );
     return {
       key,
       provider: attempt.record.runner,
@@ -275,13 +298,14 @@ export class AgentSessionService {
       nodeTotals: sumTurnUsage(
         runTurns.filter((turn) => nodeAttempts.has(turn.attemptId)),
       ),
+      ...(openCode ? { openCode } : {}),
       continuation: decideContinuation({
         isAuthorized: true,
         isConfigurationCompatible: true,
         isProcessAlive: isLive,
         acpSessionId: attempt.record.sessionId,
         capabilities:
-          recorder?.capabilities ??
+          this.recorders.get(attempt.record.instanceId)?.capabilities ??
           attempt.record.continuationCapabilities ??
           null,
         // Plan nodes have no resume or load path yet; it is reported, never offered.
@@ -423,6 +447,25 @@ export class AgentSessionService {
       { turn: null, kind: "status", text: "turn cancelled by the executor" },
     ]);
     return "turn_cancelled";
+  }
+
+  private async openCodeSessionSummary(
+    run: AgentPlanRun,
+    runner: AgentSessionView["provider"],
+    nodeAttempts: ReadonlySet<string>,
+  ): Promise<AgentSessionView["openCode"] | undefined> {
+    if (runner !== "opencode") return undefined;
+    const openCodeMessages =
+      (await this.dependencies.store.listRunOpenCodeMessages?.(run.id)) ?? [];
+    return {
+      step: sumOpenCodeUsage(
+        openCodeMessages.filter((message) =>
+          nodeAttempts.has(message.attemptId),
+        ),
+        nodeAttempts,
+      ),
+      run: sumOpenCodeUsage(openCodeMessages, runOpenCodeAttemptIds(run)),
+    };
   }
 
   private sessionActions(

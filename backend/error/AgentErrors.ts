@@ -458,6 +458,8 @@ export const AGENT_ERROR_MESSAGES = {
   connection_not_found: "The connection does not exist.",
   connection_scope_invalid:
     "Choose global use, or between 1 and 200 persons, groups or departments.",
+  opencode_price_mapping_invalid:
+    "Enter up to 100 full OpenCode model IDs mapped to full OpenRouter model IDs.",
   secret_unavailable:
     "The saved secret cannot be decrypted. Replace the API key.",
   check_in_progress: "An operation is already running for this connection.",

@@ -95,7 +95,46 @@ export const picaMobileNotificationUnregisterPayloadSchema = z.object({
 /** A `notification_settings_set` message names the choices it changes; absent ones stay. */
 export const picaMobileNotificationSettingsSetPayloadSchema = z.object({
   teamRuns: z.boolean().optional(),
+  receiveNotifications: z.boolean().optional(),
+  chats: z.boolean().optional(),
+  pica: z.boolean().optional(),
+  planInterruptions: z.boolean().optional(),
+  planCompletions: z.boolean().optional(),
+  planAllStatuses: z.boolean().optional(),
 });
+
+/** Account choices shared by browser toasts and mobile push. */
+export interface NotificationChoices {
+  readonly receiveNotifications: boolean;
+  readonly chats: boolean;
+  readonly pica: boolean;
+  readonly planInterruptions: boolean;
+  readonly planCompletions: boolean;
+  readonly planAllStatuses: boolean;
+  readonly teamRuns: boolean;
+}
+
+/** Choices applied to existing accounts without a preference row. */
+export const DEFAULT_NOTIFICATION_CHOICES: NotificationChoices = {
+  receiveNotifications: true,
+  chats: true,
+  pica: true,
+  planInterruptions: true,
+  planCompletions: true,
+  planAllStatuses: false,
+  teamRuns: false,
+};
+
+/** Keys the Pages notification card can change individually. */
+export const NOTIFICATION_CHOICE_KEYS = [
+  "receiveNotifications",
+  "chats",
+  "pica",
+  "planInterruptions",
+  "planCompletions",
+  "planAllStatuses",
+  "teamRuns",
+] as const;
 
 /**
  * One choice of `notifications.team.v1` as Pages reports it.
@@ -116,6 +155,12 @@ export interface PicaMobileNotificationSettingsPayload {
   readonly accountId: string;
   /** Pushes for runs other people start in plans of the account's teams. */
   readonly teamRuns: PicaMobileNotificationSetting;
+  readonly receiveNotifications?: boolean;
+  readonly chats?: boolean;
+  readonly pica?: boolean;
+  readonly planInterruptions?: boolean;
+  readonly planCompletions?: boolean;
+  readonly planAllStatuses?: boolean;
 }
 
 /** A `notification_event_get` message names the event a push notification announced. */

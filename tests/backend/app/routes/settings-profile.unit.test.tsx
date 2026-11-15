@@ -6,6 +6,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { handleSettingsAction } from "@/app/lib/settings-actions/settings-actions.server";
 import { getSessionToken } from "@/app/lib/session.server";
 import SettingsProfileRoute from "@/app/routes/settings-profile";
+import { DEFAULT_NOTIFICATION_CHOICES } from "@/definition/PicaMobileNotifications";
 import { action, loader } from "@/app/routes/settings-profile-server";
 
 import {
@@ -32,6 +33,7 @@ const services = vi.hoisted(() => ({
   administrationService: { getContext: vi.fn() },
   designThemeService: { getSelection: vi.fn() },
   automationService: { notificationMode: vi.fn() },
+  picaMobileNotifications: { readChoices: vi.fn() },
 }));
 
 const AUDIENCE = vi.hoisted(() => ({
@@ -127,6 +129,7 @@ function loaded(
     user: ACTOR,
     email: null,
     settings: SETTINGS,
+    notificationChoices: DEFAULT_NOTIFICATION_CHOICES,
     designThemes: { themes: [] },
     sessions: [],
     canEditProfile,
@@ -142,6 +145,9 @@ beforeEach(() => {
   services.sessionService.getSessionSummaries.mockResolvedValue([]);
   services.designThemeService.getSelection.mockResolvedValue({ themes: [] });
   services.automationService.notificationMode.mockResolvedValue("error");
+  services.picaMobileNotifications.readChoices.mockResolvedValue(
+    DEFAULT_NOTIFICATION_CHOICES,
+  );
 });
 
 it("requires the user of the authentication middleware", async () => {
@@ -159,6 +165,7 @@ it("lets an administrator in the admin mode edit the profile", async () => {
   ).resolves.toEqual({
     account,
     automationNotification: "error",
+    notificationChoices: DEFAULT_NOTIFICATION_CHOICES,
     audience: AUDIENCE,
     canEditProfile: true,
     designThemes: { themes: [] },

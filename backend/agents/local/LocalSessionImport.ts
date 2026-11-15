@@ -107,9 +107,13 @@ export class LocalSessionImport {
     )
       throw new Error("Local session import sequence mismatch");
     const mutation = await this.journal.body(record);
-    const checkpoint = ["attempt", "events", "usage", "frame"].includes(
-      mutation.kind,
-    )
+    const checkpoint = [
+      "attempt",
+      "events",
+      "usage",
+      "opencode_usage",
+      "frame",
+    ].includes(mutation.kind)
       ? this.checkpoint
       : [
           ...this.checkpoint.filter((entry) => entry.kind !== mutation.kind),
@@ -202,6 +206,9 @@ export class LocalSessionImport {
     } else if (mutation.kind === "usage") {
       await this.requireAttempt(mutation.usage.attemptId, sessions);
       await sessions.saveTurnUsage(mutation.usage);
+    } else if (mutation.kind === "opencode_usage") {
+      await this.requireAttempt(mutation.usage.attemptId, sessions);
+      await sessions.saveOpenCodeMessage(mutation.usage);
     } else if (mutation.kind === "turn")
       await this.requireAttempt(mutation.attemptId, sessions);
   }

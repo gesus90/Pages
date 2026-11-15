@@ -2,7 +2,11 @@ import { InterpreterProfiles } from "@/backend/service/interpreters/InterpreterP
 
 import { bootstrapConfig } from "@/backend/config/ConfigBootstrap";
 import { ConfigFile } from "@/backend/config/ConfigFile";
-import { resolveDefaultDatabasePath } from "@/backend/config/PagesConfig";
+import {
+  resolveDefaultDataDirectory,
+  resolveDefaultDatabasePath,
+} from "@/backend/config/PagesConfig";
+import { openRouterPriceCatalog } from "@/backend/service/agents/sessions/OpenRouterPriceCatalog";
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { registerLogSecret } from "@/backend/logging/LogRedaction";
 import { DEFAULT_LOG_RETENTION_DAYS } from "@/definition/Logging";
@@ -179,6 +183,15 @@ async function createRuntime(configPath: string): Promise<PagesRuntime> {
     component: "PagesRuntime",
     message: "Instance configuration loaded",
   });
+
+  const prices = openRouterPriceCatalog(
+    resolveDefaultDataDirectory(configPath),
+  );
+  void prices.refresh();
+  const dailyPrices = setInterval(() => {
+    void prices.refresh();
+  }, 86_400_000);
+  dailyPrices.unref();
 
   return new PagesRuntime(configFile, config);
 }

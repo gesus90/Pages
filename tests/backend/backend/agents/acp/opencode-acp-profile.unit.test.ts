@@ -83,7 +83,12 @@ it("confirms mode, model and an explicit effort of a plan node", () => {
       value: "pages-yolo",
       refusal: "plan_permission_mode_unenforceable",
     },
-    { id: "model", value: "zai/glm-5", refusal: "plan_model_unavailable" },
+    {
+      id: "model",
+      value: "zai/glm-5",
+      refusal: "plan_model_unavailable",
+      isResolvedByAdapter: true,
+    },
     {
       id: "effort",
       value: "high",

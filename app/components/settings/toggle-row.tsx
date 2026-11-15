@@ -10,6 +10,7 @@ interface ToggleRowProps {
   readonly description: string;
   readonly checked: boolean;
   readonly onChange: () => void;
+  readonly disabled?: boolean;
 }
 
 function ToggleSwitch({
@@ -17,11 +18,13 @@ function ToggleSwitch({
   label,
   descriptionId,
   onChange,
+  disabled = false,
 }: {
   readonly checked: boolean;
   readonly label: string;
   readonly descriptionId: string;
   readonly onChange: () => void;
+  readonly disabled?: boolean;
 }): React.ReactElement {
   return (
     <button
@@ -33,6 +36,7 @@ function ToggleSwitch({
         checked ? "justify-end bg-primary" : "justify-start bg-muted",
       )}
       onClick={onChange}
+      disabled={disabled}
       role="switch"
       type="button"
     >
@@ -54,11 +58,17 @@ export function ToggleRow({
   description,
   checked,
   onChange,
+  disabled = false,
 }: ToggleRowProps): React.ReactElement {
   const descriptionId = useId();
 
   return (
-    <div className="flex items-center justify-between gap-4 rounded-xl px-1 py-2.5 transition-colors hover:bg-muted/40">
+    <div
+      className={cn(
+        "flex items-center justify-between gap-4 rounded-xl px-1 py-2.5 transition-colors hover:bg-muted/40",
+        disabled && "opacity-60",
+      )}
+    >
       <div className="flex min-w-0 items-center gap-3">
         <span
           className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground"
@@ -81,6 +91,7 @@ export function ToggleRow({
         descriptionId={descriptionId}
         label={title}
         onChange={onChange}
+        disabled={disabled}
       />
     </div>
   );

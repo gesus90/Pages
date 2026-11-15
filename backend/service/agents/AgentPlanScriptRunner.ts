@@ -5,6 +5,7 @@ import { randomUUID } from "node:crypto";
 import { AgentPlanPausedError } from "@/backend/error/AgentPlanPausedError";
 import { AgentError } from "@/backend/error/AgentErrors";
 
+import { resumePlanScripts, suspendPlanScripts } from "./AgentPlanScriptProcess";
 import { executeOwnedScript } from "./AgentPlanScriptOwner";
 import { scriptRuntimeDirectory } from "./AgentPlanScriptResources";
 import { planStackScriptInput } from "./stack/AgentPlanStackInputs";
@@ -41,6 +42,16 @@ export class AgentPlanScriptRunner {
   ) {
     this.preparation = preparation;
     this.sharedEnvironment = sharedEnvironment;
+  }
+
+  /** Holds active script process groups without losing their execution state. */
+  public suspend(runId: string): Set<string> {
+    return suspendPlanScripts(runId);
+  }
+
+  /** Continues active script process groups after a run resumes or stops. */
+  public resume(runId: string): void {
+    resumePlanScripts(runId);
   }
 
   /** Persists an attempt before spawn and returns only after its owned resources have settled. */

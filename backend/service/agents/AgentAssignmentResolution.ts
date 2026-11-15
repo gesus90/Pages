@@ -14,6 +14,7 @@ import type { AgentModelSelection } from "@/definition/AgentModelSelection";
 /** Immutable metadata resolved once at request start, without credentials. */
 export interface ResolvedAgentAssignment {
   readonly supportsImages?: boolean;
+  readonly isFree?: boolean;
   readonly connection: AgentConnectionRecord;
   readonly model: string;
   readonly reasoningEffort: string | null;
@@ -119,6 +120,7 @@ export async function resolveAgentAssignment(
     ...(model?.supportsImages === undefined
       ? {}
       : { supportsImages: model.supportsImages }),
+    ...(model ? { isFree: model.isFree } : {}),
     connection: { ...connection },
     model: model?.id ?? assignment.model,
     reasoningEffort: effort,

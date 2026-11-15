@@ -92,6 +92,20 @@ export interface AgentSessionUsageTotal extends AgentSessionTokenUsage {
   readonly models: readonly string[];
 }
 
+/** Native OpenCode message totals for a step or an entire run. */
+export interface OpenCodeUsageTotal {
+  readonly messages: number;
+  readonly inputTokens: number | null;
+  readonly outputTokens: number | null;
+  readonly reasoningTokens: number | null;
+  readonly cacheReadTokens: number | null;
+  readonly cacheWriteTokens: number | null;
+  readonly costUsd: number | null;
+  readonly costState: "free" | "known" | "unknown";
+  readonly isIncomplete: boolean;
+  readonly priceAsOf: readonly string[];
+}
+
 /** A configuration value Pages asked for or the adapter confirmed, with its origin. */
 export interface AgentSessionReportedValue {
   /** `null` when nobody reported a value; an unknown model is never shown as confirmed. */
@@ -201,6 +215,11 @@ export interface AgentSessionView {
   readonly claudeUsage?: ClaudeUsageSummary;
   /** Sums of every attempt of this node in the run, without counting a turn twice (PAGE-284). */
   readonly nodeTotals?: readonly AgentSessionUsageTotal[];
+  /** Native message totals, present only for OpenCode sessions. */
+  readonly openCode?: {
+    readonly step: OpenCodeUsageTotal;
+    readonly run: OpenCodeUsageTotal;
+  };
   readonly continuation: AgentSessionContinuation;
   readonly messages: readonly AgentSessionMessage[];
   readonly actions: AgentSessionActions;

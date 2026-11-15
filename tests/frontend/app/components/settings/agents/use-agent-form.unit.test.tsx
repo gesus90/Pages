@@ -114,6 +114,7 @@ it("starts a new API connection with the first API provider and empty fields", (
     apiKey: "",
     testModel: "",
     reasoningEffort: "",
+    openRouterModelIds: "{}",
     scope: GLOBAL_CONNECTION_SCOPE,
     zaiAccountType: "",
   });

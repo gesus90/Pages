@@ -2,9 +2,11 @@ import { withBackgroundDatabaseWork } from "@/backend/database/executor/Database
 import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 
 import { buildPicaMobileConversationPushMessage } from "./PicaMobileConversationPushMessage";
+import { wantsChatMessage } from "./NotificationChoicePolicy";
 
 import type { PushRegistrationRecord } from "@/backend/database/repositories/mobile/PicaMobilePushRegistrationRepository";
 import type { PicaMobilePushRegistrationRepository } from "@/backend/database/repositories/mobile/PicaMobilePushRegistrationRepository";
+import type { PicaMobileNotificationPreferenceRepository } from "@/backend/database/repositories/mobile/PicaMobileNotificationPreferenceRepository";
 import type {
   ConversationEvent,
   ConversationEvents,
@@ -45,6 +47,10 @@ export interface PicaMobileConversationPushOptions {
     memberId: string,
   ) => Promise<PicaMobilePushConversation | null>;
   readonly presence: Pick<PicaMobileConversationPresence, "isOpen">;
+  readonly preferences: Pick<
+    PicaMobileNotificationPreferenceRepository,
+    "find"
+  >;
   /** Seconds the push service may still hold a push. */
   readonly ttlSeconds: number;
 }
@@ -59,7 +65,7 @@ const COMPONENT = "PicaMobileConversationPush";
  *
  * @remarks
  * Nobody receives a push for an own message, for a conversation they muted,
- * or while a Pica Mobile connection of theirs shows the conversation. Before
+ * or while a browser tab or Pica Mobile connection of theirs shows it. Before
  * each push the registration's session and account are checked again, as
  * for the pushes of runs. A push service that is missing, slow or failing
  * changes no message; a push that fails is not repeated, because the message
@@ -126,6 +132,14 @@ export class PicaMobileConversationPush {
       readonly conversation: PicaMobilePushConversation;
     },
   ): Promise<void> {
+    if (
+      !wantsChatMessage(
+        await this.options.preferences.find(recipientId),
+        false,
+      ) ||
+      this.options.presence.isOpen(recipientId, push.message.conversationId)
+    )
+      return;
     const registrations =
       await this.options.registrations.listActivated(recipientId);
     for (const registration of registrations) {
@@ -148,6 +162,13 @@ export class PicaMobileConversationPush {
     },
   ): Promise<void> {
     const { message, conversation } = push;
+    if (
+      this.options.presence.isOpen(
+        registration.accountId,
+        message.conversationId,
+      )
+    )
+      return;
     const token = this.options.vault.decrypt(
       registration.deviceId,
       registration.tokenEncrypted,

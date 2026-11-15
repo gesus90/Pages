@@ -42,11 +42,19 @@ function isRecorderMutation(
   mutation: LocalSessionMutation,
 ): mutation is Extract<
   LocalSessionMutation,
-  { kind: "usage" | "events" | "position" | "frame" | "attempt" }
+  {
+    kind:
+      "usage" | "opencode_usage" | "events" | "position" | "frame" | "attempt";
+  }
 > {
-  return ["usage", "events", "position", "frame", "attempt"].includes(
-    mutation.kind,
-  );
+  return [
+    "usage",
+    "opencode_usage",
+    "events",
+    "position",
+    "frame",
+    "attempt",
+  ].includes(mutation.kind);
 }
 
 /** A replaceable Pages observer of a persistent native protocol owner. */

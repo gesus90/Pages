@@ -38,7 +38,11 @@ import { forgetForcedLocalRun } from "./LocalSessionForcedRelease";
 import { waitForLocalOwnerReady } from "./LocalOwnerReady";
 import { pinLocalSessionTools } from "./LocalSessionTools";
 import { LocalFinishedSessions } from "./LocalFinishedSessions";
-import { readLocalCompletion } from "./LocalSessionCompletion";
+import {
+  createReattachedLocalSession,
+  readLocalCompletion,
+  readLocalMilestones,
+} from "./LocalSessionCompletion";
 import { localInstanceKey } from "./LocalSessionIdentity";
 
 import type { Database } from "@/backend/database/Database";
@@ -84,6 +88,7 @@ export class LocalSessions {
   private readonly proven = new Set<string>();
   private readonly uncertain = new Set<string>();
   private readonly launching = new Set<string>();
+  private readonly pendingSuspensions = new Set<string>();
   private readonly attachments = new Map<string, string>();
   private isDetaching = false;
   private readonly finished = new LocalFinishedSessions((entry) =>
@@ -190,6 +195,41 @@ export class LocalSessions {
     return this.proven.has(instanceId);
   }
 
+  /** Stops an owned OpenCode process group while its local owner keeps the turn. */
+  public async suspend(instanceId: string): Promise<boolean> {
+    if (!this.entries.has(instanceId) || this.launching.has(instanceId)) {
+      this.pendingSuspensions.add(instanceId);
+      return true;
+    }
+    const response = await this.control(this.requireEntry(instanceId), {
+      kind: "suspend",
+    });
+    return (
+      typeof response === "object" &&
+      response !== null &&
+      "changed" in response &&
+      response.changed === true
+    );
+  }
+
+  /** Continues the same owned OpenCode process group. */
+  public async resume(instanceId: string): Promise<boolean> {
+    if (this.pendingSuspensions.delete(instanceId)) {
+      if (this.proven.has(instanceId))
+        await this.control(this.requireEntry(instanceId), { kind: "resume" });
+      return true;
+    }
+    const response = await this.control(this.requireEntry(instanceId), {
+      kind: "resume",
+    });
+    return (
+      typeof response === "object" &&
+      response !== null &&
+      "changed" in response &&
+      response.changed === true
+    );
+  }
+
   /** Exposes uncertain native identities only to recovery, never as live ownership. */
   public unverified(): ReadonlySet<string> {
     return this.uncertain;
@@ -276,28 +316,7 @@ export class LocalSessions {
             record.attemptId,
           )
         : null;
-    const session = attached.session;
-    return {
-      turn:
-        result?.kind === "turn" ? Promise.resolve(result.result) : session.turn,
-      isDurable: true,
-      terminated: session.terminated,
-      get isDetached(): boolean {
-        return session.isDetached === true;
-      },
-      get isClosing(): boolean {
-        return session.isClosing === true;
-      },
-      detach: () => session.detach?.(),
-      close: () => session.close(),
-      next: (input, nextSignal, nextObserver) => {
-        if (!session.next)
-          throw new AgentError("plan_group_session_unsupported");
-        return session.next(input, nextSignal, nextObserver);
-      },
-      steer: (prompt) => session.steer?.(prompt) ?? Promise.resolve("inactive"),
-      interrupt: () => session.interrupt?.() ?? Promise.resolve(false),
-    };
+    return createReattachedLocalSession(attached.session, result);
   }
 
   /** Provides the original shared MCP slot without issuing a replacement credential. */
@@ -416,15 +435,21 @@ export class LocalSessions {
       await this.owners.prove(entry.instanceId, owned.proof);
       this.entries.set(entry.instanceId, { ...entry, proof: owned.proof });
       this.proven.add(entry.instanceId);
-      this.launching.delete(entry.instanceId);
       const raw = await this.bind(entry, launch, admission.signal, observer);
       // The bearer travels only through the private socket into the owner's memory.
       if (input.mcp)
         await this.control(entry, { kind: "bearer", token: input.mcp.token });
+      if (this.pendingSuspensions.has(entry.instanceId)) {
+        await this.control(entry, { kind: "suspend" });
+        if (!this.pendingSuspensions.has(entry.instanceId))
+          await this.control(entry, { kind: "resume" });
+      }
+      this.launching.delete(entry.instanceId);
       // The scheduler wraps this exact proxy after the callback returns.
       return raw;
     } catch (error: unknown) {
       this.launching.delete(entry.instanceId);
+      this.pendingSuspensions.delete(entry.instanceId);
       this.uncertain.add(entry.instanceId);
       logCaughtError("LocalSessions", error);
       const failure = serializeLogError(error);

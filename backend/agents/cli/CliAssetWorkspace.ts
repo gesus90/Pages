@@ -208,6 +208,8 @@ export function assetSession(
     terminated: session.terminated,
     steer: session.steer?.bind(session),
     interrupt: session.interrupt?.bind(session),
+    suspend: session.suspend?.bind(session),
+    resume: session.resume?.bind(session),
     cancelTool: session.cancelTool?.bind(session),
     next: session.next
       ? async (input, signal, observer) => {

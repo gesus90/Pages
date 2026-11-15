@@ -10,9 +10,7 @@ import {
   suspendedCodexRun,
 } from "./AgentPlanImmediatePause";
 
-import {
-  readySteps,
-} from "./AgentPlanRunState";
+import { readySteps } from "./AgentPlanRunState";
 import { stopPlanRun } from "./AgentPlanStop";
 import { planPauseGate } from "./AgentPlanPauseGate";
 import { setScriptRunPaused } from "./AgentPlanScriptPause";
@@ -34,7 +32,8 @@ interface CommandDependencies extends Omit<
   EngineDependencies,
   "localSessions"
 > {
-  readonly localSessions?: Pick<LocalSessions, "setRunPaused">;
+  readonly localSessions?: Pick<LocalSessions, "setRunPaused"> &
+    Partial<Pick<LocalSessions, "suspend" | "resume">>;
   readonly active: Map<string, ActivePlanRun>;
   readonly writes: SerialQueue;
   readonly isClosing: () => boolean;
@@ -145,6 +144,7 @@ export class AgentPlanRunCommands {
         };
         await this.dependencies.runs.update(active.view);
       }
+      this.dependencies.scripts?.resume?.(id);
       for (const controller of active.controllers.values()) controller.abort();
     });
     this.schedulePump();

@@ -1,9 +1,10 @@
 import { UserRound } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useLoaderData, useSubmit } from "react-router";
 
 import { ADMINISTRATION_ROLE_ID } from "@/definition/Authorization";
+import { NOTIFICATION_CHOICE_KEYS } from "@/definition/PicaMobileNotifications";
 import { ChangePasswordDialog } from "@/app/components/settings/change-password-dialog";
 import { NotificationsCard } from "@/app/components/settings/notifications-card";
 import { ProfileCard } from "@/app/components/settings/profile-card";
@@ -27,6 +28,7 @@ import { readRouteData } from "@/app/lib/local-state/route-data";
 import { sendToBackend } from "@/app/lib/backend-request";
 
 import type { AutomationNotificationMode } from "@/definition/Automation";
+import type { NotificationChoices } from "@/definition/PicaMobileNotifications";
 import type { LocalStateRouteKind } from "@/app/components/common/use-local-state-route";
 import type { LocalStateAudience } from "@/app/lib/local-state/local-state-audience";
 import type { WithLocalState } from "@/app/lib/local-state/local-state-loader";
@@ -42,6 +44,7 @@ export interface SettingsLoaderData {
   readonly account: AccountAccess;
   /** When the person hears about runs of their automations (PAGE-297). */
   readonly automationNotification: AutomationNotificationMode;
+  readonly notificationChoices: NotificationChoices;
   readonly user: User;
   readonly email: string | null;
   readonly settings: UserSettings;
@@ -55,28 +58,31 @@ export interface SettingsLoaderData {
 /** The rights-checked endpoint of the personal settings. */
 const SETTINGS_PROFILE_ENDPOINT = "/settings-api/profile";
 
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
 function isSettingsLoaderData(value: unknown): value is SettingsLoaderData {
+  if (!isObject(value)) {
+    return false;
+  }
+  const objectKeys = [
+    "account",
+    "user",
+    "settings",
+    "notificationChoices",
+    "designThemes",
+  ] as const;
   return (
-    typeof value === "object" &&
-    value !== null &&
-    "account" in value &&
-    typeof value.account === "object" &&
-    "user" in value &&
-    typeof value.user === "object" &&
-    "settings" in value &&
-    typeof value.settings === "object" &&
-    "sessions" in value &&
+    objectKeys.every((key) => isObject(value[key])) &&
     Array.isArray(value.sessions) &&
-    "designThemes" in value &&
-    typeof value.designThemes === "object" &&
-    "audience" in value &&
     isLocalStateAudience(value.audience)
   );
 }
 
 /** The personal settings, kept per account and rights. */
 const SETTINGS_PROFILE_STATE: LocalStateRouteKind<SettingsLoaderData> = {
-  schemaVersion: 2,
+  schemaVersion: 3,
   isPayload: isSettingsLoaderData,
   isCurrent: (profile) => isCurrentLocalStateAudience(profile.audience),
   ownerOf: (profile) => profile.audience.userId,
@@ -109,44 +115,81 @@ export async function clientAction({
   return sendToBackend(request);
 }
 
+function createChoiceFormData(choices: NotificationChoices): FormData {
+  const formData = new FormData();
+  formData.set("intent", "update-notification-choices");
+  for (const notificationKey of NOTIFICATION_CHOICE_KEYS) {
+    formData.set(notificationKey, choices[notificationKey] ? "on" : "off");
+  }
+  return formData;
+}
+
+function createIntentFormData(
+  intent: string,
+  key: string,
+  value: string,
+): FormData {
+  const formData = new FormData();
+  formData.set("intent", intent);
+  formData.set(key, value);
+  return formData;
+}
+
+function canAccountChangePassword(account: AccountAccess): boolean {
+  return (
+    account.role?.id !== ADMINISTRATION_ROLE_ID ||
+    (account.isAdmin && account.mode === "admin")
+  );
+}
+
 /** Renders the personal settings: profile, security, notifications, appearance, and region. */
 export default function SettingsProfileRoute(): React.ReactElement {
   const { t } = useTranslation();
-  const {
-    account,
-    user,
-    email,
-    settings: loadedSettings,
-    designThemes,
-    sessions,
-    canEditProfile,
-    automationNotification: loadedAutomationNotification,
-  } = useLocalStateRoute(
+  const profile = useLocalStateRoute(
     useLoaderData<typeof clientLoader>(),
     SETTINGS_PROFILE_STATE,
   );
+  const { account, user, email, designThemes, sessions, canEditProfile } =
+    profile;
   const submit = useSubmit();
-  const { settings, persistSettings, toggleNotification } =
-    useUserSettings(loadedSettings);
+  const { settings, persistSettings, toggleNotification } = useUserSettings(
+    profile.settings,
+  );
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
   const [automationNotification, setAutomationNotification] =
-    useState<AutomationNotificationMode>(loadedAutomationNotification);
+    useState<AutomationNotificationMode>(profile.automationNotification);
+  const [notificationChoices, setNotificationChoices] =
+    useState<NotificationChoices>(profile.notificationChoices);
+  useEffect(() => {
+    setNotificationChoices(profile.notificationChoices);
+  }, [profile.notificationChoices]);
   const [isRevokeAllDialogOpen, setIsRevokeAllDialogOpen] = useState(false);
 
   function handleAutomationNotification(
     mode: AutomationNotificationMode,
   ): void {
     setAutomationNotification(mode);
-    const formData = new FormData();
-    formData.set("intent", "update-automation-notification");
-    formData.set("mode", mode);
+    const formData = createIntentFormData(
+      "update-automation-notification",
+      "mode",
+      mode,
+    );
     void submit(formData, { method: "post" });
   }
 
+  function handleNotificationChoice(key: keyof NotificationChoices): void {
+    const next = !notificationChoices[key];
+    const updated = { ...notificationChoices, [key]: next };
+    setNotificationChoices(updated);
+    void submit(createChoiceFormData(updated), { method: "post" });
+  }
+
   function handleRevokeSession(sessionId: string): void {
-    const formData = new FormData();
-    formData.set("intent", "revoke-session");
-    formData.set("sessionId", sessionId);
+    const formData = createIntentFormData(
+      "revoke-session",
+      "sessionId",
+      sessionId,
+    );
     void submit(formData, { method: "post" });
   }
 
@@ -171,6 +214,8 @@ export default function SettingsProfileRoute(): React.ReactElement {
             <NotificationsCard
               notifications={settings.notifications}
               onToggle={toggleNotification}
+              choices={notificationChoices}
+              onChoiceChange={handleNotificationChoice}
               automationNotification={automationNotification}
               onAutomationNotificationChange={handleAutomationNotification}
             />
@@ -178,10 +223,7 @@ export default function SettingsProfileRoute(): React.ReactElement {
 
           <div className="flex flex-col gap-4">
             <SecurityCard
-              canChangePassword={
-                account.role?.id !== ADMINISTRATION_ROLE_ID ||
-                (account.isAdmin && account.mode === "admin")
-              }
+              canChangePassword={canAccountChangePassword(account)}
               sessions={sessions}
               onChangePassword={() => setIsPasswordDialogOpen(true)}
               onRevokeSession={handleRevokeSession}

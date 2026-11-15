@@ -8,6 +8,7 @@ import {
   GOOD_TURN,
   appended,
   doubles,
+  endlessTurn,
   flush,
   newSession,
   observerOf,
@@ -55,6 +56,25 @@ afterEach(() => {
 });
 
 describe("LocalOwnerSession observer", () => {
+  it("keeps the native turn pending while suspending and resuming its process", async () => {
+    const suspend = vi.fn(async () => true);
+    const resume = vi.fn(async () => true);
+    doubles.open.mockResolvedValue(
+      newSession({ turn: endlessTurn(), suspend, resume }),
+    );
+    const owner = newOwner();
+    await owner.start();
+
+    await expect(owner.suspend()).resolves.toBe(true);
+    await expect(owner.resume()).resolves.toBe(true);
+    expect(suspend).toHaveBeenCalledOnce();
+    expect(resume).toHaveBeenCalledOnce();
+    expect(doubles.write).not.toHaveBeenCalledWith(
+      expect.stringContaining("cancel.json"),
+      expect.anything(),
+    );
+  });
+
   it("journals sanitized milestones of the native session", async () => {
     const owner = newOwner();
     await owner.start();

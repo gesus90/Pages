@@ -23,7 +23,8 @@ export interface EngineDependencies {
   readonly localSessions?: LocalSessions;
   readonly workGate?: AgentPlanWorkGate;
   readonly remoteExecution?: AgentPlanRemoteExecution;
-  readonly scripts?: Pick<AgentPlanScriptRunner, "run">;
+  readonly scripts?: Pick<AgentPlanScriptRunner, "run"> &
+    Partial<Pick<AgentPlanScriptRunner, "suspend" | "resume">>;
   /** Asks the model of a model decision; without it such a decision fails instead of guessing. */
   readonly decisions?: Pick<AgentPlanDecisionModel, "run">;
   /** Runs swarm nodes (PAGE-313); without it a swarm fails instead of running. */

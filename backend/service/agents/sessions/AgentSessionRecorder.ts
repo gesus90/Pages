@@ -1,5 +1,6 @@
 import { canonicalClaudeModel } from "@/definition/ClaudePriceModels";
 import { AgentError } from "@/backend/error/AgentErrors";
+import { openRouterPriceCatalog } from "./OpenRouterPriceCatalog";
 import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 import {
   AGENT_TODO_LIMIT,
@@ -35,6 +36,7 @@ import type {
   AgentSessionStore,
 } from "./AgentSessionStore";
 import type { AgentSessionCost } from "@/definition/AgentSessionJournal";
+import type { OpenCodeMessageUsage } from "@/backend/agents/cli/OpenCodeSessionUsage";
 
 /** The key under which claude-agent-acp names the model of a usage update. */
 const CLAUDE_MODEL_KEY = "_claude/model";
@@ -252,6 +254,7 @@ export class AgentSessionRecorder implements AcpSessionListener {
   private readonly clock: () => string;
   private readonly turns = new Map<string, number>();
   private readonly tools = new Map<string, ToolCallState>();
+  private readonly openCodeSnapshots = new Map<string, string>();
   private attempt: AgentSessionAttemptRecord;
   private message = "";
   private messageBytes = 0;
@@ -483,6 +486,44 @@ export class AgentSessionRecorder implements AcpSessionListener {
         { kind: "usage", turn: usage.turn, text: "Claude usage updated" },
       ]);
     });
+  };
+
+  /** Captures native message usage as OpenCode updates each model step. */
+  public readonly openCodeMessages = (
+    messages: readonly OpenCodeMessageUsage[],
+    pricingDirectory: string,
+    freeModelId: string | null,
+    mapping: Readonly<Record<string, string>>,
+  ): void => {
+    const save = this.dependencies.store.saveOpenCodeMessage;
+    if (!save || this.attempt.provider !== "opencode") return;
+    for (const message of messages) {
+      const key = `${message.sessionId}:${message.id}`;
+      const fingerprint = JSON.stringify(message);
+      if (this.openCodeSnapshots.get(key) === fingerprint) continue;
+      this.openCodeSnapshots.set(key, fingerprint);
+      const attemptId = this.attempt.key.attemptId;
+      const turn = this.turn();
+      const reportedAt = this.clock();
+      this.enqueue(async () => {
+        const price = await openRouterPriceCatalog(pricingDirectory).calculate(
+          message,
+          mapping,
+          freeModelId !== null && message.model === freeModelId,
+        );
+        await save.call(this.dependencies.store, {
+          ...message,
+          attemptId,
+          turn,
+          price,
+          reportedAt,
+        });
+      });
+      this.record({
+        kind: "usage",
+        text: `OpenCode message ${message.id} usage updated`,
+      });
+    }
   };
 
   /** Records that the connection to the adapter ended. */

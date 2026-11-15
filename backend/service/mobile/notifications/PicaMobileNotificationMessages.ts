@@ -55,7 +55,15 @@ export type PicaMobileNotificationClientMessage =
   | {
       readonly type: "notification_settings_set";
       readonly requestId: string;
-      readonly payload: { readonly teamRuns?: boolean };
+      readonly payload: {
+        readonly teamRuns?: boolean;
+        readonly receiveNotifications?: boolean;
+        readonly chats?: boolean;
+        readonly pica?: boolean;
+        readonly planInterruptions?: boolean;
+        readonly planCompletions?: boolean;
+        readonly planAllStatuses?: boolean;
+      };
     };
 
 /** The outcome of reading the payload of a notification message. */
@@ -158,16 +166,10 @@ function readSettingsSet(
         message: {
           type: "notification_settings_set",
           requestId,
-          payload:
-            parsed.data.teamRuns === undefined
-              ? {}
-              : { teamRuns: parsed.data.teamRuns },
+          payload: parsed.data,
         },
       }
-    : invalid(
-        requestId,
-        'The "teamRuns" of "notification_settings_set" must be true or false.',
-      );
+    : invalid(requestId, "The notification settings must be true or false.");
 }
 
 /**
