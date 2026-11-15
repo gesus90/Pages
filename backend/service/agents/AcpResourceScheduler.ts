@@ -220,7 +220,12 @@ export class AcpResourceScheduler {
     namespace: AcpNamespaceOwner,
   ): Promise<void> {
     await this.persist(async () => {
-      await registerAcpNamespace(this.store, this.active, instanceId, namespace);
+      await registerAcpNamespace(
+        this.store,
+        this.active,
+        instanceId,
+        namespace,
+      );
       const runId = this.active.get(instanceId)?.runId;
       if (runId && this.pausedRuns.has(runId))
         await controlOwnedNamespace(namespace, "pause");

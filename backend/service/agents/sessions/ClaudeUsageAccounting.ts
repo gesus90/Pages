@@ -136,12 +136,18 @@ export async function accountClaudeUsage(
     );
     const cache = await new OpenRouterPriceRepository(transaction).read();
     const prices = cache
-      ? cache.models.filter((model) => model.id.startsWith("anthropic/")).map((model) => ({
-          modelId: model.id, fetchedAt: cache.fetchedAt,
-          prompt: String(model.pricing.prompt), completion: String(model.pricing.completion),
-          cacheRead: String(model.pricing.input_cache_read ?? model.pricing.prompt),
-          cacheWrite: String(model.pricing.prompt),
-        }))
+      ? cache.models
+          .filter((model) => model.id.startsWith("anthropic/"))
+          .map((model) => ({
+            modelId: model.id,
+            fetchedAt: cache.fetchedAt,
+            prompt: String(model.pricing.prompt),
+            completion: String(model.pricing.completion),
+            cacheRead: String(
+              model.pricing.input_cache_read ?? model.pricing.prompt,
+            ),
+            cacheWrite: String(model.pricing.prompt),
+          }))
       : [];
     const overrides = await repository.modelOverrides(usage.attemptId);
     await sessions.saveTurnUsage(

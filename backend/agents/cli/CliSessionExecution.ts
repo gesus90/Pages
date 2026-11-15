@@ -380,7 +380,10 @@ export class CliSessionExecution implements PlanSessionRunner {
     const scoped = start.owner
       ? null
       : await prepareScopedClaudeHome(
-          driver, input, start, this.dependencies.claudeHome,
+          driver,
+          input,
+          start,
+          this.dependencies.claudeHome,
         );
     const adapter = requireAdapter(start.adapter, driver);
     const github = start.owner
@@ -440,7 +443,10 @@ export class CliSessionExecution implements PlanSessionRunner {
         driver,
         input,
         start,
-        control: { ...control, observer: openCodeAgentObserver(input, control.observer) },
+        control: {
+          ...control,
+          observer: openCodeAgentObserver(input, control.observer),
+        },
         profile,
         launch,
         picaNative,

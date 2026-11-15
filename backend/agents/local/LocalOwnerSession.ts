@@ -590,10 +590,10 @@ export class LocalOwnerSession {
           return;
         }
         if (!canContinueLocalTurn(run, this.launch)) {
-          if (this.namespace) await controlOwnedNamespace(this.namespace, "stop");
+          if (this.namespace)
+            await controlOwnedNamespace(this.namespace, "stop");
           await this.cancel();
-        }
-        else if (
+        } else if (
           this.recorder?.current.provider === "codex_cli" &&
           // Immediate pauses arrive by IPC. Other plans drain their turns first.
           run?.status !== "pausing"

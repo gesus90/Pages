@@ -51,7 +51,6 @@ function Fact(props: {
   );
 }
 
-
 /** What the agent does now: its own report, its ACP plan, or where the node stands. */
 function activityText(
   step: AgentPlanStepResult,
