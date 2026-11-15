@@ -76,6 +76,29 @@ function contextShare(context: AgentSessionContextUsage): number | null {
   return Math.min(100, (contextUsed / contextLimit) * 100);
 }
 
+function usageTotals(
+  view: AgentSessionView,
+  locale: string,
+  unknown: string,
+): { readonly tokens: string; readonly cost: string } {
+  const totals = view.nodeTotals ?? view.totals;
+  const numbers = new Intl.NumberFormat(locale);
+  const known = totals.flatMap((total) =>
+    total.totalTokens === null ? [] : [total.totalTokens],
+  );
+  const tokens =
+    known.length === 0
+      ? unknown
+      : numbers.format(known.reduce((sum, value) => sum + value, 0));
+  const cost = view.context.cost
+    ? new Intl.NumberFormat(locale, {
+        style: "currency",
+        currency: view.context.cost.currency,
+      }).format(view.context.cost.amount)
+    : unknown;
+  return { tokens, cost };
+}
+
 function UsageSection(props: {
   readonly view: AgentSessionView;
   /** A turn runs now: its tokens arrive with its end. */
@@ -100,20 +123,7 @@ function UsageSection(props: {
           (step) => step.stepId === props.view.key.stepId,
         )
       : null;
-  const totals = props.view.nodeTotals ?? props.view.totals;
-  const known = totals.flatMap((total) =>
-    total.totalTokens === null ? [] : [total.totalTokens],
-  );
-  const tokens =
-    known.length === 0
-      ? unknown
-      : numbers.format(known.reduce((sum, value) => sum + value, 0));
-  const cost = context.cost
-    ? new Intl.NumberFormat(i18n.language, {
-        style: "currency",
-        currency: context.cost.currency,
-      }).format(context.cost.amount)
-    : unknown;
+  const { tokens, cost } = usageTotals(props.view, i18n.language, unknown);
   return (
     <SidebarSection title={t(`${key}.usage`)}>
       {codex ? <CodexUsageFacts usage={codex.usage} /> : null}

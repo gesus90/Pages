@@ -121,6 +121,56 @@ function isSameFields(left: AgentFormFields, right: AgentFormFields): boolean {
   );
 }
 
+function codexSubmission(
+  fields: AgentFormFields,
+  saved: AgentFormFields,
+  connection: AgentConnectionSummary | undefined,
+  mappings: string | undefined,
+): Record<string, string> {
+  if (
+    fields.provider !== "codex_cli" ||
+    (connection && mappings === saved.codexPriceMappings)
+  )
+    return {};
+  return { codexPriceMappings: mappings ?? "" };
+}
+
+function submissionFields(
+  fields: AgentFormFields,
+  saved: AgentFormFields,
+  connection: AgentConnectionSummary | undefined,
+): Record<string, string> {
+  const {
+    scope,
+    zaiAccountType,
+    codexPriceMappings,
+    claudePriceModels,
+    openRouterModelIds,
+    ...text
+  } = fields;
+  return {
+    ...text,
+    ...codexSubmission(fields, saved, connection, codexPriceMappings),
+    ...(fields.provider === "claude_code" &&
+    claudePriceModels !== saved.claudePriceModels
+      ? { claudePriceModels: claudePriceModels ?? "" }
+      : {}),
+    ...(fields.provider === "opencode"
+      ? { openRouterModelIds: openRouterModelIds ?? "" }
+      : {}),
+    ...(fields.provider === "zai" &&
+    (!connection || zaiAccountType !== saved.zaiAccountType)
+      ? { zaiAccountType }
+      : {}),
+    // An unchanged scope must not overwrite another administrator's update.
+    ...(!connection || !isSameScope(scope, saved.scope)
+      ? { scope: JSON.stringify(scope) }
+      : {}),
+    intent: connection ? "update-connection" : "create-connection",
+    connectionId: connection?.id ?? "",
+  };
+}
+
 /**
  * Holds the open and the last saved field values.
  *
@@ -211,42 +261,9 @@ export function useAgentForm(
   }, [fetcher.data, fetcher.state, fields, onSaved, setFields, setSaved, t]);
   function handleSubmit(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
-    const {
-      scope,
-      zaiAccountType,
-      codexPriceMappings,
-      claudePriceModels,
-      openRouterModelIds,
-      ...text
-    } = fields;
-    void fetcher.submit(
-      {
-        ...text,
-        ...(fields.provider === "codex_cli" &&
-        (!connection || codexPriceMappings !== saved.codexPriceMappings)
-          ? { codexPriceMappings: codexPriceMappings ?? "" }
-          : {}),
-        ...(fields.provider === "claude_code" &&
-        claudePriceModels !== saved.claudePriceModels
-          ? { claudePriceModels: claudePriceModels ?? "" }
-          : {}),
-        ...(fields.provider === "opencode"
-          ? { openRouterModelIds: openRouterModelIds ?? "" }
-          : {}),
-        ...(fields.provider === "zai" &&
-        (!connection || zaiAccountType !== saved.zaiAccountType)
-          ? { zaiAccountType }
-          : {}),
-        // An unchanged scope is not sent, so a form opened earlier cannot
-        // overwrite a scope that another administrator saved since.
-        ...(!connection || !isSameScope(scope, saved.scope)
-          ? { scope: JSON.stringify(scope) }
-          : {}),
-        intent: connection ? "update-connection" : "create-connection",
-        connectionId: connection?.id ?? "",
-      },
-      { method: "post" },
-    );
+    void fetcher.submit(submissionFields(fields, saved, connection), {
+      method: "post",
+    });
   }
   return {
     fields,
