@@ -47,6 +47,8 @@ export interface AgentPlanStepSnapshot {
 export interface AgentPlanRecoveryDirective {
   readonly sourceRunId: string;
   readonly isRestart?: boolean;
+  /** JSON-safe private event queues and prompts from the source run. */
+  readonly branching?: unknown;
   readonly mode: "native_resume" | "new_session";
   /** Nodes that started in the earlier run and run again as a new attempt. */
   readonly retriedStepIds: readonly string[];

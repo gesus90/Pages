@@ -220,14 +220,14 @@ describe("AgentPlanService.controlRun", () => {
 });
 
 describe("AgentPlanService stop and pause", () => {
-  it("stops the run in the engine and the remote attempts when the engine keeps no command receipt", async () => {
+  it("delegates Stop once to the engine even when it keeps no command receipt", async () => {
     const stopRemote = vi.fn(async () => undefined);
     const { service, mocks } = createPlanContext({
       remoteExecution: stub<PlanDependencies["remoteExecution"] & object>({
         stop: stopRemote,
       }),
     });
-    const run = planRun({ status: "stopping", stopRequested: true });
+    const run = planRun({ status: "cancelled", stopRequested: true });
     mocks.runs.find.mockResolvedValue(run);
     boundary.readRun.mockResolvedValue(run);
     const journal = vi.fn(async () => undefined);
@@ -235,8 +235,10 @@ describe("AgentPlanService stop and pause", () => {
     const stopped = await service.stop("owner", "run-1", journal);
 
     expect(mocks.engine.stop).toHaveBeenCalledWith("run-1", journal);
-    expect(stopRemote).toHaveBeenCalledWith(run);
-    expect(stopped.status).toBe("stopping");
+    expect(mocks.engine.stop).toHaveBeenCalledOnce();
+    expect(stopRemote).not.toHaveBeenCalled();
+    expect(stopped).toEqual(run);
+    expect(stopped.status).toBe("cancelled");
   });
 
   it("leaves the remote attempts to the engine when it keeps command receipts", async () => {

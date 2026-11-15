@@ -3,7 +3,6 @@ import { AgentError } from "@/backend/error/AgentErrors";
 import { isPlanWriterWaitActive } from "@/definition/AgentPlanRunState";
 import { withBackgroundDatabaseWork } from "@/backend/database/executor/DatabaseWorkContext";
 import { withDatabaseLogMetrics } from "@/backend/logging/DatabaseLogMetrics";
-import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
 import {
   captureLogContext,
   logCaughtError,
@@ -31,13 +30,11 @@ import { closeIdlePlanGroups } from "./AgentPlanGroupCloseout";
 import { runPlanInstruction } from "./AgentPlanInstructionControl";
 import {
   patchStep,
-  requestCancellation,
   updateBlocked,
   readySteps,
   canSchedule,
   canFinalize,
   isRequestStep,
-  endedPlanRun,
   countRunningPlanRequests,
 } from "./AgentPlanRunState";
 import { planWritingWorkspaces } from "./AgentPlanContinuation";
@@ -56,7 +53,9 @@ import {
 } from "./AgentPlanEngineShutdown";
 import { initialPlanRun, recoveredPlanRun } from "./AgentPlanRunStart";
 import { AgentPlanLoopRunner } from "./loop/AgentPlanLoopRunner";
+import { readPlanBranchState } from "./branching/AgentPlanBranchPersistence";
 import { completedPlanWorkCheckpoint } from "./AgentPlanWorkDispatch";
+import { settleFailedPlanStart } from "./AgentPlanStartFailure";
 
 import type { dispatchPlanLoop } from "./AgentPlanNodeDispatch";
 import type { AgentPlanRunJournal } from "./AgentPlanJournal";
@@ -292,7 +291,11 @@ export class AgentPlanRunEngine {
     this.dependencies.localSessions?.detachAll();
     if (this.resourceTimer) clearTimeout(this.resourceTimer);
     for (const [id, active] of this.active) {
-      if (!this.dependencies.localSessions?.detachRun(id)) continue;
+      if (
+        active.view.status !== "paused" &&
+        !this.dependencies.localSessions?.detachRun(id)
+      )
+        continue;
       this.active.delete(id);
       for (const pending of active.executions) this.pending.delete(pending);
     }
@@ -394,6 +397,9 @@ export class AgentPlanRunEngine {
         controllers: new Map(),
         executions: new Set(),
         releaseDefinition,
+        branching: snapshot.recovery?.branching
+          ? readPlanBranchState(snapshot.recovery.branching)
+          : undefined,
       });
     });
     return withBackgroundDatabaseWork(PLAN_RUN_ORIGIN, async () => {
@@ -528,52 +534,11 @@ export class AgentPlanRunEngine {
   }
 
   private async failStart(id: string): Promise<void> {
-    const active = this.active.get(id);
-    if (!active) return;
-    requestCancellation(active);
-    for (const controller of active.controllers.values()) controller.abort();
-    if (
-      active.executions.size > 0 ||
-      allPlanRunResults(active.view).some((step) => step.session)
-    ) {
-      await Promise.all([...active.executions]);
-      // Running adapters settle before normal finalization releases their definitions.
-      try {
-        await this.pump();
-      } catch (error: unknown) {
-        logCaughtError("AgentPlanRunEngine", error);
-
-        logDiagnostic(
-          "AgentPlanRunEngine",
-          "error",
-          "Pages could not finalize a failed plan start.",
-          error,
-        );
-      }
-      return;
-    }
-    active.view = {
-      ...endedPlanRun(active.view, "failed"),
-      steps: active.view.steps.map((step) => ({
-        ...step,
-        status: "cancelled",
-        cancellation: "not_started",
-      })),
-    };
-    await active.releaseDefinition?.();
-    this.active.delete(id);
-    try {
-      await this.dependencies.runs.update(active.view);
-    } catch (error: unknown) {
-      logCaughtError("AgentPlanRunEngine", error);
-
-      logDiagnostic(
-        "AgentPlanRunEngine",
-        "error",
-        "Pages could not persist a failed plan start; reservations remain held.",
-        error,
-      );
-    }
+    await settleFailedPlanStart(id, {
+      active: this.active,
+      dependencies: this.dependencies,
+      pump: () => this.pump(),
+    });
   }
 
   private async execute(
@@ -624,6 +589,7 @@ export class AgentPlanRunEngine {
         };
       },
     );
+    if (active.view.stopRequested) return;
     const changes =
       outcome.status === "failed"
         ? { ...outcome, failureStop: planNodeStop(active.view, node, outcome) }
@@ -642,7 +608,11 @@ export class AgentPlanRunEngine {
     try {
       await this.writes.run(async () => {
         // A result belongs to the start it was dispatched for.
-        if (isStaleStart(active, node.id, activation)) return;
+        if (
+          active.view.stopRequested ||
+          isStaleStart(active, node.id, activation)
+        )
+          return;
         const previous = active.view;
         patchStep(
           active,
@@ -654,7 +624,8 @@ export class AgentPlanRunEngine {
         active.controllers.delete(node.id);
         active.dispatched.delete(node.id);
         // A start that a pause ended before it began keeps its news for the resume.
-        if (changes.status !== "paused") settleEventPrompt(active, node.id);
+        if (changes.status !== "paused" && changes.status !== "failed")
+          settleEventPrompt(active, node.id);
         try {
           const checkpoint = completedPlanWorkCheckpoint(active, node, changes);
           await this.dependencies.runs.update(active.view, checkpoint);

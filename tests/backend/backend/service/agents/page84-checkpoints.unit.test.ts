@@ -227,6 +227,10 @@ it("stores references and digests without copying original instructions, literal
   expect(serialized).not.toContain("synthetic-secret");
   // The shared credential masking (PAGE-328) replaces the whole key=value pair.
   expect(checkpoint.result.output).toBe("[redacted]");
+  expect(checkpoint.result.isOutputReduced).toBe(true);
+  expect(checkpoint.result.outputDigest).toBe(
+    planContentDigest(run.steps[0].output),
+  );
   const contextualRun = patchRecoveryStep(fixture.completed, "a", {
     output: "Result: password=another-synthetic-secret done.",
   });

@@ -1,13 +1,52 @@
 # Recoverable plan runs (PAGE-84, executing since PAGE-127)
 
+## PAGE-356: continue a failed run after fixing its cause
+
+The newest failed run (including a server interruption or a legacy failure)
+can continue as a linked run. Stop is final: `stopRequested` or `cancelled`
+always disables Resume; only Start begins again. Current access and the saved
+plan revision are checked on the server.
+
+The persisted run is the source of completed work. Successful and skipped
+nodes, their outputs, completed loop iterations and stack deliveries are
+retained even without an additional checkpoint. An unfinished loop resumes
+its open iteration and keeps the successful members of that iteration. Event
+queues, consumed events, activation history and the event prompt continue too.
+There is no `branching_unsupported` restriction. The executing composition uses
+the Pages engine directly; it requires no external workflow restore service.
+
+Pending work uses the currently saved revision, including instructions,
+scripts, model choices and bindings inside a started loop. Completed contracts
+and results remain unchanged even if their definition was edited. The resume
+dialog lists inherited steps and explains this when the revision changed.
+Workspace files are never reset. History identifies the predecessor and marks
+inherited results.
+
+Each compatible native session is resumed when its adapter supports that.
+Other nodes start new sessions with saved output, TODOs, contract and last
+report. If the adapter no longer has a native session, explicit plan recovery
+opens a replacement with that same complete prompt. A changed provider or
+connection uses a new session. Resume attempts process cleanup, but uncertain
+closeout no longer blocks this explicit decision: it releases the predecessor's
+workspace and ACP reservations, including stale reservations held in the runner.
+Separate Release and automatic retry keep their stricter closeout policy.
+
+Targeted unit evidence lives in `page356-failed-plan-resume.unit.test.ts`,
+`page356-branch-group-resume.unit.test.ts`, `page356-session-resume.unit.test.ts`
+and `page356-resume-dialog.unit.test.tsx`. All external process, model, database
+and network boundaries are mocked. Lint, type checking, build and coverage are
+left to final QA for this ticket.
+
+The PAGE-356 rules above supersede historical restrictions below.
+
 ## PAGE-269: one confirmation, and loops continue at their failed member
 
 The resume dialog asks one question. Its command carries `confirmContinue: true`
 instead of a mode and single reviews; it stands for every started node the
 resume runs again, and each of them still gets the recovery notice to inspect
 its earlier effects. Without `mode` the server chooses: `native_resume` only
-when every retried agent node has a session its adapter announced it can
-resume, `new_session` otherwise (`resumeSessionMode`). An explicit mode and
+when any retried agent has a compatible session its adapter announced it can
+resume (other nodes use new sessions), `new_session` otherwise (`resumeSessionMode`). An explicit mode and
 `reviewedStepIds` keep working for the agent tools and the automatic
 continuation. Every other check of a resume stays.
 
@@ -44,10 +83,8 @@ stay with a person keep the explicit recovery below.
 
 ## PAGE-128: stopped runs and provider waits
 
-A reviewed `resume` can now also continue the newest explicitly stopped run
-as a new linked run. The original remains stopped and its history is unchanged;
-successful checkpoints are reused, started unfinished nodes require the same
-side-effect review and cleanup checks. No stop is undone automatically.
+PAGE-128 allowed a reviewed continuation of stopped runs. PAGE-356 replaces
+that behavior: an explicit Stop is terminal and cannot be resumed.
 Known provider failures have the bounded, in-process waiting policy described
 in [PlanRetries.md](../PlanRetries.md). The historical PAGE-84 limitations below
 do not override these executing paths.

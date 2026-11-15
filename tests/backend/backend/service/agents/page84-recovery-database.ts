@@ -115,6 +115,11 @@ export class RecoveryDatabase {
     }
   }
 
+  /** Simulates saving a new plan without changing any run's frozen execution basis. */
+  public savePlan(snapshot: AgentPlanSnapshot): void {
+    this.plan = snapshot;
+  }
+
   /** Structural database access for the real repositories under test. */
   public asDatabase(): Pick<
     Database,
@@ -149,11 +154,6 @@ export class RecoveryDatabase {
   /** Injects one failure at a durable boundary, including after a checkpoint insert. */
   public failNext(fault: "checkpoint" | "progress" | "attempt"): void {
     this.fault = fault;
-  }
-
-  /** Simulates a saved plan revision independently of the immutable run snapshots. */
-  public savePlan(snapshot: AgentPlanSnapshot): void {
-    this.plan = snapshot;
   }
 
   /** Returns copied durable rows, so callers cannot change them outside a transaction. */

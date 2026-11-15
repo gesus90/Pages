@@ -1,3 +1,4 @@
+import { pauseExecution } from "./processes.mjs";
 // Pages protocol v1 with durable execution claims and detached workers.
 import { chmod, lstat, mkdir, readFile } from "node:fs/promises";
 import { homedir } from "node:os";
@@ -17,7 +18,7 @@ import { RunnerSchedule } from "./schedule.mjs";
 import { handleProvider } from "./provider.mjs";
 import { sendRunnerPacket, MAXIMUM_RUNNER_PACKET_BYTES } from "./wire.mjs";
 
-const RUNNER_VERSION = "1.17.0";
+const RUNNER_VERSION = "1.18.0";
 if (process.argv.includes("--version")) {
   console.info(`pages-runner ${RUNNER_VERSION}`);
   process.exit(0);
@@ -307,6 +308,9 @@ async function receiveReconciliation(message) {
   for (const job of configuration.jobs)
     if (job.pauseRequestedAt && !job.cancellation)
       await pauseQueuedJob(directory, job);
+  for (const job of configuration.jobs)
+    if (job.isPaused !== undefined && !job.cancellation)
+      await pauseExecution(join(directory, "jobs", job.jobId), job.isPaused);
   await fenceExpiredJobs();
   await persist();
   await renewExecutionLease(directory, configuration.sessionId);
@@ -542,6 +546,13 @@ async function connect() {
         deadline();
         return;
       }
+      if (state.isReconciled && control.type === "execution-pause") {
+        void jobs
+          .receive(control)
+          .then(() => poll())
+          .catch(() => channel.close());
+        return;
+      }
       if (state.isReconciled && control.type === "cancel") {
         const job = configuration.jobs.find(
           (entry) => entry.jobId === control.jobId,
@@ -666,6 +677,7 @@ async function fenceExpiredJobs() {
     (job) =>
       job.plan &&
       job.execution &&
+      !job.isPaused &&
       ["queued", "accepted", "running"].includes(job.status),
   );
   const expired = [];

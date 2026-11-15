@@ -81,7 +81,7 @@ async function activeRun(): Promise<ActivePlanRun> {
   return active;
 }
 
-it("keeps the news of the checker that a pause stopped before its start, and counts that start once", async () => {
+it("keeps the checker admission and its news across Pause, and counts that start once", async () => {
   const scripts: Record<string, string[]> = {
     check: [branchReport(false), branchReport(true)],
     fix: [`${NEWS}\n${branchReport(true)}`],
@@ -112,7 +112,7 @@ it("keeps the news of the checker that a pause stopped before its start, and cou
       observers.set(stepId, observer);
       checkOpens += stepId === "check" ? 1 : 0;
       if (stepId === "check" && checkOpens === 2)
-        // The second start waits for capacity; the abort of a pause ends the wait.
+        // Admission waits for capacity; only Stop aborts it, while Pause retains it.
         await new Promise<void>((resolve, reject) => {
           signal.addEventListener(
             "abort",
@@ -145,14 +145,17 @@ it("keeps the news of the checker that a pause stopped before its start, and cou
   await world.engine.pause(started.id);
   await expect.poll(() => world.read(started.id).status).toBe("paused");
   const paused = world.read(started.id).steps.find((s) => s.id === "check");
-  // The start that never began is no start: its count is given back, the news stays.
-  expect(paused?.activation).toBe(1);
+  // Pause retains this admission, its activation and the news it will deliver.
+  expect(paused?.activation).toBe(2);
+  expect(paused?.status).toBe("running");
   expect(paused?.trigger?.kind).toBe("event");
+  expect(checkOpens).toBe(2);
   await world.engine.resume(started.id, world.snapshot);
   releaseCapacity();
   const run = await finished(world, started.id);
   const checks = opens.filter((open) => open.stepId === "check");
-  // The start after the resume carries the news, and the main instruction as a recovered start does.
+  expect(checks).toHaveLength(2);
+  // The retained admission carries the news and the full recovered instruction.
   expect(checks.at(-1)?.prompt).toContain(NEWS);
   expect(checks.at(-1)?.prompt).toContain("Main instruction (AGENT.md)");
   expect(run.status).toBe("succeeded");

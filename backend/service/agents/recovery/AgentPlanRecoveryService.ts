@@ -368,7 +368,7 @@ export class AgentPlanRecoveryService {
    *
    * @remarks
    * This is what "Fortsetzen" and `resume_plan` do for a failed, interrupted,
-   * blocked, stopped or closeout-open run. The key is fixed per source run
+   * blocked or closeout-open run. The key is fixed per source run
    * and plan revision, so a repeated request returns the same new run.
    */
   public async resumeEnded(

@@ -72,7 +72,7 @@ function boundStep(
  * other run on the same connection.
  */
 function admitsProgress(run: AgentPlanRun, step: AgentPlanStepResult): boolean {
-  if (run.status === "paused" || run.status === "succeeded") return false;
+  if (run.status === "succeeded") return false;
   if (!isActivePlanRun(run.status) && step.status !== "running") return false;
   return step.status === "waiting" || step.status === "running";
 }

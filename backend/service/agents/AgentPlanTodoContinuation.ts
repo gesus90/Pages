@@ -34,12 +34,13 @@ export async function runPlanTodoTurns(
     readonly node: NodeRun;
     readonly session: PlanSession;
     readonly terms: AgentPlanSessionTerms;
+    readonly initialTurn: PlanSessionTurn;
   },
   dependencies: ContinuationDependencies,
 ): Promise<PlanTurnAssessment & { readonly turn: PlanSessionTurn }> {
   const { node, session } = input;
   let terms = input.terms;
-  let turn = await session.turn;
+  let turn = input.initialTurn;
   for (;;) {
     await node.control.waitUntilResumed?.();
     if (

@@ -1,3 +1,4 @@
+import { controlOwnedNamespace } from "@/backend/agents/cli/CliNamespaceControl";
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { withBackgroundDatabaseWork } from "@/backend/database/executor/DatabaseWorkContext";
 import { readAcpResourceOptions } from "@/backend/config/AcpResourceConfig";
@@ -201,9 +202,12 @@ export class AcpResourceScheduler {
     instanceId: string,
     namespace: AcpNamespaceOwner,
   ): Promise<void> {
-    await this.persist(() =>
-      registerAcpNamespace(this.store, this.active, instanceId, namespace),
-    );
+    await this.persist(async () => {
+      await registerAcpNamespace(this.store, this.active, instanceId, namespace);
+      const runId = this.active.get(instanceId)?.runId;
+      if (runId && this.pausedRuns.has(runId))
+        await controlOwnedNamespace(namespace, "pause");
+    });
   }
 
   /** Suspends queued requests of a paused run; existing sessions continue to own capacity. */
@@ -260,6 +264,21 @@ export class AcpResourceScheduler {
   public resumeRun(runId: string): void {
     this.pausedRuns.delete(runId);
     this.wake();
+  }
+
+  /** Controls every native process of a run, including decision and swarm sessions. */
+  public async controlRun(
+    runId: string,
+    action: "pause" | "resume" | "stop",
+  ): Promise<void> {
+    await Promise.all(
+      [...this.active.values()]
+        .filter((record) => record.runId === runId)
+        .map(async (record) => {
+          if (record.namespace)
+            await controlOwnedNamespace(record.namespace, action);
+        }),
+    );
   }
 
   /** Refreshes RAM for monitoring even while capacity is full or the queue is empty. */
@@ -335,6 +354,26 @@ export class AcpResourceScheduler {
       pausedRuns: this.pausedRuns,
       finish: (id, confirmed) => this.finish(id, confirmed),
     });
+  }
+
+  /** Releases only the reservations of an ended run whose executor explicitly resumes it. */
+  public async releaseForResume(runId: string): Promise<void> {
+    await this.persist(async () => {
+      const stored = await this.store.list();
+      const records = new Map(
+        [...stored, ...this.active.values()].map((record) => [
+          record.instanceId,
+          record,
+        ]),
+      );
+      for (const record of records.values()) {
+        if (record.runId !== runId) continue;
+        await this.store.remove(record.instanceId);
+        this.active.delete(record.instanceId);
+        this.sessions.delete(record.instanceId);
+      }
+    });
+    this.wake();
   }
 
   /** Cancels all waiters and drains sessions; uncertain leases survive server exit. */

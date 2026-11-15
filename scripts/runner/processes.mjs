@@ -185,3 +185,45 @@ export async function cleanup(folder, jobId, options = {}) {
   } while (Date.now() < deadline);
   return failedCleanup(options, "exit_timeout");
 }
+
+/** Suspends only the original host-owned worker and its descendants, preserving all runtime files. */
+export async function pauseExecution(folder, isPaused) {
+  const launch = await readOwnedLaunch(folder);
+  if (!launch || launch.boundary === "not_started") return;
+  if (
+    launch.boundary !== "pid_namespace" ||
+    (await identity(launch.processId)) !== launch.identity
+  )
+    return;
+  const file = join(folder, "pause.json");
+  const previous = await readRecord(file);
+  if (previous?.isPaused !== isPaused) {
+    const now = Date.now();
+    await store(file, {
+      isPaused,
+      startedAt: isPaused ? now : null,
+      totalMilliseconds:
+        (previous?.totalMilliseconds ?? 0) +
+        (previous?.isPaused ? now - previous.startedAt : 0),
+    });
+  }
+  if (isPaused) process.kill(launch.processId, "SIGSTOP");
+  const pending = [launch.processId];
+  const records = [];
+  for (const pid of pending) {
+    try {
+      const record = await processRecord(pid);
+      records.push(record);
+      const children = await readFile(
+        `/proc/${pid}/task/${pid}/children`,
+        "utf8",
+      );
+      for (const child of children.trim().split(/\s+/).map(Number))
+        if (child > 0 && !pending.includes(child)) pending.push(child);
+    } catch (error) {
+      if (!vanished(error)) throw error;
+    }
+  }
+  if (!(await signalOwned(records.reverse(), isPaused ? "SIGSTOP" : "SIGCONT")))
+    throw new Error("Runner suspension could not be confirmed");
+}

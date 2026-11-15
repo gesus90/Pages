@@ -88,6 +88,7 @@ export interface FakeAdapterOptions {
   /** Options the adapter does not offer at all. */
   readonly missing?: readonly string[];
   readonly sessionError?: RequestError;
+  readonly resumeError?: RequestError;
   /** The Pages MCP server reports a failed start while the session opens. */
   readonly isMcpStartFailing?: boolean;
   readonly turn?: (turn: FakeTurn) => Promise<StopReason>;
@@ -364,6 +365,11 @@ export function fakeAcpAgent(options: FakeAdapterOptions = {}): FakeCodexAgent {
           options.agentInfo === undefined ? defaultInfo : options.agentInfo,
         authMethods: [],
       };
+    })
+    .onRequest(methods.agent.session.resume, (context) => {
+      record(methods.agent.session.resume, context.params);
+      if (options.resumeError) throw options.resumeError;
+      return { configOptions: session.configOptions() };
     })
     .onRequest(methods.agent.session.new, async (context) => {
       record(methods.agent.session.new, context.params);

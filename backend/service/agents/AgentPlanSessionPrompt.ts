@@ -98,6 +98,9 @@ function buildResourceContext(
 ): AgentPlanSessionInput["resourceContext"] {
   return {
     planId: node.run.planId,
+    ...(node.run.origin?.kind === "resume"
+      ? { recoveryRunId: node.run.origin.runId }
+      : {}),
     runId: node.run.id,
     stepId: node.step.step.id,
     sessionScopeId: node.sessionGroup ?? node.step.step.id,

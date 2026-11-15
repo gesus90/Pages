@@ -116,8 +116,10 @@ async function resumeAcpSession(
     logCaughtError("AcpSession", error);
 
     // The adapter refused the session; a lost connection fails as it always does.
-    if (error instanceof RequestError && !target.connection.signal.aborted)
+    if (error instanceof RequestError && !target.connection.signal.aborted) {
+      if (request.canReplaceMissingSession) return newAcpSession(target);
       throw new AgentError("acp_session_resume_failed");
+    }
     throw error;
   }
 }
@@ -130,6 +132,13 @@ export async function openAcpSession(
   const resumeSessionId = request.resumeSessionId ?? null;
   if (resumeSessionId !== null)
     return resumeAcpSession(target, resumeSessionId);
+  return newAcpSession(target);
+}
+
+async function newAcpSession(
+  target: AcpHandshakeTarget,
+): Promise<OpenedSession> {
+  const { request } = target.context;
   const response = await target.connection.agent.request(
     methods.agent.session.new,
     {

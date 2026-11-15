@@ -87,11 +87,11 @@ function ActionContent({
  * Starten, Pause or Fortsetzen, and Stop, in this order and of one width.
  *
  * @remarks
- * Starten starts a new run of the saved revision and nothing else; Pause lets
- * running steps finish and dispatches nothing new; Stop ends the whole run.
+ * Starten starts a new run of the saved revision and nothing else; Pause suspends
+ * running work and dispatches nothing new; Stop permanently ends the whole run.
  * Fortsetzen replaces Pause while a run can be continued, whether it is paused,
- * failed, interrupted, blocked, stopped or has only its closeout open; one
- * click is enough, because the server chooses the technical way. Stop stays
+ * failed, interrupted, blocked or has only its closeout open. Stopped runs
+ * keep a disabled Resume button. Stop stays
  * available while a stop hangs, where it ends the run's processes by force.
  * The buttons only mirror the server's answer: every action is checked again
  * when it arrives.
@@ -131,7 +131,12 @@ export function PlanRunActions(props: PlanRunActionsProps): React.ReactElement {
           size="xs"
           variant="outline"
           className={RUN_ACTION_CLASS}
-          disabled={props.isPending || !control?.canStop}
+          disabled={
+            (props.isPending &&
+              props.pendingIntent !== "pause-plan" &&
+              props.pendingIntent !== "resume-plan") ||
+            !control?.canStop
+          }
           onClick={() => props.onAction("stop-plan")}
         >
           <ActionContent

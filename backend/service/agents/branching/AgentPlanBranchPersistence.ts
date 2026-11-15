@@ -35,6 +35,13 @@ export function storedPlanBranchState(
   },
 ): unknown | null {
   const state = run[BRANCH_STATE]?.();
+  return serializePlanBranchState(state);
+}
+
+/** Creates a JSON-safe copy for a recovery snapshot, without exposing engine state publicly. */
+export function serializePlanBranchState(
+  state: PlanBranchingState | undefined,
+): unknown | null {
   return state
     ? {
         pending: state.pending,

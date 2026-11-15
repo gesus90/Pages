@@ -30,6 +30,11 @@ export function RunStepsTab({
               {step.name}
             </span>
             <RunStatusBadge status={step.status} />
+            {step.isInherited ? (
+              <span className="text-xs text-muted-foreground">
+                {t("plans.recovery.inherited")}
+              </span>
+            ) : null}
             {step.errorClass ? (
               <RunErrorBadge
                 errorClass={step.errorClass}

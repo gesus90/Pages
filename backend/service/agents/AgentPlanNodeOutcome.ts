@@ -9,6 +9,7 @@ import {
   usesImmediateCodexPause,
 } from "./AgentPlanImmediatePause";
 
+import { planPauseGate } from "./AgentPlanPauseGate";
 import { dispatchRemoteStepWithRetry } from "./AgentPlanRemoteRetry";
 import {
   dispatchPlanLocalNode,
@@ -47,6 +48,7 @@ export async function planNodeOutcome(
 ): Promise<Partial<AgentPlanStepResult>> {
   const preparationFailure = planPreparationFailure(active, node);
   if (preparationFailure) return preparationFailure;
+  await planPauseGate(active.view.id).wait(controller.signal);
   const isReattaching = isReattachingLocalNode(
     active,
     node.id,

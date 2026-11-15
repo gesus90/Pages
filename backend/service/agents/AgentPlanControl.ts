@@ -38,7 +38,8 @@ function isBlockedByBusiness(step: AgentPlanStepResult): boolean {
  *
  * @remarks
  * A paused run continues at its pause point. Every ended, unfinished run
- * continues as a new linked run at its last safe state; the kind only tells
+ * continues as a new linked run at its last safe state. Stopped is display-only.
+ * The kind tells
  * the person why: a lost process (`interrupted`), a step that reported
  * `blocked`, an open closeout, an explicit stop, or a plain failure.
  */
@@ -86,13 +87,13 @@ export function planControl(
   const isActive = isActivePlanRun(run.status);
   return {
     ...runControlMetadata(run, canIdentify),
-    canPlay: canRunPlan(plan) && (!isCodexPlanRun(run) || !isActive),
+    canPlay: canRunPlan(plan) && !isActive,
     waitReason: canIdentify && isActive ? run.waitReason : undefined,
     workspaceWait:
       canIdentify && isPlanWriterWaitActive(run)
         ? run.workspaceWait
         : undefined,
-    canRestart: canIdentify,
+    canRestart: canIdentify && !isActive,
     ...(isCodexPlanRun(run) ? { startWithoutConfirmation: true } : {}),
     ...ownRunActions(run, canIdentify, issue),
     canEdit: plan.canEdit,
@@ -171,11 +172,12 @@ function runControlMetadata(
   };
 }
 
-/** Ended runs that "Fortsetzen" continues: failed, an open closeout, and a stopped run. */
+/** Ended runs that "Fortsetzen" continues: failures and open closeouts, except an explicit Stop. */
 export function isEndedResumable(run: AgentPlanRun): boolean {
   return (
     !isCodexPlanRun(run) &&
-    (isResumablePlanRunEnd(run.status) || run.status === "cancelled")
+    !run.stopRequested &&
+    isResumablePlanRunEnd(run.status)
   );
 }
 
@@ -190,10 +192,10 @@ export function isEndedResumable(run: AgentPlanRun): boolean {
 function isStoppable(run: AgentPlanRun): boolean {
   if (isCodexPlanRun(run))
     return ["running", "pausing", "paused"].includes(run.status);
-  return isActivePlanRun(run.status) || isResumablePlanRunEnd(run.status);
+  return isActivePlanRun(run.status);
 }
 
 function resumableStatus(run: AgentPlanRun, issue: string | null): boolean {
   if (run.status === "paused") return !run.stopRequested && !issue;
-  return isEndedResumable(run) && !issue;
+  return false;
 }

@@ -29,6 +29,8 @@ export interface RecoveredRunStart {
   readonly loops: readonly AgentPlanLoopRun[];
   /** What the stacks handed over so far, so no entry is handed over twice or skipped; absent for a restart. */
   readonly stacks?: readonly AgentPlanStackRun[];
+  /** Unfinished nodes retain activation history and the event that dispatched them. */
+  readonly pending?: readonly AgentPlanStepResult[];
 }
 
 /**
@@ -95,9 +97,19 @@ export function recoveredPlanRun(
   recovered: RecoveredRunStart,
 ): AgentPlanRun {
   const initial = initialPlanRun(userId, snapshot);
-  const steps = initial.steps.map(
-    (step) => recovered.reused.find((entry) => entry.id === step.id) ?? step,
-  );
+  const steps = initial.steps.map((step) => {
+    const reused = recovered.reused.find((entry) => entry.id === step.id);
+    if (reused) return reused;
+    const previous = recovered.pending?.find((entry) => entry.id === step.id);
+    return previous
+      ? {
+          ...step,
+          activation: retryActivation(previous),
+          history: previous.history,
+          trigger: previous.trigger,
+        }
+      : step;
+  });
   const loops = initial.loops?.map(
     (loop) => recovered.loops.find((entry) => entry.id === loop.id) ?? loop,
   );
@@ -115,6 +127,20 @@ export function recoveredPlanRun(
     },
     snapshot,
   );
+}
+
+/** A retry belongs to its failed activation; waiting successors have not started their next activation yet. */
+function retryActivation(previous: AgentPlanStepResult): number | undefined {
+  const activation = previous.activation;
+  if (
+    previous.status !== "failed" &&
+    previous.status !== "running" &&
+    previous.status !== "cancelled"
+  )
+    return activation;
+  return activation !== undefined && activation > 1
+    ? activation - 1
+    : undefined;
 }
 
 /**

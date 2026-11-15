@@ -84,6 +84,7 @@ export function applyRunnerMessage(
       job.jobId === message.job.jobId
         ? {
             ...message.job,
+            ...(job.isPaused === undefined ? {} : { isPaused: job.isPaused }),
             ...(job.pauseRequestedAt
               ? { pauseRequestedAt: job.pauseRequestedAt }
               : {}),

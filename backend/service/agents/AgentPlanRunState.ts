@@ -498,8 +498,8 @@ export function finalPlanStatus(
   active: ActivePlanRun,
   hasFailure: boolean,
 ): AgentPlanRun["status"] {
-  if (hasUnconfirmedCloseout(active)) return "failed";
   if (active.view.stopRequested) return "cancelled";
+  if (hasUnconfirmedCloseout(active)) return "failed";
   if (isWorkDoneCloseoutOpen(active.view)) return "work_done_closeout_open";
   return hasFailure || active.view.controlError ? "failed" : "succeeded";
 }

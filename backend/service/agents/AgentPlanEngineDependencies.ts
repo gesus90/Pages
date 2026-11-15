@@ -29,7 +29,7 @@ export interface EngineDependencies {
   /** Runs swarm nodes (PAGE-313); without it a swarm fails instead of running. */
   readonly swarms?: Pick<AgentPlanSwarmRunner, "run">;
   readonly resources?: Pick<AcpResourceScheduler, "pauseRun" | "resumeRun"> &
-    Partial<Pick<AcpResourceScheduler, "setWaitObserver">>;
+    Partial<Pick<AcpResourceScheduler, "setWaitObserver" | "controlRun">>;
   readonly runs: Pick<
     AgentPlanRunRepository,
     "insert" | "create" | "update" | "find"

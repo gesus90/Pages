@@ -15,6 +15,7 @@ import {
 } from "@/definition/RunnerExecution";
 
 import { AgentPlanRemoteSettlement } from "./AgentPlanRemoteSettlement";
+import { withRemoteProgress } from "./AgentPlanRemoteProgress";
 import { observeRemoteAttempt } from "./AgentPlanRemoteObservation";
 import { requireRemoteRunResources } from "./AgentPlanRemoteTargets";
 import {
@@ -38,10 +39,7 @@ import {
 } from "./AgentPlanRemoteResolvedCommand";
 import { AgentPlanRemoteSources } from "./AgentPlanRemoteSources";
 import { remoteTodoChecklists } from "./AgentPlanRemoteChecklist";
-import {
-  isOriginalRemoteJob,
-  pauseQueuedRemoteRun,
-} from "./AgentPlanRemoteCancellation";
+import { isOriginalRemoteJob } from "./AgentPlanRemoteCancellation";
 import {
   completedGatedRemote,
   remoteAssessmentTerms,
@@ -83,8 +81,6 @@ import type {
   AgentPlanTicketChecklist,
 } from "./AgentPlanTasks";
 
-const OBSERVATION_STALE_MILLISECONDS = 45_000;
-
 /** Private snapshot: exact command, source inputs and authorized target, without credentials. */
 export interface RemotePlanStep {
   /** Preserved context is appended after binding, so earlier output cannot introduce placeholders. */
@@ -122,7 +118,7 @@ interface RemoteExecutionDependencies {
     | "historyPending"
     | "contact"
   > &
-    Partial<Pick<RunnerService, "enqueueRetry">>;
+    Partial<Pick<RunnerService, "enqueueRetry" | "pauseExecution">>;
   readonly provider: Pick<RunnerOpenRouterService, "catalog">;
   readonly runs: Pick<AgentPlanRunRepository, "find">;
 }
@@ -400,46 +396,40 @@ export class AgentPlanRemoteExecution {
 
   /** Queue pause is replayable and cannot kill a job that has already acquired its launch claim. */
   public async pause(run: AgentPlanRun): Promise<void> {
-    await pauseQueuedRemoteRun(run, this.dependencies.runners);
+    await this.setPaused(run, true);
+  }
+
+  /** Resumes the original remote workers; neither their claims nor session IDs change. */
+  public async resume(run: AgentPlanRun): Promise<void> {
+    await this.setPaused(run, false);
   }
 
   /** Adds current transport health to confirmed job facts without mutating the stored execution state. */
   public async withProgress(run: AgentPlanRun): Promise<AgentPlanRun> {
-    const steps = await Promise.all(
-      run.steps.map(async (step) => {
+    return withRemoteProgress(run, this.dependencies.runners);
+  }
+
+  private async setPaused(run: AgentPlanRun, isPaused: boolean): Promise<void> {
+    await Promise.all(
+      allPlanRunResults(run).map(async (step) => {
         const execution = step.execution;
-        if (execution?.target.kind !== "remote") return step;
+        if (execution?.target.kind !== "remote") return;
         const job = await this.dependencies.runners.progress(
           execution.target.connectionId,
           run.id,
           execution.attemptId,
         );
-        if (!job) return step;
-        return {
-          ...step,
-          remote: {
-            ...step.remote,
-            jobId: job.jobId,
-            sessionId: job.sessionId,
-            status: job.status,
-            cancellation: job.cancellation,
-            queueReason: job.queueReason,
-            historyPending: await this.dependencies.runners.historyPending(
-              job.jobId,
-            ),
-            observedAt: job.observedAt,
-            isObservationStale: isObservationStale(job),
-            startedAt: step.remote?.startedAt ?? null,
-            endedAt: step.remote?.endedAt ?? null,
-            closeout: step.remote?.closeout ?? ("pending" as const),
-            contact: this.dependencies.runners.contact(
-              execution.target.connectionId,
-            ),
-          },
-        };
+        if (isOriginalRemoteJob(run, step, job)) {
+          if (!this.dependencies.runners.pauseExecution)
+            throw new AgentError("plan_runner_control_update_required");
+          await this.dependencies.runners.pauseExecution(
+            execution.target.connectionId,
+            job.jobId,
+            isPaused,
+          );
+        }
       }),
     );
-    return { ...run, steps };
   }
 
   /** Lets the agent of a gated CLI step report through the tool, under the scope of its Pages credential. */
@@ -590,16 +580,6 @@ function remoteAcceptanceContract(
   return command.program.kind === "cli"
     ? remotePlanContract(step, tickets)
     : undefined;
-}
-
-/** The runner confirms a quiet worker every 15 to 30 seconds; 45 seconds without it leave the process state unknown. */
-function isObservationStale(job: RunnerJob): boolean {
-  if (job.status !== "accepted" && job.status !== "running") return false;
-  const observedAt = Date.parse(job.observedAt ?? "");
-  return (
-    !Number.isFinite(observedAt) ||
-    Date.now() - observedAt > OBSERVATION_STALE_MILLISECONDS
-  );
 }
 
 /** Reauthorizes remote model routes before handing local configurations to the local resolver. */

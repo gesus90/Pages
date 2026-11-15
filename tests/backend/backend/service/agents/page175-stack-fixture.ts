@@ -245,6 +245,7 @@ export type ScriptAnswer = (
 ) => string;
 
 export interface StackEngine {
+  readonly database: RecoveryDatabase;
   readonly preparation: AgentPlanPreparation;
   /** Stores a corrected revision at the in-memory database boundary. */
   readonly savePlan: (snapshot: AgentPlanSnapshot) => void;
@@ -398,6 +399,7 @@ export async function stackEngine(
     scripts: scriptRunner(shape.script ?? (() => "{}"), scriptCalls),
   });
   return {
+    database,
     engine,
     preparation,
     savePlan: (saved) => database.savePlan(saved),

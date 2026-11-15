@@ -5,7 +5,8 @@ import path from "node:path";
 import { RUN_INSTANCE_VARIABLE } from "@/backend/agents/cli/CliProcessScan";
 import { correlationEnvironment } from "@/backend/logging/LogCorrelation";
 
-function runtimeDirectory(instanceId: string): string {
+/** Resolves one private script runtime, shared with its independent capture owner. */
+export function scriptRuntimeDirectory(instanceId: string): string {
   if (!/^[a-f0-9-]{36}$/u.test(instanceId))
     throw new Error("Invalid script instance");
   return path.join(os.tmpdir(), `pages-plan-script-${instanceId}`);
@@ -16,8 +17,25 @@ export async function createScriptResources(
   instanceId: string,
   content: string,
 ): Promise<string> {
-  const directory = runtimeDirectory(instanceId);
-  await mkdir(directory, { mode: 0o700 });
+  const directory = scriptRuntimeDirectory(instanceId);
+  try {
+    await mkdir(directory, { mode: 0o700 });
+  } catch (error: unknown) {
+    if (!(error instanceof Error && "code" in error && error.code === "EEXIST"))
+      throw error;
+    const metadata = await lstat(directory);
+    if (
+      !metadata.isDirectory() ||
+      metadata.isSymbolicLink() ||
+      metadata.uid !== process.getuid?.() ||
+      (await readFile(path.join(directory, "owner"), "utf8")) !== instanceId ||
+      (await readFile(path.join(directory, "script.cjs"), "utf8")) !== content
+    )
+      throw new Error(
+        "Existing script resources do not match the saved attempt",
+      );
+    return directory;
+  }
   await writeFile(path.join(directory, "owner"), instanceId, {
     mode: 0o600,
     flag: "wx",
@@ -31,7 +49,7 @@ export async function createScriptResources(
 
 /** Removes a private runtime directory only after checking its location, ownership and marker. */
 export async function removeScriptResources(instanceId: string): Promise<void> {
-  const directory = runtimeDirectory(instanceId);
+  const directory = scriptRuntimeDirectory(instanceId);
   let metadata;
   try {
     metadata = await lstat(directory);

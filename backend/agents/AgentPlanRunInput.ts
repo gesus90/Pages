@@ -153,7 +153,8 @@ function readRunCommand(input: unknown): Pick<AgentPlanRun, "command"> {
 function readControlError(
   run: Readonly<Record<string, unknown>>,
 ): Partial<Pick<AgentPlanRun, "controlError">> {
-  return run.controlError === "plan_step_failed"
+  return run.controlError === "plan_step_failed" ||
+    run.controlError === "plan_stop_unconfirmed"
     ? { controlError: run.controlError }
     : {};
 }

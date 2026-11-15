@@ -25,6 +25,8 @@ export { startIntegrations } from "./IntegrationsEntry";
 
 export { startIngress } from "./IngressEntry";
 
+export { startPlanScriptOwner } from "@/backend/service/agents/AgentPlanScriptOwner";
+
 export { startLocalSessionOwner } from "@/backend/agents/local/LocalSessionOwner";
 
 /**

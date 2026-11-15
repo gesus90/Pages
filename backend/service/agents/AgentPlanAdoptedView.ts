@@ -1,3 +1,4 @@
+import { readOwnedScript } from "./AgentPlanScriptOwner";
 import { endInterruptedSession } from "./AgentPlanRecovery";
 
 import type { LocalSessions } from "@/backend/agents/local/LocalSessions";
@@ -15,6 +16,8 @@ export function adoptedPlanView(
     if (
       step.status !== "running" ||
       step.remote ||
+      (previous.status === "paused" &&
+        (step.script || step.session?.runner === "api")) ||
       (step.session && local.has(step.session.instanceId))
     )
       return step;
@@ -73,6 +76,11 @@ export async function reconcileAdoptedRun(
   const reconcile = async (
     step: AgentPlanStepResult,
   ): Promise<AgentPlanStepResult> => {
+    if (run.status === "paused" && step.script) {
+      const script = await readOwnedScript(step.script.instanceId);
+      if (script) return { ...step, script };
+    }
+    if (run.status === "paused" && step.session?.runner === "api") return step;
     if (step.remote || (step.session && local.has(step.session.instanceId)))
       return step;
     if (step.session && local.unverified().has(step.session.instanceId))

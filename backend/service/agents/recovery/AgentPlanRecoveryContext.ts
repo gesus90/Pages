@@ -1,3 +1,5 @@
+import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
+
 import { planRecoveryTerms } from "./AgentPlanRecoveryPrompt";
 
 import type { AgentPlanRun } from "@/definition/AgentPlan";
@@ -12,7 +14,7 @@ export function recoveredAgentContext(
   ids: readonly string[],
 ): Readonly<Record<string, string>> {
   return Object.fromEntries(
-    run.steps
+    allPlanRunResults(run)
       .filter((step) => ids.includes(step.id))
       .map((step) => [
         step.id,
@@ -23,6 +25,10 @@ export function recoveredAgentContext(
           isOutputExcerpt: (step.output?.length ?? 0) > 16000,
           error: step.error,
           acceptance: step.session?.acceptance,
+          todos: step.progress,
+          agentTodos: step.agentTodos,
+          previousContract: step.session?.contract,
+          lastReport: step.report,
           previousSessionId: step.session?.sessionId ?? null,
           historyRetained: true,
         }),

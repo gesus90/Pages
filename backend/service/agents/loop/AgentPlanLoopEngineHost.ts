@@ -1,5 +1,6 @@
 import { logCaughtError } from "@/backend/logging/Logger";
 
+import { planPauseGate } from "../AgentPlanPauseGate";
 import { canSchedule } from "../AgentPlanRunState";
 import {
   planStackResult,
@@ -59,6 +60,7 @@ export function createLoopHost(
     isPausing: () =>
       active.view.status === "pausing" || active.view.status === "paused",
     authorize: dependencies.authorize,
+    waitUntilRunning: () => planPauseGate(active.view.id).wait(signal),
     current: (loopId) =>
       active.view.loops?.find((entry) => entry.id === loopId),
     update: (loopId, change) =>
@@ -66,6 +68,7 @@ export function createLoopHost(
         const previous = active.view;
         const record = previous.loops?.find((entry) => entry.id === loopId);
         if (!record) throw new Error("The loop has no recorded state.");
+        if (active.view.stopRequested) return record;
         const next = change(record);
         active.view = withLoopRun(previous, next);
         await store(previous);

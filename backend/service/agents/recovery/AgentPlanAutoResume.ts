@@ -62,7 +62,10 @@ function resumeMode(
     return "loop_session";
   return decideRestartSessionMode(
     retried.map((step) => step.session),
-    plan.canResumeNatively,
+    retried.length > 0 &&
+      retried.every((step) =>
+        Boolean(plan.resumeSessions[step.groupId ?? step.id]),
+      ),
   );
 }
 

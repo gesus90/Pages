@@ -157,7 +157,9 @@ it("quarantines an uncertain completion after a crash window and starts no depen
 it("an explicit stop cancels waiting successors and prevents later live resume", async () => {
   const world = await engineWorld(false);
   const run = await world.engine.start("owner", world.fixture.snapshot);
-  await world.engine.stop(run.id);
+  const stopping = world.engine.stop(run.id);
+  await vi.advanceTimersByTimeAsync(7_000);
+  await stopping;
   world.first.resolve();
   await vi.advanceTimersByTimeAsync(0);
 

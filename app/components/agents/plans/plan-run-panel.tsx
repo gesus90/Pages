@@ -25,6 +25,7 @@ import {
 import { PlanPanelStatus } from "./plan-panel-status";
 import { planPanelAttention, planPanelState } from "./plan-panel-status-model";
 import { recoverableRunId, recoveryErrorText } from "./plan-recovery-panel";
+import { PlanFailedResumeDialog } from "./plan-recovery/plan-failed-resume-dialog";
 import { usePlanRecovery } from "./use-plan-recovery";
 import { usePlanStartOwners } from "./use-plan-start-owners";
 import { PlanResourceReleases } from "./plan-resource-releases";
@@ -176,7 +177,7 @@ function submitRunAction(
 }
 
 /** The decision a run action asks for before anything is sent. */
-type PlanRunDecision = "restart" | "foreign-start" | "replace-open";
+type PlanRunDecision = "restart" | "resume" | "foreign-start" | "replace-open";
 
 /**
  * Asks for the restart of an ended run, confirms that an open run ends for a new one,
@@ -197,6 +198,8 @@ function PlanRunDecisionDialog({
   readonly onClose: () => void;
   readonly owners: readonly AgentPlanStartOwner[];
 }): React.ReactElement | null {
+  if (action === "resume")
+    return <PlanFailedResumeDialog recovery={recovery} onClose={onClose} />;
   if (action === "foreign-start")
     return <PlanForeignRunStartDialog onConfirm={onStart} onClose={onClose} />;
   if (action === "replace-open")
@@ -270,7 +273,9 @@ function useRunDecisions(
   function action(intent: PlanRunIntent): void {
     if (intent === "play-plan")
       setWarnings(planWarningEntries(props.editor, t));
-    if (intent !== "play-plan") submitRunAction(props, intent);
+    if (intent === "resume-plan" && control?.resumeAction === "recovery")
+      setRecoveryAction("resume");
+    else if (intent !== "play-plan") submitRunAction(props, intent);
     else void startPlan();
   }
   async function startPlan(): Promise<void> {

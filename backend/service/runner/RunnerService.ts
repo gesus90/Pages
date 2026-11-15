@@ -1,18 +1,12 @@
-import { digest, matches, GRANT_MILLISECONDS } from "./RunnerServiceSupport";
-import type {
-  RegistrationGrant,
-  RunnerStore,
-  RunnerConnectionAccess,
-} from "./RunnerServiceSupport";
-import { logEvent } from "@/backend/logging/Logger";
-import { runnerSchemaIssues } from "./RunnerSchemaDiagnosis";
 import { randomBytes, randomUUID } from "node:crypto";
 
 import { AgentError } from "@/backend/error/AgentErrors";
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { registerLogSecret } from "@/backend/logging/LogRedaction";
-import { runnerMessageSchema } from "@/definition/RunnerProtocol";
 
+import { RunnerExecutionPause } from "./RunnerExecutionPause";
+import { digest, matches, GRANT_MILLISECONDS } from "./RunnerServiceSupport";
+import { parseRunnerMessage } from "./RunnerMessageIntake";
 import { checkpointRunnerMessage } from "./RunnerMessageCheckpoint";
 import { runnerConnectionView } from "./RunnerConnectionFacts";
 import { requireRunnerOutputExecutor } from "./RunnerOutputCapabilities";
@@ -26,6 +20,11 @@ import {
   isRunnerCatalogCurrent,
 } from "./RunnerCatalog";
 
+import type {
+  RegistrationGrant,
+  RunnerStore,
+  RunnerConnectionAccess,
+} from "./RunnerServiceSupport";
 import type { RunnerCatalog } from "@/definition/RunnerProtocol";
 import type { RunnerContact } from "./RunnerContacts";
 import type {
@@ -243,20 +242,7 @@ export class RunnerService {
     connectionId: string,
     input: unknown,
   ): Promise<RunnerReply> {
-    const parsed = runnerMessageSchema.safeParse(input);
-    if (!parsed.success) {
-      for (const issue of runnerSchemaIssues(parsed.error))
-        logEvent({
-          level: "error",
-          event: "runner.protocol.schema_rejected",
-          component: "RunnerService",
-          message:
-            "Runner packet rejected by the protocol schema; inspect field, type and paired source versions",
-          metadata: { connectionId, ...issue },
-        });
-      throw parsed.error;
-    }
-    const message = parsed.data;
+    const message = parseRunnerMessage(connectionId, input);
     const reply = await this.writes.run(async () => {
       const record = await this.repository.find(connectionId);
       if (!record) throw new Error("Runner registration missing");
@@ -580,6 +566,19 @@ export class RunnerService {
       this.writes,
       (connection, reply) => this.deliver(connection, reply),
     ).request(connectionId, jobId);
+  }
+
+  /** Suspends or resumes the same durable worker without releasing its job. */
+  public async pauseExecution(
+    connectionId: string,
+    jobId: string,
+    isPaused: boolean,
+  ): Promise<void> {
+    await new RunnerExecutionPause(
+      this.repository,
+      this.writes,
+      (connection, reply) => this.deliver(connection, reply),
+    ).request(connectionId, jobId, isPaused);
   }
 
   /** Returns journal facts for an already-authorized exact run and attempt. */
