@@ -1,6 +1,9 @@
 import { AgentPlanRecoveryError } from "@/backend/error/AgentPlanRecoveryError";
 import { isAcpProvider } from "@/definition/AgentConfiguration";
-import { isActivePlanRun, isCodexPlanRun } from "@/definition/AgentPlanRunState";
+import {
+  isActivePlanRun,
+  isCodexPlanRun,
+} from "@/definition/AgentPlanRunState";
 
 import { resumableSessionId } from "../AgentPlanStepDecision";
 
