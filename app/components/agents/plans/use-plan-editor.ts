@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { useFetcher } from "react-router";
 
@@ -41,6 +41,8 @@ export interface PlanEditorResult {
   readonly graph: ReturnType<typeof usePlanGraph>;
   readonly command: ReturnType<typeof useFetcher<AgentPlanActionResult>>;
   readonly isDirty: boolean;
+  readonly incomingRevision: number | null;
+  readonly adoptIncoming: () => void;
   readonly canEdit: boolean;
   /**
    * Whether a command or the sources of a new workspace are on their way.
@@ -69,23 +71,30 @@ export interface PlanEditorResult {
   readonly changeContext: (workspace: AgentWorkspaceChoice) => void;
 }
 
-/** Saved graphs and unsaved edits remain separate state; only an explicit save stores the draft. */
-export function usePlanEditor(page: AgentPlanPage): PlanEditorResult {
-  const command = useFetcher<AgentPlanActionResult>();
+function useCreatedPlanNavigation(
+  selected: AgentPlanPage["selected"],
+  result: AgentPlanActionResult | undefined,
+): void {
   const navigate = useNavigate();
-  const [submittedName, setSubmittedName] = useState<string | null>(null);
   useEffect(() => {
-    if (!page.selected && command.data?.ok && command.data.planId)
+    if (!selected && result?.ok && result.planId)
       void navigate(
-        `/agents/plans?planId=${encodeURIComponent(command.data.planId)}`,
+        `/agents/plans?planId=${encodeURIComponent(result.planId)}`,
       );
-  }, [command.data, page.selected, navigate]);
+  }, [result, selected, navigate]);
+}
+
+/** Keeps edits separate, including unapplied node-dialog fields, until an explicit save. */
+export function usePlanEditor(
+  page: AgentPlanPage,
+  isEditingNode = false,
+): PlanEditorResult {
+  const command = useFetcher<AgentPlanActionResult>();
+  const [submittedName, setSubmittedName] = useState<string | null>(null);
+  useCreatedPlanNavigation(page.selected, command.data);
   const isSubmitting = command.state === "submitting";
-  const { draft, setDraft, currentDraft, isDirty, submitted } = usePlanDraft(
-    page,
-    command.data,
-    isSubmitting,
-  );
+  const draftState = usePlanDraft(page, command.data, isSubmitting);
+  const { draft, setDraft, currentDraft, isDirty, submitted } = draftState;
   const [isExplicitSave, setExplicitSave] = useState(false);
   const submitSave = usePlanSubmission({
     command,
@@ -107,6 +116,10 @@ export function usePlanEditor(page: AgentPlanPage): PlanEditorResult {
       loadNodeConfiguration(draft.workspaceId, agentId),
     currentDraft,
   });
+  const { setInteracting } = draftState;
+  useLayoutEffect(() => {
+    setInteracting(graph.isMoving || isEditingNode);
+  }, [setInteracting, graph.isMoving, isEditingNode]);
   function requestSave(
     change: (current: AgentPlanInput) => AgentPlanInput,
     isExplicit: boolean,
@@ -137,6 +150,8 @@ export function usePlanEditor(page: AgentPlanPage): PlanEditorResult {
     graph,
     command,
     isDirty,
+    incomingRevision: draftState.incomingRevision,
+    adoptIncoming: draftState.adoptIncoming,
     canEdit: page.selected?.canEdit ?? true,
     isPending:
       (command.state !== "idle" && !isRevalidatingSave) ||

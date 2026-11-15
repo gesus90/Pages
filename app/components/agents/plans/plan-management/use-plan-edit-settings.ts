@@ -7,20 +7,17 @@ import {
 } from "@/definition/AgentPlanTarget";
 import { isPlanAdministrator } from "@/definition/AgentPlanTeam";
 
-import {
-  isPlanNameUsed,
-  planLocationFields,
-  planLocationValue,
-} from "./plan-context-model";
+import { isPlanNameUsed, planLocationFields } from "./plan-context-model";
 import { hasPlanTeamRight } from "./plan-access-model";
-import { usePlanOneShotChoice } from "./plan-one-shot-field";
 import { useEditSave } from "./use-plan-settings-save";
-import { usePlanTeams } from "./use-plan-teams";
+import { usePlanEditFields } from "./use-plan-edit-fields";
 
 import type { AgentPlanPage, AgentPlanView } from "@/definition/AgentPlan";
 import type { PlanContextValues } from "./plan-context-model";
 import type { usePlanEditor } from "../use-plan-editor";
 import type { usePlanManagement } from "./use-plan-management";
+import type { usePlanOneShotChoice } from "./plan-one-shot-field";
+import type { usePlanTeams } from "./use-plan-teams";
 
 export interface PlanEditDialogProps {
   readonly page: AgentPlanPage;
@@ -38,6 +35,7 @@ interface PlanEditSettings {
   readonly isReadOnly: boolean;
   readonly isLocked: boolean;
   readonly isIncomplete: boolean;
+  readonly isOutdated: boolean;
   readonly ownerId: string;
   readonly setOwnerId: (ownerId: string) => void;
   readonly deviations: ReturnType<typeof planTargetDeviations>;
@@ -54,15 +52,16 @@ export function usePlanEditSettings({
   management,
 }: PlanEditDialogProps): PlanEditSettings {
   const { draft } = editor;
-  const [values, setValues] = useState(() => ({
-    name: draft.name,
-    projectId: draft.projectId ?? plan.projectId,
-    location: planLocationValue(draft),
-  }));
+  const {
+    fields: form,
+    values,
+    setValues,
+    ownerId,
+    setOwnerId,
+    teams,
+    oneShot,
+  } = usePlanEditFields(page, plan, draft);
   const [choice, setChoice] = useState<"keep" | "follow" | null>(null);
-  const [ownerId, setOwnerId] = useState(plan.ownerId);
-  const teams = usePlanTeams(page.directory, plan.teams ?? []);
-  const oneShot = usePlanOneShotChoice(draft.oneShot === true);
   const save = useEditSave(editor, management.close);
   const isReadOnly = !editor.canEdit && !isPlanAdministrator(plan);
   const isLocked = isReadOnly || (save.isSubmitted && editor.isPending);
@@ -96,6 +95,7 @@ export function usePlanEditSettings({
         withPlanTargetFollowed(
           {
             ...current,
+            revision: form.revision,
             name: values.name.trim(),
             projectId: values.projectId,
             workspaceId: fields.workspaceId,
@@ -121,6 +121,7 @@ export function usePlanEditSettings({
     isReadOnly,
     isLocked,
     isIncomplete: Boolean(isIncomplete),
+    isOutdated: form.revision < plan.revision,
     ownerId,
     setOwnerId,
     deviations,

@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import { data as routeData, redirect } from "react-router";
 
 import { readTeams } from "@/app/lib/agent-plan-access-actions.server";
@@ -28,8 +30,11 @@ import { readLocalStateAudience } from "@/app/lib/local-state/local-state-audien
 import { readPlanInput, readPlanText } from "@/backend/agents/AgentPlanInput";
 import { planRecoveryFailure } from "@/app/lib/agent-plan-recovery-response.server";
 import { AgentError } from "@/backend/error/AgentErrors";
+import { AgentPlanReadDenied } from "@/backend/error/AgentPlanReadDenied";
 import { AgentPlanRecoveryError } from "@/backend/error/AgentPlanRecoveryError";
 import { logCaughtError } from "@/backend/logging/Logger";
+import { readCorrelationId } from "@/backend/logging/LogCorrelation";
+import { CORRELATION_HEADER } from "@/definition/RequestCorrelation";
 
 import type {
   PlanSelectionPreference,
@@ -81,20 +86,47 @@ async function readablePage(
   service: AgentPlanService,
   userId: string,
   selection: { readonly planId: string; readonly workspaceId: string | null },
+  requestId: string,
 ): Promise<AgentPlanPage | null> {
   try {
     const page = await service.page(userId, selection);
     if (
       selection.workspaceId &&
       page.selected?.workspaceId !== selection.workspaceId
-    )
+    ) {
+      logPlanUnavailable(
+        requestId,
+        "selection",
+        "requested_workspace_mismatch",
+      );
       return null;
+    }
     return page;
   } catch (error: unknown) {
-    if (error instanceof AgentError && error.code === "plan_access_denied")
+    if (error instanceof AgentError && error.code === "plan_access_denied") {
+      logPlanUnavailable(
+        requestId,
+        error instanceof AgentPlanReadDenied ? error.source : "page_build",
+        error instanceof AgentPlanReadDenied ? error.reason : "access_denied",
+      );
       return null;
+    }
     throw error;
   }
+}
+
+/** Uses the request's logging context; no requested id, graph or private name enters the log. */
+function logPlanUnavailable(
+  requestId: string,
+  source: string,
+  reason: string,
+): void {
+  logCaughtError(
+    `AgentPlansLoader.${source}.${reason}`,
+    new AgentPlanReadDenied(source, reason),
+    "warn",
+    requestId,
+  );
 }
 
 /**
@@ -112,6 +144,7 @@ async function openPlan(
     readonly workspaceId: string | null;
     readonly isRestoring: boolean;
   },
+  requestId: string,
 ): Promise<Omit<AgentPlansView, "audience" | "selectionPreference">> {
   const isDefault = selection.planId === null;
   const planId =
@@ -125,17 +158,30 @@ async function openPlan(
           userId,
         )
       : readRequestedPlan(selection.planId);
+  if (planId === null)
+    logPlanUnavailable(
+      requestId,
+      "selection",
+      isDefault ? "default_missing" : "invalid_plan_id",
+    );
   const page =
     planId === null
       ? null
-      : await readablePage(service, userId, {
-          planId,
-          workspaceId: selection.workspaceId,
-        });
+      : await readablePage(
+          service,
+          userId,
+          {
+            planId,
+            workspaceId: selection.workspaceId,
+          },
+          requestId,
+        );
   if (page && !(selection.isRestoring && page.selected?.isWorkspaceMissing))
     return { ...page, opening: isDefault ? "default" : "requested" };
+  if (page?.selected?.isWorkspaceMissing && selection.isRestoring)
+    logPlanUnavailable(requestId, "selection", "remembered_workspace_missing");
   return {
-    ...(await emptyPage(service, userId, selection.workspaceId)),
+    ...(await emptyPage(service, userId, selection.workspaceId, requestId)),
     opening: isDefault ? "defaultMissing" : "requestedMissing",
   };
 }
@@ -145,6 +191,7 @@ async function emptyPage(
   service: AgentPlanService,
   userId: string,
   workspaceId: string | null,
+  requestId: string,
 ): Promise<AgentPlanPage> {
   try {
     return await service.page(userId, { planId: null, workspaceId });
@@ -155,6 +202,11 @@ async function emptyPage(
       workspaceId === null
     )
       throw error;
+    logPlanUnavailable(
+      requestId,
+      error instanceof AgentPlanReadDenied ? error.source : "empty_page_build",
+      error instanceof AgentPlanReadDenied ? error.reason : "access_denied",
+    );
     return service.page(userId, { planId: null, workspaceId: null });
   }
 }
@@ -273,12 +325,18 @@ export async function loader({
     const remembered = await lastSelectedPlan(request, user.id);
     const requested = query.get("planId");
     const services = await getApplicationServices();
-    const page = await openPlan(services.agentPlanService, user.id, {
-      planId: requested ?? (workspace === null ? remembered : null),
-      workspaceId: workspace === null ? null : readPlanText(workspace),
-      isRestoring:
-        requested === null && workspace === null && remembered !== null,
-    });
+    const page = await openPlan(
+      services.agentPlanService,
+      user.id,
+      {
+        planId: requested ?? (workspace === null ? remembered : null),
+        workspaceId: workspace === null ? null : readPlanText(workspace),
+        isRestoring:
+          requested === null && workspace === null && remembered !== null,
+      },
+      readCorrelationId(request.headers.get(CORRELATION_HEADER)) ??
+        randomUUID(),
+    );
     // Pin the opened plan in the address so another tab's preference cannot
     // change this editor's selection during catalog/action revalidation.
     if (page.selected && requested === null && workspace === null)

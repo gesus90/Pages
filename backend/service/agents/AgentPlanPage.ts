@@ -1,5 +1,8 @@
 import { withReadScope } from "@/backend/database/ReadScope";
-import { AgentError } from "@/backend/error/AgentErrors";
+import {
+  AgentPlanReadDenied,
+  withPlanReadOrigin,
+} from "@/backend/error/AgentPlanReadDenied";
 
 import { readPlanHistory } from "./AgentPlanHistory";
 
@@ -51,30 +54,41 @@ async function loadPlanContext(
 ): Promise<AgentPlanContext> {
   const { service } = dependencies;
   const [plans, workspaces] = await Promise.all([
-    service.summaries(userId),
-    service.workspaces(userId),
+    withPlanReadOrigin("plan_catalog", () => service.summaries(userId)),
+    withPlanReadOrigin("workspace_catalog", () => service.workspaces(userId)),
   ]);
   const selected =
     selection.planId === null
       ? null
-      : await service.detailedView(userId, selection.planId);
+      : await withPlanReadOrigin("selected_plan", () =>
+          service.detailedView(userId, selection.planId ?? ""),
+        );
   const workspaceId = selected?.workspaceId ?? selection.workspaceId;
   const workspace = workspaces.find((entry) => entry.id === workspaceId);
   if (workspaceId !== null && !workspace && !selected?.isWorkspaceMissing)
-    throw new AgentError("plan_access_denied");
+    throw new AgentPlanReadDenied("page_workspace", "workspace_unavailable");
+  const team = await withPlanReadOrigin("page_team", () =>
+    service.team(userId, null),
+  );
   return {
     userId,
-    isAdministrator:
-      (await service.team(userId, null)).isAdministrator === true,
-    teamDepartmentId: (await service.team(userId, null)).departmentId,
+    isAdministrator: team.isAdministrator === true,
+    teamDepartmentId: team.departmentId,
     plans,
     workspaces,
-    remoteWorkspaces: (await dependencies.remoteTargets?.choices(userId)) ?? [],
+    remoteWorkspaces:
+      (await withPlanReadOrigin("page_remote_workspaces", async () =>
+        dependencies.remoteTargets?.choices(userId),
+      )) ?? [],
     selected,
     sources: workspace
-      ? await service.sources(userId, workspace.id)
+      ? await withPlanReadOrigin("plan_sources", () =>
+          service.sources(userId, workspace.id),
+        )
       : { agents: [], tasks: [] },
-    directory: await service.directory(userId),
+    directory: await withPlanReadOrigin("page_directory", () =>
+      service.directory(userId),
+    ),
   };
 }
 
@@ -91,10 +105,14 @@ export async function readPlanPage(
     return {
       ...context,
       runs: selected
-        ? await readPlanHistory(service, dependencies.runs, userId, selected.id)
+        ? await withPlanReadOrigin("plan_history", () =>
+            readPlanHistory(service, dependencies.runs, userId, selected.id),
+          )
         : [],
       control: selected
-        ? await service.control(userId, selected.id)
+        ? await withPlanReadOrigin("plan_control", () =>
+            service.control(userId, selected.id),
+          )
         : undefined,
     };
   });

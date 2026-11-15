@@ -116,6 +116,9 @@ export class LiveChangeAudience {
     actor: User,
     event: PagesEvent,
   ): Promise<LiveChange | null> {
+    // A catalog invalidation names no plan, and must reach revoked readers too.
+    if (event.type === "plan.catalog.changed")
+      return { kind: "plan", id: "catalog" };
     const kind = kindOf(event.type);
     if (!kind) return null;
     try {

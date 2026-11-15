@@ -12,7 +12,10 @@ import { PlanCanvas } from "./plan-canvas";
 import { PlanCanvasEmpty } from "./plan-canvas-empty";
 import { PlanLeaveGuard } from "./plan-leave-guard";
 import { PlanLocalStateNotice } from "./plan-local-state-notice";
-import { PlanRevisionConflict } from "./plan-revision-conflict";
+import {
+  PlanIncomingRevision,
+  PlanRevisionConflict,
+} from "./plan-revision-conflict";
 import { PlanSaveNotice } from "./plan-save-notice";
 import { usePlanEditor } from "./use-plan-editor";
 import { usePlanRun } from "./use-plan-run";
@@ -140,6 +143,42 @@ function focusConsoleNode(nodeId: string | null): void {
       ?.focus({ preventScroll: true });
 }
 
+interface PlanPanelsState {
+  readonly editingNodeId: string | null;
+  readonly consoleNodeId: string | null;
+  readonly onEdit: (id: string | null) => void;
+  readonly onOpen: (id: string | null) => void;
+  readonly onCloseEditing: () => void;
+  readonly onCloseConsole: () => void;
+}
+
+function usePlanPanels(): PlanPanelsState {
+  const [editingNodeId, onEdit] = useState<string | null>(null);
+  const [consoleNodeId, onOpen] = useState<string | null>(null);
+  return {
+    editingNodeId,
+    consoleNodeId,
+    onEdit,
+    onOpen,
+    onCloseEditing: () => onEdit(null),
+    onCloseConsole: () => {
+      onOpen(null);
+      focusConsoleNode(consoleNodeId);
+    },
+  };
+}
+
+function PlanEditorTitle(props: {
+  readonly name?: string;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  return (
+    <h1 className="sr-only">
+      {props.name ? `${t("plans.title")} · ${props.name}` : t("plans.title")}
+    </h1>
+  );
+}
+
 /**
  * The plan editor: one canvas over the whole content area beside the navigation.
  *
@@ -204,11 +243,13 @@ function PlanOnDemandPanels(props: {
 /** The notices above the canvas: where the shown state comes from and how a save went. */
 function PlanStatusNotices(props: {
   readonly saving: ReturnType<typeof usePlanSave>;
+  readonly editor: ReturnType<typeof usePlanEditor>;
   readonly localState?: LocalStateMark;
 }): React.ReactElement {
   return (
     <>
       <PlanLocalStateNotice mark={props.localState} />
+      <PlanIncomingRevision editor={props.editor} />
       <PlanSaveNotice
         feedback={props.saving.feedback}
         onDismiss={props.saving.dismiss}
@@ -226,8 +267,8 @@ function PlanEditorPage({
   readonly opening: AgentPlanOpening;
   readonly localState?: LocalStateMark;
 }): React.ReactElement {
-  const { t } = useTranslation();
-  const draftEditor = usePlanEditor(page);
+  const panels = usePlanPanels();
+  const draftEditor = usePlanEditor(page, panels.editingNodeId !== null);
   const controls = usePlanControl(
     page.selected?.id,
     page.control,
@@ -237,11 +278,9 @@ function PlanEditorPage({
     ...draftEditor,
     canEdit: canEditPlan(draftEditor.canEdit, controls, localState),
   };
-  const [editingNodeId, setEditingNodeId] = useState<string | null>(null);
-  const [consoleNodeId, setConsoleNodeId] = useState<string | null>(null);
   const summaries = usePlanRunSummaries(
     page.selected?.id,
-    consoleNodeId !== null,
+    panels.consoleNodeId !== null,
   );
   const running = usePlanRun(page.runs, editor.command.data, {
     planId: page.selected?.id,
@@ -251,26 +290,17 @@ function PlanEditorPage({
   });
   const display = planRunDisplay(page, controls.control, running);
   const saving = usePlanSave(editor, page.selected !== null);
-  function closeConsole(): void {
-    const nodeId = consoleNodeId;
-    setConsoleNodeId(null);
-    focusConsoleNode(nodeId);
-  }
   return (
     <div className="fixed inset-x-0 top-19 bottom-0 isolate @container md:left-(--app-sidebar-width)">
-      <h1 className="sr-only">
-        {page.selected
-          ? `${t("plans.title")} · ${page.selected.name}`
-          : t("plans.title")}
-      </h1>
+      <PlanEditorTitle name={page.selected?.name} />
       <PlanCanvas
         draft={editor.draft}
         sources={editor.sources}
         graph={editor.graph}
         canEdit={canEditCanvas(editor)}
         planId={page.selected?.id}
-        onEdit={setEditingNodeId}
-        onOpen={setConsoleNodeId}
+        onEdit={panels.onEdit}
+        onOpen={panels.onOpen}
         run={display.run}
         runPlan={display.plan}
         runError={display.error}
@@ -278,7 +308,13 @@ function PlanEditorPage({
         storedRunStatus={controls.control?.status}
         tickets={editor.tickets}
         workspaces={parameterWorkspaces(page, editor.draft)}
-        status={<PlanStatusNotices saving={saving} localState={localState} />}
+        status={
+          <PlanStatusNotices
+            saving={saving}
+            editor={editor}
+            localState={localState}
+          />
+        }
         panel={
           <PlanRunPanel
             page={page}
@@ -296,13 +332,10 @@ function PlanEditorPage({
         isEmptyPlan={editor.draft.nodes.length === 0}
       />
       <PlanOnDemandPanels
-        editingNodeId={editingNodeId}
-        consoleNodeId={consoleNodeId}
+        {...panels}
         editor={editor}
         run={display.run}
         running={running}
-        onCloseEditing={() => setEditingNodeId(null)}
-        onCloseConsole={closeConsole}
       />
       <PlanRevisionConflict editor={editor} />
       <PlanLeaveGuard isDirty={editor.isDirty} />

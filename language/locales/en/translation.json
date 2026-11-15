@@ -5362,6 +5362,7 @@
     "opening": {
       "defaultMissingTitle": "No plan open",
       "defaultMissing": "The default plan “{{name}}” does not exist or is not accessible. No other plan was opened.",
+      "retry": "Check access again",
       "requestedMissingTitle": "Plan not available",
       "requestedMissing": "The selected plan does not exist or is not accessible. No other plan was opened.",
       "emptyPlan": "This plan is still empty"
@@ -6896,6 +6897,9 @@
       "host": "Host",
       "advanced": "More options",
       "conflictTitle": "The plan has changed",
+      "incomingRevision": "Revision {{revision}} was saved. Your unsaved changes are preserved. Keep editing or load the current plan and discard your draft.",
+      "incomingDiscard": "Load the current saved plan and discard your unsaved changes? Running or paused executions are preserved.",
+      "incomingSettings": "The saved plan changed. Your entries are preserved. Close and reopen this dialog to adopt current settings. Saving the old state will be refused as a conflict.",
       "conflictHint": "Your draft is based on an older state of the plan. Nothing was overwritten.",
       "conflictPreserved": "Your draft is preserved. Load the current plan to compare changes.",
       "scriptCheckHint": "Availability and permissions are checked again before execution.",

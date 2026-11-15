@@ -54,8 +54,23 @@ function storedRevision(
     : null;
 }
 
+/** One editor's draft, its stored baseline and a pending authorized revision. */
+export interface PlanDraftState {
+  readonly draft: AgentPlanInput;
+  readonly setDraft: Dispatch<SetStateAction<AgentPlanInput>>;
+  /** The latest queued edits, even before React renders them. */
+  readonly currentDraft: () => AgentPlanInput;
+  readonly isDirty: boolean;
+  readonly submitted: React.RefObject<AgentPlanInput | null>;
+  readonly incomingRevision: number | null;
+  /** Explicitly discards local edits in favor of the latest authorized server answer. */
+  readonly adoptIncoming: () => void;
+  /** Protects a drag that has not yet been committed to the draft. */
+  readonly setInteracting: (isInteracting: boolean) => void;
+}
+
 /**
- * Revalidation never discards local edits; only an acknowledged save or start advances the draft revision.
+ * Adopts newer server revisions only while the draft has no local edits.
  *
  * @remarks
  * `isSubmitting` is true while the request itself is on its way. The reload of
@@ -66,14 +81,7 @@ export function usePlanDraft(
   page: AgentPlanPage,
   result: AgentPlanActionResult | undefined,
   isSubmitting: boolean,
-): {
-  readonly draft: AgentPlanInput;
-  readonly setDraft: Dispatch<SetStateAction<AgentPlanInput>>;
-  /** The latest queued edits, even before React renders them. */
-  readonly currentDraft: () => AgentPlanInput;
-  readonly isDirty: boolean;
-  readonly submitted: React.RefObject<AgentPlanInput | null>;
-} {
+): PlanDraftState {
   const [draft, commitDraft] = useState(() => initialDraft(page));
   const current = useRef(draft);
   const setDraft = useCallback(
@@ -88,13 +96,20 @@ export function usePlanDraft(
   const currentDraft = useCallback(() => current.current, []);
   const [saved, setSaved] = useState(() => initialDraft(page));
   const submitted = useRef<AgentPlanInput | null>(null);
-  const acknowledged =
-    storedRevision(result, isSubmitting) === null ? null : submitted.current;
-  const isDirty =
-    planDraftContents(draft) !== planDraftContents(acknowledged ?? saved);
+  const handled = useRef<AgentPlanActionResult | undefined>(undefined);
+  const isInteracting = useRef(false);
+  const [interaction, setInteraction] = useState(false);
+  const setInteracting = useCallback((next: boolean): void => {
+    isInteracting.current = next;
+    setInteraction(next);
+  }, []);
+  const isDirty = planDraftContents(draft) !== planDraftContents(saved);
   useEffect(() => {
     const revision = storedRevision(result, isSubmitting);
-    if (revision === null || !submitted.current) return;
+    if (revision === null || !submitted.current || handled.current === result)
+      return;
+    handled.current = result;
+    if (revision < (saved.revision ?? 0)) return;
     const snapshot = submitted.current;
     const persisted = { ...snapshot, revision };
     setSaved(persisted);
@@ -104,6 +119,47 @@ export function usePlanDraft(
         ? persisted
         : { ...previous, revision },
     );
-  }, [result, isSubmitting, setDraft]);
-  return { draft, setDraft, currentDraft, isDirty, submitted };
+  }, [result, isSubmitting, saved.revision, setDraft]);
+  const incomingRevision =
+    page.selected && page.selected.revision > (saved.revision ?? 0)
+      ? page.selected.revision
+      : null;
+  function adoptIncoming(): void {
+    if (incomingRevision === null || isSubmitting) return;
+    const incoming = initialDraft(page);
+    setSaved(incoming);
+    setDraft(incoming);
+  }
+  useEffect(() => {
+    if (
+      incomingRevision === null ||
+      isSubmitting ||
+      interaction ||
+      isInteracting.current
+    )
+      return;
+    // Use the queued draft: an edit may arrive before this effect runs.
+    if (planDraftContents(current.current) !== planDraftContents(saved)) return;
+    const incoming = initialDraft(page);
+    setSaved(incoming);
+    setDraft(incoming);
+  }, [
+    page,
+    incomingRevision,
+    isSubmitting,
+    interaction,
+    saved,
+    draft,
+    setDraft,
+  ]);
+  return {
+    draft,
+    setDraft,
+    currentDraft,
+    isDirty,
+    submitted,
+    incomingRevision,
+    adoptIncoming,
+    setInteracting,
+  };
 }

@@ -41,6 +41,7 @@ const PAGES_EVENT_TYPES = [
   "project.access.changed",
   "conversation.changed",
   "calendar.changed",
+  "plan.catalog.changed",
   "storage.limit_exceeded",
 ] as const;
 
@@ -70,6 +71,8 @@ export function isPagesEventType(kind: string): kind is PagesEvent["type"] {
  * a voice message or a member (PAGE-278); only its members hear of it.
  * `calendar.changed` names a calendar event, or `project:<projectId>` for
  * the project dates of a project (PAGE-301); only affected accounts hear of it.
+ * `plan.catalog.changed` invalidates plan catalogs without naming a plan,
+ * including for readers who just lost access (PAGE-436).
  * Whoever lost the
  * object can no longer be asked whether they saw it, so the live view lets
  * every open page read again instead of naming it.

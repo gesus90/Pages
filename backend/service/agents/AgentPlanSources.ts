@@ -1,3 +1,5 @@
+import { withPlanReadOrigin } from "@/backend/error/AgentPlanReadDenied";
+
 import type { AgentPlanRemoteExecution } from "./AgentPlanRemoteExecution";
 import type { AgentPlanSources } from "@/definition/AgentPlan";
 import type { AgentWorkspaceChoice } from "@/definition/AgentWorkspace";
@@ -24,16 +26,25 @@ export async function readPlanSources(
 ): Promise<AgentPlanSources> {
   const [agents, tasks, phases, models, interpreters, remoteTargets] =
     await Promise.all([
-      dependencies.profiles.catalog(userId, workspace.projectId),
-      dependencies.tasks.list(userId, workspace.projectId),
-      dependencies.phases.list(userId, workspace.projectId),
-      dependencies.profiles.planModels(userId, workspace.projectId),
+      withPlanReadOrigin("source_agents", () =>
+        dependencies.profiles.catalog(userId, workspace.projectId),
+      ),
+      withPlanReadOrigin("source_tasks", () =>
+        dependencies.tasks.list(userId, workspace.projectId),
+      ),
+      withPlanReadOrigin("source_phases", () =>
+        dependencies.phases.list(userId, workspace.projectId),
+      ),
+      withPlanReadOrigin("source_models", () =>
+        dependencies.profiles.planModels(userId, workspace.projectId),
+      ),
       dependencies.scripts.interpreters(),
-      dependencies.remoteTargets?.list(userId, workspace.projectId),
+      withPlanReadOrigin("source_remote_targets", async () =>
+        dependencies.remoteTargets?.list(userId, workspace.projectId),
+      ),
     ]);
-  const remote = await dependencies.remoteExecution?.sources(
-    userId,
-    workspace.projectId,
+  const remote = await withPlanReadOrigin("source_remote_execution", async () =>
+    dependencies.remoteExecution?.sources(userId, workspace.projectId),
   );
   return {
     agents,

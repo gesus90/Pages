@@ -57,7 +57,11 @@ export function PlanEditDialog({
         cancelLabel={isReadOnly ? t("plans.manage.close") : undefined}
         isPending={save.isSubmitted && editor.isPending}
         isSubmitDisabled={!isReadOnly && Boolean(isIncomplete)}
-        error={planRequestError(save.error, t)}
+        error={
+          settings.isOutdated
+            ? t("plans.execution.incomingSettings")
+            : planRequestError(save.error, t)
+        }
         onSubmit={submit}
         onClose={management.close}
       >

@@ -3,6 +3,8 @@ import { withInheritedPlanTarget } from "@/definition/AgentPlanTarget";
 import { allPlanSteps } from "@/definition/AgentPlanGroup";
 import { AGENT_PLAN_TEAM_LIMIT } from "@/definition/AgentPlanTeam";
 import { AgentError } from "@/backend/error/AgentErrors";
+import { AgentPlanReadDenied } from "@/backend/error/AgentPlanReadDenied";
+import { logEvent } from "@/backend/logging/Logger";
 
 import type { ActorChannel } from "@/backend/auth/McpActorContext";
 import type { AgentViewer } from "@/backend/auth/AgentProfilePolicy";
@@ -86,6 +88,7 @@ export class AgentPlanAccess {
   private readonly sharing: AgentPlanSharing;
   private readonly catalog: AgentPlanWorkspaces | undefined;
   private readonly isProjectManager: ProjectManagerCheck | undefined;
+  private readonly channel: ActorChannel;
 
   public constructor(
     plans: AgentPlanRepository,
@@ -94,6 +97,7 @@ export class AgentPlanAccess {
     options: {
       readonly catalog?: AgentPlanWorkspaces;
       readonly isProjectManager?: ProjectManagerCheck;
+      readonly channel?: ActorChannel;
     } = {},
   ) {
     this.plans = plans;
@@ -101,6 +105,7 @@ export class AgentPlanAccess {
     this.sharing = sharing;
     this.catalog = options.catalog;
     this.isProjectManager = options.isProjectManager;
+    this.channel = options.channel ?? "ui";
   }
 
   /**
@@ -116,6 +121,7 @@ export class AgentPlanAccess {
       {
         catalog: this.catalog?.forChannel(channel),
         isProjectManager: this.isProjectManager,
+        channel,
       },
     );
   }
@@ -176,7 +182,7 @@ export class AgentPlanAccess {
   }
 
   /**
-   * Does not grant an administrator access to another user's private plan.
+   * Requires the current workspace/project and sharing rights for this surface.
    *
    * @remarks
    * Reads only the one plan: whoever asks for a plan, for a run's plan or for
@@ -188,7 +194,30 @@ export class AgentPlanAccess {
       this.context(userId),
     ]);
     const place = plan ? await this.place(plan, context) : null;
-    if (!plan || !place) throw new AgentError("plan_access_denied");
+    if (!plan || !place) {
+      const denied = new AgentPlanReadDenied(
+        "plan_access",
+        this.denialReason(plan, context.viewer),
+      );
+      logEvent({
+        level: "warn",
+        event: "agent_plan.access.denied",
+        component: "AgentPlanAccess",
+        message: "Plan access was refused under the current account rules",
+        metadata: {
+          userId,
+          source: denied.source,
+          reason: denied.reason,
+          kind: this.channel,
+          state: context.viewer.actor.mode,
+          role: context.viewer.actor.role?.id ?? null,
+          operation: this.sharing.isAdministrator(context.viewer)
+            ? "administrator_read"
+            : "role_read",
+        },
+      });
+      throw denied;
+    }
     const isManager =
       place.rights.canRead &&
       plan.ownerId !== userId &&
@@ -322,6 +351,13 @@ export class AgentPlanAccess {
       viewer,
       orphans: () => (orphans ??= this.readOrphans(viewer)),
     };
+  }
+
+  private denialReason(plan: AgentPlan | null, viewer: AgentViewer): string {
+    if (!plan) return "plan_missing";
+    return this.sharing.canRead(plan, viewer)
+      ? "workspace_or_project_denied"
+      : "sharing_denied";
   }
 
   private async readOrphans(viewer: AgentViewer): Promise<OrphanContext> {

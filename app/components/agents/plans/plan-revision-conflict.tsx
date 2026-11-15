@@ -13,6 +13,58 @@ import { PlanReloadButton } from "./plan-reload-button";
 
 import type { usePlanEditor } from "./use-plan-editor";
 
+/** A persistent decision for a newer revision; keeping edits leaves optimistic locking intact. */
+export function PlanIncomingRevision(props: {
+  readonly editor: ReturnType<typeof usePlanEditor>;
+}): React.ReactElement | null {
+  const { t } = useTranslation();
+  const { editor } = props;
+  const [isConfirming, setConfirming] = useState(false);
+  if (!editor.incomingRevision) return null;
+  return (
+    <section
+      role="status"
+      className="pointer-events-auto rounded-xl border border-border bg-background p-3 text-sm shadow-sm"
+    >
+      <p>
+        {t("plans.execution.incomingRevision", {
+          revision: editor.incomingRevision,
+        })}
+      </p>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => setConfirming(true)}
+        disabled={editor.isPending || editor.graph.isMoving}
+      >
+        {t("plans.flow.storage.reload")}
+      </Button>
+      <Dialog open={isConfirming} onOpenChange={setConfirming}>
+        <DialogContent className="space-y-4">
+          <DialogTitle>{t("plans.execution.conflictTitle")}</DialogTitle>
+          <DialogDescription>
+            {t("plans.execution.incomingDiscard")}
+          </DialogDescription>
+          <footer className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setConfirming(false)}>
+              {t("settings.agents.cancel")}
+            </Button>
+            <Button
+              disabled={editor.isPending || editor.graph.isMoving}
+              onClick={() => {
+                editor.adoptIncoming();
+                setConfirming(false);
+              }}
+            >
+              {t("plans.flow.storage.reload")}
+            </Button>
+          </footer>
+        </DialogContent>
+      </Dialog>
+    </section>
+  );
+}
+
 /** A concurrent save refuses this one and preserves the draft; nothing was overwritten. */
 export function PlanRevisionConflict(props: {
   readonly editor: ReturnType<typeof usePlanEditor>;
