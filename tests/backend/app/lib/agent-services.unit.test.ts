@@ -4,9 +4,23 @@ import path from "node:path";
 import { beforeEach, expect, it, vi } from "vitest";
 
 import { createAgentConfigurationServices } from "@/app/lib/agent-workspace-services.server";
+import { createLocalOwnerServices } from "@/app/lib/local-owner-services.server";
+import { createPlanFoundation } from "@/app/lib/plan-foundation.server";
+import { resolveGitHubTokenKey } from "@/backend/github/GitHubTokenKey";
+import { createPlanWorkspaceAccess } from "@/app/lib/plan-access-services.server";
+import type { PlanFoundation } from "@/app/lib/plan-foundation.server";
+import type { PagesRuntime } from "@/backend/runtime/PagesRuntime";
+import { createPlanAgentServices } from "@/app/lib/plan-agent-services.server";
+import { createPlanAgentConfiguration } from "@/app/lib/plan-agent-configuration.server";
 import { createAgentServices } from "@/app/lib/agent-services.server";
-import { createRemoteServices } from "@/app/lib/remote-services.server";
-import { createRunnerServices } from "@/app/lib/runner-services.server";
+import {
+  createRemoteAccessServices,
+  createRemoteServices,
+} from "@/app/lib/remote-services.server";
+import {
+  createRunnerProcessingServices,
+  createRunnerServices,
+} from "@/app/lib/runner-services.server";
 import { createSpeechServices } from "@/app/lib/speech-services.server";
 import { createAgentToolManager } from "@/backend/service/agents/tools/AgentToolServices";
 import { AgentToolStartupService } from "@/backend/service/agents/tools/AgentToolStartupService";
@@ -60,18 +74,32 @@ const { fakeClasses, opaque, partial } = await vi.hoisted(
   async () => import("./service-wiring-fakes"),
 );
 
+vi.mock("@/backend/github/GitHubTokenKey", () => ({
+  resolveGitHubTokenKey: vi.fn(),
+}));
+vi.mock("@/app/lib/plan-foundation.server", () => ({
+  createPlanFoundation: vi.fn(),
+}));
+vi.mock("@/app/lib/plan-access-services.server", () => ({
+  createPlanWorkspaceAccess: vi.fn(),
+}));
 vi.mock("node:os", async (importOriginal) => ({
   ...(await importOriginal<object>()),
   homedir: vi.fn(() => "/home/pages"),
+}));
+vi.mock("@/app/lib/plan-agent-configuration.server", () => ({
+  createPlanAgentConfiguration: vi.fn(),
 }));
 vi.mock("@/app/lib/agent-workspace-services.server", () => ({
   createAgentConfigurationServices: vi.fn(),
 }));
 vi.mock("@/app/lib/remote-services.server", () => ({
   createRemoteServices: vi.fn(),
+  createRemoteAccessServices: vi.fn(),
 }));
 vi.mock("@/app/lib/runner-services.server", () => ({
   createRunnerServices: vi.fn(),
+  createRunnerProcessingServices: vi.fn(),
 }));
 vi.mock("@/app/lib/speech-services.server", () => ({
   createSpeechServices: vi.fn(),
@@ -505,4 +533,83 @@ it("requires CLI isolation only when the operator says so", () => {
 
   const [options] = vi.mocked(CliSessionExecution).mock.calls[0];
   expect(options.isolation?.isRequired).toBe(true);
+});
+
+it("constructs plan execution without chat, speech, login, setup or catalog workers", () => {
+  vi.mocked(createPlanAgentConfiguration).mockReturnValue({
+    services: CONFIGURATION,
+    dependencies: opaque("configuration dependencies"),
+  });
+  vi.mocked(createRemoteAccessServices).mockReturnValue(REMOTE);
+  vi.mocked(createRunnerProcessingServices).mockReturnValue(RUNNER);
+  const services = createPlanAgentServices(
+    DATABASE,
+    "/srv/pages/data",
+    TOKEN_KEY,
+    {
+      acpOptions: ACP_OPTIONS,
+      agentsDirectory: "/srv/pages/Agents",
+      ticketAssets: TICKET_ASSETS,
+    },
+  );
+  expect(services.agentPlanExecution).toBe(only(vi.mocked(AgentPlanExecution)));
+  expect(services.runnerService).toBe(RUNNER.runnerService);
+  expect(services.agentWorkspaceService).toBe(
+    CONFIGURATION.agentWorkspaceService,
+  );
+  expect(createAgentConfigurationServices).not.toHaveBeenCalled();
+  expect(createSpeechServices).not.toHaveBeenCalled();
+  expect(createRunnerServices).not.toHaveBeenCalled();
+  expect(ChatRequestRegistry).not.toHaveBeenCalled();
+  expect(AgentCatalogScheduler).not.toHaveBeenCalled();
+  expect(AgentCatalogRefresh).not.toHaveBeenCalled();
+  expect(AgentCheckService).not.toHaveBeenCalled();
+  expect(AgentCliLoginService).not.toHaveBeenCalled();
+  expect(AgentToolStartupService).not.toHaveBeenCalled();
+});
+
+it("builds a local owner on its existing database without API, recovery or scheduler services", () => {
+  vi.mocked(resolveGitHubTokenKey).mockReturnValue(TOKEN_KEY);
+  vi.mocked(createPlanFoundation).mockReturnValue(
+    partial<PlanFoundation>({
+      tasks: opaque("tasks"),
+      users: opaque("users"),
+      ticketAssets: TICKET_ASSETS,
+    }),
+  );
+  vi.mocked(createPlanAgentConfiguration).mockReturnValue({
+    services: CONFIGURATION,
+    dependencies: opaque("dependencies"),
+  });
+  vi.mocked(createRemoteAccessServices).mockReturnValue(REMOTE);
+  vi.mocked(createPlanWorkspaceAccess).mockReturnValue({
+    access: opaque("plan access"),
+    workspaceCatalog: opaque("catalog"),
+  });
+  const runtime = partial<PagesRuntime>({
+    configFile: { path: "/srv/pages/config.toml" },
+    getDatabasePath: () => "/srv/pages/data/pages",
+    getConfig: () => ({
+      firstRun: false,
+      port: 3100,
+      databasePath: "/srv/pages/data/pages",
+    }),
+  });
+  const services = createLocalOwnerServices(DATABASE, runtime);
+  expect(services.agentPlanExecution).toBe(only(vi.mocked(AgentPlanExecution)));
+  expect(services.agentLocalSessionPreparation).toBeDefined();
+  expect(createPlanFoundation).toHaveBeenCalledWith({
+    database: DATABASE,
+    databasePath: "/srv/pages/data/pages",
+    tokenKey: TOKEN_KEY,
+  });
+  expect(
+    vi.mocked(CliSessionExecution).mock.calls[0][0].resources,
+  ).toBeUndefined();
+  expect(AcpResourceScheduler).not.toHaveBeenCalled();
+  expect(createRunnerProcessingServices).not.toHaveBeenCalled();
+  expect(ChatRequestRegistry).not.toHaveBeenCalled();
+  expect(AgentToolStartupService).not.toHaveBeenCalled();
+  expect(AgentCatalogScheduler).not.toHaveBeenCalled();
+  expect(AgentCheckService).not.toHaveBeenCalled();
 });

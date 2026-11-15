@@ -1,7 +1,6 @@
 import { openCodeModelProvider } from "@/definition/AgentConnection";
 
 import { openCodeAgentModel, openCodeAgentLaunch } from "./OpenCodeAgentModel";
-import { preparePicaCodexBundle } from "./PicaCodexBundle";
 import { CLI_DEFAULT_RUNTIME_MS } from "./CliPausableDeadline";
 
 import type { AgentPlanSessionInput } from "@/backend/agents/AgentPlanExecution";
@@ -117,17 +116,6 @@ export function acpWorkerRequest(parts: AcpWorkerParts): CliSessionRequest {
     signal: parts.signal,
     onLine: parts.onLine,
   };
-}
-
-/** Prepares the Codex bundle a Pica chat over Codex runs; `null` for every other session. */
-export function picaCodexBundle(
-  picaNative: PicaNativeArtifact | null,
-  directory: string,
-  adapter: string,
-): PicaCodexBundle | null {
-  return picaNative?.runner === "codex"
-    ? preparePicaCodexBundle(directory, adapter, picaNative.directory)
-    : null;
 }
 
 /** The MCP servers of a session; a native Pica build reaches no browser server. */

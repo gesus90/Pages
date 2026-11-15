@@ -1,3 +1,4 @@
+import type { acpPicaSupport } from "./AcpPicaSupport";
 import type { CliSessionContainment } from "@/backend/agents/cli/CliSessionCloseout";
 import type { TextExecutionInput } from "@/backend/agents/TextExecution";
 import type { McpServer, SessionConfigOption } from "@agentclientprotocol/sdk";
@@ -75,6 +76,8 @@ export interface AcpSessionContext {
   readonly github?: string;
   /** Receives every update and the usage of every prompt, as a chat session shows them. */
   readonly listener?: AcpSessionListener;
+  /** Loaded only by the chat caller; plan sessions have no private Pica tool surface. */
+  readonly picaSupport?: typeof acpPicaSupport;
   /** Private native OpenCode database of this connection, never sent to the agent. */
   readonly openCodeUsagePath?: string;
   readonly openCodePricingDirectory?: string;

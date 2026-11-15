@@ -134,6 +134,12 @@ async function purgeRun(
   database: PlanRunPurgeDatabase,
   runId: string,
 ): Promise<boolean> {
+  // Protected runs need no failure-index writes; the transaction still rechecks before deletion.
+  const [candidate] = await database.query(
+    SETTLED_RUN.replace("FOR UPDATE", ""),
+    { run_id: runId },
+  );
+  if (!candidate) return false;
   // The failures of the run stay countable after it is gone (PAGE-307).
   await indexRunFailures(new AgentRunFailureRepository(database), runId);
   return database.transaction(async (transaction) => {
@@ -150,6 +156,18 @@ async function deleteEarlierRefusals(
   database: PlanRunPurgeDatabase,
   keptRunId: string,
 ): Promise<void> {
+  const parameters = { kept_run_id: keptRunId };
+  const [pending] = await database.query(
+    `
+    SELECT 1
+    FROM agent_plan_start_rejections
+    WHERE plan_id = (SELECT plan_id FROM agent_plan_runs WHERE id = $kept_run_id)
+        AND created_at < (SELECT started_at FROM agent_plan_runs WHERE id = $kept_run_id)
+    LIMIT 1;
+  `,
+    parameters,
+  );
+  if (!pending) return;
   await database.transaction(async (transaction) => {
     await transaction.execute(
       `

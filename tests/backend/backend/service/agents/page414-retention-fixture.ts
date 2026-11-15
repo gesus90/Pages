@@ -54,6 +54,14 @@ export class RetentionDatabase implements GarbageDatabase {
         .map((name) => [name]);
     if (statement.includes("UNION ALL"))
       return this.isProtected(String(parameters.run_id)) ? [["busy"]] : [];
+    if (statement.includes("FROM agent_plan_start_rejections")) return [];
+    if (
+      statement.includes("WHERE runs.id = $run_id") &&
+      !statement.includes("FOR UPDATE")
+    ) {
+      const id = String(parameters.run_id);
+      return this.runs.has(id) && !this.isProtected(id) ? [[id]] : [];
+    }
     if (statement.includes("FOR UPDATE")) {
       this.beforeLock?.();
       this.beforeLock = undefined;

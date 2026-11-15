@@ -1,6 +1,5 @@
 import { AcpSession } from "@/backend/agents/acp/AcpSession";
 import { AcpCleanupUnconfirmedError } from "@/backend/error/AcpCleanupUnconfirmedError";
-import { AgentError } from "@/backend/error/AgentErrors";
 import { pinnedAgentToolDriver } from "@/backend/service/agents/tools/AgentToolSession";
 
 import { prepareClaudePlanSessionHome } from "./ClaudePlanSessionHome";
@@ -8,19 +7,15 @@ import {
   acpMcpServers,
   acpSessionRequest,
   isolationLabel,
-  picaNativeRunner,
 } from "./CliAcpLaunch";
 import { createCliEnvironment } from "./CliEnvironment";
 import { captureOwnedNamespace } from "./CliOwnedNamespace";
-import { requirePicaCodexProfile } from "./PicaCodexBundle";
-import { requirePicaNativeArtifact } from "./PicaNativeArtifact";
 
 import type {
   AgentPlanSessionInput,
   PlanSessionObserver,
 } from "@/backend/agents/AgentPlanExecution";
 import type { AcpDriver } from "@/backend/agents/acp/AcpDriver";
-import type { AcpLaunch } from "@/backend/agents/acp/AcpLaunch";
 import type { AcpLineChannel } from "@/backend/agents/acp/AcpLineChannel";
 import type { AcpResourceScheduler } from "@/backend/service/agents/AcpResourceScheduler";
 import type { AcpStartLifecycle } from "@/backend/service/agents/resources/AcpStartLifecycle";
@@ -41,6 +36,7 @@ import type {
 import type { CliLocator } from "./CliLocator";
 import type { CliSessionContainment } from "./CliSessionCloseout";
 import type { CliSessionProcess } from "./CliSessionProcess";
+import type { acpPicaSupport } from "../acp/AcpPicaSupport";
 import type { PicaCodexBundle } from "./PicaCodexBundle";
 import type { PicaNativeArtifact } from "./PicaNativeArtifact";
 
@@ -70,6 +66,7 @@ export interface OpenCliAcpSessionContext {
   readonly launch: ReturnType<typeof planAcpLaunch>;
   readonly picaNative: PicaNativeArtifact | null;
   readonly picaBundle: PicaCodexBundle | null;
+  readonly picaSupport?: typeof acpPicaSupport;
   readonly isIsolated: boolean;
   readonly mode: AcpPermissionMode;
   readonly limited: LimitedRequest;
@@ -119,6 +116,7 @@ export function openCliAcpSession(
     secure,
     cleanupAdapter: picaBundle?.cleanup,
     listener: input.chat?.listener ?? input.journal,
+    picaSupport: context.picaSupport,
     codexHome:
       driver.provider === "codex_cli" && !input.chat
         ? start.home.config
@@ -126,33 +124,6 @@ export function openCliAcpSession(
     notificationHandled: () => channel.acknowledge(),
     acceptsTurnInput: input.chat === undefined,
   });
-}
-
-/**
- * Selects the native build that gives a Pica chat its Pages-only tools.
- *
- * @remarks
- * Codex and OpenCode offer no tool surface without MCP that Pages can use
- * through the stock runner. Pica therefore starts only the verified native
- * build, which refuses every built-in tool; without one the chat is refused.
- * An agent employee with full access needs those tools, so its chat runs
- * the stock runner inside the isolation and reaches the Pages tools over
- * Pica's bridge.
- */
-export function selectPicaNativeArtifact(options: {
-  readonly driver: AcpDriver;
-  readonly input: AgentPlanSessionInput;
-  readonly launch: AcpLaunch;
-  readonly profile: ReturnType<AcpDriver["profile"]>;
-  readonly toolsDirectory?: string;
-}): PicaNativeArtifact | null {
-  const { driver, input, launch, profile, toolsDirectory } = options;
-  const runner = picaNativeRunner(driver.provider);
-  if (!input.chat || runner === null || profile.mode === "yolo") return null;
-  if (!input.chat.listener.picaCodex || launch.mcpServers.length > 0)
-    throw new AgentError(driver.errors.adapterUnsupported);
-  if (runner === "codex") requirePicaCodexProfile(profile);
-  return requirePicaNativeArtifact(toolsDirectory, runner);
 }
 
 /** A Claude plan session keeps its transcripts in a home of its own, so a retry resumes it and no other run reads it. */
@@ -261,4 +232,29 @@ export async function secureCliAcpAccess(
   } finally {
     await store.secure(input.agent.connection.id, start.provider);
   }
+}
+
+/** Loads chat-only native extensions on demand; plan sessions never import them. */
+export async function preparePicaSession(options: {
+  readonly driver: AcpDriver;
+  readonly input: AgentPlanSessionInput;
+  readonly launch: ReturnType<typeof planAcpLaunch>;
+  readonly profile: ReturnType<AcpDriver["profile"]>;
+  readonly toolsDirectory?: string;
+  readonly adapter: string;
+}): Promise<
+  Pick<OpenCliAcpSessionContext, "picaNative" | "picaBundle" | "picaSupport">
+> {
+  if (!options.input.chat) return { picaNative: null, picaBundle: null };
+  const pica = await import("./CliPicaSessionSetup");
+  const picaNative = pica.selectPicaNativeArtifact(options);
+  return {
+    picaNative,
+    picaBundle: pica.picaCodexBundle(
+      picaNative,
+      options.input.directory,
+      options.adapter,
+    ),
+    picaSupport: pica.acpPicaSupport,
+  };
 }

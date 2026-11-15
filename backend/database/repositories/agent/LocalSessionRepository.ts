@@ -124,17 +124,19 @@ export class LocalSessionRepository {
     proof: LocalOwnerProof,
   ): Promise<void> {
     const encoded = JSON.stringify(proof);
+    if (await this.hasProof(instanceId, encoded)) return;
     const rows = await this.database.query(
       `
       UPDATE agent_local_session_owners
       SET proof = $proof
       WHERE instance_id = $instance_id
-          AND (proof IS NULL OR proof = $proof)
+          AND proof IS NULL
       RETURNING instance_id;
     `,
       { instance_id: instanceId, proof: encoded },
     );
-    if (rows.length !== 1) throw new Error("Local owner proof changed");
+    if (rows.length !== 1 && !(await this.hasProof(instanceId, encoded)))
+      throw new Error("Local owner proof changed");
   }
 
   /** Retains the immutable result reference before acknowledging a native turn. */
@@ -196,7 +198,7 @@ export class LocalSessionRepository {
   /** Records release only after proven native closeout, complete import and authenticated release. */
   public async released(instanceId: string): Promise<void> {
     await this.database.execute(
-      "UPDATE agent_local_session_owners SET released_at = $released_at WHERE instance_id = $instance_id;",
+      "UPDATE agent_local_session_owners SET released_at = $released_at WHERE instance_id = $instance_id AND released_at IS NULL;",
       { instance_id: instanceId, released_at: new Date().toISOString() },
     );
   }
@@ -250,5 +252,23 @@ export class LocalSessionRepository {
       },
     );
     if (rows.length !== 1) throw new Error("Concurrent local session importer");
+  }
+
+  private async hasProof(
+    instanceId: string,
+    encoded: string,
+  ): Promise<boolean> {
+    const [row] = await this.database.query(
+      `
+      SELECT proof
+      FROM agent_local_session_owners
+      WHERE instance_id = $instance_id;
+      `,
+      { instance_id: instanceId },
+    );
+    if (!row) throw new Error("Local owner proof changed");
+    if (row[0] === null) return false;
+    if (row[0] !== encoded) throw new Error("Local owner proof changed");
+    return true;
   }
 }

@@ -37,10 +37,6 @@ import {
 import { openCodeToolFailure } from "./OpenCodeAcpErrors";
 import { decideAcpSessionPermission } from "./AcpSessionPermission";
 import {
-  createPicaCodexRequests,
-  registerPicaCodexRequests,
-} from "./PicaCodexRegistration";
-import {
   forwardOpenCodeSessionUsage,
   resolveAcpTurnFailure,
 } from "./AcpSessionLifecycle";
@@ -159,11 +155,17 @@ export class AcpSession implements PlanSession {
             },
           )
         : null;
-    this.picaCodex = createPicaCodexRequests(
-      context,
-      () => this.state.sessionId,
-      () => this.control.isPrompting,
-    );
+    if (
+      (context.listener?.picaCodex || context.listener?.picaHelper) &&
+      !context.picaSupport
+    )
+      throw new AgentError(context.driver.errors.adapterUnsupported);
+    this.picaCodex =
+      context.picaSupport?.createRequests(
+        context,
+        () => this.state.sessionId,
+        () => this.control.isPrompting,
+      ) ?? null;
     this.observer = context.observer;
     this.turnSignal = context.signal;
     describeAcpSession(this.state, context);
@@ -172,7 +174,8 @@ export class AcpSession implements PlanSession {
       (request) =>
         decideAcpSessionPermission(this.context, this.state, request.params),
     );
-    if (this.picaCodex) registerPicaCodexRequests(client, this.picaCodex);
+    if (this.picaCodex)
+      context.picaSupport?.registerRequests(client, this.picaCodex);
     registerClaudeUsage(client, context, {
       session: () => this.state.sessionId,
       failed: () => {

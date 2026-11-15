@@ -1,81 +1,56 @@
 import path from "node:path";
-import { homedir } from "node:os";
 
 import { OpenRouterPriceRepository } from "@/backend/database/repositories/agent/OpenRouterPriceRepository";
 import { OpenRouterPriceService } from "@/backend/service/agents/usage/OpenRouterPriceService";
 import { registerShutdownTask } from "@/backend/runtime/ProcessLifecycle";
-import { AgentEnvironmentRepository } from "@/backend/database/repositories/agent/AgentEnvironmentRepository";
-import { StorageMaintenanceRepository } from "@/backend/database/repositories/storage/StorageMaintenanceRepository";
-import { StorageMaintenance } from "@/backend/storage/StorageMaintenance";
-import { PagesEventPublisher } from "@/backend/service/events/PagesEventPublisher";
-import { AgentEnvironmentMaintenance } from "@/backend/storage/AgentEnvironmentMaintenance";
-import { WikiMaintenanceScheduler } from "@/backend/service/wiki/WikiMaintenanceScheduler";
 import { ClaudeMonthlyBudget } from "@/backend/service/agents/sessions/ClaudeMonthlyBudget";
 import { ClaudeMonthlyBudgetRepository } from "@/backend/database/repositories/agent/ClaudeMonthlyBudgetRepository";
-import { ConfigFile } from "@/backend/config/ConfigFile";
-import { canProcessRuns } from "@/backend/runtime/RunsMode";
-import { createAgentToolManager } from "@/backend/service/agents/tools/AgentToolServices";
+import { canProcessApiWork, canProcessRuns } from "@/backend/runtime/RunsMode";
 import { AgentToolStartupService } from "@/backend/service/agents/tools/AgentToolStartupService";
-import { AcpResourceScheduler } from "@/backend/service/agents/AcpResourceScheduler";
-import { AcpResourceRepository } from "@/backend/database/repositories/agent/AcpResourceRepository";
-import {
-  readAcpResourceLimitSource,
-  readAcpResourceOptions,
-} from "@/backend/config/AcpResourceConfig";
 import { CatalogProviderClient } from "@/backend/agents/catalog/CatalogProviderClient";
 import { AgentCatalogRefresh } from "@/backend/service/agents/AgentCatalogRefresh";
 import { AgentCatalogService } from "@/backend/service/agents/AgentCatalogService";
 import { AgentCatalogScheduler } from "@/backend/service/agents/AgentCatalogScheduler";
-import { AgentCliRuntime } from "@/backend/agents/cli/AgentCliRuntime";
-import { AgentCredentialStore } from "@/backend/agents/cli/AgentCredentialStore";
-import { CliLocator } from "@/backend/agents/cli/CliLocator";
-import { CliProcessRunner } from "@/backend/agents/cli/CliProcessRunner";
-import { createApiProviderRegistry } from "@/backend/agents/providers/ApiProviderRegistry";
 import { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
 import { InstanceSecretCipher } from "@/backend/security/InstanceSecretCipher";
-import { AgentCheckService } from "@/backend/service/agents/AgentCheckService";
-import { OpenCodeAgentCredentials } from "@/backend/service/agents/OpenCodeAgentCredentials";
-import { OpenCodeProviderLinks } from "@/backend/service/agents/OpenCodeProviderLinks";
 import { AgentCliLoginService } from "@/backend/service/agents/AgentCliLoginService";
 import { AgentConnectionService } from "@/backend/service/agents/AgentConnectionService";
 import { AgentOperationRegistry } from "@/backend/service/agents/AgentOperationRegistry";
-import { ApiTextExecution } from "@/backend/agents/providers/ApiTextExecution";
-import { AgentPlanExecution } from "@/backend/agents/AgentPlanExecution";
 import { currentAgentSimulationMode } from "@/backend/agents/simulation/AgentSimulationMode";
-import { AgentSimulator } from "@/backend/agents/simulation/AgentSimulator";
-import {
-  SimulatedPlanExecution,
-  simulationGuardedFetch,
-} from "@/backend/agents/simulation/SimulatedPlanExecution";
-import { ProviderHttpClient } from "@/backend/agents/providers/ProviderHttpClient";
+import { simulationGuardedFetch } from "@/backend/agents/simulation/SimulatedPlanExecution";
 import { CatalogHttpClient } from "@/backend/agents/catalog/CatalogHttpClient";
-import { PlanAssetReferences } from "@/backend/service/agents/assets/PlanAssetReferences";
 import { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import { UserGroupRepository } from "@/backend/database/repositories/UserGroupRepository";
 import { AgentConnectionAccess } from "@/backend/service/agents/AgentConnectionAccess";
-import { CliSessionExecution } from "@/backend/agents/cli/CliSessionExecution";
-import { antigravityContextBinding } from "@/backend/agents/cli/AntigravityContextBinding";
-import { CliWorkerUnits } from "@/backend/agents/cli/CliWorkerUnit";
 import { LocalSessions } from "@/backend/agents/local/LocalSessions";
-import { DurableCliSessions } from "@/backend/agents/local/DurableCliSessions";
-import {
-  isLocalSessionOwner,
-  localSessionOwnerDirectory,
-} from "@/backend/agents/local/LocalSessionMode";
+import { isLocalSessionOwner } from "@/backend/agents/local/LocalSessionMode";
 import { CHAT_REQUEST_TIMEOUT_MS } from "@/backend/service/chat/ChatExecutionLimits";
 import { ChatRequestRegistry } from "@/backend/service/chat/ChatRequestRegistry";
 import { AgentAssignmentRepository } from "@/backend/database/repositories/agent/AgentAssignmentRepository";
 import { AgentAssignmentService } from "@/backend/service/agents/AgentAssignmentService";
-import { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
-import { AgentPlanGitHubCredentials } from "@/backend/service/agents/AgentPlanGitHubCredentials";
-import { CliGitHubCredentials } from "@/backend/agents/cli/CliGitHubCredentials";
 
 import { createAgentConfigurationServices } from "./agent-workspace-services.server";
 import { createRemoteServices } from "./remote-services.server";
 import { createRunnerServices } from "./runner-services.server";
 import { createChatDecisionServices } from "./chat-decision-services.server";
 import { createSpeechServices } from "./speech-services.server";
+import {
+  createExecutions,
+  createGitHubCredentials,
+  createCliRuntime,
+  createAcpResources,
+  createSimulation,
+} from "./agent-execution-runtime.server";
+import { startEnvironmentMaintenance } from "./plan-agent-services.server";
 
+import type { PagesEventPublisher } from "@/backend/service/events/PagesEventPublisher";
+import type { AcpResourceScheduler } from "@/backend/service/agents/AcpResourceScheduler";
+import type { AgentCliRuntime } from "@/backend/agents/cli/AgentCliRuntime";
+import type { AgentCheckService } from "@/backend/service/agents/AgentCheckService";
+import type { OpenCodeProviderLinks } from "@/backend/service/agents/OpenCodeProviderLinks";
+import type { PlanAssetReferences } from "@/backend/service/agents/assets/PlanAssetReferences";
+import type { AgentPlanGitHubCredentials } from "@/backend/service/agents/AgentPlanGitHubCredentials";
+import type { CliGitHubCredentials } from "@/backend/agents/cli/CliGitHubCredentials";
 import type { AcpRecoveryScope } from "@/backend/service/agents/resources/AcpLeaseAdmission";
 import type { AgentGitBridgeSetting } from "@/backend/config/AgentGitBridgeConfig";
 import type { AgentToolManagerService } from "@/backend/service/agents/tools/AgentToolManagerService";
@@ -83,7 +58,6 @@ import type { AcpResourceOptions } from "@/definition/AcpResource";
 import type { AgentTicketAssetDependencies } from "@/backend/service/agents/AgentTicketAssetService";
 import type { Database } from "@/backend/database/Database";
 import type { PlanExecution } from "@/backend/agents/AgentPlanExecution";
-import type { AgentWorkspaceService } from "@/backend/service/agents/AgentWorkspaceService";
 import type { AgentSimulationMode } from "@/backend/agents/simulation/AgentSimulationMode";
 import type { AgentConfigurationApplicationServices } from "./agent-workspace-services.server";
 import type { RemoteApplicationServices } from "./remote-services.server";
@@ -129,49 +103,6 @@ export interface AgentApplicationServices
   readonly agentCliGitHubCredentials: CliGitHubCredentials;
 }
 
-interface ExecutionInput {
-  readonly localSessions: LocalSessions | null;
-  readonly tools: AgentToolManagerService;
-  readonly resources: AcpResourceScheduler;
-  /** Instance folders a CLI agent process must not reach. */
-  readonly protectedDirectories: readonly string[];
-  /** Operator choice: refuse CLI plan steps where no isolation is possible. */
-  readonly isIsolationRequired: boolean;
-  /** Private folder of the environment files of limited worker units. */
-  readonly workerUnitDirectory: string;
-  readonly repository: AgentConnectionRepository;
-  readonly cipher: InstanceSecretCipher;
-  readonly operations: AgentOperationRegistry;
-  readonly runtime: AgentCliRuntime;
-  readonly store: AgentCredentialStore;
-  readonly locator: CliLocator;
-  readonly runner: CliProcessRunner;
-  readonly access: AgentConnectionAccess;
-  readonly github: CliGitHubCredentials;
-  readonly catalog: AgentCatalogRefresh;
-  readonly simulation: AgentSimulationMode;
-  readonly references: PlanAssetReferences | null;
-  readonly ticketAssets: AgentTicketAssetDependencies;
-}
-
-/** Wraps the real execution in the simulation while it is on; otherwise returns it unchanged. */
-function simulatedExecution(
-  real: PlanExecution,
-  input: Pick<ExecutionInput, "simulation" | "references" | "ticketAssets">,
-): PlanExecution {
-  const assets = input.ticketAssets.plans;
-  if (!input.simulation.isActive || !assets || !input.references) return real;
-  return new SimulatedPlanExecution(
-    real,
-    new AgentSimulator({
-      mode: input.simulation,
-      assets,
-      references: input.references,
-    }),
-    input.simulation,
-  );
-}
-
 /** The connection scope check and the decision model (PAGE-317), which share one reading of the groups. */
 function createAccessServices(
   database: Database,
@@ -199,115 +130,8 @@ function createAccessServices(
   };
 }
 
-/**
- * Builds model execution and checks around the same connection and provider boundaries.
- */
-function createExecutions(
-  input: ExecutionInput,
-): Pick<
-  AgentApplicationServices,
-  | "agentPlanExecution"
-  | "agentCheckService"
-  | "openCodeProviderLinks"
-  | "agentSimulation"
-  | "agentPlanAssetReferences"
-> {
-  const { repository, cipher, operations } = input;
-  const agentCheckService = new AgentCheckService({
-    repository,
-    catalog: input.catalog,
-    cipher,
-    operations,
-    cli: input.runtime,
-    providers: createApiProviderRegistry(
-      new ProviderHttpClient(simulationGuardedFetch(input.simulation)),
-    ),
-  });
-  const cliAdapters = {
-    runtime: input.runtime,
-    store: input.store,
-    locator: input.locator,
-    runner: input.runner,
-  };
-  const apiCredentials = new OpenCodeAgentCredentials(repository, cipher);
-  const direct = new CliSessionExecution({
-    apiCredentials: (connection) => apiCredentials.read(connection),
-    ...cliAdapters,
-    tools: input.tools,
-    resources: isLocalSessionOwner() ? undefined : input.resources,
-    github: input.github,
-    units: new CliWorkerUnits(
-      localSessionOwnerDirectory()
-        ? path.join(
-            localSessionOwnerDirectory() ?? input.workerUnitDirectory,
-            "native-units",
-          )
-        : input.workerUnitDirectory,
-    ),
-    isolation: {
-      protectedDirectories: input.protectedDirectories,
-      isRequired: input.isIsolationRequired,
-      readOnlyDirectories: [
-        input.tools.directory,
-        path.dirname(process.execPath),
-        path.join(
-          path.dirname(path.dirname(process.execPath)),
-          "lib",
-          "node_modules",
-        ),
-      ],
-      hiddenDirectories: [homedir()],
-    },
-  });
-  return {
-    agentSimulation: input.simulation,
-    agentPlanAssetReferences: input.references,
-    agentCheckService,
-    openCodeProviderLinks: new OpenCodeProviderLinks({
-      connections: repository,
-      check: (actor, id) => agentCheckService.run(actor, id, "auth"),
-    }),
-    agentPlanExecution: simulatedExecution(
-      new AgentPlanExecution(
-        new ApiTextExecution(
-          repository,
-          cipher,
-          simulationGuardedFetch(input.simulation),
-        ),
-        input.localSessions
-          ? new DurableCliSessions(input.localSessions, direct)
-          : direct,
-        operations,
-        input.access,
-      ),
-      input,
-    ),
-  };
-}
-
-/** Keeps project authorization and temporary CLI credential storage on the server. */
-function createGitHubCredentials(input: {
-  readonly database: Database;
-  readonly dataDirectory: string;
-  readonly tokenKey: Buffer;
-  readonly workspaces: AgentWorkspaceService;
-  readonly gitBridges?: readonly AgentGitBridgeSetting[];
-}): Pick<
-  AgentApplicationServices,
-  "agentPlanGitHubCredentials" | "agentCliGitHubCredentials"
-> {
-  return {
-    agentPlanGitHubCredentials: new AgentPlanGitHubCredentials({
-      projects: new ProjectRepository(input.database),
-      workspaces: input.workspaces,
-      tokenKey: input.tokenKey,
-      gitBridges: input.gitBridges,
-    }),
-    agentCliGitHubCredentials: new CliGitHubCredentials(input.dataDirectory),
-  };
-}
-
-interface AgentServiceResources {
+/** Instance paths, recovery scope and authorized content readers shared by execution roles. */
+export interface AgentServiceResources {
   readonly events?: PagesEventPublisher;
   readonly recoveryScope?: AcpRecoveryScope;
   readonly configPath?: string;
@@ -340,41 +164,6 @@ function createAgentCatalogServices(
   };
 }
 
-function createCliRuntime(input: {
-  readonly dataDirectory: string;
-  readonly agentsDirectory: string;
-  readonly cipher: InstanceSecretCipher;
-}): {
-  readonly store: AgentCredentialStore;
-  readonly locator: CliLocator;
-  readonly runner: CliProcessRunner;
-  readonly runtime: AgentCliRuntime;
-  readonly agentToolManagerService: AgentToolManagerService;
-} {
-  const { dataDirectory, agentsDirectory, cipher } = input;
-  const binding = antigravityContextBinding(process.env);
-  const store = binding
-    ? new AgentCredentialStore(dataDirectory, undefined, binding)
-    : new AgentCredentialStore(dataDirectory);
-  const runner = new CliProcessRunner();
-  const agentToolManagerService = createAgentToolManager({
-    instanceDirectory: path.dirname(agentsDirectory),
-    locator: new CliLocator(),
-    runner,
-  });
-  const locator = new CliLocator(undefined, undefined, (binary) =>
-    agentToolManagerService.locate(binary),
-  );
-  const runtime = new AgentCliRuntime({
-    store,
-    locator,
-    runner,
-    cipher,
-    tools: agentToolManagerService,
-  });
-  return { store, locator, runner, runtime, agentToolManagerService };
-}
-
 function createAssignments(
   database: Database,
   repository: AgentConnectionRepository,
@@ -385,38 +174,6 @@ function createAssignments(
       connections: repository,
     }),
   };
-}
-
-/** Applies the same persisted resource limits to all agent execution services. */
-function createAcpResources(
-  database: Database,
-  resources: AgentServiceResources,
-): AcpResourceScheduler {
-  return new AcpResourceScheduler({
-    store: new AcpResourceRepository(database),
-    recoveryScope: resources.recoveryScope,
-    readOptions: resourceOptionsReader(resources),
-    options: readAcpResourceOptions(resources.acpOptions),
-    limitSource: readAcpResourceLimitSource(resources.acpOptions),
-  });
-}
-
-/**
- * Reads the agent simulation once and builds the references through which
- * runners reach plan assets (PAGE-268).
- */
-function createSimulation(
-  tokenKey: Buffer,
-  ticketAssets: AgentTicketAssetDependencies,
-): Pick<ExecutionInput, "simulation" | "references" | "ticketAssets"> {
-  const simulation = currentAgentSimulationMode();
-  const references = ticketAssets.plans
-    ? new PlanAssetReferences(ticketAssets.plans, tokenKey, {
-        isDenied:
-          simulation.isActive && simulation.scenario === "runner_denied",
-      })
-    : null;
-  return { simulation, references, ticketAssets };
 }
 
 /** Creates lazy adapters and one shared login/process registry without running any checks. */
@@ -587,68 +344,9 @@ function createCatalogRefresh(
   });
 }
 
-function resourceOptionsReader(
-  resources: AgentServiceResources,
-): (() => Promise<AcpResourceOptions>) | undefined {
-  if (
-    !resources.configPath ||
-    !resources.recoveryScope ||
-    resources.recoveryScope === "all"
-  )
-    return undefined;
-  const configFile = new ConfigFile(resources.configPath);
-  return async () => {
-    const config = await configFile.read();
-    if (!config) throw new Error("ACP configuration disappeared");
-    return readAcpResourceOptions(config);
-  };
-}
-
-/** Periodic file cleanup runs independently of further plan starts, also in the separate runs process. */
-function startEnvironmentMaintenance(
-  database: Database,
-  directory: string,
-  tools: AgentToolManagerService,
-  resources: Pick<AgentServiceResources, "configPath" | "events">,
-): void {
-  if (!canProcessRuns()) return;
-  const { configPath } = resources;
-  const repository = new AgentEnvironmentRepository(database);
-  const files = new AgentEnvironmentMaintenance(directory, repository);
-  const config = configPath ? new ConfigFile(configPath) : null;
-  const storage = new StorageMaintenance({
-    dataDirectory: directory,
-    pagesDirectory: configPath
-      ? path.dirname(configPath)
-      : path.dirname(directory),
-    repository: new StorageMaintenanceRepository(database),
-    events: resources.events ?? new PagesEventPublisher(database),
-    readWarningBytes: async () => (await config?.read())?.storageWarningBytes,
-  });
-  const scheduler = new WikiMaintenanceScheduler(
-    {
-      runMaintenance: async () => {
-        await storage.run();
-        await files.run();
-        await database.agentFiles?.collectGarbage(database);
-        if (!(await repository.hasActiveWorkers()))
-          await tools.runMaintenance();
-      },
-    },
-    60_000,
-  );
-  scheduler.start();
-  registerShutdownTask(
-    async () => {
-      scheduler.stop();
-    },
-    { step: "agent_environment_maintenance" },
-  );
-}
-
 /** Starts periodic OpenRouter model price synchronization and registers shutdown cleanup. */
 function startOpenRouterPrices(database: Database): void {
-  if (!canProcessRuns() || isLocalSessionOwner()) return;
+  if (!canProcessApiWork()) return;
   const prices = new OpenRouterPriceService(
     new OpenRouterPriceRepository(database),
   );

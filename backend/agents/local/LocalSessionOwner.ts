@@ -1,7 +1,7 @@
 import path from "node:path";
 import { rm } from "node:fs/promises";
 
-import { getApplicationServices } from "@/app/lib/services.server";
+import { createLocalOwnerServices } from "@/app/lib/local-owner-services.server";
 import { Database } from "@/backend/database/Database";
 import { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
 import { initializePagesRuntime } from "@/backend/runtime/PagesRuntime";
@@ -45,7 +45,7 @@ export async function startLocalSessionOwner(
     databaseUrl,
     path.dirname(runtime.getDatabasePath()),
   );
-  const services = await getApplicationServices();
+  const services = createLocalOwnerServices(database, runtime);
   const run = await new AgentPlanRunRepository(database).find(
     manifest.launch.runId,
   );
@@ -76,7 +76,11 @@ export async function startLocalSessionOwner(
         await owner.close();
       } finally {
         await channel.close();
-        await database.close();
+        try {
+          await services.close();
+        } finally {
+          await database.close();
+        }
       }
     },
     { step: "local_native_owner", budgetMs: 35_000 },

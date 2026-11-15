@@ -34,10 +34,10 @@ export interface RemoteApplicationServices {
  * @param input - The database and the instance cipher.
  * @returns The services; nothing connects until a person tests or uses a connection.
  */
-export function createRemoteServices(input: {
+export function createRemoteAccessServices(input: {
   readonly database: Database;
   readonly cipher: InstanceSecretCipher;
-}): RemoteApplicationServices {
+}): Omit<RemoteApplicationServices, "remoteConsoleService"> {
   const { database, cipher } = input;
   const sshClient = new SshClient();
   const connections = new RemoteConnectionRepository(database);
@@ -76,13 +76,24 @@ export function createRemoteServices(input: {
   return {
     remoteConnectionService,
     remoteWorkspaceService,
-    remoteConsoleService: new RemoteConsoleService({
-      workspaces: remoteWorkspaceService,
-      connections: remoteConnectionService,
-      store: new RemoteConsoleSessionRepository(database),
-    }),
     remoteInstallService,
     remoteSessions,
     sshClient,
+  };
+}
+
+/** Adds the interactive console to the shared remote access boundaries of the API. */
+export function createRemoteServices(input: {
+  readonly database: Database;
+  readonly cipher: InstanceSecretCipher;
+}): RemoteApplicationServices {
+  const services = createRemoteAccessServices(input);
+  return {
+    ...services,
+    remoteConsoleService: new RemoteConsoleService({
+      workspaces: services.remoteWorkspaceService,
+      connections: services.remoteConnectionService,
+      store: new RemoteConsoleSessionRepository(input.database),
+    }),
   };
 }

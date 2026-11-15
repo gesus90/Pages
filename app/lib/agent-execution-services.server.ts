@@ -147,6 +147,12 @@ async function startAgents(
     },
   );
   if (!canProcessRuns()) {
+    if (
+      !isLocalSessionOwner() &&
+      !isPagesRunsProcess() &&
+      !services.agentSimulation?.isActive
+    )
+      services.agentCatalogScheduler.start();
     if (!isLocalSessionOwner()) await services.acpResourceScheduler.recover();
     return services;
   }
@@ -170,7 +176,7 @@ async function startAgents(
     );
   });
   // The simulation contacts no model provider, not even for catalogs.
-  if (!services.agentSimulation?.isActive)
+  if (!isPagesRunsProcess() && !services.agentSimulation?.isActive)
     services.agentCatalogScheduler.start();
   return services;
 }

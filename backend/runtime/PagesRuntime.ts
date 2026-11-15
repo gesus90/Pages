@@ -1,5 +1,4 @@
 import { InterpreterProfiles } from "@/backend/service/interpreters/InterpreterProfiles";
-
 import { bootstrapConfig } from "@/backend/config/ConfigBootstrap";
 import { ConfigFile } from "@/backend/config/ConfigFile";
 import {
@@ -15,7 +14,9 @@ import {
   logEvent,
   updateLogRetention,
 } from "@/backend/logging/Logger";
+import { isLocalSessionOwner } from "@/backend/agents/local/LocalSessionMode";
 
+import { isPagesRunsProcess } from "./RunsMode";
 import { SetupToken } from "./SetupToken";
 
 import type {
@@ -184,6 +185,13 @@ async function createRuntime(configPath: string): Promise<PagesRuntime> {
     message: "Instance configuration loaded",
   });
 
+  if (!isLocalSessionOwner() && !isPagesRunsProcess())
+    startPriceRefresh(configPath);
+
+  return new PagesRuntime(configFile, config);
+}
+
+function startPriceRefresh(configPath: string): void {
   const prices = openRouterPriceCatalog(
     resolveDefaultDataDirectory(configPath),
   );
@@ -192,8 +200,6 @@ async function createRuntime(configPath: string): Promise<PagesRuntime> {
     void prices.refresh();
   }, 86_400_000);
   dailyPrices.unref();
-
-  return new PagesRuntime(configFile, config);
 }
 
 /**

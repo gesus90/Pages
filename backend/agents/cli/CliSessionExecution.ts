@@ -39,7 +39,7 @@ import { CliIsolationGate } from "./CliIsolationGate";
 import { CliPlanIsolation } from "./CliPlanIsolation";
 import { ACP_WORKER_LIMITS } from "./CliWorkerUnit";
 import { cleanupFailedAcpStart } from "./CliAcpStartCleanup";
-import { acpWorkerRequest, picaCodexBundle } from "./CliAcpLaunch";
+import { acpWorkerRequest } from "./CliAcpLaunch";
 import { prepareSharedAgentEnvironment } from "./AgentSharedEnvironment";
 import { redactAcpJsonLine } from "./CliAcpRedaction";
 import { prepareAcpProtocol } from "./CliAcpProtocol";
@@ -57,9 +57,9 @@ import {
   openCliAcpSession,
   prepareCliGitHubAccess,
   prepareScopedClaudeHome,
+  preparePicaSession,
   registerAcpNamespace,
   secureCliAcpAccess,
-  selectPicaNativeArtifact,
 } from "./CliAcpSessionSetup";
 
 import type { VerifiedStart } from "./CliSessionChecks";
@@ -380,7 +380,10 @@ export class CliSessionExecution implements PlanSessionRunner {
     const scoped = start.owner
       ? null
       : await prepareScopedClaudeHome(
-          driver, input, start, this.dependencies.claudeHome,
+          driver,
+          input,
+          start,
+          this.dependencies.claudeHome,
         );
     const adapter = requireAdapter(start.adapter, driver);
     const github = start.owner
@@ -397,14 +400,16 @@ export class CliSessionExecution implements PlanSessionRunner {
     let containment: CliSessionContainment = "none";
     let picaBundle: PicaCodexBundle | null = null;
     try {
-      const picaNative = selectPicaNativeArtifact({
+      const pica = await preparePicaSession({
         driver,
         input,
         launch,
         profile,
         toolsDirectory: this.dependencies.tools?.directory,
+        adapter,
       });
-      picaBundle = picaCodexBundle(picaNative, input.directory, adapter);
+      const { picaNative } = pica;
+      picaBundle = pica.picaBundle;
       const { request, isIsolated } = await this.isolateWorker(
         acpWorkerRequest({
           driver,
@@ -440,11 +445,15 @@ export class CliSessionExecution implements PlanSessionRunner {
         driver,
         input,
         start,
-        control: { ...control, observer: openCodeAgentObserver(input, control.observer) },
+        control: {
+          ...control,
+          observer: openCodeAgentObserver(input, control.observer),
+        },
         profile,
         launch,
         picaNative,
         picaBundle,
+        picaSupport: pica.picaSupport,
         isIsolated,
         mode,
         limited,

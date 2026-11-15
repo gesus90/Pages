@@ -111,10 +111,14 @@ export class AgentDeferredGarbage {
     void withoutReadScope(() =>
       withBackgroundDatabaseWork("agent_payload_garbage", () =>
         this.queue.run(async () => {
-          this.isScheduled = false;
-          if (this.isClosed) return;
-          const hasLeftovers = await this.collect(database);
-          this.retryAt = hasLeftovers ? Date.now() + this.retryDelayMs : 0;
+          try {
+            if (this.isClosed) return;
+            const hasLeftovers = await this.collect(database);
+            this.retryAt = hasLeftovers ? Date.now() + this.retryDelayMs : 0;
+          } finally {
+            // A purge commits transactions itself. Their callbacks must not enqueue another sweep.
+            this.isScheduled = false;
+          }
         }),
       ),
     );

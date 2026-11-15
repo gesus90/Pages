@@ -72,7 +72,7 @@ All commands are scripts in `package.json`; run them with `pnpm run <script>`.
 | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `dev`           | Starts the development server of the static app (Vite). It passes server requests to `dev:api`.                                                                           |
 | `dev:api`       | Starts the API's development server (port 5174) with the Pages runtime; `PAGES_DEV_API` tells `dev` another address.                                                      |
-| `build`         | Builds the static app (`ssr: false`) into `build/client` and the API into `build/server` (`scripts/build.mjs`).                                                           |
+| `build`         | Builds the static app (`ssr: false`) into `build/client` the API into `build/server`, and the independent Node runtimes into `build/local-owner` and `build/runs` with shared `build/runtime-chunks` (`scripts/build.mjs`).                                                           |
 | `start`         | Runs the API from `build/` through `server.mjs`; it also serves the static app. Run `build` first. Accepts `--port <number>` and `--config <path>`.                       |
 | `check`         | Generates the React Router route types, type-checks with `tsc --noEmit` and runs `prettier --check`. Checks only; the generated types go to the ignored `.react-router/`. |
 | `lint`          | Runs ESLint sequentially in bounded file blocks (`scripts/run-lint.mjs`) with `--concurrency=off` and `--max-warnings=0`: any warning fails. Fixes nothing.               |
