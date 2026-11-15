@@ -166,4 +166,13 @@ it("refuses recovery of an explicitly stopped Codex run through the recovery API
     available: false,
     reason: "cancelled_by_user",
   });
+  const uncertain = {
+    ...facts,
+    run: { ...run, status: "failed" as const, stopRequested: false },
+    isEngineActive: true,
+  };
+  expect(resumeOption(uncertain, planResume(uncertain))).toEqual({
+    available: false,
+    reason: "run_active",
+  });
 });

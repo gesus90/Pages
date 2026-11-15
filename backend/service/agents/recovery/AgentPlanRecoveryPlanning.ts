@@ -1,6 +1,6 @@
 import { AgentPlanRecoveryError } from "@/backend/error/AgentPlanRecoveryError";
 import { isAcpProvider } from "@/definition/AgentConfiguration";
-import { isActivePlanRun } from "@/definition/AgentPlanRunState";
+import { isActivePlanRun, isCodexPlanRun } from "@/definition/AgentPlanRunState";
 
 import { resumableSessionId } from "../AgentPlanStepDecision";
 
@@ -138,7 +138,10 @@ function resumeRunBlock(facts: RecoveryFacts): AgentPlanRecoveryOption | null {
     isActivePlanRun(facts.latest.status)
   )
     return blocked("plan_run_active");
-  if (isActivePlanRun(run.status) || facts.isEngineActive !== false)
+  if (
+    isActivePlanRun(run.status) ||
+    (isCodexPlanRun(run) && facts.isEngineActive !== false)
+  )
     return blocked("run_active");
   if (run.status === "succeeded") return blocked("succeeded");
   if (run.stopRequested || run.status === "cancelled")
