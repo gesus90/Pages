@@ -139,12 +139,13 @@ export interface AgentPlanSessionGrants {
  * bound tickets and setting their checklist entries; the `read` and `full`
  * reaches of an ACP agent cover every read or every operation of the
  * executor, under the normal checks of the executor's rights. The clear
- * credential never leaves this process. The session receives a random bearer
- * that exists only in the memory of {@link PlanBridgeGrants} and is accepted
- * only by the plan bridge of this process, while the step is active. The
- * grant ends when the node closes, whatever its outcome; a restart ends all of
- * them. An engine in another process reaches this class through the private
- * run API socket.
+ * credential never leaves this process in a usable form. The session
+ * receives a random bearer that {@link PlanBridgeGrants} keeps only as a hash,
+ * next to the credential sealed with a key the bearer yields, and that the
+ * plan bridge accepts while the step is active. The grant ends when the node
+ * closes, whatever its outcome; it survives a restart of the API process,
+ * because the session runs in its own unit and keeps working. An engine in
+ * another process reaches this class through the private run API socket.
  */
 export class AgentPlanSessionAccess implements AgentPlanSessionGrants {
   private readonly credentials: AgentRunCredentialService;
@@ -173,7 +174,7 @@ export class AgentPlanSessionAccess implements AgentPlanSessionGrants {
       planSessionScope(grant),
       grant.lifetimeMs === 0 ? 0 : grant.lifetimeMs + CREDENTIAL_MARGIN_MS,
     );
-    const bearer = this.grants.open({
+    const bearer = await this.grants.open({
       runId: grant.runId,
       stepId: grant.stepId,
       instanceId: grant.instanceId,
@@ -193,7 +194,7 @@ export class AgentPlanSessionAccess implements AgentPlanSessionGrants {
    * @returns How many credentials were still valid.
    */
   public async revoke(runId: string, stepId: string | null): Promise<number> {
-    this.grants.revoke(runId, stepId);
+    await this.grants.revoke(runId, stepId);
     return this.credentials.revoke(runId, stepId);
   }
 }

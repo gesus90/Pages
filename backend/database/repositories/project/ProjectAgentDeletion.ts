@@ -149,6 +149,10 @@ async function deletePlanRunDetails(
     );
   await deleteSessionJournal(database, parameters);
   await database.execute(
+    `DELETE FROM agent_plan_bridge_grants WHERE run_id IN (${PLAN_RUNS});`,
+    parameters,
+  );
+  await database.execute(
     `DELETE FROM agent_run_credentials WHERE run_id IN (${PLAN_RUNS});`,
     parameters,
   );

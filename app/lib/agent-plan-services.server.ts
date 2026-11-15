@@ -1,6 +1,9 @@
 import { AgentSessionRepository } from "@/backend/database/repositories/agent/AgentSessionRepository";
 import { createPageAgentSessions } from "./agent-plan-page-sessions.server";
-import type { AgentSessionRunAccess, AgentSessionService } from "@/backend/service/agents/sessions/AgentSessionService";
+import type {
+  AgentSessionRunAccess,
+  AgentSessionService,
+} from "@/backend/service/agents/sessions/AgentSessionService";
 import { CodexPlanUsageRepository } from "@/backend/database/repositories/agent/CodexPlanUsageRepository";
 import { CodexAgentBudget } from "@/backend/service/agents/usage/CodexAgentBudget";
 import path from "node:path";
@@ -23,9 +26,9 @@ import { AgentPlanAgentTodoRepository } from "@/backend/database/repositories/ag
 
 import { createPlanTodoProgress } from "./agent-plan-todo-progress.server";
 
-
 import { AgentPlanStepReportRepository } from "@/backend/database/repositories/agent/AgentPlanStepReportRepository";
 import { AgentRunCredentialRepository } from "@/backend/database/repositories/mcp/AgentRunCredentialRepository";
+import { PlanBridgeGrantRepository } from "@/backend/database/repositories/agent/PlanBridgeGrantRepository";
 import { upgradeStoredPlans } from "./agent-plan-upgrade.server";
 import { AgentPlanRepository } from "@/backend/database/repositories/agent/AgentPlanRepository";
 import { AgentPlanTemplateRepository } from "@/backend/database/repositories/agent/AgentPlanTemplateRepository";
@@ -452,7 +455,10 @@ async function createPlanSessionAccess(
   readonly local: AgentPlanSessionAccess;
   readonly grants: PlanBridgeGrants;
 }> {
-  const grants = new PlanBridgeGrants(planSessionActivity(runs));
+  const grants = new PlanBridgeGrants(
+    planSessionActivity(runs),
+    new PlanBridgeGrantRepository(input.database),
+  );
   const local = new AgentPlanSessionAccess(
     new AgentRunCredentialService(
       new AgentRunCredentialRepository(input.database),

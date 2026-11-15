@@ -8,6 +8,8 @@ import { AgentRunCredentialService } from "@/backend/service/mcp/AgentRunCredent
 import { PlanBridgeGrants } from "@/backend/service/agents/bridge/PlanBridgeGrants";
 import { AgentPlanSessionAccess } from "@/backend/service/agents/AgentPlanSessionAccess";
 
+import { MemoryPlanBridgeGrantStore } from "./plan-bridge-grant-store";
+
 import type { Database } from "@/backend/database/Database";
 
 vi.mock("node:fs/promises", () => ({ access: async () => {} }));
@@ -93,7 +95,7 @@ it("issues unlimited run credentials until revocation, rather than expiring afte
   const sessionAccess = new AgentPlanSessionAccess(
     credentials,
     { url: "http://synthetic.invalid" },
-    new PlanBridgeGrants(async () => true),
+    new PlanBridgeGrants(async () => true, new MemoryPlanBridgeGrantStore()),
   );
   await sessionAccess.grant({
     userId: "owner",

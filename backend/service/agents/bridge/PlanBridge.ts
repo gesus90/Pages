@@ -74,11 +74,11 @@ function failureResult(failure: PlanOperationFailure): PlanBridgeToolResult {
  * @remarks
  * ACP runners reach MCP servers over HTTP, so Pages offers the run-bound
  * tools of a step itself instead of starting a separate process. The bearer
- * is a random token of exactly one step. It exists only in the memory of the
- * API process ({@link PlanBridgeGrants}) and in the session of the step, so a
- * restart, the end of the step or the end of its run makes it unknown. Behind
- * it stands the credential of the step, which only this process knows in
- * clear text. Every request is verified anew and every call runs through the
+ * is a random token of exactly one step. Only the session of the step holds
+ * it; {@link PlanBridgeGrants} keeps its hash, so a restart of the API process
+ * keeps it valid while the end of the step or of its run makes it unknown.
+ * Behind it stands the credential of the step, which Pages stores only sealed
+ * with a key the bearer yields. Every request is verified anew and every call runs through the
  * agent API with the current rights of the executor, narrowed to the
  * operations and tickets of the step. Plans are never deleted here, because
  * no consent surface exists for it.

@@ -155,6 +155,7 @@ it("uses the common purge after plan deletion and deletes the existing run-owned
     "agent_session_attempts",
     "agent_local_session_owners",
     "plan_run_commands",
+    "agent_plan_bridge_grants",
     "agent_run_credentials",
     "agent_plan_runs",
   ])

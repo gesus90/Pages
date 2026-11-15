@@ -8,6 +8,8 @@ import {
   PlanBridgeRpcError,
 } from "@/backend/service/agents/bridge/PlanBridgeProtocol";
 
+import { MemoryPlanBridgeGrantStore } from "./plan-bridge-grant-store";
+
 import type { PlanBridgeHandlers } from "@/backend/service/agents/bridge/PlanBridgeProtocol";
 
 vi.mock("@/backend/logging/Logger", () => ({ logCaughtError: vi.fn() }));
@@ -36,30 +38,34 @@ function request(method: string, params?: unknown): string {
 describe("plan bridge grants", () => {
   it("resolves active grants and revokes only the requested step or run", async () => {
     const active = vi.fn(async () => true);
-    const grants = new PlanBridgeGrants(active);
-    const first = grants.open(GRANT);
-    const second = grants.open({ ...GRANT, stepId: "other" });
-    const third = grants.open({ ...GRANT, runId: "another" });
+    const store = new MemoryPlanBridgeGrantStore();
+    const grants = new PlanBridgeGrants(active, store);
+    const first = await grants.open(GRANT);
+    const second = await grants.open({ ...GRANT, stepId: "other" });
+    const third = await grants.open({ ...GRANT, runId: "another" });
     expect(first).not.toBe(second);
     await expect(grants.resolve(first)).resolves.toBe("secret");
     expect(active).toHaveBeenCalledWith(GRANT);
-    expect(grants.revoke("run", "step")).toBe(1);
+    await expect(grants.revoke("run", "step")).resolves.toBe(1);
     await expect(grants.resolve(first)).resolves.toBeNull();
     await expect(grants.resolve(second)).resolves.toBe("secret");
-    expect(grants.revoke("run", null)).toBe(1);
+    await expect(grants.revoke("run", null)).resolves.toBe(1);
     await expect(grants.resolve(third)).resolves.toBe("secret");
+    expect(store.rows.size).toBe(1);
   });
 
   it("expires and removes inactive grants", async () => {
     const active = vi.fn(async () => false);
-    const grants = new PlanBridgeGrants(active);
-    const expired = grants.open({ ...GRANT, expiresAt: Date.now() - 1 });
+    const store = new MemoryPlanBridgeGrantStore();
+    const grants = new PlanBridgeGrants(active, store);
+    const expired = await grants.open({ ...GRANT, expiresAt: Date.now() - 1 });
     await expect(grants.resolve(expired)).resolves.toBeNull();
     expect(active).not.toHaveBeenCalled();
-    const inactive = grants.open(GRANT);
+    const inactive = await grants.open(GRANT);
     await expect(grants.resolve(inactive)).resolves.toBeNull();
     await expect(grants.resolve(inactive)).resolves.toBeNull();
     expect(active).toHaveBeenCalledTimes(1);
+    expect(store.rows.size).toBe(0);
   });
 
   it("honors revocation while the activity check is pending", async () => {
@@ -69,10 +75,11 @@ describe("plan bridge grants", () => {
         new Promise<boolean>((resolve) => {
           finish = resolve;
         }),
+      new MemoryPlanBridgeGrantStore(),
     );
-    const bearer = grants.open(GRANT);
+    const bearer = await grants.open(GRANT);
     const pending = grants.resolve(bearer);
-    expect(grants.revoke("run", null)).toBe(1);
+    await expect(grants.revoke("run", null)).resolves.toBe(1);
     finish(true);
     await expect(pending).resolves.toBeNull();
   });

@@ -472,7 +472,16 @@ hold: adapter and model as reported, session mode, events, closing report and
 whether any process of the session is left. `--stop-after <seconds>` stops the
 node like the stop button and `--timeout <minutes>` applies a deadline. The
 session has no Pages tools: the plan bridge accepts only the bearer of an
-active step, which exists only in the memory of the running server.
+active step, which the server issues to the session of that step.
+
+The server keeps a bearer only as a SHA-256 hash in `agent_plan_bridge_grants`,
+next to the step credential sealed with a key that only the bearer yields.
+An agent session runs in its own unit and survives a restart of the API
+process, so after a deploy its next bridge call opens the stored grant and
+passes the same checks as before: the run runs, a step of the session's
+instance is `running`, the grant has not expired and the step credential is
+neither revoked nor expired. The row ends with the step and goes with its
+credential.
 
 YOLO needs [bubblewrap](https://github.com/containers/bubblewrap)
 with working unprivileged user namespaces for the server
