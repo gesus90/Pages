@@ -161,11 +161,7 @@ it.each([
 ])(
   "fails the group after $name and never starts its next agent",
   async ({ name, output }) => {
-    const needsReturn = [
-      "missing report",
-      "invalid report",
-      "open todo",
-    ].includes(name);
+    const needsReturn = name !== "missing report";
     const runtime = executionFixture();
     const world = await groupEngine(runtime.execution);
     const snapshot = {
@@ -422,12 +418,10 @@ it("applies the group acceptance gate to TODO-only steps as well", async () => {
   const run = await world.engine.start("owner", snapshot);
   await vi.waitFor(() => expect(runtime.open).toHaveBeenCalledOnce());
   runtime.first.resolve(groupTurn({ output: "Completed without report" }));
-  await vi.waitFor(() => expect(runtime.next).toHaveBeenCalled());
-  runtime.second.resolve(groupTurn({ output: "Completed without report" }));
   await vi.waitFor(() =>
     expect(world.stored.get(run.id)?.status).toBe("failed"),
   );
-  expect(runtime.next).toHaveBeenCalledTimes(3);
+  expect(runtime.next).not.toHaveBeenCalled();
   expect(
     world.stored.get(run.id)?.steps.find((step) => step.id === "first")?.error,
   ).toBe("plan_group_acceptance_failed");
