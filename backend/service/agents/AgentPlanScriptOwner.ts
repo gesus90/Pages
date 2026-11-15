@@ -26,6 +26,7 @@ import {
 import { planPauseGate } from "./AgentPlanPauseGate";
 
 import type { ScriptProcessRequest } from "./AgentPlanScriptProcess";
+import type { PlanTemporaryScope } from "@/backend/agents/PlanRunTemporaryDirectory";
 import type { AgentPlanScriptRun } from "@/definition/AgentPlanScript";
 
 const runFile = promisify(execFile);
@@ -43,8 +44,9 @@ const launchSchema = z.object({
 /** Reads the durable capture of the same script, also after the plan service restarted. */
 export async function readOwnedScript(
   instanceId: string,
+  scope?: PlanTemporaryScope,
 ): Promise<AgentPlanScriptRun | null> {
-  const directory = scriptRuntimeDirectory(instanceId);
+  const directory = scriptRuntimeDirectory(instanceId, scope);
   try {
     if ((await readFile(path.join(directory, "owner"), "utf8")) !== instanceId)
       throw new Error("Script owner mismatch");
@@ -62,8 +64,11 @@ function scriptUnit(instanceId: string): string {
   return `pages-script-${instanceId}.service`;
 }
 
-async function hasOwnerMarker(instanceId: string): Promise<boolean> {
-  const directory = scriptRuntimeDirectory(instanceId);
+async function hasOwnerMarker(
+  instanceId: string,
+  scope?: PlanTemporaryScope,
+): Promise<boolean> {
+  const directory = scriptRuntimeDirectory(instanceId, scope);
   try {
     return (
       (await readFile(path.join(directory, "owner"), "utf8")) === instanceId
@@ -79,9 +84,10 @@ async function hasOwnerMarker(instanceId: string): Promise<boolean> {
 export async function controlOwnedScript(
   instanceId: string,
   action: "pause" | "resume" | "stop",
+  scope?: PlanTemporaryScope,
 ): Promise<void> {
-  if (!(await hasOwnerMarker(instanceId))) return;
-  const directory = scriptRuntimeDirectory(instanceId);
+  if (!(await hasOwnerMarker(instanceId, scope))) return;
+  const directory = scriptRuntimeDirectory(instanceId, scope);
   await writeLocalRecord(path.join(directory, "control.json"), { action });
 }
 
@@ -122,7 +128,10 @@ export async function settleUnstartedScript(
   failure: "cancelled" | "interrupted" = "cancelled",
 ): Promise<AgentPlanScriptRun> {
   if (record.closeout !== "pending" || record.processId !== null) return record;
-  const capture = await readOwnedScript(record.instanceId);
+  const capture = await readOwnedScript(
+    record.instanceId,
+    record.temporaryScope,
+  );
   if (capture?.endedAt) return capture;
   if (
     capture?.processId ||
@@ -131,7 +140,7 @@ export async function settleUnstartedScript(
     return record;
   const endedAt = new Date().toISOString();
   try {
-    await removeScriptResources(record.instanceId);
+    await removeScriptResources(record.instanceId, record.temporaryScope);
     return {
       ...record,
       endedAt,
@@ -147,7 +156,8 @@ export async function settleUnstartedScript(
 export async function executeOwnedScript(
   request: ScriptProcessRequest & { readonly runId: string },
 ): Promise<AgentPlanScriptRun> {
-  if (!(await readOwnedScript(request.record.instanceId))) {
+  const scope = request.record.temporaryScope;
+  if (!(await readOwnedScript(request.record.instanceId, scope))) {
     request.signal.throwIfAborted();
     request.claimStart();
     await writeLocalRecord(
@@ -201,8 +211,8 @@ export async function executeOwnedScript(
   }
   for (;;) {
     if (request.signal.aborted)
-      await controlOwnedScript(request.record.instanceId, "stop");
-    const record = await readOwnedScript(request.record.instanceId);
+      await controlOwnedScript(request.record.instanceId, "stop", scope);
+    const record = await readOwnedScript(request.record.instanceId, scope);
     if (!record) throw new Error("Script capture unavailable");
     await request.save(record);
     if (record.endedAt) return record;
@@ -231,7 +241,12 @@ export async function startPlanScriptOwner(directory: string): Promise<void> {
   const launch = launchSchema.parse(
     await readLocalRecord(path.join(directory, "launch.json")),
   );
-  if (scriptRuntimeDirectory(launch.record.instanceId) !== directory)
+  if (
+    scriptRuntimeDirectory(
+      launch.record.instanceId,
+      launch.record.temporaryScope,
+    ) !== directory
+  )
     throw new Error("Script directory mismatch");
   let record = launch.record;
   const controller = new AbortController();

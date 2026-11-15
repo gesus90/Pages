@@ -123,7 +123,10 @@ export async function reconcileAdoptedRun(
     step: AgentPlanStepResult,
   ): Promise<AgentPlanStepResult> => {
     if (run.status === "paused" && step.script) {
-      const script = await readOwnedScript(step.script.instanceId);
+      const script = await readOwnedScript(
+        step.script.instanceId,
+        step.script.temporaryScope,
+      );
       if (script) return { ...step, script };
     }
     if (run.status === "paused" && step.session?.runner === "api") return step;

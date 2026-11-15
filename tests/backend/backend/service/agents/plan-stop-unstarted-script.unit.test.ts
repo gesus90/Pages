@@ -139,7 +139,7 @@ it("confirms the closeout of a script that never got a process, so the run relea
   });
   expect(final?.steps[1].script?.endedAt).toEqual(expect.any(String));
   expect(final && hasUnconfirmedRunCloseout(final)).toBe(false);
-  expect(boundary.remove).toHaveBeenCalledWith(INSTANCE);
+  expect(boundary.remove).toHaveBeenCalledWith(INSTANCE, undefined);
   // Stop never creates a runtime directory for an attempt that owns none.
   expect(boundary.write).not.toHaveBeenCalled();
 });
@@ -191,7 +191,7 @@ it("stops following a stopped attempt whose owner unit ended before the spawn", 
   });
   expect(record).toMatchObject({ closeout: "confirmed", failure: "cancelled" });
   expect(save).toHaveBeenCalledTimes(1);
-  expect(boundary.remove).toHaveBeenCalledWith(INSTANCE);
+  expect(boundary.remove).toHaveBeenCalledWith(INSTANCE, undefined);
 });
 
 it("lets restart and recovery confirm an already stopped attempt that never got a process", async () => {
@@ -205,7 +205,7 @@ it("lets restart and recovery confirm an already stopped attempt that never got 
     closeout: "confirmed",
     failure: "interrupted",
   });
-  expect(boundary.remove).toHaveBeenCalledWith(INSTANCE);
+  expect(boundary.remove).toHaveBeenCalledWith(INSTANCE, undefined);
 });
 
 it("still refuses recovery while the owner of the attempt is live", async () => {

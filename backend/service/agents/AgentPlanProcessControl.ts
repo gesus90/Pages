@@ -23,7 +23,11 @@ export async function controlPlanProcesses(
   await Promise.all(
     scripts.map((step) =>
       step.script
-        ? controlOwnedScript(step.script.instanceId, action)
+        ? controlOwnedScript(
+            step.script.instanceId,
+            action,
+            step.script.temporaryScope,
+          )
         : Promise.resolve(),
     ),
   );
