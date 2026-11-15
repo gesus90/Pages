@@ -195,7 +195,7 @@ it("pauses during the fix, keeps the session and continues in it on resume", asy
       },
     }),
   ).rejects.toMatchObject({
-    code: new AgentError("plan_conflict").code,
+    code: new AgentError("plan_context_changed").code,
   });
   expect(world.read(started.id).status).toBe("paused");
 
