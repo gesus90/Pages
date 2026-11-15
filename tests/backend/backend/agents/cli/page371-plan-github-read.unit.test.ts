@@ -55,6 +55,7 @@ function runHelper(
       (error, stdout, stderr) =>
         error ? reject(error) : resolve({ stdout, stderr }),
     );
+    child.stdin?.on("error", reject);
     child.stdin?.end(request);
   });
 }
