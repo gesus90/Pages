@@ -90,7 +90,7 @@ function expectSettlementGuards(statement: string): void {
     expect(statement).toMatch(
       new RegExp(`NOT EXISTS \\(\\s*SELECT 1\\s+FROM ${table}\\b`, "u"),
     );
-  expect(statement).toContain("state = 'pending'");
+  expect(statement).toContain("state <> 'completed'");
   expect(statement).toContain("released_at IS NULL");
   expect(statement).toContain("status = 'accepted'");
   expect(statement).not.toContain("resourceReleases");

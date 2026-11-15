@@ -17,7 +17,7 @@ it("names every migration with a three-digit number and a readable title", () =>
   expect(unnamed).toEqual([]);
 });
 
-it("keeps migration names unique and numbers contiguous after the historical 057 batch", () => {
+it("keeps migration names unique and numbers contiguous across historical batches", () => {
   const names = POSTGRES_MIGRATIONS.map((migration) => migration.name);
   const batch = names.filter((name) => name.startsWith("057_"));
   expect(batch.sort()).toEqual([
@@ -27,13 +27,26 @@ it("keeps migration names unique and numbers contiguous after the historical 057
     "057_calendar.sql",
     "057_chat_decision_defaults.sql",
     "057_chat_list_collapsed.sql",
+    "057_claude_plan_usage.sql",
     "057_conversation_follow_ups.sql",
   ]);
+  expect(names.filter((name) => name.startsWith("061_")).sort()).toEqual([
+    "061_agent_chat_models.sql",
+    "061_codex_plan_usage.sql",
+    "061_independent_agent_providers.sql",
+    "061_opencode_message_usage.sql",
+    "061_storage_maintenance.sql",
+    "061_workspace_cleanup_retries.sql",
+  ]);
+  expect(names.filter((name) => name.startsWith("062_")).sort()).toEqual([
+    "062_conversation_attachment_expiry.sql",
+    "062_notification_choices.sql",
+  ]);
   expect(new Set(names).size).toBe(names.length);
-  const numbers = names
-    .filter((name) => !batch.includes(name) || name === batch[0])
-    .map((name) => Number(MIGRATION_NAME.exec(name)?.[1]))
-    .sort((first, second) => first - second);
+  const numbers = [
+    ...new Set(names.map((name) => Number(MIGRATION_NAME.exec(name)?.[1]))),
+  ].sort((first, second) => first - second);
+  expect(names).toHaveLength(numbers.length + 13);
   expect(numbers).toEqual(numbers.map((_, index) => index + 1));
 });
 
