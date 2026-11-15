@@ -50,6 +50,7 @@ port = 3000
 databasePath = "/home/dev/.pages/data/pages.duckdb"
 databaseUrl = "postgresql://pages_dev:REPLACE_ME@127.0.0.1:5432/pages_dev"
 logRetentionDays = 30
+storageWarningBytes = 20000000000
 ```
 
 This is an illustration of a completed configuration, not a file to paste before
@@ -221,3 +222,35 @@ driver belong to offline transfer, not server startup. See
 [Ticket attachments](TicketAssets.md) for application files. Back up the instance
 key, configuration, login folders and attachments along with PostgreSQL; a
 PostgreSQL-only backup cannot restore those files or decrypt stored secrets.
+
+### Storage maintenance (PAGE-418)
+
+Pages checks the size of the configuration directory (`~/.pages` by default)
+hourly. `storageWarningBytes` is a positive integer in bytes, default
+20,000,000,000 (20 GB). Above the threshold, the log names the total and the
+five largest immediate `data/` directories. The durable Pages event
+`storage.limit_exceeded` is published at most once every 24 hours, including
+across restarts, and is selectable in automations without project or plan
+filters. Its payload contains only `totalBytes`, `limitBytes`, and the five
+largest directory sizes (`largestDirectoryBytes`); no names or file contents.
+It never triggers automatic deletion by itself.
+
+The existing minute maintenance loop expires provider transcript files after
+30 days by modification time in `codex/sessions`, `claude/projects`, and
+`opencode/opencode/storage`. Within `antigravity/antigravity-acp`, only session,
+history and conversation directories or matching file names are eligible;
+unknown provider state stays. Credentials, configuration and databases,
+including SQLite sidecars, remain. Empty transcript directories and the old
+`opencode/pnpm` store are removed. Symbolic links are never traversed.
+
+Provider cleanup and daily shared-environment cleanup wait for global agent
+quiescence: resource leases and unreleased local-session owners protect every
+connection because leases do not carry a connection ID. The writer lock holds
+through deletion/pruning and excludes concurrent process admission. Shared
+cleanup uses the pinned pnpm executable and shared environment, and removes
+browser revisions older than 30 days except revisions listed by the installed
+`playwright-core` matching the repository lockfile, including platform
+overrides. A failed shared cleanup attempt is logged and retried after 24 hours;
+a busy instance retries at the next minute tick. Measurement and event cadence
+are stored in PostgreSQL. Log retention, plan homes, tool releases and user
+content retain their existing policies.

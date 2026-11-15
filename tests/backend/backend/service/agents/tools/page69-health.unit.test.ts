@@ -16,6 +16,13 @@ import { toolMcpSpawn } from "./page69-mcp-spawn";
 import { toolLocation, toolWorld } from "./page69-tool-world";
 
 vi.mock("node:fs/promises", () => ({
+  mkdir: async () => undefined,
+  lstat: async () => ({
+    isDirectory: () => true,
+    isSymbolicLink: () => false,
+    mode: 0o700,
+  }),
+  rm: vi.fn(async () => undefined),
   access: vi.fn(async () => undefined),
   realpath: vi.fn(async (file: string) => file),
   readFile: vi.fn(),
@@ -199,11 +206,13 @@ it("checks a browser with a real launch/close script through a mocked process bo
       BROWSER_PROBE_SCRIPT,
     ],
     environment: {
-      TMPDIR: "/memory/tools/probe",
       PAGES_BROWSER: "chromium",
       PLAYWRIGHT_BROWSERS_PATH: "/memory/tools/chromium/synthetic/browsers",
     },
   });
+  expect(run.mock.calls[0]?.[0].environment?.TMPDIR).toMatch(
+    /^\/memory\/tools\/probe\/tmp\/[\da-f-]{36}$/u,
+  );
   expect(BROWSER_PROBE_SCRIPT).toContain("chromiumSandbox: true");
   expect(BROWSER_PROBE_SCRIPT).toContain("await browser.close()");
   run.mockResolvedValueOnce({

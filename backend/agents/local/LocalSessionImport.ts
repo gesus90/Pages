@@ -126,6 +126,15 @@ export class LocalSessionImport {
       planId,
       JSON.stringify(checkpoint),
     );
+    let resultFile: string | null = null;
+    if (mutation.kind === "turn")
+      resultFile =
+        "payload" in record
+          ? record.payload
+          : await requireAgentFiles(this.database).write(
+              planId,
+              record.content,
+            );
     await this.database.transaction(async (transaction) => {
       const owners = new LocalSessionRepository(transaction);
       await owners.requireImporter(this.entry, this.token);
@@ -143,11 +152,11 @@ export class LocalSessionImport {
           mutation.usage,
         );
       } else await this.persist(mutation, record.sequence, sessions);
-      if (mutation.kind === "turn")
+      if (mutation.kind === "turn" && resultFile !== null)
         await owners.saveResult(
           this.entry.instanceId,
           mutation.turnId,
-          record.payload,
+          resultFile,
         );
       await owners.acknowledge(this.entry, {
         sequence: record.sequence,

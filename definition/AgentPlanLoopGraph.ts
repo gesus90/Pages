@@ -1,6 +1,10 @@
 import { hasAgentParameterValue } from "./AgentParameters";
 import { containerEdgeIssues } from "./AgentPlanGroupGraph";
-import { planNodeParameters, planStepAdapter } from "./AgentPlanGroup";
+import {
+  expandPlanGroups,
+  planNodeParameters,
+  planStepAdapter,
+} from "./AgentPlanGroup";
 import {
   PLAN_LOOP_NAME_LENGTH,
   PLAN_LOOP_RUNS_BINDING,
@@ -269,7 +273,8 @@ function nestingIssues(loop: AgentPlanLoop): AgentPlanIssue[] {
     if (type === "loop")
       return [{ nodeId: member.id, port: null, reason: "loopNested" }];
     if (member.type !== "group") return [];
-    return member.steps.some((step) => step.type !== "agent")
+    return member.loops?.length ||
+      member.steps.some((step) => step.type !== "agent")
       ? [{ nodeId: member.id, port: null, reason: "loopNested" }]
       : [];
   });
@@ -312,6 +317,7 @@ export function planLoopIssues(
   agents: readonly AgentDefinitionChoice[],
   isExecution: boolean,
 ): readonly AgentPlanIssue[] {
+  plan = expandPlanGroups(plan);
   const issues: AgentPlanIssue[] = strayPreviousIssues(plan);
   const ids = new Set(
     plan.nodes.flatMap((node) =>

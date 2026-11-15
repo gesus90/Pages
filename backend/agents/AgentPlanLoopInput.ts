@@ -1,3 +1,4 @@
+import { planContainedNodes } from "@/definition/AgentPlanGroupLoop";
 import { AgentError } from "@/backend/error/AgentErrors";
 import {
   PLAN_LOOP_VALUE_LENGTH,
@@ -95,11 +96,5 @@ export function readPlanLoopWhile(input: unknown): AgentPlanLoopWhile | null {
 
 /** How many nodes a group or loop holds, the agents of a loop's groups included. */
 export function containedCount(node: AgentPlanNode): number {
-  if (node.type === "group") return node.steps.length;
-  if (node.type !== "loop") return 0;
-  return node.steps.reduce(
-    (count, step) =>
-      count + 1 + (step.type === "group" ? step.steps.length : 0),
-    0,
-  );
+  return planContainedNodes({ nodes: [node] }).length - 1;
 }

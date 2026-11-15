@@ -1,3 +1,4 @@
+import { planGroupAgents } from "@/definition/AgentPlanGroupLoop";
 import { withPortlessPlanGroups } from "@/definition/AgentPlanGroupUpgrade";
 import { allPlanSteps, expandPlanGroups } from "@/definition/AgentPlanGroup";
 import {
@@ -11,7 +12,6 @@ import { unsupportedRunOption } from "@/backend/agents/cli/CliSessionPlans";
 import { planStepTemplate } from "@/definition/AgentPlanConfiguration";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentPlanWorkspaceConflictError } from "@/backend/error/AgentPlanWorkspaceConflictError";
-import { remoteWorkspaceKeys } from "./AgentPlanRemoteWorkspaceKey";
 import {
   agentRunOptionsFor,
   isAcpProvider,
@@ -23,6 +23,7 @@ import {
   withInheritedPlanTarget,
 } from "@/definition/AgentPlanTarget";
 
+import { remoteWorkspaceKeys } from "./AgentPlanRemoteWorkspaceKey";
 import { validateGroupRuntimes } from "./AgentPlanGroupRuntime";
 import { AgentPlanPreparationFailures } from "./AgentPlanPreparationFailures";
 import { remoteReferenceIssues } from "./AgentPlanReferences";
@@ -356,7 +357,7 @@ export class AgentPlanPreparation {
       ...(remoteTarget ? { remoteTarget } : {}),
       step,
       groupId: groups.find((group) =>
-        group.steps.some((entry) => entry.id === step.id),
+        planGroupAgents(group).some((entry) => entry.id === step.id),
       )?.id,
       ...loopMembership(loops, step),
       connectionId: resolved.assignment.connection.id,

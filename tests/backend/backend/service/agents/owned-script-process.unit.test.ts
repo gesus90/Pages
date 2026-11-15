@@ -3,6 +3,10 @@ import { PassThrough } from "node:stream";
 
 import { beforeEach, expect, it, vi } from "vitest";
 
+import {
+  sharedAgentEnvironment,
+  sharedPnpmBin,
+} from "@/backend/agents/cli/AgentSharedEnvironment";
 import { executeScriptProcess } from "@/backend/service/agents/AgentPlanScriptProcess";
 
 import type { AgentPlanScriptRun } from "@/definition/AgentPlanScript";
@@ -11,11 +15,19 @@ import type * as ChildProcessModule from "node:child_process";
 const boundary = vi.hoisted(() => ({
   spawn: vi.fn(),
   captureOwnedNamespace: vi.fn(),
+  prepareSharedAgentEnvironment: vi.fn(),
 }));
 vi.mock("node:child_process", async (importOriginal) => ({
   ...(await importOriginal<typeof ChildProcessModule>()),
   spawn: boundary.spawn,
 }));
+vi.mock(
+  import("@/backend/agents/cli/AgentSharedEnvironment"),
+  async (importOriginal) => ({
+    ...(await importOriginal()),
+    prepareSharedAgentEnvironment: boundary.prepareSharedAgentEnvironment,
+  }),
+);
 vi.mock("@/backend/agents/cli/CliOwnedNamespace", () => ({
   captureOwnedNamespace: boundary.captureOwnedNamespace,
 }));
@@ -84,11 +96,20 @@ function record(): AgentPlanScriptRun {
 }
 
 beforeEach(() => {
+  boundary.prepareSharedAgentEnvironment
+    .mockReset()
+    .mockResolvedValue(undefined);
   boundary.spawn.mockReset().mockImplementation(processFixture);
   boundary.captureOwnedNamespace.mockReset().mockResolvedValue(NAMESPACE);
 });
 
 it("persists the namespace identity before delivering input to a contained script", async () => {
+  boundary.prepareSharedAgentEnvironment.mockImplementation(
+    async (root: string) => {
+      expect(root).toBe("/synthetic/data/shared-env");
+      expect(boundary.spawn).not.toHaveBeenCalled();
+    },
+  );
   const save = vi.fn(async () => {
     const child = boundary.spawn.mock.results[0]?.value as ChildProcess;
     expect((child.stdio[3] as PassThrough).writableEnded).toBe(false);
@@ -97,6 +118,7 @@ it("persists the namespace identity before delivering input to a contained scrip
     record: record(),
     program: "/synthetic/node",
     resources: "/synthetic/resources",
+    sharedEnvironment: "/synthetic/data/shared-env",
     input: "{}",
     timeoutSeconds: 5,
     signal: new AbortController().signal,
@@ -107,6 +129,21 @@ it("persists the namespace identity before delivering input to a contained scrip
   expect(boundary.spawn.mock.calls[0]?.[1]).toContain("--unshare-pid");
   expect(boundary.spawn.mock.calls[0]?.[1]).toEqual(
     expect.arrayContaining(["--ro-bind", "/synthetic/ssh-copies"]),
+  );
+  expect(boundary.prepareSharedAgentEnvironment).toHaveBeenCalledOnce();
+  const args = boundary.spawn.mock.calls[0]?.[1] as string[];
+  expect(args.join(" ")).toContain(
+    "--bind /synthetic/data/shared-env /synthetic/data/shared-env",
+  );
+  expect(boundary.spawn.mock.calls[0]?.[2]?.env).toMatchObject({
+    ...sharedAgentEnvironment("/synthetic/data/shared-env"),
+    HOME: "/synthetic/resources",
+    XDG_CONFIG_HOME: "/synthetic/resources/config",
+    XDG_DATA_HOME: "/synthetic/resources/data",
+    XDG_STATE_HOME: "/synthetic/resources/state",
+  });
+  expect(boundary.spawn.mock.calls[0]?.[2]?.env.PATH.split(":")[0]).toBe(
+    sharedPnpmBin("/synthetic/data/shared-env"),
   );
   expect(save).toHaveBeenCalledWith(
     expect.objectContaining({ namespace: NAMESPACE }),
@@ -127,6 +164,7 @@ it("leaves cleanup unconfirmed when supervisor ownership cannot be recorded", as
     record: record(),
     program: "/synthetic/node",
     resources: "/synthetic/resources",
+    sharedEnvironment: "/synthetic/data/shared-env",
     input: "{}",
     timeoutSeconds: 5,
     signal: new AbortController().signal,
@@ -135,4 +173,49 @@ it("leaves cleanup unconfirmed when supervisor ownership cannot be recorded", as
   });
   expect(save).not.toHaveBeenCalled();
   expect(result.closeout).toBe("failed");
+});
+
+it("does not claim or spawn a script when shared pnpm preparation fails", async () => {
+  boundary.prepareSharedAgentEnvironment.mockRejectedValue(
+    new Error("setup failed"),
+  );
+  const claimStart = vi.fn();
+  await expect(
+    executeScriptProcess({
+      record: record(),
+      program: "/synthetic/node",
+      resources: "/synthetic/resources",
+      sharedEnvironment: "/synthetic/data/shared-env",
+      input: "{}",
+      timeoutSeconds: 5,
+      signal: new AbortController().signal,
+      claimStart,
+      save: vi.fn(),
+    }),
+  ).rejects.toThrow("setup failed");
+  expect(boundary.spawn).not.toHaveBeenCalled();
+  expect(claimStart).not.toHaveBeenCalled();
+});
+
+it("does not start a script cancelled while shared pnpm is being prepared", async () => {
+  const controller = new AbortController();
+  boundary.prepareSharedAgentEnvironment.mockImplementation(async () => {
+    controller.abort(new Error("cancelled during setup"));
+  });
+  const claimStart = vi.fn();
+  await expect(
+    executeScriptProcess({
+      record: record(),
+      program: "/synthetic/node",
+      resources: "/synthetic/resources",
+      sharedEnvironment: "/synthetic/data/shared-env",
+      input: "{}",
+      timeoutSeconds: 5,
+      signal: controller.signal,
+      claimStart,
+      save: vi.fn(),
+    }),
+  ).rejects.toThrow("cancelled during setup");
+  expect(boundary.spawn).not.toHaveBeenCalled();
+  expect(claimStart).not.toHaveBeenCalled();
 });

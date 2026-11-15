@@ -1,6 +1,7 @@
 import { useReactFlow } from "@xyflow/react";
 import { useEffect, useRef, useState } from "react";
 
+import { allPlanLoops, planLoopOwner } from "@/definition/AgentPlanGroupLoop";
 import { findPlanGroupLocation } from "@/definition/AgentPlanLoopGroupEdit";
 
 import {
@@ -41,12 +42,18 @@ function memberGroup(
   if (!node.parentId) return null;
   const top = plan.nodes.find((entry) => entry.id === node.parentId);
   if (top?.type === "group" || top?.type === "loop") return top;
-  return findPlanGroupLocation(plan, node.parentId)?.group ?? null;
+  return (
+    findPlanGroupLocation(plan, node.parentId)?.group ??
+    allPlanLoops(plan).find((loop) => loop.id === node.parentId) ??
+    null
+  );
 }
 
 /** The top left corner of a frame on the grid; a group inside a loop counts from the loop's member area. */
 function frameCorner(plan: AgentPlanInput, frame: PlanFrame): XYPosition {
-  const loop = findPlanGroupLocation(plan, frame.id)?.loop;
+  const loop =
+    findPlanGroupLocation(plan, frame.id)?.loop ??
+    planLoopOwner(plan, frame.id);
   if (!loop) return { x: frame.x, y: frame.y };
   const origin = planMemberOrigin(loop);
   return { x: origin.x + frame.x, y: origin.y + frame.y };
@@ -112,7 +119,7 @@ function dropTargetOf(
   const type = node.data.node.type;
   if (isStackEntry(type) && !node.parentId)
     return planDropStack(options.draft, point)?.id ?? null;
-  if (type === "group") {
+  if (type === "group" || type === "loop") {
     const frame = planDropGroup(
       {
         ...options.draft,
@@ -122,7 +129,9 @@ function dropTargetOf(
       options.sources,
       node.parentId ?? null,
     );
-    return frame?.type === "loop" ? frame.id : null;
+    return frame?.type === (type === "loop" ? "group" : "loop")
+      ? frame.id
+      : null;
   }
   if (!isPlaceable(type)) return null;
   const group = planDropGroup(
@@ -151,7 +160,7 @@ function dropNode(
     graph.place(node.id, target);
     return;
   }
-  if (type === "group") {
+  if (type === "group" || type === "loop") {
     graph.placeGroup(node.id, target);
     return;
   }

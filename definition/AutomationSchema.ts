@@ -118,6 +118,18 @@ const eventSchema = z
     statusId: automationReferenceSchema.nullable().optional(),
   })
   .superRefine((trigger, context) => {
+    if (trigger.eventType === "storage.limit_exceeded") {
+      if (
+        [
+          trigger.planId,
+          trigger.stepId,
+          trigger.projectId,
+          trigger.statusId,
+        ].some((reference) => reference != null)
+      )
+        context.addIssue({ code: "custom", message: "event_filter_mismatch" });
+      return;
+    }
     const isPlanEvent = PLAN_EVENTS.has(trigger.eventType);
     const misplaced = isPlanEvent
       ? [trigger.projectId, trigger.statusId]

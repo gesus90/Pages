@@ -9,6 +9,7 @@ import { probeBubblewrap } from "@/backend/agents/cli/CliPlanIsolation";
 import { isAgentToolVersionSupported } from "./AgentToolRegistry";
 import { AgentToolProtocolProbe } from "./AgentToolProtocolProbe";
 import { AgentToolReadinessError } from "./AgentToolReadinessError";
+import { AgentToolRunFiles } from "./AgentToolRunFiles";
 
 import type { CliProviderId } from "@/definition/AgentConnection";
 import type { CliProcessRunner } from "@/backend/agents/cli/CliProcessRunner";
@@ -18,6 +19,7 @@ import type {
   AgentToolHealthChecks,
   AgentToolLocation,
   AgentToolStorage,
+  AgentToolRunContext,
 } from "./AgentToolContracts";
 
 /** Uses the package's own pinned browser revision, without downloading during a check. */
@@ -80,21 +82,10 @@ export class AgentToolHealthService implements AgentToolHealthChecks {
     signal: AbortSignal,
   ): Promise<AgentToolHealth> {
     try {
-      signal.throwIfAborted();
-      if (tool.probe === "sandbox") return await this.sandbox();
-      if (tool.probe === "browser") {
-        await access(location.file, constants.X_OK);
-        return await this.browser(tool, location, signal);
-      }
-      await access(location.file, constants.X_OK);
-      if (tool.id === "antigravity_acp")
-        await access(
-          path.join(path.dirname(location.file), "localharness_external"),
-          constants.X_OK,
-        );
-      if (tool.probe === "acp" || tool.probe === "mcp")
-        return await this.protocol(tool, location, signal);
-      return await this.version(tool, location, signal);
+      return await new AgentToolRunFiles(this.files).temporary(
+        (temporaryDirectory) =>
+          this.inspect(tool, location, { signal, temporaryDirectory }),
+      );
     } catch (error: unknown) {
       if (error instanceof AgentToolReadinessError)
         return {
@@ -112,10 +103,29 @@ export class AgentToolHealthService implements AgentToolHealthChecks {
     }
   }
 
+  private async inspect(
+    tool: AgentToolDefinition,
+    location: AgentToolLocation,
+    control: AgentToolRunContext,
+  ): Promise<AgentToolHealth> {
+    control.signal.throwIfAborted();
+    if (tool.probe === "sandbox") return this.sandbox(control);
+    await access(location.file, constants.X_OK);
+    if (tool.probe === "browser") return this.browser(tool, location, control);
+    if (tool.id === "antigravity_acp")
+      await access(
+        path.join(path.dirname(location.file), "localharness_external"),
+        constants.X_OK,
+      );
+    if (tool.probe === "acp" || tool.probe === "mcp")
+      return this.protocol(tool, location, control);
+    return this.version(tool, location, control);
+  }
+
   private async version(
     tool: AgentToolDefinition,
     location: AgentToolLocation,
-    signal: AbortSignal,
+    control: AgentToolRunContext,
   ): Promise<AgentToolHealth> {
     const result = await this.runner.run({
       file: location.file,
@@ -123,7 +133,8 @@ export class AgentToolHealthService implements AgentToolHealthChecks {
       provider: healthProvider(tool),
       home: await this.files.home(),
       stdin: "ignore",
-      signal,
+      environment: { TMPDIR: control.temporaryDirectory },
+      signal: control.signal,
       timeoutMs: 10_000,
     });
     const version =
@@ -135,8 +146,24 @@ export class AgentToolHealthService implements AgentToolHealthChecks {
       : { status: "unsupported", diagnostic: "version_unsupported", version };
   }
 
-  private async sandbox(): Promise<AgentToolHealth> {
-    return (await probeBubblewrap())
+  private async sandbox(
+    control: AgentToolRunContext,
+  ): Promise<AgentToolHealth> {
+    const isAvailable = await probeBubblewrap(async (file, args) => {
+      const result = await this.runner.run({
+        file,
+        arguments: args,
+        provider: "codex_cli",
+        home: await this.files.home(),
+        environment: { TMPDIR: control.temporaryDirectory },
+        signal: control.signal,
+        stdin: "ignore",
+        timeoutMs: 10_000,
+      });
+      if (result.exitCode !== 0 || result.errorCode)
+        throw new Error("Sandbox probe failed");
+    });
+    return isAvailable
       ? READY
       : {
           status: "missing_dependency",
@@ -148,7 +175,7 @@ export class AgentToolHealthService implements AgentToolHealthChecks {
   private async protocol(
     tool: AgentToolDefinition,
     location: AgentToolLocation,
-    signal: AbortSignal,
+    control: AgentToolRunContext,
   ): Promise<AgentToolHealth> {
     const runner = tool.id === "codex_acp" ? await this.resolve("codex") : null;
     const claude =
@@ -157,8 +184,9 @@ export class AgentToolHealthService implements AgentToolHealthChecks {
       tool,
       file: location.file,
       home: await this.files.home(),
-      signal,
+      signal: control.signal,
       environment: {
+        TMPDIR: control.temporaryDirectory,
         ...(runner ? { CODEX_PATH: runner.file } : {}),
         ...(claude ? { CLAUDE_CODE_EXECUTABLE: claude.file } : {}),
       },
@@ -205,7 +233,7 @@ export class AgentToolHealthService implements AgentToolHealthChecks {
   private async browser(
     tool: AgentToolDefinition,
     location: AgentToolLocation,
-    signal: AbortSignal,
+    control: AgentToolRunContext,
   ): Promise<AgentToolHealth> {
     const mcp = await this.resolve("playwright_mcp");
     if (!mcp || !location.release)
@@ -236,13 +264,13 @@ export class AgentToolHealthService implements AgentToolHealthChecks {
       provider: "codex_cli",
       home: await this.files.home(),
       environment: {
-        TMPDIR: path.join(this.files.root, "probe"),
+        TMPDIR: control.temporaryDirectory,
         PAGES_RUN_INSTANCE: instanceId,
         PAGES_PLAYWRIGHT_ENTRY: mcp.file,
         PAGES_BROWSER: tool.id,
         PLAYWRIGHT_BROWSERS_PATH: path.join(location.release, "browsers"),
       },
-      signal,
+      signal: control.signal,
       stdin: "ignore",
       timeoutMs: 20_000,
     });

@@ -1,8 +1,6 @@
 import { allPlanSteps } from "@/definition/AgentPlanGroup";
-import {
-  readPlanInput,
-  readPlanSharing,
-} from "@/backend/agents/AgentPlanInput";
+import { readPlanInput } from "@/backend/agents/AgentPlanInput";
+import { readPlanSharing } from "@/backend/agents/AgentPlanSettingsInput";
 import { requireCloneablePlan } from "@/backend/agents/AgentPlanCloneShape";
 import { isUniqueViolationOn } from "@/backend/database/Database";
 import {
@@ -470,8 +468,8 @@ export class AgentPlanRepository {
    * Deletes an owner's plan unless one of its runs is still active.
    *
    * @remarks
-   * Finished runs stay stored, so the run records of the agents keep their
-   * history; without the plan they are no longer listed anywhere.
+   * Periodic retention purges the deleted plan's runs and queues their files
+   * once their resources and cleanup obligations have settled.
    *
    * @param id - The plan.
    * @param ownerId - The owner the plan must still belong to, or `null` for an

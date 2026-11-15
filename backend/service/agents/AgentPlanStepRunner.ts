@@ -14,6 +14,7 @@ import {
 } from "./AgentPlanTurnControl";
 import { planPauseGate } from "./AgentPlanPauseGate";
 import { runPausablePlanRequest } from "./AgentPlanPausedRequest";
+import { withGroupIterationInputs } from "./AgentPlanGroupParameters";
 import {
   finishStartedPlanSession,
   planSessionCloseoutFailure,
@@ -295,7 +296,7 @@ export class AgentPlanStepRunner {
       (entry) => entry.step.id === node.step.step.id,
     );
     if (!step) throw new AgentError("plan_binding_invalid");
-    node.step = step;
+    node.step = withGroupIterationInputs(step, node.step);
   }
 
   private async request(

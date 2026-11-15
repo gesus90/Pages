@@ -10,6 +10,8 @@ import { AgentError } from "@/backend/error/AgentErrors";
 import { logCaughtError } from "@/backend/logging/Logger";
 
 import { AgentDeferredGarbage } from "./AgentDeferredGarbage";
+import { LocalJournalCompaction } from "./LocalJournalCompaction";
+import { LocalJournalGarbage } from "./LocalJournalGarbage";
 
 import type { GarbageDatabase } from "./AgentDeferredGarbage";
 
@@ -78,6 +80,7 @@ export class AgentPayloadFileStore {
   private readonly directory: string;
   private readonly garbage = new SerialQueue();
   private readonly deferred: AgentDeferredGarbage;
+  private readonly journals: LocalJournalGarbage;
 
   /**
    * Creates the store of one instance data directory.
@@ -95,6 +98,11 @@ export class AgentPayloadFileStore {
       removePayload: (reference) => this.removeReference(reference),
       retryDelayMs: options.deferredRetryMs,
     });
+    this.journals = new LocalJournalGarbage(
+      new LocalJournalCompaction(this.directory, (reference) =>
+        this.removeReference(reference),
+      ),
+    );
   }
 
   /** Writes and fsyncs bytes, then atomically publishes and fsyncs their directory. */
@@ -180,15 +188,23 @@ export class AgentPayloadFileStore {
       }
     });
     this.deferred.schedule(database);
+    this.scheduleJournalGarbage(database);
+  }
+
+  /** Schedules acknowledged journal cleanup without blocking native update acceptance. */
+  public scheduleJournalGarbage(database: GarbageDatabase): void {
+    this.journals.schedule(database);
   }
 
   /** Resolves once the background deletions that are scheduled now have finished. */
   public async settleGarbage(): Promise<void> {
     await this.deferred.idle();
+    await this.journals.idle();
   }
 
   /** Stops background deletions; the one in progress finishes first, the rest waits for the next start. */
   public async close(): Promise<void> {
+    await this.journals.close();
     await this.deferred.close();
   }
 

@@ -17,7 +17,7 @@ import {
   syntheticLoop,
 } from "./plan-loop-fixture";
 
-import type { AgentPlanRun } from "@/definition/AgentPlan";
+import type { AgentPlanInput, AgentPlanRun } from "@/definition/AgentPlan";
 import type { AgentPlanLoop } from "@/definition/AgentPlanLoop";
 
 function Panel(props: {
@@ -166,4 +166,50 @@ it("shows no run section without a record and locks the name while disabled", ()
   expect(
     screen.getByRole("switch", { name: i18n.t("plans.loops.session.title") }),
   ).toHaveProperty("disabled", true);
+});
+
+it("shows group session inheritance without a conflicting session switch", () => {
+  const loop = syntheticLoop({ sessionPolicy: "fresh" });
+  function GroupPanel(): React.ReactElement {
+    const [draft, setDraft] = useState<AgentPlanInput>(() => ({
+      ...loopPlan(loop),
+      nodes: [
+        {
+          id: "outer",
+          type: "group" as const,
+          name: "Context",
+          x: 0,
+          y: 0,
+          steps: [],
+          loops: [loop],
+          edges: [],
+          bindings: {},
+          parameters: [],
+        },
+      ],
+    }));
+    const graph = usePlanGraph(draft, setDraft, SOURCES);
+    return (
+      <PlanLoopPanel
+        loop={loop}
+        draft={draft}
+        sources={SOURCES}
+        graph={graph}
+        run={null}
+        isDisabled={false}
+        onClose={() => undefined}
+      />
+    );
+  }
+  render(
+    <I18nextProvider i18n={i18n}>
+      <GroupPanel />
+    </I18nextProvider>,
+  );
+  expect(
+    screen.getByText(i18n.t("plans.loops.session.inheritGroup")),
+  ).toBeDefined();
+  expect(
+    screen.queryByRole("switch", { name: i18n.t("plans.loops.session.title") }),
+  ).toBeNull();
 });

@@ -1,3 +1,4 @@
+import { planLoopOwner } from "./AgentPlanGroupLoop";
 import { planLoopMembers } from "./AgentPlanLoop";
 
 import type {
@@ -141,13 +142,15 @@ function detachGroup<Plan extends AgentPlanInput>(
 export function placePlanGroupInLoop<Plan extends AgentPlanInput>(
   plan: Plan,
   placement: PlanGroupPlacement,
-): PlanFrameMove<Plan> | "missingAgent" {
+): PlanFrameMove<Plan> | "missingAgent" | "nestedGroup" {
   const found = findPlanGroupLocation(plan, placement.groupId);
   const target = plan.nodes.find(
     (node): node is AgentPlanLoop =>
       node.type === "loop" && node.id === placement.loopId,
   );
   if (!found || (placement.loopId !== null && !target)) return "missingAgent";
+  if (target && (found.group.loops?.length || planLoopOwner(plan, target.id)))
+    return "nestedGroup";
   const moved = { ...found.group, ...placement.position };
   if ((found.loop?.id ?? null) === placement.loopId)
     return {

@@ -1,7 +1,5 @@
-import {
-  readPlanInput,
-  readPlanSharing,
-} from "@/backend/agents/AgentPlanInput";
+import { readPlanInput } from "@/backend/agents/AgentPlanInput";
+import { readPlanSharing } from "@/backend/agents/AgentPlanSettingsInput";
 import { planConnectionIssues } from "@/definition/AgentPlanGraph";
 import { replacePlanNode } from "@/definition/AgentPlanGroupEdit";
 import { planExecutionTargetSchema } from "@/definition/AgentPlanExecution";

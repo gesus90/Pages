@@ -4,6 +4,7 @@ import { Writable } from "node:stream";
 
 import { CliPausableDeadline } from "@/backend/agents/cli/CliPausableDeadline";
 
+import { prepareSharedAgentEnvironment } from "@/backend/agents/cli/AgentSharedEnvironment";
 import { captureOwnedNamespace } from "@/backend/agents/cli/CliOwnedNamespace";
 import { sshConfigOverlayArguments } from "@/backend/agents/cli/CliSshConfigOverlay";
 
@@ -19,6 +20,7 @@ export interface ScriptProcessRequest {
   readonly runId?: string;
   readonly program: string;
   readonly resources: string;
+  readonly sharedEnvironment: string;
   readonly input: string;
   readonly timeoutSeconds: number;
   /** Additions of Pages' own Git closeout; scripts of a plan get none. */
@@ -32,6 +34,8 @@ export interface ScriptProcessRequest {
 export async function executeScriptProcess(
   request: ScriptProcessRequest,
 ): Promise<AgentPlanScriptRun> {
+  request.signal.throwIfAborted();
+  await prepareSharedAgentEnvironment(request.sharedEnvironment);
   request.signal.throwIfAborted();
   request.claimStart();
   const sshConfigOverlay = await sshConfigOverlayArguments(
@@ -54,6 +58,9 @@ export async function executeScriptProcess(
         "--dev",
         "/dev",
         ...sshConfigOverlay,
+        "--bind",
+        request.sharedEnvironment,
+        request.sharedEnvironment,
         "--chdir",
         request.record.directory,
         "--",
@@ -73,6 +80,7 @@ export async function executeScriptProcess(
             directory: request.resources,
             interpreter: request.program,
             instanceId: request.record.instanceId,
+            sharedEnvironment: request.sharedEnvironment,
           }),
           ...request.environment,
         },

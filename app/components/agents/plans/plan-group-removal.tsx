@@ -1,7 +1,10 @@
 import { useTranslation } from "react-i18next";
 
+import {
+  planContainedNodes,
+  planGroupContent,
+} from "@/definition/AgentPlanGroupLoop";
 import { planFrameUngroupNeedsRepair } from "@/definition/AgentPlanFrameSafety";
-
 import { Button } from "@/app/components/ui/button";
 import {
   Dialog,
@@ -9,7 +12,6 @@ import {
   DialogDescription,
   DialogTitle,
 } from "@/app/components/ui/dialog";
-
 import { findPlanGroupLocation } from "@/definition/AgentPlanLoopGroupEdit";
 
 import type { AgentPlanGroup } from "@/definition/AgentPlanGroup";
@@ -24,7 +26,7 @@ function removalFrame(
 ): AgentPlanGroup | AgentPlanLoop | null {
   if (id === null) return null;
   const found =
-    draft.nodes.find((node) => node.id === id) ??
+    planContainedNodes(draft).find((node) => node.id === id) ??
     findPlanGroupLocation(draft, id)?.group;
   return found?.type === "group" || found?.type === "loop" ? found : null;
 }
@@ -47,7 +49,10 @@ export function PlanGroupRemoval(props: {
   const kind = frame?.type === "loop" ? "loops" : "groups";
   const isOpen = frame !== null && props.canEdit;
   const name = frame?.name ?? "";
-  const count = frame?.steps.length ?? 0;
+  const count =
+    frame?.type === "group"
+      ? planGroupContent(frame).length
+      : (frame?.steps.length ?? 0);
   return (
     <Dialog
       open={isOpen}

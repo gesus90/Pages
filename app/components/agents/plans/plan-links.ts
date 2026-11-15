@@ -1,3 +1,4 @@
+import { planContainedNodes } from "@/definition/AgentPlanGroupLoop";
 import {
   PLAN_PORT,
   planEdgeBranch,
@@ -279,13 +280,14 @@ function groupLinks(
       .map((edge) => containerLink(edge, { groupId: group.id })),
     ...decisionLinks(group.decisions, ids),
     ...group.steps.flatMap((step) => bindingLinks(step, ids, group)),
+    ...(group.loops ?? []).flatMap((loop) => loopLinks(loop, ids)),
   ];
 }
 
 /** Lists flow edges and parameter bindings whose two nodes both exist, inside frames too. */
 export function planLinks(plan: AgentPlanInput): readonly PlanLink[] {
   const ids = new Set([
-    ...plan.nodes.map((node) => node.id),
+    ...planContainedNodes(plan).map((node) => node.id),
     ...allPlanSteps(plan).map((step) => step.id),
     ...allPlanLoopMembers(plan).map((step) => step.id),
     ...plan.nodes.flatMap((node) =>
@@ -374,7 +376,7 @@ export function planLinkLabel(
 ): string {
   function label(id: string): string {
     const node =
-      draft.nodes.find((entry) => entry.id === id) ??
+      planContainedNodes(draft).find((entry) => entry.id === id) ??
       findPlanStep(draft, id)?.step ??
       allPlanDecisions(draft).find((entry) => entry.id === id);
     return node ? planNodeLabel(node, sources) : id;

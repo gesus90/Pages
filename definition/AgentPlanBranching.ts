@@ -1,3 +1,4 @@
+import { planContainedNodes } from "./AgentPlanGroupLoop";
 import { planDecisionCaseId } from "./AgentPlanDecision";
 
 import type { AgentPlanEdge, AgentPlanInput } from "./AgentPlan";
@@ -181,16 +182,10 @@ export function planContainedEdges(
     readonly nodes?: AgentPlanInput["nodes"];
   },
 ): readonly AgentPlanEdge[] {
-  const inner = (plan.nodes ?? []).flatMap((node): readonly AgentPlanEdge[] => {
-    if (node.type === "group") return node.edges ?? [];
-    if (node.type !== "loop") return [];
-    return [
-      ...node.edges,
-      ...node.steps.flatMap((member) =>
-        member.type === "group" ? (member.edges ?? []) : [],
-      ),
-    ];
-  });
+  const inner = planContainedNodes({ nodes: plan.nodes ?? [] }).flatMap(
+    (node) =>
+      node.type === "group" || node.type === "loop" ? (node.edges ?? []) : [],
+  );
   return inner.length === 0 ? plan.edges : [...plan.edges, ...inner];
 }
 

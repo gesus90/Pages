@@ -3,6 +3,8 @@ import { createPageAgentSessions } from "./agent-plan-page-sessions.server";
 import type { AgentSessionRunAccess, AgentSessionService } from "@/backend/service/agents/sessions/AgentSessionService";
 import { CodexPlanUsageRepository } from "@/backend/database/repositories/agent/CodexPlanUsageRepository";
 import { CodexAgentBudget } from "@/backend/service/agents/usage/CodexAgentBudget";
+import path from "node:path";
+
 import { createModelNodeRunners } from "./agent-plan-swarm.server";
 import { canProcessRuns } from "@/backend/runtime/RunsMode";
 import { registerShutdownTask } from "@/backend/runtime/ProcessLifecycle";
@@ -610,7 +612,10 @@ async function createPlanEngine(
     localSessions: input.agents.localSessions ?? undefined,
     workGate: new AgentPlanWorkGate(input.database, input.users),
     remoteExecution: parts.remoteExecution,
-    scripts: new AgentPlanScriptRunner(parts.scripts),
+    scripts: new AgentPlanScriptRunner(
+      parts.scripts,
+      path.join(path.dirname(runtime.getDatabasePath()), "shared-env"),
+    ),
     ...createModelNodeRunners(input, parts),
     runs: parts.runs,
     start: parts.start,

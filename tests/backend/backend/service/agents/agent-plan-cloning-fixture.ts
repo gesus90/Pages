@@ -91,6 +91,7 @@ export class CloneWorld {
       require: this.require,
       validateTeams: this.validateTeams,
       team: async () => ({ departmentId: "development" }),
+      requireFullEnvironment: async () => undefined,
     }),
     workspaces: partial({ choices: this.choices, resolve: this.resolve }),
     profiles: partial({

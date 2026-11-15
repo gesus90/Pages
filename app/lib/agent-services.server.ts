@@ -5,6 +5,9 @@ import { OpenRouterPriceRepository } from "@/backend/database/repositories/agent
 import { OpenRouterPriceService } from "@/backend/service/agents/usage/OpenRouterPriceService";
 import { registerShutdownTask } from "@/backend/runtime/ProcessLifecycle";
 import { AgentEnvironmentRepository } from "@/backend/database/repositories/agent/AgentEnvironmentRepository";
+import { StorageMaintenanceRepository } from "@/backend/database/repositories/storage/StorageMaintenanceRepository";
+import { StorageMaintenance } from "@/backend/storage/StorageMaintenance";
+import { PagesEventPublisher } from "@/backend/service/events/PagesEventPublisher";
 import { AgentEnvironmentMaintenance } from "@/backend/storage/AgentEnvironmentMaintenance";
 import { WikiMaintenanceScheduler } from "@/backend/service/wiki/WikiMaintenanceScheduler";
 import { ClaudeMonthlyBudget } from "@/backend/service/agents/sessions/ClaudeMonthlyBudget";
@@ -305,6 +308,7 @@ function createGitHubCredentials(input: {
 }
 
 interface AgentServiceResources {
+  readonly events?: PagesEventPublisher;
   readonly recoveryScope?: AcpRecoveryScope;
   readonly configPath?: string;
   readonly acpOptions?: Partial<AcpResourceOptions>;
@@ -434,7 +438,12 @@ export function createAgentServices(
     cipher,
   });
   const { runtime, agentToolManagerService } = cliRuntime;
-  startEnvironmentMaintenance(database, dataDirectory, agentToolManagerService);
+  startEnvironmentMaintenance(
+    database,
+    dataDirectory,
+    agentToolManagerService,
+    resources,
+  );
   const localSessions = createLocalSessions(database, dataDirectory, tokenKey, {
     resources,
     acpResourceScheduler,
@@ -600,13 +609,26 @@ function startEnvironmentMaintenance(
   database: Database,
   directory: string,
   tools: AgentToolManagerService,
+  resources: Pick<AgentServiceResources, "configPath" | "events">,
 ): void {
   if (!canProcessRuns()) return;
+  const { configPath } = resources;
   const repository = new AgentEnvironmentRepository(database);
   const files = new AgentEnvironmentMaintenance(directory, repository);
+  const config = configPath ? new ConfigFile(configPath) : null;
+  const storage = new StorageMaintenance({
+    dataDirectory: directory,
+    pagesDirectory: configPath
+      ? path.dirname(configPath)
+      : path.dirname(directory),
+    repository: new StorageMaintenanceRepository(database),
+    events: resources.events ?? new PagesEventPublisher(database),
+    readWarningBytes: async () => (await config?.read())?.storageWarningBytes,
+  });
   const scheduler = new WikiMaintenanceScheduler(
     {
       runMaintenance: async () => {
+        await storage.run();
         await files.run();
         await database.agentFiles?.collectGarbage(database);
         if (!(await repository.hasActiveWorkers()))

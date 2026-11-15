@@ -1,6 +1,7 @@
 import { Lock } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
+import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
 import { cn } from "@/app/lib/cn";
 import { isActivePlanRun } from "@/definition/AgentPlanRunState";
 
@@ -45,8 +46,8 @@ export function planRunGroupSession(
   run: AgentPlanRun | null,
   groupId: string,
 ): PlanGroupSessionView {
-  const members = (run?.steps ?? []).filter(
-    (step) => step.groupId === groupId && step.session?.group,
+  const members = (run ? allPlanRunResults(run) : []).filter(
+    (step) => step.session?.group?.groupId === groupId,
   );
   const creator =
     members.find((step) => step.session?.group?.role === "created") ?? null;
@@ -65,7 +66,10 @@ export function planRunGroupSession(
     acpSessionId,
     creator,
     adapter: record?.group?.adapter ?? null,
-    turns: members.length,
+    turns: Math.max(
+      0,
+      ...members.map((step) => step.session?.group?.turn ?? 0),
+    ),
   };
 }
 

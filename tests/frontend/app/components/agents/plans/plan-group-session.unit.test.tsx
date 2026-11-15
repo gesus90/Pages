@@ -17,6 +17,8 @@ interface MemberOptions {
   readonly acpSessionId?: string | null;
   readonly session?: Partial<AgentPlanSessionRecord>;
   readonly groupId?: string;
+  /** The place of the member's turn in the shared session, from 1. */
+  readonly turn?: number;
 }
 
 function member(id: string, options: MemberOptions = {}): AgentPlanStepResult {
@@ -31,7 +33,7 @@ function member(id: string, options: MemberOptions = {}): AgentPlanStepResult {
         adapter: "codex_cli",
         role: options.role ?? "continued",
         creatorStepId: "first",
-        turn: 1,
+        turn: options.turn ?? 1,
         acpSessionId: options.acpSessionId ?? null,
         nativeSessionId: null,
       },
@@ -85,7 +87,7 @@ it("tells a session that never got an ID apart from one that failed to open", ()
 it("keeps an open session active while the run goes on and failed once it ended", () => {
   const steps = [
     member("first", { role: "created", session: { closeout: "pending" } }),
-    member("second", { acpSessionId: "acp-1" }),
+    member("second", { acpSessionId: "acp-1", turn: 2 }),
   ];
   const active = planRunGroupSession(run(steps), "group");
   expect(active).toMatchObject({

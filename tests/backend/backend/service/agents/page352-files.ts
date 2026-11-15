@@ -65,6 +65,21 @@ export class AgentEnvironmentFiles {
             isDirectory: () => entry.kind === "directory",
           }));
       },
+      rmdir: async (directory: string) => {
+        const entry = this.require(directory);
+        if (entry.kind !== "directory")
+          throw Object.assign(new Error("Not a directory"), {
+            code: "ENOTDIR",
+          });
+        if (
+          [...this.entries.keys()].some((location) =>
+            location.startsWith(`${directory}/`),
+          )
+        )
+          throw Object.assign(new Error("Not empty"), { code: "ENOTEMPTY" });
+        this.entries.delete(directory);
+        this.removed.push(directory);
+      },
       rm: async (directory: string) => {
         this.removed.push(directory);
         for (const location of this.entries.keys())

@@ -1,3 +1,8 @@
+import {
+  allPlanLoops,
+  planGroupContent,
+  planContainedNodes,
+} from "./AgentPlanGroupLoop";
 import { isAcpProvider } from "./AgentConfiguration";
 import { expandPlanGroups, planStepAdapter } from "./AgentPlanGroup";
 import {
@@ -334,9 +339,13 @@ function planContainers(plan: AgentPlanInput): ReadonlyMap<string, string> {
   const containers = new Map<string, string>();
   for (const node of plan.nodes) {
     if (node.type === "group")
-      for (const entry of [...node.steps, ...(node.decisions ?? [])])
+      for (const entry of [
+        ...planGroupContent(node),
+        ...(node.decisions ?? []),
+      ])
         containers.set(entry.id, node.id);
-    if (node.type !== "loop") continue;
+  }
+  for (const node of allPlanLoops(plan)) {
     const inside = [
       ...planLoopMembers(node),
       ...planLoopDecisions(node),
@@ -359,7 +368,7 @@ function planContainers(plan: AgentPlanInput): ReadonlyMap<string, string> {
 function boundaryIssues(plan: AgentPlanInput): AgentPlanIssue[] {
   const containers = planContainers(plan);
   const frameNodes = new Set(
-    plan.nodes
+    planContainedNodes(plan)
       .filter((node) => node.type === "group" || node.type === "loop")
       .map((node) => node.id),
   );

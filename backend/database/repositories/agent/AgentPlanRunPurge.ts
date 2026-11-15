@@ -2,6 +2,11 @@ import { readTextColumn } from "@/backend/database/RowValue";
 import { AgentRunFailureRepository } from "@/backend/database/repositories/diagnosis/AgentRunFailureRepository";
 import { indexRunFailures } from "@/backend/service/agents/diagnosis/AgentRunFailureIndexer";
 
+import {
+  PLAN_RUN_PURGE_BATCH_SIZE,
+  SETTLED_PLAN_RUN,
+} from "./AgentPlanRunRetention";
+
 import type {
   Database,
   DatabaseTransaction,
@@ -13,7 +18,7 @@ export const PLAN_RUN_PURGE_PREFIX = "plan-runs/";
 /** The database a purge needs: plain reads and one transaction per earlier run. */
 export type PlanRunPurgeDatabase = Pick<Database, "transaction" | "query">;
 
-/** Earlier runs of the kept run's plan; recoveries of the kept run are newer and stay. */
+/** Earlier runs include recovery and forced-release records once their resources settle. */
 const EARLIER_RUNS = `
   SELECT earlier.id
   FROM agent_plan_runs AS earlier
@@ -21,51 +26,19 @@ const EARLIER_RUNS = `
       ON kept.plan_id = earlier.plan_id
   WHERE kept.id = $kept_run_id
       AND earlier.id <> kept.id
-      AND (earlier.view_json::jsonb -> 'resourceReleases') IS NULL
-      AND (
-          earlier.creation_order IS NULL
-          OR earlier.creation_order < kept.creation_order
-      )
-  ORDER BY earlier.creation_order, earlier.id;
+      AND (earlier.started_at, earlier.id) < (kept.started_at, kept.id)
+  ORDER BY earlier.started_at, earlier.id
+  LIMIT ${PLAN_RUN_PURGE_BATCH_SIZE};
 `;
 
 /**
- * A run whose execution or cleanup has not settled yet; its rows still prove
- * an owner, a lease or a reservation and wait for the next attempt.
+ * Locks a terminal run only after its execution and cleanup have settled.
  */
 const SETTLED_RUN = `
   SELECT runs.id
   FROM agent_plan_runs AS runs
   WHERE runs.id = $run_id
-      AND (NOT $preserve_released OR (runs.view_json::jsonb -> 'resourceReleases') IS NULL)
-      AND runs.status NOT IN ('running', 'pausing', 'paused', 'stopping')
-      AND NOT EXISTS (
-          SELECT 1 FROM acp_resource_leases WHERE run_id = runs.id
-      )
-      AND NOT EXISTS (
-          SELECT 1 FROM agent_plan_workspace_locks WHERE run_id = runs.id
-      )
-      AND NOT EXISTS (
-          SELECT 1
-          FROM agent_workspace_cleanup
-          WHERE run_id = runs.id
-              AND state = 'pending'
-      )
-      AND NOT EXISTS (
-          SELECT 1
-          FROM agent_local_session_owners
-          WHERE run_id = runs.id
-              AND released_at IS NULL
-      )
-      AND NOT EXISTS (
-          SELECT 1 FROM plan_run_api_cleanup WHERE run_id = runs.id
-      )
-      AND NOT EXISTS (
-          SELECT 1
-          FROM plan_run_commands
-          WHERE run_id = runs.id
-              AND status = 'accepted'
-      )
+      AND ${SETTLED_PLAN_RUN}
   FOR UPDATE;
 `;
 
@@ -159,14 +132,12 @@ async function deleteRun(
 async function purgeRun(
   database: PlanRunPurgeDatabase,
   runId: string,
-  preserveReleased = true,
 ): Promise<boolean> {
   // The failures of the run stay countable after it is gone (PAGE-307).
   await indexRunFailures(new AgentRunFailureRepository(database), runId);
   return database.transaction(async (transaction) => {
     const [settled] = await transaction.query(SETTLED_RUN, {
       run_id: runId,
-      preserve_released: preserveReleased,
     });
     if (!settled) return false;
     await deleteRun(transaction, runId);
@@ -224,16 +195,14 @@ export async function queueEarlierRunPurge(
  *
  * @param database - The database; each run goes in a transaction of its own.
  * @param keptRunId - The genuinely new run whose start asked for the purge.
- * @returns Whether no earlier run is left; `false` while one has not settled.
+ * @returns Whether no earlier run is left; `false` while a batch or protected run remains.
  *
  * @remarks
- * Runs of other plans, the kept run and its own recoveries stay. Stopping,
- * pausing, resuming, recovering and repairing never call this, so a run keeps
- * its logs, tables and transcripts until its plan starts a new run. Refused
- * starts of the plan before the kept run go as well. A run that still holds
+ * Runs of other plans and the kept run stay. Refused starts of the plan
+ * before the kept run go as well. A run that still holds
  * a lease, a writer lock, a pending cleanup, an unreleased local owner or an
  * accepted command stays until that settled, and a repeated purge finishes it.
- * Runs with a forced-release journal stay as evidence until explicit plan deletion.
+ * Recovery and forced-release records follow the same retention rule.
  */
 export async function purgeEarlierPlanRuns(
   database: PlanRunPurgeDatabase,
@@ -242,7 +211,7 @@ export async function purgeEarlierPlanRuns(
   const earlier = await database.query(EARLIER_RUNS, {
     kept_run_id: keptRunId,
   });
-  let isComplete = true;
+  let isComplete = earlier.length < PLAN_RUN_PURGE_BATCH_SIZE;
   for (const row of earlier)
     if (!(await purgeRun(database, readTextColumn(row, 0, "id"))))
       isComplete = false;
@@ -279,7 +248,40 @@ export async function purgeAllPlanRuns(
   );
   let isComplete = true;
   for (const row of runs)
-    if (!(await purgeRun(database, readTextColumn(row, 0, "id"), false)))
+    if (!(await purgeRun(database, readTextColumn(row, 0, "id"))))
       isComplete = false;
   return isComplete;
+}
+
+/**
+ * Purges one bounded batch of settled orphaned or superseded runs, without a new start.
+ *
+ * @remarks
+ * The newest run is determined by started_at, with id breaking ties. Protected
+ * runs are excluded before the limit so they cannot starve the backlog. Every
+ * candidate is checked again under its row lock by the common purge path.
+ */
+export async function purgeObsoletePlanRuns(
+  database: PlanRunPurgeDatabase,
+): Promise<void> {
+  const runs = await database.query(`
+    SELECT runs.id
+    FROM agent_plan_runs AS runs
+    WHERE ${SETTLED_PLAN_RUN}
+        AND (
+            NOT EXISTS (
+                SELECT 1 FROM agent_plans WHERE id = runs.plan_id
+            )
+            OR EXISTS (
+                SELECT 1
+                FROM agent_plan_runs AS newer
+                WHERE newer.plan_id = runs.plan_id
+                    AND (newer.started_at, newer.id) > (runs.started_at, runs.id)
+            )
+        )
+    ORDER BY runs.started_at, runs.id
+    LIMIT ${PLAN_RUN_PURGE_BATCH_SIZE};
+  `);
+  for (const row of runs)
+    await purgeRun(database, readTextColumn(row, 0, "id"));
 }

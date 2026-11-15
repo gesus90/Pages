@@ -7,6 +7,9 @@ import { AutomationRepository } from "@/backend/database/repositories/automation
 import { AutomationRunRepository } from "@/backend/database/repositories/automation/AutomationRunRepository";
 import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 
+import { storageUsageSchema } from "@/definition/StorageUsage";
+
+import type { StorageUsage } from "@/definition/StorageUsage";
 import type { Database } from "@/backend/database/Database";
 import type { StoredAutomationEvent } from "@/backend/database/repositories/automation/AutomationEventRepository";
 import type { StoredAutomation } from "@/backend/database/repositories/automation/AutomationRepository";
@@ -59,6 +62,11 @@ const planPayloadSchema = z.object({
 
 /** An event read from the inbox, with the data its actions receive. */
 type IntakeEvent =
+  | {
+      readonly kind: "storage";
+      readonly stored: StoredAutomationEvent;
+      readonly data: StorageUsage;
+    }
   | {
       readonly kind: "plan";
       readonly stored: StoredAutomationEvent;
@@ -136,6 +144,12 @@ export class AutomationEventIntake {
     stored: StoredAutomationEvent,
   ): Promise<IntakeEvent | null> {
     const parsed: unknown = JSON.parse(stored.payload);
+    if (stored.eventType === "storage.limit_exceeded") {
+      const usage = storageUsageSchema.safeParse(parsed);
+      return usage.success
+        ? { kind: "storage", stored, data: usage.data }
+        : null;
+    }
     if (stored.eventType.startsWith("plan.")) {
       const plan = planPayloadSchema.safeParse(parsed);
       return plan.success
@@ -194,7 +208,7 @@ export class AutomationEventIntake {
         ))
       )
         return;
-    } else {
+    } else if (event.kind === "ticket") {
       if (!matchesTicket(trigger, event.data)) return;
       if (await this.isOwnTicket(automation, event)) return;
       if (
@@ -218,13 +232,13 @@ export class AutomationEventIntake {
       });
       return;
     }
+    const subject = event.kind === "ticket" ? event.data.ticket.key : null;
     await runs.enqueue({
       id: randomUUID(),
       automationId: automation.id,
       triggerKind: "event",
       eventType: event.stored.eventType,
-      triggerSubject:
-        event.kind === "plan" ? event.data.plan.name : event.data.ticket.key,
+      triggerSubject: event.kind === "plan" ? event.data.plan.name : subject,
       triggerData: JSON.stringify(event.data),
       requestedBy: null,
       queuedAt: now().toISOString(),

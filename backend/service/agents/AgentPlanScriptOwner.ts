@@ -31,6 +31,7 @@ const launchSchema = z.object({
   record: planScriptRunSchema,
   program: z.string(),
   resources: z.string(),
+  sharedEnvironment: z.string(),
   input: z.string(),
   timeoutSeconds: z.number(),
   environment: z.record(z.string(), z.string()).optional(),

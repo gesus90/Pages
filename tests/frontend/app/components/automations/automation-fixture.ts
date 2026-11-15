@@ -49,6 +49,7 @@ export const options: AutomationOptions = {
     "plan.step_changed": {},
     "ticket.created": {},
     "ticket.status_changed": {},
+    "storage.limit_exceeded": {},
   },
 };
 

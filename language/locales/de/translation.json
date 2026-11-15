@@ -6061,6 +6061,7 @@
         "while_false": "Bedingung false"
       },
       "session": {
+        "inheritGroup": "Sitzung der Gruppe übernehmen",
         "title": "Agent-Sessions behalten",
         "infoLabel": "Zum Behalten der Sessions",
         "info": "An: Jeder Agent setzt seine eigene ACP-Session in jedem Run mit einem neuen Turn fort. Aus: Jeder Run öffnet je Agent eine neue Session und beendet sie mit dem Node; nur die gebundenen Eingaben werden weitergegeben.",
@@ -8095,6 +8096,7 @@
       "plan_succeeded": "Plan erfolgreich beendet",
       "plan_failed": "Plan fehlgeschlagen",
       "plan_step_changed": "Plan-Schritt gewechselt",
+      "storage_limit_exceeded": "Speichergrenze überschritten",
       "ticket_created": "Ticket angelegt",
       "ticket_status_changed": "Ticket-Status geändert",
       "ticketToStatus": "Ticket auf {{status}}"
@@ -8104,6 +8106,7 @@
       "plan_succeeded": "ein Plan erfolgreich endet",
       "plan_failed": "ein Plan fehlschlägt",
       "plan_step_changed": "ein Plan den Schritt wechselt",
+      "storage_limit_exceeded": "die Speichergrenze überschritten wird",
       "ticket_created": "ein Ticket angelegt wird",
       "ticket_status_changed": "ein Ticket den Status wechselt"
     },

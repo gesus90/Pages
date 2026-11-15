@@ -327,8 +327,7 @@ async function initializeServices(
     userRepository,
     userService,
   } = foundation;
-  const { settingsService, designThemeService, boardPreferencesService } =
-    createPreferenceServices(database, databasePath);
+  const preferences = createPreferenceServices(database, databasePath);
   const tokenKey = resolveGitHubTokenKey(databasePath);
   const { projectRepository, projectService } = createProjectServices(
     database,
@@ -363,6 +362,7 @@ async function initializeServices(
       tokenKey,
       tickets: taskServices.taskAttachmentService,
       wiki: workspaceServices.wikiService,
+      events: pagesEventPublisher,
     },
   );
   const planServices = await preparePlanService(database, {
@@ -398,19 +398,18 @@ async function initializeServices(
       database,
       projectService,
       permissionService,
-      { settingsService, events: pagesEventPublisher },
+      { ...preferences, events: pagesEventPublisher },
     ),
     administrationService,
     authService,
-    boardPreferencesService,
-    designThemeService,
+    ...preferences,
     groupAdministrationService,
     ...workspaceServices,
     passwordHasher,
     permissionService,
     projectService,
     sessionService,
-    settingsService,
+    settingsService: preferences.settingsService,
     ...taskServices,
     userService,
   };

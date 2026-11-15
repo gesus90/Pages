@@ -62,34 +62,63 @@ async function pinLegacyNode(
   profiles: readonly AgentProfile[],
   connections: UpgradeDependencies["connections"],
 ): Promise<AgentPlanNode> {
-  if (node.type === "group") {
-    const steps = await Promise.all(
-      node.steps.map(async (step) => {
-        const upgraded = await pinLegacyNode(step, profiles, connections);
-        return upgraded.type === "agent" ? upgraded : step;
-      }),
-    );
-    return steps.some((step, index) => step !== node.steps[index])
-      ? { ...node, steps }
-      : node;
-  }
-  if (node.type === "loop") {
-    const steps = await Promise.all(
-      node.steps.map(async (step) => {
-        const upgraded = await pinLegacyNode(step, profiles, connections);
-        return upgraded.type === "agent" || upgraded.type === "script"
-          ? upgraded
-          : step;
-      }),
-    );
-    return steps.some((step, index) => step !== node.steps[index])
-      ? { ...node, steps }
-      : node;
-  }
+  if (node.type === "group")
+    return pinGroupMembers(node, profiles, connections);
+  if (node.type === "loop") return pinLoopSteps(node, profiles, connections);
   if (node.type !== "agent") return node;
   if (node.configuration) return directReference(node, profiles, connections);
   const source = profiles.find((profile) => profile.id === node.agentId);
   if (!source) return node;
+  return pinProfileNode(node, source, profiles, connections);
+}
+
+async function pinGroupMembers(
+  node: Extract<AgentPlanNode, { type: "group" }>,
+  profiles: readonly AgentProfile[],
+  connections: UpgradeDependencies["connections"],
+): Promise<AgentPlanNode> {
+  const steps = await Promise.all(
+    node.steps.map(async (step) => {
+      const upgraded = await pinLegacyNode(step, profiles, connections);
+      return upgraded.type === "agent" ? upgraded : step;
+    }),
+  );
+  const loops = await Promise.all(
+    (node.loops ?? []).map(async (loop) => {
+      const upgraded = await pinLegacyNode(loop, profiles, connections);
+      return upgraded.type === "loop" ? upgraded : loop;
+    }),
+  );
+  return steps.some((step, index) => step !== node.steps[index]) ||
+    loops.some((loop, index) => loop !== node.loops?.[index])
+    ? { ...node, steps, ...(node.loops ? { loops } : {}) }
+    : node;
+}
+
+async function pinLoopSteps(
+  node: Extract<AgentPlanNode, { type: "loop" }>,
+  profiles: readonly AgentProfile[],
+  connections: UpgradeDependencies["connections"],
+): Promise<AgentPlanNode> {
+  const steps = await Promise.all(
+    node.steps.map(async (step) => {
+      const upgraded = await pinLegacyNode(step, profiles, connections);
+      return upgraded.type === "agent" || upgraded.type === "script"
+        ? upgraded
+        : step;
+    }),
+  );
+  return steps.some((step, index) => step !== node.steps[index])
+    ? { ...node, steps }
+    : node;
+}
+
+async function pinProfileNode(
+  node: Extract<AgentPlanNode, { type: "agent" }>,
+  source: AgentProfile,
+  profiles: readonly AgentProfile[],
+  connections: UpgradeDependencies["connections"],
+): Promise<AgentPlanNode> {
   const configuration =
     source.configuration ?? configurationForTargets(source.targets);
   const connection = await connections.find(source.connectionId);

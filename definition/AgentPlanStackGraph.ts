@@ -1,5 +1,5 @@
+import { planContainedNodes } from "./AgentPlanGroupLoop";
 import { isAgentParameterName } from "./AgentParameters";
-import { planLoopMembers } from "./AgentPlanLoop";
 import { hasPlanPath } from "./AgentPlanPath";
 import { planValueIssue } from "./AgentPlanValue";
 import {
@@ -105,17 +105,13 @@ function scopeIssues(
 export function planBindingNodes(
   plan: Pick<AgentPlanInput, "nodes">,
 ): readonly PlanBindingNode[] {
-  return plan.nodes.flatMap((node): readonly PlanBindingNode[] => {
-    if (
+  return planContainedNodes(plan).filter(
+    (node): node is PlanBindingNode =>
       node.type === "agent" ||
       node.type === "script" ||
-      node.type === "git_closeout"
-    )
-      return [node];
-    if (node.type === "group") return node.steps;
-    if (node.type !== "loop") return [];
-    return [node, ...planLoopMembers(node)];
-  });
+      node.type === "git_closeout" ||
+      node.type === "loop",
+  );
 }
 
 /** A node that reads the content of a stack runs after the stack's trigger. */

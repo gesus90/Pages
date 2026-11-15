@@ -158,10 +158,8 @@ export function EventFields(props: SectionProps): React.ReactElement {
         onChange={(eventType) => eventTypeChange(props, eventType)}
         isReadOnly={isReadOnly}
       />
-      {PLAN_EVENT_TYPES.has(draft.eventType) ? (
-        <PlanFilters {...props} />
-      ) : (
-        <TicketFilters {...props} />
+      {draft.eventType === "storage.limit_exceeded" ? null : (
+        <EventFilters {...props} />
       )}
       <FormField label={t("automations.fields.eventData")}>
         <pre className="max-h-48 overflow-auto rounded-xl bg-muted px-3 py-2.5 font-mono text-xs leading-relaxed whitespace-pre-wrap text-foreground">
@@ -169,5 +167,13 @@ export function EventFields(props: SectionProps): React.ReactElement {
         </pre>
       </FormField>
     </>
+  );
+}
+
+function EventFilters(props: SectionProps): React.ReactElement {
+  return PLAN_EVENT_TYPES.has(props.draft.eventType) ? (
+    <PlanFilters {...props} />
+  ) : (
+    <TicketFilters {...props} />
   );
 }

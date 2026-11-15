@@ -17,8 +17,10 @@ import { AgentEnvironmentMaintenance } from "@/backend/storage/AgentEnvironmentM
 import { AgentToolFiles } from "@/backend/service/agents/tools/AgentToolFiles";
 import { agentToolDefinition } from "@/backend/service/agents/tools/AgentToolRegistry";
 
+import { partial } from "../../../app/lib/service-wiring-fakes";
 import { environmentFiles as files } from "./page352-files";
 
+import type { DatabaseTransaction } from "@/backend/database/Database";
 import type { CliHome } from "@/backend/agents/cli/CliContracts";
 
 const setup = vi.hoisted(() => ({ npm: vi.fn() }));
@@ -94,7 +96,9 @@ it("reuses plan/scope homes across runs and native recovery, with shared caches 
     expect(environment).toMatchObject({
       HOME: first.home.home,
       PNPM_HOME: `${SHARED}/pnpm`,
-      npm_config_store_dir: `${SHARED}/pnpm-store`,
+      npm_config_store_dir: `${SHARED}/pnpm/store`,
+      pnpm_config_store_dir: `${SHARED}/pnpm/store`,
+      pnpm_config_enable_global_virtual_store: "true",
       XDG_CACHE_HOME: `${SHARED}/cache`,
       npm_config_cache: `${SHARED}/cache/npm`,
       npm_config_cache_dir: `${SHARED}/cache/pnpm`,
@@ -154,6 +158,43 @@ it("binds the shared environment writable after protected instance folders are h
   );
 });
 
+it.each([
+  ["config", "get", "store-dir"],
+  ["install"],
+  ["exec", "tsc", "--version"],
+])(
+  "keeps pnpm command %j on the shared store inside the plan namespace",
+  async (...commandArguments) => {
+    const isolation = new CliPlanIsolation(["/memory/data"], async () => true);
+    const request = await isolation.isolate({
+      file: path.join(sharedPnpmBin(SHARED), "pnpm"),
+      arguments: commandArguments,
+      provider: "codex_cli",
+      home: HOME,
+      workingDirectory: "/workspace",
+      environment: {},
+      timeoutMs: 0,
+      signal: new AbortController().signal,
+      onLine: () => undefined,
+    });
+    if (!request) throw new Error("Expected the available plan namespace");
+    const environment = createCliRequestEnvironment(request);
+    expect(environment.pnpm_config_store_dir).toBe(`${SHARED}/pnpm/store`);
+    expect(environment.pnpm_config_enable_global_virtual_store).toBe("true");
+    expect(environment.PATH.split(path.delimiter)[0]).toBe(
+      sharedPnpmBin(SHARED),
+    );
+    const args = request.arguments;
+    const commandIndex = args.indexOf("--");
+    expect(args.slice(commandIndex + 1)).toEqual([
+      path.join(sharedPnpmBin(SHARED), "pnpm"),
+      ...commandArguments,
+    ]);
+    expect(args.join(" ")).toContain(`--bind ${SHARED} ${SHARED}`);
+    expect(args.indexOf(SHARED)).toBeGreaterThan(args.indexOf("--tmpfs"));
+  },
+);
+
 it("sweeps ended legacy runs without a new start, empties completed homes and removes deleted plans on all connections", async () => {
   const scope = "a".repeat(64);
   for (const connection of ["one", "two"]) {
@@ -171,6 +212,9 @@ it("sweeps ended legacy runs without a new start, empties completed homes and re
     );
   }
   const maintenance = new AgentEnvironmentMaintenance("/memory/data", {
+    purgeObsoleteRuns: async () => undefined,
+    maintainConnectionCaches: async (maintain) =>
+      maintain(partial<DatabaseTransaction>({})),
     canRemoveRun: async (id) => id === RUN,
     maintainPlan: async (id, maintain) => {
       await maintain("empty");
@@ -191,6 +235,9 @@ it("sweeps ended legacy runs without a new start, empties completed homes and re
     ),
   ).toBe(true);
   const deletion = new AgentEnvironmentMaintenance("/memory/data", {
+    purgeObsoleteRuns: async () => undefined,
+    maintainConnectionCaches: async (maintain) =>
+      maintain(partial<DatabaseTransaction>({})),
     canRemoveRun: async () => false,
     maintainPlan: async (id, maintain) => {
       await maintain("remove");

@@ -5,6 +5,9 @@ import {
   readTextColumn,
 } from "@/backend/database/RowValue";
 
+import { storageUsageSchema } from "@/definition/StorageUsage";
+
+import type { StorageUsage } from "@/definition/StorageUsage";
 import type { Database, DatabaseValue } from "@/backend/database/Database";
 
 /** One committed event with its position in the outbox. */
@@ -12,6 +15,7 @@ export interface StoredPagesEvent {
   readonly position: number;
   readonly type: string;
   readonly id: string;
+  readonly storage?: StorageUsage;
   readonly audience: {
     readonly projectId: string;
     readonly departmentIds: readonly string[];
@@ -58,7 +62,8 @@ const READ_EVENTS = `
       object_id,
       audience_project_id,
       audience_department_ids,
-      to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS created_at
+      to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') AS created_at,
+      storage_usage
   FROM pages_event_outbox
   WHERE position > $after
   ORDER BY position
@@ -130,6 +135,9 @@ function toStoredEvent(row: readonly DatabaseValue[]): StoredPagesEvent {
             departmentIds: readIdListColumn(row, 4, "audience_department_ids"),
           },
     createdAt: readTextColumn(row, 5, "created_at"),
+    ...(typeof row[6] === "string"
+      ? { storage: storageUsageSchema.parse(JSON.parse(row[6])) }
+      : {}),
   };
 }
 

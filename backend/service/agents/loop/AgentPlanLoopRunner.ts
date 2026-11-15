@@ -409,7 +409,8 @@ export class AgentPlanLoopRunner {
         iteration.nodes.some(
           (node) =>
             node.session?.closeout === "failed" ||
-            node.session?.closeout === "pending",
+            (node.session?.closeout === "pending" &&
+              !inheritsGroupSession(loop, host)),
         ),
     );
     const final: LoopEnd = hasUnconfirmed
@@ -422,7 +423,9 @@ export class AgentPlanLoopRunner {
         status: final.status,
         // The reason belongs to a regular end only; an unconfirmed cleanup is a failure.
         completion: hasUnconfirmed ? null : (ending.completion ?? null),
-        cleanup: cleanupOf(entry, hasUnconfirmed),
+        cleanup: inheritsGroupSession(loop, host)
+          ? "not_needed"
+          : cleanupOf(entry, hasUnconfirmed),
         endedAt: new Date().toISOString(),
         error: final.error ?? null,
         sessions: loopSessionsOf(
@@ -467,6 +470,7 @@ function loopSessionKeys(
   loop: AgentPlanLoop,
   host: LoopHost,
 ): readonly string[] {
+  if (inheritsGroupSession(loop, host)) return [];
   const members = new Set(planLoopMembers(loop).map((member) => member.id));
   const groups = (host.snapshot().groups ?? []).filter((group) =>
     group.steps.some((step) => members.has(step.id)),
@@ -488,6 +492,17 @@ function loopSessionKeys(
       .map((member) => `${loop.id}/${member.id}`),
     ...groups.map((group) => `${loop.id}/${group.id}`),
   ];
+}
+
+/** An outer group keeps ownership when a loop finishes or pauses. */
+function inheritsGroupSession(loop: AgentPlanLoop, host: LoopHost): boolean {
+  return (
+    host
+      .snapshot()
+      .groups?.some((group) =>
+        group.loops?.some((entry) => entry.id === loop.id),
+      ) === true
+  );
 }
 
 function cleanupOf(

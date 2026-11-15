@@ -9,6 +9,7 @@ import {
   logEvent,
 } from "@/backend/logging/Logger";
 
+import type { StorageUsage } from "@/definition/StorageUsage";
 import type {
   CallOptions,
   Database,
@@ -40,6 +41,7 @@ const PAGES_EVENT_TYPES = [
   "project.access.changed",
   "conversation.changed",
   "calendar.changed",
+  "storage.limit_exceeded",
 ] as const;
 
 const PAGES_EVENT_TYPE_SET: ReadonlySet<string> = new Set(PAGES_EVENT_TYPES);
@@ -77,6 +79,8 @@ export function isPagesEventType(kind: string): kind is PagesEvent["type"] {
 export interface PagesEvent {
   readonly type: (typeof PAGES_EVENT_TYPES)[number];
   readonly id: string;
+  /** Numeric size snapshot on storage.limit_exceeded only. */
+  readonly storage?: StorageUsage;
   /** Set only on `ticket.deleted`; decides delivery and is never delivered. */
   readonly audience?: PagesEventAudience;
 }

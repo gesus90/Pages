@@ -21,7 +21,6 @@ import { PLAN_ASSET_NAME_LENGTH } from "@/definition/AgentPlanAsset";
 import {
   readAgentParameterValue,
   readAgentConfiguration,
-  readAgentTargets,
 } from "./AgentConfigurationInput";
 import { readPlanConfiguration } from "./AgentPlanConfigurationInput";
 import {
@@ -29,7 +28,12 @@ import {
   readPlanLoopCondition,
   readPlanLoopWhile,
 } from "./AgentPlanLoopInput";
-import { readAgentObject } from "./AgentPayload";
+import {
+  readGlobals,
+  readOneShot,
+  readPlanObject,
+  readPlanSharing,
+} from "./AgentPlanSettingsInput";
 import { readCompletionGate } from "./AgentPlanWorkInput";
 import { readPlanAssetFile, readPlanAssetNode } from "./AgentPlanAssetInput";
 import {
@@ -402,47 +406,6 @@ function readParameterNode(
   return parameter;
 }
 
-/** Parses the sharing of a plan, the same way whether the whole plan or only this part is read. */
-export function readPlanSharing(
-  input: unknown,
-): NonNullable<AgentPlanInput["sharing"]> {
-  const sharing = readPlanObject(input);
-  const targets = readAgentTargets(sharing.targets);
-  const operator = sharing.operator === undefined ? "or" : sharing.operator;
-  if (
-    typeof sharing.isGlobal !== "boolean" ||
-    (operator !== "or" && operator !== "and") ||
-    targets.some(
-      (target) => target.kind !== "group" && target.kind !== "department",
-    )
-  )
-    throw new AgentError("plan_invalid");
-  return { isGlobal: sharing.isGlobal, targets, operator };
-}
-
-function readGlobals(input: unknown): Readonly<Record<string, string>> {
-  const globals = readPlanObject(input);
-  if (Object.keys(globals).length > 64) throw new AgentError("plan_invalid");
-  return Object.fromEntries(
-    Object.entries(globals).map(([name, text]) => {
-      if (
-        !isAgentParameterName(name) ||
-        typeof text !== "string" ||
-        text.length > 200000
-      )
-        throw new AgentError("plan_invalid");
-      return [name, text];
-    }),
-  );
-}
-
-/** Parses the one-time mark; only `true` is stored, so a normal plan keeps its stored form. */
-function readOneShot(input: unknown): Pick<AgentPlanInput, "oneShot"> {
-  if (input === undefined || input === false) return {};
-  if (input !== true) throw new AgentError("plan_invalid");
-  return { oneShot: true };
-}
-
 /** Parses one bounded plan; graph relationships are validated by the service. */
 export function readPlanInput(input: unknown): AgentPlanInput {
   const plan = readPlanObject(input);
@@ -491,16 +454,34 @@ function readSourceId(input: unknown): string {
   return input === "" ? "" : readPlanText(input);
 }
 
-function readPlanObject(input: unknown): Record<string, unknown> {
-  if (typeof input !== "object" || input === null || Array.isArray(input))
-    throw new AgentError("plan_invalid");
-  return readAgentObject(input);
-}
-
 function readGroupEdges(input: unknown): readonly AgentPlanEdge[] {
   if (!Array.isArray(input) || input.length > 100)
     throw new AgentError("plan_invalid");
   return input.map(readEdge);
+}
+
+/** Reads only group → loop → agent/script; deeper containers are refused. */
+function readGroupLoops(input: unknown): {
+  readonly loops?: readonly AgentPlanLoop[];
+} {
+  if (input === undefined) return {};
+  if (!Array.isArray(input) || input.length > 50)
+    throw new AgentError("plan_invalid");
+  const loops = input.map((entry: unknown) => {
+    const raw = readPlanObject(entry);
+    if (raw.type !== "loop" || !Array.isArray(raw.steps))
+      throw new AgentError("plan_invalid");
+    // Check before recursive parsing, including malformed or cyclic objects.
+    if (
+      raw.steps.some(
+        (member: unknown) =>
+          !["agent", "script"].includes(String(readPlanObject(member).type)),
+      )
+    )
+      throw new AgentError("plan_loop_nested");
+    return readLoopNode(raw, readNodeBase(raw));
+  });
+  return { loops };
 }
 
 function readGroupNode(
@@ -537,6 +518,7 @@ function readGroupNode(
     type: "group",
     name: readPlanText(node.name, 120),
     steps,
+    ...readGroupLoops(node.loops),
     // Absent edges mark a group saved before them; it keeps reading as the chain of its members.
     ...(node.edges === undefined ? {} : { edges: readGroupEdges(node.edges) }),
     ...readPlanContainedDecisions(node.decisions, readPlanNode),
@@ -569,10 +551,16 @@ function readLoopNode(
   if (!isPlanLoopRuns(node.runs))
     throw new AgentError("plan_loop_runs_invalid");
   const steps = node.steps.map((input: unknown): AgentPlanLoopContent => {
+    const raw = readPlanObject(input);
+    if (raw.type === "loop") throw new AgentError("plan_loop_nested");
     const member = readPlanNode(input);
     if (member.type === "agent" && member.completionGate)
       throw new AgentError("plan_work_gate_unavailable");
-    if (member.type === "loop") throw new AgentError("plan_loop_nested");
+    if (
+      member.type === "loop" ||
+      (member.type === "group" && member.loops?.length)
+    )
+      throw new AgentError("plan_loop_nested");
     if ((member.type === "agent" || member.type === "script") && member.role)
       throw new AgentError("plan_invalid");
     if (

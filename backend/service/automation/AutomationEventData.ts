@@ -1,3 +1,5 @@
+import type { StorageUsage } from "@/definition/StorageUsage";
+
 import type { AutomationEventType } from "@/definition/Automation";
 
 /** A named record of an event. */
@@ -68,9 +70,14 @@ function ticketExample(
 export const AUTOMATION_EVENT_EXAMPLES: Readonly<
   Record<
     AutomationEventType,
-    AutomationPlanEventData | AutomationTicketEventData
+    AutomationPlanEventData | AutomationTicketEventData | StorageUsage
   >
 > = {
+  "storage.limit_exceeded": {
+    totalBytes: 25_000_000_000,
+    limitBytes: 20_000_000_000,
+    largestDirectoryBytes: [18_000_000_000, 5_000_000_000],
+  },
   "plan.started": planExample("plan.started", {}),
   "plan.succeeded": planExample("plan.succeeded", {
     run: { id: "run-id", status: "succeeded" },

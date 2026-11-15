@@ -1,3 +1,9 @@
+import {
+  allPlanLoops,
+  planGroupContent,
+  mapPlanLoops,
+  planLoopOwner,
+} from "./AgentPlanGroupLoop";
 import { connectLoopFlow, replaceLoopMember } from "./AgentPlanLoopEdit";
 import { planLoopOf } from "./AgentPlanLoop";
 import {
@@ -7,10 +13,9 @@ import {
   planGroupExits,
   resolvePlanGroupBinding,
 } from "./AgentPlanGroup";
-
-import type { AgentDefinitionChoice } from "./AgentAvailability";
 import { findPlanDecision, replacePlanDecision } from "./AgentPlanDecisionEdit";
 
+import type { AgentDefinitionChoice } from "./AgentAvailability";
 import type {
   AgentPlanBinding,
   AgentPlanDecision,
@@ -75,6 +80,14 @@ export function findPlanStep(
     const step = node.steps.find((entry) => entry.id === id);
     if (step) return { step, group: node, loop: null };
   }
+  for (const loop of allPlanLoops(plan)) {
+    const found = loopStep(loop, id);
+    if (found)
+      return {
+        ...found,
+        group: found.group ?? planLoopOwner(plan, loop.id) ?? null,
+      };
+  }
   return null;
 }
 
@@ -106,6 +119,7 @@ export function findPlanBindingTarget(
   | null {
   return (
     findPlanStep(plan, id)?.step ??
+    allPlanLoops(plan).find((loop) => loop.id === id) ??
     planLoopOf(plan, id)?.steps.find(
       (member): member is AgentPlanScript =>
         member.type === "script" && member.id === id,
@@ -133,6 +147,10 @@ export function replacePlanNode<Plan extends AgentPlanInput>(
   plan: Plan,
   replacement: AgentPlanNode,
 ): Plan {
+  if (replacement.type === "loop")
+    return mapPlanLoops(plan, (loop) =>
+      loop.id === replacement.id ? replacement : loop,
+    );
   if (replacement.type === "decision")
     return replacePlanDecision(plan, replacement);
   if (
@@ -192,6 +210,8 @@ export function placePlanStep<Plan extends AgentPlanInput>(
 ): PlanGroupMove<Plan> | AgentPlanGroupRefusal {
   const found = findPlanStep(plan, placement.stepId);
   if (!found) return "missingAgent";
+  if (found.loop && (found.group?.id ?? null) !== placement.groupId)
+    return "nestedGroup";
   const target = plan.nodes.find(
     (node): node is AgentPlanGroup =>
       node.type === "group" && node.id === placement.groupId,
@@ -282,7 +302,9 @@ function leave<Plan extends AgentPlanInput>(
 export function ungroupPlanGroup<Plan extends AgentPlanInput>(
   plan: Plan,
   groupId: string,
-  positionOf: (step: AgentPlanStep | AgentPlanDecision) => AgentPlanPosition,
+  positionOf: (
+    step: AgentPlanStep | AgentPlanLoop | AgentPlanDecision,
+  ) => AgentPlanPosition,
 ): PlanGroupMove<Plan> {
   const group = plan.nodes.find(
     (node): node is AgentPlanGroup =>
@@ -325,6 +347,10 @@ export function ungroupPlanGroup<Plan extends AgentPlanInput>(
       nodes: [
         ...plan.nodes.filter((node) => node.id !== groupId),
         ...members,
+        ...(group.loops ?? []).map((loop) => ({
+          ...loop,
+          ...positionOf(loop),
+        })),
         // A decision of the frame stays a decision of the outer graph (PAGE-286).
         ...(group.decisions ?? []).map((decision) => ({
           ...decision,
@@ -375,6 +401,12 @@ export function connectPlanFlow<Plan extends AgentPlanInput>(
 
 /** The group an agent or a decision belongs to, if any. */
 function memberGroup(plan: AgentPlanInput, id: string): AgentPlanGroup | null {
+  const loopOwner = plan.nodes.find(
+    (node): node is AgentPlanGroup =>
+      node.type === "group" &&
+      node.loops?.some((loop) => loop.id === id) === true,
+  );
+  if (loopOwner) return loopOwner;
   const step = findPlanStep(plan, id)?.group;
   if (step) return step;
   const place = findPlanDecision(plan, id)?.place;
@@ -400,7 +432,11 @@ function connectInsideLoop<Plan extends AgentPlanInput>(
   if (!loop || planLoopOf(plan, edge.to)?.id !== loop.id) return "loopBoundary";
   const source = findPlanStep(plan, edge.from)?.group;
   const target = findPlanStep(plan, edge.to)?.group;
-  if (source && source.id === target?.id)
+  if (
+    source &&
+    source.id === target?.id &&
+    source.id !== planLoopOwner(plan, loop.id)?.id
+  )
     return replacePlanNode(plan, {
       ...source,
       edges: [...planGroupEdges(source), edge],
@@ -519,7 +555,7 @@ export function withInternalGroupEdges<Plan extends AgentPlanInput>(
 
 function isMemberEdge(group: AgentPlanGroup, edge: AgentPlanEdge): boolean {
   return (
-    group.steps.some((step) => step.id === edge.from) &&
-    group.steps.some((step) => step.id === edge.to)
+    planGroupContent(group).some((step) => step.id === edge.from) &&
+    planGroupContent(group).some((step) => step.id === edge.to)
   );
 }

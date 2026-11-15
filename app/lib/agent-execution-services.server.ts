@@ -19,6 +19,7 @@ import { getPagesRuntime } from "@/backend/runtime/PagesRuntime";
 import { createAgentServices } from "./agent-services.server";
 import { createSystemServices } from "./system-services.server";
 
+import type { PagesEventPublisher } from "@/backend/service/events/PagesEventPublisher";
 import type { AcpRecoveryScope } from "@/backend/service/agents/resources/AcpLeaseAdmission";
 import type { Database } from "@/backend/database/Database";
 import type { TaskAttachmentService } from "@/backend/service/task/TaskAttachmentService";
@@ -39,6 +40,7 @@ export async function startExecutionServices(
   databasePath: string,
   context: {
     readonly tokenKey: Buffer;
+    readonly events?: PagesEventPublisher;
     readonly tickets: TaskAttachmentService;
     readonly wiki: WikiService;
   },
@@ -51,13 +53,16 @@ export async function startExecutionServices(
     databasePath,
     context.tokenKey,
     {
-      ...ticketAssetDependencies(
-        database,
-        databasePath,
-        context.tickets,
-        context.wiki,
-      ),
-      plans: planAssets,
+      events: context.events,
+      ticketAssets: {
+        ...ticketAssetDependencies(
+          database,
+          databasePath,
+          context.tickets,
+          context.wiki,
+        ),
+        plans: planAssets,
+      },
     },
   );
   return {
@@ -121,7 +126,10 @@ async function startAgents(
   database: Database,
   databasePath: string,
   tokenKey: Buffer,
-  ticketAssets: AgentTicketAssetDependencies,
+  context: {
+    readonly ticketAssets: AgentTicketAssetDependencies;
+    readonly events?: PagesEventPublisher;
+  },
 ): Promise<AgentApplicationServices> {
   const runtime = await getPagesRuntime();
   const services = createAgentServices(
@@ -132,7 +140,8 @@ async function startAgents(
       agentsDirectory: resolveAgentsDirectory(runtime.configFile.path),
       configPath: runtime.configFile.path,
       recoveryScope: agentRecoveryScope(runtime.getConfig().runsMode),
-      ticketAssets,
+      ticketAssets: context.ticketAssets,
+      events: context.events,
       acpOptions: runtime.getConfig(),
       gitBridges: runtime.getConfig().agentGitBridges,
     },

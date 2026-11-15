@@ -74,10 +74,12 @@ function activeNode(
   if (node.type !== "group") return ids.has(node.id) ? node : null;
   const steps = node.steps.filter((step) => ids.has(step.id));
   const decisions = node.decisions?.filter((decision) => ids.has(decision.id));
-  if (steps.length === 0 && !decisions?.length) return null;
+  const loops = node.loops?.filter((loop) => ids.has(loop.id));
+  if (steps.length === 0 && !decisions?.length && !loops?.length) return null;
   return {
     ...node,
     steps,
+    loops,
     decisions,
     edges: node.edges?.filter((edge) => ids.has(edge.from) && ids.has(edge.to)),
   };

@@ -286,6 +286,7 @@ it("starts the agent runtimes with ticket and wiki assets and the token key", as
       tokenKey: world.tokenKey,
       tickets: only(vi.mocked(TaskAttachmentService)),
       wiki: only(vi.mocked(WikiService)),
+      events: only(vi.mocked(PagesEventPublisher)),
     },
   );
 });

@@ -46,6 +46,7 @@ function dependencies(): Parameters<typeof installAntigravityRelease>[0] {
     work: "/synthetic/probe/work",
   });
   return {
+    temporaryDirectory: "/synthetic/tools/probe/tmp/installation",
     candidate: {
       file: "/synthetic/release/agy_acp_server.par",
       release: "/synthetic/release",
@@ -89,6 +90,7 @@ it("fetches only the pinned official archive and installs both runtime parts bef
   expect(boundary.update).toHaveBeenCalled();
   expect(input.runner.run).toHaveBeenCalledWith(
     expect.objectContaining({
+      environment: { TMPDIR: input.temporaryDirectory },
       arguments: [
         "-j",
         "/synthetic/release/adapter.zip",

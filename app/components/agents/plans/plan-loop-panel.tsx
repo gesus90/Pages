@@ -1,6 +1,7 @@
 import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 
+import { planLoopOwner } from "@/definition/AgentPlanGroupLoop";
 import { Input } from "@/app/components/ui/input";
 import { PLAN_LOOP_NAME_LENGTH } from "@/definition/AgentPlanLoop";
 
@@ -60,6 +61,8 @@ function NameField(props: PlanLoopPanelProps): React.ReactElement {
 function SessionSection(props: PlanLoopPanelProps): React.ReactElement {
   const { t } = useTranslation();
   const { loop } = props;
+  if (planLoopOwner(props.draft, loop.id))
+    return <PanelNote>{t("plans.loops.session.inheritGroup")}</PanelNote>;
   return (
     <div className="flex flex-col gap-3">
       <PanelSwitch

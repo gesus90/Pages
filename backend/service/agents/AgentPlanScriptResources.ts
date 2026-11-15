@@ -2,6 +2,10 @@ import { mkdir, readFile, rm, writeFile, lstat } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
+import {
+  sharedAgentEnvironment,
+  sharedPnpmBin,
+} from "@/backend/agents/cli/AgentSharedEnvironment";
 import { RUN_INSTANCE_VARIABLE } from "@/backend/agents/cli/CliProcessScan";
 import { correlationEnvironment } from "@/backend/logging/LogCorrelation";
 
@@ -74,11 +78,21 @@ export function scriptEnvironment(input: {
   readonly directory: string;
   readonly interpreter: string;
   readonly instanceId: string;
+  readonly sharedEnvironment?: string;
 }): Record<string, string> {
-  const { directory } = input;
+  const { directory, sharedEnvironment } = input;
   return {
+    ...(sharedEnvironment
+      ? sharedAgentEnvironment(sharedEnvironment)
+      : { XDG_CACHE_HOME: path.join(directory, "cache") }),
     PATH: [
       ...new Set([
+        ...(sharedEnvironment
+          ? [
+              sharedPnpmBin(sharedEnvironment),
+              path.join(sharedEnvironment, "pnpm"),
+            ]
+          : []),
         path.dirname(input.interpreter),
         path.dirname(process.execPath),
         "/usr/local/bin",
@@ -89,7 +103,6 @@ export function scriptEnvironment(input: {
     HOME: directory,
     TMPDIR: directory,
     XDG_CONFIG_HOME: path.join(directory, "config"),
-    XDG_CACHE_HOME: path.join(directory, "cache"),
     XDG_DATA_HOME: path.join(directory, "data"),
     XDG_STATE_HOME: path.join(directory, "state"),
     LANG: "C.UTF-8",

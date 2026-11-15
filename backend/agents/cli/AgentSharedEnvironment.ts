@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { constants } from "node:fs";
-import { access, lstat, mkdir, rm, writeFile } from "node:fs/promises";
+import { access, lstat, mkdir, rm, rmdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { setTimeout } from "node:timers/promises";
 import { promisify } from "node:util";
@@ -17,7 +17,12 @@ export function sharedAgentEnvironment(root: string): Record<string, string> {
     npm_config_manage_package_manager_versions: "false",
     npm_config_global_dir: path.join(root, "pnpm", "global"),
     PNPM_HOME: path.join(root, "pnpm"),
-    npm_config_store_dir: path.join(root, "pnpm-store"),
+    npm_config_store_dir: path.join(root, "pnpm", "store"),
+    pnpm_config_store_dir: path.join(root, "pnpm", "store"),
+    pnpm_config_cache_dir: path.join(root, "cache", "pnpm"),
+    pnpm_config_state_dir: path.join(root, "state", "pnpm"),
+    pnpm_config_global_dir: path.join(root, "pnpm", "global"),
+    pnpm_config_enable_global_virtual_store: "true",
     npm_config_cache_dir: path.join(root, "cache", "pnpm"),
     npm_config_state_dir: path.join(root, "state", "pnpm"),
     npm_config_cache: path.join(root, "cache", "npm"),
@@ -68,6 +73,20 @@ async function acquireSetup(root: string): Promise<boolean> {
   return false;
 }
 
+async function removeEmptyLegacyStore(root: string): Promise<void> {
+  try {
+    await rmdir(path.join(root, "pnpm-store"));
+  } catch (error: unknown) {
+    if (
+      error instanceof Error &&
+      "code" in error &&
+      ["ENOENT", "ENOTEMPTY", "EEXIST", "ENOTDIR"].includes(String(error.code))
+    )
+      return;
+    throw error;
+  }
+}
+
 async function install(root: string): Promise<void> {
   for (const directory of [
     root,
@@ -84,6 +103,7 @@ async function install(root: string): Promise<void> {
     )
       throw new Error("Unsafe shared agent environment");
   }
+  await removeEmptyLegacyStore(root);
   if (!(await acquireSetup(root))) return;
   try {
     if (await isInstalled(root)) return;

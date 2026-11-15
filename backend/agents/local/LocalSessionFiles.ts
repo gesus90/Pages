@@ -5,6 +5,19 @@ import { randomUUID } from "node:crypto";
 
 const MAXIMUM_CONTROL_BYTES = 2 * 1024 * 1024;
 
+/** Makes published names durable before readers rely on them as a deletion anchor. */
+export async function syncLocalDirectory(directory: string): Promise<void> {
+  const handle = await open(
+    directory,
+    constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW,
+  );
+  try {
+    await handle.sync();
+  } finally {
+    await handle.close();
+  }
+}
+
 /** Creates a private directory without accepting a symlink or another owner. */
 export async function requireLocalDirectory(directory: string): Promise<void> {
   await mkdir(directory, { recursive: true, mode: 0o700 });
@@ -15,15 +28,7 @@ export async function requireLocalDirectory(directory: string): Promise<void> {
     (stats.mode & 0o077) !== 0
   )
     throw new Error("Local session directory is not private");
-  const parent = await open(
-    path.dirname(directory),
-    constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW,
-  );
-  try {
-    await parent.sync();
-  } finally {
-    await parent.close();
-  }
+  await syncLocalDirectory(path.dirname(directory));
 }
 
 /** Synchronizes a private control record before atomically publishing its name. */
@@ -42,15 +47,7 @@ export async function writeLocalRecord(
     await handle.close();
   }
   await rename(pending, file);
-  const parent = await open(
-    directory,
-    constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW,
-  );
-  try {
-    await parent.sync();
-  } finally {
-    await parent.close();
-  }
+  await syncLocalDirectory(directory);
 }
 
 /** Reads a bounded private regular file without following its final symlink. */
