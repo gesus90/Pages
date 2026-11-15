@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { checkSessionProcesses } from "@/backend/service/agents/AgentPlanRecovery";
+import { cleanupPlanStartOwner } from "@/backend/service/agents/AgentPlanStartCleanup";
 import {
   closeRecoveryScripts,
   closeRecoverySessions,
@@ -156,6 +157,28 @@ describe("cleanup checks of a run that ended with a reboot", () => {
     expect(checked).toEqual({ confirmed: true, failure: null });
     expect(host.end).not.toHaveBeenCalled();
     expect(host.scan).not.toHaveBeenCalled();
+  });
+
+  it("lets a restart release the script of that run without stopping anything", async () => {
+    const run = await cancelledRun();
+
+    const released = await cleanupPlanStartOwner(run, []);
+
+    expect(released).toEqual([
+      {
+        instanceId: "68938e2f-b847-4ec1-8924-e5ef84a30d77",
+        processId: null,
+        kind: "local_script",
+        confirmed: true,
+      },
+    ]);
+    expect(host.end).not.toHaveBeenCalled();
+  });
+
+  it("keeps a restart blocked for the same script within its boot", async () => {
+    const released = await cleanupPlanStartOwner(await cancelledRun(AFTER), []);
+
+    expect(released[0]?.confirmed).toBe(false);
   });
 
   it("keeps the same run unconfirmed within the boot it ran in", async () => {

@@ -7,6 +7,7 @@ import { logCaughtError } from "@/backend/logging/Logger";
 
 import { endInterruptedSession } from "./AgentPlanRecovery";
 import { endInterruptedScript } from "./AgentPlanScriptRecovery";
+import { hasEndedWithReboot } from "./recovery/AgentPlanBootBoundary";
 
 import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
 import type { AgentPlanReleasedProcess } from "@/definition/AgentPlanResourceRelease";
@@ -44,6 +45,8 @@ export async function cleanupPlanStartOwner(
   remote?: Pick<AgentPlanRemoteExecution, "stop"> &
     Partial<Pick<AgentPlanRemoteExecution, "withProgress">>,
 ): Promise<readonly AgentPlanReleasedProcess[]> {
+  // A reboot ended every local process of a run that worked only before it.
+  const hasRebooted = await hasEndedWithReboot(run);
   const steps = new Map<string, AgentPlanStepResult>();
   for (const step of allPlanRunResults(run)) {
     const identity =
@@ -54,7 +57,7 @@ export async function cleanupPlanStartOwner(
   }
   const cleanup = [...steps.values()].map(async (step) => {
     if (step.execution?.target.kind !== "remote")
-      return localProcess(run, step);
+      return localProcess(run, step, hasRebooted);
     const attempt = { ...run, steps: [step], loops: undefined };
     return {
       instanceId: step.remote?.jobId ?? step.execution.attemptId,
@@ -88,10 +91,12 @@ export async function cleanupPlanStartOwner(
 async function localProcess(
   run: AgentPlanRun,
   step: AgentPlanStepResult,
+  hasRebooted: boolean,
 ): Promise<AgentPlanReleasedProcess | null> {
   const record = step.script ?? step.session;
   if (!record) return null;
   const confirmed = await attemptPlanStartCleanup(async () => {
+    if (hasRebooted) return true;
     if (step.script) {
       if (step.script.namespace)
         if (

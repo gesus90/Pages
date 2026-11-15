@@ -22,6 +22,10 @@ function metadataContaining(expected: Record<string, unknown>): unknown {
   return expect.objectContaining(expected);
 }
 
+// These cases run within one boot; a reboot boundary would end their processes.
+vi.mock("@/backend/service/agents/recovery/AgentPlanBootBoundary", () => ({
+  hasEndedWithReboot: async () => false,
+}));
 vi.mock("@/backend/agents/local/LocalOwnerControl", () => ({
   settleManagedLocalOwner: vi.fn(),
 }));
