@@ -1,4 +1,3 @@
-import { canonicalClaudeModel } from "@/definition/ClaudePriceModels";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { openRouterPriceCatalog } from "./OpenRouterPriceCatalog";
 import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
@@ -15,6 +14,7 @@ import {
   progressText,
 } from "./AgentSessionRecorderEvents";
 import type { ToolCallState } from "./AgentSessionRecorderEvents";
+import { buildPromptUsage } from "./AgentSessionRecorderUsage";
 import { readContinuationCapabilities } from "./AgentSessionContinuation";
 import {
   ACP_USAGE_CAPABILITIES,
@@ -238,36 +238,29 @@ export class AgentSessionRecorder implements AcpSessionListener {
     const attempt = this.attempt;
     const { provider, key } = attempt;
     const turn = this.turn();
+    const statusText = isContinued
+      ? `turn ${turn} continued`
+      : `turn ${turn} ended`;
     if (
       provider === "opencode" &&
-      this.attempt.requestedModel?.startsWith("openrouter/")
+      attempt.requestedModel?.startsWith("openrouter/")
     ) {
       this.turns.set(key.attemptId, turn + 1);
-      this.record({
-        kind: "status",
-        text: isContinued ? `turn ${turn} continued` : `turn ${turn} ended`,
-        turn,
-      });
+      this.record({ kind: "status", text: statusText, turn });
       return;
     }
     const delta = this.promptDelta(usage);
     this.lastUsage = usage ?? this.lastUsage;
     this.turns.set(key.attemptId, turn + 1);
-    this.record({
-      kind: "status",
-      text: isContinued ? `turn ${turn} continued` : `turn ${turn} ended`,
+    this.record({ kind: "status", text: statusText, turn });
+    if (this.shouldSkipPromptUsage(provider, usage, delta)) return;
+    const recorded = buildPromptUsage({
+      attempt,
       turn,
+      delta,
+      nativeSessionId,
+      reportedAt: this.clock(),
     });
-    if (provider === "codex_cli" && this.hasNativeCodexUsage) {
-      this.hasNativeCodexUsage = false;
-      if (usage !== null) return;
-    }
-    if (provider === "claude_code" && this.hasClaudeObservation) {
-      this.hasClaudeObservation = false;
-      return;
-    }
-    if (delta === null && provider !== "claude_code" && provider !== "antigravity") return;
-    const recorded = this.promptUsage(attempt, turn, delta, nativeSessionId);
     this.enqueue(() =>
       (
         this.dependencies.saveUsage ??
@@ -446,66 +439,22 @@ export class AgentSessionRecorder implements AcpSessionListener {
     );
   }
 
-  private promptUsage(
-    attempt: AgentSessionAttemptRecord,
-    turn: number,
+  private shouldSkipPromptUsage(
+    provider: AgentSessionAttemptRecord["provider"],
+    usage: Usage | null,
     delta: TurnTokenDelta | null,
-    nativeSessionId: string | undefined,
-  ): AgentSessionTurnUsage {
-    const { provider, key } = attempt;
-    const model = this.promptModel(attempt);
-    return {
-      ...(delta?.tokens ?? {
-        inputTokens: null,
-        outputTokens: null,
-        cacheReadTokens: null,
-        cacheWriteTokens: null,
-        totalTokens: null,
-        inputIncludesCache: provider === "antigravity" ? null : false,
-        isPartial: true,
-      }),
-      ...(provider === "claude_code" && nativeSessionId && delta
-        ? {
-            claudeObservation: {
-              sessionId: nativeSessionId,
-              id: `${key.attemptId}:${turn}`,
-              kind: "prompt" as const,
-              models: [
-                {
-                  model: canonicalClaudeModel(model ?? "unknown"),
-                  inputTokens: delta.tokens.inputTokens,
-                  outputTokens: delta.tokens.outputTokens,
-                  cacheReadTokens: delta.tokens.cacheReadTokens,
-                  cacheWriteTokens: delta.tokens.cacheWriteTokens,
-                },
-              ],
-            },
-          }
-        : {}),
-      attemptId: key.attemptId,
-      turn,
-      provider,
-      model:
-        provider === "codex_cli"
-          ? (model ?? attempt.requestedModel ?? null)
-          : model,
-      ...(provider === "codex_cli"
-        ? {
-            codex: {
-              connectionId: attempt.connectionId ?? "",
-              agentId: attempt.agentId ?? "",
-              report: null,
-            },
-          }
-        : {}),
-      reportedAt: this.clock(),
-    };
-  }
-
-  private promptModel(attempt: AgentSessionAttemptRecord): string | null {
-    return attempt.provider === "claude_code"
-      ? (attempt.confirmedModel.value ?? attempt.requestedModel ?? null)
-      : attempt.confirmedModel.value;
+  ): boolean {
+    if (provider === "codex_cli" && this.hasNativeCodexUsage) {
+      this.hasNativeCodexUsage = false;
+      if (usage !== null) return true;
+    }
+    if (provider === "claude_code" && this.hasClaudeObservation) {
+      this.hasClaudeObservation = false;
+      return true;
+    }
+    return (
+      delta === null && provider !== "claude_code" && provider !== "antigravity"
+    );
   }
 
   private toolEvent(

@@ -206,7 +206,11 @@ export class ChatDirectoryService {
         ...groupEntries,
         ...overseen.groups.filter(({ id }) => !conversations.groups.has(id)),
       ],
-      histories: await addConversationQuestions(this.dependencies.questions, person, histories),
+      histories: await addConversationQuestions(
+        this.dependencies.questions,
+        person,
+        histories,
+      ),
       liveToolUses,
       olderHistoryIds: [
         ...olderHistoryIds(conversations),

@@ -391,7 +391,11 @@ export function ChatPage({
               <ChatPageConversation
                 page={page}
                 status={directory.chatDecisionStatus}
-                {...focusOf(page.selection, requestedSelection, requestedMessageId)}
+                {...focusOf(
+                  page.selection,
+                  requestedSelection,
+                  requestedMessageId,
+                )}
               />
               <SplitPanel
                 storedWidth={directory.viewPreferences?.splitWidth ?? null}
