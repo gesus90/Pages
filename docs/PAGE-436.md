@@ -184,3 +184,25 @@ Der historische Zugriffsauslöser und eine Besitzerwechsel-Hypothese bleiben
 unbelegt. Keine Arbeitspläne, Live-Dienste, Live-Daten oder Zugangsdaten wurden
 verändert. Lint, Check, Typecheck, Formatprüfung, Build, vollständige Suites und
 Coverage: **an die Abschluss-QA übergeben**.
+
+## Session 0608b71d: abschließende Nachprüfung
+
+Am 15.11.2026 um 23:03–23:04 Uhr Europe/Berlin wurde der vorbereitete
+Produktstand erneut anhand der Repository-Regeln und der betroffenen Lade-,
+Entwurfs-, Dialog-, Cache-, Live- und Rechtepfade geprüft. Die Umsetzung aus
+`cf117f75` bleibt unverändert; zusätzliche Produktänderungen waren nicht nötig.
+
+Die zwölf oben benannten Frontend-Dateien liefen mit dem dokumentierten
+Vitest-Aufruf ohne Coverage: **70 Tests bestanden, Exitcode 0**. Backend liefen
+zunächst die sechs Dateien ohne `agent-plans-actions`: **83 Tests bestanden,
+Exitcode 0**; anschließend `tests/backend/app/routes/agent-plans-actions.unit.test.ts`:
+**15 Tests bestanden, Exitcode 0**. Damit wurden sieben Backend-Dateien mit
+insgesamt **98 bestandenen Tests** geprüft. Keine Tests oder Prüfgerüste ergänzt.
+
+Die drei erhaltenen Browserbilder wurden geöffnet und das Diagnoseprotokoll
+gelesen; alle vier Prüfsummen stimmen mit der obigen Tabelle überein. Die lokale
+Zwei-Tab-Abnahme wurde erhalten, in dieser Session nicht erneut ausgeführt.
+Der historische Zugriffsauslöser und die Besitzerwechsel-Hypothese bleiben
+unbelegt. Keine Live-Dienste, Live-Daten, Zugangsdaten oder Arbeitspläne verändert.
+Lint, Check, Typecheck, Formatprüfung, Build, vollständige Suites und Coverage:
+**an die Abschluss-QA übergeben**.
