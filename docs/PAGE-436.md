@@ -68,19 +68,19 @@ mit dem aktuellen Quellstand. Es wurde kein Plan gestartet.
 
 Diagnoseplan: `1d4ca4ff-a617-407a-93c6-8a04e6889479`.
 
-| Beobachtung | Ergebnis |
-| --- | --- |
-| Zwei leere Browserseiten; Tab A fügt `access_probe` hinzu und speichert | Tab B zeigt die Karte automatisch. Server, IndexedDB und gerenderte Entwurfsprops: Revision 2, eine Karte. Null Läufe. |
-| Tab B öffnet und schließt regulär den Verlauf | Karte bleibt sichtbar; Dokumentmarker `final-document` bleibt erhalten. |
-| B schreibt ungespeichert `local_B`, A speichert `remote_A` als Revision 3 | B zeigt den Revisionshinweis und behält `local_B`. Auch Abbruch der Übernahme erhält den Wert. Erst bestätigte Übernahme zeigt `remote_A`; Dokumentmarker bleibt erhalten. |
-| Besitzerwechsel bei bereits geöffnetem Rechte-Dialog in B | Nach Live-Revalidierung zeigt derselbe Dialog `Rita Reader`, der Admin-Badge erscheint; Dokumentmarker bleibt erhalten. |
-| Lesefreigabe an normalen Leser, Revision 6 | Plan sichtbar, `canRead=true`, `canEdit=false`. |
-| Entzug, Revision 7 | „Plan not available“, keine Parameterkarte, null Planinhalte im Cache; Dokumentmarker `final-reader-document` bleibt erhalten. |
-| Erneute Prüfung während der Ablehnung | Ansicht bleibt gesperrt. |
-| Erneute Freigabe, Revision 8 | Derselbe Plan erscheint ohne Dokumentnavigation oder neue Anmeldung. |
-| Tatsächlich fehlende Plan-ID bei einem Leser mit einem anderen lesbaren Plan | HTTP 200, `requestedMissing`, `selected=null`, Katalog enthält den lesbaren Plan; kein Ersatz wird ausgewählt. |
-| Interne Diagnose | `sharing_denied` mit Korrelation `page436-cold-denial`; `plan_missing` mit `page436-missing-plan`. |
-| PostgreSQL-Abschlussbeobachtung | Revision 9, eine Karte, insgesamt null Planläufe; Outbox enthält `plan.catalog.changed` mit Objekt `catalog`. |
+| Beobachtung                                                                  | Ergebnis                                                                                                                                                                   |
+| ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Zwei leere Browserseiten; Tab A fügt `access_probe` hinzu und speichert      | Tab B zeigt die Karte automatisch. Server, IndexedDB und gerenderte Entwurfsprops: Revision 2, eine Karte. Null Läufe.                                                     |
+| Tab B öffnet und schließt regulär den Verlauf                                | Karte bleibt sichtbar; Dokumentmarker `final-document` bleibt erhalten.                                                                                                    |
+| B schreibt ungespeichert `local_B`, A speichert `remote_A` als Revision 3    | B zeigt den Revisionshinweis und behält `local_B`. Auch Abbruch der Übernahme erhält den Wert. Erst bestätigte Übernahme zeigt `remote_A`; Dokumentmarker bleibt erhalten. |
+| Besitzerwechsel bei bereits geöffnetem Rechte-Dialog in B                    | Nach Live-Revalidierung zeigt derselbe Dialog `Rita Reader`, der Admin-Badge erscheint; Dokumentmarker bleibt erhalten.                                                    |
+| Lesefreigabe an normalen Leser, Revision 6                                   | Plan sichtbar, `canRead=true`, `canEdit=false`.                                                                                                                            |
+| Entzug, Revision 7                                                           | „Plan not available“, keine Parameterkarte, null Planinhalte im Cache; Dokumentmarker `final-reader-document` bleibt erhalten.                                             |
+| Erneute Prüfung während der Ablehnung                                        | Ansicht bleibt gesperrt.                                                                                                                                                   |
+| Erneute Freigabe, Revision 8                                                 | Derselbe Plan erscheint ohne Dokumentnavigation oder neue Anmeldung.                                                                                                       |
+| Tatsächlich fehlende Plan-ID bei einem Leser mit einem anderen lesbaren Plan | HTTP 200, `requestedMissing`, `selected=null`, Katalog enthält den lesbaren Plan; kein Ersatz wird ausgewählt.                                                             |
+| Interne Diagnose                                                             | `sharing_denied` mit Korrelation `page436-cold-denial`; `plan_missing` mit `page436-missing-plan`.                                                                         |
+| PostgreSQL-Abschlussbeobachtung                                              | Revision 9, eine Karte, insgesamt null Planläufe; Outbox enthält `plan.catalog.changed` mit Objekt `catalog`.                                                              |
 
 Lokale Bild-/Logbelege bleiben außerhalb des Quellbaums unter
 `~/.pages/tmp/page-436/`: `final-two-tabs-current.png`, `final-conflict.png`,
@@ -131,12 +131,12 @@ gezielte Unit-Funktionstests mit deaktivierter Coverage erneut ausgeführt:
 
 - Frontend: die oben genannten zwölf Dateien, **70 Tests bestanden**, Exitcode 0.
   Aufruf: `NODE_ENV=test pnpm exec vitest run --config vitest.frontend.config.ts
-  --coverage.enabled=false <die zwölf oben genannten Testdateien>`.
+--coverage.enabled=false <die zwölf oben genannten Testdateien>`.
 - Backend: die sechs Dateien `agent-plans`, `agent-plans-actions`,
   `agent-plan-service-reads`, `plan-access-summaries`, `plan-teams` und
   `live-change-calendar`, **88 Tests bestanden**, Exitcode 0.
   Aufruf: `NODE_ENV=test pnpm exec vitest run --config vitest.backend.config.ts
-  --coverage.enabled=false <die sechs genannten Testdateien>`.
+--coverage.enabled=false <die sechs genannten Testdateien>`.
 - Backend separat: `tests/backend/app/actions/settings-logging-action.unit.test.ts`,
   **10 Tests bestanden**, Exitcode 0, mit demselben Backend-Aufruf.
 
@@ -146,12 +146,12 @@ in dieser Nachprüfung wurden keine neuen Zwei-Tab- oder Live-Beobachtungen
 erhoben. Die Unit-Läufe ersetzen diese Browserbeobachtungen nicht. Die SHA-256-
 Prüfsummen der erhaltenen Belege lauten:
 
-| Datei unter `~/.pages/tmp/page-436/` | SHA-256 |
-| --- | --- |
-| `final-two-tabs-current.png` | `2eada00a07d9373908906b10f765075f250ca4dce70bec15db3f6c8cca067b18` |
-| `final-conflict.png` | `793ccf7ae61e2b2a592c622d3a3e9545d541c112d94827a9b5f401b158c739a1` |
-| `final-denied.png` | `bc1e1f5436fadf0bdebb13887fe4c289eaef82fd983d2fc97502e6f144543f60` |
-| `final-access-diagnostics.jsonl` | `1faaf0141317f91a9d32ee1be4bfb6990bbf87605a78156d29de4533d8188367` |
+| Datei unter `~/.pages/tmp/page-436/` | SHA-256                                                            |
+| ------------------------------------ | ------------------------------------------------------------------ |
+| `final-two-tabs-current.png`         | `2eada00a07d9373908906b10f765075f250ca4dce70bec15db3f6c8cca067b18` |
+| `final-conflict.png`                 | `793ccf7ae61e2b2a592c622d3a3e9545d541c112d94827a9b5f401b158c739a1` |
+| `final-denied.png`                   | `bc1e1f5436fadf0bdebb13887fe4c289eaef82fd983d2fc97502e6f144543f60` |
+| `final-access-diagnostics.jsonl`     | `1faaf0141317f91a9d32ee1be4bfb6990bbf87605a78156d29de4533d8188367` |
 
 Neue Tests, Fixtures, Mocks oder Harnesses wurden nicht angelegt. Lint, Check,
 Typecheck, Formatprüfung, Build, vollständige Suites und Coverage bleiben

@@ -211,15 +211,10 @@ export async function resolveAcpTurnFailure(
       null,
     );
   }
-  const errorCode = acpErrorFailure(
-    error,
-    state,
-    context.driver,
-    {
-      isDisconnected: connectionAborted,
-      isOpenRouter: context.request.model.startsWith("openrouter/"),
-    },
-  );
+  const errorCode = acpErrorFailure(error, state, context.driver, {
+    isDisconnected: connectionAborted,
+    isOpenRouter: context.request.model.startsWith("openrouter/"),
+  });
   if (errorCode !== null) return finish("failed", errorCode);
   const outcome = disconnectedAcpOutcome(
     await process.exited,

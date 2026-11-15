@@ -266,7 +266,12 @@ export class AgentSessionRecorder implements AcpSessionListener {
       this.hasClaudeObservation = false;
       return;
     }
-    if (delta === null && provider !== "claude_code" && provider !== "antigravity") return;
+    if (
+      delta === null &&
+      provider !== "claude_code" &&
+      provider !== "antigravity"
+    )
+      return;
     const recorded = this.promptUsage(attempt, turn, delta, nativeSessionId);
     this.enqueue(() =>
       (
