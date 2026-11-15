@@ -338,3 +338,39 @@ part of this repository. The Pages side of the app (`backend/service/mobile/`,
 the mobile connection settings, push notifications and the WebSocket protocols
 `chat.v1`, `plans.v1`, `plans.flow.v1`, `conversations.v1` and `calendar.v1`) is ordinary Pages source and follows this file and
 `GUIDELINES.md`. Do not add app code or an app dependency to Pages.
+
+## 15. Planning References in Project Content
+
+Do not add references to tickets, epics, initiatives, subtasks, milestones or
+their keys and numbers to new or changed project content. This includes links
+to ticket pages and phrases such as "siehe Ticket …", "gemäß Epic …" and
+"seit Ticket …". A ticket key consists of a project prefix, a separator and a
+running number. The ban covers every capitalization, hyphens, underscores and
+spaces as separators, ranges and lists.
+
+Also ban all other internal planning numbers: work packages (a letter with a
+running number and subnumber, including "Arbeitspaket …", "… Nachlauf" and
+ranges), and decisions, topics and functions (a letter with a running number).
+They remain banned in square or round brackets, table columns, legends and
+page titles, and in phrases such as "umgesetzt in Arbeitspaket …",
+"gemäß Entscheidung …" and "Stand nach …".
+
+Apply this rule throughout the project: repository Markdown and other
+documentation; wiki pages, titles and link texts; the GitHub project and
+repository, including issues and pull requests with titles, descriptions
+and comments, commits, branches, tags, releases and release descriptions;
+source code and comments; test files, names and descriptions; interface
+and translation texts; error messages; and file and directory names.
+
+Describe the behavior, rule or reason directly so readers without access to
+the team's planning can understand it. Use keys and planning numbers in
+assignments only to understand the task; never copy them into content outside
+the ticket system.
+
+Tickets in the ticket system itself may contain keys and references to other
+tickets in their titles, descriptions, comments, links and epic or subtask
+hierarchy, because they serve planning. The product's own ticket system may
+process ticket keys as domain data in code, fields and sample data and use
+neutral example keys when required for that function; these must never refer
+to or explain a real development planning ticket. Product version numbers and
+database migration numbers are technical product numbers, not planning numbers.
