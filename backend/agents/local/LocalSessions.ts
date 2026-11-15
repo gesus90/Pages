@@ -12,7 +12,10 @@ import { serializeLogError } from "@/backend/logging/LogError";
 import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
 import { isActivePlanRun } from "@/definition/AgentPlanRunState";
 
-import { createLocalSessionLaunch, localClosedSchema } from "./LocalSessionContracts";
+import {
+  createLocalSessionLaunch,
+  localClosedSchema,
+} from "./LocalSessionContracts";
 import { LocalSessionJournal } from "./LocalSessionJournal";
 import { LocalSessionImport } from "./LocalSessionImport";
 import { LocalAttachedSession } from "./LocalAttachedSession";
@@ -41,9 +44,9 @@ import { LocalFinishedSessions } from "./LocalFinishedSessions";
 import {
   createReattachedLocalSession,
   readLocalCompletion,
-  readLocalMilestones,
 } from "./LocalSessionCompletion";
 import { localInstanceKey } from "./LocalSessionIdentity";
+import { releaseEndedOwner } from "./LocalSessionEndedOwner";
 
 import type { Database } from "@/backend/database/Database";
 import type { AgentToolManagerService } from "@/backend/service/agents/tools/AgentToolManagerService";
@@ -87,6 +90,7 @@ export class LocalSessions {
   private readonly attached = new Map<string, AttachedOwner>();
   private readonly proven = new Set<string>();
   private readonly uncertain = new Set<string>();
+  private readonly ended = new Set<string>();
   private readonly launching = new Set<string>();
   private readonly pendingSuspensions = new Set<string>();
   private readonly attachments = new Map<string, string>();
@@ -141,8 +145,16 @@ export class LocalSessions {
           });
       } catch (error: unknown) {
         this.proven.delete(entry.instanceId);
-        this.uncertain.add(entry.instanceId);
         logCaughtError("LocalSessions", error);
+        if (
+          await releaseEndedOwner(entry, (ended) =>
+            this.settleEndedOwner(ended),
+          )
+        ) {
+          this.ended.add(entry.instanceId);
+          continue;
+        }
+        this.uncertain.add(entry.instanceId);
         logEvent({
           level: "warn",
           event: "agent.local_owner.unverified",
@@ -233,6 +245,11 @@ export class LocalSessions {
   /** Exposes uncertain native identities only to recovery, never as live ownership. */
   public unverified(): ReadonlySet<string> {
     return this.uncertain;
+  }
+
+  /** Whether this owner provably ended outside Pages, such as with a reboot, so its step may start again. */
+  public hasEnded(instanceId: string): boolean {
+    return this.ended.has(instanceId);
   }
 
   /** Starts one real independently owned native session after the existing capacity admission. */
