@@ -157,3 +157,30 @@ Neue Tests, Fixtures, Mocks oder Harnesses wurden nicht angelegt. Lint, Check,
 Typecheck, Formatprüfung, Build, vollständige Suites und Coverage bleiben
 **an die Abschluss-QA übergeben**. Der historische Zugriffsauslöser bleibt
 unbelegt; eine vollständige Live-/Produktionsabnahme wird nicht behauptet.
+
+## Prüfung dieser Schleifeniteration
+
+Am 15.11.2026 um 22:57–22:58 Uhr Europe/Berlin wurde der vorbereitete Stand
+erneut geprüft. Der Produktcode unter `app/`, `backend/`, `definition/` und
+`language/` ist gegenüber Implementierungscommit `cf117f75` unverändert.
+Entwurfsabgleich, Schutz aktiver Eingaben, Dialogrevisionen, transaktionale
+Benachrichtigungen, beide Live-Auslieferungspfade, Cacheverwerfung, Wiederprüfung
+derselben Auswahl und interne Ablehnungsgründe wurden im Quellcode nachvollzogen.
+Ein zusätzlicher Eingriff in die technische Umsetzung war nicht erforderlich.
+
+Die oben aufgeführten zwölf vorhandenen Frontend-Dateien liefen erneut mit
+`NODE_ENV=test pnpm exec vitest run --config vitest.frontend.config.ts
+--coverage.enabled=false <Dateien>`: **70 Tests bestanden, Exitcode 0**.
+Die sieben oben aufgeführten Backend-Dateien einschließlich
+`settings-logging-action` liefen anschließend mit dem entsprechenden
+`vitest.backend.config.ts`-Aufruf: **98 Tests bestanden, Exitcode 0**.
+Es wurden keine Tests, Fixtures, Mocks oder Harnesses ergänzt.
+
+Die drei erhaltenen Browserbilder wurden geöffnet und die internen
+Ablehnungsdiagnosen gelesen; alle vier SHA-256-Prüfsummen stimmen weiterhin mit
+der Tabelle überein. Die Zwei-Tab-Abnahme bleibt damit eine erhaltene lokale
+Beobachtung der Implementierung, keine neue Browserausführung dieser Session.
+Der historische Zugriffsauslöser und eine Besitzerwechsel-Hypothese bleiben
+unbelegt. Keine Arbeitspläne, Live-Dienste, Live-Daten oder Zugangsdaten wurden
+verändert. Lint, Check, Typecheck, Formatprüfung, Build, vollständige Suites und
+Coverage: **an die Abschluss-QA übergeben**.
