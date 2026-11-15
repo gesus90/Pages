@@ -8,6 +8,7 @@ import { isActivePlanRun } from "@/definition/AgentPlanRunState";
 import { controlPlanProcesses } from "./AgentPlanProcessControl";
 import { forgetPlanPauseGate } from "./AgentPlanPauseGate";
 import { endedPlanRun } from "./AgentPlanRunState";
+import { settleStoppedScripts } from "./AgentPlanStoppedScripts";
 
 import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
 import type { ActivePlanRun } from "./AgentPlanRunState";
@@ -68,13 +69,39 @@ async function boundedCleanup(work: Promise<unknown>[]): Promise<boolean> {
   }
 }
 
+type StopContext = Omit<EngineDependencies, "localSessions"> & {
+  readonly active: Map<string, ActivePlanRun>;
+  readonly writes: SerialQueue;
+};
+
+/** Ends owned processes and remote work, and waits apart for the dispatching work of this process. */
+async function stopCleanup(
+  run: AgentPlanRun,
+  context: StopContext,
+  owner: ActivePlanRun | undefined,
+): Promise<{
+  readonly isConfirmed: boolean;
+  readonly haveExecutionsEnded: boolean;
+}> {
+  const [isConfirmed, haveExecutionsEnded] = await Promise.all([
+    boundedCleanup([
+      controlPlanProcesses(run, "stop"),
+      context.resources?.controlRun?.(run.id, "stop") ?? Promise.resolve(),
+      context.remoteExecution?.stop(run) ?? Promise.resolve(),
+      (async () => {
+        await context.steps.closeGroups(run.id);
+        await context.steps.finishPlanRun?.(run.id, "cancelled");
+      })(),
+    ]),
+    boundedCleanup(owner ? [...owner.executions] : []),
+  ]);
+  return { isConfirmed, haveExecutionsEnded };
+}
+
 /** Ends the business run on the first click; unconfirmed cleanup is a separate, non-blocking fact. */
 export async function stopPlanRun(
   id: string,
-  context: Omit<EngineDependencies, "localSessions"> & {
-    readonly active: Map<string, ActivePlanRun>;
-    readonly writes: SerialQueue;
-  },
+  context: StopContext,
   journal?: AgentPlanRunJournal,
 ): Promise<void> {
   let stopped: AgentPlanRun | undefined;
@@ -96,26 +123,22 @@ export async function stopPlanRun(
   });
   if (!stopped) return;
   const run = stopped;
-  const confirmed = await boundedCleanup([
-    controlPlanProcesses(run, "stop"),
-    context.resources?.controlRun?.(id, "stop") ?? Promise.resolve(),
-    context.remoteExecution?.stop(run) ?? Promise.resolve(),
-    (async () => {
-      await context.steps.closeGroups(id);
-      await context.steps.finishPlanRun?.(id, "cancelled");
-    })(),
-    ...(owner ? [...owner.executions] : []),
-  ]);
+  const cleanup = await stopCleanup(run, context, owner);
   await owner
     ?.releaseDefinition?.()
     .catch((error: unknown) => logCaughtError("AgentPlanStop", error));
   context.resources?.resumeRun(id);
+  // Only after the dispatching work ended can no script process still appear.
+  const settled = cleanup.haveExecutionsEnded
+    ? await settleStoppedScripts(run)
+    : run;
   const hasRemotePending = allPlanRunResults(run).some(
     isRemoteCloseoutUnconfirmed,
   );
-  if (!confirmed || hasRemotePending)
+  if (!cleanup.isConfirmed || !cleanup.haveExecutionsEnded || hasRemotePending)
     await context.runs.update({
-      ...run,
+      ...settled,
       controlError: "plan_stop_unconfirmed",
     });
+  else if (settled !== run) await context.runs.update(settled);
 }

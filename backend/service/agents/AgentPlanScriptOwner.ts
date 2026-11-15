@@ -19,7 +19,10 @@ import { controlOwnedNamespace } from "@/backend/agents/cli/CliNamespaceControl"
 import { logCaughtError } from "@/backend/logging/Logger";
 
 import { executeScriptProcess } from "./AgentPlanScriptProcess";
-import { scriptRuntimeDirectory } from "./AgentPlanScriptResources";
+import {
+  removeScriptResources,
+  scriptRuntimeDirectory,
+} from "./AgentPlanScriptResources";
 import { planPauseGate } from "./AgentPlanPauseGate";
 
 import type { ScriptProcessRequest } from "./AgentPlanScriptProcess";
@@ -55,13 +58,89 @@ export async function readOwnedScript(
   }
 }
 
-/** Persists reversible intent independently of any Pages process or stream. */
+function scriptUnit(instanceId: string): string {
+  return `pages-script-${instanceId}.service`;
+}
+
+async function hasOwnerMarker(instanceId: string): Promise<boolean> {
+  const directory = scriptRuntimeDirectory(instanceId);
+  try {
+    return (
+      (await readFile(path.join(directory, "owner"), "utf8")) === instanceId
+    );
+  } catch (error: unknown) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT")
+      return false;
+    throw error;
+  }
+}
+
+/** Persists reversible intent independently of any Pages process or stream; an attempt without resources owns nothing to control. */
 export async function controlOwnedScript(
   instanceId: string,
   action: "pause" | "resume" | "stop",
 ): Promise<void> {
+  if (!(await hasOwnerMarker(instanceId))) return;
   const directory = scriptRuntimeDirectory(instanceId);
   await writeLocalRecord(path.join(directory, "control.json"), { action });
+}
+
+/** Whether the transient owner unit of a script is still loaded and not inactive. */
+async function hasActiveScriptUnit(instanceId: string): Promise<boolean> {
+  const shown = await runFile(
+    "/usr/bin/systemctl",
+    [
+      "--user",
+      "show",
+      scriptUnit(instanceId),
+      "--property=LoadState,ActiveState",
+    ],
+    { env: localManagerEnvironment(), timeout: 10_000 },
+  );
+  const properties = new Set(shown.stdout.trim().split("\n"));
+  return !(
+    properties.has("LoadState=not-found") ||
+    properties.has("ActiveState=inactive")
+  );
+}
+
+/**
+ * Settles a stopped attempt that never got a script process.
+ *
+ * @remarks
+ * Without a process and without a live owner unit nothing of the attempt can
+ * still run, so removing its private resources confirms the closeout. A saved
+ * capture that already ended is adopted as it is; an attempt with a process or
+ * a live owner keeps its record for the owner to settle.
+ *
+ * @param record - The saved script record of the attempt.
+ * @param failure - Why the attempt ended when it has no failure yet.
+ * @returns The confirmed or failed record, or `record` while it stays pending.
+ */
+export async function settleUnstartedScript(
+  record: AgentPlanScriptRun,
+  failure: "cancelled" | "interrupted" = "cancelled",
+): Promise<AgentPlanScriptRun> {
+  if (record.closeout !== "pending" || record.processId !== null) return record;
+  const capture = await readOwnedScript(record.instanceId);
+  if (capture?.endedAt) return capture;
+  if (
+    capture?.processId ||
+    (capture && (await hasActiveScriptUnit(record.instanceId)))
+  )
+    return record;
+  const endedAt = new Date().toISOString();
+  try {
+    await removeScriptResources(record.instanceId);
+    return {
+      ...record,
+      endedAt,
+      failure: record.failure ?? failure,
+      closeout: "confirmed",
+    };
+  } catch {
+    return { ...record, endedAt, failure: "cleanup", closeout: "failed" };
+  }
 }
 
 /** Starts an independent owner or follows its saved capture without replaying the script. */
@@ -96,7 +175,7 @@ export async function executeOwnedScript(
         "--collect",
         "--service-type=exec",
         "--expand-environment=no",
-        `--unit=pages-script-${request.record.instanceId}.service`,
+        `--unit=${scriptUnit(request.record.instanceId)}`,
         "-p",
         "KillMode=control-group",
         "-p",
@@ -127,6 +206,11 @@ export async function executeOwnedScript(
     if (!record) throw new Error("Script capture unavailable");
     await request.save(record);
     if (record.endedAt) return record;
+    // A stopped attempt whose owner died before the spawn would otherwise be followed forever.
+    if (request.signal.aborted && record.processId === null) {
+      const settled = await settleUnstartedScript(record);
+      if (settled.closeout !== "pending") return settled;
+    }
 
     await new Promise<void>((resolve) => setTimeout(resolve, 100));
   }

@@ -3,8 +3,10 @@ import {
   readScopeSince,
 } from "@/backend/agents/cli/CliProcessScan";
 import { hasEndedOwnedNamespace } from "@/backend/agents/cli/CliOwnedNamespace";
+import { logCaughtError } from "@/backend/logging/Logger";
 
 import { removeScriptResources } from "./AgentPlanScriptResources";
+import { settleUnstartedScript } from "./AgentPlanScriptOwner";
 import { cleanupScanFailure } from "./AgentPlanCleanupFailure";
 
 import type { AgentPlanStepResult } from "@/definition/AgentPlan";
@@ -25,12 +27,50 @@ export async function endInterruptedScriptWithFailure(
   return closeInterruptedScript(step, onFailure);
 }
 
+/**
+ * Settles an attempt that never got a process; the legacy scan below can never confirm one.
+ *
+ * @returns The settled step, or `null` when the attempt may own a process.
+ */
+async function settledUnstartedStep(
+  step: AgentPlanStepResult,
+  onFailure?: (failure: AgentPlanCleanupFailure) => void,
+): Promise<AgentPlanStepResult | null> {
+  const script = step.script;
+  // A failed closeout already went through a check; it keeps the full scan.
+  if (
+    !script ||
+    script.closeout !== "pending" ||
+    script.processId !== null ||
+    script.namespace
+  )
+    return null;
+  let settled = script;
+  try {
+    settled = await settleUnstartedScript(script, "interrupted");
+  } catch (error: unknown) {
+    // The check below reports the unconfirmed cleanup once.
+    logCaughtError("AgentPlanScriptRecovery", error);
+    return null;
+  }
+  if (settled.closeout === "pending") return null;
+  if (settled.closeout === "failed")
+    onFailure?.({
+      stepId: step.id,
+      kind: "local_script",
+      reason: "resource_cleanup_failed",
+    });
+  return { ...step, script: settled };
+}
+
 async function closeInterruptedScript(
   step: AgentPlanStepResult,
   onFailure?: (failure: AgentPlanCleanupFailure) => void,
 ): Promise<AgentPlanStepResult> {
   const script = step.script;
   if (!script || script.closeout === "confirmed") return step;
+  const unstarted = await settledUnstartedStep(step, onFailure);
+  if (unstarted) return unstarted;
   let isConfirmed = false;
   try {
     if (script.namespace)
