@@ -72,9 +72,10 @@ it("allows a first-click Stop during a pause and rejects continuation afterwards
   await fixture.commands.pause(fixture.active.view.id);
   await fixture.commands.stop(fixture.active.view.id);
   expect(fixture.stored()).toMatchObject({
-    status: "stopping",
+    status: "cancelled",
     stopRequested: true,
   });
+  expect(fixture.stored().steps[0]?.status).toBe("cancelled");
   expect(fixture.controller.signal.aborted).toBe(true);
   await expect(
     fixture.commands.resume(fixture.active.view.id),

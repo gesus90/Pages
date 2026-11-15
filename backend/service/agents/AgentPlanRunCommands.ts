@@ -110,6 +110,38 @@ function pauseFrontier(active: ActivePlanRun): string[] {
   ];
 }
 
+function pausedPlanView(active: ActivePlanRun): AgentPlanRun {
+  return {
+    ...active.view,
+    status: "paused",
+    pauseBoundary: {
+      pausedAt: new Date().toISOString(),
+      completedStepIds: active.view.steps
+        .filter((step) => step.status === "succeeded")
+        .map((step) => step.id),
+      pendingStepIds: active.view.steps
+        .filter((step) =>
+          ["waiting", "paused", "running"].includes(step.status),
+        )
+        .map((step) => step.id),
+      frontierStepIds: pauseFrontier(active),
+    },
+    isWaitingForWorkspace: undefined,
+    workspaceWait: undefined,
+    steps: active.view.steps.map((step) =>
+      step.status === "waiting" ? { ...step, status: "paused" } : step,
+    ),
+  };
+}
+
+function isAlreadyPaused(active: ActivePlanRun, isImmediate: boolean): boolean {
+  if (active.view.status === "paused") return true;
+  if (active.view.status === "pausing") return !isImmediate;
+  if (active.view.status !== "running")
+    throw new AgentError("plan_run_unavailable");
+  return false;
+}
+
 /** Serial durable run commands; execution gates change only after the state and journal commit. */
 export class AgentPlanRunCommands {
   private readonly dependencies: CommandDependencies;
@@ -157,10 +189,7 @@ export class AgentPlanRunCommands {
       if (!active || active.view.stopRequested)
         throw new AgentError("plan_run_unavailable");
       const isImmediate = usesImmediateCodexPause(active.snapshot);
-      if (
-        active.view.status === "paused" ||
-        (active.view.status === "pausing" && !isImmediate)
-      ) {
+      if (isAlreadyPaused(active, isImmediate)) {
         if (journal)
           await this.dependencies.runs.update(
             active.view,
@@ -170,31 +199,9 @@ export class AgentPlanRunCommands {
           );
         return;
       }
-      if (
-        active.view.status !== "running" &&
-        !(active.view.status === "pausing" && isImmediate)
-      )
-        throw new AgentError("plan_run_unavailable");
       const proposed: AgentPlanRun = {
-        ...active.view,
-        status: "paused",
-        pauseBoundary: {
-          pausedAt: new Date().toISOString(),
-          completedStepIds: active.view.steps
-            .filter((step) => step.status === "succeeded")
-            .map((step) => step.id),
-          pendingStepIds: active.view.steps
-            .filter((step) =>
-              ["waiting", "paused", "running"].includes(step.status),
-            )
-            .map((step) => step.id),
-          frontierStepIds: pauseFrontier(active),
-        },
-        isWaitingForWorkspace: undefined,
-        workspaceWait: undefined,
-        steps: active.view.steps.map((step) =>
-          step.status === "waiting" ? { ...step, status: "paused" } : step,
-        ),
+        ...pausedPlanView(active),
+        status: "pausing",
       };
       await this.dependencies.runs.update(
         proposed,
@@ -216,6 +223,10 @@ export class AgentPlanRunCommands {
         const suspended = suspendedCodexRun(active);
         await this.dependencies.runs.update(suspended);
         active.view = suspended;
+      } else {
+        const paused: AgentPlanRun = { ...proposed, status: "paused" };
+        await this.dependencies.runs.update(paused);
+        active.view = paused;
       }
     });
     await this.dependencies.pump();
