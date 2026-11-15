@@ -8,6 +8,7 @@ import { ConversationMessageRepository } from "@/backend/database/repositories/c
 import { ConversationRepository } from "@/backend/database/repositories/conversation/ConversationRepository";
 import { EmployeeStore } from "@/backend/database/repositories/employee/EmployeeStore";
 import type { AgentChatQuestionService } from "@/backend/service/conversation/AgentChatQuestionService";
+import type { AgentChatTaskService } from "@/backend/service/employee/AgentChatTaskService";
 import type { AgentSessionSettingsRepository } from "@/backend/database/repositories/employee/AgentSessionSettingsRepository";
 import { UserGroupRepository } from "@/backend/database/repositories/UserGroupRepository";
 import { UserRepository } from "@/backend/database/repositories/UserRepository";
@@ -48,6 +49,7 @@ import { ChatGroupService } from "@/backend/service/employee/ChatGroupService";
 import { PersonColorService } from "@/backend/service/employee/PersonColorService";
 import {
   createChatDirectory,
+  createChatTasks,
   createDeletionService,
   createLearning,
   createMemoryParts,
@@ -102,6 +104,8 @@ export interface EmployeeApplicationServices extends ConversationApplicationServ
   readonly agentLearningService: AgentLearningService;
   /** Marks chats with agents confidential (PAGE-305). */
   readonly agentChatPrivacyService: AgentChatPrivacyService;
+  /** The scheduled tasks of chats: the entry "Geplante Aufgaben" of the chat menu (PAGE-392). */
+  readonly agentChatTaskService: AgentChatTaskService;
   readonly chatDirectoryService: ChatDirectoryService;
   readonly chatGroupService: ChatGroupService;
   readonly personColorService: PersonColorService;
@@ -179,6 +183,7 @@ interface EmployeeParts {
   readonly conversations: ConversationApplicationServices;
   readonly learning: AgentLearningService;
   readonly privacy: AgentChatPrivacyService;
+  readonly chatTasks: AgentChatTaskService;
 }
 
 /** The tab "Lagebuch": what a viewer sees of the Lagebuch of an agent and what they change. */
@@ -270,6 +275,7 @@ function assembleEmployeeServices(
     ),
     agentLearningService: parts.learning,
     agentChatPrivacyService: parts.privacy,
+    agentChatTaskService: parts.chatTasks,
     chatDirectoryService: createChatDirectory({
       database: input.database,
       store,
@@ -294,6 +300,7 @@ interface LateServices {
   sessions: AgentEmployeeSessions | null;
   agentChat: AgentChatTools | null;
   chatQuestions: AgentChatQuestionService | null;
+  chatTasks: AgentChatTaskService | null;
   contextReader: ConversationContextReader | null;
   logbook: AgentLogbookService | null;
 }
@@ -418,6 +425,7 @@ function createEmployeeSessions(
     recorder: base.recorder,
     agentChat: () => late.agentChat,
     chatQuestions: () => late.chatQuestions,
+    chatTasks: () => late.chatTasks,
     createSessionId: () => createChatSessionId(),
     conversationContext: {
       readForAgent: (agentId, request) =>
@@ -440,7 +448,7 @@ function wireEmployeeConversations(
   late: LateServices,
 ): Pick<
   EmployeeParts,
-  "agentSessions" | "conversations" | "learning" | "logbook"
+  "agentSessions" | "conversations" | "learning" | "logbook" | "chatTasks"
 > {
   const { store, users, messages, memory, memoryModel, recorder } = base;
   const { simulation, activity, sessionSettings, lifecycle, chatReader } = base;
@@ -464,6 +472,8 @@ function wireEmployeeConversations(
   late.contextReader = conversations.conversationContextReader;
   late.agentChat = conversations.agentChatService;
   late.chatQuestions = conversations.agentChatQuestions;
+  const chatTasks = createChatTasks(input, { users, conversations });
+  late.chatTasks = chatTasks;
   const learning = createLearning(input, {
     dependencies: {
       store,
@@ -520,7 +530,13 @@ function wireEmployeeConversations(
       )) !== null,
     defaultIdleMinutes: async () => (await sessionSettings.read()).idleMinutes,
   });
-  return { agentSessions, conversations, learning, logbook: logbookService };
+  return {
+    agentSessions,
+    conversations,
+    learning,
+    logbook: logbookService,
+    chatTasks,
+  };
 }
 
 /**
@@ -533,6 +549,7 @@ export function createEmployeeServices(
     sessions: null,
     agentChat: null,
     chatQuestions: null,
+    chatTasks: null,
     contextReader: null,
     logbook: null,
   };

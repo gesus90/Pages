@@ -108,6 +108,49 @@ export class AgentConversationRepository {
   }
 
   /**
+   * The name of a group all given accounts belong to (PAGE-392), for the
+   * scheduled task bound to it.
+   *
+   * @param conversationId - The group.
+   * @param memberIds - The accounts that must all be members.
+   * @returns The name of the group, or `null` when it is gone or one of
+   * them left it.
+   */
+  public async findSharedGroup(
+    conversationId: string,
+    memberIds: readonly string[],
+  ): Promise<string | null> {
+    const [first = "", second = first] = memberIds;
+    const rows = await this.database.query(
+      `
+        SELECT conversations.name
+        FROM conversations
+        WHERE conversations.id = $conversation_id
+            AND conversations.kind = 'group'
+            AND EXISTS (
+                SELECT 1
+                FROM conversation_members
+                WHERE conversation_members.conversation_id = conversations.id
+                    AND conversation_members.user_id = $first_member
+            )
+            AND EXISTS (
+                SELECT 1
+                FROM conversation_members
+                WHERE conversation_members.conversation_id = conversations.id
+                    AND conversation_members.user_id = $second_member
+            );
+      `,
+      {
+        conversation_id: conversationId,
+        first_member: first,
+        second_member: second,
+      },
+    );
+    const [row] = rows;
+    return row ? readTextColumn(row, 0, "name") : null;
+  }
+
+  /**
    * Returns the conversation, creating it and its chat session owned by the
    * agent when it does not exist yet.
    *

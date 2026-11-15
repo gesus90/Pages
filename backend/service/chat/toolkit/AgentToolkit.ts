@@ -5,6 +5,7 @@ import { PicaPlanConfirmation } from "../PicaPlanConfirmation";
 import { PICA_TOOL_OUTCOME } from "../PicaToolSchemas";
 
 import { registerAgentChatInteractionTools } from "./AgentChatInteractionTools";
+import { registerAgentChatTaskTools } from "./AgentChatTaskTools";
 import { AgentShellJobs } from "./AgentShellJobs";
 import { createAgentShellLauncher } from "./AgentShellLauncher";
 import { AGENT_TOOLKIT_TOOLS, isBridgeToolAllowed } from "./AgentToolkitCatalog";
@@ -17,6 +18,7 @@ import type {
   RuntimeToolRegistry,
 } from "@/backend/agents/runtime/RuntimeToolRegistry";
 import type { AgentChatInteractions } from "@/definition/AgentChatQuestion";
+import type { AgentChatTasks } from "@/definition/AgentChatTask";
 import type { AgentToolPolicy } from "@/definition/AgentToolGroups";
 import type { PicaToolOutcome } from "../PicaToolSchemas";
 import type {
@@ -59,6 +61,8 @@ export interface AgentToolkitJobInput {
   readonly readPage?: AgentWebPageReader;
   /** The interim messages and questions bound to the job's chat (PAGE-391). */
   readonly interactions?: AgentChatInteractions;
+  /** The scheduled tasks bound to the job's chat (PAGE-392). */
+  readonly chatTasks?: AgentChatTasks;
 }
 
 /**
@@ -83,6 +87,7 @@ export function createAgentToolkitJob(
     shellJobs: new AgentShellJobs(),
     readPage: input.readPage ?? readPublicWebPage,
     ...(input.interactions ? { interactions: input.interactions } : {}),
+    ...(input.chatTasks ? { chatTasks: input.chatTasks } : {}),
   };
 }
 
@@ -264,6 +269,14 @@ export function registerAgentToolkitTools(
       approvals: binding.approvals ?? CONSEQUENTIAL_APPROVALS,
       turnId: turn.id,
       admit,
+    });
+  const { chatTasks } = binding.job;
+  if (chatTasks)
+    registerAgentChatTaskTools(registry, {
+      tasks: chatTasks,
+      mode: binding.job.policy.pages,
+      admit,
+      requireApproval: (call) => requireApproval(binding, { ...call, turn }),
     });
   for (const tool of AGENT_TOOLKIT_TOOLS) {
     if (!isBridgeToolAllowed(binding.job.policy, tool.id)) continue;

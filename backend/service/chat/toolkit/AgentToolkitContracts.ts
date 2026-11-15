@@ -1,6 +1,7 @@
 import type { z } from "zod";
 import type { RuntimeExecutionContext } from "@/backend/agents/runtime/RuntimeExecutionContext";
 import type { AgentChatInteractions } from "@/definition/AgentChatQuestion";
+import type { AgentChatTasks } from "@/definition/AgentChatTask";
 import type { AgentToolGroup, AgentToolPolicy } from "@/definition/AgentToolGroups";
 import type { PicaToolOutcome } from "../PicaToolSchemas";
 import type { AgentShellJobs } from "./AgentShellJobs";
@@ -35,6 +36,11 @@ export interface AgentToolkitJob {
    * (PAGE-391); absent for a run without a chat, which offers neither.
    */
   readonly interactions?: AgentChatInteractions;
+  /**
+   * The scheduled tasks of the job, bound to its agent and chat (PAGE-392);
+   * absent for a run without a chat, which plans none.
+   */
+  readonly chatTasks?: AgentChatTasks;
 }
 
 /** One tool of the toolkit, before Pages applies the policy. */

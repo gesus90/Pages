@@ -1,5 +1,6 @@
 import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { AgentError } from "@/backend/error/AgentErrors";
+import { AGENT_CHAT_TASK_LIMIT_RANGE } from "@/definition/AgentChatTask";
 import { AGENT_CHAT_HOURLY_LIMIT_RANGE } from "@/definition/Conversation";
 
 import { requireAgentAdministrator } from "../agents/AgentServiceAccess";
@@ -8,10 +9,23 @@ import type { AgentChatSettingsRepository } from "@/backend/database/repositorie
 import type { AccountAccess } from "@/definition/Authorization";
 import type { AgentChatSettings } from "@/definition/Conversation";
 
-/** A submitted change of the hourly limit. */
+/** A submitted change of the hourly limit and of the limit of tasks per chat. */
 export interface AgentChatSettingsInput {
   readonly hourlyMessageLimit: number;
+  /** Absent keeps the stored limit of scheduled tasks per chat (PAGE-392). */
+  readonly scheduledTaskLimit?: number;
   readonly revision: number;
+}
+
+function isInRange(
+  value: number,
+  range: { readonly minimum: number; readonly maximum: number },
+): boolean {
+  return (
+    Number.isSafeInteger(value) &&
+    value >= range.minimum &&
+    value <= range.maximum
+  );
 }
 
 /**
@@ -19,7 +33,8 @@ export interface AgentChatSettingsInput {
  *
  * @remarks
  * Only an administrator in the active admin mode reads the form and saves.
- * The limit is how many messages one agent may send per hour.
+ * The limit is how many messages one agent may send per hour; the second
+ * one how many scheduled tasks one chat may hold (PAGE-392).
  */
 export class AgentChatSettingsService {
   private readonly settings: Pick<AgentChatSettingsRepository, "read" | "save">;
@@ -31,6 +46,11 @@ export class AgentChatSettingsService {
     this.settings = settings;
   }
 
+  /** The settings as the scheduled tasks of chats apply them, without an administrator (PAGE-392). */
+  public async current(): Promise<AgentChatSettings> {
+    return this.settings.read();
+  }
+
   /** Supplies the settings card. */
   public async administration(
     actor: AccountAccess,
@@ -40,9 +60,9 @@ export class AgentChatSettingsService {
   }
 
   /**
-   * Saves the hourly limit.
+   * Saves the hourly limit and the limit of scheduled tasks per chat.
    *
-   * @throws {AgentError} `profile_invalid` for a limit outside the range,
+   * @throws {AgentError} `profile_invalid` for a limit outside its range,
    * `profile_conflict` after a concurrent change.
    */
   public async save(
@@ -51,14 +71,15 @@ export class AgentChatSettingsService {
   ): Promise<void> {
     requireAgentAdministrator(actor);
     const { hourlyMessageLimit, revision } = input;
-    if (
-      !Number.isSafeInteger(hourlyMessageLimit) ||
-      hourlyMessageLimit < AGENT_CHAT_HOURLY_LIMIT_RANGE.minimum ||
-      hourlyMessageLimit > AGENT_CHAT_HOURLY_LIMIT_RANGE.maximum
-    )
+    if (!isInRange(hourlyMessageLimit, AGENT_CHAT_HOURLY_LIMIT_RANGE))
+      throw new AgentError("profile_invalid");
+    const scheduledTaskLimit =
+      input.scheduledTaskLimit ??
+      (await this.settings.read()).scheduledTaskLimit;
+    if (!isInRange(scheduledTaskLimit, AGENT_CHAT_TASK_LIMIT_RANGE))
       throw new AgentError("profile_invalid");
     await this.writes.run(() =>
-      this.settings.save({ hourlyMessageLimit, revision }),
+      this.settings.save({ hourlyMessageLimit, scheduledTaskLimit, revision }),
     );
   }
 }

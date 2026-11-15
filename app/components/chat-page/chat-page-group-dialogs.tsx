@@ -2,6 +2,7 @@ import { ChatPageAgentSessionsDialog } from "./chat-page-agent-sessions-dialog";
 import { ChatPageGroupContext } from "./chat-page-group-context";
 import { ChatPageMemberDialog } from "./chat-page-member-dialog";
 import { ChatPageReplySettings } from "./chat-page-reply-settings";
+import { ChatPageScheduledTasks } from "./chat-page-scheduled-tasks";
 
 import type { AgentSettingsTab } from "@/app/components/agent-settings/agent-settings-tabs";
 import type {
@@ -41,8 +42,8 @@ function sessionEntries(
 
 /**
  * The dialogs of the group menu and of the plus behind the member chips:
- * who answers, the group context, the sessions of the agents in the group
- * and the members. One of them is open at a time.
+ * who answers, the group context, the sessions of the agents in the group,
+ * its scheduled tasks (PAGE-392) and the members. One of them is open at a time.
  */
 export function ChatPageGroupDialogs({
   group,
@@ -79,6 +80,11 @@ export function ChatPageGroupDialogs({
           onDialogChange(null);
           onOpenSettings(agent, "sessions");
         }}
+      />
+      <ChatPageScheduledTasks
+        chat={{ kind: "group", conversationId: group.id, name: group.name }}
+        isOpen={dialog === "tasks"}
+        onOpenChange={(isOpen) => handleOpenChange("tasks", isOpen)}
       />
       <ChatPageMemberDialog
         group={group}

@@ -29,6 +29,7 @@ import type {
 } from "@/definition/ChatJob";
 import type { User } from "@/definition/User";
 import type { AgentChatInteractions } from "@/definition/AgentChatQuestion";
+import type { AgentChatTasks } from "@/definition/AgentChatTask";
 import type { AgentRecipeBrief } from "./AgentRecipeService";
 import type { AgentChatToolScope } from "./AgentChatToolGuard";
 import type { AgentMemoryAudience } from "./AgentMemorySharing";
@@ -780,27 +781,32 @@ export class AgentEmployeeSessions {
   }
 
   /**
-   * The interim messages and questions of a job, bound to its chat
-   * (PAGE-391); a run of the agent's own has no chat and offers neither.
+   * The interim messages and questions (PAGE-391) and the scheduled tasks
+   * (PAGE-392) of a job, bound to its chat; a run of the agent's own has no
+   * chat and offers none of them.
    */
   private chatInteractions(
     agent: User,
     chat: AgentChatScope,
-  ): { readonly interactions?: AgentChatInteractions } {
+  ): {
+    readonly interactions?: AgentChatInteractions;
+    readonly chatTasks?: AgentChatTasks;
+  } {
     const questions = this.dependencies.chatQuestions?.() ?? null;
+    const tasks = this.dependencies.chatTasks?.() ?? null;
     const { own } = chat;
-    if (!questions || !own) return {};
+    if (!own) return {};
+    const bound =
+      own.kind === "direct"
+        ? { kind: "direct" as const, personId: own.chatId }
+        : {
+            kind: "conversation" as const,
+            conversationId: own.chatId,
+            askerId: own.askerId ?? null,
+          };
     return {
-      interactions: questions.bind(
-        agent.id,
-        own.kind === "direct"
-          ? { kind: "direct", personId: own.chatId }
-          : {
-              kind: "conversation",
-              conversationId: own.chatId,
-              askerId: own.askerId ?? null,
-            },
-      ),
+      ...(questions ? { interactions: questions.bind(agent.id, bound) } : {}),
+      ...(tasks ? { chatTasks: tasks.bind(agent.id, bound) } : {}),
     };
   }
 

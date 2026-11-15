@@ -11,6 +11,9 @@ import type { ChatSessionRepository } from "@/backend/database/repositories/chat
 import { ConversationReplySettingsRepository } from "@/backend/database/repositories/conversation/ConversationReplySettingsRepository";
 import type { EmployeeStore } from "@/backend/database/repositories/employee/EmployeeStore";
 import { AgentSessionSettingsRepository } from "@/backend/database/repositories/employee/AgentSessionSettingsRepository";
+import { AutomationRepository } from "@/backend/database/repositories/automation/AutomationRepository";
+import { AgentChatTaskRepository } from "@/backend/database/repositories/conversation/AgentChatTaskRepository";
+import { AgentChatTaskService } from "@/backend/service/employee/AgentChatTaskService";
 import type { UserRepository } from "@/backend/database/repositories/UserRepository";
 import { WikiLookupRepository } from "@/backend/database/repositories/wiki/WikiLookupRepository";
 import { createChatSessionId } from "@/backend/service/chat/ChatSessionWords";
@@ -301,3 +304,33 @@ export function createSessionGates(database: Database): {
 }
 
 /** What the services of the employee area are assembled from once the sessions and conversations are wired. */
+
+/**
+ * The scheduled tasks agents plan from their chats (PAGE-392), on the
+ * automations of the instance and the members of its conversations.
+ */
+export function createChatTasks(
+  input: Pick<EmployeeServicesInput, "database" | "automations">,
+  parts: {
+    readonly users: UserRepository;
+    readonly conversations: Pick<
+      ConversationApplicationServices,
+      "conversationReader" | "agentChatSettingsService"
+    >;
+  },
+): AgentChatTaskService {
+  const { database, automations } = input;
+  const { conversations } = parts;
+  return new AgentChatTaskService({
+    automations,
+    account: (userId) => automations.rules.account(userId),
+    stored: new AutomationRepository(database),
+    tasks: new AgentChatTaskRepository(database),
+    users: parts.users,
+    members: (conversationId) =>
+      conversations.conversationReader.memberIds(conversationId),
+    limit: async () =>
+      (await conversations.agentChatSettingsService.current())
+        .scheduledTaskLimit,
+  });
+}

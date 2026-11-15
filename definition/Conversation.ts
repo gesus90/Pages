@@ -240,5 +240,7 @@ export type AgentChatErrorCode =
 export interface AgentChatSettings {
   /** Messages one agent may send per hour. */
   readonly hourlyMessageLimit: number;
+  /** Scheduled tasks one chat may hold (PAGE-392). */
+  readonly scheduledTaskLimit: number;
   readonly revision: number;
 }

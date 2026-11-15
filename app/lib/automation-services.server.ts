@@ -3,6 +3,7 @@ import { currentAgentSimulationMode } from "@/backend/agents/simulation/AgentSim
 import { SimulatedConversationAgent } from "@/backend/agents/simulation/SimulatedConversationAgent";
 import { AutomationEventRepository } from "@/backend/database/repositories/automation/AutomationEventRepository";
 import { ChatSessionRepository } from "@/backend/database/repositories/chat/ChatSessionRepository";
+import { AgentChatTaskRepository } from "@/backend/database/repositories/conversation/AgentChatTaskRepository";
 import { EmployeeStore } from "@/backend/database/repositories/employee/EmployeeStore";
 import { ProjectRepository } from "@/backend/database/repositories/ProjectRepository";
 import { WorkflowStatusRepository } from "@/backend/database/repositories/task/WorkflowStatusRepository";
@@ -225,6 +226,7 @@ export function startAutomationAgentWorker(input: {
         : null,
     }),
     now: () => new Date(),
+    chatTasks: new AgentChatTaskRepository(input.database),
   });
   globalThis.pagesAutomationAgentWorker?.stop();
   globalThis.pagesAutomationAgentWorker = worker;

@@ -21,6 +21,7 @@ import {
   participantSubtitle,
 } from "./chat-page-list-entries";
 import { ChatPageAddMemberButton } from "./chat-page-member-dialog";
+import { ChatPageScheduledTasks } from "./chat-page-scheduled-tasks";
 
 import type { ReactNode } from "react";
 import type { AgentSettingsTab } from "@/app/components/agent-settings/agent-settings-tabs";
@@ -185,6 +186,7 @@ function ParticipantHeader({
 }): React.ReactElement {
   const { t } = useTranslation();
   const menu = useAgentMenuState();
+  const [isTasksOpen, setIsTasksOpen] = useState(false);
   const isAgent = participant.kind === "agent";
   const facts = [
     participantSubtitle(participant, t),
@@ -206,8 +208,20 @@ function ParticipantHeader({
               <ChatPageAgentButton
                 agent={participant}
                 brief={participant.session}
-                options={{ onOpenSettings: links.onOpenSettings }}
+                options={{
+                  onOpenSettings: links.onOpenSettings,
+                  onOpenTasks: () => setIsTasksOpen(true),
+                }}
                 state={menu}
+              />
+              <ChatPageScheduledTasks
+                chat={{
+                  kind: "direct",
+                  agentId: participant.id,
+                  name: participant.name,
+                }}
+                isOpen={isTasksOpen}
+                onOpenChange={setIsTasksOpen}
               />
             </>
           ) : null}

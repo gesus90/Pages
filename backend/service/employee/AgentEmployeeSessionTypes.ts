@@ -17,6 +17,7 @@ import type {
   PicaAcpService,
 } from "../chat/acp/PicaAcpService";
 import type { AgentChatQuestionService } from "@/backend/service/conversation/AgentChatQuestionService";
+import type { AgentChatTaskService } from "./AgentChatTaskService";
 import type { AgentChatTools } from "@/definition/AgentChat";
 import type { User } from "@/definition/User";
 import type { AgentEmployeeModels } from "./AgentEmployeeModels";
@@ -79,6 +80,11 @@ export interface AgentEmployeeSessionDependencies {
    * `null` offers neither.
    */
   readonly chatQuestions?: () => Pick<AgentChatQuestionService, "bind"> | null;
+  /**
+   * The scheduled tasks agents plan from their chat (PAGE-392). A function,
+   * because the automations are wired after the sessions; `null` plans none.
+   */
+  readonly chatTasks?: () => Pick<AgentChatTaskService, "bind"> | null;
   /** An unused ID for a new chat session. */
   readonly createSessionId: () => string;
   /**

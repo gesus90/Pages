@@ -1,6 +1,7 @@
 import {
   Bell,
   BellOff,
+  CalendarClock,
   ChevronDown,
   Layers,
   MessageCircleQuestionMark,
@@ -28,7 +29,8 @@ import type { VirtualGroup } from "@/definition/VirtualChat";
 import type { ConfidentialControl } from "./chat-page-confidential";
 
 /** The dialogs the group menu opens, besides the popup of an agent. */
-export type GroupDialogKind = "context" | "reply" | "sessions" | "members";
+export type GroupDialogKind =
+  "context" | "reply" | "sessions" | "members" | "tasks";
 
 interface ChatPageGroupMenuProps {
   readonly group: VirtualGroup;
@@ -64,8 +66,8 @@ function ConfidentialEntry({
 
 /**
  * The one menu of a group in the head of the chat (PAGE-376): who answers
- * (with the current mode as its remark, PAGE-379), the group context, the sessions of the agents, confidentiality, muting and
- * the members.
+ * (with the current mode as its remark, PAGE-379), the group context, the sessions of the agents, the scheduled tasks
+ * (PAGE-392), confidentiality, muting and the members.
  *
  * @remarks
  * It gathers the buttons the head used to show side by side. Each entry
@@ -112,6 +114,11 @@ export function ChatPageGroupMenu({
           icon={Layers}
           label={t("chatPage.groupMenu.sessions")}
           onSelect={() => onOpenDialog("sessions")}
+        />
+        <ChatPageMenuEntry
+          icon={CalendarClock}
+          label={t("chatPage.groupMenu.tasks")}
+          onSelect={() => onOpenDialog("tasks")}
         />
         <ConfidentialEntry control={confidential} />
         {isMuted === null ? null : (

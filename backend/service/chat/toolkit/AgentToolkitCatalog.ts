@@ -11,6 +11,7 @@ import {
 import { PICA_FILE_TOOL, PICA_WRITE_SCHEMAS } from "../PicaToolSchemas";
 
 import { AGENT_ASK_TOOL, AGENT_SAY_TOOL } from "./AgentChatInteractionTools";
+import { AGENT_TASK_WRITE_TOOLS } from "./AgentChatTaskTools";
 import { AGENT_FILE_TOOLS } from "./AgentFileTools";
 import { AGENT_SHELL_TOOLS } from "./AgentShellTools";
 import { AGENT_WEB_TOOLS } from "./AgentWebTools";
@@ -63,6 +64,7 @@ const PAGES_WRITE_TOOLS: ReadonlySet<string> = new Set([
   ...PLAN_WRITE_TOOLS.map(({ tool }) => tool.name),
   ...PLAN_RESOURCE_WRITE_TOOLS.map(({ tool }) => tool.name),
   ...AUTOMATION_WRITE_TOOLS.map(({ tool }) => tool.name),
+  ...AGENT_TASK_WRITE_TOOLS,
   "calendar_event_create",
   "calendar_event_update",
   "calendar_event_respond",

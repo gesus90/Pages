@@ -2,6 +2,13 @@ import { data } from "react-router";
 
 import { authenticatedUserContext } from "@/app/lib/auth.server";
 import { shareChatGroup } from "@/app/lib/chat-page-conversations.server";
+import {
+  CHAT_TASK_INTENTS,
+  CHAT_TASK_STATUS,
+  chatTaskFailure,
+  isChatTaskIntent,
+  runChatTaskIntent,
+} from "@/app/lib/chat-page-tasks.server";
 import { getApplicationServices } from "@/app/lib/services.server";
 import { AgentEmployeeError } from "@/backend/error/AgentEmployeeError";
 import { CONVERSATION_DEFAULT_REPLY_MODE } from "@/definition/ConversationDecision";
@@ -9,6 +16,11 @@ import { ConversationError } from "@/backend/error/ConversationError";
 import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { ChatPageServices } from "@/app/lib/chat-page-conversations.server";
+import type { ChatTaskIntent } from "@/app/lib/chat-page-tasks.server";
+import type {
+  AgentChatTaskErrorCode,
+  AgentChatTaskView,
+} from "@/definition/AgentChatTask";
 import type { ConversationErrorCode } from "@/definition/Conversation";
 import type {
   ConversationDecisionEntry,
@@ -38,11 +50,15 @@ export type ChatPageActionData =
       readonly replySettings?: ConversationReplySettingsView;
       /** The last decisions of a group, the answer of `reply-decisions` (PAGE-379). */
       readonly replyDecisions?: readonly ConversationDecisionEntry[];
+      /** The scheduled tasks of a chat, the answer of the dialog "Geplante Aufgaben" (PAGE-392). */
+      readonly chatTasks?: readonly AgentChatTaskView[];
     }
   | {
       readonly ok: false;
       readonly intent: ChatPageIntent;
       readonly error: VirtualChatSendFailure;
+      /** Why a change of a scheduled task was refused (PAGE-392). */
+      readonly taskError?: AgentChatTaskErrorCode;
     };
 
 /** The changes the chat page sends. */
@@ -70,7 +86,8 @@ export type ChatPageIntent =
   | "card-state"
   | "split-width"
   | "list-collapsed"
-  | "answer-question";
+  | "answer-question"
+  | ChatTaskIntent;
 
 /** What a change yields besides success: a created group, a page of older messages or a group context. */
 interface ChatIntentOutcome {
@@ -79,9 +96,11 @@ interface ChatIntentOutcome {
   readonly groupContext?: ConversationGroupContextView;
   readonly replySettings?: ConversationReplySettingsView;
   readonly replyDecisions?: readonly ConversationDecisionEntry[];
+  readonly chatTasks?: readonly AgentChatTaskView[];
 }
 
 const INTENTS: readonly ChatPageIntent[] = [
+  ...CHAT_TASK_INTENTS,
   "save-contacts",
   "send",
   "stop",
@@ -461,6 +480,13 @@ async function runIntent(
     await runAgentControlIntent(services, person, intent, formData);
     return {};
   }
+  if (isChatTaskIntent(intent))
+    return runChatTaskIntent(
+      services.agentChatTaskService,
+      person,
+      intent,
+      formData,
+    );
   switch (intent) {
     case "save-contacts":
       await services.chatDirectoryService.saveContacts(
@@ -617,6 +643,12 @@ export async function action({
     const outcome = await runIntent(services, person, intent, formData);
     return data<ChatPageActionData>({ ok: true, intent, ...outcome });
   } catch (error: unknown) {
+    const taskError = chatTaskFailure(error);
+    if (taskError !== null)
+      return data<ChatPageActionData>(
+        { ok: false, intent, error: "invalidInput", taskError },
+        { status: CHAT_TASK_STATUS[taskError] },
+      );
     if (error instanceof ConversationError) {
       logCaughtError("chat_page", error);
       return data<ChatPageActionData>(

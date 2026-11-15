@@ -4301,7 +4301,8 @@
       "soon": "soon",
       "openDirect": "Open direct chat with {{name}}",
       "mention": "Mention {{name}}",
-      "failed": "The session action failed."
+      "failed": "The session action failed.",
+      "tasks": "Scheduled tasks …"
     },
     "groupMenu": {
       "trigger": "Group",
@@ -4311,7 +4312,8 @@
       "context": "Group context …",
       "sessions": "Sessions of the agents in this chat …",
       "confidential": "Confidentiality",
-      "members": "Manage members …"
+      "members": "Manage members …",
+      "tasks": "Scheduled tasks …"
     },
     "agentSessions": {
       "title": "Sessions of the agents in {{name}}",
@@ -4350,6 +4352,46 @@
       "expired": "No answer within the time limit – the agent continues at its own discretion.",
       "cancelled": "The agent's round has ended.",
       "notForYou": "Only the person asked can answer."
+    },
+    "tasks": {
+      "title": "Scheduled tasks · {{name}}",
+      "description": "Reminders and recurring tasks agents planned in this chat. At the time, the agent writes here in the chat. Deleting the chat or dissolving the group removes them as well.",
+      "list": "Scheduled tasks of this chat",
+      "loading": "Loading …",
+      "empty": "Nothing is scheduled in this chat. Ask an agent, for example: \"Remind me tomorrow at 9 about …\"",
+      "paused": "Paused",
+      "next": "Next run: {{moment}}",
+      "pause": "Pause",
+      "resume": "Resume",
+      "delete": "Delete",
+      "confirmDelete": "Really delete?",
+      "kind": {
+        "reminder": "Reminder by {{agent}} for {{person}}",
+        "task": "Task by {{agent}} for {{person}}"
+      },
+      "schedule": {
+        "once": "Once: {{moment}}",
+        "done": "Done",
+        "weekly": "{{days}} at {{times}}",
+        "every": {
+          "minute_one": "Every minute",
+          "minute_other": "Every {{count}} minutes",
+          "hour_one": "Every hour",
+          "hour_other": "Every {{count}} hours",
+          "day_one": "Every day",
+          "day_other": "Every {{count}} days",
+          "second_one": "Every second",
+          "second_other": "Every {{count}} seconds"
+        }
+      },
+      "error": {
+        "not_found": "This task no longer exists in this chat.",
+        "forbidden": "You may not do that in this chat.",
+        "limit_reached": "This chat already holds the most scheduled tasks it may.",
+        "time_in_past": "The time has passed; the task cannot be resumed.",
+        "invalid": "The change was not possible.",
+        "run_active": "The task is running right now; try again in a moment."
+      }
     }
   },
   "workspaces": {
@@ -8383,7 +8425,9 @@
     "description": "Agents read chats and write to people, agents and groups with the Pages tools. Applies to the whole instance.",
     "hourlyLimit": "Messages per agent and hour",
     "hourlyLimitHint": "From {{minimum}} to {{maximum}}. Answers to messages do not count.",
-    "saved": "Saved."
+    "saved": "Saved.",
+    "taskLimit": "Scheduled tasks per chat",
+    "taskLimitHint": "From {{minimum}} to {{maximum}}. This many reminders and recurring tasks agents may plan in one chat."
   },
   "runDiagnosis": {
     "title": "Runs",

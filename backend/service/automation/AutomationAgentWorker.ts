@@ -9,6 +9,7 @@ import { firstBytes } from "./AutomationPrompts";
 
 import type { Database } from "@/backend/database/Database";
 import type { StoredAutomationAgentJob } from "@/backend/database/repositories/automation/AutomationAgentJobRepository";
+import type { AgentChatTaskRepository } from "@/backend/database/repositories/conversation/AgentChatTaskRepository";
 import type { AutomationAccess } from "./AutomationAccess";
 
 /** How often the worker looks into the queues. */
@@ -50,6 +51,11 @@ export interface AutomationAgentRunner {
     readonly chat?: string | null;
     /** The run, which makes the result posted into a chat unique. */
     readonly runKey?: string;
+    /**
+     * The group a scheduled task of a chat is bound to (PAGE-392); it wins
+     * over `chat`, which then stays `null`.
+     */
+    readonly conversationId?: string | null;
   }): Promise<AutomationAgentTurn>;
 }
 
@@ -60,6 +66,8 @@ export interface AutomationAgentWorkerDependencies {
   readonly runner: AutomationAgentRunner;
   readonly now: () => Date;
   readonly tickMilliseconds?: number;
+  /** The bindings of scheduled tasks to their chats (PAGE-392); without it no automation is bound. */
+  readonly chatTasks?: Pick<AgentChatTaskRepository, "find">;
 }
 
 const COMPONENT = "AutomationAgentWorker";
@@ -176,7 +184,7 @@ export class AutomationAgentWorker {
         creatorId: job.creatorId,
         sessionKey: sessionKeyOf(job),
         prompt: job.prompt,
-        chat: await this.targetChat(job),
+        ...(await this.target(job)),
         runKey: job.runId ?? job.id,
       });
     } catch (error: unknown) {
@@ -215,6 +223,27 @@ export class AutomationAgentWorker {
       logCaughtError(COMPONENT, error);
       await this.fail(job, errorCodeOf(error));
     }
+  }
+
+  /**
+   * The chat of a delivery: the chat a scheduled task is bound to
+   * (PAGE-392), otherwise the target chat its automation names (PAGE-376).
+   *
+   * @remarks
+   * A task of a direct chat belongs to the person of that chat, so the
+   * direct chat of the owner is its chat.
+   */
+  private async target(job: StoredAutomationAgentJob): Promise<{
+    readonly chat: string | null;
+    readonly conversationId?: string;
+  }> {
+    if (job.kind === "action" && job.automationId !== null) {
+      const binding = await this.dependencies.chatTasks?.find(job.automationId);
+      if (binding?.chat.kind === "group")
+        return { chat: null, conversationId: binding.chat.conversationId };
+      if (binding) return { chat: null };
+    }
+    return { chat: await this.targetChat(job) };
   }
 
   /** The target chat the automation of an action names (PAGE-376); `null` for every other delivery. */

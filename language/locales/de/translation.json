@@ -4301,7 +4301,8 @@
       "soon": "folgt",
       "openDirect": "Direkt-Chat mit {{name}} öffnen",
       "mention": "{{name}} erwähnen",
-      "failed": "Die Sitzungsaktion ist fehlgeschlagen."
+      "failed": "Die Sitzungsaktion ist fehlgeschlagen.",
+      "tasks": "Geplante Aufgaben …"
     },
     "groupMenu": {
       "trigger": "Gruppe",
@@ -4311,7 +4312,8 @@
       "context": "Gruppenkontext …",
       "sessions": "Sitzungen der Agenten in diesem Chat …",
       "confidential": "Vertraulichkeit",
-      "members": "Mitglieder verwalten …"
+      "members": "Mitglieder verwalten …",
+      "tasks": "Geplante Aufgaben …"
     },
     "agentSessions": {
       "title": "Sitzungen der Agenten in {{name}}",
@@ -4350,6 +4352,46 @@
       "expired": "Keine Antwort innerhalb der Zeitgrenze – der Agent arbeitet nach eigenem Ermessen weiter.",
       "cancelled": "Die Runde des Agenten ist beendet.",
       "notForYou": "Nur die gefragte Person kann antworten."
+    },
+    "tasks": {
+      "title": "Geplante Aufgaben · {{name}}",
+      "description": "Erinnerungen und wiederkehrende Aufgaben, die Agenten in diesem Chat geplant haben. Zum Zeitpunkt meldet sich der Agent hier im Chat. Wird der Chat gelöscht oder die Gruppe aufgelöst, verschwinden sie mit.",
+      "list": "Geplante Aufgaben dieses Chats",
+      "loading": "Lädt …",
+      "empty": "In diesem Chat ist nichts geplant. Bitten Sie einen Agenten zum Beispiel: „Erinnere mich morgen um 9 an …“",
+      "paused": "Pausiert",
+      "next": "Nächster Lauf: {{moment}}",
+      "pause": "Pausieren",
+      "resume": "Fortsetzen",
+      "delete": "Löschen",
+      "confirmDelete": "Wirklich löschen?",
+      "kind": {
+        "reminder": "Erinnerung von {{agent}} für {{person}}",
+        "task": "Aufgabe von {{agent}} für {{person}}"
+      },
+      "schedule": {
+        "once": "Einmalig: {{moment}}",
+        "done": "Erledigt",
+        "weekly": "{{days}} um {{times}} Uhr",
+        "every": {
+          "minute_one": "Jede Minute",
+          "minute_other": "Alle {{count}} Minuten",
+          "hour_one": "Jede Stunde",
+          "hour_other": "Alle {{count}} Stunden",
+          "day_one": "Jeden Tag",
+          "day_other": "Alle {{count}} Tage",
+          "second_one": "Jede Sekunde",
+          "second_other": "Alle {{count}} Sekunden"
+        }
+      },
+      "error": {
+        "not_found": "Die Aufgabe gibt es in diesem Chat nicht mehr.",
+        "forbidden": "Das dürfen Sie in diesem Chat nicht.",
+        "limit_reached": "Dieser Chat hat bereits die höchste Zahl geplanter Aufgaben.",
+        "time_in_past": "Der Zeitpunkt ist vorbei; die Aufgabe lässt sich nicht fortsetzen.",
+        "invalid": "Die Änderung war nicht möglich.",
+        "run_active": "Die Aufgabe läuft gerade; versuchen Sie es gleich noch einmal."
+      }
     }
   },
   "workspaces": {
@@ -8390,7 +8432,9 @@
     "description": "Agents lesen Chats und schreiben mit den Pages-Werkzeugen an Personen, Agents und Gruppen. Gilt für die ganze Instanz.",
     "hourlyLimit": "Nachrichten je Agent und Stunde",
     "hourlyLimitHint": "Von {{minimum}} bis {{maximum}}. Antworten auf Nachrichten zählen nicht mit.",
-    "saved": "Gespeichert."
+    "saved": "Gespeichert.",
+    "taskLimit": "Geplante Aufgaben je Chat",
+    "taskLimitHint": "Von {{minimum}} bis {{maximum}}. So viele Erinnerungen und wiederkehrende Aufgaben dürfen Agenten in einem Chat planen."
   },
   "runDiagnosis": {
     "title": "Läufe",
