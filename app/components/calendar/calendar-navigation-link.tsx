@@ -1,6 +1,6 @@
 import { CalendarDays } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { NavLink } from "react-router";
+import { NavLink, type NavLinkRenderProps } from "react-router";
 
 interface CalendarNavigationLinkProps {
   /** Open invitations of the account; the badge hides at zero. */
@@ -19,7 +19,7 @@ export function CalendarNavigationLink({
 
   return (
     <NavLink
-      className={({ isActive }) => getClassName(isActive)}
+      className={({ isActive }: NavLinkRenderProps) => getClassName(isActive)}
       to="/kalender"
       prefetch="intent"
       onClick={onNavigate}

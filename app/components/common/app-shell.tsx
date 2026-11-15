@@ -14,7 +14,12 @@ import {
 } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, NavLink, useSubmit } from "react-router";
+import {
+  Link,
+  NavLink,
+  type NavLinkRenderProps,
+  useSubmit,
+} from "react-router";
 
 import iconUrl from "@/assets/icon.png";
 import { Button } from "@/app/components/ui/button";
@@ -107,7 +112,9 @@ function ChatNavigationLink({
 
   return (
     <NavLink
-      className={({ isActive }) => getLinkClassName(isActive)}
+      className={({ isActive }: NavLinkRenderProps) =>
+        getLinkClassName(isActive)
+      }
       to="/chat"
       prefetch="intent"
       onClick={onNavigate}
@@ -131,7 +138,9 @@ function WikiNavigationLink({
 
   return (
     <NavLink
-      className={({ isActive }) => getLinkClassName(isActive)}
+      className={({ isActive }: NavLinkRenderProps) =>
+        getLinkClassName(isActive)
+      }
       to="/wiki"
       prefetch="intent"
       onClick={onNavigate}
@@ -152,7 +161,9 @@ function AutomationsNavigationLink({
 
   return (
     <NavLink
-      className={({ isActive }) => getLinkClassName(isActive)}
+      className={({ isActive }: NavLinkRenderProps) =>
+        getLinkClassName(isActive)
+      }
       to="/automationen"
       prefetch="intent"
       onClick={onNavigate}
@@ -176,7 +187,9 @@ function StorageNavigationLink({
 
   return (
     <NavLink
-      className={({ isActive }) => getLinkClassName(isActive)}
+      className={({ isActive }: NavLinkRenderProps) =>
+        getLinkClassName(isActive)
+      }
       to="/storage"
       onClick={onNavigate}
     >
@@ -201,7 +214,9 @@ function NavigationLinks({
       aria-label={t("navigation.label")}
     >
       <NavLink
-        className={({ isActive }) => getLinkClassName(isActive)}
+        className={({ isActive }: NavLinkRenderProps) =>
+          getLinkClassName(isActive)
+        }
         to="/dashboard"
         prefetch="intent"
         onClick={onNavigate}
@@ -215,7 +230,9 @@ function NavigationLinks({
       {canViewProjects ? (
         <>
           <NavLink
-            className={({ isActive }) => getLinkClassName(isActive)}
+            className={({ isActive }: NavLinkRenderProps) =>
+              getLinkClassName(isActive)
+            }
             to="/projekte"
             prefetch="intent"
             onClick={onNavigate}
@@ -227,7 +244,9 @@ function NavigationLinks({
             {t("navigation.projects")}
           </NavLink>
           <NavLink
-            className={({ isActive }) => getLinkClassName(isActive)}
+            className={({ isActive }: NavLinkRenderProps) =>
+              getLinkClassName(isActive)
+            }
             to="/aufgaben"
             prefetch="intent"
             onClick={onNavigate}
@@ -257,7 +276,9 @@ function NavigationLinks({
       <div className="mt-auto flex flex-col gap-1 pt-2">
         {canViewUsers ? (
           <NavLink
-            className={({ isActive }) => getLinkClassName(isActive)}
+            className={({ isActive }: NavLinkRenderProps) =>
+              getLinkClassName(isActive)
+            }
             to="/users"
             prefetch="intent"
             onClick={onNavigate}
@@ -270,7 +291,9 @@ function NavigationLinks({
           </NavLink>
         ) : null}
         <NavLink
-          className={({ isActive }) => getLinkClassName(isActive)}
+          className={({ isActive }: NavLinkRenderProps) =>
+            getLinkClassName(isActive)
+          }
           to="/settings"
           prefetch="intent"
           onClick={onNavigate}

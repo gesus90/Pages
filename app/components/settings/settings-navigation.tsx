@@ -1,6 +1,6 @@
 import { Bot, Plug, Server, UserRound } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { NavLink } from "react-router";
+import { NavLink, type NavLinkRenderProps } from "react-router";
 
 import { cn } from "@/app/lib/cn";
 
@@ -24,7 +24,7 @@ function SettingsNavigationLink({
 }: SettingsNavigationLinkProps): React.ReactElement {
   return (
     <NavLink
-      className={({ isActive }) =>
+      className={({ isActive }: NavLinkRenderProps) =>
         cn(
           "inline-flex min-h-10 items-center gap-2 rounded-xl px-3.5 text-sm font-medium text-foreground/70 transition-colors outline-none hover:bg-sidebar-hover hover:text-foreground focus-visible:ring-2 focus-visible:ring-primary",
           isActive && "bg-primary-subtle text-foreground shadow-xs",
