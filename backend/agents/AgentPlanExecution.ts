@@ -279,6 +279,15 @@ export class AgentPlanExecution implements PlanExecution {
         release();
       throw error;
     }
+    return this.wrapSession(session, observe, release, mustConfirmCleanup);
+  }
+
+  private wrapSession(
+    session: PlanSession,
+    observe: (observer: PlanSessionObserver) => PlanSessionObserver,
+    release: () => void,
+    mustConfirmCleanup: boolean,
+  ): PlanSession {
     const steer = session.steer?.bind(session);
     const interrupt = session.interrupt?.bind(session);
     const cancelTool = session.cancelTool?.bind(session);
