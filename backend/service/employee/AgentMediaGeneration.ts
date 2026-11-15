@@ -219,10 +219,7 @@ export class AgentMediaGeneration {
       const models = await this.dependencies.models.models(employee.userId);
       return models
         .filter((model) => {
-          if (
-            !isKindCapable(model, kind) ||
-            !isReleasedGenerationModel(model)
-          )
+          if (!isKindCapable(model, kind) || !isReleasedGenerationModel(model))
             return false;
           if (
             model.connectionId === assignment.connection.id &&
