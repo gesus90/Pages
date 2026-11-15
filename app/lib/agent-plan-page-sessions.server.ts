@@ -5,6 +5,8 @@ import { createPriceCatalog } from "./agent-plan-pricing.server";
 import { accountClaudeUsage } from "@/backend/service/agents/sessions/ClaudeUsageAccounting";
 import { canProcessRuns } from "@/backend/runtime/RunsMode";
 import { AgentPlanCheckpointRepository } from "@/backend/database/repositories/agent/AgentPlanCheckpointRepository";
+import { OpenRouterPlanPriceRepository } from "@/backend/database/repositories/agent/OpenRouterPlanPriceRepository";
+import { OpenRouterPricing } from "@/backend/service/agents/sessions/OpenRouterPricing";
 import { AgentSessionRepository } from "@/backend/database/repositories/agent/AgentSessionRepository";
 import { AgentSessionInbox } from "@/backend/service/agents/sessions/AgentSessionInbox";
 import { AgentSessionJournal } from "@/backend/service/agents/sessions/AgentSessionJournal";
@@ -28,6 +30,10 @@ export async function createPageAgentSessions(
   runs: AgentSessionRunAccess,
 ): Promise<AgentSessionService> {
   const store = new AgentSessionRepository(input.database);
+  const pricing = new OpenRouterPricing(
+    new OpenRouterPlanPriceRepository(input.database),
+  );
+  await pricing.start();
   const journal = new AgentSessionJournal(store, {
     followExternalWrites:
       !canProcessRuns() || Boolean(input.agents.localSessions),
@@ -39,6 +45,7 @@ export async function createPageAgentSessions(
     runs,
     store,
     priceCatalog: createPriceCatalog(runtime.configFile.path),
+    pricing,
     saveUsage: (usage) =>
       usage.provider === "claude_code"
         ? accountClaudeUsage(input.database, usage)

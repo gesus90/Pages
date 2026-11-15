@@ -46,6 +46,25 @@ export interface AgentSessionAttemptRecord {
   readonly updatedAt: string;
 }
 
+/** One deduplicated native OpenCode message with its frozen OpenRouter price. */
+export interface OpenRouterUsageRecord {
+  readonly sessionId: string;
+  readonly messageId: string;
+  readonly attemptId: string;
+  readonly model: string;
+  readonly inputTokens: number;
+  readonly outputTokens: number;
+  readonly reasoningTokens: number;
+  readonly cacheReadTokens: number;
+  readonly cacheWriteTokens: number;
+  readonly nativeCost: number | null;
+  readonly costAmount: number | null;
+  readonly costState: "known" | "free" | "unknown";
+  readonly priceSnapshot: string | null;
+  readonly pricedAt: string | null;
+  readonly reportedAt: string;
+}
+
 /** A page of stored events and where retention cut the history. */
 export interface StoredSessionEvents {
   readonly events: readonly AgentSessionEvent[];
@@ -81,6 +100,7 @@ export interface AgentSessionStore {
     window: AgentSessionHistoryWindow,
   ): Promise<AgentSessionEventPage>;
   saveTurnUsage(usage: AgentSessionTurnUsage): Promise<void>;
+  saveOpenRouterUsage?(usage: OpenRouterUsageRecord): Promise<boolean>;
   /** Every turn of every attempt of a run, for the run's sums. */
   listRunUsage(runId: string): Promise<readonly AgentSessionTurnUsage[]>;
   /** Native OpenCode messages have stable IDs across turns and retries. */

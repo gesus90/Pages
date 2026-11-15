@@ -65,7 +65,7 @@ function endedState(input: PlanPanelStateInput): PlanPanelState | null {
       tone: "blocked",
       variant: endedVariant(input),
     };
-  // A stopped run with a safe state continues like a failed one; without it, it reads as ready.
+  // A legacy stopped run may still carry a recovery label; current stops are final.
   if (control?.status === "cancelled" && control.resumeKind)
     return { state: "stopped", tone: "open", variant: endedVariant(input) };
   if (!control?.canPlay) return { state: "blocked", tone: "blocked" };

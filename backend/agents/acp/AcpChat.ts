@@ -74,6 +74,8 @@ export interface AcpSessionListener {
     isContinued?: boolean,
     nativeSessionId?: string,
   ) => void;
+  /** Synchronizes completed native OpenCode messages after each usage report. */
+  readonly nativeUsage?: (sessionId: string, dataHome: string) => Promise<void>;
   /** The connection to the adapter ended, for example because its process exited. */
   readonly closed: () => void;
   /** Waits for the journal writes caused by the last notification. */

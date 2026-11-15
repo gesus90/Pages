@@ -4,7 +4,10 @@ import type { SessionUpdate } from "@agentclientprotocol/sdk";
 import type { AgentErrorCode } from "@/backend/error/AgentErrors";
 
 /** Classifies native provider diagnostics without retaining their potentially sensitive contents. */
-export function classifyOpenCodeFailure(text: string): AgentErrorCode {
+export function classifyOpenCodeFailure(
+  text: string,
+  isOpenRouter = false,
+): AgentErrorCode {
   // Zen answers 403 with this type when its free tier is called from outside its own apps.
   if (/FreeTierError|free tier can only be used/iu.test(text))
     return "opencode_free_tier_refused";
@@ -13,14 +16,15 @@ export function classifyOpenCodeFailure(text: string): AgentErrorCode {
       text,
     )
   )
-    return "provider_auth_failed";
+    return isOpenRouter ? "openrouter_auth_failed" : "provider_auth_failed";
   if (
     /\b402\b|insufficient[ _-]?(?:credits?|funds?|balance|quota)|(?:balance|credits?|quota)[^\n]{0,50}(?:exhausted|depleted|exceeded|zero)|payment required|usage limit/iu.test(
       text,
     )
   )
     return "provider_quota_exhausted";
-  if (/\b429\b|rate[ _-]?limit/iu.test(text)) return "provider_rate_limited";
+  if (/\b429\b|rate[ _-]?limit/iu.test(text))
+    return isOpenRouter ? "openrouter_rate_limited" : "provider_rate_limited";
   if (
     /ProviderModelNotFoundError|ModelNotFoundError|model[^\n]{0,80}(?:not found|not available|unavailable|not supported)|\b404\b/iu.test(
       text,
@@ -33,8 +37,11 @@ export function classifyOpenCodeFailure(text: string): AgentErrorCode {
     )
   )
     return "plan_runner_permission_denied";
-  if (/\b403\b|forbidden/iu.test(text)) return "provider_permission_denied";
-  if (/\b50[0234]\b|service unavailable|provider unavailable/iu.test(text))
+  if (/\b403\b|forbidden/iu.test(text))
+    return isOpenRouter
+      ? "openrouter_auth_failed"
+      : "provider_permission_denied";
+  if (/\b5\d\d\b|service unavailable|provider unavailable/iu.test(text))
     return "provider_unavailable";
   if (/fetch failed|ECONNREFUSED|ENOTFOUND|network error/iu.test(text))
     return "provider_unreachable";
@@ -42,15 +49,22 @@ export function classifyOpenCodeFailure(text: string): AgentErrorCode {
 }
 
 /** Converts an ACP error into a stable Pages code; upstream messages never enter the run event log. */
-export function openCodeAcpFailure(error: unknown): AgentErrorCode {
+export function openCodeAcpFailure(
+  error: unknown,
+  isOpenRouter = false,
+): AgentErrorCode {
   if (error instanceof RequestError && error.code === -32000)
-    return "provider_auth_failed";
-  return classifyOpenCodeFailure(error instanceof Error ? error.message : "");
+    return isOpenRouter ? "openrouter_auth_failed" : "provider_auth_failed";
+  return classifyOpenCodeFailure(
+    error instanceof Error ? error.message : "",
+    isOpenRouter,
+  );
 }
 
 /** Recognizes native denials and provider failures that arrive inside a failed tool notification. */
 export function openCodeToolFailure(
   update: SessionUpdate,
+  isOpenRouter = false,
 ): AgentErrorCode | null {
   if (
     (update.sessionUpdate !== "tool_call" &&
@@ -65,12 +79,13 @@ export function openCodeToolFailure(
   // A call to a tool name that does not exist goes back to the model; it says nothing about the provider or model.
   if (/NoSuchToolError|tried to call unavailable tool/iu.test(text))
     return null;
+  if (isOpenRouter && /\b403\b/u.test(text)) return "openrouter_auth_failed";
   if (
     /\bFORBIDDEN\b|operation[^\n]{0,50}(?:not permitted|not allowed)/iu.test(
       text,
     )
   )
     return "plan_runner_permission_denied";
-  const failure = classifyOpenCodeFailure(text);
+  const failure = classifyOpenCodeFailure(text, isOpenRouter);
   return failure === "opencode_acp_session_failed" ? null : failure;
 }

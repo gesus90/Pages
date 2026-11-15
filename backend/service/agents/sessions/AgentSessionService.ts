@@ -1,6 +1,7 @@
 import { codexRunUsage } from "../usage/CodexRunUsage";
 import { summarizeClaudeUsage } from "@/definition/ClaudeUsageSummary";
 import { AgentError } from "@/backend/error/AgentErrors";
+import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
 import { logCaughtError } from "@/backend/logging/Logger";
 
 import {
@@ -14,6 +15,7 @@ import { antigravityUsage } from "./AntigravityUsage";
 import { AgentSessionRecorder } from "./AgentSessionRecorder";
 import { sumOpenCodeUsage } from "./OpenCodeUsage";
 import { UNKNOWN_CONTEXT, sumTurnUsage } from "./AgentSessionUsage";
+import type { OpenRouterPricing } from "./OpenRouterPricing";
 import { checkSessionWorkspace } from "./AgentSessionWorkspace";
 import { followRemoteSession } from "./RemoteSessionFollower";
 
@@ -28,6 +30,7 @@ import type {
   AgentSessionKey,
   AgentSessionState,
   AgentSessionTurnUsage,
+  AgentSessionUsageTotal,
   AgentSessionView,
 } from "@/definition/AgentSessionJournal";
 import type { AgentPlanSessionRecord } from "@/definition/AgentPlanSession";
@@ -114,6 +117,33 @@ function antigravityAttempts(
   };
 }
 
+function openRouterRunSummary(
+  run: AgentPlanRun,
+  runTurns: readonly AgentSessionTurnUsage[],
+): {
+  readonly openRouterRunTotal: AgentSessionUsageTotal | null;
+  readonly isOpenRouterRunIncomplete: boolean;
+} {
+  const openRouterTurns = runTurns.filter((turn) =>
+    turn.model?.startsWith("openrouter/"),
+  );
+  const reportedAttempts = new Set(
+    openRouterTurns.map((turn) => turn.attemptId),
+  );
+  const openRouterAttempts = allPlanRunResults(run).flatMap((step) =>
+    step.session?.runner === "opencode" &&
+    step.session.requested.model.startsWith("openrouter/")
+      ? [step.session.attemptId ?? `${step.session.instanceId}:${step.id}`]
+      : [],
+  );
+  return {
+    openRouterRunTotal: sumTurnUsage(openRouterTurns)[0] ?? null,
+    isOpenRouterRunIncomplete: openRouterAttempts.some(
+      (attemptId) => !reportedAttempts.has(attemptId),
+    ),
+  };
+}
+
 /** Reads and stops runs with every current right of their executor checked. */
 export interface AgentSessionRunAccess {
   run(userId: string, runId: string): Promise<AgentPlanRun>;
@@ -161,6 +191,7 @@ export interface AgentSessionServiceDependencies {
   readonly clock?: () => string;
   readonly saveUsage?: (usage: AgentSessionTurnUsage) => Promise<void>;
   readonly priceCatalog?: Pick<AntigravityPriceCatalog, "calculate">;
+  readonly pricing?: OpenRouterPricing;
 }
 
 const UNKNOWN_VALUE = { value: null, source: null, reportedAt: null } as const;
@@ -316,6 +347,8 @@ export class AgentSessionService {
       attempt.record.runner,
       nodeAttempts,
     );
+    const { openRouterRunTotal, isOpenRouterRunIncomplete } =
+      openRouterRunSummary(run, runTurns);
     return {
       key,
       provider: attempt.record.runner,
@@ -341,6 +374,8 @@ export class AgentSessionService {
         key.stepId,
         runTurns,
       )),
+      openRouterRunTotal,
+      isOpenRouterRunIncomplete,
       continuation: decideContinuation({
         isAuthorized: true,
         isConfigurationCompatible: true,
@@ -570,6 +605,7 @@ export class AgentSessionService {
           journal: this.dependencies.journal,
           store: this.dependencies.store,
           saveUsage: this.dependencies.saveUsage,
+          pricing: this.dependencies.pricing,
         },
         attempt,
       );

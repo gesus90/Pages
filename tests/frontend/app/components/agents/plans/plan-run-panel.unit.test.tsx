@@ -326,7 +326,7 @@ it("offers a restart of an ended run in a dialog and starts nothing before the d
   const { scene } = renderPanel({
     control: planControl({
       runId: "run-1",
-      status: "failed",
+      status: "work_done_closeout_open",
       canPlay: true,
       canRestart: true,
     }),
@@ -349,7 +349,7 @@ it("asks before a new run begins beside the ended run of another executor", asyn
   const { scene } = renderPanel({
     control: planControl({
       runId: "run-1",
-      status: "failed",
+      status: "work_done_closeout_open",
       canPlay: true,
       resumeBlocker: "own_run_required",
     }),

@@ -80,6 +80,8 @@ export interface AcpSessionContext {
   readonly openCodePricingDirectory?: string;
   readonly isFreeModel?: boolean;
   readonly openRouterModelIds?: Readonly<Record<string, string>>;
+  /** OpenCode's connection-scoped XDG data directory, for its own message archive. */
+  readonly openCodeDataHome?: string;
   /** Releases the process read only after a native notification and its journal writes were handled. */
   readonly notificationHandled?: () => void;
   /** A person may type into and interrupt the running turn of this plan node (PAGE-284). */

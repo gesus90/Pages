@@ -67,6 +67,11 @@ export interface AgentSessionTokenUsage {
   readonly inputIncludesCache: boolean | null;
   /** The adapter counted only part of the work, or a turn of the sum reported nothing. */
   readonly isPartial: boolean;
+  /** USD charge calculated from the saved public price stand. */
+  readonly costAmount?: number | null;
+  readonly costState?: "known" | "free" | "unknown";
+  readonly pricedAt?: string | null;
+  readonly priceSnapshot?: string | null;
 }
 
 /** The token usage of one turn, written once per turn. */
@@ -226,6 +231,10 @@ export interface AgentSessionView {
     readonly step: AntigravityUsageTotal;
     readonly run: AntigravityUsageTotal;
   };
+  /** OpenRouter messages in every iteration of this run. */
+  readonly openRouterRunTotal?: AgentSessionUsageTotal | null;
+  /** A run step exists without native usage, including an active step before its first report. */
+  readonly isOpenRouterRunIncomplete?: boolean;
   readonly continuation: AgentSessionContinuation;
   readonly messages: readonly AgentSessionMessage[];
   readonly actions: AgentSessionActions;

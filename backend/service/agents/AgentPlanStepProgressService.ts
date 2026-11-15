@@ -223,37 +223,34 @@ export class AgentPlanStepProgressService {
     const sameTickets =
       JSON.stringify(earlier.contract?.tickets.map((ticket) => ticket.id)) ===
       JSON.stringify(contract.tickets.map((ticket) => ticket.id));
+    const keepsPreviousState = earlier.scope === scope.iteration && sameTickets;
     let current = contract;
-    const retainsEarlier = earlier.scope === scope.iteration && sameTickets;
-    if (retainsEarlier) {
+    if (keepsPreviousState) {
       const previous = stored
         ? await this.current(stored, earlier.contract ?? contract)
         : contract;
       current = retainTodoState(contract, { ...earlier, contract: previous });
     }
-    const failed = new Set(
-      retainsEarlier
-        ? earlier.todos
-            .filter((todo) => todo.status === "failed")
-            .map((todo) => todo.id)
+    const previousStatuses = new Map(
+      keepsPreviousState
+        ? earlier.todos.map((todo) => [todo.id, todo.status] as const)
         : [],
     );
     await this.progress.save({
       runId: scope.runId,
       stepId: scope.stepId,
       attemptId: scope.attemptId,
-      activity: null,
+      activity: keepsPreviousState ? (stored?.activity ?? null) : null,
       updatedAt: this.clock(),
       todosJson: JSON.stringify({
         scope: scope.iteration,
         contract: current,
-        todos: current.todos.map((todo): AgentPlanStepProgressTodo => {
-          if (todo.checked) return { id: todo.id, status: "done" };
-          return {
-            id: todo.id,
-            status: failed.has(todo.id) ? "failed" : "open",
-          };
-        }),
+        todos: current.todos.map((todo) => ({
+          id: todo.id,
+          status: todo.checked
+            ? "done"
+            : (previousStatuses.get(todo.id) ?? "open"),
+        })),
       }),
     });
     return current;

@@ -33,10 +33,14 @@ interface PlanRunActionsProps {
 /** What the middle button does: drain a running run, or continue whatever can be continued. */
 type MiddleMode = "pause" | "resume";
 
-/** Fortsetzen stands for every state of {@link AgentPlanControl.resumeKind}; the server picks the way. */
+/** Ended runs keep a disabled Resume button so Start is the only next action. */
 function middleMode(props: PlanRunActionsProps): MiddleMode {
   const { control } = props;
-  return control?.resumeKind || control?.status === "paused"
+  return control?.resumeKind ||
+    control?.status === "paused" ||
+    control?.status === "cancelled" ||
+    control?.status === "succeeded" ||
+    control?.status === "failed"
     ? "resume"
     : "pause";
 }

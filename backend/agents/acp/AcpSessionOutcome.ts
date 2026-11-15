@@ -108,8 +108,9 @@ export function finishAcpTurn(
 export function classifiedAcpFailure(
   driver: Pick<AcpDriver, "errors">,
   text: string,
+  isOpenRouter = false,
 ): AgentErrorCode {
-  const code = classifyOpenCodeFailure(text);
+  const code = classifyOpenCodeFailure(text, isOpenRouter);
   return code === "opencode_acp_session_failed"
     ? driver.errors.sessionFailed
     : code;
@@ -119,8 +120,9 @@ export function classifiedAcpFailure(
 export function disconnectedAcpFailure(
   driver: Pick<AcpDriver, "provider" | "errors">,
   stderr: string,
+  isOpenRouter = false,
 ): AgentErrorCode {
-  return classifiedAcpFailure(driver, stderr);
+  return classifiedAcpFailure(driver, stderr, isOpenRouter);
 }
 
 /**
@@ -129,7 +131,7 @@ export function disconnectedAcpFailure(
  * @param error - The error of the turn.
  * @param state - The session state; a provider failure is kept in it.
  * @param driver - The driver of the session.
- * @param isDisconnected - Whether the connection to the adapter ended.
+ * @param options - Whether the connection ended and whether OpenRouter ran.
  * @returns The error code of the turn, or `null` when the connection ended
  * and the exit of the process decides.
  */
@@ -137,18 +139,26 @@ export function acpErrorFailure(
   error: unknown,
   state: AcpSessionState,
   driver: Pick<AcpDriver, "provider" | "errors">,
-  isDisconnected: boolean,
+  options: {
+    readonly isDisconnected: boolean;
+    readonly isOpenRouter?: boolean;
+  },
 ): AgentErrorCode | null {
   if (error instanceof AgentError) return error.code;
+  const isOpenRouter = options.isOpenRouter ?? false;
   const providerFailure =
     diagnosticProviderFailure(error) ?? state.providerFailure;
   if (providerFailure) {
-    state.providerFailure = providerFailure;
-    return providerFailure.code;
+    const failure =
+      isOpenRouter && providerFailure.code === "provider_rate_limited"
+        ? { ...providerFailure, code: "openrouter_rate_limited" as const }
+        : providerFailure;
+    state.providerFailure = failure;
+    return failure.code;
   }
-  if (isDisconnected) return null;
+  if (options.isDisconnected) return null;
   if (driver.provider === "opencode") {
-    const code = openCodeAcpFailure(error);
+    const code = openCodeAcpFailure(error, isOpenRouter);
     noteSessionEvent(state.events, `OpenCode failure: ${code}`);
     return code;
   }
@@ -174,6 +184,7 @@ export function disconnectedAcpOutcome(
   driver: Pick<AcpDriver, "provider" | "errors">,
   options: {
     readonly isPicaNative: boolean;
+    readonly isOpenRouter?: boolean;
     readonly redact: (line: string) => string;
   },
 ): {
@@ -199,6 +210,7 @@ export function disconnectedAcpOutcome(
     errorCode: disconnectedAcpFailure(
       driver,
       options.isPicaNative ? "" : exit.stderrTail,
+      options.isOpenRouter,
     ),
   };
 }

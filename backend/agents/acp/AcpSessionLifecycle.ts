@@ -215,14 +215,21 @@ export async function resolveAcpTurnFailure(
     error,
     state,
     context.driver,
-    connectionAborted,
+    {
+      isDisconnected: connectionAborted,
+      isOpenRouter: context.request.model.startsWith("openrouter/"),
+    },
   );
   if (errorCode !== null) return finish("failed", errorCode);
   const outcome = disconnectedAcpOutcome(
     await process.exited,
     state,
     context.driver,
-    { isPicaNative, redact },
+    {
+      isPicaNative,
+      isOpenRouter: context.request.model.startsWith("openrouter/"),
+      redact,
+    },
   );
   return finish(outcome.failure, outcome.errorCode);
 }

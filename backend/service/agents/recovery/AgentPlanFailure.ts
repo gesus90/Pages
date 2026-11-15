@@ -8,6 +8,8 @@ const FAILURE_CLASSES: Readonly<Record<string, AgentPlanFailureClass>> = {
   provider_unreachable: "provider",
   provider_unavailable: "provider",
   provider_rate_limited: "provider",
+  openrouter_rate_limited: "provider",
+  openrouter_auth_failed: "provider",
   provider_quota_exhausted: "provider",
   opencode_free_tier_refused: "provider",
   providerFailed: "provider",

@@ -47,7 +47,6 @@ export function planResumeKind(run: AgentPlanRun): AgentPlanResumeKind | null {
   if (run.status === "paused") return "paused";
   if (isCodexPlanRun(run)) return null;
   if (run.status === "work_done_closeout_open") return "closeout_open";
-  if (run.status === "cancelled") return "stopped";
   if (run.status !== "failed") return null;
   if (run.stopRequested) return "stopped";
   if (run.recovery?.state === "interrupted") return "interrupted";

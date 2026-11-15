@@ -203,26 +203,37 @@ it.each<[string, AgentPlanControl["resumeKind"]]>([
   ["a failed run", "failed"],
   ["an interrupted run", "interrupted"],
   ["a blocked step", "blocked"],
-  ["a stopped run", "stopped"],
   ["an open closeout", "closeout_open"],
-])("continues %s with one click", (name, resumeKind) => {
+])("offers Start after %s", (name, resumeKind) => {
   const { onAction } = renderActions({
     control: planControl({
       status:
         resumeKind === "closeout_open" ? "work_done_closeout_open" : "failed",
       resumeKind,
-      canResume: true,
+      canPlay: true,
+      canResume: false,
     }),
   });
   const resume = action("resume");
 
-  expect(title(resume)).toBe(
-    i18n.t("plans.panel.resumeHint", { context: resumeKind }),
-  );
-  expect(resume.hasAttribute("disabled")).toBe(false);
-  fireEvent.click(resume);
+  expect(resume.hasAttribute("disabled")).toBe(true);
+  fireEvent.click(action("play"));
+  expect(onAction).toHaveBeenCalledWith("play-plan");
+});
 
-  expect(onAction).toHaveBeenCalledWith("resume-plan");
+it("keeps Resume disabled after Stop and offers Start", () => {
+  const { onAction } = renderActions({
+    control: planControl({
+      status: "cancelled",
+      canPlay: true,
+      canResume: false,
+    }),
+  });
+
+  expect(action("resume").hasAttribute("disabled")).toBe(true);
+  expect(action("play").hasAttribute("disabled")).toBe(false);
+  fireEvent.click(action("play"));
+  expect(onAction).toHaveBeenCalledWith("play-plan");
 });
 
 it("names why a failed run cannot be continued and what to do", () => {

@@ -119,6 +119,8 @@ export function openCliAcpSession(
     secure,
     cleanupAdapter: picaBundle?.cleanup,
     listener: input.chat?.listener ?? input.journal,
+    openCodeDataHome:
+      driver.provider === "opencode" ? start.home.config : undefined,
     codexHome:
       driver.provider === "codex_cli" && !input.chat
         ? start.home.config

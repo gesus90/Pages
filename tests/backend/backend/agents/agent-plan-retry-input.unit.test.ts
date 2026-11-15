@@ -27,6 +27,12 @@ it("reads a provider failure with or without a reset time", () => {
   expect(agentErrorCode(() => readPlanProviderFailure({ code: "other" }))).toBe(
     "plan_invalid",
   );
+  expect(
+    readPlanProviderFailure({
+      code: "openrouter_rate_limited",
+      resetAt: null,
+    }),
+  ).toEqual({ code: "openrouter_rate_limited", resetAt: null });
 });
 
 it("reads a waiting retry only with its next attempt time", () => {

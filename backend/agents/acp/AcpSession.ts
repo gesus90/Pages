@@ -178,6 +178,8 @@ export class AcpSession implements PlanSession {
       .onNotification(methods.client.session.update, async (notification) => {
         try {
           this.receive(notification.params);
+          if (notification.params.update.sessionUpdate === "usage_update")
+            await this.synchronizeNativeUsage();
           await this.context.listener?.drained?.();
         } catch (error: unknown) {
           logCaughtError("AcpSession", error);
@@ -401,13 +403,7 @@ export class AcpSession implements PlanSession {
     sessionId: string,
     request: AcpPromptRequest,
   ): Promise<PlanSessionTurn> {
-    if (
-      hasAcpConfigurationChanged(
-        this.context.driver.provider,
-        this.expectedConfiguration,
-        this.state,
-      )
-    )
+    if (this.hasConfigurationChanged())
       return this.ended("failed", "plan_context_changed");
     const capabilities =
       this.context.request.modelSupportsImages === false
@@ -435,21 +431,17 @@ export class AcpSession implements PlanSession {
       continued: async (cut) => {
         await this.codexUsage?.finish(cut.usage ?? null);
         this.reportPromptUsage(cut.usage ?? null, sessionId, true);
+        await this.synchronizeNativeUsage();
         await this.context.listener?.drained?.();
       },
     });
     await this.codexUsage?.finish(response.usage ?? null);
     this.reportPromptUsage(response.usage ?? null, sessionId);
     forwardOpenCodeSessionUsage(this.context, sessionId);
+    await this.synchronizeNativeUsage();
     await this.context.listener?.drained?.();
     noteSessionEvent(this.state.events, `turn ${response.stopReason}`);
-    if (
-      hasAcpConfigurationChanged(
-        this.context.driver.provider,
-        this.expectedConfiguration,
-        this.state,
-      )
-    )
+    if (this.hasConfigurationChanged())
       return this.ended("failed", "plan_context_changed");
     if (this.isModelMismatch)
       return this.ended("failed", "plan_model_unavailable");
@@ -475,6 +467,14 @@ export class AcpSession implements PlanSession {
     }
     if (isContinued) listener?.prompted(usage, true);
     else listener?.prompted(usage);
+  }
+
+  private hasConfigurationChanged(): boolean {
+    return hasAcpConfigurationChanged(
+      this.context.driver.provider,
+      this.expectedConfiguration,
+      this.state,
+    );
   }
 
   /** Turns an adapter-reported failure into a failed node instead of a model answer. */
@@ -529,6 +529,19 @@ export class AcpSession implements PlanSession {
     this.expectedConfiguration = configured.expected;
   }
 
+  /** Reads completed OpenRouter messages only for a plan's OpenCode session. */
+  private async synchronizeNativeUsage(): Promise<void> {
+    const { listener, openCodeDataHome, request, driver } = this.context;
+    if (
+      driver.provider !== "opencode" ||
+      !request.model.startsWith("openrouter/") ||
+      !openCodeDataHome ||
+      !this.state.sessionId
+    )
+      return;
+    await listener?.nativeUsage?.(this.state.sessionId, openCodeDataHome);
+  }
+
   private receive(notification: SessionNotification): void {
     const { sessionId } = this.state;
     // An update may arrive before `session/new` answered; it belongs to the only session.
@@ -540,7 +553,10 @@ export class AcpSession implements PlanSession {
       this.configurationOptions = update.configOptions;
     readAcpUpdate(this.state, update, this.context.profile.reportedOptions);
     if (this.context.driver.provider === "opencode") {
-      const failure = openCodeToolFailure(update);
+      const failure = openCodeToolFailure(
+        update,
+        this.context.request.model.startsWith("openrouter/"),
+      );
       this.openCodeFailure ??= failure;
       if (failure === "plan_runner_permission_denied")
         this.state.permissionDenials += 1;

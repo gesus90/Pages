@@ -3,6 +3,7 @@ export type AgentPlanRetryCode =
   | "provider_unreachable"
   | "provider_unavailable"
   | "provider_rate_limited"
+  | "openrouter_rate_limited"
   | "provider_quota_exhausted";
 
 /** Technical ACP session or transport failures, which belong to the infrastructure class. */
