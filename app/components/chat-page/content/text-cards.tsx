@@ -148,8 +148,14 @@ export function CodeCard({
 }
 
 /**
- * A diff card (PAGE-298): green added and red removed lines with the
- * counter `+N −M` in the head; collapsed by default.
+ * A diff card (PAGE-298, PAGE-388): green added and red removed lines; the
+ * head names the file and below it "Diff · +N −M"; collapsed by default.
+ *
+ * @remarks
+ * "Kopieren" is the main action in the accent color, "Ganze Datei" stays a
+ * framed action of the kind, then "Daneben", "Vollbild" and "Zuklappen".
+ * Split view and full screen switch between "Untereinander" and
+ * "Nebeneinander".
  */
 export function DiffCard({
   cardKey,
@@ -158,39 +164,42 @@ export function DiffCard({
   origin,
 }: TextCardProps): React.ReactElement {
   const { t } = useTranslation();
+  const content = useChatContent();
   const loaded = useShownText(cardKey, text, "collapsed");
   const diff = useParsedDiff(loaded.source ?? "");
   const { source } = loaded;
   const title =
     diff.fileName ?? (name === "" ? t("chatPage.cards.kind.diff") : name);
+  const card = opened(cardKey, { kind: "diff", name: title, ...text }, origin);
   return (
     <ContentCard
       actions={
-        <>
-          {text.sourceUrl === undefined ? null : (
-            <CardAction
-              href={`${text.sourceUrl}?download=1`}
-              icon={Download}
-              label={t("chatPage.cards.wholeFile")}
-              variant="primary"
-            />
-          )}
-          {source === null ? null : (
-            <CardAction
-              icon={Copy}
-              label={t("chatPage.cards.copy")}
-              onClick={() => copyText(source)}
-            />
-          )}
-        </>
+        text.sourceUrl === undefined ? null : (
+          <CardAction
+            href={`${text.sourceUrl}?download=1`}
+            icon={Download}
+            label={t("chatPage.cards.wholeFile")}
+          />
+        )
       }
-      beside={opened(cardKey, { kind: "diff", name: title, ...text }, origin)}
+      beside={card}
       cardKey={cardKey}
       defaultState="collapsed"
       icon={FileDiff}
       kindLabel={t("chatPage.cards.kind.diff")}
       meta={source === null ? null : <DiffCount diff={diff} />}
       name={title}
+      onFullscreen={() => content.openOverlay(card)}
+      primary={
+        source === null ? null : (
+          <CardAction
+            icon={Copy}
+            label={t("chatPage.cards.copy")}
+            onClick={() => copyText(source)}
+            variant="primary"
+          />
+        )
+      }
     >
       {source === null ? (
         <TextPlaceholder loaded={loaded} />

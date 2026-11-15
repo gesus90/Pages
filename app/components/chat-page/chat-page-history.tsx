@@ -265,9 +265,11 @@ function OwnMessage({
         )}
       >
       {message.voice ? (
-        <div className={OWN_BUBBLE}>
-          <ChatPageVoice voice={message.voice} text={message.content} isOwn />
-        </div>
+        <ChatPageVoice
+          senderName={t("chatPage.cards.you")}
+          text={message.content}
+          voice={message.voice}
+        />
       ) : (
         <MessageContentView
           message={message}
@@ -365,28 +367,46 @@ function SystemLine({
   );
 }
 
-/** The voice message, or the hint why an agent did not answer (PAGE-276). */
+/**
+ * The hint why an agent did not answer (PAGE-276) in a bubble, or the voice
+ * message as a row of the sound grid outside the bubbles, so that it lines
+ * up with the other voice messages (PAGE-388).
+ */
 function AnswerNotice({
   message,
-  name,
+  author,
+  nameLine,
 }: {
   readonly message: VirtualChatMessage;
-  readonly name: string;
+  readonly author: VirtualParticipant;
+  /** Name and role above the first answer of a run. */
+  readonly nameLine: React.ReactNode;
 }): React.ReactElement | null {
   const { t } = useTranslation();
   if (message.notice)
     return (
-      <p
-        className="flex items-start gap-2 text-sm text-muted-foreground"
-        role="note"
-      >
-        <CircleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
-        {t(`chatPage.notice.${message.notice}`, { name })}
-      </p>
+      <Bubble author={author}>
+        {nameLine}
+        <p
+          className="flex items-start gap-2 text-sm text-muted-foreground"
+          role="note"
+        >
+          <CircleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+          {t(`chatPage.notice.${message.notice}`, { name: author.name })}
+        </p>
+      </Bubble>
     );
-  return message.voice ? (
-    <ChatPageVoice voice={message.voice} text={message.content} isOwn={false} />
-  ) : null;
+  if (!message.voice) return null;
+  return (
+    <>
+      {nameLine}
+      <ChatPageVoice
+        senderName={author.name}
+        text={message.content}
+        voice={message.voice}
+      />
+    </>
+  );
 }
 
 /** Name and role of the author, the first line of a run of answers. */
@@ -544,10 +564,7 @@ function AnswerBubble({
           />
         </>
       ) : (
-        <Bubble author={author}>
-          {name}
-          <AnswerNotice message={message} name={author.name} />
-        </Bubble>
+        <AnswerNotice author={author} message={message} nameLine={name} />
       )}
       {message.isFromPreview === true ? <PreviewSentBadge /> : null}
       <ToolUses uses={message.toolUses} live={live} />

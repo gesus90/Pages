@@ -15,6 +15,17 @@ import type { MediaHandle } from "./media-session";
 /** The speeds a player steps through, in this order. */
 const SPEEDS: readonly number[] = [1, 1.5, 2, 0.5];
 
+/**
+ * The speed after the given one: 1× → 1,5× → 2× → 0,5× → 1×.
+ *
+ * @param speed - The current speed.
+ * @returns The next speed; 1× for an unknown one.
+ */
+export function nextMediaSpeed(speed: number): number {
+  const index = SPEEDS.indexOf(speed);
+  return index < 0 ? 1 : (SPEEDS[(index + 1) % SPEEDS.length] ?? 1);
+}
+
 /** What the element read of the file once its metadata arrived (PAGE-384). */
 export interface MediaMetadata {
   readonly durationSeconds: number;
@@ -169,7 +180,7 @@ export function useMediaPlayer<TElement extends HTMLMediaElement>(
   }
 
   function nextSpeed(): void {
-    const next = SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length] ?? 1;
+    const next = nextMediaSpeed(speed);
     setSpeed(next);
     if (media.current) media.current.playbackRate = next;
   }

@@ -8,7 +8,10 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
-import { ChatPageVoice } from "@/app/components/chat-page/chat-page-voice";
+import {
+  ChatPageVoice,
+  VOICE_ROW_COLUMNS,
+} from "@/app/components/chat-page/chat-page-voice";
 import { VOICE_WAVE_BARS } from "@/app/components/chat-page/voice-audio";
 import { createI18n } from "@/app/lib/i18n";
 
@@ -34,7 +37,7 @@ function renderVoice(
   options: {
     voice?: Partial<VirtualVoice>;
     text?: string;
-    isOwn?: boolean;
+    senderName?: string;
   } = {},
 ): void {
   render(
@@ -42,7 +45,7 @@ function renderVoice(
       <ChatPageVoice
         voice={{ ...VOICE, ...options.voice }}
         text={options.text ?? "Hello there"}
-        isOwn={options.isOwn ?? false}
+        senderName={options.senderName ?? "Ada"}
       />
     </I18nextProvider>,
   );
@@ -76,12 +79,20 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-it("shows the label, the full length and the recognized text", () => {
+function timeText(): string {
+  return document.querySelector("[data-voice-time]")?.textContent ?? "";
+}
+
+function showTextButton(): HTMLElement {
+  return screen.getByRole("button", { name: "Show text" });
+}
+
+it("shows sender, length and the time as position / length", () => {
   renderVoice();
 
+  expect(screen.getByText("Ada")).toBeTruthy();
   expect(screen.getByText("Voice message · 1:05")).toBeTruthy();
-  expect(screen.getByText("1:05", { selector: "span" })).toBeTruthy();
-  expect(screen.getByText("Hello there")).toBeTruthy();
+  expect(timeText()).toBe("0:00 / 1:05");
   expect(audioElement().getAttribute("src")).toBe("/voice/one.wav");
   expect(
     screen.getByRole("button", { name: "Play voice message" }),
@@ -106,29 +117,89 @@ it("tells that a failed recognition leaves the audio playable", () => {
   expect(note.getAttribute("role")).toBeNull();
 });
 
-it("uses the lighter colors for the own bubble", () => {
-  renderVoice({ isOwn: true });
+it("keeps the recognized text collapsed until Show text opens it", () => {
+  renderVoice();
 
-  expect(screen.getByText("Voice message · 1:05").className).toContain(
-    "text-primary-foreground/80",
-  );
-  expect(
-    screen.getByRole("button", { name: "Play voice message" }).className,
-  ).toContain("bg-primary-foreground");
-  expect(waveButton().querySelector("span")?.className).toContain(
-    "bg-primary-foreground",
-  );
+  expect(screen.queryByText("Hello there")).toBeNull();
+  expect(showTextButton().getAttribute("aria-expanded")).toBe("false");
+
+  fireEvent.click(showTextButton());
+  expect(screen.getByText("Hello there")).toBeTruthy();
+  const hide = screen.getByRole("button", { name: "Hide text" });
+  expect(hide.getAttribute("aria-expanded")).toBe("true");
+
+  fireEvent.click(hide);
+  expect(screen.queryByText("Hello there")).toBeNull();
 });
 
-it("uses the primary colors for a foreign bubble", () => {
-  renderVoice({ isOwn: false });
+it("offers no text toggle while the recognized text is empty", () => {
+  renderVoice({ text: "" });
 
+  expect(screen.queryByRole("button", { name: "Show text" })).toBeNull();
+});
+
+it("draws the row in the theme tokens with the accent color for play only", () => {
+  renderVoice();
+
+  const row = document.querySelector("[data-voice-row]");
+  expect(row?.className).toContain("bg-surface");
+  expect(row?.className).toContain("border-border");
+  expect(
+    screen.getByRole("button", { name: "Play voice message" }).className,
+  ).toContain("bg-primary");
+  expect(waveButton().querySelector("span")?.className).toContain(
+    "bg-border",
+  );
   expect(screen.getByText("Voice message · 1:05").className).toContain(
     "text-muted-foreground",
   );
-  expect(waveButton().querySelector("span")?.className).toContain(
-    "bg-primary ",
+  // No download in a voice message (PAGE-388).
+  expect(screen.queryByRole("link")).toBeNull();
+});
+
+it("lays every voice message out in the same fixed columns", () => {
+  render(
+    <I18nextProvider i18n={i18n}>
+      <ChatPageVoice voice={VOICE} text="a" senderName="You" />
+      <ChatPageVoice
+        voice={{ ...VOICE, durationMs: 3_725_000 }}
+        text="b"
+        senderName="A participant with a very long name"
+      />
+    </I18nextProvider>,
   );
+
+  const grids = [...document.querySelectorAll("[data-voice-grid]")];
+  expect(grids).toHaveLength(2);
+  for (const grid of grids) {
+    expect(grid.className).toContain(VOICE_ROW_COLUMNS);
+    expect(grid.children).toHaveLength(5);
+  }
+  expect(VOICE_ROW_COLUMNS).toContain("7.5rem_3rem]");
+  const rows = [...document.querySelectorAll("[data-voice-row]")];
+  for (const row of rows) expect(row.className).toContain("sm:w-[42rem]");
+});
+
+it("steps through the speeds and applies them to the audio", () => {
+  const play = vi
+    .spyOn(HTMLMediaElement.prototype, "play")
+    .mockResolvedValue(undefined);
+  renderVoice();
+  const element = audioElement();
+
+  fireEvent.click(screen.getByRole("button", { name: "Speed: 1×" }));
+  expect(element.playbackRate).toBe(1.5);
+  fireEvent.click(screen.getByRole("button", { name: "Speed: 1.5×" }));
+  expect(element.playbackRate).toBe(2);
+  fireEvent.click(screen.getByRole("button", { name: "Speed: 2×" }));
+  fireEvent.click(screen.getByRole("button", { name: "Speed: 0.5×" }));
+  expect(screen.getByRole("button", { name: "Speed: 1×" })).toBeTruthy();
+
+  fireEvent.click(screen.getByRole("button", { name: "Speed: 1×" }));
+  element.playbackRate = 1;
+  fireEvent.click(screen.getByRole("button", { name: "Play voice message" }));
+  expect(play).toHaveBeenCalledTimes(1);
+  expect(element.playbackRate).toBe(1.5);
 });
 
 it("shows a flat wave while the audio is not decoded", () => {
@@ -200,7 +271,7 @@ it("aborts the read and ignores a late decode after unmounting", async () => {
 
   const view = render(
     <I18nextProvider i18n={i18n}>
-      <ChatPageVoice voice={VOICE} text="x" isOwn={false} />
+      <ChatPageVoice voice={VOICE} text="x" senderName="Ada" />
     </I18nextProvider>,
   );
   await waitFor(() => expect(decodeAudio).toHaveBeenCalled());
@@ -218,7 +289,7 @@ it("aborts the read and ignores a late decode after unmounting", async () => {
 it("reads the audio again when the address changes", async () => {
   const view = render(
     <I18nextProvider i18n={i18n}>
-      <ChatPageVoice voice={VOICE} text="x" isOwn={false} />
+      <ChatPageVoice voice={VOICE} text="x" senderName="Ada" />
     </I18nextProvider>,
   );
   await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
@@ -227,7 +298,7 @@ it("reads the audio again when the address changes", async () => {
       <ChatPageVoice
         voice={{ ...VOICE, url: "/voice/two.wav" }}
         text="x"
-        isOwn={false}
+        senderName="Ada"
       />
     </I18nextProvider>,
   );
@@ -302,10 +373,10 @@ it("shows the position while playing and resets it when the audio ends", () => {
 
   element.currentTime = 12;
   fireEvent.timeUpdate(element);
-  expect(screen.getByText("0:12", { selector: "span" })).toBeTruthy();
+  expect(timeText()).toBe("0:12 / 1:05");
 
   fireEvent.ended(element);
-  expect(screen.getByText("1:05", { selector: "span" })).toBeTruthy();
+  expect(timeText()).toBe("0:00 / 1:05");
   expect(
     screen.getByRole("button", { name: "Play voice message" }),
   ).toBeTruthy();
@@ -319,10 +390,10 @@ it("fills the played part of the wave by the share of the position", () => {
   fireEvent.timeUpdate(element);
 
   const bars = [...waveButton().querySelectorAll("span")];
-  const faint = bars.filter((bar) => bar.className.includes("opacity-40"));
-  expect(faint).toHaveLength(VOICE_WAVE_BARS / 2);
-  expect(bars[0]?.className).not.toContain("opacity-40");
-  expect(bars.at(-1)?.className).toContain("opacity-40");
+  const rest = bars.filter((bar) => bar.className.includes("bg-border"));
+  expect(rest).toHaveLength(VOICE_WAVE_BARS / 2);
+  expect(bars[0]?.className).toContain("bg-primary");
+  expect(bars.at(-1)?.className).toContain("bg-border");
 });
 
 it("seeks to the clicked point of the wave", () => {
@@ -335,7 +406,7 @@ it("seeks to the clicked point of the wave", () => {
   fireEvent.click(waveButton(), { clientX: 150 });
 
   expect(element.currentTime).toBe(15);
-  expect(screen.getByText("0:15", { selector: "span" })).toBeTruthy();
+  expect(timeText()).toBe("0:15 / 1:00");
 });
 
 it("keeps a seek inside the audio when the click lies outside the wave", () => {
@@ -350,5 +421,5 @@ it("keeps a seek inside the audio when the click lies outside the wave", () => {
 
   fireEvent.click(waveButton(), { clientX: 10 });
   expect(element.currentTime).toBe(0);
-  expect(screen.getByText("1:00", { selector: "span" })).toBeTruthy();
+  expect(timeText()).toBe("0:00 / 1:00");
 });

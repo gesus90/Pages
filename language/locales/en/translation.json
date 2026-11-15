@@ -4071,6 +4071,8 @@
       "failed": "The text could not be recognized. The recording stays playable.",
       "pause": "Pause voice message",
       "seek": "Jump to a point of the voice message",
+      "showText": "Show text",
+      "hideText": "Hide text",
       "record": "Record voice message",
       "pickFile": "Send audio file (WAV or MP3)",
       "recording": "Recording {{elapsed}} of at most {{maximum}}",

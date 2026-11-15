@@ -4071,6 +4071,8 @@
       "failed": "Der Text konnte nicht erkannt werden. Die Aufnahme bleibt abspielbar.",
       "pause": "Sprachnachricht anhalten",
       "seek": "Zu einer Stelle der Sprachnachricht springen",
+      "showText": "Text anzeigen",
+      "hideText": "Text ausblenden",
       "record": "Sprachnachricht aufnehmen",
       "pickFile": "Audiodatei senden (WAV oder MP3)",
       "recording": "Aufnahme {{elapsed}} von höchstens {{maximum}}",
