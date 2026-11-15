@@ -33,15 +33,6 @@ function isBlockedByBusiness(step: AgentPlanStepResult): boolean {
   return step.status === "failed" && step.failureStop?.failureClass === "harm";
 }
 
-/** OpenCode plans use a final Stop and start a fresh run after every end state. */
-function isOpenCodeRun(run: AgentPlanRun): boolean {
-  return allPlanRunResults(run).some(
-    (step) =>
-      step.execution?.modelAccess.provider === "opencode" ||
-      step.session?.runner === "opencode",
-  );
-}
-
 /**
  * The state "Fortsetzen" continues, which names the way the server takes.
  *

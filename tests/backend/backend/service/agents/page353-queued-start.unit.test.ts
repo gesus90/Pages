@@ -10,8 +10,6 @@ import { pagesRunsStartResourcesSchema } from "@/definition/PagesRuns";
 import { RecoveryDatabase } from "./page84-recovery-database";
 import { parameterRunFixture } from "./page55-run-fixture";
 
-import type { Database } from "@/backend/database/Database";
-
 vi.mock("@/backend/service/agents/runs/RunsSocket", () => ({
   releaseRunsStartResources: vi.fn(),
   notifyRuns: vi.fn(async () => true),
@@ -40,7 +38,7 @@ it("asks the elected native owner to force cleanup before the separate API reser
     },
   );
   const engine = new QueuedPlanRunEngine(
-    new RecoveryDatabase(fixture.snapshot).asDatabase() as Database,
+    new RecoveryDatabase(fixture.snapshot).asDatabase(),
     "/synthetic/engine.sock",
   );
   const next = await engine.start("owner", fixture.snapshot);
@@ -59,7 +57,7 @@ it("an unreachable elected process uses durable forced release and still admits 
     .spyOn(AgentPlanStartResources.prototype, "release")
     .mockResolvedValue(["old-run"]);
   const engine = new QueuedPlanRunEngine(
-    new RecoveryDatabase(fixture.snapshot).asDatabase() as Database,
+    new RecoveryDatabase(fixture.snapshot).asDatabase(),
     "/synthetic/engine.sock",
   );
   const next = await engine.start("owner", fixture.snapshot);

@@ -5,10 +5,7 @@ import {
   AgentPlanSkippedStepError,
 } from "@/backend/error/AgentErrors";
 import { hasPlanBranching } from "@/definition/AgentPlanBranching";
-import {
-  planContinuationGraph,
-  planLoopContinuationShape,
-} from "@/definition/AgentPlanContinuationGraph";
+import { planLoopContinuationShape } from "@/definition/AgentPlanContinuationGraph";
 import { isPlanFlowNode } from "@/definition/AgentPlanGraph";
 import { isPlanOuterRunStep } from "@/definition/AgentPlanStack";
 import {
@@ -67,19 +64,6 @@ export function planWritingWorkspaces(
       ),
     ]),
   ];
-}
-
-/** Earlier rounds retain their topology; a new revision may repair pending inputs. */
-function requireSameBranchingRevision(
-  previous: AgentPlanSnapshot,
-  next: AgentPlanSnapshot,
-): void {
-  if (
-    (hasPlanBranching(previous.plan) || hasPlanBranching(next.plan)) &&
-    previous.plan.revision !== next.plan.revision &&
-    planContinuationGraph(previous.plan) !== planContinuationGraph(next.plan)
-  )
-    throw new AgentError("plan_branching_revision");
 }
 
 function requireBoundary(

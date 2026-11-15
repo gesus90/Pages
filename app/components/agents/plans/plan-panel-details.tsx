@@ -150,19 +150,3 @@ export function PlanPanelDetails(props: {
     </div>
   );
 }
-
-function PlanRecoveryError({
-  runId,
-  recovery,
-}: {
-  readonly runId?: string | null;
-  readonly recovery?: ReturnType<typeof usePlanRecovery>;
-}): React.ReactElement | null {
-  const { t } = useTranslation();
-  if (!runId || !recovery?.error) return null;
-  return (
-    <p role="alert" className="text-xs text-destructive">
-      {recoveryErrorText(t, recovery.error)}
-    </p>
-  );
-}

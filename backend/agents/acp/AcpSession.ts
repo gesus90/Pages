@@ -6,13 +6,7 @@ import { noteSessionEvent } from "@/backend/agents/cli/CliSessionEvents";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { logCaughtError } from "@/backend/logging/Logger";
 
-import {
-  abortFailure,
-  acpErrorFailure,
-  disconnectedAcpOutcome,
-  stopFailure,
-  finishAcpTurn,
-} from "./AcpSessionOutcome";
+import { abortFailure, stopFailure, finishAcpTurn } from "./AcpSessionOutcome";
 import { ACP_STEERING_METHOD, requestAcpSteer } from "./AcpChat";
 import { acpPromptParams, isAcpMessageWithinBudget } from "./AcpPromptBudget";
 import { acpTurnPrompt } from "./AcpTicketAssets";
