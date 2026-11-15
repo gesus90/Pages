@@ -163,6 +163,7 @@ export function createChatDirectory(parts: {
       new ConversationReplySettingsRepository(parts.database).modes(
         conversationIds,
       ),
+    questions: conversations.agentChatQuestions,
   });
 }
 

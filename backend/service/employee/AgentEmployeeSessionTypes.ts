@@ -16,6 +16,7 @@ import type {
   PicaAcpEmployeeRun,
   PicaAcpService,
 } from "../chat/acp/PicaAcpService";
+import type { AgentChatQuestionService } from "@/backend/service/conversation/AgentChatQuestionService";
 import type { AgentChatTools } from "@/definition/AgentChat";
 import type { User } from "@/definition/User";
 import type { AgentEmployeeModels } from "./AgentEmployeeModels";
@@ -72,6 +73,12 @@ export interface AgentEmployeeSessionDependencies {
    * because the conversations are wired after the sessions; `null` where none.
    */
   readonly agentChat?: () => AgentChatTools | null;
+  /**
+   * The interim messages and questions of agents in their chat (PAGE-391).
+   * A function, because the conversations are wired after the sessions;
+   * `null` offers neither.
+   */
+  readonly chatQuestions?: () => Pick<AgentChatQuestionService, "bind"> | null;
   /** An unused ID for a new chat session. */
   readonly createSessionId: () => string;
   /**
@@ -211,6 +218,8 @@ export interface AgentChatScope {
     readonly sessionId: string;
     readonly kind: "direct" | "group";
     readonly chatId: string;
+    /** The person who addressed the agent in a conversation, who alone answers its questions (PAGE-391). */
+    readonly askerId?: string;
   } | null;
 }
 

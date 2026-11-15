@@ -4335,6 +4335,21 @@
       "ready": "Decision-Modell aktiv",
       "noModel": "Kein Decision-Modell · nur @",
       "modelUnavailable": "Decision-Modell nicht verfügbar · nur @"
+    },
+    "interim": "Zwischenmeldung",
+    "question": {
+      "title": "Rückfrage",
+      "confirmTitle": "Bestätigung",
+      "recommended": "(empfohlen)",
+      "multiple": "Mehrfachauswahl möglich",
+      "freeText": "Freie Antwort",
+      "freeTextPlaceholder": "Oder eigene Antwort schreiben …",
+      "freeTextAnswer": "Freie Antwort: {{text}}",
+      "send": "Antwort senden",
+      "answeredBy": "Beantwortet von {{name}}",
+      "expired": "Keine Antwort innerhalb der Zeitgrenze – der Agent arbeitet nach eigenem Ermessen weiter.",
+      "cancelled": "Die Runde des Agenten ist beendet.",
+      "notForYou": "Nur die gefragte Person kann antworten."
     }
   },
   "workspaces": {

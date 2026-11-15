@@ -36,6 +36,7 @@ import type { User } from "@/definition/User";
 import type { AgentToolCallView } from "./AgentToolCallView";
 import type { QueuedAgentMessage } from "./AgentEmployeeSessions";
 import type { AgentChatSessionService } from "./AgentChatSessionService";
+import type { AgentChatQuestionService } from "@/backend/service/conversation/AgentChatQuestionService";
 import type { AgentMessageQueue } from "@/definition/AgentSessionLimits";
 import type { ChatConversations } from "./ChatConversationView";
 import type {
@@ -114,6 +115,8 @@ export interface ChatDirectoryDependencies {
   readonly oversight?: Pick<ConversationOversight, "views" | "history">;
   /** Tells whether a chain of agent messages paused a conversation (PAGE-311). */
   readonly guard?: Pick<ConversationAgentGuard, "isPaused">;
+  /** The cards of the questions of agents (PAGE-391); absent shows their messages as text. */
+  readonly questions?: Pick<AgentChatQuestionService, "views">;
   /** The current time; tests pass a fixed one. */
   readonly now?: () => Date;
 }
@@ -358,7 +361,7 @@ export class ChatDirectoryService {
         )),
         ...overseen.groups.filter(({ id }) => !conversations.groups.has(id)),
       ],
-      histories,
+      histories: await this.withQuestions(person, histories),
       liveToolUses,
       olderHistoryIds: [
         ...olderHistoryIds(conversations),
@@ -392,11 +395,13 @@ export class ChatDirectoryService {
       target.beforeId,
       { withDecisions: true },
     );
+    const messages = page.messages.map((message) =>
+      toVirtualMessage(message, person),
+    );
+    const shown = await this.withQuestions(person, { page: messages });
     return {
       conversationId: page.conversationId,
-      messages: page.messages.map((message) =>
-        toVirtualMessage(message, person),
-      ),
+      messages: shown.page ?? messages,
       hasMore: page.hasMore,
     };
   }
@@ -595,6 +600,29 @@ export class ChatDirectoryService {
         lastActivityAt: view.summary.lastActivityAt,
       }));
     return [...contacts, ...partners];
+  }
+
+  /** Adds the card of each question of an agent to the message that carries it (PAGE-391). */
+  private async withQuestions(
+    person: User,
+    histories: Readonly<Record<string, readonly VirtualChatMessage[]>>,
+  ): Promise<Record<string, readonly VirtualChatMessage[]>> {
+    const { questions } = this.dependencies;
+    if (!questions) return { ...histories };
+    const ids = Object.values(histories).flatMap((messages) =>
+      messages.map((message) => message.id),
+    );
+    const views = await questions.views(person, ids);
+    if (views.size === 0) return { ...histories };
+    return Object.fromEntries(
+      Object.entries(histories).map(([id, messages]) => [
+        id,
+        messages.map((message) => {
+          const question = views.get(message.id);
+          return question ? { ...message, question } : message;
+        }),
+      ]),
+    );
   }
 
   private conversationHistory(

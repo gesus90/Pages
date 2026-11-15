@@ -4,6 +4,7 @@ import { isChatDeleteOperation, isChatOperation, isChatWriteOperation } from "..
 import { PicaPlanConfirmation } from "../PicaPlanConfirmation";
 import { PICA_TOOL_OUTCOME } from "../PicaToolSchemas";
 
+import { registerAgentChatInteractionTools } from "./AgentChatInteractionTools";
 import { AgentShellJobs } from "./AgentShellJobs";
 import { createAgentShellLauncher } from "./AgentShellLauncher";
 import { AGENT_TOOLKIT_TOOLS, isBridgeToolAllowed } from "./AgentToolkitCatalog";
@@ -15,6 +16,7 @@ import type {
   RuntimeToolCall,
   RuntimeToolRegistry,
 } from "@/backend/agents/runtime/RuntimeToolRegistry";
+import type { AgentChatInteractions } from "@/definition/AgentChatQuestion";
 import type { AgentToolPolicy } from "@/definition/AgentToolGroups";
 import type { PicaToolOutcome } from "../PicaToolSchemas";
 import type {
@@ -55,6 +57,8 @@ export interface AgentToolkitJobInput {
   readonly hiddenDirectories?: readonly string[];
   readonly launcher?: AgentShellLauncher;
   readonly readPage?: AgentWebPageReader;
+  /** The interim messages and questions bound to the job's chat (PAGE-391). */
+  readonly interactions?: AgentChatInteractions;
 }
 
 /**
@@ -78,6 +82,7 @@ export function createAgentToolkitJob(
       }),
     shellJobs: new AgentShellJobs(),
     readPage: input.readPage ?? readPublicWebPage,
+    ...(input.interactions ? { interactions: input.interactions } : {}),
   };
 }
 
@@ -95,7 +100,7 @@ function approvalPrompt(
     tool,
     parameters,
     scope:
-      "This is a consequential step. Ask the person in the chat: name this exact step and its effect and ask them to approve it explicitly in a new message. Only that reply allows it; repeat the identical call afterwards. Nothing was done.",
+      "This is a consequential step. Ask the person in the chat: name this exact step and its effect and ask them to approve it, with the tool `rueckfrage` and this tool and these parameters unchanged as `confirms` where it is offered, otherwise explicitly in a new message. Only that approval allows it; repeat the identical call afterwards. Nothing was done.",
   });
 }
 
@@ -252,6 +257,14 @@ export function registerAgentToolkitTools(
   },
 ): void {
   const { binding, turn, admit } = parts;
+  const { interactions } = binding.job;
+  if (interactions && binding.job.policy.chat !== "off")
+    registerAgentChatInteractionTools(registry, {
+      interactions,
+      approvals: binding.approvals ?? CONSEQUENTIAL_APPROVALS,
+      turnId: turn.id,
+      admit,
+    });
   for (const tool of AGENT_TOOLKIT_TOOLS) {
     if (!isBridgeToolAllowed(binding.job.policy, tool.id)) continue;
     registry.register<AgentToolkitParameters, PicaToolOutcome>({

@@ -1,5 +1,7 @@
 import path from "node:path";
 
+import { AgentChatQuestionRepository } from "@/backend/database/repositories/conversation/AgentChatQuestionRepository";
+import { AgentChatQuestionService } from "@/backend/service/conversation/AgentChatQuestionService";
 import { AgentChatSettingsRepository } from "@/backend/database/repositories/conversation/AgentChatSettingsRepository";
 import { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import { ConversationAgentChatRepository } from "@/backend/database/repositories/conversation/ConversationAgentChatRepository";
@@ -80,6 +82,8 @@ export interface ConversationApplicationServices {
   readonly conversationVoiceMaximumMs: number;
   /** The Pages tools with which agents read chats and send messages (PAGE-311). */
   readonly agentChatService: AgentChatService;
+  /** The interim messages and questions with answer buttons of chat agents (PAGE-391). */
+  readonly agentChatQuestions: AgentChatQuestionService;
   /** The chain and hourly limits of the chat of agents, and the release of a paused one (PAGE-311). */
   readonly conversationAgentGuard: ConversationAgentGuard;
   /** Who reads the conversations that only agents take part in (PAGE-311). */
@@ -260,6 +264,13 @@ export function createConversationServices(
       new ChatViewPreferenceRepository(database),
     ),
     conversationAgentGuard,
+    agentChatQuestions: new AgentChatQuestionService({
+      users: new UserRepository(database),
+      service: conversationService,
+      reader: conversationReader,
+      questions: new AgentChatQuestionRepository(database),
+      publisher: input.events,
+    }),
     agentChatSettingsService: agentChat.settingsService,
     conversationOversight: agentChat.oversight,
     agentChatService: new AgentChatService({

@@ -11,6 +11,7 @@ import { useMentionDirectory } from "./mentions/mention-context";
 import { ParticipantAvatar } from "./chat-page-avatar";
 import { participantColors } from "./chat-page-colors";
 import { ChatPageDecision } from "./chat-page-decision";
+import { ChatPageQuestionCard } from "./chat-page-question-card";
 import { ChatPageToolUse } from "./chat-page-tool-uses";
 import { ChatPageVoice } from "./chat-page-voice";
 import { MessageContentView } from "./content/message-content-view";
@@ -205,12 +206,14 @@ interface AnswerBubbleProps {
   readonly hasName: boolean;
 }
 
-/** A bubble in the author's color. */
+/** A bubble in the author's color; an interim message is quieter (PAGE-391). */
 function Bubble({
   author,
+  isQuiet = false,
   children,
 }: {
   readonly author: VirtualParticipant;
+  readonly isQuiet?: boolean;
   readonly children: React.ReactNode;
 }): React.ReactElement {
   const colors = participantColors(author.color);
@@ -218,10 +221,11 @@ function Bubble({
     <div
       className={cn(
         "flex max-w-[62%] min-w-0 flex-col gap-1 rounded-[14px] rounded-bl-[4px] border px-4 py-2.5",
-        colors.bubble.className,
+        isQuiet ? "border-dashed bg-transparent py-1.5" : colors.bubble.className,
       )}
       data-message-bubble=""
-      style={colors.bubble.style}
+      data-interim={isQuiet ? "true" : undefined}
+      style={isQuiet ? undefined : colors.bubble.style}
     >
       {children}
     </div>
@@ -248,6 +252,48 @@ function ToolUses({
         />
       ))}
     </ul>
+  );
+}
+
+/** The text of an answer in bubbles; an interim message quieter (PAGE-391). */
+function PlainAnswer({
+  message,
+  author,
+  name,
+  startsWithText,
+}: {
+  readonly message: VirtualChatMessage;
+  readonly author: VirtualParticipant;
+  readonly name: React.ReactNode;
+  readonly startsWithText: boolean;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const isInterim = message.isInterim === true;
+  return (
+    <>
+      {startsWithText ? null : name}
+      <MessageContentView
+        message={message}
+        origin={{ senderName: author.name, createdAt: message.createdAt }}
+        renderText={(text, isFirst) => (
+          <Bubble author={author} isQuiet={isInterim}>
+            {isFirst ? name : null}
+            {isInterim ? (
+              <span className="sr-only">{t("chatPage.interim")}</span>
+            ) : null}
+            <MentionMarkdown
+              className={
+                isInterim
+                  ? "text-sm text-muted-foreground"
+                  : "text-[15px] text-foreground"
+              }
+              isDisplayableImage={hideImages}
+              source={text}
+            />
+          </Bubble>
+        )}
+      />
+    </>
   );
 }
 
@@ -279,25 +325,21 @@ function AnswerBubble({
         isOwnMention && "border-l-[3px] border-primary pl-2",
       )}
     >
-      {isPlain ? (
+      {message.question ? (
         <>
-          {startsWithText ? null : name}
-          <MessageContentView
-            message={message}
-            origin={{ senderName: author.name, createdAt: message.createdAt }}
-            renderText={(text, isFirst) => (
-              <Bubble author={author}>
-                {isFirst ? name : null}
-                <MentionMarkdown
-                  className="text-[15px] text-foreground"
-                  isDisplayableImage={hideImages}
-                  source={text}
-                />
-              </Bubble>
-            )}
-          />
+          {name}
+          <ChatPageQuestionCard question={message.question} />
         </>
-      ) : (
+      ) : null}
+      {isPlain && !message.question ? (
+        <PlainAnswer
+          message={message}
+          author={author}
+          name={name}
+          startsWithText={startsWithText}
+        />
+      ) : null}
+      {isPlain ? null : (
         <Bubble author={author}>
           {name}
           <AnswerNotice message={message} name={author.name} />

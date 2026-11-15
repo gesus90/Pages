@@ -7,6 +7,7 @@ import { ChatSessionRepository } from "@/backend/database/repositories/chat/Chat
 import { ConversationMessageRepository } from "@/backend/database/repositories/conversation/ConversationMessageRepository";
 import { ConversationRepository } from "@/backend/database/repositories/conversation/ConversationRepository";
 import { EmployeeStore } from "@/backend/database/repositories/employee/EmployeeStore";
+import type { AgentChatQuestionService } from "@/backend/service/conversation/AgentChatQuestionService";
 import type { AgentSessionSettingsRepository } from "@/backend/database/repositories/employee/AgentSessionSettingsRepository";
 import { UserGroupRepository } from "@/backend/database/repositories/UserGroupRepository";
 import { UserRepository } from "@/backend/database/repositories/UserRepository";
@@ -292,6 +293,7 @@ function assembleEmployeeServices(
 interface LateServices {
   sessions: AgentEmployeeSessions | null;
   agentChat: AgentChatTools | null;
+  chatQuestions: AgentChatQuestionService | null;
   contextReader: ConversationContextReader | null;
   logbook: AgentLogbookService | null;
 }
@@ -415,6 +417,7 @@ function createEmployeeSessions(
       : {}),
     recorder: base.recorder,
     agentChat: () => late.agentChat,
+    chatQuestions: () => late.chatQuestions,
     createSessionId: () => createChatSessionId(),
     conversationContext: {
       readForAgent: (agentId, request) =>
@@ -454,10 +457,13 @@ function wireEmployeeConversations(
       messages,
       simulation: simulatedAgent(simulation),
       recorder,
+      isWaitingForPerson: (agentId, conversationId) =>
+        late.chatQuestions?.isWaiting(agentId, conversationId) === true,
     }),
   });
   late.contextReader = conversations.conversationContextReader;
   late.agentChat = conversations.agentChatService;
+  late.chatQuestions = conversations.agentChatQuestions;
   const learning = createLearning(input, {
     dependencies: {
       store,
@@ -526,6 +532,7 @@ export function createEmployeeServices(
   const late: LateServices = {
     sessions: null,
     agentChat: null,
+    chatQuestions: null,
     contextReader: null,
     logbook: null,
   };

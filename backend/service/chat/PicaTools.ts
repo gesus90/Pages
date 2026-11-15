@@ -523,8 +523,13 @@ export function createPicaTools(
     const attempt = JSON.stringify([tool, canonical(parameters)]);
     if (failedWrites.has(attempt)) return refused("RETRY_REFUSED");
     const outcome = await execute(WRITE_TOOLS[tool], parameters, context);
-    // A write the step limit held back never reached a service.
-    if (!outcome.ok && outcome.error !== "STEP_LIMIT")
+    // A write the step limit or a pending approval held back never reached a
+    // service; once approved in the same turn it may run (PAGE-391).
+    if (
+      !outcome.ok &&
+      outcome.error !== "STEP_LIMIT" &&
+      outcome.error !== "CONFIRMATION_REQUIRED"
+    )
       failedWrites.add(attempt);
     return outcome;
   };

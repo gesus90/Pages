@@ -69,7 +69,8 @@ export type ChatPageIntent =
   | "embed-domain"
   | "card-state"
   | "split-width"
-  | "list-collapsed";
+  | "list-collapsed"
+  | "answer-question";
 
 /** What a change yields besides success: a created group, a page of older messages or a group context. */
 interface ChatIntentOutcome {
@@ -104,6 +105,7 @@ const INTENTS: readonly ChatPageIntent[] = [
   "card-state",
   "split-width",
   "list-collapsed",
+  "answer-question",
 ];
 
 /** How a refused conversation request reads on the page (PAGE-278). */
@@ -321,7 +323,8 @@ type ContentIntent =
   | "embed-domain"
   | "card-state"
   | "split-width"
-  | "list-collapsed";
+  | "list-collapsed"
+  | "answer-question";
 
 const CONTENT_INTENTS: readonly ContentIntent[] = [
   "delete-message",
@@ -329,6 +332,7 @@ const CONTENT_INTENTS: readonly ContentIntent[] = [
   "card-state",
   "split-width",
   "list-collapsed",
+  "answer-question",
 ];
 
 function isContentIntent(intent: ChatPageIntent): intent is ContentIntent {
@@ -338,7 +342,8 @@ function isContentIntent(intent: ChatPageIntent): intent is ContentIntent {
 /**
  * Deletes an own message, releases or withdraws an embed domain of a
  * conversation, or stores a card state or the split width (PAGE-298) or
- * the state of the list (PAGE-325).
+ * the state of the list (PAGE-325), or answers the question of an agent
+ * (PAGE-391).
  */
 async function runContentIntent(
   services: ChatServices,
@@ -377,6 +382,13 @@ async function runContentIntent(
         person,
         formData.get("isCollapsed"),
       );
+      return;
+    case "answer-question":
+      // The answer goes straight to the agent whose round waits (PAGE-391).
+      await services.agentChatQuestions.answer(person, {
+        questionId: formData.get("questionId"),
+        answers: readJson(formData.get("answers")),
+      });
   }
 }
 

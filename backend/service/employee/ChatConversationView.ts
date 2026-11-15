@@ -1,3 +1,7 @@
+import {
+  CONVERSATION_AGENT_INTERIM_PREFIX,
+  CONVERSATION_AGENT_QUESTION_PREFIX,
+} from "@/definition/AgentChatQuestion";
 import { CONVERSATION_AGENT_SEND_PREFIX } from "@/definition/Conversation";
 
 import type { ConversationView } from "@/backend/service/conversation/ConversationReader";
@@ -47,6 +51,9 @@ export function toVirtualMessage(
       : {}),
     ...(message.links.length > 0 ? { links: message.links } : {}),
     ...(isOwn && !message.notice ? { canDelete: true } : {}),
+    ...(message.clientMessageId.startsWith(CONVERSATION_AGENT_INTERIM_PREFIX)
+      ? { isInterim: true }
+      : {}),
   };
   if (!message.voice) return base;
   return {
@@ -120,14 +127,27 @@ export function agentWrittenConversations(
   return written;
 }
 
-/** Whether the agent chose to write the message (PAGE-311), instead of answering one. */
+/** The prefixes of the messages an agent writes to a direct chat outside its answers. */
+const AGENT_WRITTEN_PREFIXES = [
+  CONVERSATION_AGENT_SEND_PREFIX,
+  CONVERSATION_AGENT_INTERIM_PREFIX,
+  CONVERSATION_AGENT_QUESTION_PREFIX,
+] as const;
+
+/**
+ * Whether the agent chose to write the message (PAGE-311), instead of
+ * answering one: a message of its own, an interim message or a question
+ * during its round (PAGE-391).
+ */
 export function isAgentWritten(
   message: ConversationMessage,
   agentId: string,
 ): boolean {
   return (
     message.sender.id === agentId &&
-    message.clientMessageId.startsWith(CONVERSATION_AGENT_SEND_PREFIX)
+    AGENT_WRITTEN_PREFIXES.some((prefix) =>
+      message.clientMessageId.startsWith(prefix),
+    )
   );
 }
 

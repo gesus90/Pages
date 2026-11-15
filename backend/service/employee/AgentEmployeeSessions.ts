@@ -28,6 +28,7 @@ import type {
   ChatSteerStatus,
 } from "@/definition/ChatJob";
 import type { User } from "@/definition/User";
+import type { AgentChatInteractions } from "@/definition/AgentChatQuestion";
 import type { AgentRecipeBrief } from "./AgentRecipeService";
 import type { AgentChatToolScope } from "./AgentChatToolGuard";
 import type { AgentMemoryAudience } from "./AgentMemorySharing";
@@ -567,7 +568,12 @@ export class AgentEmployeeSessions {
     if (purpose === "conversation" && conversationId !== undefined)
       return {
         scope,
-        own: { sessionId, kind: "group", chatId: conversationId },
+        own: {
+          sessionId,
+          kind: "group",
+          chatId: conversationId,
+          ...(person && person.isAgent !== true ? { askerId: person.id } : {}),
+        },
       };
     if (purpose === "chat" && person)
       return {
@@ -747,6 +753,7 @@ export class AgentEmployeeSessions {
           root: directory,
           policy,
           isIsolated: access !== "yolo",
+          ...this.chatInteractions(agent, chat),
           ...(this.dependencies.toolkitHiddenDirectories
             ? { hiddenDirectories: this.dependencies.toolkitHiddenDirectories }
             : {}),
@@ -769,6 +776,31 @@ export class AgentEmployeeSessions {
           audience,
         ),
       }),
+    };
+  }
+
+  /**
+   * The interim messages and questions of a job, bound to its chat
+   * (PAGE-391); a run of the agent's own has no chat and offers neither.
+   */
+  private chatInteractions(
+    agent: User,
+    chat: AgentChatScope,
+  ): { readonly interactions?: AgentChatInteractions } {
+    const questions = this.dependencies.chatQuestions?.() ?? null;
+    const { own } = chat;
+    if (!questions || !own) return {};
+    return {
+      interactions: questions.bind(
+        agent.id,
+        own.kind === "direct"
+          ? { kind: "direct", personId: own.chatId }
+          : {
+              kind: "conversation",
+              conversationId: own.chatId,
+              askerId: own.askerId ?? null,
+            },
+      ),
     };
   }
 

@@ -35,6 +35,7 @@ const services = vi.hoisted(() => ({
     decisions: vi.fn(),
   },
   agentChatPrivacyService: { setConfidential: vi.fn() },
+  agentChatQuestions: { answer: vi.fn() },
   conversationVoiceMaximumMs: 1200,
 }));
 
@@ -232,4 +233,28 @@ it("stores whether the person collapsed the list of the chat page (PAGE-325)", a
   );
   const refused = await change({ intent: "list-collapsed", isCollapsed: "1" });
   expect(refused.init?.status).toBe(400);
+});
+
+it("hands the answer to an agent's question to the waiting agent (PAGE-391)", async () => {
+  const answers = [{ questionId: "q1", optionIds: ["o1"], freeText: null }];
+  const answered = await change({
+    intent: "answer-question",
+    questionId: "question-1",
+    answers: JSON.stringify(answers),
+  });
+  expect(services.agentChatQuestions.answer).toHaveBeenCalledWith(EMPLOYEE, {
+    questionId: "question-1",
+    answers,
+  });
+  expect(answered.init?.status ?? 200).toBe(200);
+
+  services.agentChatQuestions.answer.mockRejectedValue(
+    new ConversationError("forbidden"),
+  );
+  const refused = await change({
+    intent: "answer-question",
+    questionId: "question-1",
+    answers: "[]",
+  });
+  expect(refused.init?.status).toBe(403);
 });

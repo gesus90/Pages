@@ -4335,6 +4335,21 @@
       "ready": "Decision model active",
       "noModel": "No decision model · @ only",
       "modelUnavailable": "Decision model unavailable · @ only"
+    },
+    "interim": "Interim message",
+    "question": {
+      "title": "Question",
+      "confirmTitle": "Confirmation",
+      "recommended": "(recommended)",
+      "multiple": "Several answers possible",
+      "freeText": "Free answer",
+      "freeTextPlaceholder": "Or write your own answer …",
+      "freeTextAnswer": "Free answer: {{text}}",
+      "send": "Send answer",
+      "answeredBy": "Answered by {{name}}",
+      "expired": "No answer within the time limit – the agent continues at its own discretion.",
+      "cancelled": "The agent's round has ended.",
+      "notForYou": "Only the person asked can answer."
     }
   },
   "workspaces": {

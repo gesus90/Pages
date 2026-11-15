@@ -1,5 +1,6 @@
 import type { z } from "zod";
 import type { RuntimeExecutionContext } from "@/backend/agents/runtime/RuntimeExecutionContext";
+import type { AgentChatInteractions } from "@/definition/AgentChatQuestion";
 import type { AgentToolGroup, AgentToolPolicy } from "@/definition/AgentToolGroups";
 import type { PicaToolOutcome } from "../PicaToolSchemas";
 import type { AgentShellJobs } from "./AgentShellJobs";
@@ -29,6 +30,11 @@ export interface AgentToolkitJob {
   readonly shellJobs: AgentShellJobs;
   /** Fetches a public web page; the default pins the address and refuses private hosts. */
   readonly readPage: AgentWebPageReader;
+  /**
+   * The interim messages and questions of the job, bound to its chat
+   * (PAGE-391); absent for a run without a chat, which offers neither.
+   */
+  readonly interactions?: AgentChatInteractions;
 }
 
 /** One tool of the toolkit, before Pages applies the policy. */

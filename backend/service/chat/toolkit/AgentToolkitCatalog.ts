@@ -10,6 +10,7 @@ import {
 } from "../PicaChatToolSchemas";
 import { PICA_FILE_TOOL, PICA_WRITE_SCHEMAS } from "../PicaToolSchemas";
 
+import { AGENT_ASK_TOOL, AGENT_SAY_TOOL } from "./AgentChatInteractionTools";
 import { AGENT_FILE_TOOLS } from "./AgentFileTools";
 import { AGENT_SHELL_TOOLS } from "./AgentShellTools";
 import { AGENT_WEB_TOOLS } from "./AgentWebTools";
@@ -24,7 +25,7 @@ export const AGENT_TOOLKIT_TOOLS: readonly AgentToolkitTool[] = [
   ...AGENT_WEB_TOOLS,
 ];
 
-/** The tools of the chat group: answer files, chats, memory, Lagebuch and recipes. */
+/** The tools of the chat group: answer files, chats, memory, Lagebuch, recipes, interim messages and questions. */
 const CHAT_TOOLS: ReadonlySet<string> = new Set([
   PICA_FILE_TOOL,
   PICA_CHATS_LIST_TOOL,
@@ -37,6 +38,8 @@ const CHAT_TOOLS: ReadonlySet<string> = new Set([
   "lagebuch_suchen",
   "lagebuch_lesen",
   RECIPE_TOOL,
+  AGENT_SAY_TOOL,
+  AGENT_ASK_TOOL,
 ]);
 
 /** Browser tools that only look: everything else clicks, types or changes a page. */
