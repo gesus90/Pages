@@ -149,6 +149,29 @@ it("uses only the current attempt's native evidence and does not rewrite stored 
   expect(JSON.stringify([...fixture.rows])).toBe(before);
 });
 
+it("applies a plan received after progress and retains its obligation when the same attempt resumes", async () => {
+  const fixture = todoFixture();
+  await fixture.progress.initialize(SCOPE, fixture.contract);
+  await fixture.progress.update(TODO_IDENTITY, {
+    todos: [{ id: "T1", status: "done" }],
+  });
+  expect((await assess(fixture)).acceptance.verdict).toBe("accepted");
+  fixture.native.set("attempt", [
+    { id: "1", text: "Local work", status: "open", updatedAt: "now" },
+  ]);
+  expect((await assess(fixture)).acceptance.issues).toContain(
+    "todo_open:PAGES_PLAN",
+  );
+  await fixture.progress.initialize(SCOPE, fixture.contract);
+  expect((await assess(fixture)).acceptance.issues).toContain(
+    "todo_open:PAGES_PLAN",
+  );
+  fixture.native.set("attempt", [
+    { id: "1", text: "Local work", status: "done", updatedAt: "later" },
+  ]);
+  expect((await assess(fixture)).acceptance.verdict).toBe("accepted");
+});
+
 it.each(["claude_code", "opencode", "antigravity"] as const)(
   "preserves acceptance for %s even after an empty plan event",
   async (provider) => {

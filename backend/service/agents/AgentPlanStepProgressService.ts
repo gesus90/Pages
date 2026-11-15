@@ -303,8 +303,8 @@ export class AgentPlanStepProgressService {
             id: "PAGES_PLAN",
             text:
               native.length === 0
-                ? "Create your TODO list with the native update_plan tool before continuing; keep it updated until all tasks are completed."
-                : `Complete the open TODOs with native update_plan: ${native
+                ? "Complete your native plan before continuing. If available, use the native update_plan tool; the Pages update_plan tool manages agent plans instead."
+                : `Complete the open native TODOs (use native update_plan if available; Pages update_plan manages agent plans): ${native
                     .filter((todo) => todo.status !== "done")
                     .slice(0, 20)
                     .map((todo) => todo.text)
