@@ -103,6 +103,12 @@ const SUPPORTED_CLAUDE_ADAPTER: Implementation = {
   version: "0.90.0",
 };
 
+function defaultAdapter(flavor: FakeAdapterOptions["flavor"]): Implementation {
+  if (flavor === "antigravity")
+    return { name: "antigravity-acp", version: "1.4.4" };
+  return flavor === "claude" ? SUPPORTED_CLAUDE_ADAPTER : SUPPORTED_ADAPTER;
+}
+
 /**
  * The process of a fake Codex ACP adapter, speaking ACP over JSON lines.
  *
@@ -345,7 +351,7 @@ export function fakeAcpAgent(options: FakeAdapterOptions = {}): FakeCodexAgent {
   const calls: ReceivedCall[] = [];
   const isClaude = options.flavor === "claude";
   const session = createSession(options);
-  const defaultInfo = isClaude ? SUPPORTED_CLAUDE_ADAPTER : SUPPORTED_ADAPTER;
+  const defaultInfo = defaultAdapter(options.flavor);
   function record(method: string, params: unknown): void {
     calls.push({ method, params });
   }

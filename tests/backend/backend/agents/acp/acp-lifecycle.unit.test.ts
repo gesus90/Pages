@@ -7,7 +7,7 @@ import { FAKE_SESSION_ID } from "./fake-acp-adapter";
 import type { StopReason } from "@agentclientprotocol/sdk";
 import type { FakeTurn } from "./fake-acp-adapter";
 
-/** The two ACP runners; the session and its closing are the same code for both. */
+/** These ACP runners share the session lifecycle and process closeout. */
 const RUNNERS = [
   {
     provider: "codex_cli",
@@ -18,6 +18,11 @@ const RUNNERS = [
     provider: "claude_code",
     sessionFailed: "plan_claude_acp_session_failed",
     mcpFailure: { mcpStatus: "failed" },
+  },
+  {
+    provider: "antigravity",
+    sessionFailed: "antigravity_acp_session_failed",
+    mcpFailure: { isMcpStartFailing: true },
   },
 ] as const;
 
@@ -142,7 +147,7 @@ it.each(RUNNERS)(
 );
 
 it.each(RUNNERS)(
-  "$provider: an adapter that exits during the turn fails the node with its last error line and leaves no process",
+  "$provider: an adapter that exits during the turn fails the node with provider-safe diagnostics and leaves no process",
   async ({ provider, sessionFailed }) => {
     scan.endTaggedProcesses.mockImplementationOnce(async () => ({
       found: 1,
@@ -158,7 +163,9 @@ it.each(RUNNERS)(
       failure: "failed",
       errorCode: sessionFailed,
     });
-    expect(turn.events).toContain("adapter fatal: app-server exited");
+    if (provider === "antigravity")
+      expect(turn.events).not.toContain("adapter fatal: app-server exited");
+    else expect(turn.events).toContain("adapter fatal: app-server exited");
     const closed = await started.session.close();
     expect(closed).toMatchObject({
       exit: { code: 1 },

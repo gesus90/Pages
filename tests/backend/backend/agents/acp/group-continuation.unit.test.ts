@@ -76,6 +76,43 @@ it("reapplies Antigravity model and effort before each group turn", async () => 
   await world.session.close();
 });
 
+it("reports Antigravity's structured TODO activity while its prompt is still running", async () => {
+  const controller = new AbortController();
+  const world = startAcpSession(
+    {
+      turn: async (turn) => {
+        await turn.update({
+          sessionUpdate: "plan",
+          entries: [
+            { content: "Finished work", status: "completed", priority: "low" },
+            {
+              content: "Current work",
+              status: "in_progress",
+              priority: "high",
+            },
+            { content: "Later work", status: "pending", priority: "low" },
+          ],
+        });
+        return new Promise(() => {});
+      },
+    },
+    { provider: "antigravity", controller, reasoningEffort: "low" },
+  );
+  try {
+    await vi.waitFor(() =>
+      expect(world.observer.activity).toHaveBeenCalledWith({
+        reportedAt: expect.any(String),
+        titles: ["Current work"],
+      }),
+    );
+    expect(world.process.cancelled).toEqual([]);
+  } finally {
+    controller.abort();
+    await world.session.turn;
+    await world.session.close();
+  }
+});
+
 it("fails a turn when the official adapter reports that Pages MCP failed to initialize", async () => {
   const model = "gemini-3.8-flash";
   const world = startAcpSession(

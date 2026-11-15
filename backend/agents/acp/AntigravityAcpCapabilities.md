@@ -171,3 +171,105 @@ model and effort at execution time. Pages refuses an older runner, including a
 downgrade with retained inventory, without local fallback. Existing job-bound
 Pages bridges, result receipts, history, cancellation and process supervision
 remain in use. Remote Pica is not introduced.
+
+## PAGE-367 implementation and evidence handoff (15.11.2026)
+
+This handoff follows Igor's reduced completion scope of 15.11.2026. The existing
+production implementation is reused unchanged. The source review and targeted
+tests below did not establish a production defect requiring a speculative
+provider-specific control path. This is not a live-provider acceptance or a
+claim that the original universal reliability requirements have been met.
+
+### Implementation reused
+
+| Behavior                   | Existing implementation and meaning                                                                                                                                                                                                                                                                                                                                                                                   |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Start and model selection  | `AntigravityAcpDriver.ts` supplies the official adapter profile, exact model and `thinking_level` selectors, native-tool policy and step-bound Pages bridge. `AcpSession.ts` verifies the handshake and confirms configuration before prompting. No model is hardcoded in the runtime.                                                                                                                                |
+| Assigned TODOs             | `backend/service/agents/AgentPlanStepProgressService.ts` initializes ticket criteria and instruction checkboxes before dispatch, stores `update_step_progress` immediately, and retains completed work only within the matching iteration and ticket scope. Ticket completion uses the revision-protected checklist service.                                                                                          |
+| Structured agent TODOs     | `AcpSession.ts` forwards ACP updates to `backend/service/agents/sessions/AgentSessionRecorder.ts`. The recorder journals structured `plan` entries; `backend/database/repositories/agent/AgentSessionRepository.ts` projects them into `agent_plan_agent_todos`. `backend/service/agents/AgentPlanAgentTodoService.ts` looks up each node/loop iteration by its attempt ID. Free text is never inferred to be a TODO. |
+| Run panel                  | `backend/service/agents/AgentPlanRunReader.ts` combines authorized checklist observations, explicit progress and agent TODOs. `app/components/agents/plans/plan-agent-todo-model.ts` combines those lists for the counter and visible TODOs. `use-plan-poll.ts` polls active runs at a nominal two-second interval while the tab is visible; that interval does not establish a two-second end-to-end guarantee.      |
+| Pause and continue         | `backend/service/agents/AgentPlanRunCommands.ts` journals `pausing`, gates waiting steps and aborts starts that have not dispatched. Already dispatched work is allowed to settle before `paused`. Resume requires a persisted pause boundary and no active controllers, adopts the continuation and schedules pending work. It does not immediately freeze a running provider prompt.                                |
+| Stop                       | The same command service journals the stop before aborting owned executions. `AcpSession.ts` and `backend/agents/cli/CliSessionCloseout.ts` finish the session and check cleanup. Unconfirmed cleanup retains reservations; the mocked tests below cannot establish that real descendants were removed.                                                                                                               |
+| Authorization and controls | `backend/service/agents/AgentPlanService.ts`, `AgentPlanControlService.ts` and `AgentPlanControl.ts` enforce current plan rights, run ownership/administrator access and durable action availability for every provider. The frontend consumes these server-derived controls.                                                                                                                                         |
+
+### Targeted evidence in this change
+
+The ACP test adapter now identifies its Antigravity flavor as
+`antigravity-acp 1.4.4` by default instead of incorrectly presenting the Codex
+identity (`tests/backend/backend/agents/acp/fake-acp-adapter.ts`). The existing
+`acp-lifecycle.unit.test.ts` matrix now includes Antigravity: 13 additional
+synthetic cases cover protocol closeout, uncertain cleanup, cancellation,
+deadlines, crash classification, missing login/MCP, stop reasons and progress.
+Crash expectations preserve the intentional Antigravity rule that raw stderr
+does not enter the session history; the Codex/Claude expectations remain.
+
+`acp-harness.ts` exposes the activity observer. One additional case in
+`group-continuation.unit.test.ts` proves that Antigravity's structured plan
+reports its active TODO before the prompt ends, excluding completed/pending
+entries from the active titles. Existing cases also confirm model/low effort
+selection again on the next turn and detect adapter-reported MCP failure.
+These are scripted ACP sessions with an in-memory adapter, not Gemini calls.
+
+Executed locally on 15.11.2026, with coverage explicitly disabled:
+
+```sh
+NODE_ENV=test pnpm exec vitest run --config vitest.backend.config.ts --coverage.enabled=false \
+  tests/backend/backend/agents/acp/antigravity-contract.unit.test.ts \
+  tests/backend/backend/agents/acp/acp-lifecycle.unit.test.ts \
+  tests/backend/backend/agents/acp/group-continuation.unit.test.ts \
+  tests/backend/backend/service/agents/page358-todos.unit.test.ts \
+  tests/backend/backend/service/agents/agent-plan-service-control.unit.test.ts \
+  tests/backend/backend/service/agents/page174-branching-pause.unit.test.ts
+
+pnpm exec vitest run --config vitest.backend.config.ts --coverage.enabled=false \
+  tests/backend/backend/service/agents/page84-run-checkpoints.unit.test.ts \
+  -t 'preserves live pause/resume semantics|an explicit stop'
+
+NODE_ENV=test pnpm exec vitest run --config vitest.frontend.config.ts --coverage.enabled=false \
+  tests/frontend/app/components/agents/plans/page358-todo-count.unit.test.tsx \
+  tests/frontend/app/components/agents/plans/use-plan-control.unit.test.ts
+```
+
+| Selection                     | Result and scope of proof                                                                                                                                                                                                                                         |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Six Backend files             | **88 passed**. Antigravity registration/lifecycle/continuation plus shared TODO initialization, ticket writes, iteration separation, completion retention, authorization and branching pause behavior. Shared tests do not represent an Antigravity provider run. |
+| Two selected checkpoint cases | **2 passed, 6 intentionally unselected**. Pause waits for dispatched work, resume preserves its result without replay and rejects a competing resume; Stop cancels successors and prevents in-place resume. Execution and persistence boundaries are stubbed.     |
+| Two Frontend files            | **7 passed**. Combined TODO counts/marks update on rerender; the control hook uses polled server state and requests refresh. No real browser, API or database was exercised.                                                                                      |
+
+The first six-file Backend run was 87/88 because its shared crash assertion
+expected raw stderr for Antigravity. That assertion was corrected to verify
+the existing privacy behavior; the final six-file run passed 88/88. The first
+Frontend invocation inherited production mode and failed all seven cases at
+`React.act is not a function`; the explicit `NODE_ENV=test` rerun passed 7/7
+without changing application code or test infrastructure.
+
+### Known limits and explicitly deferred evidence
+
+- Pause is a scheduling boundary, so a slow or hung dispatched prompt can keep
+  the run in `pausing`. Immediate provider suspension and a fixed pause deadline
+  are not implemented or claimed by this handoff.
+- Continuing an open native session is distinct from resuming after adapter or
+  server exit. Native recovery depends on advertised capabilities and retained
+  evidence. The documented remote Antigravity path offers no native resume
+  (`backend/service/agents/PlanRetries.md`); after observed tool activity a new
+  session is not silently substituted. Universal restart/session preservation
+  is not established.
+- Native TODO projection is bounded to 40 entries and 200 characters per entry.
+  A failed TODO projection is logged after the journal commits and does not fail
+  that append (`AgentSessionRepository.keepAgentTodos`); the run panel can then
+  retain an older list. No recovery or latency guarantee for that case is added.
+- Explicitly **deferred, not passed**: live `gemini-4-hydrogen` with reasoning
+  `low`, a two-second live-panel guarantee, fixed Pause/Stop time guarantees,
+  complete real-process and state acceptance, repeated pause/continue cycles,
+  restarts, and UI/MCP/database agreement for every state. No new provider run,
+  disposable instance or live credential/data access was used for this ticket.
+- Token and cost accounting remains PAGE-368. No additional production defect
+  was reproduced within this source review and mocked-test scope; that is not
+  evidence that none exists in a live provider environment.
+- Lint, Check, typecheck, formatting checks, build, full suites and coverage:
+  **an die Abschluss-QA übergeben**; none was executed for this handoff.
+
+T1 is evidenced by the implementation map, the four changed ACP test files and
+the actual targeted results above. T2 is evidenced by the explicit limits and
+deferred cases in this section. K1 is fulfilled by these workspace artifacts
+and their reproducible commands; business acceptance remains with the reviewer.
