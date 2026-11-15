@@ -121,6 +121,7 @@ it("creates, reads, updates and deactivates an agent through the shared contract
       settings: {
         access: "read_only",
         connectionId: "released",
+        disabledToolGroups: [],
         model: "model",
         reasoningEffort: "high",
       },

@@ -90,6 +90,8 @@ function mergedSettings(
     model: request.model?.modelId ?? settings.model,
     reasoningEffort: changed(request.reasoning, settings.reasoningEffort),
     access: request.access ?? settings.access,
+    // The tool groups are switched in the panel only (PAGE-390); a change here keeps them.
+    disabledToolGroups: settings.disabledToolGroups,
   };
 }
 

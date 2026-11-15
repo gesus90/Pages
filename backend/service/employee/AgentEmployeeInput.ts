@@ -7,6 +7,7 @@ import {
   isAgentEmployeeAccess,
 } from "@/definition/AgentEmployee";
 import { AGENT_MEMORY_CHARACTERS } from "@/definition/AgentMemory";
+import { readAgentToolGroups } from "@/definition/AgentToolGroups";
 import { isPersonColor, readPersonColor } from "@/definition/PersonColor";
 import {
   AGENT_VOICE_ID_MAXIMUM,
@@ -115,6 +116,7 @@ function readDocument(input: unknown, maximum: number): string {
 
 function readSettings(input: Record<string, unknown>): AgentEmployeeSettings {
   const { connectionId, model, reasoningEffort, access } = input;
+  const disabledToolGroups = readAgentToolGroups(input.disabledToolGroups);
   if (
     typeof connectionId !== "string" ||
     connectionId === "" ||
@@ -122,6 +124,7 @@ function readSettings(input: Record<string, unknown>): AgentEmployeeSettings {
     model === "" ||
     model.length > 300 ||
     !isAgentEmployeeAccess(access) ||
+    disabledToolGroups === null ||
     (reasoningEffort !== null &&
       reasoningEffort !== undefined &&
       reasoningEffort !== "" &&
@@ -136,6 +139,7 @@ function readSettings(input: Record<string, unknown>): AgentEmployeeSettings {
         ? reasoningEffort
         : null,
     access,
+    disabledToolGroups,
   };
 }
 
@@ -246,6 +250,7 @@ export function employeeChange(input: AgentEmployeeInput): AgentEmployeeChange {
     model: input.settings.model,
     reasoningEffort: input.settings.reasoningEffort,
     access: input.settings.access,
+    disabledToolGroups: input.settings.disabledToolGroups,
     soul: input.documents.soul,
     instructions: input.documents.instructions,
     isLearningEnabled: input.isLearningEnabled,

@@ -143,6 +143,14 @@ function readProgressEvent(event: Fields): ChatJobEvent | null {
         ...(event.isNative === true ? { isNative: true } : {}),
         ...(typeof event.input === "string" ? { input: event.input } : {}),
         ...(typeof event.output === "string" ? { output: event.output } : {}),
+        ...(typeof event.summary === "string"
+          ? { summary: event.summary }
+          : {}),
+        ...(typeof event.durationMs === "number" &&
+        Number.isFinite(event.durationMs) &&
+        event.durationMs >= 0
+          ? { durationMs: Math.round(event.durationMs) }
+          : {}),
       };
     default:
       return null;

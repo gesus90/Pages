@@ -109,6 +109,7 @@ export class AgentEmployeeDirectory {
         model: employee.model,
         reasoningEffort: employee.reasoningEffort,
         access: employee.access,
+        disabledToolGroups: employee.disabledToolGroups,
       },
       documents: {
         soul: employee.soul,

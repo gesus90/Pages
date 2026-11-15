@@ -128,6 +128,10 @@ export interface VirtualToolUse {
   readonly output?: string;
   /** A tool of the host rather than a Pages tool. */
   readonly isNative?: boolean;
+  /** What the tool does, in one short sentence (PAGE-390). */
+  readonly summary?: string;
+  /** How long the call took, in milliseconds, once it ended (PAGE-390). */
+  readonly durationMs?: number;
 }
 
 /** The audio of a voice message (PAGE-278). */

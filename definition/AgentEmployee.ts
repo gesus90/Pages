@@ -1,4 +1,5 @@
 import type { AgentEmployeeVoice } from "./SpeechSynthesis";
+import type { AgentToolGroup } from "./AgentToolGroups";
 
 /**
  * Contracts of agents that Pages keeps like employees (PAGE-266).
@@ -109,6 +110,11 @@ export interface AgentEmployeeSettings {
   readonly model: string;
   readonly reasoningEffort: string | null;
   readonly access: AgentEmployeeAccess;
+  /**
+   * The tool groups an administrator switched off for the agent (PAGE-390);
+   * empty gives every group its access level allows.
+   */
+  readonly disabledToolGroups: readonly AgentToolGroup[];
 }
 
 /** The two documents that shape every session of an agent. */

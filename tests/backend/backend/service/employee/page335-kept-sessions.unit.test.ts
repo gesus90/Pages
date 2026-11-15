@@ -163,8 +163,25 @@ it.each(["read_only", "workspace", "yolo"] as const)(
       ...request,
       employee: { ...request.employee, access },
     });
+    // Every level has the browser; "Nur Lesen" only its reading tools (PAGE-390).
     expect(start.mock.calls[0]?.[0]).toMatchObject({
-      employee: { hasBrowser: access !== "read_only" },
+      employee: { hasBrowser: true },
     });
   },
 );
+
+it("gives no browser when the browser group of the agent is switched off (PAGE-390)", async () => {
+  const { service, start } = fixture();
+  const request = round("chat");
+  await service.run({
+    ...request,
+    employee: {
+      ...request.employee,
+      access: "workspace",
+      disabledToolGroups: ["browser"],
+    },
+  });
+  expect(start.mock.calls[0]?.[0]).toMatchObject({
+    employee: { hasBrowser: false },
+  });
+});

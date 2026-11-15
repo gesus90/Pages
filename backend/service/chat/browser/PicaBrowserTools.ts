@@ -5,6 +5,7 @@ import {
   isAgentBrowserTool,
 } from "./PicaBrowserContracts";
 
+import type { RuntimeExecutionContext } from "@/backend/agents/runtime/RuntimeExecutionContext";
 import type { RuntimeToolRegistry } from "@/backend/agents/runtime/RuntimeToolRegistry";
 import type { AgentBrowserService } from "./AgentBrowserService";
 import type { PicaAdminService } from "../admin/PicaAdminService";
@@ -72,11 +73,27 @@ export function registerPicaBrowserTools(
   }
 }
 
-/** Registers the own-account browser tools for a server-authorized employee with host access. */
+/**
+ * Holds a browser call back before it runs (PAGE-390): `null` lets it run,
+ * otherwise the answer returned instead.
+ */
+export type AgentBrowserGuard = (
+  tool: string,
+  parameters: Readonly<Record<string, unknown>>,
+  context: RuntimeExecutionContext,
+) => Promise<PicaToolOutcome | null>;
+
+/**
+ * Registers the own-account browser tools of an agent employee.
+ *
+ * @param guard - The toolkit's check of the access level and of a
+ * consequential step (PAGE-390); without it every call runs.
+ */
 export function registerAgentBrowserTools(
   registry: RuntimeToolRegistry,
   service: AgentBrowserService,
   spend: () => boolean,
+  guard?: AgentBrowserGuard,
 ): void {
   for (const tool of Object.keys(PICA_BROWSER_SCHEMAS).filter(
     isPicaBrowserTool,
@@ -103,10 +120,13 @@ export function registerAgentBrowserTools(
       description,
       inputSchema: PICA_BROWSER_SCHEMAS[tool],
       outputSchema: PICA_TOOL_OUTCOME,
-      execute: (parameters, context) =>
-        spend()
-          ? service.run(tool, parameters, context)
-          : Promise.resolve({ ok: false, result: null, error: "STEP_LIMIT" }),
+      execute: async (parameters, context) => {
+        const held = guard ? await guard(tool, parameters, context) : null;
+        if (held) return held;
+        return spend()
+          ? await service.run(tool, parameters, context)
+          : { ok: false, result: null, error: "STEP_LIMIT" };
+      },
     });
   }
 }

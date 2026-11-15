@@ -7941,6 +7941,7 @@
       "isolationMissing": "No isolation (bubblewrap) is available on this host, so “Workspace” cannot be chosen.",
       "browserAllowed": "Browser allowed · Profiles: self (own agent account)",
       "browserDenied": "Browser not allowed · No profiles",
+      "browserReadOnly": "Browser allowed for reading only · Profiles: self (own agent account)",
       "mcpTitle": "Detected MCP servers",
       "mcpHint": "Pages reads the MCP configuration of this agent’s CLI anew for every chat. A server set up later is available from the next chat on, in “Workspace” and “YOLO”.",
       "mcpEmpty": "No MCP server is configured on this host for this agent’s CLI.",
@@ -7948,7 +7949,33 @@
       "confirmText": "The agent can read, change and delete everything on this host, including credentials and live data. Pages does not restrict it and starts it without isolation.",
       "confirm": "Choose YOLO",
       "cancel": "Cancel",
-      "pending": "The level is applied with “Save”."
+      "pending": "The level is applied with “Save”.",
+      "toolGroups": {
+        "title": "Tool groups",
+        "hint": "Every chat agent gets the same toolkit through Pages, whatever model runs it. By default it has everything its access level allows; switch single groups off here. Consequential steps ask in the chat first.",
+        "adminOnly": "Only administrators in active admin mode switch a disabled group back on.",
+        "group": {
+          "shell": "Shell",
+          "files": "Files",
+          "web": "Web",
+          "browser": "Browser",
+          "pages": "Pages",
+          "chat": "Chat"
+        },
+        "description": {
+          "shell": "Run commands in the working folder, long runs in the background",
+          "files": "Read, write, change, list and search files",
+          "web": "Web search and pages as readable text",
+          "browser": "Open, read, click and fill pages and take screenshots",
+          "pages": "Tickets, wiki, plans, calendar, projects with the agent account's rights",
+          "chat": "Send files, read chats, memory, logbook and recipes"
+        },
+        "mode": {
+          "off": "not available at this level",
+          "read": "read only",
+          "full": "full"
+        }
+      }
     }
   },
   "automations": {

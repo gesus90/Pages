@@ -6,8 +6,10 @@ import { ChatError } from "@/backend/error/ChatErrors";
 import { withBackgroundDatabaseWork } from "@/backend/database/executor/DatabaseWorkContext";
 import { logCaughtError } from "@/backend/logging/Logger";
 import { hasHostTools } from "@/definition/AgentEmployee";
+import { agentToolPolicy } from "@/definition/AgentToolGroups";
 
 import { employeeAcpRunner } from "../chat/acp/EmployeeAcpRunners";
+import { createAgentToolkitJob } from "../chat/toolkit/AgentToolkit";
 import { AgentChatActivity } from "./AgentChatActivity";
 import { AgentChatContext } from "./AgentChatContext";
 import { createAgentEmployeeInstructions } from "./AgentEmployeeInstructions";
@@ -638,6 +640,10 @@ export class AgentEmployeeSessions {
           dream: context.dream,
           related: context.related,
           access: employee.access,
+          toolPolicy: agentToolPolicy(
+            employee.access,
+            employee.disabledToolGroups,
+          ),
           personName: context.isChat ? (person?.displayName ?? null) : null,
           hasLogbook:
             context.isChat && (this.dependencies.logbook?.() ?? null) !== null,
@@ -717,6 +723,7 @@ export class AgentEmployeeSessions {
   ): Promise<NonNullable<PicaAcpStart["employee"]>> {
     const { assignment, audience, keptSession, chat } = job;
     const { access } = employee;
+    const policy = agentToolPolicy(access, employee.disabledToolGroups);
     const hostServers =
       (await this.dependencies.accessEnvironment?.chatServers(
         assignment.connection.provider,
@@ -731,8 +738,20 @@ export class AgentEmployeeSessions {
       // A run of the agent's own is short and carries no chat (PAGE-376).
       ...(keptSession ? {} : { isFreshSession: true }),
       runner: employeeAcpRunner(assignment, access, hostServers),
-      hasBrowser: hasHostTools(access),
-      ...(hostFiles && hasHostTools(access)
+      // The browser follows the tool policy (PAGE-390): read-only for "Nur Lesen".
+      hasBrowser: policy.browser !== "off",
+      // Every model gets the same toolkit over the bridge of Pages (PAGE-390).
+      toolkit: (directory) =>
+        createAgentToolkitJob({
+          agentId: agent.id,
+          root: directory,
+          policy,
+          isIsolated: access !== "yolo",
+          ...(this.dependencies.toolkitHiddenDirectories
+            ? { hiddenDirectories: this.dependencies.toolkitHiddenDirectories }
+            : {}),
+        }),
+      ...(hostFiles && hasHostTools(access) && policy.pages === "full"
         ? {
             attachFile: (directory, target, file) =>
               hostFiles.attach(agent, { directory, file, target }),

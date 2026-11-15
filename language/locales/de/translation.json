@@ -7948,6 +7948,7 @@
       "isolationMissing": "Auf diesem Rechner ist keine Isolation (bubblewrap) verfügbar. „Arbeitsplatz“ kann deshalb nicht gewählt werden.",
       "browserAllowed": "Browser erlaubt · Profile: self (eigenes Agent-Konto)",
       "browserDenied": "Browser nicht erlaubt · Keine Profile",
+      "browserReadOnly": "Browser nur lesend erlaubt · Profile: self (eigenes Agent-Konto)",
       "mcpTitle": "Erkannte MCP-Server",
       "mcpHint": "Pages liest die MCP-Konfiguration der CLI dieses Agents bei jedem Chat neu. Ein nachträglich eingerichteter Server steht ab dem nächsten Chat bereit, in „Arbeitsplatz“ und „YOLO“.",
       "mcpEmpty": "Für die CLI dieses Agents ist auf dem Rechner kein MCP-Server eingerichtet.",
@@ -7955,7 +7956,33 @@
       "confirmText": "Der Agent kann alles auf diesem Rechner lesen, ändern und löschen, auch Zugangsdaten und Live-Daten. Pages schränkt ihn nicht ein und startet ihn ohne Isolation.",
       "confirm": "YOLO wählen",
       "cancel": "Abbrechen",
-      "pending": "Die Stufe wird mit „Speichern“ übernommen."
+      "pending": "Die Stufe wird mit „Speichern“ übernommen.",
+      "toolGroups": {
+        "title": "Werkzeuggruppen",
+        "hint": "Jeder Chat-Agent bekommt über Pages denselben Werkzeugkasten, egal welches Modell ihn ausführt. Standard ist alles, was die Zugriffsstufe erlaubt; einzelne Gruppen lassen sich hier abschalten. Folgenreiche Schritte fragen vorher im Chat nach.",
+        "adminOnly": "Eine abgeschaltete Gruppe schalten nur Administratoren im aktiven Admin-Modus wieder ein.",
+        "group": {
+          "shell": "Shell",
+          "files": "Dateien",
+          "web": "Web",
+          "browser": "Browser",
+          "pages": "Pages",
+          "chat": "Chat"
+        },
+        "description": {
+          "shell": "Befehle im Arbeitsordner ausführen, lange Läufe im Hintergrund",
+          "files": "Dateien lesen, schreiben, ändern, auflisten und durchsuchen",
+          "web": "Websuche und Seitenabruf als lesbarer Text",
+          "browser": "Seiten öffnen, lesen, klicken, ausfüllen und Screenshots machen",
+          "pages": "Tickets, Wiki, Pläne, Kalender, Projekte mit den Rechten des Agent-Kontos",
+          "chat": "Dateien senden, Chats lesen, Gedächtnis, Lagebuch und Rezepte"
+        },
+        "mode": {
+          "off": "in dieser Stufe nicht verfügbar",
+          "read": "nur lesen",
+          "full": "voll"
+        }
+      }
     }
   },
   "automations": {

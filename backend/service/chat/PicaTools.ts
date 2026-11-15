@@ -35,6 +35,13 @@ import {
   PICA_WRITE_SCHEMAS,
   isPicaWriteTool,
 } from "./PicaToolSchemas";
+import {
+  applyAgentToolPolicy,
+  auditAgentToolCalls,
+  guardPagesOperation,
+  guardBrowserCall,
+  registerAgentToolkitTools,
+} from "./toolkit/AgentToolkit";
 
 import type { AgentBrowserService } from "./browser/AgentBrowserService";
 import type { z } from "zod";
@@ -50,6 +57,7 @@ import type { ChatSessionService } from "./ChatSessionService";
 import type { ChatActionOutcome } from "./ChatPrompt";
 import type { ChatOperation } from "./ChatToolCatalog";
 import type { ChatToolExecutor } from "./ChatToolExecutor";
+import type { AgentToolkitBinding } from "./toolkit/AgentToolkit";
 import type {
   PicaReadTool,
   PicaToolOutcome,
@@ -117,6 +125,13 @@ export interface PicaToolsInput {
    * (PAGE-311); without it the chat tools are not offered.
    */
   readonly agentChat?: AgentChatTools | undefined;
+  /**
+   * The toolkit of an agent employee's job (PAGE-390): shell, file and web
+   * tools in its working folder, the policy of its access level and switched
+   * off groups over every tool of the bridge, the approval of consequential
+   * steps and the audit of every call. Without it nothing changes for Pica.
+   */
+  readonly toolkit?: AgentToolkitBinding | undefined;
 }
 
 type PicaFileParameters = z.infer<typeof PICA_FILE_SCHEMA>;
@@ -372,6 +387,69 @@ function registerAgentEmployeeTools(
     );
 }
 
+/** The human message of the turn, which alone can approve a consequential step. */
+function toolkitTurn(input: PicaToolsInput): {
+  readonly id?: string;
+  readonly message: string;
+} {
+  return {
+    ...(input.planTurnId === undefined ? {} : { id: input.planTurnId }),
+    message: input.message ?? "",
+  };
+}
+
+/**
+ * Registers the own-account browser of an agent employee; with a toolkit,
+ * a call that submits a form waits for the person's approval (PAGE-390).
+ */
+function registerOwnBrowserTools(
+  registry: RuntimeToolRegistry,
+  input: PicaToolsInput,
+  budget: ToolBudget,
+): void {
+  const { agentBrowsers, toolkit } = input;
+  if (!agentBrowsers) return;
+  registerAgentBrowserTools(
+    registry,
+    agentBrowsers,
+    () => spend(input, budget),
+    toolkit
+      ? (tool, parameters, context) =>
+          guardBrowserCall(toolkit, {
+            tool,
+            parameters,
+            context,
+            turn: toolkitTurn(input),
+          })
+      : undefined,
+  );
+}
+
+/**
+ * Adds the shell, file and web tools of an agent employee's job, then
+ * applies its policy to every tool of the turn and audits each call
+ * (PAGE-390).
+ */
+function registerToolkit(
+  registry: RuntimeToolRegistry,
+  input: PicaToolsInput,
+  budget: ToolBudget,
+): void {
+  const { toolkit } = input;
+  if (!toolkit) return;
+  registerAgentToolkitTools(registry, {
+    binding: toolkit,
+    turn: toolkitTurn(input),
+    admit: async (context) => {
+      await input.authorize();
+      context.signal.throwIfAborted();
+      return spend(input, budget);
+    },
+  });
+  applyAgentToolPolicy(registry, toolkit.job.policy);
+  auditAgentToolCalls(registry, toolkit.job.agentId);
+}
+
 /** Registers the read tools; each one reaches its operation through `execute`. */
 function registerReadTools(
   registry: RuntimeToolRegistry,
@@ -407,6 +485,15 @@ export function createPicaTools(
   const execute: PicaExecute = async (binding, parameters, context) => {
     await input.authorize();
     context.signal.throwIfAborted();
+    const held = input.toolkit
+      ? guardPagesOperation(input.toolkit, {
+          operation: binding.operation,
+          parameters,
+          context,
+          turn: toolkitTurn(input),
+        })
+      : null;
+    if (held) return held;
     if (!spend(input, budget)) return refused("STEP_LIMIT");
     const outcome = results.consume(
       await dispatchAction(input, binding, parameters, context),
@@ -475,10 +562,8 @@ export function createPicaTools(
     );
     observePicaToolUse(registry, input.recipes);
   }
-  if (input.agentBrowsers)
-    registerAgentBrowserTools(registry, input.agentBrowsers, () =>
-      spend(input, budget),
-    );
+  registerOwnBrowserTools(registry, input, budget);
+  if (input.toolkit) registerToolkit(registry, input, budget);
   if (input.adminTools)
     registerAdministratorTools(registry, {
       input,

@@ -10,6 +10,7 @@ import { readChatSessionId } from "../ChatSessionService";
 import { PicaAcpJob } from "./PicaAcpJob";
 import { PicaAcpSessionGates } from "./PicaAcpSessionGates";
 import { picaAcpRunner } from "./PicaAcpRunners";
+import { closeAgentToolkitJob } from "../toolkit/AgentToolkit";
 
 import type { ChatAcpSessionRepository } from "@/backend/database/repositories/chat/ChatAcpSessionRepository";
 import type { ChatJobRepository } from "@/backend/database/repositories/chat/ChatJobRepository";
@@ -44,6 +45,7 @@ import type { AgentHostFileTarget } from "@/backend/service/employee/AgentHostFi
 import type { PicaAcpWorkspace } from "./PicaAcpWorkspace";
 import type { PicaAcpSessionPool } from "./PicaAcpSessionPool";
 import type { PicaAcpJobPool } from "./PicaAcpPoolOpening";
+import type { AgentToolkitJob } from "../toolkit/AgentToolkitContracts";
 
 /** A job of a conversation with its journal (PAGE-303). */
 export interface ChatJobJournal {
@@ -141,6 +143,12 @@ export interface PicaAcpEmployeeRun {
   readonly onSettled?: () => void;
   /** The Pages tools to read chats and send messages (PAGE-311); absent where none run. */
   readonly agentChat?: AgentChatTools;
+  /**
+   * Creates the toolkit of the job in its working folder (PAGE-390): shell,
+   * file and web tools and the policy of the agent's access level and
+   * switched-off groups. Its background runs end with the job.
+   */
+  readonly toolkit?: (directory: string) => AgentToolkitJob;
   /**
    * Keeps the session of the chat for the next round (PAGE-335): the label of
    * the conversation for the resource view and the revision of the agent,
@@ -502,10 +510,13 @@ export class PicaAcpService {
     releaseWorkspace: () => Promise<void>,
   ): Promise<ChatJobStart> {
     const { actor, agent } = input;
+    let toolkit: AgentToolkitJob | null = null;
     const dependencies = {
       ...this.jobDependencies(input.employee),
       consumeAnswer: input.employee?.consumeAnswer,
       workspaceClosed: async () => {
+        // No background run of the toolkit outlives its job (PAGE-390).
+        if (toolkit) await closeAgentToolkitJob(toolkit);
         // A resting pooled process still owns its cwd and continues in it next round (PAGE-335); the folder goes with the process.
         if (this.dependencies.pool?.keepWorkspace(sessionId, releaseWorkspace))
           return;
@@ -540,14 +551,18 @@ export class PicaAcpService {
       messageId: message.id,
     });
     const attachFile = input.employee?.attachFile;
+    toolkit = input.employee?.toolkit?.(directory) ?? null;
     const job = new PicaAcpJob(
-      attachFile
-        ? {
-            ...dependencies,
-            attachHostFile: (target, file) =>
-              attachFile(directory, target, file),
-          }
-        : dependencies,
+      {
+        ...dependencies,
+        ...(attachFile
+          ? {
+              attachHostFile: (target: AgentHostFileTarget, file: string) =>
+                attachFile(directory, target, file),
+            }
+          : {}),
+        ...(toolkit ? { toolkit: { job: toolkit } } : {}),
+      },
       {
         id,
         actor,

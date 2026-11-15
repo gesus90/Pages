@@ -416,12 +416,17 @@ export class AgentEmployeeAdministration {
         );
       }
       const store = repository.employees();
-      const previousAccess =
-        (await store.employees().find(agentId))?.access ?? "read_only";
+      const previous = await store.employees().find(agentId);
+      const previousAccess = previous?.access ?? "read_only";
       await this.accessLevels.requireChange(
         actor,
         previousAccess,
         input.settings.access,
+      );
+      this.accessLevels.requireToolGroupChange(
+        actor,
+        previous?.disabledToolGroups ?? [],
+        input.settings.disabledToolGroups,
       );
       await store.identities().updateAgent(agentId, {
         username: input.username,

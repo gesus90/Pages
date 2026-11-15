@@ -182,6 +182,8 @@ export async function startMcpWorkspace(context: McpWorkspaceContext): Promise<
       wiki: context.wiki,
     },
     knowledge: { tickets: context.tasks.taskService, wiki: context.wiki },
+    // The shell of the toolkit never sees the data folder (PAGE-390).
+    toolkitHiddenDirectories: [directory],
     conversations: {
       directory,
       events: context.tasks.pagesEventPublisher,

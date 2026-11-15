@@ -109,6 +109,11 @@ export interface AgentEmployeeSessionDependencies {
    */
   readonly recipes?: Pick<AgentRecipeService, "tools" | "brief">;
   readonly today?: () => string;
+  /**
+   * Folders the isolation of the toolkit's shell hides, such as the data and
+   * agent folders (PAGE-390); absent hides only the runtime folder.
+   */
+  readonly toolkitHiddenDirectories?: readonly string[];
   /** Waits between two looks of a background run at the chats of its agent; tests pass a fast one. */
   readonly wait?: (milliseconds: number) => Promise<void>;
 }

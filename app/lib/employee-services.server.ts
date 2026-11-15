@@ -119,6 +119,11 @@ export interface EmployeeServicesInput {
   /** The ticket and wiki attachments the file tools of an agent with host tools use (PAGE-303). */
   readonly hostFiles?: AgentHostFileStores;
   /**
+   * Folders the isolation of the toolkit's shell hides from agent commands,
+   * such as the data folder (PAGE-390).
+   */
+  readonly toolkitHiddenDirectories?: readonly string[];
+  /**
    * Who may see a ticket or a wiki page (PAGE-305); without it a chat with
    * further people gets no knowledge of other chats.
    */
@@ -404,6 +409,9 @@ function createEmployeeSessions(
     accessEnvironment: base.accessEnvironment,
     ...(input.hostFiles
       ? { hostFiles: new AgentHostFiles(input.hostFiles) }
+      : {}),
+    ...(input.toolkitHiddenDirectories
+      ? { toolkitHiddenDirectories: input.toolkitHiddenDirectories }
       : {}),
     recorder: base.recorder,
     agentChat: () => late.agentChat,

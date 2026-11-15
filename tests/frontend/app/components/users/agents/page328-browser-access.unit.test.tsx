@@ -30,7 +30,7 @@ it.each(["workspace", "yolo", "read_only"] as const)(
     expect(
       screen.getByText(
         level === "read_only"
-          ? "Browser nicht erlaubt · Keine Profile"
+          ? "Browser nur lesend erlaubt · Profile: self (eigenes Agent-Konto)"
           : "Browser erlaubt · Profile: self (eigenes Agent-Konto)",
       ),
     ).toBeTruthy();
@@ -50,7 +50,9 @@ it("keeps the persisted browser grant visible while an unsaved access change is 
     </I18nextProvider>,
   );
   expect(
-    screen.getByText("Browser nicht erlaubt · Keine Profile"),
+    screen.getByText(
+      "Browser nur lesend erlaubt · Profile: self (eigenes Agent-Konto)",
+    ),
   ).toBeTruthy();
 });
 

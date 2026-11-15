@@ -16,6 +16,7 @@ import {
 } from "@/app/components/users/use-users-action";
 
 import { AgentAccessSection } from "./agent-access-section";
+import { AgentToolGroupsSection } from "./agent-tool-groups-section";
 import { AgentActivitySection } from "./agent-activity-section";
 import {
   AgentInstructionsSection,
@@ -201,7 +202,7 @@ function AgentAccessTab({
 }): React.ReactElement {
   const { panel, agent, isDisabled, loaded } = state;
   return (
-    <TabsContent value="access">
+    <TabsContent className="flex flex-col gap-6" value="access">
       <AgentAccessSection
         value={panel.draft.access}
         savedValue={agent?.settings.access ?? null}
@@ -209,6 +210,14 @@ function AgentAccessTab({
         canChange={!isDisabled && loaded.detail?.canChangeAccess === true}
         canAssignYolo={loaded.detail?.canAssignYolo ?? false}
         environment={loaded.detail?.accessEnvironment ?? null}
+      />
+      <AgentToolGroupsSection
+        access={panel.draft.access}
+        disabled={panel.draft.disabledToolGroups}
+        savedDisabled={agent?.settings.disabledToolGroups ?? null}
+        onChange={(groups) => panel.change("disabledToolGroups", groups)}
+        canEdit={!isDisabled}
+        canEnable={loaded.detail?.canChangeAccess === true}
       />
     </TabsContent>
   );

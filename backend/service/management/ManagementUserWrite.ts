@@ -192,6 +192,7 @@ export class ManagementUserWrite {
       model: agent.model,
       reasoningEffort: agent.reasoningEffort,
       access: detail.settings.access,
+      disabledToolGroups: detail.settings.disabledToolGroups,
       instructions: agent.agentMd,
       soul: agent.soulMd,
       memory: null,

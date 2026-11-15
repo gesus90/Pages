@@ -12,6 +12,7 @@ import {
   PICA_WIKI_CONTENT_CHARACTERS,
 } from "../PicaToolSchemas";
 import { isValidPicaToolImage } from "../PicaToolImageValidation";
+import { bridgeToolDetails } from "./PicaBridgeToolEvents";
 
 import type { Tool } from "@modelcontextprotocol/server";
 import type { RuntimeExecutionContext } from "@/backend/agents/runtime/RuntimeExecutionContext";
@@ -236,10 +237,11 @@ function readAction(body: string): BridgeAction | null {
   };
 }
 
-/** Reports the end of one call to the journal. */
+/** Reports the end of one call to the journal, with its result when there is one. */
 type CallReport = (
   status: "completed" | "failed",
   error: string | null,
+  outcome?: Pick<PicaToolOutcome, "result">,
 ) => void;
 
 /** Provides the Pica catalog and validated tool calls to an active job turn. */
@@ -484,19 +486,32 @@ export class PicaBridge {
     const { turn, owner } = binding;
     const callId = randomUUID();
     const tool = name.slice(0, 100);
-    const privileged =
-      turn.tools.accessOf(name) === "administrator"
-        ? { isPrivileged: true }
-        : {};
+    const isPrivileged = turn.tools.accessOf(name) === "administrator";
+    const privileged = isPrivileged ? { isPrivileged: true } : {};
+    const startedAt = Date.now();
+    const details = { catalog: owner.catalog, tool, input, isPrivileged };
     owner.onTool({
       callId,
       tool,
       status: "running",
       error: null,
       ...privileged,
+      ...bridgeToolDetails(details),
     });
-    const report: CallReport = (status, error) =>
-      owner.onTool({ callId, tool, status, error, ...privileged });
+    // Every call shows in the tool line with its input, result and duration (PAGE-390).
+    const report: CallReport = (status, error, result) =>
+      owner.onTool({
+        callId,
+        tool,
+        status,
+        error,
+        ...privileged,
+        ...bridgeToolDetails({
+          ...details,
+          ...(result ? { outcome: result } : {}),
+          durationMs: Date.now() - startedAt,
+        }),
+      });
     const fail = (error: string): PicaToolOutcome => {
       report("failed", error);
       return refused(error);
@@ -511,7 +526,11 @@ export class PicaBridge {
       return fail("IMAGE_INVALID");
     const staged = await this.stage(binding, images, isCurrent);
     if (typeof staged === "string") return fail(staged);
-    report(answer.ok ? "completed" : "failed", answer.ok ? null : answer.error);
+    report(
+      answer.ok ? "completed" : "failed",
+      answer.ok ? null : answer.error,
+      answer,
+    );
     return {
       ...answer,
       ...(staged ? { attachments: staged.attachments } : {}),

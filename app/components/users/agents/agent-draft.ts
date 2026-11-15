@@ -7,6 +7,7 @@ import type {
   AgentEmployeeAccess,
 } from "@/definition/AgentEmployee";
 import type { PageAgentModel } from "@/definition/PageAgent";
+import type { AgentToolGroup } from "@/definition/AgentToolGroups";
 
 /** The editable fields of the agent panel. */
 export interface AgentDraft {
@@ -18,6 +19,8 @@ export interface AgentDraft {
   readonly modelKey: string;
   readonly reasoningEffort: string;
   readonly access: AgentEmployeeAccess;
+  /** The tool groups switched off for the agent (PAGE-390). */
+  readonly disabledToolGroups: readonly AgentToolGroup[];
   readonly roleId: string;
   readonly departments: readonly string[];
   readonly soul: string;
@@ -58,6 +61,7 @@ export function createAgentDraft(
       modelKey: "",
       reasoningEffort: "",
       access: "read_only",
+      disabledToolGroups: [],
       roleId: defaults.roleId,
       departments: [],
       soul: defaults.soul,
@@ -78,6 +82,7 @@ export function createAgentDraft(
     modelKey: agentModelKey(agent.settings.connectionId, agent.settings.model),
     reasoningEffort: agent.settings.reasoningEffort ?? "",
     access: agent.settings.access,
+    disabledToolGroups: agent.settings.disabledToolGroups ?? [],
     roleId: agent.roleId ?? defaults.roleId,
     departments: agent.departmentIds,
     soul: agent.documents.soul,
@@ -130,6 +135,7 @@ export function agentDraftPayload(
     ...selectionOf(draft, models, agent),
     reasoningEffort: draft.reasoningEffort,
     access: draft.access,
+    disabledToolGroups: draft.disabledToolGroups,
     soul: draft.soul,
     instructions: draft.instructions,
     // Unchanged files are not sent, so a save keeps what Pages wrote since loading (PAGE-305).

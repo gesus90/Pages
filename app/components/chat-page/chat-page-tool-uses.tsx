@@ -51,9 +51,41 @@ function StatusIcon({
   );
 }
 
+/** The duration of a call as the tool line shows it: milliseconds or seconds. */
+export function formatToolDuration(durationMs: number): string {
+  if (durationMs < 1_000) return `${durationMs} ms`;
+  const seconds = durationMs / 1_000;
+  return seconds < 60
+    ? `${seconds.toFixed(1)} s`
+    : `${Math.floor(seconds / 60)} min ${Math.round(seconds % 60)} s`;
+}
+
+/** The short description and the duration of a call beside its name (PAGE-390). */
+function ToolFacts({
+  use,
+}: {
+  readonly use: VirtualToolUse;
+}): React.ReactElement {
+  return (
+    <>
+      {use.summary ? (
+        <span className="min-w-0 truncate font-sans text-muted-foreground">
+          {use.summary}
+        </span>
+      ) : null}
+      {use.durationMs === undefined ? null : (
+        <span className="shrink-0 text-muted-foreground tabular-nums">
+          {formatToolDuration(use.durationMs)}
+        </span>
+      )}
+    </>
+  );
+}
+
 /**
- * One tool call of an agent (PAGE-303): the tool or command in the summary,
- * input and result when opened, and a cancel button while it runs.
+ * One tool call of an agent (PAGE-303): the tool or command with its short
+ * description and duration in the summary (PAGE-390), input and result when
+ * opened, and a cancel button while it runs.
  */
 export function ChatPageToolUse({
   use,
@@ -72,7 +104,8 @@ export function ChatPageToolUse({
       <details className="group">
         <summary className="flex cursor-pointer items-center gap-1.5 px-2 py-1 font-mono">
           <StatusIcon use={use} />
-          <span className="min-w-0 truncate">{use.name}</span>
+          <span className="min-w-0 shrink-0 truncate">{use.name}</span>
+          <ToolFacts use={use} />
           <span className="sr-only">{status}</span>
           {use.status === "running" && onCancel ? (
             <Button
