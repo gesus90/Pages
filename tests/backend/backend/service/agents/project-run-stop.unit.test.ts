@@ -198,7 +198,8 @@ describe("AgentPlanRunEngine.stopProject", () => {
     await started("plan-a");
     vi.useFakeTimers();
     const stopping = engine.stopProject("project-a");
-    await vi.advanceTimersByTimeAsync(30_000);
+    // Stop settles its own process cleanup before the project drain deadline.
+    await vi.advanceTimersByTimeAsync(37_000);
     await expect(stopping).resolves.toBe(false);
     vi.useRealTimers();
     finish("plan-a");
