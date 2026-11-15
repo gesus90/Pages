@@ -15,6 +15,7 @@ import { settleManagedLocalOwner } from "@/backend/agents/local/LocalOwnerContro
 
 import { endInterruptedScript } from "./AgentPlanScriptRecovery";
 import { cleanupScanFailure } from "./AgentPlanCleanupFailure";
+import { hasEndedWithReboot } from "./recovery/AgentPlanBootBoundary";
 
 import type { TaggedProcessScope } from "@/backend/agents/cli/CliProcessScan";
 import type {
@@ -151,6 +152,8 @@ export async function checkSessionProcesses(run: AgentPlanRun): Promise<{
   readonly confirmed: boolean;
   readonly failure: AgentPlanCleanupFailure | null;
 }> {
+  // A reboot ended every process of a run that worked only before it.
+  if (await hasEndedWithReboot(run)) return { confirmed: true, failure: null };
   if (
     hasUnconfirmedLoopCloseout(run) ||
     allPlanRunResults(run).some(

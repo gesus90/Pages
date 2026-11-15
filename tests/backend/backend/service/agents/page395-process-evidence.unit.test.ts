@@ -10,6 +10,10 @@ const host = vi.hoisted(() => ({
   scan: vi.fn<() => Promise<readonly never[] | null>>(async () => null),
   namespace: vi.fn(async () => true),
 }));
+// These cases run within one boot; a reboot boundary would end their processes.
+vi.mock("@/backend/service/agents/recovery/AgentPlanBootBoundary", () => ({
+  hasEndedWithReboot: async () => false,
+}));
 vi.mock("@/backend/agents/cli/CliProcessScan", () => ({
   findTaggedProcesses: host.scan,
   readScopeSince: host.scope,

@@ -19,6 +19,10 @@ import type { RunnerJob, RunnerState } from "@/definition/RunnerProtocol";
 import type { RecoveryExecutionWrite } from "@/backend/database/repositories/agent/AgentPlanRecoveryExecutionRepository";
 import type * as CliProcessScan from "@/backend/agents/cli/CliProcessScan";
 
+// These cases run within one boot; a reboot boundary would end their processes.
+vi.mock("@/backend/service/agents/recovery/AgentPlanBootBoundary", () => ({
+  hasEndedWithReboot: async () => false,
+}));
 vi.mock("@/backend/agents/cli/CliProcessScan", async (importOriginal) => {
   const original = await importOriginal<typeof CliProcessScan>();
   return {

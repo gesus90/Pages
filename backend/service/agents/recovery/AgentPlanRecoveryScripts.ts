@@ -2,6 +2,8 @@ import { endInterruptedScriptWithFailure } from "../AgentPlanScriptRecovery";
 import { endInterruptedSession } from "../AgentPlanRecovery";
 import { AgentPlanRecoveryError } from "@/backend/error/AgentPlanRecoveryError";
 
+import { hasEndedWithReboot } from "./AgentPlanBootBoundary";
+
 import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
 import type { AgentPlanCleanupFailure } from "@/definition/AgentPlanCleanupResource";
 import type { AgentPlanLoopRun } from "@/definition/AgentPlanLoopRun";
@@ -26,6 +28,8 @@ async function closeScript(
 export async function closeRecoveryScripts(
   run: AgentPlanRun,
 ): Promise<AgentPlanRun> {
+  // A reboot already ended every script; there is nothing left to stop or scan.
+  if (await hasEndedWithReboot(run)) return run;
   const failures: AgentPlanCleanupFailure[] = [];
   const steps = await Promise.all(
     run.steps.map((step) => closeScript(step, failures)),
@@ -51,6 +55,7 @@ export async function closeRecoveryScripts(
 export async function closeRecoverySessions(
   run: AgentPlanRun,
 ): Promise<AgentPlanRun> {
+  if (await hasEndedWithReboot(run)) return run;
   const close = (step: AgentPlanStepResult): Promise<AgentPlanStepResult> => {
     const session = step.session;
     return session && session.runner !== "api" && session.namespace

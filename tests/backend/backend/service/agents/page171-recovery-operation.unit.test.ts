@@ -23,6 +23,10 @@ import type { AcpResourceScheduler } from "@/backend/service/agents/AcpResourceS
 import type { RecoveryFixture } from "./page84-recovery-fixture";
 import type { AgentPlanRecoveryService } from "@/backend/service/agents/recovery/AgentPlanRecoveryService";
 
+// These cases run within one boot; a reboot boundary would end their processes.
+vi.mock("@/backend/service/agents/recovery/AgentPlanBootBoundary", () => ({
+  hasEndedWithReboot: async () => false,
+}));
 vi.mock("@/backend/agents/cli/CliProcessScan", async (importOriginal) => {
   const original = await importOriginal<typeof CliProcessScan>();
   return {
@@ -33,13 +37,10 @@ vi.mock("@/backend/agents/cli/CliProcessScan", async (importOriginal) => {
   };
 });
 
-vi.mock(
-  "@/backend/service/agents/AgentPlanScriptResources",
-  async (importOriginal) => {
-    const original = await importOriginal<typeof ScriptResources>();
-    return { ...original, removeScriptResources: vi.fn(async () => undefined) };
-  },
-);
+vi.mock("@/backend/service/agents/AgentPlanScriptResources", async (load) => ({
+  ...(await load<typeof ScriptResources>()),
+  removeScriptResources: vi.fn(async () => undefined),
+}));
 
 function failedScriptRun(fixture: RecoveryFixture): AgentPlanRun {
   const run = patchRecoveryStep(fixture.failed, "a", { session: null });
