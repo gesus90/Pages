@@ -81,12 +81,7 @@ import type {
 } from "./AgentPlanSnapshot";
 import type { PreparedPlanStep } from "./AgentPlanStepStart";
 import type { AgentPlanSessionTerms } from "./AgentPlanStepAssessment";
-import type { AgentPlanStepReportService } from "./AgentPlanStepReportService";
-import type { AgentPlanStepProgressService } from "./AgentPlanStepProgressService";
-import type { AgentRunArchive } from "./AgentRunArchive";
-import type { AgentSessionService } from "./sessions/AgentSessionService";
 import type { NodeRun, StepRunControl } from "./AgentPlanStepContext";
-import type { LocalSessions } from "@/backend/agents/local/LocalSessions";
 import type { StepSessionCloseoutTarget } from "./AgentPlanStepSessionCloseout";
 
 export type { StepRunControl } from "./AgentPlanStepContext";

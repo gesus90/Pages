@@ -575,20 +575,7 @@ export class LocalOwnerSession {
     try {
       await this.pauseChanges.run(async () => {
         const run = await this.dependencies.runs.find(this.launch.runId);
-        const now = Date.now();
-        if (!this.isPaused && this.isTurnPending)
-          this.executionMilliseconds += now - this.observedAt;
-        this.observedAt = now;
-        if (
-          this.launch.timeoutMinutes > 0 &&
-          this.executionMilliseconds >= this.launch.timeoutMinutes * 60_000
-        ) {
-          this.controller.abort(
-            new DOMException("Turn deadline expired", "TimeoutError"),
-          );
-          await this.close();
-          return;
-        }
+        if (await this.closeAtTurnDeadline()) return;
         if (!canContinueLocalTurn(run, this.launch)) {
           if (this.namespace)
             await controlOwnedNamespace(this.namespace, "stop");
@@ -602,16 +589,8 @@ export class LocalOwnerSession {
         else if (
           this.namespace &&
           this.recorder?.current.provider !== "codex_cli"
-        ) {
-          const paused = run?.status === "paused" || run?.status === "pausing";
-          if (paused !== this.isPaused) {
-            await controlOwnedNamespace(
-              this.namespace,
-              paused ? "pause" : "resume",
-            );
-            this.isPaused = paused;
-          }
-        }
+        )
+          await this.pauseNamespace(run?.status);
       });
     } catch (error: unknown) {
       // Database loss does not fabricate a user Stop or terminate a surviving native session.
@@ -619,6 +598,32 @@ export class LocalOwnerSession {
     } finally {
       this.checkingStop = false;
     }
+  }
+
+  /** Accumulates the executed turn time and closes the turn once its limit is reached. */
+  private async closeAtTurnDeadline(): Promise<boolean> {
+    const now = Date.now();
+    if (!this.isPaused && this.isTurnPending)
+      this.executionMilliseconds += now - this.observedAt;
+    this.observedAt = now;
+    const isExpired =
+      this.launch.timeoutMinutes > 0 &&
+      this.executionMilliseconds >= this.launch.timeoutMinutes * 60_000;
+    if (!isExpired) return false;
+    this.controller.abort(
+      new DOMException("Turn deadline expired", "TimeoutError"),
+    );
+    await this.close();
+    return true;
+  }
+
+  /** Pauses or resumes the owned namespace when the plan run's status changes. */
+  private async pauseNamespace(runStatus: string | undefined): Promise<void> {
+    if (!this.namespace) return;
+    const paused = runStatus === "paused" || runStatus === "pausing";
+    if (paused === this.isPaused) return;
+    await controlOwnedNamespace(this.namespace, paused ? "pause" : "resume");
+    this.isPaused = paused;
   }
 
   private async changePause(isPaused: boolean): Promise<void> {

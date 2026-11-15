@@ -3,7 +3,6 @@ import { ClaudeUsageRepository } from "@/backend/database/repositories/agent/Cla
 import { OpenRouterPriceRepository } from "@/backend/database/repositories/agent/OpenRouterPriceRepository";
 import { AgentSessionRepository } from "@/backend/database/repositories/agent/AgentSessionRepository";
 import {
-  claudePriceSchema,
   addClaudeTokens,
   CLAUDE_TOKEN_FIELDS,
 } from "@/definition/ClaudeUsage";

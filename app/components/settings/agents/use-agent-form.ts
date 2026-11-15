@@ -156,6 +156,82 @@ function useFormFields(
   return { fields, setFields, saved, setSaved };
 }
 
+/** The provider's own form fields, the ones that only some providers send. */
+interface ProviderFormFields {
+  readonly zaiAccountType: string;
+  readonly codexPriceMappings?: string;
+  readonly claudePriceModels?: string;
+  readonly openRouterModelIds?: string;
+}
+
+/** The price mappings and account type of the provider, only when they changed. */
+function buildProviderPayload(
+  provider: AgentProviderId,
+  values: ProviderFormFields,
+  saved: AgentFormFields,
+  connection: AgentConnectionSummary | undefined,
+): Record<string, string> {
+  const {
+    zaiAccountType,
+    codexPriceMappings,
+    claudePriceModels,
+    openRouterModelIds,
+  } = values;
+  if (provider === "codex_cli")
+    return !connection || codexPriceMappings !== saved.codexPriceMappings
+      ? { codexPriceMappings: codexPriceMappings ?? "" }
+      : {};
+  if (provider === "claude_code")
+    return claudePriceModels !== saved.claudePriceModels
+      ? { claudePriceModels: claudePriceModels ?? "" }
+      : {};
+  if (provider === "opencode")
+    return { openRouterModelIds: openRouterModelIds ?? "" };
+  if (provider === "zai")
+    return !connection || zaiAccountType !== saved.zaiAccountType
+      ? { zaiAccountType }
+      : {};
+  return {};
+}
+
+/**
+ * The form data to post: the scope only when the form changed it, so an older
+ * form cannot overwrite a scope that another administrator saved since.
+ */
+function buildSubmitPayload(
+  fields: AgentFormFields,
+  saved: AgentFormFields,
+  connection: AgentConnectionSummary | undefined,
+): Record<string, string> {
+  const {
+    scope,
+    zaiAccountType,
+    codexPriceMappings,
+    claudePriceModels,
+    openRouterModelIds,
+    ...text
+  } = fields;
+  return {
+    ...text,
+    ...buildProviderPayload(
+      fields.provider,
+      {
+        zaiAccountType,
+        codexPriceMappings,
+        claudePriceModels,
+        openRouterModelIds,
+      },
+      saved,
+      connection,
+    ),
+    ...(!connection || !isSameScope(scope, saved.scope)
+      ? { scope: JSON.stringify(scope) }
+      : {}),
+    intent: connection ? "update-connection" : "create-connection",
+    connectionId: connection?.id ?? "",
+  };
+}
+
 /** Keeps secrets only in the open form and clears them after a successful save. */
 export function useAgentForm(
   kind: AgentAccessKind,
@@ -211,42 +287,9 @@ export function useAgentForm(
   }, [fetcher.data, fetcher.state, fields, onSaved, setFields, setSaved, t]);
   function handleSubmit(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
-    const {
-      scope,
-      zaiAccountType,
-      codexPriceMappings,
-      claudePriceModels,
-      openRouterModelIds,
-      ...text
-    } = fields;
-    void fetcher.submit(
-      {
-        ...text,
-        ...(fields.provider === "codex_cli" &&
-        (!connection || codexPriceMappings !== saved.codexPriceMappings)
-          ? { codexPriceMappings: codexPriceMappings ?? "" }
-          : {}),
-        ...(fields.provider === "claude_code" &&
-        claudePriceModels !== saved.claudePriceModels
-          ? { claudePriceModels: claudePriceModels ?? "" }
-          : {}),
-        ...(fields.provider === "opencode"
-          ? { openRouterModelIds: openRouterModelIds ?? "" }
-          : {}),
-        ...(fields.provider === "zai" &&
-        (!connection || zaiAccountType !== saved.zaiAccountType)
-          ? { zaiAccountType }
-          : {}),
-        // An unchanged scope is not sent, so a form opened earlier cannot
-        // overwrite a scope that another administrator saved since.
-        ...(!connection || !isSameScope(scope, saved.scope)
-          ? { scope: JSON.stringify(scope) }
-          : {}),
-        intent: connection ? "update-connection" : "create-connection",
-        connectionId: connection?.id ?? "",
-      },
-      { method: "post" },
-    );
+    void fetcher.submit(buildSubmitPayload(fields, saved, connection), {
+      method: "post",
+    });
   }
   return {
     fields,

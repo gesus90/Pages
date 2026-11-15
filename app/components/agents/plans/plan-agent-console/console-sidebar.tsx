@@ -76,6 +76,29 @@ function contextShare(context: AgentSessionContextUsage): number | null {
   return Math.min(100, (contextUsed / contextLimit) * 100);
 }
 
+function contextValueText(
+  context: AgentSessionContextUsage,
+  unknown: string,
+  numbers: Intl.NumberFormat,
+): string {
+  const { contextUsed, contextLimit } = context;
+  if (contextUsed === null) return unknown;
+  const limit = contextLimit === null ? unknown : numbers.format(contextLimit);
+  return `${numbers.format(contextUsed)} / ${limit}`;
+}
+
+function costText(
+  context: AgentSessionContextUsage,
+  unknown: string,
+  language: string,
+): string {
+  if (!context.cost) return unknown;
+  return new Intl.NumberFormat(language, {
+    style: "currency",
+    currency: context.cost.currency,
+  }).format(context.cost.amount);
+}
+
 function UsageSection(props: {
   readonly view: AgentSessionView;
   /** A turn runs now: its tokens arrive with its end. */
@@ -89,11 +112,7 @@ function UsageSection(props: {
   const numbers = new Intl.NumberFormat(i18n.language);
   const { context } = props.view;
   const share = contextShare(context);
-  const used = context.contextUsed;
-  const contextValue =
-    used === null
-      ? unknown
-      : `${numbers.format(used)} / ${context.contextLimit === null ? unknown : numbers.format(context.contextLimit)}`;
+  const contextValue = contextValueText(context, unknown, numbers);
   const codex =
     props.view.provider === "codex_cli"
       ? props.view.codexRunUsage?.steps.find(
@@ -108,12 +127,7 @@ function UsageSection(props: {
     known.length === 0
       ? unknown
       : numbers.format(known.reduce((sum, value) => sum + value, 0));
-  const cost = context.cost
-    ? new Intl.NumberFormat(i18n.language, {
-        style: "currency",
-        currency: context.cost.currency,
-      }).format(context.cost.amount)
-    : unknown;
+  const cost = costText(context, unknown, i18n.language);
   return (
     <SidebarSection title={t(`${key}.usage`)}>
       {codex ? <CodexUsageFacts usage={codex.usage} /> : null}
