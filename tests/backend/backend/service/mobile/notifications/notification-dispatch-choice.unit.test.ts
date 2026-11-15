@@ -13,8 +13,10 @@ import {
 } from "./pica-mobile-dispatcher-fixture";
 
 vi.mock("@/backend/database/executor/DatabaseWorkContext", () => ({
-  withBackgroundDatabaseWork: (_name: string, work: () => Promise<void>) =>
-    work(),
+  withBackgroundDatabaseWork: (name: string, work: () => Promise<void>) => {
+    void name;
+    return work();
+  },
 }));
 vi.mock("@/backend/logging/Logger", () => ({
   logCaughtError: vi.fn(),

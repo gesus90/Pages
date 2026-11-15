@@ -30,16 +30,15 @@ export function createIntegrationFcmConsumer(input: {
 }): PicaMobileNotificationDispatcher {
   const { database } = input;
   const events = new PicaMobileNotificationEventRepository(database);
+  const preferences = new PicaMobileNotificationPreferenceRepository(database);
   const settings = readPicaMobileNotificationSettings(input.config);
   return new PicaMobileNotificationDispatcher({
     canDispatch: canProcessIntegrations,
     deliveries: new PicaMobileNotificationDeliveryRepository(database),
     events,
     registrations: new PicaMobilePushRegistrationRepository(database),
-    runs: new PicaMobileNotificationAccess(
-      input.runs,
-      new PicaMobileNotificationPreferenceRepository(database),
-    ),
+    runs: new PicaMobileNotificationAccess(input.runs, preferences),
+    preferences,
     accounts: new PagesPicaMobileAccountChecks(
       new SessionRepository(database),
       input.users,

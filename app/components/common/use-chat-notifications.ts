@@ -52,6 +52,23 @@ async function readActivity(
   return payload;
 }
 
+function shouldSuppressChatToast(
+  snapshot: ReturnType<typeof chatNotificationSnapshots>[number],
+  activity: ChatNotificationActivity,
+): boolean {
+  const { choices } = activity;
+  if (snapshot.isMuted || !choices.receiveNotifications || !choices.chats) {
+    return true;
+  }
+  if (activity.chatKeys.includes(toastChatKey(snapshot.chat))) {
+    return true;
+  }
+  return (
+    snapshot.conversationId !== null &&
+    activity.conversationIds.includes(snapshot.conversationId)
+  );
+}
+
 /** Agent session answers have no conversation event, so also read the directory at a slow interval. */
 const CHAT_REFRESH_MILLISECONDS = 15_000;
 
@@ -86,17 +103,9 @@ export function useChatNotifications(userId: string): () => void {
         for (const snapshot of snapshots) {
           const incoming = previous ? newChatMessages(snapshot, previous) : [];
           const latest = incoming.at(-1);
-          const choices = activity.choices;
-          if (
-            !latest ||
-            snapshot.isMuted ||
-            !choices.receiveNotifications ||
-            !choices.chats ||
-            activity.chatKeys.includes(toastChatKey(snapshot.chat)) ||
-            (snapshot.conversationId !== null &&
-              activity.conversationIds.includes(snapshot.conversationId))
-          )
+          if (!latest || shouldSuppressChatToast(snapshot, activity)) {
             continue;
+          }
           const query = new URLSearchParams({
             kind: snapshot.chat.kind,
             id: snapshot.chat.id,

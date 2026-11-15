@@ -53,6 +53,7 @@ export interface PicaMobileNotificationInput {
 function followConversationMessages(input: {
   readonly database: Database;
   readonly registrations: PicaMobilePushRegistrationRepository;
+  readonly preferences: PicaMobileNotificationPreferenceRepository;
   readonly accounts: PagesPicaMobileAccountChecks;
   readonly vault: PicaMobilePushTokenVault;
   readonly sender: ReturnType<typeof createPicaMobilePushSender>;
@@ -63,6 +64,7 @@ function followConversationMessages(input: {
   const conversations = new ConversationRepository(input.database);
   const push = new PicaMobileConversationPush({
     registrations: input.registrations,
+    preferences: input.preferences,
     accounts: input.accounts,
     vault: input.vault,
     sender: input.sender,

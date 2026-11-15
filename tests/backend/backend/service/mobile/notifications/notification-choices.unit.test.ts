@@ -25,7 +25,7 @@ it("keeps defaults for accounts without a preference row and migrates existing r
     DEFAULT_NOTIFICATION_CHOICES,
   );
   const migration = POSTGRES_MIGRATIONS.find(
-    (entry) => entry.name === "061_notification_choices.sql",
+    (entry) => entry.name === "062_notification_choices.sql",
   );
   expect(migration?.sql).toContain(
     "plan_all_statuses BOOLEAN NOT NULL DEFAULT FALSE",

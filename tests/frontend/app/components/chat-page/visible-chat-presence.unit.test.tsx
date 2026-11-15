@@ -34,13 +34,17 @@ it("renews every 20 seconds while visible and clears presence when hidden", () =
     chatKey: "group:chat",
     conversationId: "chat",
   });
-  act(() => vi.advanceTimersByTime(20_000));
+  act(() => {
+    vi.advanceTimersByTime(20_000);
+  });
   expect(fetch).toHaveBeenCalledTimes(2);
   Object.defineProperty(document, "visibilityState", {
     configurable: true,
     value: "hidden",
   });
-  act(() => document.dispatchEvent(new Event("visibilitychange")));
+  act(() => {
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
   expect(bodyAt(2)).toMatchObject({ chatKey: null, conversationId: null });
   Object.defineProperty(document, "visibilityState", {
     configurable: true,
