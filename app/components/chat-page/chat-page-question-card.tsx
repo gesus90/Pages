@@ -1,4 +1,9 @@
-import { Check, MessageCircleQuestion, SendHorizontal, ShieldCheck } from "lucide-react";
+import {
+  Check,
+  MessageCircleQuestion,
+  SendHorizontal,
+  ShieldCheck,
+} from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { Button } from "@/app/components/ui/button";
@@ -40,7 +45,8 @@ function QuestionOptions({
     >
       {item.options.map((option) => {
         const isChosen = chosen.includes(option.id);
-        const isAccent = question.status === "open" ? option.isRecommended : isChosen;
+        const isAccent =
+          question.status === "open" ? option.isRecommended : isChosen;
         return (
           <Button
             key={option.id}
@@ -57,10 +63,14 @@ function QuestionOptions({
               else answering.choose(item, option.id);
             }}
           >
-            {isChosen ? <Check aria-hidden="true" className="size-3.5" /> : null}
+            {isChosen ? (
+              <Check aria-hidden="true" className="size-3.5" />
+            ) : null}
             <span>{option.label}</span>
             {option.isRecommended ? (
-              <span className="sr-only">{t("chatPage.question.recommended")}</span>
+              <span className="sr-only">
+                {t("chatPage.question.recommended")}
+              </span>
             ) : null}
           </Button>
         );
@@ -92,7 +102,9 @@ function QuestionItem(props: QuestionItemProps): React.ReactElement {
           maxLength={2000}
           value={answering.draft(item.id).freeText}
           disabled={answering.isSending}
-          onChange={(event) => answering.setFreeText(item.id, event.target.value)}
+          onChange={(event) =>
+            answering.setFreeText(item.id, event.target.value)
+          }
         />
       ) : null}
       {answer?.freeText ? (
@@ -155,7 +167,11 @@ export function ChatPageQuestionCard({
   );
   return (
     <section
-      aria-label={t(isConfirmation ? "chatPage.question.confirmTitle" : "chatPage.question.title")}
+      aria-label={t(
+        isConfirmation
+          ? "chatPage.question.confirmTitle"
+          : "chatPage.question.title",
+      )}
       data-question-status={question.status}
       className="flex w-full max-w-[min(100%,32rem)] min-w-0 flex-col gap-3 rounded-xl border bg-surface p-3 shadow-xs"
     >
@@ -164,7 +180,11 @@ export function ChatPageQuestionCard({
           <Icon aria-hidden="true" className="size-3.5 text-foreground" />
         </span>
         <span className="text-[13px] font-semibold text-foreground">
-          {t(isConfirmation ? "chatPage.question.confirmTitle" : "chatPage.question.title")}
+          {t(
+            isConfirmation
+              ? "chatPage.question.confirmTitle"
+              : "chatPage.question.title",
+          )}
         </span>
         {isConfirmation ? (
           <span className="min-w-0 truncate text-xs text-muted-foreground">

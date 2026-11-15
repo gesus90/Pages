@@ -68,7 +68,10 @@ export async function resolveToolkitPath(
   if (requested.includes("\0")) throw new AgentToolkitPathError("INVALID_PATH");
   const realRoot = await realpath(root);
   const candidate = path.resolve(realRoot, requested === "" ? "." : requested);
-  if (!isInsideRoot(realRoot, candidate) || containsAgentBrowserSecret(candidate))
+  if (
+    !isInsideRoot(realRoot, candidate) ||
+    containsAgentBrowserSecret(candidate)
+  )
     throw new AgentToolkitPathError("OUTSIDE_WORKSPACE");
   const existing = await nearestExisting(candidate);
   if (!isInsideRoot(realRoot, existing))

@@ -113,7 +113,10 @@ export interface AgentChatTasks {
   /** The tasks of this agent in this chat. */
   list(): Promise<readonly AgentChatTaskReceipt[]>;
   /** Changes a task of this agent in this chat. */
-  update(id: string, change: AgentChatTaskChange): Promise<AgentChatTaskReceipt>;
+  update(
+    id: string,
+    change: AgentChatTaskChange,
+  ): Promise<AgentChatTaskReceipt>;
   /** Deletes a task of this agent in this chat. */
   remove(id: string): Promise<void>;
 }

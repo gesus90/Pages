@@ -229,18 +229,15 @@ export function createConversationServices(
     content,
     input.observer.isBackgroundOwner,
   );
-  const conversationVoiceMaximumMs = voiceMaximumDurationMs(input.speech);
-  const conversationService = new ConversationService({
+  const messaging = createMessagingServices(input, {
     conversations,
     messages,
-    reader: conversationReader,
-    attachments: content.attachments,
     directory,
-    voices: new ConversationVoiceStore(files, conversationVoiceMaximumMs),
     files,
-    transcriber: createConversationTranscriber({ speech: input.speech }),
+    conversationReader,
+    content,
     events,
-    publisher: input.events,
+    guard: conversationAgentGuard,
   });
   return {
     conversationDirectory: directory,
@@ -256,32 +253,71 @@ export function createConversationServices(
       directory,
       publisher: input.events,
     }),
-    conversationVoiceMaximumMs,
-    conversationService,
+    ...messaging,
     conversationAttachments: content.attachments,
     conversationLinks: content.links,
     chatViewPreferences: new ChatViewPreferenceService(
       new ChatViewPreferenceRepository(database),
     ),
     conversationAgentGuard,
+    agentChatSettingsService: agentChat.settingsService,
+    conversationOversight: agentChat.oversight,
+  };
+}
+
+function createMessagingServices(
+  input: ConversationServicesInput,
+  parts: {
+    readonly conversations: ConversationRepository;
+    readonly messages: ConversationMessageRepository;
+    readonly directory: ConversationDirectory;
+    readonly files: WikiFileStore;
+    readonly conversationReader: ConversationReader;
+    readonly content: ContentParts;
+    readonly events: ConversationEvents;
+    readonly guard: ConversationAgentGuard;
+  },
+): Pick<
+  ConversationApplicationServices,
+  | "conversationVoiceMaximumMs"
+  | "conversationService"
+  | "agentChatQuestions"
+  | "agentChatService"
+> {
+  const { database } = input;
+  const conversationVoiceMaximumMs = voiceMaximumDurationMs(input.speech);
+  const users = new UserRepository(database);
+  const conversationService = new ConversationService({
+    conversations: parts.conversations,
+    messages: parts.messages,
+    reader: parts.conversationReader,
+    attachments: parts.content.attachments,
+    directory: parts.directory,
+    voices: new ConversationVoiceStore(parts.files, conversationVoiceMaximumMs),
+    files: parts.files,
+    transcriber: createConversationTranscriber({ speech: input.speech }),
+    events: parts.events,
+    publisher: input.events,
+  });
+  return {
+    conversationVoiceMaximumMs,
+    conversationService,
     agentChatQuestions: new AgentChatQuestionService({
-      users: new UserRepository(database),
+      users,
       service: conversationService,
-      reader: conversationReader,
+      reader: parts.conversationReader,
       questions: new AgentChatQuestionRepository(database),
       publisher: input.events,
     }),
-    agentChatSettingsService: agentChat.settingsService,
-    conversationOversight: agentChat.oversight,
     agentChatService: new AgentChatService({
-      users: new UserRepository(database),
+      users,
       groups: new UserGroupRepository(database),
-      conversations,
-      reader: conversationReader,
+      conversations: parts.conversations,
+      reader: parts.conversationReader,
       service: conversationService,
-      directory,
-      guard: conversationAgentGuard,
-      events,
+      directory: parts.directory,
+      guard: parts.guard,
+      events: parts.events,
     }),
   };
 }

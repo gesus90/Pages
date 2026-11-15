@@ -25,6 +25,7 @@ const settings = {
   model: "model",
   reasoningEffort: null,
   access: "read_only",
+  disabledToolGroups: [],
 } as const;
 
 function fixture(): {

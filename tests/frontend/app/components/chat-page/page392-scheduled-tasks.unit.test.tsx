@@ -10,13 +10,23 @@ import { group, participant } from "./chat-page-fixture";
 
 import type { AgentChatTaskView } from "@/definition/AgentChatTask";
 
-const router = vi.hoisted(() => ({
-  fetcher: {
-    data: undefined as unknown,
-    state: "idle",
-    submit: vi.fn<(form: FormData, options: { method: string }) => void>(),
-  },
-}));
+const router = vi.hoisted(
+  (): {
+    fetcher: {
+      data: unknown;
+      state: string;
+      submit: ReturnType<
+        typeof vi.fn<(form: FormData, options: { method: string }) => void>
+      >;
+    };
+  } => ({
+    fetcher: {
+      data: undefined,
+      state: "idle",
+      submit: vi.fn<(form: FormData, options: { method: string }) => void>(),
+    },
+  }),
+);
 vi.mock("react-router", () => ({
   useFetcher: () => router.fetcher,
   useRevalidator: () => ({ state: "idle", revalidate: vi.fn() }),
@@ -33,7 +43,11 @@ const REMINDER: AgentChatTaskView = {
   kind: "reminder",
   request: "Remind me tomorrow at 9 about the dentist",
   instruction: "Dentist",
-  trigger: { type: "once", at: "2026-11-16T08:00:00.000Z", timeZone: "Europe/Berlin" },
+  trigger: {
+    type: "once",
+    at: "2026-11-16T08:00:00.000Z",
+    timeZone: "Europe/Berlin",
+  },
   isActive: true,
   nextRunAt: "2026-11-16T08:00:00.000Z",
   requesterId: "bob",
@@ -46,18 +60,28 @@ const WEEKLY: AgentChatTaskView = {
   id: "automation-2",
   kind: "task",
   request: "Check the open tickets every Monday",
-  trigger: { type: "weekly", weekdays: [1], times: ["09:00"], timeZone: "Europe/Berlin" },
+  trigger: {
+    type: "weekly",
+    weekdays: [1],
+    times: ["09:00"],
+    timeZone: "Europe/Berlin",
+  },
   isActive: false,
   nextRunAt: null,
 };
 
 function submitted(call: number): Record<string, unknown> {
   const formData: unknown = router.fetcher.submit.mock.calls[call]?.[0];
-  return formData instanceof FormData ? Object.fromEntries(formData.entries()) : {};
+  return formData instanceof FormData
+    ? Object.fromEntries(formData.entries())
+    : {};
 }
 
 function openMenu(name: string): void {
-  fireEvent.pointerDown(screen.getByRole("button", { name }), { button: 0, ctrlKey: false });
+  fireEvent.pointerDown(screen.getByRole("button", { name }), {
+    button: 0,
+    ctrlKey: false,
+  });
 }
 
 beforeEach(() => {
@@ -70,7 +94,11 @@ describe("PAGE-392 Geplante Aufgaben in the chat menu", () => {
     render(
       <I18nextProvider i18n={i18n}>
         <ChatPageHeader
-          opened={{ kind: "group", group: group("g", { name: "Team", memberIds: ["ed", "bob"] }), members: [ED, BOB] }}
+          opened={{
+            kind: "group",
+            group: group("g", { name: "Team", memberIds: ["ed", "bob"] }),
+            members: [ED, BOB],
+          }}
           participants={[ED, BOB]}
           isAnswering={false}
           onStop={vi.fn()}
@@ -81,8 +109,12 @@ describe("PAGE-392 Geplante Aufgaben in the chat menu", () => {
       </I18nextProvider>,
     );
     openMenu("Group menu");
-    fireEvent.click(screen.getByRole("menuitem", { name: "Scheduled tasks …" }));
-    expect(screen.getByRole("dialog", { name: "Scheduled tasks · Team" })).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole("menuitem", { name: "Scheduled tasks …" }),
+    );
+    expect(
+      screen.getByRole("dialog", { name: "Scheduled tasks · Team" }),
+    ).toBeTruthy();
     expect(submitted(0)).toEqual({ intent: "chat-tasks", conversationId: "g" });
   });
 
@@ -101,8 +133,12 @@ describe("PAGE-392 Geplante Aufgaben in the chat menu", () => {
       </I18nextProvider>,
     );
     openMenu("Agent menu");
-    fireEvent.click(screen.getByRole("menuitem", { name: "Scheduled tasks …" }));
-    expect(screen.getByRole("dialog", { name: "Scheduled tasks · Ed" })).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole("menuitem", { name: "Scheduled tasks …" }),
+    );
+    expect(
+      screen.getByRole("dialog", { name: "Scheduled tasks · Ed" }),
+    ).toBeTruthy();
     expect(submitted(0)).toEqual({ intent: "chat-tasks", agentId: "ed" });
   });
 });
@@ -123,15 +159,21 @@ describe("PAGE-392 dialog Geplante Aufgaben", () => {
   it("lists each task with its rhythm and next run", () => {
     router.fetcher.data = { ok: true, chatTasks: [REMINDER, WEEKLY] };
     renderDialog();
-    const list = screen.getByRole("list", { name: "Scheduled tasks of this chat" });
+    const list = screen.getByRole("list", {
+      name: "Scheduled tasks of this chat",
+    });
     const [first, second] = within(list).getAllByRole("listitem");
     expect(within(first ?? list).getByText(REMINDER.request)).toBeTruthy();
     expect(within(first ?? list).getByText(/^Once: /u)).toBeTruthy();
     expect(within(first ?? list).getByText(/^Next run: /u)).toBeTruthy();
-    expect(within(first ?? list).getByText("Reminder by Ed for Bob")).toBeTruthy();
+    expect(
+      within(first ?? list).getByText("Reminder by Ed for Bob"),
+    ).toBeTruthy();
     expect(within(second ?? list).getByText("Monday at 09:00")).toBeTruthy();
     expect(within(second ?? list).getByText("Paused")).toBeTruthy();
-    expect(within(second ?? list).getByRole("button", { name: "Resume" })).toBeTruthy();
+    expect(
+      within(second ?? list).getByRole("button", { name: "Resume" }),
+    ).toBeTruthy();
   });
 
   it("pauses a task and deletes one only after a second click", () => {
@@ -159,14 +201,26 @@ describe("PAGE-392 dialog Geplante Aufgaben", () => {
     router.fetcher.data = { ok: true, chatTasks: [] };
     const { rerender } = render(
       <I18nextProvider i18n={i18n}>
-        <ChatPageScheduledTasks chat={{ kind: "direct", agentId: "ed", name: "Ed" }} isOpen onOpenChange={vi.fn()} />
+        <ChatPageScheduledTasks
+          chat={{ kind: "direct", agentId: "ed", name: "Ed" }}
+          isOpen
+          onOpenChange={vi.fn()}
+        />
       </I18nextProvider>,
     );
     expect(screen.getByText(/Nothing is scheduled in this chat/u)).toBeTruthy();
-    router.fetcher.data = { ok: false, error: "invalidInput", taskError: "run_active" };
+    router.fetcher.data = {
+      ok: false,
+      error: "invalidInput",
+      taskError: "run_active",
+    };
     rerender(
       <I18nextProvider i18n={i18n}>
-        <ChatPageScheduledTasks chat={{ kind: "direct", agentId: "ed", name: "Ed" }} isOpen onOpenChange={vi.fn()} />
+        <ChatPageScheduledTasks
+          chat={{ kind: "direct", agentId: "ed", name: "Ed" }}
+          isOpen
+          onOpenChange={vi.fn()}
+        />
       </I18nextProvider>,
     );
     expect(screen.getByRole("alert").textContent).toBe(

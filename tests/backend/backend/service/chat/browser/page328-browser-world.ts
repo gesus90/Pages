@@ -4,6 +4,7 @@ import { AgentBrowserSessions } from "@/backend/service/chat/browser/AgentBrowse
 
 import type { RuntimeExecutionContext } from "@/backend/agents/runtime/RuntimeExecutionContext";
 import type { AgentEmployeeAccess } from "@/definition/AgentEmployee";
+import type { AgentToolGroup } from "@/definition/AgentToolGroups";
 import type { User } from "@/definition/User";
 
 export { runtimeFiles } from "./page328-browser-files";
@@ -15,9 +16,11 @@ export function browserWorld(access: AgentEmployeeAccess = "workspace"): {
     user: ReturnType<typeof vi.fn<(id: string) => Promise<User | null>>>;
     employee: ReturnType<
       typeof vi.fn<
-        (
-          id: string,
-        ) => Promise<{ access: AgentEmployeeAccess; revision: number } | null>
+        (id: string) => Promise<{
+          access: AgentEmployeeAccess;
+          revision: number;
+          disabledToolGroups?: readonly AgentToolGroup[];
+        } | null>
       >
     >;
     origins: () => string[];
@@ -38,9 +41,11 @@ export function browserWorld(access: AgentEmployeeAccess = "workspace"): {
   const accounts = {
     user: vi.fn<(id: string) => Promise<User | null>>(async () => user),
     employee: vi.fn<
-      (
-        id: string,
-      ) => Promise<{ access: AgentEmployeeAccess; revision: number } | null>
+      (id: string) => Promise<{
+        access: AgentEmployeeAccess;
+        revision: number;
+        disabledToolGroups?: readonly AgentToolGroup[];
+      } | null>
     >(async () => ({ access, revision: 1 })),
     origins: () => ["http://127.0.0.1:3000", "https://pages.example.org"],
   };

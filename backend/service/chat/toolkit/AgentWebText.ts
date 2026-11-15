@@ -42,7 +42,9 @@ function safeCodePoint(code: number, fallback: string): string {
 /** The title of an HTML page, or `null` without one. */
 export function htmlTitle(html: string): string | null {
   const match = /<title[^>]*>([\s\S]*?)<\/title>/iu.exec(html);
-  const title = match ? decodeEntities(match[1]).replace(/\s+/gu, " ").trim() : "";
+  const title = match
+    ? decodeEntities(match[1]).replace(/\s+/gu, " ").trim()
+    : "";
   return title === "" ? null : title;
 }
 
@@ -59,11 +61,14 @@ export function htmlToText(html: string): string {
     )
     .replace(
       /<a\s[^>]*href="(https?:[^"]+)"[^>]*>([\s\S]*?)<\/a>/giu,
-      (_match, href: string, label: string) => `${label} [${href}]`,
+      (_, href: string, label: string) => `${label} [${href}]`,
     )
     .replace(/<(br|hr)\s*\/?>/giu, "\n")
     .replace(/<li[^>]*>/giu, "\n- ")
-    .replace(/<\/?(p|div|section|article|header|footer|main|nav|aside|h[1-6]|ul|ol|table|tr|blockquote|pre|form)[^>]*>/giu, "\n")
+    .replace(
+      /<\/?(p|div|section|article|header|footer|main|nav|aside|h[1-6]|ul|ol|table|tr|blockquote|pre|form)[^>]*>/giu,
+      "\n",
+    )
     .replace(/<(td|th)[^>]*>/giu, " | ")
     .replace(/<[^>]+>/gu, "");
   return decodeEntities(text)
@@ -118,9 +123,8 @@ export function parseSearchResults(
     if (!link) continue;
     const url = resultAddress(link[1]);
     if (url === null || hits.some((hit) => hit.url === url)) continue;
-    const snippet = /class="result__snippet"[^>]*>([\s\S]*?)<\/(?:a|div|td)>/u.exec(
-      block,
-    );
+    const snippet =
+      /class="result__snippet"[^>]*>([\s\S]*?)<\/(?:a|div|td)>/u.exec(block);
     hits.push({
       title: htmlToText(link[2]),
       url,

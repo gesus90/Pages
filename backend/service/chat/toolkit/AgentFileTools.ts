@@ -1,4 +1,11 @@
-import { mkdir, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  readFile,
+  readdir,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import path from "node:path";
 
 import type { Dirent } from "node:fs";
@@ -14,7 +21,10 @@ import {
 } from "./AgentToolkitOutcome";
 import { relativeToolkitPath, resolveToolkitPath } from "./AgentToolkitPaths";
 
-import type { AgentToolkitJob, AgentToolkitTool } from "./AgentToolkitContracts";
+import type {
+  AgentToolkitJob,
+  AgentToolkitTool,
+} from "./AgentToolkitContracts";
 
 /** Bytes of a file the agent reads or searches at most. */
 const MAXIMUM_FILE_BYTES = 1_000_000;
@@ -190,7 +200,10 @@ async function searchFilesTool(
   const matches: { path: string; line: number; text: string }[] = [];
   for (const file of await filesBelow(folder)) {
     if (matches.length >= MAXIMUM_MATCHES) break;
-    if (parameters.fileName && !path.basename(file).includes(parameters.fileName))
+    if (
+      parameters.fileName &&
+      !path.basename(file).includes(parameters.fileName)
+    )
       continue;
     const text = await readTextFile(file);
     if (text === null) continue;
@@ -234,8 +247,14 @@ async function editFileTool(
 
 /** Runs a file tool and turns path and file system failures into refusals. */
 function guarded<Input>(
-  run: (parameters: Input, job: AgentToolkitJob) => Promise<ReturnType<typeof toolkitResult>>,
-): (parameters: Input, job: AgentToolkitJob) => Promise<ReturnType<typeof toolkitResult>> {
+  run: (
+    parameters: Input,
+    job: AgentToolkitJob,
+  ) => Promise<ReturnType<typeof toolkitResult>>,
+): (
+  parameters: Input,
+  job: AgentToolkitJob,
+) => Promise<ReturnType<typeof toolkitResult>> {
   return async (parameters, job) => {
     try {
       return await run(parameters, job);
@@ -328,7 +347,10 @@ export const AGENT_FILE_TOOLS: readonly AgentToolkitTool[] = [
       if (target === root) return toolkitRefusal("OUTSIDE_WORKSPACE");
       await stat(target);
       await rm(target, { recursive: true });
-      return toolkitResult({ path: relativeToolkitPath(root, target), deleted: true });
+      return toolkitResult({
+        path: relativeToolkitPath(root, target),
+        deleted: true,
+      });
     }),
   }),
 ];

@@ -29,11 +29,7 @@ export const AGENT_ASK_TOOL = "rueckfrage";
 
 const SAY_SCHEMA = z
   .object({
-    text: z
-      .string()
-      .trim()
-      .min(1)
-      .max(AGENT_QUESTION_LIMITS.interimCharacters),
+    text: z.string().trim().min(1).max(AGENT_QUESTION_LIMITS.interimCharacters),
   })
   .strict();
 
@@ -90,7 +86,7 @@ type SayParameters = z.infer<typeof SAY_SCHEMA>;
 type AskParameters = z.infer<typeof ASK_SCHEMA>;
 
 const SAY_DESCRIPTION =
-  "Write a short interim message to your chat now, without ending your round, e.g. what you are working on (\"Bin dran, Tests laufen …\"). Your final answer still follows as usual. Use it sparingly for longer work; never for the final answer.";
+  'Write a short interim message to your chat now, without ending your round, e.g. what you are working on ("Bin dran, Tests laufen …"). Your final answer still follows as usual. Use it sparingly for longer work; never for the final answer.';
 
 const ASK_DESCRIPTION = `Ask the people of your chat 1 to 3 questions with 2 to 4 answer buttons each and wait for the answer; your round continues with it. Put your recommended answer at index \`recommended\` (it is shown first and highlighted); \`multiple\` allows several answers. People can always answer in free text instead. Without an answer within \`timeoutMinutes\` (default ${String(AGENT_QUESTION_TIMEOUT_DEFAULT_MINUTES)}) continue at your own discretion and say so. To confirm a consequential step Pages held back with CONFIRMATION_REQUIRED, ask exactly one question whose recommended option performs it (e.g. "Löschen") next to one that cancels it ("Abbrechen"), and pass the held-back \`tool\` and \`parameters\` unchanged as \`confirms\`; if the person chooses it, repeat the identical call.`;
 
@@ -184,7 +180,10 @@ async function ask(
   const problem = confirmationProblem(parts, parameters, context);
   if (problem) return problem;
   const confirmation: AgentQuestionConfirmation | null = parameters.confirms
-    ? { tool: parameters.confirms.tool, parameters: parameters.confirms.parameters }
+    ? {
+        tool: parameters.confirms.tool,
+        parameters: parameters.confirms.parameters,
+      }
     : null;
   let outcome: AgentQuestionOutcome;
   try {

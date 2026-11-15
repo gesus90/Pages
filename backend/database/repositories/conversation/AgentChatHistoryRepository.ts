@@ -347,9 +347,31 @@ export class AgentChatHistoryRepository {
             ORDER BY visible.position
             LIMIT $after_and_hit
         )
-        SELECT * FROM earlier
+        SELECT
+            earlier.source,
+            earlier.chat_kind,
+            earlier.chat_id,
+            earlier.chat_name,
+            earlier.conversation_id,
+            earlier.message_id,
+            earlier.position,
+            earlier.sender_name,
+            earlier.created_at,
+            earlier.text
+        FROM earlier
         UNION ALL
-        SELECT * FROM later
+        SELECT
+            later.source,
+            later.chat_kind,
+            later.chat_id,
+            later.chat_name,
+            later.conversation_id,
+            later.message_id,
+            later.position,
+            later.sender_name,
+            later.created_at,
+            later.text
+        FROM later
         ORDER BY position;
       `,
       {

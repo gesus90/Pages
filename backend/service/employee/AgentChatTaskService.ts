@@ -312,7 +312,11 @@ export class AgentChatTaskService {
     agentId: string,
     task: Pick<AgentChatTaskRequest, "kind" | "request" | "instruction">,
     account: AutomationAccount,
-  ): { readonly type: "agent"; readonly agentId: string; readonly instruction: string } {
+  ): {
+    readonly type: "agent";
+    readonly agentId: string;
+    readonly instruction: string;
+  } {
     return {
       type: "agent",
       agentId,
@@ -332,8 +336,7 @@ export class AgentChatTaskService {
    */
   private async requester(job: JobChat): Promise<User> {
     const { chat } = job;
-    const requesterId =
-      chat.kind === "direct" ? chat.personId : chat.askerId;
+    const requesterId = chat.kind === "direct" ? chat.personId : chat.askerId;
     if (requesterId === null) throw new AgentChatTaskError("forbidden");
     const person = await this.dependencies.users.findById(requesterId);
     if (!person || person.isAgent === true || !person.isActive)
@@ -347,7 +350,10 @@ export class AgentChatTaskService {
   }
 
   /** A task of the job's agent in the job's chat. */
-  private async jobTask(job: JobChat, id: string): Promise<StoredAgentChatTask> {
+  private async jobTask(
+    job: JobChat,
+    id: string,
+  ): Promise<StoredAgentChatTask> {
     const task = await this.dependencies.tasks.find(id);
     if (
       !task ||

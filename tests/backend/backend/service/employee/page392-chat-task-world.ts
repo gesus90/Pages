@@ -1,4 +1,5 @@
 import { vi } from "vitest";
+import type { Mock } from "vitest";
 
 import { AutomationError } from "@/backend/error/AutomationError";
 import { firstRunAt } from "@/backend/service/automation/AutomationSchedule";
@@ -10,7 +11,10 @@ import type {
 } from "@/backend/database/repositories/conversation/AgentChatTaskRepository";
 import type { StoredAutomation } from "@/backend/database/repositories/automation/AutomationRepository";
 import type { AutomationAccount } from "@/backend/service/automation/AutomationDirectory";
-import type { AutomationAction, AutomationTrigger } from "@/definition/Automation";
+import type {
+  AutomationAction,
+  AutomationTrigger,
+} from "@/definition/Automation";
 import type { User } from "@/definition/User";
 
 /** "Today" of every PAGE-392 test: Sunday, 15.11.2026, 14:00 in Berlin. */
@@ -29,7 +33,10 @@ export const IGOR = person("igor", "Igor");
 export const MAYA = person("maya", "Maya");
 export const OUTSIDER = person("outsider", "Olaf");
 export const AGENT: User = { ...person("agent", "All Might"), isAgent: true };
-export const OTHER_AGENT: User = { ...person("agent-2", "Conan"), isAgent: true };
+export const OTHER_AGENT: User = {
+  ...person("agent-2", "Conan"),
+  isAgent: true,
+};
 
 const USERS = new Map(
   [IGOR, MAYA, OUTSIDER, AGENT, OTHER_AGENT].map((user) => [user.id, user]),
@@ -45,23 +52,65 @@ export interface AutomationInput {
   readonly deleteAfterSuccess: boolean;
 }
 
-/**
- * A world of scheduled tasks: the service on in-memory automations and
- * bindings, faked only at the boundaries of automations and conversations.
- */
-export function chatTaskWorld(options: { readonly limit?: number } = {}): {
-  readonly service: AgentChatTaskService;
-  readonly automations: Map<string, StoredAutomation>;
-  readonly bindings: Map<string, StoredAgentChatTask>;
-  readonly create: ReturnType<typeof vi.fn>;
-  readonly update: ReturnType<typeof vi.fn>;
-  readonly setActive: ReturnType<typeof vi.fn>;
-  readonly remove: ReturnType<typeof vi.fn>;
+type CreateAutomationMock = Mock<
+  (
+    userId: string,
+    input: AutomationInput,
+  ) => Promise<{ id: string; revision: number }>
+>;
+type UpdateAutomationMock = Mock<
+  (
+    userId: string,
+    input: { automationId: string } & Partial<StoredAutomation>,
+  ) => Promise<void>
+>;
+type SetActiveAutomationMock = Mock<
+  (
+    userId: string,
+    input: { automationId: string; isActive: boolean },
+  ) => Promise<void>
+>;
+type RemoveAutomationMock = Mock<
+  (
+    userId: string,
+    input: { automationId: string; confirmed: boolean },
+  ) => Promise<void>
+>;
+
+function isSameChat(
+  task: StoredAgentChatTask,
+  chat: StoredAgentChatTaskChat,
+): boolean {
+  return JSON.stringify(task.chat) === JSON.stringify(chat);
+}
+
+function accountById(userId: string): AutomationAccount | null {
+  const user = USERS.get(userId);
+  return user
+    ? {
+        id: user.id,
+        displayName: user.displayName,
+        isAgent: user.isAgent === true,
+        isActive: user.isActive,
+        isAdministrator: false,
+        isReadOnly: false,
+        timeZone: "Europe/Berlin",
+        language: "de",
+      }
+    : null;
+}
+
+function buildAutomationHandlers(
+  automations: Map<string, StoredAutomation>,
+  bindings: Map<string, StoredAgentChatTask>,
+): {
+  readonly create: CreateAutomationMock;
+  readonly update: UpdateAutomationMock;
+  readonly setActive: SetActiveAutomationMock;
+  readonly remove: RemoveAutomationMock;
 } {
-  const automations = new Map<string, StoredAutomation>();
-  const bindings = new Map<string, StoredAgentChatTask>();
   let next = 0;
-  const create = vi.fn(async (userId: string, input: AutomationInput) => {
+  const create: CreateAutomationMock = vi.fn(async (userId, input) => {
     next += 1;
     const id = `automation-${String(next)}`;
     if (
@@ -88,7 +137,9 @@ export function chatTaskWorld(options: { readonly limit?: number } = {}): {
   });
   const change = (
     id: string,
-    patch: Partial<Pick<StoredAutomation, "trigger" | "action" | "isActive" | "name">>,
+    patch: Partial<
+      Pick<StoredAutomation, "trigger" | "action" | "isActive" | "name">
+    >,
   ): void => {
     const current = automations.get(id);
     if (!current) throw new AutomationError("not_found");
@@ -102,55 +153,49 @@ export function chatTaskWorld(options: { readonly limit?: number } = {}): {
       nextRunAt: isActive ? firstRunAt(trigger, NOW) : null,
     });
   };
-  const update = vi.fn(
-    async (
-      _userId: string,
-      input: { automationId: string } & Partial<StoredAutomation>,
-    ) => {
-      const { automationId, trigger, action, isActive, name } = input;
-      change(automationId, {
-        ...(trigger ? { trigger } : {}),
-        ...(action ? { action } : {}),
-        ...(isActive === undefined ? {} : { isActive }),
-        ...(name ? { name } : {}),
-      });
-    },
+  const update: UpdateAutomationMock = vi.fn(async (_, input) => {
+    const { automationId, trigger, action, isActive, name } = input;
+    change(automationId, {
+      ...(trigger ? { trigger } : {}),
+      ...(action ? { action } : {}),
+      ...(isActive === undefined ? {} : { isActive }),
+      ...(name ? { name } : {}),
+    });
+  });
+  const setActive: SetActiveAutomationMock = vi.fn(async (_, input) =>
+    change(input.automationId, { isActive: input.isActive }),
   );
-  const setActive = vi.fn(
-    async (_userId: string, input: { automationId: string; isActive: boolean }) =>
-      change(input.automationId, { isActive: input.isActive }),
+  const remove: RemoveAutomationMock = vi.fn(async (_, input) => {
+    if (!input.confirmed) throw new AutomationError("invalid_request");
+    // The binding goes with its automation, as the foreign key does it.
+    automations.delete(input.automationId);
+    bindings.delete(input.automationId);
+  });
+  return { create, update, setActive, remove };
+}
+
+/**
+ * A world of scheduled tasks: the service on in-memory automations and
+ * bindings, faked only at the boundaries of automations and conversations.
+ */
+export function chatTaskWorld(options: { readonly limit?: number } = {}): {
+  readonly service: AgentChatTaskService;
+  readonly automations: Map<string, StoredAutomation>;
+  readonly bindings: Map<string, StoredAgentChatTask>;
+  readonly create: CreateAutomationMock;
+  readonly update: UpdateAutomationMock;
+  readonly setActive: SetActiveAutomationMock;
+  readonly remove: RemoveAutomationMock;
+} {
+  const automations = new Map<string, StoredAutomation>();
+  const bindings = new Map<string, StoredAgentChatTask>();
+  const { create, update, setActive, remove } = buildAutomationHandlers(
+    automations,
+    bindings,
   );
-  const remove = vi.fn(
-    async (_userId: string, input: { automationId: string; confirmed: boolean }) => {
-      if (!input.confirmed) throw new AutomationError("invalid_request");
-      // The binding goes with its automation, as the foreign key does it.
-      automations.delete(input.automationId);
-      bindings.delete(input.automationId);
-    },
-  );
-  const sameChat = (
-    task: StoredAgentChatTask,
-    chat: StoredAgentChatTaskChat,
-  ): boolean =>
-    JSON.stringify(task.chat) === JSON.stringify(chat);
   const members = new Map<string, readonly string[]>([
     ["group-1", ["igor", "maya", "agent", "agent-2"]],
   ]);
-  const accounts = (userId: string): AutomationAccount | null => {
-    const user = USERS.get(userId);
-    return user
-      ? {
-          id: user.id,
-          displayName: user.displayName,
-          isAgent: user.isAgent === true,
-          isActive: user.isActive,
-          isAdministrator: false,
-          isReadOnly: false,
-          timeZone: "Europe/Berlin",
-          language: "de",
-        }
-      : null;
-  };
   const service = new AgentChatTaskService({
     automations: {
       create: create as never,
@@ -158,7 +203,7 @@ export function chatTaskWorld(options: { readonly limit?: number } = {}): {
       setActive: setActive as never,
       delete: remove as never,
     },
-    account: async (userId) => accounts(userId),
+    account: async (userId) => accountById(userId),
     stored: { find: async (id) => automations.get(id) ?? null },
     tasks: {
       insert: async (task) => {
@@ -168,10 +213,11 @@ export function chatTaskWorld(options: { readonly limit?: number } = {}): {
       listForChat: async (chat, agentId) =>
         [...bindings.values()].filter(
           (task) =>
-            sameChat(task, chat) && (agentId === null || task.agentId === agentId),
+            isSameChat(task, chat) &&
+            (agentId === null || task.agentId === agentId),
         ),
       countForChat: async (chat) =>
-        [...bindings.values()].filter((task) => sameChat(task, chat)).length,
+        [...bindings.values()].filter((task) => isSameChat(task, chat)).length,
       updateTexts: async (id, texts) => {
         const task = bindings.get(id);
         if (task) bindings.set(id, { ...task, ...texts });

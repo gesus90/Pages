@@ -86,7 +86,7 @@ it("gives an agent with the browser group switched off no session or file (PAGE-
     access: "workspace",
     revision: 1,
     disabledToolGroups: ["browser"],
-  } as never);
+  });
   await expect(world.sessions.issue(world.context)).rejects.toThrow(
     "SESSION_DENIED",
   );

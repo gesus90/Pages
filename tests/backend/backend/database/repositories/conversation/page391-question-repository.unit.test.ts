@@ -27,7 +27,9 @@ describe("PAGE-391 AgentChatQuestionRepository", () => {
         "igor",
         "ticket.delete",
         "answered",
-        JSON.stringify([{ questionId: "q1", optionIds: ["o1"], freeText: null }]),
+        JSON.stringify([
+          { questionId: "q1", optionIds: ["o1"], freeText: null },
+        ]),
         "igor",
         "2026-11-15T12:01:00.000Z",
         "2026-11-15T12:15:00.000Z",
@@ -48,12 +50,21 @@ describe("PAGE-391 AgentChatQuestionRepository", () => {
     });
     expect(execute).toHaveBeenCalledWith(
       expect.stringContaining("INSERT INTO agent_chat_questions"),
-      expect.objectContaining({ items: JSON.stringify(ITEMS), responder: "igor" }),
+      expect.objectContaining({
+        items: JSON.stringify(ITEMS),
+        responder: "igor",
+      }),
     );
-    const [stored] = await repository.findByMessageIds(["message-1", "message-2"]);
-    expect(query).toHaveBeenCalledWith(expect.stringContaining("string_to_array"), {
-      ids: "message-1,message-2",
-    });
+    const [stored] = await repository.findByMessageIds([
+      "message-1",
+      "message-2",
+    ]);
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining("string_to_array"),
+      {
+        ids: "message-1,message-2",
+      },
+    );
     expect(stored).toMatchObject({
       status: "answered",
       items: ITEMS,
@@ -65,11 +76,21 @@ describe("PAGE-391 AgentChatQuestionRepository", () => {
 
   it("answers only an open question", async () => {
     const query = vi.fn(async () => []);
-    const repository = new AgentChatQuestionRepository({ query, execute: vi.fn() });
+    const repository = new AgentChatQuestionRepository({
+      query,
+      execute: vi.fn(),
+    });
     await expect(
-      repository.answer("question-1", { answers: [], answeredBy: "igor", answeredAt: "now" }),
+      repository.answer("question-1", {
+        answers: [],
+        answeredBy: "igor",
+        answeredAt: "now",
+      }),
     ).resolves.toBe(false);
-    expect(query).toHaveBeenCalledWith(expect.stringContaining("AND status = 'open'"), expect.anything());
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining("AND status = 'open'"),
+      expect.anything(),
+    );
     await expect(repository.findByMessageIds([])).resolves.toEqual([]);
   });
 });

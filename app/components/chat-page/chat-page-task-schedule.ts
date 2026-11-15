@@ -38,7 +38,9 @@ export function formatTaskMoment(
 }
 
 /** The time zone a trigger counts in; the page's own for one without. */
-export function triggerTimeZone(trigger: AutomationTrigger): string | undefined {
+export function triggerTimeZone(
+  trigger: AutomationTrigger,
+): string | undefined {
   return "timeZone" in trigger ? trigger.timeZone : undefined;
 }
 

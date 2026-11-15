@@ -25,9 +25,7 @@ export function toolkitRefusal(
   return {
     ok: false,
     result:
-      details === undefined
-        ? null
-        : redactCredentials(JSON.stringify(details)),
+      details === undefined ? null : redactCredentials(JSON.stringify(details)),
     error,
   };
 }

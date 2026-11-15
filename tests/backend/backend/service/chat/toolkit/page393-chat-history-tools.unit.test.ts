@@ -58,7 +58,7 @@ async function turnOf(
   jobs.push(job);
   return createPicaTools({
     tools: { run: vi.fn(async () => ({ ok: true, result: {} })) },
-    sessions: { confirmationWord: async () => null },
+    sessions: { confirmationWord: async () => "LÖSCHEN" },
     authorize: async () => undefined,
     message: "Was hatten wir letzten Monat zur Ruhezeit entschieden?",
     planTurnId: "message-1",
@@ -146,7 +146,9 @@ describe("PAGE-393 tools verlauf_durchsuchen and verlauf_lesen", () => {
       ],
     });
   });
+});
 
+describe("PAGE-393 verlauf_durchsuchen and verlauf_lesen guards", () => {
   it("hints at other words without a hit and answers NOT_FOUND for a hidden message", async () => {
     const tools = await turnOf(
       historyWorld().service.bind(AGENT_ID, {
@@ -159,10 +161,9 @@ describe("PAGE-393 tools verlauf_durchsuchen and verlauf_lesen", () => {
       { query: "Urlaub" },
       callContext(),
     );
-    expect(resultOf(none?.output)).toMatchObject({
-      hits: [],
-      hint: expect.any(String),
-    });
+    const noneBody = resultOf(none?.output);
+    expect(noneBody.hits).toEqual([]);
+    expect(typeof noneBody.hint).toBe("string");
     const hidden = await tools.invoke(
       "verlauf_lesen",
       { messageId: "secret-1" },

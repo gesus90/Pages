@@ -90,7 +90,7 @@ type UpdateParameters = z.infer<typeof UPDATE_SCHEMA>;
 type DeleteParameters = z.infer<typeof DELETE_SCHEMA>;
 
 const SCHEDULE_HELP =
-  "`schedule` is in the wall-clock time of the person who asked; Pages applies their time zone: `{type:\"once\", at:\"YYYY-MM-DDTHH:MM\"}`, `{type:\"interval\", every, unit:\"minute\"|\"hour\"|\"day\"}` (at least 5 minutes) or `{type:\"weekly\", weekdays:[1..7, 1 = Monday], times:[\"HH:MM\"]}`. Event triggers are not available from a chat.";
+  '`schedule` is in the wall-clock time of the person who asked; Pages applies their time zone: `{type:"once", at:"YYYY-MM-DDTHH:MM"}`, `{type:"interval", every, unit:"minute"|"hour"|"day"}` (at least 5 minutes) or `{type:"weekly", weekdays:[1..7, 1 = Monday], times:["HH:MM"]}`. Event triggers are not available from a chat.';
 
 const CREATE_DESCRIPTION = `Plan a reminder or a recurring task in this chat when a person asks for it ("Erinnere mich morgen um 9 an X", "Prüfe jeden Montag die offenen Tickets"). \`kind\` "reminder" only reminds the person, "task" has you work on \`instruction\` at the time. \`request\` is the person's request in their words. ${SCHEDULE_HELP} At the time you are woken in your session of this chat and your answer is posted here. After planning, confirm the time to the person in plain words exactly as \`when\` says (e.g. "Morgen, 16.11., 9:00 Uhr").`;
 
@@ -138,15 +138,13 @@ const REFUSALS: Readonly<Record<AgentChatTaskError["code"], string>> = {
   run_active: "RUN_ACTIVE",
 };
 
-const REASONS: Readonly<Partial<Record<AgentChatTaskError["code"], string>>> =
-  {
-    forbidden:
-      "Only a person who addressed you in this chat can have a task planned; nothing was planned.",
-    limit_reached:
-      "This chat holds the most planned tasks it may. Tell the person; they can delete one first.",
-    time_in_past:
-      "The time has passed. Ask the person for a time in the future.",
-  };
+const REASONS: Readonly<Partial<Record<AgentChatTaskError["code"], string>>> = {
+  forbidden:
+    "Only a person who addressed you in this chat can have a task planned; nothing was planned.",
+  limit_reached:
+    "This chat holds the most planned tasks it may. Tell the person; they can delete one first.",
+  time_in_past: "The time has passed. Ask the person for a time in the future.",
+};
 
 /** Maps a refusal of the tasks to the code the agent receives. */
 function refusalOf(error: unknown): PicaToolOutcome {
@@ -250,7 +248,7 @@ export function registerAgentChatTaskTools(
     description: LIST_DESCRIPTION,
     inputSchema: LIST_SCHEMA,
     outputSchema: PICA_TOOL_OUTCOME,
-    execute: (_parameters, context) =>
+    execute: (_, context) =>
       guarded(parts, context, async () => {
         const receipts = await parts.tasks.list();
         return toolkitResult({

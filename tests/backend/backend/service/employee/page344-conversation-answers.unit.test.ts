@@ -20,6 +20,7 @@ const employee: StoredAgentEmployee = {
   model: "model",
   reasoningEffort: null,
   access: "workspace",
+  disabledToolGroups: [],
   soul: "",
   instructions: "",
   memory: "",

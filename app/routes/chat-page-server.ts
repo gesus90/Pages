@@ -1,7 +1,10 @@
 import { data } from "react-router";
 
 import { authenticatedUserContext } from "@/app/lib/auth.server";
-import { shareChatGroup } from "@/app/lib/chat-page-conversations.server";
+import {
+  runReplySettingsIntent,
+  shareChatGroup,
+} from "@/app/lib/chat-page-conversations.server";
 import {
   CHAT_TASK_INTENTS,
   CHAT_TASK_STATUS,
@@ -260,55 +263,6 @@ async function runMemberIntent(
   return {};
 }
 
-/** Reads or changes who answers in a group; only the one who manages the group changes it (PAGE-317). */
-async function runReplySettingsIntent(
-  services: ChatServices,
-  person: User,
-  intent: "reply-settings" | "save-reply-settings" | "reply-decisions",
-  formData: FormData,
-): Promise<ChatIntentOutcome> {
-  const { conversationReplySettingsService } = services;
-  if (intent === "reply-settings")
-    return {
-      replySettings: await conversationReplySettingsService.read(
-        person,
-        formData.get("conversationId"),
-      ),
-    };
-  if (intent === "reply-decisions")
-    return {
-      replyDecisions: await conversationReplySettingsService.decisions(
-        person,
-        formData.get("conversationId"),
-      ),
-    };
-  return {
-    replySettings: await conversationReplySettingsService.save(person, {
-      conversationId: formData.get("conversationId"),
-      mode: formData.get("mode"),
-      // Without values of its own a group follows the defaults of the instance (PAGE-379).
-      rules:
-        formData.get("useDefaults") === "true"
-          ? null
-          : {
-              answerThreshold: Number(formData.get("answerThreshold")),
-              responsibilityThreshold: Number(
-                formData.get("responsibilityThreshold"),
-              ),
-              secondThreshold: Number(formData.get("secondThreshold")),
-              maximumResponders: Number(formData.get("maximumResponders")),
-            },
-      ...(formData.has("automaticRepliesPerOrigin")
-        ? {
-            automaticRepliesPerOrigin: Number(
-              formData.get("automaticRepliesPerOrigin"),
-            ),
-          }
-        : {}),
-    }),
-  };
-}
-
 /** The changes of one member of a chat that leave everybody else's view alone. */
 const MEMBER_INTENTS = ["mute", "history", "confidential"] as const;
 
@@ -487,6 +441,52 @@ async function runIntent(
       intent,
       formData,
     );
+  return runChatFlowIntent(services, person, intent, formData);
+}
+
+async function runChatFlowIntent(
+  services: ChatServices,
+  person: User,
+  intent: Exclude<
+    ChatPageIntent,
+    | (typeof MEMBER_INTENTS)[number]
+    | ContentIntent
+    | AgentControlIntent
+    | ChatTaskIntent
+  >,
+  formData: FormData,
+): Promise<ChatIntentOutcome> {
+  switch (intent) {
+    case "save-contacts":
+    case "send":
+    case "create-group":
+    case "add-member":
+      return runDirectoryChatIntent(services, person, intent, formData);
+    case "send-group":
+    case "send-direct":
+    case "read":
+      await runConversationIntent(services, person, intent, formData);
+      return {};
+    case "group-context":
+      return {
+        groupContext: await services.conversationContextReader.forMember(
+          person,
+          formData.get("conversationId"),
+        ),
+      };
+    case "reply-settings":
+    case "save-reply-settings":
+    case "reply-decisions":
+      return runReplySettingsIntent(services, person, intent, formData);
+  }
+}
+
+async function runDirectoryChatIntent(
+  services: ChatServices,
+  person: User,
+  intent: "save-contacts" | "send" | "create-group" | "add-member",
+  formData: FormData,
+): Promise<ChatIntentOutcome> {
   switch (intent) {
     case "save-contacts":
       await services.chatDirectoryService.saveContacts(
@@ -523,22 +523,6 @@ async function runIntent(
       );
       await shareChatGroup(services, person, formData.get("groupId"));
       return {};
-    case "send-group":
-    case "send-direct":
-    case "read":
-      await runConversationIntent(services, person, intent, formData);
-      return {};
-    case "group-context":
-      return {
-        groupContext: await services.conversationContextReader.forMember(
-          person,
-          formData.get("conversationId"),
-        ),
-      };
-    case "reply-settings":
-    case "save-reply-settings":
-    case "reply-decisions":
-      return runReplySettingsIntent(services, person, intent, formData);
   }
 }
 

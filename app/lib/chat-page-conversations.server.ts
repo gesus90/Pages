@@ -1,4 +1,8 @@
 import type { getApplicationServices } from "@/app/lib/services.server";
+import type {
+  ConversationDecisionEntry,
+  ConversationReplySettingsView,
+} from "@/definition/ConversationDecision";
 import type { User } from "@/definition/User";
 import type { VirtualChatSelection } from "@/definition/VirtualChat";
 
@@ -51,4 +55,64 @@ export async function openChatConversation(
     selection.id,
   );
   return { conversationId: conversation.id, isOwn: true };
+}
+
+/**
+ * Reads or changes who answers in a group; only the one who manages the group changes it (PAGE-317).
+ *
+ * @param services - The application services.
+ * @param person - The signed-in person.
+ * @param intent - The reply settings intent.
+ * @param formData - The form fields.
+ * @returns The reply settings or recent reply decisions.
+ */
+export async function runReplySettingsIntent(
+  services: ChatPageServices,
+  person: User,
+  intent: "reply-settings" | "save-reply-settings" | "reply-decisions",
+  formData: FormData,
+): Promise<{
+  readonly replySettings?: ConversationReplySettingsView;
+  readonly replyDecisions?: readonly ConversationDecisionEntry[];
+}> {
+  const { conversationReplySettingsService } = services;
+  if (intent === "reply-settings")
+    return {
+      replySettings: await conversationReplySettingsService.read(
+        person,
+        formData.get("conversationId"),
+      ),
+    };
+  if (intent === "reply-decisions")
+    return {
+      replyDecisions: await conversationReplySettingsService.decisions(
+        person,
+        formData.get("conversationId"),
+      ),
+    };
+  return {
+    replySettings: await conversationReplySettingsService.save(person, {
+      conversationId: formData.get("conversationId"),
+      mode: formData.get("mode"),
+      // Without values of its own a group follows the defaults of the instance (PAGE-379).
+      rules:
+        formData.get("useDefaults") === "true"
+          ? null
+          : {
+              answerThreshold: Number(formData.get("answerThreshold")),
+              responsibilityThreshold: Number(
+                formData.get("responsibilityThreshold"),
+              ),
+              secondThreshold: Number(formData.get("secondThreshold")),
+              maximumResponders: Number(formData.get("maximumResponders")),
+            },
+      ...(formData.has("automaticRepliesPerOrigin")
+        ? {
+            automaticRepliesPerOrigin: Number(
+              formData.get("automaticRepliesPerOrigin"),
+            ),
+          }
+        : {}),
+    }),
+  };
 }

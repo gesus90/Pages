@@ -24,15 +24,16 @@ export function isChatTaskIntent(intent: string): intent is ChatTaskIntent {
 }
 
 /** The HTTP status of a refused task change. */
-export const CHAT_TASK_STATUS: Readonly<Record<AgentChatTaskErrorCode, number>> =
-  {
-    not_found: 404,
-    forbidden: 403,
-    limit_reached: 409,
-    time_in_past: 409,
-    invalid: 400,
-    run_active: 409,
-  };
+export const CHAT_TASK_STATUS: Readonly<
+  Record<AgentChatTaskErrorCode, number>
+> = {
+  not_found: 404,
+  forbidden: 403,
+  limit_reached: 409,
+  time_in_past: 409,
+  invalid: 400,
+  run_active: 409,
+};
 
 /** The refusal of a task change as the page reads it; `null` for any other error. */
 export function chatTaskFailure(error: unknown): AgentChatTaskErrorCode | null {

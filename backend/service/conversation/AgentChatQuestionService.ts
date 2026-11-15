@@ -214,7 +214,13 @@ export class AgentChatQuestionService {
     });
     this.dependencies.publisher.publish(changedEvent(question.conversationId));
     return this.view(
-      { ...question, status: "answered", answers, answeredBy: person.id, answeredAt },
+      {
+        ...question,
+        status: "answered",
+        answers,
+        answeredBy: person.id,
+        answeredAt,
+      },
       person,
     );
   }

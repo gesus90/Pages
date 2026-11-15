@@ -5,16 +5,25 @@ import { CONVERSATION_DEFAULT_REPLY_MODE } from "@/definition/ConversationDecisi
 import {
   agentWrittenConversations,
   isAgentWritten,
-  sharedGroup,
   splitConversations,
   toVirtualMessage,
 } from "./ChatConversationView";
+import {
+  addConversationQuestions,
+  contactChoice,
+  groupsOf,
+  olderHistoryIds,
+  overseenGroupConversations,
+  participantView,
+  withConfidentiality,
+} from "./ChatDirectoryView";
 import {
   markQueuedMessages,
   queuedChatMessages,
   waitingInChat,
 } from "./ChatMessageQueues";
 
+import type { AccountFacts } from "./ChatDirectoryView";
 import type { ChatContactEntry } from "@/backend/database/repositories/employee/ChatContactRepository";
 import type { ChatGroupRecord } from "@/backend/database/repositories/employee/ChatGroupRepository";
 import type { EmployeeStore } from "@/backend/database/repositories/employee/EmployeeStore";
@@ -43,7 +52,6 @@ import type {
   VirtualChatDirectory,
   VirtualChatHistoryPage,
   VirtualChatMessage,
-  VirtualContactChoice,
   VirtualGroup,
   VirtualParticipant,
   VirtualToolUse,
@@ -121,119 +129,6 @@ export interface ChatDirectoryDependencies {
   readonly now?: () => Date;
 }
 
-/** The facts of one account the page shows. */
-interface AccountFacts {
-  readonly user: User;
-  /** The job title of an agent; empty for a person. */
-  readonly jobTitle: string;
-  /** Whether the account is among the active accounts a list can take. */
-  readonly isChoosable: boolean;
-}
-
-function avatarImage(user: User): string | null {
-  return user.avatarType === "image" ? (user.avatarImageUrl ?? null) : null;
-}
-
-/** Marks the agents that nothing is shared from (PAGE-305). */
-function withConfidentiality(
-  participants: VirtualChatDirectory["participants"],
-  confidentialAgents: { has(id: string): boolean },
-): VirtualChatDirectory["participants"] {
-  return participants.map((participant) =>
-    participant.kind === "agent"
-      ? {
-          ...participant,
-          isConfidential: confidentialAgents.has(participant.id),
-        }
-      : participant,
-  );
-}
-
-function contactChoice(facts: AccountFacts): VirtualContactChoice {
-  const { user } = facts;
-  const isAgent = user.isAgent === true;
-  return {
-    id: user.id,
-    name: user.displayName,
-    kind: isAgent ? "agent" : "human",
-    subtitle: isAgent ? facts.jobTitle : user.username,
-    color: user.avatarColor ?? null,
-    avatarImageUrl: avatarImage(user),
-    isSelectable: facts.isChoosable,
-  };
-}
-
-/** The later of two ISO times; the second may be missing. */
-function latest(first: string, second: string | undefined): string {
-  return second !== undefined && second > first ? second : first;
-}
-
-function group(
-  record: ChatGroupRecord,
-  shownIds: ReadonlySet<string>,
-  view: ConversationView | undefined,
-): VirtualGroup {
-  return {
-    id: record.id,
-    name: record.name,
-    description: record.description,
-    memberIds: record.memberIds.filter((id) => shownIds.has(id)),
-    unreadCount: view?.summary.unreadCount ?? 0,
-    isMuted: view?.summary.isMuted ?? false,
-    lastActivityAt: latest(record.lastActivityAt, view?.summary.lastActivityAt),
-  };
-}
-
-/** The groups of the page: the person's own and the shared ones they belong to. */
-function groupsOf(
-  records: readonly ChatGroupRecord[],
-  shownIds: ReadonlySet<string>,
-  conversations: ChatConversations,
-  person: User,
-): VirtualGroup[] {
-  const ownIds = new Set(records.map((record) => record.id));
-  return [
-    ...records.map((record) =>
-      group(record, shownIds, conversations.groups.get(record.id)),
-    ),
-    ...[...conversations.groups.values()]
-      .filter((view) => !ownIds.has(view.summary.id))
-      .map((view) => sharedGroup(view, person)),
-  ];
-}
-
-/** What a participant shows of the stored direct conversation with them, if any. */
-function conversationState(
-  view: ConversationView | undefined,
-): Pick<VirtualParticipant, "unreadCount" | "isMuted" | "conversationId"> {
-  return {
-    unreadCount: view?.summary.unreadCount ?? 0,
-    isMuted: view?.summary.isMuted ?? false,
-    conversationId: view?.summary.id ?? null,
-  };
-}
-
-/** The entries of the page whose stored history holds older messages (PAGE-275). */
-function olderHistoryIds(conversations: ChatConversations): string[] {
-  return [...conversations.direct, ...conversations.groups]
-    .filter(([, view]) => view.hasMore)
-    .map(([id]) => id);
-}
-
-/** What a participant shows of the messages its agent wrote to the person (PAGE-311). */
-function agentWrittenState(
-  view: ConversationView,
-): Pick<VirtualParticipant, "unreadCount" | "agentChat"> {
-  const newest = view.messages.at(-1);
-  return {
-    unreadCount: view.summary.unreadCount,
-    agentChat: {
-      conversationId: view.summary.id,
-      newestMessageId: newest?.id ?? "",
-    },
-  };
-}
-
 /** Two histories as one, oldest first; the messages of the first stay before equal times. */
 function mergeByTime(
   first: readonly VirtualChatMessage[],
@@ -300,7 +195,7 @@ export class ChatDirectoryService {
           }
         : await this.history(person, facts.user, agentChat);
       participants.push(
-        this.participant(facts, contact, {
+        participantView(facts, contact, {
           isWorking: history !== null && history.isWorking,
           view,
           accessLevel: history?.accessLevel,
@@ -317,12 +212,12 @@ export class ChatDirectoryService {
         this.conversationHistory(view, person),
         this.dependencies.queuedMessages?.(groupId) ?? new Map(),
       );
-    const overseen = await this.overseenConversations(person, accounts);
+    const overseen = await overseenGroupConversations(
+      this.dependencies,
+      person,
+      accounts,
+    );
     Object.assign(histories, overseen.histories);
-    const paused = await this.pausedGroupIds(conversations);
-    const replyModes = await this.dependencies.replyModes?.([
-      ...conversations.groups.keys(),
-    ]);
     const shownIds = new Set(participants.map((participant) => participant.id));
     const chats = this.dependencies.store.chats();
     // Which chats nothing is shared from (PAGE-305).
@@ -332,36 +227,19 @@ export class ChatDirectoryService {
     ]);
     return {
       participants: withConfidentiality(participants, confidentialAgents),
-      groups: [
-        ...(await Promise.all(
-          groupsOf(groups, shownIds, conversations, person).map(
-            async (entry) => {
-              const working = this.workingAgents(entry.id, accounts);
-              const agentSessions = await this.groupSessions(
-                entry.id,
-                working.map((agent) => agent.id),
-              );
-              return {
-                ...entry,
-                workingAgentNames: working.map((agent) => agent.name),
-                workingAgents: working,
-                isConfidential: confidentialGroups.has(entry.id),
-                ...(replyModes === undefined
-                  ? {}
-                  : {
-                      replyMode:
-                        replyModes.get(entry.id) ??
-                        CONVERSATION_DEFAULT_REPLY_MODE,
-                    }),
-                ...(paused.has(entry.id) ? { isAgentPaused: true } : {}),
-                ...(agentSessions.length > 0 ? { agentSessions } : {}),
-              };
-            },
-          ),
-        )),
-        ...overseen.groups.filter(({ id }) => !conversations.groups.has(id)),
-      ],
-      histories: await this.withQuestions(person, histories),
+      groups: await this.groupDirectoryEntries(person, {
+        groups,
+        shownIds,
+        conversations,
+        accounts,
+        confidentialGroups,
+        overseenGroups: overseen.groups,
+      }),
+      histories: await addConversationQuestions(
+        this.dependencies.questions,
+        person,
+        histories,
+      ),
       liveToolUses,
       olderHistoryIds: [
         ...olderHistoryIds(conversations),
@@ -398,7 +276,11 @@ export class ChatDirectoryService {
     const messages = page.messages.map((message) =>
       toVirtualMessage(message, person),
     );
-    const shown = await this.withQuestions(person, { page: messages });
+    const shown = await addConversationQuestions(
+      this.dependencies.questions,
+      person,
+      { page: messages },
+    );
     return {
       conversationId: page.conversationId,
       messages: shown.page ?? messages,
@@ -488,55 +370,53 @@ export class ChatDirectoryService {
     return paused;
   }
 
-  /** The conversations of agents only the person reads as an administrator or leader, shown as read-only groups. */
-  private async overseenConversations(
+  /** Builds the group rows of the directory with active agents and reply modes. */
+  private async groupDirectoryEntries(
     person: User,
-    accounts: ReadonlyMap<string, AccountFacts>,
-  ): Promise<{
-    readonly groups: VirtualGroup[];
-    readonly histories: Record<string, readonly VirtualChatMessage[]>;
-    readonly olderHistoryIds: string[];
-  }> {
-    const groups: VirtualGroup[] = [];
-    const histories: Record<string, readonly VirtualChatMessage[]> = {};
-    const olderIds: string[] = [];
-    const result = { groups, histories, olderHistoryIds: olderIds };
-    const { oversight, guard } = this.dependencies;
-    if (!oversight) return result;
-    for (const view of await oversight.views(person)) {
-      const { summary } = view;
-      const members = summary.members.flatMap(({ id }) => {
-        const facts = accounts.get(id);
-        return facts
-          ? [
-              this.participant(
-                facts,
-                { contactId: id, lastActivityAt: summary.lastActivityAt },
-                { isWorking: false, view: undefined },
-              ),
-            ]
-          : [];
-      });
-      result.groups.push({
-        id: summary.id,
-        name:
-          summary.kind === "group"
-            ? summary.name
-            : members.map((member) => member.name).join(" ↔ "),
-        description: "",
-        memberIds: members.map((member) => member.id),
-        unreadCount: 0,
-        lastActivityAt: summary.lastActivityAt,
-        isAgentConversation: true,
-        agentMembers: members,
-        ...((await guard?.isPaused(summary.id)) === true
-          ? { isAgentPaused: true }
-          : {}),
-      });
-      result.histories[summary.id] = this.conversationHistory(view, person);
-      if (view.hasMore) result.olderHistoryIds.push(summary.id);
-    }
-    return result;
+    input: {
+      readonly groups: readonly ChatGroupRecord[];
+      readonly shownIds: ReadonlySet<string>;
+      readonly conversations: ChatConversations;
+      readonly accounts: ReadonlyMap<string, AccountFacts>;
+      readonly confidentialGroups: ReadonlySet<string>;
+      readonly overseenGroups: readonly VirtualGroup[];
+    },
+  ): Promise<VirtualGroup[]> {
+    const [paused, replyModes] = await Promise.all([
+      this.pausedGroupIds(input.conversations),
+      this.dependencies.replyModes?.([...input.conversations.groups.keys()]),
+    ]);
+    const ownAndShared = await Promise.all(
+      groupsOf(input.groups, input.shownIds, input.conversations, person).map(
+        async (entry) => {
+          const working = this.workingAgents(entry.id, input.accounts);
+          const agentSessions = await this.groupSessions(
+            entry.id,
+            working.map((agent) => agent.id),
+          );
+          return {
+            ...entry,
+            workingAgentNames: working.map((agent) => agent.name),
+            workingAgents: working,
+            isConfidential: input.confidentialGroups.has(entry.id),
+            ...(replyModes === undefined
+              ? {}
+              : {
+                  replyMode:
+                    replyModes.get(entry.id) ?? CONVERSATION_DEFAULT_REPLY_MODE,
+                }),
+            ...(paused.has(entry.id) ? { isAgentPaused: true } : {}),
+            ...(agentSessions.length > 0 ? { agentSessions } : {}),
+          };
+        },
+      ),
+    );
+    return [
+      ...ownAndShared,
+      ...input.overseenGroups.filter(
+        ({ id }) => !input.conversations.groups.has(id),
+      ),
+    ];
   }
 
   /** The sessions of the agents in a group, with what each agent does in it now (PAGE-376). */
@@ -602,74 +482,11 @@ export class ChatDirectoryService {
     return [...contacts, ...partners];
   }
 
-  /** Adds the card of each question of an agent to the message that carries it (PAGE-391). */
-  private async withQuestions(
-    person: User,
-    histories: Readonly<Record<string, readonly VirtualChatMessage[]>>,
-  ): Promise<Record<string, readonly VirtualChatMessage[]>> {
-    const { questions } = this.dependencies;
-    if (!questions) return { ...histories };
-    const ids = Object.values(histories).flatMap((messages) =>
-      messages.map((message) => message.id),
-    );
-    const views = await questions.views(person, ids);
-    if (views.size === 0) return { ...histories };
-    return Object.fromEntries(
-      Object.entries(histories).map(([id, messages]) => [
-        id,
-        messages.map((message) => {
-          const question = views.get(message.id);
-          return question ? { ...message, question } : message;
-        }),
-      ]),
-    );
-  }
-
   private conversationHistory(
     view: ConversationView,
     person: User,
   ): VirtualChatMessage[] {
     return view.messages.map((message) => toVirtualMessage(message, person));
-  }
-
-  private participant(
-    facts: AccountFacts,
-    contact: ChatContactEntry,
-    state: {
-      readonly isWorking: boolean;
-      readonly view: ConversationView | undefined;
-      readonly accessLevel?: AgentEmployeeAccess;
-      /** The direct conversation in which the agent wrote to the person (PAGE-311). */
-      readonly agentChat?: ConversationView | undefined;
-      /** The session of the agent in the direct chat (PAGE-376). */
-      readonly session?: AgentChatSessionBrief | undefined;
-    },
-  ): VirtualParticipant {
-    const { user } = facts;
-    const { view, agentChat } = state;
-    const isAgent = user.isAgent === true;
-    let status: VirtualParticipant["status"] = user.isActive ? "active" : "off";
-    if (user.isActive && state.isWorking) status = "working";
-
-    return {
-      id: user.id,
-      name: user.displayName,
-      kind: isAgent ? "agent" : "human",
-      role: isAgent ? facts.jobTitle : "",
-      username: user.username,
-      color: user.avatarColor ?? null,
-      avatarImageUrl: avatarImage(user),
-      status,
-      ...conversationState(view),
-      ...(agentChat ? agentWrittenState(agentChat) : {}),
-      canChat: user.isActive && (isAgent || facts.isChoosable),
-      lastActivityAt: latest(
-        contact.lastActivityAt,
-        view?.summary.lastActivityAt,
-      ),
-      ...(state.accessLevel ? { accessLevel: state.accessLevel } : {}),
-      ...(state.session ? { session: state.session } : {}),
-    };
   }
 
   /** The person's history with an agent, or `null` for a person or no conversation. */

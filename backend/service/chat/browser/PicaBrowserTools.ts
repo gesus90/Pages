@@ -86,6 +86,9 @@ export type AgentBrowserGuard = (
 /**
  * Registers the own-account browser tools of an agent employee.
  *
+ * @param registry - Tool registry receiving the browser tool definitions.
+ * @param service - Browser execution service for own-account calls.
+ * @param spend - Consumes one step budget unit before executing a tool.
  * @param guard - The toolkit's check of the access level and of a
  * consequential step (PAGE-390); without it every call runs.
  */

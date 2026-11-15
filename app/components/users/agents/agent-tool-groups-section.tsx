@@ -45,7 +45,9 @@ function ToolGroupRow({
       <label
         className={cn(
           "flex items-start gap-3 px-3 py-2 text-sm",
-          isLocked || !isAvailable ? "cursor-not-allowed opacity-60" : "cursor-pointer",
+          isLocked || !isAvailable
+            ? "cursor-not-allowed opacity-60"
+            : "cursor-pointer",
         )}
       >
         <input

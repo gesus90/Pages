@@ -10,7 +10,12 @@ import { createAgentShellLauncher } from "@/backend/service/chat/toolkit/AgentSh
 import { agentToolPolicy } from "@/definition/AgentToolGroups";
 
 import { chatTaskWorld } from "../../employee/page392-chat-task-world";
-import { AGENT_ID, callContext, resultOf, workingFolder } from "./page390-toolkit-world";
+import {
+  AGENT_ID,
+  callContext,
+  resultOf,
+  workingFolder,
+} from "./page390-toolkit-world";
 
 import type { AgentToolkitJob } from "@/backend/service/chat/toolkit/AgentToolkitContracts";
 import type { AgentChatTasks } from "@/definition/AgentChatTask";
@@ -42,7 +47,7 @@ async function turnOf(
   jobs.push(job);
   return createPicaTools({
     tools: { run: vi.fn(async () => ({ ok: true, result: {} })) },
-    sessions: { confirmationWord: async () => null },
+    sessions: { confirmationWord: async () => "LÖSCHEN" },
     authorize: async () => undefined,
     message: "Erinnere mich morgen um 9 an den Zahnarzt",
     planTurnId: "message-1",
@@ -84,7 +89,8 @@ describe("PAGE-392 tools of scheduled tasks", () => {
       kind: "reminder",
       when: "Morgen, 16.11., 9:00 Uhr",
       nextRunAt: "2026-11-16T08:00:00.000Z",
-      instruction: "Confirm to the person in plain words: Morgen, 16.11., 9:00 Uhr.",
+      instruction:
+        "Confirm to the person in plain words: Morgen, 16.11., 9:00 Uhr.",
     });
     expect(world.bindings.size).toBe(1);
 
@@ -125,7 +131,9 @@ describe("PAGE-392 tools of scheduled tasks", () => {
     expect(held?.output).toMatchObject({ error: "CONFIRMATION_REQUIRED" });
     expect(world.bindings.size).toBe(1);
   });
+});
 
+describe("PAGE-392 task tool refusals and access", () => {
   it("answers refusals with their codes", async () => {
     const world = chatTaskWorld({ limit: 0 });
     const tools = await turnOf(
@@ -151,7 +159,9 @@ describe("PAGE-392 tools of scheduled tasks", () => {
 
   it("follows the access level: read-only agents only list, a job without a chat plans nothing", async () => {
     const { tasks } = boundTasks();
-    const readOnly = (await turnOf(tasks, "read_only")).describe().map((tool) => tool.id);
+    const readOnly = (await turnOf(tasks, "read_only"))
+      .describe()
+      .map((tool) => tool.id);
     expect(readOnly).toContain("aufgaben_auflisten");
     expect(readOnly).not.toContain("aufgabe_planen");
     expect(readOnly).not.toContain("aufgabe_aendern");

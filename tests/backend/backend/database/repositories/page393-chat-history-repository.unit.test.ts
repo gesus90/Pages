@@ -130,7 +130,9 @@ describe("PAGE-393 AgentChatHistoryRepository visibility", () => {
       }),
     ]);
   });
+});
 
+describe("PAGE-393 AgentChatHistoryRepository filters and order", () => {
   it("binds every word and filter as a parameter, the newest first", async () => {
     const db = database([
       row(),

@@ -12,6 +12,8 @@ import {
   workingFolder,
 } from "./page390-toolkit-world";
 
+import type * as LoggerModule from "@/backend/logging/Logger";
+
 import type { ToolkitWorld } from "./page390-toolkit-world";
 
 // Never start the independent MCP plan catalog in the Pages unit scope.
@@ -21,7 +23,7 @@ vi.mock("@/backend/service/chat/PicaPlanTools", () => ({
 
 const logged = vi.hoisted(() => [] as unknown[]);
 vi.mock("@/backend/logging/Logger", async (original) => ({
-  ...(await original<typeof import("@/backend/logging/Logger")>()),
+  ...(await original<typeof LoggerModule>()),
   logEvent: (entry: unknown) => logged.push(entry),
 }));
 
@@ -135,7 +137,9 @@ describe("PAGE-390 toolkit with full access (Arbeitsplatz/YOLO)", () => {
       ]),
     );
   });
+});
 
+describe("PAGE-390 background shell commands", () => {
   it("runs long commands in the background and reports output and end", async () => {
     const root = await workingFolder();
     const { turn } = await world({ root, access: "yolo" });
@@ -165,7 +169,10 @@ describe("PAGE-390 toolkit with full access (Arbeitsplatz/YOLO)", () => {
 describe("PAGE-390 toolkit in Nur Lesen", () => {
   it("reads and searches files, the web, the browser and Pages but offers no writing tool", async () => {
     const root = await workingFolder();
-    await writeFile(path.join(root, "bericht.md"), "Umsatz steigt\nKosten fallen\n");
+    await writeFile(
+      path.join(root, "bericht.md"),
+      "Umsatz steigt\nKosten fallen\n",
+    );
     const { turn } = await world({ root, access: "read_only" });
     const tools = turn(FIRST);
     const offered = ids(tools);
@@ -306,7 +313,11 @@ describe("PAGE-390 tool groups per agent", () => {
     expect(offered).toContain("datei_lesen");
     expect(offered).toContain("tickets_create");
     expect(
-      await tools.invoke("web_abrufen", { url: "https://example.com" }, callContext()),
+      await tools.invoke(
+        "web_abrufen",
+        { url: "https://example.com" },
+        callContext(),
+      ),
     ).toBeNull();
     expect(browser).not.toHaveBeenCalled();
     expect(readPage).not.toHaveBeenCalled();
@@ -339,7 +350,11 @@ describe("PAGE-390 working folder roots", () => {
       "link/geheim.txt",
       "/etc/passwd",
     ]) {
-      const read = await tools.invoke("datei_lesen", { path: target }, callContext());
+      const read = await tools.invoke(
+        "datei_lesen",
+        { path: target },
+        callContext(),
+      );
       expect(read?.output).toMatchObject({
         ok: false,
         error: "OUTSIDE_WORKSPACE",
@@ -362,9 +377,8 @@ describe("PAGE-390 working folder roots", () => {
 
   it("refuses an Arbeitsplatz shell command when the isolation is missing", async () => {
     const root = await workingFolder();
-    const { createAgentShellLauncher } = await import(
-      "@/backend/service/chat/toolkit/AgentShellLauncher"
-    );
+    const { createAgentShellLauncher } =
+      await import("@/backend/service/chat/toolkit/AgentShellLauncher");
     const launcher = createAgentShellLauncher(true, {
       probe: async () => false,
     });
@@ -396,18 +410,32 @@ describe("PAGE-390 credentials and audit", () => {
     const text = JSON.stringify(read?.output);
     expect(text).not.toContain("sk-abcdefghijklmnopqrstuvwx");
     expect(text).toContain("[redacted]");
-    expect(logged).toContainEqual(
-      expect.objectContaining({
-        event: "agent.tool.call",
-        metadata: expect.objectContaining({
-          agentId: "agent-1",
-          sessionId: "chat-1",
-          tool: "datei_lesen",
-          result: "ok",
-          at: expect.any(String),
-          durationMs: expect.any(Number),
-        }),
-      }),
+    const audit = logged.find(
+      (
+        entry,
+      ): entry is {
+        readonly event: string;
+        readonly metadata: {
+          readonly agentId: string;
+          readonly sessionId: string;
+          readonly tool: string;
+          readonly result: string;
+          readonly at: unknown;
+          readonly durationMs: unknown;
+        };
+      } =>
+        typeof entry === "object" &&
+        entry !== null &&
+        "event" in entry &&
+        entry.event === "agent.tool.call",
     );
+    expect(audit?.metadata).toMatchObject({
+      agentId: "agent-1",
+      sessionId: "chat-1",
+      tool: "datei_lesen",
+      result: "ok",
+    });
+    expect(typeof audit?.metadata.at).toBe("string");
+    expect(typeof audit?.metadata.durationMs).toBe("number");
   });
 });

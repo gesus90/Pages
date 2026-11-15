@@ -37,11 +37,15 @@ function readableInput(input: unknown): string | null {
     return JSON.stringify(input);
   const command: unknown = Reflect.get(input, "command");
   if (typeof command === "string") return command;
-  return Object.keys(input).length === 0 ? null : JSON.stringify(input, null, 2);
+  return Object.keys(input).length === 0
+    ? null
+    : JSON.stringify(input, null, 2);
 }
 
 /** The readable text of a result: its JSON pretty printed, or as it is. */
-function readableOutput(outcome: Pick<PicaToolOutcome, "result">): string | null {
+function readableOutput(
+  outcome: Pick<PicaToolOutcome, "result">,
+): string | null {
   if (outcome.result === null) return null;
   try {
     return JSON.stringify(JSON.parse(outcome.result), null, 2);

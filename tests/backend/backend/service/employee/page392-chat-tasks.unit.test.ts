@@ -6,9 +6,21 @@ import {
   describeChatTaskTrigger,
 } from "@/backend/service/employee/AgentChatTaskSchedule";
 
-import { AGENT, IGOR, MAYA, NOW, OTHER_AGENT, OUTSIDER, chatTaskWorld } from "./page392-chat-task-world";
+import {
+  AGENT,
+  IGOR,
+  MAYA,
+  NOW,
+  OTHER_AGENT,
+  OUTSIDER,
+  chatTaskWorld,
+} from "./page392-chat-task-world";
 
-const GROUP = { kind: "conversation", conversationId: "group-1", askerId: "igor" } as const;
+const GROUP = {
+  kind: "conversation",
+  conversationId: "group-1",
+  askerId: "igor",
+} as const;
 const DIRECT = { kind: "direct", personId: "igor" } as const;
 
 describe("PAGE-392 schedule in the person's time zone", () => {
@@ -49,9 +61,9 @@ describe("PAGE-392 schedule in the person's time zone", () => {
       { type: "weekly", weekdays: [5, 1, 2, 3, 4], times: ["17:30", "08:00"] },
       { timeZone: "Europe/Berlin", now: NOW },
     );
-    expect(describeChatTaskTrigger(workdays, { now: NOW, language: "de" })).toBe(
-      "Werktags (Mo–Fr) um 8:00 und 17:30 Uhr",
-    );
+    expect(
+      describeChatTaskTrigger(workdays, { now: NOW, language: "de" }),
+    ).toBe("Werktags (Mo–Fr) um 8:00 und 17:30 Uhr");
     const hourly = chatTaskTrigger(
       { type: "interval", every: 2, unit: "hour" },
       { timeZone: "Europe/Berlin", now: NOW },
@@ -86,7 +98,11 @@ describe("PAGE-392 schedule in the person's time zone", () => {
     );
     const first = nextRunAfter(weekly, NOW, NOW);
     expect(first).toBe("2026-11-16T08:00:00.000Z");
-    const second = nextRunAfter(weekly, new Date(first ?? ""), new Date(first ?? ""));
+    const second = nextRunAfter(
+      weekly,
+      new Date(first ?? ""),
+      new Date(first ?? ""),
+    );
     expect(second).toBe("2026-11-23T08:00:00.000Z");
   });
 });
@@ -105,22 +121,24 @@ describe("PAGE-392 planning from the chat", () => {
     expect(world.create).toHaveBeenCalledWith(
       IGOR.id,
       expect.objectContaining({
-        trigger: { type: "once", at: "2026-11-16T08:00:00.000Z", timeZone: "Europe/Berlin" },
+        trigger: {
+          type: "once",
+          at: "2026-11-16T08:00:00.000Z",
+          timeZone: "Europe/Berlin",
+        },
         isActive: true,
         deleteAfterSuccess: true,
-        action: {
-          type: "agent",
-          agentId: AGENT.id,
-          instruction: expect.stringContaining(
-            "Ursprüngliche Bitte: „Erinnere mich morgen um 9 an den Zahnarzt“",
-          ),
-        },
       }),
     );
-    const [input] = world.create.mock.calls[0]?.slice(1) ?? [];
-    expect((input as { action: { instruction: string } }).action.instruction).toContain(
-      "beginne mit „Erinnerung:“",
+    const input = world.create.mock.calls[0]?.[1];
+    expect(input?.action).toMatchObject({ type: "agent", agentId: AGENT.id });
+    if (input?.action.type !== "agent") {
+      throw new Error("Expected agent action");
+    }
+    expect(input.action.instruction).toContain(
+      "Ursprüngliche Bitte: „Erinnere mich morgen um 9 an den Zahnarzt“",
     );
+    expect(input.action.instruction).toContain("beginne mit „Erinnerung:“");
     expect(world.bindings.get(receipt.task.id)).toMatchObject({
       agentId: AGENT.id,
       requesterId: IGOR.id,
@@ -152,10 +170,14 @@ describe("PAGE-392 planning from the chat", () => {
       world.service.bind(AGENT.id, { ...GROUP, askerId: null }).create(request),
     ).rejects.toMatchObject({ code: "forbidden" });
     await expect(
-      world.service.bind(AGENT.id, { ...GROUP, askerId: OUTSIDER.id }).create(request),
+      world.service
+        .bind(AGENT.id, { ...GROUP, askerId: OUTSIDER.id })
+        .create(request),
     ).rejects.toMatchObject({ code: "forbidden" });
     await expect(
-      world.service.bind(AGENT.id, { ...GROUP, askerId: OTHER_AGENT.id }).create(request),
+      world.service
+        .bind(AGENT.id, { ...GROUP, askerId: OTHER_AGENT.id })
+        .create(request),
     ).rejects.toMatchObject({ code: "forbidden" });
   });
 
@@ -169,7 +191,9 @@ describe("PAGE-392 planning from the chat", () => {
       schedule: { type: "interval", every: 1, unit: "day" },
     } as const;
     await tasks.create(request);
-    await expect(tasks.create(request)).rejects.toMatchObject({ code: "limit_reached" });
+    await expect(tasks.create(request)).rejects.toMatchObject({
+      code: "limit_reached",
+    });
     const fresh = chatTaskWorld();
     await expect(
       fresh.service.bind(AGENT.id, DIRECT).create({
@@ -198,8 +222,12 @@ describe("PAGE-392 listing, changing and deleting", () => {
       instruction: "Standup",
       schedule: { type: "weekly", weekdays: [1, 2, 3, 4, 5], times: ["09:30"] },
     });
-    expect((await own.list()).map((receipt) => receipt.task.id)).toEqual([mine.task.id]);
-    await expect(own.remove(theirs.task.id)).rejects.toMatchObject({ code: "not_found" });
+    expect((await own.list()).map((receipt) => receipt.task.id)).toEqual([
+      mine.task.id,
+    ]);
+    await expect(own.remove(theirs.task.id)).rejects.toMatchObject({
+      code: "not_found",
+    });
 
     const changed = await own.update(mine.task.id, {
       schedule: { type: "weekly", weekdays: [1], times: ["08:00"] },
@@ -214,7 +242,12 @@ describe("PAGE-392 listing, changing and deleting", () => {
       expect.objectContaining({
         automationId: mine.task.id,
         expectedRevision: 1,
-        trigger: expect.objectContaining({ type: "weekly", timeZone: "Europe/Berlin" }),
+        trigger: {
+          type: "weekly",
+          weekdays: [1],
+          times: ["08:00"],
+          timeZone: "Europe/Berlin",
+        },
       }),
     );
     const paused = await own.update(mine.task.id, { isActive: false });
@@ -227,7 +260,9 @@ describe("PAGE-392 listing, changing and deleting", () => {
     );
     expect(await own.list()).toEqual([]);
   });
+});
 
+describe("PAGE-392 visibility and control by chat members", () => {
   it("shows every task of the chat to its people, who pause and delete them", async () => {
     const world = chatTaskWorld();
     const planned = await world.service.bind(AGENT.id, GROUP).create({

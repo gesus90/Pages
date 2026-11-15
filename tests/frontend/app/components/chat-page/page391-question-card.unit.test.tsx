@@ -8,6 +8,8 @@ import { createI18n } from "@/app/lib/i18n";
 
 import { participant } from "./chat-page-fixture";
 
+import type * as ReactRouter from "react-router";
+
 import type { AgentQuestionView } from "@/definition/AgentChatQuestion";
 
 const fetcher = vi.hoisted(() => ({
@@ -15,7 +17,7 @@ const fetcher = vi.hoisted(() => ({
   submit: vi.fn<(form: FormData, options: { method: string }) => void>(),
 }));
 vi.mock("react-router", async (original) => ({
-  ...(await original<typeof import("react-router")>()),
+  ...(await original<typeof ReactRouter>()),
   useFetcher: () => fetcher,
 }));
 
@@ -98,11 +100,21 @@ it("collects several answers of a multiple-choice question before sending", () =
   renderCard({
     ...OPEN,
     confirmsTool: null,
-    items: [{ ...OPEN.items[0]!, isMultipleChoice: true }],
+    items: [
+      {
+        id: "q1",
+        text: "Delete ticket PAGE-12?",
+        options: [
+          { id: "o1", label: "Delete", isRecommended: true },
+          { id: "o2", label: "Cancel", isRecommended: false },
+        ],
+        isMultipleChoice: true,
+      },
+    ],
   });
   expect(screen.getByText("Several answers possible")).toBeTruthy();
   const send = screen.getByRole("button", { name: "Send answer" });
-  expect((send as HTMLButtonElement).disabled).toBe(true);
+  expect(send).toHaveProperty("disabled", true);
   fireEvent.click(screen.getByRole("button", { name: /Delete/u }));
   fireEvent.click(screen.getByRole("button", { name: /Cancel/u }));
   expect(fetcher.submit).not.toHaveBeenCalled();
@@ -125,7 +137,7 @@ it("locks the card after the answer and shows who chose what", () => {
   expect(screen.queryByRole("textbox")).toBeNull();
   const cancel = screen.getByRole("button", { name: /Cancel/u });
   expect(cancel.getAttribute("aria-pressed")).toBe("true");
-  expect((cancel as HTMLButtonElement).disabled).toBe(true);
+  expect(cancel).toHaveProperty("disabled", true);
   fireEvent.click(cancel);
   expect(fetcher.submit).not.toHaveBeenCalled();
 });
@@ -142,9 +154,10 @@ it("says that the agent continues on its own after the time limit", () => {
 it("keeps the buttons for the person asked and shows them disabled to everybody else", () => {
   renderCard({ ...OPEN, canAnswer: false });
   expect(screen.getByText("Only the person asked can answer.")).toBeTruthy();
-  expect(
-    (screen.getByRole("button", { name: /Delete/u }) as HTMLButtonElement).disabled,
-  ).toBe(true);
+  expect(screen.getByRole("button", { name: /Delete/u })).toHaveProperty(
+    "disabled",
+    true,
+  );
 });
 
 it("shows an interim message quieter and a question as its card in the history", () => {
@@ -152,8 +165,20 @@ it("shows an interim message quieter and a question as its card in the history",
     <I18nextProvider i18n={i18n}>
       <ChatPageHistory
         messages={[
-          { id: "m1", authorId: "ada", content: "On it, tests running …", toolUses: [], isInterim: true },
-          { id: "m2", authorId: "ada", content: "❓ Delete ticket PAGE-12?", toolUses: [], question: OPEN },
+          {
+            id: "m1",
+            authorId: "ada",
+            content: "On it, tests running …",
+            toolUses: [],
+            isInterim: true,
+          },
+          {
+            id: "m2",
+            authorId: "ada",
+            content: "❓ Delete ticket PAGE-12?",
+            toolUses: [],
+            question: OPEN,
+          },
           { id: "m3", authorId: "ada", content: "Done.", toolUses: [] },
         ]}
         name="Ada"

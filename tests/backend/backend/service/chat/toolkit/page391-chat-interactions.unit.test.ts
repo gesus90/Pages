@@ -9,7 +9,12 @@ import {
 import { createAgentShellLauncher } from "@/backend/service/chat/toolkit/AgentShellLauncher";
 import { agentToolPolicy } from "@/definition/AgentToolGroups";
 
-import { AGENT_ID, callContext, resultOf, workingFolder } from "./page390-toolkit-world";
+import {
+  AGENT_ID,
+  callContext,
+  resultOf,
+  workingFolder,
+} from "./page390-toolkit-world";
 
 import type { AgentToolkitJob } from "@/backend/service/chat/toolkit/AgentToolkitContracts";
 import type {
@@ -33,7 +38,9 @@ afterEach(async () => {
 });
 
 /** The chat of a job, faked at its boundary: what the agent says and asks. */
-function fakeChat(answer: (request: AgentQuestionRequest) => AgentQuestionOutcome): {
+function fakeChat(
+  answer: (request: AgentQuestionRequest) => AgentQuestionOutcome,
+): {
   readonly interactions: AgentChatInteractions;
   readonly said: string[];
   readonly asked: AgentQuestionRequest[];
@@ -76,7 +83,7 @@ async function turnOf(
   const approvals = new PicaPlanConfirmation();
   const tools = createPicaTools({
     tools: { run },
-    sessions: { confirmationWord: async () => null },
+    sessions: { confirmationWord: async () => "LÖSCHEN" },
     authorize: async () => undefined,
     message: FIRST.text,
     planTurnId: FIRST.id,
@@ -92,7 +99,9 @@ const answered = (
   status: "answered",
   questionId: "question-1",
   answeredBy: "Igor",
-  answers: [{ question: "?", chosen: [chosen], freeText: null, isRecommendedChosen }],
+  answers: [
+    { question: "?", chosen: [chosen], freeText: null, isRecommendedChosen },
+  ],
 });
 
 describe("PAGE-391 interim messages", () => {
@@ -108,7 +117,11 @@ describe("PAGE-391 interim messages", () => {
     expect(resultOf(sent?.output)).toMatchObject({ messageId: "message-1" });
     expect(chat.said).toEqual(["Bin dran, Tests laufen …"]);
     // A second one in the same round works as well: the round was not ended.
-    await tools.invoke("nachricht_senden", { text: "Fast fertig." }, callContext());
+    await tools.invoke(
+      "nachricht_senden",
+      { text: "Fast fertig." },
+      callContext(),
+    );
     expect(chat.said).toHaveLength(2);
   });
 
@@ -117,9 +130,14 @@ describe("PAGE-391 interim messages", () => {
     const ids = without.tools.describe().map((tool) => tool.id);
     expect(ids).not.toContain("nachricht_senden");
     expect(ids).not.toContain("rueckfrage");
-    const readOnly = await turnOf(fakeChat(() => answered("Ja", true)).interactions, "read_only");
+    const readOnly = await turnOf(
+      fakeChat(() => answered("Ja", true)).interactions,
+      "read_only",
+    );
     const readIds = readOnly.tools.describe().map((tool) => tool.id);
-    expect(readIds).toEqual(expect.arrayContaining(["nachricht_senden", "rueckfrage"]));
+    expect(readIds).toEqual(
+      expect.arrayContaining(["nachricht_senden", "rueckfrage"]),
+    );
   });
 });
 
@@ -131,7 +149,11 @@ describe("PAGE-391 questions", () => {
       "rueckfrage",
       {
         questions: [
-          { question: "Welche Datenbank?", options: ["SQLite", "PostgreSQL"], recommended: 1 },
+          {
+            question: "Welche Datenbank?",
+            options: ["SQLite", "PostgreSQL"],
+            recommended: 1,
+          },
         ],
       },
       callContext(),
@@ -139,21 +161,29 @@ describe("PAGE-391 questions", () => {
     expect(chat.asked[0]).toMatchObject({
       timeoutMinutes: 15,
       confirmation: null,
-      items: [{ text: "Welche Datenbank?", recommended: 1, isMultipleChoice: false }],
+      items: [
+        { text: "Welche Datenbank?", recommended: 1, isMultipleChoice: false },
+      ],
     });
-    expect(resultOf(outcome?.output)).toMatchObject({
+    const body = resultOf(outcome?.output);
+    expect(body).toMatchObject({
       status: "answered",
       answers: [{ chosen: ["PostgreSQL"] }],
-      instruction: expect.stringContaining("Continue your work"),
     });
+    expect(body.instruction).toContain("Continue your work");
   });
 
   it("refuses more than three questions or fewer than two options", async () => {
-    const { tools } = await turnOf(fakeChat(() => answered("A", true)).interactions);
+    const { tools } = await turnOf(
+      fakeChat(() => answered("A", true)).interactions,
+    );
     const tooMany = await tools.invoke(
       "rueckfrage",
       {
-        questions: Array.from({ length: 4 }, () => ({ question: "?", options: ["A", "B"] })),
+        questions: Array.from({ length: 4 }, () => ({
+          question: "?",
+          options: ["A", "B"],
+        })),
       },
       callContext(),
     );
@@ -167,18 +197,23 @@ describe("PAGE-391 questions", () => {
   });
 
   it("tells the agent to continue at its own discretion and say so when nobody answers in time", async () => {
-    const chat = fakeChat(() => ({ status: "expired", questionId: "question-1" }));
+    const chat = fakeChat(() => ({
+      status: "expired",
+      questionId: "question-1",
+    }));
     const { tools } = await turnOf(chat.interactions);
     const outcome = await tools.invoke(
       "rueckfrage",
-      { questions: [{ question: "Weiter?", options: ["Ja", "Nein"] }], timeoutMinutes: 5 },
+      {
+        questions: [{ question: "Weiter?", options: ["Ja", "Nein"] }],
+        timeoutMinutes: 5,
+      },
       callContext(),
     );
     expect(chat.asked[0]?.timeoutMinutes).toBe(5);
-    expect(resultOf(outcome?.output)).toMatchObject({
-      status: "expired",
-      instruction: expect.stringContaining("own discretion"),
-    });
+    const body = resultOf(outcome?.output);
+    expect(body.status).toBe("expired");
+    expect(body.instruction).toContain("own discretion");
   });
 });
 
@@ -186,14 +221,21 @@ describe("PAGE-391 confirmation of consequential steps", () => {
   it("runs a held-back deletion in the same round once the person chose the confirming button", async () => {
     const chat = fakeChat(() => answered("Löschen", true));
     const { tools, run } = await turnOf(chat.interactions);
-    const held = await tools.invoke("tickets_delete", { ticketId: "ticket-1" }, callContext());
+    const held = await tools.invoke(
+      "tickets_delete",
+      { ticketId: "ticket-1" },
+      callContext(),
+    );
     expect(held?.output).toMatchObject({ error: "CONFIRMATION_REQUIRED" });
     const details = resultOf(held?.output);
     const confirmed = await tools.invoke(
       "rueckfrage",
       {
         questions: [
-          { question: "Ticket PAGE-12 wirklich löschen?", options: ["Löschen", "Abbrechen"] },
+          {
+            question: "Ticket PAGE-12 wirklich löschen?",
+            options: ["Löschen", "Abbrechen"],
+          },
         ],
         confirms: { tool: details.tool, parameters: details.parameters },
       },
@@ -204,7 +246,11 @@ describe("PAGE-391 confirmation of consequential steps", () => {
       parameters: { ticketId: "ticket-1" },
     });
     expect(resultOf(confirmed?.output)).toMatchObject({ confirmed: true });
-    const deleted = await tools.invoke("tickets_delete", { ticketId: "ticket-1" }, callContext());
+    const deleted = await tools.invoke(
+      "tickets_delete",
+      { ticketId: "ticket-1" },
+      callContext(),
+    );
     expect(deleted?.output).toMatchObject({ ok: true });
     expect(run).toHaveBeenCalledWith(
       AGENT_ID,
@@ -216,20 +262,32 @@ describe("PAGE-391 confirmation of consequential steps", () => {
   it("keeps the step held back when the person cancels", async () => {
     const chat = fakeChat(() => answered("Abbrechen", false));
     const { tools, run } = await turnOf(chat.interactions);
-    await tools.invoke("tickets_delete", { ticketId: "ticket-1" }, callContext());
+    await tools.invoke(
+      "tickets_delete",
+      { ticketId: "ticket-1" },
+      callContext(),
+    );
     const declined = await tools.invoke(
       "rueckfrage",
       {
-        questions: [{ question: "Löschen?", options: ["Löschen", "Abbrechen"] }],
-        confirms: { tool: "ticket.delete", parameters: { ticketId: "ticket-1" } },
+        questions: [
+          { question: "Löschen?", options: ["Löschen", "Abbrechen"] },
+        ],
+        confirms: {
+          tool: "ticket.delete",
+          parameters: { ticketId: "ticket-1" },
+        },
       },
       callContext(),
     );
-    expect(resultOf(declined?.output)).toMatchObject({
-      confirmed: false,
-      instruction: expect.stringContaining("do not perform"),
-    });
-    const again = await tools.invoke("tickets_delete", { ticketId: "ticket-1" }, callContext());
+    const body = resultOf(declined?.output);
+    expect(body.confirmed).toBe(false);
+    expect(body.instruction).toContain("do not perform");
+    const again = await tools.invoke(
+      "tickets_delete",
+      { ticketId: "ticket-1" },
+      callContext(),
+    );
     expect(again?.output).toMatchObject({ error: "CONFIRMATION_REQUIRED" });
     expect(run).not.toHaveBeenCalled();
   });
@@ -237,12 +295,21 @@ describe("PAGE-391 confirmation of consequential steps", () => {
   it("refuses to confirm a step Pages did not hold back, so no other step can be approved", async () => {
     const chat = fakeChat(() => answered("Löschen", true));
     const { tools } = await turnOf(chat.interactions);
-    await tools.invoke("tickets_delete", { ticketId: "ticket-1" }, callContext());
+    await tools.invoke(
+      "tickets_delete",
+      { ticketId: "ticket-1" },
+      callContext(),
+    );
     const other = await tools.invoke(
       "rueckfrage",
       {
-        questions: [{ question: "Löschen?", options: ["Löschen", "Abbrechen"] }],
-        confirms: { tool: "ticket.delete", parameters: { ticketId: "ticket-2" } },
+        questions: [
+          { question: "Löschen?", options: ["Löschen", "Abbrechen"] },
+        ],
+        confirms: {
+          tool: "ticket.delete",
+          parameters: { ticketId: "ticket-2" },
+        },
       },
       callContext(),
     );

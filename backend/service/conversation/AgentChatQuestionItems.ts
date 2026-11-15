@@ -71,7 +71,9 @@ function readOptionIds(value: unknown, item: AgentQuestionItem): string[] {
   if (!Array.isArray(value)) throw new ConversationError("invalid");
   const known = new Set(item.options.map((option) => option.id));
   const chosen = [...new Set(value)];
-  if (!chosen.every((id): id is string => typeof id === "string" && known.has(id)))
+  if (
+    !chosen.every((id): id is string => typeof id === "string" && known.has(id))
+  )
     throw new ConversationError("invalid");
   if (!item.isMultipleChoice && chosen.length > 1)
     throw new ConversationError("invalid");

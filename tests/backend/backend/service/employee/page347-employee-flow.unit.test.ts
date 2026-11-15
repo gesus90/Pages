@@ -41,6 +41,7 @@ function inputFor(access: AgentEmployeeAccess): AgentEmployeeInput {
       model: ZEN.id,
       reasoningEffort: null,
       access,
+      disabledToolGroups: [],
     },
     documents: { soul: "Synthetic", instructions: "" },
     memory: null,

@@ -82,6 +82,7 @@ function freshEmployee(): StoredAgentEmployee {
     model: "model",
     reasoningEffort: null,
     access: "read_only",
+    disabledToolGroups: [],
     soul: "",
     instructions: "",
     memory: "",

@@ -97,7 +97,10 @@ export function useQuestionAnswer(
     isSending: fetcher.state !== "idle",
     send: () => submit(drafts),
     sendChoice: (item, optionId) => {
-      const next = { ...drafts, [item.id]: { ...draft(item.id), optionIds: [optionId] } };
+      const next = {
+        ...drafts,
+        [item.id]: { ...draft(item.id), optionIds: [optionId] },
+      };
       setDrafts(next);
       submit(next);
     },

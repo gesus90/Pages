@@ -11,11 +11,16 @@ import {
   toVirtualMessage,
 } from "@/backend/service/employee/ChatConversationView";
 
+import { partialStub } from "../../stub-fixture";
+
 import type {
   NewAgentQuestion,
   StoredAgentQuestion,
 } from "@/backend/database/repositories/conversation/AgentChatQuestionRepository";
+import type { ConversationService } from "@/backend/service/conversation/ConversationService";
 import type { AgentQuestionAnswer } from "@/definition/AgentChatQuestion";
+import type { ChatMessage } from "@/definition/Chat";
+import type { ChatJob } from "@/definition/ChatJob";
 import type { ConversationMessage } from "@/definition/Conversation";
 import type { User } from "@/definition/User";
 
@@ -24,10 +29,12 @@ function user(id: string, overrides: Partial<User> = {}): User {
     id,
     username: id,
     displayName: id === "igor" ? "Igor" : id,
+    role: "employee",
     isActive: true,
+    mustChangePassword: false,
     isAgent: false,
     ...overrides,
-  } as User;
+  };
 }
 
 const AGENT = user("agent-1", { displayName: "Ada", isAgent: true });
@@ -38,7 +45,9 @@ const OTHER_AGENT = user("agent-2", { isAgent: true });
 /** An in-memory store of questions, as the repository behaves. */
 function questionStore(): {
   readonly rows: Map<string, StoredAgentQuestion>;
-  readonly store: ConstructorParameters<typeof AgentChatQuestionService>[0]["questions"];
+  readonly store: ConstructorParameters<
+    typeof AgentChatQuestionService
+  >[0]["questions"];
 } {
   const rows = new Map<string, StoredAgentQuestion>();
   return {
@@ -71,30 +80,59 @@ function questionStore(): {
 }
 
 /** The service with fakes at its boundaries: the conversations and the users. */
-function world(options: { readonly members?: readonly string[] } = {}) {
-  const sent: { conversationId: string; clientMessageId: string; text: string }[] = [];
+function world(options: { readonly members?: readonly string[] } = {}): {
+  readonly service: AgentChatQuestionService;
+  readonly sent: {
+    conversationId: string;
+    clientMessageId: string;
+    text: string;
+  }[];
+  readonly published: unknown[];
+  readonly rows: Map<string, StoredAgentQuestion>;
+  readonly expire: () => void;
+} {
+  const sent: {
+    conversationId: string;
+    clientMessageId: string;
+    text: string;
+  }[] = [];
   const published: unknown[] = [];
   const { rows, store } = questionStore();
   let timeout: () => void = () => undefined;
-  const users = new Map([AGENT, IGOR, MARA, OTHER_AGENT].map((entry) => [entry.id, entry]));
+  const users = new Map(
+    [AGENT, IGOR, MARA, OTHER_AGENT].map((entry) => [entry.id, entry]),
+  );
   const service = new AgentChatQuestionService({
     users: { findById: async (id: string) => users.get(id) ?? null },
-    service: {
-      send: vi.fn(async (_agent: User, sending: { conversationId: string; clientMessageId: string; text: string }) => {
-        sent.push(sending);
-        return { id: `message-${String(sent.length)}` } as ConversationMessage;
-      }),
+    service: partialStub<Pick<ConversationService, "send" | "openDirect">>({
+      send: vi.fn(
+        async (
+          _: User,
+          sending: {
+            conversationId: string;
+            clientMessageId: string;
+            text: string;
+          },
+        ) => {
+          sent.push(sending);
+          return partialStub<ConversationMessage>({
+            id: `message-${String(sent.length)}`,
+          });
+        },
+      ),
       openDirect: vi.fn(async () => ({ id: "direct-1" })),
-    } as never,
+    }),
     reader: {
-      memberIds: async () => [...(options.members ?? ["agent-1", "igor", "mara", "agent-2"])],
+      memberIds: async () => [
+        ...(options.members ?? ["agent-1", "igor", "mara", "agent-2"]),
+      ],
     },
     questions: store,
     publisher: { publish: (event) => published.push(event) },
     waiters: new AgentQuestionWaiters(),
     now: () => new Date("2026-11-15T12:00:00.000Z"),
     createId: () => "question-1",
-    wait: (_milliseconds, signal) =>
+    wait: (_, signal) =>
       new Promise<void>((resolve) => {
         timeout = resolve;
         signal.addEventListener("abort", () => resolve(), { once: true });
@@ -105,7 +143,12 @@ function world(options: { readonly members?: readonly string[] } = {}) {
 
 const ASK = {
   items: [
-    { text: "Ticket PAGE-12 wirklich löschen?", options: ["Abbrechen", "Löschen"], recommended: 1, isMultipleChoice: false },
+    {
+      text: "Ticket PAGE-12 wirklich löschen?",
+      options: ["Abbrechen", "Löschen"],
+      recommended: 1,
+      isMultipleChoice: false,
+    },
   ],
   timeoutMinutes: 15,
   confirmation: null,
@@ -116,22 +159,36 @@ async function settled(): Promise<void> {
   for (let index = 0; index < 5; index += 1) await Promise.resolve();
 }
 
-function answerOf(optionIds: string[], freeText: string | null = null): AgentQuestionAnswer[] {
+function answerOf(
+  optionIds: string[],
+  freeText: string | null = null,
+): AgentQuestionAnswer[] {
   return [{ questionId: "q1", optionIds, freeText }];
 }
 
 describe("PAGE-391 interim messages", () => {
   it("stores an interim message as the agent's message of the group, marked as interim", async () => {
     const { service, sent } = world();
-    const chat = service.bind("agent-1", { kind: "conversation", conversationId: "group-1", askerId: "igor" });
-    await expect(chat.say("Bin dran, Tests laufen …")).resolves.toEqual({ messageId: "message-1" });
-    expect(sent[0]).toMatchObject({ conversationId: "group-1", text: "Bin dran, Tests laufen …" });
+    const chat = service.bind("agent-1", {
+      kind: "conversation",
+      conversationId: "group-1",
+      askerId: "igor",
+    });
+    await expect(chat.say("Bin dran, Tests laufen …")).resolves.toEqual({
+      messageId: "message-1",
+    });
+    expect(sent[0]).toMatchObject({
+      conversationId: "group-1",
+      text: "Bin dran, Tests laufen …",
+    });
     expect(sent[0]?.clientMessageId).toMatch(/^agent-interim-/u);
   });
 
   it("writes to the direct conversation with the person in a direct chat", async () => {
     const { service, sent } = world();
-    await service.bind("agent-1", { kind: "direct", personId: "igor" }).say("Zwischenstand");
+    await service
+      .bind("agent-1", { kind: "direct", personId: "igor" })
+      .say("Zwischenstand");
     expect(sent[0]?.conversationId).toBe("direct-1");
   });
 
@@ -149,26 +206,45 @@ describe("PAGE-391 interim messages", () => {
     } satisfies ConversationMessage;
     expect(toVirtualMessage(message, IGOR)).toMatchObject({ isInterim: true });
     expect(isAgentWritten(message, "agent-1")).toBe(true);
-    expect(isAgentWritten({ ...message, clientMessageId: "agent-question-1" }, "agent-1")).toBe(true);
-    expect(toVirtualMessage({ ...message, clientMessageId: "reply-1" }, IGOR).isInterim).toBeUndefined();
+    expect(
+      isAgentWritten(
+        { ...message, clientMessageId: "agent-question-1" },
+        "agent-1",
+      ),
+    ).toBe(true);
+    expect(
+      toVirtualMessage({ ...message, clientMessageId: "reply-1" }, IGOR)
+        .isInterim,
+    ).toBeUndefined();
   });
 });
 
 describe("PAGE-391 questions", () => {
   it("asks with the recommended answer first, waits, and hands a click to the agent", async () => {
     const { service, sent, rows } = world();
-    const chat = service.bind("agent-1", { kind: "conversation", conversationId: "group-1", askerId: null });
+    const chat = service.bind("agent-1", {
+      kind: "conversation",
+      conversationId: "group-1",
+      askerId: null,
+    });
     const pending = chat.ask(ASK, new AbortController().signal);
     await settled();
     expect(sent[0]?.clientMessageId).toBe("agent-question-question-1");
     expect(sent[0]?.text).toContain("Löschen (empfohlen)");
-    expect(rows.get("question-1")?.items[0]?.options.map((option) => option.label)).toEqual(["Löschen", "Abbrechen"]);
+    expect(
+      rows.get("question-1")?.items[0]?.options.map((option) => option.label),
+    ).toEqual(["Löschen", "Abbrechen"]);
     expect(service.isWaiting("agent-1", "group-1")).toBe(true);
-    await service.answer(IGOR, { questionId: "question-1", answers: answerOf(["o2"]) });
+    await service.answer(IGOR, {
+      questionId: "question-1",
+      answers: answerOf(["o2"]),
+    });
     await expect(pending).resolves.toMatchObject({
       status: "answered",
       answeredBy: "Igor",
-      answers: [{ chosen: ["Löschen"], isRecommendedChosen: true, freeText: null }],
+      answers: [
+        { chosen: ["Löschen"], isRecommendedChosen: true, freeText: null },
+      ],
     });
     expect(service.isWaiting("agent-1")).toBe(false);
   });
@@ -179,7 +255,10 @@ describe("PAGE-391 questions", () => {
       .bind("agent-1", { kind: "direct", personId: "igor" })
       .ask(ASK, new AbortController().signal);
     await settled();
-    await service.answer(IGOR, { questionId: "question-1", answers: answerOf([], "Erst morgen") });
+    await service.answer(IGOR, {
+      questionId: "question-1",
+      answers: answerOf([], "Erst morgen"),
+    });
     await expect(pending).resolves.toMatchObject({
       answers: [{ chosen: [], freeText: "Erst morgen" }],
     });
@@ -188,45 +267,79 @@ describe("PAGE-391 questions", () => {
   it("lets the agent continue without an answer within the time limit and locks the card as expired", async () => {
     const { service, rows, expire } = world();
     const pending = service
-      .bind("agent-1", { kind: "conversation", conversationId: "group-1", askerId: null })
+      .bind("agent-1", {
+        kind: "conversation",
+        conversationId: "group-1",
+        askerId: null,
+      })
       .ask(ASK, new AbortController().signal);
     await settled();
     expect(rows.get("question-1")?.expiresAt).toBe("2026-11-15T12:15:00.000Z");
     expire();
-    await expect(pending).resolves.toEqual({ status: "expired", questionId: "question-1" });
+    await expect(pending).resolves.toEqual({
+      status: "expired",
+      questionId: "question-1",
+    });
     expect(rows.get("question-1")?.status).toBe("expired");
     await expect(
-      service.answer(IGOR, { questionId: "question-1", answers: answerOf(["o1"]) }),
+      service.answer(IGOR, {
+        questionId: "question-1",
+        answers: answerOf(["o1"]),
+      }),
     ).rejects.toThrow(ConversationError);
   });
 
   it("lets only the person who addressed the agent answer in a group, and never an agent", async () => {
     const { service } = world();
     void service
-      .bind("agent-1", { kind: "conversation", conversationId: "group-1", askerId: "igor" })
+      .bind("agent-1", {
+        kind: "conversation",
+        conversationId: "group-1",
+        askerId: "igor",
+      })
       .ask(ASK, new AbortController().signal);
     await settled();
     await expect(
-      service.answer(MARA, { questionId: "question-1", answers: answerOf(["o1"]) }),
+      service.answer(MARA, {
+        questionId: "question-1",
+        answers: answerOf(["o1"]),
+      }),
     ).rejects.toMatchObject({ code: "forbidden" });
     await expect(
-      service.answer(OTHER_AGENT, { questionId: "question-1", answers: answerOf(["o1"]) }),
+      service.answer(OTHER_AGENT, {
+        questionId: "question-1",
+        answers: answerOf(["o1"]),
+      }),
     ).rejects.toMatchObject({ code: "forbidden" });
     const views = await service.views(MARA, ["message-1"]);
     expect(views.get("message-1")?.canAnswer).toBe(false);
-    expect((await service.views(IGOR, ["message-1"])).get("message-1")?.canAnswer).toBe(true);
+    expect(
+      (await service.views(IGOR, ["message-1"])).get("message-1")?.canAnswer,
+    ).toBe(true);
   });
+});
 
+describe("PAGE-391 question access and lifecycle", () => {
   it("lets every human member answer when nobody addressed the agent, but not a non-member", async () => {
     const { service } = world({ members: ["agent-1", "mara"] });
     const pending = service
-      .bind("agent-1", { kind: "conversation", conversationId: "group-1", askerId: null })
+      .bind("agent-1", {
+        kind: "conversation",
+        conversationId: "group-1",
+        askerId: null,
+      })
       .ask(ASK, new AbortController().signal);
     await settled();
     await expect(
-      service.answer(IGOR, { questionId: "question-1", answers: answerOf(["o1"]) }),
+      service.answer(IGOR, {
+        questionId: "question-1",
+        answers: answerOf(["o1"]),
+      }),
     ).rejects.toMatchObject({ code: "not_found" });
-    await service.answer(MARA, { questionId: "question-1", answers: answerOf(["o1"]) });
+    await service.answer(MARA, {
+      questionId: "question-1",
+      answers: answerOf(["o1"]),
+    });
     await expect(pending).resolves.toMatchObject({ answeredBy: "mara" });
   });
 
@@ -236,7 +349,10 @@ describe("PAGE-391 questions", () => {
       .bind("agent-1", { kind: "direct", personId: "igor" })
       .ask(ASK, new AbortController().signal);
     await settled();
-    const view = await service.answer(IGOR, { questionId: "question-1", answers: answerOf(["o1"]) });
+    const view = await service.answer(IGOR, {
+      questionId: "question-1",
+      answers: answerOf(["o1"]),
+    });
     expect(view).toMatchObject({
       status: "answered",
       canAnswer: false,
@@ -244,7 +360,10 @@ describe("PAGE-391 questions", () => {
       answers: [{ questionId: "q1", optionIds: ["o1"] }],
     });
     await expect(
-      service.answer(IGOR, { questionId: "question-1", answers: answerOf(["o2"]) }),
+      service.answer(IGOR, {
+        questionId: "question-1",
+        answers: answerOf(["o2"]),
+      }),
     ).rejects.toMatchObject({ code: "invalid" });
   });
 
@@ -258,7 +377,10 @@ describe("PAGE-391 questions", () => {
       service.answer(IGOR, { questionId: "question-1", answers: answerOf([]) }),
     ).rejects.toMatchObject({ code: "invalid" });
     await expect(
-      service.answer(IGOR, { questionId: "question-1", answers: answerOf(["o1", "o2"]) }),
+      service.answer(IGOR, {
+        questionId: "question-1",
+        answers: answerOf(["o1", "o2"]),
+      }),
     ).rejects.toMatchObject({ code: "invalid" });
   });
 
@@ -286,11 +408,18 @@ describe("PAGE-391 the answer of a conversation waits with the question", () => 
           sessions: {
             job: async () => {
               polls += 1;
-              return { state: polls < 7 ? "running" : "completed" } as never;
+              return partialStub<ChatJob>({
+                state: polls < 7 ? "running" : "completed",
+              });
             },
           },
           messages: {
-            messages: async () => [{ role: "assistant", content: "Fertig" }] as never,
+            messages: async () => [
+              partialStub<ChatMessage>({
+                role: "assistant",
+                content: "Fertig",
+              }),
+            ],
           },
           pollMilliseconds: 1,
           timeoutMilliseconds: 10,

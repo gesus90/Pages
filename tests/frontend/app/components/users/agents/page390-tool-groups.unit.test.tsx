@@ -6,7 +6,10 @@ import {
   ChatPageToolUse,
   formatToolDuration,
 } from "@/app/components/chat-page/chat-page-tool-uses";
-import { agentDraftPayload, createAgentDraft } from "@/app/components/users/agents/agent-draft";
+import {
+  agentDraftPayload,
+  createAgentDraft,
+} from "@/app/components/users/agents/agent-draft";
 import { AgentToolGroupsSection } from "@/app/components/users/agents/agent-tool-groups-section";
 import { createI18n } from "@/app/lib/i18n";
 

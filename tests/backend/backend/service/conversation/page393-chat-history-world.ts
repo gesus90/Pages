@@ -55,15 +55,15 @@ export function historyWorld(
     readonly excerpt?: readonly StoredHistoryMessage[];
   } = {},
 ): HistoryWorld {
-  const search = vi.fn(
-    async (
-      _agentId: string,
-      _current: AgentHistoryCurrentChat | null,
-      filter: HistoryFilter,
-    ) => [...(options.found ?? [])].slice(0, filter.limit),
+  const search = vi.fn<AgentChatHistoryRepository["search"]>(
+    async (...args) => {
+      const filter = args[2];
+      return [...(options.found ?? [])].slice(0, filter.limit);
+    },
   );
   const around = vi.fn<AgentChatHistoryRepository["around"]>(
-    async (_agentId, _current, target) => {
+    async (...args) => {
+      const target = args[2];
       const messages = options.excerpt ?? [];
       const hit = messages.find(
         (message) => message.messageId === target.messageId,

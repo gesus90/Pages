@@ -85,8 +85,14 @@ describe("PAGE-391 cards of questions on the chat page", () => {
       beforeId: "m-later",
     });
     expect(views).toHaveBeenCalledWith(person, ["m-interim", "m-question"]);
-    expect(page.messages[0]).toMatchObject({ id: "m-interim", isInterim: true });
+    expect(page.messages[0]).toMatchObject({
+      id: "m-interim",
+      isInterim: true,
+    });
     expect(page.messages[0]?.question).toBeUndefined();
-    expect(page.messages[1]).toMatchObject({ id: "m-question", question: QUESTION });
+    expect(page.messages[1]).toMatchObject({
+      id: "m-question",
+      question: QUESTION,
+    });
   });
 });

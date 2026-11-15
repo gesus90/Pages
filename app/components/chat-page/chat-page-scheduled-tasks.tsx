@@ -24,8 +24,16 @@ import type {
 
 /** The chat whose tasks the dialog lists: a group, or the direct chat with an agent. */
 export type ScheduledTasksChat =
-  | { readonly kind: "group"; readonly conversationId: string; readonly name: string }
-  | { readonly kind: "direct"; readonly agentId: string; readonly name: string };
+  | {
+      readonly kind: "group";
+      readonly conversationId: string;
+      readonly name: string;
+    }
+  | {
+      readonly kind: "direct";
+      readonly agentId: string;
+      readonly name: string;
+    };
 
 interface TasksAnswer {
   readonly ok: boolean;
@@ -95,7 +103,11 @@ interface TaskRowProps {
 }
 
 /** When the task runs next, or that it is paused or done. */
-function NextRun({ task }: { readonly task: AgentChatTaskView }): React.ReactElement {
+function NextRun({
+  task,
+}: {
+  readonly task: AgentChatTaskView;
+}): React.ReactElement {
   const { t, i18n } = useTranslation();
   let text = t("chatPage.tasks.paused");
   if (task.isActive && task.nextRunAt !== null)
@@ -223,7 +235,12 @@ function TaskList({
       className="mt-3 divide-y divide-border/60"
     >
       {tasks.map((task) => (
-        <TaskRow key={task.id} task={task} isBusy={isBusy} onChange={onChange} />
+        <TaskRow
+          key={task.id}
+          task={task}
+          isBusy={isBusy}
+          onChange={onChange}
+        />
       ))}
     </ul>
   );

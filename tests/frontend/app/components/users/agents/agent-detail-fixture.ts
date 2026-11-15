@@ -26,6 +26,7 @@ export function syntheticAgent(
       model: "model-one",
       reasoningEffort: null,
       access: "read_only",
+      disabledToolGroups: [],
     },
     documents: { soul: "Calm soul", instructions: "" },
     voice: { voiceId: null, speedTenths: 10 },

@@ -9,7 +9,10 @@ import {
   isConsequentialOperation,
 } from "@/backend/service/chat/toolkit/AgentToolkit";
 import { isConsequentialCommand } from "@/backend/service/chat/toolkit/AgentShellTools";
-import { htmlToText, parseSearchResults } from "@/backend/service/chat/toolkit/AgentWebText";
+import {
+  htmlToText,
+  parseSearchResults,
+} from "@/backend/service/chat/toolkit/AgentWebText";
 import { AgentAccessLevelChanges } from "@/backend/service/employee/AgentAccessLevelChanges";
 import { createAgentEmployeeInstructions } from "@/backend/service/employee/AgentEmployeeInstructions";
 import { readAgentEmployeeInput } from "@/backend/service/employee/AgentEmployeeInput";
@@ -22,6 +25,7 @@ import {
 } from "@/definition/AgentToolGroups";
 
 import { callContext } from "./page390-toolkit-world";
+import { partialStub } from "../../../stub-fixture";
 
 import type { UserPolicyService } from "@/backend/auth/UserPolicyService";
 import type { AccountAccess } from "@/definition/Authorization";
@@ -84,11 +88,13 @@ describe("PAGE-390 policy of the access levels", () => {
   it("lets only an administrator switch a disabled group on again", () => {
     const changes = (hasGlobalAccess: boolean): AgentAccessLevelChanges =>
       new AgentAccessLevelChanges(
-        { hasGlobalAccess: () => hasGlobalAccess } as unknown as UserPolicyService,
-        {} as never,
+        partialStub<UserPolicyService>({
+          hasGlobalAccess: () => hasGlobalAccess,
+        }),
+        partialStub<never>({}),
         undefined,
       );
-    const actor = {} as AccountAccess;
+    const actor = partialStub<AccountAccess>({});
     expect(() =>
       changes(false).requireToolGroupChange(actor, [], ["browser"]),
     ).not.toThrow();
@@ -237,7 +243,10 @@ describe("PAGE-390 tool line", () => {
       summary: "Run a shell command (sh -c) in your working folder.",
       durationMs: 1234.4,
     });
-    expect(event).toMatchObject({ summary: expect.any(String), durationMs: 1234 });
+    expect(event).toMatchObject({ durationMs: 1234 });
+    expect(event && "summary" in event ? typeof event.summary : null).toBe(
+      "string",
+    );
     const view = foldToolCalls([{ sequence: 1, event }]);
     expect(view.current).toEqual([
       expect.objectContaining({

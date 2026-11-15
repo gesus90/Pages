@@ -65,7 +65,7 @@ export function toolkitWorld(options: {
   readonly disabled?: readonly AgentToolGroup[];
   readonly readPage?: AgentWebPageReader;
 }): ToolkitWorld {
-  const run = vi.fn(async (_userId: string, action: { operation: string }) => ({
+  const run = vi.fn(async (_: string, action: { operation: string }) => ({
     ok: true,
     result: { operation: action.operation, id: "ticket-1", key: "PAGE-1" },
   }));
@@ -98,7 +98,7 @@ export function toolkitWorld(options: {
   const turn = (message: { id: string; text: string }): RuntimeToolRegistry =>
     createPicaTools({
       tools: { run },
-      sessions: { confirmationWord: async () => null },
+      sessions: { confirmationWord: async () => "LÖSCHEN" },
       authorize: async () => undefined,
       message: message.text,
       planTurnId: message.id,

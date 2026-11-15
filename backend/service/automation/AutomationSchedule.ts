@@ -353,7 +353,10 @@ export function zonedInstant(local: string, timeZone: string): string | null {
   )
     return null;
   return new Date(
-    instantOf({ year, month, day, hour, minute, second: second ?? 0 }, timeZone),
+    instantOf(
+      { year, month, day, hour, minute, second: second ?? 0 },
+      timeZone,
+    ),
   ).toISOString();
 }
 
