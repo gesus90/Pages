@@ -115,3 +115,45 @@ MCP wurde an der bestehenden Policy-Grenze geprüft, ohne MCP-Prozess/-Transport
 
 Lint, Check, Typecheck, Build, vollständige Suites und Coverage:
 **an die Abschluss-QA übergeben**. Kein Deployment, Push, Rebase oder Branchwechsel.
+
+## Nachprüfung des vorbereiteten Session-Branches
+
+Die neue Session fand die technische Umsetzung bereits vollständig im lokalen
+Commit `cf117f752f151a58cfbc52f14af51f3cec957a3a` vor. Dieser Commit und seine
+oben dokumentierten lokalen Funktionsbeobachtungen bleiben erhalten. Nach dem
+Lesen der Repository-Regeln wurden Entwurfsübernahme, Dialogrevisionen,
+transaktionale Planbenachrichtigung, Cacheverwerfung, erneute Zugriffsprüfung und
+Ablehnungsdiagnose am vorhandenen Quellstand geprüft. Dabei ergab sich kein
+zusätzlicher Änderungsbedarf am Produktcode oder an der Zugriffspolitik.
+
+Am 15.11.2026 ab 22:47 Uhr Europe/Berlin wurden ausschließlich bereits vorhandene,
+gezielte Unit-Funktionstests mit deaktivierter Coverage erneut ausgeführt:
+
+- Frontend: die oben genannten zwölf Dateien, **70 Tests bestanden**, Exitcode 0.
+  Aufruf: `NODE_ENV=test pnpm exec vitest run --config vitest.frontend.config.ts
+  --coverage.enabled=false <die zwölf oben genannten Testdateien>`.
+- Backend: die sechs Dateien `agent-plans`, `agent-plans-actions`,
+  `agent-plan-service-reads`, `plan-access-summaries`, `plan-teams` und
+  `live-change-calendar`, **88 Tests bestanden**, Exitcode 0.
+  Aufruf: `NODE_ENV=test pnpm exec vitest run --config vitest.backend.config.ts
+  --coverage.enabled=false <die sechs genannten Testdateien>`.
+- Backend separat: `tests/backend/app/actions/settings-logging-action.unit.test.ts`,
+  **10 Tests bestanden**, Exitcode 0, mit demselben Backend-Aufruf.
+
+Die drei genannten Screenshots wurden erneut geöffnet und das Diagnoseprotokoll
+gelesen. Sie sind erhaltene Belege der oben beschriebenen isolierten Abnahme;
+in dieser Nachprüfung wurden keine neuen Zwei-Tab- oder Live-Beobachtungen
+erhoben. Die Unit-Läufe ersetzen diese Browserbeobachtungen nicht. Die SHA-256-
+Prüfsummen der erhaltenen Belege lauten:
+
+| Datei unter `~/.pages/tmp/page-436/` | SHA-256 |
+| --- | --- |
+| `final-two-tabs-current.png` | `2eada00a07d9373908906b10f765075f250ca4dce70bec15db3f6c8cca067b18` |
+| `final-conflict.png` | `793ccf7ae61e2b2a592c622d3a3e9545d541c112d94827a9b5f401b158c739a1` |
+| `final-denied.png` | `bc1e1f5436fadf0bdebb13887fe4c289eaef82fd983d2fc97502e6f144543f60` |
+| `final-access-diagnostics.jsonl` | `1faaf0141317f91a9d32ee1be4bfb6990bbf87605a78156d29de4533d8188367` |
+
+Neue Tests, Fixtures, Mocks oder Harnesses wurden nicht angelegt. Lint, Check,
+Typecheck, Formatprüfung, Build, vollständige Suites und Coverage bleiben
+**an die Abschluss-QA übergeben**. Der historische Zugriffsauslöser bleibt
+unbelegt; eine vollständige Live-/Produktionsabnahme wird nicht behauptet.
