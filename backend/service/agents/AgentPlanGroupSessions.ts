@@ -122,6 +122,10 @@ function runtimeFingerprint(input: AgentPlanSessionInput): string {
  */
 export class AgentPlanGroupSessions {
   private readonly sessions = new Map<string, GroupSession>();
+  private readonly closing = new Map<
+    GroupSession,
+    Promise<PlanSessionClosed>
+  >();
   private readonly opened = new Set<string>();
   private readonly queues = new Map<string, Promise<void>>();
   private readonly execution: PlanExecution;
@@ -552,7 +556,18 @@ export class AgentPlanGroupSessions {
     return turn;
   }
 
-  private async close(
+  private close(
+    key: string,
+    entry: GroupSession,
+  ): ReturnType<PlanSession["close"]> {
+    const existing = this.closing.get(entry);
+    if (existing) return existing;
+    const pending = this.closeEntry(key, entry);
+    this.closing.set(entry, pending);
+    return pending;
+  }
+
+  private async closeEntry(
     key: string,
     entry: GroupSession,
   ): ReturnType<PlanSession["close"]> {
@@ -568,7 +583,8 @@ export class AgentPlanGroupSessions {
         isConfirmed: false,
       };
     } finally {
-      this.sessions.delete(key);
+      if (this.sessions.get(key) === entry) this.sessions.delete(key);
+      this.closing.delete(entry);
     }
   }
 }

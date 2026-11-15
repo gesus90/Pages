@@ -195,13 +195,15 @@ it("rejects incompatible inner agents and unsupported container recursion", asyn
             loops: node.loops?.map((loop) => ({
               ...loop,
               steps: loop.steps.map((step) =>
-                step.type !== "agent" || !step.configuration
+                step.type !== "agent" ||
+                step.id !== "work" ||
+                !step.configuration
                   ? step
                   : {
                       ...step,
                       configuration: {
                         ...step.configuration,
-                        provider: "claude_code" as const,
+                        provider: "codex_cli" as const,
                       },
                     },
               ),

@@ -188,7 +188,7 @@ describe("moving an agent node between frames", () => {
     const place = (stepId: string): ReturnType<typeof placePlanStep> =>
       placePlanStep(plan, { stepId, groupId: "g", position }, AGENTS);
 
-    expect(place("api")).toBe("notAcp");
+    expect(place("api")).toBe("otherAdapter");
     expect(place("claude")).toBe("otherAdapter");
     expect(place("blank")).toBe("missingAgent");
   });
