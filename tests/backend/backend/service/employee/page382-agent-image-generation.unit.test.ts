@@ -69,22 +69,15 @@ function catalogModel(
 }
 
 function imageChoice(): PageAgentModel {
-  return {
-    ...catalogModelChoice(
-      { id: "opencode-1", name: "OpenCode", provider: "opencode" },
-      catalogModel("openrouter/google/gemini-2.5-flash-image", [
-        "text",
-        "image",
-      ]),
-    ),
-    connectionName: "OpenCode",
-  };
+  return catalogModelChoice(
+    { id: "openrouter-1", name: "OpenRouter", provider: "openrouter" },
+    catalogModel("google/gemini-2.5-flash-image", ["text", "image"]),
+  );
 }
 
 function generation(
   options: {
     readonly models?: readonly AgentCatalogModel[];
-    readonly isLinkVerified?: boolean;
     readonly client?: ProviderImageClient;
   } = {},
 ): {
@@ -110,10 +103,7 @@ function generation(
         ({
           find: vi.fn().mockResolvedValue({
             models: options.models ?? [
-              catalogModel("openrouter/google/gemini-2.5-flash-image", [
-                "text",
-                "image",
-              ]),
+              catalogModel("google/gemini-2.5-flash-image", ["text", "image"]),
               catalogModel("anthropic/claude-opus", ["text"]),
             ],
           }),
@@ -123,9 +113,7 @@ function generation(
       list: vi.fn().mockResolvedValue([OPENROUTER_LINK]),
       checks: () =>
         ({
-          find: vi.fn().mockResolvedValue({
-            status: options.isLinkVerified === false ? "failed" : "passed",
-          }),
+          find: vi.fn().mockResolvedValue({ status: "passed" }),
         }) as unknown as ReturnType<
           AgentImageGenerationDependencies["connections"]["checks"]
         >,
@@ -150,8 +138,8 @@ function generation(
 
 const employee = { userId: "agent-1", access: "read_only" as const };
 const imageAssignment = {
-  connection: connection(),
-  model: "openrouter/google/gemini-2.5-flash-image",
+  connection: OPENROUTER_LINK,
+  model: "google/gemini-2.5-flash-image",
 };
 const textAssignment = {
   connection: connection({ id: "claude-1", provider: "claude_code" }),
@@ -201,14 +189,16 @@ describe("which models generate images (PAGE-382)", () => {
 });
 
 describe("generating images with the model of the round (PAGE-382)", () => {
-  it("can generate with an OpenCode model of OpenRouter that states image output", async () => {
+  it("can generate with an OpenRouter model that states image output", async () => {
     const { service } = generation();
     expect(
       await service.capability({ employee, assignment: imageAssignment }),
     ).toEqual({ canGenerate: true, modelName: "gemini-2.5-flash-image" });
   });
 
-  it("names the released image models when the current model has no image output", async () => {
+  it("names no alternative when no released chat model can output images", async () => {
+    // Only agent chat models (ACP providers) are offered as alternatives, and
+    // none of them has an image route: OpenCode keeps its keys (PAGE-411).
     const { service } = generation();
     const capability = await service.capability({
       employee,
@@ -218,15 +208,34 @@ describe("generating images with the model of the round (PAGE-382)", () => {
       canGenerate: false,
       modelName: "claude-opus-5-5",
       reason: "no_image_output",
-      alternatives: ["gemini-2.5-flash-image (OpenCode)"],
+      alternatives: [],
     });
   });
 
-  it("refuses without a verified key of the linked connection", async () => {
-    const { service } = generation({ isLinkVerified: false });
+  it("refuses without a stored key of the connection", async () => {
+    const { service } = generation();
     expect(
-      await service.capability({ employee, assignment: imageAssignment }),
+      await service.capability({
+        employee,
+        assignment: {
+          connection: { ...OPENROUTER_LINK, hasApiKey: false },
+          model: imageAssignment.model,
+        },
+      }),
     ).toMatchObject({ canGenerate: false, reason: "no_key" });
+  });
+
+  it("refuses an OpenCode model, which Pages gives no key for", async () => {
+    const { service } = generation();
+    expect(
+      await service.capability({
+        employee,
+        assignment: {
+          connection: connection(),
+          model: imageAssignment.model,
+        },
+      }),
+    ).toMatchObject({ canGenerate: false, reason: "no_image_interface" });
   });
 
   it("calls the provider once per image with the stored key and records the cost with the agent", async () => {
@@ -372,7 +381,7 @@ describe("the tool bilder_erzeugen execution (PAGE-382)", () => {
     ).toEqual(["generated-1", "generated-2"]);
   });
 
-  it("says clearly that the model cannot and names the models that could, without an image", async () => {
+  it("says clearly that the model cannot and that no released model can, without an image", async () => {
     const { service } = generation();
     const pending = new ConversationGeneratedImages();
     const { stage } = createImageTool(service, pending);
@@ -402,8 +411,10 @@ describe("the tool bilder_erzeugen execution (PAGE-382)", () => {
     expect(outcome.result).toContain(
       "Mit dem Modell claude-opus-5-5 kann ich keine Bilder erzeugen.",
     );
-    expect(outcome.result).toContain("gemini-2.5-flash-image (OpenCode)");
-    expect(outcome.result).toContain("/model");
+    expect(outcome.result).toContain(
+      "Keines der für dich freigegebenen Modelle kann Bilder ausgeben.",
+    );
+    expect(outcome.result).toContain('"moeglicheModelle":[]');
     expect(stage).not.toHaveBeenCalled();
     expect(
       pending.count({ agentId: "agent-1", conversationId: "conv-1" }),

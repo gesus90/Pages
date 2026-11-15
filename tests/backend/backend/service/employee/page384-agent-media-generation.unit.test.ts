@@ -81,17 +81,18 @@ function catalogModel(
   };
 }
 
-const AUDIO_MODEL = "openrouter/openai/gpt-audio";
-const VIDEO_MODEL = "google/veo-chat";
+const AUDIO_MODEL = "openai/gpt-audio";
+const VIDEO_MODEL = "veo-chat";
 
-function choice(id: string, outputs: readonly string[]): PageAgentModel {
-  return {
-    ...catalogModelChoice(
-      { id: "opencode-1", name: "OpenCode", provider: "opencode" },
-      catalogModel(id, outputs),
-    ),
-    connectionName: "OpenCode",
-  };
+function choice(
+  link: AgentConnectionRecord,
+  id: string,
+  outputs: readonly string[],
+): PageAgentModel {
+  return catalogModelChoice(
+    { id: link.id, name: link.name, provider: link.provider },
+    catalogModel(id, outputs),
+  );
 }
 
 function client(
@@ -131,7 +132,7 @@ function generation(
             models: [
               catalogModel(AUDIO_MODEL, ["text", "audio"]),
               catalogModel(VIDEO_MODEL, ["text", "video"]),
-              catalogModel("openrouter/x/video-chat", ["text", "video"]),
+              catalogModel("x/video-chat", ["text", "video"]),
               catalogModel("anthropic/claude-opus", ["text"]),
             ],
           }),
@@ -151,8 +152,8 @@ function generation(
       models: vi
         .fn()
         .mockResolvedValue([
-          choice(AUDIO_MODEL, ["text", "audio"]),
-          choice(VIDEO_MODEL, ["text", "video"]),
+          choice(OPENROUTER_LINK, AUDIO_MODEL, ["text", "audio"]),
+          choice(GOOGLE_LINK, VIDEO_MODEL, ["text", "video"]),
         ]),
     },
     store: {
@@ -173,8 +174,8 @@ function generation(
 }
 
 const employee = { userId: "agent-1", access: "read_only" as const };
-const audioAssignment = { connection: connection(), model: AUDIO_MODEL };
-const videoAssignment = { connection: connection(), model: VIDEO_MODEL };
+const audioAssignment = { connection: OPENROUTER_LINK, model: AUDIO_MODEL };
+const videoAssignment = { connection: GOOGLE_LINK, model: VIDEO_MODEL };
 const textAssignment = {
   connection: connection({ id: "claude-1", provider: "claude_code" }),
   model: "claude-opus-5-5",
@@ -192,13 +193,13 @@ describe("which models generate videos and sounds (PAGE-384)", () => {
       isMediaOutputModel({ outputModalities: ["text", "speech"] }, "audio"),
     ).toBe(false);
     expect(isMediaOutputModel({}, "audio")).toBe(false);
-    const audio = choice(AUDIO_MODEL, ["text", "audio"]);
+    const audio = choice(OPENROUTER_LINK, AUDIO_MODEL, ["text", "audio"]);
     expect(audio.isAudioOutputCapable).toBe(true);
     expect(audio.isVideoOutputCapable).toBeUndefined();
     expect(audio.isChatCapable).toBeUndefined();
-    expect(choice(VIDEO_MODEL, ["text", "video"]).isVideoOutputCapable).toBe(
-      true,
-    );
+    expect(
+      choice(GOOGLE_LINK, VIDEO_MODEL, ["text", "video"]).isVideoOutputCapable,
+    ).toBe(true);
     expect(
       isTextCapableModel({ id: "m", outputModalities: ["text", "video"] }),
     ).toBe(true);
@@ -259,7 +260,7 @@ describe("generating with the model of the round (PAGE-384)", () => {
       canGenerate: false,
       modelName: "claude-opus-5-5",
       reason: "no_media_output",
-      alternatives: ["veo-chat (OpenCode)"],
+      alternatives: [],
     });
   });
 
@@ -269,8 +270,8 @@ describe("generating with the model of the round (PAGE-384)", () => {
       await service.capability({
         employee,
         assignment: {
-          connection: connection(),
-          model: "openrouter/x/video-chat",
+          connection: OPENROUTER_LINK,
+          model: "x/video-chat",
         },
         kind: "video",
       }),
@@ -356,7 +357,7 @@ describe("video_erzeugen and audio_erzeugen execution (PAGE-384)", () => {
       await rm(directory, { recursive: true, force: true });
   });
 
-  it("says clearly that the model cannot and names the models, without faking a file", async () => {
+  it("says clearly that the model cannot and that no released model can, without faking a file", async () => {
     const { service } = generation();
     const { dependencies, stage } = toolDependencies(service);
     const run = agentMediaTool(dependencies, {
@@ -373,8 +374,10 @@ describe("video_erzeugen and audio_erzeugen execution (PAGE-384)", () => {
     );
     expect(outcome.ok).toBe(false);
     expect(outcome.error).toBe("AUDIO_OUTPUT_UNSUPPORTED");
-    expect(outcome.result).toContain("gpt-audio (OpenCode)");
-    expect(outcome.result).toContain("/model");
+    expect(outcome.result).toContain(
+      "Keines der für dich freigegebenen Modelle kann Sounds oder Sprache ausgeben.",
+    );
+    expect(outcome.result).toContain('"moeglicheModelle":[]');
     expect(outcome.result).toContain("Erfinde kein Sound");
     expect(stage).not.toHaveBeenCalled();
   });
