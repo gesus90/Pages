@@ -206,3 +206,28 @@ Der historische Zugriffsauslöser und die Besitzerwechsel-Hypothese bleiben
 unbelegt. Keine Live-Dienste, Live-Daten, Zugangsdaten oder Arbeitspläne verändert.
 Lint, Check, Typecheck, Formatprüfung, Build, vollständige Suites und Coverage:
 **an die Abschluss-QA übergeben**.
+
+## Session e1f30457: Prüfung des übernommenen Fixes
+
+Am 15.11.2026 um 23:25–23:26 Uhr Europe/Berlin wurde die bereits auf dem
+Session-Branch vorhandene Umsetzung erneut geprüft. Entwurfsübernahme,
+Konfliktentscheidung, Dialogrevisionen, transaktionale Live-Benachrichtigung,
+Cacheverwerfung, Wiederprüfung derselben Auswahl und Ablehnungsdiagnose sind
+weiterhin implementiert. Die späteren vorbereiteten Korrekturen bleiben erhalten;
+zusätzliche Produktänderungen waren nicht erforderlich.
+
+Mit `NODE_ENV=test pnpm exec vitest run --config <scope-config>
+--coverage.enabled=false <Dateien>` liefen die oben konkret genannten zwölf
+Frontend-Dateien (**70 Tests bestanden**, Exitcode 0) und anschließend sieben
+Backend-Dateien (**98 Tests bestanden**, Exitcode 0). Es wurden keine Tests,
+Fixtures, Mocks oder Harnesses ergänzt. Die Backend-Ausgabe unterschied weiterhin
+`plan_missing`, `sharing_denied` und `workspace_or_project_denied`.
+
+Die drei erhaltenen Browserbilder wurden geöffnet und das Diagnoseprotokoll
+gelesen. Alle vier SHA-256-Prüfsummen stimmen mit der obigen Tabelle überein.
+Die dokumentierte lokale Zwei-Tab-Abnahme ist erhaltene Evidenz; diese Session
+führte keine neue Browser- oder Produktionsabnahme aus. Der historische
+Zugriffsauslöser und die Besitzerwechsel-Hypothese bleiben unbelegt. Keine
+Live-Dienste, Live-Daten, Zugangsdaten oder Arbeitspläne wurden verändert.
+Lint, Check, Typecheck, Formatprüfung, Build, vollständige Suites und Coverage:
+**an die Abschluss-QA übergeben**.
