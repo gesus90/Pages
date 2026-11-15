@@ -29,4 +29,3 @@ CREATE TRIGGER agent_run_cleanup_event
     AFTER UPDATE OF view_json ON agent_plan_runs
     FOR EACH ROW WHEN (OLD.view_json IS DISTINCT FROM NEW.view_json)
     EXECUTE FUNCTION wake_workspace_cleanup();
-
