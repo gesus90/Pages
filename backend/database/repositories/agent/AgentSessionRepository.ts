@@ -423,9 +423,9 @@ export class AgentSessionRepository implements AgentSessionStore {
             (event) => event.kind === "plan" && !event.isTruncated,
           );
           entries = plan ? readPlanEventEntries(plan.text) : null;
-          if (!plan || entries === null) return;
         }
       }
+      if (!plan || entries === null) return;
       const previous = await this.agentTodos.findEntries(attemptId);
       await this.agentTodos.save(
         attemptId,
