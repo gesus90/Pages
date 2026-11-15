@@ -32,7 +32,6 @@ import type {
   PicaAcpStart,
 } from "../chat/acp/PicaAcpService";
 import type { AgentChatScope } from "./AgentEmployeeSessionTypes";
-import type { AgentChatToolScope } from "./AgentChatToolGuard";
 import type { AgentMemoryAudience } from "./AgentMemorySharing";
 import type { AgentToolCallView } from "./AgentToolCallView";
 import type {

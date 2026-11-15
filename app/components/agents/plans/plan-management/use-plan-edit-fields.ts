@@ -47,13 +47,14 @@ export function usePlanEditFields(
     Math.min(draft.revision ?? plan.revision, plan.revision),
   );
   const { values, ownerId } = fields.current;
-  const setValues = (values: PlanContextValues): void =>
-    fields.setCurrent({ ...fields.current, values });
-  const setOwnerId = (ownerId: string): void =>
-    fields.setCurrent({ ...fields.current, ownerId });
+  const setValues = (nextValues: PlanContextValues): void =>
+    fields.setCurrent({ ...fields.current, values: nextValues });
+  const setOwnerId = (nextOwnerId: string): void =>
+    fields.setCurrent({ ...fields.current, ownerId: nextOwnerId });
   const teams = usePlanTeams(page.directory, plan.teams ?? [], {
     teams: fields.current.teams,
-    setTeams: (teams) => fields.setCurrent({ ...fields.current, teams }),
+    setTeams: (nextTeams) =>
+      fields.setCurrent({ ...fields.current, teams: nextTeams }),
   });
   const oneShot = usePlanOneShotChoice(draft.oneShot === true, {
     isOneShot: fields.current.isOneShot,

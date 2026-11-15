@@ -228,26 +228,66 @@ function OpenRouterUsageFacts({
   );
 }
 
-function UsageSection(props: {
+interface UsageSectionProps {
   readonly view: AgentSessionView;
   /** A turn runs now: its tokens arrive with its end. */
   readonly isTurnRunning: boolean;
-}): React.ReactElement {
-  const { t, i18n } = useTranslation();
-  if (props.view.openCode)
-    return <OpenCodeUsageSection {...props.view.openCode} />;
-  const key = "plans.console.terminal.sidebar";
-  const unknown = t(`${key}.unknown`);
-  const numbers = new Intl.NumberFormat(i18n.language);
-  const { context } = props.view;
-  const share = contextShare(context);
+}
+
+function contextValueLabel(
+  context: AgentSessionContextUsage,
+  numbers: Intl.NumberFormat,
+  unknown: string,
+): string {
   const used = context.contextUsed;
   const contextLimit =
     context.contextLimit === null
       ? unknown
       : numbers.format(context.contextLimit);
-  const contextValue =
-    used === null ? unknown : `${numbers.format(used)} / ${contextLimit}`;
+  return used === null ? unknown : `${numbers.format(used)} / ${contextLimit}`;
+}
+
+function UsageContextMeter(props: {
+  readonly label: string;
+  readonly share: number | null;
+}): React.ReactElement {
+  return (
+    <div
+      role="meter"
+      aria-label={props.label}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={props.share === null ? undefined : Math.round(props.share)}
+      className="h-1 overflow-hidden rounded-full bg-agent-console-track"
+    >
+      <div
+        className="h-full rounded-full bg-agent-terminal-accent"
+        style={{ width: `${props.share ?? 0}%` }}
+      />
+    </div>
+  );
+}
+
+function UsageSection(props: UsageSectionProps): React.ReactElement {
+  const { t } = useTranslation();
+  if (props.view.openCode)
+    return <OpenCodeUsageSection {...props.view.openCode} />;
+  return (
+    <SidebarSection title={t("plans.console.terminal.sidebar.usage")}>
+      <UsageFacts view={props.view} isTurnRunning={props.isTurnRunning} />
+      {props.view.claudeUsage ? (
+        <ClaudeUsageDetails usage={props.view.claudeUsage} />
+      ) : null}
+    </SidebarSection>
+  );
+}
+
+function UsageFacts(props: UsageSectionProps): React.ReactElement {
+  const { t, i18n } = useTranslation();
+  const key = "plans.console.terminal.sidebar";
+  const unknown = t(`${key}.unknown`);
+  const numbers = new Intl.NumberFormat(i18n.language);
+  const { context } = props.view;
   const codex =
     props.view.provider === "codex_cli"
       ? props.view.codexRunUsage?.steps.find(
@@ -280,23 +320,17 @@ function UsageSection(props: {
     ? openRouterCost(openRouterTotal, i18n.language, costLabels)
     : formatStandardCost(context, i18n.language, unknown);
   return (
-    <SidebarSection title={t(`${key}.usage`)}>
+    <>
       {codex ? <CodexUsageFacts usage={codex.usage} /> : null}
       <dl className="space-y-1.5">
-        <Fact label={t(`${key}.context`)} value={contextValue} />
-        <div
-          role="meter"
-          aria-label={t(`${key}.context`)}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={share === null ? undefined : Math.round(share)}
-          className="h-1 overflow-hidden rounded-full bg-agent-console-track"
-        >
-          <div
-            className="h-full rounded-full bg-agent-terminal-accent"
-            style={{ width: `${share ?? 0}%` }}
-          />
-        </div>
+        <Fact
+          label={t(`${key}.context`)}
+          value={contextValueLabel(context, numbers, unknown)}
+        />
+        <UsageContextMeter
+          label={t(`${key}.context`)}
+          share={contextShare(context)}
+        />
         <Fact label={t(`${key}.tokens`)} value={tokens} />
         {codex ? null : (
           <Fact
@@ -318,10 +352,7 @@ function UsageSection(props: {
           />
         ) : null}
       </dl>
-      {props.view.claudeUsage ? (
-        <ClaudeUsageDetails usage={props.view.claudeUsage} />
-      ) : null}
-    </SidebarSection>
+    </>
   );
 }
 

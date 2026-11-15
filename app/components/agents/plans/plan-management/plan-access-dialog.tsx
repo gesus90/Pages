@@ -66,11 +66,11 @@ export function PlanAccessDialog({
     plan.revision,
   );
   const { teams, ownerId } = fields.current;
-  function setTeams(teams: readonly AgentPlanTeam[]): void {
-    fields.setCurrent({ ...fields.current, teams });
+  function setTeams(nextTeams: readonly AgentPlanTeam[]): void {
+    fields.setCurrent({ ...fields.current, teams: nextTeams });
   }
-  function setOwnerId(ownerId: string): void {
-    fields.setCurrent({ ...fields.current, ownerId });
+  function setOwnerId(nextOwnerId: string): void {
+    fields.setCurrent({ ...fields.current, ownerId: nextOwnerId });
   }
   const [query, setQuery] = useState("");
   const canManageTeams = plan.rights?.canManageTeams === true;
