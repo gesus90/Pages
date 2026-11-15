@@ -3,6 +3,7 @@ import { z } from "zod";
 import { authenticatedUserContext } from "@/app/lib/auth.server";
 import { getApplicationServices } from "@/app/lib/services.server";
 import { sharedPicaMobileConversationPresence } from "@/backend/service/mobile/conversations/PicaMobileConversationPresence";
+import { sharedPresenceHeartbeatLimit } from "@/backend/service/mobile/conversations/PresenceHeartbeatLimit";
 
 import type { Route } from "./+types/chat-page-presence";
 
@@ -14,19 +15,6 @@ const heartbeatSchema = z.object({
     .nullable(),
   conversationId: z.string().min(1).max(200).nullable(),
 });
-const calls = new Map<string, { count: number; until: number }>();
-
-function permit(accountId: string): boolean {
-  const now = Date.now();
-  const current = calls.get(accountId);
-  if (current === undefined || current.until <= now) {
-    calls.set(accountId, { count: 1, until: now + 60_000 });
-    return true;
-  }
-  if (current.count >= 120) return false;
-  calls.set(accountId, { count: current.count + 1, until: current.until });
-  return true;
-}
 
 /** Reads the account's visible chats and current toast choices. */
 export async function loader({ context }: Route.LoaderArgs): Promise<Response> {
@@ -51,7 +39,7 @@ export async function action({
   const user = context.get(authenticatedUserContext);
   if (!user) throw new Response("Forbidden", { status: 403 });
   if (request.method !== "POST") return new Response(null, { status: 405 });
-  if (!permit(user.id)) return new Response(null, { status: 429 });
+  if (!sharedPresenceHeartbeatLimit().permit(user.id)) return new Response(null, { status: 429 });
   let payload: unknown;
   try {
     payload = await request.json();

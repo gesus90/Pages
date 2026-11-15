@@ -72,7 +72,8 @@ export class PicaMobileNotificationPreferenceRepository {
    * Reads the choices of an account.
    *
    * @param accountId - The account.
-   * @returns The stored choices, or every choice off when none is stored.
+   * @returns The stored choices, or {@link DEFAULT_NOTIFICATION_CHOICES} (everything on except
+   *   `planAllStatuses` and `teamRuns`) when none is stored.
    */
   public async find(accountId: string): Promise<NotificationPreferenceRecord> {
     const [row] = await this.database.query(

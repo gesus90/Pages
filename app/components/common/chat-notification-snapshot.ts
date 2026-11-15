@@ -67,3 +67,15 @@ export function newChatMessages(
     .slice(lastKnown + 1)
     .filter((message) => message.authorId !== null && !message.notice);
 }
+
+/** Kind and name of a message's author, from the message itself or the person's list. */
+export function chatMessageAuthor(
+  directory: Pick<VirtualChatDirectory, "participants">,
+  message: VirtualChatMessage,
+): { readonly kind: string; readonly name: string } | null {
+  if (message.author) return message.author;
+  const participant = directory.participants.find(
+    (entry) => entry.id === message.authorId,
+  );
+  return participant ? { kind: participant.kind, name: participant.name } : null;
+}

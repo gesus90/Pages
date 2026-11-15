@@ -1,4 +1,4 @@
-import { Bell, MessageCircle, Sparkles, Users } from "lucide-react";
+import { Bell, Users } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { Checkbox } from "@/app/components/ui/checkbox";
@@ -62,21 +62,17 @@ export function NotificationChoiceSection({
         onChange={() => onChange("receiveNotifications")}
       />
       <div className="pl-2">
-        <ToggleRow
-          icon={<MessageCircle className="size-4" aria-hidden="true" />}
-          title={t("settings.notifications.choices.chats.title")}
-          description={t("settings.notifications.choices.chats.description")}
+        <ChoiceCheckbox
+          choiceKey="chats"
           checked={choices.chats}
           disabled={disabled}
-          onChange={() => onChange("chats")}
+          onChange={onChange}
         />
-        <ToggleRow
-          icon={<Sparkles className="size-4" aria-hidden="true" />}
-          title={t("settings.notifications.choices.pica.title")}
-          description={t("settings.notifications.choices.pica.description")}
+        <ChoiceCheckbox
+          choiceKey="pica"
           checked={choices.pica}
           disabled={disabled}
-          onChange={() => onChange("pica")}
+          onChange={onChange}
         />
         <h3 className="px-3 pt-3 text-sm font-semibold text-foreground">
           {t("settings.notifications.choices.plans")}

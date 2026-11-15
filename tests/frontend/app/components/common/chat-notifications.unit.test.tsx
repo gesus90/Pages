@@ -223,6 +223,62 @@ it("respects the account main choice for chat toasts", async () => {
   expect(screen.queryByRole("status")).toBeNull();
 });
 
+function picaConversation(ids: readonly string[]): VirtualChatDirectory {
+  return directory({
+    participants: [participant("pica", { name: "Pica" }), participant("agent")],
+    groups: [group("team")],
+    histories: {
+      pica: ids.map((id) => ({ ...message(`pica-${id}`), authorId: "pica" })),
+      agent: ids.map((id) => ({ ...message(id), authorId: "agent" })),
+      team: ids.flatMap((id) => [
+        { ...message(`team-${id}`), authorId: "person" },
+        {
+          ...message(`team-pica-${id}`),
+          authorId: "pica-in-group",
+          author: { name: "Pica", kind: "agent" as const, color: null },
+        },
+      ]),
+    },
+  });
+}
+
+async function toastsWith(
+  choices: Partial<typeof DEFAULT_NOTIFICATION_CHOICES>,
+): Promise<void> {
+  boundary.read.mockResolvedValue(picaConversation(["old"]));
+  renderWatcher();
+  await flush();
+  vi.mocked(fetch).mockResolvedValue(
+    Response.json({
+      chatKeys: [],
+      conversationIds: [],
+      choices: { ...DEFAULT_NOTIFICATION_CHOICES, ...choices },
+    }),
+  );
+  boundary.read.mockResolvedValue(picaConversation(["old", "new"]));
+  fireEvent.click(screen.getByText("Refresh"));
+  await flush();
+}
+
+it("suppresses Pica's messages when Pica is off and still announces other authors", async () => {
+  await toastsWith({ pica: false });
+  expect(screen.queryByText("Name pica")).toBeNull();
+  expect(screen.queryByText("Pica")).toBeNull();
+  expect(screen.getByText("Name agent")).toBeTruthy();
+  expect(screen.getByText("Group team")).toBeTruthy();
+  expect(screen.getByText("text team-new")).toBeTruthy();
+});
+
+it("suppresses other authors when Chats is off and still announces Pica", async () => {
+  await toastsWith({ chats: false });
+  expect(screen.getByText("Pica")).toBeTruthy();
+  expect(screen.getByText("text pica-new")).toBeTruthy();
+  expect(screen.queryByText("Name agent")).toBeNull();
+  expect(screen.getByText("Group team")).toBeTruthy();
+  expect(screen.getByText("text team-pica-new")).toBeTruthy();
+  expect(screen.getAllByRole("status")).toHaveLength(2);
+});
+
 function OpenedChat({
   selection,
   requested,

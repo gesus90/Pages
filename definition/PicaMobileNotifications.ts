@@ -125,6 +125,30 @@ export const DEFAULT_NOTIFICATION_CHOICES: NotificationChoices = {
   teamRuns: false,
 };
 
+/** The name Pica answers under in chats (PAGE-266); history entries of Pica carry it as well. */
+export const PICA_ASSISTANT_NAME = "pica";
+
+/**
+ * Whether a chat message counts as a message of Pica (PAGE-421).
+ *
+ * @remarks
+ * A message is Pica's when its author is the agent account named
+ * {@link PICA_ASSISTANT_NAME}, compared without case and surrounding space.
+ * A person named Pica and every other agent count as an ordinary chat.
+ *
+ * @param author - Kind and display name of the author.
+ * @returns Whether the `pica` choice decides about the message.
+ */
+export function isPicaAuthor(author: {
+  readonly kind: string;
+  readonly name: string;
+}): boolean {
+  return (
+    author.kind === "agent" &&
+    author.name.trim().toLowerCase() === PICA_ASSISTANT_NAME
+  );
+}
+
 /** Keys the Pages notification card can change individually. */
 export const NOTIFICATION_CHOICE_KEYS = [
   "receiveNotifications",

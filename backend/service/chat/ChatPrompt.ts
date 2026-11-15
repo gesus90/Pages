@@ -1,4 +1,5 @@
 import { redactCredentials } from "@/backend/security/AgentTextSafety";
+import { PICA_ASSISTANT_NAME } from "@/definition/PicaMobileNotifications";
 
 import { ChatResultBudget } from "./ChatResultBudget";
 import { CHAT_ACTION_FENCE } from "./ChatActionProtocol";
@@ -122,7 +123,7 @@ function redact(value: unknown): unknown {
 /** Selects the same bounded conversation history for prompts and context estimates. */
 export function selectChatHistory(
   history: ChatPromptInput["history"],
-  assistantName = "pica",
+  assistantName = PICA_ASSISTANT_NAME,
 ): readonly ChatHistoryEntry[] {
   const selected: ChatHistoryEntry[] = [];
   let characters = 0;
