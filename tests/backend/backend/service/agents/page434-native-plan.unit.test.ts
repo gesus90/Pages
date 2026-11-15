@@ -1,6 +1,8 @@
 import { expect, it, vi } from "vitest";
 
 import { AgentPlanAgentTodoRepository } from "@/backend/database/repositories/agent/AgentPlanAgentTodoRepository";
+import { AgentSessionEventRepository } from "@/backend/database/repositories/agent/AgentSessionEventRepository";
+import { AgentSessionRepository } from "@/backend/database/repositories/agent/AgentSessionRepository";
 import { buildPlanContract } from "@/backend/service/agents/AgentPlanContract";
 import { AgentPlanStepAssessment } from "@/backend/service/agents/AgentPlanStepAssessment";
 import { AgentPlanStepReportService } from "@/backend/service/agents/AgentPlanStepReportService";
@@ -8,6 +10,7 @@ import { AgentPlanStepReportService } from "@/backend/service/agents/AgentPlanSt
 import { TODO_IDENTITY, todoFixture } from "./page358-todo-fixture";
 
 import type { Database } from "@/backend/database/Database";
+import type { AgentSessionDatabase } from "@/backend/database/repositories/agent/AgentSessionDatabase";
 import type { AgentProviderId } from "@/definition/AgentConnection";
 import type { AgentPlanContract } from "@/definition/AgentPlanSession";
 import type { AgentPlanStepReport } from "@/definition/AgentPlanStepReport";
@@ -207,3 +210,46 @@ it("distinguishes no native event from an empty plan while preserving the existi
   expect(query.mock.calls[0]?.[0]).toContain("worker_id = ''");
   expect(execute).not.toHaveBeenCalled();
 });
+
+it.each([true, false])(
+  "records an unreadable native plan as unresolved (truncated: %s)",
+  async (isTruncated) => {
+    const append = vi.spyOn(
+      AgentSessionEventRepository.prototype,
+      "appendEvents",
+    );
+    append.mockResolvedValue([
+      {
+        id: "attempt/1",
+        sequence: 1,
+        stepId: "agent",
+        attemptId: "attempt",
+        turn: 1,
+        kind: "plan",
+        createdAt: "now",
+        text: "invalid",
+        isTruncated,
+      },
+    ]);
+    const execute = vi.fn<Database["execute"]>(async () => undefined);
+    const database: AgentSessionDatabase = {
+      query: async (sql) =>
+        sql.includes("SELECT provider") ? [["codex_cli"]] : [],
+      execute,
+      transaction: async (work) => work(database),
+    };
+    try {
+      await new AgentSessionRepository(database).appendEvents(
+        "attempt",
+        [],
+        10,
+      );
+      expect(execute).toHaveBeenCalledWith(
+        expect.stringContaining("INSERT INTO agent_plan_agent_todos"),
+        expect.objectContaining({ attempt_id: "attempt", todos_json: "[]" }),
+      );
+    } finally {
+      append.mockRestore();
+    }
+  },
+);

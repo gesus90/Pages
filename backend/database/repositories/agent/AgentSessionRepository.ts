@@ -1,4 +1,5 @@
 import { logCaughtError } from "@/backend/logging/Logger";
+import { readTextColumn } from "@/backend/database/RowValue";
 import {
   mergeAgentTodos,
   readPlanEventEntries,
@@ -405,12 +406,26 @@ export class AgentSessionRepository implements AgentSessionStore {
     attemptId: string,
     stored: readonly AgentSessionEvent[],
   ): Promise<void> {
-    const plan = stored.findLast(
-      (event) => event.kind === "plan" && !event.isTruncated,
-    );
-    const entries = plan ? readPlanEventEntries(plan.text) : null;
-    if (!plan || entries === null) return;
+    let plan = stored.findLast((event) => event.kind === "plan");
+    if (!plan) return;
     try {
+      let entries = plan.isTruncated ? null : readPlanEventEntries(plan.text);
+      if (entries === null) {
+        const [row] = await this.database.query(
+          `SELECT provider FROM agent_session_attempts WHERE attempt_id = $attempt_id;`,
+          { attempt_id: attemptId },
+        );
+        if (row && readTextColumn(row, 0, "provider") === "codex_cli") {
+          // An unreadable plan still proves the capability, but cannot prove completion.
+          entries = [];
+        } else {
+          plan = stored.findLast(
+            (event) => event.kind === "plan" && !event.isTruncated,
+          );
+          entries = plan ? readPlanEventEntries(plan.text) : null;
+          if (!plan || entries === null) return;
+        }
+      }
       const previous = await this.agentTodos.findEntries(attemptId);
       await this.agentTodos.save(
         attemptId,
