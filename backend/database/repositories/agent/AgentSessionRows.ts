@@ -278,7 +278,7 @@ export async function readStoredEventRow(
 /** Reads a turn's usage selected with {@link USAGE_COLUMNS}. */
 export function readUsageRow(row: Row): AgentSessionTurnUsage {
   return {
-    stepId: typeof row[14] === "string" ? row[14] : undefined,
+    stepId: typeof row[15] === "string" ? row[15] : undefined,
     attemptId: readTextColumn(row, 0, "attempt_id"),
     turn: readCountColumn(row, 1, "turn"),
     provider: oneOf(readTextColumn(row, 2, "provider"), PROVIDERS, "provider"),

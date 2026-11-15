@@ -80,9 +80,16 @@ it("persists the exact prices and calculated amount with token counts and reads 
     0,
     0,
     "2026-11-13T12:00:00Z",
+    null,
+    null,
     typeof stored === "string" ? stored : null,
   ];
-  expect(readUsageRow(row)).toEqual(usage());
+  expect(readUsageRow(row)).toEqual({
+    ...usage(),
+    stepId: undefined,
+    reasoningTokens: null,
+  });
+  expect(readUsageRow([...row, "agent-step"]).stepId).toBe("agent-step");
   expect(execute.mock.calls[0]?.[0]).toContain(
     "ON CONFLICT (attempt_id, turn) DO UPDATE",
   );

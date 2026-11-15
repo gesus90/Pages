@@ -101,7 +101,7 @@ it("records native usage while a prompt is running and suppresses the overlappin
   expect(saveUsage.mock.calls[1]?.[0].turn).toBe(2);
 });
 
-it("records absent Claude usage as null while other providers keep their existing missing-report behavior", async () => {
+it("records absent Claude and Codex usage as partial rather than a reported zero", async () => {
   const store = new MemorySessionStore();
   const recorder = new AgentSessionRecorder(
     { store, journal: new AgentSessionJournal(store) },
@@ -122,7 +122,12 @@ it("records absent Claude usage as null while other providers keep their existin
   });
   recorder.prompted(null);
   await recorder.drained();
-  expect(store.usage.has("codex/1")).toBe(false);
+  expect(store.usage.get("codex/1")).toMatchObject({
+    inputTokens: null,
+    outputTokens: null,
+    totalTokens: null,
+    isPartial: true,
+  });
 });
 
 it("sums both loop iterations and retry attempts once, including a missing-report attempt", () => {
