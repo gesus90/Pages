@@ -30,7 +30,15 @@ function formatBuildDate(
   return `${date} ${time}`;
 }
 
-/** Shows the deployed build beside the version, in the visitor's language and time zone. */
+/**
+ * Shows the deployed build beside the version, in the visitor's language and time zone.
+ *
+ * @remarks
+ * "Version · Build <commit>" and "· <date time>" each stay together in a
+ * `whitespace-nowrap` span. When the column is too narrow, the line breaks
+ * only between these two parts, never inside one. The build carries the full
+ * commit as tooltip.
+ */
 export function VersionFact({
   version,
   build,
@@ -45,11 +53,13 @@ export function VersionFact({
 
   return (
     <>
-      {version} ·{" "}
-      <span title={build?.commit}>
-        {t("settings.system.dashboard.facts.build", { commit })}
+      <span className="whitespace-nowrap">
+        {version} ·{" "}
+        <span title={build?.commit}>
+          {t("settings.system.dashboard.facts.build", { commit })}
+        </span>
       </span>{" "}
-      · {builtAt}
+      <span className="whitespace-nowrap">· {builtAt}</span>
     </>
   );
 }

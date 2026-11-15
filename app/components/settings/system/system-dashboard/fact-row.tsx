@@ -77,6 +77,10 @@ interface FactRowProps {
  * The eight facts below the panels: a small muted label above each value.
  *
  * @remarks
+ * Narrow cards show two columns, cards from `34rem` four. From `60rem` the
+ * eight facts stand in two rows of four; the first column is wider
+ * (`1.6fr` against `1fr`) so the version with its build fits on one line.
+ *
  * The values carry the weight of the values in the panels above, medium and
  * not bold, and no line separates the row from the panels. A value without
  * a source is `—`.
@@ -94,7 +98,7 @@ export function FactRow({
   const backup = format.day(lastBackup, now);
 
   return (
-    <dl className="mt-5 grid grid-cols-2 gap-x-4 gap-y-3 @min-[34rem]:grid-cols-4 @min-[60rem]:grid-cols-[repeat(8,auto)] @min-[60rem]:justify-between">
+    <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-4 @min-[34rem]:grid-cols-4 @min-[60rem]:grid-cols-[minmax(0,1.6fr)_repeat(3,minmax(0,1fr))]">
       {FACT_KEYS.map((key) => (
         <div key={key} className="min-w-0" data-fact={key}>
           <dt className="truncate text-xs text-muted-foreground">
