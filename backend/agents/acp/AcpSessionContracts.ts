@@ -39,6 +39,8 @@ export type AcpPromptRequest = Pick<
 
 /** What one ACP session needs from its surroundings. */
 export interface AcpSessionContext {
+  /** Managed Codex home for plan-only structured thread accounting. */
+  readonly codexHome?: string;
   readonly instanceId: string;
   /** What differs between the adapters of the runners. */
   readonly driver: Pick<

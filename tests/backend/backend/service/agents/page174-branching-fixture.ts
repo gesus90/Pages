@@ -208,13 +208,13 @@ export async function branchEngine(
   } = {},
 ): Promise<BranchEngine> {
   const configuration = branchConfiguration();
-  const base = await parameterRunFixture(configuration, "codex_cli");
+  const base = await parameterRunFixture(configuration, "claude_code");
   const source: AgentDefinitionChoice = {
     id: "agent",
     name: "Test",
     model: base.step.model,
     reasoningEffort: null,
-    provider: "codex_cli",
+    provider: "claude_code",
     purposes: ["agent"],
     configuration,
     revision: 1,

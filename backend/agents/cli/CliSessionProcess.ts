@@ -1,8 +1,14 @@
 import { EventEmitter } from "node:events";
 
+import { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 
+import { CliPausableDeadline } from "./CliPausableDeadline";
+import { captureOwnedNamespace } from "./CliOwnedNamespace";
+import { setNamespacePaused } from "./CliNamespacePause";
+
 import type { ChildProcess } from "node:child_process";
+import type { CliProviderId } from "@/definition/AgentConnection";
 import type { AgentErrorCode } from "@/backend/error/AgentErrors";
 import type {
   CliGroupSignal,
@@ -38,6 +44,8 @@ export interface CliSessionExit {
 /** What a session process needs beyond its spawned child. */
 export interface CliSessionCallbacks {
   readonly timeoutMs: number;
+  /** Codex Stop terminates its process frame on the first signal. */
+  readonly provider?: CliProviderId;
   readonly signal: AbortSignal;
   /** Receives every complete line of the standard output, in order. */
   readonly onLine: (line: string) => void | Promise<void>;
@@ -70,7 +78,9 @@ export class CliSessionProcess implements CliRunningProcess {
   private readonly callbacks: CliSessionCallbacks;
   private readonly signalGroup: CliGroupSignal;
   private readonly completion = new EventEmitter();
-  private readonly deadline: ReturnType<typeof setTimeout> | null;
+  private readonly deadline: CliPausableDeadline;
+  private isPaused = false;
+  private readonly pauseChanges = new SerialQueue();
   private readonly abort: () => void;
   private escalation: ReturnType<typeof setTimeout> | null = null;
   private closing: ReturnType<typeof setTimeout> | null = null;
@@ -113,10 +123,9 @@ export class CliSessionProcess implements CliRunningProcess {
       stderr: exit.stderrTail,
       errorCode: exit.errorCode,
     }));
-    this.deadline =
-      callbacks.timeoutMs > 0
-        ? setTimeout(() => this.cancel("check_timeout"), callbacks.timeoutMs)
-        : null;
+    this.deadline = new CliPausableDeadline(callbacks.timeoutMs, () =>
+      this.cancel("check_timeout"),
+    );
     child.once("error", (error: Error) => {
       logEvent({
         level: "error",
@@ -201,6 +210,11 @@ export class CliSessionProcess implements CliRunningProcess {
     if (this.child.stdin?.writable) this.child.stdin.end();
   }
 
+  /** Freezes native work and its deadline while keeping the ACP pipes open. */
+  public setPaused(isPaused: boolean): Promise<void> {
+    return this.pauseChanges.run(() => this.changePause(isPaused));
+  }
+
   /** Terminates the whole process group, with a kill after the grace period. */
   public cancel(code: AgentErrorCode): void {
     if (this.isFinished || this.escalation !== null) return;
@@ -215,7 +229,39 @@ export class CliSessionProcess implements CliRunningProcess {
     this.escalation = setTimeout(() => {
       this.sendSignal("SIGKILL");
     }, TERMINATION_GRACE_MS);
-    this.sendSignal(code === "check_timeout" ? "SIGKILL" : "SIGTERM");
+    this.sendSignal(
+      code === "check_timeout" ||
+        this.isPaused ||
+        this.callbacks.provider === "codex_cli"
+        ? "SIGKILL"
+        : "SIGTERM",
+    );
+  }
+
+  private async changePause(isPaused: boolean): Promise<void> {
+    if (
+      this.isFinished ||
+      this.escalation !== null ||
+      this.isPaused === isPaused
+    )
+      return;
+    if (!this.child.pid) throw new Error("Session process unavailable");
+    const owner = await captureOwnedNamespace(this.child.pid);
+    if (isPaused) this.deadline.pause();
+    try {
+      await setNamespacePaused(
+        {
+          ...owner,
+          ...(this.callbacks.unit ? { unit: this.callbacks.unit.name } : {}),
+        },
+        isPaused,
+      );
+    } catch (error: unknown) {
+      if (isPaused) this.deadline.resume();
+      throw error;
+    }
+    this.isPaused = isPaused;
+    if (!isPaused) this.deadline.resume();
   }
 
   private consume(chunk: string): void {
@@ -294,7 +340,7 @@ export class CliSessionProcess implements CliRunningProcess {
       message: "CLI session process exited",
       metadata: { exitCode: code, signal, code: this.errorCode },
     });
-    if (this.deadline !== null) clearTimeout(this.deadline);
+    this.deadline.close();
     if (this.escalation !== null) clearTimeout(this.escalation);
     if (this.closing !== null) clearTimeout(this.closing);
     this.callbacks.signal.removeEventListener("abort", this.abort);

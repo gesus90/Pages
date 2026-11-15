@@ -254,6 +254,7 @@ export class AgentPlanStepProgressService {
       readonly runId: string;
       readonly stepId: string;
       readonly attemptId: string;
+      readonly requiresNativePlan?: boolean;
     },
     contract: AgentPlanContract,
   ): Promise<AgentPlanContract> {
@@ -263,14 +264,46 @@ export class AgentPlanStepProgressService {
     const statuses = new Map(
       isCurrent ? earlier.todos.map((todo) => [todo.id, todo.status]) : [],
     );
-    const todos = contract.todos.map((todo) => ({
-      ...todo,
-      ...(!todo.ticket && statuses.get(todo.id) === "done"
-        ? { checked: true }
-        : {}),
-    }));
+    const todos = contract.todos
+      .filter((todo) => todo.id !== "PAGES_PLAN")
+      .map((todo) => ({
+        ...todo,
+        ...(!todo.ticket && statuses.get(todo.id) === "done"
+          ? { checked: true }
+          : {}),
+      }));
     const native = (await this.agentTodos?.findEntries(scope.attemptId)) ?? [];
-    return withNativeTodoState({ ...contract, todos }, native, statuses);
+    const current = withNativeTodoState(
+      { ...contract, todos },
+      native,
+      statuses,
+    );
+    if (
+      scope.requiresNativePlan &&
+      (native.length === 0 || native.some((todo) => todo.status !== "done"))
+    )
+      return {
+        ...current,
+        todos: [
+          ...current.todos,
+          {
+            id: "PAGES_PLAN",
+            text:
+              native.length === 0
+                ? "Create your TODO list with the native update_plan tool before continuing; keep it updated until all tasks are completed."
+                : `Complete the open TODOs with native update_plan: ${native
+                    .filter((todo) => todo.status !== "done")
+                    .slice(0, 20)
+                    .map((todo) => todo.text)
+                    .join("; ")
+                    .slice(0, 3000)}`,
+            ticket: null,
+            agent: true,
+            checked: false,
+          },
+        ],
+      };
+    return current;
   }
 
   /**

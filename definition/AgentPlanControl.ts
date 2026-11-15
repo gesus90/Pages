@@ -62,6 +62,8 @@ export interface AgentPlanControl {
   readonly status: AgentPlanRun["status"] | "idle";
   readonly canPlay: boolean;
   readonly canRestart?: boolean;
+  /** Start performs the Codex run reset itself, without a second confirmation in the panel. */
+  readonly startWithoutConfirmation?: boolean;
   readonly resumeAction?: "paused" | "recovery";
   /** Which state "Fortsetzen" continues; absent while there is nothing to continue. */
   readonly resumeKind?: AgentPlanResumeKind;

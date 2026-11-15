@@ -9,6 +9,8 @@ import { hasSessionEnded, infrastructureRestarts } from "./console-step-state";
 import { formatClock } from "./console-time";
 import { useNow } from "./use-terminal-surface";
 
+import { CodexUsageFacts } from "../codex-usage-facts";
+
 import type { AgentPlanStepResult } from "@/definition/AgentPlan";
 import type { AgentPlanProgressItem } from "@/definition/AgentPlanProgress";
 import type {
@@ -223,6 +225,12 @@ function UsageSection(props: {
     used === null
       ? unknown
       : `${numbers.format(used)} / ${context.contextLimit === null ? unknown : numbers.format(context.contextLimit)}`;
+  const codex =
+    props.view.provider === "codex_cli"
+      ? props.view.codexRunUsage?.steps.find(
+          (step) => step.stepId === props.view.key.stepId,
+        )
+      : null;
   const totals = props.view.nodeTotals ?? props.view.totals;
   const known = totals.flatMap((total) =>
     total.totalTokens === null ? [] : [total.totalTokens],
@@ -239,6 +247,7 @@ function UsageSection(props: {
     : unknown;
   return (
     <SidebarSection title={t(`${key}.usage`)}>
+      {codex ? <CodexUsageFacts usage={codex.usage} /> : null}
       <dl className="space-y-1.5">
         <Fact label={t(`${key}.context`)} value={contextValue} />
         <div
@@ -256,9 +265,13 @@ function UsageSection(props: {
         </div>
         <Fact
           label={t(`${key}.tokens`)}
-          value={props.isTurnRunning ? t(`${key}.afterTurn`) : tokens}
+          value={
+            props.isTurnRunning && props.view.provider !== "codex_cli"
+              ? t(`${key}.afterTurn`)
+              : tokens
+          }
         />
-        <Fact label={t(`${key}.cost`)} value={cost} />
+        {codex ? null : <Fact label={t(`${key}.cost`)} value={cost} />}
       </dl>
     </SidebarSection>
   );

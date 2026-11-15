@@ -5,6 +5,9 @@ import {
   AGENT_TODO_TEXT_LENGTH,
 } from "@/definition/AgentPlanAgentTodos";
 
+import { codexThreadReportSchema } from "@/definition/CodexPlanUsage";
+
+import { codexPromptTokens } from "../usage/CodexPromptTokens";
 import { readContinuationCapabilities } from "./AgentSessionContinuation";
 import { MAXIMUM_EVENT_TEXT } from "./AgentSessionJournal";
 import {
@@ -252,6 +255,7 @@ export class AgentSessionRecorder implements AcpSessionListener {
   private thought = "";
   private pendingWrites = 0;
   private hasWriteFailure = false;
+  private hasNativeCodexUsage = false;
   private lastUsage: Usage | null = null;
   private continuation: AcpContinuationCapabilities | null = null;
   private writes: Promise<void> = Promise.resolve();
@@ -317,6 +321,7 @@ export class AgentSessionRecorder implements AcpSessionListener {
 
   /** Receives one update of the adapter. */
   public readonly update = (update: SessionUpdate): void => {
+    if (this.attempt.provider === "codex_cli") this.readCodexUsage(update);
     if (THOUGHT_BOUNDARIES.has(update.sessionUpdate)) this.flushThought();
     if (update.sessionUpdate === "agent_message_chunk") {
       if (update.content.type === "text") {
@@ -354,10 +359,14 @@ export class AgentSessionRecorder implements AcpSessionListener {
   ): void => {
     this.flushThought();
     this.flushMessage();
-    const { provider, key } = this.attempt;
+    const attempt = this.attempt;
+    const { provider, key } = attempt;
     const turn = this.turn();
     const capability = ACP_USAGE_CAPABILITIES[provider];
-    const delta = readTurnTokens(capability, usage, this.lastUsage);
+    const delta =
+      provider === "codex_cli"
+        ? codexPromptTokens(usage)
+        : readTurnTokens(capability, usage, this.lastUsage);
     this.lastUsage = usage ?? this.lastUsage;
     this.turns.set(key.attemptId, turn + 1);
     this.record({
@@ -365,6 +374,10 @@ export class AgentSessionRecorder implements AcpSessionListener {
       text: isContinued ? `turn ${turn} continued` : `turn ${turn} ended`,
       turn,
     });
+    if (provider === "codex_cli" && this.hasNativeCodexUsage) {
+      this.hasNativeCodexUsage = false;
+      if (usage !== null) return;
+    }
     if (delta === null) return;
     const reportedAt = this.clock();
     const model = this.attempt.confirmedModel.value;
@@ -374,7 +387,19 @@ export class AgentSessionRecorder implements AcpSessionListener {
         attemptId: key.attemptId,
         turn,
         provider,
-        model,
+        model:
+          provider === "codex_cli"
+            ? (model ?? attempt.requestedModel ?? null)
+            : model,
+        ...(provider === "codex_cli"
+          ? {
+              codex: {
+                connectionId: attempt.connectionId ?? "",
+                agentId: attempt.agentId ?? "",
+                report: null,
+              },
+            }
+          : {}),
         reportedAt,
       }),
     );
@@ -486,6 +511,45 @@ export class AgentSessionRecorder implements AcpSessionListener {
       text: toolText(state),
       dedupeKey: `tool:${toolCallId}:started`,
     };
+  }
+
+  private readCodexUsage(update: SessionUpdate): void {
+    const parsed = codexThreadReportSchema.safeParse(
+      update._meta?.pagesCodexUsage,
+    );
+    if (!parsed.success) return;
+    const report = parsed.data;
+    if (!report.baseline) this.hasNativeCodexUsage = true;
+    const attempt = this.attempt;
+    const turn = this.turn();
+    const reportedAt = this.clock();
+    this.enqueue(() =>
+      this.dependencies.store.saveTurnUsage({
+        ...report.totals,
+        totalTokens:
+          report.totals.inputTokens === null ||
+          report.totals.outputTokens === null
+            ? null
+            : report.totals.inputTokens + report.totals.outputTokens,
+        cacheWriteTokens: null,
+        inputIncludesCache: true,
+        isPartial:
+          report.totals.inputTokens === null ||
+          report.totals.outputTokens === null,
+        attemptId: attempt.key.attemptId,
+        turn,
+        provider: "codex_cli",
+        model: report.model,
+        reportedAt,
+        codex: {
+          connectionId: attempt.connectionId ?? "",
+          agentId: attempt.agentId ?? "",
+          report,
+        },
+      }),
+    );
+    if (!report.baseline)
+      this.record({ kind: "usage", text: "Codex thread usage updated" });
   }
 
   private readUsage(

@@ -1,3 +1,4 @@
+import { codexPriceMappingsSchema } from "@/backend/service/agents/usage/CodexPriceMappings";
 import {
   readBooleanColumn,
   readNullableTextColumn,
@@ -17,6 +18,7 @@ import type {
 
 /** Persistence metadata deliberately excludes the encrypted secret. */
 export interface AgentConnectionRecord {
+  readonly codexPriceMappings?: Readonly<Record<string, string>>;
   readonly isActive: boolean;
   readonly id: string;
   readonly name: string;
@@ -41,7 +43,8 @@ export const CONNECTION_COLUMNS = `
     updated_at,
     reasoning_effort,
     is_active,
-    zai_account_type
+    zai_account_type,
+    codex_price_mappings
 `;
 
 /** Maps explicit columns, rejecting an unsupported stored provider. */
@@ -56,6 +59,10 @@ export function readAgentConnection(
     throw new AgentError("zai_account_type_invalid");
   return {
     isActive: readBooleanColumn(row, 9, "is_active"),
+    codexPriceMappings:
+      typeof row[11] === "string"
+        ? codexPriceMappingsSchema.parse(JSON.parse(row[11]))
+        : {},
     id: readTextColumn(row, 0, "id"),
     name: readTextColumn(row, 1, "name"),
     provider,

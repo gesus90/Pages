@@ -24,6 +24,7 @@ import type { AgentUsage } from "@/definition/AgentUsage";
 import type { AgentConnectionRecord } from "./agent/AgentConnectionRows";
 
 export interface AgentConnectionWrite {
+  readonly codexPriceMappings?: Readonly<Record<string, string>>;
   readonly id: string;
   readonly name: string;
   readonly provider: AgentProviderId;
@@ -36,6 +37,7 @@ export interface AgentConnectionWrite {
 }
 
 export interface AgentConnectionChange {
+  readonly codexPriceMappings?: Readonly<Record<string, string>>;
   readonly name: string;
   readonly zaiAccountType?: ZaiAccountType;
   readonly clearAccess?: boolean;
@@ -175,6 +177,7 @@ export class AgentConnectionRepository {
             name,
             provider,
             zai_account_type,
+            codex_price_mappings,
             secret_encrypted,
             test_model,
             created_by,
@@ -184,6 +187,7 @@ export class AgentConnectionRepository {
             $name,
             $provider,
             $zai_account_type,
+            $codex_price_mappings,
             $secret_encrypted,
             $test_model,
             $actor_id,
@@ -195,6 +199,9 @@ export class AgentConnectionRepository {
           name: connection.name,
           provider: connection.provider,
           zai_account_type: connection.zaiAccountType ?? "api",
+          codex_price_mappings: JSON.stringify(
+            connection.codexPriceMappings ?? {},
+          ),
           secret_encrypted: connection.secretEncrypted,
           test_model: connection.testModel,
           actor_id: connection.actorId,
@@ -219,6 +226,7 @@ export class AgentConnectionRepository {
         SET
             name = $name,
             zai_account_type = COALESCE($zai_account_type, zai_account_type),
+            codex_price_mappings = COALESCE($codex_price_mappings, codex_price_mappings),
             secret_encrypted = COALESCE($secret_encrypted, secret_encrypted),
             test_model = $test_model,
             reasoning_effort = $reasoning_effort,
@@ -230,6 +238,10 @@ export class AgentConnectionRepository {
           id,
           name: change.name,
           zai_account_type: change.zaiAccountType ?? null,
+          codex_price_mappings:
+            change.codexPriceMappings === undefined
+              ? null
+              : JSON.stringify(change.codexPriceMappings),
           secret_encrypted: change.secretEncrypted,
           test_model: change.testModel,
           reasoning_effort: change.reasoningEffort,

@@ -9,6 +9,11 @@ import {
 } from "@/definition/AgentPlanLoop";
 import { planDecisionMode } from "@/definition/AgentPlanDecision";
 
+import {
+  waitForCodexResume,
+  usesImmediateCodexPause,
+} from "../AgentPlanImmediatePause";
+
 import { planEdgeState } from "../branching/AgentPlanBranchEdges";
 import {
   decidePlanBoolean,
@@ -483,6 +488,9 @@ export class AgentPlanLoopIterationRunner {
         {
           signal: host.signal,
           iteration: number,
+          waitUntilResumed: usesImmediateCodexPause(host.snapshot())
+            ? () => waitForCodexResume(() => host.run(), host.signal)
+            : undefined,
           claimStart: () => {
             if (isClaimed) return;
             if (!host.canDispatch()) throw new AgentPlanPausedError();

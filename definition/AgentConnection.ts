@@ -305,6 +305,8 @@ export interface AgentCliState {
 
 /** Safe metadata; neither ciphertext nor key fragments belong in this contract. */
 export interface AgentConnectionSummary {
+  /** Codex model ID to public OpenRouter price ID; administrator-only metadata. */
+  readonly codexPriceMappings?: Readonly<Record<string, string>>;
   readonly isActive: boolean;
   readonly id: string;
   readonly name: string;
@@ -329,6 +331,7 @@ export interface AgentConnectionSummary {
 }
 
 export interface AgentConnectionInput {
+  readonly codexPriceMappings?: unknown;
   readonly name: string;
   readonly provider?: string;
   readonly zaiAccountType?: string;

@@ -2,9 +2,12 @@ import { spawn } from "node:child_process";
 import path from "node:path";
 import { Writable } from "node:stream";
 
+import { CliPausableDeadline } from "@/backend/agents/cli/CliPausableDeadline";
+
 import { captureOwnedNamespace } from "@/backend/agents/cli/CliOwnedNamespace";
 import { sshConfigOverlayArguments } from "@/backend/agents/cli/CliSshConfigOverlay";
 
+import { registerScriptPause, isScriptRunPaused } from "./AgentPlanScriptPause";
 import { AgentPlanScriptCapture } from "./AgentPlanScriptCapture";
 import { scriptEnvironment } from "./AgentPlanScriptResources";
 
@@ -13,6 +16,7 @@ import type { AgentPlanScriptRun } from "@/definition/AgentPlanScript";
 /** One authorized attempt; source and JSON input are always separate transports. */
 export interface ScriptProcessRequest {
   readonly record: AgentPlanScriptRun;
+  readonly runId?: string;
   readonly program: string;
   readonly resources: string;
   readonly input: string;
@@ -91,14 +95,20 @@ async function collectProcess(
   const abort = (): void => capture.interrupt("cancelled");
   request.signal.addEventListener("abort", abort, { once: true });
   if (request.signal.aborted) abort();
-  const timer = setTimeout(
-    () => capture.interrupt("timeout"),
-    request.timeoutSeconds * 1000,
+  let unregisterPause: (() => void) | undefined;
+  const deadline = new CliPausableDeadline(request.timeoutSeconds * 1000, () =>
+    capture.interrupt("timeout"),
   );
   try {
     if (!child.pid) throw new Error("Script supervisor was not started");
     const namespace = await captureOwnedNamespace(child.pid);
     record = { ...record, namespace };
+    if (request.runId)
+      unregisterPause = await registerScriptPause({
+        runId: request.runId,
+        namespace,
+        deadline,
+      });
     await request.save(record);
     const release = child.stdio[3];
     if (!(release instanceof Writable))
@@ -109,27 +119,45 @@ async function collectProcess(
   } catch {
     capture.interrupt("io");
   } finally {
-    clearTimeout(timer);
+    deadline.close();
+    unregisterPause?.();
     request.signal.removeEventListener("abort", abort);
   }
-  let isConfirmed = false;
+  const isConfirmed = await confirmScriptCloseout(
+    request,
+    capture,
+    child,
+    record.namespace !== undefined,
+  );
+  return capture.result(record, isConfirmed);
+}
+
+async function confirmScriptCloseout(
+  request: ScriptProcessRequest,
+  capture: AgentPlanScriptCapture,
+  child: ReturnType<typeof spawn>,
+  hasNamespace: boolean,
+): Promise<boolean> {
   try {
-    if (!capture.isExited) child.kill("SIGTERM");
+    if (!capture.isExited)
+      child.kill(
+        request.runId && isScriptRunPaused(request.runId)
+          ? "SIGKILL"
+          : "SIGTERM",
+      );
     const escalation = setTimeout(() => {
       if (!capture.isExited) child.kill("SIGKILL");
     }, 2000);
     try {
-      isConfirmed =
-        (await capture.confirmClosed()) && record.namespace !== undefined;
+      return (await capture.confirmClosed()) && hasNamespace;
     } finally {
       clearTimeout(escalation);
     }
   } catch {
-    isConfirmed = false;
+    return false;
   } finally {
     child.stdin?.destroy();
     child.stdout?.destroy();
     child.stderr?.destroy();
   }
-  return capture.result(record, isConfirmed);
 }

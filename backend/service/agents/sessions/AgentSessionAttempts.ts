@@ -25,7 +25,11 @@ export interface AgentSessionAttempt {
 export interface AgentSessionNode {
   readonly run: Pick<AgentPlanRun, "id" | "planId" | "userId">;
   readonly step: {
-    readonly step: { readonly id: string };
+    readonly step: {
+      readonly id: string;
+      readonly agentId?: string;
+      readonly personalAgentId?: string | null;
+    };
     readonly groupId?: string;
   };
   readonly record: AgentPlanSessionRecord | null;
@@ -33,6 +37,9 @@ export interface AgentSessionNode {
 
 /** What the recording of a turn starts from. */
 export interface AgentSessionStart {
+  readonly connectionId?: string;
+  readonly agentId?: string;
+  readonly requestedModel?: string;
   readonly key: AgentSessionKey;
   readonly userId: string;
   readonly provider: AcpProviderId;
@@ -90,6 +97,9 @@ export function sessionStart(
     instanceId,
     groupId: node.step.groupId ?? null,
     directory: record.requested.directory,
+    connectionId: record.requested.connectionId,
+    requestedModel: record.requested.model,
+    agentId: node.step.step.personalAgentId ?? node.step.step.agentId,
   };
 }
 

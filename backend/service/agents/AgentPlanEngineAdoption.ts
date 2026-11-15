@@ -8,6 +8,11 @@ import {
   withAdoptedSession,
   reconcileAdoptedRun,
 } from "./AgentPlanAdoptedView";
+import {
+  setCodexRunPaused,
+  suspendedCodexRun,
+  usesImmediateCodexPause,
+} from "./AgentPlanImmediatePause";
 
 import type { AgentPlanSnapshot } from "./AgentPlanSnapshot";
 import type { SerialQueue } from "@/backend/concurrency/SerialQueue";
@@ -61,6 +66,27 @@ export async function adoptLocalPlanRun(
   };
   bindPlanBranchState(active);
   context.active.set(view.id, active);
+  await restoreAdoptionSteps(active, view, snapshot, context);
+  if (
+    usesImmediateCodexPause(snapshot) &&
+    (view.status === "paused" || view.status === "pausing")
+  ) {
+    await setCodexRunPaused(active, context.dependencies.localSessions, true);
+    active.view = suspendedCodexRun(active);
+  }
+  dispatchAdoptedRunningSteps(active, snapshot, context);
+  await context.dependencies.runs.update(active.view);
+  if (view.status === "paused" || view.status === "pausing")
+    context.dependencies.resources?.pauseRun(view.id);
+  return true;
+}
+
+async function restoreAdoptionSteps(
+  active: ActivePlanRun,
+  view: AgentPlanRun,
+  snapshot: AgentPlanSnapshot,
+  context: AdoptionContext,
+): Promise<void> {
   await context.dependencies.steps.restore?.(
     view,
     snapshot,
@@ -82,9 +108,15 @@ export async function adoptLocalPlanRun(
         ),
     },
   );
-  for (const result of active.view.steps.filter(
-    (step) => step.status === "running",
-  )) {
+}
+
+function dispatchAdoptedRunningSteps(
+  active: ActivePlanRun,
+  snapshot: AgentPlanSnapshot,
+  context: AdoptionContext,
+): void {
+  const { view } = active;
+  for (const result of view.steps.filter((step) => step.status === "running")) {
     const node = snapshot.plan.nodes.find(
       (candidate) => candidate.id === result.id,
     );
@@ -95,10 +127,6 @@ export async function adoptLocalPlanRun(
     context.start(active, node, controller);
     if (view.stopRequested) controller.abort();
   }
-  await context.dependencies.runs.update(active.view);
-  if (view.status === "paused" || view.status === "pausing")
-    context.dependencies.resources?.pauseRun(view.id);
-  return true;
 }
 
 async function saveRestoredSession(

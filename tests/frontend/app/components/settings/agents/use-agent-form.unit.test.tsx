@@ -462,3 +462,23 @@ it("adopts a changed reasoning effort and account type", () => {
     reasoningEffort: "low",
   });
 });
+
+it("sends edited Codex price mappings and preserves server mappings when only another field changes", () => {
+  const stored = connection({
+    provider: "codex_cli",
+    accessKind: "cli_account",
+    hasApiKey: false,
+    codexPriceMappings: { "gpt-6-luna": "openai/gpt-6-luna" },
+  });
+  const { result } = renderForm("cli_account", stored);
+  expect(result.current.fields.codexPriceMappings).toBe(
+    "gpt-6-luna = openai/gpt-6-luna",
+  );
+  act(() => result.current.setField("name", "Renamed"));
+  act(() => result.current.handleSubmit(submitEvent()));
+  expect(submitted()).not.toHaveProperty("codexPriceMappings");
+  fetcher.submit.mockClear();
+  act(() => result.current.setField("codexPriceMappings", ""));
+  act(() => result.current.handleSubmit(submitEvent()));
+  expect(submitted().codexPriceMappings).toBe("");
+});

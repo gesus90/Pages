@@ -12,6 +12,8 @@ import type {
 /** How a running node reports its record and learns about a stop. */
 export interface StepRunControl {
   readonly signal: AbortSignal;
+  /** Holds completed native work at an immediate pause without closing its session. */
+  readonly waitUntilResumed?: () => Promise<void>;
   /** Claims dispatch only while the engine gate remains open. */
   readonly claimStart?: () => void;
   /** Explicitly identifies preparation/admission work that has not dispatched yet. */

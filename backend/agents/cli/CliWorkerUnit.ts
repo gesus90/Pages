@@ -13,6 +13,7 @@ import {
 } from "@/backend/logging/Logger";
 
 import { createCliRequestEnvironment } from "./CliEnvironment";
+import { CLI_DEFAULT_RUNTIME_MS } from "./CliPausableDeadline";
 
 import type {
   CliSessionRequest,
@@ -29,7 +30,7 @@ const UNIT_SLICE = "pages-acp.slice";
 const RETRY_FAILED_PROBE_MS = 60_000;
 const COMMAND_TIMEOUT_MS = 10_000;
 /** The hard runtime of a worker without a deadline of its own. */
-const UNBOUNDED_RUNTIME_SECONDS = 24 * 60 * 60;
+const UNBOUNDED_RUNTIME_SECONDS = CLI_DEFAULT_RUNTIME_MS / 1000;
 /** systemd ends a worker this long after the deadline Pages itself enforces. */
 const RUNTIME_GRACE_SECONDS = 120;
 const execFileAsync = promisify(execFile);
@@ -123,6 +124,16 @@ function readResult(text: string): CliWorkerUnitResult {
     "resources",
   ];
   return known.find((entry) => entry === result) ?? "unknown";
+}
+
+function workerRuntime(request: CliSessionRequest): number | "infinity" {
+  // systemd counts wall time even while frozen. The independent plan owner
+  // retains its active-time deadline; memory, CPU and task limits stay here.
+  if (request.provider === "codex_cli" && request.pausesRuntime)
+    return "infinity";
+  return request.timeoutMs > 0
+    ? Math.ceil(request.timeoutMs / 1000) + RUNTIME_GRACE_SECONDS
+    : UNBOUNDED_RUNTIME_SECONDS;
 }
 
 /**
@@ -394,10 +405,7 @@ export class CliWorkerUnits {
     );
     try {
       const unset = await this.managerVariables(environment);
-      const runtime =
-        request.timeoutMs > 0
-          ? Math.ceil(request.timeoutMs / 1000) + RUNTIME_GRACE_SECONDS
-          : UNBOUNDED_RUNTIME_SECONDS;
+      const runtime = workerRuntime(request);
       const unit = this.handle(name, file);
       return {
         unit,
@@ -572,7 +580,7 @@ export class CliWorkerUnits {
 
 function unitProperties(terms: {
   readonly file: string;
-  readonly runtime: number;
+  readonly runtime: number | "infinity";
   readonly unset: readonly string[];
 }): readonly string[] {
   const properties = [

@@ -274,6 +274,14 @@ function useRunDecisions(
     else void startPlan();
   }
   async function startPlan(): Promise<void> {
+    if (
+      control?.startWithoutConfirmation &&
+      control.canPlay &&
+      !isActivePlanRun(control.status)
+    ) {
+      submitRunAction(props, "play-plan");
+      return;
+    }
     const owners = await startOwners.inspect();
     if (!owners) return;
     if (control?.runId && isActivePlanRun(control.status))

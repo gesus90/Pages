@@ -230,12 +230,18 @@ it.each(PROVIDERS)(
     const { prompt } = node.opened;
     expect(node.opened.options).toEqual(DEFAULT_ACP_RUN_OPTIONS);
     expect(node.opened.directory).toBe("/synthetic");
-    expect(prompt.startsWith("Review ticket:\n# SYN-55")).toBe(true);
+    const assignment = prompt.indexOf("Review ticket:\n# SYN-55");
+    if (provider === "codex_cli") {
+      expect(prompt).toContain("native update_plan tool");
+      expect(assignment).toBeGreaterThan(0);
+    } else {
+      expect(assignment).toBe(0);
+    }
     expect(prompt).toContain("Depth 3, focus security.");
     expect(prompt).not.toMatch(/\{\{(ticket|depth|focus)\}\}/u);
     const instruction = prompt.indexOf("\n\nAdditional instruction\n\n---");
     const contract = prompt.indexOf("## Pages run contract");
-    expect(instruction).toBeGreaterThan(0);
+    expect(instruction).toBeGreaterThan(assignment);
     expect(contract).toBeGreaterThan(instruction);
     expect(prompt.split("## Pages run contract")).toHaveLength(2);
     expect(prompt).toContain("This session is read-only");

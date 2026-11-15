@@ -2,6 +2,10 @@ import { randomUUID } from "node:crypto";
 
 import { z } from "zod";
 
+import {
+  codexAccountingSchema,
+  codexUsageSourceSchema,
+} from "@/definition/CodexPlanUsage";
 import { AGENT_ERROR_MESSAGES, AgentError } from "@/backend/error/AgentErrors";
 import { readOwnedNamespace } from "@/definition/AcpNamespace";
 
@@ -77,6 +81,9 @@ export const localOwnerProofSchema = z.object({
 });
 
 const attempt = z.object({
+  connectionId: z.string().optional(),
+  agentId: z.string().optional(),
+  requestedModel: z.string().optional(),
   key: z.object({
     planId: identifier,
     runId: identifier,
@@ -148,6 +155,9 @@ const event = z.object({
   dedupeKey: z.string().nullable(),
 });
 const usage = z.object({
+  reasoningTokens: count.nullable().optional(),
+  accounting: codexAccountingSchema.optional(),
+  codex: codexUsageSourceSchema.optional(),
   attemptId: identifier,
   turn: count,
   provider: z.enum(["codex_cli", "claude_code", "opencode", "antigravity"]),
@@ -291,6 +301,7 @@ export const localCommandSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("ack"), sequence: count, digest: z.string() }),
   z.object({ kind: z.literal("cancel") }),
   z.object({ kind: z.literal("interrupt") }),
+  z.object({ kind: z.literal("pause"), isPaused: z.boolean() }),
   z.object({ kind: z.literal("close") }),
   z.object({ kind: z.literal("release") }),
   z.object({ kind: z.literal("next"), launch: localLaunchSchema }),

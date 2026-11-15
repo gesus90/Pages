@@ -98,6 +98,8 @@ const ERROR_CLASSES: Readonly<Record<AgentErrorCode, AgentPlanBlockerClass>> = {
   plan_team_forbidden: "harm",
   plan_owner_forbidden: "harm",
   plan_owner_invalid: "open",
+  codex_price_mapping_invalid: "open",
+  codex_monthly_cost_limit: "open",
   plan_script_platform_unsupported: "open",
   plan_script_input_required: "open",
   plan_script_input_limit: "open",

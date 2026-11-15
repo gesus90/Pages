@@ -169,6 +169,7 @@ function readControlOptions(
 ): Pick<
   AgentPlanControl,
   | "canRestart"
+  | "startWithoutConfirmation"
   | "resumeAction"
   | "resumeBlocker"
   | "resumeKind"
@@ -189,6 +190,11 @@ function readControlOptions(
     ...(input.canRestart === undefined
       ? {}
       : { canRestart: readBoolean(input.canRestart) }),
+    ...(input.startWithoutConfirmation === undefined
+      ? {}
+      : {
+          startWithoutConfirmation: readBoolean(input.startWithoutConfirmation),
+        }),
     ...(input.resumeAction === undefined
       ? {}
       : { resumeAction: input.resumeAction }),

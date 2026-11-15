@@ -1,6 +1,8 @@
 import path from "node:path";
 import { homedir } from "node:os";
 
+import { OpenRouterPriceRepository } from "@/backend/database/repositories/agent/OpenRouterPriceRepository";
+import { OpenRouterPriceService } from "@/backend/service/agents/usage/OpenRouterPriceService";
 import { registerShutdownTask } from "@/backend/runtime/ProcessLifecycle";
 import { AgentEnvironmentRepository } from "@/backend/database/repositories/agent/AgentEnvironmentRepository";
 import { AgentEnvironmentMaintenance } from "@/backend/storage/AgentEnvironmentMaintenance";
@@ -446,12 +448,7 @@ export function createAgentServices(
     ticketAssets,
   });
   const refresh = createCatalogRefresh(repository, cipher, operations, runtime);
-  const agentCliLoginService = new AgentCliLoginService({
-    repository,
-    ...cliRuntime,
-    operations,
-    catalog: refresh,
-  });
+  startOpenRouterPrices(database);
   const { access, ...decision } = createAccessServices(
     database,
     repository,
@@ -503,11 +500,38 @@ export function createAgentServices(
       capacity: 16,
     }),
     ...createAgentCatalogServices(repository, refresh, operations),
-    agentCliLoginService,
-    agentConnectionService: new AgentConnectionService({
+    ...createConnectionLoginServices({
       repository,
       cipher,
       operations,
+      cliRuntime,
+      refresh,
+    }),
+  };
+}
+
+function createConnectionLoginServices(input: {
+  readonly repository: AgentConnectionRepository;
+  readonly cipher: InstanceSecretCipher;
+  readonly operations: AgentOperationRegistry;
+  readonly cliRuntime: ReturnType<typeof createCliRuntime>;
+  readonly refresh: AgentCatalogRefresh;
+}): Pick<
+  AgentApplicationServices,
+  "agentCliLoginService" | "agentConnectionService"
+> {
+  const agentCliLoginService = new AgentCliLoginService({
+    repository: input.repository,
+    ...input.cliRuntime,
+    operations: input.operations,
+    catalog: input.refresh,
+  });
+  return {
+    agentCliLoginService,
+    agentConnectionService: new AgentConnectionService({
+      repository: input.repository,
+      cipher: input.cipher,
+      operations: input.operations,
       cli: agentCliLoginService,
     }),
   };
@@ -596,5 +620,20 @@ function startEnvironmentMaintenance(
       scheduler.stop();
     },
     { step: "agent_environment_maintenance" },
+  );
+}
+
+/** Starts periodic OpenRouter model price synchronization and registers shutdown cleanup. */
+function startOpenRouterPrices(database: Database): void {
+  if (!canProcessRuns() || isLocalSessionOwner()) return;
+  const prices = new OpenRouterPriceService(
+    new OpenRouterPriceRepository(database),
+  );
+  void prices.start();
+  registerShutdownTask(
+    async () => {
+      prices.stop();
+    },
+    { step: "openrouter_prices" },
   );
 }

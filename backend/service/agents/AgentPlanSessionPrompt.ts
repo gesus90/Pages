@@ -70,6 +70,43 @@ export function planRequestPrompt(
   return `${retryNotice(node, null)}${recovery.note}${prepared.input.prompt}`;
 }
 
+function buildAssignmentPrompt(
+  node: NodeRun,
+  prepared: PreparedPlanStep,
+  terms: PromptTerms,
+  directory: string,
+): string {
+  return renderPlanAssignment({
+    contract: terms.contract,
+    usesMcp: terms.mcp !== null,
+    isReadOnly:
+      planSessionReach(
+        prepared.input.agent.connection.provider,
+        prepared.options,
+      ) === "read",
+    runnerLabel: node.record ? runnerLabel(node.record) : "",
+    instanceId: terms.instanceId,
+    directory,
+    requiresAcceptance: true,
+    acceptanceScope: node.step.groupId ? "group" : "node",
+    hasProjectGitHub: prepared.input.github !== undefined,
+  });
+}
+
+function buildResourceContext(
+  node: NodeRun,
+): AgentPlanSessionInput["resourceContext"] {
+  return {
+    planId: node.run.planId,
+    runId: node.run.id,
+    stepId: node.step.step.id,
+    sessionScopeId: node.sessionGroup ?? node.step.step.id,
+    ...(node.run.origin?.mode === "native_resume"
+      ? { sourceRunId: node.run.origin.runId }
+      : {}),
+  };
+}
+
 /** Builds the exact session input, including the recovery and retry notices. */
 export async function buildPlanSessionInput(
   node: NodeRun,
@@ -86,23 +123,11 @@ export async function buildPlanSessionInput(
       ? ((await dependencies.progress?.()) ?? [])
       : [];
   const scope = `${retryNotice(node, resumeSessionId, progress)}${recovery.note}${planTurnScope(node.step, node.loop)}`;
-  const prompt = `${scope}${startBody(node, prepared)}\n\n${renderPlanAssignment(
-    {
-      contract: terms.contract,
-      usesMcp: terms.mcp !== null,
-      isReadOnly:
-        planSessionReach(
-          prepared.input.agent.connection.provider,
-          prepared.options,
-        ) === "read",
-      runnerLabel: node.record ? runnerLabel(node.record) : "",
-      instanceId: terms.instanceId,
-      directory,
-      requiresAcceptance: true,
-      acceptanceScope: node.step.groupId ? "group" : "node",
-      hasProjectGitHub: prepared.input.github !== undefined,
-    },
-  )}`;
+  const nativePlanInstruction =
+    node.step.provider === "codex_cli"
+      ? "Before doing any work in this step, create your TODO list from the assignment and ticket criteria with your native update_plan tool. Keep that list current on every change (pending, in_progress, completed). Use the assignment TODO text verbatim when it describes the same task. Also report ticket progress through update_step_progress. Pages verifies that you reported a native plan before accepting completion.\n\n"
+      : "";
+  const prompt = `${nativePlanInstruction}${scope}${startBody(node, prepared)}\n\n${buildAssignmentPrompt(node, prepared, terms, directory)}`;
   await dependencies.pin(prompt);
   return {
     ...prepared.input,
@@ -114,15 +139,7 @@ export async function buildPlanSessionInput(
     acceptanceInstruction: prepared.instruction ?? node.step.step.instruction,
     mcp: terms.mcp,
     resumeSessionId,
-    resourceContext: {
-      planId: node.run.planId,
-      runId: node.run.id,
-      stepId: node.step.step.id,
-      sessionScopeId: node.sessionGroup ?? node.step.step.id,
-      ...(node.run.origin?.mode === "native_resume"
-        ? { sourceRunId: node.run.origin.runId }
-        : {}),
-    },
+    resourceContext: buildResourceContext(node),
     journal: dependencies.journal(terms.instanceId),
   };
 }

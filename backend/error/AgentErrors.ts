@@ -8,6 +8,9 @@ export const AGENT_ERROR_MESSAGES = {
     "The plan owner must be the explicitly bound Linux host owner; check PAGES_FULL_ENVIRONMENT_OWNER_ID and the login shell.",
   plan_full_environment_local_only:
     "Full environment requires a local node on the explicitly bound owner's host.",
+  codex_price_mapping_invalid:
+    "Invalid Codex to OpenRouter model price mapping.",
+  codex_monthly_cost_limit: "The agent reached its monthly Codex cost limit.",
   plan_start_end_disconnected: "Start is not connected to End.",
   workspace_unavailable:
     "No usable workspace of this project is available. Add or enable a workspace and try cloning again.",

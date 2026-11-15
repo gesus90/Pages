@@ -11,6 +11,12 @@ import { isRemoteCloseoutUnconfirmed } from "@/definition/AgentPlanRemoteCloseou
 import { isActivePlanRun } from "@/definition/AgentPlanRunState";
 
 import {
+  usesImmediateCodexPause,
+  setCodexRunPaused,
+  suspendedCodexRun,
+} from "./AgentPlanImmediatePause";
+
+import {
   detachedStopRun,
   requestCancellation,
   settleDetachedRun,
@@ -20,6 +26,7 @@ import {
   planWritingWorkspaces,
 } from "./AgentPlanContinuation";
 
+import type { LocalSessions } from "@/backend/agents/local/LocalSessions";
 import type { SerialQueue } from "@/backend/concurrency/SerialQueue";
 import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
 import type { ActivePlanRun } from "./AgentPlanRunState";
@@ -27,7 +34,11 @@ import type { EngineDependencies } from "./AgentPlanRunEngine";
 import type { AgentPlanRunJournal } from "./AgentPlanJournal";
 import type { AgentPlanSnapshot } from "./AgentPlanSnapshot";
 
-interface CommandDependencies extends EngineDependencies {
+interface CommandDependencies extends Omit<
+  EngineDependencies,
+  "localSessions"
+> {
+  readonly localSessions?: Pick<LocalSessions, "setRunPaused">;
   readonly active: Map<string, ActivePlanRun>;
   readonly writes: SerialQueue;
   readonly isClosing: () => boolean;
@@ -150,10 +161,12 @@ export class AgentPlanRunCommands {
   public async pause(id: string, journal?: AgentPlanRunJournal): Promise<void> {
     await this.dependencies.writes.run(async () => {
       const active = this.dependencies.active.get(id);
+      if (!active || active.view.stopRequested)
+        throw new AgentError("plan_run_unavailable");
+      const isImmediate = usesImmediateCodexPause(active.snapshot);
       if (
-        active &&
-        !active.view.stopRequested &&
-        ["paused", "pausing"].includes(active.view.status)
+        active.view.status === "paused" ||
+        (active.view.status === "pausing" && !isImmediate)
       ) {
         if (journal)
           await this.dependencies.runs.update(
@@ -165,9 +178,8 @@ export class AgentPlanRunCommands {
         return;
       }
       if (
-        !active ||
-        active.view.stopRequested ||
-        active.view.status !== "running"
+        active.view.status !== "running" &&
+        !(active.view.status === "pausing" && isImmediate)
       )
         throw new AgentError("plan_run_unavailable");
       const proposed: AgentPlanRun = {
@@ -186,6 +198,13 @@ export class AgentPlanRunCommands {
         journal,
       );
       active.view = proposed;
+      this.dependencies.resources?.pauseRun(id);
+      if (isImmediate) {
+        await setCodexRunPaused(active, this.dependencies.localSessions, true);
+        const suspended = suspendedCodexRun(active);
+        await this.dependencies.runs.update(suspended);
+        active.view = suspended;
+      }
       for (const [stepId, controller] of active.controllers)
         if (!active.dispatched.has(stepId))
           controller.abort(new AgentPlanPausedError());
@@ -209,19 +228,58 @@ export class AgentPlanRunCommands {
         active.view.stopRequested ||
         active.hasPersistenceFailure ||
         active.view.status !== "paused" ||
-        active.controllers.size !== 0
+        (active.controllers.size !== 0 &&
+          !usesImmediateCodexPause(active.snapshot))
       )
         throw new AgentError("plan_run_unavailable");
       const previous = await this.pausedView(active);
       const proposed = snapshot ?? active.snapshot;
+      if (
+        usesImmediateCodexPause(active.snapshot) &&
+        active.controllers.size > 0
+      ) {
+        await this.resumeSuspended(active, proposed, previous, journal);
+        return;
+      }
       const next = preparePlanContinuation(previous, active.snapshot, proposed);
       await this.adoptContinuation(active, next, previous, journal);
       active.snapshot = next.snapshot;
       active.view = next.run;
       this.dependencies.steps.revise?.(id);
+      if (usesImmediateCodexPause(active.snapshot))
+        await setCodexRunPaused(active, this.dependencies.localSessions, false);
       this.dependencies.resources?.resumeRun(id);
     });
     await this.dependencies.pump();
+  }
+
+  private async resumeSuspended(
+    active: ActivePlanRun,
+    snapshot: AgentPlanSnapshot,
+    previous: AgentPlanRun,
+    journal?: AgentPlanRunJournal,
+  ): Promise<void> {
+    if (snapshot.plan.revision !== active.snapshot.plan.revision)
+      throw new AgentError("plan_context_changed");
+    const next: AgentPlanRun = {
+      ...previous,
+      status: "running",
+      pauseBoundary: undefined,
+      steps: previous.steps.map((step) =>
+        step.status === "paused" ? { ...step, status: "waiting" } : step,
+      ),
+    };
+    await this.dependencies.runs.update(next, undefined, undefined, journal);
+    active.view = next;
+    try {
+      await setCodexRunPaused(active, this.dependencies.localSessions, false);
+      this.dependencies.resources?.resumeRun(next.id);
+    } catch (error: unknown) {
+      active.view = previous;
+      await this.dependencies.runs.update(previous);
+      await setCodexRunPaused(active, this.dependencies.localSessions, true);
+      throw error;
+    }
   }
 
   private async pausedView(active: ActivePlanRun): Promise<AgentPlanRun> {

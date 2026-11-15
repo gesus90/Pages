@@ -293,6 +293,41 @@ describe("LocalOwnerSession startup failures", () => {
 });
 
 describe("LocalOwnerSession cancelled start", () => {
+  it("keeps a startup paused until Resume and then opens exactly one native session", async () => {
+    doubles.findRun.mockResolvedValue({
+      ...runWithAttempt(),
+      status: "paused",
+    });
+    const owner = newOwner();
+    const started = owner.start();
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(doubles.open).not.toHaveBeenCalled();
+    doubles.findRun.mockResolvedValue(runWithAttempt());
+    await owner.setPaused(false);
+    await vi.advanceTimersByTimeAsync(25);
+    await started;
+    await flush();
+    expect(doubles.open).toHaveBeenCalledOnce();
+    expect(appended("turn")[0]).toMatchObject({ result: { failure: null } });
+    expect(appended("closed")).toEqual([]);
+  });
+
+  it("stops a paused startup without dispatching its native prompt", async () => {
+    doubles.findRun.mockResolvedValue({
+      ...runWithAttempt(),
+      status: "paused",
+    });
+    const owner = newOwner();
+    const started = owner.start();
+    await vi.advanceTimersByTimeAsync(500);
+    await Promise.all([owner.cancel(), started]);
+    expect(doubles.open).not.toHaveBeenCalled();
+    expect(appended("turn")[0]).toMatchObject({
+      result: { failure: "cancelled" },
+    });
+    expect(appended("closed")).toHaveLength(1);
+  });
+
   it.each(["failed", "cancelled", "succeeded", "stopping"])(
     "refuses native process creation when the run is already %s",
     async (status) => {
@@ -307,7 +342,9 @@ describe("LocalOwnerSession cancelled start", () => {
       });
     },
   );
+});
 
+describe("LocalOwnerSession stopped and aborted start", () => {
   it("records a stopped run as cancelled without opening the native session", async () => {
     doubles.findRun.mockResolvedValue({ stopRequested: true });
     const owner = newOwner();

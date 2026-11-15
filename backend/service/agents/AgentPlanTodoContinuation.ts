@@ -41,6 +41,13 @@ export async function runPlanTodoTurns(
   let terms = input.terms;
   let turn = await session.turn;
   for (;;) {
+    await node.control.waitUntilResumed?.();
+    if (
+      node.step.provider === "codex_cli" &&
+      node.control.signal.aborted &&
+      turn.failure === null
+    )
+      turn = { ...turn, failure: "cancelled" };
     if (node.record) node.record = withTurn(node.record, turn);
     await dependencies.sessions?.settle(node.record, turn);
     const result = await dependencies.reports.assess(node, turn, terms);

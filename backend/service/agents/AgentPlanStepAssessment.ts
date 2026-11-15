@@ -70,7 +70,13 @@ export class AgentPlanStepAssessment {
       canReportTicketTodos: terms.reach === "read",
     };
     const current = scope.progress
-      ? await this.progress?.current(scope.progress, terms.contract)
+      ? await this.progress?.current(
+          {
+            ...scope.progress,
+            requiresNativePlan: scope.provider === "codex_cli",
+          },
+          terms.contract,
+        )
       : undefined;
     const contract = refreshPlanContract(
       terms.instruction,
@@ -82,8 +88,9 @@ export class AgentPlanStepAssessment {
       contract.completion === "todos"
         ? evaluateTodoCompletion
         : evaluatePlanAcceptance;
+    const acceptance = evaluate(contract, output, states, stepReport);
     return {
-      acceptance: evaluate(contract, output, states, stepReport),
+      acceptance: enforceNativePlanAcceptance(acceptance, contract),
       contract,
     };
   }
@@ -113,4 +120,30 @@ export class AgentPlanStepAssessment {
       isCheckRequired: terms.reach !== "read",
     };
   }
+}
+
+/** The native plan obligation is proved by ACP, never by an agent's claim that it is done. */
+function enforceNativePlanAcceptance(
+  acceptance: AgentPlanAcceptance,
+  contract: AgentPlanContract,
+): AgentPlanAcceptance {
+  if (!contract.todos.some((todo) => todo.id === "PAGES_PLAN"))
+    return acceptance;
+  const hasObligation = acceptance.todos.some(
+    (todo) => todo.id === "PAGES_PLAN",
+  );
+  return {
+    ...acceptance,
+    verdict: acceptance.verdict === "accepted" ? "open" : acceptance.verdict,
+    todos: [
+      ...acceptance.todos.map((todo) =>
+        todo.id === "PAGES_PLAN" ? { ...todo, status: "open" as const } : todo,
+      ),
+      ...(hasObligation ? [] : [{ id: "PAGES_PLAN", status: "open" as const }]),
+    ],
+    issues: [
+      ...acceptance.issues.filter((issue) => !issue.endsWith(":PAGES_PLAN")),
+      "todo_open:PAGES_PLAN",
+    ],
+  };
 }

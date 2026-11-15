@@ -15,6 +15,7 @@ import type { AgentConnectionScope } from "@/definition/AgentConnectionScope";
 import type { Dispatch, FormEvent, SetStateAction } from "react";
 
 interface AgentFormFields {
+  readonly codexPriceMappings?: string;
   readonly name: string;
   readonly provider: AgentProviderId;
   readonly zaiAccountType: string;
@@ -28,7 +29,11 @@ interface AgentFormFields {
 
 type StoredChoice = Pick<
   AgentFormFields,
-  "testModel" | "reasoningEffort" | "scope" | "zaiAccountType"
+  | "testModel"
+  | "reasoningEffort"
+  | "scope"
+  | "zaiAccountType"
+  | "codexPriceMappings"
 >;
 
 /** The server lists targets by kind, the form in the order of the choices. */
@@ -53,10 +58,27 @@ function isSameScope(
   );
 }
 
+function formatCodexPriceMappings(
+  connection: AgentConnectionSummary | undefined,
+  kind: AgentAccessKind,
+): Pick<AgentFormFields, "codexPriceMappings"> {
+  const isCodexConnection =
+    connection?.provider === "codex_cli" ||
+    (!connection && kind === "cli_account");
+  if (!isCodexConnection) return {};
+  return {
+    codexPriceMappings: Object.entries(connection?.codexPriceMappings ?? {})
+      .map(([model, id]) => `${model} = ${id}`)
+      .join("\n"),
+  };
+}
+
 function storedChoice(
   connection: AgentConnectionSummary | undefined,
+  kind: AgentAccessKind,
 ): StoredChoice {
   return {
+    ...formatCodexPriceMappings(connection, kind),
     testModel: connection?.testModel ?? "",
     reasoningEffort: connection?.reasoningEffort ?? "",
     scope: connection?.scope ?? GLOBAL_CONNECTION_SCOPE,
@@ -66,6 +88,7 @@ function storedChoice(
 
 function isSameChoice(left: StoredChoice, right: StoredChoice): boolean {
   return (
+    left.codexPriceMappings === right.codexPriceMappings &&
     left.testModel === right.testModel &&
     left.reasoningEffort === right.reasoningEffort &&
     left.zaiAccountType === right.zaiAccountType &&
@@ -104,10 +127,10 @@ function useFormFields(
     provider:
       connection?.provider ?? (kind === "api_key" ? "openrouter" : "codex_cli"),
     apiKey: "",
-    ...storedChoice(connection),
+    ...storedChoice(connection, kind),
   });
   const [saved, setSaved] = useState(fields);
-  const stored = storedChoice(connection);
+  const stored = storedChoice(connection, kind);
   const [seen, setSeen] = useState(stored);
   if (!isSameChoice(seen, stored)) {
     setSeen(stored);
@@ -172,10 +195,14 @@ export function useAgentForm(
   }, [fetcher.data, fetcher.state, fields, onSaved, setFields, setSaved, t]);
   function handleSubmit(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
-    const { scope, zaiAccountType, ...text } = fields;
+    const { scope, zaiAccountType, codexPriceMappings, ...text } = fields;
     void fetcher.submit(
       {
         ...text,
+        ...(fields.provider === "codex_cli" &&
+        (!connection || codexPriceMappings !== saved.codexPriceMappings)
+          ? { codexPriceMappings: codexPriceMappings ?? "" }
+          : {}),
         ...(fields.provider === "zai" &&
         (!connection || zaiAccountType !== saved.zaiAccountType)
           ? { zaiAccountType }

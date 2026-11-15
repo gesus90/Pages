@@ -133,6 +133,24 @@ it("starts the worker and warns when the slice budget cannot be set", async () =
   );
 });
 
+it("lets the independent Codex owner count active time while retaining cgroup limits during arbitrary pauses", async () => {
+  const command = vi.fn<CliWorkerCommand>(async () => ({ stdout: "" }));
+  const units = new CliWorkerUnits("/synthetic/units", command);
+  const { request } = await units.wrap(
+    { ...REQUEST, provider: "codex_cli", pausesRuntime: true },
+    "synthetic-instance",
+  );
+  expect(request.timeoutMs).toBe(60_000);
+  expect(properties(request.arguments)).toEqual(
+    expect.arrayContaining([
+      "RuntimeMaxSec=infinity",
+      "TasksMax=512",
+      "CPUQuota=200%",
+      "OOMPolicy=kill",
+    ]),
+  );
+});
+
 it("keeps the bounded capability probe unit at 32M because it never runs a worker", async () => {
   const command = vi.fn<CliWorkerCommand>(async () => ({ stdout: "" }));
 

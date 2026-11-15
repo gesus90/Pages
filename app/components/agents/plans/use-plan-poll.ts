@@ -7,7 +7,7 @@ import { startVisiblePolling } from "./plan-visible-polling";
 
 import type { AgentPlanActionResult } from "@/app/lib/agent-plan-response";
 
-const ACTIVE_POLL_MILLISECONDS = 2_000;
+const ACTIVE_POLL_MILLISECONDS = 1_000;
 // One read of the ended run joins the reads of an open page: 19 reads at this pace keep five minutes at 20.
 const IDLE_POLL_MILLISECONDS = 16_000;
 
@@ -48,7 +48,7 @@ function namesActiveRun(result: AgentPlanActionResult): boolean {
  * @param readRequest - A new value reads at once and keeps the earlier answer until the new one.
  *
  * @remarks
- * The pace is two seconds while the last answer names an active run and also
+ * The pace is one second while the last answer names an active run and also
  * before the first answer, otherwise 16 seconds.
  */
 export function usePlanPoll(

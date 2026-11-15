@@ -339,7 +339,7 @@ export async function stackEngine(
   // The base node only supplies the runtime; it names no input that would need a value.
   const base = await parameterRunFixture(
     { ...configuration, markdown: "Base instruction." },
-    "codex_cli",
+    "claude_code",
     shape.tickets ?? {
       readAssets: async () => [],
       resolve: async (userId, id) => ticketText(id),
@@ -351,7 +351,7 @@ export async function stackEngine(
     name: "Test",
     model: base.step.model,
     reasoningEffort: null,
-    provider: "codex_cli",
+    provider: "claude_code",
     purposes: ["agent"],
     configuration,
     revision: 1,

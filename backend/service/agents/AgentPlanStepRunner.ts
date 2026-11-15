@@ -2,31 +2,33 @@ import { randomUUID } from "node:crypto";
 
 import { AgentPlanPausedError } from "@/backend/error/AgentPlanPausedError";
 import { planContentDigest } from "@/backend/agents/AgentPlanContentDigest";
-import { agentToolFailureEvents } from "@/backend/service/agents/tools/AgentToolSession";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
-import { AgentProviderError } from "@/backend/error/AgentProviderError";
 import { isApiProvider } from "@/definition/AgentConnection";
 import { logCaughtError } from "@/backend/logging/Logger";
 
 import {
-  closePlanSession,
   finishStartedPlanSession,
   planSessionCloseoutFailure,
+  type PlanSessionCloseout,
 } from "./AgentPlanSessionCloseout";
 import { retainPlanSession } from "./AgentPlanRetainedSessions";
 import {
   apiBusinessResult,
-  planNodeFailureResult,
+  planAcceptanceOutcome,
 } from "./AgentPlanStepFailure";
 import {
   reattachLocalStep,
   restoreLocalStepSessions,
 } from "./AgentPlanLocalSessions";
-import { retiredPlanGroupSession } from "./AgentPlanGroupRetirement";
 import { createPlanSessionObserver } from "./AgentPlanSessionObserver";
 import { guardPlanStepStart } from "./AgentPlanStepDispatch";
-import { failureCloseout, planAcceptanceOutcome } from "./AgentPlanStepFailure";
+import {
+  closePlanSessionGroups,
+  closePlanStepSession,
+  failPlanStepNode,
+  retirePlanStepGroup,
+} from "./AgentPlanStepSessionCloseout";
 import { waitForTurn } from "./AgentPlanTurn";
 import {
   offerGroupInstructions,
@@ -37,6 +39,7 @@ import { createNodeRun } from "./AgentPlanNodeRun";
 import { openEventTurn } from "./branching/AgentPlanEventSession";
 import { AgentPlanGroupSessions } from "./AgentPlanGroupSessions";
 import { AgentPlanTurnReports } from "./AgentPlanTurnReports";
+import { forgetScriptRunPause } from "./AgentPlanScriptPause";
 import { runPlanTodoTurns } from "./AgentPlanTodoContinuation";
 import {
   buildSessionContract,
@@ -63,7 +66,6 @@ import type {
   PlanSession,
   PlanSessionObserver,
   PlanSessionTurn,
-  PlanSessionClosed,
 } from "@/backend/agents/AgentPlanExecution";
 import type { AgentPlanRun, AgentPlanStepResult } from "@/definition/AgentPlan";
 import type { AgentPlanSessionRecord } from "@/definition/AgentPlanSession";
@@ -85,6 +87,7 @@ import type { AgentRunArchive } from "./AgentRunArchive";
 import type { AgentSessionService } from "./sessions/AgentSessionService";
 import type { NodeRun, StepRunControl } from "./AgentPlanStepContext";
 import type { LocalSessions } from "@/backend/agents/local/LocalSessions";
+import type { StepSessionCloseoutTarget } from "./AgentPlanStepSessionCloseout";
 
 export type { StepRunControl } from "./AgentPlanStepContext";
 
@@ -228,7 +231,7 @@ export class AgentPlanStepRunner {
 
   /** Ends retained native sessions when the plan is cancelled or finishes. */
   public async closeGroups(runId: string, groupId?: string): Promise<void> {
-    await this.closeSessionGroups(runId, groupId);
+    await closePlanSessionGroups(this.closeoutTarget(), runId, groupId);
   }
 
   /** Releases the local session owners after all native sessions have closed; transcripts stay. */
@@ -236,32 +239,11 @@ export class AgentPlanStepRunner {
     runId: string,
     status: "succeeded" | "failed" | "cancelled",
   ): Promise<void> {
-    await this.dependencies.execution.finishPlanRun?.(runId, status);
-  }
-
-  /** Ends the sessions of a group or loop agent, or of the whole run, and tells how each one closed. */
-  private async closeSessionGroups(
-    runId: string,
-    groupId?: string,
-    options?: { readonly abort?: boolean },
-  ): Promise<Awaited<ReturnType<AgentPlanGroupSessions["stop"]>>> {
-    const stopped = await this.groups.stop(runId, groupId, options);
-    if (groupId === undefined) this.groups.forget(runId);
-    for (const { key, closed } of stopped) {
-      for (const node of this.retained.get(key) ?? []) {
-        await this.dependencies.sessions?.released(node.record);
-        await this.complete(node, closedSessionChanges(closed));
-      }
-      this.retained.delete(key);
-      await this.dependencies.access.revoke(runId, key.slice(runId.length + 1));
+    try {
+      await this.dependencies.execution.finishPlanRun?.(runId, status);
+    } finally {
+      forgetScriptRunPause(runId);
     }
-    for (const key of this.groupInputs.keys())
-      if (
-        key === `${runId}/${groupId}` ||
-        (!groupId && key.startsWith(`${runId}/`))
-      )
-        this.groupInputs.delete(key);
-    return stopped;
   }
 
   private async execute(node: NodeRun): Promise<Partial<AgentPlanStepResult>> {
@@ -273,7 +255,10 @@ export class AgentPlanStepRunner {
       node.step,
     );
     if (node.control.signal.aborted) throw new AgentPlanCancelledError();
-    if (prepared.options.timeoutMinutes > 0)
+    if (
+      prepared.options.timeoutMinutes > 0 &&
+      prepared.input.agent.connection.provider !== "codex_cli"
+    )
       node.control = {
         ...node.control,
         signal: AbortSignal.any([
@@ -410,9 +395,11 @@ export class AgentPlanStepRunner {
           stepId: node.sessionGroup ?? step.step.id,
           instanceId,
           tickets: contract.tickets,
-          lifetimeMs: node.sessionGroup
-            ? 0
-            : prepared.options.timeoutMinutes * 60_000,
+          lifetimeMs:
+            node.sessionGroup ||
+            prepared.input.agent.connection.provider === "codex_cli"
+              ? 0
+              : prepared.options.timeoutMinutes * 60_000,
           reach,
           canSetStatus: step.step.completion === "todos",
         });
@@ -446,7 +433,7 @@ export class AgentPlanStepRunner {
           node.control.signal,
           this.observer(node),
         );
-    node.control.claimStart?.();
+    if (!node.hasStarted) node.control.claimStart?.();
     this.offerInstructions(node, groupKey, input, session);
     node.hasStarted = true;
     return finishStartedPlanSession(session, () =>
@@ -545,23 +532,22 @@ export class AgentPlanStepRunner {
     return retainPlanSession(node, turn, this.retained);
   }
 
-  private async closeSession(
+  private closeoutTarget(): StepSessionCloseoutTarget {
+    return {
+      groups: this.groups,
+      retained: this.retained,
+      groupInputs: this.groupInputs,
+      access: this.dependencies.access,
+      sessions: this.dependencies.sessions,
+      complete: (node, changes) => this.complete(node, changes),
+    };
+  }
+
+  private closeSession(
     node: NodeRun,
     session: PlanSession,
-  ): ReturnType<typeof closePlanSession> {
-    const key = `${node.run.id}/${node.sessionGroup ?? node.step.step.id}`;
-    const closeout = await closePlanSession(session, node.record);
-    const { closed } = closeout;
-    await this.dependencies.sessions?.released(node.record);
-    this.groupInputs.delete(key);
-    for (const previous of this.retained.get(key) ?? [])
-      await this.complete(previous, closedSessionChanges(closed));
-    this.retained.delete(key);
-    await this.dependencies.access.revoke(
-      node.run.id,
-      node.sessionGroup ?? node.step.step.id,
-    );
-    return closeout;
+  ): Promise<PlanSessionCloseout> {
+    return closePlanStepSession(this.closeoutTarget(), node, session);
   }
 
   private observer(node: NodeRun): PlanSessionObserver {
@@ -572,63 +558,23 @@ export class AgentPlanStepRunner {
     return {
       ...observer,
       retired: (closed, reason) => {
-        void this.retireGroup(node, closed, reason).catch((error: unknown) => {
+        void retirePlanStepGroup(
+          this.closeoutTarget(),
+          node,
+          closed,
+          reason,
+        ).catch((error: unknown) => {
           logCaughtError("AgentPlanStepRunner", error);
         });
       },
     };
   }
 
-  private async retireGroup(
-    node: NodeRun,
-    closed: PlanSessionClosed,
-    reason: string,
-  ): Promise<void> {
-    const key = `${node.run.id}/${node.sessionGroup}`;
-    const previous = this.retained.get(key) ?? [];
-    const members = previous.includes(node) ? previous : [...previous, node];
-    for (const member of members)
-      await this.complete(
-        member,
-        retiredPlanGroupSession(member.record, closed, reason),
-      );
-    await this.dependencies.sessions?.released(node.record);
-    await this.dependencies.access.revoke(
-      node.run.id,
-      node.sessionGroup ?? node.step.step.id,
-    );
-    this.retained.delete(key);
-    this.groupInputs.delete(key);
-  }
-
-  private async failure(
+  private failure(
     node: NodeRun,
     error: unknown,
   ): Promise<Partial<AgentPlanStepResult>> {
-    const stopped = node.sessionGroup
-      ? await this.closeSessionGroups(node.run.id, node.sessionGroup, {
-          abort: true,
-        })
-      : [];
-    await this.dependencies.access.revoke(
-      node.run.id,
-      node.sessionGroup ?? node.step.step.id,
-    );
-    await this.dependencies.sessions?.abandon(
-      node.record,
-      error instanceof AgentPlanCancelledError ? "cancelled" : "failed",
-    );
-    if (node.record)
-      await this.complete(node, {
-        ...(error instanceof AgentProviderError
-          ? { providerFailure: error.failure }
-          : {}),
-        endedAt: new Date().toISOString(),
-        closeout: failureCloseout(node, error, stopped.at(0)?.closed),
-        resultCode: -1,
-        events: agentToolFailureEvents(error, node.record.events),
-      });
-    return planNodeFailureResult(node, error);
+    return failPlanStepNode(this.closeoutTarget(), node, error);
   }
 
   private async pin(node: NodeRun, prompt: string): Promise<void> {

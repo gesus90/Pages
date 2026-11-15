@@ -1,3 +1,5 @@
+import { allPlanRunResults } from "./AgentPlanLoopResults";
+
 import type { AgentPlanRun } from "./AgentPlan";
 
 /** These states retain ownership of the plan until execution and cleanup have settled. */
@@ -39,5 +41,14 @@ export function isPlanWriterWaitActive(
     run.status === "running" &&
     !run.stopRequested &&
     run.isWaitingForWorkspace === true
+  );
+}
+
+/** Identifies the Codex control contract from the immutable execution facts, including loop members. */
+export function isCodexPlanRun(run: AgentPlanRun): boolean {
+  return allPlanRunResults(run).some(
+    (step) =>
+      step.session?.runner === "codex_cli" ||
+      step.execution?.modelAccess.provider === "codex_cli",
   );
 }

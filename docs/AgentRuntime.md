@@ -240,6 +240,11 @@ cgroup of its own with hard limits:
 | `RuntimeMaxSec`  | node deadline + 120 s, else 24 h | a backstop if Pages itself hangs                                    |
 | `OOMPolicy=kill` | —                                | an exceeded limit ends the whole worker, inside its cgroup only     |
 
+Codex plan workers use an active-time deadline in their independent native owner
+instead of the systemd wall-clock backstop, so a pause cannot expire the session
+(PAGE-361). The configured deadline, or 24 hours by default, retains its remaining
+budget. See [worker budgets](AgentWorkerMemory.md#unchanged).
+
 The shared slice budget and OOM behavior are described in
 [Worker memory](AgentWorkerMemory.md), the current authority for memory limits.
 Worker failures remain visible as `acp_worker_limit`.

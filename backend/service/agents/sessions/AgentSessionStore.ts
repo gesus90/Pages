@@ -27,6 +27,9 @@ export interface NewAgentSessionEvent {
 
 /** The durable state of one node attempt. */
 export interface AgentSessionAttemptRecord {
+  readonly connectionId?: string;
+  readonly agentId?: string;
+  readonly requestedModel?: string;
   readonly key: AgentSessionKey;
   /** The executor of the run, the only person who may read or steer the session. */
   readonly userId: string;

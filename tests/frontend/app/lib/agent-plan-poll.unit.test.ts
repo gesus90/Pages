@@ -46,6 +46,17 @@ describe("reading a plan polling response", () => {
     });
   });
 
+  it("preserves the server decision to start Codex without another confirmation", () => {
+    expect(
+      readPlanPollingResponse({
+        ok: true,
+        control: { ...CONTROL, startWithoutConfirmation: true },
+      }),
+    ).toMatchObject({
+      control: { startWithoutConfirmation: true },
+    });
+  });
+
   it("reads the issues of the plan and keeps null node and port", () => {
     const response = readPlanPollingResponse({
       ok: true,
@@ -100,7 +111,9 @@ describe("reading a plan polling response", () => {
       control: { canPlay: true, lastStartRejection: REJECTION },
     });
   });
+});
 
+describe("reading a plan run or error polling response", () => {
   it("reads a run through the run reader", () => {
     const run = { id: "run-1" };
     reader.readPlanRun.mockReturnValue(run);

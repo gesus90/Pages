@@ -14,6 +14,7 @@ import { prepareGroupParameters } from "./AgentPlanGroupParameters";
 import { validatePlanParameterContext } from "./AgentPlanParameterContext";
 import { planStepDirectory } from "./AgentPlanSnapshot";
 
+import type { CodexAgentBudget } from "./usage/CodexAgentBudget";
 import type { AgentTicketInput } from "@/definition/AgentTicketParameter";
 import type { AgentSessionStart } from "./sessions/AgentSessionAttempts";
 import type { TextExecutionInput } from "@/backend/agents/TextExecution";
@@ -86,6 +87,7 @@ export interface PreparedPlanStep {
 }
 
 interface StartDependencies {
+  readonly codexBudget?: Pick<CodexAgentBudget, "requireAvailable">;
   readonly profiles: Pick<AgentProfileService, "resolveDefinition">;
   readonly parameters: Pick<AgentParameterService, "prepare"> &
     Partial<Pick<AgentParameterService, "readTicketAssets">>;
@@ -237,11 +239,17 @@ export class AgentPlanStepStart {
         ? await this.fullEnvironment(run, snapshot, step)
         : undefined;
     const directory = planStepDirectory(step);
-    const beforeStart = (): Promise<void> =>
-      this.reauthorize(run, snapshot, step, {
+    const beforeStart = async (): Promise<void> => {
+      await this.reauthorize(run, snapshot, step, {
         values,
         connectionId: resolved.assignment.connection.id,
       });
+      if (step.provider === "codex_cli")
+        await this.dependencies.codexBudget?.requireAvailable(
+          step.step.personalAgentId ?? step.step.agentId,
+          options.monthlyCostLimitUsd,
+        );
+    };
     return {
       input: {
         agent: resolved.assignment,
