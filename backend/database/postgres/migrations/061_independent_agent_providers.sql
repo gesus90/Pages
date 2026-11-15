@@ -7,8 +7,9 @@ ALTER TABLE agent_session_attempts
     DROP CONSTRAINT agent_session_attempts_provider_check,
     ADD CONSTRAINT agent_session_attempts_provider_check
         CHECK (provider IN ('codex_cli', 'claude_code', 'opencode', 'antigravity', 'openrouter', 'zai'));
-ALTER TABLE agent_plan_terminals
-    DROP CONSTRAINT agent_plan_terminals_provider_check,
+-- 030 removed agent_plan_terminals; only installations that still have it change.
+ALTER TABLE IF EXISTS agent_plan_terminals
+    DROP CONSTRAINT IF EXISTS agent_plan_terminals_provider_check,
     ADD CONSTRAINT agent_plan_terminals_provider_check
         CHECK (provider IN ('codex_cli', 'claude_code', 'opencode', 'openrouter', 'zai'));
 

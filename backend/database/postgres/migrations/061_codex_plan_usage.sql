@@ -1,4 +1,7 @@
 -- PAGE-362: immutable price snapshots and one cumulative watermark per managed Codex thread.
+-- PAGE-359 (057) created an earlier shape of this cache; PAGE-362 owns it.
+DROP TABLE IF EXISTS openrouter_price_catalog;
+
 CREATE TABLE openrouter_price_catalog (
     id INTEGER PRIMARY KEY CHECK (id = 1),
     payload TEXT NOT NULL
@@ -26,9 +29,9 @@ CREATE TABLE codex_plan_prices (
 );
 
 ALTER TABLE agent_session_attempts
-    ADD COLUMN connection_id TEXT,
+    ADD COLUMN IF NOT EXISTS connection_id TEXT,
     ADD COLUMN agent_id TEXT,
-    ADD COLUMN requested_model TEXT;
+    ADD COLUMN IF NOT EXISTS requested_model TEXT;
 
 ALTER TABLE agent_session_turn_usage
     ADD COLUMN reasoning_tokens BIGINT,
