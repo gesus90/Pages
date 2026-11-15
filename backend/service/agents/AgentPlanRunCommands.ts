@@ -199,6 +199,7 @@ export class AgentPlanRunCommands {
           );
         return;
       }
+      const previous = active.view;
       const proposed: AgentPlanRun = {
         ...pausedPlanView(active),
         status: "pausing",
@@ -212,21 +213,11 @@ export class AgentPlanRunCommands {
       active.view = proposed;
       planPauseGate(id).pause();
       this.dependencies.resources?.pauseRun(id);
-      await Promise.all([
-        controlPlanProcesses(proposed, "pause"),
-        this.dependencies.resources?.controlRun?.(id, "pause"),
-        this.dependencies.remoteExecution?.pause(proposed),
-        isImmediate ? undefined : setScriptRunPaused(id, true),
-      ]);
-      if (isImmediate) {
-        await setCodexRunPaused(active, this.dependencies.localSessions, true);
-        const suspended = suspendedCodexRun(active);
-        await this.dependencies.runs.update(suspended);
-        active.view = suspended;
-      } else {
-        const paused: AgentPlanRun = { ...proposed, status: "paused" };
-        await this.dependencies.runs.update(paused);
-        active.view = paused;
+      try {
+        await this.controlPause(active, proposed, isImmediate);
+      } catch (error: unknown) {
+        await this.rollbackPause(active, previous, isImmediate);
+        throw error;
       }
     });
     await this.dependencies.pump();
@@ -270,6 +261,50 @@ export class AgentPlanRunCommands {
       this.dependencies.resources?.resumeRun(id);
     });
     await this.dependencies.pump();
+  }
+
+  private async controlPause(
+    active: ActivePlanRun,
+    proposed: AgentPlanRun,
+    isImmediate: boolean,
+  ): Promise<void> {
+    const id = proposed.id;
+    const attempts = await Promise.allSettled([
+      controlPlanProcesses(proposed, "pause"),
+      this.dependencies.resources?.controlRun?.(id, "pause"),
+      this.dependencies.remoteExecution?.pause(proposed),
+      isImmediate
+        ? setCodexRunPaused(active, this.dependencies.localSessions, true)
+        : setScriptRunPaused(id, true),
+    ]);
+    const failed = attempts.find((attempt) => attempt.status === "rejected");
+    if (failed?.status === "rejected") throw failed.reason;
+    const paused: AgentPlanRun = isImmediate
+      ? suspendedCodexRun(active)
+      : { ...proposed, status: "paused" };
+    await this.dependencies.runs.update(paused);
+    active.view = paused;
+  }
+
+  private async rollbackPause(
+    active: ActivePlanRun,
+    previous: AgentPlanRun,
+    isImmediate: boolean,
+  ): Promise<void> {
+    const id = previous.id;
+    const attempts = await Promise.allSettled([
+      controlPlanProcesses(previous, "resume"),
+      this.dependencies.resources?.controlRun?.(id, "resume"),
+      this.dependencies.remoteExecution?.resume(previous),
+      isImmediate
+        ? setCodexRunPaused(active, this.dependencies.localSessions, false)
+        : setScriptRunPaused(id, false),
+    ]);
+    if (attempts.some((attempt) => attempt.status === "rejected")) return;
+    await this.dependencies.runs.update(previous);
+    active.view = previous;
+    planPauseGate(id).resume();
+    this.dependencies.resources?.resumeRun(id);
   }
 
   private async resumeSuspended(

@@ -17,7 +17,24 @@ import type {
   AgentPlanView,
 } from "@/definition/AgentPlan";
 
+const controls = vi.hoisted(() => ({
+  process: vi.fn<
+    (run: AgentPlanRun, action: "pause" | "resume" | "stop") => Promise<void>
+  >(async () => undefined),
+  script: vi.fn<(runId: string, paused: boolean) => Promise<void>>(
+    async () => undefined,
+  ),
+}));
+vi.mock("@/backend/service/agents/AgentPlanProcessControl", () => ({
+  controlPlanProcesses: controls.process,
+}));
+vi.mock("@/backend/service/agents/AgentPlanScriptPause", () => ({
+  setScriptRunPaused: controls.script,
+  forgetScriptRunPause: vi.fn(),
+}));
+
 it("pauses and resumes one running OpenCode turn three times without replacing its session", async () => {
+  controls.process.mockClear();
   const fixture = await recoveryFixture();
   const original = fixture.completed.steps[0]?.session;
   if (!original) throw new Error("Missing synthetic session");
@@ -51,15 +68,13 @@ it("pauses and resumes one running OpenCode turn three times without replacing i
     executions: new Set(),
   };
   let stored = structuredClone(running);
-  const suspend = vi.fn(async () => true);
-  const resume = vi.fn(async () => true);
   const activeRuns = new Map([[running.id, active]]);
   const commands = new AgentPlanRunCommands({
     active: activeRuns,
     writes: new SerialQueue(),
     isClosing: () => false,
     pump: async () => undefined,
-    localSessions: { suspend, resume, setRunPaused: async () => undefined },
+    localSessions: { setRunPaused: async () => undefined },
     runs: {
       insert: async () => undefined,
       create: async () => undefined,
@@ -101,24 +116,27 @@ it("pauses and resumes one running OpenCode turn three times without replacing i
     expect(stored.status).toBe("running");
     expect(stored.steps[0]?.session?.instanceId).toBe(original.instanceId);
   }
-  expect(suspend).toHaveBeenCalledTimes(3);
-  expect(resume).toHaveBeenCalledTimes(3);
-  expect(suspend).toHaveBeenCalledWith(original.instanceId);
-  expect(resume).toHaveBeenCalledWith(original.instanceId);
+  expect(
+    controls.process.mock.calls.filter((call) => call[1] === "pause"),
+  ).toHaveLength(3);
+  expect(
+    controls.process.mock.calls.filter((call) => call[1] === "resume"),
+  ).toHaveLength(3);
 
-  suspend.mockResolvedValueOnce(false);
+  controls.process.mockRejectedValueOnce(new Error("suspension failed"));
   await expect(commands.pause(running.id)).rejects.toThrow();
   expect(stored.status).toBe("running");
   expect(controller.signal.aborted).toBe(false);
 
   await commands.pause(running.id);
   await commands.stop(running.id);
-  expect(stored.status).toBe("stopping");
+  expect(stored.status).toBe("cancelled");
   expect(controller.signal.aborted).toBe(true);
   await expect(commands.resume(running.id)).rejects.toThrow();
 });
 
 it("pauses a running script without aborting its controller and resumes the same attempt", async () => {
+  controls.script.mockClear();
   const fixture = await recoveryFixture();
   const running: AgentPlanRun = {
     ...fixture.initial,
@@ -138,14 +156,12 @@ it("pauses a running script without aborting its controller and resumes the same
     executions: new Set(),
   };
   let stored = structuredClone(running);
-  const suspend = vi.fn(() => new Set(["a"]));
-  const resume = vi.fn();
   const commands = new AgentPlanRunCommands({
     active: new Map([[running.id, active]]),
     writes: new SerialQueue(),
     isClosing: () => false,
     pump: async () => undefined,
-    scripts: { run: async () => ({}), suspend, resume },
+    scripts: { run: async () => ({}) },
     runs: {
       insert: async () => undefined,
       create: async () => undefined,
@@ -164,15 +180,15 @@ it("pauses a running script without aborting its controller and resumes the same
   expect(stored.status).toBe("paused");
   expect(stored.steps.find((step) => step.id === "b")?.status).toBe("paused");
   expect(controller.signal.aborted).toBe(false);
-  expect(active.suspendedScripts).toEqual(new Set(["a"]));
+  expect(controls.script).toHaveBeenCalledWith(running.id, true);
   await commands.resume(running.id);
   expect(stored.status).toBe("running");
   expect(stored.steps.find((step) => step.id === "b")?.status).toBe("waiting");
-  expect(resume).toHaveBeenCalledWith(running.id);
+  expect(controls.script).toHaveBeenCalledWith(running.id, false);
   await commands.pause(running.id);
   await commands.stop(running.id);
   expect(controller.signal.aborted).toBe(true);
-  expect(resume).toHaveBeenCalledTimes(2);
+  expect(controls.process).toHaveBeenCalledWith(expect.anything(), "stop");
 });
 
 it("starts anew after an OpenCode end state and never offers resume or stop", async () => {

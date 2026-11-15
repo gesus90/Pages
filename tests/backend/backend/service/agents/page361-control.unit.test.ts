@@ -95,6 +95,16 @@ it("allows a first-click Stop during a pause and rejects continuation afterwards
   expect(planResumeKind(stopped)).toBeNull();
 });
 
+it("keeps the pause fence closed when suspension and rollback both fail", async () => {
+  const fixture = await codexControlFixture();
+  fixture.nativePause.mockRejectedValue(new Error("owner unavailable"));
+  await expect(fixture.commands.pause(fixture.active.view.id)).rejects.toThrow(
+    "owner unavailable",
+  );
+  expect(fixture.stored().status).toBe("pausing");
+  expect(fixture.controller.signal.aborted).toBe(false);
+});
+
 it("preserves the existing pause path for Claude and refuses edited execution context during a suspended Codex turn", async () => {
   const fixture = await codexControlFixture();
   expect(
