@@ -6,4 +6,11 @@ export interface AgentWorkspaceCleanup {
   readonly ownerId: string;
   readonly blocker: string;
   readonly updatedAt: string;
+  /** Older clients omit retry diagnostics. */
+  readonly state?: "pending" | "needs_decision";
+  readonly attempts?: number;
+  readonly nextAttemptAt?: number;
+  readonly retryStartedAt?: string;
+  readonly eventRevision?: number;
+  readonly stopRevision?: number;
 }

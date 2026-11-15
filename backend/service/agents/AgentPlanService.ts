@@ -8,6 +8,7 @@ import {
   requireManagementPlanAccess,
   requireManagementScriptExecution,
 } from "../management/ManagementPlanAccess";
+import { decideWorkspaceCleanup } from "./AgentWorkspaceCleanupDecision";
 import { reviseAgentPlan } from "./AgentPlanRevision";
 import { AgentPlanSettings } from "./AgentPlanSettings";
 import { planDependenciesForChannel } from "./AgentPlanChannel";
@@ -239,15 +240,15 @@ export class AgentPlanService extends AgentPlanTeamReads {
         : {}),
     };
     const workspace = await this.resolveWorkspace(userId, plan);
-    const pinned = await this.pins.pin(
-      userId,
-      { ...plan, projectId: workspace.projectId },
-      null,
-    );
-    await this.dependencies.remoteTargets?.validate(userId, {
-      ...pinned,
+    const pinned = {
+      ...(await this.pins.pin(
+        userId,
+        { ...plan, projectId: workspace.projectId },
+        null,
+      )),
       projectId: workspace.projectId,
-    });
+    };
+    await this.dependencies.remoteTargets?.validate(userId, pinned);
     await validatePlanReferences(
       this.dependencies,
       userId,
@@ -390,12 +391,8 @@ export class AgentPlanService extends AgentPlanTeamReads {
     userId: string,
     planIds: readonly string[],
   ): Promise<ReadonlyMap<string, readonly AgentPlanRunEntry[]>> {
-    const visible = new Map(
-      (await this.dependencies.access.list(userId)).map((plan) => [
-        plan.id,
-        plan,
-      ]),
-    );
+    const plans = await this.dependencies.access.list(userId);
+    const visible = new Map(plans.map((plan) => [plan.id, plan]));
     const overview = new Map<string, readonly AgentPlanRunEntry[]>();
     for (const planId of planIds)
       if (visible.has(planId))
@@ -726,6 +723,14 @@ export class AgentPlanService extends AgentPlanTeamReads {
     return this.run(userId, id);
   }
 
+  /** Applies the executor's explicit cleanup decision without starting another run. */
+  public async decideWorkspaceCleanup(
+    userId: string,
+    input: Parameters<typeof decideWorkspaceCleanup>[2],
+  ): Promise<void> {
+    await decideWorkspaceCleanup(this.dependencies, userId, input);
+  }
+
   /** Public control metadata lets shared readers see true state without disclosing run output. */
   public async control(
     userId: string,
@@ -766,18 +771,16 @@ export class AgentPlanService extends AgentPlanTeamReads {
         readable.get(plan.projectId) ??
         (await this.dependencies.tasks.list(actor.userId, plan.projectId));
       readable.set(plan.projectId, tasks);
-      for (const binding of bindings) {
-        const task = tasks.find((entry) => entry.id === binding.taskId);
-        if (!task || hidden.has(binding.agentId)) continue;
-        const list = assignments[binding.agentId] ?? [];
-        list.push({
-          planId: plan.id,
-          planName: plan.name,
-          taskId: task.id,
-          key: task.key,
-          title: task.title,
-        });
-        assignments[binding.agentId] = list;
+      for (const { agentId, taskId } of bindings) {
+        const task = tasks.find((entry) => entry.id === taskId);
+        if (task && !hidden.has(agentId))
+          (assignments[agentId] ??= []).push({
+            planId: plan.id,
+            planName: plan.name,
+            taskId: task.id,
+            key: task.key,
+            title: task.title,
+          });
       }
     }
     return assignments;

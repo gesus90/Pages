@@ -267,6 +267,8 @@ export class RunnerService {
         record,
         message,
       });
+      if (!this.contacts.isOnline(connectionId))
+        await this.repository.reconnected?.(connectionId);
       this.heartbeat(connectionId);
       if (message.type === "reconcile") {
         markSupport(

@@ -9,6 +9,9 @@ const CLEANUP_FAILURE_REASONS = [
   "scan_unavailable",
   "processes_remaining",
   "resource_cleanup_failed",
+  "worker_unit_active",
+  "lease_too_recent",
+  "engine_active",
 ] as const;
 
 /** A recorded resource whose original closeout still needs confirmation. */

@@ -90,7 +90,7 @@ export class AgentEnvironmentRepository {
       UNION ALL
       SELECT run_id FROM agent_plan_workspace_locks WHERE run_id = $run_id
       UNION ALL
-      SELECT run_id FROM agent_workspace_cleanup WHERE run_id = $run_id AND state = 'pending'
+      SELECT run_id FROM agent_workspace_cleanup WHERE run_id = $run_id AND state <> 'completed'
       UNION ALL
       SELECT run_id FROM plan_run_api_cleanup WHERE run_id = $run_id
       UNION ALL

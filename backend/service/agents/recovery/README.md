@@ -39,6 +39,24 @@ left to final QA for this ticket.
 
 The PAGE-356 rules above supersede historical restrictions below.
 
+## PAGE-395: bounded cleanup and verified restart release
+
+A restart now ends its predecessor's units and processes before preparing the
+new run. Every cleanup phase permits three attempts; an unconfirmed end prevents
+dispatch and returns its step and bounded code. Recorded worker units are stopped
+and checked by name. Legacy leases without a unit/namespace are quarantined for
+more than fifteen minutes. Reservations, local bindings, locks and the predecessor's
+terminal state commit atomically after process checks; a failed transaction retains
+the durable evidence. Historical session results are preserved. Exact-view cleanup
+proof permits retry after preparation failed without erasing uncertainty from a
+later changed run.
+
+Registration cleanup uses due retries, not unconditional two-second checks of
+every obligation. Eight failures or 24 hours move it to `needs_decision`; the plan
+panel offers explicit retry and attested manual release. Run changes, runner
+reconnection and pending work at server startup wake the appropriate retries.
+See [PAGE-395 implementation and measurement](../../../../docs/PAGE-395.md).
+
 ## PAGE-269: one confirmation, and loops continue at their failed member
 
 The resume dialog asks one question. Its command carries `confirmContinue: true`

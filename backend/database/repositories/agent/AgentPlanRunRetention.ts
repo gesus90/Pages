@@ -17,7 +17,7 @@ export const SETTLED_PLAN_RUN = `
         SELECT 1
         FROM agent_workspace_cleanup
         WHERE run_id = runs.id
-            AND state = 'pending'
+            AND state <> 'completed'
     )
     AND NOT EXISTS (
         SELECT 1

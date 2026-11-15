@@ -164,8 +164,9 @@ export async function checkSessionProcesses(run: AgentPlanRun): Promise<{
     )
   )
     return { confirmed: false, failure: null };
-  const scope = await runScope(run.startedAt);
   const instances = processInstances(run);
+  if (instances.size === 0) return { confirmed: true, failure: null };
+  const scope = await runScope(run.startedAt);
   const scans = await Promise.all(
     [...instances].map(([id, resource]) => scanInstance(id, resource, scope)),
   );

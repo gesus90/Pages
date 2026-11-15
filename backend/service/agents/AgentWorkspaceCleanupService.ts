@@ -3,19 +3,24 @@ import { registerShutdownTask } from "@/backend/runtime/ProcessLifecycle";
 import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
 import { isActivePlanRun } from "@/definition/AgentPlanRunState";
 
-import { hasNoSessionProcesses } from "./AgentPlanRecovery";
+import { checkSessionProcesses } from "./AgentPlanRecovery";
+import {
+  closeRecoverySessions,
+  closeRecoveryScripts,
+} from "./recovery/AgentPlanRecoveryScripts";
 
 import type { AgentWorkspaceCleanupRepository } from "@/backend/database/repositories/agent/AgentWorkspaceCleanupRepository";
 import type { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
+import type { AgentPlanRun } from "@/definition/AgentPlan";
 import type { AgentWorkspaceCleanup } from "@/definition/AgentWorkspaceCleanup";
 import type { PlanRunEnginePort } from "./runs/PlanRunEnginePort";
 import type { AgentPlanRemoteExecution } from "./AgentPlanRemoteExecution";
 
 interface CleanupDependencies {
   readonly obligations: AgentWorkspaceCleanupRepository;
-  readonly runs: AgentPlanRunRepository;
-  readonly engine: PlanRunEnginePort;
-  readonly remote: AgentPlanRemoteExecution;
+  readonly runs: Pick<AgentPlanRunRepository, "find" | "release">;
+  readonly engine: Pick<PlanRunEnginePort, "stop" | "isActive">;
+  readonly remote: Pick<AgentPlanRemoteExecution, "stop" | "withProgress">;
 }
 
 /** Reconciles only jobs retained by an authorized metadata removal, independently of Runner availability. */
@@ -38,25 +43,22 @@ export class AgentWorkspaceCleanupService {
       },
       { step: "workspace_cleanup" },
     );
-    void this.reconcile();
+    void this.dependencies.obligations
+      .resetAtStartup()
+      .then(() => this.reconcile())
+      .catch((error: unknown) => {
+        logCaughtError("AgentWorkspaceCleanupService", error);
+      });
   }
 
-  private async reconcile(): Promise<void> {
+  /** Checks only due obligations; concurrent timer ticks share this pass. */
+  public async reconcile(): Promise<void> {
     if (this.isBusy) return;
     this.isBusy = true;
     try {
-      for (const entry of await this.dependencies.obligations.pending()) {
-        try {
-          await this.settle(entry);
-        } catch (error: unknown) {
-          logCaughtError("AgentWorkspaceCleanupService", error);
-          await this.dependencies.obligations.record(
-            entry,
-            "pending",
-            "cleanup_check_failed",
-          );
-        }
-      }
+      const runs = new Map<string, AgentPlanRun | null>();
+      for (const entry of await this.dependencies.obligations.pending())
+        await this.reconcileEntry(entry, runs);
     } catch (error: unknown) {
       logCaughtError("AgentWorkspaceCleanupService", error);
     } finally {
@@ -64,23 +66,45 @@ export class AgentWorkspaceCleanupService {
     }
   }
 
-  private async settle(entry: AgentWorkspaceCleanup): Promise<void> {
+  private async reconcileEntry(
+    entry: AgentWorkspaceCleanup,
+    runs: Map<string, AgentPlanRun | null>,
+  ): Promise<void> {
+    try {
+      if (!runs.has(entry.runId))
+        runs.set(entry.runId, await this.dependencies.runs.find(entry.runId));
+      await this.settle(entry, runs.get(entry.runId) ?? null);
+    } catch (error: unknown) {
+      logCaughtError("AgentWorkspaceCleanupService", error);
+      await this.dependencies.obligations.failedAttempt(
+        entry,
+        "cleanup_check_failed",
+      );
+    }
+  }
+
+  private async settle(
+    entry: AgentWorkspaceCleanup,
+    run: AgentPlanRun | null,
+  ): Promise<void> {
     const { runs, engine, remote, obligations } = this.dependencies;
-    const run = await runs.find(entry.runId);
     if (!run || run.userId !== entry.ownerId) {
-      await obligations.record(entry, "pending", "owner_evidence_unavailable");
+      await obligations.failedAttempt(entry, "owner_evidence_unavailable");
       return;
     }
-    if (!run.stopRequested || isActivePlanRun(run.status))
-      await engine.stop(run.id);
-    await remote.stop(run);
-    const current = await runs.find(run.id);
-    if (!current) return;
-    if (
-      !(await engine.isActive(run.id)) &&
-      !isActivePlanRun(current.status) &&
-      (await hasNoSessionProcesses(current))
-    ) {
+    await this.requestStop(entry, run);
+    if ((await engine.isActive(run.id)) || isActivePlanRun(run.status)) {
+      await obligations.failedAttempt(entry, "process_end_unconfirmed");
+      return;
+    }
+    const progress = allPlanRunResults(run).some((step) => step.remote)
+      ? await remote.withProgress(run)
+      : run;
+    const checked = await closeRecoverySessions(
+      await closeRecoveryScripts(progress),
+    );
+    const processes = await checkSessionProcesses(checked);
+    if (processes.confirmed) {
       await runs.release(run.id);
       await obligations.record(
         entry,
@@ -89,17 +113,32 @@ export class AgentWorkspaceCleanupService {
       );
       return;
     }
-    const progress = await remote.withProgress(current);
+    await obligations.failedAttempt(
+      entry,
+      this.blockerFor(progress, Boolean(processes.failure)),
+    );
+  }
+
+  private async requestStop(
+    entry: AgentWorkspaceCleanup,
+    run: AgentPlanRun,
+  ): Promise<void> {
+    const { engine, remote, obligations } = this.dependencies;
+    if (!(await obligations.claimStop(entry))) return;
+    if (!run.stopRequested || isActivePlanRun(run.status))
+      await engine.stop(run.id);
+    if (allPlanRunResults(run).some((step) => step.remote))
+      await remote.stop(run);
+  }
+
+  private blockerFor(progress: AgentPlanRun, scanFailed: boolean): string {
     const steps = allPlanRunResults(progress);
     const failure = steps.find((step) => step.remote?.cancellation?.failure)
       ?.remote?.cancellation?.failure;
-    const isOffline = steps.some(
-      (step) => step.remote?.contact?.state === "lost",
-    );
-    await obligations.record(
-      entry,
-      "pending",
-      failure ?? (isOffline ? "runner_offline" : "process_end_unconfirmed"),
-    );
+    if (failure) return failure;
+    if (scanFailed) return "process_scan_unavailable";
+    if (steps.some((step) => step.remote?.contact?.state === "lost"))
+      return "runner_offline";
+    return "process_end_unconfirmed";
   }
 }

@@ -88,20 +88,6 @@ export async function retireRestartSource(
   const previous = readPlanRun(JSON.parse(readTextColumn(row, 0, "view_json")));
   if (previous.planId !== run.planId || previous.userId !== run.userId)
     throw new AgentError("plan_access_denied");
-  await transaction.execute(
-    `
-    INSERT INTO agent_workspace_cleanup (workspace_id, run_id, owner_id, removed_by, workspace_name)
-    VALUES ($workspace_id, $run_id, $owner_id, $removed_by, $name)
-    ON CONFLICT (workspace_id, run_id) DO NOTHING;
-  `,
-    {
-      workspace_id: `reset:${previous.id}`,
-      run_id: previous.id,
-      owner_id: previous.userId,
-      removed_by: run.userId,
-      name: previous.planName,
-    },
-  );
   if (!isActivePlanRun(previous.status)) return;
   const retired: AgentPlanRun = {
     ...previous,

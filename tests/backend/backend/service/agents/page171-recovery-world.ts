@@ -59,6 +59,7 @@ export function recoveryWorld(
       return next;
     },
   );
+  let engineActive = options.engineActive ?? false;
   const recovery = new AgentPlanRecoveryService({
     runs: plans,
     recovery: new AgentPlanRecoveryRepository(db),
@@ -82,7 +83,10 @@ export function recoveryWorld(
       },
       engine: {
         startRecovered: start,
-        isActive: () => options.engineActive ?? false,
+        isActive: () => engineActive,
+        stop: async () => {
+          engineActive = false;
+        },
       },
       planRuns: {
         latest: async () => database.run(run.id),

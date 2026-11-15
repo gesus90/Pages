@@ -195,6 +195,10 @@ export class RecoveryDatabase {
       return this.executionRows(statement, parameters);
     if (statement.includes("FROM agent_plan_runs"))
       return this.runRows(statement, parameters);
+    if (statement.includes("FROM agent_workspace_cleanup"))
+      return this.rows.cleanup.includes(requiredText(parameters, "run_id"))
+        ? [[requiredText(parameters, "run_id")]]
+        : [];
     if (statement.includes("FROM agent_plans"))
       return [[this.plan.plan.revision]];
     if (statement.includes("FROM agent_plan_workspace_locks")) {
@@ -397,6 +401,13 @@ export class RecoveryDatabase {
       this.rows.cleanup.push(requiredText(parameters, "run_id"));
       return true;
     }
+    if (
+      statement.includes("DELETE FROM acp_resource_leases") ||
+      statement.includes("UPDATE agent_local_session_owners") ||
+      statement.includes("UPDATE agent_workspace_cleanup")
+    ) {
+      return true;
+    }
     if (statement.includes("SET engine_file")) {
       const row = this.rows.runs.get(requiredText(parameters, "id"));
       if (row) row.engineFile = requiredText(parameters, "engine_file");
@@ -504,7 +515,14 @@ export class RecoveryDatabase {
 
   private updateRun(parameters: SqlParameters): void {
     this.throwFault("progress");
-    const row = this.rows.runs.get(requiredText(parameters, "id"));
+    const row = this.rows.runs.get(
+      requiredText(parameters, parameters.id === undefined ? "run_id" : "id"),
+    );
+    if (row && parameters.id === undefined) {
+      row.status = requiredText(parameters, "status");
+      row.view = requiredText(parameters, "view_json");
+      return;
+    }
     // Adopting a continuation advances the revision inside the same statement.
     if (row && parameters.previous_revision === undefined) {
       row.status = requiredText(parameters, "status");

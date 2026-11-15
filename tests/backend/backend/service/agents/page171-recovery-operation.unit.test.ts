@@ -214,14 +214,14 @@ it("journals an explicit restart once and rejects changed arguments under the sa
   const run = patchRecoveryStep(fixture.failed, "a", { session: null });
   const world = recoveryWorld(fixture, run, { canStart: true });
   const original = world.database.run(run.id);
-  const request = {
+  const base = {
     operationId: "restart-original",
     planId: run.planId,
     runId: run.id,
     expectedRecoveryRevision: 0,
     expectedPlanRevision: fixture.snapshot.plan.revision,
-    confirmRepeat: true,
   };
+  const request = { ...base, confirmRepeat: true };
 
   const first = await startRecoveredPlanRun(
     world,
@@ -241,7 +241,16 @@ it("journals an explicit restart once and rejects changed arguments under the sa
     startedRunId: "synthetic-new-run",
   });
   expect(world.start).toHaveBeenCalledOnce();
-  expect(world.database.run(run.id)).toEqual(original);
+  expect(world.database.run(run.id)).toEqual({
+    ...patchRecoveryStep(original, "c", {
+      status: "cancelled",
+      cancellation: "not_started",
+    }),
+    endedAt: expect.any(String) as string,
+    recovery: undefined,
+    status: "cancelled",
+    stopRequested: true,
+  });
   expect(world.database.stored().executions).toHaveLength(1);
   await expect(
     startRecoveredPlanRun(world, run.userId, "restart", {
@@ -251,11 +260,7 @@ it("journals an explicit restart once and rejects changed arguments under the sa
   ).rejects.toMatchObject({ code: "idempotency_conflict" });
   await expect(
     startRecoveredPlanRun(world, run.userId, "resume", {
-      operationId: request.operationId,
-      planId: request.planId,
-      runId: request.runId,
-      expectedRecoveryRevision: request.expectedRecoveryRevision,
-      expectedPlanRevision: request.expectedPlanRevision,
+      ...base,
       mode: "new_session",
       reviewedStepIds: [],
     }),
@@ -363,6 +368,7 @@ it("denies read-only restart but preserves owner and cleanup identity for a revi
         code: "action_unavailable",
       });
       expect(world.start).not.toHaveBeenCalled();
+      expect([...world.database.stored().locks.values()]).toContain(run.id);
     } else {
       await expect(command).resolves.toMatchObject({
         outcome: "started",
@@ -379,8 +385,9 @@ it("denies read-only restart but preserves owner and cleanup identity for a revi
         origin: { kind: "restart", runId: run.id },
         reused: [],
       });
+      expect(world.database.stored().cleanup).toContain(run.id);
+      expect([...world.database.stored().locks.values()]).not.toContain(run.id);
     }
-    expect([...world.database.stored().locks.values()]).toContain(run.id);
   }
 });
 

@@ -113,6 +113,7 @@ function readCleanup(input: unknown): AgentWorkspaceCleanup {
     ownerId: requiredText(cleanup.ownerId),
     blocker: requiredText(cleanup.blocker),
     updatedAt: requiredText(cleanup.updatedAt),
+    state: cleanup.state === "needs_decision" ? "needs_decision" : "pending",
   };
 }
 
