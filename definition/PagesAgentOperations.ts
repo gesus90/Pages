@@ -366,6 +366,7 @@ export const AGENT_REJECTION_REASONS = [
   "clone_request_invalid",
   "clone_failed",
   "plan_running",
+  "plan_resources_held",
   "plan_run_unavailable",
   "plan_run_unreadable",
   "plan_payload_missing",

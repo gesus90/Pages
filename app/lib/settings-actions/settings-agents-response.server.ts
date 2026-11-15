@@ -84,6 +84,7 @@ const ERROR_STATUS: Partial<Record<AgentErrorCode, number>> = {
   plan_name_taken: 409,
   plan_project_owner_only: 403,
   plan_running: 409,
+  plan_resources_held: 409,
   plan_run_unavailable: 409,
   plan_pause_required: 409,
   plan_continuation_deleted: 409,

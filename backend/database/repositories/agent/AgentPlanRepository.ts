@@ -15,6 +15,7 @@ import { withPortlessPlanGroups } from "@/definition/AgentPlanGroupUpgrade";
 import { fullPlanTeam } from "@/definition/AgentPlanTeam";
 
 import { AgentWorkspaceReferencesRepository } from "./AgentWorkspaceReferencesRepository";
+import { requireReleasedPlanResources } from "./AgentPlanDeletionGuard";
 import {
   requirePlanConnections,
   requireRemotePlanModels,
@@ -476,7 +477,9 @@ export class AgentPlanRepository {
    * administrator, who deletes every plan (PAGE-329).
    * @param options - The revision the person saw and the journal of the deletion.
    * @throws {AgentError} `plan_access_denied` when the plan no longer belongs
-   * to the owner, `plan_running` while a run is running or paused.
+   * to the owner, `plan_running` while a run is running or paused,
+   * `plan_resources_held` while a finished run still holds a local session
+   * owner or a workspace lock.
    */
   public async remove(
     id: string,
@@ -503,6 +506,7 @@ export class AgentPlanRepository {
         { plan_id: id },
       );
       if (active) throw new AgentError("plan_running");
+      await requireReleasedPlanResources(transaction, id);
       await transaction.execute(
         `DELETE FROM agent_plan_start_rejections WHERE plan_id = $id;`,
         { id },

@@ -1,5 +1,7 @@
 import { readPlanRun } from "@/backend/agents/AgentPlanRunInput";
 import { readTextColumn } from "@/backend/database/RowValue";
+import { AgentError } from "@/backend/error/AgentErrors";
+import { logEvent } from "@/backend/logging/Logger";
 import { readStoredAgentPayload } from "@/backend/storage/AgentPayloadFileStore";
 import { readPlanSnapshot } from "@/backend/service/agents/AgentPlanSnapshot";
 import { planWritingWorkspaces } from "@/backend/service/agents/AgentPlanContinuation";
@@ -190,15 +192,46 @@ export class AgentPlanStartResourceRepository {
     )
       return [...new Set(owner.resources)];
     if (typeof owner.snapshot !== "string") return owner.resources;
-    const snapshot = readPlanSnapshot(
-      JSON.parse(await readStoredAgentPayload(this.database, owner.snapshot)),
-    );
+    const stored = await this.snapshotText(owner, owner.snapshot);
+    if (stored === null) return [...new Set(owner.resources)];
+    const snapshot = readPlanSnapshot(JSON.parse(stored));
     return [
       ...new Set([
         ...owner.resources.filter(isConcretePlanWriterResource),
         ...(await expandedPlanWriteResources(planWritingWorkspaces(snapshot))),
       ]),
     ];
+  }
+
+  /**
+   * A deleted plan takes the snapshots of its runs along; such a run then
+   * keeps only the resources of its lock rows instead of blocking every start.
+   */
+  private async snapshotText(
+    owner: StoredOwner,
+    snapshot: string,
+  ): Promise<string | null> {
+    try {
+      return await readStoredAgentPayload(this.database, snapshot);
+    } catch (error: unknown) {
+      if (!(
+        error instanceof AgentError && error.code === "plan_payload_missing"
+      ))
+        throw error;
+      logEvent({
+        level: "warn",
+        event: "agent.plan.start.owner_snapshot_missing",
+        component: "AgentPlanStartResourceRepository",
+        message:
+          "The snapshot of a run holding resources is missing; only its lock rows count for the start check.",
+        metadata: {
+          runId: owner.run.id,
+          planId: owner.run.planId,
+          lockCount: owner.resources.length,
+        },
+      });
+      return null;
+    }
   }
 
   private async read(

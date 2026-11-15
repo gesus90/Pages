@@ -46,6 +46,7 @@ const PLAN_REASONS: Readonly<Partial<Record<AgentErrorCode, Reason>>> = {
   agent_inactive: "parameter_reference_unavailable",
   plan_name_taken: "plan_name_taken",
   plan_running: "plan_running",
+  plan_resources_held: "plan_resources_held",
   // An edit during an executing run is refused like a delete during it.
   plan_pause_required: "plan_running",
   plan_run_unavailable: "plan_run_unavailable",

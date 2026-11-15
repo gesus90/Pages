@@ -137,6 +137,7 @@ const ERROR_CLASSES: Readonly<Record<AgentErrorCode, AgentPlanBlockerClass>> = {
   plan_name_taken: "open",
   plan_project_owner_only: "harm",
   plan_running: "open",
+  plan_resources_held: "open",
   plan_cycle: "open",
   plan_binding_invalid: "open",
   plan_workspace_conflict: "harm",

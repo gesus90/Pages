@@ -918,6 +918,7 @@
         "plan_name_taken": "Dieser Planname ist bereits vergeben. Wähle einen anderen Namen.",
         "plan_project_owner_only": "Nur der Besitzer verschiebt einen Plan in ein anderes Projekt. Wähle einen Arbeitsbereich des Projekts dieses Plans.",
         "plan_running": "Ein Lauf dieses Plans ist noch aktiv. Stoppen Sie ihn, bevor Sie den Plan löschen.",
+        "plan_resources_held": "Ein beendeter Lauf dieses Plans hält noch eine lokale Agentensitzung oder eine Arbeitsbereichssperre. Geben Sie sie frei, zum Beispiel mit der Zwangsfreigabe eines neuen Starts, bevor Sie den Plan löschen.",
         "plan_cycle": "Die Ablaufabhängigkeiten enthalten einen Zyklus.",
         "plan_binding_invalid": "Parameter-Ports sowie Quellen- und Ergebnisbindungen prüfen.",
         "plan_workspace_conflict": "Parallele Schritte oder ein anderer Lauf würden dieselbe Arbeitskopie beschreiben.",

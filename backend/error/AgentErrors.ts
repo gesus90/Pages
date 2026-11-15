@@ -208,6 +208,8 @@ export const AGENT_ERROR_MESSAGES = {
     "Only the owner moves a plan to another project. Choose a workspace of the plan's project.",
   plan_running:
     "A run of this plan is still active. Stop it before deleting the plan.",
+  plan_resources_held:
+    "A finished run of this plan still holds a local agent session or a workspace lock. Release them, for example with the forced release of a new start, before deleting the plan.",
   plan_cycle: "Execution dependencies contain a cycle.",
   plan_binding_invalid: "Check parameter ports and source or result bindings.",
   plan_workspace_conflict:

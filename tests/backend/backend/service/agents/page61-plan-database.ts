@@ -37,6 +37,8 @@ export class PlanDatabase {
   public plans: StoredPlan[] = [];
   public runs: StoredRun[] = [];
   public rejections: string[] = [];
+  /** Plans one of whose finished runs still holds a local owner or a workspace lock. */
+  public readonly heldPlans = new Set<string>();
   public readonly workspaces = new Map([["workspace", "project"]]);
   public readonly agents = new Set(["agent"]);
   /** Connections a pinned node may name; a test adds the ones its plan uses. */
@@ -90,6 +92,10 @@ export class PlanDatabase {
   ): DatabaseValue[][] {
     // Plans of these tests have no teams (PAGE-329).
     if (statement.includes("FROM agent_plan_teams")) return [];
+    if (statement.includes("FROM agent_local_session_owners"))
+      return this.heldPlans.has(parameter(parameters, "plan_id"))
+        ? [["held-run"]]
+        : [];
     if (statement.includes("FROM agent_plan_runs")) {
       // Each check names the run states it counts; the delete check counts a pause, the edit lock does not.
       const statuses = [...statement.matchAll(/'(\w+)'/gu)].map(

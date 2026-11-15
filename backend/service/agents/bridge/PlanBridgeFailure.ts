@@ -66,6 +66,7 @@ const REJECTION_REASONS: Readonly<
   clone_request_invalid: true,
   clone_failed: true,
   plan_running: true,
+  plan_resources_held: true,
   plan_run_unavailable: true,
   plan_run_unreadable: true,
   plan_payload_missing: true,

@@ -86,6 +86,7 @@ const EXACT_CODES: Readonly<Record<AgentRunErrorClass, ReadonlySet<string>>> = {
     "plan_workspace_waiting",
     "plan_workspace_conflict",
     "plan_running",
+    "plan_resources_held",
     "plan_run_unavailable",
     "requestBusy",
     "acp_worker_limit",
