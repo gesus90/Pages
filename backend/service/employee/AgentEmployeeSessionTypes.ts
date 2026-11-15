@@ -23,6 +23,9 @@ import type {
   PicaAcpEmployeeRun,
   PicaAcpService,
 } from "../chat/acp/PicaAcpService";
+import type { AgentChatQuestionService } from "@/backend/service/conversation/AgentChatQuestionService";
+import type { AgentChatHistoryService } from "@/backend/service/conversation/AgentChatHistoryService";
+import type { AgentChatTaskService } from "./AgentChatTaskService";
 import type { AgentChatTools } from "@/definition/AgentChat";
 import type { User } from "@/definition/User";
 import type { AgentEmployeeModels } from "./AgentEmployeeModels";
@@ -79,6 +82,22 @@ export interface AgentEmployeeSessionDependencies {
    * because the conversations are wired after the sessions; `null` where none.
    */
   readonly agentChat?: () => AgentChatTools | null;
+  /**
+   * The interim messages and questions of agents in their chat (PAGE-391).
+   * A function, because the conversations are wired after the sessions;
+   * `null` offers neither.
+   */
+  readonly chatQuestions?: () => Pick<AgentChatQuestionService, "bind"> | null;
+  /**
+   * The scheduled tasks agents plan from their chat (PAGE-392). A function,
+   * because the automations are wired after the sessions; `null` plans none.
+   */
+  readonly chatTasks?: () => Pick<AgentChatTaskService, "bind"> | null;
+  /**
+   * The search over the earlier messages of the agents' chats (PAGE-393);
+   * absent offers no history tools.
+   */
+  readonly chatHistory?: Pick<AgentChatHistoryService, "bind">;
   /** An unused ID for a new chat session. */
   readonly createSessionId: () => string;
   /**
@@ -135,6 +154,11 @@ export interface AgentEmployeeSessionDependencies {
   readonly today?: () => string;
   /** Opens the live answer of a direct chat for the chat page (PAGE-381); absent shows none. */
   readonly answers?: Pick<ConversationAnswerStream, "open">;
+  /**
+   * Folders the isolation of the toolkit's shell hides, such as the data and
+   * agent folders (PAGE-390); absent hides only the runtime folder.
+   */
+  readonly toolkitHiddenDirectories?: readonly string[];
   /** Waits between two looks of a background run at the chats of its agent; tests pass a fast one. */
   readonly wait?: (milliseconds: number) => Promise<void>;
 }
@@ -258,6 +282,8 @@ export interface AgentChatScope {
     readonly sessionId: string;
     readonly kind: "direct" | "group";
     readonly chatId: string;
+    /** The person who addressed the agent in a conversation, who alone answers its questions (PAGE-391). */
+    readonly askerId?: string;
   } | null;
 }
 

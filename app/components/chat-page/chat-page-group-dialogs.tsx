@@ -3,6 +3,7 @@ import { ChatPageDissolveDialog } from "./chat-page-dissolve-dialog";
 import { ChatPageGroupContext } from "./chat-page-group-context";
 import { ChatPageGroupMembers } from "./chat-page-group-members";
 import { ChatPageReplySettings } from "./chat-page-reply-settings";
+import { ChatPageScheduledTasks } from "./chat-page-scheduled-tasks";
 
 import type { AgentSettingsTab } from "@/app/components/agent-settings/agent-settings-tabs";
 import type {
@@ -87,6 +88,11 @@ export function ChatPageGroupDialogs({
           onDialogChange(null);
           onOpenSettings(agent, "sessions");
         }}
+      />
+      <ChatPageScheduledTasks
+        chat={{ kind: "group", conversationId: group.id, name: group.name }}
+        isOpen={dialog === "tasks"}
+        onOpenChange={(isOpen) => handleOpenChange("tasks", isOpen)}
       />
       <ChatPageGroupMembers
         group={group}

@@ -1,10 +1,12 @@
 import { AgentOperationError } from "@/backend/error/AgentOperationError";
 import { AgentEmployeeError } from "@/backend/error/AgentEmployeeError";
 import { logEvent } from "@/backend/logging/Logger";
+import { enablesAgentToolGroup } from "@/definition/AgentToolGroups";
 
 import type { UserPolicyService } from "@/backend/auth/UserPolicyService";
 import type { AccountAccess } from "@/definition/Authorization";
 import type { AgentEmployeeAccess } from "@/definition/AgentEmployee";
+import type { AgentToolGroup } from "@/definition/AgentToolGroups";
 import type { EmployeeStore } from "@/backend/database/repositories/employee/EmployeeStore";
 import type { AgentAccessEnvironmentService } from "./AgentAccessEnvironmentService";
 import type { AgentActivityService } from "./AgentActivityService";
@@ -54,6 +56,21 @@ export class AgentAccessLevelChanges {
       !(await this.accessEnvironment?.isIsolationAvailable())
     )
       throw new AgentEmployeeError("isolationUnavailable");
+  }
+
+  /**
+   * Refuses switching a tool group of an agent on again by anyone but an
+   * administrator in active admin mode (PAGE-390). Switching groups off only
+   * narrows the agent and needs no more than the right to edit it.
+   */
+  public requireToolGroupChange(
+    actor: AccountAccess,
+    from: readonly AgentToolGroup[],
+    to: readonly AgentToolGroup[],
+  ): void {
+    if (!enablesAgentToolGroup(from, to)) return;
+    if (!this.policy.hasGlobalAccess(actor))
+      throw new AgentEmployeeError("accessAdminRequired");
   }
 
   /** Records a change of the access level in the agent's activity and the server log. */

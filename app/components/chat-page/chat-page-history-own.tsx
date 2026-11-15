@@ -154,8 +154,9 @@ function OwnMessage({
   return (
     <article
       aria-label={t("chatPage.you")}
-      className="group/message flex w-full min-w-0 flex-col items-end gap-2 outline-none"
+      className="group/message flex w-full min-w-0 flex-col items-end gap-2 rounded-lg outline-none transition-shadow data-[message-focus=true]:ring-2 data-[message-focus=true]:ring-primary data-[message-focus=true]:ring-offset-4"
       data-chat-message={message.id}
+      data-message-id={message.id}
       data-delivery={delivery?.kind}
       tabIndex={-1}
     >

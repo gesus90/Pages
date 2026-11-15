@@ -321,3 +321,65 @@ export function nextRunAfter(
       return null;
   }
 }
+
+/** `YYYY-MM-DDTHH:MM` of a wall clock, optionally with seconds. */
+const LOCAL_TIME = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/u;
+
+/**
+ * The instant of a wall-clock time in a time zone (PAGE-392).
+ *
+ * @param local - `YYYY-MM-DDTHH:MM`, without an offset.
+ * @param timeZone - The IANA time zone the wall clock belongs to.
+ * @returns The ISO time in UTC, or `null` for text that is no such time.
+ */
+export function zonedInstant(local: string, timeZone: string): string | null {
+  const match = LOCAL_TIME.exec(local);
+  if (!match) return null;
+  const [year, month, day, hour, minute, second] = match
+    .slice(1)
+    .map((part) => Number(part ?? "0"));
+  if (
+    year === undefined ||
+    month === undefined ||
+    day === undefined ||
+    hour === undefined ||
+    minute === undefined ||
+    month < 1 ||
+    month > 12 ||
+    day < 1 ||
+    day > 31 ||
+    hour > 23 ||
+    minute > 59
+  )
+    return null;
+  return new Date(
+    instantOf(
+      { year, month, day, hour, minute, second: second ?? 0 },
+      timeZone,
+    ),
+  ).toISOString();
+}
+
+/**
+ * The wall-clock parts of an instant in a time zone, for texts that name it.
+ *
+ * @param instant - Milliseconds since the epoch.
+ * @param timeZone - The IANA time zone.
+ */
+export function wallClockOf(
+  instant: number,
+  timeZone: string,
+): {
+  readonly year: number;
+  readonly month: number;
+  readonly day: number;
+  readonly hour: number;
+  readonly minute: number;
+  readonly weekday: number;
+} {
+  const { year, month, day, hour, minute, weekday } = zonedTime(
+    instant,
+    timeZone,
+  );
+  return { year, month, day, hour, minute, weekday };
+}

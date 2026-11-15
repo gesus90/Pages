@@ -48,6 +48,8 @@ interface TurnRequest {
   readonly prompt: string;
   readonly chat?: string | null;
   readonly runKey?: string;
+  /** The group a scheduled task of a chat is bound to (PAGE-392). */
+  readonly conversationId?: string | null;
 }
 
 /**
@@ -93,6 +95,7 @@ export class AgentAutomationTurns implements AutomationAgentRunner {
       agent,
       owner,
       chat: request.chat,
+      conversationId: request.conversationId ?? null,
     });
     if (simulation)
       return {

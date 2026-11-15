@@ -1,6 +1,9 @@
 import { withBackgroundDatabaseWork } from "@/backend/database/executor/DatabaseWorkContext";
 import { ChatError } from "@/backend/error/ChatErrors";
 import { logCaughtError } from "@/backend/logging/Logger";
+import { agentToolPolicy } from "@/definition/AgentToolGroups";
+import { createAgentToolkitJob } from "../chat/toolkit/AgentToolkit";
+import { chatInteractionsFor } from "./AgentEmployeeJobRun";
 import { hasHostTools } from "@/definition/AgentEmployee";
 
 import { employeeAcpRunner } from "../chat/acp/EmployeeAcpRunners";
@@ -187,6 +190,7 @@ export async function buildEmployeeRun(
   const { agent, employee } = account;
   const { assignment, audience, keptSession, chat } = job;
   const { access } = employee;
+  const policy = agentToolPolicy(access, employee.disabledToolGroups);
   const hostServers =
     (await dependencies.accessEnvironment?.chatServers(
       assignment.connection.provider,
@@ -218,8 +222,19 @@ export async function buildEmployeeRun(
     // A run of the agent's own is short and carries no chat (PAGE-376).
     ...(keptSession ? {} : { isFreshSession: true }),
     runner: employeeAcpRunner(assignment, access, hostServers),
-    hasBrowser: hasHostTools(access),
-    ...(hostFiles && hasHostTools(access)
+    hasBrowser: policy.browser !== "off",
+    toolkit: (directory) =>
+      createAgentToolkitJob({
+        agentId: agent.id,
+        root: directory,
+        policy,
+        isIsolated: access !== "yolo",
+        ...chatInteractionsFor(dependencies, agent, chat),
+        ...(dependencies.toolkitHiddenDirectories
+          ? { hiddenDirectories: dependencies.toolkitHiddenDirectories }
+          : {}),
+      }),
+    ...(hostFiles && hasHostTools(access) && policy.pages === "full"
       ? {
           attachFile: (directory, target, file) =>
             hostFiles.attach(agent, { directory, file, target }),

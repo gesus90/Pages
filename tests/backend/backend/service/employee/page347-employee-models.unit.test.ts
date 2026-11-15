@@ -8,6 +8,7 @@ const selection = {
   connectionId: "connection",
   model: ZEN.id,
   reasoningEffort: null,
+  disabledToolGroups: [],
 };
 
 it.each(["workspace", "yolo"] as const)(

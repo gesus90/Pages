@@ -73,8 +73,20 @@ it.each(["workspace", "yolo"] as const)(
   },
 );
 
-it("gives Nur Pages no session or file", async () => {
+it("gives Nur Lesen a session for the reading browser tools (PAGE-390)", async () => {
   const world = browserWorld("read_only");
+  await expect(world.sessions.issue(world.context)).resolves.toMatchObject({
+    ownerName: "Bakuman",
+  });
+});
+
+it("gives an agent with the browser group switched off no session or file (PAGE-390)", async () => {
+  const world = browserWorld();
+  world.accounts.employee.mockResolvedValue({
+    access: "workspace",
+    revision: 1,
+    disabledToolGroups: ["browser"],
+  });
   await expect(world.sessions.issue(world.context)).rejects.toThrow(
     "SESSION_DENIED",
   );

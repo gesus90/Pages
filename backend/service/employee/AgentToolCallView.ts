@@ -22,6 +22,8 @@ function toolUse(event: ChatJobToolEvent): VirtualToolUse {
     ...(event.input === undefined ? {} : { input: event.input }),
     ...(event.output === undefined ? {} : { output: event.output }),
     ...(event.isNative === true ? { isNative: true } : {}),
+    ...(event.summary === undefined ? {} : { summary: event.summary }),
+    ...(event.durationMs === undefined ? {} : { durationMs: event.durationMs }),
   };
 }
 

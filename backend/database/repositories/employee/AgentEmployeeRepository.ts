@@ -5,6 +5,10 @@ import {
   readTextColumn,
 } from "@/backend/database/RowValue";
 import { isAgentEmployeeAccess } from "@/definition/AgentEmployee";
+import {
+  isAgentToolGroup,
+  readAgentToolGroups,
+} from "@/definition/AgentToolGroups";
 
 import {
   DREAM_SCHEDULE_COLUMNS,
@@ -20,6 +24,7 @@ import type {
   AgentLearningResult,
   AgentLearningStatus,
 } from "@/definition/AgentEmployee";
+import type { AgentToolGroup } from "@/definition/AgentToolGroups";
 
 /** The stored configuration and documents of one agent. */
 export interface StoredAgentEmployee {
@@ -29,6 +34,8 @@ export interface StoredAgentEmployee {
   readonly model: string;
   readonly reasoningEffort: string | null;
   readonly access: AgentEmployeeAccess;
+  /** The tool groups an administrator switched off (PAGE-390). */
+  readonly disabledToolGroups: readonly AgentToolGroup[];
   readonly soul: string;
   readonly instructions: string;
   readonly memory: string;
@@ -64,6 +71,8 @@ export interface AgentEmployeeChange {
   readonly model: string;
   readonly reasoningEffort: string | null;
   readonly access: AgentEmployeeAccess;
+  /** The tool groups an administrator switched off (PAGE-390); absent keeps none off. */
+  readonly disabledToolGroups?: readonly AgentToolGroup[];
   readonly soul: string;
   readonly instructions: string;
   readonly isLearningEnabled: boolean;
@@ -107,7 +116,8 @@ const COLUMNS = `
     ${DREAM_SCHEDULE_COLUMNS},
     dream_requested_at,
     dream_requested_trigger,
-    claude_monthly_cost_limit`;
+    claude_monthly_cost_limit,
+    disabled_tool_groups`;
 
 const STATUSES: readonly AgentLearningStatus[] = [
   "updated",
@@ -145,6 +155,11 @@ function readLearningResult(text: string | null): AgentLearningResult | null {
   }
 }
 
+/** Reads the stored list of disabled tool groups; an unknown entry is ignored. */
+function readDisabledToolGroups(text: string): readonly AgentToolGroup[] {
+  return readAgentToolGroups(text.split(",").filter(isAgentToolGroup)) ?? [];
+}
+
 function readEmployee(row: readonly DatabaseValue[]): StoredAgentEmployee {
   const access = readTextColumn(row, 4, "access");
   if (!isAgentEmployeeAccess(access))
@@ -156,6 +171,9 @@ function readEmployee(row: readonly DatabaseValue[]): StoredAgentEmployee {
     model: readTextColumn(row, 2, "model"),
     reasoningEffort: readNullableTextColumn(row, 3, "reasoning_effort"),
     access,
+    disabledToolGroups: readDisabledToolGroups(
+      readTextColumn(row, 29, "disabled_tool_groups"),
+    ),
     soul: readTextColumn(row, 5, "soul"),
     instructions: readTextColumn(row, 6, "instructions"),
     memory: readTextColumn(row, 7, "memory"),
@@ -235,6 +253,7 @@ export class AgentEmployeeRepository {
             model,
             reasoning_effort,
             access,
+            disabled_tool_groups,
             soul,
             instructions,
             is_learning_enabled,
@@ -250,6 +269,7 @@ export class AgentEmployeeRepository {
             $model,
             $reasoning_effort,
             $access,
+            $disabled_tool_groups,
             $soul,
             $instructions,
             $is_learning_enabled,
@@ -286,6 +306,7 @@ export class AgentEmployeeRepository {
             model = $model,
             reasoning_effort = $reasoning_effort,
             access = $access,
+            disabled_tool_groups = $disabled_tool_groups,
             soul = $soul,
             instructions = $instructions,
             is_learning_enabled = $is_learning_enabled,
@@ -401,6 +422,7 @@ export class AgentEmployeeRepository {
       model: change.model,
       reasoning_effort: change.reasoningEffort,
       access: change.access,
+      disabled_tool_groups: (change.disabledToolGroups ?? []).join(","),
       soul: change.soul,
       instructions: change.instructions,
       is_learning_enabled: change.isLearningEnabled,

@@ -6,6 +6,7 @@ import { useFetcher } from "react-router";
 import { SettingsCard } from "@/app/components/settings/settings-layout";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
+import { AGENT_CHAT_TASK_LIMIT_RANGE } from "@/definition/AgentChatTask";
 import { AGENT_CHAT_HOURLY_LIMIT_RANGE } from "@/definition/Conversation";
 
 import type { AgentActionResult } from "@/app/lib/settings-actions/settings-agents-response.server";
@@ -31,9 +32,49 @@ function AgentChatSaveFeedback({
   );
 }
 
+/** The limit of scheduled tasks one chat may hold (PAGE-392). */
+function TaskLimitField({
+  settings,
+  isPending,
+}: {
+  readonly settings: AgentChatSettings;
+  readonly isPending: boolean;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const id = useId();
+  return (
+    <div className="max-w-xs">
+      <label
+        htmlFor={id}
+        className="mb-1.5 block text-sm font-medium text-foreground"
+      >
+        {t("agentChatSettings.taskLimit")}
+      </label>
+      <Input
+        id={id}
+        name="scheduledTaskLimit"
+        type="number"
+        inputMode="numeric"
+        min={AGENT_CHAT_TASK_LIMIT_RANGE.minimum}
+        max={AGENT_CHAT_TASK_LIMIT_RANGE.maximum}
+        defaultValue={settings.scheduledTaskLimit}
+        disabled={isPending}
+        required
+      />
+      <p className="mt-1.5 text-xs text-muted-foreground">
+        {t("agentChatSettings.taskLimitHint", {
+          minimum: AGENT_CHAT_TASK_LIMIT_RANGE.minimum,
+          maximum: AGENT_CHAT_TASK_LIMIT_RANGE.maximum,
+        })}
+      </p>
+    </div>
+  );
+}
+
 /**
  * The chat of agents under Settings → Agents (PAGE-311): how many messages
- * one agent may send per hour with the Pages tool `chat_send`.
+ * one agent may send per hour with the Pages tool `chat_send`, and how many
+ * scheduled tasks one chat may hold (PAGE-392).
  */
 export function AgentChatSettingsCard({
   settings,
@@ -78,6 +119,7 @@ export function AgentChatSettingsCard({
             })}
           </p>
         </div>
+        <TaskLimitField settings={settings} isPending={isPending} />
         <div className="flex flex-wrap items-center justify-between gap-3">
           <AgentChatSaveFeedback
             result={isPending ? undefined : fetcher.data}

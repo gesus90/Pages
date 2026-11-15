@@ -19,6 +19,11 @@ export interface AgentJobWaiting {
   readonly timeoutMilliseconds: number;
   readonly now: () => Date;
   readonly wait?: (milliseconds: number) => Promise<void>;
+  /**
+   * Whether the job waits for a person to answer its question now
+   * (PAGE-391); that time does not count towards the timeout.
+   */
+  readonly isWaitingForPerson?: () => boolean;
 }
 
 function defaultWait(milliseconds: number): Promise<void> {
@@ -40,7 +45,7 @@ export async function awaitAgentJobAnswer(
   job: AwaitedAgentJob,
   waiting: AgentJobWaiting,
 ): Promise<string> {
-  const deadline = waiting.now().getTime() + waiting.timeoutMilliseconds;
+  let deadline = waiting.now().getTime() + waiting.timeoutMilliseconds;
   for (;;) {
     const current = await waiting.sessions.job(
       job.agent,
@@ -52,6 +57,8 @@ export async function awaitAgentJobAnswer(
         throw new AgentJobAnswerError(current.state, current.errorCode);
       break;
     }
+    if (waiting.isWaitingForPerson?.() === true)
+      deadline = waiting.now().getTime() + waiting.timeoutMilliseconds;
     if (waiting.now().getTime() > deadline)
       throw new AgentJobAnswerError("failed", "timeout");
     await (waiting.wait ?? defaultWait)(waiting.pollMilliseconds);

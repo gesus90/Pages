@@ -30,6 +30,7 @@ import {
   DirectChatMenu,
   GroupChatMenu,
 } from "./chat-menu/chat-page-header-menu";
+import { ChatPageScheduledTasks } from "./chat-page-scheduled-tasks";
 
 import type { ReactNode } from "react";
 import type { AgentSettingsTab } from "@/app/components/agent-settings/agent-settings-tabs";
@@ -219,6 +220,7 @@ function ParticipantHeader({
 }): React.ReactElement {
   const { t } = useTranslation();
   const menu = useAgentMenuState();
+  const [isTasksOpen, setIsTasksOpen] = useState(false);
   const isAgent = participant.kind === "agent";
   const facts = [
     participantSubtitle(participant, t),
@@ -241,8 +243,20 @@ function ParticipantHeader({
               <ChatPageAgentButton
                 agent={participant}
                 brief={participant.session}
-                options={directAgentOptions(links, participant)}
+                options={{
+                  ...directAgentOptions(links, participant),
+                  onOpenTasks: () => setIsTasksOpen(true),
+                }}
                 state={menu}
+              />
+              <ChatPageScheduledTasks
+                chat={{
+                  kind: "direct",
+                  agentId: participant.id,
+                  name: participant.name,
+                }}
+                isOpen={isTasksOpen}
+                onOpenChange={setIsTasksOpen}
               />
             </>
           ) : null}

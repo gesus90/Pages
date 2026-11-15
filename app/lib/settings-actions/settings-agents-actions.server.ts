@@ -140,6 +140,13 @@ const AGENT_ACTION_HANDLERS: Readonly<Record<string, AgentActionHandler>> = {
   "save-agent-chat": async ({ actor, services, formData }) => {
     await services.agentChatSettingsService.save(actor, {
       hourlyMessageLimit: Number(readText(formData, "hourlyMessageLimit")),
+      ...(formData.has("scheduledTaskLimit")
+        ? {
+            scheduledTaskLimit: Number(
+              readText(formData, "scheduledTaskLimit"),
+            ),
+          }
+        : {}),
       revision: Number(readText(formData, "revision")),
     });
     return { ok: true };

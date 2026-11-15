@@ -4411,7 +4411,8 @@
         "noChecksum": "Keine Prüfsumme",
         "copyChecksum": "SHA-256-Prüfsumme kopieren",
         "tooLarge": "Zu groß für die Vorschau (über 32 MB) – nur zum Herunterladen"
-      }
+      },
+      "videoFullscreen": "Video im Vollbild"
     },
     "embedDomains": {
       "title": "Eingebettete Domains",
@@ -4454,7 +4455,8 @@
       "renew": "Neu starten",
       "noRight": "Nur wer vom Besitzer der Gruppe berechtigt ist, darf Modell und Sitzung ändern.",
       "remove": "Aus Gruppe entfernen …",
-      "ownerOnly": "nur Besitzer"
+      "ownerOnly": "nur Besitzer",
+      "tasks": "Geplante Aufgaben …"
     },
     "agentSessions": {
       "title": "Sitzungen der Agenten in {{name}}",
@@ -4750,6 +4752,77 @@
       "previous": "Vorheriger Eintrag",
       "next": "Nächster Eintrag",
       "position": "{{current}} von {{total}}"
+    },
+    "mute": "Stummschalten",
+    "unmute": "Stummschaltung aufheben",
+    "confidentialOn": "Vertraulich",
+    "confidentialOff": "Nicht vertraulich",
+    "confidentialHint": "Aus einem vertraulichen Chat teilen Agents nichts mit anderen Chats und lernen nichts für DREAM.md.",
+    "groupMenu": {
+      "trigger": "Gruppe",
+      "label": "Gruppen-Menü",
+      "section": "Gruppe „{{name}}“",
+      "reply": "Wer antwortet? …",
+      "context": "Gruppenkontext …",
+      "sessions": "Sitzungen der Agenten in diesem Chat …",
+      "confidential": "Vertraulichkeit",
+      "members": "Mitglieder verwalten …",
+      "tasks": "Geplante Aufgaben …"
+    },
+    "interim": "Zwischenmeldung",
+    "question": {
+      "title": "Rückfrage",
+      "confirmTitle": "Bestätigung",
+      "recommended": "(empfohlen)",
+      "multiple": "Mehrfachauswahl möglich",
+      "freeText": "Freie Antwort",
+      "freeTextPlaceholder": "Oder eigene Antwort schreiben …",
+      "freeTextAnswer": "Freie Antwort: {{text}}",
+      "send": "Antwort senden",
+      "answeredBy": "Beantwortet von {{name}}",
+      "expired": "Keine Antwort innerhalb der Zeitgrenze – der Agent arbeitet nach eigenem Ermessen weiter.",
+      "cancelled": "Die Runde des Agenten ist beendet.",
+      "notForYou": "Nur die gefragte Person kann antworten."
+    },
+    "tasks": {
+      "title": "Geplante Aufgaben · {{name}}",
+      "description": "Erinnerungen und wiederkehrende Aufgaben, die Agenten in diesem Chat geplant haben. Zum Zeitpunkt meldet sich der Agent hier im Chat. Wird der Chat gelöscht oder die Gruppe aufgelöst, verschwinden sie mit.",
+      "list": "Geplante Aufgaben dieses Chats",
+      "loading": "Lädt …",
+      "empty": "In diesem Chat ist nichts geplant. Bitten Sie einen Agenten zum Beispiel: „Erinnere mich morgen um 9 an …“",
+      "paused": "Pausiert",
+      "next": "Nächster Lauf: {{moment}}",
+      "pause": "Pausieren",
+      "resume": "Fortsetzen",
+      "delete": "Löschen",
+      "confirmDelete": "Wirklich löschen?",
+      "kind": {
+        "reminder": "Erinnerung von {{agent}} für {{person}}",
+        "task": "Aufgabe von {{agent}} für {{person}}"
+      },
+      "schedule": {
+        "once": "Einmalig: {{moment}}",
+        "done": "Erledigt",
+        "weekly": "{{days}} um {{times}} Uhr",
+        "every": {
+          "minute_one": "Jede Minute",
+          "minute_other": "Alle {{count}} Minuten",
+          "hour_one": "Jede Stunde",
+          "hour_other": "Alle {{count}} Stunden",
+          "day_one": "Jeden Tag",
+          "day_other": "Alle {{count}} Tage",
+          "second_one": "Jede Sekunde",
+          "second_other": "Alle {{count}} Sekunden"
+        }
+      },
+      "error": {
+        "not_found": "Die Aufgabe gibt es in diesem Chat nicht mehr.",
+        "forbidden": "Das dürfen Sie in diesem Chat nicht.",
+        "limit_reached": "Dieser Chat hat bereits die höchste Zahl geplanter Aufgaben.",
+        "time_in_past": "Der Zeitpunkt ist vorbei; die Aufgabe lässt sich nicht fortsetzen.",
+        "invalid": "Die Änderung war nicht möglich.",
+        "run_active": "Die Aufgabe läuft gerade; versuchen Sie es gleich noch einmal."
+      }
     }
   },
   "workspaces": {
@@ -8449,7 +8522,34 @@
       "confirmText": "Der Agent kann alles auf diesem Rechner lesen, ändern und löschen, auch Zugangsdaten und Live-Daten. Pages schränkt ihn nicht ein und startet ihn ohne Isolation.",
       "confirm": "YOLO wählen",
       "cancel": "Abbrechen",
-      "pending": "Die Stufe wird mit „Speichern“ übernommen."
+      "pending": "Die Stufe wird mit „Speichern“ übernommen.",
+      "browserReadOnly": "Browser nur lesend erlaubt · Profile: self (eigenes Agent-Konto)",
+      "toolGroups": {
+        "title": "Werkzeuggruppen",
+        "hint": "Jeder Chat-Agent bekommt über Pages denselben Werkzeugkasten, egal welches Modell ihn ausführt. Standard ist alles, was die Zugriffsstufe erlaubt; einzelne Gruppen lassen sich hier abschalten. Folgenreiche Schritte fragen vorher im Chat nach.",
+        "adminOnly": "Eine abgeschaltete Gruppe schalten nur Administratoren im aktiven Admin-Modus wieder ein.",
+        "group": {
+          "shell": "Shell",
+          "files": "Dateien",
+          "web": "Web",
+          "browser": "Browser",
+          "pages": "Pages",
+          "chat": "Chat"
+        },
+        "description": {
+          "shell": "Befehle im Arbeitsordner ausführen, lange Läufe im Hintergrund",
+          "files": "Dateien lesen, schreiben, ändern, auflisten und durchsuchen",
+          "web": "Websuche und Seitenabruf als lesbarer Text",
+          "browser": "Seiten öffnen, lesen, klicken, ausfüllen und Screenshots machen",
+          "pages": "Tickets, Wiki, Pläne, Kalender, Projekte mit den Rechten des Agent-Kontos",
+          "chat": "Dateien senden, Chats lesen, Gedächtnis, Lagebuch und Rezepte"
+        },
+        "mode": {
+          "off": "in dieser Stufe nicht verfügbar",
+          "read": "nur lesen",
+          "full": "voll"
+        }
+      }
     }
   },
   "automations": {
@@ -8844,7 +8944,9 @@
     "description": "Agents lesen Chats und schreiben mit den Pages-Werkzeugen an Personen, Agents und Gruppen. Gilt für die ganze Instanz.",
     "hourlyLimit": "Nachrichten je Agent und Stunde",
     "hourlyLimitHint": "Von {{minimum}} bis {{maximum}}. Antworten auf Nachrichten zählen nicht mit.",
-    "saved": "Gespeichert."
+    "saved": "Gespeichert.",
+    "taskLimit": "Geplante Aufgaben je Chat",
+    "taskLimitHint": "Von {{minimum}} bis {{maximum}}. So viele Erinnerungen und wiederkehrende Aufgaben dürfen Agenten in einem Chat planen."
   },
   "runDiagnosis": {
     "title": "Läufe",

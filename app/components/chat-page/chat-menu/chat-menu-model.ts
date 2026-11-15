@@ -1,5 +1,6 @@
 import {
   Ban,
+  CalendarClock,
   BellOff,
   Diamond,
   FolderOpen,
@@ -96,7 +97,7 @@ export interface ChatMenuCommonInput {
 
 /** The dialogs of a group the menu opens. */
 export type ChatMenuGroupDialog =
-  "context" | "reply" | "sessions" | "members" | "dissolve";
+  "context" | "reply" | "sessions" | "members" | "dissolve" | "tasks";
 
 /** What the menu of a group needs beyond the common part. */
 export interface GroupChatMenuInput extends ChatMenuCommonInput {
@@ -246,6 +247,15 @@ function collaborationSection(input: GroupChatMenuInput): ChatMenuSection {
     },
     ...(model === null ? [] : [model]),
   ];
+  if (input.agents.length > 0)
+    entries.push({
+      kind: "action",
+      id: "tasks",
+      icon: CalendarClock,
+      label: t("chatPage.groupMenu.tasks"),
+      opensMore: true,
+      onSelect: () => onOpenDialog("tasks"),
+    });
   if (input.agents.length > 0)
     entries.push({
       kind: "action",

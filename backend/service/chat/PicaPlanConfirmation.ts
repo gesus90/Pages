@@ -67,6 +67,47 @@ export class PicaPlanConfirmation {
     return (this.approved.get(key) ?? 0) > Date.now();
   }
 
+  /** Whether this exact step is the one the session was last held back for (PAGE-391). */
+  public isHeld(
+    action: ChatActionRequest,
+    context: RuntimeExecutionContext,
+  ): boolean {
+    const pending = this.pending.get(
+      JSON.stringify([context.userId, context.sessionId]),
+    );
+    const fingerprint = JSON.stringify([
+      action.operation,
+      canonical(action.parameters),
+    ]);
+    return (
+      pending?.fingerprint === fingerprint && pending.expiresAt > Date.now()
+    );
+  }
+
+  /**
+   * Approves the held-back step a person confirmed with the button of a
+   * question (PAGE-391), for the turn that asked.
+   *
+   * @remarks
+   * Only the exact step this session was last held back for can be
+   * approved, so a model cannot ask about one step and approve another.
+   *
+   * @returns Whether the step was held back and is approved now.
+   */
+  public grant(
+    action: ChatActionRequest,
+    context: RuntimeExecutionContext,
+    turnId: string = context.runId,
+  ): boolean {
+    if (!this.isHeld(action, context)) return false;
+    this.pending.delete(JSON.stringify([context.userId, context.sessionId]));
+    this.approved.set(
+      picaPlanOperationId(action, context, turnId),
+      Date.now() + 600_000,
+    );
+    return true;
+  }
+
   /** A model cannot supply consent, change its target, or consume a confirmation in the asking turn. */
   public consume(
     action: ChatActionRequest,

@@ -4411,7 +4411,8 @@
         "noChecksum": "No checksum",
         "copyChecksum": "Copy SHA-256 checksum",
         "tooLarge": "Too large for the preview (over 32 MB) – download only"
-      }
+      },
+      "videoFullscreen": "Video in full screen"
     },
     "embedDomains": {
       "title": "Embedded domains",
@@ -4454,7 +4455,8 @@
       "renew": "Restart",
       "noRight": "Only members the group owner allowed may change the model and the session.",
       "remove": "Remove from group …",
-      "ownerOnly": "owner only"
+      "ownerOnly": "owner only",
+      "tasks": "Scheduled tasks …"
     },
     "agentSessions": {
       "title": "Sessions of the agents in {{name}}",
@@ -4750,6 +4752,77 @@
       "previous": "Previous entry",
       "next": "Next entry",
       "position": "{{current}} of {{total}}"
+    },
+    "mute": "Mute",
+    "unmute": "Unmute",
+    "confidentialOn": "Confidential",
+    "confidentialOff": "Not confidential",
+    "confidentialHint": "Agents share nothing from a confidential chat with other chats and learn nothing from it for DREAM.md.",
+    "groupMenu": {
+      "trigger": "Group",
+      "label": "Group menu",
+      "section": "Group “{{name}}”",
+      "reply": "Who answers? …",
+      "context": "Group context …",
+      "sessions": "Sessions of the agents in this chat …",
+      "confidential": "Confidentiality",
+      "members": "Manage members …",
+      "tasks": "Scheduled tasks …"
+    },
+    "interim": "Interim message",
+    "question": {
+      "title": "Question",
+      "confirmTitle": "Confirmation",
+      "recommended": "(recommended)",
+      "multiple": "Several answers possible",
+      "freeText": "Free answer",
+      "freeTextPlaceholder": "Or write your own answer …",
+      "freeTextAnswer": "Free answer: {{text}}",
+      "send": "Send answer",
+      "answeredBy": "Answered by {{name}}",
+      "expired": "No answer within the time limit – the agent continues at its own discretion.",
+      "cancelled": "The agent's round has ended.",
+      "notForYou": "Only the person asked can answer."
+    },
+    "tasks": {
+      "title": "Scheduled tasks · {{name}}",
+      "description": "Reminders and recurring tasks agents planned in this chat. At the time, the agent writes here in the chat. Deleting the chat or dissolving the group removes them as well.",
+      "list": "Scheduled tasks of this chat",
+      "loading": "Loading …",
+      "empty": "Nothing is scheduled in this chat. Ask an agent, for example: \"Remind me tomorrow at 9 about …\"",
+      "paused": "Paused",
+      "next": "Next run: {{moment}}",
+      "pause": "Pause",
+      "resume": "Resume",
+      "delete": "Delete",
+      "confirmDelete": "Really delete?",
+      "kind": {
+        "reminder": "Reminder by {{agent}} for {{person}}",
+        "task": "Task by {{agent}} for {{person}}"
+      },
+      "schedule": {
+        "once": "Once: {{moment}}",
+        "done": "Done",
+        "weekly": "{{days}} at {{times}}",
+        "every": {
+          "minute_one": "Every minute",
+          "minute_other": "Every {{count}} minutes",
+          "hour_one": "Every hour",
+          "hour_other": "Every {{count}} hours",
+          "day_one": "Every day",
+          "day_other": "Every {{count}} days",
+          "second_one": "Every second",
+          "second_other": "Every {{count}} seconds"
+        }
+      },
+      "error": {
+        "not_found": "This task no longer exists in this chat.",
+        "forbidden": "You may not do that in this chat.",
+        "limit_reached": "This chat already holds the most scheduled tasks it may.",
+        "time_in_past": "The time has passed; the task cannot be resumed.",
+        "invalid": "The change was not possible.",
+        "run_active": "The task is running right now; try again in a moment."
+      }
     }
   },
   "workspaces": {
@@ -8442,7 +8515,34 @@
       "confirmText": "The agent can read, change and delete everything on this host, including credentials and live data. Pages does not restrict it and starts it without isolation.",
       "confirm": "Choose YOLO",
       "cancel": "Cancel",
-      "pending": "The level is applied with “Save”."
+      "pending": "The level is applied with “Save”.",
+      "browserReadOnly": "Browser allowed for reading only · Profiles: self (own agent account)",
+      "toolGroups": {
+        "title": "Tool groups",
+        "hint": "Every chat agent gets the same toolkit through Pages, whatever model runs it. By default it has everything its access level allows; switch single groups off here. Consequential steps ask in the chat first.",
+        "adminOnly": "Only administrators in active admin mode switch a disabled group back on.",
+        "group": {
+          "shell": "Shell",
+          "files": "Files",
+          "web": "Web",
+          "browser": "Browser",
+          "pages": "Pages",
+          "chat": "Chat"
+        },
+        "description": {
+          "shell": "Run commands in the working folder, long runs in the background",
+          "files": "Read, write, change, list and search files",
+          "web": "Web search and pages as readable text",
+          "browser": "Open, read, click and fill pages and take screenshots",
+          "pages": "Tickets, wiki, plans, calendar, projects with the agent account's rights",
+          "chat": "Send files, read chats, memory, logbook and recipes"
+        },
+        "mode": {
+          "off": "not available at this level",
+          "read": "read only",
+          "full": "full"
+        }
+      }
     }
   },
   "automations": {
@@ -8837,7 +8937,9 @@
     "description": "Agents read chats and write to people, agents and groups with the Pages tools. Applies to the whole instance.",
     "hourlyLimit": "Messages per agent and hour",
     "hourlyLimitHint": "From {{minimum}} to {{maximum}}. Answers to messages do not count.",
-    "saved": "Saved."
+    "saved": "Saved.",
+    "taskLimit": "Scheduled tasks per chat",
+    "taskLimitHint": "From {{minimum}} to {{maximum}}. This many reminders and recurring tasks agents may plan in one chat."
   },
   "runDiagnosis": {
     "title": "Runs",

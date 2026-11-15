@@ -3,10 +3,8 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { cn } from "@/app/lib/cn";
-import {
-  AGENT_EMPLOYEE_ACCESS_MODES,
-  hasHostTools,
-} from "@/definition/AgentEmployee";
+import { AGENT_EMPLOYEE_ACCESS_MODES } from "@/definition/AgentEmployee";
+import { agentToolPolicy } from "@/definition/AgentToolGroups";
 
 import { AgentTemplateConfirm } from "./agent-template-confirm";
 
@@ -14,6 +12,14 @@ import type {
   AgentAccessEnvironment,
   AgentEmployeeAccess,
 } from "@/definition/AgentEmployee";
+import type { AgentToolGroupMode } from "@/definition/AgentToolGroups";
+
+/** What the saved level allows in the browser (PAGE-390): nothing, reading or everything. */
+const BROWSER_GRANTS: Readonly<Record<AgentToolGroupMode, string>> = {
+  off: "agentEmployees.accessTab.browserDenied",
+  read: "agentEmployees.accessTab.browserReadOnly",
+  full: "agentEmployees.accessTab.browserAllowed",
+};
 
 interface AgentAccessSectionProps {
   readonly value: AgentEmployeeAccess;
@@ -231,11 +237,7 @@ export function AgentAccessSection({
       </p>
       <AccessNotices canChange={canChange} environment={environment} />
       <p className="text-sm text-foreground" role="status">
-        {t(
-          hasHostTools(savedValue ?? value)
-            ? "agentEmployees.accessTab.browserAllowed"
-            : "agentEmployees.accessTab.browserDenied",
-        )}
+        {t(BROWSER_GRANTS[agentToolPolicy(savedValue ?? value).browser])}
       </p>
       <AccessLevelFieldset
         value={value}

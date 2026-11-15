@@ -23,6 +23,7 @@ import type {
   PicaMediaGenerate,
 } from "../PicaTools";
 import type { LiveAnswerSink } from "@/backend/service/conversation/ConversationLiveAnswer";
+import type { AgentToolkitBinding } from "../toolkit/AgentToolkit";
 
 /** What a job needs from Pages; every write path is an existing one. */
 export interface PicaAcpJobDependencies {
@@ -76,4 +77,6 @@ export interface PicaAcpJobDependencies {
   readonly agentChat?: AgentChatTools;
   /** Shows the answer of an agent employee on the chat page while it is written (PAGE-381); absent for Pica. */
   readonly liveAnswer?: LiveAnswerSink;
+  /** The toolkit of an agent employee's job in its working folder (PAGE-390); absent for Pica. */
+  readonly toolkit?: AgentToolkitBinding;
 }

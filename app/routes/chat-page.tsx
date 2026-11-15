@@ -66,10 +66,15 @@ export default function ChatPageRoute(): React.ReactElement {
     (kind === "group" || kind === "participant") && id
       ? { kind, id }
       : undefined;
+  // A "Zur Nachricht" link of an agent names the message to show (PAGE-393).
+  const message = params.get("message");
   return (
     <ChatPage
       directory={useLoaderData<typeof clientLoader>()}
       requestedSelection={requestedSelection}
+      {...(requestedSelection && message
+        ? { requestedMessageId: message }
+        : {})}
     />
   );
 }

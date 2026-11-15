@@ -58,8 +58,9 @@ export class AgentAutomationTarget {
   /**
    * Resolves the chat of one run.
    *
-   * @param input - The agent that runs it, the owner of the automation and
-   * the target as the automation names it.
+   * @param input - The agent that runs it, the owner of the automation, the
+   * target as the automation names it and the group a scheduled task is
+   * bound to.
    * @throws {AutomationTargetError} `target_chat_invalid` for a target that is
    * neither `@Agentname` nor `[[Chatname]]` or names another agent,
    * `target_chat_not_found` for a group the owner and the agent do not share.
@@ -68,9 +69,12 @@ export class AgentAutomationTarget {
     readonly agent: User;
     readonly owner: User | null;
     readonly chat: string | null | undefined;
+    /** The group a scheduled task is bound to (PAGE-392); it wins over `chat`. */
+    readonly conversationId?: string | null;
   }): Promise<AutomationTarget> {
     const text = input.chat?.trim() ?? "";
     const { agent, owner } = input;
+    if (input.conversationId) return this.bound(input.conversationId, input);
     if (text === "") return this.direct(owner);
     const mention = AGENT_NAME.exec(text);
     if (mention?.[1] !== undefined) {
@@ -89,6 +93,22 @@ export class AgentAutomationTarget {
     if (conversationId === null)
       throw new AutomationTargetError("target_chat_not_found");
     return { kind: "group", conversationId, name: chat[1], person: owner };
+  }
+
+  /** The group of a scheduled task, while the agent and the owner still belong to it. */
+  private async bound(
+    conversationId: string,
+    parties: { readonly agent: User; readonly owner: User | null },
+  ): Promise<AutomationTarget> {
+    const { agent, owner } = parties;
+    const name = await this.store
+      .conversations()
+      .findSharedGroup(conversationId, [
+        agent.id,
+        ...(owner ? [owner.id] : []),
+      ]);
+    if (name === null) throw new AutomationTargetError("target_chat_not_found");
+    return { kind: "group", conversationId, name, person: owner };
   }
 
   private direct(owner: User | null): AutomationTarget {

@@ -12,6 +12,7 @@ import { ParticipantAvatar } from "./chat-page-avatar";
 import { participantColors } from "./chat-page-colors";
 import { ChatPageDecision } from "./chat-page-decision";
 import { hideImages, OwnRun, PreviewSentBadge } from "./chat-page-history-own";
+import { ChatPageQuestionCard } from "./chat-page-question-card";
 import { ChatPageToolUse } from "./chat-page-tool-uses";
 import { ChatPageVoice } from "./chat-page-voice";
 import { MessageContentView } from "./content/message-content-view";
@@ -21,6 +22,7 @@ import {
   ChatPageThoughts,
 } from "./live/chat-page-live-answer";
 import { formatSeconds } from "./live/live-answer-state";
+import { useMessageFocus } from "./use-message-focus";
 
 import type {
   VirtualChatMessage,
@@ -158,6 +160,9 @@ function SystemLine({
   );
 }
 
+const FOCUS_MARK =
+  "rounded-lg transition-shadow data-[message-focus=true]:ring-2 data-[message-focus=true]:ring-primary data-[message-focus=true]:ring-offset-4";
+
 /**
  * The hint why an agent did not answer (PAGE-276) in a bubble, or the voice
  * message as a row of the sound grid outside the bubbles, so that it lines
@@ -231,12 +236,14 @@ interface AnswerBubbleProps {
   readonly live?: LiveAnswerView;
 }
 
-/** A bubble in the author's color. */
+/** A bubble in the author's color; an interim message is quieter (PAGE-391). */
 function Bubble({
   author,
+  isQuiet = false,
   children,
 }: {
   readonly author: VirtualParticipant;
+  readonly isQuiet?: boolean;
   readonly children: React.ReactNode;
 }): React.ReactElement {
   const colors = participantColors(author.color);
@@ -244,10 +251,13 @@ function Bubble({
     <div
       className={cn(
         "flex max-w-[62%] min-w-0 flex-col gap-1 rounded-[14px] rounded-bl-[4px] border px-4 py-2.5",
-        colors.bubble.className,
+        isQuiet
+          ? "border-dashed bg-transparent py-1.5"
+          : colors.bubble.className,
       )}
       data-message-bubble=""
-      style={colors.bubble.style}
+      data-interim={isQuiet ? "true" : undefined}
+      style={isQuiet ? undefined : colors.bubble.style}
     >
       {children}
     </div>
@@ -302,6 +312,48 @@ function ToolUses({
   );
 }
 
+/** The text of an answer in bubbles; an interim message quieter (PAGE-391). */
+function PlainAnswer({
+  message,
+  author,
+  name,
+  startsWithText,
+}: {
+  readonly message: VirtualChatMessage;
+  readonly author: VirtualParticipant;
+  readonly name: React.ReactNode;
+  readonly startsWithText: boolean;
+}): React.ReactElement {
+  const { t } = useTranslation();
+  const isInterim = message.isInterim === true;
+  return (
+    <>
+      {startsWithText ? null : name}
+      <MessageContentView
+        message={message}
+        origin={{ senderName: author.name, createdAt: message.createdAt }}
+        renderText={(text, isFirst) => (
+          <Bubble author={author} isQuiet={isInterim}>
+            {isFirst ? name : null}
+            {isInterim ? (
+              <span className="sr-only">{t("chatPage.interim")}</span>
+            ) : null}
+            <MentionMarkdown
+              className={
+                isInterim
+                  ? "text-sm text-muted-foreground"
+                  : "text-[15px] text-foreground"
+              }
+              isDisplayableImage={hideImages}
+              source={text}
+            />
+          </Bubble>
+        )}
+      />
+    </>
+  );
+}
+
 /**
  * One answer: its text in bubbles in the author's color, its cards between
  * and below them (PAGE-298), and the used tools at its foot.
@@ -326,35 +378,33 @@ function AnswerBubble({
     <article
       aria-label={author.name}
       data-chat-message={message.id}
+      data-message-id={message.id}
       data-own-mention={isOwnMention ? "true" : undefined}
       tabIndex={-1}
       className={cn(
         "flex w-full min-w-0 flex-col items-start gap-2 outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
+        FOCUS_MARK,
         isOwnMention && "border-l-[3px] border-primary pl-2",
       )}
     >
       {live?.thought ? (
         <ChatPageThoughts thought={live.thought} isThinking={false} now={0} />
       ) : null}
-      {isPlain ? (
+      {message.question ? (
         <>
-          {startsWithText ? null : name}
-          <MessageContentView
-            message={message}
-            origin={{ senderName: author.name, createdAt: message.createdAt }}
-            renderText={(text, isFirst) => (
-              <Bubble author={author}>
-                {isFirst ? name : null}
-                <MentionMarkdown
-                  className="text-[15px] text-foreground"
-                  isDisplayableImage={hideImages}
-                  source={text}
-                />
-              </Bubble>
-            )}
-          />
+          {name}
+          <ChatPageQuestionCard question={message.question} />
         </>
-      ) : (
+      ) : null}
+      {isPlain && !message.question ? (
+        <PlainAnswer
+          message={message}
+          author={author}
+          name={name}
+          startsWithText={startsWithText}
+        />
+      ) : null}
+      {isPlain ? null : (
         <AnswerNotice author={author} message={message} nameLine={name} />
       )}
       {message.isFromPreview === true ? <PreviewSentBadge /> : null}
@@ -449,6 +499,8 @@ interface ChatPageHistoryProps {
   readonly answeringNames?: readonly string[];
   /** The answers agents are writing now and what they told (PAGE-381). */
   readonly live?: HistoryLive;
+  /** The message a "Zur Nachricht" link points to (PAGE-393); shown and marked once. */
+  readonly focusMessageId?: string;
 }
 
 /**
@@ -464,6 +516,7 @@ export function ChatPageHistory({
   older = NO_OLDER,
   answeringNames = [],
   live = NO_LIVE,
+  focusMessageId,
 }: ChatPageHistoryProps): React.ReactElement {
   const { t } = useTranslation();
   const viewport = useRef<HTMLElement>(null);
@@ -484,6 +537,11 @@ export function ChatPageHistory({
     const element = viewport.current;
     if (element) element.scrollTop = element.scrollHeight;
   }, [newestId, name, isAnswering, liveLength]);
+  useMessageFocus(viewport, {
+    messageId: focusMessageId,
+    messageIds: messages.map((message) => message.id),
+    older,
+  });
 
   if (messages.length === 0 && !isAnswering && live.answers.length === 0)
     return (

@@ -2,6 +2,7 @@ import {
   CONVERSATION_AGENT_SEND_PREFIX,
   CONVERSATION_PREVIEW_SEND_PREFIX,
 } from "@/definition/Conversation";
+import { CONVERSATION_AGENT_INTERIM_PREFIX, CONVERSATION_AGENT_QUESTION_PREFIX } from "@/definition/AgentChatQuestion";
 
 import type { ConversationView } from "@/backend/service/conversation/ConversationReader";
 import type {
@@ -56,6 +57,9 @@ export function toVirtualMessage(
     ...(isOwn && !message.notice ? { canDelete: true } : {}),
     ...(message.clientMessageId.startsWith(CONVERSATION_PREVIEW_SEND_PREFIX)
       ? { isFromPreview: true }
+      : {}),
+    ...(message.clientMessageId.startsWith(CONVERSATION_AGENT_INTERIM_PREFIX)
+      ? { isInterim: true }
       : {}),
   };
   if (!message.voice) return base;
@@ -132,6 +136,13 @@ export function agentWrittenConversations(
   return written;
 }
 
+/** The prefixes of the messages an agent writes to a direct chat outside its answers. */
+const AGENT_WRITTEN_PREFIXES = [
+  CONVERSATION_AGENT_SEND_PREFIX,
+  CONVERSATION_AGENT_INTERIM_PREFIX,
+  CONVERSATION_AGENT_QUESTION_PREFIX,
+] as const;
+
 /**
  * Whether a message of the direct conversation with an agent joins the chat
  * with it: one the agent chose to write (PAGE-311), or a system line such as
@@ -154,7 +165,9 @@ export function isAgentWritten(
 ): boolean {
   return (
     message.sender.id === agentId &&
-    message.clientMessageId.startsWith(CONVERSATION_AGENT_SEND_PREFIX)
+    AGENT_WRITTEN_PREFIXES.some((prefix) =>
+      message.clientMessageId.startsWith(prefix),
+    )
   );
 }
 

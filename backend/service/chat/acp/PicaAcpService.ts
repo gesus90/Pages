@@ -15,6 +15,7 @@ import {
 } from "./PicaAcpJobSetup";
 import { PicaAcpSessionGates } from "./PicaAcpSessionGates";
 import { picaAcpRunner } from "./PicaAcpRunners";
+import { closeAgentToolkitJob } from "../toolkit/AgentToolkit";
 
 import type { LiveAnswerSink } from "@/backend/service/conversation/ConversationLiveAnswer";
 import type { ChatAcpSessionRepository } from "@/backend/database/repositories/chat/ChatAcpSessionRepository";
@@ -25,13 +26,8 @@ import type {
   ChatRequestRegistry,
 } from "@/backend/service/chat/ChatRequestRegistry";
 import type { ResolvedAgentAssignment } from "@/backend/service/agents/AgentAssignmentResolution";
-import type { AgentChatTools } from "@/definition/AgentChat";
-import type { AgentLogbookTools } from "@/definition/AgentLogbook";
-import type { AgentRecipeTools } from "@/definition/AgentDreaming";
 import type { ChatSendResult } from "@/definition/Chat";
 import type {
-  ChatJob,
-  ChatJobEntry,
   ChatJobStart,
   ChatJobUpdate,
   ChatSessionActivity,
@@ -54,12 +50,14 @@ import type { AgentMediaKind } from "@/definition/AgentMediaGeneration";
 import type { PicaToolOutcome } from "../PicaToolSchemas";
 import type { PicaAcpWorkspace } from "./PicaAcpWorkspace";
 import type { PicaAcpSessionPool } from "./PicaAcpSessionPool";
+import type { AgentToolkitJob } from "../toolkit/AgentToolkitContracts";
 
-/** A job of a conversation with its journal (PAGE-303). */
-export interface ChatJobJournal {
-  readonly job: ChatJob;
-  readonly events: readonly ChatJobEntry[];
-}
+import type { ChatJobJournal } from "./PicaAcpServiceContracts";
+import type { AgentLogbookTools } from "@/definition/AgentLogbook";
+import type { AgentRecipeTools } from "@/definition/AgentDreaming";
+import type { AgentChatTools } from "@/definition/AgentChat";
+
+export type { ChatJobJournal };
 
 /** Journal entries one read returns at most. */
 const PAGE_ENTRIES = 200;
@@ -180,6 +178,8 @@ export interface PicaAcpEmployeeRun {
   readonly onSettled?: () => void;
   /** Shows the answer on the chat page while it is written (PAGE-381). */
   readonly liveAnswer?: LiveAnswerSink;
+  /** Creates the restricted tools of this employee job. */
+  readonly toolkit?: (directory: string) => AgentToolkitJob;
   /** The Pages tools to read chats and send messages (PAGE-311); absent where none run. */
   readonly agentChat?: AgentChatTools;
   /**
@@ -543,6 +543,7 @@ export class PicaAcpService {
     releaseWorkspace: () => Promise<void>,
   ): Promise<ChatJobStart> {
     const { actor, agent } = input;
+    let toolkit: AgentToolkitJob | null = null;
     const dependencies = {
       ...employeeJobDependencies(
         this.dependencies,
@@ -550,8 +551,10 @@ export class PicaAcpService {
         this.agentDeletions,
       ),
       consumeAnswer: input.employee?.consumeAnswer,
-      workspaceClosed: () =>
-        this.releaseJobWorkspace(sessionId, releaseWorkspace),
+      workspaceClosed: async () => {
+        if (toolkit) await closeAgentToolkitJob(toolkit);
+        await this.releaseJobWorkspace(sessionId, releaseWorkspace);
+      },
     };
     await dependencies.requireCurrent?.(actor.id, agent);
     if (this.deleting.has(sessionId)) throw new ChatError("sessionMissing");
@@ -577,10 +580,12 @@ export class PicaAcpService {
       userId: actor.id,
       messageId: message.id,
     });
+    toolkit = input.employee?.toolkit?.(directory) ?? null;
     const job = new PicaAcpJob(
       {
         ...dependencies,
         ...employeeToolDependencies(input.employee, directory),
+        ...(toolkit ? { toolkit: { job: toolkit } } : {}),
       },
       {
         id,

@@ -18,6 +18,7 @@ import type {
 } from "./ConversationDecision";
 
 import type { AgentEmployeeAccess } from "./AgentEmployee";
+import type { AgentQuestionView } from "./AgentChatQuestion";
 import type { AgentChatSessionBrief } from "./AgentChatSession";
 import type { AgentChatModelLabel } from "./AgentChatControl";
 import type { AgentMessageQueue } from "./AgentSessionLimits";
@@ -140,6 +141,8 @@ export interface VirtualToolUse {
   readonly output?: string;
   /** A tool of the host rather than a Pages tool. */
   readonly isNative?: boolean;
+  /** What the tool does, in one short sentence (PAGE-390). */
+  readonly summary?: string;
 }
 
 /** The audio of a voice message (PAGE-278). */
@@ -202,6 +205,10 @@ export interface VirtualChatMessage {
   readonly references?: readonly ConversationAttachmentReference[];
   /** Whether the person may delete the message: their own stored one (PAGE-298). */
   readonly canDelete?: boolean;
+  /** An interim message an agent wrote during its round (PAGE-391); the chat shows it quieter. */
+  readonly isInterim?: boolean;
+  /** The question with answer buttons the message carries (PAGE-391). */
+  readonly question?: AgentQuestionView;
 }
 
 /** What the list can open: a group or a single participant. */

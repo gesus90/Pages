@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 
 import { browserSessionCookie } from "@/backend/auth/BrowserSessionCookie";
-import { hasHostTools } from "@/definition/AgentEmployee";
+import { agentToolPolicy } from "@/definition/AgentToolGroups";
 
 import { PicaAdminError } from "../admin/PicaAdminContracts";
 import { adminScope } from "../admin/PicaAdminFiles";
@@ -9,6 +9,7 @@ import { AgentBrowserRuntimeFiles } from "./AgentBrowserRuntimeFiles";
 
 import type { RuntimeExecutionContext } from "@/backend/agents/runtime/RuntimeExecutionContext";
 import type { AgentEmployeeAccess } from "@/definition/AgentEmployee";
+import type { AgentToolGroup } from "@/definition/AgentToolGroups";
 import type { User } from "@/definition/User";
 import type { PicaBrowserStorageState } from "./PicaBrowserSession";
 
@@ -20,6 +21,8 @@ export interface AgentBrowserAccounts {
   readonly employee: (id: string) => Promise<{
     readonly access: AgentEmployeeAccess;
     readonly revision: number;
+    /** The tool groups switched off for the agent (PAGE-390). */
+    readonly disabledToolGroups?: readonly AgentToolGroup[];
   } | null>;
   readonly origins: () => readonly string[];
 }
@@ -67,7 +70,12 @@ export class AgentBrowserSessions {
     this.files = files;
   }
 
-  /** Issues at most one private session per job, and never one for "Nur Pages". */
+  /**
+   * Issues at most one private session per job, and only for an agent whose
+   * access level and tool groups allow the browser (PAGE-390): "Nur Lesen"
+   * gets it with the reading browser tools only, a switched-off browser group
+   * gets none.
+   */
   public async issue(
     context: RuntimeExecutionContext,
   ): Promise<AgentBrowserLease> {
@@ -81,7 +89,12 @@ export class AgentBrowserSessions {
       this.accounts.user(context.userId),
       this.accounts.employee(context.userId),
     ]);
-    if (!this.isEligible(user) || !employee || !hasHostTools(employee.access))
+    if (
+      !this.isEligible(user) ||
+      !employee ||
+      agentToolPolicy(employee.access, employee.disabledToolGroups).browser ===
+        "off"
+    )
       throw new PicaAdminError("SESSION_DENIED");
     const token = `pabs_${randomBytes(32).toString("base64url")}`;
     const tokenHash = hashToken(token);
@@ -114,7 +127,8 @@ export class AgentBrowserSessions {
     this.sessions.set(tokenHash, {
       scope: adminScope(context),
       userId: user.id,
-      ...employee,
+      access: employee.access,
+      revision: employee.revision,
       expires,
       controller,
       context,

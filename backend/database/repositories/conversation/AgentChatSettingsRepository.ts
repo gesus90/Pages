@@ -1,11 +1,12 @@
 import { readCountColumn } from "@/backend/database/RowValue";
 import { AgentError } from "@/backend/error/AgentErrors";
+import { AGENT_CHAT_TASK_LIMIT_DEFAULT } from "@/definition/AgentChatTask";
 import { AGENT_CHAT_HOURLY_LIMIT_DEFAULT } from "@/definition/Conversation";
 
 import type { Database } from "@/backend/database/Database";
 import type { AgentChatSettings } from "@/definition/Conversation";
 
-/** Persists the one setting of the chat of agents of the instance (PAGE-311). */
+/** Persists the settings of the chat of agents of the instance (PAGE-311, PAGE-392). */
 export class AgentChatSettingsRepository {
   private readonly database: Pick<Database, "query">;
 
@@ -18,23 +19,27 @@ export class AgentChatSettingsRepository {
     const [row] = await this.database.query(`
       SELECT
           hourly_message_limit,
-          revision
+          revision,
+          scheduled_task_limit
       FROM agent_chat_settings
       WHERE id = 1;
     `);
     if (!row)
       return {
         hourlyMessageLimit: AGENT_CHAT_HOURLY_LIMIT_DEFAULT,
+        scheduledTaskLimit: AGENT_CHAT_TASK_LIMIT_DEFAULT,
         revision: 1,
       };
     return {
       hourlyMessageLimit: readCountColumn(row, 0, "hourly_message_limit"),
       revision: readCountColumn(row, 1, "revision"),
+      scheduledTaskLimit: readCountColumn(row, 2, "scheduled_task_limit"),
     };
   }
 
   /**
-   * Replaces the hourly limit with optimistic concurrency.
+   * Replaces the hourly limit and the limit of tasks per chat with
+   * optimistic concurrency.
    *
    * @param settings - The new setting with the revision it was read at.
    * @throws {AgentError} `profile_conflict` when the setting changed since.
@@ -44,6 +49,7 @@ export class AgentChatSettingsRepository {
       `
         UPDATE agent_chat_settings
         SET hourly_message_limit = $hourly_message_limit,
+            scheduled_task_limit = $scheduled_task_limit,
             revision = revision + 1,
             updated_at = CURRENT_TIMESTAMP
         WHERE id = 1
@@ -52,6 +58,7 @@ export class AgentChatSettingsRepository {
       `,
       {
         hourly_message_limit: settings.hourlyMessageLimit,
+        scheduled_task_limit: settings.scheduledTaskLimit,
         revision: settings.revision,
       },
     );

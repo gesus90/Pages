@@ -42,6 +42,10 @@ export interface RuntimeToolCall {
   /** The untrusted arguments of the call. */
   readonly input: unknown;
   readonly invocation: RuntimeToolInvocation;
+  /** How long the call took, in milliseconds (PAGE-390). */
+  readonly durationMs?: number;
+  /** The chat session of the call, for the audit of the tool bridge (PAGE-390). */
+  readonly sessionId?: string;
 }
 
 /** Selects what a transport lists; a person's own catalog never names administrator tools. */
@@ -113,7 +117,7 @@ async function authorizedContext(
 export class RuntimeToolRegistry {
   private readonly tools = new Map<string, RegisteredTool>();
   private readonly gate: RuntimeAdministratorGate | undefined;
-  private observer: ((call: RuntimeToolCall) => void) | null = null;
+  private readonly observers: ((call: RuntimeToolCall) => void)[] = [];
 
   /**
    * Creates a registry.
@@ -172,13 +176,25 @@ export class RuntimeToolRegistry {
   /**
    * Hears of every call that ended with an answer, whether its input was valid
    * or not, such as for the record of an agent's tool use (PAGE-378). A call
-   * that throws is not reported. The observer must not throw; a second one
-   * replaces the first.
+   * that throws is not reported. An observer must not throw; every observer
+   * hears of every call, such as the record of recipes and the audit of the
+   * tool bridge (PAGE-390).
    *
    * @param observer - Called after each call.
    */
   public observe(observer: (call: RuntimeToolCall) => void): void {
-    this.observer = observer;
+    this.observers.push(observer);
+  }
+
+  /**
+   * Keeps only the tools a predicate admits; every other tool is neither
+   * listed nor callable afterwards (PAGE-390).
+   *
+   * @param isKept - Decides by the tool name.
+   */
+  public retain(isKept: (id: string) => boolean): void {
+    for (const id of [...this.tools.keys()])
+      if (!isKept(id)) this.tools.delete(id);
   }
 
   /** The access class of a registered tool, or `null` for an unknown name. */
@@ -203,8 +219,17 @@ export class RuntimeToolRegistry {
   ): Promise<RuntimeToolInvocation | null> {
     const tool = this.tools.get(id);
     if (!tool) return null;
+    const startedAt = performance.now();
     const invocation = await tool.invoke(input, context);
-    this.observer?.({ id, input, invocation });
+    const durationMs = Math.round(performance.now() - startedAt);
+    for (const observer of this.observers)
+      observer({
+        id,
+        input,
+        invocation,
+        durationMs,
+        sessionId: context.sessionId,
+      });
     return invocation;
   }
 

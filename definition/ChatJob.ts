@@ -152,6 +152,10 @@ export interface ChatJobToolEvent {
   readonly input?: string;
   /** The result of the call, bounded, credentials masked (PAGE-303). */
   readonly output?: string;
+  /** What the tool does, in one short sentence (PAGE-390). */
+  readonly summary?: string;
+  /** How long the call took, in milliseconds, once it ended (PAGE-390). */
+  readonly durationMs?: number;
 }
 
 /** A message sent while the job ran changed its status. */

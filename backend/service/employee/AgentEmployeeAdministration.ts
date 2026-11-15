@@ -15,89 +15,46 @@ import {
 import { activeAccount, findAccount } from "../AdministrationAccess";
 import { AgentAccessLevelChanges } from "./AgentAccessLevelChanges";
 import { AgentEmployeeDirectory } from "./AgentEmployeeDirectory";
+import { employeeChange } from "./AgentEmployeeInput";
 
 import type { ActorChannel } from "@/backend/auth/McpActorContext";
-import type { ServerCache } from "@/backend/cache/ServerCache";
 import type {
   AuthorizationRepository,
   AuthorizationSnapshot,
 } from "@/backend/database/repositories/AuthorizationRepository";
-import type { StoredUserAvatar } from "@/backend/database/repositories/UserRepository";
-import type { StoredAgentUsages } from "@/backend/database/repositories/employee/AgentEmployeeRemovalRepository";
 import type { EmployeeStore } from "@/backend/database/repositories/employee/EmployeeStore";
-import type {
-  AccountAccess,
-  Department,
-  UserRole,
-} from "@/definition/Authorization";
+import type { AccountAccess, UserRole } from "@/definition/Authorization";
 import type {
   AgentAccessEnvironment,
   AgentEmployee,
 } from "@/definition/AgentEmployee";
-import type {
-  AgentEmployeeDetailData,
-  AgentEmployeePageData,
-} from "@/definition/AgentEmployeePage";
-import type { AgentAccessEnvironmentService } from "./AgentAccessEnvironmentService";
-import type { AgentActivityService } from "./AgentActivityService";
-import { employeeChange } from "./AgentEmployeeInput";
 import type { AgentEmployeeInput } from "./AgentEmployeeInput";
-import type { AgentEmployeeModels } from "./AgentEmployeeModels";
-import type { AgentMemoryFile, AgentMemoryService } from "./AgentMemoryService";
+import type { AgentMemoryFile } from "./AgentMemoryService";
+import type {
+  AgentAvatarUpload,
+  AgentEmployeeAdministrationDependencies,
+  AgentEmployeeChoices,
+  AgentEmployeeDetail,
+  AgentEmployeePage,
+  AgentEmployeeRemovalScope,
+  AgentEmployeeUpdate,
+} from "./AgentEmployeeAdministrationContracts";
 
-/** What the administration of agents is built from. */
-export interface AgentEmployeeAdministrationDependencies {
-  readonly authorization: AuthorizationRepository;
-  readonly cache: Pick<
-    ServerCache,
-    "invalidateUsers" | "invalidateProjectMembership" | "invalidateWorkItems"
-  >;
-  readonly models: AgentEmployeeModels;
-  readonly memory: AgentMemoryService;
-  readonly activity: AgentActivityService;
-  /** Isolation and MCP servers of the host for the access levels (PAGE-303); absent offers no isolation. */
-  readonly accessEnvironment?: AgentAccessEnvironmentService;
-}
+export type {
+  AgentAvatarUpload,
+  AgentEmployeeAdministrationDependencies,
+  AgentEmployeeChoices,
+  AgentEmployeeDetail,
+  AgentEmployeePage,
+  AgentEmployeeRemovalScope,
+  AgentEmployeeUpdate,
+};
 
 /** What a host without an access environment offers: no isolation, no server. */
 const NO_ACCESS_ENVIRONMENT: AgentAccessEnvironment = {
   isIsolationAvailable: false,
   mcpServers: [],
 };
-
-/** The agents tab: rows, the model choice and whether the person may create. */
-export type AgentEmployeePage = Omit<
-  AgentEmployeePageData,
-  "templates" | "voice"
->;
-
-/** Everything the panel of one agent shows. */
-export type AgentEmployeeDetail = AgentEmployeeDetailData;
-
-/** A new avatar image, already validated. */
-export type AgentAvatarUpload = StoredUserAvatar;
-
-/** The roles and departments a person may give an agent. */
-export interface AgentEmployeeChoices {
-  readonly roles: readonly UserRole[];
-  readonly departments: readonly Department[];
-}
-
-/** What a removal would take with it, read before the person confirms it. */
-export interface AgentEmployeeRemovalScope {
-  readonly agent: AgentEmployee;
-  readonly usages: StoredAgentUsages;
-  /** A running agent cannot be removed or deactivated. */
-  readonly isRunning: boolean;
-}
-
-/** A save of the agent panel, with the revision it was read at. */
-export interface AgentEmployeeUpdate {
-  readonly input: AgentEmployeeInput;
-  readonly revision: number;
-  /** Activates or deactivates the agent in the same change; absent leaves it. */
-  readonly isActive?: boolean;
-}
 
 function requireRole(
   snapshot: AuthorizationSnapshot,
@@ -389,83 +346,13 @@ export class AgentEmployeeAdministration {
     change: AgentEmployeeUpdate,
     avatar: AgentAvatarUpload | null,
   ): Promise<void> {
-    const { input } = change;
-    await this.dependencies.models.requireAllowed(actorId, input.settings);
-    await this.write(async (repository) => {
-      const snapshot = await repository.snapshot();
-      const actor = accountForChannel(
-        activeAccount(snapshot, actorId),
-        this.channel,
-      );
-      const target = this.requireAgentAccount(snapshot, agentId);
-      this.require(
-        this.policy.canChange(actor, target, CAPABILITY.MANAGE_USERS),
-      );
-      const role = requireRole(snapshot, input.roleId);
-      if (!this.policy.isAdministrator(actor))
-        requireManagementTarget(actor, target, role.id);
-      if (role.id !== target.role?.id)
-        this.require(
-          this.policy.canChange(actor, target, CAPABILITY.MANAGE_ROLES) &&
-            this.policy.canAssignRole(actor, role),
-        );
-      if (!sameDepartments(target.departments, input.departments)) {
-        requireDepartments(snapshot, input.departments);
-        this.require(
-          this.policy.canSetMemberships(actor, target, input.departments),
-        );
-      }
-      const store = repository.employees();
-      const previousAccess =
-        (await store.employees().find(agentId))?.access ?? "read_only";
-      await this.accessLevels.requireChange(
-        actor,
-        previousAccess,
-        input.settings.access,
-      );
-      await store.identities().updateAgent(agentId, {
-        username: input.username,
-        displayName: input.displayName,
-        jobTitle: input.position,
-        avatarColor: input.avatarColor,
-      });
-      await repository.saveAccount({
-        ...target,
-        role,
-        isAdmin: false,
-        mode: "role",
-        firstName: input.displayName,
-        lastName: "",
-        departments: input.departments,
-      });
-      if (
-        !(await store
-          .employees()
-          .update(agentId, employeeChange(input), change.revision))
-      )
-        throw new AgentEmployeeError("conflict");
-      if (previousAccess !== input.settings.access)
-        await this.accessLevels.record(store, {
-          agentId,
-          actor,
-          from: previousAccess,
-          to: input.settings.access,
-        });
-      for (const [file, text] of [
-        ["memory", input.memory],
-        ["dream", input.dream],
-      ] as const)
-        if (text !== null)
-          await this.dependencies.memory.edit(store, {
-            agentId,
-            file,
-            text,
-            actorId,
-          });
-      if (avatar) await this.storeAvatar(repository, agentId, avatar);
-      if (change.isActive !== undefined && change.isActive !== target.isActive)
-        await this.applyActive(repository, agentId, change.isActive);
-    });
+    await this.dependencies.models.requireAllowed(
+      actorId,
+      change.input.settings,
+    );
+    await this.write((repository) =>
+      this.writeAgentUpdate(repository, actorId, agentId, { change, avatar }),
+    );
     // A lowered limit applies at once (PAGE-305).
     await this.dependencies.memory.fitToLimits(agentId);
   }
@@ -629,6 +516,111 @@ export class AgentEmployeeAdministration {
     requireManagementTarget(actor, target);
     this.require(this.policy.canChange(actor, target, CAPABILITY.MANAGE_USERS));
     await this.dependencies.memory.reset(agentId, file, actorId);
+  }
+
+  /** Checks rights, role, departments and access level changes for an agent update. */
+  private async requireAgentUpdateAccess(
+    repository: AuthorizationRepository,
+    actorId: string,
+    agentId: string,
+    input: AgentEmployeeUpdate["input"],
+  ): Promise<{
+    readonly actor: AccountAccess;
+    readonly target: AccountAccess;
+    readonly role: UserRole;
+    readonly previousAccess: AgentEmployeeUpdate["input"]["settings"]["access"];
+  }> {
+    const snapshot = await repository.snapshot();
+    const actor = accountForChannel(
+      activeAccount(snapshot, actorId),
+      this.channel,
+    );
+    const target = this.requireAgentAccount(snapshot, agentId);
+    this.require(this.policy.canChange(actor, target, CAPABILITY.MANAGE_USERS));
+    const role = requireRole(snapshot, input.roleId);
+    if (!this.policy.isAdministrator(actor))
+      requireManagementTarget(actor, target, role.id);
+    if (role.id !== target.role?.id)
+      this.require(
+        this.policy.canChange(actor, target, CAPABILITY.MANAGE_ROLES) &&
+          this.policy.canAssignRole(actor, role),
+      );
+    if (!sameDepartments(target.departments, input.departments)) {
+      requireDepartments(snapshot, input.departments);
+      this.require(
+        this.policy.canSetMemberships(actor, target, input.departments),
+      );
+    }
+    const previous = await repository.employees().employees().find(agentId);
+    const previousAccess = previous?.access ?? "read_only";
+    await this.accessLevels.requireChange(
+      actor,
+      previousAccess,
+      input.settings.access,
+    );
+    this.accessLevels.requireToolGroupChange(
+      actor,
+      previous?.disabledToolGroups ?? [],
+      input.settings.disabledToolGroups,
+    );
+    return { actor, target, role, previousAccess };
+  }
+
+  /** Persists the checked agent profile, role, access level, memory and avatar. */
+  private async writeAgentUpdate(
+    repository: AuthorizationRepository,
+    actorId: string,
+    agentId: string,
+    payload: {
+      readonly change: AgentEmployeeUpdate;
+      readonly avatar: AgentAvatarUpload | null;
+    },
+  ): Promise<void> {
+    const { change, avatar } = payload;
+    const { input } = change;
+    const { actor, target, role, previousAccess } =
+      await this.requireAgentUpdateAccess(repository, actorId, agentId, input);
+    const store = repository.employees();
+    await store.identities().updateAgent(agentId, {
+      username: input.username,
+      displayName: input.displayName,
+      jobTitle: input.position,
+      avatarColor: input.avatarColor,
+    });
+    await repository.saveAccount({
+      ...target,
+      role,
+      isAdmin: false,
+      mode: "role",
+      firstName: input.displayName,
+      lastName: "",
+      departments: input.departments,
+    });
+    const saved = await store
+      .employees()
+      .update(agentId, employeeChange(input), change.revision);
+    if (!saved) throw new AgentEmployeeError("conflict");
+    if (previousAccess !== input.settings.access)
+      await this.accessLevels.record(store, {
+        agentId,
+        actor,
+        from: previousAccess,
+        to: input.settings.access,
+      });
+    for (const [file, text] of [
+      ["memory", input.memory],
+      ["dream", input.dream],
+    ] as const)
+      if (text !== null)
+        await this.dependencies.memory.edit(store, {
+          agentId,
+          file,
+          text,
+          actorId,
+        });
+    if (avatar) await this.storeAvatar(repository, agentId, avatar);
+    if (change.isActive !== undefined && change.isActive !== target.isActive)
+      await this.applyActive(repository, agentId, change.isActive);
   }
 
   /** Runs an aggregate write and translates the shared refusals. */

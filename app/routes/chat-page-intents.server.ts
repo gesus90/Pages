@@ -1,3 +1,5 @@
+import { isChatTaskIntent, runChatTaskIntent } from "@/app/lib/chat-page-tasks.server";
+import type { AgentChatTaskView } from "@/definition/AgentChatTask";
 import { shareChatGroup } from "@/app/lib/chat-page-conversations.server";
 import { AgentEmployeeError } from "@/backend/error/AgentEmployeeError";
 import { parseAgentChatCommand } from "@/definition/AgentChatControl";
@@ -14,6 +16,7 @@ import type {
 import type { ConversationGroupContextView } from "@/definition/ConversationObserver";
 import type { User } from "@/definition/User";
 import type { VirtualChatHistoryPage } from "@/definition/VirtualChat";
+import type { ChatTaskIntent } from "@/app/lib/chat-page-tasks.server";
 import type { ChatPageIntent } from "./chat-page-server";
 
 /** What a change yields besides success: a created group, a page of older messages or a group context. */
@@ -24,6 +27,7 @@ export interface ChatIntentOutcome {
   readonly replySettings?: ConversationReplySettingsView;
   readonly replyDecisions?: readonly ConversationDecisionEntry[];
   readonly commandOutcome?: AgentChatCommandOutcome;
+  readonly chatTasks?: readonly AgentChatTaskView[];
 }
 
 type ChatServices = ChatPageServices;
@@ -227,6 +231,7 @@ const CONTENT_INTENTS = [
   "card-state",
   "split-width",
   "list-collapsed",
+  "answer-question",
 ] as const;
 
 type ContentIntent = (typeof CONTENT_INTENTS)[number];
@@ -271,6 +276,12 @@ async function runContentIntent(
         person,
         formData.get("width"),
       );
+      return;
+    case "answer-question":
+      await services.agentChatQuestions.answer(person, {
+        questionId: formData.get("questionId"),
+        answers: readJson(formData.get("answers")),
+      });
       return;
     case "list-collapsed":
       await services.chatViewPreferences.setListCollapsed(
@@ -400,6 +411,8 @@ export async function runChatPageIntent(
     await runAgentControlIntent(services, person, intent, formData);
     return {};
   }
+  if (isChatTaskIntent(intent))
+    return runChatTaskIntent(services.agentChatTaskService, person, intent, formData);
   return runChatDispatchIntent(services, person, intent, formData);
 }
 
@@ -408,7 +421,7 @@ async function runChatDispatchIntent(
   person: User,
   intent: Exclude<
     ChatPageIntent,
-    (typeof MEMBER_INTENTS)[number] | ContentIntent | AgentControlIntent
+    (typeof MEMBER_INTENTS)[number] | ContentIntent | AgentControlIntent | ChatTaskIntent
   >,
   formData: FormData,
 ): Promise<ChatIntentOutcome> {

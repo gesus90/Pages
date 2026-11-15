@@ -19,6 +19,7 @@ import {
   withConversationPartners,
   type AccountFacts,
   type AgentHistory,
+  addConversationQuestions,
 } from "./ChatDirectoryView";
 import {
   markQueuedMessages,
@@ -48,6 +49,7 @@ import type { User } from "@/definition/User";
 import type { AgentToolCallView } from "./AgentToolCallView";
 import type { QueuedAgentMessage } from "./AgentEmployeeSessions";
 import type { AgentChatSessionService } from "./AgentChatSessionService";
+import type { AgentChatQuestionService } from "@/backend/service/conversation/AgentChatQuestionService";
 import type { AgentMessageQueue } from "@/definition/AgentSessionLimits";
 import type { ChatConversations } from "./ChatConversationView";
 import type {
@@ -135,6 +137,8 @@ export interface ChatDirectoryDependencies {
   readonly oversight?: Pick<ConversationOversight, "views" | "history">;
   /** Tells whether a chain of agent messages paused a conversation (PAGE-311). */
   readonly guard?: Pick<ConversationAgentGuard, "isPaused">;
+  /** The cards of the questions of agents (PAGE-391); absent shows their messages as text. */
+  readonly questions?: Pick<AgentChatQuestionService, "views">;
   /** The current time; tests pass a fixed one. */
   readonly now?: () => Date;
 }
@@ -202,7 +206,7 @@ export class ChatDirectoryService {
         ...groupEntries,
         ...overseen.groups.filter(({ id }) => !conversations.groups.has(id)),
       ],
-      histories,
+      histories: await addConversationQuestions(this.dependencies.questions, person, histories),
       liveToolUses,
       olderHistoryIds: [
         ...olderHistoryIds(conversations),
@@ -236,11 +240,17 @@ export class ChatDirectoryService {
       target.beforeId,
       { withDecisions: true },
     );
+    const messages = page.messages.map((message) =>
+      toVirtualMessage(message, person),
+    );
+    const shown = await addConversationQuestions(
+      this.dependencies.questions,
+      person,
+      { page: messages },
+    );
     return {
       conversationId: page.conversationId,
-      messages: page.messages.map((message) =>
-        toVirtualMessage(message, person),
-      ),
+      messages: shown.page ?? messages,
       hasMore: page.hasMore,
     };
   }
@@ -440,7 +450,7 @@ export class ChatDirectoryService {
     return paused;
   }
 
-  /** The conversations of agents only the person reads as an administrator or leader, shown as read-only groups. */
+  /** Builds the group rows of the directory with active agents and reply modes. */
   private async overseenConversations(
     person: User,
     accounts: ReadonlyMap<string, AccountFacts>,

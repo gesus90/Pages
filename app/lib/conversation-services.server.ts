@@ -1,5 +1,7 @@
 import path from "node:path";
 
+import { AgentChatQuestionRepository } from "@/backend/database/repositories/conversation/AgentChatQuestionRepository";
+import { AgentChatQuestionService } from "@/backend/service/conversation/AgentChatQuestionService";
 import { AgentChatSettingsRepository } from "@/backend/database/repositories/conversation/AgentChatSettingsRepository";
 import { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import { ConversationAgentChatRepository } from "@/backend/database/repositories/conversation/ConversationAgentChatRepository";
@@ -90,6 +92,8 @@ export interface ConversationApplicationServices {
   readonly conversationVoiceMaximumMs: number;
   /** The Pages tools with which agents read chats and send messages (PAGE-311). */
   readonly agentChatService: AgentChatService;
+  /** The interim messages and questions with answer buttons of chat agents (PAGE-391). */
+  readonly agentChatQuestions: AgentChatQuestionService;
   /** The chain and hourly limits of the chat of agents, and the release of a paused one (PAGE-311). */
   readonly conversationAgentGuard: ConversationAgentGuard;
   /** Who reads the conversations that only agents take part in (PAGE-311). */
@@ -289,18 +293,15 @@ function assembleConversationServices(parts: {
   } = parts;
   const { database } = input;
   const { guard: conversationAgentGuard } = agentChat;
-  const conversationVoiceMaximumMs = voiceMaximumDurationMs(input.speech);
-  const conversationService = new ConversationService({
+  const messaging = createMessagingServices(input, {
     conversations,
     messages,
-    reader: conversationReader,
-    attachments: content.attachments,
     directory,
-    voices: new ConversationVoiceStore(files, conversationVoiceMaximumMs),
     files,
-    transcriber: createConversationTranscriber({ speech: input.speech }),
+    conversationReader,
+    content,
     events,
-    publisher: input.events,
+    guard: conversationAgentGuard,
   });
   return {
     conversationDirectory: directory,
@@ -316,8 +317,7 @@ function assembleConversationServices(parts: {
       directory,
       publisher: input.events,
     }),
-    conversationVoiceMaximumMs,
-    conversationService,
+    ...messaging,
     conversationAttachments: content.attachments,
     conversationAttachmentLibrary: content.library,
     conversationLinks: content.links,
@@ -328,15 +328,62 @@ function assembleConversationServices(parts: {
     conversationAgentGuard,
     agentChatSettingsService: agentChat.settingsService,
     conversationOversight: agentChat.oversight,
-    agentChatService: new AgentChatService({
-      users: new UserRepository(database),
-      groups: new UserGroupRepository(database),
-      conversations,
-      reader: conversationReader,
+  };
+}
+
+function createMessagingServices(
+  input: ConversationServicesInput,
+  parts: {
+    readonly conversations: ConversationRepository;
+    readonly messages: ConversationMessageRepository;
+    readonly directory: ConversationDirectory;
+    readonly files: WikiFileStore;
+    readonly conversationReader: ConversationReader;
+    readonly content: ContentParts;
+    readonly events: ConversationEvents;
+    readonly guard: ConversationAgentGuard;
+  },
+): Pick<
+  ConversationApplicationServices,
+  | "conversationVoiceMaximumMs"
+  | "conversationService"
+  | "agentChatQuestions"
+  | "agentChatService"
+> {
+  const { database } = input;
+  const conversationVoiceMaximumMs = voiceMaximumDurationMs(input.speech);
+  const users = new UserRepository(database);
+  const conversationService = new ConversationService({
+    conversations: parts.conversations,
+    messages: parts.messages,
+    reader: parts.conversationReader,
+    attachments: parts.content.attachments,
+    directory: parts.directory,
+    voices: new ConversationVoiceStore(parts.files, conversationVoiceMaximumMs),
+    files: parts.files,
+    transcriber: createConversationTranscriber({ speech: input.speech }),
+    events: parts.events,
+    publisher: input.events,
+  });
+  return {
+    conversationVoiceMaximumMs,
+    conversationService,
+    agentChatQuestions: new AgentChatQuestionService({
+      users,
       service: conversationService,
-      directory,
-      guard: conversationAgentGuard,
-      events,
+      reader: parts.conversationReader,
+      questions: new AgentChatQuestionRepository(database),
+      publisher: input.events,
+    }),
+    agentChatService: new AgentChatService({
+      users,
+      groups: new UserGroupRepository(database),
+      conversations: parts.conversations,
+      reader: parts.conversationReader,
+      service: conversationService,
+      directory: parts.directory,
+      guard: parts.guard,
+      events: parts.events,
     }),
   };
 }

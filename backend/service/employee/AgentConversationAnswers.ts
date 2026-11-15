@@ -44,6 +44,14 @@ export interface AgentConversationAnswerDependencies {
   readonly recorder?: Pick<AgentMemoryRecorder, "record">;
   readonly now?: () => Date;
   readonly wait?: (milliseconds: number) => Promise<void>;
+  /**
+   * Whether the agent waits for the answer to its question in the
+   * conversation (PAGE-391); the answer then keeps waiting for its job.
+   */
+  readonly isWaitingForPerson?: (
+    agentId: string,
+    conversationId: string,
+  ) => boolean;
 }
 
 /**
@@ -123,6 +131,11 @@ export class AgentConversationAnswers implements ConversationAgentRunner {
           timeoutMilliseconds: ANSWER_TIMEOUT_MILLISECONDS,
           now: () => this.dependencies.now?.() ?? new Date(),
           wait: this.dependencies.wait,
+          isWaitingForPerson: () =>
+            this.dependencies.isWaitingForPerson?.(
+              agent.id,
+              request.conversation.id,
+            ) === true,
         },
       );
       this.record(agent, request, { answer, sessionId: started.sessionId });

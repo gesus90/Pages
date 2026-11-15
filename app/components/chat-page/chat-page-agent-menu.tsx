@@ -2,6 +2,7 @@ import {
   AtSign,
   BookOpen,
   Diamond,
+  CalendarClock,
   ListCollapse,
   MessageSquare,
   Moon,
@@ -77,6 +78,8 @@ export interface AgentMenuOptions {
   readonly onMention?: (agent: VirtualParticipant) => void;
   /** The model and session of the agent in this chat (PAGE-380); absent shows none of it. */
   readonly control?: AgentMenuControl;
+  /** Opens "Geplante Aufgaben" of the direct chat with the agent (PAGE-392); left out in a group, whose menu has it. */
+  readonly onOpenTasks?: (agent: VirtualParticipant) => void;
 }
 
 /** Whether the menu of an agent is open; a right click opens it, too. */
@@ -276,13 +279,20 @@ function AgentSection({
   readonly options: AgentMenuOptions;
 }): React.ReactElement {
   const { t } = useTranslation();
-  const { onOpenDirect, onMention } = options;
+  const { onOpenDirect, onMention, onOpenTasks } = options;
   return (
     <>
       <DropdownMenuSeparator />
       <DropdownMenuLabel className={MENU_SECTION_LABEL}>
         {t("chatPage.agentMenu.agentSection")}
       </DropdownMenuLabel>
+      {onOpenTasks === undefined ? null : (
+        <ChatPageMenuEntry
+          icon={CalendarClock}
+          label={t("chatPage.agentMenu.tasks")}
+          onSelect={() => onOpenTasks(agent)}
+        />
+      )}
       <TabEntry
         tab="sessions"
         icon={Settings}

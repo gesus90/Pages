@@ -2,6 +2,7 @@ import { sharedGroup, toVirtualMessage } from "./ChatConversationView";
 
 import type { ChatContactEntry } from "@/backend/database/repositories/employee/ChatContactRepository";
 import type { ChatGroupRecord } from "@/backend/database/repositories/employee/ChatGroupRepository";
+import type { AgentChatQuestionService } from "@/backend/service/conversation/AgentChatQuestionService";
 import type { ConversationView } from "@/backend/service/conversation/ConversationReader";
 import type { AgentChatSessionBrief } from "@/definition/AgentChatSession";
 import type { AgentEmployeeAccess } from "@/definition/AgentEmployee";
@@ -220,4 +221,27 @@ export function directoryParticipant(
     ...(state.accessLevel ? { accessLevel: state.accessLevel } : {}),
     ...(state.session ? { session: state.session } : {}),
   };
+}
+
+/** Adds the card of each question of an agent to the message that carries it (PAGE-391). */
+export async function addConversationQuestions(
+  questions: Pick<AgentChatQuestionService, "views"> | undefined,
+  person: User,
+  histories: Readonly<Record<string, readonly VirtualChatMessage[]>>,
+): Promise<Record<string, readonly VirtualChatMessage[]>> {
+  if (!questions) return { ...histories };
+  const ids = Object.values(histories).flatMap((messages) =>
+    messages.map((message) => message.id),
+  );
+  const views = await questions.views(person, ids);
+  if (views.size === 0) return { ...histories };
+  return Object.fromEntries(
+    Object.entries(histories).map(([id, messages]) => [
+      id,
+      messages.map((message) => {
+        const question = views.get(message.id);
+        return question ? { ...message, question } : message;
+      }),
+    ]),
+  );
 }

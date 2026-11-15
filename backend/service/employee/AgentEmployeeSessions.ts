@@ -13,23 +13,22 @@ import {
   buildEmployeeRun,
   recordEmployeeAnswer,
 } from "./AgentEmployeeSessionLaunch";
+import { chatScopeOf } from "./AgentEmployeeJobRun";
 import { foldJobToolCalls } from "./AgentToolCallView";
 
 import type { LiveAnswerSink } from "@/backend/service/conversation/ConversationLiveAnswer";
 import type { StoredAgentEmployee } from "@/backend/database/repositories/employee/AgentEmployeeRepository";
 import type { EmployeeStore } from "@/backend/database/repositories/employee/EmployeeStore";
 import type { ResolvedAgentAssignment } from "../agents/AgentAssignmentResolution";
-import type {
-  PicaAcpEmployeeRun,
-  PicaAcpRequest,
-  PicaAcpStart,
-} from "../chat/acp/PicaAcpService";
+import type { PicaAcpRequest } from "../chat/acp/PicaAcpService";
 import type {
   ChatJob,
   ChatJobStart,
   ChatSteerStatus,
 } from "@/definition/ChatJob";
 import type { User } from "@/definition/User";
+import type { PicaAcpEmployeeRun, PicaAcpStart } from "../chat/acp/PicaAcpService";
+import type { AgentChatScope } from "./AgentEmployeeSessionTypes";
 import type { AgentChatToolScope } from "./AgentChatToolGuard";
 import type { AgentMemoryAudience } from "./AgentMemorySharing";
 import type { AgentToolCallView } from "./AgentToolCallView";
@@ -45,12 +44,11 @@ import {
   isChatPurpose,
   isSessionBusy,
   keptSessionOf,
-  readMessage,
-  type AgentChatScope,
   type AgentEmployeeSessionDependencies,
   type AgentJobRequest,
   type QueuedAgentMessage,
   type WaitingMessage,
+  readMessage,
 } from "./AgentEmployeeSessionTypes";
 export type {
   AgentEmployeeSessionDependencies,
@@ -496,7 +494,7 @@ export class AgentEmployeeSessions {
           assignment,
           audience,
           keptSession: keptSessionOf(request),
-          chat: this.chatScope(request, sessionId),
+          chat: chatScopeOf(request, sessionId),
           connectionId: assignment.connection.id,
         });
         const start = await acp.start({
@@ -512,7 +510,7 @@ export class AgentEmployeeSessions {
             onSettled: () => {
               endRound();
               slot.release();
-              this.recordAnswer(request, sessionId);
+              recordEmployeeAnswer(this.dependencies, request, sessionId);
               this.afterRound(request, sessionId);
             },
           },
@@ -598,30 +596,6 @@ export class AgentEmployeeSessions {
     });
   }
 
-  /** The chat of a job as the chat tools and `chat_lesen` see it. */
-  private chatScope(
-    request: AgentJobRequest,
-    sessionId: string,
-  ): AgentChatScope {
-    const { purpose, person, conversationId } = request;
-    const scope: AgentChatToolScope = {
-      agentId: request.agent.id,
-      conversationId:
-        purpose === "conversation" ? (conversationId ?? null) : null,
-    };
-    if (purpose === "conversation" && conversationId !== undefined)
-      return {
-        scope,
-        own: { sessionId, kind: "group", chatId: conversationId },
-      };
-    if (purpose === "chat" && person)
-      return {
-        scope,
-        own: { sessionId, kind: "direct", chatId: person.id },
-      };
-    return { scope, own: null };
-  }
-
   private forgetWaiting(key: string, entry: WaitingMessage): void {
     const rest = (this.waiting.get(key) ?? []).filter(
       (candidate) => candidate !== entry,
@@ -677,13 +651,7 @@ export class AgentEmployeeSessions {
     return employeeAssignment(this.dependencies.models, employee, override);
   }
 
-  /**
-   * The instruction and the context of a job (PAGE-305): a chat gets its
-   * history after the summary, the summary, the topics of `MEMORY.md` and
-   * the related archive entries the rules of sharing give it, and
-   * `DREAM.md`; a run of the agent's own gets none of them.
-   */
-  private async brief(
+  private brief(
     request: AgentJobRequest,
     sessionId: string,
   ): Promise<{

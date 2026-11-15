@@ -16,6 +16,7 @@ import {
 import { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
 import { ChatAcpSessionRepository } from "@/backend/database/repositories/chat/ChatAcpSessionRepository";
 import { ChatSessionRepository } from "@/backend/database/repositories/chat/ChatSessionRepository";
+import { AgentChatHistoryRepository } from "@/backend/database/repositories/conversation/AgentChatHistoryRepository";
 import { ConversationMessageRepository } from "@/backend/database/repositories/conversation/ConversationMessageRepository";
 import { ConversationRepository } from "@/backend/database/repositories/conversation/ConversationRepository";
 import { EmployeeStore } from "@/backend/database/repositories/employee/EmployeeStore";
@@ -26,6 +27,8 @@ import type { ConversationAttachments } from "@/backend/service/conversation/con
 import type { ConversationAttachmentLibrary } from "@/backend/service/conversation/content/ConversationAttachmentLibrary";
 import type { AgentImageToolDependencies } from "@/backend/service/employee/AgentImageTool";
 import type { AgentMediaToolDependencies } from "@/backend/service/employee/AgentMediaTool";
+import type { AgentChatQuestionService } from "@/backend/service/conversation/AgentChatQuestionService";
+import type { AgentChatTaskService } from "@/backend/service/employee/AgentChatTaskService";
 import type { AgentSessionSettingsRepository } from "@/backend/database/repositories/employee/AgentSessionSettingsRepository";
 import { UserGroupRepository } from "@/backend/database/repositories/UserGroupRepository";
 import { UserRepository } from "@/backend/database/repositories/UserRepository";
@@ -33,6 +36,7 @@ import { UserSettingsRepository } from "@/backend/database/repositories/UserSett
 import { WikiLookupRepository } from "@/backend/database/repositories/wiki/WikiLookupRepository";
 import { ConversationError } from "@/backend/error/ConversationError";
 import { ConversationDirectory } from "@/backend/service/conversation/ConversationDirectory";
+import { AgentChatHistoryService } from "@/backend/service/conversation/AgentChatHistoryService";
 import { isPagesRunsProcess } from "@/backend/runtime/RunsMode";
 import { createChatSessionId } from "@/backend/service/chat/ChatSessionWords";
 import type { AgentAccessEnvironmentService } from "@/backend/service/employee/AgentAccessEnvironmentService";
@@ -66,6 +70,7 @@ import { ChatGroupService } from "@/backend/service/employee/ChatGroupService";
 import { PersonColorService } from "@/backend/service/employee/PersonColorService";
 import {
   createChatDirectory,
+  createChatTasks,
   createDeletionService,
   createLearning,
   createMemoryParts,
@@ -123,6 +128,8 @@ export interface EmployeeApplicationServices
   readonly agentLearningService: AgentLearningService;
   /** Marks chats with agents confidential (PAGE-305). */
   readonly agentChatPrivacyService: AgentChatPrivacyService;
+  /** The scheduled tasks of chats: the entry "Geplante Aufgaben" of the chat menu (PAGE-392). */
+  readonly agentChatTaskService: AgentChatTaskService;
   readonly chatDirectoryService: ChatDirectoryService;
   readonly chatGroupService: ChatGroupService;
   readonly personColorService: PersonColorService;
@@ -140,6 +147,11 @@ export interface EmployeeServicesInput {
   readonly pool?: PicaAcpSessionPool | null;
   /** The ticket and wiki attachments the file tools of an agent with host tools use (PAGE-303). */
   readonly hostFiles?: AgentHostFileStores;
+  /**
+   * Folders the isolation of the toolkit's shell hides from agent commands,
+   * such as the data folder (PAGE-390).
+   */
+  readonly toolkitHiddenDirectories?: readonly string[];
   /**
    * Who may see a ticket or a wiki page (PAGE-305); without it a chat with
    * further people gets no knowledge of other chats.
@@ -201,6 +213,7 @@ interface EmployeeParts {
   readonly learning: AgentLearningService;
   readonly privacy: AgentChatPrivacyService;
   readonly lifecycle: AgentChatSessionLifecycle;
+  readonly chatTasks: AgentChatTaskService;
 }
 
 /** The tab "Lagebuch": what a viewer sees of the Lagebuch of an agent and what they change. */
@@ -301,6 +314,7 @@ function assembleEmployeeServices(
     ),
     agentLearningService: parts.learning,
     agentChatPrivacyService: parts.privacy,
+    agentChatTaskService: parts.chatTasks,
     chatDirectoryService: createChatDirectory({
       database: input.database,
       store,
@@ -325,6 +339,8 @@ function assembleEmployeeServices(
 interface LateServices {
   sessions: AgentEmployeeSessions | null;
   agentChat: AgentChatTools | null;
+  chatQuestions: AgentChatQuestionService | null;
+  chatTasks: AgentChatTaskService | null;
   contextReader: ConversationContextReader | null;
   logbook: AgentLogbookService | null;
   /** Writes the state of a chat into the Lagebuch before its session closes (PAGE-380). */
@@ -530,11 +546,19 @@ function createEmployeeSessions(
     ...(input.hostFiles
       ? { hostFiles: new AgentHostFiles(input.hostFiles) }
       : {}),
+    ...(input.toolkitHiddenDirectories
+      ? { toolkitHiddenDirectories: input.toolkitHiddenDirectories }
+      : {}),
     recorder: base.recorder,
     agentChat: () => late.agentChat,
     ...optionalImages(createImageTool(input, base, late)),
     ...createMediaTool(input, base, late),
     attachments: () => (late.library ? { library: late.library } : null),
+    chatQuestions: () => late.chatQuestions,
+    chatTasks: () => late.chatTasks,
+    chatHistory: new AgentChatHistoryService({
+      history: new AgentChatHistoryRepository(input.database),
+    }),
     createSessionId: () => createChatSessionId(),
     conversationContext: {
       readForAgent: (agentId, request) =>
@@ -558,7 +582,7 @@ function wireEmployeeConversations(
   late: LateServices,
 ): Pick<
   EmployeeParts,
-  "agentSessions" | "conversations" | "learning" | "logbook"
+  "agentSessions" | "conversations" | "learning" | "logbook" | "chatTasks"
 > {
   const { store, users, messages, memory, memoryModel, recorder } = base;
   const { simulation, activity, sessionSettings, lifecycle, chatReader } = base;
@@ -575,12 +599,17 @@ function wireEmployeeConversations(
       messages,
       simulation: simulatedAgent(simulation),
       recorder,
+      isWaitingForPerson: (agentId, conversationId) =>
+        late.chatQuestions?.isWaiting(agentId, conversationId) === true,
     }),
   });
   late.contextReader = conversations.conversationContextReader;
   late.agentChat = conversations.agentChatService;
   late.attachments = conversations.conversationAttachments;
   late.library = conversations.conversationAttachmentLibrary;
+  late.chatQuestions = conversations.agentChatQuestions;
+  const chatTasks = createChatTasks(input, { users, conversations });
+  late.chatTasks = chatTasks;
   const learning = createLearning(input, {
     dependencies: {
       store,
@@ -646,7 +675,13 @@ function wireEmployeeConversations(
       )) !== null,
     defaultIdleMinutes: async () => (await sessionSettings.read()).idleMinutes,
   });
-  return { agentSessions, conversations, learning, logbook: logbookService };
+  return {
+    agentSessions,
+    conversations,
+    learning,
+    logbook: logbookService,
+    chatTasks,
+  };
 }
 
 /**
@@ -658,6 +693,8 @@ export function createEmployeeServices(
   const late: LateServices = {
     sessions: null,
     agentChat: null,
+    chatQuestions: null,
+    chatTasks: null,
     contextReader: null,
     logbook: null,
     logbookClose: null,

@@ -182,6 +182,7 @@ describe("the model of a round (PAGE-380)", () => {
     model: "claude-sonnet-5-5",
     reasoningEffort: "medium",
     access: "read_only",
+    disabledToolGroups: [],
     soul: "",
     instructions: "",
     memory: "",
