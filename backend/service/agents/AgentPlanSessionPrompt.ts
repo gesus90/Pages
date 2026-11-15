@@ -126,11 +126,7 @@ export async function buildPlanSessionInput(
       ? ((await dependencies.progress?.()) ?? [])
       : [];
   const scope = `${retryNotice(node, resumeSessionId, progress)}${recovery.note}${planTurnScope(node.step, node.loop)}`;
-  const nativePlanInstruction =
-    node.step.provider === "codex_cli"
-      ? "Before doing any work in this step, create your TODO list from the assignment and ticket criteria with your native update_plan tool. Keep that list current on every change (pending, in_progress, completed). Use the assignment TODO text verbatim when it describes the same task. Also report ticket progress through update_step_progress. Pages verifies that you reported a native plan before accepting completion.\n\n"
-      : "";
-  const prompt = `${nativePlanInstruction}${scope}${startBody(node, prepared)}\n\n${buildAssignmentPrompt(node, prepared, terms, directory)}`;
+  const prompt = `${scope}${startBody(node, prepared)}\n\n${buildAssignmentPrompt(node, prepared, terms, directory)}`;
   await dependencies.pin(prompt);
   return {
     ...prepared.input,

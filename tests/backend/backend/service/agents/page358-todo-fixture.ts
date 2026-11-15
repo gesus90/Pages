@@ -123,7 +123,7 @@ export function todoFixture(
       set: writes,
     },
     agentTodos: {
-      findEntries: vi.fn(async (attemptId) => native.get(attemptId) ?? []),
+      findPlan: vi.fn(async (attemptId) => native.get(attemptId) ?? null),
     },
   });
   return {

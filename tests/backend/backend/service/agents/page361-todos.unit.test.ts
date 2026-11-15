@@ -23,7 +23,7 @@ function problemContaining(fragment: string): readonly string[] {
   );
 }
 
-it("refuses Codex completion without a native plan even when every assigned TODO was checked", async () => {
+it("requires native TODOs after receiving even an empty native plan, independently of reported completion", async () => {
   const fixture = todoFixture();
   await fixture.progress.initialize(SCOPE, fixture.contract);
   await fixture.progress.update(TODO_IDENTITY, {
@@ -39,6 +39,7 @@ it("refuses Codex completion without a native plan even when every assigned TODO
     { checklist: async () => progressTicket() },
     fixture.progress,
   );
+  fixture.native.set("attempt", []);
   await expect(
     reports.report(TODO_IDENTITY, { status: "done", message: "Finished" }),
   ).rejects.toMatchObject({

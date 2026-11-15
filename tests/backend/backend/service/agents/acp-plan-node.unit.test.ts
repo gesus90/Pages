@@ -231,12 +231,9 @@ it.each(PROVIDERS)(
     expect(node.opened.options).toEqual(DEFAULT_ACP_RUN_OPTIONS);
     expect(node.opened.directory).toBe("/synthetic");
     const assignment = prompt.indexOf("Review ticket:\n# SYN-55");
-    if (provider === "codex_cli") {
-      expect(prompt).toContain("native update_plan tool");
-      expect(assignment).toBeGreaterThan(0);
-    } else {
-      expect(assignment).toBe(0);
-    }
+    expect(prompt).not.toContain("native update_plan");
+    expect(prompt).not.toContain("reported a native plan");
+    expect(assignment).toBe(0);
     expect(prompt).toContain("Depth 3, focus security.");
     expect(prompt).not.toMatch(/\{\{(ticket|depth|focus)\}\}/u);
     const instruction = prompt.indexOf("\n\nAdditional instruction\n\n---");

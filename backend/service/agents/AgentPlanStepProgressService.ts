@@ -109,7 +109,7 @@ export class AgentPlanStepProgressService {
   private readonly tickets:
     Pick<AgentTicketChecklistService, "read" | "set"> | undefined;
   private readonly agentTodos:
-    Pick<AgentPlanAgentTodoRepository, "findEntries"> | undefined;
+    Pick<AgentPlanAgentTodoRepository, "findPlan"> | undefined;
 
   public constructor(dependencies: {
     readonly reports: Pick<AgentPlanStepReportRepository, "find">;
@@ -119,7 +119,7 @@ export class AgentPlanStepProgressService {
     >;
     readonly clock?: () => string;
     readonly tickets?: Pick<AgentTicketChecklistService, "read" | "set">;
-    readonly agentTodos?: Pick<AgentPlanAgentTodoRepository, "findEntries">;
+    readonly agentTodos?: Pick<AgentPlanAgentTodoRepository, "findPlan">;
   }) {
     this.reports = dependencies.reports;
     this.progress = dependencies.progress;
@@ -265,7 +265,7 @@ export class AgentPlanStepProgressService {
       readonly runId: string;
       readonly stepId: string;
       readonly attemptId: string;
-      readonly requiresNativePlan?: boolean;
+      readonly checksNativePlan?: boolean;
     },
     contract: AgentPlanContract,
   ): Promise<AgentPlanContract> {
@@ -283,14 +283,16 @@ export class AgentPlanStepProgressService {
           ? { checked: true }
           : {}),
       }));
-    const native = (await this.agentTodos?.findEntries(scope.attemptId)) ?? [];
+    const nativePlan = await this.agentTodos?.findPlan(scope.attemptId);
+    const native = nativePlan ?? [];
     const current = withNativeTodoState(
       { ...contract, todos },
       native,
       statuses,
     );
     if (
-      scope.requiresNativePlan &&
+      scope.checksNativePlan &&
+      nativePlan != null &&
       (native.length === 0 || native.some((todo) => todo.status !== "done"))
     )
       return {

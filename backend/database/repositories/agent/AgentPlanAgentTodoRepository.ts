@@ -27,6 +27,13 @@ export class AgentPlanAgentTodoRepository {
   public async findEntries(
     attemptId: string,
   ): Promise<readonly AgentPlanAgentTodo[]> {
+    return (await this.findPlan(attemptId)) ?? [];
+  }
+
+  /** Distinguishes an absent native plan from a received plan with no entries. */
+  public async findPlan(
+    attemptId: string,
+  ): Promise<readonly AgentPlanAgentTodo[] | null> {
     const [row] = await this.database.query(
       `
       SELECT todos_json
@@ -36,7 +43,7 @@ export class AgentPlanAgentTodoRepository {
     `,
       { attempt_id: attemptId },
     );
-    return row ? readEntries(readTextColumn(row, 0, "todos_json")) : [];
+    return row ? readEntries(readTextColumn(row, 0, "todos_json")) : null;
   }
 
   /** Reads the lists of every attempt of a run. */

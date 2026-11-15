@@ -73,7 +73,7 @@ export class AgentPlanStepAssessment {
       ? await this.progress?.current(
           {
             ...scope.progress,
-            requiresNativePlan: scope.provider === "codex_cli",
+            checksNativePlan: scope.provider === "codex_cli",
           },
           terms.contract,
         )
