@@ -2,10 +2,7 @@ import { canonicalClaudeModel } from "@/definition/ClaudePriceModels";
 import { ClaudeUsageRepository } from "@/backend/database/repositories/agent/ClaudeUsageRepository";
 import { OpenRouterPriceRepository } from "@/backend/database/repositories/agent/OpenRouterPriceRepository";
 import { AgentSessionRepository } from "@/backend/database/repositories/agent/AgentSessionRepository";
-import {
-  addClaudeTokens,
-  CLAUDE_TOKEN_FIELDS,
-} from "@/definition/ClaudeUsage";
+import { addClaudeTokens, CLAUDE_TOKEN_FIELDS } from "@/definition/ClaudeUsage";
 
 import {
   allocateClaudeTokens,
