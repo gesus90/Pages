@@ -6,13 +6,7 @@ import { noteSessionEvent } from "@/backend/agents/cli/CliSessionEvents";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { logCaughtError } from "@/backend/logging/Logger";
 
-import {
-  abortFailure,
-  acpErrorFailure,
-  disconnectedAcpOutcome,
-  stopFailure,
-  finishAcpTurn,
-} from "./AcpSessionOutcome";
+import { abortFailure, stopFailure, finishAcpTurn } from "./AcpSessionOutcome";
 import { ACP_STEERING_METHOD, requestAcpSteer } from "./AcpChat";
 import { acpPromptParams, isAcpMessageWithinBudget } from "./AcpPromptBudget";
 import { acpTurnPrompt } from "./AcpTicketAssets";
@@ -208,14 +202,7 @@ export class AcpSession implements PlanSession {
       { once: true },
     );
     this.mcpReadiness = new AcpMcpReadiness(this.connection, this.state);
-    if (context.driver.provider === "opencode") {
-      if (context.openCodePricingDirectory)
-        void openRouterPriceCatalog(context.openCodePricingDirectory).refresh();
-      context.signal.addEventListener("abort", this.abortRequests, {
-        once: true,
-      });
-      if (context.signal.aborted) this.abortRequests();
-    }
+    this.registerOpenCodeHandling();
     const { listener } = context;
     if (listener)
       this.connection.signal.addEventListener("abort", listener.closed, {
@@ -385,6 +372,19 @@ export class AcpSession implements PlanSession {
   }
 
   private readonly abortRequests = (): void => this.connection.close();
+
+  /** Refreshes the OpenCode price catalog and stops the process group on abort. */
+  private registerOpenCodeHandling(): void {
+    if (this.context.driver.provider !== "opencode") return;
+    if (this.context.openCodePricingDirectory)
+      void openRouterPriceCatalog(
+        this.context.openCodePricingDirectory,
+      ).refresh();
+    this.context.signal.addEventListener("abort", this.abortRequests, {
+      once: true,
+    });
+    if (this.context.signal.aborted) this.abortRequests();
+  }
 
   private async work(): Promise<PlanSessionTurn> {
     try {

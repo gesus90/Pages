@@ -76,7 +76,6 @@ export function createPlanFoundation(input: {
     {
       projectService,
       permissionService: permissions,
-      events,
     },
     new WikiFileStore(path.join(directory, "wiki-attachments")),
     events,

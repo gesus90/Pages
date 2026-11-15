@@ -62,8 +62,7 @@ export function createRunnerServices(input: {
   >;
 }): RunnerApplicationServices {
   const { database, remote, tokenKey } = input;
-  const { agentWorkspaceService: workspaces, agentProfileService: profiles } =
-    input.configuration;
+  const { agentWorkspaceService: workspaces } = input.configuration;
   const mode = process.env.PAGES_RUNNER_GITHUB_MODE ?? "offline";
   if (mode !== "offline" && mode !== "http")
     throw new Error("Invalid runner GitHub mode");

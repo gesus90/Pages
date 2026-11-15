@@ -27,19 +27,19 @@ Integrationsbesitzer. Im kombinierten Betrieb bleiben diese Rollen im Server.
 
 ## Zeitschleifen des Runs-Prozesses
 
-| Schleife | Abstand | Begründung / Schreibverhalten |
-| --- | --- | --- |
-| `PlanRunCommandWorker` | 500 ms, zusätzlich Socket-Weckruf | Verlust eines Weckrufs und abgebrochene Befehlszustellungen werden zeitnah versöhnt; leere Inbox und unveränderte Owner erzeugen keine Metadatenänderung. |
-| `AgentWorkspaceCleanupService` | 2 s | Liest nur fällige Pflichten; die persistierte Wiederholungsfrist von PAGE-395 bleibt maßgeblich. |
-| Agent-Umgebungs-/Storage-Wartung (`WikiMaintenanceScheduler`) | 60 s, einmal beim Start | Versöhnt Dateireste, Speicherwarnungen, abgeschlossene Läufe und freie Toolgenerationen ohne neue Planstarts; Daten werden bei tatsächlichem Aufräumbedarf geändert. |
-| `AgentPlanOneShotScheduler` | 15 s, einmal beim Start | Dauerhafte Löschfristen erfolgreicher Einmalpläne sind nach Neustarts zeitnah fällig. |
-| `AgentRunLogRecorder.flush` | 1 s | Bündelt vorhandene Logzeilen; ein leerer Puffer wird nicht geschrieben. |
-| `AgentRunLogRecorder.prune` | 6 h, einmal beim Start | Führt Diagnoseaufbewahrung unabhängig von neuen Planläufen aus. |
-| PostgreSQL-Besitzverbindung (`PostgresSessionLock`) | 15 s | `SELECT 1` erkennt Verlust der exklusiven Runs-Besitzverbindung; keine Nutzdatenänderung. |
-| `ServiceWatchdog` | `WATCHDOG_USEC / 3000`, begrenzt auf 100 ms bis 10 s; sonst 10 s | Nur mit `NOTIFY_SOCKET`; prüft tatsächlichen Inbox-/Datenbankfortschritt, ohne Nutzdaten zu schreiben. |
-| Logger-Datenbankmetriken | 5 s | Aggregiert Diagnostik im Log, keine Nutzdatenänderung. |
-| `planTurnTimeout` | 100 ms, nur während eines befristeten Turns | Zählt aktive Ausführungszeit; Pausen zählen nicht gegen die Frist. Kein SQL. |
-| Swarm-Leases | 40 s (= 120 s / 3), nur bei aktivem Swarm | Erneuert ausschließlich tatsächlich belegte Swarm-Leases vor Ablauf. |
+| Schleife                                                      | Abstand                                                          | Begründung / Schreibverhalten                                                                                                                                        |
+| ------------------------------------------------------------- | ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PlanRunCommandWorker`                                        | 500 ms, zusätzlich Socket-Weckruf                                | Verlust eines Weckrufs und abgebrochene Befehlszustellungen werden zeitnah versöhnt; leere Inbox und unveränderte Owner erzeugen keine Metadatenänderung.            |
+| `AgentWorkspaceCleanupService`                                | 2 s                                                              | Liest nur fällige Pflichten; die persistierte Wiederholungsfrist von PAGE-395 bleibt maßgeblich.                                                                     |
+| Agent-Umgebungs-/Storage-Wartung (`WikiMaintenanceScheduler`) | 60 s, einmal beim Start                                          | Versöhnt Dateireste, Speicherwarnungen, abgeschlossene Läufe und freie Toolgenerationen ohne neue Planstarts; Daten werden bei tatsächlichem Aufräumbedarf geändert. |
+| `AgentPlanOneShotScheduler`                                   | 15 s, einmal beim Start                                          | Dauerhafte Löschfristen erfolgreicher Einmalpläne sind nach Neustarts zeitnah fällig.                                                                                |
+| `AgentRunLogRecorder.flush`                                   | 1 s                                                              | Bündelt vorhandene Logzeilen; ein leerer Puffer wird nicht geschrieben.                                                                                              |
+| `AgentRunLogRecorder.prune`                                   | 6 h, einmal beim Start                                           | Führt Diagnoseaufbewahrung unabhängig von neuen Planläufen aus.                                                                                                      |
+| PostgreSQL-Besitzverbindung (`PostgresSessionLock`)           | 15 s                                                             | `SELECT 1` erkennt Verlust der exklusiven Runs-Besitzverbindung; keine Nutzdatenänderung.                                                                            |
+| `ServiceWatchdog`                                             | `WATCHDOG_USEC / 3000`, begrenzt auf 100 ms bis 10 s; sonst 10 s | Nur mit `NOTIFY_SOCKET`; prüft tatsächlichen Inbox-/Datenbankfortschritt, ohne Nutzdaten zu schreiben.                                                               |
+| Logger-Datenbankmetriken                                      | 5 s                                                              | Aggregiert Diagnostik im Log, keine Nutzdatenänderung.                                                                                                               |
+| `planTurnTimeout`                                             | 100 ms, nur während eines befristeten Turns                      | Zählt aktive Ausführungszeit; Pausen zählen nicht gegen die Frist. Kein SQL.                                                                                         |
+| Swarm-Leases                                                  | 40 s (= 120 s / 3), nur bei aktivem Swarm                        | Erneuert ausschließlich tatsächlich belegte Swarm-Leases vor Ablauf.                                                                                                 |
 
 Weitere zeitgesteuerte Wiederholungen sind `setTimeout`-basiert:
 ACP-Warteschlangen und Lease-Reconciliation nur bei Bedarf, Journal-Importe

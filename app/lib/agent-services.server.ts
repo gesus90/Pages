@@ -23,7 +23,6 @@ import { AuthorizationRepository } from "@/backend/database/repositories/Authori
 import { UserGroupRepository } from "@/backend/database/repositories/UserGroupRepository";
 import { AgentConnectionAccess } from "@/backend/service/agents/AgentConnectionAccess";
 import { LocalSessions } from "@/backend/agents/local/LocalSessions";
-import { isLocalSessionOwner } from "@/backend/agents/local/LocalSessionMode";
 import { CHAT_REQUEST_TIMEOUT_MS } from "@/backend/service/chat/ChatExecutionLimits";
 import { ChatRequestRegistry } from "@/backend/service/chat/ChatRequestRegistry";
 import { AgentAssignmentRepository } from "@/backend/database/repositories/agent/AgentAssignmentRepository";

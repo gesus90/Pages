@@ -59,9 +59,11 @@ vi.mock("@/app/lib/plan-run-recorders.server", () => ({
 }));
 vi.mock("@/backend/database/repositories/agent/AgentPlanRunRepository", () => ({
   AgentPlanRunRepository: class {
+    /** Returns no surviving run so the startup recorders have nothing to resume. */
     public async unfinished(): Promise<never[]> {
       return [];
     }
+    /** Returns no reserved run so the startup recorders have nothing to wait for. */
     public async reserving(): Promise<never[]> {
       return [];
     }

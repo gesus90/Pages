@@ -13,7 +13,7 @@ vi.mock("@/backend/logging/Logger", () => ({
   logCaughtError: vi.fn(),
   logEvent: vi.fn(),
   captureLogContext: () => ({}),
-  withLogContext: (_context: unknown, work: () => unknown) => work(),
+  withLogContext: (context: unknown, work: () => unknown) => work(),
 }));
 
 afterEach(() => vi.useRealTimers());
@@ -48,7 +48,7 @@ it("retains protected runs without writes and waits a minute before another atte
   const query = vi
     .fn()
     .mockImplementation(
-      async (_statement: string, parameters: { after: string }) =>
+      async (statement: string, parameters: { after: string }) =>
         parameters.after === ""
           ? [["plan-runs/12345678-1234-1234-1234-123456789abc"]]
           : [],

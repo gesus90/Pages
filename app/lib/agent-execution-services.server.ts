@@ -146,6 +146,7 @@ async function startAgents(
       gitBridges: runtime.getConfig().agentGitBridges,
     },
   );
+  const discovered = await services.localSessions?.discover();
   if (!canProcessRuns()) {
     if (
       !isLocalSessionOwner() &&
@@ -156,7 +157,24 @@ async function startAgents(
     if (!isLocalSessionOwner()) await services.acpResourceScheduler.recover();
     return services;
   }
-  const discovered = await services.localSessions?.discover();
+  await recoverRunOwners(database, services, discovered);
+  // The simulation contacts no model provider, not even for catalogs.
+  if (!isPagesRunsProcess() && !services.agentSimulation?.isActive)
+    services.agentCatalogScheduler.start();
+  return services;
+}
+
+/** Recovers GitHub credential leftovers, interrupted ACP owners and finished local sessions. */
+async function recoverRunOwners(
+  database: Database,
+  services: AgentApplicationServices,
+  discovered:
+    | {
+        readonly adopted: ReadonlySet<string>;
+        readonly uncertain: ReadonlySet<string>;
+      }
+    | undefined,
+): Promise<void> {
   const leftovers = await services.agentCliGitHubCredentials.recover(
     discovered?.adopted,
     discovered?.uncertain,
@@ -175,10 +193,6 @@ async function startAgents(
       "[pages] Agent tool startup checks could not finish; other Pages functions remain available.",
     );
   });
-  // The simulation contacts no model provider, not even for catalogs.
-  if (!isPagesRunsProcess() && !services.agentSimulation?.isActive)
-    services.agentCatalogScheduler.start();
-  return services;
 }
 
 function agentRecoveryScope(
