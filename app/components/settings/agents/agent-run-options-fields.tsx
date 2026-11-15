@@ -75,7 +75,11 @@ export function AgentRunOptionsFields(props: {
       <div className="grid gap-4 sm:grid-cols-2">
         {isAcp ? (
           <AcpModeField
-            canSelectFullEnvironment={props.canSelectFullEnvironment}
+            canSelectFullEnvironment={
+              props.canSelectFullEnvironment &&
+              props.provider !== "openrouter" &&
+              props.provider !== "zai"
+            }
             options={options}
             disabled={props.disabled}
             onChange={chooseMode}

@@ -14,14 +14,20 @@ import { acpDriverFor } from "@/backend/agents/acp/AcpDrivers";
 import { AcpCleanupUnconfirmedError } from "@/backend/error/AcpCleanupUnconfirmedError";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
-import { isAcpPermissionMode } from "@/definition/AgentConfiguration";
-import { isApiProvider } from "@/definition/AgentConnection";
+import {
+  isAcpPermissionMode,
+  nativeAcpProvider,
+} from "@/definition/AgentConfiguration";
 import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 
 import {
   verifyFullEnvironmentStart,
   fullEnvironmentRequest,
 } from "./CliFullEnvironment";
+import {
+  describeOpenCodeAgent,
+  openCodeAgentObserver,
+} from "./OpenCodeAgentModel";
 import { connectChild } from "./CliSessionChannel";
 import {
   assetSession,
@@ -39,8 +45,12 @@ import { redactAcpJsonLine } from "./CliAcpRedaction";
 import { prepareAcpProtocol } from "./CliAcpProtocol";
 import { requireAcpIsolation, sessionRunOptionError } from "./CliSessionPlans";
 import {
+  readConnectionStatus,
   recordGitHubNamespace,
+  requireAcpMode,
+  requireAdapter,
   sessionAcpProvider,
+  sessionContainment,
   validateSessionStatus,
 } from "./CliSessionChecks";
 import {
@@ -65,14 +75,12 @@ import type {
 } from "@/backend/agents/AgentPlanExecution";
 import type { AcpResourceScheduler } from "@/backend/service/agents/AcpResourceScheduler";
 import type { AcpDriver } from "@/backend/agents/acp/AcpDriver";
-import type { AcpPermissionMode } from "@/definition/AgentConfiguration";
-import type { CliProviderId } from "@/definition/AgentConnection";
 import type { AgentCliRuntime } from "./AgentCliRuntime";
 import type { AgentCredentialStore } from "./AgentCredentialStore";
 import type {
   CliHome,
+  CliCredentialAccess,
   CliSessionRequest,
-  CliStatusOutcome,
 } from "./CliContracts";
 import type { CliLocator } from "./CliLocator";
 import type { CliProcessRunner } from "./CliProcessRunner";
@@ -107,6 +115,9 @@ export interface CliIsolationOptions {
 }
 
 interface SessionDependencies {
+  readonly apiCredentials?: (
+    connection: AgentPlanSessionInput["agent"]["connection"],
+  ) => Promise<CliCredentialAccess>;
   readonly tools?: AgentToolManagerService;
   readonly resources?: AcpResourceScheduler;
   readonly runtime: Pick<AgentCliRuntime, "adapter">;
@@ -120,32 +131,6 @@ interface SessionDependencies {
   readonly github?: Pick<CliGitHubCredentials, "prepare">;
   /** Prepares the private transcript home of a Claude plan session; defaults to the real folders. */
   readonly claudeHome?: typeof prepareClaudePlanSessionHome;
-}
-
-/** A PID namespace contains everything; otherwise only a worker unit frames the session. */
-function sessionContainment(
-  isIsolated: boolean,
-  request: CliSessionRequest,
-): CliSessionContainment {
-  if (isIsolated) return "pid_namespace";
-  return request.unit ? "worker_unit" : "none";
-}
-
-/** The stored run mode of an ACP start; a start without one is refused. */
-function requireAcpMode(
-  driver: AcpDriver,
-  input: AgentPlanSessionInput,
-): AcpPermissionMode {
-  const mode =
-    input.options.access === "full_environment" ? "yolo" : input.options.access;
-  if (!isAcpPermissionMode(mode))
-    throw new AgentError(driver.errors.modeRequired);
-  return mode;
-}
-
-function requireAdapter(adapter: string | null, driver: AcpDriver): string {
-  if (adapter === null) throw new AgentError(driver.errors.adapterMissing);
-  return adapter;
 }
 
 /**
@@ -264,10 +249,10 @@ export class CliSessionExecution implements PlanSessionRunner {
       if (!(error instanceof AcpCleanupUnconfirmedError))
         tools?.supervisor.release(input.instanceId);
       await cleanupSessionAssets(assets, error);
-      const provider = input.agent.connection.provider;
+      const provider = nativeAcpProvider(input.agent.connection.provider);
       if (
         hasVerified &&
-        !isApiProvider(provider) &&
+        provider !== null &&
         input.options.access !== "full_environment"
       )
         await this.dependencies.store
@@ -287,8 +272,9 @@ export class CliSessionExecution implements PlanSessionRunner {
     signal: AbortSignal,
     locations?: ReadonlyMap<AgentToolId, AgentToolLocation>,
   ): Promise<VerifiedStart> {
-    const { provider, id } = input.agent.connection;
-    if (isApiProvider(provider)) throw new AgentError("provider_invalid");
+    const { id } = input.agent.connection;
+    const provider = sessionAcpProvider(input);
+    if (provider === null) throw new AgentError("provider_invalid");
     const unsupported = sessionRunOptionError(input);
     if (unsupported !== null) throw new AgentError(unsupported);
     if (input.options.access === "full_environment")
@@ -302,7 +288,11 @@ export class CliSessionExecution implements PlanSessionRunner {
       if (home.sharedEnvironment)
         await prepareSharedAgentEnvironment(home.sharedEnvironment);
       const pinned = locations?.get(providerToolIds(provider)[0])?.file;
-      const status = await this.readStatus(provider, home, signal, pinned);
+      const status = await readConnectionStatus(this.dependencies, input, {
+        home,
+        signal,
+        file: pinned,
+      });
       this.dependencies.tools?.recordAuthentication(
         id,
         provider,
@@ -338,22 +328,6 @@ export class CliSessionExecution implements PlanSessionRunner {
       await store.secure(id, provider);
       throw error;
     }
-  }
-
-  private async readStatus(
-    provider: CliProviderId,
-    home: CliHome,
-    signal: AbortSignal,
-    file?: string,
-  ): Promise<CliStatusOutcome> {
-    const adapter = file
-      ? await this.dependencies.runtime.adapter(provider, file)
-      : await this.dependencies.runtime.adapter(provider);
-    if (provider === "opencode") {
-      const version = await adapter.version(home, signal);
-      if (!version.ok) throw new AgentError(version.errorCode);
-    }
-    return adapter.readStatus(home, signal);
   }
 
   /** Finds the adapter and refuses configuration files Pages does not manage. */
@@ -466,7 +440,7 @@ export class CliSessionExecution implements PlanSessionRunner {
         driver,
         input,
         start,
-        control,
+        control: { ...control, observer: openCodeAgentObserver(input, control.observer) },
         profile,
         launch,
         picaNative,
@@ -476,7 +450,7 @@ export class CliSessionExecution implements PlanSessionRunner {
         limited,
         containment,
         github,
-        redact,
+        redact: (text) => describeOpenCodeAgent(input, redact(text)),
       });
     } catch (error: unknown) {
       logCaughtError("CliSessionExecution", error);

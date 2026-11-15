@@ -123,7 +123,7 @@ describe("AgentPlanService.save of a plan with groups", () => {
   it("refuses a group member whose provider does not run in a shared ACP session", async () => {
     const { service, mocks } = createPlanContext();
     mocks.profiles.resolveDefinition.mockResolvedValue(
-      connection("connection-1", "openrouter"),
+      connection("connection-1", "openai"),
     );
 
     await expect(

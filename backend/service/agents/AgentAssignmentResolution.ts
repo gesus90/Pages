@@ -4,8 +4,6 @@ import { isApiProvider } from "@/definition/AgentConnection";
 import { supportsModelCatalog } from "@/definition/AgentModelCatalog";
 import { resolveClaudeModelAlias } from "@/definition/AgentModelVersion";
 
-import { requireOpenCodeModelAccess } from "./OpenCodeProviderLinks";
-
 import type { AgentViewer } from "@/backend/auth/AgentProfilePolicy";
 import type { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
 import type { AgentConnectionRecord } from "@/backend/database/repositories/agent/AgentConnectionRows";
@@ -71,6 +69,27 @@ async function requireVerifiedConnection(
   return connection;
 }
 
+function isManualModelSelection(
+  connection: AgentConnectionRecord,
+  storedModel: string,
+): boolean {
+  return (
+    (!supportsModelCatalog(connection.provider) ||
+      connection.provider === "zai") &&
+    connection.testModel === storedModel
+  );
+}
+
+function isAvailableConnectionModel(
+  connection: AgentConnectionRecord,
+  model: AgentCatalogModel | undefined,
+  storedModel: string,
+): boolean {
+  if (!model && !isManualModelSelection(connection, storedModel)) return false;
+  if (connection.provider !== "opencode") return true;
+  return storedModel.startsWith("opencode/") && model?.isFree === true;
+}
+
 /**
  * Requires verified access and capabilities from exactly the referenced connection.
  *
@@ -91,11 +110,8 @@ export async function resolveAgentAssignment(
   );
   const catalog = await connections.catalogs().find(connection.id);
   const model = findCatalogModel(connection, catalog.models, assignment.model);
-  const isManual =
-    (!supportsModelCatalog(connection.provider) ||
-      connection.provider === "zai") &&
-    connection.testModel === assignment.model;
-  if (!model && !isManual) throw new AgentExecutionError("modelUnavailable");
+  if (!isAvailableConnectionModel(connection, model, assignment.model))
+    throw new AgentExecutionError("modelUnavailable");
   const effort = assignment.reasoningEffort;
   if (effort !== null && !model?.reasoningEfforts.includes(effort))
     throw new AgentExecutionError("reasoningUnsupported");
@@ -131,7 +147,5 @@ export async function resolveAgentAssignmentFor(
   if (scope !== null && !isInAgentConnectionScope(scope, viewer))
     throw new AgentExecutionError("accessDenied");
   const resolved = await resolveAgentAssignment(connections, assignment);
-  // An OpenCode model of a linked provider also needs the scope of the API connection whose key it uses.
-  await requireOpenCodeModelAccess(connections, viewer, resolved);
   return resolved;
 }

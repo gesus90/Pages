@@ -33,6 +33,8 @@ const PROVIDERS: readonly AcpProviderId[] = [
   "claude_code",
   "opencode",
   "antigravity",
+  "openrouter",
+  "zai",
 ];
 const STATES: readonly AgentSessionState[] = [
   "starting",

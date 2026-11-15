@@ -45,7 +45,7 @@ export function choice(
 export const AGENTS = [
   choice("codex", "codex_cli"),
   choice("claude", "claude_code"),
-  choice("api", "openrouter"),
+  choice("api", "openai"),
   choice("blank", null),
 ];
 

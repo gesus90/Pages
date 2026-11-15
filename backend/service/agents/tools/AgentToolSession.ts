@@ -2,7 +2,7 @@ import { constants } from "node:fs";
 import { access } from "node:fs/promises";
 
 import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
-import { isApiProvider } from "@/definition/AgentConnection";
+import { nativeAcpProvider } from "@/definition/AgentConfiguration";
 
 import { AgentToolReadinessError } from "./AgentToolReadinessError";
 
@@ -26,8 +26,8 @@ export async function prepareAgentToolSession(input: {
   readonly signal: AbortSignal;
 }): Promise<ReadonlyMap<AgentToolId, AgentToolLocation>> {
   const { manager, request, signal } = input;
-  const provider = request.agent.connection.provider;
-  if (isApiProvider(provider))
+  const provider = nativeAcpProvider(request.agent.connection.provider);
+  if (provider === null)
     throw new AgentToolReadinessError("node", "unsupported", "not_installed");
   if (signal.aborted) throw new AgentPlanCancelledError();
   if (
@@ -124,8 +124,8 @@ async function waitForAgentTools(input: {
   readonly signal: AbortSignal;
 }): Promise<ReadonlyMap<AgentToolId, AgentToolLocation>> {
   const { manager, request, signal } = input;
-  const provider = request.agent.connection.provider;
-  if (isApiProvider(provider))
+  const provider = nativeAcpProvider(request.agent.connection.provider);
+  if (provider === null)
     throw new AgentToolReadinessError("node", "unsupported", "not_installed");
   let stop: () => void = () => undefined;
   const stopped = new Promise<null>((resolve) => {

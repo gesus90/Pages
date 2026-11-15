@@ -103,7 +103,9 @@ export class AcpResourceRepository implements AcpResourceStore {
         provider !== "codex_cli" &&
         provider !== "claude_code" &&
         provider !== "opencode" &&
-        provider !== "antigravity"
+        provider !== "antigravity" &&
+        provider !== "openrouter" &&
+        provider !== "zai"
       )
         throw new Error("Invalid ACP lease provider");
       return {

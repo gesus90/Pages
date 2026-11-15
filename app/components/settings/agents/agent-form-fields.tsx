@@ -8,8 +8,6 @@ import { Select } from "@/app/components/ui/select";
 import {
   AGENT_PROVIDERS,
   isAgentProvider,
-  isApiProvider,
-  isOpenCodeLinkedProvider,
   OPENCODE_LINKED_PROVIDERS,
 } from "@/definition/AgentConnection";
 import { supportsModelCatalog } from "@/definition/AgentModelCatalog";
@@ -148,9 +146,6 @@ export function AgentFormFields({
     value: provider,
     label: t(AGENT_PROVIDERS[provider].labelKey),
     icon: <ProviderIcon provider={connectionMark(provider)} />,
-    ...(isApiProvider(provider) && isOpenCodeLinkedProvider(provider)
-      ? { description: t("settings.agents.openCodeLinkedHint") }
-      : {}),
   }));
   return (
     <fieldset disabled={form.isSaving} className="space-y-6">

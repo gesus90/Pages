@@ -60,19 +60,15 @@ async function readPrivateFile(file: string): Promise<string | null> {
 }
 
 /**
- * Combines OpenCode's free provider, the connection's own key and the keys
- * Pages links, without letting a linked key replace the connection's own.
+ * Supplies the connection's own key and the public free provider to an isolated child.
  *
- * @param own - The key stored with the connection, if any.
- * @param linked - The keys of the linked API connections.
- * @returns Process credentials that hand each child one provider's key only.
+ * @param own - The one key selected for this connection, if any.
+ * @returns Process credentials and exact-secret redaction for that key only.
  */
 export function openCodeCredentials(
   own: OpenCodeKeyInput | null,
-  linked: readonly OpenCodeKeyInput[],
 ): CliCredentialAccess {
   const keys = new Map<string, string>();
-  for (const key of linked) keys.set(key.modelProvider, key.apiKey);
   if (own !== null) keys.set(own.modelProvider, own.apiKey);
   const secrets = [...keys.values()].flatMap((apiKey) => [
     JSON.stringify(apiKey).slice(1, -1),

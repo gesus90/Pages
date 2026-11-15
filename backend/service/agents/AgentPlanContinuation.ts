@@ -18,7 +18,6 @@ import {
   agentRunOptionsFor,
   isAcpProvider,
 } from "@/definition/AgentConfiguration";
-import { isApiProvider } from "@/definition/AgentConnection";
 import { withGroupResults } from "./AgentPlanGroupResults";
 import { planStepRole } from "./AgentPlanRunStart";
 import { groupRuntimeFields } from "./AgentPlanGroupRuntime";
@@ -49,7 +48,7 @@ export function planWritingWorkspaces(
           isAcpProvider(step.provider) &&
           agentRunOptionsFor(step.provider, step.template.run).access ===
             "read_only";
-        return !isApiProvider(step.provider) && directory && !isReader
+        return isAcpProvider(step.provider) && directory && !isReader
           ? [`local-directory:${directory.path}`]
           : [];
       }),

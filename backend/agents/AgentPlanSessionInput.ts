@@ -1,4 +1,5 @@
 import { AgentError } from "@/backend/error/AgentErrors";
+import { ACP_PROVIDERS } from "@/definition/AgentConfiguration";
 import { readOwnedNamespace } from "@/definition/AcpNamespace";
 
 import { readAgentObject } from "./AgentPayload";
@@ -26,13 +27,7 @@ import type {
   AgentPlanSessionRecord,
 } from "@/definition/AgentPlanSession";
 
-const RUNNERS: readonly AgentPlanRunner[] = [
-  "codex_cli",
-  "claude_code",
-  "opencode",
-  "antigravity",
-  "api",
-];
+const RUNNERS: readonly AgentPlanRunner[] = [...ACP_PROVIDERS, "api"];
 const MODES: readonly AgentPlanSessionMode[] = [
   "one_shot",
   "interactive",
@@ -249,12 +244,7 @@ function readGroupLink(input: unknown): AgentPlanGroupSessionLink {
   if (turn === null || !Number.isSafeInteger(turn) || turn < 1) throw invalid();
   return {
     groupId: text(link.groupId, 100),
-    adapter: oneOf(link.adapter, [
-      "codex_cli",
-      "claude_code",
-      "opencode",
-      "antigravity",
-    ] as const),
+    adapter: oneOf(link.adapter, ACP_PROVIDERS),
     role: oneOf(link.role, ["created", "continued"] as const),
     creatorStepId: text(link.creatorStepId, 100),
     turn,

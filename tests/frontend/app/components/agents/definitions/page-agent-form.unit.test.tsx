@@ -42,7 +42,7 @@ const MODEL: PageAgentModel = {
   reasoningEfforts: [],
   catalogDefaultReasoningEffort: null,
   reasoningEffort: null,
-  provider: "openrouter",
+  provider: "openai",
 };
 
 const PAGE: PageAgentPage = {
@@ -67,7 +67,7 @@ function savedAgent(overrides: Partial<PageAgent> = {}): PageAgent {
     canEdit: true,
     hasDeletedTargets: false,
     availability: { isUsable: true, reason: null, personalChoices: [] },
-    provider: "openrouter",
+    provider: "openai",
     ...overrides,
   };
 }
@@ -227,7 +227,7 @@ it("refuses an ACP agent whose saved write mode is neither of the two modes", ()
       configuration: {
         ...configuration,
         run: {
-          ...defaultAgentRunOptions("openrouter"),
+          ...defaultAgentRunOptions("openai"),
           access: "workspace_write",
         },
       },

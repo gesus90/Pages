@@ -7,7 +7,7 @@ import { acpRunOptions } from "@/definition/AgentConfiguration";
 import { sessionInput } from "./cli-session-input";
 
 import type { AgentPlanSessionInput } from "@/backend/agents/AgentPlanExecution";
-import type { AcpProviderId } from "@/definition/AgentConfiguration";
+import type { NativeAcpProviderId } from "@/definition/AgentConfiguration";
 import type { CliSessionRequest } from "@/backend/agents/cli/CliContracts";
 
 const RESOURCE_CONTEXT = {
@@ -19,7 +19,7 @@ const RESOURCE_CONTEXT = {
 
 function requestFor(
   input: AgentPlanSessionInput,
-  provider: AcpProviderId,
+  provider: NativeAcpProviderId,
 ): CliSessionRequest {
   return acpWorkerRequest({
     input,

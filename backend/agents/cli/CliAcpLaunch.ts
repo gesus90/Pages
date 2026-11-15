@@ -1,5 +1,6 @@
 import { openCodeModelProvider } from "@/definition/AgentConnection";
 
+import { openCodeAgentModel, openCodeAgentLaunch } from "./OpenCodeAgentModel";
 import { preparePicaCodexBundle } from "./PicaCodexBundle";
 import { CLI_DEFAULT_RUNTIME_MS } from "./CliPausableDeadline";
 
@@ -75,7 +76,9 @@ function workerEnvironment(
       ? { CODEX_PATH: picaNative.executable, PAGES_PICA_CODEX: "1" }
       : {}),
     ...(picaNative?.runner === "opencode" ? { PAGES_PICA_OPENCODE: "1" } : {}),
-    ...credentials?.environmentFor(openCodeModelProvider(input.agent.model)),
+    ...credentials?.environmentFor(
+      openCodeModelProvider(openCodeAgentModel(input)),
+    ),
     ...github?.environment,
   };
 }
@@ -154,18 +157,21 @@ export function planAcpLaunch(
   file: string,
   profile: ReturnType<AcpDriver["profile"]>,
 ): AcpLaunch {
-  return driver.plan({
-    instanceId: input.instanceId,
-    isFullEnvironment: input.options.access === "full_environment",
-    runnerFile: file,
-    profile,
-    mcp: input.mcp ?? null,
-    purpose: input.chat ? "chat" : (input.purpose ?? "plan"),
-    model: {
-      model: input.agent.model,
-      reasoningEffort: input.agent.reasoningEffort,
-    },
-  });
+  return openCodeAgentLaunch(
+    input,
+    driver.plan({
+      instanceId: input.instanceId,
+      isFullEnvironment: input.options.access === "full_environment",
+      runnerFile: file,
+      profile,
+      mcp: input.mcp ?? null,
+      purpose: input.chat ? "chat" : (input.purpose ?? "plan"),
+      model: {
+        model: openCodeAgentModel(input),
+        reasoningEffort: input.agent.reasoningEffort,
+      },
+    }),
+  );
 }
 
 /** What the ACP session runs; a chat session brings its own MCP bridge and continuation. */
@@ -178,7 +184,7 @@ export function acpSessionRequest(
     prompt: input.prompt,
     ticketInputs: input.ticketInputs,
     readTicketAssets: input.readTicketAssets,
-    model: input.agent.model,
+    model: openCodeAgentModel(input),
     modelSupportsImages: input.agent.supportsImages,
     reasoningEffort: input.agent.reasoningEffort,
     mcpServers: input.chat?.mcpServers ?? launch.mcpServers,

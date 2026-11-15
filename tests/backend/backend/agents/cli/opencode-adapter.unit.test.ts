@@ -29,9 +29,7 @@ function setup(): { adapter: OpenCodeCli; execution: CliToolExecution } {
     "opencode",
   );
   return {
-    adapter: new OpenCodeCli(execution, undefined, {
-      read: async () => [{ modelProvider: "openrouter", apiKey: "secret" }],
-    }),
+    adapter: new OpenCodeCli(execution),
     execution,
   };
 }
@@ -47,7 +45,7 @@ it("reports reachable credentials and maps credential failures", async () => {
   const { adapter } = setup();
   const status = await adapter.readStatus(HOME, SIGNAL);
   expect(status.outcome).toEqual({ ok: true, detail: {} });
-  expect(status.credentials?.modelProviders).toContain("openrouter");
+  expect(status.credentials?.modelProviders).toEqual(["opencode"]);
   vi.spyOn(OpenCodeCredentialStore.prototype, "readOwn").mockRejectedValue(
     new AgentError("secret_unavailable"),
   );
@@ -99,6 +97,10 @@ it("checks the selected provider before running a restricted prompt", async () =
     ),
   ).toMatchObject({ errorCode: "plan_model_unavailable" });
   expect(prompt).not.toHaveBeenCalled();
+  vi.mocked(OpenCodeCredentialStore.prototype.readOwn).mockResolvedValue({
+    modelProvider: "openrouter",
+    apiKey: "secret",
+  });
   expect(
     await adapter.runTest(
       HOME,
@@ -120,8 +122,12 @@ it("checks the selected provider before running a restricted prompt", async () =
   expect(request?.environment?.OPENCODE_AUTH_CONTENT).toContain("secret");
 });
 
-it("lists free models and tolerates a linked provider failure", async () => {
+it("lists only its own free models even when its own key names another provider", async () => {
   const { adapter, execution } = setup();
+  vi.mocked(OpenCodeCredentialStore.prototype.readOwn).mockResolvedValue({
+    modelProvider: "openrouter",
+    apiKey: "secret",
+  });
   vi.spyOn(execution, "version").mockResolvedValue({
     ok: true,
     detail: { cliVersion: SUPPORTED_OPENCODE_VERSION },
@@ -146,7 +152,12 @@ it("lists free models and tolerates a linked provider failure", async () => {
   expect(
     (await adapter.listModels(HOME, SIGNAL)).map((model) => model.id),
   ).toEqual(["opencode/free"]);
-  expect(catalog).toHaveBeenCalledTimes(2);
+  expect(catalog).toHaveBeenCalledTimes(1);
+  expect(catalog.mock.calls[0]?.[1]).toEqual([
+    "models",
+    "opencode",
+    "--verbose",
+  ]);
 });
 
 it("maps cleanup failures and stores keys through the credential store", async () => {

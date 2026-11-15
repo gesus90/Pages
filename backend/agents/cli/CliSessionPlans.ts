@@ -1,5 +1,5 @@
 import { AgentError } from "@/backend/error/AgentErrors";
-import { isApiProvider } from "@/definition/AgentConnection";
+import { isAcpProvider } from "@/definition/AgentConfiguration";
 import { acpDriverFor } from "@/backend/agents/acp/AcpDrivers";
 import { isPlanPermissionMode } from "@/definition/AgentConfiguration";
 
@@ -7,9 +7,9 @@ import type { AgentPlanSessionInput } from "@/backend/agents/AgentPlanExecution"
 import type { AgentErrorCode } from "@/backend/error/AgentErrors";
 import type {
   AcpPermissionMode,
+  AcpProviderId,
   AgentRunOptions,
 } from "@/definition/AgentConfiguration";
-import type { CliProviderId } from "@/definition/AgentConnection";
 
 /** The step-bound Pages tool access of a session and how it reaches Pages. */
 export interface CliSessionMcp {
@@ -36,9 +36,14 @@ export interface CliSessionMcp {
  * mode is never raised to YOLO on its own; it blocks until a mode is chosen.
  */
 export function unsupportedRunOption(
-  provider: CliProviderId,
+  provider: AcpProviderId,
   options: AgentRunOptions,
 ): AgentErrorCode | null {
+  if (
+    (provider === "openrouter" || provider === "zai") &&
+    options.access === "full_environment"
+  )
+    return "plan_run_option_unsupported";
   return isPlanPermissionMode(options.access)
     ? null
     : acpDriverFor(provider).errors.modeRequired;
@@ -59,7 +64,7 @@ export function sessionRunOptionError(
   input: AgentPlanSessionInput,
 ): AgentErrorCode | null {
   const provider = input.agent.connection.provider;
-  if (isApiProvider(provider)) return "provider_invalid";
+  if (!isAcpProvider(provider)) return "provider_invalid";
   return unsupportedRunOption(provider, input.options);
 }
 
@@ -72,7 +77,9 @@ export function requireAcpIsolation(
   if (isIsolated) return;
   if (
     input.chat ||
-    ["opencode", "antigravity"].includes(input.agent.connection.provider)
+    ["opencode", "openrouter", "zai", "antigravity"].includes(
+      input.agent.connection.provider,
+    )
   )
     throw new AgentError("cli_isolation_unavailable");
   if (mode === "yolo") throw new AgentError("plan_yolo_isolation_unavailable");

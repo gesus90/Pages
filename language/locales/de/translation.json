@@ -5022,6 +5022,8 @@
         "codex_cli": "Codex CLI",
         "claude_code": "Claude Code",
         "opencode": "OpenCode",
+        "openrouter": "OpenRouter",
+        "zai": "z.AI",
         "api": "API-Verbindung"
       },
       "access": {
@@ -5996,6 +5998,8 @@
         "codex_cli": "Codex CLI",
         "claude_code": "Claude Code",
         "opencode": "OpenCode",
+        "openrouter": "OpenRouter",
+        "zai": "z.AI",
         "api": "API"
       },
       "notApplicable": "Nicht anwendbar",

@@ -120,7 +120,9 @@ it("reads model settings and rejects unavailable model connections", () => {
   expect(
     planDecisionModelRefusal(pageModel("missing", { connectionId: "" })),
   ).toBe(true);
-  expect(planDecisionModelRefusal(pageModel("other"))).toBe(true);
+  expect(
+    planDecisionModelRefusal(pageModel("other", { provider: "openai" })),
+  ).toBe(true);
 });
 
 it("applies classification edits and removes only deleted case connections", () => {

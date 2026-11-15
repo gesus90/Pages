@@ -366,3 +366,46 @@ it("PAGE-359 checks the Claude account budget before opening or continuing, with
   expect(requireClaudeBudget).toHaveBeenCalledTimes(1);
   await codex.close();
 });
+
+it.each(["openrouter", "zai"] as const)(
+  "keeps %s on the native session lifecycle for interrupt, continue and stop",
+  async (provider) => {
+    const interrupt = vi.fn(async () => true);
+    const next = vi.fn(async () => TURN);
+    const close = vi.fn(async () => closed(true));
+    const open = vi.fn(async () => session({ interrupt, next, close }));
+    const api = vi.fn(async () => "unexpected API request");
+    const { execution, registry, requireUser } = setup(api, open);
+    const signal = new AbortController().signal;
+    const request = input(provider);
+    const opened = await execution.open(request, signal, OBSERVER);
+    expect(open).toHaveBeenCalledWith(
+      request,
+      signal,
+      expect.objectContaining(OBSERVER),
+    );
+    expect(api).not.toHaveBeenCalled();
+    expect(isHeld(registry)).toBe(true);
+    expect(await opened.interrupt?.()).toBe(true);
+    expect(interrupt).toHaveBeenCalledOnce();
+    expect(await opened.next?.(request, signal, OBSERVER)).toBe(TURN);
+    expect(next).toHaveBeenCalledOnce();
+    expect(requireUser).toHaveBeenCalledTimes(2);
+    expect(await opened.close()).toEqual(closed(true));
+    expect(close).toHaveBeenCalledOnce();
+    expect(isHeld(registry)).toBe(false);
+  },
+);
+
+it.each(["openrouter", "zai"] as const)(
+  "retains %s's connection when native cleanup cannot be confirmed",
+  async (provider) => {
+    const { execution, registry } = setup(undefined, async () => {
+      throw new AcpCleanupUnconfirmedError();
+    });
+    await expect(
+      execution.open(input(provider), new AbortController().signal, OBSERVER),
+    ).rejects.toBeInstanceOf(AcpCleanupUnconfirmedError);
+    expect(isHeld(registry)).toBe(true);
+  },
+);

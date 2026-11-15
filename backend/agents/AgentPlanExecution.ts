@@ -2,6 +2,7 @@ import { AgentError } from "@/backend/error/AgentErrors";
 import { AcpCleanupUnconfirmedError } from "@/backend/error/AcpCleanupUnconfirmedError";
 import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
 import { AgentExecutionError } from "@/backend/error/AgentExecutionErrors";
+import { isAcpProvider } from "@/definition/AgentConfiguration";
 import { isApiProvider } from "@/definition/AgentConnection";
 import { logCaughtError } from "@/backend/logging/Logger";
 
@@ -246,14 +247,17 @@ export class AgentPlanExecution implements PlanExecution {
     signal: AbortSignal,
     observer: PlanSessionObserver,
   ): Promise<PlanSession> {
-    if (isApiProvider(input.agent.connection.provider))
+    if (!isAcpProvider(input.agent.connection.provider))
       throw new AgentError("provider_invalid");
     await this.authorize(input);
     const release = this.operations.acquireExecution(input.agent.connection.id);
     let session: PlanSession;
-    const mustConfirmCleanup = ["opencode", "antigravity"].includes(
-      input.agent.connection.provider,
-    );
+    const mustConfirmCleanup = [
+      "opencode",
+      "openrouter",
+      "zai",
+      "antigravity",
+    ].includes(input.agent.connection.provider);
     function observe(target: PlanSessionObserver): PlanSessionObserver {
       if (!mustConfirmCleanup) return target;
       return {

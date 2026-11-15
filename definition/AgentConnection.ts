@@ -29,14 +29,7 @@ export function isOpenCodeKeyProvider(
   return OPENCODE_KEY_PROVIDERS.some((provider) => provider === input);
 }
 
-/**
- * API providers whose key in Pages OpenCode receives automatically, with the
- * native OpenCode provider ID, in the order the provider choice lists them.
- *
- * @remarks
- * The key stays stored once, with its API connection; an OpenCode process
- * gets it only in its own environment and only for a model of that provider.
- */
+/** Legacy native provider names and the ordering of API connection choices. */
 export const OPENCODE_LINKED_PROVIDERS = {
   zai: "zai",
   google_ai_studio: "google",
@@ -44,34 +37,17 @@ export const OPENCODE_LINKED_PROVIDERS = {
 } as const;
 export type OpenCodeLinkedProvider = keyof typeof OPENCODE_LINKED_PROVIDERS;
 
-/**
- * Whether OpenCode receives the key of one linked provider.
- *
- * @remarks
- * `linked`: an active key whose access check passed; `auth_failed`: the
- * check rejected the key; `unchecked`: no check result yet; `missing`: Pages
- * holds no active key for the provider.
- */
-export interface OpenCodeProviderLink {
-  readonly provider: OpenCodeLinkedProvider;
-  /** The native OpenCode provider ID, such as `google`. */
-  readonly modelProvider: string;
-  readonly state: "linked" | "auth_failed" | "unchecked" | "missing";
-  readonly connectionId: string | null;
-  readonly connectionName: string | null;
-}
-
 /** OpenCode's own provider, whose free models need no key. */
 export const OPENCODE_FREE_PROVIDER = "opencode";
 
-/** Whether OpenCode receives the key of this API provider. */
+/** Whether an API connection belongs to the legacy provider ordering. */
 export function isOpenCodeLinkedProvider(
   provider: AgentProviderId,
 ): provider is OpenCodeLinkedProvider {
   return Object.hasOwn(OPENCODE_LINKED_PROVIDERS, provider);
 }
 
-/** The API provider whose key a native OpenCode provider uses, if Pages links one. */
+/** Legacy mapping of native OpenCode provider IDs to Pages API providers. */
 export function linkedApiProviderOf(
   modelProvider: string,
 ): OpenCodeLinkedProvider | null {
@@ -86,7 +62,7 @@ export function linkedApiProviderOf(
   return null;
 }
 
-/** The native destination of one linked key, respecting z.ai's saved account type. */
+/** Legacy native key destination, respecting z.ai's saved account type. */
 export function openCodeLinkedModelProvider(connection: {
   readonly provider: OpenCodeLinkedProvider;
   readonly zaiAccountType?: ZaiAccountType;
@@ -322,8 +298,6 @@ export interface AgentConnectionSummary {
   /** Who may use the models of this connection; administrators only receive it. */
   readonly scope: AgentConnectionScope;
   readonly cli: AgentCliState | null;
-  /** For an OpenCode connection: which Pages API keys it receives automatically. */
-  readonly openCodeLinks?: readonly OpenCodeProviderLink[];
   readonly checks: {
     readonly auth: AgentCheckSummary | null;
     readonly model: AgentCheckSummary | null;

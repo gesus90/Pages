@@ -121,7 +121,6 @@ vi.mock("@/app/components/settings/admin-mode-required", () => ({
 }));
 
 const ADMIN = accountAccess({ isAdmin: true, mode: "admin" });
-const LINKS = [{ provider: "zai", state: "linked" }];
 const LIMITS = {
   limits: {
     perAgent: 4,
@@ -168,7 +167,6 @@ beforeEach(() => {
     revision: 1,
   });
   services.runnerService.overview.mockResolvedValue([]);
-  services.openCodeProviderLinks.describe.mockResolvedValue(LINKS);
 });
 
 it("never caches the agent settings", async () => {
@@ -196,7 +194,7 @@ it("asks an administrator outside the admin mode to switch it on", async () => {
   expect(services.agentConnectionService.list).not.toHaveBeenCalled();
 });
 
-it("loads the management data and links OpenCode to its keys", async () => {
+it("loads management data without linking other provider keys to OpenCode", async () => {
   const result = await loader(
     routeArguments(pagesRequest("/settings/agents"), { user: ACTOR }),
   );
@@ -204,7 +202,7 @@ it("loads the management data and links OpenCode to its keys", async () => {
   expect(result.data).toEqual({
     access: "granted",
     connections: [
-      { id: "c-1", provider: "opencode", openCodeLinks: LINKS },
+      { id: "c-1", provider: "opencode" },
       { id: "c-2", provider: "openai" },
     ],
     runners: [],

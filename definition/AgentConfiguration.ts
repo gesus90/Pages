@@ -59,11 +59,13 @@ export const ACP_PROVIDERS = [
   "claude_code",
   "opencode",
   "antigravity",
+  "openrouter",
+  "zai",
 ] as const;
 export type AcpProviderId = (typeof ACP_PROVIDERS)[number];
 
 /** Native ACP drivers shared by plans and Pica. */
-export type NativeAcpProviderId = AcpProviderId;
+export type NativeAcpProviderId = Exclude<AcpProviderId, "openrouter" | "zai">;
 
 /** Whether an agent of this provider runs as an ACP session in one of the two modes. */
 export function isAcpProvider(
@@ -73,7 +75,9 @@ export function isAcpProvider(
     provider === "codex_cli" ||
     provider === "claude_code" ||
     provider === "opencode" ||
-    provider === "antigravity"
+    provider === "antigravity" ||
+    provider === "openrouter" ||
+    provider === "zai"
   );
 }
 
@@ -172,6 +176,11 @@ export function isAgentRunOptionsAllowed(
   previous: AgentRunOptions | undefined,
 ): boolean {
   if (
+    (provider === "openrouter" || provider === "zai") &&
+    run?.access === "full_environment"
+  )
+    return false;
+  if (
     run?.browser === true &&
     (!isAcpProvider(provider) || !isAgentWriteAccess(run.access))
   )
@@ -229,4 +238,12 @@ export function isPlanPermissionMode(
 /** Whether a node explicitly grants all native tools, with or without host isolation. */
 export function isAgentWriteAccess(access: AgentRunAccess): boolean {
   return access === "yolo" || access === "full_environment";
+}
+
+/** The installed runtime of a plan provider, without changing its public identity. */
+export function nativeAcpProvider(
+  provider: AgentProviderId,
+): NativeAcpProviderId | null {
+  if (provider === "openrouter" || provider === "zai") return "opencode";
+  return isAcpProvider(provider) ? provider : null;
 }

@@ -1,13 +1,12 @@
 import type { AgentPlanActivity } from "./AgentPlanProgress";
 import type { AgentPlanCompletionGate } from "./AgentPlanWork";
-import type { CliProviderId } from "./AgentConnection";
 import type { AcpProviderId, AgentRunOptions } from "./AgentConfiguration";
 import type { AgentPlanContinuationCapabilities } from "./AgentPlanRecovery";
 import type { AgentPlanRetry, AgentProviderFailure } from "./AgentPlanRetry";
 import type { AcpNamespaceOwner } from "./AcpResource";
 
 /** The runner of a node: a CLI tool, or a request to an API connection. */
-export type AgentPlanRunner = CliProviderId | "api";
+export type AgentPlanRunner = AcpProviderId | "api";
 
 /**
  * How a node talks to its runner.

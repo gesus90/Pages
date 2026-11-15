@@ -471,7 +471,7 @@ it("checks a script against an unordered local agent using the resolved director
   expect(() =>
     validatePlanWorkingCopies(
       sample.snapshot.plan,
-      [{ ...agent, provider: "openrouter" }],
+      [{ ...agent, provider: "openai" }],
       [localScript],
     ),
   ).not.toThrow();

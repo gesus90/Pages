@@ -9,7 +9,7 @@ import type {
   PlanSessionTurn,
 } from "@/backend/agents/AgentPlanExecution";
 import type { AgentErrorCode } from "@/backend/error/AgentErrors";
-import type { CliProviderId } from "@/definition/AgentConnection";
+import type { AcpProviderId } from "@/definition/AgentConfiguration";
 import type { ResolvedAgentAssignment } from "./AgentAssignmentResolution";
 import type {
   AgentPlanContract,
@@ -18,10 +18,12 @@ import type {
 import type { NodeRun } from "./AgentPlanStepContext";
 import type { PreparedPlanStep } from "./AgentPlanStepStart";
 
-const RUNNER_LABELS: Readonly<Record<CliProviderId, string>> = {
+const RUNNER_LABELS: Readonly<Record<AcpProviderId, string>> = {
   codex_cli: "Codex CLI over ACP",
   claude_code: "Claude Code over ACP",
   opencode: "OpenCode over native ACP",
+  openrouter: "OpenRouter over ACP",
+  zai: "z.AI over ACP",
   antigravity: "Google Antigravity over official ACP",
 };
 

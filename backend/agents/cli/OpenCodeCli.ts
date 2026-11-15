@@ -26,10 +26,7 @@ import type {
   CliToolAdapter,
 } from "./CliContracts";
 import type { CliToolExecution } from "./CliToolExecution";
-import type {
-  OpenCodeKeyInput,
-  OpenCodeLinkedKeys,
-} from "./OpenCodeCredentials";
+import type { OpenCodeKeyInput } from "./OpenCodeCredentials";
 
 /** A model test may use no tool at all and shares nothing. */
 const TEST_CONFIGURATION = JSON.stringify({
@@ -42,10 +39,10 @@ const TEST_CONFIGURATION = JSON.stringify({
  * Controls the unchanged OpenCode binary with one provider key per connection.
  *
  * @remarks
- * OpenCode's free models need no key. The keys of the linked API connections
- * in Pages are registered automatically, and a key stored with the connection
- * itself keeps its exact provider. Pages encrypts the connection's own key with
- * the existing instance cipher and supplies every key only in the child
+ * OpenCode's free models need no key. A key stored with the connection
+ * itself keeps its exact provider. Other Pages connections never supply keys.
+ * Pages encrypts the connection's own key with the existing instance cipher
+ * and supplies every key only in the child
  * environment, one provider per process. A key never reaches a prompt or
  * another connection. Project and user configuration, plugins, sharing and
  * updates stay off.
@@ -54,16 +51,13 @@ export class OpenCodeCli implements CliToolAdapter {
   public readonly provider = "opencode";
   private readonly execution: CliToolExecution;
   private readonly credentials: OpenCodeCredentialStore;
-  private readonly linked: OpenCodeLinkedKeys | undefined;
 
   public constructor(
     execution: CliToolExecution,
     cipher?: InstanceSecretCipher,
-    linked?: OpenCodeLinkedKeys,
   ) {
     this.execution = execution;
     this.credentials = new OpenCodeCredentialStore(cipher);
-    this.linked = linked;
   }
 
   /** Confirms the reachable providers without a model call; the free one needs no key. */
@@ -158,12 +152,7 @@ export class OpenCodeCli implements CliToolAdapter {
   }
 
   /**
-   * Lists the models OpenCode offers for every reachable provider.
-   *
-   * @remarks
-   * OpenCode's own provider contributes its free models only, unless the
-   * connection stores a key for it. A linked provider whose listing fails is
-   * left out and logged; the free models still come.
+   * Lists only OpenCode's own free models, independently of stored keys.
    */
   public async listModels(
     home: CliHome,
@@ -173,28 +162,12 @@ export class OpenCodeCli implements CliToolAdapter {
     if (!version.ok) throw new AgentError(version.errorCode);
     await requireManagedOpenCodeConfiguration(home);
     const credentials = await this.access(home);
-    const models: AgentCatalogModel[] = [];
-    for (const modelProvider of credentials.modelProviders) {
-      try {
-        const listed = await this.listProvider(home, {
-          credentials,
-          modelProvider,
-          signal,
-        });
-        models.push(
-          ...listed.filter(
-            (model) =>
-              modelProvider !== OPENCODE_FREE_PROVIDER ||
-              credentials.ownProvider === OPENCODE_FREE_PROVIDER ||
-              model.isFree,
-          ),
-        );
-      } catch (error: unknown) {
-        if (modelProvider === OPENCODE_FREE_PROVIDER) throw error;
-        logCaughtError("OpenCodeCli", error);
-      }
-    }
-    return models;
+    const models = await this.listProvider(home, {
+      credentials,
+      modelProvider: OPENCODE_FREE_PROVIDER,
+      signal,
+    });
+    return models.filter((model) => model.isFree);
   }
 
   /** Removes the stored key; OpenCode keeps no remote session to revoke. */
@@ -211,7 +184,7 @@ export class OpenCodeCli implements CliToolAdapter {
 
   private async access(home: CliHome): Promise<CliCredentialAccess> {
     const own = await this.credentials.readOwn(home);
-    return openCodeCredentials(own, (await this.linked?.read()) ?? []);
+    return openCodeCredentials(own);
   }
 
   private async listProvider(

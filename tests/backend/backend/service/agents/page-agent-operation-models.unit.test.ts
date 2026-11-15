@@ -132,6 +132,6 @@ it("passes the model identifier as the identifier of the connection and the mode
 
   expect(entry).toMatchObject({
     modelProfileId: JSON.stringify(["connection-open", "model-open"]),
-    provider: "openrouter",
+    provider: "openai",
   });
 });

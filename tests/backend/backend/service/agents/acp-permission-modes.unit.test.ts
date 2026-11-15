@@ -24,6 +24,8 @@ import type { ResolvedAgentWorkspace } from "@/definition/AgentWorkspace";
 const ACP_RUNNERS = [
   { provider: "codex_cli", modeRequired: "codex_permission_mode_required" },
   { provider: "claude_code", modeRequired: "claude_permission_mode_required" },
+  { provider: "openrouter", modeRequired: "opencode_permission_mode_required" },
+  { provider: "zai", modeRequired: "opencode_permission_mode_required" },
 ] as const;
 
 const LEGACY_WRITE: AgentRunOptions = {
@@ -102,7 +104,7 @@ it("uses read-only defaults for OpenCode and preserves legacy settings without e
   );
   expect(agentRunOptionsFor("opencode", LEGACY_WRITE)).toEqual(LEGACY_WRITE);
   expect(agentRunOptionsFor("openrouter", undefined)).toEqual(
-    DEFAULT_AGENT_RUN_OPTIONS,
+    DEFAULT_ACP_RUN_OPTIONS,
   );
   expect(
     unsupportedRunOption("opencode", {
@@ -156,7 +158,7 @@ it("offers YOLO to OpenCode over ACP while refusing a new legacy mode", () => {
   );
   expect(
     isAgentRunOptionsAllowed("openrouter", acpRunOptions("yolo", 0), undefined),
-  ).toBe(false);
+  ).toBe(true);
   expect(() =>
     requireAllowedRunOptions("opencode", LEGACY_WRITE, undefined),
   ).toThrow(new AgentError("opencode_permission_mode_required"));
@@ -206,9 +208,7 @@ it.each(ACP_RUNNERS)(
 
 it("gives OpenCode full authorized reach and leaves API reach unchanged", () => {
   expect(planSessionReach("opencode", acpRunOptions("yolo", 0))).toBe("full");
-  expect(planSessionReach("openrouter", DEFAULT_AGENT_RUN_OPTIONS)).toBe(
-    "tickets",
-  );
+  expect(planSessionReach("openai", DEFAULT_AGENT_RUN_OPTIONS)).toBe("tickets");
 });
 
 it.each(ACP_RUNNERS)(

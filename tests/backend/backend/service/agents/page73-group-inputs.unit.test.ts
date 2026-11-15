@@ -148,7 +148,7 @@ it("refuses an API provider before opening a group session", async () => {
         ...input,
         agent: {
           ...input.agent,
-          connection: { ...input.agent.connection, provider: "openrouter" },
+          connection: { ...input.agent.connection, provider: "openai" },
         },
       },
       signal: new AbortController().signal,
