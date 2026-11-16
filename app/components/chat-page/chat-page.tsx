@@ -12,6 +12,7 @@ import { MentionDirectoryContext } from "./mentions/mention-context";
 import { ChatDecisionHealth } from "./mentions/chat-decision-health";
 import { ChatPageCommandOutcome } from "./chat-page-command-outcome";
 import { ChatPageComposer } from "./chat-page-composer";
+import { chatInputOf, isAgentChat } from "./chat-page-input";
 import {
   ChatPageContextRings,
   contextRingEntries,
@@ -123,7 +124,9 @@ function ConversationFoot({
   readonly mentionRef: React.RefObject<((username: string) => void) | null>;
 }): React.ReactElement {
   const { t } = useTranslation();
-  const sending = useVoiceSending(page.selection, page.voiceMaximumMs);
+  const sending = useVoiceSending(page.selection, page.voiceMaximumMs, {
+    isAgentChat: isAgentChat(opened),
+  });
   const commands = useChatCommandRunner(opened);
   const name = conversationName(opened);
 
@@ -145,9 +148,10 @@ function ConversationFoot({
       </p>
     );
 
-  // An agent's history on the page is its chat session, which takes text only.
-  const hasVoice =
-    opened.kind === "group" || opened.participant.kind === "human";
+  const input = chatInputOf(opened, page.selection, {
+    sending,
+    maximumMs: page.voiceMaximumMs,
+  });
   const memberIds =
     opened.kind === "group" ? opened.group.memberIds : [opened.participant.id];
   const aside =
@@ -178,12 +182,8 @@ function ConversationFoot({
         activity={page.activity}
         aside={aside}
         memberIds={memberIds}
-        attachments={
-          hasVoice && page.selection ? { selection: page.selection } : undefined
-        }
-        voice={
-          hasVoice ? { sending, maximumMs: page.voiceMaximumMs } : undefined
-        }
+        attachments={input.attachments}
+        voice={input.voice}
         mentionRef={mentionRef}
       />
     </div>

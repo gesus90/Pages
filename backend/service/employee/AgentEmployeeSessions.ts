@@ -79,6 +79,19 @@ const INJECTED_STEERS: ReadonlySet<ChatSteerStatus> = new Set([
   "accepted",
 ]);
 
+/** Chat failures that name what the person sent, not what the agent can do. */
+const INPUT_FAILURES: ReadonlySet<ChatError["code"]> = new Set([
+  "attachmentMissing",
+  "tooManyAttachments",
+  "invalidInput",
+]);
+
+/** The failure of an agent chat a chat error of its session stands for. */
+function codeOf(error: ChatError): AgentEmployeeError["code"] {
+  if (error.code === "acpPermissionModeUnsupported") return "accessUnsupported";
+  return INPUT_FAILURES.has(error.code) ? "invalidInput" : "unavailable";
+}
+
 /** The place of a session without limits, for a server without them. */
 const UNLIMITED_SLOT: AgentSessionSlot = {
   hasWaited: false,
@@ -132,6 +145,11 @@ export class AgentEmployeeSessions {
    * of the direct chat and this call returns; the answer starts once a place
    * is free (PAGE-304).
    *
+   * A message may carry files the person uploaded to the chat session
+   * beforehand; the session hands them to the agent's prompt as it does for
+   * every chat, and a file that is not an unsent upload of this chat is an
+   * `invalidInput`.
+   *
    * @throws {AgentEmployeeError} `inactive`, `busy`,
    * `unavailable` or `invalidInput`.
    */
@@ -156,6 +174,7 @@ export class AgentEmployeeSessions {
         person,
         purpose: "chat",
         text: message.text,
+        attachmentIds: message.attachmentIds,
         clientMessageId: message.clientMessageId,
         isDeferred: message.delivery === "after",
         signal: entry.controller.signal,
@@ -434,7 +453,7 @@ export class AgentEmployeeSessions {
       clientMessageId: request.clientMessageId,
       sessionId: conversation.sessionId,
       text: request.text,
-      attachmentIds: [],
+      attachmentIds: request.attachmentIds ?? [],
       ...(request.isDeferred === true ? { isDeferred: true } : {}),
     };
     try {
@@ -724,11 +743,7 @@ export class AgentEmployeeSessions {
     if (error instanceof AgentExecutionError && error.code === "requestBusy")
       return new AgentEmployeeError("busy");
     if (error instanceof ChatError)
-      return new AgentEmployeeError(
-        error.code === "acpPermissionModeUnsupported"
-          ? "accessUnsupported"
-          : "unavailable",
-      );
+      return new AgentEmployeeError(codeOf(error));
     return error;
   }
 }

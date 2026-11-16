@@ -1,10 +1,7 @@
 import { File as FileIcon, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
-import {
-  CONVERSATION_ATTACHMENT_MAXIMUM_BYTES,
-  CONVERSATION_ATTACHMENT_MAXIMUM_COUNT,
-} from "@/definition/ConversationContent";
+import { CONVERSATION_ATTACHMENT_MAXIMUM_COUNT } from "@/definition/ConversationContent";
 
 import { formatFileSize } from "./content/card-types";
 
@@ -126,10 +123,7 @@ export function ChatPageAttachmentStrip({
       {uploads.failure ? (
         <p className="text-sm text-destructive" role="alert">
           {t(`chatPage.attach.failure.${uploads.failure}`, {
-            maximum: formatFileSize(
-              CONVERSATION_ATTACHMENT_MAXIMUM_BYTES,
-              i18n.language,
-            ),
+            maximum: formatFileSize(uploads.maximumBytes, i18n.language),
             limit: CONVERSATION_ATTACHMENT_MAXIMUM_COUNT,
           })}
         </p>

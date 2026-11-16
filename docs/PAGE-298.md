@@ -27,6 +27,15 @@ next to the chat (split view).
   `PUT /chat-page-api/files?attachmentId=…` stores the preview image (WebP,
   JPEG or PNG, at most 1 MB) of an attachment that has none, `DELETE` drops
   an unsent upload. A message is sent with `attachmentIds` (at most ten).
+- `POST|DELETE /chat-page-api/files?agentId=…&name=…` does the same for the
+  direct chat with an agent: the file goes into the agent's chat session as a
+  session attachment (the types and the 16 MB of every chat session, at most
+  ten unsent files), and the message to the agent (`send`) names its ID.
+  `GET /chat/agent-files/<agentId>/<id>` sends it to the person of that chat
+  only, and `GET /chat/agent-files/<agentId>/messages/<messageId>/files.zip`
+  sends the files of one message as a ZIP. A voice message to an agent
+  (`POST /chat-page-api/voice?agentId=…`) is recognized before sending and
+  goes as its text; the audio is not kept.
 - `GET /chat/files/<id>` streams the original (`Range` answers 206,
   `?download=1` sends it as a download), `GET /chat/files/<id>/thumbnail` the
   preview image. Membership of the conversation is checked on every request;
@@ -55,8 +64,12 @@ are the web paths; the app prefixes `/pica-mobile`.
 
 - Attachments and agent file lines belong to stored conversations (groups
   and direct conversations). The direct chat with an agent on the web page is
-  a text-only chat session: there, code blocks, diffs and URLs become cards,
-  but files cannot be attached in either direction.
+  its chat session: there, code blocks, diffs and URLs become cards, and the
+  person can attach files and record voice messages as in every other chat.
+  The files are session attachments the agent reads in its prompt (images,
+  PDF, Office and text files; other types are refused at the upload), a voice
+  message arrives as recognized text. Files of the agent to the person are
+  still not possible in this chat.
 - Agent file lines follow an allowlist (fix B1, 2026-11-12): only regular
   files below `~/.pages/pica-sessions/<session>/` and `~/Results/`
   (`AGENT_FILE_ROOTS` in `ConversationAgentFiles.ts`), checked after

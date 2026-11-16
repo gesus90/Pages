@@ -23,9 +23,8 @@ import { useAttachmentUploads } from "./use-attachment-uploads";
 
 import type { Editor } from "@tiptap/react";
 import type { ConversationDelivery } from "@/definition/ConversationLiveAnswer";
-import type { VirtualChatSelection } from "@/definition/VirtualChat";
 import type { AgentActivity } from "./live/chat-page-activity-row";
-import type { VoiceSending } from "./use-voice-sending";
+import type { ComposerAttachments, ComposerVoice } from "./chat-page-input";
 
 /** What the input offers while agents answer (PAGE-381). */
 export interface ComposerAnswering {
@@ -53,13 +52,10 @@ interface ChatPageComposerProps {
   readonly answering?: ComposerAnswering;
   /** The agents at work in the chat and what they do, above the field (PAGE-381). */
   readonly activity?: readonly AgentActivity[];
-  /** Voice messages of a stored conversation (PAGE-277); missing for an agent's chat. */
-  readonly voice?: {
-    readonly sending: VoiceSending;
-    readonly maximumMs: number;
-  };
-  /** Attachments of a stored conversation (PAGE-298); missing for an agent's chat. */
-  readonly attachments?: { readonly selection: VirtualChatSelection };
+  /** Voice messages; missing where nothing can be recorded. */
+  readonly voice?: ComposerVoice;
+  /** Attachments; missing where no file can be attached. */
+  readonly attachments?: ComposerAttachments;
   /** Receives what puts `@username ` into the field, for the menu of an agent in the chat head (PAGE-376). */
   readonly mentionRef?: React.RefObject<((username: string) => void) | null>;
   /** What stands before "Abschicken", such as the context rings of the agents (PAGE-380). */
@@ -258,10 +254,10 @@ function useComposerBindings({
  *
  * @remarks
  * The editor reads its placeholder once, so the page mounts one composer per
- * conversation. Sending hands the text to the page, which sends it. In a
- * conversation with people or of a group, the microphone and the file button
- * send a voice message (PAGE-277), and files chosen in the "+" menu, dropped
- * on the conversation or pasted are uploaded and go out with the next
+ * conversation. Sending hands the text to the page, which sends it. In every
+ * chat, with people, with agents or of a group, the microphone and the file
+ * button send a voice message, and files chosen in the "+" menu,
+ * dropped on the chat or pasted are uploaded and go out with the next
  * message (PAGE-298); a message of attachments alone needs no text, and
  * nothing is sent while an upload runs. The menu of an agent in the chat head
  * puts its mention into the field through `mentionRef` (PAGE-376). The field
@@ -282,7 +278,9 @@ export function ChatPageComposer({
 }: ChatPageComposerProps): React.ReactElement {
   const { t } = useTranslation();
   const canAttach = attachments !== undefined;
-  const uploads = useAttachmentUploads(attachments?.selection ?? null);
+  const uploads = useAttachmentUploads(attachments?.selection ?? null, {
+    isAgentChat: attachments?.isAgentChat === true,
+  });
   const directory = useMentionDirectory();
   const input = useMentionEditor({
     directory,

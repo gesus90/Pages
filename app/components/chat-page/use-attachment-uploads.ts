@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
+import { CHAT_ATTACHMENT_LIMIT_BYTES } from "@/definition/Chat";
 import {
   CONVERSATION_ATTACHMENT_MAXIMUM_BYTES,
   CONVERSATION_ATTACHMENT_MAXIMUM_COUNT,
@@ -28,12 +29,25 @@ export interface PendingAttachment {
 }
 
 /** Why a file was not attached, as the composer explains it. */
-export type AttachmentFailure = "tooLarge" | "tooMany" | "failed";
+export type AttachmentFailure =
+  "tooLarge" | "tooMany" | "unsupported" | "failed";
+
+/** Where the attachments of the message being written go. */
+export interface AttachmentOptions {
+  /**
+   * The direct chat with an agent keeps its files in the agent's chat
+   * session, which takes fewer types and smaller files than a conversation
+   * and has no preview images.
+   */
+  readonly isAgentChat?: boolean;
+}
 
 /** The attachments of the message being written (PAGE-298). */
 export interface AttachmentUploads {
   readonly items: readonly PendingAttachment[];
   readonly failure: AttachmentFailure | null;
+  /** The largest file the opened chat takes, in bytes. */
+  readonly maximumBytes: number;
   /** Whether any upload still runs. */
   readonly isUploading: boolean;
   /** Checks the files and starts their uploads. */
@@ -52,6 +66,8 @@ interface UploadEntry {
   readonly localId: string;
   readonly file: File;
   readonly previewUrl: string | null;
+  /** The agent whose chat the file goes to; `null` for a conversation. */
+  readonly agentId: string | null;
   /** The running request; `null` before it starts and after it ended. */
   request: XMLHttpRequest | null;
   /** The ID of the stored file, once the server answered. */
@@ -85,9 +101,16 @@ function readUploadResult(request: XMLHttpRequest): UploadResult {
     readProperty(body, "ok") === true &&
     typeof attachmentId === "string";
   if (isStored) return { kind: "stored", attachmentId };
-  const isTooLarge =
-    request.status === 413 || readProperty(body, "error") === "too_large";
-  return { kind: "refused", failure: isTooLarge ? "tooLarge" : "failed" };
+  return { kind: "refused", failure: refusalOf(request.status, body) };
+}
+
+/** Why the server refused a file; the codes of a chat session and of a conversation. */
+function refusalOf(status: number, body: unknown): AttachmentFailure {
+  const error = readProperty(body, "error");
+  if (status === 413 || error === "too_large") return "tooLarge";
+  if (error === "fileTypeNotAllowed") return "unsupported";
+  if (error === "tooManyAttachments") return "tooMany";
+  return "failed";
 }
 
 /**
@@ -99,11 +122,11 @@ function upload(
   selection: VirtualChatSelection,
   onProgress: (progress: number) => void,
 ): Promise<UploadResult> {
-  const query = new URLSearchParams({
-    kind: selection.kind,
-    id: selection.id,
-    name: entry.file.name,
-  });
+  const query = new URLSearchParams(
+    entry.agentId === null
+      ? { kind: selection.kind, id: selection.id, name: entry.file.name }
+      : { agentId: entry.agentId, name: entry.file.name },
+  );
   const request = new XMLHttpRequest();
   entry.request = request;
   return new Promise((resolve) => {
@@ -125,15 +148,23 @@ function upload(
   });
 }
 
-function attachmentAddress(attachmentId: string): string {
-  const query = new URLSearchParams({ attachmentId });
+function attachmentAddress(
+  attachmentId: string,
+  agentId: string | null = null,
+): string {
+  const query = new URLSearchParams(
+    agentId === null ? { attachmentId } : { attachmentId, agentId },
+  );
   return `${FILES_ADDRESS}?${query.toString()}`;
 }
 
 /** Deletes an upload no message was sent with. */
-async function deleteUpload(attachmentId: string): Promise<void> {
+async function deleteUpload(
+  attachmentId: string,
+  agentId: string | null,
+): Promise<void> {
   try {
-    await fetch(attachmentAddress(attachmentId), {
+    await fetch(attachmentAddress(attachmentId, agentId), {
       method: "DELETE",
       keepalive: true,
     });
@@ -166,14 +197,16 @@ async function storeThumbnail(attachmentId: string, file: File): Promise<void> {
 /** Ends an upload: aborts the request or deletes the stored file, and frees the preview. */
 function discard(entry: UploadEntry): void {
   entry.request?.abort();
-  if (entry.attachmentId !== null) void deleteUpload(entry.attachmentId);
+  if (entry.attachmentId !== null)
+    void deleteUpload(entry.attachmentId, entry.agentId);
   if (entry.previewUrl !== null) URL.revokeObjectURL(entry.previewUrl);
 }
 
-function createEntry(file: File): UploadEntry {
+function createEntry(file: File, agentId: string | null): UploadEntry {
   return {
     localId: crypto.randomUUID(),
     file,
+    agentId,
     previewUrl: file.type.startsWith("image/")
       ? URL.createObjectURL(file)
       : null,
@@ -199,10 +232,9 @@ function toPending(entry: UploadEntry): PendingAttachment {
 function chooseFiles(
   files: readonly File[],
   heldCount: number,
+  maximumBytes: number,
 ): { readonly accepted: File[]; readonly failure: AttachmentFailure | null } {
-  const fitting = files.filter(
-    (file) => file.size <= CONVERSATION_ATTACHMENT_MAXIMUM_BYTES,
-  );
+  const fitting = files.filter((file) => file.size <= maximumBytes);
   const free = Math.max(0, CONVERSATION_ATTACHMENT_MAXIMUM_COUNT - heldCount);
   const accepted = fitting.slice(0, free);
   if (accepted.length < fitting.length) return { accepted, failure: "tooMany" };
@@ -214,23 +246,30 @@ function chooseFiles(
 
 /**
  * Uploads the attachments of the message being written into the opened
- * conversation of a person or a group (PAGE-298).
+ * chat of a person, a group or an agent.
  *
- * @param selection - The opened conversation; `null` attaches nothing.
+ * @param selection - The opened chat; `null` attaches nothing.
+ * @param options - How the opened chat stores files.
  * @returns The attachments with their progress and what changes them.
  *
  * @remarks
- * A file over 512 MB and an eleventh file are refused before anything is
- * sent. Each file goes up as the body of its own request, so the browser
- * streams it. For an image, a video and a PDF the page then creates the
- * preview image and stores it; the attachment counts as ready only after
- * that attempt, so the preview exists when the message is sent. Removing an
- * attachment, opening another conversation and leaving the page abort what
- * still runs and delete what was stored but not sent.
+ * A file over the limit of the chat (512 MB in a conversation, 16 MB in the
+ * chat session of an agent) and an eleventh file are refused before anything
+ * is sent. Each file goes up as the body of its own request, so the browser
+ * streams it. In a conversation, for an image, a video and a PDF the page then
+ * creates the preview image and stores it; the attachment counts as ready only
+ * after that attempt, so the preview exists when the message is sent. Removing
+ * an attachment, opening another chat and leaving the page abort what still
+ * runs and delete what was stored but not sent.
  */
 export function useAttachmentUploads(
   selection: VirtualChatSelection | null,
+  options: AttachmentOptions = {},
 ): AttachmentUploads {
+  const isAgentChat = options.isAgentChat === true;
+  const maximumBytes = isAgentChat
+    ? CHAT_ATTACHMENT_LIMIT_BYTES
+    : CONVERSATION_ATTACHMENT_MAXIMUM_BYTES;
   const [items, setItems] = useState<readonly PendingAttachment[]>([]);
   const [failure, setFailure] = useState<AttachmentFailure | null>(null);
   const entries = useRef(new Map<string, UploadEntry>());
@@ -270,7 +309,8 @@ export function useAttachmentUploads(
     entry.request = null;
     if (!isHeld(entry)) {
       // Removed while the server was already answering: nothing may stay there.
-      if (result.kind === "stored") void deleteUpload(result.attachmentId);
+      if (result.kind === "stored")
+        void deleteUpload(result.attachmentId, entry.agentId);
       return;
     }
     if (result.kind === "aborted") return;
@@ -281,7 +321,9 @@ export function useAttachmentUploads(
     }
     entry.attachmentId = result.attachmentId;
     change(entry.localId, { progress: 1 });
-    await storeThumbnail(result.attachmentId, entry.file);
+    // A chat session keeps no preview images; the original is shown instead.
+    if (entry.agentId === null)
+      await storeThumbnail(result.attachmentId, entry.file);
     if (!isHeld(entry)) return;
     change(entry.localId, {
       state: "ready",
@@ -291,9 +333,10 @@ export function useAttachmentUploads(
 
   function add(files: readonly File[]): void {
     if (!selection || files.length === 0) return;
-    const chosen = chooseFiles(files, entries.current.size);
+    const chosen = chooseFiles(files, entries.current.size, maximumBytes);
     setFailure(chosen.failure);
-    const added = chosen.accepted.map(createEntry);
+    const agentId = isAgentChat ? selection.id : null;
+    const added = chosen.accepted.map((file) => createEntry(file, agentId));
     if (added.length === 0) return;
     added.forEach((entry) => entries.current.set(entry.localId, entry));
     setItems((current) => [...current, ...added.map(toPending)]);
@@ -333,6 +376,7 @@ export function useAttachmentUploads(
   return {
     items,
     failure,
+    maximumBytes,
     isUploading: items.some((item) => item.state === "uploading"),
     add,
     remove,

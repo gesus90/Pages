@@ -7,6 +7,7 @@ import { SimulatedAgentMemoryModel } from "@/backend/agents/simulation/Simulated
 import { SimulatedConversationAgent } from "@/backend/agents/simulation/SimulatedConversationAgent";
 import { SimulatedConversationObserver } from "@/backend/agents/simulation/SimulatedConversationObserver";
 import type { AuthorizationRepository } from "@/backend/database/repositories/AuthorizationRepository";
+import { ChatAttachmentRepository } from "@/backend/database/repositories/chat/ChatAttachmentRepository";
 import type { ChatSessionRepository } from "@/backend/database/repositories/chat/ChatSessionRepository";
 import { ConversationReplySettingsRepository } from "@/backend/database/repositories/conversation/ConversationReplySettingsRepository";
 import { ConversationRepository } from "@/backend/database/repositories/conversation/ConversationRepository";
@@ -21,6 +22,7 @@ import { createChatSessionId } from "@/backend/service/chat/ChatSessionWords";
 import { AgentAccessEnvironmentService } from "@/backend/service/employee/AgentAccessEnvironmentService";
 import { AgentChatAccess } from "@/backend/service/employee/AgentChatAccess";
 import { chatModelLabels } from "@/backend/service/employee/AgentChatModelChoices";
+import { AgentChatAttachments } from "@/backend/service/employee/AgentChatAttachments";
 import { AgentChatPrivacyService } from "@/backend/service/employee/AgentChatPrivacyService";
 import type { AgentChatSessionService } from "@/backend/service/employee/AgentChatSessionService";
 import { AgentDeletionService } from "@/backend/service/employee/AgentDeletionService";
@@ -133,6 +135,24 @@ export function groupObserverInput(
 }
 
 /**
+ * The files a person sends in the direct chat with an agent, kept in the
+ * agent's chat session like those of every chat session.
+ */
+export function createAgentChatAttachments(parts: {
+  readonly input: Pick<EmployeeServicesInput, "database" | "chatAttachments">;
+  readonly store: EmployeeStore;
+  readonly users: UserRepository;
+}): AgentChatAttachments {
+  return new AgentChatAttachments({
+    users: parts.users,
+    store: parts.store,
+    files: parts.input.chatAttachments,
+    records: new ChatAttachmentRepository(parts.input.database),
+    createSessionId: createChatSessionId,
+  });
+}
+
+/**
  * The directory of the chat page with what runs and waits in each chat
  * (PAGE-303, PAGE-304).
  */
@@ -143,6 +163,7 @@ export function createChatDirectory(parts: {
   readonly messages: ChatSessionRepository;
   readonly sessions: AgentEmployeeSessions;
   readonly agentSessions: AgentChatSessionService;
+  readonly agentAttachments: Pick<AgentChatAttachments, "withFiles">;
   readonly conversations: ConversationApplicationServices;
   readonly models: AgentEmployeeModels;
 }): ChatDirectoryService {
@@ -169,6 +190,8 @@ export function createChatDirectory(parts: {
     queuedAgentMessages: (agentId, personId) =>
       sessions.queuedMessages(agentId, personId),
     agentSessions: parts.agentSessions,
+    withFiles: (agentId, sessionId, messages) =>
+      parts.agentAttachments.withFiles(agentId, sessionId, messages),
     queuedFor: (conversationId, agentId) =>
       replies.queuedFor(conversationId, agentId),
     replyModes: (conversationIds) =>

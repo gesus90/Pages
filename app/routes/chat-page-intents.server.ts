@@ -447,6 +447,8 @@ async function runChatDispatchIntent(
       await services.agentEmployeeSessions.send(person, {
         agentId: formData.get("agentId"),
         text: formData.get("text"),
+        // The files were uploaded to the person's chat session with the agent.
+        attachmentIds: readJson(formData.get("attachmentIds")) ?? undefined,
         clientMessageId: formData.get("clientMessageId"),
         delivery: readDelivery(formData.get("delivery")),
       });

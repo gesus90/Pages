@@ -57,6 +57,7 @@ import { ConversationReader } from "@/backend/service/conversation/ConversationR
 import { ConversationReplySettingsService } from "@/backend/service/conversation/ConversationReplySettingsService";
 import { ConversationService } from "@/backend/service/conversation/ConversationService";
 import { createConversationTranscriber } from "@/backend/service/conversation/ConversationTranscriber";
+import { ConversationVoiceRecognition } from "@/backend/service/conversation/ConversationVoiceRecognition";
 import { ConversationVoiceStore } from "@/backend/service/conversation/ConversationVoiceStore";
 import { WikiFileStore } from "@/backend/storage/WikiFileStore";
 import { voiceMaximumDurationMs } from "@/backend/config/SpeechRecognitionConfig";
@@ -90,6 +91,8 @@ export interface ConversationApplicationServices {
   readonly conversationReplySettingsService: ConversationReplySettingsService;
   /** The longest voice message Pages takes, in milliseconds (PAGE-277). */
   readonly conversationVoiceMaximumMs: number;
+  /** Turns a recording into text before sending, for chats whose messages are text alone. */
+  readonly conversationVoiceRecognition: ConversationVoiceRecognition;
   /** The Pages tools with which agents read chats and send messages (PAGE-311). */
   readonly agentChatService: AgentChatService;
   /** The interim messages and questions with answer buttons of chat agents (PAGE-391). */
@@ -346,6 +349,7 @@ function createMessagingServices(
 ): Pick<
   ConversationApplicationServices,
   | "conversationVoiceMaximumMs"
+  | "conversationVoiceRecognition"
   | "conversationService"
   | "agentChatQuestions"
   | "agentChatService"
@@ -353,20 +357,30 @@ function createMessagingServices(
   const { database } = input;
   const conversationVoiceMaximumMs = voiceMaximumDurationMs(input.speech);
   const users = new UserRepository(database);
+  const voices = new ConversationVoiceStore(
+    parts.files,
+    conversationVoiceMaximumMs,
+  );
+  const transcriber = createConversationTranscriber({ speech: input.speech });
   const conversationService = new ConversationService({
     conversations: parts.conversations,
     messages: parts.messages,
     reader: parts.conversationReader,
     attachments: parts.content.attachments,
     directory: parts.directory,
-    voices: new ConversationVoiceStore(parts.files, conversationVoiceMaximumMs),
+    voices,
     files: parts.files,
-    transcriber: createConversationTranscriber({ speech: input.speech }),
+    transcriber,
     events: parts.events,
     publisher: input.events,
   });
   return {
     conversationVoiceMaximumMs,
+    conversationVoiceRecognition: new ConversationVoiceRecognition({
+      voices,
+      files: parts.files,
+      transcriber,
+    }),
     conversationService,
     agentChatQuestions: new AgentChatQuestionService({
       users,

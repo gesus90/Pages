@@ -166,7 +166,10 @@ export interface AgentEmployeeSessionDependencies {
 /** A message a person sends to an agent. */
 export interface AgentMessage {
   readonly agentId: string;
+  /** The text; empty for a message of files alone. */
   readonly text: string;
+  /** The uploaded files of the chat session the message carries, in their order. */
+  readonly attachmentIds: readonly string[];
   readonly clientMessageId: string | null;
   /** How the person sent it while the agent answered (PAGE-381); absent joins the answer as before. */
   readonly delivery?: ConversationDelivery;
@@ -190,6 +193,8 @@ export interface AgentJobRequest {
     isResumed?: boolean,
   ) => Promise<PicaAcpConversationTurn>;
   readonly text: string;
+  /** The uploaded files of the chat session the message carries; absent for none. */
+  readonly attachmentIds?: readonly string[];
   readonly clientMessageId: string | null;
   /**
    * The message is a scheduled one, such as the work of an automation
@@ -292,16 +297,35 @@ export function isSessionBusy(error: unknown): boolean {
   return error instanceof AgentExecutionError && error.code === "requestBusy";
 }
 
-/** Reads the untrusted input of a chat message into its checked fields. */
+/** The IDs of the files a message names; anything but a short list of IDs is invalid. */
+function readAttachmentIds(input: unknown): readonly string[] {
+  if (input === undefined) return [];
+  if (!Array.isArray(input) || input.length > CHAT_LIMITS.attachmentsPerMessage)
+    throw new AgentEmployeeError("invalidInput");
+  return input.map((id: unknown) => {
+    if (typeof id !== "string" || !IDENTIFIER.test(id))
+      throw new AgentEmployeeError("invalidInput");
+    return id;
+  });
+}
+
+/**
+ * Reads the untrusted input of a chat message into its checked fields.
+ *
+ * @remarks
+ * A message needs text or at least one file. The files are checked later
+ * against the chat session, which alone knows which uploads are still unsent.
+ */
 export function readMessage(input: unknown): AgentMessage {
   const fields = readAgentObject(input);
   const { agentId, text, clientMessageId, delivery } = fields;
   if (typeof agentId !== "string" || !IDENTIFIER.test(agentId))
     throw new AgentEmployeeError("invalidInput");
   if (typeof text !== "string") throw new AgentEmployeeError("invalidInput");
+  const attachmentIds = readAttachmentIds(fields.attachmentIds);
   const trimmed = text.trim();
   if (
-    trimmed === "" ||
+    (trimmed === "" && attachmentIds.length === 0) ||
     Array.from(trimmed).length > CHAT_LIMITS.messageCharacters ||
     redactCredentials(trimmed) !== trimmed
   )
@@ -309,6 +333,7 @@ export function readMessage(input: unknown): AgentMessage {
   return {
     agentId,
     text: trimmed,
+    attachmentIds,
     clientMessageId:
       typeof clientMessageId === "string" && IDENTIFIER.test(clientMessageId)
         ? clientMessageId
