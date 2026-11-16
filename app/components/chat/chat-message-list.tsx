@@ -9,6 +9,7 @@ import { ChatAttachmentList } from "./chat-attachment-list";
 import { ChatErrorNotice } from "./chat-error-notice";
 import { ChatJobStatus } from "./chat-job-status";
 import { ChatLiveStatus } from "./chat-live-status";
+import { shouldShowChatLiveStatus } from "./chat-live-visibility";
 import { ChatMessageMeta, chatMessageFacts } from "./chat-message-meta";
 import { ChatQuotaDemoAnswer } from "./chat-quota-demo";
 import { PicaMascot } from "./pica-mascot";
@@ -85,6 +86,7 @@ function listContent(chat: ChatController): {
   readonly jobState: ChatJobState | undefined;
   readonly facts: ChatMessageFacts;
   readonly quotaHold: ChatQuotaDemoHold | null;
+  readonly showLiveStatus: boolean;
   readonly count: number;
 } {
   const { messages, session, activity } = chat.view;
@@ -101,6 +103,7 @@ function listContent(chat: ChatController): {
     jobState: live?.ended?.state ?? live?.job.state,
     facts: chatMessageFacts(activity, live?.steers),
     quotaHold,
+    showLiveStatus: shouldShowChatLiveStatus({ messages, live, sending }),
     count:
       messages.length +
       (sending ? 1 : 0) +
@@ -117,7 +120,7 @@ export function ChatMessageList({
   const { t } = useTranslation();
   const end = useRef<HTMLDivElement>(null);
   const { messages } = chat.view;
-  const { sending, live, jobState, facts, quotaHold, count } =
+  const { sending, live, jobState, facts, quotaHold, showLiveStatus, count } =
     listContent(chat);
   const heldAt = quotaHold?.heldAt;
 
@@ -141,7 +144,13 @@ export function ChatMessageList({
       {messages.map((message) => (
         <ChatMessageItem key={message.id} message={message} facts={facts} />
       ))}
-      {live ? <ChatJobStatus live={live} isOpen={isOpen} /> : null}
+      {live ? (
+        <ChatJobStatus
+          live={live}
+          isOpen={isOpen}
+          showLiveStatus={showLiveStatus}
+        />
+      ) : null}
       {quotaHold ? <ChatQuotaDemoAnswer hold={quotaHold} /> : null}
       {sending ? (
         <ChatMessageItem
@@ -152,7 +161,7 @@ export function ChatMessageList({
           }}
         />
       ) : null}
-      {sending && !chat.jobs.isRunning ? (
+      {sending && !chat.jobs.isRunning && showLiveStatus ? (
         <ChatLiveStatus startedAt={sending.startedAt} isOpen={isOpen} />
       ) : null}
       {chat.isLoading ? (

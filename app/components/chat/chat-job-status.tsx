@@ -14,6 +14,7 @@ import type { ChatLiveJob } from "./chat-job-state";
 interface ChatJobStatusProps {
   readonly live: ChatLiveJob;
   readonly isOpen: boolean;
+  readonly showLiveStatus: boolean;
 }
 
 function hideImages(): boolean {
@@ -35,16 +36,20 @@ function requestStart(live: ChatLiveJob): number {
 export function ChatJobStatus({
   live,
   isOpen,
-}: ChatJobStatusProps): React.ReactElement {
+  showLiveStatus,
+}: ChatJobStatusProps): React.ReactElement | null {
   const { t } = useTranslation();
-  if (isChatJobRunning(live))
+  if (isChatJobRunning(live)) {
+    if (!showLiveStatus) return <ChatPrivilegedActions tools={live.tools} />;
     return (
       <div className="space-y-1">
         <ChatLiveStatus startedAt={requestStart(live)} isOpen={isOpen} />
         <ChatPrivilegedActions tools={live.tools} />
       </div>
     );
+  }
   const state = live.ended?.state ?? live.job.state;
+  if (state === "completed") return null;
   const errorCode = live.ended?.errorCode ?? live.job.errorCode;
   return (
     <div className="space-y-1">

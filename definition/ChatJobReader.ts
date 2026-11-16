@@ -9,6 +9,7 @@ import type {
   ChatJob,
   ChatJobEntry,
   ChatJobEvent,
+  ChatJobTurnEvent,
   ChatJobUpdate,
   ChatJobUsage,
   ChatSelectionItem,
@@ -108,6 +109,20 @@ export function readChatJobUsage(value: unknown): ChatJobUsage {
   };
 }
 
+function readTurnEvent(event: Fields): ChatJobTurnEvent {
+  return {
+    kind: "turn",
+    turn: count(event.turn),
+    origin: oneOf(event.origin, ["message", "followUp"]),
+    ...(event.messageId === undefined
+      ? {}
+      : { messageId: text(event.messageId) }),
+    ...(typeof event.startedAt === "string"
+      ? { startedAt: event.startedAt }
+      : {}),
+  };
+}
+
 function readProgressEvent(event: Fields): ChatJobEvent | null {
   switch (event.kind) {
     case "phase":
@@ -116,14 +131,7 @@ function readProgressEvent(event: Fields): ChatJobEvent | null {
         phase: oneOf(event.phase, ["starting", "running", "finishing"]),
       };
     case "turn":
-      return {
-        kind: "turn",
-        turn: count(event.turn),
-        origin: oneOf(event.origin, ["message", "followUp"]),
-        ...(typeof event.startedAt === "string"
-          ? { startedAt: event.startedAt }
-          : {}),
-      };
+      return readTurnEvent(event);
     case "text":
       if (typeof event.isReset !== "boolean") throw invalid();
       return {
@@ -218,6 +226,7 @@ export function readChatJob(value: unknown): ChatJob {
   return {
     id: text(job.id),
     sessionId: text(job.sessionId),
+    ...(job.messageId === undefined ? {} : { messageId: text(job.messageId) }),
     state: oneOf(job.state, CHAT_JOB_STATES),
     errorCode: nullableText(job.errorCode),
     createdAt: text(job.createdAt),

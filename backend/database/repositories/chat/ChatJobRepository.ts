@@ -62,7 +62,8 @@ const JOB_COLUMNS = `
             )
     ) AS unreported_turns,
     chat_jobs.cost_is_estimated,
-    chat_jobs.cost_scope`;
+    chat_jobs.cost_scope,
+    chat_jobs.message_id`;
 
 function nullableCount(
   row: readonly DatabaseValue[],
@@ -115,6 +116,7 @@ function readJob(row: readonly DatabaseValue[]): ChatJob {
   return {
     id: readTextColumn(row, 0, "id"),
     sessionId: readTextColumn(row, 1, "session_id"),
+    messageId: readTextColumn(row, 16, "message_id"),
     state: readState(readTextColumn(row, 2, "state")),
     errorCode: readNullableTextColumn(row, 3, "error_code"),
     createdAt: readTextColumn(row, 4, "created_at"),

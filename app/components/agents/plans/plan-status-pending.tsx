@@ -4,7 +4,9 @@ import { cn } from "@/app/lib/cn";
 
 import {
   BlockNumber,
+  SEQUENCE_BLOCK_SIZE,
   SEQUENCE_CHEVRON,
+  SEQUENCE_FIRST_CHEVRON,
   blockLabel,
   sequenceTone,
   showsPass,
@@ -40,7 +42,7 @@ export function PlanPendingSequence({
     );
   return (
     <div
-      className="flex min-w-0 gap-1 overflow-x-auto px-3"
+      className="flex min-w-0 -space-x-1.5 gap-1 overflow-x-auto px-3"
       aria-label={t("plans.progress.sequence")}
     >
       {blocks.map((block, index) => {
@@ -56,8 +58,9 @@ export function PlanPendingSequence({
             title={label}
             data-sequence-kind={block.kind}
             className={cn(
-              "flex h-7.5 w-11 shrink-0 items-center justify-center text-xs font-semibold tabular-nums",
-              SEQUENCE_CHEVRON,
+              "flex items-center justify-center text-xs font-semibold tabular-nums",
+              SEQUENCE_BLOCK_SIZE,
+              index === 0 ? SEQUENCE_FIRST_CHEVRON : SEQUENCE_CHEVRON,
               sequenceTone(block, null),
             )}
           >
@@ -69,15 +72,18 @@ export function PlanPendingSequence({
           </span>
         );
       })}
-      {gaps.map((gap) => {
+      {gaps.map((gap, index) => {
         const label = `${gap.name} · ${t(`plans.progress.gap.${gap.reason}`)}`;
         return (
           <span
             key={gap.id}
             title={label}
             className={cn(
-              "flex h-7.5 w-11 shrink-0 items-center justify-center bg-warning-subtle text-xs font-bold text-warning",
-              SEQUENCE_CHEVRON,
+              "flex items-center justify-center bg-warning-subtle text-xs font-bold text-warning",
+              SEQUENCE_BLOCK_SIZE,
+              blocks.length === 0 && index === 0
+                ? SEQUENCE_FIRST_CHEVRON
+                : SEQUENCE_CHEVRON,
             )}
           >
             <span aria-hidden="true">!</span>

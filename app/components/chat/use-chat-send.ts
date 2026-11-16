@@ -11,10 +11,14 @@ import { createRandomUuid } from "@/app/lib/random-uuid";
 import { applyChatSessionRead } from "./use-chat-uploads";
 
 import type { Dispatch, SetStateAction } from "react";
-import type { ChatView } from "./use-chat-uploads";
 import type { ChatTemporaryPassword } from "@/definition/AgentAdministration";
-import type { ChatAttachment, ChatReply } from "@/definition/Chat";
+import type {
+  ChatAttachment,
+  ChatReply,
+  ChatSendResult,
+} from "@/definition/Chat";
 import type { ChatJob } from "@/definition/ChatJob";
+import type { ChatView } from "./use-chat-uploads";
 
 /** Whether the input field keeps its text after a submission. */
 export type ChatSubmitOutcome = "clear" | "restore";
@@ -26,6 +30,10 @@ export interface ChatSending {
   readonly startedAt: number;
   /** The session the message went to; its answer belongs to this session only. */
   readonly sessionId: string;
+  /** The last stored message before submission, used until the server confirms the question's ID. */
+  readonly afterMessageId: string | null;
+  /** The stored question's ID once the send result confirms it. */
+  readonly messageId?: string;
   readonly text: string;
   /** The attachments sent with the message: a snapshot taken when it was sent (PAGE-92). */
   readonly attachments: readonly ChatAttachment[];
@@ -119,6 +127,43 @@ function useClientMessageIds(): ClientMessageIds {
   };
 }
 
+function sentMessageId(result: ChatSendResult): string {
+  if (result.kind === "reply") return result.reply.question.id;
+  return result.kind === "job" ? result.job.messageId : result.steer.messageId;
+}
+
+function recordSentMessage(
+  setSending: Dispatch<SetStateAction<ChatSending | null>>,
+  requestId: string,
+  result: ChatSendResult,
+): void {
+  const messageId = sentMessageId(result);
+  setSending((current) =>
+    current?.requestId === requestId ? { ...current, messageId } : current,
+  );
+}
+
+async function sendChatRequest(
+  message: ChatSending,
+  clientMessageId: string,
+  signal: AbortSignal,
+): Promise<ChatSendResult> {
+  const result = await chatApi(
+    {
+      intent: "send",
+      message: {
+        requestId: message.requestId,
+        clientMessageId,
+        sessionId: message.sessionId,
+        text: message.text,
+        attachmentIds: message.attachments.map(({ id }) => id),
+      },
+    },
+    signal,
+  );
+  return readChatSendResult(result);
+}
+
 /**
  * Sends one message at a time with the unsent attachments.
  *
@@ -166,31 +211,25 @@ export function useChatSend({
     const attachmentIds = attachments.map(({ id }) => id);
     const controller = new AbortController();
     abort.current = controller;
-    setSending({
+    const request: ChatSending = {
       requestId,
       sessionId: session.id,
+      afterMessageId: view.messages.at(-1)?.id ?? null,
       text,
       attachments,
       startedAt: Date.now(),
-    });
+    };
+    setSending(request);
     setTemporaryPasswords([]);
     try {
-      const result = await chatApi(
-        {
-          intent: "send",
-          message: {
-            requestId,
-            clientMessageId: clientMessageIds.idFor(
-              JSON.stringify([session.id, text, attachmentIds]),
-            ),
-            sessionId: session.id,
-            text,
-            attachmentIds,
-          },
-        },
+      const sent = await sendChatRequest(
+        request,
+        clientMessageIds.idFor(
+          JSON.stringify([session.id, text, attachmentIds]),
+        ),
         controller.signal,
       );
-      const sent = readChatSendResult(result);
+      recordSentMessage(setSending, requestId, sent);
       if (sent.kind === "reply") {
         setTemporaryPasswords(sent.reply.temporaryPasswords ?? []);
         setView((current) => addReply(current, sent.reply, session.id));

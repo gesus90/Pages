@@ -388,7 +388,7 @@ export class PicaAcpJob {
       if (next === null) return;
       const answerId =
         next.origin === "adapter"
-          ? await this.adapterTurn(signal)
+          ? await this.adapterTurn(next.message, signal)
           : await this.followUpTurn(next.message, signal);
       await this.dependencies.steers.answer(next.message.id, answerId);
       this.steering.answered(next.message.id);
@@ -396,9 +396,14 @@ export class PicaAcpJob {
   }
 
   /** Follows a turn codex-acp started for a steer after its own turn ended. */
-  private async adapterTurn(signal: AbortSignal): Promise<string> {
+  private async adapterTurn(
+    message: PicaAcpMessage,
+    signal: AbortSignal,
+  ): Promise<string> {
     this.turn += 1;
-    await this.journal.record(turnBeganEvent(this.turn, "followUp"));
+    await this.journal.record(
+      turnBeganEvent(this.turn, "followUp", message.id),
+    );
     await this.thread.ended(signal);
     this.hasAdapterTurn = false;
     if (this.credential.boundTurn === this.turn) this.credential.revoke();
@@ -453,7 +458,7 @@ export class PicaAcpJob {
       ),
     );
     this.credential.bind(this.turn);
-    await this.journal.record(turnBeganEvent(this.turn, origin));
+    await this.journal.record(turnBeganEvent(this.turn, origin, message.id));
   }
 
   private async awaitTurn(
