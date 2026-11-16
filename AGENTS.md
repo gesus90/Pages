@@ -159,8 +159,7 @@ For database work:
 
 - Follow all SQL formatting and structure rules from `GUIDELINES.md`.
 - PostgreSQL is the only runtime database and `databaseUrl` is required after
-  setup. `pnpm run postgres:check` checks the PostgreSQL path. Do not add another
-  runtime database driver, dialect or fallback.
+  setup. Do not add another runtime database driver, dialect or fallback.
 - Add schema changes as a numbered `.sql` file in
   `backend/database/postgres/migrations/`. The historical DuckDB migrations and
   development dependency are retained only for the offline transfer command.
@@ -171,96 +170,37 @@ For database work:
 
 ---
 
-## 9. Tests
+## 9. Validation during the test and CI restart
 
-### Current state after PAGE-32 and PAGE-33
+The previous test suites, test runners, fixtures, coverage tooling and CI
+workflows have been removed. There is currently no automated Pages behavior
+suite and no repository CI workflow. Do not invoke removed test commands or
+reintroduce old suites as a fallback. A new test and CI setup requires a
+separate assignment.
 
-PAGE-38 introduced the standalone Backend/Frontend Vitest and diagnostic
-coverage configuration. PAGE-32 rebuilds and executes the Backend unit suite
-using exactly `pnpm run test:backend`. See [tests/backend/README.md](./tests/backend/README.md)
-for the analyzed behavior, mocked boundaries, measured results and remaining
-coverage gaps. Existing targeted Backend regressions are included. PAGE-33
-separately extends and validates the Frontend suite using exactly
-`pnpm run test:frontend`; see [tests/frontend/README.md](./tests/frontend/README.md)
-for behavior selection, boundaries, results and gaps. Backend validation says
-nothing about Frontend coverage.
+`pnpm run check` and `pnpm run lint` remain static checks; neither proves
+functional behavior. Follow the validation scope of the current assignment,
+use isolated checks with mocked external boundaries where appropriate, and
+report only commands actually executed. Do not start live services or access
+live data for validation without authorization.
 
-Keep the two Pages scripts `test:backend` and `test:frontend` separate. No root
-`test` script, aggregate or alias is allowed. Pages CI runs no tests on pushes
-to `main` and on pull requests. The one exception (PAGE-290) is a pushed Git tag
-`ci_test` or `ci_test-<id>`: it starts the CI job `Pages tests (100% coverage)`
-with both unit suites, the browser suite, `postgres:check`, the build and a
-mandatory 100% coverage verdict per scope (see [CI test tags](tests/README.md#ci-test-tags-page-290)). Run
-`pnpm run check` and `pnpm run lint` as non-test gates; neither demonstrates
-functional coverage.
-
-### Rules for future test work
-
-- Once test infrastructure is rebuilt, add or update relevant tests whenever
-  behavior changes; keep them focused on observable behavior.
-- Do not delete or weaken tests only to make a change pass.
-- Follow the test patterns established by the rebuild and avoid unnecessary
-  test infrastructure.
-- Coverage is diagnostic: report statements, branches, functions and lines per
-  relevant Pages source module, including untested files and branch gaps. No
-  mandatory percentage, per-file quota or replacement threshold applies for now,
-  except in the tag-started CI job of PAGE-290, which requires 100%.
-  Do not hide gaps with coverage-ignore comments or blanket exclusions.
-- Keep exactly two Pages unit test scripts: `test:backend` and `test:frontend`,
-  both with coverage. No `test` script, aggregator or alias. The browser and visual regression suite of `tests/browser/`
-  (PAGE-172, `pnpm run browser:test`) is one of two other test commands. It is not a
-  unit scope, has no coverage, runs in CI only for a `ci_test` tag, and is the only place for real
-  browser tests; see [tests/browser/README.md](./tests/browser/README.md).
-- `pnpm run postgres:check` (PAGE-212) is the second one, and the only test that starts a real
-  database server, a temporary PostgreSQL instance of its own. Like the browser
-  suite it is no unit scope, has no coverage and runs in CI only for a `ci_test` tag.
-  `pnpm run postgres:restore-check` (PAGE-219) also starts one, but it is an operating
-  command that checks a backup, no test (`docs/PostgresMigration.md`).
-- Choose scope by behavior: server-side loaders/actions under `app/` belong to
-  Backend in Node; isolated React components/hooks belong to Frontend in jsdom.
-  Discovery stays disjoint under `tests/backend/` and `tests/frontend/`, with
-  `*.unit.test.{ts,tsx}` only. Mixed route modules and shared source deliberately
-  appear in both diagnostic reports; do not aggregate the reports.
-- Mock external boundaries. No real databases, services, networks or subprocess
-  chains, and no smoke, E2E, browser, integration or live-provider tests in the
-  two unit scopes. Real browser tests live only in `tests/browser/`.
-- Intended reports go to `coverage/backend/` and `coverage/frontend/`: terminal
-  and file text tables, HTML, JSON counters and per-module JSON metric summaries.
-  PAGE-32 validates Backend reports; PAGE-33 separately validates Frontend reports.
-- Pages tests may verify Pages-owned Agent API, plan bridge, wiki and database
-  behavior. They must not start an MCP server, client, transport or process,
-  including through a shared helper. Use mocks or stubs at an MCP boundary.
-- Keep future Pages scripts, discovery, setup, coverage and watch mode scoped to
-  Pages. Do not add a root test aggregator.
-- The standalone MCP client is maintained outside this repository. Pages owns
-  its paired-device HTTP API under `/api/mcp/v1/`; the Pica tool bridge and
-  step-bound plan bridge remain separate internal access paths. Unit tests
-  mock these boundaries and never start an MCP client, server or transport.
-
-### QA gates without a person at the terminal
-
-Gates run unattended, so their setup and evidence are tools, not instructions:
+Dependency setup and source fingerprints remain available to general agent
+plans:
 
 - `node scripts/qa-evidence.mjs preflight --scope pages --install` repairs
-  stale or missing modules from the frozen lockfile. `pnpm run` refuses stale
-  modules (`verifyDepsBeforeRun: error`) instead of purging them in a gate.
+  dependencies from the frozen lockfile.
 - `node scripts/qa-evidence.mjs fingerprint --scope pages [--manifest <file>]`
-  is the one source fingerprint.
-- `node scripts/qa-evidence.mjs coverage --scope pages --summary <file> [--gaps <file>]`
-  compares raw counters per metric and file and refuses a summary older than the
-  source. It reports; the percentage goal of a run comes from its assignment, and
-  this chapter still sets no mandatory percentage.
-- `node scripts/qa-evidence.mjs verify-handoff --scope pages --file <report>`
-  decides whether a QA report releases a Git step: status, report, current
-  fingerprint and raw counters of every scope. Everything else blocks.
-- `pnpm run browser:test` provides a Chromium that starts and a free loopback port
-  and writes its reports outside the checkout. Run the two unit suites one after
-  the other: under parallel load, individual Frontend tests exceed their 5 s limit.
+  identifies the source population and installed dependency state.
 
-Generated output never belongs into a source path. The lint population does not
-depend on Git: only the pruned directories of `scripts/run-lint.mjs` and the
-`ignores` of `eslint.config.js` name generated output, explicitly. Never delete
-preserved reports to pass a gate.
+Backup restoration verification and offline database transfer remain operating
+commands. They are not an automated behavior suite. See
+[PostgreSQL operations](docs/PostgresMigration.md) and the
+[removal inventory](docs/TestCiRemoval.md) for retained uses and external
+plan dependencies.
+
+Generated output never belongs in a source path. Keep existing reports;
+ignores for generated output remain explicit in `scripts/source-population.mjs`
+and `eslint.config.js`.
 
 ---
 
@@ -300,7 +240,7 @@ Before considering a task complete:
 
 - Confirm the requested behavior is implemented.
 - Confirm changed code follows `GUIDELINES.md`.
-- Run `pnpm run check` and `pnpm run lint`; do not claim test or coverage validation from these gates. Run `pnpm run test:backend` for Backend behavior changes and the tests required by the current task unless that task explicitly prohibits execution. Frontend validation remains separate.
+- Run `pnpm run check` and `pnpm run lint` unless the current assignment explicitly prohibits execution. These static checks do not demonstrate functional behavior. Document the checks actually run and any validation handed to a separate QA step.
 - Confirm no unrelated code was changed.
 - Confirm types and interfaces match the implementation.
 - Update documentation only when documented behavior changed.

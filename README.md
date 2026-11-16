@@ -107,17 +107,16 @@ are in German.
 | Configure and operate an instance | [Operations](docs/Operations.md), [systemd services](docs/PlatformServices.md), [reverse proxy](deploy/proxy/README.md) |
 | Connect GitHub, Discord or Google Drive | [Integrations](docs/IntegrationsService.md), [Storage and Google sign-in](docs/StorageApi.md) |
 | Use Pica or run agent plans | [Pica](docs/Pica.md), [plans](docs/AgentPlanRunner.md), [tools and ACP adapters](docs/AgentRuntime.md) |
-| Develop and validate changes | [Development](docs/Development.md), [unit scopes and CI test tags](tests/README.md), [browser tests](tests/browser/README.md) |
+| Develop and validate changes | [Development](docs/Development.md), [test and CI restart inventory](docs/TestCiRemoval.md) |
 
 ## Contributing
 
 Read [GUIDELINES.md](GUIDELINES.md) before changing source; coding agents must
-also follow [AGENTS.md](AGENTS.md). Keep changes focused and add relevant
-behavior tests with mocked external boundaries. The
-[development guide](docs/Development.md) covers repository layout and commands;
-[tests/README.md](tests/README.md) explains the separate Backend/Frontend scopes
-and CI test tags. Follow the validation scope of your assignment and report
-only checks actually executed.
+also follow [AGENTS.md](AGENTS.md). Keep changes focused. The
+[development guide](docs/Development.md) covers repository layout and commands.
+The previous tests and CI have been removed for a separate rebuild; see the
+[restart inventory](docs/TestCiRemoval.md). Follow the validation scope of your
+assignment and report only checks actually executed.
 
 ## Security notes
 

@@ -169,8 +169,6 @@ steps.
 
 ## Verification
 
-`tests/backend/backend/service/mcp/calendar/` checks the requests, the
-projection onto the contract, the operation IDs, the read-only agents, the
-two-step deletion, the error mapping and the route answers against a mocked
-`CalendarService` and token check; no database and no MCP server or client
-is started.
+The previous mocked request and route tests have been removed with the old
+suites. There is currently no automated behavioral validation of this API.
+See the [restart inventory](TestCiRemoval.md).

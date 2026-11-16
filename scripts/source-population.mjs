@@ -31,7 +31,6 @@ const RUNTIME_ROOT_DIRECTORIES = new Set([
   "data",
   "Results",
   ".claude",
-  "tests/browser/results",
 ]);
 
 /** Whether a directory, relative to the root, holds only generated output. */
@@ -76,10 +75,7 @@ function isLocalState(relativePath) {
  * source can change unnoticed behind an ignore rule.
  */
 export function isFingerprintedFile(relativePath) {
-  return (
-    !isLocalState(relativePath) &&
-    !relativePath.startsWith("tests/browser/results/")
-  );
+  return !isLocalState(relativePath);
 }
 
 /**

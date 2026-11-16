@@ -278,20 +278,16 @@ afterwards. The new timeline goes into the archive, so take a new base backup ri
 - The check needs free space for one more copy of the base backup on `/mnt/Data`.
 - Attachments and other files of Pages are not part of this backup.
 
-## PostgreSQL checks and historical parity
+## Validation state and historical parity
 
-`pnpm run postgres:check` checks migration idempotence, checksum and unknown
-migration refusal, rollback, time functions and repository flows. The development
-check compares the historical DuckDB migration catalog with its PostgreSQL
-counterpart through `010_removes_nul_on_save.sql` in a separate empty database.
-Current PostgreSQL-only migrations are checked against all declared tables,
-columns, indexes, views and explicit or identity-owned sequences, alongside
-migration idempotence and refusal checks. Historical parity does not require new
-runtime tables or file-reference columns in the frozen offline transfer schema.
-The DuckDB dependency is limited to offline tooling, not the production runtime.
-Repository flows now exercise PostgreSQL with their explicit behavioral
-expectations. The former cross-database repository comparison belongs to the
-accepted migration evidence; it is not rerun by this PostgreSQL-only product check.
+The previous database regression tools and automated suites have been removed.
+No migration, schema-parity or repository-flow suite is currently installed.
+Past measurements remain historical evidence and do not validate this checkout.
+See the [restart inventory](TestCiRemoval.md).
+
+The backup restoration command documented above and the offline transfer command
+remain operating tools. DuckDB is limited to offline transfer and is not a
+production runtime dependency.
 
 ## Database locale
 
@@ -352,8 +348,8 @@ between the databases that is meant to stay is this removal.
   nothing is written to get an answer, and a concurrent change is seen when PostgreSQL
   re-reads the locked row. This applies to these two saves only: a stored `ab` accepts a
   save of `a\0b` on PostgreSQL, and is a conflict on DuckDB. No read or other comparison
-  treats `a\0b` as `ab`. `postgres:check` proves this with two connections
-  (`repeated-save-checks.ts`).
+  treats `a\0b` as `ab`. The former two-connection regression check has
+  been removed with the previous test infrastructure.
 - A service that compares a text about to be saved with a stored one uses
   `storedTextForm` (`TaskWriteService`, `TaskFieldService`, `WikiPageService`). Without
   it a repeated save with U+0000 is a conflict, a new version or a new history entry on
@@ -428,22 +424,10 @@ keep the results equal:
 - A reservation with a run comes before one without, then by creation. So a real
   collision queues a plan even where an old reservation has no snapshot to compare with.
 
-| Area                                          | State                                            |
-| --------------------------------------------- | ------------------------------------------------ |
-| Files directly in `repositories/`, `project/` | Ported, exercised by `postgres:check` (PAGE-214) |
-| `task/`, `wiki/`                              | Ported, exercised by `postgres:check` (PAGE-215) |
-| `agent/`, `agents/`, `runner/`, `remote/`     | Ported, exercised by `postgres:check` (PAGE-216) |
-| `chat/`, `discord/`, `mcp/`, `mobile/`        | Ported, exercised by `postgres:check` (PAGE-217) |
-
-`postgres:check` reads the public methods and exported functions of a ported area
-from its source and runs the existing flows against a fresh PostgreSQL database.
-It checks expected refusals, explicit behavioral assertions, and whether each public
-method is reached. The earlier cross-database comparison is retained as historical
-migration evidence, rather than being represented by two identical PostgreSQL runs.
-A flow reverses the physical order of a table in PostgreSQL before it reads a list,
-so explicit order assertions detect a missing unique last sort key.
-An index read backwards undoes that reversal, so a list sorted descending is read in
-both physical orders.
+The repository areas for accounts, projects, tasks, wiki, agents, runners,
+remote access, chat, Discord, MCP and mobile use PostgreSQL. Their former
+regression flows and physical-order checks have been removed. This describes
+the implementation, without claiming current automated behavioral validation.
 
 The following differences were recorded by the previous release’s cross-database comparison:
 
