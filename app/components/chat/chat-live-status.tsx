@@ -10,7 +10,7 @@ const DOT_DELAYS = [
   "[animation-delay:300ms]",
   "[animation-delay:600ms]",
 ] as const;
-const PHRASES = ["browsing", "working", "moment"] as const;
+const PHRASES = ["phrase1", "phrase2", "phrase3", "phrase4", "phrase5"] as const;
 const PHRASE_INTERVAL_SECONDS = 20;
 
 interface ChatLiveStatusProps {
@@ -29,36 +29,34 @@ export function ChatLiveStatus({
     PHRASES[Math.floor(elapsed / PHRASE_INTERVAL_SECONDS) % PHRASES.length];
   return (
     <div
-      className="flex items-start gap-2"
+      className="grid grid-cols-[28px_minmax(0,1fr)] items-center gap-x-2 gap-y-0.5"
       role="status"
       aria-label={t("chat.live.label")}
       aria-atomic="false"
     >
-      <PicaMascot className="mt-1 size-7" />
-      <div className="min-w-0 py-1">
-        <p className="flex items-start gap-2.5 text-sm">
-          <span aria-hidden="true" className="mt-1.5 flex shrink-0 gap-1">
-            {DOT_DELAYS.map((delay) => (
-              <span
-                key={delay}
-                className={cn(
-                  "size-1.5 animate-pulse rounded-full bg-primary motion-reduce:animate-none",
-                  delay,
-                )}
-              />
-            ))}
-          </span>
-          <span>{t(`chat.live.${phrase}`)}</span>
-        </p>
-        <p
-          role="timer"
-          aria-live="off"
-          aria-label={t("chat.live.elapsed")}
-          className="mt-1 text-xs text-muted-foreground tabular-nums"
-        >
-          {formatChatElapsed(elapsed)}
-        </p>
-      </div>
+      <PicaMascot className="size-7" />
+      <p className="flex h-7 min-w-0 items-center gap-2.5 text-sm leading-5">
+        <span aria-hidden="true" className="flex shrink-0 gap-1">
+          {DOT_DELAYS.map((delay) => (
+            <span
+              key={delay}
+              className={cn(
+                "size-1.5 animate-pulse rounded-full bg-primary motion-reduce:animate-none",
+                delay,
+              )}
+            />
+          ))}
+        </span>
+        <span className="min-w-0 truncate">{t(`chat.live.${phrase}`)}</span>
+      </p>
+      <p
+        role="timer"
+        aria-live="off"
+        aria-label={t("chat.live.elapsed")}
+        className="col-start-2 text-xs leading-4 text-muted-foreground tabular-nums"
+      >
+        {formatChatElapsed(elapsed)}
+      </p>
     </div>
   );
 }

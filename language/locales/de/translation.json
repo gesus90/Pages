@@ -3905,9 +3905,11 @@
     "live": {
       "label": "Pica bearbeitet deine Anfrage",
       "elapsed": "Verstrichene Bearbeitungszeit",
-      "browsing": "Ich blättere das für dich durch …",
-      "working": "Einen Augenblick, ich kümmere mich darum …",
-      "moment": "Ich bin noch für dich dran …"
+      "phrase1": "Ich sehe mir das an …",
+      "phrase2": "Ich suche die Details …",
+      "phrase3": "Einen Moment noch …",
+      "phrase4": "Ich ordne das für dich …",
+      "phrase5": "Gleich bin ich so weit …"
     },
     "files": {
       "count": "{{count}} von {{limit}} Dateien für diese Nachricht",

@@ -122,6 +122,8 @@ export interface ChatJobTurnEvent {
   readonly kind: "turn";
   readonly turn: number;
   readonly origin: "message" | "followUp";
+  /** The user message answered by this turn; absent in older journal entries. */
+  readonly messageId?: string;
   /** UTC instant a follow-up turn began, so its elapsed time is its own; absent for the first turn. */
   readonly startedAt?: string;
 }
@@ -235,6 +237,8 @@ export interface ChatJobEntry {
 export interface ChatJob {
   readonly id: string;
   readonly sessionId: string;
+  /** The user message that started the job; absent in older client payloads. */
+  readonly messageId?: string;
   readonly state: ChatJobState;
   readonly errorCode: string | null;
   readonly createdAt: string;

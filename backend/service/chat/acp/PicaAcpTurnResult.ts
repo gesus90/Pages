@@ -24,10 +24,17 @@ export interface PicaAcpOutcome {
 export function turnBeganEvent(
   turn: number,
   origin: ChatJobTurnEvent["origin"],
+  messageId: string,
 ): ChatJobTurnEvent {
   return origin === "followUp"
-    ? { kind: "turn", turn, origin, startedAt: new Date().toISOString() }
-    : { kind: "turn", turn, origin };
+    ? {
+        kind: "turn",
+        turn,
+        origin,
+        messageId,
+        startedAt: new Date().toISOString(),
+      }
+    : { kind: "turn", turn, origin, messageId };
 }
 
 /**

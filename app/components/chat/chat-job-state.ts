@@ -36,6 +36,12 @@ export interface ChatLiveJob {
   readonly ended: ChatJobEndEvent | null;
   /** When the running follow-up turn began; the first turn counts from the job's creation. */
   readonly turnStartedAt?: string;
+  /** The user message of the current turn, independent of its start time. */
+  readonly turnMessageId?: string;
+  /** The most recent stored answer reported by the journal. */
+  readonly lastAnswerMessageId?: string;
+  /** Answers through this message belong to earlier turns. */
+  readonly turnAfterMessageId?: string;
 }
 
 /** The result of applying one read of the journal. */
@@ -71,6 +77,8 @@ function beginTurn(live: ChatLiveJob, event: ChatJobTurnEvent): ChatLiveJob {
   return {
     ...live,
     tools: [],
+    turnMessageId: event.messageId,
+    turnAfterMessageId: live.lastAnswerMessageId,
     ...(event.startedAt === undefined
       ? {}
       : { turnStartedAt: event.startedAt }),
@@ -108,9 +116,11 @@ function applyEvent(live: ChatLiveJob, event: ChatJobEvent): ChatLiveJob {
       };
     case "answer":
       // A stored answer clears only its own turn; a following turn may already show text.
-      return event.turn < live.textTurn
-        ? live
-        : { ...live, text: "", tools: [] };
+      return {
+        ...live,
+        lastAnswerMessageId: event.messageId,
+        ...(event.turn < live.textTurn ? {} : { text: "", tools: [] }),
+      };
     case "usage":
       return { ...live, usage: event.usage };
     case "compaction":

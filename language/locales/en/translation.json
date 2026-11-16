@@ -3905,9 +3905,11 @@
     "live": {
       "label": "Pica is working on your request",
       "elapsed": "Elapsed processing time",
-      "browsing": "I’m looking through this for you …",
-      "working": "One moment, I’m working on it …",
-      "moment": "I’m still on it for you …"
+      "phrase1": "Taking a look …",
+      "phrase2": "Finding the details …",
+      "phrase3": "One moment …",
+      "phrase4": "Sorting this out …",
+      "phrase5": "Almost there …"
     },
     "files": {
       "count": "{{count}} of {{limit}} files for this message",
