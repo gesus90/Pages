@@ -1,8 +1,7 @@
-page256-google-drive-icon.png
+google-drive-icon.png
 
 Google Drive icon shown beside the service name in Settings -> System ->
-Storage (PAGE-256). The file is the icon Igor named as binding source for the
-ticket, kept byte-identical (SHA-256
+Storage. The file is kept byte-identical (SHA-256
 6e91438a7aa7589eea8558bba27355eeb675d2c2328fee1f9a37d5c87200e89f) and only
 scaled in the browser:
 
@@ -17,7 +16,7 @@ Google or Vecteezy beyond the above is claimed.
 google-drive-product-logo.png
 
 The multicolored Google Drive product logo beside the "Google Drive" path of
-the Storage area (PAGE-188). It is Google's own logo file, kept byte-identical
+the Storage area. It is Google's own logo file, kept byte-identical
 (96 x 96 px, SHA-256
 72ea8d2de5e0568158cf48029cb9121564ab20c275465a65453776baf1160ebd) and only
 scaled in the browser:

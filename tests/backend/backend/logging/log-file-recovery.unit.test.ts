@@ -26,12 +26,10 @@ function file(
   truncate: ReturnType<typeof vi.fn>;
 } {
   return {
-    stat: vi
-      .fn()
-      .mockResolvedValue({
-        size: Buffer.byteLength(content),
-        isFile: () => isFile,
-      }),
+    stat: vi.fn().mockResolvedValue({
+      size: Buffer.byteLength(content),
+      isFile: () => isFile,
+    }),
     chmod: vi.fn().mockResolvedValue(undefined),
     close: vi.fn().mockResolvedValue(undefined),
     read: vi.fn(

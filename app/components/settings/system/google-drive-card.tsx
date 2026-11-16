@@ -1,7 +1,7 @@
 import { Database } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
-import googleDriveIconUrl from "@/assets/google-drive/page256-google-drive-icon.png?no-inline";
+import googleDriveIconUrl from "@/assets/google-drive/google-drive-icon.png?no-inline";
 import { Button } from "@/app/components/ui/button";
 import { SettingsCard } from "@/app/components/settings/settings-layout";
 

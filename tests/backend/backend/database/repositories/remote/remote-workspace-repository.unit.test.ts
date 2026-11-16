@@ -14,8 +14,12 @@ const query = vi.fn();
 const execute = vi.fn();
 const transaction = partial<DatabaseTransaction>({ query, execute });
 const database = partial<Database>({
-  transaction: async (work) => work(transaction),
-  readTransaction: async (work) => work(transaction),
+  transaction: async <Result>(
+    work: (activeTransaction: DatabaseTransaction) => Promise<Result>,
+  ): Promise<Result> => work(transaction),
+  readTransaction: async <Result>(
+    work: (activeTransaction: DatabaseTransaction) => Promise<Result>,
+  ): Promise<Result> => work(transaction),
 });
 const repository = new RemoteWorkspaceRepository(database);
 const row = [

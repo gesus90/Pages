@@ -41,7 +41,9 @@ function fixture(): {
       partial<Database>({
         query,
         execute,
-        transaction: async (work) => work(transaction),
+        transaction: async <Result>(
+          work: (activeTransaction: DatabaseTransaction) => Promise<Result>,
+        ): Promise<Result> => work(transaction),
       }),
     ),
     query,

@@ -92,12 +92,10 @@ it("rejects unavailable and unauthenticated requests and ends expired sessions",
 });
 
 it("answers a plan request and reports a provider error without claiming success", async () => {
-  const readPlan = vi
-    .fn()
-    .mockResolvedValue({
-      kind: "ready",
-      payload: { planId: "plan", access: "gone" },
-    });
+  const readPlan = vi.fn().mockResolvedValue({
+    kind: "ready",
+    payload: { planId: "plan", access: "gone" },
+  });
   const provider = partial<PicaMobilePlansProvider>({
     open: () => ({ readPlan }),
   });
@@ -133,12 +131,10 @@ it("answers a plan request and reports a provider error without claiming success
 });
 
 it("does not commit a sequence when sending its frame fails", async () => {
-  const readPlans = vi
-    .fn()
-    .mockResolvedValue({
-      kind: "ready",
-      rows: [{ id: "plan", name: "Plan", status: "idle" }],
-    });
+  const readPlans = vi.fn().mockResolvedValue({
+    kind: "ready",
+    rows: [{ id: "plan", name: "Plan", status: "idle" }],
+  });
   const provider = partial<PicaMobilePlansProvider>({
     open: () => ({ readPlans }),
     watch: () => () => undefined,

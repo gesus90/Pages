@@ -47,9 +47,7 @@ function fixture(job: GitHubJob): {
   return { worker: new GitHubJobWorker(dependencies), finish, retry, github };
 }
 
-async function run(
-  job: GitHubJob,
-): Promise<{
+async function run(job: GitHubJob): Promise<{
   finish: ReturnType<typeof vi.fn>;
   retry: ReturnType<typeof vi.fn>;
 }> {

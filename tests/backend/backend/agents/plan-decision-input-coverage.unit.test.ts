@@ -94,7 +94,7 @@ it("rejects bindings that do not refer to a source or result", () => {
   expect(() =>
     readPlanDecisionNode({ input: {} }, BASE, () => ({
       kind: "literal",
-      value: "x",
+      value: { type: "text", text: "x" },
     })),
   ).toThrow();
 });

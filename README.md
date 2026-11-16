@@ -23,8 +23,7 @@ repository contains its [server protocols and push support](docs/PicaMobileWebSo
 
 The commands below are for local development on a Unix-like shell. They were
 checked against source and scripts on 2026-11-13; a clean installation and
-browser setup were **not run** for this documentation change. The targeted
-checks and boundaries are recorded in the [verification report](docs/PAGE-332.md).
+browser setup were **not run** for this documentation change.
 
 ### Requirements
 
@@ -96,7 +95,7 @@ See [configuration and paths](docs/Operations.md),
 
 ## Documentation
 
-[Browse the documentation index](docs/README.md) for all topics and older ticket evidence.
+[Browse the documentation index](docs/README.md) for all topics and historical evidence.
 Repository links work in this checkout and its Git hosting; private instance
 wiki pages are not required to follow these guides. Some specialized guides
 are in German.

@@ -4,6 +4,7 @@ import { AgentMemoryRecorder } from "@/backend/service/employee/AgentMemoryRecor
 
 import { partial } from "../../../app/lib/service-wiring-fakes";
 
+import type { AgentMemoryDocument } from "@/backend/service/employee/AgentMemoryDocument";
 import type {
   AgentAnswerRecord,
   AgentMemoryRecorderDependencies,

@@ -58,8 +58,8 @@ it("offers authenticated CLI models and rejects missing or unverified catalogs",
   ]);
   expect(
     remoteCliModels(TARGET, [
-      { ...tool, authentication: "unauthenticated" },
-      { ...tool, catalogRevision: null },
+      { ...tool, authentication: "not_logged_in" },
+      { ...tool, catalogRevision: undefined },
       { ...tool, tool: "antigravity" },
     ]),
   ).toEqual([]);

@@ -23,7 +23,9 @@ function fixture(): {
   emit: ReturnType<typeof vi.fn>;
 } {
   const writer = partial<DailyLogWriter>({
-    withFiles: async (work) => work(new Set(["2020-01-02"])),
+    withFiles: async <Result>(
+      work: (protectedDates: ReadonlySet<string>) => Promise<Result>,
+    ): Promise<Result> => work(new Set(["2020-01-02"])),
   });
   const emit = vi.fn();
   return { retention: new LogRetention("/virtual/logs", writer, emit), emit };

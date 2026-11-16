@@ -14,7 +14,7 @@ function fixture(bytes: Buffer): {
     async (source: AsyncIterable<Uint8Array>, options: WriteOptions) => {
       void source;
       options.limitFor(bytes);
-      return { storageName: "file", size: bytes.length };
+      return { storageName: "file", size: bytes.length, checksum: "checksum" };
     },
   );
   const remove = vi.fn().mockResolvedValue(undefined);

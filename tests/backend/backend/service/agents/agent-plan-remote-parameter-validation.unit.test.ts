@@ -45,6 +45,7 @@ it("resolves only pinned references and includes remote workspace names", async 
     resources: [{ type: "workspace" }],
   });
   const resolvers = remoteParameterResolvers(prepared);
+  if (!resolvers.ticket) throw new Error("Expected ticket resolver");
   await expect(resolvers.ticket("one")).resolves.toMatchObject({ id: "one" });
   await expect(resolvers.ticket("missing")).rejects.toMatchObject({
     code: "parameter_ticket_unavailable",

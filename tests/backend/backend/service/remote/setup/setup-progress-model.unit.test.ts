@@ -11,14 +11,18 @@ import {
 it("accepts phases in order and never reopens a finished phase", () => {
   const started = startedProgress();
   expect(started.phases[0]).toBe("running");
-  expect(applyMarker(started, { phase: 2, state: "running" })).toBe(started);
-  const first = applyMarker(started, { phase: 1, state: "done" });
+  expect(applyMarker(started, { phase: 2, state: "running", step: "" })).toBe(
+    started,
+  );
+  const first = applyMarker(started, { phase: 1, state: "done", step: "" });
   expect(first.phases[0]).toBe("done");
   expect(first.step).toBeNull();
-  expect(applyMarker(first, { phase: 1, state: "running" })).toBe(first);
-  expect(applyMarker(first, { phase: 2, state: "running" }).phases[1]).toBe(
-    "running",
+  expect(applyMarker(first, { phase: 1, state: "running", step: "" })).toBe(
+    first,
   );
+  expect(
+    applyMarker(first, { phase: 2, state: "running", step: "" }).phases[1],
+  ).toBe("running");
 });
 
 it("records failure once and closes unsettled phases on a partial outcome", () => {

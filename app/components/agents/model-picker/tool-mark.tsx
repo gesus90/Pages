@@ -4,18 +4,17 @@ import { cn } from "@/app/lib/cn";
 
 /*
  * Branding note: these are the app icons of the tools a model choice lists,
- * used only to name them beside their written name. The files are the ones
- * attached to PAGE-248, kept unchanged in `assets/providers/` and only scaled
- * here; the trademarks stay with their owners. `no-inline` keeps each a file
+ * used only to name them beside their written name. The files are kept
+ * unchanged in `assets/providers/` and only scaled here; the trademarks stay with their owners. `no-inline` keeps each a file
  * of its own, so the browser caches it once instead of finding it as a data
  * URL in every server-rendered page.
  */
-import antigravityUrl from "@/assets/providers/page248-logo-antigravity.png?no-inline";
-import chatgptUrl from "@/assets/providers/page248-logo-chatgpt.png?no-inline";
-import claudeUrl from "@/assets/providers/page248-logo-claude.png?no-inline";
-import opencodeUrl from "@/assets/providers/page248-logo-opencode.svg?no-inline";
-import openrouterUrl from "@/assets/providers/page248-logo-openrouter.png?no-inline";
-import zaiUrl from "@/assets/providers/page248-logo-zai.png?no-inline";
+import antigravityUrl from "@/assets/providers/logo-antigravity.png?no-inline";
+import chatgptUrl from "@/assets/providers/logo-chatgpt.png?no-inline";
+import claudeUrl from "@/assets/providers/logo-claude.png?no-inline";
+import opencodeUrl from "@/assets/providers/logo-opencode.svg?no-inline";
+import openrouterUrl from "@/assets/providers/logo-openrouter.png?no-inline";
+import zaiUrl from "@/assets/providers/logo-zai.png?no-inline";
 
 /** The common frame of every mark: a 20 × 20 tile with a 5 px radius. */
 const TILE_CLASS =

@@ -38,10 +38,11 @@ function response(): ServerResponse {
 
 function request(
   url = "/pica-mobile/conversations/voice/message",
+  method = "GET",
 ): IncomingMessage {
   return partial<IncomingMessage>({
     url,
-    method: "GET",
+    method,
     headers: { authorization: "Bearer token" },
   });
 }
@@ -57,9 +58,9 @@ describe("mobile conversation voice endpoint", () => {
         null,
       ),
     ).toBe(false);
-    expect(
-      files.handle({ ...request(), method: "POST" }, response(), null),
-    ).toBe(false);
+    expect(files.handle(request(undefined, "POST"), response(), null)).toBe(
+      false,
+    );
   });
 
   it("returns authorization and missing-file outcomes", async () => {

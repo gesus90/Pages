@@ -34,14 +34,12 @@ function fixture(): {
     .mockResolvedValue({ model, maxDurationMs: 10000 });
   const secret = vi.fn().mockResolvedValue("encrypted");
   const decrypt = vi.fn().mockReturnValue("token");
-  const synthesize = vi
-    .fn()
-    .mockResolvedValue({
-      ok: true,
-      audio: Buffer.from("audio"),
-      mimeType: "audio/wav",
-      isSpeedApplied: false,
-    });
+  const synthesize = vi.fn().mockResolvedValue({
+    ok: true,
+    audio: Buffer.from("audio"),
+    mimeType: "audio/wav",
+    isSpeedApplied: false,
+  });
   const dependencies: SpeechSynthesisPreviewDependencies = {
     settings: { configuration },
     connections: { findSecretEncrypted: secret },

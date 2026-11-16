@@ -17,7 +17,9 @@ function fixture(): {
   const transaction = partial<DatabaseTransaction>({ query });
   const database = partial<Database>({
     query,
-    transaction: async (work) => work(transaction),
+    transaction: async <Result>(
+      work: (activeTransaction: DatabaseTransaction) => Promise<Result>,
+    ): Promise<Result> => work(transaction),
   });
   return { repository: new PicaSettingsRepository(database), query };
 }

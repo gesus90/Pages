@@ -347,6 +347,6 @@ it("rejects malformed checkpoint dependencies and bindings", async () => {
     ),
   ).toThrow("Invalid runner input");
   expect(() =>
-    runnerPlanCheckpoint(run, {}, { ...step, remote: null }),
+    runnerPlanCheckpoint(run, {}, { ...step, remote: undefined }),
   ).toThrow("Runner execution identity missing");
 });
