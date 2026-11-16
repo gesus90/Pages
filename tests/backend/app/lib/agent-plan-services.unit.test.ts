@@ -94,7 +94,10 @@ const DATABASE = partial<Database>({
       return [];
     if (statement.includes("FROM agent_run_diagnosis_settings")) return [];
     if (statement.includes("agent_run_logs")) return [];
-    if (statement.includes("FROM openrouter_price_catalog"))
+    if (
+      statement.includes("FROM openrouter_price_catalog") ||
+      statement.includes("FROM openrouter_plan_price_catalog")
+    )
       return [[new Date().toISOString(), "{}"]];
     throw new Error(`Unexpected wiring query ${statement}`);
   },
