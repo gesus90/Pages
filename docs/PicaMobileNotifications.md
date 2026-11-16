@@ -1,6 +1,6 @@
 # Pica Mobile: Benachrichtigungen für Plan-Läufe (PAGE-193)
 
-Pages benachrichtigt die Android-App Pica Mobile über abgebrochene, fehlgeschlagene oder erfolgreich beendete Plan-Läufe. Schrittstarts kommen nur mit der Konto-Wahl „Alle Statusänderungen“ (PAGE-421). Die gleichen Arten gelten für selbst gestartete Läufe und, auf Wunsch des Kontos, für Läufe anderer Teammitglieder (PAGE-263). Der Nachrichtenvertrag (`notifications.v1`) steht in [PicaMobileWebSocket.md](./PicaMobileWebSocket.md#erweiterung-notificationsv1-android-fcm). Dieses Dokument beschreibt den Betrieb, die Datenhaltung, die Grenzen und die Übergabe an die echte Prüfung mit Firebase und einem Gerät.
+Pages benachrichtigt die Android-App Pica Mobile über pausierte, abgebrochene, fehlgeschlagene oder erfolgreich beendete Plan-Läufe. Schrittstarts kommen nur mit der Konto-Wahl „Alle Statusänderungen“ (PAGE-421); die Pause zählt wie Fehler und Abbruch zu „Abbrüche und Blockaden“ (PAGE-422). Die gleichen Arten gelten für selbst gestartete Läufe und, auf Wunsch des Kontos, für Läufe anderer Teammitglieder (PAGE-263). Der Nachrichtenvertrag (`notifications.v1`) steht in [PicaMobileWebSocket.md](./PicaMobileWebSocket.md#erweiterung-notificationsv1-android-fcm). Dieses Dokument beschreibt den Betrieb, die Datenhaltung, die Grenzen und die Übergabe an die echte Prüfung mit Firebase und einem Gerät.
 
 **Stand.** Das Backend ist umgesetzt, mit den statischen Gates (`pnpm run check`, `pnpm run lint`) geprüft und statisch mit dem Mobile-Vertrag und den Parsern der App abgeglichen (siehe [Abgleich](./PicaMobileWebSocket.md#abgleich-mit-dem-mobile-vertrag-pm-14-1)). Eine Zustellung über das echte FCM, das Verhalten auf einem Gerät und die gemeinsame Prüfung mit der laufenden App sind **nicht** erfolgt; sie sind Aufgabe von Igor (siehe [Übergabe](#übergabe-an-die-echte-prüfung)). Bis dahin ist die Ende-zu-Ende-Funktion unbestätigt.
 
@@ -22,6 +22,7 @@ Lauf wird geschrieben ──(nach dem Commit)──> Beobachter ──> Recorder
 - **Registrierungen, Ereignisse, Sequenznummern, Zustellungen** liegen in den Tabellen `pica_mobile_push_registrations`, `pica_mobile_notification_events`, `pica_mobile_notification_sequences`, `pica_mobile_notification_occurrences` und `pica_mobile_notification_deliveries` (Migration `086`). Die Instanzkennung steht in `pica_mobile_notification_instance`. Die Konto-Schalter für Chat, Pica und Agent-Pläne stehen in `pica_mobile_notification_preferences` (PostgreSQL-Migration `061`, PAGE-421); seit PostgreSQL-Migration `019` (PAGE-263) merkt sich `pica_mobile_notification_occurrences` je Empfängerkonto, was schon gemeldet wurde, sodass Starter und Teammitglieder dieselbe Tatsache je einmal bekommen.
 - **Empfänger** (PAGE-263): der Starter des Laufs, auch wenn der Plan jemand anderem gehört, und die aktuellen Mitglieder und Leitungen der Plan-Abteilung, die den Team-Schalter über `notifications.team.v1` eingeschaltet haben und ein aktiv registriertes Gerät besitzen. Für jeden prüft Pages die eigenen Rechte an Plan und Lauf; die Teamzugehörigkeit erweitert keine Leserechte. Ein Konto mit mehreren Gründen bekommt je Tatsache ein Ereignis und je Gerät eine Zustellung.
 - **Ohne registriertes Gerät** legt Pages kein Ereignis an. Das Einschalten der Benachrichtigungen spielt daher nie Vergangenes nach.
+- **Pause (PAGE-422).** Erreicht ein Lauf `paused`, sendet Pages direkt einen Push mit `pica_type: "run_paused"` im Kanal `pica-plan-results`. Er läuft nicht über Ereignistabelle, Sequenz und Postausgang: kein neuer Typ, keine Migration, kein Eintrag für `notification_event`. Die Empfängerwahl und die Rechteprüfung entsprechen dem Recorder (Starter, Team mit Schalter, `runs.read`, Hauptschalter, Vorschau, `planInterruptions`). `pausing` löst nichts aus, das Fortsetzen nichts, und jede Pause eines Laufs sendet einmal.
 - **Reihenfolge der Dienste.** Der Dispatcher und der Recorder stoppen beim Beenden von Pages, bevor die Datenbank schließt; jeder wartet dabei höchstens fünf Sekunden.
 
 ## Pushes für Unterhaltungen (PAGE-278)
@@ -73,7 +74,8 @@ Was Pages mit der Datei tut und nicht tut:
 - **Rest-TTL.** Pages sendet nur, solange die Gültigkeit des Ereignisses (`picaMobileReplayTtlSeconds`, Standard 15 Minuten) nicht abgelaufen ist, und gibt FCM die verbleibende Zeit.
 - **Wiederholung.** Bei vorübergehenden Fehlern (FCM nicht erreichbar, Zeitüberschreitung, Quota, `500`/`503`/`429`) versucht Pages höchstens sechsmal (der erste Versuch und fünf Wiederholungen) mit wachsendem Abstand (etwa 5 s, 15 s, 45 s, 2 min, 5 min; `Retry-After` wird beachtet) und nie über die Gültigkeit hinaus. Ist das Dienstkonto selbst nicht nutzbar (`401`/`403`), wartet Pages mindestens eine Minute zwischen den Versuchen. Kann Pages gar keine Zugangsdaten bei Google holen, fasst es keine Zustellung an und versucht es alle 30 Sekunden neu; wartende Nachrichten verfallen dann mit ihrer Gültigkeit, ohne dass ein Versuch verbraucht wird.
 - **Ungültiger Token.** Nur wenn FCM den Token selbst für ungültig erklärt, entfernt Pages genau diese Registrierung. Alles, was die Nutzlast oder die Projektkonfiguration betrifft, lässt Registrierungen unberührt.
-- **Drosselung.** Ein Lauf sendet an ein Gerät höchstens eine Schrittmeldung je 10 Sekunden; eine neuere ersetzt wartende ältere. Meldungen zum Laufende werden nicht gedrosselt, nicht ersetzt und nicht verworfen. Bei einem Laufende entfallen nur noch wartende Schrittmeldungen desselben Laufs.
+- **Drosselung.** Ein Lauf sendet an ein Gerät höchstens eine Schrittmeldung je 10 Sekunden; eine neuere ersetzt wartende ältere. Meldungen zum Laufende und zur Pause werden nicht gedrosselt, nicht ersetzt und nicht verworfen. Bei einem Laufende entfallen nur noch wartende Schrittmeldungen desselben Laufs.
+- **Pause.** Der Pause-Push geht direkt nach dem Commit des Wechsels nach `paused` hinaus. Er wird nicht gespeichert und nicht wiederholt; scheitert die Übergabe an FCM, bleibt es bei diesem einen Versuch. Die Gültigkeit entspricht `picaMobileReplayTtlSeconds`. Jede Pause trägt eine eigene `tag` aus Lauf und Pausenzeitpunkt, sodass Pause, Fortsetzen, Pause zwei Meldungen ergibt.
 - **Kein Einfluss auf Läufe.** Der Dispatcher läuft getrennt von der Ausführung. Fällt FCM aus, ist die Konfiguration falsch oder fehlt sie, bleibt jeder Lauf unverändert; es wird kein Job gestartet oder aufgehalten.
 
 ## Grenzen
@@ -87,6 +89,7 @@ Was Pages mit der Datei tut und nicht tut:
 - **Fortsetzen.** Ein Schritt, dessen erster Start lief, ohne dass ein Gerät registriert war, wurde nie gemeldet und wird nach einem Fortsetzen erstmals gemeldet.
 - **Besitz von Gerätekennung und Token.** Wer als angemeldetes Konto die `deviceId` oder den Token eines anderen Geräts kennt, kann dessen Bindung durch seine eigene ersetzen; das entzieht dem anderen die Meldungen, gibt aber keinen Zugriff auf dessen Ereignisse. Beide Werte sind vertraulich zu behandeln, und Version 1 des Protokolls läuft ohne TLS.
 - **Nicht gemeldet:** das interne Beenden eines älteren Laufs, wenn ihn der Neustart eines Plans ersetzt, die Aktion „Abbrechen“ in der Wiederherstellung eines bereits fehlgeschlagenen Laufs und alles, was nur die Oberfläche ändert.
+- **Pause ohne Detailansicht.** Die App kennt den Typ `run_paused` noch nicht. Der Push erscheint, ein Tippen öffnet aber nur die App, ohne Ziel und ohne Detailansicht. Eine Detailansicht bräuchte einen App-Teil und eine Ereignisart mit Migration und ist nicht Teil von PAGE-422. Der Server kann den Typ nicht für ältere Apps zurückhalten, weil `notification_register` keine Version und keine Fähigkeiten trägt.
 - **Kein Link.** Die Weboberfläche hat keine Adresse, die einen einzelnen Lauf ohne Query-Teil öffnet; Pages sendet deshalb nie ein `detailUrl`.
 - **Abmelden der App** ist im Protokoll Version 1 kein bestätigter Server-Logout (siehe Vertrag).
 
@@ -108,19 +111,19 @@ Diese Schritte erledigt Igor. Sie sind **kein** Done-Gate der Umsetzung und wurd
 
 Jeweils mit einem Plan, den das Konto besitzt, und mit `preview: "hidden"`, danach mit `"details"`. Für Vordergrund, Hintergrund, regulär geschlossene App und Sperrbildschirm prüfen.
 
-| Szenario                                    | Erwartung                                                                                                                         |
-| ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| Lauf starten                                | keine Meldung für den ersten Schritt                                                                                              |
-| Folgeschritt startet                        | eine Meldung „Agent-Plan: nächster Schritt“ (Kanal Schritte); bei `details` „Nächster Schritt“ mit `<Plan> · Schritt <n>: <Name>` |
-| Zwei Schritte parallel                      | **eine** Meldung mit beiden Schritten                                                                                             |
-| Schleife                                    | Meldung beim Start der Schleife, danach je Iteration ab der zweiten eine (beim ersten Schrittstart darin)                         |
-| Wiederholter Versuch desselben Schritts     | keine Meldung                                                                                                                     |
-| Pausieren, Fortsetzen                       | keine Meldung beim Pausieren; nach dem Fortsetzen nur bei neu startenden Folgeschritten                                           |
-| Stoppanforderung                            | keine Meldung bei „stoppt“; „Agent-Plan abgebrochen“ erst, wenn der Lauf `cancelled` ist                                          |
-| Fehlerhafter Schritt, der Lauf läuft weiter | keine Meldung; „Agent-Plan fehlgeschlagen“ erst, wenn der Lauf `failed` ist                                                       |
-| Erfolgreicher Lauf                          | „Agent-Plan erfolgreich abgeschlossen“ (Kanal Ergebnisse), ersetzt keine Schrittmeldung und wird von keiner ersetzt               |
-| Tippen auf die Meldung                      | die App ruft `notification_event_get`; `access: "ok"`, aktuelle Namen und Lauf-Zustand                                            |
-| Sperrbildschirm                             | Inhalt privat (`visibility: PRIVATE`), bei `hidden` ohne Namen                                                                    |
+| Szenario                                    | Erwartung                                                                                                                                       |
+| ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Lauf starten                                | keine Meldung für den ersten Schritt                                                                                                            |
+| Folgeschritt startet                        | eine Meldung „Agent-Plan: nächster Schritt“ (Kanal Schritte); bei `details` „Nächster Schritt“ mit `<Plan> · Schritt <n>: <Name>`               |
+| Zwei Schritte parallel                      | **eine** Meldung mit beiden Schritten                                                                                                           |
+| Schleife                                    | Meldung beim Start der Schleife, danach je Iteration ab der zweiten eine (beim ersten Schrittstart darin)                                       |
+| Wiederholter Versuch desselben Schritts     | keine Meldung                                                                                                                                   |
+| Pausieren, Fortsetzen                       | beim Erreichen von `paused` **eine** Meldung „Plan pausiert“ (keine bei `pausing`); beim Fortsetzen keine; Pause, Fortsetzen, Pause ergibt zwei |
+| Stoppanforderung                            | keine Meldung bei „stoppt“; „Agent-Plan abgebrochen“ erst, wenn der Lauf `cancelled` ist                                                        |
+| Fehlerhafter Schritt, der Lauf läuft weiter | keine Meldung; „Agent-Plan fehlgeschlagen“ erst, wenn der Lauf `failed` ist                                                                     |
+| Erfolgreicher Lauf                          | „Agent-Plan erfolgreich abgeschlossen“ (Kanal Ergebnisse), ersetzt keine Schrittmeldung und wird von keiner ersetzt                             |
+| Tippen auf die Meldung                      | die App ruft `notification_event_get`; `access: "ok"`, aktuelle Namen und Lauf-Zustand; der Pause-Push hat keinen Abruf und öffnet nur die App  |
+| Sperrbildschirm                             | Inhalt privat (`visibility: PRIVATE`), bei `hidden` ohne Namen                                                                                  |
 
 ### Rechte und Konto
 
@@ -202,3 +205,13 @@ Stand: 1. November 2026, am Endstand der Umsetzung (PAGE-193).
 
 - Nicht gegengeprüft sind `protocol.ts`, `dashboardProtocol.ts` und `notificationController.ts` der App sowie ein Stand von `main` nach `d72631b`.
 - Der Vertrag sagt „bereinigter Klartext“ für `reason`; Pages sendet einen Fehlercode (siehe Abgleich). Ob die App den Code lesbar machen soll, entscheidet der Client.
+
+## Nachweisstand PAGE-422 (Pause)
+
+Stand: 16. November 2026 (Umsetzung ohne Live-Zustellung).
+
+**Umfang.** Die Übergangserkennung meldet zusätzlich `run_paused`, wenn ein gespeicherter Lauf von einem anderen Status nach `paused` wechselt; `pausing`, ein erneutes Schreiben von `paused` und das Fortsetzen lösen nichts aus. Ein neuer Beobachter sendet den Push direkt über denselben Geräteweg wie Automationen (`pica_type: "run_paused"`, Kanal `pica-plan-results`, Titel „Plan pausiert“/„Plan paused“). Es gibt keine neue Tabelle, keine Migration und keine Änderung am Ereignistyp oder Ereignisleser.
+
+**Gezielte Tests.** `tests/backend/backend/service/agents/agent-plan-run-transitions.unit.test.ts` prüft die Übergänge; `tests/backend/backend/service/mobile/notifications/pica-mobile-run-paused-push.unit.test.ts` prüft Empfängerwahl, Rechte, Hauptschalter, `planInterruptions`, Vorschau, Titel, Kanal, `pica_type`, die zwei Pushes bei Pause–Fortsetzen–Pause und das Ausbleiben bei `pausing` und beim erneuten Schreiben von `paused`. Beide Dateien liefen mit `pnpm exec vitest run --config vitest.backend.config.ts --coverage.enabled=false`: 2 Dateien, 9 Tests, alle bestanden. Zusammen mit den vorhandenen Benachrichtigungstests unter `tests/backend/backend/service/mobile/notifications` waren es 11 Dateien mit 145 Tests, alle bestanden (ohne Coverage).
+
+**Nicht ausgeführt.** Kein Lint, kein `pnpm run check`, keine Vollsuite und keine Coverage (Vorgabe des Laufs; die Abschluss-QA übernimmt das). Keine echte Zustellung über FCM, kein Gerät und keine gemeinsame Prüfung mit der laufenden App. Die App-Detailansicht für `run_paused` ist bewusst nicht Teil dieses Tickets.

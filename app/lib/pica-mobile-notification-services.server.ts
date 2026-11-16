@@ -17,6 +17,7 @@ import { sharedConversationEvents } from "@/backend/service/conversation/Convers
 import { sharedPicaMobileConversationPresence } from "@/backend/service/mobile/conversations/PicaMobileConversationPresence";
 import { PicaMobileAutomationPush } from "@/backend/service/mobile/notifications/PicaMobileAutomationPush";
 import { PicaMobileConversationPush } from "@/backend/service/mobile/notifications/PicaMobileConversationPush";
+import { PicaMobileRunPausedPush } from "@/backend/service/mobile/notifications/PicaMobileRunPausedPush";
 import { createPicaMobilePushSender } from "@/backend/service/mobile/notifications/PicaMobilePushSenders";
 import { PagesPicaMobileAccountChecks } from "@/backend/service/mobile/notifications/PicaMobileAccountChecks";
 import { PicaMobileNotificationAccess } from "@/backend/service/mobile/notifications/PicaMobileNotificationAccess";
@@ -87,6 +88,31 @@ function followConversationMessages(input: {
   );
 }
 
+/**
+ * Reads the instance identifier once and shares it between all pushes.
+ *
+ * @param eventRepository - The repository that stores the identifier.
+ * @returns A reader that resolves to the same identifier on every call.
+ */
+function createInstanceIdReader(
+  eventRepository: PicaMobileNotificationEventRepository,
+): () => Promise<string> {
+  let instanceId: Promise<string> | null = null;
+
+  return () => {
+    // A failed read is not remembered, so the next request tries again.
+    instanceId ??= eventRepository
+      .readInstanceId(createNotificationEventId())
+      .catch((error: unknown) => {
+        instanceId = null;
+
+        throw error;
+      });
+
+    return instanceId;
+  };
+}
+
 /** Logs that the notifications started, and whether a push sender exists. */
 function logStarted(isPushAvailable: boolean): void {
   logEvent({
@@ -142,19 +168,7 @@ export async function createPicaMobileNotificationServices(
   const vault = new PicaMobilePushTokenVault(
     resolveGitHubTokenKey(runtime.getDatabasePath()),
   );
-  let instanceId: Promise<string> | null = null;
-  const readInstanceId = (): Promise<string> => {
-    // A failed read is not remembered, so the next request tries again.
-    instanceId ??= eventRepository
-      .readInstanceId(createNotificationEventId())
-      .catch((error: unknown) => {
-        instanceId = null;
-
-        throw error;
-      });
-
-    return instanceId;
-  };
+  const readInstanceId = createInstanceIdReader(eventRepository);
   const accounts = new PagesPicaMobileAccountChecks(
     new SessionRepository(input.database),
     input.users,
@@ -189,6 +203,14 @@ export async function createPicaMobileNotificationServices(
     replayTtlSeconds: settings.replayTtlSeconds,
     onRecorded: () => dispatcher.kick(),
   });
+  const automationPush = new PicaMobileAutomationPush(push);
+  const runPausedPush = new PicaMobileRunPausedPush({
+    runs: runAccess,
+    preferences,
+    push: automationPush,
+  });
+  const detachRecorder = sharedAgentPlanRunObservers().add(recorder);
+  const detachRunPausedPush = sharedAgentPlanRunObservers().add(runPausedPush);
   const service = new PicaMobileNotificationService({
     registrations: new PicaMobilePushRegistrations({
       repository: registrationRepository,
@@ -201,7 +223,10 @@ export async function createPicaMobileNotificationServices(
     dispatcher,
     preferences,
     isPushAvailable: sender !== null,
-    detach: sharedAgentPlanRunObservers().add(recorder),
+    detach: () => {
+      detachRecorder();
+      detachRunPausedPush();
+    },
   });
 
   if (!isLocalSessionOwner() && canProcessIntegrations()) service.start();
@@ -213,6 +238,6 @@ export async function createPicaMobileNotificationServices(
 
   return {
     picaMobileNotifications: service,
-    picaMobileAutomationPush: new PicaMobileAutomationPush(push),
+    picaMobileAutomationPush: automationPush,
   };
 }

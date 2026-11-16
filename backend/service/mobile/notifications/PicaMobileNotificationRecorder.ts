@@ -194,13 +194,14 @@ function toCandidates(
  * a step that really went from waiting to running, and a run that really
  * ended. The first steps of a run, a retry of a step, a pause, a stop request
  * and the completion of a single step produce nothing, and neither does a run
- * that Pages itself interrupted by stopping or restarting. Starts that happen
- * together are collected for a moment into one event. Before anything is
- * stored the relation to the run and the rights on the concrete run are checked
- * again, for the starter and for every team member who switched team runs
- * on, and nothing is stored while no device is registered or before the team
- * choice was made, so enabling notifications never replays history. Each
- * recipient gets one event per fact. A failure here is logged and never
+ * that Pages itself interrupted by stopping or restarting; a pause is
+ * announced by the direct pause push, not by an event of this table. Starts
+ * that happen together are collected for a moment into one event. Before
+ * anything is stored the relation to the run and the rights on the concrete run
+ * are checked again, for the starter and for every team member who switched
+ * team runs on, and nothing is stored while no device is registered or before
+ * the team choice was made, so enabling notifications never replays history.
+ * Each recipient gets one event per fact. A failure here is logged and never
  * reaches the run.
  */
 export class PicaMobileNotificationRecorder implements AgentPlanRunObserver {
@@ -244,7 +245,10 @@ export class PicaMobileNotificationRecorder implements AgentPlanRunObserver {
     for (const transition of detectPlanRunTransitions(previous, next)) {
       if (transition.kind === "steps_started") {
         this.collect(identity, transition.steps);
-      } else if (transition.reason !== INTERRUPTION_REASON) {
+      } else if (
+        transition.kind === "run_ended" &&
+        transition.reason !== INTERRUPTION_REASON
+      ) {
         const observedAt = this.now();
 
         this.flush(identity.runId);
