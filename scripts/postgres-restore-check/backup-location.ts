@@ -3,10 +3,7 @@ import { access, readdir } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 
-import {
-  processesNaming,
-  runProgram,
-} from "./postgres-programs";
+import { processesNaming, runProgram } from "./postgres-programs";
 import { RestoreCheckFailure } from "./restore-check-failure";
 
 const runExecutable = promisify(execFile);

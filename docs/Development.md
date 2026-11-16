@@ -55,29 +55,29 @@ These source-backed repository instructions describe the checked checkout.
 
 ## Tech stack
 
-| Area      | Technology                                                     |
-| --------- | -------------------------------------------------------------- |
-| UI        | React 19, TypeScript, Tailwind CSS 4, Radix UI, Lucide         |
-| Framework | React Router 8 static app and API server                       |
-| Runtime   | Node.js; Vite 7 for development/build                          |
-| Database  | PostgreSQL (`pg`); PostgreSQL 18 backup utilities |
-| Text      | i18next (German/English), Tiptap                               |
-| Tooling   | pnpm, ESLint, Prettier                     |
+| Area      | Technology                                             |
+| --------- | ------------------------------------------------------ |
+| UI        | React 19, TypeScript, Tailwind CSS 4, Radix UI, Lucide |
+| Framework | React Router 8 static app and API server               |
+| Runtime   | Node.js; Vite 7 for development/build                  |
+| Database  | PostgreSQL (`pg`); PostgreSQL 18 backup utilities      |
+| Text      | i18next (German/English), Tiptap                       |
+| Tooling   | pnpm, ESLint, Prettier                                 |
 
 ## Commands
 
 All commands are scripts in `package.json`; run them with `pnpm run <script>`.
 
-| Script          | What it does                                                                                                                                                                                                                |
-| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `dev`           | Starts the development server of the static app (Vite). It passes server requests to `dev:api`.                                                                                                                             |
-| `dev:api`       | Starts the API's development server (port 5174) with the Pages runtime; `PAGES_DEV_API` tells `dev` another address.                                                                                                        |
-| `build`         | Builds the static app (`ssr: false`) into `build/client` the API into `build/server`, and the independent Node runtimes into `build/local-owner` and `build/runs` with shared `build/runtime-chunks` (`scripts/build.mjs`). |
-| `start`         | Runs the API from `build/` through `server.mjs`; it also serves the static app. Run `build` first. Accepts `--port <number>` and `--config <path>`.                                                                         |
-| `check`         | Generates the React Router route types, type-checks with `tsc --noEmit` and runs `prettier --check`. Checks only; the generated types go to the ignored `.react-router/`.                                                   |
-| `lint`          | Runs ESLint sequentially in bounded file blocks (`scripts/run-lint.mjs`) with `--concurrency=off` and `--max-warnings=0`: any warning fails. Fixes nothing.                                                                 |
-| `format`        | Runs `prettier --write` and rewrites files in place.                                                                                                                                                                        |
-| `clean`         | Deletes the `build/` directory.                                                                                                                                                                                             |
+| Script    | What it does                                                                                                                                                                                                                |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `dev`     | Starts the development server of the static app (Vite). It passes server requests to `dev:api`.                                                                                                                             |
+| `dev:api` | Starts the API's development server (port 5174) with the Pages runtime; `PAGES_DEV_API` tells `dev` another address.                                                                                                        |
+| `build`   | Builds the static app (`ssr: false`) into `build/client` the API into `build/server`, and the independent Node runtimes into `build/local-owner` and `build/runs` with shared `build/runtime-chunks` (`scripts/build.mjs`). |
+| `start`   | Runs the API from `build/` through `server.mjs`; it also serves the static app. Run `build` first. Accepts `--port <number>` and `--config <path>`.                                                                         |
+| `check`   | Generates the React Router route types, type-checks with `tsc --noEmit` and runs `prettier --check`. Checks only; the generated types go to the ignored `.react-router/`.                                                   |
+| `lint`    | Runs ESLint sequentially in bounded file blocks (`scripts/run-lint.mjs`) with `--concurrency=off` and `--max-warnings=0`: any warning fails. Fixes nothing.                                                                 |
+| `format`  | Runs `prettier --write` and rewrites files in place.                                                                                                                                                                        |
+| `clean`   | Deletes the `build/` directory.                                                                                                                                                                                             |
 
 There are no repository test scripts or CI workflows. `check` and `lint` remain
 manual static checks. `postgres:restore-check` verifies an actual backup and
@@ -131,7 +131,7 @@ project references rather than disabling typed rules.
 | `backend/`    | Services, repositories, migrations, configuration, server runtime, auth |
 | `definition/` | Shared types and contracts                                              |
 | `language/`   | i18next setup and the German and English translations                   |
-| `scripts/`    | Build, dependency setup, maintenance and remote runner scripts                             |
+| `scripts/`    | Build, dependency setup, maintenance and remote runner scripts          |
 | `assets/`     | Logo, README banner and the Pica mascot (`assets/pica/`)                |
 | `server.mjs`  | Entry point of the production server                                    |
 

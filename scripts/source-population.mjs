@@ -27,11 +27,7 @@ const SOURCE_EXTENSIONS = new Set([
 ]);
 
 /** Root directories of local runtime state; only source files in them count. */
-const RUNTIME_ROOT_DIRECTORIES = new Set([
-  "data",
-  "Results",
-  ".claude",
-]);
+const RUNTIME_ROOT_DIRECTORIES = new Set(["data", "Results", ".claude"]);
 
 /** Whether a directory, relative to the root, holds only generated output. */
 export function isGeneratedDirectory(relativePath) {

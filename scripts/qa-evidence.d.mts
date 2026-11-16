@@ -24,4 +24,3 @@ export function currentManifest(
   scope: "pages",
   listTracked?: (root: string) => readonly string[],
 ): EvidenceManifest;
-

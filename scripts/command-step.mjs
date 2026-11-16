@@ -104,4 +104,3 @@ export function runStep(command, args, options) {
     });
   });
 }
-
