@@ -11,9 +11,10 @@ import { AgentSessionRepository } from "@/backend/database/repositories/agent/Ag
 import { AgentSessionInbox } from "@/backend/service/agents/sessions/AgentSessionInbox";
 import { AgentSessionJournal } from "@/backend/service/agents/sessions/AgentSessionJournal";
 import { AgentSessionService } from "@/backend/service/agents/sessions/AgentSessionService";
+
 import type { AgentSessionRunAccess } from "@/backend/service/agents/sessions/AgentSessionService";
 import type { Database } from "@/backend/database/Database";
-import type { AgentApplicationServices } from "./agent-services.server";
+import type { PlanAgentServices } from "./plan-agent-services.server";
 
 /**
  * Builds the PageAgentCLI sessions of plan nodes on the plan service's run access.
@@ -25,7 +26,7 @@ import type { AgentApplicationServices } from "./agent-services.server";
 export async function createPageAgentSessions(
   input: {
     readonly database: Database;
-    readonly agents: AgentApplicationServices;
+    readonly agents: PlanAgentServices;
   },
   runs: AgentSessionRunAccess,
 ): Promise<AgentSessionService> {

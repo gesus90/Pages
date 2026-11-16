@@ -7,13 +7,13 @@ import { MAX_ACP_SESSIONS } from "@/definition/AcpResource";
 import type { Database } from "@/backend/database/Database";
 import type { AgentPlanSessionGrants } from "@/backend/service/agents/AgentPlanSessionAccess";
 import type { AgentPlanTasks } from "@/backend/service/agents/AgentPlanTasks";
-import type { AgentApplicationServices } from "./agent-services.server";
+import type { PlanAgentServices } from "./plan-agent-services.server";
 
 /** What the model nodes of the engine need from the server. */
 interface ModelNodeServices {
   readonly database: Database;
   readonly agents: Pick<
-    AgentApplicationServices,
+    PlanAgentServices,
     | "acpResourceScheduler"
     | "agentPlanExecution"
     | "agentProfileService"

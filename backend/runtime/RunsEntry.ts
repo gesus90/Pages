@@ -1,8 +1,8 @@
 import path from "node:path";
 
-import { getApplicationServices } from "@/app/lib/services.server";
 import { initializeLogging, logEvent } from "@/backend/logging/Logger";
 
+import { createRunsServices } from "./RunsServices";
 import { canProcessRuns, enterRunsProcess } from "./RunsMode";
 import { hasServiceProgress } from "./ServiceWorkHealth";
 import { startServiceWatchdog } from "./ServiceWatchdog";
@@ -28,7 +28,7 @@ export async function startRuns(
       throw new Error(
         "pages-runs requires completed setup and runsMode = separate.",
       );
-    const services = await getApplicationServices();
+    const services = await createRunsServices();
     startServiceWatchdog(
       async () =>
         canProcessRuns() &&

@@ -41,45 +41,7 @@ export class RetentionDatabase implements GarbageDatabase {
     parameters: SqlParameters = {},
   ): Promise<readonly DatabaseValue[][]> {
     this.queries.push(statement);
-    if (statement.includes("agent_payload_garbage"))
-      return [...this.garbage]
-        .filter((name) =>
-          statement.includes("NOT LIKE")
-            ? !name.startsWith("agent-payloads/")
-            : name.startsWith("agent-payloads/"),
-        )
-        .filter((name) => name > String(parameters.after ?? ""))
-        .sort()
-        .slice(0, 64)
-        .map((name) => [name]);
-    if (statement.includes("UNION ALL"))
-      return this.isProtected(String(parameters.run_id)) ? [["busy"]] : [];
-    if (statement.includes("FOR UPDATE")) {
-      this.beforeLock?.();
-      this.beforeLock = undefined;
-      const id = String(parameters.run_id);
-      return this.runs.has(id) && !this.isProtected(id) ? [[id]] : [];
-    }
-    if (statement.includes("AS earlier")) {
-      const kept = this.runs.get(String(parameters.kept_run_id));
-      return this.orderedRuns()
-        .filter(
-          (run) =>
-            kept && run.planId === kept.planId && this.isOlder(run, kept),
-        )
-        .slice(0, 64)
-        .map((run) => [run.id]);
-    }
-    if (statement.includes("AS newer"))
-      return this.orderedRuns()
-        .filter((run) => !this.isProtected(run.id) && this.isObsolete(run))
-        .slice(0, 64)
-        .map((run) => [run.id]);
-    if (statement.includes("WHERE plan_id = $plan_id"))
-      return this.orderedRuns()
-        .filter((run) => run.planId === parameters.plan_id)
-        .map((run) => [run.id]);
-    throw new Error(`Unexpected synthetic query: ${statement}`);
+    return this.rowsFor(statement, parameters);
   }
 
   /** Applies observable row deletion and queues the file intents those rows own. */
@@ -102,6 +64,81 @@ export class RetentionDatabase implements GarbageDatabase {
     }
     if (statement.startsWith("DELETE FROM agent_payload_garbage"))
       this.garbage.delete(String(parameters.storage_name));
+  }
+
+  private rowsFor(
+    statement: string,
+    parameters: SqlParameters,
+  ): readonly DatabaseValue[][] {
+    if (statement.includes("agent_payload_garbage"))
+      return this.garbageRows(statement, parameters);
+    if (statement.includes("UNION ALL"))
+      return this.isProtected(String(parameters.run_id)) ? [["busy"]] : [];
+    if (statement.includes("FROM agent_plan_start_rejections")) return [];
+    if (this.isRunRow(statement)) return this.runRows(statement, parameters);
+    if (statement.includes("AS earlier")) return this.earlierRows(parameters);
+    if (statement.includes("AS newer")) return this.newerRows();
+    if (statement.includes("WHERE plan_id = $plan_id"))
+      return this.planRows(parameters);
+    throw new Error(`Unexpected synthetic query: ${statement}`);
+  }
+
+  private isRunRow(statement: string): boolean {
+    return (
+      statement.includes("WHERE runs.id = $run_id") ||
+      statement.includes("FOR UPDATE")
+    );
+  }
+
+  private runRows(
+    statement: string,
+    parameters: SqlParameters,
+  ): readonly DatabaseValue[][] {
+    if (statement.includes("FOR UPDATE")) {
+      this.beforeLock?.();
+      this.beforeLock = undefined;
+    }
+    const id = String(parameters.run_id);
+    return this.runs.has(id) && !this.isProtected(id) ? [[id]] : [];
+  }
+
+  private garbageRows(
+    statement: string,
+    parameters: SqlParameters,
+  ): readonly DatabaseValue[][] {
+    return [...this.garbage]
+      .filter((name) =>
+        statement.includes("NOT LIKE")
+          ? !name.startsWith("agent-payloads/")
+          : name.startsWith("agent-payloads/"),
+      )
+      .filter((name) => name > String(parameters.after ?? ""))
+      .sort()
+      .slice(0, 64)
+      .map((name) => [name]);
+  }
+
+  private earlierRows(parameters: SqlParameters): readonly DatabaseValue[][] {
+    const kept = this.runs.get(String(parameters.kept_run_id));
+    return this.orderedRuns()
+      .filter(
+        (run) => kept && run.planId === kept.planId && this.isOlder(run, kept),
+      )
+      .slice(0, 64)
+      .map((run) => [run.id]);
+  }
+
+  private newerRows(): readonly DatabaseValue[][] {
+    return this.orderedRuns()
+      .filter((run) => !this.isProtected(run.id) && this.isObsolete(run))
+      .slice(0, 64)
+      .map((run) => [run.id]);
+  }
+
+  private planRows(parameters: SqlParameters): readonly DatabaseValue[][] {
+    return this.orderedRuns()
+      .filter((run) => run.planId === parameters.plan_id)
+      .map((run) => [run.id]);
   }
 
   private orderedRuns(): RetentionRun[] {

@@ -11,7 +11,10 @@ import { UserRepository } from "@/backend/database/repositories/UserRepository";
 import { getPagesRuntime } from "@/backend/runtime/PagesRuntime";
 import { logCaughtError } from "@/backend/logging/Logger";
 import { registerShutdownTask } from "@/backend/runtime/ProcessLifecycle";
-import { canProcessRuns, isPagesRunsProcess } from "@/backend/runtime/RunsMode";
+import {
+  canProcessApiWork,
+  isPagesRunsProcess,
+} from "@/backend/runtime/RunsMode";
 import { AgentPlanScripts } from "@/backend/service/agents/AgentPlanScripts";
 import { sharedAgentPlanRunObservers } from "@/backend/service/agents/AgentPlanRunObservers";
 import { AutomationAgentWorker } from "@/backend/service/automation/AutomationAgentWorker";
@@ -112,7 +115,7 @@ function observePlanEvents(database: Database): void {
 
 /**
  * Builds the business service of automations, observes plan events and
- * starts the timer where plans run (PAGE-297).
+ * starts the timer in the API (PAGE-297).
  *
  * @param database - The shared database.
  * @param input - The agent, project and ticket services the rules read from.
@@ -152,9 +155,9 @@ export function createAutomationServices(
   return { automationService };
 }
 
-/** Starts the timer of automations where plans run. */
+/** Starts automation scheduling in the API; plan starts use the queued engine in separate mode. */
 function startAutomationScheduler(input: AutomationSchedulerInput): void {
-  if (!canProcessRuns() || isLocalSessionOwner()) return;
+  if (!canProcessApiWork()) return;
   const { database, automationService } = input;
   const projects = new ProjectRepository(database);
   const statuses = new WorkflowStatusRepository(database);

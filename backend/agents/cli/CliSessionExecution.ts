@@ -37,7 +37,7 @@ import { attachPlanWorkerTemporaryDirectory } from "./CliFullEnvironmentTemporar
 import { CliPlanIsolation } from "./CliPlanIsolation";
 import { ACP_WORKER_LIMITS } from "./CliWorkerUnit";
 import { cleanupFailedAcpStart } from "./CliAcpStartCleanup";
-import { acpWorkerRequest, picaCodexBundle } from "./CliAcpLaunch";
+import { acpWorkerRequest } from "./CliAcpLaunch";
 import { prepareSharedAgentEnvironment } from "./AgentSharedEnvironment";
 import { redactAcpJsonLine } from "./CliAcpRedaction";
 import { prepareAcpProtocol } from "./CliAcpProtocol";
@@ -55,13 +55,14 @@ import {
   openCliAcpSession,
   prepareCliGitHubAccess,
   prepareScopedClaudeHome,
+  preparePicaSession,
   registerAcpNamespace,
   secureCliAcpAccess,
-  selectPicaNativeArtifact,
 } from "./CliAcpSessionSetup";
 
 import type { VerifiedStart } from "./CliSessionChecks";
 import type { CliFullEnvironment } from "./CliFullEnvironment";
+import type { AcpPermissionMode } from "@/definition/AgentConfiguration";
 import type { AgentToolManagerService } from "@/backend/service/agents/tools/AgentToolManagerService";
 import type { AgentToolId } from "@/definition/AgentTools";
 import type { AgentToolLocation } from "@/backend/service/agents/tools/AgentToolContracts";
@@ -82,7 +83,10 @@ import type {
 } from "./CliContracts";
 import type { CliLocator } from "./CliLocator";
 import type { CliProcessRunner } from "./CliProcessRunner";
-import type { CliGitHubCredentials } from "./CliGitHubCredentials";
+import type {
+  CliGitHubAccess,
+  CliGitHubCredentials,
+} from "./CliGitHubCredentials";
 import type {
   ClaudePlanSessionHome,
   prepareClaudePlanSessionHome,
@@ -375,38 +379,24 @@ export class CliSessionExecution implements PlanSessionRunner {
     start: VerifiedStart,
     control: SessionControl,
   ): Promise<PlanSession> {
-    const mode = requireAcpMode(driver, input);
-    const scoped = start.owner
-      ? null
-      : await prepareScopedClaudeHome(
-          driver,
-          input,
-          start,
-          this.dependencies.claudeHome,
-        );
-    const adapter = requireAdapter(start.adapter, driver);
-    const github = start.owner
-      ? null
-      : await prepareCliGitHubAccess(this.dependencies, input, start, mode);
-    const { profile, launch, channel, redact } = prepareAcpProtocol(
-      driver,
-      input,
-      start,
-      github,
-    );
+    const { mode, scoped, adapter, github, protocol } =
+      await this.prepareAcpStart(driver, input, start);
+    const { profile, launch, channel, redact } = protocol;
     let child: CliSessionProcess | null = null;
     let limited: LimitedRequest | null = null;
     let containment: CliSessionContainment = "none";
     let picaBundle: PicaCodexBundle | null = null;
     try {
-      const picaNative = selectPicaNativeArtifact({
+      const pica = await preparePicaSession({
         driver,
         input,
         launch,
         profile,
         toolsDirectory: this.dependencies.tools?.directory,
+        adapter,
       });
-      picaBundle = picaCodexBundle(picaNative, input.directory, adapter);
+      const { picaNative } = pica;
+      picaBundle = pica.picaBundle;
       const { request, isIsolated } = await this.isolateWorker(
         acpWorkerRequest({
           driver,
@@ -450,6 +440,7 @@ export class CliSessionExecution implements PlanSessionRunner {
         launch,
         picaNative,
         picaBundle,
+        picaSupport: pica.picaSupport,
         isIsolated,
         mode,
         limited,
@@ -460,15 +451,64 @@ export class CliSessionExecution implements PlanSessionRunner {
     } catch (error: unknown) {
       logCaughtError("CliSessionExecution", error);
 
-      await cleanupFailedAcpStart(
+      await this.abortFailedStart(
         child,
         { instanceId: input.instanceId, github, limited, containment },
-        picaBundle?.cleanup,
+        picaBundle,
+        control,
       );
-      // The failed start's own closeout confirmed its frame ended, so its reservation may go.
-      control.lifecycle?.confirmStartEnded();
       throw error;
     }
+  }
+
+  /** Ends an unsuccessful ACP start; its own closeout confirmed the frame ended, so the reservation may go. */
+  private async abortFailedStart(
+    child: CliSessionProcess | null,
+    cleanup: {
+      readonly instanceId: string;
+      readonly github: CliGitHubAccess | null;
+      readonly limited: LimitedRequest | null;
+      readonly containment: CliSessionContainment;
+    },
+    picaBundle: PicaCodexBundle | null,
+    control: SessionControl,
+  ): Promise<void> {
+    await cleanupFailedAcpStart(child, cleanup, picaBundle?.cleanup);
+    control.lifecycle?.confirmStartEnded();
+  }
+
+  /** Verifies the mode, home and adapter facts every worker spawn shares. */
+  private async prepareAcpStart(
+    driver: AcpDriver,
+    input: AgentPlanSessionInput,
+    start: VerifiedStart,
+  ): Promise<{
+    readonly mode: AcpPermissionMode;
+    readonly scoped: ClaudePlanSessionHome | null;
+    readonly adapter: string;
+    readonly github: CliGitHubAccess | null;
+    readonly protocol: ReturnType<typeof prepareAcpProtocol>;
+  }> {
+    const mode = requireAcpMode(driver, input);
+    const scoped = start.owner
+      ? null
+      : await prepareScopedClaudeHome(
+          driver,
+          input,
+          start,
+          this.dependencies.claudeHome,
+        );
+    const adapter = requireAdapter(start.adapter, driver);
+    const github = start.owner
+      ? null
+      : await prepareCliGitHubAccess(this.dependencies, input, start, mode);
+    return {
+      mode,
+      scoped,
+      adapter,
+      github,
+      protocol: prepareAcpProtocol(driver, input, start, github),
+    };
   }
 
   private async attachAcpSession(

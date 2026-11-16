@@ -62,8 +62,7 @@ export function createRunnerServices(input: {
   >;
 }): RunnerApplicationServices {
   const { database, remote, tokenKey } = input;
-  const { agentWorkspaceService: workspaces, agentProfileService: profiles } =
-    input.configuration;
+  const { agentWorkspaceService: workspaces } = input.configuration;
   const mode = process.env.PAGES_RUNNER_GITHUB_MODE ?? "offline";
   if (mode !== "offline" && mode !== "http")
     throw new Error("Invalid runner GitHub mode");
@@ -78,26 +77,8 @@ export function createRunnerServices(input: {
           new RunnerDeployKeyRepository(database),
           context,
         );
-  const runnerService = new RunnerService(
-    new RunnerRepository(database),
-    remote.remoteConnectionService,
-    new RunnerPlanEventService(
-      new RunnerPlanEventRepository(database),
-      {
-        plans: createPlanWorkspaceAccess(
-          { database, agents: { ...input.configuration, ...remote } },
-          new AgentPlanRepository(database),
-        ).access,
-        runs: new AgentPlanRunRepository(database),
-        profiles,
-        targets: new AgentPlanRemoteTargets(
-          remote.remoteWorkspaceService,
-          remote.remoteConnectionService,
-        ),
-      },
-      { shouldRecoverHistory: canProcessRuns() },
-    ),
-  );
+  const { runnerService, runnerOpenRouterService } =
+    createRunnerProcessingServices(input);
   const runnerSetupService = new RunnerSetupService({
     runners: runnerService,
     connections: remote.remoteConnectionService,
@@ -125,7 +106,7 @@ export function createRunnerServices(input: {
   return {
     runnerService,
     runnerGitHubAccessService,
-    runnerOpenRouterService: new RunnerOpenRouterService(runnerService),
+    runnerOpenRouterService,
     runnerGitHubMode: mode,
     runnerDeployKeyService: new RunnerDeployKeyService(github, workspaces, {
       workspaces: remote.remoteWorkspaceService,
@@ -135,5 +116,48 @@ export function createRunnerServices(input: {
     }),
     runnerSetupService,
     remoteSetupService,
+  };
+}
+
+/** Database-backed runner facts and the API channel used by plan execution, without setup or deployment services. */
+export function createRunnerProcessingServices(input: {
+  readonly database: Database;
+  readonly remote: Pick<
+    RemoteApplicationServices,
+    "remoteConnectionService" | "remoteWorkspaceService"
+  >;
+  readonly configuration: Pick<
+    AgentConfigurationApplicationServices,
+    "agentWorkspaceService" | "agentProfileService"
+  >;
+}): Pick<
+  RunnerApplicationServices,
+  "runnerService" | "runnerOpenRouterService"
+> {
+  const { database, remote } = input;
+  const profiles = input.configuration.agentProfileService;
+  const runnerService = new RunnerService(
+    new RunnerRepository(database),
+    remote.remoteConnectionService,
+    new RunnerPlanEventService(
+      new RunnerPlanEventRepository(database),
+      {
+        plans: createPlanWorkspaceAccess(
+          { database, agents: { ...input.configuration, ...remote } },
+          new AgentPlanRepository(database),
+        ).access,
+        runs: new AgentPlanRunRepository(database),
+        profiles,
+        targets: new AgentPlanRemoteTargets(
+          remote.remoteWorkspaceService,
+          remote.remoteConnectionService,
+        ),
+      },
+      { shouldRecoverHistory: canProcessRuns() },
+    ),
+  );
+  return {
+    runnerService,
+    runnerOpenRouterService: new RunnerOpenRouterService(runnerService),
   };
 }

@@ -8,11 +8,11 @@ import {
   isMediaOutputModel,
 } from "@/definition/AgentMediaGeneration";
 
-import { isChatModelChoice } from "./AgentChatModelChoices";
 import {
   AgentProviderKeys,
   generationRoute,
   isOwnOpenCodeKey,
+  isReleasedGenerationModel,
 } from "./AgentProviderKeys";
 
 import type {
@@ -219,10 +219,7 @@ export class AgentMediaGeneration {
       const models = await this.dependencies.models.models(employee.userId);
       return models
         .filter((model) => {
-          if (
-            !isKindCapable(model, kind) ||
-            !isChatModelChoice(model, employee)
-          )
+          if (!isKindCapable(model, kind) || !isReleasedGenerationModel(model))
             return false;
           if (
             model.connectionId === assignment.connection.id &&

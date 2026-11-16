@@ -33,6 +33,7 @@ import type {
   PlanSessionTurn,
 } from "@/backend/agents/AgentPlanExecution";
 import type { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
+import type { AgentPlanRun } from "@/definition/AgentPlan";
 import type { AgentLocalSessionPreparation } from "@/backend/service/agents/AgentLocalSessionPreparation";
 import type {
   LocalOwnerManifest,
@@ -579,17 +580,14 @@ export class LocalOwnerSession {
         if (!this.isPaused && this.isTurnPending)
           this.executionMilliseconds += now - this.observedAt;
         this.observedAt = now;
-        if (
-          this.launch.timeoutMinutes > 0 &&
-          this.executionMilliseconds >= this.launch.timeoutMinutes * 60_000
-        ) {
+        if (this.turnTimedOut()) {
           this.controller.abort(
             new DOMException("Turn deadline expired", "TimeoutError"),
           );
           await this.close();
           return;
         }
-        await this.applyRunControl(run);
+        await this.applyStopStatus(run);
       });
     } catch (error: unknown) {
       // Database loss does not fabricate a user Stop or terminate a surviving native session.
@@ -599,22 +597,37 @@ export class LocalOwnerSession {
     }
   }
 
-  private async applyRunControl(
-    run: Awaited<ReturnType<AgentPlanRunRepository["find"]>>,
-  ): Promise<void> {
+  /** Whether the turn ran past its time limit; the deadline aborts the whole session. */
+  private turnTimedOut(): boolean {
+    if (this.launch.timeoutMinutes <= 0) return false;
+    return this.executionMilliseconds >= this.launch.timeoutMinutes * 60_000;
+  }
+
+  /** Stops the surviving native session's namespace, none if the session has none. */
+  private async stopNamespace(): Promise<void> {
+    if (this.namespace) await controlOwnedNamespace(this.namespace, "stop");
+  }
+
+  /** The pause the run state asks the surviving native session for. */
+  private requestedPause(run: AgentPlanRun | null): boolean {
+    return run?.status === "paused" || run?.status === "pausing";
+  }
+
+  /** Stops or pauses the surviving native session as the run state demands. */
+  private async applyStopStatus(run: AgentPlanRun | null): Promise<void> {
     if (!canContinueLocalTurn(run, this.launch)) {
-      if (this.namespace) await controlOwnedNamespace(this.namespace, "stop");
+      await this.stopNamespace();
       await this.cancel();
       return;
     }
     if (this.recorder?.current.provider === "codex_cli") {
       // Immediate pauses arrive by IPC. Other plans drain their turns first.
       if (run?.status !== "pausing")
-        await this.changePause(run?.status === "paused");
+        await this.changePause(this.requestedPause(run));
       return;
     }
     if (!this.namespace) return;
-    const paused = run?.status === "paused" || run?.status === "pausing";
+    const paused = this.requestedPause(run);
     if (paused === this.isPaused) return;
     await controlOwnedNamespace(this.namespace, paused ? "pause" : "resume");
     this.isPaused = paused;

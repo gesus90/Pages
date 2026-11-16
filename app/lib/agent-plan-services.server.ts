@@ -1,13 +1,8 @@
-import { AgentSessionRepository } from "@/backend/database/repositories/agent/AgentSessionRepository";
-import { createPageAgentSessions } from "./agent-plan-page-sessions.server";
-import type {
-  AgentSessionRunAccess,
-  AgentSessionService,
-} from "@/backend/service/agents/sessions/AgentSessionService";
-import { CodexPlanUsageRepository } from "@/backend/database/repositories/agent/CodexPlanUsageRepository";
-import { CodexAgentBudget } from "@/backend/service/agents/usage/CodexAgentBudget";
 import path from "node:path";
 
+import { AgentSessionRepository } from "@/backend/database/repositories/agent/AgentSessionRepository";
+import { CodexPlanUsageRepository } from "@/backend/database/repositories/agent/CodexPlanUsageRepository";
+import { CodexAgentBudget } from "@/backend/service/agents/usage/CodexAgentBudget";
 import { canProcessRuns } from "@/backend/runtime/RunsMode";
 import { registerShutdownTask } from "@/backend/runtime/ProcessLifecycle";
 import { PlanRunCommandWorker } from "@/backend/service/agents/runs/PlanRunCommandWorker";
@@ -23,15 +18,11 @@ import { AgentPlanWorkGate } from "@/backend/service/agents/AgentPlanWorkGate";
 import { AgentPlanAgentTodoService } from "@/backend/service/agents/AgentPlanAgentTodoService";
 import { AgentPlanAgentTodoRepository } from "@/backend/database/repositories/agent/AgentPlanAgentTodoRepository";
 
-import { createPlanTodoProgress } from "./agent-plan-todo-progress.server";
-import { createModelNodeRunners } from "./agent-plan-swarm.server";
 
 import { AgentPlanStepReportRepository } from "@/backend/database/repositories/agent/AgentPlanStepReportRepository";
 import { AgentRunCredentialRepository } from "@/backend/database/repositories/mcp/AgentRunCredentialRepository";
 import { PlanBridgeGrantRepository } from "@/backend/database/repositories/agent/PlanBridgeGrantRepository";
-import { upgradeStoredPlans } from "./agent-plan-upgrade.server";
 import { AgentPlanRepository } from "@/backend/database/repositories/agent/AgentPlanRepository";
-import { AgentPlanTemplateRepository } from "@/backend/database/repositories/agent/AgentPlanTemplateRepository";
 import { AgentProfileRepository } from "@/backend/database/repositories/agent/AgentProfileRepository";
 import { AgentPlanRunRepository } from "@/backend/database/repositories/agent/AgentPlanRunRepository";
 import { AgentPlanStartResourceRepository } from "@/backend/database/repositories/agent/AgentPlanStartResourceRepository";
@@ -48,13 +39,7 @@ import { AgentPlanScripts } from "@/backend/service/agents/AgentPlanScripts";
 import { AgentPlanScriptPreparation } from "@/backend/service/agents/AgentPlanScriptPreparation";
 import { AgentPlanScriptRunner } from "@/backend/service/agents/AgentPlanScriptRunner";
 import { AgentPlanRunEngine } from "@/backend/service/agents/AgentPlanRunEngine";
-import { AgentPlanActiveRunService } from "@/backend/service/agents/AgentPlanActiveRuns";
-import { AgentPlanOverviewService } from "@/backend/service/agents/AgentPlanOverview";
-import { AgentPlanRunHistoryService } from "@/backend/service/agents/AgentPlanRunHistoryService";
-import { AgentPlanOwnerRunReader } from "@/backend/service/agents/AgentPlanOwnerRunReader";
 import { AgentPlanService } from "@/backend/service/agents/AgentPlanService";
-import { AgentPlanManagement } from "@/backend/service/agents/AgentPlanManagement";
-import { AgentPlanTemplateService } from "@/backend/service/agents/AgentPlanTemplateService";
 import { AgentPlanSessionAccess } from "@/backend/service/agents/AgentPlanSessionAccess";
 import { PlanBridgeGrants } from "@/backend/service/agents/bridge/PlanBridgeGrants";
 import { planSessionActivity } from "@/backend/service/agents/bridge/PlanSessionActivity";
@@ -68,6 +53,10 @@ import { AuthorizationRepository } from "@/backend/database/repositories/Authori
 import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 import { getPagesRuntime } from "@/backend/runtime/PagesRuntime";
 
+import { createPageAgentSessions } from "./agent-plan-page-sessions.server";
+import { createModelNodeRunners } from "./agent-plan-swarm.server";
+import { createPlanTodoProgress } from "./agent-plan-todo-progress.server";
+import { upgradeStoredPlans } from "./agent-plan-upgrade.server";
 import { startOneShotPlanDeletion } from "./agent-plan-one-shot-services.server";
 import {
   createRunDiagnosis,
@@ -78,8 +67,16 @@ import {
   createPlanWorkspaceAccess,
   planAccessRecords,
 } from "./plan-access-services.server";
-import { createPicaMobileNotificationServices } from "./pica-mobile-notification-services.server";
 
+import type {
+  AgentSessionRunAccess,
+  AgentSessionService,
+} from "@/backend/service/agents/sessions/AgentSessionService";
+import type { AgentPlanActiveRunService } from "@/backend/service/agents/AgentPlanActiveRuns";
+import type { AgentPlanOverviewService } from "@/backend/service/agents/AgentPlanOverview";
+import type { AgentPlanRunHistoryService } from "@/backend/service/agents/AgentPlanRunHistoryService";
+import type { AgentPlanManagement } from "@/backend/service/agents/AgentPlanManagement";
+import type { AgentPlanTemplateService } from "@/backend/service/agents/AgentPlanTemplateService";
 import type { PicaMobileAutomationPush } from "@/backend/service/mobile/notifications/PicaMobileAutomationPush";
 import type { AgentPlanRemoteExecution } from "@/backend/service/agents/AgentPlanRemoteExecution";
 import type { PlanRunEnginePort } from "@/backend/service/agents/runs/PlanRunEnginePort";
@@ -98,6 +95,7 @@ import type { AgentPlanResumeAdvisorSlot } from "@/backend/service/agents/AgentP
 import type { PicaMobileNotificationService } from "@/backend/service/mobile/notifications/PicaMobileNotificationService";
 import type { AgentRunDiagnosisSettingsService } from "@/backend/service/agents/diagnosis/AgentRunDiagnosisSettingsService";
 import type { AgentApplicationServices } from "./agent-services.server";
+import type { PlanAgentServices } from "./plan-agent-services.server";
 
 /** The plan service and the PageAgentCLI sessions of its nodes, built on one run access. */
 export interface AgentPlanServices {
@@ -124,6 +122,41 @@ export interface AgentPlanServices {
   readonly agentPlanRecoveryService: AgentPlanRecoveryService;
   /** The retention and stall time of the run diagnosis under Settings → Agents (PAGE-307). */
   readonly agentRunDiagnosisSettingsService: AgentRunDiagnosisSettingsService;
+}
+
+/** Plan engine, recovery and session readers without mobile notification or editor services. */
+export type PlanProcessingServices = Pick<
+  AgentPlanServices,
+  | "runnerPagesAccessService"
+  | "planBridgeGrants"
+  | "agentPlanService"
+  | "agentLocalSessionPreparation"
+  | "agentSessionService"
+  | "agentPlanRecoveryService"
+  | "agentRunDiagnosisSettingsService"
+>;
+
+/** Creates the API-facing views after wiring the same plan processing boundaries. */
+export async function createAgentPlanService(
+  input: PlanProcessingInput,
+): Promise<AgentPlanServices> {
+  const { createPlanViews } = await import("./agent-plan-views.server");
+  let views: Awaited<ReturnType<typeof createPlanViews>> | undefined;
+  const { services } = await initializePlanProcessing({
+    ...input,
+    beforeRecovery: async (dependencies, service) => {
+      views = await createPlanViews(input, dependencies, service);
+    },
+  });
+  if (!views) throw new Error("Plan views were not initialized");
+  return { ...services, ...views };
+}
+
+/** Starts only plan execution and recovery for the independent runs process. */
+export async function createPlanProcessingServices(
+  input: Parameters<typeof initializePlanProcessing>[0],
+): Promise<PlanProcessingServices> {
+  return (await initializePlanProcessing(input)).services;
 }
 
 /** The plan services that loaders and actions reach directly besides the plan service. */
@@ -161,7 +194,7 @@ function planAssetsOf(
 /** The stores and gates of the plan service that need only the instance's own services. */
 function planRecords(input: {
   readonly database: Database;
-  readonly agents: AgentApplicationServices;
+  readonly agents: PlanAgentServices;
   readonly tasks: TaskService;
   readonly users: UserService;
 }): Pick<
@@ -200,15 +233,25 @@ function planRecords(input: {
 }
 
 /** Shares the existing user, ticket, model and workspace boundaries; no second catalog or runner. */
-export async function createAgentPlanService(input: {
+interface PlanProcessingInput {
   readonly database: Database;
-  readonly agents: AgentApplicationServices;
+  readonly agents: PlanAgentServices;
   readonly tasks: TaskService;
   readonly users: UserService;
   /** How sessions of ticket-bound nodes reach Pages through MCP. */
   readonly mcp: AgentPlanMcpSettings;
   readonly api: () => Promise<PagesAgentApiService>;
-}): Promise<AgentPlanServices> {
+
+  readonly beforeRecovery?: (
+    dependencies: PlanDependencies,
+    service: AgentPlanService,
+  ) => Promise<void> | void;
+}
+
+async function initializePlanProcessing(input: PlanProcessingInput): Promise<{
+  readonly services: PlanProcessingServices;
+  readonly dependencies: PlanDependencies;
+}> {
   const plans = new AgentPlanRepository(input.database);
   const runs = new AgentPlanRunRepository(input.database);
   if (canProcessRuns()) await upgradeStoredPlans(input.database, plans);
@@ -276,21 +319,26 @@ export async function createAgentPlanService(input: {
     scripts,
   };
   const service = new AgentPlanService(dependencies);
-  const views = await createPlanViews(input, dependencies, service);
+  await input.beforeRecovery?.(dependencies, service);
   const recovery = await startPlanRecovery(
     input,
     { service, access, preparation, engine, runs, remoteExecution },
     resumeAdvisor,
   );
   return {
-    runnerPagesAccessService: pages,
-    planBridgeGrants: grants,
-    agentPlanService: service,
-    agentLocalSessionPreparation: new AgentLocalSessionPreparation(runs, start),
-    ...views,
-    agentSessionService: pageAgentSessions,
-    agentPlanRecoveryService: recovery,
-    agentRunDiagnosisSettingsService: diagnosis.settings,
+    dependencies,
+    services: {
+      runnerPagesAccessService: pages,
+      planBridgeGrants: grants,
+      agentPlanService: service,
+      agentLocalSessionPreparation: new AgentLocalSessionPreparation(
+        runs,
+        start,
+      ),
+      agentSessionService: pageAgentSessions,
+      agentPlanRecoveryService: recovery,
+      agentRunDiagnosisSettingsService: diagnosis.settings,
+    },
   };
 }
 
@@ -374,55 +422,6 @@ async function startPlanRecovery(
       engine: parts.engine,
     }).start();
   return recovery;
-}
-
-/** The services that read, list or announce plans and runs through the plan service. */
-async function createPlanViews(
-  input: Parameters<typeof createAgentPlanService>[0],
-  dependencies: PlanDependencies,
-  service: AgentPlanService,
-): Promise<
-  Pick<
-    AgentPlanServices,
-    | "agentPlanActiveRunService"
-    | "agentPlanOverviewService"
-    | "agentPlanRunHistoryService"
-    | "picaMobileNotifications"
-    | "picaMobileAutomationPush"
-    | "agentPlanManagement"
-    | "agentPlanTemplateService"
-  >
-> {
-  return {
-    agentPlanActiveRunService: new AgentPlanActiveRunService(
-      dependencies,
-      service,
-    ),
-    agentPlanOverviewService: new AgentPlanOverviewService(
-      dependencies,
-      service,
-    ),
-    agentPlanRunHistoryService: new AgentPlanRunHistoryService(dependencies),
-    ...(await createPicaMobileNotificationServices({
-      database: input.database,
-      users: input.users,
-      ownerRuns: new AgentPlanOwnerRunReader(dependencies),
-    })),
-    ...createPlanManagement(input.database, service),
-  };
-}
-
-function createPlanManagement(
-  database: Database,
-  service: AgentPlanService,
-): Pick<AgentPlanServices, "agentPlanManagement" | "agentPlanTemplateService"> {
-  return {
-    agentPlanManagement: new AgentPlanManagement({ database, plans: service }),
-    agentPlanTemplateService: new AgentPlanTemplateService({
-      templates: new AgentPlanTemplateRepository(database),
-      plans: service,
-    }),
-  };
 }
 
 function startWorkspaceCleanup(
@@ -559,7 +558,7 @@ function createScriptRuntime(
 /** A problem with these copies is reported and never keeps the server from starting. */
 async function repairAgentFiles(input: {
   readonly database: Database;
-  readonly agents: AgentApplicationServices;
+  readonly agents: PlanAgentServices;
 }): Promise<void> {
   try {
     await input.agents.agentDefinitionFiles.restore(

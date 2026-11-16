@@ -101,6 +101,11 @@ function pricedUsage(
   };
 }
 
+function formatRate(value: number): string {
+  if (Number.isInteger(value)) return String(value);
+  return value.toFixed(12).replace(/0+$/u, "").replace(/\.$/u, "");
+}
+
 /** Applies a native observation once, allocates its increment and freezes the first price of each model. */
 export async function accountClaudeUsage(
   database: AgentSessionDatabase,
@@ -137,12 +142,12 @@ export async function accountClaudeUsage(
           .map((model) => ({
             modelId: model.id,
             fetchedAt: cache.fetchedAt,
-            prompt: String(model.pricing.prompt),
-            completion: String(model.pricing.completion),
-            cacheRead: String(
+            prompt: formatRate(model.pricing.prompt),
+            completion: formatRate(model.pricing.completion),
+            cacheRead: formatRate(
               model.pricing.input_cache_read ?? model.pricing.prompt,
             ),
-            cacheWrite: String(
+            cacheWrite: formatRate(
               model.pricing.input_cache_write ?? model.pricing.prompt,
             ),
           }))

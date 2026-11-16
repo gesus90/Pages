@@ -1,8 +1,6 @@
 import { noteSessionEvent } from "@/backend/agents/cli/CliSessionEvents";
 import { logEvent } from "@/backend/logging/Logger";
 
-import { decidePicaHelperPermission } from "./PicaClaudeHelper";
-
 import type {
   RequestPermissionRequest,
   RequestPermissionResponse,
@@ -25,15 +23,11 @@ import type { AcpSessionContext } from "./AcpSessionContracts";
  * its profile, as every plan node does.
  */
 export function decideAcpSessionPermission(
-  context: Pick<AcpSessionContext, "listener" | "profile">,
+  context: Pick<AcpSessionContext, "listener" | "profile" | "picaSupport">,
   state: AcpSessionState,
   request: RequestPermissionRequest,
 ): RequestPermissionResponse {
-  const helperPath = context.listener?.picaHelper;
-  const decision =
-    helperPath && context.profile.mode !== "yolo"
-      ? decidePicaHelperPermission(request, helperPath())
-      : context.profile.decide(request);
+  const decision = sessionPermission(context, request);
   if (decision.isDenied) {
     logEvent({
       level: "warn",
@@ -49,4 +43,16 @@ export function decideAcpSessionPermission(
     );
   }
   return { outcome: decision.outcome };
+}
+
+function sessionPermission(
+  context: Pick<AcpSessionContext, "listener" | "profile" | "picaSupport">,
+  request: RequestPermissionRequest,
+): ReturnType<AcpSessionContext["profile"]["decide"]> {
+  const helperPath = context.listener?.picaHelper;
+  if (!helperPath || context.profile.mode === "yolo")
+    return context.profile.decide(request);
+  if (!context.picaSupport)
+    throw new Error("Pica permission support is missing");
+  return context.picaSupport.decideHelperPermission(request, helperPath());
 }

@@ -8,7 +8,10 @@ import { beforeEach, expect, it, vi } from "vitest";
 import { AgentLocalSessionPreparation } from "@/backend/service/agents/AgentLocalSessionPreparation";
 import { AgentPlanStartResourceRepository } from "@/backend/database/repositories/agent/AgentPlanStartResourceRepository";
 import { AgentWorkspaceCleanupRepository } from "@/backend/database/repositories/agent/AgentWorkspaceCleanupRepository";
-import { createAgentPlanService } from "@/app/lib/agent-plan-services.server";
+import {
+  createPlanProcessingServices,
+  createAgentPlanService,
+} from "@/app/lib/agent-plan-services.server";
 import { AgentRunDiagnosisSettingsService } from "@/backend/service/agents/diagnosis/AgentRunDiagnosisSettingsService";
 import { createPicaMobileNotificationServices } from "@/app/lib/pica-mobile-notification-services.server";
 import { createPlanWorkspaceAccess } from "@/app/lib/plan-access-services.server";
@@ -601,4 +604,30 @@ it("reports unreadable agents and still recovers the run records", async () => {
     failure,
   );
   expect(recoverArchive).toHaveBeenCalledOnce();
+});
+
+it("starts the standalone plan engine and recovery without mobile views", async () => {
+  const { agents } = agentFixture();
+  const services = await createPlanProcessingServices(planInput(agents));
+  expect(services.agentPlanService).toBe(only(vi.mocked(AgentPlanService)));
+  expect(services.agentPlanRecoveryService).toBe(
+    only(vi.mocked(AgentPlanRecoveryService)),
+  );
+  expect(createPicaMobileNotificationServices).not.toHaveBeenCalled();
+  expect("agentPlanOverviewService" in services).toBe(false);
+  expect(AgentPlanManagement).not.toHaveBeenCalled();
+});
+
+it("installs durable plan event observers before recovery changes a run", async () => {
+  const { agents } = agentFixture();
+  const beforeRecovery = vi.fn();
+  await createPlanProcessingServices({ ...planInput(agents), beforeRecovery });
+  expect(beforeRecovery).toHaveBeenCalledOnce();
+  expect(beforeRecovery.mock.invocationCallOrder[0]).toBeLessThan(
+    vi.mocked(AgentPlanService.prototype.recoverInterruptedRuns).mock
+      .invocationCallOrder[0],
+  );
+  expect(beforeRecovery.mock.calls[0][1]).toBe(
+    only(vi.mocked(AgentPlanService)),
+  );
 });

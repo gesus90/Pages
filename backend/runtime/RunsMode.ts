@@ -38,3 +38,12 @@ export function hasRunServiceOwnership(): boolean {
 export function hasRunApiOwnership(): boolean {
   return ownsApiBridge;
 }
+
+/** Only the elected API process starts application schedulers, in combined and separate mode alike. */
+export function canProcessApiWork(): boolean {
+  return (
+    !isPagesRunsProcess() &&
+    !isLocalSessionOwner() &&
+    (ownsApiBridge || ownsRuns)
+  );
+}

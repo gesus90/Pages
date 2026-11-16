@@ -1,3 +1,4 @@
+import { acpPicaSupport } from "@/backend/agents/acp/AcpPicaSupport";
 import { vi } from "vitest";
 
 import { AcpSession } from "@/backend/agents/acp/AcpSession";
@@ -130,6 +131,10 @@ export function startAcpSession(
     isolation: "bubblewrap",
     secure,
     listener: node.listener,
+    picaSupport:
+      node.listener?.picaHelper || node.listener?.picaCodex
+        ? acpPicaSupport
+        : undefined,
   });
   return { session, process, calls: fake.calls, observer, secure };
 }
