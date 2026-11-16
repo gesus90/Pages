@@ -2,7 +2,6 @@ import { CalendarDays } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { NavLink, type NavLinkRenderProps } from "react-router";
 
-
 interface CalendarNavigationLinkProps {
   /** Open invitations of the account; the badge hides at zero. */
   readonly invitations: number;

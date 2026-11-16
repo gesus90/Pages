@@ -1,14 +1,15 @@
 import { AgentError } from "@/backend/error/AgentErrors";
-import { openRouterPriceCatalog } from "./OpenRouterPriceCatalog";
 import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
-
-import { codexThreadReportSchema } from "@/definition/CodexPlanUsage";
 
 import { codexPromptTokens } from "../usage/CodexPromptTokens";
 import { activityEvent } from "./AgentSessionRecorderEvents";
 import { AgentToolCallEvents } from "./AgentToolCallEvents";
 import { buildPromptUsage } from "./AgentSessionRecorderUsage";
 import { readContinuationCapabilities } from "./AgentSessionContinuation";
+import {
+  readCodexUsageReport,
+  recordOpenCodeMessages,
+} from "./AgentSessionProviderUsage";
 import {
   ACP_USAGE_CAPABILITIES,
   readContextUsage,
@@ -26,6 +27,7 @@ import type {
 } from "@agentclientprotocol/sdk";
 import type { AcpSessionListener } from "@/backend/agents/acp/AcpChat";
 import type { AcpContinuationCapabilities } from "./AgentSessionContinuation";
+import type { ProviderUsageHost } from "./AgentSessionProviderUsage";
 import type {
   AgentSessionEventInput,
   AgentSessionJournal,
@@ -126,6 +128,7 @@ export class AgentSessionRecorder implements AcpSessionListener {
   private hasClaudeObservation = false;
   private continuation: AcpContinuationCapabilities | null = null;
   private writes: Promise<void> = Promise.resolve();
+  private readonly providerHost: ProviderUsageHost;
 
   public constructor(
     dependencies: AgentSessionRecorderDependencies,
@@ -134,6 +137,15 @@ export class AgentSessionRecorder implements AcpSessionListener {
     this.dependencies = dependencies;
     this.clock = dependencies.clock ?? (() => new Date().toISOString());
     this.attempt = attempt;
+    this.providerHost = {
+      store: dependencies.store,
+      openCodeSnapshots: this.openCodeSnapshots,
+      current: () => this.attempt,
+      turn: () => this.turn(),
+      clock: () => this.clock(),
+      enqueue: (write) => this.enqueue(write),
+      record: (event) => this.record(event),
+    };
     this.turns.set(attempt.key.attemptId, 1);
     this.persist(attempt);
   }
@@ -189,7 +201,11 @@ export class AgentSessionRecorder implements AcpSessionListener {
 
   /** Receives one update of the adapter. */
   public readonly update = (update: SessionUpdate): void => {
-    if (this.attempt.provider === "codex_cli") this.readCodexUsage(update);
+    if (
+      this.attempt.provider === "codex_cli" &&
+      readCodexUsageReport(this.providerHost, update)
+    )
+      this.hasNativeCodexUsage = true;
     if (THOUGHT_BOUNDARIES.has(update.sessionUpdate)) this.flushThought();
     if (update.sessionUpdate === "agent_message_chunk") {
       if (update.content.type === "text") {
@@ -297,35 +313,11 @@ export class AgentSessionRecorder implements AcpSessionListener {
     freeModelId: string | null,
     mapping: Readonly<Record<string, string>>,
   ): void => {
-    const save = this.dependencies.store.saveOpenCodeMessage;
-    if (!save || this.attempt.provider !== "opencode") return;
-    for (const message of messages) {
-      const key = `${message.sessionId}:${message.id}`;
-      const fingerprint = JSON.stringify(message);
-      if (this.openCodeSnapshots.get(key) === fingerprint) continue;
-      this.openCodeSnapshots.set(key, fingerprint);
-      const attemptId = this.attempt.key.attemptId;
-      const turn = this.turn();
-      const reportedAt = this.clock();
-      this.enqueue(async () => {
-        const price = await openRouterPriceCatalog(pricingDirectory).calculate(
-          message,
-          mapping,
-          freeModelId !== null && message.model === freeModelId,
-        );
-        await save.call(this.dependencies.store, {
-          ...message,
-          attemptId,
-          turn,
-          price,
-          reportedAt,
-        });
-      });
-      this.record({
-        kind: "usage",
-        text: `OpenCode message ${message.id} usage updated`,
-      });
-    }
+    recordOpenCodeMessages(this.providerHost, messages, {
+      pricingDirectory,
+      freeModelId,
+      mapping,
+    });
   };
 
   /** Reads each completed native OpenCode message once, including sub-sessions. */
@@ -438,45 +430,6 @@ export class AgentSessionRecorder implements AcpSessionListener {
     return (
       delta === null && provider !== "claude_code" && provider !== "antigravity"
     );
-  }
-
-  private readCodexUsage(update: SessionUpdate): void {
-    const parsed = codexThreadReportSchema.safeParse(
-      update._meta?.pagesCodexUsage,
-    );
-    if (!parsed.success) return;
-    const report = parsed.data;
-    if (!report.baseline) this.hasNativeCodexUsage = true;
-    const attempt = this.attempt;
-    const turn = this.turn();
-    const reportedAt = this.clock();
-    this.enqueue(() =>
-      this.dependencies.store.saveTurnUsage({
-        ...report.totals,
-        totalTokens:
-          report.totals.inputTokens === null ||
-          report.totals.outputTokens === null
-            ? null
-            : report.totals.inputTokens + report.totals.outputTokens,
-        cacheWriteTokens: null,
-        inputIncludesCache: true,
-        isPartial:
-          report.totals.inputTokens === null ||
-          report.totals.outputTokens === null,
-        attemptId: attempt.key.attemptId,
-        turn,
-        provider: "codex_cli",
-        model: report.model,
-        reportedAt,
-        codex: {
-          connectionId: attempt.connectionId ?? "",
-          agentId: attempt.agentId ?? "",
-          report,
-        },
-      }),
-    );
-    if (!report.baseline)
-      this.record({ kind: "usage", text: "Codex thread usage updated" });
   }
 
   private readUsage(

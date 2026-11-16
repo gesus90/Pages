@@ -98,6 +98,11 @@ function linkClassName({ isActive }: NavLinkRenderProps): string {
   return getLinkClassName(isActive);
 }
 
+interface NavigationFooterLinksProps {
+  readonly canViewUsers: boolean;
+  readonly onNavigate?: () => void;
+}
+
 function getLinkClassName(isActive: boolean): string {
   return cn(
     "flex min-h-12 items-center gap-4 rounded-xl px-5 text-lg font-medium text-muted-foreground transition-colors hover:bg-sidebar-hover hover:text-foreground xl:min-h-10 xl:gap-3 xl:px-3 xl:text-sm",
@@ -259,35 +264,50 @@ function NavigationLinks({
       <StorageNavigationLink onNavigate={onNavigate} />
 
       <div aria-hidden="true" className="pages-sidebar-scene" />
-      <div className="mt-auto flex flex-col gap-1 pt-2">
-        {canViewUsers ? (
-          <NavLink
-            className={linkClassName}
-            to="/users"
-            prefetch="intent"
-            onClick={onNavigate}
-          >
-            <Users
-              className="size-6 text-primary xl:size-5"
-              aria-hidden="true"
-            />
-            {t("navigation.users")}
-          </NavLink>
-        ) : null}
+      <NavigationFooterLinks
+        canViewUsers={canViewUsers}
+        onNavigate={onNavigate}
+      />
+    </nav>
+  );
+}
+
+function NavigationFooterLinks({
+  canViewUsers,
+  onNavigate,
+}: NavigationFooterLinksProps): React.ReactElement {
+  const { t } = useTranslation();
+
+  return (
+    <div className="mt-auto flex flex-col gap-1 pt-2">
+      {canViewUsers ? (
         <NavLink
-          className={linkClassName}
-          to="/settings"
+          className={({ isActive }: NavLinkRenderProps) =>
+            getLinkClassName(isActive)
+          }
+          to="/users"
           prefetch="intent"
           onClick={onNavigate}
         >
-          <Settings
-            className="size-6 text-primary xl:size-5"
-            aria-hidden="true"
-          />
-          {t("navigation.settings")}
+          <Users className="size-6 text-primary xl:size-5" aria-hidden="true" />
+          {t("navigation.users")}
         </NavLink>
-      </div>
-    </nav>
+      ) : null}
+      <NavLink
+        className={({ isActive }: NavLinkRenderProps) =>
+          getLinkClassName(isActive)
+        }
+        to="/settings"
+        prefetch="intent"
+        onClick={onNavigate}
+      >
+        <Settings
+          className="size-6 text-primary xl:size-5"
+          aria-hidden="true"
+        />
+        {t("navigation.settings")}
+      </NavLink>
+    </div>
   );
 }
 

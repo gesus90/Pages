@@ -841,3 +841,43 @@ Chapter  Rule                                         Tool
 Checked in code review, because no tool can decide them: names that explain the purpose, import order, semantic HTML and accessibility, comments that explain why, unnecessary abstractions, unnecessary effects, and the SQL layout.
 
 `eslint-plugin-jsx-a11y` is not used because its newest release (6.10.2) does not declare support for ESLint 10. Accessibility is checked in review until it does.
+
+## 19. Planning References in Project Content
+
+Ticket keys and other internal planning numbers are identifiers used by the
+development team to organize its work. They are not part of the Pages product
+and do not explain behavior to readers without access to that planning. This
+content rule therefore applies to all new and changed material in the project.
+
+Do not refer to tickets, epics, initiatives, subtasks, milestones or their keys
+and numbers. Ticket keys consist of a project prefix, a separator and a running
+number. The prohibition covers every capitalization, hyphens, underscores and
+spaces as separators, ranges and lists. It also covers links to ticket pages
+and phrases such as "siehe Ticket …", "gemäß Epic …" and "seit Ticket …".
+
+The same prohibition covers other internal planning numbers: work packages
+(a letter with a running number and subnumber, including "Arbeitspaket …",
+"… Nachlauf" and ranges), and decisions, topics and functions (a letter with
+a running number). Such identifiers are prohibited in square or round
+brackets, table columns, legends and page titles, and in phrases such as
+"umgesetzt in Arbeitspaket …", "gemäß Entscheidung …" and "Stand nach …".
+
+The rule applies to repository Markdown and other documentation; wiki pages,
+titles and link texts; the GitHub project and repository, including issues and
+pull requests with titles, descriptions and comments, commits, branches, tags,
+releases and release descriptions; source code and comments; test files, names
+and descriptions; interface and translation texts; error messages; and file
+and directory names.
+
+Describe the behavior, rule or reason directly and independently so a reader
+without access to planning can understand it. Keys and planning numbers in an
+assignment serve only to understand the task; never carry them into content
+outside the ticket system.
+
+Tickets in the ticket system itself may contain keys and references to other
+tickets in their titles, descriptions, comments, links and epic or subtask
+hierarchy, because they serve planning. The product's own ticket system may
+process ticket keys as domain data in code, fields and sample data and use
+neutral example keys when required for that function; these must never refer
+to or explain a real development planning ticket. Product version numbers and
+database migration numbers are technical product numbers, not planning numbers.
