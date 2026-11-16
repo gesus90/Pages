@@ -17,7 +17,9 @@ vi.mock("@/backend/service/chat/browser/PicaBrowserNavigation", () => ({
   }),
 }));
 
-function fixture(): {
+function fixture(
+  currentState: PicaBrowserSession["currentState"] = "takeover",
+): {
   session: PicaBrowserSession;
   page: ReturnType<PicaBrowserSession["activePage"]>;
   record: ReturnType<typeof vi.fn>;
@@ -34,10 +36,13 @@ function fixture(): {
   });
   const record = vi.fn();
   const session = partial<PicaBrowserSession>({
-    currentState: "takeover",
+    currentState,
     activePage: () => page,
     sensitivePages: new Set(),
-    queue: partial({ run: async (work) => work() }),
+    queue: partial({
+      run: async <Result>(work: () => Promise<Result>): Promise<Result> =>
+        work(),
+    }),
     touch: vi.fn(),
     record,
     allowedOrigins: vi.fn().mockReturnValue({}),
@@ -89,10 +94,10 @@ describe("administrator browser takeover input", () => {
   it("rejects input outside takeover and records action failures", async () => {
     const { session, page, record } = fixture();
     await expect(
-      applyAdministratorInput(
-        { ...session, currentState: "running" },
-        { type: "key", key: "Enter" },
-      ),
+      applyAdministratorInput(fixture("running").session, {
+        type: "key",
+        key: "Enter",
+      }),
     ).rejects.toThrow();
     vi.mocked(page.keyboard.press).mockRejectedValueOnce(new Error("failed"));
     await expect(

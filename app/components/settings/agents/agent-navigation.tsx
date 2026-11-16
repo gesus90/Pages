@@ -5,7 +5,6 @@ import { NavLink, type NavLinkRenderProps, useLocation } from "react-router";
 
 import { cn } from "@/app/lib/cn";
 
-
 /** Links reusable user agents, execution plans and workspace management. */
 export function AgentNavigation(props: {
   readonly canManage?: boolean;

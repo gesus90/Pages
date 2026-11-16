@@ -38,7 +38,7 @@ it("adds transport facts without altering the stored run", async () => {
   const result = await withRemoteProgress(run, {
     progress,
     historyPending: async () => 2,
-    contact: () => null,
+    contact: () => ({ state: "lost", lastContactAt: null }),
   });
   expect(result.steps[0]?.remote).toMatchObject({
     jobId: "job",
@@ -67,7 +67,7 @@ it("leaves missing jobs unchanged and does not mark completed jobs stale", async
   const runners = {
     progress: async () => undefined,
     historyPending: async () => 0,
-    contact: () => null,
+    contact: () => ({ state: "lost" as const, lastContactAt: null }),
   };
   await expect(withRemoteProgress(run, runners)).resolves.toEqual(run);
   const job = partial<RunnerJob>({

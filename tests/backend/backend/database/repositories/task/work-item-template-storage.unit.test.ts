@@ -21,7 +21,9 @@ function fixture(): {
     repository: new WorkItemTemplateRepository(
       partial<Database>({
         query,
-        transaction: async (work) => work(transaction),
+        transaction: async <Result>(
+          work: (activeTransaction: DatabaseTransaction) => Promise<Result>,
+        ): Promise<Result> => work(transaction),
       }),
     ),
     query,

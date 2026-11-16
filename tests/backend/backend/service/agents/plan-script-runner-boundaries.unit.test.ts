@@ -6,6 +6,7 @@ import { AgentPlanScriptRunner } from "@/backend/service/agents/AgentPlanScriptR
 
 import { partial } from "../../../app/lib/service-wiring-fakes";
 
+import type { Mock } from "vitest";
 import type { AgentPlanRun } from "@/definition/AgentPlan";
 import type { AgentPlanScriptRun } from "@/definition/AgentPlanScript";
 import type {
@@ -52,7 +53,7 @@ const script = partial<AgentPlanScriptSnapshot>({
 function fixture(): {
   runner: AgentPlanScriptRunner;
   reauthorize: ReturnType<typeof vi.fn>;
-  save: ReturnType<typeof vi.fn>;
+  save: Mock<(record: AgentPlanScriptRun) => Promise<void>>;
   signal: AbortSignal;
 } {
   const reauthorize = vi.fn().mockResolvedValue(undefined);
@@ -63,7 +64,9 @@ function fixture(): {
   return {
     runner: new AgentPlanScriptRunner(preparation, "/virtual"),
     reauthorize,
-    save: vi.fn().mockResolvedValue(undefined),
+    save: vi
+      .fn<(record: AgentPlanScriptRun) => Promise<void>>()
+      .mockResolvedValue(undefined),
     signal: new AbortController().signal,
   };
 }

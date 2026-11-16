@@ -43,7 +43,7 @@ it("filters the navigation by scope and visible project", async () => {
     canCreate: true,
   });
   await expect(
-    service.tree(context, { scope: "global", projectId: "one" }),
+    service.tree(context, { scope: "private", projectId: "one" }),
   ).rejects.toMatchObject({ code: "invalid_request" });
   await expect(
     service.tree(context, { projectId: "missing" }),

@@ -36,7 +36,7 @@ describe("user administration projections", () => {
       pageMcpUserList([{ id: "b" }], {
         session,
         list: "other",
-        request: { cursor: page.nextCursor ?? "" },
+        request: { limit: 50, cursor: page.nextCursor ?? "" },
       }),
     ).toThrow();
   });

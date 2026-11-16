@@ -24,17 +24,18 @@ const STEP = partial<AgentPlanStepResult>({
   remote: { jobId: "job", sessionId: "session" },
 });
 const RUN = partial<AgentPlanRun>({ id: "run", planId: "plan", steps: [STEP] });
+const PLAN = {
+  planId: "plan",
+  runId: "run",
+  stepId: "step",
+  attemptId: "attempt",
+  planRevision: 2,
+};
 const JOB = partial<RunnerJob>({
   jobId: "job",
   sessionId: "session",
   status: "queued",
-  plan: {
-    planId: "plan",
-    runId: "run",
-    stepId: "step",
-    attemptId: "attempt",
-    planRevision: 2,
-  },
+  plan: PLAN,
 });
 
 it("matches both the attempt binding and recorded remote identity", () => {
@@ -45,7 +46,7 @@ it("matches both the attempt binding and recorded remote identity", () => {
   expect(
     isOriginalRemoteJob(RUN, STEP, {
       ...JOB,
-      plan: { ...JOB.plan, attemptId: "other" },
+      plan: { ...PLAN, attemptId: "other" },
     }),
   ).toBe(false);
   expect(isOriginalRemoteJob(RUN, STEP, undefined)).toBe(false);

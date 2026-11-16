@@ -41,7 +41,11 @@ it("does not authenticate an unreachable or unconfirmed host", async () => {
   });
   expect(scanHostKey).not.toHaveBeenCalled();
   const unconfirmed = await testRemoteConnection(
-    { ...client, probe: async () => null },
+    partial<SshClient>({
+      probe: async () => null,
+      scanHostKey,
+      authenticate,
+    }),
     { ...SUBJECT, pinnedHostKey: null },
   );
   expect(unconfirmed.hostKey).toEqual({

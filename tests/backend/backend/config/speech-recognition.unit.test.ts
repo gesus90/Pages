@@ -5,6 +5,10 @@ import {
   voiceMaximumDurationMs,
 } from "@/backend/config/SpeechRecognitionConfig";
 
+import { partial } from "../../app/lib/service-wiring-fakes";
+
+import type { TomlTable } from "smol-toml";
+
 describe("speech recognition configuration", () => {
   it("reads and normalizes the optional configuration", () => {
     expect(readSpeechRecognitionConfig({})).toEqual({});
@@ -31,9 +35,9 @@ describe("speech recognition configuration", () => {
 
   it("rejects malformed tables and model names", () => {
     for (const speechRecognition of [null, [], "bad", new Date()]) {
-      expect(() => readSpeechRecognitionConfig({ speechRecognition })).toThrow(
-        "must be a table",
-      );
+      expect(() =>
+        readSpeechRecognitionConfig(partial<TomlTable>({ speechRecognition })),
+      ).toThrow("must be a table");
     }
     for (const model of [" ", 12]) {
       expect(() =>

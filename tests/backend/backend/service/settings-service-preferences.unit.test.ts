@@ -39,22 +39,20 @@ describe("personal settings", () => {
   });
 
   it("retains valid choices and saves them with notification flags", async () => {
-    const findByUserId = vi
-      .fn()
-      .mockResolvedValue({
-        language: "en",
-        theme: "dark",
-        timezone: "UTC",
-        dateFormat: "YYYY-MM-DD",
-        weekStart: "sunday",
-        notifyEmail: true,
-        notifyDesktop: false,
-        notifyMentions: true,
-        notifyAssignments: false,
-        notifyDueDates: true,
-        notifyWeeklySummary: false,
-        notifyCalendarInvitations: true,
-      });
+    const findByUserId = vi.fn().mockResolvedValue({
+      language: "en",
+      theme: "dark",
+      timezone: "UTC",
+      dateFormat: "YYYY-MM-DD",
+      weekStart: "sunday",
+      notifyEmail: true,
+      notifyDesktop: false,
+      notifyMentions: true,
+      notifyAssignments: false,
+      notifyDueDates: true,
+      notifyWeeklySummary: false,
+      notifyCalendarInvitations: true,
+    });
     const upsert = vi.fn().mockResolvedValue(undefined);
     const upsertLanguage = vi.fn().mockResolvedValue(undefined);
     const service = new SettingsService(

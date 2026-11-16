@@ -50,7 +50,12 @@ const input: SetupInput = {
   userAgent: null,
 };
 
-function fixture(): {
+function fixture(
+  overrides: {
+    isSetupPending?: () => boolean;
+    verifySetupToken?: () => boolean;
+  } = {},
+): {
   service: SetupWizardService;
   runtime: PagesRuntime;
   activate: ReturnType<typeof vi.fn>;
@@ -65,13 +70,16 @@ function fixture(): {
   });
   const runtime = partial<PagesRuntime>({
     configFile,
-    runExclusiveSetup: async (task) => task(),
+    runExclusiveSetup: async <Result>(
+      task: () => Promise<Result>,
+    ): Promise<Result> => task(),
     isSetupPending: () => true,
     verifySetupToken: () => true,
     getSuggestedDatabasePath: () => "/virtual/db",
     getConfig: vi.fn().mockReturnValue({ firstRun: true }),
     stageSetup: vi.fn(),
     finishSetup: vi.fn(),
+    ...overrides,
   });
   const activate = vi.fn().mockResolvedValue(undefined);
   const service = new SetupWizardService({
@@ -93,9 +101,8 @@ beforeEach(() => {
 
 describe("setup wizard completion", () => {
   it("rejects completed setups, invalid tokens and invalid database URLs", async () => {
-    const { runtime } = fixture();
     const service = new SetupWizardService({
-      runtime: { ...runtime, isSetupPending: () => false },
+      runtime: fixture({ isSetupPending: () => false }).runtime,
       passwordHasher: partial({}),
       activateServices: vi.fn(),
     });
@@ -103,7 +110,7 @@ describe("setup wizard completion", () => {
       status: "alreadyCompleted",
     });
     const denied = new SetupWizardService({
-      runtime: { ...runtime, verifySetupToken: () => false },
+      runtime: fixture({ verifySetupToken: () => false }).runtime,
       passwordHasher: partial({}),
       activateServices: vi.fn(),
     });

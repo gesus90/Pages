@@ -20,7 +20,9 @@ function fixture(): {
   const database = partial<Database>({
     query,
     execute,
-    transaction: async (work) => work(transaction),
+    transaction: async <Result>(
+      work: (activeTransaction: DatabaseTransaction) => Promise<Result>,
+    ): Promise<Result> => work(transaction),
   });
   return {
     repository: new AgentConnectionRepository(database),

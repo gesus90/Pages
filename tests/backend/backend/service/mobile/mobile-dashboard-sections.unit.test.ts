@@ -19,15 +19,13 @@ function fixture(): {
   runs: ReturnType<typeof vi.fn>;
   projects: ReturnType<typeof vi.fn>;
 } {
-  const auth = vi
-    .fn()
-    .mockResolvedValue({
-      id: "u",
-      isActive: true,
-      mustChangePassword: false,
-      displayName: "Ada",
-      avatarType: "none",
-    });
+  const auth = vi.fn().mockResolvedValue({
+    id: "u",
+    isActive: true,
+    mustChangePassword: false,
+    displayName: "Ada",
+    avatarType: "none",
+  });
   const runs = vi.fn().mockResolvedValue([]);
   const projects = vi.fn().mockResolvedValue([]);
   const services = partial<PicaMobileDashboardServices>({

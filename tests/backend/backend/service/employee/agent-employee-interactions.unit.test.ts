@@ -20,7 +20,9 @@ it("binds chat interactions to the current direct conversation", () => {
     chatHistory: { bind: history },
   });
   const agent = partial<User>({ id: "agent" });
-  expect(chatInteractionsFor(dependencies, agent, { own: null })).toEqual({});
+  expect(
+    chatInteractionsFor(dependencies, agent, partial({ own: null })),
+  ).toEqual({});
   const result = chatInteractionsFor(
     dependencies,
     agent,

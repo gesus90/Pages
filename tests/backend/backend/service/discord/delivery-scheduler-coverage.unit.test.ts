@@ -6,7 +6,12 @@ afterEach(() => vi.useRealTimers());
 
 it("runs immediately on start and periodically until stopped", async () => {
   vi.useFakeTimers();
-  const runDue = vi.fn(async () => undefined);
+  const runDue = vi.fn(async () => ({
+    sent: 0,
+    retried: 0,
+    failed: 0,
+    skipped: 0,
+  }));
   const scheduler = new DiscordDeliveryScheduler({ runDue }, 1000);
   scheduler.start();
   scheduler.start();

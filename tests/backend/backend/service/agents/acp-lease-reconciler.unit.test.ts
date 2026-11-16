@@ -33,7 +33,8 @@ function fixture(): {
     store: partial({ save: vi.fn().mockResolvedValue(undefined) }),
     unverifiedLocal: () => new Set(),
     cleanup: vi.fn(),
-    persist: async (task) => task(),
+    persist: async <Result>(task: () => Promise<Result>): Promise<Result> =>
+      task(),
     transition: vi.fn().mockResolvedValue(undefined),
     finish: vi.fn().mockResolvedValue(true),
   });

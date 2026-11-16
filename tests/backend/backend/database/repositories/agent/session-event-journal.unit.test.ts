@@ -50,7 +50,9 @@ function fixture(): {
   const database = partial<AgentSessionDatabase>({
     query,
     execute,
-    transaction: async (work) => work(transaction),
+    transaction: async <Result>(
+      work: (activeTransaction: DatabaseTransaction) => Promise<Result>,
+    ): Promise<Result> => work(transaction),
   });
   mocks.write.mockResolvedValue("file");
   mocks.prepare.mockResolvedValue([]);
