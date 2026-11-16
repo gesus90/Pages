@@ -1,4 +1,3 @@
-import { canonicalClaudeModel } from "@/definition/ClaudePriceModels";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { openRouterPriceCatalog } from "./OpenRouterPriceCatalog";
 import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
@@ -6,6 +5,7 @@ import { logCaughtError, logDiagnostic } from "@/backend/logging/Logger";
 import { codexThreadReportSchema } from "@/definition/CodexPlanUsage";
 
 import { codexPromptTokens } from "../usage/CodexPromptTokens";
+import { buildPromptUsage } from "./AgentSessionPromptUsage";
 import {
   PROGRESS_TOOL,
   describeInput,
@@ -236,43 +236,31 @@ export class AgentSessionRecorder implements AcpSessionListener {
     this.flushThought();
     this.flushMessage();
     const attempt = this.attempt;
-    const { provider, key } = attempt;
     const turn = this.turn();
     if (
-      provider === "opencode" &&
-      this.attempt.requestedModel?.startsWith("openrouter/")
+      attempt.provider === "opencode" &&
+      attempt.requestedModel?.startsWith("openrouter/")
     ) {
-      this.turns.set(key.attemptId, turn + 1);
-      this.record({
-        kind: "status",
-        text: isContinued ? `turn ${turn} continued` : `turn ${turn} ended`,
-        turn,
-      });
+      this.endTurn(turn, isContinued);
       return;
     }
     const delta = this.promptDelta(usage);
     this.lastUsage = usage ?? this.lastUsage;
-    this.turns.set(key.attemptId, turn + 1);
-    this.record({
-      kind: "status",
-      text: isContinued ? `turn ${turn} continued` : `turn ${turn} ended`,
-      turn,
-    });
-    if (provider === "codex_cli" && this.hasNativeCodexUsage) {
-      this.hasNativeCodexUsage = false;
-      if (usage !== null) return;
-    }
-    if (provider === "claude_code" && this.hasClaudeObservation) {
-      this.hasClaudeObservation = false;
-      return;
-    }
+    this.endTurn(turn, isContinued);
+    if (this.consumeObservedPrompt(usage)) return;
     if (
       delta === null &&
-      provider !== "claude_code" &&
-      provider !== "antigravity"
+      attempt.provider !== "claude_code" &&
+      attempt.provider !== "antigravity"
     )
       return;
-    const recorded = this.promptUsage(attempt, turn, delta, nativeSessionId);
+    const recorded = buildPromptUsage({
+      attempt,
+      turn,
+      delta,
+      nativeSessionId,
+      reportedAt: this.clock(),
+    });
     this.enqueue(() =>
       (
         this.dependencies.saveUsage ??
@@ -451,66 +439,27 @@ export class AgentSessionRecorder implements AcpSessionListener {
     );
   }
 
-  private promptUsage(
-    attempt: AgentSessionAttemptRecord,
-    turn: number,
-    delta: TurnTokenDelta | null,
-    nativeSessionId: string | undefined,
-  ): AgentSessionTurnUsage {
-    const { provider, key } = attempt;
-    const model = this.promptModel(attempt);
-    return {
-      ...(delta?.tokens ?? {
-        inputTokens: null,
-        outputTokens: null,
-        cacheReadTokens: null,
-        cacheWriteTokens: null,
-        totalTokens: null,
-        inputIncludesCache: provider === "antigravity" ? null : false,
-        isPartial: true,
-      }),
-      ...(provider === "claude_code" && nativeSessionId && delta
-        ? {
-            claudeObservation: {
-              sessionId: nativeSessionId,
-              id: `${key.attemptId}:${turn}`,
-              kind: "prompt" as const,
-              models: [
-                {
-                  model: canonicalClaudeModel(model ?? "unknown"),
-                  inputTokens: delta.tokens.inputTokens,
-                  outputTokens: delta.tokens.outputTokens,
-                  cacheReadTokens: delta.tokens.cacheReadTokens,
-                  cacheWriteTokens: delta.tokens.cacheWriteTokens,
-                },
-              ],
-            },
-          }
-        : {}),
-      attemptId: key.attemptId,
+  private endTurn(turn: number, isContinued: boolean): void {
+    this.turns.set(this.attempt.key.attemptId, turn + 1);
+    this.record({
+      kind: "status",
+      text: isContinued ? `turn ${turn} continued` : `turn ${turn} ended`,
       turn,
-      provider,
-      model:
-        provider === "codex_cli"
-          ? (model ?? attempt.requestedModel ?? null)
-          : model,
-      ...(provider === "codex_cli"
-        ? {
-            codex: {
-              connectionId: attempt.connectionId ?? "",
-              agentId: attempt.agentId ?? "",
-              report: null,
-            },
-          }
-        : {}),
-      reportedAt: this.clock(),
-    };
+    });
   }
 
-  private promptModel(attempt: AgentSessionAttemptRecord): string | null {
-    return attempt.provider === "claude_code"
-      ? (attempt.confirmedModel.value ?? attempt.requestedModel ?? null)
-      : attempt.confirmedModel.value;
+  /** Whether the provider already reported this prompt's usage, which then goes unrecorded here. */
+  private consumeObservedPrompt(usage: Usage | null): boolean {
+    const provider = this.attempt.provider;
+    if (provider === "codex_cli" && this.hasNativeCodexUsage) {
+      this.hasNativeCodexUsage = false;
+      return usage !== null;
+    }
+    if (provider === "claude_code" && this.hasClaudeObservation) {
+      this.hasClaudeObservation = false;
+      return true;
+    }
+    return false;
   }
 
   private toolEvent(
