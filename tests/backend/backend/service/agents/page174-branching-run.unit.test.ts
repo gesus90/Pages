@@ -262,11 +262,14 @@ it("never turns a missing input into false: a checker that failed leaves the dec
 });
 
 it("starts the target once when two senders finish together, with both results and no second start", async () => {
-  const runtime = branchRuntime({
-    check: [branchReport(false), branchReport(true)],
-    fixa: [FIX_ANSWER(1)],
-    fixb: ["Second finding: the title is missing.\n" + branchReport(true)],
-  });
+  const runtime = branchRuntime(
+    {
+      check: [branchReport(false), branchReport(true)],
+      fixa: [FIX_ANSWER(1)],
+      fixb: ["Second finding: the title is missing.\n" + branchReport(true)],
+    },
+    ["fixa", "fixb"],
+  );
   const world = await branchEngine(runtime.execution, {
     nodes: (agent) => [
       { id: "start", type: "start", x: 0, y: 0 },
@@ -297,6 +300,14 @@ it("starts the target once when two senders finish together, with both results a
     ],
   });
   const started = await world.engine.start("owner", world.snapshot);
+  await expect
+    .poll(() => runtime.calls.filter((call) => call.stepId.startsWith("fix")))
+    .toHaveLength(2);
+  runtime.release("fixb");
+  await expect
+    .poll(() => stepOf(world.read(started.id), "fixb").status)
+    .toBe("succeeded");
+  runtime.release("fixa");
   const run = await finished(world, started.id);
   expect(run.status).toBe("succeeded");
   expect(runtime.calls.filter((call) => call.stepId === "check")).toHaveLength(
@@ -305,6 +316,11 @@ it("starts the target once when two senders finish together, with both results a
   const follow = runtime.calls.find((call) => call.kind === "next");
   expect(follow?.prompt).toContain("Fixed the open problem of round 1.");
   expect(follow?.prompt).toContain("Second finding: the title is missing.");
+  expect(
+    (follow?.prompt ?? "").indexOf("Fixed the open problem of round 1."),
+  ).toBeLessThan(
+    (follow?.prompt ?? "").indexOf("Second finding: the title is missing."),
+  );
   expect(stepOf(run, "check").trigger?.sources).toEqual([
     { stepId: "fixa", activation: 1 },
     { stepId: "fixb", activation: 1 },

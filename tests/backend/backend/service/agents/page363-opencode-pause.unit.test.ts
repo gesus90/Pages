@@ -224,8 +224,8 @@ it("starts anew after an OpenCode end state and never offers resume or stop", as
     canPause: false,
     canResume: false,
     canStop: false,
-    resumeKind: "stopped",
   });
+  expect(control.resumeKind).toBeUndefined();
   expect(isEndedResumable(run)).toBe(false);
   expect(
     planControl(

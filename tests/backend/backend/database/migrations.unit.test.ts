@@ -32,6 +32,7 @@ it("keeps migration names unique and numbers contiguous across historical batche
   ]);
   expect(names.filter((name) => name.startsWith("061_")).sort()).toEqual([
     "061_agent_chat_models.sql",
+    "061_agent_tool_groups.sql",
     "061_codex_plan_usage.sql",
     "061_independent_agent_providers.sql",
     "061_opencode_message_usage.sql",
@@ -39,14 +40,19 @@ it("keeps migration names unique and numbers contiguous across historical batche
     "061_workspace_cleanup_retries.sql",
   ]);
   expect(names.filter((name) => name.startsWith("062_")).sort()).toEqual([
+    "062_agent_chat_questions.sql",
     "062_conversation_attachment_expiry.sql",
     "062_notification_choices.sql",
+  ]);
+  expect(names.filter((name) => name.startsWith("063_")).sort()).toEqual([
+    "063_agent_chat_tasks.sql",
+    "063_conversation_media_facts.sql",
   ]);
   expect(new Set(names).size).toBe(names.length);
   const numbers = [
     ...new Set(names.map((name) => Number(MIGRATION_NAME.exec(name)?.[1]))),
   ].sort((first, second) => first - second);
-  expect(names).toHaveLength(numbers.length + 13);
+  expect(names).toHaveLength(numbers.length + 16);
   expect(numbers).toEqual(numbers.map((_, index) => index + 1));
 });
 

@@ -82,14 +82,19 @@ export async function createScriptResources(
       );
     return directory;
   }
-  await writeFile(path.join(directory, "owner"), instanceId, {
-    mode: 0o600,
-    flag: "wx",
-  });
-  await writeFile(path.join(directory, "script.cjs"), content, {
-    mode: 0o600,
-    flag: "wx",
-  });
+  try {
+    await writeFile(path.join(directory, "owner"), instanceId, {
+      mode: 0o600,
+      flag: "wx",
+    });
+    await writeFile(path.join(directory, "script.cjs"), content, {
+      mode: 0o600,
+      flag: "wx",
+    });
+  } catch (error: unknown) {
+    await rm(directory, { recursive: true, force: true });
+    throw error;
+  }
   return directory;
 }
 

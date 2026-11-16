@@ -55,6 +55,18 @@ it("removes partially written source when preparation fails before any process s
   });
 });
 
+it("removes the owner marker when writing the script fails", async () => {
+  boundary.writeFile.mockResolvedValueOnce(undefined);
+  boundary.writeFile.mockRejectedValueOnce(new Error("disk full"));
+  await expect(
+    createScriptResources(INSTANCE, "source", SCOPE),
+  ).rejects.toThrow("disk full");
+  expect(boundary.rm).toHaveBeenCalledWith(DIRECTORY, {
+    recursive: true,
+    force: true,
+  });
+});
+
 it("recovers only the script resource directory with the matching owner marker", async () => {
   await removeScriptResources(INSTANCE, SCOPE);
   expect(boundary.rm).toHaveBeenCalledWith(DIRECTORY, { recursive: true });

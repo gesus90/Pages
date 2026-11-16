@@ -347,3 +347,75 @@ it("enforces the monthly agent limit from the same stored equivalent, including 
   ).resolves.toBeUndefined();
   expect(monthlyCost).toHaveBeenCalledTimes(2);
 });
+
+it.each([
+  "null",
+  "[]",
+  JSON.stringify({ type: "other", payload: { type: "token_count" } }),
+  JSON.stringify({ type: "event_msg", payload: { type: "other" } }),
+  JSON.stringify({
+    type: "event_msg",
+    payload: { type: "token_count", info: { total_token_usage: [] } },
+  }),
+  JSON.stringify({
+    type: "event_msg",
+    payload: {
+      type: "token_count",
+      info: {
+        total_token_usage: {
+          input_tokens: -1,
+          output_tokens: 1.5,
+          cached_input_tokens: "2",
+          reasoning_output_tokens: Number.MAX_SAFE_INTEGER + 1,
+        },
+      },
+    },
+  }),
+])("ignores malformed native token records", (line) => {
+  expect(readCodexTokenCount(line)).toBeNull();
+});
+
+it("retains valid native token counters when other counters are malformed", () => {
+  const line = JSON.stringify({
+    type: "event_msg",
+    payload: {
+      type: "token_count",
+      info: {
+        total_token_usage: {
+          input_tokens: 42,
+          cached_input_tokens: -1,
+          output_tokens: 1.5,
+          reasoning_output_tokens: null,
+        },
+      },
+    },
+  });
+  expect(readCodexTokenCount(line)).toEqual({
+    inputTokens: 42,
+    cacheReadTokens: null,
+    outputTokens: null,
+    reasoningTokens: null,
+  });
+});
+
+it("keeps unknown counters unknown while charging only available subsets", () => {
+  const unknown = {
+    inputTokens: null,
+    cacheReadTokens: null,
+    outputTokens: null,
+    reasoningTokens: null,
+  };
+  expect(codexHighWater(TOKENS, unknown)).toEqual(TOKENS);
+  expect(codexTokenDelta(TOKENS, unknown)).toEqual(unknown);
+  expect(codexTokenCost(unknown, PRICE)).toBeNull();
+  expect(
+    codexTokenCost(
+      { ...TOKENS, cacheReadTokens: 200, reasoningTokens: 100 },
+      PRICE,
+    ),
+  ).toBeCloseTo(0.61);
+  expect(
+    codexPromptTokens({ inputTokens: 1, outputTokens: 3, totalTokens: 2 })
+      .tokens,
+  ).toMatchObject({ inputTokens: null, isPartial: true });
+});

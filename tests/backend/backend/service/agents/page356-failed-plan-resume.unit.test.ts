@@ -169,8 +169,8 @@ it("refuses resume after Stop even with completed checkpoints and still allows S
   expect(control).toMatchObject({
     canResume: false,
     canPlay: true,
-    resumeKind: "stopped",
   });
+  expect(control.resumeKind).toBeUndefined();
   const facts = {
     run: stopped,
     plan,

@@ -11,6 +11,7 @@ import { SCRIPT_RUN, UUID } from "../../agents/agent-plan-record-fixture";
 
 import type * as ChildProcess from "node:child_process";
 import type * as OperatingSystem from "node:os";
+import type * as SharedEnvironment from "@/backend/agents/cli/AgentSharedEnvironment";
 
 const boundary = vi.hoisted(() => ({
   spawn:
@@ -41,6 +42,13 @@ vi.mock("@/backend/agents/cli/CliOwnedNamespace", () => ({
 vi.mock("@/backend/agents/cli/CliSshConfigOverlay", () => ({
   sshConfigOverlayArguments: async () => [],
 }));
+vi.mock(
+  "@/backend/agents/cli/AgentSharedEnvironment",
+  async (importOriginal) => ({
+    ...(await importOriginal<typeof SharedEnvironment>()),
+    prepareSharedAgentEnvironment: async () => undefined,
+  }),
+);
 
 beforeEach(() => {
   vi.clearAllMocks();

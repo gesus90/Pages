@@ -203,3 +203,150 @@ it("refuses an engine completion with a mismatched remote attempt", async () => 
   ).rejects.toMatchObject({ code: "checkpoint_invalid" });
   expect(store.execute).not.toHaveBeenCalled();
 });
+
+it("rejects events bound to another plan or connection", async () => {
+  const world = await remoteCompletion(false);
+  if (!world.job.plan) throw new Error("Expected a bound job");
+  const job = {
+    ...world.job,
+    plan: { ...world.job.plan, planId: randomUUID() },
+  };
+  expect(() =>
+    applyRunnerPlanEvent({ ...world, job }, world.run, world.snapshot),
+  ).toThrow("Runner plan identity mismatch");
+  expect(() =>
+    applyRunnerPlanEvent(
+      { ...world, connectionId: randomUUID() },
+      world.run,
+      world.snapshot,
+    ),
+  ).toThrow("Runner attempt mismatch");
+});
+
+it("rejects completion without confirmed cleanup or successful exit evidence", async () => {
+  const world = await remoteCompletion(false);
+  if (!world.event.result) throw new Error("Expected completion evidence");
+  const event = { ...world.event, result: undefined };
+  expect(() =>
+    applyRunnerPlanEvent({ ...world, event }, world.run, world.snapshot),
+  ).toThrow("Runner completion evidence required");
+  const unconfirmed = {
+    ...world.event,
+    result: { ...world.event.result, closeout: "pending" as const },
+  };
+  expect(() =>
+    applyRunnerPlanEvent(
+      { ...world, event: unconfirmed },
+      world.run,
+      world.snapshot,
+    ),
+  ).toThrow("Runner completion requires confirmed cleanup");
+  const unsuccessful = {
+    ...world.event,
+    result: { ...world.event.result, exitCode: 1 },
+  };
+  expect(() =>
+    applyRunnerPlanEvent(
+      { ...world, event: unsuccessful },
+      world.run,
+      world.snapshot,
+    ),
+  ).toThrow("Runner successful exit evidence required");
+});
+
+it("acknowledges a queued event without changing the run", async () => {
+  const world = await remoteCompletion(false);
+  const job = { ...world.job, status: "queued" as const };
+  const event = { ...world.event, job, result: undefined };
+  const result = applyRunnerPlanEvent(
+    { ...world, job, event },
+    world.run,
+    world.snapshot,
+  );
+  expect(result.run).toBe(world.run);
+  expect(result.checkpoint).toBeUndefined();
+});
+
+it("builds checkpoint dependencies and input references from the pinned snapshot", async () => {
+  const world = await remoteCompletion(false);
+  const run = applyRunnerPlanEvent(world, world.run, world.snapshot).run;
+  const step = run.steps[0];
+  if (!step) throw new Error("Expected a remote step");
+  const snapshot = {
+    plan: {
+      edges: [
+        { from: "prior", to: step.id },
+        { from: "other", to: "elsewhere" },
+      ],
+    },
+    remoteSteps: [
+      {
+        step: {
+          id: step.id,
+          agentId: "agent",
+          bindings: {
+            literal: { kind: "literal", value: "hello" },
+            source: { kind: "source", nodeId: "source-node" },
+            result: { kind: "result", stepId: "prior" },
+            previous: { kind: "previous" },
+          },
+        },
+        revision: 3,
+      },
+    ],
+  };
+  const checkpoint = runnerPlanCheckpoint(run, snapshot, step);
+  expect(checkpoint.dependencies).toEqual([
+    { stepId: "prior", status: "unknown" },
+  ]);
+  expect(checkpoint.inputs).toEqual([
+    expect.objectContaining({
+      name: "literal",
+      kind: "literal",
+      reference: null,
+    }),
+    expect.objectContaining({
+      name: "source",
+      kind: "source",
+      reference: "source-node",
+    }),
+    expect.objectContaining({
+      name: "result",
+      kind: "result",
+      reference: "prior",
+    }),
+    expect.objectContaining({
+      name: "previous",
+      kind: "previous",
+      reference: null,
+    }),
+  ]);
+  expect(checkpoint.context).toMatchObject({
+    agentId: "agent",
+    agentRevision: 3,
+  });
+});
+
+it("rejects malformed checkpoint dependencies and bindings", async () => {
+  const world = await remoteCompletion(false);
+  const run = applyRunnerPlanEvent(world, world.run, world.snapshot).run;
+  const step = run.steps[0];
+  if (!step) throw new Error("Expected a remote step");
+  expect(() =>
+    runnerPlanCheckpoint(run, { plan: { edges: [{ to: step.id }] } }, step),
+  ).toThrow("Invalid runner dependency");
+  expect(() =>
+    runnerPlanCheckpoint(
+      run,
+      {
+        remoteSteps: [
+          { step: { id: step.id, bindings: { input: { kind: "invalid" } } } },
+        ],
+      },
+      step,
+    ),
+  ).toThrow("Invalid runner input");
+  expect(() =>
+    runnerPlanCheckpoint(run, {}, { ...step, remote: null }),
+  ).toThrow("Runner execution identity missing");
+});

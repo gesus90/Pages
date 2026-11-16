@@ -387,9 +387,19 @@ function applyEvent(active: ActivePlanRun, state: PlanBranchingState): boolean {
     if (target.status !== "succeeded") continue;
     if (!isQuiet(active, event.targetId, region)) continue;
     // Results that arrive together start the node once, with all of them.
-    const batch = state.pending.filter(
-      (entry) => entry.targetId === event.targetId,
-    );
+    const batch = state.pending
+      .filter((entry) => entry.targetId === event.targetId)
+      .sort((left, right) => {
+        const edges = active.snapshot.plan.edges;
+        const position = (sourceId: string): number =>
+          edges.findIndex(
+            (edge) =>
+              edge.from === sourceId &&
+              edge.to === event.targetId &&
+              planEdgeKind(edge) === "event",
+          );
+        return position(left.sourceId) - position(right.sourceId);
+      });
     for (const entry of batch)
       state.pending.splice(state.pending.indexOf(entry), 1);
     startAgain(active, state, batch, region);

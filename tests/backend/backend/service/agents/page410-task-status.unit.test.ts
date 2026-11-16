@@ -224,7 +224,7 @@ it("preserves stored errors over unrelated updates and same-iteration resumes wi
   expect(fixture.state().todos.map((todo) => todo.status)).toEqual([
     "failed",
     "done",
-    "open",
+    "active",
   ]);
   expect(AGENT_STEP_PROGRESS_STATUSES).toEqual(["open", "active", "done"]);
   await expect(
