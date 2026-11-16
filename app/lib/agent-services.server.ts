@@ -1,6 +1,5 @@
 import path from "node:path";
 
-import { registerShutdownTask } from "@/backend/runtime/ProcessLifecycle";
 import { ClaudeMonthlyBudget } from "@/backend/service/agents/sessions/ClaudeMonthlyBudget";
 import { ClaudeMonthlyBudgetRepository } from "@/backend/database/repositories/agent/ClaudeMonthlyBudgetRepository";
 import { canProcessRuns } from "@/backend/runtime/RunsMode";

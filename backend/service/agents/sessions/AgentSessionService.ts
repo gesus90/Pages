@@ -1,7 +1,6 @@
 import { codexRunUsage } from "../usage/CodexRunUsage";
 import { summarizeClaudeUsage } from "@/definition/ClaudeUsageSummary";
 import { AgentError } from "@/backend/error/AgentErrors";
-import { allPlanRunResults } from "@/definition/AgentPlanLoopResults";
 import { logCaughtError } from "@/backend/logging/Logger";
 
 import {
@@ -10,6 +9,12 @@ import {
   requireSessionAttempt,
   sessionStart,
 } from "./AgentSessionAttempts";
+import {
+  antigravityAttempts,
+  nodeAttemptIds,
+  openRouterRunSummary,
+  runOpenCodeAttemptIds,
+} from "./AgentSessionRunUsage";
 import { decideContinuation } from "./AgentSessionContinuation";
 import { antigravityUsage } from "./AntigravityUsage";
 import { AgentSessionRecorder } from "./AgentSessionRecorder";
@@ -30,7 +35,6 @@ import type {
   AgentSessionKey,
   AgentSessionState,
   AgentSessionTurnUsage,
-  AgentSessionUsageTotal,
   AgentSessionView,
 } from "@/definition/AgentSessionJournal";
 import type { AgentPlanSessionRecord } from "@/definition/AgentPlanSession";
@@ -52,97 +56,6 @@ import type {
   AgentSessionAttemptRecord,
   AgentSessionStore,
 } from "./AgentSessionStore";
-
-/** Every attempt of the node in its run: the current one and those its retries recorded (PAGE-284). */
-function nodeAttemptIds(
-  attemptId: string,
-  record: AgentPlanSessionRecord,
-): ReadonlySet<string> {
-  return new Set([
-    attemptId,
-    ...(record.retry?.attempts ?? []).flatMap((entry) =>
-      entry.attemptId ? [entry.attemptId] : [],
-    ),
-  ]);
-}
-
-/** Every OpenCode attempt already started in the run, including loop iterations. */
-function runOpenCodeAttemptIds(run: AgentPlanRun): ReadonlySet<string> {
-  const nodes = [
-    ...run.steps,
-    ...(run.loops ?? []).flatMap((loop) =>
-      loop.iterations.flatMap((iteration) => iteration.nodes),
-    ),
-  ];
-  return new Set(
-    nodes.flatMap((node) => {
-      const session = node.session;
-      return session?.runner === "opencode" && session.attemptId
-        ? [...nodeAttemptIds(session.attemptId, session)]
-        : [];
-    }),
-  );
-}
-
-function antigravityAttempts(
-  run: AgentPlanRun,
-  stepId: string,
-): {
-  readonly stepAttempts: ReadonlySet<string>;
-  readonly runAttempts: ReadonlySet<string>;
-  readonly confirmedModels: ReadonlyMap<string, string>;
-} {
-  const attempts = listSessionAttempts(run).filter(
-    (attempt) => attempt.record.runner === "antigravity",
-  );
-  return {
-    confirmedModels: new Map(
-      attempts.flatMap((attempt) => {
-        const model = attempt.record.effective?.model;
-        return model ? [[attempt.key.attemptId, model] as const] : [];
-      }),
-    ),
-    stepAttempts: new Set(
-      attempts
-        .filter((attempt) => attempt.key.stepId === stepId)
-        .flatMap((attempt) => [
-          ...nodeAttemptIds(attempt.key.attemptId, attempt.record),
-        ]),
-    ),
-    runAttempts: new Set(
-      attempts.flatMap((attempt) => [
-        ...nodeAttemptIds(attempt.key.attemptId, attempt.record),
-      ]),
-    ),
-  };
-}
-
-function openRouterRunSummary(
-  run: AgentPlanRun,
-  runTurns: readonly AgentSessionTurnUsage[],
-): {
-  readonly openRouterRunTotal: AgentSessionUsageTotal | null;
-  readonly isOpenRouterRunIncomplete: boolean;
-} {
-  const openRouterTurns = runTurns.filter((turn) =>
-    turn.model?.startsWith("openrouter/"),
-  );
-  const reportedAttempts = new Set(
-    openRouterTurns.map((turn) => turn.attemptId),
-  );
-  const openRouterAttempts = allPlanRunResults(run).flatMap((step) =>
-    step.session?.runner === "opencode" &&
-    step.session.requested.model.startsWith("openrouter/")
-      ? [step.session.attemptId ?? `${step.session.instanceId}:${step.id}`]
-      : [],
-  );
-  return {
-    openRouterRunTotal: sumTurnUsage(openRouterTurns)[0] ?? null,
-    isOpenRouterRunIncomplete: openRouterAttempts.some(
-      (attemptId) => !reportedAttempts.has(attemptId),
-    ),
-  };
-}
 
 /** Reads and stops runs with every current right of their executor checked. */
 export interface AgentSessionRunAccess {

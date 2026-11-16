@@ -26,6 +26,8 @@ export interface MessageContentSource {
   /** Markdown text of the message. */
   readonly content: string;
   readonly attachments?: readonly ConversationAttachment[];
+  /** Archive download address supplied for agent chat messages. */
+  readonly archiveUrl?: string;
   /** What the server knows of the URLs that stand alone in a line. */
   readonly links?: readonly ConversationLink[];
   /** Earlier attachments of the chat an agent shows again (PAGE-386). */

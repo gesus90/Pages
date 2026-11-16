@@ -155,7 +155,11 @@ async function preflightCommand(root, scope, shouldInstall, signal) {
       ["--dir", directory, "install", "--frozen-lockfile"],
       {
         cwd: root,
-        env: { ...process.env, CI: "true" },
+        env: {
+          ...process.env,
+          CI: "true",
+          pnpm_config_enable_global_virtual_store: "false",
+        },
         timeoutMilliseconds: 30 * 60_000,
         signal,
       },

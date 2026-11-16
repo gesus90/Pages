@@ -20,7 +20,15 @@ export function agentChatRefusal(error: AgentEmployeeError): ConversationError {
     case "unavailable":
     case "forbidden":
       return new ConversationError("forbidden");
-    default:
+    case "usernameTaken":
+    case "invalidInput":
+    case "conflict":
+    case "modelNotAllowed":
+    case "accessUnsupported":
+    case "accessAdminRequired":
+    case "isolationUnavailable":
+    case "templateNameTaken":
+    case "stopped":
       return new ConversationError("invalid");
   }
 }

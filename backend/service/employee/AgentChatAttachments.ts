@@ -94,10 +94,12 @@ export class AgentChatAttachments {
     file: UploadedFile,
   ): Promise<ChatAttachment> {
     const agent = await this.requireAgent(agentId);
-    const conversation = await this.dependencies.store.conversations().ensure(
-      { agentId: agent.id, personId: person.id, purpose: "chat" },
-      this.dependencies.createSessionId(),
-    );
+    const conversation = await this.dependencies.store
+      .conversations()
+      .ensure(
+        { agentId: agent.id, personId: person.id, purpose: "chat" },
+        this.dependencies.createSessionId(),
+      );
     return this.dependencies.files.upload(agent, conversation.sessionId, file);
   }
 

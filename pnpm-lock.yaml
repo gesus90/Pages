@@ -8,6 +8,8 @@ overrides:
   morgan: '>=1.12.1 <2'
   qs: '>=6.16.0 <7'
 
+packageExtensionsChecksum: sha256-FtVGMKH1LurT1lpdIvua14oqK9QLFWgXsU6/CQSuQsY=
+
 importers:
 
   .:
@@ -6262,6 +6264,7 @@ snapshots:
 
   lucide-react@1.48.0(react@19.3.0):
     dependencies:
+      '@types/react': 19.3.0
       react: 19.3.0
 
   magic-string@0.30.21:

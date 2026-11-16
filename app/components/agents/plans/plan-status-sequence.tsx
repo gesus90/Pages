@@ -5,7 +5,11 @@ import { cn } from "@/app/lib/cn";
 
 import { PlanPaletteButton } from "./plan-palette-button";
 import { statusTone } from "./plan-run-status-model";
-import { hasOpenPlanReport, isQueuedPlanStep, planStatusKey } from "./plan-status";
+import {
+  hasOpenPlanReport,
+  isQueuedPlanStep,
+  planStatusKey,
+} from "./plan-status";
 
 import type { TFunction } from "i18next";
 import type { AgentPlanRun } from "@/definition/AgentPlan";

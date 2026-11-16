@@ -1,4 +1,3 @@
-import { isLocalSessionOwner } from "@/backend/agents/local/LocalSessionMode";
 import { currentAgentSimulationMode } from "@/backend/agents/simulation/AgentSimulationMode";
 import { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
 import {
@@ -37,7 +36,6 @@ import { WikiLookupRepository } from "@/backend/database/repositories/wiki/WikiL
 import { ConversationError } from "@/backend/error/ConversationError";
 import { ConversationDirectory } from "@/backend/service/conversation/ConversationDirectory";
 import { AgentChatHistoryService } from "@/backend/service/conversation/AgentChatHistoryService";
-import { isPagesRunsProcess } from "@/backend/runtime/RunsMode";
 import { createChatSessionId } from "@/backend/service/chat/ChatSessionWords";
 import type { AgentAccessEnvironmentService } from "@/backend/service/employee/AgentAccessEnvironmentService";
 import type { AgentChatPrivacyService } from "@/backend/service/employee/AgentChatPrivacyService";
@@ -45,17 +43,14 @@ import type { ChatAttachmentService } from "@/backend/service/chat/ChatAttachmen
 import type { AgentChatAttachments } from "@/backend/service/employee/AgentChatAttachments";
 import { AgentChatReader } from "@/backend/service/employee/AgentChatReader";
 import { AgentChatSessionLifecycle } from "@/backend/service/employee/AgentChatSessionLifecycle";
-import { AgentChatSessionService } from "@/backend/service/employee/AgentChatSessionService";
+import type { AgentChatSessionService } from "@/backend/service/employee/AgentChatSessionService";
 import { AgentChatToolGuard } from "@/backend/service/employee/AgentChatToolGuard";
 import { AgentHostFiles } from "@/backend/service/employee/AgentHostFiles";
 import { AgentDreamingAdministration } from "@/backend/service/employee/AgentDreamingAdministration";
 import { AgentLessonsAdministration } from "@/backend/service/employee/AgentLessonsAdministration";
 import { AgentLogbookAdministration } from "@/backend/service/employee/AgentLogbookAdministration";
-import { AgentLogbookScheduler } from "@/backend/service/employee/AgentLogbookScheduler";
-import { AgentLogbookService } from "@/backend/service/employee/AgentLogbookService";
-import { AgentLogbookSummarizer } from "@/backend/service/employee/AgentLogbookSummarizer";
+import type { AgentLogbookService } from "@/backend/service/employee/AgentLogbookService";
 import { AgentActivityService } from "@/backend/service/employee/AgentActivityService";
-import { AgentConversationAnswers } from "@/backend/service/employee/AgentConversationAnswers";
 import type { AgentDeletionService } from "@/backend/service/employee/AgentDeletionService";
 import { AgentEmployeeAdministration } from "@/backend/service/employee/AgentEmployeeAdministration";
 import { AgentEmployeeModels } from "@/backend/service/employee/AgentEmployeeModels";
@@ -73,17 +68,13 @@ import { PersonColorService } from "@/backend/service/employee/PersonColorServic
 import {
   createAgentChatAttachments,
   createChatDirectory,
-  createChatTasks,
   createDeletionService,
-  createLearning,
   createMemoryParts,
   createSessionGates,
-  groupObserverInput,
-  simulatedAgent,
 } from "./employee-service-factories.server";
 
 import { createAgentChatControl } from "./agent-chat-control-services.server";
-import { createConversationServices } from "./conversation-services.server";
+import { wireEmployeeConversations } from "./employee-conversation-wiring.server";
 import { defaultAgentTemplateTexts } from "./agent-template-texts.server";
 
 import type { AgentChatTools } from "@/definition/AgentChat";
@@ -203,7 +194,7 @@ export interface EmployeeServicesInput {
   };
 }
 
-interface EmployeeParts {
+export interface EmployeeParts {
   readonly input: EmployeeServicesInput;
   readonly store: EmployeeStore;
   readonly authorization: AuthorizationRepository;
@@ -349,7 +340,7 @@ function assembleEmployeeServices(
  * the process that serves the chat.
  */
 /** Services that refer to each other; each is set once it exists and read lazily. */
-interface LateServices {
+export interface LateServices {
   sessions: AgentEmployeeSessions | null;
   agentChat: AgentChatTools | null;
   chatQuestions: AgentChatQuestionService | null;
@@ -520,7 +511,7 @@ function createEmployeeBase(
 type MemoryParts = ReturnType<typeof createMemoryParts>;
 
 /** The services every part of the employee wiring shares. */
-interface EmployeeBase {
+export interface EmployeeBase {
   readonly store: EmployeeStore;
   readonly authorization: AuthorizationRepository;
   readonly users: UserRepository;
@@ -586,115 +577,6 @@ function createEmployeeSessions(
     recipes: new AgentRecipeService({ store: base.store }),
     answers: sharedConversationAnswerStream(),
   });
-}
-
-function wireEmployeeConversations(
-  input: EmployeeServicesInput,
-  base: EmployeeBase,
-  sessions: AgentEmployeeSessions,
-  late: LateServices,
-): Pick<
-  EmployeeParts,
-  "agentSessions" | "conversations" | "learning" | "logbook" | "chatTasks"
-> {
-  const { store, users, messages, memory, memoryModel, recorder } = base;
-  const { simulation, activity, sessionSettings, lifecycle, chatReader } = base;
-  const { database } = input;
-  const isBackgroundOwner = !isLocalSessionOwner() && !isPagesRunsProcess();
-  const conversations = createConversationServices({
-    database,
-    ...input.conversations,
-    observer: groupObserverInput(input, simulation, isBackgroundOwner),
-    runner: new AgentConversationAnswers({
-      store,
-      users,
-      sessions,
-      messages,
-      simulation: simulatedAgent(simulation),
-      recorder,
-      isWaitingForPerson: (agentId, conversationId) =>
-        late.chatQuestions?.isWaiting(agentId, conversationId) === true,
-    }),
-  });
-  late.contextReader = conversations.conversationContextReader;
-  late.agentChat = conversations.agentChatService;
-  late.attachments = conversations.conversationAttachments;
-  late.library = conversations.conversationAttachmentLibrary;
-  late.chatQuestions = conversations.agentChatQuestions;
-  const chatTasks = createChatTasks(input, { users, conversations });
-  late.chatTasks = chatTasks;
-  const learning = createLearning(input, {
-    dependencies: {
-      store,
-      users,
-      memory,
-      model: memoryModel,
-      activity,
-      isWorkingInChat: (agentId) => sessions.isWorkingInChat(agentId),
-    },
-    sessions,
-    chatPoster: conversations.agentChatService,
-    isBackgroundOwner,
-    hasModel: input.acp !== null || simulation.isActive,
-  });
-  const hasModel = input.acp !== null || simulation.isActive;
-  const logbookService = new AgentLogbookService({
-    store,
-    compaction: hasModel
-      ? (agentId) => learning.run(agentId, { trigger: "logbook" })
-      : null,
-  });
-  late.logbook = logbookService;
-  const summarizer = new AgentLogbookSummarizer({
-    store,
-    users,
-    reader: chatReader,
-    model: () => memoryModel,
-    logbook: logbookService,
-    instanceModel: () => sessionSettings.logbookModel(),
-  });
-  // A session that closes for good writes its state down as at rest; a confidential one is never pending (PAGE-380).
-  if (hasModel)
-    late.logbookClose = async (sessionId) => {
-      const pending = (await store.logbookSessions().pending()).find(
-        (session) => session.sessionId === sessionId,
-      );
-      if (pending) await summarizer.summarize(pending);
-    };
-  if (isBackgroundOwner && hasModel)
-    new AgentLogbookScheduler({
-      store,
-      summarizer,
-      isWorking: (agentId) => sessions.isWorkingInChat(agentId),
-    }).start();
-  const agentSessions = new AgentChatSessionService({
-    store,
-    users,
-    lifecycle,
-    pool: input.pool ?? null,
-    isWorking: (agent, sessionId) => sessions.isWorking(agent, sessionId),
-    waitingMessages: async (agent, session) =>
-      session.kind === "direct"
-        ? (await sessions.waitingInJob(agent, session.sessionId)).size +
-          sessions.queuedMessages(agent.id, session.chatId).length
-        : conversations.conversationAgentReplies.queuedFor(
-            session.chatId,
-            agent.id,
-          ),
-    isMember: async (conversationId, userId) =>
-      (await new ConversationRepository(database).findForMember(
-        conversationId,
-        userId,
-      )) !== null,
-    defaultIdleMinutes: async () => (await sessionSettings.read()).idleMinutes,
-  });
-  return {
-    agentSessions,
-    conversations,
-    learning,
-    logbook: logbookService,
-    chatTasks,
-  };
 }
 
 /**

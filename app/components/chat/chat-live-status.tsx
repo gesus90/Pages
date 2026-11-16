@@ -10,7 +10,13 @@ const DOT_DELAYS = [
   "[animation-delay:300ms]",
   "[animation-delay:600ms]",
 ] as const;
-const PHRASES = ["phrase1", "phrase2", "phrase3", "phrase4", "phrase5"] as const;
+const PHRASES = [
+  "phrase1",
+  "phrase2",
+  "phrase3",
+  "phrase4",
+  "phrase5",
+] as const;
 const PHRASE_INTERVAL_SECONDS = 20;
 
 interface ChatLiveStatusProps {

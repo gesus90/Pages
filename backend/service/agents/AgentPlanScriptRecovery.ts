@@ -94,9 +94,10 @@ async function closeInterruptedScript(
   }
   if (isConfirmed) {
     try {
-      if (script.temporaryScope)
-        await removeScriptResources(script.instanceId, script.temporaryScope);
-      else await removeScriptResources(script.instanceId);
+      await removeScriptResources(
+        script.instanceId,
+        script.temporaryScope ?? undefined,
+      );
     } catch {
       onFailure?.({
         stepId: step.id,
@@ -112,7 +113,11 @@ async function closeInterruptedScript(
       ...script,
       endedAt: new Date().toISOString(),
       closeout: isConfirmed ? "confirmed" : "failed",
-      failure: script.failure ?? (isConfirmed ? "interrupted" : "cleanup"),
+      failure: script.failure ?? interruptedFailure(isConfirmed),
     },
   };
+}
+
+function interruptedFailure(isConfirmed: boolean): "interrupted" | "cleanup" {
+  return isConfirmed ? "interrupted" : "cleanup";
 }
