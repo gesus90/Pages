@@ -76,7 +76,9 @@ All commands are scripts in `package.json`; run them with `pnpm run <script>`.
 | `dev:api`      | Starts the API's development server (port 5174) with the Pages runtime; `PAGES_DEV_API` tells `dev` another address.                                                                                                        |
 | `build`        | Builds the static app (`ssr: false`) into `build/client` the API into `build/server`, and the independent Node runtimes into `build/local-owner` and `build/runs` with shared `build/runtime-chunks` (`scripts/build.mjs`). |
 | `start`        | Runs the API from `build/` through `server.mjs`; it also serves the static app. Run `build` first. Accepts `--port <number>` and `--config <path>`.                                                                         |
-| `check`        | Generates the React Router route types, type-checks with `tsc --noEmit` and runs `prettier --check`. Checks only; the generated types go to the ignored `.react-router/`.                                                   |
+| `typecheck`    | Generates all React Router route types and checks the TypeScript project with `tsc --noEmit`. Generated types go to the ignored `.react-router/`.                                                                            |
+| `format:check` | Checks formatting with `prettier --check .` without rewriting files.                                                                                                                                                          |
+| `check`        | Runs `typecheck`, then `format:check` if type generation and TypeScript succeed.                                                                                                                                              |
 | `lint`         | Runs ESLint sequentially in bounded file blocks (`scripts/run-lint.mjs`) with `--concurrency=off` and `--max-warnings=0`: any warning fails. Fixes nothing.                                                                 |
 | `test:backend` | Runs the independent backend Vitest configuration with V8 coverage, then reads the summary into complete section inventories. An empty test collection fails; behavior tests are added separately.                          |
 | `format`       | Runs `prettier --write` and rewrites files in place.                                                                                                                                                                        |
@@ -93,6 +95,36 @@ pull-request, tag, schedule or manual trigger. `test:backend` is described in
 manual static checks. `postgres:restore-check` verifies an actual backup and
 `db:transfer` performs offline transfer; both are operating commands, described
 in [PostgreSQL operations](PostgresMigration.md).
+
+### Local static checks
+
+Run `pnpm run lint` for the full discovered JavaScript and TypeScript source
+population, and `pnpm run typecheck` for the TypeScript project in
+`tsconfig.json`. Each generates route types for all routes first; a generation
+failure stops that command. TypeScript follows imports and includes the
+generated `.react-router/types`, so checking only individual files is not an
+equivalent project check. The TypeScript command uses the existing 4096 MiB V8
+old-space limit. ESLint reports file, line, column, rule and message; TypeScript
+reports location, diagnostic code and message when available. Both return a
+nonzero status on findings or tool failures. The lint runner reports incomplete
+blocks separately from findings; a type generation failure means neither the
+lint nor the TypeScript phase ran. Read the output to distinguish a setup or
+tool failure from source findings.
+
+`pnpm run format:check` is separate so formatting need not delay TypeScript
+feedback. `pnpm run check` retains both checks in order and stops at the first
+failure. A targeted ESLint or TypeScript invocation covers only its selected
+scope and is not evidence that the repository-wide command passed. None of
+these static checks establishes functional behavior or test coverage.
+
+The source baseline before separating the commands was clean Git revision
+`7dd43b072a2264ffe6f86cf1b81d641f2f95b6a0`, with Node.js `24.22.1`, pnpm
+`11.23.0`, ESLint `10.11.0` and TypeScript `6.0.3` installed. Lint,
+TypeScript and formatting were not run under the implementation assignment's
+execution restriction, so there are no measured durations, exit codes or
+findings for this revision and no measured speed comparison. The command
+split avoids running formatting when only TypeScript feedback is requested;
+it makes no claim about the runtime of the underlying project-wide checks.
 
 ### Repository configuration inventory
 
