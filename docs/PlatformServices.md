@@ -5,7 +5,7 @@
 `deploy/pages.target` bündelt die tatsächlich implementierten Dienste der
 Instanz `default`: API/UI (`server.mjs`), Planläufe (`pages-runs.mjs`), GitHub/FCM
 (`pages-integrations.mjs`) und PostgreSQL. Es gibt keine zusätzliche SSR-Unit.
-Der Rust-Dienst `pages-core` (PAGE-237, `deploy/core/pages-core@.service`, 256M)
+Der Rust-Dienst `pages-core` (`deploy/core/pages-core@.service`, 256M)
 hält auf Wunsch die Live-Streams; er kommt erst mit der Umstellung einer Instanz
 hinzu ([deploy/core/README.md](../deploy/core/README.md)). Backup- und Restore-Check-Timer unter `deploy/postgres/`
 bleiben eigenständige Betriebsaufgaben. Von den Deploy-Backups unter
@@ -100,7 +100,7 @@ Provideranfrage oder ein Modellaufruf ist keine Voraussetzung dieser Probes.
 ## Zustand der Dienste
 
 Den aktuellen Zustand der Dienste unter `pages.target` liest `pages-core`
-(PAGE-238) direkt aus dem systemd-Manager, unabhängig von der API
+direkt aus dem systemd-Manager, unabhängig von der API
 ([deploy/core/README.md](../deploy/core/README.md)). Jede Seite zeigt unten
 mittig eine Ampel, sobald nicht alle Dienste laufen, auch die Anmelde- und
 Fehlerseite und nach einem Neuladen bei gestoppter API. Name, Zustand, letzter
@@ -108,7 +108,7 @@ Start und Neustarts je Dienst stehen unter **Einstellungen → System → Dienst
 und nur für Administratoren im Adminmodus; kann die API die Anmeldung nicht
 bestätigen, bleibt dort nur die Ampel.
 
-Bestehende Installationen mit dem früheren Neustartbeobachter (bis PAGE-251)
+Bestehende Installationen mit dem früheren Neustartbeobachter
 schalten ihn einmalig ab; Pages führt diese Befehle nicht selbst aus:
 
 ```sh
@@ -151,7 +151,7 @@ Danach den Ordner `service-monitor/` im Datenordner löschen.
 Ein grüner Gesundheitsstatus, eine Anmeldeseite mit `200` oder laufende
 Dienste sind **keine** Pica-Abnahme: Pica spricht `POST /chat-api` an, und
 dieser Aufruf scheitert an einer falsch weitergereichten Adresse, obwohl alles
-andere antwortet (PAGE-249). Verbindlich nach jedem Update, jeder Umstellung
+andere antwortet. Verbindlich nach jedem Update, jeder Umstellung
 von Proxy, Ingress oder `trustedProxies` und jedem Neustart der Dienste:
 
 1. In einem Browser mit berechtigter Anmeldung die **tatsächlich verwendete
