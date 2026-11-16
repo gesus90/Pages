@@ -228,6 +228,68 @@ function OpenRouterUsageFacts({
   );
 }
 
+interface ContextMeterProps {
+  /** The share of the context in use, in percent; `null` when unknown. */
+  readonly share: number | null;
+  readonly label: string;
+}
+
+/** Shows how much of the context window the session uses. */
+function ContextMeter({ share, label }: ContextMeterProps): React.ReactElement {
+  return (
+    <div
+      role="meter"
+      aria-label={label}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={share === null ? undefined : Math.round(share)}
+      className="h-1 overflow-hidden rounded-full bg-agent-console-track"
+    >
+      <div
+        className="h-full rounded-full bg-agent-terminal-accent"
+        style={{ width: `${share ?? 0}%` }}
+      />
+    </div>
+  );
+}
+
+interface CostFactProps {
+  readonly provider: AgentSessionView["provider"];
+  readonly value: string;
+}
+
+/** Shows the cost of the turn; Antigravity names it as the price its provider charged. */
+function CostFact({ provider, value }: CostFactProps): React.ReactElement {
+  const { t } = useTranslation();
+  const key = "plans.console.terminal.sidebar";
+  return (
+    <Fact
+      label={t(
+        provider === "antigravity"
+          ? `${key}.antigravity.providerCost`
+          : `${key}.cost`,
+      )}
+      value={value}
+    />
+  );
+}
+
+/** Formats the used and the maximum context size as one value. */
+function formatContextValue(
+  context: AgentSessionView["context"],
+  numbers: Intl.NumberFormat,
+  unknown: string,
+): string {
+  const used = context.contextUsed;
+  if (used === null) return unknown;
+  const contextLimit =
+    context.contextLimit === null
+      ? unknown
+      : numbers.format(context.contextLimit);
+
+  return `${numbers.format(used)} / ${contextLimit}`;
+}
+
 function UsageSection(props: {
   readonly view: AgentSessionView;
   /** A turn runs now: its tokens arrive with its end. */
@@ -241,13 +303,7 @@ function UsageSection(props: {
   const numbers = new Intl.NumberFormat(i18n.language);
   const { context } = props.view;
   const share = contextShare(context);
-  const used = context.contextUsed;
-  const contextLimit =
-    context.contextLimit === null
-      ? unknown
-      : numbers.format(context.contextLimit);
-  const contextValue =
-    used === null ? unknown : `${numbers.format(used)} / ${contextLimit}`;
+  const contextValue = formatContextValue(context, numbers, unknown);
   const codex =
     props.view.provider === "codex_cli"
       ? props.view.codexRunUsage?.steps.find(
@@ -284,29 +340,10 @@ function UsageSection(props: {
       {codex ? <CodexUsageFacts usage={codex.usage} /> : null}
       <dl className="space-y-1.5">
         <Fact label={t(`${key}.context`)} value={contextValue} />
-        <div
-          role="meter"
-          aria-label={t(`${key}.context`)}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={share === null ? undefined : Math.round(share)}
-          className="h-1 overflow-hidden rounded-full bg-agent-console-track"
-        >
-          <div
-            className="h-full rounded-full bg-agent-terminal-accent"
-            style={{ width: `${share ?? 0}%` }}
-          />
-        </div>
+        <ContextMeter share={share} label={t(`${key}.context`)} />
         <Fact label={t(`${key}.tokens`)} value={tokens} />
         {codex ? null : (
-          <Fact
-            label={t(
-              props.view.provider === "antigravity"
-                ? `${key}.antigravity.providerCost`
-                : `${key}.cost`,
-            )}
-            value={cost}
-          />
+          <CostFact provider={props.view.provider} value={cost} />
         )}
         {isOpenRouter ? (
           <OpenRouterUsageFacts
