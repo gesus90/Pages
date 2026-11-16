@@ -187,7 +187,6 @@ function EditableGitHubPanel({
 
 /**
  * Renders the GitHub settings panel with token, repository, sync, and footer actions.
- *
  * @remarks
  * The token is never logged or rendered in plain text by default, and the
  * stored secret stays server-side: an empty token field keeps the saved

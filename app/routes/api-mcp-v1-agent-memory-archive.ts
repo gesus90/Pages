@@ -23,8 +23,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpAgentHandlers {
 }
 
 /**
- * Searches the archive of an agent (`GET /api/mcp/v1/agents/{id}/memory/archive?text=&cursor=`), PAGE-267.
- *
+ * Searches the archive of an agent (`GET /api/mcp/v1/agents/{id}/memory/archive?text=&cursor=`).
  * @remarks
  * Only the device token of a paired machine admits a request, and only for
  * an account with the administrator role. The archive can only be

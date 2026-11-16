@@ -115,7 +115,6 @@ function jsonBinding(
 
 /**
  * The bindings a node's attributes give: `in.<input>` fixed values and `bind.<input>` JSON.
- *
  * @remarks
  * A fixed value takes the type of the input it fills, so a ticket input
  * takes a ticket key and a workspace input a workspace name.
@@ -154,7 +153,7 @@ function attributeBindings(
   return bindings;
 }
 
-/** The members of a frame: its agents, scripts and groups, and apart from them its decisions (PAGE-286). */
+/** The members of a frame: its agents, scripts and groups, and apart from them its decisions. */
 function frameMembers(
   nodes: readonly AgentPlanNode[],
 ): Record<string, unknown> {

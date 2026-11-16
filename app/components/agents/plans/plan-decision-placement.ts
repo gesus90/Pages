@@ -41,10 +41,8 @@ function decisionTarget(
 }
 
 /**
- * Places a dropped decision in the frame under the pointer, or outside every frame (PAGE-286).
- *
+ * Places a dropped decision in the frame under the pointer, or outside every frame.
  * @returns Whether the node was a decision; any other node is placed as before.
- *
  * @remarks
  * A move that would cut a condition or branch connection, which joins nodes
  * of one container only, is refused with the repair notice, as for agents.

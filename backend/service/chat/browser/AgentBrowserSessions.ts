@@ -21,7 +21,7 @@ export interface AgentBrowserAccounts {
   readonly employee: (id: string) => Promise<{
     readonly access: AgentEmployeeAccess;
     readonly revision: number;
-    /** The tool groups switched off for the agent (PAGE-390). */
+    /** The tool groups switched off for the agent. */
     readonly disabledToolGroups?: readonly AgentToolGroup[];
   } | null>;
   readonly origins: () => readonly string[];
@@ -72,7 +72,7 @@ export class AgentBrowserSessions {
 
   /**
    * Issues at most one private session per job, and only for an agent whose
-   * access level and tool groups allow the browser (PAGE-390): "Nur Lesen"
+   * access level and tool groups allow the browser: "Nur Lesen"
    * gets it with the reading browser tools only, a switched-off browser group
    * gets none.
    */

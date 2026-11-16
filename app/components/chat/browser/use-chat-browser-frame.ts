@@ -7,11 +7,9 @@ const FRAME_INTERVAL_MS = 900;
 
 /**
  * Follows the live picture of one operator browser.
- *
  * @param browserId - The browser.
  * @param isWatching - Whether the picture is shown; a hidden one fetches nothing.
  * @returns The address of the newest picture, or `null` before the first one.
- *
  * @remarks
  * Each picture is fetched, shown and then its object URL is released, so a
  * long watch holds one image in memory.

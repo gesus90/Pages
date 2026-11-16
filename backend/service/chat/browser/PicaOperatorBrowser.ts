@@ -60,8 +60,7 @@ export interface PicaOperatorBrowserDependencies {
 }
 
 /**
- * Starts, serves and ends the operator browsers of Pica (PAGE-181).
- *
+ * Starts, serves and ends the operator browsers of Pica.
  * @remarks
  * This is a separate path from the restricted admin browser. Every browser is
  * an isolated Chromium process that belongs to one account and one job.
@@ -78,7 +77,6 @@ export class PicaOperatorBrowser {
 
   /**
    * Creates the manager.
-   *
    * @param dependencies - Launcher, origins, store and file access.
    */
   public constructor(dependencies: PicaOperatorBrowserDependencies) {
@@ -90,7 +88,6 @@ export class PicaOperatorBrowser {
 
   /**
    * Runs one operator browser tool of the model.
-   *
    * @param tool - The tool name.
    * @param input - The untrusted arguments.
    * @param context - The reauthorized scope of the job.
@@ -160,7 +157,6 @@ export class PicaOperatorBrowser {
 
   /**
    * The newest picture of a browser, refreshed when it is older than a moment.
-   *
    * @param userId - The person asking; foreign browsers answer as missing.
    * @param browserId - The browser.
    * @returns The picture, or `null` when none exists yet.
@@ -190,7 +186,6 @@ export class PicaOperatorBrowser {
 
   /**
    * Applies a control of the administrator: pause, stop, takeover, input and the rest.
-   *
    * @param userId - The administrator.
    * @param browserId - The browser.
    * @param command - The validated control.
@@ -252,7 +247,6 @@ export class PicaOperatorBrowser {
 
   /**
    * One file the page downloaded, for the administrator.
-   *
    * @param userId - The administrator.
    * @param browserId - The browser.
    * @param downloadId - The download.

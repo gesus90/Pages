@@ -92,7 +92,6 @@ function opened(stream: ReadStream): Promise<Readable> {
 
 /**
  * Stores the files of asset nodes and hands them out under the plan's project rights.
- *
  * @remarks
  * Every read, preview and handover checks again that the person is active
  * and may read the project the file belongs to; an unknown file and a file
@@ -109,13 +108,11 @@ export class PlanAssetService {
 
   /**
    * Streams an upload to the store after checking the project, the name and the size.
-   *
    * @remarks
    * A file may have up to 512 MiB (`PLAN_HANDOVER_LIMITS.bytes`), the same
    * budget a step receives, so an accepted file can always be handed over.
    * The limit is checked against the announced length first and then against
    * the bytes as they arrive, so a longer body is cut off, never stored.
-   *
    * @throws {AgentError} `plan_asset_missing` without access to the project,
    * `plan_asset_invalid` for an empty file or an invalid name,
    * `plan_asset_too_large` beyond the upload limit.
@@ -187,7 +184,6 @@ export class PlanAssetService {
 
   /**
    * Describes a file the person may read.
-   *
    * @throws {AgentError} `plan_asset_missing` for an unknown file and for a
    * file of a project the person may not read.
    */
@@ -200,7 +196,6 @@ export class PlanAssetService {
 
   /**
    * Opens a file the person may read.
-   *
    * @throws {AgentError} `plan_asset_missing` as for {@link describe},
    * `plan_asset_unreadable` when the stored bytes are gone.
    */
@@ -219,7 +214,6 @@ export class PlanAssetService {
 
   /**
    * Reads a whole file the person may read and checks it against its stored digest.
-   *
    * @throws {AgentError} `plan_asset_unreadable` when bytes are missing,
    * shorter or longer than stored, `plan_asset_too_large` beyond the read limit.
    */
@@ -246,7 +240,6 @@ export class PlanAssetService {
   /**
    * Whether a file the person may read can be handed over: its bytes are all
    * there and an image or PDF is complete.
-   *
    * @remarks
    * Files above the handover limit are only checked for their bytes; their
    * content is never read into memory for this.

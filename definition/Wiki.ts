@@ -68,7 +68,7 @@ export interface WikiAnchorTarget extends WikiAnchor {
  * for each request and never leaves it.
  */
 export interface WikiVisibilityScope {
-  /** Business administrators read and edit every area, including private pages (PAGE-316). */
+  /** Business administrators read and edit every area, including private pages. */
   readonly canReadPrivate?: boolean;
   readonly userId: string;
   /** True in the active admin mode, which sees every department. */
@@ -156,7 +156,6 @@ const COVER_PATTERN = /^(preset|attachment):([\w-]{1,64})$/;
 
 /**
  * Reads a stored or submitted cover.
- *
  * @param value - `preset:<name>`, `attachment:<id>` or `null`.
  * @returns The cover, or `null` for none and for anything malformed.
  */
@@ -174,7 +173,6 @@ export function parseWikiCover(value: string | null): WikiCover | null {
 
 /**
  * Writes a cover the way it is stored and submitted.
- *
  * @param cover - The cover.
  * @returns `preset:<name>` or `attachment:<id>`.
  */
@@ -187,7 +185,7 @@ export function formatWikiCover(cover: WikiCover): string {
 /** A page with everything the page view and the editor need. */
 export interface WikiPage extends WikiPageSummary {
   readonly content: string;
-  /** Optional cover above the title (A8.1). */
+  /** Optional cover above the title. */
   readonly cover: WikiCover | null;
   readonly revision: number;
   readonly isTemplate: boolean;
@@ -246,7 +244,7 @@ export interface WikiSettings {
 
 const MEBIBYTE = 1024 * 1024;
 
-/** Values that apply until an administrator changes them (T4.7.7, T4.9.13). */
+/** Values that apply until an administrator changes them. */
 export const WIKI_SETTING_DEFAULTS: WikiSettings = {
   trashRetentionDays: 30,
   versionRetentionDays: 90,
@@ -280,7 +278,7 @@ const SCOPE_REACH: Readonly<Record<WikiScope, number>> = {
  *
  * @param before - Scope and project before the move.
  * @param after - Scope and project after the move.
- * @returns Only the direction, never names or numbers of people (T4.6.6).
+ * @returns Only the direction, never names or numbers of people.
  */
 export function compareAudience(
   before: WikiPlacementScope,

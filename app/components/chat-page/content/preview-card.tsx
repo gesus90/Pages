@@ -59,8 +59,7 @@ function lineCount(files: readonly PreviewFile[]): number {
 
 /**
  * The kind of a preview as its head names it: `HTML`, or "automatisch
- * erkannt: HTML" when the fence named no language (PAGE-383).
- *
+ * erkannt: HTML" when the fence named no language.
  * @param descriptor - The preview.
  * @param t - The translation function.
  */
@@ -76,7 +75,6 @@ export function previewKindLabel(
 
 /**
  * Lines and, for several files, the number of files of a preview.
- *
  * @param files - The files of the preview.
  * @param t - The translation function.
  */
@@ -141,7 +139,7 @@ interface PreviewCardProps {
 }
 
 /**
- * A preview card of the chat (PAGE-383): the tabs "Vorschau | Code", the
+ * A preview card of the chat: the tabs "Vorschau | Code", the
  * preview open by default, "Herunterladen" in the accent color, "Neu laden"
  * for HTML, "Daneben", "Vollbild" and "Zuklappen".
  *

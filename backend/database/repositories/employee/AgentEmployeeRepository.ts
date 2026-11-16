@@ -34,7 +34,7 @@ export interface StoredAgentEmployee {
   readonly model: string;
   readonly reasoningEffort: string | null;
   readonly access: AgentEmployeeAccess;
-  /** The tool groups an administrator switched off (PAGE-390). */
+  /** The tool groups an administrator switched off. */
   readonly disabledToolGroups: readonly AgentToolGroup[];
   readonly soul: string;
   readonly instructions: string;
@@ -48,19 +48,19 @@ export interface StoredAgentEmployee {
   readonly revision: number;
   readonly createdAt: string;
   readonly updatedAt: string;
-  /** The chosen voice ID (PAGE-300); `null` for the first voice of the model. */
+  /** The chosen voice ID; `null` for the first voice of the model. */
   readonly voiceId: string | null;
   /** The speed of the voice in tenths, 5 to 20. */
   readonly voiceSpeedTenths: number;
-  /** `DREAM.md`: the lessons of the dream run (PAGE-305). */
+  /** `DREAM.md`: the lessons of the dream run. */
   readonly dream: string;
   /** The character limit of `MEMORY.md`. */
   readonly memoryCharacters: number;
   /** The character limit of `DREAM.md`. */
   readonly dreamCharacters: number;
-  /** The schedule of the dream run of this agent (PAGE-378). */
+  /** The schedule of the dream run of this agent. */
   readonly dreamSchedule: AgentDreamSchedule;
-  /** A run somebody asked for that has not run yet (PAGE-378). */
+  /** A run somebody asked for that has not run yet. */
   readonly dreamRequest: AgentDreamRequest | null;
 }
 
@@ -71,16 +71,16 @@ export interface AgentEmployeeChange {
   readonly model: string;
   readonly reasoningEffort: string | null;
   readonly access: AgentEmployeeAccess;
-  /** The tool groups an administrator switched off (PAGE-390); absent keeps none off. */
+  /** The tool groups an administrator switched off; absent keeps none off. */
   readonly disabledToolGroups?: readonly AgentToolGroup[];
   readonly soul: string;
   readonly instructions: string;
   readonly isLearningEnabled: boolean;
   readonly voiceId: string | null;
   readonly voiceSpeedTenths: number;
-  /** The character limit of `MEMORY.md` (PAGE-305). */
+  /** The character limit of `MEMORY.md`. */
   readonly memoryCharacters: number;
-  /** The character limit of `DREAM.md` (PAGE-305). */
+  /** The character limit of `DREAM.md`. */
   readonly dreamCharacters: number;
 }
 
@@ -202,8 +202,7 @@ function readEmployee(row: readonly DatabaseValue[]): StoredAgentEmployee {
 }
 
 /**
- * Persists model, access, voice, documents and learning state of agents
- * (PAGE-266, PAGE-300).
+ * Persists model, access, voice, documents and learning state of agents.
  *
  * @remarks
  * The account itself lives in `users`; this table holds only what an agent
@@ -376,7 +375,7 @@ export class AgentEmployeeRepository {
     );
   }
 
-  /** Replaces `DREAM.md` (PAGE-305). */
+  /** Replaces `DREAM.md`. */
   public async saveDream(userId: string, dream: string): Promise<void> {
     await this.database.execute(
       `

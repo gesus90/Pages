@@ -46,16 +46,15 @@ export interface SpeechConfiguration {
 }
 
 /**
- * The speech recognition setting of the instance (PAGE-273).
- *
+ * The speech recognition setting of the instance.
  * @remarks
  * Only an administrator in the active admin mode reads the form and saves,
  * as for Pica. The setting belongs to the instance, not to Pica: without a
  * chosen model speech recognition is off. The model must be one of the
  * speech models {@link listSpeechModels} lists; a model the selection no
  * longer offers keeps its value and counts as unavailable, as unsuitable
- * when its catalog lists it as no transcription model (PAGE-294), or as no
- * longer in the catalog of its OpenRouter connection (PAGE-302).
+ * when its catalog lists it as no transcription model, or as no
+ * longer in the catalog of its OpenRouter connection.
  */
 export class SpeechSettingsService {
   private readonly dependencies: SpeechSettingsDependencies;
@@ -72,7 +71,6 @@ export class SpeechSettingsService {
 
   /**
    * Supplies the settings card.
-   *
    * @param actor - The administrator in the admin mode.
    * @returns The setting, its state, the speech models and their limits.
    */
@@ -105,7 +103,6 @@ export class SpeechSettingsService {
 
   /**
    * Saves model and longest recording.
-   *
    * @param actor - The administrator in the admin mode.
    * @param input - The submitted choice with the revision it was read at.
    * @throws {AgentError} `profile_invalid` for a duration outside the
@@ -135,7 +132,6 @@ export class SpeechSettingsService {
 
   /**
    * The model that recognizes speech now, for every account of the instance.
-   *
    * @returns The model and the longest recording that applies, or `null`
    * while speech recognition is off or its model is unavailable.
    */

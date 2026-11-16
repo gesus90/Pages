@@ -15,7 +15,6 @@ export interface ChecklistActions {
 
 /**
  * Keeps the new-item draft and submits checklist changes of a ticket.
- *
  * @param workItemId - The ticket new items are added to.
  */
 export function useChecklistActions(workItemId: string): ChecklistActions {

@@ -26,7 +26,6 @@ export interface BoardPreferencesState {
 
 /**
  * Keeps the board view in the address and saves it for the visitor.
- *
  * @remarks
  * The address is the truth: it carries every preference after the first
  * change, so a copied address shows the same board. The loader resolved the
@@ -34,7 +33,6 @@ export interface BoardPreferencesState {
  * what the address does not carry. A change replaces the address instead of
  * adding a history entry and is saved in the background after a short pause,
  * so typing in the search field neither fills the history nor blocks the page.
- *
  * @param initial - The preferences the loader resolved.
  */
 export function useBoardPreferences(

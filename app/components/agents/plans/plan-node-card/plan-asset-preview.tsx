@@ -32,7 +32,6 @@ const PREVIEWS = {
 
 /**
  * Asks once per file whether it can still be read, and keeps a failure the preview itself found.
- *
  * @returns The access and a way for the preview to report that it could not load.
  */
 export function usePlanAssetAccess(file: AgentPlanAssetFile | null): {
@@ -131,7 +130,6 @@ function UploadProgress(props: {
 
 /**
  * The small preview of an asset card in all its states.
- *
  * @remarks
  * Drop target, upload with progress, a refused upload, a file nobody may read
  * any more (red frame), the preview of its family, or a fallback with no

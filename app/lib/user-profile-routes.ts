@@ -1,8 +1,7 @@
 import type { RouteConfigEntry } from "@react-router/dev/routes";
 
 /**
- * The agent panel and the read-only agent profiles of the user management (PAGE-266, PAGE-308).
- *
+ * The agent panel and the read-only agent profiles of the user management.
  * @param resource - Declares a server resource of the current route table.
  * @returns The resources under `/users-api/agents`, `/users-api/agent-profiles` and `/users-api/groups`.
  */

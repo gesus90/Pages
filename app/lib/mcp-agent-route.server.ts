@@ -68,7 +68,6 @@ async function createApi(): Promise<McpAgentApi> {
 
 /**
  * Answers an agent request with JSON that no cache keeps.
- *
  * @param body - The answer of the interface.
  * @param status - The HTTP status.
  */
@@ -78,7 +77,6 @@ export function mcpAgentResponse(body: unknown, status = 200): Response {
 
 /**
  * Answers a failure of an agent request.
- *
  * @remarks
  * The body holds the code and, for `conflict`, the current revision; never a
  * message of a service and never a part of the request, which may hold a
@@ -113,12 +111,10 @@ function mcpAgentFailure(error: unknown): Response {
 }
 
 /**
- * Runs one request of the agent API (PAGE-267).
- *
+ * Runs one request of the agent API.
  * @param request - The request of the machine.
  * @param handlers - The methods the resource serves.
  * @returns The answer; a failure answers `{ "error": "<code>" }`, with the current `revision` for `conflict`.
- *
  * @remarks
  * Only the bearer token of a paired machine admits a request; browser cookies
  * play no part. Existing routes require an administrator before dispatch;
@@ -148,7 +144,6 @@ export async function runMcpAgentRoute(
 
 /**
  * Reads the JSON object of an agent request.
- *
  * @param request - The request with `Content-Type: application/json`.
  * @returns The object, its fields still untrusted; an empty body counts as `{}`.
  */
@@ -160,7 +155,6 @@ export async function readMcpAgentBody(
 
 /**
  * Reads the image of `PUT /agents/{id}/image` with the limits of profile images.
- *
  * @param request - The request with `{ mimeType, dataBase64 }`.
  * @returns The validated image.
  * @throws {McpAgentError} `invalid_request` for malformed Base64, a type
@@ -186,7 +180,6 @@ export async function readMcpAgentImage(
 
 /**
  * Reads a path parameter of an agent resource.
- *
  * @param value - The parameter as React Router passes it.
  * @throws {McpAgentError} `not_found` for a missing parameter.
  */

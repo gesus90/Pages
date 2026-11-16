@@ -71,8 +71,7 @@ const swarmSchema = z.strictObject({
 });
 
 /**
- * Parses a swarm node (PAGE-313); its own settings are checked completely here.
- *
+ * Parses a swarm node; its own settings are checked completely here.
  * @param node - The untrusted node.
  * @param base - Its checked identifier and position.
  * @param readBindings - Parses the bindings like those of every other node.
@@ -122,7 +121,6 @@ export function readPlanSwarmNode(
 
 /**
  * Refuses a plan whose swarm would run away from the Pages host.
- *
  * @throws {AgentError} `swarm_remote_unsupported` when a swarm names a remote
  * target or inherits one from the plan; a save is never silently accepted.
  * @returns The plan, unchanged.

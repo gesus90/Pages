@@ -26,7 +26,7 @@ export interface StorageFolderModel {
   /** What is known about the asked folder; `loading` until its own answer arrived. */
   readonly reading: StorageFolderReading;
   /**
-   * The folder loaded before, while the asked one loads (PAGE-279). It
+   * The folder loaded before, while the asked one loads. It
    * belongs to no current target: a view keeps its place with it, but
    * offers nothing of it.
    */
@@ -203,16 +203,14 @@ function useMorePages(
 
 /**
  * Loads one folder of the connected Google Drive whenever the target changes.
- *
  * @param target - The folder of the address (`null` for the start folder) and
  * whether only folders count.
  * @returns The folder model of the view.
- *
  * @remarks
  * Nothing is kept between visits: every load asks the server, which asks
  * Drive with the rights of the connected account. Each answer belongs to the
- * load that asked for it; an answer or page of a replaced target is dropped
- * (PAGE-279). A failed load lets the frame check session and rights again.
+ * load that asked for it; an answer or page of a replaced target is dropped.
+ * A failed load lets the frame check session and rights again.
  */
 export function useStorageFolder(
   target: StorageFolderTarget,

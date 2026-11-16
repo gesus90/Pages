@@ -38,7 +38,6 @@ function sessionState(
 
 /**
  * Reads a group's shared session from the records of its members in one run.
- *
  * @param run - The selected run; without one the session was never created.
  * @param groupId - The group.
  */
@@ -75,7 +74,6 @@ export function planRunGroupSession(
 
 /**
  * Read-only session information from the selected run, never a plan parameter.
- *
  * @remarks
  * Before the first member opened the session it says so instead of showing a
  * placeholder ID.

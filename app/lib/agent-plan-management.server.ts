@@ -123,7 +123,7 @@ export async function clonePlanAction(
 }
 
 /**
- * Keeps a one-time plan: removes the mark and cancels its scheduled deletion (PAGE-309).
+ * Keeps a one-time plan: removes the mark and cancels its scheduled deletion.
  *
  * @param userId - The person who may change the plan.
  * @param services - The plan services.

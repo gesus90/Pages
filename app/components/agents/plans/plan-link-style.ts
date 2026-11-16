@@ -5,7 +5,6 @@ import type { PlanConnection } from "./use-plan-connections";
 
 /**
  * The line colour of every kind of connection, as theme tokens.
- *
  * @remarks
  * Flow and data stay neutral as before; the boolean wire is violet like the
  * decision it enters, the two branches are green and amber, and the wire that

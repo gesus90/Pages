@@ -8,7 +8,6 @@ export class UserBoardPreferencesRepository {
 
   /**
    * Creates a board preferences repository.
-   *
    * @param database - Central database access.
    */
   public constructor(database: Database) {
@@ -17,7 +16,6 @@ export class UserBoardPreferencesRepository {
 
   /**
    * Returns the stored board preferences of a user.
-   *
    * @param userId - User identifier.
    * @returns The stored text, or `null` when the user saved nothing yet.
    */
@@ -38,7 +36,6 @@ export class UserBoardPreferencesRepository {
 
   /**
    * Creates or replaces the stored board preferences of a user.
-   *
    * @param userId - User identifier.
    * @param preferences - Normalized preferences text to persist.
    */

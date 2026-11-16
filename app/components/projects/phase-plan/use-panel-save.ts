@@ -41,7 +41,6 @@ export interface PanelSave {
 
 /**
  * Sends the draft of the panel and tracks when the save went through.
- *
  * @remarks
  * A new save token for this milestone makes the submitted draft the
  * baseline, so the panel shows no unsaved changes afterwards. A token that

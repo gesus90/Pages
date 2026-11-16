@@ -131,7 +131,7 @@ export const handleUpdateTask: TaskActionHandler = async ({
   const input = {
     assigneeGroupId: readOptionalText(formData, "assigneeGroupId"),
     assigneeId: readOptionalText(formData, "assigneeId"),
-    // Absent fields keep the stored description (A8.2-E05).
+    // Absent fields keep the stored description.
     baseDescription: baseDescription ?? undefined,
     description: description ?? undefined,
     expected,

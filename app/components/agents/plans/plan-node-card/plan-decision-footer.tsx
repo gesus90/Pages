@@ -81,7 +81,6 @@ function VerdictLines(props: {
 
 /**
  * The footer of a decision: that only one output is activated, and what the shown run decided.
- *
  * @remarks
  * A failed decision names its cause through the run notes above; the footer
  * never shows a value it did not decide.

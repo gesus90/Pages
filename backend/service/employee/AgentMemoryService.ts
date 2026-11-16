@@ -130,7 +130,7 @@ function bounded(entry: AgentArchiveEntry): AgentArchiveMatch {
 }
 
 /**
- * The memory of an agent (PAGE-266, PAGE-305): `MEMORY.md` with the
+ * The memory of an agent: `MEMORY.md` with the
  * current topics, `DREAM.md` with the lessons, both loaded in every
  * session, and the archive, searched on demand.
  *
@@ -338,7 +338,7 @@ export class AgentMemoryService {
 
   /**
    * The archive entries related to a new message, from every chat whose
-   * knowledge the rules give the chat of the message (PAGE-305).
+   * knowledge the rules give the chat of the message.
    */
   public async related(
     agentId: string,

@@ -29,7 +29,6 @@ export class ProjectGoalService {
 
   /**
    * Creates the service.
-   *
    * @param repository - Project persistence boundary.
    * @param cache - Shared server cache of the project access checks.
    * @param channel - Whether the administrator is read from the interface mode or from MCP eligibility.

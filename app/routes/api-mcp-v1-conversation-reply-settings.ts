@@ -24,8 +24,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpConversationHandlers {
 }
 
 /**
- * Reads who answers in a group chat (`GET /api/mcp/v1/conversations/{conversationId}/reply-settings`), PAGE-317.
- *
+ * Reads who answers in a group chat (`GET /api/mcp/v1/conversations/{conversationId}/reply-settings`).
  * @remarks
  * Only the device token of a paired machine admits a request. The account
  * reads the settings of a group it belongs to.
@@ -40,7 +39,7 @@ export async function loader({
 /**
  * Sets who answers (`PUT`): `mode`, the thresholds `answerThreshold`,
  * `responsibilityThreshold` and `secondThreshold`, `maximumResponders` or
- * `useDefaults` (PAGE-379), with the rights of the chat page, so only the
+ * `useDefaults`, with the rights of the chat page, so only the
  * account that manages the group changes them.
  */
 export async function action({

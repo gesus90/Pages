@@ -21,7 +21,7 @@ interface AgentTriggerProps {
 
 /**
  * The short name of the model of an agent, such as "Opus", where the chat
- * deviates from the agent's own model (PAGE-380); nothing otherwise.
+ * deviates from the agent's own model; nothing otherwise.
  */
 export function ChatModelBadge({
   model,
@@ -78,7 +78,6 @@ export function ChatPageAgentChip({
 /**
  * The button "Agent" in the head of the direct chat with an agent, which
  * opens the same menu as the chip of an agent in a group.
- *
  * @remarks
  * The caller owns the open state of the menu, so that a right click on the
  * title of the head opens it, too.

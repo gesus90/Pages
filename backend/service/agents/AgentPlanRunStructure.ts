@@ -24,7 +24,6 @@ export type AgentPlanStructureKind =
 
 /**
  * A node of the plan revision a run executes, without anything it would run.
- *
  * @remarks
  * Only identifier, kind, number and display name leave the snapshot: no
  * instruction, parameter, path, model or session.
@@ -38,7 +37,6 @@ export interface AgentPlanStructureNode {
   readonly name: string | null;
   /**
    * Whether the node is a step of its own for the progress of the run.
-   *
    * @remarks
    * Agents, scripts, the Git closeout and loops of the outer flow are; Start,
    * End, decisions, stacks and the nodes inside a loop are not, so a loop is
@@ -150,12 +148,10 @@ function iterationStages(
 
 /**
  * Reads the flow structure of the plan revision a run executes.
- *
  * @param snapshot - The private snapshot of the run.
  * @returns The nodes grouped by their step along the flow edges, Start first
  * and End last, numbered as the plan page numbers them; a loop carries the
  * stages of one iteration. Nodes the flow does not number are left out.
- *
  * @remarks
  * The structure comes from the snapshot, never from the plan as it is saved
  * now, so a later edit of the plan never changes how a run is shown.

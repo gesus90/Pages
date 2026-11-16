@@ -8,7 +8,7 @@ Im Ausgangstext nicht ausdrücklich als umgesetzt ausgewiesen.
 
 # Entschieden (noch nicht umgesetzt)
 
-Entschieden am 11.11.2026 von Igor und All Might. Übergeordnete Seite: [Agents: Festlegungen](/wiki/93eb063a-a63c-4cac-8393-af182291a582). Umsetzung: PAGE-317. Stand: entschieden, noch nicht umgesetzt.
+Entschieden am 11.11.2026 von Igor und All Might. Übergeordnete Seite: [Agents: Festlegungen](/wiki/93eb063a-a63c-4cac-8393-af182291a582). Stand: entschieden, noch nicht umgesetzt.
 
 ## Einstellung
 
@@ -33,7 +33,7 @@ Entschieden am 11.11.2026 von Igor und All Might. Übergeordnete Seite: [Agents:
 
 ## Schutz
 
-- Agent-Nachrichten lösen keine Endlosschleifen aus; es gilt der Schleifenschutz aus PAGE-311.
+- Agent-Nachrichten lösen keine Endlosschleifen aus; es gilt der Schleifenschutz aus der Chat-Werkzeug-Regel.
 - Das Entscheidungsmodell erhält keine Zugangsdaten und keine Inhalte, die Teilnehmer nicht sehen dürfen.
 
 # Festlegungen ohne eindeutigen Umsetzungsstand

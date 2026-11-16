@@ -16,7 +16,6 @@ interface DetailSectionProps {
 
 /**
  * Renders a collapsible, titled block used to group ticket details.
- *
  * @remarks
  * Jira-inspirierte Ticketansichten gliedern sich in mehrere kompakte,
  * einklappbare Blöcke statt einer einzigen Formularwand. Diese

@@ -42,8 +42,7 @@ export function employeeToolDependencies(
 }
 
 /**
- * The kept chat session of an agent employee's job (PAGE-335).
- *
+ * The kept chat session of an agent employee's job.
  * @remarks
  * Every value that shapes the native session is part of its fingerprint, so
  * a changed connection, model, effort, access, folder or agent starts a new

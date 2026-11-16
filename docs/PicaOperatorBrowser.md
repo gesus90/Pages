@@ -1,4 +1,4 @@
-# Pica operator browser (PAGE-181)
+# Pica operator browser
 
 Pica can operate websites visually, like a person with a browser: it opens a
 page, looks at a screenshot together with the page's elements and accessibility
@@ -12,7 +12,7 @@ agent architecture: the tools sit in the same `RuntimeToolRegistry`, run through
 the same ACP/MCP bridge and the same `PicaAdminService.runPrivileged` scope of
 the job (fresh administrator check before and after each call, revocation
 aborts the job, audit without parameters). There is no separate page for the
-tools; they run only through Pica in the chat (PAGE-251).
+tools; they run only through Pica in the chat.
 
 ## Tools (administrator only)
 
@@ -121,7 +121,7 @@ arguments, status). Controls of the administrator (pause, takeover, input,
 stop, save session, approval) are audited as `pica.browser.control` with the
 command name only.
 
-## Agent-Konten (PAGE-328)
+## Agent-Konten
 
 Der Administratorpfad bleibt bestehen. Daneben betreibt `AgentBrowserService`
 einen eigenen Browsermanager für Agent-Aufträge mit Arbeitsplatz oder YOLO.
@@ -157,11 +157,11 @@ ganze Browserberechtigung des aktuellen Auftrags. Administratorprofile werden
 nicht an Agents weitergegeben. Weitere freigegebene Fremdprofile sind optional
 und werden in dieser Version nicht angeboten.
 
-Die isolierten PAGE-328-Unit-Tests ersetzen Browser, Dateisystem, DNS,
+Die isolierten Unit-Tests ersetzen Browser, Dateisystem, DNS,
 Ausführung und Persistenz durch Mocks. Sie prüfen den Cookie-Vertrag,
 Authentifizierung von `/settings`, 403 für Admin-Seite und -API, Widerruf,
 private Mounts, Maskierung und Anhangsverweigerung. Es gibt keine Screenshot-
-oder echte Browser-Abnahme im Ticket-Schritt.
+oder echte Browser-Abnahme in diesem Schritt.
 
 Das Chat-Journal hält bei Zwischenständen das letzte unvollständige Wort
 zurück. Dadurch bleiben Sitzungstoken, kodierte Cookies und private Pfade auch

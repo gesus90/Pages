@@ -63,7 +63,6 @@ export class ProjectCreationService {
 
   /**
    * Validates the full selection and saves the project, creator and assignments atomically.
-   *
    * @param actor - The creating account.
    * @param input - The new project.
    * @param options - Whether a project the actor could not read is refused.

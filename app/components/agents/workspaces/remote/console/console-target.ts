@@ -26,7 +26,6 @@ export interface RemoteConsoleTarget {
 
 /**
  * Describes a console on a whole connection, opened from its context menu.
- *
  * @param connection - A connection the person belongs to the department of.
  * @returns The panel target.
  */
@@ -62,7 +61,7 @@ export function connectionSetupTarget(
 }
 
 /**
- * Describes a console in a registered remote workspace (PAGE-140).
+ * Describes a console in a registered remote workspace.
  *
  * @param workspace - A workspace whose console the person may open.
  * @returns The panel target.

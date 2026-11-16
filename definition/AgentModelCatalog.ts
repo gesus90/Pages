@@ -9,7 +9,6 @@ export type CatalogInterval = (typeof CATALOG_INTERVALS)[number];
 
 /**
  * How the provider or CLI catalog describes reasoning control for one model.
- *
  * @remarks
  * `levels` lists selectable efforts; `automatic` means the model reasons but
  * the catalog names no selectable level; `none` means the catalog says the
@@ -33,7 +32,6 @@ export interface AgentCatalogModel {
   readonly defaultReasoningEffort: string | null;
   /**
    * Short names the CLI's own picker resolves to this model, such as `sonnet`.
-   *
    * @remarks
    * Absent where the catalog does not say, which is every catalog saved
    * before the CLI's picker values were kept and every API catalog.
@@ -41,7 +39,6 @@ export interface AgentCatalogModel {
   readonly aliases?: readonly string[];
   /**
    * Whether the model calls tools, as OpenCode or OpenRouter states it.
-   *
    * @remarks
    * Absent where the catalog does not say, which is every other API and CLI
    * catalog. Agents leave out only a model that states `false`.
@@ -49,9 +46,8 @@ export interface AgentCatalogModel {
   readonly isToolCapable?: boolean;
   /**
    * The input modalities the source states, such as `text` and `image`.
-   *
    * @remarks
-   * Kept by catalog refreshes since PAGE-248 from OpenRouter's
+   * Kept by catalog refreshes from OpenRouter's
    * `architecture.input_modalities` and OpenCode's `capabilities.input`;
    * absent in older snapshots and in catalogs that state none.
    */
@@ -60,11 +56,10 @@ export interface AgentCatalogModel {
   readonly outputModalities?: readonly string[];
   /**
    * The voice IDs of a speech output model, as OpenRouter's
-   * `supported_voices` lists them (PAGE-300).
-   *
+   * `supported_voices` lists them.
    * @remarks
    * Absent where the catalog lists none, which is every model but a speech
-   * output model and every snapshot saved before PAGE-300.
+   * output model and every older snapshot.
    */
   readonly supportedVoices?: readonly string[];
 }
@@ -118,11 +113,9 @@ export function emptyModelCatalog(): AgentModelCatalog {
 
 /**
  * Whether the last refresh of any catalog failed.
- *
  * @remarks
  * The server keeps the catalogs current; a model choice shows the models it
  * loaded with the page and warns only after a failed refresh.
- *
  * @param catalogs - The catalogs of the page, by connection.
  * @returns `true` when a catalog keeps an error of its last refresh.
  */

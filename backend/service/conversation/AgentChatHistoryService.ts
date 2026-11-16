@@ -91,7 +91,7 @@ function isThisChat(
 }
 
 /**
- * The "Zur Nachricht" link of a message (PAGE-393): the chat page opens the
+ * The "Zur Nachricht" link of a message: the chat page opens the
  * chat of the person reading it and shows the message.
  *
  * @remarks
@@ -126,7 +126,7 @@ function count(
 }
 
 /**
- * The history search of chat agents (PAGE-393): `verlauf_durchsuchen` finds
+ * The history search of chat agents: `verlauf_durchsuchen` finds
  * earlier messages of the agent's chats, `verlauf_lesen` reads the messages
  * around one of them.
  *

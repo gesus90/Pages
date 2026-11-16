@@ -1,7 +1,7 @@
 import type { AgentTicket } from "./AgentTickets.js";
 import type { ProjectActivity } from "./Project.js";
 
-/** Additional A11.1 and A11.5 reads, authorized by Pages on every invocation. */
+/** Additional extension reads, authorized by Pages on every invocation. */
 export const AGENT_EXTENSION_READ_OPERATIONS = [
   "departments.list",
   "groups.list",
@@ -16,7 +16,7 @@ export const AGENT_EXTENSION_READ_OPERATIONS = [
 
 /**
  * Basic mutations complementing the existing granular wiki and planning tools:
- * A11.1 assignments and deletions, A11.5 tags and links.
+ * Extension assignments and deletions, tags and links.
  */
 export const AGENT_EXTENSION_WRITE_OPERATIONS = [
   "wiki.page.delete",
@@ -43,7 +43,7 @@ export type AgentExtensionReadOperation =
 export type AgentExtensionWriteOperation =
   (typeof AGENT_EXTENSION_WRITE_OPERATIONS)[number];
 
-/** A tag of the catalog; people assign tags, they cannot create them (T6.13.4). */
+/** A tag of the catalog; people assign tags, they cannot create them. */
 export interface AgentTag {
   readonly id: string;
   readonly name: string;

@@ -14,7 +14,6 @@ export const PAGES_CORE_HEADERS = {
 
 /**
  * Answers `pages-core` without a decision.
- *
  * @param status - The HTTP status, such as `400` or `503`.
  * @returns An answer that names only the contract version.
  */

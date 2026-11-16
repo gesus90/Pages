@@ -8,7 +8,6 @@ export type DiscordErrorCode = Exclude<
 
 /**
  * Thrown when a Discord operation cannot be carried out.
- *
  * @remarks
  * The code is the only detail that reaches the client; messages never carry
  * credentials, state values or Discord response bodies.

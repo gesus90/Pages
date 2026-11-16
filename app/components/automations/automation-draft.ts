@@ -22,7 +22,6 @@ export type DraftIntervalMode = "every" | "weekly";
 
 /**
  * The editor's state of one automation, flat and as the inputs hold it.
- *
  * @remarks
  * Numbers stay text while typed; `sharing` is `private`, `project:<id>` or
  * `group:<id>`; an empty reference means "none" or "all". `content` is

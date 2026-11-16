@@ -1,4 +1,4 @@
-//! The three WebSocket channels `pages-core` relays to `pages-api` (PAGE-239):
+//! The three WebSocket channels `pages-core` relays to `pages-api`:
 //! their paths, limits and the close code that tells a client to come back.
 //!
 //! The protocols themselves stay with the API and its clients

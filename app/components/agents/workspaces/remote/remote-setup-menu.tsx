@@ -18,7 +18,6 @@ function menuTextKey(install: RemoteInstallView | undefined): string {
 /**
  * The „Setup“ group directly under „Konsole öffnen“: „Runner einrichten“, or
  * the same line disabled as „Bereits installiert“ once the installation is confirmed.
- *
  * @remarks
  * The state comes from the finding Pages stored after the last connect, bound
  * to host, port, user and host key. Disabling the line is a courtesy only: the

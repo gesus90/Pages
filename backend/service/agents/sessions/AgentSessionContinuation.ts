@@ -31,7 +31,6 @@ export interface ContinuationFacts {
 
 /**
  * Reads the continuation capabilities from an `initialize` response.
- *
  * @param capabilities - `agentCapabilities` as the adapter announced them.
  * @returns Only what the adapter confirmed; an absent field is no capability.
  */
@@ -69,12 +68,10 @@ function endedReason(facts: ContinuationFacts): string {
 
 /**
  * Decides how the next instruction continues a session, truthfully.
- *
  * @param facts - What the server knows about the attempt now.
  * @returns `live` for an open native session; `resume` or `load` only with a
  * confirmed capability; `reconstructed` for a new native session that must be
  * marked as such; otherwise `unavailable` with its reason.
- *
  * @remarks
  * Rights and configuration come first: a changed model or workspace never
  * continues silently in another context. A plan checkpoint is reported apart,
@@ -124,7 +121,6 @@ function newestLines(history: readonly string[], budget: number): string[] {
 
 /**
  * Builds the bounded context a reconstructed session starts with.
- *
  * @param history - Redacted history lines, oldest first.
  * @param limit - The most characters the context may take.
  * @returns A text that says it is a reconstruction and keeps the newest lines.

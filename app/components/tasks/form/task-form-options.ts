@@ -45,7 +45,6 @@ export const PARENT_FIELDS: Readonly<
 
 /**
  * Lists the work item types a new item can be created as.
- *
  * @param translate - Translates the type names.
  */
 export function workItemTypeOptions(
@@ -64,7 +63,6 @@ export function workItemTypeOptions(
 
 /**
  * Lists the priorities of a work item.
- *
  * @param translate - Translates the priority names.
  */
 export function priorityOptions(
@@ -86,10 +84,8 @@ export function priorityOptions(
 
 /**
  * Lists the people who can be set as the reporter of a work item.
- *
  * @param initialTask - The edited work item.
  * @param assignees - Users that can work on the project.
- *
  * @remarks
  * The current reporter stays selectable even when they are no longer
  * an assignee, so saving the form does not change the reporter silently.
@@ -127,7 +123,6 @@ export interface ParentCandidateQuery {
 
 /**
  * Lists the work items that can become the parent of the edited item.
- *
  * @param query - Selects the candidates.
  * @param noneLabel - Label of the leading option that clears the parent.
  */

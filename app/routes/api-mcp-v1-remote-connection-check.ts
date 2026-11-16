@@ -26,8 +26,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpWorkspaceHandlers {
 }
 
 /**
- * Starts the check of a stored connection (`POST /api/mcp/v1/remote-connections/{id}/check`), PAGE-245 interface 14.
- *
+ * Starts the check of a stored connection (`POST /api/mcp/v1/remote-connections/{id}/check`).
  * @remarks
  * Only the device token of a paired machine admits a request, and only for
  * an account with the administrator role. The result stands in `lastCheck` later.

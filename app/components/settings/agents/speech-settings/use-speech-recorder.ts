@@ -34,11 +34,9 @@ function release(recording: ActiveRecording): void {
 
 /**
  * Records the microphone with the Web Audio API and hands over a WAV file.
- *
  * @param maximumMs - The recording stops by itself after this time.
  * @param onRecorded - Receives the finished recording as `audio/wav`.
  * @returns The state and the controls of the recording.
- *
  * @remarks
  * The samples stay in the browser until the recording ends; leaving the page
  * releases the microphone and drops them.

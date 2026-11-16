@@ -9,7 +9,6 @@ import type {
 
 /**
  * Reads the session key of a PageAgentCLI request from the address.
- *
  * @param params - Route parameters with run and node.
  * @param search - Query with plan and attempt.
  * @throws {AgentError} `plan_invalid` for a missing or malformed part.
@@ -31,7 +30,6 @@ export function readSessionKey(
 
 /**
  * Reads a history cursor; malformed or unsafe positions are rejected explicitly.
- *
  * @param input - The cursor as the client or `Last-Event-ID` sent it.
  */
 export function readSessionCursor(input: string | null): number {

@@ -28,8 +28,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpPlanHandlers {
 }
 
 /**
- * Changes a parameter node (`PATCH /api/mcp/v1/plans/{planId}/parameters/{parameterId}`), PAGE-246 interface 10.
- *
+ * Changes a parameter node (`PATCH /api/mcp/v1/plans/{planId}/parameters/{parameterId}`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

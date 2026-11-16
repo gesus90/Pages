@@ -66,7 +66,6 @@ export interface DiscordConfirmation {
 
 /**
  * Connects a project to a Discord server and channel and keeps its settings.
- *
  * @remarks
  * Every change needs the right to write in the project, the one the GitHub
  * interface already asks for; everyone who can read the project sees the
@@ -80,7 +79,6 @@ export class DiscordConnectionService {
 
   /**
    * Creates the connection service.
-   *
    * @param dependencies - Project access, storage and Discord access.
    */
   public constructor(dependencies: DiscordConnectionServiceDependencies) {
@@ -90,7 +88,6 @@ export class DiscordConnectionService {
 
   /**
    * Returns everything the Discord panel of a project shows.
-   *
    * @param actor - The signed-in user; any user who can read the project.
    * @param projectId - The project of the panel.
    * @param options - Whether to list the channels of the connected server.
@@ -131,7 +128,6 @@ export class DiscordConnectionService {
 
   /**
    * Tells whether the project has a Discord connection.
-   *
    * @param actor - The signed-in user; any user who can read the project.
    * @param projectId - The project of the card.
    * @returns Whether notifications are connected.
@@ -146,7 +142,6 @@ export class DiscordConnectionService {
 
   /**
    * Starts the installation of the bot and returns the link for the QR code.
-   *
    * @param actor - The signed-in user who may write in the project.
    * @param input - The project and the origin of the request.
    * @returns The panel state with the new attempt and its official link.
@@ -176,7 +171,6 @@ export class DiscordConnectionService {
 
   /**
    * Saves the connection once server and channel are confirmed.
-   *
    * @param actor - The signed-in user who started the attempt.
    * @param projectId - The project to connect.
    * @param confirmation - The attempt and the channel the person chose.
@@ -227,7 +221,6 @@ export class DiscordConnectionService {
 
   /**
    * Points the connection at another channel of the same server.
-   *
    * @param actor - The signed-in user who may write in the project.
    * @param projectId - The connected project.
    * @param channelId - The channel the bot can see and post in.
@@ -262,7 +255,6 @@ export class DiscordConnectionService {
 
   /**
    * Switches the events of the project on or off, each on its own.
-   *
    * @param actor - The signed-in user who may write in the project.
    * @param projectId - The connected project.
    * @param events - The complete selection of the four event types.
@@ -297,7 +289,6 @@ export class DiscordConnectionService {
 
   /**
    * Sends a test message to the connected channel right away.
-   *
    * @param actor - The signed-in user who may write in the project.
    * @param projectId - The connected project.
    * @returns Whether Discord accepted the message and, if not, the problem.

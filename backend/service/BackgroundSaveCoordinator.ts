@@ -18,7 +18,6 @@ interface WriteStream {
 
 /**
  * Fences late HTTP requests as well as serializing writes that already started.
- *
  * @remarks
  * Pages has one Node.js process, as does SerialQueue. This metadata lives for
  * that process: a restarted process cannot finish any old in-flight request.

@@ -41,7 +41,7 @@ const CHECK_INTENTS: ReadonlySet<unknown> = new Set<SetupIntent>([
 
 /**
  * Reads from the API whether the setup is pending and whether the setup link
- * carried a valid token (PAGE-235).
+ * carried a valid token.
  */
 export async function clientLoader({
   request,

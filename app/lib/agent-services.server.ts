@@ -79,7 +79,7 @@ export interface AgentApplicationServices
   readonly agentCheckService: AgentCheckService;
   readonly agentCliLoginService: AgentCliLoginService;
   /** Text runs of the chat; parallel chats share a verified connection. */
-  /** The scope of every connection, checked again before each Pica bridge call (PAGE-68). */
+  /** The scope of every connection, checked again before each Pica bridge call. */
   readonly agentConnectionAccess: AgentConnectionAccess;
   /**
    * Running chat answers may use several model calls within one deadline.
@@ -87,7 +87,7 @@ export interface AgentApplicationServices
    */
   readonly chatRequests: ChatRequestRegistry;
   readonly agentPlanExecution: PlanExecution;
-  /** The agent simulation (PAGE-268); inactive outside development. */
+  /** The agent simulation; inactive outside development. */
   readonly agentSimulation: AgentSimulationMode;
   /** Signed references through which a runner reaches a plan asset; `null` without a plan asset store. */
   readonly agentPlanAssetReferences: PlanAssetReferences | null;
@@ -100,7 +100,7 @@ export interface AgentApplicationServices
   readonly agentCliGitHubCredentials: CliGitHubCredentials;
 }
 
-/** The connection scope check and the decision model (PAGE-317), which share one reading of the groups. */
+/** The connection scope check and the decision model, which share one reading of the groups. */
 function createAccessServices(
   database: Database,
   repository: AgentConnectionRepository,

@@ -67,7 +67,7 @@ const RESUME_CONTEXT_MESSAGES = 50;
 /** One answer an agent is asked for. */
 export interface ConversationAgentRequest {
   readonly agent: User;
-  /** The person, or the agent (PAGE-311), whose message opened the round the agent answers. */
+  /** The person, or the agent, whose message opened the round the agent answers. */
   readonly person: User;
   readonly conversation: Pick<ConversationRecord, "id" | "kind" | "name">;
   /** The task with the limited context of the conversation. */
@@ -78,7 +78,7 @@ export interface ConversationAgentRequest {
   /**
    * Null starts with the bounded history; a cursor receives every later
    * message. A resumed agent session knows the chat up to the stored position
-   * of its session and receives only what is newer (PAGE-376).
+   * of its session and receives only what is newer.
    */
   readonly prepareTurn?: (
     afterSequence: number | null,
@@ -91,25 +91,24 @@ export interface ConversationAgentRequest {
   /**
    * The sequence of the answered message, the newest one this round carries;
    * the agent's session of the chat counts the messages up to it as received
-   * once the round is delivered (PAGE-376).
+   * once the round is delivered.
    */
   readonly throughSequence?: number;
   /** Copies file attachments before the agent job removes its temporary workspace. */
   readonly consumeAnswer?: (answer: string) => Promise<void>;
-  /** Stops the answer, also while it waits for a free place (PAGE-304). */
+  /** Stops the answer, also while it waits for a free place. */
   readonly signal?: AbortSignal;
   /** Called when the answer waits because the limits of concurrent sessions are reached. */
   readonly onQueued?: () => void;
   /** Called when the answer got its place and begins. */
   readonly onAdmitted?: () => void;
-  /** Shows the answer to the members while it is written (PAGE-381). */
+  /** Shows the answer to the members while it is written. */
   readonly liveAnswer?: LiveAnswerSink;
 }
 
 /**
  * Runs one answer of an agent with its own model, instructions and rights,
  * or in the simulation.
- *
  * @remarks
  * It refuses with an {@link AgentEmployeeError}: `inactive` for a
  * deactivated agent, `unavailable` where no model can run it.
@@ -118,21 +117,18 @@ export interface ConversationAgentRunner {
   answer(request: ConversationAgentRequest): Promise<string>;
   /**
    * Hands the round to the answer the agent is giving in this conversation
-   * now, instead of starting a second one (PAGE-376).
-   *
+   * now, instead of starting a second one.
    * @returns Whether the running answer took it; `false` when none runs or it
    * no longer takes messages, so the round waits for its own turn.
    */
   steer?(request: ConversationAgentRequest): Promise<boolean>;
   /**
    * The newest message of the conversation the agent's session received; `0`
-   * before the first round (PAGE-376).
+   * before the first round.
    */
   deliveredThrough?(agentId: string, conversationId: string): Promise<number>;
   /**
-   * Cancels the running tool calls of the agent's answer in the conversation
-   * (PAGE-381).
-   *
+   * Cancels the running tool calls of the agent's answer in the conversation.
    * @returns Whether a running call was cancelled.
    */
   cancelTool?(agentId: string, conversationId: string): Promise<boolean>;
@@ -150,13 +146,13 @@ export interface ConversationAgentRepliesDependencies {
   >;
   readonly directory: Pick<ConversationDirectory, "read">;
   readonly runner: ConversationAgentRunner;
-  /** The stored rounds, asked agents and routing decisions (PAGE-296). */
+  /** The stored rounds, asked agents and routing decisions. */
   readonly rounds: ConversationRoundRepository;
   /** The stored context of groups, for the prompt of an answer. */
   readonly contexts: Pick<ConversationContextReader, "promptContext">;
-  /** How each group decides who answers without an @ (PAGE-317, PAGE-379). */
+  /** How each group decides who answers without an @. */
   readonly replySettings: Pick<ConversationReplySettingsRepository, "find">;
-  /** The decision model that chooses agents for a group in decision mode (PAGE-379). */
+  /** The decision model that chooses agents for a group in decision mode. */
   readonly decisions: Pick<
     ConversationChatDecisions,
     "decide" | "recordMention"
@@ -165,11 +161,11 @@ export interface ConversationAgentRepliesDependencies {
   readonly events: Pick<ConversationEvents, "subscribe" | "publish">;
   /** Tells the live view of this process about a change. */
   readonly publisher: { publish(event: PagesEvent): void };
-  /** Pauses a chain of agent messages (PAGE-311); without it no chain is limited. */
+  /** Pauses a chain of agent messages; without it no chain is limited. */
   readonly guard?: Pick<ConversationAgentGuard, "isPaused">;
-  /** Reads the file lines of an answer (PAGE-298). */
+  /** Reads the file lines of an answer. */
   readonly agentFiles: Pick<ConversationAgentFiles, "select" | "open">;
-  /** Reads the lines of an answer that show earlier attachments of the chat again (PAGE-386); absent shows none. */
+  /** Reads the lines of an answer that show earlier attachments of the chat again; absent shows none. */
   readonly references?: Pick<
     ConversationAttachmentReferences,
     "select" | "bind"
@@ -181,12 +177,12 @@ export interface ConversationAgentRepliesDependencies {
   >;
   /** The attachments and links of a stored answer. */
   readonly content: ConversationMessageContentReader;
-  /** The images the agent generated during the answer (PAGE-382); absent binds none. */
+  /** The images the agent generated during the answer; absent binds none. */
   readonly generatedImages?: Pick<ConversationGeneratedImages, "take">;
   readonly now?: () => Date;
   /** Waits for a busy agent; tests pass a fast one. */
   readonly wait?: (milliseconds: number) => Promise<void>;
-  /** Shows the answers to the members while they are written (PAGE-381); absent shows none. */
+  /** Shows the answers to the members while they are written; absent shows none. */
   readonly answerStream?: ConversationAnswerStreamPort;
 }
 
@@ -199,7 +195,7 @@ interface ReplyRequest {
   readonly reason: string;
   readonly isAutomatic: boolean;
   readonly isFollowUp?: boolean;
-  /** The stored @ hand-over the answer takes (PAGE-349). */
+  /** The stored @ hand-over the answer takes. */
   readonly handoff?: "pending" | "paused";
 }
 
@@ -212,8 +208,7 @@ function isAgentMember(
 }
 
 /**
- * The answers of agents in conversations (PAGE-276, PAGE-296, PAGE-379).
- *
+ * The answers of agents in conversations.
  * @remarks
  * In a direct conversation the agent answers every message of the person.
  * In a group a message that names members with @ wins: exactly the agents it
@@ -225,7 +220,7 @@ function isAgentMember(
  * behaves like `mentions`. A message an agent sent without an @ asks nobody,
  * so agents wake each other only by naming each other: an answer that names
  * agents with @ hands the round over to them, also to agents that answered in
- * the round before (PAGE-349). Every answer stays in the round of the
+ * the round before. Every answer stays in the round of the
  * person's message. An agent starts at most once per message that asks it,
  * never for its own mention. Explicit @ hand-overs have no limit per round or
  * per agent; contributions without @ (decision model) share the group's
@@ -234,11 +229,10 @@ function isAgentMember(
  * starts each of them once. Replies to an agent's @ question are bundled into
  * one continuation. All of it is stored, so repeated events, concurrent jobs
  * and a restart start nothing twice. Agents start a round only with a message
- * they chose to send (PAGE-311); it asks exactly the agents it mentions, or
+ * they chose to send; it asks exactly the agents it mentions, or
  * the partner of a direct conversation, and a conversation paused after a
  * chain of agent messages gets no answer.
- *
- * Every agent answers in its own session of the conversation (PAGE-304), so
+ * Every agent answers in its own session of the conversation, so
  * several agents answer side by side. A message that waits for the earlier
  * answer of the same agent, or for a free place among the limits of
  * concurrent sessions, shows as queued until its answer begins. A member
@@ -270,7 +264,6 @@ export class ConversationAgentReplies {
 
   /**
    * Follows the committed messages of the process.
-   *
    * @returns Stops following.
    */
   public start(): () => void {
@@ -286,7 +279,6 @@ export class ConversationAgentReplies {
   /**
    * Ends the answers and routing decisions an earlier process left open,
    * without starting them again.
-   *
    * @param startedAt - The start of this process.
    */
   public async recover(startedAt: Date): Promise<void> {
@@ -314,8 +306,7 @@ export class ConversationAgentReplies {
   }
 
   /**
-   * The messages of a conversation whose answer waits, and why (PAGE-304).
-   *
+   * The messages of a conversation whose answer waits, and why.
    * @returns By message ID; `limit` wins over `chat` when several agents wait.
    */
   public queuedMessages(
@@ -324,22 +315,21 @@ export class ConversationAgentReplies {
     return this.replies.queuedMessages(conversationId);
   }
 
-  /** The messages of a conversation handed to running answers, with their agents (PAGE-381). */
+  /** The messages of a conversation handed to running answers, with their agents. */
   public steeredMessages(
     conversationId: string,
   ): ReadonlyMap<string, readonly string[]> {
     return this.replies.steeredMessages(conversationId);
   }
 
-  /** How many messages of a conversation wait for the answer of one agent (PAGE-376). */
+  /** How many messages of a conversation wait for the answer of one agent. */
   public queuedFor(conversationId: string, agentId: string): number {
     return this.replies.queuedFor(conversationId, agentId);
   }
 
   /**
    * Stops the running answer of one agent in a conversation of the person;
-   * other agents and other conversations answer on (PAGE-304).
-   *
+   * other agents and other conversations answer on.
    * @returns Whether an answer was running and is stopped now.
    * @throws {ConversationError} `not_found` for a conversation the person is no member of.
    */
@@ -358,8 +348,7 @@ export class ConversationAgentReplies {
 
   /**
    * Cancels the running tool calls of one agent's answer in a conversation of
-   * the person (PAGE-381); the answer goes on with what it has.
-   *
+   * the person; the answer goes on with what it has.
    * @returns Whether a running call was cancelled.
    * @throws {ConversationError} `not_found` for a conversation the person is no member of.
    */
@@ -382,7 +371,6 @@ export class ConversationAgentReplies {
   /**
    * Starts the answers a message of a person asks for and returns once they
    * and their hand-overs ended.
-   *
    * @param message - A committed message.
    * @param memberIds - The members of its conversation.
    */
@@ -405,7 +393,7 @@ export class ConversationAgentReplies {
       memberIds,
       person: sender.user,
     };
-    // A message of a person ends the chain pause and starts what waited there (PAGE-349).
+    // A message of a person ends the chain pause and starts what waited there.
     const resumed =
       conversation.kind === "group" && sender.user.isAgent !== true
         ? this.resumePaused(conversation.id)
@@ -417,7 +405,7 @@ export class ConversationAgentReplies {
   }
 
   /**
-   * Hands a message a person sent while agents answered (PAGE-381): "after"
+   * Hands a message a person sent while agents answered: "after"
    * waits until the answering agents ended, "steer" without an @ in a group
    * goes into the answers of every agent answering now; an agent whose answer
    * no longer takes it answers it afterwards. Otherwise the round starts as
@@ -679,7 +667,7 @@ export class ConversationAgentReplies {
    * The agents an answer hands over to: every other agent member it mentions
    * with @, also one that answered in the round before. An answer never starts
    * a decision. At the chain pause an @ hand-over is stored and logged instead
-   * of started (PAGE-349, PAGE-379).
+   * of started.
    */
   private async handOver(
     round: ConversationRound,

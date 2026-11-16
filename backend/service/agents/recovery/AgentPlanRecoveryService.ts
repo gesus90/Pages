@@ -203,7 +203,6 @@ function executingOptions(
 
 /**
  * Keeps only the authority and opaque review identities needed for restart or cleanup.
- *
  * @remarks
  * Resuming reuses the run's results and context, so it needs the executor's
  * current content rights; the view names that instead of an unverified context.
@@ -256,7 +255,6 @@ function controlRecoveryView(
 /**
  * Authorized inspection and the explicit restart, resume and release of a
  * disturbed run, besides the recorded repair preparations.
- *
  * @remarks
  * Restart and resume each start a new run through the existing engine; the
  * disturbed run, its failures, checkpoints and journal stay unchanged.
@@ -279,10 +277,9 @@ export class AgentPlanRecoveryService {
 
   /**
    * Rechecks the current rights on every read.
-   *
    * @remarks
    * The executor reads the recovery state with its actions. Everybody else
-   * who may read the plan reads the state without actions (PAGE-307); where
+   * who may read the plan reads the state without actions; where
    * they may not see the content the run used, only the control state.
    */
   public async view(
@@ -323,7 +320,6 @@ export class AgentPlanRecoveryService {
   /**
    * Records a repair or reconciliation, cancels, or explicitly restarts,
    * resumes or releases the run.
-   *
    * @remarks
    * Every command needs the run's current recovery revision and an
    * idempotency key; a repeated request returns its first result and never
@@ -343,7 +339,6 @@ export class AgentPlanRecoveryService {
 
   /**
    * Whether the run can be continued now, and if not, the one reason.
-   *
    * @remarks
    * Reads the facts of a resume without changing anything, so the control of
    * the run names exactly the reason a resume would refuse with.
@@ -359,13 +354,11 @@ export class AgentPlanRecoveryService {
 
   /**
    * Continues an ended run at its last safe state, with the decision made for the person.
-   *
    * @param userId - The executor of the run.
    * @param runId - The ended run to continue.
    * @param planRevision - The saved plan revision the continuation adopts.
    * @param journal - Records the caller's command with the new run.
    * @returns The result naming the new run.
-   *
    * @remarks
    * This is what "Fortsetzen" and `resume_plan` do for a failed, interrupted,
    * blocked or closeout-open run. The key is fixed per source run

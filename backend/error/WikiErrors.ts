@@ -2,7 +2,6 @@ import type { WikiPage } from "@/definition/Wiki";
 
 /**
  * Reasons a wiki action is rejected, with the message logged for each.
- *
  * @remarks
  * The code is what the client receives; it translates the code into the
  * language of the user (`wiki.errors.<code>`). The English message stays for
@@ -40,7 +39,6 @@ export class WikiValidationError extends Error {
 
   /**
    * Creates the error.
-   *
    * @param code - Reason of the rejection.
    */
   public constructor(code: WikiErrorCode) {
@@ -76,7 +74,6 @@ export class WikiConflictError extends Error {
 
   /**
    * Creates the error.
-   *
    * @param current - Page as it is stored now.
    */
   public constructor(current: WikiPage) {

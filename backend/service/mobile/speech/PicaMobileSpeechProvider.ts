@@ -12,7 +12,6 @@ export interface PicaMobileSpeechLimits {
 
 /**
  * What the speech recognition answers for a connection.
- *
  * @remarks
  * `sessionEnded` means the session or the account no longer holds; the
  * connection ends as it does when its regular session check fails. `limits`
@@ -37,8 +36,7 @@ export interface PicaMobileSpeechRecording {
 }
 
 /**
- * The speech recognition of the instance for Pica Mobile (`speech.v1`, PAGE-273).
- *
+ * The speech recognition of the instance for Pica Mobile (`speech.v1`).
  * @remarks
  * A connection without a provider does not announce `speech.v1` and answers
  * its requests as unknown. Every call checks the session first.

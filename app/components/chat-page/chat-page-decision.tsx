@@ -55,8 +55,7 @@ function Collapsible({
 }
 
 /**
- * What the decision model decided about a message of a group (PAGE-379).
- *
+ * What the decision model decided about a message of a group.
  * @remarks
  * Under the message of a person that nobody answers it is the quiet system
  * line "keine Antwort · niemand 91 %", visible to every member; a click shows

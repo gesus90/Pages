@@ -57,7 +57,6 @@ interface PlanScriptDialogProps {
 /**
  * Configures a script: name, interpreter profile, content, declared inputs
  * and output, and timeout.
- *
  * @remarks
  * The dialog edits a copy and applies it only when every field is valid,
  * by the rules the server checks again when the plan is saved. Applying

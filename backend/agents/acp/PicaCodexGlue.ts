@@ -39,7 +39,6 @@ export interface PicaCodexOperation {
 
 /**
  * Trusted single-file module contract required by the Pica-only adapter patch.
- *
  * @remarks
  * The launcher supplies the module's absolute path and digest. The module must
  * export `createPicaCodexGlue`, taking an ACP request callback and returning

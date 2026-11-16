@@ -18,7 +18,6 @@ async function exists(file: string): Promise<boolean> {
 
 /**
  * The folders whose `.codex` configuration Codex reads for a working directory.
- *
  * @remarks
  * Codex treats the nearest folder with `.git` as the project root and reads
  * every folder from there down to the working directory; without a root it
@@ -39,12 +38,10 @@ async function projectFolders(workspace: string): Promise<readonly string[]> {
 
 /**
  * Finds a Codex configuration file that Pages did not write.
- *
  * @param codexHome - The Codex folder of the connection's credential folder.
  * @param workspace - The working directory of the session.
  * @returns The first such file, or `null` when the session runs with the
  * configuration of Pages alone.
- *
  * @remarks
  * Pages passes every setting of a session above all configuration files, but
  * a file could still add MCP servers, hooks or providers that the stored

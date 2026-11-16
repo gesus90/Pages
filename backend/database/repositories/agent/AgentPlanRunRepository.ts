@@ -46,11 +46,11 @@ export interface AgentPlanRunEntry {
   readonly id: string;
   readonly startedAt: string;
   readonly status: AgentPlanRun["status"];
-  /** When somebody first typed into a terminal of the run (PAGE-265). */
+  /** When somebody first typed into a terminal of the run. */
   readonly manualInputAt?: string;
 }
 
-/** A run of a plan with the person who started it, for reading the runs of a whole team (PAGE-307). */
+/** A run of a plan with the person who started it, for reading the runs of a whole team. */
 export interface AgentPlanTeamRunEntry extends AgentPlanRunEntry {
   readonly userId: string;
 }
@@ -70,10 +70,8 @@ export interface AgentPlanRunOwnership {
 
 /**
  * Parses a stored record; whatever fails while parsing means the record is damaged.
- *
  * @remarks
  * The query runs before this, so a database failure stays what it is.
- *
  * @throws {AgentError} `plan_run_unreadable` for damaged JSON or an unknown structure.
  */
 function readStoredRecord<Result>(read: () => Result): Result {
@@ -155,7 +153,6 @@ export class AgentPlanRunRepository {
 
   /**
    * Creates a run like {@link create}, inside a transaction that also stores other changes.
-   *
    * @remarks
    * The revision check reads the plan within the same transaction, so a plan
    * revision written before it in that transaction is the one the run must
@@ -292,7 +289,6 @@ export class AgentPlanRunRepository {
 
   /**
    * Names the run that holds one of the working copies.
-   *
    * @remarks
    * Only the caller decides whether the run may be shown; the service names it
    * for the executor's own runs and no one else's.
@@ -434,7 +430,6 @@ export class AgentPlanRunRepository {
 
   /**
    * Lists ended runs that still reserve a working copy.
-   *
    * @remarks
    * Only an interrupted run keeps its reservations after it ended, because
    * processes of its sessions might still have been writing.
@@ -502,7 +497,6 @@ export class AgentPlanRunRepository {
 
   /**
    * Lists every run one person started of a plan, newest first, with the references reading it needs.
-   *
    * @param userId - The executor; runs of others are never part of it.
    * @param planId - The plan.
    * @returns No snapshot, view or result; the service decides visibility from the references.
@@ -516,7 +510,6 @@ export class AgentPlanRunRepository {
 
   /**
    * Lists every run one person started of a plan, ordered by start.
-   *
    * @param userId - The executor; runs of others are never part of it.
    * @param planId - The plan.
    * @param order - `newest` first or `oldest` first; the identifier breaks ties.

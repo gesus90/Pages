@@ -146,7 +146,7 @@ function JsonNode({ name, value, depth }: JsonNodeProps): React.ReactElement {
 }
 
 /**
- * JSON as a tree that opens and closes (PAGE-383): each kind of value in its
+ * JSON as a tree that opens and closes: each kind of value in its
  * color, the number of entries at each object and array, and a copy button
  * for every value. Nothing of the JSON is executed.
  */

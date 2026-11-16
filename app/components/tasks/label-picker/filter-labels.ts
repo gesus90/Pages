@@ -2,7 +2,6 @@ import type { Label } from "@/definition/Task";
 
 /**
  * Narrows the project labels to those whose name contains the search text.
- *
  * @param labels - Every label of the project.
  * @param query - Search text typed by the visitor; case and outer spaces are ignored.
  * @returns All labels for a blank query, otherwise the matching ones.

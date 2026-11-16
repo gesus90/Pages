@@ -25,7 +25,6 @@ import type {
 
 /**
  * Finds a template the account may see.
- *
  * @throws {McpTicketError} `not_found` for an unknown or hidden template.
  */
 async function requireTemplate(
@@ -90,7 +89,6 @@ function presetValues(
 
 /**
  * Rejects a body that assigns a person and a group at once.
- *
  * @throws {McpTicketError} `invalid_request`.
  */
 function rejectDoubleAssignment(request: {
@@ -136,11 +134,10 @@ function optionalValues(
   };
 }
 
-/** Creates, changes, places and moves tickets (PAGE-242, interface 5–8). */
+/** Creates, changes, places and moves tickets. */
 export class McpTicketWriteService {
   /**
    * Creates a ticket, from a template when the body names one.
-   *
    * @param context - The request.
    * @param request - The validated body.
    * @returns The new ticket.
@@ -179,14 +176,12 @@ export class McpTicketWriteService {
 
   /**
    * Changes the named fields of a ticket.
-   *
    * @param context - The request.
    * @param reference - Key or id of the ticket.
    * @param request - The validated body.
    * @returns The changed ticket.
    * @throws {McpTicketError} `conflict` when a value of `expected` changed;
    * nothing is written then.
-   *
    * @remarks
    * Every reference and every expected value is checked before the first
    * write. The fields go through the complete edit of the interface, the
@@ -229,7 +224,6 @@ export class McpTicketWriteService {
 
   /**
    * Sets status and order in the column, like dragging on the board.
-   *
    * @param context - The request.
    * @param reference - Key or id of the ticket.
    * @param request - The validated body.
@@ -252,7 +246,6 @@ export class McpTicketWriteService {
 
   /**
    * Moves a ticket with its subtasks into another project.
-   *
    * @param context - The request.
    * @param reference - Key or id of the ticket.
    * @param projectId - The target project; the account needs the write right there too.

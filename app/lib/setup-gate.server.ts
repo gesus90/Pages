@@ -29,7 +29,6 @@ function readRoutePath(requestUrl: string): string {
 
 /**
  * Tells whether the instance still waits for its setup.
- *
  * @returns Whether only the setup wizard is available.
  */
 export async function isSetupPending(): Promise<boolean> {
@@ -38,7 +37,6 @@ export async function isSetupPending(): Promise<boolean> {
 
 /**
  * Sends every request to the setup wizard while the setup is pending.
- *
  * @remarks
  * Runs before any loader or action, so no route opens the database of an
  * instance that has none yet.

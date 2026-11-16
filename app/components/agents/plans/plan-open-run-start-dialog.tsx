@@ -12,7 +12,6 @@ import {
 
 /**
  * Asks whether the open run ends so Starten can begin a new run from the start.
- *
  * @remarks
  * Starten never continues anything. While a run is open, a click alone would
  * silently discard its progress, so this dialog names the consequence: the run

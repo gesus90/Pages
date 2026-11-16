@@ -24,8 +24,7 @@ export interface FileSystemProbe {
 }
 
 /**
- * The exchangeable readers of the system dashboard (PAGE-282).
- *
+ * The exchangeable readers of the system dashboard.
  * @remarks
  * Every source of the server goes through one of them, so a hanging network
  * drive, a missing swap, temperature source or ACP control group can be put
@@ -80,7 +79,6 @@ function readUsage(output: string): FileSystemUsage | null {
 
 /**
  * Measures one file system with `stat --file-system` in a short-lived child.
- *
  * @remarks
  * `statfs` on a hanging network drive blocks the caller. In a child it blocks
  * neither the event loop nor a thread of Node's pool, and the caller decides

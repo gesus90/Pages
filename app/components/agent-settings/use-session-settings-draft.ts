@@ -35,8 +35,7 @@ function readWholeNumber(text: string, range: WholeNumberRange): number | null {
 
 /**
  * The entries of idle time and restart threshold, checked against the
- * ranges of the contract before anything is sent (PAGE-376).
- *
+ * ranges of the contract before anything is sent.
  * @param saved - The settings the server holds; they fill the entries.
  */
 export function useSessionSettingsDraft(

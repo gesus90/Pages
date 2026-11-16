@@ -1,5 +1,5 @@
 /**
- * Contracts of the content of conversation messages (PAGE-298): attachments,
+ * Contracts of the content of conversation messages: attachments,
  * links and the state of the cards that show them. Shared by the web chat
  * page and Pica Mobile (`conversations.v1`).
  */
@@ -14,7 +14,7 @@ export const CONVERSATION_ATTACHMENT_MAXIMUM_COUNT = 10;
 
 /**
  * How long Pages keeps a file an agent attached in a chat, generated images
- * included, counted from its sending (PAGE-382): 72 hours. Uploads of people
+ * included, counted from its sending: 72 hours. Uploads of people
  * stay.
  */
 export const CONVERSATION_AGENT_FILE_LIFETIME_MILLISECONDS =
@@ -57,7 +57,7 @@ export interface ConversationAttachment {
   /** When the file was stored; missing in older answers of the server. */
   readonly createdAt?: string;
   /**
-   * When Pages removes the file (PAGE-382): set for files of agents, missing
+   * When Pages removes the file: set for files of agents, missing
    * for uploads of people, which stay.
    */
   readonly expiresAt?: string;
@@ -66,23 +66,23 @@ export interface ConversationAttachment {
    * date instead, and `url` answers no more.
    */
   readonly expiredAt?: string;
-  /** Width and height of a video in pixels, once the browser read them (PAGE-384). */
+  /** Width and height of a video in pixels, once the browser read them. */
   readonly width?: number;
   readonly height?: number;
-  /** Length of a video or a sound in seconds, once the browser read it (PAGE-384). */
+  /** Length of a video or a sound in seconds, once the browser read it. */
   readonly durationSeconds?: number;
   /**
-   * SHA-256 of the file in lower-case hex (PAGE-385), computed when Pages
+   * SHA-256 of the file in lower-case hex, computed when Pages
    * stored it; missing for files stored before.
    */
   readonly sha256?: string;
-  /** Page count of a PDF, once a browser read it (PAGE-385). */
+  /** Page count of a PDF, once a browser read it. */
   readonly pageCount?: number;
-  /** Title of a PDF from its metadata, once a browser read it (PAGE-385). */
+  /** Title of a PDF from its metadata, once a browser read it. */
   readonly documentTitle?: string;
 }
 
-/** The facts the browser reads of a video or a sound (PAGE-384), as it sends them. */
+/** The facts the browser reads of a video or a sound, as it sends them. */
 export interface ConversationMediaFacts {
   readonly width?: number;
   readonly height?: number;
@@ -95,7 +95,7 @@ export const CONVERSATION_MEDIA_MAXIMUM_SIDE = 16_384;
 /** Longest video or sound Pages stores as a fact, in seconds: one day. */
 export const CONVERSATION_MEDIA_MAXIMUM_SECONDS = 24 * 60 * 60;
 
-/** An image of a conversation, as the image viewer pages through them (PAGE-382). */
+/** An image of a conversation, as the image viewer pages through them. */
 export interface ConversationImage {
   readonly attachment: ConversationAttachment;
   readonly messageId: string;
@@ -107,14 +107,14 @@ export interface ConversationImage {
 }
 
 /**
- * Whether the original of a reference is still there (PAGE-386): shown,
+ * Whether the original of a reference is still there: shown,
  * removed after its 72 hours, or deleted with its message.
  */
 export type ConversationReferenceState = "available" | "expired" | "deleted";
 
 /**
  * An earlier attachment of the same chat that an agent shows again in its
- * answer (PAGE-386). No copy exists: the card shows the original, and its
+ * answer. No copy exists: the card shows the original, and its
  * remaining time and expiry are those of the original.
  */
 export interface ConversationAttachmentReference {
@@ -154,7 +154,7 @@ export interface ChatViewPreferences {
   readonly cardStates: Readonly<Record<string, ChatCardState>>;
   /** The last width of the split view in pixels; `null` before the first change. */
   readonly splitWidth: number | null;
-  /** Whether the list of the chat page is collapsed to its bar (PAGE-325). */
+  /** Whether the list of the chat page is collapsed to its bar. */
   readonly isListCollapsed?: boolean;
 }
 
@@ -206,14 +206,13 @@ export const chatSplitWidthSchema = z.coerce
   .min(CHAT_SPLIT_MINIMUM_WIDTH)
   .max(10_000);
 
-/** Whether the list of the chat page is collapsed, as a form sends it (PAGE-325). */
+/** Whether the list of the chat page is collapsed, as a form sends it. */
 export const chatListCollapsedSchema = z
   .enum(["true", "false"])
   .transform((choice) => choice === "true");
 
 /**
  * Decides how the chat shows a file from its MIME type.
- *
  * @param mimeType - The stored type of the file.
  * @returns The kind of card.
  */

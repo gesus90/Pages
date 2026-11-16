@@ -17,7 +17,6 @@ import type { AgentPlanNode } from "@/definition/AgentPlan";
 
 /**
  * A ticket outline with a notch on either side and no perforation.
- *
  * @remarks
  * Drawn like the lucide icons it sits beside: a 24 unit box, a 2 unit
  * stroke in the current color.

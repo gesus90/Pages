@@ -19,7 +19,6 @@ export class DurableCliSessions implements PlanSessionRunner {
 
   /**
    * Starts plan work through the durable owner after the existing authorization boundary.
-   *
    * @remarks
    * The short session of a decision model or the group observer has no
    * transcript to keep and no turn to resume, so it runs directly, still
@@ -37,7 +36,6 @@ export class DurableCliSessions implements PlanSessionRunner {
 
   /**
    * Releases the owner only after all native processes and public results have settled.
-   *
    * @remarks
    * The transcripts of the run stay; they go when the plan starts a new run.
    */

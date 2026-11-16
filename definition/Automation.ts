@@ -1,7 +1,6 @@
 /**
- * Automations (PAGE-297): jobs that wake an agent, run a script or start a
+ * Automations: jobs that wake an agent, run a script or start a
  * plan at a time, in an interval, on an event or by hand.
- *
  * @remarks
  * The interface, Pica, the agent tools and the HTTP API of the Pages MCP
  * client share these contracts. Times are ISO 8601, time zones IANA names.
@@ -109,7 +108,6 @@ export type AutomationSharingScope = (typeof AUTOMATION_SHARING_SCOPES)[number];
 
 /**
  * Where a run stands.
- *
  * @remarks
  * `queued` waits behind the running run of the same automation, `accepted`
  * is claimed and about to start or waits for a busy agent, `delivered` runs:
@@ -172,7 +170,6 @@ export interface AutomationManualTrigger {
 
 /**
  * Runs once at a time.
- *
  * @remarks
  * `at` is `null` after the run or after switching off a passed time; the
  * automation can only be switched on again with a new time in the future.
@@ -206,7 +203,6 @@ export interface AutomationWeeklyTrigger {
 
 /**
  * Runs when an event of Pages happens.
- *
  * @remarks
  * Plan events filter by `planId` (`null`: every visible plan) and, for step
  * changes, by `stepId`; ticket events by `projectId` and, for status
@@ -233,8 +229,7 @@ export type AutomationTrigger =
 export const AUTOMATION_TARGET_CHAT_LENGTH = 200;
 
 /**
- * Wakes an agent with an instruction in the session of a chat (PAGE-376).
- *
+ * Wakes an agent with an instruction in the session of a chat.
  * @remarks
  * `chat` names the target chat: `@Agentname` for the direct chat of the
  * owner of the automation with that agent, `[[Chatname]]` for a group the
@@ -256,7 +251,6 @@ export interface AutomationScriptForward {
 
 /**
  * Runs a script with an interpreter profile in a workspace.
- *
  * @remarks
  * `content` is `null` for an account that may only read the automation.
  */
@@ -445,7 +439,6 @@ export interface AutomationLimits {
 
 /**
  * What an account may choose when it creates or changes an automation.
- *
  * @remarks
  * Only references and names, never credentials or executable paths. Script
  * actions, workspaces and interpreter profiles are offered to active

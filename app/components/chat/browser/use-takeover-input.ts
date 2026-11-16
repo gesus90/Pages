@@ -44,7 +44,6 @@ interface Viewport {
 
 /**
  * Relays pointer and keyboard input over the live picture to the page.
- *
  * @param send - Sends one input; calls arrive one after another in order.
  * @param viewport - The size of the page the picture shows, in its own pixels.
  * @returns Handlers for the element that shows the picture.

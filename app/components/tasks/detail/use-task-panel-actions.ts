@@ -31,7 +31,6 @@ export interface TaskPanelActions {
 
 /**
  * Provides the form submissions behind the controls of the detail panel.
- *
  * @param task - The task the panel shows; fields not being changed keep their value.
  */
 export function useTaskPanelActions(task: WorkItemDetail): TaskPanelActions {
@@ -40,7 +39,7 @@ export function useTaskPanelActions(task: WorkItemDetail): TaskPanelActions {
   function update(changes: PanelUpdate): void {
     void submit(
       {
-        // The description is saved on its own (A8.2-E05); leaving it out
+        // The description is saved on its own; leaving it out
         // keeps a field change from overwriting a newer description.
         ...splitAssigneeValue(changes.assignee ?? toAssigneeValue(task)),
         boardLocal: changes.parentId === undefined ? "true" : "false",

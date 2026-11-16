@@ -71,7 +71,6 @@ export class WikiPageRepository {
 
   /**
    * Creates the repository.
-   *
    * @param database - Database access or the transaction to run in.
    */
   public constructor(database: DatabaseTransaction) {
@@ -80,7 +79,6 @@ export class WikiPageRepository {
 
   /**
    * Reads a page the viewer may see.
-   *
    * @param scope - What the viewer may see.
    * @param id - Page identifier.
    * @param options - Set `includeDeleted` to find pages in the trash.

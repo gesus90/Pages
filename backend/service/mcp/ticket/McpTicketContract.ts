@@ -43,8 +43,7 @@ export interface McpTicketAttachment {
 }
 
 /**
- * The answer object "Ticket" of the interface (PAGE-242).
- *
+ * The answer object "Ticket" of the interface.
  * @remarks
  * A projection of its own: no GitHub field, no internal column, and nothing
  * of a parent, subtask or linked ticket the account may not see.

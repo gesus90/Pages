@@ -95,7 +95,7 @@ function AttachmentItem({
 
 /**
  * The attachments of the message being written, above the input field of
- * the composer (PAGE-298), with the reason a file was refused.
+ * the composer, with the reason a file was refused.
  */
 export function ChatPageAttachmentStrip({
   uploads,

@@ -52,7 +52,7 @@ export interface ConversationAttachmentReferencesDependencies {
 }
 
 /**
- * The references of answers to earlier attachments of the same chat (PAGE-386).
+ * The references of answers to earlier attachments of the same chat.
  *
  * @remarks
  * An agent shows an earlier attachment again with a line

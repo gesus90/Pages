@@ -5,11 +5,9 @@ const PUBLISH_ATTEMPTS = 3;
 
 /**
  * The publish command of one session: a fast-forward push whose success is read back from GitHub.
- *
  * @param repository - The validated `owner/name` of the project connection.
  * @param originUrl - The address Git must resolve `origin` to, without `.git`.
  * @returns A POSIX shell script that takes the target branch as its argument.
- *
  * @remarks
  * Only a `PUBLISHED` line means the remote branch was read afterwards and holds
  * HEAD. Pushing what the remote already holds succeeds again, so a repeated run

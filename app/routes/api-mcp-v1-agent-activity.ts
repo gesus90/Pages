@@ -23,8 +23,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpAgentHandlers {
 }
 
 /**
- * Reads the activity of an agent (`GET /api/mcp/v1/agents/{id}/activity?cursor=`), the newest first, PAGE-267.
- *
+ * Reads the activity of an agent (`GET /api/mcp/v1/agents/{id}/activity?cursor=`), the newest first.
  * @remarks
  * Only the device token of a paired machine admits a request, and only for
  * an account with the administrator role.

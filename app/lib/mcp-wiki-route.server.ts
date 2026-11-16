@@ -59,7 +59,6 @@ async function createApi(): Promise<McpWikiApi> {
 
 /**
  * Answers a wiki request with JSON that no cache keeps.
- *
  * @param body - The answer of the interface.
  * @param status - The HTTP status.
  */
@@ -68,13 +67,11 @@ export function mcpWikiResponse(body: unknown, status = 200): Response {
 }
 
 /**
- * Runs one request of the wiki API (PAGE-257).
- *
+ * Runs one request of the wiki API.
  * @param request - The request of the machine.
  * @param handlers - The methods the resource serves.
  * @returns The answer; a failure answers `{ "error": "<code>" }`, a conflict
  * also the current `revision`, and nothing else.
- *
  * @remarks
  * Only the bearer token admits a request, checked and noted by the device
  * API; browser cookies play no part. Failures of the token check keep the
@@ -130,7 +127,6 @@ async function readLimitedText(request: Request): Promise<string> {
 
 /**
  * Reads the JSON object of a wiki request.
- *
  * @param request - The request with `Content-Type: application/json`.
  * @returns The object, its fields still untrusted; an empty body counts as `{}`.
  * @throws {McpWikiError} `invalid_request` for another content type, a body
@@ -162,7 +158,6 @@ export async function readMcpWikiBody(
 
 /**
  * Reads a path parameter of a wiki resource.
- *
  * @param value - The parameter as React Router passes it.
  * @throws {McpWikiError} `not_found` for a missing parameter.
  */
@@ -174,7 +169,6 @@ export function requireMcpWikiParameter(value: string | undefined): string {
 
 /**
  * Reads the query of a wiki request.
- *
  * @param request - The request.
  */
 export function mcpWikiQuery(request: Request): URLSearchParams {

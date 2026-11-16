@@ -15,7 +15,6 @@ const COMPONENT = "PicaMobileChatHandler";
 
 /**
  * Answers the requests of `chat.v1` and `chat.delete` for one connection.
- *
  * @remarks
  * Without a provider every chat request is unknown, and `chat_delete` also
  * with a provider that does not answer it. They need an authenticated
@@ -30,7 +29,6 @@ export class PicaMobileChatHandler {
 
   /**
    * Creates the handler.
-   *
    * @param provider - The business answers; none: the requests are unknown.
    * @param host - The connection the handler answers on.
    * @param origin - `http://<Host>` of the handshake, `null` without a valid host.
@@ -47,7 +45,6 @@ export class PicaMobileChatHandler {
 
   /**
    * Handles one chat request.
-   *
    * @param message - A request that passed every check of its payload.
    */
   public async handle(message: PicaMobileChatClientMessage): Promise<void> {

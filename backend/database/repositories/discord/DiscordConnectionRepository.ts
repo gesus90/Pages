@@ -176,7 +176,6 @@ export class DiscordConnectionRepository implements DiscordConnectionStore {
 
   /**
    * Creates a Discord connection repository.
-   *
    * @param database - Central database access.
    */
   public constructor(database: DiscordDatabase) {

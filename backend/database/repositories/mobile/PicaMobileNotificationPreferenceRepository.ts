@@ -50,18 +50,16 @@ function toPreference(
 
 /**
  * Persistence of the notification choices an account makes in Pages and Pica Mobile.
- *
  * @remarks
  * A choice belongs to the account on this Pages instance, never to a device or
  * a session, so it survives a new registration and a restart. An account
- * without a stored choice gets the PAGE-421 defaults, including team runs off.
+ * without a stored choice gets the defaults, including team runs off.
  */
 export class PicaMobileNotificationPreferenceRepository {
   private readonly database: Pick<Database, "execute" | "query">;
 
   /**
    * Creates the repository.
-   *
    * @param database - Central database access.
    */
   public constructor(database: Pick<Database, "execute" | "query">) {
@@ -70,7 +68,6 @@ export class PicaMobileNotificationPreferenceRepository {
 
   /**
    * Reads the choices of an account.
-   *
    * @param accountId - The account.
    * @returns The stored choices, or {@link DEFAULT_NOTIFICATION_CHOICES} (everything on except
    *   `planAllStatuses` and `teamRuns`) when none is stored.

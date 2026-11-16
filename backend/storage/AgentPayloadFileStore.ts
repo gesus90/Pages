@@ -84,7 +84,6 @@ export class AgentPayloadFileStore {
 
   /**
    * Creates the store of one instance data directory.
-   *
    * @param directory - The configured data directory.
    * @param options - How long a deferred deletion that left work behind waits before it is tried again.
    */

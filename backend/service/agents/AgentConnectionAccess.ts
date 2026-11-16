@@ -8,7 +8,6 @@ import type { UserGroupRepository } from "@/backend/database/repositories/UserGr
 
 /**
  * Decides from the stored scope whether a person may use a connection's models.
- *
  * @param connections - Connection persistence.
  * @param viewer - Current account facts and group memberships of the person.
  * @param connectionId - The connection that would run the model.
@@ -45,12 +44,10 @@ export class AgentConnectionAccess {
 
   /**
    * Requires that the person may use the connection, from current persisted facts.
-   *
    * @param userId - The person on whose behalf the model runs.
    * @param connectionId - The connection that would run the model.
    * @throws {AgentExecutionError} `accessDenied` for an unknown or inactive
    * account and for a connection whose scope excludes the person.
-   *
    * @remarks
    * Reads account, group memberships and scope anew, so a changed membership or
    * scope applies to the next model call, whatever selection the caller holds.

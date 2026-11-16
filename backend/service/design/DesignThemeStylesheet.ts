@@ -9,7 +9,6 @@ import type {
 
 /**
  * Selectors under which the palette of a mode applies.
- *
  * @remarks
  * The color mode sits in `data-theme` of the document: `light` and `dark`
  * are explicit, `system` follows the operating system. A theme palette
@@ -83,13 +82,11 @@ export type ShippedDesignThemeDeclarations = Readonly<
 
 /**
  * Builds the stylesheet that applies a theme.
- *
  * @param manifest - A validated manifest; colors and numbers are therefore
  * known to be plain hexadecimal colors and finite numbers.
  * @param shipped - Further custom properties per mode. Only a theme that ships
  * with Pages passes them; the manifest of an installed theme has no way to.
  * @returns The CSS, or `null` when the theme overrides nothing.
- *
  * @remarks
  * Only the custom properties of the color and material roles are set, never
  * a selector or a value from the file, so a manifest cannot inject styles.

@@ -17,7 +17,6 @@ export interface PlanOneShotChoice {
 
 /**
  * Keeps the choice of the one-time switch until the dialog saves.
- *
  * @param initial - Whether the plan is a one-time plan now.
  */
 export function usePlanOneShotChoice(
@@ -47,8 +46,7 @@ export function usePlanOneShotChoice(
 }
 
 /**
- * The switch "Einmal-Plan" of the plan settings (PAGE-309).
- *
+ * The switch "Einmal-Plan" of the plan settings.
  * @remarks
  * Switching on is only requested here; the caller asks for confirmation
  * first. Switching off needs none.
@@ -85,7 +83,6 @@ export function PlanOneShotField({
 
 /**
  * Explains what a one-time plan deletes before the switch turns on.
- *
  * @remarks
  * It is a sibling of the edit dialog, never inside its form, so confirming
  * does not submit the edit form.

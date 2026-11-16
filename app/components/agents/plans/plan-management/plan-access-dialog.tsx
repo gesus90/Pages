@@ -42,8 +42,7 @@ function accessRequest(
 }
 
 /**
- * Teams and owner of the plan (PAGE-329): who reads, changes and runs it.
- *
+ * Teams and owner of the plan: who reads, changes and runs it.
  * @remarks
  * The owner, administrators and project managers search groups and
  * departments, add them as teams and tick the rights read, change and run;

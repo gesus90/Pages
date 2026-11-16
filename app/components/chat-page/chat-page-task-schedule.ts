@@ -17,7 +17,6 @@ function weekdayName(weekday: number, language: string): string {
 /**
  * A moment as the dialog "Geplante Aufgaben" names it: weekday, date and
  * time in the time zone the task counts in.
- *
  * @param moment - The ISO moment.
  * @param language - The language of the page.
  * @param timeZone - The time zone of the task.
@@ -45,9 +44,8 @@ export function triggerTimeZone(
 }
 
 /**
- * Names the rhythm of a scheduled task (PAGE-392): once at a time, every N
+ * Names the rhythm of a scheduled task: once at a time, every N
  * minutes, hours or days, or on weekdays at times.
- *
  * @param trigger - The trigger of the task.
  * @param t - The translation of the page.
  * @param language - The language of the page.

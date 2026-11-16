@@ -7,7 +7,6 @@ import type { AgentPlanService } from "./AgentPlanService";
 
 /**
  * Returns the executor's newest run whose resources remain readable, in full.
- *
  * @remarks
  * Older runs are not read here: the history list names them by start and
  * status, and a run of it is read in full only when the person chooses it.

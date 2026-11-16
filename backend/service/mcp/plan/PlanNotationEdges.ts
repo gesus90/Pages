@@ -52,7 +52,6 @@ export type PlanNotationEdgeResult =
 
 /**
  * Reads the attributes of an edge statement: `in`, `branch`, `out` and `previous`.
- *
  * @param attributes - The attributes; any other key is `unknown_attribute`.
  */
 export function readPlanNotationEdgeSpec(
@@ -103,7 +102,6 @@ function sourceBinding(
 
 /**
  * A value into an input of a loop: its count or the boolean of a while loop.
- *
  * @remarks
  * As in the editor, binding the count makes the count come from that value
  * and binding the boolean makes a while loop; explicit `mode` and
@@ -162,8 +160,7 @@ function connectData(
 }
 
 /**
- * The data input of a decision (PAGE-286): an agent's boolean as an edge, or a bound parameter, ticket or text result.
- *
+ * The data input of a decision: an agent's boolean as an edge, or a bound parameter, ticket or text result.
  * @remarks
  * An agent feeds a boolean decision its boolean result and a model decision
  * its text result, so the mode of the decision decides which one is meant.
@@ -247,12 +244,10 @@ function connectOrder(
 
 /**
  * Adds one link of an edge statement to the plan, as the editor connects two ports.
- *
  * @param plan - The plan so far, with every node in place.
  * @param link - The identifiers of both ends; both exist in the plan.
  * @param input - What the statement asks for, and the agents that declare the inputs of agent nodes.
  * @returns The plan with the edge or binding, or the finding that refuses it.
- *
  * @remarks
  * A plain link is a flow edge (`flow-out` to `flow-in`), `branch` leaves a
  * decision, `in=condition` and `in=event` are the two wires of branching,

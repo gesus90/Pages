@@ -39,12 +39,10 @@ interface LoadState {
 const LOADING: LoadState = { isLoading: true, overview: null, failure: null };
 
 /**
- * Reads the chat sessions of an agent and changes them (PAGE-376).
- *
+ * Reads the chat sessions of an agent and changes them.
  * @remarks
  * Every answer of a change carries the fresh overview, which replaces the
  * shown one; nothing is merged on the client.
- *
  * @param agentId - The agent whose sessions the tab shows.
  */
 export function useAgentSessions(agentId: string): AgentSessionsState {

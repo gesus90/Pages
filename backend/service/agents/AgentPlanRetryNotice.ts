@@ -47,7 +47,6 @@ const ISSUE_MEANINGS: readonly (readonly [RegExp, string])[] = [
 
 /**
  * One finding of the acceptance, in words an agent can act on.
- *
  * @param issue - The stable code of the finding.
  * @returns The code with its meaning; a code without a known meaning stays as it is.
  */
@@ -63,7 +62,7 @@ function issueLine(issue: string): string {
 const COMMITS =
   "Commits of the earlier attempt are already in the workspace: reuse them and build on them instead of redoing that work.";
 
-/** The todos of a new session with the state the earlier attempt reported last (PAGE-284). */
+/** The todos of a new session with the state the earlier attempt reported last. */
 function progressLines(
   progress: readonly AgentPlanStepProgressTodo[],
 ): readonly string[] {

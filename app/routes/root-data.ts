@@ -14,7 +14,6 @@ import type { Route } from "./+types/root-data";
 
 /**
  * Selects the document language, color mode and design theme.
- *
  * @remarks
  * Signed-in visitors use their persisted personal language, color mode and
  * design theme. Everyone else falls back to their browser's
@@ -61,8 +60,7 @@ async function readRootData(request: Request): Promise<RootData> {
 }
 
 /**
- * Answers the document settings of the static app for this visitor (PAGE-235).
- *
+ * Answers the document settings of the static app for this visitor.
  * @remarks
  * Public, because the sign-in page and the setup wizard need them too; it
  * names only the visitor's own account.

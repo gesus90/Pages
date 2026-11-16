@@ -12,7 +12,7 @@ import type {
   StorageOperation,
 } from "@/definition/GoogleDriveFiles";
 
-/** The Storage interface of PAGE-270; one path per operation. */
+/** The Storage interface; one path per operation. */
 const STORAGE_API_V1 = "/storage-api/v1";
 
 const ERROR_CODES = [
@@ -165,7 +165,6 @@ async function readApiReply<Value>(
 
 /**
  * Reads what the connected account may do in Storage right now.
- *
  * @param signal - Ends the request when the view leaves.
  * @returns The capabilities, or why they are unknown.
  */
@@ -188,7 +187,6 @@ export async function requestStorageCapabilities(
 
 /**
  * Reads one page of the trash: the entries put into it themselves.
- *
  * @param pageToken - The cursor of the page, `null` for the first.
  * @param signal - Ends the request when the view moves on.
  * @returns The page, or why it is not shown.
@@ -267,7 +265,7 @@ export interface StorageBatchChange {
 }
 
 /**
- * Runs one action for several entries of a folder (PAGE-272).
+ * Runs one action for several entries of a folder.
  *
  * @param change - Action, source folder, entries and target folder.
  * @returns How many changed and which were refused, or why the call failed.

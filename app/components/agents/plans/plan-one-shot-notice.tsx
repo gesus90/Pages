@@ -12,7 +12,7 @@ import type { AgentPlanActionResult } from "@/app/lib/agent-plan-response";
 import type { AgentPlanView } from "@/definition/AgentPlan";
 import type { AgentPlanControl } from "@/definition/AgentPlanControl";
 
-/** The label of a one-time plan next to its name in the plan header (PAGE-309). */
+/** The label of a one-time plan next to its name in the plan header. */
 export function PlanOneShotBadge({
   className,
 }: {
@@ -50,7 +50,6 @@ const REFRESH_GRACE_MILLISECONDS = 3_000;
 
 /**
  * Reloads the plan when its deadline appears or passes, so the header follows without a manual reload.
- *
  * @remarks
  * The deadline is set by the server when a run ends as `succeeded`, so the
  * page reads again once the polled control leaves an active status; it reads
@@ -83,7 +82,6 @@ function usePlanDeadlineRefresh(
 
 /**
  * Says when Pages deletes the one-time plan and offers "Keep", which cancels it.
- *
  * @remarks
  * Shown only between a successful run and the deletion. Keep sends the
  * revision the person sees; the page then revalidates and the notice goes.
@@ -96,7 +94,7 @@ export function PlanOneShotNotice({
   readonly plan: AgentPlanView;
   /** The polled status of the plan's run, which tells when a deadline may have been set. */
   readonly status: AgentPlanControl["status"] | undefined;
-  /** Shows nothing but keeps following the deadline, as in the collapsed plan panel (PAGE-338). */
+  /** Shows nothing but keeps following the deadline, as in the collapsed plan panel. */
   readonly isHidden?: boolean;
 }): React.ReactElement | null {
   const { t, i18n } = useTranslation();

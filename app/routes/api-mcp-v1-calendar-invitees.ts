@@ -21,8 +21,7 @@ const HANDLERS: McpCalendarHandlers = {
 
 /**
  * Searches whom the account may invite
- * (`GET /api/mcp/v1/calendar/invitees?text=&limit=`, search_calendar_invitees), PAGE-301.
- *
+ * (`GET /api/mcp/v1/calendar/invitees?text=&limit=`, search_calendar_invitees).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

@@ -17,7 +17,7 @@ interface StorageActionToolbarProps {
 
 /**
  * Upload and the trash beside the list; the file actions of the list are in
- * its menu bar (PAGE-272).
+ * its menu bar.
  */
 export function StorageActionToolbar({
   actions,

@@ -20,13 +20,11 @@ const CLOSE_ATTEMPTS = 3;
 
 /**
  * The plan bridge access of an engine that runs in its own process.
- *
  * @remarks
  * The API process issues the step credential and keeps the bearer in its
  * memory, because only it serves the plan bridge. This class asks it over the
  * private run API socket and receives the bearer only; the credential never
  * crosses the socket. Nothing of the grant is stored on this side.
- *
  * Opening is retried only for a transport failure, and the API replaces an
  * earlier grant of the same step, so a lost answer leaves one live capability.
  * Ending is retried too, but a call that never arrives does not decide
@@ -69,7 +67,6 @@ export class RunApiPlanAccess implements AgentPlanSessionGrants {
 
   /**
    * Ends the bearers in the API.
-   *
    * @returns How many credentials were still valid; `0` also when the API could not be reached after
    * every attempt. That case is logged and does not keep the bearer usable,
    * because the API refuses it as soon as its step is no longer `running`.

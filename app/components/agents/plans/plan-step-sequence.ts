@@ -18,7 +18,6 @@ export type {
 
 /**
  * The numbered executions of a run: what ran, what is planned, what is assumed.
- *
  * @remarks
  * `position` is the number of the current block, 0 before any block is
  * current. `completed` counts the executions that succeeded. Both come from
@@ -73,11 +72,9 @@ function uniqueBlocks(
 
 /**
  * Numbers the executions of agents and scripts of a run, and estimates the rest.
- *
  * @param run - The run, or `null` for the outlook of a plan before it runs.
  * @param plan - The plan revision the run executes.
  * @param label - Names a node that has no record yet.
- *
  * @remarks
  * Only agents and scripts are steps. Start, End, decisions, stacks,
  * parameters, groups and loops order, repeat and choose them but are no step

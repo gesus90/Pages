@@ -20,8 +20,7 @@ export interface MilestoneInitiativeChange {
 }
 
 /**
- * Keeps the links between milestones and initiatives (T6.13.1, T6.13.2).
- *
+ * Keeps the links between milestones and initiatives.
  * @remarks
  * A ticket carries exactly one milestone. An initiative can span several, so
  * it also keeps rows in a link table; its own milestone counts as one of them.
@@ -37,7 +36,6 @@ export class TaskMilestoneLinkService {
 
   /**
    * Creates a milestone link service.
-   *
    * @param taskRepository - Task persistence boundary.
    * @param access - Verifier of project access and write permission.
    * @param history - Audit trail receiving the link changes of initiatives.
@@ -57,7 +55,6 @@ export class TaskMilestoneLinkService {
 
   /**
    * Returns the links of the milestones of the given projects.
-   *
    * @param actor - Account whose project access and ticket scope are enforced.
    * @param projectIds - Projects to read.
    * @returns Only links of initiatives the actor may see.
@@ -92,7 +89,6 @@ export class TaskMilestoneLinkService {
 
   /**
    * Links an initiative with a milestone of its project.
-   *
    * @param actor - The person linking; needs write access to the initiative.
    * @param milestoneId - Milestone identifier.
    * @param initiativeId - Initiative identifier.
@@ -118,7 +114,6 @@ export class TaskMilestoneLinkService {
 
   /**
    * Removes the link between an initiative and a milestone.
-   *
    * @param actor - The person unlinking; needs write access to the initiative.
    * @param milestoneId - Milestone identifier.
    * @param initiativeId - Initiative identifier.
@@ -169,13 +164,10 @@ export class TaskMilestoneLinkService {
 
   /**
    * Threads the milestone of a task up to its epic and initiative.
-   *
    * @param actor - The person who assigned the task.
    * @param task - The task as it is stored after the assignment.
-   *
    * @remarks
-   * Only a task that carries a milestone starts the thread, as T6.13.2 words
-   * it. The epic keeps a milestone it already has, because it carries exactly
+   * Only a task that carries a milestone starts the thread. The epic keeps a milestone it already has, because it carries exactly
    * one; the initiative is linked in the table. Nothing is ever removed here.
    */
   public async threadAssignedTask(

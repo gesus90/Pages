@@ -59,7 +59,6 @@ const SERIES_FAILURES: ReadonlySet<RemoteFailureCode> = new Set([
 
 /**
  * The logical SSH connection of one remote connection.
- *
  * @remarks
  * It is opened when a step needs it and closed after a quiet period, so no
  * permanently open socket is assumed. While it is open, keepalive probes
@@ -105,7 +104,6 @@ export class RemoteSession {
 
   /**
    * Runs one command over the logical connection, opening it when needed.
-   *
    * @param command - A command line for the remote POSIX shell.
    * @param timeoutMs - Time limit of the command.
    * @returns The finished command.
@@ -164,11 +162,9 @@ export class RemoteSession {
 
   /**
    * Starts a series after a failed first connect or a failed test of a closed connection.
-   *
    * @remarks
    * Does nothing while the connection is open, opening, in a series or
    * blocked, and for a failure that needs a person's input.
-   *
    * @param failure - The classified failure of the first connect.
    */
   public retryAfter(failure: RemoteFailureCode): void {
@@ -188,11 +184,9 @@ export class RemoteSession {
   /**
    * A person's explicit retry, such as opening a console: a running series
    * makes its next attempt at once and a blocked one starts anew.
-   *
    * @remarks
    * The attempt counts against the series, so its bound stays; an attempt
    * already under way is awaited, not doubled.
-   *
    * @returns Settles when that attempt has ended.
    */
   public async attemptNow(): Promise<void> {

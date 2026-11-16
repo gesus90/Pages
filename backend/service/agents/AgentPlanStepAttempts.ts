@@ -21,7 +21,6 @@ interface AttemptOperations {
 
 /**
  * Puts the record of the earlier attempt back when this one ended without its own.
- *
  * @remarks
  * A start refused before its record has nothing else to show, and the earlier
  * record holds what really ran: its session, its closeout and the retry history.

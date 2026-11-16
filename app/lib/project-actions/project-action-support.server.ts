@@ -56,7 +56,6 @@ export function invalidInput(): ProjectActionResponse {
 
 /**
  * Maps the failures of a project detail action to client responses.
- *
  * @param error - The failure thrown by a service.
  * @returns The response describing the failure.
  * @throws The original value when it is no `Error`.
@@ -102,10 +101,8 @@ export function toActionError(error: unknown): ProjectActionResponse {
 
 /**
  * Saves the project details with some values replaced.
- *
  * @param context - The request context of the action.
  * @param changes - The values that differ from the stored ones.
- *
  * @remarks
  * The service replaces all details at once, so the stored values are read
  * first and kept for everything the action does not change.

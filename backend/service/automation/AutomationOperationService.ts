@@ -55,7 +55,6 @@ function detailsOf(error: AutomationError): AgentOperationDetails | undefined {
 /**
  * Translates a refusal of the automation service into the fixed errors of
  * the agent API.
- *
  * @param error - The caught error.
  */
 export function translateAutomationError(error: unknown): unknown {
@@ -65,8 +64,7 @@ export function translateAutomationError(error: unknown): unknown {
 
 /**
  * The operations of automations for the agent tools, the internal bridges
- * of user agents and Pica (PAGE-297).
- *
+ * of user agents and Pica.
  * @remarks
  * The adapter holds no rule of its own: every call runs through the
  * automation service with the rules of the page, as the verified account of
@@ -83,7 +81,6 @@ export class AutomationOperationService {
 
   /**
    * Handles an operation of automations; `null` for every other name.
-   *
    * @param identity - The verified identity of the call.
    * @param operation - The operation name as received.
    * @param input - The raw parameters.

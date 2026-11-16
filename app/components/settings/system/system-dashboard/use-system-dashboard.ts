@@ -99,9 +99,7 @@ function nextState(
 
 /**
  * Reads the system dashboard and the service status every two seconds while the page is visible.
- *
  * @returns The last answers and the curves of this page.
- *
  * @remarks
  * A hidden tab and a left page send nothing; returning reads at once. A
  * reading starts only after the previous one was answered. The curves live

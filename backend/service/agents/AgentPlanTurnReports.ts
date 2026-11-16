@@ -23,7 +23,6 @@ export interface PlanTurnAssessment {
 
 /**
  * Connects the turns of local agent nodes to `report_step_result`.
- *
  * @remarks
  * A session credential names a node, or a group whose members take turns. The
  * slot of a turn says which attempt of which member may report under it.
@@ -65,7 +64,6 @@ export class AgentPlanTurnReports {
 
   /**
    * Ends the reporting of a finished turn, then assesses it.
-   *
    * @remarks
    * The slot closes first, also for a failed turn, so nothing can change what
    * gets assessed.

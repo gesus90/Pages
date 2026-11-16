@@ -64,7 +64,6 @@ const PROJECTS_PAGE_STATE: LocalStateRouteKind<ProjectsLoaderData> = {
 
 /**
  * Opens the overview from the account's kept answer at once and asks the endpoint behind it.
- *
  * @remarks
  * The endpoint runs the server loader with its permission checks.
  */

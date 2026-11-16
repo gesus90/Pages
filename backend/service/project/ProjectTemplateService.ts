@@ -40,10 +40,9 @@ export class ProjectTemplateService {
 
   /**
    * Returns only snapshots whose active or archived source remains currently accessible.
-   *
    * @remarks
    * It only reads, so it runs on one reader snapshot and never waits behind
-   * a long write (PAGE-197).
+   * a long write.
    */
   public async findAll(actor: User): Promise<ProjectTemplate[]> {
     return this.repository.readTransaction(async (repository) => {
@@ -92,7 +91,6 @@ export class ProjectTemplateService {
 
   /**
    * Instantiates the saved general information with explicit new name and scoped assignments.
-   *
    * @param actor - The creating account.
    * @param templateId - The template to start from.
    * @param input - The new project.

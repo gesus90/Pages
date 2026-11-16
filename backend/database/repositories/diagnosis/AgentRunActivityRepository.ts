@@ -15,7 +15,7 @@ export interface RunActivity {
   readonly attemptLogs: ReadonlyMap<string, string>;
 }
 
-/** Reads the signs of life of a run, which the timeline uses to find stalled steps (PAGE-307). */
+/** Reads the signs of life of a run, which the timeline uses to find stalled steps. */
 export class AgentRunActivityRepository {
   private readonly database: Pick<Database, "query">;
 
@@ -25,7 +25,6 @@ export class AgentRunActivityRepository {
 
   /**
    * Reads the newest event time of every attempt and step of a run.
-   *
    * @param runId - The run.
    */
   public async read(runId: string): Promise<RunActivity> {

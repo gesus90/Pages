@@ -20,13 +20,13 @@ import type { AgentToolGroupMode } from "@/definition/AgentToolGroups";
 import type { PicaToolOutcome } from "../PicaToolSchemas";
 import type { AgentToolkitParameters } from "./AgentToolkitContracts";
 
-/** The tool with which an agent plans a reminder or a recurring task from its chat (PAGE-392). */
+/** The tool with which an agent plans a reminder or a recurring task from its chat. */
 export const AGENT_TASK_CREATE_TOOL = "aufgabe_planen";
-/** The tool that lists the agent's planned tasks of its chat (PAGE-392). */
+/** The tool that lists the agent's planned tasks of its chat. */
 export const AGENT_TASK_LIST_TOOL = "aufgaben_auflisten";
-/** The tool that changes, pauses or resumes a planned task (PAGE-392). */
+/** The tool that changes, pauses or resumes a planned task. */
 export const AGENT_TASK_UPDATE_TOOL = "aufgabe_aendern";
-/** The tool that deletes a planned task (PAGE-392). */
+/** The tool that deletes a planned task. */
 export const AGENT_TASK_DELETE_TOOL = "aufgabe_loeschen";
 
 /** The tools of scheduled tasks that change something. */
@@ -105,7 +105,7 @@ const DELETE_DESCRIPTION =
 /** What the tools of scheduled tasks are registered with. */
 export interface AgentChatTaskToolParts {
   readonly tasks: AgentChatTasks;
-  /** The mode of the Pages group of the agent (PAGE-390); `read` only lists. */
+  /** The mode of the Pages group of the agent; `read` only lists. */
   readonly mode: AgentToolGroupMode;
   readonly admit: (context: RuntimeExecutionContext) => Promise<boolean>;
   /** Asks for the person's approval of a deletion; `null` lets it run. */
@@ -230,11 +230,11 @@ function registerWrites(
 
 /**
  * Registers the tools of scheduled tasks of an agent employee's job in its
- * chat (PAGE-392): `aufgabe_planen`, `aufgaben_auflisten`, `aufgabe_aendern`
+ * chat: `aufgabe_planen`, `aufgaben_auflisten`, `aufgabe_aendern`
  * and `aufgabe_loeschen`.
  *
  * @remarks
- * They follow the Pages group of the agent's access level (PAGE-390): off
+ * They follow the Pages group of the agent's access level: off
  * offers none, `read` only the list, `full` every tool. Deleting is a
  * consequential step the person approves first.
  */

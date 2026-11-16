@@ -84,12 +84,10 @@ export class WikiImportUpdateService {
 
   /**
    * Updates the pages mapped to the loaded sources of a confirmed package.
-   *
    * @param identity - The verified owner of the operation.
    * @param request - The raw operation parameters.
    * @param verify - Verifies the caller's credential anew; it must run outside of a transaction.
    * @returns Per-source results; a repeated operation ID returns the stored result unchanged.
-   *
    * @remarks
    * Conflicts are results, not errors: a source revised in Pages since its import, or read at an
    * older revision, is left untouched unless its entry asks to overwrite. All page writes and the

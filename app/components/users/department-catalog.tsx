@@ -11,7 +11,7 @@ import type {
   Department,
 } from "@/definition/Authorization";
 
-/** Department labels and explicit management scope, without project-side A3 changes. */
+/** Department labels and explicit management scope, without project-side directory changes. */
 export function DepartmentCatalog({
   directory,
 }: {

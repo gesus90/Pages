@@ -6,12 +6,11 @@ import { logCaughtError } from "@/backend/logging/Logger";
 import type { Route } from "./+types/conversation-videos";
 
 /**
- * Lists every video of a conversation for a member (PAGE-384):
+ * Lists every video of a conversation for a member:
  * `GET /chat/videos/<conversationId>`, oldest first, with sender, time, the
  * state of each file and its resolution and length, so the split view offers
  * the other videos of the chat and the full screen pages through them, also
  * those of messages the chat has not loaded yet.
- *
  * @remarks
  * Membership is checked on every request; a conversation the person does not
  * belong to answers like a missing one.

@@ -36,7 +36,6 @@ function stackBindings(
 
 /**
  * The entry the newest trigger of the stack handed over.
- *
  * @throws {AgentError} `plan_stack_content_missing` before the first trigger
  * and after a trigger that found the stack used up; an earlier entry is never
  * handed over again.
@@ -57,7 +56,6 @@ function currentEntry(
 
 /**
  * The ticket the newest trigger of a stack handed over, for a node that needs the ticket itself.
- *
  * @throws {AgentError} `plan_binding_invalid` for an entry that is no ticket.
  */
 export function planStackTicketId(
@@ -92,7 +90,6 @@ async function entryValue(
 
 /**
  * The node an agent runs with the content of the stacks it reads.
- *
  * @param step - The frozen node, whose stack inputs still hold a stand-in.
  * @param context - The plan, the run and the ticket read.
  * @returns The node with each content input set to the entry the newest
@@ -140,7 +137,6 @@ export async function planStackStepInput(
 
 /**
  * The script a node runs with the content of the stacks it reads, as text inputs.
- *
  * @remarks
  * A ticket entry reaches a script as the ticket's text, a value entry as its
  * text or number.
@@ -171,7 +167,6 @@ function textOf(value: AgentParameterValue): string {
 
 /**
  * The node an agent of a run starts with: its stack inputs set to the handed-over entries.
- *
  * @param node - The run, snapshot and node of one start.
  * @param tasks - The ticket reads of the executor; without `snapshot` a ticket
  * handed to a text input fails the start.

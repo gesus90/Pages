@@ -17,7 +17,6 @@ interface IntegrationCardProps {
 
 /**
  * Renders one large clickable interface card without any nested action buttons.
- *
  * @remarks
  * The whole card is a single native button, so keyboard and screen-reader
  * users get the same "open the settings panel" behavior as pointer users.
@@ -71,7 +70,6 @@ interface PlannedIntegrationCardProps {
 
 /**
  * Renders an interface that is announced but not available yet.
- *
  * @remarks
  * The card is no button and opens nothing, so the tab never suggests
  * settings that nothing stores or sends.

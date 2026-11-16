@@ -143,11 +143,9 @@ function attach(
 
 /**
  * Serves `conversations.v1` to the chat page of the signed-in browser on the
- * Pages port (PAGE-381).
- *
+ * Pages port.
  * @param server - The Pages HTTP server.
  * @param settings - Proxies whose `X-Forwarded-Proto` is believed, and test hooks.
- *
  * @remarks
  * The connection is the one of Pica Mobile with the same messages, rights
  * and session checks, bound to the session of the page's cookie. It offers

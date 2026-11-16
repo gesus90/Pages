@@ -41,9 +41,8 @@ export interface GoogleDriveFileDependencies {
 }
 
 /**
- * The Storage interface (PAGE-270): manages files and folders of the instance
+ * The Storage interface: manages files and folders of the instance
  * Google Drive through stable references.
- *
  * @remarks
  * `reader` holds the reading operations, `writer` the changing ones; both
  * take a freshly confirmed access on every call. Rights of Pages are checked
@@ -52,7 +51,7 @@ export interface GoogleDriveFileDependencies {
 export class GoogleDriveFileService {
   public readonly reader: StorageFileReader;
   public readonly writer: StorageFileWriter;
-  /** Copy, move and trash for several entries of one folder (PAGE-272). */
+  /** Copy, move and trash for several entries of one folder. */
   public readonly batch: StorageBatchWriter;
   public readonly isSimulation: boolean;
   private readonly access: StorageAccessService | null;
@@ -61,7 +60,6 @@ export class GoogleDriveFileService {
 
   /**
    * Creates the service.
-   *
    * @param dependencies - Connection, Drive client and the simulation marker.
    */
   public constructor(dependencies: GoogleDriveFileDependencies) {
@@ -92,7 +90,6 @@ export class GoogleDriveFileService {
 
   /**
    * Names what the connected account and this instance allow right now.
-   *
    * @returns Read and write right, limits, operations and export formats.
    */
   public async capabilities(): Promise<StorageResult<StorageCapabilities>> {

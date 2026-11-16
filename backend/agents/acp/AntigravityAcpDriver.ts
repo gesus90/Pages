@@ -67,7 +67,6 @@ function modelSteps(request: AcpModelRequest): AcpConfigStep[] {
 
 /**
  * Answers a permission request of Pica's session.
- *
  * @remarks
  * The session has no native tool and no MCP server but Pica's turn-bound
  * bridge, so a request can only stand for a call of a Pica tool, which Pages
@@ -167,7 +166,7 @@ const CHAT_FULL_ACCESS_PROFILE: AcpSessionProfile = {
 };
 
 /**
- * The group observer (PAGE-296): no native tool and no MCP server; Pages
+ * The group observer: no native tool and no MCP server; Pages
  * refuses every request, so it answers with text alone.
  */
 const OBSERVER_PROFILE: AcpSessionProfile = {

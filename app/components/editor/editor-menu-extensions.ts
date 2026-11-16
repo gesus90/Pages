@@ -40,7 +40,6 @@ export interface EditorMenuContext {
 
 /**
  * Tells whether the slash menu offers an entry in this editor.
- *
  * @param option - An entry of the slash menu.
  * @param features - What the application lets the editor do.
  * @returns Whether the entry is offered; uploads and subpages need their
@@ -60,7 +59,6 @@ export function isBlockOptionAvailable(
 /**
  * Inserts a link to a page that was just created, as Notion does after
  * `/page`.
- *
  * @param editor - The editor.
  * @param features - What the application lets the editor do.
  * @returns Whether a link was inserted.

@@ -40,8 +40,7 @@ interface SpeechSettingsCardProps {
 }
 
 /**
- * The speech recognition (STT) of the instance (PAGE-273), above Pica.
- *
+ * The speech recognition (STT) of the instance, above Pica.
  * @remarks
  * The model choice is the shared one of Pages, fed only with the speech
  * models of the instance by the central rule `stt` of

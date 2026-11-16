@@ -52,13 +52,11 @@ function resultSource(
 
 /**
  * Reads the source of a model decision for its current activation.
- *
  * @param tasks - The ticket reader, which checks the rights of the executor.
  * @param request - The decision, its run and the results in scope.
  * @returns The source, or `null` when it is absent, empty or too long; Pages
  * never shortens it.
  * @throws {AgentError} When the executor may no longer read the ticket.
- *
  * @remarks
  * A ticket is read anew with the existing rights check every time; a result
  * is the one of the current start of its node, without its closing report.

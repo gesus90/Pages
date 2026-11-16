@@ -1,7 +1,7 @@
-# Getrennte Plan-Runtimes (PAGE-397)
+# Getrennte Plan-Runtimes
 
 `local-agent.mjs` lädt `build/local-owner/index.js`, `pages-runs.mjs` lädt
-`build/runs/index.js`. `vite.runtimes.config.ts` erzeugt diese Node-Einstiege mit
+`build/runs/index.js`. `vite.config.ts` erzeugt im Modus `runtimes` diese Node-Einstiege mit
 Rollup unabhängig von React Router; gemeinsam benötigter Code liegt unter
 `build/runtime-chunks/`. Alle drei Verzeichnisse gehören zum auszuliefernden
 Build. `scripts/build.mjs` erzeugt sie nach SPA und API. Der Owner-Quellmodus
@@ -30,7 +30,7 @@ Integrationsbesitzer. Im kombinierten Betrieb bleiben diese Rollen im Server.
 | Schleife                                                      | Abstand                                                          | Begründung / Schreibverhalten                                                                                                                                        |
 | ------------------------------------------------------------- | ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `PlanRunCommandWorker`                                        | 500 ms, zusätzlich Socket-Weckruf                                | Verlust eines Weckrufs und abgebrochene Befehlszustellungen werden zeitnah versöhnt; leere Inbox und unveränderte Owner erzeugen keine Metadatenänderung.            |
-| `AgentWorkspaceCleanupService`                                | 2 s                                                              | Liest nur fällige Pflichten; die persistierte Wiederholungsfrist von PAGE-395 bleibt maßgeblich.                                                                     |
+| `AgentWorkspaceCleanupService`                                | 2 s                                                              | Liest nur fällige Pflichten; die persistierte Wiederholungsfrist bleibt maßgeblich.                                                                                  |
 | Agent-Umgebungs-/Storage-Wartung (`WikiMaintenanceScheduler`) | 60 s, einmal beim Start                                          | Versöhnt Dateireste, Speicherwarnungen, abgeschlossene Läufe und freie Toolgenerationen ohne neue Planstarts; Daten werden bei tatsächlichem Aufräumbedarf geändert. |
 | `AgentPlanOneShotScheduler`                                   | 15 s, einmal beim Start                                          | Dauerhafte Löschfristen erfolgreicher Einmalpläne sind nach Neustarts zeitnah fällig.                                                                                |
 | `AgentRunLogRecorder.flush`                                   | 1 s                                                              | Bündelt vorhandene Logzeilen; ein leerer Puffer wird nicht geschrieben.                                                                                              |
@@ -92,9 +92,9 @@ Gesamtsuiten und Coverage sind **an die Abschluss-QA übergeben**; sie wurden
 vom Ticket-Agenten nicht als grün nachgewiesen.
 
 Die bereits dokumentierten QA-Hinweise bleiben bestehen: 19 abweichende
-Erwartungen in `page414-retention.unit.test.ts` verlangen `state = 'pending'`
+Erwartungen in einem Retention-Test verlangen `state = 'pending'`
 statt der unveränderten Schutzbedingung `state <> 'completed'`; zwei
-Erwartungen in `page363-opencode-pause.unit.test.ts` passen nicht zur
+Erwartungen in einem OpenCode-Pause-Test passen nicht zur
 vorhandenen Codex-basierten Pause-Implementierung. Diese Tests und
 Verhaltensregeln wurden nicht abgeschwächt oder fachfremd geändert.
 

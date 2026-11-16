@@ -80,7 +80,6 @@ function countTabs(
 
 /**
  * Keeps the tab, the selected row and the opened run of the page.
- *
  * @remarks
  * `?tab=history&run=<runId>`, the link of a push notification, opens the
  * history with the dialog of that run.

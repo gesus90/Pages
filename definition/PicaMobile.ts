@@ -33,7 +33,6 @@ export type PicaMobilePortResult =
 
 /**
  * Reads a port an administrator typed.
- *
  * @param text - Text of the input field.
  * @returns The port, or `null` when the text is no whole number from 1 to 65535.
  */
@@ -51,7 +50,6 @@ export function parsePicaMobilePort(text: string): number | null {
 
 /**
  * Builds the address a smartphone enters in the app.
- *
  * @param host - Host the server can be reached at; IPv6 addresses need no brackets.
  * @param port - Port of the endpoint.
  * @returns A `ws://` address with the endpoint path.

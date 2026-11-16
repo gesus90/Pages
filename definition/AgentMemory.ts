@@ -1,6 +1,5 @@
 /**
- * Contracts of the memory of agents across chats (PAGE-305).
- *
+ * Contracts of the memory of agents across chats.
  * @remarks
  * `MEMORY.md` keeps the current topics of an agent, one entry per topic
  * with its source, and is updated after every answer. `DREAM.md` keeps the
@@ -54,7 +53,6 @@ export interface AgentMemorySource {
 
 /**
  * Counts the characters of a text as the memory limits count them.
- *
  * @param text - Markdown text.
  * @returns The number of Unicode code points.
  */

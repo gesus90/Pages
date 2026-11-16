@@ -48,7 +48,6 @@ function readTeam(input: unknown): AgentPlanTeam {
 
 /**
  * Reads the shared `teams` parameter of `update_plan` and `clone_plan`.
- *
  * @param input - Canonical `{kind, targetId, canRead, canEdit, canRun}` entries,
  * or legacy `{kind, id, read?, edit?, run?}`. Legacy rights default to true,
  * except a person's edit and run rights, which default to false.
@@ -65,8 +64,7 @@ export function readPlanTeamsParameter(
 }
 
 /**
- * Reads the `ownerId` parameter of `update_plan` (PAGE-329).
- *
+ * Reads the `ownerId` parameter of `update_plan`.
  * @returns The new owner, or `undefined` when the parameter is absent.
  */
 export function readPlanOwnerParameter(input: unknown): string | undefined {

@@ -9,7 +9,6 @@ export class HealthService {
 
   /**
    * Creates the service.
-   *
    * @param database - Central database access.
    */
   public constructor(database: Database) {
@@ -17,8 +16,7 @@ export class HealthService {
   }
 
   /**
-   * Reads the state of the database worker without querying it (PAGE-197).
-   *
+   * Reads the state of the database worker without querying it.
    * @returns Only the state name; no SQL, path or counter.
    */
   public databaseState(): DatabaseWorkerState {
@@ -27,7 +25,6 @@ export class HealthService {
 
   /**
    * Runs a trivial query on a reader connection, so a long write does not hold it back.
-   *
    * @returns Whether the database answered it; a failure is logged.
    */
   public async canQueryDatabase(): Promise<boolean> {

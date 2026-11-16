@@ -1,7 +1,7 @@
-# PAGE-303: Wiki-Entwurf – Zugriffsstufen der Agents im Chat
+# Wiki-Entwurf – Zugriffsstufen der Agents im Chat
 
-Dieser Entwurf enthält die vorgesehenen Texte für zwei Wiki-Seiten. Der Lauf
-ändert das Wiki nicht; All Might überträgt die Abschnitte nach der Abnahme.
+Dieser Entwurf enthält die vorgesehenen Texte für zwei Wiki-Seiten. Die
+Live-Wiki wird getrennt gepflegt.
 
 ---
 
@@ -21,8 +21,9 @@ eigenen Laufoptionen (`access`, `shell`, `web`, `browser`).
 | **YOLO**         | Keine Einschränkung durch Pages: alle Programme, Netzwerk, Dateisystem mit den Rechten des Systembenutzers, unter dem Pages läuft, und alle eingerichteten MCP-Server.                                        | keine                |
 
 - **Standard:** Neue und bestehende Agents stehen auf „Nur Pages“. Agents, die
-  vor PAGE-303 auf dem früheren „YOLO“ standen (das immer in bubblewrap lief),
-  stehen jetzt auf „Arbeitsplatz“ – dieselbe Wirkung, keine Ausweitung.
+  vor der Einführung der Zugriffsstufen auf dem früheren „YOLO“ standen (das
+  immer in bubblewrap lief), stehen jetzt auf „Arbeitsplatz“ – dieselbe Wirkung,
+  keine Ausweitung.
 - **Wer ändert:** Nur Administratoren im aktiven Admin-Modus, im Reiter
   „Zugriff“ des Agent-Panels der Benutzerverwaltung. Gespeichert wird mit
   „Speichern“ des Panels, mit Revision. Andere Personen mit Benutzerrechten
@@ -92,7 +93,8 @@ eigenen Laufoptionen (`access`, `shell`, `web`, `browser`).
 
 ### Herkunft der früheren Chat-Sperre
 
-Vor PAGE-303 war die Sperre an drei Stellen fest verdrahtet:
+Vor der Einführung der Zugriffsstufen war die Sperre an drei Stellen fest
+verdrahtet:
 
 1. `backend/agents/acp/PicaClaudeHelper.ts`, `picaHelperUsage()`: Jede
    Nachricht an einen Agent mit Claude Code bekam den Satz „Run no other command
@@ -147,7 +149,7 @@ Vor PAGE-303 war die Sperre an drei Stellen fest verdrahtet:
     Den Prozessrahmen bildet dann die begrenzte Worker-Unit: Ihre Identität
     wird vor der ersten ACP-Anfrage an der Reservierung gespeichert, und der
     Closeout bestätigt über die gestoppte Unit statt über den Legacy-Scan
-    (PAGE-340, `docs/PAGE-340.md`).
+    (siehe die Notiz zur Reservierungsbereinigung in `docs/PAGE-340.md`).
 - **Vorgabe:** `createAgentEmployeeInstructions()` erzeugt den Zugriffsabsatz
   aus der Stufe; `picaHelperUsage(path, hasHostTools)` erlaubt bei Host-Tools
   andere Werkzeuge neben dem Helper.
@@ -198,7 +200,7 @@ dem Pages läuft:
   Abhängigkeit, `AgentAccessEnvironmentService` die Isolationsprobe und die
   MCP-Erkennung – so lassen sie sich in der Entwicklungsumgebung nachstellen.
 
-## Ergänzung PAGE-328 – Browser und eigenes Agent-Konto
+## Ergänzung – Browser und eigenes Agent-Konto
 
 Für **Arbeitsplatz** und **YOLO** bietet Pages zusätzlich die visuellen
 Browser-Werkzeuge an (`browser_open`, `browser_observe`, Klick, Eingabe,
@@ -215,7 +217,7 @@ bleiben gesperrt. Seiteninhalt bleibt unvertrauenswürdiger Inhalt. Browser-Tool
 führen keine vom Agent gelieferten Skripte aus; Downloads und Dateiübertragung
 über diesen Browserpfad sind gesperrt.
 
-Für Playwright nennt die Auftragsvorgabe eine private `storageState`-Datei,
+Für Playwright nennt die Vorgabe eine private `storageState`-Datei,
 die als `storageState` an `browser.newContext` übergeben wird. Sie liegt
 **außerhalb des Arbeits- und Chatordners** in einem privaten Laufzeitverzeichnis
 (geschützter Instanz-Laufzeitbereich `agent-browser-runtime`, Verzeichnis 0700,
@@ -253,5 +255,5 @@ Gruppen, Lernen und Automationen. Plan-Schritte behalten ihre eigenen
 Laufoptionen und ihre ausführende Identität; ein Plan mit einem menschlichen
 Ausführungskonto wird dadurch nicht zu einem Agent-Konto.
 
-Diese Ergänzung ist die lokale Wiki-Vorlage für die Veröffentlichung nach der
-Abschluss-QA. Der Ticket-Schritt verändert keine Live-Wiki oder Live-Konfiguration.
+Diese Ergänzung ist die lokale Wiki-Vorlage. Die Live-Wiki und die
+Live-Konfiguration werden getrennt gepflegt.

@@ -2,8 +2,7 @@ import type { RouteConfigEntry } from "@react-router/dev/routes";
 
 /**
  * The plan notation API of the stand-alone Pages MCP program, admitted by the
- * device token (PAGE-250).
- *
+ * device token.
  * @param resource - Declares a server resource of the current route table.
  * @returns The plan notation resources.
  */

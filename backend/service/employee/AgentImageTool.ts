@@ -25,7 +25,7 @@ import type {
   AgentImageRequest,
 } from "./AgentImageGeneration";
 
-/** The input of `bilder_erzeugen` (PAGE-382). */
+/** The input of `bilder_erzeugen`. */
 export const AGENT_IMAGE_TOOL_SCHEMA = z
   .object({
     beschreibung: z
@@ -166,8 +166,7 @@ function imageName(moment: Date, index: number, mimeType: string): string {
 }
 
 /**
- * Builds `bilder_erzeugen` for one round of an agent in a conversation
- * (PAGE-382).
+ * Builds `bilder_erzeugen` for one round of an agent in a conversation.
  *
  * @remarks
  * The tool asks {@link AgentImageGeneration} with the model of the round.

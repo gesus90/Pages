@@ -10,7 +10,6 @@ import type { RemoteWorkspaceView } from "@/definition/RemoteConnection";
 
 /**
  * The services of the interface the workspace API calls.
- *
  * @remarks
  * The API adds no business logic and no right of its own; every call goes
  * through these services with the paired account as the actor.
@@ -42,7 +41,6 @@ function isListed(view: RemoteWorkspaceView): boolean {
 
 /**
  * Finds workspaces of both kinds the way the services of the interface show them.
- *
  * @remarks
  * Visibility is decided by those services: a workspace the account cannot
  * see is not found, exactly like one that does not exist.
@@ -52,7 +50,6 @@ export class McpWorkspaceCatalog {
 
   /**
    * Creates the catalog.
-   *
    * @param services - The workspace and connection services, already on the MCP channel.
    */
   public constructor(services: McpWorkspaceServices) {
@@ -61,7 +58,6 @@ export class McpWorkspaceCatalog {
 
   /**
    * Lists the workspaces the account may open, local ones first.
-   *
    * @param userId - The paired account.
    * @param filter - The project and kind to narrow to.
    * @throws {McpWorkspaceError} `not_found` for a project the account cannot see.
@@ -83,7 +79,6 @@ export class McpWorkspaceCatalog {
 
   /**
    * Finds one workspace by identifier.
-   *
    * @param userId - The paired account.
    * @param id - The identifier of the workspace.
    * @throws {McpWorkspaceError} `not_found` for a missing or hidden workspace.
@@ -110,7 +105,6 @@ export class McpWorkspaceCatalog {
 
   /**
    * Rechecks that the account can open a project the request names.
-   *
    * @param userId - The paired account.
    * @param projectId - The project of the request.
    * @throws {McpWorkspaceError} `not_found` for a hidden or missing project.
@@ -126,7 +120,6 @@ export class McpWorkspaceCatalog {
 
   /**
    * Rechecks that the account may use a connection the request names.
-   *
    * @param userId - The paired account.
    * @param connectionId - The connection of the request.
    * @throws {McpWorkspaceError} `not_found` for a hidden or missing connection.

@@ -35,8 +35,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpWikiHandlers {
 }
 
 /**
- * Changes a comment (`PATCH /api/mcp/v1/wiki/comments/{commentId}`) and removes it (`DELETE`), PAGE-257 interface 15.
- *
+ * Changes a comment (`PATCH /api/mcp/v1/wiki/comments/{commentId}`) and removes it (`DELETE`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

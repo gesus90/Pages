@@ -14,7 +14,7 @@ import type { UsersActionResult } from "@/app/lib/user-actions/user-action-suppo
 import type { UsersPageData } from "./users";
 import type { Route } from "./+types/users-server";
 
-/** The agents tab of the account, or `null` when it may not see agents (PAGE-266). */
+/** The agents tab of the account, or `null` when it may not see agents. */
 async function readAgentPage(
   services: ApplicationServices,
   actorId: string,
@@ -64,7 +64,7 @@ export async function loader({
   };
 }
 
-/** Applies validated mutations through the transactional A2 service boundary. */
+/** Applies validated mutations through the transactional authorization service boundary. */
 export async function action({
   request,
   context,

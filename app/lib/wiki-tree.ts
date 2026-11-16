@@ -16,10 +16,8 @@ export interface WikiTreeAreas {
 
 /**
  * Builds the page trees from the flat list the server sends.
- *
  * @param nodes - Visible pages in sibling order.
  * @returns The roots of each area with their children.
- *
  * @remarks
  * A page whose parent is not in the list becomes a root, which only happens
  * when the server hides the parent; the server never sends such pages.
@@ -60,7 +58,6 @@ export function buildWikiTree(nodes: readonly WikiTreeNode[]): WikiTreeAreas {
 
 /**
  * Lists the pages from a page up to its root.
- *
  * @param nodes - Visible pages.
  * @param id - Page identifier.
  * @returns The identifiers of the ancestors, nearest first.
@@ -83,7 +80,6 @@ export function findAncestorIds(
 
 /**
  * Lists a page and everything below it.
- *
  * @param nodes - Visible pages.
  * @param id - Page identifier.
  * @returns The identifiers, the page first.
@@ -107,7 +103,6 @@ export function findSubtreeIds(
 
 /**
  * Turns a title into the readable ending of a page address.
- *
  * @param title - Page title.
  * @returns Lower-case words joined by hyphens; empty when nothing is left.
  */
@@ -124,7 +119,6 @@ export function slugifyTitle(title: string): string {
 
 /**
  * Builds the address of a page.
- *
  * @param id - Page identifier.
  * @param title - Page title; its slug is appended when it has one.
  * @returns The path below the wiki.

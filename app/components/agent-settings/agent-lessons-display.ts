@@ -24,7 +24,6 @@ export const RECIPE_STATUS_TONES: Readonly<
 /**
  * The key of a change while it runs, so that the entry it concerns can show a
  * spinner.
- *
  * @param intent - What the change does.
  * @param id - The ID of the lesson or recipe it concerns.
  */

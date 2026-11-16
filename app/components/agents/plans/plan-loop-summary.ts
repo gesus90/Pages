@@ -26,7 +26,6 @@ export function planLoopParameterNode(
 
 /**
  * The number of iterations the loop would run now, or `null` for an unusable source.
- *
  * @remarks
  * A bound parameter or stack counts with a whole number from 0 to 999;
  * nothing falls back to the saved number. A while loop has no count.

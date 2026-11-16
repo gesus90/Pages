@@ -52,7 +52,6 @@ async function post(
 
 /**
  * Reads the templates the signed-in person works with.
- *
  * @param workspaceId - The workspace of the open plan; the server adds the
  * shared templates of its project, for the departments the person belongs to.
  * @throws When the server cannot list them; the list then says so.

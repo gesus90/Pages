@@ -1,11 +1,11 @@
-# Wiki-Entwurf PAGE-314: Tickets mit mehreren oder keiner Abteilung
+# Wiki-Entwurf: Tickets mit mehreren oder keiner Abteilung
 
-Entwurf für All Might. Nach der Abnahme übertragen:
+Dieser Entwurf ist für zwei Wiki-Seiten bestimmt:
 
 1. in [Projekte und Aufgaben: Festlegungen](/wiki/d2b862d1-5a2e-4e4d-a723-8091e17c84a4) den Abschnitt „Abteilungen eines Tickets“ anstelle der Aussage „ein Ticket hat genau eine oder keine Abteilung“,
 2. in die Wiki-Seite der Pages-Schnittstelle bzw. der Agent-Werkzeuge den Abschnitt „Abteilungen über die Schnittstelle“.
 
-Die Wiki-Seiten liegen im Live-Dienst und wurden vom Lauf nicht geändert.
+Die Live-Wiki wird getrennt gepflegt.
 
 ---
 
@@ -19,7 +19,7 @@ Ein Ticket gehört **keiner, einer oder mehreren Abteilungen** (zum Beispiel Des
 | Mit Abteilungen     | Mitglieder **mindestens einer** der Abteilungen | diese Mitglieder, mit Schreibrecht |
 | Aktiver Admin-Modus | alle Tickets                                    | wie sonst                          |
 
-- Die Regel gilt überall, wo die Lesesicht F9 gilt: Listen, Kanban, Einzelansichten, Unteraufgaben, Eltern-Verweise, Links, Zähler, Suche, Dashboard, GitHub-PR-Ansichten, Wiki-Verknüpfungen mit Epics und die Pages-Schnittstelle.
+- Die Regel gilt in allen Lesesichten: Listen, Kanban, Einzelansichten, Unteraufgaben, Eltern-Verweise, Links, Zähler, Suche, Dashboard, GitHub-PR-Ansichten, Wiki-Verknüpfungen mit Epics und die Pages-Schnittstelle.
 - Projektabteilungen und Projektzugang ändern sich dadurch nicht. Wer keinen Zugang zum Projekt hat, sieht das Ticket weiterhin nicht.
 - Eine **Zuweisung** an Person oder Gruppe gibt weiterhin keine Sicht.
 - Beim Löschen einer Abteilung verliert jedes Ticket diese Abteilung. Hatte es nur diese, ist es danach ohne Abteilung und für das ganze Projekt sichtbar (wie vorher mit dem Einzelfeld).
@@ -44,7 +44,7 @@ Ein Ticket gehört **keiner, einer oder mehreren Abteilungen** (zum Beispiel Des
 - **`set_ticket_assignee` mit `targetType: department`** bleibt für Tickets mit höchstens einer Abteilung bestehen und ersetzt dann diese; bei mehreren Abteilungen antwortet es mit `CONFLICT`, dann `set_ticket_departments` nutzen.
 - **REST-Schnittstelle `/api/mcp/v1/tickets`:** zusätzlich zum Feld `departmentId` das Feld `departmentIds` (Anlegen, Ändern, `expected`) und `departments` in der Antwort.
 
-### Empfehlung für Projektmanager-Agents (All Might)
+### Empfehlung für Projektmanager-Agents
 
 Beim Anlegen die Abteilungen ausdrücklich angeben (`departmentIds`), statt sie aus dem Umfeld des Agents entstehen zu lassen. Ein Ticket für Design und Entwicklung bekommt beide IDs; ein Ticket für das ganze Projekt eine leere Liste. Nachträglich mit `set_ticket_departments` ändern, nie so, dass der Agent selbst die Sicht verliert (er sieht das Ticket nur, solange er Mitglied einer der Abteilungen ist).
 

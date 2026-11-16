@@ -5,6 +5,6 @@ import type { PicaMobileSettingsView } from "./PicaMobile";
 export interface ConnectionsView {
   /** Only present for an administrator in the admin mode. */
   readonly picaMobile?: PicaMobileSettingsView;
-  /** The machines paired with the account (PAGE-243); absent in an answer kept by an older build. */
+  /** The machines paired with the account; absent in an answer kept by an older build. */
   readonly mcpDevices?: readonly McpDeviceView[];
 }

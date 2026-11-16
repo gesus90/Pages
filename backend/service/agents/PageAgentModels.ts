@@ -15,7 +15,6 @@ import type { ResolvedAgentAssignment } from "./AgentAssignmentResolution";
 
 /**
  * Whether a profile of the administrators may serve as the model of a user agent for the viewer.
- *
  * @remarks
  * It must be active, have the purpose Agent and be released for the viewer. A
  * user agent has no project and receives only global models. A plan may also
@@ -38,7 +37,6 @@ function isModelSource(
 
 /**
  * Resolves the unchanged admin model and its live assignment independently of the usage share.
- *
  * @param dependencies - Persistence and live authorization boundaries.
  * @param viewer - The person who saves or starts the agent.
  * @param profile - The user agent, naming its model profile, connection and model.
@@ -80,11 +78,9 @@ const PREFERRED_REASONING_EFFORT = "medium";
 
 /**
  * The model an omitted `modelProfileId` selects.
- *
  * @param models - The models the person may use, in the order Pages lists them.
  * @returns The first model, which is also the one the agent form starts on, or
  * `null` when no model is released for the person.
- *
  * @remarks
  * Pages stores no separate default: what the administrators released for the
  * person is the configuration. There is no fallback to a model name.
@@ -97,12 +93,10 @@ export function defaultPageAgentModel(
 
 /**
  * The reasoning effort an omitted `reasoningEffort` takes for a model.
- *
  * @param model - A model from {@link pageAgentModels}.
  * @returns `medium` when the catalog lists it for the model, otherwise the
  * default the catalog names for the model when it is selectable, otherwise
  * `null`.
- *
  * @remarks
  * Nothing else is applied: a model that lists levels, none of them medium, and
  * names no default has no default effort, and the caller has to choose one.

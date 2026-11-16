@@ -35,7 +35,6 @@ async function completeSignIn(
 
 /**
  * Receives the browser after the Google sign-in.
- *
  * @remarks
  * Unlike the Discord callback it needs a Pages session of the administrator
  * who started the sign-in, in the admin mode: the `state` alone does not bind

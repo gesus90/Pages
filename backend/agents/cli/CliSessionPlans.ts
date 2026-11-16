@@ -26,11 +26,9 @@ export interface CliSessionMcp {
 
 /**
  * Names a run option the runner cannot enforce, so the node is refused before it starts.
- *
  * @param provider - The runner of the connection.
  * @param options - The run options of the agent, resolved for its provider.
  * @returns The refusal, or `null` when the runner enforces every option.
- *
  * @remarks
  * Every CLI plan agent runs only in "Nur Lesen" or YOLO. An earlier write
  * mode is never raised to YOLO on its own; it blocks until a mode is chosen.
@@ -51,10 +49,8 @@ export function unsupportedRunOption(
 
 /**
  * Names a run option a session cannot start with.
- *
  * @param input - The session to start, a plan node or a conversation.
  * @returns The refusal, or `null` when the runner enforces every option.
- *
  * @remarks
  * A conversation runs in both modes like a plan node: Pica's own runners pass
  * only "Nur Lesen", and only an agent employee with full access reaches a

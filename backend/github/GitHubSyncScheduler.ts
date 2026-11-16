@@ -19,7 +19,6 @@ interface SyncRoundResult {
 
 /**
  * Runs project synchronizations on a fixed server-side interval.
- *
  * @remarks
  * At most one round runs at a time. A tick that arrives while a round is
  * still running is skipped and logged as `job.github_sync.skipped`; nothing
@@ -37,7 +36,6 @@ export class GitHubSyncScheduler {
 
   /**
    * Creates a synchronization scheduler.
-   *
    * @param syncService - Service executing the due project runs.
    * @param intervalMs - Polling interval in milliseconds.
    */
@@ -88,7 +86,6 @@ export class GitHubSyncScheduler {
 
   /**
    * Executes one round of due synchronizations, never throwing.
-   *
    * @returns Completed and failed run counters; both are zero when the call
    * was skipped because another round is still running.
    */
@@ -151,7 +148,6 @@ export class GitHubSyncScheduler {
 
 /**
  * Waits for `work`, but no longer than `timeoutMs`.
- *
  * @returns Whether the work finished in time.
  */
 async function finishesWithin(

@@ -1,4 +1,4 @@
-# Calendar API for MCP (PAGE-301)
+# Calendar API for MCP
 
 The stand-alone Pages MCP program reads and changes the calendar of the
 paired account through `/api/mcp/v1/calendar`. The API offers the tasks of
@@ -17,7 +17,7 @@ lifecycle, projection, contract, requests, errors),
 ## Access and rights
 
 - Every request needs `Authorization: Bearer <device token>` of a paired
-  machine (PAGE-243). Cookies play no part. A missing, unknown or revoked
+  machine. Cookies play no part. A missing, unknown or revoked
   token and a deleted or deactivated account answer `401 invalid_token` on
   every call, for a repeated `operationId` as well.
 - The account acts with its own rights, read anew on every call. Tool

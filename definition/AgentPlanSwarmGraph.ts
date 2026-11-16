@@ -5,8 +5,7 @@ import type { AgentPlanIssue } from "./AgentPlanGraph";
 import type { AgentPlanSwarm } from "./AgentPlanSwarm";
 
 /**
- * The plan issues of a swarm node (PAGE-313).
- *
+ * The plan issues of a swarm node.
  * @param node - The swarm.
  * @param plan - The plan whose execution target the node inherits.
  * @returns `swarmRemoteUnsupported` for a remote target, `swarmInvalid` for a

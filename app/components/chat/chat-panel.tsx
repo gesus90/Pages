@@ -14,7 +14,7 @@ interface ChatPanelProps {
 }
 
 /**
- * The floating chat panel above the content (T6.12.1); it keeps its state
+ * The floating chat panel above the content; it keeps its state
  * while hidden, so a running answer and a draft survive closing it.
  */
 export function ChatPanel({

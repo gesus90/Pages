@@ -39,8 +39,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpProjectHandlers {
 }
 
 /**
- * Sets a member (`PUT /api/mcp/v1/projects/{id}/members/{username}`) and removes one (`DELETE`), PAGE-244 interface 5 and 6.
- *
+ * Sets a member (`PUT /api/mcp/v1/projects/{id}/members/{username}`) and removes one (`DELETE`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

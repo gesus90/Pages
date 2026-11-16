@@ -27,7 +27,6 @@ function isActiveDesignTheme(value: unknown): value is ActiveDesignTheme {
 
 /**
  * Whether a value has the shape of {@link RootData}.
- *
  * @param value - An answer of `/app-api/root` or a kept one.
  */
 export function isRootData(value: unknown): value is RootData {

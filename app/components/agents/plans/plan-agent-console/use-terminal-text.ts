@@ -134,7 +134,7 @@ function write(
 }
 
 /**
- * Writes the rows into xterm without ever showing an empty terminal (PAGE-289).
+ * Writes the rows into xterm without ever showing an empty terminal.
  *
  * @param surface - The terminal, once it is loaded.
  * @param next - The rows the terminal should show now.

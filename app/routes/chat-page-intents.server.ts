@@ -45,7 +45,7 @@ function readJson(value: FormDataEntryValue | null): unknown {
   }
 }
 
-/** How the person sent a message while agents answered (PAGE-381); absent as before. */
+/** How the person sent a message while agents answered; absent as before. */
 function readDelivery(
   value: FormDataEntryValue | null,
 ): ConversationDelivery | undefined {
@@ -129,7 +129,7 @@ function isMemberIntent(
   return MEMBER_INTENTS.some((candidate) => candidate === intent);
 }
 
-/** Marks a chat with agents confidential or not; nothing of it is shared or learned (PAGE-305). */
+/** Marks a chat with agents confidential or not; nothing of it is shared or learned. */
 async function markConfidential(
   services: ChatServices,
   person: User,
@@ -149,8 +149,8 @@ async function markConfidential(
 
 /**
  * Mutes a stored conversation for the person alone, or reads a page of its
- * older messages (PAGE-275); both answer `not_found` to a non-member. Marks
- * a chat with agents confidential (PAGE-305).
+ * older messages; both answer `not_found` to a non-member. Marks
+ * a chat with agents confidential.
  */
 async function runMemberIntent(
   services: ChatServices,
@@ -179,7 +179,7 @@ async function runMemberIntent(
   return {};
 }
 
-/** Reads or changes who answers in a group; only the one who manages the group changes it (PAGE-317). */
+/** Reads or changes who answers in a group; only the one who manages the group changes it. */
 async function runReplySettingsIntent(
   services: ChatServices,
   person: User,
@@ -205,7 +205,7 @@ async function runReplySettingsIntent(
     replySettings: await conversationReplySettingsService.save(person, {
       conversationId: formData.get("conversationId"),
       mode: formData.get("mode"),
-      // Without values of its own a group follows the defaults of the instance (PAGE-379).
+      // Without values of its own a group follows the defaults of the instance.
       rules:
         formData.get("useDefaults") === "true"
           ? null
@@ -245,8 +245,8 @@ function isContentIntent(intent: ChatPageIntent): intent is ContentIntent {
 
 /**
  * Deletes an own message, releases or withdraws an embed domain of a
- * conversation, or stores a card state or the split width (PAGE-298) or
- * the state of the list (PAGE-325).
+ * conversation, or stores a card state or the split width or
+ * the state of the list.
  */
 async function runContentIntent(
   services: ChatServices,
@@ -352,7 +352,7 @@ async function runAgentControlIntent(
   }
 }
 
-/** Whether a message comes from a preview of the chat (PAGE-383). */
+/** Whether a message comes from a preview of the chat. */
 function isPreviewMessage(formData: FormData): boolean {
   const clientMessageId = formData.get("clientMessageId");
   return (
@@ -363,9 +363,8 @@ function isPreviewMessage(formData: FormData): boolean {
 
 /**
  * A chat command typed into the direct chat with an agent or a group runs as
- * a command (PAGE-380): it is never stored as a message, so it reaches no
+ * a command: it is never stored as a message, so it reaches no
  * agent and asks for no answer and no decision.
- *
  * @returns The outcome of the command, or `null` for a message.
  */
 async function runTypedCommand(

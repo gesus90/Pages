@@ -35,8 +35,7 @@ export type ChatAttachmentReader = Pick<
 >;
 
 /**
- * What of one attachment reaches the agent (PAGE-92).
- *
+ * What of one attachment reaches the agent.
  * @remarks
  * `text` is the text of a text file or the extracted text of a document,
  * `image` the bytes of a raster image, `none` an attachment whose content does
@@ -132,7 +131,6 @@ async function readImage(
 
 /**
  * Reads what of one selected attachment reaches the agent.
- *
  * @param attachment - An attachment of the message, whose owner was checked.
  * @param reader - Reads its file; no other file is opened.
  * @param canSendImages - Whether the path to the agent takes image content.

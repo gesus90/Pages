@@ -28,7 +28,7 @@ function isPasswordChangeRequired(
 
 /**
  * Lets only authenticated accounts whose password must be replaced stay,
- * as the API decides; everyone else is redirected (PAGE-235).
+ * as the API decides; everyone else is redirected.
  */
 export async function clientLoader({
   request,

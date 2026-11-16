@@ -10,9 +10,8 @@ interface PicaMascotProps {
 }
 
 /**
- * Pica's mascot from `assets/pica/pica_maskottchen.svg` (PAGE-51), the one
+ * Pica's mascot from `assets/pica/pica_maskottchen.svg`, the one
  * graphic that stands for Pica wherever Pica appears.
- *
  * @remarks
  * The mascot is decorative: the button, heading or message around it names
  * Pica for assistive technology. It keeps its square canvas and is never

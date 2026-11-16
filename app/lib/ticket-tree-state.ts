@@ -34,7 +34,6 @@ export const TICKET_TREE_STATE: LocalStateRouteKind<TicketLayoutData> = {
 
 /**
  * Reads the ticket tree of the signed-in account from its endpoint.
- *
  * @param signal - Ends the request when it is no longer needed.
  */
 export function readTicketTree(signal: AbortSignal): Promise<TicketLayoutData> {

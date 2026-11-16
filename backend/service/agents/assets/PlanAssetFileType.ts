@@ -82,7 +82,6 @@ function zipType(head: Buffer, extension: string): string | null {
 
 /**
  * Recognizes a plan asset by its content.
- *
  * @param head - The first bytes of the file.
  * @param fileName - The name as uploaded; it only tells apart formats that
  * share a container (DOCX and ZIP, Markdown and plain text) after the content

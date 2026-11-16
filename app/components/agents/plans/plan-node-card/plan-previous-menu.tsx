@@ -17,7 +17,6 @@ import type { AgentPlanLoopMember } from "@/definition/AgentPlanLoop";
 
 /**
  * Lets an input of a loop member take the result a member had in the previous iteration.
- *
  * @remarks
  * Only the newest earlier result is handed over, so nothing accumulates. The
  * first iteration has no such result: the input then uses its own default,

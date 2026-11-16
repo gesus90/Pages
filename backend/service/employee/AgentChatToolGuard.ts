@@ -23,8 +23,7 @@ export interface AgentChatToolGuardDependencies {
 }
 
 /**
- * Keeps the content of a confidential chat inside its own session (PAGE-376).
- *
+ * Keeps the content of a confidential chat inside its own session.
  * @remarks
  * Every chat has its own session. The chat tools of an agent could read other
  * chats it takes part in, so a session would learn what a confidential chat
@@ -42,7 +41,6 @@ export class AgentChatToolGuard {
 
   /**
    * The chat tools of one session.
-   *
    * @param tools - The tools of the agent.
    * @param scope - The chat of the session.
    */
@@ -64,7 +62,6 @@ export class AgentChatToolGuard {
 
   /**
    * The reader of the stored context of a group, bound to one session.
-   *
    * @param read - The reader of the agent.
    * @param scope - The chat of the session.
    * @throws {ConversationError} `not_found` for another confidential chat.

@@ -14,9 +14,8 @@ import type { Route } from "./+types/conversation-archive";
 
 /**
  * Sends every file of a message that is still there as one ZIP archive to a
- * member of its conversation (PAGE-382): `GET /chat/messages/<messageId>/files.zip`,
+ * member of its conversation: `GET /chat/messages/<messageId>/files.zip`,
  * "Alle herunterladen" of a gallery.
- *
  * @remarks
  * Membership is checked on every request; a message of a conversation the
  * person does not belong to answers like a missing one. The files keep

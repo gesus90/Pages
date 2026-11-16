@@ -113,7 +113,7 @@ export interface PicaMobileConnectionOptions {
   /** Where the connection notes the conversation it shows; the process's own by default. */
   readonly presence?: Pick<PicaMobileConversationPresence, "set">;
   /**
-   * The answers agents are writing (PAGE-381), for the connection of the
+   * The answers agents are writing, for the connection of the
    * signed-in browser alone: it announces `conversations.stream.v1` and
    * receives their parts. The endpoint of Pica Mobile never sets it.
    */
@@ -156,7 +156,6 @@ function isSpeechMessage(
  * One WebSocket connection of Pica Mobile: authentication, heartbeat and the
  * protocol rules that keep a misbehaving peer from costing the server more
  * than a closed connection.
- *
  * @remarks
  * Until an `auth` message succeeded, every other message is refused. The
  * connection is then bound to the Pages account of that authentication and
@@ -191,7 +190,6 @@ export class PicaMobileConnection {
 
   /**
    * Creates the connection of an accepted WebSocket.
-   *
    * @param channel - The WebSocket of the peer.
    * @param options - Identity, origin and collaborators of the connection.
    */
@@ -247,7 +245,6 @@ export class PicaMobileConnection {
 
   /**
    * Handles a text frame of the peer.
-   *
    * @remarks
    * The socket takes frames up to the size of `chat_send`; every frame but
    * `chat_send`, `conversation_send`, `voice_chunk`, `speech_chunk` and
@@ -307,10 +304,8 @@ export class PicaMobileConnection {
 
   /**
    * Closes the connection from the server side.
-   *
    * @param code - WebSocket close code.
    * @param reason - Short text for the peer.
-   *
    * @remarks
    * A peer that does not complete the closing handshake is cut off after a
    * short grace period.
@@ -336,7 +331,6 @@ export class PicaMobileConnection {
 
   /**
    * Releases the timers once the WebSocket is closed.
-   *
    * @param code - Close code the WebSocket ended with.
    */
   public stop(code: number): void {

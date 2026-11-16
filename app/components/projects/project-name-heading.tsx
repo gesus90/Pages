@@ -17,7 +17,6 @@ interface ProjectNameHeadingProps {
 
 /**
  * Renders the project title with hover and double-click inline editing.
- *
  * @remarks
  * Editing is only offered to writers (administrators, managers, and project
  * managers); everyone else sees plain text. Saving reuses the existing

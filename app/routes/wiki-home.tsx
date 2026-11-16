@@ -51,7 +51,6 @@ const WIKI_HOME_STATE: LocalStateRouteKind<WikiHomeLoaderData> = {
 
 /**
  * Opens the start page from the account's kept answer at once and asks the endpoint behind it.
- *
  * @remarks
  * The endpoint runs the server loader with its permission checks.
  */

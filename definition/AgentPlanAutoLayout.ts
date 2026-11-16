@@ -30,7 +30,6 @@ export type { PlanRankDirection } from "./AgentPlanAutoLayoutPlacement";
 
 /**
  * A plan whose layout does not fit the coordinates a stored plan accepts.
- *
  * @remarks
  * Every node keeps its own place, nothing is clamped onto another; when the
  * grid is too small for that, the layout refuses instead of letting cards
@@ -42,7 +41,6 @@ export class PlanLayoutOverflowError extends Error {
 
   /**
    * Creates the error.
-   *
    * @param containerId - The frame whose members do not fit, or `null` for the outer graph.
    */
   public constructor(containerId: string | null) {
@@ -57,7 +55,6 @@ export interface PlanAutoLayoutOptions {
   readonly rankdir: PlanRankDirection;
   /**
    * The stored plan when a plan is replaced.
-   *
    * @remarks
    * A node that keeps its identifier and its container keeps its stored
    * position; only the others are laid out, beside the existing graph.
@@ -571,7 +568,7 @@ class PlanLevelLayout {
 }
 
 /**
- * Computes the positions of every node of a plan with a layered layout (PAGE-250).
+ * Computes the positions of every node of a plan with a layered layout.
  *
  * @param plan - The plan; its stored positions are ignored unless kept.
  * @param sources - What sizes the cards: the agents, whose inputs make a card taller.

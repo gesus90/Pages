@@ -59,7 +59,6 @@ const logBudget = { windowStartedAt: 0, logged: 0, suppressed: 0 };
 
 /**
  * Splits an origin, accepting nothing but the plain form `scheme://host[:port]`.
- *
  * @remarks
  * The result is only ever logged, in this form: whatever else a client wrote
  * in its `Origin` header never reaches a log line.
@@ -107,7 +106,6 @@ function readFetchSite(request: Request): FetchSite {
 /**
  * Tells whether a refused origin may be the fault of a hop in front of Pages
  * rather than of the sender.
- *
  * @remarks
  * A browser that reports the call as cross-site or same-site names a page that
  * is not Pages, whatever the proxies did. One that reports it as same-origin,
@@ -147,12 +145,10 @@ function classifyMismatch(
 
 /**
  * Compares the `Origin` of a request with the public origin of Pages.
- *
  * @param request - The request as the entrance of the server built it.
  * @param entry - How the request arrived, from {@link requestEntryContext}.
  * @returns `null` when the request names no origin or its own, otherwise the
  * facts of the refusal.
- *
  * @remarks
  * The public origin is the address of the request URL: the `Host` header and
  * the protocol of the connection, or `https` when a trusted proxy forwarded
@@ -211,10 +207,8 @@ function claimLogSlot(now: number): number | null {
 
 /**
  * Records why a request was refused, so a returning refusal can be traced.
- *
  * @param refusal - The facts from {@link assessRequestOrigin}.
  * @param route - A fixed label of the route, never a path taken from a client.
- *
  * @remarks
  * The event carries the correlation of the request from the log context, the
  * route, the category and the normalized scheme, host and port of both

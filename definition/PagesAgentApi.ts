@@ -85,7 +85,7 @@ export type PagesAgentApiErrorCode =
   | "CONFLICT"
   | "AMBIGUOUS"
   | "PAYLOAD_TOO_LARGE"
-  /** The database queue was full or the job waited too long; nothing ran (PAGE-197). */
+  /** The database queue was full or the job waited too long; nothing ran. */
   | "DATABASE_BUSY"
   /** The database worker is starting, restarting or failed; nothing ran. */
   | "DATABASE_UNAVAILABLE"

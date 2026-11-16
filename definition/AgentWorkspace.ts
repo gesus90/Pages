@@ -59,7 +59,6 @@ export type AgentWorkspaceUsageKind = "agent" | "plan" | "run";
 
 /**
  * A reference shown before removing or rebinding a workspace.
- *
  * @remarks
  * Only administrators receive the identifier and name of an agent or plan;
  * anyone else gets the kind alone, so a project manager learns that the
@@ -105,7 +104,6 @@ export interface WorkspaceFolderRequest {
 
 /**
  * One level of server directories below an approved root.
- *
  * @remarks
  * Files and everything above the approved roots stay out of the listing, so
  * it discloses directory names only, and only where a workspace may live.

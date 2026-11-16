@@ -10,7 +10,6 @@ export type PeerCheck = (address: string | undefined) => boolean;
 
 /**
  * Headers of other forwarding conventions.
- *
  * @remarks
  * Pages reads only `X-Forwarded-Proto`, `X-Forwarded-For` and `Host`. No
  * entrance passes one of these on, so a value a client wrote cannot reach a
@@ -29,11 +28,9 @@ export const UNSUPPORTED_FORWARDING_HEADERS: readonly string[] = [
 
 /**
  * Builds the check that tells whether a TCP peer is a trusted proxy.
- *
  * @param trustedProxies - Addresses or ranges from the `trustedProxies` setting.
  * @param options - `isLoopbackTrusted` also trusts every loopback peer.
  * @returns A check of the peer address of a socket.
- *
  * @remarks
  * An IPv4 client of a dual-stack socket shows up as `::ffff:a.b.c.d`;
  * BlockList matches that form against IPv4 entries.
@@ -77,11 +74,9 @@ export function createTrustedPeerCheck(
 /**
  * Builds the check that tells whether a trusted proxy forwarded a request that
  * reached it over HTTPS.
- *
  * @param trustedProxies - Addresses or ranges from the `trustedProxies` setting.
  * @returns A check that is true only when the TCP peer of the request is one of
  * the trusted proxies and its `X-Forwarded-Proto` names `https`.
- *
  * @remarks
  * The proxy hands requests to Pages over plain HTTP, so the protocol of the
  * connection is `http` while the browser sent its `Origin` as `https`. React
@@ -107,15 +102,13 @@ export function createForwardedHttpsCheck(
 
 /**
  * Reads the client a proxy in front of Pages reports, such as the static app's entrance.
- *
  * @param peer - The TCP peer of the request.
  * @param forwardedFor - The request's `X-Forwarded-For`.
  * @param isTrustedPeer - Whether the peer is a proxy whose header is believed.
  * @returns The address the nearest proxy saw, the last of the header, when
  * the peer is trusted and named one; the peer otherwise.
- *
  * @remarks
- * The static app's entrance (PAGE-235) connects over loopback for every
+ * The static app's entrance connects over loopback for every
  * browser. Without this, every visitor of the entrance would look like a
  * local process, which some checks of the MCP endpoints allow more. A client
  * that connects directly cannot change its address with the header.
@@ -132,7 +125,6 @@ export function forwardedClientAddress(
 
 /**
  * Reads the protocol the first proxy of a chain saw.
- *
  * @param header - The `X-Forwarded-Proto` value; a list reads as its first entry.
  * @returns `http`, `https`, or `null` for anything else.
  */
@@ -169,12 +161,10 @@ export interface AdmittedRequest {
 
 /**
  * Admits the forwarding headers of a request at the entrance of the API.
- *
  * @param headers - Headers of the request; changed in place.
  * @param request - Peer and protocol the request was built with.
  * @param trust - Which peers are believed.
  * @returns How the request arrived, for the origin guards and their log.
- *
  * @remarks
  * A hop is believed only for what it is trusted with: `X-Forwarded-Proto`
  * from a listed proxy, `X-Forwarded-For` from a listed or loopback peer.

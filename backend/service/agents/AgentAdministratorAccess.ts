@@ -21,7 +21,6 @@ export interface AgentAdministrator {
 
 /**
  * Resolves the account behind a verified credential and requires the administrator boundary.
- *
  * @param database - The transaction every later read and write of the call shares.
  * @param userId - The owner of the credential.
  * @param channel - The agent surface; it alone decides whether the persisted role mode or the personal eligibility counts.

@@ -83,16 +83,14 @@ function currentValue(
 
 /**
  * Decides a boolean decision once, without a model.
- *
  * @param decision - The frozen decision, in the `boolean` mode.
  * @param scope - Where it reads its value.
  * @returns The changes of its result: the activated branch and the value it read,
  * or `plan_decision_input_invalid` when the value is absent. A missing value is
  * never `false`.
- *
  * @remarks
  * Every activation reads anew: a parameter from the snapshot of the run, an
- * agent from its current start (PAGE-286). A decision never reads two values
+ * agent from its current start. A decision never reads two values
  * in one activation, so no earlier value can stand in for the current one.
  */
 export function decidePlanBoolean(

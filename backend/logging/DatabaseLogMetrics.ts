@@ -112,7 +112,7 @@ export function recordDatabaseLogMetrics(
     metrics.record(operation, statementId, durationMs);
 }
 
-/** Adds queue wait and IPC time to every enclosing scope; execution time stays apart (PAGE-197). */
+/** Adds queue wait and IPC time to every enclosing scope; execution time stays apart. */
 export function recordDatabaseWaitMetrics(
   queueMs: number,
   ipcMs: number,

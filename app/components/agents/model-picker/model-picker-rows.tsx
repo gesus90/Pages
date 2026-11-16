@@ -136,7 +136,6 @@ function SourceRows({
 
 /**
  * One tool of the model choice: its header opens and closes the tool, its models follow while it is open.
- *
  * @remarks
  * The whole header is the switch. Its chevron and `aria-expanded` follow the
  * same state, and its accessible name gives tool, access and model count.

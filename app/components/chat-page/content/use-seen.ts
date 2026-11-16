@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 
 /**
  * Whether an element has been in the visible part of the page once.
- *
  * @param element - The element to watch; `null` until it is mounted.
  * @returns `true` from the first time the element is visible, and from then on.
  */

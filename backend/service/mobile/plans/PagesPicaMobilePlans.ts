@@ -140,7 +140,6 @@ class PagesPicaMobilePlansReader implements PicaMobilePlansReader {
 
 /**
  * Answers `plans.v1` from the live Pages data.
- *
  * @remarks
  * Every read starts from the account the session belongs to right now and
  * reads the plans through the overview, which applies the plan rights on
@@ -152,7 +151,6 @@ export class PagesPicaMobilePlans implements PicaMobilePlansProvider {
 
   /**
    * Creates the provider.
-   *
    * @param options - Services, run observer and clock.
    */
   public constructor(options: PagesPicaMobilePlansOptions) {
@@ -166,7 +164,6 @@ export class PagesPicaMobilePlans implements PicaMobilePlansProvider {
 
   /**
    * Follows the run writes of an account.
-   *
    * @param userId - The account.
    * @param listener - Called after every write that changes a row.
    * @returns Stops following.

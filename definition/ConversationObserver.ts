@@ -1,7 +1,6 @@
 /**
- * Contracts of the group observer (PAGE-296): who answers in a group besides
+ * Contracts of the group observer: who answers in a group besides
  * the agents a person mentions, and the stored context of each group.
- *
  * @remarks
  * The observer is no participant. It runs on Pica's chat model, chooses the
  * agents a message needs and keeps one summary per group. Its limits stand
@@ -10,11 +9,10 @@
 
 /**
  * The fixed limits of quiet and cost.
- *
  * @remarks
  * - `automaticRepliesPerOrigin`: contributions per group round that nobody
- *   asked for with @, chosen by the observer or the decision model
- *   (PAGE-349). Explicit @ hand-overs are not counted and not limited per
+ *   asked for with @, chosen by the observer or the decision model.
+ * Explicit @ hand-overs are not counted and not limited per
  *   round or per agent; only the chain pause of
  *   `CONVERSATION_DECISION_LIMITS.agentStreak` stops them.
  * - `routingCallsPerMessage`: observer calls per new message at most.
@@ -32,7 +30,7 @@ export const CONVERSATION_OBSERVER_LIMITS = {
   observerTimeoutMinutes: 5,
 } as const;
 
-/** The range a group may set for contributions without @ per round (PAGE-349). */
+/** The range a group may set for contributions without @ per round. */
 export const CONVERSATION_ROUND_LIMITS_RANGE = {
   minimum: 1,
   automaticRepliesMaximum: 9,
@@ -68,7 +66,6 @@ function clampLimit(
 
 /**
  * The fixed limits of the group summaries.
- *
  * @remarks
  * One window holds at most `windowMessages` new messages with at most
  * `windowCharacters` of their text; a longer message enters as a marked
@@ -98,22 +95,20 @@ export const CONVERSATION_CONTEXT_READ_LIMITS = {
 } as const;
 
 /**
- * Why an agent answers a message (PAGE-296).
- *
+ * Why an agent answers a message.
  * - `direct`: the message of a person in a direct conversation with it.
  * - `mention`: a person named it with @ in a group.
  * - `context`: the observer chose it because of its responsibility.
  * - `handoff`: another agent named it with @ in its answer, or the observer
  *   chose it after that answer.
  * - `fallback`: it is the default responder of the group, and it was unclear
- *   who was addressed (PAGE-317).
+ *   who was addressed.
  */
 export type ConversationReplyTrigger =
   "direct" | "mention" | "context" | "handoff" | "fallback";
 
 /**
  * Where the stored context of a group stands.
- *
  * - `current`: every content message up to the newest is summarized.
  * - `behind`: newer messages wait for the next summary.
  * - `unavailable`: no valid summary, for example because Pica is off or the
@@ -152,7 +147,7 @@ export interface ConversationGroupContextView {
   readonly sources: readonly ConversationSummarySource[];
   /** Why the context is unavailable, as a stable code; otherwise `null`. */
   readonly errorCode: string | null;
-  /** How the observer of this group fared lately; only in a member's view (PAGE-340). */
+  /** How the observer of this group fared lately; only in a member's view. */
   readonly observer?: ConversationObserverStatus;
 }
 
@@ -167,7 +162,7 @@ export interface ConversationObserverFailure {
   readonly at: string;
 }
 
-/** The latest observer calls of one group, for its members (PAGE-340). */
+/** The latest observer calls of one group, for its members. */
 export interface ConversationObserverStatus {
   /** Calls without result in a row since the last success, counted among the latest calls. */
   readonly consecutiveFailures: number;
@@ -175,7 +170,7 @@ export interface ConversationObserverStatus {
   readonly lastFailure: ConversationObserverFailure | null;
 }
 
-/** How the group observer fared across the instance, for administrators (PAGE-340). */
+/** How the group observer fared across the instance, for administrators. */
 export interface ConversationObserverHealth {
   /** ISO 8601 start of the counted window. */
   readonly since: string;

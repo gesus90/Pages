@@ -159,8 +159,8 @@ export async function prepareScopedClaudeHome(
  *
  * @remarks
  * The directly spawned process is the namespace init or, for a session
- * without a namespace such as a YOLO chat, the client of its worker unit
- * (PAGE-335, PAGE-340). Its PID, start, owner and boot together with the unit
+ * without a namespace such as a YOLO chat, the client of its worker unit.
+ * Its PID, start, owner and boot together with the unit
  * name let a later check prove the end of exactly this instance and let its
  * lease leave `spawning`.
  */

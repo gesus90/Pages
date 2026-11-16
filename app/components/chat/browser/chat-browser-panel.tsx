@@ -8,9 +8,8 @@ interface ChatBrowserPanelProps {
 }
 
 /**
- * Pica's operator browsers in the chat (PAGE-181): the live picture of the page, its address, the
+ * Pica's operator browsers in the chat: the live picture of the page, its address, the
  * actions taken and the controls to pause, stop or take over.
- *
  * @remarks
  * It shows nothing for a person without a browser, and nothing at all for a
  * person who is no administrator.

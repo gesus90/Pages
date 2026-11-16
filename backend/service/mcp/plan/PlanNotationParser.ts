@@ -265,7 +265,6 @@ class PlanNotationReader {
 
 /**
  * Reads a plan notation, a subset of Graphviz DOT, into its statements.
- *
  * @param source - The notation: exactly one `digraph`.
  * @returns The document; names and values are not resolved yet.
  * @throws {PlanNotationError} With one finding: `syntax`, or

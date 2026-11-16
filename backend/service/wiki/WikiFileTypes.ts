@@ -99,7 +99,6 @@ const SIGNATURES: readonly Signature[] = [
 
 /**
  * Recognizes the type of a file by its content, never by its name.
- *
  * @param head - The first bytes of the file.
  * @returns Its kind and the type to serve. Anything unknown, SVG included,
  * is a plain file that is only ever served as a download.
@@ -118,7 +117,6 @@ export function detectFileType(head: Buffer): DetectedFileType {
 
 /**
  * Tells whether a stored file may appear inside a page or a description.
- *
  * @param contentType - The type found when the file was uploaded.
  * @param kind - The kind found when the file was uploaded.
  * @returns Whether the file is a raster image that browsers show safely.
@@ -138,7 +136,6 @@ export function isEmbeddableType(
 
 /**
  * Cleans a file name received from a browser.
- *
  * @param name - Name as sent.
  * @returns The name without path parts, control characters and the characters
  * file systems and headers object to; `file` when nothing is left.

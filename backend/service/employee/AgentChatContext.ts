@@ -20,8 +20,7 @@ import type { AgentMemoryAudience } from "./AgentMemorySharing";
 
 /**
  * The newest messages of a chat a new or restarted session gets even when a
- * summary covers them, so it never starts without the end of the chat
- * (PAGE-376).
+ * summary covers them, so it never starts without the end of the chat.
  */
 const RECENT_MESSAGES = 10;
 
@@ -34,7 +33,7 @@ export interface AgentChatTarget {
   readonly conversationId?: string;
 }
 
-/** What a session of an agent receives about its chat (PAGE-305). */
+/** What a session of an agent receives about its chat. */
 export interface AgentChatContextBrief {
   readonly audience: AgentMemoryAudience;
   /** `MEMORY.md` with the topics the rules of sharing give this chat. */
@@ -65,7 +64,6 @@ export interface AgentChatContextDependencies {
 
 /**
  * The chat of a job: the direct chat of its person or its stored conversation.
- *
  * @returns `null` for a run without a chat.
  */
 export function chatOfTarget(target: AgentChatTarget): AgentMemoryChat | null {
@@ -75,8 +73,8 @@ export function chatOfTarget(target: AgentChatTarget): AgentMemoryChat | null {
 }
 
 /**
- * Builds what a session of an agent knows about its chat (PAGE-305): the
- * history after the summary and at least its last messages (PAGE-376), the
+ * Builds what a session of an agent knows about its chat: the
+ * history after the summary and at least its last messages, the
  * summary itself, the topics of `MEMORY.md` and the related archive entries
  * its chat may receive.
  */
@@ -130,7 +128,6 @@ export class AgentChatContext {
 
   /**
    * Reads the context of one message of a chat.
-   *
    * @param target - The chat.
    * @param input - The chat session and the message the job answers.
    */
@@ -150,7 +147,7 @@ export class AgentChatContext {
     const boundary = stored
       ? transcript.findIndex((message) => message.id === stored.throughId)
       : -1;
-    // An empty summary marks a session renewed with `/new` (PAGE-380): it knows nothing of the old one.
+    // An empty summary marks a session renewed with `/new`: it knows nothing of the old one.
     const isRenewed = stored?.summary === "" && boundary >= 0;
     return {
       audience,
@@ -159,7 +156,7 @@ export class AgentChatContext {
         preamble: audience.people.length <= 1 ? document.preamble : "",
         entries,
       }),
-      // A lesson somebody switched off stays in the file but not in the session (PAGE-378).
+      // A lesson somebody switched off stays in the file but not in the session.
       dream: activeDreamDocument(employee?.dream ?? ""),
       related: (
         await memory.related(target.agentId, input.message, audience)

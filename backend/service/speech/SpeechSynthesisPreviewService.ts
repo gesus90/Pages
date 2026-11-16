@@ -87,8 +87,7 @@ function sampleKey(
 }
 
 /**
- * Speaks the fixed sample sentence of an agent with a voice and a speed (PAGE-300).
- *
+ * Speaks the fixed sample sentence of an agent with a voice and a speed.
  * @remarks
  * The text is fixed on the server ({@link agentVoiceSampleText}); only the
  * agent's stored name is filled in, so no client brings a text of its own.
@@ -112,7 +111,6 @@ export class SpeechSynthesisPreviewService {
 
   /**
    * Speaks the sample of an agent.
-   *
    * @param input - Name, voice, speed and language of the sample.
    * @returns The audio, or why there is none.
    */

@@ -163,9 +163,8 @@ async function readLimited(
 }
 
 /**
- * The reading operations of the Storage interface (PAGE-270): list, search,
+ * The reading operations of the Storage interface: list, search,
  * stat, resolve_path, read, download, quota.
- *
  * @remarks
  * Each call takes a freshly confirmed access of the instance connection, so
  * Google decides with the rights of the bound account; nothing is cached.
@@ -176,7 +175,6 @@ export class StorageFileReader {
 
   /**
    * Creates the reader.
-   *
    * @param connection - The Drive connection.
    * @param drive - The Drive client.
    */
@@ -187,7 +185,6 @@ export class StorageFileReader {
 
   /**
    * Lists one page of a folder, of the shared drives or of the trash.
-   *
    * @param request - Folder, page and page size.
    * @returns The folder and the page.
    */
@@ -221,7 +218,6 @@ export class StorageFileReader {
 
   /**
    * Searches entries by name outside the trash.
-   *
    * @param request - Text, optional folder, page and page size.
    * @returns One page of matches.
    */
@@ -258,7 +254,6 @@ export class StorageFileReader {
 
   /**
    * Reads the metadata of an entry, also one in the trash.
-   *
    * @param ref - The reference.
    * @returns The entry with its readable path.
    */
@@ -286,7 +281,6 @@ export class StorageFileReader {
 
   /**
    * Resolves a readable path into the direct reference of its entry.
-   *
    * @param path - `/Ordner/Datei` from My Drive or `/shared-drives/<Name>/…`.
    * @returns The entry; `ambiguous_path` names every candidate of a step
    * whose name several entries share.
@@ -331,7 +325,6 @@ export class StorageFileReader {
 
   /**
    * Returns the text of a file or the text export of a Google document, limited in size.
-   *
    * @param ref - The reference.
    * @param format - An export format for a Google document, else `null`.
    * @returns The text; binary files and large files are refused for `download`.
@@ -379,7 +372,6 @@ export class StorageFileReader {
 
   /**
    * Opens the bytes of a file, or of a Google document in a supported export format, as a stream.
-   *
    * @param ref - The reference.
    * @param format - The export format a Google document needs, else `null`.
    * @returns The stream with its type and file name.
@@ -414,7 +406,6 @@ export class StorageFileReader {
 
   /**
    * Reads the storage quota with `about.get`.
-   *
    * @returns Use, use in Drive and in the trash, and the limit.
    */
   public async quota(): Promise<StorageResult<StorageQuotaReading>> {
@@ -429,7 +420,6 @@ export class StorageFileReader {
 
   /**
    * Builds the readable path of an entry from its parents.
-   *
    * @param session - The access of the call.
    * @param entry - The entry.
    * @returns The path; `…` stands for parents the account cannot see.

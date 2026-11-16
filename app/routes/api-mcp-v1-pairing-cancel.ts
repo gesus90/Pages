@@ -8,7 +8,7 @@ import { getApplicationServices } from "@/app/lib/services.server";
 
 import type { Route } from "./+types/api-mcp-v1-pairing-cancel";
 
-/** Cancels a pairing on behalf of the machine that started it (`POST /api/mcp/v1/pairing/cancel`, PAGE-243). */
+/** Cancels a pairing on behalf of the machine that started it (`POST /api/mcp/v1/pairing/cancel`). */
 export async function action({ request }: Route.ActionArgs): Promise<Response> {
   if (request.method !== "POST") return mcpDeviceMethodNotAllowed("POST");
   try {

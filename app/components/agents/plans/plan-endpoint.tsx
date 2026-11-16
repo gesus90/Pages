@@ -30,7 +30,6 @@ interface PlanEndpointProps {
 /**
  * Compact horizontal checkpoints: the icon left of the name, the run status
  * and the menu at the right, and only their legal flow port.
- *
  * @remarks
  * The cards keep their stored coordinates. The icon only marks the node; it
  * starts nothing.

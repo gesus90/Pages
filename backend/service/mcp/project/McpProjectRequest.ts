@@ -166,7 +166,7 @@ function decodeIcon(body: unknown): McpProjectIconRequest {
   return { mimeType: icon.mimeType, data: image };
 }
 
-/** Validators of every body and query the project API takes (PAGE-244). */
+/** Validators of every body and query the project API takes. */
 export const McpProjectRequest = {
   overview: (query: URLSearchParams): { readonly isArchived: boolean } => ({
     isArchived: parse(overviewQuerySchema, queryObject(query)).archived === "1",

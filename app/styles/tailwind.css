@@ -3,7 +3,7 @@
 @import "@xterm/xterm/css/xterm.css";
 @import "./materials.css";
 
-/* Dark theme (PAGE-29). `data-theme` on the document root is `light`, `dark`
+/* Dark theme. `data-theme` on the document root is `light`, `dark`
    or `system`; the server renders it, so no script is needed to choose a
    palette. An explicit `dark` always applies, `system` only while the
    operating system prefers dark, and `light` never. */
@@ -66,7 +66,7 @@
   --color-metric-tertiary-subtle: var(--color-primary-subtle);
   --color-metric-quaternary-subtle: var(--color-primary-subtle);
   --color-trend-positive: var(--color-green-600);
-  /* Load levels of the system dashboard (PAGE-282): below 60 % normal, from
+  /* Load levels of the system dashboard: below 60 % normal, from
      60 % elevated, from 80 % high, from 90 % critical; rings, bars and curves. */
   --color-load-normal: #10b981;
   --color-load-elevated: #eab308;
@@ -97,8 +97,8 @@
   --color-terminal-accent: #c4a2ff;
   --color-terminal-cyan: #67d5e5;
 
-  /* The Pages terminal of agent nodes (PAGE-284) follows the active theme and
-     design (PAGE-289): bold prompts, grey hints, tools, todos and resumes in
+  /* The Pages terminal of agent nodes follows the active theme and
+     design: bold prompts, grey hints, tools, todos and resumes in
      the status colors of the design. */
   --color-agent-terminal-surface: var(--color-panel-body);
   --color-agent-terminal-foreground: var(--color-foreground);
@@ -127,7 +127,7 @@
   );
   --color-agent-console-danger-foreground: var(--color-surface);
 
-  /* Syntax colors and diff rows of the chat content cards (PAGE-298). The
+  /* Syntax colors and diff rows of the chat content cards. The
      code surface is `panel-body`, cards use `surface`. The colors follow the
      status tokens and the muted text of the active design; a fifth of the
      text color lifts each to 4.5:1 on both surfaces and on the diff rows in
@@ -200,12 +200,12 @@
   --color-plan-loop: #c2410c;
   --color-plan-loop-edge: #cf5a3b;
   --color-plan-loop-subtle: #fff1ec;
-  /* Indigo identifies the swarm node (PAGE-313), apart from agent cyan, group
+  /* Indigo identifies the swarm node, apart from agent cyan, group
      turquoise, parameter violet and loop orange. */
   --color-plan-swarm: #4338ca;
   --color-plan-swarm-edge: #6366f1;
   --color-plan-swarm-subtle: #eef0fd;
-  /* Calendars of the calendar page (PAGE-301): own events, invitations,
+  /* Calendars of the calendar page: own events, invitations,
      deadlines and a rotating set for projects. Entries fill with a muted mix
      of their calendar color and the surface; the strength differs per theme.
      An open invitation is outlined dashed. */
@@ -270,11 +270,11 @@
   --color-plan-stack: #4338ca;
   --color-plan-stack-edge: #6366f1;
   --color-plan-stack-subtle: #eef0fd;
-  /* PAGE-268: the olive family of asset sources. */
+  /* The olive family of asset sources. */
   --color-plan-asset: #4d7c0f;
   --color-plan-asset-edge: #65a30d;
   --color-plan-asset-subtle: #f1f6e4;
-  /* PAGE-272: the type tiles of the Storage list; the tile tints the same
+  /* The type tiles of the Storage list; the tile tints the same
      color, unknown files keep the muted text color. */
   --color-file-folder: #ea7a12;
   --color-file-document: #2563eb;
@@ -366,7 +366,7 @@
   --color-avatar-lilac: #f1eef4;
   --color-avatar-lilac-foreground: #5a3f6a;
 
-  /* Virtual chat participants (PAGE-254): the name color and the light tint
+  /* Virtual chat participants: the name color and the light tint
      behind the initial of the avatar. Pica uses the primary color. */
   --color-participant-indigo: #4f46e5;
   --color-participant-indigo-subtle: #eef0fd;
@@ -377,7 +377,7 @@
   --color-participant-lime: #4d9a0f;
   --color-participant-lime-subtle: #f0f8e6;
 
-  /* Auth-Bereich (Login, Setup-Wizard), DESIGN.md §14.1 */
+  /* Auth-Bereich (Login, Setup-Wizard) */
   --color-auth-glow-warm: #ffe8d6;
   --color-auth-glow-cool: #dbe7ff;
   --color-auth-button-from: #ffa25e;
@@ -407,7 +407,7 @@
   --shadow-xs:
     0 1px 2px rgb(var(--shadow-ink) / calc(5% * var(--shadow-strength))),
     0 0 0 1px rgb(var(--shadow-edge) / var(--shadow-edge-alpha));
-  /* A design may replace the depth of cards with `--card-depth` (PAGE-288). */
+  /* A design may replace the depth of cards with `--card-depth`. */
   --shadow-card:
     var(
       --card-depth,
@@ -483,7 +483,7 @@
   --scroll-fade-vertical: 40px;
   --scroll-fade-horizontal: 48px;
   --scroll-fade-duration: 200ms;
-  /* Texture and edge of the sidebar; a design theme may set them (PAGE-129). */
+  /* Texture and edge of the sidebar; a design theme may set them. */
   --sidebar-texture: none;
   --sidebar-texture-size: auto;
   --sidebar-texture-repeat: repeat;
@@ -498,7 +498,7 @@
   --page-texture: none;
   --card-texture: none;
   /* Optional painting behind the content and in the free space of the
-     navigation (PAGE-288); empty unless a design theme shows it. */
+     navigation; empty unless a design theme shows it. */
   --app-scene-display: none;
   --app-scene-isolation: auto;
   --app-scene-image: none;
@@ -511,7 +511,7 @@
   --sidebar-scene-filter: none;
   --sidebar-tree-flex: 1;
   /* A sticky heading covers what scrolls below it with this surface and the
-     fade below it; a design with a painting uses its veil (PAGE-324). */
+     fade below it; a design with a painting uses its veil. */
   --sticky-band-rest-opacity: 1;
   --sticky-band-surface: var(--color-background);
   --sticky-band-filter: none;
@@ -567,7 +567,7 @@
   --space-small: 0.5rem;
   --space-medium: 1rem;
   --space-large: 1.5rem;
-  /* Share of the calendar color in the fill of a calendar entry (PAGE-301). */
+  /* Share of the calendar color in the fill of a calendar entry. */
   --calendar-fill-strength: 16%;
 
   @variant dark {
@@ -807,7 +807,7 @@
     min-height: 20rem;
   }
   /*
-   * PAGE-325: a page that never scrolls the document from 768 px on. Its
+   * A page that never scrolls the document from 768 px on. Its
    * height comes from a flex chain down from the viewport instead of a fixed
    * sum, so a notice above it (offline, saving) takes its room from the page
    * and no longer pushes it below the screen.
@@ -831,7 +831,7 @@
       min-height: 0;
     }
   }
-  /* Inhalt des Nutzers in einem nicht markierbaren Bereich (DESIGN.md §10.1). */
+  /* Inhalt des Nutzers in einem nicht markierbaren Bereich. */
   .pages-selectable {
     user-select: text;
     -webkit-touch-callout: default;

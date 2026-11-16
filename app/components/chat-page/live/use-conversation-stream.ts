@@ -41,7 +41,6 @@ function isLiveType(type: unknown): type is LiveAnswerEventPayload["type"] {
 
 /**
  * The live part a frame carries, or `null` for every other frame.
- *
  * @remarks
  * Only the shape that tells parts apart is checked: the server is the
  * page's own, and an unknown event is ignored, as the protocol asks.
@@ -104,8 +103,7 @@ function useGatheredRevalidate(): () => void {
 
 /**
  * Follows the answers agents are writing over `conversations.v1` on the
- * Pages port (PAGE-381).
- *
+ * Pages port.
  * @remarks
  * The page connects with the session of its cookie and the server's rights
  * checks; it receives only the parts of chats its account belongs to, and

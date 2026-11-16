@@ -315,9 +315,9 @@ function AgentToolbar({
 }
 
 /**
- * The tab "Agents" of the user administration (PAGE-266): search, "Agent
+ * The tab "Agents" of the user administration: search, "Agent
  * erstellen", the count and the table of agents; people are never listed.
- * The menu of a row opens the popup "Agent-Einstellungen" (PAGE-376), the
+ * The menu of a row opens the popup "Agent-Einstellungen", the
  * same one the chat opens.
  */
 export function AgentDirectory({

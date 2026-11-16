@@ -66,12 +66,10 @@ function memberCheck(
 
 /**
  * Checks the boolean of a while loop before an iteration.
- *
  * @param loop - The frozen loop.
  * @param plan - The frozen plan with the bound parameter.
  * @param record - The loop's state, with the iterations so far.
  * @returns The check to record, or the failure.
- *
  * @remarks
  * Every check reads its value anew, the first one included: the bound
  * parameter before the first iteration, afterwards the newest result of the

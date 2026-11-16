@@ -49,10 +49,9 @@ export const STORAGE_MAX_UPLOAD_BYTES = 64 * 1024 * 1024;
 type WriteSession = StorageResult<StorageSession>;
 
 /**
- * The changing operations of the Storage interface (PAGE-270): upload,
+ * The changing operations of the Storage interface: upload,
  * update, copy, move, rename, delete (trash), create_folder, restore,
  * delete_permanently and confirm.
- *
  * @remarks
  * Nothing is overwritten silently: a name taken in the target folder fails
  * with `name_conflict` unless the caller chose `keep_both`, and replacing
@@ -68,7 +67,6 @@ export class StorageFileWriter {
 
   /**
    * Creates the writer.
-   *
    * @param connection - The Drive connection.
    * @param drive - The Drive client.
    * @param confirmations - The open confirmations.
@@ -86,7 +84,6 @@ export class StorageFileWriter {
 
   /**
    * Creates a folder.
-   *
    * @param request - Parent, name and conflict policy.
    * @returns The new folder.
    */
@@ -129,7 +126,6 @@ export class StorageFileWriter {
 
   /**
    * Uploads a new file, or replaces the one file of the same name after a confirmation.
-   *
    * @param request - Parent, name, type, bytes, conflict policy and confirmation.
    * @returns The new or replaced file.
    */
@@ -185,7 +181,6 @@ export class StorageFileWriter {
 
   /**
    * Replaces the bytes of a file after a confirmation bound to its current version.
-   *
    * @param request - File, type, bytes and confirmation.
    * @returns The changed file, or `confirmation_required` with the confirmation to show.
    */
@@ -218,7 +213,6 @@ export class StorageFileWriter {
 
   /**
    * Copies a file, or a folder tree entry by entry.
-   *
    * @param request - Original, target folder, name and conflict policy.
    * @returns The copy and how many entries were created.
    */
@@ -272,7 +266,6 @@ export class StorageFileWriter {
 
   /**
    * Moves an entry into another folder; its reference stays the same.
-   *
    * @param request - Entry, target folder and conflict policy.
    * @returns The moved entry.
    */
@@ -330,7 +323,6 @@ export class StorageFileWriter {
 
   /**
    * Renames an entry; its reference stays the same.
-   *
    * @param request - Entry, new name and conflict policy.
    * @returns The renamed entry.
    */
@@ -383,7 +375,6 @@ export class StorageFileWriter {
 
   /**
    * Moves an entry to the trash; a folder needs a confirmation that shows its scope.
-   *
    * @param request - Entry and confirmation.
    * @returns The entry in the trash.
    */
@@ -424,10 +415,8 @@ export class StorageFileWriter {
 
   /**
    * Takes an entry back out of the trash into its former folder.
-   *
    * @param request - The entry.
    * @returns The restored entry.
-   *
    * @remarks
    * Drive allows equal names, so a restore never replaces another entry; an
    * entry that is only in the trash with a folder above it is restored with
@@ -462,7 +451,6 @@ export class StorageFileWriter {
 
   /**
    * Deletes an entry for good, a folder with its whole tree, after a confirmation.
-   *
    * @param request - Entry and confirmation.
    * @returns What was deleted, or `confirmation_required` with scope and token.
    */
@@ -511,7 +499,6 @@ export class StorageFileWriter {
 
   /**
    * Issues a confirmation before an action, with the scope of a folder.
-   *
    * @param request - Entry and action.
    * @returns The confirmation to show and send back with the action.
    */

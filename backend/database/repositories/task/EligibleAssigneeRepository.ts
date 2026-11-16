@@ -44,7 +44,6 @@ export class EligibleAssigneeRepository {
 
   /**
    * Creates an eligible assignee repository.
-   *
    * @param database - Central database access.
    */
   public constructor(database: TaskDatabase) {
@@ -53,7 +52,6 @@ export class EligibleAssigneeRepository {
 
   /**
    * Returns every active user who could be assigned to a ticket.
-   *
    * @remarks
    * Whether a person may work in a particular project is a decision of the
    * current account facts (department scope), taken by the service that
@@ -84,7 +82,6 @@ export class EligibleAssigneeRepository {
 
   /**
    * Returns the candidates once for every requested project.
-   *
    * @param projectIds - Projects the caller asks candidates for.
    * @returns The same ordered candidates under each project id; the empty map
    * for no projects, without querying.

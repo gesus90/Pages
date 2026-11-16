@@ -45,7 +45,6 @@ export interface PlanInput {
 
 /**
  * Quotes a table or column name that comes from a catalog.
- *
  * @param identifier - The name.
  * @returns The name for a statement of either database.
  */
@@ -55,7 +54,6 @@ export function quoteIdentifier(identifier: string): string {
 
 /**
  * The select list of a table, the same for both databases.
- *
  * @param plan - The table.
  * @returns The quoted columns in column order.
  */
@@ -65,10 +63,8 @@ export function columnListOf(plan: TablePlan): string {
 
 /**
  * The sort order of a table, the same for both databases.
- *
  * @param plan - The table.
  * @returns The `ORDER BY` terms.
- *
  * @remarks
  * Text sorts by its bytes in both: DuckDB always, PostgreSQL because
  * `Database.connect` refuses another locale.

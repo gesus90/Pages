@@ -38,7 +38,6 @@ export interface AgentPlanStepSnapshot {
 
 /**
  * What a resumed run does differently for the work it runs again.
- *
  * @remarks
  * Server-only like the rest of the snapshot. A session listed here is
  * continued through the adapter's own resume; every other retried node
@@ -82,13 +81,11 @@ export interface AgentPlanSnapshot {
 
 /**
  * The working directory of a plan node.
- *
  * @param step - The provider and the prepared parameters of the node.
  * @returns The workspace of the agent's explicit directory parameter, which
  * takes precedence; for an ACP agent (Codex CLI, Claude Code or OpenCode) without one
  * the workspace of the plan; otherwise `null`, and a CLI node of another
  * runner needs the parameter.
- *
  * @remarks
  * Both workspaces were resolved through the executor's workspace rights, and
  * their path and directory identity are checked again right before the node

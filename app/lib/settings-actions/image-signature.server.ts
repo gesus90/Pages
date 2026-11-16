@@ -2,7 +2,6 @@ const MINIMUM_IMAGE_BYTES = 12;
 
 /**
  * Checks that an image begins with the magic bytes of its MIME type.
- *
  * @param buffer - The uploaded file.
  * @param mimeType - The type the browser announced.
  * @returns Whether the content looks like a JPEG, PNG, or WebP image of that type.

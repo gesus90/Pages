@@ -86,9 +86,9 @@ interface ChatDependencies {
     "pending" | "link" | "readText"
   > &
     Partial<Pick<ChatAttachmentService, "readBytes">>;
-  /** Links the files Pica wrote to its answer, or removes them without one (PAGE-92). */
+  /** Links the files Pica wrote to its answer, or removes them without one. */
   readonly answerFiles?: Pick<ChatAnswerFileService, "claim" | "discard">;
-  /** Records how each attachment of a message reached the agent (PAGE-92). */
+  /** Records how each attachment of a message reached the agent. */
   readonly selections?: (
     sessionId: string,
     selection: ChatSelection,
@@ -130,7 +130,7 @@ interface ChatSendRequest {
   readonly requestId: string;
   /**
    * The ID the browser gave the message; it stays the same when the browser
-   * sends the message again, so the server stores it once (PAGE-68).
+   * sends the message again, so the server stores it once.
    */
   readonly clientMessageId: string | null;
   readonly sessionId: string;
@@ -232,15 +232,15 @@ function readAnswer(text: string): string {
 }
 
 /**
- * The global chat agent Pica (T6.12).
+ * The global chat agent Pica.
  *
  * @remarks
  * Every message resolves the chat assignment anew for the person who sends it,
  * so a running answer keeps its access and model while the next message uses
- * the current assignment (T6.1.18). Every message also reads Pica's protected
- * `SOUL.md` and `AGENTS.md` anew (PAGE-51). Production uses ACP jobs;
+ * the current assignment. Every message also reads Pica's protected
+ * `SOUL.md` and `AGENTS.md` anew. Production uses ACP jobs;
  * the explicitly selected legacy mode retains the text loop for compatibility.
- * Both modes limit actions and use the person's current rights (T6.12.5).
+ * Both modes limit actions and use the person's current rights.
  * Neither credentials nor server paths enter a prompt, and nothing of the
  * conversation is logged.
  */
@@ -271,7 +271,7 @@ export class ChatService {
   }
 
   /**
-   * Sends one message on the path its agent requires (PAGE-68).
+   * Sends one message on the path its agent requires.
    *
    * @param actor - The signed-in person.
    * @param input - Request ID, client message ID, session, text and the IDs of

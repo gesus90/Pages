@@ -25,7 +25,6 @@ export interface StorageTrashModel {
 /**
  * Loads the trash of the connected Drive: the entries put into it themselves,
  * which are the ones that can be restored.
- *
  * @returns The trash model of the view.
  */
 export function useStorageTrash(): StorageTrashModel {

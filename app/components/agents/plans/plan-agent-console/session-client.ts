@@ -23,7 +23,6 @@ function failure(body: unknown, fallback: string): string {
 
 /**
  * Reads the view and one history page of a session after a cursor.
- *
  * @param address - The session's route, from `sessionAddress`.
  * @param after - The last sequence the console holds.
  * @param signal - Aborts the read when the console switches or closes.

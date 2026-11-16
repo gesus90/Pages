@@ -41,11 +41,9 @@ function readScenario(input: string | undefined): SpeechSimulationScenario {
 }
 
 /**
- * Reads the simulation switch of the speech recognition (PAGE-273).
- *
+ * Reads the simulation switch of the speech recognition.
  * @param environment - The environment, the process's own by default.
  * @returns Active only with `PAGES_STT_SIMULATION=1` outside production.
- *
  * @remarks
  * With `NODE_ENV=production` the switch is ignored and the ignoring is
  * logged, so a production instance never offers the simulated model and a

@@ -9,12 +9,11 @@ import type { CliSessionExit, CliSessionProcess } from "./CliSessionProcess";
 
 /**
  * What contains every process of a session, so its end proves that none is left.
- *
  * @remarks
  * `pid_namespace`: the tracked process is the init of an owned PID namespace.
  * `worker_unit`: the session runs in limited transient units of the service
  * manager whose names carry its tag, and the tracked process is the client of
- * one; its exit is reported only after that unit settled (PAGE-335, PAGE-340).
+ * one; its exit is reported only after that unit settled.
  * An unisolated YOLO chat uses this frame. `none`: nothing proves containment.
  */
 export type CliSessionContainment = "pid_namespace" | "worker_unit" | "none";
@@ -25,14 +24,12 @@ const TERMINATION_WAIT_MS = 10_000;
 
 /**
  * Ends the process of a session, then every process of it that is left.
- *
  * @param process - The runner process of the session.
  * @param instanceId - The tag every process of the session carries.
  * @param scope - The boundary captured before spawning; defaults to this server's start.
  * @param containment - What contains every process of the session.
  * @returns The actual exit, how many processes outlived the runner and
  * whether none is left.
- *
  * @remarks
  * Closing the input lets a runner end on its own; after the grace period its
  * process is terminated. Legacy sessions without an owned boundary remain
@@ -40,9 +37,9 @@ const TERMINATION_WAIT_MS = 10_000;
  * A caller may pass `pid_namespace` only for a tracked namespace supervisor:
  * its exit tears down the namespace and every descendant, including a child
  * that left the process group. `worker_unit` is for a process started in a
- * limited unit: its exit is reported after the unit stopped (PAGE-340), and
+ * limited unit: its exit is reported after the unit stopped, and
  * the closeout stops the units of the session and confirms only when none of
- * them runs any more (PAGE-335). A unit-settlement failure stays
+ * them runs any more. A unit-settlement failure stays
  * unconfirmed.
  */
 export async function closeCliSession(

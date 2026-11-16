@@ -75,7 +75,7 @@ interface PlanPanelHeadingProps {
  * Saving the graph and the run controls are separate: Starten never saves,
  * and Speichern never starts a run. Collapsed, the heading is one row
  * without its notes; only the button that lifts a block of Fortsetzen joins
- * the run controls (PAGE-338).
+ * the run controls.
  */
 export function PlanPanelHeading(
   props: PlanPanelHeadingProps,

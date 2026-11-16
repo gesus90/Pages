@@ -6,8 +6,7 @@ import {
 } from "react-router";
 
 /**
- * Marks a request of the static app for one of the API's data endpoints (PAGE-235).
- *
+ * Marks a request of the static app for one of the API's data endpoints.
  * @remarks
  * The API answers a redirect to such a request with `204` and
  * {@link REDIRECT_HEADER} instead of `3xx`, so the browser does not load the
@@ -51,7 +50,6 @@ function isRouteResult(value: unknown): value is RouteResult {
 
 /**
  * The headers of a request of the static app to a data endpoint.
- *
  * @param init - Headers the caller sends as well.
  */
 export function backendRequestHeaders(init?: HeadersInit): Headers {
@@ -62,7 +60,6 @@ export function backendRequestHeaders(init?: HeadersInit): Headers {
 
 /**
  * The redirect a data endpoint's answer asks for, if any.
- *
  * @param response - The API's answer to a request with {@link DATA_REQUEST_HEADER}.
  * @returns A redirect of the app, or `null`.
  */

@@ -42,7 +42,6 @@ function deleteBlocker(
 
 /**
  * The plan menu behind ⋯: Neu, Bearbeiten, Klonen, Als Einmal-Plan kopieren and Entfernen.
- *
  * @remarks
  * Each entry opens a dialog and changes nothing by itself. An entry that is
  * not available names why; the server checks every request again.
@@ -119,7 +118,7 @@ export function PlanPanelMenu(props: {
   );
 }
 
-/** Teams und Besitzer, Verlauf and, for administrators, Skripte freigeben (PAGE-329). */
+/** Teams und Besitzer, Verlauf and, for administrators, Skripte freigeben. */
 function PlanAccessMenuItems(props: {
   readonly page: AgentPlanPage;
   readonly onOpen: (dialog: PlanManagementDialog) => void;

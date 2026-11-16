@@ -39,7 +39,6 @@ interface ActiveMarks {
 /**
  * Tells whether the toolbar belongs to a selection: text is selected in an
  * editable document, outside of code, where formatting does not apply.
- *
  * @param editor - The editor.
  * @param state - The editor state.
  * @returns Whether the toolbar shows.

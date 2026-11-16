@@ -26,7 +26,6 @@ interface TabsProps {
 
 /**
  * Renders a segmented tab control built on Radix Tabs.
- *
  * @remarks
  * Used for compact view and filter switches.
  */

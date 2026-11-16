@@ -25,7 +25,6 @@ export function sanitizePlanOutput(output: string): string {
 /**
  * Prepares text for a file that stays on disk: credential-shaped text is masked
  * and a cut at the length limit says so.
- *
  * @param text - Prompt, result or definition text.
  * @returns The masked text, with a note when it was shortened.
  */

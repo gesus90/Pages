@@ -15,7 +15,6 @@ export const SPEECH_MAXIMUM_BYTES = 25 * 1024 * 1024;
 
 /**
  * The audio formats Pages passes on unchanged.
- *
  * @remarks
  * WAV and MP3 are the formats both connected providers accept: the
  * transcription API of OpenRouter takes `wav` and `mp3`, Z.AI's transcription
@@ -56,16 +55,15 @@ export interface SpeechSettings {
 
 /**
  * Whether speech recognition can run.
- *
  * - `ready`: the chosen model is one of the listed speech models.
  * - `noModel`: no model is chosen.
  * - `modelUnavailable`: the chosen model is no longer offered, for example
  *   because its connection was removed or switched off.
  * - `modelUnsuitable`: the catalog of the chosen model's connection still
  *   lists it, but not as a transcription model ({@link isTranscriptionModel}),
- *   such as a chat model that also accepts audio (PAGE-294).
+ *   such as a chat model that also accepts audio.
  * - `modelNotInCatalog`: the chosen model's OpenRouter connection is usable,
- *   but its catalog no longer lists the model (PAGE-302). Nothing switches
+ *   but its catalog no longer lists the model. Nothing switches
  *   to another model.
  */
 export type SpeechStatus =
@@ -95,12 +93,10 @@ export type SpeechTestOutcome =
   | { readonly ok: false; readonly code: SpeechErrorCode };
 
 /**
- * Whether a catalog model is a speech-to-text model (PAGE-294).
- *
+ * Whether a catalog model is a speech-to-text model.
  * @param model - The modalities its catalog states.
  * @returns `true` only when the catalog states audio among the inputs and
  * `transcription` among the outputs.
- *
  * @remarks
  * This is OpenRouter's documented capability of the models its
  * `/audio/transcriptions` endpoint runs
@@ -119,7 +115,6 @@ export function isTranscriptionModel(
 
 /**
  * Whether a number is one of the choices of the longest recording.
- *
  * @param value - A submitted or stored number of milliseconds.
  * @returns `true` for 60000, 120000 and 300000.
  */
@@ -139,7 +134,6 @@ const MIME_ALIASES: Readonly<Record<string, SpeechMimeType>> = {
 
 /**
  * Reads the audio format of a declared MIME type.
- *
  * @param value - The declared type, such as `audio/wav` or `audio/mpeg;
  * codecs=mp3`.
  * @returns The format, or `null` for every other type.
@@ -151,7 +145,6 @@ export function readSpeechMimeType(value: string): SpeechMimeType | null {
 
 /**
  * The longest recording that applies.
- *
  * @param maxDurationMs - The administrator's choice.
  * @param modelLimitMs - The limit the model states; `null` without one.
  * @returns The shorter of both.

@@ -5,7 +5,6 @@ const TRAILING_PUNCTUATION = /[.\-_]+$/u;
 
 /**
  * Reads the people a text mentions with `@user name`.
- *
  * @param text - Page text or comment.
  * @returns The user names, each once and without the punctuation that ends a
  * sentence, in order of appearance.
@@ -37,10 +36,8 @@ export interface MentionSource {
 /**
  * Stores who a text mentions, keeping the records of people that were
  * mentioned before so that nothing becomes unread again.
- *
  * @param repository - Wiki persistence, usually bound to a transaction.
  * @param source - The text and where it belongs.
- *
  * @remarks
  * Only active accounts are recorded; whether a mentioned person may see the
  * page is decided when they open "For me", not here.

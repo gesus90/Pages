@@ -40,7 +40,6 @@ async function requireOpenField(element: PicaBrowserElement): Promise<void> {
 
 /**
  * Types text into a field or into the focused element.
- *
  * @param session - The browser.
  * @param input - The validated tool input.
  * @returns A short description for the action log.
@@ -106,7 +105,6 @@ async function fillField(
 
 /**
  * Fills several form fields in order and optionally submits the form.
- *
  * @param session - The browser.
  * @param input - The validated tool input.
  * @returns A short description for the action log.

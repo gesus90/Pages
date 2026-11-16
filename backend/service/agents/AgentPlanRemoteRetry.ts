@@ -78,7 +78,6 @@ async function resetRemoteStep(
 
 /**
  * Retries a remote one-shot after a technical session failure.
- *
  * @remarks
  * Reading work may always start again as a fresh job. A writing job needs the
  * evidence of a runner with continuation support: its native session resumes,

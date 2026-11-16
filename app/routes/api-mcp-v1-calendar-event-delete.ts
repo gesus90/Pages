@@ -25,8 +25,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpCalendarHandlers {
 
 /**
  * Deletes an event or a scope of a series after a confirmed question
- * (`POST /api/mcp/v1/calendar/events/{id}/delete`, delete_calendar_event), PAGE-301.
- *
+ * (`POST /api/mcp/v1/calendar/events/{id}/delete`, delete_calendar_event).
  * @remarks
  * Only the device token of a paired machine admits a request. Without
  * `confirmed: true` nothing changes and the answer is the question.

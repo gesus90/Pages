@@ -24,7 +24,7 @@ async function requireAdministrator(actor: User | null): Promise<Services> {
 
 /**
  * Lists the domains an administrator released for embedding in every
- * conversation (PAGE-298): `GET /settings-api/embed-domains`.
+ * conversation: `GET /settings-api/embed-domains`.
  */
 export async function loader({ context }: Route.LoaderArgs): Promise<Response> {
   const services = await requireAdministrator(

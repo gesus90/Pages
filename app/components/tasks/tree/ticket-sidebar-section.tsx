@@ -137,9 +137,8 @@ function TicketNavigation({
 
 /**
  * The ticket navigation as indented section below "Aufgaben" in the main
- * sidebar, shown on every ticket page (A8 §2, A8.2-E08): Kanban board,
+ * sidebar, shown on every ticket page: Kanban board,
  * hierarchy and the tree Initiative → Epic → Task → Subtask.
- *
  * @remarks
  * It reads the data the ticket layout already loaded, so the sidebar needs
  * no request of its own; the mobile menu shows the same section.

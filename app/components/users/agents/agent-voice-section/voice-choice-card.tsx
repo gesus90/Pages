@@ -217,7 +217,7 @@ function VoiceListLabel({
 
 /**
  * The card "Stimme": the voices of the instance's model, or a voice ID
- * field without a list, and the speed (PAGE-300).
+ * field without a list, and the speed.
  */
 export function VoiceChoiceCard(
   props: VoiceChoiceCardProps,

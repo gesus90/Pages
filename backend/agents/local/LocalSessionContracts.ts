@@ -378,7 +378,6 @@ export type LocalSessionLaunch = z.infer<typeof localLaunchSchema>;
 
 /**
  * The Pages tool access of a restored native session as the plan engine sees it.
- *
  * @param launch - The stored turn request of the session.
  * @returns The address and tools without a bearer: the bearer lives only in
  * the memory of the owner, and the engine never needs it again.
@@ -397,7 +396,6 @@ export type LocalSessionCommand = z.infer<typeof localCommandSchema>;
 /**
  * Builds and validates an immutable native turn request without exposing any
  * plan bridge bearer token.
- *
  * @param input - Execution input carrying prompt, options and recording key.
  * @param instanceId - UUID of the owning native session unit.
  * @param mcp - Optional MCP address and allowed tool names without bearer.

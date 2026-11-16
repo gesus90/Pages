@@ -39,8 +39,7 @@ function nameKey(name: string): string {
 }
 
 /**
- * The templates of `AGENT.md` of the instance (PAGE-283).
- *
+ * The templates of `AGENT.md` of the instance.
  * @remarks
  * A name is unique without regard to case; a second template of the same
  * name fails on the constraint of `name_key`.

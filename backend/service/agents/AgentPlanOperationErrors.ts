@@ -133,10 +133,8 @@ function translateAgentError(error: AgentError): AgentOperationError {
 
 /**
  * Turns the failures of the plan services into the fixed codes of the agent API.
- *
  * @param error - Whatever the plan service, the graph check or the text check threw.
  * @returns The agent API error for a business failure, or the error unchanged.
- *
  * @remarks
  * No message is passed on, only its class and, for the graph check, the
  * node, port and name of every finding, which hold no content.

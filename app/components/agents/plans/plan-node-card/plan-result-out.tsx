@@ -9,7 +9,6 @@ import { PLAN_NODE_TEXT } from "../plan-node-text";
 
 /**
  * The violet data OUT that hands an agent's or a script's result to a later node.
- *
  * @remarks
  * An agent's row reads "Ergebnis OUT", apart from its boolean result; a
  * script's row names its declared output. A text result can also end at the

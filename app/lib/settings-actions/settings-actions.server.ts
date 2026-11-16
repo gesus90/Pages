@@ -37,7 +37,6 @@ const SETTINGS_ACTION_HANDLERS = {
 
 /**
  * Runs the personal settings action a form submission asks for.
- *
  * @param intent - The `intent` field of the submitted form.
  * @param context - User, request, form fields and services of the request.
  * @returns The response for the client.

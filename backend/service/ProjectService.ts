@@ -79,7 +79,6 @@ export class ProjectService {
 
   /**
    * Creates a project service.
-   *
    * @param projectRepository - Project persistence boundary.
    * @param permissionService - Role and permission authorization boundary.
    * @param tokenKey - Server-side key encrypting GitHub tokens, when sync is used.
@@ -104,14 +103,12 @@ export class ProjectService {
 
   /**
    * Returns the service for another surface that shares storage, cache and deletion effects.
-   *
    * @remarks
    * Only the administrator reading differs: MCP counts a personal administrator
    * regardless of the role mode of the browser, the interface does not. The
    * server wiring alone chooses the channel. `canManageProjects`,
    * `canCreateProjects` and `findActivity` keep the interface reading of the
    * permission service.
-   *
    * @param channel - The surface the returned service acts for.
    */
   public forChannel(channel: ActorChannel): ProjectService {
@@ -133,8 +130,7 @@ export class ProjectService {
 
   /**
    * Registers who hears that the planning dates of a project changed; the
-   * calendar shows them (PAGE-301).
-   *
+   * calendar shows them.
    * @param listener - Receives the project; it must not throw.
    */
   public onDatesChanged(listener: (projectId: string) => void): void {
@@ -158,7 +154,6 @@ export class ProjectService {
 
   /**
    * Creates a project owned by the authorized actor.
-   *
    * @param actor - The creating account.
    * @param project - The new project.
    * @param options - Whether a project the actor could not read is refused.
@@ -243,7 +238,6 @@ export class ProjectService {
 
   /**
    * Creates from an accessible template with explicit assignments.
-   *
    * @param actor - The creating account.
    * @param templateId - The template to start from.
    * @param input - The new project.

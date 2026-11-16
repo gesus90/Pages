@@ -3,18 +3,16 @@ import { useRevalidator } from "react-router";
 
 const POLL_INTERVAL_MS = 30_000;
 const MIN_CHECK_GAP_MS = 1_000;
-/** Answers of the static app's entrance while the backend behind it is down (PAGE-235). */
+/** Answers of the static app's entrance while the backend behind it is down. */
 const UNREACHABLE_STATUSES: ReadonlySet<number> = new Set([502, 503, 504]);
 
 /**
  * Refreshes stale permissions across devices; server checks remain authoritative immediately.
  * Polls only while the tab is visible, and checks once when it becomes visible or focused again.
- *
  * @remarks
  * While the live stream is open, the server compares the fingerprint itself
  * and sends `resync`, so this hook stays silent. Its polling is the fallback
  * for a page without a stream.
- *
  * @param version - The authorization fingerprint the page was loaded with.
  * @param isLive - Whether the live stream is open right now.
  * @returns Whether the last check failed for lack of a connection.

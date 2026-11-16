@@ -33,8 +33,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpWorkspaceHandlers {
 }
 
 /**
- * Reads a connection (`GET /api/mcp/v1/remote-connections/{id}`) and changes it (`PATCH`), PAGE-245 interface 10 and 13.
- *
+ * Reads a connection (`GET /api/mcp/v1/remote-connections/{id}`) and changes it (`PATCH`).
  * @remarks
  * Only the device token of a paired machine admits a request. Changing needs the administrator role.
  */

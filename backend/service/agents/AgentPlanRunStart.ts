@@ -35,11 +35,9 @@ export interface RecoveredRunStart {
 
 /**
  * The view of a new run: every node waits, with a fresh identity.
- *
  * @remarks
  * The steps are stored in the order of the flow edges, Start first, so the
  * run keeps the numbering of the revision it executes.
- *
  * @param userId - The executor.
  * @param snapshot - The prepared revision.
  */
@@ -83,7 +81,6 @@ export function initialPlanRun(
 
 /**
  * The view of a run that a restart or resume of an earlier run starts.
- *
  * @remarks
  * Taken-over results keep their status, output and session record; the
  * scheduler treats them as completed dependencies and never starts them
@@ -145,7 +142,6 @@ function retryActivation(previous: AgentPlanStepResult): number | undefined {
 
 /**
  * The role a node hands to its result in the run.
- *
  * @param node - A node of the frozen plan.
  * @returns The field to spread into the result; empty for an ordinary work step.
  */

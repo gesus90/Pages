@@ -21,10 +21,8 @@ export interface GoogleDriveRequestOrigins {
 
 /**
  * Resolves the origin the Google redirect URI of this request is built on.
- *
  * @param request - The request of the administrator.
  * @returns The allowed origins and the request's own when it is one of them.
- *
  * @remarks
  * Google accepts only a redirect URI registered exactly at the OAuth client.
  * Both the local and the remote address work with one instance, so the request

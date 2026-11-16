@@ -39,7 +39,7 @@ interface MediaAccounts {
   participant(id: string): ConversationParticipant;
 }
 
-/** What "Medien & Dateien" of a chat reads (PAGE-387). */
+/** What "Medien & Dateien" of a chat reads. */
 export interface ConversationMediaOverviewDependencies {
   readonly library: Pick<
     ConversationAttachmentLibraryRepository,
@@ -65,7 +65,6 @@ function readIdentifier(input: unknown): string {
 /**
  * Reads the chosen attachment IDs of a ZIP request: a list separated by
  * commas, each ID once, at most 200.
- *
  * @throws {ConversationError} `invalid` for no usable ID or too many.
  */
 export function readMediaArchiveIds(input: unknown): string[] {
@@ -83,9 +82,8 @@ function hostOf(url: string): string {
 }
 
 /**
- * "Medien & Dateien" of a chat (PAGE-387): every file and link its sent
+ * "Medien & Dateien" of a chat: every file and link its sent
  * messages hold, sorted into tabs, and chosen files as one ZIP archive.
- *
  * @remarks
  * Every request checks on the server that the account is a member of the
  * conversation now; any other answers `not_found`, as a missing one does.
@@ -103,7 +101,6 @@ export class ConversationMediaOverviewService {
 
   /**
    * Lists the files and links of a chat for a member, newest first.
-   *
    * @throws {ConversationError} `not_found` for a conversation of which the
    * person is no member.
    */
@@ -130,7 +127,6 @@ export class ConversationMediaOverviewService {
 
   /**
    * The chosen files of a chat that are still there, for one ZIP archive.
-   *
    * @param person - The signed-in account.
    * @param request - The chat and the comma-separated attachment IDs.
    * @throws {ConversationError} `not_found` for a conversation of which the

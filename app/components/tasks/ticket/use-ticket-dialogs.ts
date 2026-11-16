@@ -33,11 +33,9 @@ export interface TicketDialogs {
 
 /**
  * Keeps the dialog state of the ticket page.
- *
  * @remarks
  * A successful create or project move leads to the new ticket; a successful
  * update only closes the edit dialog.
- *
  * @param ticket - The ticket the page shows.
  * @param fromView - The task view the visitor came from, kept in links.
  */

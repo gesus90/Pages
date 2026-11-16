@@ -5,7 +5,6 @@ import type { Route } from "./+types/agent-remote";
 
 /**
  * Remote connections and remote workspace profiles of the working-directory page.
- *
  * @remarks
  * The services recheck the account, its memberships and the project rights
  * on every intent; this route only reads the form.

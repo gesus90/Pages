@@ -33,7 +33,6 @@ const SPEECH_REQUEST_TYPES: ReadonlySet<string> =
 
 /**
  * Tells whether a message type belongs to `speech.v1`.
- *
  * @param type - The type of a checked message.
  * @returns `true` for the five speech requests.
  */
@@ -43,7 +42,6 @@ export function isPicaMobileSpeechType(type: string): boolean {
 
 /**
  * Reads a request of `speech.v1`.
- *
  * @param type - The type of the envelope.
  * @param requestId - The checked request identifier.
  * @param payload - The payload object of the envelope.
@@ -71,7 +69,6 @@ export function parsePicaMobileSpeechPayload(
 
 /**
  * Builds the text frame of an answer of `speech.v1`.
- *
  * @param requestId - Identifier of the request that is answered; `null`
  * when the server drops a silent recording on its own.
  * @param answer - Type and payload of the answer.

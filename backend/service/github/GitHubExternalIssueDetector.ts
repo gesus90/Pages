@@ -16,7 +16,6 @@ export class GitHubExternalIssueDetector {
 
   /**
    * Creates an external issue detector.
-   *
    * @param taskRepository - Task persistence boundary listing linked tasks.
    * @param gitHubRepository - GitHub persistence boundary storing detections.
    * @param events - Stores a changed detection list with its event.
@@ -33,11 +32,9 @@ export class GitHubExternalIssueDetector {
 
   /**
    * Stores issues that no task links to and refreshes already known ones.
-   *
    * @param projectId - Project whose tasks are compared.
    * @param remoteByNumber - Remote issues of the repository by issue number.
    * @param summary - Counters of the current run.
-   *
    * @remarks
    * Issues the user dismissed or imported are left untouched.
    */

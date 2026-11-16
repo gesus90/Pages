@@ -4,7 +4,6 @@ import type { InClause } from "@/backend/database/repositories/task/InClause";
 
 /**
  * Builds the placeholders of an `IN (...)` list that may be empty.
- *
  * @param prefix - Prefix of the placeholder names.
  * @param values - The values; an empty list matches nothing.
  * @returns Placeholders and their values; `NULL` stands for an empty list,

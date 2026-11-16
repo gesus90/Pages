@@ -30,8 +30,7 @@ export interface StorageFileManager {
 
 /**
  * Connects the shown folder with selection, clipboard, menu bar and context
- * menu (PAGE-272).
- *
+ * menu.
  * @param result - The loaded folder, or `null` before it is shown.
  * @param writing - The single actions and the write right of the folder.
  * @param onChanged - Reloads the folder.

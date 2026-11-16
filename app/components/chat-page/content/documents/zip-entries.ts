@@ -1,5 +1,5 @@
 /**
- * Reads the parts of an Office or OpenDocument file in the browser (PAGE-385).
+ * Reads the parts of an Office or OpenDocument file in the browser.
  * Both are ZIP archives; this reader knows exactly what they need: stored and
  * deflated entries of an archive below 4 GB.
  */

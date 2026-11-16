@@ -23,7 +23,6 @@ export type ConversationTranscriptionOutcome =
 export interface ConversationTranscriber {
   /**
    * Recognizes the text of a voice message.
-   *
    * @returns The text, or `{ ok: false }` when the recognition failed; it
    * never rejects.
    */
@@ -125,7 +124,7 @@ function configuredTranscriber(
 
 /** Where the recognition of the process is chosen from. */
 export interface ConversationTranscriberOptions {
-  /** The speech model of `config.toml` (PAGE-277). */
+  /** The speech model of `config.toml`. */
   readonly speech?: SpeechRecognitionSetting;
   /** The environment, the process's own by default. */
   readonly environment?: Readonly<Record<string, string | undefined>>;

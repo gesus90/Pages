@@ -19,7 +19,6 @@ const calendarEntryIdSchema = z.string().min(1).max(200);
 /**
  * The payload of `calendar_event_save`: the whole event, with `id: null` for
  * a new one.
- *
  * @remarks
  * `scope` decides which occurrences of a series a change covers; a new event
  * ignores it, a change must name it.
@@ -34,8 +33,7 @@ const calendarEventSavePayloadSchema = calendarEventFieldsSchema
   });
 
 /**
- * The requests of `calendar.v1` (PAGE-301), each with its payload.
- *
+ * The requests of `calendar.v1`, each with its payload.
  * @remarks
  * The fields are checked here as far as they stand alone; whether a range
  * keeps 92 days, an event ends after its start or an id names a visible

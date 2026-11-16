@@ -126,7 +126,7 @@ function ProfileTickets({
 }
 
 /**
- * The read-only profile of an agent for the people who lead it (PAGE-308).
+ * The read-only profile of an agent for the people who lead it.
  *
  * @remarks
  * It shows what the interface of the MCP returns as `agents_read`: role,

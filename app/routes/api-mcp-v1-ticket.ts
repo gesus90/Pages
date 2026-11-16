@@ -33,8 +33,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpTicketHandlers {
 }
 
 /**
- * Reads a ticket (`GET /api/mcp/v1/tickets/{key}`) and changes it (`PATCH`), PAGE-242 interface 3 and 6.
- *
+ * Reads a ticket (`GET /api/mcp/v1/tickets/{key}`) and changes it (`PATCH`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

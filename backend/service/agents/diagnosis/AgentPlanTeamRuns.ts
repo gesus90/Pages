@@ -8,8 +8,7 @@ import type { PlanDependencies } from "../AgentPlanDependencies";
 import type { AgentPlanRunTeamReader } from "./AgentPlanRunTeamReader";
 
 /**
- * The runs of a plan for everybody who may see the plan, whoever started them (PAGE-307).
- *
+ * The runs of a plan for everybody who may see the plan, whoever started them.
  * @remarks
  * Lists only; reading one run is {@link AgentPlanRunTeamReader}. Plan access
  * is checked through the same rules as the plan page.
@@ -31,7 +30,6 @@ export class AgentPlanTeamRuns {
 
   /**
    * Lists every run of a plan the person may read, ordered by start.
-   *
    * @throws {AgentError} `plan_access_denied` for a plan the person cannot read.
    */
   public async entries(
@@ -45,7 +43,6 @@ export class AgentPlanTeamRuns {
 
   /**
    * Lists the runs of each named plan the person may read, newest first.
-   *
    * @remarks
    * A plan the person cannot read is left out of the result.
    */
@@ -78,7 +75,6 @@ export class AgentPlanTeamRuns {
 
   /**
    * Names the plan of a run the person may see, so a client needs only the run.
-   *
    * @throws {AgentError} `plan_access_denied` for a missing run and for a plan the person cannot see.
    */
   public async planOf(userId: string, runId: string): Promise<string> {

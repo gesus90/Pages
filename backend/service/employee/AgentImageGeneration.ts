@@ -41,7 +41,7 @@ export interface AgentImageGenerationDependencies {
   readonly cipher: Pick<InstanceSecretCipher, "decrypt">;
   /** The models the agent's account may use, for the hint at other models. */
   readonly models: Pick<AgentEmployeeModels, "models">;
-  /** Records the cost with the agent, as other model costs (PAGE-382). */
+  /** Records the cost with the agent, as other model costs. */
   readonly store: Pick<EmployeeStore, "activity">;
   readonly clients: Readonly<Record<ImageProvider, ProviderImageClient>>;
 }
@@ -77,7 +77,7 @@ export interface AgentGeneratedImages {
   readonly modelName: string;
 }
 
-/** The route to the image function of a model (PAGE-382); see {@link generationRoute}. */
+/** The route to the image function of a model; see {@link generationRoute}. */
 const imageRoute = generationRoute;
 
 function modelLabel(model: PageAgentModel): string {
@@ -85,7 +85,7 @@ function modelLabel(model: PageAgentModel): string {
 }
 
 /**
- * Generates images with the model an agent works with in a chat (PAGE-382).
+ * Generates images with the model an agent works with in a chat.
  *
  * @remarks
  * There is no image model and no setting for one. Whether the model can

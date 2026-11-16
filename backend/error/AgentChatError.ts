@@ -1,9 +1,8 @@
 import type { AgentChatErrorCode } from "@/definition/Conversation";
 
 /**
- * A refused message or read of an agent in a conversation (PAGE-311), safe to
+ * A refused message or read of an agent in a conversation, safe to
  * hand to the agent.
- *
  * @remarks
  * `details` names what the agent needs to act on the refusal, such as the
  * limit reached; it never holds persistence details.
@@ -14,7 +13,6 @@ export class AgentChatError extends Error {
 
   /**
    * Creates the refusal.
-   *
    * @param code - The stable reason.
    * @param details - Facts the agent may act on.
    */

@@ -66,7 +66,7 @@ function parse<Input>(schema: z.ZodType<Input>, parameters: unknown): Input {
 }
 
 /**
- * The live swarms of this process, by run and node (PAGE-313).
+ * The live swarms of this process, by run and node.
  *
  * @remarks
  * A call reaches only the swarm its credential names: the run and the step

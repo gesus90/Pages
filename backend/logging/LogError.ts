@@ -101,7 +101,6 @@ function errorType(error: object): string {
 
 /**
  * The reason of a database executor error as plain log metadata.
- *
  * @param error - Any caught error.
  * @returns `failure` and `notStarted`, or nothing for other errors. An error
  * is serialized only once, so a later event about it needs this to name them.

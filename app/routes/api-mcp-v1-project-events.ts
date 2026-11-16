@@ -31,8 +31,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpProjectHandlers {
 }
 
 /**
- * Adds a date (`POST /api/mcp/v1/projects/{id}/events`), PAGE-244 interface 8.
- *
+ * Adds a date (`POST /api/mcp/v1/projects/{id}/events`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

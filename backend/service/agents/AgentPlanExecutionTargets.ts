@@ -6,7 +6,6 @@ import type { AgentPlanScript } from "@/definition/AgentPlanScript";
 
 /**
  * Lists executable nodes, including the members of groups and loops.
- *
  * @remarks
  * Each node carries the target it runs on: its own, or the plan's target it
  * inherits.

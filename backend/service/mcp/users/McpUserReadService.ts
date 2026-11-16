@@ -47,7 +47,6 @@ function pageInfo<Entry>(page: McpUserListPage<Entry>): McpUserPage {
 
 /**
  * Whether the wiki shows the actor the private pages of other accounts.
- *
  * @remarks
  * The wiki keeps its own rule, like the user management page: an
  * administrator in the active admin mode. The MCP call does not switch the
@@ -58,10 +57,9 @@ function canListPrivateWikiPages(session: McpUserSession): boolean {
 }
 
 /**
- * The reads of the user management API (PAGE-280): options, accounts, roles,
+ * The reads of the user management API: options, accounts, roles,
  * departments, groups, the administration history and private wiki
  * placeholders.
- *
  * @remarks
  * Every list is filtered by the policy of the interface before it is paged
  * and counted, so neither an entry nor the number of hidden entries leaves
@@ -70,7 +68,6 @@ function canListPrivateWikiPages(session: McpUserSession): boolean {
 export class McpUserReadService {
   /**
    * Reads the choices and the actions the actor may take now.
-   *
    * @param session - The request.
    * @throws {McpUserError} `forbidden` without access to the user management.
    */
@@ -117,7 +114,6 @@ export class McpUserReadService {
 
   /**
    * Lists the accounts of the user management, active and inactive ones.
-   *
    * @param session - The request.
    * @param request - Search text over display name, username and the shown
    * email address, the optional `isActive` filter and the page.
@@ -149,7 +145,6 @@ export class McpUserReadService {
 
   /**
    * Reads one account.
-   *
    * @param session - The request.
    * @param userId - The account.
    * @throws {McpUserError} `not_found` for an unknown or hidden account.
@@ -248,7 +243,6 @@ export class McpUserReadService {
 
   /**
    * Reads the administration history, newest first.
-   *
    * @param session - The request.
    * @param request - Search text over operation, target and actor, and the page.
    * @throws {McpUserError} `forbidden` for anyone but an administrator; the
@@ -283,7 +277,6 @@ export class McpUserReadService {
   /**
    * Lists the private wiki pages of an account as placeholders: identifier,
    * owner and the allowed action, never a title or text.
-   *
    * @param session - The request.
    * @param context - The actor's account and the wiki service of the interface.
    * @param ownerId - The account whose private pages are listed.

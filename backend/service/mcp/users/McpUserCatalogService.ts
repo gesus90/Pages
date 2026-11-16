@@ -74,8 +74,7 @@ function catalogResult(
 
 /**
  * Changes roles, departments and groups and assigns roles through the
- * administration of the interface (PAGE-280).
- *
+ * administration of the interface.
  * @remarks
  * Each method returns the command for `McpUserApi.change`. A role change
  * applies to all its holders; an assignment changes only the current
@@ -86,7 +85,6 @@ export class McpUserCatalogService {
   /**
    * Assigns an existing role to a person or all current members of a group
    * or department, at most 100, all or none.
-   *
    * @param roleId - The role from the role catalog.
    * @param request - Target and every current target with its read role.
    */
@@ -184,7 +182,6 @@ export class McpUserCatalogService {
   /**
    * Changes name, rank, department binding or permissions of a role for all
    * its holders; omitted fields stay, removed permissions need a confirmation.
-   *
    * @param roleId - The role.
    * @param request - The changed fields and the complete read role in `expected`.
    */
@@ -380,7 +377,6 @@ export class McpUserCatalogService {
   /**
    * Renames a group or replaces its members; omitted fields stay, removed
    * members need a confirmation, at least one member remains.
-   *
    * @param groupId - The group.
    * @param request - The changed fields and the read name and members.
    */

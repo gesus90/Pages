@@ -35,7 +35,6 @@ const CALENDAR_REQUEST_TYPES: ReadonlySet<string> =
 
 /**
  * Tells whether a message type belongs to `calendar.v1`.
- *
  * @param type - The type of a checked message.
  * @returns `true` for the six calendar requests.
  */
@@ -45,7 +44,6 @@ export function isPicaMobileCalendarType(type: string): boolean {
 
 /**
  * Tells whether a checked message is a request of `calendar.v1`.
- *
  * @param message - A message that passed every check of its payload.
  * @returns `true` for the six calendar requests.
  */
@@ -57,13 +55,11 @@ export function isPicaMobileCalendarMessage(message: {
 
 /**
  * Reads a request of `calendar.v1`.
- *
  * @param type - The type of the envelope.
  * @param requestId - The checked request identifier.
  * @param payload - The payload object of the envelope.
  * @returns The message or its rejection; `null` when the type belongs to no
  * calendar request.
- *
  * @remarks
  * A payload that breaks the contract, such as an invalid recurrence, is
  * refused with `invalid_request`, the code the app shows for every rule of
@@ -90,7 +86,6 @@ export function parsePicaMobileCalendarPayload(
 
 /**
  * Reduces an entry of the calendar service to the `CalendarEntry` of the app.
- *
  * @param entry - An entry, possibly with the details of the web interface.
  * @returns Only the fields of the contract; `details` never leaves Pages.
  */
@@ -119,7 +114,6 @@ export function toPicaMobileCalendarEntry(
 
 /**
  * Builds the text frame of a message of `calendar.v1`.
- *
  * @param requestId - Identifier of the request that is answered; `null` for
  * `calendar_changed`.
  * @param answer - Type and payload of the message.

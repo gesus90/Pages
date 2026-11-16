@@ -13,7 +13,7 @@ interface AutomationNotificationRowProps {
 
 /**
  * The choice when the person hears about runs of the automations they
- * created: off, on errors or always (PAGE-297).
+ * created: off, on errors or always.
  */
 export function AutomationNotificationRow({
   mode,

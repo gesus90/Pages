@@ -12,8 +12,8 @@ const CARD_STATE_LIMIT = 2_000;
 
 /**
  * What a person chose for the content cards of the chat and the split view
- * (PAGE-298): collapsed or expanded per card, the width of the panel, and
- * whether the list of the chat page is collapsed (PAGE-325).
+ * Collapsed or expanded per card, the width of the panel, and
+ * whether the list of the chat page is collapsed.
  */
 export class ChatViewPreferenceRepository {
   private readonly database: Pick<Database, "query" | "execute">;

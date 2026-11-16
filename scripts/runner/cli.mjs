@@ -217,7 +217,6 @@ export async function cliInventory(context = {}) {
 
 /**
  * The `codex exec` command line of one job.
- *
  * @remarks
  * A continuation job keeps its rollout on this host, so the session is not
  * ephemeral; a retry then runs `exec resume` with the recorded thread. The

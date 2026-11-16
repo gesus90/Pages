@@ -1,4 +1,4 @@
-# Automations (PAGE-297)
+# Automations
 
 An automation wakes an agent, runs a script or starts a plan: by hand, once
 at a time, in an interval, weekly at fixed times or when an event of Pages
@@ -53,7 +53,7 @@ Code: `definition/Automation*.ts`, `definition/AgentTools/Automations.ts`
   queue of its agent (`automation_agent_jobs`) and is delivered by
   `AutomationAgentWorker` in the process that serves the agents' sessions, one
   delivery per agent at a time, in order of arrival. The input goes into the
-  one session of the target chat of the action (PAGE-376) and starts an ACP
+  one session of the target chat of the action and starts an ACP
   turn as the agent's account; the final answer is stored (first 4 KiB). The
   target chat is the optional `chat` of an agent action: `@Agentname` (the
   agent that runs it) or no value is the direct chat of the automation's
@@ -89,7 +89,7 @@ Code: `definition/Automation*.ts`, `definition/AgentTools/Automations.ts`
 ## HTTP API
 
 Base `/api/mcp/v1/automations`, `Authorization: Bearer <device token>` of the
-existing pairing (PAGE-243); the token acts with the current rights of its
+existing pairing; the token acts with the current rights of its
 account. Bodies are JSON (at most 1,000,000 bytes).
 
 | Tool                      | Operation                  | HTTP                               |

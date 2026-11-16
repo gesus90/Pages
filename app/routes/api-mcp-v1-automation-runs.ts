@@ -23,8 +23,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpAutomationHandlers {
 }
 
 /**
- * Lists the runs of an automation, newest first (`GET /api/mcp/v1/automations/{automationId}/runs`), PAGE-297.
- *
+ * Lists the runs of an automation, newest first (`GET /api/mcp/v1/automations/{automationId}/runs`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

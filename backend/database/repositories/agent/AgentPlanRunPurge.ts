@@ -140,7 +140,7 @@ async function purgeRun(
     { run_id: runId },
   );
   if (!candidate) return false;
-  // The failures of the run stay countable after it is gone (PAGE-307).
+  // The failures of the run stay countable after it is gone.
   await indexRunFailures(new AgentRunFailureRepository(database), runId);
   return database.transaction(async (transaction) => {
     const [settled] = await transaction.query(SETTLED_RUN, {
@@ -239,7 +239,7 @@ export async function purgeEarlierPlanRuns(
 }
 
 /**
- * Deletes every run of a plan with all of its rows, for a one-time plan that goes (PAGE-309).
+ * Deletes every run of a plan with all of its rows, for a one-time plan that goes.
  *
  * @param database - The database; each run goes in a transaction of its own.
  * @param planId - The plan whose runs go.

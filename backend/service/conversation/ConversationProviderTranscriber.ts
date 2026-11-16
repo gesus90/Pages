@@ -35,7 +35,7 @@ function readTranscript(body: unknown): string | null {
   return typeof body.text === "string" ? body.text : null;
 }
 
-/** File names by type, so the endpoint reads sounds and videos of the chat by their format (PAGE-386). */
+/** File names by type, so the endpoint reads sounds and videos of the chat by their format. */
 const FILE_NAMES: Readonly<Record<string, string>> = {
   "audio/mpeg": "voice.mp3",
   "audio/mp4": "voice.m4a",
@@ -56,10 +56,9 @@ function fileName(mimeType: string): string {
 }
 
 /**
- * The recognition with the speech model of the server setting (PAGE-277): the
+ * The recognition with the speech model of the server setting: the
  * audio goes as `multipart/form-data` to an OpenAI-compatible
  * `/audio/transcriptions` endpoint, which answers `{ "text": … }`.
- *
  * @remarks
  * The key is read from its file for every recognition and never logged. A
  * failed request, a refusal or an answer without text counts as failed; the
@@ -70,7 +69,6 @@ export class ConversationProviderTranscriber implements ConversationTranscriber 
 
   /**
    * Creates the recognition.
-   *
    * @param speech - The model, its endpoint and the key file.
    */
   public constructor(speech: ConversationSpeechModel) {

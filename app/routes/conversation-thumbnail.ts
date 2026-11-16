@@ -9,9 +9,8 @@ import { logCaughtError } from "@/backend/logging/Logger";
 import type { Route } from "./+types/conversation-thumbnail";
 
 /**
- * Sends the preview image of an attachment to a member of its conversation
- * (PAGE-298): `GET /chat/files/<attachmentId>/thumbnail`.
- *
+ * Sends the preview image of an attachment to a member of its conversation:
+ * `GET /chat/files/<attachmentId>/thumbnail`.
  * @remarks
  * Membership is checked on every request; a missing preview image and one
  * of a conversation the person does not belong to answer 404 alike.

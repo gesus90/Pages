@@ -36,7 +36,7 @@ interface TicketArchiveDialogProps {
  * Asks before a ticket is archived: it names the ticket and what the archive
  * does to it and, for initiatives and epics, how many active descendants
  * across all levels go along or stay behind; nothing disappears without being
- * named (A8.2-E04). Cancelling sends nothing.
+ * named. Cancelling sends nothing.
  */
 export function TicketArchiveDialog({
   ticket,

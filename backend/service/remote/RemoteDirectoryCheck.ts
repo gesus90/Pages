@@ -34,7 +34,6 @@ const PATH_MARKER = "\npages-path=";
 /**
  * A read-only POSIX shell script: it changes nothing on the machine and
  * prints one `key=value` line per finding, the canonical path last.
- *
  * @remarks
  * A directory the account can enter is judged by its canonical path, so
  * neither `..` nor a symbolic link leads out of the roots. Each root counts
@@ -103,7 +102,6 @@ function permissionIssue(
  * Checks a directory on the remote machine: that it lies within the allowed
  * directories, its existence, kind and the read, write and traverse rights of
  * the SSH account.
- *
  * @param session - The logical connection of the workspace's connection.
  * @param request - The path and the connection's allowed directories.
  * @returns The canonical path and the first issue found.

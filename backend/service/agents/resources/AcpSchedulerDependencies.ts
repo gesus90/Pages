@@ -19,8 +19,8 @@ export interface SchedulerDependencies {
     startedAt: string | null,
   ) => Promise<{ readonly remaining: number }>;
   /**
-   * Stops the worker units of a lease and counts those that still run
-   * (PAGE-335); throws when the service manager cannot be read.
+   * Stops the worker units of a lease and counts those that still run;
+   * throws when the service manager cannot be read.
    */
   readonly settleUnits?: (instanceId: string) => Promise<number>;
   /** Checks whether any worker unit for the lease still runs. */

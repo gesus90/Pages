@@ -4,7 +4,7 @@ import type { PreviewFile } from "./preview-kinds";
 
 /**
  * The address of the empty frame document every HTML and SVG preview runs
- * in (PAGE-383). It carries a policy of its own, so a preview may load from
+ * in. It carries a policy of its own, so a preview may load from
  * the network while the page of Pages keeps its strict policy.
  */
 export const PREVIEW_FRAME_URL = "/chat/preview-frame";
@@ -33,8 +33,7 @@ const INPUT_WINDOW_MS = 5000;
 const SEND_INTERVAL_MS = 1000;
 
 /**
- * The documented function `pages.chat.send(text)` of a preview (PAGE-383).
- *
+ * The documented function `pages.chat.send(text)` of a preview.
  * @remarks
  * It works only right after a click or an input of the person in the
  * preview: the frame remembers the last trusted input, and Pages checks
@@ -112,7 +111,7 @@ function htmlDocument(files: readonly PreviewFile[]): string {
 }
 
 /**
- * Builds the document of an HTML or SVG preview (PAGE-383).
+ * Builds the document of an HTML or SVG preview.
  *
  * @remarks
  * The HTML file takes the style sheets into its head and the scripts at the
@@ -139,7 +138,7 @@ export interface PreviewSendCheck {
 }
 
 /**
- * Tells whether a preview may write into the chat now (PAGE-383).
+ * Tells whether a preview may write into the chat now.
  *
  * @remarks
  * The check runs in Pages, so the code of a preview cannot skip it: the

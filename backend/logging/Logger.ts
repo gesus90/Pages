@@ -168,7 +168,7 @@ const RUN_LOG_LEVELS: Readonly<
   fatal: "error",
 };
 
-/** Passes an event of a plan run, step or attempt to the store of run logs (PAGE-307). */
+/** Passes an event of a plan run, step or attempt to the store of run logs. */
 function forwardRunLog(event: ServerLogEvent): void {
   const { runId, stepId, attemptId, jobId } = currentLogContext();
   const level = RUN_LOG_LEVELS[event.level];
@@ -301,7 +301,7 @@ export function captureLogContext(): LogContext {
  * @param configPath - The instance's `config.toml`; the logs live next to it.
  * @param subdirectory - Own directory below the instance logs for a process
  * that must not take the single writer lock of the instance's files from the
- * API, such as the static app's entrance (PAGE-235).
+ * API, such as the static app's entrance.
  */
 export async function initializeLogging(
   configPath: string,

@@ -11,7 +11,6 @@ import type { Route } from "./+types/wiki-attachments";
 /**
  * Takes a file for a page: `PUT /wiki-api/attachments?page=<id>&name=<name>`
  * with the file as the body of the request.
- *
  * @remarks
  * The body is streamed to the disk and counted while it arrives, so a file
  * above its limit stops early and leaves nothing behind, and no file is held

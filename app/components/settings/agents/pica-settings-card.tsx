@@ -33,7 +33,6 @@ interface PicaSettingsCardProps {
 
 /**
  * The fixed chat identity alongside the independently managed agent connections.
- *
  * @remarks
  * The shared choice lists every accessible model. Pica's central rule marks
  * unsupported models disabled with a reason. A saved invalid choice keeps

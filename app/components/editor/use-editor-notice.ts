@@ -11,7 +11,6 @@ export interface EditorNotice {
 
 /**
  * Holds the latest notice of the editor until it times out.
- *
  * @returns The current message and the function that shows a new one.
  */
 export function useEditorNotice(): EditorNotice {

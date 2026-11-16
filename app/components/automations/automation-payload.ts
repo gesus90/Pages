@@ -331,7 +331,6 @@ function changedAction(
 
 /**
  * Builds the input of `update` from the editor.
- *
  * @param draft - The edited state.
  * @param original - The draft of the automation before the edit.
  * @param automation - The automation as read, for its ID and revision.

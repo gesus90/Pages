@@ -140,7 +140,6 @@ function readOpenRouterLine(line: string, collected: OpenRouterStream): void {
 
 /**
  * The audio output of OpenRouter models.
- *
  * @remarks
  * `POST https://openrouter.ai/api/v1/chat/completions` with
  * `modalities: ["text", "audio"]`, `audio: { voice, format: "pcm16" }` and
@@ -162,7 +161,6 @@ export class OpenRouterMediaClient implements ProviderMediaClient {
 
   /**
    * Asks for one sound.
-   *
    * @throws {AgentMediaError} For a video, or a refused or unreadable request.
    */
   public async generate(

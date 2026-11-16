@@ -53,7 +53,7 @@ function readWholeNumber(text: string, range: WholeNumberRange): number | null {
 
 /**
  * The entries of limit, quiet time and model of the Lagebuch, checked against
- * the ranges of the contract before anything is sent (PAGE-377).
+ * the ranges of the contract before anything is sent.
  *
  * @param saved - The settings the server holds; they fill the entries.
  */

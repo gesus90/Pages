@@ -43,7 +43,6 @@ export interface GoogleDriveAccount {
 
 /**
  * Translates a refused token request.
- *
  * @remarks
  * `invalid_grant` means the refresh token or code is expired or revoked, which
  * only a new sign-in repairs. `invalid_client` and `unauthorized_client` mean
@@ -89,15 +88,13 @@ function readGrant(body: unknown, now: number): GoogleTokenGrant | null {
 
 /**
  * Builds the official Google sign-in link for the Drive connection.
- *
  * @param input - Client id, the exact redirect URI, the OAuth state, the PKCE
  * challenge and whether the targeted write consent is asked for.
  * @returns The authorization link.
- *
  * @remarks
  * `access_type=offline` asks for a refresh token, and `prompt=consent` makes
  * Google issue a new one on every sign-in, so a new sign-in after a revocation
- * really replaces the stored access. The write consent (PAGE-270) adds only
+ * really replaces the stored access. The write consent adds only
  * the full drive scope and keeps the granted ones with
  * `include_granted_scopes=true`, so declining it takes nothing away.
  */
@@ -136,7 +133,6 @@ export function buildGoogleAuthorizationUrl(input: {
 
 /**
  * Speaks to Google's token endpoint and the Drive API for the OAuth client of the instance.
- *
  * @remarks
  * No method logs or returns Google's raw answer, so neither tokens nor account
  * details reach a log.
@@ -148,7 +144,6 @@ export class GoogleDriveApiClient {
 
   /**
    * Creates the client.
-   *
    * @param application - The OAuth client of the instance.
    * @param options - Stand-ins for `fetch` and the clock.
    */
@@ -166,7 +161,6 @@ export class GoogleDriveApiClient {
 
   /**
    * Exchanges the authorization code of the callback for tokens.
-   *
    * @param input - The code, the redirect URI of the sign-in and the PKCE verifier.
    * @returns The tokens, or why Google refused them.
    */
@@ -185,7 +179,6 @@ export class GoogleDriveApiClient {
 
   /**
    * Renews an access token with the stored refresh token, without the person.
-   *
    * @param refreshToken - The stored refresh token.
    * @returns A new access token, or why Google refused it.
    */
@@ -200,10 +193,8 @@ export class GoogleDriveApiClient {
 
   /**
    * Reads the account behind an access token with `about.get`.
-   *
    * @param accessToken - A current access token.
    * @returns The account, or why Drive refused the request.
-   *
    * @remarks
    * The request reads two account fields and nothing else: no file, no
    * content, no change.

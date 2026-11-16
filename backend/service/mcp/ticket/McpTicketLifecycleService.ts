@@ -22,7 +22,6 @@ function referenceOf(item: WorkItemDetail): McpTicketReference {
 /**
  * Rejects `keep` for a task, whose subtasks always go along, like the archive
  * and the deletion do.
- *
  * @throws {McpTicketError} `invalid_request`.
  */
 function requireHandling(
@@ -33,11 +32,10 @@ function requireHandling(
     throw new McpTicketError("invalid_request");
 }
 
-/** Archives, restores and permanently deletes tickets (PAGE-242, interface 14–16). */
+/** Archives, restores and permanently deletes tickets. */
 export class McpTicketLifecycleService {
   /**
    * Archives a ticket after the client confirmed the scope.
-   *
    * @param context - The request.
    * @param reference - Key or id of the ticket.
    * @param request - Handling of the children and the confirmation.
@@ -73,7 +71,6 @@ export class McpTicketLifecycleService {
 
   /**
    * Brings an archived ticket back with its subtasks; the status stays.
-   *
    * @param context - The request.
    * @param reference - Key or id of the ticket.
    * @returns The number of restored tickets and the ticket.
@@ -96,7 +93,6 @@ export class McpTicketLifecycleService {
   /**
    * Deletes a ticket for good after the client confirmed the scope; its
    * attachments go along.
-   *
    * @param context - The request.
    * @param reference - Key or id of the ticket, running or archived.
    * @param request - Handling of the children and the confirmation.
@@ -137,7 +133,6 @@ export class McpTicketLifecycleService {
 
   /**
    * Lists the ticket and the descendants a change would reach.
-   *
    * @remarks
    * With `keep` only the ticket itself changes; its direct children stay
    * without a parent.

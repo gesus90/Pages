@@ -81,7 +81,7 @@ export async function hasEndedOwnedNamespace(
  *
  * @remarks
  * A unit frames every process of a session without a PID namespace, such as
- * a YOLO chat (PAGE-340), so its stop counts only once the service manager
+ * a YOLO chat, so its stop counts only once the service manager
  * no longer lists it as running.
  */
 export async function settleOwnedNamespace(

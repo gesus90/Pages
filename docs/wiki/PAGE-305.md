@@ -1,4 +1,4 @@
-# PAGE-305: Wiki-Entwurf für „Agents: Festlegungen“
+# Wiki-Entwurf für „Agents: Festlegungen“
 
 Ziel-Seite: [Agents: Festlegungen](/wiki/93eb063a-a63c-4cac-8393-af182291a582).
 Der folgende Abschnitt ersetzt den bisherigen Abschnitt zum Gedächtnis und Lernlauf (MEMORY.md, Archiv, Lernlauf alle 12 Stunden) bzw. wird nach „Agent-Chats: Sitzungen je Chat, Warteschlange und Grenzen“ eingefügt.
@@ -22,7 +22,7 @@ Ein Agent weiß in jedem Chat, was er in anderen Chats derselben Person erfahren
   - `- Worum es geht: …`
   - `- Stand: …`
   - `- Nächster Schritt: …`
-  - `- Quelle: [Chat mit Igor](chat:person/<ID>) · [PAGE-12](/tasks/PAGE-12) · [Wiki-Seite](/wiki/<ID>)`
+  - `- Quelle: [Chat mit Igor](chat:person/<ID>) · [PAGE-123](/tasks/PAGE-123) · [Wiki-Seite](/wiki/<ID>)`
   - `- Datum: JJJJ-MM-TT`
 - Erledigte Themen wandern sofort ins Archiv.
 - **Grenze:** Startwert 8.000 Zeichen, je Agent im Agent-Panel einstellbar (1.000 bis 100.000). Wird es voller, wandern die ältesten Themen mit ihrer Quelle ins Archiv; jedes Thema ist auf eine knappe feste Form begrenzt.
@@ -48,7 +48,7 @@ Ein Agent weiß in jedem Chat, was er in anderen Chats derselben Person erfahren
 - Wissen aus einem Chat ist in jedem Chat nutzbar, an dem nur Personen teilnehmen, die auch am Ursprungschat teilnahmen – also in jedem Chat derselben Person.
 - In Gruppenchats mit weiteren Personen teilt der Agent nur Wissen, das an Tickets und Wiki-Seiten hängt, die **alle** Teilnehmer sehen dürfen (geprüft mit den Rechten jeder Person).
 - Ein Chat lässt sich im Chat-Kopf als **„Vertraulich“** markieren (Direktchat mit einem Agent oder Gruppe; die Markierung einer Gruppe gilt für alle Mitglieder). Aus einem vertraulichen Chat wird nichts geteilt, nichts in MEMORY.md oder das Archiv geschrieben und nichts in DREAM.md übernommen.
-- Jeder Eintrag in MEMORY.md und Archiv trägt seine Quelle, damit diese Regeln geprüft werden können. Einträge ohne Quelle (von Hand oder aus der Zeit vor PAGE-305) gelten nur in Chats mit einer einzigen Person.
+- Jeder Eintrag in MEMORY.md und Archiv trägt seine Quelle, damit diese Regeln geprüft werden können. Einträge ohne Quelle (von Hand oder aus der Zeit vor der Quellenpflicht) gelten nur in Chats mit einer einzigen Person.
 
 **Schutz und Verwaltung**
 

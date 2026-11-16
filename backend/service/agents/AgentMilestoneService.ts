@@ -71,13 +71,11 @@ export class AgentMilestoneService {
 
   /**
    * Runs one milestone write for the owner of a verified credential.
-   *
    * @param identity - The verified owner of the operation.
    * @param operation - `milestone.create`, one of the `milestone.set…` operations or a dependency operation.
    * @param parameters - The raw operation parameters.
    * @returns The stored result; a repeated operation ID returns it unchanged.
    * @throws {AgentOperationError} `INVALID_REQUEST`, `FORBIDDEN`, `NOT_FOUND` or `CONFLICT`.
-   *
    * @remarks
    * Milestones follow the project management right, as on the milestone page:
    * an account that only writes tickets is refused with `FORBIDDEN`, and a
@@ -95,7 +93,6 @@ export class AgentMilestoneService {
 
   /**
    * Creates a milestone inside a transaction the caller holds.
-   *
    * @param transaction - The open transaction of the caller.
    * @param userId - The verified owner of the operation.
    * @param request - The explicit create contract.
@@ -115,7 +112,6 @@ export class AgentMilestoneService {
 
   /**
    * Links two milestones inside a transaction the caller holds.
-   *
    * @param transaction - The open transaction of the caller.
    * @param userId - The verified owner of the operation.
    * @param request - The explicit dependency contract.

@@ -12,7 +12,6 @@ export interface LoadedCardText {
 /**
  * The text of a code, diff or Markdown card: the one the message carries, or
  * the content of the attachment, loaded once the card shows it.
- *
  * @param text - The text or the address of the attachment that holds it.
  * @param isShown - Whether the card is expanded or opened; an attachment is
  * not loaded before.
@@ -48,7 +47,6 @@ export function useCardText(text: CardText, isShown: boolean): LoadedCardText {
 
 /**
  * Copies text to the clipboard.
- *
  * @param text - The text to copy.
  */
 export function copyText(text: string): void {
@@ -59,7 +57,6 @@ export function copyText(text: string): void {
 
 /**
  * Saves text of a message as a file of the browser.
- *
  * @param fileName - The name the file is offered with.
  * @param text - Its content.
  */

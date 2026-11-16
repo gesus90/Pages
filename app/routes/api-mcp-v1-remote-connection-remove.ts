@@ -24,8 +24,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpWorkspaceHandlers {
 }
 
 /**
- * Removes a connection after a confirmed question (`POST /api/mcp/v1/remote-connections/{id}/remove`), PAGE-245 interface 16.
- *
+ * Removes a connection after a confirmed question (`POST /api/mcp/v1/remote-connections/{id}/remove`).
  * @remarks
  * Only the device token of a paired machine admits a request, and only for
  * an account with the administrator role. Its stored secrets go with it.

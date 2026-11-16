@@ -37,7 +37,6 @@ export type PlanBridgeGrantStore = Pick<
 
 /**
  * The bearers of the plan bridge, owned by the API process.
- *
  * @remarks
  * A bearer is a random token that only the session of its step holds. It
  * stands for the step credential, which Pages keeps as a hash for the upload
@@ -48,7 +47,6 @@ export type PlanBridgeGrantStore = Pick<
  * credential is sealed with a key only the bearer yields
  * ({@link sealPlanBridgeToken}). After a restart the first call of a session
  * opens its row and passes the same checks as before.
- *
  * A grant ends in these ways, each of which fails closed:
  * - `revoke`, when the step closes, is cancelled, fails or is recovered;
  * - the stored run: a call is admitted only while the run runs and a step of
@@ -68,7 +66,6 @@ export class PlanBridgeGrants {
 
   /**
    * Creates the registry of this API process.
-   *
    * @param isActive - Reads the stored run and tells whether the grant's session has a running step.
    * @param store - Keeps the grants across a restart of this process.
    */
@@ -82,7 +79,6 @@ export class PlanBridgeGrants {
 
   /**
    * Opens the bearer of one step.
-   *
    * @param grant - The step and its credential.
    * @returns The bearer, to be handed to the session of that step only.
    */
@@ -107,7 +103,6 @@ export class PlanBridgeGrants {
 
   /**
    * Resolves a presented bearer to the credential of its active step.
-   *
    * @param bearer - The bearer of a request.
    * @returns The step credential, or `null` for an unknown, ended, expired or inactive grant.
    */
@@ -129,7 +124,6 @@ export class PlanBridgeGrants {
 
   /**
    * Ends the bearers of one step, or of every step of a run.
-   *
    * @param runId - The run.
    * @param stepId - The step or group, or `null` for the whole run.
    * @returns How many bearers of this process ended.

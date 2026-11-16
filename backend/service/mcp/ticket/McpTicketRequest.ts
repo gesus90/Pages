@@ -235,7 +235,7 @@ function queryObject(query: URLSearchParams): Record<string, string> {
   return values;
 }
 
-/** Validators of every body and query the ticket API takes (PAGE-242). */
+/** Validators of every body and query the ticket API takes. */
 export const McpTicketRequest = {
   create: (body: unknown): McpTicketCreateRequest => parse(createSchema, body),
   patch: (body: Readonly<Record<string, unknown>>): McpTicketPatchRequest => {

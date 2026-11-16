@@ -79,7 +79,6 @@ export class ProjectPolicyService {
   /**
    * Registering a local working directory for a project needs the same project
    * responsibility as its general information and GitHub link.
-   *
    * @remarks
    * Reading the project is a separate check, so a caller combines both.
    */
@@ -115,8 +114,7 @@ export class ProjectPolicyService {
   }
 
   /**
-   * Archiving follows the administrator rule of the permanent deletion (PAGE-244).
-   *
+   * Archiving follows the administrator rule of the permanent deletion.
    * @remarks
    * Neither the archive capability of a role nor project management suffices.
    */
@@ -134,7 +132,6 @@ export class ProjectPolicyService {
 
   /**
    * Deleting a concrete project needs the administrator and a project inside the actor's reach.
-   *
    * @remarks
    * A project role or the management of all projects never suffices: the
    * administrator check comes first, and the scope check then binds the

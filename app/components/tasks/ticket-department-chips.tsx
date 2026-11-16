@@ -20,7 +20,6 @@ interface TicketDepartmentChipsProps {
 
 /**
  * Shows the departments of a ticket as chips with a picker to add more.
- *
  * @remarks
  * Without a department the chip "Ohne Abteilung" and a hint name the effect.
  * The server decides every change again; the controls only mirror its rules:

@@ -89,7 +89,6 @@ function getKeyboardWidth(
 /**
  * Follows one pointer from the sidebar edge until it is released, cancelled
  * or the window loses focus, and returns a function that stops following.
- *
  * The width goes straight onto the shell while dragging, so the pages below
  * do not render again for every pointer move; only the end is reported.
  */

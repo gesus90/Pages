@@ -43,7 +43,7 @@ export interface PicaAcpPoolStart {
   /**
    * The observer the native session reports to: it keeps the agent session
    * identifier for the resume after the idle time and passes it on to the
-   * job (PAGE-376).
+   * job.
    */
   readonly observer: PlanSessionObserver;
 }
@@ -74,7 +74,7 @@ export interface PicaAcpPoolOpening {
 export interface PicaAcpSessionPoolOptions {
   /**
    * The idle time of a resting session of an agent, from the settings of the
-   * agent and the instance; read for every rest (PAGE-376).
+   * agent and the instance; read for every rest.
    */
   readonly idleMinutes: (agentId: string) => Promise<number>;
   readonly now?: () => Date;
@@ -111,8 +111,7 @@ function linkSignal(
 }
 
 /**
- * One native ACP session per agent and conversation (PAGE-335).
- *
+ * One native ACP session per agent and conversation.
  * @remarks
  * A job of an agent employee answers its round through the session of its
  * chat: a resting session takes the round as its next turn, otherwise a new
@@ -134,7 +133,6 @@ export class PicaAcpSessionPool {
 
   /**
    * Gives the job the session of its chat, with the turn of its round running.
-   *
    * @throws {PicaAcpJobError} `general` while another job holds the session.
    */
   public async open(opening: PicaAcpPoolOpening): Promise<PlanSession> {
@@ -164,11 +162,9 @@ export class PicaAcpSessionPool {
 
   /**
    * Hands the release of a chat's workspace to its resting process.
-   *
    * @remarks
    * A resting process still owns its working directory, and its next round
    * continues in it. The directory goes away only when the process ends.
-   *
    * @returns Whether the process rests and took over the release; otherwise
    * the caller releases the workspace itself.
    */
@@ -197,7 +193,6 @@ export class PicaAcpSessionPool {
 
   /**
    * Ends the longest resting session so a waiting start gets its place.
-   *
    * @returns Whether one ends now; `false` while an earlier one still ends.
    */
   public reclaimIdle(): boolean {
@@ -217,7 +212,6 @@ export class PicaAcpSessionPool {
 
   /**
    * Whether a chat has a live process.
-   *
    * @returns `busy` while a job holds it, `idle` while it waits for the next
    * round, `null` without a process.
    */

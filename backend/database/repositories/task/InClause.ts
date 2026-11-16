@@ -6,7 +6,6 @@ export interface InClause {
 
 /**
  * Builds the named placeholders for an `IN (...)` list.
- *
  * @param prefix - Prefix of the placeholder names; the position is appended.
  * @param values - Values to bind, one placeholder each.
  * @returns The comma-separated placeholders and the parameters binding them.

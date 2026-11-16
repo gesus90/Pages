@@ -35,7 +35,6 @@ export interface ProfileEditing {
 /**
  * Keeps the edit mode, the draft, the picked avatar and the error message of
  * the profile card together.
- *
  * @param options - The profile that is shown and edited.
  */
 export function useProfileEditing({

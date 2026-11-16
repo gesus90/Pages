@@ -33,7 +33,6 @@ import type { AgentWorkspacePath } from "./AgentWorkspacePath";
 
 /**
  * Live account, project and filesystem boundaries; none of these grants imply another.
- *
  * @remarks
  * Each boundary names only what the registry calls, so a test can supply
  * exactly that.
@@ -106,7 +105,6 @@ function manageableProjects(
 
 /**
  * Registers existing local directories for projects with a GitHub link.
- *
  * @remarks
  * Everyone who can open the project sees and uses its workspaces. Only
  * administrators and the project's managers register, change or remove them.
@@ -125,11 +123,9 @@ export class AgentWorkspaceService {
 
   /**
    * Returns the service for another surface that shares storage, rules and write order.
-   *
    * @remarks
    * Only the administrator reading differs: MCP counts a personal administrator
    * regardless of the role mode of the browser, the interface does not.
-   *
    * @param channel - The surface the returned service acts for.
    */
   public forChannel(channel: ActorChannel): AgentWorkspaceService {
@@ -175,11 +171,9 @@ export class AgentWorkspaceService {
 
   /**
    * Lists only the workspaces of projects the person can open right now.
-   *
    * @remarks
    * Unlike {@link AgentWorkspaceService.page} it never mentions a registration
    * whose project is hidden or gone, not even to an administrator.
-   *
    * @param userId - The signed-in or verified person.
    * @param projectId - Narrows the list to one project, which must be readable.
    */
@@ -211,10 +205,8 @@ export class AgentWorkspaceService {
 
   /**
    * Reads one workspace of a project the person can open.
-   *
    * @remarks
    * A workspace of a hidden project answers exactly like a missing one.
-   *
    * @param userId - The signed-in or verified person.
    * @param id - Identifier of the registration.
    * @throws {AgentError} `workspace_not_found` for a missing or hidden workspace.
@@ -243,11 +235,9 @@ export class AgentWorkspaceService {
 
   /**
    * Rechecks that the person may still register workspaces for a project.
-   *
    * @remarks
    * It does not look at a GitHub link, so a stored result of an earlier change
    * can be shown again while the project is only temporarily without one.
-   *
    * @param userId - The signed-in or verified person.
    * @param projectId - The project of the earlier change.
    */
@@ -264,7 +254,6 @@ export class AgentWorkspaceService {
 
   /**
    * Lists the server directories a workspace could be registered in.
-   *
    * @remarks
    * The browser reveals directory names of the server, so it is reserved for
    * those who may register a workspace for at least one project, the same
@@ -339,7 +328,6 @@ export class AgentWorkspaceService {
 
   /**
    * Rechecks that the person may still open the workspace's project.
-   *
    * @remarks
    * Unlike {@link AgentWorkspaceService.resolve} it does not need a usable
    * directory or a GitHub link, so reading and stopping an execution that
@@ -355,7 +343,6 @@ export class AgentWorkspaceService {
 
   /**
    * Stores only a canonical registration for a managed project with a GitHub link; no directory content is touched.
-   *
    * @param userId - The signed-in or verified person.
    * @param id - Identifier of the registration to change, or `null` to create one.
    * @param input - The registration as received.
@@ -396,7 +383,6 @@ export class AgentWorkspaceService {
 
   /**
    * Lists what still refers to the workspace.
-   *
    * @remarks
    * Names stay with administrators; a project manager only learns what kind of
    * references there are, so private plans and agents are not disclosed.
@@ -414,7 +400,6 @@ export class AgentWorkspaceService {
 
   /**
    * Unregisters metadata only; deleting the referenced directory is never supported.
-   *
    * @param userId - The signed-in or verified person.
    * @param id - Identifier of the registration.
    * @param revision - The revision the caller last read.

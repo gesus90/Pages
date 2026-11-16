@@ -121,7 +121,7 @@ function StackResults(props: {
 
 /**
  * „Ergebnisse pro Eintrag“: every file a stack handed over, with its status
- * and its result, in the details of the shown run (PAGE-268).
+ * and its result, in the details of the shown run.
  *
  * @remarks
  * A failed entry keeps its error in its own row; the others show their

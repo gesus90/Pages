@@ -68,7 +68,6 @@ export class WikiAttachmentRepository {
 
   /**
    * Creates the repository.
-   *
    * @param database - Database access or the transaction to run in.
    */
   public constructor(database: DatabaseTransaction) {
@@ -77,7 +76,6 @@ export class WikiAttachmentRepository {
 
   /**
    * Stores the metadata of an attached file.
-   *
    * @param attachment - What the server knows about the file.
    * @returns The identifier and the creation time of the attachment.
    */
@@ -129,7 +127,6 @@ export class WikiAttachmentRepository {
 
   /**
    * Lists the attachments of a page.
-   *
    * @param pageId - Page identifier.
    * @returns The attachments, oldest first.
    */

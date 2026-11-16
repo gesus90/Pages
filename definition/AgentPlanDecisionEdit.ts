@@ -15,7 +15,7 @@ import type {
   AgentPlanPosition,
 } from "./AgentPlan";
 
-/** Where a decision stands: at the top level, in a group or in a loop (PAGE-286). */
+/** Where a decision stands: at the top level, in a group or in a loop. */
 export type PlanDecisionPlace =
   | { readonly kind: "top" }
   | { readonly kind: "group"; readonly groupId: string }
@@ -23,7 +23,6 @@ export type PlanDecisionPlace =
 
 /**
  * Finds a decision wherever it stands.
- *
  * @param plan - The saved plan with its groups and loops.
  * @param id - The decision.
  * @returns The decision and its place, or `null` when no decision has the id.
@@ -100,7 +99,6 @@ function mapPlanDecisions<Plan extends AgentPlanInput>(
 
 /**
  * Replaces a decision where it stands.
- *
  * @param plan - The plan.
  * @param replacement - The changed decision; its id names the one to replace.
  */
@@ -263,7 +261,6 @@ function edgePlace(
 
 /**
  * Moves a decision into a group or loop, or out to the top level.
- *
  * @param plan - The plan.
  * @param move - The decision, the target frame (`null` for the top level) and its new position.
  * @returns The plan and the number of edges that could not stay: a condition or
@@ -311,7 +308,6 @@ export function placePlanDecision<Plan extends AgentPlanInput>(
 
 /**
  * The decisions of a container that is dissolved, as nodes of the top level.
- *
  * @param decisions - The decisions the group or loop held.
  * @param offset - Where the container's member area began, so they stay where they were shown.
  */
@@ -328,7 +324,6 @@ export function releasedPlanDecisions(
 
 /**
  * Adds an edge where its ends belong: in the group or loop both share, otherwise to the outer edges.
- *
  * @param plan - The plan.
  * @param edge - The new edge.
  */
@@ -346,7 +341,6 @@ export function withPlanEdge<Plan extends AgentPlanInput>(
 
 /**
  * Removes the edges a test matches, wherever they are kept.
- *
  * @param plan - The plan.
  * @param isRemoved - Which edges go.
  */

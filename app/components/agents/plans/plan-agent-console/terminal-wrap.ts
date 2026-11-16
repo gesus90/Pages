@@ -103,7 +103,7 @@ class RowBuilder {
 
 /**
  * Wraps one finished line of the Pages terminal into rows of at most
- * `columns` visible characters (PAGE-289).
+ * `columns` visible characters.
  *
  * @param line - One line without line break, plain or in one ANSI style.
  * @param columns - Visible characters per row; the terminal passes one less than it has, so xterm never wraps itself.

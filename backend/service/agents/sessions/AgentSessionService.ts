@@ -61,7 +61,7 @@ import type {
 export interface AgentSessionRunAccess {
   run(userId: string, runId: string): Promise<AgentPlanRun>;
   /**
-   * Reads a run of any plan the person may see, for reading its history only (PAGE-307).
+   * Reads a run of any plan the person may see, for reading its history only.
    *
    * @remarks
    * Without it only the executor reads the history.
@@ -82,7 +82,7 @@ export interface AgentSessionLiveTurn {
   /** Sends an instruction as a turn of its own; resolves when that turn ended. */
   readonly instruct: (text: string) => Promise<void>;
   /**
-   * Writes an instruction into the running turn of a plan node at once (PAGE-284).
+   * Writes an instruction into the running turn of a plan node at once.
    *
    * @returns Whether a running turn took it.
    */
@@ -314,7 +314,7 @@ export class AgentSessionService {
    * Reads the history of a session after a cursor.
    *
    * @remarks
-   * A run from before PAGE-85 has only the short event lines of its record;
+   * An older run has only the short event lines of its record;
    * they are returned once, marked as such.
    */
   public async history(

@@ -99,8 +99,7 @@ function AssetDetails(props: {
 }
 
 /**
- * The Asset node (PAGE-268): one file the plan hands to the inputs it feeds.
- *
+ * The Asset node: one file the plan hands to the inputs it feeds.
  * @remarks
  * A file is dropped onto the card or chosen; the server detects its type from
  * the content. The card shows a small preview fitting the family, a fallback

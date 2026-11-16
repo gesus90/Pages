@@ -45,7 +45,6 @@ interface Waiter {
 
 /**
  * The questions whose round waits in this process, by question ID.
- *
  * @remarks
  * The answer may arrive through another wiring of the services than the
  * one the job asked through, so the waits belong to the process.
@@ -139,9 +138,7 @@ function mayAnswer(
 }
 
 /**
- * The interim messages and the questions with answer buttons of chat agents
- * (PAGE-391).
- *
+ * The interim messages and the questions with answer buttons of chat agents.
  * @remarks
  * Both are messages of the agent in the conversation of its chat, sent like
  * any message of the agent, so muting and notifications apply as for an
@@ -175,7 +172,6 @@ export class AgentChatQuestionService {
 
   /**
    * Stores the answer of a person to a question and hands it to the waiting agent.
-   *
    * @param person - The signed-in person.
    * @param input - `questionId` and `answers`: per question the chosen
    * `optionIds` and an optional `freeText`.

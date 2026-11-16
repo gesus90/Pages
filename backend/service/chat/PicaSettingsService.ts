@@ -130,7 +130,6 @@ export class PicaSettingsService {
 
   /**
    * Supplies the protected form with the saved choice and all accessible models.
-   *
    * @remarks
    * The form lists all models of the administrator's connections and marks
    * refusals with Pica's central rule. A saved invalid choice keeps its
@@ -310,7 +309,6 @@ export class PicaSettingsService {
 
   /**
    * Applies Pica's central model rule and the run options of its runner.
-   *
    * @remarks
    * The rule reads the stored catalog only, so no provider is called. A
    * model the catalog does not name is not refused here; resolving the

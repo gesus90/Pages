@@ -10,7 +10,7 @@ const MAXIMUM_BYTES = 1024 * 1024;
 const MAXIMUM_NATIVE_RESPONSE_BYTES = 4 * 8_000_000 + MAXIMUM_BYTES;
 const PENDING_DELAY_MS = 100;
 const REQUEST_DEADLINE_MS = 15_000;
-/** `chat_send` may wait up to ten minutes for a reply (PAGE-311). */
+/** `chat_send` may wait up to ten minutes for a reply. */
 const WAITING_TOOL = "chat_send";
 const WAITING_DEADLINE_MS = 11 * 60_000;
 
@@ -65,7 +65,6 @@ async function readBounded(
 
 /**
  * Executes one Pages-owned catalog or tool request with a server-bound destination.
- *
  * @remarks
  * Only the explicit pending response is retried. Network failures and all other
  * responses are returned or rejected without replaying a potentially executed write.

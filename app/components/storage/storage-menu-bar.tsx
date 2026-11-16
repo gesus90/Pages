@@ -73,7 +73,7 @@ function MenuStatus({
 }
 
 /**
- * The menu bar above the Storage list (PAGE-272): the file actions, the
+ * The menu bar above the Storage list: the file actions, the
  * multi-select switch and select all, with the selection and the clipboard
  * on the right. Actions that are not available are disabled.
  */

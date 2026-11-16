@@ -30,7 +30,6 @@ export function isReleaseReason(reason: AcpLeaseCheckReason): boolean {
 
 /**
  * Whether a lease began before the current boot, so every process it had ended with that boot.
- *
  * @param since - The recorded start of the lease, taken before any process creation.
  */
 export async function startedBeforeBoot(since: string): Promise<boolean> {
@@ -64,7 +63,7 @@ async function classifyNamespace(
  * Whether the process of a lease was started in a recorded worker unit.
  *
  * @remarks
- * The unit holds every process of the worker in its cgroup (PAGE-335), so
+ * The unit holds every process of the worker in its cgroup, so
  * its units prove whether a process of the lease can remain, also when it
  * ended before its identity was recorded.
  */

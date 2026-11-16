@@ -18,8 +18,7 @@ const HANDLERS: McpCalendarHandlers = {
 
 /**
  * Reads the zone, calendars, rule choices and limits of the account
- * (`GET /api/mcp/v1/calendar/options`, read_calendar_options), PAGE-301.
- *
+ * (`GET /api/mcp/v1/calendar/options`, read_calendar_options).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

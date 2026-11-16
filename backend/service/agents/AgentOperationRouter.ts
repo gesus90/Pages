@@ -107,7 +107,7 @@ export interface AgentOperationDependencies {
   /** Agent plans and their runs, offered to the agent tools and the chat alike. */
   readonly plans?: Pick<AgentPlanOperationService, "handle">;
   readonly pageAgents?: Pick<PageAgentOperationService, "handle">;
-  /** Automations (PAGE-297), offered to the agent tools and the chat alike. */
+  /** Automations, offered to the agent tools and the chat alike. */
   readonly automations?: Pick<AutomationOperationService, "handle">;
   /** The agent surface the reads run for; MCP when absent. */
   readonly channel?: AgentChannel;
@@ -407,7 +407,6 @@ export class AgentOperationRouter {
 
   /**
    * Reads one passage of a page or of a ticket description, or returns `null` for any other operation.
-   *
    * @remarks
    * The passage is cut on the server: the complete text never leaves it, and a
    * hidden target is reported as missing exactly like in a full read.

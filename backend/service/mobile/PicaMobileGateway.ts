@@ -49,8 +49,8 @@ export interface PicaMobileGatewayOptions {
    */
   readonly conversations?: PicaMobileConversationsProvider;
   /**
-   * Resolves the services of the attachment endpoints of `conversations.v1`
-   * (PAGE-298); without it those addresses answer 426.
+   * Resolves the services of the attachment endpoints of `conversations.v1`;
+   * without it those addresses answer 426.
    */
   readonly attachments?: () => Promise<PicaMobileAttachmentServices>;
   /** Answers `speech.v1`; without it `speech.v1` is not announced. */
@@ -62,7 +62,7 @@ export interface PicaMobileGatewayOptions {
   /** Interface to listen on; every interface when missing. */
   readonly listenAddress?: string;
   /**
-   * Set while `pages-core` holds the app's port (PAGE-239): the gateway
+   * Set while `pages-core` holds the app's port: the gateway
    * listens on the loopback relay port instead and admits only what the
    * core relays, with the app's address the core reports.
    */
@@ -82,7 +82,6 @@ export class PicaMobileListenError extends Error {
 
   /**
    * Creates the error.
-   *
    * @param reason - Why the port cannot be used.
    * @param options - Original error, when there is one.
    */
@@ -110,7 +109,7 @@ const COMPONENT = "PicaMobileGateway";
 const MAXIMUM_CONNECTIONS = 100;
 const MAXIMUM_USER_AGENT_LENGTH = 200;
 const SHUTDOWN_GRACE_MILLISECONDS = 3_000;
-/** The relay listener only answers loopback peers (PAGE-239). */
+/** The relay listener only answers loopback peers. */
 const RELAY_LISTEN_ADDRESS = "127.0.0.1";
 
 function classifyListenError(error: unknown): PicaMobilePortError {

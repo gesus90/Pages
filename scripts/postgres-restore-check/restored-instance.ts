@@ -136,7 +136,6 @@ export class RestoredInstance {
 
   /**
    * Copies a base backup and sets it up for recovery.
-   *
    * @param baseBackup - The directory of the backup.
    * @param plan - Where the WAL lies and where to stop.
    */
@@ -147,11 +146,9 @@ export class RestoredInstance {
 
   /**
    * Starts the server and waits until recovery reached its target and promoted.
-   *
    * @remarks
    * The process owner is acquired before waiting for promotion. With
    * `hot_standby = off`, the server accepts connections only after promotion.
-   *
    * @throws {RestoreCheckFailure} When the server ends first, for example because
    * a WAL file is missing or damaged, so the target stays out of reach.
    */
@@ -171,7 +168,6 @@ export class RestoredInstance {
 
   /**
    * Stops the server and retains the work directory for inspection.
-   *
    * @returns The one removal, also when a signal and the regular end both ask for it.
    * @throws When the owned process did not stop cleanly.
    */

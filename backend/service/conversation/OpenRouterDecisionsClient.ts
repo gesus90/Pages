@@ -5,7 +5,7 @@ import { logEvent } from "@/backend/logging/Logger";
 import { AGENT_PROVIDERS } from "@/definition/AgentConnection";
 import { CONVERSATION_DECISION_LIMITS } from "@/definition/ConversationDecision";
 
-/** The decisions endpoint of OpenRouter (PAGE-379); it is in alpha and not the chat endpoint. */
+/** The decisions endpoint of OpenRouter; it is in alpha and not the chat endpoint. */
 const OPENROUTER_DECISIONS_URL = `${AGENT_PROVIDERS.openrouter.endpoint.replace(/\/v1$/u, "/alpha")}/decisions`;
 
 /** The most bytes of an answer Pages reads. */
@@ -136,7 +136,7 @@ function parseResponse(text: string): OpenRouterDecisionsResponse {
 }
 
 /**
- * Asks an OpenRouter decision model typed questions (PAGE-379).
+ * Asks an OpenRouter decision model typed questions.
  *
  * @remarks
  * `POST https://openrouter.ai/api/alpha/decisions` with `model`, `state` and
@@ -157,7 +157,6 @@ export class OpenRouterDecisionsClient {
 
   /**
    * Asks once.
-   *
    * @param input - Key, model, state, questions and the caller's cancellation.
    * @returns The model that answered and its typed answers.
    * @throws {ConversationObserverError} `decision_unreachable` when OpenRouter

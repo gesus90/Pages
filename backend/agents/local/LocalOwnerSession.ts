@@ -190,7 +190,7 @@ export class LocalOwnerSession {
     return this.closing;
   }
 
-  /** Interrupts the running prompt of the turn, which then waits for a person's input (PAGE-284). */
+  /** Interrupts the running prompt of the turn, which then waits for a person's input. */
   public async interrupt(): Promise<boolean> {
     return (await this.session?.interrupt?.()) ?? false;
   }

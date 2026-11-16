@@ -19,7 +19,6 @@ interface TicketParentFieldProps {
 /**
  * Lists the tickets a ticket may hang below: active tickets of the level right
  * above in the same project, never the ticket itself.
- *
  * @param ticket - The ticket that gets a parent.
  * @param workItems - Candidates as loaded.
  * @returns The possible parents.
@@ -40,7 +39,7 @@ export function findParentCandidates(
 }
 
 /**
- * Chooses the parent of a ticket on every level (A8.2-E03): epics below
+ * Chooses the parent of a ticket on every level: epics below
  * initiatives, tasks below epics, subtasks below tasks. Without the right to
  * write it only shows the parent. The server checks the choice again; a
  * refusal shows next to the field.

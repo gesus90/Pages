@@ -47,7 +47,7 @@ declare global {
   var pagesAutomationAgentWorker: AutomationAgentWorker | undefined;
 }
 
-/** The automation services of loaders, actions and the agent tools (PAGE-297). */
+/** The automation services of loaders, actions and the agent tools. */
 export interface AutomationApplicationServices {
   readonly automationService: AutomationService;
 }
@@ -101,7 +101,6 @@ function executionPorts(
 
 /**
  * Writes the events of plan runs of this process to the inbox of automations.
- *
  * @remarks
  * Every process observes the run writes it commits itself; a second call
  * replaces the first.
@@ -115,8 +114,7 @@ function observePlanEvents(database: Database): void {
 
 /**
  * Builds the business service of automations, observes plan events and
- * starts the timer in the API (PAGE-297).
- *
+ * starts the timer in the API.
  * @param database - The shared database.
  * @param input - The agent, project and ticket services the rules read from.
  * @param plans - The plan services that start plans and push to devices.
@@ -202,15 +200,14 @@ function startAutomationScheduler(input: AutomationSchedulerInput): void {
 }
 
 /**
- * Starts the delivery of automation work to agents where their sessions run (PAGE-297).
- *
+ * Starts the delivery of automation work to agents where their sessions run.
  * @param input - The database, the automation rules and the agents' sessions.
  */
 export function startAutomationAgentWorker(input: {
   readonly database: Database;
   readonly automationService: AutomationService;
   readonly sessions: AgentEmployeeSessions;
-  /** Stores the result of a run in a group as the agent's message (PAGE-376). */
+  /** Stores the result of a run in a group as the agent's message. */
   readonly chatPoster?: Pick<AgentChatService, "postResult">;
 }): void {
   if (isLocalSessionOwner() || isPagesRunsProcess()) return;

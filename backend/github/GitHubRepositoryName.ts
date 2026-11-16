@@ -1,6 +1,5 @@
 /**
  * Reads the `owner/name` path from a GitHub repository address.
- *
  * @param repoUrl - Repository address such as https://github.com/owner/name.git.
  * @returns The `owner/name` path, or null when the address is not a GitHub repository.
  */

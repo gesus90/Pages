@@ -1,7 +1,6 @@
 /**
  * Contracts of the Pages tools with which agents read chats and send
- * messages (PAGE-311).
- *
+ * messages.
  * @remarks
  * `chats_list`, `chat_read` and `chat_send` work on the stored conversations
  * of people, agents and groups. An agent reads and writes only chats it takes

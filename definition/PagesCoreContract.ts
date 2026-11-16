@@ -3,8 +3,7 @@ import { z } from "zod";
 import type { LiveChange } from "./LiveChange";
 
 /**
- * Version of the contract between `pages-core` and `pages-api` (PAGE-237).
- *
+ * Version of the contract between `pages-core` and `pages-api`.
  * @remarks
  * `core/src/contract.rs` mirrors this file. Both sides refuse every other
  * version: a changed contract gets a new version and a new path, so an old
@@ -47,7 +46,6 @@ const outboxEventSchema = z.object({
 
 /**
  * One request of `pages-core`: browser sessions and committed outbox events.
- *
  * @remarks
  * An event names kind and object, never content. A session is the browser's
  * `Cookie` header; the API reads its session from it exactly as for a page
@@ -114,14 +112,13 @@ export interface PagesCoreLiveResponse {
 
 /**
  * The API path where `pages-core` asks whether a browser session may read
- * the detailed service status (PAGE-238).
+ * the detailed service status.
  */
 export const PAGES_CORE_STATUS_ACCESS_PATH = "/api/core/v1/status-access";
 
 /**
  * One request of `pages-core`: may this browser session read the detailed
  * service status?
- *
  * @remarks
  * Like the live decisions, the session is the browser's `Cookie` header and
  * the API reads it as for a page request. The core asks again for every
@@ -139,7 +136,6 @@ export type PagesCoreStatusAccessRequest = z.infer<
 
 /**
  * The API's answer about the detailed service status.
- *
  * @remarks
  * `granted` only for an active session of an account in the active admin
  * mode, the same rule as the system settings. Every other answer, and no
@@ -152,8 +148,7 @@ export interface PagesCoreStatusAccessResponse {
 
 /**
  * Headers of a Pica Mobile request that `pages-core` relays to the API's
- * relay listener (PAGE-239).
- *
+ * relay listener.
  * @remarks
  * `secret` carries `Bearer <pagesCoreSecret>`; it is not `Authorization`,
  * which the app's attachment requests use for their session token. `client`

@@ -8,7 +8,6 @@ function digest(value: string): Buffer {
 
 /**
  * The one-time secret that unlocks the setup wizard.
- *
  * @remarks
  * The token only lives in the memory of the server process. The operator
  * receives it through the setup link printed to the console; a restart
@@ -35,10 +34,8 @@ export class SetupToken {
 
   /**
    * Compares a submitted value with the token.
-   *
    * @param candidate - Untrusted value from a request.
    * @returns Whether it is the token.
-   *
    * @remarks
    * Both sides are hashed to the same length first, so the comparison takes
    * the same time whatever was submitted.

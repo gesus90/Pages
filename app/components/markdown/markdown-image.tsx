@@ -16,7 +16,6 @@ const IMAGE_CLASS = "max-h-[32rem] max-w-full rounded-lg";
 
 /**
  * Opens an image in the viewer; without one the images only show.
- *
  * @remarks
  * Travels by context, not through the component map of the renderer: a map
  * that changes with the callback would make React rebuild every image, which
@@ -26,7 +25,6 @@ export const ImageOpenContext = createContext<OpenImage | null>(null);
 
 /**
  * The target of the link that wraps the images being rendered.
- *
  * @remarks
  * An image inside a link cannot sit in a button as well, so it opens the
  * viewer on a click and the viewer offers the link target instead.

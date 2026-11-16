@@ -22,8 +22,7 @@ const HANDLERS: McpWikiHandlers = {
 };
 
 /**
- * Lists the page tree (`GET /api/mcp/v1/wiki/pages`) and creates a page (`POST`), PAGE-257 interface 1 and 4.
- *
+ * Lists the page tree (`GET /api/mcp/v1/wiki/pages`) and creates a page (`POST`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

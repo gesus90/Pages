@@ -28,7 +28,6 @@ export const CalendarContextProvider = CalendarContext.Provider;
 
 /**
  * Reads the shared state of the calendar page.
- *
  * @throws Error - Outside the calendar page.
  */
 export function useCalendarContext(): CalendarViewContext {

@@ -73,7 +73,7 @@ export function readJsonObject(answer: string): unknown {
 }
 
 /**
- * The task of one topic update after an answer (PAGE-305).
+ * The task of one topic update after an answer.
  *
  * @param topics - The topics of this chat as they stand in `MEMORY.md`.
  * @param exchange - The message and the answer just given.
@@ -119,7 +119,7 @@ export function readTopicAnswer(answer: string): AgentTopicUpdate[] | null {
 }
 
 /**
- * The task of summarizing the older part of a chat (PAGE-305).
+ * The task of summarizing the older part of a chat.
  *
  * @param previous - The summary so far, or `null`.
  * @param messages - The messages the new summary takes in, the oldest first.

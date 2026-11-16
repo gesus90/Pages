@@ -26,7 +26,6 @@ const todoListSchema = z.strictObject({
 
 /**
  * Validates the reported TODO list of a step result.
- *
  * @param input - The JSON of a run view.
  * @throws {AgentError} `plan_invalid` for anything but a list of TODOs.
  */

@@ -96,8 +96,7 @@ function namedConversation(
 
 /**
  * Answers `conversations.v1` with the stored conversations of Pages, the
- * same ones the web chat page shows (PAGE-278).
- *
+ * same ones the web chat page shows.
  * @remarks
  * Every request reads the account behind the session first and then uses
  * the same services as the web, so rights, limits and the repetition of a
@@ -109,7 +108,6 @@ export class PagesPicaMobileConversations implements PicaMobileConversationsProv
 
   /**
    * Creates the provider.
-   *
    * @param options - The services and the channel of committed changes.
    */
   public constructor(options: PagesPicaMobileConversationsOptions) {
@@ -188,7 +186,7 @@ export class PagesPicaMobileConversations implements PicaMobileConversationsProv
   ): Promise<PicaMobileConversationEventPayload | null | "sessionEnded"> {
     if (event.kind === "message" || event.kind === "message_updated")
       return { type: event.kind, data: event.message };
-    // The recipients of a live part are the members who may read it (PAGE-381).
+    // The recipients of a live part are the members who may read it.
     if (event.kind === "answer") return event.payload;
     if (event.kind === "typing")
       return {

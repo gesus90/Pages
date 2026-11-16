@@ -10,7 +10,6 @@ interface DiscordInstanceNoticeProps {
 
 /**
  * Explains that the Discord application of the instance is not set up.
- *
  * @remarks
  * Credentials are never asked for here: they belong to the instance and are
  * set by an administrator on the server. Only the names of the missing

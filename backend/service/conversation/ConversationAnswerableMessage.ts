@@ -5,7 +5,7 @@ import type { ConversationEvent } from "./ConversationEvents";
 
 /**
  * Whether a message asks for an answer: one a person wrote, or one an agent
- * chose to send (PAGE-311). The answer of an agent asks nobody, so two agents
+ * chose to send. The answer of an agent asks nobody, so two agents
  * never answer each other on their own.
  */
 export function isAskingMessage(message: ConversationMessage): boolean {

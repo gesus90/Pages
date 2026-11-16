@@ -81,7 +81,7 @@ function readCost(value: unknown): ChatCost | null {
   const cost = fields(value);
   if (typeof cost.amount !== "number" || !Number.isFinite(cost.amount))
     throw invalid();
-  // Entries written before PAGE-90 carry no flag; no adapter estimated a cost then.
+  // Older entries carry no flag; no adapter estimated a cost then.
   if (cost.isEstimated !== undefined && typeof cost.isEstimated !== "boolean")
     throw invalid();
   return {
@@ -212,7 +212,6 @@ function readOutcomeEvent(event: Fields): ChatJobEvent {
 
 /**
  * Reads one journal entry of a job.
- *
  * @throws {TypeError} For anything that is no known entry.
  */
 export function readChatJobEvent(value: unknown): ChatJobEvent {
@@ -267,7 +266,7 @@ export function readChatJobUpdate(value: unknown): ChatJobUpdate {
   };
 }
 
-/** Reads how much of a cut text reached the agent; snapshots before PAGE-92 have none. */
+/** Reads how much of a cut text reached the agent; older snapshots have none. */
 function readSelectionScope(value: unknown): ChatSelectionScope | undefined {
   if (value === undefined) return undefined;
   const scope = fields(value);

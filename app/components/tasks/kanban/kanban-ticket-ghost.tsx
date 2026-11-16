@@ -14,7 +14,6 @@ interface KanbanTicketGhostProps {
 
 /**
  * Renders the orange insertion preview shown while dragging a ticket.
- *
  * @remarks
  * Mirrors the dimensions and layout of a real ticket so it occupies exactly
  * the space the dropped ticket will take, without shifting the column.

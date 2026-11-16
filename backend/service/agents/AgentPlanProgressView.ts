@@ -166,7 +166,7 @@ export async function withPlanProgress(
     readonly tasks: Pick<AgentPlanTasks, "checklist">;
     /** Per-node ticket bindings from the run's private snapshot, including remote nodes. */
     readonly stepTickets?: Readonly<Record<string, readonly string[]>>;
-    /** What `update_step_progress` reported, by step (PAGE-284). */
+    /** What `update_step_progress` reported, by step. */
     readonly live?: ReadonlyMap<string, AgentPlanStepLiveProgress>;
   },
 ): Promise<AgentPlanRun> {

@@ -29,8 +29,7 @@ export interface McpPlanNotationFailureDetail {
 }
 
 /**
- * Fixed public failure of the plan notation API (PAGE-250).
- *
+ * Fixed public failure of the plan notation API.
  * @remarks
  * It carries a code and a status, the findings of `notation_invalid` and
  * the current revision of `conflict`; no message of a service and no part
@@ -43,7 +42,6 @@ export class McpPlanNotationError extends Error {
 
   /**
    * Creates the error.
-   *
    * @param code - The error code of the interface; it decides the HTTP status.
    * @param detail - The findings or the current revision, where the code has them.
    */

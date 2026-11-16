@@ -33,7 +33,6 @@ export class WikiAccess {
 
   /**
    * Creates the resolver.
-   *
    * @param projectService - Decides which projects an account reads.
    * @param permissionService - Decides the capabilities of an account.
    */
@@ -48,7 +47,6 @@ export class WikiAccess {
 
   /**
    * Resolves the viewer from live account facts.
-   *
    * @param actor - The signed-in user.
    * @returns The viewer with the scope that filters every wiki read.
    * @throws When the account is inactive or has no access.
@@ -78,7 +76,6 @@ export class WikiAccess {
 
 /**
  * Decides what a viewer may do with a page it can see.
- *
  * @param viewer - The viewer.
  * @param page - Scope and owner of the page.
  * @returns Editing needs the capability "write"; managing (moving,
@@ -99,7 +96,6 @@ export function describePermissions(
 
 /**
  * Tells whether a viewer may move, delete or re-anchor a page.
- *
  * @param viewer - The viewer.
  * @param page - Scope and owner of the page.
  * @returns Whether the viewer manages the page.

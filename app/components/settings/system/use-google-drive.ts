@@ -31,7 +31,7 @@ export interface GoogleDriveCardModel {
     Exclude<GoogleDriveActionResult, { ok: true }>["error"] | null;
   readonly isStarting: boolean;
   readonly signIn: () => void;
-  /** Starts the targeted consent for the write access of Storage (PAGE-270). */
+  /** Starts the targeted consent for the write access of Storage. */
   readonly grantWriteAccess: () => void;
   /** Whether the address asks to grant the write access (`?googleDriveAccess=write`). */
   readonly isWriteAccessRequested: boolean;
@@ -70,9 +70,7 @@ function useGoogleDriveReading(): GoogleDriveReading {
 
 /**
  * Provides the status of the Google Drive connection and starts the sign-in.
- *
  * @returns The model of the card.
- *
  * @remarks
  * The sign-in leaves Pages for Google's own page; Google sends the browser
  * back to the callback, which returns to the system settings with the outcome.

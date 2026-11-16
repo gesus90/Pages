@@ -20,7 +20,7 @@ interface LeaseLifecycle {
   readonly finish: (isConfirmed: boolean) => Promise<boolean>;
   /**
    * Proves the end of the processes from the durable evidence of the lease,
-   * after the native closeout could not confirm it (PAGE-335).
+   * after the native closeout could not confirm it.
    */
   readonly settle?: (error?: unknown) => Promise<boolean>;
 }
@@ -109,7 +109,7 @@ export class ScheduledAcpSession implements PlanSession {
     return this.session.interrupt();
   }
 
-  /** Cancels the running tool call of a chat turn; the lease stays as it is (PAGE-303). */
+  /** Cancels the running tool call of a chat turn; the lease stays as it is. */
   public async cancelTool(note: string): Promise<boolean> {
     if (this.closing || !this.session.cancelTool) return false;
     return this.session.cancelTool(note);

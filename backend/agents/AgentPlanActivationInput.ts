@@ -102,7 +102,7 @@ function readCondition(input: unknown): AgentPlanDecisionInput {
   };
 }
 
-/** Reads what the model of a decision answered (PAGE-286). */
+/** Reads what the model of a decision answered. */
 function readVerdict(input: unknown): AgentPlanDecisionVerdict {
   const verdict = readAgentObject(input);
   const { decision, reason, isCorrected } = verdict;
@@ -174,7 +174,6 @@ function readHistoryEntry(input: unknown): AgentPlanStepActivation {
 
 /**
  * Reads what a node that ran more than once adds to its result.
- *
  * @param step - The stored result of the node.
  * @returns The activation count, the passed state, the branch, the condition,
  * the trigger and the earlier starts; each only when stored.

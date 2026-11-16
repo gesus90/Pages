@@ -4,10 +4,9 @@ import type { ConversationMessageRepository } from "@/backend/database/repositor
 import type { ConversationAccounts } from "./ConversationDirectory";
 
 /**
- * Whether a group stands at the chain pause (PAGE-349): its newest
+ * Whether a group stands at the chain pause: its newest
  * `CONVERSATION_DECISION_LIMITS.agentStreak` messages are all of agents,
  * without a message of a person between them.
- *
  * @remarks
  * This is only the guard against endless talk between agents. A hand-over
  * met here is stored, never dropped, and starts once a person writes.

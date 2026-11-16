@@ -41,7 +41,6 @@ export function planSwarmModelId(
 
 /**
  * The model choice of a catalog entry, keeping the reasoning when the model stays.
- *
  * @returns `null` for an entry that is not an ACP model.
  */
 export function planSwarmModelOf(
@@ -73,7 +72,6 @@ export function withPlanSwarmCount(
 
 /**
  * Switches between one configuration for all helpers and one per helper.
- *
  * @remarks
  * Switching to `individual` fills every helper without its own entry with
  * the shared configuration, so nothing changes until a helper is changed.

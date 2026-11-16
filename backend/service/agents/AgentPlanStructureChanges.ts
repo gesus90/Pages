@@ -166,7 +166,6 @@ function newNodeFields(
 
 /**
  * An edited node keeps the connections of the inputs it still declares.
- *
  * @remarks
  * The node dialogs drop the connection of a removed input as well; a
  * renamed input is a new one here and needs to be bound again.
@@ -189,7 +188,6 @@ function withDeclaredBindings(node: AgentPlanNode): AgentPlanNode {
 
 /**
  * Adds the value nodes the editor adds with an agent: the agent's defaults and its workspace.
- *
  * @remarks
  * The plan page binds every parameter with a default, and the directory
  * parameter without one to the plan's workspace, through a value node of its
@@ -397,7 +395,7 @@ function connect(
   return disconnected;
 }
 
-/** The data input of a decision is its one binding, named `input` (PAGE-286). */
+/** The data input of a decision is its one binding, named `input`. */
 function bindDecision(
   plan: AgentPlanInput,
   change: Extract<AgentPlanChange, { action: "bind" | "unbind" }>,
@@ -436,7 +434,6 @@ function bindInput(
 
 /**
  * Applies changes of nodes, flow connections and inputs to a plan, in order.
- *
  * @param plan - The plan as it was read.
  * @param changes - The changes of the call.
  * @param context - The agents an added agent node takes its defaults from.
@@ -444,7 +441,6 @@ function bindInput(
  * @throws {AgentOperationError} `INVALID_REQUEST` with `element_missing` or
  * `element_exists` for a change that names what the plan does not have or
  * already has, and the refusals of the node parser for a malformed node.
- *
  * @remarks
  * Removing a node removes its connections and the inputs it fed, as on the
  * plan page. Whether the result is a valid graph is decided when it is saved.
@@ -618,8 +614,7 @@ function placeMember(
 }
 
 /**
- * Moves a decision into a group or loop or out to the top level (PAGE-286).
- *
+ * Moves a decision into a group or loop or out to the top level.
  * @remarks
  * As for agents, a move that would drop a connection needs a repair first:
  * a condition or branch edge joins nodes of one container only.

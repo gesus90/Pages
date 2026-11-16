@@ -15,7 +15,7 @@ import { RemoteInstallService } from "@/backend/service/remote/setup/RemoteInsta
 import type { Database } from "@/backend/database/Database";
 import type { InstanceSecretCipher } from "@/backend/security/InstanceSecretCipher";
 
-/** SSH connections, remote workspace profiles and their live logical connections (PAGE-138). */
+/** SSH connections, remote workspace profiles and their live logical connections. */
 export interface RemoteApplicationServices {
   readonly remoteConnectionService: RemoteConnectionService;
   readonly remoteWorkspaceService: RemoteWorkspaceService;
@@ -30,7 +30,6 @@ export interface RemoteApplicationServices {
 /**
  * Builds the remote services on the existing instance cipher, so SSH secrets
  * use the same protected storage as the API keys of agent connections.
- *
  * @param input - The database and the instance cipher.
  * @returns The services; nothing connects until a person tests or uses a connection.
  */

@@ -51,7 +51,7 @@ async function requireAccount(
 }
 
 /**
- * Shows the pairing request of a code to the signed-in account (PAGE-243).
+ * Shows the pairing request of a code to the signed-in account.
  *
  * @remarks
  * The endpoint `/app-api/koppeln` answers with it. A visitor without a
@@ -82,7 +82,7 @@ export async function loader({
 }
 
 /**
- * Takes the decision of the person: pair or reject (PAGE-243).
+ * Takes the decision of the person: pair or reject.
  *
  * @remarks
  * Only a form post of this site decides; the check of the origin is on top of

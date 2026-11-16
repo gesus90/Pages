@@ -8,12 +8,10 @@ const PROJECT_WIKI_PAGES =
 
 /**
  * Deletes the wiki of a project for good, without passing through the trash.
- *
  * @param database - The transaction to delete in.
  * @param projectId - The project whose pages go.
  * @returns Storage names of the attachment files that no longer have a row;
  * the caller removes them from the disk after the transaction committed.
- *
  * @remarks
  * Uploads that an agent linked to one of the pages lose their record as well.
  * Everything else that belongs to a page, such as comments, versions and

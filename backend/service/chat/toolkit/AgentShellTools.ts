@@ -10,9 +10,7 @@ const MAXIMUM_FOREGROUND_SECONDS = 600;
 
 /**
  * Commands that delete, send something out of the host, publish, pay or
- * stop services: consequential steps the person approves in the chat first
- * (PAGE-390).
- *
+ * stop services: consequential steps the person approves in the chat first.
  * @remarks
  * The list is deliberately broad; a false match only costs one question.
  * It is no sandbox: the isolation of "Arbeitsplatz" and the permission
@@ -32,7 +30,7 @@ const CONSEQUENTIAL_COMMANDS: readonly RegExp[] = [
   /(?:^|[\s;&|(`$])(?:stripe|paypal)(?=\s|$)/u,
 ];
 
-/** Whether a command is a consequential step (PAGE-390). */
+/** Whether a command is a consequential step. */
 export function isConsequentialCommand(command: string): boolean {
   return CONSEQUENTIAL_COMMANDS.some((pattern) => pattern.test(command));
 }
@@ -60,7 +58,7 @@ const STATUS_SCHEMA = z
 const STOP_SCHEMA = z.object({ jobId: z.string().uuid() }).strict();
 
 /**
- * The shell tools of the toolkit (PAGE-390), only with full access: a
+ * The shell tools of the toolkit, only with full access: a
  * command in the working folder, in the foreground with a time limit or in
  * the background, its status and its end.
  *

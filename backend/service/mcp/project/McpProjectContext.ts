@@ -13,7 +13,6 @@ import type { McpProjectPerson } from "./McpProjectContract";
 
 /**
  * The services the project API calls: the very ones the interface uses.
- *
  * @remarks
  * The API adds no business logic and no right of its own; every call goes
  * through these services with the paired account as the actor. The project
@@ -47,7 +46,6 @@ export class McpProjectContext {
 
   /**
    * Creates the context of one request.
-   *
    * @param actor - The account the device token acts for.
    * @param services - The project services of the interface.
    */
@@ -58,11 +56,9 @@ export class McpProjectContext {
 
   /**
    * Reads a project with its contents, archived ones included.
-   *
    * @param projectId - The id of the project.
    * @throws {ProjectNotFoundError} When it does not exist.
    * @throws {ProjectAccessDeniedError} When the account may not see it.
-   *
    * @remarks
    * A running project is read with the reads of the project page; an
    * archived one with the read of the archive.
@@ -97,11 +93,9 @@ export class McpProjectContext {
 
   /**
    * Requires a running project the account can see.
-   *
    * @remarks
    * Some service methods check the write right first; reading first lets a
    * hidden project answer `not_found` instead of `forbidden`.
-   *
    * @param projectId - The id of the project.
    * @throws {ProjectNotFoundError} When no running project has the id.
    * @throws {ProjectAccessDeniedError} When the account may not see it.
@@ -112,7 +106,6 @@ export class McpProjectContext {
 
   /**
    * Names a person by username and display name.
-   *
    * @param userId - Internal id of the person, or `null`.
    * @returns The person, or `null` for none or an account that no longer exists.
    */
@@ -126,7 +119,6 @@ export class McpProjectContext {
 
   /**
    * Resolves a username to a member of the project team.
-   *
    * @param projectId - The running project.
    * @param username - The username from the request.
    * @returns The id of the member, or `null` when the person is no member.
@@ -149,7 +141,6 @@ export class McpProjectContext {
   /**
    * Resolves a username to a person who may join the team, like the choice
    * of the project page offers them; members keep their place.
-   *
    * @param projectId - The running project.
    * @param username - The username from the request.
    * @returns The id of the person.
@@ -176,7 +167,6 @@ export class McpProjectContext {
   /**
    * Announces a change that may take the project out of somebody's sight,
    * like the interface does after archiving, deleting or reassigning.
-   *
    * @param projectId - The changed project.
    */
   public announceAccessChange(projectId: string): void {

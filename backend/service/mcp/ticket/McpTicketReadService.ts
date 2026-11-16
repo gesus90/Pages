@@ -26,7 +26,6 @@ export interface McpTicketSearchResult {
 
 /**
  * Returns the statuses of a project in board order.
- *
  * @param context - The request; only statuses of visible projects are read.
  * @param projectId - A project the account may see.
  */
@@ -42,11 +41,10 @@ export async function projectStatuses(
     .sort((first, second) => first.position - second.position);
 }
 
-/** Choices, search, single reads and activity of tickets (PAGE-242, interface 1–4). */
+/** Choices, search, single reads and activity of tickets. */
 export class McpTicketReadService {
   /**
    * Returns the choices of a project for creating and changing tickets.
-   *
    * @param context - The request.
    * @param projectId - A project the account may see.
    * @throws {McpTicketError} `not_found` for a hidden project.
@@ -76,7 +74,6 @@ export class McpTicketReadService {
 
   /**
    * Searches the tickets of a project, ordered by ticket number.
-   *
    * @param context - The request.
    * @param request - The validated filters.
    * @throws {McpTicketError} `forbidden` for archived tickets without the
@@ -116,7 +113,6 @@ export class McpTicketReadService {
 
   /**
    * Reads one ticket, archived ones included.
-   *
    * @param context - The request.
    * @param reference - Key or id of the ticket.
    */
@@ -130,7 +126,6 @@ export class McpTicketReadService {
   /**
    * Reads the activity of a ticket, newest first: the entries the interface
    * shows under "Aktivität".
-   *
    * @param context - The request.
    * @param reference - Key or id of the ticket.
    */
@@ -160,7 +155,6 @@ export class McpTicketReadService {
 
   /**
    * The people, groups and departments the account may choose in a project.
-   *
    * @remarks
    * Without the write right the account assigns nothing, so all three are empty.
    */

@@ -14,7 +14,6 @@ export interface WorkItemVisibilityFragment {
 /**
  * Limits a ticket alias to tickets without department and tickets of at least
  * one of the actor's own departments.
- *
  * @param visibility - Server-resolved scope; absent for trusted internal reads.
  * @param alias - Fixed query alias whose department rows are checked.
  */

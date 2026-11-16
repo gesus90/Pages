@@ -20,8 +20,7 @@ export interface AgentControlRequest {
 }
 
 /**
- * Sends requests to the control of agents in a chat one at a time (PAGE-380).
- *
+ * Sends requests to the control of agents in a chat one at a time.
  * @remarks
  * After a change the page reads its data again, so the head, the rings and
  * the system lines show the new state. A request while another runs is

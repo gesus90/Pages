@@ -14,7 +14,6 @@ interface DashboardPanelProps {
 
 /**
  * Renders a dashboard panel with consistent rounding, padding, and surface.
- *
  * @remarks
  * Every dashboard panel shares this frame so the middle and bottom rows
  * keep identical visual boundaries, gutters, and inner spacing.

@@ -36,51 +36,51 @@ No new screenshot was captured and no competitor image was imported.
 | What is sent                                            | [docs/IntegrationsService.md](IntegrationsService.md#what-is-sent)                                     |
 | Delivery and failures                                   | [docs/IntegrationsService.md](IntegrationsService.md#delivery-and-failures)                            |
 | Manual acceptance with a real server                    | [docs/IntegrationsService.md](IntegrationsService.md#manual-acceptance-with-a-real-server)             |
-| Google Drive sign-in (PAGE-170)                         | [docs/StorageApi.md](StorageApi.md#google-drive-sign-in-page-170)                                      |
+| Google Drive sign-in (PAGE-170)                         | [docs/StorageApi.md](StorageApi.md#google-drive-sign-in)                                               |
 | Set up the Google OAuth client (once per instance)      | [docs/StorageApi.md](StorageApi.md#set-up-the-google-oauth-client-once-per-instance)                   |
 | Sign-in, storage and account binding                    | [docs/StorageApi.md](StorageApi.md#sign-in-storage-and-account-binding)                                |
 | Proof, renewal and limits                               | [docs/StorageApi.md](StorageApi.md#proof-renewal-and-limits)                                           |
-| Storage: Google Drive file area (PAGE-188)              | [docs/StorageApi.md](StorageApi.md#storage-google-drive-file-area-page-188)                            |
-| Pica native tools (PAGE-157)                            | [docs/Pica.md](Pica.md#pica-native-tools-page-157)                                                     |
-| Pica execution budgets (PAGE-103)                       | [docs/Pica.md](Pica.md#pica-execution-budgets-page-103)                                                |
-| Pica over Codex ACP (PAGE-68)                           | [docs/Pica.md](Pica.md#pica-over-codex-acp-page-68)                                                    |
-| Pica over Claude Code ACP (PAGE-90)                     | [docs/Pica.md](Pica.md#pica-over-claude-code-acp-page-90)                                              |
-| Pica over native OpenCode ACP (PAGE-91)                 | [docs/Pica.md](Pica.md#pica-over-native-opencode-acp-page-91)                                          |
-| Pica live activity (PAGE-103)                           | [docs/Pica.md](Pica.md#pica-live-activity-page-103)                                                    |
-| Pica sessions and conversation context (PAGE-48)        | [docs/Pica.md](Pica.md#pica-sessions-and-conversation-context-page-48)                                 |
-| Pica quota demo (PAGE-96)                               | [docs/Pica.md](Pica.md#pica-quota-demo-page-96)                                                        |
-| Pica's mascot and protected instructions (PAGE-51)      | [docs/Pica.md](Pica.md#picas-mascot-and-protected-instructions-page-51)                                |
+| Storage: Google Drive file area (PAGE-188)              | [docs/StorageApi.md](StorageApi.md#storage-google-drive-file-area)                                     |
+| Pica native tools (PAGE-157)                            | [docs/Pica.md](Pica.md#pica-native-tools)                                                              |
+| Pica execution budgets (PAGE-103)                       | [docs/Pica.md](Pica.md#pica-execution-budgets)                                                         |
+| Pica over Codex ACP (PAGE-68)                           | [docs/Pica.md](Pica.md#pica-over-codex-acp)                                                            |
+| Pica over Claude Code ACP (PAGE-90)                     | [docs/Pica.md](Pica.md#pica-over-claude-code-acp)                                                      |
+| Pica over native OpenCode ACP (PAGE-91)                 | [docs/Pica.md](Pica.md#pica-over-native-opencode-acp)                                                  |
+| Pica live activity (PAGE-103)                           | [docs/Pica.md](Pica.md#pica-live-activity)                                                             |
+| Pica sessions and conversation context (PAGE-48)        | [docs/Pica.md](Pica.md#pica-sessions-and-conversation-context)                                         |
+| Pica quota demo (PAGE-96)                               | [docs/Pica.md](Pica.md#pica-quota-demo)                                                                |
+| Pica's mascot and protected instructions (PAGE-51)      | [docs/Pica.md](Pica.md#picas-mascot-and-protected-instructions)                                        |
 | Mascot                                                  | [docs/Pica.md](Pica.md#mascot)                                                                         |
 | Protected `AGENTS.md` and `SOUL.md`                     | [docs/Pica.md](Pica.md#protected-agentsmd-and-soulmd)                                                  |
-| Direct model selection and Pica (PAGE-124)              | [docs/Pica.md](Pica.md#direct-model-selection-and-pica-page-124)                                       |
-| Ticket parameters and assets (PAGE-60)                  | [docs/AgentPlanRunner.md](AgentPlanRunner.md#ticket-parameters-and-assets-page-60)                     |
-| Remote working directories (PAGE-138)                   | [docs/RemoteSetup.md](RemoteSetup.md#remote-working-directories-page-138)                              |
+| Direct model selection and Pica (PAGE-124)              | [docs/Pica.md](Pica.md#direct-model-selection-and-pica)                                                |
+| Ticket parameters and assets (PAGE-60)                  | [docs/AgentPlanRunner.md](AgentPlanRunner.md#ticket-parameters-and-assets)                             |
+| Remote working directories (PAGE-138)                   | [docs/RemoteSetup.md](RemoteSetup.md#remote-working-directories)                                       |
 | Agent Plans                                             | [docs/AgentPlanRunner.md](AgentPlanRunner.md#agent-plans)                                              |
-| Team plans and templates (PAGE-118)                     | [docs/AgentPlanRunner.md](AgentPlanRunner.md#team-plans-and-templates-page-118)                        |
-| React Flow migration inventory and acceptance (PAGE-87) | [docs/AgentPlanRunner.md](AgentPlanRunner.md#react-flow-migration-inventory-and-acceptance-page-87)    |
-| Restart and resume after a disturbance (PAGE-127)       | [docs/AgentPlanRunner.md](AgentPlanRunner.md#restart-and-resume-after-a-disturbance-page-127)          |
+| Team plans and templates (PAGE-118)                     | [docs/AgentPlanRunner.md](AgentPlanRunner.md#team-plans-and-templates)                                 |
+| React Flow migration inventory and acceptance (PAGE-87) | [docs/AgentPlanRunner.md](AgentPlanRunner.md#react-flow-migration-inventory-and-acceptance)            |
+| Restart and resume after a disturbance (PAGE-127)       | [docs/AgentPlanRunner.md](AgentPlanRunner.md#restart-and-resume-after-a-disturbance)                   |
 | Plans in the Pica chat and for plan agents              | [docs/AgentPlanRunner.md](AgentPlanRunner.md#plans-in-the-pica-chat-and-for-plan-agents)               |
 | No external MCP access                                  | [docs/AgentPlanRunner.md](AgentPlanRunner.md#mcp-access-and-internal-bridges)                          |
 | Getting started                                         | [README.md](../README.md#getting-started)                                                              |
 | Requirements                                            | [README.md](../README.md#requirements)                                                                 |
 | Install and run                                         | [README.md](../README.md#install-and-run)                                                              |
-| Agent Tool & Runtime Manager (PAGE-69)                  | [docs/AgentRuntime.md](AgentRuntime.md#agent-tool--runtime-manager-page-69)                            |
+| Agent Tool & Runtime Manager (PAGE-69)                  | [docs/AgentRuntime.md](AgentRuntime.md#agent-tool--runtime-manager)                                    |
 | Linux provisioning and container deployment             | [docs/AgentRuntime.md](AgentRuntime.md#linux-provisioning-and-container-deployment)                    |
-| Native ACP resource scheduling (PAGE-81)                | [docs/AgentRuntime.md](AgentRuntime.md#native-acp-resource-scheduling-page-81)                         |
-| Limited worker units (PAGE-127)                         | [docs/AgentRuntime.md](AgentRuntime.md#limited-worker-units-page-127)                                  |
-| OpenCode plan nodes with a Console / Zen key (PAGE-66)  | [docs/AgentRuntime.md](AgentRuntime.md#opencode-plan-nodes-with-a-console--zen-key-page-66)            |
+| Native ACP resource scheduling (PAGE-81)                | [docs/AgentRuntime.md](AgentRuntime.md#native-acp-resource-scheduling)                                 |
+| Limited worker units (PAGE-127)                         | [docs/AgentRuntime.md](AgentRuntime.md#limited-worker-units)                                           |
+| OpenCode plan nodes with a Console / Zen key (PAGE-66)  | [docs/AgentRuntime.md](AgentRuntime.md#opencode-plan-nodes-with-a-console--zen-key)                    |
 | ACP adapters for the CLI runners                        | [docs/AgentRuntime.md](AgentRuntime.md#acp-adapters-for-the-cli-runners)                               |
 | First start                                             | [docs/Operations.md](Operations.md#first-start)                                                        |
 | Configuration                                           | [docs/Operations.md](Operations.md#configuration)                                                      |
-| Static app and entrance (PAGE-235)                      | [docs/Operations.md](Operations.md#static-app-and-entrance-page-235)                                   |
+| Static app and entrance (PAGE-235)                      | [docs/Operations.md](Operations.md#static-app-and-entrance)                                            |
 | Behind a reverse proxy                                  | [docs/Operations.md](Operations.md#behind-a-reverse-proxy)                                             |
 | Local services for Pica's operator browser              | [docs/Operations.md](Operations.md#local-services-for-picas-operator-browser)                          |
 | Data and runtime directories                            | [docs/Operations.md](Operations.md#data-and-runtime-directories)                                       |
-| Design themes (PAGE-36)                                 | [docs/UserGuide.md](UserGuide.md#design-themes-page-36)                                                |
-| Server logging (PAGE-67)                                | [docs/RequestCorrelation.md](RequestCorrelation.md#server-logging-page-67)                             |
+| Design themes (PAGE-36)                                 | [docs/UserGuide.md](UserGuide.md#design-themes)                                                        |
+| Server logging (PAGE-67)                                | [docs/RequestCorrelation.md](RequestCorrelation.md#server-logging)                                     |
 | Commands                                                | [docs/Development.md](Development.md#commands)                                                         |
 | CI test tags (`PAGE-290`)                               | [tests/README.md](../tests/README.md#ci-test-tags-page-290)                                            |
-| Sequential block linting (`PAGE-192`)                   | [docs/Development.md](Development.md#sequential-block-linting-page-192)                                |
+| Sequential block linting (`PAGE-192`)                   | [docs/Development.md](Development.md#sequential-block-linting)                                         |
 | Unit tests                                              | [tests/README.md](../tests/README.md#choosing-a-scope)                                                 |
 | Browser tests (PAGE-172)                                | [tests/README.md](../tests/README.md#browser-suite)                                                    |
 | Pica Mobile WebSocket endpoint (PAGE-148)               | [docs/PicaMobileWebSocket.md](PicaMobileWebSocket.md#einrichtung-durch-einen-administrator)            |

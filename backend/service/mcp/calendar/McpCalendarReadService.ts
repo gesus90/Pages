@@ -15,12 +15,11 @@ import type {
   McpCalendarRangeRequest,
 } from "./McpCalendarRequest";
 
-/** Reads options, invitees, ranges and single events (PAGE-301); allowed to read-only agents too. */
+/** Reads options, invitees, ranges and single events; allowed to read-only agents too. */
 export class McpCalendarReadService {
   /**
    * Reads the zone, the calendars an event may go into, the rule choices
    * and the limits (read_calendar_options).
-   *
    * @param context - The request.
    */
   public async options(context: McpCalendarContext): Promise<CalendarOptions> {
@@ -29,7 +28,6 @@ export class McpCalendarReadService {
 
   /**
    * Searches whom the account may invite (search_calendar_invitees).
-   *
    * @param context - The request.
    * @param request - Part of a name and at most 50 options.
    */
@@ -53,7 +51,6 @@ export class McpCalendarReadService {
 
   /**
    * Lists the entries of a range of at most 92 days (list_calendar).
-   *
    * @param context - The request.
    * @param request - `from`, `to` and the optional calendar filter.
    * @throws {CalendarError} `invalid_request` for an invalid or too long range.
@@ -83,7 +80,6 @@ export class McpCalendarReadService {
   /**
    * Reads one stored event with its series, invitees, answers and revision
    * (read_calendar_event).
-   *
    * @param context - The request.
    * @param eventId - The event or one of its occurrences.
    * @throws {CalendarError} `not_found` for a missing or invisible event,

@@ -14,7 +14,6 @@ export class BoardPreferencesService {
 
   /**
    * Creates a board preferences service.
-   *
    * @param repository - Board preferences persistence boundary.
    */
   public constructor(repository: UserBoardPreferencesRepository) {
@@ -23,7 +22,6 @@ export class BoardPreferencesService {
 
   /**
    * Returns the saved board preferences of a user.
-   *
    * @param userId - User identifier.
    * @returns The saved preferences, or the defaults when nothing valid is saved.
    */
@@ -37,7 +35,6 @@ export class BoardPreferencesService {
 
   /**
    * Saves the board preferences of a user.
-   *
    * @param userId - User identifier.
    * @param raw - Untrusted preferences; invalid fields are stored as defaults.
    * @returns The preferences that were stored.

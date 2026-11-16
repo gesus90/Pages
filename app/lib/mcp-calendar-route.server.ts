@@ -53,7 +53,6 @@ async function createApi(): Promise<McpCalendarApi> {
 
 /**
  * Answers a calendar request with JSON that no cache keeps.
- *
  * @param body - The answer of the interface.
  * @param status - The HTTP status.
  */
@@ -63,7 +62,6 @@ export function mcpCalendarResponse(body: unknown, status = 200): Response {
 
 /**
  * Answers a change with an operation ID.
- *
  * @param outcome - The fresh answer or the stored answer of an identical earlier call.
  * @param isCreation - Whether the call creates an event; its first answer is `201`.
  * @returns The answer; a repetition carries the same body as the first one.
@@ -79,13 +77,11 @@ export function mcpCalendarOutcomeResponse(
 }
 
 /**
- * Runs one request of the calendar API (PAGE-301).
- *
+ * Runs one request of the calendar API.
  * @param request - The request of the machine.
  * @param handlers - The methods the resource serves.
  * @returns The answer; a failure answers `{ "error": "<code>" }`, with
  * `currentRevision` for a stale revision and `Retry-After` for `429` and `503`.
- *
  * @remarks
  * Only the bearer token admits a request, checked and noted by the device
  * API; browser cookies play no part. No message of a service and no part
@@ -144,7 +140,6 @@ async function readLimitedText(request: Request): Promise<string> {
 
 /**
  * Reads the JSON object of a calendar request.
- *
  * @param request - The request with `Content-Type: application/json`.
  * @returns The object, its fields still untrusted; an empty body counts as `{}`.
  * @throws {McpCalendarError} `too_large` above 256 KiB, `invalid_request` for
@@ -176,7 +171,6 @@ export async function readMcpCalendarBody(
 
 /**
  * Reads the query of a calendar request.
- *
  * @param request - The request.
  */
 export function mcpCalendarQuery(request: Request): URLSearchParams {

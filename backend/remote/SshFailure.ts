@@ -41,7 +41,6 @@ function rejectedCredential(method: RemoteAuthMethod): RemoteFailureCode {
 
 /**
  * Classifies a failed `ssh` run without passing any of its text on.
- *
  * @param result - The finished `ssh` process.
  * @param method - The sign-in method, which decides what a refusal means.
  * @returns The failure, or `null` when OpenSSH itself did not fail.
@@ -65,7 +64,6 @@ export function classifySshFailure(
 
 /**
  * Classifies a failed `ssh-keygen -y` run that tried to read a private key.
- *
  * @param result - The finished `ssh-keygen` process.
  * @param method - Whether the key was given with a passphrase.
  * @returns The failure, or `null` when the key could be read.

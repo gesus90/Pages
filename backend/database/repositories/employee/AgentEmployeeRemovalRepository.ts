@@ -66,9 +66,7 @@ function readReference(
 }
 
 /**
- * What refers to an agent, whether it works right now, and its removal
- * (PAGE-267).
- *
+ * What refers to an agent, whether it works right now, and its removal.
  * @remarks
  * The removal deletes the agent's configuration, documents, memory with
  * versions and archive, activity, image, authorization and memberships, and
@@ -200,7 +198,6 @@ export class AgentEmployeeRemovalRepository {
 
   /**
    * Removes the agent and leaves its account as a nameless tombstone.
-   *
    * @param userId - The agent's account; a person is never touched by the last step.
    */
   public async remove(userId: string): Promise<void> {

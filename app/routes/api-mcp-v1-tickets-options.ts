@@ -18,8 +18,7 @@ const HANDLERS: McpTicketHandlers = {
 };
 
 /**
- * Returns the choices of a project (`GET /api/mcp/v1/tickets/options?projectId=<ID>`), PAGE-242 interface 1.
- *
+ * Returns the choices of a project (`GET /api/mcp/v1/tickets/options?projectId=<ID>`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

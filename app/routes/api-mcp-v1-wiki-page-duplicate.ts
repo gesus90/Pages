@@ -27,8 +27,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpWikiHandlers {
 }
 
 /**
- * Copies a page (`POST /api/mcp/v1/wiki/pages/{id}/duplicate`), PAGE-257 interface 6.
- *
+ * Copies a page (`POST /api/mcp/v1/wiki/pages/{id}/duplicate`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

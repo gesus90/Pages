@@ -8,14 +8,13 @@ import { PicaMascot } from "./pica-mascot";
 import { useIsPicaLauncherHidden } from "./use-pica-launcher-visibility";
 
 /**
- * Pica's symbol at the bottom right of every page (T6.12.1, T6.12.15); it
+ * Pica's symbol at the bottom right of every page; it
  * shows and hides the floating chat panel.
- *
  * @remarks
  * The panel is mounted on first use and then only hidden, so the server
  * renders just the button and nothing is loaded before the person opens it.
  * A surface that asks for it, such as the terminal of the agent plan, hides
- * the button while it is open (PAGE-283).
+ * the button while it is open.
  */
 export function ChatLauncher(): React.ReactElement {
   const { t } = useTranslation();

@@ -12,7 +12,6 @@ export interface PlanTaskBinding {
 
 /**
  * Lists each agent and ticket pair once per plan, including a step's personal access agent.
- *
  * @param plan - A stored plan; its groups count with their members.
  */
 export function planTaskBindings(plan: AgentPlan): readonly PlanTaskBinding[] {

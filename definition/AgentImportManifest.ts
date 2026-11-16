@@ -1,4 +1,4 @@
-/** Bounded A9.7 packages; the complete JSON envelope must also fit the agent API limit. */
+/** Bounded wiki packages; the complete JSON envelope must also fit the agent API limit. */
 export const AGENT_IMPORT_LIMITS = {
   indexEntries: 128,
   files: 32,

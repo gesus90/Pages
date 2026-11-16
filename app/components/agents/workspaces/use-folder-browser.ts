@@ -13,7 +13,6 @@ interface FolderTarget {
 
 /**
  * Loads one level of server directories at a time.
- *
  * @remarks
  * The last level that loaded stays available while a request fails, so the
  * way back through its breadcrumb is still there next to the error.

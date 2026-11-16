@@ -17,7 +17,6 @@ export class WikiVersionService {
 
   /**
    * Creates the service.
-   *
    * @param repository - Wiki persistence.
    * @param access - Resolves who is acting.
    */
@@ -28,7 +27,6 @@ export class WikiVersionService {
 
   /**
    * Lists the versions of a page.
-   *
    * @param actor - The signed-in user.
    * @param id - Page identifier.
    * @returns The versions, newest first.
@@ -44,7 +42,6 @@ export class WikiVersionService {
 
   /**
    * Reads one version for the preview.
-   *
    * @param actor - The signed-in user.
    * @param id - Page identifier.
    * @param versionId - Version identifier.
@@ -72,7 +69,6 @@ export class WikiVersionService {
 
   /**
    * Removes versions beyond the retention rules.
-   *
    * @param retentionDays - Versions younger than this many days stay.
    * @param keepLast - The newest versions of each page stay in any case.
    */

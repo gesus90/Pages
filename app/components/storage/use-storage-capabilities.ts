@@ -6,7 +6,6 @@ import type { StorageCapabilities } from "@/definition/GoogleDriveFiles";
 
 /**
  * Reads once per visit what the connected account may do in Storage.
- *
  * @returns The capabilities, or `null` while they load or when they are
  * unknown; without them the view offers no change.
  */

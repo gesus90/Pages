@@ -49,7 +49,7 @@ export interface CalendarDateRange {
 
 /**
  * Reads what appears in the calendar without being an event of it: project
- * dates, due tickets and milestones (PAGE-301). Archived tickets, projects,
+ * dates, due tickets and milestones. Archived tickets, projects,
  * milestones and project dates never appear.
  */
 export class CalendarSourceRepository {
@@ -57,7 +57,6 @@ export class CalendarSourceRepository {
 
   /**
    * Creates the repository.
-   *
    * @param database - Central database access.
    */
   public constructor(database: CalendarDatabase) {
@@ -66,7 +65,6 @@ export class CalendarSourceRepository {
 
   /**
    * Returns the project dates of projects in a range.
-   *
    * @param projectIds - The member projects of the viewer.
    * @param range - The dates.
    */

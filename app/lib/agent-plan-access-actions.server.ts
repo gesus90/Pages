@@ -58,8 +58,7 @@ export function readTeams(
 }
 
 /**
- * Changes the teams and/or the owner of a plan from the Teams dialog (PAGE-329).
- *
+ * Changes the teams and/or the owner of a plan from the Teams dialog.
  * @param userId - The owner, an administrator or a project manager.
  * @param services - The plan services.
  * @param formData - Plan, revision, the teams as JSON and an optional new owner.
@@ -89,8 +88,7 @@ export async function changePlanAccessAction(
 }
 
 /**
- * Approves the current content of the script steps of a plan; administrators only (PAGE-329).
- *
+ * Approves the current content of the script steps of a plan; administrators only.
  * @param userId - The administrator.
  * @param services - The plan services.
  * @param formData - Plan and revision the administrator saw.
@@ -112,8 +110,7 @@ export async function approvePlanScriptsAction(
 }
 
 /**
- * Reads the history of a readable plan, newest first (PAGE-329).
- *
+ * Reads the history of a readable plan, newest first.
  * @param userId - The person who reads the plan.
  * @param services - The plan services.
  * @param formData - The plan.

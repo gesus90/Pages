@@ -48,9 +48,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpTicketHandlers {
 }
 
 /**
- * Sends a file of a ticket (`GET /api/mcp/v1/tickets/{key}/attachments/{attachmentId}`),
- * PAGE-242 interface 11.
- *
+ * Sends a file of a ticket (`GET /api/mcp/v1/tickets/{key}/attachments/{attachmentId}`),.
  * @remarks
  * Only the device token of a paired machine admits a request. The checks are
  * those of the download of the interface: a missing file and a file of a

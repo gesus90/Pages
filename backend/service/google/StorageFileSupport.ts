@@ -61,7 +61,6 @@ export interface StorageSession {
 
 /**
  * Builds a failed result.
- *
  * @param code - The error code.
  * @param details - Further details of the error.
  * @returns The failure.
@@ -83,7 +82,6 @@ function connectionState(
 
 /**
  * Translates a refused Drive request.
- *
  * @param failure - The refusal of the Drive client.
  * @returns The Storage failure; a missing scope carries the consent path.
  */
@@ -104,7 +102,6 @@ export function driveFailure<Value>(
 
 /**
  * Takes a freshly confirmed access of the instance connection.
- *
  * @param connection - The Drive connection.
  * @returns The access with its write right, or why the connection is not usable.
  */
@@ -133,7 +130,6 @@ export async function openStorageSession(
 
 /**
  * Refuses a change when the granted scopes do not allow it.
- *
  * @param session - The access of the call.
  * @returns `null` when changes are allowed, else the failure with the consent path.
  */
@@ -149,7 +145,6 @@ export function writeRefusal<Value>(
 
 /**
  * Checks a reference from a client.
- *
  * @param ref - Untrusted reference.
  * @returns Whether it can be a Drive identifier or the alias `root`.
  */
@@ -159,11 +154,9 @@ export function isStorageRef(ref: string): boolean {
 
 /**
  * Checks a name for a new or renamed entry.
- *
  * @param name - Untrusted name.
  * @returns The trimmed name, or `null` when it is empty, too long, contains a
  * slash or a control character, or is `.` or `..`.
- *
  * @remarks
  * Drive itself allows slashes, but readable paths separate their steps with
  * them, so a name with a slash could never be resolved again.
@@ -187,7 +180,6 @@ export function readEntryName(name: string): string | null {
 
 /**
  * Reads an entry that must exist and must not be in the trash.
- *
  * @param drive - The Drive client.
  * @param session - The access of the call.
  * @param ref - The reference.
@@ -215,7 +207,6 @@ export async function readLiveEntry(
 
 /**
  * Reads a folder that must exist and must not be in the trash.
- *
  * @param drive - The Drive client.
  * @param session - The access of the call.
  * @param ref - The reference.
@@ -237,7 +228,6 @@ export async function readLiveFolder(
 
 /**
  * Lists the entries of a folder that carry a name, outside the trash.
- *
  * @param drive - The Drive client.
  * @param session - The access of the call.
  * @param input - Folder, name and an entry to leave out (the renamed one).
@@ -277,7 +267,6 @@ function splitExtension(name: string): readonly [string, string] {
 
 /**
  * Finds a free name for `keep_both`, such as `bericht (2).pdf`.
- *
  * @param drive - The Drive client.
  * @param session - The access of the call.
  * @param input - Folder and wanted name.

@@ -109,7 +109,6 @@ function targetKey(model: PageAgentModel): string {
 
 /**
  * The name of a tool, from the provider registry, for its group header.
- *
  * @param provider - The provider of the tool's connections.
  * @param translate - Translates the registered names.
  * @returns The short tool name, such as "Codex"; a provider without one keeps
@@ -336,7 +335,7 @@ export function modelGroups(
 }
 
 /**
- * The models of the agent simulation (PAGE-268) as a group of their own,
+ * The models of the agent simulation as a group of their own,
  * named Simulation, never as models of the provider whose path they use.
  */
 function simulationGroup(

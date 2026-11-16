@@ -27,8 +27,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpUserHandlers {
 }
 
 /**
- * Resets the password of an account to a temporary one (`POST /api/mcp/v1/users/{userId}/password-reset`), PAGE-280.
- *
+ * Resets the password of an account to a temporary one (`POST /api/mcp/v1/users/{userId}/password-reset`).
  * @remarks
  * Only the device token of a paired machine admits a request; the rights of
  * its account are read again on every call. See `docs/McpUserManagement.md`.

@@ -141,7 +141,6 @@ interface UpdateReferenceScope {
 /**
  * Refuses a description written from an outdated text, unless the stored
  * text is already the new one.
- *
  * @throws {WorkItemValidationError} With `descriptionConflict`.
  */
 function assertDescriptionCurrent(
@@ -202,7 +201,6 @@ export class TaskWriteService {
 
   /**
    * Creates a write service.
-   *
    * @param dependencies - Collaborators the service writes through.
    */
   public constructor(dependencies: TaskWriteServiceDependencies) {
@@ -420,7 +418,6 @@ export class TaskWriteService {
 
   /**
    * Saves a new description of a work item.
-   *
    * @param actor - The person saving; needs write access to the ticket.
    * @param id - Work item identifier.
    * @param change - The new text and the text it was written from.
@@ -503,7 +500,6 @@ export class TaskWriteService {
 
   /**
    * Moves a work item below another parent, or removes its parent.
-   *
    * @param actor - The person moving; needs write access to the ticket.
    * @param id - Work item identifier.
    * @param parentId - The new parent, or `null` for none.
@@ -511,10 +507,9 @@ export class TaskWriteService {
    * @throws {WorkItemHierarchyError} When the parent does not fit the type,
    * lies in another project, is hidden or archived.
    * @throws {WorkItemValidationError} When the ticket is archived.
-   *
    * @remarks
    * Only the parent changes, in a single statement. A parent the actor cannot
-   * see stays when the actor chooses none, as with every other edit (T3.2.3.4).
+   * see stays when the actor chooses none, as with every other edit.
    */
   public async changeParent(
     actor: User,

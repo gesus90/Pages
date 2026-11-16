@@ -42,7 +42,6 @@ export interface WikiDragHandlers {
 
 /**
  * Tells where in a row the pointer is.
- *
  * @param offset - Distance from the top of the row.
  * @param height - Height of the row.
  * @returns The upper quarter is before, the lower quarter after.
@@ -59,7 +58,6 @@ export function resolveDropZone(offset: number, height: number): WikiDropZone {
 
 /**
  * Turns a drop on a page row into a move request.
- *
  * @param nodes - Visible pages in sibling order.
  * @param drop - The dragged page, the page the drop landed on and the zone.
  * @returns The request.
@@ -105,7 +103,6 @@ export function createMoveRequest(
 
 /**
  * Drag and drop of pages in the navigation tree.
- *
  * @param nodes - Visible pages in sibling order.
  * @param onMove - Called with the move that a drop asks for.
  * @returns The handlers for rows and areas, and the marker state.

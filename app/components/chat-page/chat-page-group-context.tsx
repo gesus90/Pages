@@ -100,7 +100,7 @@ function ContextState({
   );
 }
 
-/** Says that the observer of the group gives no result, and why (PAGE-340). */
+/** Says that the observer of the group gives no result, and why. */
 function ObserverNotice({
   observer,
 }: {
@@ -182,14 +182,14 @@ function ContextBody({
 }
 
 /**
- * The compact „Gruppenkontext“ of a group (PAGE-296): the stored summary
+ * The compact „Gruppenkontext“ of a group: the stored summary
  * with decisions, open points and responsibilities, how far it reaches and
  * whether it is current, behind or unavailable.
  *
  * @remarks
  * The server answers only a member of the group. The context is read whenever
  * the dialog opens; it is derived and never replaces the messages. The group
- * menu in the head of the chat opens it (PAGE-376).
+ * menu in the head of the chat opens it.
  */
 export function ChatPageGroupContext({
   group,

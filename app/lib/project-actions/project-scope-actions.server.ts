@@ -22,7 +22,6 @@ export interface ProjectScopeActionContext {
 
 /**
  * Applies project-wide scope or retention actions and redirects only after successful persistence.
- *
  * @remarks
  * Each of them may take the project out of somebody's sight, so each
  * announces `project.access.changed` after it was stored; open pages then

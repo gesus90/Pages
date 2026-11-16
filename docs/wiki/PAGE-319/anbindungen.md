@@ -52,7 +52,7 @@ Die Quelle nennt diese Festlegungen als entschieden oder umgesetzt, ohne ihren U
 
 ## Nachtrag Stand 2026-10-13: Nutzungsumfang, Arbeitsverzeichnis und Nutzer-Agents
 
-**Nutzungsumfang je Anbindung (PAGE-19)**
+**Nutzungsumfang je Anbindung**
 
 - Im Anbindungs-Panel gibt es den Abschnitt **„Nutzung der Modelle“** mit den Werten **Global** und **Eingeschränkt**. Bei Eingeschränkt wählt der Administrator mehrere Personen, Gruppen und Abteilungen; mindestens ein Ziel ist Pflicht.
 - Die Listenspalte **„Nutzung“** zeigt den Umfang. Der Standard für neue und bestehende Anbindungen ist **Global**.

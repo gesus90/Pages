@@ -22,7 +22,6 @@ export const CODE_PREVIEW_LINES = 20;
 
 /**
  * The tokens of one line of code in their syntax colors.
- *
  * @param tokens - The tokens of the line; an empty line keeps its height.
  */
 export function CodeLine({
@@ -45,7 +44,6 @@ export function CodeLine({
 
 /**
  * Splits code into lines of syntax tokens, once per text and language.
- *
  * @param source - The code.
  * @param languageHint - The info of the fence or the file name; an unknown
  * language yields plain lines.
@@ -70,8 +68,7 @@ interface CodeViewProps {
 }
 
 /**
- * Code with line numbers and syntax colors on the code surface (PAGE-298).
- *
+ * Code with line numbers and syntax colors on the code surface.
  * @remarks
  * Every color is a theme token, so a change of theme or design recolors the
  * code at once. An unknown language shows without colors but with line

@@ -8,7 +8,6 @@ export class WorkItemKeyRepository {
 
   /**
    * Creates a work item key repository.
-   *
    * @param database - Central database access.
    */
   public constructor(database: TaskDatabase) {
@@ -70,13 +69,11 @@ export class WorkItemKeyRepository {
 
   /**
    * Reserves consecutive ticket numbers of a project and returns the first.
-   *
    * @remarks
    * The project counter only grows. A number is therefore never handed out
    * twice, even after its ticket was deleted or moved to another project.
    * Tickets that carry a higher number than the counter (data from before the
    * counter existed) raise the counter first.
-   *
    * @param projectId - Project the numbers belong to; it needs a stored key.
    * @param count - How many consecutive numbers to reserve.
    * @returns The first reserved number.

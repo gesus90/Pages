@@ -5,7 +5,6 @@ import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 
 /**
  * Time-to-live values per cache entry group in milliseconds.
- *
  * @remarks
  * TTLs are deliberately short: event-based invalidation below is the
  * primary freshness mechanism, TTLs only bound worst-case staleness (for
@@ -34,7 +33,6 @@ export interface ServerCacheStats {
 
 /**
  * Joins identifiers into a stable cache key fragment.
- *
  * @param ids - Identifiers in any order; output order is normalized.
  */
 export function stableIdKey(ids: readonly string[]): string {
@@ -54,7 +52,6 @@ function estimateSizeInBytes(value: unknown): number {
 
 /**
  * Provides the bounded server-side memory cache between services and the database.
- *
  * @remarks
  * The database remains the source of truth: entries carry short TTLs and mutations
  * invalidate their groups granularly through the helpers below. The cache
@@ -70,7 +67,6 @@ export class ServerCache {
 
   /**
    * Creates a server cache.
-   *
    * @param options - Quota or a disabled no-op instance; the legacy debug option is retained for compatibility.
    */
   public constructor(
@@ -96,7 +92,6 @@ export class ServerCache {
 
   /**
    * Returns the cached value or `undefined` on a miss or expiry.
-   *
    * @param key - Fully qualified cache key.
    */
   public get<T extends object>(key: string): T | undefined {
@@ -119,7 +114,6 @@ export class ServerCache {
 
   /**
    * Stores a value with its group TTL.
-   *
    * @param key - Fully qualified cache key.
    * @param value - JSON-compatible value to cache.
    * @param ttlMs - Time-to-live in milliseconds.
@@ -134,7 +128,6 @@ export class ServerCache {
 
   /**
    * Removes exactly one cached entry.
-   *
    * @param key - Fully qualified cache key.
    */
   public invalidateExact(key: string): void {
@@ -151,11 +144,9 @@ export class ServerCache {
 
   /**
    * Removes every cached entry below the given key prefixes.
-   *
    * @remarks
    * Prefixes conventionally end with `:` (for example `projects:list:`),
    * so a single identifier can never accidentally match another entry.
-   *
    * @param prefixes - Key prefixes whose entries are stale.
    */
   public invalidatePrefix(...prefixes: string[]): void {

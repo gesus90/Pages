@@ -8,8 +8,7 @@ import { picaBrowserCommandSchema } from "@/definition/PicaBrowser";
 import type { Route } from "./+types/chat-browser-api";
 
 /**
- * The live interface of the operator browser in the chat (PAGE-181).
- *
+ * The live interface of the operator browser in the chat.
  * @remarks
  * POST from the own origin only. `overview` lists the administrator's
  * browsers and saved sessions; `command` pauses, stops, takes over or hands

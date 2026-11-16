@@ -76,8 +76,7 @@ function extensionOf(fileName: string): string {
 }
 
 /**
- * Files Pica attaches to its answer (PAGE-92).
- *
+ * Files Pica attaches to its answer.
  * @remarks
  * A file comes only from the bytes the run actually produced: the text of a
  * file the Pica tool writes or an image or resource block the agent returned.
@@ -99,7 +98,6 @@ export class ChatAnswerFileService {
 
   /**
    * Stores a file for the answer of a run.
-   *
    * @throws {ChatAnswerFileError} For a refused name, type, size or count.
    */
   public async stage(

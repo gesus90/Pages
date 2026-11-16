@@ -2,7 +2,7 @@ import { CHAT_DOCUMENT_BYTES } from "@/definition/ChatPreview";
 
 import type { ConversationAttachment } from "@/definition/ConversationContent";
 
-/** The formats the chat shows as a readable view or a table (PAGE-385). */
+/** The formats the chat shows as a readable view or a table. */
 export type DocumentFormat =
   "docx" | "odt" | "pptx" | "odp" | "xlsx" | "ods" | "csv" | "tsv";
 
@@ -58,7 +58,6 @@ function isDocumentFormat(ending: string): ending is DocumentFormat {
 
 /**
  * The document format of a file: by the ending of its name, else by its type.
- *
  * @param attachment - The file.
  * @returns The format, or `null` for a file the chat shows no view of.
  */
@@ -76,10 +75,9 @@ export function documentFormatOf(
 }
 
 /**
- * Decides how the chat shows a file (PAGE-385): a PDF in its viewer, Word,
+ * Decides how the chat shows a file: a PDF in its viewer, Word,
  * PowerPoint, OpenDocument and tables as readable views, anything else and
  * every document above the preview limit of Pages (32 MB) for download only.
- *
  * @param attachment - The file.
  */
 export function fileViewOf(

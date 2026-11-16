@@ -24,14 +24,12 @@ function routeDataHeaders(init: HeadersInit | undefined): Headers {
 
 /**
  * Answers a route's data endpoint with what the route's own loader returns.
- *
  * @remarks
  * The endpoint runs the same loader as the page, so the same permission
  * checks decide; a refusal the loader throws reaches the browser unchanged.
  * A loader may answer with plain data, with `data(…)` or with a finished
  * JSON response; the endpoint sends the data itself in every case, with the
  * loader's status and headers.
- *
  * @param routeData - The loader's answer for the signed-in account.
  */
 export function routeDataResponse(routeData: object): Response {

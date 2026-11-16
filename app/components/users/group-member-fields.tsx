@@ -11,7 +11,7 @@ interface GroupMemberFieldsProps {
   readonly selected: ManagedGroup | null;
   /** People the actor may put into a group. */
   readonly candidates: readonly ManagedUser[];
-  /** Whether the actor marks leaders: administrators only (PAGE-308). */
+  /** Whether the actor marks leaders: administrators only. */
   readonly canSetLeaders: boolean;
 }
 
@@ -29,7 +29,6 @@ function toggled(
 
 /**
  * The members of a group and, for an administrator, their leadership.
- *
  * @remarks
  * A leader is a member: marking a leader adds the membership, and removing
  * a member removes the leadership with it.

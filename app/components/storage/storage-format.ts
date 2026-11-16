@@ -5,7 +5,6 @@ const BYTE_UNITS = ["B", "KB", "MB", "GB", "TB", "PB"];
 
 /**
  * Formats a byte count in decimal units, as Google names storage.
- *
  * @param bytes - The count.
  * @param language - The language of the view.
  * @returns For example `4,2 GB`.

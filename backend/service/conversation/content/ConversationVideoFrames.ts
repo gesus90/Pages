@@ -9,7 +9,7 @@ import { logCaughtError } from "@/backend/logging/Logger";
 
 import type { Readable } from "node:stream";
 
-/** Stills one reading of a video returns at most (PAGE-386). */
+/** Stills one reading of a video returns at most. */
 export const VIDEO_FRAME_COUNT = 4;
 
 /** How long one call of the video tool may take. */
@@ -28,7 +28,6 @@ export type VideoCommandRunner = (
 export interface ConversationVideoFrameReader {
   /**
    * Reads the stills of one video.
-   *
    * @param open - Opens the stored video from its start.
    * @param durationSeconds - The length the browser read, when known.
    * @returns The stills as JPEG in their order, or `null` when the server has
@@ -65,8 +64,7 @@ export function frameMoments(durationSeconds: number, count: number): number[] {
 
 /**
  * Reads stills of a video with `ffmpeg` and `ffprobe` of the server, when
- * they are installed (PAGE-386).
- *
+ * they are installed.
  * @remarks
  * The video is copied to a private temporary directory, read with fixed
  * arguments and removed again; nothing of the file is run. Without the tools
@@ -77,7 +75,6 @@ export class FfmpegVideoFrameReader implements ConversationVideoFrameReader {
 
   /**
    * Creates the reader.
-   *
    * @param run - Runs a program; `execFile` with a time limit by default.
    */
   public constructor(run: VideoCommandRunner = runCommand) {

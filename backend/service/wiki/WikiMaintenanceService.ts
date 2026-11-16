@@ -14,7 +14,6 @@ export class WikiMaintenanceService {
 
   /**
    * Creates the service.
-   *
    * @param settings - Provides the retention times.
    * @param trash - Removes expired pages.
    * @param versions - Removes old versions.
@@ -35,7 +34,6 @@ export class WikiMaintenanceService {
   /**
    * Runs one cleanup: expired trash with its files, old versions, and files
    * that no attachment refers to any more.
-   *
    * @returns The trash roots that were removed for good.
    */
   public async run(): Promise<readonly string[]> {

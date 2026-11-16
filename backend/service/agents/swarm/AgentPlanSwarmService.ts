@@ -41,8 +41,7 @@ function waitSeconds(parameters: unknown): number {
 }
 
 /**
- * Serves the swarm tools of plan sessions in the agent API (PAGE-313).
- *
+ * Serves the swarm tools of plan sessions in the agent API.
  * @remarks
  * The credential alone names run and step, so a session reaches only its own
  * swarm. A swarm lives in the process of the run engine; when that is another
@@ -59,7 +58,6 @@ export class AgentPlanSwarmService {
 
   /**
    * Runs one swarm tool call of a session.
-   *
    * @throws {AgentOperationError} `FORBIDDEN` for a session without this swarm,
    * `INVALID_REQUEST` for invalid input.
    */

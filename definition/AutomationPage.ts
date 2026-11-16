@@ -4,7 +4,7 @@ import type {
   AutomationRunSummary,
 } from "./Automation";
 
-/** The data of the page `/automationen` (PAGE-297). */
+/** The data of the page `/automationen`. */
 export interface AutomationPageData {
   readonly automations: readonly Automation[];
   /** The newest runs of every visible automation, newest first. */

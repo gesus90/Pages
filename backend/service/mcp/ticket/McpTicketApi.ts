@@ -17,8 +17,7 @@ export interface McpTicketAccess {
 }
 
 /**
- * The ticket API of the stand-alone Pages MCP program (PAGE-242).
- *
+ * The ticket API of the stand-alone Pages MCP program.
  * @remarks
  * A paired machine acts with the rights of the account that confirmed the
  * pairing. Every request checks the token again with the unchanged check of
@@ -36,7 +35,6 @@ export class McpTicketApi {
 
   /**
    * Creates the API.
-   *
    * @param services - The ticket services of the interface.
    * @param access - The device token check and the account lookup.
    */
@@ -47,7 +45,6 @@ export class McpTicketApi {
 
   /**
    * Checks the token of a request and opens its context.
-   *
    * @param authorization - The `Authorization` header of the request.
    * @returns The context with the paired account as the actor.
    * @throws {McpDeviceError} `invalid_token` for a missing, unknown or revoked token.

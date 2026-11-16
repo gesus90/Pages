@@ -51,7 +51,6 @@ const actionSchema = z.union([
 
 /**
  * Reads where the Google Drive connection stands; the server asks Drive itself.
- *
  * @param signal - Ends the request when the card leaves the page.
  * @returns The status, or `null` when it could not be read.
  */
@@ -82,9 +81,8 @@ export type GoogleDriveAccessRequest = "read" | "write";
 
 /**
  * Starts the Google sign-in.
- *
- * @param access - `write` asks for the additional write access of Storage
- * (PAGE-270); the existing connection stays unchanged when it is declined.
+ * @param access - `write` asks for the additional write access of Storage;
+ * the existing connection stays unchanged when it is declined.
  * @returns The official Google link, or why the sign-in could not start.
  */
 export async function requestGoogleDriveSignIn(

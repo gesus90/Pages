@@ -11,7 +11,6 @@ import type {
 
 /**
  * Stores the design theme of the signed-in user and of nobody else.
- *
  * @remarks
  * The account comes from the session; the form carries no user. An unknown or
  * removed theme is refused with an answer the page shows, because a theme can

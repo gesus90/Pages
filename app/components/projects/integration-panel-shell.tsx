@@ -19,7 +19,6 @@ interface PanelShellProps {
 
 /**
  * Renders the independent overlay panel chrome with sticky header and footer.
- *
  * @remarks
  * The panel is `position: fixed` and floats above the page, so opening it
  * never changes the width or position of the main content behind it.

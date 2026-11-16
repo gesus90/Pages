@@ -40,7 +40,7 @@ const KIND_WORD_LIST = [
   "sprachnachricht",
 ] as const satisfies readonly (keyof typeof KIND_WORDS)[];
 
-/** The input of `anhaenge_suchen` (PAGE-386). */
+/** The input of `anhaenge_suchen`. */
 export const AGENT_ATTACHMENT_SEARCH_SCHEMA = z
   .object({
     name: z.string().trim().max(255).optional(),
@@ -53,7 +53,7 @@ export const AGENT_ATTACHMENT_SEARCH_SCHEMA = z
   })
   .strict();
 
-/** The input of `anhang_lesen` (PAGE-386). */
+/** The input of `anhang_lesen`. */
 export const AGENT_ATTACHMENT_READ_SCHEMA = z
   .object({
     kennung: z
@@ -216,7 +216,7 @@ async function read(
 }
 
 /**
- * `anhaenge_suchen` and `anhang_lesen` of one round in a chat (PAGE-386).
+ * `anhaenge_suchen` and `anhang_lesen` of one round in a chat.
  *
  * @remarks
  * Both stay bound to the chat of the round; the library checks on every call

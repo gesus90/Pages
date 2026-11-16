@@ -1,6 +1,5 @@
 /**
  * Outline of the inputs and dropdown triggers of the remote dialogs.
- *
  * @remarks
  * The 12 px radius matches the buttons (`rounded-lg`), and every field has
  * the same visible contour. The shared input and select keep their height:

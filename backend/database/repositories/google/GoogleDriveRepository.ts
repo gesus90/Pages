@@ -22,7 +22,7 @@ export interface GoogleDriveSignInAttempt {
   readonly createdAt: number;
   readonly expiresAt: number;
   readonly consumedAt: number | null;
-  /** `write` for the targeted consent that adds the full drive scope (PAGE-270). */
+  /** `write` for the targeted consent that adds the full drive scope. */
   readonly requestedAccess: GoogleDriveRequestedAccess;
 }
 
@@ -130,7 +130,6 @@ export class GoogleDriveRepository {
 
   /**
    * Creates the repository.
-   *
    * @param database - Central database access.
    */
   public constructor(
@@ -141,7 +140,6 @@ export class GoogleDriveRepository {
 
   /**
    * Stores a new sign-in attempt and drops the expired ones.
-   *
    * @param attempt - The attempt without its consumption time.
    */
   public async insertAttempt(
@@ -191,7 +189,6 @@ export class GoogleDriveRepository {
 
   /**
    * Uses the state of an open attempt of one account exactly once.
-   *
    * @param input - Hash of the state, the signed-in account and the time.
    * @returns The attempt, or `null` when the state is unknown, used, expired
    * or belongs to another account.

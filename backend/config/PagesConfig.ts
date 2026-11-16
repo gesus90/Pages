@@ -59,12 +59,12 @@ interface BaseConfig extends Partial<AcpResourceOptions> {
   readonly picaMobilePort?: number;
   /**
    * Shared secret `pages-core` is admitted with at the decisions of the live
-   * view (PAGE-237). A secret that never reaches a log line. Missing: the
+   * view. A secret that never reaches a log line. Missing: the
    * endpoint answers 404 and only the API's own `/live-changes` serves.
    */
   readonly pagesCoreSecret?: string;
   /**
-   * Loopback port of the API's Pica Mobile relay listener (PAGE-239). Set:
+   * Loopback port of the API's Pica Mobile relay listener. Set:
    * `pages-core` listens on `picaMobilePort` and relays every connection
    * here; it needs `pagesCoreSecret`. Missing: the API listens on
    * `picaMobilePort` itself. Restart the API to change it.
@@ -95,15 +95,14 @@ interface BaseConfig extends Partial<AcpResourceOptions> {
    */
   readonly picaBrowserLocalOrigins?: readonly string[];
   /**
-   * The speech recognition of voice messages and their longest recording
-   * (PAGE-277); missing: no recognition, at most 300 seconds.
+   * The speech recognition of voice messages and their longest recording;
+   * missing: no recognition, at most 300 seconds.
    */
   readonly speechRecognition?: SpeechRecognitionSetting;
 }
 
 /**
  * Configuration while the setup wizard is available.
- *
  * @remarks
  * The database path is only set after a manual reset of a finished setup;
  * the wizard then suggests it again.
@@ -127,7 +126,6 @@ export interface CompletedSetupConfig extends BaseConfig {
 
 /**
  * The instance configuration stored in `config.toml`.
- *
  * @remarks
  * `firstRun` keeps the setup wizard available until a setup finished.
  */
@@ -160,7 +158,6 @@ export class MissingDatabaseUrlError extends ConfigError {
 
 /**
  * Tells whether a value is a port a server can listen on.
- *
  * @param value - Candidate port.
  * @returns Whether it is an integer from 1 to 65535.
  */
@@ -175,7 +172,6 @@ export function isValidPort(value: unknown): value is number {
 
 /**
  * Returns the configuration file used without a `--config` start parameter.
- *
  * @returns `~/.pages/config.toml` of the current user.
  * @throws {ConfigError} When the home directory cannot be determined.
  */
@@ -193,7 +189,6 @@ export function resolveDefaultConfigPath(): string {
 
 /**
  * Returns the data directory that belongs to a configuration file.
- *
  * @param configPath - Absolute path of the configuration file.
  * @returns `data/` next to the configuration, `~/.pages/data` by default.
  */
@@ -203,7 +198,6 @@ export function resolveDefaultDataDirectory(configPath: string): string {
 
 /**
  * Returns the database path the setup wizard suggests for a new instance.
- *
  * @param configPath - Absolute path of the configuration file.
  * @returns `pages.duckdb` inside the default data directory.
  */
@@ -213,12 +207,10 @@ export function resolveDefaultDatabasePath(configPath: string): string {
 
 /**
  * Returns the directory of the agent folders that belongs to a configuration file.
- *
  * @param configPath - Absolute path of the configuration file.
  * @returns `Agents/` next to the configuration, `~/.pages/Agents` by default.
- *
  * @remarks
- * It is separate from the data directory (T6.15.1); each agent keeps its fixed
+ * It is separate from the data directory; each agent keeps its fixed
  * `AGENT.md` and its run records in a folder named by its identifier.
  */
 export function resolveAgentsDirectory(configPath: string): string {
@@ -318,7 +310,6 @@ function readDatabaseUrl(
 
 /**
  * Reads the Pages settings from a parsed configuration file.
- *
  * @param table - Parsed TOML document.
  * @param source - Path of the file, named in error messages.
  * @returns The configuration; missing keys take their defaults.

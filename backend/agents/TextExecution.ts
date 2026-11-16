@@ -12,7 +12,6 @@ export interface TextExecutionInput {
   readonly agent: ResolvedAgentAssignment;
   /**
    * The person on whose behalf the model runs.
-   *
    * @remarks
    * The execution point authorizes this person against the scope of the
    * connection immediately before the provider is called, so a selection made

@@ -7,8 +7,7 @@ const BADGE_CLASS =
   "inline-flex w-fit shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold";
 
 /**
- * The access labels of the opened plan next to its name (PAGE-329).
- *
+ * The access labels of the opened plan next to its name.
  * @remarks
  * "Admin-Zugriff" tells an administrator that the plan is somebody else's and
  * every action on it is recorded in its history. "Skript-Freigabe nötig"

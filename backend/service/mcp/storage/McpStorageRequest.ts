@@ -62,7 +62,6 @@ export function readUploadConflict(
 
 /**
  * Validates metadata and translates cursor, limit and folder aliases.
- *
  * @param input - Untrusted JSON or query fields.
  * @returns Validated metadata, or `null` for invalid fields.
  */

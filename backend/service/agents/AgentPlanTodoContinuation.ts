@@ -33,7 +33,6 @@ interface ContinuationDependencies {
 
 /**
  * Gives incomplete work back to the same native session, with at most three corrective turns.
- *
  * @returns The final assessment, or `null` when Stop or a timeout ended a turn and its cleanup was recorded.
  */
 export async function runPlanTodoTurns(

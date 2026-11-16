@@ -113,7 +113,6 @@ function readArchivedFilter(input: unknown): { readonly archived?: boolean } {
 
 /**
  * Validates the filters and the window of a ticket search.
- *
  * @param input - The raw operation parameters.
  * @returns The project, the filters that are present and the list window.
  * @throws {AgentOperationError} `INVALID_REQUEST` for a missing project, an unknown or malformed parameter,
@@ -160,11 +159,9 @@ export function readAgentTicketSearch(input: unknown): {
 
 /**
  * Validates the scope and the window of a tree read.
- *
  * @param input - The raw operation parameters.
  * @returns The project, the ticket whose subtree is wanted, and the list window.
  * @throws {AgentOperationError} `INVALID_REQUEST` when neither a project nor a ticket is named.
- *
  * @remarks
  * A ticket alone is enough: the project is the one of the ticket.
  */
@@ -190,7 +187,6 @@ export function readAgentTicketTree(input: unknown): {
 
 /**
  * Validates the ticket and the window of a link read.
- *
  * @param input - The raw operation parameters.
  * @returns The reference to the ticket and the list window.
  * @throws {AgentOperationError} `INVALID_REQUEST` for a missing, unknown or malformed parameter.
@@ -209,7 +205,6 @@ export function readAgentTicketLinksRead(input: unknown): {
 
 /**
  * Validates the query and the window of an assignment target search.
- *
  * @param input - The raw operation parameters.
  * @returns The text, the kind of target and the project that narrow the search, and the list window.
  * @throws {AgentOperationError} `INVALID_REQUEST` for an unknown or malformed parameter.
@@ -246,7 +241,6 @@ export function readAgentAssignmentTargetSearch(input: unknown): {
 
 /**
  * Validates a link add before any persistence or policy read.
- *
  * @param input - The raw operation parameters.
  * @returns The ticket, the target and the link type; the ticket is the source of the link.
  * @throws {AgentOperationError} `INVALID_REQUEST` for a missing, unknown or malformed parameter.
@@ -273,7 +267,6 @@ export function readAgentTicketLinkAdd(
 
 /**
  * Validates a link removal before any persistence or policy read.
- *
  * @param input - The raw operation parameters.
  * @returns The ticket and the link of that ticket to remove.
  * @throws {AgentOperationError} `INVALID_REQUEST` for a missing, unknown or malformed parameter.

@@ -16,7 +16,6 @@ export interface PagesEventRecord {
 
 /**
  * Appends events in the transaction of the change they announce.
- *
  * @remarks
  * The insert takes the outbox lock of migration 015 until the transaction
  * ends, so positions become visible in commit order. A rollback removes the
@@ -27,7 +26,6 @@ export class PagesEventOutboxRepository {
 
   /**
    * Binds the repository to an open transaction.
-   *
    * @param transaction - The transaction of the business change.
    */
   public constructor(transaction: Pick<DatabaseTransaction, "execute">) {
@@ -36,7 +34,6 @@ export class PagesEventOutboxRepository {
 
   /**
    * Stores one event in the open transaction.
-   *
    * @param event - Kind, object and, for a deleted ticket, its audience.
    */
   public async append(event: PagesEventRecord): Promise<void> {

@@ -33,7 +33,6 @@ function boardLines(view: AgentPlanSwarmRun): string {
 
 /**
  * The first prompt of the main model.
- *
  * @remarks
  * It names the helpers, the tools and the rules. A resumed run adds the
  * stored board: finished subtasks keep their results and run never again.

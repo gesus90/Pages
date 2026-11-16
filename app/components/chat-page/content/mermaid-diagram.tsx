@@ -75,7 +75,7 @@ function MermaidError({
 }
 
 /**
- * A Mermaid diagram drawn from the text of a block (PAGE-383), with zoom;
+ * A Mermaid diagram drawn from the text of a block, with zoom;
  * a text with an error shows the error and the code instead.
  */
 export function MermaidDiagram({

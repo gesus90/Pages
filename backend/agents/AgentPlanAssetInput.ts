@@ -32,12 +32,10 @@ function isSize(input: unknown): input is number {
 }
 
 /**
- * Parses the file a node or stack entry names (PAGE-268).
- *
+ * Parses the file a node or stack entry names.
  * @remarks
  * Only its shape is checked here; whether the file exists, belongs to the
  * plan's project, may be read and still has this content is checked on save.
- *
  * @throws {AgentError} `plan_asset_invalid` for a missing or malformed field.
  */
 export function readPlanAssetFile(input: unknown): AgentPlanAssetFile {

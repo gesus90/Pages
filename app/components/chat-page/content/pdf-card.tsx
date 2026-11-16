@@ -22,8 +22,8 @@ interface PdfSummaryProps {
 }
 
 /**
- * The small preview of the first page with title, page count and "Öffnen"
- * (PAGE-385); an encrypted PDF names that it stays downloadable.
+ * The small preview of the first page with title, page count and "Öffnen";
+ * an encrypted PDF names that it stays downloadable.
  */
 function PdfSummary({
   attachment,
@@ -80,7 +80,7 @@ function PdfSummary({
 }
 
 /**
- * The card of a PDF of a message (PAGE-298, PAGE-385): a small preview of
+ * The card of a PDF of a message: a small preview of
  * the first page with the title from the metadata (else the file name), the
  * page count and "Öffnen", in the shared head with Herunterladen, Daneben,
  * Vollbild and Zuklappen. The document itself loads only in the viewer.

@@ -101,7 +101,6 @@ function withoutContentBindings(
 
 /**
  * Takes a node out of its loop; its connections to the other members end with it.
- *
  * @remarks
  * Results stay inside the loop, so the bindings between the node and the
  * others that hand a result on are dropped on both sides.
@@ -312,7 +311,6 @@ function attachToLoop<Plan extends AgentPlanInput>(
 
 /**
  * Moves an agent or script node into a loop, within it, or out onto the outer grid.
- *
  * @param plan - The plan.
  * @param placement - The node, its target loop or `null`, and its position.
  * @param context - The agents the editor knows and the group edit that frees
@@ -359,7 +357,6 @@ export function placePlanLoopNode<Plan extends AgentPlanInput>(
 
 /**
  * Removes a loop and keeps its members as nodes of the outer graph.
- *
  * @param plan - The plan with the loop.
  * @param loopId - The loop to remove.
  * @param positionOf - The absolute grid position of a member, so it stays
@@ -404,7 +401,7 @@ export function ungroupPlanLoop<Plan extends AgentPlanInput>(
       nodes: [
         ...plan.nodes.filter((node) => node.id !== loopId),
         ...members,
-        // A decision of the loop stays a decision of the outer graph (PAGE-286).
+        // A decision of the loop stays a decision of the outer graph.
         ...(loop.decisions ?? []).map((decision) => ({
           ...decision,
           ...positionOf(decision),

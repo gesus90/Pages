@@ -14,7 +14,6 @@ export interface McpDeviceRevoke {
 
 /**
  * Sends the revocation of a machine and announces its success.
- *
  * @param deviceId - The machine to revoke.
  */
 export function useMcpDeviceRevoke(deviceId: string): McpDeviceRevoke {

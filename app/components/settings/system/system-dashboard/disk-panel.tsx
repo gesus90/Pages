@@ -57,7 +57,6 @@ function DiskRow({
 
 /**
  * The mounted drives and network shares with their use.
- *
  * @remarks
  * The list follows the mount table of the server: a newly mounted drive
  * appears with the next reading, an unmounted one disappears. A drive that

@@ -11,7 +11,6 @@ export type AgentPlanSequenceGap = "unreachable" | "cycle";
 
 /**
  * The numbering of a plan's flow nodes along its flow edges.
- *
  * @remarks
  * `order` holds the numbered nodes, number one first. A node that cannot be
  * numbered is named in `gaps` instead of being slotted in somewhere.
@@ -49,7 +48,6 @@ function lookup<Value>(
 
 /**
  * The flow edges between flow nodes; data bindings never order execution.
- *
  * @remarks
  * An edge into a Start or out of an End is invalid, and the graph validation
  * reports it; it would only hide the boundary node from the numbering.
@@ -94,7 +92,6 @@ function reachableFrom(
 
 /**
  * The longest flow path from a Start to each node that a cycle does not block.
- *
  * @remarks
  * A node is settled once every flow edge into it is settled; nodes in or
  * behind a cycle never settle and are missing from the result.
@@ -148,10 +145,8 @@ function flowGraph(plan: Pick<AgentPlanInput, "nodes" | "edges">): {
 
 /**
  * Numbers the flow nodes of a plan along its directed flow edges.
- *
  * @param plan - A plan whose groups are expanded, so that group members are
  * flow nodes of their own; a loop counts as one node.
- *
  * @remarks
  * Start is number one and End the last number. In between, a node follows
  * every node with a flow edge to it: nodes sort by the longest flow path
@@ -186,7 +181,6 @@ export function planFlowSequence(
 
 /**
  * Groups the numbered flow nodes of a plan by their step along the flow edges.
- *
  * @param plan - A plan whose groups are expanded, as for {@link planFlowSequence}.
  * @returns The node identifiers of each step, the step nearest to Start first.
  * Nodes on the same step, such as parallel branches, sort by identifier; Start
@@ -205,7 +199,6 @@ export function planFlowStages(
 
 /**
  * The numbering a run of the plan executes.
- *
  * @remarks
  * Groups are expanded into their members, as in the snapshot of a run, so a
  * plan and its runs number the same nodes alike.
@@ -216,7 +209,6 @@ export function planRunSequence(plan: AgentPlanInput): AgentPlanSequence {
 
 /**
  * Sorts entries, such as the steps of a run, into the order of a sequence.
- *
  * @remarks
  * Entries the sequence does not number keep their relative order behind the
  * numbered ones; nothing is dropped.

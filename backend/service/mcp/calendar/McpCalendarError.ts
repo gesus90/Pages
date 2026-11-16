@@ -2,7 +2,7 @@ import { DatabaseExecutorError } from "@/backend/database/executor/DatabaseExecu
 import { CalendarError } from "@/backend/error/CalendarError";
 import { McpDeviceError } from "@/backend/error/McpDeviceError";
 
-/** Error codes of the calendar API, as the MCP HTTP conventions name them (PAGE-301). */
+/** Error codes of the calendar API, as the MCP HTTP conventions name them. */
 export type McpCalendarErrorCode =
   | "invalid_request"
   | "invalid_token"
@@ -37,7 +37,6 @@ export interface McpCalendarErrorDetails {
 
 /**
  * Fixed public failure of the calendar API.
- *
  * @remarks
  * It carries a code, for a stale revision the stored revision, and nothing
  * else: no message of a service, no part of the request and never data of
@@ -51,7 +50,6 @@ export class McpCalendarError extends Error {
 
   /**
    * Creates the error.
-   *
    * @param code - The error code of the interface; it decides the HTTP status.
    * @param details - The stored revision of a conflict or the wait of a limit.
    */
@@ -100,11 +98,9 @@ function fromDeviceError(error: McpDeviceError): McpCalendarError | null {
 /**
  * Translates a failure of the calendar service, the token check or the
  * database into the error of the interface.
- *
  * @param error - Whatever a service, a parser or the token check threw.
  * @returns The interface error, or `null` for a failure that is not the
  * client's doing and stays an internal error.
- *
  * @remarks
  * The calendar service already answers an invisible event with `not_found`
  * like a missing one; its message is dropped here all the same.

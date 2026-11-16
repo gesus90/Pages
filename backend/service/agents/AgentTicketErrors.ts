@@ -33,10 +33,8 @@ const CONFLICT_CODES: ReadonlySet<WorkItemErrorCode> = new Set([
 /**
  * Turns the business failures of tickets, milestones and projects into the
  * fixed codes of the agent API.
- *
  * @param error - Whatever the ticket services threw.
  * @returns The agent error for a business failure, or the error unchanged.
- *
  * @remarks
  * A parent, milestone or status the account cannot see is reported like one
  * that does not exist, so no response tells anything about a hidden record.

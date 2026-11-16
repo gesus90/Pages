@@ -15,7 +15,7 @@ import type {
   AgentStructuredManifest,
 } from "@/definition/AgentStructuredImportManifest";
 
-/** The wiki part of a structured manifest, as the A9.7 planner and the A9.8 source service take it. */
+/** The wiki part of a structured manifest, as the wiki planner and the wiki source service take it. */
 export interface StructuredWikiPackage {
   /** Key of the project source the pages go to. */
   readonly projectKey: string;
@@ -80,7 +80,7 @@ export function readStructuredAssetMap(manifest: AgentStructuredManifest): {
  * @remarks
  * Relative links are rewritten here, before anything is planned or hashed, so
  * the plan, the source hash and the stored page all describe the same text.
- * The index is derived from that text with the rules of A9.7, which makes the
+ * The index is derived from that text with the wiki planning rules, which makes the
  * planner's title check hold by construction.
  */
 export function buildStructuredWiki(
@@ -141,10 +141,10 @@ export function buildStructuredWiki(
 }
 
 /**
- * Builds the input the A9.8 source service applies for the wiki package.
+ * Builds the input the wiki source service applies for the wiki package.
  *
  * @param pack - The package of the manifest.
- * @param fingerprint - The fingerprint of the A9.7 plan of that package.
+ * @param fingerprint - The fingerprint of the wiki plan of that package.
  * @returns The explicit project, parent, Markdown and asset bindings.
  */
 export function structuredWikiApplyInput(

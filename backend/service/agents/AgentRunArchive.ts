@@ -49,7 +49,6 @@ type ArchiveRepository = Pick<
 
 /**
  * Decides how a step run ended, or that it has no run to record.
- *
  * @remarks
  * A step that waits, is blocked, or was cancelled before its adapter started
  * never ran, so it has no record.
@@ -287,7 +286,7 @@ export class AgentRunArchive {
    *
    * @remarks
    * A new run of a plan deletes the records of its earlier runs in the
-   * database (PAGE-255); their files lie outside the data directory and go
+   * database; their files lie outside the data directory and go
    * here. Only files named like a record below `<agent>/runs` are touched.
    */
   private async removeOrphanedFiles(

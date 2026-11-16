@@ -161,7 +161,6 @@ function isDreamingResponse(value: unknown): value is AgentDreamingResponse {
 
 /**
  * Reads the Dreaming of one agent.
- *
  * @param agentId - The ID of the agent.
  * @param signal - Cancels the request when the view goes away.
  * @returns The overview, or why the server refused it.
@@ -204,7 +203,6 @@ function requestForm(request: AgentDreamingRequest): FormData {
 
 /**
  * Saves the schedule of an agent, or starts a dream run at once.
- *
  * @param request - What to do.
  * @returns The fresh overview, or why the server refused the change.
  */

@@ -5,7 +5,6 @@ export const RUNNER_CONTINUATION_VERSION = 1;
 
 /**
  * What Pages asks of a CLI job so that a later job can continue it.
- *
  * @remarks
  * Without `resumeSessionId` the job opens a session that stays on the
  * runner's host and reports its identity and tool activity. With it, the
@@ -25,7 +24,6 @@ export type RunnerContinuationRequest = z.infer<
 
 /**
  * What the runner proved about the session of a job, whether it succeeded or not.
- *
  * @remarks
  * `tools` is `none` only when the runner followed the whole stream and saw no
  * tool call, `observed` when it saw at least one, and `unknown` when the

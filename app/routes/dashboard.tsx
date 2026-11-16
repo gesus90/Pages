@@ -78,9 +78,8 @@ const DASHBOARD_STATE: LocalStateRouteKind<DashboardLoaderData> = {
 
 /**
  * Opens the dashboard from the account's kept answer at once and asks the endpoint behind it.
- *
  * @remarks
- * The endpoint runs the server loader with its permission checks (PAGE-235).
+ * The endpoint runs the server loader with its permission checks.
  */
 export async function clientLoader({
   request,

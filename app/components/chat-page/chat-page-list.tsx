@@ -241,7 +241,7 @@ interface ListToggleProps {
   readonly controlsId: string;
 }
 
-/** The ghost button that collapses and expands the list (PAGE-325). */
+/** The ghost button that collapses and expands the list. */
 function ListToggle({
   collapse,
   controlsId,
@@ -315,17 +315,16 @@ interface ChatPageListProps {
 }
 
 /**
- * The list card of the chat page (PAGE-259): the search, then the groups
+ * The list card of the chat page: the search, then the groups
  * and the participants, each between its fixed head and its fixed dashed
  * entry; "Teilnehmer hinzufügen" closes the card at the bottom.
- *
  * @remarks
  * The card itself does not scroll; each list has its own scroll area, and
  * both share the free height evenly, a short list leaving its rest to the
  * other. Entries are buttons with `aria-current` for the selection; the
  * arrow keys, Home and End move across both lists, Enter opens one.
  * The toggle beside the search collapses the card to a bar of avatars of
- * 72 px (PAGE-325); the toggle keeps its place in the tree, so the focus
+ * 72 px; the toggle keeps its place in the tree, so the focus
  * stays on it.
  */
 export function ChatPageList({

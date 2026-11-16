@@ -3,7 +3,7 @@ import { mcpDeviceMethodNotAllowed } from "@/app/lib/mcp-device-response.server"
 
 import type { Route } from "./+types/api-mcp-v1-users";
 
-/** Serves the shared PAGE-316 business administration contract. */
+/** Serves the shared business administration contract. */
 export async function loader({ request }: Route.LoaderArgs): Promise<Response> {
   if (request.method === "GET")
     return runManagementRoute(request, "users_list");
@@ -12,7 +12,7 @@ export async function loader({ request }: Route.LoaderArgs): Promise<Response> {
   return mcpDeviceMethodNotAllowed("GET, POST");
 }
 
-/** Serves the shared PAGE-316 business administration contract. */
+/** Serves the shared business administration contract. */
 export async function action({ request }: Route.ActionArgs): Promise<Response> {
   if (request.method === "GET")
     return runManagementRoute(request, "users_list");

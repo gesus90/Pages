@@ -48,7 +48,6 @@ export class WikiTrashService {
 
   /**
    * Creates the service.
-   *
    * @param repository - Wiki persistence.
    * @param access - Resolves who is acting.
    */
@@ -59,7 +58,6 @@ export class WikiTrashService {
 
   /**
    * Moves a page and its subtree into the trash.
-   *
    * @param actor - The signed-in user.
    * @param id - Page identifier.
    * @throws {WikiAccessDeniedError} When the actor does not manage the page.
@@ -84,7 +82,6 @@ export class WikiTrashService {
 
   /**
    * Tells what moving a page into the trash would affect, without moving it.
-   *
    * @param actor - The signed-in user.
    * @param id - Page identifier.
    * @returns The page and the pages that would go into the trash with it.
@@ -124,7 +121,6 @@ export class WikiTrashService {
 
   /**
    * Tells what removing a page from the trash for good would affect.
-   *
    * @param actor - The signed-in user.
    * @param id - Page that was deleted as such.
    * @returns The page, the pages deleted with it and their attachments.
@@ -148,15 +144,13 @@ export class WikiTrashService {
 
   /**
    * Looks up what an administrator sees of a private page of somebody else.
-   *
    * @param actor - The signed-in user.
    * @param id - Page identifier.
    * @returns The placeholder, or `null` when the actor is not an
    * administrator in the admin mode or the page is not a live private page.
-   *
    * @remarks
    * Only the identifier and the owner leave the repository, never a title
-   * or text (T4.6.10).
+   * or text.
    */
   public async findPlaceholder(
     actor: User,
@@ -183,7 +177,6 @@ export class WikiTrashService {
 
   /**
    * Lists the private pages of one account as placeholders.
-   *
    * @param actor - The signed-in user.
    * @param ownerId - Account whose private pages are listed.
    * @returns Placeholders, newest first; empty unless the actor is an
@@ -207,7 +200,6 @@ export class WikiTrashService {
 
   /**
    * Counts the private pages of every account, for the user management.
-   *
    * @param actor - The signed-in user.
    * @returns Account identifier mapped to its number of private pages;
    * empty unless the actor is an administrator in the admin mode.
@@ -224,7 +216,6 @@ export class WikiTrashService {
 
   /**
    * Lists the private pages of every account as placeholders.
-   *
    * @param actor - The signed-in user.
    * @returns Account identifier mapped to its placeholders, newest first;
    * only accounts with at least one private page; empty unless the actor is
@@ -246,7 +237,6 @@ export class WikiTrashService {
 
   /**
    * Deletes a private page of somebody else into the owner's trash.
-   *
    * @param actor - The signed-in user; an administrator in the admin mode.
    * @param id - Page identifier.
    * @throws {WikiPageNotFoundError} Unless a placeholder exists for the page.
@@ -266,10 +256,8 @@ export class WikiTrashService {
 
   /**
    * Lists the deleted pages the actor may restore.
-   *
    * @param actor - The signed-in user.
    * @returns Pages that were deleted as such, newest first.
-   *
    * @remarks
    * Owners see their own pages. Whoever manages other people's pages also
    * sees those, except private ones, which only their owner can restore.
@@ -285,12 +273,10 @@ export class WikiTrashService {
 
   /**
    * Brings a deleted page back.
-   *
    * @param actor - The signed-in user.
    * @param id - Page that was deleted as such.
    * @throws {WikiAccessDeniedError} When the actor does not manage the page.
    * @throws {WikiValidationError} When the page is not in the trash.
-   *
    * @remarks
    * A page whose parent is gone or still deleted returns as a root page of
    * its scope.
@@ -323,7 +309,6 @@ export class WikiTrashService {
 
   /**
    * Removes a page from the trash for good.
-   *
    * @param actor - The signed-in user.
    * @param id - Page that was deleted as such.
    * @returns Storage names of attachment files to remove from the disk.
@@ -345,7 +330,6 @@ export class WikiTrashService {
 
   /**
    * Removes everything that stayed in the trash longer than allowed.
-   *
    * @param retentionDays - Days a deleted page stays in the trash.
    * @returns The trash roots removed and the storage names of attachment
    * files to remove from the disk.

@@ -7,8 +7,7 @@ import type { PicaMobileAuthPayload } from "@/definition/PicaMobileProtocol";
 
 /**
  * Authenticates the `conversations.v1` connection of the signed-in browser
- * with the session of its cookie (PAGE-381).
- *
+ * with the session of its cookie.
  * @remarks
  * The page cannot read its HttpOnly session cookie, so its `auth` message
  * names the method `session` without the real token; the connection uses
@@ -21,7 +20,6 @@ export class PicaMobileWebAuthenticator implements PicaMobileAuthenticator {
 
   /**
    * Creates the authenticator of one browser connection.
-   *
    * @param inner - Checks sessions against the Pages accounts.
    * @param sessionToken - The session of the handshake's cookie.
    */

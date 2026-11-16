@@ -1,6 +1,6 @@
 import { deflateSync } from "node:zlib";
 
-/** Images of one PDF page an agent receives at most (PAGE-386). */
+/** Images of one PDF page an agent receives at most. */
 const MAXIMUM_IMAGES = 4;
 
 /** Pixels of one image that are encoded at most; larger ones are left out. */
@@ -84,7 +84,6 @@ function pixel(image: PdfImageData, index: number): readonly number[] {
 
 /**
  * Encodes decoded pixels as a PNG, without any image library.
- *
  * @param image - Width, height, pixel layout and pixels.
  * @returns The PNG file, or `null` for an unknown layout or too many pixels.
  */
@@ -131,13 +130,11 @@ function resolveImage(
 }
 
 /**
- * Reads the images drawn on one page of a PDF as PNG files (PAGE-386).
- *
+ * Reads the images drawn on one page of a PDF as PNG files.
  * @remarks
  * pdf.js decodes the images without running scripts of the file, as in
  * the text reading of PDFs; image masks and repeated patterns are left out,
  * at most {@link MAXIMUM_IMAGES} images and a bounded time.
- *
  * @param bytes - The complete file.
  * @param pageNumber - The page, counted from 1.
  * @returns The images as PNG, none for a page without images or that cannot be read.

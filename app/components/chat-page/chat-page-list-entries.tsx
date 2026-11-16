@@ -34,7 +34,7 @@ const ENTRY_CLASS_NAME =
   "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors";
 
 interface EntryButtonProps {
-  /** The conversation of the entry, whose chat menu a right click opens (PAGE-389). */
+  /** The conversation of the entry, whose chat menu a right click opens. */
   readonly selection: VirtualChatSelection;
   readonly isSelected: boolean;
   readonly onSelect: () => void;
@@ -43,7 +43,7 @@ interface EntryButtonProps {
 
 /**
  * The button of a conversation: a click opens it, a right click or a long
- * press opens it with its chat menu at the point (PAGE-389).
+ * press opens it with its chat menu at the point.
  */
 function EntryButton({
   selection,
@@ -89,7 +89,7 @@ function EntryText({
   );
 }
 
-/** The unread count; a muted conversation shows it subdued behind a crossed bell (PAGE-275). */
+/** The unread count; a muted conversation shows it subdued behind a crossed bell. */
 function UnreadPill({
   count,
   isMuted = false,
@@ -124,7 +124,7 @@ function UnreadPill({
   );
 }
 
-/** Marks a conversation of agents only, which the person reads without taking part (PAGE-311). */
+/** Marks a conversation of agents only, which the person reads without taking part. */
 export function AgentConversationBadge({
   group,
 }: {

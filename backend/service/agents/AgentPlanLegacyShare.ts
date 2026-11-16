@@ -37,10 +37,18 @@ const NO_COUNTS: LegacyShareCounts = {
 
 /**
  * Shares the plans that existed before teams with the team of their owner, once.
- *
  * @remarks
  * Migration 062 marked every plan it found. This runs at each server start and
- * decides each marked plan with the rule that applies when a plan is created:
+ * decides each marked plan with the rule that applies when a plan is created.
+ * Plans are decided by ascending identifier. Among legacy plans of one project
+ * that would take the same name in the same department, the smallest
+ * identifier is decided first and wins; the others collide. Plan identifiers
+ * are random, so "oldest" cannot be derived (no creation time is stored); the
+ * rule is only reproducible, never a judgement about which plan matters more.
+ * Plans created after the migration are never marked, so a later private plan
+ * is not published. A failure is logged and never stops the server from
+ * starting; the plans not decided yet stay marked. Each marked plan is decided
+ * as follows:
  * - an owner who now belongs to exactly one department brings the plan into
  *   that department (department and name key; owner, revision, content, runs
  *   and the recorded editor stay as they are) and the mark is dropped. Being
@@ -52,17 +60,6 @@ const NO_COUNTS: LegacyShareCounts = {
  *   mark is dropped, because no department is guessed;
  * - a plan whose normalized name the department already uses in the project
  *   stays private and loses the mark. Nothing is renamed, merged or deleted.
- *
- * Plans are decided by ascending identifier. Among legacy plans of one
- * project that would take the same name in the same department, the smallest
- * identifier is decided first and wins; the others collide. Plan identifiers
- * are random, so "oldest" cannot be derived (no creation time is stored); the
- * rule is only reproducible, never a judgement about which plan matters more.
- *
- * Plans created after the migration are never marked, so a later private plan
- * is not published. A failure is logged and never stops the server from
- * starting; the plans not decided yet stay marked.
- *
  * @returns The counts, which are also logged (one event per outcome with
  * `kind` and `count`) without any name or person.
  */

@@ -1,8 +1,8 @@
-# PAGE-376: Wiki-Entwurf für „Agents: Festlegungen“
+# Wiki-Entwurf für „Agents: Festlegungen“
 
 Ziel-Seite: [Agents: Festlegungen](/wiki/93eb063a-a63c-4cac-8393-af182291a582).
-Der folgende Abschnitt ersetzt die Beschreibung der Warteschlange im Gruppenchat aus PAGE-304
-(„im Gruppenchat folgt sie als nächste Antwort desselben Agents“) und ergänzt die Sitzungen aus PAGE-335.
+Der folgende Abschnitt ersetzt die Beschreibung der Warteschlange im Gruppenchat
+(„im Gruppenchat folgt sie als nächste Antwort desselben Agents“) und ergänzt die Sitzungen je Chat.
 
 ---
 

@@ -136,7 +136,6 @@ function applyEvent(live: ChatLiveJob, event: ChatJobEvent): ChatLiveJob {
 
 /**
  * Applies a read of the journal after the cursor of the job.
- *
  * @param live - What the panel showed so far.
  * @param update - The job and the entries after the cursor.
  * @returns The new state; a read that does not continue the cursor is stale.

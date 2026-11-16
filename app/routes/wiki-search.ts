@@ -8,7 +8,6 @@ import type { Route } from "./+types/wiki-search";
 
 /**
  * Answers a search of the wiki as JSON.
- *
  * @remarks
  * The service filters by visibility before it matches, ranks and counts, so
  * the answer holds nothing the person may not see. An invalid filter value

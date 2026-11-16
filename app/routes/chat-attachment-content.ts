@@ -15,8 +15,7 @@ const CONTENT_HEADERS = {
 
 /**
  * Sends the bounded content preview of a text, PDF or Office attachment of an
- * own chat session as JSON (PAGE-92).
- *
+ * own chat session as JSON.
  * @remarks
  * The preview holds plain text, table cells or document sections that the
  * chat shows as text. A foreign and a missing attachment answer alike with 404.

@@ -41,8 +41,8 @@ const MAXIMUM_FAILED_UPLOADS = 32;
 const IDLE_MILLISECONDS = 60_000;
 
 /**
- * The chunked voice upload of `conversations.v1` for one connection
- * (PAGE-278): `voice_start`, `voice_chunk`, `voice_finish`, `voice_cancel`.
+ * The chunked voice upload of `conversations.v1` for one connection:
+ * `voice_start`, `voice_chunk`, `voice_finish`, `voice_cancel`.
  *
  * @remarks
  * Chunks must arrive in order, each at most 64 KB decoded and all together

@@ -35,12 +35,10 @@ function readTitle(input: unknown): string | null {
 }
 
 /**
- * Checks the page count and the title the browser read of a PDF (PAGE-385).
- *
+ * Checks the page count and the title the browser read of a PDF.
  * @remarks
  * The title is plain text: control characters become spaces and it is cut
  * to 300 characters. A page count outside 1 to 100 000 counts as unknown.
- *
  * @param kind - The kind of the attachment.
  * @param input - Page count and title as the request names them.
  * @returns The facts to store, or `null` when nothing usable remains or the
@@ -59,7 +57,6 @@ export function readConversationDocumentFacts(
 
 /**
  * The facts of a stored document as every client sees them.
- *
  * @param document - The stored facts, or `null`.
  */
 export function conversationDocumentFactsOf(

@@ -100,7 +100,7 @@ emptied. Caddy's `reverse_proxy` already does the equivalent by default.
 
 ## Request bodies: plan files up to 512 MiB
 
-A file of a plan (PAGE-292) travels as one `PUT /agent-api/plan-assets` body of
+A file of a plan travels as one `PUT /agent-api/plan-assets` body of
 up to 512 MiB (512 × 1024 × 1024 = 536,870,912 bytes). The plan page refuses a
 larger file before it sends anything, and Pages answers a longer body with
 `413` and `plan_asset_too_large`, after cutting the stream; nothing is stored

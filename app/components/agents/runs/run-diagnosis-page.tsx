@@ -23,7 +23,7 @@ function isPlans(value: unknown): value is RunDiagnosisAnswers["plans"] {
 }
 
 /**
- * The view "Runs" of the plan area (PAGE-307): runs of all plans the person may see,
+ * The view "Runs" of the plan area: runs of all plans the person may see,
  * filters, the failure overview and one run with its steps, timeline and logs.
  */
 export function RunDiagnosisPage(): React.ReactElement {

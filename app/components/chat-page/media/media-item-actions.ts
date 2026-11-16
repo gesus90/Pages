@@ -1,6 +1,6 @@
 import type { ConversationMediaFile } from "@/definition/ConversationMediaOverview";
 
-/** What every entry of "Medien & Dateien" can do and needs to know (PAGE-387). */
+/** What every entry of "Medien & Dateien" can do and needs to know. */
 export interface MediaItemActions {
   readonly selected: ReadonlySet<string>;
   toggleSelected(attachmentId: string): void;
@@ -15,7 +15,6 @@ export interface MediaItemActions {
 
 /**
  * The date and time a message was sent, as the entries name it.
- *
  * @param sentAt - The ISO moment.
  * @param language - The language of the interface.
  */

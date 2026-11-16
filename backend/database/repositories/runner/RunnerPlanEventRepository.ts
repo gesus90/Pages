@@ -154,7 +154,6 @@ export class RunnerPlanEventRepository {
 
   /**
    * Loads the current immutable continuation basis and updates only its public progress.
-   *
    * @remarks
    * A reducer that returns the loaded run object itself writes nothing.
    */

@@ -61,9 +61,7 @@ function readId(value: unknown): string {
 }
 
 /**
- * The groups of a person's chat page and the last activity of both lists
- * (PAGE-259).
- *
+ * The groups of a person's chat page and the last activity of both lists.
  * @remarks
  * Every operation is bound to the signed-in person: a group or participant of
  * another account is never read or changed, whatever ID a request names.
@@ -78,7 +76,6 @@ export class ChatGroupService {
 
   /**
    * Creates a group of the person with at least one of their participants.
-   *
    * @returns The ID of the new group.
    * @throws {AgentEmployeeError} `invalidInput` for a missing or too long
    * name, a too long description, no members, or a member outside the
@@ -119,7 +116,6 @@ export class ChatGroupService {
   /**
    * Adds one of the person's participants to one of their groups; adding a
    * member twice changes nothing.
-   *
    * @throws {AgentEmployeeError} `notFound` for a group of another account
    * or none, `invalidInput` for a participant outside the person's list.
    */
@@ -143,7 +139,6 @@ export class ChatGroupService {
 
   /**
    * Records a sent message as the last activity of a group or participant.
-   *
    * @throws {AgentEmployeeError} `notFound` when the person has no such
    * group or participant.
    */

@@ -200,10 +200,9 @@ function AttachMenuItems({
 }
 
 /**
- * The square "+" of the composer with its menu (PAGE-298): attach a file, an
+ * The square "+" of the composer with its menu: attach a file, an
  * image or a video, insert a code block or a diff, embed a web page, record a
  * voice message.
- *
  * @remarks
  * The file fields stand outside the menu, which leaves the page when it
  * closes. "Webseite einbetten" swaps the items for a field that asks for the

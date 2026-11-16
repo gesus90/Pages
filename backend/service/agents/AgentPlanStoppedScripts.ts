@@ -21,7 +21,6 @@ async function settledStep(
 
 /**
  * Confirms the closeout of local scripts of a stopped run that never got a process.
- *
  * @remarks
  * The engine no longer stores script records after Stop, so an attempt that
  * was dispatched but never spawned would keep `closeout: "pending"` and with

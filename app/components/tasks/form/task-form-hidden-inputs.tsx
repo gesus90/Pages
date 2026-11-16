@@ -7,7 +7,7 @@ interface TaskFormHiddenInputsProps {
   readonly editedItemId: string | undefined;
   /**
    * The saved description the edit starts from; the server refuses the
-   * change when someone saved another one meanwhile (A8.2-E05).
+   * change when someone saved another one meanwhile.
    */
   readonly baseDescription: string | undefined;
   readonly expectedSnapshot: string | undefined;

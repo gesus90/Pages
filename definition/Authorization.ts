@@ -3,7 +3,6 @@ import type { GroupPageData } from "@/definition/UserGroup";
 
 /**
  * Configurable capabilities; reading is always enabled within the permitted scope.
- *
  * @remarks
  * `MILESTONES` is the milestone right: together with the responsibility for
  * the project it allows archiving its tickets and milestones. Milestone
@@ -19,7 +18,7 @@ export const CAPABILITY = {
   MANAGE_ROLES: "manage_roles",
 } as const;
 
-/** Stable identity of the protected business administration role (PAGE-316). */
+/** Stable identity of the protected business administration role. */
 export const ADMINISTRATION_ROLE_ID = "role-administration";
 
 /** A capability that can be granted by a shared role. */
@@ -68,7 +67,7 @@ export interface AccountProfileInput {
   readonly email: string | null;
 }
 
-/** Values required to create an account through the A2 management boundary. */
+/** Values required to create an account through the authorization management boundary. */
 export interface AccountCreateInput extends AccountProfileInput {
   readonly roleId: string | null;
   readonly isAdmin: boolean;
@@ -96,7 +95,7 @@ export interface AccountAccess {
   readonly allDepartments: boolean;
   readonly allProjects: boolean;
   readonly hasHadDepartment: boolean;
-  /** An agent account (PAGE-266): never an administrator, never signed in. */
+  /** An agent account: never an administrator, never signed in. */
   readonly isAgent?: boolean;
 }
 

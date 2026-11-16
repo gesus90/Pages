@@ -1,4 +1,4 @@
-# Agent Plan retries (PAGE-128, PAGE-191, PAGE-210)
+# Agent Plan retries
 
 `AgentPlanStepRunner` keeps a failed unfinished node inside the existing engine
 while it waits. There is no additional worker, queue, provider or model choice.
@@ -194,7 +194,7 @@ failure metadata; they do not reset the budget. The continuation after a restart
 one described under Restart; the executor can also continue explicitly after
 checkpoint and side-effect review. A later independent turn starts with a fresh counter.
 
-Only the executor continues a run (PAGE-291). Plan edit rights, plan ownership,
+Only the executor continues a run. Plan edit rights, plan ownership,
 an administrator role or a matching name grant no control of another
 executor's run. The plan control names that apart from the reader's history in
 `resumeBlocker`: `own_run_required` for a run of another executor, whose run

@@ -31,7 +31,6 @@ const STATUS_CLASSES: Record<AgentPlanStepStatus, string> = {
 
 /**
  * The full-strength edge of a card or container whose run confirmed its success.
- *
  * @remarks
  * The status badge's soft edge is too faint for a whole card; the edge takes
  * the success token itself, so it follows the light and the dark palette.
@@ -53,7 +52,6 @@ export function planStatusClass(
 
 /**
  * The colours of a card while a run is shown: those of its status.
- *
  * @remarks
  * A node on a branch a decision did not activate has a dashed border as well:
  * it never ran, and nothing waits for it. Its text keeps full strength, since

@@ -1,8 +1,7 @@
 import type { RouteConfigEntry } from "@react-router/dev/routes";
 
 /**
- * The reads of runs for the whole team of a plan, admitted by the device token (PAGE-307).
- *
+ * The reads of runs for the whole team of a plan, admitted by the device token.
  * @param resource - Declares a server resource of the route table.
  */
 export function mcpPlanRunRoutes(

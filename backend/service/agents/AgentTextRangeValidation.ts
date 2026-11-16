@@ -65,11 +65,9 @@ function readBudget(input: unknown): number {
 
 /**
  * Reads the range of a passage read.
- *
  * @param fields - The operation parameters, target already read.
  * @returns The start, the optional end and the character budget.
  * @throws {AgentOperationError} `INVALID_REQUEST` for a malformed position, `PAYLOAD_TOO_LARGE` for a budget over the limit.
- *
  * @remarks
  * Only `start` is required and its column may be left out. Without `end` the
  * read runs on from `start` for at most `maxCharacters`.
@@ -86,11 +84,9 @@ export function readAgentTextRangeRequest(
 
 /**
  * Reads the range, the expected text and the replacement of a patch.
- *
  * @param fields - The operation parameters, target and version already read.
  * @returns The patch; the complete text is never part of it.
  * @throws {AgentOperationError} `INVALID_REQUEST` for a missing or malformed value.
- *
  * @remarks
  * Both positions are required with line and column, so a patch never
  * resolves a default onto some other range.

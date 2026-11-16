@@ -32,8 +32,7 @@ const encoding = z.enum(["text", "base64"]);
 const placement = z.enum(["fail", "keep_both"]);
 
 /**
- * The inputs of the native Storage tools (PAGE-271).
- *
+ * The inputs of the native Storage tools.
  * @remarks
  * They name only references, names and contents; the account, the
  * operation ID and every confirmation come from Pages, never from the model.

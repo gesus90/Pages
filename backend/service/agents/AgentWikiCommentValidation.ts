@@ -91,12 +91,10 @@ function readTarget(
 
 /**
  * Validates one comment write before any persistence or policy read.
- *
  * @param operation - The comment operation that was called.
  * @param input - The raw operation parameters.
  * @returns The request, tagged with its operation.
  * @throws {AgentOperationError} `INVALID_REQUEST` for a missing, unknown or malformed parameter.
- *
  * @remarks
  * Adding takes only `operationId`, `pageId` and `body` as required parameters: a comment
  * without `parentId` starts a thread, one without `quote` is about the page. Edit, resolve
@@ -134,7 +132,6 @@ export function readAgentWikiCommentWrite(
 
 /**
  * Validates the parameters of a comment read.
- *
  * @param input - The raw operation parameters.
  * @returns The identifier of the page whose comments are read.
  * @throws {AgentOperationError} `INVALID_REQUEST` for a missing, unknown or malformed parameter.

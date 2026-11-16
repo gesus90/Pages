@@ -446,7 +446,6 @@ const PORT: PropertySchema = { type: "string", minLength: 1, maxLength: 100 };
 
 /**
  * A connection between two nodes, optionally through named ports.
- *
  * @remarks
  * `fromPort` and `toPort` come together, Pages refuses one alone: `true-out`/`false-out`
  * or `case:<id>` of a decision into `flow-in`, `passed-out` into `condition-in`,

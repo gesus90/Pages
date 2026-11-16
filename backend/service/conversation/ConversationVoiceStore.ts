@@ -48,9 +48,7 @@ export interface StoredConversationVoiceFile {
 }
 
 /**
- * Checks and keeps the audio of voice messages in the file store of Pages
- * (PAGE-278).
- *
+ * Checks and keeps the audio of voice messages in the file store of Pages.
  * @remarks
  * Only WAV and MP3 are accepted, at most 25 MB and the longest recording of
  * Pages. The format is decided from the content, which must match the
@@ -63,10 +61,9 @@ export class ConversationVoiceStore {
 
   /**
    * Creates the store.
-   *
    * @param files - The directory of the audio files.
-   * @param maximumDurationMs - The longest recording Pages is set to
-   * (PAGE-277); 300 seconds by default.
+   * @param maximumDurationMs - The longest recording Pages is set to;
+   * 300 seconds by default.
    */
   public constructor(
     files: Pick<WikiFileStore, "write" | "remove">,
@@ -78,7 +75,6 @@ export class ConversationVoiceStore {
 
   /**
    * Checks the declared type and length before any audio is taken.
-   *
    * @throws {ConversationError} `unsupported_format` for a type that is
    * neither WAV nor MP3, `too_long` beyond the longest recording, `invalid`
    * for a length that is no positive whole number.
@@ -100,7 +96,6 @@ export class ConversationVoiceStore {
 
   /**
    * Streams the audio to the store and checks what arrived.
-   *
    * @param intent - The checked declaration.
    * @param source - The bytes of the audio.
    * @returns The stored file with its checked facts.
@@ -147,7 +142,6 @@ export class ConversationVoiceStore {
 
   /**
    * Removes stored audio that no message refers to.
-   *
    * @param file - The stored file.
    */
   public async discard(file: StoredConversationVoiceFile): Promise<void> {

@@ -15,10 +15,9 @@ import type { Route } from "./+types/conversation-file";
 const OPEN_END = Number.MAX_SAFE_INTEGER;
 
 /**
- * Sends the original of an attachment to a member of its conversation
- * (PAGE-298): `GET /chat/files/<attachmentId>`, with `?download=1` as a
+ * Sends the original of an attachment to a member of its conversation:
+ * `GET /chat/files/<attachmentId>`, with `?download=1` as a
  * download.
- *
  * @remarks
  * Membership is checked on every request, so leaving a conversation ends
  * the access; a file of a conversation the person does not belong to answers

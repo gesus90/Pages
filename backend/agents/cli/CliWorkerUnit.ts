@@ -38,7 +38,6 @@ const execFileAsync = promisify(execFile);
 /**
  * The limits of one ACP worker: adapter, runner, MCP bridge and every helper
  * they start, counted together in the cgroup of its unit.
- *
  * @remarks
  * Memory and swap have no ceiling per worker (`infinity`), because all workers
  * share the budget of `ACP_SLICE_LIMITS`. `OOMPolicy=kill` ends the whole worker
@@ -56,7 +55,6 @@ export const ACP_WORKER_LIMITS = {
 
 /**
  * The memory budget all ACP workers share in `pages-acp.slice`.
- *
  * @remarks
  * Starting values for the server with 22 GB; see `docs/AgentWorkerMemory.md`.
  */
@@ -83,7 +81,6 @@ function runCommand(
 
 /**
  * The service manager of this account is reached through its runtime directory only.
- *
  * @remarks
  * The bus address is named explicitly, because a worker's own environment
  * may point it elsewhere on purpose, such as the GitHub helper's empty bus;
@@ -138,11 +135,9 @@ function workerRuntime(request: CliSessionRequest): number | "infinity" {
 
 /**
  * Stops every worker unit of one session that is still loaded.
- *
  * @param instanceId - The tag of the session; its units carry it in their name.
  * @param command - Runs `systemctl`; defaults to a real process.
  * @returns How many units were found.
- *
  * @remarks
  * A unit name holds the session's random instance identifier, so a unit
  * found by it belongs to that session and to nothing else. Stopping it ends
@@ -185,7 +180,7 @@ export async function stopWorkerUnits(
  * @returns The names of units that are active, starting or stopping.
  *
  * @remarks
- * Used by the periodic reservation check (PAGE-264), which only observes. A
+ * Used by the periodic reservation check, which only observes. A
  * failed or inactive unit holds no process; a unit that is stopping still may.
  */
 export async function listRunningWorkerUnits(
@@ -244,7 +239,7 @@ export async function hasRunningWorkerUnit(
  * @throws When the service manager cannot be read; nothing is proven then.
  *
  * @remarks
- * A chat worker always runs in its unit (PAGE-335), so a session whose units
+ * A chat worker always runs in its unit, so a session whose units
  * are all inactive has no process left, also when it ended before its
  * process identity was recorded.
  */

@@ -17,7 +17,6 @@ export function wantsPlanEvent(
 
 /**
  * Whether an interruption of a plan run belongs to the selected kinds.
- *
  * @param choices - The stored choices of the recipient.
  * @returns `true` while the main switch is on and either "interruptions and
  * blocks" or "all status changes" is selected, as for a failed or cancelled run.

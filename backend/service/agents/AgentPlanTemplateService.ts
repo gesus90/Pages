@@ -79,7 +79,6 @@ export interface AgentPlanTemplateRevision {
 
 /**
  * Saves node configurations as templates and checks every insertion again.
- *
  * @remarks
  * A person who is a member or leader of exactly one department saves shared
  * templates: the stored template belongs to the project of the plan and to
@@ -102,7 +101,6 @@ export class AgentPlanTemplateService {
 
   /**
    * Lists the templates the person works with, the newest first.
-   *
    * @param userId - The signed-in person.
    * @param workspaceId - The workspace of the open plan, whose project decides
    * which shared templates count; without it only personal ones are listed.
@@ -118,11 +116,9 @@ export class AgentPlanTemplateService {
 
   /**
    * Saves the configuration of one node under a new name.
-   *
    * @remarks
    * Outer connections stay behind (see `planTemplateNode`); the plan itself
    * does not change.
-   *
    * @throws {AgentError} `template_name_taken` for a name the person already
    * uses in their own templates, `plan_access_denied` without the right to
    * edit the plan.
@@ -159,11 +155,9 @@ export class AgentPlanTemplateService {
 
   /**
    * Returns a new, independent copy of a template for the edited plan.
-   *
    * @remarks
    * The copy is not stored: it joins the draft like any new node, and the
    * plan's save stores it with the plan.
-   *
    * @throws {AgentError} `template_not_found` for a missing template or one
    * the person does not work with, or the code of the first reference the
    * plan cannot use.
@@ -196,7 +190,6 @@ export class AgentPlanTemplateService {
 
   /**
    * Renames a template of the person, replaces its node with a node of a plan, or both.
-   *
    * @param userId - The signed-in person.
    * @param target - The template and the workspace it is read in.
    * @param revision - The new name, the replacing node, or both.
@@ -207,7 +200,6 @@ export class AgentPlanTemplateService {
    * `template_name_taken` for a name the person already uses,
    * `plan_access_denied` without the right to edit the source plan, or the
    * code of the first reference the replacing node cannot use.
-   *
    * @remarks
    * The replacing node takes the way of {@link save}: its outer connections
    * stay behind, it gets identifiers of its own and is checked like a new
@@ -237,13 +229,11 @@ export class AgentPlanTemplateService {
 
   /**
    * Deletes a template of the person.
-   *
    * @param userId - The signed-in person.
    * @param target - The template and the workspace it is read in.
    * @param journal - Runs in the commit of the deletion.
    * @throws {AgentError} `template_not_found` for a template the person does
    * not see, `template_owner_only` for one of someone else.
-   *
    * @remarks
    * Copies inserted into plans are independent nodes and stay unchanged.
    */
@@ -302,7 +292,6 @@ export class AgentPlanTemplateService {
 
   /**
    * Names a missing agent as such, before the general plan checks.
-   *
    * @returns The agents a node of the workspace's plans may run.
    */
   private async requireAgents(
@@ -322,7 +311,6 @@ export class AgentPlanTemplateService {
 
   /**
    * Keeps the configuration an agent node runs with.
-   *
    * @remarks
    * A node of an older plan without its own copy runs with its agent's
    * current one; the template takes that copy, as the plan's next save would.

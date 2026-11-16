@@ -32,7 +32,6 @@ export type SetupRejection = Extract<
 
 /**
  * Tells whether an answer refuses the wizard as a whole.
- *
  * @param actionData - Answer of the setup action.
  * @returns The refusal, or `null` for every other answer.
  */
@@ -93,7 +92,6 @@ export const SETUP_FORM_FIELD = {
 
 /**
  * Whether an answer of the API has the shape of {@link SetupLoaderData}.
- *
  * @param value - The answer of `/app-api/setup`.
  */
 export function isSetupLoaderData(value: unknown): value is SetupLoaderData {
@@ -110,7 +108,6 @@ export function isSetupLoaderData(value: unknown): value is SetupLoaderData {
 
 /**
  * Whether an answer of the API has the shape of {@link SetupActionData}.
- *
  * @param value - The answer of the setup action.
  */
 export function isSetupActionData(value: unknown): value is SetupActionData {

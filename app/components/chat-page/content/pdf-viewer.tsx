@@ -44,7 +44,7 @@ export interface PdfViewerProps {
   /** Tells the page count once the document is open. */
   readonly onPageCount?: (pageCount: number) => void;
   /**
-   * The full screen (PAGE-385): the page lies on the dark surface of the
+   * The full screen: the page lies on the dark surface of the
    * viewer and the arrow keys turn the page wherever the focus is.
    */
   readonly isFullscreen?: boolean;
@@ -54,11 +54,11 @@ export interface PdfViewerProps {
 interface PdfDocumentState {
   readonly preview: PdfPreview | null;
   readonly hasFailed: boolean;
-  /** The PDF is protected by a password; Pages never asks for it (PAGE-385). */
+  /** The PDF is protected by a password; Pages never asks for it. */
   readonly isEncrypted?: boolean;
 }
 
-/** The pages that hold a search and the one shown (PAGE-385). */
+/** The pages that hold a search and the one shown. */
 interface PdfSearch {
   readonly query: string;
   readonly setQuery: (query: string) => void;
@@ -83,7 +83,7 @@ interface PdfToolbarProps {
   readonly pageCount: number;
   readonly onZoomStep: (direction: number) => void;
   readonly onPageStep: (direction: number) => void;
-  /** The search in the text of the pages (PAGE-385). */
+  /** The search in the text of the pages. */
   readonly search?: PdfSearch;
 }
 
@@ -104,7 +104,7 @@ interface PdfPageAreaProps {
   readonly preview: PdfPreview;
   readonly pageNumber: number;
   readonly zoomPercent: number;
-  /** Lays the page on the dark surface of the full screen (PAGE-385). */
+  /** Lays the page on the dark surface of the full screen. */
   readonly isDark?: boolean;
 }
 
@@ -569,16 +569,14 @@ function PdfViewerDocument({
 
 /**
  * Shows a PDF with a toolbar for zoom, "Seite X von Y" and a search in the
- * text (PAGE-385), page thumbnails and the current page. It fills its
+ * text, page thumbnails and the current page. It fills its
  * container and brings no title or close button; the surrounding dialog or
  * panel provides name, download and close.
- *
  * @remarks
  * The arrow and page keys turn the page while the viewer has the focus, in
  * the full screen wherever the focus is. An encrypted PDF names that it stays
  * downloadable; Pages never asks for its password. The document is closed and
  * its download aborted when the viewer goes away or gets another address.
- *
  * @param props - The address of the PDF and the optional page count callback.
  */
 export function PdfViewer(props: PdfViewerProps): React.ReactElement {

@@ -48,7 +48,7 @@ export interface PicaMobileNotificationInput {
 }
 
 /**
- * Sends the pushes of new conversation messages (PAGE-278) from now on; a
+ * Sends the pushes of new conversation messages from now on; a
  * second call replaces the first.
  */
 function followConversationMessages(input: {
@@ -90,7 +90,6 @@ function followConversationMessages(input: {
 
 /**
  * Reads the instance identifier once and shares it between all pushes.
- *
  * @param eventRepository - The repository that stores the identifier.
  * @returns A reader that resolves to the same identifier on every call.
  */
@@ -128,11 +127,9 @@ function logStarted(isPushAvailable: boolean): void {
 
 /**
  * Builds the notification backend of Pica Mobile and starts its dispatcher.
- *
  * @param input - The database, the accounts and the rights check on runs.
  * @returns The service. It listens to run transitions from now on; nothing it
  * does can change, delay or block a run.
- *
  * @remarks
  * The FCM sender exists only when the operator named a readable key file; a
  * missing or invalid file leaves the service without push, which it reports
@@ -144,7 +141,7 @@ export async function createPicaMobileNotificationServices(
   input: PicaMobileNotificationInput,
 ): Promise<{
   readonly picaMobileNotifications: PicaMobileNotificationService;
-  /** Tells creators about finished automation runs (PAGE-297). */
+  /** Tells creators about finished automation runs. */
   readonly picaMobileAutomationPush: PicaMobileAutomationPush;
 }> {
   await globalThis.pagesPicaMobileNotifications?.stop();

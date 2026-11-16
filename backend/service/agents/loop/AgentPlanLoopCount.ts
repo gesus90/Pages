@@ -47,7 +47,6 @@ function boundCount(loop: AgentPlanLoop, plan: AgentPlan): AgentPlanLoopCount {
 
 /**
  * Resolves the number of iterations of a loop once, before its first iteration.
- *
  * @param loop - The frozen loop.
  * @param plan - The frozen plan, which holds the parameter and stack nodes.
  * @returns The source, the effective number and the mode; the caller stores
@@ -58,7 +57,6 @@ function boundCount(loop: AgentPlanLoop, plan: AgentPlan): AgentPlanLoopCount {
  * from 1 to 999, or from 0 to 999 for a bound value. A parameter text counts
  * only as plain decimal digits; no value is rounded, cut or replaced by the
  * saved number.
- *
  * @remarks
  * A while loop counts nothing: it stores its upper limit, and its boolean
  * decides before every iteration whether one runs.

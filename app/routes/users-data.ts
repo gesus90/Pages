@@ -7,7 +7,6 @@ import type { MiddlewareFunction } from "react-router";
 
 /**
  * Checks management access before the loader runs, as the management route does.
- *
  * @remarks
  * Calling the route's loader does not run the route's middleware, so the
  * endpoint names it itself; without it every signed-in account could read

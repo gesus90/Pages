@@ -46,7 +46,6 @@ export interface RecoveryExecutionWrite {
 
 /**
  * Journals restarts, resumes and releases of a disturbed run.
- *
  * @remarks
  * A decision is written in the transaction that creates its new run, after a
  * revision check of the earlier run and before its revision advances; a

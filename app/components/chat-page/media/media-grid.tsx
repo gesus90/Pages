@@ -115,7 +115,7 @@ function MediaTile({
 
 /**
  * Images or videos as a grid of preview images, newest first, grouped by
- * month (PAGE-387); a video shows its length.
+ * month; a video shows its length.
  */
 export function MediaGrid({
   files,

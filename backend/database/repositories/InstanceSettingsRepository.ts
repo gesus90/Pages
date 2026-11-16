@@ -22,7 +22,6 @@ export class InstanceSettingsRepository {
 
   /**
    * Creates an instance settings repository.
-   *
    * @param database - Central database access.
    */
   public constructor(database: Database) {
@@ -31,7 +30,6 @@ export class InstanceSettingsRepository {
 
   /**
    * Returns the stored instance settings.
-   *
    * @returns The settings, or `null` before the first setup finished.
    */
   public async find(): Promise<InstanceSettings | null> {
@@ -60,7 +58,6 @@ export class InstanceSettingsRepository {
 
   /**
    * Stores the instance settings, replacing earlier ones.
-   *
    * @param settings - Company name and administrator of the latest setup.
    */
   public async save(settings: InstanceSettings): Promise<void> {
@@ -90,7 +87,6 @@ export class InstanceSettingsRepository {
 
   /**
    * Replaces the company name.
-   *
    * @param companyName - New, already validated name.
    */
   public async updateCompanyName(companyName: string): Promise<void> {
@@ -108,7 +104,6 @@ export class InstanceSettingsRepository {
 
   /**
    * Returns the stored company logo.
-   *
    * @returns The logo, or `null` when none was uploaded.
    */
   public async findLogo(): Promise<StoredInstanceLogo | null> {
@@ -135,7 +130,6 @@ export class InstanceSettingsRepository {
 
   /**
    * Returns when the company logo was stored, without loading its image.
-   *
    * @returns The timestamp, or `null` when no logo exists.
    */
   public async findLogoVersion(): Promise<string | null> {
@@ -151,7 +145,6 @@ export class InstanceSettingsRepository {
 
   /**
    * Stores the company logo, replacing an earlier one.
-   *
    * @param logo - Validated image and its type.
    */
   public async saveLogo(

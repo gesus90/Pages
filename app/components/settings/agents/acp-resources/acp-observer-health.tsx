@@ -7,7 +7,7 @@ import { AgentCheckTime } from "../agent-check-time";
 import type { ConversationObserverHealth } from "@/definition/ConversationObserver";
 
 /**
- * How the group observer fared in the last 24 hours (PAGE-340), so a series
+ * How the group observer fared in the last 24 hours, so a series
  * of failed observer calls is visible with its cause.
  */
 export function AcpObserverHealth({

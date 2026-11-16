@@ -30,9 +30,7 @@ function isAcceptableAvatarFile(file: File): boolean {
 
 /**
  * Handles opening the avatar picker and validating the picked file.
- *
  * @param options - Whether the profile is editable, and its edit state.
- *
  * @remarks
  * Picking an avatar starts the edit mode for users who may edit their profile.
  */

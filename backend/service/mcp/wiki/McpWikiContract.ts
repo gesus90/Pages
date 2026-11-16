@@ -19,8 +19,7 @@ export interface McpWikiPageName {
 }
 
 /**
- * The answer object "Seite" of the interface (PAGE-257).
- *
+ * The answer object "Seite" of the interface.
  * @remarks
  * A projection of its own: no cover, no internal account id and nothing of a
  * page above or below that the account may not see.
@@ -50,14 +49,14 @@ export interface McpWikiPage {
   readonly updatedAt: string;
 }
 
-/** The answer of the page tree (interface 1). */
+/** The answer of the page tree. */
 export interface McpWikiTree {
   readonly pages: readonly WikiTreeNode[];
   readonly projects: readonly { readonly id: string; readonly name: string }[];
   readonly canCreate: boolean;
 }
 
-/** One hit of a search (interface 2). */
+/** One hit of a search. */
 export interface McpWikiSearchResult {
   readonly id: string;
   readonly title: string;
@@ -69,18 +68,18 @@ export interface McpWikiSearchResult {
   readonly updatedAt: string;
 }
 
-/** A page read with the pages that mention it (interface 3 with `backlinks=1`). */
+/** A page read with the pages that mention it (`backlinks=1`). */
 export interface McpWikiPageRead {
   readonly page: McpWikiPage;
   readonly backlinks?: readonly McpWikiPageName[];
 }
 
-/** The answer of a move preview (interface 7). */
+/** The answer of a move preview. */
 export interface McpWikiMovePreview {
   readonly preview: WikiVisibilityChange;
 }
 
-/** One version of a page without its text (interface 9). */
+/** One version of a page without its text. */
 export interface McpWikiVersionSummary {
   readonly id: string;
   readonly revision: number;
@@ -89,12 +88,12 @@ export interface McpWikiVersionSummary {
   readonly createdAt: string;
 }
 
-/** One version of a page with its text (interface 9). */
+/** One version of a page with its text. */
 export interface McpWikiVersion extends McpWikiVersionSummary {
   readonly content: string;
 }
 
-/** The question a move into the trash asks before it changes anything (interface 11). */
+/** The question a move into the trash asks before it changes anything. */
 export interface McpWikiDeleteConfirmation {
   readonly confirmationRequired: true;
   readonly page: McpWikiPageName;
@@ -103,19 +102,19 @@ export interface McpWikiDeleteConfirmation {
 
 /**
  * The question before a private page of somebody else goes into its owner's
- * trash: identifier and owner only, never a title or text (PAGE-280).
+ * trash: identifier and owner only, never a title or text.
  */
 export interface McpWikiPlaceholderConfirmation {
   readonly confirmationRequired: true;
   readonly placeholder: { readonly id: string; readonly ownerId: string };
 }
 
-/** The question a purge asks before it changes anything (interface 14). */
+/** The question a purge asks before it changes anything. */
 export interface McpWikiPurgeConfirmation extends McpWikiDeleteConfirmation {
   readonly attachmentCount: number;
 }
 
-/** One page in the trash (interface 12). */
+/** One page in the trash. */
 export interface McpWikiTrashEntry {
   readonly id: string;
   readonly title: string;

@@ -44,7 +44,6 @@ function dateOrNull(value: string | null): string | null {
 
 /**
  * Hashes everything a source imports, bound to the keys of its links.
- *
  * @param step - The ticket, milestone or dependency step.
  * @param graph - The planned graph of the manifest.
  * @param projectIds - Project IDs by project key.
@@ -122,7 +121,6 @@ function ticketShows(
 
 /**
  * Compares a mapped ticket with its source.
- *
  * @param environment - Reads of the call.
  * @param mapping - The stored mapping of the source.
  * @param input - The step, the graph, the source hash and the targets resolved in this run.
@@ -178,7 +176,6 @@ function milestoneShows(
 
 /**
  * Compares a mapped milestone with its source.
- *
  * @param environment - Reads of the call.
  * @param mapping - The stored mapping of the source.
  * @param input - The step, the graph, the source hash and the project the milestone is in.
@@ -207,7 +204,6 @@ export async function compareMilestoneTarget(
 
 /**
  * Compares a mapped dependency with the links of its project.
- *
  * @param environment - Reads of the call.
  * @param mapping - The stored mapping of the dependency.
  * @param input - The step, its hash and the project.

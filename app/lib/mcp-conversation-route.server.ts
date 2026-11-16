@@ -44,7 +44,6 @@ export type McpConversationHandlers = Readonly<
 
 /**
  * Answers a conversation request with JSON that no cache keeps.
- *
  * @param body - The answer of the interface.
  * @param status - The HTTP status.
  */
@@ -64,7 +63,6 @@ function mcpConversationFailure(error: unknown): Response {
 
 /**
  * Reads the JSON object of a request.
- *
  * @param request - The request with `Content-Type: application/json`.
  * @returns The object, its fields still untrusted; an empty body counts as `{}`.
  * @throws {ConversationError} `invalid` for another content type, a body
@@ -101,12 +99,10 @@ function handlerOf(
 }
 
 /**
- * Runs one request of the conversation API (PAGE-317).
- *
+ * Runs one request of the conversation API.
  * @param request - The request of the machine.
  * @param handlers - The methods the resource serves.
  * @returns The answer; a failure answers `{ "error": "<code>" }`.
- *
  * @remarks
  * Only the bearer token of a paired machine admits a request; browser
  * cookies play no part. The account's rights are those of the chat page.

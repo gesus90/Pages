@@ -27,7 +27,6 @@ export interface AgentPlanRunResources {
 
 /**
  * Reads one stored file or ticket asset reference.
- *
  * @throws {Error} When the reference names no known source.
  */
 export function readStoredTicketAsset(reference: unknown): AgentTicketAsset {

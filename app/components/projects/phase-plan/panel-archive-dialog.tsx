@@ -19,7 +19,6 @@ interface PanelArchiveDialogProps {
 
 /**
  * Renders the confirmation for archiving a milestone.
- *
  * @remarks
  * It names the milestone and what the archive does: the milestone is kept but
  * leaves the plan, its status stays, its dependency links are removed, and the

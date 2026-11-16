@@ -56,7 +56,6 @@ export class TaskLifecycleService {
 
   /**
    * Creates a lifecycle service.
-   *
    * @param taskRepository - Task persistence boundary.
    * @param access - Guard enforcing the ticket write and delete rules.
    * @param history - Recorder of the ticket audit trail.
@@ -77,7 +76,6 @@ export class TaskLifecycleService {
   /**
    * Tells which descendants an archive or a deletion of a work item reaches
    * and whether the person asking may archive it.
-   *
    * @param actor - The person asking; counts cover what they can see.
    * @param id - Work item identifier.
    * @returns The active and all descendants per type, and the archive right
@@ -103,7 +101,6 @@ export class TaskLifecycleService {
 
   /**
    * Archives a work item without physical deletion; its workflow status stays.
-   *
    * @param actor - The person archiving; needs the milestone right together
    * with the project responsibility, see {@link TaskAccessGuard.canArchive}.
    * @param id - Work item identifier.
@@ -153,7 +150,6 @@ export class TaskLifecycleService {
 
   /**
    * Restores an archived work item and its descendants keeping their workflow status.
-   *
    * @throws {WorkItemHierarchyError} With `parentArchived` while the parent is
    * still archived, because the work item would hang below it unseen.
    */
@@ -186,7 +182,6 @@ export class TaskLifecycleService {
 
   /**
    * Permanently removes a work item, its descendants and all data tied to them.
-   *
    * @param actor - User in active administrator mode.
    * @param id - Work item starting the removed subtree.
    * @param handling - `include` deletes every descendant; `keep` keeps all
@@ -223,7 +218,6 @@ export class TaskLifecycleService {
 
   /**
    * Collects the subtree a change touches.
-   *
    * @throws {WorkItemValidationError} When descendants lie outside the actor's
    * ticket scope, because they must not change unseen.
    */

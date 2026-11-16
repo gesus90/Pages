@@ -14,7 +14,6 @@ import type {
 
 /**
  * One entry of `list_calendar`.
- *
  * @remarks
  * `id` names the entry (for a series: the occurrence), `eventId` the stored
  * event behind it, `null` for project dates, due tickets and milestones,
@@ -45,7 +44,6 @@ export interface McpCalendarRangeAnswer {
 /**
  * A stored event as `read_calendar_event` names it: the fields of a list
  * entry and the details of the event.
- *
  * @remarks
  * `id` and `eventId` both name the stored event (the series of a recurring
  * one); `occurrenceStart` is `null` because the read describes the event as
@@ -93,7 +91,6 @@ export type McpCalendarDeleteAnswer =
 
 /**
  * The answer of a change with an operation ID.
- *
  * @remarks
  * `replayed` answers are the stored answer of the first call, read back
  * from the operation journal and passed on unchanged.

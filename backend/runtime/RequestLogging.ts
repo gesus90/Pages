@@ -45,7 +45,6 @@ export function safeRequestRoute(requestUrl: string): string {
 
 /**
  * Aborts once the client closed the connection before the response finished.
- *
  * @param response - Response of the request.
  * @returns A signal with the meaning of `Request.signal` in
  * `@remix-run/node-fetch-server`, which aborts on `close` without `finish`.
@@ -65,12 +64,11 @@ function abortOnDisconnect(response: ServerResponse): AbortSignal {
 
 /**
  * Instruments request start, finish and disconnect with one isolated async context.
- *
  * @remarks
- * Database jobs of the request run as `request` work (PAGE-197): they get
+ * Database jobs of the request run as `request` work: they get
  * the request queue budget and are refused unstarted once the client left.
  * Async context outlives the request, so work that must go on afterwards
- * leaves it with `withBackgroundDatabaseWork` (PAGE-199).
+ * leaves it with `withBackgroundDatabaseWork`.
  */
 export function logRequest(
   request: IncomingMessage,

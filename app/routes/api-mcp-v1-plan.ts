@@ -36,8 +36,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpPlanHandlers {
 }
 
 /**
- * Reads a plan (`GET /api/mcp/v1/plans/{planId}`) and changes it (`PATCH`), PAGE-246 interface 4 and 5.
- *
+ * Reads a plan (`GET /api/mcp/v1/plans/{planId}`) and changes it (`PATCH`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

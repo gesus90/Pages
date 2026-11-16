@@ -70,7 +70,6 @@ function failureResult(failure: PlanOperationFailure): PlanBridgeToolResult {
 
 /**
  * The tools of an agent plan step as one MCP endpoint inside Pages.
- *
  * @remarks
  * ACP runners reach MCP servers over HTTP, so Pages offers the run-bound
  * tools of a step itself instead of starting a separate process. The bearer
@@ -89,7 +88,6 @@ export class PlanBridge {
 
   /**
    * Creates the bridge of this server.
-   *
    * @param api - The agent API every call runs through.
    * @param grants - The bearers of the active steps of this process.
    */

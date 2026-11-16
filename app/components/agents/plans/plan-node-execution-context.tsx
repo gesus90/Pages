@@ -72,7 +72,6 @@ function PlanTargetNotes({
 
 /**
  * Names the actual selected host, workspace and access without inferring a live runner.
- *
  * @remarks
  * A node without a target of its own shows the plan's target it inherits;
  * a node with another target than the plan is marked as a deviation.

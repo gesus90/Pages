@@ -35,8 +35,8 @@ function entries(
 }
 
 /**
- * The simulated group observer (PAGE-296), part of the development
- * simulation of PAGE-268.
+ * The simulated group observer, part of the development
+ * simulation.
  *
  * @remarks
  * It answers where Pica's model would route or summarize and contacts no

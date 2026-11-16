@@ -108,7 +108,7 @@ async function change(
 
 /**
  * Reads the lessons and recipes of an agent for the tab "Lektionen & Rezepte"
- * of the popup "Agent-Einstellungen" (PAGE-378); only an administrator gets
+ * of the popup "Agent-Einstellungen"; only an administrator gets
  * them, everybody else gets empty lists.
  */
 export async function loader({
@@ -133,7 +133,7 @@ export async function loader({
 /**
  * Changes lessons and recipes (`save-lesson`, `set-lesson-active`,
  * `remove-lesson`, `save-recipe`, `set-recipe-active`, `remove-recipe`) and
- * answers with the overview as it stands then (PAGE-378).
+ * answers with the overview as it stands then.
  */
 export async function action({
   request,

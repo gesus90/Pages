@@ -11,12 +11,10 @@ const OPENS_AT_FIRST_WRITE = { opensAtFirstWrite: true } as const;
 
 /**
  * Applies what GitHub said about one ticket as one transaction with its event.
- *
  * @param events - Runs the change and stores its event with it.
  * @param ticketId - The ticket the change belongs to.
  * @param work - Local writes only; every network call happens before.
  * @returns Whatever `work` returns.
- *
  * @remarks
  * The ticket, its history and its GitHub link commit together with one
  * `ticket.changed`, so a reader never sees the event before the final state
@@ -38,13 +36,11 @@ export async function applyTicketChange<Result>(
 /**
  * Applies what GitHub said about a project's detected issues or pull requests
  * as one transaction with one `project.tickets.changed`.
- *
  * @param events - Runs the change and stores its event with it.
  * @param projectId - The project the change belongs to.
  * @param work - Local writes only; answers whether a statement inserted or
  * changed a row, from the rows the statements returned.
  * @returns Whether the list changed.
- *
  * @remarks
  * An upsert that finds its row unchanged still locks it, so the transaction
  * is no proof of a change; the answer of `work` is. One event stands for the

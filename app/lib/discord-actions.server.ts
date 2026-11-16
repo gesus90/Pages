@@ -193,7 +193,6 @@ function isDiscordIntent(
 
 /**
  * Runs the Discord panel action a form submission asks for.
- *
  * @param context - Actor, form fields, project and services of the request.
  * @returns The result for the panel; an unknown intent counts as invalid input.
  * @throws Whatever the services throw; callers map it with `toDiscordFailure`.
@@ -210,7 +209,6 @@ export async function handleDiscordAction(
 
 /**
  * Tells the HTTP status that belongs to the result of an action.
- *
  * @param result - Result of an action or of a refused request.
  * @returns 200 for a success, otherwise the status of the refusal.
  */
@@ -220,7 +218,6 @@ export function statusOfDiscordResult(result: DiscordActionResult): number {
 
 /**
  * Maps the failures of a Discord request to the response the panel understands.
- *
  * @param error - The failure thrown by a service.
  * @returns The result and the HTTP status; only a code reaches the client.
  * @throws The original value when it is not a known refusal.

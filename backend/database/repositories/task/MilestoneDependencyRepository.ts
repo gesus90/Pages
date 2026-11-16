@@ -41,7 +41,6 @@ export class MilestoneDependencyRepository {
 
   /**
    * Creates a milestone dependency repository.
-   *
    * @param database - Central database access.
    */
   public constructor(database: TaskDatabase) {

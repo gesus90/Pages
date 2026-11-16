@@ -19,7 +19,6 @@ import type { Route } from "./+types/tasks-server";
 
 /**
  * Reads the archived filter from the request URL.
- *
  * @param value - Raw query value.
  * @returns The selected filter, defaulting to active tickets.
  */
@@ -189,7 +188,6 @@ export async function loader({
 
 /**
  * Loads GitHub states for already access-checked projects with three queries.
- *
  * @param services - Initialized server-side services.
  * @param projects - Projects the actor may access.
  * @param actor - Account whose ticket visibility restricts pull requests.

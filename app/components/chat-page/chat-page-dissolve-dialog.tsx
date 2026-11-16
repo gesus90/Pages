@@ -69,7 +69,7 @@ function AgentSessionRow({
 }
 
 /**
- * The question before the creator dissolves a group (PAGE-380): which
+ * The question before the creator dissolves a group: which
  * sessions of agents close, that the history is deleted for good, and that
  * the memory and dreaming of the agents stay.
  */

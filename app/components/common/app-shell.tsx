@@ -72,7 +72,7 @@ interface AppShellProps {
   readonly canViewProjects?: boolean;
   readonly canViewUsers: boolean;
   readonly branding: InstanceBranding;
-  /** Open calendar invitations of the account (PAGE-301). */
+  /** Open calendar invitations of the account. */
   readonly calendarInvitations?: number;
 }
 
@@ -111,7 +111,7 @@ function getLinkClassName(isActive: boolean): string {
   );
 }
 
-/** The chat page (PAGE-254), open to every signed-in account. */
+/** The chat page, open to every signed-in account. */
 function ChatNavigationLink({
   onNavigate,
 }: {
@@ -156,7 +156,7 @@ function WikiNavigationLink({
   );
 }
 
-/** The automations page (PAGE-297), open to every signed-in account. */
+/** The automations page, open to every signed-in account. */
 function AutomationsNavigationLink({
   onNavigate,
 }: {
@@ -178,7 +178,7 @@ function AutomationsNavigationLink({
 }
 
 /**
- * The Storage area (PAGE-188); it uses the Google Drive connection of the
+ * The Storage area; it uses the Google Drive connection of the
  * instance, so it follows the admin right of the system settings.
  */
 function StorageNavigationLink({

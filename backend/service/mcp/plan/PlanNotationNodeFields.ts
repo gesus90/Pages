@@ -163,7 +163,7 @@ function readParameter(
   };
 }
 
-/** The settings of a decision (PAGE-286); its data input is an edge `[in=condition]`. */
+/** The settings of a decision; its data input is an edge `[in=condition]`. */
 function readDecision(
   attributes: PlanNotationAttributes,
 ): Record<string, unknown> {
@@ -268,7 +268,7 @@ function readGroup(
   };
 }
 
-/** A swarm (PAGE-313) writes its nested settings as JSON; the plan reader checks them. */
+/** A swarm writes its nested settings as JSON; the plan reader checks them. */
 function readSwarm(
   attributes: PlanNotationAttributes,
 ): Record<string, unknown> {
@@ -309,7 +309,6 @@ const FIELD_READERS: Readonly<Record<PlanNotationNodeType, FieldReader>> = {
 
 /**
  * Reads the fields of a node of a type, without its bindings and members.
- *
  * @param type - The node type.
  * @param attributes - The attributes of the node.
  * @param context - Resolves names and holds the stored plan.

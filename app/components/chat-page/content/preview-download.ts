@@ -59,9 +59,8 @@ function writeCommon(view: DataView, at: number, entry: ZipEntry): void {
 }
 
 /**
- * Packs text files into a ZIP archive without compression (PAGE-383), for
+ * Packs text files into a ZIP archive without compression, for
  * "Herunterladen" of a preview with several files.
- *
  * @param files - Names and contents; names keep their folders.
  * @returns The bytes of the archive.
  */
@@ -126,7 +125,6 @@ function mimeTypeOf(name: string): string {
 
 /**
  * Offers a blob as a download of the browser.
- *
  * @param fileName - The name the file is offered with.
  * @param blob - Its content.
  */
@@ -142,9 +140,8 @@ export function saveBlobFile(fileName: string, blob: Blob): void {
 }
 
 /**
- * Downloads the code of a preview (PAGE-383): one file as itself, several
+ * Downloads the code of a preview: one file as itself, several
  * files as `preview.zip`.
- *
  * @param files - The files of the preview.
  */
 export function downloadPreviewFiles(files: readonly PreviewFile[]): void {

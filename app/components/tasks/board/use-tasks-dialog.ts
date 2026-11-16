@@ -51,11 +51,9 @@ export interface TasksDialog {
 
 /**
  * Keeps the dialog and the selected ticket of the tasks page.
- *
  * @remarks
  * A finished create, update, import, link, resolve or move opens the resulting
  * ticket in the detail panel; archiving closes the panel.
- *
  * @param selectedKey - Key of the ticket the page address selects.
  * @param filterProject - The project filter, which new tickets start in.
  */

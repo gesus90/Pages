@@ -31,7 +31,6 @@ function readSecret(value: string | undefined): string | null {
 
 /**
  * Reads the Discord application from the environment.
- *
  * @param environment - Environment variables of the server process.
  * @returns The application, or `null` while a setting is missing or malformed.
  */
@@ -59,7 +58,6 @@ export function readDiscordApplication(
 
 /**
  * Describes which settings of the Discord application are still missing.
- *
  * @param environment - Environment variables of the server process.
  * @returns Whether the feature can run, and the names, never the values, of
  * the settings that are missing or malformed.
@@ -88,12 +86,10 @@ export function describeDiscordInstance(
 
 /**
  * Resolves the public address of this instance for links and the OAuth redirect.
- *
  * @param requestOrigin - Origin of the request that starts the connection.
  * @param environment - Environment variables of the server process.
  * @returns The configured `PAGES_PUBLIC_URL` as origin when it is a valid
  * http(s) address, otherwise the request origin; never a trailing slash.
- *
  * @remarks
  * Behind a reverse proxy the request origin is the internal one, and a phone
  * that scans the QR code cannot reach it; the setting names the public address.

@@ -1,7 +1,7 @@
 import type { RouteBuilder } from "./route-builder";
 import type { RouteConfigEntry } from "@react-router/dev/routes";
 
-/** The ticket API of the stand-alone Pages MCP program, admitted by the device token (PAGE-242). */
+/** The ticket API of the stand-alone Pages MCP program, admitted by the device token. */
 export function mcpTicketRoutes(routes: RouteBuilder): RouteConfigEntry[] {
   const { resource } = routes;
   const tickets = "api/mcp/v1/tickets";

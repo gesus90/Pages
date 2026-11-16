@@ -79,8 +79,8 @@ function joinStack(
  * @remarks
  * The decision outputs `true-out`/`false-out` and `case:<id>` branch, the
  * boolean result of an agent becomes the one condition of a decision, a
- * boolean parameter, a ticket or a text result becomes its bound data input
- * (PAGE-286), a text result enters the
+ * boolean parameter, a ticket or a text result becomes its bound data input,
+ * a text result enters the
  * event input of an agent, a ticket or value node joins a stack through its
  * only input, and `flow-out` into `flow-in` is a plain flow edge. Any other
  * pair of ports carries nothing the plan understands.

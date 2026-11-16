@@ -39,11 +39,9 @@ function toIso(text: string): string {
 }
 
 /**
- * Reads what is new for an agent since its last dream run (PAGE-266,
- * PAGE-305): its own chats and conversations, the projects it is a member
+ * Reads what is new for an agent since its last dream run: its own chats and conversations, the projects it is a member
  * of, the groups it belongs to and the plan runs of its projects; chats
  * marked confidential are left out.
- *
  * @remarks
  * Every source is limited to what the agent itself takes part in, so a run
  * learns nothing its account could not read.
@@ -109,7 +107,7 @@ export class AgentLearningSourceRepository {
     });
   }
 
-  /** The messages of the stored conversations the agent belongs to, confidential ones left out (PAGE-305). */
+  /** The messages of the stored conversations the agent belongs to, confidential ones left out. */
   private async conversations(
     agentId: string,
     since: string,

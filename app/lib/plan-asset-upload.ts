@@ -12,7 +12,6 @@ export class PlanAssetUploadError extends Error {
 
   /**
    * Creates the error.
-   *
    * @param code - Reason of the failure.
    */
   public constructor(code: string) {

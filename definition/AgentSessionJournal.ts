@@ -50,7 +50,6 @@ export interface AgentSessionCost {
 
 /**
  * Token counts of one turn or a sum of turns.
- *
  * @remarks
  * A count the adapter did not report is `null`, never 0. Counts are never
  * derived from text lengths or from the context occupancy.
@@ -149,7 +148,6 @@ export interface AgentSessionWorkspace {
 
 /**
  * How the next instruction reaches the agent.
- *
  * @remarks
  * `live` continues the open native session. `load` and `resume` use a
  * capability the adapter confirmed in `initialize`. `reconstructed` starts a
@@ -173,7 +171,6 @@ export type AgentSessionMessageKind = "instruction" | "repair";
 
 /**
  * The delivery of one user instruction.
- *
  * @remarks
  * `delivering` is written before the native write; a delivery that the
  * server lost in this state becomes `uncertain` and is never retried
@@ -219,7 +216,7 @@ export interface AgentSessionView {
   /** Sums of every attempt of the run, one per provider counting. */
   readonly runTotals: readonly AgentSessionUsageTotal[];
   readonly claudeUsage?: ClaudeUsageSummary;
-  /** Sums of every attempt of this node in the run, without counting a turn twice (PAGE-284). */
+  /** Sums of every attempt of this node in the run, without counting a turn twice. */
   readonly nodeTotals?: readonly AgentSessionUsageTotal[];
   /** Native message totals, present only for OpenCode sessions. */
   readonly openCode?: {
@@ -242,9 +239,8 @@ export interface AgentSessionView {
 
 /**
  * The attempt ID of a node's session record.
- *
  * @remarks
- * Records from before PAGE-85 have none. Instance and node identify their
+ * Older records have none. Instance and node identify their
  * only attempt: members of an ACP group share the instance, never the node.
  */
 export function sessionAttemptId(

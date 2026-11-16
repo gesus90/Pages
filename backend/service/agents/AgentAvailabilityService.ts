@@ -79,7 +79,6 @@ export class AgentAvailabilityService {
 
   /**
    * Lists the released model choices for independent plan nodes.
-   *
    * @remarks
    * The choice marks models that cannot call tools disabled; all providers
    * remain visible, including models whose catalog states no capability.

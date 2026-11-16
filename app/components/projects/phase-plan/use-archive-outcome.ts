@@ -22,7 +22,6 @@ interface ArchiveOutcomeInput {
 
 /**
  * Reacts to the answer of the background archive.
- *
  * @remarks
  * A failed archive restores the milestone and keeps the panel open to show the
  * error; a successful one closes the panel of the archived milestone.

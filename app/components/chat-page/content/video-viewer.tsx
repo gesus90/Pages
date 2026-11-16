@@ -92,7 +92,7 @@ interface ViewerScreenProps {
   readonly onClose: () => void;
 }
 
-/** The head of the full screen: the dark variant of the head of the cards (PAGE-384). */
+/** The head of the full screen: the dark variant of the head of the cards. */
 function ViewerHead({
   video,
   position,
@@ -164,8 +164,8 @@ const ARROW_CLASS =
   "absolute top-1/2 z-10 flex size-11 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-viewer-control text-viewer-foreground ring-1 ring-viewer-edge hover:bg-viewer-control-hover focus-visible:outline-2 focus-visible:outline-primary";
 
 /**
- * One video of the full screen with its controls over the picture
- * (PAGE-384); a new video gets a new screen, which takes the file over from
+ * One video of the full screen with its controls over the picture;
+ * a new video gets a new screen, which takes the file over from
  * the card and the split view.
  */
 function ViewerScreen(props: ViewerScreenProps): React.ReactElement {
@@ -270,9 +270,8 @@ function ViewerScreen(props: ViewerScreenProps): React.ReactElement {
 }
 
 /**
- * The full screen of a video (PAGE-384): a black stage with the controls
+ * The full screen of a video: a black stage with the controls
  * over the picture, which fade out after a short time without a movement.
- *
  * @remarks
  * The head names the position among all videos of the chat ("1 / 3"),
  * sender, length, resolution and remaining time and offers Herunterladen,

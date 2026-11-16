@@ -14,7 +14,7 @@ import type {
 } from "@/definition/AgentEmployee";
 import type { AgentToolGroupMode } from "@/definition/AgentToolGroups";
 
-/** What the saved level allows in the browser (PAGE-390): nothing, reading or everything. */
+/** What the saved level allows in the browser: nothing, reading or everything. */
 const BROWSER_GRANTS: Readonly<Record<AgentToolGroupMode, string>> = {
   off: "agentEmployees.accessTab.browserDenied",
   read: "agentEmployees.accessTab.browserReadOnly",
@@ -199,7 +199,7 @@ function AccessLevelFieldset({
 }
 
 /**
- * The tab "Zugriff" (PAGE-303): the three access levels of the agent's
+ * The tab "Zugriff": the three access levels of the agent's
  * chats, the isolation of the host and the MCP servers Pages detected.
  *
  * @remarks

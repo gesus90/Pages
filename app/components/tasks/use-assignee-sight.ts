@@ -34,10 +34,8 @@ function isSight(value: unknown): value is TicketAssigneeSight {
 
 /**
  * Checks, when a ticket is assigned, whether the assignee can see it.
- *
  * @param scope - The ticket, or the departments chosen for a new one.
  * @returns The notice to show and the check to run on every assignment.
- *
  * @remarks
  * Assigning to a person or group gives no sight of the ticket. The answer comes
  * from the server, which knows the memberships; a failed check shows nothing,

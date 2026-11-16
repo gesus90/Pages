@@ -7,7 +7,6 @@ import { PlanFlowHandle } from "../plan-flow-handle";
 
 /**
  * The violet data OUT of a value source, anchored at the row of its value.
- *
  * @remarks
  * The port is dragged or clicked; keyboards use the labelled button, which
  * shows only while it has the focus.

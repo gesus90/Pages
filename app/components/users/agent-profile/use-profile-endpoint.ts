@@ -21,9 +21,8 @@ async function refusalCode(response: Response): Promise<string> {
 }
 
 /**
- * Reads a read-only profile endpoint of the user management (PAGE-308)
+ * Reads a read-only profile endpoint of the user management
  * while the view shows it.
- *
  * @param url - The endpoint; `null` reads nothing.
  * @param isData - Narrows the answer to the expected data.
  */

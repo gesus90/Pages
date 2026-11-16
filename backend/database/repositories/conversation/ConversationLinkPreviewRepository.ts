@@ -46,7 +46,7 @@ function toPreview(row: readonly DatabaseValue[]): StoredLinkPreview {
 }
 
 /**
- * The preview data of linked pages (PAGE-298), fetched once per URL and kept
+ * The preview data of linked pages, fetched once per URL and kept
  * for 24 hours; the preview image lies in the file store.
  */
 export class ConversationLinkPreviewRepository {

@@ -58,10 +58,8 @@ async function runScope(
 
 /**
  * Ends what an interrupted node left behind: its processes and its MCP access.
- *
  * @param step - The node of the interrupted run.
  * @param runStartedAt - When its run began, before any of its sessions.
- *
  * @remarks
  * A stored namespace supervisor proves the boundary of new sessions. Older
  * records without such proof remain unconfirmed after a restart; a tag or
@@ -136,7 +134,6 @@ async function settleSession(
 
 /**
  * Whether each attempt's closeout is confirmed or unnecessary and no session process remains.
- *
  * @remarks
  * A node stores its session record before its runner starts. Confirmed owned
  * namespaces need no host-wide process discovery; legacy records fail closed.

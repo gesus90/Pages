@@ -16,13 +16,12 @@ export interface StoredStorageStartFolder {
   readonly folderPath: string;
 }
 
-/** Stores the start folder of the Storage area per account (PAGE-188). */
+/** Stores the start folder of the Storage area per account. */
 export class StorageStartFolderRepository {
   private readonly database: Pick<Database, "execute" | "query">;
 
   /**
    * Creates the repository.
-   *
    * @param database - Central database access.
    */
   public constructor(database: Pick<Database, "execute" | "query">) {
@@ -31,7 +30,6 @@ export class StorageStartFolderRepository {
 
   /**
    * Returns the start folder of an account.
-   *
    * @param userId - The account.
    * @returns The saved folder, or `null` when none was saved.
    */
@@ -67,7 +65,6 @@ export class StorageStartFolderRepository {
 
   /**
    * Saves the start folder of an account, replacing the previous one.
-   *
    * @param folder - Account, Google account, Drive identifiers and the readable name and path.
    * @param savedAt - Unix milliseconds of the change.
    */
@@ -118,7 +115,6 @@ export class StorageStartFolderRepository {
 
   /**
    * Refreshes the readable name and path after Drive reported a rename.
-   *
    * @param input - Account, the folder it still has to be and the new name and path.
    */
   public async rename(input: {
@@ -147,7 +143,6 @@ export class StorageStartFolderRepository {
 
   /**
    * Removes the start folder of an account.
-   *
    * @param userId - The account.
    */
   public async remove(userId: string): Promise<void> {

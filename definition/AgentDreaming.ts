@@ -1,6 +1,5 @@
 /**
- * Contracts of Dreaming, lessons and recipes of an agent (PAGE-378).
- *
+ * Contracts of Dreaming, lessons and recipes of an agent.
  * @remarks
  * Dreaming is the compaction run of an agent: it condenses the Lagebuch into
  * `MEMORY.md`, evaluates how the agent worked into lessons in `DREAM.md` and
@@ -298,7 +297,7 @@ export interface AgentRecipeAnswer {
 }
 
 /**
- * The tools of the recipes an agent session is given (PAGE-378).
+ * The tools of the recipes an agent session is given.
  */
 export interface AgentRecipeTools {
   /**

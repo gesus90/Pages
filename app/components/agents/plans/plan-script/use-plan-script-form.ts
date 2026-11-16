@@ -240,7 +240,6 @@ function keptBindings(
 
 /**
  * Edits a new or existing script in a local copy and applies it only when it is valid.
- *
  * @param script - The script to edit, or `null` for a new one.
  * @param context - The configured profiles, the default output name and the
  * plan's target.

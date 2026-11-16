@@ -41,7 +41,6 @@ function initialValues(
 
 /**
  * Creates an empty plan with name, project and workspace; it starts no run.
- *
  * @remarks
  * The plan is stored only after Erstellen. It belongs to its creator and to
  * the creator's team, and opens in the editor once the server stored it.

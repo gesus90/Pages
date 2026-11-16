@@ -117,7 +117,7 @@ function addressedAgentIds(
 
 /**
  * The reads and sends of agents in conversations, behind the Pages tools
- * `chats_list`, `chat_read` and `chat_send` (PAGE-311).
+ * `chats_list`, `chat_read` and `chat_send`.
  *
  * @remarks
  * It reuses the stored conversations of people, agents and groups. An agent
@@ -237,8 +237,8 @@ export class AgentChatService implements AgentChatTools {
   }
 
   /**
-   * Stores the result of an automation in a chat of the agent as its message
-   * (PAGE-376). The message asks nobody to answer, whoever it mentions.
+   * Stores the result of an automation in a chat of the agent as its message.
+   * The message asks nobody to answer, whoever it mentions.
    *
    * @param agentId - The agent that ran the automation.
    * @param input - The chat, the text and the key of the run, which makes a

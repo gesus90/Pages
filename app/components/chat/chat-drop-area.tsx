@@ -6,7 +6,7 @@ import { CHAT_LIMITS } from "@/definition/Chat";
 import type { ChatController } from "./use-chat";
 
 /**
- * The drop area over the chat while files are dragged onto it (PAGE-92); it
+ * The drop area over the chat while files are dragged onto it; it
  * names how many of the ten places of the message are still free.
  */
 export function ChatDropArea({

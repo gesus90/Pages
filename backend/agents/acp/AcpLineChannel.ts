@@ -14,7 +14,6 @@ function isJsonRpcMessage(input: unknown): input is AnyMessage {
 
 /**
  * Carries ACP messages over the line-based input and output of a session process.
- *
  * @remarks
  * The process keeps its existing guarantees: it reads complete lines, cuts a
  * runaway line, ends its whole process group and observes the deadline. This

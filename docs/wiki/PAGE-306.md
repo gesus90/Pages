@@ -1,13 +1,13 @@
-# Wiki-Entwurf PAGE-306: Agent-TODOs live erfassen und anzeigen
+# Wiki-Entwurf: Agent-TODOs live erfassen und anzeigen
 
-Entwurf für All Might. Nach der Abnahme in die beiden Wiki-Seiten übertragen:
+Dieser Entwurf ist für zwei Wiki-Seiten bestimmt:
 
-1. an [Agent Plan: Aufgeklappte Laufdetails mit Agent-TODO — bestätigte Referenz](/wiki/d2e41377-e5ea-41c6-9d39-3c344088a317) den Abschnitt „Umsetzung (PAGE-306)“,
+1. an [Agent Plan: Aufgeklappte Laufdetails mit Agent-TODO — bestätigte Referenz](/wiki/d2e41377-e5ea-41c6-9d39-3c344088a317) den Abschnitt „Umsetzung“,
 2. an [Agent-Definitionen, Arbeitsplätze und Arbeitspläne: technische Umsetzung](/wiki/3301f98d-8727-4c7b-97dc-8a8262d4e440) den Abschnitt „Agent-TODOs eines Schritts“.
 
 ---
 
-## Abschnitt für die Referenz: Umsetzung (PAGE-306)
+## Abschnitt für die Referenz: Umsetzung
 
 Die Anzeige aus dem Konzeptentwurf vom 18.10.2026 ist umgesetzt. Sie zeigt die
 TODO-Liste, die die CLI des Agenten während des Schritts als strukturierten
@@ -37,7 +37,7 @@ Plan meldet. Pages liest keine TODOs aus Fließtext.
 
 ## Abschnitt für die technische Umsetzung: Agent-TODOs eines Schritts
 
-### Ursache (PAGE-306, 2026-11-11)
+### Ursache (2026-11-11)
 
 - Die Kennungen T1, T2 stammen nicht aus der CLI. Pages schreibt sie als
   Vertrag in den Prompt des Schritts (`backend/service/agents/AgentPlanContract.ts`,
@@ -103,4 +103,4 @@ erscheint ohne Neuladen.
 - Pläne außerhalb von PageAgentCLI-Sitzungen (reine Runner-Skripte) melden keine Liste.
 - Der Vertragsfortschritt (T1, T2 aus `update_step_progress`) wird für
   Iterationsknoten von Schleifen weiterhin nicht projiziert; das war nicht
-  Teil dieses Tickets.
+  Teil dieser Änderung.

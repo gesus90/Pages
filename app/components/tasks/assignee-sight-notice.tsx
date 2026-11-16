@@ -12,7 +12,6 @@ interface AssigneeSightNoticeProps {
 
 /**
  * Warns that the assignee cannot see the ticket because of its departments.
- *
  * @remarks
  * Offers the departments of those without sight that the visitor may add.
  */

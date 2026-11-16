@@ -35,11 +35,9 @@ function quotaFailure(moment: string | undefined): AntigravityTurnFailure {
 
 /**
  * Recognizes a turn whose final message is a failure the adapter reported.
- *
  * @param text - The newest agent message of the turn.
  * @param hasMcp - Whether Pages supplied an MCP server to the session.
  * @returns The failure, or `null` when the text is not an adapter report.
- *
  * @remarks
  * Only fixed adapter wordings are recognized. A clean Google API message
  * without such wording cannot be told from model text, so authentication is

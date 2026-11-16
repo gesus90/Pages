@@ -1,6 +1,6 @@
 //! The HTTP side: `GET /live-changes`, `GET /health/live`, with a status
 //! target `GET /service-status` and `GET /service-status/details`, and the
-//! WebSocket upgrades of runners and consoles the entrance passes on (PAGE-239).
+//! WebSocket upgrades of runners and consoles the entrance passes on.
 
 use std::convert::Infallible;
 use std::sync::Arc;
@@ -32,7 +32,7 @@ const OPEN_TIMEOUT: Duration = Duration::from_secs(15);
 const HEADER_TIMEOUT: Duration = Duration::from_secs(10);
 /// A longer cursor value is not kept; it counts as an invalid cursor.
 const MAXIMUM_CURSOR_LENGTH: usize = 128;
-/// The public light of all platform services (PAGE-238).
+/// The public light of all platform services.
 const STATUS_PATH: &str = "/service-status";
 /// The services in detail, for an admin session only.
 const STATUS_DETAILS_PATH: &str = "/service-status/details";

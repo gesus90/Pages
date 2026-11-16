@@ -82,7 +82,6 @@ const PANEL_HEIGHT = 320;
 
 /**
  * The visible band of the page around an element, narrowed by every clipping ancestor such as a dialog.
- *
  * @param element - The element a panel is anchored to.
  * @returns The top and bottom edge of the band in viewport coordinates.
  */
@@ -140,7 +139,6 @@ function matches(
 
 /**
  * Keeps the options that contain every word of the query and every pressed tag.
- *
  * @param options - All options of the select.
  * @param query - The typed search, matched without regard to case.
  * @param tags - The pressed prefilter tags.
@@ -157,7 +155,6 @@ export function filterSearchableOptions(
 
 /**
  * Collects options under their section and group headings.
- *
  * @param options - The options to list.
  * @returns One section per heading with one group per heading inside, each in
  * the order of its first option; options without a heading form a section or
@@ -187,7 +184,6 @@ export function groupSearchableOptions(
 
 /**
  * Holds the open state, search, prefilters and keyboard highlight of a select.
- *
  * @remarks
  * Focus stays in the search field while the listbox is open, as in the
  * combobox pattern of the ARIA Authoring Practices. Arrow keys move the

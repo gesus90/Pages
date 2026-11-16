@@ -17,7 +17,6 @@ import type { PlanSequenceBlock } from "./plan-step-sequence";
 
 /**
  * Pending plan steps are a preview only; no run or execution evidence is synthesized.
- *
  * @remarks
  * Each agent or script execution the plan expects is a block: a loop with a
  * known count shows its members once per iteration, and an estimate is

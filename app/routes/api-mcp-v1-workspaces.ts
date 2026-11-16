@@ -30,8 +30,7 @@ const HANDLERS: McpWorkspaceHandlers = {
 };
 
 /**
- * Lists workspaces (`GET /api/mcp/v1/workspaces`) and registers one (`POST /api/mcp/v1/workspaces`), PAGE-245 interface 1 and 3.
- *
+ * Lists workspaces (`GET /api/mcp/v1/workspaces`) and registers one (`POST /api/mcp/v1/workspaces`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

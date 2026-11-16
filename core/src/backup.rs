@@ -1,4 +1,4 @@
-//! The time of the last successful PostgreSQL base backup (PAGE-282), shown in
+//! The time of the last successful PostgreSQL base backup, shown in
 //! the fact line of the system dashboard.
 //!
 //! The backup of `docs/PostgresMigration.md` runs as a one-shot unit whose

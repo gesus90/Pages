@@ -64,11 +64,11 @@ export type AgentsLoaderData =
       readonly speech: SpeechAdministration;
       readonly speechSynthesis: SpeechSynthesisAdministration;
       readonly chatDecision: ChatDecisionAdministration;
-      /** The limits of concurrent chat sessions of agents (PAGE-304); absent in an older kept answer. */
+      /** The limits of concurrent chat sessions of agents; absent in an older kept answer. */
       readonly sessionLimits?: AgentSessionLimitsAdministration;
-      /** The hourly limit of messages one agent sends (PAGE-311). */
+      /** The hourly limit of messages one agent sends. */
       readonly agentChat: AgentChatSettings;
-      /** How long run logs are kept and when a silent step counts as stalled (PAGE-307). */
+      /** How long run logs are kept and when a silent step counts as stalled. */
       readonly runDiagnosis: AgentRunDiagnosisSettings;
       readonly audience: LocalStateAudience;
     };
@@ -76,7 +76,7 @@ export type AgentsLoaderData =
 /** The rights-checked endpoint of the agents area. */
 const SETTINGS_AGENTS_ENDPOINT = "/settings-api/agents";
 
-// Pica, the speech recognition, the speech output (PAGE-300) and the decision model (PAGE-317) each have a card of their own.
+// Pica, the speech recognition, the speech output and the decision model each have a card of their own.
 function hasAgentSettingCards(value: object): boolean {
   return (
     "pica" in value &&
@@ -108,7 +108,6 @@ function isAgentsRouteData(value: unknown): value is AgentsLoaderData {
 
 /**
  * The agents area, kept per account and rights.
- *
  * @remarks
  * The rights include the admin mode, so leaving it never shows the kept
  * metadata; the request for the admin mode is not kept.
@@ -125,7 +124,6 @@ const SETTINGS_AGENTS_STATE: LocalStateRouteKind<AgentsLoaderData> = {
 
 /**
  * Opens the agents area from the account's kept answer at once and asks the endpoint behind it.
- *
  * @remarks
  * The endpoint checks the administrator and the admin mode again, as the
  * server loader does; a refusal shows the same error as before.

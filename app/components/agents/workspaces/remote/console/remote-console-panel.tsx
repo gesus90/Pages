@@ -92,7 +92,6 @@ function usePanelConsole(
 /**
  * One modal remote shell: a single centered focus panel with header, terminal
  * and footer, and every connection state in place.
- *
  * @remarks
  * Focus moves into the panel, stays there and returns to `returnFocus` when
  * it closes. Inside the terminal Escape belongs to the remote program; there

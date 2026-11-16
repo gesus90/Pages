@@ -23,8 +23,7 @@ const boardSchema = z.strictObject({
 });
 
 /**
- * Stores the task board of each swarm node of a run (PAGE-313).
- *
+ * Stores the task board of each swarm node of a run.
  * @remarks
  * One row per run and node holds subtasks, helpers, violations and locks. A
  * resumed run reads the board of the run it continues.
@@ -71,7 +70,6 @@ export class AgentPlanSwarmRepository {
 
   /**
    * Reads the board of a swarm node in a run.
-   *
    * @returns The board, or `null` without one or for a board that cannot be read.
    */
   public async find(

@@ -126,8 +126,7 @@ function TerminalFooter(props: {
 
 /**
  * The Pages terminal of an agent node: the stored ACP history of all its
- * attempts in one xterm, the same for every provider (PAGE-284).
- *
+ * attempts in one xterm, the same for every provider.
  * @remarks
  * It is no PTY and no surface of a CLI. The lines come from
  * {@link renderTerminal}; the newest events arrive live, older ones load

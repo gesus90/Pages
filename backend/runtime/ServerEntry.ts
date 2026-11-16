@@ -31,10 +31,8 @@ export { startLocalSessionOwner } from "@/backend/agents/local/LocalSessionOwner
 
 /**
  * Starts the production server with the application build it is part of.
- *
  * @param argumentList - Command-line arguments after the script name.
  * @returns The process exit code.
- *
  * @remarks
  * This module is the entry of the server build (`build/server/index.js`),
  * so the server, the runtime state, and the routes share one module graph.

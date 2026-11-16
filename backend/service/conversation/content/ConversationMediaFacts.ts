@@ -41,13 +41,10 @@ function readDurationMs(input: unknown): number | null {
 }
 
 /**
- * Checks the resolution and length the browser read of a video or a sound
- * (PAGE-384).
- *
+ * Checks the resolution and length the browser read of a video or a sound.
  * @remarks
  * A video keeps width and height only together; a sound has none. Values
  * outside 1 to 16 384 pixels or beyond one day count as unknown.
- *
  * @param kind - The kind of the attachment.
  * @param input - Width, height and length in seconds as the request names them.
  * @returns The facts to store, or `null` when nothing usable remains or the
@@ -72,7 +69,6 @@ export function readConversationMediaFacts(
 
 /**
  * The facts of a stored attachment as every client sees them.
- *
  * @param media - The stored facts, or `null`.
  */
 export function conversationMediaFactsOf(

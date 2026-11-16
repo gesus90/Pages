@@ -37,11 +37,9 @@ function toText(text: string): string {
 
 /**
  * Creates the parsers that map PostgreSQL columns to the row values of the facade.
- *
  * @param readBytes - The driver's parser for `bytea`, which honours the
  * output format of the server.
  * @returns Parsers for one connection pool; the global driver state stays untouched.
- *
  * @remarks
  * Repositories read what the DuckDB worker returns: a number or a `bigint`
  * beyond the safe range for whole numbers, the integers `0` and `1` for

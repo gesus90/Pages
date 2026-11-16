@@ -61,7 +61,7 @@ export interface AgentPlanExecutionInput extends TextExecutionInput {
     /** The ended predecessor whose stale reservations an explicit resume releases. */
     readonly recoveryRunId?: string;
     readonly isLocalInstruction?: boolean;
-    /** Gives up waiting for an ACP place after this long; a swarm helper uses it (PAGE-313). */
+    /** Gives up waiting for an ACP place after this long; a swarm helper uses it. */
     readonly admissionDeadlineMs?: number;
   };
   readonly directory: string | null;
@@ -141,7 +141,6 @@ export class AgentPlanStepStart {
 
   /**
    * Start and end are authorized checkpoints; they do not call a model.
-   *
    * @remarks
    * A loop rechecks the executor's access here before its first iteration,
    * a stack before each trigger, a model decision before each session.
@@ -175,7 +174,6 @@ export class AgentPlanStepStart {
 
   /**
    * Resolves credentials for the current executor and rejects a redirected model or working copy.
-   *
    * @remarks
    * Nodes use their frozen content. Only historical runs without an independent
    * node copy retain the former AGENT.md compatibility check.

@@ -21,7 +21,6 @@ const CHOICE_LIMIT = 8;
 
 /**
  * The name of a team target, or its identifier when the directory no longer knows it.
- *
  * @param directory - The groups and departments of the page.
  * @param team - The team entry.
  */
@@ -41,7 +40,6 @@ export function planTeamName(
 
 /**
  * The groups and departments whose name contains the query and that are no team yet.
- *
  * @param directory - The groups and departments of the page.
  * @param teams - The teams already chosen.
  * @param query - The search text; empty offers the first entries.

@@ -19,8 +19,7 @@ const HANDLERS: McpUserHandlers = {
 };
 
 /**
- * Reads the administration history, newest first (`GET /api/mcp/v1/administration/activity`), PAGE-280; administrators only.
- *
+ * Reads the administration history, newest first (`GET /api/mcp/v1/administration/activity`); administrators only.
  * @remarks
  * Only the device token of a paired machine admits a request; the rights of
  * its account are read again on every call. See `docs/McpUserManagement.md`.

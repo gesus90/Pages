@@ -46,7 +46,7 @@ export interface AgentDreamTopic extends AgentTopicUpdate {
   readonly entries: readonly number[];
 }
 
-/** What a dream run answers (PAGE-378). */
+/** What a dream run answers. */
 export interface AgentDreamAnswer {
   /** Durable knowledge from the Lagebuch, for `MEMORY.md`. */
   readonly topics: readonly AgentDreamTopic[];
@@ -240,7 +240,7 @@ function describeToolUse(digest: AgentDreamToolDigest): string {
 }
 
 /**
- * The task of one dream run (PAGE-378): condense the Lagebuch into
+ * The task of one dream run: condense the Lagebuch into
  * `MEMORY.md`, learn lessons from how the agent worked, and create recipes.
  *
  * @param input - Everything the run reads; confidential chats are left out of all of it.

@@ -15,9 +15,8 @@ function readColor(input: unknown): PersonColor | null {
 }
 
 /**
- * The person color of accounts (PAGE-266): the ring around the avatar and
+ * The person color of accounts: the ring around the avatar and
  * the name color in the chat.
- *
  * @remarks
  * Everybody chooses their own color; who may change another person in the
  * administration may change theirs. Agents get theirs in the agent panel.
@@ -48,7 +47,6 @@ export class PersonColorService {
 
   /**
    * Sets the color of another account in the administration.
-   *
    * @throws {AgentEmployeeError} `forbidden` without the right to change the account.
    */
   public async set(

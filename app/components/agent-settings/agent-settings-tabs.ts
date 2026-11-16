@@ -1,4 +1,4 @@
-/** The tabs of the popup "Agent-Einstellungen" (PAGE-376). */
+/** The tabs of the popup "Agent-Einstellungen". */
 export type AgentSettingsTab = "sessions" | "logbook" | "dreaming" | "lessons";
 
 /** One tab of the popup and whether the function behind it exists yet. */
@@ -9,10 +9,9 @@ export interface AgentSettingsTabInfo {
 
 /**
  * The tabs in their order.
- *
  * @remarks
- * All four tabs work: "Sitzungen" (PAGE-376), "Lagebuch" (PAGE-377), and
- * "Dreaming" and "Lektionen & Rezepte" (PAGE-378). A tab whose function is
+ * All four tabs work: "Sitzungen", "Lagebuch", and
+ * "Dreaming" and "Lektionen & Rezepte". A tab whose function is
  * missing stays visible but off, with a hint, until its flag here is set.
  */
 export const AGENT_SETTINGS_TABS: readonly AgentSettingsTabInfo[] = [
@@ -24,7 +23,6 @@ export const AGENT_SETTINGS_TABS: readonly AgentSettingsTabInfo[] = [
 
 /**
  * Whether the function behind a tab exists.
- *
  * @param tab - The tab to check.
  */
 export function isAgentSettingsTabAvailable(tab: AgentSettingsTab): boolean {
@@ -35,7 +33,6 @@ export function isAgentSettingsTabAvailable(tab: AgentSettingsTab): boolean {
 
 /**
  * The tab the popup opens in: the requested one when it works, else "Sitzungen".
- *
  * @param tab - The tab a caller asked for; none asks for the first one.
  */
 export function resolveAgentSettingsTab(
@@ -48,7 +45,6 @@ export function resolveAgentSettingsTab(
 
 /**
  * The tab a Radix value names, when its function exists.
- *
  * @param value - The value a tab control reports.
  * @returns The tab, or `null` for an unknown or switched-off one.
  */

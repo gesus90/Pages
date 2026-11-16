@@ -32,7 +32,6 @@ function readNumber(parts: Intl.DateTimeFormatPart[], type: string): number {
 
 /**
  * Reads the wall clock of an instant in a time zone.
- *
  * @param instant - The moment to read.
  * @param timeZone - IANA time zone such as `Europe/Berlin`.
  */

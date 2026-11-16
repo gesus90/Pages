@@ -236,10 +236,8 @@ function noteInsert(tokens: Tokens, uses: Uses): void {
 
 /**
  * Tells for each placeholder of a statement whether its value is stored or compared.
- *
  * @param statement - SQL owned by a repository, with `$name` placeholders.
  * @returns The use of each placeholder.
- *
  * @remarks
  * Written means a plain assignment to a column or a value that stands alone
  * in the row of an `INSERT`, outside the target of `ON CONFLICT`. Reads, `DELETE`,

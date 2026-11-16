@@ -81,7 +81,6 @@ export class AgentPlanTasks {
 
   /**
    * Reads the checklist of a bound ticket with the rights of the executor.
-   *
    * @throws {AgentError} `plan_binding_invalid` when the ticket is no longer
    * a visible, active task of the project.
    */

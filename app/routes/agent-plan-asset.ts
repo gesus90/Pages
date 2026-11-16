@@ -11,7 +11,6 @@ import type { Route } from "./+types/agent-plan-asset";
 
 /**
  * Serves the bytes of a plan asset to a person who may read its project.
- *
  * @remarks
  * Only types a browser shows without running anything are served inline,
  * and always under a sandbox policy without scripts, so an SVG or a PDF

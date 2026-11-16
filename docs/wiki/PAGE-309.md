@@ -1,15 +1,15 @@
-# Wiki-Entwurf PAGE-309: Einmal-Pläne – nach erfolgreichem Lauf automatisch löschen
+# Wiki-Entwurf: Einmal-Pläne – nach erfolgreichem Lauf automatisch löschen
 
-Entwurf für All Might. Nach der Abnahme in die beiden Wiki-Seiten übertragen:
+Dieser Entwurf ist für zwei Wiki-Seiten bestimmt:
 
-1. an [Agents: Festlegungen](/wiki/93eb063a-a63c-4cac-8393-af182291a582) den Abschnitt „Einmal-Pläne (PAGE-309)“,
+1. an [Agents: Festlegungen](/wiki/93eb063a-a63c-4cac-8393-af182291a582) den Abschnitt „Einmal-Pläne“,
 2. an [Agent-Definitionen, Arbeitsplätze und Arbeitspläne: technische Umsetzung](/wiki/3301f98d-8727-4c7b-97dc-8a8262d4e440) den Abschnitt „Einmal-Pläne: Löschablauf und Schnittstelle“.
 
-Die Wiki-Seiten liegen im Live-Dienst und wurden vom Lauf nicht geändert.
+Die Live-Wiki wird getrennt gepflegt.
 
 ---
 
-## Abschnitt für „Agents: Festlegungen“: Einmal-Pläne (PAGE-309)
+## Abschnitt für „Agents: Festlegungen“: Einmal-Pläne
 
 Eine einmalige Aufgabe lässt sich als **Einmal-Plan** anlegen. Endet einer seiner
 Läufe vollständig erfolgreich, löscht Pages den Plan 5 Minuten später samt allem,
@@ -82,7 +82,7 @@ Normale Pläne verhalten sich unverändert.
 (Eigentümer: <Name>).` Der Eintrag trägt den Zeitpunkt und den Eigentümer des
   Plans als Urheber.
 - Später kann eine Automation vor dem Löschen einen Abschlussbericht an eine
-  Person oder einen Agent übergeben. Das ist nicht Teil von PAGE-309. Der
+  Person oder einen Agent übergeben. Das ist nicht Teil dieser Änderung. Der
   Löschablauf hat dafür den Einhängepunkt „vor dem Löschen“ (siehe unten).
 
 ---
@@ -124,10 +124,10 @@ Normale Pläne verhalten sich unverändert.
       verwerfen, `kept`.
    2. **Einhängepunkt:** `hooks[].beforeDelete(kandidat)` (`OneShotBeforeDeletionHook`).
       Hier hängt später die Automation „Abschlussbericht übergeben“ ein; wirft ein
-      Hook, bleibt der Plan und die Löschung wird erneut versucht. PAGE-309 liefert
+      Hook, bleibt der Plan und die Löschung wird erneut versucht. Diese Änderung liefert
       keinen Hook aus.
    3. `purgeAllPlanRuns(database, planId)` löscht jeden Lauf in einer eigenen
-      Transaktion über die Retention-Strecke von PAGE-255 (`deleteRun`): Lauf-Tabellen,
+      Transaktion über die bestehende Retention-Strecke (`deleteRun`): Lauf-Tabellen,
       Session-Journal; die Trigger von `agent_plan_runs` und
       `agent_local_session_owners` legen Sitzungsverzeichnisse, lokale
       Sitzungsjournale und Nutzlast-Dateien in `agent_payload_garbage` ab, die der
@@ -175,7 +175,7 @@ Normale Pläne verhalten sich unverändert.
 Oberfläche: `plan-one-shot-field.tsx`, `plan-one-shot-notice.tsx`, Plan-Menü,
 -Kopf, -Auswahl, Klon-Dialog.
 
-### Prüfung (PAGE-309)
+### Prüfung
 
 - `postgres:check`: neuer Ablauf „one-time plans“ gegen eine echte PostgreSQL-Instanz
   (Frist setzen/lesen, fällig, Kandidat, Löschen mit Lauf-Bereinigung und genau einem

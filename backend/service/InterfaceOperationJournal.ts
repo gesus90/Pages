@@ -5,7 +5,6 @@ import type { AgentOperationKeyRepository } from "@/backend/database/repositorie
 
 /**
  * How long a save's result answers a repetition.
- *
  * @remarks
  * A browser repeats an unconfirmed save when the connection returns, which may
  * take days. A later repetition falls back to the revision check, which also
@@ -40,13 +39,11 @@ function fingerprintOf(operation: InterfaceOperation): string {
 
 /**
  * Returns what a save with this operation ID stored when it committed.
- *
  * @param keys - Operation keys, in the transaction of the save if it has one.
  * @param operation - The repeated save.
  * @param schema - The stored result's shape.
  * @returns The stored result, or `null` when the operation never committed.
  * @throws {OperationReusedError} When the ID was stored for another save.
- *
  * @remarks
  * The table is the one of the agent operations (`agent_operation_keys`); the
  * account is part of the key, so another account never finds the result.
@@ -68,11 +65,9 @@ export async function replayInterfaceOperation<Result>(
 
 /**
  * Stores the result of a save under its operation ID.
- *
  * @param keys - Operation keys bound to the transaction of the save.
  * @param operation - The save that is about to commit.
  * @param result - What a repetition of the save answers.
- *
  * @remarks
  * Also removes the account's results of this kind that are past their retention.
  */

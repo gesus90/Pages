@@ -55,7 +55,6 @@ export class AgentPlanScriptPreparation {
 
   /**
    * Checks executable configurations for Play/control availability; never runs script content.
-   *
    * @throws {AgentError} `plan_git_closeout_unsupported` while the plan still
    * contains a Git closeout node of an earlier version.
    */
@@ -143,8 +142,7 @@ export class AgentPlanScriptPreparation {
   }
 
   /**
-   * Requires an approval of the current content of every local script (PAGE-329, part C).
-   *
+   * Requires an approval of the current content of every local script.
    * @throws {AgentError} `plan_script_approval_required` when an administrator
    * has not approved the current content, `plan_script_permission_denied`
    * where approvals are not available at all.

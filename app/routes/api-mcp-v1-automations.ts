@@ -21,8 +21,7 @@ const HANDLERS: McpAutomationHandlers = {
 };
 
 /**
- * Lists the visible automations (`GET /api/mcp/v1/automations`), PAGE-297.
- *
+ * Lists the visible automations (`GET /api/mcp/v1/automations`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

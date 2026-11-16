@@ -1,21 +1,21 @@
-# Pica administrator browser and files (PAGE-139)
+# Pica administrator browser and files
 
 > The visual operator browser (clicking, forms, uploads, live view, takeover)
-> is a separate path, see [PicaOperatorBrowser](PicaOperatorBrowser.md)
-> (PAGE-181). The restricted browser below stays unchanged.
+> is a separate path, see [PicaOperatorBrowser](PicaOperatorBrowser.md).
+> The restricted browser below stays unchanged.
 
 Pica's native API catalog and ACP tool bridge offer `admin_browser_open`,
 `admin_browser_action`, `admin_files_find`, `admin_files_read` and
 `admin_files_edit` to administrators; they carry the `administrator` access
 class of the `RuntimeToolRegistry` and run beside the management tools of the
-[administrator operator](PicaAdminOperator.md) (PAGE-180). Every invocation checks
+[administrator operator](PicaAdminOperator.md). Every invocation checks
 the current active account and administrator role in admin mode. The tools share
 the existing turn budget.
 Their results are untrusted observations, and do not change Pica's protected
 instructions, ordinary permissions, attachment handling or plan execution.
 
 There is no separate page for these tools (the former **Pica admin tools**
-view was removed in PAGE-251); they run only through Pica in the chat. Browser
+view was removed); they run only through Pica in the chat. Browser
 sessions belong to one person, conversation and job. Every browser closes
 automatically on cancellation, job completion, loss of administrator eligibility or server
 shutdown. The scope of a chat job has no clock of its own: it ends with the job.

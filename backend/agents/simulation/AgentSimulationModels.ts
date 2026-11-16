@@ -71,7 +71,6 @@ function simulationConnection(
 
 /**
  * The assignment of a node that chose a simulation model.
- *
  * @returns `null` for every real connection.
  * @throws {AgentError} `connection_not_found` when the node chose the
  * simulation but it is off, as in production: the node then names its

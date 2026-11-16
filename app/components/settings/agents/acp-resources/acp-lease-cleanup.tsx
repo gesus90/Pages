@@ -155,7 +155,7 @@ function useCleanedNotice(
 
 /**
  * The administrator's check of ACP reservations with a preview and a
- * confirmed cleanup (PAGE-340).
+ * confirmed cleanup.
  *
  * @remarks
  * The server decides everything: the preview only classifies, and the

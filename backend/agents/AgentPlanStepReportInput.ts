@@ -41,7 +41,6 @@ const storedReportSchema = z.strictObject(reportFields);
 
 /**
  * Reads a stored report.
- *
  * @param input - The parsed JSON of its row.
  * @returns The report; anything else throws, because a damaged row proves nothing.
  */

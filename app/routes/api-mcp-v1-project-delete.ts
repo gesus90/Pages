@@ -28,8 +28,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpProjectHandlers {
 }
 
 /**
- * Deletes a project for good after a confirmed question; administrators only (`POST /api/mcp/v1/projects/{id}/delete`), PAGE-244 interface 13.
- *
+ * Deletes a project for good after a confirmed question; administrators only (`POST /api/mcp/v1/projects/{id}/delete`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

@@ -83,7 +83,7 @@ export interface PreviewViewProps {
 }
 
 /**
- * The preview of a block (PAGE-383): HTML and SVG in the sandbox, Mermaid as
+ * The preview of a block: HTML and SVG in the sandbox, Mermaid as
  * a diagram, JSON as a tree and CSV or TSV as a table.
  */
 export function PreviewView({
@@ -126,7 +126,7 @@ export function PreviewView({
 }
 
 /**
- * The code of a preview (PAGE-383): one file, or the files of an HTML block
+ * The code of a preview: one file, or the files of an HTML block
  * with its CSS and JavaScript blocks behind file tabs.
  */
 export function PreviewCode({

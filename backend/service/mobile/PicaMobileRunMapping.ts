@@ -29,7 +29,6 @@ const RUN_STATUS: Readonly<
 
 /**
  * Names a Pages run state the way the protocol does.
- *
  * @param status - The stored state of the run.
  * @returns The protocol state; Pages has no `blocked` run, so it never returns it.
  */
@@ -41,7 +40,6 @@ export function toPicaMobileRunStatus(
 
 /**
  * Names a Pages run state the way a notification does.
- *
  * @param status - The stored state of the run.
  * @returns The state itself, or `failed` for the one state Pica Mobile does not know.
  */
@@ -76,7 +74,6 @@ function toStepStatus(
 
 /**
  * Names the state of a node the way `plans.flow.v1` does.
- *
  * @param result - The state of a node, a loop iteration or a node in it.
  * @returns `skipped` for a node on a branch a decision did not take,
  * `blocked` for one waiting behind a failed or cancelled predecessor, and

@@ -12,7 +12,6 @@ interface LabelColorPresetsProps {
 
 /**
  * Renders the preset swatches with the current color marked.
- *
  * @remarks
  * A color outside the presets gets its own dashed swatch, so the current
  * value is always visible.

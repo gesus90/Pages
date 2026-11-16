@@ -504,7 +504,7 @@ function compact(lines: readonly string[]): readonly string[] {
 }
 
 /**
- * Turns the stored ACP history of a node into the lines of the Pages terminal (PAGE-284).
+ * Turns the stored ACP history of a node into the lines of the Pages terminal.
  *
  * @param input - The attempts of the node with their events, the texts and the columns.
  * @returns ANSI rows, the same for every provider, wrapped at word boundaries once the terminal is measured.

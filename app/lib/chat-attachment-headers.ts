@@ -7,7 +7,6 @@ const ATTACHMENT_CONTENT_SECURITY_POLICY = "default-src 'none'; sandbox";
 
 /**
  * The headers of a chat attachment download, for the web and for Pica Mobile.
- *
  * @param attachment - The attachment that is sent.
  * @returns Headers that make the file a download that is never shown inline,
  * so an SVG or HTML source cannot run in the origin of Pages.

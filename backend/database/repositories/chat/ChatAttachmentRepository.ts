@@ -88,7 +88,6 @@ export class ChatAttachmentRepository {
   /**
    * Records an upload of the person at an own session; it stays unsent until a
    * message links it.
-   *
    * @param userId - The owner the session must belong to.
    * @param attachment - The stored file and its row.
    * @param limit - Unsent uploads the session may hold at most; the count and

@@ -43,7 +43,6 @@ function readAudience(value: unknown): PagesEventAudience | undefined {
 
 /**
  * Reads one relayed event; a payload of any other shape is no event.
- *
  * @param payload - The `NOTIFY` payload of another process.
  * @returns The event, or `null`.
  */
@@ -66,14 +65,12 @@ export function readRelayedEvent(payload: string): PagesEvent | null {
 
 /**
  * Hands the committed events of a process without the live view to the API process.
- *
  * @remarks
  * The plan engine and the integration delivery may run as processes of their
  * own. Their events travel as `NOTIFY` with type, id and, for a deleted
  * ticket, its audience; the API process decides delivery with the receiving
  * account's rights as for its own events. A lost notification only delays a
  * page until its next reading.
- *
  * @param source - The publisher of this process.
  * @param repository - Sends the notification.
  * @returns Stops forwarding.

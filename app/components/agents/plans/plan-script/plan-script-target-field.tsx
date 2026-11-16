@@ -10,7 +10,6 @@ import type { PlanScriptForm } from "./use-plan-script-form";
 
 /**
  * Shows where the script runs: host and directory, including unavailable saved targets.
- *
  * @remarks
  * A script for a remote target that names absolute paths of the Pages host
  * is pointed out; Pages never rewrites them and never calls the script

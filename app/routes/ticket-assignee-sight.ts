@@ -16,7 +16,6 @@ const querySchema = z.object({
 
 /**
  * Answers whether a person or group would see a ticket with its departments.
- *
  * @remarks
  * The departments of an existing ticket come from the ticket itself, so the
  * client cannot misstate them; a new ticket passes the departments it has chosen.

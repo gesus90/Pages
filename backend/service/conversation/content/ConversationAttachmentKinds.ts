@@ -1,8 +1,7 @@
 import path from "node:path";
 
 /**
- * How an agent reads an attachment of a chat (PAGE-386).
- *
+ * How an agent reads an attachment of a chat.
  * @remarks
  * `binary` is every file Pages does not open: archives, programs, legacy
  * Office formats and unknown types. Only name, type, size and checksum of
@@ -133,7 +132,6 @@ function officeKind(
 
 /**
  * Decides how an agent reads an attachment, from its type and its name.
- *
  * @param name - The file name; its extension decides where the type is generic.
  * @param mimeType - The stored type.
  * @returns The kind; everything Pages does not read is `binary`.
@@ -162,7 +160,6 @@ export function agentAttachmentKind(
 
 /**
  * A size in bytes as people read it.
- *
  * @param bytes - The size.
  * @returns Such as `512 B`, `12,3 KB` or `4,0 MB`.
  */

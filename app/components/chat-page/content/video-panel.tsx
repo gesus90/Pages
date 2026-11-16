@@ -24,7 +24,6 @@ export type VideoOpenedCard = OpenedCard & {
 
 /**
  * Whether an opened card is a video.
- *
  * @param card - The opened card.
  */
 export function isVideoCard(card: OpenedCard): card is VideoOpenedCard {
@@ -98,7 +97,7 @@ interface OtherVideosProps {
   readonly onSelect: (video: ConversationImage) => void;
 }
 
-/** "Weitere Videos in diesem Chat" below the open video (PAGE-384). */
+/** "Weitere Videos in diesem Chat" below the open video. */
 function OtherVideos({
   videos,
   currentId,
@@ -136,10 +135,9 @@ function OtherVideos({
 }
 
 /**
- * A video next to the chat (PAGE-384): the player as large as the split
+ * A video next to the chat: the player as large as the split
  * view, which takes the video over from its card and plays on where it was,
  * and below it the other videos of the chat to change to.
- *
  * @param card - The opened video.
  */
 export function VideoPanelBody({

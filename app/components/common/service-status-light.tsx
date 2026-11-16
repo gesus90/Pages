@@ -28,7 +28,6 @@ interface ServiceLightBadgeProps {
 
 /**
  * Shows one light of the platform's services as a coloured dot with its meaning.
- *
  * @remarks
  * The text carries the meaning; the colour only repeats it.
  */
@@ -77,7 +76,7 @@ function usePublicServiceLight(): Light | null {
 }
 
 /**
- * Shows at the bottom centre of every page when not all services of the platform run (PAGE-238).
+ * Shows at the bottom centre of every page when not all services of the platform run.
  *
  * @remarks
  * Reads the public light of `pages-core` in the browser, without the API, a

@@ -12,7 +12,6 @@ import type { RemoteConnectionDraft } from "./use-remote-connection-form";
 
 /**
  * Only the secrets of the chosen sign-in method.
- *
  * @remarks
  * Stored secrets are never sent back; their fields stay empty and say that
  * leaving them empty keeps the stored value. `new-password` keeps browsers

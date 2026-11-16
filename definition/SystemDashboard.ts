@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-/** The endpoint of the system dashboard; only for a session in the active admin mode (PAGE-282). */
+/** The endpoint of the system dashboard; only for a session in the active admin mode. */
 export const SYSTEM_DASHBOARD_PATH = "/settings-api/system/dashboard";
 
 /** Mounted file systems beyond this number are not listed. */
@@ -52,7 +52,6 @@ export const dashboardAgentsSchema = z.strictObject({
 
 /**
  * One mounted file system, named by its mount point only.
- *
  * @remarks
  * Neither the source (which may name a share with its user) nor the mount
  * options leave the server.

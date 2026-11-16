@@ -30,10 +30,10 @@ export interface AccountFacts {
 export interface AgentHistory {
   readonly messages: readonly VirtualChatMessage[];
   readonly isWorking: boolean;
-  /** The tool calls of the answer in progress (PAGE-303). */
+  /** The tool calls of the answer in progress. */
   readonly liveTools: readonly VirtualToolUse[];
   readonly accessLevel: AgentEmployeeAccess | undefined;
-  /** The session of the agent in this chat (PAGE-376); absent before the first message. */
+  /** The session of the agent in this chat; absent before the first message. */
   readonly session?: AgentChatSessionBrief | undefined;
 }
 
@@ -42,7 +42,7 @@ export function avatarImage(user: User): string | null {
   return user.avatarType === "image" ? (user.avatarImageUrl ?? null) : null;
 }
 
-/** Marks the agents that nothing is shared from (PAGE-305). */
+/** Marks the agents that nothing is shared from. */
 export function withConfidentiality(
   participants: VirtualChatDirectory["participants"],
   confidentialAgents: { has(id: string): boolean },
@@ -128,14 +128,14 @@ export function conversationState(
   };
 }
 
-/** The entries of the page whose stored history holds older messages (PAGE-275). */
+/** The entries of the page whose stored history holds older messages. */
 export function olderHistoryIds(conversations: ChatConversations): string[] {
   return [...conversations.direct, ...conversations.groups]
     .filter(([, view]) => view.hasMore)
     .map(([id]) => id);
 }
 
-/** What a participant shows of the messages its agent wrote to the person (PAGE-311). */
+/** What a participant shows of the messages its agent wrote to the person. */
 export function agentWrittenState(
   view: ConversationView,
 ): Pick<VirtualParticipant, "unreadCount" | "agentChat"> {
@@ -190,9 +190,9 @@ export function directoryParticipant(
     readonly isWorking: boolean;
     readonly view: ConversationView | undefined;
     readonly accessLevel?: AgentEmployeeAccess;
-    /** The direct conversation in which the agent wrote to the person (PAGE-311). */
+    /** The direct conversation in which the agent wrote to the person. */
     readonly agentChat?: ConversationView | undefined;
-    /** The session of the agent in the direct chat (PAGE-376). */
+    /** The session of the agent in the direct chat. */
     readonly session?: AgentChatSessionBrief | undefined;
   },
 ): VirtualParticipant {
@@ -223,7 +223,7 @@ export function directoryParticipant(
   };
 }
 
-/** Adds the card of each question of an agent to the message that carries it (PAGE-391). */
+/** Adds the card of each question of an agent to the message that carries it. */
 export async function addConversationQuestions(
   questions: Pick<AgentChatQuestionService, "views"> | undefined,
   person: User,

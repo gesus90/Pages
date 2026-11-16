@@ -22,7 +22,6 @@ interface SegmentedControlProps<Value extends string> {
 
 /**
  * Renders the Pages segmented switch used for scopes and view modes.
- *
  * @remarks
  * Die Auswahl wechselt sofort den Seitenzustand, deshalb sind es
  * gedrückte Schalter statt Radix-Tabs: es gibt kein zugehöriges

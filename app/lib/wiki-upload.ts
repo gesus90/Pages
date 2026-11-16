@@ -6,7 +6,6 @@ export const WIKI_ATTACHMENT_PATH =
 
 /**
  * Tells whether an image address belongs to an attachment of this instance.
- *
  * @param src - Image address from the markdown.
  * @returns Whether the renderer and the editor may show it.
  */
@@ -21,7 +20,6 @@ export class WikiUploadError extends Error {
 
   /**
    * Creates the error.
-   *
    * @param code - Reason of the failure.
    */
   public constructor(code: string) {

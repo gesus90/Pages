@@ -34,7 +34,6 @@ export interface TaggedProcessScope {
 
 /**
  * A legacy time bound captured from this server's process start.
- *
  * @param root - The process file system; Linux keeps it at `/proc`.
  * @returns The start of this server process.
  */

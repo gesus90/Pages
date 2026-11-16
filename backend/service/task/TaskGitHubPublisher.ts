@@ -21,7 +21,6 @@ export class TaskGitHubPublisher {
 
   /**
    * Creates a GitHub publisher.
-   *
    * @param taskRepository - Task persistence boundary.
    * @param history - Audit trail receiving failed publications.
    * @param cache - Shared server cache invalidated when the error state changes.
@@ -38,7 +37,6 @@ export class TaskGitHubPublisher {
 
   /**
    * Attaches the GitHub synchronization used for best-effort outbound updates.
-   *
    * @param gitHubSync - Synchronization service publishing task changes.
    */
   public attach(gitHubSync: GitHubSyncService): void {
@@ -47,15 +45,13 @@ export class TaskGitHubPublisher {
 
   /**
    * Publishes a mutated task to GitHub without failing the Pages mutation.
-   *
    * @param actor - User owning the change; the publication keeps their rights.
    * @param item - Fresh work item detail after its Pages mutation.
    * @returns Once the publication ended; it never rejects, so callers may
    * start it without waiting.
-   *
    * @remarks
    * The change already committed when this starts, so it outlives the request
-   * as background work (PAGE-199): a client that left neither cancels it nor
+   * as background work: a client that left neither cancels it nor
    * shortens its database budget.
    */
   public publish(actor: User, item: WorkItemDetail): Promise<void> {
@@ -95,7 +91,6 @@ export class TaskGitHubPublisher {
 
   /**
    * Keeps a failed publication visible on the ticket as far as the database allows.
-   *
    * @remarks
    * The database may refuse the same write it refused a moment ago. That only
    * loses the error state of the ticket, never the committed change, so it ends

@@ -105,8 +105,7 @@ function summaryRange(
 }
 
 /**
- * Keeps the memory of an agent current after each answer (PAGE-305).
- *
+ * Keeps the memory of an agent current after each answer.
  * @remarks
  * After every answer in a chat that is not confidential the model names
  * the topics the exchange brings or changes; Pages writes them into
@@ -126,7 +125,6 @@ export class AgentMemoryRecorder {
 
   /**
    * Records an answer in the background.
-   *
    * @returns The end of this update, for callers that wait for it; it never rejects.
    */
   public record(record: AgentAnswerRecord): Promise<void> {

@@ -19,7 +19,6 @@ export interface TaskLinkActions {
 
 /**
  * Keeps the draft of a new link and submits link changes of a ticket.
- *
  * @param workItemId - The ticket new links start from.
  * @param onAddFormOpenChange - Closes the add form after adding or cancelling.
  */

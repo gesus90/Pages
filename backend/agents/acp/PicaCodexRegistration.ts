@@ -6,7 +6,6 @@ import type { AcpSessionContext } from "./AcpSessionContracts";
 
 /**
  * Creates the private native-tool requests of a Pica chat over Codex or OpenCode.
- *
  * @param context - The driver and the listener of the session.
  * @param session - Reads the session the adapter opened.
  * @param prompting - Tells whether a prompt of Pages is running.

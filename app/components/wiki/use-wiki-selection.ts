@@ -6,7 +6,6 @@ import type { QuoteReference } from "@/app/lib/wiki-highlight";
 
 /**
  * Follows what the person selects inside the rendered page.
- *
  * @param root - The element that holds the rendered page; `null` while the
  * page is being edited.
  * @returns The selected passage with its surroundings, or `null` while

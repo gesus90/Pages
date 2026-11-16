@@ -10,7 +10,6 @@ import type { Route } from "./+types/chat-attachment";
 
 /**
  * Sends an attachment of an own chat session as a download.
- *
  * @remarks
  * Attachments are never shown inline, so an SVG or HTML source cannot run in
  * the origin of Pages. A foreign and a missing attachment answer alike.

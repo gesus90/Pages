@@ -28,8 +28,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpTicketHandlers {
 }
 
 /**
- * Deletes a label after a confirmed question (`POST /api/mcp/v1/ticket-labels/{labelId}/delete`), PAGE-242 interface 12.
- *
+ * Deletes a label after a confirmed question (`POST /api/mcp/v1/ticket-labels/{labelId}/delete`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

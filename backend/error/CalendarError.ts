@@ -1,10 +1,9 @@
-/** Reasons the calendar refuses a request (PAGE-301). */
+/** Reasons the calendar refuses a request. */
 export type CalendarErrorCode =
   "forbidden" | "not_found" | "invalid_request" | "conflict" | "too_large";
 
 /**
  * A refused calendar request.
- *
  * @remarks
  * The message never names data of an event the account may not see; an
  * invisible event is `not_found` like a missing one. `currentRevision` is set
@@ -16,7 +15,6 @@ export class CalendarError extends Error {
 
   /**
    * Creates the error.
-   *
    * @param code - The reason.
    * @param message - A short text without foreign data.
    * @param currentRevision - The stored revision of a conflict.

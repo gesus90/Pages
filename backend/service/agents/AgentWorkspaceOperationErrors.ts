@@ -19,10 +19,8 @@ const CONFLICT_CODES: ReadonlySet<AgentErrorCode> = new Set([
 
 /**
  * Turns the failures of the workspace registry into the fixed codes of the agent API.
- *
  * @param error - Whatever the registry or its path rules threw.
  * @returns The agent error for a business failure, or the error unchanged.
- *
  * @remarks
  * No message of the registry is passed on, only its class: a path refusal
  * never tells a client whether a directory outside the approved area exists.

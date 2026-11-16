@@ -35,7 +35,6 @@ export type DesignThemeLoadResult =
 
 /**
  * Stats a path.
- *
  * @param target - Path to look at.
  * @returns Its stats, or `null` when it does not exist.
  */
@@ -57,7 +56,6 @@ export async function statIfPresent(target: string): Promise<Stats | null> {
 
 /**
  * Names why a file system call failed, without paths or messages of the system.
- *
  * @param error - What the call threw.
  * @returns The error code, such as `EACCES`.
  */

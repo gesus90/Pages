@@ -70,7 +70,6 @@ export class TaskTemplateService {
 
   /**
    * Creates a template service.
-   *
    * @param repository - Template persistence boundary.
    * @param taskService - Ticket boundary that reads and creates tickets.
    * @param projectService - Project boundary that decides project access.
@@ -105,7 +104,6 @@ export class TaskTemplateService {
 
   /**
    * Saves the content of a ticket as a new template owned by the actor.
-   *
    * @param actor - User with write permission who may see the ticket.
    * @param ticketId - Ticket whose content becomes the template.
    * @param input - Name and audience of the template.
@@ -146,7 +144,6 @@ export class TaskTemplateService {
 
   /**
    * Renames a template and changes whom it is shared with.
-   *
    * @throws {WorkItemNotFoundError} When the template does not exist or is not visible.
    * @throws {WorkItemAccessDeniedError} When the actor is neither owner nor administrator.
    */
@@ -171,7 +168,6 @@ export class TaskTemplateService {
 
   /**
    * Deletes a template; its owner and the administrator mode may.
-   *
    * @throws {WorkItemNotFoundError} When the template does not exist or is not visible.
    * @throws {WorkItemAccessDeniedError} When the actor is neither owner nor administrator.
    */
@@ -187,7 +183,6 @@ export class TaskTemplateService {
 
   /**
    * Creates a ticket and applies the labels and checklist of a template to it.
-   *
    * @param actor - User creating the ticket; the usual ticket write rules apply.
    * @param templateId - Template the actor may see.
    * @param input - Values of the new ticket, as the form submitted them.

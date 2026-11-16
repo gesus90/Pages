@@ -55,7 +55,7 @@ function LessonsContent({
 }
 
 /**
- * The tab "Lektionen & Rezepte" of the agent settings (PAGE-378): the lessons
+ * The tab "Lektionen & Rezepte" of the agent settings: the lessons
  * of `DREAM.md` and the recipes of the agent, each to read, edit, switch off
  * and delete. Only administrators see and change them.
  *

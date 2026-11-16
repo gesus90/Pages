@@ -21,7 +21,7 @@ export const TOOL_USE_RETENTION_DAYS = 30;
 
 /**
  * The tool calls of the chat sessions of agents, which the dream run reads
- * to learn how an agent works (PAGE-378).
+ * to learn how an agent works.
  */
 export class AgentToolUseRepository {
   private readonly database: Pick<Database, "query" | "execute">;
@@ -113,7 +113,6 @@ export class AgentToolUseRepository {
 
   /**
    * Drops the calls older than the retention.
-   *
    * @param agentId - The agent.
    * @param before - `YYYY-MM-DD HH:MM:SS` UTC; older calls go.
    */

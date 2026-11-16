@@ -35,7 +35,6 @@ const PLAN_BRIDGE_PATH = "/api/v1/plan-bridge";
 
 /**
  * The address of the plan bridge a session reaches.
- *
  * @param mcp - The step-bound bridge access of the node.
  * @returns The bridge URL below the address of this Pages instance.
  */

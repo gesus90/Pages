@@ -28,8 +28,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpTicketHandlers {
 }
 
 /**
- * Moves a ticket with its subtasks into another project (`POST /api/mcp/v1/tickets/{key}/move`), PAGE-242 interface 8.
- *
+ * Moves a ticket with its subtasks into another project (`POST /api/mcp/v1/tickets/{key}/move`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

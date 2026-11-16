@@ -80,7 +80,6 @@ function readItemStates(input: unknown): readonly AgentChecklistItemState[] {
 
 /**
  * Validates the parameters of a bulk change before anything is looked up.
- *
  * @param input - The raw operation parameters.
  * @returns The change, with every entry named once and an explicit state.
  * @throws {AgentOperationError} `INVALID_REQUEST`, with a reason for a bad entry list.
@@ -103,7 +102,6 @@ export function readChecklistBatch(input: unknown): ChecklistBatch {
 
 /**
  * Resolves every named entry against the checklist and keeps what has to change.
- *
  * @param checklist - The checklist the revision check passed for.
  * @param items - The validated entries of the request.
  * @returns The criteria and checkbox characters to store; entries that already have the state are left out.
@@ -131,7 +129,6 @@ export function planChecklistWrites(
 
 /**
  * Sets the planned checkboxes of a description and leaves every other character as it is.
- *
  * @param markdown - The stored description.
  * @param markers - The checkbox characters to set.
  * @returns The description with exactly those characters replaced.

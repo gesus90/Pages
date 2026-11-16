@@ -18,7 +18,6 @@ const ROOT_STATE: LocalStateKind<RootData> = {
 
 /**
  * Opens the document with the account and settings the browser keeps, when the backend is down.
- *
  * @returns `null` when the browser keeps no account or no settings of it.
  */
 async function readKeptRoot(): Promise<WithLocalState<RootData> | null> {
@@ -37,8 +36,7 @@ async function readKeptRoot(): Promise<WithLocalState<RootData> | null> {
 }
 
 /**
- * Loads the document settings of the static app and names its account (PAGE-235).
- *
+ * Loads the document settings of the static app and names its account.
  * @remarks
  * The server's answer claims the browser's local state for the signed-in
  * account before any route reads it, and is kept for that account. When the
@@ -47,7 +45,6 @@ async function readKeptRoot(): Promise<WithLocalState<RootData> | null> {
  * that account's kept answers. A sign-out empties them (see
  * `LocalStateStore.claim`), so nothing of an account stays after it. Any
  * other failure, such as the redirect to the setup wizard, is passed on.
- *
  * @param signal - Ends the request when the load is cancelled.
  * @returns The settings, from the server or kept.
  */

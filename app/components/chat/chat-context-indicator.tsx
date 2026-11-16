@@ -20,8 +20,7 @@ interface ContextCaptionProps {
 
 /**
  * The doughnut that shows how full a context is; the chat page of agents
- * reuses it for every agent of a chat (PAGE-380).
- *
+ * reuses it for every agent of a chat.
  * @param props - `percent` is the fill, `null` while unknown; `label` replaces
  * the question mark inside, such as the initial of an agent; `isBusy` pulses
  * while a compaction runs.

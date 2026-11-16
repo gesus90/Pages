@@ -68,8 +68,7 @@ function errorText(turn: SwarmTurn): string {
 }
 
 /**
- * Runs the board, the locks and the helper sessions of one swarm node (PAGE-313).
- *
+ * Runs the board, the locks and the helper sessions of one swarm node.
  * @remarks
  * Every tool call answers at once; nothing here waits for capacity or for a
  * lock. Board and locks change synchronously, so two calls never interleave

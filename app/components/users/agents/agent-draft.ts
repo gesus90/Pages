@@ -20,20 +20,20 @@ export interface AgentDraft {
   readonly reasoningEffort: string;
   readonly access: AgentEmployeeAccess;
   readonly claudeMonthlyCostLimitUsd?: string;
-  /** The tool groups switched off for the agent (PAGE-390). */
+  /** The tool groups switched off for the agent. */
   readonly disabledToolGroups: readonly AgentToolGroup[];
   readonly roleId: string;
   readonly departments: readonly string[];
   readonly soul: string;
   readonly instructions: string;
   readonly memory: string;
-  /** `DREAM.md` (PAGE-305). */
+  /** `DREAM.md`. */
   readonly dream: string;
   /** The character limits of `MEMORY.md` and `DREAM.md`, as typed. */
   readonly memoryCharacters: string;
   readonly dreamCharacters: string;
   readonly isLearningEnabled: boolean;
-  /** The chosen voice ID (PAGE-300); empty for the first voice of the model. */
+  /** The chosen voice ID; empty for the first voice of the model. */
   readonly voiceId: string;
   /** The speed of the voice in tenths, 5 to 20. */
   readonly voiceSpeedTenths: number;
@@ -145,7 +145,7 @@ export function agentDraftPayload(
     disabledToolGroups: draft.disabledToolGroups,
     soul: draft.soul,
     instructions: draft.instructions,
-    // Unchanged files are not sent, so a save keeps what Pages wrote since loading (PAGE-305).
+    // Unchanged files are not sent, so a save keeps what Pages wrote since loading.
     memory: agent && draft.memory === agent.memory ? null : draft.memory,
     dream: agent && draft.dream === agent.dream ? null : draft.dream,
     memoryCharacters: draft.memoryCharacters,

@@ -24,7 +24,6 @@ export interface ConfigBootstrapResult {
 
 /**
  * Builds the first configuration of an installation without one.
- *
  * @remarks
  * A legacy database file must not be adopted or overwritten automatically.
  */
@@ -41,7 +40,6 @@ async function createInitialConfig(configPath: string): Promise<PagesConfig> {
 
 /**
  * Prepares what a configuration needs before the server starts.
- *
  * @remarks
  * While the setup is pending, the default data directory next to the
  * configuration is created empty, so the suggested database path is
@@ -68,7 +66,6 @@ async function prepareConfig(
 
 /**
  * Reads the configuration at start-up and creates it when it is missing.
- *
  * @param configFile - Configuration file of the instance.
  * @returns The stored configuration.
  * @throws {ConfigError} When the file is invalid, or when a finished setup

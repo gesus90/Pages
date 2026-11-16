@@ -39,7 +39,6 @@ function startingDraft(panel: PanelState): PanelDraft {
 
 /**
  * Keeps the draft of the milestone panel and tells whether it changed.
- *
  * @param panel - What the panel edits; the draft starts from it.
  */
 export function usePanelDraft(panel: PanelState): PanelDraftState {

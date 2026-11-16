@@ -80,7 +80,6 @@ type PageFacts = z.infer<typeof factsSchema>;
 
 /**
  * Lets a page finish what an action started.
- *
  * @param page - The tab that just acted.
  */
 export async function settlePage(page: Page): Promise<void> {

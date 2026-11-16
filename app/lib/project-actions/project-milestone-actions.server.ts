@@ -106,7 +106,6 @@ function parseRemovedLinkIds(text: string): string[] | null {
 
 /**
  * Reads the dependency changes submitted with a milestone.
- *
  * @param formData - Parsed request form data.
  * @returns The links to add and to remove, or `null` when the payload is
  * malformed.
@@ -140,7 +139,6 @@ async function createMilestoneFromForm({
 
 /**
  * Removes the given dependencies, tolerating repeated submissions.
- *
  * @remarks
  * Link application stays idempotent: repeated submissions of the same
  * payload (for example rapid retries) converge on the stored state instead
@@ -274,7 +272,6 @@ export const handleSaveMilestone: ProjectActionHandler = async (context) => {
 
 /**
  * Archives a milestone; its tickets stay as they are.
- *
  * @remarks
  * The service decides who may, again for every request, so a hidden or
  * disabled control grants nothing.

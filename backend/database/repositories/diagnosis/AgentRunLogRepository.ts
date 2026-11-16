@@ -45,7 +45,7 @@ const LEVELS_FROM: Readonly<Record<AgentRunLogLevel, readonly string[]>> = {
   error: AGENT_RUN_LOG_LEVELS.slice(3),
 };
 
-/** Stores and reads the log lines of plan runs (PAGE-307). */
+/** Stores and reads the log lines of plan runs. */
 export class AgentRunLogRepository {
   private readonly database: Pick<Database, "query" | "transaction">;
 
@@ -55,7 +55,6 @@ export class AgentRunLogRepository {
 
   /**
    * Appends lines in the order given.
-   *
    * @param lines - Lines with a run, or with an attempt whose run the store finds.
    * @remarks
    * A line whose attempt belongs to no run is dropped: nobody could read it.

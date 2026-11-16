@@ -28,8 +28,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpTicketHandlers {
 }
 
 /**
- * Renames or recolors a label (`PATCH /api/mcp/v1/ticket-labels/{labelId}`), PAGE-242 interface 12.
- *
+ * Renames or recolors a label (`PATCH /api/mcp/v1/ticket-labels/{labelId}`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

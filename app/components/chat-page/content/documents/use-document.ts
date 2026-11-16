@@ -33,7 +33,6 @@ async function load(source: DocumentSource): Promise<ReadDocument> {
 /**
  * Reads a document once per visit; a failed reading is forgotten, so the
  * next opening tries again.
- *
  * @param source - The document.
  */
 export function readOnce(source: DocumentSource): Promise<ReadDocument> {
@@ -55,9 +54,8 @@ export function resetDocumentReadings(): void {
 }
 
 /**
- * The readable view of a document (PAGE-385). The original loads only once
+ * The readable view of a document. The original loads only once
  * the card is expanded or opened, and only once per visit.
- *
  * @param source - The document.
  * @param isWanted - Whether the view is shown; nothing loads before.
  */
@@ -95,7 +93,6 @@ export function useDocument(
 /**
  * The addresses of the embedded images of a document, created as `blob:`
  * addresses for as long as the view is shown.
- *
  * @param images - The images by their ID.
  * @returns The addresses by image ID; empty until they exist.
  */

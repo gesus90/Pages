@@ -11,7 +11,6 @@ import { REMOTE_FIELD_CLASS } from "./remote-field-style";
 /**
  * The allowed directories of a connection: absolute paths on the machine in
  * which its workspace profiles must lie.
- *
  * @remarks
  * Without an entry only the SSH user's home `/home/<user>` is allowed, so
  * the hint names that directory for the user typed above.

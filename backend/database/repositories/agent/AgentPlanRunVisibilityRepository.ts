@@ -46,7 +46,6 @@ type UsedResources = AgentPlanRunVisibilityBasis["used"];
 
 /**
  * Reads a stored run status.
- *
  * @throws {AgentError} `plan_invalid` for a status no run has.
  */
 export function readRunStatus(input: string): AgentPlanRun["status"] {
@@ -66,7 +65,6 @@ export function readRunStatus(input: string): AgentPlanRun["status"] {
 
 /**
  * Combines the resources of a run's execution bases, newest first.
- *
  * @param texts - The stored snapshots, the newest continuation first.
  * @throws {AgentError} `plan_access_denied` when the run has no basis.
  */

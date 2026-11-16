@@ -37,8 +37,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpWikiHandlers {
 }
 
 /**
- * Reads a page (`GET /api/mcp/v1/wiki/pages/{id}`) and changes it (`PATCH`), PAGE-257 interface 3 and 5.
- *
+ * Reads a page (`GET /api/mcp/v1/wiki/pages/{id}`) and changes it (`PATCH`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

@@ -15,10 +15,8 @@ interface TicketAssigneeSightControls {
 
 /**
  * Warns when the person or group assigned to a ticket cannot see it.
- *
  * @param ticket - The ticket being assigned.
  * @returns The check to run on each assignment and the notice to render.
- *
  * @remarks
  * The offer adds a department of the assignee to the ticket through the same
  * action as the department chips, so the server applies the usual rights.

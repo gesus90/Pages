@@ -79,7 +79,6 @@ function toProfileErrorCode(error: unknown): ProfileUpdateErrorCode {
 
 /**
  * Reads the personal profile form.
- *
  * @returns The trimmed values, or `null` when a field is missing, empty, too
  * long, or the email address is malformed.
  */
@@ -207,7 +206,7 @@ export const handleUpdateAvatar: SettingsActionHandler = async ({
   }
 };
 
-/** Sets the person color of the own account (PAGE-266); open to every signed-in user. */
+/** Sets the person color of the own account; open to every signed-in user. */
 export const handleUpdateColor: SettingsActionHandler = async ({
   user,
   formData,

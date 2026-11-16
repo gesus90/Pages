@@ -68,17 +68,16 @@ export interface AgentToolkitJobInput {
   readonly hiddenDirectories?: readonly string[];
   readonly launcher?: AgentShellLauncher;
   readonly readPage?: AgentWebPageReader;
-  /** The interim messages and questions bound to the job's chat (PAGE-391). */
+  /** The interim messages and questions bound to the job's chat. */
   readonly interactions?: AgentChatInteractions;
-  /** The scheduled tasks bound to the job's chat (PAGE-392). */
+  /** The scheduled tasks bound to the job's chat. */
   readonly chatTasks?: AgentChatTasks;
-  /** The history search bound to the job's agent and chat (PAGE-393). */
+  /** The history search bound to the job's agent and chat. */
   readonly history?: AgentChatHistory;
 }
 
 /**
- * Creates the toolkit of one chat job of an agent employee (PAGE-390).
- *
+ * Creates the toolkit of one chat job of an agent employee.
  * @returns The job; its background runs end with {@link closeAgentToolkitJob}.
  */
 export function createAgentToolkitJob(
@@ -130,9 +129,7 @@ const PREVIEWING_OPERATIONS: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * Whether a Pages operation is a consequential step: deleting or archiving
- * (PAGE-390).
- *
+ * Whether a Pages operation is a consequential step: deleting or archiving.
  * @remarks
  * Archiving a ticket and deleting a calendar event preview without
  * `confirmed`; only the call that acts needs the approval, which Pages binds
@@ -170,8 +167,7 @@ export function requireApproval(
 }
 
 /**
- * Guards one Pages operation of an agent employee's job (PAGE-390).
- *
+ * Guards one Pages operation of an agent employee's job.
  * @returns `null` to run it, or the refusal: `TOOL_GROUP_DISABLED` without
  * the Pages group, `READ_ONLY_ACCESS` for a write in `read` mode, or the
  * request for the person's approval of a consequential step.
@@ -200,10 +196,9 @@ export function guardPagesOperation(
 }
 
 /**
- * Guards one call of the own-account browser (PAGE-390): a writing browser
+ * Guards one call of the own-account browser: a writing browser
  * tool in `read` mode is refused, and a form the call submits is a
  * consequential step, since it may send, order or pay something.
- *
  * @returns `null` to run it, or the refusal or approval request.
  */
 export function guardBrowserCall(
@@ -261,8 +256,7 @@ async function runToolkitTool(
 
 /**
  * Registers the shell, file and web tools of the toolkit on the registry of
- * one turn (PAGE-390).
- *
+ * one turn.
  * @param registry - The registry of the turn.
  * @param parts - The toolkit of the job, the turn's human message, the
  * reauthorization and the budget of the turn.
@@ -285,7 +279,7 @@ export function registerAgentToolkitTools(
       admit,
     });
   const { history } = binding.job;
-  // The history search reads chats: the chat group decides (PAGE-393).
+  // The history search reads chats: the chat group decides.
   if (history && binding.job.policy.chat !== "off")
     registerAgentChatHistoryTools(registry, { history, admit });
   const { chatTasks } = binding.job;
@@ -319,7 +313,7 @@ export function registerAgentToolkitTools(
 /**
  * Applies the policy of the job to the whole registry of a turn: every tool
  * of a group that is off, and every writing tool of a group in `read` mode,
- * is neither listed nor callable (PAGE-390).
+ * is neither listed nor callable.
  */
 export function applyAgentToolPolicy(
   registry: RuntimeToolRegistry,
@@ -339,7 +333,7 @@ function callResult(call: RuntimeToolCall): string {
 /**
  * Records every call of the bridge of an agent employee's job in the server
  * log: agent, chat, tool, time, duration and result, never the arguments or
- * the output (PAGE-390).
+ * the output.
  */
 export function auditAgentToolCalls(
   registry: RuntimeToolRegistry,

@@ -76,12 +76,10 @@ function withoutSource<Node extends BindingHolder>(
 
 /**
  * Moves a ticket or value node of the grid into a stack, as its last entry.
- *
  * @param plan - The plan.
  * @param stackId - The stack that takes the node.
  * @param nodeId - The ticket or parameter node; it leaves the grid.
  * @returns The plan with what the move cost, or why the stack refused the node.
- *
  * @remarks
  * The node becomes data of the stack, so inputs that read it directly lose
  * that binding; they read the stack's content instead once connected to it.
@@ -156,8 +154,7 @@ export function addPlanStackTicket<Plan extends AgentPlanInput>(
 }
 
 /**
- * Adds a file as the last entry of a stack (PAGE-268); a full stack stays as it is.
- *
+ * Adds a file as the last entry of a stack; a full stack stays as it is.
  * @param plan - The plan.
  * @param stackId - The stack.
  * @param entry - The new entry's identifier and the stored file.
@@ -180,7 +177,6 @@ export function addPlanStackAsset<Plan extends AgentPlanInput>(
 
 /**
  * Moves an entry one place up or down; the order is the order of the handover.
- *
  * @param stack - The stack.
  * @param entryId - The entry to move.
  * @param offset - `-1` moves it one place earlier, `1` one place later.

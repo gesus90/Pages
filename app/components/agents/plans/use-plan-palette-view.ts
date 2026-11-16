@@ -15,7 +15,6 @@ export interface PlanPaletteView {
 
 /**
  * The open state and tab of the palette overlay.
- *
  * @remarks
  * Both stay in the editor only; neither touches the graph, the canvas size
  * or its viewport.

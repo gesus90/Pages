@@ -53,8 +53,7 @@ export function isChatDocumentType(contentType: string): boolean {
 }
 
 /**
- * Reads the text of a PDF or an accepted Office document (PAGE-92).
- *
+ * Reads the text of a PDF or an accepted Office document.
  * @param contentType - The type Pages determined at the upload.
  * @param bytes - The complete file; at most {@link CHAT_DOCUMENT_BYTES}.
  * @returns The document, or why its text cannot be read.

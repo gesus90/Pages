@@ -98,9 +98,8 @@ function toView(entry: StoredAgentLogbookEntry): AgentLogbookEntryView {
 }
 
 /**
- * The tab "Lagebuch" of the agent settings (PAGE-377): the entries a viewer
+ * The tab "Lagebuch" of the agent settings: the entries a viewer
  * may see, the settings of the agent and the removal of entries.
- *
  * @remarks
  * A viewer sees the entries of the chats they take part in: their own direct
  * chat with the agent and the groups they belong to; an administrator sees
@@ -117,7 +116,6 @@ export class AgentLogbookAdministration {
 
   /**
    * Reads the Lagebuch of an agent as the viewer may see it.
-   *
    * @throws {AgentEmployeeError} `notFound` for an account that is no agent.
    */
   public async overview(
@@ -174,7 +172,6 @@ export class AgentLogbookAdministration {
   /**
    * Saves the limit, the quiet time and the summary model of an agent, and
    * drops the oldest entries beyond a lowered limit.
-   *
    * @throws {AgentEmployeeError} `forbidden` for a viewer who is no
    * administrator, `invalidInput` for a value outside its range or a model
    * the administrator may not choose, `notFound` for an account that is no
@@ -210,7 +207,6 @@ export class AgentLogbookAdministration {
   /**
    * Removes entries the viewer sees; IDs of entries they do not see, of other
    * agents or of none are ignored.
-   *
    * @throws {AgentEmployeeError} `invalidInput` for a malformed list,
    * `notFound` for an account that is no agent.
    */

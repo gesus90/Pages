@@ -42,8 +42,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpUserHandlers {
 }
 
 /**
- * Reads a department (`GET /api/mcp/v1/departments/{departmentId}`), renames it (`PATCH`) and deletes it (`DELETE`), PAGE-280.
- *
+ * Reads a department (`GET /api/mcp/v1/departments/{departmentId}`), renames it (`PATCH`) and deletes it (`DELETE`).
  * @remarks
  * Only the device token of a paired machine admits a request; the rights of
  * its account are read again on every call. See `docs/McpUserManagement.md`.

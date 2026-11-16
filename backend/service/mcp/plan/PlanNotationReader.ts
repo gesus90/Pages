@@ -62,7 +62,6 @@ function assignments(
 
 /**
  * Names the workspace a notation asks for, so its catalog can be loaded first.
- *
  * @param document - The read notation.
  */
 export function readPlanNotationHead(
@@ -156,7 +155,7 @@ function readSharing(
 }
 
 /**
- * Reads a notation into a plan, as the editor would have built it (PAGE-250).
+ * Reads a notation into a plan, as the editor would have built it.
  *
  * @remarks
  * The plan attributes come first, then every node and frame, then every

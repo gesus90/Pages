@@ -1,7 +1,7 @@
-# PAGE-378: Wiki-Entwurf für „Agents: Festlegungen“
+# Wiki-Entwurf für „Agents: Festlegungen“
 
 Ziel-Seite: [Agents: Festlegungen](/wiki/93eb063a-a63c-4cac-8393-af182291a582).
-Der folgende Abschnitt ersetzt „DREAM.md – Lehren“ und den einen Zeitpunkt des Traumlaufs aus PAGE-305 und baut auf dem Lagebuch aus PAGE-377 auf.
+Der folgende Abschnitt ersetzt „DREAM.md – Lehren“ und den einen Zeitpunkt des Traumlaufs aus der früheren Gedächtnisregel und baut auf dem Lagebuch auf.
 
 ---
 
@@ -13,7 +13,7 @@ Der folgende Abschnitt ersetzt „DREAM.md – Lehren“ und den einen Zeitpunkt
 
 - Ein/Aus (`is_learning_enabled`): schaltet den Zeitplan und den Anstoß durch das Lagebuch aus. „Jetzt träumen“ läuft auch dann.
 - Takt: Intervall als Zahl plus Einheit, von **1 Stunde bis 30 Tage** (Stunden 1 bis 720, Tage 1 bis 30). Stunden zählen ab dem letzten Lauf. Tage laufen zur Uhrzeit (`HH:MM`, Zeitzone des Servers; ohne eigene Zeit gilt die Zeit der Instanz, Einstellungen → Agents, Standard 03:00): täglich, jeden n-ten Tag nach dem letzten Lauf, und bei 7 Tagen auf Wunsch an einem Wochentag (1 Montag bis 7 Sonntag). Beispiele: „alle 1 Stunde“, „alle 6 Stunden“, „täglich um 02:00“, „jeden Montag um 02:00“, „alle 30 Tage um 02:00“.
-- „Bei vollem Lagebuch“ (`dream_on_full_logbook`, Standard an): Das Lagebuch stößt bei etwa 80 % Füllung einen Lauf an (PAGE-377), höchstens einmal je Stunde.
+- „Bei vollem Lagebuch“ (`dream_on_full_logbook`, Standard an): Das Lagebuch stößt bei etwa 80 % Füllung einen Lauf an, höchstens einmal je Stunde.
 - Modell für Dreaming (`dream_connection_id`, `dream_model`): ein Modell, das der Administrator wählen darf; ohne eigene Wahl das Modell des Agents. Ein Modell, das die Regel für Agents nicht mehr erfüllt, fällt auf das eigene Modell zurück.
 - Der nächste Lauf ist der erste Zeitpunkt des Takts nach dem letzten Lauf (`nextDreamRun`); ein Lauf, der spät kam, verschiebt die folgenden. Die Anzeige im Reiter und das Starten durch den Planer (`AgentLearningScheduler`, jede Minute) rechnen dieselbe Funktion.
 - **Nur in der Ruhepause.** Ein Lauf startet nur, wenn der Agent in keinem Chat arbeitet (eine Runde läuft oder wartet). Ein geplanter Lauf bleibt sonst fällig und startet beim nächsten ruhigen Blick des Planers. „Jetzt träumen“ und der Anstoß des Lagebuchs merken sich ihren Wunsch (`dream_requested_at`, `dream_requested_trigger`) und laufen in der nächsten Ruhepause; der Reiter zeigt „wartet auf eine Ruhepause“.
@@ -43,4 +43,4 @@ Der folgende Abschnitt ersetzt „DREAM.md – Lehren“ und den einen Zeitpunkt
 
 **Oberfläche.** Die Reiter „Dreaming“ und „Lektionen & Rezepte“ im Popup „Agent-Einstellungen“ öffnen sich über „Dreaming, Lektionen & Rezepte …“ im Kontextmenü eines Agents im Chat und über Einstellungen → Agents. Endpunkte: `/chat-page-api/agent-dreaming` (lesen, `save-settings`, `run-now`) und `/chat-page-api/agent-lessons` (lesen, `save-lesson`, `set-lesson-active`, `remove-lesson`, `save-recipe`, `set-recipe-active`, `remove-recipe`). Den Zeitplan sehen alle; Protokoll, `MEMORY.md`, `DREAM.md`, Lektionen und Rezepte sehen und ändern nur Administratoren im Admin-Modus, denn sie halten, was der Agent aus den Chats seiner Leute gelernt hat; nur sie speichern den Zeitplan und starten „Jetzt träumen“.
 
-**Nicht Teil davon:** die Sitzungsverwaltung je Chat (PAGE-376) und Aufbau und Werkzeuge des Lagebuchs (PAGE-377).
+**Nicht Teil davon:** die Sitzungsverwaltung je Chat und Aufbau und Werkzeuge des Lagebuchs.

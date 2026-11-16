@@ -43,7 +43,6 @@ const PlanTemplateDialog = lazy(async () => ({
 
 /**
  * The execution plan uses React Flow for rendering, measurement, connections and viewport gestures.
- *
  * @remarks
  * The canvas fills its container. Page controls, the zoom bar and notices
  * share a floating stack outside its gestures and keyboard shortcuts.

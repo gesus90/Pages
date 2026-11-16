@@ -32,7 +32,6 @@ import type {
 /**
  * An agent with its flow IN and OUT, one row per input of its template, its
  * optional event IN, its boolean and its text result and its model.
- *
  * @remarks
  * Its height follows the number of inputs (plan-layout.ts). While a run of
  * the same revision is shown, the card takes the colors of its status and

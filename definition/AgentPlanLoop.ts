@@ -34,7 +34,6 @@ export const PLAN_LOOP_MEMBER_COUNT = 50;
 
 /**
  * How the number of iterations counts.
- *
  * @remarks
  * `max` runs at most that many iterations and may end earlier on its end
  * condition; `expected` runs exactly that many and ignores the condition.
@@ -43,7 +42,6 @@ export type AgentPlanLoopCountMode = "max" | "expected";
 
 /**
  * What happens to the ACP session of a member agent between two iterations.
- *
  * @remarks
  * `reuse` keeps one process and ACP session per agent node for the whole run
  * of the loop and sends each further iteration as a new turn. `fresh` opens a
@@ -60,7 +58,6 @@ export type AgentPlanLoopMember = AgentPlanStep | AgentPlanScript;
 
 /**
  * What a loop holds: agents, scripts and groups of agents.
- *
  * @remarks
  * A group inside a loop keeps its meaning: its agents share one session and
  * work strictly one after another. The loop alone never makes agents share a
@@ -70,7 +67,6 @@ export type AgentPlanLoopContent = AgentPlanLoopMember | AgentPlanGroup;
 
 /**
  * How a loop decides whether another iteration runs.
- *
  * @remarks
  * `count` runs a number of iterations: a fixed number or a bound value (a
  * parameter or the count output of a stack). `while` checks a boolean before
@@ -81,7 +77,6 @@ export type AgentPlanLoopMode = "count" | "while";
 
 /**
  * Where a while loop takes its boolean before the second and every later iteration.
- *
  * @remarks
  * The first check always reads the bound boolean (`bindings.while`). With a
  * source member, every later check reads the newest result of that member at
@@ -104,7 +99,6 @@ export type AgentPlanLoopValue =
 
 /**
  * The early end condition of a loop in `max` mode.
- *
  * @remarks
  * It stays saved while the loop counts `expected` or the condition is off,
  * but only an enabled condition of a `max` loop is ever evaluated.
@@ -121,7 +115,6 @@ export interface AgentPlanLoopCondition {
 
 /**
  * A loop: a container whose agent and script members repeat as one subgraph.
- *
  * @remarks
  * Outwardly the loop is one flow node with an entry and an exit; the outer
  * graph stays acyclic and the iterations repeat the inner one. Members carry
@@ -135,8 +128,7 @@ export interface AgentPlanLoop extends AgentPlanPosition {
   readonly name: string;
   readonly steps: readonly AgentPlanLoopContent[];
   /**
-   * Decisions of the iterations (PAGE-286); absent in loops without one.
-   *
+   * Decisions of the iterations; absent in loops without one.
    * @remarks
    * A decision decides anew in every iteration, and what it skips is skipped
    * for that iteration only.
@@ -165,7 +157,6 @@ const PATH_SEGMENT = /^(?:\.([A-Za-z_][A-Za-z0-9_]{0,63})|\[(\d{1,3})\])/u;
 
 /**
  * Reads a JSON path of an end condition.
- *
  * @param path - `$` followed by `.name` and `[index]` segments, such as `$.review.end` or `$.items[0].done`.
  * @returns The segments, or `null` for an empty, too long or otherwise
  * unsupported path. No wildcard, filter, recursion or script is part of it.
@@ -199,7 +190,6 @@ export function isPlanLoopRuns(runs: unknown): runs is number {
 
 /**
  * Reads a count from the text of a parameter, strictly as decimal digits.
- *
  * @returns The number, or `null` for anything else: signs, fractions,
  * exponents, spaces, leading zeros and expressions are refused, never rounded.
  */
@@ -210,7 +200,6 @@ export function readPlanLoopRunsText(text: string): number | null {
 
 /**
  * Tells whether a bound value is an allowed count: 0 to 999.
- *
  * @remarks
  * A bound 0 is a valid empty case, such as an empty stack: the loop runs no
  * iteration and continues through its exit. A fixed count stays 1 to 999.
@@ -258,7 +247,6 @@ export function planLoopMembers(
 
 /**
  * Applies a change to every runnable member of a loop, the agents of its groups included.
- *
  * @param loop - The loop to change.
  * @param transform - The change; it keeps the type of the member it gets.
  */
@@ -380,7 +368,6 @@ export function planLoopOf(
 
 /**
  * Expands loops into their members for static graph checks.
- *
  * @remarks
  * The saved outer graph and the run snapshot keep the loop as one node. This
  * view only lets reachability, cycle and order checks see the members: an

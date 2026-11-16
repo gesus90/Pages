@@ -24,7 +24,7 @@ export interface NewProjectActivity {
   readonly category: ProjectActivityCategory;
   readonly action: string;
   readonly message: string;
-  /** Ticket reference used solely to enforce F9 on generated integration events. */
+  /** Ticket reference that generated integration events carry. */
   readonly workItemId?: string;
   /** Wiki reference used to filter activity with the current page visibility. */
   readonly wikiPageId?: string;
@@ -73,7 +73,6 @@ export class ProjectActivityRepository {
 
   /**
    * Creates a project activity repository.
-   *
    * @param database - Central database access.
    */
   public constructor(

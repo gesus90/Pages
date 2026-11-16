@@ -131,7 +131,7 @@ impl DecisionClient {
         validate(response, sessions, events)
     }
 
-    /// Asks whether a browser session may read the detailed service status (PAGE-238).
+    /// Asks whether a browser session may read the detailed service status.
     ///
     /// The answer is never kept: every detailed request asks again, so a
     /// revoked admin right or an ended session shows no details at once.

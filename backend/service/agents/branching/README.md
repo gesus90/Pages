@@ -1,4 +1,4 @@
-# Decision, boolean result and event retrigger (PAGE-174, PAGE-286)
+# Decision, boolean result and event retrigger
 
 A `decision` plan node lets a plan branch on a boolean or on the answer of a
 decision model, and an event lets a later node hand new information back to an
@@ -38,12 +38,12 @@ again in the next round (`branchBoundary`); boolean results on remote targets
 ticket work gate (`branchGate`). A decision needs exactly one data source and
 every output connected before Play (`decisionCondition`, `decisionBranch`).
 
-## The decision node (PAGE-286)
+## The decision node
 
 `AgentPlanDecision` (`definition/AgentPlan.ts`, helpers in
 `definition/AgentPlanDecision.ts`) has two functions, `mode`:
 
-- **`boolean`** (default; absent in every decision before PAGE-286). The data
+- **`boolean`** (default; absent in older decisions). The data
   input is the boolean result of an agent (edge `passed-out` → `condition-in`)
   or a boolean parameter (`input: { kind: "source" }`, format `boolean`, text
   `true` or `false`; `false` is a value). It decides without a model and has
@@ -206,7 +206,7 @@ takes another node's or another run's session: the session key is
 waited for capacity, then paused) leaves the key free, so Resume opens the
 session instead of failing with `plan_group_session_lost`.
 The report requirements are repeated with every turn, so the boolean result
-stays valid for follow-ups. Retries of a technical session error (PAGE-191) work
+stays valid for follow-ups. Retries of a technical session error work
 as for any agent: a native resume continues the session; without one, a failed
 first start opens a clean session and a failed follow-up start is `recovered`
 (main instruction, inputs and the news in a new session). The session of an
@@ -222,7 +222,7 @@ that a retry must never replace.
   and only the first completion of a node has one. Only a plan with an event
   connection lets a node settle more than once, so only there is a completed
   node no longer immutable; a plan with a decision alone keeps that guard.
-- Since PAGE-356 a failed run can be resumed from its durable results, private
+- A failed run can be resumed from its durable results, private
   event bookkeeping and activation history. Consumed events are not emitted
   twice; the failed activation keeps its original news. Saved revisions apply
   to unfinished work, and completed or skipped branches stay completed. Stop

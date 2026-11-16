@@ -15,10 +15,9 @@ export interface AgentChatSummary {
 }
 
 /**
- * What the memory of agents reads about chats (PAGE-305): the summary of a
+ * What the memory of agents reads about chats: the summary of a
  * chat session, whether a chat is confidential, and the members of a
  * stored conversation.
- *
  * @remarks
  * A direct chat of a person with an agent is confidential per agent and
  * person; a stored conversation for all its members and agents.
@@ -78,7 +77,6 @@ export class AgentChatMemoryRepository {
 
   /**
    * Whether a chat is marked confidential.
-   *
    * @param agentId - The agent whose direct chat is meant; ignored for a conversation.
    * @param chat - The chat.
    */
@@ -111,10 +109,9 @@ export class AgentChatMemoryRepository {
   }
 
   /**
-   * Whether a stored conversation is confidential for an agent (PAGE-376): it
+   * Whether a stored conversation is confidential for an agent: it
    * is marked itself, or it is a direct conversation with a person whose chat
    * with the agent is marked confidential.
-   *
    * @param agentId - The agent that asks.
    * @param conversationId - The conversation.
    */
@@ -151,7 +148,6 @@ export class AgentChatMemoryRepository {
 
   /**
    * Marks the direct chat of a person with an agent confidential or not.
-   *
    * @returns Whether the chat exists; a chat without any message has none yet.
    */
   public async setDirectConfidential(

@@ -27,8 +27,7 @@ const COMPONENT = "ConversationRoundFollowUps";
 
 /**
  * Coordinates durable batches and their timers without holding an agent
- * session open (PAGE-337, PAGE-349).
- *
+ * session open.
  * @remarks
  * Every explicit @ mention of other agents in an answer opens a batch for
  * its author, whatever the sentence says. The replies of the mentioned
@@ -78,7 +77,6 @@ export class ConversationRoundFollowUps {
   /**
    * Opens a batch for every explicit @ mention of other agents and collects
    * the replies that mention an earlier questioner.
-   *
    * @returns The questioners whose batch holds this answer; they get no separate hand-over.
    */
   public async observe(
@@ -111,7 +109,6 @@ export class ConversationRoundFollowUps {
 
   /**
    * Restores the round of a stored batch or hand-over.
-   *
    * @returns `null` when the person or the conversation is gone.
    */
   public async restore(

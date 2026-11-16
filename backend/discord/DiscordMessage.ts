@@ -18,7 +18,6 @@ const EVENT_LABELS: Readonly<Record<DiscordEventType, string>> = {
 
 /**
  * The facts a notification states, stored in the outbox until it is sent.
- *
  * @remarks
  * Only what the message shows: no description, no person and no comment text.
  */
@@ -35,11 +34,9 @@ export interface DiscordNotificationContent {
 
 /**
  * Makes a text from a user safe to show in a Discord message.
- *
  * @param text - Title or name that anyone with write access chose.
  * @returns One line of at most 160 characters in which nothing can ping
  * someone, mention a channel, format the message or form a link.
- *
  * @remarks
  * This is the second layer. The first is `allowed_mentions` with an empty
  * `parse` list on every message, which stops a ping even when this function

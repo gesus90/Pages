@@ -25,8 +25,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpWorkspaceHandlers {
 }
 
 /**
- * Checks a remote workspace again over SSH (`POST /api/mcp/v1/workspaces/{id}/check`), PAGE-245 interface 5.
- *
+ * Checks a remote workspace again over SSH (`POST /api/mcp/v1/workspaces/{id}/check`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

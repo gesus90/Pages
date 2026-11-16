@@ -42,7 +42,6 @@ export class GitHubIssuePusher {
 
   /**
    * Creates an issue pusher.
-   *
    * @param taskRepository - Task persistence boundary storing the link state.
    * @param contextLoader - Resolver of the repository, token, and client.
    * @param now - Clock providing synchronization timestamps.
@@ -67,7 +66,6 @@ export class GitHubIssuePusher {
 
   /**
    * Pushes one task to GitHub, creating the remote issue when missing.
-   *
    * @param actor - User owning the change.
    * @param item - Fresh task detail after its Pages mutation.
    */
@@ -117,7 +115,6 @@ export class GitHubIssuePusher {
 
   /**
    * Writes the differing task values to the linked issue.
-   *
    * @param run - Task, its issue, and the counters of the current run.
    * @param alsoApply - Further local writes of the same change, such as
    * clearing a resolved conflict; they commit with the link and the event.
@@ -164,7 +161,6 @@ export class GitHubIssuePusher {
 
   /**
    * Creates the GitHub issue of an unlinked task and links both sides.
-   *
    * @param sync - Resolved repository, token, and client.
    * @param actor - User owning the change.
    * @param item - Task becoming an issue.

@@ -23,7 +23,6 @@ async function requireOwnDirectory(directory: string): Promise<void> {
 
 /**
  * The private working directory of each Pica conversation.
- *
  * @remarks
  * An agent session continues only in the directory it started in, so every
  * conversation keeps one fixed directory. The session mounts it read-only.
@@ -38,7 +37,6 @@ export class PicaAcpWorkspace {
 
   /**
    * Creates the directories below one root.
-   *
    * @param root - A folder outside the data and agent folders.
    */
   public constructor(root: string) {
@@ -88,7 +86,6 @@ export class PicaAcpWorkspace {
 
   /**
    * Returns the directory of a conversation and creates it when needed.
-   *
    * @throws {Error} When the root or the directory is a link or not the server account's own.
    */
   public prepare(sessionId: string): Promise<string> {

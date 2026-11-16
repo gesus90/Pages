@@ -12,7 +12,6 @@ import type { UserNotificationKey, UserSettings } from "@/definition/Settings";
 
 /**
  * Reads the notification switches of the settings form.
- *
  * @returns Every switch as a boolean, or `null` when one is missing or no
  * `on`/`off` value.
  */

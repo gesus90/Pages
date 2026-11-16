@@ -30,12 +30,10 @@ export type McpAgentProfileHandler = (
 
 /**
  * Whether a request asks for the administration view of the old agent routes.
- *
  * @param request - The request.
- *
  * @remarks
- * The paths of the profile reads (PAGE-308) are those of the administration
- * of agents (PAGE-267, PAGE-280). The administration view stays reachable
+ * The paths of the profile reads are those of the administration
+ * of agents. The administration view stays reachable
  * with `?view=administration`; without it a `GET` answers the profile.
  */
 export function isAdministrationView(request: Request): boolean {
@@ -44,7 +42,6 @@ export function isAdministrationView(request: Request): boolean {
 
 /**
  * The query of an administration view request without the `view` switch.
- *
  * @param request - The request.
  */
 export function administrationQuery(request: Request): URLSearchParams {
@@ -73,12 +70,10 @@ function failure(error: unknown): Response {
 }
 
 /**
- * Runs one profile read (PAGE-308) as a `GET` with the device token.
- *
+ * Runs one profile read as a `GET` with the device token.
  * @param request - The request of the machine.
  * @param handler - Computes the answer from the actor and the request.
  * @returns The answer; a failure answers `{ "error": "<code>" }`, with `reason` for `invalid_request`.
- *
  * @remarks
  * Only the bearer token of a paired machine admits a request. The rights of
  * the account are decided again on every call by the service the user

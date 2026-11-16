@@ -18,7 +18,6 @@ import type { PlanAgentServices } from "./plan-agent-services.server";
 
 /**
  * Builds the PageAgentCLI sessions of plan nodes on the plan service's run access.
- *
  * @remarks
  * Deliveries a stopped server left on the way become `uncertain` before any
  * run starts; none is repeated automatically.

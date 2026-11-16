@@ -73,12 +73,10 @@ import type {
 
 /**
  * Plan sources and execution dependencies are deliberately separate contracts.
- *
  * @remarks
  * `previous` is only valid on a member of a loop: it hands the result a member
  * had in the previous iteration to an input. The first iteration has no such
  * result, so the input must then have a default value of its own.
- *
  * `stack` reads one of the two data outputs of a stack node: the entry its
  * newest trigger handed over, or the number of its entries. Reading never
  * triggers the stack and never consumes an entry.
@@ -101,7 +99,6 @@ export interface AgentPlanPosition {
 
 /**
  * What a step means to the end of its run, as the plan declares it.
- *
  * @remarks
  * `closeout` marks the closing Git step: when only such a step fails, the work
  * of the run counts as done and the run ends as `work_done_closeout_open`.
@@ -133,9 +130,8 @@ export interface AgentPlanStep extends AgentPlanPosition {
 
 /**
  * One named value; numbers retain their numeric type while JSON uses a text port.
- *
  * @remarks
- * `boolean` holds the text `true` or `false` (PAGE-286); `false` is a value,
+ * `boolean` holds the text `true` or `false`; `false` is a value,
  * not a missing one. Only a boolean parameter feeds the input of a boolean
  * decision.
  */
@@ -149,7 +145,6 @@ export interface AgentPlanParameter extends AgentPlanPosition {
 
 /**
  * A decision: decides once per activation and activates exactly one of its outputs.
- *
  * @remarks
  * The sequence input (`flow-in`) decides when it decides; the data input
  * (`condition-in`) supplies what it decides on. In the `boolean` mode
@@ -157,9 +152,9 @@ export interface AgentPlanParameter extends AgentPlanPosition {
  * edge from its `passed-out`, or a boolean parameter bound as `input`; no
  * model is called. In the `model` mode the bound `input` is a ticket or the
  * text result of an agent or script, and a model of an ACP connection answers
- * the question in a short session of its own (PAGE-286). Every activation
+ * the question in a short session of its own. Every activation
  * decides anew; an earlier decision is never a lasting choice. The settings
- * beyond `name` are absent in decisions saved before PAGE-286.
+ * beyond `name` are absent in older decisions.
  */
 export interface AgentPlanDecision extends AgentPlanPosition {
   readonly id: string;
@@ -178,10 +173,9 @@ export interface AgentPlanDecision extends AgentPlanPosition {
   readonly cases?: readonly AgentPlanDecisionCase[];
   /**
    * The bound data input: a boolean parameter, a ticket or a text result.
-   *
    * @remarks
    * The boolean result of an agent arrives as an edge to `condition-in`
-   * instead, as before PAGE-286. A decision has at most one of the two.
+   * instead, as in older decisions. A decision has at most one of the two.
    */
   readonly input?: AgentPlanBinding;
 }
@@ -231,7 +225,6 @@ export interface AgentPlanInput {
   readonly projectId?: string;
   /**
    * Where the agent and script nodes run unless a node names its own target.
-   *
    * @remarks
    * Absent means the Pages host, as in plans saved before plan targets. A
    * remote target names a registered remote workspace of the plan's project,
@@ -240,8 +233,7 @@ export interface AgentPlanInput {
    */
   readonly executionTarget?: AgentPlanExecutionTarget;
   /**
-   * Marks a one-time plan (PAGE-309).
-   *
+   * Marks a one-time plan.
    * @remarks
    * Pages deletes the plan with its runs five minutes after a run ends as
    * `succeeded`. Absent means a normal plan.
@@ -261,20 +253,17 @@ export interface AgentPlan extends AgentPlanInput {
   readonly revision: number;
   /**
    * The department whose members and leaders share the plan, set when the plan is created.
-   *
    * @remarks
    * Together with the access to the project it decides who reads, changes and
    * runs the plan besides its owner. Absent or `null` for a plan without a
    * team: one stored before teams, or created by a person with no or several
    * departments. Saving never derives it again.
-   *
-   * Since PAGE-329 it is the name space of the plan: the first department of
+   * It is the name space of the plan: the first department of
    * {@link teams}. The rights come from {@link teams}.
    */
   readonly departmentId?: string | null;
   /**
-   * The groups and departments that share the plan, each with its rights (PAGE-329).
-   *
+   * The groups and departments that share the plan, each with its rights.
    * @remarks
    * Read from their own table and never stored in the plan graph; a save of
    * the graph never changes them. Absent only in plans built without storage.
@@ -282,7 +271,6 @@ export interface AgentPlan extends AgentPlanInput {
   readonly teams?: readonly AgentPlanTeam[];
   /**
    * When Pages deletes this one-time plan, as an ISO 8601 UTC time.
-   *
    * @remarks
    * Set only between the successful end of a run and the deletion. It is read
    * from its own column and never stored in the plan graph.
@@ -307,7 +295,6 @@ export interface AgentPlanView extends AgentPlan {
 /**
  * A plan as lists and name checks need it: who owns it, where it belongs and
  * whether the person changes it, without its graph.
- *
  * @remarks
  * The editor page carries one summary for every plan the person may read and
  * the whole {@link AgentPlanView} only for the plan it shows.
@@ -390,7 +377,6 @@ export interface AgentPlanPage {
   readonly sources: AgentPlanSources;
   /**
    * The newest run of the person in full, or none.
-   *
    * @remarks
    * The further history is listed as {@link AgentPlanRunSummary} entries by
    * its own read endpoint; a run of it is read in full when it is chosen.
@@ -401,7 +387,6 @@ export interface AgentPlanPage {
 
 /**
  * The state of a node in a run.
- *
  * @remarks
  * `skipped` marks a node on a branch a decision did not activate; it never
  * ran and nothing waits for it.
@@ -424,7 +409,6 @@ export interface AgentPlanActivationSource {
 
 /**
  * What started a node again: results of other nodes arrived at its event input.
- *
  * @remarks
  * The prompt is made of those results, which the run already shows; the
  * trigger names the nodes and starts it was made of, and its size. Results
@@ -438,9 +422,8 @@ export interface AgentPlanActivationTrigger {
 
 /**
  * The boolean a decision evaluated: the result of one start of one agent, or a boolean parameter.
- *
  * @remarks
- * `sourceKind` is absent for an agent, as in every record before PAGE-286. A
+ * `sourceKind` is absent for an agent, as in every older record. A
  * parameter is read from the snapshot of the run; its `sourceActivation` is 1.
  */
 export interface AgentPlanDecisionInput {
@@ -505,8 +488,7 @@ export interface AgentPlanStepResult {
   /** Authorized read-time projection, separate from persisted acceptance. */
   readonly progress?: AgentPlanProgress;
   /**
-   * The TODO list the CLI reported as a structured plan in this attempt (PAGE-306).
-   *
+   * The TODO list the CLI reported as a structured plan in this attempt.
    * @remarks
    * Absent when the CLI reported none. Codex completion additionally requires
    * a reported native list whose entries are all done; the configured business
@@ -515,7 +497,6 @@ export interface AgentPlanStepResult {
   readonly agentTodos?: AgentPlanAgentTodoList;
   /**
    * Which start of the node this result belongs to, counting from 1.
-   *
    * @remarks
    * Absent in runs without a decision or retrigger, where every node ran at
    * most once. Whatever settles a node is accepted only for the start it
@@ -541,7 +522,7 @@ export interface AgentPlanStepResult {
   readonly history?: readonly AgentPlanStepActivation[];
   /** What a stack node handed over in this start; `entryId: null` when it was used up. */
   readonly stack?: AgentPlanStackHandover;
-  /** Main model, helpers and board of a swarm node (PAGE-313). */
+  /** Main model, helpers and board of a swarm node. */
   readonly swarm?: AgentPlanSwarmRun;
 }
 
@@ -588,7 +569,7 @@ export interface AgentPlanRun {
   readonly recovery?: AgentPlanRecoveryReason;
   /** The earlier run an explicit restart or resume came from. */
   readonly origin?: AgentPlanRunOrigin;
-  /** When somebody first typed into a terminal of the run: the run was intervened in manually (PAGE-265). */
+  /** When somebody first typed into a terminal of the run: the run was intervened in manually. */
   readonly manualInputAt?: string;
   readonly steps: readonly AgentPlanStepResult[];
   /** The iterations and sessions of the loops of the plan; absent in runs without a loop. */

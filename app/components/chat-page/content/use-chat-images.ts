@@ -51,8 +51,7 @@ function readImage(
 }
 
 /**
- * Reads the answer of `GET /chat/images/<conversationId>` (PAGE-382).
- *
+ * Reads the answer of `GET /chat/images/<conversationId>`.
  * @param body - The parsed JSON body.
  * @returns The images it lists; entries of another shape are left out.
  */
@@ -61,9 +60,8 @@ export function readChatImages(body: unknown): ConversationImage[] {
 }
 
 /**
- * Reads the answer of `GET /chat/images/<id>` (PAGE-382) or
- * `GET /chat/videos/<id>` (PAGE-384).
- *
+ * Reads the answer of `GET /chat/images/<id>` or
+ * `GET /chat/videos/<id>`.
  * @param body - The parsed JSON body.
  * @param kind - `image` reads the list `images`, `video` the list `videos`.
  * @returns The files it lists; entries of another shape or kind are left out.
@@ -82,15 +80,13 @@ export function readChatMedia(
 }
 
 /**
- * All images of the opened chat for the viewer (PAGE-382), oldest first.
- *
+ * All images of the opened chat for the viewer, oldest first.
  * @remarks
  * The images of the message that opened the viewer show at once; the list
  * of the whole chat, with the images of older messages the page has not
  * loaded yet, follows from the server, which shows it only to members. When
  * it cannot be read, or does not contain the opened image, the images of the
  * message stay.
- *
  * @param conversationId - The stored conversation; `null` keeps the images of the message.
  * @param request - The opened image and the images of its message.
  */

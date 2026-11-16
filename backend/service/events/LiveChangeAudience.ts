@@ -32,13 +32,13 @@ export interface LiveChangeAudienceDependencies {
   readonly wiki: {
     canView(actor: User, id: string): Promise<boolean>;
   };
-  /** Whether an account is a member of a conversation (PAGE-278). */
+  /** Whether an account is a member of a conversation. */
   readonly conversations: {
     isMember(actor: User, conversationId: string): Promise<boolean>;
   };
   /**
    * Whether an account is affected by a calendar event, deleted ones
-   * included, or is a member of the project of `project:<id>` (PAGE-301).
+   * included, or is a member of the project of `project:<id>`.
    */
   readonly calendar?: {
     isAffected(actor: User, objectId: string): Promise<boolean>;
@@ -56,7 +56,6 @@ const RESYNC_EVENTS: ReadonlySet<PagesEvent["type"]> = new Set([
 
 /**
  * Tells whether an event makes every open page read everything again.
- *
  * @param type - The kind of a committed event.
  * @returns `true` for a purged page or a project whose access changed.
  */
@@ -87,7 +86,6 @@ function departmentAllows(
 
 /**
  * Decides per account and per event whether a live notice may go out.
- *
  * @remarks
  * Every decision reads the current rights of the current account through the
  * same services the pages read with; nothing is remembered between events,
@@ -99,7 +97,6 @@ export class LiveChangeAudience {
 
   /**
    * Creates the audience check.
-   *
    * @param dependencies - The rights-checked reads of tickets, milestones, projects and pages.
    */
   public constructor(dependencies: LiveChangeAudienceDependencies) {
@@ -108,7 +105,6 @@ export class LiveChangeAudience {
 
   /**
    * Returns the notice an account may receive for an event, or `null`.
-   *
    * @param actor - The account as it is now.
    * @param event - A committed Pages event.
    */

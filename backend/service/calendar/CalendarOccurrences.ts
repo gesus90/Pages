@@ -14,7 +14,6 @@ import type {
 
 /**
  * The time of one occurrence.
- *
  * @remarks
  * A timed occurrence has `startMs` and `endMs`; an all-day occurrence has
  * `startDate` and `endDate` (inclusive) and both instants `null`.
@@ -45,7 +44,6 @@ export interface CalendarWindow {
 
 /**
  * Reads the stored time of an event or an exception.
- *
  * @param fields - Stored start, end and whether the event is all-day.
  * @param timeZone - The zone of the event; dates of a timed event are read in it.
  */
@@ -79,7 +77,6 @@ export function readStoredTime(
 
 /**
  * Computes the key of the occurrence of a series on a date.
- *
  * @param event - The series.
  * @param date - An occurrence date in the zone of the series.
  * @returns The stored form of its original start.
@@ -96,7 +93,6 @@ export function occurrenceKeyOn(
 
 /**
  * Reads the date in the zone of a series of one of its occurrence keys.
- *
  * @param event - The series.
  * @param key - A key of {@link occurrenceKeyOn}.
  */
@@ -110,7 +106,6 @@ export function occurrenceDateOf(
 
 /**
  * Turns a time a client named for an occurrence into its stored key.
- *
  * @param event - The series.
  * @param value - A date, or an instant with offset.
  */
@@ -182,7 +177,6 @@ function applyException(
 
 /**
  * Tells whether an occurrence touches a window.
- *
  * @param time - The occurrence.
  * @param window - Instants and dates of the viewer.
  */
@@ -199,13 +193,11 @@ export function touchesWindow(
 
 /**
  * Lists the occurrences of an event that touch a window.
- *
  * @param event - The stored event or series.
  * @param exceptions - Its exceptions.
  * @param window - The range of the viewer.
  * @returns The occurrences in order; a cancelled occurrence is left out and a
  * changed one carries its own values.
- *
  * @remarks
  * The rule is computed in the zone of the series, so an event at 09:00 stays
  * at 09:00 local time after a change to or from summer time.
@@ -246,7 +238,6 @@ export function expandOccurrences(
 
 /**
  * Returns the occurrence of a series with a given key, exception applied.
- *
  * @param event - The series.
  * @param exceptions - Its exceptions.
  * @param key - The stored key of the occurrence.

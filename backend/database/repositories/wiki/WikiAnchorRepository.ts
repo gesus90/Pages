@@ -14,7 +14,6 @@ export class WikiAnchorRepository {
 
   /**
    * Creates the repository.
-   *
    * @param database - Database access or the transaction to run in.
    */
   public constructor(database: DatabaseTransaction) {
@@ -23,7 +22,6 @@ export class WikiAnchorRepository {
 
   /**
    * Replaces the anchors of a page.
-   *
    * @param id - Page identifier.
    * @param anchors - The anchors the page has afterwards.
    */
@@ -57,7 +55,6 @@ export class WikiAnchorRepository {
 
   /**
    * Reads the anchors of a page with the name of each target.
-   *
    * @param id - Page identifier.
    * @returns The anchors; a vanished target has no label.
    */
@@ -94,7 +91,6 @@ export class WikiAnchorRepository {
 
   /**
    * Finds the pages tied to the given targets of one kind.
-   *
    * @param kind - Kind of the anchors.
    * @param targetIds - Departments, milestones or epics to look for.
    * @returns Each target with the identifiers of its pages; visibility is not applied.
@@ -128,7 +124,6 @@ export class WikiAnchorRepository {
 
   /**
    * Removes the anchors of the given kinds from a page and everything below.
-   *
    * @param id - Page identifier at the top of the subtree.
    * @param kinds - Anchor kinds to remove.
    */
@@ -162,7 +157,6 @@ export class WikiAnchorRepository {
 
   /**
    * Looks up the target of an anchor.
-   *
    * @param kind - Kind of the anchor.
    * @param targetId - Identifier of the department, milestone or epic.
    * @returns Where the target belongs, or `null` when it does not exist.

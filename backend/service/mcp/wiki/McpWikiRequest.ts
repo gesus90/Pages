@@ -96,7 +96,7 @@ const patchSchema = z
   .strict();
 
 // The revision is required for a page the account reads; a private page of
-// somebody else is a placeholder without one (PAGE-280).
+// somebody else is a placeholder without one.
 const deleteSchema = z
   .object({
     expectedRevision: revisionField.optional(),
@@ -165,7 +165,6 @@ function requireSomeField(
 
 /**
  * Reads the query of a request as an object of single values.
- *
  * @throws {McpWikiError} `invalid_request` for a parameter named twice.
  */
 function queryObject(query: URLSearchParams): Record<string, string> {
@@ -177,7 +176,7 @@ function queryObject(query: URLSearchParams): Record<string, string> {
   return values;
 }
 
-/** Validators of every body and query the wiki API takes (PAGE-257). */
+/** Validators of every body and query the wiki API takes. */
 export const McpWikiRequest = {
   tree: (query: URLSearchParams): McpWikiTreeRequest =>
     parse(treeSchema, queryObject(query)),

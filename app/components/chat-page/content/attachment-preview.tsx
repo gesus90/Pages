@@ -17,15 +17,14 @@ interface AttachmentPreviewButtonProps {
   readonly onOpen: () => void;
   /** Sizes and fits the preview image. */
   readonly imageClassName: string;
-  /** Replaces the frame of the button, such as for a tile of a gallery (PAGE-382). */
+  /** Replaces the frame of the button, such as for a tile of a gallery. */
   readonly className?: string;
   /** Hides the name and size of the placeholder, for a small tile. */
   readonly isCompact?: boolean;
 }
 
 /**
- * The preview image of an attachment as a button that opens it (PAGE-298).
- *
+ * The preview image of an attachment as a button that opens it.
  * @remarks
  * Only the preview image loads here, never the original. Without one, a
  * placeholder names the file and its size while the browser creates the

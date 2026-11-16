@@ -8,7 +8,6 @@ export interface AgentRunTicket {
 
 /**
  * How far the credential of an agent plan session reaches.
- *
  * @remarks
  * `tickets` allows the listed operations on the bound tickets only. `read`
  * allows every reading operation and `full` every operation of the executor;

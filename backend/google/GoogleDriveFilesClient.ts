@@ -71,7 +71,6 @@ export interface DriveListRequest {
 
 /**
  * Tells whether a value can be a Drive identifier.
- *
  * @param value - Untrusted input.
  * @returns Whether it consists of the URL-safe characters of Drive identifiers.
  */
@@ -88,7 +87,6 @@ function failure(
 
 /**
  * Translates a refused Drive request.
- *
  * @remarks
  * Drive answers `404` both for a deleted file and for one the account cannot
  * see. A `403` with `insufficientFilePermissions` means the account may not

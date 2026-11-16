@@ -15,7 +15,6 @@ export interface VisiblePagesOptions {
 
 /**
  * Builds `column IN (...)` with one placeholder per value.
- *
  * @param column - Trusted column expression.
  * @param prefix - Prefix of the placeholder names.
  * @param values - Values to match.

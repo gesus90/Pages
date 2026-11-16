@@ -92,8 +92,8 @@ async function drawImage(source: Blob): Promise<HTMLCanvasElement | null> {
 
 /**
  * What the browser read while it drew a preview: resolution and length of a
- * video (PAGE-384), page count and title of a PDF, and whether a PDF is
- * protected by a password (PAGE-385).
+ * video, page count and title of a PDF, and whether a PDF is
+ * protected by a password.
  */
 export interface ThumbnailFacts {
   readonly width?: number;
@@ -143,7 +143,7 @@ async function drawVideo(
   }
 }
 
-/** Draws the first page of a PDF and tells its page count and title (PAGE-385). */
+/** Draws the first page of a PDF and tells its page count and title. */
 async function drawPdf(
   source: Blob,
   onFacts?: (facts: ThumbnailFacts) => void,
@@ -204,16 +204,14 @@ async function encodeThumbnail(
 /**
  * Creates a preview of an image, of the frame of a video near its start, or
  * of the first page of a PDF. Runs in the browser only and never throws.
- *
  * @remarks
  * A video is read through a `blob:` address (`media-src` allows it), a PDF
  * through its bytes, because the page may not fetch a `blob:` address. Every
  * address is revoked again.
- *
  * @param source - The file or blob with the original bytes.
  * @param mimeType - The media type that decides how the bytes are read.
- * @param onFacts - Receives the resolution and length of a video (PAGE-384),
- * the page count and title of a PDF or that it is encrypted (PAGE-385).
+ * @param onFacts - Receives the resolution and length of a video,
+ * the page count and title of a PDF or that it is encrypted.
  * @returns The preview, or `null` when the browser cannot produce one, such
  * as for another type or for bytes it cannot decode.
  */

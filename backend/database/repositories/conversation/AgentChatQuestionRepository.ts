@@ -12,7 +12,7 @@ import type {
   AgentQuestionStatus,
 } from "@/definition/AgentChatQuestion";
 
-/** A stored question of an agent (PAGE-391). */
+/** A stored question of an agent. */
 export interface StoredAgentQuestion {
   readonly id: string;
   readonly messageId: string;
@@ -116,7 +116,7 @@ function toQuestion(row: readonly DatabaseValue[]): StoredAgentQuestion {
   };
 }
 
-/** Persists the questions of chat agents and their answers (PAGE-391). */
+/** Persists the questions of chat agents and their answers. */
 export class AgentChatQuestionRepository {
   private readonly database: Pick<Database, "query" | "execute">;
 

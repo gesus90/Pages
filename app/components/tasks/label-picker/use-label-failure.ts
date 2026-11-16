@@ -12,7 +12,6 @@ export interface LabelFailure {
 
 /**
  * Reports why the last label action failed.
- *
  * @remarks
  * The failure stays until another action answers or the dialog closes, so
  * reopening the dialog does not show the answer to an earlier attempt.

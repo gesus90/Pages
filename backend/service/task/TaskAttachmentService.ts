@@ -69,8 +69,7 @@ function toPublic(attachment: StoredWorkItemAttachment): WorkItemAttachment {
 }
 
 /**
- * Attaches files to tickets, lists them and serves them back (A8.2).
- *
+ * Attaches files to tickets, lists them and serves them back.
  * @remarks
  * Files are kept like wiki attachments: the type comes from the first bytes,
  * the limits of the wiki settings apply instance-wide, and the size limit is
@@ -85,7 +84,6 @@ export class TaskAttachmentService {
 
   /**
    * Creates the service.
-   *
    * @param repository - Persistence of the attachment metadata.
    * @param tickets - Ticket reads that check the access of the actor.
    * @param limits - Provides the upload limits.
@@ -105,7 +103,6 @@ export class TaskAttachmentService {
 
   /**
    * Attaches an uploaded file to a ticket.
-   *
    * @param actor - The person uploading; needs the right to change the ticket.
    * @param workItemId - Ticket identifier.
    * @param file - The upload.
@@ -205,7 +202,6 @@ export class TaskAttachmentService {
 
   /**
    * Lists the attachments of a ticket.
-   *
    * @param actor - The person reading.
    * @param workItemId - Ticket identifier.
    * @returns The attachments, oldest first.
@@ -222,7 +218,6 @@ export class TaskAttachmentService {
 
   /**
    * Opens an attachment for download.
-   *
    * @param actor - The person reading.
    * @param id - Attachment identifier.
    * @returns The attachment and its bytes.
@@ -249,7 +244,6 @@ export class TaskAttachmentService {
 
   /**
    * Removes an attachment and its file.
-   *
    * @param actor - The person removing; needs the right to change the ticket.
    * @param id - Attachment identifier.
    * @throws {WorkItemNotFoundError} When the attachment or its ticket is not visible.
@@ -265,7 +259,6 @@ export class TaskAttachmentService {
 
   /**
    * Removes stored files, for example those of tickets deleted for good.
-   *
    * @param storageNames - Names the file store gave the files.
    */
   public async removeFiles(storageNames: readonly string[]): Promise<void> {
@@ -275,7 +268,6 @@ export class TaskAttachmentService {
   /**
    * Removes files no attachment refers to any more, such as the files of a
    * deleted project or of an upload that was cut off.
-   *
    * @returns How many files were removed.
    */
   public async sweep(): Promise<number> {

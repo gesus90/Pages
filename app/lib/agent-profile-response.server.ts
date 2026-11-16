@@ -8,8 +8,7 @@ const STATUS_OF_CODE = {
 } as const;
 
 /**
- * Answers a read of the agent profiles for the user interface (PAGE-308).
- *
+ * Answers a read of the agent profiles for the user interface.
  * @param read - Reads the profile data with the rights of the signed-in person.
  * @returns The data as JSON that no cache keeps; a refusal answers `{ "error": "<code>" }`.
  */

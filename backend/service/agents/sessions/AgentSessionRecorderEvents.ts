@@ -7,7 +7,7 @@ import { MAXIMUM_EVENT_TEXT } from "./AgentSessionJournal";
 import type { SessionUpdate } from "@agentclientprotocol/sdk";
 import type { AgentSessionEventInput } from "./AgentSessionJournal";
 
-/** The Pages tool whose calls become todo lines instead of tool lines (PAGE-284). */
+/** The Pages tool whose calls become todo lines instead of tool lines. */
 export const PROGRESS_TOOL = /update_step_progress/u;
 
 /** Longest command or output kept of one tool call; the journal limits the event as a whole. */
@@ -94,8 +94,7 @@ export function describeOutput(
  * @remarks
  * A call without a title is named by its kind, never by the internal ID of
  * the call, which says nothing to a reader. The kind line (`@kind read`)
- * lets the Pages terminal name the call the same way for every provider
- * (PAGE-284).
+ * lets the Pages terminal name the call the same way for every provider.
  */
 export function toolText(state: ToolCallState, output = ""): string {
   const title = state.title.trim() || state.kind;
@@ -110,7 +109,7 @@ export function toolText(state: ToolCallState, output = ""): string {
 }
 
 /**
- * The journal text of a structured plan update (PAGE-306): JSON with the status and text of each entry.
+ * The journal text of a structured plan update: JSON with the status and text of each entry.
  *
  * @remarks
  * The journal shortens a text beyond its limit, which would break the JSON.

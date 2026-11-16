@@ -162,7 +162,6 @@ function requireSomeField(
 
 /**
  * Reads the query of a request as an object of single values.
- *
  * @throws {McpWorkspaceError} `invalid_request` for a parameter named twice.
  */
 function queryObject(query: URLSearchParams): Record<string, string> {
@@ -176,8 +175,7 @@ function queryObject(query: URLSearchParams): Record<string, string> {
 }
 
 /**
- * Validators of every body and query the workspace API takes (PAGE-245).
- *
+ * Validators of every body and query the workspace API takes.
  * @remarks
  * Every body is a strict object: an unknown field is `invalid_request`, and a
  * rejected input is never quoted. The services apply the rest of the rules

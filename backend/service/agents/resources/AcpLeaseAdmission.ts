@@ -60,7 +60,6 @@ export class AcpLeaseAdmission {
 
   /**
    * Global occupancy is visible without importing foreign leases into the cleanup map.
-   *
    * @param describe - Adds process facts and the last check to each lease.
    * @returns All leases and the plan names of the runs that hold them.
    */

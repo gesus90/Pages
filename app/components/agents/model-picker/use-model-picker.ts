@@ -23,7 +23,6 @@ export type ModelPickerItem =
 
 /**
  * Where the open panel lies and how high its list may grow.
- *
  * @remarks
  * `inline` panels hang below or above their trigger inside the page or
  * dialog. A `floating` panel, used where the trigger sits on a zoomable
@@ -98,7 +97,6 @@ const ARROW_OFFSETS: Partial<Record<string, number>> = {
 
 /**
  * The row key of a tool's header.
- *
  * @param key - The tool's group key.
  * @returns A key no model row shares.
  */

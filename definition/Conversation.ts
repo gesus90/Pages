@@ -1,7 +1,6 @@
 /**
- * Contracts of the stored conversations between people and agents (PAGE-278),
+ * Contracts of the stored conversations between people and agents,
  * shared by the web chat page and Pica Mobile.
- *
  * @remarks
  * A direct conversation exists once per pair of participants; a group has a
  * name and members who all see the same history. Muting, the read state and
@@ -26,7 +25,7 @@ export const CONVERSATION_NAME_MAXIMUM_LENGTH = 80;
 export const CONVERSATION_GROUP_MAXIMUM_MEMBERS = 50;
 
 /**
- * Most messages an answering agent reads as context (PAGE-276): the newest
+ * Most messages an answering agent reads as context: the newest
  * ones of the conversation, the message it answers included.
  */
 export const CONVERSATION_AGENT_CONTEXT_MESSAGES = 20;
@@ -39,35 +38,35 @@ export const CONVERSATION_AGENT_CONTEXT_CHARACTERS = 12_000;
 
 /**
  * Most messages in a row that agents may write in a conversation without a
- * person writing in between (PAGE-311); after them the conversation is
+ * person writing in between; after them the conversation is
  * paused until a person allows it to go on.
  */
 export const CONVERSATION_AGENT_CHAIN_MAXIMUM = 10;
 
-/** Prefix of the `clientMessageId` of a message an agent chose to send (PAGE-311). */
+/** Prefix of the `clientMessageId` of a message an agent chose to send. */
 export const CONVERSATION_AGENT_SEND_PREFIX = "agent-send-";
 
 /**
  * Prefix of the `clientMessageId` of a message a person sent from a preview
- * of the chat with `pages.chat.send` (PAGE-383). Such a message is an
+ * of the chat with `pages.chat.send`. Such a message is an
  * ordinary message of the person; the chat marks it "aus der Vorschau
  * gesendet", and it never runs as a chat command.
  */
 export const CONVERSATION_PREVIEW_SEND_PREFIX = "preview-";
 
-/** Prefix of the `clientMessageId` of the answer to a message (PAGE-276). */
+/** Prefix of the `clientMessageId` of the answer to a message. */
 export const CONVERSATION_AGENT_REPLY_PREFIX = "reply-";
 
-/** Messages one agent may send per hour while the instance sets no other limit (PAGE-311). */
+/** Messages one agent may send per hour while the instance sets no other limit. */
 export const AGENT_CHAT_HOURLY_LIMIT_DEFAULT = 30;
 
-/** The range an administrator may set the hourly limit of an agent in (PAGE-311). */
+/** The range an administrator may set the hourly limit of an agent in. */
 export const AGENT_CHAT_HOURLY_LIMIT_RANGE = {
   minimum: 1,
   maximum: 1000,
 } as const;
 
-/** The longest wait of a sending agent for the reply, in seconds: ten minutes (PAGE-311). */
+/** The longest wait of a sending agent for the reply, in seconds: ten minutes. */
 export const AGENT_CHAT_WAIT_MAXIMUM_SECONDS = 600;
 
 /** Most messages one page of the history holds. */
@@ -77,7 +76,7 @@ export const CONVERSATION_HISTORY_PAGE_SIZE = 50;
 export const CONVERSATION_VOICE_MAXIMUM_BYTES = 25 * 1024 * 1024;
 
 /**
- * Longest voice message in seconds while `config.toml` sets none (PAGE-277);
+ * Longest voice message in seconds while `config.toml` sets none;
  * `speechRecognition.maximumRecordingSeconds` sets the longest recording.
  */
 export const CONVERSATION_VOICE_DEFAULT_DURATION_SECONDS = 5 * 60;
@@ -105,9 +104,9 @@ export type ConversationKind = "direct" | "group";
 export type ConversationParticipantKind = "human" | "agent";
 
 /**
- * Why an agent did not answer (PAGE-276): it was deactivated, its cost limit
+ * Why an agent did not answer: it was deactivated, its cost limit
  * was reached, no model could run it, its answer failed, or a member stopped
- * it (PAGE-304). A message with a notice is a hint from Pages in the agent's
+ * it. A message with a notice is a hint from Pages in the agent's
  * name, never an answer.
  */
 export type ConversationNotice =
@@ -116,10 +115,10 @@ export type ConversationNotice =
   | "agent_unavailable"
   | "agent_failed"
   | "agent_stopped"
-  /** Stored by PAGE-337 only; the chat never shows it (PAGE-349). */
+  /** Stored only for round-limit notices; the chat never shows it. */
   | "round_limit"
   /**
-   * A system line of the chat (PAGE-380): a person changed the model of an
+   * A system line of the chat: a person changed the model of an
    * agent, restarted or compacted its session, or removed a member. Its text
    * is the line; it never asks an agent for an answer.
    */
@@ -192,17 +191,17 @@ export interface ConversationMessage {
   /** Present only for a hint why an agent did not answer; `text` then says it in German. */
   readonly notice?: ConversationNotice;
   /**
-   * The decision of the decision model (PAGE-379); only the chat page reads it.
+   * The decision of the decision model; only the chat page reads it.
    * On the message of a person it is the decision that nobody answers, which
    * the chat shows as a quiet line; on the answer of an agent it is the
    * decision that chose the agent, which the chat shows as "Why?".
    */
   readonly decision?: ConversationDecisionView;
-  /** The files of the message in their order (PAGE-298); empty without any. */
+  /** The files of the message in their order; empty without any. */
   readonly attachments: readonly ConversationAttachment[];
-  /** The URLs that stand alone in a line of the text (PAGE-298); empty without any. */
+  /** The URLs that stand alone in a line of the text; empty without any. */
   readonly links: readonly ConversationLink[];
-  /** Earlier attachments of the chat an agent shows again (PAGE-386); missing without any. */
+  /** Earlier attachments of the chat an agent shows again; missing without any. */
   readonly references?: readonly ConversationAttachmentReference[];
 }
 
@@ -238,7 +237,7 @@ export type ConversationErrorCode =
   | "unsupported_format";
 
 /**
- * Why a message of an agent was not sent (PAGE-311): the target is none it
+ * Why a message of an agent was not sent: the target is none it
  * may write to, the chat is none it takes part in, the conversation is paused
  * after a chain of agent messages, its hourly limit is reached, the text is
  * empty or too long or holds credentials, or the agent cannot act.
@@ -253,11 +252,11 @@ export type AgentChatErrorCode =
   | "invalid_request"
   | "agent_unavailable";
 
-/** The settings of the chat of agents (PAGE-311). */
+/** The settings of the chat of agents. */
 export interface AgentChatSettings {
   /** Messages one agent may send per hour. */
   readonly hourlyMessageLimit: number;
-  /** Scheduled tasks one chat may hold (PAGE-392). */
+  /** Scheduled tasks one chat may hold. */
   readonly scheduledTaskLimit: number;
   readonly revision: number;
 }

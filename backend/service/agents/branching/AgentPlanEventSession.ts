@@ -10,13 +10,11 @@ import type { NodeRun } from "../AgentPlanStepContext";
 
 /**
  * Decides whether an event continues the open session or has to start a new one.
- *
  * @param groups - The sessions the run holds open.
  * @param node - The start of the node that an event may have caused.
  * @param key - The run and node, as `runId/nodeId`.
  * @throws {AgentError} `plan_closeout_failed` when the session that is replaced
  * cannot be confirmed closed; no second session opens beside a leftover.
- *
  * @remarks
  * An open session, or one the adapter can resume natively on a retry, takes the
  * event as a follow-up prompt. Otherwise the earlier session is ended and the

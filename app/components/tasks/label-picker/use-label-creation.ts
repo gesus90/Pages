@@ -29,7 +29,6 @@ export interface LabelCreation {
 
 /**
  * Keeps the new-label form and assigns a freshly created label to the ticket.
- *
  * @remarks
  * A freshly created label is selected for the current ticket once the
  * revalidated catalog contains it. Only ids unseen at creation time qualify,

@@ -40,7 +40,6 @@ const REACHABILITY_FAILURES: ReadonlySet<RemoteFailureCode> = new Set([
 
 /**
  * The stage a failure belongs to, for the status of a connection.
- *
  * @param failure - The classified failure, or `null` for success.
  * @returns The stage that failed, or `null`.
  */
@@ -55,12 +54,10 @@ export function remoteFailureStage(
 
 /**
  * Tests a connection stage by stage: reachability, host key, sign-in.
- *
  * @remarks
  * The password or key is only sent to a machine that presented the key a
  * person confirmed. A first test therefore stops after showing the presented
  * key; the sign-in follows once the key is confirmed.
- *
  * @param client - The SSH client.
  * @param subject - Machine, account, credentials and pinned key.
  * @returns The result of each stage, with the presented key.
@@ -115,7 +112,6 @@ export async function testRemoteConnection(
 
 /**
  * Condenses a test into the status a connection keeps.
- *
  * @param result - The finished test.
  * @returns The first failed stage and its cause, or a passed check.
  */

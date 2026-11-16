@@ -56,7 +56,7 @@ interface ChatMarkdownProps {
 /**
  * Markdown of a Markdown card, rendered as the chat renders text: headings,
  * lists, tables and code, whose blocks take the syntax colors of the code
- * cards (PAGE-298). Images are not loaded.
+ * cards. Images are not loaded.
  */
 export function ChatMarkdown({
   source,

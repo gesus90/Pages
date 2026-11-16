@@ -13,7 +13,6 @@ import type { ChatJobUpdate, ChatSessionState } from "@/definition/ChatJob";
 
 /**
  * Reads the answer to a sent message: an answer, a started job or a steer.
- *
  * @param result - The JSON of the `send` intent.
  * @returns What the server did with the message.
  */

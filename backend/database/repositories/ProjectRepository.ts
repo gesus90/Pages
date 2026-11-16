@@ -103,7 +103,6 @@ export interface ProjectDeletionDetails {
 
 /**
  * Establishes the persistence boundary for projects.
- *
  * @remarks
  * Coordinates the project aggregates and their shared transaction.
  */
@@ -125,7 +124,6 @@ export class ProjectRepository {
 
   /**
    * Creates a project repository.
-   *
    * @param database - Central database access.
    */
   public constructor(
@@ -216,10 +214,8 @@ export class ProjectRepository {
 
   /**
    * Runs read-only project policy reads on one consistent snapshot.
-   *
    * @param work - Receives a repository bound to the read; it must only read.
    * @returns Whatever `work` returns.
-   *
    * @remarks
    * At the top level the reads do not wait for the writer. Inside a project
    * transaction they reuse it, so they see its uncommitted changes.
@@ -291,7 +287,6 @@ export class ProjectRepository {
 
   /**
    * Marks a project as archived without deleting persisted data.
-   *
    * @returns Whether the project was active before.
    */
   public async archive(id: string): Promise<boolean> {
@@ -300,7 +295,6 @@ export class ProjectRepository {
 
   /**
    * Stores a Pages event in the transaction this repository is bound to.
-   *
    * @param event - Kind and project, never content.
    */
   public async appendEvent(event: PagesEventRecord): Promise<void> {
@@ -309,7 +303,6 @@ export class ProjectRepository {
 
   /**
    * Permanently removes the project aggregate inside one transaction.
-   *
    * @param id - The project to delete, whether active or archived.
    * @returns The files whose rows went; the caller removes them after the commit.
    */
@@ -319,7 +312,6 @@ export class ProjectRepository {
 
   /**
    * Describes the project and the data a permanent deletion would remove.
-   *
    * @param projectId - The project, whether active or archived.
    * @returns The extent of the deletion, or `null` when no such project exists.
    */
@@ -415,7 +407,6 @@ export class ProjectRepository {
 
   /**
    * Replaces all tags assigned to the project.
-   *
    * @remarks
    * All or nothing: PostgreSQL refuses a tag with U+0000, and the old tags must
    * survive that.
@@ -468,10 +459,8 @@ export class ProjectRepository {
 
   /**
    * Returns the encrypted GitHub token for server-side API calls.
-   *
    * @param projectId - Project the integration belongs to.
    * @returns The encrypted token, or `null` when none is stored.
-   *
    * @remarks
    * The result must never leave the server: routes and services only
    * expose the `hasToken` indicator to the browser.
@@ -498,7 +487,6 @@ export class ProjectRepository {
   /**
    * Moves the next scheduled synchronization of a project without touching
    * the time of the last successful one.
-   *
    * @param projectId - Project the integration belongs to.
    * @param nextSyncAt - ISO timestamp of the next scheduled attempt.
    */
@@ -511,7 +499,6 @@ export class ProjectRepository {
 
   /**
    * Clears the connected state of an integration, if it still holds the rejected token.
-   *
    * @param projectId - Project the integration belongs to.
    * @param rejectedToken - The encrypted token the failed run used.
    */
@@ -532,7 +519,6 @@ export class ProjectRepository {
 
   /**
    * Creates or replaces the integration settings without ever returning the secret.
-   *
    * @param projectId - Project the integration belongs to.
    * @param integration - Sanitized settings; a `null` token hash keeps the stored secret.
    */

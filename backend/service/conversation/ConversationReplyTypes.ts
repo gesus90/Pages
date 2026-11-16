@@ -43,7 +43,7 @@ export interface ConversationReplyJob {
   readonly isFollowUp?: boolean;
   /**
    * The messages since the agent's last one, oldest first: the round replies
-   * of a batch, or everything a resumed hand-over missed (PAGE-349).
+   * of a batch, or everything a resumed hand-over missed.
    */
   readonly contextMessageIds?: readonly string[];
 }
@@ -61,11 +61,11 @@ export interface ConversationReplyRunnerDependencies {
   readonly contexts: Pick<ConversationContextReader, "promptContext">;
   readonly events: Pick<ConversationEvents, "publish">;
   readonly publisher: { publish(event: PagesEvent): void };
-  /** Pauses a chain of agent messages (PAGE-311); without it no chain is limited. */
+  /** Pauses a chain of agent messages; without it no chain is limited. */
   readonly guard?: Pick<ConversationAgentGuard, "isPaused">;
-  /** Reads the file lines of an answer (PAGE-298). */
+  /** Reads the file lines of an answer. */
   readonly agentFiles: Pick<ConversationAgentFiles, "select" | "open">;
-  /** Reads the lines of an answer that show earlier attachments of the chat again (PAGE-386); absent shows none. */
+  /** Reads the lines of an answer that show earlier attachments of the chat again; absent shows none. */
   readonly references?: Pick<
     ConversationAttachmentReferences,
     "select" | "bind"
@@ -77,16 +77,16 @@ export interface ConversationReplyRunnerDependencies {
   >;
   /** The attachments and links of the stored answer. */
   readonly content: ConversationMessageContentReader;
-  /** The images the agent generated during the answer (PAGE-382); absent binds none. */
+  /** The images the agent generated during the answer; absent binds none. */
   readonly generatedImages?: Pick<ConversationGeneratedImages, "take">;
   readonly now?: () => Date;
   /** Waits for a busy agent; tests pass a fast one. */
   readonly wait?: (milliseconds: number) => Promise<void>;
-  /** Shows the answers to the members while they are written (PAGE-381); absent shows none. */
+  /** Shows the answers to the members while they are written; absent shows none. */
   readonly answerStream?: ConversationAnswerStreamPort;
 }
 
-/** Opens the live answers of conversations and names who reads their thoughts (PAGE-381). */
+/** Opens the live answers of conversations and names who reads their thoughts. */
 export interface ConversationAnswerStreamPort {
   open(target: LiveAnswerTarget): LiveAnswerSink;
   /** The creator of a group, who alone reads the thoughts of its agents. */

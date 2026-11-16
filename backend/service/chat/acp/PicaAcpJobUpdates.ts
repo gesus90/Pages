@@ -59,7 +59,7 @@ export function createPicaAcpUpdates(
       threadStatus: (isActive) => target.thread.observe(isActive),
       content: (turn, block) => target.answerOutput.take(turn, block),
       closed: () => target.thread.close(),
-      // Host tools of an agent employee show in the chat with input and result (PAGE-303).
+      // Host tools of an agent employee show in the chat with input and result.
       ...(specification.run.options.access === "yolo"
         ? {
             nativeTool: (event) => {

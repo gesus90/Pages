@@ -34,17 +34,17 @@ export interface PlanDependencies {
   /** Durable accounting read projection, separate from run controls. */
   readonly usage?: Pick<AgentSessionStore, "listRunUsage">;
   readonly startResources?: Pick<AgentPlanStartResources, "owners">;
-  /** Changes teams and owner and records the history of plans (PAGE-329). */
+  /** Changes teams and owner and records the history of plans. */
   readonly accessChanges?: AgentPlanAccessRepository;
-  /** Reads the history of plans (PAGE-329). */
+  /** Reads the history of plans. */
   readonly planAudit?: Pick<AgentPlanAuditRepository, "list">;
-  /** Reads the approved script hashes of plans (PAGE-329). */
+  /** Reads the approved script hashes of plans. */
   readonly scriptApprovals?: Pick<AgentPlanScriptApprovalRepository, "list">;
   readonly workspaceCleanup?: AgentWorkspaceCleanupRepository;
   readonly workGate?: AgentPlanWorkGate;
-  /** The live progress `update_step_progress` reported (PAGE-284). */
+  /** The live progress `update_step_progress` reported. */
   readonly stepProgress?: Pick<AgentPlanStepProgressService, "listForRun">;
-  /** The TODO lists CLIs reported as structured plans (PAGE-306). */
+  /** The TODO lists CLIs reported as structured plans. */
   readonly agentTodos?: Pick<AgentPlanAgentTodoService, "listForRun">;
   readonly workspaceCatalog?: AgentPlanWorkspaces;
   readonly remoteExecution?: AgentPlanRemoteExecution;
@@ -66,9 +66,9 @@ export interface PlanDependencies {
   /** The interpreter profiles of script nodes; absent, no profile exists. */
   readonly scripts?: AgentPlanScripts;
   readonly startRejections?: AgentPlanStartRejectionRepository;
-  /** The files of asset nodes and asset stack entries (PAGE-268). */
+  /** The files of asset nodes and asset stack entries. */
   readonly planAssets?: PlanAssetService;
-  /** Names the people who started runs, for the team-wide reading of runs (PAGE-307). */
+  /** Names the people who started runs, for the team-wide reading of runs. */
   readonly starters?: RunStarterDirectory;
   /** The tables of the run diagnosis; absent, there is no list, overview, timeline or log of runs. */
   readonly diagnosisStores?: AgentRunDiagnosisStores;

@@ -18,7 +18,6 @@ const ticketType = z.enum(Object.values(WORK_ITEM_TYPE));
 
 /**
  * The longest text a write takes, such as a description, a page or a comment.
- *
  * @remarks
  * Whole-text replacements keep their separate input budget; larger texts
  * use the bounded range tools. Read results have their own shared byte limits.
@@ -318,7 +317,6 @@ const WIKI_WRITE_SCHEMAS = {
 /**
  * The native inputs of the writes on user level: tickets, projects,
  * milestones, wiki pages and comments.
- *
  * @remarks
  * Changes carry the value or revision the model read last wherever the
  * operation behind them checks one, so a concurrent change ends in `CONFLICT`
@@ -332,7 +330,7 @@ export const PICA_WRITE_SCHEMAS = {
   ...WIKI_WRITE_SCHEMAS,
 } as const;
 
-/** The tool with which Pica attaches a file it wrote to its answer (PAGE-92). */
+/** The tool with which Pica attaches a file it wrote to its answer. */
 export const PICA_FILE_TOOL = "chat_file_create";
 
 /** The extensions of the files Pica writes: text documents and SVG images. */
@@ -359,8 +357,7 @@ export const PICA_FILE_SCHEMA = z
   .strict();
 
 /**
- * One screenshot a tool hands to the model as image data (PAGE-181).
- *
+ * One screenshot a tool hands to the model as image data.
  * @remarks
  * The bridge hands it to the answer-file staging path without placing it in
  * the text of a tool result or the job journal.

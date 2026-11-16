@@ -21,7 +21,6 @@ interface Removal {
 
 /**
  * Removing a node also removes its flow and parameter references.
- *
  * @remarks
  * The node may be a member of a group; the group then loses the member and
  * its internal edges. Removing a group removes its members with it, together

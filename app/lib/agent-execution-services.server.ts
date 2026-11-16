@@ -30,10 +30,9 @@ import type { SystemApplicationServices } from "./system-services.server";
 
 /**
  * Wires ticket asset readers before starting the shared agent runtimes.
- *
  * @remarks
  * The system dashboard comes along, since it counts the ACP instances and the
- * agent tools of these runtimes (PAGE-282).
+ * agent tools of these runtimes.
  */
 export async function startExecutionServices(
   database: Database,
@@ -75,7 +74,6 @@ export async function startExecutionServices(
 
 /**
  * The files of asset nodes lie beside the other agent files, under the plan's project rights.
- *
  * @remarks
  * Their size limit is the one of a plan, not the wiki's upload settings.
  */
@@ -117,7 +115,6 @@ function ticketAssetDependencies(
 
 /**
  * The agent folders lie next to the configuration file, apart from the data directory.
- *
  * @remarks
  * Credential leftovers are cleaned up first, so a session whose leftover
  * stays unconfirmed keeps its capacity without another scan.

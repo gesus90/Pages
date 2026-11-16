@@ -41,7 +41,7 @@ Die Quelle nennt diese Festlegungen als entschieden oder umgesetzt, ohne ihren U
 - Das Zeilenmenü bietet Bearbeiten und Löschen; der Löschdialog liest aktuelle Verwendungen und sperrt verwendete Agents. **SKILLS** bleibt als schreibgeschützter Altbestand sichtbar.
 - Der Editor und die Liste liegen im zentralen Panel; die Navigation führt unter „Agents“ zu „Ausführplan“, „Arbeitsplatz“ und „Agents Liste“. Die Verwaltung im zentralen Panel bleibt an den aktiven persönlichen Admin-Modus gebunden.
 
-**Nutzer-Agents (PAGE-20)**
+**Nutzer-Agents**
 
 - Unter **Agents → Agents** erstellen und verwalten Nutzer eigene Agents: Name, Instruktion, typisierte Parameter, Modell und Reasoning aus den für sie freigegebenen Admin-Modellen. Die Liste zeigt die für sie sichtbaren Agents; Administratoren finden hier einen Link zur Verwaltung.
 - **Freigabe je Agent:** **Privat** (nur der Ersteller), **Global** (alle aktiven Nutzer) oder **Eingeschränkt** (Gruppen und/oder Abteilungen, mit **UND** oder **ODER**). Ein neuer Agent ist zunächst privat.
@@ -57,4 +57,4 @@ Weiterführend: [Benutzer, Rollen und Autorisierung (Technik): Zielmodell](/wiki
 
 Keine weitere offene Sachfrage im Ausgangstext ausdrücklich ausgewiesen.
 
-Der Abschnitt „Nutzer-Agents (PAGE-20)“ stammt aus dem Nachtrag vom 2026-10-13.
+Der Abschnitt „Nutzer-Agents“ stammt aus dem Nachtrag vom 2026-10-13.

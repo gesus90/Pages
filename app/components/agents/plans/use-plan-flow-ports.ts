@@ -18,7 +18,6 @@ import type {
  * Everything beside its inputs that changes how tall a card is, or where its
  * ports lie: a connected event input shows a chip, a decision names what it
  * reads, and a run adds notes and a line to a card.
- *
  * @returns A text that differs whenever one of these appears or disappears.
  */
 export function planPortLayout(
@@ -41,11 +40,9 @@ export function planPortLayout(
 /**
  * Measures the ports of a card again whenever its inputs, its rows or the
  * notes a run adds change, even when the card keeps the same size.
- *
  * @param node - The node of the card.
  * @param sources - The agents whose templates name the inputs.
  * @param layout - The rows that come and go, see {@link planPortLayout}.
- *
  * @remarks
  * Every edge ends at a measured port, so a row that appears or disappears
  * moves the lines with it.

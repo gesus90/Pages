@@ -43,7 +43,7 @@ export function UserDirectory({
       actionData.intent === "reset-password")
       ? actionData.error
       : null;
-  // Agents have their own tab (PAGE-266); this one lists people only.
+  // Agents have their own tab; this one lists people only.
   const visibleUsers = directory.users.filter(
     (user) =>
       user.isAgent !== true && matchesSearch(user, search.trim().toLowerCase()),

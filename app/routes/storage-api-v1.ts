@@ -242,7 +242,7 @@ const CHANGE_HANDLERS: Partial<Record<StorageOperation, ChangeHandler>> = {
 };
 
 /**
- * Answers the reading operations of the Storage interface (PAGE-270):
+ * Answers the reading operations of the Storage interface:
  * `list`, `search`, `stat`, `resolve_path`, `read`, `download`, `quota` and
  * `capabilities`, see `docs/StorageApi.md`.
  */
@@ -284,7 +284,7 @@ export async function loader({
 }
 
 /**
- * Answers the changing operations of the Storage interface (PAGE-270):
+ * Answers the changing operations of the Storage interface:
  * `upload`, `update`, `copy`, `move`, `rename`, `delete`, `create_folder`,
  * `restore`, `delete_permanently`, `confirm` and `batch`, see
  * `docs/StorageApi.md`.

@@ -38,7 +38,6 @@ interface WorkspaceInput {
 
 /**
  * Manages local and remote agent workspaces for a paired machine.
- *
  * @remarks
  * Every call runs through the workspace services of the interface on the MCP
  * channel, which decide who may see, register, change or remove a workspace.
@@ -51,7 +50,6 @@ export class McpWorkspaceService {
 
   /**
    * Creates the service.
-   *
    * @param services - The workspace and connection services, already on the MCP channel.
    */
   public constructor(services: McpWorkspaceServices) {
@@ -61,7 +59,6 @@ export class McpWorkspaceService {
 
   /**
    * Lists the workspaces of projects the account may open.
-   *
    * @param userId - The paired account.
    * @param query - The optional project and kind to narrow to.
    * @throws {McpWorkspaceError} `not_found` for a project the account cannot see.
@@ -79,7 +76,6 @@ export class McpWorkspaceService {
 
   /**
    * Reads one workspace.
-   *
    * @param userId - The paired account.
    * @param id - The workspace.
    * @throws {McpWorkspaceError} `not_found` for a missing or hidden workspace.
@@ -93,7 +89,6 @@ export class McpWorkspaceService {
 
   /**
    * Registers a workspace; the directory is checked first and stored canonically.
-   *
    * @param userId - The paired account, who becomes the registering person.
    * @param request - Kind, name, path, project and, for a remote workspace, the connection.
    * @throws {McpWorkspaceError} `check_failed` with the finding for a remote
@@ -112,11 +107,9 @@ export class McpWorkspaceService {
 
   /**
    * Changes a workspace; missing fields keep their stored value.
-   *
    * @remarks
    * The kind cannot change and neither can the connection of a remote
    * workspace. The path is checked again like for a new workspace.
-   *
    * @param userId - The paired account.
    * @param id - The workspace.
    * @param request - The fields to change with the revision read before.
@@ -157,7 +150,6 @@ export class McpWorkspaceService {
 
   /**
    * Checks the directory of a remote workspace again over SSH and stores the result.
-   *
    * @param userId - The paired account.
    * @param id - The workspace.
    * @throws {McpWorkspaceError} `invalid_request` for a local workspace,
@@ -175,7 +167,6 @@ export class McpWorkspaceService {
 
   /**
    * Lists what still refers to a workspace.
-   *
    * @param userId - The paired account; names are only given to administrators.
    * @param id - The workspace.
    */
@@ -192,12 +183,10 @@ export class McpWorkspaceService {
 
   /**
    * Removes the registration of a workspace after a confirmation.
-   *
    * @remarks
    * Only the entry in Pages goes; the directory stays. References of agents
    * and plans are detached by the registry, which also refuses while an
    * affected plan runs.
-   *
    * @param userId - The paired account.
    * @param id - The workspace.
    * @param request - The revision read before and the confirmation.
@@ -231,7 +220,6 @@ export class McpWorkspaceService {
 
   /**
    * Lists the directories of the server a local workspace could use.
-   *
    * @param userId - A paired account that manages a project or administers.
    * @param query - The level to list and whether hidden directories show.
    * @throws {McpWorkspaceError} `path_invalid` for a path above the length limit.

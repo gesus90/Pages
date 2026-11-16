@@ -29,11 +29,9 @@ const MAJOR_VERSION_PATTERN = /(\d+)/u;
 
 /**
  * Derives a short browser and operating system description from a user agent.
- *
  * @param userAgent - Raw user agent recorded by the browser.
  * @returns Browser name with major version and operating system name, each
  * `null` when the user agent does not contain a reliable match.
- *
  * @remarks
  * Deliberately limited to browser family and major version plus the operating
  * system family, because concrete device models cannot be derived reliably.

@@ -22,7 +22,6 @@ const PENDING_STACK_ENTRY = "[pending stack entry]";
 
 /**
  * The prepared value of a stack output, before any trigger.
- *
  * @remarks
  * The count is final: the number of entries. The content is only a stand-in
  * that lets the preparation check the input; the entry a trigger hands over
@@ -57,8 +56,7 @@ function isPendingResult(
 }
 
 /**
- * Builds typed values for the existing A10.2 binder; result values are filled at step start.
- *
+ * Builds typed values for the existing parameter binder; result values are filled at step start.
  * @param plan - The saved plan whose source nodes supply the values.
  * @param step - The agent node whose bindings are resolved.
  * @param tasks - Authorized snapshots of the plan's ticket nodes.

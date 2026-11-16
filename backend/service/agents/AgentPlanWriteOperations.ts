@@ -70,7 +70,6 @@ function accessChange(
 
 /**
  * Refuses an access change the person may not make before anything is written.
- *
  * @throws {AgentOperationError} `FORBIDDEN` for teams without the right to
  * manage them or an owner change by a non-administrator.
  */
@@ -163,7 +162,6 @@ function readStoredResult(json: string): AgentPlanChanged {
 
 /**
  * Creates plans and changes their structure, share and parameters.
- *
  * @remarks
  * Every change is saved by the plan service exactly like the plan page saves
  * it: the owner or a member or leader of the plan's team changes a plan, against the
@@ -182,7 +180,6 @@ export class AgentPlanWriteOperations {
 
   /**
    * Runs one change for the person.
-   *
    * @param userId - The verified person.
    * @param operation - The change.
    * @param input - The raw parameters.
@@ -430,7 +427,6 @@ export class AgentPlanWriteOperations {
 
   /**
    * Saves the graph, if it changed, and then the teams and owner, each as a revision of its own.
-   *
    * @remarks
    * The result is recorded with the commit of the access change, so a
    * repeated call returns it. The revision of the result counts both writes.
@@ -493,12 +489,10 @@ export class AgentPlanWriteOperations {
 
   /**
    * The workspace the plan is saved with: the current one, or the one the request names.
-   *
    * @remarks
    * The workspace must be one the person may use now; the owner's access never
    * stands in. Another workspace of the plan's project is open to every team
    * member, a workspace of another project only to the owner.
-   *
    * @throws {AgentOperationError} `INVALID_REQUEST` with `workspace_unavailable`
    * for a workspace the person cannot use, `FORBIDDEN` for another project
    * without owning the plan.

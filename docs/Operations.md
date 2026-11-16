@@ -3,12 +3,12 @@
 [Documentation index](README.md). For local installation use the
 [README quickstart](../README.md#getting-started). Production service templates,
 maintenance and readiness are in [Platform services](PlatformServices.md).
-The paths and startup behavior here were checked against source in PAGE-332;
+The paths and startup behavior here were checked against source;
 no instance was started or reconfigured during that documentation change.
 
 - [First start](#first-start)
 - [Configuration](#configuration)
-- [Static app and entrance (PAGE-235)](#static-app-and-entrance-page-235)
+- [Static app and entrance](#static-app-and-entrance)
 - [Behind a reverse proxy](#behind-a-reverse-proxy)
 - [Local services for Pica's operator browser](#local-services-for-picas-operator-browser)
 - [Data and runtime directories](#data-and-runtime-directories)
@@ -72,14 +72,13 @@ Pica Mobile app on that port. Administrators set it under Settings >
 Connections > Pica Mobile; without the key Pages opens no extra port. See
 [docs/PicaMobileWebSocket.md](PicaMobileWebSocket.md).
 
-Two more optional keys configure the Android push notifications of Pica Mobile
-(PAGE-193): `picaMobileFcmServiceAccountFile`, the absolute path of a Google
+Two more optional keys configure the Android push notifications of Pica Mobile: `picaMobileFcmServiceAccountFile`, the absolute path of a Google
 service-account key file kept outside the repository, and
 `picaMobileReplayTtlSeconds` (60–3600, default 900). Without the key file Pages
 offers no push and says so to the app. Setup, privacy and limits are in
 [docs/PicaMobileNotifications.md](PicaMobileNotifications.md).
 
-The optional table `[speechRecognition]` (PAGE-277) names the speech model that
+The optional table `[speechRecognition]` names the speech model that
 turns voice messages of the chat into text, until Settings > Agents offers a
 choice for it: `model`, `url` of an OpenAI-compatible `/audio/transcriptions`
 endpoint, and optionally `apiKeyFile`, the absolute path of a file with the API
@@ -110,7 +109,7 @@ pnpm start --config /srv/pages/config.toml # another configuration file
 The development server always reads `~/.pages/config.toml`; start parameters
 and the configured port do not apply to it.
 
-## Static app and entrance (PAGE-235)
+## Static app and entrance
 
 The interface is a static app without server rendering: `build/client` holds
 its `index.html`, the hashed files and the service worker `sw.js`, which keeps
@@ -223,7 +222,7 @@ driver belong to offline transfer, not server startup. See
 key, configuration, login folders and attachments along with PostgreSQL; a
 PostgreSQL-only backup cannot restore those files or decrypt stored secrets.
 
-### Storage maintenance (PAGE-418)
+### Storage maintenance
 
 Pages checks the size of the configuration directory (`~/.pages` by default)
 hourly. `storageWarningBytes` is a positive integer in bytes, default

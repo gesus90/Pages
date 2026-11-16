@@ -1,8 +1,7 @@
 /**
- * Contracts of the control of agents in one chat (PAGE-380): the model an
+ * Contracts of the control of agents in one chat: the model an
  * agent answers with in a chat, the chat commands `/model`, `/new` and
  * `/compact`, and who may use them.
- *
  * @remarks
  * A chat is the direct chat of a person with an agent or a group. The server
  * checks every right; these contracts only carry what it decided.
@@ -175,7 +174,6 @@ function isCommandName(value: string): value is AgentChatCommandName {
 /**
  * Recognizes a chat command that steers an agent; any other text is a
  * message.
- *
  * @param text - The text of the input field.
  * @returns The command with its mention and words, or `null`.
  */
@@ -204,7 +202,6 @@ function names(choice: AgentChatModelChoice): string[] {
 /**
  * The models a typed name means: an exact ID, name or alias wins, otherwise
  * every model whose ID, name or alias contains the name.
- *
  * @param query - The name the person typed, such as `opus`.
  * @param choices - The models of the choice.
  * @returns One model for a clear name, several for an ambiguous one, none
@@ -238,7 +235,6 @@ const EFFORT_WORDS: Readonly<Record<string, readonly string[]>> = {
 
 /**
  * The reasoning level a typed word means among the levels of a model.
- *
  * @param word - The typed word, such as `hoch`.
  * @param efforts - The levels the model offers.
  * @returns The level, or `null` when the model offers none the word means.
@@ -260,7 +256,6 @@ export function readAgentChatEffort(
 /**
  * The short name of a model for the head of a chat, such as "Opus" for
  * "Claude Opus 5.5".
- *
  * @param name - The catalog name of the model.
  */
 export function shortModelName(name: string): string {

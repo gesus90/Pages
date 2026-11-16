@@ -28,7 +28,6 @@ interface ActionOutcome {
 /**
  * Offers to archive a ticket to the people who may, and says why a request
  * was refused.
- *
  * @remarks
  * The right comes from the server with the descendants of the ticket and is
  * only a hint for the control; archiving checks it again. Without it, for an

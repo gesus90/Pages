@@ -129,7 +129,6 @@ export class WikiFeedRepository {
 
   /**
    * Creates the repository.
-   *
    * @param database - Database access or the transaction to run in.
    */
   public constructor(database: DatabaseTransaction) {
@@ -139,7 +138,6 @@ export class WikiFeedRepository {
   /**
    * Collects what concerns a person: mentions, replies to their comments,
    * comments on their pages and their pages that are no longer current.
-   *
    * @param scope - What the person may see; every entry comes from a visible
    * page, so nothing about a hidden page can appear.
    * @param today - Today as `YYYY-MM-DD`.

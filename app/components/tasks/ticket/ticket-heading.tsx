@@ -67,7 +67,7 @@ function CopyLinkButton({
 
 /**
  * Renders type, key, the editable title and the actions of a ticket: back to
- * the board, add a child, copy the link, archive, edit everything (A8.2-E07).
+ * the board, add a child, copy the link, archive, edit everything.
  */
 export function TicketHeading({
   ticket,

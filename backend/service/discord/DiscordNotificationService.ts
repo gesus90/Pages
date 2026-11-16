@@ -58,7 +58,6 @@ interface Announcement {
 
 /**
  * Turns committed ticket and milestone events into stored Discord messages.
- *
  * @remarks
  * The events arrive after the Pages transaction committed, from the interface
  * and from agents alike, so a rolled back change never reaches this service.
@@ -73,7 +72,6 @@ export class DiscordNotificationService {
 
   /**
    * Creates the notification service.
-   *
    * @param dependencies - Connection and outbox storage and the item reader.
    */
   public constructor(dependencies: DiscordNotificationDependencies) {
@@ -83,7 +81,6 @@ export class DiscordNotificationService {
 
   /**
    * Starts to react to the events of a publisher.
-   *
    * @param source - Publisher of committed Pages events.
    * @returns Stops the subscription.
    */
@@ -98,7 +95,6 @@ export class DiscordNotificationService {
 
   /**
    * Stores a message for an event when the project wants it; never throws.
-   *
    * @param event - A committed Pages event.
    */
   public async handle(event: PagesEvent): Promise<void> {

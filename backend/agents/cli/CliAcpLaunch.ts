@@ -84,7 +84,6 @@ function workerEnvironment(
 
 /**
  * Builds the request of an ACP worker before isolation and limits wrap it.
- *
  * @param parts - The verified pieces of the session start.
  * @returns The request; a Pica bundle and a read-only mode keep the workspace read-only.
  */

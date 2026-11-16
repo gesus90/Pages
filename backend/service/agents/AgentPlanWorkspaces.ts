@@ -36,7 +36,6 @@ export class AgentPlanWorkspaces {
 
   /**
    * Returns the catalog for another surface over the same registrations.
-   *
    * @param channel - The surface whose administrator reading decides workspace access.
    */
   public forChannel(channel: ActorChannel): AgentPlanWorkspaces {

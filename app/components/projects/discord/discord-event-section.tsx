@@ -19,7 +19,6 @@ interface DiscordEventSectionProps {
 
 /**
  * Lists the four events with a switch each.
- *
  * @remarks
  * Every switch saves on its own and sends the complete selection, so the
  * events stay independent of each other.

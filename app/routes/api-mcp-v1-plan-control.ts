@@ -27,8 +27,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpPlanHandlers {
 }
 
 /**
- * Reads the allowed actions and blockers of a plan (`GET /api/mcp/v1/plans/{planId}/control`), PAGE-246 interface 12.
- *
+ * Reads the allowed actions and blockers of a plan (`GET /api/mcp/v1/plans/{planId}/control`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

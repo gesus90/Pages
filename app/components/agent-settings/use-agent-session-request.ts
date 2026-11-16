@@ -20,7 +20,6 @@ export interface AgentSessionRequestState {
 
 /**
  * The key of a change, which names the button that shows it running.
- *
  * @param request - The change.
  */
 export function agentSessionRequestKey(request: AgentSessionRequest): string {
@@ -30,7 +29,7 @@ export function agentSessionRequestKey(request: AgentSessionRequest): string {
 }
 
 /**
- * Sends changes of the chat sessions of an agent one at a time (PAGE-376).
+ * Sends changes of the chat sessions of an agent one at a time.
  *
  * @param onChanged - Called with the fresh overview the server answers a
  * change with, and with the change it answers.

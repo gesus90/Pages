@@ -83,7 +83,6 @@ function isEdgeSource(node: AgentPlanNode | undefined): boolean {
 
 /**
  * Whether an edge connects nodes its ports allow, and where it does not.
- *
  * @param plan - A plan whose groups and loops are expanded.
  * @param edge - The edge to check.
  * @returns One issue per end of the edge that does not fit; none when it fits.
@@ -134,7 +133,6 @@ function eventFanoutIssues(
 
 /**
  * An event may not return across another agent that receives events and lies on the way.
- *
  * @remarks
  * Starting the target again makes every node behind it forget its start. An
  * agent with its own event input among them would start again without the
@@ -160,7 +158,6 @@ function eventNestingIssues(
 
 /**
  * What is wrong with an event edge: where it returns to, how often, and across what.
- *
  * @remarks
  * An event hands new information to an agent that already ran, so its source
  * must lie behind the target. Any other event would arrive before the first
@@ -223,12 +220,11 @@ function onlyBranch(
 
 /**
  * Whether a decision lets only one of the two nodes start in any round.
- *
  * @remarks
  * Two nodes that only different outputs of one decision lead to never run
  * together: the decision activates one output per round, and the next round
  * starts after the first has ended. This holds for true and false and for the
- * values of a classification alike (PAGE-286).
+ * values of a classification alike.
  */
 function arePlanBranchesExclusive(
   edges: readonly AgentPlanEdge[],
@@ -263,7 +259,6 @@ function arePlanBranchesExclusive(
 
 /**
  * Whether two nodes cannot run at the same time: one runs after the other, or a decision lets only one of them start.
- *
  * @param edges - The edges of a plan.
  * @param first - One node.
  * @param second - The other node.
@@ -308,7 +303,6 @@ function stepIssues(
 
 /**
  * A group or loop behind the target of an event, which would have to run again in the next round.
- *
  * @remarks
  * A loop keeps its finished iterations and a group its shared session, so
  * neither starts over when an event starts the agent in front of it again.
@@ -358,9 +352,8 @@ function planContainers(plan: AgentPlanInput): ReadonlyMap<string, string> {
 
 /**
  * Condition and branch edges join nodes of the same container; an event never enters a group or loop.
- *
  * @remarks
- * A decision may stand at the top level, in a group or in a loop (PAGE-286):
+ * A decision may stand at the top level, in a group or in a loop:
  * its sequence, condition and outputs stay in the same frame, a loop's
  * iteration included. Only its bound data input may come from outside, like
  * every other binding.
@@ -502,10 +495,9 @@ function modelIssues(decision: AgentPlanDecision): AgentPlanIssue[] {
 
 /**
  * A decision that reads a parameter, a ticket or a text result needs a sequence input.
- *
  * @remarks
  * A data input alone never starts a decision. Only the boolean edge of an
- * agent keeps starting it without one, as every decision before PAGE-286 did.
+ * agent keeps starting it without one, as every older decision did.
  */
 function sequenceIssues(
   decision: AgentPlanDecision,
@@ -548,7 +540,6 @@ function conditionIssues(
 
 /**
  * Every output of a decision leads somewhere, and no edge leaves an output it does not have.
- *
  * @remarks
  * Yes or no and booleans have two outputs, a classification one per value.
  * An edge of a value that was deleted, or of `true-out` after a switch to a
@@ -581,15 +572,13 @@ function branchIssues(plan: AgentPlanInput): AgentPlanIssue[] {
 
 /**
  * The structural findings of decisions, boolean results and events, valid for drafts too.
- *
  * @param plan - The plan with its groups and loops still in place.
  * @param agents - The agents the editor or the server knows.
- *
  * @remarks
  * An event belongs to the top level of a plan: a group or loop keeps its own
  * session policy, and a remote runner has no place to keep an open session
  * between two starts. A decision and a boolean result may stand in a group or
- * loop too, as long as their edges stay inside it (PAGE-286).
+ * loop too, as long as their edges stay inside it.
  */
 export function planBranchingIssues(
   plan: AgentPlanInput,
@@ -608,7 +597,6 @@ export function planBranchingIssues(
 
 /**
  * What a decision still misses before the plan may start.
- *
  * @param plan - A flat plan, as the engine runs it.
  */
 export function planBranchingExecutionIssues(

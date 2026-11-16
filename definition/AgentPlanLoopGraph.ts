@@ -31,7 +31,6 @@ import type { AgentPlanLoop, AgentPlanLoopMember } from "./AgentPlanLoop";
 
 /**
  * The count a parameter node supplies, or `null` when it is no whole number 0 to 999.
- *
  * @remarks
  * A bound 0 is valid: the loop runs no iteration and continues through its exit.
  */
@@ -49,7 +48,6 @@ export function planLoopParameterRuns(
 
 /**
  * The count a binding of a loop supplies: a parameter node or the count output of a stack.
- *
  * @returns The number 0 to 999, or `null` when the binding names no such source or its value is invalid.
  */
 export function planLoopBoundRuns(
@@ -70,7 +68,6 @@ export function planLoopBoundRuns(
 
 /**
  * Reads the boolean a parameter node supplies to a while loop.
- *
  * @returns `true` or `false` for a JSON or text value of exactly `true` or
  * `false`; `null` for anything else, which is never read as `false`.
  */
@@ -306,7 +303,6 @@ function strayPrevious(
 
 /**
  * Validates every loop of a plan: its members, internal flow, count, condition and boundaries.
- *
  * @param plan - The plan with its loops still in place.
  * @param agents - The agents the editor or the server knows.
  * @param isExecution - Whether the plan is about to run; an empty loop and a

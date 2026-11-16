@@ -42,8 +42,8 @@ interface ChatContextDependencies {
   readonly execution: TextExecution;
   readonly requests: ChatRequestRegistry;
   /**
-   * The context occupancy the ACP adapter of the session reported last
-   * (PAGE-68); a Codex agent shows only that, never a Pages estimate.
+   * The context occupancy the ACP adapter of the session reported last;
+   * a Codex agent shows only that, never a Pages estimate.
    */
   readonly adapterContext?: (
     userId: string,
@@ -109,7 +109,6 @@ export class ChatContextService {
 
   /**
    * Estimates conversation tokens; a missing model catalog leaves the limit unknown.
-   *
    * @remarks
    * For an ACP agent the context lives in the agent session, so only what its
    * adapter reported is shown, and nothing when it reported nothing.

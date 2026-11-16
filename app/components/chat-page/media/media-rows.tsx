@@ -27,7 +27,7 @@ import type { ConversationMediaFile } from "@/definition/ConversationMediaOvervi
 import type { MediaItemActions } from "./media-item-actions";
 
 /**
- * The fixed columns of a row (PAGE-387): box, icon, name with kind and size,
+ * The fixed columns of a row: box, icon, name with kind and size,
  * sender and date, remaining time, actions. Every row uses the same widths,
  * so rows below each other line up; in a narrow panel sender and date move
  * below the name.
@@ -172,7 +172,7 @@ function MediaRow({
   );
 }
 
-/** Sounds, documents or files as rows that line up exactly (PAGE-387). */
+/** Sounds, documents or files as rows that line up exactly. */
 export function MediaRows({
   files,
   actions,

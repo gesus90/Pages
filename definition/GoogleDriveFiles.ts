@@ -4,8 +4,8 @@ import type {
 } from "@/definition/GoogleDrive";
 
 /**
- * Every operation of the Storage interface `/storage-api/v1/:operation`
- * (PAGE-270), see `docs/StorageApi.md`.
+ * Every operation of the Storage interface `/storage-api/v1/:operation`,
+ * see `docs/StorageApi.md`.
  */
 export const STORAGE_OPERATIONS = [
   "list",
@@ -50,7 +50,6 @@ export type StorageConfirmableAction =
 
 /**
  * What happens when the target folder already holds an entry of the same name.
- *
  * - `fail`: refuse with `name_conflict` (the default; nothing is overwritten).
  * - `keep_both`: add a free suffix such as ` (2)` to the new name.
  * - `overwrite`: replace the content of the one existing file; upload only,
@@ -107,7 +106,6 @@ export interface StorageScope {
 
 /**
  * A one-time confirmation for a destructive action.
- *
  * @remarks
  * The server keeps it bound to the account, the action, the object and the
  * object's current state (version, and the scope of a folder). It expires
@@ -212,7 +210,7 @@ export type StorageResult<Value> =
   | { readonly ok: true; readonly value: Value }
   | { readonly ok: false; readonly error: StorageError };
 
-/** The most entries one `batch` call changes (PAGE-272). */
+/** The most entries one `batch` call changes. */
 export const STORAGE_BATCH_LIMIT = 100;
 
 /** What one `batch` call does with every entry it names. */
@@ -226,7 +224,6 @@ export interface StorageBatchFailure {
 
 /**
  * The outcome of a `batch` call: the other entries go on when one fails.
- *
  * @remarks
  * `failures` names every refused entry with its reason, so the view can say
  * how many were refused and why.

@@ -23,8 +23,7 @@ import { settingsApiRoutes } from "./lib/settings-api-routes";
 import { mcpFileRoutes, storageRoutes } from "./lib/storage-routes";
 
 /**
- * Which route table a build reads (PAGE-235).
- *
+ * Which route table a build reads.
  * @remarks
  * - `spa`, the default: the static app. Pages use their browser module; every
  *   server resource is answered by the API, so the app forwards its requests.
@@ -80,7 +79,7 @@ function createRouteBuilder(target: "api" | "spa"): RouteBuilder {
   };
 }
 
-/** The project API of the stand-alone Pages MCP program, admitted by the device token (PAGE-244). */
+/** The project API of the stand-alone Pages MCP program, admitted by the device token. */
 function mcpProjectRoutes(routes: RouteBuilder): RouteConfigEntry[] {
   const { resource } = routes;
   const projects = "api/mcp/v1/projects";
@@ -115,7 +114,7 @@ function mcpProjectRoutes(routes: RouteBuilder): RouteConfigEntry[] {
   ];
 }
 
-/** The plan and node template API of the stand-alone Pages MCP program, admitted by the device token (PAGE-246). */
+/** The plan and node template API of the stand-alone Pages MCP program, admitted by the device token. */
 function mcpPlanRoutes(routes: RouteBuilder): RouteConfigEntry[] {
   const { resource } = routes;
   const plans = "api/mcp/v1/plans";

@@ -31,8 +31,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpProjectHandlers {
 }
 
 /**
- * Adds a goal (`POST /api/mcp/v1/projects/{id}/goals`), PAGE-244 interface 7.
- *
+ * Adds a goal (`POST /api/mcp/v1/projects/{id}/goals`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

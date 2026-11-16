@@ -20,7 +20,6 @@ export interface ProfileSubmission {
 
 /**
  * Submits profile edits and avatar changes to the settings action.
- *
  * @param editing - The edit state that is submitted.
  */
 export function useProfileSubmission(

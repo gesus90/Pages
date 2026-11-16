@@ -9,7 +9,6 @@ import type { PlanGraphActions } from "./use-plan-graph";
 
 /**
  * The floating settings panel of a session group, the same shell as the loop's.
- *
  * @remarks
  * It shows the group's existing settings only: name, the ACP class its members
  * decide, its members and the agents that may join. A group has no runs and

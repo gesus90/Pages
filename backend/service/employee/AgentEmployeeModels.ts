@@ -36,9 +36,7 @@ export interface AgentModelDescription {
 }
 
 /**
- * The models an agent employee may get and the check of a stored choice
- * (PAGE-266).
- *
+ * The models an agent employee may get and the check of a stored choice.
  * @remarks
  * The choice lists the models of the shared catalog the administrator may
  * use, including disabled choices. The employee rule requires a chat adapter,
@@ -62,7 +60,6 @@ export class AgentEmployeeModels {
 
   /**
    * Checks a choice the person saves for an agent.
-   *
    * @throws {AgentEmployeeError} `modelNotAllowed` for a model outside the
    * person's choice or the employee rule.
    */
@@ -88,7 +85,6 @@ export class AgentEmployeeModels {
 
   /**
    * Resolves the stored choice of an agent before one of its sessions.
-   *
    * @throws {AgentEmployeeError} `unavailable` when the connection or model
    * is gone, `modelNotAllowed` when it no longer passes the employee rule.
    * @throws {AgentJobAnswerError} With `failureCode: cli_not_logged_in` for an unsigned CLI connection.

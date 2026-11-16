@@ -106,7 +106,7 @@ function shouldForward(
 }
 
 /**
- * Starts claimed runs and settles runs whose work happens elsewhere (PAGE-297).
+ * Starts claimed runs and settles runs whose work happens elsewhere.
  *
  * @remarks
  * Before every start the creator's rights are checked again; without them

@@ -33,7 +33,6 @@ interface RecoveryContext {
 /**
  * Closes out the leases whose processes could not be confirmed ended: startup
  * recovery, the periodic reconciliation and the proof of chat leases.
- *
  * @remarks
  * Every write goes through the host, so a closeout runs inside the scheduler's
  * serial writes and sees the same lease state as admission.
@@ -47,7 +46,6 @@ export class AcpLeaseReconciler {
 
   /**
    * Adopts the leases known at startup and recovers each active lease once.
-   *
    * @param previous - Durable leases of this process role.
    * @param legacyOwners - Interrupted sessions from before the lease journal.
    * @param context - Leases whose state an earlier step preserved or retained.
@@ -81,7 +79,6 @@ export class AcpLeaseReconciler {
 
   /**
    * Checks uncertain leases and releases each one whose processes are proven gone.
-   *
    * @param runId - Only the leases of this plan run; `undefined` checks every uncertain lease.
    * @returns How many leases stay uncertain.
    */
@@ -109,7 +106,6 @@ export class AcpLeaseReconciler {
 
   /**
    * Ends the processes of one lease and reports how many of them remain.
-   *
    * @param record - A lease of this process role.
    * @param startedAt - Its recorded start, or `null` when the start is unknown.
    * @throws When the lease belongs to an unverified local owner.
@@ -132,7 +128,6 @@ export class AcpLeaseReconciler {
 
   /**
    * A chat lease whose native closeout stayed unconfirmed is proven from its identity and units.
-   *
    * @param instanceId - The lease to prove.
    * @returns Whether no process of the lease remains.
    */

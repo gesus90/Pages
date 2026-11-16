@@ -70,7 +70,6 @@ export interface McpDeviceView {
 
 /**
  * Reduces typed or pasted user code to its stored form.
- *
  * @param text - Untrusted text such as `bcdf-ghjk`.
  * @returns Eight capital letters without a hyphen, or `null` when the text is no user code.
  */
@@ -92,7 +91,6 @@ export function normalizeUserCode(text: unknown): string | null {
 
 /**
  * Shows a normalized user code in two groups.
- *
  * @param code - Eight capital letters.
  * @returns The code as `XXXX-XXXX`.
  */

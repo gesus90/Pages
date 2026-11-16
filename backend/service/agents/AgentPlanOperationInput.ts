@@ -145,7 +145,7 @@ export interface AgentPlanCreateRequest {
   readonly workspaceId: string;
   readonly sharing: PageAgentSharingRequest | null;
   readonly executionTarget?: AgentPlanExecutionTarget;
-  /** `true` creates a one-time plan (PAGE-309); absent is a normal plan. */
+  /** `true` creates a one-time plan; absent is a normal plan. */
   readonly oneShot?: boolean;
   readonly changes: readonly AgentPlanChange[];
 }
@@ -162,9 +162,9 @@ export interface AgentPlanUpdateRequest extends AgentPlanTarget {
   /** Sets (`true`) or removes (`false`) the one-time mark; absent keeps it. */
   readonly oneShot?: boolean;
   readonly changes: readonly AgentPlanChange[];
-  /** The new teams of the plan (PAGE-329); absent keeps them. */
+  /** The new teams of the plan; absent keeps them. */
   readonly teams?: readonly AgentPlanTeam[];
-  /** The new owner, for administrators (PAGE-329); absent keeps the owner. */
+  /** The new owner, for administrators; absent keeps the owner. */
   readonly ownerId?: string;
   /** The parameter node a parameter operation must find, `null` otherwise. */
   readonly parameterId: string | null;
@@ -323,7 +323,6 @@ function readWindow(
 
 /**
  * Reads `plans.list`: an optional part of the name, an optional project and the window.
- *
  * @param input - The raw parameters.
  * @throws {AgentOperationError} `INVALID_REQUEST` for a missing, unknown or malformed parameter.
  */
@@ -351,7 +350,6 @@ export function readPlanListRequest(input: unknown): AgentPlanListRequest {
 
 /**
  * Reads `plans.read`: the plan to read.
- *
  * @param input - The raw parameters.
  * @throws {AgentOperationError} `INVALID_REQUEST` for a missing, unknown or malformed parameter.
  */
@@ -371,7 +369,6 @@ export function readPlanReadRequest(input: unknown): {
 
 /**
  * Reads `plans.sources.read`: optionally the workspace whose agents to list.
- *
  * @param input - The raw parameters.
  * @throws {AgentOperationError} `INVALID_REQUEST` for an unknown or malformed parameter.
  */
@@ -383,7 +380,6 @@ export function readPlanSourcesRequest(input: unknown): string | null {
 
 /**
  * Reads `plans.runs.list`: the plan, the order of the starts and the window.
- *
  * @param input - The raw parameters.
  * @throws {AgentOperationError} `INVALID_REQUEST` for a missing, unknown or malformed parameter.
  */
@@ -417,7 +413,6 @@ function readRunSelection(
 
 /**
  * Reads `plans.run.read`: a run identifier, or a plan with `latest` or `first`.
- *
  * @param input - The raw parameters.
  * @throws {AgentOperationError} `INVALID_REQUEST` for a missing, unknown or malformed parameter.
  */
@@ -429,7 +424,6 @@ export function readPlanRunRequest(input: unknown): AgentPlanRunSelection {
 
 /**
  * Reads `plans.run.reports.read`: the run as in `plans.run.read`, and optionally one node.
- *
  * @param input - The raw parameters.
  * @throws {AgentOperationError} `INVALID_REQUEST` for a missing, unknown or malformed parameter.
  */
@@ -527,11 +521,9 @@ function readParameterWrite(
 
 /**
  * Reads a change of plans into one typed request.
- *
  * @param operation - The write operation that was called.
  * @param input - The raw parameters.
  * @throws {AgentOperationError} `INVALID_REQUEST` for a missing, unknown or malformed parameter.
- *
  * @remarks
  * The checks here are the shape of the call. Pages judges the plan itself when
  * it is saved, with the graph check of the plan page.

@@ -14,12 +14,10 @@ export interface HoveredBlock {
 
 /**
  * Finds the top-level block at a point of the screen.
- *
  * @param editor - The editor.
  * @param container - The element the handle is placed in.
  * @param point - Pointer coordinates in the viewport.
  * @returns The block and its offset in the container, or `null`.
- *
  * @remarks
  * Points left of the text, where the handle is, count as the line they are
  * on, so moving from the text to the handle keeps the block.
@@ -58,7 +56,6 @@ export function findBlockAtPoint(
 /**
  * Follows the block under the pointer while the pointer is over the editor.
  * Typing hides the handle, as in Notion, until the pointer moves again.
- *
  * @param editor - The editor.
  * @param container - The element around the editor and its handle.
  * @returns The hovered block, or `null`.

@@ -30,7 +30,7 @@ const TIME_PATTERN = /^(?:[01]\d|2[0-3]):[0-5]\d$/u;
 export const automationReferenceSchema = z.string().min(1).max(200);
 
 /**
- * The target chat of an agent action (PAGE-376): `@Agentname`, `[[Chatname]]`
+ * The target chat of an agent action: `@Agentname`, `[[Chatname]]`
  * or empty for the direct chat of the owner with the agent.
  */
 export const automationTargetChatSchema = z
@@ -41,7 +41,6 @@ export const automationTargetChatSchema = z
 
 /**
  * Tells whether a name is an IANA time zone this runtime can compute with.
- *
  * @param name - The time zone, such as `Europe/Berlin`.
  */
 export function isAutomationTimeZone(name: string): boolean {
@@ -156,7 +155,6 @@ const eventSchema = z
 
 /**
  * A trigger as stored and as read: a once trigger may have lost its time.
- *
  * @remarks
  * Input of a change additionally needs a time in the future for a once
  * trigger; the automation service checks that against its clock.

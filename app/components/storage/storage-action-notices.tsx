@@ -18,7 +18,6 @@ const WRITE_CONSENT_PATH = "/settings/system?googleDriveAccess=write";
 
 /**
  * The translated message of a failed Storage call.
- *
  * @param error - The error of the server or of the upload check.
  * @param t - Translation function.
  * @param language - The language of the view, for the size limit.
@@ -68,7 +67,7 @@ export function StorageSimulationBanner(): React.ReactElement {
 /**
  * Explains why nothing can be changed: the full Drive access is missing, or
  * the simulation runs a read-only scenario. Both lead to the new sign-in
- * under Settings → System (PAGE-272).
+ * under Settings → System.
  */
 export function StorageReadOnlyNotice({
   capabilities,

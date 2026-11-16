@@ -28,7 +28,7 @@ function frameDocument(url: string): string {
 }
 
 /**
- * Frames a web page for the chat, when it may be embedded (PAGE-298):
+ * Frames a web page for the chat, when it may be embedded:
  * `GET /chat/embed?url=<url>&conversationId=<id>`.
  *
  * @remarks

@@ -33,8 +33,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpPlanNotationHandlers {
 
 /**
  * Reads a plan as notation (`GET /api/mcp/v1/plan-notation/{planId}`) and
- * replaces it by a notation (`PUT`), PAGE-250 interface 2 and 4.
- *
+ * replaces it by a notation (`PUT`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

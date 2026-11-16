@@ -141,10 +141,9 @@ function legacyRun(employee: StoredAgentEmployee): StoredDreamRun | null {
 }
 
 /**
- * The tab "Dreaming" of the agent settings (PAGE-378): the schedule of the
+ * The tab "Dreaming" of the agent settings: the schedule of the
  * dream run, its last and next run with the log of the last, the sizes of
  * `MEMORY.md` and `DREAM.md`, and the button "Jetzt träumen".
- *
  * @remarks
  * Only an administrator reads the log and the two files, saves the schedule
  * or starts a run, because they hold what the agent learned from the chats of
@@ -159,7 +158,6 @@ export class AgentDreamingAdministration {
 
   /**
    * Reads the Dreaming of an agent as the viewer may see it.
-   *
    * @throws {AgentEmployeeError} `notFound` for an account that is no agent.
    */
   public async overview(
@@ -192,7 +190,6 @@ export class AgentDreamingAdministration {
 
   /**
    * Saves the schedule and the model of an agent.
-   *
    * @throws {AgentEmployeeError} `forbidden` for a viewer who is no
    * administrator, `invalidInput` for a schedule outside its ranges or a
    * model the administrator may not choose, `notFound` for an account that is
@@ -226,7 +223,6 @@ export class AgentDreamingAdministration {
   /**
    * Starts a dream run now ("Jetzt träumen"); while the agent works in a chat
    * the run waits for the next quiet moment.
-   *
    * @returns `started`, or `waiting`.
    * @throws {AgentEmployeeError} `forbidden` for a viewer who is no
    * administrator, `unavailable` where no model can run a dream, `inactive`

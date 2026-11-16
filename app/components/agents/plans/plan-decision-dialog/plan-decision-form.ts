@@ -39,10 +39,9 @@ import type { PageAgentModel } from "@/definition/PageAgent";
 
 /**
  * What the decision dialog edits before Apply.
- *
  * @remarks
- * `input` encodes the data input: an agent's id for its boolean result (as
- * before PAGE-286), `source:<id>` for a parameter or ticket, `result:<id>`
+ * `input` encodes the data input: an agent's id for its boolean result,
+ * `source:<id>` for a parameter or ticket, `result:<id>`
  * for a text result, and an empty text for none.
  */
 export interface PlanDecisionForm {

@@ -30,7 +30,7 @@ function hideImages(): boolean {
   return false;
 }
 
-/** One message; answers and own messages both render Markdown and code blocks (T6.12.10). */
+/** One message; answers and own messages both render Markdown and code blocks. */
 function ChatMessageItem({
   message,
   facts,

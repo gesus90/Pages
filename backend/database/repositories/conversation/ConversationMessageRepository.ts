@@ -54,7 +54,7 @@ export interface StoredConversationMessage {
   readonly mentions: readonly string[];
   readonly createdAt: string;
   readonly voice: StoredConversationVoice | null;
-  /** Why an agent did not answer, for a hint in its name (PAGE-276); otherwise `null`. */
+  /** Why an agent did not answer, for a hint in its name; otherwise `null`. */
   readonly notice: ConversationNotice | null;
 }
 
@@ -249,7 +249,7 @@ async function recordActivity(
 }
 
 /**
- * The messages of the conversations (PAGE-278).
+ * The messages of the conversations.
  *
  * @remarks
  * A message is stored once per sender, conversation and `clientMessageId`:
@@ -379,7 +379,7 @@ export class ConversationMessageRepository {
 
   /**
    * Returns the content messages of a conversation after a sequence, oldest
-   * first; hints of Pages why an agent did not answer stay out (PAGE-296).
+   * first; hints of Pages why an agent did not answer stay out.
    *
    * @param conversationId - The conversation.
    * @param afterSequence - Only newer messages.
@@ -444,7 +444,7 @@ export class ConversationMessageRepository {
     outcome: {
       readonly state: "done" | "failed";
       readonly text: string;
-      /** The members the recognized text mentions (PAGE-277). */
+      /** The members the recognized text mentions. */
       readonly mentions: readonly string[];
     },
     event: PagesEventRecord,

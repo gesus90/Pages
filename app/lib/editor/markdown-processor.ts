@@ -114,7 +114,6 @@ const stringifiers: Readonly<
 
 /**
  * Parses markdown the way the wiki renderer reads it (CommonMark and GFM).
- *
  * @param source - Markdown text.
  * @returns The syntax tree with source positions.
  */
@@ -124,7 +123,6 @@ export function parseMarkdownTree(source: string): Root {
 
 /**
  * Writes one block of a syntax tree as markdown.
- *
  * @param block - A top-level block.
  * @param markers - List markers to use for this block.
  * @param textStyle - Whether plain text is escaped or written as typed.

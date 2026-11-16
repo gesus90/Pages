@@ -16,7 +16,6 @@ interface DashboardRecentlyEditedProps {
 
 /**
  * Renders the recently edited tickets list.
- *
  * @param props - Items to display, already sorted by the route loader.
  * @returns The recently edited list element.
  */

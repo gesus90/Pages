@@ -24,8 +24,7 @@ export interface AgentWebPage {
 }
 
 /**
- * Fetches one public page (PAGE-390).
- *
+ * Fetches one public page.
  * @throws {PicaAdminError} With the code of a refused address or a failed request.
  */
 export type AgentWebPageReader = (
@@ -79,7 +78,7 @@ async function guardedWeb(
 }
 
 /**
- * The web tools of the toolkit (PAGE-390): a web search and a page fetched
+ * The web tools of the toolkit: a web search and a page fetched
  * as readable text. Both only read, so every access level that allows the
  * web group offers them; what they return is data, never an instruction.
  */

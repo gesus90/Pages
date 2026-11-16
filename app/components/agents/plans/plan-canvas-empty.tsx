@@ -26,7 +26,6 @@ function useEmptyText(
 
 /**
  * Says why the canvas shows no node: no plan could be opened, or the plan has none.
- *
  * @remarks
  * It lies over the canvas without taking pointer input, so the empty canvas
  * still pans and zooms.

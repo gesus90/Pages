@@ -7,7 +7,6 @@ import type { AgentParameter } from "./AgentParameters";
 
 /**
  * How a session may reach its workspace.
- *
  * @remarks
  * `yolo` is the full access of an agent that runs over ACP: Codex CLI,
  * Claude Code or OpenCode. It exists for no other runner. `workspace_write` is the
@@ -20,7 +19,6 @@ export type AgentRunAccess =
 
 /**
  * How a runner may work and the duration limit of one invocation.
- *
  * @remarks
  * Every runner works without asking anyone. Each runner maps these options to
  * its own verified switches; a combination a runner cannot enforce blocks the
@@ -94,11 +92,9 @@ export function isAcpPermissionMode(
 
 /**
  * The run options of an ACP agent in one mode.
- *
  * @param mode - "Nur Lesen" or "YOLO".
  * @param timeoutMinutes - The duration limit, which stays separate from the mode.
  * @returns Options whose shell and web follow from the mode alone.
- *
  * @remarks
  * "Nur Lesen" never runs commands, so a command cannot bypass the missing
  * write access; reading web search stays available. YOLO allows everything the
@@ -133,7 +129,6 @@ export function defaultAgentRunOptions(
 
 /**
  * The run options a runner applies to an agent.
- *
  * @param provider - The provider of the agent's model connection.
  * @param run - The stored run options, absent when the agent names none.
  * @returns The stored options for every runner but the ACP ones. An ACP agent
@@ -158,13 +153,11 @@ export function agentRunOptionsFor(
 
 /**
  * Whether run options may be stored for an agent of this provider.
- *
  * @param provider - The provider of the agent's model connection.
  * @param run - The run options to store.
  * @param previous - The run options stored so far; absent for a new agent.
  * @returns `false` for YOLO outside the ACP runners, and for an ACP agent that
  * would store the earlier write mode anew instead of keeping it unchanged.
- *
  * @remarks
  * An agent saved before the two modes existed keeps its options until someone
  * chooses a mode, so an unrelated change does not fail; it never becomes YOLO

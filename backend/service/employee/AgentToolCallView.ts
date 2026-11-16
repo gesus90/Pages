@@ -5,7 +5,7 @@ import type {
 } from "@/definition/ChatJob";
 import type { VirtualToolUse } from "@/definition/VirtualChat";
 
-/** The tool calls of one job as the chat page shows them (PAGE-303). */
+/** The tool calls of one job as the chat page shows them. */
 export interface AgentToolCallView {
   /** The calls each stored answer of the job was made with, by message id. */
   readonly byMessage: Readonly<Record<string, readonly VirtualToolUse[]>>;
@@ -29,10 +29,8 @@ function toolUse(event: ChatJobToolEvent): VirtualToolUse {
 
 /**
  * Folds the journal of a job into the tool calls of its answers.
- *
  * @param entries - The journal, oldest first.
  * @returns Every call in its last state, under the answer that followed it.
- *
  * @remarks
  * A call is journaled once per change of its state; the last entry wins and
  * the call keeps the place of its first entry. The calls journaled before an
@@ -69,7 +67,6 @@ export function foldToolCalls(
 
 /**
  * Folds the journals of several jobs of a conversation.
- *
  * @param journals - The jobs, oldest first, each with its journal.
  * @returns The calls of every stored answer, and the calls of the answer in
  * progress of the newest job when it still runs.

@@ -24,7 +24,7 @@ import type { ConversationAttachment } from "@/definition/ConversationContent";
 const WAVE_SOURCE_MAXIMUM_BYTES = 20 * 1024 * 1024;
 
 /**
- * The fixed columns of a sound row (PAGE-384): Start/Pause · name and infos
+ * The fixed columns of a sound row: Start/Pause · name and infos
  * · waveform (the rest) · time · speed · download. Every row has the same
  * columns, whatever its name, length or state, so rows below each other line
  * up exactly; on a narrow screen the waveform moves into a second line.
@@ -86,12 +86,11 @@ function AudioDownloadLink({
 }
 
 /**
- * A sound of the chat as one row (PAGE-298, PAGE-384): the round
+ * A sound of the chat as one row: the round
  * Start/Pause in the accent color, name and infos in a fixed width, the
  * waveform with the played part in the accent color (a click seeks), the
  * time always as `0:41 / 1:52`, the speed and "Herunterladen" as an icon in
  * the accent color.
- *
  * @remarks
  * A sound has no "Daneben" and no full screen. It joins the one playback of
  * the page: starting it pauses every other sound and video.
@@ -198,7 +197,7 @@ export function AudioPlayer({
 }
 
 /**
- * The card of an audio file of a message (PAGE-298, PAGE-384): one row of
+ * The card of an audio file of a message: one row of
  * the fixed sound grid in a frame of the fixed width every sound row has.
  */
 export function AudioCard({

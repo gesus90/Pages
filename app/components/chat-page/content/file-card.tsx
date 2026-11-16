@@ -11,7 +11,6 @@ const UNKNOWN_MIME_TYPE = "application/octet-stream";
 
 /**
  * The type of a file as a person reads it.
- *
  * @param attachment - The file.
  * @returns Its MIME type; for a file without a known one its extension in
  * upper case, or `null` when it has neither.

@@ -26,7 +26,6 @@ export interface PicaMobilePushStep {
 
 /**
  * The names and the reason a detailed push may show.
- *
  * @remarks
  * Only a caller that has just verified the plan ownership and the run rights
  * of the account may build it, and only for a device that registered for

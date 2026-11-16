@@ -6,11 +6,10 @@ import { logCaughtError } from "@/backend/logging/Logger";
 import type { Route } from "./+types/conversation-images";
 
 /**
- * Lists every image of a conversation for a member (PAGE-382):
+ * Lists every image of a conversation for a member:
  * `GET /chat/images/<conversationId>`, oldest first, with sender, time and
  * the state of each file, so the image viewer pages through the images of
  * messages the chat has not loaded yet.
- *
  * @remarks
  * Membership is checked on every request; a conversation the person does not
  * belong to answers like a missing one.

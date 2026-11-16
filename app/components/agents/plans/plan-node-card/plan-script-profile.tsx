@@ -30,7 +30,6 @@ const TONES = {
 /**
  * The interpreter profile of a script at the bottom of its card, where an
  * agent shows its model.
- *
  * @remarks
  * The profile is chosen among the profiles the server configures, by their
  * identifier. Beside it stand the version and a status dot that is never the

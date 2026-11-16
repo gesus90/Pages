@@ -38,14 +38,12 @@ export interface PlanViewport {
 
 /**
  * Keeps the visible window of the timeline and its scroll position.
- *
  * @remarks
  * The visible window extends on demand while scrolling and rebases distant
  * columns away, which keeps the DOM bounded while the axis feels endless in
  * both directions at a constant scroll speed. Resets and view changes fill
  * the viewport width and park near the left edge. Both run as layout
  * effects, so the first paint already shows the final scale and position.
- *
  * @param times - Instants of all dated milestones, for the default window.
  * @param today - The current instant.
  */

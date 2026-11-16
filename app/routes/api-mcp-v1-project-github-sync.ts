@@ -25,8 +25,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpProjectHandlers {
 }
 
 /**
- * Synchronizes with GitHub right away (`POST /api/mcp/v1/projects/{id}/github/sync`), PAGE-244 interface 11.
- *
+ * Synchronizes with GitHub right away (`POST /api/mcp/v1/projects/{id}/github/sync`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

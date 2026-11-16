@@ -99,7 +99,6 @@ function StoredTokenNotice({
 
 /**
  * The token section of the GitHub panel.
- *
  * @remarks
  * A stored token is never sent to the client: the field shows a placeholder
  * until the visitor chooses to replace it, and an empty field keeps it.

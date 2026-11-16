@@ -64,7 +64,7 @@ export type AgentPlanScriptFailure =
 
 /** Process diagnostics within the existing node result; identifiers never authorize killing a PID. */
 export interface AgentPlanScriptRun {
-  /** Disk scratch identity; absent only for attempts from before PAGE-408. */
+  /** Disk scratch identity; absent only for older attempts. */
   readonly temporaryScope?: { readonly runId: string; readonly stepId: string };
   readonly attemptId: string;
   readonly instanceId: string;
@@ -104,9 +104,8 @@ export interface AgentPlanScriptOutput {
 /**
  * A script step: its content runs with an interpreter profile in the
  * selected workspace, defaulting to the local workspace of the plan.
- *
  * @remarks
- * The profile is named by its stable identifier (PAGE-116), never by its
+ * The profile is named by its stable identifier, never by its
  * label, so a renamed profile stays the same and a removed one stays
  * visibly missing. Remote targets use runner-owned interpreter identities and
  * the durable remote dispatcher. A script has no model or reasoning.
@@ -165,7 +164,6 @@ export type AgentPlanScriptIssue =
 
 /**
  * An interpreter profile as the plan editor shows it: no program path.
- *
  * @remarks
  * `unchecked` is neutral: no check of the configured program has finished
  * since the server started or the path changed.
@@ -207,7 +205,6 @@ function nameIssues(
 
 /**
  * Lists every problem of a script's own configuration.
- *
  * @remarks
  * The editor and the server use the same rules: a name, a profile, a
  * nonempty content within its length, valid and unique input and output
@@ -256,7 +253,6 @@ export function planScriptDisabledOutput(
 
 /**
  * A replacement report may only claim a passed review, so a disabled gate never fails the run.
- *
  * @remarks
  * The length is bounded even while the script is active, so enabling it later
  * cannot keep an oversized value. The JSON shape is checked only while disabled,
@@ -282,7 +278,6 @@ function disabledOutputIssue(
 
 /**
  * The inputs of a script as the text parameters the plan graph binds.
- *
  * @remarks
  * A script input has no description and no default: an unbound required
  * input stays open until something fills it.
@@ -301,7 +296,6 @@ export function planScriptParameters(
 
 /**
  * The editor's view of the configured profiles and their last checks.
- *
  * @param profiles - The configured profiles in their order.
  * @param checks - The last check of each profile by its identifier.
  */

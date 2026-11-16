@@ -8,7 +8,7 @@ export type AgentParameterValue =
   | { readonly type: "ticket"; readonly ticketId: string }
   | { readonly type: "workspace"; readonly workspaceId: string }
   | { readonly type: "wiki"; readonly pageId: string }
-  /** A plan asset (PAGE-268): its file is handed over, not its name. */
+  /** A plan asset: its file is handed over, not its name. */
   | { readonly type: "asset"; readonly assetId: string };
 
 /** The authorized ticket projection offered by parameter pickers. */
@@ -145,7 +145,6 @@ export function scanAgentPlaceholders(markdown: string): {
 
 /**
  * The parameters a template really names, read with the one placeholder scanner.
- *
  * @param markdown - A template such as a node's `AGENT.md`.
  * @returns The names of its placeholders, such as `ergebnis` for
  * `{{ergebnis}}`; escaped placeholders do not count.

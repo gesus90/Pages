@@ -53,9 +53,8 @@ function defaultWait(milliseconds: number): Promise<void> {
 }
 
 /**
- * Runs the claimed answers of agents (PAGE-276, PAGE-296), one after the
+ * Runs the claimed answers of agents, one after the
  * other per agent and conversation.
- *
  * @remarks
  * Before it starts, the agent must still be a member of the conversation.
  * The answer runs as the agent's own account with its own model,
@@ -64,8 +63,7 @@ function defaultWait(milliseconds: number): Promise<void> {
  * missing model leave a hint in the agent's name instead, and the stored
  * state of the answer says so: answered only with a stored answer. Each
  * agent stores at most one answer or hint per asking message.
- *
- * Every agent answers in its own session of the conversation (PAGE-304), so
+ * Every agent answers in its own session of the conversation, so
  * several agents answer side by side. An answer that waits for the earlier
  * answer of the same agent, or for a free place among the limits of
  * concurrent sessions, shows as queued until it begins, and a member can
@@ -85,9 +83,9 @@ export class ConversationReplyRunner {
   >();
   /** The stop of the running answer, by conversation and agent. */
   private readonly controllers = new Map<string, AbortController>();
-  /** The rounds handed to the running answer of an agent in a conversation (PAGE-376). */
+  /** The rounds handed to the running answer of an agent in a conversation. */
   private readonly steered = new Map<string, ConversationReplyJob[]>();
-  /** Messages sent "after" the running answers, waiting for their agents to end (PAGE-381). */
+  /** Messages sent "after" the running answers, waiting for their agents to end. */
   private readonly idleWaiters = new Map<
     string,
     Set<{ readonly agentIds: readonly string[]; readonly resolve: () => void }>
@@ -103,8 +101,7 @@ export class ConversationReplyRunner {
   }
 
   /**
-   * The messages of a conversation whose answer waits, and why (PAGE-304).
-   *
+   * The messages of a conversation whose answer waits, and why.
    * @returns By message ID; `limit` wins over `chat` when several agents wait.
    */
   public queuedMessages(
@@ -120,9 +117,8 @@ export class ConversationReplyRunner {
 
   /**
    * Holds a message until the given agents ended their running answers in a
-   * conversation (PAGE-381, "Danach senden"); meanwhile it shows as waiting
+   * conversation ("Danach senden"); meanwhile it shows as waiting
    * for them.
-   *
    * @param conversationId - The conversation.
    * @param messageId - The message that waits.
    * @param agentIds - The agents whose answers it waits for.
@@ -153,7 +149,7 @@ export class ConversationReplyRunner {
   }
 
   /**
-   * The messages of a conversation handed to running answers (PAGE-381), with
+   * The messages of a conversation handed to running answers, with
    * the agents whose answers took them; they end with those answers.
    */
   public steeredMessages(
@@ -173,7 +169,7 @@ export class ConversationReplyRunner {
 
   /**
    * How many messages of a conversation wait for the answer of one agent: for
-   * its running answer, or for a free place (PAGE-376).
+   * its running answer, or for a free place.
    */
   public queuedFor(conversationId: string, agentId: string): number {
     return [...(this.queued.get(conversationId)?.keys() ?? [])].filter((key) =>
@@ -196,7 +192,7 @@ export class ConversationReplyRunner {
   /**
    * Runs a claimed answer: handed to the answer the agent is giving in the
    * conversation now, or after the earlier answers of the same agent in the
-   * same conversation (PAGE-376).
+   * same conversation.
    *
    * @returns The stored answer, or `null` for a hint, no answer or a round
    * the running answer took over.
@@ -232,7 +228,7 @@ export class ConversationReplyRunner {
   }
 
   /**
-   * Hands a round to the answer the agent gives now (PAGE-376): the new
+   * Hands a round to the answer the agent gives now: the new
    * messages join that answer, so the conversation gets no second answer and
    * the agent no second session.
    */
@@ -374,7 +370,7 @@ export class ConversationReplyRunner {
   }
 
   /**
-   * Opens the live answer of a job for the members (PAGE-381): every member
+   * Opens the live answer of a job for the members: every member
    * sees its text and tools, its thoughts only the person of a direct
    * conversation or the creator of a group.
    */
@@ -407,14 +403,14 @@ export class ConversationReplyRunner {
     });
   }
 
-  /** Whether the round began with an agent in a conversation whose chain of agent messages is used up (PAGE-311). */
+  /** Whether the round began with an agent in a conversation whose chain of agent messages is used up. */
   private async isPausedChain(job: ConversationReplyJob): Promise<boolean> {
     if (job.round.person.isAgent !== true || !this.dependencies.guard)
       return false;
     return this.dependencies.guard.isPaused(job.round.conversation.id);
   }
 
-  /** Asks the agent; while it is busy with another job the message waits for its turn (PAGE-311). */
+  /** Asks the agent; while it is busy with another job the message waits for its turn. */
   private async askWhenFree(
     job: ConversationReplyJob,
     agent: User,
@@ -472,7 +468,7 @@ export class ConversationReplyRunner {
   }
 
   /**
-   * What an agent is asked in a round (PAGE-376): the whole chat context for
+   * What an agent is asked in a round: the whole chat context for
    * a session that does not know the chat yet, otherwise only the messages
    * after the position of its session.
    */
@@ -507,7 +503,7 @@ export class ConversationReplyRunner {
         afterSequence,
         deliveredThrough: isResumed ? deliveredThrough : 0,
       });
-      // The messages a continuation bundles come after the context of the chat (PAGE-337).
+      // The messages a continuation bundles come after the context of the chat.
       return {
         ...turn,
         prompt: turn.prompt + (await this.followUpContext(job, accounts)),

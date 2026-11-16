@@ -50,7 +50,7 @@ export interface AuthorizationSnapshot {
   readonly accounts: readonly AccountAccess[];
 }
 
-/** Stores the A2 aggregate and serializes policy checks with their mutations. */
+/** Stores the authorization aggregate and serializes policy checks with their mutations. */
 export class AuthorizationRepository {
   private readonly database: AuthorizationDatabase;
 
@@ -78,7 +78,7 @@ export class AuthorizationRepository {
     return new UserGroupRepository(this.database);
   }
 
-  /** Shares the persistence of agent employees inside the current aggregate transaction (PAGE-266). */
+  /** Shares the persistence of agent employees inside the current aggregate transaction. */
   public employees(): EmployeeStore {
     return new EmployeeStore(this.database);
   }
@@ -108,7 +108,6 @@ export class AuthorizationRepository {
 
   /**
    * Loads a current policy snapshot; callers must filter it before serialization.
-   *
    * @remarks
    * The reads share one consistent snapshot without waiting for the writer;
    * inside an aggregate transaction they reuse it and see its own changes.

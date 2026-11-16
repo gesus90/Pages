@@ -14,8 +14,7 @@ export interface AgentPlanStepProgressTodo {
 }
 
 /**
- * The last live progress of a step in a run (PAGE-284).
- *
+ * The last live progress of a step in a run.
  * @remarks
  * It survives further attempts of the same run, so a new attempt starts from
  * the last reported state. It never decides the step: `report_step_result`

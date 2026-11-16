@@ -13,21 +13,21 @@ export interface CardText {
   readonly sourceUrl?: string;
 }
 
-/** What one content card of the chat shows (PAGE-298). */
+/** What one content card of the chat shows. */
 export type ContentCardDescriptor =
   | (CardText & {
       readonly kind: "code";
       readonly name: string;
       /** The info of the code fence or the file name; decides the language. */
       readonly languageHint: string;
-      /** Pages recognized the language; the fence named none (PAGE-383). */
+      /** Pages recognized the language; the fence named none. */
       readonly isDetected?: boolean;
     })
   | (CardText & { readonly kind: "diff"; readonly name: string })
   | (CardText & { readonly kind: "markdown"; readonly name: string })
   | {
       /**
-       * A preview (PAGE-383): HTML and SVG in the sandbox, Mermaid as a
+       * A preview: HTML and SVG in the sandbox, Mermaid as a
        * diagram, JSON as a tree, CSV or TSV as a table.
        */
       readonly kind: "preview";
@@ -43,7 +43,7 @@ export type ContentCardDescriptor =
     }
   | {
       /**
-       * A document as a readable view (PAGE-385): Word and OpenDocument text,
+       * A document as a readable view: Word and OpenDocument text,
        * PowerPoint and OpenDocument slides, or a workbook or CSV table.
        */
       readonly kind: "word" | "slides" | "sheet";
@@ -58,7 +58,7 @@ export interface CardOrigin {
   readonly senderName: string;
   /** ISO time the message was stored; missing for one still on its way. */
   readonly createdAt?: string;
-  /** The message, for "Alle herunterladen" and "Zur Nachricht" (PAGE-382); missing for one on its way. */
+  /** The message, for "Alle herunterladen" and "Zur Nachricht"; missing for one on its way. */
   readonly messageId?: string;
   /** The ZIP archive of the message's files where it is no message of a stored conversation. */
   readonly archiveUrl?: string;
@@ -66,8 +66,7 @@ export interface CardOrigin {
 
 /**
  * The address of the ZIP archive of every file of a message that is still
- * there (PAGE-382).
- *
+ * there.
  * @param messageId - The stored message.
  */
 export function archiveUrl(messageId: string): string {

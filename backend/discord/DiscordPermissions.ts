@@ -11,7 +11,6 @@ const ADMINISTRATOR = 1n << 3n;
 
 /**
  * The permission integer of the install link: View Channel and Send Messages.
- *
  * @remarks
  * Nothing else is requested, so the invited bot cannot read messages, mention
  * everyone, manage anything or join voice.
@@ -95,7 +94,6 @@ function applyChannelOverwrites(
 
 /**
  * Computes the permissions the bot has in one channel.
- *
  * @param input - Server, bot roles and the overwrites of the channel.
  * @returns The effective permission bits, following Discord's documented order:
  * owner and administrator hold everything, then `@everyone`, the bot's roles
@@ -122,7 +120,6 @@ export function computeChannelPermissions(
 
 /**
  * Lists which of the required permissions are not part of the given ones.
- *
  * @param permissions - Effective permission bits in a channel.
  * @returns The missing required permissions; empty when the bot can post.
  */

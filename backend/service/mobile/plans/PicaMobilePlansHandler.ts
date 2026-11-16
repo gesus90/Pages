@@ -80,7 +80,6 @@ function rowsToDrop(
 
 /**
  * Answers `plans.v1` for one connection and sends its changes on its own.
- *
  * @remarks
  * The handler keeps the `seq` of the connection and the rows it sent last, so
  * an answer to `plans_sync` and a change Pages sends on its own come from
@@ -107,7 +106,6 @@ export class PicaMobilePlansHandler {
 
   /**
    * Creates the handler.
-   *
    * @param provider - The business answers; none: the messages are unknown.
    * @param host - The connection the handler answers on.
    */
@@ -122,7 +120,6 @@ export class PicaMobilePlansHandler {
 
   /**
    * Handles one message of `plans.v1`.
-   *
    * @param message - A message that passed every check of its payload.
    */
   public async handle(message: PicaMobilePlansClientMessage): Promise<void> {
@@ -342,9 +339,7 @@ export class PicaMobilePlansHandler {
 
   /**
    * Builds the next `plans` frame within the frame limit.
-   *
    * @returns `null` for a change without any difference.
-   *
    * @remarks
    * Rows of the lowest order leave until the frame fits; a row the connection
    * held before is then removed like any row beyond the row limit.

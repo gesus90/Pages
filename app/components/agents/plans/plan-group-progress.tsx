@@ -25,7 +25,6 @@ const STATE_TONES: Record<PlanGroupState, string> = {
 
 /**
  * A readable status remains separate from the group's turquoise type identity.
- *
  * @remarks
  * Expanded and collapsed frames show it in the same extra-information role.
  */

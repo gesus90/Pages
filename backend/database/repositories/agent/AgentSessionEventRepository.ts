@@ -41,7 +41,6 @@ class SessionAppendConflict extends Error {}
 
 /**
  * The stored form of the key that drops a repeated event.
- *
  * @remarks
  * PostgreSQL stores text without U+0000, and a key without the character would drop
  * the events of another key. Hex keeps such a key apart and repeatable.

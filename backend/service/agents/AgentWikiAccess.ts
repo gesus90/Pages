@@ -10,7 +10,6 @@ import type { User } from "@/definition/User";
 
 /**
  * Creates fresh agent policy using transaction-bound project access.
- *
  * @remarks
  * On the `mcp` channel the policy is independent of the browser role mode; the
  * chat agent keeps the persisted role mode of the interface.

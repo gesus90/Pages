@@ -14,7 +14,6 @@ import type { PicaAcpJournal } from "./PicaAcpJournal";
 
 /**
  * The usage of one Pica job: context, cost and the tokens of each turn.
- *
  * @remarks
  * Reports are stored one after another and each is followed by the summed
  * usage in the journal. A failed write is logged without content.

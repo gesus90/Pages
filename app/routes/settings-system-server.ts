@@ -14,7 +14,6 @@ import type { Route } from "./+types/settings-system-server";
 
 /**
  * Loads the system settings for an administrator in the admin mode.
- *
  * @throws A `403` response for accounts without the admin permission.
  */
 export async function loader({
@@ -56,7 +55,6 @@ export async function loader({
 
 /**
  * Changes the system settings.
- *
  * @remarks
  * Every handler checks the permission itself, so a submission from an account
  * without the admin permission or outside the admin mode is refused there.

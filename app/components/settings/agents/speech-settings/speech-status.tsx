@@ -19,7 +19,6 @@ const STATUS_CLASSES: Readonly<Record<SpeechStatus, string>> = {
 
 /**
  * Names a duration of the speech settings in whole minutes or seconds.
- *
  * @param durationMs - The duration in milliseconds.
  * @param translate - The translation function of the page.
  * @returns For example "2 Minuten" or "30 Sekunden".
@@ -64,8 +63,8 @@ const STATUS_NOTES: Partial<Record<SpeechStatus, string>> = {
 };
 
 /**
- * Explains why a saved model does not run: it is no transcription model
- * (PAGE-294), or its OpenRouter catalog no longer lists it (PAGE-302). The
+ * Explains why a saved model does not run: it is no transcription model,
+ * or its OpenRouter catalog no longer lists it. The
  * saved choice and the longest recording stay as they are.
  */
 export function SpeechStatusNote({
@@ -86,7 +85,7 @@ export function SpeechStatusNote({
 
 /**
  * Tells how OpenRouter's transcription models become selectable while no
- * OpenRouter connection offers one (PAGE-302).
+ * OpenRouter connection offers one.
  */
 export function SpeechOpenRouterHint({
   models,

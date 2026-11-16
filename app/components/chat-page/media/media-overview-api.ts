@@ -79,8 +79,7 @@ function readList<T>(value: unknown, read: (entry: unknown) => T | null): T[] {
 }
 
 /**
- * Reads the answer of `GET /chat/media/<conversationId>` (PAGE-387).
- *
+ * Reads the answer of `GET /chat/media/<conversationId>`.
  * @param body - The parsed JSON body.
  * @returns The overview; entries of another shape are left out, an answer
  * without an overview is `null`.
@@ -108,9 +107,8 @@ export interface LoadedMediaOverview {
 }
 
 /**
- * Loads "Medien & Dateien" of a chat (PAGE-387) from the server, which
+ * Loads "Medien & Dateien" of a chat from the server, which
  * answers only members.
- *
  * @param conversationId - The stored conversation; `null` loads nothing.
  * @param reloadKey - Loads again whenever it changes, such as when the menu
  * opens or a message arrives; `null` loads nothing.

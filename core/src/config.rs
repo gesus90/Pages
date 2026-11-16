@@ -51,7 +51,7 @@ pub enum ManagerBus {
     User,
 }
 
-/// Where the service status comes from (PAGE-238).
+/// Where the service status comes from.
 pub struct StatusSource {
     /// The target whose services are reported, such as `pages.target`.
     pub target: String,
@@ -248,7 +248,7 @@ fn is_valid_secret(secret: &str) -> bool {
         && secret.bytes().all(|byte| byte.is_ascii_graphic())
 }
 
-/// Where Pica Mobile is served while the core relays it (PAGE-239).
+/// Where Pica Mobile is served while the core relays it.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct MobileTarget {
     /// The app's address: `listenAddress` (every interface without it) and `picaMobilePort`.

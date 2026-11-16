@@ -8,7 +8,6 @@ const TICKET_ATTACHMENT_PATH = /^\/aufgaben\/attachments\/[\w-]+(?:[?#].*)?$/;
 /**
  * Tells whether an image address belongs to a ticket attachment of this
  * instance.
- *
  * @param src - Image address from the markdown.
  * @returns Whether the ticket views may show it.
  */
@@ -19,7 +18,6 @@ export function isTicketAttachmentPath(src: string): boolean {
 /**
  * Tells whether an image in a ticket description may be shown: attachments of
  * tickets and of wiki pages of this instance, never outside addresses.
- *
  * @param src - Image address from the markdown.
  * @returns Whether the description shows the image.
  */
@@ -29,7 +27,6 @@ export function isTicketDisplayableImage(src: string): boolean {
 
 /**
  * The download address of a ticket attachment.
- *
  * @param attachmentId - Attachment identifier.
  * @returns The address the markdown and the attachment list point to.
  */

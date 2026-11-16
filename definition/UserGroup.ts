@@ -4,8 +4,7 @@ export interface UserGroup {
   readonly name: string;
   readonly memberIds: readonly string[];
   /**
-   * Members that lead the group (PAGE-308), a subset of `memberIds`.
-   *
+   * Members that lead the group, a subset of `memberIds`.
    * @remarks
    * Absent means none when a group is read; when a group is saved, absent
    * keeps the stored leadership, so a change of name or members never drops
@@ -28,7 +27,7 @@ export interface ManagedGroup extends GroupSummary {
   /** Leaders of the group, as far as the actor may see them. */
   readonly leaderIds: readonly string[];
   readonly canEdit: boolean;
-  /** Whether the actor may read the agent profiles of the group (PAGE-308). */
+  /** Whether the actor may read the agent profiles of the group. */
   readonly canReadAgents: boolean;
 }
 

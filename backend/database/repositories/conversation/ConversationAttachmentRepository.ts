@@ -12,7 +12,7 @@ import type {
   DatabaseValue,
 } from "@/backend/database/Database";
 
-/** The columns of an attachment row, in the order {@link toAttachment} reads them (PAGE-386 reads them too). */
+/** The columns of an attachment row, in the order {@link toAttachment} reads them. */
 export const ATTACHMENT_COLUMNS = `
     conversation_attachments.id,
     conversation_attachments.conversation_id,
@@ -60,28 +60,28 @@ export interface StoredConversationAttachment {
   readonly thumbnail: StoredConversationThumbnail | null;
   readonly createdAt: string;
   /**
-   * When an attachment of an agent's answer is removed (PAGE-382); `null` or
+   * When an attachment of an agent's answer is removed; `null` or
    * absent for an upload of a person, which stays.
    */
   readonly expiresAt?: string | null;
   /** When the file and its preview image were removed; the row stays as a placeholder. */
   readonly expiredAt?: string | null;
-  /** Resolution and length of a video or a sound as the browser read them (PAGE-384); `null` until then. */
+  /** Resolution and length of a video or a sound as the browser read them; `null` until then. */
   readonly media?: StoredConversationMediaFacts | null;
-  /** SHA-256 of the file in hex, computed while it was stored (PAGE-385); `null` for older files. */
+  /** SHA-256 of the file in hex, computed while it was stored; `null` for older files. */
   readonly sha256?: string | null;
-  /** Page count and title of a PDF as the browser read them (PAGE-385); `null` until then. */
+  /** Page count and title of a PDF as the browser read them; `null` until then. */
   readonly document?: StoredConversationDocumentFacts | null;
 }
 
-/** Page count and title of a document (PAGE-385). */
+/** Page count and title of a document. */
 export interface StoredConversationDocumentFacts {
   readonly pageCount: number | null;
   /** The title from the metadata; `null` when the document names none. */
   readonly title: string | null;
 }
 
-/** Resolution and length of a video or a sound (PAGE-384). */
+/** Resolution and length of a video or a sound. */
 export interface StoredConversationMediaFacts {
   /** Pixels; `null` for a sound. */
   readonly width: number | null;
@@ -89,10 +89,10 @@ export interface StoredConversationMediaFacts {
   readonly durationMs: number | null;
 }
 
-/** An image or a video of a conversation with the message that carries it (PAGE-382, PAGE-384). */
+/** An image or a video of a conversation with the message that carries it. */
 export type StoredConversationMedia = StoredConversationImage;
 
-/** An image of a conversation with the message that carries it (PAGE-382). */
+/** An image of a conversation with the message that carries it. */
 export interface StoredConversationImage {
   readonly attachment: StoredConversationAttachment;
   readonly messageId: string;
@@ -123,7 +123,6 @@ function readThumbnail(
 
 /**
  * Reads the first 21 columns of a row selected with {@link ATTACHMENT_COLUMNS}.
- *
  * @param row - The row of the query.
  * @returns The stored attachment.
  */
@@ -204,8 +203,7 @@ async function bindAttachment(
 }
 
 /**
- * The attachments of conversation messages (PAGE-298).
- *
+ * The attachments of conversation messages.
  * @remarks
  * A row names a file of the file store; the bytes never lie in the database.
  * An attachment is stored when its upload ended and bound to its message when
@@ -313,7 +311,7 @@ export class ConversationAttachmentRepository {
     return byMessage;
   }
 
-  /** Returns every attachment of a conversation, bound or not, for a dissolved group (PAGE-380). */
+  /** Returns every attachment of a conversation, bound or not, for a dissolved group. */
   public async forConversation(
     conversationId: string,
   ): Promise<StoredConversationAttachment[]> {
@@ -432,7 +430,7 @@ export class ConversationAttachmentRepository {
 
   /**
    * Marks every attachment whose time ran out by a moment as expired and
-   * drops its preview image (PAGE-382).
+   * drops its preview image.
    *
    * @param dueBefore - Attachments with `expires_at` up to this moment expire.
    * @param expiredAt - The moment stored as `expired_at`.
@@ -484,8 +482,8 @@ export class ConversationAttachmentRepository {
   }
 
   /**
-   * Stores the resolution and the length of a video or a sound once
-   * (PAGE-384); facts already stored stay.
+   * Stores the resolution and the length of a video or a sound once;
+   * facts already stored stay.
    *
    * @returns `false` when the attachment has facts already or is missing.
    */
@@ -517,7 +515,7 @@ export class ConversationAttachmentRepository {
   }
 
   /**
-   * Stores page count and title of a document that has none yet (PAGE-385).
+   * Stores page count and title of a document that has none yet.
    *
    * @returns `false` when the attachment has them already.
    */
@@ -547,7 +545,7 @@ export class ConversationAttachmentRepository {
 
   /**
    * Returns the images of the sent messages of a conversation, oldest
-   * message first and in their order within a message (PAGE-382).
+   * message first and in their order within a message.
    */
   public async imagesOfConversation(
     conversationId: string,
@@ -557,8 +555,7 @@ export class ConversationAttachmentRepository {
 
   /**
    * Returns the images or the videos of the sent messages of a conversation,
-   * oldest message first and in their order within a message (PAGE-382,
-   * PAGE-384).
+   * oldest message first and in their order within a message.
    */
   public async mediaOfConversation(
     conversationId: string,

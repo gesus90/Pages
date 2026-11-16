@@ -16,7 +16,7 @@ Ein Agent kann in der Benutzerverwaltung oder über die Pages-Schnittstelle mit 
 | Chats und Gruppen                       | `024_agent_employees.sql`, `agent_conversations` ab Zeile 86; `028_conversations.sql`, `conversations` ab Zeile 6, `conversation_members` ab Zeile 23 und `conversation_messages` ab Zeile 39; ältere Chat-Gruppen in `027_chat_groups.sql` ab Zeile 17. |
 | Tickets und Wiki-Beiträge               | `001_baseline.sql`, `work_items` ab Zeile 1642 und `wiki_comments` ab Zeile 1417; frühere Beiträge behalten ihre Autor-ID und die Agent-Tombstone-Zeile.                                                                                                 |
 
-Der ältere Entfernungsweg liegt in `backend/database/repositories/employee/AgentEmployeeRemovalRepository.ts` ab Zeile 30 und `backend/service/employee/AgentEmployeeAdministration.ts` ab Zeile 445. Er löscht bisher sofort und bietet keine Wiederherstellung; PAGE-321 ergänzt den eigenständigen Lebenszyklus.
+Der ältere Entfernungsweg liegt in `backend/database/repositories/employee/AgentEmployeeRemovalRepository.ts` ab Zeile 30 und `backend/service/employee/AgentEmployeeAdministration.ts` ab Zeile 445. Er löscht bisher sofort und bietet keine Wiederherstellung; diese Änderung ergänzt den eigenständigen Lebenszyklus.
 
 ## Bedienung und Schnittstelle
 

@@ -26,7 +26,7 @@ interface AttachmentCardProps {
 }
 
 /**
- * The card of a PDF, a document or any other file (PAGE-385): a PDF in its
+ * The card of a PDF, a document or any other file: a PDF in its
  * card, Word, PowerPoint, OpenDocument and tables as readable views, every
  * other file and every document above the preview limit as a plain row.
  */
@@ -85,7 +85,7 @@ interface ImageCardsProps {
   readonly isGone: (attachment: ConversationAttachment) => boolean;
 }
 
-/** The images of a message: one as a card, several as a gallery (PAGE-382). */
+/** The images of a message: one as a card, several as a gallery. */
 function ImageCards({
   images,
   origin,
@@ -108,14 +108,14 @@ function ImageCards({
 }
 
 /**
- * The cards of the file attachments of one message (PAGE-298, PAGE-382):
+ * The cards of the file attachments of one message:
  * one image as its card, several as a gallery, then every other attachment
  * as its own card, in order.
  *
  * @remarks
  * Every card remembers its state under `att:<attachment id>`, a gallery
  * under `gallery:<first image id>`. Images, videos, audio, PDFs and
- * documents start expanded (PAGE-385); binary files are plain rows. Only preview images load in the message; an
+ * documents start expanded; binary files are plain rows. Only preview images load in the message; an
  * original loads when it is opened, played or loaded. A file of an agent
  * whose 72 hours ended shows a placeholder with name and date instead.
  *

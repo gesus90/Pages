@@ -70,7 +70,7 @@ async function deletePlanRefusals(
  * @remarks
  * The trigger `agent_plan_access_cleanup` removes them as well; deleting them
  * here keeps every table of a project named in this one place. The history in
- * `agent_plan_audit` stays on purpose (PAGE-329).
+ * `agent_plan_audit` stays on purpose.
  */
 async function deletePlanAccess(
   database: DatabaseTransaction,

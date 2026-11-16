@@ -47,7 +47,6 @@ const EVENT_NEW_SESSION =
 
 /**
  * The part of the prompt that is specific to the start: the node's own instruction, or what an event brings.
- *
  * @remarks
  * A follow-up in the open session carries the new information only. A start
  * in a replacement session carries the full instruction and the new

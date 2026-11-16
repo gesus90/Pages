@@ -95,13 +95,13 @@ export interface McpApplicationServices extends McpDeviceApplicationServices {
   readonly agentAssetDownloadService: AgentAssetDownloadService;
   readonly pagesEventPublisher: PagesEventPublisher;
   readonly pagesAgentApiService: PagesAgentApiService;
-  /** The plan operations of the paired Pages MCP machines, on the `mcp` channel (PAGE-246). */
+  /** The plan operations of the paired Pages MCP machines, on the `mcp` channel. */
   readonly mcpPlanServices: () => McpPlanServices;
-  /** The plan service of the paired Pages MCP machines, bound to the `mcp` channel (PAGE-246, PAGE-250). */
+  /** The plan service of the paired Pages MCP machines, bound to the `mcp` channel. */
   readonly mcpPlanService: () => AgentPlanService;
-  /** The saves of the wiki API of the paired Pages MCP machines by operation ID (PAGE-257). */
+  /** The saves of the wiki API of the paired Pages MCP machines by operation ID. */
   readonly mcpWikiOperations: AgentOperationKeyRepository;
-  /** The user management API of the paired Pages MCP machines (PAGE-280). */
+  /** The user management API of the paired Pages MCP machines. */
   readonly mcpUserApi: McpUserApi;
 }
 
@@ -157,7 +157,7 @@ interface RouterContext extends Omit<OperationContext, "channel"> {
     ChatInstanceAdministrationDependencies,
     "database"
   >;
-  /** The automations (PAGE-297); the agent tools and the chat use them alike. */
+  /** The automations; the agent tools and the chat use them alike. */
   readonly automations?: AutomationService;
 }
 
@@ -177,7 +177,6 @@ function automationOperations(
 
 /**
  * Builds the operation catalog of the agent tools, including imports and uploads.
- *
  * @remarks
  * The workspace registry and the permanent deletion of projects belong to this
  * catalog; user-agent management and agent plans are also available to the
@@ -241,8 +240,7 @@ function createMcpOperationRouter(
 }
 
 /**
- * Builds the operation catalog for the chat agent (T6.12.5).
- *
+ * Builds the operation catalog for the chat agent.
  * @remarks
  * It shares every service and check with MCP but runs on the chat channel:
  * administrators keep the role mode of the interface, and changes are marked
@@ -307,8 +305,7 @@ function createChatOperationRouter(
 }
 
 /**
- * Builds the plan operations of the paired Pages MCP machines (PAGE-246).
- *
+ * Builds the plan operations of the paired Pages MCP machines.
  * @remarks
  * The same operation layer as the agent tools and Pica, over the plan
  * service of the plan page bound to the `mcp` channel; runs are no part of
@@ -325,7 +322,7 @@ function createMcpPlanServices(
       database,
       plans: channelPlans,
       resources: {
-        // The reads of runs for the whole team need the journal and the recovery state (PAGE-307).
+        // The reads of runs for the whole team need the journal and the recovery state.
         sessions: runs.planSessions,
         recovery: runs.planRecovery,
         plans: channelPlans,
@@ -340,8 +337,7 @@ function createMcpPlanServices(
 }
 
 /**
- * Builds the plan service of the paired Pages MCP machines on their first request (PAGE-246, PAGE-250).
- *
+ * Builds the plan service of the paired Pages MCP machines on their first request.
  * @remarks
  * The plan service of the `mcp` channel is a second view of the shared plans;
  * a process that no paired machine calls never builds it. The plan API and
@@ -355,7 +351,7 @@ function lazyMcpPlanService(plans: AgentPlanService): () => AgentPlanService {
   };
 }
 
-/** Builds the plan operations of the paired Pages MCP machines on their first request (PAGE-246). */
+/** Builds the plan operations of the paired Pages MCP machines on their first request. */
 function lazyMcpPlanServices(
   database: Database,
   channelPlans: () => AgentPlanService,
@@ -529,7 +525,7 @@ interface McpWorkspace {
   readonly instanceAdministration?: RouterContext["instanceAdministration"];
   /** The publisher the interface announces its changes on too; a new one by default. */
   readonly events?: PagesEventPublisher;
-  /** The automations shared by the agent tools and the signed-in chat (PAGE-297). */
+  /** The automations shared by the agent tools and the signed-in chat. */
   readonly automations?: AutomationService;
 }
 

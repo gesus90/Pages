@@ -16,7 +16,6 @@ function isSchemaEntry(input: unknown): input is SchemaEntry {
 
 /**
  * Derives the strict native input schema of a static tool contract.
- *
  * @param tool - The shared transport-neutral operation contract.
  * @returns The same arguments without `operationId` and `confirmation`, which Pages supplies itself.
  * @throws {Error} For a contract whose properties are not JSON Schema objects.

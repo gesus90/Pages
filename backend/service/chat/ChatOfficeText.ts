@@ -62,7 +62,6 @@ export interface XmlToken {
 
 /**
  * Decodes the XML entities of character data or of an attribute value.
- *
  * @param text - The raw text.
  */
 export function decodeEntities(text: string): string {
@@ -80,7 +79,6 @@ export function decodeEntities(text: string): string {
 
 /**
  * Splits an XML part into tags and character data; nothing is interpreted.
- *
  * @param xml - The text of the part.
  */
 export function* tokens(xml: string): Generator<XmlToken> {
@@ -108,7 +106,6 @@ export function* tokens(xml: string): Generator<XmlToken> {
 
 /**
  * Reads one attribute of a tag.
- *
  * @param attributes - The attribute text of the tag.
  * @param name - The qualified attribute name.
  * @returns The decoded value, or `null` without it.
@@ -164,7 +161,7 @@ const WORD_PAGE_BREAK =
 
 /**
  * The text of a Word document; split into numbered pages where Word marked
- * page breaks (PAGE-386), otherwise one section. Empty pieces between two
+ * page breaks, otherwise one section. Empty pieces between two
  * marks of the same break count as no page.
  */
 function readWordDocument(archive: ChatZipArchive): ChatDocument {
@@ -373,7 +370,7 @@ function readWorkbook(archive: ChatZipArchive): ChatDocument {
 
 /**
  * Reads the text of an accepted Office file: a Word document, the slides of a
- * presentation or the sheets of a workbook (PAGE-92).
+ * presentation or the sheets of a workbook.
  *
  * @remarks
  * Only the XML parts that hold text are read, in memory and within fixed
@@ -401,7 +398,7 @@ const MEDIA_PART =
   /^(?:word\/media|ppt\/media|xl\/media|Pictures)\/[^/]+\.(?:png|jpe?g|gif|webp)$/iu;
 
 /**
- * The pictures embedded in an Office or OpenDocument package (PAGE-386), in
+ * The pictures embedded in an Office or OpenDocument package, in
  * the order of their names; other embedded objects are never listed.
  *
  * @param bytes - The complete package.

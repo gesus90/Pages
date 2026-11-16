@@ -4,10 +4,8 @@ const SECRET_KEY =
 
 /**
  * Hides secret-looking query values of an address before it reaches a model.
- *
  * @param address - The address of a page or tab.
  * @returns The address with such values replaced by `…`; anything that is no URL stays as it is.
- *
  * @remarks
  * Redirect targets of sign-ins carry one-time codes in the query. The
  * administrator's own live view shows the real address; the model gets this one.

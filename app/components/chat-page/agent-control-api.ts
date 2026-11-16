@@ -41,7 +41,6 @@ function isControlResponse(value: unknown): value is AgentChatControlResponse {
 
 /**
  * The fields that name the chat of an agent in a request.
- *
  * @param target - The chat and its agent.
  */
 export function targetFields(
@@ -57,8 +56,7 @@ export function targetFields(
 }
 
 /**
- * Sends one request to the control of agents in a chat (PAGE-380).
- *
+ * Sends one request to the control of agents in a chat.
  * @param fields - The intent and its fields.
  * @returns The answer, or the failure its status code stands for.
  */

@@ -50,7 +50,6 @@ export class TaskLabelRepository {
 
   /**
    * Creates a task label repository.
-   *
    * @param database - Central database access.
    */
   public constructor(database: TaskDatabase) {

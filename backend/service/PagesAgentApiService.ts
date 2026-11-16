@@ -277,7 +277,7 @@ export class PagesAgentApiService {
     };
   }
 
-  /** The credential names run and step; only that swarm and only its side's tools answer (PAGE-313). */
+  /** The credential names run and step; only that swarm and only its side's tools answer. */
   private async callSwarm(
     scope: AgentRunScope,
     operation: AgentSwarmOperation,

@@ -74,7 +74,6 @@ function toMessage(message: ChatMessage): PicaMobileChatMessage {
 
 /**
  * Shortens the content of a message until it fits the room of the frame.
- *
  * @remarks
  * A surrogate pair is never split, so the text stays well-formed.
  */
@@ -104,7 +103,6 @@ function cutMessage(
 
 /**
  * Selects the newest messages before `end` that fit one page.
- *
  * @remarks
  * The newest message of the page is always taken; when it alone does not fit,
  * its content is shortened.
@@ -162,7 +160,6 @@ function pageEnd(
 
 /**
  * Builds a `chat_view` answer: the session with one page of its messages.
- *
  * @param view - The session as the chat reads it, for `chat_open` with its limits.
  * @param before - The message the page ends before; the newest page without it.
  * @returns The payload; it stays within the frame limit of `chat.v1`.
@@ -216,7 +213,6 @@ function toSession(session: ChatSession): PicaMobileChatViewPayload["session"] {
 
 /**
  * Builds a `chat_sessions` answer from the own sessions, newest first.
- *
  * @param sessions - The sessions as the chat lists them.
  * @returns At most 200 sessions with previews of at most 120 characters.
  */
@@ -275,7 +271,6 @@ function toJobEvent(event: ChatJobEvent): PicaMobileChatJobEvent | null {
 
 /**
  * Builds a `chat_job` answer from a read of the journal.
- *
  * @param update - The job with the journal after the cursor, or `null`.
  * @returns Only the five entry kinds of `chat.v1`; `cursor` counts every
  * entry read, also the ones left out. When the entries exceed 200000

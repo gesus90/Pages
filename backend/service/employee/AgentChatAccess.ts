@@ -41,7 +41,6 @@ function readIdentifier(value: unknown): string {
 
 /**
  * Reads the chat of a request of the page.
- *
  * @param input - The untrusted fields `kind`, `agentId` and `conversationId`.
  * @throws {AgentEmployeeError} `invalidInput` for a malformed target.
  */
@@ -61,8 +60,7 @@ export function readAgentChatTarget(input: {
 }
 
 /**
- * Who may steer an agent in a chat (PAGE-380).
- *
+ * Who may steer an agent in a chat.
  * @remarks
  * In a direct chat the person who talks with the agent may always. In a group
  * the one who created it may, and every member that person allowed. An agent
@@ -79,7 +77,6 @@ export class AgentChatAccess {
 
   /**
    * The agent of a chat the viewer takes part in.
-   *
    * @throws {AgentEmployeeError} `notFound` for an account that is no agent,
    * a group the viewer or the agent is no member of.
    */

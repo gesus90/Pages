@@ -34,7 +34,6 @@ export class ProjectGoalRepository {
 
   /**
    * Creates a project goal repository.
-   *
    * @param database - Central database access.
    */
   public constructor(database: DatabaseTransaction) {

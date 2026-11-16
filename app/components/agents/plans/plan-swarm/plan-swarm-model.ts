@@ -34,7 +34,6 @@ export const PLAN_SWARM_IDLE_BADGE =
 
 /**
  * The colors and symbol of a helper in a run, with the existing plan status classes.
- *
  * @remarks
  * Waiting and free are `muted` without a symbol, busy is `status-active`
  * with the spinning circle, finished is `success` with a check, failed is
@@ -68,7 +67,6 @@ function modelName(provider: string, model: string): string {
 
 /**
  * The badges of a swarm card, H1 first.
- *
  * @param swarm - The configured swarm.
  * @param run - Its lanes in the shown run, or `undefined` before one.
  */
@@ -138,7 +136,6 @@ export type PlanSwarmRunState = "empty" | "loading" | "active";
 
 /**
  * The state of the run view of a swarm.
- *
  * @param run - The lanes of the run; `undefined` while they load.
  */
 export function planSwarmRunState(

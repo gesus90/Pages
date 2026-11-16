@@ -22,7 +22,6 @@ interface LabelEditorProps {
 
 /**
  * Renders the shared name-and-color form for creating and editing labels.
- *
  * @remarks
  * Create and edit flows share this surface so presets, the free picker, and
  * the live preview never drift apart: quick preset swatches with a clear

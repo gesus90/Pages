@@ -10,7 +10,6 @@ const LANGUAGE_COOKIE_LIFETIME_SECONDS = 60 * 60 * 24 * 365;
 
 /**
  * Cookie that remembers the language an anonymous visitor selected.
- *
  * @remarks
  * The `Secure` attribute depends on the request, so callers pass
  * `{ secure: resolveCookieSecure(request) }` to `serialize`.
@@ -24,7 +23,6 @@ export const languageCookie = createCookie(LANGUAGE_COOKIE_NAME, {
 
 /**
  * Resolves the language to use for a visitor who is not signed in.
- *
  * @param request - Incoming request.
  * @returns The language the visitor previously selected, or one derived
  * from their browser's `Accept-Language` header.
@@ -40,7 +38,6 @@ export async function resolveAnonymousLanguage(
 
 /**
  * Resolves the language of the setup wizard.
- *
  * @param request - Incoming request.
  * @returns The language the visitor selected, otherwise German.
  */

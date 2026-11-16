@@ -1,4 +1,4 @@
-/** The agent API operations of the main model of a swarm (PAGE-313). */
+/** The agent API operations of the main model of a swarm. */
 export const AGENT_SWARM_MAIN_OPERATIONS = [
   "run.swarm.assign",
   "run.swarm.status",

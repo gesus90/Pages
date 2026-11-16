@@ -111,8 +111,7 @@ function nextSources(
 }
 
 /**
- * Keeps the stored context of each group with agents (PAGE-296).
- *
+ * Keeps the stored context of each group with agents.
  * @remarks
  * Only a group with an active agent member and content messages after its
  * stored sequence is summarized; an unchanged group costs no model call. A

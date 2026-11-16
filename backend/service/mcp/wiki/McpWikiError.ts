@@ -35,7 +35,6 @@ const NOT_FOUND_CODES: ReadonlySet<WikiErrorCode> = new Set(["versionMissing"]);
 
 /**
  * Fixed public failure of the wiki API; it carries a code and never a diagnosis.
- *
  * @remarks
  * A conflict also carries the revision the page has now, the only detail the
  * interface names.
@@ -48,7 +47,6 @@ export class McpWikiError extends Error {
 
   /**
    * Creates the error.
-   *
    * @param code - The error code of the interface; it decides the HTTP status.
    * @param revision - The current revision of the page for `conflict`.
    */
@@ -77,11 +75,9 @@ function codeOfValidation(code: WikiErrorCode): McpWikiErrorCode {
 
 /**
  * Translates a failure of the wiki service into the error of the interface.
- *
  * @param error - Whatever a service threw.
  * @returns The interface error, or `null` for a failure that is not the
  * client's doing and stays an internal error.
- *
  * @remarks
  * A missing right is `forbidden`; a page the account cannot see is
  * `not_found`, exactly like one that does not exist. A save that lost against

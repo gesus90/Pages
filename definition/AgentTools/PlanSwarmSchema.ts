@@ -49,7 +49,7 @@ const INSTRUCTION: PropertySchema = {
   maxLength: PLAN_SWARM_TEXT_LENGTH.instruction,
 };
 
-/** The fields of a swarm node (PAGE-313) in a plan change. */
+/** The fields of a swarm node in a plan change. */
 export const SWARM_FIELDS: ToolProperties = {
   task: {
     description:

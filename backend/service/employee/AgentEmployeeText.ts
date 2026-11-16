@@ -9,9 +9,8 @@ const MORE_CREDENTIALS =
   /\b(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|glpat-[A-Za-z0-9_-]{16,}|xox[abprs]-[A-Za-z0-9-]{10,}|AKIA[0-9A-Z]{16})\b|-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/gu;
 
 /**
- * Removes recognizable credentials before a text of an agent is stored
- * (PAGE-266): `MEMORY.md`, archive entries and the documents of the panel.
- *
+ * Removes recognizable credentials before a text of an agent is stored:
+ * `MEMORY.md`, archive entries and the documents of the panel.
  * @param text - Text from a person or a learning run.
  * @returns The text with every recognized credential replaced.
  */
@@ -21,7 +20,6 @@ export function stripCredentials(text: string): string {
 
 /**
  * Cuts a text after a number of words, keeping its line breaks.
- *
  * @param text - Markdown or plain text.
  * @param maximum - Words to keep.
  * @returns The text itself when it fits, else its first words.

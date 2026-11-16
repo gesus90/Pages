@@ -4,7 +4,6 @@ const MAXIMUM_IDENTIFIER_LENGTH = 200;
 
 /**
  * Reads the parameters of an operation as a plain object.
- *
  * @param input - The raw parameters.
  * @returns The object.
  * @throws {AgentOperationError} `INVALID_REQUEST` for anything but an object.
@@ -19,7 +18,6 @@ export function readParameterRecord(
 
 /**
  * Reads an identifier-like parameter.
- *
  * @param input - The raw value.
  * @returns The value, unchanged.
  * @throws {AgentOperationError} `INVALID_REQUEST` for an empty or overlong text.
@@ -36,7 +34,6 @@ export function readIdentifier(input: unknown): string {
 
 /**
  * Requires that the named parameters are present, and no others but the optional ones.
- *
  * @param fields - The parameters of the call.
  * @param keys - The parameter names the operation requires.
  * @param optionalKeys - The parameter names the operation takes but does not require.

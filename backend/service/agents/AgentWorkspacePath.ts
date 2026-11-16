@@ -178,7 +178,6 @@ export class AgentWorkspacePath {
 
   /**
    * Canonicalizes within approved roots and requires service-user read/write/traverse access.
-   *
    * @remarks
    * A typed path must be local: URLs, `host:path` notation and network shares
    * are refused. The approved roots are the operator's decision and are not

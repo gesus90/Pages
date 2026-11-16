@@ -27,10 +27,9 @@ export interface CalendarServicesInput {
 }
 
 /**
- * Wires the calendar of PAGE-301 on the shared database: one service for
+ * Wires the calendar on the shared database: one service for
  * the interface, Pica Mobile, Pica and the MCP interface. Changes of the
  * project dates of a project reach the live view as `calendar.changed`.
- *
  * @param input - Database, project and permission services, settings,
  * publisher and the push of invitations.
  * @returns The calendar service.

@@ -51,7 +51,7 @@ export interface AgentTicketAssetDependencies {
   readonly assets: {
     readonly open: (actor: User, id: string) => Promise<OpenedAsset>;
   };
-  /** The files of asset nodes (PAGE-268), read with the plan's project rights. */
+  /** The files of asset nodes, read with the plan's project rights. */
   readonly plans?: PlanAssetService;
 }
 
@@ -73,7 +73,6 @@ export interface AgentTicketAssetBytes extends AgentTicketAssetFile {
 
 /**
  * A file read as a stream: length and digest are measured, its bytes are not kept.
- *
  * @remarks
  * Such a file reaches an agent as an original file only. `open` reads it again
  * under the live rights of the person, so a handover copies it chunk by chunk.

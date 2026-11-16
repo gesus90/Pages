@@ -8,7 +8,6 @@ import type { Editor } from "@tiptap/core";
 
 /**
  * Inserts a line break inside a source block, where Enter must not leave it.
- *
  * @param editor - The editor.
  * @returns Whether the caret was in a source block.
  */

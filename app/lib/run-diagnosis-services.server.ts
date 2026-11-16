@@ -10,7 +10,7 @@ import type { UserService } from "@/backend/service/UserService";
 import type { AgentPlanRun } from "@/definition/AgentPlan";
 
 /**
- * The run diagnosis of this process (PAGE-307): its tables, the names of
+ * The run diagnosis of this process: its tables, the names of
  * starters, the settings service and the recorder of log lines.
  */
 export function createRunDiagnosis(input: {

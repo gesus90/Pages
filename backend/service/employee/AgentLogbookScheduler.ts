@@ -19,10 +19,9 @@ export interface AgentLogbookSchedulerDependencies {
 }
 
 /**
- * Starts the background summaries of quiet chats (PAGE-377): a chat whose
+ * Starts the background summaries of quiet chats: a chat whose
  * agent answered and then heard nothing for the quiet time set for that agent
  * (two minutes by default) is summarized once, one chat after the other.
- *
  * @remarks
  * What is due lives in the database (the last round of a session and its last
  * summary), so a restart loses nothing. A chat whose agent is answering in a

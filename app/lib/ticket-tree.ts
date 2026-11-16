@@ -63,7 +63,6 @@ const GROUP_ORDER: readonly TicketTreeGroup[] = [
 
 /**
  * The key of a group of a project.
- *
  * @param group - The group.
  * @param projectId - The project.
  * @returns The key under which the open state of the group is kept.

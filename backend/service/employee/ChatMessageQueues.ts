@@ -3,8 +3,7 @@ import type { VirtualChatMessage } from "@/definition/VirtualChat";
 import type { QueuedAgentMessage } from "./AgentEmployeeSessions";
 
 /**
- * Marks the messages of a history whose answer waits (PAGE-304).
- *
+ * Marks the messages of a history whose answer waits.
  * @param messages - The history, oldest first.
  * @param queued - Why a message waits, by its ID.
  * @returns The history with `queue` on every waiting message.
@@ -22,7 +21,6 @@ export function markQueuedMessages(
 /**
  * The messages of a direct chat with an agent that wait for their turn of the
  * running job: joined it, and not yet followed by an answer.
- *
  * @param messages - The history, oldest first.
  * @param waitingIds - The messages the running job holds back.
  * @returns `chat` by message ID.
@@ -59,7 +57,7 @@ export function queuedChatMessages(
 }
 
 /**
- * Marks the messages of a history that running answers took (PAGE-381); the
+ * Marks the messages of a history that running answers took; the
  * chat shows such a message as taken rather than waiting.
  *
  * @param messages - The history, oldest first.

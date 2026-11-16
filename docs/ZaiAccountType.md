@@ -1,4 +1,4 @@
-# z.ai account routing (PAGE-157)
+# z.ai account routing
 
 Settings → Agents asks for the account type when creating a z.ai connection.
 Existing connections retain **Standard API** until an administrator explicitly
@@ -45,7 +45,7 @@ table; recreate it immediately on the copy as shown. No rollback is applied to
 a live instance. Reapplying the additive migration
 restores the standard API default; reselect Coding Plan explicitly afterwards.
 New installation, synthetic upgrade, rollback and the unchanged older migration
-set are checked on disposable scratch databases during PAGE-157 validation.
+set are checked on disposable scratch databases during validation.
 
 Provider references: [Z.ai endpoint configuration](https://zcode.z.ai/en/docs/configuration),
 [opencode providers](https://dev.opencode.ai/docs/providers/).

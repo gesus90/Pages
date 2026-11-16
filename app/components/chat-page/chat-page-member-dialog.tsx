@@ -20,7 +20,6 @@ import type {
 
 /**
  * Whether a participant matches the search by name, job title or username.
- *
  * @param participant - A participant of the person's list.
  * @param query - The search text.
  */
@@ -87,7 +86,7 @@ export function CandidateList({
 
 /**
  * The dashed plus after the member chips of a group, which opens the choice
- * of the member dialog (PAGE-259).
+ * of the member dialog.
  */
 export function ChatPageAddMemberButton({
   onClick,
@@ -120,14 +119,13 @@ interface ChatPageMemberDialogProps {
 
 /**
  * The searchable choice behind the dashed plus in the head of a group
- * (PAGE-259): the person's own participants that are not yet members.
- *
+ * The person's own participants that are not yet members.
  * @remarks
  * Choosing one adds it at once and stores it; the dialog closes and the
  * chips show the new member. When everyone is a member already, the choice
  * says so. Below the choice the dialog lists the domains released for
- * embedding in the group's conversation (PAGE-298). The plus and the entry
- * "Mitglieder verwalten" of the group menu open it (PAGE-376).
+ * embedding in the group's conversation. The plus and the entry
+ * "Mitglieder verwalten" of the group menu open it.
  */
 export function ChatPageMemberDialog({
   group,

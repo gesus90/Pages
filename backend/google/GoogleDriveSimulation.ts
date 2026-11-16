@@ -136,7 +136,7 @@ function firstParent(body: Record<string, unknown>): string | null {
 }
 
 /**
- * A simulated Google Drive (PAGE-270) that answers at the `GoogleFetch` seam
+ * A simulated Google Drive that answers at the `GoogleFetch` seam
  * of the Drive clients in the format of the Drive API v3.
  *
  * @remarks

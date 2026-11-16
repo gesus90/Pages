@@ -20,7 +20,6 @@ interface AttemptLink {
 
 /**
  * Keeps the channel list that is already shown when a state arrives without one.
- *
  * @remarks
  * Only the answers that list channels carry them. The list of the same server
  * stays, so changing an event or sending a test message does not close the
@@ -82,11 +81,9 @@ export interface DiscordPanelModel {
 
 /**
  * Loads the Discord state of a project and carries out the panel's actions.
- *
  * @param projectId - The project of the panel.
  * @param onConnectionChange - Told whenever the state shows whether the project is connected.
  * @returns The state, the busy and failure flags and the actions.
- *
  * @remarks
  * While a connection attempt waits for Discord, the state is read again every
  * few seconds, so the computer notices the authorization that happened on the

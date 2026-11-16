@@ -47,13 +47,12 @@ export type AcpResourceState =
   "starting" | "running" | "idle" | "closing" | "cleanup_failed";
 
 /**
- * What Pages durably knows about the native process creation of a lease (PAGE-264).
- *
+ * What Pages durably knows about the native process creation of a lease.
  * @remarks
  * `reserved`: no process creation was attempted yet. `spawning`: process
  * creation began, recorded before the spawn. `not_spawned`: the start ended
  * in this server process before any process creation. `process`: the
- * process identity was captured. `null` marks a lease from before PAGE-264
+ * process identity was captured. `null` marks an older lease
  * without such evidence.
  */
 export type AcpLeaseLifecycle =
@@ -100,8 +99,8 @@ export interface AcpResourceRecord extends AcpResourceOwner {
   readonly lifecycle?: AcpLeaseLifecycle | null;
   readonly check?: AcpLeaseCheck | null;
   /**
-   * The worker unit the process starts in, recorded before the spawn
-   * (PAGE-335); `null` for a start without a unit.
+   * The worker unit the process starts in, recorded before the spawn;
+   * `null` for a start without a unit.
    */
   readonly workerUnit?: string | null;
 }
@@ -134,8 +133,8 @@ export interface AcpLeaseCheckSummary {
 
 /**
  * Kernel identity of a directly spawned process frame: the init of an owned
- * PID namespace or, for a session without one, the client of its worker unit
- * (PAGE-340); `unit` then names the frame that holds every process.
+ * PID namespace or, for a session without one, the client of its worker unit;
+ * `unit` then names the frame that holds every process.
  */
 export interface AcpNamespaceOwner {
   readonly pid: number;
@@ -216,15 +215,14 @@ export interface AcpResourceDiagnostics extends AcpResourceSnapshot {
   readonly leftovers: readonly AcpCredentialLeftover[];
   /** Readable plan names of the runs that hold reservations. */
   readonly runs?: readonly AcpResourceRunReference[];
-  /** How the group observer fared in the last 24 hours (PAGE-340). */
+  /** How the group observer fared in the last 24 hours. */
   readonly observer?: ConversationObserverHealth;
-  /** The chat sessions agents hold open between their answers (PAGE-335). */
+  /** The chat sessions agents hold open between their answers. */
   readonly chatSessions?: readonly AcpChatSessionView[];
 }
 
 /**
- * One chat session an agent keeps open for a conversation (PAGE-335).
- *
+ * One chat session an agent keeps open for a conversation.
  * @remarks
  * `busy` answers now; `idle` waits for the next round of its conversation
  * and ends after the idle time of the agent settings.
@@ -250,8 +248,7 @@ export interface AcpResourceRunReference {
 }
 
 /**
- * Where the administrative cleanup puts one reservation (PAGE-340).
- *
+ * Where the administrative cleanup puts one reservation.
  * @remarks
  * `releasable` appears only in a preview, `released` only in a cleanup.
  * `kept_active` covers live, starting, paused or still running work;

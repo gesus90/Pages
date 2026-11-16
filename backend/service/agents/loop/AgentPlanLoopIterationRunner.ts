@@ -82,7 +82,6 @@ function isSettled(node: AgentPlanStepResult): boolean {
 
 /**
  * Runs the subgraph of a loop once: members as their dependencies allow.
- *
  * @remarks
  * This is the loop's inner schedule, not a second engine. Members without an
  * unfinished predecessor start together; agents of ACP runners and scripts run
@@ -113,7 +112,6 @@ export class AgentPlanLoopIterationRunner {
 
   /**
    * Runs the nodes of one iteration until it ends, pauses or is stopped.
-   *
    * @param target - The loop, the iteration number and the engine boundary.
    * @returns How the iteration ended; `paused` leaves finished nodes as
    * they are and the others waiting.
@@ -135,7 +133,6 @@ export class AgentPlanLoopIterationRunner {
 
   /**
    * Skips, triggers and starts what the iteration allows now.
-   *
    * @returns Whether a skip or a trigger changed the iteration, so it is decided again at once.
    */
   private async schedule(
@@ -198,7 +195,6 @@ export class AgentPlanLoopIterationRunner {
 
   /**
    * Whether a waiting node of the iteration may start.
-   *
    * @remarks
    * Every edge into it must have an answer; one satisfied edge is enough, and
    * a node whose every edge is dead is skipped, which spreads along its edges.
@@ -230,7 +226,6 @@ export class AgentPlanLoopIterationRunner {
 
   /**
    * Skips the nodes behind dead edges and triggers the stacks that are ready.
-   *
    * @returns Whether anything changed, so readiness has to be decided again.
    */
   private async advance(
@@ -268,7 +263,6 @@ export class AgentPlanLoopIterationRunner {
 
   /**
    * Decides a boolean decision of the iteration that the flow has reached.
-   *
    * @returns Whether it was one; a model decision is dispatched as work instead.
    */
   private async decide(
@@ -422,7 +416,6 @@ export class AgentPlanLoopIterationRunner {
 
   /**
    * Runs a script member as a process, with this iteration's results as its inputs.
-   *
    * @remarks
    * The script runs like a script of the outer graph, through the same runner
    * and rights; only its record is written into this iteration.

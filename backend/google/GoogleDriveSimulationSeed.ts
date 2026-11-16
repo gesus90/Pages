@@ -159,7 +159,7 @@ function projectEntries(): SeedEntry[] {
   ];
 }
 
-/** One file per type icon of the Storage list (PAGE-272), also by extension only. */
+/** One file per type icon of the Storage list, also by extension only. */
 function typeEntries(): SeedEntry[] {
   const parent = "sim-types";
   const file = (

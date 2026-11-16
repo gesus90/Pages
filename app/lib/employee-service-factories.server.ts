@@ -58,13 +58,13 @@ import type {
 } from "./conversation-services.server";
 
 /**
- * Agents as employees, the chat directory and person colors (PAGE-266), with
- * the stored conversations the chat page shows (PAGE-278).
+ * Agents as employees, the chat directory and person colors, with
+ * the stored conversations the chat page shows.
  */
 import type { EmployeeServicesInput } from "./employee-services.server";
 
 /**
- * Starts the nightly dream runs (PAGE-305) where a model can answer them, ACP
+ * Starts the nightly dream runs where a model can answer them, ACP
  * or the simulation, and the delivery of automation work to the agents, which
  * needs the ACP path of the agents' sessions.
  */
@@ -154,7 +154,7 @@ export function createAgentChatAttachments(parts: {
 
 /**
  * The directory of the chat page with what runs and waits in each chat
- * (PAGE-303, PAGE-304).
+ *.
  */
 export function createChatDirectory(parts: {
   readonly database: Database;
@@ -219,10 +219,9 @@ export function createChatDirectory(parts: {
 }
 
 /**
- * The memory of agents (PAGE-305): the rules of sharing, the memory with
+ * The memory of agents: the rules of sharing, the memory with
  * its archive, the model calls, the recorder that updates `MEMORY.md`
  * after each answer and the confidential mark of chats.
- *
  * @remarks
  * The model calls run in the agent's own sessions, which are built after
  * the memory; `sessions` hands them over once they exist. The simulation
@@ -293,7 +292,6 @@ export function simulatedAgent(
 }
 
 /**
- *
  */
 export function createDeletionFiles(
   input: EmployeeServicesInput,
@@ -316,7 +314,6 @@ export function createDeletionFiles(
 }
 
 /**
- *
  */
 export function createDeletionService(
   input: EmployeeServicesInput,
@@ -331,9 +328,9 @@ export function createDeletionService(
 
 /**
  * The gates of the sessions of agents: the host access, read anew so that
- * bubblewrap and the MCP configuration of the CLIs change without a restart
- * (PAGE-303), and one place per running chat session of an agent within the
- * stored limits (PAGE-304).
+ * bubblewrap and the MCP configuration of the CLIs change without a restart,
+ * and one place per running chat session of an agent within the
+ * stored limits.
  */
 export function createSessionGates(database: Database): {
   readonly accessEnvironment: AgentAccessEnvironmentService;
@@ -354,7 +351,7 @@ export function createSessionGates(database: Database): {
 /** What the services of the employee area are assembled from once the sessions and conversations are wired. */
 
 /**
- * The scheduled tasks agents plan from their chats (PAGE-392), on the
+ * The scheduled tasks agents plan from their chats, on the
  * automations of the instance and the members of its conversations.
  */
 export function createChatTasks(

@@ -28,8 +28,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpPlanHandlers {
 }
 
 /**
- * Removes a parameter node (`POST /api/mcp/v1/plans/{planId}/parameters/{parameterId}/remove`), PAGE-246 interface 11.
- *
+ * Removes a parameter node (`POST /api/mcp/v1/plans/{planId}/parameters/{parameterId}/remove`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

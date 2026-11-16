@@ -27,8 +27,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpPlanHandlers {
 }
 
 /**
- * Saves a node of a plan as a template (`POST /api/mcp/v1/plans/{planId}/templates`), PAGE-246 interface 15.
- *
+ * Saves a node of a plan as a template (`POST /api/mcp/v1/plans/{planId}/templates`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

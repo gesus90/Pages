@@ -69,7 +69,6 @@ const TOOL_CANCELLED_NOTE =
 /**
  * One Pica answer over ACP that runs on the server with the assigned CLI
  * runner: Codex, Claude Code, OpenCode or Antigravity.
- *
  * @remarks
  * The job pins the agent that was assigned when the message was sent. It
  * holds one ACP lease of the shared scheduler while it runs: the turn of its
@@ -117,7 +116,7 @@ export class PicaAcpJob {
     this.userId = specification.actor.id;
     this.dependencies = dependencies;
     this.specification = specification;
-    // The chat page shows the answer while it is written (PAGE-381).
+    // The chat page shows the answer while it is written.
     this.journal = new PicaAcpJournal(
       dependencies.jobs,
       specification.id,
@@ -197,10 +196,9 @@ export class PicaAcpJob {
 
   /**
    * Takes a message sent while the job runs; call it inside the queue of the conversation.
-   *
    * @param message - The stored message.
    * @param isDeferred - The message waits for a turn of its own after the
-   * running one instead of joining it (PAGE-381).
+   * running one instead of joining it.
    * @returns Its first status, or `null` once the job no longer takes messages.
    */
   public steer(
@@ -211,13 +209,11 @@ export class PicaAcpJob {
   }
 
   /**
-   * Cancels the running tool call of the agent on the person's request (PAGE-303).
-   *
+   * Cancels the running tool call of the agent on the person's request.
    * @remarks
    * ACP cancels a call only with the running prompt; the turn then goes on
    * at once with a note that the person cancelled the call, so the agent
    * answers with what it has instead of ending the job.
-   *
    * @returns Whether a prompt was running and got cancelled.
    */
   public async cancelTool(): Promise<boolean> {
@@ -235,7 +231,6 @@ export class PicaAcpJob {
 
   /**
    * Runs the job until its last turn ended, it failed or it was stopped.
-   *
    * @param signal - The stop, the deadline and the server shutdown of the job.
    */
   public async run(signal: AbortSignal): Promise<void> {
@@ -523,7 +518,6 @@ export class PicaAcpJob {
 
   /**
    * Reserves the credential of a steer and sends it to the agent.
-   *
    * @returns The adapter's outcome, or `null` when the turn ended before the
    * steer was sent; its credential is revoked then.
    */

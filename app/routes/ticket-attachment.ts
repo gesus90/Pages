@@ -14,8 +14,7 @@ const ATTACHMENT_CONTENT_SECURITY_POLICY =
 
 /**
  * Sends a file attached to a ticket after checking that the person sees the
- * ticket (A8.2-E06).
- *
+ * ticket.
  * @remarks
  * The same rules as for wiki attachments: raster images inline with the type
  * found in their bytes, everything else only as a download of an unspecific

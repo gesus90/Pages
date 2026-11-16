@@ -75,7 +75,7 @@ interface MediaProgressProps {
 }
 
 /**
- * The seekable progress of a video (PAGE-384): the loaded part behind the
+ * The seekable progress of a video: the loaded part behind the
  * played part in the accent color, with a slider on top.
  */
 export function MediaProgress({
@@ -126,7 +126,7 @@ export function MediaProgress({
   );
 }
 
-/** What only the full screen offers in the bar (PAGE-384). */
+/** What only the full screen offers in the bar. */
 export interface VideoControlExtras {
   /** Switches the subtitles; only when the video has some. */
   readonly onCaptions?: () => void;
@@ -145,7 +145,7 @@ interface VideoControlBarProps {
 }
 
 /**
- * The bar of a started video (PAGE-384): Start/Pause in the accent color,
+ * The bar of a started video: Start/Pause in the accent color,
  * the time, the progress with the loaded part, the length, the speed, the
  * sound and "Vollbild"; in the full screen also subtitles and picture in
  * picture. Only Start/Pause and the progress take the accent color.

@@ -40,7 +40,6 @@ import type { AgentPlanCapabilities } from "./AgentPlanCapabilities.js";
 
 /**
  * Reads of agent plans and of the runs of the connected account.
- *
  * @remarks
  * Pages applies the rules of the plan page: a plan is visible while its
  * workspace is visible and its share admits the account; runs are private to
@@ -65,7 +64,7 @@ export const AGENT_PLAN_RESOURCE_READ_OPERATIONS = [
   "plans.templates.list",
   "plans.templates.read",
   "plans.control.read",
-  // The diagnosis of runs for the whole team (PAGE-307).
+  // The diagnosis of runs for the whole team.
   "plans.runs.search",
   "plans.runs.failures",
   "plans.run.timeline.read",
@@ -189,11 +188,9 @@ export interface AgentPlanGroupEdgeEntry {
 
 /**
  * A portless ACP session container with retained legacy input metadata.
- *
  * Explicit internal and external agent edges determine dependencies. Ready
  * members share a serial session per run. Missing `edges` marks a historical
  * ordered group; its former chain is made explicit on read.
- *
  * @remarks
  * Declared here instead of importing the group of the plan model, because the
  * MCP package type-checks this file on its own.
@@ -221,7 +218,6 @@ export interface AgentPlanParameterNodeEntry extends AgentPlanNodeBase {
 
 /**
  * A script step: its content, interpreter profile and declared text inputs and output.
- *
  * @remarks
  * Explicit authorized runs execute the selected interpreter in the resolved
  * plan workspace. Declared text inputs arrive as one JSON object on stdin;
@@ -252,9 +248,8 @@ export interface AgentPlanScriptNodeEntry extends AgentPlanNodeBase {
 
 /**
  * A Git closeout node of an earlier version, read as it was saved.
- *
  * @remarks
- * The node is no longer supported (PAGE-285): it cannot be added or
+ * The node is no longer supported: it cannot be added or
  * configured, Play is refused with the issue `gitCloseoutUnsupported` while
  * the plan contains it, and `removeNode` removes it. Its fields and bindings
  * stay readable until then.
@@ -270,7 +265,6 @@ export interface AgentPlanGitCloseoutNodeEntry extends AgentPlanNodeBase {
 
 /**
  * A loop as a client reads it and edits through targeted fields and membership changes.
- *
  * @remarks
  * Declared here for the same reason as the group: the MCP package checks this
  * file on its own. The loop's own settings are listed as the plan stores them.
@@ -312,7 +306,6 @@ export interface AgentPlanLoopNodeEntry
 
 /**
  * A stack: ordered entries, of which every trigger at its flow input hands over the next.
- *
  * @remarks
  * Its data outputs are read through `stack` bindings: `content`, the entry
  * handed over last, and `count`, the number of entries. A used-up stack hands
@@ -337,10 +330,10 @@ export type AgentPlanNodeEntry =
   | AgentPlanLoopNodeEntry
   | AgentPlanStackNodeEntry
   | AgentPlanParameterNodeEntry
-  // An asset source (PAGE-268); a node without a file is a draft.
+  // An asset source; a node without a file is a draft.
   | (AgentPlanNodeBase & Pick<AgentPlanAsset, "type" | "name" | "file">)
   | Decision.AgentPlanControlNodeEntry
-  // A swarm (PAGE-313): a main model splits a task among helpers at run time.
+  // A swarm: a main model splits a task among helpers at run time.
   | (AgentPlanNodeBase & Omit<AgentPlanSwarm, "id" | "x" | "y">)
   | (AgentPlanNodeBase & { readonly type: "task"; readonly taskId: string })
   | (AgentPlanNodeBase & { readonly type: "variable"; readonly name: string });
@@ -371,13 +364,12 @@ export interface AgentPlanRunSummary {
   /** ISO 8601 time the run started. */
   readonly startedAt: string;
   readonly status: AgentPlanRunStatus;
-  /** Who started the run; every member of the team of the plan reads it (PAGE-307). */
+  /** Who started the run; every member of the team of the plan reads it. */
   readonly startedBy: AgentRunStarter;
 }
 
 /**
  * What a plan is doing for the connected account.
- *
  * @remarks
  * `state` follows the account's own runs: `running`, `pausing`, `paused` or `stopping` while one of
  * them is active, `idle` otherwise. `isRunnable` and `issues` are the checks
@@ -399,7 +391,7 @@ export interface AgentPlanTeamEntry {
   readonly name: string;
 }
 
-/** One team of a plan with its name and rights (PAGE-329). */
+/** One team of a plan with its name and rights. */
 export interface AgentPlanTeamRightsEntry extends AgentPlanTeamEntry {
   readonly kind: AgentPlanTeamKind;
   readonly read: boolean;
@@ -490,7 +482,6 @@ export interface AgentPlanAgentEntry {
 
 /**
  * An interpreter profile a script node can name, without its program path.
- *
  * @remarks
  * `unchecked` means no check of the configured program has finished yet.
  */
@@ -572,7 +563,6 @@ export interface AgentPlanCheckpointEntry {
   readonly version: number;
   /**
    * Parse after reassembling any outer read chunks; process and native-session identifiers are omitted.
-   *
    * @remarks
    * Absent where the reader may not see the content the run used; `hiddenFields` names it.
    */
@@ -655,7 +645,6 @@ export type AgentPlanTemplateCommandOperation = Extract<
 
 /**
  * Acknowledges a change of a node template; a repeated call with the same operation ID returns it again.
- *
  * @remarks
  * Copies already inserted into plans are independent nodes and stay as they are.
  */

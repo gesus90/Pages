@@ -6,13 +6,13 @@ nor a native agent. For current memory limits see [Worker memory](AgentWorkerMem
 Version-specific provider behavior below retains its original verification
 boundaries; moving the text does not constitute a new provider test.
 
-- [Agent Tool & Runtime Manager (PAGE-69)](#agent-tool--runtime-manager-page-69)
-- [Native ACP resource scheduling (PAGE-81)](#native-acp-resource-scheduling-page-81)
-- [Limited worker units (PAGE-127)](#limited-worker-units-page-127)
-- [OpenCode plan nodes with a Console / Zen key (PAGE-66)](#opencode-plan-nodes-with-a-console--zen-key-page-66)
+- [Agent Tool & Runtime Manager](#agent-tool--runtime-manager)
+- [Native ACP resource scheduling](#native-acp-resource-scheduling)
+- [Limited worker units](#limited-worker-units)
+- [OpenCode plan nodes with a Console / Zen key](#opencode-plan-nodes-with-a-console--zen-key)
 - [ACP adapters for the CLI runners](#acp-adapters-for-the-cli-runners)
 
-## Agent Tool & Runtime Manager (PAGE-69)
+## Agent Tool & Runtime Manager
 
 **Settings → Agents → Tools** is available only to an active personal system
 administrator in admin mode. Every loader and action rechecks persisted rights;
@@ -74,8 +74,8 @@ link `tools/claude/bin/claude` at the active generation, so an operator's
 terminal that starts this path runs the same installation as Pages. The Tools
 card names the executable of new calls, the rollback generation and whether
 the terminal entry is current; versions there and in connection checks are the
-results of the check shown with its time, not a new call (PAGE-293,
-[docs/PAGE-293.md](PAGE-293.md)).
+results of the check shown with its time, not a new call; see the [Claude tool
+generation notes](PAGE-293.md).
 
 After listening, Pages reconstructs required dependencies from active CLI
 connections and saved optional integrations in the background. It checks local
@@ -145,7 +145,7 @@ external Claude ACP, system libraries or namespaces remain concrete operator
 diagnoses. Cleanup uncertainty stays pinned by the existing ACP recovery journal
 and blocks destructive maintenance until a later startup confirms cleanup.
 
-## Native ACP resource scheduling (PAGE-81)
+## Native ACP resource scheduling
 
 One instance-wide `AcpResourceScheduler` admits Codex (`codex-acp`),
 Claude Code (`claude-agent-acp`) and native OpenCode (`opencode acp`). The existing DAG still determines which
@@ -207,7 +207,7 @@ before this journal existed are adopted from active runs and retained workspace
 reservations, so an upgrade also accounts for their cleanup failures. Shutdown cancels waiters,
 drains runs and closes native sessions; a run that the shutdown ends is
 recorded as interrupted, not as stopped by its executor, so it can be resumed
-after the restart (PAGE-127). Cleanup uses the inherited
+after the restart. Cleanup uses the inherited
 `PAGES_RUN_INSTANCE` tag, also for helpers outside the adapter's process group;
 an unreadable process scan cannot prove absence. Unresponsive process exit
 returns an unconfirmed closeout after bounded waits. Cleanup failures and
@@ -215,7 +215,7 @@ uncertain journal writes fail closed; retained leases are retried during the
 next normal startup. While a request waits only because uncertain leases hold
 the capacity, Pages checks them again at most once a minute by their own
 instance tag and worker unit and releases each one whose processes are proven
-gone (PAGE-127); an unconfirmed lease keeps its capacity. There is no
+gone; an unconfirmed lease keeps its capacity. There is no
 force-release UI.
 
 The shared **ACP resources** card in Settings → System
@@ -232,7 +232,7 @@ conversation identifiers.
 This scheduler uses the Pages runtime and PostgreSQL. The native resource
 scheduler is independent of any future workflow orchestration.
 
-## Limited worker units (PAGE-127)
+## Limited worker units
 
 Every ACP worker — the adapter, its CLI runner and every
 helper they start — runs inside the bubblewrap namespace **and** in a
@@ -251,8 +251,7 @@ cgroup of its own with hard limits:
 | `OOMPolicy=kill` | —                                | an exceeded limit ends the whole worker, inside its cgroup only     |
 
 Codex plan workers use an active-time deadline in their independent native owner
-instead of the systemd wall-clock backstop, so a pause cannot expire the session
-(PAGE-361). The configured deadline, or 24 hours by default, retains its remaining
+instead of the systemd wall-clock backstop, so a pause cannot expire the session. The configured deadline, or 24 hours by default, retains its remaining
 budget. See [worker budgets](AgentWorkerMemory.md#unchanged).
 
 The shared slice budget and OOM behavior are described in
@@ -262,7 +261,7 @@ A worker whose output holds a line longer than 4 Mi characters, with or
 without a line break, is ended the same way: the line and everything after it
 are discarded, and the job fails with `acp_output_overflow` instead of
 continuing on a truncated or oversized frame.
-The other direction has the same 8 MiB limit (PAGE-295): every ACP message
+The other direction has the same 8 MiB limit: every ACP message
 Pages sends is measured as the complete serialized JSON-RPC line, including
 the instruction, the file labels, escapes and the Base64 of inline images.
 The instruction and the complete file inventory come first; a file content is
@@ -288,17 +287,17 @@ the process itself; the server account needs a running user manager
 (`loginctl enable-linger <account>`), reached through `/run/user/<uid>/bus`.
 `systemctl --user list-units 'pages-acp-*'` lists the live workers.
 
-**Historical DuckDB diagnosis (PAGE-127):** the following describes an older
+**Historical DuckDB diagnosis:** the following describes an older
 release, not a repair for the current PostgreSQL server. When DuckDB reported
 that a fatal error invalidated the open database, Pages
 ends with exit code 1 (`database_invalidated`) instead of answering without a
 usable database; the service manager starts it again and the startup recovery
-records interrupted runs as resumable. Observed in PAGE-127 only after hard
+records interrupted runs as resumable. Observed only after hard
 kills of a test instance (`Failed to delete all rows from index` on
 `chat_sessions`); rebuilding the affected index (`DROP INDEX … ; CREATE INDEX
 …; CHECKPOINT;` with the server stopped) repaired the file.
 
-## OpenCode plan nodes with a Console / Zen key (PAGE-66)
+## OpenCode plan nodes with a Console / Zen key
 
 Pages manages the verified native OpenCode **1.18.34** under the instance's
 `tools/` directory. Create an active OpenCode connection or use **Settings →
@@ -401,7 +400,7 @@ force-release UI. Other OpenCode/IDE sessions are never selected by name.
 OpenCode nodes require a valid, completed `pages-report` and accepted business
 progress as well as regular ACP completion and confirmed cleanup.
 
-PAGE-66 validation inspects local version and release source and runs the static
+The validation inspects local version and release source and runs the static
 Pages gates. It deliberately starts no server, model request or agent run and
 adds no automated tests. Credentialed end-to-end behavior, account-specific
 models, live MCP calls, cancellation and native tool effects remain for manual
@@ -410,14 +409,14 @@ functional acceptance.
 ## ACP adapters for the CLI runners
 
 A Codex connection uses the instance-local Codex CLI and ACP adapter managed by
-**Settings → Agents → Tools** (PAGE-69). Startup and native session preflight
+**Settings → Agents → Tools**. Startup and native session preflight
 install or repair approved missing dependencies; neither requires a global npm
 installation. Compatible system tools under trusted system/Node installation
 paths can be adopted. The manager's exact allowlist is narrower than the ACP
 protocol driver's historical compatibility range below.
 
 The existing Claude ACP adapter remains an externally provisioned dependency;
-PAGE-69 adds no new Claude/OpenCode adapter. Pages continues to start its process
+The current tool manager adds no new Claude/OpenCode adapter. Pages continues to start its process
 for each authorized session and use the connection's isolated sign-in.
 
 | Runner      | Package                                 | Executable         | Pages accepts   | Verified with |
@@ -480,7 +479,7 @@ session; a failed readiness check reports the tool and cause through
 before any process starts. Pages probes the isolation again a minute after a
 failed probe, so installing bubblewrap needs no restart either.
 
-Shared run notes have been removed (PAGE-80). Plan runs do not create notes
+Shared run notes have been removed. Plan runs do not create notes
 directories, step files or pause markers and do not add notes instructions or
 filesystem access. Existing `{{@run.notes}}` occurrences in agent templates or
 node instructions are reported as unsupported; their text is never replaced

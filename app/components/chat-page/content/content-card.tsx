@@ -16,11 +16,11 @@ import type { LucideIcon } from "lucide-react";
 import type { ChatCardState } from "@/definition/ConversationContent";
 import type { OpenedCard } from "./card-types";
 
-/** Light cards in the chat, dark ones in the image viewer (PAGE-382). */
+/** Light cards in the chat, dark ones in the image viewer. */
 export type CardTone = "light" | "dark";
 
 /**
- * How an action looks (PAGE-382): `primary` is the one main action in the
+ * How an action looks: `primary` is the one main action in the
  * accent color, such as "Herunterladen"; `quiet` an icon button such as
  * "Daneben", "Vollbild" or "Schließen"; `default` a small framed action of a
  * kind, such as "Kopieren".
@@ -172,14 +172,14 @@ interface CardHeadProps {
   /** Kind · size or count · remaining time, in one small line. */
   readonly subtitle: React.ReactNode;
   readonly actions: React.ReactNode;
-  /** The tabs "Vorschau | Code" or "Ansicht | Quelltext" right next to the name (PAGE-383). */
+  /** The tabs "Vorschau | Code" or "Ansicht | Quelltext" right next to the name. */
   readonly tabs?: React.ReactNode;
   readonly tone?: CardTone;
   readonly className?: string;
 }
 
 /**
- * The head every content card shares (PAGE-382), and with it the split view
+ * The head every content card shares, and with it the split view
  * and the image viewer: the icon of the kind in a light field of the accent
  * color, the name in bold, below it kind, size or count and remaining time,
  * and the actions on the right.
@@ -243,7 +243,6 @@ export function CardHead({
 
 /**
  * Joins the parts of a subtitle with " · ", leaving out empty ones.
- *
  * @param parts - Kind, size or count, remaining time and the like.
  */
 export function subtitleOf(
@@ -264,20 +263,20 @@ export interface ContentCardProps {
   readonly kindLabel: string;
   /** Size or length next to the kind, such as `9 Zeilen` or `1,2 MB`. */
   readonly meta?: React.ReactNode;
-  /** How long the file stays on the server, such as "noch 2 Tage" (PAGE-382). */
+  /** How long the file stays on the server, such as "noch 2 Tage". */
   readonly retention?: string | null;
   /** The state without a choice of the person. */
   readonly defaultState: ChatCardState;
-  /** The main action "Herunterladen" in the accent color (PAGE-382). */
+  /** The main action "Herunterladen" in the accent color. */
   readonly download?: CardDownload;
   /**
    * Another main action in the accent color, shown also while collapsed,
-   * such as "Kopieren" of a code card or "Herunterladen" of a preview (PAGE-383).
+   * such as "Kopieren" of a code card or "Herunterladen" of a preview.
    */
   readonly primary?: React.ReactNode;
-  /** The tabs of the card next to its name (PAGE-383). */
+  /** The tabs of the card next to its name. */
   readonly tabs?: React.ReactNode;
-  /** Offers "Neu laden" after the line, for an HTML preview (PAGE-383). */
+  /** Offers "Neu laden" after the line, for an HTML preview. */
   readonly onReload?: () => void;
   /** Further actions of the kind, after the download and before the line. */
   readonly actions?: React.ReactNode;
@@ -426,7 +425,7 @@ function CardHeaderActions({
 }
 
 /**
- * The frame of a content card (PAGE-298, PAGE-382): the shared head and
+ * The frame of a content card: the shared head and
  * below it the content.
  *
  * @remarks

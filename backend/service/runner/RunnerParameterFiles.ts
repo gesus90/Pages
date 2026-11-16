@@ -41,7 +41,6 @@ interface Chunk {
 
 /**
  * Serves the parameter files of a remote step to its runner: the manifest, then the files in chunks.
- *
  * @remarks
  * A file within the model content budget is read again, whole, for every chunk.
  * A file beyond it is read once, front to back, and compared with the pinned

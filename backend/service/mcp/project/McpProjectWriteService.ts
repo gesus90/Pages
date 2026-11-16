@@ -31,7 +31,6 @@ const ICON_FILE_NAME = "project-icon";
 
 /**
  * Replaces the stored details with the changed ones and keeps everything else.
- *
  * @remarks
  * The service replaces all details at once, like the project page does.
  */
@@ -56,11 +55,10 @@ function detailsOf(
   };
 }
 
-/** Creates and changes projects (PAGE-244, interface 3, 4, 9 and 10). */
+/** Creates and changes projects. */
 export class McpProjectWriteService {
   /**
    * Creates a project, from a template when the request names one.
-   *
    * @param context - The request.
    * @param request - The validated body.
    * @returns The new project.
@@ -99,12 +97,10 @@ export class McpProjectWriteService {
 
   /**
    * Changes the named fields of a running project and nothing else.
-   *
    * @param context - The request.
    * @param projectId - The project.
    * @param request - The validated body with at least one field.
    * @returns The changed project.
-   *
    * @remarks
    * Details, tags and departments go through the service methods of the
    * project page; the departments last, as they can change who sees it.
@@ -142,7 +138,6 @@ export class McpProjectWriteService {
 
   /**
    * Saves the project as its template, or refreshes the template it has.
-   *
    * @param context - The request.
    * @param projectId - The project.
    * @returns The template.
@@ -162,7 +157,6 @@ export class McpProjectWriteService {
 
   /**
    * Replaces the icon of a running project.
-   *
    * @param context - The request.
    * @param projectId - The project.
    * @param icon - The decoded image.
@@ -183,7 +177,6 @@ export class McpProjectWriteService {
 
   /**
    * Resolves the project manager of a change.
-   *
    * @throws {McpProjectError} `not_found` for an unknown or hidden person,
    * `invalid_request` for a visible person outside the team, whom the
    * service would refuse as manager.

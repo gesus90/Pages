@@ -57,7 +57,7 @@ type ExcludedOperation =
   | AgentWorkspaceWriteOperation
   | AgentProjectDeletionWriteOperation;
 
-/** A Pages operation the chat agent may request (T6.12.5). */
+/** A Pages operation the chat agent may request. */
 export type ChatOperation = Exclude<
   | PagesAgentReadOperation
   | PagesAgentTicketReadOperation
@@ -94,7 +94,7 @@ const CHANGES = `placeNode(nodeId, groupId|null, x, y), placeLoopNode(nodeId, lo
 
 const AUTOMATION_TARGET = "automationId, expectedRevision";
 
-/** The automations of PAGE-297; every call uses the rights of the account itself. */
+/** The automations; every call uses the rights of the account itself. */
 const CHAT_AUTOMATION_OPERATIONS: Readonly<
   Record<AutomationReadOperation | AutomationWriteOperation, string>
 > = {
@@ -119,7 +119,7 @@ const CHAT_AUTOMATION_OPERATIONS: Readonly<
 const CALENDAR_TARGET =
   "id (Eintrags- oder Termin-ID), scope: this|following|all, occurrenceStart?";
 
-/** The calendar of PAGE-301; every call uses the calendar rights of the account itself. */
+/** The calendar; every call uses the calendar rights of the account itself. */
 const CHAT_CALENDAR_OPERATIONS: Readonly<
   Record<PicaCalendarOperation, string>
 > = {

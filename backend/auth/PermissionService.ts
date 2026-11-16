@@ -26,7 +26,6 @@ const ROLE_PERMISSIONS: Readonly<Record<Role, readonly Permission[]>> = {
 
 /**
  * Roles a manager is allowed to work with when assigning or managing users.
- *
  * @remarks
  * Managers can only ever act on employees. Administrators are unrestricted
  * and therefore never consult this list.
@@ -38,14 +37,14 @@ export class PermissionService {
   private readonly resolveAccount:
     ((userId: string) => Promise<AccountAccess>) | undefined;
 
-  /** Runtime callers resolve current A2 facts; omitted only for the legacy compatibility API. */
+  /** Runtime callers resolve current authorization facts; omitted only for the legacy compatibility API. */
   public constructor(
     resolveAccount?: (userId: string) => Promise<AccountAccess>,
   ) {
     this.resolveAccount = resolveAccount;
   }
 
-  /** Evaluates current global action rights while A3 department checks remain separate. */
+  /** Evaluates current global action rights while department checks remain separate. */
   public async hasCapability(
     actor: User,
     capability: Capability,
@@ -89,7 +88,6 @@ export class PermissionService {
 
   /**
    * Determines whether a role grants an operation.
-   *
    * @param role - Role being authorized.
    * @param permission - Operation requiring authorization.
    * @returns Whether the role grants the permission.
@@ -100,11 +98,9 @@ export class PermissionService {
 
   /**
    * Determines whether an actor may assign a role to a user.
-   *
    * @param actorRole - Role of the user performing the assignment.
    * @param targetRole - Role being assigned.
    * @returns Whether the assignment is allowed.
-   *
    * @remarks
    * Administrators may assign any role. Managers may only ever create or
    * keep users as employees, which prevents privilege escalation.
@@ -123,7 +119,6 @@ export class PermissionService {
 
   /**
    * Determines whether an actor may view or edit a user.
-   *
    * @param actorRole - Role of the user performing the action.
    * @param targetRole - Current role of the user being acted upon.
    * @returns Whether the action is allowed.

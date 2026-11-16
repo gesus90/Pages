@@ -125,7 +125,7 @@ function isSameFields(left: AgentFormFields, right: AgentFormFields): boolean {
  * Holds the open and the last saved field values.
  *
  * @remarks
- * The server stores a default model after access (A7 §21.6). The form adopts
+ * The server stores a default model after access. The form adopts
  * such a change unless the administrator has already changed the model here.
  * A scope that another administrator saved is adopted the same way.
  */

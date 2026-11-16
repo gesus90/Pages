@@ -6,10 +6,9 @@ import { logCaughtError } from "@/backend/logging/Logger";
 import type { Route } from "./+types/conversation-media";
 
 /**
- * "Medien & Dateien" of a chat for a member (PAGE-387):
+ * "Medien & Dateien" of a chat for a member:
  * `GET /chat/media/<conversationId>` lists every file and link of its sent
  * messages, newest first, sorted into tabs, with their senders.
- *
  * @remarks
  * Membership is checked on every request; a conversation the person does not
  * belong to answers like a missing one.

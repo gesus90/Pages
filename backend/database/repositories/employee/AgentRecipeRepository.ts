@@ -17,7 +17,7 @@ import type {
   AgentRecipeStep,
 } from "@/definition/AgentDreaming";
 
-/** One recipe of an agent as it is stored (PAGE-378). */
+/** One recipe of an agent as it is stored. */
 export interface StoredAgentRecipe {
   readonly id: string;
   readonly agentId: string;
@@ -184,9 +184,8 @@ function contentParameters(
 }
 
 /**
- * The recipes of agents (PAGE-378): flow recipes the tool `rezept` runs and
+ * The recipes of agents: flow recipes the tool `rezept` runs and
  * knowledge recipes that are loaded when they fit the topic of a chat.
- *
  * @remarks
  * Every statement names the agent, so a call never reaches the recipe of
  * another one. The counters of use and failure change in single statements.

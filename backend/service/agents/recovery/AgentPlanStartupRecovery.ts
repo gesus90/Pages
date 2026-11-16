@@ -91,7 +91,6 @@ export class AgentPlanStartupRecovery {
 
   /**
    * Preserves successful work and explicit cancellation; a process crash is a separate recoverable reason.
-   *
    * @param retained - Sessions whose leftover cleanup could not be confirmed;
    * their runs keep the working copies reserved.
    */
@@ -251,7 +250,6 @@ export class AgentPlanStartupRecovery {
 
   /**
    * A remote run whose jobs all ended before this start gets no later runner fact.
-   *
    * @returns How many remote runs changed.
    */
   private async settleRemoteRuns(
@@ -327,7 +325,6 @@ export class AgentPlanStartupRecovery {
 
   /**
    * Ends the processes an ended run's sessions left behind, so its reservations can be released.
-   *
    * @remarks
    * A run that ended with an unconfirmed closeout keeps its working copies. A
    * start used to only look at it, so the lock stayed through every restart.

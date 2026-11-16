@@ -36,7 +36,7 @@ function toEntry(item: WorkItemDetail): TicketTreeEntry {
 
 /**
  * Provides the ticket tree of the sidebar: the active tickets a person sees
- * and the branches the person opened (A8.2-E08).
+ * and the branches the person opened.
  */
 export class TicketTreeService {
   private readonly repository: WorkItemTreeRepository;
@@ -44,7 +44,6 @@ export class TicketTreeService {
 
   /**
    * Creates the service.
-   *
    * @param repository - Keeps the open branches per person.
    * @param tickets - Reads the active tickets with the actor's visibility.
    */
@@ -58,7 +57,6 @@ export class TicketTreeService {
 
   /**
    * Lists the active tickets of the actor in the compact form of the tree.
-   *
    * @param actor - The person looking.
    * @returns The tickets the board shows too, with their parents.
    */
@@ -68,7 +66,6 @@ export class TicketTreeService {
 
   /**
    * Lists the branches the actor opened.
-   *
    * @param actor - The person looking.
    * @returns Keys of the open branches.
    */
@@ -78,13 +75,11 @@ export class TicketTreeService {
 
   /**
    * Opens or closes a branch for the actor.
-   *
    * @param actor - The person.
    * @param nodeKey - Ticket id or group key.
    * @param isExpanded - Whether the branch is open now.
    * @throws {WorkItemValidationError} With `invalidTreeKey` for a key of an
    * unknown form.
-   *
    * @remarks
    * Only the state is stored, never ticket data, so a key does not have to
    * name a visible ticket. Beyond the bound further branches stay closed.

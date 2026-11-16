@@ -63,14 +63,12 @@ function candidateDates(
 
 /**
  * Lists the dates of a series in order, from its first date on.
- *
  * @param rule - The rule of the series.
  * @param startDate - The local date of the first occurrence in the zone of
  * the series.
  * @param until - The last date the caller needs; the listing stops after it.
  * @returns The occurrence dates up to `until`, the end of the rule or the
  * step limit, whichever comes first.
- *
  * @remarks
  * A monthly or yearly series on a day a month does not have (the 31st, the
  * 29th of February) has no occurrence in that month. `count` counts the
@@ -99,7 +97,6 @@ export function listOccurrenceDates(
 
 /**
  * Tells the last date a series reaches, or `null` when it never ends.
- *
  * @param rule - The rule.
  * @param startDate - The first date.
  */
@@ -115,7 +112,6 @@ export function lastOccurrenceDate(
 
 /**
  * Counts the occurrences of a series from a date on.
- *
  * @param rule - The rule.
  * @param startDate - The first date of the series.
  * @param fromDate - The first date that counts.
@@ -135,7 +131,6 @@ export function countOccurrencesFrom(
 
 /**
  * Ends a series before one of its dates, for "this and all following".
- *
  * @param rule - The rule of the series.
  * @param startDate - The first date of the series.
  * @param splitDate - The first date that no longer belongs to the series.
@@ -165,7 +160,6 @@ export function splitRecurrence(
 
 /**
  * Tells whether a date is an occurrence of a series.
- *
  * @param rule - The rule.
  * @param startDate - The first date of the series.
  * @param date - The date in question.
@@ -183,7 +177,6 @@ export function isOccurrenceDate(
 
 /**
  * Counts the days an all-day or timed event covers beyond its first day.
- *
  * @param startDate - The first date.
  * @param endDate - The last date.
  */

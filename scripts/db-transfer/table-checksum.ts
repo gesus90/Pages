@@ -12,7 +12,6 @@ export interface TableChecksum {
 
 /**
  * Feeds one value into the hash, in a form both databases give the same way.
- *
  * @remarks
  * The prefix keeps the values apart: `NULL` from an empty text and a number from
  * the text of its digits, and the length ends each value. A whole number has the

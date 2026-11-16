@@ -14,7 +14,7 @@ import type { Database } from "@/backend/database/Database";
 import type { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
 import type { InstanceSecretCipher } from "@/backend/security/InstanceSecretCipher";
 
-/** The speech recognition (PAGE-273) and the speech output (PAGE-300) of the instance. */
+/** The speech recognition and the speech output of the instance. */
 export interface SpeechApplicationServices {
   readonly speechSettingsService: SpeechSettingsService;
   readonly speechRecognitionService: SpeechRecognitionService;
@@ -52,7 +52,6 @@ function createSpeechSynthesisServices(input: {
 /**
  * Wires the speech recognition and the speech output with the stored
  * connections and their keys.
- *
  * @param input - The database, the connections and the cipher of their keys.
  * @returns The services; each simulation switch is read once per process.
  */

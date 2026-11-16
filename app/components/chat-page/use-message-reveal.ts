@@ -12,14 +12,12 @@ interface RevealHistory {
 }
 
 /**
- * Brings a message of the opened history into view (PAGE-387): "Zur
+ * Brings a message of the opened history into view: "Zur
  * Nachricht" of "Medien & Dateien" scrolls to it and gives it the focus.
- *
  * @remarks
  * A message older than the loaded pages is reached by loading one older page
  * after the other until it is there; when no older page is left, the view
  * stays as it is.
- *
  * @param history - The shown messages and the way to load older ones.
  * @returns Starts the way to a message.
  */

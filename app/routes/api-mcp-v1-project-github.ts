@@ -45,8 +45,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpProjectHandlers {
 }
 
 /**
- * Saves the GitHub connection (`PUT /api/mcp/v1/projects/{id}/github`), switches its synchronization (`PATCH`) and removes it (`DELETE`), PAGE-244 interface 11.
- *
+ * Saves the GitHub connection (`PUT /api/mcp/v1/projects/{id}/github`), switches its synchronization (`PATCH`) and removes it (`DELETE`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

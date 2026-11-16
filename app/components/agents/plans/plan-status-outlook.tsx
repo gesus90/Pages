@@ -16,7 +16,6 @@ interface StatusOutlookProps {
 
 /**
  * The details of a block that has no record yet: a planned or assumed execution.
- *
  * @remarks
  * It names the node and its pass and says that nothing has started; it shows
  * no status, output or session, because the run has none for this block.

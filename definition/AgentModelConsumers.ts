@@ -12,7 +12,6 @@ import type { PageAgentModel } from "./PageAgent";
 
 /**
  * The places that choose a model from the shared catalog.
- *
  * @remarks
  * Every consumer reads the same models of the same connections; it only
  * shows what it cannot run disabled, for one of the reasons below. Only
@@ -23,7 +22,6 @@ export type AgentModelConsumer =
 
 /**
  * Why a consumer cannot run a model.
- *
  * - `noChatAdapter`: Pica answers only over an ACP session, and the provider
  *   registers no adapter for it, such as a direct API.
  * - `noChat`: the catalog states that the model does not chat in text or
@@ -35,16 +33,16 @@ export type AgentModelConsumer =
  * - `noToolCalls`: the catalog states that the model calls no tools, which an
  *   agent of a plan needs.
  * - `noSpeech`: the model is not known to recognize speech, which the speech
- *   recognition of the instance (PAGE-273) needs.
+ *   recognition of the instance needs.
  * - `noSpeechOutput`: the model is not known to speak text aloud, which the
- *   speech output of the instance (PAGE-300) needs.
- * - `speechOutputOnly`: the model speaks text aloud (PAGE-300); it neither
+ *   speech output of the instance needs.
+ * - `speechOutputOnly`: the model speaks text aloud; it neither
  *   chats nor works on a plan node, whatever else its catalog states.
- * - `transcriptionOnly`: the model transcribes speech (PAGE-302); it neither
+ * - `transcriptionOnly`: the model transcribes speech; it neither
  *   chats nor works on a plan node, whatever else its catalog states.
  * - `noDecision`: the model is not known to give decisions, which the decisions
- *   of group chats (PAGE-379) need.
- * - `decisionOnly`: the model gives decisions (PAGE-379); it neither chats nor
+ *   of group chats need.
+ * - `decisionOnly`: the model gives decisions; it neither chats nor
  *   works on a plan node, whatever else its catalog states.
  */
 export type ModelConsumerRefusal =
@@ -84,7 +82,6 @@ type ConsumerModel = Pick<
 
 /**
  * Whether Pica has an ACP adapter for the provider.
- *
  * @param provider - The provider of a connection.
  * @returns `true` when the provider registers a chat adapter.
  */
@@ -96,7 +93,6 @@ export function hasChatAdapter(
 
 /**
  * Whether a model is one of the free OpenCode Zen models Pica cannot run.
- *
  * @param model - Provider, model ID and free mark of a catalog model.
  * @returns `true` for a free model of OpenCode's own provider; plans keep it.
  */
@@ -110,8 +106,8 @@ export function isZenToolModel(
   );
 }
 
-// A speech output model (PAGE-300), a transcription model (PAGE-302) or a
-// decision model (PAGE-379) is no chat or agent model, even where its catalog
+// A speech output model, a transcription model or a
+// decision model is no chat or agent model, even where its catalog
 // states nothing about tools.
 function speechOutputRefusal(
   model: ConsumerModel,
@@ -143,7 +139,7 @@ function planRefusal(model: ConsumerModel): ModelConsumerRefusal | null {
 }
 
 /**
- * An agent employee (PAGE-266) answers over Pica's ACP path and works with
+ * An agent employee answers over Pica's ACP path and works with
  * tools, so it needs both: a chat adapter and a model that calls tools. Pure
  * image, audio or other special generators never qualify.
  */
@@ -162,9 +158,9 @@ function employeeRefusal(
 }
 
 /**
- * Speech recognition (PAGE-273) takes only a model that is known to turn
+ * Speech recognition takes only a model that is known to turn
  * audio into text: a model whose catalog states audio input and
- * transcription output (PAGE-294), or a recognition model documented in
+ * transcription output, or a recognition model documented in
  * Pages. A model that states nothing never qualifies, and neither does a chat
  * model that accepts audio, so chat, agent and CLI models stay out.
  */
@@ -173,7 +169,7 @@ function sttRefusal(model: ConsumerModel): ModelConsumerRefusal | null {
 }
 
 /**
- * Speech output (PAGE-300) takes only a model whose catalog states `speech`
+ * Speech output takes only a model whose catalog states `speech`
  * among its outputs; chat, agent, transcription and CLI models stay out.
  */
 function ttsRefusal(model: ConsumerModel): ModelConsumerRefusal | null {
@@ -181,7 +177,7 @@ function ttsRefusal(model: ConsumerModel): ModelConsumerRefusal | null {
 }
 
 /**
- * The decisions of group chats (PAGE-379) take only a model whose catalog
+ * The decisions of group chats take only a model whose catalog
  * states `decisions` among its outputs; chat, agent, speech and CLI models
  * stay out.
  */
@@ -213,7 +209,6 @@ const CONSUMER_RULES: Readonly<
 
 /**
  * Why a consumer cannot run a model of the shared catalog.
- *
  * @remarks
  * These rules are the only place where Pica and plans differ in their
  * models. A provider that registers a chat adapter in
@@ -221,7 +216,6 @@ const CONSUMER_RULES: Readonly<
  * a model choice. The server applies the same rules before it saves
  * or runs a model. The choice shows refused models disabled with their
  * reason; a listed model is no grant of use.
- *
  * @param consumer - The place that chooses the model.
  * @param model - Provider, model ID and catalog traits of the model.
  * @param context - Access level of an agent employee.
@@ -237,7 +231,6 @@ export function modelConsumerRefusal(
 
 /**
  * Keeps the models a consumer can run.
- *
  * @param consumer - The place that chooses the model.
  * @param models - Models of the shared catalog.
  * @returns The models without a refusal, in their order.

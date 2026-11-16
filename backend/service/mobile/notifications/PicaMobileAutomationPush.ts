@@ -86,7 +86,7 @@ function timeOf(endedAt: string, locale: PicaMobileNotificationLocale): string {
 }
 
 /**
- * Builds the push of a finished automation run for one device (PAGE-297).
+ * Builds the push of a finished automation run for one device.
  *
  * @remarks
  * With `details` the title names the automation and the body its result and
@@ -151,7 +151,7 @@ export interface PicaMobilePushLog {
  * a coupled device nothing happens: no error, no hint and no later delivery.
  * Each registration's session and account are checked before the handover,
  * which is logged without token or text. {@link deliver} hands other pushes
- * of one person the same way, such as calendar invitations (PAGE-301).
+ * of one person the same way, such as calendar invitations.
  */
 export class PicaMobileAutomationPush {
   private readonly options: PicaMobileAutomationPushOptions;

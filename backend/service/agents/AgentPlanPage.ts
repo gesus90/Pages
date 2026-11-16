@@ -13,7 +13,6 @@ import type { AgentPlanService } from "./AgentPlanService";
 
 /**
  * The part of the editor page that identifies catalog, access and the selected plan.
- *
  * @remarks
  * Everything except the run history and the control state, which change with
  * every run step and have their own channel.
@@ -35,7 +34,6 @@ export interface PlanSelection {
 
 /**
  * Loads authorized editor context, including a repairable plan whose registration is gone.
- *
  * @remarks
  * Its repeated reads of the person, the access and the catalog are answered once.
  */

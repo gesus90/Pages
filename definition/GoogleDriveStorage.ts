@@ -11,7 +11,6 @@ export const STORAGE_MY_DRIVE_ID = "root";
 
 /**
  * How far the granted scopes of the connection reach into Drive.
- *
  * - `full`: a read scope covers every folder the Google account can open.
  * - `app_files`: only `drive.file`; Drive shows just the files Pages created
  *   or opened, not the existing folder tree.
@@ -34,7 +33,6 @@ export interface StorageItem {
 
 /**
  * What a step of the path is.
- *
  * - `my_drive`: the root of My Drive; the view names it in its language.
  * - `shared_drives`: the list of shared drives; the view names it.
  * - `shared_drive`: the root folder of one shared drive, with its name.
@@ -71,7 +69,6 @@ export interface StorageStartFolder {
 
 /**
  * Why the saved start folder was not opened.
- *
  * - `other_account`: it was saved for another Google account of the connection.
  * - every {@link StorageFolderProblem}: Drive refused or no longer has it.
  */
@@ -105,7 +102,7 @@ export interface StorageBrowseResult {
   readonly reach: StorageAccessReach;
   /** Whether shared drives are offered; only a read scope lists them. */
   readonly hasSharedDrives: boolean;
-  /** Whether Drive is the in-memory simulation of a development server (PAGE-270). */
+  /** Whether Drive is the in-memory simulation of a development server. */
   readonly isSimulation?: boolean;
   readonly startFolder: StorageStartFolder | null;
   /** Set when the saved start folder was asked for and not shown. */
@@ -123,7 +120,6 @@ export type StorageBrowseResponse =
 
 /**
  * The storage quota of the Google account, as Drive `about.get` names it.
- *
  * @remarks
  * `usageBytes` is the use across all Google services, not the size of a
  * folder. `limitBytes` is `null` when Drive names no limit (unlimited).

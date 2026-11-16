@@ -1,6 +1,5 @@
 /**
- * What the build tells the service worker (PAGE-235).
- *
+ * What the build tells the service worker.
  * @remarks
  * `vite.config.ts` compiles this module into `build/client/sw.js` and calls
  * {@link installServiceWorker} with the files of the build.
@@ -78,10 +77,8 @@ function splitPath(pathname: string): string[] {
 
 /**
  * Brings a decoded page address into the form the router matches it in.
- *
  * @param pathname - The decoded path of a page address.
  * @returns The path in lower case, without repeated or trailing slashes.
- *
  * @remarks
  * React Router matches page addresses regardless of case and of trailing
  * slashes, so `/Discord/Result/` opens the result page like `/discord/result`. A list of page
@@ -119,7 +116,7 @@ async function fetchInTime(request: Request): Promise<Response> {
 }
 
 /**
- * Keeps the static app available without the server (PAGE-235).
+ * Keeps the static app available without the server.
  *
  * @param scope - The service worker's global scope.
  * @param build - The files and version of the build this worker belongs to.

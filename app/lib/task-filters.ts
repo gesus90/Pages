@@ -100,7 +100,6 @@ function matchesLabels(
 
 /**
  * Lets the hierarchy view show initiatives and epics without a type filter.
- *
  * @param preferences - What the visitor chose.
  * @returns The filters to apply: the default type filter of tasks and subtasks
  * is lifted in the hierarchy view, which is about the levels above them.
@@ -113,7 +112,6 @@ export function toTaskFilters(preferences: BoardPreferences): TaskFilters {
 
 /**
  * Keeps the work items that pass every filter.
- *
  * @param items - All work items the visitor may see.
  * @param filters - What the visitor chose.
  * @param viewer - The visitor and their groups, for the filter that shows only
@@ -145,10 +143,8 @@ export function filterWorkItems(
 
 /**
  * Counts the filters of the toolbar that differ from the defaults.
- *
  * @remarks
  * The search text is not counted because it stays visible on every screen.
- *
  * @param preferences - What the visitor chose.
  * @param archivedFilter - The archive state the page shows.
  * @returns How many filters narrow the board down.

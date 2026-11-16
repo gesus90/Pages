@@ -47,8 +47,7 @@ export interface AgentPlanAccessRequest {
 }
 
 /**
- * Teams, owner, script approvals and history of plans (PAGE-329).
- *
+ * Teams, owner, script approvals and history of plans.
  * @remarks
  * The owner, active administrators and the project managers of the plan's
  * project change its teams; only an active human administrator changes the
@@ -65,7 +64,6 @@ export class AgentPlanTeamService {
 
   /**
    * Changes the teams and/or the owner of a plan.
-   *
    * @returns The new revision.
    * @throws {AgentError} `plan_access_denied` for a plan the person cannot
    * read, `plan_team_forbidden` without the right to change teams,
@@ -108,7 +106,6 @@ export class AgentPlanTeamService {
 
   /**
    * Approves the current content of every local script step of the plan.
-   *
    * @returns The steps that were approved now; already approved ones are kept.
    * @throws {AgentError} `plan_script_approval_forbidden` for anybody but an
    * active human administrator, `plan_conflict` for a stale revision.
@@ -153,7 +150,6 @@ export class AgentPlanTeamService {
 
   /**
    * Reads the history of a plan the person may read, newest first.
-   *
    * @throws {AgentError} `plan_access_denied` for a plan the person cannot read.
    */
   public async history(
@@ -179,7 +175,6 @@ export class AgentPlanTeamService {
 
   /**
    * Records an action of an administrator on a plan of somebody else.
-   *
    * @remarks
    * Nothing is recorded for the owner or for a person whose rights do not
    * come from the administrator role alone.
@@ -202,7 +197,6 @@ export class AgentPlanTeamService {
 
   /**
    * Records a run action of an administrator on a plan of somebody else.
-   *
    * @param userId - The person who started or controlled the run.
    * @param run - The run and its plan.
    * @param action - What the person did.

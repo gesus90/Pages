@@ -19,7 +19,6 @@ export interface AgentConnectionScopeTarget {
 
 /**
  * The usage scope of a system-wide connection.
- *
  * @remarks
  * `global` admits every active account and carries no targets. `restricted`
  * admits the named persons and the current members of the named groups and
@@ -39,7 +38,6 @@ export const GLOBAL_CONNECTION_SCOPE: AgentConnectionScope = {
 
 /**
  * The scope of a connection that has no stored mode.
- *
  * @remarks
  * Migration and creation always store a mode, so this only guards against a
  * hand-edited database: nobody may use the connection until an administrator

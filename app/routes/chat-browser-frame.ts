@@ -7,7 +7,6 @@ import type { Route } from "./+types/chat-browser-frame";
 
 /**
  * The newest picture of one of the administrator's operator browsers.
- *
  * @remarks
  * It is the real page as the administrator sees it, including what they type
  * during a takeover, so only the owner receives it and it is never cached.

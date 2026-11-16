@@ -97,8 +97,7 @@ function isKindCapable(model: PageAgentModel, kind: AgentMediaKind): boolean {
 }
 
 /**
- * Generates videos and sounds with the model an agent works with in a chat
- * (PAGE-384).
+ * Generates videos and sounds with the model an agent works with in a chat.
  *
  * @remarks
  * There is no video or audio model and no setting for one. Whether the model

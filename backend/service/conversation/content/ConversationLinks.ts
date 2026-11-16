@@ -117,7 +117,7 @@ function hostOf(url: string): string {
 }
 
 /**
- * The links of conversation messages (PAGE-298): their preview data and
+ * The links of conversation messages: their preview data and
  * which of them may be embedded.
  *
  * @remarks

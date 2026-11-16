@@ -16,7 +16,6 @@ const MAXIMUM_RETRY_DELAY_MS = 60 * 60_000;
 /**
  * Delay before the next scheduled attempt after consecutive failures:
  * 1 minute, doubling with every further failure, at most 60 minutes.
- *
  * @param failures - Consecutive failed scheduled runs, at least 1.
  * @returns Delay in milliseconds.
  */
@@ -31,7 +30,6 @@ export function gitHubSyncRetryDelayMs(failures: number): number {
 
 /**
  * Backs off the scheduled synchronization of failing projects.
- *
  * @remarks
  * The next attempt is persisted in `next_sync_at`, so the scheduler does
  * not pick the project up on every tick. The count of consecutive failures
@@ -45,7 +43,6 @@ export class GitHubSyncBackoff {
 
   /**
    * Creates the backoff bookkeeping.
-   *
    * @param projectRepository - Repository persisting the next attempt.
    * @param now - Clock returning the current ISO timestamp.
    */
@@ -56,7 +53,6 @@ export class GitHubSyncBackoff {
 
   /**
    * Forgets the failures of a project after a successful run.
-   *
    * @param projectId - Project that synchronized successfully.
    */
   public reset(projectId: string): void {
@@ -65,11 +61,9 @@ export class GitHubSyncBackoff {
 
   /**
    * Logs a failed scheduled run and moves the next attempt out.
-   *
    * @param projectId - Project whose scheduled run failed.
    * @param error - Cause of the failure; its HTTP status is logged.
    * @param usedToken - The encrypted token read before the run, if any.
-   *
    * @remarks
    * The schedule is written in its own short statement after the run has
    * ended, so no database work waits on GitHub. A failing write is logged

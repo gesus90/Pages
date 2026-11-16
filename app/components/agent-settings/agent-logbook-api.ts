@@ -132,7 +132,6 @@ async function readLogbookResponse(
 
 /**
  * Reads the Lagebuch of one agent.
- *
  * @param agentId - The ID of the agent.
  * @param signal - Cancels the request when the view goes away.
  * @returns The overview, or why the server refused it.

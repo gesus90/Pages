@@ -6,7 +6,6 @@ import type { Placement } from "@floating-ui/dom";
 /**
  * Places a floating element next to a screen rectangle and keeps it inside
  * the viewport.
- *
  * @param floating - The element to place; `null` until it is rendered.
  * @param reference - The rectangle it belongs to, such as the caret.
  * @param placement - Preferred side of the rectangle.

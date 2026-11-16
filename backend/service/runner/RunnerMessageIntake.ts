@@ -8,10 +8,8 @@ import type { RunnerMessage } from "@/definition/RunnerProtocol";
 
 /**
  * Validates one inbound runner packet and logs each schema rejection before throwing.
- *
  * @remarks
  * Only the safe schema facts of each issue reach the log; the rejected input is never echoed.
- *
  * @param connectionId - The SSH connection that sent the packet.
  * @param input - The unparsed packet.
  * @returns The validated protocol message.

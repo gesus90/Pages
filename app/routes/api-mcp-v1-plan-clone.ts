@@ -28,8 +28,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpPlanHandlers {
 }
 
 /**
- * Clones a plan (`POST /api/mcp/v1/plans/{planId}/clone`), PAGE-246 interface 6.
- *
+ * Clones a plan (`POST /api/mcp/v1/plans/{planId}/clone`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

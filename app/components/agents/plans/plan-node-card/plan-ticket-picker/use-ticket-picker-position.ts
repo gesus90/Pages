@@ -20,12 +20,10 @@ const VIEWPORT_MARGIN = 8;
 
 /**
  * Anchors the open ticket choice below its field, widening to the right.
- *
  * @param field - The field on the card; `null` until it is rendered.
  * @param panel - The panel in its portal; `null` until it is rendered.
  * @returns Fixed-position styles; the panel stays transparent until it is
  * placed, but focusable, so its search field takes the focus at once.
- *
  * @remarks
  * Near the bottom of the window the panel opens upwards, near the right
  * edge it moves left, and on a short window its list shrinks. The position

@@ -15,7 +15,7 @@ export interface StoredAgentTodoList {
   readonly updatedAt: string;
 }
 
-/** Stores the TODO list a CLI reported, one row per attempt (PAGE-306). */
+/** Stores the TODO list a CLI reported, one row per attempt. */
 export class AgentPlanAgentTodoRepository {
   private readonly database: Pick<Database, "query" | "execute">;
 
@@ -76,7 +76,6 @@ export class AgentPlanAgentTodoRepository {
 
   /**
    * Replaces the list of an attempt that Pages knows.
-   *
    * @remarks
    * Run and node come from the stored attempt, so a caller that only knows the
    * attempt cannot file a list under a foreign run.
@@ -117,8 +116,7 @@ export class AgentPlanAgentTodoRepository {
 }
 
 /**
- * Replaces the list of the main model or a helper of a swarm node (PAGE-313).
- *
+ * Replaces the list of the main model or a helper of a swarm node.
  * @param database - The executor.
  * @param list - Run and node of the swarm, the attempt of the node, the
  * side (`main`, `H1` … `H10`) and its entries.
@@ -178,7 +176,6 @@ const entrySchema = z.array(
 
 /**
  * Reads the entries of a stored list.
- *
  * @param todosJson - The stored JSON.
  * @returns The entries; empty when the JSON is not a list of entries.
  */

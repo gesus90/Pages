@@ -7,7 +7,7 @@ import type {
 } from "@/definition/AgentImportApply";
 import type { AgentStructuredImportItem } from "@/definition/AgentStructuredImportManifest";
 
-/** A stored outcome: a wiki source of A9.8, or a source of any kind of A9.12. */
+/** A stored outcome: a wiki source, or a source of any kind. */
 export type StoredAgentImportItem = AgentImportItem | AgentStructuredImportItem;
 
 /** Server-owned accepted plan and run identity; source input stays in the operation fingerprint. */
@@ -33,7 +33,6 @@ export interface StoredAgentImportSource {
 
 /**
  * Persists resumable import runs and source outcomes on the caller's transaction connection.
- *
  * @remarks
  * The casts keep U+0000 in a source key, so PostgreSQL refuses it: without the
  * character it would be the key of another source.

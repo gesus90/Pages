@@ -7,7 +7,6 @@ import type { AgentPlanControl } from "@/definition/AgentPlanControl";
 
 /**
  * Polls server-owned actions even when idle, so other tabs and shared readers reconnect correctly.
- *
  * @param planId - The saved plan, `undefined` while it is unsaved.
  * @param initial - The control of the page loader, until polling answers.
  * @param command - The latest command, which reads at once.

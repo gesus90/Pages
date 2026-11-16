@@ -66,7 +66,6 @@ export interface PageAgentModel {
   readonly isToolCapable?: boolean;
   /**
    * `false` when the catalog's stated modalities or tool calls rule out chatting.
-   *
    * @remarks
    * The model choice hides such a model; a saved assignment to it stays and
    * is shown as unavailable. Absent where the catalog states nothing.
@@ -75,59 +74,58 @@ export interface PageAgentModel {
   /** Text-only decisions may use a text model even when it cannot call tools. */
   readonly isTextCapable?: boolean;
   /**
-   * `true` for a model that recognizes speech (PAGE-273): its catalog states
+   * `true` for a model that recognizes speech: its catalog states
    * audio input and text output alone, or Pages documents it as a
    * recognition model. Set only in the model choice of speech recognition.
    */
   readonly isSpeechCapable?: boolean;
   /**
-   * `true` for a model that speaks text aloud (PAGE-300): its catalog states
+   * `true` for a model that speaks text aloud: its catalog states
    * `speech` among the outputs. Only the speech output takes such a model;
    * Pica, agents and plan nodes refuse it.
    */
   readonly isSpeechOutputCapable?: boolean;
   /**
-   * `true` for a transcription model (PAGE-302): its catalog states audio
+   * `true` for a transcription model: its catalog states audio
    * input and `transcription` output. Only speech recognition takes such a
    * model; Pica, agents and plan nodes refuse it.
    */
   readonly isTranscriptionOnly?: boolean;
   /**
-   * `true` for a decision model (PAGE-379): its catalog states `decisions`
+   * `true` for a decision model: its catalog states `decisions`
    * among the outputs. Only the decisions of group chats take such a model;
    * Pica, agents and plan nodes refuse it.
    */
   readonly isDecisionCapable?: boolean;
   /**
-   * `true` for a model whose catalog states `image` among the outputs
-   * (PAGE-382). It still chats when it also states text; an agent working
+   * `true` for a model whose catalog states `image` among the outputs.
+   * It still chats when it also states text; an agent working
    * with it in a chat generates images with it.
    */
   readonly isImageOutputCapable?: boolean;
   /**
-   * `true` for a model whose catalog states `video` among the outputs
-   * (PAGE-384). It still chats when it also states text; an agent working
+   * `true` for a model whose catalog states `video` among the outputs.
+   * It still chats when it also states text; an agent working
    * with it in a chat generates videos with it.
    */
   readonly isVideoOutputCapable?: boolean;
   /**
-   * `true` for a model whose catalog states `audio` among the outputs
-   * (PAGE-384). It still chats when it also states text; an agent working
+   * `true` for a model whose catalog states `audio` among the outputs.
+   * It still chats when it also states text; an agent working
    * with it in a chat generates sounds with it.
    */
   readonly isAudioOutputCapable?: boolean;
   /**
    * `true` when the last server refresh of the model's catalog failed.
-   *
    * @remarks
-   * The model choice then warns that the list may be outdated (PAGE-248);
+   * The model choice then warns that the list may be outdated;
    * absent while the catalog is current.
    */
   readonly isCatalogFailed?: boolean;
   /** For a remote OpenCode model: the connection and workspace it runs on, such as "homeNAS / pageNAS". */
   readonly targetName?: string;
   /**
-   * `true` for the model of the agent simulation (PAGE-268); the model choice
+   * `true` for the model of the agent simulation; the model choice
    * names it as Simulation. Absent for every real model.
    */
   readonly isSimulation?: boolean;

@@ -9,7 +9,6 @@ interface ChatErrorNoticeProps {
 
 /**
  * The failure of the chat as one alert.
- *
  * @remarks
  * A sign-in that ended also offers the login page in a new tab: the person
  * signs in there, and what they typed stays in this one.

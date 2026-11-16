@@ -7,7 +7,6 @@ import type { Database } from "@/backend/database/Database";
 
 /**
  * The agent session that continues one conversation.
- *
  * @remarks
  * It is continued only with the same connection, model, reasoning effort and
  * profile, and only while no message reached the conversation past
@@ -24,7 +23,7 @@ export interface ChatAcpSession {
   readonly throughMessageId: string | null;
 }
 
-/** Owner-bound mapping of a conversation to its agent session (PAGE-68). */
+/** Owner-bound mapping of a conversation to its agent session. */
 export class ChatAcpSessionRepository {
   private readonly database: Pick<Database, "query" | "execute">;
 

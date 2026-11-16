@@ -42,7 +42,6 @@ export type PlanRunReadDependencies = Pick<
 
 /**
  * Current content permissions are checked separately from ownership-only stop/reset permissions.
- *
  * @remarks
  * Every check reads the person, the plan and the resources it names; what
  * several checks ask for is answered once.
@@ -57,11 +56,9 @@ export async function readAuthorizedPlanRun(
 
 /**
  * Finds a stored run; only who may read the run learns that its record is damaged.
- *
  * @remarks
  * A damaged view cannot name its owner, so its columns decide; anyone else gets
  * the refusal of a hidden run.
- *
  * @throws {AgentError} `plan_run_unreadable` for the owner of a damaged record,
  * `plan_access_denied` for anyone else.
  */
@@ -85,7 +82,6 @@ export async function findPlanRun(
 
 /**
  * Requires that the person may read the run: its owner, an administrator or a reader of all runs.
- *
  * @param userId - The person who reads.
  * @param run - The stored run.
  * @param plan - The plan of the run, as the person sees it.
@@ -96,7 +92,7 @@ function requireRunReadPermission(
   run: AgentPlanRun,
   plan: AgentPlanView,
 ): void {
-  // An administrator reads and controls every run of a plan (PAGE-329).
+  // An administrator reads and controls every run of a plan.
   if (
     run.userId !== userId &&
     !isPlanAdministrator(plan) &&
@@ -107,7 +103,6 @@ function requireRunReadPermission(
 
 /**
  * Adds the live progress, the work scope, the agent todos and the command view to a run.
- *
  * @param dependencies - The read dependencies of the plan service.
  * @param run - The stored run.
  * @param resources - The resources the run used.
@@ -158,7 +153,6 @@ async function loadAuthorizedPlanRun(
 
 /**
  * Requires the current access to everything a run used, as reading its content does.
- *
  * @param dependencies - The read dependencies of the plan service.
  * @param userId - The person who reads.
  * @param used - The resources of the run and every file or ticket asset it named.

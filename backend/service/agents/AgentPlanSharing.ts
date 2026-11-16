@@ -29,11 +29,10 @@ const NO_TEAM_RIGHTS = { canRead: false, canEdit: false, canRun: false };
 
 /**
  * Who may read and change a plan besides its owner.
- *
  * @remarks
  * Two grants exist and stay apart. The team grant gives the members and the
  * leaders of each group or department of the plan the rights of that team
- * entry: read, change and run (PAGE-329); it never replaces the check of the
+ * entry: read, change and run; it never replaces the check of the
  * project, which the caller does first. The usage share of the plan only lets
  * others read it. Active human administrators have every right on every plan. Neither delegates
  * credentials, model access or the rights to private agents, wiki pages or
@@ -57,8 +56,7 @@ export class AgentPlanSharing {
   }
 
   /**
-   * The same sharing for another surface (PAGE-329).
-   *
+   * The same sharing for another surface.
    * @param channel - The surface whose administrator reading decides the administrator rights.
    */
   public forChannel(channel: ActorChannel): AgentPlanSharing {
@@ -69,7 +67,6 @@ export class AgentPlanSharing {
 
   /**
    * Whether the person is an active human administrator on this surface.
-   *
    * @remarks
    * An agent account is never one, whatever is stored; the interface asks for
    * the active administrator mode like every other administrator right.
@@ -80,7 +77,6 @@ export class AgentPlanSharing {
 
   /**
    * Resolves the person for every plan decision.
-   *
    * @remarks
    * Leading a department counts like being a member of it, so the departments
    * of the returned actor are the union of both, each once; the administrator
@@ -109,7 +105,6 @@ export class AgentPlanSharing {
 
   /**
    * Whether the person belongs to one of the teams of the plan.
-   *
    * @remarks
    * Only being a member or the leader of the group or department counts,
    * never the administrator role or the right to see all departments. The
@@ -144,11 +139,10 @@ export class AgentPlanSharing {
 
   /**
    * Every right of the person on the plan, except the management of its teams by a project manager.
-   *
    * @remarks
    * The owner and an active human administrator have every right; an
    * administrator who does not own the plan has them as admin access, which
-   * the history records (PAGE-329, part E). Everybody else has the rights of
+   * the history records. Everybody else has the rights of
    * the teams they belong to and reads a plan that is shared with them.
    */
   public rights(
@@ -195,7 +189,6 @@ export class AgentPlanSharing {
 
   /**
    * The department a plan or template created by the person belongs to.
-   *
    * @returns The department of a person who is a member or leader of exactly one,
    * `null` for a person with none or several: nothing is shared then, and no
    * department is chosen for them.
@@ -211,9 +204,8 @@ export class AgentPlanSharing {
 
   /**
    * Exposes the same sharing directory names as user-owned agents, without account details.
-   *
    * @param includePersons - Whether to name the active accounts too, the
-   * owner choices of an administrator (PAGE-329).
+   * owner choices of an administrator.
    */
   public async directory(
     includePersons = false,

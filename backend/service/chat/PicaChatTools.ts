@@ -117,12 +117,9 @@ async function run(
 }
 
 /**
- * Registers `chats_list`, `chat_read` and `chat_send` for an agent employee
- * (PAGE-311).
- *
+ * Registers `chats_list`, `chat_read` and `chat_send` for an agent employee.
  * @param registry - The tools of the job.
  * @param parts - The chat service, the target search and the budget of the turn.
- *
  * @remarks
  * The tools act as the agent of the job: `context.userId` is its account,
  * never an argument. A refusal comes back as an error code the agent can act

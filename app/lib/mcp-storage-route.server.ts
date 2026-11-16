@@ -104,7 +104,6 @@ function parseStorageInput(
 
 /**
  * Serves the authenticated Storage MCP namespace, including JSON failures for unknown paths.
- *
  * @param request - Bearer-authenticated request; cookies do not grant access.
  * @param path - Operation below `/api/mcp/v1/storage`.
  * @returns Direct MCP JSON or an attachment stream; no SPA document fallback.

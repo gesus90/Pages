@@ -82,13 +82,11 @@ function readInput(
 
 /**
  * Parses a decision node; what its settings mean for the run is the graph check's.
- *
  * @param node - The untrusted node.
  * @param base - Its id and position, already read.
  * @param readBinding - The binding reader of the plan, which bounds every reference.
- * @returns The decision, with only the fields it was saved with: a decision of a
- * plan before PAGE-286 stays exactly as it was.
- *
+ * @returns The decision, with only the fields it was saved with: an older decision of a
+ * plan stays exactly as it was.
  * @remarks
  * A draft may hold an empty question or an empty value name; the plan check
  * names them before a run may start, so a person can save half-done work.
@@ -147,7 +145,6 @@ function readModelSettings(
 
 /**
  * Parses the decisions saved inside a group or loop.
- *
  * @param input - The untrusted list, absent in a container without decisions.
  * @param readNode - The node reader of the plan.
  */

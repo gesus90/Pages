@@ -15,7 +15,6 @@ const WAVE_BYTE_RATE_OFFSET = 8;
 
 /**
  * Reads the audio format a declared MIME type names.
- *
  * @param mimeType - The type the client declared, parameters allowed.
  * @returns The format, or `null` for a type that is neither WAV nor MP3.
  */
@@ -86,11 +85,9 @@ function isWave(head: Buffer): boolean {
 
 /**
  * Reads the format and, for WAV, the length from the start of an audio file.
- *
  * @param head - The first bytes of the file.
  * @param size - The size of the whole file in bytes.
  * @returns The facts, or `null` when the bytes are neither WAV nor MP3.
- *
  * @remarks
  * The length of an MP3 is not read: a file of variable bit rate tells it
  * only through its whole content, so the declared length stands for it.

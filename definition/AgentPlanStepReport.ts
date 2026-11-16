@@ -19,7 +19,6 @@ export interface AgentPlanStepReportCriterion {
 
 /**
  * The result of one attempt of a step, reported through `report_step_result`.
- *
  * @remarks
  * It replaces the `pages-report` text block of the final answer whenever both
  * exist. The business conditions stay the same for both ways.

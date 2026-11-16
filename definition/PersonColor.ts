@@ -1,8 +1,7 @@
 import { LABEL_COLORS } from "./Task";
 
 /**
- * The fixed palette of person colors (PAGE-266).
- *
+ * The fixed palette of person colors.
  * @remarks
  * Every person and every agent may pick one of these twelve colors. It is
  * stored in `users.avatar_color` and drawn as the ring around the avatar and
@@ -16,7 +15,6 @@ export type PersonColor = (typeof PERSON_COLORS)[number];
 
 /**
  * Narrows an unknown value to a color of the fixed palette.
- *
  * @param value - Value received from an untrusted source.
  * @returns Whether the value is one of the twelve person colors.
  */
@@ -29,7 +27,6 @@ export function isPersonColor(value: unknown): value is PersonColor {
 
 /**
  * Reads a stored or submitted person color.
- *
  * @param value - The stored value or a form field.
  * @returns The palette color in lower case, or `null` for none or any other value.
  */

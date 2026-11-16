@@ -24,7 +24,6 @@ interface ProjectsContentProps {
 
 /**
  * Renders the project cards, or the reason there are none.
- *
  * @remarks
  * Without any project the empty state offers to create the first one; with
  * projects that are all filtered out, it only says nothing matched.

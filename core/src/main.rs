@@ -1,10 +1,10 @@
 //! `pages-core` holds the live-change streams (SSE) of Pages and delivers the
-//! committed events of `pages_event_outbox` to them (PAGE-237). With a status
+//! committed events of `pages_event_outbox` to them. With a status
 //! target it also reports the state of the platform's services from the
-//! systemd manager, independently of `pages-api` (PAGE-238). It relays the
+//! systemd manager, independently of `pages-api`. It relays the
 //! WebSocket connections of runners and consoles that the entrance passes on
 //! and, while `picaMobileRelayPort` is set, holds the Pica Mobile port; the
-//! API keeps deciding every login and every message (PAGE-239).
+//! API keeps deciding every login and every message.
 //!
 //! It knows no business rule and reads no business table: whether an account
 //! may learn about an event is decided by `pages-api` over contract v1 of

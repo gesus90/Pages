@@ -34,10 +34,8 @@ export class NulTextQueryError extends Error {
 
 /**
  * The code of a driver or server error for the log metadata.
- *
  * @param error - Any caught error.
  * @returns The code, or `null` when it has none.
- *
  * @remarks
  * The log keeps only codes that start with a letter, and SQLSTATE codes such
  * as `28P01` mostly start with a digit. Metadata keeps them, and they hold no value.
@@ -59,7 +57,6 @@ function isStatementRefusal(error: unknown): boolean {
 
 /**
  * Turns the COMMIT of an aborted transaction into an error.
- *
  * @remarks
  * After a refused statement PostgreSQL answers a COMMIT without an error, but
  * rolls back and reports the command `ROLLBACK`. Taken as a success, the facade
@@ -102,7 +99,6 @@ function operationOf(statement: string): string {
 
 /**
  * One pooled connection for the length of one job of a lane.
- *
  * @remarks
  * The pool only listens for errors of idle connections. A connection that is
  * checked out needs its own listener, or a lost server ends the process.
@@ -116,7 +112,6 @@ export class PostgresConnection {
 
   /**
    * Takes a checked-out connection for one job.
-   *
    * @param client - The connection from the pool.
    * @param role - The lane of the job.
    */
@@ -129,7 +124,6 @@ export class PostgresConnection {
 
   /**
    * Runs one statement on this connection.
-   *
    * @param statement - SQL owned by a repository.
    * @param parameters - Values bound to the named placeholders.
    * @param mode - `rows` answers with the rows of the last statement.

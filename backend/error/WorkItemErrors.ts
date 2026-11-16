@@ -1,6 +1,5 @@
 /**
  * Reasons a work item action is rejected, with the message logged for each.
- *
  * @remarks
  * The code is what the client receives; it translates the code into the
  * language of the user (`tasks.error.<code>`). The English message stays for
@@ -118,7 +117,6 @@ export class WorkItemHierarchyError extends Error {
 
   /**
    * Creates a hierarchy error.
-   *
    * @param code - Reason the hierarchy is violated.
    */
   public constructor(code: WorkItemErrorCode) {
@@ -133,7 +131,6 @@ export class WorkItemValidationError extends Error {
 
   /**
    * Creates a validation error.
-   *
    * @param code - Reason the payload is rejected.
    */
   public constructor(code: WorkItemErrorCode) {
@@ -155,7 +152,6 @@ export type WorkItemConflictField =
 
 /**
  * Thrown when a field no longer holds the value a change started from.
- *
  * @remarks
  * Nothing was written. Only the changes that name the old value of one field
  * raise it; the description of a ticket has its own code, `descriptionConflict`.
@@ -165,7 +161,6 @@ export class WorkItemConflictError extends Error {
 
   /**
    * Creates a conflict error.
-   *
    * @param field - The field that was changed by someone else meanwhile.
    */
   public constructor(field: WorkItemConflictField) {

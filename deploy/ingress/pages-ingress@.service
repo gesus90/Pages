@@ -1,7 +1,7 @@
 [Unit]
 Description=Pages static app entrance (%i)
 # Deliberately no dependency on pages-api@%i: the entrance keeps serving the
-# static app while the API is stopped or restarting (PAGE-235).
+# static app while the API is stopped or restarting.
 After=network-online.target
 Wants=network-online.target
 PartOf=pages.target
@@ -21,16 +21,16 @@ WorkingDirectory=/opt/pages
 Environment=PAGES_INGRESS_LISTEN=0.0.0.0:3000
 Environment=PAGES_INGRESS_BACKEND=http://127.0.0.1:3100
 # Empty: the API serves /live-changes. "--core http://127.0.0.1:3200": pages-core
-# serves it (PAGE-237). Unbraced, so an empty value adds no argument.
+# serves it. Unbraced, so an empty value adds no argument.
 Environment=PAGES_INGRESS_CORE_OPTION=
 # Empty: /service-status answers 404. "--service-status http://127.0.0.1:3200":
 # pages-core reports the services of pages.target, also while the API is
-# stopped (PAGE-238). A switch of its own, independent of the live stream.
+# stopped. A switch of its own, independent of the live stream.
 Environment=PAGES_INGRESS_STATUS_OPTION=
 # Empty: the API answers the WebSocket channels of runners and consoles.
 # "--core-runner http://127.0.0.1:3200" and "--core-console http://127.0.0.1:3200":
 # pages-core relays them and holds the connections while the API restarts
-# (PAGE-239). Two switches of their own; Pica Mobile is switched in config.toml.
+# Two switches of their own; Pica Mobile is switched in config.toml.
 Environment=PAGES_INGRESS_RUNNER_OPTION=
 Environment=PAGES_INGRESS_CONSOLE_OPTION=
 EnvironmentFile=-/etc/pages/%i/ingress.env

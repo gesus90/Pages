@@ -13,7 +13,6 @@ export type WorkItemType = (typeof WORK_ITEM_TYPE)[keyof typeof WORK_ITEM_TYPE];
 
 /**
  * Narrows an unknown value to a supported work item type.
- *
  * @param value - Value received from an untrusted source.
  * @returns Whether the value is a valid work item type.
  */
@@ -63,7 +62,6 @@ export type ChildHandling = "include" | "keep";
 
 /**
  * Narrows an unknown value to a way of handling children.
- *
  * @param value - Value received from an untrusted source.
  * @returns Whether the value names a supported handling.
  */
@@ -134,7 +132,6 @@ export type WorkItemPriority =
 
 /**
  * Narrows an unknown value to a supported work item priority.
- *
  * @param value - Value received from an untrusted source.
  * @returns Whether the value is a valid work item priority.
  */
@@ -166,7 +163,6 @@ export type GitHubIssueState =
 
 /**
  * Narrows an unknown value to a supported GitHub issue state.
- *
  * @param value - Value received from an untrusted source.
  * @returns Whether the value is a valid GitHub issue state.
  */
@@ -202,7 +198,6 @@ export type MilestoneColor =
 
 /**
  * Narrows an unknown value to a supported milestone color type.
- *
  * @param value - Value received from an untrusted source.
  * @returns Whether the value is a valid milestone color type.
  */
@@ -239,7 +234,6 @@ export interface MilestoneReadOptions {
 
 /**
  * Narrows an unknown value to a supported milestone status.
- *
  * @param value - Value received from an untrusted source.
  * @returns Whether the value is a valid milestone status.
  */
@@ -299,7 +293,6 @@ export type MilestoneIcon =
 
 /**
  * Narrows an unknown value to a supported milestone symbol.
- *
  * @param value - Value received from an untrusted source.
  * @returns Whether the value is a valid milestone symbol.
  */
@@ -324,7 +317,6 @@ export type MilestoneLinkType =
 
 /**
  * Narrows an unknown value to a supported milestone relationship type.
- *
  * @param value - Value received from an untrusted source.
  * @returns Whether the value is a valid milestone relationship type.
  */
@@ -447,7 +439,6 @@ export type WorkItemLinkType =
 
 /**
  * Narrows an unknown value to a supported work item link type.
- *
  * @param value - Value received from an untrusted source.
  * @returns Whether the value is a valid work item link type.
  */
@@ -497,7 +488,7 @@ export interface WorkItemDetail extends WorkItem {
   readonly statusName: string;
   readonly isDone: boolean;
   readonly assigneeName: string | null;
-  /** The person color of the assignee (PAGE-266); absent in older snapshots. */
+  /** The person color of the assignee; absent in older snapshots. */
   readonly assigneeColor?: string | null;
   /** The avatar image of the assignee, when they chose one. */
   readonly assigneeAvatarImageUrl?: string | null;
@@ -544,7 +535,6 @@ export const DEFAULT_LABEL_COLOR: LabelColor = "#f97316";
 
 /**
  * Narrows an unknown value to a curated label color.
- *
  * @param value - Value received from an untrusted source.
  * @returns Whether the value is a valid label color.
  */
@@ -559,12 +549,10 @@ const HEX_COLOR_PATTERN = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 
 /**
  * Checks whether a value is a storable label color.
- *
  * @remarks
  * Presets and freely picked colors share one representation: a `#rrggbb`
  * hex code. The 3-digit shorthand is accepted for convenience and normalized
  * on write.
- *
  * @param value - Value received from an untrusted source.
  * @returns Whether the value can be stored as a label color.
  */
@@ -574,7 +562,6 @@ function isHexColorCode(value: unknown): value is string {
 
 /**
  * Normalizes a hex color to lowercase `#rrggbb`.
- *
  * @param value - A value passing {@link isHexColorCode}.
  * @returns The normalized color, or `null` when the value is not a hex color.
  */

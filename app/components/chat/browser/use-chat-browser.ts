@@ -30,9 +30,7 @@ const EMPTY: PicaBrowserOverview = { browsers: [], savedSessions: [] };
 
 /**
  * Follows the operator browsers of the signed-in administrator while the panel is open.
- *
  * @param isOpen - Whether the chat panel is open; a closed panel reads nothing.
- *
  * @remarks
  * A person who is no administrator gets a refusal once and no further reads.
  */

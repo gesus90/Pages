@@ -5,7 +5,6 @@ import type { DatabaseTransaction } from "@/backend/database/Database";
 
 /**
  * Invalidates plan catalogs after commit, including readers who just lost access.
- *
  * @remarks
  * The durable outbox serves pages-core; PostgreSQL delivers the same notice
  * to the API's existing live hub. Neither path carries a private plan identity.

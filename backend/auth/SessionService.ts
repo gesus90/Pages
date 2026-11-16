@@ -39,7 +39,6 @@ export class SessionService {
 
   /**
    * Creates a session service.
-   *
    * @param sessionRepository - Session persistence boundary.
    * @param userService - User business-logic boundary.
    */
@@ -60,11 +59,9 @@ export class SessionService {
 
   /**
    * Starts a new session for a user.
-   *
    * @param userId - Identifier of the authenticated user.
    * @param userAgent - Raw user agent of the browser starting the session.
    * @returns The token that must be sent to the browser.
-   *
    * @remarks
    * Only the hash of the token is stored, so the returned value is the single
    * copy of the secret and must never be persisted server-side.
@@ -88,7 +85,6 @@ export class SessionService {
 
   /**
    * Resolves the user behind a session token.
-   *
    * @param token - Token sent by the browser.
    * @returns The authenticated user, or `null` for missing, unknown, or
    * expired sessions, or when the user has since been deactivated.
@@ -122,11 +118,9 @@ export class SessionService {
 
   /**
    * Resolves the identifier of the session behind a token.
-   *
    * @param token - Token sent by the client.
    * @returns The session identifier, which is no secret, or `null` for an
    * unknown or expired session.
-   *
    * @remarks
    * A long-lived binding, such as a push registration, refers to the session
    * by this identifier so it never has to keep the token.
@@ -137,7 +131,6 @@ export class SessionService {
 
   /**
    * Returns the unexpired sessions of a user with device information.
-   *
    * @param userId - Identifier of the session owner.
    * @param currentToken - Token sent by the requesting browser.
    * @returns Session summaries with the current session listed first.
@@ -167,12 +160,10 @@ export class SessionService {
 
   /**
    * Invalidates one of a user's sessions.
-   *
    * @param userId - Identifier of the session owner.
    * @param sessionId - Identifier of the session to revoke.
    * @param currentToken - Token sent by the requesting browser.
    * @returns Whether the session existed and was revoked.
-   *
    * @remarks
    * The requesting browser's own session is never revoked so callers cannot
    * lock themselves out.
@@ -198,7 +189,6 @@ export class SessionService {
 
   /**
    * Invalidates every session of a user except the requesting browser's own.
-   *
    * @param userId - Identifier of the session owner.
    * @param currentToken - Token sent by the requesting browser.
    */
@@ -214,7 +204,6 @@ export class SessionService {
 
   /**
    * Invalidates every session of a user, including the current browser's.
-   *
    * @param userId - Identifier of the session owner.
    */
   public async revokeAllSessions(userId: string): Promise<void> {
@@ -223,7 +212,6 @@ export class SessionService {
 
   /**
    * Invalidates a session so its token stops working.
-   *
    * @param token - Token sent by the browser.
    */
   public async revoke(token: string | null): Promise<void> {
@@ -253,11 +241,10 @@ export class SessionService {
 
   /**
    * Records the use of a session without making the request wait for it.
-   *
    * @remarks
    * `last_used_at` is minute-precise bookkeeping, not an authorization
-   * input, so a request never waits behind a long database write for it
-   * (PAGE-197). The service sends it at most once a minute per session and
+   * input, so a request never waits behind a long database write for it.
+   * The service sends it at most once a minute per session and
    * never queues a second one while one is still waiting.
    */
   private touch(tokenHash: string): void {

@@ -44,7 +44,7 @@ const RETRY_MESSAGES = new Set([
 ]);
 
 /**
- * Where a console restored after an API restart continues (PAGE-239): after
+ * Where a console restored after an API restart continues: after
  * the last event number it stored, with the next shell attempt.
  */
 export interface RestoredConsoleProgress {
@@ -57,7 +57,6 @@ class TerminalUnavailableError extends Error {}
 
 /**
  * The translation key of a console failure; SSH texts never reach the browser.
- *
  * @param error - A caught error.
  * @returns A `remote.failure.*`, `remote.error.*` or `remote.console.*` key.
  */

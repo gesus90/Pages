@@ -57,7 +57,6 @@ function isUsersActionIntent(value: unknown): value is UsersActionIntent {
 
 /**
  * Runs the user directory action a form submission asks for.
- *
  * @param intent - The `intent` field of the submitted form.
  * @param context - Actor, form fields and services of the request.
  * @returns The response for the client; an unknown intent is answered like an

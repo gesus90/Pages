@@ -69,7 +69,6 @@ const SETTINGS_LAYOUT_SOURCE: LocalStateLayoutSource<SettingsLayoutData> = {
 
 /**
  * Opens the settings frame from the account's kept answer at once; the frame asks the endpoint behind it.
- *
  * @remarks
  * Without a kept answer the frame comes from its rights-checked endpoint,
  * which runs the server loader's checks. The bare `/settings` only sends on

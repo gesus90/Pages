@@ -13,7 +13,6 @@ export interface AgentModelAvailability {
 
 /**
  * Tells since when a connection may offer its model selection.
- *
  * @param connection - The saved connection, if any.
  * @returns The CLI login time, the time of a passed API access check, or `null`.
  */
@@ -41,10 +40,9 @@ function isCatalogDue(
 /**
  * Tells whether the model selection may appear and loads a model list that
  * is older than the latest confirmed access.
- *
  * @remarks
  * The server already loads the list after each access check or sign-in and
- * stores a default model (A7 §21.6). This covers access confirmed before
+ * stores a default model. This covers access confirmed before
  * that, such as older check results. A list attempted after the latest access
  * is left alone, so a failed attempt is not retried in a loop.
  */

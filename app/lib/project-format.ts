@@ -1,6 +1,5 @@
 /**
  * Formats a counter with German thousands grouping without locale data.
- *
  * @param value - Non-negative whole number.
  */
 export function formatCounter(value: number): string {

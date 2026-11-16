@@ -55,7 +55,7 @@ function describeCall(call: RuntimeToolCall): AgentToolUse {
 
 /**
  * Hands every call of the tools of a turn to the record the dream run learns
- * from (PAGE-378). A failing record never fails a call.
+ * from. A failing record never fails a call.
  *
  * @param registry - The tools of the turn.
  * @param recipes - The record of the agent's chat session.
@@ -123,7 +123,7 @@ function stepRunner(
 }
 
 /**
- * Registers `rezept(name, parameter)` (PAGE-378). The recipe tool runs the
+ * Registers `rezept(name, parameter)`. The recipe tool runs the
  * tool chain of a recipe through the same registry the agent calls, so a
  * recipe has exactly the tools and rights the agent has and no more.
  *

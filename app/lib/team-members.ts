@@ -49,10 +49,8 @@ export interface TeamPage {
 
 /**
  * Formats a stored timestamp as a German calendar date.
- *
  * @param value - Timestamp such as `2026-09-05` or `2026-09-05 14:53:21`.
  * @returns The date as `05.09.2026`, or the raw value when unparseable.
- *
  * @remarks
  * Pure string formatting keeps server and client output identical, so no
  * hydration mismatch can occur regardless of runtime locale data.

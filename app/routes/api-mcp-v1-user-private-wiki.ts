@@ -28,8 +28,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpUserHandlers {
 }
 
 /**
- * Lists the private wiki pages of an account as placeholders (`GET /api/mcp/v1/users/{userId}/private-wiki`), PAGE-280.
- *
+ * Lists the private wiki pages of an account as placeholders (`GET /api/mcp/v1/users/{userId}/private-wiki`).
  * @remarks
  * Only the device token of a paired machine admits a request; the rights of
  * its account are read again on every call. See `docs/McpUserManagement.md`.

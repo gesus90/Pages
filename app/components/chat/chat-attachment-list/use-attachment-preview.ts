@@ -32,7 +32,6 @@ export interface AttachmentPreviewState {
 
 /**
  * Reads the content preview of a text, PDF or Office attachment once it is wanted.
- *
  * @param id - The attachment.
  * @param isWanted - Whether the preview is shown; nothing loads before.
  */

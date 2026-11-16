@@ -20,7 +20,6 @@ const PATH_DOT_CLASSES: Readonly<Record<WorkItemDetail["type"], string>> = {
 
 /**
  * Resolves the ancestor chain of a ticket, top-down.
- *
  * @param task - The ticket whose ancestors are wanted.
  * @param workItems - Every ticket the chain may run through.
  * @returns Ancestors from the root down to the direct parent.

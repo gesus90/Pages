@@ -9,10 +9,9 @@ import type { Route } from "./+types/setup-server";
 /**
  * Tells the wizard whether the setup is pending and whether the setup link
  * carried a valid token.
- *
  * @remarks
  * After the setup finished, the page only offers the way to sign in. The
- * endpoint `/app-api/setup` answers with it (PAGE-235).
+ * endpoint `/app-api/setup` answers with it.
  */
 export async function loader({
   request,

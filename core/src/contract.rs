@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 pub const CONTRACT_VERSION: u32 = 1;
 /// The API path of the decisions; the version is part of it.
 pub const DECISIONS_PATH: &str = "/api/core/v1/live-decisions";
-/// The API path of the status access decision (PAGE-238).
+/// The API path of the status access decision.
 pub const STATUS_ACCESS_PATH: &str = "/api/core/v1/status-access";
 /// The most sessions one request asks about.
 pub const MAXIMUM_SESSIONS_PER_REQUEST: usize = 200;
@@ -128,7 +128,7 @@ pub struct Change {
     pub id: String,
 }
 
-/// The body of `POST /api/core/v1/status-access` (PAGE-238).
+/// The body of `POST /api/core/v1/status-access`.
 #[derive(Serialize)]
 pub struct StatusAccessRequest<'a> {
     /// Always [`CONTRACT_VERSION`].
@@ -157,7 +157,7 @@ pub struct StatusAccessResponse {
 }
 
 /// The header with which the core proves itself to the Pica Mobile relay
-/// listener of the API, as `Bearer <pagesCoreSecret>` (PAGE-239). It is not
+/// listener of the API, as `Bearer <pagesCoreSecret>`. It is not
 /// `Authorization`, which the chat attachment requests of the app use.
 pub const RELAY_SECRET_HEADER: &str = "x-pages-core-authorization";
 /// The header naming the contract version of a relayed Pica Mobile request.

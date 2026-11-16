@@ -5,7 +5,6 @@ const VOICE_CONTENT_SECURITY_POLICY = "default-src 'none'; sandbox";
 
 /**
  * The headers of the audio of a voice message, for the web and for Pica Mobile.
- *
  * @param voice - The audio that is sent.
  * @returns Headers that let a player play the audio and keep any cache private.
  */

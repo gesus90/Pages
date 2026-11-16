@@ -19,7 +19,7 @@ import type {
   AgentDreamTrigger,
 } from "@/definition/AgentDreaming";
 
-/** The schedule of an agent and what a finished run read, as it is stored (PAGE-378). */
+/** The schedule of an agent and what a finished run read, as it is stored. */
 export interface StoredAgentDreaming {
   readonly agentId: string;
   readonly schedule: AgentDreamSchedule;
@@ -250,7 +250,7 @@ function read(row: readonly DatabaseValue[]): StoredAgentDreaming {
 }
 
 /**
- * The schedule and the run state of the dream run of agents (PAGE-378).
+ * The schedule and the run state of the dream run of agents.
  *
  * @remarks
  * Saving the schedule keeps the revision of the agent, because a running

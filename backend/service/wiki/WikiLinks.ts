@@ -14,11 +14,9 @@ const PAGE_REFERENCE =
 
 /**
  * Reads the pages and tickets a markdown text links to.
- *
  * @param content - Markdown text of a page.
  * @returns Page identifiers and ticket keys, each once, in order of
  * appearance. Pure addresses count as well as markdown links.
- *
  * @remarks
  * Only the path matters, so a link works the same with and without the
  * address of the server in front of it.
@@ -46,11 +44,9 @@ export function extractWikiLinks(content: string): WikiLinkTargets {
 
 /**
  * Resolves a page identifier or a page address to the page identifier.
- *
  * @param reference - An identifier, or an address such as `/wiki/<id>` with or
  * without the address of the server and a deployment prefix in front of it.
  * @returns The page identifier, or `null` when the text names no page.
- *
  * @remarks
  * Like `extractWikiLinks`, only the path matters. The result is only an
  * identifier: whether the page exists and is visible is decided by the read.
@@ -66,7 +62,6 @@ export function resolveWikiPageReference(reference: string): string | null {
 
 /**
  * Tells whether a text links to the page with the given identifier.
- *
  * @param text - A description of a ticket or project.
  * @param pageId - Page identifier.
  * @returns Whether `/wiki/<pageId>` occurs and ends at a word boundary.

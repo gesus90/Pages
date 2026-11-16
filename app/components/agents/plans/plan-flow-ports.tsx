@@ -29,7 +29,6 @@ const PORT_STYLES = {
 
 /**
  * Marks an IN as an allowed or a refused end of the connection being made.
- *
  * @returns No class while no connection is open.
  */
 export function planInTargetClass(
@@ -45,7 +44,6 @@ export function planInTargetClass(
 
 /**
  * Start exposes only OUT; end exposes only IN; agents expose both; value sources such as tickets have none.
- *
  * @remarks
  * Dragging from an OUT to an IN connects them; clicking the OUT and then the
  * IN does the same without a drag.

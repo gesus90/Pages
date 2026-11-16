@@ -52,10 +52,9 @@ function statusOf(
 }
 
 /**
- * The speech output setting of the instance (PAGE-300).
- *
+ * The speech output setting of the instance.
  * @remarks
- * Built like the speech recognition setting of PAGE-273: only an
+ * Built like the speech recognition setting: only an
  * administrator in the active admin mode reads the form and saves. Without a
  * chosen model no agent has a voice; no model is chosen in advance. The model
  * must be one of the speech output models {@link listSpeechSynthesisModels}
@@ -77,7 +76,6 @@ export class SpeechSynthesisSettingsService {
 
   /**
    * Supplies the settings card.
-   *
    * @param actor - The administrator in the admin mode.
    * @returns The setting, its state and the speech output models.
    */
@@ -101,7 +99,6 @@ export class SpeechSynthesisSettingsService {
 
   /**
    * Saves model and longest output.
-   *
    * @param actor - The administrator in the admin mode.
    * @param input - The checked choice with the revision it was read at.
    * @throws {AgentError} `profile_invalid` for a duration outside the
@@ -134,7 +131,6 @@ export class SpeechSynthesisSettingsService {
 
   /**
    * The model that speaks now, for every agent of the instance.
-   *
    * @returns The model and the longest output, or `null` while no model is
    * chosen or the chosen one is unavailable.
    */
@@ -152,9 +148,7 @@ export class SpeechSynthesisSettingsService {
 
   /**
    * What the voice tab of an agent offers: the model of the instance and its voices.
-   *
    * @returns The status and, when ready, the model with its voice list.
-   *
    * @remarks
    * It names no connection detail beyond the model; whoever may open the
    * agent panel reads it, since the voice of an agent is chosen there.

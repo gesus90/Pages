@@ -161,7 +161,6 @@ function readDepartment(value: unknown): string {
 
 /**
  * Validates the connection dialog before anything is stored or contacted.
- *
  * @param input - The parsed JSON the browser sent.
  * @param purpose - A test needs no name and no department yet.
  * @returns The validated connection.
@@ -194,7 +193,6 @@ export function readRemoteConnectionInput(
 
 /**
  * Validates a remote workspace profile before its directory is checked.
- *
  * @param input - The parsed JSON the browser sent.
  * @returns Name, connection, absolute path, project and revision.
  * @throws {RemoteError} `remote_workspace_invalid`; a `host:path` text is no

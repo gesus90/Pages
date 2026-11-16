@@ -15,7 +15,7 @@ import { usePreviewBridge } from "./use-preview-bridge";
 import type { CardTone } from "./content-card";
 import type { PreviewFile } from "./preview-kinds";
 
-/** The widths a preview can be shown at: "Desktop | Tablet | Mobil" (PAGE-383). */
+/** The widths a preview can be shown at: "Desktop | Tablet | Mobil". */
 export type PreviewDevice = "desktop" | "tablet" | "mobile";
 
 const DEVICE_CLASSES: Readonly<Record<PreviewDevice, string>> = {
@@ -64,8 +64,7 @@ function PreviewFrame({
 
 /**
  * An HTML or SVG preview in a plain browser frame with the hint "Sandbox ·
- * kein Zugriff auf Pages" (PAGE-383).
- *
+ * kein Zugriff auf Pages".
  * @remarks
  * The preview starts as soon as the frame is shown and stops with it, so a
  * collapsed card runs nothing. It runs in a sandboxed frame with an opaque

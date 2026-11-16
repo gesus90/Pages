@@ -13,7 +13,6 @@ export class WikiChoiceService {
 
   /**
    * Creates the service.
-   *
    * @param repository - Wiki persistence.
    * @param access - Resolves who is acting.
    */
@@ -24,13 +23,11 @@ export class WikiChoiceService {
 
   /**
    * Lists the anchors a page can get, for someone who manages the page.
-   *
    * @param actor - The signed-in user.
    * @param id - Page identifier.
    * @returns Departments, milestones and epics the actor can read, and the
    * anchors of the page; empty choices unless the actor manages the page.
    * @throws {WikiPageNotFoundError} When the actor may not see the page.
-   *
    * @remarks
    * A project page offers only targets of its project. Epics follow the
    * ticket rule: the department of the epic must be visible to the actor.
@@ -85,7 +82,6 @@ export class WikiChoiceService {
 
   /**
    * Lists the accounts a page can be handed to.
-   *
    * @param actor - The signed-in user.
    * @returns Active accounts by name; empty unless the actor can write.
    */

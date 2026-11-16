@@ -13,7 +13,6 @@ import type {
 
 /**
  * Chooses an ACP mode, with full environment offered only by an authorized plan-node editor.
- *
  * @remarks
  * An agent saved with the earlier write mode shows no mode, so nobody gets
  * YOLO without choosing it; the agent cannot run until a mode is chosen.

@@ -45,7 +45,6 @@ export interface ReplyPostHost {
 
 /**
  * Stores the answer or hint as the agent's message and announces it.
- *
  * @returns The stored answer; `null` for a hint or a repeated store.
  */
 export async function postConversationReply(
@@ -68,7 +67,7 @@ export async function postConversationReply(
         id: randomUUID(),
         conversationId: conversation.id,
         senderId: job.agentId,
-        // One key per asking message (PAGE-349): an agent may answer a round again and again;
+        // One key per asking message: an agent may answer a round again and again;
         // the answer to the round's own message keeps its earlier key.
         clientMessageId: `${CONVERSATION_AGENT_REPLY_PREFIX}${job.round.originMessageId}${job.triggerMessageId === job.round.originMessageId ? "" : `:${job.triggerMessageId}`}`,
         text: staged.text,
@@ -140,7 +139,7 @@ async function stageReplyPayload(
   readonly references: readonly PendingAttachmentReference[];
 }> {
   const { conversation, memberIds } = job.round;
-  // A hint of Pages attaches nothing; an answer attaches its file lines and shows its references (PAGE-386).
+  // A hint of Pages attaches nothing; an answer attaches its file lines and shows its references.
   const referenced =
     reply.notice === null && host.dependencies.references
       ? await host.dependencies.references.select(
@@ -173,7 +172,7 @@ async function stageReplyPayload(
   )
     .slice(0, CONVERSATION_TEXT_MAXIMUM_LENGTH)
     .join("");
-  // An answer mentions as a person's message does, so it can hand over (PAGE-296).
+  // An answer mentions as a person's message does, so it can hand over.
   const mentions =
     reply.notice === null && conversation.kind === "group"
       ? findConversationMentions(text, memberIds, {

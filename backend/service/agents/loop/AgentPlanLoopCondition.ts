@@ -28,10 +28,8 @@ type Extraction =
 
 /**
  * Reads the one JSON value a node's answer carries for its loop.
- *
  * @param output - The stored answer of an agent or the output of a script.
  * @returns The value, or the reason there is none.
- *
  * @remarks
  * The contract has two forms and nothing else. An answer that is one JSON
  * value as a whole is that value. Otherwise the answer holds exactly one
@@ -108,12 +106,10 @@ function isSameValue(
 
 /**
  * Evaluates the end condition of a loop after a complete iteration.
- *
  * @param loop - The frozen loop with its condition.
  * @param outputs - The outputs of this iteration's members by node ID.
  * @returns `not_evaluated` when the condition is off or the loop counts
  * `expected`; otherwise the verdict, or why none could be reached.
- *
  * @remarks
  * Deterministic and type strict: `true` is never the text "true", a number or
  * `null`. A type that differs from the expected one is a failure, not
@@ -159,7 +155,6 @@ export type LoopWhileFailure =
 
 /**
  * Reads the boolean a member's result carries for the next check of a while loop.
- *
  * @param output - The newest result of the member.
  * @param path - The path of the boolean, such as `$.continue`.
  * @returns The boolean, or why there is none: a missing field, another type

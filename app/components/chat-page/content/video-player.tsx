@@ -25,8 +25,7 @@ import type { MediaPlayer } from "./use-media-player";
 
 /**
  * The length, the resolution and the size of a video, as its head and the
- * strips name them (PAGE-384).
- *
+ * strips name them.
  * @param facts - Length and resolution, as far as known.
  * @param sizeBytes - The size of the file.
  * @param language - The language of the interface.
@@ -57,7 +56,7 @@ interface VideoPosterProps {
 }
 
 /**
- * The preview of a video not started yet (PAGE-384): a large round play
+ * The preview of a video not started yet: a large round play
  * button in the accent color, the resolution bottom left and the length
  * bottom right.
  */
@@ -107,7 +106,7 @@ function VideoPoster({
 }
 
 /**
- * The player of one video in the chat (PAGE-384), with its state; the
+ * The player of one video in the chat, with its state; the
  * full screen shows the same state with its own controls.
  *
  * @param attachment - The video.
@@ -135,7 +134,7 @@ interface VideoPlayerProps {
 }
 
 /**
- * The video player of the chat (PAGE-298, PAGE-384) with its own controls
+ * The video player of the chat with its own controls
  * in the colors of the theme.
  *
  * @remarks
@@ -218,7 +217,7 @@ interface VideoCardProps {
 }
 
 /**
- * The card of a video of a message (PAGE-298, PAGE-384): the shared head
+ * The card of a video of a message: the shared head
  * with kind, length, resolution, size and remaining time, Herunterladen,
  * Daneben, Vollbild and Zuklappen, and the player.
  */

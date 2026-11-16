@@ -33,7 +33,6 @@ function pad(value: number, length = 2): string {
 
 /**
  * Tells whether a value is a date `YYYY-MM-DD`.
- *
  * @param value - Any text.
  */
 export function isCalendarDate(value: string): boolean {
@@ -42,7 +41,6 @@ export function isCalendarDate(value: string): boolean {
 
 /**
  * Tells whether a name is a time zone the runtime knows.
- *
  * @param timeZone - An IANA name such as `Europe/Berlin`.
  */
 export function isKnownTimeZone(timeZone: string): boolean {
@@ -61,7 +59,6 @@ export function serverTimeZone(): string {
 
 /**
  * Reads the wall-clock date and time of an instant in a zone.
- *
  * @param instant - Milliseconds since the epoch.
  * @param timeZone - IANA name.
  */

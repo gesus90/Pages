@@ -153,7 +153,7 @@ async function createDecisionDirectory(): Promise<string> {
 }
 
 /**
- * Asks the model of a decision in a short ACP session of its own (PAGE-286).
+ * Asks the model of a decision in a short ACP session of its own.
  *
  * @remarks
  * The session is never another node's: it opens under the decision, through
@@ -174,7 +174,6 @@ export class AgentPlanDecisionModel {
 
   /**
    * Decides one activation of a model decision.
-   *
    * @param request - The decision, the results it reads and the stop signal.
    * @returns The changes of its result: the activated branch with the answer,
    * or a failure without any branch.

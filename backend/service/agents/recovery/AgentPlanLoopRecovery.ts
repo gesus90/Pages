@@ -59,7 +59,6 @@ function interruptedCleanup(
 
 /**
  * Settles the loops of a run that was interrupted by a restart.
- *
  * @param loops - The loop states as stored.
  * @param actions - How the nodes of the run are ended and marked.
  * @returns The loops with every unfinished iteration failed as
@@ -114,7 +113,6 @@ function settledCleanup(
 
 /**
  * Settles the leftover sessions of the loops of a run that already ended.
- *
  * @param loops - The loop states as stored.
  * @param end - Ends the processes a node's session left behind and reports its closeout.
  * @returns The loops with every node's closeout settled; a loop whose sessions

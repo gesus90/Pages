@@ -10,7 +10,6 @@ export type AgentPlanRunner = AcpProviderId | "api";
 
 /**
  * How a node talks to its runner.
- *
  * @remarks
  * A one-shot call ends its process with the turn. An interactive session
  * stays open after the turn until Pages closes it. A request has no process.
@@ -19,7 +18,6 @@ export type AgentPlanSessionMode = "one_shot" | "interactive" | "request";
 
 /**
  * The scope of the progress report, independent of execution completion.
- *
  * @remarks
  * `report` describes todos and acceptance criteria. `todos` follows only the
  * current todo list of the bound tickets, which the agent ticks live. Both
@@ -63,7 +61,6 @@ export interface AgentPlanContractItem {
 
 /**
  * The work a node reports on, stored before it starts and reconciled afterwards.
- *
  * @remarks
  * The current ticket lists replace the starting requirements after the turn,
  * preserving report IDs only for unchanged entries. The `todos` report scope
@@ -101,7 +98,6 @@ export interface AgentPlanCriterionStatus {
 
 /**
  * Diagnostic business progress, separate from the execution result.
- *
  * @remarks
  * `accepted` means no progress issues were found; `open` preserves incomplete
  * or unknown work and report issues. `rejected` remains readable in historical
@@ -129,7 +125,6 @@ export interface AgentPlanProcessExit {
 
 /**
  * How a member of an ACP group took part in the group's shared session of one run.
- *
  * @remarks
  * Three identifiers stay apart: the ACP session ID the adapter issued, which
  * only the adapter process that issued it can continue; the adapter's own
@@ -155,7 +150,6 @@ export interface AgentPlanGroupSessionLink {
 
 /**
  * How a member of a loop took part in the session of its agent node.
- *
  * @remarks
  * Pages' run, loop and node identifiers, the iteration, the ACP session ID the
  * adapter issued, the native ID of an adapter that reports one apart from it
@@ -178,7 +172,6 @@ export interface AgentPlanLoopSessionLink {
 
 /**
  * How an agent that receives events kept or lost its session across starts.
- *
  * @remarks
  * An agent with an event input keeps its ACP session open after a start so
  * that a later event continues it. `created` opened the session, `continued`
@@ -200,7 +193,6 @@ export interface AgentPlanEventSessionLink {
 
 /**
  * What a remote runner proved about the actions a one-shot session took.
- *
  * @remarks
  * `none` means the runner followed the whole session and saw no tool call, so
  * a fresh session cannot duplicate an effect. `observed` counts tool calls
@@ -215,7 +207,6 @@ export interface AgentPlanSessionEffects {
 
 /**
  * The observable record of one node: runner, session, process, acceptance and result.
- *
  * @remarks
  * `resultCode` is the normalized execution outcome: 0 for a regular runner
  * completion and clean, confirmed closeout, -1 for a technical failure or
@@ -236,7 +227,7 @@ export interface AgentPlanSessionRecord {
   /**
    * The PageAgentCLI attempt of this node: its journal, usage and messages.
    * Members of an ACP group share the instance but never the attempt; absent
-   * in records from before PAGE-85.
+   * in older records.
    */
   readonly attemptId?: string;
   /** SHA-256 of the dispatched prompt, without another stored copy of its content. */

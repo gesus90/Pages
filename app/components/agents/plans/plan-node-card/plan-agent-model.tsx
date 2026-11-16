@@ -33,7 +33,6 @@ const FOOTER_CLASS =
 /**
  * Model and reasoning of an agent node at the bottom of its card, in the
  * shared fields with the same measures as everywhere else.
- *
  * @remarks
  * The list offers known models of connections currently shared with the person.
  * Choosing one pins its connection, model and provider on this node only;

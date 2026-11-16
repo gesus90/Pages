@@ -15,7 +15,6 @@ interface DashboardUpcomingDeadlinesProps {
 
 /**
  * Renders the upcoming deadlines list with date badges.
- *
  * @param props - Deadlines to display, already sorted by the route loader.
  * @returns The deadlines list element.
  */

@@ -71,7 +71,6 @@ export class AgentCredentialStore {
 
   /**
    * Where a login writes its account.
-   *
    * @remarks
    * Antigravity signs in inside a separate staging context, so a failed,
    * cancelled or expired attempt never touches the connection's valid account.
@@ -92,7 +91,6 @@ export class AgentCredentialStore {
 
   /**
    * Prepares the connection context and a fresh, empty login context.
-   *
    * @param id - The connection.
    * @param provider - Its CLI.
    * @returns The context the login writes to, see {@link loginPaths}.
@@ -128,11 +126,9 @@ export class AgentCredentialStore {
 
   /**
    * Moves a confirmed sign-in from the login context into the connection.
-   *
    * @param id - The connection.
    * @param provider - Its CLI; a no-op for logins in the connection context.
    * @throws {AgentError} `cli_not_logged_in` when the login stored no token.
-   *
    * @remarks
    * Each file is renamed within the connection folder, which replaces the
    * previous one atomically. No file is opened or read.
@@ -210,7 +206,6 @@ export class AgentCredentialStore {
 
   /**
    * Restores modes after CLI writes, without opening auth.json or any other file.
-   *
    * @remarks
    * A symbolic link is never followed and never changed, wherever it points.
    * Tools of a session create links that leave the folder as a matter of

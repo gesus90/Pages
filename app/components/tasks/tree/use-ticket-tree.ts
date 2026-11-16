@@ -17,11 +17,9 @@ export interface TicketTreeState {
 }
 
 /**
- * Keeps which branches of the ticket tree are open (A8.2-E08).
- *
+ * Keeps which branches of the ticket tree are open.
  * @param layout - The tickets and the stored open branches.
  * @returns The tree and its open state.
- *
  * @remarks
  * Opening and closing is stored for the person, as in the wiki. When a ticket
  * page opens, the path to the ticket opens too, without being stored; the

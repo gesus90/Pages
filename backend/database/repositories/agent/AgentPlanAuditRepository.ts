@@ -59,7 +59,7 @@ function readEntry(row: readonly DatabaseValue[]): StoredAgentPlanAuditEntry {
 }
 
 /**
- * Records the history of a plan (PAGE-329): who changed teams or owner, who
+ * Records the history of a plan: who changed teams or owner, who
  * approved which script hash, and every action of an administrator on a plan
  * of somebody else.
  */

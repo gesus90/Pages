@@ -26,7 +26,7 @@ async function requirePasswordChange(request: Request): Promise<User> {
  * Allows only authenticated accounts whose password must be replaced.
  *
  * @remarks
- * The endpoint `/app-api/change-password` runs it (PAGE-235).
+ * The endpoint `/app-api/change-password` runs it.
  */
 export async function loader({ request }: Route.LoaderArgs): Promise<null> {
   await requirePasswordChange(request);

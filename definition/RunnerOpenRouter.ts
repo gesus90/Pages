@@ -22,7 +22,6 @@ const catalogModelSchema = z
 
 /**
  * Usage of the key as the provider states it.
- *
  * @remarks
  * A figure the provider did not state is `null`, never zero. The reset is a
  * cadence the provider names, not a point in time, and is kept apart from run

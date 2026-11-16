@@ -18,7 +18,7 @@ import type { AgentPlanControl } from "@/definition/AgentPlanControl";
 import type { PlanPanelIssue } from "./plan-panel-issues";
 import type { usePlanEditor } from "./use-plan-editor";
 
-/** Opens the run view of the plan: every run, whoever started it (PAGE-307). */
+/** Opens the run view of the plan: every run, whoever started it. */
 function PlanRunsLink({
   page,
 }: {

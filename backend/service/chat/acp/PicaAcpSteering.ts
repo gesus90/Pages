@@ -41,8 +41,7 @@ export interface PicaAcpSteeringHost {
 }
 
 /**
- * The messages a person sends while a Pica job answers (PAGE-68, PAGE-90).
- *
+ * The messages a person sends while a Pica job answers.
  * @remarks
  * A message that arrives while the turn of Pages runs goes to that same turn
  * through the adapter's steering; it never cancels the turn. A message that
@@ -74,10 +73,9 @@ export class PicaAcpSteering {
 
   /**
    * Takes a stored message; call it inside the queue of the conversation.
-   *
    * @param message - The stored message.
    * @param isDeferred - The message waits for a turn of its own after the
-   * running one instead of joining it (PAGE-381, "Danach senden").
+   * running one instead of joining it ("Danach senden").
    * @returns `pending`, or `null` once the job no longer takes messages.
    */
   public async accept(
@@ -104,7 +102,6 @@ export class PicaAcpSteering {
 
   /**
    * The next message that needs a turn of its own, or `null` when none is left.
-   *
    * @remarks
    * `null` also closes the job for further messages, inside the queue of the
    * conversation, after every steer has its outcome.

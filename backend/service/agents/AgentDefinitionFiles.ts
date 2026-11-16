@@ -24,7 +24,6 @@ import type {
 
 /**
  * Renders the stored definition of an agent as its `AGENT.md`.
- *
  * @param profile - Persisted definition; connection and credentials are not part of it.
  * @returns A heading, the agent identifier and the definition as one JSON block.
  */
@@ -63,7 +62,6 @@ const DEFINITION_FENCE = "## Definition\n\n```json\n";
 
 /**
  * Reads the definition back from the text {@link renderAgentDefinition} wrote.
- *
  * @throws {AgentError} `plan_definition_changed` for a text that holds no valid definition.
  */
 function parseAgentDefinition(
@@ -101,7 +99,6 @@ function parseAgentDefinition(
 
 /**
  * Owns the `AGENT.md` of every agent below the agent directory of the instance.
- *
  * @remarks
  * Only this class writes the file, and only from a persisted definition.
  * Runs hold deletion reservations, while saves update the reusable template.
@@ -117,7 +114,6 @@ export class AgentDefinitionFiles {
 
   /**
    * Creates the owner of the definition files.
-   *
    * @param directory - The agent directory of the instance.
    * @param loadProfiles - Supplies the stored definitions for the check after a
    * run; without it a run is not followed by a check.
@@ -138,7 +134,6 @@ export class AgentDefinitionFiles {
 
   /**
    * Keeps agents from being deleted through adapter settlement and archive persistence.
-   *
    * @returns The release, which also checks the held files against the stored
    * definitions; calling it again does nothing.
    */
@@ -151,7 +146,6 @@ export class AgentDefinitionFiles {
 
   /**
    * Reads the `AGENT.md` of an agent as a plan node starts.
-   *
    * @param id - The agent of the node.
    * @returns The file path, the agent, its revision and its configuration.
    * @throws {AgentError} `plan_definition_changed` when the file is missing,
@@ -176,11 +170,9 @@ export class AgentDefinitionFiles {
 
   /**
    * Serializes definition saves with reservations so an awaited database write cannot race a start.
-   *
    * @param profile - The definition to store.
    * @param repository - Where the definition is persisted.
    * @param journal - Work that commits with the definition, in its transaction.
-   *
    * @remarks
    * A problem with the file is reported and does not undo the saved
    * definition: the file is a copy, and the next save or start repairs it.
@@ -234,9 +226,7 @@ export class AgentDefinitionFiles {
 
   /**
    * Repairs missing or altered files from the stored definitions.
-   *
    * @param profiles - Every persisted definition.
-   *
    * @remarks
    * Runs at startup, so an unwritable folder is reported and skipped instead of
    * keeping the whole server from starting. The next save repairs that agent.

@@ -11,11 +11,10 @@ interface AuthLayoutProps {
 
 /**
  * Renders the stage of the login and setup pages: background glows and
- * one central card (DESIGN.md §14.1).
- *
+ * one central card.
  * @remarks
  * Text of these pages is not selectable, apart from fields and content
- * marked with `.pages-selectable` (DESIGN.md §10.1).
+ * marked with `.pages-selectable`.
  */
 export function AuthLayout({
   header,

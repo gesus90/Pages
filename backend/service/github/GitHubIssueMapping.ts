@@ -37,7 +37,6 @@ export interface GitHubIssuePatch {
 
 /**
  * Hashes the synchronized triple so later runs detect real changes.
- *
  * @param title - Pages title or GitHub issue title.
  * @param description - Pages description or GitHub issue body.
  * @param isClosed - Whether the Pages task counts as closed or the issue is closed.

@@ -1,4 +1,4 @@
-//! The frames of one relayed WebSocket, in both directions (PAGE-239).
+//! The frames of one relayed WebSocket, in both directions.
 //!
 //! Text and binary messages pass unchanged and in order. Nothing is queued:
 //! a message is read from one side only after the previous one was written to

@@ -31,8 +31,7 @@ export async function loader({
 }
 
 /**
- * Switches an automation on or off (`POST /api/mcp/v1/automations/{automationId}/active`), PAGE-297.
- *
+ * Switches an automation on or off (`POST /api/mcp/v1/automations/{automationId}/active`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

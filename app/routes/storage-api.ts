@@ -52,7 +52,6 @@ function readPageToken(parameters: URLSearchParams): string | null {
 
 /**
  * Shows a Drive folder or the storage quota of the connected account.
- *
  * @remarks
  * `?view=quota` reads `about.get`; otherwise `folder` names an explicit
  * target, and without it the saved start folder or My Drive opens.
@@ -119,7 +118,6 @@ export async function loader({
 
 /**
  * Saves or clears the start folder of the signed-in account.
- *
  * @remarks
  * `intent=save-start` with `folderId` saves a folder Drive confirms just now;
  * `intent=clear-start` removes the start folder.

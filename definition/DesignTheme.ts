@@ -12,7 +12,6 @@ const DESIGN_THEME_ID_PATTERN = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/u;
 
 /**
  * Tells whether a value can be the identifier of a design theme.
- *
  * @param value - Candidate from a file name, a manifest or a form.
  * @returns Whether it is lower-case words joined by hyphens that begin with a
  * letter. Such a name is also safe as a directory name and in a selector.
@@ -33,7 +32,6 @@ export type DesignThemeMode = (typeof DESIGN_THEME_MODES)[number];
 
 /**
  * Color roles a manifest may set, named like the color tokens of the stylesheet.
- *
  * @remarks
  * A role overrides the token `--color-<role>`. Roles that are not listed
  * keep the value of the Standard design.
@@ -75,7 +73,6 @@ export type DesignThemePalette = Readonly<
 
 /**
  * Material roles of a manifest: the character of surfaces, independent of the mode.
- *
  * @remarks
  * `radiusScale` multiplies every corner radius, `shadowStrength` multiplies
  * the opacity of every shadow and `shadowEdgeAlpha` is the opacity in percent
@@ -92,7 +89,6 @@ export type LocalizedText = Readonly<Record<Language, string>>;
 
 /**
  * The validated description of a design theme.
- *
  * @remarks
  * The same shape is read from `theme.json` of an installed theme; the
  * Standard design is defined in code.
@@ -165,7 +161,6 @@ export interface DesignThemeSelection {
 
 /**
  * Picks the text of a language.
- *
  * @param text - A text in both languages.
  * @param language - Language to show; any other value falls back to English.
  * @returns The text in that language.

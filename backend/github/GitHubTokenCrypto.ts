@@ -5,7 +5,6 @@ const TOKEN_NONCE_BYTES = 12;
 
 /**
  * Encrypts a GitHub token for storage in the database.
- *
  * @param plaintext - Token received from the browser, never stored directly.
  * @param key - 32-byte server-side key.
  * @returns Nonce, ciphertext, and tag as colon-separated base64 segments.
@@ -26,7 +25,6 @@ export function encryptGitHubToken(plaintext: string, key: Buffer): string {
 
 /**
  * Decrypts a GitHub token for server-side API calls.
- *
  * @param payload - Value produced by `encryptGitHubToken`.
  * @param key - 32-byte server-side key.
  * @returns The plain token for server-side API calls or managed ephemeral CLI credentials.

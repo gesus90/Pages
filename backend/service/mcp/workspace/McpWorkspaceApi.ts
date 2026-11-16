@@ -18,8 +18,7 @@ export interface McpWorkspaceActor {
 }
 
 /**
- * The workspace and connection API of the stand-alone Pages MCP program (PAGE-245).
- *
+ * The workspace and connection API of the stand-alone Pages MCP program.
  * @remarks
  * A paired machine acts with the rights of the account that confirmed the
  * pairing. Every request checks the token again with the unchanged check of
@@ -36,7 +35,6 @@ export class McpWorkspaceApi {
 
   /**
    * Creates the API.
-   *
    * @param services - The services of the interface, whichever channel they were built for.
    * @param access - The device token check and the account lookup.
    */
@@ -56,7 +54,6 @@ export class McpWorkspaceApi {
 
   /**
    * Checks the token of a request and names the account it acts for.
-   *
    * @param authorization - The `Authorization` header of the request.
    * @returns The paired account as the actor.
    * @throws {McpDeviceError} `invalid_token` for a missing, unknown or revoked token.

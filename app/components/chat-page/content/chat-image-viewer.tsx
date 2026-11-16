@@ -33,7 +33,6 @@ import type { ChatContent, ChatImageRequest } from "./chat-content-context";
 
 /**
  * The message element of the chat history, which takes the focus back.
- *
  * @param messageId - The stored message; empty finds none.
  */
 export function messageElement(messageId: string): HTMLElement | null {
@@ -56,7 +55,7 @@ interface ViewerHeadProps {
 }
 
 /**
- * The head of the image viewer of a chat (PAGE-382), the dark variant of the
+ * The head of the image viewer of a chat, the dark variant of the
  * head of the cards: position, sender, time and remaining time, then
  * Herunterladen, Daneben, Zur Nachricht and Schließen.
  */
@@ -140,7 +139,7 @@ interface ViewerStripProps {
   readonly onSelect: (index: number) => void;
 }
 
-/** The strip of all images of the chat below the image (PAGE-382); only previews load. */
+/** The strip of all images of the chat below the image; only previews load. */
 function ViewerStrip({
   images,
   index,
@@ -235,10 +234,9 @@ interface ChatImageViewerProps {
 }
 
 /**
- * The image viewer of a chat (PAGE-382): the shared {@link ImageViewer}
+ * The image viewer of a chat: the shared {@link ImageViewer}
  * over the chat, paging with ← and →, the arrows or a swipe through all
  * images of the opened chat in the order they were sent.
- *
  * @remarks
  * Images of older messages the page has not loaded come from the server,
  * which lists them only for members. An image that cannot load or expired is

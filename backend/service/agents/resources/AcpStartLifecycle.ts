@@ -1,6 +1,5 @@
 /**
- * Lets a start callback record when native process creation begins (PAGE-264).
- *
+ * Lets a start callback record when native process creation begins.
  * @remarks
  * Only a callback that declared tracking lets a failure before
  * {@link AcpStartLifecycle.beforeSpawn} count as "never started"; every other
@@ -11,13 +10,12 @@ export interface AcpStartLifecycle {
   trackSpawn(): void;
   /**
    * Persists that native process creation begins; it must complete before the spawn.
-   *
-   * @param unit - The worker unit the process starts in, as evidence of its end (PAGE-335).
+   * @param unit - The worker unit the process starts in, as evidence of its end.
    */
   beforeSpawn(unit?: string): Promise<void>;
   /**
    * Declares that a start which failed after its spawn confirmed the end of
-   * every process it created through its process frame (PAGE-340); the
+   * every process it created through its process frame; the
    * reservation of the failed start may then be released.
    */
   confirmStartEnded(): void;

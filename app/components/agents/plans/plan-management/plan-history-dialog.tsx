@@ -43,7 +43,7 @@ function usePlanHistory(planId: string): {
 }
 
 /**
- * The history of the plan (PAGE-329): who changed teams or owner, who
+ * The history of the plan: who changed teams or owner, who
  * approved which script hash, and every action of an administrator on a plan
  * of somebody else, newest first.
  */

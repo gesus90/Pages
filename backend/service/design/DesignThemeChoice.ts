@@ -38,7 +38,6 @@ function resolvePreviewPalette(
 
 /**
  * Describes a theme the way the settings page offers it.
- *
  * @param manifest - A validated manifest.
  * @param previewImageUrl - Address of its preview image, if it has one.
  * @returns The choice, with the colors of every supported mode completed by

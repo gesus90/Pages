@@ -18,7 +18,7 @@ const FENCE = /^\s*(```|~~~)/u;
 
 /**
  * The only places an answer may attach files from, relative to the home
- * directory of the account Pages runs as (PAGE-298, B1). `depth` is how many
+ * directory of the account Pages runs as. `depth` is how many
  * directories below the root a file must lie at least: a Pica working
  * directory is `~/.pages/pica-sessions/<session>/`, so its files lie one
  * directory deeper than the root. Further places come only by ticket.
@@ -165,7 +165,7 @@ async function resolveExisting(target: string): Promise<string> {
 }
 
 /**
- * The files of an agent's answer (PAGE-298).
+ * The files of an agent's answer.
  *
  * @remarks
  * An agent attaches a file with a line `![description](file:/absolute/path)`.
@@ -187,7 +187,6 @@ export class ConversationAgentFiles {
 
   /**
    * Creates the reader of file lines.
-   *
    * @param locations - The home directory; that of the process by default.
    */
   public constructor(locations: AgentFileLocations = { home: homedir() }) {
@@ -196,7 +195,6 @@ export class ConversationAgentFiles {
 
   /**
    * Reads the file lines of an answer and checks their files.
-   *
    * @param text - The answer of the agent.
    * @returns The text that remains and the files to attach, in their order.
    */
@@ -227,7 +225,6 @@ export class ConversationAgentFiles {
 
   /**
    * Opens a checked file for the copy into the file store.
-   *
    * @param file - A file {@link ConversationAgentFiles.select} returned.
    * @returns The bytes of the file.
    */
@@ -237,8 +234,7 @@ export class ConversationAgentFiles {
 
   /**
    * Checks one file by the rules of file lines, such as a template of a
-   * generated image (PAGE-382).
-   *
+   * generated image.
    * @param target - The absolute path the agent named.
    * @returns The checked file, or why it must not be used.
    */

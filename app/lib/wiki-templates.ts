@@ -18,7 +18,6 @@ export interface WikiAreaChoice {
 
 /**
  * Writes an area as the value of a select option.
- *
  * @param area - Scope and project.
  * @returns A text that {@link parseAreaChoice} reads back.
  */

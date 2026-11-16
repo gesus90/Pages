@@ -162,8 +162,7 @@ async function previewDocument(
 }
 
 /**
- * Reads the bounded content preview of a text, PDF or Office attachment (PAGE-92).
- *
+ * Reads the bounded content preview of a text, PDF or Office attachment.
  * @remarks
  * The preview is plain data the browser shows as text: HTML and source code
  * stay text, a CSV file and the first sheet of a workbook become a table of

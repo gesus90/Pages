@@ -42,7 +42,7 @@ import type { Route } from "./+types/settings-profile";
 /** The personal settings as the endpoint answers them. */
 export interface SettingsLoaderData {
   readonly account: AccountAccess;
-  /** When the person hears about runs of their automations (PAGE-297). */
+  /** When the person hears about runs of their automations. */
   readonly automationNotification: AutomationNotificationMode;
   readonly notificationChoices: NotificationChoices;
   readonly user: User;
@@ -91,7 +91,6 @@ const SETTINGS_PROFILE_STATE: LocalStateRouteKind<SettingsLoaderData> = {
 
 /**
  * Opens the personal settings from the account's kept answer at once and asks the endpoint behind it.
- *
  * @remarks
  * The endpoint runs the server loader for the signed-in session.
  */

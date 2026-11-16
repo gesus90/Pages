@@ -5,9 +5,7 @@ import type { PicaAcpJobSpecification } from "./PicaAcpJobSpecification";
 
 /**
  * Runs one step of a job's closeout.
- *
  * @param task - The step.
- *
  * @remarks
  * A failure is logged without content and does not skip the other steps.
  */
@@ -31,7 +29,6 @@ export async function attemptPicaCloseoutStep(
 /**
  * Stores the agent session of a job through the conversation's last message,
  * so the next job continues it.
- *
  * @param dependencies - The repositories of the job.
  * @param specification - The job.
  * @param acpSessionId - The agent session the adapter identified; `null` stores nothing.
@@ -58,7 +55,6 @@ export async function savePicaAcpSession(
 
 /**
  * Hands the last message of a completed job to the consumer of answers.
- *
  * @param dependencies - The message store and the consumer of answers.
  * @param sessionId - The conversation of the job.
  * @param completed - Whether the job completed; a stopped or failed job hands over nothing.

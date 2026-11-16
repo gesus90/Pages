@@ -34,7 +34,6 @@ function refusedParameter(error: z.ZodError): string {
 export class McpAgentProfileRequest {
   /**
    * Reads the filters and the page of `agents_list`.
-   *
    * @param query - The query string of the request.
    * @returns The validated query.
    * @throws {AgentProfileError} `invalid_request` with the refused parameter as `reason`;
@@ -63,7 +62,6 @@ export class McpAgentProfileRequest {
 
   /**
    * Reads the identifier of a path.
-   *
    * @param value - The path parameter.
    * @param name - Which parameter it is, for `reason`.
    * @throws {AgentProfileError} `invalid_request` for an empty or overlong identifier.

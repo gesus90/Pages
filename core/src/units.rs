@@ -1,8 +1,8 @@
-//! Reads the services of the platform target from the systemd manager (PAGE-238).
+//! Reads the services of the platform target from the systemd manager.
 //!
 //! Only the services of one configured target are read, and of each only its
 //! name, active state, last start and restart count, its current memory and
-//! memory limits (PAGE-282), plus the load state, type and result that decide
+//! memory limits, plus the load state, type and result that decide
 //! the light. No other property is requested, so the paths, command line,
 //! environment and credentials of a unit never reach the core.
 

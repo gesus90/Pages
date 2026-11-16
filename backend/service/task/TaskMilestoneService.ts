@@ -70,7 +70,6 @@ export interface AddMilestoneDependencyInput {
 /**
  * Validates the new value of one milestone field against the milestone it
  * replaces a value of.
- *
  * @returns The normalized value to store.
  * @throws {WorkItemValidationError} When the value is unusable for the field.
  */
@@ -115,7 +114,6 @@ export class TaskMilestoneService {
 
   /**
    * Creates a milestone service.
-   *
    * @param taskRepository - Task persistence boundary.
    * @param access - Verifier of project access and write permission.
    * @param cache - Shared server cache.
@@ -205,7 +203,6 @@ export class TaskMilestoneService {
   /**
    * Replaces one field of a milestone while it still holds the value the
    * caller read; every other field stays as it is.
-   *
    * @param actor - The person changing it; needs project management access.
    * @param id - Milestone identifier.
    * @param change - The field, the value it was read with, and the new value.
@@ -255,13 +252,11 @@ export class TaskMilestoneService {
 
   /**
    * Archives a milestone together with its dependencies.
-   *
    * @remarks
    * Nothing is deleted: the milestone keeps its row and leaves the active
    * views. Its tickets are not touched and keep their assignment. The status
    * of the milestone is not rewritten either; archiving is a lifecycle step of
    * its own.
-   *
    * @param actor - The person archiving; needs the milestone right together
    * with the project responsibility, see {@link TaskAccessGuard.canArchive}.
    * @param id - Milestone identifier.

@@ -14,7 +14,7 @@ export interface ActivityEntry {
   readonly category: ProjectActivityCategory;
   readonly userName: string | null;
   readonly message: string;
-  /** Where the change came from; MCP changes and AI actions carry a marker (T6.4.51, T6.6.1). */
+  /** Where the change came from; MCP changes and AI actions carry a marker. */
   readonly source: ProjectActivitySource;
 }
 

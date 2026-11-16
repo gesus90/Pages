@@ -8,7 +8,6 @@ export const PLAN_LAYOUT_NODE_GAP = 40;
 export const PLAN_LAYOUT_COORDINATE_LIMIT = 6000;
 /**
  * How many narrower line widths a level tries before it gives up.
- *
  * @remarks
  * A rank wider than the grid wraps into lines; when the folded bands of
  * such lines do not fit side by side, narrower lines leave room for more
@@ -56,7 +55,6 @@ class LayoutAxes {
 
   /**
    * Creates the axes.
-   *
    * @param rankdir - `TB` lays ranks out downwards, `LR` to the right.
    */
   public constructor(rankdir: PlanRankDirection) {
@@ -65,7 +63,6 @@ class LayoutAxes {
 
   /**
    * The size of a box along its line: its width for `TB`, its height for `LR`.
-   *
    * @param box - The box.
    */
   public along(box: LayoutBox): number {
@@ -74,7 +71,6 @@ class LayoutAxes {
 
   /**
    * The size of a box across its line, in the direction the ranks advance.
-   *
    * @param box - The box.
    */
   public across(box: LayoutBox): number {
@@ -83,7 +79,6 @@ class LayoutAxes {
 
   /**
    * The budget along the lines and in the direction the ranks advance.
-   *
    * @param budget - The budget in grid coordinates.
    */
   public split(budget: LayoutBudget): LayoutOffsets {
@@ -94,7 +89,6 @@ class LayoutAxes {
 
   /**
    * A grid position from an offset along the line and one in the rank direction.
-   *
    * @param line - The offset along the line.
    * @param rank - The offset in the direction the ranks advance.
    */
@@ -158,7 +152,6 @@ function foldLines(
 
 /**
  * Places the boxes of one line one after another, 40 px apart.
- *
  * @returns `false` when a top left corner passes the budget.
  */
 function placeLine(
@@ -183,7 +176,6 @@ function placeLine(
 
 /**
  * Places folded bands: lines centred in their band, bands 80 px apart.
- *
  * @returns The positions, or `null` when a top left corner passes the budget.
  */
 function placeBands(
@@ -211,13 +203,11 @@ function placeBands(
 
 /**
  * Places ordered ranks inside a budget: 80 px between ranks, 40 px between the boxes of a rank.
- *
  * @param rows - The ranks, each in its order; empty ranks are skipped.
  * @param rankdir - The direction the ranks advance.
  * @param budget - How far a top left corner may lie from the start of the block.
  * @returns Positions relative to the start of the block, or `null` when the
  * boxes cannot be placed inside the budget without covering each other.
- *
  * @remarks
  * A plan that fits keeps the plain layered layout: each rank one centred
  * line. A rank longer than the budget wraps into lines, and lines that would

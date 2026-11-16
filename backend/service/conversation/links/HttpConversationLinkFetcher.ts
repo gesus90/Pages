@@ -155,12 +155,10 @@ function embeddedIpv4(groups: readonly number[]): string | null {
 
 /**
  * Decides whether an IP address belongs to the public internet.
- *
  * @remarks
  * Loopback, private, link-local, carrier-grade NAT, documentation,
  * multicast and reserved ranges are refused. IPv4-mapped and NAT64
  * addresses are judged by the IPv4 address they carry.
- *
  * @param address - IPv4 or IPv6 literal without brackets.
  * @returns `false` for refused ranges and for anything that is not an IP address.
  */
@@ -320,7 +318,6 @@ async function requestPinnedPage(
 
 /**
  * Fetches link previews and their images from the public internet.
- *
  * @remarks
  * The URL comes from a chat message, so every hop is treated as hostile:
  * only http(s) without credentials, only hosts whose every address is
@@ -340,7 +337,6 @@ export class HttpConversationLinkFetcher implements ConversationLinkFetcher {
 
   /**
    * Creates the fetcher.
-   *
    * @param options - Replacements for the network parts and the limits; production code passes none.
    */
   public constructor(options: HttpConversationLinkFetcherOptions = {}) {
@@ -354,10 +350,8 @@ export class HttpConversationLinkFetcher implements ConversationLinkFetcher {
 
   /**
    * Fetches a page and reads its title, description and image address.
-   *
    * @remarks
    * A page longer than the size limit is read up to the limit.
-   *
    * @param url - Address a chat message links to; untrusted.
    * @returns The preview; `null` for a refused address, a timeout, a network error, a status other than 200 or a page that is not HTML. Never throws.
    */
@@ -376,7 +370,6 @@ export class HttpConversationLinkFetcher implements ConversationLinkFetcher {
 
   /**
    * Fetches a preview image, so browsers never contact the foreign site.
-   *
    * @param url - Address of the image; untrusted.
    * @returns The complete image; `null` for a refused address, a timeout, a network error, a status other than 200, another media type or an image above the size limit. Never throws.
    */

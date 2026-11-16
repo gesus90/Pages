@@ -8,7 +8,6 @@ import type { AgentPlanInput } from "@/definition/AgentPlan";
 
 /**
  * Reads a plan or a part of it as a JSON object; arrays and scalars are rejected.
- *
  * @param input - Untrusted value received from a client or from storage.
  * @returns The object with its keys read as text.
  */

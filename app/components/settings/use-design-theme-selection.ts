@@ -18,9 +18,7 @@ export interface DesignThemeSelectionState {
 
 /**
  * Keeps the chosen design theme of the screen in step with the stored one.
- *
  * @param savedId - The design theme the loader returned.
- *
  * @remarks
  * A choice shows at once and is submitted on its own, apart from the other
  * settings. As soon as the navigation is idle again the stored choice

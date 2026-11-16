@@ -90,7 +90,6 @@ export interface AttachmentFileRemover {
 
 /**
  * Establishes the business-logic boundary for work items and kanban tracking.
- *
  * @remarks
  * A facade over one service per responsibility in `./task/`; it only wires
  * and forwards and holds no business logic of its own.
@@ -114,7 +113,6 @@ export class TaskService {
 
   /**
    * Creates a task service.
-   *
    * @param taskRepository - Task persistence boundary.
    * @param projectService - Project business-logic boundary deciding access.
    * @param permissionService - Authorization boundary; access decisions
@@ -197,7 +195,6 @@ export class TaskService {
 
   /**
    * Attaches the GitHub synchronization used for best-effort outbound updates.
-   *
    * @param gitHubSync - Synchronization service publishing task changes.
    */
   public setGitHubSync(gitHubSync: GitHubSyncService): void {
@@ -207,7 +204,6 @@ export class TaskService {
   /**
    * Attaches the store of ticket attachments, whose files a permanent
    * deletion removes from the disk.
-   *
    * @param files - Removes stored files by name.
    */
   public setAttachmentFiles(files: AttachmentFileRemover): void {
@@ -263,7 +259,6 @@ export class TaskService {
 
   /**
    * Archives a milestone together with its dependencies; its tickets stay.
-   *
    * @remarks
    * Needs the milestone right in the project, which is checked again here.
    */
@@ -344,7 +339,6 @@ export class TaskService {
 
   /**
    * Returns eligible assignees for several projects with one query.
-   *
    * @remarks
    * Callers must only pass project ids the actor may access (loaders pass
    * their already filtered project list).
@@ -362,7 +356,6 @@ export class TaskService {
 
   /**
    * Returns, per project, the ids of the groups with a member who can work in it.
-   *
    * @param actor - Signed-in user.
    * @param assigneesByProject - The people with access to each project.
    */
@@ -498,7 +491,6 @@ export class TaskService {
 
   /**
    * Archives a work item without physical deletion.
-   *
    * @param actor - The person archiving.
    * @param id - Work item identifier.
    * @param handling - Whether the descendants go along (`include`) or the
@@ -537,7 +529,6 @@ export class TaskService {
 
   /**
    * Permanently deletes a work item with all data tied to it; administrator mode only.
-   *
    * @param actor - The person deleting.
    * @param id - Work item identifier.
    * @param handling - Whether the descendants are deleted too (`include`) or
@@ -597,10 +588,8 @@ export class TaskService {
 
   /**
    * Tells whether the actor may archive tickets and milestones of a project.
-   *
    * @remarks
    * A hint for controls; every archive checks the right again.
-   *
    * @param actor - The person asking.
    * @param projectId - Project the tickets or milestones belong to.
    */
@@ -628,11 +617,9 @@ export class TaskService {
   /**
    * Tells whether the actor may archive in at least one of the projects, which
    * is what the filter for archived tickets needs.
-   *
    * @remarks
    * A hint for controls; `findAll` limits archived tickets to the projects the
    * actor may archive in on its own.
-   *
    * @param actor - The person asking.
    * @param projectIds - Projects to test, usually those the actor can open.
    */
@@ -645,13 +632,11 @@ export class TaskService {
 
   /**
    * Moves a work item with its descendants to another project.
-   *
    * @remarks
    * The internal id stays stable while every moved item receives a new
    * project-specific key. Project-bound relations that cannot travel
    * (parent outside the target, milestones, labels, GitHub links, and
    * ineligible assignees) are cleared and recorded in the history.
-   *
    * @param actor - User moving the ticket; must hold write permission twice.
    * @param id - Work item starting the moved subtree.
    * @param targetProjectId - Project receiving the ticket.
@@ -674,7 +659,6 @@ export class TaskService {
   /**
    * Returns how many tickets use each label, counting only tickets the actor
    * may see.
-   *
    * @param actor - Account whose current ticket scope is enforced.
    */
   public async countLabelUsage(
@@ -685,7 +669,6 @@ export class TaskService {
 
   /**
    * Returns dashboard counters for projects within the current account scope.
-   *
    * @param actor - Account whose current ticket scope is enforced.
    * @param projectIds - Requested projects, restricted to current actor access.
    * @param scope - Actor id, day boundaries, and the seven-day lower bound.
@@ -700,7 +683,6 @@ export class TaskService {
 
   /**
    * Returns done/total counters per already access-checked project.
-   *
    * @param actor - Account whose current ticket scope is enforced.
    * @param projectIds - Requested projects, restricted to current actor access.
    */
@@ -713,13 +695,11 @@ export class TaskService {
 
   /**
    * Returns the labels of the given work items mapped by work item id.
-   *
    * @remarks
    * Callers must only pass work items the actor may access; the labels
    * themselves carry no additional access restrictions. Newly created items
    * carry no labels, so entries cached for a scope stay correct when items
    * are added; assignment changes invalidate the scope explicitly.
-   *
    * @param workItemIds - Work items to resolve labels for.
    */
   public async findLabelsForWorkItems(

@@ -76,10 +76,8 @@ export function requireUniqueAdministrationName(
 
 /**
  * Keeps a group or department while agents or connections use it, instead of silently withdrawing their scope or usage share.
- *
  * @remarks
  * Only administrators in the active admin mode manage agents and connections, so only they receive the names.
- *
  * @param repository - Authorization repository inside the deleting transaction.
  * @param actor - Current account that requested the deletion.
  * @param target - Group or department about to be deleted.

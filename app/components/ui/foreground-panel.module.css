@@ -30,8 +30,8 @@
   max-width: none;
 }
 
-/* The Pages terminal of an agent node (PAGE-284): centred in the window at
-   most 82 × 52 rem, at least 28 px from its edges (PAGE-289). */
+/* The Pages terminal of an agent node: centred in the window at
+   most 82 × 52 rem, at least 28 px from its edges. */
 .fullscreenBackdrop {
   inset: 0;
 }
@@ -80,7 +80,7 @@
 
 @media (min-width: 48rem) {
   .positioner {
-    /* Follows the main area when the sidebar width changes (PAGE-95). */
+    /* Follows the main area when the sidebar width changes. */
     left: var(--app-content-start, 19.5rem);
   }
 }

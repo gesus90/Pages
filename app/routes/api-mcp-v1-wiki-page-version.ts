@@ -22,8 +22,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpWikiHandlers {
 }
 
 /**
- * Reads one version of a page (`GET /api/mcp/v1/wiki/pages/{id}/versions/{versionId}`), PAGE-257 interface 9.
- *
+ * Reads one version of a page (`GET /api/mcp/v1/wiki/pages/{id}/versions/{versionId}`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

@@ -61,7 +61,6 @@ export const SCROLL_EDGE_TOLERANCE = 2;
 
 /**
  * Moves a view-aligned boundary by whole units, keeping the grid snapped.
- *
  * @param time - Snapped boundary instant.
  * @param view - Timeline granularity selecting the unit.
  * @param units - Signed number of units to move.
@@ -85,7 +84,6 @@ export function shiftBoundary(
 
 /**
  * Builds the default visible window for a view around an anchor instant.
- *
  * @param times - All usable milestone instants, unsorted.
  * @param view - Timeline granularity selecting span and snapping.
  * @param today - Anchor preferred when it lies near the data.
@@ -141,7 +139,6 @@ export function buildDefaultWindow(
 
 /**
  * Extends a window by whole view units on one side.
- *
  * @param window - Currently visible window.
  * @param view - Timeline granularity selecting the unit size.
  * @param direction - Which side grows.
@@ -171,14 +168,12 @@ export function extendWindow(
 
 /**
  * Rebases a grown window back into its column budget.
- *
  * @remarks
  * The DOM never holds more than a fixed number of columns: when appending on
  * the right, the oldest columns on the left are dropped (the caller
  * compensates the scroll position by the dropped width); when prepending on
  * the left, the newest columns on the right are dropped, which needs no
  * compensation. Logical dates stay intact, so the rebase is invisible.
- *
  * @param window - Window after extending.
  * @param view - Timeline granularity selecting the budget.
  * @param pixelsPerDay - Horizontal scale, which decides how wide a column is.
@@ -217,7 +212,6 @@ export function capWindow(
 
 /**
  * Builds the columns of the timeline body for a window.
- *
  * @param window - Visible time window.
  * @param view - Timeline granularity.
  * @param pixelsPerDay - Horizontal scale, which decides how wide a column is.

@@ -15,7 +15,6 @@ export interface TaskCompletion {
 
 /**
  * Computes completion numbers for the given work items.
- *
  * @param workItems - Work items to aggregate.
  * @returns Total, completed, and percentage values.
  */
@@ -34,7 +33,6 @@ export function getTaskCompletion(
 
 /**
  * Computes milestone progress from its assigned tasks.
- *
  * @param milestoneId - Milestone grouping the tasks.
  * @param workItems - All work items of the project.
  * @returns Total, completed, and percentage values.
@@ -50,7 +48,6 @@ export function getMilestoneProgress(
 
 /**
  * Counts completed milestones.
- *
  * @param milestones - Milestones of the project.
  * @returns Number of completed milestones and the total.
  */
@@ -71,7 +68,6 @@ export function getMilestoneCompletion(
 
 /**
  * Counts open subtasks across the project.
- *
  * @param workItems - All work items of the project.
  * @returns Number of non-completed subtasks.
  */

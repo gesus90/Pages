@@ -1,6 +1,6 @@
 /**
  * Contracts of the videos and sounds an agent generates in a chat with its
- * own model (PAGE-384). As for images (PAGE-382) there is no video or audio
+ * own model. As for images there is no video or audio
  * model of its own and no setting for one: the model the agent works with in
  * the chat decides whether it can.
  */
@@ -49,7 +49,6 @@ export const AGENT_AUDIO_MIME_TYPES: Readonly<Record<string, string>> = {
 
 /**
  * The stored types of one kind.
- *
  * @param kind - Video or audio.
  */
 export function agentMediaMimeTypes(
@@ -60,14 +59,12 @@ export function agentMediaMimeTypes(
 
 /**
  * Whether the catalog states that a model outputs video or audio.
- *
  * @remarks
  * Only the stated output modalities decide, never the name of a model:
  * OpenRouter's `architecture.output_modalities` and OpenCode's
  * `capabilities.output`. A catalog that states nothing, as those of Claude
  * Code, Codex and Antigravity, makes no model capable. `speech` of the speech
- * output models (PAGE-300) does not count: those models do not chat.
- *
+ * output models does not count: those models do not chat.
  * @param model - The stored output modalities of a catalog model.
  * @param kind - Video or audio.
  * @returns `true` when the kind is among them.

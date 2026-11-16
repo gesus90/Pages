@@ -155,7 +155,7 @@ export const AGENT_ERROR_MESSAGES = {
     "The script exited with an error. See its exit code and stderr in the run details.",
   plan_git_closeout_unsupported:
     "The Git closeout node is no longer supported. Remove it, or replace it with an agent or script step that does the Git closeout, and start the plan again.",
-  // The removed Git closeout node (PAGE-285) left these codes in the results of earlier runs.
+  // The removed Git closeout node left these codes in the results of earlier runs.
   plan_git_closeout_state:
     "The workspace is not ready for the Git closeout. The result in the run details names the cause; the remote is unchanged.",
   plan_git_closeout_conflict:
@@ -550,7 +550,6 @@ export class AgentInUseError extends AgentError {
 
 /**
  * A continuation would take over the empty result of a script that is enabled again.
- *
  * @remarks
  * Running the script now would invalidate the completed steps after it, so the
  * run is refused and names the script; only a new run executes it.

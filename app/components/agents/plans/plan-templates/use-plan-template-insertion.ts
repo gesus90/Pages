@@ -71,7 +71,6 @@ function openInputs(
 
 /**
  * Inserts checked copies of templates into the edited plan.
- *
  * @remarks
  * The server checks the plan, the rights and every reference first; a
  * refusal names its reason and inserts nothing. Inserting never starts a

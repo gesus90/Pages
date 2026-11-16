@@ -25,10 +25,8 @@ export interface SuggestionDefinition<Item> {
 /**
  * Creates an editor extension that opens a suggestion menu while the
  * person types its trigger, and routes the menu keys to the store.
- *
  * @param definition - Trigger, items and action of the menu.
  * @returns The extension.
- *
  * @remarks
  * Menus never open inside code, where the characters are plain text.
  */

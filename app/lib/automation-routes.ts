@@ -10,8 +10,7 @@ interface AutomationRouteBuilder {
 }
 
 /**
- * The page of automations, its data and the reads of a run (PAGE-297).
- *
+ * The page of automations, its data and the reads of a run.
  * @param routes - Declares pages and resources of the current route table.
  */
 export function automationRoutes(

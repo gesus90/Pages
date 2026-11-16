@@ -2,7 +2,7 @@ import { readTextColumn } from "@/backend/database/RowValue";
 
 import type { Database } from "@/backend/database/Database";
 
-/** A sent message of a chat whose text may hold a link (PAGE-387). */
+/** A sent message of a chat whose text may hold a link. */
 export interface StoredLinkedMessage {
   readonly messageId: string;
   readonly senderId: string;
@@ -11,8 +11,7 @@ export interface StoredLinkedMessage {
 }
 
 /**
- * The messages "Medien & Dateien" reads the links of (PAGE-387).
- *
+ * The messages "Medien & Dateien" reads the links of.
  * @remarks
  * A deleted message is gone with its row, and a dissolved group with all of
  * its messages, so neither appears. Callers check that the reader is a

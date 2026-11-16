@@ -30,7 +30,6 @@ export type SetupPhaseState = (typeof SETUP_PHASE_STATES)[number];
 
 /**
  * What Pages itself does in phase 1 before the script runs, in the order it runs.
- *
  * @remarks
  * A failed step stops every later step, so a refused host never receives the script.
  */
@@ -55,7 +54,6 @@ export type SetupOutcome = (typeof SETUP_OUTCOMES)[number];
 
 /**
  * The progress of one setup run as the browser draws it.
- *
  * @remarks
  * Only the server decides the outcome: the script reports phases, but
  * `confirmed` needs the service and the pairing to be verified by Pages.
@@ -86,7 +84,6 @@ export const INITIAL_SETUP_PROGRESS: SetupProgress = {
 
 /**
  * What Pages knows about the runner installation of a machine.
- *
  * @remarks
  * `unknown` means no valid finding exists: none was made yet, or the host,
  * port, user or host key changed since. It is never shown as not installed.
@@ -104,7 +101,6 @@ export type InstallState = (typeof INSTALL_STATES)[number];
 
 /**
  * The service managers the setup can register the runner with, as the machine reports them.
- *
  * @remarks
  * `none` is a finding, not a gap: no systemd and no supervisord answered, so
  * nothing registers the runner and nothing restarts it.
@@ -136,7 +132,6 @@ export const MODEL_MODALITIES = [
 
 /**
  * Why a runner judged the ACP contract of the installed OpenCode as it did.
- *
  * @remarks
  * `exact_version`: the version Pages verified; `contract_matches`: another
  * version whose handshake, agent identity and session selectors match;
@@ -197,7 +192,6 @@ export type ToolInventory = z.infer<typeof toolInventorySchema>;
 
 /**
  * What the read-only probe observed on the machine after a connect.
- *
  * @remarks
  * `isUbuntu` and the architecture are `null` when the machine did not say.
  * `serviceManager` is the manager the probe detected; it is `null` only in a
@@ -245,7 +239,6 @@ export interface InstallFinding {
 
 /**
  * Installed, active, autostart, paired and ready are separate facts.
- *
  * @remarks
  * A green SSH status or a copied script proves none of them. `isPaired` and
  * `isReady` come from Pages itself: a registration of the current SSH

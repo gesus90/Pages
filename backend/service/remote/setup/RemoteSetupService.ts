@@ -33,7 +33,6 @@ export interface RemoteSetupDependencies {
 
 /**
  * The rules of the runner setup that start from a connection's context menu.
- *
  * @remarks
  * A start needs an administrator in the active admin mode who also belongs to
  * the connection's department, a pinned host key, nothing confirmed installed
@@ -58,7 +57,6 @@ export class RemoteSetupService implements RemoteConsoleSetupAccess {
 
   /**
    * The conditions of a start, enforced here whatever the menu showed.
-   *
    * @param userId - The person who starts the setup.
    * @param connectionId - The connection.
    * @throws {RemoteError} `remote_setup_installed` after a confirmed installation,
@@ -79,7 +77,6 @@ export class RemoteSetupService implements RemoteConsoleSetupAccess {
 
   /**
    * The target of one setup console: the shared SSH connection and a conductor for the run.
-   *
    * @param userId - The person who owns the console.
    * @param connectionId - The connection.
    * @param context - Where the request came from, which names Pages for the runner.

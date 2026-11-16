@@ -51,7 +51,6 @@ function describeUser(user: User): PicaMobileUserPayload {
 
 /**
  * Authenticates Pica Mobile connections with the Pages accounts.
- *
  * @remarks
  * It adds no credential type of its own: a `password` attempt is a normal
  * Pages login, including its throttle and its session, and a `session`
@@ -64,7 +63,6 @@ export class PagesPicaMobileAuthenticator implements PicaMobileAuthenticator {
 
   /**
    * Creates the authenticator.
-   *
    * @param resolveAuthService - Resolves the authentication service when a
    * connection needs it, so the listener works before the database does.
    */

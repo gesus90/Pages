@@ -43,8 +43,7 @@ function stateOf(entry: StorageEntry, scope: StorageScope | null): string {
 }
 
 /**
- * The one-time confirmations of destructive Storage actions (PAGE-270).
- *
+ * The one-time confirmations of destructive Storage actions.
  * @remarks
  * A confirmation lives only on the server and is bound to the account, the
  * action, the object and its state when it was shown: Drive's version and
@@ -58,7 +57,6 @@ export class StorageConfirmations {
 
   /**
    * Creates the store.
-   *
    * @param now - The clock.
    */
   public constructor(now: () => number = Date.now) {
@@ -67,7 +65,6 @@ export class StorageConfirmations {
 
   /**
    * Issues a confirmation for what the person is shown right now.
-   *
    * @param binding - Account, action, object and scope.
    * @returns The confirmation to show and send back.
    */
@@ -96,7 +93,6 @@ export class StorageConfirmations {
 
   /**
    * Spends a confirmation when it matches exactly what is about to happen.
-   *
    * @param token - The token the client sent back.
    * @param binding - Account, action, object and its current scope.
    * @returns Whether the action may run now.

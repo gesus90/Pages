@@ -39,7 +39,6 @@ interface DatabaseUrlFeedbackProps {
 
 /**
  * Renders the outcome of the database path check below the field.
- *
  * @remarks
  * Every outcome has an icon and a sentence, so the color is never the only
  * information. Changes are announced politely to assistive technology.

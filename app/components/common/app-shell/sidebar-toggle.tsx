@@ -12,7 +12,6 @@ interface SidebarToggleProps {
 
 /**
  * Collapses the open sidebar and opens it again from the narrow strip.
- *
  * @remarks
  * One button for both states keeps the keyboard focus on it while the
  * sidebar changes.

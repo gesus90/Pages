@@ -39,7 +39,7 @@ export interface AgentMemorySharingDependencies {
 }
 
 /**
- * Checks tickets and wiki pages with the rights of the person (PAGE-305):
+ * Checks tickets and wiki pages with the rights of the person:
  * the same reads the person's own pages use.
  */
 export class AgentKnowledgeAccess implements AgentKnowledgeVisibility {
@@ -94,7 +94,7 @@ function chatKey(chat: AgentMemoryChat): string {
 }
 
 /**
- * The rules by which an agent shares knowledge between chats (PAGE-305).
+ * The rules by which an agent shares knowledge between chats.
  *
  * @remarks
  * - Knowledge of a chat is usable in that chat and in every chat whose
@@ -103,7 +103,7 @@ function chatKey(chat: AgentMemoryChat): string {
  * - A chat with further people gets knowledge of other chats only when it
  *   hangs on tickets or wiki pages that every person of the chat may see.
  * - Nothing leaves a chat marked confidential.
- * - Knowledge without a source (written by hand or before PAGE-305) cannot
+ * - Knowledge without a source (written by hand or before the memory) cannot
  *   be checked and is used only in chats with a single person.
  */
 export class AgentMemorySharing {

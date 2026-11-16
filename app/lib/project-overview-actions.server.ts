@@ -175,7 +175,6 @@ async function createProject({
 
 /**
  * Runs the project overview action that belongs to a submitted intent.
- *
  * @param intent - The `intent` field of the submitted form.
  * @param context - The actor, the form and the services of the request.
  * @returns The outcome for the client; an unknown intent counts as invalid input.

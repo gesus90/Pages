@@ -95,10 +95,8 @@ export function readAntigravityChallenge(
 
 /**
  * Names the adapter's loopback listener of an accepted Antigravity challenge.
- *
  * @param verificationUrl - The URL {@link readAntigravityChallenge} accepted.
  * @returns Port and `state` of that one listener, or `null` without PKCE (S256).
- *
  * @remarks
  * Only a PKCE flow may be completed with a pasted redirect address: its code is
  * worthless without the verifier, which never leaves the adapter.

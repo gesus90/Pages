@@ -35,12 +35,12 @@ export interface AgentMemoryCaller {
   readonly employee: StoredAgentEmployee;
   /**
    * The call belongs to the life of a chat session, such as the summary
-   * before its restart (PAGE-376), and does not wait until the agent has no
+   * before its restart, and does not wait until the agent has no
    * chat to work in.
    */
   readonly runsNow?: boolean;
   /**
-   * Runs the call on this model instead of the agent's own (PAGE-377), such as
+   * Runs the call on this model instead of the agent's own, such as
    * the cheap model of the background summary of the Lagebuch.
    */
   readonly model?: {
@@ -50,9 +50,8 @@ export interface AgentMemoryCaller {
 }
 
 /**
- * The model calls of the memory (PAGE-305): the topic update after an
+ * The model calls of the memory: the topic update after an
  * answer, the summary of a long chat and the dream run.
- *
  * @remarks
  * Pages binds them through this interface, so the simulation and tests
  * replace them without a model provider and without cost. Each returns
@@ -77,7 +76,7 @@ export interface AgentMemoryModel {
     },
   ): Promise<string | null>;
   /**
-   * The dream run (PAGE-378): the durable points of the Lagebuch for
+   * The dream run: the durable points of the Lagebuch for
    * `MEMORY.md`, lessons about how the agent works and recipes; `null` when no
    * usable answer arrived.
    */
@@ -86,7 +85,7 @@ export interface AgentMemoryModel {
     input: AgentDreamInput,
   ): Promise<AgentDreamAnswer | null>;
   /**
-   * The entries of the Lagebuch a quiet chat brings that it lacks (PAGE-377);
+   * The entries of the Lagebuch a quiet chat brings that it lacks;
    * `null` when no usable answer arrived.
    */
   logbook(
@@ -112,10 +111,9 @@ export interface AgentSessionMemoryModelDependencies {
  * The model calls of the memory in sessions of the agent's own account,
  * with its own model: topic updates and summaries in its memory session,
  * the dream run in its dream session.
- *
  * @remarks
- * Each call is a short run of its own that continues no earlier session
- * (PAGE-376), and it starts only while the agent works in no chat; the
+ * Each call is a short run of its own that continues no earlier session,
+ * and it starts only while the agent works in no chat; the
  * summary before the restart of a chat session is the one call that does
  * not wait.
  */
@@ -186,7 +184,7 @@ export class AgentSessionMemoryModel implements AgentMemoryModel {
       readonly timeoutMilliseconds: number;
     },
   ): Promise<string | null> {
-    // Background work runs only while the agent works in no chat (PAGE-376).
+    // Background work runs only while the agent works in no chat.
     if (
       caller.runsNow !== true &&
       this.dependencies.sessions.whenOutOfChats &&

@@ -9,7 +9,6 @@ import type { Database } from "@/backend/database/Database";
 
 /**
  * Brings the plans stored by an earlier version up to date when the server starts.
- *
  * @remarks
  * Legacy node configurations are pinned, and the plans of before teams are
  * shared once with the team of their owner; the second step never throws.

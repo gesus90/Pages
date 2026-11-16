@@ -80,7 +80,7 @@ function readCleanupRequest(formData: FormData): AcpLeaseCleanupRequest | null {
 
 /**
  * Previews or, after confirmation, runs the cleanup of ACP reservations,
- * only for a current system administrator in admin mode (PAGE-340).
+ * only for a current system administrator in admin mode.
  */
 export async function handleCheckAcpLeases(
   context: SettingsActionContext,

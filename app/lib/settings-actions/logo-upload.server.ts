@@ -21,10 +21,8 @@ export type LogoUploadResult =
 
 /**
  * Validates an uploaded company logo without persisting it.
- *
  * @param value - Raw form value submitted as the logo.
  * @returns The validated image, or why it was not accepted.
- *
  * @remarks
  * A raster image has to begin with the magic bytes of its type; an SVG has to
  * be plain artwork without active content.

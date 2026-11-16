@@ -2,8 +2,7 @@ import type { RouteConfigEntry } from "@react-router/dev/routes";
 
 /**
  * The user management API of the stand-alone Pages MCP program, admitted by
- * the device token (PAGE-280).
- *
+ * the device token.
  * @param resource - Declares a server resource of the current route table.
  * @returns The resources under `/api/mcp/v1/users`, `roles`, `departments`,
  * `groups` and `administration`.

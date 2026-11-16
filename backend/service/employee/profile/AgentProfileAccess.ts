@@ -19,8 +19,7 @@ export interface AgentProfileRightsInput {
 }
 
 /**
- * Who may read which agent profile (PAGE-308).
- *
+ * Who may read which agent profile.
  * @remarks
  * Administrators read every agent. A group leader reads the agents that are
  * members of the group, and a project manager reads the agents that are
@@ -34,7 +33,6 @@ export class AgentProfileAccess {
 
   /**
    * Decides the rights of one reader.
-   *
    * @param input - The reader, all agent accounts and the memberships.
    * @param channel - Whether the administrator role counts as the interface or the MCP channel sees it.
    */

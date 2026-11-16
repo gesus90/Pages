@@ -20,7 +20,6 @@ export class GitHubIssuePuller {
 
   /**
    * Creates an issue puller.
-   *
    * @param taskRepository - Task persistence boundary receiving the changes.
    * @param now - Clock providing synchronization timestamps.
    * @param events - Stores each pulled change with its event.
@@ -37,7 +36,6 @@ export class GitHubIssuePuller {
 
   /**
    * Overwrites a task with the title, body, and state of its linked issue.
-   *
    * @param run - Task, its issue, and the counters of the current run.
    * @param statuses - Workflow statuses the closed or reopened state maps onto.
    * @param alsoApply - Further local writes of the same change, such as

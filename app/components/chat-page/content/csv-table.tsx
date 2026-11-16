@@ -93,7 +93,7 @@ interface CsvTableViewProps {
 }
 
 /**
- * CSV or TSV as a table (PAGE-383): the first row as head, columns sorted by
+ * CSV or TSV as a table: the first row as head, columns sorted by
  * a click on their head, a search over every field, the recognized
  * delimiter, and 100 rows per page in a scrolling frame. Nothing of the
  * text is executed.

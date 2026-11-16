@@ -2,7 +2,6 @@ import type { Editor } from "@tiptap/core";
 
 /**
  * The rectangle of the caret on screen, where menus for the keyboard open.
- *
  * @param editor - The editor.
  * @returns A thin rectangle at the selection head.
  */
@@ -15,7 +14,6 @@ export function caretRect(editor: Editor): DOMRect {
 /**
  * Gives the focus back to the editor after a menu or dialog closed, unless
  * the editor is gone meanwhile.
- *
  * @param editor - The editor.
  */
 export function returnFocus(editor: Editor): void {

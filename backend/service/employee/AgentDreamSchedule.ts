@@ -58,7 +58,6 @@ function firstSlotAfter(
  * Whether a schedule is one the dream run accepts: an interval within the
  * range of its unit, a time of day only for days, a weekday only at an
  * interval of 7 days.
- *
  * @param schedule - The schedule to check.
  */
 export function isValidDreamSchedule(schedule: AgentDreamSchedule): boolean {
@@ -84,14 +83,12 @@ export function isValidDreamSchedule(schedule: AgentDreamSchedule): boolean {
 
 /**
  * The next scheduled run of an agent, counted from its last run or, without
- * one, from its creation (PAGE-378).
- *
+ * one, from its creation.
  * @remarks
  * Hours count from the last run. Days run at the time of day, in the time
  * zone of the server: every day, every n-th day after the last run, or at an
  * interval of 7 days on the chosen weekday. A run that was late, such as one
  * that waited for the agent to leave its chats, moves the following ones.
- *
  * @param agent - The schedule and the last run of the agent.
  * @param instanceTime - The time of day of the instance, `HH:MM`, for a schedule without a time.
  * @returns The moment, which may lie in the past for a run that is overdue; `null` while the dream run is off.
@@ -117,7 +114,6 @@ export function nextDreamRun(
 /**
  * Whether the dream run of an agent is due: somebody asked for a run that has
  * not happened yet, or it is on and the next scheduled run has come.
- *
  * @param agent - The schedule and the last run of the agent.
  * @param now - The moment to judge.
  * @param instanceTime - The time of day of the instance, `HH:MM`.

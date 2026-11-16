@@ -35,7 +35,7 @@ export interface PicaAcpUpdateSink {
   ) => void;
   /** New text of the current message of a turn; `isReset` begins another message. */
   readonly text: (turn: number, isReset: boolean, delta: string) => void;
-  /** A piece of the thoughts the model reported in a turn (PAGE-381); a model without them reports none. */
+  /** A piece of the thoughts the model reported in a turn; a model without them reports none. */
   readonly thought?: (turn: number, delta: string) => void;
   /** The latest occupancy, `null` while the adapter reports none that holds, and the cost. */
   readonly context: (
@@ -56,11 +56,11 @@ export interface PicaAcpUpdateSink {
   ) => void;
   /** The Codex thread became active or stopped being active. */
   readonly threadStatus: (isActive: boolean) => void;
-  /** An image or embedded file the agent returned in its message (PAGE-92). */
+  /** An image or embedded file the agent returned in its message. */
   readonly content?: (turn: number, block: ContentBlock) => void;
   /** The connection to the adapter ended. */
   readonly closed: () => void;
-  /** A tool call of the host the agent made, for an agent employee with host tools (PAGE-303). */
+  /** A tool call of the host the agent made, for an agent employee with host tools. */
   readonly nativeTool?: (event: PicaNativeToolEvent) => void;
 }
 
@@ -96,7 +96,6 @@ function readCost(
 
 /**
  * The occupancy of a usage report, or `null` when it holds none.
- *
  * @remarks
  * No turn ends with an empty context. claude-agent-acp reports `used: 0` after
  * a compaction whose remaining size the CLI did not name, until the next
@@ -137,7 +136,6 @@ function compactionStatus(
 
 /**
  * The compaction a tool call of Claude Code reports, or `null` for any other update.
- *
  * @remarks
  * Without the ACP compaction capability, which Pages does not negotiate,
  * claude-agent-acp reports a compaction as a tool call named `compact` in
@@ -199,7 +197,6 @@ function readTokens(
 /**
  * Reads the updates of a Pica session into answer text, consumption,
  * compaction and thread status.
- *
  * @remarks
  * The current message follows the same boundaries as a plan session: a tool
  * call, plan or thought ends it, so the text shown last is the answer that is

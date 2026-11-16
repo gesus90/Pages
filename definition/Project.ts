@@ -80,7 +80,6 @@ const PLACEHOLDER_COLORS = [
 
 /**
  * Chooses the placeholder color of a new project from its id.
- *
  * @param projectId - The id of the new project.
  * @returns One of the fixed placeholder colors; the same id always gets the same one.
  */
@@ -132,7 +131,6 @@ export interface ProjectMember {
   readonly avatarImageUrl?: string | null;
   /**
    * Whether the underlying user account is active.
-   *
    * @remarks
    * Optional because older snapshots may omit it; consumers treat a missing
    * value as active. The team overview renders inactive accounts as invited
@@ -208,8 +206,7 @@ export interface ProjectIntegration {
 }
 
 /**
- * An archived project with what its detail holds (PAGE-244).
- *
+ * An archived project with what its detail holds.
  * @remarks
  * Read under the access rule of the archive, which keeps the contents of a
  * project that left the active list.
@@ -225,11 +222,9 @@ export interface ArchivedProjectContents {
 
 /**
  * Tells whether new tasks of a project are published to GitHub on their own.
- *
  * @remarks
  * That needs a stored repository and token, the synchronization switched on,
  * issues in the synchronized scope and a direction that lets Pages write.
- *
  * @param integration - The GitHub integration of the project, or `null` without one.
  */
 export function publishesNewTasks(

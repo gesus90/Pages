@@ -150,7 +150,6 @@ export function forbidden(): Response {
 
 /**
  * Runs the handler a submitted intent names.
- *
  * @param handlers - Handlers by intent, the intents this route accepts.
  * @param intent - The `intent` field of the submitted form.
  * @param context - User, request, form fields and services of the request.

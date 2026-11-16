@@ -5,8 +5,7 @@ import type {
 import type { AgentParameterValue } from "./AgentParameters.js";
 
 /**
- * A decision as a client reads it: a boolean (default) or a model that answers yes or no or classifies (PAGE-286).
- *
+ * A decision as a client reads it: a boolean (default) or a model that answers yes or no or classifies.
  * @remarks
  * `input` is the data input of a boolean parameter, a ticket or a text
  * result; the boolean result of an agent arrives as an edge

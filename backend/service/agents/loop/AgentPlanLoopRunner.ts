@@ -43,9 +43,7 @@ interface LoopEnd {
 
 /**
  * Decides, from the recorded iterations, whether the loop is complete.
- *
  * @returns The reason it ends, or `null` when another iteration follows.
- *
  * @remarks
  * Deciding from the record makes a resume safe: it neither repeats a finished
  * iteration nor skips the decision a pause interrupted. An evaluated, met
@@ -78,9 +76,8 @@ function isSettledIteration(iteration: AgentPlanLoopIteration): boolean {
 
 /**
  * Whether a failed iteration failed only the asset its stack handed over.
- *
  * @remarks
- * Only a file entry is tolerated (PAGE-268): one damaged or refused file
+ * Only a file entry is tolerated: one damaged or refused file
  * must not stop the other entries. Tickets and values keep ending the loop
  * on failure, as before. A cancellation is never tolerated.
  */
@@ -148,7 +145,6 @@ function resumedIteration(
 
 /**
  * Runs a loop node: the iterations of its subgraph, the counting and the cleanup.
- *
  * @remarks
  * One loop is one node of the outer graph. It resolves its count once, runs
  * iterations one after another, ends after the count or, in `max` mode, when
@@ -178,7 +174,6 @@ export class AgentPlanLoopRunner {
 
   /**
    * Runs or continues the loop and returns the changes of its step result.
-   *
    * @param loop - The frozen loop.
    * @param host - The engine boundary that owns the run, its signal and its writes.
    */
@@ -275,7 +270,6 @@ export class AgentPlanLoopRunner {
 
   /**
    * Checks the boolean of a while loop before the next iteration and records the check.
-   *
    * @returns How the loop ends, or `null` when the next iteration runs. An
    * unfinished iteration continues without a new check: its check was made.
    */
@@ -461,7 +455,6 @@ export class AgentPlanLoopRunner {
 /**
  * The keys of the sessions a loop holds: one per agent and one per group
  * when it reuses its sessions, one per group and iteration otherwise.
- *
  * @remarks
  * Closing a key that holds no open session is a no-op, so the loop closes
  * every key it may have opened, on success, failure and stop alike.

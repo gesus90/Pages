@@ -10,7 +10,6 @@ export const PICA_MOBILE_MAXIMUM_SPEECH_CHUNK_LENGTH = 87_384;
 
 /**
  * Most chunks one recording may have.
- *
  * @remarks
  * More than 25 MB take in chunks of 64 KB, so a recording that grows too
  * large is refused by its size with `too_large`, not by its chunk count;
@@ -22,8 +21,7 @@ export const PICA_MOBILE_MAXIMUM_SPEECH_CHUNKS = 4096;
 const speechIdSchema = z.string().regex(/^[\w.:-]{1,64}$/u);
 
 /**
- * The requests of `speech.v1` (PAGE-273), each with its payload.
- *
+ * The requests of `speech.v1`, each with its payload.
  * @remarks
  * A recording travels in chunks, because a frame stays within
  * `PICA_MOBILE_MAXIMUM_CHAT_SEND_BYTES`: `speech_start`, then `speech_chunk`

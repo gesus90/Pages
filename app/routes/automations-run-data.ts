@@ -6,7 +6,7 @@ import type { Route } from "./+types/automations-run-data";
 
 /**
  * Reads one run of a visible automation with its bounded answer and output
- * (`/automationen-api/runs/{automationId}/{runId}`), PAGE-297.
+ * (`/automationen-api/runs/{automationId}/{runId}`).
  */
 export async function loader({
   context,

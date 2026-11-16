@@ -145,7 +145,7 @@ interface AgentDreamingTabProps {
 }
 
 /**
- * The tab "Dreaming" of the agent settings (PAGE-378): the schedule of the
+ * The tab "Dreaming" of the agent settings: the schedule of the
  * dream run and its model, when it ran last and when it runs next, what the
  * last run did, and the files of the memory.
  *

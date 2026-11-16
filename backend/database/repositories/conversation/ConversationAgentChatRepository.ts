@@ -64,7 +64,7 @@ function toRecord(row: readonly DatabaseValue[]): AgentConversationRecord {
 }
 
 /**
- * What the chat of agents counts and lists (PAGE-311): the chain of agent
+ * What the chat of agents counts and lists: the chain of agent
  * messages of a conversation, the messages an agent sent in the last hour,
  * and the conversations of agents only that administrators and leaders read.
  */
@@ -77,7 +77,6 @@ export class ConversationAgentChatRepository {
 
   /**
    * Counts the agent messages in a row at the end of a conversation.
-   *
    * @remarks
    * A message of a person ends the chain, and so does a release. Hints of
    * Pages in an agent's name do not count.

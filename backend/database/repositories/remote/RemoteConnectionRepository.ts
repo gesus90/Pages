@@ -89,7 +89,6 @@ function isTextList(value: unknown): value is readonly string[] {
 
 /**
  * Reads a stored JSON list of directories on a remote machine.
- *
  * @param json - The stored text.
  * @param column - The column it was read from, for the error.
  * @returns The directories.

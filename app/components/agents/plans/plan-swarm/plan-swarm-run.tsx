@@ -101,7 +101,7 @@ function LoadingLanes(props: { readonly count: number }): React.ReactElement {
 }
 
 /**
- * The run view of a swarm: the main lane on top and one lane per helper below (PAGE-313).
+ * The run view of a swarm: the main lane on top and one lane per helper below.
  *
  * @remarks
  * Lanes stand below each other, not beside each other, with the same columns

@@ -366,7 +366,7 @@ function isPanelPending(
  * @remarks
  * Collapsed, the panel shows the heading and the status marker only; notes,
  * hints and the recovery refusal wait for the open panel, and the marker
- * carries a dot while any of them is a warning or an error (PAGE-338).
+ * carries a dot while any of them is a warning or an error.
  */
 export function PlanRunPanel(props: PlanRunPanelProps): React.ReactElement {
   const { t } = useTranslation();

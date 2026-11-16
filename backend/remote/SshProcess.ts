@@ -43,7 +43,6 @@ function signalGroup(child: ChildProcess, signal: NodeJS.Signals): void {
 
 /**
  * A running OpenSSH tool in its own session without a terminal.
- *
  * @remarks
  * Without a controlling terminal OpenSSH asks the configured askpass helper
  * for a password or passphrase, never the terminal Pages was started from.
@@ -139,7 +138,6 @@ export class SshChildProcess {
 
 /**
  * Runs an OpenSSH tool to its end.
- *
  * @param request - Tool, arguments, environment and time limit.
  * @returns Exit code and bounded output.
  */

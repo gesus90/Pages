@@ -2,7 +2,7 @@ import { useFetcher } from "react-router";
 
 import type { OpenedConversation } from "./use-chat-page";
 
-/** Whether the opened chat is marked confidential, and the change of it (PAGE-305). */
+/** Whether the opened chat is marked confidential, and the change of it. */
 export interface ConfidentialControl {
   /** `null` for a chat without agents, as with a person. */
   readonly isConfidential: boolean | null;
@@ -34,8 +34,8 @@ function confidentialTarget(opened: OpenedConversation | null): {
 
 /**
  * Marks the opened chat with an agent, or the opened group, confidential:
- * its agents share nothing of it with other chats and learn nothing from it
- * (PAGE-305). The requested state shows at once.
+ * its agents share nothing of it with other chats and learn nothing from it.
+ * The requested state shows at once.
  */
 export function useConfidential(
   opened: OpenedConversation | null,

@@ -210,7 +210,6 @@ const PATTERNS: readonly (readonly [RegExp, AgentRunErrorClass])[] = [
 
 /**
  * Finds the class of a stored error code.
- *
  * @param code - The code a step or run stores.
  * @returns The class; `unknown` for a code no rule names.
  */
@@ -234,11 +233,9 @@ function isKnownMessage(
 
 /**
  * Classifies the error of a failed step or run.
- *
  * @param error - The stored error: a stable code, or free text of an old record.
  * @returns Class, stable code, short message and hint; `unknown` and
  * `unknown_error` when the text names no code.
- *
  * @remarks
  * Records written before the classes existed carry the same codes, so old
  * runs are classified the same way when they are read.

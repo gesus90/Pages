@@ -23,14 +23,14 @@ export interface NewArchiveEntry {
   readonly wordCount: number;
   /** Creation time, `YYYY-MM-DD HH:MM:SS` UTC; the database clock without it. */
   readonly createdAt?: string;
-  /** Where the entry comes from (PAGE-305); `null` for none. */
+  /** Where the entry comes from; `null` for none. */
   readonly source?: AgentMemorySource | null;
 }
 
 /** A stored version with its full content, for restoring it. */
 export interface StoredMemoryVersion extends AgentMemoryVersion {
   readonly memory: string;
-  /** `DREAM.md` of the version (PAGE-305). */
+  /** `DREAM.md` of the version. */
   readonly dream: string;
   /** The archive entries of the version as JSON. */
   readonly archive: string;
@@ -85,8 +85,7 @@ function readChat(input: unknown): AgentMemoryChat | null {
 }
 
 /**
- * Reads the stored source of an archive entry (PAGE-305).
- *
+ * Reads the stored source of an archive entry.
  * @param text - The JSON of the column, or `null`.
  * @returns The source, or `null` for none or an unreadable one.
  */
@@ -137,8 +136,7 @@ function readVersion(row: readonly DatabaseValue[]): AgentMemoryVersion {
 
 /**
  * The archive behind `MEMORY.md` and the restorable versions of
- * `MEMORY.md`, `DREAM.md` and the archive (PAGE-266, PAGE-305).
- *
+ * `MEMORY.md`, `DREAM.md` and the archive.
  * @remarks
  * The archive is read as a whole only for an authorized view or a version;
  * a session searches it with {@link AgentMemoryRepository.search}.
@@ -215,8 +213,7 @@ export class AgentMemoryRepository {
 
   /**
    * Finds archive entries that contain any of the terms, those with the most
-   * matching terms first (PAGE-305).
-   *
+   * matching terms first.
    * @param userId - The agent.
    * @param terms - Lower-case search terms, already limited by the caller.
    * @param limit - Entries to return at most.

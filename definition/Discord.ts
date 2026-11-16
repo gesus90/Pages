@@ -1,4 +1,4 @@
-/** The events a project can send to its Discord channel (PAGE-27). */
+/** The events a project can send to its Discord channel. */
 export const DISCORD_EVENT_TYPES = [
   "ticket.created",
   "ticket.updated",
@@ -11,7 +11,6 @@ export type DiscordEventType = (typeof DISCORD_EVENT_TYPES)[number];
 
 /**
  * Narrows an unknown value to an event type of the Discord notifications.
- *
  * @param value - Value received from an untrusted source.
  * @returns Whether the value names a supported event type.
  */
@@ -35,7 +34,6 @@ export const DEFAULT_DISCORD_EVENTS: DiscordEventSelection = {
 
 /**
  * The only Discord permissions Pages asks for and needs.
- *
  * @remarks
  * Sending a message to a text channel needs to see the channel and to send
  * in it. Reading messages, mentions of everyone, embeds, threads and every
@@ -69,7 +67,6 @@ export interface DiscordInstanceStatus {
   readonly isConfigured: boolean;
   /**
    * Names of the environment variables that are still missing.
-   *
    * @remarks
    * Only names; the values of the secrets never leave the server.
    */
@@ -126,7 +123,6 @@ export interface DiscordAttempt {
   readonly expiresAt: string;
   /**
    * The official Discord authorization link; the QR code encodes exactly this.
-   *
    * @remarks
    * Only present while the attempt waits for the authorization.
    */
@@ -145,7 +141,6 @@ export interface DiscordInterfaceState {
   readonly attempt: DiscordAttempt | null;
   /**
    * Channels of the server to choose from, once there is a verified server.
-   *
    * @remarks
    * `null` while there is no server to list channels of, or when Discord
    * could not be asked; then `channelsProblem` says why.

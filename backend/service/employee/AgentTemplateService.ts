@@ -57,7 +57,6 @@ function readText(input: unknown, maximum: number): string {
 
 /**
  * Checks the fields of a template a person sends.
- *
  * @param input - The parsed body of the form.
  * @returns Name and description trimmed, the content as entered.
  * @throws {AgentEmployeeError} `invalidInput` for a missing name or a field
@@ -94,8 +93,7 @@ function readIdentifier(input: unknown): string {
 }
 
 /**
- * The templates of `AGENT.md` for the whole instance (PAGE-283).
- *
+ * The templates of `AGENT.md` for the whole instance.
  * @remarks
  * Whoever may enter the user administration reads them; whoever may manage
  * agents changes them, checked on the server for every change. A change of
@@ -122,7 +120,6 @@ export class AgentTemplateService {
 
   /**
    * Every template and whether the person may change them.
-   *
    * @throws {AgentEmployeeError} `forbidden` for a person outside the administration.
    */
   public async list(actorId: string): Promise<AgentInstructionTemplateList> {
@@ -137,7 +134,6 @@ export class AgentTemplateService {
 
   /**
    * One template, for an agent created from it.
-   *
    * @returns The template, or `null` when it does not exist.
    */
   public async find(id: string): Promise<AgentInstructionTemplate | null> {
@@ -147,7 +143,6 @@ export class AgentTemplateService {
 
   /**
    * Stores a new template.
-   *
    * @returns The identifier of the new template.
    * @throws {AgentEmployeeError} `forbidden`, `invalidInput` or `templateNameTaken`.
    */
@@ -165,7 +160,6 @@ export class AgentTemplateService {
 
   /**
    * Replaces name, description and content of a template.
-   *
    * @throws {AgentEmployeeError} `forbidden`, `invalidInput`, `notFound` or `templateNameTaken`.
    */
   public async update(
@@ -184,7 +178,6 @@ export class AgentTemplateService {
 
   /**
    * Removes a template; agents filled from it keep their `AGENT.md`.
-   *
    * @throws {AgentEmployeeError} `forbidden`, `invalidInput` or `notFound`.
    */
   public async remove(actorId: string, templateId: unknown): Promise<void> {

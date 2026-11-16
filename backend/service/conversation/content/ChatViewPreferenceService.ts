@@ -11,7 +11,7 @@ import type { User } from "@/definition/User";
 
 /**
  * What a person chose for the content cards of the chat and the split view
- * (PAGE-298) and for the list of the chat page (PAGE-325), kept per account
+ * and for the list of the chat page, kept per account
  * so it holds on every device.
  */
 export class ChatViewPreferenceService {
@@ -20,7 +20,6 @@ export class ChatViewPreferenceService {
 
   /**
    * Creates the service.
-   *
    * @param preferences - The stored choices.
    * @param now - The clock; the system clock by default.
    */
@@ -44,7 +43,6 @@ export class ChatViewPreferenceService {
 
   /**
    * Stores whether the person collapsed or expanded a card.
-   *
    * @throws {ConversationError} `invalid` for an unusable card key or state.
    */
   public async setCardState(
@@ -61,7 +59,6 @@ export class ChatViewPreferenceService {
 
   /**
    * Stores the width the person gave the split view.
-   *
    * @throws {ConversationError} `invalid` below 360 pixels or for no number.
    */
   public async setSplitWidth(person: User, input: unknown): Promise<void> {
@@ -75,8 +72,7 @@ export class ChatViewPreferenceService {
   }
 
   /**
-   * Stores whether the person collapsed the list of the chat page (PAGE-325).
-   *
+   * Stores whether the person collapsed the list of the chat page.
    * @throws {ConversationError} `invalid` for anything but `true` or `false`.
    */
   public async setListCollapsed(person: User, input: unknown): Promise<void> {

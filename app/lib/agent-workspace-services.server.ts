@@ -37,7 +37,7 @@ export interface AgentConfigurationApplicationServices {
   readonly agentDefinitionFiles: AgentDefinitionFiles;
   readonly agentRunArchive: AgentRunArchive;
   readonly picaSettingsService: PicaSettingsService;
-  /** The files of asset nodes (PAGE-268); `null` where no file store was wired. */
+  /** The files of asset nodes; `null` where no file store was wired. */
   readonly agentPlanAssetService: PlanAssetService | null;
 }
 

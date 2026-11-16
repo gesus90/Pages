@@ -16,7 +16,6 @@ export interface PlanNotationFindings {
 
 /**
  * The attributes of one node, frame, edge or of the plan, read once each.
- *
  * @remarks
  * A key given twice, and a short and a long form of the same field, are
  * `duplicate_field`; a key nothing read is `unknown_attribute` once
@@ -31,7 +30,6 @@ export class PlanNotationAttributes {
 
   /**
    * Collects the attributes and reports repeated keys.
-   *
    * @param attributes - The attributes in the order they were written.
    * @param owner - The node they belong to (`null` for the plan) and where it stands.
    * @param findings - Where findings go.
@@ -127,7 +125,6 @@ export class PlanNotationAttributes {
 
   /**
    * Picks the one form of a field that was written.
-   *
    * @param shortKeys - The short forms of the field.
    * @param longKey - Its own name.
    * @returns `short`, `long` or `null` when neither was written; both are

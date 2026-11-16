@@ -59,7 +59,6 @@ export class PagesRuntime {
 
   /**
    * Creates the runtime state.
-   *
    * @param file - Configuration file of the instance.
    * @param config - Configuration as stored in the file.
    */
@@ -90,7 +89,6 @@ export class PagesRuntime {
 
   /**
    * Returns the setup token for direct output on the operator console.
-   *
    * @returns The secret, or `null` when no setup is pending.
    */
   public getSetupToken(): string | null {
@@ -99,7 +97,6 @@ export class PagesRuntime {
 
   /**
    * Checks a submitted setup token.
-   *
    * @param candidate - Untrusted value from a request.
    * @returns Whether a setup is pending and the value is its token.
    */
@@ -109,7 +106,6 @@ export class PagesRuntime {
 
   /**
    * Returns the database path the wizard suggests.
-   *
    * @returns The database of a reset instance, else the default path.
    */
   public getSuggestedDatabasePath(): string {
@@ -120,7 +116,6 @@ export class PagesRuntime {
 
   /**
    * Returns the database of the finished setup.
-   *
    * @throws {SetupPendingError} While the setup is pending.
    */
   public getDatabasePath(): string {
@@ -133,7 +128,6 @@ export class PagesRuntime {
 
   /**
    * Returns the connection URL that selects PostgreSQL.
-   *
    * @returns The URL, or `null` for DuckDB, also while the setup is pending.
    */
   public getDatabaseUrl(): string | null {
@@ -142,7 +136,6 @@ export class PagesRuntime {
 
   /**
    * Runs a setup completion while no other one runs.
-   *
    * @param work - Completion steps.
    * @returns What `work` returns.
    */
@@ -154,9 +147,7 @@ export class PagesRuntime {
 
   /**
    * Switches the process to normal operation after a finished setup.
-   *
    * @param config - Configuration that was stored for the finished setup.
-   *
    * @remarks
    * The setup token is discarded, so it cannot be used again.
    */
@@ -204,7 +195,6 @@ function startPriceRefresh(configPath: string): void {
 
 /**
  * Reads the configuration and creates the runtime state of the process.
- *
  * @param configPath - Absolute path of the configuration file.
  * @returns The runtime; later calls return the first one.
  * @throws {ConfigError} When the configuration cannot be used.
@@ -228,7 +218,6 @@ export function initializePagesRuntime(
 
 /**
  * Returns the runtime state of the process.
- *
  * @throws {RuntimeNotInitializedError} When the server did not initialize it.
  */
 export async function getPagesRuntime(): Promise<PagesRuntime> {

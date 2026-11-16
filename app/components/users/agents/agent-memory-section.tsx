@@ -387,7 +387,7 @@ function readLimit(value: string, fallback: number): number {
 }
 
 /**
- * The tab "Gedächtnis" (PAGE-266, PAGE-305): the dream run, the limits,
+ * The tab "Gedächtnis": the dream run, the limits,
  * the editable `MEMORY.md` and `DREAM.md` with their reset, the archive
  * with the source of each entry and the restorable versions.
  */

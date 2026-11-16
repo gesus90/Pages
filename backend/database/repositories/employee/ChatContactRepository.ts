@@ -10,9 +10,7 @@ export interface ChatContactEntry {
 }
 
 /**
- * The people and agents a person keeps in the participant list of the chat
- * (PAGE-266, PAGE-259).
- *
+ * The people and agents a person keeps in the participant list of the chat.
  * @remarks
  * A contact is only an entry of the person's own list: removing it deletes
  * neither an account nor an agent. Every statement is bound to the owner, so
@@ -52,7 +50,6 @@ export class ChatContactRepository {
   /**
    * Replaces a person's list: missing IDs are removed, kept ones keep their
    * activity, and new ones are added with the given times.
-   *
    * @param ownerId - The person whose list changes.
    * @param additions - Activity time of every new ID, by ID.
    * @param keptIds - The IDs that stay in the list.
@@ -109,7 +106,6 @@ export class ChatContactRepository {
 
   /**
    * Records a sent message as the last activity of an entry.
-   *
    * @returns Whether the entry is in the person's list.
    */
   public async touch(

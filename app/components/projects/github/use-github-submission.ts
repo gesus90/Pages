@@ -25,7 +25,6 @@ function isDetailActionResult(
 
 /**
  * Follows the running request of the panel and the result of a connection test.
- *
  * @remarks
  * The result only shows for the last submitted form, so saving afterwards
  * hides the outcome of an earlier test. A test stores its outcome on the

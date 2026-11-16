@@ -31,7 +31,6 @@ export interface PicaMobileNotificationServices {
 
 /**
  * Answers the notification messages of Pica Mobile from the live Pages data.
- *
  * @remarks
  * Every call starts from the account the session belongs to right now. The
  * recipient of a registration is that account and the binding is that
@@ -42,7 +41,6 @@ export class PagesPicaMobileNotifications implements PicaMobileNotificationProvi
 
   /**
    * Creates the provider.
-   *
    * @param resolveServices - Resolves the Pages services when a request needs
    * them, so the listener works before the database does.
    */

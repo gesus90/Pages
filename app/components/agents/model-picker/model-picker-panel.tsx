@@ -87,7 +87,6 @@ function SearchField({
 
 /**
  * The open model choice: search field and tools as a tree of collapsible groups.
- *
  * @remarks
  * The search covers every model, also those of closed tools, and opens
  * each tool with a match while it holds text. The list scrolls within the

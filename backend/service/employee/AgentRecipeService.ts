@@ -89,7 +89,6 @@ function topicScore(recipe: StoredAgentRecipe, text: string): number {
 
 /**
  * The knowledge recipes that fit a text, the best fit first.
- *
  * @param recipes - The recipes that are on.
  * @param text - The message of the round.
  */
@@ -111,10 +110,9 @@ export function matchKnowledgeRecipes(
 }
 
 /**
- * The recipes of agents (PAGE-378): the tool `rezept(name, parameter)` of a
+ * The recipes of agents: the tool `rezept(name, parameter)` of a
  * chat session, the record of its tool calls and what a round is told about
  * its recipes.
- *
  * @remarks
  * A recipe takes effect at once, without approval, but it chains only tools
  * the session offers, never runs one that needs the normal confirmation, and
@@ -131,7 +129,6 @@ export class AgentRecipeService {
 
   /**
    * The recipe tools of one chat session, bound to its agent.
-   *
    * @param session - The agent and the chat session.
    */
   public tools(session: AgentRecipeSession): AgentRecipeTools {
@@ -154,7 +151,6 @@ export class AgentRecipeService {
   /**
    * What a round is told about the recipes of an agent: the list of those
    * that are on and the guides that fit its message.
-   *
    * @param agentId - The agent.
    * @param text - The message of the round.
    */

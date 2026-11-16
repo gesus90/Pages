@@ -13,7 +13,7 @@ interface DocumentPanelProps {
 }
 
 /**
- * The whole document next to the chat and in the full screen (PAGE-385): a
+ * The whole document next to the chat and in the full screen: a
  * text with its table of contents, the slides with their strip, or the table
  * with tabs, search, sorting and sums; all with a search.
  */

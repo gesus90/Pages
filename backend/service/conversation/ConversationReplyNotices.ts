@@ -18,7 +18,7 @@ export const NOTICE_TEXTS: Readonly<
     `${name} konnte nicht antworten, die Antwort ist fehlgeschlagen. Schreib die Nachricht erneut, um es noch einmal zu versuchen.`,
   round_limit: () => "Abstimmung beendet, Grenze erreicht",
   agent_stopped: (name) => `Die Antwort von ${name} wurde gestoppt.`,
-  // A system line carries its own text (PAGE-380).
+  // A system line carries its own text.
   session_event: () => "",
 };
 

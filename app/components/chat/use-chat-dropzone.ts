@@ -50,8 +50,7 @@ function droppedFiles(transfer: DataTransfer): {
 }
 
 /**
- * Drag-and-drop of files onto the chat (PAGE-92).
- *
+ * Drag-and-drop of files onto the chat.
  * @remarks
  * A file drag over the panel shows the drop area; the drop goes the same way
  * as the "+" button. While the panel is open, a file dropped elsewhere on the

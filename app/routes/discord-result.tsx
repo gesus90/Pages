@@ -25,7 +25,7 @@ function readOutcome(value: string | null): DiscordResultOutcome {
   return OUTCOMES.find((outcome) => outcome === value) ?? "invalid";
 }
 
-/** Reads the outcome of the Discord callback from the address, in the browser (PAGE-235). */
+/** Reads the outcome of the Discord callback from the address, in the browser. */
 export function clientLoader({ request }: Route.ClientLoaderArgs): {
   readonly outcome: DiscordResultOutcome;
 } {
@@ -36,7 +36,6 @@ export function clientLoader({ request }: Route.ClientLoaderArgs): {
 
 /**
  * Tells whoever returned from Discord what happened and what to do next.
- *
  * @remarks
  * The page needs no session and shows no project data. It is what the phone
  * displays after the QR code scan; the confirmation happens in Pages on the

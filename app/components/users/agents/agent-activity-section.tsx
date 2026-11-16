@@ -130,7 +130,7 @@ function EntryLine({
 }
 
 /**
- * The tab "Aktivität" (PAGE-266): what the agent did and when, with the
+ * The tab "Aktivität": what the agent did and when, with the
  * costs as far as its model reported them.
  */
 export function AgentActivitySection({

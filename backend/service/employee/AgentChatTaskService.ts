@@ -97,9 +97,8 @@ function translate(error: unknown): never {
 }
 
 /**
- * The scheduled tasks of chat agents (PAGE-392): reminders and recurring
+ * The scheduled tasks of chat agents: reminders and recurring
  * tasks an agent plans from a chat.
- *
  * @remarks
  * A task is an automation of the person who asked, with an agent action
  * whose instruction Pages composes, bound to the chat in
@@ -119,7 +118,6 @@ export class AgentChatTaskService {
 
   /**
    * The scheduled tasks of one job, bound to its agent and chat.
-   *
    * @param agentId - The agent whose job runs.
    * @param chat - The chat of the job and who addressed the agent in it.
    */
@@ -135,7 +133,6 @@ export class AgentChatTaskService {
 
   /**
    * The tasks of a chat as the chat page lists them, of every agent.
-   *
    * @throws {AgentChatTaskError} `not_found` for a chat the person is not in.
    */
   public async forChat(
@@ -150,7 +147,6 @@ export class AgentChatTaskService {
 
   /**
    * Pauses or resumes a task from the chat page.
-   *
    * @throws {AgentChatTaskError} `not_found` for a task outside the person's
    * chats, `time_in_past` for a once task whose time has passed.
    */
@@ -179,7 +175,6 @@ export class AgentChatTaskService {
 
   /**
    * Deletes a task from the chat page.
-   *
    * @throws {AgentChatTaskError} `not_found` for a task outside the person's
    * chats, `run_active` while it runs.
    */

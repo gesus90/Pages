@@ -51,7 +51,6 @@ export interface ParentLookup {
 
 /**
  * Checks the parent reference of a work item against what its type allows.
- *
  * @param type - Type of the work item that gets the parent.
  * @param parentId - Requested parent, or `null` for none.
  * @param selfId - Identifier of the work item itself, or `null` while creating.
@@ -91,7 +90,6 @@ export function selectParentLookup(
 
 /**
  * Checks a stored parent against the rule selected for the child.
- *
  * @param parent - Stored parent, or `null` when it does not exist.
  * @param rule - Rule selected for the type of the child.
  * @param projectId - Project the child belongs to.
@@ -118,7 +116,6 @@ export function assertParentFits(
 /**
  * Checks that a newly chosen parent is active, so no active work item ends up
  * below an archived one.
- *
  * @param parent - The parent that fits the rule of the child.
  * @throws {WorkItemHierarchyError} When the parent is archived.
  */

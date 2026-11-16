@@ -11,7 +11,6 @@ export type HiddenContentSource = "tickets" | "wiki" | "workspaces";
 
 /**
  * The fields of a run view that carry content of tickets, pages or workspaces.
- *
  * @remarks
  * They are named in `hiddenFields` of every read result when the reader may
  * not see the content a run used. Status, times, errors and attempts stay.
@@ -48,7 +47,6 @@ function hideActivation(
 
 /**
  * Removes the content from one step result.
- *
  * @param step - The stored step.
  * @returns The step with status, times, error, attempts and retry state, but
  * without result text, reports, acceptance, journal lines and script output.
@@ -103,7 +101,6 @@ function hideLoop(
 
 /**
  * Removes the content from a run the reader may not see in full.
- *
  * @param run - The stored run.
  * @param ticketSteps - The steps bound to tickets, whose names are hidden too.
  * @returns The run readable as a diagnosis: who started it, when, what

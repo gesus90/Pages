@@ -67,7 +67,7 @@ export class PicaPlanConfirmation {
     return (this.approved.get(key) ?? 0) > Date.now();
   }
 
-  /** Whether this exact step is the one the session was last held back for (PAGE-391). */
+  /** Whether this exact step is the one the session was last held back for. */
   public isHeld(
     action: ChatActionRequest,
     context: RuntimeExecutionContext,
@@ -86,12 +86,10 @@ export class PicaPlanConfirmation {
 
   /**
    * Approves the held-back step a person confirmed with the button of a
-   * question (PAGE-391), for the turn that asked.
-   *
+   * question, for the turn that asked.
    * @remarks
    * Only the exact step this session was last held back for can be
    * approved, so a model cannot ask about one step and approve another.
-   *
    * @returns Whether the step was held back and is approved now.
    */
   public grant(

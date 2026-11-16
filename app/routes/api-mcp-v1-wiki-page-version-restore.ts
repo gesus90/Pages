@@ -27,8 +27,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpWikiHandlers {
 }
 
 /**
- * Restores a version of a page (`POST /api/mcp/v1/wiki/pages/{id}/versions/{versionId}/restore`), PAGE-257 interface 9.
- *
+ * Restores a version of a page (`POST /api/mcp/v1/wiki/pages/{id}/versions/{versionId}/restore`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

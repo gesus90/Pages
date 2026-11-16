@@ -14,14 +14,13 @@ let currentAudience: LocalStateAudience | null = null;
 let channel: BroadcastChannel | null = null;
 const changeListeners = new Set<() => void>();
 let settleAudience: (() => void) | null = null;
-/** Settles once the shell named its fingerprint, or could not (PAGE-235). */
+/** Settles once the shell named its fingerprint, or could not. */
 const firstAudience = new Promise<void>((resolve) => {
   settleAudience = resolve;
 });
 
 /**
  * Whether a value is an audience as the server sends it.
- *
  * @param value - The value to check.
  */
 export function isLocalStateAudience(
@@ -52,7 +51,6 @@ function forgetOtherAudiences(current: LocalStateAudience): Promise<void> {
 
 /**
  * Forgets this tab's fingerprint when another tab of the same account was loaded with another one.
- *
  * @remarks
  * Its rights changed, for example the admin mode on another tab. No kept
  * answer applies until this tab's shell was loaded again; the listeners
@@ -70,11 +68,9 @@ function receiveAudience(audience: unknown): void {
 
 /**
  * Records the signed-in account and fingerprint the page shell was loaded with.
- *
  * @remarks
  * The other tabs of the browser learn it at once, so a change of rights in
  * one tab never leaves a kept answer of the earlier rights shown in another.
- *
  * @param audience - The account and fingerprint of the shell's last answer.
  */
 export function rememberLocalStateAudience(audience: LocalStateAudience): void {
@@ -92,9 +88,8 @@ export function rememberLocalStateAudience(audience: LocalStateAudience): void {
 
 /**
  * Resolves once the shell named the fingerprint of its first answer, or could not.
- *
  * @remarks
- * The static app opens without server rendering (PAGE-235): a route's loader
+ * The static app opens without server rendering: a route's loader
  * runs before the shell is shown, so it waits for the shell's loader before
  * it decides whether a kept answer still applies.
  */
@@ -112,7 +107,6 @@ export function settleWithoutLocalStateAudience(): void {
 
 /**
  * Calls the listener when another tab of the account was loaded with other rights.
- *
  * @param listener - Loads this tab's shell again.
  * @returns Stops calling the listener.
  */
@@ -123,13 +117,11 @@ export function onLocalStateAudienceChanged(listener: () => void): () => void {
 
 /**
  * Whether a kept answer was given to the signed-in account under its current rights.
- *
  * @remarks
  * A kept answer of another account or of earlier rights is not shown, so a
  * revoked right never stays visible from the browser's local state. Before
  * the shell named its fingerprint no kept answer applies, and none applies
  * once another tab signed out or signed in as another account.
- *
  * @param audience - Whom the kept answer was given to.
  */
 export function isCurrentLocalStateAudience(

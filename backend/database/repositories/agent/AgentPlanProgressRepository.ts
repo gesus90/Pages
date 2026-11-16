@@ -114,7 +114,6 @@ interface BranchingShape {
 
 /**
  * Whether the frozen plan has a decision, a boolean result or an event connection.
- *
  * @remarks
  * Such a plan has a node without a checkpoint, the decision, so only the first
  * completion of a node has one, and a run of it can only be restarted, never
@@ -370,7 +369,6 @@ export class AgentPlanProgressRepository {
 
   /**
    * Reopens one remote step for a new job of the same frozen attempt.
-   *
    * @remarks
    * Runner events own the stored remote projection. A retry therefore needs
    * this explicit transition; a normal update would keep the failed

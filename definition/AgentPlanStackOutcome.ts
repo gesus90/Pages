@@ -13,7 +13,6 @@ import type { AgentPlanLoopRun } from "./AgentPlanLoopRun";
 
 /**
  * How the processing of what a stack handed over stands in a run.
- *
  * @remarks
  * A dimension of its own beside the handovers and the stack's trigger
  * result: a trigger succeeds as soon as it handed an entry over, and a
@@ -39,7 +38,6 @@ const TERMINAL_RUN_STATUSES: ReadonlySet<AgentPlanRun["status"]> = new Set([
 
 /**
  * Whether a node completed its process while its recorded business report stays open or was rejected.
- *
  * @remarks
  * A succeeded process alone is no proof of the business result.
  */
@@ -68,7 +66,6 @@ function planGroups(
 
 /**
  * The nodes that process what the stack hands over.
- *
  * @remarks
  * Those its trigger starts through `flow-out`, with the agents of a group
  * there, and those that read its content output. Nodes further down the
@@ -132,7 +129,6 @@ function outerStates(
 
 /**
  * The states of the participants in each iteration that received an entry, and of the loop itself.
- *
  * @remarks
  * A delivery names its iteration, so a result of another iteration never
  * counts. Until the loop was left regularly, the processing is not complete.
@@ -175,7 +171,6 @@ function combinedOutcome(
 
 /**
  * How the processing of the entries a stack handed over stands in the shown run.
- *
  * @param plan - The plan the run executes.
  * @param run - The shown run, or `null`.
  * @param stackId - The stack.
@@ -183,7 +178,6 @@ function combinedOutcome(
  * and every participant that processed an entry succeeded without an open
  * report: in the outer graph once its participants ended, in a loop once the
  * whole loop was left regularly.
- *
  * @remarks
  * Derived from the persisted run alone, so a reload shows the same state and
  * a new run, without deliveries, starts at `none`. Neither the handover of

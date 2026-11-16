@@ -88,7 +88,6 @@ function offsetAt(instant: number, timeZone: string): number {
 
 /**
  * The instant of a wall-clock time in a time zone.
- *
  * @remarks
  * Day and month overflow roll over like `Date.UTC`. A time that does not
  * exist because the clocks jump forward runs at the same distance after the
@@ -129,7 +128,6 @@ function minutesOf(time: string): number {
 
 /**
  * Tells whether a minute of the day lies in a window.
- *
  * @remarks
  * The end is exclusive; an end before the start crosses midnight, an equal
  * start and end means the whole day.
@@ -262,12 +260,10 @@ function iso(instant: number | null): string | null {
 
 /**
  * The first due time of a trigger that is switched on now.
- *
  * @param trigger - The trigger of an active automation.
  * @param now - The current time.
  * @returns The ISO time, or `null` for triggers without a time and a once
  * trigger without one.
- *
  * @remarks
  * An interval starts one interval after switching on, within its weekdays
  * and window; a once trigger keeps its time.
@@ -292,12 +288,10 @@ export function firstRunAt(
 
 /**
  * The due time after a run that was due at a time.
- *
  * @param trigger - The trigger of the automation.
  * @param dueAt - When the run that just started was due.
  * @param now - The current time.
  * @returns The next ISO time; `null` once a once trigger ran.
- *
  * @remarks
  * Missed times are not repeated: a run that was due long ago starts once and
  * the next one is planned from now, keeping the rhythm while nothing was missed.
@@ -326,8 +320,7 @@ export function nextRunAfter(
 const LOCAL_TIME = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/u;
 
 /**
- * The instant of a wall-clock time in a time zone (PAGE-392).
- *
+ * The instant of a wall-clock time in a time zone.
  * @param local - `YYYY-MM-DDTHH:MM`, without an offset.
  * @param timeZone - The IANA time zone the wall clock belongs to.
  * @returns The ISO time in UTC, or `null` for text that is no such time.
@@ -362,7 +355,6 @@ export function zonedInstant(local: string, timeZone: string): string | null {
 
 /**
  * The wall-clock parts of an instant in a time zone, for texts that name it.
- *
  * @param instant - Milliseconds since the epoch.
  * @param timeZone - The IANA time zone.
  */

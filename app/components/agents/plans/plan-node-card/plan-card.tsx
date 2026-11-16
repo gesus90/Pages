@@ -45,7 +45,6 @@ interface PlanCardProps {
 /**
  * The shared frame of agent, parameter and ticket cards: a calm tint of the
  * node type, a title row and the three-dot menu inside the top right corner.
- *
  * @remarks
  * Only the title moves the card; fields and menus keep pointer and keys.
  */

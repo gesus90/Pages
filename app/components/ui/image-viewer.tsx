@@ -18,7 +18,7 @@ interface ImageViewerProps {
   /** Called when the viewer has closed; it may place the focus itself. */
   readonly onCloseAutoFocus?: (event: Event) => void;
   /**
-   * Replaces the head with position, caption and close (PAGE-382); it must
+   * Replaces the head with position, caption and close; it must
    * offer a way to close.
    */
   readonly header?: React.ReactNode;
@@ -103,14 +103,12 @@ function useViewerInput(context: {
 /**
  * A full-screen viewer for one image of a list, with arrows and the arrow
  * keys to page through the list.
- *
  * @remarks
  * A modal dialog, so it traps the focus, closes on Escape and hands the focus
  * back. It sits above whatever dialog it opened from. A single image has no
  * navigation. An image that cannot load or is no longer there is reported in
  * its place and the other images stay reachable. On a touch screen a
- * horizontal swipe pages. The chat gives it a head and a strip of its own
- * (PAGE-382).
+ * horizontal swipe pages. The chat gives it a head and a strip of its own.
  */
 export function ImageViewer({
   images,

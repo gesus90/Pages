@@ -111,8 +111,7 @@ function fitLogPage(
 }
 
 /**
- * The diagnosis of runs for everybody who may read their plan (PAGE-307).
- *
+ * The diagnosis of runs for everybody who may read their plan.
  * @remarks
  * Every read first resolves what the person may see through the same plan
  * rights as the plan page; a run of a plan outside them is as good as
@@ -127,7 +126,6 @@ export class AgentRunDiagnosisService {
 
   /**
    * Lists the plans the person may see, for the filters of the run view.
-   *
    * @param userId - The reader.
    */
   public async visiblePlans(
@@ -148,7 +146,6 @@ export class AgentRunDiagnosisService {
 
   /**
    * Lists the runs of every plan the person may see, newest first.
-   *
    * @param userId - The reader.
    * @param input - The raw parameters of `list_runs`.
    * @throws {AgentOperationError} `INVALID_REQUEST` for a bad parameter, `NOT_FOUND` for a plan the person cannot see.
@@ -194,7 +191,6 @@ export class AgentRunDiagnosisService {
 
   /**
    * Counts the failed steps of the visible plans, grouped.
-   *
    * @param userId - The reader.
    * @param input - The raw parameters of `summarize_run_failures`.
    * @throws {AgentOperationError} `INVALID_REQUEST` for a bad parameter, `NOT_FOUND` for a plan the person cannot see.
@@ -242,7 +238,6 @@ export class AgentRunDiagnosisService {
 
   /**
    * Builds the timeline of a run.
-   *
    * @param userId - The reader.
    * @param input - The raw parameters: the run.
    * @throws {AgentOperationError} `INVALID_REQUEST` for a bad parameter.
@@ -278,7 +273,6 @@ export class AgentRunDiagnosisService {
 
   /**
    * Reads one page of the log of a run or step.
-   *
    * @param userId - The reader.
    * @param input - The raw parameters of `read_plan_run_logs`.
    * @throws {AgentOperationError} `INVALID_REQUEST` for a bad parameter.

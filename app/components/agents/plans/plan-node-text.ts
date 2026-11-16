@@ -1,6 +1,5 @@
 /**
  * The shared type roles of every plan node family.
- *
  * @remarks
  * Start, end, agent, script, parameter, ticket and group cards differ in
  * size and color, never in these roles: a title is 14 px on 20 px in semibold, a

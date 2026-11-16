@@ -20,7 +20,6 @@ export class GitHubConnectionTester {
 
   /**
    * Creates a connection tester.
-   *
    * @param projectRepository - Project persistence boundary storing the result.
    * @param accessGuard - Verifier of write permission on the project.
    * @param contextLoader - Resolver of the repository, token, and client.
@@ -37,7 +36,6 @@ export class GitHubConnectionTester {
 
   /**
    * Verifies the stored connection against the GitHub API.
-   *
    * @param actor - User testing the connection; must hold write permission.
    * @param projectId - Project to verify.
    * @returns Whether GitHub accepted the stored token and address.

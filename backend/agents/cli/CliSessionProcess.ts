@@ -20,7 +20,6 @@ import type {
 
 /**
  * The UTF-8 bytes of one line in either direction: 8 MiB = 8 × 1024 × 1024.
- *
  * @remarks
  * One event line of a runner may be large (a file it read), never unbounded.
  * An ACP message Pages sends is one input line as well, so its prompt is
@@ -63,7 +62,6 @@ function unitErrorCode(result: CliWorkerUnitResult): AgentErrorCode | null {
 
 /**
  * One long-running CLI session whose events stream line by line.
- *
  * @remarks
  * Unlike a check, a session keeps no complete copy of its output: each line
  * goes to the caller as it arrives, so a long coding session never hits an

@@ -10,7 +10,6 @@ export class WikiFeedService {
 
   /**
    * Creates the service.
-   *
    * @param repository - Wiki persistence.
    * @param access - Resolves who is acting.
    */
@@ -21,7 +20,6 @@ export class WikiFeedService {
 
   /**
    * Lists what concerns the person.
-   *
    * @param actor - The signed-in user.
    * @returns Mentions, replies to their comments, comments on their pages and
    * their pages that are no longer current, newest first. Entries newer than
@@ -41,7 +39,6 @@ export class WikiFeedService {
 
   /**
    * Marks everything up to now as read.
-   *
    * @param actor - The signed-in user.
    */
   public async markRead(actor: User): Promise<void> {

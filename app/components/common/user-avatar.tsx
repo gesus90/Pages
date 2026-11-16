@@ -107,8 +107,7 @@ interface AvatarRingProps {
 }
 
 /**
- * The ring of a person color around an avatar (PAGE-266).
- *
+ * The ring of a person color around an avatar.
  * @remarks
  * The ring lies on top of the avatar and inside its circle, so no
  * surrounding area cuts it off and it covers the edge of an image as well.
@@ -132,10 +131,9 @@ export function AvatarRing({
 
 /**
  * Renders a user's avatar with image, icon, and initials fallback support.
- *
  * @remarks
  * A chosen person color draws a ring around the avatar and the initials in
- * that color (PAGE-266); without one the avatar keeps its former look.
+ * that color; without one the avatar keeps its former look.
  */
 export function UserAvatar({
   size = "md",

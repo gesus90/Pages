@@ -1,6 +1,5 @@
 /**
  * Computes a default project key prefix from the project display name.
- *
  * @param name - Display name of the project.
  * @returns An uppercase prefix suitable for ticket keys (e.g. "PAGE", "ASTRO", "ANI").
  */

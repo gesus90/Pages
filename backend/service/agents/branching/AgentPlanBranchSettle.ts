@@ -36,7 +36,6 @@ const HISTORY_OUTPUT_LIMIT = 4_000;
 
 /**
  * The part of a node's result that is new information for another node.
- *
  * @param output - The final answer of the node.
  * @returns The answer without its closing report; empty when nothing is left.
  */
@@ -131,7 +130,7 @@ function decide(
       })
     : invalidDecisionInput();
   const condition = changes.condition;
-  // Recorded per activation only: a new activation reads the current value again (PAGE-286).
+  // Recorded per activation only: a new activation reads the current value again.
   if (condition)
     state.consumed.set(
       step.id,

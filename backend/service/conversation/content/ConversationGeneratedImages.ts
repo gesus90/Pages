@@ -2,8 +2,7 @@ import { CONVERSATION_ATTACHMENT_MAXIMUM_COUNT } from "@/definition/Conversation
 
 /**
  * The images an agent generated during its answer in a conversation, until
- * the answer is stored (PAGE-382).
- *
+ * the answer is stored.
  * @remarks
  * The tool `bilder_erzeugen` stores each image as an attachment without a
  * message and notes it here; storing the answer takes the notes and binds
@@ -16,7 +15,6 @@ export class ConversationGeneratedImages {
 
   /**
    * Notes generated images for the next answer of an agent in a conversation.
-   *
    * @param target - The agent and the conversation.
    * @param attachmentIds - The stored images in their order.
    * @returns The IDs beyond the most attachments one message carries; they are not noted.

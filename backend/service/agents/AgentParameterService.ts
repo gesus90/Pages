@@ -32,7 +32,7 @@ export interface AgentParameterSelection {
   readonly ticketInputs?: readonly AgentTicketInput[];
 }
 
-/** Server preparation for A10.4, with no process start, provider request or credentials. */
+/** Server preparation for parameter changes, with no process start, provider request or credentials. */
 export interface PreparedAgentParameters {
   readonly parameters: BoundAgentParameters;
   readonly workspace: ResolvedAgentWorkspace;
@@ -65,11 +65,11 @@ interface ParameterDependencies {
         "readAssets" | "requireAssets" | "pinAssets"
       >
     >;
-  /** The files of asset nodes (PAGE-268); without them an asset parameter cannot be bound. */
+  /** The files of asset nodes; without them an asset parameter cannot be bound. */
   readonly planAssets?: Pick<PlanAssetService, "describe">;
 }
 
-/** Connects the A10.2 binder to live authorized workspace and wiki resolvers. */
+/** Connects the parameter binder to live authorized workspace and wiki resolvers. */
 export class AgentParameterService {
   private readonly dependencies: ParameterDependencies;
 
@@ -213,7 +213,6 @@ export class AgentParameterService {
 
   /**
    * Describes a plan asset of the plan's project that the executor may read.
-   *
    * @remarks
    * Only the description: the bytes are read at the handover, so a damaged
    * stack entry fails its own turn and not the start of the run.

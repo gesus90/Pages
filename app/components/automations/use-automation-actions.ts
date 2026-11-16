@@ -63,7 +63,6 @@ function readIntent(
 /**
  * Posts `intent` and the JSON `payload` to the page's action without
  * leaving the page; React Router then reads the page data again.
- *
  * @param handlers - Called once for every answer.
  */
 export function useAutomationActions(

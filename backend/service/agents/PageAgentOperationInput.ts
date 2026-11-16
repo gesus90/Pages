@@ -31,7 +31,6 @@ export interface PageAgentListRequest {
 
 /**
  * A requested share, with the lists of targets in a fixed order.
- *
  * @remarks
  * An omitted operator is not decided here: a new share is `or`, and a change
  * of a restricted share keeps the stored operator, so leaving the field out
@@ -140,7 +139,6 @@ function isOperator(input: unknown): input is PageAgentSharingOperator {
 
 /**
  * Reads a share into its three kinds.
- *
  * @remarks
  * A private or global share names no targets and no operator, so a request
  * that does is refused instead of storing something the interface cannot show.
@@ -207,7 +205,6 @@ export function readPageAgentFields(
 
 /**
  * Reads the parameters of `agents.list`.
- *
  * @param input - The raw parameters.
  * @throws {AgentOperationError} `INVALID_REQUEST` for an unknown parameter.
  */
@@ -219,7 +216,6 @@ export function readPageAgentListRequest(input: unknown): PageAgentListRequest {
 
 /**
  * Reads the identifier of the agent that `agents.read` names.
- *
  * @param input - The raw parameters.
  * @throws {AgentOperationError} `INVALID_REQUEST` for a missing or unknown parameter.
  */
@@ -231,7 +227,6 @@ export function readPageAgentReadRequest(input: unknown): string {
 
 /**
  * Checks that `agents.models.list` takes no parameter.
- *
  * @param input - The raw parameters.
  * @throws {AgentOperationError} `INVALID_REQUEST` for any parameter.
  */
@@ -241,12 +236,10 @@ export function requirePageAgentModelsRequest(input: unknown): void {
 
 /**
  * Reads a create or update call into one typed request.
- *
  * @param operation - The write operation that was called.
  * @param input - The raw parameters.
  * @throws {AgentOperationError} `INVALID_REQUEST` for a missing, unknown or
  * malformed parameter; an owner or user parameter is unknown like any other.
- *
  * @remarks
  * The checks here are the shape of the call. Pages judges the content of a
  * definition itself when it is saved, so a client sees the refusals of the

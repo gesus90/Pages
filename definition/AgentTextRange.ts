@@ -26,7 +26,6 @@ export const AGENT_TEXT_RANGE_LIMITS = {
 
 /**
  * A place between two characters of a text.
- *
  * @remarks
  * Lines and columns start at 1. A column counts Unicode code points of its
  * line; a line break (`\n`, `\r\n` or `\r`) counts as one column at the end of

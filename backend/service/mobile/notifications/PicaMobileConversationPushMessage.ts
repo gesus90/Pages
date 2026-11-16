@@ -62,7 +62,7 @@ function clean(text: string): string {
 }
 
 /**
- * Builds the push of a new message of a conversation for one device (PAGE-278).
+ * Builds the push of a new message of a conversation for one device.
  *
  * @param input - Message identity, names, language and the device's choice.
  * @returns The message. With `details` the title names the conversation, the

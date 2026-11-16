@@ -5,7 +5,7 @@ import { getApplicationServices } from "@/app/lib/services.server";
 import type { TicketLayoutData } from "./tasks-layout";
 import type { Route } from "./+types/tasks-layout-server";
 
-/** Loads the ticket tree for the sidebar of every ticket page (A8.2-E08). */
+/** Loads the ticket tree for the sidebar of every ticket page. */
 export async function loader({
   context,
 }: Route.LoaderArgs): Promise<TicketLayoutData> {

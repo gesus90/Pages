@@ -45,7 +45,6 @@ import type { OpenCodeKeyInput } from "@/backend/agents/cli/OpenCodeCredentials"
 
 /**
  * How long a login waits for the user.
- *
  * @remarks
  * The Antigravity adapter closes its loopback listener after 300 seconds; the
  * Pages session ends first, so the expiry is reported as such.
@@ -164,14 +163,12 @@ export class AgentCliLoginService {
 
   /**
    * Stores the provider key of an OpenCode connection in its credential folder.
-   *
    * @param actor - An administrator.
    * @param id - The OpenCode connection.
    * @param input - Native model provider ID and its key, never returned.
    * @returns The confirmed sign-in state of the connection.
    * @throws {AgentError} `provider_invalid` for another connection type,
    * `api_key_invalid_format`, or the failure of the confirming status read.
-   *
    * @remarks
    * Pages encrypts the key with the instance cipher in the private credential
    * folder, validates the native credential structure and loads the
@@ -245,14 +242,12 @@ export class AgentCliLoginService {
 
   /**
    * Completes an Antigravity sign-in with the address Google redirected to.
-   *
    * @param actor - The administrator who started this login.
    * @param id - The connection.
    * @param address - The full address from the browser after Google's consent.
    * @throws {AgentError} `login_not_running` for another user or state,
    * `login_callback_invalid` for an address of another login, and
    * `login_callback_unreachable` when the adapter no longer listens.
-   *
    * @remarks
    * Supports a browser on another device, which cannot reach the adapter's
    * loopback listener itself. The address is accepted once; success shows

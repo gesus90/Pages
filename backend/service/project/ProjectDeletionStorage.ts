@@ -16,7 +16,6 @@ export interface ProjectRunControl {
 
 /**
  * Reaches the plan runs and the attachment directories next to the database.
- *
  * @remarks
  * The interface and MCP build it the same way, so a deleted project leaves the
  * same files behind no matter where the deletion came from.
@@ -28,7 +27,6 @@ export class ProjectDeletionStorage implements ProjectDeletionEffects {
 
   /**
    * Creates the effects.
-   *
    * @param runs - The plan service, which owns the running plans and their record files.
    * @param directory - The directory that holds the database and the attachment folders.
    */

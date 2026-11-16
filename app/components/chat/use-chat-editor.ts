@@ -41,8 +41,7 @@ function isInCode(view: EditorView): boolean {
 }
 
 /**
- * A reduced fork of the block editor for chat messages (T6.12.10).
- *
+ * A reduced fork of the block editor for chat messages.
  * @remarks
  * It shares the schema and the Markdown conversion of the text editor, so
  * Markdown shortcuts, code blocks and inline code work as in the wiki. Slash

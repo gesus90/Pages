@@ -14,7 +14,6 @@ export interface PlanNotationWikiPage {
 
 /**
  * What names in a notation resolve against: the choices of the plan page.
- *
  * @remarks
  * The workspaces are those the person may use for plans, the sources those
  * of the plan's workspace, the wiki pages those of its project the person
@@ -62,7 +61,6 @@ function matches(
 
 /**
  * Resolves a name or identifier among entries.
- *
  * @remarks
  * An identifier always wins. Several entries of one identifier, such as one
  * model behind several names, count once.
@@ -92,8 +90,7 @@ function isUnique(
 }
 
 /**
- * Resolves names of a notation to identifiers and back (PAGE-250).
- *
+ * Resolves names of a notation to identifiers and back.
  * @remarks
  * The reader resolves names to identifiers; the writer asks for the name of
  * an identifier only where that name resolves back to it alone.
@@ -103,7 +100,6 @@ export class PlanNotationNames {
 
   /**
    * Creates the resolver.
-   *
    * @param catalog - The choices of the plan page for the plan's workspace.
    */
   public constructor(catalog: PlanNotationCatalog) {
@@ -150,7 +146,6 @@ export class PlanNotationNames {
 
   /**
    * Resolves a model offered for the node's target, by its key or model name.
-   *
    * @param target - The effective target of the node.
    * @param value - The key, the model name or the display name.
    * @param provider - Narrows the choice to one provider, or `null`.
@@ -211,7 +206,6 @@ export class PlanNotationNames {
 
   /**
    * The model name and, when needed, the provider that resolve back to a model key.
-   *
    * @returns `null` when no short form resolves back to exactly that key.
    */
   public modelName(

@@ -153,12 +153,11 @@ export function updateBlocked(active: ActivePlanRun): void {
 
 /**
  * Returns the complete ready frontier, independent of canvas positions.
- *
  * @remarks
  * A boolean decision is no work for a provider: the scheduler evaluates it
  * itself when its value has arrived, so it never appears here. A model
  * decision asks a model in a session of its own and is dispatched like a
- * script (PAGE-286).
+ * script.
  */
 export function readySteps(active: ActivePlanRun): readonly AgentPlanNode[] {
   const results = new Map(active.view.steps.map((step) => [step.id, step]));
@@ -213,7 +212,6 @@ function interruptedStep(step: AgentPlanStepResult): AgentPlanStepResult {
 
 /**
  * The end of a run that a server shutdown interrupted.
- *
  * @remarks
  * Unlike an explicit stop, nobody decided to end the run: it is recorded as
  * an interrupted failure that its executor can resume or restart. Nothing
@@ -268,7 +266,6 @@ function detachedStopStep(step: AgentPlanStepResult): AgentPlanStepResult {
 
 /**
  * The stop of a run that no engine of this process drives anymore.
- *
  * @remarks
  * Such a run outlived a Pages restart because a remote job still owned
  * work. Nothing schedules it again, so its open nodes end without starting.
@@ -316,7 +313,7 @@ function isCompletedLoop(
         (iteration) =>
           iteration.status === "succeeded" &&
           !iteration.error &&
-          // A node a decision skipped in this iteration is settled as well (PAGE-286).
+          // A node a decision skipped in this iteration is settled as well.
           iteration.nodes.every(isCompletedPlanStep),
       ))
   );
@@ -372,13 +369,11 @@ function waitsBehindCloseout(
 
 /**
  * Whether only steps the plan marks as closeout keep the run from having succeeded.
- *
  * @remarks
  * Every other step completed, or never started because it follows the failed
  * closeout, like the step that moves the ticket after the push. Such a step is
  * no failed work, and a resume starts it for the first time. Unconfirmed
  * process cleanup, an explicit stop and a control error stay what they were.
- *
  * @param run - The view of the run; the roles come from its own results.
  * @returns `false` for every run without a step marked as closeout.
  */
@@ -408,14 +403,12 @@ export function isWorkDoneCloseoutOpen(run: AgentPlanRun): boolean {
 
 /**
  * Closes a run that no engine drives once none of its steps runs anymore.
- *
  * @remarks
  * Such a run outlived a Pages restart because a remote job still owned work.
  * An explicit stop ends it as cancelled. A shutdown or crash ends it the way
  * the engine ends an interrupted run, so its executor can resume or restart
  * it; nothing starts again by itself. A pausing run and a run with a running
  * step are returned unchanged.
- *
  * @param run - The stored run.
  * @returns The settled run, or `run` itself when nothing changes.
  */
@@ -449,7 +442,6 @@ export function settleDetachedRun(run: AgentPlanRun): AgentPlanRun {
 
 /**
  * Direct scripts and request agents share the existing two execution slots; ACP has its own admission.
- *
  * @remarks
  * Remote steps run on their runner host, which admits and queues them with a
  * visible reason. Holding Pages slots for them let two long remote runs keep

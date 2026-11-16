@@ -30,7 +30,6 @@ interface SaveOutcomeInput {
 
 /**
  * Reacts to the answer of the background save.
- *
  * @remarks
  * A successful save closes the panel after dependency changes and otherwise
  * tells it that its draft is the new baseline. A failed save reverts the

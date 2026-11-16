@@ -121,7 +121,6 @@ function sourceModelId(agent: AgentDefinitionChoice): string {
 
 /**
  * The listed model a node's configuration names.
- *
  * @param models - The models offered for the node's execution target.
  * @param configuration - The node's own configuration.
  * @returns The model under the configuration's selection key; otherwise the

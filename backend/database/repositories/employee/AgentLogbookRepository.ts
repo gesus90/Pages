@@ -12,7 +12,7 @@ import type {
   AgentLogbookSource,
 } from "@/definition/AgentLogbook";
 
-/** One entry of the Lagebuch as it is stored (PAGE-377). */
+/** One entry of the Lagebuch as it is stored. */
 export interface StoredAgentLogbookEntry {
   readonly id: string;
   /** The insertion order; the ring buffer drops the lowest first. */
@@ -169,7 +169,7 @@ function readKind(kind: string): AgentLogbookKind {
 }
 
 /**
- * The entries of the Lagebuch of agents and their settings (PAGE-377).
+ * The entries of the Lagebuch of agents and their settings.
  *
  * @remarks
  * Every read leaves out the entries of confidential chats. The entries of an
@@ -331,7 +331,7 @@ export class AgentLogbookRepository {
   }
 
   /**
-   * The entries a dream run condenses (PAGE-378): those written after the
+   * The entries a dream run condenses: those written after the
    * position of the last run, the oldest first. Of a backlog the oldest come
    * first, because they are the ones that fall out of the ring buffer next.
    *

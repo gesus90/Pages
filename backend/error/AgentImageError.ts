@@ -1,6 +1,5 @@
 /**
- * Why an agent could not generate images (PAGE-382).
- *
+ * Why an agent could not generate images.
  * - `no_image_output`: the catalog does not state image output for the model
  *   the agent works with in this chat.
  * - `no_image_interface`: the model's provider has no image interface Pages
@@ -30,7 +29,6 @@ export class AgentImageError extends Error {
 
   /**
    * Creates the refusal.
-   *
    * @param code - The reason.
    * @param detail - What the provider or the model said, bounded.
    */

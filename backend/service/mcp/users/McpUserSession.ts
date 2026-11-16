@@ -33,7 +33,6 @@ export function requireMcpUserRight(isAllowed: boolean): void {
 
 /**
  * Requires the state the client read before it changes anything.
- *
  * @param current - The stored state, arrays already in a fixed order.
  * @param expected - The state the client read, in the same order.
  * @throws {McpUserError} `conflict` when they differ.
@@ -48,7 +47,6 @@ export function requireMcpUserCurrent(
 
 /**
  * Requires the confirmation a person typed, for a reduction or a destructive change.
- *
  * @param confirmation - The reply the client passed; the model never invents it.
  * @param question - Target, effects and affected people of the change.
  * @throws {McpUserError} `confirmation_required` with the question.
@@ -73,7 +71,6 @@ export function sortedIds(ids: readonly string[]): readonly string[] {
  * Everything one request of the user management API works with, read inside
  * its transaction: the actor's current facts, the policy of the MCP channel
  * and the administration services of the interface.
- *
  * @remarks
  * Every call opens a new session, so revoked rights, a deactivation or a
  * forced password change count at once, for a repeated operation as well.
@@ -117,7 +114,6 @@ export class McpUserSession {
 
   /**
    * Reads the actor's facts inside a transaction.
-   *
    * @param database - The open transaction of the call.
    * @param userId - The account of the device token.
    * @param hasher - Hashes the temporary passwords the administration sets.
@@ -175,7 +171,6 @@ export class McpUserSession {
 
   /**
    * Fingerprints the actor's facts, so a cursor ends when the rights change.
-   *
    * @returns A hash of the current account facts.
    */
   public rightsFingerprint(): string {
@@ -186,7 +181,6 @@ export class McpUserSession {
 
   /**
    * Resolves an account the actor may see in the user management.
-   *
    * @param userId - The account.
    * @throws {McpUserError} `not_found` for an unknown or hidden account alike.
    */
@@ -223,7 +217,6 @@ export class McpUserSession {
 
   /**
    * Resolves a role of the role catalog.
-   *
    * @param roleId - The role.
    * @throws {McpUserError} `not_found` for an unknown role or one outside the catalog.
    */
@@ -268,7 +261,6 @@ export class McpUserSession {
 
   /**
    * Resolves a department the actor sees.
-   *
    * @param departmentId - The department.
    * @throws {McpUserError} `not_found` for an unknown or hidden department.
    */
@@ -298,7 +290,6 @@ export class McpUserSession {
 
   /**
    * Resolves a group the actor sees.
-   *
    * @param groupId - The group.
    * @throws {McpUserError} `not_found` for an unknown or hidden group.
    */

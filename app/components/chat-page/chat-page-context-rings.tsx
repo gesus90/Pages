@@ -23,7 +23,6 @@ export interface ContextRingEntry {
 /**
  * The agents of the opened chat whose context the foot shows: the agent of a
  * direct chat, or every agent of a group.
- *
  * @param opened - The opened conversation.
  * @returns No entry for a conversation with a person.
  */
@@ -189,7 +188,7 @@ function AgentContextRing({
 }
 
 /**
- * The context rings at the foot of the input field (PAGE-380): how full the
+ * The context rings at the foot of the input field: how full the
  * context of the current session is, one ring in a direct chat with an agent
  * and one per agent in a group. It is the ring of Pica's chat; its details
  * name the model, the fill, the restart threshold and the state of the

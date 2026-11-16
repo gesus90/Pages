@@ -283,7 +283,6 @@ const PAGE_HANDLERS: Readonly<Record<string, WikiActionHandler>> = {
 
 /**
  * Handles the actions that change one page.
- *
  * @param context - The submission, with the page of the route.
  * @returns The response for the client.
  */

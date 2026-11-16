@@ -8,8 +8,7 @@ import type { Database } from "@/backend/database/Database";
 import type { ChatDecisionSettings } from "@/definition/ConversationDecision";
 
 /**
- * Persists the one decision model setting of the instance (PAGE-317,
- * PAGE-379): the decision model and the default thresholds of the groups. It
+ * Persists the one decision model setting of the instance: the decision model and the default thresholds of the groups. It
  * holds no credentials.
  */
 export class ChatDecisionSettingsRepository {
@@ -66,7 +65,6 @@ export class ChatDecisionSettingsRepository {
 
   /**
    * Replaces the model with optimistic concurrency.
-   *
    * @param settings - The new setting with the revision it was read at.
    * @throws {AgentError} `profile_conflict` when the setting changed since.
    */

@@ -18,7 +18,7 @@ export interface StepRunnerDependencies {
   readonly access: Pick<AgentPlanSessionAccess, "grant" | "revoke">;
   /** Takes what a session reports through `report_step_result`. */
   readonly stepReports?: Pick<AgentPlanStepReportService, "open" | "close">;
-  /** The live progress of a step, which a new session after a failure continues from (PAGE-284). */
+  /** The live progress of a step, which a new session after a failure continues from. */
   readonly stepProgress?: Pick<AgentPlanStepProgressService, "find"> &
     Partial<Pick<AgentPlanStepProgressService, "initialize" | "current">>;
   readonly archive?: Pick<AgentRunArchive, "input">;

@@ -140,9 +140,8 @@ function DomainList({
 }
 
 /**
- * The domains an administrator released for embedding in every conversation
- * (PAGE-298), with a field that releases another host name.
- *
+ * The domains an administrator released for embedding in every conversation,
+ * with a field that releases another host name.
  * @remarks
  * Members release further domains per conversation in the chat itself.
  * Pages and local previews can always be embedded and are not listed.

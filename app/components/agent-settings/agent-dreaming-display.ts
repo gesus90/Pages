@@ -36,7 +36,6 @@ export interface DreamModelOption {
 
 /**
  * The lines of a log grouped by kind, in the order of {@link DREAM_LOG_KINDS}.
- *
  * @param log - The lines of the run.
  * @returns Only the kinds that have a line.
  */
@@ -52,7 +51,6 @@ export function groupDreamLog(
 /**
  * What a schedule means in words, such as "alle 6 Stunden", "täglich um 02:00"
  * or "jeden Montag um 02:00".
- *
  * @param schedule - The schedule, as entered or saved.
  * @param instanceTime - The time of day of the instance; a schedule in days
  * without a time of its own runs then.

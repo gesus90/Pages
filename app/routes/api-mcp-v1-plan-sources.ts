@@ -22,8 +22,7 @@ function handlers(): McpPlanHandlers {
 }
 
 /**
- * Reads the sources of a workspace for plans (`GET /api/mcp/v1/plans/sources`), PAGE-246 interface 8.
- *
+ * Reads the sources of a workspace for plans (`GET /api/mcp/v1/plans/sources`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

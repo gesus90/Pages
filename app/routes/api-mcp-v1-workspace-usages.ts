@@ -21,8 +21,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpWorkspaceHandlers {
 }
 
 /**
- * Lists what refers to a workspace (`GET /api/mcp/v1/workspaces/{id}/usages`), PAGE-245 interface 6.
- *
+ * Lists what refers to a workspace (`GET /api/mcp/v1/workspaces/{id}/usages`).
  * @remarks
  * Only the device token of a paired machine admits a request. Names appear
  * only for accounts with the administrator role.

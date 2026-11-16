@@ -200,7 +200,6 @@ class ChannelOutput {
 
   /**
    * Records processed output and resumes once the browser caught up.
-   *
    * @param characters - Output characters processed since the last report.
    */
   public acknowledge(characters: number): void {
@@ -219,7 +218,6 @@ class ChannelOutput {
 
 /**
  * Follows one console over an open channel.
- *
  * @remarks
  * Input and geometry changes keep the order they were typed in and are
  * written only while ownership and rights were confirmed within the last two
@@ -290,11 +288,9 @@ function attach(
 
 /**
  * Serves the persistent console channel next to the console routes.
- *
  * @param server - The Pages HTTP server.
  * @param trustedProxies - Proxies whose `X-Forwarded-Proto` is believed;
  * empty by default.
- *
  * @remarks
  * Upgrades of other paths are left to their own handlers.
  */

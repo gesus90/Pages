@@ -3,7 +3,6 @@ import type { AgentPlanInterpreter } from "@/definition/AgentPlanScript";
 
 /**
  * Where a script's interpreter profile stands.
- *
  * @remarks
  * `missing` is a profile the server no longer configures; `unknown` means the
  * editor has no profile list yet, before a workspace is chosen.

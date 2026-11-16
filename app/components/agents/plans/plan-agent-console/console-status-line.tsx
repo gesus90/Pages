@@ -49,7 +49,7 @@ function statusParts(
 }
 
 /**
- * The fixed status line between the Pages terminal and its input (PAGE-289).
+ * The fixed status line between the Pages terminal and its input.
  *
  * @remarks
  * It is the only part of the terminal that changes with the time: the

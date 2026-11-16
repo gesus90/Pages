@@ -28,7 +28,6 @@ const NAME_BY_KIND: Readonly<Record<AgentLogbookKind, string>> = {
 
 /**
  * The kind a German name stands for.
- *
  * @param name - `entscheidung`, `aufgabe`, `fakt`, `frage` or `notiz`, in any case.
  * @returns The kind, or `null` for another word.
  */
@@ -38,7 +37,6 @@ export function readLogbookKind(name: string): AgentLogbookKind | null {
 
 /**
  * The German name of a kind.
- *
  * @param kind - The kind of an entry.
  */
 export function logbookKindName(kind: AgentLogbookKind): string {
@@ -82,7 +80,6 @@ export function normalizedLogbookText(text: string): string {
 /**
  * The short name of an entry for the hint line: its first clause, cut at a
  * word.
- *
  * @param text - The text of the entry.
  */
 export function topicOfLogbookText(text: string): string {

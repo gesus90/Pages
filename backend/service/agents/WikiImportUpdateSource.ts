@@ -121,7 +121,7 @@ function comparableMarkdown(text: string): string {
 }
 
 function linkedAssetIds(mapping: StoredAgentImportSource): string[] {
-  // This JSON is written by the creating import with the A9.6 result schema.
+  // This JSON is written by the creating import with the result schema of the creating import.
   const created = JSON.parse(mapping.resultJson) as AgentWikiCreated;
   return created.assets.map((asset) => asset.assetId).sort();
 }

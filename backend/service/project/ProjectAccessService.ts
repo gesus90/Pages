@@ -119,7 +119,6 @@ export class ProjectAccessService {
 
   /**
    * Returns the accessible projects the actor is a member of, with their goal counts.
-   *
    * @remarks
    * Membership alone is not enough: the project must also be in the current
    * read scope of the account, so a project that left it is not reported.

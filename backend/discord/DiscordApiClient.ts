@@ -65,7 +65,6 @@ export type DiscordFetch = (
 
 /**
  * Builds the official Discord install link of the bot.
- *
  * @param input - Application id, the exact redirect URI and the OAuth state.
  * @returns The authorization link with scope `bot`, the code grant and only
  * the permissions Pages needs; the QR code encodes exactly this link.
@@ -263,7 +262,6 @@ function parseChannel(value: unknown): DiscordChannel | null {
 
 /**
  * Speaks to Discord's HTTP API with the bot token and the OAuth client secret.
- *
  * @remarks
  * Only `fetch` against the REST endpoints: no gateway connection, no privileged
  * intent and no `discord.js`, whose current major version needs a newer Node.js
@@ -276,7 +274,6 @@ export class DiscordApiClient {
 
   /**
    * Creates a Discord client.
-   *
    * @param application - The instance's Discord application with its secrets.
    * @param send - HTTP function; defaults to the global `fetch`.
    */
@@ -290,7 +287,6 @@ export class DiscordApiClient {
 
   /**
    * Exchanges the code of an OAuth callback and reads the server it names.
-   *
    * @param code - Authorization code from the callback.
    * @param redirectUri - The redirect URI the authorization used.
    * @returns The id of the server the token response names, or `null` when the

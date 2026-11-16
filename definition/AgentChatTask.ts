@@ -1,10 +1,9 @@
 /**
- * Contracts of the scheduled tasks of chat agents (PAGE-392).
- *
+ * Contracts of the scheduled tasks of chat agents.
  * @remarks
  * In a chat a person tells an agent "Erinnere mich morgen um 9" or "Prüfe
  * jeden Montag die offenen Tickets"; the agent plans it with its tool
- * `aufgabe_planen`. Pages stores it as an automation (PAGE-297) of the
+ * `aufgabe_planen`. Pages stores it as an automation of the
  * person who asked, bound to the chat: it runs in the agent's session of
  * that chat and its result is a message there. The binding goes with the
  * chat: dissolving the group or deleting the direct chat removes the task.
@@ -34,7 +33,6 @@ export const AGENT_CHAT_TASK_TEXT_LENGTH = 2_000;
 
 /**
  * When a task runs, as the agent plans it.
- *
  * @remarks
  * Times are wall-clock times in the time zone of the person who asked:
  * `at` is `YYYY-MM-DDTHH:MM`, `times` are `HH:MM`, weekdays ISO (1 Monday

@@ -54,7 +54,6 @@ export function agentProfilePriority(
 
 /**
  * Decides whether a person may see and use an agent through its sharing.
- *
  * @remarks
  * The owner always may. Otherwise the share is global, or its group and
  * department targets match with OR (at least one, the default) or AND (every

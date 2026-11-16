@@ -39,9 +39,7 @@ export interface ConversationDecisionModelDependencies {
 }
 
 /**
- * Asks the decision model of the instance which agent a message means
- * (PAGE-379).
- *
+ * Asks the decision model of the instance which agent a message means.
  * @remarks
  * One call to the decisions interface of OpenRouter, not to the chat
  * endpoint, with the key of the OpenRouter connection the model belongs to.
@@ -58,7 +56,6 @@ export class ConversationDecisionModel {
 
   /**
    * Asks once.
-   *
    * @param material - The agents, the newest messages and the new message.
    * @returns The probabilities of both questions and the model that gave them.
    * @throws {ConversationObserverError} `decision_no_model` while no model is

@@ -20,7 +20,6 @@ export const SESSION_STATE_DOT: Readonly<
 /**
  * Whether the context of a session is as full as it may get: a session that
  * needs its restart, or one at or above the restart threshold.
- *
  * @param brief - The session.
  * @param restartPercent - The restart threshold of the agent; `null` when
  * only the state of the session decides.
@@ -39,7 +38,6 @@ export function isContextCritical(
 
 /**
  * The context fill as a whole percent between 0 and 100.
- *
  * @param percent - The reported fill; `null` before the first round.
  */
 export function clampContextPercent(percent: number | null): number | null {
@@ -49,7 +47,6 @@ export function clampContextPercent(percent: number | null): number | null {
 
 /**
  * Whether a session belongs to the chat the popup was opened from.
- *
  * @param view - The session.
  * @param current - The chat the popup was opened from, if any.
  */
@@ -65,7 +62,6 @@ export function isCurrentSession(
 /**
  * The chat of a session as the lists name it: "Gruppe „Name“" or
  * "Direkt · Name".
- *
  * @param chat - The chat of the session.
  * @param t - The translation function.
  */

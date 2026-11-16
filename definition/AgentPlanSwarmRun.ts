@@ -28,7 +28,6 @@ export const PLAN_SWARM_RUN_TEXT = 20_000;
 
 /**
  * Where a helper stands.
- *
  * @remarks
  * `idle` is free for the next subtask, `starting` waits for its session,
  * `busy` works on a subtask. `not_started` could not get a session, for
@@ -113,7 +112,6 @@ export type AgentPlanSwarmWorkerView = z.infer<typeof planSwarmWorkerSchema>;
 
 /**
  * A change Pages found outside the areas and locks of the active helpers.
- *
  * @remarks
  * `outside` names files; `head` and `index` report a changed Git `HEAD` or
  * index, which no helper may change. When the cause is unclear, `workerIds`
@@ -140,8 +138,7 @@ export const planSwarmMainSchema = z.strictObject({
 });
 
 /**
- * Main model, helpers, board and summary of one swarm node in a run (PAGE-313).
- *
+ * Main model, helpers, board and summary of one swarm node in a run.
  * @remarks
  * Stored with the node result, so `read_plan_run` and the run view read the
  * main model and every helper apart from each other.

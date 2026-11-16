@@ -77,10 +77,8 @@ export class PicaAcpToolTurns {
 
   /**
    * Lists the tools a job offers its agent session.
-   *
    * @param userId - The person of the job.
    * @returns The catalog; administrator tools only for an administrator.
-   *
    * @remarks
    * Only the listing depends on the right. Every call resolves it afresh, so
    * a person who is none cannot call a tool by guessing its name, and an

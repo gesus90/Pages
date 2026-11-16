@@ -21,7 +21,7 @@ export interface AgentPlanProgress {
     readonly contentHash: string;
   }[];
   readonly todos: readonly AgentPlanProgressItem[];
-  /** What the agent said it does now through `update_step_progress` (PAGE-284). */
+  /** What the agent said it does now through `update_step_progress`. */
   readonly activity?: {
     readonly text: string;
     readonly reportedAt: string;

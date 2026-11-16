@@ -22,7 +22,6 @@ export function isSaveCommand(command: PlanCommand): boolean {
 
 /**
  * Sends the draft as the next revision, one request at a time.
- *
  * @remarks
  * A save asked for while another one is on its way is not dropped and not
  * sent beside it: the second request would carry the revision the first one
@@ -30,7 +29,6 @@ export function isSaveCommand(command: PlanCommand): boolean {
  * save. It waits instead and is sent with the newest draft and the revision
  * the first answer stored. A refused save drops the waiting one, so the
  * refusal is shown instead of being overtaken by another attempt.
- *
  * @returns The function that saves a draft or lets the save wait its turn.
  */
 export function usePlanSubmission(input: {

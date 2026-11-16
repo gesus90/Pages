@@ -45,10 +45,9 @@ const logbookModelInput = z
   .refine((input) => (input.connectionId === "") === (input.model === ""));
 
 /**
- * The limits of the concurrent chat sessions of agents (PAGE-304), the
- * time of day of the dream run (PAGE-305) and the idle time of a resting
- * chat session (PAGE-335), under Einstellungen → Agents.
- *
+ * The limits of the concurrent chat sessions of agents, the
+ * time of day of the dream run and the idle time of a resting
+ * chat session, under Einstellungen → Agents.
  * @remarks
  * Only an administrator in the active admin mode reads and saves them. A
  * saved change applies at once: raised limits start waiting sessions,
@@ -81,7 +80,7 @@ export class AgentSessionLimitService {
     return this.settings.read();
   }
 
-  /** The idle time of a resting chat session, read anew for every rest (PAGE-335). */
+  /** The idle time of a resting chat session, read anew for every rest. */
   public async idleMinutes(): Promise<number> {
     return (await this.settings.read()).idleMinutes;
   }
@@ -117,9 +116,8 @@ export class AgentSessionLimitService {
 
   /**
    * Saves the model the instance names for the background summary of the
-   * Lagebuch (PAGE-377), for agents without a model of their own; empty
+   * Lagebuch, for agents without a model of their own; empty
    * fields clear it, which leaves the agent's own model.
-   *
    * @throws {AgentError} `profile_invalid` for a malformed choice or a model
    * the administrator may not give an agent.
    */
@@ -145,9 +143,8 @@ export class AgentSessionLimitService {
   }
 
   /**
-   * Saves both limits, the time of day of the dream run (PAGE-305) and the
-   * idle time of a resting chat session (PAGE-335).
-   *
+   * Saves both limits, the time of day of the dream run and the
+   * idle time of a resting chat session.
    * @throws {AgentError} `profile_invalid` for a value outside 1 to 64, a
    * limit per agent above the total, a time that is no `HH:MM` or an idle
    * time outside 1 to 1440 minutes,

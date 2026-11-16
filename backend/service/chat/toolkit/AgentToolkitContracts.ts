@@ -16,8 +16,7 @@ import type { AgentWebPageReader } from "./AgentWebTools";
 export type AgentToolkitParameters = Readonly<Record<string, unknown>>;
 
 /**
- * Everything the toolkit of one chat job works with (PAGE-390).
- *
+ * Everything the toolkit of one chat job works with.
  * @remarks
  * Pages derives every field from the stored agent and the job, never from
  * model input: the root is the working folder of the job, the policy comes
@@ -36,17 +35,17 @@ export interface AgentToolkitJob {
   /** Fetches a public web page; the default pins the address and refuses private hosts. */
   readonly readPage: AgentWebPageReader;
   /**
-   * The interim messages and questions of the job, bound to its chat
-   * (PAGE-391); absent for a run without a chat, which offers neither.
+   * The interim messages and questions of the job, bound to its chat;
+   * absent for a run without a chat, which offers neither.
    */
   readonly interactions?: AgentChatInteractions;
   /**
-   * The scheduled tasks of the job, bound to its agent and chat (PAGE-392);
+   * The scheduled tasks of the job, bound to its agent and chat;
    * absent for a run without a chat, which plans none.
    */
   readonly chatTasks?: AgentChatTasks;
   /**
-   * The search over the earlier messages of the agent's chats (PAGE-393),
+   * The search over the earlier messages of the agent's chats,
    * bound to its agent and chat; absent offers no history tools.
    */
   readonly history?: AgentChatHistory;
@@ -89,7 +88,6 @@ interface TypedToolkitTool<Schema extends z.ZodType<AgentToolkitParameters>> {
 
 /**
  * Defines a toolkit tool whose handlers read the typed input of its schema.
- *
  * @remarks
  * The registry has validated the input already; parsing it once more here
  * narrows it without a cast.

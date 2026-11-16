@@ -76,7 +76,6 @@ interface TableSnapshot {
 
 /**
  * Counts every table at one exact point in time.
- *
  * @remarks
  * A count of a running database fits no point in time on its own. Every writer
  * that holds a table has committed before this lock is granted, and every other

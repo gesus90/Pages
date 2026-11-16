@@ -2,7 +2,6 @@ import type { ProfileInput } from "@/app/components/settings/profile/profile-dra
 
 /**
  * Builds the submission of a profile edit.
- *
  * @param input - The cleaned profile values.
  * @param avatar - The picked avatar file, or `null` to keep the avatar.
  */
@@ -27,7 +26,6 @@ export function createProfileFormData(
 
 /**
  * Builds the submission that only replaces the avatar.
- *
  * @param avatar - The picked avatar file.
  */
 export function createAvatarFormData(avatar: File): FormData {

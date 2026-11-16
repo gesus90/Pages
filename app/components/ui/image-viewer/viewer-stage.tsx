@@ -12,14 +12,13 @@ interface ViewerStageProps {
   readonly label: string;
   /** Whether arrows share the screen; below the image on a narrow one. */
   readonly isPaged: boolean;
-  /** Why the image is not there; reported in its place, nothing loads (PAGE-382). */
+  /** Why the image is not there; reported in its place, nothing loads. */
   readonly unavailable?: string;
 }
 
 /**
  * The image as large as the space allows, with its proportions kept, or why
  * it is not there.
- *
  * @remarks
  * The load state belongs to one image: the viewer gives every image its own
  * stage, so an image that failed never marks the next one.

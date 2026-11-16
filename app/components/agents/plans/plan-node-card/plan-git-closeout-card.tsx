@@ -25,9 +25,8 @@ import type { AgentPlanGitCloseout } from "@/definition/AgentPlanGitCloseout";
 
 /**
  * A saved Git closeout of an earlier version, marked as no longer supported.
- *
  * @remarks
- * The node (PAGE-285) keeps its flow ports, its ticket input and its result
+ * The node keeps its flow ports, its ticket input and its result
  * port, so its saved connections stay visible until someone removes it. In
  * place of the check command the card says what to do with it; the recorded
  * status of an earlier run stays readable.

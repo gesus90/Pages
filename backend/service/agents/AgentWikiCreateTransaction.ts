@@ -34,7 +34,7 @@ function createdEvents(created: AgentWikiCreated): PagesEvent[] {
   ];
 }
 
-/** Shares A9.6 creation with an outer import transaction and defers effects until its commit. */
+/** Shares the creation of an import with an outer import transaction and defers effects until its commit. */
 export class AgentWikiCreateTransaction {
   private readonly dependencies: AgentWikiCreateDependencies;
   private readonly copies: string[] = [];

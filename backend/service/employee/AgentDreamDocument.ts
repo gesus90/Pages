@@ -20,7 +20,7 @@ export interface AgentDreamLesson {
   readonly date: string;
   /** How often it was confirmed; the weakest falls out first. */
   readonly strength: number;
-  /** A lesson switched off stays in the file but is not loaded into a session (PAGE-378). */
+  /** A lesson switched off stays in the file but is not loaded into a session. */
   readonly isActive: boolean;
 }
 
@@ -114,7 +114,7 @@ export function parseDreamDocument(
 
 /**
  * The identifier of a lesson: a short digest of its text, stable while the
- * text stays, so the settings find the lesson they show (PAGE-378).
+ * text stays, so the settings find the lesson they show.
  *
  * @param text - The text of the lesson.
  */

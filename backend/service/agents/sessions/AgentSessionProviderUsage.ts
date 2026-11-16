@@ -34,7 +34,6 @@ export interface OpenCodeMessageContext {
 
 /**
  * Stores the Codex thread usage that an update reports.
- *
  * @returns `true` when the report belongs to a turn of this run, so the native
  * usage of the turn's prompt must not be counted a second time.
  */

@@ -54,7 +54,7 @@ async function viewerOf(person: User): Promise<AgentChatSessionViewer> {
 
 /**
  * Reads the Dreaming of an agent for the tab "Dreaming" of the popup
- * "Agent-Einstellungen" (PAGE-378): everybody sees the schedule and when the
+ * "Agent-Einstellungen": everybody sees the schedule and when the
  * agent dreams, an administrator also the log of the last run and the files.
  */
 export async function loader({
@@ -79,7 +79,7 @@ export async function loader({
 /**
  * Saves the schedule and the model of the dream run of an agent
  * (`save-settings`), or starts a run now (`run-now`); answers with the
- * Dreaming as it stands then (PAGE-378).
+ * Dreaming as it stands then.
  */
 export async function action({
   request,

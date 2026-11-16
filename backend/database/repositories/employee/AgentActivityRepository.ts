@@ -8,7 +8,7 @@ import {
 import type { Database, DatabaseValue } from "@/backend/database/Database";
 import type { AgentActivityCost } from "@/definition/AgentEmployee";
 
-/** A learning run or a change of the access level (PAGE-303), as the activity table stores it. */
+/** A learning run or a change of the access level, as the activity table stores it. */
 export interface StoredAgentEvent {
   readonly id: string;
   readonly kind: "learning" | "access" | "image" | "video" | "audio";
@@ -79,8 +79,7 @@ function readJobCost(row: readonly DatabaseValue[]): AgentActivityCost {
 
 /**
  * What an agent did: its sessions and learning runs with their costs, and
- * its ticket and wiki changes (PAGE-266).
- *
+ * its ticket and wiki changes.
  * @remarks
  * Sessions are the chat jobs of the agent's conversations, and changes are
  * the project activity the agent's account caused, so nothing is recorded
@@ -189,7 +188,7 @@ export class AgentActivityRepository {
     );
     return rows.map((row) => ({
       id: readTextColumn(row, 0, "id"),
-      // Dream runs and memory updates of PAGE-305 are the agent's own sessions.
+      // Dream runs and memory updates are the agent's own sessions.
       purpose: ["learning", "memory"].includes(
         readTextColumn(row, 1, "purpose"),
       )
@@ -205,7 +204,6 @@ export class AgentActivityRepository {
   /**
    * Sums the known costs of an agent's chat jobs since a time and counts
    * the jobs without a reported cost.
-   *
    * @remarks
    * An adapter that reports the total of its native session repeats earlier
    * costs in every job, so of those jobs only the highest amount per

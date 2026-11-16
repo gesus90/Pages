@@ -28,8 +28,7 @@ function countsByUser(
 
 /**
  * What the profile of an agent adds to its account: project roles, the
- * workload and the last activity (PAGE-308).
- *
+ * workload and the last activity.
  * @remarks
  * The counts cover every agent in one query each, so a list of agents costs
  * a fixed number of queries. Nothing here reads memory, chat contents or
@@ -158,7 +157,6 @@ export class AgentProfileLoadRepository {
   /**
    * When each agent last did something: a chat job, a change in a project,
    * a plan run or a learning run, as ISO 8601 times in UTC.
-   *
    * @remarks
    * The sources store times as `YYYY-MM-DD HH:MM:SS` or as ISO text, so the
    * query cuts both to the same seconds form before it compares them.

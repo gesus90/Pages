@@ -34,9 +34,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpTicketHandlers {
 }
 
 /**
- * Takes a file for a ticket (`POST /api/mcp/v1/tickets/{key}/attachments?name=<Dateiname>`),
- * PAGE-242 interface 11.
- *
+ * Takes a file for a ticket (`POST /api/mcp/v1/tickets/{key}/attachments?name=<Dateiname>`),.
  * @remarks
  * Only the device token of a paired machine admits a request. The body is
  * the file itself with `Content-Type: application/octet-stream`.

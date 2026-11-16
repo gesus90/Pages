@@ -75,7 +75,6 @@ function isProjectActionIntent(value: unknown): value is ProjectActionIntent {
 
 /**
  * Runs the project detail action a form submission asks for.
- *
  * @param intent - The `intent` field of the submitted form.
  * @param context - Actor, form fields, project and services of the request.
  * @returns The response for the client; unknown intents count as invalid

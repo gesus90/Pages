@@ -6,7 +6,6 @@ export interface AgentRunRecordKey {
 
 /**
  * The files whose database rows a project deletion removed.
- *
  * @remarks
  * The rows go in the deleting transaction; the files cannot, so the caller
  * removes them after the commit. A file that survives a failure there is no

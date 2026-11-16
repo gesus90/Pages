@@ -36,9 +36,8 @@ function chatFields(opened: OpenedConversation): Record<string, string> | null {
 
 /**
  * Runs `/model`, `/new` and `/compact` typed into the input field of a chat
- * with agents (PAGE-380) instead of sending them: a command never reaches an
+ * with agents instead of sending them: a command never reaches an
  * agent and asks for no answer.
- *
  * @param opened - The opened conversation.
  */
 export function useChatCommandRunner(

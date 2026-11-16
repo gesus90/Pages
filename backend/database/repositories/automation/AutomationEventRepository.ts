@@ -39,8 +39,7 @@ function readEventRow(
 }
 
 /**
- * The inbox of events for automations (PAGE-297).
- *
+ * The inbox of events for automations.
  * @remarks
  * Ticket events are written by a trigger of the ticket table, plan events by
  * the observer of plan runs; both only while an active automation waits for
@@ -51,7 +50,6 @@ export class AutomationEventRepository {
 
   /**
    * Creates the repository.
-   *
    * @param database - The database.
    */
   public constructor(database: Pick<Database, "query" | "execute">) {

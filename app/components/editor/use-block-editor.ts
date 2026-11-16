@@ -98,7 +98,6 @@ function handleFiles(
 
 /**
  * Tells whether a key press starts "paste as plain text" (`Mod+Shift+V`).
- *
  * @param event - Key event in the editor.
  * @returns Whether the next paste drops formatting.
  */
@@ -113,12 +112,10 @@ export function isPlainPasteKey(event: KeyboardEvent): boolean {
 /**
  * Pastes files as uploads and text as markdown, or as plain text after
  * `Mod+Shift+V`; HTML stays with ProseMirror.
- *
  * @param view - The editor view.
  * @param event - The paste event.
  * @param options - Features of the editor and whether formatting is dropped.
  * @returns Whether the paste was handled here.
- *
  * @remarks
  * ProseMirror opens pasted text slices as far as possible, which merges a
  * lone heading into the paragraph at the caret. Inserting the closed slice

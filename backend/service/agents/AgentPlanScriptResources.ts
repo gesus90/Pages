@@ -17,9 +17,7 @@ import type { PlanTemporaryScope } from "@/backend/agents/PlanRunTemporaryDirect
 
 /**
  * The root of the script runtimes in the Pages temporary folder.
- *
  * @returns `~/.pages/tmp/plan-scripts`, which the plan service and the script owner see alike.
- *
  * @remarks
  * The script owner runs in a unit of the account's service manager, which
  * does not see a private `/tmp` of the plan service (`PrivateTmp=true`). A

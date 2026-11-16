@@ -27,7 +27,6 @@ export type PlanManagementRequest = Readonly<Record<string, string>>;
 
 /**
  * The open dialog of the plan menu and the requests of its dialogs.
- *
  * @remarks
  * Creating and cloning open the new plan once the server stored it; deleting
  * is answered by the server with the plan that opens next. The editor's own

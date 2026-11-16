@@ -34,8 +34,7 @@ const HANDLERS: McpUserHandlers = {
 };
 
 /**
- * Lists the departments (`GET /api/mcp/v1/departments`) and creates one (`POST`), PAGE-280.
- *
+ * Lists the departments (`GET /api/mcp/v1/departments`) and creates one (`POST`).
  * @remarks
  * Only the device token of a paired machine admits a request; the rights of
  * its account are read again on every call. See `docs/McpUserManagement.md`.

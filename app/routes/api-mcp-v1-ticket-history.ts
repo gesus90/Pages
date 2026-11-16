@@ -21,8 +21,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpTicketHandlers {
 }
 
 /**
- * Reads the activity of a ticket (`GET /api/mcp/v1/tickets/{key}/history`), PAGE-242 interface 4.
- *
+ * Reads the activity of a ticket (`GET /api/mcp/v1/tickets/{key}/history`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

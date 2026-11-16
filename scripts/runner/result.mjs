@@ -37,7 +37,6 @@ const PERMANENT_CAUSE =
 
 /**
  * Follows one CLI event stream and states what it proves about the session.
- *
  * @remarks
  * Every tool announces a call before it runs, so a stream that began and
  * showed no call proves that a fresh session cannot repeat an effect. A stream

@@ -143,7 +143,7 @@ function isTooLarge(request: IncomingMessage, maximumBytes: number): boolean {
 
 /**
  * The attachment endpoints of `conversations.v1` on the port of Pica Mobile
- * (PAGE-298): the addresses of the web below the app's path.
+ * The addresses of the web below the app's path.
  *
  * - `GET /pica-mobile/chat/files/<id>` and `…/thumbnail` load the original
  *   and the preview image, as `url` and `thumbnailUrl` of an attachment name

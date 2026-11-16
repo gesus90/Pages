@@ -277,7 +277,7 @@ export function installRunnerChannel(server: Server): void {
   server.on("upgrade", (request, socket, head) => {
     // The console channel answers its own upgrades.
     if (isRemoteConsoleChannel(request.url)) return;
-    // The chat page's channel answers its own upgrades (PAGE-381).
+    // The chat page's channel answers its own upgrades.
     if (isConversationWebChannel(request.url)) return;
     const deadline = setTimeout(() => socket.destroy(), 10_000);
     void upgrade({

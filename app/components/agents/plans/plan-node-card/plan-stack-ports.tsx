@@ -20,7 +20,6 @@ const PORT_BUTTON =
 
 /**
  * The flow row of a stack: the trigger IN on the left, the flow OUT on the right.
- *
  * @remarks
  * Every trigger at IN hands the next entry to OUT; several connections may
  * end at IN. The ports keep the flow colour of every other card.
@@ -91,7 +90,6 @@ export function PlanStackFlowRow(props: {
 
 /**
  * One data output of a stack: its name, what it holds now, and its port on the right edge.
- *
  * @remarks
  * Reading an output never triggers the stack. The data ports keep the
  * colour and the dashed line of every other binding.

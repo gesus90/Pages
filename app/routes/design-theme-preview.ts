@@ -5,7 +5,6 @@ import type { Route } from "./+types/design-theme-preview";
 
 /**
  * Policy of the preview image response.
- *
  * @remarks
  * The image is meant to be shown in an `img` element. Should someone open its
  * address directly, nothing may run or load.
@@ -14,7 +13,6 @@ const PREVIEW_CONTENT_SECURITY_POLICY = "default-src 'none'; sandbox";
 
 /**
  * Returns the preview image of an installed design theme.
- *
  * @remarks
  * Only signed-in visitors see it, as the appearance settings are the only
  * place that shows it. The address names the theme; the file behind it is

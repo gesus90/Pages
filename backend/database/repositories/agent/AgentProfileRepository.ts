@@ -11,7 +11,6 @@ import type { AgentUsage } from "@/definition/AgentUsage";
 
 /**
  * Work that commits together with a saved profile.
- *
  * @remarks
  * It runs after the profile was written, in the same transaction: when it
  * throws, the profile is not saved. The profile is passed as it was saved, so

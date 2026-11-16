@@ -20,9 +20,8 @@ export interface AgentAccessEnvironmentDependencies {
 }
 
 /**
- * What the host offers an agent beside the Pages tools (PAGE-303): whether
+ * What the host offers an agent beside the Pages tools: whether
  * "Arbeitsplatz" can run isolated, and the MCP servers of its CLI.
- *
  * @remarks
  * Both are read anew on every request, so installing bubblewrap or setting up
  * an MCP server needs no restart and no change of Pages. Tests and the
@@ -66,7 +65,6 @@ export class AgentAccessEnvironmentService {
 
   /**
    * The configured MCP servers a chat of the agent receives.
-   *
    * @returns None in "Nur Pages"; otherwise every server of the provider's CLI.
    */
   public async chatServers(

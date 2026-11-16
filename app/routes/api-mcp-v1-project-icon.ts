@@ -26,8 +26,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpProjectHandlers {
 }
 
 /**
- * Replaces the icon (`PUT /api/mcp/v1/projects/{id}/icon`), PAGE-244 interface 10.
- *
+ * Replaces the icon (`PUT /api/mcp/v1/projects/{id}/icon`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

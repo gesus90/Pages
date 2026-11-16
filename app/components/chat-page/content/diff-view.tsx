@@ -40,7 +40,6 @@ const MARKER_CLASS: Readonly<Record<DiffLineKind, string | undefined>> = {
 
 /**
  * Parses a unified diff once per text.
- *
  * @param source - The diff.
  * @returns Its lines with the counts of added and removed lines.
  */
@@ -50,7 +49,6 @@ export function useParsedDiff(source: string): ParsedDiff {
 
 /**
  * The counter `+N −M` of a diff in the colors of added and removed lines.
- *
  * @param diff - The parsed diff.
  */
 export function DiffCount({
@@ -194,9 +192,8 @@ interface DiffViewProps {
 }
 
 /**
- * A unified diff with green added and red removed lines (PAGE-298), below
+ * A unified diff with green added and red removed lines, below
  * each other or as "vorher" next to "nachher".
- *
  * @remarks
  * The lines keep the syntax colors of the changed file, named by the header
  * of the diff. Rows and markers take the diff tokens of the theme, so a

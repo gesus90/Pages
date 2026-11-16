@@ -4,7 +4,6 @@ let runningCount = 0;
 
 /**
  * Reads the open page again after a live notice or a reconnect.
- *
  * @remarks
  * Some routes skip a revalidation of the same address, because their own
  * actions already replaced what changed. A live notice comes from another

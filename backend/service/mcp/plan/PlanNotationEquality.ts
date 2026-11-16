@@ -12,10 +12,8 @@ function canonical(value: unknown): unknown {
 
 /**
  * Whether two plan values hold the same data, whatever the order of their keys.
- *
  * @param first - A stored or read value.
  * @param second - The value to compare it with.
- *
  * @remarks
  * A field set to `undefined` counts as absent, as it does once the plan is
  * stored as JSON.

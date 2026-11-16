@@ -9,7 +9,7 @@ function listsValue(list: unknown, value: string): boolean {
   return Array.isArray(list) && list.includes(value);
 }
 
-/** What a model may output beside text and still answer in text (PAGE-382, PAGE-384). */
+/** What a model may output beside text and still answer in text. */
 const OUTPUT_BESIDE_TEXT: readonly unknown[] = [
   "text",
   "image",
@@ -34,15 +34,13 @@ function statedModalities(list: unknown): readonly string[] {
 
 /**
  * Tells whether a listed model reads and writes text, by the catalog's own data.
- *
  * @param entry - One raw model entry of a provider listing.
  * @param provider - The provider that listed the entry.
  * @returns `true` when the entry belongs in a text catalog.
- *
  * @remarks
  * - OpenRouter states `architecture.input_modalities` and `output_modalities`;
  *   a text model accepts text and outputs text, alone or beside images,
- *   videos or sounds (PAGE-382, PAGE-384), so pure image, audio, video,
+ *   videos or sounds, so pure image, audio, video,
  *   speech, embedding, rerank and decision models stay out.
  * - Google states `supportedGenerationMethods`; Pages generates text through
  *   `generateContent`, so embedding, Imagen, Veo and answer-only models stay out.
@@ -64,13 +62,11 @@ export function isTextModel(entry: unknown, provider: ApiProviderId): boolean {
 }
 
 /**
- * Tells whether a listed model transcribes speech, by the catalog's own data (PAGE-294).
- *
+ * Tells whether a listed model transcribes speech, by the catalog's own data.
  * @param entry - One raw model entry of a provider listing.
  * @param provider - The provider that listed the entry.
  * @returns `true` for an OpenRouter model that states audio input and
  * `transcription` output ({@link isTranscriptionModel}).
- *
  * @remarks
  * Only OpenRouter states modalities. A transcription model reads no text and
  * writes no chat answer, so it is kept for the speech recognition alone: its
@@ -90,13 +86,11 @@ export function isSpeechModel(
 }
 
 /**
- * Tells whether a listed model speaks text aloud, by the catalog's own data (PAGE-300).
- *
+ * Tells whether a listed model speaks text aloud, by the catalog's own data.
  * @param entry - One raw model entry of a provider listing.
  * @param provider - The provider that listed the entry.
  * @returns `true` for an OpenRouter model that states `speech` among its
  * outputs ({@link isSpeechSynthesisModel}).
- *
  * @remarks
  * {@link isTextModel} drops such a model, because it does not answer in text
  * alone; it is kept for the speech output of agents only. Its stored
@@ -114,13 +108,11 @@ export function isSpeechOutputModel(
 }
 
 /**
- * Tells whether a listed model gives decisions, by the catalog's own data (PAGE-379).
- *
+ * Tells whether a listed model gives decisions, by the catalog's own data.
  * @param entry - One raw model entry of a provider listing.
  * @param provider - The provider that listed the entry.
  * @returns `true` for an OpenRouter model that states `decisions` among its
  * outputs ({@link isDecisionModel}).
- *
  * @remarks
  * {@link isTextModel} drops such a model, because it does not answer in text;
  * it is kept for the decisions of group chats only. Its stored modalities rule
@@ -140,7 +132,6 @@ export function isDecisionOutputModel(
 /**
  * Tells whether a listed model belongs in the shared catalog: a text model,
  * a transcription model, a speech output model or a decision model.
- *
  * @param entry - One raw model entry of a provider listing.
  * @param provider - The provider that listed the entry.
  * @returns `true` when {@link isTextModel}, {@link isSpeechModel},

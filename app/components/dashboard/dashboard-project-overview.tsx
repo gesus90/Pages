@@ -17,7 +17,6 @@ interface DashboardProjectOverviewProps {
 
 /**
  * Renders the project list with progress bars.
- *
  * @param props - Projects to display, already sorted by the route loader.
  * @returns The project overview list element.
  */

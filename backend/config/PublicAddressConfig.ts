@@ -32,7 +32,6 @@ export interface PublicAddressConfig {
 
 /**
  * Reads `listenAddress` and `publicUrl` without replacing existing TOML settings.
- *
  * @param table - Parsed TOML document.
  * @returns The address settings; `publicUrl` also reads the key `[mcpHttp].publicUrl` of earlier files.
  * @throws {Error} When one of the values is malformed.

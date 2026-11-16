@@ -42,7 +42,6 @@ export class CliLocator {
 
   /**
    * Locates an executable that belongs to a CLI, such as the Codex ACP adapter.
-   *
    * @param binary - The file name of the executable.
    * @returns Its path, searched like {@link CliLocator.find}.
    */

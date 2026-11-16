@@ -10,7 +10,6 @@ const DATABASE_DIRECTORY = fileURLToPath(
 
 /**
  * Reads migrations without relying on the server's Vite build.
- *
  * @param directory - The directory below `backend/database/`.
  * @returns The migrations in name order.
  */

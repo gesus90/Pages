@@ -27,7 +27,6 @@ function failure(error: DiscordActionErrorCode): DiscordActionResult {
 
 /**
  * Checks that a response body has the shape of an action result.
- *
  * @param value - Parsed JSON from the server.
  * @returns Whether it is a success with a state or a failure with a code.
  */
@@ -45,7 +44,6 @@ export function isDiscordActionResult(
 
 /**
  * Sends one request of the Discord panel and reads its result.
- *
  * @param request - Project, intent and fields.
  * @returns The result; a network error or a body of the wrong shape becomes a
  * failure with the code `request_failed`.

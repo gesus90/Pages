@@ -20,12 +20,10 @@ function toParagraph(schema: Schema, upload: EditorUpload): ProseMirrorNode {
  * Uploads files and puts them into the document at the selection, one
  * paragraph each: images appear inside the text, other files as a link to
  * their download.
- *
  * @param view - The editor view.
  * @param files - The chosen, dropped or pasted files.
  * @param upload - Sends the files and reports what was stored.
  * @returns Whether anything was inserted.
- *
  * @remarks
  * A failed upload inserts nothing; the caller reports the failure.
  */

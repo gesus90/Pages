@@ -8,7 +8,6 @@ import { isSourceFile, walkFiles } from "./source-population.mjs";
 
 /**
  * Default maximum number of files checked per sequential ESLint process.
- *
  * Chosen from repository measurements: `projectService: true` has a fixed
  * ~5s / ~1.15 GiB V8-heap (~1.45 GiB RSS) bootstrap per TypeScript project.
  * Blocks of at most 200 files keep per-process peak V8 heap around

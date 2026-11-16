@@ -20,7 +20,6 @@ export const PICA_MOBILE_SUPPORTED_VERSIONS: readonly number[] = [
 
 /**
  * Largest text frame the server accepts, in UTF-8 bytes.
- *
  * @remarks
  * Before authentication a larger frame closes the connection with 1009; after
  * it a larger frame is refused with `invalid_message`, except `chat_send`,
@@ -147,7 +146,6 @@ export const PICA_MOBILE_SERVER_MESSAGE_TYPE = {
 
 /**
  * Extensions of version 1 that a server announces in `connected`.
- *
  * @remarks
  * `dashboard.v1` stands for the whole dashboard contract: `dashboard_get`,
  * `dashboard`, `avatar_get` and `avatar`. A server names it only for a
@@ -167,28 +165,28 @@ export const PICA_MOBILE_SERVER_MESSAGE_TYPE = {
  * `chat.delete` stands for the one request `chat_delete` with its answer
  * `chat_deleted`; a server names it only together with `chat.v1`.
  * `conversations.v1` stands for the stored conversations with people, agents
- * and groups (PAGE-278): the requests `conversations_list`,
+ * and groups: the requests `conversations_list`,
  * `conversation_history`, `conversation_participants`, `conversation_create`,
  * `conversation_send`, `conversation_read`, `conversation_mute` and the
  * chunked voice upload `voice_start`, `voice_chunk`, `voice_finish`,
  * `voice_cancel`, with their answers, the `conversation_event` messages the
  * server sends on its own, and the voice endpoint on the same port.
- * `conversations.stream.v1` (PAGE-381) adds the `answer_*` events of
+ * `conversations.stream.v1` adds the `answer_*` events of
  * `conversation_event` to `conversations.v1`: the text, thoughts, tool calls,
  * steered messages and end of the answer an agent is writing, and a snapshot
  * of every such answer after the authentication. Only the connection of the
  * signed-in browser on the Pages port names it; the endpoint of Pica Mobile
  * never does and never sends these events.
  * `plans.flow.v1` stands for the opt-in `flow` of `plans_sync` and
- * `plan_get` (PAGE-281): the frozen structure of a run with every node, its
+ * `plan_get`: the frozen structure of a run with every node, its
  * states, loop iterations, progress and revision in `plan`, and the `state`
  * key in the plan rows; a server names it only together with `plans.v1`.
- * `speech.v1` stands for the speech recognition of the instance (PAGE-273):
+ * `speech.v1` stands for the speech recognition of the instance:
  * `speech_config_get` with its answer `speech_config`, and the chunked
  * recording `speech_start`, `speech_chunk`, `speech_finish`, `speech_cancel`
  * with the answers `speech_result` and `speech_error`. A server names it only
  * while a speech model is set up and the account may use Pica.
- * `calendar.v1` stands for the calendar of Pages (PAGE-301): `calendar_range`
+ * `calendar.v1` stands for the calendar of Pages: `calendar_range`
  * with its answer `calendar`, `calendar_event_save` and
  * `calendar_event_respond` with the answer `calendar_event`,
  * `calendar_event_delete` with `calendar_event_deleted`, `calendar_invitees`
@@ -249,7 +247,6 @@ export const picaMobileRequestIdSchema = z.string().regex(/^[\w.:-]{1,64}$/u);
 
 /**
  * The credentials of an `auth` message.
- *
  * @remarks
  * `session` resumes with a session token the server issued before; `password`
  * signs in with the Pages account and receives such a token in the answer.
@@ -288,7 +285,6 @@ export const picaMobileAvatarGetPayloadSchema = z.object({
 /**
  * A `plans_sync` message names the `seq` of the last `plans` message the
  * client applied; `null` asks for the full list.
- *
  * @remarks
  * `flow: true` (`plans.flow.v1`) asks for the `state` key in every row from
  * this answer on; a client without it gets the rows of `plans.v1` unchanged.
@@ -300,7 +296,6 @@ export const picaMobilePlansSyncPayloadSchema = z.object({
 
 /**
  * A `plan_get` message names the plan whose latest own run the client wants.
- *
  * @remarks
  * `flow: true` (`plans.flow.v1`) asks for the whole structure of the run in
  * `run.flow`; without it the run has the form of `plans.v1`.
@@ -321,7 +316,6 @@ const picaMobileChatItemIdSchema = z.string().regex(/^[a-zA-Z0-9-]{1,100}$/u);
 /**
  * The eight requests of `chat.v1` and `chat_delete` of `chat.delete`, each
  * with its payload.
- *
  * @remarks
  * `text` is bounded here by UTF-16 code units only; the chat counts its
  * characters and answers a longer message with `chat_failed`
@@ -443,7 +437,6 @@ export interface PicaMobileDashboardProfile {
 
 /**
  * The result of one dashboard section.
- *
  * @remarks
  * `ready` with no items is a successful empty list; `forbidden` means the
  * account may not read the section and `error` that Pages could not deliver
@@ -630,7 +623,6 @@ export interface PicaMobileAvatarPayload extends PicaMobileAvatarReference {
 
 /**
  * State of a plan in `plans`.
- *
  * @remarks
  * `idle` means the account has no own run of the plan it may read; Pages has
  * no run state `blocked`, so a plan never has it.
@@ -648,7 +640,6 @@ export interface PicaMobilePlanError {
 
 /**
  * A plan with its latest own run, complete.
- *
  * @remarks
  * Every field without a value is absent. Texts are at most
  * {@link PICA_MOBILE_MAXIMUM_PLAN_TEXT_LENGTH} code units long.
@@ -678,7 +669,6 @@ export type PicaMobilePlanRowField = Exclude<keyof PicaMobilePlanRow, "id">;
 
 /**
  * A plan row as a change: the identifier and the fields that changed.
- *
  * @remarks
  * `null` means the field no longer has a value.
  */
@@ -690,7 +680,6 @@ export type PicaMobilePlanRowChange = { readonly id: string } & {
 
 /**
  * The payload of `plans`: the answer to `plans_sync` or a change Pages sends on its own.
- *
  * @remarks
  * With `full` the rows replace the list of the client. Without it `plans`
  * holds new rows in full and changed rows as {@link PicaMobilePlanRowChange},
@@ -706,7 +695,6 @@ export interface PicaMobilePlansPayload {
 
 /**
  * The answer to `plan_get`.
- *
  * @remarks
  * `ok` with `run: null` means the plan belongs to the list but has no own run
  * the account may read; `gone` that the plan does not or no longer belong to it.
@@ -767,7 +755,6 @@ export interface PicaMobileChatJobSummary {
 
 /**
  * The answer to `chat_open`, `chat_new` and `chat_session_get`.
- *
  * @remarks
  * `messages` holds the newest page, oldest first: at most 30 messages and
  * 400000 characters, but always at least one message when the session has
@@ -848,7 +835,6 @@ export type PicaMobileChatJobEvent =
 
 /**
  * The answer to `chat_job_get`.
- *
  * @remarks
  * `cursor` counts every journal entry read, also the ones left out; a page
  * holds at most 200 entries and 200000 characters, otherwise `hasMore` is
@@ -870,7 +856,6 @@ export type PicaMobileChatJobPayload =
 
 /**
  * An answer of `chat.v1` or `chat.delete` without its envelope.
- *
  * @remarks
  * `chat_failed` carries a code of the chat, such as `sessionMissing` or
  * `messageTooLong`, never a text.

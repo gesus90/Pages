@@ -1,15 +1,15 @@
-# Wiki-Entwurf PAGE-307: Laufdiagnose für das ganze Team
+# Wiki-Entwurf: Laufdiagnose für das ganze Team
 
-Dieser Entwurf ist für zwei Seiten bestimmt. All Might überträgt ihn nach der Abnahme:
+Dieser Entwurf ist für zwei Seiten bestimmt:
 
 - [Agent-Definitionen, Arbeitsplätze und Arbeitspläne: technische Umsetzung](/wiki/3301f98d-8727-4c7b-97dc-8a8262d4e440): Teil A als neuer Abschnitt.
 - [Pages-Schnittstelle und MCP: technische Umsetzung](/wiki/6d5a37ed-6ab1-4c4e-8962-96b7f1224b5b): Teil B als neuer Abschnitt.
 
-Die Wiki-Seiten selbst wurden von diesem Lauf nicht geändert.
+Die Live-Wiki wird getrennt gepflegt.
 
 ## Teil A: Agent-Pläne (Leseregel, Fehlerklassen, Logs, Zeitachse)
 
-### Befund: Bindung der Läufe an das startende Konto (vor PAGE-307)
+### Befund: Bindung der Läufe an das startende Konto (vor der Laufdiagnose)
 
 - `backend/service/agents/AgentPlanRunReader.ts`, `loadAuthorizedPlanRun`: `if (!run || run.userId !== userId) throw new AgentError("plan_access_denied")`. Darüber liefen `AgentPlanService.run` und damit alle Lesewerkzeuge.
 - `backend/database/repositories/agent/AgentPlanRunVisibilityRepository.ts` (`WHERE runs.user_id = $user_id`) und `AgentPlanRunRepository.entries` / `latestOwn` / `list` / `active` listeten nur Läufe des Kontos; `AgentPlanService.runEntries` / `runOverview` reichten das durch. Deshalb war `latestRun` bei `list_plans` für andere Konten `null`.
@@ -28,13 +28,13 @@ Die Pläne-Lesungen (`list_plans.latestRun`, `read_plan.status`, `list_plan_runs
 
 ### Fehlerklassen
 
-Fest: `model`, `tool_missing`, `timeout`, `git`, `workspace_busy`, `permission`, `plan_invalid`, `process_crash`, `runner_unavailable`, `acceptance_failed`, `unknown`. Weitere Klassen nur durch Änderung von PAGE-307 und PMCP-13.
+Fest: `model`, `tool_missing`, `timeout`, `git`, `workspace_busy`, `permission`, `plan_invalid`, `process_crash`, `runner_unavailable`, `acceptance_failed`, `unknown`. Weitere Klassen nur durch eine Änderung dieses Vertrags.
 
 `AgentRunErrorClassifier.ts` ordnet jeden gespeicherten Fehlercode einer Klasse zu (feste Mengen und Präfixe); Text ohne Code ergibt `unknown` mit Code `unknown_error`. Jede Klasse hat einen festen Hinweis, jeder Code seine Meldung aus `AGENT_ERROR_MESSAGES`. Weil alle Läufe dieselben Codes tragen, werden alte Läufe beim Lesen eingeordnet. Ergebnisse tragen `errorClass`, `errorCode`, `errorHint` je Lauf und Schritt (und in Diagnose und Bericht).
 
 ### Fehlerindex
 
-Migration `047_agent_run_diagnosis.sql`: `agent_run_failures` (ein Satz je fehlgeschlagenem Schritt), `agent_run_failure_index` (Schreibrevision, Fehler des Laufs, Endzeit). Der `AgentRunFailureIndexer` ordnet Läufe, deren `recovery_revision` vom Index abweicht, vor jeder Liste nach (läuft in mehreren Prozessen, daher kein Schreibhaken). Vor dem Löschen früherer Läufe (PAGE-255) wird der Lauf noch indexiert: Fehlerserien bleiben nach der Aufbewahrungsdauer zählbar, auch wenn der Lauf selbst fehlt (Beispiel-Lauf-IDs bevorzugen vorhandene Läufe).
+Migration `047_agent_run_diagnosis.sql`: `agent_run_failures` (ein Satz je fehlgeschlagenem Schritt), `agent_run_failure_index` (Schreibrevision, Fehler des Laufs, Endzeit). Der `AgentRunFailureIndexer` ordnet Läufe, deren `recovery_revision` vom Index abweicht, vor jeder Liste nach (läuft in mehreren Prozessen, daher kein Schreibhaken). Vor dem Löschen früherer Läufe nach der bestehenden Aufbewahrungsregel wird der Lauf noch indexiert: Fehlerserien bleiben nach der Aufbewahrungsdauer zählbar, auch wenn der Lauf selbst fehlt (Beispiel-Lauf-IDs bevorzugen vorhandene Läufe).
 
 ### Logs
 
@@ -52,7 +52,7 @@ Ansicht „Läufe“ unter Agents (`/agents/runs`, Link auch im Plan-Panel): Fil
 
 ## Teil B: Pages-Schnittstelle und MCP
 
-Neue lesende Operationen (`plans.runs.search`, `plans.runs.failures`, `plans.run.timeline.read`, `plans.run.logs.read`) und Werkzeuge `list_runs`, `summarize_run_failures`, `read_plan_run_timeline`, `read_plan_run_logs` (`definition/AgentTools/PlanResources.ts`). Planvertragsversion 15. `read_plan_run_logs` ist in Lauf-Sitzungen gesperrt wie die Diagnose. Der Vertrag gilt identisch für PMCP-13. Alle Routen sind `GET`, Gerätetoken, Hülle und Fehlerformat wie die vorhandenen Routen unter `/api/mcp/v1/`. Zeiten ISO 8601, Dauern in Millisekunden. Fehler: `FORBIDDEN`, `NOT_FOUND`, `INVALID_REQUEST` (mit `reason`: `unknown_parameter`, `parameter_invalid`, `limit_out_of_range`, `time_invalid`, `time_range_reversed`, `cursor_invalid`), `PAYLOAD_TOO_LARGE`. Antworten höchstens 1 MiB; mehr über `cursor`/`nextCursor`. Nicht sichtbare Felder fehlen und stehen in `hiddenFields` (Liste, kann leer sein).
+Neue lesende Operationen (`plans.runs.search`, `plans.runs.failures`, `plans.run.timeline.read`, `plans.run.logs.read`) und Werkzeuge `list_runs`, `summarize_run_failures`, `read_plan_run_timeline`, `read_plan_run_logs` (`definition/AgentTools/PlanResources.ts`). Planvertragsversion 15. `read_plan_run_logs` ist in Lauf-Sitzungen gesperrt wie die Diagnose. Der Vertrag gilt identisch für den eigenständigen MCP-Client. Alle Routen sind `GET`, Gerätetoken, Hülle und Fehlerformat wie die vorhandenen Routen unter `/api/mcp/v1/`. Zeiten ISO 8601, Dauern in Millisekunden. Fehler: `FORBIDDEN`, `NOT_FOUND`, `INVALID_REQUEST` (mit `reason`: `unknown_parameter`, `parameter_invalid`, `limit_out_of_range`, `time_invalid`, `time_range_reversed`, `cursor_invalid`), `PAYLOAD_TOO_LARGE`. Antworten höchstens 1 MiB; mehr über `cursor`/`nextCursor`. Nicht sichtbare Felder fehlen und stehen in `hiddenFields` (Liste, kann leer sein).
 
 ### Bestehende Lauf-Werkzeuge
 
@@ -88,5 +88,5 @@ Parameter: `stepId`, `attemptId`, `level` (`debug`, `info`, `warn`, `error`; Min
 
 ### Offen
 
-- Der eigenständige Client (PMCP-13) setzt denselben Vertrag um; ein Abgleich gegen `PlanResources.ts` ist bei der Abnahme zu prüfen.
-- Läufe vor PAGE-307 haben keine Logzeilen; ihre Fehler werden nur eingeordnet.
+- Der eigenständige MCP-Client setzt denselben Vertrag um; ein Abgleich gegen `PlanResources.ts` ist bei der Abnahme zu prüfen.
+- Läufe vor der Einführung der Laufdiagnose haben keine Logzeilen; ihre Fehler werden nur eingeordnet.

@@ -24,14 +24,12 @@ export interface WikiNavigationState {
 
 /**
  * Keeps which branches are open and carries out drops in the tree.
- *
  * @param navigation - The visible pages and the stored open branches.
  * @returns State and handlers for the tree.
- *
  * @remarks
  * Branches that hold the open page stay open. Opening and closing is stored
  * for the person; a drop that does not change the audience moves at once,
- * every other drop first asks in the move dialog (T4.4.3).
+ * every other drop first asks in the move dialog.
  */
 export function useWikiNavigation(
   navigation: WikiNavigation,

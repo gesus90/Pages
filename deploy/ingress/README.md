@@ -1,6 +1,6 @@
 # Static app entrance
 
-Since PAGE-235 the Pages interface is a static app without server rendering.
+The Pages interface is a static app without server rendering.
 `node pages-ingress.mjs --config /absolute/config.toml --listen <address>:<port> --backend http://127.0.0.1:<api-port>`
 starts its entrance from the same versioned build as the API. nginx or another
 web server is not required.
@@ -16,16 +16,16 @@ The entrance
   `/live-changes` (event stream, unbuffered), attachments, and WebSocket
   upgrades of runners and consoles;
 - passes `/live-changes` to `pages-core` instead when started with
-  `--core http://127.0.0.1:<core-port>` (PAGE-237, `deploy/core/README.md`);
+  `--core http://127.0.0.1:<core-port>` (`deploy/core/README.md`);
   without `--core` the API serves it as before. `/api/core/` is never passed
   on;
 - passes `/service-status` and `/service-status/details` to `pages-core` when
-  started with `--service-status http://127.0.0.1:<core-port>` (PAGE-238);
+  started with `--service-status http://127.0.0.1:<core-port>`;
   without it both answer `404`, and the API never serves them;
 - passes the WebSocket upgrades of runners (`/runner/v1/channel/<id>`) to
   `pages-core` when started with `--core-runner http://127.0.0.1:<core-port>`,
   and those of the consoles (`…/console/socket`, `…/setup/socket`) with
-  `--core-console http://127.0.0.1:<core-port>` (PAGE-239); each switch on its
+  `--core-console http://127.0.0.1:<core-port>`; each switch on its
   own, without it the API answers as before. An upgrade below `/api/core/` is
   refused with `404`;
 - keeps `Host`, cookies, status codes, redirects and content types, sets

@@ -5,7 +5,7 @@ import { CONVERSATION_ROUND_LIMITS_RANGE } from "@/definition/ConversationObserv
 
 import type { ConversationRoundLimits } from "@/definition/ConversationObserver";
 
-/** The bounded number of contributions without @ per round (PAGE-349); @ hand-overs are not limited. */
+/** The bounded number of contributions without @ per round; @ hand-overs are not limited. */
 export function ChatPageRoundLimits({
   limits,
   isDisabled,

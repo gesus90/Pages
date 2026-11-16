@@ -28,7 +28,6 @@ function isTab(value: string): value is RunTab {
 
 /**
  * One run with the tabs Steps, Timeline and Logs.
- *
  * @remarks
  * Whoever may see the plan reads the run, whoever started it. Fields left
  * out for lack of access to the content of the run are named, not guessed.

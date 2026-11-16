@@ -30,7 +30,6 @@ const PROJECT_COLORS: readonly CalendarColor[] = [
 
 /**
  * The color of a calendar of the filter list.
- *
  * @param key - The filter of an entry or of the list.
  * @param projectIds - The project IDs in the order of the filter list.
  */

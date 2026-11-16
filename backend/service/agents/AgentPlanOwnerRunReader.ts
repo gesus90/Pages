@@ -19,7 +19,6 @@ export interface AgentPlanRunFlow {
   numberOf(nodeId: string): number | null;
   /**
    * Whether an identifier names a step of the executed plan.
-   *
    * @remarks
    * Start and End are no steps, and neither is a row the run view derives,
    * such as the summary of a group, which names no node of the plan.
@@ -31,7 +30,6 @@ export interface AgentPlanRunFlow {
 
 /**
  * Why an account may follow a run.
- *
  * @remarks
  * `starter`: the account started the run, whoever owns the plan. `team`: the
  * account is a member or leader of the department the plan belongs to now and
@@ -41,7 +39,6 @@ export type AgentPlanRunRelation = "starter" | "team";
 
 /**
  * What an account may do with a run right now.
- *
  * @remarks
  * `gone` means no run with this identifier exists any more; `denied` that it
  * exists but the account neither started it nor belongs to the team of its
@@ -105,7 +102,6 @@ function describeFlow(plan: AgentPlan): AgentPlanRunFlow {
 
 /**
  * Reads a run for the account that follows it, with every right checked again.
- *
  * @remarks
  * The starter of a run reads it through the same checks as opening it on the
  * plan page, whoever owns the plan. Another account reads it only as a current
@@ -119,7 +115,6 @@ export class AgentPlanOwnerRunReader {
 
   /**
    * Creates the reader.
-   *
    * @param dependencies - Run storage and the checks every read of a run needs.
    */
   public constructor(dependencies: PlanRunReadDependencies) {
@@ -128,7 +123,6 @@ export class AgentPlanOwnerRunReader {
 
   /**
    * Reads a run for an account.
-   *
    * @param accountId - The account that asks.
    * @param runId - The run.
    * @returns The run when the account started it or belongs to the team of its

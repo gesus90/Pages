@@ -40,8 +40,8 @@ const PACKAGE_READERS: Readonly<
 };
 
 /**
- * Reads the bytes of a document in the browser as its readable view
- * (PAGE-385). No server converts the file and no new software is needed.
+ * Reads the bytes of a document in the browser as its readable view.
+ * No server converts the file and no new software is needed.
  *
  * @remarks
  * The content becomes plain data that the chat renders as text with its own

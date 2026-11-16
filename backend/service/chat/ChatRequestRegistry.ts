@@ -4,11 +4,10 @@ import { logCaughtError } from "@/backend/logging/Logger";
 
 /**
  * Whom a request excludes while it runs.
- *
  * @remarks
  * `person` is one answer per account, for Pica and the API path: a second
  * one of the same account is refused. `session` is a job of an agent
- * employee (PAGE-304): it excludes only its own job ID, so one agent
+ * employee: it excludes only its own job ID, so one agent
  * answers in several chats at once; its own limits per agent and in total
  * queue its jobs before they reach this registry.
  */
@@ -80,11 +79,9 @@ export class ChatRequestRegistry {
 
   /**
    * Admits work that outlives the request which started it, such as a Pica job.
-   *
    * @remarks
-   * Its database jobs leave the request (PAGE-199). A person stops it through
+   * Its database jobs leave the request. A person stops it through
    * {@link cancel}, a server stop through {@link shutdown}.
-   *
    * @returns The running work; it settles like {@link run}.
    * @throws {AgentExecutionError} `requestBusy` synchronously, before anything runs.
    */
@@ -130,13 +127,11 @@ export class ChatRequestRegistry {
 
   /**
    * Refuses work that {@link run} would refuse, before the caller stores anything for it.
-   *
    * @remarks
-   * Before PAGE-304 every request excluded every other one of its account,
+   * Earlier every request excluded every other one of its account,
    * so the job of an agent in one chat refused its answer in every other
    * chat. A `session` request is therefore checked against its own ID only
    * and does not count towards the capacity of the `person` requests.
-   *
    * @throws {AgentExecutionError} `requestBusy`.
    */
   public requireAdmission(

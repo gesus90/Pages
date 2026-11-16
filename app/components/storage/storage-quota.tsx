@@ -50,7 +50,6 @@ function useQuotaReading(): QuotaReading {
 
 /**
  * Computes share and remaining storage, only where they mean something.
- *
  * @remarks
  * Without a limit (unlimited), with a limit of zero, or with a possible
  * Workspace pool, whose limit belongs to the whole organization, no share is

@@ -20,7 +20,6 @@ export interface ProviderMedia {
 
 /**
  * Bounds and redacts a text of a provider before the agent sees it.
- *
  * @param text - What the provider or the model wrote.
  */
 export function boundedDetail(text: string): string {

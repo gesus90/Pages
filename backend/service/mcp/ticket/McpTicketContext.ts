@@ -16,7 +16,6 @@ const TICKET_KEY_PATTERN = /^[A-Za-z][A-Za-z0-9]*-\d+$/u;
 
 /**
  * The services the ticket API calls: the very ones the interface uses.
- *
  * @remarks
  * The API adds no business logic and no right of its own; every call goes
  * through these services with the paired account as the actor.
@@ -41,7 +40,6 @@ export class McpTicketContext {
 
   /**
    * Creates the context of one request.
-   *
    * @param actor - The account the device token acts for.
    * @param services - The ticket services of the interface.
    */
@@ -52,7 +50,6 @@ export class McpTicketContext {
 
   /**
    * Reads a ticket by key or id with the visibility rules of the interface.
-   *
    * @param reference - `PAGE-12` or the id of the ticket.
    * @returns The ticket, archived ones included.
    * @throws {WorkItemNotFoundError} When it does not exist or is hidden.
@@ -67,7 +64,6 @@ export class McpTicketContext {
 
   /**
    * Names a person by username and display name.
-   *
    * @param userId - Internal id of the person, or `null`.
    * @returns The person, or `null` for none or an account that no longer exists.
    */
@@ -86,11 +82,9 @@ export class McpTicketContext {
 
   /**
    * Resolves a username to a person the account can see.
-   *
    * @remarks
    * Visible are the people who may work in at least one project of the
    * account; everyone else answers like an unknown name.
-   *
    * @param username - The username from the request.
    * @throws {McpTicketError} `not_found` for an unknown or hidden person.
    */
@@ -105,7 +99,6 @@ export class McpTicketContext {
 
   /**
    * Resolves a username to a person who may receive tickets of a project.
-   *
    * @param projectId - The project of the ticket.
    * @param username - The username from the request.
    * @returns The id of the person.

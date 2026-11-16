@@ -32,7 +32,6 @@ type StoredTemplateResult = Pick<
 
 /**
  * Renames, replaces and deletes node templates for the agent tools and the paired machines.
- *
  * @remarks
  * Every call runs through the template service of the plan editor, so only
  * the owner changes a template and a replacing node takes the checks of a new
@@ -57,7 +56,6 @@ export class AgentPlanTemplateCommands {
 
   /**
    * Applies one template command, or answers a repetition of it.
-   *
    * @param userId - The verified person.
    * @param operation - `plans.templates.update` or `plans.templates.delete`.
    * @param input - The raw parameters.

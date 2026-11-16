@@ -142,7 +142,7 @@ export function buildPicaMobileCalendarPushMessage(
 
 /**
  * Pushes new invitations of the calendar to the Pica Mobile devices of the
- * invited accounts (PAGE-301).
+ * invited accounts.
  *
  * @remarks
  * The creator never receives a push, nor does an account that switched off

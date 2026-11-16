@@ -124,11 +124,9 @@ export class McpDevicePairingRepository {
 
   /**
    * Stores a request unless its address reached a limit.
-   *
    * @param pairing - The request with the hashes of its code, secret and address.
    * @param limits - Starts per window and open requests per address.
    * @returns Whether the request was stored, the address has to wait, or the code exists already.
-   *
    * @remarks
    * Counting and storing run in one transaction of the single writer, so two
    * simultaneous starts cannot both pass the last free place. Requests that

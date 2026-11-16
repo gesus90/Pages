@@ -1,4 +1,4 @@
-//! The service status of the platform (PAGE-238): `GET /service-status` and
+//! The service status of the platform: `GET /service-status` and
 //! `GET /service-status/details`, as described in `definition/ServiceStatus.ts`.
 //!
 //! The public status is one light and needs neither `pages-api` nor a
@@ -6,7 +6,7 @@
 //! admin session, which `pages-api` confirms for every request over contract
 //! v1; without its answer in time there are no details, only the light. The
 //! details also carry when the PostgreSQL base backup last succeeded
-//! (PAGE-282), read from the managers the same way.
+//!, read from the managers the same way.
 
 use hyper::StatusCode;
 use serde::Serialize;

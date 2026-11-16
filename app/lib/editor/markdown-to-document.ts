@@ -412,7 +412,6 @@ function convertTable(table: Table): EditorJsonNode {
 
 /**
  * A block that shows its markdown as source.
- *
  * @param text - The markdown, kept character for character.
  * @returns The source block.
  */
@@ -491,11 +490,9 @@ function attachAnchor(
 
 /**
  * Reads markdown into the blocks of the editor.
- *
  * @param source - Markdown text of a page.
  * @returns One editor block per top-level markdown block, each with the
  * place it came from.
- *
  * @remarks
  * The rules follow the wiki renderer, so the editor shows what the page
  * shows: callouts and toggles are marked quotes, `[toc]` is the table of

@@ -94,7 +94,6 @@ function SetupWizardSteps({
 /**
  * Guides through the four setup steps: welcome, company, administrator,
  * and database.
- *
  * @remarks
  * All entered values stay in memory only. They survive moving between
  * steps, a language change, and a renewed token, but not a reload; a

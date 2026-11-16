@@ -52,7 +52,6 @@ export class ProjectManagementService {
 
   /**
    * Returns the service for another surface with the same storage, cache and deletion effects.
-   *
    * @param channel - Whether the administrator is read from the interface mode or from MCP eligibility.
    */
   public forChannel(channel: ActorChannel): ProjectManagementService {
@@ -265,7 +264,7 @@ export class ProjectManagementService {
     this.invalidateScope(projectId);
   }
 
-  /** Archives only as administrator, the rule of the permanent deletion (PAGE-244). */
+  /** Archives only as administrator, the rule of the permanent deletion. */
   public async archive(actor: User, projectId: string): Promise<void> {
     await this.repository.transaction(async (repository) => {
       const access = new ProjectAccessService(
@@ -293,7 +292,6 @@ export class ProjectManagementService {
 
   /**
    * Reads an archived project with its contents for an account that may see it.
-   *
    * @param actor - The authenticated account.
    * @param projectId - The archived project.
    * @returns The project, its team, goals, tags, dates and GitHub settings.

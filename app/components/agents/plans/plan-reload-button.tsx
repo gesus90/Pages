@@ -5,7 +5,6 @@ import { Button } from "@/app/components/ui/button";
 
 /**
  * Loads the stored plan again after another person saved a newer revision.
- *
  * @remarks
  * Nothing is overwritten or copied. Unsaved edits are only dropped after the
  * discard question of the leave guard, and the plan opens at the revision

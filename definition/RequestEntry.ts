@@ -3,7 +3,6 @@ export type ReportedProtocol = "http" | "https" | "absent" | "invalid";
 
 /**
  * How a request reached the API, as far as the entrance could verify it.
- *
  * @remarks
  * Only facts about the TCP peer and the forwarding headers of one request, never
  * an address, a header value or a credential. The origin guards use it to tell a

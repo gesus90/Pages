@@ -22,8 +22,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpTicketHandlers {
 }
 
 /**
- * Removes a link of a ticket (`DELETE /api/mcp/v1/tickets/{key}/links/{linkId}`), PAGE-242 interface 10.
- *
+ * Removes a link of a ticket (`DELETE /api/mcp/v1/tickets/{key}/links/{linkId}`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

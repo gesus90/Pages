@@ -4,10 +4,10 @@ import type { Database } from "@/backend/database/Database";
 
 /**
  * Why a conversation of an agent exists: a person's chat with it, its
- * dream runs (`learning`), its answers in a stored conversation (PAGE-276),
- * whose ID then stands in `personId`, the runs of one automation (PAGE-297),
+ * dream runs (`learning`), its answers in a stored conversation,
+ * whose ID then stands in `personId`, the runs of one automation,
  * whose session key stands there, or the updates of its memory and the
- * summaries of its chats (`memory`, PAGE-305).
+ * summaries of its chats (`memory`).
  */
 export type AgentConversationPurpose =
   "chat" | "learning" | "conversation" | "automation" | "memory";
@@ -21,8 +21,7 @@ export interface AgentConversation {
 }
 
 /**
- * Ties the chat sessions of agents to the person they talk with (PAGE-266).
- *
+ * Ties the chat sessions of agents to the person they talk with.
  * @remarks
  * The chat session belongs to the agent's account, so a session runs with
  * the agent's rights; this table names the person it talks with. The
@@ -69,8 +68,7 @@ export class AgentConversationRepository {
 
   /**
    * Finds the group a name stands for among the groups all given accounts
-   * belong to (PAGE-376); the newest when several carry the name.
-   *
+   * belong to; the newest when several carry the name.
    * @param name - The name of the group, compared without regard to case.
    * @param memberIds - The accounts that must all be members.
    * @returns The ID of the group, or `null`.
@@ -108,9 +106,8 @@ export class AgentConversationRepository {
   }
 
   /**
-   * The name of a group all given accounts belong to (PAGE-392), for the
+   * The name of a group all given accounts belong to, for the
    * scheduled task bound to it.
-   *
    * @param conversationId - The group.
    * @param memberIds - The accounts that must all be members.
    * @returns The name of the group, or `null` when it is gone or one of
@@ -153,7 +150,6 @@ export class AgentConversationRepository {
   /**
    * Returns the conversation, creating it and its chat session owned by the
    * agent when it does not exist yet.
-   *
    * @param conversation - Agent, person and purpose.
    * @param sessionId - The unused ID a new chat session takes.
    */

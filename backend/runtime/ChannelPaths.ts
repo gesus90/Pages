@@ -4,7 +4,7 @@ import type { RemoteConsoleScope } from "@/backend/service/remote/RemoteConsoleS
 
 // The WebSocket paths of runners and consoles on the Pages port. The API's
 // channels and the entrance both read them: the entrance passes each to the
-// API or, behind its switch, to `pages-core` (PAGE-239).
+// API or, behind its switch, to `pages-core`.
 const UUID = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
 
 /** The channel lives next to the console route it belongs to. */
@@ -76,7 +76,7 @@ export function isRunnerChannel(url: string | undefined): boolean {
 
 /**
  * Whether an upgrade request addresses the `conversations.v1` channel of the
- * signed-in browser (PAGE-381).
+ * signed-in browser.
  *
  * @param url - The request target, path and query.
  * @returns `true` for the channel path of the chat page.

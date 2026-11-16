@@ -1,6 +1,5 @@
 /**
  * Static circuit traces for the navigation margin, never for content surfaces.
- *
  * @param colors - Line and node inks of the resolved palette.
  * @returns A self-contained SVG background with deliberately faint strokes.
  */

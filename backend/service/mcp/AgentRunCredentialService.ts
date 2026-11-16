@@ -21,7 +21,6 @@ export interface IssuedRunCredential {
 
 /**
  * Issues, verifies and ends the credentials of agent plan sessions.
- *
  * @remarks
  * A session reaches the agent API through the local MCP process with the
  * rights of its executor, narrowed to the operations and tickets of its node.
@@ -34,7 +33,6 @@ export class AgentRunCredentialService {
 
   /**
    * Creates the service.
-   *
    * @param repository - Storage of the hashed credentials.
    * @param identities - Resolves the current rights of the executor; only the
    * verifying side needs it.
@@ -49,7 +47,6 @@ export class AgentRunCredentialService {
 
   /**
    * Issues the credential of one node.
-   *
    * @param userId - The executor of the run.
    * @param scope - The run, the node, its operations and tickets.
    * @param lifetimeMs - How long the credential may be used at most; zero keeps it valid until revocation.
@@ -77,7 +74,6 @@ export class AgentRunCredentialService {
 
   /**
    * Resolves a credential of a session to the current rights of its executor.
-   *
    * @param token - The presented clear text.
    * @returns The identity with its run scope, or `null` when the text is no
    * valid session credential.
@@ -98,7 +94,6 @@ export class AgentRunCredentialService {
 
   /**
    * Ends the credentials of one node, or of a whole run when no node is named.
-   *
    * @returns How many credentials were still valid before.
    */
   public async revoke(runId: string, stepId: string | null): Promise<number> {

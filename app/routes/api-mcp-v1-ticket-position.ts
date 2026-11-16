@@ -26,8 +26,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpTicketHandlers {
 }
 
 /**
- * Sets status and order of a ticket on the board (`PUT /api/mcp/v1/tickets/{key}/position`), PAGE-242 interface 7.
- *
+ * Sets status and order of a ticket on the board (`PUT /api/mcp/v1/tickets/{key}/position`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

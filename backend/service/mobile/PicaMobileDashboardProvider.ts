@@ -11,7 +11,6 @@ export interface PicaMobileSessionIdentity {
 
 /**
  * The answer to a dashboard read.
- *
  * @remarks
  * `sessionEnded` means the session or the account no longer holds; the
  * connection ends as it does when its regular session check fails.
@@ -22,7 +21,6 @@ export type PicaMobileDashboardOutcome =
 
 /**
  * The answer to an avatar read.
- *
  * @remarks
  * `notFound` covers a missing or unusable image and a version that is not the
  * current one any more.
@@ -34,7 +32,6 @@ export type PicaMobileAvatarOutcome =
 
 /**
  * The business answers of an authenticated Pica Mobile connection.
- *
  * @remarks
  * A connection that has no provider does not announce `dashboard.v1` and
  * answers the dashboard messages as unknown. Every call decides from the

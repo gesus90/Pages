@@ -112,7 +112,6 @@ function runtimeFingerprint(input: AgentPlanSessionInput): string {
 
 /**
  * Holds one process and ACP session per group and run between accepted turns, including while paused.
- *
  * @remarks
  * The first member that really runs opens the session; every later member
  * continues it with its own step instruction. Turns of one group wait in a
@@ -219,10 +218,8 @@ export class AgentPlanGroupSessions {
 
   /**
    * Ends and forgets a session that can no longer take a turn, so that the key can open a new one.
-   *
    * @param key - The run and group, as `runId/groupId`.
    * @returns How the old session closed, or `null` when there was none.
-   *
    * @remarks
    * Only a start that carries the full instruction may open the session in
    * its place; the caller marks that start as a new session.
@@ -240,7 +237,6 @@ export class AgentPlanGroupSessions {
 
   /**
    * Queues a turn of the group behind the earlier ones, in the order of the calls.
-   *
    * @param key - The run and group, as `runId/groupId`.
    */
   public reserve(key: string): GroupTurnSlot {
@@ -258,7 +254,6 @@ export class AgentPlanGroupSessions {
 
   /**
    * How the next turn of a group relates to its shared session.
-   *
    * @param key - The run and group, as `runId/groupId`.
    * @param step - The member that takes the turn, and the group's adapter class.
    */
@@ -386,7 +381,6 @@ export class AgentPlanGroupSessions {
 
   /**
    * Runs an executor's instruction as a turn of the group's open session, behind every earlier turn.
-   *
    * @param request - The member's input with the instruction as its prompt.
    * @throws {AgentError} `plan_session_unavailable` when the group's session is closed or lost.
    */

@@ -10,8 +10,7 @@ import type { McpProjectContext } from "./McpProjectContext";
 import type { McpProjectGitHubRequest } from "./McpProjectRequest";
 
 /**
- * Saves, tests, synchronizes and removes the GitHub connection (PAGE-244, interface 11).
- *
+ * Saves, tests, synchronizes and removes the GitHub connection.
  * @remarks
  * The token goes to `saveIntegration` only, which stores it encrypted; no
  * answer, activity entry or error of this service carries it.
@@ -19,7 +18,6 @@ import type { McpProjectGitHubRequest } from "./McpProjectRequest";
 export class McpProjectGitHubService {
   /**
    * Saves the connection; without a token the stored one stays.
-   *
    * @param context - The request.
    * @param projectId - The project.
    * @param request - The validated settings.
@@ -48,7 +46,6 @@ export class McpProjectGitHubService {
 
   /**
    * Checks whether the stored settings reach the repository.
-   *
    * @param context - The request.
    * @param projectId - The project.
    * @returns The outcome and the project with the noted result.
@@ -67,7 +64,6 @@ export class McpProjectGitHubService {
 
   /**
    * Synchronizes the project with GitHub right away.
-   *
    * @param context - The request.
    * @param projectId - The project.
    * @returns The counters of the run, as the project page receives them, and the project.
@@ -86,7 +82,6 @@ export class McpProjectGitHubService {
 
   /**
    * Switches the automatic synchronization on or off.
-   *
    * @param context - The request.
    * @param projectId - The project.
    * @param isEnabled - Whether synchronization runs.
@@ -110,7 +105,6 @@ export class McpProjectGitHubService {
 
   /**
    * Removes the connection together with the stored token.
-   *
    * @param context - The request.
    * @param projectId - The project.
    * @returns The changed project.
@@ -129,7 +123,6 @@ export class McpProjectGitHubService {
 
   /**
    * Requires a stored connection of a project the account can see.
-   *
    * @throws {McpProjectError} `not_found` when the project has none.
    */
   private async requireConnection(

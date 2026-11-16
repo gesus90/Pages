@@ -127,14 +127,12 @@ function ReferenceCard({
 
 /**
  * The earlier attachments of the chat an agent shows again in its answer
- * (PAGE-386): the normal card of each original in the unified card design,
+ * The normal card of each original in the unified card design,
  * with "aus einer früheren Nachricht von …" and "Zur Nachricht" above it.
- *
  * @remarks
  * No copy exists, so the card loads the original and shows its remaining
  * time; an original that expired shows "abgelaufen", one deleted with its
  * message "gelöscht".
- *
  * @returns The cards, or `null` for a message without references.
  */
 export function ReferenceCards({

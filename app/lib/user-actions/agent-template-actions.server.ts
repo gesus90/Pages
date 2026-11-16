@@ -24,7 +24,7 @@ function readTemplate(formData: FormData): unknown {
 }
 
 /**
- * Stores a template of `AGENT.md` (PAGE-283): a new one without
+ * Stores a template of `AGENT.md`: a new one without
  * `templateId`, otherwise the named one. The service checks the right to
  * manage agents and every field.
  */
@@ -51,7 +51,7 @@ export const handleSaveAgentTemplate: UsersActionHandler = async ({
   return data<UsersActionData>({ intent: "save-agent-template", ok: true });
 };
 
-/** Removes a template of `AGENT.md` (PAGE-283); no agent changes with it. */
+/** Removes a template of `AGENT.md`; no agent changes with it. */
 export const handleDeleteAgentTemplate: UsersActionHandler = async ({
   actor,
   formData,

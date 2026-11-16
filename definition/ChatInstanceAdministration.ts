@@ -36,7 +36,6 @@ export function isChatInstanceWriteOperation(
 
 /**
  * A connection as the administration chat reads it.
- *
  * @remarks
  * Only identity, state and kind: API keys, CLI account labels and check
  * details stay inside the connection service.

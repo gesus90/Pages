@@ -53,7 +53,6 @@ export class AgentPlanConfigurationPins {
   /**
    * Copies the configuration of the source profile into every node without
    * one and checks that the nodes of a group agree on provider and connection.
-   *
    * @param userId - The person who saves the plan.
    * @param plan - The plan as proposed, with its project.
    * @param previous - The saved plan it replaces, or `null` for a new one.

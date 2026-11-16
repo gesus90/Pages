@@ -75,7 +75,7 @@ function NumberField({
 }
 
 /**
- * The diagnosis of plan runs under Settings → Agents (PAGE-307): how long
+ * The diagnosis of plan runs under Settings → Agents: how long
  * logs and failure records are kept and after how many minutes without a new
  * event a step counts as stalled.
  */

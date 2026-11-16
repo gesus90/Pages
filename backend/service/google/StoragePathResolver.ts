@@ -27,7 +27,6 @@ const DETACHED_ENTRY: StoragePathEntry = { id: "", name: "", role: "detached" };
 
 /**
  * Builds the path from the root to a folder with the `parents` Drive reports.
- *
  * @remarks
  * Each step asks Drive with the rights of the connected account, so the path
  * never names a folder the account cannot open; where Drive refuses a parent,
@@ -42,7 +41,6 @@ export class StoragePathResolver {
 
   /**
    * Creates a resolver for one request.
-   *
    * @param reader - The Drive client.
    * @param accessToken - The access token of this request; it never leaves the server.
    */
@@ -53,7 +51,6 @@ export class StoragePathResolver {
 
   /**
    * Builds the path of a folder.
-   *
    * @param folder - The folder as Drive just reported it.
    * @returns The steps from the root down to the folder itself.
    */
@@ -78,7 +75,6 @@ export class StoragePathResolver {
 
   /**
    * Names the root of a folder chain.
-   *
    * @param top - The topmost folder Drive showed.
    * @returns One or two steps: My Drive, a shared drive below the shared-drive
    * list, or a detached step before a folder without a visible parent.

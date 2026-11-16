@@ -41,7 +41,7 @@ keine Änderungen an gespeicherten Live-Plänen, Diensten oder Zugangsdaten.
   Sitzungsweg. Ein vollständiger neuer Start hat einen neuen Besitzer.
 
 Die dauerhaften Besitz- und Lebensdauerregeln stehen in
-[AgentPlanRunner.md](../AgentPlanRunner.md#groups-own-loop-sessions-page-412).
+[AgentPlanRunner.md](../AgentPlanRunner.md#groups-own-loop-sessions).
 
 ## Lokale Funktionsnachweise
 

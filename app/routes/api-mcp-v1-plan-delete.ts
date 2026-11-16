@@ -26,8 +26,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpPlanHandlers {
 }
 
 /**
- * Deletes a plan after a question (`POST /api/mcp/v1/plans/{planId}/delete`), PAGE-246 interface 7.
- *
+ * Deletes a plan after a question (`POST /api/mcp/v1/plans/{planId}/delete`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

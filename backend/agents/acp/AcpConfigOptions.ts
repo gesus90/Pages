@@ -24,7 +24,6 @@ function values(
 
 /**
  * Finds a select option of a session by its identifier.
- *
  * @param options - The configuration options the agent reported.
  * @param id - The identifier, such as `model`.
  * @returns The option, or `null` when the agent offers no such select.

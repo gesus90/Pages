@@ -15,7 +15,6 @@ import type { PlanDecisionForm } from "./plan-decision-form";
 
 /**
  * The settings of a model decision: its question, its model and what it answers.
- *
  * @remarks
  * The model choice is the model picker of agent nodes with every model Pages
  * offers; a model that runs over no ACP connection stays listed, disabled

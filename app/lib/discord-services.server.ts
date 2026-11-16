@@ -45,12 +45,10 @@ export interface DiscordServiceContext {
 
 /**
  * Wires the Discord notifications on the shared database.
- *
  * @param context - Repositories, project access and the event publisher.
  * @returns The services of the interface. Without the Discord application of
  * the instance they only explain what is missing: nothing listens to events
  * and nothing is delivered.
- *
  * @remarks
  * The application (id, client secret, bot token) comes from the environment
  * and never leaves this process. The delivery scheduler runs once per process,

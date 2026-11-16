@@ -53,7 +53,6 @@ export interface AssignmentChoices {
 
 /**
  * The model value a saved assignment starts on.
- *
  * @remarks
  * A Claude family alias an earlier version stored, such as `sonnet`, starts
  * on the version the connection's catalog lists for it; saving then stores
@@ -85,7 +84,7 @@ function selectionKey(connectionId: string, modelId: string): string {
 }
 
 // Every connection with a catalog offers its models in the one model choice.
-// An API connection without a stored key is left out (PAGE-248), unless the
+// An API connection without a stored key is left out, unless the
 // saved assignment uses it: a saved assignment stays visible under its provider.
 function assignmentChoices(
   connections: readonly AgentConnectionSummary[],

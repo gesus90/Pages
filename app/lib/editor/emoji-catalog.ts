@@ -266,7 +266,6 @@ function fold(text: string): string {
 
 /**
  * Finds emoji by search words.
- *
  * @param query - What the person typed; every word must match.
  * @param limit - Largest number of results.
  * @returns Matching emoji in picker order; all emoji for an empty query.

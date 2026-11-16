@@ -55,7 +55,6 @@ function shouldReplaceAssignedTodo(
 
 /**
  * Counts ticket, instruction and structured agent TODOs of one node result.
- *
  * @param step - The node result of the selected or running step.
  */
 export function agentTodoSummary(

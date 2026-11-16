@@ -63,7 +63,6 @@ function drawingStyle(
 /**
  * The runs of a DrawingML paragraph (`a:p`), as slides, shapes and charts of
  * Office files hold their text.
- *
  * @param paragraph - The `a:p` element.
  * @param relations - The relations of the part, for links.
  */
@@ -216,14 +215,12 @@ async function slidePaths(archive: ZipArchive): Promise<string[]> {
 }
 
 /**
- * Reads a PowerPoint presentation (`.pptx`) as slides (PAGE-385): title,
+ * Reads a PowerPoint presentation (`.pptx`) as slides: title,
  * text, tables and the images inside the file of every slide.
- *
  * @remarks
  * Macros, embedded objects and media are never run; links and images that
  * point outside the file are not loaded. Layout, themes and animations are
  * left out on purpose.
- *
  * @param archive - The opened package.
  * @returns The slides, or `null` without `ppt/presentation.xml`.
  */

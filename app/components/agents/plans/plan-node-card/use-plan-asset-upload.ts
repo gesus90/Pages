@@ -38,7 +38,6 @@ function useProjectId(): string {
 
 /**
  * Drag and drop and file choice for asset nodes and stacks, with progress.
- *
  * @param onUploaded - Receives each stored file, in the order chosen.
  * @returns The state and the handlers of a drop zone and a file input.
  */

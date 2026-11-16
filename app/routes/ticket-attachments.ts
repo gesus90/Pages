@@ -8,8 +8,7 @@ import type { Route } from "./+types/ticket-attachments";
 
 /**
  * Takes a file for a ticket: `PUT /aufgaben-api/attachments?ticket=<id>&name=<name>`
- * with the file as the body of the request (A8.2-E06).
- *
+ * with the file as the body of the request.
  * @remarks
  * Like wiki uploads, the body is streamed to the disk and counted while it
  * arrives; the answer is JSON with the attachment or an error code.

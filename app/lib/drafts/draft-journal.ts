@@ -10,12 +10,10 @@ import type { DraftJournal, KeptDraft } from "./draft-queue";
 
 /**
  * Keeps an account's unconfirmed edits of one area in the browser's local state.
- *
  * @param ownerId - The signed-in account, or `null` without one.
  * @param area - The kind of object, such as `wiki`; part of the key.
  * @param schema - The shape of the edited fields.
  * @returns The journal, or `null` without an account, which keeps nothing.
- *
  * @remarks
  * The entries share the store of the route answers and with it the account
  * fencing: an entry is written and read only while its account is the one

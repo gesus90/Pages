@@ -138,7 +138,6 @@ function parse<Output>(schema: z.ZodType<Output>, input: unknown): Output {
 
 /**
  * Reads the query of a request as an object of single values.
- *
  * @throws {McpCalendarError} `invalid_request` for a parameter named twice.
  */
 function queryObject(query: URLSearchParams): Record<string, string> {
@@ -157,7 +156,6 @@ function isCalendarKind(text: string): text is CalendarKind {
 
 /**
  * Reads the comma-separated calendar filter.
- *
  * @throws {McpCalendarError} `invalid_request` for an empty or unknown kind.
  */
 function readKinds(text: string): CalendarKind[] {
@@ -212,7 +210,6 @@ function readDelete(body: unknown): McpCalendarDeleteRequest {
 
 /**
  * Reads a path parameter of a calendar resource.
- *
  * @param value - The parameter as the router passes it.
  * @returns The event ID or occurrence ID.
  * @throws {McpCalendarError} `not_found` for a missing or overlong parameter.
@@ -224,7 +221,7 @@ function readEventId(value: string | undefined): string {
   return trimmed;
 }
 
-/** Validators of every query, body and path parameter the calendar API takes (PAGE-301). */
+/** Validators of every query, body and path parameter the calendar API takes. */
 export const McpCalendarRequest = {
   range: readRange,
   invitees: readInvitees,

@@ -5,7 +5,6 @@ const WAV_HEADER_BYTES = 44;
 
 /**
  * Joins the recorded blocks of samples into one.
- *
  * @param blocks - The blocks in the order they were recorded.
  * @returns All samples in one array.
  */
@@ -23,7 +22,6 @@ export function joinSamples(blocks: readonly Float32Array[]): Float32Array {
 /**
  * Brings samples to {@link WAV_SAMPLE_RATE} by averaging the samples each
  * output sample covers.
- *
  * @param samples - Mono samples of the microphone.
  * @param sourceRate - The sample rate of the audio context.
  * @returns The samples at the target rate; unchanged when the rate already fits.
@@ -52,7 +50,6 @@ function writeText(view: DataView, offset: number, text: string): void {
 
 /**
  * Encodes mono samples as a 16-bit PCM WAV file.
- *
  * @param samples - Samples between -1 and 1 at {@link WAV_SAMPLE_RATE}.
  * @returns The file as `audio/wav`.
  */

@@ -71,7 +71,6 @@ export function createRowKey(): number {
 
 /**
  * The entries that show a recipe as the server holds it.
- *
  * @param recipe - The recipe to edit.
  */
 export function createRecipeForm(recipe: AgentRecipeView): RecipeForm {
@@ -100,7 +99,6 @@ function isTextInRange(text: string, limit: number): boolean {
 
 /**
  * What is wrong with the entries of a recipe.
- *
  * @param recipe - The recipe being edited; its kind decides what is checked.
  * @param form - The entries.
  */
@@ -129,7 +127,6 @@ export function checkRecipeForm(
 
 /**
  * Whether any entry of the recipe is wrong.
- *
  * @param problems - What {@link checkRecipeForm} found.
  */
 export function hasRecipeProblems(problems: RecipeProblems): boolean {
@@ -161,11 +158,9 @@ function readSteps(form: RecipeForm): AgentRecipeStep[] {
 
 /**
  * The recipe the entries stand for, ready to save.
- *
  * @remarks
  * What the editor does not show for a kind stays as the server holds it: a
  * flow recipe keeps its body, a knowledge recipe its parameters and steps.
- *
  * @param recipe - The recipe being edited.
  * @param form - The entries, free of problems.
  */

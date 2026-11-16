@@ -67,7 +67,6 @@ export class WorkItemDepartmentRepository {
 
   /**
    * Creates the repository.
-   *
    * @param database - Ticket database or the scope of an open transaction.
    */
   public constructor(database: TaskDatabase) {
@@ -76,7 +75,6 @@ export class WorkItemDepartmentRepository {
 
   /**
    * Reads the department ids of a ticket, ordered by department name.
-   *
    * @param id - Ticket identifier.
    * @returns The ids, or an empty list for a ticket without department.
    */
@@ -86,7 +84,6 @@ export class WorkItemDepartmentRepository {
 
   /**
    * Adds departments to a new ticket.
-   *
    * @param id - Ticket identifier.
    * @param departmentIds - Departments to add; repeats are ignored.
    */
@@ -99,7 +96,6 @@ export class WorkItemDepartmentRepository {
 
   /**
    * Replaces the departments of an active ticket with a new set.
-   *
    * @param id - Ticket whose departments change.
    * @param departmentIds - The new set; empty makes the ticket visible project-wide.
    * @param expected - When given, the stored set must still equal it.

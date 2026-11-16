@@ -43,7 +43,6 @@ export type LoadTileKey = "processor" | "memory" | "swap" | "agents";
 
 /**
  * Tells the level of a share as it is shown.
- *
  * @param ratio - Share from 0 to 1.
  * @returns The level of the rounded percentage, so `59.6 %` shown as `60 %`
  * already counts as elevated.
@@ -58,7 +57,6 @@ export function loadLevel(ratio: number): LoadLevel {
 
 /**
  * The effective ceiling of ACP instances.
- *
  * @param maximum - The configured "maximum ACP instances".
  * @returns The configured value; `0` stands for the absolute ceiling.
  */
@@ -72,7 +70,6 @@ function share(part: number, whole: number): number | null {
 
 /**
  * Reads the share of every tile from one measurement.
- *
  * @param dashboard - The measurement.
  * @returns Shares from 0 to 1; `null` where a value is missing.
  */

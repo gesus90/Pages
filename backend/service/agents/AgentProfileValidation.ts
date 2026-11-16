@@ -112,7 +112,6 @@ function permissionModeRefusal(provider: AgentProviderId): AgentErrorCode {
 
 /**
  * Refuses run options the agent's runner does not offer.
- *
  * @param provider - The provider of the agent's model connection.
  * @param run - The run options to store.
  * @param previous - The run options stored so far; absent for a new agent.

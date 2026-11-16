@@ -24,7 +24,6 @@ export interface EditorKeymapOptions {
 /**
  * Starts a new undo step before a markdown shortcut changes a block, so undo
  * restores the typed characters instead of removing the typing as well.
- *
  * @param transaction - A transaction about to be applied.
  * @param state - The state it applies to.
  * @returns Always `true`; the transaction is only marked.

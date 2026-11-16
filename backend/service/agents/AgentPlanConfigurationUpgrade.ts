@@ -17,7 +17,6 @@ interface UpgradeDependencies {
 
 /**
  * Pins legacy JSON graphs before the application accepts template edits.
- *
  * @remarks
  * There is no schema change. Each changed graph uses its existing atomic
  * revision check. Pinned content stays intact; only unambiguous connection

@@ -21,7 +21,6 @@ async function planAssets(): Promise<PlanAssetService> {
 
 /**
  * Describes a plan asset: `GET /agent-api/plan-assets?id=<asset>`.
- *
  * @remarks
  * Answers whether the person may still read it and whether its bytes are
  * still there, so a reopened plan shows a missing or unreadable file at once.
@@ -48,7 +47,6 @@ export async function loader({
 /**
  * Takes a file for an asset node or stack entry:
  * `PUT /agent-api/plan-assets?projectId=<project>&name=<name>` with the file as the body.
- *
  * @remarks
  * The body is streamed to the store and counted while it arrives; the type is
  * detected from the content. The answer names the stored file, which the

@@ -2,8 +2,7 @@ import type { TFunction } from "i18next";
 import type { ConversationObserverFailure } from "@/definition/ConversationObserver";
 
 /**
- * Explains why a group observer call gave no result, in the visitor's language (PAGE-340).
- *
+ * Explains why a group observer call gave no result, in the visitor's language.
  * @param t - The translation function of the component.
  * @param failure - The stored failure; only its stable code is shown.
  * @returns A readable cause; an unknown code is named as it is.

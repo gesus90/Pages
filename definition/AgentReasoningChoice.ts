@@ -9,7 +9,6 @@ const LEVEL_PICKER_PROVIDERS: readonly string[] = ["claude_code", "codex_cli"];
 
 /**
  * Whether the models of a provider are compared by the levels their target reports.
- *
  * @param provider - The provider of the connection or runner tool.
  * @returns `true` for the Claude Code and Codex CLI pickers.
  */
@@ -63,7 +62,6 @@ function isSameTarget(
 
 /**
  * The models listed for the same target as another model.
- *
  * @param models - Every model the person may choose.
  * @param model - The chosen model, or `undefined` when nothing matches.
  * @returns The models of the same local connection, or of the same tool of the
@@ -80,7 +78,6 @@ export function modelsOfSameTarget<Model extends ReasoningTarget>(
 
 /**
  * Every reasoning level the target reports, each marked with the chosen model's support.
- *
  * @param model - The chosen model; `undefined` marks nothing as supported.
  * @param siblings - The models of the same target, which together say which
  * levels the CLI or provider knows at all.

@@ -6,7 +6,7 @@ import type {
   AgentPlanPosition,
 } from "./AgentPlan";
 
-/** The most helpers one swarm node has (PAGE-313). */
+/** The most helpers one swarm node has. */
 export const PLAN_SWARM_WORKER_LIMIT = 10;
 
 /** How many helper badges the card shows in one row. */
@@ -41,7 +41,6 @@ export const PLAN_SWARM_TASK_BINDING = "task";
 
 /**
  * What a helper may do in the shared working directory.
- *
  * @remarks
  * ACP runners know only "Nur Lesen" and YOLO. `workspace_write` runs the CLI
  * so it can write files, but limits its Pages access to reading; `yolo` also
@@ -88,7 +87,6 @@ export interface AgentPlanSwarmWorkers {
   readonly same: AgentPlanSwarmWorker;
   /**
    * The configuration of each helper with `individual`, H1 first.
-   *
    * @remarks
    * Kept when the mode is `same`, so switching back restores the choices. A
    * missing entry uses {@link same}.
@@ -108,8 +106,7 @@ export interface AgentPlanSwarmMain {
 }
 
 /**
- * A swarm node: a main model splits one task at run time among helpers (PAGE-313).
- *
+ * A swarm node: a main model splits one task at run time among helpers.
  * @remarks
  * The main model runs in one session, every helper in a session of its own,
  * all in the same working directory on the Pages host. Remote execution

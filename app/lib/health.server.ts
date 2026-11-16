@@ -12,7 +12,7 @@ export type HealthStatus = "ok" | "setup" | "unavailable";
 /** Body of `/health`: the overall status and the bare database worker state. */
 export interface HealthReport {
   readonly status: HealthStatus;
-  /** State of the database worker (PAGE-197), without SQL, paths or counters. */
+  /** State of the database worker, without SQL, paths or counters. */
   readonly database: DatabaseState;
 }
 
@@ -33,7 +33,6 @@ async function queryDatabase(): Promise<HealthReport> {
 
 /**
  * Checks whether this Pages process can serve requests.
- *
  * @param timeoutMilliseconds - How long to wait for the database.
  * @returns `setup` while the setup wizard is pending, since no database
  * exists yet, `ok` when the database worker is ready and answers, and

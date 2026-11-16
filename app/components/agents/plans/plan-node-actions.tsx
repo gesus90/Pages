@@ -31,7 +31,6 @@ function keepInMenu(event: React.SyntheticEvent): void {
 /**
  * The three-dot menu of a node: Save as template, where the node type offers
  * it, and Delete.
- *
  * @remarks
  * Saving a template leaves the plan unchanged. Delete removes the node and
  * its own connections from the plan, never the ticket, agent, template or
@@ -136,7 +135,6 @@ export function PlanNodeActions({
 
 /**
  * Opens the node dialog of an agent or a group beside its menu.
- *
  * @remarks
  * Instructions, completion, model and group members are edited there. It
  * stays available without edit rights, where the dialog is read only.

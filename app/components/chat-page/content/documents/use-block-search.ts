@@ -17,8 +17,7 @@ export interface BlockSearch {
 
 /**
  * Searches the parts of a document or the slides of a presentation and
- * scrolls the current match into view (PAGE-385).
- *
+ * scrolls the current match into view.
  * @param texts - The plain text of every part, by its index.
  */
 export function useBlockSearch(texts: readonly string[]): BlockSearch {

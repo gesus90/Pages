@@ -4,7 +4,6 @@ import type { RefObject } from "react";
 
 /**
  * Tells once an element came near the visible part of its scroll container.
- *
  * @remarks
  * Previews load only then, so a long conversation with many files stays
  * fast. Without `IntersectionObserver`, as on the server, nothing loads.

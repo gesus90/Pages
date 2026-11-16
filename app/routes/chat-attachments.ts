@@ -14,8 +14,7 @@ import type { Route } from "./+types/chat-attachments";
 
 /**
  * Takes a file for the next chat message:
- * `PUT /chat-api/attachments?session=<id>&name=<name>` with the file as body (T6.12.4).
- *
+ * `PUT /chat-api/attachments?session=<id>&name=<name>` with the file as body.
  * @remarks
  * The body streams to the disk while it is counted against the limit of the
  * administrator; the type is decided from the content afterwards.

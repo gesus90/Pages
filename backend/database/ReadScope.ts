@@ -61,12 +61,10 @@ function copyOf(rows: readonly DatabaseValue[][]): DatabaseValue[][] {
 
 /**
  * Sorts a statement by what it does.
- *
  * @param statement - SQL owned by a repository.
  * @returns `write` for anything that might change data, `volatile` for a read
  * that depends on the time or on chance, `repeatable` for a read that gives
  * the same rows until data is written.
- *
  * @remarks
  * The sorting errs towards `write`: such a statement is never remembered and
  * ends the validity of every remembered answer. The sorting of a statement is
@@ -87,7 +85,6 @@ function sortStatement(statement: string): StatementKind {
 
 /**
  * Names a statement together with the values it is run with.
- *
  * @param statement - SQL owned by a repository.
  * @param parameters - Values bound to the placeholders.
  * @returns The key, or `null` when a value cannot be told apart cheaply.

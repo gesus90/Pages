@@ -33,8 +33,7 @@ export interface ConversationOversightDependencies {
 }
 
 /**
- * Who reads the conversations that only agents take part in (PAGE-311).
- *
+ * Who reads the conversations that only agents take part in.
  * @remarks
  * Administrators in the admin mode read all of them. A leader reads those
  * with an agent they lead: the head of a department reads the conversations
@@ -63,7 +62,6 @@ export class ConversationOversight {
 
   /**
    * Tells whether the person oversees a conversation of agents only.
-   *
    * @returns Whether the person reads and releases it, and that it exists as such.
    */
   public async canOversee(
@@ -75,7 +73,6 @@ export class ConversationOversight {
 
   /**
    * Reads a page of the history of an overseen conversation.
-   *
    * @throws {ConversationError} `not_found` for a conversation the person
    * does not oversee, `invalid` for a message outside it.
    */

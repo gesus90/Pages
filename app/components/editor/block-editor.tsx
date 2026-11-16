@@ -33,7 +33,7 @@ interface BlockEditorProps {
   readonly className?: string;
   /**
    * Shows a compact formatting toolbar above the text on larger screens, as
-   * Jira does above a description (A8.2).
+   * Jira does above a description.
    */
   readonly hasToolbar?: boolean;
 }
@@ -101,7 +101,6 @@ function useOverlayState(): EditorOverlayState {
  * markdown shortcuts, the slash menu, a selection toolbar, block handles,
  * an own context menu (right click, Shift+F10, touch toolbar) and the
  * reference and emoji menus.
- *
  * @remarks
  * The server renders `fallback`; the editor replaces it in the browser. The
  * document stays markdown: `onChange` receives the markdown after every

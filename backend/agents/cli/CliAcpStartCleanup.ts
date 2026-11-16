@@ -58,7 +58,6 @@ export async function cleanupAcpStart(
 
 /**
  * Cleans up an unsuccessful ACP start together with the Pica bundle it prepared.
- *
  * @remarks
  * The bundle stays when the worker's end is unconfirmed, since the worker may
  * still read it; every other failure removes it.

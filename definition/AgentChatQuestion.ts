@@ -1,6 +1,5 @@
 /**
- * Contracts of the interim messages and questions of chat agents (PAGE-391).
- *
+ * Contracts of the interim messages and questions of chat agents.
  * @remarks
  * During a round an agent may write a short interim message to its chat
  * (`nachricht_senden`) without ending the round, and ask the people of the
@@ -56,7 +55,7 @@ export interface AgentQuestionItem {
   readonly isMultipleChoice: boolean;
 }
 
-/** The consequential step a question confirms (PAGE-390). */
+/** The consequential step a question confirms. */
 export interface AgentQuestionConfirmation {
   /** The tool or Pages operation held back for the approval. */
   readonly tool: string;

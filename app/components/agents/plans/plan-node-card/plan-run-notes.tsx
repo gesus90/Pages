@@ -42,7 +42,6 @@ export function hasPlanRunNotes(
 /**
  * What a run adds to a card once nodes can start again: the number of the
  * start, the boolean result of an agent and the event that started it.
- *
  * @remarks
  * Nothing shows for a node that ran once without a decision or an event, so
  * plans without them look as before. Every note is words, never colour alone.

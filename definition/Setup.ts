@@ -24,7 +24,6 @@ export type DatabaseLocationStatus =
 
 /**
  * Tells whether setup may continue with a checked database connection.
- *
  * @param status - Outcome of the check.
  * @returns Whether the chosen database is empty.
  */
@@ -112,10 +111,8 @@ function checkEmail(email: string): SetupFieldError | null {
 
 /**
  * Checks the company and account values of the setup wizard.
- *
  * @param values - Values as entered; surrounding blanks do not count.
  * @returns The error of each rejected field; empty when all are valid.
- *
  * @remarks
  * The rules match the user directory: company name and username up to 200
  * characters, a password of 8 to 1000 characters, and an optional email

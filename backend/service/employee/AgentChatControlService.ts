@@ -59,7 +59,6 @@ const settingInput = z.object({
 /**
  * How a model with its level reads in a system line, such as "Claude Opus
  * 5.5 · hoch".
- *
  * @param name - The name of the model.
  * @param effort - The reasoning level; `null` names none.
  */
@@ -68,7 +67,7 @@ export function modelLine(name: string, effort: string | null): string {
 }
 
 /**
- * The model and the session of an agent in one chat (PAGE-380): the choice
+ * The model and the session of an agent in one chat: the choice
  * of a model and a reasoning level instead of the agent's own, the reset to
  * it, the restart with an empty session (`/new`) and the compaction
  * (`/compact`).

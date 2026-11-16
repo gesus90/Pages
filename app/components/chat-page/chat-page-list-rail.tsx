@@ -22,7 +22,6 @@ const UNREAD_BADGE_MAXIMUM = 99;
 
 /**
  * The text of the unread badge of the bar: the count, from 100 on "99+".
- *
  * @param count - Unread messages of the conversation.
  */
 export function formatUnreadBadge(count: number): string {
@@ -94,7 +93,7 @@ interface RailEntryProps {
   readonly label: string;
   readonly count: number;
   readonly isMuted: boolean;
-  /** The conversation of the entry, whose chat menu a right click opens (PAGE-389). */
+  /** The conversation of the entry, whose chat menu a right click opens. */
   readonly selection: VirtualChatSelection;
   readonly isSelected: boolean;
   readonly isTabStop: boolean;
@@ -199,7 +198,7 @@ function tabStopKey(page: ChatPageState): string | null {
 }
 
 /**
- * The avatars of the collapsed list (PAGE-325): groups, a divider, then
+ * The avatars of the collapsed list: groups, a divider, then
  * participants, each with its unread count; only this column scrolls. The
  * bar shows every entry, whatever the search of the expanded list.
  *

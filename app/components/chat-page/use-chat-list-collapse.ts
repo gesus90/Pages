@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useFetcher } from "react-router";
 
-/** The intent that stores whether the list is collapsed (PAGE-325). */
+/** The intent that stores whether the list is collapsed. */
 export const LIST_COLLAPSED_INTENT = "list-collapsed";
 
 /** Below this viewport width the page shows its selection instead of the list. */
@@ -18,8 +18,7 @@ export interface ChatListCollapse {
 
 /**
  * Recognizes `Ctrl+Shift+L`, on a Mac `⌘⇧L`, which collapses and expands
- * the list (PAGE-325).
- *
+ * the list.
  * @param event - The pressed keys.
  */
 export function isListShortcut(
@@ -43,13 +42,11 @@ function isListShown(): boolean {
 /**
  * Whether the list card of the chat page is collapsed to its bar of
  * avatars, kept per person in the view settings of the chat page like the
- * width of the split view (PAGE-325).
- *
+ * width of the split view.
  * @remarks
  * The shortcut also works in the input; the page listens in the capture
  * phase so the editor cannot swallow it. Below 768 px there is no list and
  * the shortcut does nothing.
- *
  * @param stored - The state the person chose last.
  */
 export function useChatListCollapse(stored: boolean): ChatListCollapse {

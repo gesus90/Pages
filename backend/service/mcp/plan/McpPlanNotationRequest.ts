@@ -69,8 +69,7 @@ function parsed<Output>(
 }
 
 /**
- * Reads the bodies of the plan notation API (PAGE-250).
- *
+ * Reads the bodies of the plan notation API.
  * @remarks
  * Every body is strict: a field the interface does not name is an invalid
  * request, so a client learns about a typo instead of a silent default. The
@@ -99,7 +98,6 @@ export const McpPlanNotationRequest = {
   },
   /**
    * Reads the plan identifier of a path.
-   *
    * @throws {McpPlanNotationError} `not_found` for a missing or malformed identifier.
    */
   planId(value: string | undefined): string {

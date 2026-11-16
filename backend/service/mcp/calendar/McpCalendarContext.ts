@@ -8,7 +8,6 @@ import type { McpCalendarTarget } from "./McpCalendarRequest";
 /**
  * The calendar service the API calls: the very one of the interface, Pica
  * Mobile and Pica.
- *
  * @remarks
  * The API adds no business logic and no right of its own: visibility, edit
  * rights, revisions and the semantics of scopes stay with the service.
@@ -47,7 +46,6 @@ export class McpCalendarContext {
 
   /**
    * Creates the context of one request.
-   *
    * @param input - Account, read-only flag and calendar service.
    */
   public constructor(input: McpCalendarContextInput) {
@@ -58,9 +56,7 @@ export class McpCalendarContext {
 
   /**
    * Requires an account that may change the calendar.
-   *
    * @throws {McpCalendarError} `forbidden` for an agent that may only read.
-   *
    * @remarks
    * Checked before the operation journal is asked, so a read-only agent
    * neither changes anything nor learns a stored answer.
@@ -71,7 +67,6 @@ export class McpCalendarContext {
 
   /**
    * Completes the target of a change or a deletion for the calendar service.
-   *
    * @param eventId - The event or one of its occurrences, from the path.
    * @param target - Expected revision, scope and occurrence of the request.
    * @returns The target; a single event without a scope counts as `all`.

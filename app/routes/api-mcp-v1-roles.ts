@@ -31,8 +31,7 @@ const HANDLERS: McpUserHandlers = {
 };
 
 /**
- * Lists the role catalog (`GET /api/mcp/v1/roles`) and creates a role (`POST`), PAGE-280.
- *
+ * Lists the role catalog (`GET /api/mcp/v1/roles`) and creates a role (`POST`).
  * @remarks
  * Only the device token of a paired machine admits a request; the rights of
  * its account are read again on every call. See `docs/McpUserManagement.md`.

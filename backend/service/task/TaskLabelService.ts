@@ -48,7 +48,6 @@ export class TaskLabelService {
 
   /**
    * Creates a label service.
-   *
    * @param taskRepository - Task persistence boundary.
    * @param access - Verifier of project access and write permission.
    * @param history - Audit trail receiving label changes of work items.
@@ -84,7 +83,6 @@ export class TaskLabelService {
   /**
    * Returns how many tickets use each label, counting only tickets the actor
    * may see.
-   *
    * @param actor - Account whose current ticket scope is enforced.
    * @returns Usage counts by label id; unused labels are absent.
    */

@@ -6,7 +6,6 @@ import type { AgentPlanLoop } from "./AgentPlanLoop";
 
 /**
  * Groups the nodes of one loop iteration by their step along its flow edges.
- *
  * @param graph - The plan the run executes, its outer groups expanded.
  * @param loop - The loop.
  * @returns The node identifiers of each step, the first step of an iteration

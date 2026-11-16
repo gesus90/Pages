@@ -14,14 +14,13 @@ import type { WikiAccess } from "./WikiAccess";
 /** Image types an attachment needs to be shown as a cover. */
 const COVER_IMAGE_TYPES = /^image\/(?:jpeg|png|gif|webp)$/;
 
-/** Sets and removes the optional cover of a page (A8.1). */
+/** Sets and removes the optional cover of a page. */
 export class WikiCoverService {
   private readonly repository: WikiRepository;
   private readonly access: WikiAccess;
 
   /**
    * Creates the service.
-   *
    * @param repository - Wiki persistence.
    * @param access - Resolves who is acting.
    */
@@ -32,7 +31,6 @@ export class WikiCoverService {
 
   /**
    * Sets or removes the cover of a page.
-   *
    * @param actor - The signed-in user; editing needs the capability "write".
    * @param id - Page identifier.
    * @param value - `preset:<name>`, `attachment:<id>`, or `null` to remove.
@@ -41,7 +39,6 @@ export class WikiCoverService {
    * @throws {WikiPageNotFoundError} When the page is missing or hidden.
    * @throws {WikiValidationError} For an unknown preset, or an attachment
    * that is no image of this page.
-   *
    * @remarks
    * Like the icon, the cover belongs to the page and not to its text: it
    * needs no revision and creates no version.

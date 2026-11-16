@@ -58,7 +58,6 @@ async function createApi(): Promise<McpWorkspaceApi> {
 
 /**
  * Answers a workspace request with JSON that no cache keeps.
- *
  * @param body - The answer of the interface.
  * @param status - The HTTP status.
  */
@@ -68,7 +67,6 @@ export function mcpWorkspaceResponse(body: unknown, status = 200): Response {
 
 /**
  * Answers a failure of a workspace request.
- *
  * @remarks
  * The body holds the code and, for a few codes, the stable finding; never a
  * message of a service and never a part of the request, which may hold a
@@ -86,12 +84,10 @@ function mcpWorkspaceFailure(error: unknown): Response {
 }
 
 /**
- * Runs one request of the workspace API (PAGE-245).
- *
+ * Runs one request of the workspace API.
  * @param request - The request of the machine.
  * @param handlers - The methods the resource serves.
  * @returns The answer; a failure answers `{ "error": "<code>" }`, with a `detail` for some codes.
- *
  * @remarks
  * Only the bearer token admits a request, checked and noted by the device
  * API; browser cookies play no part. Failures of the token check keep the
@@ -166,15 +162,13 @@ async function readBodyText(
 
 /**
  * Reads the JSON object of a workspace request.
- *
  * @param request - The request with `Content-Type: application/json`.
  * @param maximumCharacters - The longest body the resource takes; 50,000
  * characters for the workspace API, more for the agent API with its
- * documents and images (PAGE-267).
+ * documents and images.
  * @returns The object, its fields still untrusted; an empty body counts as `{}`.
  * @throws {McpWorkspaceError} `invalid_request` for another content type, a body
  * above the limit, malformed JSON or anything but an object.
- *
  * @remarks
  * A syntax error is replaced and not logged: the message of the parser can
  * quote the input, which may hold a password or a key.
@@ -200,7 +194,6 @@ export async function readMcpWorkspaceBody(
 
 /**
  * Reads a path parameter of a workspace resource.
- *
  * @param value - The parameter as React Router passes it.
  * @throws {McpWorkspaceError} `not_found` for a missing parameter.
  */

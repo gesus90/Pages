@@ -44,8 +44,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpWikiHandlers {
 }
 
 /**
- * Lists the attachments of a page (`GET /api/mcp/v1/wiki/pages/{id}/attachments`) and takes a file (`POST …?name=<Dateiname>`), PAGE-257 interface 16.
- *
+ * Lists the attachments of a page (`GET /api/mcp/v1/wiki/pages/{id}/attachments`) and takes a file (`POST …?name=<Dateiname>`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

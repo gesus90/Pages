@@ -15,7 +15,6 @@ import type { Language } from "@/language/Language";
 
 /**
  * Keeps a stored value only when it is still a supported choice.
- *
  * @param value - The stored value; empty values count as missing.
  * @param isValid - Tells whether the value is a supported choice.
  * @param fallback - What to use when the value is missing or unsupported.
@@ -48,7 +47,6 @@ function toNotifications(
 
 /**
  * Establishes the business-logic boundary for personal user settings.
- *
  * @remarks
  * Kept separate from any future server-wide settings, which will require
  * administrator authorization instead of the "own data" access every user
@@ -59,7 +57,6 @@ export class SettingsService {
 
   /**
    * Creates a settings service.
-   *
    * @param userSettingsRepository - User settings persistence boundary.
    */
   public constructor(userSettingsRepository: UserSettingsRepository) {
@@ -68,7 +65,6 @@ export class SettingsService {
 
   /**
    * Returns the settings for a user, falling back to defaults.
-   *
    * @param userId - User identifier.
    */
   public async getUserSettings(userId: string): Promise<UserSettings> {
@@ -95,7 +91,6 @@ export class SettingsService {
 
   /**
    * Replaces the settings a user has chosen.
-   *
    * @param userId - User identifier.
    * @param settings - Validated settings to persist.
    */
@@ -121,7 +116,6 @@ export class SettingsService {
 
   /**
    * Updates the language a user has chosen.
-   *
    * @param userId - User identifier.
    * @param language - Language to persist.
    */

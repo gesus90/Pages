@@ -38,7 +38,6 @@ function updateEntry(input: unknown): AgentImportUpdateEntry {
 
 /**
  * Validates the confirmed package and its per-source revisions before any persistence or policy reads.
- *
  * @remarks
  * Every loaded file needs exactly one update entry, so no source is changed implicitly.
  */

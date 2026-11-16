@@ -67,7 +67,7 @@ function TaskPill(props: {
 
 /**
  * A swarm on the canvas: the card of an agent node with the swarm symbol,
- * the task in one line, the main model and the helpers as badges (PAGE-313).
+ * the task in one line, the main model and the helpers as badges.
  *
  * @remarks
  * While a run is shown the card takes the run status color like every node,

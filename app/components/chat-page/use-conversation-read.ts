@@ -29,8 +29,7 @@ function readTarget(opened: OpenedConversation | null): {
 
 /**
  * Marks the opened conversation with a person or of a group read up to its
- * newest stored message, whenever it shows unread messages (PAGE-278).
- *
+ * newest stored message, whenever it shows unread messages.
  * @param opened - The opened group or participant.
  * @param messages - Its stored history, oldest first.
  */

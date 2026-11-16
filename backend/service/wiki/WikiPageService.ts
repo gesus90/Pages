@@ -129,7 +129,6 @@ export class WikiPageService {
 
   /**
    * Creates the service.
-   *
    * @param repository - Wiki persistence.
    * @param access - Resolves who is acting.
    */
@@ -140,7 +139,6 @@ export class WikiPageService {
 
   /**
    * Creates a page.
-   *
    * @param actor - The signed-in user; they become owner and author.
    * @param input - Values of the page.
    * @returns The new page.
@@ -213,7 +211,6 @@ export class WikiPageService {
 
   /**
    * Saves the text and title of a page.
-   *
    * @param actor - The signed-in user.
    * @param id - Page identifier.
    * @param input - New values and the revision they are based on.
@@ -282,7 +279,6 @@ export class WikiPageService {
 
   /**
    * Replaces a page with the text of an earlier version.
-   *
    * @param actor - The signed-in user.
    * @param id - Page identifier.
    * @param versionId - Version to take the text from.
@@ -320,7 +316,6 @@ export class WikiPageService {
 
   /**
    * Replaces the anchors of a page.
-   *
    * @param actor - The signed-in user; they must manage the page.
    * @param id - Page identifier.
    * @param anchors - The anchors the page has afterwards.
@@ -349,7 +344,6 @@ export class WikiPageService {
 
   /**
    * Sets or clears the date until which a page counts as up to date.
-   *
    * @param actor - The signed-in user; they must manage the page.
    * @param id - Page identifier.
    * @param currentUntil - Date as `YYYY-MM-DD`, or `null`.
@@ -372,7 +366,6 @@ export class WikiPageService {
 
   /**
    * Hands a page over to another owner.
-   *
    * @param actor - The signed-in user; they must manage the page.
    * @param id - Page identifier.
    * @param ownerId - The new owner, an active account.
@@ -402,13 +395,11 @@ export class WikiPageService {
 
   /**
    * Copies a page, optionally with the pages below it.
-   *
    * @param actor - The signed-in user; they own the copies.
    * @param id - Page to copy.
    * @param input - Title of the copy and whether children are copied.
    * @returns The copy.
    * @throws {WikiAccessDeniedError} Without the capability "write".
-   *
    * @remarks
    * Only pages the actor can see are copied. The copy is appended to the
    * siblings of the original and starts a fresh history.

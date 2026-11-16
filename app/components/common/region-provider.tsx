@@ -53,7 +53,6 @@ export function RegionProvider({
 
 /**
  * Returns the date format and the time zone dates are shown in.
- *
  * @remarks
  * Without a chosen time zone, the zone of the browser applies. The server
  * does not know it, so it renders UTC and the browser takes over right after
@@ -72,7 +71,6 @@ export function useRegionFormat(): RegionFormat {
 
 /**
  * Returns formatters for the date format and time zone of the user.
- *
  * @remarks
  * The time zone follows {@link useRegionFormat}.
  */

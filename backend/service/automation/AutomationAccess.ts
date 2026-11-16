@@ -46,8 +46,7 @@ function refuse(
 }
 
 /**
- * The rules of automations (PAGE-297).
- *
+ * The rules of automations.
  * @remarks
  * A share lets project or group members see an automation; the creator,
  * the managers of a shared project and administrators change, run and
@@ -66,7 +65,6 @@ export class AutomationAccess {
 
   /**
    * Resolves the calling account.
-   *
    * @throws {AutomationError} `forbidden` for a missing or inactive account.
    */
   public async actor(userId: string): Promise<AutomationAccount> {
@@ -127,7 +125,6 @@ export class AutomationAccess {
 
   /**
    * Checks a definition before it is saved.
-   *
    * @param definition - The complete definition after the save.
    * @param parties - The creator, whose rights the runs use, and the account that saves.
    * @param changed - The parts the save changes.
@@ -162,7 +159,6 @@ export class AutomationAccess {
 
   /**
    * Checks the creator's rights before a run.
-   *
    * @returns `null` when the run may start, otherwise why not.
    */
   public async runBlocker(
@@ -183,7 +179,6 @@ export class AutomationAccess {
 
   /**
    * Whether an account may still wake an agent: it is active and an agent employee.
-   *
    * @param agentId - The agent to wake.
    * @param account - The account whose rights count.
    */

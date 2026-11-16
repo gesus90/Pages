@@ -10,7 +10,6 @@ export class WikiPageReader {
 
   /**
    * Creates the reader.
-   *
    * @param repository - Wiki persistence, possibly bound to a transaction.
    */
   public constructor(repository: WikiRepository) {
@@ -19,7 +18,6 @@ export class WikiPageReader {
 
   /**
    * Reads a page the viewer may see.
-   *
    * @param scope - What the viewer may see.
    * @param id - Page identifier.
    * @returns The page.
@@ -40,7 +38,6 @@ export class WikiPageReader {
 
   /**
    * Adds the anchors and the breadcrumb to a stored page.
-   *
    * @param record - A page the viewer may see.
    * @returns The complete page.
    */

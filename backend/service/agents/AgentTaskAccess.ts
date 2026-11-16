@@ -19,7 +19,6 @@ import type { User } from "@/definition/User";
 
 /**
  * Project access for an agent call.
- *
  * @remarks
  * Every decision the ticket services take about projects goes through the
  * channel of the agent: on the `mcp` channel a personal administrator counts
@@ -98,12 +97,10 @@ export interface AgentTaskContext {
 
 /**
  * Creates the ticket services for one agent call, bound to the given database scope.
- *
  * @param database - The central database, or the scope of the transaction the call runs in.
  * @param actor - The verified account the call acts for.
  * @param channel - The agent surface the call runs for.
  * @returns Ticket and project services with fresh channel policy and no GitHub synchronization attached.
- *
  * @remarks
  * Publishing to GitHub is left to the caller, which does it after the commit
  * with the shared publisher. The cache is disabled because the caller

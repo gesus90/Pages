@@ -23,7 +23,6 @@ import type { AgentPlanScript } from "@/definition/AgentPlanScript";
 /**
  * A script with its flow IN and OUT, one row per declared input, its output
  * on the result port and its interpreter profile.
- *
  * @remarks
  * The card has the rows and size of an agent card (plan-layout.ts); only its
  * rose type color and the profile in place of model and reasoning differ.

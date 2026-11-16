@@ -42,7 +42,7 @@ export interface AttachmentOptions {
   readonly isAgentChat?: boolean;
 }
 
-/** The attachments of the message being written (PAGE-298). */
+/** The attachments of the message being written. */
 export interface AttachmentUploads {
   readonly items: readonly PendingAttachment[];
   readonly failure: AttachmentFailure | null;
@@ -178,7 +178,7 @@ async function storeThumbnail(attachmentId: string, file: File): Promise<void> {
   if (!THUMBNAIL_KINDS.includes(conversationAttachmentKind(file.type))) return;
   try {
     let factsQuery = "";
-    // The facts read with the preview are stored with it (PAGE-384, PAGE-385).
+    // The facts read with the preview are stored with it.
     const thumbnail = await createThumbnail(file, file.type, (facts) => {
       rememberPdfFacts(attachmentId, facts);
       factsQuery += mediaFactsQuery(facts) + documentFactsQuery(facts);

@@ -1,7 +1,7 @@
 # Deploy backups
 
 Before a deploy replaces the live build, the deploy flow writes one backup
-of the instance below `/mnt/Data/PagesBackups` (PAGE-255). Writing it lies
+of the instance below `/mnt/Data/PagesBackups`. Writing it lies
 outside this repository; `rotate-deploy-backups.sh` makes sure that only the
 newest deploy backup stays. The continuous PostgreSQL backup under
 `/mnt/Data/PagesPostgres` (`deploy/postgres/base-backup.sh`,

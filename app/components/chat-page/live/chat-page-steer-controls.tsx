@@ -23,7 +23,7 @@ interface ChatPageSteerControlsProps {
 }
 
 /**
- * The foot of the input while an agent answers (PAGE-381): the hint
+ * The foot of the input while an agent answers: the hint
  * "Enter lenkt um · ⇧Enter neue Zeile", a round stop button and the main
  * button "Umlenken ↵", whose arrow opens "Umlenken", "Danach senden" and
  * "Anhalten".

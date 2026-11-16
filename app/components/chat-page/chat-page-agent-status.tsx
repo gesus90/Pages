@@ -17,10 +17,9 @@ const STATE_TEXT: Readonly<Record<AgentChatSessionState, string>> = {
 };
 
 /**
- * What an agent does in this chat, from its session (PAGE-376): "arbeitet …",
+ * What an agent does in this chat, from its session: "arbeitet …",
  * "bereit", "ruht" or "Neustart nötig", and how many messages wait for their
  * turn.
- *
  * @returns The status, or `null` while the agent has no session in the chat.
  */
 export function AgentSessionStatus({

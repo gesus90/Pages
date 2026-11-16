@@ -4,7 +4,7 @@ import { readChatMedia } from "./use-chat-images";
 
 import type { ConversationImage } from "@/definition/ConversationContent";
 
-/** The videos of a chat as the split view and the full screen offer them (PAGE-384). */
+/** The videos of a chat as the split view and the full screen offer them. */
 export interface ChatVideos {
   readonly videos: readonly ConversationImage[];
   /** Whether the list of the whole chat is still on its way. */
@@ -12,14 +12,12 @@ export interface ChatVideos {
 }
 
 /**
- * All videos of the opened chat (PAGE-384), oldest first.
- *
+ * All videos of the opened chat, oldest first.
  * @remarks
  * The opened video shows at once; the list of the whole chat, with the
  * videos of older messages the page has not loaded yet, follows from the
  * server, which shows it only to members. When it cannot be read, or does not
  * contain the opened video, the opened video stays alone.
- *
  * @param conversationId - The stored conversation; `null` keeps the opened video alone.
  * @param opened - The opened video with its message.
  */

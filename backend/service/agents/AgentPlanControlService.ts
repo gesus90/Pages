@@ -243,7 +243,6 @@ export class AgentPlanControlService {
 
   /**
    * Settles whether "Fortsetzen" works and, when it does not, names why and what lifts it.
-   *
    * @remarks
    * The answer of the recovery for an ended run is part of it, so the control
    * the interface polls and the control the Pages tools read cannot differ. A

@@ -24,10 +24,9 @@ export interface PendingLogbookSession {
 }
 
 /**
- * What the chat sessions remember of the Lagebuch of their agent (PAGE-377):
+ * What the chat sessions remember of the Lagebuch of their agent:
  * the newest entry they were told about and how far the background summary
  * read their chat.
- *
  * @remarks
  * The state lives in the row of `agent_conversations`, which only the rows of
  * the purposes `chat` and `conversation` use for chats.
@@ -67,7 +66,6 @@ export class AgentLogbookSessionRepository {
   /**
    * The chat sessions with a round that ended after their last background
    * summary and no confidential chat.
-   *
    * @remarks
    * Whether such a session has been quiet long enough depends on the quiet
    * time of its agent; the caller compares it with `lastActivityAt`.
@@ -124,7 +122,6 @@ export class AgentLogbookSessionRepository {
 
   /**
    * Records how far the background summary read the chat of a session.
-   *
    * @param sessionId - The chat session.
    * @param progress - The position read up to; `processedAt` is set only when the whole chat was read, otherwise the session stays due.
    */

@@ -70,7 +70,6 @@ export function isPlanNotationNodeType(
 
 /**
  * The data inputs of a node and their types, as the editor offers them.
- *
  * @param node - The node a data edge enters.
  * @param agents - The agents of the workspace; an agent node without its own copy takes its inputs from them.
  * @returns The inputs by name; a loop's while input has no type a fixed value could have.
@@ -103,7 +102,6 @@ function isPlanNotationKeyword(text: string): boolean {
 
 /**
  * Every node of a plan with the members of its frames, a loop's groups included, in stored order.
- *
  * @param plan - The plan.
  * @returns Each frame before its members.
  */

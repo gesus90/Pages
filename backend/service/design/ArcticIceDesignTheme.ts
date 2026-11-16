@@ -9,7 +9,6 @@ export const ARCTIC_ICE_DESIGN_THEME_ID = "arctic-ice";
 
 /**
  * The maritime ice-glass design: white and blue by day, deep polar sea at night.
- *
  * @remarks
  * One theme with two palettes. The color mode of the user picks the palette,
  * so there is no second theme for the dark one. Text colors are chosen so
@@ -89,7 +88,6 @@ type SidebarBandColors = readonly [string, string, string, string];
 
 /**
  * Four soft bands across the sidebar over a gentle diagonal gradient.
- *
  * @remarks
  * The waves only show up as a hint: static gradients, no image, no blur and
  * no animation. The first and third band rise from the left edge in a light

@@ -57,7 +57,7 @@ export type PlanFlowEdge = Edge<
     readonly routeLabelOffsetY?: number;
     /** A line from a loop's entry dot to a member or from a member to its exit dot; it has no label and is not selectable. */
     readonly isBoundary?: boolean;
-    /** The current name of the value a classification output carries (PAGE-286). */
+    /** The current name of the value a classification output carries. */
     readonly branchName?: string;
   },
   "plan"

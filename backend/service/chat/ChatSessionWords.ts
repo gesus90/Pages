@@ -1,6 +1,6 @@
 import { randomInt } from "node:crypto";
 
-/** Number of words in a session ID (T6.12.2). */
+/** Number of words in a session ID. */
 const SESSION_ID_WORDS = 5;
 
 /**
@@ -55,7 +55,6 @@ export const CHAT_SESSION_WORDS: readonly string[] = `
 
 /**
  * Draws a session ID of five random words, for example `haus-block-rabe-zelt-baum`.
- *
  * @param pick - Returns a random index below the given bound; cryptographic by default.
  * @returns Five words joined by hyphens.
  */

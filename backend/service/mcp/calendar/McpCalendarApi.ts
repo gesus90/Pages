@@ -25,8 +25,7 @@ export interface McpCalendarAccess {
 }
 
 /**
- * The calendar API of the stand-alone Pages MCP program (PAGE-301).
- *
+ * The calendar API of the stand-alone Pages MCP program.
  * @remarks
  * A paired machine acts with the rights of the account that confirmed the
  * pairing. Every request checks the token again with the unchanged check of
@@ -43,7 +42,6 @@ export class McpCalendarApi {
 
   /**
    * Creates the API.
-   *
    * @param calendar - The calendar service of the interface.
    * @param access - The device token check, the account lookup and the agents.
    */
@@ -54,7 +52,6 @@ export class McpCalendarApi {
 
   /**
    * Checks the token of a request and opens its context.
-   *
    * @param authorization - The `Authorization` header of the request.
    * @returns The context with the paired account as the actor.
    * @throws {McpDeviceError} `invalid_token` for a missing, unknown or revoked token.
@@ -80,7 +77,6 @@ export class McpCalendarApi {
 
   /**
    * Whether an account may only read: an agent with the access "read only".
-   *
    * @remarks
    * An agent without a stored access counts as "read only", the default of
    * the agent administration.

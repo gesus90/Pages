@@ -64,8 +64,8 @@ export interface ConversationObserverRun {
 }
 
 /**
- * The calls of the group observer with their outcome and token usage
- * (PAGE-296), kept apart from the answers of the agents so their cost stays
+ * The calls of the group observer with their outcome and token usage,
+ * kept apart from the answers of the agents so their cost stays
  * recognizable.
  */
 export class ConversationObserverRunRepository {
@@ -133,7 +133,6 @@ export class ConversationObserverRunRepository {
 
   /**
    * The newest calls of one group, newest first.
-   *
    * @param conversationId - The group.
    * @param limit - How many calls at most.
    */
@@ -165,7 +164,6 @@ export class ConversationObserverRunRepository {
 
   /**
    * Counts the calls of all groups since a moment, with the newest failure.
-   *
    * @param since - ISO 8601 start of the window.
    */
   public async health(since: string): Promise<ConversationObserverHealth> {

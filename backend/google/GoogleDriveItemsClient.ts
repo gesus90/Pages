@@ -74,7 +74,6 @@ export interface DriveMedia {
 
 /**
  * Escapes a text for a quoted literal of Drive's `q` syntax.
- *
  * @param text - Untrusted text.
  * @returns The text with backslashes and single quotes escaped.
  */
@@ -99,7 +98,6 @@ const UNSUPPORTED_REASONS = [
 
 /**
  * Translates a refused Drive request into a distinguishable Storage error.
- *
  * @remarks
  * `404` covers both a deleted entry and one the account cannot see, so a
  * stale reference and a missing file share `not_found`. A missing scope
@@ -157,7 +155,6 @@ function readNullable(
 
 /**
  * Converts a Drive file resource into a Storage entry.
- *
  * @param body - One file resource of the Drive API v3.
  * @returns The entry, or `null` when it carries no identifier.
  */
@@ -284,7 +281,7 @@ function multipartBody(
 }
 
 /**
- * Reads and changes single Drive entries for the Storage interface (PAGE-270)
+ * Reads and changes single Drive entries for the Storage interface
  * through the official Drive API v3.
  *
  * @remarks

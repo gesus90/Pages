@@ -110,8 +110,7 @@ export class AgentPlanService extends AgentPlanTeamReads {
   }
 
   /**
-   * The same plans for another surface, over the same storage, runs and engine (PAGE-246).
-   *
+   * The same plans for another surface, over the same storage, runs and engine.
    * @param channel - The surface whose administrator reading decides workspace and plan access.
    * @returns A plan service whose workspace access reads the administrator role for that surface.
    */
@@ -123,13 +122,11 @@ export class AgentPlanService extends AgentPlanTeamReads {
 
   /**
    * Records orphaned runs as interrupted without inventing a user stop or replaying work.
-   *
    * @remarks
    * Processes and MCP access that interrupted sessions left behind are ended
    * first; nothing is started again. A working copy stays reserved only while
    * a process of one of the run's sessions is still alive, so a confirmed
    * cleanup lets the next run of a plan start.
-   *
    * @param retained - Sessions whose leftover cleanup could not be confirmed;
    * their runs keep the working copies reserved until a later start.
    */
@@ -144,7 +141,6 @@ export class AgentPlanService extends AgentPlanTeamReads {
 
   /**
    * Returns the prompt a node of the executor's run was sent.
-   *
    * @param userId - The executor; nobody else reads it.
    * @param runId - The plan run.
    * @param stepId - The node.
@@ -181,7 +177,6 @@ export class AgentPlanService extends AgentPlanTeamReads {
 
   /**
    * Loads the page without its run history and control state.
-   *
    * @remarks
    * Enough to tell whether the catalog, the access or the selected plan
    * changed; the change check of an open editor does not need the runs.
@@ -208,7 +203,6 @@ export class AgentPlanService extends AgentPlanTeamReads {
 
   /**
    * Returns the agents a node of a plan in the workspace may run, as the plan page offers them.
-   *
    * @throws {AgentError} `plan_access_denied` for a workspace the person cannot use for plans.
    */
   public async agents(
@@ -221,12 +215,10 @@ export class AgentPlanService extends AgentPlanTeamReads {
 
   /**
    * Checks nodes that are about to join a plan in the workspace, as a save would.
-   *
    * @remarks
    * Node templates use it: agents, models, run options, group adapters and
    * referenced values must be available to the person in the workspace's
    * project now. Nothing is stored or replaced.
-   *
    * @throws {AgentError} The code of the first reference that is no longer available.
    */
   public async checkNodes(
@@ -273,7 +265,6 @@ export class AgentPlanService extends AgentPlanTeamReads {
 
   /**
    * Resolves the project and departments that decide which shared objects the person works with.
-   *
    * @param userId - The signed-in person.
    * @param workspaceId - The workspace being worked in, or `null` without one.
    * @throws {AgentError} `plan_access_denied` for a workspace the person cannot use.
@@ -292,7 +283,6 @@ export class AgentPlanService extends AgentPlanTeamReads {
 
   /**
    * Lists the plans the person may read now as summaries, ordered by name.
-   *
    * @remarks
    * The same plans as {@link visible} without their graphs, for everything
    * that only names, groups or offers plans.
@@ -303,7 +293,6 @@ export class AgentPlanService extends AgentPlanTeamReads {
 
   /**
    * Returns one plan the person may read now.
-   *
    * @throws {AgentError} `plan_access_denied` for a missing or hidden plan alike.
    */
   public async view(userId: string, id: string): Promise<AgentPlanView> {
@@ -312,7 +301,6 @@ export class AgentPlanService extends AgentPlanTeamReads {
 
   /**
    * Returns one readable plan with the approval state of its script steps.
-   *
    * @throws {AgentError} `plan_access_denied` for a missing or hidden plan alike.
    */
   public async detailedView(
@@ -324,8 +312,7 @@ export class AgentPlanService extends AgentPlanTeamReads {
   }
 
   /**
-   * Changes the teams and/or the owner of a plan (PAGE-329).
-   *
+   * Changes the teams and/or the owner of a plan.
    * @returns The new revision of the plan.
    * @throws {AgentError} See {@link AgentPlanTeamService.change}.
    */
@@ -339,7 +326,6 @@ export class AgentPlanService extends AgentPlanTeamReads {
 
   /**
    * Approves the current content of the plan's script steps; administrators only.
-   *
    * @returns The steps approved now.
    */
   public async approveScripts(
@@ -365,7 +351,6 @@ export class AgentPlanService extends AgentPlanTeamReads {
 
   /**
    * Lists the runs the person started of a visible plan, by start, without their results.
-   *
    * @remarks
    * Only the start and the status are listed; reading a run itself still
    * needs the current access to everything it used, see {@link run}.
@@ -386,7 +371,6 @@ export class AgentPlanService extends AgentPlanTeamReads {
 
   /**
    * Lists the runs the person started of each named plan they may read, newest first.
-   *
    * @remarks
    * Access is resolved once for all plans; a plan the person cannot read is
    * left out of the result.
@@ -413,12 +397,10 @@ export class AgentPlanService extends AgentPlanTeamReads {
 
   /**
    * Creates a plan or saves its next revision without silently rebinding nodes to another project.
-   *
    * @remarks
    * The owner and the department of a plan are fixed at creation: a member or
    * leader of its team who saves it changes the same plan, and the plan stays with its
    * owner and its team.
-   *
    * @param userId - The authenticated person: the creator of a new plan, or
    * its owner or a team member when `id` names a plan.
    * @param id - The plan to change, or `null` to create one.
@@ -495,7 +477,6 @@ export class AgentPlanService extends AgentPlanTeamReads {
 
   /**
    * Deletes a plan; only its owner or an active administrator may, however many people share it.
-   *
    * @param userId - The authenticated requester.
    * @param id - The plan to delete.
    * @throws {AgentError} `plan_access_denied` when the plan is not visible to
@@ -523,8 +504,7 @@ export class AgentPlanService extends AgentPlanTeamReads {
   }
 
   /**
-   * Removes the one-time mark and cancels the scheduled deletion of a plan (PAGE-309).
-   *
+   * Removes the one-time mark and cancels the scheduled deletion of a plan.
    * @param userId - The authenticated requester, who must be allowed to change the plan.
    * @param id - The plan to keep.
    * @param options - The revision the requester saw and a journal that
@@ -551,7 +531,6 @@ export class AgentPlanService extends AgentPlanTeamReads {
 
   /**
    * Play uses the saved revision and never executes an unsaved client graph.
-   *
    * @remarks
    * The person who presses Play executes the run with their own access to
    * agents, models, workspaces and tickets; the owner's access never stands in.
@@ -574,7 +553,6 @@ export class AgentPlanService extends AgentPlanTeamReads {
 
   /**
    * Ends the plan's open run and starts the saved revision from the beginning.
-   *
    * @remarks
    * The person confirmed that the open run ends: it is stopped, its own
    * processes are ended by force and its working copies are released before the
@@ -600,13 +578,11 @@ export class AgentPlanService extends AgentPlanTeamReads {
 
   /**
    * Saves the edited plan as its next revision and starts exactly that revision.
-   *
    * @remarks
    * The revision is prepared like any Play before anything is stored. The
    * plan and the record of the new run are then written in one transaction,
    * so a refused start leaves the plan unchanged and a refused save starts
    * nothing; the old revision is never started instead.
-   *
    * @param userId - The owner or a team member, who also executes the run.
    * @param id - The plan.
    * @param input - The edited plan with the revision it was based on.
@@ -640,7 +616,7 @@ export class AgentPlanService extends AgentPlanTeamReads {
     const run = await findPlanRun(this.dependencies, userId, id);
     if (!run) throw new AgentError("plan_access_denied");
     const plan = await this.dependencies.access.require(userId, run.planId);
-    // An administrator controls every run, also one somebody else started (PAGE-329).
+    // An administrator controls every run, also one somebody else started.
     if (
       !canRunPlan(plan) ||
       (run.userId !== userId && !isPlanAdministrator(plan))
@@ -651,7 +627,6 @@ export class AgentPlanService extends AgentPlanTeamReads {
 
   /**
    * Stops a run in any state that is not finished; other users cannot stop an executor's private run.
-   *
    * @remarks
    * A run that ended at a failure settles as cancelled and gives up its
    * working copies once its own processes are proven gone. A run an engine
@@ -756,7 +731,6 @@ export class AgentPlanService extends AgentPlanTeamReads {
 
   /**
    * Lists, per agent, the tickets that plan steps bind to it, for the protected agent administration.
-   *
    * @remarks
    * Tickets the administrator cannot read are omitted, not counted. The plan stays the only place that changes them.
    */
@@ -792,7 +766,6 @@ export class AgentPlanService extends AgentPlanTeamReads {
 
   /**
    * Stops the active runs of a project that is about to be deleted.
-   *
    * @param projectId - The project whose runs end.
    * @throws {ProjectRunsActiveError} When a run does not close within a reasonable time.
    */
@@ -803,7 +776,6 @@ export class AgentPlanService extends AgentPlanTeamReads {
 
   /**
    * Removes the record files of runs that were deleted with their project.
-   *
    * @param keys - The agent and run of each record.
    */
   public async removeRunRecordFiles(
@@ -850,14 +822,12 @@ export class AgentPlanService extends AgentPlanTeamReads {
 
   /**
    * Validates a proposed plan and returns it as it is stored, with the revision it was based on.
-   *
    * @remarks
    * A new plan belongs to its creator and, when the creator is a member or
    * leader of exactly one department, to that department. An existing plan keeps its
    * owner and its department whoever saves it. Every team member may change
    * the workspace within the plan's project, the usage and the share, with the
    * checks the owner has; only the owner moves the plan to another project.
-   *
    * @throws {AgentError} `plan_conflict` when an existing plan is no longer at that revision.
    */
   private async revise(

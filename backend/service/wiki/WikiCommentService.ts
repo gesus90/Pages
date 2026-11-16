@@ -63,7 +63,7 @@ function normalizeBody(body: string): string {
 
 /**
  * Decides who may change or delete a comment: its author, the owner of the
- * page and administrators; administrators not on private pages (T4.9.11).
+ * page and administrators; administrators not on private pages.
  */
 function canChangeComment(
   viewer: WikiViewer,
@@ -111,7 +111,6 @@ export class WikiCommentService {
 
   /**
    * Creates the service.
-   *
    * @param repository - Wiki persistence.
    * @param access - Resolves who is acting.
    */
@@ -122,7 +121,6 @@ export class WikiCommentService {
 
   /**
    * Lists the comments of a page as threads.
-   *
    * @param actor - The signed-in user.
    * @param pageId - Page identifier.
    * @returns First comments, oldest first, each with its replies. A comment
@@ -155,7 +153,6 @@ export class WikiCommentService {
 
   /**
    * Reads one comment of a page the person sees.
-   *
    * @param actor - The signed-in user.
    * @param id - Comment identifier.
    * @returns The comment and the first comment it answers.
@@ -174,7 +171,6 @@ export class WikiCommentService {
 
   /**
    * Adds a comment or a reply.
-   *
    * @param actor - The signed-in user; anybody who sees the page may comment.
    * @param pageId - Page identifier.
    * @param input - Text, reply target and quoted passage.
@@ -231,7 +227,6 @@ export class WikiCommentService {
 
   /**
    * Changes the text of a comment.
-   *
    * @param actor - The signed-in user; only the author.
    * @param id - Comment identifier.
    * @param body - The new text.
@@ -266,7 +261,6 @@ export class WikiCommentService {
 
   /**
    * Deletes a comment with its replies.
-   *
    * @param actor - The signed-in user; the author, the owner of the page or
    * an administrator (not on private pages).
    * @param id - Comment identifier.
@@ -294,7 +288,6 @@ export class WikiCommentService {
 
   /**
    * Resolves a thread, or opens it again.
-   *
    * @param actor - The signed-in user; anybody who sees the page.
    * @param id - Identifier of the first comment of the thread.
    * @param isResolved - Whether the thread is resolved afterwards.

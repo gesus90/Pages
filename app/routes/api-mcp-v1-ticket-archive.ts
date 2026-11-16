@@ -26,8 +26,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpTicketHandlers {
 }
 
 /**
- * Archives a ticket after a confirmed question (`POST /api/mcp/v1/tickets/{key}/archive`), PAGE-242 interface 14.
- *
+ * Archives a ticket after a confirmed question (`POST /api/mcp/v1/tickets/{key}/archive`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

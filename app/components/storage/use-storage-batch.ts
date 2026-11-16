@@ -74,11 +74,9 @@ function entriesOf(items: readonly StorageItem[]): StorageBatchEntry[] {
 
 /**
  * Runs the actions of the Storage menu bar that change several entries at
- * once (PAGE-272) through the `batch` operation of the Storage interface.
- *
+ * once through the `batch` operation of the Storage interface.
  * @param options - The shown folder, the reload and the selection reset.
  * @returns The clipboard, the outcome and the actions.
- *
  * @remarks
  * Copy and move only remember the entries with their folder, so the
  * clipboard survives a change of folder; paste runs them in the shown

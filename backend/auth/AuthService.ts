@@ -28,7 +28,6 @@ export class AuthService {
 
   /**
    * Creates an authentication service.
-   *
    * @param userService - User business-logic boundary.
    * @param sessionService - Session business-logic boundary.
    * @param passwordHasher - scrypt password hashing.
@@ -48,14 +47,12 @@ export class AuthService {
 
   /**
    * Verifies credentials and starts a session.
-   *
    * @param username - Username entered by the visitor.
    * @param password - Password entered by the visitor.
    * @param userAgent - Raw user agent of the browser signing in.
    * @param clientAddress - Address of the visitor, when known.
    * @returns The login result, or `null` when the credentials are invalid.
    * @throws {TooManyLoginAttemptsError} When too many attempts failed recently.
-   *
    * @remarks
    * Unknown users and wrong passwords are reported identically so callers
    * cannot tell them apart, including by response time: an unknown user is
@@ -77,7 +74,7 @@ export class AuthService {
       password,
     );
 
-    // An agent account never signs in, whatever password it is given (PAGE-266).
+    // An agent account never signs in, whatever password it is given.
     if (
       !credentials ||
       !isPasswordValid ||
@@ -114,13 +111,11 @@ export class AuthService {
 
   /**
    * Replaces the password of a user after verifying the current one.
-   *
    * @param username - Username of the authenticated user.
    * @param currentPassword - Password the user entered as their current one.
    * @param newPassword - New password to store as a hash.
    * @param sessionToken - Token of the browser that requested the change.
    * @returns The outcome of the change attempt.
-   *
    * @remarks
    * Every other session of the user is revoked, so a session that was
    * opened with the old password cannot outlive it. The requesting
@@ -165,7 +160,6 @@ export class AuthService {
 
   /**
    * Ends the session belonging to a token.
-   *
    * @param sessionToken - Token sent by the browser.
    */
   public async logout(sessionToken: string | null): Promise<void> {
@@ -180,7 +174,6 @@ export class AuthService {
 
   /**
    * Resolves the user behind a session token.
-   *
    * @param sessionToken - Token sent by the browser.
    * @returns The authenticated user, or `null` when the session is invalid.
    */

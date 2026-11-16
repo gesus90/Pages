@@ -55,8 +55,7 @@ export interface AcpLeaseCheckHost {
 
 /**
  * Lifecycle evidence of starting leases and the periodic check of unconfirmed
- * ones, kept apart from admission (PAGE-264).
- *
+ * ones, kept apart from admission.
  * @remarks
  * Every write goes through the scheduler's serial queue and checks the
  * current lease first, so a check never contradicts a closeout, a recovery
@@ -65,7 +64,7 @@ export interface AcpLeaseCheckHost {
 export class AcpLeaseChecks {
   private readonly host: AcpLeaseCheckHost;
   private readonly audit: AcpLeaseAudit;
-  /** The administrator's check and confirmed cleanup (PAGE-340). */
+  /** The administrator's check and confirmed cleanup. */
   public readonly cleanup: AcpLeaseCleanup;
   private readonly openingIds = new Set<string>();
   /** Starts whose callback records process creation, so a failure before it proves no spawn. */
@@ -135,7 +134,7 @@ export class AcpLeaseChecks {
 
   /**
    * Whether a failed start provably left no process: it spawned nothing, or
-   * its own closeout confirmed the end of everything it spawned (PAGE-340).
+   * its own closeout confirmed the end of everything it spawned.
    */
   public isStartEnded(instanceId: string, native: PlanSession | null): boolean {
     return (
@@ -146,7 +145,6 @@ export class AcpLeaseChecks {
 
   /**
    * Marks a tracked start that failed before recording process creation.
-   *
    * @returns Whether the start provably spawned nothing; the lease then keeps
    * `not_spawned` as evidence if its release fails.
    */

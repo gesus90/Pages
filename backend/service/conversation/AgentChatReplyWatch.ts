@@ -5,8 +5,7 @@ import type { ConversationEvents } from "./ConversationEvents";
 
 /**
  * Hears the replies to the messages one agent sends, so `waitForReply` can
- * hand the reply back (PAGE-311).
- *
+ * hand the reply back.
  * @remarks
  * It listens from its creation on, so a reply that is posted before the
  * sender asks for it is kept. Close it when the wait is over.
@@ -21,7 +20,6 @@ export class AgentChatReplyWatch {
 
   /**
    * Starts listening in a conversation.
-   *
    * @param events - The in-process channel of committed messages.
    * @param conversationId - The conversation the message goes to.
    */
@@ -46,7 +44,6 @@ export class AgentChatReplyWatch {
 
   /**
    * Waits for the reply to a message.
-   *
    * @param messageId - The sent message.
    * @param limit - The longest wait in milliseconds and the signal that ends it.
    * @returns The reply, or `null` when none came in time or the wait was aborted.

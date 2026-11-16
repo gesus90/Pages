@@ -38,11 +38,9 @@ async function ensureDirectory(directory: string): Promise<void> {
 
 /**
  * Creates private directories below the agent directory and refuses links.
- *
  * @param root - The agent directory of the instance; created on first use.
  * @param parts - Identifiers and fixed names below the root.
  * @returns The innermost directory.
- *
  * @remarks
  * The root itself is the operator's choice, so a link to another disk is
  * accepted there. Every folder below it must be a real directory, because a
@@ -75,10 +73,8 @@ export async function artifactExists(filename: string): Promise<boolean> {
 
 /**
  * Makes a file hold exactly the given content, read-only for its owner.
- *
  * @param filename - Target file inside a directory from {@link artifactDirectory}.
  * @param content - Complete file content.
- *
  * @remarks
  * A file that already holds the content is left untouched, so repeated
  * processing neither changes its time stamp nor races with a reader. Any other

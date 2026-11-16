@@ -91,9 +91,7 @@ export const requireAuthenticatedUser: MiddlewareFunction = async (
 
 /**
  * Creates middleware that additionally requires a specific permission.
- *
  * @param permission - Operation the authenticated user must be allowed to perform.
- *
  * @remarks
  * Keeps every authorization decision server-side and centralized in the
  * permission service, instead of scattering role comparisons across routes.
@@ -124,7 +122,7 @@ export function requirePermission(permission: Permission): MiddlewareFunction {
   };
 }
 
-/** Requires the A2 entry capability and preserves the mandatory-password gate. */
+/** Requires the entry capability and preserves the mandatory-password gate. */
 export const requireUserManagement: MiddlewareFunction = async (
   { context, request },
   next,

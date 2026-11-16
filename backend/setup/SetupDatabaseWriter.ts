@@ -38,7 +38,6 @@ export type SetupWriteResult =
 /**
  * Writes the company and the main administrator of a setup into a
  * migrated database and signs the administrator in.
- *
  * @remarks
  * Writing the same setup again leads to the same state, so a setup whose
  * configuration could not be stored can simply be finished again.
@@ -53,7 +52,6 @@ export class SetupDatabaseWriter {
 
   /**
    * Creates a writer for one database.
-   *
    * @param database - Open and migrated database.
    */
   public constructor(database: Database) {
@@ -70,10 +68,8 @@ export class SetupDatabaseWriter {
 
   /**
    * Stores the setup.
-   *
    * @param record - Validated setup values with the hashed password.
    * @returns `written` with a new session, or why the account was refused.
-   *
    * @remarks
    * An existing administrator with the same username is updated: password,
    * email (when given), active again, and every older session revoked. An

@@ -61,14 +61,11 @@ export interface AgentDreamingState {
 }
 
 /**
- * Reads the Dreaming of an agent, saves its schedule and starts a run
- * (PAGE-378).
- *
+ * Reads the Dreaming of an agent, saves its schedule and starts a run.
  * @remarks
  * Every answer of a change carries the fresh overview, which replaces the
  * shown one; nothing is merged on the client. While a run is going on or waits
  * for a quiet moment, the overview is read again every few seconds.
- *
  * @param agentId - The agent whose Dreaming the tab shows.
  * @param pollIntervalMs - How often the overview is read again while a run is
  * going on or waits.

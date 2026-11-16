@@ -111,8 +111,7 @@ export async function releaseRunsStartResources(
 }
 
 /**
- * Hands a swarm tool call to the engine process (PAGE-313).
- *
+ * Hands a swarm tool call to the engine process.
  * @throws {SwarmCallError} When the engine refused the call.
  */
 export async function callRunsSwarm(

@@ -20,7 +20,6 @@ export class InstanceSettingsDeniedError extends Error {
 
 /**
  * Reads and changes what identifies the instance: company name and logo.
- *
  * @remarks
  * Both are stored in the database and apply at once. Everyone may read
  * them, since the login page shows them; only administrators change them.
@@ -31,7 +30,6 @@ export class InstanceSettingsService {
 
   /**
    * Creates the service.
-   *
    * @param repository - Persistence of the instance settings.
    * @param permissionService - Decides who may change the settings.
    */
@@ -45,7 +43,6 @@ export class InstanceSettingsService {
 
   /**
    * Returns company name and logo address as every visitor sees them.
-   *
    * @remarks
    * The logo address carries the time of the upload, so browsers load a new
    * logo at once and keep an unchanged one.

@@ -16,13 +16,11 @@ export const streamTimeout = 5_000;
 
 /**
  * Records server errors centrally; internal stacks never become client error messages.
- *
  * @param error - The error of a loader, an action, a middleware or the rendering.
  * @param args - Request facts React Router passes; the rendering omits them.
- *
  * @remarks
  * A database executor error is also remembered in the request's router
- * context, so the root middleware answers it with `503` (PAGE-197).
+ * context, so the root middleware answers it with `503`.
  */
 export function handleError(
   error: unknown,

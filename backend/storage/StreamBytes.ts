@@ -4,7 +4,6 @@ import type { Readable } from "node:stream";
 
 /**
  * Collects a short stream completely.
- *
  * @param stream - The bytes to collect; destroyed when this returns or fails.
  * @param maximumBytes - The most the stream may deliver.
  * @returns All bytes of the stream.

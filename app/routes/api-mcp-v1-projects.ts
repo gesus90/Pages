@@ -27,8 +27,7 @@ const HANDLERS: McpProjectHandlers = {
 };
 
 /**
- * Lists projects (`GET /api/mcp/v1/projects`) and creates one (`POST /api/mcp/v1/projects`), PAGE-244 interface 1 and 3.
- *
+ * Lists projects (`GET /api/mcp/v1/projects`) and creates one (`POST /api/mcp/v1/projects`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

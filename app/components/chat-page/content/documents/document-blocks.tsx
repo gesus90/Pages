@@ -39,7 +39,6 @@ const HEADING_CLASSES: readonly string[] = [
 
 /**
  * Groups neighbouring list items, so they render as one list.
- *
  * @param blocks - The blocks in order.
  * @param offset - The index of the first block in the whole document.
  */
@@ -262,7 +261,7 @@ interface DocumentBlocksProps {
 }
 
 /**
- * The blocks of a document as a readable view in the Pages design (PAGE-385):
+ * The blocks of a document as a readable view in the Pages design:
  * headings, paragraphs, lists, tables, emphasis and images.
  *
  * @remarks

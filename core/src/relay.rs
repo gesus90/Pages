@@ -1,4 +1,4 @@
-//! The handshake of a relayed WebSocket (PAGE-239): the client's upgrade is
+//! The handshake of a relayed WebSocket: the client's upgrade is
 //! answered only after `pages-api` accepted the same upgrade.
 //!
 //! The API keeps every decision: a runner's credential, a console's session

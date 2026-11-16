@@ -13,18 +13,16 @@ function listed(
   return models.some((model) => model.id === id) ? id : null;
 }
 
-// A speech model that reads no text (PAGE-273) is listed for speech recognition only.
+// A speech model that reads no text is listed for speech recognition only.
 function readsText(model: AgentCatalogModel): boolean {
   return model.inputModalities?.includes("text") ?? true;
 }
 
 /**
  * Picks the model a connection starts with, using only the listed models.
- *
  * @param provider - The connection's provider.
  * @param models - The freshly listed models, in the order the catalog keeps.
  * @returns A listed model ID, or `null` when the source marks no default.
- *
  * @remarks
  * Each rule follows what the provider or CLI documents:
  * - Codex lists its models in its own priority order, Claude Code names its

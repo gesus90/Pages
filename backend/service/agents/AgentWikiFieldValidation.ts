@@ -60,7 +60,6 @@ export function isAgentWikiPageOperation(
 
 /**
  * Reads the page an operation names: its identifier or its Pages address, never its title.
- *
  * @param input - The raw value.
  * @returns The page identifier.
  * @throws {AgentOperationError} `INVALID_REQUEST` for anything that is not a page identifier or address.
@@ -93,12 +92,10 @@ function target(
 
 /**
  * Validates one single-field change before any persistence or policy read.
- *
  * @param operation - The field operation that was called.
  * @param input - The raw operation parameters.
  * @returns The page, its expected revision and the one new value.
  * @throws {AgentOperationError} `INVALID_REQUEST` for a missing, unknown or malformed parameter.
- *
  * @remarks
  * Every parameter is required, so a call never changes a field implicitly. Setting the
  * icon to `null` removes it.
@@ -153,11 +150,9 @@ function readCover(input: unknown): WikiCover | null {
 
 /**
  * Validates a cover change before any persistence or policy read.
- *
  * @param input - The raw operation parameters.
  * @returns The page and the new cover; `null` removes the cover.
  * @throws {AgentOperationError} `INVALID_REQUEST` for a missing, unknown or malformed parameter.
- *
  * @remarks
  * The cover is `{kind: "preset", preset}` with one of the six prepared names,
  * `{kind: "attachment", attachmentId}` or `null`, the shape `read_wiki_page`
@@ -175,7 +170,6 @@ export function readAgentWikiCoverChange(input: unknown): AgentWikiCoverInput {
 
 /**
  * Validates a read of one passage of the Markdown of a page.
- *
  * @param input - The raw operation parameters.
  * @returns The page identifier and the passage asked for.
  * @throws {AgentOperationError} `INVALID_REQUEST` for a missing, unknown or malformed parameter, `PAYLOAD_TOO_LARGE` for a budget over the limit.
@@ -194,11 +188,9 @@ export function readAgentWikiPageRange(input: unknown): {
 
 /**
  * Validates a range patch of the Markdown before any persistence or policy read.
- *
  * @param input - The raw operation parameters.
  * @returns The page, its expected revision and the one range with its expected text and replacement.
  * @throws {AgentOperationError} `INVALID_REQUEST` for a missing, unknown or malformed parameter.
- *
  * @remarks
  * The complete text is no input. Size limits apply to the text that results,
  * which is only known against the stored page.
@@ -217,7 +209,6 @@ export function readAgentWikiContentPatch(
 
 /**
  * Validates the parameters of any page operation of this family.
- *
  * @param operation - The operation that was called.
  * @param input - The raw operation parameters.
  * @returns The validated request.
@@ -238,11 +229,9 @@ export function readAgentWikiPageRequest(
 
 /**
  * Validates a move to an explicit place before any persistence or policy read.
- *
  * @param input - The raw operation parameters.
  * @returns The page, its expected revision and the target project, parent and sibling.
  * @throws {AgentOperationError} `INVALID_REQUEST` for a missing, unknown or malformed parameter.
- *
  * @remarks
  * The target is always named in full: `parentId` and `beforeId` are `null` to say
  * "project root" and "at the end".

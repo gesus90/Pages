@@ -66,62 +66,62 @@ export interface AgentEmployeeSessionDependencies {
     | "settled"
     | "activity"
   > | null;
-  /** The limits of concurrent sessions (PAGE-304); absent runs every session at once. */
+  /** The limits of concurrent sessions; absent runs every session at once. */
   readonly slots?: Pick<AgentSessionSlots, "acquire">;
-  /** The MCP servers of the host for "Arbeitsplatz" and YOLO (PAGE-303); absent gives none. */
+  /** The MCP servers of the host for "Arbeitsplatz" and YOLO; absent gives none. */
   readonly accessEnvironment?: Pick<
     AgentAccessEnvironmentService,
     "chatServers"
   >;
-  /** Attaches files of the working folder with the agent's rights (PAGE-303); absent offers no such tool. */
+  /** Attaches files of the working folder with the agent's rights; absent offers no such tool. */
   readonly hostFiles?: Pick<AgentHostFiles, "attach">;
-  /** Keeps `MEMORY.md` current after each answer of a direct chat (PAGE-305); absent records nothing. */
+  /** Keeps `MEMORY.md` current after each answer of a direct chat; absent records nothing. */
   readonly recorder?: Pick<AgentMemoryRecorder, "record">;
   /**
-   * The Pages tools to read chats and send messages (PAGE-311). A function,
+   * The Pages tools to read chats and send messages. A function,
    * because the conversations are wired after the sessions; `null` where none.
    */
   readonly agentChat?: () => AgentChatTools | null;
   /**
-   * The interim messages and questions of agents in their chat (PAGE-391).
+   * The interim messages and questions of agents in their chat.
    * A function, because the conversations are wired after the sessions;
    * `null` offers neither.
    */
   readonly chatQuestions?: () => Pick<AgentChatQuestionService, "bind"> | null;
   /**
-   * The scheduled tasks agents plan from their chat (PAGE-392). A function,
+   * The scheduled tasks agents plan from their chat. A function,
    * because the automations are wired after the sessions; `null` plans none.
    */
   readonly chatTasks?: () => Pick<AgentChatTaskService, "bind"> | null;
   /**
-   * The search over the earlier messages of the agents' chats (PAGE-393);
+   * The search over the earlier messages of the agents' chats;
    * absent offers no history tools.
    */
   readonly chatHistory?: Pick<AgentChatHistoryService, "bind">;
   /** An unused ID for a new chat session. */
   readonly createSessionId: () => string;
   /**
-   * Reads the stored context of a group as the agent's own account
-   * (PAGE-296); offered to the agent as `read_conversation_context`.
+   * Reads the stored context of a group as the agent's own account;
+   * offered to the agent as `read_conversation_context`.
    */
   readonly conversationContext?: {
     readForAgent(agentId: string, input: unknown): Promise<unknown>;
   };
   /**
    * What happens to a chat session after its rounds, such as the restart at
-   * a full context (PAGE-376). A function, because it is wired after the
+   * a full context. A function, because it is wired after the
    * sessions; `null` runs without it.
    */
   readonly lifecycle?: () => Pick<
     AgentChatSessionLifecycle,
     "restartIfNeeded" | "afterRound"
   > | null;
-  /** Reads the own chat of a session for `chat_lesen` (PAGE-376); absent offers no such tool. */
+  /** Reads the own chat of a session for `chat_lesen`; absent offers no such tool. */
   readonly chatReader?: Pick<AgentChatReader, "read">;
-  /** Keeps a confidential chat inside its own session (PAGE-376); absent leaves the chat tools as they are. */
+  /** Keeps a confidential chat inside its own session; absent leaves the chat tools as they are. */
   readonly toolGuard?: Pick<AgentChatToolGuard, "tools" | "contextReader">;
   /**
-   * The Lagebuch of the agents (PAGE-377): its tools for every chat session
+   * The Lagebuch of the agents: its tools for every chat session
    * and the one hint line of a round. A function, because it is wired after
    * the sessions; absent offers no Lagebuch.
    */
@@ -130,33 +130,33 @@ export interface AgentEmployeeSessionDependencies {
     "tools" | "hint" | "markSeen"
   > | null;
   /**
-   * The recipes of the agents (PAGE-378): the tool `rezept`, the record of tool
+   * The recipes of the agents: the tool `rezept`, the record of tool
    * calls and the list of recipes a round is told about. Absent offers none.
    */
   readonly recipes?: Pick<AgentRecipeService, "tools" | "brief">;
   /**
    * Generates images with the model of a round in a conversation and hands
-   * them to the answer (PAGE-382); absent offers no `bilder_erzeugen`.
+   * them to the answer; absent offers no `bilder_erzeugen`.
    */
   readonly images?: AgentImageToolDependencies;
   /**
    * Generates videos and sounds with the model of a round in a conversation
-   * and hands them to the answer (PAGE-384); absent offers no `video_erzeugen`
+   * and hands them to the answer; absent offers no `video_erzeugen`
    * and no `audio_erzeugen`.
    */
   readonly media?: AgentMediaToolDependencies;
   /**
-   * Searches and reads the attachments of the chat of a round (PAGE-386). A
+   * Searches and reads the attachments of the chat of a round. A
    * function, because the conversations are wired after the sessions; absent
    * or `null` offers no `anhaenge_suchen` and no `anhang_lesen`.
    */
   readonly attachments?: () => AgentAttachmentToolDependencies | null;
   readonly today?: () => string;
-  /** Opens the live answer of a direct chat for the chat page (PAGE-381); absent shows none. */
+  /** Opens the live answer of a direct chat for the chat page; absent shows none. */
   readonly answers?: Pick<ConversationAnswerStream, "open">;
   /**
    * Folders the isolation of the toolkit's shell hides, such as the data and
-   * agent folders (PAGE-390); absent hides only the runtime folder.
+   * agent folders; absent hides only the runtime folder.
    */
   readonly toolkitHiddenDirectories?: readonly string[];
   /** Waits between two looks of a background run at the chats of its agent; tests pass a fast one. */
@@ -171,7 +171,7 @@ export interface AgentMessage {
   /** The uploaded files of the chat session the message carries, in their order. */
   readonly attachmentIds: readonly string[];
   readonly clientMessageId: string | null;
-  /** How the person sent it while the agent answered (PAGE-381); absent joins the answer as before. */
+  /** How the person sent it while the agent answered; absent joins the answer as before. */
   readonly delivery?: ConversationDelivery;
 }
 
@@ -184,9 +184,9 @@ export interface AgentJobRequest {
   readonly purpose: AgentConversationPurpose;
   /** Transfers conversation attachments before the temporary workspace is removed. */
   readonly consumeAnswer?: (answer: string) => Promise<void>;
-  /** The stored conversation an answer belongs to (PAGE-276); its session is kept per agent and conversation. */
+  /** The stored conversation an answer belongs to; its session is kept per agent and conversation. */
   readonly conversationId?: string;
-  /** How the resource view names the conversation of a kept session (PAGE-335). */
+  /** How the resource view names the conversation of a kept session. */
   readonly conversationLabel?: string;
   readonly prepareTurn?: (
     afterSequence: number | null,
@@ -198,22 +198,22 @@ export interface AgentJobRequest {
   readonly clientMessageId: string | null;
   /**
    * The message is a scheduled one, such as the work of an automation
-   * (PAGE-376): it waits for the running answer of its chat instead of
+   * It waits for the running answer of its chat instead of
    * joining it, so its own answer exists.
    */
   readonly isScheduled?: boolean;
   /**
-   * Runs the job on this model instead of the agent's own (PAGE-377), such as
+   * Runs the job on this model instead of the agent's own, such as
    * the cheap model of the background summary of the Lagebuch. A model that no
    * longer passes the rule for agents falls back to the agent's own.
    */
   readonly modelOverride?: {
     readonly connectionId: string;
     readonly model: string;
-    /** The reasoning level of a model chosen for one chat (PAGE-380); absent follows the model's default. */
+    /** The reasoning level of a model chosen for one chat; absent follows the model's default. */
     readonly reasoningEffort?: string | null;
   };
-  /** Ends the wait of the message in the queue (PAGE-304). */
+  /** Ends the wait of the message in the queue. */
   readonly signal?: AbortSignal;
   /** Called once when the message waits for a free place among the limits. */
   readonly onQueued?: () => void;
@@ -221,14 +221,14 @@ export interface AgentJobRequest {
   readonly onAdmitted?: () => void;
   /**
    * The message waits for a turn of its own after the running answer instead
-   * of joining it (PAGE-381, "Danach senden").
+   * of joining it ("Danach senden").
    */
   readonly isDeferred?: boolean;
-  /** Shows the answer on the chat page while it is written (PAGE-381); a direct chat opens its own. */
+  /** Shows the answer on the chat page while it is written; a direct chat opens its own. */
   readonly liveAnswer?: LiveAnswerSink;
 }
 
-/** A message of a person to an agent that waits for a free place (PAGE-304). */
+/** A message of a person to an agent that waits for a free place. */
 export interface QueuedAgentMessage {
   readonly id: string;
   readonly text: string;
@@ -244,7 +244,7 @@ export function chatKey(agentId: string, personId: string): string {
 }
 
 /**
- * The session a chat keeps between its rounds (PAGE-335): a direct chat and
+ * The session a chat keeps between its rounds: a direct chat and
  * a conversation answer every round through one session of the agent; a run
  * of the agent's own starts a session of its own each time.
  */
@@ -260,7 +260,7 @@ export function keptSessionOf(
 }
 
 /**
- * The chat whose model choice a round follows (PAGE-380): the direct chat of
+ * The chat whose model choice a round follows: the direct chat of
  * its person or its group; `null` for a run of the agent's own.
  */
 export function chatModelKey(
@@ -287,12 +287,12 @@ export interface AgentChatScope {
     readonly sessionId: string;
     readonly kind: "direct" | "group";
     readonly chatId: string;
-    /** The person who addressed the agent in a conversation, who alone answers its questions (PAGE-391). */
+    /** The person who addressed the agent in a conversation, who alone answers its questions. */
     readonly askerId?: string;
   } | null;
 }
 
-/** Whether the agent is busy with another request, so the message is queued instead (PAGE-376). */
+/** Whether the agent is busy with another request, so the message is queued instead. */
 export function isSessionBusy(error: unknown): boolean {
   return error instanceof AgentExecutionError && error.code === "requestBusy";
 }

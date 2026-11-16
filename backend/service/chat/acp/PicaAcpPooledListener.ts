@@ -15,8 +15,7 @@ interface Negotiated {
 }
 
 /**
- * The listener of a chat session that outlives its jobs (PAGE-335).
- *
+ * The listener of a chat session that outlives its jobs.
  * @remarks
  * The native session reads its listener once, when it starts. This one
  * passes every update to the job that holds the session now and drops the

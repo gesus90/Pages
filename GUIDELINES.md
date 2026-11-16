@@ -332,12 +332,17 @@ A missing comment on an exported function or class or on a public method is an e
 
 Do not document trivial private implementation details.
 
+A documentation comment has no blank lines. The description and its tags
+follow each other directly, and paragraphs are not separated by empty
+comment lines. This applies to every `/** ... */` comment in JavaScript and
+TypeScript source. Local `//` comments, plain `/* ... */` comments and
+standalone Markdown documentation keep their paragraph spacing.
+
 Good:
 
 ```ts
 /**
  * Returns the project with the given identifier.
- *
  * @param id - Project identifier.
  * @returns The project, or `null` when no project exists.
  */
@@ -364,7 +369,6 @@ Avoid:
 ```ts
 /**
  * Gets the name.
- *
  * @param project - The project.
  * @returns The name.
  */
@@ -375,7 +379,6 @@ Prefer documentation that adds context:
 ```ts
 /**
  * Returns the display name used in project navigation.
- *
  * @remarks
  * Archived projects keep their original display name.
  */
@@ -838,7 +841,7 @@ Chapter  Rule                                         Tool
 14       SELECT *                                     no-restricted-syntax
 ```
 
-Checked in code review, because no tool can decide them: names that explain the purpose, import order, semantic HTML and accessibility, comments that explain why, unnecessary abstractions, unnecessary effects, and the SQL layout.
+Checked in code review, because no tool can decide them: names that explain the purpose, import order, semantic HTML and accessibility, comments that explain why, blank lines in documentation comments, unnecessary abstractions, unnecessary effects, and the SQL layout.
 
 `eslint-plugin-jsx-a11y` is not used because its newest release (6.10.2) does not declare support for ESLint 10. Accessibility is checked in review until it does.
 

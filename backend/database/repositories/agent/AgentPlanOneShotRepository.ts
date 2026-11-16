@@ -71,7 +71,6 @@ function deletionMessage(planName: string, ownerName: string): string {
 
 /**
  * Persists the deadline of one-time plans and carries out their final deletion.
- *
  * @remarks
  * The one-time mark is part of the stored plan graph; this repository owns
  * only the deadline column and the last transaction of a deletion. The rows
@@ -86,7 +85,6 @@ export class AgentPlanOneShotRepository {
 
   /**
    * Sets the deadline of a plan that carries the one-time mark.
-   *
    * @param planId - The plan whose run just succeeded.
    * @param deletionAt - The deadline, an ISO 8601 UTC time.
    * @returns Whether the plan is a one-time plan and now has the deadline.
@@ -124,7 +122,6 @@ export class AgentPlanOneShotRepository {
 
   /**
    * Lists the plans whose deletion is due.
-   *
    * @param now - The current time, an ISO 8601 UTC time.
    * @returns The plan identifiers, the earliest deadline first.
    */

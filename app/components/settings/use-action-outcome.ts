@@ -4,7 +4,6 @@ import type { SettingsActionData } from "@/app/lib/settings-actions/settings-act
 
 /**
  * Resolves the kind of `actionData` that belongs to a submitted intent.
- *
  * @param intent - The intent whose outcome the caller wants.
  * @returns The latest outcome of that intent, or `null` when the last
  * submission was another one.

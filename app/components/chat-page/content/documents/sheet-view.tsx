@@ -49,7 +49,7 @@ interface SheetPreviewProps {
 }
 
 /**
- * The table of a card (PAGE-385): tabs for the sheets, row numbers, column
+ * The table of a card: tabs for the sheets, row numbers, column
  * letters with the first row as head, numbers right aligned, the first rows
  * and "N von M Zeilen · Ganze Tabelle öffnen".
  */
@@ -230,7 +230,7 @@ interface SheetPanelProps {
 }
 
 /**
- * The whole table next to the chat and in the full screen (PAGE-385): tabs
+ * The whole table next to the chat and in the full screen: tabs
  * for the sheets, a search, sorting by a click on a column head, a fixed
  * head, marked cells with their sum in the foot, and 200 rows per page.
  * Formulas show their stored values; nothing is recalculated.

@@ -42,7 +42,6 @@ function hasUnconfirmed(stores: DraftStores): boolean {
 
 /**
  * Retains account-local edits above every workspace route and warns on tab close.
- *
  * @remarks
  * Edits the server has not confirmed are also kept in the browser for
  * `ownerId`, so they outlast a reload or an outage; an unconfirmed write is

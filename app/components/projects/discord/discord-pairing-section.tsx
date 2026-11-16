@@ -16,7 +16,6 @@ interface DiscordPairingSectionProps {
 
 /**
  * Shows how to install the bot while an attempt waits for Discord.
- *
  * @remarks
  * The QR code and the button lead to the same official authorization page.
  * The code is shown from tablet width up; on a phone the button is the way.

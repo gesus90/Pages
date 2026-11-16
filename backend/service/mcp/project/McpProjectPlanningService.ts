@@ -9,11 +9,10 @@ import type { McpProjectEventRequest } from "./McpProjectRequest";
 /** The type a date gets without one, like on the project page. */
 const DEFAULT_EVENT_TYPE = "general";
 
-/** Changes the team, the goals and the dates of a project (PAGE-244, interface 5–8). */
+/** Changes the team, the goals and the dates of a project. */
 export class McpProjectPlanningService {
   /**
    * Adds a person to the team or changes the role of a member.
-   *
    * @param context - The request.
    * @param projectId - The project.
    * @param member - Username and new role of the person.
@@ -47,7 +46,6 @@ export class McpProjectPlanningService {
 
   /**
    * Removes a member from the team.
-   *
    * @param context - The request.
    * @param projectId - The project.
    * @param username - The member.
@@ -71,7 +69,6 @@ export class McpProjectPlanningService {
 
   /**
    * Adds a goal.
-   *
    * @param context - The request.
    * @param projectId - The project.
    * @param title - The validated title.
@@ -89,7 +86,6 @@ export class McpProjectPlanningService {
 
   /**
    * Marks a goal as done or open again.
-   *
    * @param context - The request.
    * @param reference - The project and the goal.
    * @param isDone - The new state.
@@ -116,7 +112,6 @@ export class McpProjectPlanningService {
 
   /**
    * Deletes a goal.
-   *
    * @param context - The request.
    * @param projectId - The project.
    * @param goalId - The goal.
@@ -138,7 +133,6 @@ export class McpProjectPlanningService {
 
   /**
    * Adds a date to the project calendar.
-   *
    * @param context - The request.
    * @param projectId - The project.
    * @param event - The validated date.
@@ -162,7 +156,6 @@ export class McpProjectPlanningService {
 
   /**
    * Archives a date of the project calendar.
-   *
    * @param context - The request.
    * @param projectId - The project.
    * @param eventId - The date.

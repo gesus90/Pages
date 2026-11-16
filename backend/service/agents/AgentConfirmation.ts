@@ -5,7 +5,6 @@ import type { DatabaseTransaction } from "@/backend/database/Database";
 
 /**
  * Returns the confirmation word of the account's current interface language.
- *
  * @param database - The connection or transaction to read the settings with.
  * @param userId - The account that confirms.
  * @returns `DELETE` for English, `LÖSCHEN` otherwise.

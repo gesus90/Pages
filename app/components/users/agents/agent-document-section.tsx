@@ -65,7 +65,7 @@ function DocumentField({
   );
 }
 
-/** The tab "Persönlichkeit": `SOUL.md`, who the agent is (PAGE-266). */
+/** The tab "Persönlichkeit": `SOUL.md`, who the agent is. */
 export function AgentSoulSection({
   value,
   onChange,
@@ -89,9 +89,8 @@ export function AgentSoulSection({
 }
 
 /**
- * The tab "Aufgabe": `AGENT.md`, what the agent does (PAGE-266), with the
- * templates of the instance above it (PAGE-283).
- *
+ * The tab "Aufgabe": `AGENT.md`, what the agent does, with the
+ * templates of the instance above it.
  * @remarks
  * A template fills the field once; the text stays freely editable, and a
  * later change of the template changes no agent.

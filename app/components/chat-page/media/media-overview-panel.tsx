@@ -221,7 +221,7 @@ function TabBody({
 }
 
 /**
- * "Medien & Dateien" of the opened chat (PAGE-387): tabs for images, videos,
+ * "Medien & Dateien" of the opened chat: tabs for images, videos,
  * sound, documents, files and links with their counts, search by name,
  * filter by sender, "läuft bald ab" and hiding expired files; marked files
  * download as one ZIP archive.
@@ -301,7 +301,7 @@ export function MediaOverviewPanel({
   );
 }
 
-/** "Medien & Dateien" over the page on a narrow screen (PAGE-387). */
+/** "Medien & Dateien" over the page on a narrow screen. */
 export function MediaOverviewOverlay(): React.ReactElement | null {
   const { t } = useTranslation();
   const { media } = useChatContent();

@@ -48,9 +48,8 @@ function AttachmentFullContent({
 }
 
 /**
- * An attachment as the split view and the full-screen overlay show it
- * (PAGE-298); it fills its container and has no title bar of its own.
- *
+ * An attachment as the split view and the full-screen overlay show it;
+ * it fills its container and has no title bar of its own.
  * @remarks
  * An image shows the original, a PDF the viewer, a video and an audio file
  * their player, any other file its name, type and size with Laden.

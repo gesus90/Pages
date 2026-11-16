@@ -15,7 +15,6 @@ export async function getSessionToken(
 
 /**
  * Reads the session token from a `Cookie` header, such as one `pages-core` passes on.
- *
  * @param cookieHeader - The header as the browser sent it.
  * @returns The token, or `null` when the header holds none.
  */
@@ -35,7 +34,6 @@ export async function readSessionToken(
 
 /**
  * Creates the response header value that removes the browser session token.
- *
  * @param request - Request the response answers.
  */
 export async function destroySessionCookie(request: Request): Promise<string> {

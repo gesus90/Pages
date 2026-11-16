@@ -27,8 +27,8 @@ import type {
 
 /**
  * Sends a stop or a tool cancellation for the opened agent, the stop of
- * one agent's answer in the opened group (PAGE-304), or the release of a
- * paused conversation of agents (PAGE-311).
+ * one agent's answer in the opened group, or the release of a
+ * paused conversation of agents.
  */
 function useAgentControls(opened: OpenedConversation | null): {
   readonly stop: () => void;
@@ -60,7 +60,7 @@ function useAgentControls(opened: OpenedConversation | null): {
     formData.set("conversationId", opened.group.id);
     void fetcher.submit(formData, { method: "post" });
   }
-  // The running tool calls of one agent of the opened chat (PAGE-381).
+  // The running tool calls of one agent of the opened chat.
   function cancelAgentTool(agentId: string): void {
     if (opened?.kind !== "group") {
       submit("cancel-tool");
@@ -110,7 +110,7 @@ export interface ChatPageState {
   /** Whether older messages of the opened stored conversation can be loaded. */
   readonly hasOlder: boolean;
   readonly isLoadingOlder: boolean;
-  /** Loads the page of messages before the oldest shown one (PAGE-275). */
+  /** Loads the page of messages before the oldest shown one. */
   loadOlder(): void;
   /**
    * Whether the opened stored conversation is muted for the person; `null`
@@ -121,16 +121,16 @@ export interface ChatPageState {
   toggleMute(): void;
   /** Whether the opened agent, or an agent of the opened group, is answering now. */
   readonly isAnswering: boolean;
-  /** Who is answering: the opened agent, or the agents of the opened group (PAGE-276). */
+  /** Who is answering: the opened agent, or the agents of the opened group. */
   readonly answeringNames: readonly string[];
-  /** The longest voice message Pages takes, in milliseconds (PAGE-277). */
+  /** The longest voice message Pages takes, in milliseconds. */
   readonly voiceMaximumMs: number;
   /** Why the last message could not be sent, or `null`. */
   readonly sendFailure: VirtualChatSendFailure | null;
   /**
    * Sends a message to the opened agent, person or group; with uploaded
-   * attachments (PAGE-298) the text may be empty. While agents answer,
-   * `delivery` puts it into their answers or after them (PAGE-381).
+   * attachments the text may be empty. While agents answer,
+   * `delivery` puts it into their answers or after them.
    */
   send(
     content: string,
@@ -139,28 +139,28 @@ export interface ChatPageState {
   ): void;
   /**
    * Sends what a preview wrote with `pages.chat.send(text)` as an ordinary
-   * message of the person, marked "aus der Vorschau gesendet" (PAGE-383).
+   * message of the person, marked "aus der Vorschau gesendet".
    */
   sendFromPreview(text: string): void;
-  /** Stops every answer of the opened chat: the agent's, or those of the group's agents (PAGE-381). */
+  /** Stops every answer of the opened chat: the agent's, or those of the group's agents. */
   stopAll(): void;
-  /** What the history shows of the answers written now (PAGE-381). */
+  /** What the history shows of the answers written now. */
   readonly live: HistoryLive;
-  /** The agents at work in the opened chat and what they do (PAGE-381). */
+  /** The agents at work in the opened chat and what they do. */
   readonly activity: readonly AgentActivity[];
-  /** Whether the channel of the live answers is open (PAGE-381). */
+  /** Whether the channel of the live answers is open. */
   readonly isLive: boolean;
   /** Adds one of the person's participants to a group. */
   addMember(groupId: string, participantId: string): void;
   /** Stops the answer of the opened agent. */
   stop(): void;
-  /** Stops the answer of one agent in the opened group; the others answer on (PAGE-304). */
+  /** Stops the answer of one agent in the opened group; the others answer on. */
   stopGroupAgent(agentId: string): void;
-  /** The tool calls of the answer the opened agent is working on (PAGE-303). */
+  /** The tool calls of the answer the opened agent is working on. */
   readonly liveTools: readonly VirtualToolUse[];
-  /** Cancels the running tool call of the opened agent; its answer goes on (PAGE-303). */
+  /** Cancels the running tool call of the opened agent; its answer goes on. */
   cancelTool(): void;
-  /** Lets the agents of the opened paused conversation go on (PAGE-311). */
+  /** Lets the agents of the opened paused conversation go on. */
   resumeAgents(): void;
   findParticipant(id: string): VirtualParticipant | undefined;
   /** The known members of a group, in its order. */
@@ -305,7 +305,7 @@ function pendingMessage(
   return withPendingDelivery(baseMessage, formData);
 }
 
-/** Attaches how a message sent mid-answer goes to the agents (PAGE-381). */
+/** Attaches how a message sent mid-answer goes to the agents. */
 function withPendingDelivery(
   message: VirtualChatMessage,
   formData: FormData | undefined,
@@ -346,7 +346,7 @@ function messageForm(
 
 /**
  * Whether somebody answers in the opened conversation and who: the opened
- * agent, or the agents of the opened group (PAGE-276).
+ * agent, or the agents of the opened group.
  */
 function answeringState(
   opened: OpenedConversation | null,
@@ -368,7 +368,7 @@ function answeringState(
   };
 }
 
-/** Groups and participants that match the search in the fields of PAGE-259. */
+/** Groups and participants that match the search in the fields. */
 function searchLists(lists: ChatLists, query: string): ChatLists {
   return {
     groups: lists.groups.filter((group) =>
@@ -454,9 +454,9 @@ function createSendActions(context: {
  * Both lists come newest activity first; the first group opens at first,
  * else the first agent of the list. A sent message goes over the page's
  * action and shows at once: to an agent, which answers over ACP, or into the
- * stored conversation with a person or of a group (PAGE-278), whose other
+ * stored conversation with a person or of a group, whose other
  * members see it live. Answers arrive over `conversations.v1` while they are
- * written (PAGE-381); the page reads its data again when an answer ended,
+ * written; the page reads its data again when an answer ended,
  * never at fixed intervals. Opening a conversation with unread messages
  * marks it read.
  */

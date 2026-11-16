@@ -33,7 +33,6 @@ export type PageAgentSharingOperator =
 
 /**
  * How a runner may work in a workspace; MCP clients read it and never set it.
- *
  * @remarks
  * Structurally the run options of an agent configuration; they are declared
  * here because the MCP package type-checks this file on its own.

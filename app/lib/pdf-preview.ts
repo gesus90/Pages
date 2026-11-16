@@ -5,7 +5,6 @@ export interface PdfPreview {
   readonly pageCount: number;
   /**
    * Draws one page into a canvas.
-   *
    * @param pageNumber - The page, counted from 1.
    * @param canvas - The canvas that receives the page.
    * @param width - The width the page is shown in, in CSS pixels.
@@ -16,14 +15,12 @@ export interface PdfPreview {
     width: number,
   ): Promise<void>;
   /**
-   * The title the metadata of the PDF names (PAGE-385).
-   *
+   * The title the metadata of the PDF names.
    * @returns The title, or `null` when the PDF names none.
    */
   readTitle(): Promise<string | null>;
   /**
-   * The pages whose text contains a search, regardless of case (PAGE-385).
-   *
+   * The pages whose text contains a search, regardless of case.
    * @param query - The search text.
    * @returns The page numbers, counted from 1, in order.
    */
@@ -56,7 +53,6 @@ function joinTextItems(items: readonly unknown[]): string {
 
 /**
  * The one pdf.js worker of the page, started with the first preview.
- *
  * @remarks
  * Vite builds the worker as a `.js` asset, which the server sends as
  * JavaScript; pdf.js would otherwise load its `.mjs` worker file.
@@ -70,12 +66,10 @@ const activeRenders = new WeakMap<
 >();
 
 /**
- * Opens an own PDF attachment with pdf.js for a page preview (PAGE-92).
- *
+ * Opens an own PDF attachment with pdf.js for a page preview.
  * @remarks
  * The bytes come from the authenticated download address of Pages; see
  * {@link openPdfBytes} for how they are parsed and drawn.
- *
  * @param url - The download address of the attachment.
  * @param signal - Cancels the download.
  */
@@ -90,14 +84,12 @@ export async function openPdfPreview(
 
 /**
  * Opens the bytes of a PDF with pdf.js for a page preview.
- *
  * @remarks
  * A local file goes through here, because the page may not fetch a `blob:`
  * address (`connect-src 'self'`). pdf.js parses the bytes in its worker and
  * the page is drawn into a canvas. No script of the PDF runs, forms and
  * annotations are not drawn as interactive layers, links are not followed
  * and nothing is loaded from another origin.
- *
  * @param bytes - The content of the PDF; pdf.js takes the buffer over.
  */
 export async function openPdfBytes(bytes: Uint8Array): Promise<PdfPreview> {
@@ -114,7 +106,7 @@ export async function openPdfBytes(bytes: Uint8Array): Promise<PdfPreview> {
     void task.destroy();
     throw error;
   });
-  // The text of each page, read once for the search (PAGE-385).
+  // The text of each page, read once for the search.
   const pageTexts = new Map<number, string>();
   return {
     pageCount: document.numPages,

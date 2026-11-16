@@ -26,8 +26,7 @@ async function storedEvent(
 }
 
 /**
- * Creates, changes and answers events (PAGE-301).
- *
+ * Creates, changes and answers events.
  * @remarks
  * Every change runs once per operation ID of the account: the same call
  * again answers the stored answer without a second event, the same ID with
@@ -39,7 +38,6 @@ export class McpCalendarWriteService {
   /**
    * Creates an event; the creator is always the authenticated account
    * (create_calendar_event).
-   *
    * @param context - The request.
    * @param request - Operation ID and the fields of the event.
    * @throws {McpCalendarError} `forbidden` for a read-only agent.
@@ -68,7 +66,6 @@ export class McpCalendarWriteService {
 
   /**
    * Changes an event or a scope of a series (update_calendar_event).
-   *
    * @param context - The request.
    * @param eventId - The event or one of its occurrences.
    * @param request - Operation ID, target and the named fields.
@@ -106,7 +103,6 @@ export class McpCalendarWriteService {
 
   /**
    * Answers an invitation for the whole series (respond_calendar_event).
-   *
    * @param context - The request.
    * @param eventId - The event or one of its occurrences.
    * @param request - Operation ID and the answer.

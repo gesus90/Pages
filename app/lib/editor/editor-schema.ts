@@ -62,7 +62,6 @@ export type EditorAttributes = Readonly<Record<string, unknown>>;
 
 /**
  * Reads a text attribute.
- *
  * @param attributes - Attributes of a node or mark.
  * @param name - Attribute name.
  * @returns The value, or `null` when it is missing or no non-empty text.
@@ -78,7 +77,6 @@ export function readTextAttribute(
 
 /**
  * Reads a whole-number attribute.
- *
  * @param attributes - Attributes of a node or mark.
  * @param name - Attribute name.
  * @param fallback - Value for a missing or malformed attribute.
@@ -98,7 +96,6 @@ export function readNumberAttribute(
 
 /**
  * Reads a yes/no attribute.
- *
  * @param attributes - Attributes of a node or mark.
  * @param name - Attribute name.
  * @returns Whether the attribute is `true`.

@@ -85,14 +85,12 @@ export type AgentConnectionLocation =
 
 /**
  * Fixed endpoints prevent administrators from redirecting saved credentials.
- *
  * @remarks
  * `location` says where Pages runs the connection. Pages starts every current
  * provider on this host, a CLI as a local process and an API as a request of
  * the server, so all are local; connections on another machine are remote.
  * `vendor` names the provider whose models a connection offers, so a CLI
  * subscription is listed together with the API of its vendor.
- *
  * Every model choice reads a provider's appearance and abilities here, so a
  * runner is registered once: `mark` names its brand mark in the model choice
  * (a key without a drawn mark shows the neutral fallback), and `chatAdapter`
@@ -244,7 +242,6 @@ export type CliLoginState =
 
 /**
  * Ephemeral session view.
- *
  * @remarks
  * Only the protected login resource returns `verificationUrl` and `userCode`,
  * and only to the administrator who started the login.
@@ -320,7 +317,6 @@ export interface AgentConnectionInput {
   readonly openRouterModelIds?: unknown;
   /**
    * Untrusted usage scope from the request, validated by the service.
-   *
    * @remarks
    * Absent means global on creation and unchanged on update.
    */

@@ -51,7 +51,6 @@ export class GitHubConflictResolver {
 
   /**
    * Creates a conflict resolver.
-   *
    * @param options - Repository and collaborator dependencies.
    */
   public constructor(options: GitHubConflictResolverOptions) {
@@ -66,10 +65,8 @@ export class GitHubConflictResolver {
 
   /**
    * Synchronizes a linked task with its issue, flagging real conflicts.
-   *
    * @param run - Task, its issue, and the counters of the current run.
    * @param statuses - Workflow statuses a pulled state maps onto.
-   *
    * @remarks
    * A change on one side is carried over in the direction the integration
    * allows. A change on both sides is never overwritten; the task is flagged
@@ -107,7 +104,6 @@ export class GitHubConflictResolver {
 
   /**
    * Resolves a synchronization conflict in favor of one side.
-   *
    * @param actor - User resolving the conflict; must hold write permission.
    * @param workItemId - Task carrying the conflict flag.
    * @param resolution - Side whose values win the conflict.

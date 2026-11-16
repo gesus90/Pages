@@ -26,7 +26,6 @@ const openRoutes = new Map<string, number>();
 
 /**
  * The key of a route's answers: path and query, as the address shows them.
- *
  * @param url - The address of the route.
  */
 export function localStateRoute(url: URL): string {

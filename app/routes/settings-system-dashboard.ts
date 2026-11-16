@@ -9,8 +9,7 @@ import type { Route } from "./+types/settings-system-dashboard";
 const NO_STORE = { "Cache-Control": "private, no-store" } as const;
 
 /**
- * Answers the system dashboard only to an administrator in the active admin mode (PAGE-282).
- *
+ * Answers the system dashboard only to an administrator in the active admin mode.
  * @remarks
  * The rights are read anew for every request, as for the other system
  * settings, so leaving the admin mode stops the data with the next poll.

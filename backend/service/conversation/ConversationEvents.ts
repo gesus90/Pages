@@ -8,14 +8,13 @@ import type {
 
 /**
  * A committed change of a conversation, as the process tells its listeners.
- *
  * @remarks
  * `recipientIds` names the accounts that may learn of it: every member for a
  * message and a new conversation, the member alone for a read state or a
  * mute. `originId` names the Pica Mobile connection that caused the change,
  * which receives its own answer instead. `typing` tells every member that an
- * agent started or ended an answer (PAGE-276); nothing is stored for it.
- * `answer` carries a part of an answer an agent is writing now (PAGE-381):
+ * agent started or ended an answer; nothing is stored for it.
+ * `answer` carries a part of an answer an agent is writing now:
  * its recipients are the members who may see that part, so a thought goes
  * only to the person of a direct chat or the owner of a group. Nothing is
  * stored for it either. `delivery` of a message says how a person sent it
@@ -69,8 +68,7 @@ export type ConversationListener = (event: ConversationEvent) => void;
 const COMPONENT = "ConversationEvents";
 
 /**
- * The in-process channel of committed conversation changes (PAGE-278).
- *
+ * The in-process channel of committed conversation changes.
  * @remarks
  * The Pica Mobile connections and the push of new messages listen here; the
  * web hears the same changes as `conversation.changed` through the live view.
@@ -81,7 +79,6 @@ export class ConversationEvents {
 
   /**
    * Adds a listener.
-   *
    * @param listener - Called after every committed change.
    * @returns Removes the listener again.
    */
@@ -94,7 +91,6 @@ export class ConversationEvents {
 
   /**
    * Tells every listener about a committed change.
-   *
    * @param event - The change; it has committed already.
    */
   public publish(event: ConversationEvent): void {
@@ -115,7 +111,6 @@ declare global {
 /**
  * The one channel of the process, shared by the services that write
  * conversations and the Pica Mobile gateway that follows them.
- *
  * @returns The same channel on every call.
  */
 export function sharedConversationEvents(): ConversationEvents {

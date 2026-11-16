@@ -26,7 +26,6 @@ function sanitizeFilename(name: string): string {
 
 /**
  * Validates the bytes of an avatar image with the limits of profile images.
- *
  * @param image - The bytes, the announced type and the original file name.
  * @returns The validated image, or `invalid` for a wrong type, size or content.
  */
@@ -56,7 +55,6 @@ export function validateAvatarImage(image: {
 
 /**
  * Validates an uploaded avatar file without persisting it.
- *
  * @param value - Raw form value submitted as the avatar.
  * @returns The validated image, or an error when it is missing or invalid.
  */

@@ -53,7 +53,6 @@ interface PageEdit {
 
 /**
  * Replaces the one place of a text that equals `oldText`.
- *
  * @param content - The Markdown of the page.
  * @param oldText - The passage to replace; it must occur exactly once.
  * @param newText - The passage that takes its place.
@@ -108,7 +107,7 @@ function placementOf(
 }
 
 /**
- * Reads, searches, creates, changes and moves pages (PAGE-257, interface 1–8 and 10).
+ * Reads, searches, creates, changes and moves pages.
  *
  * @remarks
  * Every call goes through the announcing wiki service of the interface. A

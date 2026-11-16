@@ -9,8 +9,7 @@ import type {
 import type { Language } from "@/language/Language";
 
 /**
- * The texts of a default template of `AGENT.md` in one language (PAGE-283).
- *
+ * The texts of a default template of `AGENT.md` in one language.
  * @param template - Coder, Designer or Manager.
  * @param language - The language of the person who reads the templates first.
  * @returns Name, short description and content from the language files.

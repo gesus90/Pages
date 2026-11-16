@@ -79,7 +79,7 @@ function GalleryTile({
   );
 }
 
-/** A tile for an image that is still being generated (PAGE-382). */
+/** A tile for an image that is still being generated. */
 export function GalleryPlaceholder(): React.ReactElement {
   const { t } = useTranslation();
   return (
@@ -105,7 +105,7 @@ interface ImageGalleryProps {
 }
 
 /**
- * The images of one answer as a compact gallery (PAGE-382): up to four
+ * The images of one answer as a compact gallery: up to four
  * previews in a grid, "+N" on the last one for the rest, a download on each
  * image and "Alle herunterladen" as ZIP in the head with the remaining time.
  * A click opens the image viewer of the chat at the chosen image.

@@ -17,12 +17,10 @@ import type { NodeRun, StepRunControl } from "./AgentPlanStepContext";
 
 /**
  * Builds the state of one start of a node before anything runs.
- *
  * @param run - The current view of the plan run.
  * @param snapshot - The frozen plan.
  * @param step - The frozen node.
  * @param control - The stop signal, the persistence of the record and the event that started the node again.
- *
  * @remarks
  * A start that an event began is a new start: the retries of the one before are
  * over. An agent that other nodes send events to owns a session under its own

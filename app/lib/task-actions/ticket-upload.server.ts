@@ -7,7 +7,6 @@ import { ProjectAccessDeniedError } from "@/backend/error/ProjectErrors";
 
 /**
  * Maps the failure of a ticket upload to a status code.
- *
  * @param error - The failure.
  * @returns The status and the code the client translates as
  * `tasks.error.<code>`, or `null` for failures that are not the person's doing.

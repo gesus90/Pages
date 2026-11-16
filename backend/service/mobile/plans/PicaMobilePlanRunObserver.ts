@@ -8,7 +8,6 @@ const COMPONENT = "PicaMobilePlanRunObserver";
 
 /**
  * Tells the Pica Mobile connections of an account that a run of it changed.
- *
  * @remarks
  * It compares only the two views it is given and never reads the database,
  * because it runs while the write that just committed still holds it. It
@@ -24,7 +23,6 @@ export class PicaMobilePlanRunObserver implements AgentPlanRunObserver {
 
   /**
    * Tells the listeners of the run's account when the visible state of the run changes.
-   *
    * @param previous - The view before the write.
    * @param next - The view after the write.
    */
@@ -49,7 +47,6 @@ export class PicaMobilePlanRunObserver implements AgentPlanRunObserver {
 
   /**
    * Adds a listener for the runs of one account.
-   *
    * @param userId - The account whose runs the listener follows.
    * @param listener - Called after every write that changes a row.
    * @returns Removes the listener again.

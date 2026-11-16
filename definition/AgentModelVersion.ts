@@ -1,6 +1,5 @@
 /**
  * The parts of a versioned Claude model ID such as `claude-sonnet-5-5`.
- *
  * @remarks
  * `version` reads like the vendor's name for it: `5.5` for `5-5`, `5` for a
  * model without a minor version. A date suffix is not part of the version and
@@ -22,7 +21,6 @@ const CLAUDE_MODEL_ALIAS = /^([a-z]+)(?:\[(\d+m)\])?$/iu;
 
 /**
  * Reads the family, version and context size out of a Claude model ID.
- *
  * @param id - The model ID as the CLI reports it.
  * @returns The parts, or `null` for an ID that is not a versioned Claude model.
  */

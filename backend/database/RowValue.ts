@@ -2,7 +2,6 @@ import type { DatabaseValue } from "@/backend/database/Database";
 
 /**
  * Reads a text column from a database result row.
- *
  * @param row - Row returned by a query.
  * @param index - Zero-based column position.
  * @param column - Column name used in error messages.
@@ -25,7 +24,6 @@ export function readTextColumn(
 
 /**
  * Reads an optional text column from a database result row.
- *
  * @param row - Row returned by a query.
  * @param index - Zero-based column position.
  * @param column - Column name used in error messages.
@@ -74,13 +72,11 @@ export function readBlobColumn(
 
 /**
  * Reads a boolean column from a database result row.
- *
  * @param row - Row returned by a query.
  * @param index - Zero-based column position.
  * @param column - Column name used in error messages.
  * @returns The column value as a boolean.
  * @throws When the column is missing or not a `0`/`1` integer.
- *
  * @remarks
  * Boolean columns are stored as the integers `0` and `1`, and the database
  * facade returns boolean expressions in the same form.
@@ -101,7 +97,6 @@ export function readBooleanColumn(
 
 /**
  * Reads a nullable boolean column from a database result row.
- *
  * @param row - Row returned by a query.
  * @param index - Zero-based column position.
  * @param column - Column name used in error messages.
@@ -128,7 +123,6 @@ export function readNullableBooleanColumn(
 
 /**
  * Reads a counting column from a database result row.
- *
  * @param row - Row returned by an aggregate query.
  * @param index - Zero-based column position.
  * @param column - Column name used in error messages.
@@ -155,7 +149,6 @@ export function readCountColumn(
 
 /**
  * Reads an optional counting or numeric column from a database result row.
- *
  * @param row - Row returned by a query.
  * @param index - Zero-based column position.
  * @param column - Column name used in error messages.
@@ -178,7 +171,6 @@ export function readNullableCountColumn(
 
 /**
  * Reads a column that holds a JSON list of text ids, such as `json_agg(id)::text`.
- *
  * @param row - Row returned by a query.
  * @param index - Zero-based column position.
  * @param column - Column name used in error messages.

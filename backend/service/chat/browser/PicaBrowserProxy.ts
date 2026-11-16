@@ -84,7 +84,6 @@ function fileNameOf(disposition: string, url: URL): string {
 
 /**
  * Decides whether an answer is a file download instead of page content.
- *
  * @param request - The browser request the answer belongs to.
  * @param response - The decoded answer.
  * @returns The captured file, or `null` when the browser renders the answer.

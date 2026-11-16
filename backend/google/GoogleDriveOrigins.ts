@@ -29,12 +29,10 @@ function readRemoteOrigin(configured: string | undefined): string | null {
 
 /**
  * Lists the origins a Google Drive sign-in may start from and return to.
- *
  * @param settings - Port and public address of the instance.
  * @param environment - Environment variables of the server process.
  * @returns The loopback origin `http://127.0.0.1:<port>` and, when configured,
  * the HTTPS origin of the public address; nothing else.
- *
  * @remarks
  * Only the configuration decides. The `Host` and `X-Forwarded-*` headers of a
  * request never add an origin, because a client chooses them. Plain HTTP is

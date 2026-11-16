@@ -34,8 +34,7 @@ export interface AutomationSchedulerDependencies {
 const COMPONENT = "AutomationScheduler";
 
 /**
- * The timer of automations (PAGE-297), running in the process that runs plans.
- *
+ * The timer of automations, running in the process that runs plans.
  * @remarks
  * Every pass turns events into runs, fires due time triggers, starts waiting
  * runs whose automation has no running run, and settles runs whose work

@@ -33,9 +33,8 @@ interface ChatDecisionCardProps {
 }
 
 /**
- * The decision model of the instance (PAGE-317, PAGE-379), next to speech
+ * The decision model of the instance, next to speech
  * recognition and speech output and above Pica.
- *
  * @remarks
  * The card sets the decision model, chosen from the OpenRouter models that
  * state `decisions` as their output, and the default thresholds and the most

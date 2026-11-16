@@ -51,7 +51,6 @@ export class WikiSearchService {
 
   /**
    * Creates the service.
-   *
    * @param repository - Wiki persistence.
    * @param access - Resolves who is acting.
    */
@@ -62,16 +61,14 @@ export class WikiSearchService {
 
   /**
    * Searches the titles and texts of the pages the person may see.
-   *
    * @param actor - The signed-in user.
    * @param input - Search text and filters.
    * @returns The best hits with a passage each, and the number of hits.
    * Without words and without filters nothing is searched.
    * @throws {WikiValidationError} For an invalid date.
-   *
    * @remarks
    * The visibility filter runs inside the query before matching, ranking and
-   * counting; passages are cut from pages that are already allowed (T4.8.4).
+   * counting; passages are cut from pages that are already allowed.
    */
   public async search(
     actor: User,
@@ -120,7 +117,6 @@ export class WikiSearchService {
 
   /**
    * Offers pages, tickets and people to link or mention.
-   *
    * @param actor - The signed-in user.
    * @param query - Text typed after `[[` or `@`.
    * @returns A few suggestions of each kind; pages and tickets only if the
@@ -149,7 +145,6 @@ export class WikiSearchService {
 
   /**
    * Resolves the titles of pages that tickets and projects link to.
-   *
    * @param actor - The signed-in user.
    * @param ids - Page identifiers read from the links.
    * @returns Title by identifier for the pages the person may see; the others
@@ -167,11 +162,10 @@ export class WikiSearchService {
 
   /**
    * Finds where a page is mentioned.
-   *
    * @param actor - The signed-in user.
    * @param id - Page identifier.
    * @returns Pages, tickets and projects that link to the page and that the
-   * person may see; the others neither appear nor are counted (T4.5.5).
+   * person may see; the others neither appear nor are counted.
    * @throws {WikiPageNotFoundError} When the person may not see the page.
    */
   public async backlinks(actor: User, id: string): Promise<WikiBacklinks> {

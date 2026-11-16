@@ -87,16 +87,14 @@ function useSplitWidth(stored: number | null): {
 }
 
 /**
- * The split view right of the chat (PAGE-298): the one card opened with
- * "Daneben", or "Medien & Dateien" of the chat (PAGE-387), behind a divider
+ * The split view right of the chat: the one card opened with
+ * "Daneben", or "Medien & Dateien" of the chat, behind a divider
  * that changes its width.
- *
  * @remarks
  * The chat stays usable left of it. Dragging the divider, or the arrow
  * keys on it, changes the width; at least 360 px remain for either side, and
  * the width is remembered for the person. Renders nothing while neither a
  * card nor "Medien & Dateien" is opened beside.
- *
  * @param storedWidth - The width the person chose last, or `null`.
  */
 export function SplitPanel({

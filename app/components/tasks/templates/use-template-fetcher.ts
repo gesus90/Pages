@@ -11,7 +11,6 @@ interface TemplateFetcher {
 
 /**
  * Submits a template action without leaving the page and reports its outcome.
- *
  * @param intent - The action this fetcher is for.
  * @param onSucceeded - Called once after the action succeeded.
  */

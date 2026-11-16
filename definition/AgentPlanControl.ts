@@ -29,7 +29,6 @@ export type AgentPlanResumeKind = (typeof AGENT_PLAN_RESUME_KINDS)[number];
 
 /**
  * What a person can do to lift a block of "Fortsetzen" right away.
- *
  * @remarks
  * `admin_mode` switches to the active admin mode, `release` frees the working
  * copies and leases of the run after its processes ended, `restart` begins a
@@ -69,7 +68,6 @@ export interface AgentPlanControl {
   readonly resumeKind?: AgentPlanResumeKind;
   /**
    * Why a continuable run cannot be continued now, with the action that lifts it.
-   *
    * @remarks
    * Present exactly while `resumeKind` is set and `canResume` is false, so the
    * interface and the Pages tools name the same reason.
@@ -77,7 +75,6 @@ export interface AgentPlanControl {
   readonly resumeBlock?: AgentPlanResumeBlock;
   /**
    * Why the reader cannot continue the newest paused or ended run.
-   *
    * @remarks
    * Set apart from the history the reader may see, so an empty or refused
    * history never reads as a plan that has not run. `own_run_required` names
@@ -95,7 +92,6 @@ export interface AgentPlanControl {
   readonly canStop: boolean;
   /**
    * Whether the reader holds the right to change the plan.
-   *
    * @remarks
    * While a run executes steps the server refuses every change anyway; the
    * editor reads that from {@link AgentPlanControl.status}.

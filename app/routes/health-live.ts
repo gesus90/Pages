@@ -2,8 +2,7 @@ import { readDatabaseState } from "@/app/lib/database-state.server";
 
 /**
  * Proves only that the Pages process answers HTTP; it says nothing about
- * whether the database works (PAGE-197).
- *
+ * whether the database works.
  * @remarks
  * Open without a session and reachable during the setup. It never opens,
  * queries or waits for the database, so it answers `200` with

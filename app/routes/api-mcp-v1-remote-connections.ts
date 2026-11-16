@@ -25,8 +25,7 @@ const HANDLERS: McpWorkspaceHandlers = {
 };
 
 /**
- * Lists remote connections (`GET /api/mcp/v1/remote-connections`) and creates one (`POST`), PAGE-245 interface 9 and 12.
- *
+ * Lists remote connections (`GET /api/mcp/v1/remote-connections`) and creates one (`POST`).
  * @remarks
  * Only the device token of a paired machine admits a request. Creating needs the administrator role.
  */

@@ -105,11 +105,9 @@ export function getMilestoneColor(milestone: Milestone): MilestoneColor {
 
 /**
  * Resolves the effectively displayed marker color.
- *
  * @remarks
  * Custom colors win over the palette color; shorthand codes are expanded so
  * callers always receive a `#rrggbb` value usable in styles and inputs.
- *
  * @param milestone - Milestone carrying an optional custom color.
  * @returns The custom hex value, falling back to the palette color.
  */
@@ -132,7 +130,6 @@ export function isPendingMilestoneId(id: string): boolean {
 
 /**
  * Returns the leading instant of a milestone for timeline positioning.
- *
  * @remarks
  * The start date is the leading value; the due date only extends a range.
  * Legacy milestones storing their single date in the due field resolve to
@@ -144,7 +141,6 @@ export function getMilestoneTime(milestone: Milestone): number | null {
 
 /**
  * Sorts a milestone into a category lane by keywords in its name.
- *
  * @remarks
  * The longest matching keyword wins so specific terms (for example
  * "produktion" in "Produktions-Release") beat generic ones (like "produkt").
@@ -205,7 +201,6 @@ export function panelMilestoneIdFor(panel: PanelState | null): string | null {
 
 /**
  * Lists the outgoing dependencies of a milestone with their targets resolved.
- *
  * @param milestoneId - The milestone the panel edits, `null` when creating.
  * @param links - Every dependency of the project.
  * @param milestones - Every milestone of the project.
@@ -243,7 +238,6 @@ export function toWorkingLinks(
 
 /**
  * Reads the outcome a background request reported.
- *
  * @param value - The data of a fetcher.
  * @returns `"ok"` or `"failed"` for a result carrying a boolean `ok` flag,
  * `null` for anything else, such as no answer yet.
@@ -270,7 +264,6 @@ export interface PanelLinkContext {
 
 /**
  * Collects the dependency information the panel shows for its milestone.
- *
  * @param panel - What the panel edits.
  * @param milestones - Every milestone as currently shown.
  * @param links - Every dependency as currently shown.

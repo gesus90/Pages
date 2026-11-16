@@ -49,7 +49,6 @@ const RESULT_LINK =
 
 /**
  * The result file a node names in its answer for one input, as the simulation writes it.
- *
  * @remarks
  * A node that received several files names one result per file; the one
  * called `ergebnis-<input>` belongs to the entry, else the first one.

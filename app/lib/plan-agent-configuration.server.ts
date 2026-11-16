@@ -55,14 +55,12 @@ export interface AgentConfigurationCore {
 
 /**
  * The directories a workspace may live in.
- *
  * @remarks
  * `PAGES_WORKSPACE_ROOTS` is an operator's decision to narrow them and wins.
  * Without it every existing directory of this machine qualifies, so no
  * variable is needed; the folder browser opens at the home directory of the
  * account that runs Pages. The instance's own folders stay excluded either
  * way, and the account's file permissions still decide what can be used.
- *
  * @returns The roots and, without a configured narrowing, the opening level.
  */
 export function resolveWorkspaceRoots(): Pick<

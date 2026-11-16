@@ -12,7 +12,7 @@ import type { AgentChatSettings } from "@/definition/Conversation";
 /** A submitted change of the hourly limit and of the limit of tasks per chat. */
 export interface AgentChatSettingsInput {
   readonly hourlyMessageLimit: number;
-  /** Absent keeps the stored limit of scheduled tasks per chat (PAGE-392). */
+  /** Absent keeps the stored limit of scheduled tasks per chat. */
   readonly scheduledTaskLimit?: number;
   readonly revision: number;
 }
@@ -29,12 +29,11 @@ function isInRange(
 }
 
 /**
- * The setting of the chat of agents under Settings → Agents (PAGE-311).
- *
+ * The setting of the chat of agents under Settings → Agents.
  * @remarks
  * Only an administrator in the active admin mode reads the form and saves.
  * The limit is how many messages one agent may send per hour; the second
- * one how many scheduled tasks one chat may hold (PAGE-392).
+ * one how many scheduled tasks one chat may hold.
  */
 export class AgentChatSettingsService {
   private readonly settings: Pick<AgentChatSettingsRepository, "read" | "save">;
@@ -46,7 +45,7 @@ export class AgentChatSettingsService {
     this.settings = settings;
   }
 
-  /** The settings as the scheduled tasks of chats apply them, without an administrator (PAGE-392). */
+  /** The settings as the scheduled tasks of chats apply them, without an administrator. */
   public async current(): Promise<AgentChatSettings> {
     return this.settings.read();
   }
@@ -61,7 +60,6 @@ export class AgentChatSettingsService {
 
   /**
    * Saves the hourly limit and the limit of scheduled tasks per chat.
-   *
    * @throws {AgentError} `profile_invalid` for a limit outside its range,
    * `profile_conflict` after a concurrent change.
    */

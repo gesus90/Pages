@@ -9,17 +9,15 @@ const REDIRECT_STATUSES: ReadonlySet<number> = new Set([
 
 /**
  * Turns a redirect to a data request of the static app into an answer.
- *
  * @param request - The request the application answered.
  * @param response - The application's answer.
  * @returns For a request with {@link DATA_REQUEST_HEADER} answered by a
  * redirect: `204` with {@link REDIRECT_HEADER} and every other header of the
  * redirect, such as `Set-Cookie`. Every other answer unchanged.
- *
  * @remarks
  * A browser follows a redirect by itself and would load the target, often
  * a page whose document is the static app, before the app could navigate
- * there (PAGE-235). Other clients, such as Pica Mobile or MCP clients,
+ * there. Other clients, such as Pica Mobile or MCP clients,
  * never send the header and keep getting real redirects.
  */
 export function answerDataRedirect(

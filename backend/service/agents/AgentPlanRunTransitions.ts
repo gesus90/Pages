@@ -27,7 +27,6 @@ export type AgentPlanRunEnding =
 
 /**
  * A change between two stored views of a run that is worth a notification.
- *
  * @remarks
  * Every kind is a fact of the stored run, not of a screen: a step went from
  * waiting to running, the run reached `paused`, or the run left its active
@@ -112,7 +111,6 @@ function startedLoopMembers(
 
 /**
  * Returns the machine failure code of a run.
- *
  * @param run - A stored view of the run.
  * @returns The ended state for an open closeout, whose work is done. Otherwise
  * the error of the first failed step or the control error of the run, but only
@@ -129,13 +127,11 @@ export function failureReason(run: AgentPlanRun): string | null {
 
 /**
  * Finds what changed between two stored views of one run.
- *
  * @param previous - The view before the write.
  * @param next - The view after the write.
  * @returns The started steps, the pause and the ending of the run, each at
  * most once; empty for every other write, such as a progress record or a retry
  * of a step that never left `running`.
- *
  * @remarks
  * It is cheap and pure so it can run on every write of a run. A retry keeps
  * its step `running`, a stop request changes no step to `running`, a pause is

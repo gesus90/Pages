@@ -62,7 +62,6 @@ export type AgentPlanTemplateJournal = (
 
 /**
  * Whose templates a read may return.
- *
  * @remarks
  * The service resolves it from the current account: the personal templates of
  * `ownerId`, and the shared templates of `projectId` that belong to one of the

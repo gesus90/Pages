@@ -8,7 +8,6 @@ import type { LocalStateMark } from "@/app/lib/local-state/local-state-loader";
 
 /**
  * Tells that the plan shows the browser's last known state, and why.
- *
  * @remarks
  * While the server's answer is pending the notice says it updates; while
  * the backend is unreachable it says so as an alert. Nothing shows for a

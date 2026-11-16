@@ -25,7 +25,6 @@ export async function planStepProgress(
 
 /**
  * Holds completion during Pause and cancels an unresolved turn on Stop or timeout.
- *
  * @returns The turn, or `null` after abort cleanup has been recorded. The caller
  * judges cancellation, timeout and failed cleanup from the unchanged signal
  * and the recorded evidence rather than inferring success from an abort.

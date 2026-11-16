@@ -161,7 +161,6 @@ export class AgentTicketParameterService {
 
   /**
    * Rechecks ticket-owner rights for each transmission and serves the first attempt's verified copies.
-   *
    * @remarks
    * A step receives up to 64 files and 512 MiB of originals. The first 10 MiB
    * are read into memory and offered to the model; every further file is

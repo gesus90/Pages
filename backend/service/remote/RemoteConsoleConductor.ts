@@ -17,7 +17,6 @@ export interface ConductorExit {
 
 /**
  * Drives a guided run inside a console, in place of a shell a person types into.
- *
  * @remarks
  * A conducted console never restarts its command on its own: a lost
  * transport ends the run instead of starting it a second time.

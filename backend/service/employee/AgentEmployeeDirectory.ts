@@ -41,7 +41,7 @@ function learningState(
 
 /**
  * Reads agents as the administration shows them: the account, its role and
- * departments, the model and the documents (PAGE-266).
+ * departments, the model and the documents.
  */
 export class AgentEmployeeDirectory {
   private readonly dependencies: DirectoryDependencies;

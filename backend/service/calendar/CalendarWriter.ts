@@ -29,7 +29,6 @@ import type { CalendarDependencies, CalendarViewer } from "./CalendarViewer";
 
 /**
  * Which event or occurrence a change addresses.
- *
  * @remarks
  * `id` is an event id or the id of an occurrence entry; `occurrenceStart`
  * names the occurrence when `id` is the series. `expectedRevision` refuses a
@@ -48,7 +47,7 @@ export interface CalendarWriteResult {
   readonly key: string | null;
 }
 
-/** Creates, changes, deletes and answers events of the calendar (PAGE-301). */
+/** Creates, changes, deletes and answers events of the calendar. */
 export class CalendarWriter {
   private readonly dependencies: CalendarDependencies;
   private readonly reader: CalendarReader;
@@ -56,7 +55,6 @@ export class CalendarWriter {
 
   /**
    * Creates the writer.
-   *
    * @param dependencies - Repositories and services.
    * @param reader - Visibility and targets.
    */
@@ -71,7 +69,6 @@ export class CalendarWriter {
 
   /**
    * Creates an event of the viewer.
-   *
    * @param viewer - The creator; never a field of the client.
    * @param fields - The checked fields.
    * @throws {CalendarError} `forbidden` for a project the viewer may not
@@ -113,7 +110,6 @@ export class CalendarWriter {
 
   /**
    * Changes an event or a scope of a series.
-   *
    * @param viewer - The acting account.
    * @param target - Event, scope and expected revision.
    * @param patch - The fields that change; the others stay.
@@ -153,7 +149,6 @@ export class CalendarWriter {
 
   /**
    * Deletes an event or a scope of a series; invitees no longer see it.
-   *
    * @param viewer - The acting account.
    * @param target - Event, scope and expected revision.
    */
@@ -172,7 +167,6 @@ export class CalendarWriter {
 
   /**
    * Describes what a deletion would remove, without changing anything.
-   *
    * @param viewer - The acting account.
    * @param target - Event, scope and expected revision.
    */
@@ -201,7 +195,6 @@ export class CalendarWriter {
 
   /**
    * Stores the answer of an invited person for the whole series.
-   *
    * @param viewer - The invited person.
    * @param id - The event or an occurrence of it.
    * @param answer - Accepted or declined.

@@ -1,6 +1,5 @@
 /**
  * An active login session of a user, as shown in the settings screen.
- *
  * @remarks
  * Device information is derived from the user agent recorded at login time
  * and may be unknown for sessions created before that metadata existed.

@@ -48,7 +48,7 @@ function useDetailKeys(onStep: (step: number) => void): void {
 
 /**
  * A document, a sound or a file of "Medien & Dateien" shown large in the
- * panel next to the chat (PAGE-387), with the way back to the list, paging
+ * panel next to the chat, with the way back to the list, paging
  * through the files of the tab and "Zur Nachricht".
  */
 export function MediaDetail({

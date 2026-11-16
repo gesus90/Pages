@@ -6,7 +6,6 @@ import type { Route } from "./+types/discord-callback";
 
 /**
  * Receives the browser after the Discord authorization, from any device.
- *
  * @remarks
  * It needs no Pages session: the phone that scanned the QR code is usually
  * not signed in. The one-time `state` is the proof, and the answer only

@@ -42,24 +42,24 @@ export type ChatPageActionData =
       readonly intent: ChatPageIntent;
       /** The ID of a group just created. */
       readonly groupId?: string;
-      /** A page of older messages, the answer of `history` (PAGE-275). */
+      /** A page of older messages, the answer of `history`. */
       readonly history?: VirtualChatHistoryPage;
-      /** The stored context of a group, the answer of `group-context` (PAGE-296). */
+      /** The stored context of a group, the answer of `group-context`. */
       readonly groupContext?: ConversationGroupContextView;
-      /** The settings "Wer antwortet?" of a group, the answer of `reply-settings` and `save-reply-settings` (PAGE-317). */
+      /** The settings "Wer antwortet?" of a group, the answer of `reply-settings` and `save-reply-settings`. */
       readonly replySettings?: ConversationReplySettingsView;
-      /** The last decisions of a group, the answer of `reply-decisions` (PAGE-379). */
+      /** The last decisions of a group, the answer of `reply-decisions`. */
       readonly replyDecisions?: readonly ConversationDecisionEntry[];
-      /** What a chat command answered instead of a sent message (PAGE-380). */
+      /** What a chat command answered instead of a sent message. */
       readonly commandOutcome?: AgentChatCommandOutcome;
-      /** The scheduled tasks of a chat, the answer of the dialog "Geplante Aufgaben" (PAGE-392). */
+      /** The scheduled tasks of a chat, the answer of the dialog "Geplante Aufgaben". */
       readonly chatTasks?: readonly AgentChatTaskView[];
     }
   | {
       readonly ok: false;
       readonly intent: ChatPageIntent;
       readonly error: VirtualChatSendFailure;
-      /** Why a change of a scheduled task was refused (PAGE-392). */
+      /** Why a change of a scheduled task was refused. */
       readonly taskError?: AgentChatTaskErrorCode;
     };
 
@@ -121,7 +121,7 @@ const INTENTS: readonly ChatPageIntent[] = [
   "answer-question",
 ];
 
-/** How a refused conversation request reads on the page (PAGE-278). */
+/** How a refused conversation request reads on the page. */
 const CONVERSATION_FAILURES: Readonly<
   Record<ConversationErrorCode, VirtualChatSendFailure>
 > = {
@@ -160,7 +160,7 @@ function readIntent(value: FormDataEntryValue | null): ChatPageIntent | null {
 }
 
 /**
- * Loads the chat page of the signed-in person (PAGE-266, PAGE-259): their own
+ * Loads the chat page of the signed-in person: their own
  * participants and groups, the choices of the participant dialog and the histories
  * with agents; the workspace frame applies the authentication.
  */
@@ -218,11 +218,10 @@ export async function loader({
 
 /**
  * Saves the participant list, creates a group or adds a member, stores a
- * message to a group or a person or a read state (PAGE-278), mutes a
- * conversation or reads its older messages (PAGE-275), sends a message to
- * an agent or stops its answer, stops the answer of one agent in a group
- * (PAGE-304), or marks a chat with agents confidential (PAGE-305).
- *
+ * message to a group or a person or a read state, mutes a
+ * conversation or reads its older messages, sends a message to
+ * an agent or stops its answer, stops the answer of one agent in a group,
+ * or marks a chat with agents confidential.
  * @remarks
  * Saving the list only adds and removes entries of the person's own list;
  * it never creates or deletes an account or agent. Every change is bound to

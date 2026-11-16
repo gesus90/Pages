@@ -10,7 +10,6 @@ import type { FormEvent } from "react";
 
 /**
  * Completes a Google sign-in from a browser that cannot reach the server's loopback.
- *
  * @remarks
  * After consent Google redirects to `127.0.0.1` on the user's own device. The
  * copied address leaves this form only through the protected POST action, which

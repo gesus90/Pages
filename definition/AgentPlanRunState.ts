@@ -16,7 +16,6 @@ export function isActivePlanRun(
 
 /**
  * These states execute steps, so the plan cannot be edited until the run is paused or has ended.
- *
  * @remarks
  * A paused run may retain a suspended native turn; that turn resumes with its
  * original snapshot, while a drained run may adopt a saved revision.

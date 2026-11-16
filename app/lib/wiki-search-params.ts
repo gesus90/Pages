@@ -10,7 +10,6 @@ function readOptional(params: URLSearchParams, name: string): string | null {
 
 /**
  * Reads the search dialog's parameters from a request address.
- *
  * @param params - Query string of the search request.
  * @returns The search input; missing parameters mean "no filter".
  */
@@ -29,7 +28,6 @@ export function readSearchParams(params: URLSearchParams): WikiSearchInput {
 
 /**
  * Writes the search input as a query string.
- *
  * @param input - The search dialog's state.
  * @returns A query string without a leading question mark; empty values are
  * left out.

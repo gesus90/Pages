@@ -27,7 +27,7 @@ export interface UsersPageData extends AdministrationPageData {
   readonly managementActivity?: readonly ManagementActivityEntry[];
   readonly privateWikiPages: WikiPrivatePagesByOwner;
   readonly audience: LocalStateAudience;
-  /** The agents tab (PAGE-266); `null` for an account that may not see it. */
+  /** The agents tab; `null` for an account that may not see it. */
   readonly agents: AgentEmployeePageData | null;
 }
 
@@ -47,8 +47,8 @@ function isUsersPageData(value: unknown): value is UsersPageData {
 
 /** The management view, kept per account and rights, the admin mode included. */
 const USERS_PAGE_STATE: LocalStateRouteKind<UsersPageData> = {
-  // 4: the agent voice (PAGE-300) joined the answer; 5: groups carry their
-  // leaders (PAGE-308). An older kept answer lacks them.
+  // 4: the agent voice joined the answer; 5: groups carry their
+  // leaders. An older kept answer lacks them.
   schemaVersion: 6,
   isPayload: isUsersPageData,
   isCurrent: (page) => isCurrentLocalStateAudience(page.audience),
@@ -58,7 +58,6 @@ const USERS_PAGE_STATE: LocalStateRouteKind<UsersPageData> = {
 
 /**
  * Opens the management view from the account's kept answer at once and asks the endpoint behind it.
- *
  * @remarks
  * The endpoint applies the management middleware and the server loader; an
  * account without management access gets the same refusal as before.

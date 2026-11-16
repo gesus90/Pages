@@ -20,7 +20,6 @@ export type TableReader = Pick<DatabaseTransaction, "query">;
 
 /**
  * Reads the names of the tables of the schema `public`.
- *
  * @param reader - The connection to read from.
  * @returns The names, sorted.
  */
@@ -33,7 +32,6 @@ export async function readTableNames(
 
 /**
  * Counts the rows of the given tables.
- *
  * @param reader - The connection to read from.
  * @param tables - The names of the tables, as the catalog reports them.
  * @returns The rows per table.

@@ -217,7 +217,7 @@ function SpeechSynthesisForm({
 }
 
 /**
- * The speech output (TTS) of the instance (PAGE-300), beside the speech
+ * The speech output (TTS) of the instance, beside the speech
  * recognition.
  *
  * @remarks

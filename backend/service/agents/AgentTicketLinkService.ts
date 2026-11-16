@@ -92,12 +92,10 @@ export class AgentTicketLinkService {
 
   /**
    * Reads the visible links of one ticket.
-   *
    * @param identity - The verified owner of the call.
    * @param parameters - The raw operation parameters: `ticketId`, `cursor` and `limit`.
    * @returns One page of links, each from the point of view of the ticket.
    * @throws {AgentOperationError} `INVALID_REQUEST`, `NOT_FOUND` or `PAYLOAD_TOO_LARGE`.
-   *
    * @remarks
    * A link whose other ticket the account cannot see is neither listed nor
    * counted. The same link shows on both tickets with the same `id`: `outgoing`

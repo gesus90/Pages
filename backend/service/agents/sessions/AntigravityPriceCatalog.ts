@@ -134,7 +134,7 @@ function estimate(
 }
 
 /**
- * Public daily OpenRouter catalogue, adapted from PAGE-364 (8ca66416).
+ * Public daily OpenRouter catalogue, adapted (8ca66416).
  * Missing cache rates remain unknown; subscription costs never enter it.
  */
 export class AntigravityPriceCatalog {

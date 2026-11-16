@@ -11,8 +11,7 @@ import { watchApplicationServices } from "./database-state.server";
 import type { MiddlewareFunction, RouterContextProvider } from "react-router";
 
 /**
- * Stable code of a request the database executor refused or could not confirm (PAGE-197).
- *
+ * Stable code of a request the database executor refused or could not confirm.
  * - `database_busy`: the queue was full, the job waited too long or the
  *   client left before it started; nothing ran.
  * - `database_unavailable`: the database worker is starting, restarting or
@@ -39,7 +38,6 @@ const databaseFailureContext = createContext<DatabaseFailureRecord | null>(
 
 /**
  * Names an executor error for clients without SQL, paths or messages.
- *
  * @param error - The error of the executor.
  * @returns The stable code of its failure.
  */
@@ -54,7 +52,6 @@ export function databaseFailureCode(
 
 /**
  * Headers of every `503` that answers an executor error.
- *
  * @param error - The error of the executor.
  * @returns `Retry-After` with the error's delay and `Cache-Control: no-store`.
  */
@@ -69,10 +66,8 @@ export function databaseFailureHeaders(
 
 /**
  * Remembers an executor error that escaped a loader, an action or a middleware.
- *
  * @param error - Whatever React Router reports to `handleError`.
  * @param context - Router context of the request, if React Router passed one.
- *
  * @remarks
  * Called from `handleError` in `app/entry.server.tsx`, which React Router
  * calls before it answers the request, so the root middleware sees the
@@ -91,7 +86,6 @@ export function recordDatabaseFailure(
  * Runs the request as `request` database work and adds `Retry-After` to its
  * `503` once an executor error replaced the answer. Afterwards it lets
  * `/health/live` learn about services the request opened.
- *
  * @remarks
  * `request.signal` aborts when the client closed the connection before the
  * response finished (see `@remix-run/node-fetch-server`), so a queued job
@@ -123,7 +117,6 @@ const runDatabaseRequest: MiddlewareFunction = async (
 
 /**
  * Replaces the answer of a request that failed on the executor with a `503`.
- *
  * @remarks
  * The thrown `503` reaches the error boundary as a route error response, in
  * the document as well as in client navigations, so the page explains that
@@ -148,7 +141,7 @@ const answerDatabaseFailure: MiddlewareFunction = async ({ context }, next) => {
   );
 };
 
-/** Root middleware of PAGE-197; it runs before every other middleware. */
+/** Root middleware; it runs before every other middleware. */
 export const databaseRequestMiddleware: readonly MiddlewareFunction[] = [
   runDatabaseRequest,
   answerDatabaseFailure,

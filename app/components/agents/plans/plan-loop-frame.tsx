@@ -55,7 +55,6 @@ function memberChain(loop: AgentPlanLoop, sources: AgentPlanSources): string {
 
 /**
  * The container of a loop: its name, count summary, run state and entry and exit ports.
- *
  * @remarks
  * The full settings are not drawn here; the pencil opens them in a floating
  * panel. The container is one flow node outwardly, with its dots on the

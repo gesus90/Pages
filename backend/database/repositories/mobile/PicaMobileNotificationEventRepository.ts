@@ -370,7 +370,6 @@ function toStoredEvent(
 /**
  * Persistence of the events of Pica Mobile notifications and of their
  * identity: sequence numbers and the record of what was announced.
- *
  * @remarks
  * An event, its sequence number, the record that its facts were announced and
  * its pushes are written in one transaction, so a crash leaves either all or
@@ -384,7 +383,6 @@ export class PicaMobileNotificationEventRepository {
 
   /**
    * Creates the repository.
-   *
    * @param database - Central database access.
    */
   public constructor(
@@ -395,7 +393,6 @@ export class PicaMobileNotificationEventRepository {
 
   /**
    * Returns the identifier of this Pages instance, creating it once.
-   *
    * @param candidate - Identifier to store when the instance has none yet.
    */
   public async readInstanceId(candidate: string): Promise<string> {
@@ -423,11 +420,9 @@ export class PicaMobileNotificationEventRepository {
 
   /**
    * Stores an event with its pushes unless all its facts were announced before.
-   *
    * @param event - The facts, the devices and the end of the pushes' validity.
    * @param now - The moment of the write as ISO-8601 text.
    * @returns The stored event, or `null` when nothing in it was new.
-   *
    * @remarks
    * Only facts not announced to the account before enter the event, so a
    * repeated callback creates no second event and no second push. Each

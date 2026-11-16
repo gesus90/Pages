@@ -1,6 +1,6 @@
 /** A Pages reference, reauthorized when its contents are sent to a runner. */
 export interface AgentTicketAsset {
-  /** `plan` names a plan asset (PAGE-268), read with the plan's project rights. */
+  /** `plan` names a plan asset, read with the plan's project rights. */
   readonly source: "ticket" | "wiki" | "agent" | "plan";
   readonly id: string;
   readonly link: string;
@@ -53,7 +53,6 @@ export interface AgentTicketAssetContent {
   readonly bytes?: Uint8Array;
   /**
    * Opens the original of a file too large for `bytes`, under the live rights of the person.
-   *
    * @remarks
    * The caller reads the stream to its end, or destroys it. Exactly one of
    * `bytes` and `open` is present.

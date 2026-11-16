@@ -7,13 +7,12 @@ const READ_DATABASE_SIZE = `
       pg_database_size(current_database()) AS database_size;
 `;
 
-/** Reads figures of the database itself for the system dashboard (PAGE-282). */
+/** Reads figures of the database itself for the system dashboard. */
 export class SystemMetricsRepository {
   private readonly database: Database;
 
   /**
    * Creates the repository.
-   *
    * @param database - Central database access.
    */
   public constructor(database: Database) {
@@ -22,7 +21,6 @@ export class SystemMetricsRepository {
 
   /**
    * Returns the size of the database Pages works in.
-   *
    * @returns Its size on disk in bytes, as PostgreSQL counts it.
    * @throws When the database answers no size.
    */

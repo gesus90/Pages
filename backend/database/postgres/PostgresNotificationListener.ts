@@ -19,7 +19,6 @@ export interface PostgresNotificationHandlers {
 
 /**
  * One dedicated PostgreSQL session that `LISTEN`s on a channel and comes back after a loss.
- *
  * @remarks
  * PostgreSQL does not keep notifications for a session that is gone or not
  * yet listening, so every successful `LISTEN` is reported, the first one
@@ -36,7 +35,6 @@ export class PostgresNotificationListener {
 
   /**
    * Creates the listener without connecting.
-   *
    * @param databaseUrl - The instance's PostgreSQL URL.
    * @param channel - A fixed channel name owned by the caller, never input.
    * @param handlers - Receive payloads and reconnects.

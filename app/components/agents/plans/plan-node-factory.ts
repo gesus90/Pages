@@ -44,7 +44,6 @@ export function planInsertPosition(draft: AgentPlanInput): AgentPlanPosition {
 
 /**
  * Creates a script node from a configuration the script dialog checked.
- *
  * @returns `null` before the plan has a workspace, whose working copy the
  * script would use.
  */

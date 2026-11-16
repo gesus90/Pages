@@ -57,7 +57,7 @@ export interface AgentLearningDependencies {
   readonly activity: AgentActivityService;
   /**
    * Whether the agent works in a chat now. A run starts only while it does
-   * not (PAGE-378) and otherwise waits for the next quiet moment.
+   * not and otherwise waits for the next quiet moment.
    */
   readonly isWorkingInChat?: (agentId: string) => boolean;
   readonly now?: () => Date;
@@ -123,8 +123,7 @@ function lessonLog(
 }
 
 /**
- * The dream runs of agent employees (PAGE-305, PAGE-378).
- *
+ * The dream runs of agent employees.
  * @remarks
  * A run reads what is new since the last one: the entries of the Lagebuch,
  * the tool calls of the chat sessions and the chats, projects, groups and
@@ -157,7 +156,6 @@ export class AgentLearningService {
 
   /**
    * Starts a run somebody asked for in the background.
-   *
    * @param agentId - The agent that dreams.
    * @param trigger - Who asked: a person, or a Lagebuch that is full.
    * @returns `started`, or `waiting` while the agent works in a chat, when the
@@ -179,7 +177,6 @@ export class AgentLearningService {
 
   /**
    * Runs one dream run of an agent, whatever its schedule.
-   *
    * @param agentId - The agent that dreams.
    * @param options - What started the run; a scheduled run by default.
    * @returns The result, or `null` when the agent cannot dream now: inactive,

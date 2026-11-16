@@ -49,13 +49,11 @@ export interface PlanEditor extends EffectiveData {
 
 /**
  * Owns the milestone panel and applies saves and archives optimistically.
- *
  * @remarks
  * Saves go out through background requests, so the timeline never reloads:
  * the change shows immediately and is reverted with an error when the server
  * refuses it. Once the loader data arrives, every local change is dropped,
  * because the server data always wins.
- *
  * @param milestones - Milestones from the loader.
  * @param milestoneLinks - Dependencies from the loader.
  */

@@ -10,7 +10,7 @@ import { McpWorkspaceError } from "@/backend/service/mcp/workspace/McpWorkspaceE
 
 import type { AdministrationErrorCode } from "@/backend/error/AdministrationError";
 
-/** Error codes of the user management API (PAGE-280). */
+/** Error codes of the user management API. */
 export type McpUserErrorCode =
   | "invalid_token"
   | "forbidden"
@@ -74,7 +74,6 @@ const OPERATION_CODES: Readonly<
 
 /**
  * Fixed public failure of the user management API.
- *
  * @remarks
  * It carries a code and, for `confirmation_required`, what the call would
  * change. Neither a message of a service nor any part of the request leaves
@@ -87,7 +86,6 @@ export class McpUserError extends Error {
 
   /**
    * Creates the error.
-   *
    * @param code - The error code of the interface; it decides the HTTP status.
    * @param confirmation - What needs a confirmation, for `confirmation_required`.
    */
@@ -112,7 +110,6 @@ export class McpUserError extends Error {
 
 /**
  * Translates a failure of the administration services into the error of the interface.
- *
  * @param error - Whatever a service, a parser or the token check threw.
  * @returns The interface error, or `null` for a failure that is not the
  * client's doing and stays an internal error.

@@ -60,7 +60,7 @@ interface NotificationsCardProps {
   readonly onToggle: (key: UserNotificationKey) => void;
   readonly choices: NotificationChoices;
   readonly onChoiceChange: (key: keyof NotificationChoices) => void;
-  /** When the person hears about runs of their automations (PAGE-297). */
+  /** When the person hears about runs of their automations. */
   readonly automationNotification: AutomationNotificationMode;
   readonly onAutomationNotificationChange: (
     mode: AutomationNotificationMode,

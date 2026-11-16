@@ -83,7 +83,6 @@ export type {
 
 /**
  * Establishes the business-logic boundary for wiki pages.
- *
  * @remarks
  * A thin facade over one small service per aggregate. Every method resolves
  * the visibility of the acting account first, so no read or change reaches a
@@ -106,7 +105,6 @@ export class WikiService {
 
   /**
    * Creates a wiki service.
-   *
    * @param wikiRepository - Wiki persistence boundary.
    * @param projectService - Decides which projects an account reads.
    * @param permissionService - Decides the capabilities of an account.
@@ -431,7 +429,6 @@ export class WikiService {
 
   /**
    * Removes expired trash, old versions and files nobody refers to.
-   *
    * @returns The trash roots that were removed for good.
    */
   public async runMaintenance(): Promise<readonly string[]> {

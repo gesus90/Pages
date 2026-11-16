@@ -21,8 +21,7 @@ const HANDLERS: McpCalendarHandlers = {
 
 /**
  * Lists the entries of a range of at most 92 days
- * (`GET /api/mcp/v1/calendar/entries?from=&to=&kinds=`, list_calendar), PAGE-301.
- *
+ * (`GET /api/mcp/v1/calendar/entries?from=&to=&kinds=`, list_calendar).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

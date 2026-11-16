@@ -66,7 +66,6 @@ function boundStep(
 
 /**
  * Whether the plan still takes progress of this step.
- *
  * A settled step keeps its result: a late or repeated runner fact is still
  * acknowledged in the runner journal, so it cannot block the events of every
  * other run on the same connection.
@@ -361,7 +360,6 @@ function requireExactResult(
 
 /**
  * Applies only the attempt dispatched from this exact immutable snapshot and remote connection.
- *
  * @remarks
  * A step the plan has already settled stays unchanged and is marked
  * `isSettled`; a still queued job changes nothing either. In both cases the

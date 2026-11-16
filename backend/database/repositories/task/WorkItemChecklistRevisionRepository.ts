@@ -12,7 +12,6 @@ export class WorkItemChecklistRevisionRepository {
 
   /**
    * Returns the revision of the checklist as it is now.
-   *
    * @param workItemId - The ticket.
    * @param contentHash - The hash of the checklist content just read.
    * @returns The stored revision, one higher when the content changed since it was stored.
@@ -40,7 +39,6 @@ export class WorkItemChecklistRevisionRepository {
 
   /**
    * Records a change made through the agent API; the revision always grows.
-   *
    * @returns The new revision.
    */
   public async advance(

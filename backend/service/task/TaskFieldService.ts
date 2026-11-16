@@ -57,7 +57,6 @@ function assertActive(item: WorkItemDetail): void {
 /**
  * Refuses a change written from an outdated value, unless the stored value
  * already is the new one.
- *
  * @throws {WorkItemConflictError} When the field changed since it was read.
  */
 function assertCurrent<Value>(
@@ -74,7 +73,6 @@ function assertCurrent<Value>(
 /**
  * Changes one field of a work item, only while it still holds the value the
  * caller read.
- *
  * @remarks
  * The comparison happens in the conditional statement itself, so a field
  * that someone else saved meanwhile is never overwritten. Every other field,
@@ -90,7 +88,6 @@ export class TaskFieldService {
 
   /**
    * Creates a field service.
-   *
    * @param dependencies - Collaborators the service writes through.
    */
   public constructor(dependencies: TaskFieldServiceDependencies) {
@@ -104,7 +101,6 @@ export class TaskFieldService {
 
   /**
    * Replaces the title of a work item.
-   *
    * @param actor - The person changing it; needs write access to the ticket.
    * @param id - Work item identifier.
    * @param change - The new title and the title it was written from.
@@ -141,14 +137,12 @@ export class TaskFieldService {
 
   /**
    * Moves a work item to another status without touching any other field.
-   *
    * @param actor - The person changing it; needs write access to the ticket.
    * @param id - Work item identifier.
    * @param change - The new status and the status the ticket was read in.
    * @returns The stored work item; unchanged when it already has the status.
    * @throws {WorkItemConflictError} When the status changed meanwhile.
    * @throws {WorkItemValidationError} When the ticket is archived or the status does not fit its project.
-   *
    * @remarks
    * The sort order is kept as it is: no position is invented and no other
    * ticket is touched. The ticket stands in the new column where its own
@@ -191,7 +185,6 @@ export class TaskFieldService {
 
   /**
    * Moves a work item below another parent, or removes its parent.
-   *
    * @param actor - The person changing it; needs write access to the ticket.
    * @param id - Work item identifier.
    * @param change - The new parent and the parent as the actor saw it.
@@ -200,7 +193,6 @@ export class TaskFieldService {
    * @throws {WorkItemHierarchyError} When the parent does not fit the type,
    * lies in another project, is hidden or archived.
    * @throws {WorkItemValidationError} When the ticket is archived.
-   *
    * @remarks
    * A parent the actor cannot see counts as no parent for the comparison and
    * stays when the actor names none, as with every other edit.

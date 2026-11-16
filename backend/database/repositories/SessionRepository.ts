@@ -31,7 +31,6 @@ export class SessionRepository {
 
   /**
    * Creates a session repository.
-   *
    * @param database - Central database access.
    */
   public constructor(database: Database) {
@@ -40,7 +39,6 @@ export class SessionRepository {
 
   /**
    * Inserts a session that expires after the given lifetime.
-   *
    * @param session - Session values including the hashed token.
    */
   public async insert(session: NewSession): Promise<void> {
@@ -79,7 +77,6 @@ export class SessionRepository {
 
   /**
    * Returns the owner of an unexpired session.
-   *
    * @param tokenHash - Hash of the token sent by the browser.
    * @returns The user identifier, or `null` when no valid session exists.
    */
@@ -104,7 +101,6 @@ export class SessionRepository {
 
   /**
    * Returns the identifier of an unexpired session.
-   *
    * @param tokenHash - Hash of the token sent by the browser.
    * @returns The session identifier, or `null` when no valid session exists.
    */
@@ -127,7 +123,6 @@ export class SessionRepository {
 
   /**
    * Tells whether a session of a user still exists and has not expired.
-   *
    * @param sessionId - Identifier of the session.
    * @param userId - Identifier of the account the session must belong to.
    */
@@ -149,9 +144,7 @@ export class SessionRepository {
 
   /**
    * Records that a session was used for a request.
-   *
    * @param tokenHash - Hash of the token sent by the browser.
-   *
    * @remarks
    * The write is throttled to one update per minute and session, so browsing
    * does not turn every request into a database write.
@@ -173,7 +166,6 @@ export class SessionRepository {
 
   /**
    * Returns every unexpired session of a user.
-   *
    * @param userId - Identifier of the session owner.
    * @param currentTokenHash - Hash of the token belonging to the request.
    * @returns The sessions with the current one listed first.
@@ -209,7 +201,6 @@ export class SessionRepository {
 
   /**
    * Returns the token hash of one unexpired session of a user.
-   *
    * @param sessionId - Identifier of the session.
    * @param userId - Identifier of the session owner.
    * @returns The stored hash, or `null` when no matching active session exists.
@@ -237,7 +228,6 @@ export class SessionRepository {
 
   /**
    * Removes one session of a user, invalidating its token.
-   *
    * @param sessionId - Identifier of the session.
    * @param userId - Identifier of the session owner.
    */
@@ -257,7 +247,6 @@ export class SessionRepository {
 
   /**
    * Removes every session of a user except the one owning the given token hash.
-   *
    * @param userId - Identifier of the session owner.
    * @param tokenHash - Hash of the token that stays valid.
    */
@@ -277,7 +266,6 @@ export class SessionRepository {
 
   /**
    * Removes every session of a user, invalidating all of their tokens.
-   *
    * @param userId - Identifier of the session owner.
    */
   public async deleteAllByUserId(userId: string): Promise<void> {
@@ -292,7 +280,6 @@ export class SessionRepository {
 
   /**
    * Removes a single session, invalidating its token.
-   *
    * @param tokenHash - Hash of the token sent by the browser.
    */
   public async deleteByTokenHash(tokenHash: string): Promise<void> {

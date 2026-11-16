@@ -47,7 +47,6 @@ function isListable(words: readonly string[]): boolean {
 
 /**
  * Writes a value of a given type by name: a ticket key, a workspace name or a wiki title.
- *
  * @returns The value as a word, or `null` when no name reads back to it.
  */
 export function planNotationValueText(
@@ -247,7 +246,7 @@ function assetEntries(node: AgentPlanAsset): readonly PlanNotationEntry[] {
   ];
 }
 
-/** The settings of a swarm (PAGE-313), its nested settings as JSON. */
+/** The settings of a swarm, its nested settings as JSON. */
 function swarmEntries(node: AgentPlanSwarm): readonly PlanNotationEntry[] {
   return [
     ...(node.name === undefined ? [] : [textEntry("name", node.name)]),
@@ -264,7 +263,7 @@ function swarmEntries(node: AgentPlanSwarm): readonly PlanNotationEntry[] {
   ];
 }
 
-/** The settings of a decision; a decision of a plan before PAGE-286 writes its name only. */
+/** The settings of a decision; an older decision of a plan writes its name only. */
 function decisionEntries(
   node: AgentPlanDecision,
 ): readonly PlanNotationEntry[] {
@@ -282,7 +281,6 @@ function decisionEntries(
 
 /**
  * Writes the fields of a node, its type first, without its bindings and members.
- *
  * @param node - The stored node.
  * @param context - Names what the node refers to.
  * @returns The attributes in a fixed order; short forms where they read back unchanged.

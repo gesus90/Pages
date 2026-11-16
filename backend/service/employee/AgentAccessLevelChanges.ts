@@ -15,7 +15,7 @@ function actorName(actor: AccountAccess): string {
   return `${actor.firstName} ${actor.lastName}`.trim();
 }
 
-/** Guards and records changes of the access level of an agent (PAGE-303). */
+/** Guards and records changes of the access level of an agent. */
 export class AgentAccessLevelChanges {
   private readonly policy: UserPolicyService;
   private readonly activity: AgentActivityService;
@@ -35,7 +35,7 @@ export class AgentAccessLevelChanges {
   /**
    * Refuses a change of the access level by anyone but an administrator in
    * active admin mode, and "Arbeitsplatz" on a host without the isolation
-   * it runs in (PAGE-303). An unchanged level needs neither.
+   * it runs in. An unchanged level needs neither.
    */
   public async requireChange(
     actor: AccountAccess,
@@ -60,7 +60,7 @@ export class AgentAccessLevelChanges {
 
   /**
    * Refuses switching a tool group of an agent on again by anyone but an
-   * administrator in active admin mode (PAGE-390). Switching groups off only
+   * administrator in active admin mode. Switching groups off only
    * narrows the agent and needs no more than the right to edit it.
    */
   public requireToolGroupChange(

@@ -26,7 +26,6 @@ export interface LinkedIssueRun {
 
 /**
  * Creates the counters of a run that has not done any work yet.
- *
  * @returns Counters with every outcome set to zero.
  */
 export function createEmptySyncCounters(): GitHubSyncCounters {
@@ -42,7 +41,6 @@ export function createEmptySyncCounters(): GitHubSyncCounters {
 
 /**
  * Tells whether the sync direction lets Pages write to GitHub.
- *
  * @param integration - Integration whose direction is checked.
  */
 export function canPushToGitHub(integration: ProjectIntegration): boolean {
@@ -51,7 +49,6 @@ export function canPushToGitHub(integration: ProjectIntegration): boolean {
 
 /**
  * Tells whether the sync direction lets Pages read from GitHub.
- *
  * @param integration - Integration whose direction is checked.
  */
 export function canPullFromGitHub(integration: ProjectIntegration): boolean {

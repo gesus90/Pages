@@ -59,8 +59,7 @@ export function observerContextBlock(
 
 /**
  * Chooses the agents a message of a group needs, with one call of the
- * observer (PAGE-296).
- *
+ * observer.
  * @remarks
  * The observer reads the bounded history of this group up to the judged
  * message, its stored context and the active agent members with ID, name,
@@ -77,7 +76,6 @@ export class ConversationObserverRouting {
 
   /**
    * Asks the observer once.
-   *
    * @returns The chosen agents, possibly none.
    * @throws {ConversationObserverError} When the observer gave no valid result.
    */

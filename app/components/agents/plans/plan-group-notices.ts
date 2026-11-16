@@ -33,7 +33,6 @@ export type PlanGroupNotice =
 
 /**
  * Describes why a group refused an agent node.
- *
  * @param refusal - The refusal reported by the group rules.
  * @param context - The refused step, the group and the plan sources.
  * @returns The notice shown to the user.
@@ -58,7 +57,6 @@ export function refusalNotice(
 
 /**
  * Names the connections a move dropped; a move that dropped none needs no notice.
- *
  * @param result - The counts of connections the move removed.
  * @param frame - The kind of frame the node was moved into.
  * @returns The notice, or `null` when nothing was dropped.

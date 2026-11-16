@@ -26,12 +26,10 @@ export interface DatabaseUrlCheck {
 
 /**
  * Checks the entered database connection on the server shortly after typing stops.
- *
  * @param token - Setup token sent with the check.
  * @param databaseUrl - Connection as currently entered.
  * @param onRejected - Receives a refused check, such as an invalid token.
  * @returns The result for the current value.
- *
  * @remarks
  * A request identifier matches each answer without returning the URL.
  */

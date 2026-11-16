@@ -55,7 +55,6 @@ export interface PlanGraphActions
   readonly move: (id: string, x: number, y: number) => void;
   /**
    * Removes a node together with every connection that reaches it.
-   *
    * @remarks
    * A frame with members is not removed at once: it waits for the choice
    * between keeping and deleting its members.
@@ -75,7 +74,6 @@ export interface PlanGraphActions
   readonly edit: (change: (draft: AgentPlanInput) => AgentPlanInput) => void;
   /**
    * Makes the boolean result of one agent the condition of a decision.
-   *
    * @remarks
    * A decision reads exactly one result, so the earlier condition goes first;
    * `null` clears it.

@@ -17,7 +17,6 @@ export class SetupService {
 
   /**
    * Creates a setup service.
-   *
    * @param userRepository - User persistence boundary.
    * @param passwordHasher - scrypt password hashing.
    */
@@ -32,9 +31,7 @@ export class SetupService {
   /**
    * Rehashes the seeded administrator's password when it still carries a
    * hash from a previously used, now-removed hashing library.
-   *
    * @returns Whether the administrator's password hash was migrated.
-   *
    * @remarks
    * Pages can no longer verify hashes produced by a removed hashing
    * dependency, which would otherwise lock that account out permanently.

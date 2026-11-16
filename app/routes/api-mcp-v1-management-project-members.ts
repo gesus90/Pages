@@ -3,7 +3,7 @@ import { mcpDeviceMethodNotAllowed } from "@/app/lib/mcp-device-response.server"
 
 import type { Route } from "./+types/api-mcp-v1-management-project-members";
 
-/** Serves the shared PAGE-316 business administration contract. */
+/** Serves the shared business administration contract. */
 export async function loader({
   request,
   params,
@@ -15,7 +15,7 @@ export async function loader({
   return mcpDeviceMethodNotAllowed("PUT");
 }
 
-/** Serves the shared PAGE-316 business administration contract. */
+/** Serves the shared business administration contract. */
 export async function action({
   request,
   params,

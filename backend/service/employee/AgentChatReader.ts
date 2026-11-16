@@ -55,7 +55,7 @@ function bounded(text: string): string {
 }
 
 /**
- * The tool `chat_lesen(ab)` of an agent session (PAGE-376): older or further
+ * The tool `chat_lesen(ab)` of an agent session: older or further
  * messages of the chat the session belongs to.
  *
  * @remarks

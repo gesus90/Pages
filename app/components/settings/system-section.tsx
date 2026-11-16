@@ -37,9 +37,8 @@ interface SystemSectionProps {
 
 /**
  * Renders the system settings that administrators see.
- *
  * @remarks
- * The system dashboard stands above both columns (PAGE-282). Company name
+ * The system dashboard stands above both columns. Company name
  * and logo are stored in the database and apply at once. The port is stored
  * in the configuration file and applies after Pages restarts.
  */

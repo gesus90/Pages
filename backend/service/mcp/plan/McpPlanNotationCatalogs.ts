@@ -56,7 +56,6 @@ function failed(issues: readonly PlanNotationIssue[]): McpPlanNotationPrepared {
 
 /**
  * Lays out a read plan; a plan too large for the grid becomes a `plan_invalid` finding.
- *
  * @remarks
  * The finding names the frame whose members do not fit, or the plan. The
  * plan then keeps no positions of the layout, so it is never stored, but it
@@ -121,7 +120,6 @@ function resolveWorkspace(
 
 /**
  * Loads what names in a notation resolve against and reads notations with it.
- *
  * @remarks
  * The catalog is that of the plan page for the person: the workspaces they
  * may use for plans, the sources of the plan's workspace and the wiki pages
@@ -132,7 +130,6 @@ export class McpPlanNotationCatalogs {
 
   /**
    * Creates the loader.
-   *
    * @param dependencies - The plan service of the `mcp` channel and the wiki.
    */
   public constructor(dependencies: McpPlanNotationDependencies) {
@@ -141,7 +138,6 @@ export class McpPlanNotationCatalogs {
 
   /**
    * Reads a notation into a laid out plan, without storing it.
-   *
    * @param actor - The paired account.
    * @param notation - The notation.
    * @param previous - The stored plan when it is replaced; its workspace is the default and its places are kept.

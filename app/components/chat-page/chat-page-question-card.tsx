@@ -145,7 +145,7 @@ function QuestionStatus({
 }
 
 /**
- * The card of a question an agent asks during its round (PAGE-391): head
+ * The card of a question an agent asks during its round: head
  * with icon, the questions with their answer buttons (the recommended one
  * first, in the accent color), a free answer, and after the answer who chose
  * what, locked.

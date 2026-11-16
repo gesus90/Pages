@@ -41,7 +41,6 @@ export class WorkItemReferenceValidator {
 
   /**
    * Creates a reference validator.
-   *
    * @param taskRepository - Task persistence boundary.
    * @param access - Current project access used to validate assignment candidates.
    */
@@ -52,7 +51,6 @@ export class WorkItemReferenceValidator {
 
   /**
    * Validates hierarchy, milestone and assignee of a work item in this order.
-   *
    * @throws {WorkItemHierarchyError} When the parent violates the hierarchy.
    * @throws {WorkItemValidationError} When the milestone or assignee does not fit the project.
    */
@@ -73,7 +71,6 @@ export class WorkItemReferenceValidator {
 
   /**
    * Validates that a person may be assigned within a project.
-   *
    * @throws {WorkItemValidationError} When the person has no access to the project.
    */
   public async validateAssignee(
@@ -99,7 +96,6 @@ export class WorkItemReferenceValidator {
 
   /**
    * Validates the parent of a work item against the hierarchy.
-   *
    * @throws {WorkItemHierarchyError} When the parent is missing, hidden, of
    * the wrong type, in another project, or newly chosen and archived.
    */

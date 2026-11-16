@@ -42,8 +42,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpUserHandlers {
 }
 
 /**
- * Reads a role (`GET /api/mcp/v1/roles/{roleId}`), changes it (`PATCH`) and deletes an unused one (`DELETE`), PAGE-280.
- *
+ * Reads a role (`GET /api/mcp/v1/roles/{roleId}`), changes it (`PATCH`) and deletes an unused one (`DELETE`).
  * @remarks
  * Only the device token of a paired machine admits a request; the rights of
  * its account are read again on every call. See `docs/McpUserManagement.md`.

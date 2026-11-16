@@ -46,9 +46,9 @@ interface AgentPanelProps {
   readonly models: readonly PageAgentModel[];
   readonly roles: readonly UserRole[];
   readonly departments: readonly Department[];
-  /** The templates of `AGENT.md` (PAGE-283). */
+  /** The templates of `AGENT.md`. */
   readonly templates: AgentInstructionTemplateList;
-  /** The speech output model of the instance and its voices (PAGE-300). */
+  /** The speech output model of the instance and its voices. */
   readonly voice: AgentVoiceOptions;
 }
 
@@ -171,7 +171,7 @@ function useAgentPanel(props: AgentPanelProps): AgentPanelState {
   };
 }
 
-/** The tab "Stimme": voice and speed of the draft (PAGE-300). */
+/** The tab "Stimme": voice and speed of the draft. */
 function AgentVoiceTab({
   voice,
   state,
@@ -194,7 +194,7 @@ function AgentVoiceTab({
   );
 }
 
-/** The tab "Zugriff" (PAGE-303), changeable only by an administrator in admin mode. */
+/** The tab "Zugriff", changeable only by an administrator in admin mode. */
 function AgentAccessTab({
   state,
 }: {
@@ -322,9 +322,9 @@ function AgentPanelTabs({
 }
 
 /**
- * The panel "Agent erstellen" and "Agent bearbeiten" (PAGE-266): the tabs
- * Allgemein, Persönlichkeit, Aufgabe, Stimme (PAGE-300), Gedächtnis,
- * Zugriff (PAGE-303) and,
+ * The panel "Agent erstellen" and "Agent bearbeiten": the tabs
+ * Allgemein, Persönlichkeit, Aufgabe, Stimme, Gedächtnis,
+ * Zugriff and,
  * when editing, Aktivität.
  *
  * @remarks

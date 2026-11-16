@@ -42,14 +42,12 @@ async function requireKnownCatalogs(
 
 /**
  * Turns the filters of a search into ticket query options.
- *
  * @param context - The services of the call, bound to the searching account.
  * @param directory - The people, groups and departments the account sees.
  * @param search - The validated filters.
  * @returns Query options without the project; the caller adds it.
  * @throws {AgentOperationError} `NOT_FOUND` for a status, milestone, department, person, group,
  * tag or parent ticket that does not exist or is hidden, `INVALID_REQUEST` for a parent of another project.
- *
  * @remarks
  * Every identifier is checked against what the account sees, so a filter
  * cannot be used to find out whether a hidden person or department exists.
@@ -85,7 +83,6 @@ export async function resolveAgentTicketSearchFilters(
 
 /**
  * Cuts the part of a description around the first match of the searched text.
- *
  * @param description - The description of a ticket that matched.
  * @param text - The searched text, or `undefined` for a search without text.
  * @returns At most 200 characters around the match, or `null` when the

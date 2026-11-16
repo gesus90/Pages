@@ -34,7 +34,7 @@ interface WikiMarkdownProps {
   readonly rehypePlugins?: PluggableList;
   /**
    * Tells whether an image may be shown; wiki attachments by default, ticket
-   * descriptions also allow their own attachments (A8.2).
+   * descriptions also allow their own attachments.
    */
   readonly isDisplayableImage?: (src: string) => boolean;
   /**

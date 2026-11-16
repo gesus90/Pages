@@ -12,9 +12,8 @@ import type { AgentProviderId } from "@/definition/AgentConnection";
 import type { ChatAdapterProviderId } from "@/definition/AgentModelConsumers";
 
 /**
- * The CLI runners Pica answers with over ACP, including native OpenCode (PAGE-91)
+ * The CLI runners Pica answers with over ACP, including native OpenCode
  * and Antigravity.
- *
  * @remarks
  * A provider registers its chat adapter once in `AGENT_PROVIDERS`; the runner
  * table below then has to name it, or the build fails.
@@ -39,14 +38,13 @@ export interface PicaAcpRunner {
   readonly hasBridgeMcp?: boolean;
   /**
    * The MCP servers configured on the host that a session of an agent
-   * employee on "Arbeitsplatz" or YOLO receives beside the Pages tools (PAGE-303).
+   * employee on "Arbeitsplatz" or YOLO receives beside the Pages tools.
    */
   readonly hostMcpServers?: readonly McpServer[];
-  /** The session of an agent employee on YOLO runs without the bubblewrap isolation (PAGE-303). */
+  /** The session of an agent employee on YOLO runs without the bubblewrap isolation. */
   readonly isUnisolated?: boolean;
   /**
    * The run options of a job, taken from the assignment.
-   *
    * @throws {ChatError} `acpPermissionModeUnsupported` for a mode the runner
    * does not run Pica in.
    */
@@ -54,7 +52,7 @@ export interface PicaAcpRunner {
 }
 
 /**
- * Codex keeps its PAGE-68 behaviour: the chat profile in every stored mode and
+ * Codex keeps its behaviour: the chat profile in every stored mode and
  * no deadline of its own beside the one of the chat.
  */
 const CODEX_RUNNER: PicaAcpRunner = {
@@ -126,8 +124,7 @@ const RUNNERS: Readonly<Record<PicaAcpProvider, PicaAcpRunner>> = {
 /**
  * The MCP servers of a new chat session: Pica's bridge where the runner
  * reaches the Pages tools over it, then the servers configured on the host
- * for an agent employee with host tools (PAGE-303).
- *
+ * for an agent employee with host tools.
  * @param runner - The runner of the job.
  * @param bridge - Issues the bridge server with a fresh credential of the job.
  * @returns The servers, or nothing when there are none, so the session keeps
@@ -153,7 +150,6 @@ export function isPicaAcpProvider(
 
 /**
  * The runner of an agent assigned to the chat.
- *
  * @param agent - The assignment resolved for the message.
  * @returns What Pica's ACP path does differently for its provider.
  * @throws {ChatError} `acpProviderUnsupported` for any other provider; there is

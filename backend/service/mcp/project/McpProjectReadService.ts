@@ -11,11 +11,10 @@ function namedOf(value: McpProjectNamed): McpProjectNamed {
   return { id: value.id, name: value.name };
 }
 
-/** Reads the overview and single projects (PAGE-244, interface 1 and 2). */
+/** Reads the overview and single projects. */
 export class McpProjectReadService {
   /**
    * Lists the projects, templates and departments the account may see.
-   *
    * @param context - The request.
    * @param request - Whether the archive is listed instead of the running projects.
    * @returns The overview of the project page, with the departments a new project may receive.
@@ -46,7 +45,6 @@ export class McpProjectReadService {
 
   /**
    * Reads a project, running or archived.
-   *
    * @param context - The request.
    * @param projectId - The id of the project.
    * @throws {ProjectNotFoundError} When it does not exist.

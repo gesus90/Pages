@@ -54,7 +54,6 @@ const DEFAULT_RUN_LIMIT = 20;
 
 /**
  * Wraps a read in the envelope within the response budget.
- *
  * @remarks
  * Result texts of runs can be long, so a page of reports can exceed the
  * budget; the client then reads the reports of one node at a time.
@@ -83,11 +82,10 @@ function matches(plan: AgentPlanView, request: AgentPlanListRequest): boolean {
 
 /**
  * Lists and reads plans, their runs and the reports of a run for one person.
- *
  * @remarks
  * Every read goes through the plan service, so a plan is visible exactly as
  * on the plan page. Whoever sees a plan reads all its runs, whoever started
- * them (PAGE-307); content the reader may not see is left out and named in
+ * them; content the reader may not see is left out and named in
  * `hiddenFields`. A hidden plan or run answers like a missing one.
  */
 export class AgentPlanReadOperations {
@@ -99,7 +97,6 @@ export class AgentPlanReadOperations {
 
   /**
    * Runs one read for the person.
-   *
    * @param userId - The verified person.
    * @param operation - The read.
    * @param input - The raw parameters.

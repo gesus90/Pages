@@ -289,7 +289,7 @@ async function readBody(body: Element, context: WordContext): Promise<void> {
 }
 
 /**
- * Reads a Word document (`.docx`) as a readable view (PAGE-385): headings,
+ * Reads a Word document (`.docx`) as a readable view: headings,
  * paragraphs, lists, tables, emphasis and the images inside the file.
  *
  * @remarks

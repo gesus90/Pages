@@ -1,10 +1,9 @@
 /**
- * The diagnosis of agent plan runs for the whole team (PAGE-307).
- *
+ * The diagnosis of agent plan runs for the whole team.
  * @remarks
- * These shapes are the interface contract shared with the Pages MCP client
- * (PMCP-13): the field names, the error classes and the limits are fixed. A
- * new class needs a change of PAGE-307 and PMCP-13.
+ * These shapes are the interface contract shared with the Pages MCP client:
+ * the field names, the error classes and the limits are fixed. A
+ * new class needs a change of this contract.
  */
 
 /** The fixed classes every failure of a step or run falls into. */
@@ -216,8 +215,7 @@ export const AGENT_RUN_STALL_MINUTES_DEFAULT = 15;
 export const AGENT_RUN_STALL_MINUTES_RANGE = { minimum: 1, maximum: 1440 };
 
 /**
- * Who started a run and which of its fields the reader may not see (PAGE-307).
- *
+ * Who started a run and which of its fields the reader may not see.
  * @remarks
  * Every read of a single run carries it. `hiddenFields` names what was left
  * out because the reader may not see the tickets, pages or workspaces the run

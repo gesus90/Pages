@@ -115,7 +115,7 @@ function DropdownSection({
 }
 
 /**
- * The content of the chat menu inside a dropdown (PAGE-389): the head, then
+ * The content of the chat menu inside a dropdown: the head, then
  * each section with its small grey heading. Radix moves the focus with the
  * arrow keys, runs an entry with Enter, closes with Esc and with a click
  * beside it.

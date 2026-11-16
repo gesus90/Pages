@@ -87,8 +87,8 @@ async function upload(
 }
 
 /**
- * The resolution and length the browser read of a video or a sound
- * (PAGE-384), or page count and title of a PDF (PAGE-385), from the query.
+ * The resolution and length the browser read of a video or a sound,
+ * or page count and title of a PDF, from the query.
  */
 function factsOf(url: URL): ConversationFileFactsInput | undefined {
   const { searchParams } = url;
@@ -165,9 +165,8 @@ async function run(
 }
 
 /**
- * The upload interface of conversation attachments (PAGE-298), for the web
+ * The upload interface of conversation attachments, for the web
  * and, on its own port with its own sign-in, for Pica Mobile:
- *
  * - `POST /chat-page-api/files?conversationId=…&name=…` (or
  *   `kind=group|participant&id=…` as the chat page has a conversation
  *   opened) with the file as body and its type as `Content-Type` stores an
@@ -175,8 +174,8 @@ async function run(
  * - `PUT /chat-page-api/files?attachmentId=…` with a WebP, JPEG or PNG image
  *   as body stores the preview image of an attachment that has none; with
  *   `width`, `height` and `durationSeconds` it also stores what the browser
- *   read of a video or a sound (PAGE-384); with `pageCount` and `title` the
- *   page count and title of a PDF (PAGE-385).
+ *   read of a video or a sound; with `pageCount` and `title` the
+ *   page count and title of a PDF.
  * - `PATCH /chat-page-api/files?attachmentId=…&width=…&height=…&durationSeconds=…`
  *   stores only these facts, for a video or sound whose preview exists.
  * - `DELETE /chat-page-api/files?attachmentId=…` drops an own upload that

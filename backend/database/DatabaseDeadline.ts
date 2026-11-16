@@ -1,6 +1,5 @@
 /**
  * Settles with `work`, or with `onTimeout` after `milliseconds`; the timer never outlives it.
- *
  * @param work - The awaited work; it goes on after the deadline.
  * @param milliseconds - Longest wait.
  * @param onTimeout - Supplies the result once the wait ended.

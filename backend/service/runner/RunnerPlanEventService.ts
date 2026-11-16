@@ -73,7 +73,6 @@ export class RunnerPlanEventService {
 
   /**
    * Lets runner facts settle a stopped run that no engine of this process owns.
-   *
    * @param isOwned - Whether the plan engine of this process still drives the run.
    */
   public attachRunOwnership(isOwned: (runId: string) => boolean): void {
@@ -284,7 +283,7 @@ export class RunnerPlanEventService {
   }
 }
 
-/** Copies what a runner reported about a job into the log of the run (PAGE-307). */
+/** Copies what a runner reported about a job into the log of the run. */
 function logRunnerJob(
   connectionId: string,
   job: RunnerJob,

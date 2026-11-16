@@ -17,8 +17,7 @@ import type { RemoteWorkspaceService } from "@/backend/service/remote/RemoteWork
 import type { PlanDependencies } from "@/backend/service/agents/AgentPlanDependencies";
 
 /**
- * Teams, owner, script approvals and history of plans (PAGE-329).
- *
+ * Teams, owner, script approvals and history of plans.
  * @param database - The Pages database.
  */
 export function planAccessRecords(
@@ -62,7 +61,7 @@ export function createPlanWorkspaceAccess(
     sharing,
     {
       catalog: workspaceCatalog,
-      // Project managers manage the teams of the project's plans (PAGE-329).
+      // Project managers manage the teams of the project's plans.
       isProjectManager: (projectId, userId) =>
         members.isProjectManager(projectId, userId),
     },

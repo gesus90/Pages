@@ -201,7 +201,6 @@ function planAssetFiles(plan: AgentPlanInput): readonly AgentPlanAssetFile[] {
  * Reauthorizes every file of the plan on save: it exists, belongs to the
  * plan's project, the person may read it, and it is still the content the
  * plan chose.
- *
  * @throws {AgentError} `plan_asset_missing` or `plan_asset_changed`.
  */
 async function validatePlanAssetFiles(

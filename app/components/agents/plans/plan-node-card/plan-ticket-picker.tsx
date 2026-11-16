@@ -52,7 +52,6 @@ function FieldText(props: {
 
 /**
  * The ticket field of a ticket card and its large choice below it.
- *
  * @remarks
  * Only choosing a row changes the node's ticket. A ticket that is gone or
  * hidden stays the node's reference and is named unavailable, without its

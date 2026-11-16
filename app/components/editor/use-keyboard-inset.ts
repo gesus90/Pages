@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 /**
  * Measures how much of the layout viewport an on-screen keyboard covers, so
  * a bar at the bottom can sit above the keyboard instead of behind it.
- *
  * @returns The covered height in pixels; 0 without a keyboard or without
  * the Visual Viewport API.
  */

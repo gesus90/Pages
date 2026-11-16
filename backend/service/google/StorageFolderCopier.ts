@@ -20,8 +20,7 @@ const MAXIMUM_FOLDER_COPY_ENTRIES = 500;
 const MAXIMUM_ANCESTOR_STEPS = 30;
 
 /**
- * Copies folder trees for the Storage interface (PAGE-270).
- *
+ * Copies folder trees for the Storage interface.
  * @remarks
  * Drive copies no folders (it answers `403 cannotCopyFile`), so a folder copy
  * creates each folder and copies each file one by one, outside the trash.
@@ -31,7 +30,6 @@ export class StorageFolderCopier {
 
   /**
    * Creates the copier.
-   *
    * @param drive - The Drive client.
    */
   public constructor(drive: StorageDriveClient) {
@@ -40,7 +38,6 @@ export class StorageFolderCopier {
 
   /**
    * Copies a folder tree entry by entry into a target folder.
-   *
    * @param session - The access of the call.
    * @param input - Original folder, target folder and the name of the copy.
    * @returns The new folder and how many entries were created; `too_large`
@@ -91,7 +88,6 @@ export class StorageFolderCopier {
 
   /**
    * Tells whether a folder is an entry itself or lies below it.
-   *
    * @param session - The access of the call.
    * @param folder - The folder.
    * @param ancestorRef - The entry.

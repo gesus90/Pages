@@ -20,8 +20,7 @@ export interface McpAgentProfileActor {
 
 /**
  * The read API of agent profiles and groups of the stand-alone Pages MCP
- * program (PAGE-308): `agents_list`, `agents_read` and `groups_read`.
- *
+ * program: `agents_list`, `agents_read` and `groups_read`.
  * @remarks
  * A paired machine acts with the rights of the account that confirmed the
  * pairing. Unlike the administration of agents, the profile reads admit every
@@ -35,7 +34,6 @@ export class McpAgentProfileApi {
 
   /**
    * Creates the API.
-   *
    * @param dependencies - The token check, the account lookup and the profile reads.
    */
   public constructor(dependencies: McpAgentProfileDependencies) {
@@ -45,7 +43,6 @@ export class McpAgentProfileApi {
 
   /**
    * Checks the token of a request and the account behind it.
-   *
    * @param authorization - The `Authorization` header of the request.
    * @returns The account the token acts for.
    * @throws {McpDeviceError} `invalid_token` for a missing, unknown or revoked token.
@@ -78,7 +75,6 @@ const STATUS_OF_CODE = {
 
 /**
  * Turns a failure of a profile read into the answer of the interface.
- *
  * @param error - Whatever a service or the parser threw.
  * @returns The status and the body, or `null` for a failure that is not the client's doing.
  */

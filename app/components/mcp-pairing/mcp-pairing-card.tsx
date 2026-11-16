@@ -5,7 +5,6 @@ import type { McpPairingPageData } from "@/definition/McpDevice";
 
 /**
  * Renders the content of the pairing card for the state of the code.
- *
  * @remarks
  * An open code shows the confirmation, every other state one sentence with its
  * symbol. The open view is keyed by its code so that a new code restarts the

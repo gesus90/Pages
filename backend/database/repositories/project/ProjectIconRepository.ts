@@ -15,7 +15,6 @@ export class ProjectIconRepository {
 
   /**
    * Creates a project icon repository.
-   *
    * @param database - Central database access.
    */
   public constructor(database: DatabaseTransaction) {

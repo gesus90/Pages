@@ -1,12 +1,11 @@
 /**
- * Small helpers over the XML of Office and OpenDocument files (PAGE-385).
+ * Small helpers over the XML of Office and OpenDocument files.
  * The browser's own parser reads the XML as data: it runs no script and
  * loads no external entity, and nothing of it becomes markup of the page.
  */
 
 /**
  * Parses an XML part.
- *
  * @param text - The XML.
  * @returns The document element, or `null` for text that is no XML.
  */
@@ -56,7 +55,6 @@ export function descendantNamed(
 /**
  * The value of an attribute by its local name, whatever prefix the file
  * gave its namespace.
- *
  * @param element - The element, or `null`.
  * @param name - The local name, such as `val` for `w:val`.
  * @returns The value, or `null` without the attribute.
@@ -79,7 +77,6 @@ export function textOf(element: Element | null): string {
 /**
  * Resolves the target of a relation against the folder of the part that
  * names it, as Office packages do.
- *
  * @param base - The path of the part, such as `word/document.xml`.
  * @param target - The target, such as `media/image1.png` or `/xl/x.xml`.
  */
@@ -96,7 +93,6 @@ export function resolvePartPath(base: string, target: string): string {
 /**
  * The relation ID of an element (`r:id`), which some elements hold next to
  * an `id` of their own namespace, such as `<p:sldId id="256" r:id="rId2"/>`.
- *
  * @param element - The element, or `null`.
  * @returns The ID, or `null` without one.
  */

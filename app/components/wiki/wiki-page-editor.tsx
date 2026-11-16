@@ -37,7 +37,7 @@ interface WikiPageEditorProps {
   readonly onSaved: (page: WikiPage) => void;
 }
 
-/** Shows how saving goes, without a visible form frame (T4.3.6). */
+/** Shows how saving goes, without a visible form frame. */
 function SaveStatus({
   state,
 }: {

@@ -5,10 +5,9 @@ import type { ChatSettings } from "@/definition/Chat";
 
 /**
  * The single settings row of the chat, seeded by its migration.
- *
  * @remarks
  * The column `attachment_limit_bytes` stays in the table but is neither read
- * nor written; the limit is fixed (PAGE-251).
+ * nor written; the limit is fixed.
  */
 export class ChatSettingsRepository {
   private readonly database: Database;

@@ -76,42 +76,42 @@ import type { PicaSettingsService } from "@/backend/service/chat/PicaSettingsSer
 import type { PagesEventPublisher } from "@/backend/service/events/PagesEventPublisher";
 import type { User } from "@/definition/User";
 
-/** The stored conversations of the chat page and Pica Mobile (PAGE-278). */
+/** The stored conversations of the chat page and Pica Mobile. */
 export interface ConversationApplicationServices {
   readonly conversationDirectory: ConversationDirectory;
   readonly conversationReader: ConversationReader;
   readonly conversationService: ConversationService;
-  /** The answers of agents in conversations (PAGE-276). */
+  /** The answers of agents in conversations. */
   readonly conversationAgentReplies: ConversationAgentReplies;
-  /** The stored context of groups (PAGE-296). */
+  /** The stored context of groups. */
   readonly conversationContextReader: ConversationContextReader;
-  /** How the group observer fared, for members and administrators (PAGE-340). */
+  /** How the group observer fared, for members and administrators. */
   readonly conversationObserverMonitor: ConversationObserverMonitor;
-  /** Who answers in a group chat (PAGE-317). */
+  /** Who answers in a group chat. */
   readonly conversationReplySettingsService: ConversationReplySettingsService;
-  /** The longest voice message Pages takes, in milliseconds (PAGE-277). */
+  /** The longest voice message Pages takes, in milliseconds. */
   readonly conversationVoiceMaximumMs: number;
   /** Turns a recording into text before sending, for chats whose messages are text alone. */
   readonly conversationVoiceRecognition: ConversationVoiceRecognition;
-  /** The Pages tools with which agents read chats and send messages (PAGE-311). */
+  /** The Pages tools with which agents read chats and send messages. */
   readonly agentChatService: AgentChatService;
-  /** The interim messages and questions with answer buttons of chat agents (PAGE-391). */
+  /** The interim messages and questions with answer buttons of chat agents. */
   readonly agentChatQuestions: AgentChatQuestionService;
-  /** The chain and hourly limits of the chat of agents, and the release of a paused one (PAGE-311). */
+  /** The chain and hourly limits of the chat of agents, and the release of a paused one. */
   readonly conversationAgentGuard: ConversationAgentGuard;
-  /** Who reads the conversations that only agents take part in (PAGE-311). */
+  /** Who reads the conversations that only agents take part in. */
   readonly conversationOversight: ConversationOversight;
-  /** The hourly limit under Settings → Agents (PAGE-311). */
+  /** The hourly limit under Settings → Agents. */
   readonly agentChatSettingsService: AgentChatSettingsService;
-  /** The files of conversation messages (PAGE-298). */
+  /** The files of conversation messages. */
   readonly conversationAttachments: ConversationAttachments;
-  /** The attachments of chats as their agents search and read them (PAGE-386). */
+  /** The attachments of chats as their agents search and read them. */
   readonly conversationAttachmentLibrary: ConversationAttachmentLibrary;
-  /** The links of messages and the domains that may be embedded (PAGE-298). */
+  /** The links of messages and the domains that may be embedded. */
   readonly conversationLinks: ConversationLinks;
-  /** "Medien & Dateien" of a chat: its files and links, and chosen files as ZIP (PAGE-387). */
+  /** "Medien & Dateien" of a chat: its files and links, and chosen files as ZIP. */
   readonly conversationMediaOverview: ConversationMediaOverviewService;
-  /** The card states and the split width of a person (PAGE-298). */
+  /** The card states and the split width of a person. */
   readonly chatViewPreferences: ChatViewPreferenceService;
 }
 
@@ -121,22 +121,22 @@ export interface ConversationServicesInput {
   /** The data directory; the audio of voice messages lies below it. */
   readonly directory: string;
   readonly events: PagesEventPublisher;
-  /** Runs the answers of agents (PAGE-276). */
+  /** Runs the answers of agents. */
   readonly runner: ConversationAgentRunner;
-  /** The speech model and the longest recording of `config.toml` (PAGE-277). */
+  /** The speech model and the longest recording of `config.toml`. */
   readonly speech?: SpeechRecognitionSetting;
-  /** The group observer on Pica's chat model (PAGE-296). */
+  /** The group observer on Pica's chat model. */
   readonly observer: ConversationObserverInput;
-  /** The origin users reach Pages at; links to it embed (PAGE-298). */
+  /** The origin users reach Pages at; links to it embed. */
   readonly publicUrl?: string;
   /**
-   * Fetches the preview data of links (PAGE-298). By default the HTTP fetch,
+   * Fetches the preview data of links. By default the HTTP fetch,
    * and while the simulation is on a fetch that contacts no network.
    */
   readonly linkFetcher?: ConversationLinkFetcher;
 }
 
-/** What the group observer runs on (PAGE-296). */
+/** What the group observer runs on. */
 export interface ConversationObserverInput {
   /** Pica's central model choice and its authorized resolver. */
   readonly pica: Pick<PicaSettingsService, "resolve" | "requireCurrent">;
@@ -146,7 +146,7 @@ export interface ConversationObserverInput {
   readonly simulation: SimulatedConversationObserver | null;
   /**
    * The decision model of the instance with its default rules, which chooses
-   * agents in group chats (PAGE-317, PAGE-379).
+   * agents in group chats.
    */
   readonly decision: {
     readonly model: Pick<ConversationDecisionModel, "ask">;
@@ -154,7 +154,7 @@ export interface ConversationObserverInput {
   };
   /**
    * Where observer sessions get their working directories: a folder the
-   * worker units of the service manager see (PAGE-340).
+   * worker units of the service manager see.
    */
   readonly directoryRoot: string;
   /**
@@ -172,7 +172,6 @@ declare global {
 
 /**
  * Tells the live view whether an account is a member of a conversation.
- *
  * @param database - The open database.
  * @returns The membership check of the live view.
  */
@@ -191,7 +190,6 @@ export function conversationMembership(database: Database): {
  * the audio of voice messages in the file store, the recognition of their
  * text and the answers of agents, which follow the committed messages of the
  * process from now on; a second wiring replaces the first.
- *
  * @param input - Database, data directory, the publisher of the live view
  * and the runner of agent answers.
  * @returns The reader, the writing service and the agent answers.
@@ -420,7 +418,7 @@ function startConversationBackground(
   }
 }
 
-/** The guard, the oversight and the settings of the chat between agents (PAGE-311). */
+/** The guard, the oversight and the settings of the chat between agents. */
 function createAgentChatParts(
   input: ConversationServicesInput,
   reader: ConversationReader,
@@ -503,7 +501,7 @@ function createReplies(
   });
 }
 
-/** The content of messages: files, links and what reads both (PAGE-298). */
+/** The content of messages: files, links and what reads both. */
 interface ContentParts {
   readonly attachments: ConversationAttachments;
   readonly links: ConversationLinks;
@@ -583,8 +581,8 @@ function createContent(
 
 /**
  * Removes files and preview data nothing refers to any more, once at the
- * start, and starts the regular removal of agents' files after 72 hours
- * (PAGE-382); a second wiring replaces the expiry of the first.
+ * start, and starts the regular removal of agents' files after 72 hours;
+ * a second wiring replaces the expiry of the first.
  */
 function sweepContent(content: ContentParts): void {
   void Promise.all([content.attachments.sweep(), content.links.sweep()]).catch(
@@ -598,7 +596,7 @@ function sweepContent(content: ContentParts): void {
   globalThis.pagesConversationExpiry = expiry;
 }
 
-/** The parts of the group observer (PAGE-296). */
+/** The parts of the group observer. */
 interface ObserverParts {
   readonly rounds: ConversationRoundRepository;
   readonly reader: ConversationContextReader;

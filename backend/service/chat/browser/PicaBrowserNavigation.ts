@@ -19,7 +19,6 @@ const NAVIGATION_TIMEOUT_MS = 20_000;
 
 /**
  * Turns whatever Playwright or the network reported into one stable code.
- *
  * @param session - The browser the call ran in.
  * @param error - The failure.
  * @returns A code that never carries page content or internal messages.
@@ -54,7 +53,6 @@ export function browserFailure(
 
 /**
  * Adds the scheme to an address the model wrote without one and checks it against the target policy.
- *
  * @param origins - The origins the browser may reach besides the public internet.
  * @param raw - The address as the model or administrator wrote it.
  * @returns The absolute address.

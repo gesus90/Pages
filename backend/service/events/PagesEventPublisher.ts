@@ -49,7 +49,6 @@ const PAGES_EVENT_TYPE_SET: ReadonlySet<string> = new Set(PAGES_EVENT_TYPES);
 
 /**
  * Tells whether an outbox `kind` is a Pages event this version knows.
- *
  * @param kind - The stored kind, such as `ticket.updated`.
  * @returns `false` for a kind of another version, which decides nothing.
  */
@@ -59,7 +58,6 @@ export function isPagesEventType(kind: string): kind is PagesEvent["type"] {
 
 /**
  * Internal post-commit notification; content and user metadata never enter events.
- *
  * @remarks
  * `ticket.changed`, `ticket.deleted` and `milestone.changed` only tell the
  * live view that something changed: an archive, a restore, a deletion, a
@@ -68,11 +66,11 @@ export function isPagesEventType(kind: string): kind is PagesEvent["type"] {
  * from the trash for good, `project.access.changed` a project whose
  * departments changed or that was archived or deleted.
  * `conversation.changed` names a conversation that got a message, a text of
- * a voice message or a member (PAGE-278); only its members hear of it.
+ * a voice message or a member; only its members hear of it.
  * `calendar.changed` names a calendar event, or `project:<projectId>` for
- * the project dates of a project (PAGE-301); only affected accounts hear of it.
+ * the project dates of a project; only affected accounts hear of it.
  * `plan.catalog.changed` invalidates plan catalogs without naming a plan,
- * including for readers who just lost access (PAGE-436).
+ * including for readers who just lost access.
  * Whoever lost the
  * object can no longer be asked whether they saw it, so the live view lets
  * every open page read again instead of naming it.
@@ -100,7 +98,6 @@ export interface AnnounceOptions extends CallOptions {
 
 /**
  * Raised when a call changed rows but could not name the object of its event.
- *
  * @remarks
  * The change rolls back instead of committing without its event.
  */
@@ -113,7 +110,6 @@ export class PagesEventIdentityError extends Error {
 
 /**
  * Stores an event in the outbox of an open business transaction.
- *
  * @param transaction - The transaction that writes the change.
  * @param event - The event of the change; it commits or rolls back with it.
  */
@@ -126,7 +122,6 @@ export async function recordPagesEvent(
 
 /**
  * Delivers internal events without allowing a subscriber to undo a committed write.
- *
  * @remarks
  * The durable copy of an event is its outbox row, written in the transaction
  * of the change: by {@link announce} for calls of the interface services and
@@ -140,7 +135,6 @@ export class PagesEventPublisher {
 
   /**
    * Creates the publisher of one process.
-   *
    * @param database - Runs announced calls; without it only the delivery in the process exists.
    */
   public constructor(database: Pick<Database, "runCall"> | null = null) {
@@ -149,14 +143,12 @@ export class PagesEventPublisher {
 
   /**
    * Runs a change as one transaction and stores its events with it.
-   *
    * @param work - The change, possibly several statements and nested transactions.
    * @param decide - Names the events of the change from its result.
    * @param options - When the change takes the writer and whether its result decides the change.
    * @returns Whatever `work` returns, once the change and its events committed.
    * @throws {PagesEventIdentityError} When rows changed but `decide` named no event,
    * unless the result decides the change.
-   *
    * @remarks
    * Every statement of the call after its opening joins one transaction, so a
    * reader of the outbox sees the event only together with the final state of

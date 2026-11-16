@@ -16,7 +16,6 @@ export class UserGroupRepository {
 
   /**
    * Creates a group repository.
-   *
    * @param database - Central database access or an open transaction.
    */
   public constructor(database: GroupDatabase) {
@@ -114,7 +113,6 @@ export class UserGroupRepository {
 
   /**
    * Inserts or renames a group and replaces its members.
-   *
    * @remarks
    * Absent `leaderIds` keep the stored leaders among the remaining members.
    */

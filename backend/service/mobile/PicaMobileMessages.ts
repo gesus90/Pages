@@ -139,7 +139,6 @@ const CONVERSATION_REQUEST_TYPES: ReadonlySet<string> =
 
 /**
  * Tells whether a checked message belongs to `conversations.v1`.
- *
  * @param message - A message that passed every check.
  * @returns `true` for the conversation and voice requests.
  */

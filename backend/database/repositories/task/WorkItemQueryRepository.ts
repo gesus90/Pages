@@ -23,7 +23,6 @@ export class WorkItemQueryRepository {
 
   /**
    * Creates a work item query repository.
-   *
    * @param database - Central database access.
    */
   public constructor(database: TaskDatabase) {

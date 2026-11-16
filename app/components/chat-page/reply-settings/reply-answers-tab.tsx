@@ -70,7 +70,7 @@ function Hint({
 }
 
 /**
- * The tab "Antworten" (PAGE-379): the mode "Nur @" or "@ + Decision" with a
+ * The tab "Antworten": the mode "Nur @" or "@ + Decision" with a
  * short explanation, the decision model of the instance, the thresholds and
  * the most answering agents as sliders (off in "Nur @"), and "Auf Standard
  * zurücksetzen". Only the one who manages the group changes anything.

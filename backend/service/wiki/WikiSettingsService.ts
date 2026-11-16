@@ -15,7 +15,6 @@ export class WikiSettingsService {
 
   /**
    * Creates the service.
-   *
    * @param repository - Wiki persistence.
    * @param permissionService - Decides who may change the settings.
    */
@@ -29,7 +28,6 @@ export class WikiSettingsService {
 
   /**
    * Returns the settings that apply.
-   *
    * @returns The stored settings, or the defaults while none were saved.
    */
   public async get(): Promise<WikiSettings> {
@@ -38,7 +36,6 @@ export class WikiSettingsService {
 
   /**
    * Replaces the settings.
-   *
    * @param actor - The signed-in user; an administrator in the admin mode.
    * @param settings - The new values.
    * @throws {InstanceSettingsDeniedError} When the actor may not change them.

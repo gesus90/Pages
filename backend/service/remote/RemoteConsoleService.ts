@@ -56,7 +56,7 @@ export interface RemoteConsoleDependencies {
     "requireConsole" | "consoleTarget"
   >;
   /**
-   * Keeps console identities across an API restart (PAGE-239); without it a
+   * Keeps console identities across an API restart; without it a
    * console ends with the process, as before.
    */
   readonly store?: Pick<
@@ -87,10 +87,9 @@ const MAXIMUM_SESSIONS = 50;
 
 /**
  * Keeps console ownership separate from shared SSH connections and expires abandoned shells.
- *
  * @remarks
  * With a store, the identity of a workspace or connection console outlives
- * the API process (PAGE-239): owner, target, geometry, attempt and last event
+ * the API process: owner, target, geometry, attempt and last event
  * number, for the console's lease. After a restart the unchanged browser
  * reattaches with the same console id; the API restores it only for the same
  * signed-in owner and target, after checking the owner's rights anew, and
@@ -118,7 +117,6 @@ export class RemoteConsoleService {
 
   /**
    * Whether a setup run holds the connection; it ends with its console.
-   *
    * @param connectionId - The connection.
    * @returns Whether a setup console of any person is open and not ended.
    */
@@ -133,7 +131,6 @@ export class RemoteConsoleService {
 
   /**
    * Rechecks access before allocating a shell; the session repeats it before each connect.
-   *
    * @remarks
    * A setup holds its connection exclusively: the check for a running setup
    * and the new entry follow each other without any waiting in between, so
@@ -195,7 +192,6 @@ export class RemoteConsoleService {
 
   /**
    * Ends all shells before SSH masters and the database stop.
-   *
    * @remarks
    * Stored identities stay, so the browsers reattach to fresh shells once
    * the API runs again.
@@ -303,7 +299,6 @@ export class RemoteConsoleService {
 
   /**
    * Restores a console whose shell ended with the previous API process.
-   *
    * @remarks
    * Only the same owner and target qualify, within the lease and the
    * attempt budget, and only after the owner's rights were checked again;

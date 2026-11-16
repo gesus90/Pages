@@ -73,7 +73,7 @@ const WAITING_STEERS: ReadonlySet<ChatSteerStatus> = new Set([
   "followUp",
 ]);
 
-/** Steers that joined the running turn or went to the adapter for it (PAGE-381). */
+/** Steers that joined the running turn or went to the adapter for it. */
 const INJECTED_STEERS: ReadonlySet<ChatSteerStatus> = new Set([
   "delivered",
   "accepted",
@@ -99,8 +99,7 @@ const UNLIMITED_SLOT: AgentSessionSlot = {
 };
 
 /**
- * Sessions of agent employees over ACP (PAGE-266).
- *
+ * Sessions of agent employees over ACP.
  * @remarks
  * A session runs on Pica's ACP path, but as the agent's own account: its
  * conversation belongs to the agent, so every tool call is checked against
@@ -110,14 +109,13 @@ const UNLIMITED_SLOT: AgentSessionSlot = {
  * `AGENT.md` open every instruction, `MEMORY.md` follows as data. Settings
  * apply to the next round; a running round keeps its configuration while
  * every turn and tool call still checks that the account is active.
- *
  * Every chat of an agent has its own session with its own working directory
- * and history (PAGE-304): the direct chat per person, every conversation per
+ * and history: the direct chat per person, every conversation per
  * conversation. Sessions of different chats run side by side. A message to
  * a chat whose job runs joins that job; above the limits of concurrent
  * sessions a message waits for a free place and is never refused. A direct
  * chat and a conversation keep their native session between rounds
- * (PAGE-335): every further round becomes its next turn, and rounds of one
+ * Every further round becomes its next turn, and rounds of one
  * chat run one after another, never as a second process.
  */
 export class AgentEmployeeSessions {
@@ -125,7 +123,7 @@ export class AgentEmployeeSessions {
   private readonly context: AgentChatContext;
   /** Direct messages that wait for a free place, by direct chat. */
   private readonly waiting = new Map<string, WaitingMessage[]>();
-  /** The rounds the agents answer in chats now (PAGE-376). */
+  /** The rounds the agents answer in chats now. */
   private readonly activity = new AgentChatActivity();
 
   public constructor(dependencies: AgentEmployeeSessionDependencies) {
@@ -139,11 +137,10 @@ export class AgentEmployeeSessions {
 
   /**
    * Sends a person's message to an agent: into its running job, or as a new one.
-   *
    * @remarks
    * Above the limits of concurrent sessions the message waits in the queue
    * of the direct chat and this call returns; the answer starts once a place
-   * is free (PAGE-304).
+   * is free.
    *
    * A message may carry files the person uploaded to the chat session
    * beforehand; the session hands them to the agent's prompt as it does for
@@ -209,8 +206,7 @@ export class AgentEmployeeSessions {
 
   /**
    * Takes a place among the limits for an answer that runs without a job,
-   * such as one of the simulation (PAGE-304).
-   *
+   * such as one of the simulation.
    * @throws {AgentEmployeeError} `stopped` when the signal ends the wait.
    */
   public admit(
@@ -247,8 +243,7 @@ export class AgentEmployeeSessions {
 
   /**
    * Cancels the running tool call in the person's conversation with an agent;
-   * the agent answers with what it has (PAGE-303).
-   *
+   * the agent answers with what it has.
    * @returns Whether a running call was cancelled.
    */
   public async cancelTool(person: User, agentId: unknown): Promise<boolean> {
@@ -265,8 +260,7 @@ export class AgentEmployeeSessions {
 
   /**
    * Cancels the running tool call of a chat of the agent, such as its answer
-   * in a group (PAGE-381); the agent answers with what it has.
-   *
+   * in a group; the agent answers with what it has.
    * @returns Whether a running call was cancelled.
    */
   public async cancelChatTool(
@@ -291,8 +285,7 @@ export class AgentEmployeeSessions {
 
   /**
    * The tool calls of the newest jobs of a conversation of the agent, by the
-   * answer they belong to (PAGE-303).
-   *
+   * answer they belong to.
    * @returns Every call with input and result as the job journaled them;
    * empty without ACP or a job.
    */
@@ -310,9 +303,8 @@ export class AgentEmployeeSessions {
 
   /**
    * The messages of a conversation of the agent that joined its running job
-   * and wait for their turn (PAGE-304): sent while the agent answered, not
+   * and wait for their turn: sent while the agent answered, not
    * yet taken into that answer.
-   *
    * @returns Their message IDs; empty while no job runs.
    */
   public async waitingInJob(
@@ -332,8 +324,7 @@ export class AgentEmployeeSessions {
 
   /**
    * The messages of a conversation of the agent its running job took into
-   * its answer (PAGE-381): joined its turn or handed to the adapter for it.
-   *
+   * its answer: joined its turn or handed to the adapter for it.
    * @returns Their message IDs; empty while no job runs.
    */
   public async injectedInJob(
@@ -373,8 +364,7 @@ export class AgentEmployeeSessions {
   }
 
   /**
-   * Hands a message to the running job of a chat of the agent (PAGE-376).
-   *
+   * Hands a message to the running job of a chat of the agent.
    * @param agent - The agent whose job runs.
    * @param target - The chat: the direct chat with a person or a conversation.
    * @param text - The message as the agent reads it.
@@ -418,7 +408,7 @@ export class AgentEmployeeSessions {
   }
 
   /**
-   * Waits until the agent works in no chat, for its background runs (PAGE-376).
+   * Waits until the agent works in no chat, for its background runs.
    *
    * @returns Whether the agent is free; `false` after the longest wait.
    */
@@ -549,7 +539,7 @@ export class AgentEmployeeSessions {
   }
 
   /**
-   * The live answer of a round for the chat page (PAGE-381): the one the
+   * The live answer of a round for the chat page: the one the
    * caller opened, such as a group's, or one of its own for the direct chat
    * with a person, whose thoughts only that person reads. A run of the
    * agent's own shows none.
@@ -573,7 +563,7 @@ export class AgentEmployeeSessions {
     };
   }
 
-  /** Tells the session the entries of the Lagebuch its round just carried the hint line for (PAGE-377). */
+  /** Tells the session the entries of the Lagebuch its round just carried the hint line for. */
   private async markLogbookSeen(
     sessionId: string,
     newest: number,
@@ -595,7 +585,7 @@ export class AgentEmployeeSessions {
       : () => undefined;
   }
 
-  /** Restarts a session that reached its context threshold before its next round (PAGE-376). */
+  /** Restarts a session that reached its context threshold before its next round. */
   private async restartIfNeeded(
     request: AgentJobRequest,
     sessionId: string,
@@ -606,7 +596,7 @@ export class AgentEmployeeSessions {
       ?.restartIfNeeded(request.agent, sessionId);
   }
 
-  /** Records what the finished round used and restarts the session at a full context (PAGE-376). */
+  /** Records what the finished round used and restarts the session at a full context. */
   private afterRound(request: AgentJobRequest, sessionId: string): void {
     const lifecycle = this.dependencies.lifecycle?.();
     if (!lifecycle || !isChatPurpose(request.purpose)) return;
@@ -638,7 +628,7 @@ export class AgentEmployeeSessions {
   }
 
   /**
-   * The model chosen for the agent in the chat of a round (PAGE-380); a run of
+   * The model chosen for the agent in the chat of a round; a run of
    * the agent's own and a chat without a choice answer with its own model.
    */
   private async chatModel(
@@ -678,7 +668,7 @@ export class AgentEmployeeSessions {
   ): Promise<{
     readonly brief: PicaAcpStart["brief"];
     readonly audience: AgentMemoryAudience;
-    /** The newest entry of the Lagebuch the round's hint line covers (PAGE-377). */
+    /** The newest entry of the Lagebuch the round's hint line covers. */
     readonly logbookNewest: number;
   }> {
     return buildEmployeeBrief(
@@ -690,7 +680,7 @@ export class AgentEmployeeSessions {
   }
 
   /**
-   * Hands the finished answer of a direct chat to the memory (PAGE-305):
+   * Hands the finished answer of a direct chat to the memory:
    * the person's messages since the previous answer and the answer itself.
    */
   private recordAnswer(request: AgentJobRequest, sessionId: string): void {
@@ -698,7 +688,7 @@ export class AgentEmployeeSessions {
   }
 
   /**
-   * The runner of a job with the agent's access level (PAGE-303): the host's
+   * The runner of a job with the agent's access level: the host's
    * MCP servers, read anew for every job, and the file tools only with host
    * tools.
    */
@@ -707,10 +697,10 @@ export class AgentEmployeeSessions {
     employee: StoredAgentEmployee,
     job: {
       readonly assignment: ResolvedAgentAssignment;
-      /** The chat whose rules of sharing `memory_search` applies (PAGE-305). */
+      /** The chat whose rules of sharing `memory_search` applies. */
       readonly audience: AgentMemoryAudience;
       readonly keptSession: PicaAcpEmployeeRun["keptSession"];
-      /** The chat the job runs in (PAGE-376). */
+      /** The chat the job runs in. */
       readonly chat: AgentChatScope;
       /** The connection the job runs on, which stays the only one it may use. */
       readonly connectionId: string;

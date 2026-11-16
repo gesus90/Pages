@@ -2,8 +2,7 @@ import { databaseFailureFacts } from "@/backend/logging/LogError";
 import { logCaughtError, logEvent } from "@/backend/logging/Logger";
 
 /**
- * The time budgets of a server stop (PAGE-199).
- *
+ * The time budgets of a server stop.
  * @remarks
  * All cleanup shares one budget, so one stuck step cannot use up the time the
  * database needs. Closing the database has its own: the checkpoint it runs took

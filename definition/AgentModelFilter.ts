@@ -1,6 +1,5 @@
 /**
  * What OpenCode states about one model in `opencode models --verbose`.
- *
  * @remarks
  * Only these properties decide whether a model may be chosen; names and IDs
  * never do, so no model is removed by guessing from how it is called. A
@@ -18,7 +17,7 @@ export interface AgentModelTraits {
   readonly toolCall: unknown;
 }
 
-// What a model may generate beside text and still chat (PAGE-382, PAGE-384).
+// What a model may generate beside text and still chat.
 const MEDIA_BESIDE_TEXT = ["image", "video", "audio"] as const;
 
 function statesModality(
@@ -36,15 +35,13 @@ function statesModality(
 /**
  * The global filter for every chat model choice: an active language model
  * that reads and answers in text and generates no video or audio.
- *
  * @remarks
  * A model that also reads images stays a chat model. A model that states it
  * reads no text, such as a pure transcription model, is not one. A model
  * that outputs images, videos or sounds stays one only when it also states
- * text output (PAGE-382, PAGE-384): an agent working with it answers in text
+ * text output: an agent working with it answers in text
  * and generates them with it; a pure image, video or audio generator and a
  * speech output model are none.
- *
  * @param traits - The model's properties as OpenCode states them.
  * @returns `true` when Pica and plans may list the model.
  */
@@ -63,7 +60,6 @@ export function isChatModel(traits: AgentModelTraits): boolean {
 
 /**
  * The global filter for agents: a chat model that also calls tools.
- *
  * @param traits - The model's properties as OpenCode states them.
  * @returns `true` when an agent plan may list the model.
  */
@@ -72,8 +68,7 @@ export function isAgentModel(traits: AgentModelTraits): boolean {
 }
 
 /**
- * The classification and moderation models PAGE-248 names, by their vendor ID.
- *
+ * The classification and moderation models the catalog names, by their vendor ID.
  * @remarks
  * No catalog Pages reads states what a model is for: OpenRouter's
  * `/api/v1/models` has no task or purpose field, and OpenCode's capabilities
@@ -92,8 +87,7 @@ const NAMED_NON_CHAT_MODELS: ReadonlySet<string> = new Set([
 
 /**
  * Whether a model ID is one of the classification or moderation models
- * PAGE-248 names, also under the provider prefix of OpenCode.
- *
+ * The catalog names, also under the provider prefix of OpenCode.
  * @param modelId - The model ID as the catalog lists it, such as
  * `openai/gpt-oss-safeguard-20b` or `openrouter/openai/gpt-oss-safeguard-20b`.
  * @returns `true` when the ID, or the ID after whole leading provider
@@ -119,9 +113,7 @@ export interface AgentChatCapabilityFacts {
 
 /**
  * Whether a model can chat as an agent or for Pica: it reads and answers in
- * text, generates images, videos and sounds only beside text (PAGE-382,
- * PAGE-384), no speech, and calls tools.
- *
+ * text, generates images, videos and sounds only beside text, no speech, and calls tools.
  * @remarks
  * The facts come from the source and are stored with the catalog: OpenRouter's
  * `architecture` modalities and `supported_parameters`, OpenCode's
@@ -130,7 +122,6 @@ export interface AgentChatCapabilityFacts {
  * always count as chat models. The classification and moderation models the
  * ticket names never count, whatever their facts state
  * ({@link isNamedNonChatModel}).
- *
  * @param model - The stored facts of one catalog model.
  * @returns `false` only when a stated fact rules the model out.
  */
@@ -145,7 +136,7 @@ export function isTextCapableModel(model: AgentChatCapabilityFacts): boolean {
   if (inputModalities && !inputModalities.includes("text")) return false;
   if (outputModalities && !outputModalities.includes("text")) return false;
   // A model that outputs images, videos or sounds chats, because it also
-  // answers in text as checked above (PAGE-382, PAGE-384); a speech output
-  // model (PAGE-300) does not.
+  // answers in text as checked above; a speech output
+  // model does not.
   return outputModalities?.includes("speech") !== true;
 }

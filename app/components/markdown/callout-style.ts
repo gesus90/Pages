@@ -24,7 +24,6 @@ export const CALLOUT_STYLES: Readonly<
 
 /**
  * Narrows a value to a callout kind.
- *
  * @param value - A kind as read from markdown or a node attribute.
  * @returns Whether the value names a known kind.
  */

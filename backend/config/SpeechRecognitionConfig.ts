@@ -11,9 +11,8 @@ import type { TomlTable } from "smol-toml";
 export const SPEECH_RECOGNITION_KEY = "speechRecognition";
 
 /**
- * The speech recognition of voice messages (PAGE-277), a server setting
+ * The speech recognition of voice messages, a server setting
  * until Pages has one under Settings → Agents.
- *
  * @example
  * ```toml
  * [speechRecognition]

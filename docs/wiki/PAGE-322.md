@@ -1,6 +1,6 @@
 # MCP Interface – Löschungen ohne Bestätigungswort
 
-Entwurf für den Abschnitt **Löschen und Bestätigung** der Wiki-Seite „MCP Interface“. Die übrigen Abschnitte der bestehenden Seite bleiben bei der Übernahme erhalten.
+Entwurf für den Abschnitt **Löschen und Bestätigung** der Wiki-Seite „MCP Interface“. Die übrigen Abschnitte der bestehenden Seite bleiben erhalten.
 
 Ein Löschaufruf braucht kein eingetipptes Wort mehr. Ein Agent ruft ein löschendes Werkzeug nur auf, wenn die Person die Löschung des konkreten Ziels in ihrer **aktuellen Nachricht ausdrücklich verlangt**. Bei mehrdeutigen Zielen fragt der Agent nach. Ein MCP-Client zeigt der Person den gelesenen Zielzustand und, wo vorgesehen, die Vorschau; seine Löschanforderung bezieht sich auf genau dieses Objekt. Die Pages-Oberfläche fragt mit einem Dialog samt „Abbrechen“ und roter Schaltfläche „Löschen“ oder „Endgültig löschen“ nach.
 

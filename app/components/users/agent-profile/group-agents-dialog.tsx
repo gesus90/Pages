@@ -63,7 +63,7 @@ function AgentOverviewRow({
 }
 
 /**
- * The agents of a group for its leaders and administrators (PAGE-308):
+ * The agents of a group for its leaders and administrators:
  * name, role, short description, model and workload. A click opens the
  * read-only profile.
  */

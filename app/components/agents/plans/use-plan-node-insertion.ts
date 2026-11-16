@@ -70,7 +70,6 @@ export interface PlanNodeInsertion {
 
 /**
  * Fetches the template at insertion time, then gives the new node its own defaults.
- *
  * @remarks
  * A copy of a saved node template joins as it is, like a node of the
  * palette: in one draft change, into a frame only if the frame admits it.
@@ -180,7 +179,7 @@ function joinFrame(
 ): AgentPlanInput | null {
   const { node, group } = target;
   const position = memberOffset(group, node);
-  // A decision may stand in a group or a loop too (PAGE-286).
+  // A decision may stand in a group or a loop too.
   if (node.type === "decision")
     return (
       placePlanDecision(plan, {

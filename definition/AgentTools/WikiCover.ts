@@ -8,7 +8,6 @@ import type { Tool } from "@modelcontextprotocol/server";
 
 /**
  * Changes only the cover of one page.
- *
  * @remarks
  * The cover is visual page metadata and takes no `expectedRevision`: setting it
  * never changes the text, the revision or the page versions.

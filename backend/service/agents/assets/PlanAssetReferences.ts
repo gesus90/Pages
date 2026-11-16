@@ -44,7 +44,6 @@ function isGrant(input: unknown): input is ReferenceGrant {
 
 /**
  * Signed, short-lived references through which a runner reaches a plan asset.
- *
  * @remarks
  * A runner, local or remote, never sees a path of Pages: it gets a reference
  * and redeems it. Redeeming checks the signature and the lifetime and then
@@ -72,7 +71,6 @@ export class PlanAssetReferences {
 
   /**
    * Issues a reference after checking that the person may read the file now.
-   *
    * @throws {AgentError} `plan_asset_missing` when the person may not read it.
    */
   public async issue(

@@ -62,8 +62,7 @@ const COMPONENT = "PicaMobileConversationPush";
 
 /**
  * Sends a push for every new message of a conversation to the registered
- * devices of its other members (PAGE-278).
- *
+ * devices of its other members.
  * @remarks
  * Nobody receives a push for an own message, for a conversation they muted,
  * or while a browser tab or Pica Mobile connection of theirs shows it. Before
@@ -78,7 +77,6 @@ export class PicaMobileConversationPush {
 
   /**
    * Creates the push.
-   *
    * @param options - Registrations, checks, the sender and the presence.
    */
   public constructor(options: PicaMobileConversationPushOptions) {
@@ -87,7 +85,6 @@ export class PicaMobileConversationPush {
 
   /**
    * Follows the new messages of conversations.
-   *
    * @param events - The in-process channel of committed conversation changes.
    * @returns Stops following.
    */
@@ -104,7 +101,6 @@ export class PicaMobileConversationPush {
 
   /**
    * Hands the pushes of one new message to the push service.
-   *
    * @param event - The committed message and its members.
    */
   public async deliver(event: MessageEvent): Promise<void> {

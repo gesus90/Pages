@@ -2,8 +2,7 @@ import type { RouteConfigEntry } from "@react-router/dev/routes";
 
 /**
  * The automation API of the Pages MCP client, admitted by the device token
- * of the existing pairing (PAGE-297).
- *
+ * of the existing pairing.
  * @param resource - Declares a server resource of the current route table.
  * @returns The resources under `/api/mcp/v1/automations`; the static
  * `/options` is never read as an automation ID.

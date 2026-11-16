@@ -89,7 +89,6 @@ export type { StepRunControl } from "./AgentPlanStepContext";
 
 /**
  * Runs one agent node: request or session, acceptance, closeout and result code.
- *
  * @remarks
  * The record of the node, with the requested configuration, the todo list and
  * the acceptance criteria, is stored before any process starts, and the sent
@@ -123,7 +122,6 @@ export class AgentPlanStepRunner {
 
   /**
    * Runs the node and returns the changes of its step result.
-   *
    * @param run - The current view of the plan run.
    * @param snapshot - The frozen plan.
    * @param step - The frozen node.
@@ -428,7 +426,7 @@ export class AgentPlanStepRunner {
 
   /**
    * Lets the executor instruct a group member's open session through the
-   * group's queue, or type into the running turn of a single node (PAGE-284).
+   * group's queue, or type into the running turn of a single node.
    */
   private offerInstructions(
     node: NodeRun,

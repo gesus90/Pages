@@ -59,7 +59,7 @@ function EditorField({
 }
 
 /**
- * Creates or changes a template of `AGENT.md` (PAGE-283): name, short
+ * Creates or changes a template of `AGENT.md`: name, short
  * description and content. The server checks the right to manage agents,
  * a unique name and the limits again.
  */

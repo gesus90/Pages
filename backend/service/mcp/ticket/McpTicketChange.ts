@@ -38,7 +38,6 @@ type ComparableValue = string | null | readonly string[];
 
 /**
  * The department of the older single-department fields.
- *
  * @remarks
  * A ticket with several departments has no single one: the joined ids never
  * equal what a client read, so a change through the old field conflicts
@@ -103,12 +102,10 @@ function comparable(
 
 /**
  * Compares the values a client last read with the stored ones.
- *
  * @param context - The request.
  * @param ticket - The ticket as stored now.
  * @param expected - The values the client names.
  * @throws {McpTicketError} `conflict` when one of them changed meanwhile.
- *
  * @remarks
  * This answers before anything is written; the complete edit then saves on
  * the condition that the values it read are still stored, which is the
@@ -160,7 +157,6 @@ async function resolveAssignment(
 
 /**
  * Resolves the usernames and the parent key of a change to internal ids.
- *
  * @param context - The request.
  * @param ticket - The ticket as stored now.
  * @param request - The change.
@@ -188,7 +184,6 @@ export async function resolveReferences(
 
 /**
  * Builds the complete edit the interface saves from a partial change.
- *
  * @param ticket - The ticket as stored now; unnamed fields keep its values.
  * @param request - The change.
  * @param references - The resolved people and parent.
@@ -219,7 +214,6 @@ export function updateInput(
 
 /**
  * Rejects a change of an archived ticket, as the interface offers none.
- *
  * @param ticket - The ticket to change.
  * @throws {McpTicketError} `invalid_request` when it is archived.
  */
@@ -229,7 +223,6 @@ export function requireActiveTicket(ticket: WorkItemDetail): void {
 
 /**
  * Checks that every label of a request exists in the shared catalog.
- *
  * @param context - The request.
  * @param labelIds - The labels to assign.
  * @throws {McpTicketError} `not_found` for an unknown label.

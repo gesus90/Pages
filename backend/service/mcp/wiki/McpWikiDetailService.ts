@@ -9,8 +9,7 @@ import type { McpWikiContext } from "./McpWikiContext";
 import type { McpWikiCommentCreateRequest } from "./McpWikiRequest";
 
 /**
- * The comments and attachments of pages (PAGE-257, interface 15 and 16).
- *
+ * The comments and attachments of pages.
  * @remarks
  * Every call goes through the announcing wiki service of the interface,
  * which decides who may write, change, resolve or remove and announces the
@@ -19,7 +18,6 @@ import type { McpWikiCommentCreateRequest } from "./McpWikiRequest";
 export class McpWikiDetailService {
   /**
    * Lists the comments of a page, each first comment followed by its replies.
-   *
    * @param context - The request.
    * @param pageId - Page identifier.
    */
@@ -47,7 +45,6 @@ export class McpWikiDetailService {
 
   /**
    * Adds a comment or a reply to a first comment.
-   *
    * @param context - The request.
    * @param pageId - Page identifier.
    * @param request - Text, the first comment it answers and a quoted passage.
@@ -74,7 +71,6 @@ export class McpWikiDetailService {
 
   /**
    * Changes the text of a comment of the account.
-   *
    * @param context - The request.
    * @param commentId - Comment identifier.
    * @param body - The new text.
@@ -90,7 +86,6 @@ export class McpWikiDetailService {
 
   /**
    * Resolves a thread, or opens it again.
-   *
    * @param context - The request.
    * @param commentId - Identifier of the first comment of the thread.
    * @param isResolved - Whether the thread is resolved afterwards.
@@ -110,7 +105,6 @@ export class McpWikiDetailService {
 
   /**
    * Removes a comment with its replies.
-   *
    * @param context - The request.
    * @param commentId - Comment identifier.
    */
@@ -124,7 +118,6 @@ export class McpWikiDetailService {
 
   /**
    * Lists the attachments of a page.
-   *
    * @param context - The request.
    * @param pageId - Page identifier.
    */
@@ -141,7 +134,6 @@ export class McpWikiDetailService {
 
   /**
    * Attaches a file to a page with the limits of the instance.
-   *
    * @param context - The request.
    * @param pageId - Page identifier.
    * @param file - The streamed upload.
@@ -161,7 +153,6 @@ export class McpWikiDetailService {
 
   /**
    * Opens an attachment for download.
-   *
    * @param context - The request.
    * @param attachmentId - Attachment identifier.
    * @returns The attachment and its bytes; the storage name stays inside.
@@ -175,7 +166,6 @@ export class McpWikiDetailService {
 
   /**
    * Removes an attachment and its file.
-   *
    * @param context - The request.
    * @param attachmentId - Attachment identifier.
    */

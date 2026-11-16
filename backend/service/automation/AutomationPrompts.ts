@@ -143,7 +143,6 @@ export interface AutomationNoticeData {
 
 /**
  * The input of an agent that receives the result of a run as a notification.
- *
  * @param notice - The run's result; result and error are bounded to 4 KiB.
  * @param language - The creator's language.
  */

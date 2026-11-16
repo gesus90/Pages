@@ -10,7 +10,6 @@ import type { AgentPlanGroup } from "@/definition/AgentPlanGroup";
 
 /**
  * A group shows its members; the reader picks the agent step whose session opens.
- *
  * @remarks
  * Members share one process, never an attempt, so no session is assigned to
  * the group itself.

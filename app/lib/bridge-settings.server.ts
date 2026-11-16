@@ -8,10 +8,8 @@ import type { PicaAcpSettings } from "./chat-services.server";
 
 /**
  * Where plan sessions reach the plan bridge of this instance.
- *
  * @param port - The configured port of this instance.
  * @returns The address of the plan bridge.
- *
  * @remarks
  * `PAGES_AGENT_API_URL` overrides the loopback address of the configured
  * port, for example behind a reverse proxy.

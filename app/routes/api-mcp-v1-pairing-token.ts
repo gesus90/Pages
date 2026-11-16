@@ -9,8 +9,7 @@ import { getApplicationServices } from "@/app/lib/services.server";
 import type { Route } from "./+types/api-mcp-v1-pairing-token";
 
 /**
- * Answers the query for the result of a pairing (`POST /api/mcp/v1/pairing/token`, PAGE-243).
- *
+ * Answers the query for the result of a pairing (`POST /api/mcp/v1/pairing/token`).
  * @remarks
  * The token is in the one `200` answer of a confirmed request; every other
  * state is a `400` with the error code of the interface.

@@ -18,7 +18,6 @@ const READ_ONLY_PERMISSIONS: CalendarEventPermissions = {
 
 /**
  * Projects an entry of the calendar service onto the list entry of the API.
- *
  * @param entry - An entry of a range read.
  * @param isReadOnly - Whether the account may only read; then nothing is editable.
  * @returns The list entry; description, invitees and answers stay out of the list.
@@ -48,7 +47,6 @@ export function listEntryOf(
 
 /**
  * Projects a stored event onto the answer of `read_calendar_event`.
- *
  * @param view - The detail read of the calendar service.
  * @param isReadOnly - Whether the account may only read; then every permission is `false`.
  * @returns The event with the time zone its times are given in.

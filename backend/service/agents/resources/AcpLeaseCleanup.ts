@@ -118,8 +118,7 @@ function countEntries(
 
 /**
  * The administrator's check and confirmed cleanup of ACP reservations,
- * without a host restart (PAGE-340).
- *
+ * without a host restart.
  * @remarks
  * Only the service responsible for a lease checks and releases it; a lease of
  * another service is shown and kept. Live, starting and paused work is never
@@ -156,7 +155,6 @@ export class AcpLeaseCleanup {
 
   /**
    * Releases the confirmed leases whose end is still proven.
-   *
    * @param confirmed - The leases the administrator confirmed from a preview;
    * a lease that became releasable since stays until it is confirmed.
    * @returns Every lease with its outcome; a repeated call finds nothing more to release.

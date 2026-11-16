@@ -29,7 +29,6 @@ export interface AcpLeaseAuditTarget {
   isUnverifiedLocal(instanceId: string): boolean;
   /**
    * Releases a lease the evidence proved ended.
-   *
    * @returns `false` when the lease changed or vanished meanwhile and was left alone.
    */
   release(instanceId: string): Promise<boolean>;
@@ -70,8 +69,7 @@ function outcomeOf(result: CycleResult): AcpLeaseCheckSummary["outcome"] {
 
 /**
  * Checks the unconfirmed ACP reservations of this service every 15 minutes,
- * model-free and without ending any process (PAGE-264).
- *
+ * model-free and without ending any process.
  * @remarks
  * The next cycle is scheduled only after the previous one ended, so cycles
  * never overlap and a long pause of the host causes one late cycle instead

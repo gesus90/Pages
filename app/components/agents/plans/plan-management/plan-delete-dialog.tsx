@@ -11,7 +11,6 @@ import type { usePlanManagement } from "./use-plan-management";
 
 /**
  * A short confirmation before the plan is deleted: name, context, Abbrechen or Löschen.
- *
  * @remarks
  * A preview names the plan, its revision and whether a run of it is active.
  * The server checks again that the person owns the plan or is an

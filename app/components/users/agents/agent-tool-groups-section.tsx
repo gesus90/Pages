@@ -75,7 +75,7 @@ function ToolGroupRow({
 }
 
 /**
- * The tool groups of the agent's chats (PAGE-390): every group with what the
+ * The tool groups of the agent's chats: every group with what the
  * access level allows, and a switch to turn single groups off.
  *
  * @remarks

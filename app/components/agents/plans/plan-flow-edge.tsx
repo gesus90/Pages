@@ -60,7 +60,6 @@ function nodeBottom(node: InternalNode | undefined): number {
 
 /**
  * The arrow of a connection.
- *
  * @remarks
  * The line ends at the centre of its port, which a port dot covers. The tip of
  * the arrow therefore sits one port radius before the end of the line, on the

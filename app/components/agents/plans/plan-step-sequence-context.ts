@@ -15,7 +15,6 @@ import type { AgentPlanLoopRun } from "@/definition/AgentPlanLoopRun";
 
 /**
  * How certain a block of the sequence is.
- *
  * @remarks
  * `actual` is an execution the run recorded as started; `planned` follows
  * from the known plan and the decisions taken so far; `assumed` is an
@@ -57,7 +56,6 @@ export interface PlanSequenceContext {
 
 /**
  * A node that an event starts again, with the nodes that repeat with it.
- *
  * @remarks
  * `body` holds the target and every node of its region that leads to a sender
  * of the event: these run once per round. The other nodes of the region run

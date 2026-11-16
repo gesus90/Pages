@@ -26,7 +26,6 @@ export interface ProjectListViewState {
 
 /**
  * Keeps the status filter, the search text and the sort order of the overview.
- *
  * @param projects - All projects the visitor may see.
  */
 export function useProjectListView(

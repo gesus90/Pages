@@ -59,7 +59,6 @@ function gitHubOf(
 
 /**
  * Builds the answer object "Projekt" from a project and its contents.
- *
  * @param context - The request, for the name of the project manager.
  * @param state - The project as the project services returned it.
  */
@@ -93,7 +92,6 @@ export async function projectOf(
 
 /**
  * Reads a project again and builds its answer object, as every change answers.
- *
  * @param context - The request.
  * @param projectId - The project.
  */

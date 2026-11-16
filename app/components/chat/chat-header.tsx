@@ -14,7 +14,7 @@ interface ChatHeaderProps {
   readonly onClose: () => void;
 }
 
-/** Name of the agent, the read-only session ID and the close button (T6.12.1). */
+/** Name of the agent, the read-only session ID and the close button. */
 export function ChatHeader({
   session,
   onClose,

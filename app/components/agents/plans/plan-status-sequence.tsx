@@ -84,7 +84,6 @@ function blockState(block: PlanSequenceBlock, translate: TFunction): string {
 
 /**
  * The accessible name of a block: number, name, pass and state.
- *
  * @param block - The block.
  * @param options - Its number, whether its pass is named, and the translation.
  */

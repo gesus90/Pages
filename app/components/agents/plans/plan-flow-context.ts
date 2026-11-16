@@ -27,7 +27,6 @@ export interface PlanCanvasProps {
   readonly isReady?: boolean;
   /**
    * The stored status of the newest run from the plan control.
-   *
    * @remarks
    * Named while no run is shown, because the reader's history is empty or
    * refused; an ended run then never reads as a plan that has not run.

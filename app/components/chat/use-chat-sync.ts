@@ -39,7 +39,6 @@ async function reopenLatest(
 
 /**
  * Keeps the open conversation in step with other devices, such as Pica Mobile.
- *
  * @remarks
  * While the panel is open, the page visible and no own message on its way,
  * the panel asks every three seconds for the small state of the conversation.

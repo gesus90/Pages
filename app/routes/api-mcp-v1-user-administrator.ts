@@ -27,8 +27,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpUserHandlers {
 }
 
 /**
- * Grants or revokes personal administrator eligibility (`POST /api/mcp/v1/users/{userId}/administrator`), PAGE-280; administrators only.
- *
+ * Grants or revokes personal administrator eligibility (`POST /api/mcp/v1/users/{userId}/administrator`); administrators only.
  * @remarks
  * Only the device token of a paired machine admits a request; the rights of
  * its account are read again on every call. See `docs/McpUserManagement.md`.

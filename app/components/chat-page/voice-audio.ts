@@ -20,7 +20,6 @@ const PCM_MAXIMUM = 0x7fff;
 /**
  * Joins the recorded blocks and lowers them to {@link VOICE_SAMPLE_RATE} by
  * averaging, so no other format and no library is involved.
- *
  * @param blocks - The recorded blocks of one channel.
  * @param sourceRate - The sample rate they were recorded at.
  * @returns The samples at the stored rate.
@@ -51,7 +50,6 @@ export function downsample(
 
 /**
  * Writes samples as a mono WAV file with 16-bit PCM.
- *
  * @param samples - Samples from -1 to 1 at {@link VOICE_SAMPLE_RATE}.
  * @returns The file.
  */
@@ -88,7 +86,6 @@ export function encodeWave(samples: Float32Array): Blob {
 
 /**
  * The loudest sample of each bar, scaled to the loudest bar.
- *
  * @param samples - The samples of one channel.
  * @returns One value from 0 to 1 per bar of {@link VOICE_WAVE_BARS}.
  */
@@ -106,7 +103,6 @@ export function wavePeaks(samples: Float32Array): number[] {
 
 /**
  * Decodes an audio file in the browser.
- *
  * @param bytes - The content of the file.
  * @returns The decoded audio; it rejects for content the browser cannot read.
  */
@@ -121,7 +117,6 @@ export async function decodeAudio(bytes: ArrayBuffer): Promise<AudioBuffer> {
 
 /**
  * `m:ss` of a duration.
- *
  * @param durationMs - Milliseconds.
  * @returns The duration as minutes and seconds.
  */

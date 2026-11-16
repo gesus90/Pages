@@ -45,7 +45,6 @@ export interface KanbanDrag {
 
 /**
  * Keeps the drag-and-drop state of the kanban board.
- *
  * @param onMoveTask - Called with the target column and sort order of a drop.
  */
 export function useKanbanDrag(

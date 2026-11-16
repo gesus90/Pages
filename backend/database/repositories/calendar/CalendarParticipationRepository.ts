@@ -39,13 +39,12 @@ function readAnswer(value: string): CalendarAnswer {
   throw new Error('Database returned an invalid value for "response".');
 }
 
-/** Owns invitations, answers and stored operations of the calendar (PAGE-301). */
+/** Owns invitations, answers and stored operations of the calendar. */
 export class CalendarParticipationRepository {
   private readonly database: CalendarDatabase;
 
   /**
    * Creates the repository.
-   *
    * @param database - Central database access.
    */
   public constructor(database: CalendarDatabase) {
@@ -54,7 +53,6 @@ export class CalendarParticipationRepository {
 
   /**
    * Returns the invitations of events in their stored order.
-   *
    * @param eventIds - Event identifiers.
    */
   public async findInvitations(

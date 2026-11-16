@@ -51,7 +51,7 @@ function entry<Operation extends ManagementOperation>(
       name: operation,
       title: operation.replaceAll("_", " "),
       description:
-        "Business administration (PAGE-316). Same current permissions as the Pages interface. No credentials are returned; human invitations go only by email. Protected admin targets, role grants, own rights, core settings and YOLO are forbidden. Read the current revision before a mutation; CONFLICT reports currentRevision. Reuse operationId with identical input for a safe retry. Avatar requires expectedRevision, accepts at most 5 MiB decoded bytes, and SVG is rendered to PNG. Project revisions come from read_project; group revisions from the groups management view.",
+        "Business administration. Same current permissions as the Pages interface. No credentials are returned; human invitations go only by email. Protected admin targets, role grants, own rights, core settings and YOLO are forbidden. Read the current revision before a mutation; CONFLICT reports currentRevision. Reuse operationId with identical input for a safe retry. Avatar requires expectedRevision, accepts at most 5 MiB decoded bytes, and SVG is rendered to PNG. Project revisions come from read_project; group revisions from the groups management view.",
       inputSchema: {
         type: "object",
         properties: isRead ? properties : { ...properties, operationId },

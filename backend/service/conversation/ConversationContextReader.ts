@@ -140,9 +140,8 @@ function boundedMessages(
 }
 
 /**
- * Reads the stored context of groups (PAGE-296): for the members on the web,
+ * Reads the stored context of groups: for the members on the web,
  * for the prompt of an answering agent and for `read_conversation_context`.
- *
  * @remarks
  * The context is derived data of its group and never an instruction. It is
  * shown only to a current member of the group; an agent reads it only as its
@@ -158,7 +157,6 @@ export class ConversationContextReader {
 
   /**
    * The context of a group for one of its members.
-   *
    * @throws {ConversationError} `not_found` for a conversation the person is
    * no member of, or that is no group.
    */
@@ -214,7 +212,6 @@ export class ConversationContextReader {
   /**
    * `read_conversation_context` of an agent: the context of one of its
    * groups and a bounded page of messages after a cursor.
-   *
    * @param agentId - The agent account whose job reads; never another account.
    * @param input - `conversationId`, optionally `afterSequence` (by default
    * the sequence the summary reaches) and `limit`.

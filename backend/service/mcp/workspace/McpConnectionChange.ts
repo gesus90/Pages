@@ -14,7 +14,6 @@ import type {
 
 /**
  * A path lies inside a root when it equals the root or starts with `<root>/`.
- *
  * @remarks
  * The root `/` holds every absolute path, as it does for the check over SSH.
  */

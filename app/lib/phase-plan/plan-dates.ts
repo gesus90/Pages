@@ -3,7 +3,6 @@ export const DAY_IN_MS = 86_400_000;
 
 /**
  * Parses a stored `YYYY-MM-DD` date as local midnight.
- *
  * @param value - Stored date or `null`.
  * @returns The instant, or `null` when the value is not written as a date.
  * A day beyond the end of its month rolls over into the next month.

@@ -61,7 +61,6 @@ const READING_OPERATIONS: readonly PagesAgentApiBusinessOperation[] = [
 
 /**
  * Every operation a personal credential offers its owner.
- *
  * @param isAdmin - Whether the owner is an administrator now.
  * @returns Reads, comments and writes; the administrator operations only for administrators.
  */
@@ -99,10 +98,8 @@ export function ownerOperations(
 
 /**
  * The operations that change nothing.
- *
  * @param isAdmin - Whether the executor is an administrator now.
  * @returns Every read and preview; the administrator reads only for administrators.
- *
  * @remarks
  * Comment changes are not part of the write operations, so the comment
  * operations are filtered here explicitly.
@@ -137,7 +134,6 @@ const MANAGEMENT_ONLY_SESSION_OPERATIONS =
 
 /**
  * Whether a session may call the operation, apart from the reads a management session gets.
- *
  * @param operation - The operation of the session.
  * @param isManagement - Whether the session belongs to a management plan.
  * @returns `false` for commands, recovery, deletion and the hidden or management-only views.
@@ -190,7 +186,6 @@ function forSession(
 
 /**
  * The operations the credential of an agent plan session may call.
- *
  * @param scope - The stored scope of the session.
  * @param isAdmin - Whether the executor is an administrator now.
  * @returns For the `tickets` reach the listed ticket operations; for `read`
@@ -198,7 +193,7 @@ function forSession(
  * the upload, which only a personal credential completes. Whatever the reach,
  * never the deletion of a project, which needs a person at a keyboard, and
  * always the report of the session's own step, which a personal credential
- * never has, with the live progress of that step (PAGE-284).
+ * never has, with the live progress of that step.
  */
 export function sessionOperations(
   scope: AgentRunScope,
@@ -216,7 +211,7 @@ export function sessionOperations(
     ...operations,
     AGENT_STEP_REPORT_OPERATION,
     AGENT_STEP_PROGRESS_OPERATION,
-    // A swarm session carries its tools in its scope, whatever its reach (PAGE-313).
+    // A swarm session carries its tools in its scope, whatever its reach.
     ...scope.operations.filter(isAgentSwarmOperation),
   ];
 }

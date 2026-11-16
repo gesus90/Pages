@@ -39,8 +39,7 @@ function Pill({
 }
 
 /**
- * Title, provider and state of the node, run choice, the stop of the run and close (PAGE-284).
- *
+ * Title, provider and state of the node, run choice, the stop of the run and close.
  * @remarks
  * The title is the node; below it the provider and the state stand as two
  * pills. The red stop is there only while the run can still be stopped.

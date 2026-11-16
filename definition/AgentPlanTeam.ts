@@ -3,7 +3,6 @@ export type AgentPlanTeamKind = "group" | "department" | "user";
 
 /**
  * One team of a plan: a group, department or person and the rights it grants.
- *
  * @remarks
  * Members and leaders of the group or department who can open the project of
  * the plan get the rights of the entry. Changing or running implies reading.
@@ -87,7 +86,6 @@ export function isAgentPlanTeamKind(
 /**
  * Returns the teams as they are stored: each target once, reading implied by
  * changing or running, and no entry without any right.
- *
  * @param teams - The proposed entries in their order.
  */
 export function normalizePlanTeams(

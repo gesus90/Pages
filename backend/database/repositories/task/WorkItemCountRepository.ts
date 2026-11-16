@@ -25,7 +25,6 @@ export interface ProjectWorkItemCounts {
 
 /**
  * Actor and time boundaries the dashboard counters are computed for.
- *
  * @remarks
  * Day boundaries are UTC calendar dates (`YYYY-MM-DD`, matching how the
  * dashboard compares due dates); `weekAgoStart` is a full-precision lower
@@ -81,7 +80,6 @@ export class WorkItemCountRepository {
 
   /**
    * Creates a work item count repository.
-   *
    * @param database - Central database access.
    */
   public constructor(database: TaskDatabase) {
@@ -90,7 +88,6 @@ export class WorkItemCountRepository {
 
   /**
    * Returns dashboard counters for several projects with a single query.
-   *
    * @param projectIds - Projects already verified as accessible to the actor.
    * @param scope - Actor id, day boundaries as UTC calendar dates
    * (`YYYY-MM-DD`, matching how the dashboard compares due dates), and a

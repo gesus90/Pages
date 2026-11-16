@@ -70,7 +70,6 @@ export class CliLoginSessionRegistry {
 
   /**
    * Describes a login for one viewer.
-   *
    * @param id - The connection of the login.
    * @param viewerId - The administrator who reads it.
    * @param includeChallenge - Only the protected polling response sets this.

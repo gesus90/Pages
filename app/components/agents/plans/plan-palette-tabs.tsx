@@ -8,7 +8,6 @@ const TABS: readonly PlanPaletteTab[] = ["nodes", "templates"];
 
 /**
  * The two labelled tabs of the palette, Nodes and Templates.
- *
  * @remarks
  * Arrow keys, Home and End move between the tabs and show the focused one,
  * as for a tab list with automatic activation.

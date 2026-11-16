@@ -3,7 +3,6 @@ import type { WorkItemDetail } from "@/definition/Task";
 /**
  * Resolves the 0-based insertion index within a column's ticket list based on
  * the pointer's vertical position.
- *
  * @remarks
  * Die eingeblendete Ghost-Karte verschiebt alle nachfolgenden Karten nach
  * unten. Ohne Korrektur würde die Vorschau deshalb zwischen zwei Positionen
@@ -46,11 +45,9 @@ export function computeInsertIndex(
 
 /**
  * Resolves the 1-based sort order a dropped ticket takes in its target column.
- *
  * @param columnItems - Tickets currently in the target column.
  * @param taskId - The dropped ticket.
  * @param insertIndex - Insertion index measured by {@link computeInsertIndex}.
- *
  * @remarks
  * A ticket moved inside its own column leaves its old slot first, so every
  * insertion index behind that slot is one too high.

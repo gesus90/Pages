@@ -24,7 +24,6 @@ interface AuthFieldProps extends Omit<
 
 /**
  * Renders a labelled field of the login and setup pages with a leading icon.
- *
  * @remarks
  * The error message is linked to the field, so assistive technology reads
  * it together with the label.

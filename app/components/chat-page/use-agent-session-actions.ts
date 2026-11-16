@@ -18,9 +18,7 @@ export interface AgentSessionActions {
 }
 
 /**
- * Stops, summarizes or restarts the session of an agent in the opened chat
- * (PAGE-376).
- *
+ * Stops, summarizes or restarts the session of an agent in the opened chat.
  * @remarks
  * The page reads its data again once the server accepted the change, so the
  * status in the head of the chat shows the new state of the session.

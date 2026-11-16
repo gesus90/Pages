@@ -11,13 +11,12 @@ import type { AgentToolManagerService } from "@/backend/service/agents/tools/Age
 
 /** The services of the system settings that read the server itself. */
 export interface SystemApplicationServices {
-  /** Load, drives and facts of the system dashboard (PAGE-282). */
+  /** Load, drives and facts of the system dashboard. */
   readonly systemDashboardService: SystemDashboardService;
 }
 
 /**
  * Creates the system dashboard on the sources of the running server.
- *
  * @param database - Central database access, for the database size.
  * @param databasePath - Path of the database; its directory is the data directory.
  * @param agents - The ACP occupancy and the agent tools the dashboard counts.

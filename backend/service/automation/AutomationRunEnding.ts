@@ -43,8 +43,7 @@ function isFailure(outcome: AutomationRunConclusion["outcome"]): boolean {
 }
 
 /**
- * Ends runs and applies what follows from their result (PAGE-297).
- *
+ * Ends runs and applies what follows from their result.
  * @remarks
  * A run ends once: its result is stored before anything else happens, so a
  * restart afterwards never repeats or interrupts it. Missing rights pause
@@ -63,7 +62,6 @@ export class AutomationRunEnding {
 
   /**
    * Ends a run that has not ended yet.
-   *
    * @param run - The run.
    * @param conclusion - Its outcome and outputs.
    */

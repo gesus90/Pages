@@ -5,7 +5,6 @@ const DATE_TIME = new Intl.DateTimeFormat(undefined, {
 
 /**
  * A stored time in the local time zone of the reader, readable at a glance.
- *
  * @param value - An ISO time as the server stores it.
  * @returns Date and time, or `null` for a missing or unreadable value.
  */
@@ -19,7 +18,6 @@ export function formatLocalTime(
 
 /**
  * How long something ran, such as `1 h 4 min` or `42 s`.
- *
  * @param milliseconds - The duration.
  */
 export function formatDuration(milliseconds: number): string {
@@ -32,7 +30,7 @@ export function formatDuration(milliseconds: number): string {
 }
 
 /**
- * A running time as a clock, `mm:ss` and from one hour on `h:mm:ss` (PAGE-289).
+ * A running time as a clock, `mm:ss` and from one hour on `h:mm:ss`.
  *
  * @param milliseconds - The duration.
  */

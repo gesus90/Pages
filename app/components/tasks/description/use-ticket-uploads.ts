@@ -17,7 +17,6 @@ export interface TicketUploadsState {
 
 /**
  * Sends the files a person chose, dropped or pasted to a ticket.
- *
  * @param ticketId - Ticket the files belong to.
  * @param onUploaded - Called after the uploads, to show the new attachments.
  * @returns The state of the uploads and the function that starts them.

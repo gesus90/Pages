@@ -31,7 +31,7 @@ export interface LiveAnswerTarget {
   readonly isTurnStored: boolean;
 }
 
-/** What a running job reports of the answer it writes (PAGE-381); no method throws. */
+/** What a running job reports of the answer it writes; no method throws. */
 export interface LiveAnswerSink {
   /** An entry the job journaled: text, a tool call, a steer, a stored answer or the end. */
   journaled(event: ChatJobEvent): void;
@@ -81,10 +81,9 @@ function deliveryOf(status: ChatSteerStatus): LiveAnswerDelivery {
 }
 
 /**
- * The live answer of one job of an agent (PAGE-381): it turns what the job
+ * The live answer of one job of an agent: it turns what the job
  * journals, and the thoughts the adapter reports, into parts of
  * `conversations.v1` for the members of the chat.
- *
  * @remarks
  * Text arrives as the journal writes it, after complete words and with
  * credentials masked; thoughts are collected the same way here. A thought
@@ -103,7 +102,6 @@ export class ConversationLiveAnswer implements LiveAnswerSink {
 
   /**
    * Creates the live answer of one job.
-   *
    * @param target - Who reads it and how it ends.
    * @param host - The stream it publishes to.
    */
@@ -195,7 +193,6 @@ export class ConversationLiveAnswer implements LiveAnswerSink {
   /**
    * What a reader of the chat knows of the answer; thoughts only for the
    * readers allowed to see them.
-   *
    * @returns The answer, or `null` before it began or for another account.
    */
   public snapshotFor(userId: string): LiveAnswerSnapshot | null {

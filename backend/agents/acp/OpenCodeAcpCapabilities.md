@@ -1,4 +1,4 @@
-# Native OpenCode ACP for Pica and plan nodes (PAGE-91 / PAGE-66)
+# Native OpenCode ACP for Pica and plan nodes
 
 Observed on 2026-10-16 with the installed OpenCode **1.18.34**. All local
 protocol inspection used empty temporary homes, no credentials and **no
@@ -34,12 +34,12 @@ branch:
 Functional behavior with a real model, tool calls, image understanding,
 compaction and cancellation has deliberately not been exercised by Codex.
 
-## PAGE-66 plan path and credential audit
+## Plan path and credential audit
 
-The PAGE-66 inspection on 2026-10-16 ran only `opencode --version` (1.18.34),
+The inspection on 2026-10-16 ran only `opencode --version` (1.18.34),
 read the installed `opencode-ai` binary and inspected the exact release source.
 It started no ACP server, native agent, model request or live MCP process.
-The protocol observations above belong to PAGE-91 and are not new plan tests.
+The protocol observations above are separate from the plan-path inspection.
 
 | Area                  | Release evidence and Pages behavior                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -60,11 +60,11 @@ Native MCP registration still ignores registration failures and exposes no
 verified model-free readiness command. The plan run must not claim a connected
 state on that basis. Credentialed tool execution, permissions in a real model
 loop, native subagents, graceful exit and cancellation effects remain manual
-functional acceptance work. PAGE-66 adds no automated tests or harnesses;
+functional acceptance work. The inspection added no automated tests or harnesses;
 only existing assertions made obsolete by the changed OpenCode contract are
 adjusted, without executing their suites.
 
-## PAGE-154 providers, free models and remote hosts
+## Providers, free models and remote hosts
 
 Observed on 2026-10-25 with OpenCode **1.18.34** locally and **1.19.4** on the
 remote test host. Model calls used only the approved test models.

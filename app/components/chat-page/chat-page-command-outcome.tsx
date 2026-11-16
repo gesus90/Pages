@@ -143,7 +143,7 @@ function OutcomeBody({
 }
 
 /**
- * What a chat command answered, above the input field (PAGE-380): the done
+ * What a chat command answered, above the input field: the done
  * change, the choice of the agent of a group or of a model, or why nothing
  * happened. It is no message: only the person who typed the command sees it.
  */

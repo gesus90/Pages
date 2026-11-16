@@ -9,7 +9,6 @@ import type { Department } from "@/definition/Authorization";
 /**
  * The only sharing control of a connection: one department, chosen from a
  * searchable list.
- *
  * @remarks
  * Opening, searching and closing the list change nothing; only choosing a
  * department changes the draft, and only saving the dialog stores it.

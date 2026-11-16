@@ -15,7 +15,6 @@ const DEPLOYMENT_FILE = fileURLToPath(
 
 /**
  * Reads only the public build identity and timestamp of the deployed server.
- *
  * @param readText - The dashboard's file reader; missing files return `null`.
  * @returns Validated metadata, or `null` for absent, unreadable or malformed files.
  */

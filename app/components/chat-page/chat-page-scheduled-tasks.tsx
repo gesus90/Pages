@@ -247,7 +247,7 @@ function TaskList({
 }
 
 /**
- * "Geplante Aufgaben" of a chat (PAGE-392): the reminders and recurring
+ * "Geplante Aufgaben" of a chat: the reminders and recurring
  * tasks agents planned here, with their rhythm, their next run and the
  * buttons to pause, resume and delete them.
  *

@@ -53,7 +53,6 @@ function readRevision(input: unknown): number {
 
 /**
  * Reads the parameters of `workspaces.list`.
- *
  * @param input - The raw parameters.
  * @throws {AgentOperationError} `INVALID_REQUEST` for an unknown parameter.
  */
@@ -72,7 +71,6 @@ export function readWorkspaceListRequest(input: unknown): WorkspaceListRequest {
 
 /**
  * Reads the identifier of the workspace that `workspaces.read` names.
- *
  * @param input - The raw parameters.
  * @throws {AgentOperationError} `INVALID_REQUEST` for a missing or unknown parameter.
  */
@@ -84,11 +82,9 @@ export function readWorkspaceReadRequest(input: unknown): string {
 
 /**
  * Reads a create, update or remove call into one typed request.
- *
  * @param operation - The write operation that was called.
  * @param input - The raw parameters.
  * @throws {AgentOperationError} `INVALID_REQUEST` for a missing, unknown or malformed parameter.
- *
  * @remarks
  * Text fields are only checked for presence here; the registration rules judge
  * their content, so a client sees the same refusals as the interface gives.

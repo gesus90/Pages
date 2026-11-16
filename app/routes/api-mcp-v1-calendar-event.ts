@@ -36,8 +36,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpCalendarHandlers {
 
 /**
  * Reads an event (`GET /api/mcp/v1/calendar/events/{id}`, read_calendar_event)
- * and changes it (`PATCH`, update_calendar_event), PAGE-301.
- *
+ * and changes it (`PATCH`, update_calendar_event).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

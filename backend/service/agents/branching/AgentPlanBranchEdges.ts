@@ -11,7 +11,6 @@ import type {
 
 /**
  * What one incoming edge says about the node it enters.
- *
  * @remarks
  * `satisfied` releases the node, `dead` can never release it in this round,
  * `pending` still depends on a result to come.
@@ -23,10 +22,8 @@ export type PlanReadiness = "ready" | "skip" | "wait";
 
 /**
  * The state of one execution edge from the result of its source.
- *
  * @param edge - An edge that orders execution.
  * @param source - The result of the node the edge leaves.
- *
  * @remarks
  * A decision satisfies only the edge of the branch it activated and kills the
  * other one; a node that was skipped kills every edge it leaves, and so does a
@@ -48,11 +45,9 @@ export function planEdgeState(
 
 /**
  * Whether a waiting node may start, can no longer start, or has to wait.
- *
  * @param plan - The frozen plan.
  * @param results - The results of the run by node.
  * @param nodeId - The waiting node.
- *
  * @remarks
  * A node without incoming edges starts at once. Otherwise every incoming
  * edge must have an answer, and one satisfied edge is enough: after a

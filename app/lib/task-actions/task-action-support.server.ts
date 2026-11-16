@@ -92,7 +92,6 @@ export type TaskActionHandler = (
 
 /**
  * Answers a ticket action whose form fields are missing or malformed.
- *
  * @param intent - The action that was requested.
  * @returns A `400` response.
  */
@@ -105,7 +104,6 @@ export function invalidInput(intent: TaskActionIntent): TaskActionResponse {
 
 /**
  * Runs the service call of a ticket action that has nothing to show.
- *
  * @param intent - The action being run.
  * @param work - Calls the service; its result is ignored.
  * @returns A success response, or the failure `handleTaskActionError` maps.
@@ -127,7 +125,6 @@ export async function runTaskAction(
 
 /**
  * Runs the service call of a ticket action after which the current page is gone.
- *
  * @param intent - The action being run.
  * @param work - Calls the service; its result is ignored.
  * @param target - Local path the client is sent to after success.
@@ -151,7 +148,6 @@ export async function runTaskActionThenRedirect(
 
 /**
  * Runs the service call of a ticket action whose ticket the client shows.
- *
  * @param intent - The action being run.
  * @param work - Calls the service; returns the affected ticket.
  * @returns A success response with the ticket key, or the failure
@@ -174,7 +170,6 @@ export async function runTicketAction(
 
 /**
  * Returns the updated ticket for an inline board edit.
- *
  * @param intent - The action being run.
  * @param work - Changes and returns the ticket.
  * @returns The updated ticket or an error response.
@@ -216,7 +211,6 @@ export async function runTicketImpactAction(
 
 /**
  * Maps the failures a ticket action may end in to client responses.
- *
  * @param error - The failure thrown by a service.
  * @param intent - The action that failed.
  * @returns The response describing the failure.

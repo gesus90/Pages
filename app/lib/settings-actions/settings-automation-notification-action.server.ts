@@ -12,7 +12,7 @@ import type {
 
 /**
  * Stores when the person hears about the runs of the automations they
- * created: off, on errors or always (PAGE-297).
+ * created: off, on errors or always.
  */
 export const handleUpdateAutomationNotification: (
   context: SettingsActionContext,

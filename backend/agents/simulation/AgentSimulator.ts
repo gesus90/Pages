@@ -33,8 +33,7 @@ export interface AgentSimulatorDependencies {
 const SLOW_DELAY_MS = 5_000;
 
 /**
- * The simulated agent of the development simulation (PAGE-268).
- *
+ * The simulated agent of the development simulation.
  * @remarks
  * It runs where a request to an API model would run, with the same prepared
  * input, and contacts no model provider. It reads every handed-over file for

@@ -24,8 +24,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpWorkspaceHandlers {
 }
 
 /**
- * Removes a workspace after a confirmed question (`POST /api/mcp/v1/workspaces/{id}/remove`), PAGE-245 interface 7.
- *
+ * Removes a workspace after a confirmed question (`POST /api/mcp/v1/workspaces/{id}/remove`).
  * @remarks
  * Only the device token of a paired machine admits a request. The directory is never deleted.
  */

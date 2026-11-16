@@ -131,7 +131,6 @@ function detachGroup<Plan extends AgentPlanInput>(
 
 /**
  * Moves a whole group into a loop, within it, out onto the outer grid, or into another loop.
- *
  * @param plan - The plan.
  * @param placement - The group, its target loop or `null`, and its position.
  * @returns The changed plan with what the move cost, or `missingAgent` when
@@ -195,7 +194,6 @@ function replaceGroup<Plan extends AgentPlanInput>(
 
 /**
  * Dissolves a group inside a loop; its agents stay members of the loop.
- *
  * @param plan - The plan.
  * @param groupId - The group inside a loop.
  * @param positionOf - The position of an agent in the loop's member area.

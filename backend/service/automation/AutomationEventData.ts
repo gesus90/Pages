@@ -59,7 +59,7 @@ function ticketExample(
   return {
     event,
     at: EXAMPLE_TIME,
-    ticket: { id: "ticket-id", key: "PAGE-289", title: "Release-Notizen" },
+    ticket: { id: "ticket-id", key: "PAGE-12", title: "Release-Notizen" },
     project: { id: "project-id", name: "Pages" },
     status,
     previousStatus,

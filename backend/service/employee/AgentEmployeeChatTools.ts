@@ -131,10 +131,9 @@ function ownChatTools(
 }
 
 /**
- * `bilder_erzeugen` of a round in a conversation (PAGE-382), bound to the
+ * `bilder_erzeugen` of a round in a conversation, bound to the
  * model of the round; a run of the agent's own and a direct chat outside the
  * conversations get none.
- *
  * @param images - The generation and storage of images; absent offers none.
  * @param turn - The agent, the conversation of the round or `null`, and the
  * model of the round.
@@ -153,10 +152,9 @@ export function imageToolOf(
 }
 
 /**
- * `video_erzeugen` and `audio_erzeugen` of a round in a conversation
- * (PAGE-384), bound to the model of the round; a run of the agent's own and a
+ * `video_erzeugen` and `audio_erzeugen` of a round in a conversation,
+ * bound to the model of the round; a run of the agent's own and a
  * direct chat outside the conversations get none.
- *
  * @param media - The generation and storage of videos and sounds; absent offers none.
  * @param turn - The agent, the conversation of the round or `null`, and the
  * model of the round.
@@ -175,11 +173,10 @@ export function mediaToolOf(
 }
 
 /**
- * `anhaenge_suchen` and `anhang_lesen` of a round in a conversation
- * (PAGE-386), bound to that conversation; whether the model sees images comes
+ * `anhaenge_suchen` and `anhang_lesen` of a round in a conversation,
+ * bound to that conversation; whether the model sees images comes
  * from its catalog entry. A run of the agent's own and a direct chat outside
  * the conversations get none.
- *
  * @param attachments - The library of the attachments; absent offers none.
  * @param turn - The agent, the conversation of the round or `null`, and the
  * model of the round.

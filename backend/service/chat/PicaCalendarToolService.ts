@@ -240,8 +240,7 @@ const HANDLERS: Readonly<
 };
 
 /**
- * Adapts Pica's calendar operations to the calendar service of the interface
- * (PAGE-301).
+ * Adapts Pica's calendar operations to the calendar service of the interface.
  *
  * @remarks
  * Every call acts as the verified account with its current rights: it reads

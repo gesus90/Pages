@@ -13,7 +13,7 @@ export default {
   // Scans every route for dependencies on start, so the dev server bundles
   // them once instead of reloading the page whenever a route needs a new one.
   future: { unstable_optimizeDeps: true },
-  // The interface is a static app without server rendering (PAGE-235). The
+  // The interface is a static app without server rendering. The
   // API needs server routes for its loaders, actions and resources.
   ssr: isApiBuild,
 } satisfies Config;

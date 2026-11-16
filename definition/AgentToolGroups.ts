@@ -1,9 +1,8 @@
 import type { AgentEmployeeAccess } from "./AgentEmployee";
 
 /**
- * The tool groups every chat agent receives over the tool bridge of Pages
- * (PAGE-390), whatever ACP adapter runs its model.
- *
+ * The tool groups every chat agent receives over the tool bridge of Pages,
+ * whatever ACP adapter runs its model.
  * @remarks
  * - `shell`: commands in the working folder, long runs in the background.
  * - `files`: read, write, change, list and search files of the working folder.
@@ -43,7 +42,6 @@ export function isAgentToolGroup(value: unknown): value is AgentToolGroup {
 /**
  * What each access level allows per group before an administrator switches
  * groups off.
- *
  * @remarks
  * "Nur Lesen" reads and searches: files, web, browser and Pages only read,
  * the shell is not offered at all, because a command can always change
@@ -79,7 +77,6 @@ const ACCESS_MODES: Readonly<Record<AgentEmployeeAccess, AgentToolPolicy>> = {
 
 /**
  * The mode of every group for an agent.
- *
  * @param access - The stored access level of the agent.
  * @param disabled - The groups an administrator switched off for this agent.
  * @returns The access level's mode per group, `off` for every disabled group.
@@ -101,7 +98,6 @@ export function agentToolPolicy(
 
 /**
  * Reads a list of disabled groups from an untrusted source.
- *
  * @param input - The list as sent or stored; absent means none.
  * @returns The distinct groups in their fixed order, or `null` for anything
  * that is not a list of known groups.
@@ -116,7 +112,6 @@ export function readAgentToolGroups(input: unknown): AgentToolGroup[] | null {
 
 /**
  * Whether a change of the disabled groups switches any group on again.
- *
  * @remarks
  * Switching a group off only narrows the agent; switching one on widens it
  * and therefore needs the same right as raising the access level.

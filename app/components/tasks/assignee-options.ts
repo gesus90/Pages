@@ -24,11 +24,9 @@ export interface AssigneeScope {
 
 /**
  * Returns the assignee choices: nobody, the people of the project and the groups.
- *
  * @remarks
  * For a project, only groups with at least one member who can work in it are
  * offered, because a ticket assigned to any other group has nobody to do it.
- *
  * @param users - People who may work in the project.
  * @param scope - The ticket the choices are for.
  */

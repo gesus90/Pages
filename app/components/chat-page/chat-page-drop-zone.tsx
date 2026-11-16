@@ -39,11 +39,9 @@ function carriesFiles(event: DragEvent): boolean {
 }
 
 /**
- * Lets an element take files dragged onto it (PAGE-298).
- *
+ * Lets an element take files dragged onto it.
  * @param onFiles - Receives the dropped files; `null` takes none.
  * @returns Whether files hover over the element, and its drag handlers.
- *
  * @remarks
  * Dragging over a child fires enter and leave again, so the hook counts
  * them. A drop an inner element took is not handed over a second time.
@@ -98,7 +96,6 @@ export function useFileDrop(onFiles: FileHandler | null): FileDrop {
 /**
  * Connects the composer with the drop zone of its conversation, so files
  * dropped anywhere on the conversation are attached.
- *
  * @param onFiles - Receives the dropped files; `null` while nothing can be attached.
  * @returns Whether files are being dragged over the conversation.
  */
@@ -123,7 +120,7 @@ export function usePageFileDrop(onFiles: FileHandler | null): boolean {
 
 /**
  * The section of the opened conversation; files dropped anywhere on it go to
- * the composer at its foot (PAGE-298).
+ * the composer at its foot.
  */
 export function ChatPageDropZone({
   children,

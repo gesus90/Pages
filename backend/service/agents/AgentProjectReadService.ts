@@ -19,7 +19,6 @@ export class AgentProjectReadService {
 
   /**
    * Lists the visible active projects by name, for an agent that knows no exact name.
-   *
    * @remarks
    * Only identifier, name and status leave the service, at most as many as a
    * resolution offers candidates; `total` counts every visible project.

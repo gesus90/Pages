@@ -101,7 +101,7 @@ function DownloadItems({
 /**
  * The menu of one file: download, with the export formats of a Google
  * document. Changing actions live in the menu bar and the context menu of
- * the list (PAGE-272).
+ * the list.
  */
 export function StorageFileActions({
   target,

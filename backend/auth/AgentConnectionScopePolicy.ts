@@ -21,11 +21,9 @@ function matchesScopeTarget(
 
 /**
  * Decides whether a person may use the models of a connection with this scope.
- *
  * @param scope - The stored scope of the connection.
  * @param viewer - Current account facts and group memberships of the person.
  * @returns Whether the person passes; an inactive account never does.
- *
  * @remarks
  * A restricted scope is a union: one matching target is enough. Administrators
  * get no exception, because managing a connection is not using it.

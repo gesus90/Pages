@@ -25,7 +25,6 @@ export interface AgentPlanActiveStep {
 /**
  * A run of one person together with the structure of the plan revision it
  * executes; {@link AgentPlanActiveRunService} lists only unfinished ones.
- *
  * @remarks
  * The structure comes from the private snapshot of the run, never from the
  * plan as it is saved now, so editing the plan while the run is active
@@ -53,7 +52,6 @@ export interface AgentPlanActiveRun {
 
 /**
  * Groups the steps of a plan revision by their step along the flow.
- *
  * @param plan - The revision a run executes, read from its snapshot.
  * @returns The groups nearest to Start first; Start, End and decisions are no
  * steps. It serves active and ended runs alike.
@@ -120,7 +118,6 @@ async function readActiveRun(
 
 /**
  * Adds the structure of the executed revision and the resume right to a run.
- *
  * @param dependencies - Reads the private snapshot of the run.
  * @param run - The authorized view of the run, active or ended.
  * @param readControl - Reads the current control state of a plan; asked only
@@ -144,7 +141,6 @@ export async function describePlanRun(
 
 /**
  * Lists the unfinished runs a person started, with the structure each executes.
- *
  * @remarks
  * Every run is read through the same checks as opening it on the plan page,
  * so it appears only while the person may still read everything it used.
@@ -156,7 +152,6 @@ export class AgentPlanActiveRunService {
 
   /**
    * Creates the service.
-   *
    * @param dependencies - Run storage and the checks every read of a run needs.
    * @param plans - Reads the current control state of a plan.
    */
@@ -170,7 +165,6 @@ export class AgentPlanActiveRunService {
 
   /**
    * Lists the unfinished runs a person started, newest first.
-   *
    * @param userId - The executor; runs of others are never part of it.
    * @returns The runs the person may read right now; a run whose plan or
    * resources the person lost access to is left out.

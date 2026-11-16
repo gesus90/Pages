@@ -27,7 +27,6 @@ export interface FindSyncContextOptions {
 
 /**
  * Splits a repository address into its owner and name segments.
- *
  * @param repoUrl - Repository address from the integration settings.
  * @returns Owner and name, or `null` when the address is invalid.
  */
@@ -53,7 +52,6 @@ export class GitHubSyncContextLoader {
 
   /**
    * Creates a sync context loader.
-   *
    * @param projectRepository - Project persistence boundary holding the integration.
    * @param createClient - Factory building an API client for a token.
    * @param tokenKey - Key decrypting the stored access token.
@@ -70,7 +68,6 @@ export class GitHubSyncContextLoader {
 
   /**
    * Resolves the sync context of a project.
-   *
    * @param projectId - Project owning the integration.
    * @param options - Whether integrations without a token or with the sync switched off still resolve.
    * @returns The context, or `null` when the project is not connected or its sync is off.
@@ -113,7 +110,6 @@ export class GitHubSyncContextLoader {
 
   /**
    * Resolves the sync context of a project that must be connected.
-   *
    * @param projectId - Project owning the integration.
    * @throws {WorkItemValidationError} When the synchronization is switched off.
    * @throws {WorkItemValidationError} When the project has no usable connected integration.

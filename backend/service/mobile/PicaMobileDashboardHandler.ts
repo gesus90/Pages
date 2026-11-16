@@ -23,7 +23,6 @@ const COMPONENT = "PicaMobileConnection";
 
 /**
  * Answers `dashboard_get` and `avatar_get` for one connection.
- *
  * @remarks
  * Without a provider both requests are unknown. They need an authenticated
  * connection; the provider decides from the current rights of the account.
@@ -34,7 +33,6 @@ export class PicaMobileDashboardHandler {
 
   /**
    * Creates the handler.
-   *
    * @param provider - The business answers; none: the requests are unknown.
    * @param host - The connection the handler answers on.
    */
@@ -48,7 +46,6 @@ export class PicaMobileDashboardHandler {
 
   /**
    * Handles one request of `dashboard.v1`.
-   *
    * @param message - A request that passed every check of its payload.
    */
   public async handle(message: PicaMobileDashboardMessage): Promise<void> {

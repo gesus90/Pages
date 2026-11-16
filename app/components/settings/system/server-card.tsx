@@ -17,7 +17,6 @@ interface ServerCardProps {
 
 /**
  * Renders the server port administrators can store.
- *
  * @remarks
  * The port is stored in the configuration file and only used after Pages
  * restarts, which the card says next to the field.

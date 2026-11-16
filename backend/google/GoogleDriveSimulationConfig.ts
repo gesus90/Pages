@@ -16,7 +16,6 @@ export const GOOGLE_DRIVE_SIMULATION_SCENARIOS = [
 
 /**
  * How the simulated Drive behaves.
- *
  * - `full`: read and write access (the default).
  * - `read_only`: only the read scope is granted; every change is refused.
  * - `item_forbidden`: entries whose name starts with `gesperrt` answer 403.
@@ -40,11 +39,9 @@ function readScenario(text: string | undefined): GoogleDriveSimulationScenario {
 }
 
 /**
- * Reads whether the simulated Google Drive (PAGE-270) is switched on.
- *
+ * Reads whether the simulated Google Drive is switched on.
  * @param environment - Environment variables of the server process.
  * @returns The scenario, or `null` when the simulation is off.
- *
  * @remarks
  * `NODE_ENV=production` always wins: the setting is then ignored and the
  * ignoring logged, so a real instance never answers from simulated data.

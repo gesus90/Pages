@@ -17,7 +17,6 @@ const DEFAULT_READ_ONLY_CRITERION =
 
 /**
  * The evidence text of the report example; a report that keeps it proves nothing.
- *
  * @remarks
  * The example must show the structure without offering a sentence an agent
  * could copy as its proof.
@@ -62,7 +61,7 @@ const PROJECT_GITHUB_LINES = [
 const STEP_REPORT_LINE =
   "Report your result by calling the Pages MCP tool `report_step_result`: `status` (`done`, or `blocked` when a person has to decide), `message`, `todos` and `criteria` with the IDs above, `decisions` and `summary`. This is the intended way. Pages checks the call at once; when it refuses, correct what `details.problems` names and call again. A valid call is the result of this step, a later call of this attempt replaces it, and it takes precedence over any text in your closing message.";
 
-/** The live progress every provider reports while it works (PAGE-284). */
+/** The live progress every provider reports while it works. */
 const STEP_PROGRESS_LINE =
   "- Mark each TODO done with `update_step_progress` as soon as it is complete; Pages also checks its ticket checkbox. TODOs requiring lint, check, typecheck, formatting, coverage or full test suites may be marked done with activity `an die Abschluss-QA übergeben`; this counts as completed. Report your progress live with the Pages MCP tool `update_step_progress`: set a todo to `active` right before you start it and to `done` right after you finished it, each time at once, and give `activity` as one short line of what you do now. It ends nothing and is no result; `report_step_result` stays the binding report.";
 
@@ -128,12 +127,10 @@ function mcpLines(assignment: AgentPlanAssignment): readonly string[] {
 
 /**
  * Fixes the todo list and the acceptance criteria of a node before it starts.
- *
  * @param instruction - The instruction of the node; its task list items become todos.
  * @param tickets - The tickets bound to the node, with their current checklists.
  * @param options - Whether the node may change anything, and how it completes.
  * @returns Todos, criteria and tickets; an empty work list stays empty.
- *
  * @remarks
  * Task list items of a ticket description are todos, the acceptance criteria
  * of a ticket are also todos. Both keep their checklist item, so the agent sets
@@ -296,10 +293,8 @@ function renderTodoAssignment(assignment: AgentPlanAssignment): string {
 
 /**
  * Renders the run contract that Pages appends to the resolved prompt of a CLI node.
- *
  * @param assignment - Contract, MCP use, read-only mode, runner, instance and workspace of the node.
  * @returns Markdown with the todos, criteria, working rules and the closing report format.
- *
  * @remarks
  * Nobody answers questions during a run, so the agent is told to decide on
  * its own and to report its decisions. The text never contains a credential.

@@ -1,6 +1,5 @@
 /**
- * Contracts of the chat sessions of agents (PAGE-376).
- *
+ * Contracts of the chat sessions of agents.
  * @remarks
  * An agent keeps exactly one session per direct chat with a person and one
  * per group it is a member of. The session rests after a time without a
@@ -32,7 +31,6 @@ export type AgentChatKind = "direct" | "group";
 
 /**
  * Where a chat session of an agent stands.
- *
  * @remarks
  * `working` answers now; `ready` holds a live process that waits for the next
  * message; `resting` has no process and continues through the provider's
@@ -62,11 +60,11 @@ export interface AgentChatSessionBrief {
   readonly contextPercent: number | null;
   /** Messages of the chat that wait for their turn in the session. */
   readonly waitingMessages: number;
-  /** The tokens the context holds after the last round (PAGE-380); `null` before it. */
+  /** The tokens the context holds after the last round; `null` before it. */
   readonly contextUsed?: number | null;
-  /** The context size the adapter reported (PAGE-380); `null` before the first round. */
+  /** The context size the adapter reported; `null` before the first round. */
   readonly contextSize?: number | null;
-  /** The context fill, in percent, at which the session restarts (PAGE-380). */
+  /** The context fill, in percent, at which the session restarts. */
   readonly restartPercent?: number;
 }
 

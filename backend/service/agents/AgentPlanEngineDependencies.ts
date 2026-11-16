@@ -27,7 +27,7 @@ export interface EngineDependencies {
     Partial<Pick<AgentPlanScriptRunner, "suspend" | "resume">>;
   /** Asks the model of a model decision; without it such a decision fails instead of guessing. */
   readonly decisions?: Pick<AgentPlanDecisionModel, "run">;
-  /** Runs swarm nodes (PAGE-313); without it a swarm fails instead of running. */
+  /** Runs swarm nodes; without it a swarm fails instead of running. */
   readonly swarms?: Pick<AgentPlanSwarmRunner, "run">;
   readonly resources?: Pick<AcpResourceScheduler, "pauseRun" | "resumeRun"> &
     Partial<Pick<AcpResourceScheduler, "setWaitObserver" | "controlRun">>;

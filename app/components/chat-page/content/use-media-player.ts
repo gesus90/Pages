@@ -17,7 +17,6 @@ const SPEEDS: readonly number[] = [1, 1.5, 2, 0.5];
 
 /**
  * The speed after the given one: 1× → 1,5× → 2× → 0,5× → 1×.
- *
  * @param speed - The current speed.
  * @returns The next speed; 1× for an unknown one.
  */
@@ -26,7 +25,7 @@ export function nextMediaSpeed(speed: number): number {
   return index < 0 ? 1 : (SPEEDS[(index + 1) % SPEEDS.length] ?? 1);
 }
 
-/** What the element read of the file once its metadata arrived (PAGE-384). */
+/** What the element read of the file once its metadata arrived. */
 export interface MediaMetadata {
   readonly durationSeconds: number;
   /** Pixels of a video; 0 for a sound. */
@@ -45,18 +44,18 @@ export interface MediaPlayer<TElement extends HTMLMediaElement> {
   readonly durationSeconds: number | null;
   /** The played part, from 0 to 1. */
   readonly share: number;
-  /** The part loaded so far from the start, from 0 to 1 (PAGE-384). */
+  /** The part loaded so far from the start, from 0 to 1. */
   readonly bufferedShare: number;
   readonly speed: number;
   readonly isMuted: boolean;
   toggle(): void;
   /** Jumps to a part of the length, from 0 to 1; nothing before the length is known. */
   seek(share: number): void;
-  /** Moves by seconds, forward or back, within the length (PAGE-384). */
+  /** Moves by seconds, forward or back, within the length. */
   skip(seconds: number): void;
   /** Steps to the next speed: 1× → 1,5× → 2× → 0,5×. */
   nextSpeed(): void;
-  /** Switches the sound off and on (PAGE-384). */
+  /** Switches the sound off and on. */
   toggleMute(): void;
   readonly events: Pick<
     React.MediaHTMLAttributes<TElement>,
@@ -71,7 +70,7 @@ export interface MediaPlayer<TElement extends HTMLMediaElement> {
   >;
 }
 
-/** Options of a player of the chat (PAGE-384). */
+/** Options of a player of the chat. */
 export interface MediaPlayerOptions {
   /**
    * The file the player plays; with it the player joins the one playback of
@@ -186,9 +185,8 @@ function buildMediaEvents<TElement extends HTMLMediaElement>({
 }
 
 /**
- * The state of an own player around a `<video>` or `<audio>` element
- * (PAGE-298, PAGE-384): give `media` as its ref and spread `events` onto it.
- *
+ * The state of an own player around a `<video>` or `<audio>` element:
+ * give `media` as its ref and spread `events` onto it.
  * @param options - The file, whether the view takes it over, and the reader
  * of its metadata.
  * @returns The state and the actions of the player.
@@ -292,9 +290,8 @@ export function useMediaPlayer<TElement extends HTMLMediaElement>(
 
 /**
  * Joins a player of its own, such as a voice message, to the one playback of
- * the page (PAGE-384): starting it pauses every other medium, and starting
+ * the page: starting it pauses every other medium, and starting
  * another one pauses it.
- *
  * @param media - The element of the player.
  * @param key - Stable per file, such as its address.
  * @returns The handlers to spread onto the element next to its own.
@@ -324,7 +321,6 @@ export function useExclusivePlayback(
 
 /**
  * The position and the length of a player as text.
- *
  * @param positionSeconds - The played seconds.
  * @param durationSeconds - The length in seconds; `null` while unknown.
  * @returns For example `0:42 / 2:05`, or `0:42` while the length is unknown.
@@ -341,7 +337,7 @@ export function formatMediaTime(
 
 /**
  * The position and the length of a sound in the one fixed form of the sound
- * rows (PAGE-384): always `0:41 / 1:52`, with `–:––` for a length not known yet.
+ * rows: always `0:41 / 1:52`, with `–:––` for a length not known yet.
  *
  * @param positionSeconds - The played seconds.
  * @param durationSeconds - The length in seconds; `null` while unknown.

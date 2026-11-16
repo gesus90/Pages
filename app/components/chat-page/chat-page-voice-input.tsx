@@ -21,7 +21,7 @@ interface ChatPageVoiceInputProps {
 }
 
 /**
- * Recording and picking a voice message in the composer (PAGE-277): the
+ * Recording and picking a voice message in the composer: the
  * microphone records until "Senden" or the longest recording, "Abbrechen"
  * drops it, and a WAV or MP3 file can be chosen instead.
  */

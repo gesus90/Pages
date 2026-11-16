@@ -13,7 +13,7 @@ interface ChatPageMenuEntryProps {
   /** A short remark at the right edge. */
   readonly note?: string;
   readonly isDisabled?: boolean;
-  /** Shows an entry that removes or deletes in the destructive color (PAGE-380). */
+  /** Shows an entry that removes or deletes in the destructive color. */
   readonly isDestructive?: boolean;
   readonly onSelect: () => void;
 }

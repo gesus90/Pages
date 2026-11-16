@@ -6,7 +6,6 @@ import type { AssignmentChoices } from "./use-agent-assignment";
 
 /**
  * Chooses the model of an agent profile in the shared model choice of Pages.
- *
  * @remarks
  * Connection and model are one choice: every connection's catalog lists its
  * models under their tool, and choosing one keeps the model's own

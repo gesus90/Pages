@@ -32,7 +32,7 @@ function AgentChatSaveFeedback({
   );
 }
 
-/** The limit of scheduled tasks one chat may hold (PAGE-392). */
+/** The limit of scheduled tasks one chat may hold. */
 function TaskLimitField({
   settings,
   isPending,
@@ -72,9 +72,9 @@ function TaskLimitField({
 }
 
 /**
- * The chat of agents under Settings → Agents (PAGE-311): how many messages
+ * The chat of agents under Settings → Agents: how many messages
  * one agent may send per hour with the Pages tool `chat_send`, and how many
- * scheduled tasks one chat may hold (PAGE-392).
+ * scheduled tasks one chat may hold.
  */
 export function AgentChatSettingsCard({
   settings,

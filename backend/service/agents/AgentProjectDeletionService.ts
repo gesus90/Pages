@@ -111,7 +111,6 @@ function readDeleteRequest(input: unknown): DeleteRequest {
 
 /**
  * Reads and deletes projects for personal administrators over MCP.
- *
  * @remarks
  * The deletion is the one in {@link ProjectDeletionService}, which the
  * interface uses too. This class adds what MCP needs around it: the exact

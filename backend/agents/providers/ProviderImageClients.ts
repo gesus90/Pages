@@ -157,7 +157,6 @@ export class OpenRouterImageClient implements ProviderImageClient {
 
   /**
    * Asks for one image.
-   *
    * @throws {AgentImageError} For a refused or unreadable request.
    */
   public async generate(
@@ -251,7 +250,6 @@ export class GoogleImageClient implements ProviderImageClient {
 
   /**
    * Asks for one image.
-   *
    * @throws {AgentImageError} For a refused or unreadable request.
    */
   public async generate(

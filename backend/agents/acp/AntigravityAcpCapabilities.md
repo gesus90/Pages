@@ -97,10 +97,10 @@ instance-wide leases and confirmed process cleanup use the shared ACP engine.
 Unconfirmed cleanup retains the connection lock. ACP usage is kept as reported;
 unreported prices remain unknown and token counts exclude delegated work.
 
-PAGE-368 adds a separate mathematical OpenRouter comparison of captured ACP
-usage, with explicit gaps and subscription charges kept separate. The reduced
+A separate mathematical OpenRouter comparison covers captured ACP usage, with
+explicit gaps and subscription charges kept separate. The reduced
 implementation, targeted tests and deferred live/historical-price evidence are
-documented in [the PAGE-368 handoff](../../../docs/PAGE-368.md).
+documented in [the accounting handoff](../../../docs/PAGE-368.md).
 
 Adapter 1.4.4 reports its own failures (exhausted quota, failed MCP load,
 execution error, lost connection) as ordinary agent text and still ends the
@@ -177,7 +177,7 @@ downgrade with retained inventory, without local fallback. Existing job-bound
 Pages bridges, result receipts, history, cancellation and process supervision
 remain in use. Remote Pica is not introduced.
 
-## PAGE-367 implementation and evidence handoff (15.11.2026)
+## Implementation and evidence handoff (15.11.2026)
 
 This handoff follows Igor's reduced completion scope of 15.11.2026. The existing
 production implementation is reused unchanged. The source review and targeted
@@ -268,7 +268,7 @@ without changing application code or test infrastructure.
   complete real-process and state acceptance, repeated pause/continue cycles,
   restarts, and UI/MCP/database agreement for every state. No new provider run,
   disposable instance or live credential/data access was used for this ticket.
-- Token and cost accounting remains PAGE-368. No additional production defect
+- Token and cost accounting is described in the accounting handoff. No additional production defect
   was reproduced within this source review and mocked-test scope; that is not
   evidence that none exists in a live provider environment.
 - Lint, Check, typecheck, formatting checks, build, full suites and coverage:

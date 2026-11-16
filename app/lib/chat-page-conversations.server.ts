@@ -13,8 +13,7 @@ export type ChatPageServices = Awaited<
 
 /**
  * Makes a group of the person a conversation its members share and adds the
- * members it gained, so they see the group and its history (PAGE-278).
- *
+ * members it gained, so they see the group and its history.
  * @param services - The application services.
  * @param person - The signed-in person.
  * @param groupId - The group of the page, as the request names it.
@@ -33,8 +32,7 @@ export async function shareChatGroup(
 
 /**
  * Opens the stored conversation of a group or of a direct conversation with
- * a person, creating it on first use (PAGE-277).
- *
+ * a person, creating it on first use.
  * @param services - The application services.
  * @param person - The signed-in person.
  * @param selection - The group or participant the page has opened.
@@ -58,8 +56,7 @@ export async function openChatConversation(
 }
 
 /**
- * Reads or changes who answers in a group; only the one who manages the group changes it (PAGE-317).
- *
+ * Reads or changes who answers in a group; only the one who manages the group changes it.
  * @param services - The application services.
  * @param person - The signed-in person.
  * @param intent - The reply settings intent.
@@ -94,7 +91,7 @@ export async function runReplySettingsIntent(
     replySettings: await conversationReplySettingsService.save(person, {
       conversationId: formData.get("conversationId"),
       mode: formData.get("mode"),
-      // Without values of its own a group follows the defaults of the instance (PAGE-379).
+      // Without values of its own a group follows the defaults of the instance.
       rules:
         formData.get("useDefaults") === "true"
           ? null

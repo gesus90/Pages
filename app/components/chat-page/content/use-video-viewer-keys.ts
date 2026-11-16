@@ -6,7 +6,7 @@ export const VIEWER_CONTROLS_IDLE_MILLISECONDS = 3000;
 /** How far ← and → move a video, in seconds. */
 export const VIEWER_SKIP_SECONDS = 5;
 
-/** What the keys of the full screen do (PAGE-384). */
+/** What the keys of the full screen do. */
 export interface VideoViewerKeyActions {
   readonly toggle: () => void;
   readonly skip: (seconds: number) => void;
@@ -19,7 +19,6 @@ export interface VideoViewerKeyActions {
 
 /**
  * The action of one key of the full screen, or `null` for a key it leaves alone.
- *
  * @param event - The key with its modifiers.
  * @param actions - What the keys do.
  */
@@ -57,10 +56,9 @@ export function viewerKeyAction(
 }
 
 /**
- * The keys of the video full screen (PAGE-384): Space Start/Pause, ← → five
+ * The keys of the video full screen: Space Start/Pause, ← → five
  * seconds, ⇧← ⇧→ the previous or next video, F the full screen of the
  * browser, M the sound and Esc closes.
- *
  * @param actions - What the keys do; read anew on every key.
  */
 export function useVideoViewerKeys(actions: VideoViewerKeyActions): void {
@@ -83,10 +81,9 @@ export function useVideoViewerKeys(actions: VideoViewerKeyActions): void {
 }
 
 /**
- * Whether the controls of the full screen show (PAGE-384): after a movement,
+ * Whether the controls of the full screen show: after a movement,
  * a touch or a key, and while the video does not play; they fade out after
  * three seconds without a movement.
- *
  * @param isPlaying - Whether the video plays; a paused one keeps its controls.
  * @returns Whether they show, and the handler that shows them again.
  */

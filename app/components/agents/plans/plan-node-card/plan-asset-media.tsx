@@ -80,7 +80,6 @@ function DurationBadge(props: {
 
 /**
  * A video: its first frame, a play symbol and its length.
- *
  * @remarks
  * Only the metadata loads at first; the video plays after a click and never
  * by itself.

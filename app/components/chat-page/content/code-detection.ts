@@ -1,6 +1,5 @@
 /**
- * Recognizes the language of a code block that names none (PAGE-383).
- *
+ * Recognizes the language of a code block that names none.
  * @remarks
  * Every rule asks for a clear sign, so a block whose content fits no
  * language well enough stays plain text. The order matters: formats with a

@@ -25,8 +25,7 @@ function defaultView(): CalendarView {
 }
 
 /**
- * Reads the visible range of the calendar page (PAGE-301) from its endpoint.
- *
+ * Reads the visible range of the calendar page from its endpoint.
  * @remarks
  * An address without a view opens the view the account used last, or the
  * week (the list on narrow screens); the kept view lives in the browser.

@@ -24,10 +24,8 @@ export interface TicketTime {
 
 /**
  * Describes when a ticket was created or changed, matching the order.
- *
  * @returns A function from ticket and order to its time line; ordering by
  * creation shows the creation time, every other order the change time.
- *
  * @remarks
  * Today and yesterday are real calendar days of the visitor's time zone;
  * older times show their date. A missing time says so instead of

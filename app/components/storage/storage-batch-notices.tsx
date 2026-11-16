@@ -95,7 +95,7 @@ function OutcomeNotice({
 
 /**
  * The outcome of the last batch action: how many entries changed, and how
- * many were refused with their reasons (PAGE-272).
+ * many were refused with their reasons.
  */
 export function StorageBatchNotices({
   batch,

@@ -8,7 +8,6 @@ export interface PasswordVisibility {
 
 /**
  * Keeps the visibility of a password field.
- *
  * @param passwordInputId - Id of the password input that keeps the focus.
  */
 export function usePasswordVisibility(

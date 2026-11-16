@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-/** Limits of the calendar shared by the interface, the app, Pica and MCP (PAGE-301). */
+/** Limits of the calendar shared by the interface, the app, Pica and MCP. */
 export const CALENDAR_LIMITS = {
   titleCharacters: 200,
   descriptionCharacters: 10_000,
@@ -79,7 +79,6 @@ export type CalendarFrequency = (typeof CALENDAR_FREQUENCIES)[number];
 
 /**
  * The rule of a series.
- *
  * @remarks
  * `weekdays` is used only for `weekly` and empty otherwise; at most one of
  * `until` (inclusive date `YYYY-MM-DD`) and `count` is set.
@@ -127,7 +126,6 @@ export interface CalendarPerson {
 
 /**
  * One entry of the calendar, the `CalendarEntry` of `calendar.v1`.
- *
  * @remarks
  * Times are ISO-8601 with the offset of the viewer's time zone; an all-day
  * entry carries only dates, `end` being its last day (inclusive). For a
@@ -155,7 +153,6 @@ export interface CalendarEntry {
 
 /**
  * Additional facts of an entry that the interface needs.
- *
  * @remarks
  * `eventId` is the stored event (or series) behind an entry of kind `event`,
  * `null` for project dates, due tickets and milestones; `link` leads to the

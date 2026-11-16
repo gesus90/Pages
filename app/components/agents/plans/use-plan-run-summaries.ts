@@ -11,11 +11,9 @@ interface RunSummariesResponse {
 
 /**
  * Reads the run history of the plan as start and status only, while it is wanted.
- *
  * @remarks
  * The history is read each time it becomes wanted, such as when the console
  * opens; the editor itself needs only the newest run.
- *
  * @returns The runs newest first, or `null` before they arrived.
  */
 export function usePlanRunSummaries(

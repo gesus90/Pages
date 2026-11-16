@@ -28,7 +28,6 @@ export class UnknownMigrationError extends Error {
 
 /**
  * Computes the fingerprint stored with an applied migration.
- *
  * @param sql - Migration script.
  * @returns A hex digest that is stable across line-ending styles.
  */

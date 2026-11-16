@@ -41,7 +41,6 @@ export class WorkItemChecklistRepository {
 
   /**
    * Creates a work item checklist repository.
-   *
    * @param database - Central database access.
    */
   public constructor(database: TaskDatabase) {

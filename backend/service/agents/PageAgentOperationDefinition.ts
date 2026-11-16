@@ -16,7 +16,6 @@ import type {
 
 /**
  * The share as the definition stores it; private and global keep no targets.
- *
  * @param request - The requested share, or `undefined` for a private one.
  * @param operator - What a restricted share without an operator takes.
  */
@@ -45,7 +44,6 @@ export function toSharing(
 
 /**
  * Describes a stored share with the current names of its groups and departments.
- *
  * @param sharing - The share as an agent or a plan stores it.
  * @param directory - The groups and departments of the instance.
  * @returns The share as a client reads it; targets that are gone are left out.

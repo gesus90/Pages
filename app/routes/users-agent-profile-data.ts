@@ -12,9 +12,8 @@ import type { Route } from "./+types/users-agent-profile-data";
 export const middleware: MiddlewareFunction[] = [requireAuthenticatedUser];
 
 /**
- * Answers the read-only profile of one agent (PAGE-308): role, documents,
+ * Answers the read-only profile of one agent: role, documents,
  * model and workload, never memory, chat contents or credentials.
- *
  * @remarks
  * Administrators, the leaders of a group of the agent and the managers of a
  * project of the agent get it.

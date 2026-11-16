@@ -38,7 +38,6 @@ export type PicaMobileSettingsChange = Partial<NotificationChoices>;
 
 /**
  * The outcome of a change of the choices.
- *
  * @remarks
  * `pushUnavailable`: the account asked to switch something on that this Pages
  * cannot deliver without a push sender; nothing was stored.
@@ -52,7 +51,6 @@ export type PicaMobileSettingsResult =
 
 /**
  * The notification backend of Pica Mobile and account notification choices.
- *
  * @remarks
  * It registers devices, records the events of runs, sends the pushes and
  * answers event reads. The parts that touch the execution of plans only
@@ -64,7 +62,6 @@ export class PicaMobileNotificationService {
 
   /**
    * Creates the service from its parts.
-   *
    * @param parts - Registrations, event reader, recorder, dispatcher and the sender state.
    */
   public constructor(parts: PicaMobileNotificationParts) {
@@ -98,7 +95,6 @@ export class PicaMobileNotificationService {
 
   /**
    * Reads the choices of an account as Pages delivers them now.
-   *
    * @param accountId - The authenticated account; never taken from a message.
    */
   public async readSettings(
@@ -126,11 +122,9 @@ export class PicaMobileNotificationService {
 
   /**
    * Changes the choices of an account.
-   *
    * @param accountId - The authenticated account; never taken from a message.
    * @param change - The choices to change.
    * @returns The choices as Pages delivers them now, or why nothing changed.
-   *
    * @remarks
    * Switching team runs on is refused while Pages has no push sender. The
    * other choices remain stored for the browser and future device delivery.

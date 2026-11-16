@@ -36,7 +36,6 @@ function realSleep(milliseconds: number): Promise<void> {
 
 /**
  * Continues, stops and replaces a run that is not finished, whatever state it is in.
- *
  * @remarks
  * The plan service keeps the paused and running paths; this class adds the
  * runs that ended unfinished and the runs a stop cannot close by itself. The
@@ -52,14 +51,12 @@ export class AgentPlanEndedRuns {
 
   /**
    * Continues a run that ended unfinished as a new linked run at its last safe state.
-   *
    * @param userId - The executor of the run.
    * @param run - The ended run.
    * @param plan - The plan with the saved revision the continuation adopts.
    * @param journal - Records the caller's command with the new run.
    * @returns The new run.
    * @throws {AgentError} The reason of the control when the run cannot be continued now.
-   *
    * @remarks
    * The control of the plan decides first, so a refusal names the same reason
    * the interface shows. Finished steps are taken over and never run again.
@@ -87,7 +84,6 @@ export class AgentPlanEndedRuns {
 
   /**
    * Settles a run that ended at a failure as stopped.
-   *
    * @returns Whether the run was such a run; the caller stops every other run itself.
    */
   public async settleEnded(
@@ -103,7 +99,6 @@ export class AgentPlanEndedRuns {
 
   /**
    * Ends the own processes of a run whose stop is stuck or that no engine drives anymore.
-   *
    * @remarks
    * The first Stop is graceful. A second one, on a run that still stops, or one
    * on a run nobody drives, ends the processes by force.
@@ -120,7 +115,6 @@ export class AgentPlanEndedRuns {
 
   /**
    * Ends the open run of a plan so a new run can start.
-   *
    * @param userId - The executor of the run.
    * @param runId - The open run.
    * @param stop - The graceful stop of the plan service.

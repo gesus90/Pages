@@ -8,7 +8,6 @@ export const PLAN_ASSET_PORT = { dataOut: "value-out" } as const;
 
 /**
  * The families a plan asset belongs to, decided by its content.
- *
  * @remarks
  * The family only chooses the preview and the wording. It never permits
  * executing a file: every family, `other` included, is data.
@@ -25,7 +24,6 @@ export type AgentPlanAssetKind = (typeof PLAN_ASSET_KINDS)[number];
 
 /**
  * The stored file a node or stack entry names, as the server detected it.
- *
  * @remarks
  * The plan keeps this copy so a saved plan shows its file without a request,
  * and so a run can refuse a file whose content changed since it was chosen:
@@ -43,7 +41,7 @@ export interface AgentPlanAssetFile {
   readonly digest: string;
 }
 
-/** A stack entry that hands over a file (PAGE-268), with its own type. */
+/** A stack entry that hands over a file, with its own type. */
 export interface AgentPlanAssetEntry {
   readonly id: string;
   readonly type: "asset";
@@ -52,7 +50,6 @@ export interface AgentPlanAssetEntry {
 
 /**
  * An asset source: one file that the plan hands to the inputs it is connected to.
- *
  * @remarks
  * Like every source it never runs and creates no execution dependency. A node
  * without a file is a draft; the plan check names it before a run starts.
@@ -102,7 +99,6 @@ export function isPlanAssetKind(input: unknown): input is AgentPlanAssetKind {
 
 /**
  * The short type mark of a file, such as `PNG`, from its name.
- *
  * @remarks
  * Only a label: the family and the media type come from the content.
  */
@@ -114,7 +110,6 @@ export function planAssetTypeMark(
 
 /**
  * Whether the browser may show the file inline as a preview.
- *
  * @remarks
  * Raster images, SVG drawn through an image element, video and audio. The
  * server serves every other type only as a download, and even a previewed

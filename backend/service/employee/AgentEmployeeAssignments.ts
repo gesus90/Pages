@@ -14,7 +14,6 @@ import type {
 /**
  * The model and the run options a job answers with: the model of
  * {@link resolveAgentModel} and the run mode of the employee's access level.
- *
  * @param models - The model resolver of the employee sessions.
  * @param employee - The stored employee the job runs for.
  * @param override - The model the job asks for, when it has one.

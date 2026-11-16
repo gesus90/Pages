@@ -4,7 +4,7 @@ import type { StorageAccountFiles } from "@/backend/service/google/StorageAccoun
 import type { StorageResult } from "@/definition/GoogleDriveFiles";
 import type { PicaStorageTool } from "./PicaStorageContracts";
 
-/** The part of the Storage interface (PAGE-270) the native tools use. */
+/** The part of the Storage interface the native tools use. */
 export type PicaStorageFiles = Pick<
   StorageAccountFiles,
   "reader" | "writer" | "capabilities" | "isSimulation"
@@ -46,7 +46,6 @@ function invalidContent(): StorageResult<never> {
 
 /**
  * Checks a download the same way the route does and names its address.
- *
  * @remarks
  * The stream is opened to find a missing file, a missing right or an
  * unsupported format now, and closed at once: the bytes reach the person

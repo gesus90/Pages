@@ -29,7 +29,6 @@ interface WikiActionDialogProps {
 
 /**
  * A dialog that sends one wiki action and closes when it succeeded.
- *
  * @remarks
  * An action that redirects, such as deleting a page, leaves the page the
  * dialog belongs to; the dialog goes with it.

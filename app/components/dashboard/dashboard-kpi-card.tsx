@@ -38,7 +38,6 @@ interface DashboardKpiCardProps {
 
 /**
  * Renders one equally sized KPI card of the dashboard top row.
- *
  * @param props - Label, value, delta line, tone, and leading icon.
  * @returns The KPI card element.
  */

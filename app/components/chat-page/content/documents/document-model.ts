@@ -1,5 +1,5 @@
 /**
- * The readable view of documents, slides and tables (PAGE-385): plain data
+ * The readable view of documents, slides and tables: plain data
  * the chat renders as text with its own components, never as markup of the
  * file.
  */
@@ -173,7 +173,6 @@ const IMAGE_TYPES: Readonly<Record<string, string>> = {
 
 /**
  * The image type of an embedded file by its ending.
- *
  * @param path - The path of the file in the package.
  * @returns The type, or `null` for a format the browser cannot show, such as EMF.
  */

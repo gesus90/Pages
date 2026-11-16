@@ -18,8 +18,7 @@ export interface ConversationAnswerStreamOptions {
 }
 
 /**
- * The answers agents are writing now, for the chat page of the web (PAGE-381).
- *
+ * The answers agents are writing now, for the chat page of the web.
  * @remarks
  * Every job of an agent in a chat opens one {@link ConversationLiveAnswer},
  * which publishes its parts as `answer` events on the in-process channel of
@@ -36,7 +35,6 @@ export class ConversationAnswerStream {
 
   /**
    * Creates the stream.
-   *
    * @param options - The channel it publishes to, and test hooks.
    */
   public constructor(options: ConversationAnswerStreamOptions) {
@@ -47,7 +45,6 @@ export class ConversationAnswerStream {
 
   /**
    * Opens the live answer of one job.
-   *
    * @param target - Who reads it and how it ends.
    * @returns The sink the job reports to.
    */
@@ -66,7 +63,6 @@ export class ConversationAnswerStream {
   /**
    * The answers an account may read now: running ones and those that ended
    * a short while ago, thoughts only where the account may see them.
-   *
    * @param userId - The account of the connection.
    * @returns The snapshots, oldest answer first.
    */
@@ -92,7 +88,6 @@ declare global {
 /**
  * The one stream of the process, shared by the jobs of agents and the
  * connections of `conversations.v1`.
- *
  * @returns The same stream on every call.
  */
 export function sharedConversationAnswerStream(): ConversationAnswerStream {

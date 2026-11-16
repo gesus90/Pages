@@ -1,8 +1,7 @@
 import type { RouteConfigEntry } from "@react-router/dev/routes";
 
 /**
- * The wiki API of the stand-alone Pages MCP program, admitted by the device token (PAGE-257).
- *
+ * The wiki API of the stand-alone Pages MCP program, admitted by the device token.
  * @param resource - Declares a server resource of the current route table.
  * @returns The resources under `/api/mcp/v1/wiki`.
  */

@@ -129,8 +129,7 @@ function startReason(error: unknown): string {
 }
 
 /**
- * Opens the main session and the helper sessions of one swarm (PAGE-313).
- *
+ * Opens the main session and the helper sessions of one swarm.
  * @remarks
  * Every session goes through the ordinary ACP path with its isolation and
  * the shared resource scheduler, in the working directory of the swarm, with
@@ -153,7 +152,6 @@ export class SwarmSessions {
 
   /**
    * Opens a session with its first prompt.
-   *
    * @throws {SwarmStartError} For a helper that gets no session, with its reason.
    */
   public async open(request: SwarmSessionRequest): Promise<SwarmOpenedSession> {

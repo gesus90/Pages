@@ -375,7 +375,6 @@ function readSessionLinks(
 
 /**
  * Narrows the persisted record of an agent node; older runs have none.
- *
  * @param input - The stored value of the step.
  * @returns The record, or `null` when the step has none.
  * @throws {AgentError} `plan_invalid` for a malformed record.

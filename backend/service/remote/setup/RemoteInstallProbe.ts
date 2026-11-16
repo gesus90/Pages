@@ -20,7 +20,6 @@ const COMPLETE_LINE = "probe=complete";
 
 /**
  * The probe: reads files, asks the machine's service manager and runs no tool of the setup.
- *
  * @remarks
  * Tool versions come from the package files of the tool prefix, never from
  * running a tool, so a probe after every connect cannot start a login, an
@@ -64,7 +63,6 @@ function probeScript(): string {
 
 /**
  * The command line that runs the probe under a POSIX shell, whatever the login shell is.
- *
  * @returns One command for the SSH master.
  */
 export function probeCommand(): string {

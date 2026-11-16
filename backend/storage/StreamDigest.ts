@@ -22,7 +22,6 @@ export interface StreamDigest {
 
 /**
  * Reads a stream to its end and returns its length and SHA-256.
- *
  * @param stream - The bytes to measure; destroyed when this returns or fails.
  * @param maximumBytes - The most the stream may deliver.
  * @returns What the stream delivered; only its first 4 KiB are kept in memory.

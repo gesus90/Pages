@@ -40,7 +40,7 @@ function transactionScope(transaction: DatabaseTransaction): EmployeeDatabase {
 }
 
 /**
- * The repositories of agent employees and chat contacts (PAGE-266), on one
+ * The repositories of agent employees and chat contacts, on one
  * database or one open transaction.
  */
 export class EmployeeStore {
@@ -69,7 +69,7 @@ export class EmployeeStore {
     return new AgentMemoryRepository(this.database);
   }
 
-  /** The templates of `AGENT.md` (PAGE-283). */
+  /** The templates of `AGENT.md`. */
   public templates(): AgentTemplateRepository {
     return new AgentTemplateRepository(this.database);
   }
@@ -89,52 +89,52 @@ export class EmployeeStore {
     return new AgentConversationRepository(this.database);
   }
 
-  /** The state of the chat sessions of agents: inbox position, context and tokens (PAGE-376). */
+  /** The state of the chat sessions of agents: inbox position, context and tokens. */
   public chatSessions(): AgentChatSessionRepository {
     return new AgentChatSessionRepository(this.database);
   }
 
-  /** The models agents answer with in single chats (PAGE-380). */
+  /** The models agents answer with in single chats. */
   public chatModels(): AgentChatModelRepository {
     return new AgentChatModelRepository(this.database);
   }
 
-  /** The members of groups allowed to steer the agents of a group (PAGE-380). */
+  /** The members of groups allowed to steer the agents of a group. */
   public sessionControllers(): ChatSessionControllerRepository {
     return new ChatSessionControllerRepository(this.database);
   }
 
-  /** The entries and settings of the Lagebuch of agents (PAGE-377). */
+  /** The entries and settings of the Lagebuch of agents. */
   public logbook(): AgentLogbookRepository {
     return new AgentLogbookRepository(this.database);
   }
 
-  /** The schedule and the run state of the dream run of agents (PAGE-378). */
+  /** The schedule and the run state of the dream run of agents. */
   public dreaming(): AgentDreamingRepository {
     return new AgentDreamingRepository(this.database);
   }
 
-  /** The recipes of agents (PAGE-378). */
+  /** The recipes of agents. */
   public recipes(): AgentRecipeRepository {
     return new AgentRecipeRepository(this.database);
   }
 
-  /** The tool calls of the chat sessions of agents, which the dream run reads (PAGE-378). */
+  /** The tool calls of the chat sessions of agents, which the dream run reads. */
   public toolUses(): AgentToolUseRepository {
     return new AgentToolUseRepository(this.database);
   }
 
-  /** What the chat sessions remember of the Lagebuch: hint stand and summary progress (PAGE-377). */
+  /** What the chat sessions remember of the Lagebuch: hint stand and summary progress. */
   public logbookSessions(): AgentLogbookSessionRepository {
     return new AgentLogbookSessionRepository(this.database);
   }
 
-  /** Summaries and confidentiality of chats for the memory (PAGE-305). */
+  /** Summaries and confidentiality of chats for the memory. */
   public chats(): AgentChatMemoryRepository {
     return new AgentChatMemoryRepository(this.database);
   }
 
-  /** The session limits and the time of day of the dream run (PAGE-304, PAGE-305). */
+  /** The session limits and the time of day of the dream run. */
   public sessionSettings(): AgentSessionSettingsRepository {
     return new AgentSessionSettingsRepository(this.database);
   }
@@ -144,17 +144,17 @@ export class EmployeeStore {
     return new ChatContactRepository(this.database);
   }
 
-  /** The groups of the chat (PAGE-259). */
+  /** The groups of the chat. */
   public groups(): ChatGroupRepository {
     return new ChatGroupRepository(this.database);
   }
 
-  /** What refers to an agent, whether it works now, and its removal (PAGE-267). */
+  /** What refers to an agent, whether it works now, and its removal. */
   public removals(): AgentEmployeeRemovalRepository {
     return new AgentEmployeeRemovalRepository(this.database);
   }
 
-  /** Project roles, workload and last activity of agents (PAGE-308). */
+  /** Project roles, workload and last activity of agents. */
   public profileLoads(): AgentProfileLoadRepository {
     return new AgentProfileLoadRepository(this.database);
   }

@@ -26,7 +26,6 @@ export interface PicaMobileRegistrationResult {
   readonly payload: PicaMobileNotificationRegisteredPayload;
   /**
    * Starts delivery for the registration.
-   *
    * @remarks
    * Call it once the answer is handed to the connection. A registration whose
    * answer is lost stays inactive, so nothing is pushed to a device that does
@@ -47,7 +46,6 @@ export interface PicaMobilePushRegistrationsOptions {
 
 /**
  * Registers and unregisters the push tokens of devices.
- *
  * @remarks
  * The recipient is always the account of the authenticated connection. A
  * repeated registration of the same binding only renews it and keeps its
@@ -60,7 +58,6 @@ export class PicaMobilePushRegistrations {
 
   /**
    * Creates the service.
-   *
    * @param options - Persistence, token protection and the replay time.
    */
   public constructor(options: PicaMobilePushRegistrationsOptions) {
@@ -70,7 +67,6 @@ export class PicaMobilePushRegistrations {
 
   /**
    * Registers a device, or renews its registration.
-   *
    * @param request - The device and the authenticated account and session.
    * @returns The answer for the device and the step that starts delivery.
    */
@@ -108,10 +104,8 @@ export class PicaMobilePushRegistrations {
 
   /**
    * Removes the registration of a device of the account.
-   *
    * @param accountId - The authenticated account.
    * @param deviceId - The device.
-   *
    * @remarks
    * An unknown device and a device of another account change nothing, so the
    * caller can answer both alike. A message already handed to the push

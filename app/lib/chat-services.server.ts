@@ -62,7 +62,7 @@ import type {
   ChatSessionActivity,
 } from "@/definition/ChatJob";
 
-/** The global chat agent Pica: sessions, attachments, settings and turns (A11.4). */
+/** The global chat agent Pica: sessions, attachments, settings and turns. */
 export interface ChatApplicationServices {
   readonly picaAdminService: PicaAdminService;
   readonly agentBrowserSessions: AgentBrowserSessions;
@@ -71,11 +71,11 @@ export interface ChatApplicationServices {
   readonly chatSessionService: ChatSessionService;
   readonly chatAttachmentService: ChatAttachmentService;
   readonly chatSettingsService: ChatSettingsService;
-  /** Pica's server-side jobs over Codex ACP and their journal (PAGE-68); `null` without the Codex path. */
+  /** Pica's server-side jobs over Codex ACP and their journal; `null` without the Codex path. */
   readonly picaAcpService: PicaAcpService | null;
   /** Pica's turn-bound tool endpoint; `null` without the ACP path. */
   readonly picaBridge: PicaBridge | null;
-  /** The chat sessions agents keep between rounds (PAGE-335); `null` without the ACP path. */
+  /** The chat sessions agents keep between rounds; `null` without the ACP path. */
   readonly picaAcpSessionPool: PicaAcpSessionPool | null;
 }
 
@@ -102,7 +102,7 @@ interface PicaAcpParts {
   readonly adminTools: PicaAdminService;
   readonly agentBrowsers: AgentBrowserService;
   readonly pica?: PicaSettingsService;
-  /** Lets a waiting start take the place of a resting chat session (PAGE-335). */
+  /** Lets a waiting start take the place of a resting chat session. */
   readonly resources?: Pick<AcpResourceScheduler, "setIdleReclaimer">;
 }
 
@@ -120,7 +120,7 @@ function createPicaAcp(
   const sessionSettings = new AgentSessionSettingsRepository(parts.database);
   const chatSessions = new AgentChatSessionRepository(parts.database);
   const picaAcpSessionPool = new PicaAcpSessionPool({
-    // The agent's own idle time wins; without one the instance setting applies (PAGE-376).
+    // The agent's own idle time wins; without one the instance setting applies.
     idleMinutes: async (agentId) =>
       (await chatSessions.settings(agentId))?.idleMinutes ??
       (await sessionSettings.read()).idleMinutes,
@@ -190,9 +190,9 @@ function createChatActivity(database: Database): {
 /** What the chat is wired from. */
 export interface ChatServicesInput {
   readonly protectedOrigin?: string;
-  /** The operator browser of Pica (PAGE-181): local origins, saved sessions and an optional launcher. */
+  /** The operator browser of Pica: local origins, saved sessions and an optional launcher. */
   readonly picaBrowser?: PicaAdminServiceOptions;
-  /** The Storage interface of the instance Drive; Pica's Storage tools use it (PAGE-271). */
+  /** The Storage interface of the instance Drive; Pica's Storage tools use it. */
   readonly repositoryReads?: RepositoryReadService;
   /** Shared UI ticket services for Pica's archive and restore tools. */
   readonly tickets?: McpTicketDependencies;
@@ -210,7 +210,7 @@ export interface ChatServicesInput {
     readonly picaSettingsService?: PicaSettingsService;
     readonly agentProfileService: Pick<AgentProfileService, "resolve">;
     readonly chatRequests: ChatRequestRegistry;
-    /** Where a waiting start takes the place of a resting chat session (PAGE-335). */
+    /** Where a waiting start takes the place of a resting chat session. */
     readonly acpResourceScheduler?: Pick<
       AcpResourceScheduler,
       "setIdleReclaimer"

@@ -20,7 +20,6 @@ export class TaskLinkService {
 
   /**
    * Creates a link service.
-   *
    * @param taskRepository - Task persistence boundary.
    * @param access - Verifier of project access and write permission.
    */

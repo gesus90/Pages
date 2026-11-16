@@ -13,7 +13,6 @@ const MAX_STATEMENTS = 2048;
  * Everything of a statement that may hold a `$` without being a placeholder,
  * then the named placeholder itself: string literals with and without
  * backslash escapes, quoted identifiers, comments and dollar-quoted text.
- *
  * Nested block comments are the one form this does not follow; a placeholder
  * inside one fails loudly as a missing value, and repositories have none.
  */

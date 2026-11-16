@@ -13,7 +13,6 @@ function isReference(value: unknown): value is WikiReference {
 
 /**
  * Reads the answer of `/wiki-api/references`.
- *
  * @param body - The parsed JSON body.
  * @returns The references it holds; anything malformed is left out.
  */
@@ -29,11 +28,9 @@ export function readReferences(body: unknown): WikiReference[] {
 /**
  * Turns a page, ticket or person into an entry of the editor's reference
  * menu, inserting the same markdown the former picker wrote.
- *
  * @param reference - What the server offered.
  * @param hintOf - Gives the translated kind of the entry.
  * @returns The menu entry.
- *
  * @remarks
  * Pages are linked by identifier, so the link survives a rename; tickets by
  * key; people are mentioned with `@user`.

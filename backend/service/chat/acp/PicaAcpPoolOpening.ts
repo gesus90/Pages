@@ -15,7 +15,7 @@ import type {
   PicaAcpSessionPool,
 } from "./PicaAcpSessionPool";
 
-/** The chat session a job of an agent employee answers through (PAGE-335). */
+/** The chat session a job of an agent employee answers through. */
 export interface PicaAcpJobPool {
   readonly sessions: Pick<PicaAcpSessionPool, "open">;
   readonly session: PicaAcpPoolSession;
@@ -52,7 +52,6 @@ export interface PicaAcpPoolRequest {
 /**
  * Opens the session of a job: the resting session of its chat, a new one
  * kept for the chat, or one of the job alone.
- *
  * @returns The session with the turn of the round running.
  */
 export async function openPicaSession(

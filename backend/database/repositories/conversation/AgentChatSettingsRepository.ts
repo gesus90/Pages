@@ -6,7 +6,7 @@ import { AGENT_CHAT_HOURLY_LIMIT_DEFAULT } from "@/definition/Conversation";
 import type { Database } from "@/backend/database/Database";
 import type { AgentChatSettings } from "@/definition/Conversation";
 
-/** Persists the settings of the chat of agents of the instance (PAGE-311, PAGE-392). */
+/** Persists the settings of the chat of agents of the instance. */
 export class AgentChatSettingsRepository {
   private readonly database: Pick<Database, "query">;
 
@@ -40,7 +40,6 @@ export class AgentChatSettingsRepository {
   /**
    * Replaces the hourly limit and the limit of tasks per chat with
    * optimistic concurrency.
-   *
    * @param settings - The new setting with the revision it was read at.
    * @throws {AgentError} `profile_conflict` when the setting changed since.
    */

@@ -27,12 +27,12 @@ export interface ChatMenuSwitches {
   /** `null` when there is nothing to mute, as with an agent. */
   readonly isMuted: boolean | null;
   readonly onToggleMute: () => void;
-  /** The confidential mark of a chat with agents (PAGE-305); absent shows none. */
+  /** The confidential mark of a chat with agents; absent shows none. */
   readonly confidential?: ConfidentialControl;
 }
 
 /**
- * The count of "Medien & Dateien" (PAGE-387), read anew from the server each
+ * The count of "Medien & Dateien", read anew from the server each
  * time the menu opens by its button or from the list.
  */
 function useMenuMediaNote(

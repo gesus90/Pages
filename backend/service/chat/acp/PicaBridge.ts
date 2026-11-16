@@ -91,7 +91,7 @@ export interface PicaBridgeLease {
   readonly openMcp: () => PicaBridgeDescriptor;
   /**
    * Issues the credential of an MCP client that outlives this job, for a chat
-   * session that answers several jobs (PAGE-335); it is bound to this job now.
+   * session that answers several jobs; it is bound to this job now.
    */
   readonly openMcpChannel: () => PicaBridgeMcpChannel;
   /** Binds the credential of a chat session that outlives its jobs to this job. */
@@ -100,8 +100,7 @@ export interface PicaBridgeLease {
 }
 
 /**
- * The MCP credential of a chat session that outlives its jobs (PAGE-335).
- *
+ * The MCP credential of a chat session that outlives its jobs.
  * @remarks
  * A native session reads its MCP servers once, when it starts. The
  * credential therefore stays the same while the session rests between
@@ -498,7 +497,7 @@ export class PicaBridge {
       ...privileged,
       ...bridgeToolDetails(details),
     });
-    // Every call shows in the tool line with its input, result and duration (PAGE-390).
+    // Every call shows in the tool line with its input, result and duration.
     const report: CallReport = (status, error, result) =>
       owner.onTool({
         callId,

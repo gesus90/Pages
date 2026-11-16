@@ -149,12 +149,10 @@ export function isAgentMilestoneOperation(
 
 /**
  * Resolves a ticket identifier, key or Pages address to a reference.
- *
  * @param reference - An identifier, a key such as `PAGE-12`, or an address such
  * as `/tasks/PAGE-12` or `/aufgaben/PAGE-12`, with or without the address of
  * the server in front of it.
  * @returns The reference, or `null` when the text names no ticket.
- *
  * @remarks
  * Only the path matters, like for wiki links. The result names a ticket, it
  * does not prove that the ticket exists or is visible; the read decides that.
@@ -172,7 +170,6 @@ export function resolveAgentTicketReference(
 
 /**
  * Reads a parameter that names a ticket by identifier, key or Pages address.
- *
  * @param input - The raw value.
  * @returns The reference to the ticket.
  * @throws {AgentOperationError} `INVALID_REQUEST` for a value that names no ticket.
@@ -223,7 +220,6 @@ function readAssignee(input: unknown): AgentTicketAssignee | null {
 
 /**
  * Validates the identifier or key of a ticket read.
- *
  * @param input - The raw operation parameters.
  * @returns The reference to the ticket.
  * @throws {AgentOperationError} `INVALID_REQUEST` for a missing, unknown or malformed parameter.
@@ -236,7 +232,6 @@ export function readAgentTicketRead(input: unknown): AgentTicketReference {
 
 /**
  * Validates a read of one passage of a ticket description.
- *
  * @param input - The raw operation parameters.
  * @returns The ticket and the passage asked for.
  * @throws {AgentOperationError} `INVALID_REQUEST` for a missing, unknown or malformed parameter, `PAYLOAD_TOO_LARGE` for a budget over the limit.
@@ -255,11 +250,9 @@ export function readAgentTicketDescriptionRange(input: unknown): {
 
 /**
  * Validates a range patch of a ticket description before any persistence or policy read.
- *
  * @param input - The raw operation parameters.
  * @returns The ticket, the version it was read at and the one range with its expected text and replacement.
  * @throws {AgentOperationError} `INVALID_REQUEST` for a missing, unknown or malformed parameter.
- *
  * @remarks
  * The complete description is no input. The version is the
  * `descriptionVersion` of the passage read last: 32 lower-case hex digits.
@@ -291,7 +284,6 @@ export function readAgentTicketDescriptionPatch(
 
 /**
  * Validates the project of a milestone read.
- *
  * @param input - The raw operation parameters.
  * @returns The project identifier.
  * @throws {AgentOperationError} `INVALID_REQUEST` for a missing, unknown or malformed parameter.
@@ -304,11 +296,9 @@ export function readAgentMilestonesRead(input: unknown): string {
 
 /**
  * Validates a local ticket create before any persistence or policy read.
- *
  * @param input - The raw operation parameters.
  * @returns The explicit create contract; what it leaves open is `null` or absent.
  * @throws {AgentOperationError} `INVALID_REQUEST` for a missing, unknown or malformed parameter.
- *
  * @remarks
  * `description`, `statusId` and `parentId` are required, with `null` for "the
  * default status" and "no parent". `projectId`, `milestoneId`, `departmentId`,
@@ -362,12 +352,10 @@ function readDepartmentIds(input: unknown): string[] {
 
 /**
  * Validates one single-field ticket change before any persistence or policy read.
- *
  * @param operation - The field operation that was called.
  * @param input - The raw operation parameters.
  * @returns The ticket, the one field, the value it was read with and its new value.
  * @throws {AgentOperationError} `INVALID_REQUEST` for a missing, unknown or malformed parameter.
- *
  * @remarks
  * The value the field had when the caller read it is required, so a change
  * never overwrites a field that was saved meanwhile. A parent is named by its
@@ -405,7 +393,6 @@ export function readAgentTicketFieldChange(
 
 /**
  * Validates a milestone create before any persistence or policy read.
- *
  * @param input - The raw operation parameters.
  * @returns The complete explicit create contract.
  * @throws {AgentOperationError} `INVALID_REQUEST` for a missing, unknown or malformed parameter.
@@ -434,7 +421,6 @@ export function readAgentMilestoneCreate(
 
 /**
  * Validates one single-field milestone change before any persistence or policy read.
- *
  * @param operation - The field operation that was called.
  * @param input - The raw operation parameters.
  * @returns The milestone, the one field, the value it was read with and its new value.
@@ -465,7 +451,6 @@ export function readAgentMilestoneFieldChange(
 
 /**
  * Validates a dependency add before any persistence or policy read.
- *
  * @param input - The raw operation parameters.
  * @returns The project, the two milestones and the link type.
  * @throws {AgentOperationError} `INVALID_REQUEST` for a missing, unknown or malformed parameter.
@@ -494,7 +479,6 @@ export function readAgentMilestoneDependencyAdd(
 
 /**
  * Validates a dependency removal before any persistence or policy read.
- *
  * @param input - The raw operation parameters.
  * @returns The project and the dependency.
  * @throws {AgentOperationError} `INVALID_REQUEST` for a missing, unknown or malformed parameter.

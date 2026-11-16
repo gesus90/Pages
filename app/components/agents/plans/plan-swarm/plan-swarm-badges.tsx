@@ -34,7 +34,6 @@ export function PlanSwarmSymbol(props: {
 
 /**
  * The helpers of a swarm as name badges H1 … H10, at most five per row.
- *
  * @remarks
  * Every badge is 24 px high in five equal columns with 4 px gaps. Its
  * status shows as the plan status color and a symbol, its tooltip names the

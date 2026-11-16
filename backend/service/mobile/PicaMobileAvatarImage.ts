@@ -169,12 +169,10 @@ async function decode(
 
 /**
  * Shrinks a stored avatar image until it fits the size limit of the protocol.
- *
  * @param bytes - The stored image bytes.
  * @param mimeType - The stored image type: JPEG, PNG or WebP.
  * @returns The re-encoded image of the same type, or `null` when the image is
  * damaged, claims more pixels than Pages decodes, or cannot be made small enough.
- *
  * @remarks
  * Re-encoding drops metadata such as camera location. The image is never
  * enlarged, and a decoding failure is a missing avatar, not a failure of the caller.

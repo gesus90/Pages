@@ -6,12 +6,11 @@ import type { AgentConnectionRecord } from "@/backend/database/repositories/agen
 import type { InstanceSecretCipher } from "@/backend/security/InstanceSecretCipher";
 import type { PageAgentModel } from "@/definition/PageAgent";
 
-/** The providers whose documented generation interfaces Pages calls (PAGE-382, PAGE-384). */
+/** The providers whose documented generation interfaces Pages calls. */
 export type GenerationProvider = "openrouter" | "google_ai_studio";
 
 /**
- * Whether a catalog model is a released text+generation candidate (PAGE-382,
- * PAGE-384). Direct generation providers (`openrouter`, `google_ai_studio`) do
+ * Whether a catalog model is a released text+generation candidate. Direct generation providers (`openrouter`, `google_ai_studio`) do
  * not register an ACP chat adapter, while speech, transcription, decision and
  * non-chat/non-tool models stay excluded.
  */
@@ -38,11 +37,9 @@ export interface GenerationRoute {
 
 /**
  * The route to the generation function of a model, from its connection alone.
- *
  * @remarks
  * A direct API connection of OpenRouter or Google AI Studio uses its own key.
  * Keys held by coding agents are not reachable for Pages.
- *
  * @param connection - The connection of the model.
  * @param model - The model as the connection names it.
  * @returns The route, or `null` when Pages has none.
@@ -62,7 +59,6 @@ export function generationRoute(
 /**
  * Whether a model without a route has none because OpenCode keeps its own
  * key for the provider of the model.
- *
  * @param connection - The connection of the model.
  * @param model - The model as the connection names it.
  */
@@ -86,8 +82,7 @@ export interface AgentProviderKeysDependencies {
 }
 
 /**
- * The stored keys of the connections a generation route uses (PAGE-382,
- * PAGE-384). The key is read on the server for the one request and never
+ * The stored keys of the connections a generation route uses. The key is read on the server for the one request and never
  * reaches the agent.
  */
 export class AgentProviderKeys {

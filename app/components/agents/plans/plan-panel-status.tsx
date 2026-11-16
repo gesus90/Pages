@@ -25,7 +25,6 @@ const DOTS: Readonly<Record<PlanPanelAttention, string>> = {
 
 /**
  * The dot at the marker that says the collapsed panel hides a notice.
- *
  * @remarks
  * Colour alone does not tell it: the hidden text adds "Hinweise vorhanden"
  * to the name of the button.
@@ -53,11 +52,10 @@ function AttentionDot({
 
 /**
  * The status marker of the panel; open, it also says one short sentence.
- *
  * @remarks
  * The marker opens the details like the chevron does; opening them changes
  * neither the plan nor the run. Collapsed, only the marker is shown, with a
- * dot when the panel hides a warning or an error (PAGE-338). Lists and causes
+ * dot when the panel hides a warning or an error. Lists and causes
  * stay in the details.
  */
 export function PlanPanelStatus(props: {

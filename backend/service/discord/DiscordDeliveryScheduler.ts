@@ -11,7 +11,6 @@ export class DiscordDeliveryScheduler {
 
   /**
    * Creates a delivery scheduler.
-   *
    * @param worker - Worker that sends the messages that are due.
    * @param intervalMs - Polling interval in milliseconds; it picks up the
    * retries and the messages that survived a restart.
@@ -58,7 +57,6 @@ export class DiscordDeliveryScheduler {
 
   /**
    * Runs one round of deliveries, never throwing.
-   *
    * @returns Whether the round completed.
    */
   public async run(): Promise<boolean> {

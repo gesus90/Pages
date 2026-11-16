@@ -38,11 +38,10 @@ export interface PicaMobileSettingsDependencies {
 
 /**
  * Reads and changes the port of the Pica Mobile endpoint.
- *
  * @remarks
  * The port is stored in the configuration file. A change binds the new port
  * first and stores it only when that worked, so the previous setting keeps
- * working after a failure. While `pages-core` holds the port (PAGE-239), the
+ * working after a failure. While `pages-core` holds the port, the
  * core binds what the file names: the service checks that the port is free,
  * stores it, waits until the core serves it and otherwise stores the
  * previous port again. Only administrators may use it.
@@ -52,7 +51,6 @@ export class PicaMobileSettingsService {
 
   /**
    * Creates the service.
-   *
    * @param dependencies - Configuration file, permissions and endpoint.
    */
   public constructor(dependencies: PicaMobileSettingsDependencies) {
@@ -61,7 +59,6 @@ export class PicaMobileSettingsService {
 
   /**
    * Tells whether a user may see and change the Pica Mobile settings.
-   *
    * @param actor - The signed-in user.
    */
   public async canManage(actor: User): Promise<boolean> {
@@ -73,7 +70,6 @@ export class PicaMobileSettingsService {
 
   /**
    * Describes the endpoint for the settings page.
-   *
    * @param actor - The signed-in user.
    * @param requestHostname - Host the browser used to open Pages.
    * @returns The stored port, whether it is bound, and the host to tell the app.
@@ -110,7 +106,6 @@ export class PicaMobileSettingsService {
 
   /**
    * Stores a port and makes the endpoint listen on it.
-   *
    * @param actor - The signed-in user.
    * @param port - Requested port.
    * @returns The stored port, or why it was refused. A refusal changes
@@ -174,7 +169,6 @@ export class PicaMobileSettingsService {
   /**
    * Moves the port `pages-core` holds: checked, stored, served by the core,
    * or the previous setting stored again, including no port at all.
-   *
    * @remarks
    * Changes run one after another. Only `picaMobilePort` changes; every
    * other setting is read and written anew by the configuration file.

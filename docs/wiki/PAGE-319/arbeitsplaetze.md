@@ -26,7 +26,7 @@ Die Quelle nennt diese Festlegungen als entschieden oder umgesetzt, ohne ihren U
 - **Arbeitsplatz-Parameter** im zentralen Agent-Editor können berechtigte registrierte Kennungen als Standard auswählen oder löschen; nicht mehr zugängliche gespeicherte Werte bleiben sichtbar und werden nicht automatisch ersetzt.
 - Name, Pfad und GitHub sind kopierbare Inhalte; der Pfad bricht als Festbreitentext um. Die Navigation führt „Arbeitsplätze“ vor „Agent-Verwaltung“. Es gibt keine zweite Auswahl-, Dialog- oder Zieh-Infrastruktur.
 
-**Arbeitsverzeichnis (PAGE-25)**
+**Arbeitsverzeichnis**
 
 - Unter **Agents → Arbeitsverzeichnis** gibt es eine Karte „Arbeitsbereiche“ mit Name, Projekt, lokalem Pfad, GitHub-Verknüpfung aus dem Projekt, Nutzbarkeit und — nur wenn etwas verwaltet werden darf — Aktionen. Leere, Lade- und Fehlerzustände (mit „Erneut versuchen“) sind vorhanden.
 - Ein Arbeitsbereich wird mit Name, Lokalem Pfad und Projekt registriert oder bearbeitet. Nur Projekte mit gespeicherter **GitHub-Repository-Adresse** sind wählbar; andere Projekte sind sichtbar, aber nicht wählbar.
@@ -41,4 +41,4 @@ Die Quelle nennt diese Festlegungen als entschieden oder umgesetzt, ohne ihren U
 
 - **Offen zur Bestätigung:** die Lesart „Manager mit Verwaltungsrechten auf Projektebene“ (wer Projektdaten und GitHub-Anbindung ändern darf, einschließlich Co-Eigner mit Geltungsbereich), die Ausweitung der Sichtbarkeit früher eingeschränkter Registrierungen und die Pfadwahl durch Manager ohne Wurzeln je Projekt.
 
-Die Präzisierung „Arbeitsverzeichnis (PAGE-25)“ stammt aus dem Nachtrag vom 2026-10-13. Remote-Maschinenreferenz und Abteilungsfreigabe: [Remote-Verbindungen und Runner](/wiki/45bc1de4-9c18-4851-8e62-fc516075ca19).
+Die Präzisierung „Arbeitsverzeichnis“ stammt aus dem Nachtrag vom 2026-10-13. Remote-Maschinenreferenz und Abteilungsfreigabe: [Remote-Verbindungen und Runner](/wiki/45bc1de4-9c18-4851-8e62-fc516075ca19).

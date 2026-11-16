@@ -1,4 +1,4 @@
-# Loop node (PAGE-122)
+# Loop node
 
 A `loop` plan node repeats a subgraph of agent and script nodes. This file is
 the contract of its behaviour; the types live in `definition/AgentPlanLoop.ts`
@@ -82,9 +82,9 @@ check requires (`loopPrevious`). Every iteration keeps its own results.
 
 ## Scripts
 
-Top-level script steps execute through the [PAGE-123 script runtime](../ScriptRuntime.md).
+Top-level script steps execute through the [script runtime](../ScriptRuntime.md).
 Script members inside loops remain stored but are refused specifically with
-`loopScriptUnsupported`. Loop script execution is outside PAGE-123; the member
+`loopScriptUnsupported`. Loop script execution is outside that runtime; the member
 runner retains its defensive refusal instead of skipping saved work.
 
 ## Persistence

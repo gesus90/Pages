@@ -44,7 +44,6 @@ export function createCliSessionState(): CliSessionState {
 
 /**
  * Keeps one short line of what happened in a session.
- *
  * @param events - The lines kept so far, newest last; changed in place.
  * @param line - What happened; it is shortened, and the caller redacts it before storing.
  */

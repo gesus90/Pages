@@ -27,7 +27,6 @@ export class WorkflowStatusRepository {
 
   /**
    * Creates a workflow status repository.
-   *
    * @param database - Central database access.
    */
   public constructor(database: TaskDatabase) {

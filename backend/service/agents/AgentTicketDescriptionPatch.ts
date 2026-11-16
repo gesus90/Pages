@@ -11,13 +11,11 @@ import type { AgentTicketOutcome } from "./AgentTicketTransaction";
 
 /**
  * Replaces one range of the description of a ticket.
- *
  * @param context - The services of the call, bound to its transaction and account.
  * @param request - The ticket, the version the range was read at and the range.
  * @returns What the call changed, to be announced after the commit.
  * @throws {AgentOperationError} `CONFLICT` for another version or other range text,
  * `INVALID_REQUEST` for an unusable position, `PAYLOAD_TOO_LARGE` for a result over the limit.
- *
  * @remarks
  * The version is compared with the stored description inside the transaction
  * that writes, and the write itself only succeeds while the description is

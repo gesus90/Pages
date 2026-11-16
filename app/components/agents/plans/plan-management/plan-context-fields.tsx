@@ -33,7 +33,6 @@ interface PlanContextFieldsProps {
 /**
  * Plan name, project and location: one selection of the project's local and
  * remote workspaces.
- *
  * @remarks
  * The chosen location is named below the selection: the Pages host, or the
  * runner of a remote workspace and its directory.

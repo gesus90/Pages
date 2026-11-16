@@ -136,7 +136,6 @@ function translateInstanceError(error: unknown): unknown {
 
 /**
  * Connection and instance settings administration for the signed-in chat.
- *
  * @remarks
  * Every call resolves the persisted administrator afresh and then uses the
  * regular connection and instance settings services, which check the rights

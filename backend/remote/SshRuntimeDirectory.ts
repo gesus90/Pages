@@ -12,7 +12,6 @@ const ASKPASS_SCRIPT = `#!/bin/sh\nprintf '%s\\n' "$${SSH_SECRET_VARIABLE}"\n`;
 /**
  * A private folder of one SSH operation: the pinned `known_hosts`, a key file
  * and a control socket.
- *
  * @remarks
  * The folder is readable by the server account only and is removed as soon
  * as the operation no longer needs it; a key file is removed even earlier.
@@ -31,7 +30,6 @@ export interface SshScope {
 
 /**
  * Owns the private runtime folder of all SSH work of this server process.
- *
  * @remarks
  * It lies in the temporary directory because control socket paths must stay
  * short; it is created with owner-only permissions and removed at shutdown.

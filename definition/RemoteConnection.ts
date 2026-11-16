@@ -17,7 +17,6 @@ export type RemoteAuthMethod = (typeof REMOTE_AUTH_METHODS)[number];
 
 /**
  * Why reaching, verifying or signing in to a remote machine failed.
- *
  * @remarks
  * Stable codes cross the HTTP boundary; the text of the SSH tools never does,
  * so no secret, path or banner of the remote machine reaches the browser.
@@ -102,7 +101,6 @@ export const MAXIMUM_REMOTE_ROOTS = 20;
 
 /**
  * The directories workspace profiles of a connection must lie in.
- *
  * @param allowedRoots - The connection's list; it may be empty.
  * @param username - The SSH user of the connection.
  * @returns The list, or the user's home `/home/<username>` when it is empty.

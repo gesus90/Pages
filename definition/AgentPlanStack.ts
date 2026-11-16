@@ -17,7 +17,6 @@ export const PLAN_STACK_ENTRY_COUNT = 200;
 
 /**
  * The two data outputs of a stack.
- *
  * @remarks
  * `content` is the entry the newest trigger handed over; `count` is the
  * number of entries the stack holds in total, never the rest or a position.
@@ -34,12 +33,11 @@ export const PLAN_STACK_PORT = {
 
 /**
  * One entry of a stack: a ticket, a typed value or a file, in the order it is handed over.
- *
  * @remarks
  * A ticket entry hands over the ticket itself, so the receiving agent gets its
  * description, its checklist and its acceptance criteria through the existing
  * ticket parameter contract, never only its key or title. An asset entry
- * (PAGE-268) hands over its file with its own type; a stack may mix types. An
+ * hands over its file with its own type; a stack may mix types. An
  * entry is data: it grants no right the executor does not already have.
  */
 export type AgentPlanStackEntry =
@@ -59,7 +57,6 @@ export type AgentPlanStackEntry =
 
 /**
  * A stack: an ordered list of entries; every trigger hands over the next one.
- *
  * @remarks
  * The stack is a flow node the scheduler evaluates itself, without a model,
  * like a decision. Each trigger at `flow-in` hands the next entry to
@@ -76,7 +73,6 @@ export interface AgentPlanStack extends AgentPlanPosition {
 
 /**
  * Where a stack is triggered: in the outer graph, or once per iteration of a loop.
- *
  * @remarks
  * A stack stays an outer node of the plan; it is never moved into a loop. When
  * its flow edges join it to the members of a loop, it is a step of that loop's
@@ -111,7 +107,6 @@ export interface AgentPlanStackDelivery {
 
 /**
  * The state of one stack in a run.
- *
  * @remarks
  * Persisted with the run. The handovers decide the next entry, so a resumed
  * run never hands an entry over twice and never skips one. A new run starts
@@ -169,7 +164,6 @@ export function planStackFlowEdges(
 
 /**
  * Where the stack is triggered, decided by the nodes its flow edges join.
- *
  * @returns `loop` when every flow edge joins it to members of one loop,
  * `outer` when none does, `mixed` for a stack that joins a loop and anything
  * else; the plan check refuses a mixed stack.
@@ -197,7 +191,6 @@ export function planStackScope(
 
 /**
  * Whether anything can trigger the stack: it has a flow edge.
- *
  * @remarks
  * A stack without a flow edge is only read: its count, or no content at all.
  * Nothing triggers it, so it never hands over an entry.
@@ -211,7 +204,6 @@ export function isPlanStackTriggered(
 
 /**
  * Whether a node is a step of the outer graph of a run.
- *
  * @param plan - The frozen plan.
  * @param node - A flow node of it.
  * @returns `false` only for a stack that a loop triggers, which is a step of
@@ -249,7 +241,6 @@ export function isPlanLoopStack(
 
 /**
  * What the next trigger hands over, from the deliveries so far.
- *
  * @remarks
  * The position follows the record, never a counter of its own, so a stack
  * whose last trigger found nothing stays used up: it never starts over.
@@ -281,7 +272,6 @@ export function initialPlanStackRun(
 
 /**
  * Records one trigger of a stack.
- *
  * @param record - The record so far, absent before the first trigger.
  * @param stack - The frozen stack.
  * @param origin - The loop iteration that triggered it, or `null` values in the outer graph.
@@ -331,7 +321,6 @@ export function triggerPlanStack(
 
 /**
  * The entry a reader of the content output receives now.
- *
  * @returns The entry the newest trigger handed over, or `null` before the
  * first trigger and after a trigger that found the stack used up: an earlier
  * entry is never handed over again.

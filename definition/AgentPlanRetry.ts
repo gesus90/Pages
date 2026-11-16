@@ -20,7 +20,6 @@ export type AgentPlanRetryPolicy = "provider" | "session";
 
 /**
  * What a failed step needs, which alone decides how it goes on.
- *
  * @remarks
  * `harm` stops at once and a person decides. `form` goes back to the agent with
  * the concrete error. `infrastructure` continues on its own after a growing

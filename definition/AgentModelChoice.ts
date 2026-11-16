@@ -21,12 +21,10 @@ export interface AgentModelChoiceConnection {
 
 /**
  * One catalog model of one connection as an entry of the shared model choice.
- *
  * @remarks
  * The server lists the models a person may use with this projection, and the
  * agent profile editor turns the catalogs it loaded into the same entries,
  * so every model choice of Pages names, groups and filters a model alike.
- *
  * @param connection - The connection whose catalog lists the model.
  * @param model - The stored catalog entry.
  * @returns The entry under the selection key of connection and model.
@@ -62,15 +60,15 @@ export function catalogModelChoice(
     ...(model.isToolCapable === false && isTextCapableModel(model)
       ? { isTextCapable: true }
       : {}),
-    // Marked everywhere, so Pica, agents and plans refuse it on the server too (PAGE-300).
+    // Marked everywhere, so Pica, agents and plans refuse it on the server too.
     ...(isSpeechSynthesisModel(model) ? { isSpeechOutputCapable: true } : {}),
-    // Likewise for a transcription model, which only speech recognition runs (PAGE-302).
+    // Likewise for a transcription model, which only speech recognition runs.
     ...(isTranscriptionModel(model) ? { isTranscriptionOnly: true } : {}),
-    // Likewise for a decision model, which only the decisions of group chats run (PAGE-379).
+    // Likewise for a decision model, which only the decisions of group chats run.
     ...(isDecisionModel(model) ? { isDecisionCapable: true } : {}),
-    // An agent generates images with its own model when the catalog states it (PAGE-382).
+    // An agent generates images with its own model when the catalog states it.
     ...(isImageOutputModel(model) ? { isImageOutputCapable: true } : {}),
-    // Likewise videos and sounds (PAGE-384).
+    // Likewise videos and sounds.
     ...(isMediaOutputModel(model, "video")
       ? { isVideoOutputCapable: true }
       : {}),

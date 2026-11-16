@@ -53,7 +53,6 @@ class OriginRefusedError extends ChatError {
 
 /**
  * Accepts only the expected method from the own origin.
- *
  * @param request - The request as the entrance of the server built it.
  * @param method - The only method the route accepts.
  * @param entry - How the request arrived (`requestEntryContext`); without it
@@ -62,7 +61,6 @@ class OriginRefusedError extends ChatError {
  * not the public origin of the request: `originRejected` when a hop in front
  * of Pages may be the cause, `accessDenied` for an origin that is foreign
  * with no hop to blame.
- *
  * @remarks
  * The public origin is the one the request URL has: the `Host` header and the
  * protocol of the connection, `https` only when a trusted proxy forwarded it

@@ -143,7 +143,7 @@ function SessionsPlaceholder({
 }
 
 /**
- * The tab "Sitzungen" of the agent settings (PAGE-376): the cards for open
+ * The tab "Sitzungen" of the agent settings: the cards for open
  * sessions, tokens and behavior, the table of all sessions of the agent with
  * the buttons for each, and the footer that saves the two settings.
  *

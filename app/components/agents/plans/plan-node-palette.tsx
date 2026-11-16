@@ -50,7 +50,6 @@ interface PlanNodePaletteProps {
 
 /**
  * A local, collapsible overlay with two tabs: node types and saved templates.
- *
  * @remarks
  * Neither the tabs nor collapsing change the graph, the canvas size or its
  * viewport; collapsed, only the arrow to open it again remains.

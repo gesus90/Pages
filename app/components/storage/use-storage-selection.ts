@@ -2,7 +2,7 @@ import { useState } from "react";
 
 import type { StorageItem } from "@/definition/GoogleDriveStorage";
 
-/** The selected entries of the shown folder (PAGE-272). */
+/** The selected entries of the shown folder. */
 export interface StorageSelection {
   /** The selected entries in list order; entries gone after a reload drop out. */
   readonly items: readonly StorageItem[];
@@ -28,11 +28,9 @@ const NOTHING: ReadonlySet<string> = new Set();
 
 /**
  * Holds which entries of the shown folder are selected.
- *
  * @param items - The loaded entries of the shown folder.
  * @param folderKey - The shown folder; another one starts with an empty selection.
  * @returns The selection and its changes.
- *
  * @remarks
  * The selection remembers its folder instead of being cleared by an effect,
  * so it is empty in the very render that shows another folder.

@@ -158,7 +158,6 @@ function requireOrderedTimes(from: string | null, to: string | null): void {
 
 /**
  * Reads the parameters of `list_runs`.
- *
  * @param input - The raw parameters.
  * @throws {AgentOperationError} `INVALID_REQUEST` with a reason.
  */
@@ -183,7 +182,6 @@ export function readRunListRequest(input: unknown): RunListRequest {
 
 /**
  * Reads the parameters of `summarize_run_failures`.
- *
  * @param input - The raw parameters.
  * @throws {AgentOperationError} `INVALID_REQUEST` with a reason.
  */
@@ -206,7 +204,6 @@ export function readFailureSummaryRequest(
 
 /**
  * Reads the parameters of `read_plan_run_logs`.
- *
  * @param input - The raw parameters.
  * @throws {AgentOperationError} `INVALID_REQUEST` with a reason.
  */
@@ -231,7 +228,6 @@ export function readRunLogRequest(input: unknown): RunLogRequest {
 
 /**
  * Reads the parameters of `read_plan_run_timeline`.
- *
  * @param input - The raw parameters.
  * @returns The run identifier.
  * @throws {AgentOperationError} `INVALID_REQUEST` with a reason.

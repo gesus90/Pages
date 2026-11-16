@@ -29,7 +29,7 @@ export type SpeechProviderOutcome =
 const ZAI_TRANSCRIPTION_URL =
   "https://api.z.ai/api/paas/v4/audio/transcriptions";
 
-/** OpenRouter's dedicated speech-to-text endpoint (PAGE-294). */
+/** OpenRouter's dedicated speech-to-text endpoint. */
 const OPENROUTER_TRANSCRIPTION_URL = `${AGENT_PROVIDERS.openrouter.endpoint}/audio/transcriptions`;
 
 /** How long a provider may take for one recording. */
@@ -124,14 +124,14 @@ async function readBody(response: Response): Promise<unknown> {
 }
 
 /**
- * Sends one recording to OpenRouter or Z.AI and reads the text (PAGE-273).
+ * Sends one recording to OpenRouter or Z.AI and reads the text.
  *
  * @remarks
  * The key travels only in the header, redirects are refused, and neither the
  * audio, the key nor a provider's answer is logged; only the provider, the
  * HTTP status and the outcome are. OpenRouter is asked through its
  * speech-to-text endpoint `POST /api/v1/audio/transcriptions` with `model`,
- * `input_audio` and `response_format: "json"` (PAGE-294), Z.AI through its
+ * `input_audio` and `response_format: "json"`, Z.AI through its
  * own transcription endpoint. Neither gets an instruction or a language, and
  * a failed transcription is never retried through another API.
  */

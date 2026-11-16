@@ -17,7 +17,6 @@ interface AuthSubmitButtonProps extends Omit<
 
 /**
  * Renders the primary action of a login or setup card.
- *
  * @remarks
  * While the action runs, the button is disabled and shows a spinner next to
  * its label, so a second submission cannot start.

@@ -46,7 +46,7 @@ function useSearchRequests(open: () => void): void {
 
 /**
  * The wiki frame around the open page. Its navigation lives in the main
- * sidebar below "Wiki" (A8.1); the frame keeps the search.
+ * sidebar below "Wiki"; the frame keeps the search.
  */
 export function WikiShell({
   navigation,

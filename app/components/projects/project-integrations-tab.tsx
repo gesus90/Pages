@@ -71,7 +71,6 @@ function renderPlanned(
 
 /**
  * Renders the project interfaces tab with the GitHub and Discord cards and the planned ones.
- *
  * @remarks
  * Selecting a card opens its settings as a fixed overlay on the right,
  * leaving the main page width and position untouched; one panel is open at a

@@ -159,7 +159,7 @@ function projectObjects(graph: StructuredImportGraph): AgentStructuredObject[] {
   }));
 }
 
-/** Plans the pages with the A9.7 planner and previews each of them against its mapping. */
+/** Plans the pages with the wiki planner and previews each of them against its mapping. */
 async function previewWikiPart(
   environment: StructuredImportEnvironment,
   pack: NonNullable<ReturnType<typeof buildStructuredWiki>>,
@@ -208,8 +208,8 @@ async function previewWikiPart(
  * @throws {AgentOperationError} `NOT_FOUND` for a project, parent or page the account cannot see.
  *
  * @remarks
- * The wiki part is planned by the A9.7 planner and compared with the stored
- * mappings the way the A9.8 source service compares them, so a plan never
+ * The wiki part is planned by the wiki planner and compared with the stored
+ * mappings the way the wiki source service compares them, so a plan never
  * promises what the apply would refuse.
  */
 export async function previewStructuredImport(

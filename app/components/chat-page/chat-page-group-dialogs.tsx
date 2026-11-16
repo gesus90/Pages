@@ -14,7 +14,7 @@ import type { AgentSessionEntry } from "./chat-page-agent-sessions-dialog";
 import type { ChatMenuGroupDialog } from "./chat-menu/chat-menu-model";
 import type { RemovalCandidate } from "./chat-page-remove-dialog";
 
-/** The dialogs of a group the chat menu opens, besides the popup of an agent (PAGE-389). */
+/** The dialogs of a group the chat menu opens, besides the popup of an agent. */
 export type GroupDialogKind = ChatMenuGroupDialog;
 
 interface ChatPageGroupDialogsProps {
@@ -23,7 +23,7 @@ interface ChatPageGroupDialogsProps {
   /** The person's own participants, which the member dialog offers. */
   readonly participants: readonly VirtualParticipant[];
   readonly onAddMember: (groupId: string, participantId: string) => void;
-  /** Asks to remove a member of the group (PAGE-380). */
+  /** Asks to remove a member of the group. */
   readonly onRemoveMember: (member: RemovalCandidate) => void;
   /** The dialog that is open; `null` while none is. */
   readonly dialog: GroupDialogKind | null;
@@ -50,7 +50,7 @@ function sessionEntries(
 /**
  * The dialogs of the chat menu of a group: who answers, the group context, the
  * sessions of the agents in the group, the members with who steers the
- * agents (PAGE-380) and the dissolution. One of them is open at a time.
+ * agents and the dissolution. One of them is open at a time.
  */
 export function ChatPageGroupDialogs({
   group,

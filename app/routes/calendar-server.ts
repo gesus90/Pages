@@ -137,7 +137,7 @@ async function runIntent(
 }
 
 /**
- * Loads the visible range of the calendar page (PAGE-301): the entries of
+ * Loads the visible range of the calendar page: the entries of
  * the signed-in account, the calendars it may put events into and its
  * projects for the filter list.
  *

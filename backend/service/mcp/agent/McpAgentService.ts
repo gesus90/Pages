@@ -90,7 +90,7 @@ function mergedSettings(
     model: request.model?.modelId ?? settings.model,
     reasoningEffort: changed(request.reasoning, settings.reasoningEffort),
     access: request.access ?? settings.access,
-    // The tool groups are switched in the panel only (PAGE-390); a change here keeps them.
+    // The tool groups are switched in the panel only; a change here keeps them.
     disabledToolGroups: settings.disabledToolGroups,
   };
 }
@@ -111,11 +111,11 @@ function mergedFields(
     soul: request.soul ?? agent.documents.soul,
     instructions: request.agentInstructions ?? agent.documents.instructions,
     memory: request.memory ?? null,
-    // The limits and DREAM.md stay as they are (PAGE-305).
+    // The limits and DREAM.md stay as they are.
     memoryCharacters: agent.memoryLimits.memoryCharacters,
     dreamCharacters: agent.memoryLimits.dreamCharacters,
     isLearningEnabled: request.isLearningEnabled ?? agent.learning.isEnabled,
-    // The voice is chosen in the panel only (PAGE-300); a change here keeps it.
+    // The voice is chosen in the panel only; a change here keeps it.
     voiceId: agent.voice.voiceId,
     voiceSpeedTenths: agent.voice.speedTenths,
   };
@@ -143,8 +143,7 @@ function matchesText(agent: AgentEmployee, text: string): boolean {
 }
 
 /**
- * Manages agent employees for a paired machine (PAGE-267).
- *
+ * Manages agent employees for a paired machine.
  * @remarks
  * Every call runs through the administration of agents of the user
  * administration on the MCP channel, with the same checks of rights, role,
@@ -159,7 +158,6 @@ export class McpAgentService {
 
   /**
    * Creates the service.
-   *
    * @param administration - The administration of agents, already on the MCP channel.
    * @param templates - The stored templates of `AGENT.md`, already on the MCP channel.
    */
@@ -238,7 +236,6 @@ export class McpAgentService {
 
   /**
    * Changes the named fields of an agent when its revision is current.
-   *
    * @throws {McpAgentError} `conflict` with the current revision, `running`
    * for the deactivation of a working agent, and the codes of the input check.
    */
@@ -295,7 +292,6 @@ export class McpAgentService {
 
   /**
    * Removes an agent after a confirmed question.
-   *
    * @returns Without `confirmed: true` the question with what the removal
    * takes with it, changing nothing; with it `{ removed: true }`.
    */

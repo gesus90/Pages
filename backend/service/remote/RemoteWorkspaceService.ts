@@ -130,7 +130,6 @@ function storesCheckFailure(error: RemoteError): boolean {
 
 /**
  * Registers workspace profiles on remote machines.
- *
  * @remarks
  * A profile has a stable identifier, one connection, one canonical absolute
  * path on that machine and exactly one project, whose GitHub link is shown
@@ -154,11 +153,9 @@ export class RemoteWorkspaceService {
 
   /**
    * Returns the service for another surface that shares storage, rules and write order.
-   *
    * @remarks
    * Only the administrator reading differs: MCP counts a personal administrator
    * regardless of the role mode of the browser, the interface does not.
-   *
    * @param channel - The surface the returned service acts for.
    */
   public forChannel(channel: ActorChannel): RemoteWorkspaceService {
@@ -227,7 +224,6 @@ export class RemoteWorkspaceService {
 
   /**
    * Registers or changes a profile after checking its directory over SSH.
-   *
    * @param userId - A person responsible for the project who may use the connection.
    * @param id - The profile to change, or `null` for a new one.
    * @param input - Name, connection, path, project and revision.
@@ -281,7 +277,6 @@ export class RemoteWorkspaceService {
 
   /**
    * Checks a profile's directory again and keeps the result.
-   *
    * @param userId - A person who may use the profile.
    * @param id - The profile.
    * @throws {RemoteError} When the connection could not run the check.
@@ -331,7 +326,6 @@ export class RemoteWorkspaceService {
 
   /**
    * Detaches references and unregisters a profile unless an affected run is active; files stay untouched.
-   *
    * @param userId - A person responsible for the project who may use the connection.
    * @param id - The profile.
    * @param revision - The revision read before.

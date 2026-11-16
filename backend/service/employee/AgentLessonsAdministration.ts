@@ -126,9 +126,8 @@ function recipeView(recipe: StoredAgentRecipe): AgentRecipeView {
 }
 
 /**
- * The tab "Lektionen & Rezepte" of the agent settings (PAGE-378): the lessons
+ * The tab "Lektionen & Rezepte" of the agent settings: the lessons
  * of `DREAM.md` and the recipes of an agent to view, edit, switch off and delete.
- *
  * @remarks
  * Lessons and recipes hold what the agent learned from the chats of its
  * people, so only an administrator reads and changes them. A lesson that is
@@ -146,7 +145,6 @@ export class AgentLessonsAdministration {
   /**
    * Reads the lessons and recipes of an agent; for a viewer who is no
    * administrator both lists are empty.
-   *
    * @throws {AgentEmployeeError} `notFound` for an account that is no agent.
    */
   public async overview(
@@ -174,7 +172,6 @@ export class AgentLessonsAdministration {
 
   /**
    * Replaces the text and the evidence of a lesson.
-   *
    * @throws {AgentEmployeeError} `forbidden` for a viewer who is no
    * administrator, `invalidInput` for an empty or too long text, `notFound`
    * for a lesson that is gone.
@@ -198,7 +195,6 @@ export class AgentLessonsAdministration {
 
   /**
    * Switches a lesson on or off.
-   *
    * @throws {AgentEmployeeError} `forbidden` for a viewer who is no
    * administrator, `notFound` for a lesson that is gone.
    */
@@ -218,7 +214,6 @@ export class AgentLessonsAdministration {
 
   /**
    * Deletes a lesson.
-   *
    * @throws {AgentEmployeeError} `forbidden` for a viewer who is no
    * administrator, `notFound` for a lesson that is gone.
    */
@@ -237,7 +232,6 @@ export class AgentLessonsAdministration {
   /**
    * Saves an edited recipe. The kind stays; a flow recipe is checked like one of
    * the dream run, so a step with a deleting tool or a confirmation is refused.
-   *
    * @throws {AgentEmployeeError} `forbidden` for a viewer who is no
    * administrator, `invalidInput` for a recipe that does not pass the check,
    * `conflict` for a name another recipe has, `notFound` for a recipe that is gone.
@@ -281,7 +275,6 @@ export class AgentLessonsAdministration {
 
   /**
    * Switches a recipe on or off; switching it on resets its failures.
-   *
    * @throws {AgentEmployeeError} `forbidden` for a viewer who is no
    * administrator, `notFound` for a recipe that is gone.
    */
@@ -299,7 +292,6 @@ export class AgentLessonsAdministration {
 
   /**
    * Deletes a recipe.
-   *
    * @throws {AgentEmployeeError} `forbidden` for a viewer who is no
    * administrator, `notFound` for a recipe that is gone.
    */

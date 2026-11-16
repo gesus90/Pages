@@ -24,7 +24,6 @@ import type { ModelChoiceState } from "./use-model-choice";
 /**
  * The translated name of a reasoning level, such as "hoch"; an unknown
  * level keeps its ID.
- *
  * @param t - The translation function.
  * @param effort - The level.
  */
@@ -242,7 +241,7 @@ interface ChatPageModelDialogProps {
 }
 
 /**
- * The choice "Modell in diesem Chat …" of an agent (PAGE-380): the text
+ * The choice "Modell in diesem Chat …" of an agent: the text
  * models of the connections the agent may use, the reasoning level of the
  * chosen model, "Auf Standard zurücksetzen" and "Wechseln".
  *

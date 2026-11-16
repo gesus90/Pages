@@ -46,7 +46,6 @@ function templateOf(template: WorkItemTemplateView): McpTicketTemplate {
 
 /**
  * Rejects share targets that the chosen scope does not use.
- *
  * @throws {McpTicketError} `invalid_request` for departments outside the
  * scope `departments` or projects outside the scope `projects`.
  */
@@ -64,11 +63,10 @@ function requireMatchingTargets(request: {
     throw new McpTicketError("invalid_request");
 }
 
-/** The shared label catalog and the ticket templates (PAGE-242, interface 12–13). */
+/** The shared label catalog and the ticket templates. */
 export class McpTicketCatalogService {
   /**
    * Adds a label to the shared catalog.
-   *
    * @param context - The request.
    * @param request - Name and color of the label.
    */
@@ -83,7 +81,6 @@ export class McpTicketCatalogService {
 
   /**
    * Renames or recolors a label.
-   *
    * @param context - The request.
    * @param labelId - The label.
    * @param request - The new name, color or both.
@@ -104,7 +101,6 @@ export class McpTicketCatalogService {
 
   /**
    * Deletes a label after the client confirmed how many tickets carry it.
-   *
    * @param context - The request.
    * @param labelId - The label.
    * @param isConfirmed - Whether the body says `confirmed: true`.
@@ -135,7 +131,6 @@ export class McpTicketCatalogService {
 
   /**
    * Reads a template the account may see.
-   *
    * @param context - The request.
    * @param templateId - The template.
    */
@@ -148,7 +143,6 @@ export class McpTicketCatalogService {
 
   /**
    * Saves the content of a ticket as a new template of the account.
-   *
    * @param context - The request.
    * @param request - The ticket, the name and the audience.
    */
@@ -173,7 +167,6 @@ export class McpTicketCatalogService {
 
   /**
    * Renames a template or changes whom it is shared with.
-   *
    * @param context - The request.
    * @param templateId - A template the account may manage.
    * @param request - The fields to change; the others keep their values.
@@ -202,7 +195,6 @@ export class McpTicketCatalogService {
 
   /**
    * Deletes a template; its owner and an administrator may.
-   *
    * @param context - The request.
    * @param templateId - The template.
    */

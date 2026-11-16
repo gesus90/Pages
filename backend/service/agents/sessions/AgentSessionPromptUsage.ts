@@ -15,7 +15,6 @@ export interface PromptUsageInput {
 
 /**
  * Builds the usage record of the prompt that ended in a turn.
- *
  * @param input - The attempt, its turn, the counted tokens and the native session.
  * @returns The record to persist; without tokens it is marked as partial.
  */

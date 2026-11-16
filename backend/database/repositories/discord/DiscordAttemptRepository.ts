@@ -53,7 +53,6 @@ export interface DiscordAttemptStore {
   ): Promise<DiscordAttemptRecord | null>;
   /**
    * Uses the state of a waiting attempt exactly once.
-   *
    * @returns The attempt, or `null` when the state is unknown, already used,
    * expired or its attempt no longer waits.
    */
@@ -63,7 +62,6 @@ export interface DiscordAttemptStore {
   ): Promise<DiscordAttemptRecord | null>;
   /**
    * Stores the verified server of an attempt whose state was claimed.
-   *
    * @returns Whether it was stored; `false` when the attempt was cancelled or
    * replaced while Discord was still being asked.
    */
@@ -149,7 +147,6 @@ export class DiscordAttemptRepository implements DiscordAttemptStore {
 
   /**
    * Creates a Discord attempt repository.
-   *
    * @param database - Central database access.
    */
   public constructor(database: DiscordDatabase) {

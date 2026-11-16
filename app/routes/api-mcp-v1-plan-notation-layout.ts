@@ -23,8 +23,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpPlanNotationHandlers {
 }
 
 /**
- * Lays out every node of a plan anew (`POST /api/mcp/v1/plan-notation/{planId}/layout`), PAGE-250 interface 5.
- *
+ * Lays out every node of a plan anew (`POST /api/mcp/v1/plan-notation/{planId}/layout`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

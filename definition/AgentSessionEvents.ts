@@ -1,6 +1,5 @@
 /**
  * Which node attempt a PageAgentCLI session belongs to.
- *
  * @remarks
  * Members of an ACP group share one adapter process, but every member has
  * its own attempt, so its turns, events and usage stay apart.
@@ -70,7 +69,7 @@ export interface AgentSessionEventPage {
   readonly retainedFrom: number | null;
   /**
    * `journal` for a persisted structured history; `legacy_record` for a run
-   * from before PAGE-85, whose short event lines are all that is known.
+   * older records, whose short event lines are all that is known.
    */
   readonly source: "journal" | "legacy_record";
   /** Older retained entries are available before the first event of this window. */

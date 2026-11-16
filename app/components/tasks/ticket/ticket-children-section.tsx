@@ -29,7 +29,7 @@ interface TicketChildrenSectionProps {
 
 /**
  * The children of a ticket with their type, key, title and status, and the
- * button that adds one of the level below (A8.2-E03). Subtasks have none.
+ * button that adds one of the level below. Subtasks have none.
  */
 export function TicketChildrenSection({
   ticket,

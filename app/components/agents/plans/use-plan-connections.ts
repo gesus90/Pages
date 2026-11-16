@@ -35,7 +35,6 @@ import type { Dispatch, SetStateAction } from "react";
 
 /**
  * The source half of a control, value, boolean-result, branch or predecessor-result connection.
- *
  * @remarks
  * `flow` is the control OUT of a node, `source` a value source, `result` the
  * text result of an agent or script, `passed` the boolean result of an agent
@@ -123,7 +122,7 @@ function typeIssue(id: string, port: string): PlanConnectionAttempt {
  * A decision reads one source; a connected input must be disconnected
  * before it reads another. Whether the source fits the decision's mode is
  * the plan check's: a boolean decision takes a boolean parameter or an
- * agent's boolean, a model decision a ticket or a text result (PAGE-286).
+ * agent's boolean, a model decision a ticket or a text result.
  */
 function attemptCondition(
   context: PlanConnectionContext,

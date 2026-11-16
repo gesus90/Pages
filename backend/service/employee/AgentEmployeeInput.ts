@@ -31,7 +31,7 @@ const MAXIMUM_NAME = 200;
 const USERNAME_PATTERN = /^[\p{L}\p{N}._-]{1,64}$/u;
 
 /**
- * The voice of an agent (PAGE-300): absent fields keep the defaults, an
+ * The voice of an agent: absent fields keep the defaults, an
  * empty voice ID means the first voice of the instance's model.
  */
 const voiceSchema = z.object({
@@ -63,9 +63,9 @@ export interface AgentEmployeeInput {
   readonly documents: AgentEmployeeDocuments;
   /** `MEMORY.md`; `null` leaves it unchanged. */
   readonly memory: string | null;
-  /** `DREAM.md`; `null` leaves it unchanged (PAGE-305). */
+  /** `DREAM.md`; `null` leaves it unchanged. */
   readonly dream: string | null;
-  /** The character limits of both files (PAGE-305). */
+  /** The character limits of both files. */
   readonly limits: AgentMemoryLimits;
   /** Whether the nightly dream run is on. */
   readonly isLearningEnabled: boolean;
@@ -196,7 +196,6 @@ function readLimits(
 
 /**
  * Reads the fields of the agent panel from an untrusted source.
- *
  * @param input - The decoded fields.
  * @returns The checked input; credentials are removed from every document.
  * @throws {AgentEmployeeError} `invalidInput` for anything outside the limits.

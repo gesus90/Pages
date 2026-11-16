@@ -19,7 +19,6 @@ import type { PlanFlowNode } from "./plan-flow-model";
 
 /**
  * Custom React Flow cards retain the Pages instance, ports and recorded run states.
- *
  * @remarks
  * One card family: compact start and end, parameter, ticket and decision
  * cards of medium size and agent and script cards as tall as their inputs.

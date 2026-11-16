@@ -63,7 +63,6 @@ function postgresProgramEnvironment(): NodeJS.ProcessEnv {
 
 /**
  * Runs a program of the PostgreSQL packages and waits until it ended.
- *
  * @param name - The name of the program.
  * @param parameters - Its parameters.
  * @throws When it fails; the message holds what the program printed.

@@ -52,7 +52,6 @@ const RECOVERY_REFUSALS: ReadonlySet<string> = new Set(["cleanup_unconfirmed"]);
 
 /**
  * The refusal of a continuation the control does not allow.
- *
  * @param control - The control that holds the block.
  * @returns The error that names the same reason the interface shows.
  */

@@ -1,6 +1,5 @@
 /**
  * Hands the chunks of a voice upload to the file store as one stream.
- *
  * @remarks
  * Chunks arrive one frame at a time and are queued until the store reads
  * them; the queue holds at most what the connection let through. Ending the

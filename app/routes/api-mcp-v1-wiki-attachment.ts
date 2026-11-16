@@ -46,8 +46,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpWikiHandlers {
 }
 
 /**
- * Sends the bytes of an attachment (`GET /api/mcp/v1/wiki/attachments/{attachmentId}`) and removes it (`DELETE`), PAGE-257 interface 16.
- *
+ * Sends the bytes of an attachment (`GET /api/mcp/v1/wiki/attachments/{attachmentId}`) and removes it (`DELETE`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

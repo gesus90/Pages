@@ -10,16 +10,14 @@ import type { AcpSessionContext } from "./AcpSessionContracts";
 
 /**
  * Answers a permission request of the adapter of one session.
- *
  * @param context - The profile of the session and, for a Claude Code chat, its helper.
  * @param state - The state that counts and notes every refusal.
  * @param request - The request of the adapter.
  * @returns The selected option.
- *
  * @remarks
  * A Claude Code chat in "Nur Lesen" approves only the exact helper call of
  * its turn. A chat in YOLO mode, which only an agent employee on
- * "Arbeitsplatz" or YOLO reaches (PAGE-266, PAGE-303), keeps the decisions of
+ * "Arbeitsplatz" or YOLO reaches, keeps the decisions of
  * its profile, as every plan node does.
  */
 export function decideAcpSessionPermission(

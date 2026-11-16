@@ -3,7 +3,6 @@ export type AgentChecklistSource = "criteria" | "description";
 
 /**
  * One checkbox of a ticket, as the ticket page and agents see it.
- *
  * @remarks
  * `criteria` entries are the acceptance criteria of the ticket. `description`
  * entries are the task list items of its Markdown description; code blocks
@@ -57,7 +56,6 @@ export interface AgentChecklistItemState {
 
 /**
  * The outcome of setting several checklist entries in one call.
- *
  * @remarks
  * It is the complete checklist as it is after the call, in the shape
  * `ticket.checklist.read` returns, so the next change needs no further read.

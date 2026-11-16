@@ -33,7 +33,6 @@ function removalFrame(
 
 /**
  * Asks how a frame with members goes: the frame alone, or the frame with its members.
- *
  * @remarks
  * Neither choice is a default, so removing a group never deletes its members
  * by accident.

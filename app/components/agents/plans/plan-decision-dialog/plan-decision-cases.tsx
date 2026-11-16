@@ -42,7 +42,6 @@ function RemovalQuestion(props: {
 
 /**
  * The value list of a classification, kept in the decision itself.
- *
  * @remarks
  * Each value keeps a stable id, so renaming keeps the connection of its
  * output. A value whose output is connected goes only after the person

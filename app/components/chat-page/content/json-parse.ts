@@ -105,8 +105,7 @@ function errorOffset(source: string): number {
 }
 
 /**
- * Reads JSON for the tree of a JSON card (PAGE-383).
- *
+ * Reads JSON for the tree of a JSON card.
  * @param source - The text of the block.
  * @returns The value, or the message and place of the first error.
  */
@@ -129,7 +128,6 @@ export type JsonValueKind =
 
 /**
  * The kind of a JSON value.
- *
  * @param value - A value read from JSON.
  */
 export function jsonKindOf(value: unknown): JsonValueKind {
@@ -143,7 +141,6 @@ export function jsonKindOf(value: unknown): JsonValueKind {
 
 /**
  * The entries of an object or array, as the tree lists them.
- *
  * @param value - An object or array read from JSON.
  * @returns Key and value of each entry; empty for other values.
  */

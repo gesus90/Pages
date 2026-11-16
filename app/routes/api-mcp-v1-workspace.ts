@@ -33,8 +33,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpWorkspaceHandlers {
 }
 
 /**
- * Reads a workspace (`GET /api/mcp/v1/workspaces/{id}`) and changes it (`PATCH`), PAGE-245 interface 2 and 4.
- *
+ * Reads a workspace (`GET /api/mcp/v1/workspaces/{id}`) and changes it (`PATCH`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

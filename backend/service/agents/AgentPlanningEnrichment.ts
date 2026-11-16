@@ -14,7 +14,6 @@ import type { AgentTaskContext } from "./AgentTaskAccess";
 
 /**
  * Reads the tags of tickets the caller already may see.
- *
  * @param context - The services of the call.
  * @param ticketIds - Visible tickets.
  * @returns The tags of each ticket; a ticket without tags is absent.
@@ -34,7 +33,6 @@ export async function readAgentTicketTags(
 
 /**
  * Reads the milestones each visible initiative of a project is linked with.
- *
  * @param context - The services of the call.
  * @param projectId - A project the account may see.
  * @returns The milestones by initiative, and the visible initiatives by milestone.
@@ -72,7 +70,6 @@ export async function readAgentInitiativeLinks(
 
 /**
  * Reads the wiki pages tied to milestones or epics, as far as the account sees them.
- *
  * @param context - The services of the call.
  * @param kind - Whether the targets are milestones or epics.
  * @param targetIds - Targets the account may see.
@@ -105,7 +102,6 @@ export async function readAgentAnchoredPages(
 
 /**
  * Reads what one ticket is linked with beyond its parent and milestone.
- *
  * @param context - The services of the call.
  * @param ticket - A ticket the account may see.
  * @returns The milestones of an initiative, the wiki pages of an epic, nothing else.
@@ -132,7 +128,6 @@ export async function readAgentTicketLinks(
 
 /**
  * Counts the visible active epics, tasks and subtasks below a ticket.
- *
  * @param context - The services of the call.
  * @param ticket - A ticket the account may see.
  * @returns The number a deletion moves to the archive together with the ticket.

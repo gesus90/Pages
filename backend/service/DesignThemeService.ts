@@ -30,7 +30,6 @@ export type DesignThemeSelectResult = "saved" | "unknown";
 
 /**
  * Establishes the business-logic boundary for the personal design theme.
- *
  * @remarks
  * A user stores only the identifier of a theme. Whether that theme is still
  * installed is decided each time it is read, and a theme that is gone makes
@@ -44,7 +43,6 @@ export class DesignThemeService {
 
   /**
    * Creates a design theme service.
-   *
    * @param registry - The installed themes.
    * @param userSettingsRepository - User settings persistence boundary.
    */
@@ -58,7 +56,6 @@ export class DesignThemeService {
 
   /**
    * Returns the design theme a user's pages are rendered in.
-   *
    * @param userId - User identifier.
    * @returns The chosen theme, or the Standard design when none was chosen or
    * the chosen one is no longer installed.
@@ -74,7 +71,6 @@ export class DesignThemeService {
 
   /**
    * Scans the theme directory and returns what the appearance settings offer.
-   *
    * @param userId - User identifier.
    * @param options - `includeSkipped` adds the directories that were refused,
    * which only administrators may see.
@@ -102,7 +98,6 @@ export class DesignThemeService {
 
   /**
    * Stores the design theme a user has chosen.
-   *
    * @param userId - User identifier.
    * @param designThemeId - Identifier of the chosen theme.
    * @returns `unknown` when no installed theme has that identifier; nothing is stored then.
@@ -127,7 +122,6 @@ export class DesignThemeService {
 
   /**
    * Reads the preview image of an installed theme.
-   *
    * @param designThemeId - Identifier of the theme.
    * @returns The image, or `null` when the theme or its image does not exist.
    */

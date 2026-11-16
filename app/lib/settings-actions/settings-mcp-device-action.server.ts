@@ -4,13 +4,11 @@ import type { ApplicationServices } from "@/app/lib/services.server";
 import type { User } from "@/definition/User";
 
 /**
- * Revokes a machine that is paired with the signed-in account (PAGE-243).
- *
+ * Revokes a machine that is paired with the signed-in account.
  * @param services - Services of the request.
  * @param user - The signed-in user.
  * @param formData - Submitted form with the `deviceId` field.
  * @returns A JSON response; a machine of another account is never touched.
- *
  * @remarks
  * The token of the machine is refused from its next request on.
  */

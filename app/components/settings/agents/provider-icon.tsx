@@ -42,7 +42,6 @@ const FALLBACK_MARK: ProviderMark = {
 
 /**
  * The mark key of a Pages connection provider.
- *
  * @param provider - The provider of a connection.
  * @returns The mark the provider registry names, the same as in the model choice.
  */
@@ -58,7 +57,6 @@ interface ProviderIconProps {
 
 /**
  * The small, decorative 20 × 20 tile that names a model provider in choices and lists.
- *
  * @remarks
  * The provider's name always stands beside the tile, so it is hidden from
  * assistive technology.

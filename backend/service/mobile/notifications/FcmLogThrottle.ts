@@ -3,7 +3,6 @@ const MAXIMUM_TRACKED_KEYS = 64;
 
 /**
  * Lets an identical log line through at most once per interval.
- *
  * @remarks
  * A broken Firebase project or an unreachable Google endpoint fails every
  * message the same way. The throttle keeps such a failure from flooding the log
@@ -16,7 +15,6 @@ export class FcmLogThrottle {
 
   /**
    * Creates a throttle.
-   *
    * @param now - Clock in milliseconds.
    * @param intervalMs - Minimum time between two lines with the same key.
    */
@@ -30,7 +28,6 @@ export class FcmLogThrottle {
 
   /**
    * Tells whether a line with this key may be written now, and counts it when so.
-   *
    * @param key - Identifies the kind of line; keep the set of keys small.
    * @returns `false` when a line with the same key was allowed within the interval.
    */

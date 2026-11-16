@@ -70,7 +70,7 @@ function describeCandidate(candidate: DecisionCandidate): string {
 }
 
 /**
- * The two typed questions of one decision (PAGE-379).
+ * The two typed questions of one decision.
  *
  * @param material - The agents, the newest messages and the new message.
  * @returns The state and the questions of one decision request: whether the

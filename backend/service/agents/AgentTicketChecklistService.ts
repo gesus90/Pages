@@ -114,7 +114,6 @@ function revisions(
 
 /**
  * Reads and sets the checkboxes of tickets for agents.
- *
  * @remarks
  * The ticket page and agents share one source: the acceptance criteria of
  * the ticket and the task list items of its description. Setting an entry
@@ -122,7 +121,6 @@ function revisions(
  * toggles, changes only that one entry and is refused when anything in the
  * checklist changed since the read. The operation ID makes a repeated call
  * return the stored result instead of applying it again.
- *
  * Setting several entries names the entries and states of the list that was
  * read. The whole request is validated first and applied in one transaction:
  * either every named entry reaches its state or nothing changes. Entries that
@@ -138,7 +136,6 @@ export class AgentTicketChecklistService {
 
   /**
    * Reads the checklist of one visible ticket.
-   *
    * @param identity - The verified owner of the call.
    * @param parameters - The raw operation parameters: `ticketId` as identifier, key or address.
    * @returns The entries with identifiers, texts, states, order and nesting, and the revision.

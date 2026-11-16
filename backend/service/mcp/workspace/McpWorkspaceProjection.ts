@@ -77,11 +77,9 @@ function projectRemote(view: RemoteWorkspaceView): McpWorkspaceResponse {
 
 /**
  * Builds the workspace object of the interface from the view of its service.
- *
  * @remarks
  * Only the fields of the interface are copied, so the console address and
  * the console right of the page never leave the server.
- *
  * @param stored - The workspace with its view.
  */
 export function projectWorkspace(
@@ -94,7 +92,6 @@ export function projectWorkspace(
 
 /**
  * Builds a usage of the interface.
- *
  * @param usage - What refers to the workspace; names are already limited to administrators.
  */
 export function projectUsage(
@@ -105,7 +102,6 @@ export function projectUsage(
 
 /**
  * Builds one level of the folder browser of the interface.
- *
  * @param listing - The level the registry listed.
  */
 export function projectFolders(
@@ -131,11 +127,9 @@ function projectHostKey(hostKey: RemoteHostKey): McpHostKeyResponse {
 
 /**
  * Builds the connection object of the interface from the view of its service.
- *
  * @remarks
  * The view carries no secret; the host key is reduced to algorithm and
  * fingerprint, and the console right of the page is left out.
- *
  * @param view - The connection as the account sees it.
  */
 export function projectConnection(
@@ -187,10 +181,8 @@ function projectStep(step: RemoteTestStep): McpTestStepResponse {
 
 /**
  * Builds the result of a connection test of the interface.
- *
  * @remarks
  * The key the machine presented appears as algorithm and fingerprint only.
- *
  * @param result - What the test found.
  */
 export function projectTest(

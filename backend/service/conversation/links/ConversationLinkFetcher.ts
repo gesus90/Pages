@@ -36,7 +36,6 @@ export interface ConversationLinkImage {
 export interface ConversationLinkFetcher {
   /**
    * Fetches the preview data of one page.
-   *
    * @param url - Address a chat message links to; untrusted.
    * @returns The preview, or `null` without an answer. Never throws.
    */
@@ -44,7 +43,6 @@ export interface ConversationLinkFetcher {
 
   /**
    * Fetches the preview image of a link card.
-   *
    * @param url - Address of the image, as in {@link ConversationLinkPreview.imageUrl}; untrusted.
    * @returns The image, or `null` without an answer. Never throws.
    */

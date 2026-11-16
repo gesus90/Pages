@@ -12,10 +12,8 @@ declare global {
 }
 
 /**
- * Starts the deletion of one-time plans where plans run (PAGE-309).
- *
+ * Starts the deletion of one-time plans where plans run.
  * @param database - The shared database.
- *
  * @remarks
  * The scheduler listens for runs that end as `succeeded` and checks the stored
  * deadlines from the start on, so a deletion that fell due during a restart

@@ -31,7 +31,6 @@ function isMissingFileError(error: unknown): boolean {
 
 /**
  * Reads and writes the TOML configuration file of a Pages instance.
- *
  * @remarks
  * Every write starts from the file as it is on disk, so values an operator
  * added by hand stay in place. Writes go to a temporary file that replaces
@@ -44,7 +43,6 @@ export class ConfigFile {
 
   /**
    * Creates access to one configuration file.
-   *
    * @param filePath - Absolute path of `config.toml`.
    */
   public constructor(filePath: string) {
@@ -58,7 +56,6 @@ export class ConfigFile {
 
   /**
    * Reads the configuration.
-   *
    * @returns The configuration, or `null` when the file does not exist.
    * @throws {ConfigError} When the file is unreadable, no valid TOML, or
    * holds invalid values. The file is never changed in that case.
@@ -71,7 +68,6 @@ export class ConfigFile {
 
   /**
    * Stores a configuration, keeping every other key of the file.
-   *
    * @param config - Settings to store.
    * @throws {ConfigError} When the current file cannot be read or the new
    * one cannot be written.
@@ -82,7 +78,6 @@ export class ConfigFile {
 
   /**
    * Changes the stored configuration based on its current content.
-   *
    * @param change - Derives the new configuration from the stored one.
    * @returns The stored configuration after the change.
    * @throws {ConfigError} When the file is missing, invalid, or cannot be

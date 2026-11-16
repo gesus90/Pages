@@ -4,7 +4,7 @@ export const MANAGEMENT_READ_OPERATIONS = [
   "users_read",
   "groups_read",
 ] as const;
-/** Journaled business administration commands (PAGE-316). */
+/** Journaled business administration commands. */
 export const MANAGEMENT_WRITE_OPERATIONS = [
   "users_create",
   "users_update",

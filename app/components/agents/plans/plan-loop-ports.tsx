@@ -31,7 +31,6 @@ const RIGHT_EDGE = {
 
 /**
  * The entry and the exit of a loop on its container edge.
- *
  * @remarks
  * The outer flow connects to `flow-in` and leaves from `flow-out`. The
  * `inner-in` and `inner-out` handles lie at the same two points; they only

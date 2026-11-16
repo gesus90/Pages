@@ -18,8 +18,7 @@ const HISTORY_MESSAGES = 20;
 const HISTORY_MESSAGE_CHARACTERS = 6_000;
 
 /**
- * How Pica treats the files of the person and the files of its answers (PAGE-92).
- *
+ * How Pica treats the files of the person and the files of its answers.
  * @remarks
  * A file is data like any other content; its transfer status tells what of it
  * the agent actually read, so a cut or missing content is named, not passed
@@ -52,7 +51,7 @@ export interface ChatPromptAttachment {
   readonly fileName: string;
   readonly contentType: string;
   readonly size: number;
-  /** How the content reached the agent, such as `truncated` or `unsupported` (PAGE-92). */
+  /** How the content reached the agent, such as `truncated` or `unsupported`. */
   readonly transfer?: ChatSelectionTransfer;
   /** The start of a text attachment; `null` for files the agent cannot read. */
   readonly text: string | null;
@@ -98,7 +97,7 @@ export interface ChatPromptInput {
   readonly steps: readonly ChatStep[];
   readonly isLastStep: boolean;
   readonly nativeTools?: boolean;
-  /** How the history names the answering agent; `pica` without it (PAGE-266). */
+  /** How the history names the answering agent; `pica` without it. */
   readonly assistantName?: string;
 }
 
@@ -134,7 +133,7 @@ export function selectChatHistory(
     selected.unshift({
       from: message.role === "user" ? "person" : assistantName,
       text,
-      // An answer the person stopped is not taken for a finished one (PAGE-90).
+      // An answer the person stopped is not taken for a finished one.
       ...(message.isStopped === true ? { stopped: true } : {}),
     });
   }
@@ -166,9 +165,9 @@ function describeSearch(canSearchWeb: boolean): string {
  * @remarks
  * Neither the protected files nor the fixed rules can be edited in Pages; the
  * rules bind the agent to the rights of the person, the action protocol and
- * explicit deletion requests (T6.12.5, T6.12.7, PAGE-51). With native
+ * explicit deletion requests. With native
  * tools Pica acts on request without a confirmation, within the rights of the
- * person (PAGE-68). No credential, token or server path appears in the
+ * person. No credential, token or server path appears in the
  * instruction.
  */
 export function createChatInstructions(input: ChatInstructionInput): string {

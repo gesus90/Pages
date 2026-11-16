@@ -1,10 +1,10 @@
-# PageAgentCLI sessions (PAGE-85, PAGE-284)
+# PageAgentCLI sessions
 
-PageAgentCLI is the controlled interface to the session of a plan node. Since
-PAGE-284 every local plan node runs over ACP, whether Claude Code, Codex,
+PageAgentCLI is the controlled interface to the session of a plan node. Every
+local plan node runs over ACP, whether Claude Code, Codex,
 OpenCode or Antigravity, and the plan console shows its stored ACP history in
-the Pages terminal (section "Pages terminal" below). The PTY terminals of
-PAGE-265 are removed. It is no system shell: input reaches only the session
+the Pages terminal (section "Pages terminal" below). The former PTY terminals
+are removed. It is no system shell: input reaches only the session
 of the node, and only from a person who may run the plan. This document
 covers the backend; the plan console is its only surface.
 
@@ -27,7 +27,7 @@ Checked on `task/PAGE-85` (base `e87743b`) before the change:
 A session is addressed by `AgentSessionKey { planId, runId, stepId, attemptId }`.
 Every new record gets a random `attemptId`. Members of an ACP group share the
 process instance but never the attempt, so their turns, events, usage and
-instructions stay apart. Records from before PAGE-85 have no `attemptId`; their
+instructions stay apart. Older records have no `attemptId`; their
 attempt is derived as `instanceId:stepId` and read as legacy.
 
 `requireSessionAttempt` accepts a key only when plan, run, node and attempt
@@ -115,7 +115,7 @@ such, otherwise `unavailable` with a reason (`access_denied`,
 apart (`hasPlanCheckpoint`); it is plan recovery, not native recovery.
 
 Open group sessions are offered as `live` for instructions between turns; a
-single node takes input in its running turn (PAGE-284). Resume, load and
+single node takes input in its running turn. Resume, load and
 reconstruction are decided but no path executes them for plan nodes yet, so
 the view reports them as unavailable instead of offering them.
 
@@ -143,7 +143,7 @@ Context occupancy and token counts are separate values:
   `.size` with source and time; the newest report replaces the one before. A
   zero `used` reads as unknown (Claude reports 0 after an unmeasured
   compaction). Without a limit there is no percentage.
-- Except for the Codex plan path described below (PAGE-362), token counts come from `PromptResponse.usage`, per turn. A missing
+- Except for the Codex plan path described below, token counts come from `PromptResponse.usage`, per turn. A missing
   count is `null`, never 0; nothing is derived from text length or from
   `used/size`.
 - Counting: `per_prompt` reports one prompt; `session_total` reports the
@@ -161,17 +161,17 @@ Context occupancy and token counts are separate values:
   an administrator's model ID mapping where present, then native message cost.
   Each message keeps the catalogue timestamp used for its price.
 
-| Provider (adapter)                    | Counting                                                   | `inputTokens` contains cache reads                    | Partial turns                     | Context (`used`/`size`)                | Cost                                | Load / resume                  |
-| ------------------------------------- | ---------------------------------------------------------- | ----------------------------------------------------- | --------------------------------- | -------------------------------------- | ----------------------------------- | ------------------------------ |
-| Claude Code (`claude-agent-acp`)      | per prompt                                                 | no; total = input + output + cache read + cache write | no                                | last top-level message, cache included | estimate, process total             | resume (transcript on disk)    |
-| Codex (`codex-acp`), plans (PAGE-362) | native cumulative deltas reconciled with ACP prompt deltas | yes                                                   | missing reports marked incomplete | context only, never accounting         | OpenRouter equivalent, subscription | load (replays history), resume |
-| OpenCode (native ACP)                 | per prompt                                                 | not verified (`null`)                                 | yes (last model step only)        | reported by the release source         | estimate, session total             | resume                         |
+| Provider (adapter)               | Counting                                                   | `inputTokens` contains cache reads                    | Partial turns                     | Context (`used`/`size`)                | Cost                                | Load / resume                  |
+| -------------------------------- | ---------------------------------------------------------- | ----------------------------------------------------- | --------------------------------- | -------------------------------------- | ----------------------------------- | ------------------------------ |
+| Claude Code (`claude-agent-acp`) | per prompt                                                 | no; total = input + output + cache read + cache write | no                                | last top-level message, cache included | estimate, process total             | resume (transcript on disk)    |
+| Codex (`codex-acp`), plans       | native cumulative deltas reconciled with ACP prompt deltas | yes                                                   | missing reports marked incomplete | context only, never accounting         | OpenRouter equivalent, subscription | load (replays history), resume |
+| OpenCode (native ACP)            | per prompt                                                 | not verified (`null`)                                 | yes (last model step only)        | reported by the release source         | estimate, session total             | resume                         |
 
 A later surface can show `112k In (3.6m Cache Read) · 1.2k Out` from
 `inputTokens`, `cacheReadTokens` and `outputTokens`; for Claude the cache is
 not part of the input. Codex plan input includes cache; the remaining providers keep their existing counting.
 
-## Claude plan accounting (PAGE-359)
+## Claude plan accounting
 
 Claude plans opt into the ACP adapter's `_claude/sdkMessage` extension for
 `assistant` and `result` messages. Only model IDs, token counters and message
@@ -218,7 +218,7 @@ and have no new Pages budget.
   process, which would end the shared group session, so `cancel("turn")`
   reports `nothing_running` for plan sessions.
 
-## Pages terminal (PAGE-284)
+## Pages terminal
 
 ### One way for every provider
 
@@ -259,7 +259,7 @@ node like `report_step_result` and allowed in read-only sessions. It stores
 the todo states and the activity per run and node in
 `agent_plan_step_progress` (migration 031), so a further attempt of the run
 starts from them; `withPlanProgress` projects them into `step.progress`.
-PAGE-358 initializes all ticket criteria and Markdown checkboxes, including
+Pages initializes all ticket criteria and Markdown checkboxes, including
 node instruction checkboxes, before dispatch. The progress JSON stores the
 contract and iteration scope; earlier array-only rows remain readable. A
 new stack iteration starts with its current ticket, while pause and recovery
@@ -271,7 +271,7 @@ QA-only tasks may be completed with `an die Abschluss-QA übergeben`.
 (`totals`) and node (`nodeTotals`). OpenCode's `openCode` view reports native
 message totals for the node and its full run as messages arrive.
 
-### The TODO list of the CLI (PAGE-306)
+### The TODO list of the CLI
 
 A structured ACP `plan` update is recorded as a `plan` event whose text is
 JSON (`{"entries":[{"content","status"}]}`, at most 40 entries of 200
@@ -283,7 +283,7 @@ of its last change; a plan replaces the list, an unchanged entry keeps its
 time. Text outside this structure is never read as a TODO.
 `withAgentTodos` adds the list as `agentTodos` to every node result of a run,
 loop members included, and `read_plan_run` and `read_plan_run_reports` return
-it. PAGE-358 includes these entries in the step contract as `A` IDs and
+it. Pages includes these entries in the step contract as `A` IDs and
 counts them together with ticket and instruction TODOs. Open work is returned
 to the same native session for up to three corrective turns, before cleanup
 and failure with the remaining TODO texts. Those turns use the existing local
@@ -306,21 +306,21 @@ whether or not tool events were recorded.
   the event history (decision 2); input into a turn on a remote host needs
   an extension of the runner protocol and its job model.
 - Real model turns of Claude Code, Codex and Antigravity in the Pages
-  terminal were not part of the PAGE-284 proof; OpenCode ran end to end.
-- No MCP tool exposes the service. The plan console (PAGE-86) reads and
+  terminal were not part of the terminal proof; OpenCode ran end to end.
+- No MCP tool exposes the service. The plan console reads and
   steers it over `agent-api/plan-runs/:runId/steps/:stepId/session` (view and
   one history page after `after`; POST `send` and `cancel`) and follows it over
   `…/session/events`, a server-sent event stream that resumes from
   `Last-Event-ID`. Both take `planId` and `attemptId` in the query.
 - Standalone nodes close their session right after their turn; their input
-  joins the running turn (PAGE-284). Group members take instructions between
+  joins the running turn. Group members take instructions between
   turns and while a run is paused.
 - Resume, load and reconstructed sessions, a recovery API for failed runs and
   turn-only cancellation (`session/cancel`) are not wired for plan nodes.
 - Codex's cache counting and OpenCode's are not verified against adapter
   sources in this change.
 
-## Codex plan accounting (PAGE-362, 14 November 2026)
+## Codex plan accounting (14 November 2026)
 
 This path applies only to `codex_cli` plan nodes. Claude Code, Pica chat and
 other providers retain their existing usage and cost paths. Session control,
@@ -395,7 +395,7 @@ valuations; only known amounts contribute to the numeric budget sum.
 
 ### Local evidence and limits
 
-The PAGE-362 functional tests use mocked filesystem, HTTP and SQL boundaries;
+The functional tests use mocked filesystem, HTTP and SQL boundaries;
 no real MCP process, provider, database or server is started. They cover native
 field parsing, partial lines, live polling and cleanup, prompt normalization,
 thread deltas and replay, delayed native records, durable resumed baselines,

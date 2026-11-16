@@ -32,7 +32,6 @@ export class UserService {
 
   /**
    * Creates a user service.
-   *
    * @param userRepository - User persistence boundary.
    * @param permissionService - Role and permission authorization boundary.
    * @param administration - Current configurable-role policies used by the running application.
@@ -49,7 +48,6 @@ export class UserService {
 
   /**
    * Returns the user with the given identifier.
-   *
    * @param id - User identifier.
    * @returns The user, or `null` when no user exists.
    */
@@ -59,7 +57,6 @@ export class UserService {
 
   /**
    * Returns every user, ordered by display name.
-   *
    * @param actor - User requesting the list.
    * @throws {UserManagementDeniedError} When the actor may not view users.
    */
@@ -89,7 +86,6 @@ export class UserService {
 
   /**
    * Returns the stored email addresses for the given users.
-   *
    * @param actor - User requesting the addresses.
    * @param userIds - Identifiers of the users to look up.
    * @returns Email addresses keyed by user identifier, `null` when unset.
@@ -118,10 +114,8 @@ export class UserService {
 
   /**
    * Returns the stored email address of a single user.
-   *
    * @param userId - Identifier of the user to look up.
    * @returns The email address, or `null` when unset.
-   *
    * @remarks
    * Intended for a user reading their own profile, so no permission check is
    * applied; callers must not use it to look up other users' addresses.
@@ -134,7 +128,6 @@ export class UserService {
 
   /**
    * Updates the professional profile values of the authenticated user.
-   *
    * @param actor - Authenticated user updating their own profile.
    * @param profile - New display name, username, email, and role.
    * @throws {UserManagementDeniedError} When the actor is not an administrator.
@@ -145,7 +138,6 @@ export class UserService {
    * requested role.
    * @throws {LastAdministratorError} When the change would leave no active
    * administrator.
-   *
    * @remarks
    * Text and role changes are an administrative operation, even when an
    * administrator edits their own profile. Ordinary users keep a read-only
@@ -216,10 +208,8 @@ export class UserService {
 
   /**
    * Replaces the custom avatar image of a user with their own picture.
-   *
    * @param userId - Identifier of the user updating their own avatar.
    * @param avatar - Image binary, metadata, and avatar reference values.
-   *
    * @remarks
    * Deliberately separate from {@link updateOwnProfile}: every authenticated
    * user may change their own avatar, while display name, username, email,
@@ -241,7 +231,6 @@ export class UserService {
 
   /**
    * Returns a user's stored custom avatar image.
-   *
    * @param userId - Identifier of the user whose avatar is requested.
    */
   public async getAvatar(userId: string): Promise<StoredUserAvatar | null> {
@@ -250,7 +239,6 @@ export class UserService {
 
   /**
    * Returns what identifies a user's stored avatar image, without the image.
-   *
    * @param userId - Identifier of the user whose avatar is asked for.
    */
   public async getAvatarDigest(
@@ -261,7 +249,6 @@ export class UserService {
 
   /**
    * Persistently replaces a user's custom avatar image.
-   *
    * @param userId - Identifier of the user.
    * @param avatar - Image binary and metadata.
    */
@@ -274,10 +261,8 @@ export class UserService {
 
   /**
    * Replaces the stored password hash of a user.
-   *
    * @param userId - Identifier of the user being changed.
    * @param passwordHash - Newly computed password hash.
-   *
    * @remarks
    * Intended for password changes the caller initiates on behalf of the
    * authenticated user themselves; the business administration role cannot
@@ -299,7 +284,6 @@ export class UserService {
 
   /**
    * Returns the credentials stored for a username.
-   *
    * @param username - Username entered during login.
    * @returns The credentials, or `null` when no user exists.
    */
@@ -311,7 +295,6 @@ export class UserService {
 
   /**
    * Creates a user on behalf of an authorized actor.
-   *
    * @param actor - User performing the creation.
    * @param user - User values including the password hash.
    * @throws {UserManagementDeniedError} When the actor may not manage users.
@@ -320,7 +303,7 @@ export class UserService {
    * @throws {UsernameTakenError} When the username is already in use.
    */
   public async createUser(actor: User, user: NewUser): Promise<void> {
-    // Fixed-role creation cannot represent A2 role IDs or generated onboarding credentials.
+    // Fixed-role creation cannot represent role IDs or generated onboarding credentials.
     if (this.administration) throw new UserManagementDeniedError();
     if (
       !this.permissionService.hasPermission(actor.role, PERMISSION.MANAGE_USERS)
@@ -360,7 +343,6 @@ export class UserService {
 
   /**
    * Activates or deactivates a user on behalf of an authorized actor.
-   *
    * @param actor - User performing the change.
    * @param targetUserId - Identifier of the user being changed.
    * @param isActive - Whether the user should be able to sign in.
@@ -394,7 +376,6 @@ export class UserService {
 
   /**
    * Replaces the basic profile values of a user.
-   *
    * @param actor - User performing the change.
    * @param targetUserId - Identifier of the user being changed.
    * @param profile - New display name, username, and email.
@@ -435,7 +416,6 @@ export class UserService {
 
   /**
    * Replaces the role of a user.
-   *
    * @param actor - User performing the change.
    * @param targetUserId - Identifier of the user being changed.
    * @param role - New role to assign.
@@ -473,11 +453,9 @@ export class UserService {
 
   /**
    * Replaces the password of a user with a generated temporary password.
-   *
    * @remarks
    * The plain-text password is returned exactly once so the requesting
    * administrator can hand it over; only its hash is persisted.
-   *
    * @param actor - User performing the reset.
    * @param targetUserId - Identifier of the user being changed.
    * @param passwordHasher - Hasher used for the new password.
@@ -504,7 +482,6 @@ export class UserService {
 
   /**
    * Loads the user an actor wants to change and checks the actor may do so.
-   *
    * @param actor - User performing the change.
    * @param targetUserId - Identifier of the user being changed.
    * @returns The target user.

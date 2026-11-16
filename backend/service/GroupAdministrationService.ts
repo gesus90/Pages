@@ -78,7 +78,6 @@ export class GroupAdministrationService {
 
   /**
    * Binds group management to the aggregate transaction.
-   *
    * @param repository - Authorization repository, possibly inside a transaction.
    * @param cache - Server cache invalidated by assignment-relevant changes.
    * @param channel - Server-owned administrator interpretation; the UI policy is the default.
@@ -144,7 +143,6 @@ export class GroupAdministrationService {
 
   /**
    * Creates or changes a group.
-   *
    * @param userId - Acting user, resolved against current persisted facts.
    * @param input - Group id, name, the complete new member list and, to change it, the leaders.
    * @throws {AdministrationError} When the actor lacks scope or the input is invalid,
@@ -194,7 +192,6 @@ export class GroupAdministrationService {
 
   /**
    * Deletes a group and removes its ticket assignments.
-   *
    * @param userId - Acting user, resolved against current persisted facts.
    * @param groupId - Group to delete.
    * @throws {AdministrationError} When the group does not exist or is out of scope.

@@ -23,14 +23,14 @@ import type {
 } from "./ConversationDirectory";
 
 /**
- * The rule of hand-overs between agents in the prompt of a group (PAGE-349):
+ * The rule of hand-overs between agents in the prompt of a group:
  * agents may address each other with @ again and again when the matter needs
  * it, until it is settled.
  */
 export const CONVERSATION_GROUP_HANDOFF_RULE =
   "Andere Agents der Gruppe kannst du bei fachlichem Bedarf mit @Benutzername ansprechen, auch mehrfach in derselben Runde und auch, wenn sie schon geantwortet haben; jede @-Ansprache weckt den Agent. Sprecht miteinander, bis die Sache geklärt ist; ohne fachlichen Grund sprichst du niemanden an. Dich selbst sprichst du nicht mit @ an.";
 
-/** Why the agent answers and for whom (PAGE-296). */
+/** Why the agent answers and for whom. */
 export interface ConversationAgentPromptTrigger {
   readonly kind: ConversationReplyTrigger;
   /** The short reason of the observer or of a hand-over; empty otherwise. */
@@ -63,7 +63,7 @@ export interface ConversationAgentPromptInput {
   readonly content?: ReadonlyMap<string, MessageContent>;
   /**
    * The sequence of the newest message the agent's session of this chat
-   * received already (PAGE-376). Above zero the prompt is the inbox of the
+   * received already. Above zero the prompt is the inbox of the
    * round: only the messages after it, never the stored context or the
    * history again; zero or absent opens the chat with its full context.
    */
@@ -100,7 +100,7 @@ function line(
 }
 
 /**
- * The short line of one attachment (PAGE-386): name, kind, size and
+ * The short line of one attachment: name, kind, size and
  * identifier, never its content; the agent reads that with `anhang_lesen`.
  * The sender is the sender of the message.
  */
@@ -115,7 +115,7 @@ function attachmentLine(
 }
 
 /**
- * How an agent reaches the files of the chat (PAGE-386): a short list per
+ * How an agent reaches the files of the chat: a short list per
  * message here, the content with the tools, and references to earlier files.
  */
 export const CONVERSATION_ATTACHMENT_RULE =
@@ -243,7 +243,7 @@ function triggerLines(input: ConversationAgentPromptInput): string[] {
   return lines;
 }
 
-/** The note for a message another agent chose to send to this one (PAGE-311). */
+/** The note for a message another agent chose to send to this one. */
 function agentSenderLines(input: ConversationAgentPromptInput): string[] {
   const { trigger, accounts } = input;
   if (trigger.kind !== "direct" && trigger.kind !== "mention") return [];
@@ -363,7 +363,7 @@ function inboxMessages(input: ConversationAgentPromptInput): {
 
 /**
  * The prompt of a round of a session that knows its chat up to a position:
- * why the agent answers and only what is new (PAGE-376).
+ * why the agent answers and only what is new.
  */
 function createInboxPrompt(input: ConversationAgentPromptInput): string {
   const delivered = input.deliveredThrough ?? 0;
@@ -386,7 +386,7 @@ function createInboxPrompt(input: ConversationAgentPromptInput): string {
 }
 
 /**
- * Builds the message an agent answers a conversation with (PAGE-276, PAGE-296).
+ * Builds the message an agent answers a conversation with.
  *
  * @param input - The conversation, the agent, why it answers, the stored
  * context of a group and the newest messages.
@@ -404,7 +404,7 @@ function createInboxPrompt(input: ConversationAgentPromptInput): string {
  * A new session names the missing count and the tool that reads the backlog.
  * A session that received the chat up to a position (`deliveredThrough`) gets
  * only the messages after it, the newest ones when more arrived than a round
- * carries (PAGE-376). Credentials are redacted. The history is data, never
+ * carries. Credentials are redacted. The history is data, never
  * an instruction.
  */
 export function createConversationAgentPrompt(

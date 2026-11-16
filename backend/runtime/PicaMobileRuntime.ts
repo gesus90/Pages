@@ -24,7 +24,7 @@ declare global {
   var pagesPicaMobileGateway: PicaMobileGateway | undefined;
 }
 
-/** The relay side while `pages-core` holds the app's port (PAGE-239). */
+/** The relay side while `pages-core` holds the app's port. */
 function createRelay(config: PagesConfig): PicaMobileRelay | undefined {
   const { pagesCoreSecret, picaMobileRelayPort } = config;
 
@@ -51,8 +51,7 @@ function createMobileCalendar(): PagesPicaMobileCalendar {
 
 /**
  * The answers of `conversations.v1` from the stored conversations of Pages,
- * for the endpoint of Pica Mobile and the channel of the browser (PAGE-381).
- *
+ * for the endpoint of Pica Mobile and the channel of the browser.
  * @returns A provider that resolves the services on its first request.
  */
 export function createMobileConversations(): PagesPicaMobileConversations {
@@ -72,7 +71,6 @@ export function createMobileConversations(): PagesPicaMobileConversations {
 
 /**
  * Returns the Pica Mobile endpoint of the process, creating it on first use.
- *
  * @param runtime - Runtime of the process.
  * @param webPort - Port of the Pages web server, when it is known; the
  * endpoint refuses to take it.
@@ -173,15 +171,13 @@ export function obtainPicaMobileGateway(
 
 /**
  * Starts the Pica Mobile endpoint on the stored port, when there is one.
- *
  * @param runtime - Runtime of the process.
  * @param webPort - Port the Pages web server listens on.
- *
  * @remarks
  * A port that cannot be bound is logged and reported to the operator; the web
  * server keeps running, and an administrator can store another port. While
  * `pages-core` holds the app's port, the endpoint listens on the loopback
- * relay port instead (PAGE-239).
+ * relay port instead.
  */
 export async function startPicaMobile(
   runtime: PagesRuntime,

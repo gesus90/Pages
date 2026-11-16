@@ -11,11 +11,9 @@ export interface HexDraft {
 
 /**
  * Keeps the text typed into the HEX field next to the picked color.
- *
  * @remarks
  * A stale draft follows external changes (presets, pad, slider), but an
  * invalid draft is the user mid-typing and must never be overwritten.
- *
  * @param color - The picked color the draft follows.
  * @param onChange - Receives the normalized color once the draft is valid.
  */

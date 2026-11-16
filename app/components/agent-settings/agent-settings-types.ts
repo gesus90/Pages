@@ -2,7 +2,6 @@ import type { AgentChatKind } from "@/definition/AgentChatSession";
 
 /**
  * The chat a person opened the popup from, so its row stands out in the table.
- *
  * @remarks
  * A chat is named by its kind and ID: the ID of the group's conversation, or
  * of the person of a direct chat. A caller that does not know that ID, such

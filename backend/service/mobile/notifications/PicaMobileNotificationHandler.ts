@@ -36,7 +36,6 @@ const COMPONENT = "PicaMobileNotificationHandler";
 
 /**
  * Answers the messages of `notifications.v1` for one connection.
- *
  * @remarks
  * Without a provider the notification messages are unknown. They need an
  * authenticated connection, and every answer is derived from the account the
@@ -48,7 +47,6 @@ export class PicaMobileNotificationHandler {
 
   /**
    * Creates the handler.
-   *
    * @param provider - The business answers; none: the messages are unknown.
    * @param host - The connection the handler answers on.
    */
@@ -62,7 +60,6 @@ export class PicaMobileNotificationHandler {
 
   /**
    * Handles one notification message.
-   *
    * @param message - A message that passed every check of its payload.
    */
   public async handle(

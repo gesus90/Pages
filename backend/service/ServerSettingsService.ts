@@ -37,7 +37,6 @@ export class ServerSettingsDeniedError extends Error {
 
 /**
  * Reads and changes the server settings stored in the configuration file.
- *
  * @remarks
  * Changes are written to `config.toml`. ACP admission and log retention apply
  * immediately; the port applies after restart and start parameters still win.
@@ -52,7 +51,6 @@ export class ServerSettingsService {
 
   /**
    * Creates the service.
-   *
    * @param configFile - Configuration file of the instance.
    * @param permissionService - Decides who may change the settings.
    */
@@ -66,7 +64,6 @@ export class ServerSettingsService {
 
   /**
    * Tells whether a user may see and change the server settings.
-   *
    * @param actor - The signed-in user.
    */
   public async canManage(actor: User): Promise<boolean> {
@@ -144,8 +141,7 @@ export class ServerSettingsService {
 
   /**
    * Checks the ACP reservations of this service and, only after a confirmed
-   * preview, releases those whose end is still proven (PAGE-340).
-   *
+   * preview, releases those whose end is still proven.
    * @param actor - The signed-in user; must manage the instance.
    * @param scheduler - The scheduler of this service process.
    * @param request - A preview, or a cleanup of the confirmed reservations.

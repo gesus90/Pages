@@ -19,7 +19,6 @@ const RIGHTS: readonly PlanTeamRight[] = ["canRead", "canEdit", "canRun"];
 
 /**
  * The teams of the plan, one row each, with the rights read, change and run.
- *
  * @remarks
  * Changing or running implies reading; the checkboxes follow that rule. A
  * team the directory no longer knows keeps its identifier as its name, so it

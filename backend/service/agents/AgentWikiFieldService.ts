@@ -131,14 +131,12 @@ export class AgentWikiFieldService {
 
   /**
    * Runs one granular page operation for the owner of a verified credential.
-   *
    * @param identity - The verified owner of the operation.
    * @param operation - `wiki.page.setTitle`, `wiki.page.setContent`, `wiki.page.patchContent`,
    * `wiki.page.setIcon`, `wiki.page.setCover` or `wiki.page.move`.
    * @param parameters - The raw operation parameters.
    * @returns The stored result; a repeated operation ID returns it unchanged.
    * @throws {AgentOperationError} `INVALID_REQUEST`, `FORBIDDEN`, `NOT_FOUND` or `CONFLICT`.
-   *
    * @remarks
    * Rights and visibility are resolved anew inside the transaction. The order is fixed so
    * that a hidden page is indistinguishable from a missing one: write right, then

@@ -52,8 +52,7 @@ const KIND_STYLES: Readonly<
 };
 
 /**
- * The colored tile with the icon of an entry's kind (PAGE-272).
- *
+ * The colored tile with the icon of an entry's kind.
  * @remarks
  * The colors are theme tokens with a light and a dark value; the kind is
  * named in `data-kind`, so the tile stays checkable without its color.

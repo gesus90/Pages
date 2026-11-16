@@ -145,7 +145,6 @@ function toDetails(
 
 /**
  * Sends the pending pushes of the outbox.
- *
  * @remarks
  * It runs beside the execution of plans and never in its path: a slow, failing
  * or unconfigured push service changes no run, starts no job and blocks
@@ -170,7 +169,6 @@ export class PicaMobileNotificationDispatcher {
 
   /**
    * Creates the dispatcher; it sends once {@link PicaMobileNotificationDispatcher.start} ran.
-   *
    * @param options - Storage, rights checks and the sender.
    */
   public constructor(options: PicaMobileNotificationDispatcherOptions) {
@@ -190,7 +188,6 @@ export class PicaMobileNotificationDispatcher {
 
   /**
    * Stops taking new work and waits for the pass that is running.
-   *
    * @remarks
    * It waits a few seconds at most, so a push service that hangs cannot hold
    * up the shutdown of Pages. A send that is still under way when the

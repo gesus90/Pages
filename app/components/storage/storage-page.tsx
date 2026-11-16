@@ -178,18 +178,16 @@ function StorageActionBar({
 
 /**
  * The frame of the Storage area.
- *
  * The section fills the width beside the global navigation and the height
  * down to the bottom padding of the frame (`2.5rem`); only the list inside the
  * card scrolls, menu bar, column heads and footer stay. Its own bottom
- * padding keeps the card just above the Pica launcher (PAGE-272), so the
+ * padding keeps the card just above the Pica launcher, so the
  * launcher never covers it, also while the list scrolls or the window
  * changes: on tablets and desktops the launcher takes `1rem` offset and a
  * `3.5rem` button, and the card ends `0.75rem` above it (`5.25rem` above the
  * viewport bottom); on phones, where the launcher sits `4rem` up, it ends
  * `8.25rem` above the bottom. The safe-area inset the launcher adds is added
  * here as well.
- *
  * The bottom padding sits outside the inner column, which scrolls when the
  * notices above the card need more room than a phone has: nothing scrolls
  * through the free space of the launcher, so it covers no part of the card
@@ -242,7 +240,7 @@ function StorageLoadedControls(props: {
 }
 
 /**
- * The Storage area (PAGE-188): the Google Drive of the existing instance
+ * The Storage area: the Google Drive of the existing instance
  * connection, with path, file list, start folder and storage quota.
  */
 export function StoragePage(): React.ReactElement {
@@ -252,7 +250,7 @@ export function StoragePage(): React.ReactElement {
   const [isPickerOpen, setIsPickerOpen] = useState(false);
   const [isTrashOpen, setIsTrashOpen] = useState(false);
   // While another folder loads, the former one keeps header, toolbar and card
-  // in place (PAGE-279); the card shows it inert.
+  // in place; the card shows it inert.
   const result =
     model.reading.kind === "loaded"
       ? model.reading.result

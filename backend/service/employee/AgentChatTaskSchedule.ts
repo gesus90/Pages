@@ -199,7 +199,7 @@ function describeDays(
 
 /**
  * Names when a task runs in plain language: "Morgen, 16.11., 9:00 Uhr",
- * "Alle 2 Stunden" or "Jeden Montag um 9:00 Uhr" (PAGE-392).
+ * "Alle 2 Stunden" or "Jeden Montag um 9:00 Uhr".
  *
  * @param trigger - The trigger of the task.
  * @param context - The clock and the language of the person who asked;

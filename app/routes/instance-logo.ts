@@ -4,7 +4,6 @@ import type { Route } from "./+types/instance-logo";
 
 /**
  * Policy of the logo response.
- *
  * @remarks
  * The logo is meant to be shown in an `img` element. Should someone open its
  * address directly, an SVG still runs no script and loads nothing.
@@ -14,7 +13,6 @@ const LOGO_CONTENT_SECURITY_POLICY =
 
 /**
  * Returns the company logo as a binary response.
- *
  * @remarks
  * Open to visitors without a session, because the login page shows the logo.
  * Who may reach that page is up to the network setup around Pages.

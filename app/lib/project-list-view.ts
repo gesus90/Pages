@@ -37,7 +37,6 @@ export interface ProjectListView {
 
 /**
  * Status rank used for status sorting.
- *
  * @remarks
  * Active projects come first and completed projects last so the most
  * relevant work stays on top; the reversed order flips this ranking.
@@ -87,7 +86,6 @@ function matchesSearch(project: Project, query: string): boolean {
 
 /**
  * Selects and orders the projects the overview shows.
- *
  * @param projects - All projects the visitor may see.
  * @param view - The status filter, the search text and the sort order.
  * @returns A new list; the given projects stay untouched.

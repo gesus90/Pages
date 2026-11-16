@@ -33,7 +33,6 @@ export function errorCode(error: unknown): string {
 
 /**
  * The closeout of a failed loop member from the session that was closed with it.
- *
  * @returns `null` outside loops and where nothing is known. A turn that only
  * continued a shared session started no process; once that session is gone
  * its own closeout is `not_needed`, the session's closeout lives in the
@@ -77,7 +76,6 @@ export function planAcceptanceFailure(
 
 /**
  * What a valid report that shows unmet work is called: not passed.
- *
  * @remarks
  * A report that is missing, unreadable, unproven or contradicted by the
  * tickets stays a failed acceptance, never a `false`: a boolean result needs
@@ -103,7 +101,6 @@ export interface PlanAcceptanceOutcome {
 
 /**
  * Judges a node's acceptance, reporting `false` instead of a failure where a decision reads it.
- *
  * @param node - The node and whether a decision reads its boolean result.
  * @param acceptance - The reconciled report of the turn.
  */

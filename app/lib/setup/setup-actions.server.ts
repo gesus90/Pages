@@ -217,12 +217,10 @@ function isSetupIntent(value: unknown): value is SetupIntent {
 
 /**
  * Runs the setup request a wizard form submits.
- *
  * @param runtime - Runtime of the process.
  * @param request - The submitted request.
  * @returns The answer for the wizard.
  * @throws A `400` response for an unknown intent.
- *
  * @remarks
  * Every request needs the setup token. Once the setup finished, every
  * request is refused, so the wizard cannot run twice.

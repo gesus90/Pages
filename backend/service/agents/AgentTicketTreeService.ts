@@ -109,12 +109,10 @@ export class AgentTicketTreeService {
 
   /**
    * Reads the hierarchy of a project, or the path and subtree of one ticket.
-   *
    * @param identity - The verified owner of the call.
    * @param parameters - The raw operation parameters: `projectId` and/or `ticketId`, `cursor` and `limit`.
    * @returns The requested ticket with its visible ancestors, and one page of nodes.
    * @throws {AgentOperationError} `INVALID_REQUEST`, `NOT_FOUND` or `PAYLOAD_TOO_LARGE`.
-   *
    * @remarks
    * Only visible active tickets appear, with their counts. A parent the
    * account cannot see reads as no parent, and the path ends there. Nodes are

@@ -64,12 +64,10 @@ export class AgentTicketSearchService {
 
   /**
    * Searches the visible tickets of one project, active by default or archived with `archived: true`.
-   *
    * @param identity - The verified owner of the call.
    * @param parameters - The raw operation parameters: `projectId`, optional filters, `cursor` and `limit`.
    * @returns One page of matching tickets with the number of all visible matches.
    * @throws {AgentOperationError} `INVALID_REQUEST`, `NOT_FOUND` or `PAYLOAD_TOO_LARGE`.
-   *
    * @remarks
    * The text matches key, title and description. Hidden tickets are neither
    * listed nor counted, and every filter value must be something the account

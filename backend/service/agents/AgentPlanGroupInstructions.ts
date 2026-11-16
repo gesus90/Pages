@@ -43,7 +43,6 @@ export interface GroupInstructionOffer {
 
 /**
  * Offers the open group session of a member for the executor's instructions.
- *
  * @remarks
  * An instruction becomes a turn of its own in the group's queue: after the
  * member's turn and before any later member, with the instruction as its only
@@ -100,8 +99,7 @@ export function offerGroupInstructions(offer: GroupInstructionOffer): void {
 
 /**
  * Lets the executor type into and interrupt the running turn of a single
- * agent node, the same way for every provider (PAGE-284).
- *
+ * agent node, the same way for every provider.
  * @param sessions - The PageAgentCLI sessions that take the offer.
  * @param node - The node whose record names the attempt and the process.
  * @param session - The running session of the node.

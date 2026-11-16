@@ -56,7 +56,6 @@ export interface VisibleCalendarEvent {
 
 /**
  * Reads the range a client asked for.
- *
  * @param from - A date (start of that day) or an instant.
  * @param to - A date (end of that day, inclusive) or an instant (exclusive).
  * @param timeZone - The zone of the viewer.
@@ -94,13 +93,12 @@ export function readCalendarWindow(
   };
 }
 
-/** Reads entries, events, targets and counts of the calendar (PAGE-301). */
+/** Reads entries, events, targets and counts of the calendar. */
 export class CalendarReader {
   private readonly dependencies: CalendarDependencies;
 
   /**
    * Creates the reader.
-   *
    * @param dependencies - Repositories and services.
    */
   public constructor(dependencies: CalendarDependencies) {
@@ -109,7 +107,6 @@ export class CalendarReader {
 
   /**
    * Lists the entries of a window as the viewer's calendar shows them.
-   *
    * @param viewer - The account.
    * @param window - The range.
    * @param kinds - Calendars to include; all without a filter.
@@ -134,7 +131,6 @@ export class CalendarReader {
 
   /**
    * Returns a stored event the viewer may see or change.
-   *
    * @param viewer - The account.
    * @param eventId - The event; an occurrence id names its series.
    * @throws {CalendarError} `not_found` for a missing, deleted or invisible event.
@@ -156,7 +152,6 @@ export class CalendarReader {
 
   /**
    * Builds the entry of one occurrence, or of the first one of a series.
-   *
    * @param viewer - The account.
    * @param visible - The event and its people.
    * @param key - The stored key of an occurrence; `null` for the start.
@@ -186,7 +181,6 @@ export class CalendarReader {
 
   /**
    * Builds the detail view of a stored event.
-   *
    * @param viewer - The account.
    * @param visible - The event and its people.
    */
@@ -239,7 +233,6 @@ export class CalendarReader {
 
   /**
    * Counts the future events the viewer is invited to and has not answered.
-   *
    * @param viewer - The account.
    */
   public async countOpenInvitations(viewer: CalendarViewer): Promise<number> {
@@ -270,7 +263,6 @@ export class CalendarReader {
 
   /**
    * Lists the calendars the viewer can put a new event into.
-   *
    * @param viewer - The account.
    */
   public async targets(viewer: CalendarViewer): Promise<CalendarTarget[]> {
@@ -291,7 +283,6 @@ export class CalendarReader {
 
   /**
    * Returns the fixed facts a client needs before it changes something.
-   *
    * @param viewer - The account.
    */
   public async options(viewer: CalendarViewer): Promise<CalendarOptions> {
@@ -307,7 +298,6 @@ export class CalendarReader {
 
   /**
    * Tells whether the viewer sees a stored event.
-   *
    * @param viewer - The account.
    * @param event - The event.
    * @param people - Its people.
@@ -328,7 +318,6 @@ export class CalendarReader {
 
   /**
    * Returns the names of the projects of events.
-   *
    * @param viewer - The account; its member projects are known.
    * @param events - The events.
    */

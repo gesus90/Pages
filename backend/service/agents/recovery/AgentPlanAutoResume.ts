@@ -43,7 +43,6 @@ interface AutoResumeDependencies {
 
 /**
  * How the retried work of a run may continue, or why it may not.
- *
  * @remarks
  * Only a native session keeps what an agent did. A new session is safe only
  * where no tool ran. A script or a loop cannot prove either, because their
@@ -71,12 +70,10 @@ function resumeMode(
 
 /**
  * Decides on the current facts whether the run continues, and how.
- *
  * @param facts - The rights-checked facts of the interrupted run.
  * @param revision - The recovery revision of the run.
  * @param attempt - Which automatic continuation this is.
  * @returns The resume command, or the reason nothing starts.
- *
  * @remarks
  * Whatever is not a pure interruption stays with a person: another failure of
  * the run, a plan that changed since its start, and every option a resume would
@@ -111,7 +108,7 @@ function failureCode(error: unknown): string {
 }
 
 /**
- * Continues runs a server restart interrupted, at most three times per chain of runs (PAGE-210).
+ * Continues runs a server restart interrupted, at most three times per chain of runs.
  *
  * @remarks
  * Only runs this version recorded as interrupted are taken up, so the runs

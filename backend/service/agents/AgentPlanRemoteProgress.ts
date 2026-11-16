@@ -12,7 +12,6 @@ const OBSERVATION_STALE_MILLISECONDS = 45_000;
 
 /**
  * Adds current transport health to confirmed job facts without mutating the stored execution state.
- *
  * @param run - The plan run whose remote steps are observed.
  * @param runners - The runner view that reports the progress of each remote job.
  * @returns A copy of the run with the observed remote facts on its steps.

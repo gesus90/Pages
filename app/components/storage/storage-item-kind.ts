@@ -1,4 +1,4 @@
-/** The kinds of entries the Storage list shows with an icon of their own (PAGE-272). */
+/** The kinds of entries the Storage list shows with an icon of their own. */
 export type StorageItemKind =
   | "folder"
   | "document"
@@ -173,7 +173,6 @@ function kindOfExtension(name: string): StorageItemKind {
 
 /**
  * Names the kind of an entry for its icon.
- *
  * @param entry - Whether it is a folder, its MIME type and its name.
  * @returns The kind by the MIME type; when Drive reports only generic bytes,
  * by the file ending; otherwise `file`.

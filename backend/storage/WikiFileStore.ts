@@ -33,7 +33,6 @@ export class FileTooLargeError extends Error {
 export interface WriteOptions {
   /**
    * Called once with the start of the file, to say how large it may be.
-   *
    * @returns The limit in bytes for this file.
    */
   readonly limitFor: (head: Buffer) => number;
@@ -43,7 +42,6 @@ export interface WriteOptions {
 
 /**
  * Keeps wiki attachments as files in one directory.
- *
  * @remarks
  * Names are picked by the server and never come from a user, so a path
  * cannot be steered outside the directory.
@@ -53,7 +51,6 @@ export class WikiFileStore {
 
   /**
    * Creates a file store.
-   *
    * @param directory - Directory that holds the files; created when needed.
    */
   public constructor(directory: string) {
@@ -62,7 +59,6 @@ export class WikiFileStore {
 
   /**
    * Streams a file to the disk while counting, hashing and limiting it.
-   *
    * @param source - The bytes of the file.
    * @param options - The size limit rules.
    * @returns Where the file lies and what it is.

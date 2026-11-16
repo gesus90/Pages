@@ -302,7 +302,7 @@ const GROUP_COLUMNS: Readonly<
   },
 };
 
-/** Stores the classified failures of runs and answers the lists over them (PAGE-307). */
+/** Stores the classified failures of runs and answers the lists over them. */
 export class AgentRunFailureRepository {
   private readonly database: Pick<Database, "query" | "transaction">;
 

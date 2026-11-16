@@ -28,7 +28,7 @@ export function isAutomationPageData(
   );
 }
 
-/** Reads the automations, their runs and the options (PAGE-297). */
+/** Reads the automations, their runs and the options. */
 export function clientLoader({
   request,
 }: Route.ClientLoaderArgs): Promise<AutomationPageData> {

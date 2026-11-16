@@ -13,13 +13,12 @@ import type {
 } from "./settings-action-support.server";
 
 /**
- * Changes the supplementary instruction of the chat (T6.12.8);
+ * Changes the supplementary instruction of the chat;
  * administrators in the admin mode only.
- *
  * @remarks
- * The attachment limit is fixed and any submitted value is ignored (PAGE-251).
+ * The attachment limit is fixed and any submitted value is ignored.
  * `resetInstruction` removes the supplement; Pica's protected `SOUL.md` and
- * `AGENTS.md` are not part of the form (PAGE-51). Neither the supplement nor
+ * `AGENTS.md` are not part of the form. Neither the supplement nor
  * any other content of the form is logged.
  */
 export const handleUpdateChatSettings: SettingsActionHandler = async ({

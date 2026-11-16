@@ -46,7 +46,7 @@ const RECOGNIZABLE_KINDS: ReadonlySet<AgentAttachmentKind> = new Set([
   "text",
 ]);
 
-/** What an agent searches the attachments of its chat by (PAGE-386). */
+/** What an agent searches the attachments of its chat by. */
 export interface AgentAttachmentQuery {
   /** A part of the file name. */
   readonly name?: string;
@@ -118,7 +118,7 @@ function senderLabel(accounts: ConversationAccounts, senderId: string): string {
 }
 
 /**
- * The attachments of a chat for its agents (PAGE-386): listing, searching and
+ * The attachments of a chat for its agents: listing, searching and
  * reading, also of messages the agent was not addressed in and of files other
  * agents sent.
  *

@@ -17,7 +17,6 @@ function iterationOf(
 
 /**
  * Builds the checkpoints of the iterations that completed since the last write.
- *
  * @param previous - The run as it was stored.
  * @param run - The run about to be stored.
  * @returns One checkpoint per iteration that is `succeeded` now and was not before.
@@ -66,7 +65,6 @@ export function loopIterationCheckpoints(
 
 /**
  * Refuses to change an iteration that already succeeded.
- *
  * @param previous - The run as it was stored.
  * @param run - The run about to be stored.
  * @param digest - The digest of the work of a node, which leaves out only

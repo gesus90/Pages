@@ -16,7 +16,7 @@ export interface AcpOpenRequest {
     lifecycle: AcpStartLifecycle,
   ) => Promise<PlanSession>;
   readonly observer?: PlanSessionObserver;
-  /** Gives up waiting for a place after this long, without taking one (PAGE-313). */
+  /** Gives up waiting for a place after this long, without taking one. */
   readonly deadlineMs?: number;
 }
 
@@ -31,8 +31,7 @@ export interface WaitingRequest {
 }
 
 /**
- * No ACP place became free before the deadline of the request (PAGE-313).
- *
+ * No ACP place became free before the deadline of the request.
  * @remarks
  * The request left the queue without taking a place, so nothing has to be
  * released; the caller reports its session as not started.
@@ -46,7 +45,6 @@ export class AcpAdmissionTimeoutError extends Error {
 
 /**
  * Puts a request into the FIFO queue of the scheduler.
- *
  * @param queue - The waiting list of the scheduler and how to wake it.
  * @param owner - The session that asks for a place.
  * @param signal - Cancels the request while it waits.

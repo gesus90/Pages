@@ -18,7 +18,6 @@ interface WikiPageCoverProps {
 
 /**
  * Draws a cover: a prepared gradient or an image of the page.
- *
  * @param props - The cover and the classes of its frame.
  * @returns The cover surface.
  */

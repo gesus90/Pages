@@ -40,7 +40,6 @@ const MAXIMUM_CACHED_AVATARS = 128;
 /**
  * The avatar images Pica Mobile delivers: the current image of the account
  * that asks, shrunk to the protocol limit.
- *
  * @remarks
  * The version is a digest of the stored image, so it changes exactly when the
  * image does and two uploads within one second never share one. The shrunk
@@ -56,7 +55,6 @@ export class PicaMobileAvatars {
 
   /**
    * Reads the current avatar of an account.
-   *
    * @param source - The user storage.
    * @param user - The account, as the session resolves it right now.
    * @returns The avatar, or `null` when the account has no image avatar or its

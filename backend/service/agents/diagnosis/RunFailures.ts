@@ -68,7 +68,6 @@ function failureOf(
 
 /**
  * Lists the failed steps of a run, loop members included, oldest first.
- *
  * @param run - The stored run; its content may be hidden, the codes stay.
  * @remarks
  * A loop that failed because one of its members failed is not counted a
@@ -109,7 +108,6 @@ export function extractRunFailures(run: AgentPlanRun): readonly RunFailure[] {
 
 /**
  * Names why a run failed.
- *
  * @param run - The stored run.
  * @param failures - Its failed steps, oldest first.
  * @returns `null` for a run that did not fail and has no failed step.

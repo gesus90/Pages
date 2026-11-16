@@ -26,8 +26,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpWikiHandlers {
 }
 
 /**
- * Replaces one passage of a page text (`POST /api/mcp/v1/wiki/pages/{id}/patch`), PAGE-257 interface 10.
- *
+ * Replaces one passage of a page text (`POST /api/mcp/v1/wiki/pages/{id}/patch`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

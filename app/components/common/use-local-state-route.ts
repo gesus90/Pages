@@ -30,12 +30,10 @@ function fetcherTarget(
 
 /**
  * Shows a route's kept answer until the server's answer arrives and keeps every answer it shows.
- *
  * @remarks
  * A kept answer asks the server again at once; while the backend is
  * unreachable it asks again every 15 seconds. Only answers of the server are
  * kept, and only after they were shown, so a cancelled load leaves no trace.
- *
  * @param loaded - The route's loader data.
  * @param kind - The stored form of the route's answers.
  * @returns The answer to show, marked when it is a kept one.

@@ -43,8 +43,7 @@ interface ParticipantAvatarProps {
 
 /**
  * A round participant avatar: the image, or the initial in the person
- * color, with the ring of the person color around it (PAGE-266).
- *
+ * color, with the ring of the person color around it.
  * @remarks
  * The ring is the one of the shared avatar, inside the circle, so it is
  * never cut off. Decorative; the name next to it names the participant.

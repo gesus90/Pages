@@ -10,11 +10,9 @@ import type { Project } from "@/definition/Project";
 
 /**
  * Reads the current account facts before every remote action.
- *
  * @remarks
  * Memberships are read anew each time, so a revoked department blocks the
  * next use at once.
- *
  * @param snapshot - The current authorization snapshot.
  * @param userId - The signed-in person.
  * @param channel - Whose administrator reading applies; the interface by default.
@@ -38,7 +36,6 @@ export function canManageRemoteConnections(actor: AccountAccess): boolean {
 
 /**
  * A connection is shared with exactly one department; its members may use it.
- *
  * @param actor - The current account.
  * @param departmentId - The department the connection is shared with.
  * @returns Whether the person may use the connection for permitted workspaces.
@@ -56,7 +53,6 @@ export function canUseRemoteConnection(
 /**
  * A console needs the membership itself: it opens a shell on the machine,
  * which the administrator role does not grant on its own.
- *
  * @param actor - The current account.
  * @param departmentId - The department the connection is shared with.
  * @returns Whether the person may open a console over the connection.

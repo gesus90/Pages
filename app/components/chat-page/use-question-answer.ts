@@ -13,7 +13,7 @@ interface DraftAnswer {
   readonly freeText: string;
 }
 
-/** What the card of a question needs to answer it (PAGE-391). */
+/** What the card of a question needs to answer it. */
 export interface QuestionAnswering {
   readonly draft: (questionId: string) => DraftAnswer;
   /** Chooses a button: toggles it for multiple choice, replaces the choice otherwise. */

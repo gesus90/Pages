@@ -36,9 +36,8 @@ function toNode(ticket: TicketTreeTicket<WorkItemDetail>): HierarchyNode {
 }
 
 /**
- * Groups work items into the four-level tree the sidebar shows as well
- * (A8.2-E09), with rolled-up progress.
- *
+ * Groups work items into the four-level tree the sidebar shows as well,
+ * with rolled-up progress.
  * @param workItems - Flat work items, already filtered by the task filters.
  * @returns Per project its initiatives, then the groups of tickets without
  * a visible parent; every work item appears exactly once.

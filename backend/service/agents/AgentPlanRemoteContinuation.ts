@@ -13,7 +13,6 @@ export interface RemoteContinuationTerms {
 
 /**
  * Asks a runner that can prove its work to keep and report the session of a writing CLI job.
- *
  * @param command - The frozen command of the attempt.
  * @param terms - Whether the live runner supports continuation and which session a retry continues.
  * @returns The command with its continuation request; reading jobs and runners

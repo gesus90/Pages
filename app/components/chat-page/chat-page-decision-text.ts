@@ -5,7 +5,6 @@ import type { ConversationDecisionView } from "@/definition/ConversationDecision
 
 /**
  * A probability as the chat writes it.
- *
  * @param probability - A probability from 0 to 1.
  * @returns For example "82 %".
  */

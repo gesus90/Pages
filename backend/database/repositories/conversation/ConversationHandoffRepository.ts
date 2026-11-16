@@ -9,7 +9,7 @@ import type {
   DatabaseValue,
 } from "@/backend/database/Database";
 
-/** Why a stored hand-over waits for a message of a person (PAGE-349). */
+/** Why a stored hand-over waits for a message of a person. */
 export type ConversationHandoffPause = "agent_streak" | "restart";
 
 /** One explicit @ hand-over between agents, stored before it starts. */
@@ -55,8 +55,7 @@ const REQUEST_COLUMNS = `
 
 /**
  * Takes a stored hand-over inside the claim of its answer, so the answer and
- * the end of the request commit together (PAGE-349).
- *
+ * the end of the request commit together.
  * @returns `false` when it is taken already or was never stored in that state.
  */
 export async function takeHandoff(
@@ -88,8 +87,7 @@ export async function takeHandoff(
 }
 
 /**
- * The explicit @ hand-overs between agents of a group (PAGE-349).
- *
+ * The explicit @ hand-overs between agents of a group.
  * @remarks
  * Nothing is dropped silently: a hand-over is stored before it starts, as
  * `pending`. At the chain pause it is stored `paused` right away, and a
@@ -106,7 +104,6 @@ export class ConversationHandoffRepository {
 
   /**
    * Stores new hand-overs once; a repeated store keeps the first state.
-   *
    * @returns The hand-overs this call stored; repeated ones are left out.
    */
   public async request(

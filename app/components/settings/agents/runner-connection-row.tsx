@@ -24,7 +24,6 @@ function runnerStatus(connection: RunnerConnectionView): string {
 
 /**
  * The tools the runner found with the version each one printed.
- *
  * @remarks
  * A tool that did not print a version shows that it is unknown, never a zero;
  * a runner that reported no inventory shows nothing at all.

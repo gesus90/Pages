@@ -33,9 +33,7 @@ function readMode(value: string): ConversationReplyMode {
 }
 
 /**
- * How each group decides who answers a message without an @ (PAGE-317,
- * PAGE-379).
- *
+ * How each group decides who answers a message without an @.
  * @remarks
  * A group without a stored row has the default mode and follows the rules of
  * the instance; so does a stored value that is `NULL`.
@@ -93,7 +91,6 @@ export class ConversationReplySettingsRepository {
 
   /**
    * Reads the mode of several groups at once.
-   *
    * @param conversationIds - The groups.
    * @returns The mode of each group that has stored settings; a group
    * missing from the map has the default mode.

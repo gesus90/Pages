@@ -36,7 +36,6 @@ export class WorkItemProjectMoveRepository {
    * Moves a work item to another project with a new project-specific key.
    * Project-bound relations travel in the `move` mapping while the
    * GitHub linkage is cleared because integrations belong to projects.
-   *
    * @param id - Work item kept under its stable internal identifier.
    * @param move - Target project, new key, and cleared project-bound relations.
    */

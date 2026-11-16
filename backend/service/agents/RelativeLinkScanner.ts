@@ -21,7 +21,6 @@ export function walkMarkdown(node: Nodes, visit: (node: Nodes) => void): void {
 
 /**
  * Tells whether a link target is a relative file or image reference.
- *
  * @param url - The parsed target of a link or image.
  * @param isImage - Whether the target belongs to an image.
  * @remarks

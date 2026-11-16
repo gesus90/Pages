@@ -9,7 +9,6 @@ import type { AgentPlanLoopSessionLink } from "./AgentPlanSession";
 
 /**
  * Why a loop ended regularly.
- *
  * @remarks
  * `count_reached` says only that the number of iterations was used up; it
  * never claims that a review condition came true. `condition_met` is the
@@ -21,7 +20,6 @@ export type AgentPlanLoopCompletion =
 
 /**
  * One check of a while loop before an iteration.
- *
  * @remarks
  * Every check reads its value anew: the bound boolean before the first
  * iteration, then the newest result of the source member, or the bound
@@ -51,7 +49,6 @@ export type AgentPlanLoopFound =
 
 /**
  * What the end condition made of one iteration.
- *
  * @remarks
  * `not_evaluated` is a fact, not a verdict: the condition is off, the loop
  * counts `expected`, or the iteration did not complete.
@@ -86,7 +83,7 @@ export interface AgentPlanLoopIteration {
   readonly error: string | null;
   /**
    * `true` when only the file this iteration's stack entry handed over failed
-   * (PAGE-268): the loop went on with the next entry, the error stays here.
+   * The loop went on with the next entry, the error stays here.
    * Absent for every other failure, which still ends the loop.
    */
   readonly entryFailure?: boolean;
@@ -94,7 +91,6 @@ export interface AgentPlanLoopIteration {
 
 /**
  * The lifecycle of the session of one agent member across iterations.
- *
  * @remarks
  * `open` is a live session that continues with the next turn; `closed` was
  * ended on purpose and confirmed; `lost` ended without Pages closing it and is
@@ -106,7 +102,6 @@ export type AgentPlanLoopSessionState =
 
 /**
  * The session of one agent member in this run of the loop.
- *
  * @remarks
  * The Pages run, loop and node identifiers, the ACP session ID the adapter
  * issued, the native ID an adapter may report separately, and the process
@@ -140,7 +135,6 @@ export interface AgentPlanLoopCount {
   readonly parameterId: string | null;
   /**
    * The effective number of iterations, 0 to 999; never changed while the loop runs.
-   *
    * @remarks
    * A bound 0 runs no iteration. A while loop stores its limit here.
    */
@@ -150,7 +144,6 @@ export interface AgentPlanLoopCount {
 
 /**
  * The state of one loop in a run: what it resolved, what each iteration did, how it ended.
- *
  * @remarks
  * Persisted with the run, so a restart finds completed iterations as they
  * were; an interrupted one is reported as failed with `plan_interrupted`
@@ -184,7 +177,6 @@ export interface AgentPlanLoopRun {
 
 /**
  * The durable record of one completed iteration, written once with the run.
- *
  * @remarks
  * It holds what a restart needs to know: the loop, the iteration, the count
  * and mode resolved for the loop, the verdict of the condition, and for each
@@ -215,7 +207,6 @@ export interface AgentPlanLoopIterationCheckpoint {
 
 /**
  * Whether the whole loop was left regularly: it succeeded with a reason and a confirmed cleanup.
- *
  * @remarks
  * A running or paused loop never counts, however many iterations succeeded,
  * and neither does a failed, stopped or cancelled one or one whose cleanup is

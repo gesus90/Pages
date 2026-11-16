@@ -1,4 +1,4 @@
-# Pica Mobile: WebSocket-Anbindung (PAGE-148, PAGE-164, PAGE-193, PAGE-200, PAGE-201, PAGE-263, PAGE-278, PAGE-281, PAGE-381)
+# Pica Mobile: WebSocket-Anbindung
 
 Pages stellt für die App Pica Mobile einen WebSocket-Endpunkt bereit. Dieses Dokument ist der Vertrag zwischen Pages und der App: Es beschreibt, wie ein Administrator den Endpunkt einrichtet, wie eine Verbindung aufgebaut wird und welche Nachrichten in Version 1 des Formats gelten.
 
@@ -20,9 +20,9 @@ Andere Benutzer sehen die Karte nicht. Der Server prüft die Berechtigung bei je
 
 Der Port steht in `~/.pages/config.toml` als `picaMobilePort`. Ohne den Schlüssel ist der Endpunkt aus und es wird kein zusätzlicher Port geöffnet. Beim Start lauscht Pages auf dem gespeicherten Port; ein Neustart behält die Einstellung. Der Schlüssel darf auch von Hand gesetzt werden; ein Wert außerhalb von 1 bis 65535 verhindert den Start mit einer Fehlermeldung zur Konfiguration, wie bei `port`. Der Endpunkt lauscht auf derselben Schnittstelle wie Pages (`listenAddress`, sonst auf allen).
 
-### Betrieb über pages-core (PAGE-239)
+### Betrieb über pages-core
 
-Mit `picaMobileRelayPort` in der Konfiguration hält der Dienst `pages-core` den Port statt des API-Prozesses: Er lauscht auf `picaMobilePort` (gleiche Schnittstelle, gleicher Pfad, gleiche Datei-Endpunkte) und reicht jede Verbindung und jede Dateianfrage unverändert an den Endpunkt der API auf `127.0.0.1:<picaMobileRelayPort>` weiter. Anmeldung, Sitzungsprüfung und alle Nachrichten entscheidet weiter die API; die App merkt keinen Unterschied und braucht kein Update. Ein Neustart der API beendet die Verbindung mit Code 1001 wie ein Pages-Neustart, und die App verbindet sich wie unten beschrieben neu; solange die API nicht erreichbar ist, beantwortet `pages-core` den Handshake mit HTTP 502. Ein Portwechsel in den Einstellungen gilt erst, wenn `pages-core` den neuen Port bedient; sonst bleibt die bisherige Einstellung gespeichert, auch „kein Port“. Antwortet die API auf eine Dateianfrage nicht binnen 10 Sekunden nach der vollständigen Anfrage, antwortet `pages-core` mit HTTP 504. Einrichtung und Rückweg: [deploy/core/README.md](../deploy/core/README.md#websocket-relay-page-239).
+Mit `picaMobileRelayPort` in der Konfiguration hält der Dienst `pages-core` den Port statt des API-Prozesses: Er lauscht auf `picaMobilePort` (gleiche Schnittstelle, gleicher Pfad, gleiche Datei-Endpunkte) und reicht jede Verbindung und jede Dateianfrage unverändert an den Endpunkt der API auf `127.0.0.1:<picaMobileRelayPort>` weiter. Anmeldung, Sitzungsprüfung und alle Nachrichten entscheidet weiter die API; die App merkt keinen Unterschied und braucht kein Update. Ein Neustart der API beendet die Verbindung mit Code 1001 wie ein Pages-Neustart, und die App verbindet sich wie unten beschrieben neu; solange die API nicht erreichbar ist, beantwortet `pages-core` den Handshake mit HTTP 502. Ein Portwechsel in den Einstellungen gilt erst, wenn `pages-core` den neuen Port bedient; sonst bleibt die bisherige Einstellung gespeichert, auch „kein Port“. Antwortet die API auf eine Dateianfrage nicht binnen 10 Sekunden nach der vollständigen Anfrage, antwortet `pages-core` mit HTTP 504. Einrichtung und Rückweg: [deploy/core/README.md](../deploy/core/README.md#websocket-relay).
 
 ### Portwechsel
 
@@ -179,7 +179,7 @@ Fünf abgelehnte Nachrichten in Folge trennen die Verbindung (Code 1008, „Too 
 
 ## Erweiterung dashboard.v1
 
-Die Erweiterung liefert der angemeldeten App echte Daten des Kontos: Profil, die eigenen aktiven Plan-Läufe und die zugewiesenen Projekte, dazu das Profilbild. Sie folgt dem Vertrag `PM-13-1` des Clients (Pica Mobile, `docs/wire-contract.md`, Revision vom 30.10.2026) in der Fassung des Tickets PAGE-164; offene Abstimmungspunkte stehen am Ende des Abschnitts. Hülle, Authentifizierung, Heartbeat, Rate-Limit und Fehlerregeln von Version 1 gelten unverändert; die Erweiterung führt weder eine zweite Anmeldung noch einen Push- oder Livekanal, Chat oder Plansteuerung ein und liest nur: sie verändert keine fachlichen Daten (die Sitzungsprüfung vermerkt wie bei jeder Nachricht die letzte Nutzung der Sitzung). Die App fragt nach der Anmeldung, beim Wechsel in den Vordergrund, nach einer Wiederverbindung und beim Herunterziehen zum Aktualisieren; ein `dashboard` sendet Pages nie von sich aus. Von sich aus sendet Pages nur die Änderungen der Planliste der Erweiterung [plans.v1](#erweiterung-plansv1).
+Die Erweiterung liefert der angemeldeten App echte Daten des Kontos: Profil, die eigenen aktiven Plan-Läufe und die zugewiesenen Projekte, dazu das Profilbild. Sie folgt dem Vertrag `PM-13-1` des Clients (Pica Mobile, `docs/wire-contract.md`, Revision vom 30.10.2026) in der damals vereinbarten Fassung; offene Abstimmungspunkte stehen am Ende des Abschnitts. Hülle, Authentifizierung, Heartbeat, Rate-Limit und Fehlerregeln von Version 1 gelten unverändert; die Erweiterung führt weder eine zweite Anmeldung noch einen Push- oder Livekanal, Chat oder Plansteuerung ein und liest nur: sie verändert keine fachlichen Daten (die Sitzungsprüfung vermerkt wie bei jeder Nachricht die letzte Nutzung der Sitzung). Die App fragt nach der Anmeldung, beim Wechsel in den Vordergrund, nach einer Wiederverbindung und beim Herunterziehen zum Aktualisieren; ein `dashboard` sendet Pages nie von sich aus. Von sich aus sendet Pages nur die Änderungen der Planliste der Erweiterung [plans.v1](#erweiterung-plansv1).
 
 Pages nennt `dashboard.v1` in `connected.payload.server.capabilities` nur, wenn es den ganzen Vertrag dieses Abschnitts beantwortet; ein Profilbild, das Pages nicht liefern kann, ist dabei kein Ausfall, sondern `avatar: null`. Ein Pages ohne die Erweiterung beantwortet `dashboard_get` und `avatar_get` mit `unknown_type`.
 
@@ -214,7 +214,7 @@ Pages nennt `dashboard.v1` in `connected.payload.server.capabilities` nur, wenn 
           "id": "…",
           "planId": "…",
           "name": "Release-Ablauf",
-          "ticket": "PAGE-164",
+          "ticket": "PROJ-42",
           "startedByAccountId": "…",
           "status": "running",
           "canResume": false,
@@ -339,7 +339,7 @@ Pages nennt `dashboard.v1` in `connected.payload.server.capabilities` nur, wenn 
 
 ### Abstimmung mit PM-13-1
 
-Das Vertragsdokument des Clients lag bei der Umsetzung in Pages nicht vor; die Erweiterung folgt der Beschreibung im Ticket PAGE-164. Wo der Vertrag Spielraum lässt, hat Pages die kleinste mögliche Abbildung gewählt. Diese Entscheidungen muss der Client bestätigen:
+Das Vertragsdokument des Clients lag bei der Umsetzung in Pages nicht vor; die Erweiterung folgt der damaligen Beschreibung. Wo der Vertrag Spielraum lässt, hat Pages die kleinste mögliche Abbildung gewählt. Diese Entscheidungen muss der Client bestätigen:
 
 | Punkt                                                 | Entscheidung von Pages                                                        |
 | ----------------------------------------------------- | ----------------------------------------------------------------------------- |
@@ -355,7 +355,7 @@ Das Vertragsdokument des Clients lag bei der Umsetzung in Pages nicht vor; die E
 
 ## Erweiterung plans.v1
 
-Die Erweiterung liefert der angemeldeten App eine kompakte Liste der Agent-Pläne, die das Konto betreffen, jeweils mit dem neuesten eigenen Lauf: laufende, pausierte und fehlgeschlagene Läufe ebenso wie beendete. Nach dem ersten vollständigen Stand überträgt Pages nur noch Änderungen und sendet sie bei einer Laufänderung auch von sich aus. Sie folgt dem Ticket PAGE-200; der Vertrag gilt für Pages und Pica Mobile wortgleich. Hülle, Authentifizierung, Heartbeat, Rate-Limit und Fehlerregeln von Version 1 gelten unverändert; `dashboard_get` bleibt unverändert, ältere App-Versionen funktionieren also weiter. Die Erweiterung liest nur und kennt weder Aktionen an Plänen noch Chat.
+Die Erweiterung liefert der angemeldeten App eine kompakte Liste der Agent-Pläne, die das Konto betreffen, jeweils mit dem neuesten eigenen Lauf: laufende, pausierte und fehlgeschlagene Läufe ebenso wie beendete. Nach dem ersten vollständigen Stand überträgt Pages nur noch Änderungen und sendet sie bei einer Laufänderung auch von sich aus. Sie folgt der vereinbarten Erweiterung; der Vertrag gilt für Pages und Pica Mobile wortgleich. Hülle, Authentifizierung, Heartbeat, Rate-Limit und Fehlerregeln von Version 1 gelten unverändert; `dashboard_get` bleibt unverändert, ältere App-Versionen funktionieren also weiter. Die Erweiterung liest nur und kennt weder Aktionen an Plänen noch Chat.
 
 Pages nennt `plans.v1` in `connected.payload.server.capabilities` nur, wenn die Verbindung `plans_sync` und `plan_get` beantwortet. Ohne die Fähigkeit beantwortet Pages beide Nachrichten mit `unknown_type`. Beide sind nur nach erfolgreichem `auth` zulässig, sonst gilt `authentication_required`.
 
@@ -477,14 +477,14 @@ Innerhalb jeder Klasse gilt `at` absteigend und danach `name`; Zeilen ohne `at` 
 - Die Planrechte gelten bei **jedem** Lesevorgang: Ein gelöschter Plan oder ein entzogenes Planrecht fällt mit der nächsten Abfrage heraus.
 - Den Lauf selbst liest Pages mit denselben Prüfungen wie beim Öffnen auf der Planseite (Ticket, Wiki-Seite, Modell, Arbeitsumgebung). Damit nicht jede Abfrage alle Läufe neu prüft, merkt sich Pages je Verbindung das Ergebnis dieser Prüfung und wiederholt sie nur, wenn der Lauf seit der letzten Prüfung geschrieben wurde oder die Prüfung mehr als 60 Sekunden zurückliegt; abgelaufene Prüfungen holt ein Lesevorgang für höchstens 20 Läufe nach, die ältesten zuerst. Die 60 Sekunden entsprechen der regelmäßigen Sitzungsprüfung der Verbindung. **Der Entzug eines einzelnen Rechts an einem Ticket, einer Wiki-Seite oder einem Modell wird also spätestens nach rund 60 Sekunden wirksam.**
 - Scheitert die Prüfung eines Laufs an fehlenden Rechten, steht der Plan auf `idle`, oder er fällt heraus, wenn er nur über diesen Lauf zur Liste gehörte. Kann Pages dagegen nicht lesen (zum Beispiel wegen einer Störung der Datenbank), ist das kein Rechteverlust: Die Anfrage erhält `server_unavailable` mit ihrer `requestId`, und der bisherige Stand der Verbindung (`seq` und zuletzt gesendete Zeilen) bleibt.
-- Pages liest von sich aus neu, sobald ein bestätigter Schreibvorgang eines eigenen Laufs etwas ändert, das eine Zeile oder die Ablaufstruktur von [plans.flow.v1](#erweiterung-plansflowv1) zeigt: den Laufstatus, das Ende, den Status eines Schritts (samt Wiederholung und gewähltem Zweig einer Entscheidung), den Zustand einer Schleife, ihrer Iterationen und der Knoten darin, den Steuerungsfehler oder den Fehlercode. Seit PAGE-281 zählt also auch eine Änderung nur innerhalb einer laufenden Schleife; reine Fortschrittsmeldungen lösen nichts aus. Gesendet wird nur, was sich an den Zeilen der Verbindung ändert: Eine Verbindung ohne `flow` erhält für eine Änderung, die nur in der Schleife liegt, deshalb weiterhin nichts. Ein Laufstart wird mit dem ersten Schreibvorgang des Laufs gemeldet, spätestens findet ihn die nächste Abfrage. Pages wartet nach einer Änderung 300 ms auf weitere und liest dann einmal; ändert sich an den Zeilen nichts, sendet es nichts. Scheitert dieser Lesevorgang, protokolliert Pages das und sendet nichts; die nächste Abfrage holt es nach. Diese Lesevorgänge zählen weder zum Rate-Limit noch zu den unerledigten Nachrichten der App.
+- Pages liest von sich aus neu, sobald ein bestätigter Schreibvorgang eines eigenen Laufs etwas ändert, das eine Zeile oder die Ablaufstruktur von [plans.flow.v1](#erweiterung-plansflowv1) zeigt: den Laufstatus, das Ende, den Status eines Schritts (samt Wiederholung und gewähltem Zweig einer Entscheidung), den Zustand einer Schleife, ihrer Iterationen und der Knoten darin, den Steuerungsfehler oder den Fehlercode. Seit der Einführung zählt also auch eine Änderung nur innerhalb einer laufenden Schleife; reine Fortschrittsmeldungen lösen nichts aus. Gesendet wird nur, was sich an den Zeilen der Verbindung ändert: Eine Verbindung ohne `flow` erhält für eine Änderung, die nur in der Schleife liegt, deshalb weiterhin nichts. Ein Laufstart wird mit dem ersten Schreibvorgang des Laufs gemeldet, spätestens findet ihn die nächste Abfrage. Pages wartet nach einer Änderung 300 ms auf weitere und liest dann einmal; ändert sich an den Zeilen nichts, sendet es nichts. Scheitert dieser Lesevorgang, protokolliert Pages das und sendet nichts; die nächste Abfrage holt es nach. Diese Lesevorgänge zählen weder zum Rate-Limit noch zu den unerledigten Nachrichten der App.
 - Anfragen zählen wie jede Nachricht zum Rate-Limit (30 in 10 Sekunden), zu den höchstens 8 unerledigten Nachrichten und, wenn sie abgelehnt werden, zu den fünf abgelehnten Nachrichten in Folge.
 - Dauert ein Lesevorgang der Planliste 500 ms oder länger, schreibt Pages `pica_mobile.plans.slow` mit Dauer und Zeilenzahl ins Protokoll.
 - **Klartext.** Plannamen, Schrittnamen und Fehlercodes laufen wie alle Nachrichten von Version 1 über `ws://` im Klartext durch das Netz (siehe [Sicherheit](#sicherheit)). Fehlertexte, Prompts, Ausgaben, Pfade und Sitzungsdaten enthält der Vertrag nicht.
 
 ## Erweiterung plans.flow.v1
 
-Die Erweiterung (PAGE-281) ergänzt [plans.v1](#erweiterung-plansv1) um die vollständige Ablaufstruktur eines Laufs, so wie Pages sie für genau diesen Lauf ausführt, und um einen Zustandsschlüssel, an dem die App erkennt, dass sich daran etwas geändert hat. Sie ist **opt-in**: Nur wer in einer Anfrage `flow: true` mitschickt, bekommt die neuen Felder. Eine App, die die Erweiterung nicht kennt, erhält jede Nachricht von `plans.v1` und `dashboard.v1` Byte für Byte wie bisher, also weder ein neues Pflichtfeld noch einen neuen Enum-Wert in `stages`, `steps[].status` oder den Zeilen. Pages nennt `plans.flow.v1` in `connected.payload.server.capabilities` nur zusammen mit `plans.v1`. Ein Pages ohne die Erweiterung ignoriert das unbekannte Feld `flow` (siehe [Nachrichtenformat](#nachrichtenformat)) und antwortet wie bisher; die App erkennt das am Fehlen von `run.flow` und von `state` in den Zeilen.
+Die Erweiterung ergänzt [plans.v1](#erweiterung-plansv1) um die vollständige Ablaufstruktur eines Laufs, so wie Pages sie für genau diesen Lauf ausführt, und um einen Zustandsschlüssel, an dem die App erkennt, dass sich daran etwas geändert hat. Sie ist **opt-in**: Nur wer in einer Anfrage `flow: true` mitschickt, bekommt die neuen Felder. Eine App, die die Erweiterung nicht kennt, erhält jede Nachricht von `plans.v1` und `dashboard.v1` Byte für Byte wie bisher, also weder ein neues Pflichtfeld noch einen neuen Enum-Wert in `stages`, `steps[].status` oder den Zeilen. Pages nennt `plans.flow.v1` in `connected.payload.server.capabilities` nur zusammen mit `plans.v1`. Ein Pages ohne die Erweiterung ignoriert das unbekannte Feld `flow` (siehe [Nachrichtenformat](#nachrichtenformat)) und antwortet wie bisher; die App erkennt das am Fehlen von `run.flow` und von `state` in den Zeilen.
 
 ### Anfragen
 
@@ -699,7 +699,7 @@ Pages ist über ein isoliertes Pages mit eigener Datenbank auf einem freien Loop
 
 ## Erweiterung chat.v1
 
-Die Erweiterung lässt die App mit Pica chatten, und zwar in **denselben Unterhaltungen** wie den Web-Chat. Sie folgt dem Ticket PAGE-201; der Vertrag gilt für Pages und Pica Mobile wortgleich. Hülle, Authentifizierung, Heartbeat, Rate-Limit und Fehlerregeln von Version 1 gelten unverändert; `dashboard_get`, `avatar_get` und die übrigen Erweiterungen bleiben unverändert. Antworten laufen wie im Web über den ACP-Pfad von Pica und laufen ohne die App auf dem Server weiter; Kompaktieren und Chat-Befehle bleiben dem Web vorbehalten; das Löschen einer Unterhaltung ergänzt die Erweiterung [chat.delete](#erweiterung-chatdelete). Pages sendet für den Chat nichts von sich aus, jede Antwort trägt die `requestId` ihrer Anfrage.
+Die Erweiterung lässt die App mit Pica chatten, und zwar in **denselben Unterhaltungen** wie den Web-Chat. Sie folgt der vereinbarten Erweiterung; der Vertrag gilt für Pages und Pica Mobile wortgleich. Hülle, Authentifizierung, Heartbeat, Rate-Limit und Fehlerregeln von Version 1 gelten unverändert; `dashboard_get`, `avatar_get` und die übrigen Erweiterungen bleiben unverändert. Antworten laufen wie im Web über den ACP-Pfad von Pica und laufen ohne die App auf dem Server weiter; Kompaktieren und Chat-Befehle bleiben dem Web vorbehalten; das Löschen einer Unterhaltung ergänzt die Erweiterung [chat.delete](#erweiterung-chatdelete). Pages sendet für den Chat nichts von sich aus, jede Antwort trägt die `requestId` ihrer Anfrage.
 
 **Synchron mit dem Web.** Die App fragt im offenen Chat alle 3 Sekunden `chat_state` ab und lädt die Unterhaltung nur bei einer Abweichung neu. Der Web-Chat tut dasselbe mit dem Intent `sessionState` der Route `/chat-api`, solange das Panel offen, die Seite sichtbar und keine eigene Sendung unterwegs ist; Eingabetext und noch nicht gesendete Anhänge bleiben dabei stehen, und eine nicht mehr vorhandene Unterhaltung weicht der zuletzt benutzten.
 
@@ -819,7 +819,7 @@ Erweiterung `chat.delete` von Version 1 des Pica-Mobile-Protokolls. Sie ergänzt
 
 ## Erweiterung conversations.v1
 
-Die Erweiterung (PAGE-278) gibt der App die gespeicherten Unterhaltungen der Chat-Seite `/chat`: Direktunterhaltungen zwischen zwei Teilnehmern (Mensch oder Agent, je Paar genau eine) und Gruppen mit Namen und Mitgliedern. Pica selbst ist keine dieser Unterhaltungen; dafür bleibt `chat.v1`. Sie läuft über die bestehende, angemeldete Verbindung, ohne neuen Port. Hülle, Authentifizierung, Heartbeat und Fehlerregeln von Version 1 gelten unverändert; eine ungültige Nutzlast ergibt wie überall `error` `invalid_message`. Es gelten dieselben Rechte wie im Web: Nur Mitglieder lesen und schreiben, nur aktive Konten und Agents lassen sich aufnehmen, und jede Anfrage prüft zuerst die Sitzung.
+Die Erweiterung gibt der App die gespeicherten Unterhaltungen der Chat-Seite `/chat`: Direktunterhaltungen zwischen zwei Teilnehmern (Mensch oder Agent, je Paar genau eine) und Gruppen mit Namen und Mitgliedern. Pica selbst ist keine dieser Unterhaltungen; dafür bleibt `chat.v1`. Sie läuft über die bestehende, angemeldete Verbindung, ohne neuen Port. Hülle, Authentifizierung, Heartbeat und Fehlerregeln von Version 1 gelten unverändert; eine ungültige Nutzlast ergibt wie überall `error` `invalid_message`. Es gelten dieselben Rechte wie im Web: Nur Mitglieder lesen und schreiben, nur aktive Konten und Agents lassen sich aufnehmen, und jede Anfrage prüft zuerst die Sitzung.
 
 Pages nennt `conversations.v1` in `connected.server.capabilities`, wenn die Verbindung die Erweiterung beantwortet. Ein Pages ohne sie antwortet auf die Anfragen mit `unknown_type`.
 
@@ -849,7 +849,7 @@ Pages nennt `conversations.v1` in `connected.server.capabilities`, wenn die Verb
 
 ### Antworten von Agents
 
-Agents nehmen an Unterhaltungen teil (PAGE-276). In einer Direktunterhaltung antwortet der Agent auf jede Nachricht der Person, in einer Gruppe ein Agent nur, wenn die Nachricht ihn mit `@Name` erwähnt; mehrere Erwähnte antworten je einmal. Eine Sprachnachricht wird beantwortet, sobald ihr Text erkannt ist. Ein Agent antwortet nie auf eigene Nachrichten und nicht auf Nachrichten anderer Agents, so entstehen keine Schleifen. Von sich aus schreiben Agents nicht.
+Agents nehmen an Unterhaltungen teil. In einer Direktunterhaltung antwortet der Agent auf jede Nachricht der Person, in einer Gruppe ein Agent nur, wenn die Nachricht ihn mit `@Name` erwähnt; mehrere Erwähnte antworten je einmal. Eine Sprachnachricht wird beantwortet, sobald ihr Text erkannt ist. Ein Agent antwortet nie auf eigene Nachrichten und nicht auf Nachrichten anderer Agents, so entstehen keine Schleifen. Von sich aus schreiben Agents nicht.
 
 - Die Antwort ist eine normale Nachricht mit dem Agent als Absender (`message`). Sie entsteht mit dem Modell, den Anweisungen und den Rechten des Agents, in einer eigenen Sitzung des Agents je Unterhaltung; ein Kostenlimit des Agents gilt auch hier.
 - Als Kontext liest der Agent die neuesten Nachrichten der Unterhaltung bis zur beantworteten, höchstens 20 Nachrichten und 12000 Zeichen (`CONVERSATION_AGENT_CONTEXT_MESSAGES`, `CONVERSATION_AGENT_CONTEXT_CHARACTERS`); ältere fallen zuerst weg, die beantwortete bleibt immer. Hinweise bleiben draußen, Zugangsdaten werden geschwärzt.
@@ -871,7 +871,7 @@ Agents nehmen an Unterhaltungen teil (PAGE-276). In einer Direktunterhaltung ant
 
 Die Verbindung, die eine Änderung ausgelöst hat, erhält sie als Antwort und nicht noch einmal als Ereignis; andere Verbindungen desselben Kontos erhalten das Ereignis.
 
-### Live-Antworten für die Chat-Seite (PAGE-381, `conversations.stream.v1`)
+### Live-Antworten für die Chat-Seite (`conversations.stream.v1`)
 
 Die Chat-Seite im Browser spricht dasselbe `conversations.v1` über `ws(s)://<Pages-Host>/chat/conversations/socket` am Port von Pages. Die Verbindung nimmt die Sitzung aus dem Cookie der Seite (`auth` mit `{ method: "session", token: "cookie" }`, das echte Token liest die Seite nicht); nur der eigene Origin von Pages darf sie öffnen, und Sitzung und Rechte werden wie bei der App geprüft. Diese Verbindung nennt zusätzlich `conversations.stream.v1` und erhält als `conversation_event` die Teile einer entstehenden Antwort. Der Endpunkt von Pica Mobile nennt die Erweiterung nie und sendet diese Ereignisse nie; die App sieht keine Änderung.
 
@@ -921,7 +921,7 @@ Eine neue Nachricht löst über die vorhandene FCM-Anbindung (siehe [notificatio
 
 Die Erweiterung benachrichtigt eine angemeldete Android-App über die eigenen Läufe des Kontos und, wenn das Konto es mit [`notifications.team.v1`](#erweiterung-notificationsteamv1) einschaltet, über Läufe in Plänen seiner Teams: wenn ein Folgeschritt wirklich startet, ein Lauf bestätigt abgebrochen wird, fehlschlägt oder erfolgreich endet. Zugestellt wird direkt über Firebase Cloud Messaging (FCM HTTP v1). iOS und APNs gehören nicht dazu, es gibt kein Expo-Push-Relay und keine Hintergrundabfrage oder dauerhaft offene Verbindung als Ersatz für Push. Hülle, Authentifizierung, Heartbeat, Rate-Limit und Fehlerregeln von Version 1 gelten unverändert; Pages sendet über die WebSocket-Verbindung nie von sich aus `notification_*`-Nachrichten, die App fragt nur. Betrieb, Konfiguration, Grenzen der Zustellung und die Übergabe an die Geräteprüfung stehen in [PicaMobileNotifications.md](./PicaMobileNotifications.md).
 
-Die Erweiterung ist mit dem Mobile-Vertrag `notifications.v1`, Revision PM-14-1 (31.10.2026, Android-Teil), und den ausführbaren Parsern der App abgeglichen. Grundlage ist der unveränderte Quellenstand aus dem Ticket-Anhang von PAGE-193 (Pica-Mobile `main`, Commit `d72631b4cf3fb1a76a0389e7fbf301e61d5ac551`); das Repository selbst lag auf dem Host der Umsetzung nicht vor. Der Abgleich, die behobenen Abweichungen und die Widersprüche im Mobile-Vertrag stehen in [Abgleich mit dem Mobile-Vertrag](#abgleich-mit-dem-mobile-vertrag-pm-14-1). Dieser Abgleich ist eine statische Gegenprüfung; eine Prüfung mit der laufenden App ist nicht erfolgt.
+Die Erweiterung ist mit dem Mobile-Vertrag `notifications.v1`, Revision PM-14-1 (31.10.2026, Android-Teil), und den ausführbaren Parsern der App abgeglichen. Grundlage ist der unveränderte Quellenstand aus dem damaligen Übergabe-Anhang (Pica-Mobile `main`, Commit `d72631b4cf3fb1a76a0389e7fbf301e61d5ac551`); das Repository selbst lag auf dem Host der Umsetzung nicht vor. Der Abgleich, die behobenen Abweichungen und die Widersprüche im Mobile-Vertrag stehen in [Abgleich mit dem Mobile-Vertrag](#abgleich-mit-dem-mobile-vertrag-pm-14-1). Dieser Abgleich ist eine statische Gegenprüfung; eine Prüfung mit der laufenden App ist nicht erfolgt.
 
 ### Capabilities
 
@@ -1077,7 +1077,7 @@ Eine Fortsetzung kann danach neue echte Übergänge erzeugen. Pausieren und Fort
 
 ### Empfänger und Rechte
 
-Empfänger sind (PAGE-263):
+Empfänger sind:
 
 - **das Konto, das den Lauf gestartet hat**, unabhängig davon, wem der Plan gehört, sofern es den Plan und den Lauf jetzt lesen darf (dieselben Prüfungen wie beim Öffnen des Laufs auf der Planseite);
 - **jedes Mitglied und jede Leitung der Abteilung, der der Plan zugeordnet ist** (das Team des Plans), wenn das Konto Team-Benachrichtigungen eingeschaltet hat, ein aktiv registriertes Gerät besitzt, den Plan jetzt lesen darf und selbst jedes Modell, jeden Arbeitsbereich, jedes Ticket, jede Seite und jede Datei lesen darf, die der Lauf benutzt hat. Die Teamzugehörigkeit ersetzt keines dieser Rechte. Ein Plan ohne Team-Abteilung hat keine Team-Empfänger; der Planeigentümer bekommt fremde Läufe nur als Teammitglied.
@@ -1123,7 +1123,7 @@ Was Pages einmal an den Push-Dienst übergeben hat, liegt dort und auf dem Gerä
 
 ### Abgleich mit dem Mobile-Vertrag (PM-14-1)
 
-**Quellen.** Verglichen wurden `docs/notifications-contract.md`, `src/services/notificationProtocol.ts`, `src/services/notifications.ts` und `src/services/pagesClient.ts` aus dem unveränderten Textabzug im Ticket-Anhang von PAGE-193 (Pica-Mobile `main`, Commit `d72631b4cf3fb1a76a0389e7fbf301e61d5ac551`, Arbeitsbaum sauber, Stand 1.11.2026). Die SHA-256-Summen der aus dem Anhang gelösten Dateien stimmen mit der Liste im Ticket überein: `docs/notifications-contract.md` `939daea4f702585978ecc113e017f3c624b05d5b5666b3241a3317f119eb68b4`, `src/services/notificationProtocol.ts` `f746f041c45885c70818ea76cf6f13c0e6049e6449f5be2def9fe279d81d0803`, `src/services/notifications.ts` `7b40bcce5c1b055f53af1f2d3029be7815408a80870bfddb9d633b42aa76e72e`, `src/services/pagesClient.ts` `81ce7abaf49d347eb9136028e4875dc1e3961c9287d969a2095a583d7cb7aba9`. Das Repository `/home/igor/Repo/Pica-Mobile` selbst war auf dem Host nicht vorhanden und wurde nicht gelesen. Wer einen neueren Stand von `main` hat, vergleicht diese Summen, bevor er sich auf diese Tabelle verlässt.
+**Quellen.** Verglichen wurden `docs/notifications-contract.md`, `src/services/notificationProtocol.ts`, `src/services/notifications.ts` und `src/services/pagesClient.ts` aus dem unveränderten Textabzug im damaligen Übergabe-Anhang (Pica-Mobile `main`, Commit `d72631b4cf3fb1a76a0389e7fbf301e61d5ac551`, Arbeitsbaum sauber, Stand 1.11.2026). Die SHA-256-Summen der aus dem Anhang gelösten Dateien stimmen mit der übergebenen Summenliste überein: `docs/notifications-contract.md` `939daea4f702585978ecc113e017f3c624b05d5b5666b3241a3317f119eb68b4`, `src/services/notificationProtocol.ts` `f746f041c45885c70818ea76cf6f13c0e6049e6449f5be2def9fe279d81d0803`, `src/services/notifications.ts` `7b40bcce5c1b055f53af1f2d3029be7815408a80870bfddb9d633b42aa76e72e`, `src/services/pagesClient.ts` `81ce7abaf49d347eb9136028e4875dc1e3961c9287d969a2095a583d7cb7aba9`. Das Repository `/home/igor/Repo/Pica-Mobile` selbst war auf dem Host nicht vorhanden und wurde nicht gelesen. Wer einen neueren Stand von `main` hat, vergleicht diese Summen, bevor er sich auf diese Tabelle verlässt.
 
 **Nicht verglichen.** `src/services/protocol.ts` (Hüllen- und `connected`-Parser, `isDataMessage`), `dashboardProtocol.ts` und `src/features/notifications/notificationController.ts` lagen nicht im Abzug. Die Hülle und `connected` sind der bestätigte Vertrag von Version 1 und wurden nicht verändert; ob der `connected`-Parser die Capability-Namen genau so liest, ist nicht gegengeprüft.
 
@@ -1174,7 +1174,7 @@ Was Pages einmal an den Push-Dienst übergeben hat, liegt dort und auf dem Gerä
 
 ## Erweiterung notifications.team.v1
 
-Die Erweiterung (PAGE-263, PAGE-421) speichert Benachrichtigungsarten je Konto. Sie ergänzt `notifications.v1` und ändert keine bestehende Push-Nutzlast. Eine ältere App, die nur `teamRuns` sendet, bleibt gültig. Pages nennt `notifications.team.v1` immer zusammen mit `notifications.v1`; ein Pages ohne die Capability beantwortet die beiden Nachrichten mit `unknown_type`.
+Die Erweiterung speichert Benachrichtigungsarten je Konto. Sie ergänzt `notifications.v1` und ändert keine bestehende Push-Nutzlast. Eine ältere App, die nur `teamRuns` sendet, bleibt gültig. Pages nennt `notifications.team.v1` immer zusammen mit `notifications.v1`; ein Pages ohne die Capability beantwortet die beiden Nachrichten mit `unknown_type`.
 
 **`notification_settings_get`** (Client → Pages, nur nach `auth`) hat den Payload `{}`; unbekannte Felder werden ignoriert. **`notification_settings_set`** ändert die genannten Einstellungen; fehlende bleiben, wie sie sind:
 

@@ -77,8 +77,7 @@ function firstAnswer(
 }
 
 /**
- * The user management API of the stand-alone Pages MCP program (PAGE-280).
- *
+ * The user management API of the stand-alone Pages MCP program.
  * @remarks
  * A paired machine acts with the rights of the account that confirmed the
  * pairing. Every request checks the token, the account and its forced
@@ -97,7 +96,6 @@ export class McpUserApi {
 
   /**
    * Creates the API.
-   *
    * @param dependencies - Database, cache, password hashing and token check.
    */
   public constructor(dependencies: McpUserDependencies) {
@@ -106,7 +104,6 @@ export class McpUserApi {
 
   /**
    * Checks the token of a request and the account behind it.
-   *
    * @param authorization - The `Authorization` header of the request.
    * @returns The account the token acts for.
    * @throws {McpDeviceError} `invalid_token` for a missing, unknown or revoked token.
@@ -128,7 +125,6 @@ export class McpUserApi {
 
   /**
    * Runs reads on one consistent state of the actor's rights.
-   *
    * @param actor - The authenticated account.
    * @param work - The reads.
    */
@@ -149,13 +145,11 @@ export class McpUserApi {
 
   /**
    * Runs a change once per operation ID.
-   *
    * @param actor - The authenticated account.
    * @param command - The operation with the right a repetition needs, and the change.
    * @returns The first answer, or for a repetition with the same request the
    * stored public result with `replayed: true` and nothing run again.
    * @throws {McpUserError} `conflict` when the operation ID belongs to another request.
-   *
    * @remarks
    * The temporary password of a creation or reset is part of the first answer
    * only: neither the operation key nor the history keeps it.

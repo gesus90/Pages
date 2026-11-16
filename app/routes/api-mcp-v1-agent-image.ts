@@ -30,8 +30,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpAgentHandlers {
 }
 
 /**
- * Sets the image of an agent (`PUT /api/mcp/v1/agents/{id}/image`) and removes it (`DELETE`), PAGE-267.
- *
+ * Sets the image of an agent (`PUT /api/mcp/v1/agents/{id}/image`) and removes it (`DELETE`).
  * @remarks
  * Only the device token of a paired machine admits a request, and only for
  * an account with the administrator role. The image follows the type

@@ -9,8 +9,7 @@ import type { ReadableRun } from "./AgentPlanRunTeamReader";
 import type { AgentRunDiagnosisService } from "./AgentRunDiagnosisService";
 
 /**
- * The team-wide reading of runs the plan service offers (PAGE-307).
- *
+ * The team-wide reading of runs the plan service offers.
  * @remarks
  * The plan service extends it, so reading a run of any visible plan sits
  * next to the owner-only `run` and `controlRun` without growing the service.
@@ -38,7 +37,6 @@ export class AgentPlanTeamReads {
 
   /**
    * Reads a run of any plan the person may see, whoever started it.
-   *
    * @remarks
    * Reading only: content of tickets, pages and workspaces the person may not
    * see is left out and named in `hiddenFields`. Control stays with

@@ -115,7 +115,6 @@ function readableEntry<T>(
 
 /**
  * Whether a claim leaves an entry in place.
- *
  * @remarks
  * Only unconfirmed edits stay, and only while no other account signs in and
  * nobody signs out: an expired session must not cost the edit typed before.
@@ -151,7 +150,6 @@ function openDatabase(): Promise<IDBDatabase> {
 
 /**
  * Keeps the last server answer per account and route in IndexedDB.
- *
  * @remarks
  * The store holds the answers of one account at a time. The document claims
  * its signed-in account; a different account or a sign-out empties the store
@@ -161,7 +159,6 @@ function openDatabase(): Promise<IDBDatabase> {
  * sign-out or an account change. All work of a tab runs in one queue, in the
  * order it was requested. Without IndexedDB nothing is kept. Unconfirmed
  * edits of an account outlast a claim without account (see `survivesClaim`).
- *
  * Every claim is announced to the other tabs. A tab whose document belongs
  * to an account learns at once when another tab signs out or signs in as
  * someone else: it is then superseded and shows nothing of its account
@@ -194,10 +191,9 @@ export class LocalStateStore {
 
   /**
    * The account the browser's store was last claimed for, also by an earlier document.
-   *
    * @remarks
-   * The static app opens without the server when the backend is down
-   * (PAGE-235); it then continues with the account whose answers the
+   * The static app opens without the server when the backend is down;
+   * it then continues with the account whose answers the
    * browser still keeps, until the server answers again.
    */
   public recordedOwner(): Promise<string | null> {
@@ -214,7 +210,6 @@ export class LocalStateStore {
 
   /**
    * Lets work that waits for the first claim go on although none came.
-   *
    * @remarks
    * For a document that could name no account, such as one opened offline
    * in a browser that keeps none; reads then find nothing.
@@ -238,7 +233,6 @@ export class LocalStateStore {
 
   /**
    * Calls the listener whenever the supersession of this tab advances.
-   *
    * @param listener - Called when another tab signs out or claims another account.
    * @returns Stops calling the listener.
    */
@@ -249,7 +243,6 @@ export class LocalStateStore {
 
   /**
    * Records the account signed in to this document and drops every other account's answers.
-   *
    * @param ownerId - The signed-in account, or `null` without one.
    * @param options - `isSignOut` also drops this account's unconfirmed edits.
    */
@@ -292,7 +285,6 @@ export class LocalStateStore {
 
   /**
    * Returns the kept answer of the signed-in account for a route.
-   *
    * @param route - Path and query of the route.
    * @param kind - The schema the answer must have.
    * @returns The entry, or `null` when none of this account and version exists.
@@ -325,7 +317,6 @@ export class LocalStateStore {
 
   /**
    * Keeps a server answer for its account and route.
-   *
    * @param ownerId - The account the server answered.
    * @param route - Path and query of the route.
    * @param kind - The schema of the answer.
@@ -367,7 +358,6 @@ export class LocalStateStore {
 
   /**
    * Removes the signed-in account's answer for a route, for example after a refused permission.
-   *
    * @param route - Path and query of the route.
    */
   public remove(route: string): Promise<void> {
@@ -387,10 +377,8 @@ export class LocalStateStore {
 
   /**
    * Removes the signed-in account's answers that no longer apply, such as those of earlier rights.
-   *
    * @remarks
    * Unconfirmed edits stay; they are not answers of the server.
-   *
    * @param isOutdated - Whether a kept answer no longer applies.
    */
   public removeOutdated(
@@ -425,7 +413,6 @@ export class LocalStateStore {
 
   /**
    * Supersedes this tab when another tab signs out or claims another account.
-   *
    * @remarks
    * A sign-out supersedes at once, but settles only with the next claim of a
    * document, such as the sign-in page: until then the ending session may

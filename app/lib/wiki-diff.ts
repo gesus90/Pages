@@ -6,12 +6,10 @@ export interface DiffLine {
 
 /**
  * Compares two texts line by line.
- *
  * @param before - The earlier text.
  * @param after - The later text.
  * @returns Lines that stay, lines only in `after` and lines only in `before`,
  * in reading order.
- *
  * @remarks
  * Uses the longest common subsequence of lines; pages are at most a few
  * thousand lines, so the quadratic table is small enough.

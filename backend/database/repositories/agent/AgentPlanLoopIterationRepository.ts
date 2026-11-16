@@ -11,7 +11,6 @@ const MAXIMUM_ITERATION_BYTES = 2_097_152;
 export class AgentPlanLoopIterationRepository {
   /**
    * Appends a completed iteration once.
-   *
    * @param transaction - The transaction that also stores the run view.
    * @param input - The completed iteration.
    * @param runRevision - The recovery revision of the run write.

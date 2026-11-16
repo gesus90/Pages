@@ -96,12 +96,12 @@ interface HeaderLinks {
   readonly onSelect?: (selection: VirtualChatSelection) => void;
   /** Puts `@username` into the input field. */
   readonly onMention?: (username: string) => void;
-  /** Opens "Modell in diesem Chat …" for an agent (PAGE-380). */
+  /** Opens "Modell in diesem Chat …" for an agent. */
   readonly onOpenModel: (
     agent: VirtualParticipant,
     target: AgentChatControlTarget,
   ) => void;
-  /** Asks to remove a member of the opened group (PAGE-380). */
+  /** Asks to remove a member of the opened group. */
   readonly onRemove: (member: RemovalCandidate) => void;
 }
 
@@ -154,7 +154,7 @@ function groupAgentOptions(
 type MuteControl = ChatMenuSwitches;
 
 /**
- * The access level of an agent as a label (PAGE-303); YOLO stands out in the
+ * The access level of an agent as a label; YOLO stands out in the
  * destructive color, so nobody overlooks that Pages does not restrict it.
  */
 function AccessBadge({
@@ -185,7 +185,7 @@ function AccessBadge({
   );
 }
 
-/** The menu of the agent of a direct chat: the person who talks with it may always steer it (PAGE-380). */
+/** The menu of the agent of a direct chat: the person who talks with it may always steer it. */
 function directAgentOptions(
   links: HeaderLinks,
   participant: VirtualParticipant,
@@ -277,7 +277,7 @@ function ParticipantHeader({
   );
 }
 
-/** A person among the member chips; the creator of the group removes one from its menu (PAGE-380). */
+/** A person among the member chips; the creator of the group removes one from its menu. */
 function MemberChip({
   member,
   onRemove,
@@ -323,7 +323,7 @@ function MemberChip({
   );
 }
 
-/** One stop button per agent answering in the group; each stops only its own answer (PAGE-304). */
+/** One stop button per agent answering in the group; each stops only its own answer. */
 function GroupStopButtons({
   group,
   onStopAgent,
@@ -500,7 +500,7 @@ function currentChatOf(
   return sessionId === undefined ? undefined : { sessionId };
 }
 
-/** The agent and chat the choice "Modell in diesem Chat …" is open for (PAGE-380). */
+/** The agent and chat the choice "Modell in diesem Chat …" is open for. */
 interface ModelTarget {
   readonly agent: VirtualParticipant;
   readonly target: AgentChatControlTarget;
@@ -519,15 +519,15 @@ interface SettingsTarget {
  * An agent shows its job title, a person the username, both with their kind
  * and status; a person has no task, model or tools. A stop button shows while
  * an agent answers. A group shows its description and the members as chips,
- * and a stop button for every agent answering in it (PAGE-304). The
+ * and a stop button for every agent answering in it. The
  * creator removes a member from its chip. An agent whose model in this chat
  * deviates from its own shows the short name of that model.
  * Everything else the chat offers sits in the chat menu ☰ at the right edge
- * of every head (PAGE-389): "Medien & Dateien" (PAGE-387), the group context
- * (PAGE-296), the members (PAGE-380), who answers (PAGE-379), the model per
+ * of every head: "Medien & Dateien", the group context,
+ * the members, who answers, the model per
  * chat, a new session of an agent, the domains released for embedding in a
- * chat with a person (PAGE-298), the switches for the confidential mark
- * (PAGE-305) and muting (PAGE-275) and the dissolution of a group. A right
+ * chat with a person, the switches for the confidential mark
+ * and muting and the dissolution of a group. A right
  * click on a chat of the list opens the same menu.
  *
  * An agent shows what its session does in this chat, as a word on its chip

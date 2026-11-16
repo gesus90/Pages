@@ -27,8 +27,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpUserHandlers {
 }
 
 /**
- * Assigns a role to a person or all current members of a group or department (`POST /api/mcp/v1/roles/{roleId}/assign`), PAGE-280.
- *
+ * Assigns a role to a person or all current members of a group or department (`POST /api/mcp/v1/roles/{roleId}/assign`).
  * @remarks
  * Only the device token of a paired machine admits a request; the rights of
  * its account are read again on every call. See `docs/McpUserManagement.md`.

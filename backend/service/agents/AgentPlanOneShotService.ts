@@ -8,7 +8,6 @@ import type {
 
 /**
  * A step that runs before a one-time plan is deleted.
- *
  * @remarks
  * The deletion keeps no final report of its own. A later automation hands one
  * over to a person or an agent by adding a hook here; a hook that throws
@@ -35,8 +34,7 @@ export type OneShotDeletionOutcome =
   "deleted" | "waiting" | "kept" | "not_due" | "failed";
 
 /**
- * Schedules and carries out the deletion of one-time plans after a successful run (PAGE-309).
- *
+ * Schedules and carries out the deletion of one-time plans after a successful run.
  * @remarks
  * A run that ends as `succeeded` sets a deadline five minutes ahead; any other
  * end leaves the plan alone. The deadline is stored with the plan, so a
@@ -55,7 +53,6 @@ export class AgentPlanOneShotService {
 
   /**
    * Sets the deadline for the plan of a run that just ended as `succeeded`.
-   *
    * @param planId - The plan of the run.
    * @returns Whether the plan is a one-time plan and now waits for its deletion.
    */
@@ -73,9 +70,7 @@ export class AgentPlanOneShotService {
 
   /**
    * Carries out every deletion that is due.
-   *
    * @returns The plans that are gone.
-   *
    * @remarks
    * One failing plan is logged and tried again at the next call; the others
    * still go.

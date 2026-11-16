@@ -13,8 +13,7 @@ import type { CardOrigin, OpenedCard } from "./card-types";
 
 /**
  * The images of one message as the viewer knows them before it asks the
- * server for all images of the chat (PAGE-382).
- *
+ * server for all images of the chat.
  * @param attachments - The images of the message.
  * @param origin - Sender, time and message.
  */
@@ -33,8 +32,7 @@ export function messageImages(
 }
 
 /**
- * Opens the image viewer of the chat at one image (PAGE-382).
- *
+ * Opens the image viewer of the chat at one image.
  * @param content - The shared state of the cards.
  * @param opened - The image and the images of its message.
  */
@@ -65,7 +63,7 @@ interface ImageCardProps {
 }
 
 /**
- * The card of the only image of a message (PAGE-298, PAGE-382): the preview
+ * The card of the only image of a message: the preview
  * image under the shared head with Herunterladen, Daneben and Vollbild; a
  * click opens the image viewer of the chat. The original loads only there.
  */

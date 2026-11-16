@@ -4,7 +4,6 @@ import type { UserAvatarType } from "@/definition/User";
 
 /**
  * Subtle, deterministic color pairs an avatar can be rendered with.
- *
  * @remarks
  * Kept muted on purpose so avatars never compete with the primary accent
  * color used for interactive elements.
@@ -78,7 +77,6 @@ function isUserAvatarIconKey(value: string): value is UserAvatarIconKey {
 
 /**
  * Returns the two initials shown when no user icon or image is available.
- *
  * @param name - Display name used to derive the initials.
  * @returns The first and last relevant name part initials, maximum two letters.
  */
@@ -98,7 +96,6 @@ function getUserInitials(name: string): string {
 
 /**
  * Returns the deterministic pastel color pair for a user placeholder.
- *
  * @param seed - Stable user identifier or fallback name.
  * @returns The Tailwind classes for background and foreground.
  */
@@ -137,10 +134,8 @@ function resolveColorSeed({ user }: UserAvatarSource, name: string): string {
 
 /**
  * Resolves what an avatar is derived from into the values it is rendered from.
- *
  * @param source - The user data and the loose values of the avatar.
  * @returns The name, type, icon, image, color and initials of the avatar.
- *
  * @remarks
  * Values of the user data win over the loose values; the display name wins
  * over the username and the loose name.
@@ -170,7 +165,6 @@ export function resolveUserAvatar(
 
 /**
  * Decides what an avatar shows in its circle.
- *
  * @param avatar - The resolved avatar.
  * @param hasImageError - Whether the image of the avatar failed to load.
  * @returns The image of an image avatar, else its icon, else the initials.

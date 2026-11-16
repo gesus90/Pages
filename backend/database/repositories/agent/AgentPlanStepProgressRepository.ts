@@ -15,7 +15,7 @@ export interface StoredPlanStepProgress {
   readonly updatedAt: string;
 }
 
-/** Stores what `update_step_progress` reported, one row per run and step (PAGE-284). */
+/** Stores what `update_step_progress` reported, one row per run and step. */
 export class AgentPlanStepProgressRepository {
   private readonly database: Pick<Database, "query" | "execute">;
 

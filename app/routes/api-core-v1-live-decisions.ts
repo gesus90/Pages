@@ -63,7 +63,7 @@ async function decide(request: Request, secret: string): Promise<Response> {
 }
 
 /**
- * Decides for `pages-core` which session may learn about which outbox event (PAGE-237).
+ * Decides for `pages-core` which session may learn about which outbox event.
  *
  * @remarks
  * Only the core's shared secret admits a request, compared in constant time;

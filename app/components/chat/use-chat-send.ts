@@ -35,7 +35,7 @@ export interface ChatSending {
   /** The stored question's ID once the send result confirms it. */
   readonly messageId?: string;
   readonly text: string;
-  /** The attachments sent with the message: a snapshot taken when it was sent (PAGE-92). */
+  /** The attachments sent with the message: a snapshot taken when it was sent. */
   readonly attachments: readonly ChatAttachment[];
 }
 
@@ -53,7 +53,7 @@ interface ChatSendOptions {
   readonly view: ChatView;
   readonly setView: Dispatch<SetStateAction<ChatView>>;
   readonly setError: (code: string) => void;
-  /** Follows a job a Codex agent started for the message (PAGE-68). */
+  /** Follows a job a Codex agent started for the message. */
   readonly onJob: (job: ChatJob) => void;
   /** Reads the conversation again, after the server stored a message. */
   readonly refresh: (sessionId: string) => Promise<void>;
@@ -166,7 +166,6 @@ async function sendChatRequest(
 
 /**
  * Sends one message at a time with the unsent attachments.
- *
  * @remarks
  * After a failure the session is read again: a message the server already
  * stored stays in the conversation, otherwise its text returns to the input.
@@ -174,7 +173,7 @@ async function sendChatRequest(
  * session is open, so they never land in another session. Every message
  * carries a client message ID; sent again unchanged after a failure, it keeps
  * that ID, so the server stores it once even when it had stored the first
- * attempt already (PAGE-68).
+ * attempt already.
  */
 export function useChatSend({
   isOpen,
@@ -233,7 +232,7 @@ export function useChatSend({
       if (sent.kind === "reply") {
         setTemporaryPasswords(sent.reply.temporaryPasswords ?? []);
         setView((current) => addReply(current, sent.reply, session.id));
-        // How each attachment reached the agent is stored with the session, not sent with the reply (PAGE-92).
+        // How each attachment reached the agent is stored with the session, not sent with the reply.
         if (sent.reply.question.attachments.length > 0)
           await refresh(session.id);
         return "clear";

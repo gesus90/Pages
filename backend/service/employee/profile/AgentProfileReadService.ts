@@ -87,8 +87,7 @@ function readLimit(limit: number | undefined): number {
 
 /**
  * Reads agent profiles for administrators, group leaders and project
- * managers (PAGE-308).
- *
+ * managers.
  * @remarks
  * The oldest rule of the interface holds here: the same decision for every
  * caller. The user interface and the MCP routes read through this class, on
@@ -102,7 +101,6 @@ export class AgentProfileReadService {
 
   /**
    * Creates the service.
-   *
    * @param dependencies - The database and the model descriptions.
    * @param channel - How the administrator role counts: `ui` needs the admin mode, `mcp` the personal eligibility.
    */
@@ -121,7 +119,6 @@ export class AgentProfileReadService {
 
   /**
    * Lists the agents the reader may read, by name.
-   *
    * @param readerId - The account that reads.
    * @param query - The filters and the page.
    * @throws {AgentProfileError} `invalid_request` for a bad cursor or limit.
@@ -156,7 +153,6 @@ export class AgentProfileReadService {
 
   /**
    * Reads one agent with every field the reader may see.
-   *
    * @param readerId - The account that reads.
    * @param agentId - The agent.
    * @throws {AgentProfileError} `not_found` for an unknown agent, `forbidden`
@@ -181,7 +177,6 @@ export class AgentProfileReadService {
 
   /**
    * Reads a group with its leaders and members.
-   *
    * @param readerId - The account that reads.
    * @param groupId - The group.
    * @throws {AgentProfileError} `not_found` for an unknown group, `forbidden`
@@ -222,7 +217,6 @@ export class AgentProfileReadService {
 
   /**
    * The agents of a group as the overview of the user management shows them.
-   *
    * @param readerId - The account that reads.
    * @param groupId - The group.
    * @throws {AgentProfileError} `not_found` for an unknown group, `forbidden`
@@ -383,7 +377,7 @@ export class AgentProfileReadService {
       projects: [...(context.projects.get(agent.id) ?? [])],
       model: await this.modelOf(parts.employee),
       accessLevel: parts.employee.access,
-      // Agents have no voice before PAGE-300; the field stays empty until then.
+      // Agents have no voice before a model names one; the field stays empty until then.
       voice: null,
       load: {
         activeChats: loads.chats.get(agent.id) ?? 0,

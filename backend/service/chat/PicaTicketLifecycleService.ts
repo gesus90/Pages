@@ -18,7 +18,6 @@ export class PicaTicketLifecycleService {
 
   /**
    * Runs a Pica archive or restore, or returns null for another operation.
-   *
    * @param userId - The verified acting account, supplied by the executor.
    * @param operation - The internal chat operation.
    * @param parameters - The native arguments, with an optional server-owned operation ID.

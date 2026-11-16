@@ -70,9 +70,7 @@ export class PageAgentService {
 
   /**
    * Lists the user agents the person may currently see, with the names of their sharing targets.
-   *
    * @param userId - Authenticated requester.
-   *
    * @remarks
    * These are the agents of the page above: the owner's own and those shared
    * with the person. Agents of administrators are not part of it.
@@ -87,9 +85,7 @@ export class PageAgentService {
 
   /**
    * Lists the models the person may currently give an agent.
-   *
    * @param userId - Authenticated requester.
-   *
    * @remarks
    * Only models that administrators released for the person and whose
    * connection verifies right now are listed. No credential or connection
@@ -136,7 +132,6 @@ export class PageAgentService {
 
   /**
    * Owner-only saves ignore client ownership, credentials, connections and model names.
-   *
    * @param userId - Authenticated requester, who becomes the owner of a new agent.
    * @param id - The agent to change, or `null` to create one.
    * @param input - The definition as received; it is validated here.
@@ -188,12 +183,10 @@ export class PageAgentService {
 
   /**
    * Requires that the agent is currently visible to the user.
-   *
    * @param userId - Authenticated requester.
    * @param id - Agent identifier from the request.
    * @throws {AgentError} `agent_usage_denied` for an agent that does not exist
    * and for one that is not shared with the user, without telling which.
-   *
    * @remarks
    * Reading a record does not start a model, so the model grants are not part
    * of this check. A user who loses the share loses the content as well.
@@ -375,7 +368,6 @@ export class PageAgentService {
 
 /**
  * Leaves out sharing targets whose group or department no longer exists.
- *
  * @remarks
  * A deleted group never matches anyone, so the owner could not see why the
  * agent stays closed. The next save stores the cleaned list.

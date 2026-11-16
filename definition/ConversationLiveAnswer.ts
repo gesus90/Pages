@@ -1,7 +1,6 @@
 /**
  * The parts of an answer an agent is writing now, as `conversations.v1`
- * streams them to the chat page of the web (PAGE-381).
- *
+ * streams them to the chat page of the web.
  * @remarks
  * Every part names its chat, its agent and the answer it belongs to, and
  * counts from 1 within that answer, so a client that receives a part twice,
@@ -28,7 +27,7 @@ export type LiveAnswerDelivery = "injected" | "waiting" | "failed";
 /** How an answer ended. */
 export type LiveAnswerEndState = "answered" | "stopped" | "failed";
 
-/** How a person sends a message while an agent answers (PAGE-381). */
+/** How a person sends a message while an agent answers. */
 export type ConversationDelivery = "steer" | "after";
 
 /** What every part of a live answer names. */

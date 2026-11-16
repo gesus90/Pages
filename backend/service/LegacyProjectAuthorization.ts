@@ -5,7 +5,7 @@ import type { AuthorizationRepository } from "@/backend/database/repositories/Au
 import type { AccountAccess } from "@/definition/Authorization";
 import type { Role } from "@/definition/Role";
 
-/** Keeps the existing A3 directory projection consistent with current A2 permissions. */
+/** Keeps the existing directory projection consistent with current permissions. */
 export function projectProjection(account: AccountAccess): Role {
   if (new UserPolicyService().isAdministrator(account)) return "admin";
   return account.role?.permissions.includes(CAPABILITY.MANAGE_PROJECTS)

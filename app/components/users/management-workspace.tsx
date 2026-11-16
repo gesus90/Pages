@@ -26,7 +26,7 @@ export function ManagementWorkspace({
   readonly managementActivity?: readonly ManagementActivityEntry[];
   readonly directory: AdministrationPageData;
   readonly privateWikiPages: WikiPrivatePagesByOwner;
-  /** The agents tab (PAGE-266), or `null` without it. */
+  /** The agents tab, or `null` without it. */
   readonly agents: AgentEmployeePageData | null;
 }): React.ReactElement {
   const { t } = useTranslation();

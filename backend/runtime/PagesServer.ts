@@ -66,7 +66,6 @@ const EXIT_FAILURE = 1;
 
 /**
  * Lists the addresses the server can be reached at.
- *
  * @param port - Port the server listens on.
  * @returns `localhost` first, then every external IPv4 address.
  */
@@ -81,10 +80,8 @@ export function listServerOrigins(port: number): string[] {
 
 /**
  * Announces the server and writes a pending setup link directly to operator stdout.
- *
  * @param runtime - Runtime of the process.
  * @param origins - Addresses the server can be reached at.
- *
  * @remarks
  * The operator console is the only output for the setup capability. It must
  * bypass the logger, including its normal console mirror and error paths.
@@ -133,7 +130,7 @@ export function announceServer(
  * client address is the one the proxy reports. Forwarding headers of any
  * other peer are replaced or dropped before a route reads them
  * ({@link admitForwardedHeaders}). Pages renders no document on the server
- * (PAGE-235): this process also answers alone, without the entrance.
+ * This process also answers alone, without the entrance.
  */
 export function createPagesRequestListener(
   build: ServerBuild,

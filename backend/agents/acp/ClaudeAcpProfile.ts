@@ -16,7 +16,6 @@ export type ClaudeAcpSessionMode = "default" | "bypassPermissions";
 
 /**
  * How one Pages mode runs in the Claude ACP adapter.
- *
  * @remarks
  * `options` are the Claude options of the session, passed with `session/new`.
  * In every profile no settings file of the user or the workspace applies and
@@ -115,7 +114,6 @@ function readText(input: unknown): string | null {
 
 /**
  * Reads the tool of a request.
- *
  * @remarks
  * The adapter names a built-in tool in `toolCall.name` and an MCP tool, with
  * its server, in `_meta.claudeCode`; either one may carry the name.
@@ -268,7 +266,7 @@ const YOLO_PROFILE: ClaudeAcpProfile = {
 };
 
 /**
- * Pica's conversation (PAGE-90): no settings file and only the Pages helper,
+ * Pica's conversation: no settings file and only the Pages helper,
  * whose calls Pages checks one by one. The session is kept on
  * disk, in the connection's credential folder, so the next job of the
  * conversation continues it with `session/resume`. A plan node keeps its
@@ -306,7 +304,7 @@ const CHAT_PROFILE: ClaudeAcpProfile = {
 };
 
 /**
- * The group observer (PAGE-296): no built-in tool at all, no MCP server and
+ * The group observer: no built-in tool at all, no MCP server and
  * no kept transcript; Pages refuses every request, so it answers with text
  * alone.
  */
@@ -338,8 +336,7 @@ const OBSERVER_PROFILE: ClaudeAcpProfile = {
 };
 
 /**
- * The conversation of an agent employee on "Arbeitsplatz" or YOLO (PAGE-266,
- * PAGE-303): every native tool of Claude Code, the MCP servers configured on
+ * The conversation of an agent employee on "Arbeitsplatz" or YOLO: every native tool of Claude Code, the MCP servers configured on
  * the host, and the Pages helper for its Pages tools. "Arbeitsplatz" runs
  * inside the bubblewrap isolation, YOLO without it. The session is kept like
  * Pica's, so the next job continues it. There is no Pages MCP server whose

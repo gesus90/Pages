@@ -7,7 +7,6 @@ import type { DatabaseValue, SqlParameters } from "./Database";
 
 /**
  * What the database facade needs from the way statements reach a database.
- *
  * @remarks
  * `postgres/PostgresExecutor.ts` runs PostgreSQL through a connection pool.
  */

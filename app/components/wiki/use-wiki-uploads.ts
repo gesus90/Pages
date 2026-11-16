@@ -25,7 +25,6 @@ export interface WikiUploadsState {
 
 /**
  * Sends the files a person chose, dropped or pasted into a page.
- *
  * @param pageId - Page the files belong to.
  * @param onUploaded - Called with the markdown for each finished upload.
  * @returns The state of the uploads and the function that starts them.

@@ -85,7 +85,6 @@ function scriptHeight(script: AgentPlanScript): number {
 
 /**
  * Space for a frame's header and the gap before its first member row.
- *
  * @param frame - The frame; a loop has two labelled port rows below its title,
  * a group none. Without it the group header is meant.
  */
@@ -95,7 +94,6 @@ export function planGroupHeaderHeight(frame?: Pick<PlanFrame, "type">): number {
 
 /**
  * The height of the Stack card for its entries.
- *
  * @param stack - The stack whose entries are listed on its card.
  */
 export function planStackHeight(stack: AgentPlanStack): number {
@@ -117,7 +115,7 @@ function decisionHeight(decision: AgentPlanDecision): number {
   );
 }
 
-/** What a frame shows: its members and its decisions (PAGE-286). */
+/** What a frame shows: its members and its decisions. */
 type FrameContent =
   | AgentPlanStep
   | AgentPlanScript
@@ -188,7 +186,7 @@ export function planMemberPosition(
 
 /**
  * The height of a swarm card: head, task, main line and one row of helper
- * badges per five helpers (PAGE-313).
+ * badges per five helpers.
  */
 export function planSwarmHeight(workerCount: number): number {
   const rows = Math.max(1, Math.ceil(workerCount / PLAN_SWARM_BADGES_PER_ROW));
@@ -215,7 +213,6 @@ export function planNodeWidth(node: AgentPlanNode): number {
 
 /**
  * Bounds size React Flow nodes and keep group membership hit areas consistent.
- *
  * @remarks
  * A card is at least this tall; larger text lets it grow, and React Flow
  * then measures its ports again.

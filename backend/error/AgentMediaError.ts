@@ -1,6 +1,5 @@
 /**
- * Why an agent could not generate a video or a sound (PAGE-384).
- *
+ * Why an agent could not generate a video or a sound.
  * - `no_media_output`: the catalog does not state video or audio output for
  *   the model the agent works with in this chat.
  * - `no_media_interface`: the model's provider has no documented interface
@@ -28,7 +27,6 @@ export class AgentMediaError extends Error {
 
   /**
    * Creates the refusal.
-   *
    * @param code - The reason.
    * @param detail - What the provider or the model said, bounded.
    */

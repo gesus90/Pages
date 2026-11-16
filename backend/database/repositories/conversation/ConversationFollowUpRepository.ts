@@ -74,11 +74,9 @@ export class ConversationFollowUpRepository {
   /**
    * Records an asked agent's later reply that explicitly mentions the
    * questioner into the questioner's open questions of the round.
-   *
    * @remarks
    * The question rows are locked first, so a reply either joins a batch
    * before it is consumed or stays outside it and starts its own hand-over.
-   *
    * @returns The questioners whose batch holds this reply, also on a repeated call.
    */
   public async record(

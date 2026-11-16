@@ -1,6 +1,5 @@
 /**
  * Creates a random version 4 UUID in the browser.
- *
  * @remarks
  * `crypto.randomUUID` exists only in secure contexts, but Pages also runs on
  * plain HTTP in an intranet; `crypto.getRandomValues` works in both.

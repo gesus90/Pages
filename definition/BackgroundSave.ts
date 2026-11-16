@@ -2,7 +2,6 @@ import { z } from "zod";
 
 /**
  * Orders attempts within the lifetime of one browser document and object.
- *
  * @remarks
  * `operationId` names the save itself. The browser keeps it, also across a
  * reload, until the server confirmed or refused the save, and repeats an

@@ -36,7 +36,6 @@ interface EditorMobileToolbarProps {
 /**
  * Opens the slash menu at the caret: a slash after a blank or at the start
  * of a line opens it, so a blank is added after other text.
- *
  * @param editor - The editor.
  */
 export function openSlashMenu(editor: Editor): void {

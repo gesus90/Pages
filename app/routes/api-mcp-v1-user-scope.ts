@@ -27,8 +27,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpUserHandlers {
 }
 
 /**
- * Sets the personal management scope of an account (`POST /api/mcp/v1/users/{userId}/scope`), PAGE-280; administrators only.
- *
+ * Sets the personal management scope of an account (`POST /api/mcp/v1/users/{userId}/scope`); administrators only.
  * @remarks
  * Only the device token of a paired machine admits a request; the rights of
  * its account are read again on every call. See `docs/McpUserManagement.md`.

@@ -27,7 +27,6 @@ const PAGE_OWNED_TABLES = [
 
 /**
  * Deletes pages for good, together with everything that belongs to them.
- *
  * @param database - The transaction to delete in.
  * @param selection - The pages to delete.
  * @returns Storage names of the attachment files that no longer have a row;

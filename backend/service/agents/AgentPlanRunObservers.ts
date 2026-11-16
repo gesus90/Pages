@@ -4,7 +4,6 @@ import type { AgentPlanRun } from "@/definition/AgentPlan";
 
 /**
  * Learns about committed writes of plan runs.
- *
  * @remarks
  * An observer runs while the database is still busy with the write that just
  * committed. It must therefore only look at the two views and queue its own
@@ -14,7 +13,7 @@ import type { AgentPlanRun } from "@/definition/AgentPlan";
 export interface AgentPlanRunObserver {
   /** Called once per committed write of a run, with the view before and after. */
   runChanged(previous: AgentPlanRun, next: AgentPlanRun): void;
-  /** Called once after a new run was stored, before its first step starts (PAGE-297). */
+  /** Called once after a new run was stored, before its first step starts. */
   runStarted?(run: AgentPlanRun): void;
 }
 
@@ -24,7 +23,6 @@ export class AgentPlanRunObservers {
 
   /**
    * Adds an observer.
-   *
    * @param observer - Receives every committed write of a run from now on.
    * @returns Removes the observer again.
    */
@@ -38,10 +36,8 @@ export class AgentPlanRunObservers {
 
   /**
    * Tells every observer about a committed write.
-   *
    * @param previous - The view of the run before the write.
    * @param next - The view of the run after the write.
-   *
    * @remarks
    * A failing observer is logged and skipped; the write stays committed and
    * the other observers still hear about it.
@@ -58,9 +54,7 @@ export class AgentPlanRunObservers {
 
   /**
    * Tells every observer about a newly stored run.
-   *
    * @param run - The view of the run as it was stored.
-   *
    * @remarks
    * A failing observer is logged and skipped, as for changes.
    */
@@ -81,7 +75,6 @@ declare global {
 
 /**
  * Returns the observers shared by every repository of this process.
- *
  * @remarks
  * Run writes happen in several repositories that are built in different
  * places; one shared registry lets a service that is built later subscribe

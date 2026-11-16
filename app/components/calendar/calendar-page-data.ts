@@ -11,7 +11,7 @@ export interface CalendarPageProject {
   readonly name: string;
 }
 
-/** What the calendar page loads for the visible range (PAGE-301). */
+/** What the calendar page loads for the visible range. */
 export interface CalendarPageData {
   /** The account the view preferences are kept for. */
   readonly userId: string;
@@ -72,7 +72,6 @@ function hasCalendarLists(value: object): boolean {
 
 /**
  * Recognizes the answer of the calendar endpoint.
- *
  * @param value - The parsed answer.
  */
 export function isCalendarPageData(value: unknown): value is CalendarPageData {
@@ -92,7 +91,6 @@ export function isCalendarPageData(value: unknown): value is CalendarPageData {
 
 /**
  * Recognizes the answer of a change of the calendar page.
- *
  * @param value - What a fetcher holds.
  */
 export function isCalendarActionData(

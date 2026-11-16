@@ -19,8 +19,7 @@ const HANDLERS: McpAutomationHandlers = {
 };
 
 /**
- * Reads what the paired account may choose (`GET /api/mcp/v1/automations/options`), PAGE-297.
- *
+ * Reads what the paired account may choose (`GET /api/mcp/v1/automations/options`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

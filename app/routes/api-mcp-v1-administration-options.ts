@@ -15,8 +15,7 @@ const HANDLERS: McpUserHandlers = {
 };
 
 /**
- * Reads the permission catalog, the choices and the actions the account may take now (`GET /api/mcp/v1/administration/options`), PAGE-280.
- *
+ * Reads the permission catalog, the choices and the actions the account may take now (`GET /api/mcp/v1/administration/options`).
  * @remarks
  * Only the device token of a paired machine admits a request; the rights of
  * its account are read again on every call. See `docs/McpUserManagement.md`.

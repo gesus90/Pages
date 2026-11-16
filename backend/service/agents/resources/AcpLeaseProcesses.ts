@@ -49,17 +49,15 @@ export async function endLeaseProcesses(
 
 /**
  * Closes out an owned lease through its strongest ownership evidence.
- *
  * @param record - A lease of this process role.
  * @param startedAt - Its recorded start, or `null` when the start is unknown.
  * @param cleanup - The legacy closeout, which refuses without ownership proof.
  * @param settleUnits - Stops the worker units of a lease and counts those still running.
- *
  * @remarks
  * A managed owner or a recorded namespace decides first. Without process
  * identity a tracked start that spawned nothing counts, and a start in a
  * recorded worker unit counts once its units are stopped and none of them
- * runs (PAGE-335); a start
+ * runs; a start
  * before the current boot is left to the periodic check, which reads the
  * boot itself.
  */
@@ -116,7 +114,6 @@ export async function hasEndedLeaseProcesses(
 
 /**
  * Decides whether a failed start may release its lease.
- *
  * @returns `true` only for a start that provably spawned nothing or whose
  * processes were confirmed ended; any unknown closeout keeps the reservation.
  */

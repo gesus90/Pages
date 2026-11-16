@@ -24,7 +24,7 @@ import type {
   TextExecutionInput,
 } from "@/backend/agents/TextExecution";
 
-/** Reuses A7 credentials and fixed hosts for a single bounded, non-retrying request. */
+/** Reuses provider credentials and fixed hosts for a single bounded, non-retrying request. */
 export class ApiTextExecution implements TextExecution {
   private readonly repository: Pick<
     AgentConnectionRepository,

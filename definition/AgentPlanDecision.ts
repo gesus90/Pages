@@ -9,8 +9,7 @@ import type {
 } from "./AgentPlan";
 
 /**
- * How a decision decides (PAGE-286).
- *
+ * How a decision decides.
  * @remarks
  * `boolean` reads a boolean parameter or the boolean result of an agent and
  * calls no model. `model` asks a model of an ACP connection one question about

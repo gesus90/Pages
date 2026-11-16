@@ -7,7 +7,6 @@ import type { AgentPlanScriptApproval } from "@/backend/database/repositories/ag
 
 /**
  * The script steps that run as processes on the Pages host: active and not remote.
- *
  * @param plan - The plan.
  */
 export function localPlanScripts(
@@ -22,13 +21,11 @@ export function localPlanScripts(
 }
 
 /**
- * The hash an approval of a script step is bound to (PAGE-329, part C).
- *
+ * The hash an approval of a script step is bound to.
  * @remarks
  * It covers the script content, the interpreter profile and the workspace the
  * script runs in. Changing any of them yields another hash, which lifts the
  * approval; changing anything else of the plan keeps it.
- *
  * @param plan - The plan whose workspace the script runs in.
  * @param script - The script step.
  * @returns The lowercase hexadecimal SHA-256.
@@ -50,7 +47,6 @@ export function scriptApprovalHash(
 
 /**
  * Which local script steps of the plan lack an approval of their current content.
- *
  * @param plan - The plan as it is started or shown.
  * @param approvals - The stored approvals by step.
  */

@@ -93,11 +93,9 @@ export class DuckDbSource {
 
   /**
    * Opens the file read-only, so neither it nor anything beside it changes.
-   *
    * @param filePath - The DuckDB file.
    * @returns The open source, which owes a {@link close}.
    * @throws {TransferRefusal} When the file is missing or has a write-ahead log.
-   *
    * @remarks
    * Without a temporary directory a sort beyond the memory limit fails instead
    * of spilling next to the file. A write-ahead log means Pages did not stop

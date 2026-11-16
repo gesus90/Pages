@@ -68,7 +68,7 @@ export interface ProfileDependencies {
   readonly files?: AgentDefinitionFiles;
   readonly tickets?: Pick<AgentTicketParameterService, "choices" | "resolve">;
   readonly pica?: Pick<PicaSettingsService, "resolve">;
-  /** The agent simulation (PAGE-268); absent means the switch of this process. */
+  /** The agent simulation; absent means the switch of this process. */
   readonly simulation?: AgentSimulationMode;
 }
 
@@ -139,7 +139,7 @@ export class AgentProfileService {
     return { profiles: filtered, availability };
   }
 
-  /** Provides the authorized read contract for A10.4 without introducing another management list. */
+  /** Provides the authorized read contract for parameter changes without introducing another management list. */
   public async catalog(
     userId: string,
     projectId: string | null = null,
@@ -165,7 +165,7 @@ export class AgentProfileService {
     userId: string,
     connectionId: string,
   ): Promise<void> {
-    // The simulation's connections are not stored and disclose nothing (PAGE-268).
+    // The simulation's connections are not stored and disclose nothing.
     if (agentSimulationRunner(connectionId) !== null) return;
     const viewer = {
       actor: await this.account(userId),
@@ -181,7 +181,7 @@ export class AgentProfileService {
       throw new AgentExecutionError("accessDenied");
   }
 
-  /** Resolves only access and the template snapshot; starting runners belongs to A10.4. */
+  /** Resolves only access and the template snapshot; starting runners belongs to parameter preparation. */
   public async resolveDefinition(
     userId: string,
     selection: AgentDefinitionSelection,
@@ -377,7 +377,7 @@ export class AgentProfileService {
         viewer,
         profile,
       );
-      // The run options travel with the assignment, so a CLI chat agent runs as administered (PAGE-90).
+      // The run options travel with the assignment, so a CLI chat agent runs as administered.
       const run = profile.configuration?.run;
       return run === undefined ? assignment : { ...assignment, run };
     }

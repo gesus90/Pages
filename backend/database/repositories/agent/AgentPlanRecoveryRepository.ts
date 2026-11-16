@@ -84,7 +84,6 @@ export class AgentPlanRecoveryRepository {
 
   /**
    * Creates the repository.
-   *
    * @param database - The transaction access of the decisions; a composition
    * without read snapshots inspects on the writer instead.
    */
@@ -97,10 +96,9 @@ export class AgentPlanRecoveryRepository {
 
   /**
    * Reads a coherent recovery revision and the latest hundred append-only decisions.
-   *
    * @remarks
    * All of it are SELECTs on one snapshot, so this polled read needs no place
-   * in the writer queue (PAGE-199). The snapshot is the last committed state: a
+   * in the writer queue. The snapshot is the last committed state: a
    * decision taken on it is fenced by `expectedRevision` in {@link control},
    * which runs on the writer.
    */

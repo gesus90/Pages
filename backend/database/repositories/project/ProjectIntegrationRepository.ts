@@ -142,7 +142,6 @@ export class ProjectIntegrationRepository {
 
   /**
    * Creates a project integration repository.
-   *
    * @param database - Central database access.
    */
   public constructor(database: DatabaseTransaction) {

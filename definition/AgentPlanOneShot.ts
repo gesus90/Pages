@@ -1,4 +1,4 @@
-/** How long a one-time plan stays after a run ended as `succeeded` (PAGE-309). */
+/** How long a one-time plan stays after a run ended as `succeeded`. */
 export const ONE_SHOT_DELETION_DELAY_MS = 5 * 60 * 1000;
 
 /** What a plan list, a plan read and the control state say about a one-time plan. */
@@ -14,7 +14,6 @@ const MAXIMUM_PLAN_NAME_LENGTH = 120;
 
 /**
  * Suggests the name of a one-time copy: `<Name> · <label> · <date>`.
- *
  * @param name - The name of the source plan.
  * @param label - The localized word for "one-time".
  * @param date - The day of the copy, shown as `YYYY-MM-DD`.

@@ -6,7 +6,6 @@ export interface PicaMobileAccountChecks {
   /**
    * Tells whether the session of a registration holds and its account may
    * still receive notifications.
-   *
    * @param accountId - The account the registration is bound to.
    * @param sessionId - The session the registration is bound to.
    * @returns `false` once the session is revoked or expired, the account is
@@ -23,7 +22,6 @@ export class PagesPicaMobileAccountChecks implements PicaMobileAccountChecks {
 
   /**
    * Creates the checks.
-   *
    * @param sessions - Reads whether a session still exists.
    * @param users - Reads the current state of an account.
    */

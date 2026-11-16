@@ -29,8 +29,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpTicketHandlers {
 }
 
 /**
- * Links a ticket with another one (`POST /api/mcp/v1/tickets/{key}/links`), PAGE-242 interface 10.
- *
+ * Links a ticket with another one (`POST /api/mcp/v1/tickets/{key}/links`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

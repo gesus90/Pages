@@ -1,7 +1,7 @@
 /**
  * Notification channels of the Pica Mobile app: two for plan notifications,
- * one for new messages of conversations (PAGE-278) and one for invitations
- * to calendar events (PAGE-301).
+ * one for new messages of conversations and one for invitations
+ * to calendar events.
  */
 export type PicaMobilePushChannel =
   | "pica-plan-steps"
@@ -11,7 +11,6 @@ export type PicaMobilePushChannel =
 
 /**
  * One push message for one registered device, in the words of Pages.
- *
  * @remarks
  * The sender turns it into the request of its provider. `data` holds text
  * values only and already contains the `tag`; the title and body are generic
@@ -32,7 +31,6 @@ export interface PicaMobilePushMessage {
 
 /**
  * What a sender made of one message.
- *
  * @remarks
  * `sent` means the push service accepted the message, not that the device
  * displayed it. `invalidToken` says the token itself is unusable and the
@@ -53,9 +51,7 @@ export type PicaMobilePushOutcome =
 export interface PicaMobilePushSender {
   /**
    * Gets the sender ready to send, for example by fetching its credentials.
-   *
    * @returns `false` when it cannot send right now. It never rejects.
-   *
    * @remarks
    * The dispatcher calls it before it hands out any delivery, so a rights
    * check is not followed by a slow credential request.
@@ -63,7 +59,6 @@ export interface PicaMobilePushSender {
   ready(): Promise<boolean>;
   /**
    * Sends one message.
-   *
    * @param message - What to deliver and to whom.
    * @returns The outcome; it never rejects, a failure is an outcome.
    */

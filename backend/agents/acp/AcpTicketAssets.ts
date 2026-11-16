@@ -31,12 +31,10 @@ interface AssetBlocks {
 
 /**
  * The complete first prompt of a turn, first or continued, within the message budget.
- *
  * @param request - The instruction, the files of the step and the blocks that follow them.
  * @param sessionId - The protocol session the prompt is sent to.
  * @param capabilities - The prompt capabilities the adapter negotiated.
  * @returns The instruction, the inventory with the file contents that fit, then the following blocks.
- *
  * @remarks
  * The blocks after the files, such as chat attachments, are always sent;
  * file contents get the room the complete message leaves, and the verified
@@ -61,13 +59,11 @@ export async function acpTurnPrompt(
 
 /**
  * Builds the prompt of a turn: the instruction, then every file of the step.
- *
  * @param prompt - The complete instruction, sent unchanged as the first block.
  * @param assets - The authorized files of the step, each with its verified session copy.
  * @param capabilities - The prompt capabilities the adapter negotiated.
  * @param roomBytes - The UTF-8 bytes the blocks may take in the serialized message.
  * @returns The prompt blocks.
- *
  * @remarks
  * The instruction and the complete inventory come first: every file keeps its
  * provenance label. A model representation is added only while it fits

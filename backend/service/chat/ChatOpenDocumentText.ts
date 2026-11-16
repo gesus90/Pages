@@ -10,7 +10,7 @@ import type { ChatPreviewSection } from "@/definition/ChatPreview";
 import type { ChatDocument, ChatDocumentSheet } from "./ChatDocumentReader";
 import type { XmlToken } from "./ChatOfficeText";
 
-/** Which OpenDocument format a package holds (PAGE-386). */
+/** Which OpenDocument format a package holds. */
 export type OpenDocumentFormat = "text" | "presentation" | "spreadsheet";
 
 /** Slides and sheets read at most, as for Office files. */
@@ -241,14 +241,12 @@ function readSpreadsheet(xml: string): ChatDocument {
 }
 
 /**
- * Reads the text of an OpenDocument file (PAGE-386): the pages of a text
+ * Reads the text of an OpenDocument file: the pages of a text
  * document, the slides of a presentation or the sheets of a spreadsheet.
- *
  * @remarks
  * Only `content.xml` is read, in memory and within the same inflation limits
  * as Office files. Scripts, macros (`Basic/`, `Scripts/`), embedded objects
  * and links are never read, followed or run; markup is never interpreted.
- *
  * @param format - Which OpenDocument format the file holds.
  * @param bytes - The complete package.
  * @throws {ChatZipError} For an encrypted, damaged or too large package.

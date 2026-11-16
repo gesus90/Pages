@@ -27,8 +27,7 @@ const HANDLERS: McpTicketHandlers = {
 };
 
 /**
- * Searches tickets (`GET /api/mcp/v1/tickets?projectId=<ID>`) and creates one (`POST /api/mcp/v1/tickets`), PAGE-242 interface 2 and 5.
- *
+ * Searches tickets (`GET /api/mcp/v1/tickets?projectId=<ID>`) and creates one (`POST /api/mcp/v1/tickets`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

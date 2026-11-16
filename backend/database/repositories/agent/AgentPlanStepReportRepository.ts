@@ -103,7 +103,6 @@ export class AgentPlanStepReportRepository {
 
   /**
    * Sets or replaces the report of exactly this attempt.
-   *
    * @returns Whether the attempt still held the slot.
    */
   public async save(
@@ -132,7 +131,6 @@ export class AgentPlanStepReportRepository {
 
   /**
    * Closes the slot of an attempt, so a late call cannot change the assessed result.
-   *
    * @returns The report it held; `null` without a report or without a slot of this attempt.
    */
   public async close(

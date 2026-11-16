@@ -25,8 +25,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpCalendarHandlers {
 
 /**
  * Answers an invitation for the whole series
- * (`POST /api/mcp/v1/calendar/events/{id}/response`, respond_calendar_event), PAGE-301.
- *
+ * (`POST /api/mcp/v1/calendar/events/{id}/response`, respond_calendar_event).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

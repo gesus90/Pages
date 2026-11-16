@@ -1,5 +1,5 @@
 // Same versioned application bundle as the API; this process only serves the
-// static app and passes everything else to the API (PAGE-235).
+// static app and passes everything else to the API.
 process.env.NODE_ENV ??= "production";
 try {
   const { startIngress } = await import("./build/server/index.js");

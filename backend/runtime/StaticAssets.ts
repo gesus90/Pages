@@ -33,7 +33,7 @@ const HASHED_ASSET_PREFIX = "/assets/";
 const HASHED_ASSET_CACHE = "public, max-age=31536000, immutable";
 const OTHER_ASSET_CACHE = "public, max-age=3600";
 /**
- * Files of the static app that name the current build (PAGE-235): a browser
+ * Files of the static app that name the current build: a browser
  * asks again before using a kept copy, so it picks up a new build at once.
  */
 const BUILD_ENTRY_FILES: ReadonlySet<string> = new Set(["/sw.js"]);
@@ -63,9 +63,7 @@ function decodePathname(requestUrl: string): string | null {
 
 /**
  * Maps a request path to a file below the client build directory.
- *
  * @returns The file path, or `null` for the root and for hidden names.
- *
  * @remarks
  * Every segment starting with a dot is refused, which includes `.` and
  * `..`, so the decoded path can never leave the directory.
@@ -97,13 +95,11 @@ async function readFileSize(filePath: string): Promise<number | null> {
 
 /**
  * Answers a request with a file of the client build when one matches.
- *
  * @param request - Incoming request.
  * @param response - Response to write the file to.
  * @param clientDirectory - Absolute path of the client build output.
  * @returns Whether a file was sent; otherwise the request is left untouched
  * for the application.
- *
  * @remarks
  * Only `GET` and `HEAD` requests for regular files below the directory are
  * served. Encoded `..`, absolute segments, and hidden files never match.
@@ -162,14 +158,12 @@ export async function serveStaticAsset(
 
 /**
  * Answers a request for a hashed file that the build does not contain with `404`.
- *
  * @param request - A request no file of the build answered.
  * @param response - Response to write the refusal to.
  * @returns Whether the request named a hashed file and was refused.
- *
  * @remarks
  * A browser that still runs an earlier build may ask for one of its files
- * after an update (PAGE-235). It must fail at once instead of receiving the
+ * after an update. It must fail at once instead of receiving the
  * app's document, so React Router loads the page again with the current
  * build. Never cached, because the same name may come with a later build.
  */

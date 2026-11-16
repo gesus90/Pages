@@ -36,16 +36,13 @@ function isIdle(active: ActivePlanRun): boolean {
 
 /**
  * Ends the retained sessions of every run that has become idle, once per run.
- *
  * @param runs - The active runs.
  * @param dependencies - The queue that serializes the scheduler, the run store and the step runner that holds the sessions.
- *
  * @remarks
  * A result that landed since the last settle is settled first, in the same
  * turn of the queue that judges the run idle: otherwise a fix agent that ended
  * in between would look like the end of the run and its checker's session
  * would be closed before the result could return to it.
- *
  * A failing closeout is logged and never stops the run from closing; its
  * records tell whether the cleanup was confirmed.
  */

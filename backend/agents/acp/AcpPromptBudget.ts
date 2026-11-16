@@ -30,7 +30,6 @@ export interface AcpMessageOwner {
 
 /**
  * Measures the complete JSON-RPC line exactly as the line channel writes it.
- *
  * @remarks
  * The UTF-8 bytes include the envelope, every escape character and the Base64
  * of inline images; the request ID is counted with its longest possible form.
@@ -48,7 +47,6 @@ export function acpMessageBytes(message: AcpOutgoingMessage): number {
 
 /**
  * The bytes one block adds to the prompt array of a message.
- *
  * @remarks
  * The separating comma is counted for every block, so a sum never falls short
  * of the real line.
@@ -59,7 +57,6 @@ export function acpBlockBytes(block: ContentBlock): number {
 
 /**
  * The bytes blocks placed in front of the prompt of this message may still take.
- *
  * @param message - The message with the blocks that always follow, such as chat attachments.
  * @returns The remaining budget; negative when the message alone is already too large.
  */
@@ -69,7 +66,6 @@ export function acpPromptRoom(message: AcpOutgoingMessage): number {
 
 /**
  * Whether the complete message fits into one line of the session input.
- *
  * @remarks
  * A message that does not fit is logged with its byte count and safe
  * identities only, never with any prompt or file content.
@@ -99,7 +95,6 @@ export function isAcpMessageWithinBudget(
 
 /**
  * Refuses a message before it is written when it exceeds the input limit.
- *
  * @throws {AgentError} `acp_input_too_large`, which names the input direction
  * and is never confused with an oversized output of the agent.
  */
@@ -113,7 +108,6 @@ export function requireAcpMessageBudget(
 
 /**
  * The parameters of a `session/prompt` request, measured as the complete message.
- *
  * @param sessionId - The protocol session.
  * @param prompt - Every block of the prompt.
  * @param provider - The runner, named in the log of a refused message.

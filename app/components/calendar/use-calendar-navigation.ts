@@ -16,7 +16,6 @@ export interface CalendarNavigation {
 /**
  * Keeps view and anchor date in the address, so a reload or a shared link
  * opens the same range and the loader reads it.
- *
  * @param view - The shown view.
  * @param date - The shown anchor date.
  * @param today - Today in the account's zone.

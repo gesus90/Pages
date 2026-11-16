@@ -57,7 +57,6 @@ const GERMAN_LETTERS: Readonly<Record<string, string>> = {
 /**
  * The name of a recipe in the form `rezept(name, …)` is called with: lower
  * case, words joined by `-`, umlauts spelled out.
- *
  * @param raw - The name as somebody wrote it.
  * @returns The name, or `null` when nothing usable is left.
  */
@@ -77,7 +76,6 @@ export function recipeName(raw: string): string | null {
  * How a tool stands to a recipe: usable, one that needs the normal
  * confirmation and so is never run by a recipe (deleting, removing,
  * archiving), or one a recipe cannot call at all (itself, a name that is no tool).
- *
  * @param tool - The name of the tool.
  */
 export function classifyRecipeTool(tool: string): RecipeToolClass {
@@ -219,14 +217,12 @@ function checkSteps(
 
 /**
  * Checks a recipe before it is stored.
- *
  * @remarks
  * A flow recipe needs one to eight steps. Each names a tool a recipe may
  * call (never a deleting, removing or archiving one, never an input with a
  * confirmation, never the recipe tool itself) and uses placeholders only for
  * its own parameters or the result of an earlier step. A knowledge recipe
  * needs a guide. Texts are cut and carry no credentials.
- *
  * @param draft - The recipe as proposed.
  * @param context - The date, the strength and the tools the agent is known to use.
  */

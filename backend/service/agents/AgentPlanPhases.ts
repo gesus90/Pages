@@ -19,7 +19,6 @@ export class AgentPlanPhases {
 
   /**
    * Lists the shared and the project's own workflow statuses in board order.
-   *
    * @remarks
    * The task service only returns statuses of projects the person may open.
    * A key appears once, as on the board, so a filter by key stays unambiguous.

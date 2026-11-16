@@ -1,7 +1,7 @@
 # Anfragen über Prozessgrenzen verfolgen
 
 [Documentation index](README.md) ·
-[Log files, retention and errors](#server-logging-page-67) · [Log level](#log-level)
+[Log files, retention and errors](#server-logging) · [Log level](#log-level)
 
 `correlationId` ist die gemeinsame Kennung einer ausgelösten Arbeit. Sie steht
 auf oberster Ebene der bestehenden strukturierten JSON-Logzeilen. `requestId`
@@ -48,7 +48,7 @@ erwartet. `runId`, `jobId` und `attemptId` grenzen die Arbeit weiter ein. Schema
 Schweregrade, Meldungen, Metadaten, Fehlerdarstellung, Redaktion und Dateirotation
 behalten ihr bestehendes Format.
 
-### Server logging (PAGE-67)
+### Server logging
 
 Pages uses Pino **10.4.0** behind `backend/logging/Logger.ts`. The six severities
 are `trace`, `debug`, `info`, `warn`, `error` and `fatal`. Every severity from

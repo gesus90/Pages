@@ -131,7 +131,6 @@ function readListing(row: readonly DatabaseValue[]): AgentPlanListing {
 
 /**
  * Whether a write failed because another plan of the team already has the name.
- *
  * @remarks
  * A violation found while the statement runs names the first column of the
  * index; one found when the transaction commits only says that a key repeats.
@@ -408,7 +407,7 @@ export class AgentPlanRepository {
   }
 
   /**
-   * Removes the one-time mark of a plan and cancels its scheduled deletion (PAGE-309).
+   * Removes the one-time mark of a plan and cancels its scheduled deletion.
    *
    * @param id - The plan.
    * @param options - The revision the person saw, the person who keeps it
@@ -477,7 +476,7 @@ export class AgentPlanRepository {
    *
    * @param id - The plan.
    * @param ownerId - The owner the plan must still belong to, or `null` for an
-   * administrator, who deletes every plan (PAGE-329).
+   * administrator, who deletes every plan.
    * @param options - The revision the person saw and the journal of the deletion.
    * @throws {AgentError} `plan_access_denied` when the plan no longer belongs
    * to the owner, `plan_running` while a run is running or paused,

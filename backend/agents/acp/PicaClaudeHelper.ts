@@ -18,7 +18,6 @@ function asRecord(input: unknown): Readonly<Record<string, unknown>> | null {
 
 /**
  * Splits a shell command into its literal words, or refuses it.
- *
  * @remarks
  * Only bare words of path characters, single-quoted text and the escaped
  * apostrophe are understood. Every other character, such as a substitution,
@@ -103,13 +102,11 @@ function isImageRead(rawInput: Readonly<Record<string, unknown>>): boolean {
 
 /**
  * Answers a permission request of a Pica chat with Claude Code.
- *
  * @param request - The permission request of the adapter.
  * @param helperPath - The absolute path of the helper this turn may run, or `null`
  * between turns, when nothing is approved.
  * @returns Approval only for the exact helper call of this turn or for opening
  * an image file the helper wrote; every other request is refused.
- *
  * @remarks
  * Pages never approves a prefix, a command with more than the two words or a
  * tool outside these two cases. The helper itself talks to the Pages route
@@ -133,10 +130,9 @@ export function decidePicaHelperPermission(
 
 /**
  * The instruction a Claude Code turn receives for the helper of that turn.
- *
  * @param helperPath - The absolute path of the helper of this turn.
  * @param access - The access of the session. An agent employee on
- * "Arbeitsplatz" or YOLO (PAGE-266, PAGE-303) runs with "yolo": the helper is
+ * "Arbeitsplatz" or YOLO runs with "yolo": the helper is
  * then only the way to the Pages tools and it uses every other tool, program
  * and MCP server of the host as well. Everyone else is told, and held by
  * {@link decidePicaHelperPermission}, to run nothing but the helper.

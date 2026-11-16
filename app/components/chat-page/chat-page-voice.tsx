@@ -20,8 +20,8 @@ import {
 import type { VirtualVoice } from "@/definition/VirtualChat";
 
 /**
- * The fixed columns of a voice message (PAGE-388), as the sound rows of
- * PAGE-384 have them: Start/Pause · sender and length · waveform (the rest)
+ * The fixed columns of a voice message, as the sound rows of the chat
+ * have them: Start/Pause · sender and length · waveform (the rest)
  * · time `0:12 / 0:48` · speed. Every voice message has the same columns,
  * so several below each other line up exactly; on a narrow screen the
  * waveform moves into a second line.
@@ -82,7 +82,7 @@ function useVoicePlayer(
   const [isPlaying, setPlaying] = useState(false);
   const [positionMs, setPositionMs] = useState(0);
   const [speed, setSpeed] = useState(1);
-  // Only one medium of the page plays at a time (PAGE-384).
+  // Only one medium of the page plays at a time.
   const playback = useExclusivePlayback(audio, `voice:${url}`);
   function toggle(): void {
     const element = audio.current;
@@ -148,7 +148,7 @@ export function VoiceWave({
   readonly isOwn: boolean;
   readonly label: string;
   readonly onSeek: (share: number) => void;
-  /** Draws the part not played yet in the neutral border color instead of a pale accent (PAGE-384). */
+  /** Draws the part not played yet in the neutral border color instead of a pale accent. */
   readonly isRestNeutral?: boolean;
 }): React.ReactElement {
   const bars = peaks ?? FLAT_WAVE;
@@ -180,7 +180,7 @@ export function VoiceWave({
 }
 
 /**
- * The recognized text below the row (PAGE-388): "Wird erkannt …" until it
+ * The recognized text below the row: "Wird erkannt …" until it
  * arrives, a note when the recognition failed, and else the text, collapsed
  * by default behind "Text anzeigen".
  */
@@ -230,7 +230,7 @@ function VoiceTranscript({
 }
 
 /**
- * A voice message (PAGE-278, PAGE-277, PAGE-388) as one row of the sound
+ * A voice message as one row of the sound
  * grid: the round Start/Pause in the accent color, sender and length, the
  * waveform with the played part, the time as `0:12 / 0:48` and the speed,
  * each in its fixed column, and below it the recognized text; the audio

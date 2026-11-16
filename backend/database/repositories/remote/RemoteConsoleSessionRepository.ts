@@ -2,7 +2,7 @@ import { readCountColumn, readTextColumn } from "@/backend/database/RowValue";
 
 import type { Database } from "@/backend/database/Database";
 
-/** The stored identity of one open console (PAGE-239); never its output or input. */
+/** The stored identity of one open console; never its output or input. */
 export interface StoredConsoleSession {
   readonly id: string;
   readonly ownerId: string;
@@ -31,7 +31,6 @@ export class RemoteConsoleSessionRepository {
 
   /**
    * Stores a console or renews it; it expires after the lease.
-   *
    * @param session - The console's identity and progress.
    * @param leaseSeconds - Seconds until a console nobody touches expires.
    */
@@ -87,7 +86,6 @@ export class RemoteConsoleSessionRepository {
 
   /**
    * Returns a console whose lease has not ended.
-   *
    * @param id - The console.
    * @returns The stored console, or `null` when it is unknown or expired.
    */
@@ -125,7 +123,6 @@ export class RemoteConsoleSessionRepository {
 
   /**
    * Forgets a console, such as after its owner released it or it ended.
-   *
    * @param id - The console.
    */
   public async remove(id: string): Promise<void> {

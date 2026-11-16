@@ -115,7 +115,6 @@ export function planIssueCause(
 
 /**
  * The findings that keep the plan from starting or continuing, one entry each.
- *
  * @remarks
  * Graph findings name their node, and so do nodes their remote target
  * cannot run; a refusal of the server's start check names the area it

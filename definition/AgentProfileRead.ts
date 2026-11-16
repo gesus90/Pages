@@ -1,6 +1,5 @@
 /**
- * Contracts of the readable agent profiles (PAGE-308).
- *
+ * Contracts of the readable agent profiles.
  * @remarks
  * Administrators, group leaders and project managers read what an agent does:
  * role, documents, model and workload. Never part of a profile: `MEMORY.md`,
@@ -26,7 +25,7 @@ export interface AgentProfileModel {
   readonly reasoningEffort: string | null;
 }
 
-/** The voice of an agent, once an agent has one (PAGE-300). */
+/** The voice of an agent, once an agent has one. */
 export interface AgentProfileVoice {
   readonly voiceId: string;
   readonly speed: number;

@@ -32,7 +32,6 @@ export interface LocalStateLayoutSource<T> {
 
 /**
  * Creates the holder of a layout's refreshed answer.
- *
  * @remarks
  * Components outside the route, such as the sidebar, and the route itself
  * read the same answer, so the endpoint is asked once for all of them.
@@ -59,10 +58,8 @@ function noAnswer(): null {
 
 /**
  * The layout's answer to show: the endpoint's answer to the kept one, or the loader's.
- *
  * @remarks
  * Reads only; {@link useLocalStateLayout} asks the endpoint and keeps the answers.
- *
  * @param loaded - The layout's loader data, or `undefined` outside the layout.
  * @param source - The holder of the layout's refreshed answer.
  */
@@ -85,7 +82,6 @@ function isUnreachable(error: unknown): boolean {
 
 /**
  * Whether an endpoint's answer belongs to the signed-in account under its current rights.
- *
  * @param kind - The stored form of the layout's answers.
  * @param answer - The endpoint's answer.
  */
@@ -97,12 +93,10 @@ function isShowable<T>(kind: LocalStateRouteKind<T>, answer: T): boolean {
 
 /**
  * Asks a layout's endpoint for the answer that replaces a shown one.
- *
  * @remarks
  * Every component of the layout shows the answer, so a late answer given to
  * an account that signed out meanwhile, or under rights changed meanwhile,
  * reaches none of them; the layout is read again instead.
- *
  * @param of - The loader data the answer replaces.
  * @param layout - The stored form of the answers, the endpoint reader and the holder of the answer.
  * @param onRefused - Called when the endpoint refuses, such as after the session ended.
@@ -146,7 +140,6 @@ function refreshLayout<T>(
 
 /**
  * Shows a layout's kept answer until its endpoint answers and keeps every answer it shows.
- *
  * @remarks
  * A layout's data is read by components outside the route, which a fetcher
  * of the address would not reach, so the endpoint is asked directly. While
@@ -156,7 +149,6 @@ function refreshLayout<T>(
  * {@link useLocalStateLayoutAnswer}. A layout the router does not reload
  * when the person moves inside it names the address as `refreshKey`; every
  * change of it asks the endpoint again behind the shown answer.
- *
  * @param loaded - The layout's loader data, or `undefined` outside the layout.
  * @param kind - The stored form of the layout's answers.
  * @param source - The key of the answers and the endpoint reader.

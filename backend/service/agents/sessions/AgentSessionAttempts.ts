@@ -57,9 +57,8 @@ const UNKNOWN: AgentSessionReportedValue = {
 
 /**
  * The attempt ID of a node's record.
- *
  * @remarks
- * Records from before PAGE-85 have none. Instance and node identify their
+ * Older records have none. Instance and node identify their
  * only attempt: members of an ACP group share the instance, never the node.
  */
 export function attemptIdOf(
@@ -74,7 +73,6 @@ export function attemptIdOf(
 
 /**
  * What recording a turn of a node starts from.
- *
  * @param node - The run, node and record of the turn.
  * @param instanceId - The process the turn runs in; members of a group share it.
  * @returns `null` for an API request or a record without an attempt ID.
@@ -105,7 +103,6 @@ export function sessionStart(
 
 /**
  * Lists the PageAgentCLI attempts of a run: every agent node with a CLI session.
- *
  * @param run - A run the caller already authorized.
  */
 export function listSessionAttempts(
@@ -129,7 +126,6 @@ export function listSessionAttempts(
 
 /**
  * Finds the attempt a key names in an authorized run.
- *
  * @throws {AgentError} `plan_access_denied` when plan, run, node or attempt
  * do not belong together, so a key of another run, another member of a
  * group or an older attempt reads nothing.
@@ -171,7 +167,6 @@ function legacyConfirmation(
 
 /**
  * Keeps the model and effort Pages asked for apart from what the adapter confirmed.
- *
  * @param record - The session record of the node.
  * @param attempt - The journal's state of the attempt, with model reports and their time.
  */

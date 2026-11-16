@@ -19,7 +19,6 @@ function cleanUsername(username: string): string {
 
 /**
  * Creates the editable profile values a user starts an edit from.
- *
  * @param user - The user whose profile is edited.
  * @param email - The stored email address, or `null` when there is none.
  */

@@ -76,8 +76,7 @@ async function readPreviewRequest(
 export const middleware: MiddlewareFunction[] = [requireUserManagement];
 
 /**
- * Speaks the fixed sample sentence of an agent with a voice and a speed (PAGE-300).
- *
+ * Speaks the fixed sample sentence of an agent with a voice and a speed.
  * @remarks
  * Only a `POST` from the page's own origin is answered, by a person who may
  * change the agent. The body names voice ID, speed and language of the

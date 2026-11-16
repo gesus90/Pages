@@ -19,7 +19,6 @@ interface DashboardMyTasksProps {
 
 /**
  * Renders the structured task list of the "My tasks" panel.
- *
  * @param props - Tasks to display, already sorted by the route loader.
  * @returns The task list element.
  */

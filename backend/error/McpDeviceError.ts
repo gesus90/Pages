@@ -9,7 +9,6 @@ export class McpDeviceError extends Error {
 
   /**
    * Creates the error.
-   *
    * @param code - The error code of the interface.
    * @param status - The HTTP status of the answer.
    * @param retryAfterSeconds - Seconds to wait, for an answer with `Retry-After`.

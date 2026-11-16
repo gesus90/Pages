@@ -24,8 +24,8 @@ interface AgentTemplateConfirmProps {
 }
 
 /**
- * Asks before a template is deleted or replaces the text of `AGENT.md`
- * (PAGE-283), in the confirmation dialog of the user administration.
+ * Asks before a template is deleted or replaces the text of `AGENT.md`,
+ * in the confirmation dialog of the user administration.
  */
 export function AgentTemplateConfirm({
   title,

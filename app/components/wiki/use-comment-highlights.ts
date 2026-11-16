@@ -9,13 +9,11 @@ export const COMMENT_HIGHLIGHT = "wiki-comment";
 
 /**
  * Marks the passages that open comments refer to.
- *
  * @param root - The element that holds the rendered page; `null` while the
  * page is being edited.
  * @param quotes - The quoted passages of the open comments.
  * @param version - Changes whenever the text in `root` changed, so the marks
  * follow an editor while the person types.
- *
  * @remarks
  * Uses the CSS Custom Highlight API, which paints ranges without touching the
  * markup, so React keeps full control of the page. Browsers without it show

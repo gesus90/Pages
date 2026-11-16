@@ -45,7 +45,6 @@ export class AgentOperationKeyRepository {
 
   /**
    * Saves one completed result; the composite primary key prevents reuse.
-   *
    * @remarks
    * The cast keeps U+0000 in the identifier, so PostgreSQL refuses it: without the
    * character it would be the key of another operation.
@@ -74,7 +73,6 @@ export class AgentOperationKeyRepository {
 
   /**
    * Removes an account's results of one operation that are older than a point in time.
-   *
    * @param userId - The account.
    * @param operation - The kind of operation, such as `ui.wiki.save`.
    * @param before - Milliseconds since the epoch; older results are removed.

@@ -27,8 +27,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpPlanHandlers {
 }
 
 /**
- * Adds a parameter node to a plan (`POST /api/mcp/v1/plans/{planId}/parameters`), PAGE-246 interface 9.
- *
+ * Adds a parameter node to a plan (`POST /api/mcp/v1/plans/{planId}/parameters`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

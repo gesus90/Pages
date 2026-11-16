@@ -15,8 +15,8 @@ interface ExpiredAttachmentProps {
 }
 
 /**
- * The calm placeholder of a file an agent attached after its 72 hours
- * (PAGE-382): "abgelaufen · erzeugt am …" with the name; the text of the
+ * The calm placeholder of a file an agent attached after its 72 hours:
+ * "abgelaufen · erzeugt am …" with the name; the text of the
  * message stays.
  */
 export function ExpiredAttachment({

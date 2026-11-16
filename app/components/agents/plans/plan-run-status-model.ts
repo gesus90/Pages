@@ -30,7 +30,6 @@ export interface PlanSequencePreview {
 
 /**
  * Numbers the draft's flow nodes along its flow edges, as a run would.
- *
  * @remarks
  * A preview only: it synthesizes no run and no execution evidence.
  */

@@ -41,11 +41,9 @@ function fitsEntry(
 
 /**
  * Whether a stack output can feed a parameter of the given type.
- *
  * @param stack - The stack, or `undefined` when the binding names no stack.
  * @param output - The output the binding reads.
  * @param parameterType - The type of the receiving parameter.
- *
  * @remarks
  * The count is a number and also fits a text input. The content fits when
  * every entry fits: a ticket entry feeds a ticket or a text input, a value
@@ -152,7 +150,6 @@ function remoteIssues(plan: AgentPlanInput): AgentPlanIssue[] {
 
 /**
  * Validates every stack of a plan and every binding that reads one.
- *
  * @param plan - The plan with its groups and loops in place.
  * @param expanded - The same plan with groups and loops expanded, for the order.
  */

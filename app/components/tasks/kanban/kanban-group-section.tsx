@@ -12,7 +12,6 @@ interface KanbanGroupSectionProps {
 
 /**
  * Names a section of the grouped board.
- *
  * @param section - The section to name.
  * @param translate - Translates a key of the task texts.
  */

@@ -75,7 +75,6 @@ function planInput(view: AgentPlanView): AgentPlanInput {
 
 /**
  * Lays out every node of a stored plan; a plan too large for the grid is refused before the save.
- *
  * @throws McpPlanNotationError `notation_invalid` with a `plan_invalid`
  * finding for the frame that does not fit, or for the plan.
  */
@@ -104,8 +103,7 @@ function requireValid(prepared: McpPlanNotationPrepared): AgentPlanInput {
 }
 
 /**
- * The operations of the plan notation API (PAGE-250).
- *
+ * The operations of the plan notation API.
  * @remarks
  * Every plan is read and saved through the plan service of the editor with
  * the paired account: the same rights, the same revision guard and the same
@@ -118,7 +116,6 @@ export class McpPlanNotationService {
 
   /**
    * Creates the service.
-   *
    * @param dependencies - The plan service of the `mcp` channel and the wiki.
    */
   public constructor(dependencies: McpPlanNotationDependencies) {

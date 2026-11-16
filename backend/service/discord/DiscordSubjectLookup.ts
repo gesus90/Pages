@@ -8,7 +8,6 @@ import type {
 
 /**
  * Reads the facts of tickets and milestones for notifications.
- *
  * @remarks
  * It runs without a user: a notification goes to a shared channel, so it
  * carries only the few facts of a message and the notification service decides
@@ -24,7 +23,6 @@ export class DiscordSubjectLookup implements DiscordSubjectReader {
 
   /**
    * Creates the lookup.
-   *
    * @param tasks - Ticket and milestone persistence.
    * @param projects - Project persistence, for the project name of a milestone.
    */

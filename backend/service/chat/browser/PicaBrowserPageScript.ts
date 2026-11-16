@@ -1,6 +1,5 @@
 /**
  * Scripts Pages runs inside the page it observes.
- *
  * @remarks
  * They are kept as source text, not compiled functions: the build tools add
  * helpers to compiled functions that do not exist inside a page. Playwright

@@ -41,7 +41,7 @@ interface SpeechAttempt {
   readonly sendsSpeed: boolean;
 }
 
-/** OpenRouter's text-to-speech endpoint (PAGE-300). */
+/** OpenRouter's text-to-speech endpoint. */
 const OPENROUTER_SPEECH_URL = `${AGENT_PROVIDERS.openrouter.endpoint}/audio/speech`;
 
 /** How long OpenRouter may take for one text. */
@@ -134,7 +134,7 @@ function playableAudio(
 }
 
 /**
- * Turns a text into speech through OpenRouter (PAGE-300).
+ * Turns a text into speech through OpenRouter.
  *
  * @remarks
  * `POST https://openrouter.ai/api/v1/audio/speech` with `model`, `input`,
@@ -155,7 +155,6 @@ export class SpeechSynthesisClient {
 
   /**
    * Speaks a text with a voice and a speed.
-   *
    * @param input - Key, model, text, voice, speed and the caller's cancellation.
    * @returns The audio, or why there is none; it never rejects, except when
    * the caller cancelled.

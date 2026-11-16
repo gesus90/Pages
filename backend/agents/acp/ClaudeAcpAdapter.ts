@@ -26,7 +26,6 @@ const SUPPORTED_VERSIONS = { major: 0, minor: 90 } as const;
 
 /**
  * Whether the adapter that answered `initialize` is one Pages verified.
- *
  * @param agent - What the adapter reported about itself.
  * @returns `true` for claude-agent-acp 0.90.x; previews and other agents are
  * refused.
@@ -45,11 +44,9 @@ export function isSupportedClaudeAcp(
 
 /**
  * Builds the start of the adapter for one session.
- *
  * @param specification - Instance, Claude CLI, mode profile and MCP access of the node.
  * @returns The variables of the adapter process, the Pages MCP server and the
  * Claude options of the session.
- *
  * @remarks
  * The adapter runs the Claude CLI of the connection, so the session uses its
  * sign-in in the credential folder and nothing else; the CLI that the adapter

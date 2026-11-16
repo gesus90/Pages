@@ -14,7 +14,6 @@ export type TemplateScope =
 
 /**
  * Narrows an unknown value to a supported template scope.
- *
  * @param value - Value received from an untrusted source.
  * @returns Whether the value is a valid template scope.
  */

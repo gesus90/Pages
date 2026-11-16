@@ -26,8 +26,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpTicketHandlers {
 }
 
 /**
- * Deletes a ticket for good after a confirmed question; administrators only (`POST /api/mcp/v1/tickets/{key}/delete`), PAGE-242 interface 16.
- *
+ * Deletes a ticket for good after a confirmed question; administrators only (`POST /api/mcp/v1/tickets/{key}/delete`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

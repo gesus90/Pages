@@ -8,7 +8,7 @@ import type {
   LiveAnswerTool,
 } from "@/definition/ConversationLiveAnswer";
 
-/** One answer as the chat page shows it while it is written and right after (PAGE-381). */
+/** One answer as the chat page shows it while it is written and right after. */
 export interface LiveAnswerView {
   readonly answerId: string;
   readonly chatKind: LiveAnswerChatKind;
@@ -48,9 +48,9 @@ export type LiveActivity =
   | { readonly kind: "writing" }
   | { readonly kind: "thinking" }
   | { readonly kind: "working" }
-  /** The agent generates images with its model (PAGE-382), such as "erzeugt 4 Bilder …". */
+  /** The agent generates images with its model, such as "erzeugt 4 Bilder …". */
   | { readonly kind: "images"; readonly count: number }
-  /** The agent generates a video or a sound with its model (PAGE-384), such as "erzeugt Video …". */
+  /** The agent generates a video or a sound with its model, such as "erzeugt Video …". */
   | { readonly kind: "video" }
   | { readonly kind: "audio" }
   | {
@@ -148,8 +148,7 @@ function applyPart(
 }
 
 /**
- * Takes one live part of `conversations.v1` (PAGE-381).
- *
+ * Takes one live part of `conversations.v1`.
  * @param state - What the page knows so far.
  * @param payload - A snapshot or a part of an answer.
  * @returns The new state; a part the page already holds changes nothing, so
@@ -191,7 +190,6 @@ export function applyLiveAnswerEvent(
 
 /**
  * The answers of one chat, oldest first.
- *
  * @param state - What the page knows.
  * @param chat - The opened chat.
  */
@@ -209,7 +207,6 @@ export function answersOfChat(
 
 /**
  * The answer that ended with a stored message, by that message.
- *
  * @param views - The answers of the opened chat.
  * @returns The ended answers by the ID of their stored message.
  */
@@ -226,7 +223,6 @@ export function endedByMessage(
  * The answers the history shows as written now: running ones, and ended ones
  * whose stored message is not in the history yet, so the answer never
  * vanishes before the stored message takes its place, nor shows twice.
- *
  * @param views - The answers of the opened chat.
  * @param storedIds - The IDs of the messages in the history.
  */
@@ -261,7 +257,7 @@ export function toolTarget(tool: Pick<LiveAnswerTool, "input">): string {
 }
 
 /**
- * Whether a call is `bilder_erzeugen` (PAGE-382), under whatever prefix the
+ * Whether a call is `bilder_erzeugen`, under whatever prefix the
  * agent's tool host names it.
  *
  * @param tool - A call of a live answer.
@@ -271,7 +267,7 @@ export function isImageTool(tool: Pick<LiveAnswerTool, "name">): boolean {
 }
 
 /**
- * What a call of `video_erzeugen` or `audio_erzeugen` generates (PAGE-384),
+ * What a call of `video_erzeugen` or `audio_erzeugen` generates,
  * under whatever prefix the agent's tool host names it.
  *
  * @param tool - A call of a live answer.
@@ -286,7 +282,7 @@ export function mediaToolKind(
 }
 
 /**
- * How many images a call of `bilder_erzeugen` asks for (PAGE-382), read from
+ * How many images a call of `bilder_erzeugen` asks for, read from
  * its bounded input; one when it names none.
  *
  * @param tool - A call of `bilder_erzeugen`.

@@ -50,7 +50,6 @@ export class AgentConnectionScopeRepository {
 
   /**
    * Reads the scope of one connection.
-   *
    * @param connectionId - The connection.
    * @returns The scope, or `null` when the connection does not exist.
    */
@@ -107,12 +106,10 @@ export class AgentConnectionScopeRepository {
 
   /**
    * Replaces mode and targets of one connection.
-   *
    * @param connectionId - The connection.
    * @param scope - A validated scope.
    * @throws {AgentError} `profile_target_invalid` for a person, group or
    * department that does not exist.
-   *
    * @remarks
    * Call inside the transaction of the connection change, so the scope and the
    * connection are never saved apart.

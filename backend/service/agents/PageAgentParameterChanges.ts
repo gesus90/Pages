@@ -22,7 +22,7 @@ export type PageAgentParameterChange =
     }
   | { readonly action: "remove"; readonly name: string };
 
-/** Reads declarations through the persisted configuration contract of PAGE-55. */
+/** Reads declarations through the persisted configuration contract. */
 export function readPageAgentParameters(
   input: unknown,
 ): readonly AgentParameter[] {

@@ -1,6 +1,5 @@
 /**
  * Reduces whitespace runs to a single blank.
- *
  * @param text - Any text.
  * @returns The text with every run of whitespace replaced by one blank and
  * no blank at either end.
@@ -11,12 +10,10 @@ export function collapseWhitespace(text: string): string {
 
 /**
  * Approximates the text a reader sees for a markdown source.
- *
  * @param markdown - Markdown text of a page.
  * @returns The text without block anchors, links, images, emphasis marks,
  * headings marks, quote and list markers, code fences and table lines, with
  * whitespace collapsed.
- *
  * @remarks
  * A comment on a passage keeps the passage as the reader selected it, which
  * is rendered text. Comparing it with this reduction tells whether the

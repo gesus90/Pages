@@ -66,7 +66,7 @@ const target = {
   occurrenceStart: calendarTimeSchema.nullable().optional(),
 };
 
-/** The native inputs of Pica's calendar tools (PAGE-301); the acting account is never a model argument. */
+/** The native inputs of Pica's calendar tools; the acting account is never a model argument. */
 export const PICA_CALENDAR_SCHEMAS = {
   calendar_read: z
     .object({ from: calendarTimeSchema, to: calendarTimeSchema })

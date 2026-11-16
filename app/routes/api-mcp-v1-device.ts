@@ -8,8 +8,7 @@ import { getApplicationServices } from "@/app/lib/services.server";
 import type { Route } from "./+types/api-mcp-v1-device";
 
 /**
- * Checks a pairing (`GET /api/mcp/v1/device`, PAGE-243).
- *
+ * Checks a pairing (`GET /api/mcp/v1/device`).
  * @remarks
  * Only the bearer token admits a request; browser cookies play no part.
  * The check notes the time of use.

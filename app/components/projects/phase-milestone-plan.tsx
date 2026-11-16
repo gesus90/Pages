@@ -32,7 +32,6 @@ interface PhaseMilestonePlanProps {
 
 /**
  * Renders the interactive milestone timeline for the planning tab.
- *
  * @remarks
  * The outer timeline viewport keeps a stable size in every view mode while
  * only its inner scale changes. Milestones are grouped into fixed category

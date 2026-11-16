@@ -65,7 +65,6 @@ function readScope(input: unknown): ProjectDeletionScope {
 
 /**
  * Builds the public result of a completed project deletion.
- *
  * @param outcome - What the deleting transaction removed.
  * @returns The result that is stored for replay, audited, and returned.
  */
@@ -83,7 +82,6 @@ export function projectDeletionResult(
 
 /**
  * Narrows a stored project deletion result before it is returned again.
- *
  * @param json - The text saved with the operation ID.
  * @returns The same result the first call returned.
  * @throws {AgentOperationError} `INVALID_REQUEST` when the text is not such a result.

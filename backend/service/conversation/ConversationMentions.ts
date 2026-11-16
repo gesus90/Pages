@@ -75,13 +75,11 @@ function addAgentMentions(
 }
 
 /**
- * The members a text names with `@Name`, never the sender (PAGE-278, PAGE-276).
- *
+ * The members a text names with `@Name`, never the sender.
  * @param text - The text of the message.
  * @param memberIds - The members of the conversation.
  * @param context - The sender and the accounts that name the members.
  * @returns Each mentioned member once, in the order of the first mention.
- *
  * @remarks
  * `@username` always names its account. The display name without spaces and
  * its first word, such as `@Lena` for Lena Berg, name a member as well, as

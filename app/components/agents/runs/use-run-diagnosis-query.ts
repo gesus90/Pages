@@ -23,7 +23,6 @@ function readQuery(key: string): Record<string, string> {
 
 /**
  * Reads one view of the run diagnosis again whenever its parameters change.
- *
  * @param view - Which answer to read.
  * @param parameters - The query; `null` reads nothing.
  * @param isValid - Narrows the untrusted answer.

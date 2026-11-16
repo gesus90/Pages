@@ -13,7 +13,7 @@ import type { WikiService } from "@/backend/service/WikiService";
 import type { AgentIdentity } from "@/definition/McpAuthorization";
 import type { PagesAgentWriteResponse } from "@/definition/PagesAgentWrites";
 
-/** Server-owned dependencies for the two A9.6 operations. */
+/** Server-owned dependencies for the two import write operations. */
 export interface AgentWriteDependencies {
   readonly users: Pick<UserService, "getById">;
   readonly tickets: AgentUploadTicketService;

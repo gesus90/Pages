@@ -58,7 +58,6 @@ function amountDigits(amount: ByteAmount): number {
 
 /**
  * Returns the formatters of the dashboard for the current language and region.
- *
  * @remarks
  * Sizes count in steps of 1024, as the other sizes of Pages do.
  */

@@ -21,7 +21,7 @@ export interface ChatView {
   readonly session: ChatSession | null;
   readonly messages: readonly ChatMessage[];
   readonly pending: readonly ChatAttachment[];
-  /** Jobs, steers and selection snapshots of a Codex agent (PAGE-68). */
+  /** Jobs, steers and selection snapshots of a Codex agent. */
   readonly activity?: ChatSessionActivity;
 }
 
@@ -83,7 +83,6 @@ export function canRetryChatUpload(item: ChatUploadItem): boolean {
 
 /**
  * Applies a read of a session to the view while that session is open.
- *
  * @param current - The view as the panel shows it now.
  * @param fresh - The session as the server returned it.
  * @returns The fresh session; an attachment that finished uploading after the
@@ -176,15 +175,14 @@ function addPending(
 }
 
 /**
- * Uploads the files of the next message, at most ten together (PAGE-92).
- *
+ * Uploads the files of the next message, at most ten together.
  * @remarks
  * A selection from the button or a drop adds to the files already chosen;
  * uploads in flight hold their place, so the limit holds across concurrent
  * selections. Files beyond the limit are named and left out; the selection
  * stays as it was. Each file uploads on its own: a failure keeps the others
  * and can be tried again. The size is checked in the browser first; the
- * server checks size, type and the limit again (T6.12.4).
+ * server checks size, type and the limit again.
  */
 export function useChatUploads({
   view,

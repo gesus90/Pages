@@ -20,8 +20,7 @@ function agentOf(
 }
 
 /**
- * The decision about a message as the chat shows it (PAGE-379).
- *
+ * The decision about a message as the chat shows it.
  * @param stored - The stored decision.
  * @param accounts - The accounts that name the agents.
  * @returns The outcome, the agents that answer, the chance that an answer is
@@ -52,7 +51,6 @@ export function decisionView(
 
 /**
  * One decision of the list of a group.
- *
  * @param listing - The stored decision with the text of its message.
  * @param accounts - The accounts that name the agents.
  * @returns The decision with the shortened text of its message and its time.

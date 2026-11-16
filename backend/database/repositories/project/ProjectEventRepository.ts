@@ -52,7 +52,6 @@ export class ProjectEventRepository {
 
   /**
    * Creates a project event repository.
-   *
    * @param database - Central database access.
    */
   public constructor(database: DatabaseTransaction) {

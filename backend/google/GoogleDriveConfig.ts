@@ -12,7 +12,6 @@ export const GOOGLE_DRIVE_SETTING_NAMES = {
 
 /**
  * The scope every connection needs.
- *
  * @remarks
  * `drive.file` is the narrowest Drive scope Google lists as non-sensitive. It
  * reads no file the person did not open with or create through Pages, yet it
@@ -21,8 +20,7 @@ export const GOOGLE_DRIVE_SETTING_NAMES = {
 export const GOOGLE_DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file";
 
 /**
- * The read scope the Storage area needs to browse the existing folder tree (PAGE-188).
- *
+ * The read scope the Storage area needs to browse the existing folder tree.
  * @remarks
  * `drive.file` alone shows only files Pages created or opened, so a folder
  * tree that existed before stays invisible. `drive.readonly` reads every
@@ -37,14 +35,13 @@ export const GOOGLE_DRIVE_READ_SCOPE =
   "https://www.googleapis.com/auth/drive.readonly";
 
 /**
- * The scope that lets Storage change files and folders (PAGE-270).
- *
+ * The scope that lets Storage change files and folders.
  * @remarks
  * Only `drive` reaches every existing file for copy, move, rename, trash and
  * content updates; `drive.file` changes only what Pages created itself. Every
- * sign-in asks for it in addition (PAGE-272, confirmed by the operator); with
+ * sign-in asks for it in addition (confirmed by the operator); with
  * Google's granular consent the person may decline it, the connection then
- * stays read-only and the targeted, incremental consent (PAGE-270) asks again
+ * stays read-only and the targeted, incremental consent asks again
  * when Storage reports the missing write access.
  */
 export const GOOGLE_DRIVE_FULL_SCOPE = "https://www.googleapis.com/auth/drive";
@@ -94,7 +91,6 @@ function readClientId(environment: NodeJS.ProcessEnv): string | null {
 
 /**
  * Reads the Google OAuth client from the environment.
- *
  * @param environment - Environment variables of the server process.
  * @returns The client, or `null` while a setting is missing or malformed.
  */
@@ -113,7 +109,6 @@ export function readGoogleOAuthApplication(
 
 /**
  * Names the settings of the Google OAuth client that are missing or malformed.
- *
  * @param environment - Environment variables of the server process.
  * @returns The names, never the values.
  */

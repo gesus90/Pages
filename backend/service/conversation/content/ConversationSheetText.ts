@@ -1,6 +1,6 @@
 import type { ChatDocumentSheet } from "@/backend/service/chat/ChatDocumentReader";
 
-/** Rows and columns of a CSV or TSV file read at most (PAGE-386). */
+/** Rows and columns of a CSV or TSV file read at most. */
 const MAXIMUM_ROWS = 100_000;
 const MAXIMUM_COLUMNS = 200;
 
@@ -81,11 +81,10 @@ function delimitedSeparator(
 }
 
 /**
- * Reads a CSV or TSV file into one sheet (PAGE-386): quoted fields may hold
+ * Reads a CSV or TSV file into one sheet: quoted fields may hold
  * the delimiter, quotes and line breaks; a CSV whose first line has more
  * semicolons than commas is read with semicolons, as spreadsheets in German
  * write it.
- *
  * @param text - The text of the file.
  * @param isTabSeparated - Whether the file is a TSV.
  * @returns The sheet and whether rows were left out beyond the limit.
@@ -142,7 +141,6 @@ export interface SheetWindow {
  * Cuts one part of a table for the agent: the header row and at most
  * {@link SHEET_WINDOW_ROWS} data rows from a row on, within a character
  * limit, with the full size of the sheet and where to read on.
- *
  * @param sheets - The sheets of the table.
  * @param request - The sheet and the first data row.
  * @returns The window, or `null` when no sheet has the name.
@@ -184,7 +182,6 @@ export function sheetWindow(
 
 /**
  * The sheets of a table as plain text for the search of the chat.
- *
  * @param sheets - The sheets.
  */
 export function sheetsSearchText(sheets: readonly ChatDocumentSheet[]): string {

@@ -6,7 +6,6 @@ export interface DocumentedReasoningLevels {
 
 /**
  * OpenRouter's gateway effort values, highest first.
- *
  * @remarks
  * Source: OpenRouter API reference, schema `ReasoningEffort`, and
  * `ModelReasoning.supported_efforts`: "Null means no allowlist — all gateway
@@ -26,7 +25,6 @@ export const OPENROUTER_GATEWAY_EFFORTS: readonly string[] = [
 
 /**
  * Efforts OpenRouter converts into a reasoning token budget, highest first.
- *
  * @remarks
  * Source: "For models that only support `reasoning.max_tokens`, the effort
  * level will be set based on the percentages above" (max and xhigh 95 %,
@@ -95,7 +93,6 @@ const GOOGLE_THINKING_LEVELS: Readonly<
 
 /**
  * Returns the thinking levels Google documents for exactly this model.
- *
  * @param modelId - The catalog ID without the `models/` prefix.
  * @returns The documented levels, or `null` for every model the table does
  * not name, including aliases such as `gemini-flash-latest`.

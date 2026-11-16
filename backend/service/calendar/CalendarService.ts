@@ -73,9 +73,8 @@ function canonical(value: unknown): unknown {
 }
 
 /**
- * The calendar of Pages (PAGE-301): the one service the interface, Pica
+ * The calendar of Pages: the one service the interface, Pica
  * Mobile (`calendar.v1`), Pica and the MCP interface all call.
- *
  * @remarks
  * Every call reads the account's memberships and rights anew. Reads return
  * only what concerns the account: own events, invitations (directly, by
@@ -90,7 +89,6 @@ export class CalendarService {
 
   /**
    * Creates the service.
-   *
    * @param dependencies - Repositories and services.
    */
   public constructor(dependencies: CalendarDependencies) {
@@ -101,7 +99,6 @@ export class CalendarService {
 
   /**
    * Reads the viewer of a request: zone, language, memberships, rights.
-   *
    * @param actor - The signed-in account.
    */
   public async viewer(actor: User): Promise<CalendarViewer> {
@@ -110,7 +107,6 @@ export class CalendarService {
 
   /**
    * Lists the entries of a range of at most 92 days.
-   *
    * @param actor - The account.
    * @param range - `from` and `to`: dates (inclusive) or instants (`to` exclusive).
    * @param options - Optional calendar filter.
@@ -138,7 +134,6 @@ export class CalendarService {
 
   /**
    * Reads one stored event with its series, invitees, answers and revision.
-   *
    * @param actor - The account.
    * @param id - The event or an occurrence of it.
    * @throws {CalendarError} `not_found` for a missing or invisible event.
@@ -153,7 +148,6 @@ export class CalendarService {
 
   /**
    * Reads the entry of an event or of one of its occurrences.
-   *
    * @param actor - The account.
    * @param id - The event, or an occurrence entry id.
    * @param occurrenceKey - The stored key of an occurrence, when `id` is the series.
@@ -174,7 +168,6 @@ export class CalendarService {
 
   /**
    * Creates an event; the creator is always the account.
-   *
    * @param actor - The creator.
    * @param input - The fields of the client, checked here.
    * @returns The entry of the event, the first occurrence of a series.
@@ -187,7 +180,6 @@ export class CalendarService {
 
   /**
    * Changes an event or a scope of a series.
-   *
    * @param actor - The creator or an administrator.
    * @param target - Event or occurrence, scope and expected revision.
    * @param patch - The changed fields of the client, checked here.
@@ -205,7 +197,6 @@ export class CalendarService {
 
   /**
    * Deletes an event or a scope of a series.
-   *
    * @param actor - The creator or an administrator.
    * @param target - Event or occurrence, scope and expected revision.
    */
@@ -218,7 +209,6 @@ export class CalendarService {
 
   /**
    * Describes a deletion without changing anything.
-   *
    * @param actor - The creator or an administrator.
    * @param target - Event or occurrence, scope and expected revision.
    */
@@ -231,7 +221,6 @@ export class CalendarService {
 
   /**
    * Answers an invitation for the whole series.
-   *
    * @param actor - An invited person.
    * @param id - The event or an occurrence of it.
    * @param answer - Accepted or declined.
@@ -249,7 +238,6 @@ export class CalendarService {
 
   /**
    * Searches whom the account may invite.
-   *
    * @param actor - The account; it must be signed in.
    * @param text - Part of a name.
    * @param limit - Most options returned.
@@ -272,7 +260,6 @@ export class CalendarService {
 
   /**
    * Lists "my events" and the projects the account may put events into.
-   *
    * @param actor - The account.
    */
   public async targets(actor: User): Promise<CalendarTarget[]> {
@@ -281,7 +268,6 @@ export class CalendarService {
 
   /**
    * Returns the zone, targets, rule choices and limits of the account.
-   *
    * @param actor - The account.
    */
   public async options(actor: User): Promise<CalendarOptions> {
@@ -290,7 +276,6 @@ export class CalendarService {
 
   /**
    * Counts the future events the account is invited to and has not answered.
-   *
    * @param actor - The account.
    */
   public async countOpenInvitations(actor: User): Promise<number> {
@@ -300,7 +285,6 @@ export class CalendarService {
   /**
    * Tells whether an account hears of a change of an event or of the project
    * dates of a project, deleted events included.
-   *
    * @param actor - The account.
    * @param objectId - An event ID, or `project:<projectId>`.
    */
@@ -315,7 +299,6 @@ export class CalendarService {
 
   /**
    * Announces a change of the project dates of a project to the live view.
-   *
    * @param projectId - The project whose dates changed.
    */
   public announceProjectDates(projectId: string): void {

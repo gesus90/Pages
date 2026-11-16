@@ -56,8 +56,7 @@ function stepLabel(node: AgentPlanNode): string {
 }
 
 /**
- * Reads the facts of Pages that the rules of automations decide on (PAGE-297).
- *
+ * Reads the facts of Pages that the rules of automations decide on.
  * @remarks
  * Every answer comes from the services of the pages themselves, read anew
  * for each call: plan access from the plan service, project access from the

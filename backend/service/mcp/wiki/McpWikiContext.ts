@@ -10,7 +10,6 @@ import type { McpWikiPerson } from "./McpWikiContract";
 
 /**
  * The services the wiki API calls: the very ones the interface uses.
- *
  * @remarks
  * The API adds no right and no rule of its own; every read and change goes
  * through the announcing wiki service with the paired account as the actor,
@@ -36,7 +35,6 @@ export class McpWikiContext {
 
   /**
    * Creates the context of one request.
-   *
    * @param actor - The account the device token acts for.
    * @param services - The wiki services of the interface.
    */
@@ -47,7 +45,6 @@ export class McpWikiContext {
 
   /**
    * Reads a page with the rights of the account, without noting a visit.
-   *
    * @param id - Page identifier.
    * @throws {WikiPageNotFoundError} When it does not exist or is hidden; an
    * administrator gets no placeholder of a private page either.
@@ -58,7 +55,6 @@ export class McpWikiContext {
 
   /**
    * Reads a page and checks that the client still knows its revision.
-   *
    * @param id - Page identifier.
    * @param expectedRevision - The revision the client read.
    * @throws {McpWikiError} `conflict` with the current revision when it changed.
@@ -75,10 +71,8 @@ export class McpWikiContext {
 
   /**
    * Runs a check and the changes it guards as one call of the interface.
-   *
    * @param work - Reads, checks and changes through the wiki service.
    * @returns Whatever `work` returns.
-   *
    * @remarks
    * The call holds the writer from its start, so nothing commits between the
    * revision read and the change, and a refusal rolls back everything. The
@@ -95,7 +89,6 @@ export class McpWikiContext {
 
   /**
    * Names a person by username and display name.
-   *
    * @param userId - Internal id of the person.
    * @param fallbackName - The name the wiki stored, for an account that no longer exists.
    * @returns The person; a removed account keeps its stored name and an empty username.
@@ -117,7 +110,6 @@ export class McpWikiContext {
 
   /**
    * Resolves a username to an account a page can be handed to.
-   *
    * @param username - The username from the request.
    * @returns The id of the account.
    * @throws {McpWikiError} `not_found` for an unknown name or an account the

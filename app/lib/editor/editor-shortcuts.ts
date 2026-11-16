@@ -5,7 +5,6 @@ type ShortcutKey =
 /**
  * The keyboard shortcuts of the block editor. Menus show them next to their
  * entries; the editor binds the same keys, so both run the same action.
- *
  * @remarks
  * `Mod+Shift+ArrowUp/ArrowDown` moves a block (as in Notion); inside the editor it
  * replaces the native "select to start/end of the document". `Mod+Enter`
@@ -59,7 +58,6 @@ const OTHER_NAMES: Readonly<Record<string, string>> = {
 
 /**
  * Tells whether the device uses the Apple modifier keys.
- *
  * @param platform - `navigator.platform` or a user agent string.
  * @returns Whether `Mod` means the Command key.
  */
@@ -69,7 +67,6 @@ export function isApplePlatform(platform: string): boolean {
 
 /**
  * Writes a shortcut the way the platform shows it.
- *
  * @param shortcut - Name of the shortcut.
  * @param isApple - Whether the device uses Apple modifier keys.
  * @returns For example `⌘⇧Z` on Apple devices and `Ctrl+Shift+Z` elsewhere.

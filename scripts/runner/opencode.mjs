@@ -1,4 +1,4 @@
-// OpenCode on the runner host (PAGE-154): inventory, ACP contract check and ACP execution.
+// OpenCode on the runner host: inventory, ACP contract check and ACP execution.
 // The host's own OpenCode configuration and keys are used; Pages sends none.
 import { spawn, execFile } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";

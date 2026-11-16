@@ -68,8 +68,8 @@ function AgentConsequences({
 }
 
 /**
- * The short question before the creator of a group removes a member
- * (PAGE-380). For an agent it names the session and the model of the group
+ * The short question before the creator of a group removes a member.
+ * For an agent it names the session and the model of the group
  * it loses, and that `MEMORY.md`, `DREAM.md`, lessons, recipes and the
  * Lagebuch stay.
  */

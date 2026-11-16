@@ -38,7 +38,6 @@ function counterText(loop: AgentPlanLoop): string {
 
 /**
  * A typed counter commits only as a whole number from 0 to 999; anything else stays visible and is refused.
- *
  * @remarks
  * 1 to 999 is a fixed count. 0 means the count is bound: a parameter or the
  * count output of a stack supplies it when the loop starts.

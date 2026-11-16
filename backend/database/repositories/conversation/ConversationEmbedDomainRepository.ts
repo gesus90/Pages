@@ -11,7 +11,7 @@ export interface EmbedDomainRelease {
 }
 
 /**
- * The domains that may be embedded in conversations (PAGE-298): released by
+ * The domains that may be embedded in conversations: released by
  * a member for one conversation, or by an administrator for all of them.
  */
 export class ConversationEmbedDomainRepository {

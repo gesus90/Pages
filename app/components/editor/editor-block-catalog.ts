@@ -169,7 +169,6 @@ function fold(text: string): string {
 
 /**
  * Filters the slash menu.
- *
  * @param options - The entries that are available here.
  * @param query - What follows the slash.
  * @param labelOf - Gives the translated name of an entry.

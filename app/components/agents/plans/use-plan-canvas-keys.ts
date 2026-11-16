@@ -5,7 +5,6 @@ const DELETE_KEYS = new Set(["Delete", "Backspace"]);
 
 /**
  * Whether a key pressed on this element may delete the selection.
- *
  * @remarks
  * Only the grid itself and the handle of the selected node qualify. Fields,
  * menus, dialogs and every other control keep Delete and Backspace for

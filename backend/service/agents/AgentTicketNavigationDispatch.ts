@@ -10,7 +10,6 @@ import type { AgentPlanningServices } from "./AgentPlanningServices";
 
 /**
  * Runs a ticket search, hierarchy, link or assignment target operation.
- *
  * @param planning - The ticket services of the agent surface.
  * @param identity - The verified owner of the call.
  * @param operation - The requested operation name.

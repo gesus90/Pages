@@ -22,8 +22,7 @@ function handlers(): McpPlanHandlers {
 }
 
 /**
- * Reads the plan contract and its operations (`GET /api/mcp/v1/plans/capabilities`), PAGE-246 interface 1.
- *
+ * Reads the plan contract and its operations (`GET /api/mcp/v1/plans/capabilities`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

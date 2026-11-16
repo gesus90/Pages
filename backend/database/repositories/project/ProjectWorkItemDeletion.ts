@@ -18,12 +18,10 @@ const WORK_ITEM_OWNED_TABLES = [
 
 /**
  * Deletes everything that hangs on the tickets of a project, but not the tickets.
- *
  * @param database - The transaction to delete in.
  * @param projectId - The project whose tickets lose their data.
  * @returns Storage names of the attachment files that no longer have a row;
  * the caller removes them from the disk after the transaction committed.
- *
  * @remarks
  * Links to tickets of other projects go as well, because a link cannot
  * outlive one of its ends. The tickets themselves are removed with the

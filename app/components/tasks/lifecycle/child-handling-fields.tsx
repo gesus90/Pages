@@ -18,7 +18,6 @@ const TYPE_ORDER: readonly WorkItemType[] = [
 
 /**
  * Counts the descendants of all types together.
- *
  * @param counts - Descendants per type.
  * @returns How many there are.
  */
@@ -28,7 +27,6 @@ export function countAll(counts: WorkItemTypeCounts): number {
 
 /**
  * Lists the descendants per type in words, such as "2 Epics, 5 Tasks".
- *
  * @param counts - Descendants per type.
  * @param t - Translation function.
  * @returns The list, empty without descendants.
@@ -58,7 +56,7 @@ interface ChildHandlingFieldsProps {
 /**
  * Names the descendants an archive or deletion reaches and lets the person
  * choose for initiatives and epics whether the children go along or stay
- * without a parent (A8.2-E04). The choice travels as the form field
+ * without a parent. The choice travels as the form field
  * `children`.
  */
 export function ChildHandlingFields({

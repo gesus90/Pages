@@ -42,7 +42,6 @@ function groupBy<T>(
 
 /**
  * The invitees, answers and creators of a set of events, read together.
- *
  * @remarks
  * Groups and departments are resolved with their members of today: who
  * joins sees the event, who leaves no longer does. Agents always stay open.
@@ -76,7 +75,6 @@ export class CalendarPeople {
 
   /**
    * Reads the people of events.
-   *
    * @param repositories - Participation and directory.
    * @param events - The events.
    */
@@ -152,7 +150,6 @@ export class CalendarPeople {
 
   /**
    * Returns the participants of one event.
-   *
    * @param event - An event of the reading.
    */
   public of(event: CalendarEventRecord): CalendarParticipants {
@@ -188,7 +185,6 @@ export class CalendarPeople {
 
   /**
    * Tells whether an account is an agent.
-   *
    * @param userId - The account.
    */
   public isAgent(userId: string): boolean {

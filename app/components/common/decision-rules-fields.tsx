@@ -85,7 +85,7 @@ interface DecisionRulesFieldsProps {
 }
 
 /**
- * The three thresholds and the most answering agents as sliders (PAGE-379):
+ * The three thresholds and the most answering agents as sliders:
  * the answer threshold, the responsibility threshold, the second threshold and
  * the maximum number of answering agents.
  *

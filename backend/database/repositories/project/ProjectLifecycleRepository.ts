@@ -42,10 +42,8 @@ export class ProjectLifecycleRepository {
 
   /**
    * Removes the project, everything that belongs to it, and every reference to it.
-   *
    * @param projectId - The project to delete.
    * @returns The files whose rows went; the caller removes them after the commit.
-   *
    * @remarks
    * The schema has no foreign key cascades, so every dependent row is removed
    * explicitly. The project has no trash and no archive step here: pages,

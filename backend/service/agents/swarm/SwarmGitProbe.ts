@@ -40,7 +40,7 @@ async function contentDigest(file: string): Promise<string> {
 }
 
 /**
- * Reads the working directory with Git, read-only (PAGE-313).
+ * Reads the working directory with Git, read-only.
  *
  * @remarks
  * It takes `git status --porcelain=v2 -z --untracked-files=all`, so changes,

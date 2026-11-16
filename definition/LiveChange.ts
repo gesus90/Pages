@@ -15,7 +15,6 @@ export type LiveChangeKind =
 
 /**
  * One live notice: which object changed, never what it now contains.
- *
  * @remarks
  * The browser reads the object again through the regular rights-checked
  * loaders, so a notice never carries a title, a role or any other content.

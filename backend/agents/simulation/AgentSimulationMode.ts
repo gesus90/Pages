@@ -19,10 +19,8 @@ function readScenario(input: string | undefined): AgentSimulationScenario {
 
 /**
  * Reads the simulation switch of the process environment.
- *
  * @param environment - The environment, the process's own by default.
  * @returns Active only with `PAGES_AGENT_SIMULATION=1` outside production.
- *
  * @remarks
  * With `NODE_ENV=production` the switch is ignored and the ignoring is
  * logged, so a production instance never offers a simulated model and keeps

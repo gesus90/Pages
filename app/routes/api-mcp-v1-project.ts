@@ -43,8 +43,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpProjectHandlers {
 }
 
 /**
- * Reads a project (`GET /api/mcp/v1/projects/{id}`) and changes it (`PATCH`), PAGE-244 interface 2 and 4.
- *
+ * Reads a project (`GET /api/mcp/v1/projects/{id}`) and changes it (`PATCH`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

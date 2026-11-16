@@ -199,7 +199,7 @@ const ERROR_CLASS_SCHEMA = {
 const DIAGNOSIS_SEE =
   "Reads the runs of every plan the account can see (owner, team of the plan, shared), whoever started them; reading never controls a run. Times are ISO 8601, durations milliseconds. A parameter out of its bounds is INVALID_REQUEST with a reason; answers stay below 1 MiB, larger results continue with cursor and nextCursor.";
 
-/** The diagnosis of runs for the whole team (PAGE-307). */
+/** The diagnosis of runs for the whole team. */
 export const PLAN_DIAGNOSIS_READ_TOOLS: readonly {
   readonly operation: AgentPlanReadOperation;
   readonly tool: Tool;

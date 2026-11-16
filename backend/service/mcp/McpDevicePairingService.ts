@@ -95,7 +95,6 @@ function readBoundedText(value: unknown, limit: number): string {
 
 /**
  * Runs the pairing of a machine with an account: start, confirmation in the browser and token handover.
- *
  * @remarks
  * User code, device secret and token are stored as hashes only. A pairing
  * request belongs to exactly one device secret, and a wrong secret answers
@@ -108,7 +107,6 @@ export class McpDevicePairingService {
 
   /**
    * Creates the service.
-   *
    * @param repository - Storage of the requests and of the machines created from them.
    * @param now - The clock in Unix milliseconds.
    */
@@ -122,7 +120,6 @@ export class McpDevicePairingService {
 
   /**
    * Starts a pairing request for a machine.
-   *
    * @param input - The machine name and client version, the requester address and the instance origin.
    * @returns The code to show, the secret to keep and the link to open.
    * @throws {McpDeviceError} `invalid_request` for a bad body, `slow_down` with `429` over a limit.

@@ -9,7 +9,7 @@ import type { AgentPlanNode, AgentPlanPosition } from "@/definition/AgentPlan";
 import type { AgentPlanScriptConfiguration } from "@/definition/AgentPlanScript";
 import type { PlanCanvasProps } from "./plan-flow-context";
 
-/** Legacy variables and the removed Git closeout (PAGE-285) stay readable but are never added. */
+/** Legacy variables and the removed Git closeout stay readable but are never added. */
 export type PlanPaletteKind = Exclude<
   AgentPlanNode["type"],
   "variable" | "git_closeout"
@@ -79,7 +79,7 @@ export function usePlanNodePalette(canvas: PlanCanvasProps): {
   function insert(kind: PlanPaletteKind, position?: AgentPlanPosition): void {
     if (blocked) return;
     if (isImmediateKind(kind)) {
-      // A decision dropped on a group or loop stands in it (PAGE-286).
+      // A decision dropped on a group or loop stands in it.
       const frame =
         kind === "decision" && position
           ? planDropGroup(canvas.draft, position, canvas.sources, null)

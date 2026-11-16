@@ -19,8 +19,8 @@ export interface AgentChatSessionLifecycleDependencies {
   /** Pica's ACP path; `null` where the server runs no ACP chat. */
   readonly acp: Pick<PicaAcpService, "update" | "stop" | "settled"> | null;
   /**
-   * Writes the state of a chat into the Lagebuch before its session closes
-   * (PAGE-380); a confidential chat writes nothing. Absent writes nothing.
+   * Writes the state of a chat into the Lagebuch before its session closes;
+   * a confidential chat writes nothing. Absent writes nothing.
    */
   readonly logbook?: (sessionId: string) => Promise<void>;
   /** The live processes of the chat sessions; `null` without the ACP path. */
@@ -45,7 +45,6 @@ function isReached(session: StoredAgentChatSession, percent: number): boolean {
 /**
  * The context fill of a session in percent, rounded; `null` before a round
  * reported it.
- *
  * @param session - The stored session.
  */
 export function contextPercentOf(
@@ -58,9 +57,8 @@ export function contextPercentOf(
 }
 
 /**
- * The life of a chat session of an agent after its rounds (PAGE-376): what a
+ * The life of a chat session of an agent after its rounds: what a
  * round used, the summary the agent writes down, and the restart with it.
- *
  * @remarks
  * A session whose context reaches the threshold of its agent first has its
  * state written down as a summary of the chat, then its process ends and its
@@ -81,7 +79,6 @@ export class AgentChatSessionLifecycle {
   /**
    * Records what the last round of a session used and, when its context
    * reached the threshold of the agent, restarts the session.
-   *
    * @param agent - The account of the agent.
    * @param sessionId - The chat session; a session that is none is left alone.
    */
@@ -97,7 +94,6 @@ export class AgentChatSessionLifecycle {
   /**
    * Restarts a session that reached its threshold before it answers again.
    * Waits for a restart that is running now.
-   *
    * @param agent - The account of the agent.
    * @param sessionId - The chat session about to start a round.
    */
@@ -119,7 +115,6 @@ export class AgentChatSessionLifecycle {
   /**
    * Writes the state of the chat down: asks the agent for the summary of the
    * chat and stores it.
-   *
    * @param agent - The account of the agent.
    * @param sessionId - The chat session.
    * @returns Whether a summary was stored; `false` for a chat without new
@@ -142,7 +137,7 @@ export class AgentChatSessionLifecycle {
     const summary = await summaries().summarize(
       { agent, employee, runsNow: true },
       {
-        // The empty summary of a renewed session (PAGE-380) is no summary.
+        // The empty summary of a renewed session is no summary.
         previous: stored?.summary === "" ? null : (stored?.summary ?? null),
         messages: range.map((message) => ({
           from: message.role === "user" ? "chat" : agent.displayName,
@@ -162,7 +157,6 @@ export class AgentChatSessionLifecycle {
    * Restarts a session: its summary is written, its process ends, its agent
    * session is forgotten and its inbox begins anew. Concurrent calls share one
    * restart.
-   *
    * @param agent - The account of the agent.
    * @param sessionId - The chat session.
    */
@@ -173,12 +167,11 @@ export class AgentChatSessionLifecycle {
   }
 
   /**
-   * Replaces a session by a new, empty one (PAGE-380, `/new`): the running
+   * Replaces a session by a new, empty one (`/new`): the running
    * answer ends first, the state goes into the Lagebuch, then the process
    * ends and the agent session is forgotten. The next round starts with
    * `MEMORY.md` and `DREAM.md` but without a summary of the old session or
    * its messages. Rounds of the session wait for it, as for a restart.
-   *
    * @param agent - The account of the agent.
    * @param sessionId - The chat session.
    */
@@ -187,11 +180,10 @@ export class AgentChatSessionLifecycle {
   }
 
   /**
-   * Closes a session for good and deletes it with its messages (PAGE-380):
+   * Closes a session for good and deletes it with its messages:
    * for an agent removed from a group or a dissolved group. The state goes
    * into the Lagebuch first; `MEMORY.md`, `DREAM.md`, lessons, recipes and
    * the Lagebuch stay.
-   *
    * @param agent - The account of the agent.
    * @param sessionId - The chat session.
    * @param options - `isAborted` stops a running answer instead of waiting for it.
@@ -223,7 +215,6 @@ export class AgentChatSessionLifecycle {
 
   /**
    * Stores what the newest round of a session used.
-   *
    * @returns Whether the context reached the threshold of the agent.
    */
   private async recordRound(agent: User, sessionId: string): Promise<boolean> {

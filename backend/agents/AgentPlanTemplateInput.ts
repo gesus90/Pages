@@ -18,7 +18,6 @@ const NODE_TEXT_LENGTH = 2_000_000;
 
 /**
  * Reads the name of a new template.
- *
  * @throws {AgentError} `template_name_required` for an empty name,
  * `template_invalid` for a name that is too long or holds control characters.
  */
@@ -36,7 +35,6 @@ export function readPlanTemplateName(input: unknown): string {
 
 /**
  * Reads the node whose configuration becomes a template.
- *
  * @throws {AgentError} `template_invalid` for a node type without templates,
  * or the plan reader's code for a malformed node.
  */
@@ -50,7 +48,6 @@ export function readPlanTemplateNode(input: unknown): AgentPlanTemplateNode {
 
 /**
  * Reads one template as the server sends it to the editor.
- *
  * @throws {AgentError} `template_invalid` for anything but a complete
  * template of a node type this version knows.
  */

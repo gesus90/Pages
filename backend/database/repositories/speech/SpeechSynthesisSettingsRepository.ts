@@ -11,7 +11,7 @@ import {
 import type { Database } from "@/backend/database/Database";
 import type { SpeechSynthesisSettings } from "@/definition/SpeechSynthesis";
 
-/** Persists the one speech output setting of the instance (PAGE-300); it never holds audio. */
+/** Persists the one speech output setting of the instance; it never holds audio. */
 export class SpeechSynthesisSettingsRepository {
   private readonly database: Database;
 
@@ -48,7 +48,6 @@ export class SpeechSynthesisSettingsRepository {
 
   /**
    * Replaces model and longest output with optimistic concurrency.
-   *
    * @param settings - The new setting with the revision it was read at.
    * @throws {AgentError} `profile_conflict` when the setting changed since.
    */

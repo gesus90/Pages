@@ -113,7 +113,6 @@ export class SshPty {
 /**
  * Opens a shell over an authenticated master, with no standalone authentication
  * fallback. The native module loads only when a console is requested.
- *
  */
 export async function openSshPty(input: {
   readonly file: string;

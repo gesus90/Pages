@@ -31,12 +31,10 @@ export interface RemoteConsoleOptions {
 
 /**
  * Initializes browser terminal resources after hydration and releases them on disposal.
- *
  * @remarks
  * The terminal takes the keyboard focus as soon as its shell is ready, since
  * it is inert while the connection is being established. The screen reader
  * mode is decided once per terminal.
- *
  * @param options - Route and close request.
  * @returns Element callback, state and controls.
  */

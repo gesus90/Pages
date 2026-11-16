@@ -35,7 +35,7 @@ function readSettings(
 export interface ReplySettingsDraft {
   readonly mode: ConversationReplyMode;
   readonly rules: ConversationDecisionRules | null;
-  /** The most contributions without @ per round (PAGE-349). */
+  /** The most contributions without @ per round. */
   readonly automaticRepliesPerOrigin: number;
 }
 
@@ -74,8 +74,7 @@ function submitIntent(
 
 /**
  * Reads the settings and the last decisions of a group whenever the popup
- * opens, and saves the settings of a manager (PAGE-379).
- *
+ * opens, and saves the settings of a manager.
  * @param groupId - The group of the popup.
  * @param isOpen - Whether the popup is open; it reads on every opening.
  */

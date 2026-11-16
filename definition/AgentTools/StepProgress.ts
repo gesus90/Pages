@@ -9,7 +9,6 @@ import type { Tool } from "@modelcontextprotocol/server";
 
 /**
  * Reports the live progress of the running step of a run-bound connection.
- *
  * @remarks
  * Read-only sessions must be able to call it like `report_step_result`, so
  * it carries the hints of an additive write: it only changes the progress of

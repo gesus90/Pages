@@ -8,10 +8,8 @@ import type { ServerResponse } from "node:http";
 
 /**
  * Reads the path of a request target as the browser sent it, still encoded.
- *
  * @param requestUrl - The request target, usually in origin form (`/pair?code=…`).
  * @returns The path, `/` without a target.
- *
  * @remarks
  * Resolved against a base, a target such as `//pair` would be read as an
  * address on another host and lose its path; the browser and the router
@@ -24,7 +22,7 @@ export function requestTargetPath(requestUrl: string | undefined): string {
   ).pathname;
 }
 
-/** The static app's document; every page address answers with it (PAGE-235). */
+/** The static app's document; every page address answers with it. */
 export const APP_DOCUMENT_FILE = "index.html";
 
 /**

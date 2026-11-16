@@ -11,7 +11,7 @@ export type StoredAgentChatTaskChat =
   | { readonly kind: "group"; readonly conversationId: string }
   | { readonly kind: "direct"; readonly personId: string };
 
-/** The binding of an automation to a chat and its agent (PAGE-392). */
+/** The binding of an automation to a chat and its agent. */
 export interface StoredAgentChatTask {
   readonly automationId: string;
   readonly agentId: string;
@@ -75,7 +75,7 @@ function chatFilter(
 }
 
 /**
- * Persists the bindings of scheduled tasks to their chats (PAGE-392).
+ * Persists the bindings of scheduled tasks to their chats.
  *
  * @remarks
  * Removing a binding removes its automation in the database, and the

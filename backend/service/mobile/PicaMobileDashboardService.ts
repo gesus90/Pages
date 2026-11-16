@@ -81,7 +81,6 @@ function toDashboardProject(
 
 /**
  * Answers the dashboard messages of Pica Mobile from the live Pages data.
- *
  * @remarks
  * Every answer starts from the account the session belongs to right now and
  * reads runs, projects and the avatar through the services that apply the
@@ -95,7 +94,6 @@ export class PagesPicaMobileDashboard implements PicaMobileDashboardProvider {
 
   /**
    * Creates the provider.
-   *
    * @param resolveServices - Resolves the Pages services when a request needs
    * them, so the listener works before the database does.
    */

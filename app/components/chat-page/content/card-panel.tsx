@@ -55,7 +55,7 @@ import type { LucideIcon } from "lucide-react";
 import type { ContentCardDescriptor, OpenedCard } from "./card-types";
 import type { DiffLayout } from "./diff-view";
 
-/** The icon of each kind, as the head of the cards shows it (PAGE-382). */
+/** The icon of each kind, as the head of the cards shows it. */
 const KIND_ICONS: Readonly<
   Record<Exclude<ContentCardDescriptor["kind"], "preview">, LucideIcon>
 > = {
@@ -173,7 +173,7 @@ function TextActions({
   const isDiff = descriptor.kind === "diff";
   return (
     <>
-      {/* "Kopieren" is the main action of a diff and leads its actions (PAGE-388). */}
+      {/* "Kopieren" is the main action of a diff and leads its actions. */}
       {source !== null && isDiff ? (
         <CardAction
           icon={Copy}
@@ -250,16 +250,16 @@ function PanelBody({
 }: {
   readonly descriptor: ContentCardDescriptor;
   readonly layout: DiffLayout;
-  /** The opened card; a video shows its player and the other videos (PAGE-384). */
+  /** The opened card; a video shows its player and the other videos. */
   readonly card?: OpenedCard;
-  /** Counts "Neu laden" of an embedded page (PAGE-388). */
+  /** Counts "Neu laden" of an embedded page. */
   readonly reloadCount: number;
 }): React.ReactElement {
   const { conversationId } = useChatContent();
   // A preview has its own panel; it never reaches the body of the text cards.
   if (descriptor.kind === "preview") return <></>;
   if (card && isVideoCard(card)) return <VideoPanelBody card={card} />;
-  // A document shows its whole readable view with its search (PAGE-385).
+  // A document shows its whole readable view with its search.
   if ("format" in descriptor) return <DocumentPanel descriptor={descriptor} />;
   if ("attachment" in descriptor)
     return <AttachmentFullView attachment={descriptor.attachment} />;
@@ -275,7 +275,7 @@ function PanelBody({
   return <TextPanel descriptor={descriptor} layout={layout} />;
 }
 
-/** Length, resolution and size of a video, the size of another file (PAGE-384). */
+/** Length, resolution and size of a video, the size of another file. */
 function AttachmentMeta({
   attachment,
 }: {
@@ -338,7 +338,7 @@ function PanelSubtitle({
 }
 
 /**
- * The quiet actions of the panel after the line (PAGE-388): "Neu laden" for
+ * The quiet actions of the panel after the line: "Neu laden" for
  * an embedded page, "Daneben" lit as the active view, "Vollbild" and on the
  * far right "Schließen".
  */
@@ -399,7 +399,7 @@ interface CardPanelProps {
   readonly card: OpenedCard;
   /** Offers "Vollbild"; missing in the full screen itself. */
   readonly onFullscreen?: () => void;
-  /** Shown next to the chat: "Daneben" lights as the active view and closes it (PAGE-384). */
+  /** Shown next to the chat: "Daneben" lights as the active view and closes it. */
   readonly isBeside?: boolean;
   readonly onClose: () => void;
   readonly className?: string;
@@ -408,13 +408,13 @@ interface CardPanelProps {
 }
 
 /**
- * One card opened large (PAGE-298), next to the chat or over the page: a
+ * One card opened large, next to the chat or over the page: a
  * head with name, kind, sender and time, the actions of the kind, full
  * screen and close, and below it the content.
  *
  * @remarks
  * A diff switches here between "Untereinander" and "Nebeneinander"; a
- * preview opens in its own panel with tabs and device widths (PAGE-383). The
+ * preview opens in its own panel with tabs and device widths. The
  * frame and its controls use the tokens of the other panels; only images,
  * videos, PDF pages and embedded web pages keep their own colors.
  */
@@ -491,9 +491,9 @@ export function CardPanel({
 }
 
 /**
- * The card that covers the page (PAGE-298): the viewer of a PDF or an
+ * The card that covers the page: the viewer of a PDF or an
  * image, the full screen of a card, and "Daneben" on a narrow screen.
- * PDFs and documents open on the dark surface of the viewer (PAGE-385).
+ * PDFs and documents open on the dark surface of the viewer.
  * Escape and the close button end it.
  */
 export function CardOverlay(): React.ReactElement | null {

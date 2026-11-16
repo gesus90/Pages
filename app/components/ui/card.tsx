@@ -8,7 +8,6 @@ interface PageContentProps extends HTMLAttributes<HTMLDivElement> {
 
 /**
  * Renders the floating content surface used by Pages routes.
- *
  * @remarks
  * Der Content steht auf dem durchgehenden App-Hintergrund als
  * dezente eigenständige Fläche: leicht abgesetzt, gerundet,
@@ -38,7 +37,6 @@ interface FloatingPanelProps extends HTMLAttributes<HTMLElement> {
 
 /**
  * Renders a floating contextual panel such as the ticket detail panel.
- *
  * @remarks
  * Schwebend, gerundet, mit Abstand zum Fensterrand und eigenem
  * Schatten statt einer fest verbauten Sidebar.

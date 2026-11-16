@@ -21,10 +21,8 @@ const listeners = new Set<RunLogListener>();
 
 /**
  * Registers the store of run log lines.
- *
  * @param listener - Receives every line that carries a run, step or attempt.
  * @returns Removes the listener again.
- *
  * @remarks
  * The logger knows no database. The process that owns the run services
  * registers the store, so a stand-in can take its place without real runs.
@@ -39,9 +37,7 @@ export function registerRunLogSink(listener: RunLogListener): () => void {
 
 /**
  * Hands a log line of a run to the registered stores.
- *
  * @param record - The line; its message is filtered again by the store.
- *
  * @remarks
  * Never throws: a failing store must not disturb the run that logs.
  */

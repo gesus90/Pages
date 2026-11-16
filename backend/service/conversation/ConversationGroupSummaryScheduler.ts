@@ -8,10 +8,9 @@ import type { ConversationGroupSummaries } from "./ConversationGroupSummaries";
 const COMPONENT = "ConversationGroupSummaryScheduler";
 
 /**
- * Runs the summaries of groups in the background of the Pages process
- * (PAGE-296), every five minutes, with no browser open and no job of the
+ * Runs the summaries of groups in the background of the Pages process,
+ * every five minutes, with no browser open and no job of the
  * operating system.
- *
  * @remarks
  * Every tick starts from the stored state, so a restart goes on where the
  * last summary ended. A tick that is still running is not started twice. A

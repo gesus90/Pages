@@ -22,7 +22,6 @@ export class GitHubPullRequestService {
 
   /**
    * Creates a pull request service.
-   *
    * @param gitHubRepository - GitHub persistence boundary storing pull requests.
    * @param accessGuard - Verifier of write permission on the project.
    * @param taskService - Task business-logic boundary resolving tasks.
@@ -42,7 +41,6 @@ export class GitHubPullRequestService {
 
   /**
    * Stores every pull request of the remote repository.
-   *
    * @param sync - Resolved repository, token, and client.
    * @param projectId - Project receiving the pull requests.
    * @param summary - Counters of the current run.
@@ -94,7 +92,6 @@ export class GitHubPullRequestService {
 
   /**
    * Assigns a pull request to a task or clears its assignment.
-   *
    * @param actor - User assigning the pull request; must hold write permission.
    * @param pullRequestId - Stored pull request to assign.
    * @param workItemId - Task receiving the reference, or `null` to clear it.

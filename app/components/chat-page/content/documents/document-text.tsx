@@ -7,7 +7,6 @@ const LINK_SCHEMES: readonly string[] = ["http:", "https:", "mailto:"];
 
 /**
  * The address of a link of a document, when it may be offered.
- *
  * @param target - The target the file names.
  * @returns The address for http, https and mailto, else `null`.
  */
@@ -22,7 +21,6 @@ export function safeLinkOf(target: string): string | null {
 
 /**
  * Splits text at every match of a search, regardless of case.
- *
  * @param text - The text.
  * @param query - The search; empty keeps the text whole.
  * @returns The pieces, each marked whether it matches.
@@ -118,8 +116,8 @@ function Run({
 }
 
 /**
- * The runs of a paragraph, heading, list item or cell as text with emphasis
- * (PAGE-385); line breaks and tabs of the file stay.
+ * The runs of a paragraph, heading, list item or cell as text with emphasis;
+ * line breaks and tabs of the file stay.
  */
 export function DocumentRuns({
   runs,

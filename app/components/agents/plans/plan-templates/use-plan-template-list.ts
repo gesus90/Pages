@@ -18,7 +18,6 @@ export interface PlanTemplateList {
 
 /**
  * Loads the templates when the tab first needs them, and again on request.
- *
  * @param workspaceId - The workspace of the open plan. Its project decides
  * which shared templates are listed, so a list read for another workspace
  * counts as not loaded yet.

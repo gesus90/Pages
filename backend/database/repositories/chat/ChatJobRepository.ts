@@ -130,8 +130,7 @@ function readJob(row: readonly DatabaseValue[]): ChatJob {
 }
 
 /**
- * Server-side Pica jobs, their journal and their consumption (PAGE-68).
- *
+ * Server-side Pica jobs, their journal and their consumption.
  * @remarks
  * Every read is bound to the owner of the job. The journal is append-only and
  * numbered contiguously per job, so a reader that continues after its cursor
@@ -199,7 +198,6 @@ export class ChatJobRepository {
 
   /**
    * Replaces the latest context occupancy and cost; a report never adds to an earlier one.
-   *
    * @param id - The job.
    * @param context - The occupancy, or `null` while the adapter has no valid
    * one, such as right after a compaction.
@@ -349,7 +347,7 @@ export class ChatJobRepository {
     return rows.length === 0 ? null : readJob(rows[0]);
   }
 
-  /** Returns the newest jobs of an own conversation, newest first (PAGE-303). */
+  /** Returns the newest jobs of an own conversation, newest first. */
   public async recent(
     userId: string,
     sessionId: string,

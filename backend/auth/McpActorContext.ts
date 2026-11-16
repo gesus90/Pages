@@ -6,7 +6,6 @@ export type ActorChannel = "ui" | "mcp";
 
 /**
  * The agent surface a Pages operation runs for.
- *
  * @remarks
  * MCP clients act with the MCP policy and mark their changes `mcp`. The chat
  * agent acts like the person in the interface, so the persisted role mode

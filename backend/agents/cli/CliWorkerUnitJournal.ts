@@ -82,8 +82,7 @@ function recordEvent(
 
 /**
  * Reads which sessions the user journal proves ended: their only worker unit
- * started and then ended (PAGE-340).
- *
+ * started and then ended.
  * @param query - The earliest lease start to cover, as an ISO timestamp, and
  * optionally the one session tag to read.
  * @param command - Runs `journalctl`; defaults to a real process.
@@ -92,7 +91,6 @@ function recordEvent(
  * event is an end. A session that is missing, rotated away or only partly
  * journaled is absent or `false`: it proves nothing.
  * @throws When the journal answers with entries that cannot be read.
- *
  * @remarks
  * Every process of a session started in a limited unit runs inside that
  * unit, and one start creates exactly one unit. Together with a service

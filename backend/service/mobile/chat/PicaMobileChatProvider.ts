@@ -10,7 +10,6 @@ import type { PicaMobileSessionIdentity } from "../PicaMobileDashboardProvider";
 
 /**
  * The answer to a chat request.
- *
  * @remarks
  * `sessionEnded` means the session or the account no longer holds; the
  * connection ends as it does when its regular session check fails.
@@ -31,7 +30,6 @@ export interface PicaMobileChatContext {
 
 /**
  * The answer to an attachment transfer.
- *
  * @remarks
  * `failed` carries a code of the chat, such as `attachmentMissing` or
  * `fileTooLarge`; a foreign and a missing attachment fail alike.
@@ -56,7 +54,6 @@ export interface PicaMobileChatUpload {
 
 /**
  * The business answers of an authenticated Pica Mobile connection for `chat.v1`.
- *
  * @remarks
  * A connection without a provider does not announce `chat.v1`, answers the
  * chat requests as unknown, and the attachment addresses with 426. Every call

@@ -1,6 +1,6 @@
 # pages-core
 
-`pages-core` (PAGE-237) is a small Rust service that holds the live streams
+`pages-core` is a small Rust service that holds the live streams
 (`/live-changes`, SSE) of the pages and delivers the committed events of
 `pages_event_outbox`. It knows no business rule and reads no business table:
 whether an account may learn about an event is asked from `pages-api` over the
@@ -9,14 +9,14 @@ versioned contract of `definition/PagesCoreContract.ts`, with a time limit of
 
 Build and checks: [core/README.md](../../core/README.md).
 
-## Service status (PAGE-238)
+## Service status
 
 With `--status-target pages.target` (the template's default through
 `PAGES_CORE_STATUS_OPTIONS`) the core reads the services of that target from
 the systemd manager over D-Bus: the services the target wants or requires and
 those that are `PartOf=` it. Of each it requests only the name, active state,
 start time of the main process, restart count, current memory
-(`MemoryCurrent`) and the limits `MemoryHigh` and `MemoryMax` (PAGE-282), plus
+(`MemoryCurrent`) and the limits `MemoryHigh` and `MemoryMax`, plus
 load state, type and result for the light, at most once every two seconds and
 within two seconds. For the system dashboard it also lists the loaded units
 ending in `-base-backup.service` in the user manager of its own account and in
@@ -45,7 +45,7 @@ The format is `definition/ServiceStatus.ts`. Reading the system manager's unit
 properties needs no privilege; the unit's sandbox keeps the D-Bus socket
 reachable.
 
-## WebSocket relay (PAGE-239)
+## WebSocket relay
 
 The core can hold the WebSocket connections of Pica Mobile, of the runners
 and of the consoles, so that they no longer end at the API process. It relays

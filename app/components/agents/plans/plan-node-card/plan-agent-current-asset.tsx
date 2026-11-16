@@ -38,7 +38,6 @@ function currentAsset(
 
 /**
  * While a run is shown: the unchanged task of the agent and the file it receives now.
- *
  * @remarks
  * A stack hands the agent one file per iteration; the task stays the same,
  * so the card names both, such as „Aktuell: hund.jpg“.

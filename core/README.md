@@ -1,8 +1,8 @@
 # pages-core (Rust)
 
-The live-stream service of Pages (PAGE-237), which also reports the state of
-the platform's services (PAGE-238) and relays the WebSocket connections of
-Pica Mobile, runners and consoles (PAGE-239). What it does and how an instance
+The live-stream service of Pages, which also reports the state of
+the platform's services and relays the WebSocket connections of
+Pica Mobile, runners and consoles. What it does and how an instance
 switches to it: [deploy/core/README.md](../deploy/core/README.md). The contract
 with `pages-api` is `definition/PagesCoreContract.ts`; `src/contract.rs`
 mirrors it.

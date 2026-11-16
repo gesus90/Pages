@@ -29,9 +29,8 @@ function proseOf(text: string): string {
 }
 
 /**
- * Finds every link a message names outside code (PAGE-387): Markdown links
+ * Finds every link a message names outside code: Markdown links
  * with their text and bare addresses, each once, in their order.
- *
  * @param text - The text of the message.
  * @returns The normalized addresses; addresses with credentials or no host
  * are left out, as the link cards of the chat leave them out.

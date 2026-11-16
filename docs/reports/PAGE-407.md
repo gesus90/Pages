@@ -21,6 +21,6 @@ behauptet. Ausgabe-Schwärzung und das Verbot, Zugangsdaten zu veröffentlichen,
 bleiben Teil des Vertrags.
 
 Die verbindliche Produktbeschreibung steht in
-[AgentPlanRunner.md](../AgentPlanRunner.md#full-environment-full-host-owner-access-page-407)
+[AgentPlanRunner.md](../AgentPlanRunner.md#full-environment-full-host-owner-access)
 und im [Wiki-Text](../wiki/PAGE-407.md). Diese Datei enthält ausschließlich
 Designkontext, keine Ausführungsprotokolle oder Abnahmenachweise.

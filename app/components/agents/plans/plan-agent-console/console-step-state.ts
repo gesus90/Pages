@@ -11,7 +11,7 @@ import type {
 import type { AgentSessionState } from "@/definition/AgentSessionJournal";
 import type { TerminalEnding } from "./terminal-lines";
 
-/** What the state pill of the header says (PAGE-284). */
+/** What the state pill of the header says. */
 export type ConsoleStepState =
   | { readonly kind: "resume"; readonly seconds: number }
   | { readonly kind: "succeeded" }
@@ -59,7 +59,6 @@ function failedUpTo(
 
 /**
  * How many automatic restarts after technical failures the node had.
- *
  * @param step - The node in the run.
  * @returns The count of `infrastructure` failures, at most the budget.
  */
@@ -114,7 +113,6 @@ function abortedEnding(
 
 /**
  * The earlier attempts of the node, oldest first, with how each ended.
- *
  * @param step - The node in the run.
  * @param currentAttemptId - The attempt of the node's record now.
  */
@@ -150,7 +148,7 @@ function retryEnding(
   if (index < 0) return null;
   if (retry.state === "waiting")
     return abortedEnding(retry, index, {
-      // The planned delay, not the countdown: the terminal text never depends on the time (PAGE-289).
+      // The planned delay, not the countdown: the terminal text never depends on the time.
       delaySeconds: secondsBetween(
         retry.attempts[index]?.endedAt,
         retry.nextAttemptAt,
@@ -179,7 +177,6 @@ function doneTodos(step: AgentPlanStepResult): {
 
 /**
  * How the current attempt of the node ended, or `null` while it runs.
- *
  * @param step - The node in the run.
  */
 export function currentEnding(
@@ -202,7 +199,6 @@ export function currentEnding(
 
 /**
  * What the state pill of the header says.
- *
  * @param step - The node in the run.
  * @param sessionState - What the session reports, while it runs.
  * @param now - The time now, for the countdown of a planned resume.
@@ -226,7 +222,6 @@ export function consoleStepState(
 
 /**
  * Whether the session of the node ended, so the terminal takes no input any more.
- *
  * @param step - The node in the run.
  */
 export function hasSessionEnded(step: AgentPlanStepResult): boolean {

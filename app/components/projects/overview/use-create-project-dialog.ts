@@ -26,7 +26,6 @@ export interface CreateProjectDialogState {
 
 /**
  * Keeps the state of the dialog that creates a project.
- *
  * @remarks
  * A created project closes the dialog, resets the status and opens the
  * project page.

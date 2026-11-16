@@ -9,7 +9,6 @@ export type GoogleFetch = (url: string, init: RequestInit) => Promise<Response>;
 
 /**
  * Tells whether a value is a plain JSON object.
- *
  * @param value - A parsed JSON value.
  * @returns Whether it can be read by key.
  */
@@ -19,7 +18,6 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
 
 /**
  * Reads a string field of a JSON object.
- *
  * @param record - The object.
  * @param key - The field.
  * @returns The string, or `""` when the field is missing or no string.
@@ -35,7 +33,6 @@ export function readString(
 
 /**
  * Reads the JSON body of a Google answer.
- *
  * @param response - The answer.
  * @returns The body, or `null` when it is no JSON.
  */
@@ -51,7 +48,6 @@ export async function readJson(response: Response): Promise<unknown> {
 
 /**
  * Names the `reason` of every error entry of a refused Drive request.
- *
  * @param body - The JSON body of the refusal.
  * @returns The reasons, possibly empty.
  */
@@ -73,11 +69,9 @@ export function readErrorReasons(body: unknown): string[] {
 
 /**
  * Translates a refused Drive request.
- *
  * @param status - HTTP status of the refusal.
  * @param body - The JSON body of the refusal.
  * @returns The connection problem it shows.
- *
  * @remarks
  * A `403` names a disabled Drive API as `accessNotConfigured`, a missing scope
  * as `insufficientPermissions`; rate limits and quota are temporary.
@@ -108,7 +102,6 @@ export function driveProblem(
 
 /**
  * Sends one request to Google with a timeout and without following redirects.
- *
  * @param fetcher - The `fetch` to use.
  * @param url - The Google address.
  * @param init - Method, headers and body.

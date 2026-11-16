@@ -94,9 +94,7 @@ async function requireIdle(
 }
 
 /**
- * Creates, changes and removes agent employees in the user administration
- * (PAGE-266, PAGE-267).
- *
+ * Creates, changes and removes agent employees in the user administration.
  * @remarks
  * Agents are managed like people: the same rights decide who may create,
  * see and change them, which role and departments they may get, and the
@@ -136,7 +134,6 @@ export class AgentEmployeeAdministration {
 
   /**
    * Requires an active account that is an administrator on this channel.
-   *
    * @throws {AgentEmployeeError} `forbidden` for every other account.
    */
   public async requireAdministrator(actorId: string): Promise<void> {
@@ -245,8 +242,7 @@ export class AgentEmployeeAdministration {
   }
 
   /**
-   * The stored name of an agent whose voice the person may change (PAGE-300).
-   *
+   * The stored name of an agent whose voice the person may change.
    * @returns The display name the fixed sample sentence of the voice names.
    * @throws {AgentEmployeeError} `notFound` for an agent the person may not
    * see, `forbidden` without the right to change it.
@@ -273,7 +269,6 @@ export class AgentEmployeeAdministration {
 
   /**
    * Creates an agent account with its configuration.
-   *
    * @returns The user ID of the new agent.
    * @throws {AgentEmployeeError} For a refused right, role, department or model.
    */
@@ -336,7 +331,6 @@ export class AgentEmployeeAdministration {
 
   /**
    * Saves the panel of an agent when nobody changed it since it was read.
-   *
    * @throws {AgentEmployeeError} `conflict` for a stale revision, `busy` for
    * the deactivation of a running agent, or a refused right, role, department or model.
    */
@@ -353,17 +347,15 @@ export class AgentEmployeeAdministration {
     await this.write((repository) =>
       this.writeAgentUpdate(repository, actorId, agentId, { change, avatar }),
     );
-    // A lowered limit applies at once (PAGE-305).
+    // A lowered limit applies at once.
     await this.dependencies.memory.fitToLimits(agentId);
   }
 
   /**
    * Activates or deactivates an agent when nobody changed it since it was read.
-   *
    * @remarks
    * Deactivation removes the agent from every group, as for a person, and
    * is refused while the agent works in a plan or a session.
-   *
    * @throws {AgentEmployeeError} `conflict` for a stale revision, `busy` for a running agent, `forbidden` or `notFound`.
    */
   public async setActive(
@@ -387,7 +379,6 @@ export class AgentEmployeeAdministration {
 
   /**
    * Replaces the image of an agent with a validated upload.
-   *
    * @throws {AgentEmployeeError} `forbidden` or `notFound`.
    */
   public async setAvatar(
@@ -403,7 +394,6 @@ export class AgentEmployeeAdministration {
 
   /**
    * Removes the image of an agent; its initials show again.
-   *
    * @throws {AgentEmployeeError} `forbidden` or `notFound`.
    */
   public async removeAvatar(actorId: string, agentId: string): Promise<void> {
@@ -415,7 +405,6 @@ export class AgentEmployeeAdministration {
 
   /**
    * Reads what the removal of an agent would take with it, changing nothing.
-   *
    * @throws {AgentEmployeeError} `forbidden` or `notFound`.
    */
   public async removalScope(
@@ -442,11 +431,9 @@ export class AgentEmployeeAdministration {
   /**
    * Removes an agent with its image, documents, memory, versions, archive,
    * memberships and chat list entries.
-   *
    * @remarks
    * Earlier contributions keep its name as their author; its tickets lose it
    * as the assignee.
-   *
    * @throws {AgentEmployeeError} `conflict` for a stale revision, `busy` for a running agent, `forbidden` or `notFound`.
    */
   public async remove(
@@ -473,11 +460,9 @@ export class AgentEmployeeAdministration {
 
   /**
    * Restores a version of the memory of an agent the person may change.
-   *
    * @remarks
    * The version names the revision of the agent the person read; a `null`
    * revision restores without that check.
-   *
    * @throws {AgentEmployeeError} `forbidden`, `notFound` or `conflict`.
    */
   public async restoreMemory(
@@ -497,9 +482,8 @@ export class AgentEmployeeAdministration {
   }
 
   /**
-   * Empties `MEMORY.md` or `DREAM.md` of an agent the person may change
-   * (PAGE-305); the version before stays restorable.
-   *
+   * Empties `MEMORY.md` or `DREAM.md` of an agent the person may change;
+   * the version before stays restorable.
    * @throws {AgentEmployeeError} `forbidden` or `notFound`.
    */
   public async resetMemory(

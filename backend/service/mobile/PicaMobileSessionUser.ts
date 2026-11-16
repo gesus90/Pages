@@ -4,7 +4,6 @@ import type { PicaMobileSessionIdentity } from "./PicaMobileDashboardProvider";
 
 /**
  * Reads the account of a connection's session as it is now.
- *
  * @param authService - Resolves a session token to its account.
  * @param session - The account and session the connection authenticated with.
  * @returns The account, or `null` when the session or the account no longer

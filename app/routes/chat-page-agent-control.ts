@@ -175,11 +175,10 @@ function failed(error: unknown): Response {
 }
 
 /**
- * The control of agents in a chat and of the members of a group (PAGE-380):
+ * The control of agents in a chat and of the members of a group:
  * the model choice of an agent in the chat and its reset, `/new`,
  * `/compact`, the typed chat commands, the members of a group, who steers
  * its agents, removing a member and dissolving the group.
- *
  * @remarks
  * Every right is checked on the server: an agent never steers an agent, and
  * only the creator of a group changes its members.

@@ -1,6 +1,5 @@
 /**
  * Keeps control and menu keys away from React Flow's node selection and movement shortcuts.
- *
  * @remarks
  * The options of a card's select list lie in a portal, but their keys still
  * reach the card through React.

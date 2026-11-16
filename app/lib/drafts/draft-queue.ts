@@ -72,7 +72,6 @@ export interface DraftJournal<T> {
 
 /**
  * Serializes writes per object and keeps the latest desired edit on failure.
- *
  * @remarks
  * A write keeps its operation ID until the server confirmed or refused it.
  * When the answer is lost, the same write is sent again with the same ID,
@@ -150,10 +149,8 @@ export class DraftQueue<T> {
 
   /**
    * Takes over an edit the browser kept from an earlier document, such as before a reload.
-   *
    * @param id - The opened object.
    * @returns The kept draft when it was taken over, otherwise `null`.
-   *
    * @remarks
    * Nothing happens once the object was edited in this document. A kept
    * unconfirmed write is sent again with its operation ID; a kept draft is

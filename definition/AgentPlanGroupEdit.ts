@@ -42,7 +42,6 @@ export interface PlanStepLocation {
 
 /**
  * A plan after an agent node crossed a frame, with what it had to give up.
- *
  * @remarks
  * Membership changes preserve connections; legacy aliases are resolved before
  * detaching. The counters remain for callers of the established edit API.
@@ -199,7 +198,6 @@ function touches(edge: AgentPlanEdge, id: string): boolean {
 
 /**
  * Moves an agent node into a group, within it, or out of every frame.
- *
  * @returns The changed plan, or why the target group refuses the node; the
  * node is then left exactly as it was, never reconfigured to fit.
  */
@@ -291,7 +289,6 @@ function leave<Plan extends AgentPlanInput>(
 
 /**
  * Removes a frame and keeps its members as nodes of the outer graph.
- *
  * @param plan - The plan with the frame.
  * @param groupId - The frame to remove.
  * @param positionOf - The absolute grid position of a member, so it stays
@@ -351,7 +348,7 @@ export function ungroupPlanGroup<Plan extends AgentPlanInput>(
           ...loop,
           ...positionOf(loop),
         })),
-        // A decision of the frame stays a decision of the outer graph (PAGE-286).
+        // A decision of the frame stays a decision of the outer graph.
         ...(group.decisions ?? []).map((decision) => ({
           ...decision,
           ...positionOf(decision),
@@ -366,7 +363,6 @@ export function ungroupPlanGroup<Plan extends AgentPlanInput>(
 
 /**
  * Adds an explicit edge between actual agents or checkpoints, across frames too.
- *
  * @returns The plan, or `groupBoundary` when an endpoint names a group and
  * `loopBoundary` when an edge would join a member of a loop to anything
  * outside it. A loop itself is an ordinary node of the outer graph.
@@ -421,7 +417,6 @@ function memberGroup(plan: AgentPlanInput, id: string): AgentPlanGroup | null {
 
 /**
  * Adds an edge between two members of one loop: into their group when both share one, else into the loop.
- *
  * @returns `loopBoundary` when the other end lies outside the loop.
  */
 function connectInsideLoop<Plan extends AgentPlanInput>(
@@ -480,7 +475,6 @@ export function disconnectPlanGroupFlow<Plan extends AgentPlanInput>(
 
 /**
  * Gives every group saved before internal edges existed its explicit edges and a member layout.
- *
  * @remarks
  * Such a group ran its members in their stored order; that order becomes the
  * chain of edges, so the group runs exactly as before. Its members never had

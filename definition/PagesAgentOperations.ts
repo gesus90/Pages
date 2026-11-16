@@ -66,7 +66,6 @@ export const PAGES_AGENT_STRUCTURED_READ_OPERATIONS = [
 
 /**
  * Reading and changing the comments of wiki pages.
- *
  * @remarks
  * Every verified active account is offered these, also without the write
  * capability: commenting needs the right to see the page, as in the wiki.
@@ -115,7 +114,6 @@ export const PAGES_AGENT_LIMITS = {
 
 /**
  * The largest request envelope an operation may carry.
- *
  * @param operation - The requested operation name; unknown values get the base limit.
  * @returns The limit in UTF-8 bytes of the serialized `{ operation, parameters }`.
  */
@@ -301,7 +299,6 @@ export interface AgentRevisionConflict {
 
 /**
  * Why Pages refused a user agent change or a text range, as a fixed name of its own.
- *
  * @remarks
  * The public error code stays one of the fixed codes of the agent API; the
  * reason tells a client which input to change. The last five belong to text
@@ -322,7 +319,7 @@ export interface AgentRevisionConflict {
  * array, empty, too long or an entry is malformed), `checklist_item_duplicate` (an
  * entry is named twice) and `checklist_item_unknown` (an entry is not in the
  * checklist at the revision that was read). The reads of the run diagnosis
- * (PAGE-307) answer `INVALID_REQUEST` with `unknown_parameter` (a parameter
+ * answer `INVALID_REQUEST` with `unknown_parameter` (a parameter
  * the read does not have), `parameter_invalid` (a malformed value),
  * `limit_out_of_range`, `time_invalid`, `time_range_reversed` (`from` after
  * `to`) and `cursor_invalid`.
@@ -449,7 +446,7 @@ export interface AgentPlanCleanupRejection {
   readonly cleanupFailure: AgentPlanCleanupFailure;
 }
 
-/** A refused automation input, with the paths and messages of its problems but never their values (PAGE-297). */
+/** A refused automation input, with the paths and messages of its problems but never their values. */
 export interface AgentInputRejection {
   readonly reason: "validation";
   readonly problems: readonly string[];

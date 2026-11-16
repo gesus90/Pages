@@ -74,9 +74,9 @@ function opened(
 }
 
 /**
- * A code card (PAGE-298): syntax colors by the language of the fence, the
+ * A code card: syntax colors by the language of the fence, the
  * file ending or, for a fence without language, the recognized language
- * ("automatisch erkannt: SQL", PAGE-383), line numbers, at most 20 lines
+ * ("automatisch erkannt: SQL"), line numbers, at most 20 lines
  * until "Alle Zeilen zeigen". Up to 15 lines it is expanded by default,
  * longer code is collapsed. "Kopieren" is its main action.
  */
@@ -148,9 +148,8 @@ export function CodeCard({
 }
 
 /**
- * A diff card (PAGE-298, PAGE-388): green added and red removed lines; the
+ * A diff card: green added and red removed lines; the
  * head names the file and below it "Diff · +N −M"; collapsed by default.
- *
  * @remarks
  * "Kopieren" is the main action in the accent color, "Ganze Datei" stays a
  * framed action of the kind, then "Daneben", "Vollbild" and "Zuklappen".
@@ -214,9 +213,9 @@ export function DiffCard({
 type MarkdownTab = "rendered" | "source";
 
 /**
- * A Markdown card (PAGE-298): the text rendered as the chat renders
+ * A Markdown card: the text rendered as the chat renders
  * Markdown, its code blocks in the syntax colors of the code cards, with
- * the tabs "Ansicht | Quelltext" (PAGE-383). A fence without language
+ * the tabs "Ansicht | Quelltext". A fence without language
  * whose content is Markdown says "automatisch erkannt: Markdown".
  */
 export function MarkdownCard({

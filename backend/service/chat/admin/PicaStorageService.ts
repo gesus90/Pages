@@ -62,8 +62,7 @@ function serialize(result: unknown): string {
 }
 
 /**
- * Pica's access to the Storage interface (PAGE-270, PAGE-271).
- *
+ * Pica's access to the Storage interface.
  * @remarks
  * Every tool calls the same reader and writer as `/storage-api/v1`, so the
  * checks of the connected Google account, conflicts, limits and the
@@ -82,7 +81,6 @@ export class PicaStorageService {
 
   /**
    * Creates the service.
-   *
    * @param files - The Storage interface of the instance Drive.
    */
   public constructor(
@@ -95,7 +93,6 @@ export class PicaStorageService {
 
   /**
    * Runs one Storage tool for the person of the job.
-   *
    * @param call - Tool, checked arguments, job scope and human turn.
    * @returns The result as JSON, or a stable error code with an explanation.
    */

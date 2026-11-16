@@ -7,7 +7,7 @@ import { formatSentAt } from "./media-item-actions";
 import type { ConversationMediaLink } from "@/definition/ConversationMediaOverview";
 import type { MediaItemActions } from "./media-item-actions";
 
-/** One link: domain, title and sender, opened in a new tab (PAGE-387). */
+/** One link: domain, title and sender, opened in a new tab. */
 function MediaLinkRow({
   link,
   actions,
@@ -75,7 +75,7 @@ function MediaLinkRow({
   );
 }
 
-/** The links of the chat as a list with domain, title and sender (PAGE-387). */
+/** The links of the chat as a list with domain, title and sender. */
 export function MediaLinks({
   links,
   actions,

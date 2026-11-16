@@ -46,9 +46,8 @@ function SavedSetting(props: {
 
 /**
  * Explains that a saved Git closeout is no longer supported and lets its owner remove it.
- *
  * @remarks
- * The node of an earlier version (PAGE-285) is shown as it was saved; nothing
+ * The node of an earlier version is shown as it was saved; nothing
  * here edits or converts it. Removing it changes the draft only, like the
  * remove action of its card, and is saved with the plan.
  */

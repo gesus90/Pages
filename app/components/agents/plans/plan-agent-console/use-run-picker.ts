@@ -67,7 +67,6 @@ function useOutsidePress(
 
 /**
  * Opens, scrolls and chooses in the list of runs like a select does.
- *
  * @remarks
  * Arrow keys, Page Up/Down, Home and End move the active run, Enter or Space
  * chooses it, Escape and Tab close the list. Escape is consumed, so the

@@ -29,7 +29,7 @@ export function conversationVoiceUrl(messageId: string): string {
  * @param message - The stored message.
  * @param person - The signed-in person; their own messages carry no author.
  * @returns The message with its author and, for a voice message, its audio;
- * a message sent from a preview is marked as such (PAGE-383).
+ * a message sent from a preview is marked as such.
  */
 export function toVirtualMessage(
   message: ConversationMessage,
@@ -112,7 +112,7 @@ export function splitConversations(
 }
 
 /**
- * The messages an agent chose to write to the person (PAGE-311), by agent.
+ * The messages an agent chose to write to the person, by agent.
  *
  * @param views - Every conversation of the person.
  * @param person - The signed-in person.
@@ -148,8 +148,8 @@ const AGENT_WRITTEN_PREFIXES = [
 
 /**
  * Whether a message of the direct conversation with an agent joins the chat
- * with it: one the agent chose to write (PAGE-311), or a system line such as
- * a changed model or a restarted session (PAGE-380).
+ * with it: one the agent chose to write, or a system line such as
+ * a changed model or a restarted session.
  *
  * @param message - A message of the direct conversation.
  * @param agentId - The agent of the chat.
@@ -161,7 +161,7 @@ export function isShownWithAgentChat(
   return message.notice === "session_event" || isAgentWritten(message, agentId);
 }
 
-/** Whether the agent chose to write the message (PAGE-311), instead of answering one. */
+/** Whether the agent chose to write the message, instead of answering one. */
 export function isAgentWritten(
   message: ConversationMessage,
   agentId: string,

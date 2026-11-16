@@ -8,7 +8,7 @@ import {
 import type { Database, DatabaseValue } from "@/backend/database/Database";
 import type { AgentChatKind } from "@/definition/AgentChatSession";
 
-/** One chat session of an agent with its stored state (PAGE-376). */
+/** One chat session of an agent with its stored state. */
 export interface StoredAgentChatSession {
   readonly sessionId: string;
   readonly agentId: string;
@@ -113,9 +113,8 @@ function toSession(row: readonly DatabaseValue[]): StoredAgentChatSession {
 }
 
 /**
- * The state of the chat sessions of agents (PAGE-376): what each session has
+ * The state of the chat sessions of agents: what each session has
  * received, how full its context is, what it used, and the settings per agent.
- *
  * @remarks
  * A chat session is a row of `agent_conversations` with the purpose `chat`
  * (the direct chat with a person) or `conversation` (a group); the rows of
@@ -275,7 +274,7 @@ export class AgentChatSessionRepository {
   }
 
   /**
-   * Deletes the row of a chat session (PAGE-380): its agent left the group
+   * Deletes the row of a chat session: its agent left the group
    * or the group was dissolved, so the session never runs again.
    */
   public async remove(sessionId: string): Promise<void> {

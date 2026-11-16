@@ -20,7 +20,6 @@ export interface AgentLogbookFilter {
 
 /**
  * The key of a chat in the filter: its kind and ID.
- *
  * @param source - The chat.
  */
 export function logbookChatKey(

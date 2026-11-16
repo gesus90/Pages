@@ -32,7 +32,7 @@ export type AgentActionResult =
       readonly login?: CliLoginView;
       readonly usages?: readonly AgentUsage[];
       readonly workspaceUsages?: readonly AgentWorkspaceUsage[];
-      /** What a test recording of the speech recognition gave (PAGE-273). */
+      /** What a test recording of the speech recognition gave. */
       readonly speech?: SpeechTestOutcome;
     }
   | {
@@ -98,8 +98,7 @@ const ERROR_STATUS: Partial<Record<AgentErrorCode, number>> = {
 };
 
 /**
- * Answers a database job the executor refused or could not confirm (PAGE-197).
- *
+ * Answers a database job the executor refused or could not confirm.
  * @param error - The error of the executor.
  * @param intent - The submitted intent, echoed for the client.
  * @returns `503` with `Retry-After` and a stable `database_*` code.

@@ -1,7 +1,7 @@
 import { syntaxLanguageLabel } from "./syntax-highlight";
 
 /**
- * The kinds of code the chat shows as a preview (PAGE-383): HTML and SVG in
+ * The kinds of code the chat shows as a preview: HTML and SVG in
  * the sandbox, Mermaid as a diagram, JSON as a tree and CSV or TSV as a
  * table. Markdown has its own card.
  */
@@ -61,7 +61,6 @@ function hintKey(hint: string): string {
 
 /**
  * The kind of preview a code block gets.
- *
  * @param languageHint - The language of the fence, the recognized language
  * or a file name.
  * @returns The kind, or `null` for code without a preview.
@@ -73,7 +72,6 @@ export function previewKindOf(languageHint: string): PreviewKind | null {
 /**
  * The name of a language as a card head shows it, such as `TypeScript`,
  * `Mermaid` or `CSV`.
- *
  * @param languageHint - The language of the fence or a file name.
  * @returns The label; empty for an empty hint.
  */
@@ -85,7 +83,6 @@ export function codeKindLabel(languageHint: string): string {
 
 /**
  * Tells the role of a code block next to an HTML block of the same message.
- *
  * @param languageHint - The language of the block.
  * @returns `css` or `js` for a block that joins the preview, else `null`.
  */
@@ -97,7 +94,6 @@ export function companionRole(languageHint: string): "css" | "js" | null {
 
 /**
  * The file name of a block of a preview: its own, or the default of its role.
- *
  * @param name - The name the fence gives, or empty.
  * @param role - The kind of preview or the role next to HTML.
  * @param index - The position among blocks of the same role, from 0; later

@@ -20,7 +20,6 @@ import type { AgentPlanLoopRun } from "@/definition/AgentPlanLoopRun";
 
 /**
  * The iterations a loop is still expected to run, split by certainty.
- *
  * @remarks
  * `sure` iterations follow from a known count; `assumed` ones are an estimate
  * that the run may still prove wrong, such as the next check of a while loop.
@@ -34,10 +33,8 @@ const NO_ITERATION: PlanLoopOutlook = { sure: 0, assumed: 0 };
 
 /**
  * The agents and scripts of one iteration in the order the iteration runs them.
- *
  * @param graph - The plan the run executes, its outer groups expanded.
  * @param loop - The loop.
- *
  * @remarks
  * Stacks the loop triggers order the members around them but are no step of
  * their own; groups inside the loop contribute their agents.
@@ -78,7 +75,6 @@ function whileOutlook(check: boolean | null): PlanLoopOutlook {
 
 /**
  * The iterations of a loop that has not started, read from the saved plan.
- *
  * @remarks
  * A count that cannot be read before the run, such as one bound to a result,
  * is assumed to be one iteration. A `max` loop with an active end condition
@@ -113,10 +109,8 @@ function hasLoopEnded(record: AgentPlanLoopRun): boolean {
 
 /**
  * The iterations a started loop is still expected to run after its recorded ones.
- *
  * @param record - The loop's state in the run.
  * @returns The outlook, or `null` before the loop resolved its count.
- *
  * @remarks
  * The count the loop resolved once is binding. A while loop records each
  * check; without a check for the next iteration only that iteration is

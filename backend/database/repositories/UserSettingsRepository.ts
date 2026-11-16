@@ -31,7 +31,6 @@ export class UserSettingsRepository {
 
   /**
    * Creates a user settings repository.
-   *
    * @param database - Central database access.
    */
   public constructor(database: Pick<Database, "query" | "execute">) {
@@ -40,7 +39,6 @@ export class UserSettingsRepository {
 
   /**
    * Returns the language a user has chosen.
-   *
    * @param userId - User identifier.
    * @returns The stored language, or `null` when the user has no settings row yet.
    */
@@ -74,7 +72,6 @@ export class UserSettingsRepository {
 
   /**
    * Creates or updates the language a user has chosen.
-   *
    * @param userId - User identifier.
    * @param language - Language to persist.
    */
@@ -104,7 +101,6 @@ export class UserSettingsRepository {
 
   /**
    * Returns the identifier of the design theme a user has chosen.
-   *
    * @param userId - User identifier.
    * @returns The stored identifier, or `null` when the user never chose one.
    */
@@ -126,10 +122,8 @@ export class UserSettingsRepository {
 
   /**
    * Creates or updates only the design theme a user has chosen.
-   *
    * @param userId - User identifier.
    * @param designThemeId - Identifier of the design theme to persist.
-   *
    * @remarks
    * Every other setting of the row stays as it is; a user without a row gets
    * the defaults of the table for them.
@@ -160,7 +154,6 @@ export class UserSettingsRepository {
 
   /**
    * Returns the complete settings row of a user.
-   *
    * @param userId - User identifier.
    * @returns The stored settings, or `null` when the user has no row yet.
    */
@@ -195,7 +188,6 @@ export class UserSettingsRepository {
 
   /**
    * Creates or replaces the complete settings row of a user.
-   *
    * @param userId - User identifier.
    * @param settings - Settings to persist.
    */

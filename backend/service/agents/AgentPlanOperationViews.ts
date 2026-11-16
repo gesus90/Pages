@@ -50,7 +50,6 @@ import type {
 
 /**
  * The share of a plan as a client reads it.
- *
  * @remarks
  * A private plan is private whatever its share says. Older shared plans
  * without a share were open to everyone with access to the workspace's
@@ -137,7 +136,6 @@ export function errorFields(
 
 /**
  * The state of a plan for the person, from their own runs, newest first.
- *
  * @param plan - The plan.
  * @param entries - The person's runs of the plan, newest first.
  */

@@ -8,8 +8,7 @@ import { TodoRow } from "./plan-status-todos";
 import type { AgentPlanStepResult } from "@/definition/AgentPlan";
 
 /**
- * The TODO list the agent reported, read-only, beside the details of its step (PAGE-306).
- *
+ * The TODO list the agent reported, read-only, beside the details of its step.
  * @remarks
  * The list has a bounded height and scrolls with soft fades at its edges. Only
  * a TODO the agent reported as in progress is marked active.

@@ -26,7 +26,7 @@ interface GroupEditorProps {
   readonly onOpenChange: (open: boolean) => void;
   /** People the actor may put into a group. */
   readonly candidates: readonly ManagedUser[];
-  /** Whether the actor marks leaders: administrators only (PAGE-308). */
+  /** Whether the actor marks leaders: administrators only. */
   readonly canSetLeaders: boolean;
 }
 

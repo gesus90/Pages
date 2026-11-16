@@ -9,7 +9,6 @@ import {
 
 /**
  * The origins the operator browser may reach besides the public internet.
- *
  * @remarks
  * `pages` is this Pages instance; `services` are local services the operator
  * of the server released in the configuration. Both are exact origins, so a
@@ -39,7 +38,6 @@ const SAFE_METHODS: ReadonlySet<string> = new Set(["GET", "HEAD", "OPTIONS"]);
 
 /**
  * Normalizes configured origins; an entry that is no http(s) origin is dropped.
- *
  * @param entries - Origins or URLs from the configuration.
  * @returns Unique origins such as `http://127.0.0.1:3100`.
  */
@@ -88,7 +86,6 @@ function parseUrl(raw: string): URL {
 
 /**
  * Decides where a request may go and pins its destination address.
- *
  * @param raw - The absolute URL of the request.
  * @param origins - The released local origins.
  * @returns The target with the address the connection must use.
@@ -126,7 +123,6 @@ export async function resolveBrowserTarget(
 
 /**
  * Refuses a change to a local service until the administrator allowed it for this browser.
- *
  * @param target - The checked destination.
  * @param method - The HTTP method of the request.
  * @param areWritesApproved - Whether the administrator approved changes to local services.

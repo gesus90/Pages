@@ -12,9 +12,8 @@ import type { Route } from "./+types/users-agent-data";
 export const middleware: MiddlewareFunction[] = [requireUserManagement];
 
 /**
- * Answers the panel of one agent (PAGE-266): its configuration, documents,
+ * Answers the panel of one agent: its configuration, documents,
  * memory with archive and versions, and its activity.
- *
  * @remarks
  * Only an account that may see the agent's account gets it; every other
  * request is answered as if the agent did not exist.

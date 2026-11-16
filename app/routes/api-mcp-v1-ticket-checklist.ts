@@ -31,8 +31,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpTicketHandlers {
 }
 
 /**
- * Appends an acceptance criterion (`POST /api/mcp/v1/tickets/{key}/checklist`), PAGE-242 interface 9.
- *
+ * Appends an acceptance criterion (`POST /api/mcp/v1/tickets/{key}/checklist`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

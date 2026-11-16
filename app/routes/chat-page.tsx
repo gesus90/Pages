@@ -24,7 +24,7 @@ const QUIET_INTENTS: readonly string[] = [
 
 /**
  * Reads the participants, the dialog choices and the histories of the chat
- * page (PAGE-266) from its endpoint.
+ * page from its endpoint.
  */
 export function clientLoader({
   request,
@@ -37,8 +37,8 @@ export function clientLoader({
 }
 
 /**
- * Loading older messages changes nothing, so the page keeps its data
- * (PAGE-275); a card state and the split width show at once (PAGE-298).
+ * Loading older messages changes nothing, so the page keeps its data;
+ * a card state and the split width show at once.
  */
 export function shouldRevalidate({
   formData,
@@ -66,7 +66,7 @@ export default function ChatPageRoute(): React.ReactElement {
     (kind === "group" || kind === "participant") && id
       ? { kind, id }
       : undefined;
-  // A "Zur Nachricht" link of an agent names the message to show (PAGE-393).
+  // A "Zur Nachricht" link of an agent names the message to show.
   const message = params.get("message");
   return (
     <ChatPage

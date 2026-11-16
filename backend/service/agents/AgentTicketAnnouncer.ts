@@ -19,7 +19,6 @@ export interface AgentTicketAnnouncerDependencies {
 
 /**
  * Tells everything that depends on tickets about a change that has been committed.
- *
  * @remarks
  * Nothing here runs before the commit, so a rolled back call is never
  * announced and never published. GitHub follows the Pages setting of the
@@ -35,7 +34,6 @@ export class AgentTicketAnnouncer {
 
   /**
    * Reacts to a completed call; a repeated call or one that wrote nothing is silent.
-   *
    * @param completed - The outcome of the committed transaction.
    */
   public announce(completed: AgentTicketCompleted<unknown>): void {

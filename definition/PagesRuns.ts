@@ -80,7 +80,7 @@ export const pagesRunsStartResourcesSchema = z
   })
   .strict();
 
-/** A swarm tool call the API hands to the engine process that runs the swarm (PAGE-313). */
+/** A swarm tool call the API hands to the engine process that runs the swarm. */
 export const pagesRunsSwarmSchema = z
   .object({
     version: z.literal(1),

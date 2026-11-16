@@ -13,7 +13,6 @@ const COMPONENT = "PicaMobilePushSenders";
 /**
  * The push service of a development instance without FCM: it prints what it
  * would hand over, without the token, and reports it as sent.
- *
  * @remarks
  * The structured log keeps no texts, so title, body and data go to the
  * console of the development process, where the simulation is checked.

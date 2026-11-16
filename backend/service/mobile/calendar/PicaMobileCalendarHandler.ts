@@ -11,9 +11,8 @@ import type { PicaMobileCalendarProvider } from "./PicaMobileCalendarProvider";
 const COMPONENT = "PicaMobileCalendarHandler";
 
 /**
- * Answers `calendar.v1` for one connection (PAGE-301) and sends it the
+ * Answers `calendar.v1` for one connection and sends it the
  * `calendar_changed` messages of its account.
- *
  * @remarks
  * Every request is answered once: with its answer, with `error` and
  * `forbidden`, `not_found` or `invalid_request` for a refusal, or with
@@ -28,7 +27,6 @@ export class PicaMobileCalendarHandler {
 
   /**
    * Creates the handler.
-   *
    * @param provider - The calendar; none: the requests are unknown.
    * @param host - The connection the handler answers on.
    */
@@ -56,7 +54,6 @@ export class PicaMobileCalendarHandler {
 
   /**
    * Handles one request of `calendar.v1`.
-   *
    * @param message - A request that passed every check of its payload.
    */
   public async handle(message: PicaMobileCalendarClientMessage): Promise<void> {

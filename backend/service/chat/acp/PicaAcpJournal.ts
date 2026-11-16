@@ -10,7 +10,6 @@ const TEXT_FLUSH_MS = 400;
 
 /**
  * The append-only journal of one Pica job.
- *
  * @remarks
  * Entries are written one after another and numbered only after they were
  * stored, so the numbers of a job stay contiguous even when a write fails.
@@ -32,12 +31,11 @@ export class PicaAcpJournal {
 
   /**
    * Creates the journal of a job.
-   *
    * @param repository - Stores the entries.
    * @param jobId - The job.
    * @param observer - Hears every entry in its order before it is stored,
    * text after complete words and with credentials masked, such as the live
-   * answer of the chat page (PAGE-381); it must not throw.
+   * answer of the chat page; it must not throw.
    */
   public constructor(
     repository: Pick<ChatJobRepository, "append">,

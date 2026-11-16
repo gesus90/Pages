@@ -21,7 +21,6 @@ interface ChangePasswordDialogProps {
 
 /**
  * Renders the dialog that changes the password of the signed-in user.
- *
  * @remarks
  * The dialog closes itself once the server accepted the new password and
  * shows the reason when it did not.

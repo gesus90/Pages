@@ -67,7 +67,6 @@ function changedTickets(impact: TaskLifecycleImpact): PagesEvent[] {
 
 /**
  * The ticket service of the interface, which announces every change it commits.
- *
  * @remarks
  * Agents announce their own changes through the same publisher, so both ways
  * of changing a ticket or a milestone reach the Discord notifications. Several
@@ -77,7 +76,6 @@ function changedTickets(impact: TaskLifecycleImpact): PagesEvent[] {
  * change no field a message states; they announce `ticket.changed`,
  * `ticket.deleted` or `milestone.changed`, which only the live view of open
  * pages follows.
- *
  * Each call runs as one transaction through the publisher (see
  * `PagesEventPublisher.announce`): the ticket row, its history and milestone
  * links commit together with the outbox row of the event, which names what
@@ -92,7 +90,6 @@ export class AnnouncingTaskService extends TaskService {
 
   /**
    * Creates the announcing task service.
-   *
    * @param repositories - Task persistence and the services deciding access.
    * @param events - Runs the announced calls and delivers their events.
    */
@@ -443,7 +440,6 @@ export class AnnouncingTaskService extends TaskService {
 
   /**
    * Deletes a subtree and announces `ticket.deleted` with where it was visible.
-   *
    * @remarks
    * The deleted row can no longer decide who saw it, so its project and
    * department are read before, in the transaction of the deletion. Children

@@ -36,7 +36,6 @@ const ENTRY_TONES = {
 
 /**
  * The two diagonal strokes over an entry that was handed over.
- *
  * @remarks
  * The strokes span the whole entry from corner to corner and keep their width
  * at every size, so the mark stays clear after zooming and resizing.

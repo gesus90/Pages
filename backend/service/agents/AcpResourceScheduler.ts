@@ -102,7 +102,7 @@ export class AcpResourceScheduler {
   private readonly opening = new Set<Promise<PlanSession>>();
   private readonly checks: AcpLeaseChecks;
   private readonly reconciler: AcpLeaseReconciler;
-  /** The administrator's check and confirmed cleanup of the leases this service owns (PAGE-340). */
+  /** The administrator's check and confirmed cleanup of the leases this service owns. */
   public readonly leaseCleanup: AcpLeaseCleanup;
   private unverifiedLocal: Set<string> = new Set();
   private availableMemory: number | null = null;
@@ -160,7 +160,6 @@ export class AcpResourceScheduler {
 
   /**
    * Recovers durable leases before admission; never resumes or retries an interrupted job.
-   *
    * @param legacyOwners - Interrupted sessions from before the lease journal.
    * @param retained - Sessions whose cleanup an earlier startup step could not
    * confirm; their leases keep capacity until a later start confirms it.
@@ -208,7 +207,6 @@ export class AcpResourceScheduler {
   /**
    * Opens a session like {@link open}; with a deadline the request leaves the
    * queue without a place when none became free in time.
-   *
    * @throws {AcpAdmissionTimeoutError} After the deadline.
    */
   public openWithin(request: AcpOpenRequest): Promise<PlanSession> {
@@ -271,8 +269,7 @@ export class AcpResourceScheduler {
 
   /**
    * Installs what ends the longest idle chat session when a start waits at
-   * the instance limit (PAGE-335).
-   *
+   * the instance limit.
    * @param reclaim - Ends one idle session and returns whether it found one.
    */
   public setIdleReclaimer(reclaim: () => boolean): void {
@@ -347,10 +344,8 @@ export class AcpResourceScheduler {
 
   /**
    * Checks uncertain leases again and releases each one whose processes are proven gone.
-   *
    * @param runId - Only the leases of this plan run; `undefined` checks every uncertain lease.
    * @returns How many leases stay uncertain.
-   *
    * @remarks
    * With a run, the cleanup of its leases is attempted again first, and a
    * lease is released only when it succeeded. A registered namespace
@@ -500,10 +495,9 @@ export class AcpResourceScheduler {
 
   /**
    * Stores a lease in the order of the scheduler, outside any request.
-   *
    * @remarks
    * Leases belong to all sessions, and a refused write blocks admission until
-   * the next start, so a client that left must not be able to cause one (PAGE-199).
+   * the next start, so a client that left must not be able to cause one.
    */
   private persist<Result>(task: () => Promise<Result>): Promise<Result> {
     return withBackgroundDatabaseWork("acp_resources", () =>

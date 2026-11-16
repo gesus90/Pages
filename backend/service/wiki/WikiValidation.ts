@@ -12,7 +12,6 @@ const MAXIMUM_ICON_CODE_UNITS = 32;
 
 /**
  * Checks and normalizes a page title.
- *
  * @param title - Title as typed.
  * @returns The title as a single line without surrounding blanks.
  * @throws {WikiValidationError} When it is empty or too long.
@@ -33,7 +32,6 @@ export function normalizeTitle(title: string): string {
 
 /**
  * Checks the text of a page.
- *
  * @param content - Markdown text.
  * @returns The same text.
  * @throws {WikiValidationError} When it is too long.
@@ -48,7 +46,6 @@ export function validateContent(content: string): string {
 
 /**
  * Checks the icon of a page.
- *
  * @param icon - A single emoji, or an empty value for none.
  * @returns The emoji, or `null` for none.
  * @throws {WikiValidationError} When it is not a single emoji.
@@ -72,7 +69,6 @@ export function normalizeIcon(icon: string | null): string | null {
 
 /**
  * Checks the date until which a page counts as up to date.
- *
  * @param date - Date as `YYYY-MM-DD`, or an empty value for none.
  * @returns The date, or `null` for none.
  * @throws {WikiValidationError} When it is not a real calendar date.

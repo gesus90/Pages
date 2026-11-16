@@ -16,7 +16,6 @@ const PREVIEW_BLOCKS = 14;
 /**
  * The start of a document as the card shows it: its first page, at most 14
  * blocks.
- *
  * @param blocks - Every block of the document.
  */
 export function firstPageBlocks(
@@ -36,7 +35,7 @@ interface WordPreviewProps {
 }
 
 /**
- * The start of a Word or OpenDocument text in a card (PAGE-385), in the
+ * The start of a Word or OpenDocument text in a card, in the
  * Pages design, with "Seite 1 von N · Ganzes Dokument öffnen".
  */
 export function WordPreview({
@@ -145,7 +144,7 @@ function Contents({
 
 /**
  * The whole Word or OpenDocument text next to the chat and in the full
- * screen (PAGE-385): a table of contents from the headings, a search with
+ * screen: a table of contents from the headings, a search with
  * its matches marked, and the document as a readable page in the Pages design.
  */
 export function WordPanel({

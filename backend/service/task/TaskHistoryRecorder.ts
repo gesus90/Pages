@@ -112,7 +112,6 @@ export class TaskHistoryRecorder {
 
   /**
    * Creates a history recorder.
-   *
    * @param taskRepository - Task persistence boundary holding the history.
    */
   public constructor(taskRepository: TaskRepository) {
@@ -221,7 +220,7 @@ export class TaskHistoryRecorder {
     });
   }
 
-  /** Records that a work item took the milestone of a task below it (T6.13.2). */
+  /** Records that a work item took the milestone of a task below it. */
   public async recordMilestoneAdopted(
     actor: User,
     workItemId: string,
@@ -237,7 +236,6 @@ export class TaskHistoryRecorder {
 
   /**
    * Records that a work item moved to another project.
-   *
    * @remarks
    * A GitHub issue cannot travel to another project, so its unlinking is
    * recorded as well.

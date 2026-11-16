@@ -26,7 +26,6 @@ function pageEvents(type: PagesEvent["type"], id: string | null): PagesEvent[] {
 
 /**
  * The wiki service of the interface, which announces every page change it commits.
- *
  * @remarks
  * Agents announce their own wiki changes through the same publisher. An
  * announcement follows the stored change and names only the page; a call that
@@ -46,7 +45,6 @@ export class AnnouncingWikiService extends WikiService {
 
   /**
    * Creates the announcing wiki service.
-   *
    * @param wikiRepository - Wiki persistence boundary.
    * @param access - The services deciding project access and capabilities.
    * @param fileStore - Keeps attached files on the disk.

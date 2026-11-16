@@ -13,7 +13,6 @@ import type {
 
 /**
  * A field of a card: no node drag, no pan and no React Flow key from it.
- *
  * @remarks
  * Sized for the 32 px rows that plan-layout.ts counts.
  */

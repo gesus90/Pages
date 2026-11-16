@@ -8,7 +8,6 @@ export class ProjectTagRepository {
 
   /**
    * Creates a project tag repository.
-   *
    * @param database - Central database access.
    */
   public constructor(database: DatabaseTransaction) {

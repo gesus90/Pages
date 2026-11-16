@@ -1,6 +1,5 @@
 /**
- * Contracts of the Lagebuch of an agent (PAGE-377).
- *
+ * Contracts of the Lagebuch of an agent.
  * @remarks
  * An agent keeps one session per chat, so it would not know what happens in
  * its other chats. The Lagebuch is one short, shared memory across all its
@@ -130,7 +129,7 @@ export type AgentLogbookResponse =
 export const AGENT_LOGBOOK_ENDPOINT = "/chat-page-api/agent-logbook";
 
 /**
- * The tools of the Lagebuch an agent session is given (PAGE-377). Each takes
+ * The tools of the Lagebuch an agent session is given. Each takes
  * the input of the model as `unknown`, checks it and answers a plain value.
  */
 export interface AgentLogbookTools {

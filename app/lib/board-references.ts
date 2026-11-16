@@ -38,7 +38,6 @@ function pickAssignee(value: string, references: BoardReferences): string {
 
 /**
  * Drops filter values that point to something the visitor cannot see any more.
- *
  * @param preferences - Valid preferences from the address or the saved ones.
  * @param references - What exists and is visible for the visitor.
  * @returns Preferences where a vanished project, status, milestone, label,

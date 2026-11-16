@@ -42,7 +42,6 @@ async function createPicaMobileSettingsService(
 
 /**
  * Loads the Pica Mobile settings for the connections page.
- *
  * @param services - Services of the request.
  * @param user - The signed-in user.
  * @param request - The page request; its host tells which address to suggest.
@@ -74,7 +73,6 @@ function respond(result: PicaMobilePortResult): Response {
 
 /**
  * Stores the Pica Mobile port an administrator entered.
- *
  * @param services - Services of the request.
  * @param user - The signed-in user.
  * @param formData - Submitted form with the `port` field.

@@ -15,11 +15,10 @@ export interface McpTicketUploadResult {
   readonly ticket: McpTicket;
 }
 
-/** Acceptance criteria, links and attachments of tickets (PAGE-242, interface 9–11). */
+/** Acceptance criteria, links and attachments of tickets. */
 export class McpTicketDetailService {
   /**
    * Appends an acceptance criterion to a ticket.
-   *
    * @param context - The request.
    * @param reference - Key or id of the ticket.
    * @param title - Title of the criterion.
@@ -41,7 +40,6 @@ export class McpTicketDetailService {
 
   /**
    * Checks or reopens an acceptance criterion of a ticket.
-   *
    * @param context - The request.
    * @param reference - Key or id of the ticket.
    * @param itemId - A criterion of this very ticket.
@@ -68,7 +66,6 @@ export class McpTicketDetailService {
 
   /**
    * Deletes an acceptance criterion of a ticket.
-   *
    * @param context - The request.
    * @param reference - Key or id of the ticket.
    * @param itemId - A criterion of this very ticket.
@@ -89,7 +86,6 @@ export class McpTicketDetailService {
 
   /**
    * Links a ticket with another one; `blocks` and `duplicates` start at the ticket.
-   *
    * @param context - The request.
    * @param reference - Key or id of the ticket.
    * @param request - Type of the link and key of the other ticket.
@@ -121,7 +117,6 @@ export class McpTicketDetailService {
 
   /**
    * Removes a link of a ticket.
-   *
    * @param context - The request.
    * @param reference - Key or id of the ticket.
    * @param linkId - A visible link of this very ticket.
@@ -143,7 +138,6 @@ export class McpTicketDetailService {
 
   /**
    * Stores a file for a ticket with the limits of the instance.
-   *
    * @param context - The request.
    * @param reference - Key or id of the ticket.
    * @param file - The streamed body of the request.
@@ -168,7 +162,6 @@ export class McpTicketDetailService {
 
   /**
    * Opens an attachment of a ticket with the checks of the interface.
-   *
    * @param context - The request.
    * @param reference - Key or id of the ticket.
    * @param attachmentId - An attachment of this very ticket.
@@ -184,7 +177,6 @@ export class McpTicketDetailService {
 
   /**
    * Removes an attachment of a ticket.
-   *
    * @param context - The request.
    * @param reference - Key or id of the ticket.
    * @param attachmentId - An attachment of this very ticket.

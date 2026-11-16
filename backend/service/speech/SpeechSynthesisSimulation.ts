@@ -55,11 +55,9 @@ function readScenario(
 }
 
 /**
- * Reads the simulation switch of the speech output (PAGE-300).
- *
+ * Reads the simulation switch of the speech output.
  * @param environment - The environment, the process's own by default.
  * @returns Active only with `PAGES_TTS_SIMULATION=1` outside production.
- *
  * @remarks
  * Like the speech recognition simulation, the switch is ignored with
  * `NODE_ENV=production`, so a production instance never offers the
@@ -91,7 +89,6 @@ let processMode: SpeechSynthesisSimulationMode | null = null;
 
 /**
  * The simulation switch of this process, read and logged once.
- *
  * @returns The same mode on every call.
  */
 export function currentSpeechSynthesisSimulationMode(): SpeechSynthesisSimulationMode {
@@ -108,7 +105,6 @@ function voicePitch(voice: string): number {
 /**
  * Simulated speech: a WAV tone whose length follows the text and the speed
  * and whose pitch follows the voice, so a listener hears both settings.
- *
  * @param input - The text, the voice and the speed of the request.
  * @returns A mono 16-bit WAV at 24 kHz.
  */

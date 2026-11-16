@@ -40,8 +40,7 @@ function HeaderPills({
 }
 
 /**
- * The system dashboard over the full width of the system settings (PAGE-282).
- *
+ * The system dashboard over the full width of the system settings.
  * @remarks
  * Load tiles with their curves, the mounted drives, the services and a line
  * of facts. It reads every two seconds while the page is visible and shows

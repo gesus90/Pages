@@ -27,11 +27,9 @@ interface ParsedPasswordHash {
 export class PasswordHasher {
   /**
    * Creates a self-describing scrypt hash for a password.
-   *
    * @param password - Plain-text password.
    * @returns An encoded hash containing the algorithm name, its cost
    * parameters, the salt, and the derived key.
-   *
    * @remarks
    * Storing the cost parameters alongside the hash lets Pages keep
    * verifying passwords created under older parameters even after the
@@ -57,11 +55,9 @@ export class PasswordHasher {
 
   /**
    * Verifies a password against a stored hash.
-   *
    * @param passwordHash - Encoded scrypt hash from the database.
    * @param password - Plain-text password entered during login.
    * @returns Whether the password matches the hash.
-   *
    * @remarks
    * A malformed or unsupported stored hash is reported as a failed
    * verification so callers cannot distinguish it from a wrong password,
@@ -97,10 +93,8 @@ export class PasswordHasher {
 
   /**
    * Determines whether a stored value is a hash produced by this hasher.
-   *
    * @param passwordHash - Value stored in the database.
    * @returns Whether the value can be verified by {@link verify}.
-   *
    * @remarks
    * Lets callers recognize hashes left over from a previously used hashing
    * library without duplicating this hasher's encoding elsewhere.

@@ -49,7 +49,6 @@ function useEscapeToClose(onClose: () => void): void {
 
 /**
  * The floating settings panel of a container node of the plan, over the canvas.
- *
  * @remarks
  * It lies beside the node palette on wide screens and fills the width on
  * narrow ones, keeps the canvas visible and takes no backdrop. The heading

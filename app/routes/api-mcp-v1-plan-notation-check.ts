@@ -19,8 +19,7 @@ const HANDLERS: McpPlanNotationHandlers = {
 };
 
 /**
- * Checks a notation without storing it (`POST /api/mcp/v1/plan-notation/check`), PAGE-250 interface 1.
- *
+ * Checks a notation without storing it (`POST /api/mcp/v1/plan-notation/check`).
  * @remarks
  * Only the device token of a paired machine admits a request. With a
  * `planId`, the answer previews what replacing that plan would change.

@@ -109,7 +109,6 @@ function patchedOccurrenceTime(
 
 /**
  * Moves the start of a series by the change one of its occurrences got.
- *
  * @param event - The series.
  * @param occurrence - The occurrence the client edited.
  * @param target - Its new time.
@@ -141,8 +140,7 @@ function shiftSeries(
 }
 
 /**
- * Applies the changes of one scope of a series (PAGE-301).
- *
+ * Applies the changes of one scope of a series.
  * @remarks
  * "Only this" stores an exception of the occurrence; "this and all
  * following" ends the series before the occurrence and starts a new one with
@@ -155,7 +153,6 @@ export class CalendarSeriesChanges {
 
   /**
    * Creates the helper.
-   *
    * @param dependencies - Repositories and services.
    */
   public constructor(dependencies: CalendarDependencies) {
@@ -164,7 +161,6 @@ export class CalendarSeriesChanges {
 
   /**
    * Builds the stored values of an event after a patch of the whole series.
-   *
    * @param event - The event or series.
    * @param patch - The fields of the client.
    * @param context - The viewer and the occurrence the client edited, if any.
@@ -200,7 +196,6 @@ export class CalendarSeriesChanges {
 
   /**
    * Changes the whole series or a single event.
-   *
    * @param event - The stored event.
    * @param next - Its new values.
    * @param patch - The fields of the client; invitees replace the list.
@@ -229,7 +224,6 @@ export class CalendarSeriesChanges {
 
   /**
    * Changes only one occurrence of a series.
-   *
    * @param event - The series.
    * @param occurrence - The occurrence.
    * @param context - The patch and the viewer.
@@ -267,7 +261,6 @@ export class CalendarSeriesChanges {
 
   /**
    * Changes an occurrence and every later one by splitting the series.
-   *
    * @param event - The series.
    * @param occurrence - The first occurrence of the new part.
    * @param context - The patch and the viewer.
@@ -328,7 +321,6 @@ export class CalendarSeriesChanges {
 
   /**
    * Deletes one scope of an event.
-   *
    * @param event - The stored event.
    * @param scope - Which occurrences go.
    * @param occurrence - The occurrence of `this` and `following`.
@@ -373,7 +365,6 @@ export class CalendarSeriesChanges {
 
   /**
    * Finds the occurrence of a series a client named.
-   *
    * @param event - The series.
    * @param key - The stored key.
    * @throws {CalendarError} `not_found` when the series has no such occurrence.
@@ -393,7 +384,6 @@ export class CalendarSeriesChanges {
 
   /**
    * Tells whether an occurrence is the first one of its series.
-   *
    * @param event - The series.
    * @param key - The stored key of the occurrence.
    */

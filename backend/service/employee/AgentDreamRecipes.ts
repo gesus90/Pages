@@ -56,7 +56,7 @@ function weakest(recipes: readonly StoredAgentRecipe[]): StoredAgentRecipe[] {
 }
 
 /**
- * Applies what a dream run says about the recipes (PAGE-378): drops the ones
+ * Applies what a dream run says about the recipes: drops the ones
  * it names, creates and corrects the ones it proposes, lets rarely used ones
  * fall out and keeps the number of recipes within its limit.
  *

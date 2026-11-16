@@ -1,6 +1,5 @@
 /**
  * Tells whether a request reached Pages over HTTPS.
- *
  * @remarks
  * A reverse proxy that ends TLS reports the original protocol in
  * `X-Forwarded-Proto`. The entrance of the server (`admitForwardedHeaders`)
@@ -25,11 +24,9 @@ function isHttpsRequest(request: Request): boolean {
 
 /**
  * Decides whether the cookies for a response carry the `Secure` attribute.
- *
  * @param request - Request the response answers.
  * @param environment - Process environment to read from.
  * @returns Whether browsers may only send the cookies over HTTPS.
- *
  * @remarks
  * By default the attribute follows the protocol of the request: browsers
  * drop `Secure` cookies on plain HTTP outside of localhost, which would

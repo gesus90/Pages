@@ -31,8 +31,7 @@ export interface DreamScheduleDraft {
 
 /**
  * The entries of the schedule and the model of the dream run, checked against
- * the ranges of the contract before anything is sent (PAGE-378).
- *
+ * the ranges of the contract before anything is sent.
  * @param saved - The settings the server holds; they fill the entries.
  */
 export function useDreamScheduleDraft(

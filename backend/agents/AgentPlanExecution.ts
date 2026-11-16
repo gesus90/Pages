@@ -39,8 +39,8 @@ export interface AgentPlanSessionInput extends AgentPlanExecutionInput {
   /** Makes the session a Pica chat session: its own profile, MCP bridge, resume and updates. */
   readonly chat?: AcpChatOptions;
   /**
-   * A decision session reads its prompt only: no tools, no MCP server
-   * (PAGE-286); an observer session of a group neither (PAGE-296).
+   * A decision session reads its prompt only: no tools, no MCP server;
+   * an observer session of a group neither.
    */
   readonly purpose?: "decision" | "observer";
   /** The native session a resumed plan node continues through the adapter's own resume. */
@@ -124,14 +124,14 @@ export interface PlanSession {
   ): Promise<PlanSessionTurn>;
   /** Adds a prompt to the running turn; absent for runners without steering. */
   steer?(prompt: readonly ContentBlock[]): Promise<AcpSteerOutcome>;
-  /** Interrupts the running prompt of a plan turn, which then waits for a person's input (PAGE-284). */
+  /** Interrupts the running prompt of a plan turn, which then waits for a person's input. */
   interrupt?(): Promise<boolean>;
   /** Suspends or continues the native process while preserving its ACP session. */
   suspend?(): Promise<boolean>;
   resume?(): Promise<boolean>;
   /**
    * Cancels the running prompt of a chat turn, which stops the running tool
-   * call, and continues the turn with the note (PAGE-303).
+   * call, and continues the turn with the note.
    */
   cancelTool?(note: string): Promise<boolean>;
   /** Whether the closeout has begun: the session takes no further turn, though its end is not yet reported. */
@@ -175,7 +175,6 @@ export interface PlanExecution {
 
 /**
  * Reuses credential boundaries and permits independent plan steps to share a verified connection.
- *
  * @remarks
  * The scope of the connection is checked right before every request and
  * every process start. A pinned provider is never redirected: an API

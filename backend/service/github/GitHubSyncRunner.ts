@@ -84,7 +84,6 @@ export class GitHubSyncRunner {
 
   /**
    * Creates a synchronization runner.
-   *
    * @param options - Repository, collaborator, and infrastructure dependencies.
    */
   public constructor(options: GitHubSyncRunnerOptions) {
@@ -106,7 +105,6 @@ export class GitHubSyncRunner {
 
   /**
    * Synchronizes every task, issue, and pull request of one project.
-   *
    * @param actor - User the run is attributed to.
    * @param projectId - Project to synchronize.
    * @returns Outcome counters describing the run.
@@ -132,9 +130,7 @@ export class GitHubSyncRunner {
 
   /**
    * Synchronizes every project whose scheduled run is due.
-   *
    * @returns Completed and failed run counters; failures never abort the batch.
-   *
    * @remarks
    * A failed project is backed off (see {@link GitHubSyncBackoff}) instead of
    * being retried on every tick. A project whose run is still in progress,
@@ -162,7 +158,6 @@ export class GitHubSyncRunner {
 
   /**
    * Synchronizes a single linked task without touching the rest of the project.
-   *
    * @param actor - User triggering the run; must hold write permission.
    * @param workItemId - Linked task to synchronize.
    * @returns Outcome counters describing the run.
@@ -285,7 +280,6 @@ export class GitHubSyncRunner {
   /**
    * Collects the tasks a run reconciles: every active task, and the archived
    * ones that are linked, whose issue then follows the archive state.
-   *
    * @remarks
    * An archived task without a link is left out, so archiving never leads to
    * a new issue.

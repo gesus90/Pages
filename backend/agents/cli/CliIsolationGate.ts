@@ -26,7 +26,6 @@ function unisolatedRequest(request: CliSessionRequest): CliSessionRequest {
 
 /**
  * Decides whether a session runs inside the mount namespace and which home it gets there.
- *
  * @remarks
  * Where bubblewrap does not work, the session starts as before and one
  * warning says so, unless the operator demanded isolation: then the node
@@ -44,10 +43,8 @@ export class CliIsolationGate {
 
   /**
    * Gives a Claude plan session its private transcript home inside the namespace.
-   *
    * @param request - The session as it would start with the connection's own home.
    * @param scoped - The plan's transcript home, or `null` for any other session.
-   *
    * @remarks
    * Without a namespace nothing separates the homes: the session then keeps
    * the connection's own home, which holds the login, instead of an empty one.

@@ -42,7 +42,6 @@ export interface IntegrationServices {
 
 /**
  * Builds only services needed to execute GitHub jobs and authorize FCM payloads.
- *
  * @param database - The open database.
  * @param directory - Instance data directory.
  * @param tokenKey - Decrypts stored GitHub tokens.

@@ -24,8 +24,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpAgentHandlers {
 }
 
 /**
- * Removes an agent after a confirmed question (`POST /api/mcp/v1/agents/{id}/remove`), PAGE-267.
- *
+ * Removes an agent after a confirmed question (`POST /api/mcp/v1/agents/{id}/remove`).
  * @remarks
  * Only the device token of a paired machine admits a request, and only for
  * an account with the administrator role. Without `confirmed: true`

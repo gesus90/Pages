@@ -41,7 +41,6 @@ const SETTING_KEYS = [
 /**
  * Reads the stored settings, or the defaults for a project without a
  * GitHub integration.
- *
  * @param integration - The stored integration, if there is one.
  */
 function initialGitHubValues(
@@ -66,7 +65,6 @@ function initialGitHubValues(
 
 /**
  * Keeps the settings of the GitHub panel.
- *
  * @param integration - The stored integration, if there is one.
  */
 export function useGitHubFormValues(

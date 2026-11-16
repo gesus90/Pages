@@ -21,12 +21,11 @@ const MAXIMUM_INSTRUCTION = 20_000;
 
 /**
  * Reads the PageAgentCLI view of one node attempt and its history after a cursor.
- *
  * @remarks
  * Reading uses the journal only; it starts no process and occupies no slot.
  * `history=only` reads the history alone, which also an earlier attempt of
  * the node has: the Pages terminal shows the attempts of a node one after
- * another (PAGE-284).
+ * another.
  */
 export async function loader({
   request,

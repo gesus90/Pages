@@ -40,7 +40,6 @@ export class ConversationAccounts {
 
   /**
    * Wraps one reading of the accounts.
-   *
    * @param accounts - The accounts by ID.
    * @param aliasDirectory - Aliases visible to each sender, when the chat has any.
    */
@@ -108,8 +107,7 @@ export class ConversationAccounts {
 }
 
 /**
- * Reads the people and agents conversations name and choose from (PAGE-278).
- *
+ * Reads the people and agents conversations name and choose from.
  * @remarks
  * The rules are those of the participant dialog of the chat page: only
  * active accounts can be chosen, agents included; a deactivated account keeps

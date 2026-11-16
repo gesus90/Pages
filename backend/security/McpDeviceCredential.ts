@@ -11,7 +11,6 @@ const CREDENTIAL_PATTERN = /^[A-Za-z0-9_-]{43}$/u;
 
 /**
  * Draws a new user code.
- *
  * @returns Eight capital letters without a hyphen, each drawn without bias.
  */
 export function createUserCode(): string {
@@ -22,7 +21,6 @@ export function createUserCode(): string {
 
 /**
  * Tells whether a text has the shape of a device secret or token.
- *
  * @param text - Untrusted text.
  * @returns Whether it holds 43 characters of base64url.
  */
@@ -32,7 +30,6 @@ export function isMcpDeviceCredential(text: unknown): text is string {
 
 /**
  * Produces the only stored form of a user code, device secret, token or address.
- *
  * @param purpose - What the value is, so equal texts of different purposes differ.
  * @param value - The clear text.
  * @returns A SHA-256 digest in hexadecimal.

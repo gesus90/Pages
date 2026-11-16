@@ -15,7 +15,6 @@ import type { Route } from "./+types/wiki-page-server";
 
 /**
  * Loads a page by its identifier.
- *
  * @remarks
  * A missing page and a page the account may not see answer alike. A slug in
  * the address that no longer fits the title is replaced by the current one.

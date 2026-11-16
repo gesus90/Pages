@@ -153,7 +153,6 @@ function groupError(
 
 /**
  * Derives a frame's status and progress without adding an execution step.
- *
  * @remarks
  * Failures and blocked inputs win over activity. Control states apply only
  * to unfinished groups. A terminal run cannot leave a group Running.

@@ -19,7 +19,7 @@ export function hideImages(): boolean {
 }
 
 /**
- * Says that the answer to a message waits (PAGE-304): for the answer the
+ * Says that the answer to a message waits: for the answer the
  * agent gives in this chat, or for a free place among the session limits.
  */
 function QueueBadge({
@@ -46,7 +46,7 @@ function possessive(name: string, language: string): string {
   return /[sßxz]$/iu.test(name) ? `${name}’` : `${name}s`;
 }
 
-/** How a message sent during an answer reached the agents (PAGE-381). */
+/** How a message sent during an answer reached the agents. */
 type MessageDelivery =
   | { readonly kind: "injected"; readonly agentIds: readonly string[] }
   | { readonly kind: "waiting"; readonly agentIds: readonly string[] }
@@ -68,7 +68,7 @@ function deliveryOf(
 }
 
 /**
- * Says how a message sent during an answer reached the agents (PAGE-381):
+ * Says how a message sent during an answer reached the agents:
  * "in Eds Antwort eingeschoben", or "wartet · geht nach Eds Antwort raus".
  */
 function DeliveryBadge({
@@ -115,7 +115,7 @@ function DeliveryBadge({
   );
 }
 
-/** Marks a message a person sent from a preview of the chat (PAGE-383). */
+/** Marks a message a person sent from a preview of the chat. */
 export function PreviewSentBadge(): React.ReactElement {
   const { t } = useTranslation();
   return (

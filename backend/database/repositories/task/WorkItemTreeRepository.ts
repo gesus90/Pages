@@ -8,7 +8,6 @@ export class WorkItemTreeRepository {
 
   /**
    * Creates the repository.
-   *
    * @param database - Central database access.
    */
   public constructor(database: Database) {
@@ -17,7 +16,6 @@ export class WorkItemTreeRepository {
 
   /**
    * Lists the open branches of a person.
-   *
    * @param userId - The person.
    * @returns Keys of the open branches.
    */
@@ -37,7 +35,6 @@ export class WorkItemTreeRepository {
 
   /**
    * Opens or closes a branch for a person.
-   *
    * @param userId - The person.
    * @param nodeKey - Key of the branch.
    * @param isExpanded - Whether the branch is open now.
@@ -71,7 +68,6 @@ export class WorkItemTreeRepository {
 
   /**
    * Counts the open branches of a person, to keep the list bounded.
-   *
    * @param userId - The person.
    * @returns How many branches are open.
    */

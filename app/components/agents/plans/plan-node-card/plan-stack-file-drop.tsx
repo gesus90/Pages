@@ -15,8 +15,7 @@ import { usePlanAssetUpload } from "./use-plan-asset-upload";
 import type { AgentPlanStack } from "@/definition/AgentPlanStack";
 
 /**
- * Files dropped onto a stack become its last entries, without an asset node each (PAGE-268).
- *
+ * Files dropped onto a stack become its last entries, without an asset node each.
  * @returns The drop handlers for the whole card and the row that offers the choice.
  */
 export function usePlanStackFileDrop(stack: AgentPlanStack): {

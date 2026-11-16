@@ -26,8 +26,7 @@ export interface DocumentViewerCard extends OpenedCard {
 
 /**
  * Tells whether the full screen of a card is the dark document viewer
- * (PAGE-385): PDFs, texts, slides and tables.
- *
+ * PDFs, texts, slides and tables.
  * @param card - The opened card.
  */
 export function isDocumentViewerCard(
@@ -37,7 +36,7 @@ export function isDocumentViewerCard(
 }
 
 /**
- * The full screen of a document (PAGE-385): the same view as next to the
+ * The full screen of a document: the same view as next to the
  * chat on the dark surface of the viewer, the shared head with
  * "Herunterladen" in the accent color, the line and "Schließen". A PDF and
  * slides turn with the arrow keys; Escape closes (see `CardOverlay`).

@@ -167,7 +167,6 @@ export class AcpResourceRepository implements AcpResourceStore {
 
   /**
    * Releases an unconfirmed lease only while it is still unconfirmed.
-   *
    * @returns `released`, `absent` when it was already gone, or `changed` when
    * its state changed meanwhile and the lease stays.
    */

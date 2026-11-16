@@ -27,7 +27,6 @@ export function picaCodexBundle(
 
 /**
  * Selects the native build that gives a Pica chat its Pages-only tools.
- *
  * @remarks
  * Codex and OpenCode offer no tool surface without MCP that Pages can use
  * through the stock runner. Pica therefore starts only the verified native

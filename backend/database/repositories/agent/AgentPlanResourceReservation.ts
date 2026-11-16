@@ -21,7 +21,6 @@ function snapshotResources(input: unknown): readonly string[] {
 
 /**
  * Reserves all actual writer resources atomically; contention queues work instead of refusing a plan.
- *
  * @remarks
  * A holder with a run comes before one without, so a real collision queues the
  * plan even where an old reservation has no snapshot left to compare with.

@@ -140,7 +140,7 @@ function GoogleDriveAccessNotices({
   const { status } = model.reading;
 
   // A read-only simulation names the missing access too; without a sign-in
-  // in the simulation the notice offers no button (PAGE-272).
+  // in the simulation the notice offers no button.
   if (status.isSimulation) {
     return (
       <>
@@ -175,7 +175,7 @@ function useGoogleDriveMessages(model: GoogleDriveCardModel): string[] {
 }
 
 /**
- * The compact Google Drive sign-in of the system settings (PAGE-170).
+ * The compact Google Drive sign-in of the system settings.
  *
  * @remarks
  * It shows only the sign-in, the truthful status and the errors that belong to

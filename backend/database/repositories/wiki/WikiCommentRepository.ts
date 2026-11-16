@@ -80,7 +80,6 @@ export class WikiCommentRepository {
 
   /**
    * Creates the repository.
-   *
    * @param database - Database access or the transaction to run in.
    */
   public constructor(database: DatabaseTransaction) {
@@ -89,7 +88,6 @@ export class WikiCommentRepository {
 
   /**
    * Stores a comment.
-   *
    * @param comment - Validated values.
    * @returns The identifier of the comment.
    */
@@ -136,7 +134,6 @@ export class WikiCommentRepository {
 
   /**
    * Lists the comments of a page, oldest first.
-   *
    * @param pageId - Page identifier.
    * @returns First comments and replies together.
    */

@@ -37,7 +37,7 @@ import type { ConversationDocumentFactsInput } from "./ConversationDocumentFacts
 import type { ConversationMediaFactsInput } from "./ConversationMediaFacts";
 
 /**
- * What the browser read of a file (PAGE-384, PAGE-385): resolution and length
+ * What the browser read of a file: resolution and length
  * of a video or a sound, page count and title of a PDF.
  */
 export type ConversationFileFactsInput = ConversationMediaFactsInput &
@@ -51,7 +51,7 @@ const IDENTIFIER = /^[a-zA-Z0-9-]{1,100}$/u;
 const MIME_TYPE = /^[\w.+-]{1,100}\/[\w.+-]{1,100}$/u;
 const FALLBACK_MIME_TYPE = "application/octet-stream";
 /**
- * How long before its moment the regular expiry removes a file (PAGE-382):
+ * How long before its moment the regular expiry removes a file:
  * one interval of {@link ConversationAttachmentExpiry}, so no file outlives
  * its 72 hours while the next run is still waiting.
  */
@@ -62,7 +62,7 @@ export interface ConversationAttachmentsDependencies {
   readonly attachments: ConversationAttachmentRepository;
   readonly conversations: Pick<ConversationRepository, "findForMember">;
   readonly files: Pick<WikiFileStore, "write" | "open" | "remove" | "sweep">;
-  /** The names of the senders of images, for the image viewer (PAGE-382). */
+  /** The names of the senders of images, for the image viewer. */
   readonly directory?: {
     read(): Promise<{ participant(id: string): { readonly name: string } }>;
   };
@@ -130,8 +130,8 @@ export function toConversationAttachment(
 }
 
 /**
- * Passes the chunks of an upload on and feeds them into a SHA-256 on the way
- * (PAGE-385), so the checksum costs no second read of the file.
+ * Passes the chunks of an upload on and feeds them into a SHA-256 on the way,
+ * so the checksum costs no second read of the file.
  */
 async function* hashedChunks(
   source: AsyncIterable<Uint8Array>,
@@ -144,7 +144,7 @@ async function* hashedChunks(
 }
 
 /**
- * Whether the file of an attachment is gone or its time ran out (PAGE-382).
+ * Whether the file of an attachment is gone or its time ran out.
  *
  * @param stored - The stored attachment.
  * @param now - The moment of the request.
@@ -182,7 +182,7 @@ function clampRange(
 }
 
 /**
- * The attachments of conversation messages (PAGE-298).
+ * The attachments of conversation messages.
  *
  * @remarks
  * A file streams into the file store of Pages, at most 512 MB, and is never
@@ -226,11 +226,11 @@ export class ConversationAttachments {
   }
 
   /**
-   * Stores a file an agent's answer attaches, before the answer is stored
-   * (PAGE-298, B2). It stays without a message until
+   * Stores a file an agent's answer attaches, before the answer is stored.
+   * It stays without a message until
    * {@link ConversationAttachments.bind} takes it; {@link ConversationAttachments.sweep}
    * removes it after a day otherwise. Pages keeps it at most 72 hours from
-   * now (PAGE-382): {@link ConversationAttachments.expire} removes it then.
+   * now: {@link ConversationAttachments.expire} removes it then.
    *
    * @param target - The conversation and the agent that sends the answer.
    * @param file - Name, type and bytes of the file.
@@ -284,8 +284,8 @@ export class ConversationAttachments {
       readonly attachmentId: unknown;
       readonly mimeType: string;
       /**
-       * Resolution and length the browser read while it made the image
-       * (PAGE-384), page count and title of a PDF (PAGE-385).
+       * Resolution and length the browser read while it made the image,
+       * page count and title of a PDF.
        */
       readonly facts?: ConversationFileFactsInput;
     },
@@ -313,8 +313,8 @@ export class ConversationAttachments {
   }
 
   /**
-   * Stores the resolution and length the browser read of a video or a sound
-   * (PAGE-384), or page count and title of a PDF (PAGE-385), once per
+   * Stores the resolution and length the browser read of a video or a sound,
+   * or page count and title of a PDF, once per
    * attachment; the chat shows them before the original loads.
    *
    * @throws {ConversationError} `not_found` for an attachment of a
@@ -433,7 +433,7 @@ export class ConversationAttachments {
 
   /**
    * Collects the files and preview images of every attachment of a
-   * conversation before it is deleted (PAGE-380).
+   * conversation before it is deleted.
    *
    * @returns Removes the files once the conversation is gone.
    */
@@ -465,7 +465,7 @@ export class ConversationAttachments {
 
   /**
    * Removes the files and preview images of attachments whose 72 hours end
-   * before the next run (PAGE-382); the rows stay as placeholders.
+   * before the next run; the rows stay as placeholders.
    *
    * @remarks
    * The rows are marked first, so no request serves a file any more; a file
@@ -488,7 +488,7 @@ export class ConversationAttachments {
 
   /**
    * The images of a conversation for a member, in the order they were sent
-   * (PAGE-382): the image viewer pages through all of them.
+   * The image viewer pages through all of them.
    *
    * @throws {ConversationError} `not_found` for a conversation of which the
    * person is no member.
@@ -502,7 +502,7 @@ export class ConversationAttachments {
 
   /**
    * The videos of a conversation for a member, in the order they were sent
-   * (PAGE-384): the split view offers the others below the open one, and the
+   * The split view offers the others below the open one, and the
    * full screen pages through all of them.
    *
    * @throws {ConversationError} `not_found` for a conversation of which the
@@ -516,8 +516,7 @@ export class ConversationAttachments {
   }
 
   /**
-   * The files of one message that are still there, for "Alle herunterladen"
-   * (PAGE-382).
+   * The files of one message that are still there, for "Alle herunterladen".
    *
    * @throws {ConversationError} `not_found` for a message without such
    * files or of a conversation of which the person is no member.

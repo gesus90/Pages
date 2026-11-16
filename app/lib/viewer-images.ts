@@ -15,8 +15,8 @@ export interface ViewerImage {
   /** Target of the link around the image, `null` for a plain image. */
   readonly linkHref: string | null;
   /**
-   * Why the image is not there, such as an expired file of a chat
-   * (PAGE-382); the viewer reports it in its place without loading it.
+   * Why the image is not there, such as an expired file of a chat;
+   * the viewer reports it in its place without loading it.
    */
   readonly unavailable?: string;
 }
@@ -37,11 +37,9 @@ function readViewerImage(element: HTMLImageElement): ViewerImage {
 
 /**
  * Collects the images of the text an image belongs to.
- *
  * @param opened - The image a person clicked.
  * @returns The images of that text in displayed order, or `null` when the
  * image is not inside viewable text.
- *
  * @remarks
  * The rendered document is the source of truth: only what the text shows
  * counts, in the order it shows it, and only from this one text. Images of

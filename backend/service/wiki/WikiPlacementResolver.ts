@@ -31,16 +31,14 @@ export interface ResolvedPlacement {
 
 /**
  * Resolves a requested place and checks that the viewer may use it.
- *
  * @param repository - Wiki persistence.
  * @param viewer - The person who places the page.
  * @param request - The requested place.
  * @returns The place, the parent and the level a page there would have.
  * @throws {WikiValidationError} When the place is not allowed.
- *
  * @remarks
  * A page below a parent takes the scope and project of the parent, so a
- * child is never visible to more people than its parent (T4.6.1).
+ * child is never visible to more people than its parent.
  */
 export async function resolvePlacement(
   repository: WikiRepository,
@@ -101,7 +99,6 @@ async function resolveBelowParent(
 
 /**
  * Checks that a subtree fits below a place.
- *
  * @param level - Level the top of the subtree would have.
  * @param levelsBelow - Number of levels below the top of the subtree.
  * @throws {WikiValidationError} When the tree would get deeper than allowed.

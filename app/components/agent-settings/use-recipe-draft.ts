@@ -40,9 +40,7 @@ export interface RecipeDraft {
 }
 
 /**
- * The entries of the editor of one recipe, checked before anything is sent
- * (PAGE-378).
- *
+ * The entries of the editor of one recipe, checked before anything is sent.
  * @param recipe - The recipe the server holds; it fills the entries.
  */
 export function useRecipeDraft(recipe: AgentRecipeView): RecipeDraft {

@@ -39,7 +39,6 @@ const TREE_NEUTRAL_INTENTS: ReadonlySet<string> = new Set([
 
 /**
  * Opens the tree from the account's kept answer at once; the sidebar asks the endpoint behind it.
- *
  * @remarks
  * Without a kept answer the tree comes from its rights-checked endpoint,
  * which runs the server loader's checks.

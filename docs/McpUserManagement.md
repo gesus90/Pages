@@ -1,4 +1,4 @@
-# User management API for MCP (PAGE-280)
+# User management API for MCP
 
 The stand-alone Pages MCP program manages accounts, roles, departments and
 groups through `/api/mcp/v1`. The API offers the tasks of the user management
@@ -13,7 +13,7 @@ the route files `app/routes/api-mcp-v1-{administration,user,role,department,grou
 ## Access and rights
 
 - Every request needs `Authorization: Bearer <device token>` of a paired
-  machine (PAGE-243). Cookies play no part. A revoked token, a deactivated
+  machine. Cookies play no part. A revoked token, a deactivated
   account and an account that has to change its password answer
   `401 invalid_token`, on every call, for a repeated `operationId` as well.
 - The rights are read again inside the transaction of every call: the
@@ -251,7 +251,7 @@ A department: `id, name, memberIds (visible members), canManage`.
 A group: `id, name, memberIds (visible active members), canEdit`. Without
 `manage_users` the list is empty and a detail answers `not_found`.
 
-> **PAGE-308:** `GET /groups/{groupId}` answers without further parameters with the readable group (`id`, `name`, `leaders`, `members`) for administrators and members of the group. The view of this section is `GET /groups/{groupId}?view=administration`. See `docs/wiki/PAGE-308.md`.
+> `GET /groups/{groupId}` answers without further parameters with the readable group (`id`, `name`, `leaders`, `members`) for administrators and members of the group. The view of this section is `GET /groups/{groupId}?view=administration`.
 
 ### `POST /groups`, `PATCH /groups/{groupId}`, `DELETE /groups/{groupId}` — manage_user_group
 
@@ -284,7 +284,7 @@ page moves into its owner's trash. A placeholder has no readable revision, so
 
 ## Verification
 
-The functional check of PAGE-280 ran against an isolated instance: its own
+The functional check ran against an isolated instance: its own
 temporary PostgreSQL, a production build on a free loopback port, synthetic
 accounts (administrator, project leader with `manage_users` and
 `manage_roles` bound to one department, project manager without user rights)
@@ -292,7 +292,7 @@ and paired device tokens. It covered positive and refused calls, conflicts,
 repetitions, confirmations, revocation and the absence of temporary
 passwords in operation keys, history and server log. No live data was used.
 
-## PAGE-316: protected Management role and business contract
+## Protected Management role and business contract
 
 `role-administration` (Verwaltung / Management) grants business-wide account,
 project, ticket, plan-reading/editing and wiki access directly in role mode.
@@ -300,7 +300,7 @@ It never grants administrator mode, administrator-account access, credential
 management, account deletion, YOLO grants or core-system configuration.
 Only administrators assign or revoke this protected role.
 
-The user resources now use the PAGE-316 projection: `kind`, `role`, `status`,
+The user resources now use the current projection: `kind`, `role`, `status`,
 `departments`, `groups`, and on detail reads `email`, `projects`, `revision` and
 `agent`. Creation accepts `displayName`, `username`, `role`, `departmentIds`,
 `groupIds`, `kind`, human `email` and agent documents/model configuration.
@@ -319,7 +319,7 @@ The same operation ID and input replay the stored public result.
 
 Read group revisions through `GET /groups/{id}?view=management` or the companion
 `groups_read` tool; project reads include the revision used by membership and
-department replacement. All ten PAGE-316 contract tools and `groups_read` are
+department replacement. All ten contract tools and `groups_read` are
 registered in the common Pages tool catalog used by `pages-pica`.
 
 Failures of the new contract use uppercase `FORBIDDEN` with `reason`

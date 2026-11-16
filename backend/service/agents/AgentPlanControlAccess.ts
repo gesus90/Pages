@@ -70,7 +70,6 @@ export async function readPlanControlRun(
 
 /**
  * Control-only projection keeps Stop and reviewed restart available without denied history.
- *
  * @remarks
  * The control state and the checks of its run are read in one scope, so what
  * both ask for again is answered once.

@@ -114,7 +114,6 @@ export const MARKDOWN_COMPONENTS: Components = {
 
 /**
  * Renders a ticket description as safe markdown (GitHub flavour).
- *
  * @remarks
  * No raw HTML is interpreted, images are dropped and only
  * http, https, mailto and relative link targets survive.

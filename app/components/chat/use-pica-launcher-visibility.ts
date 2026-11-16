@@ -22,8 +22,7 @@ function isHiddenOnServer(): boolean {
 }
 
 /**
- * Hides Pica's symbol while the calling component is mounted (PAGE-283).
- *
+ * Hides Pica's symbol while the calling component is mounted.
  * @remarks
  * A fullscreen surface whose lower right corner holds controls, such as the
  * terminal of the agent plan, calls it; the symbol comes back when the last

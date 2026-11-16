@@ -20,7 +20,6 @@ export interface StoredCalendarTime {
 
 /**
  * Reads start and end of a client into their stored form.
- *
  * @param fields - Start, end and whether the event is all-day.
  * @param timeZone - The zone dates and times without offset are read in.
  * @throws {CalendarError} `invalid_request` when the end lies before the start.
@@ -60,7 +59,6 @@ export function readCalendarTime(
 
 /**
  * Completes and checks the rule of a series.
- *
  * @param rule - The rule of the client, or `null`.
  * @param startDate - The first date of the series in its zone.
  * @returns The rule; a weekly rule without weekdays repeats on the weekday
@@ -87,7 +85,6 @@ export function normalizeRecurrence(
 
 /**
  * Checks the invitees of a client against the directory.
- *
  * @param directory - People, agents, groups and departments.
  * @param invitees - The list of the client.
  * @returns The list without duplicates, in its order.

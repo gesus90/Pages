@@ -121,7 +121,6 @@ export type CliGroupSignal = (pid: number, signal: NodeJS.Signals) => void;
 
 /**
  * The loopback listener an official adapter opened for Google's redirect.
- *
  * @remarks
  * Both values come from the adapter's own authorization URL, never from a
  * client. They stay on the server and bind a pasted redirect address to the
@@ -151,7 +150,6 @@ export interface CliCredentialAccess {
   readonly ownProvider: string | null;
   /**
    * The child environment for a model of one provider.
-   *
    * @remarks
    * It holds the key of that provider only, or nothing for a provider that
    * needs none, so a process never receives the key of another provider.

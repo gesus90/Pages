@@ -8,8 +8,7 @@ import type { McpProjectContext } from "./McpProjectContext";
 import type { McpProjectConfirmation } from "./McpProjectRequest";
 
 /**
- * Archives and permanently deletes projects; administrators only (PAGE-244, interface 12 and 13).
- *
+ * Archives and permanently deletes projects; administrators only.
  * @remarks
  * Without `confirmed: true` nothing changes and the client receives the
  * question with the scope. No confirmation word is asked for or read.
@@ -17,7 +16,6 @@ import type { McpProjectConfirmation } from "./McpProjectRequest";
 export class McpProjectLifecycleService {
   /**
    * Archives a running project after the client confirmed it.
-   *
    * @param context - The request.
    * @param projectId - The project.
    * @param request - The confirmation.
@@ -48,7 +46,6 @@ export class McpProjectLifecycleService {
 
   /**
    * Deletes a running or archived project for good after the client confirmed the scope.
-   *
    * @param context - The request.
    * @param projectId - The project.
    * @param request - The confirmation.

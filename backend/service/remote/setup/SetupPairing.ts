@@ -21,12 +21,10 @@ function isLoopbackHost(host: string): boolean {
 
 /**
  * The WS/WSS address the runner connects out to.
- *
  * @remarks
  * The operator's `PAGES_RUNNER_PUBLIC_URL` wins; otherwise it is the origin
  * the administrator reached Pages with. A loopback address is refused for a
  * machine that is not itself loopback, since it would only reach the machine.
- *
  * @param input - The origin of the request, the operator's address, the connection and its SSH host.
  * @returns The channel URL of the connection.
  * @throws {SetupReasonError} `addressUnknown` or `loopbackAddress`.

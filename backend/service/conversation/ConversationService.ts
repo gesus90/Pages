@@ -48,7 +48,7 @@ import type {
   StoredConversationVoiceFile,
 } from "./ConversationVoiceStore";
 
-/** The start of the `clientMessageId` of a system line (PAGE-380). */
+/** The start of the `clientMessageId` of a system line. */
 export const SYSTEM_LINE_PREFIX = "session-event:";
 
 /** What the writes of conversations use. */
@@ -59,7 +59,7 @@ export interface ConversationServiceDependencies {
     ConversationReader,
     "summary" | "readState" | "memberIds" | "messages"
   >;
-  /** The files of messages (PAGE-298). */
+  /** The files of messages. */
   readonly attachments: Pick<
     ConversationAttachments,
     "bind" | "collect" | "collectConversation"
@@ -81,7 +81,7 @@ export interface ConversationServiceDependencies {
 export interface ConversationChangeOptions {
   readonly originId?: string;
   /**
-   * How a person sent a message while agents answered (PAGE-381): into their
+   * How a person sent a message while agents answered: into their
    * running answers or after them; absent starts its round as before.
    */
   readonly delivery?: ConversationDelivery;
@@ -99,7 +99,7 @@ export interface ConversationSending {
   readonly conversationId: string;
   readonly clientMessageId: unknown;
   readonly text: unknown;
-  /** The uploaded attachments the message carries, in their order (PAGE-298). */
+  /** The uploaded attachments the message carries, in their order. */
   readonly attachmentIds?: unknown;
 }
 
@@ -118,9 +118,8 @@ export interface ConversationGroupAdoption {
 }
 
 /**
- * The writes of conversations (PAGE-278): new direct conversations and
+ * The writes of conversations: new direct conversations and
  * groups, messages and voice messages, the read state and muting.
- *
  * @remarks
  * Every write is bound to the signed-in account and checked on the server:
  * only members write, only active people and agents can be added, a text
@@ -139,7 +138,6 @@ export class ConversationService {
   /**
    * Creates a direct conversation or a group, or opens the direct
    * conversation the pair already has.
-   *
    * @throws {ConversationError} `invalid` for a participant that cannot be
    * added, the own account, a direct conversation without exactly one other
    * participant, or a group without a valid name.
@@ -180,7 +178,6 @@ export class ConversationService {
 
   /**
    * Opens the direct conversation with a person or agent, creating it on first use.
-   *
    * @throws {ConversationError} `invalid` for the own account or one that
    * cannot be written to.
    */
@@ -214,7 +211,6 @@ export class ConversationService {
   /**
    * Makes a group of the web chat page a conversation its members share,
    * and adds the members it gained since.
-   *
    * @throws {ConversationError} `not_found` for a conversation with the ID
    * of which the person is no member.
    */
@@ -259,7 +255,6 @@ export class ConversationService {
 
   /**
    * Sends a text message; the same `clientMessageId` returns the stored one.
-   *
    * @throws {ConversationError} `not_found` for a conversation of which the
    * person is no member, `invalid` for an empty text without attachments
    * or for an attachment that is not an own unsent upload of this
@@ -287,7 +282,6 @@ export class ConversationService {
 
   /**
    * Checks an announced voice message before its audio arrives.
-   *
    * @throws {ConversationError} `not_found` for a conversation of which the
    * person is no member, `unsupported_format`, `too_long` or `invalid` for
    * the declared audio, `forbidden` as for {@link ConversationService.send}.
@@ -312,7 +306,6 @@ export class ConversationService {
 
   /**
    * Stores the audio of an announced voice message.
-   *
    * @throws {ConversationError} `too_large`, `unsupported_format` or
    * `too_long` for audio the store refuses.
    */
@@ -327,7 +320,6 @@ export class ConversationService {
    * Sends a voice message with stored audio; its text follows once it is
    * recognized. Repeating its `clientMessageId` returns the stored message
    * and drops the new audio.
-   *
    * @throws {ConversationError} as {@link ConversationService.beginVoice},
    * after the stored audio was dropped.
    */
@@ -362,9 +354,7 @@ export class ConversationService {
   }
 
   /**
-   * Deletes an own message with its attachments and their preview images
-   * (PAGE-298).
-   *
+   * Deletes an own message with its attachments and their preview images.
    * @throws {ConversationError} `not_found` for a message of a conversation
    * of which the person is no member, `forbidden` for a message of another
    * sender.
@@ -400,7 +390,6 @@ export class ConversationService {
 
   /**
    * Marks a conversation as read up to a message.
-   *
    * @throws {ConversationError} `not_found` for a conversation of which the
    * person is no member, `invalid` for a message outside it.
    */
@@ -437,7 +426,6 @@ export class ConversationService {
 
   /**
    * Mutes or unmutes a conversation for the person alone.
-   *
    * @throws {ConversationError} `not_found` for a conversation of which the
    * person is no member.
    */
@@ -464,9 +452,8 @@ export class ConversationService {
 
   /**
    * Stores a system line of a chat in the name of the person who caused it
-   * (PAGE-380): a changed model, a restarted or compacted session, a removed
+   * A changed model, a restarted or compacted session, a removed
    * member. Every member sees it; it asks no agent for an answer.
-   *
    * @throws {ConversationError} `not_found` for a conversation of which the
    * person is no member.
    */
@@ -508,7 +495,7 @@ export class ConversationService {
   }
 
   /**
-   * Removes a member from a group (PAGE-380); the caller checked that the
+   * Removes a member from a group; the caller checked that the
    * person created it. The removed member no longer sees the group.
    *
    * @throws {ConversationError} `not_found` for a conversation of which the
@@ -538,7 +525,7 @@ export class ConversationService {
 
   /**
    * Deletes a group for good with its history, attachments, preview images,
-   * voice messages and decisions (PAGE-380); there is no archive. The caller
+   * voice messages and decisions; there is no archive. The caller
    * checked that the person created it.
    *
    * @throws {ConversationError} `not_found` for a conversation of which the

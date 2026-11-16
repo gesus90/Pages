@@ -13,7 +13,7 @@ import type {
 import type { VirtualChatDirectory } from "@/definition/VirtualChat";
 import type { OpenedCard } from "./card-types";
 
-/** The image the viewer opens at, and the images it knows before it asks the server (PAGE-382). */
+/** The image the viewer opens at, and the images it knows before it asks the server. */
 export interface ChatImageRequest {
   readonly attachmentId: string;
   /** The images of the message that opened it, so the viewer shows at once. */
@@ -22,10 +22,10 @@ export interface ChatImageRequest {
   readonly opener?: HTMLElement | null;
 }
 
-/** Where "Medien & Dateien" is open (PAGE-387): next to the chat, or over the page on a narrow screen. */
+/** Where "Medien & Dateien" is open: next to the chat, or over the page on a narrow screen. */
 export type ChatMediaPlacement = "beside" | "overlay";
 
-/** What the content cards of one opened conversation share (PAGE-298). */
+/** What the content cards of one opened conversation share. */
 export interface ChatContent {
   /** The stored conversation; `null` for an agent's chat session or before the first message. */
   readonly conversationId: string | null;
@@ -42,18 +42,18 @@ export interface ChatContent {
   readonly overlay: OpenedCard | null;
   openOverlay(card: OpenedCard): void;
   closeOverlay(): void;
-  /** The image viewer over the chat, paging through all images of the conversation (PAGE-382). */
+  /** The image viewer over the chat, paging through all images of the conversation. */
   readonly viewer: ChatImageRequest | null;
   openViewer(request: ChatImageRequest): void;
   closeViewer(): void;
-  /** Where "Medien & Dateien" of the chat is open; `null` while closed (PAGE-387). */
+  /** Where "Medien & Dateien" of the chat is open; `null` while closed. */
   readonly media: ChatMediaPlacement | null;
   /** Opens "Medien & Dateien" next to the chat; as full screen on a narrow screen. */
   openMedia(): void;
   closeMedia(): void;
   /**
    * Scrolls the history to a message and gives it the focus, loading older
-   * pages until it is there (PAGE-387).
+   * pages until it is there.
    */
   revealMessage(messageId: string): void;
   /** Whether a link may be embedded here: Pages itself, a local preview or a released domain. */
@@ -66,7 +66,7 @@ export interface ChatContent {
   setDomainReleased(domain: string, isReleased: boolean): void;
   /**
    * Writes what a preview sends with `pages.chat.send(text)` into the opened
-   * conversation as a message of the person (PAGE-383); does nothing where
+   * conversation as a message of the person; does nothing where
    * no conversation is open.
    */
   sendFromPreview(text: string): void;
@@ -102,7 +102,6 @@ const ChatContentContext = createContext<ChatContent>(STANDALONE);
 
 /**
  * The shared state of the content cards around the caller.
- *
  * @returns The state of the surrounding {@link ChatContentProvider}; without
  * one, cards keep their defaults and open nothing, so they also render in a
  * place without split view such as the Pica panel.
@@ -224,9 +223,9 @@ interface ChatContentProviderProps {
   readonly conversationId: string | null;
   /** Changes with the opened entry; the split view closes with it. */
   readonly conversationKey: string;
-  /** Sends the text of a preview as a message of the person (PAGE-383). */
+  /** Sends the text of a preview as a message of the person. */
   readonly onPreviewSend?: (text: string) => void;
-  /** Scrolls the history to a message, loading older pages (PAGE-387). */
+  /** Scrolls the history to a message, loading older pages. */
   readonly onRevealMessage?: (messageId: string) => void;
   readonly children: React.ReactNode;
 }
@@ -234,9 +233,9 @@ interface ChatContentProviderProps {
 /**
  * Shares the state of the content cards of the opened conversation: the
  * remembered card states, the one card of the split view, the overlay, the
- * image viewer (PAGE-382), the domains that may be embedded (PAGE-298) and
- * the way back from a preview into the chat (PAGE-383), and "Medien & Dateien"
- * with its way to a message (PAGE-387).
+ * image viewer, the domains that may be embedded and
+ * the way back from a preview into the chat, and "Medien & Dateien"
+ * with its way to a message.
  */
 export function ChatContentProvider({
   directory,

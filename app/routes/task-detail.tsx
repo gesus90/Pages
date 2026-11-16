@@ -114,7 +114,6 @@ const TASK_DETAIL_STATE: LocalStateRouteKind<TaskDetailLoaderData> = {
 
 /**
  * Opens the ticket from the account's kept answer at once and asks the endpoint behind it.
- *
  * @remarks
  * The endpoint runs the server loader with its permission checks; a missing
  * or refused ticket shows the same error page as before.
@@ -159,7 +158,7 @@ interface TaskDetailViewProps {
 }
 
 /**
- * Renders the ticket as in Jira (A8.2-E07): path and actions on top, the
+ * Renders the ticket as in Jira: path and actions on top, the
  * large description with the content of the ticket on the left, status and
  * the detail areas on the right; stacked on small screens.
  */

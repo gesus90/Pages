@@ -48,7 +48,7 @@ function isLoginLoaderData(value: unknown): value is LoginLoaderData {
 
 /**
  * Reads the sign-in page from the API, or follows its redirect when a
- * session is active (PAGE-235).
+ * session is active.
  */
 export async function clientLoader({
   request,

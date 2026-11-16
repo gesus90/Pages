@@ -23,7 +23,6 @@ const TEMPLATE_TYPES: readonly string[] = [
 
 /**
  * The node types a template can hold.
- *
  * @remarks
  * Saved templates store their type as plain text beside the content, so a
  * later node type joins this union without a migration of the templates
@@ -37,7 +36,6 @@ export type AgentPlanTemplateNode =
 
 /**
  * A named node configuration of one person, or of a team.
- *
  * @remarks
  * A personal template is listed and inserted by its owner alone. A shared one
  * belongs to a project and a department: the members and leaders of the department who
@@ -77,7 +75,6 @@ export function isPlanTemplateNode(
 
 /**
  * The key that keeps the template names of one person unique.
- *
  * @remarks
  * Surrounding spaces and letter case do not count, so `Review` and
  * ` review ` name the same template.
@@ -103,7 +100,6 @@ function internalBindings(
 
 /**
  * The configuration a template keeps of a node, without its links into the plan.
- *
  * @remarks
  * Connections to nodes outside — value sources, results of outer agents,
  * flow edges and legacy frame ports — stay behind, so an inserted copy never
@@ -145,7 +141,6 @@ export function planTemplateNode(
 
 /**
  * A new, independent copy of a template node.
- *
  * @param node - The template node, as {@link planTemplateNode} keeps it.
  * @param createId - Supplies one new identifier per call.
  * @returns The copy with new identifiers for the node and each member; the

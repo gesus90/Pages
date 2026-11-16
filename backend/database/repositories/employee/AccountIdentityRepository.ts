@@ -9,7 +9,6 @@ import type { Database } from "@/backend/database/Database";
 
 /**
  * The value an agent account stores instead of a password hash.
- *
  * @remarks
  * No hash function produces it, so no password ever matches; sign-in refuses
  * agent accounts before it compares anything anyway.
@@ -33,9 +32,8 @@ export interface AgentAccountIdentity {
 }
 
 /**
- * The parts of `users` that PAGE-266 adds: the account kind, the job title
+ * The parts of `users` that the account identity adds: the account kind, the job title
  * and the person color.
- *
  * @remarks
  * Agent accounts are inserted here, never by the person administration, so
  * they always carry the agent kind and no password.
@@ -49,7 +47,6 @@ export class AccountIdentityRepository {
 
   /**
    * Inserts an agent account.
-   *
    * @throws {UsernameTakenError} When the username is already in use.
    */
   public async insertAgent(
@@ -104,7 +101,6 @@ export class AccountIdentityRepository {
 
   /**
    * Replaces the identity fields of an agent account; a person is never changed.
-   *
    * @throws {UsernameTakenError} When the username is already in use.
    */
   public async updateAgent(

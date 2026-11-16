@@ -41,9 +41,9 @@ export interface ChatController {
   readonly context: ChatContextSize | null;
   readonly isCompacting: boolean;
   readonly uploads: ChatUploads;
-  /** The server-side job of a Codex agent in the open conversation (PAGE-68). */
+  /** The server-side job of a Codex agent in the open conversation. */
   readonly jobs: ChatJobs;
-  /** The simulated quota state of the panel, started with `/quota` (PAGE-96). */
+  /** The simulated quota state of the panel, started with `/quota`. */
   readonly quotaDemo: ChatQuotaDemo;
   submit(text: string): Promise<ChatSubmitOutcome>;
   cancel(): void;

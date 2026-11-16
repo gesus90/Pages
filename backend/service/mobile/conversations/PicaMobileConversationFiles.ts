@@ -64,7 +64,7 @@ function respond(
 
 /**
  * The voice endpoint of `conversations.v1` on the port of Pica Mobile:
- * `GET /pica-mobile/conversations/voice/<messageId>` (PAGE-278).
+ * `GET /pica-mobile/conversations/voice/<messageId>`.
  *
  * @remarks
  * A request carries the session token of the app as `Authorization: Bearer`,

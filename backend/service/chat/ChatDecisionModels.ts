@@ -83,13 +83,11 @@ function isDecisionConnection(connection: AgentConnectionRecord): boolean {
 }
 
 /**
- * Lists the decision models of the instance (PAGE-379).
- *
+ * Lists the decision models of the instance.
  * @param source - The stored connections and the simulation switch.
  * @param viewer - The administrator who chooses; `null` when Pages decides for
  * the instance, which no connection scope limits.
  * @returns The models the central rule of `decision` keeps, the simulation last.
- *
  * @remarks
  * Only a model whose stored OpenRouter catalog states `decisions` among its
  * outputs ({@link isDecisionModel}) is listed. No provider is called.
@@ -114,7 +112,6 @@ export async function listDecisionModels(
 
 /**
  * Finds the entry of a saved choice.
- *
  * @param models - The listed decision models.
  * @param selection - The saved choice; `null` without one.
  * @returns The model, or `null` when the choice is not listed.

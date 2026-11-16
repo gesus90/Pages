@@ -9,7 +9,6 @@ interface PreviewWindowProps {
 
 /**
  * Draws a small window in the colors of one mode of a theme.
- *
  * @remarks
  * The colors come from the theme's manifest, like a color a user picked, so
  * they cannot be theme tokens: the preview shows a theme the page is not in.

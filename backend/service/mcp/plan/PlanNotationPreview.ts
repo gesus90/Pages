@@ -15,7 +15,7 @@ export interface PlanNotationFieldChange {
   readonly field: string;
 }
 
-/** What replacing the stored plan with a notation changes (PAGE-250, section 3). */
+/** What replacing the stored plan with a notation changes. */
 export interface PlanNotationPreview {
   readonly nodes: {
     readonly added: readonly string[];
@@ -103,12 +103,10 @@ function changedFields(
 
 /**
  * Compares a plan read from a notation with the stored plan.
- *
  * @param stored - The plan as it is stored.
  * @param proposed - The plan the notation describes.
  * @returns The added, changed and removed nodes, the added and removed edges
  * of every level, and every changed field of a node.
- *
  * @remarks
  * Positions do not count: the notation has none, and a node that keeps its
  * identifier keeps its place. `fields` names node fields only, as the

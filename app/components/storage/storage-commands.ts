@@ -101,12 +101,10 @@ function allowedCommands(
 }
 
 /**
- * Builds the actions of the Storage menu bar and context menu (PAGE-272):
+ * Builds the actions of the Storage menu bar and context menu:
  * new folder, rename, copy, move, paste, trash, multi-select and select all.
- *
  * @param input - Folder, entries, write right, actions and selection.
  * @returns The actions with whether each is available right now.
- *
  * @remarks
  * Both menus show exactly this list, so they always offer the same actions.
  * Without the write access only the selection actions stay available.

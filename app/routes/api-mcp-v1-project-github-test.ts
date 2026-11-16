@@ -25,8 +25,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpProjectHandlers {
 }
 
 /**
- * Tests the GitHub connection (`POST /api/mcp/v1/projects/{id}/github/test`), PAGE-244 interface 11.
- *
+ * Tests the GitHub connection (`POST /api/mcp/v1/projects/{id}/github/test`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

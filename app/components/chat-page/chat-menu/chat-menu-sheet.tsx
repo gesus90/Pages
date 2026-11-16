@@ -109,7 +109,7 @@ function SheetEntry({ entry, onClose }: SheetEntryProps): React.ReactElement {
 }
 
 /**
- * The chat menu as a sheet from the bottom on a phone (PAGE-389), with the
+ * The chat menu as a sheet from the bottom on a phone, with the
  * same head, sections and entries as the dropdown. Esc and a tap beside it
  * close it; the arrow keys move between the entries.
  */

@@ -2,7 +2,7 @@
 
 [Documentation index](README.md) · [Service operation](#mode-and-operation) ·
 [GitHub issue states](#github-issues-done-and-archive) ·
-[Discord setup](#discord-notifications) · [Google Drive setup](StorageApi.md#google-drive-sign-in-page-170)
+[Discord setup](#discord-notifications) · [Google Drive setup](StorageApi.md#google-drive-sign-in)
 
 `pages-integrations.mjs` runs the GitHub queue and the FCM push outbox in a separate
 Node process. It uses the same built server artifact and PostgreSQL database as
@@ -12,11 +12,11 @@ the same current account, project, plan, workspace, model, ticket and attachment
 permissions as the API. Constructing those objects starts no external session.
 
 Google Drive setup and file operations are documented in
-[Storage](StorageApi.md#google-drive-sign-in-page-170). The provider consoles
+[Storage](StorageApi.md#google-drive-sign-in). The provider consoles
 linked below require their own sign-in; Discord also requires JavaScript.
 
-Discord extraction is **DEFERRED_BY_USER** (PAGE-225 scope correction,
-2026-11-05). Its existing implementation and server behavior are unchanged.
+Discord extraction is **DEFERRED_BY_USER** after the scope correction of
+2026-11-05. Its existing implementation and server behavior are unchanged.
 The mode below applies only to GitHub and FCM; it does not disable Discord.
 
 ## Mode and operation
@@ -156,7 +156,7 @@ service is switched. The four isolated runtime criteria (separate delivery and
 server exclusion, hard-kill recovery, UI/API independence, default compatibility)
 remain UNVERIFIED until the parent provides and reviews permitted synthetic
 execution evidence. Discord runtime proof is deferred by the user. The central
-configured/affected QA bundle remains mandatory after PAGE-227.
+configured/affected QA bundle remains mandatory.
 
 ## GitHub issues: Done and archive
 

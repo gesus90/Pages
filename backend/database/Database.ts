@@ -40,11 +40,9 @@ export type SqlParameters = Readonly<
 /**
  * Tells whether an error means a UNIQUE or PRIMARY KEY constraint rejected a
  * value of the given column.
- *
  * @param error - Error thrown by a statement.
  * @param column - Column name of the constraint.
  * @returns Whether `error` is such a violation.
- *
  * @remarks
  * PostgreSQL names the rejected key in the
  * detail of the error, as `Key (column)=(value)`, or `Key (column, other)=…`

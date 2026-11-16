@@ -6,7 +6,6 @@ import type { PicaMobileSessionIdentity } from "../PicaMobileDashboardProvider";
 
 /**
  * The answer to a read of the plan rows.
- *
  * @remarks
  * `sessionEnded` means the session or the account no longer holds; the
  * connection ends as it does when its regular session check fails.
@@ -34,7 +33,6 @@ export type PicaMobilePlanOutcome =
 
 /**
  * Reads plans for one connection.
- *
  * @remarks
  * A reader keeps what it checked for its connection, so a run is checked
  * again only when it changed or its last check expired. Both reads start
@@ -56,7 +54,6 @@ export interface PicaMobilePlansReader {
 
 /**
  * The business answers of an authenticated Pica Mobile connection for `plans.v1`.
- *
  * @remarks
  * A connection without a provider does not announce `plans.v1` and answers
  * `plans_sync` and `plan_get` as unknown.
@@ -66,7 +63,6 @@ export interface PicaMobilePlansProvider {
   open(): PicaMobilePlansReader;
   /**
    * Calls the listener whenever a run of the account may have changed in a way the rows show.
-   *
    * @returns Stops the calls.
    */
   watch(userId: string, listener: () => void): () => void;

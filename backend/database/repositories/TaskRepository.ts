@@ -82,7 +82,6 @@ export type {
 
 /**
  * Establishes the persistence boundary for tasks, statuses, milestones, and audit records.
- *
  * @remarks
  * A facade over one repository per aggregate in `./task/`; it only forwards
  * and holds no persistence logic of its own.
@@ -110,7 +109,6 @@ export class TaskRepository {
 
   /**
    * Creates a task repository.
-   *
    * @param database - Central database access.
    */
   public constructor(database: TaskDatabase) {
@@ -291,7 +289,6 @@ export class TaskRepository {
 
   /**
    * Returns dashboard counters for several projects with a single query.
-   *
    * @param projectIds - Projects already verified as accessible to the actor.
    * @param scope - Actor id, day boundaries as UTC calendar dates
    * (`YYYY-MM-DD`, matching how the dashboard compares due dates), and a
@@ -307,7 +304,6 @@ export class TaskRepository {
 
   /**
    * Returns done/total counters per project with a single query.
-   *
    * @param projectIds - Projects already verified as accessible to the actor.
    */
   public async countWorkItemsByProject(
@@ -478,7 +474,6 @@ export class TaskRepository {
   /**
    * Replaces the departments of an active work item; an empty list makes it
    * visible project-wide.
-   *
    * @returns `false` when the item is gone or archived, or `expected` is stale.
    */
   public async setDepartments(
@@ -520,7 +515,6 @@ export class TaskRepository {
 
   /**
    * Restores the given archived work items keeping their workflow status.
-   *
    * @returns The ids that were archived and are restored now.
    */
   public async restoreMany(ids: readonly string[]): Promise<string[]> {
@@ -549,7 +543,6 @@ export class TaskRepository {
    * Moves a work item to another project with a new project-specific key.
    * Project-bound relations travel in the `move` mapping while the
    * GitHub linkage is cleared because integrations belong to projects.
-   *
    * @param id - Work item kept under its stable internal identifier.
    * @param move - Target project, new key, and cleared project-bound relations.
    */
@@ -590,7 +583,6 @@ export class TaskRepository {
 
   /**
    * Returns how many tickets use each label.
-   *
    * @returns Usage counts by label id; labels without tickets are absent.
    */
   public async countLabelUsageByLabel(
@@ -623,7 +615,6 @@ export class TaskRepository {
 
   /**
    * Assigns a label to a work item.
-   *
    * @returns Whether the label was not assigned before.
    */
   public async assignLabel(
@@ -635,7 +626,6 @@ export class TaskRepository {
 
   /**
    * Removes a label from a work item.
-   *
    * @returns Whether the label was assigned.
    */
   public async unassignLabel(
@@ -740,7 +730,6 @@ export class TaskRepository {
 
   /**
    * Returns the assignment candidates under each of several projects.
-   *
    * @returns The candidates, ordered by display name, grouped by project id.
    */
   public async findEligibleAssigneesByProjectIds(

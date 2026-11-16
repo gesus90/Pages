@@ -40,17 +40,17 @@ function catalogPath(provider: ApiProviderId, cursor: string | null): string {
   return "/models";
 }
 
-// OpenRouter's listing of its speech-to-text models, the one place it names them (PAGE-294).
+// OpenRouter's listing of its speech-to-text models, the one place it names them.
 function transcriptionPath(cursor: string | null): string {
   return `/models?output_modalities=transcription&limit=1000&offset=${cursor ?? "0"}`;
 }
 
-// OpenRouter's listing of its text-to-speech models, the one place it names them (PAGE-300).
+// OpenRouter's listing of its text-to-speech models, the one place it names them.
 function speechOutputPath(cursor: string | null): string {
   return `/models?output_modalities=speech&limit=1000&offset=${cursor ?? "0"}`;
 }
 
-// OpenRouter's listing of its decision models, the one place it names them (PAGE-379).
+// OpenRouter's listing of its decision models, the one place it names them.
 function decisionPath(cursor: string | null): string {
   return `/models?output_modalities=decisions&limit=1000&offset=${cursor ?? "0"}`;
 }
@@ -92,7 +92,7 @@ export class CatalogProviderClient {
   }
 
   /**
-   * Adds OpenRouter's speech-to-text models to its listed catalog (PAGE-294).
+   * Adds OpenRouter's speech-to-text models to its listed catalog.
    *
    * @param models - The OpenRouter catalog {@link CatalogProviderClient.list} returned.
    * @param apiKey - The key of the same connection.
@@ -121,7 +121,7 @@ export class CatalogProviderClient {
   }
 
   /**
-   * Adds OpenRouter's text-to-speech models to its listed catalog (PAGE-300).
+   * Adds OpenRouter's text-to-speech models to its listed catalog.
    *
    * @param models - The OpenRouter catalog listed so far.
    * @param apiKey - The key of the same connection.
@@ -147,7 +147,7 @@ export class CatalogProviderClient {
   }
 
   /**
-   * Adds OpenRouter's decision models to its listed catalog (PAGE-379).
+   * Adds OpenRouter's decision models to its listed catalog.
    *
    * @param models - The OpenRouter catalog listed so far.
    * @param apiKey - The key of the same connection.

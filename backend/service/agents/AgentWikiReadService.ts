@@ -32,7 +32,6 @@ export class AgentWikiReadService {
 
   /**
    * Creates the read service.
-   *
    * @param reads - Visibility-filtered page reads.
    * @param searches - Visibility-filtered search.
    * @param anchors - Reads what a page is tied to; without it pages report no anchors.
@@ -91,7 +90,6 @@ export class AgentWikiReadService {
 
   /**
    * Reads one passage of the Markdown of a visible page without recording a visit.
-   *
    * @param actor - The account the read runs for.
    * @param pageId - The page identifier.
    * @param range - Start, optional end and the character budget.

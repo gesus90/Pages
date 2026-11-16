@@ -76,8 +76,7 @@ function nobodyOutcome(
 }
 
 /**
- * Settles one decision from the probabilities of the model (PAGE-379).
- *
+ * Settles one decision from the probabilities of the model.
  * @param input - The answer of the model, or why there is none.
  * @param rules - The thresholds and the most answering agents that apply.
  * @returns The outcome. Pages decides, not the model: nobody answers when the

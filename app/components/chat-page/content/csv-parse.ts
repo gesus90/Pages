@@ -43,7 +43,6 @@ function readQuoted(
 /**
  * Splits CSV text into rows of fields, as RFC 4180 describes it: fields in
  * double quotes may hold the delimiter, line breaks and doubled quotes.
- *
  * @param source - The text.
  * @param delimiter - Comma, semicolon or tab.
  * @returns The rows; empty lines are left out.
@@ -71,9 +70,8 @@ export function splitCsv(source: string, delimiter: string): string[][] {
 }
 
 /**
- * Reads CSV or TSV for the table of a card (PAGE-383); the first row is the
+ * Reads CSV or TSV for the table of a card; the first row is the
  * head.
- *
  * @param source - The text of the block.
  * @param languageHint - `tsv` forces the tab; otherwise the delimiter that
  * splits every line alike is taken: tab, semicolon or comma.
@@ -100,7 +98,6 @@ const NUMBER = /^-?\d+(?:[.,]\d+)?$/u;
 
 /**
  * Filters and sorts the rows of a table for the search and the column heads.
- *
  * @param rows - The rows below the head.
  * @param options - The search text, which any field may contain regardless of
  * case, and the order; numbers are compared as numbers.

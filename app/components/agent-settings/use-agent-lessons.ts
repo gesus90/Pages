@@ -46,14 +46,12 @@ export interface AgentLessonsState {
 }
 
 /**
- * Reads the lessons and recipes of an agent and changes them (PAGE-378).
- *
+ * Reads the lessons and recipes of an agent and changes them.
  * @remarks
  * Every answer of a change carries the fresh overview, which replaces the
  * shown one; nothing is merged on the client. A change the server refuses as a
  * conflict, because a dream run changed the same entry meanwhile, is followed
  * by a fresh read so that the list shows what is there now.
- *
  * @param agentId - The agent whose lessons and recipes the tab shows.
  */
 export function useAgentLessons(agentId: string): AgentLessonsState {

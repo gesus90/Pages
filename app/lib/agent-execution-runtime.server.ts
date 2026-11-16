@@ -211,7 +211,7 @@ export function createAcpResources(
 
 /**
  * Reads the agent simulation once and builds the references through which
- * runners reach plan assets (PAGE-268).
+ * runners reach plan assets.
  */
 export function createSimulation(
   tokenKey: Buffer,

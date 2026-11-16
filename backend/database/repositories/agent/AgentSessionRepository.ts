@@ -466,7 +466,7 @@ export class AgentSessionRepository implements AgentSessionStore {
   }
 
   /**
-   * Keeps the list of the newest structured plan among the stored events (PAGE-306).
+   * Keeps the list of the newest structured plan among the stored events.
    *
    * @remarks
    * The journal is already committed, so a failure here is logged and never

@@ -92,7 +92,7 @@ function SamplePlayer(props: VoiceSampleCardProps): React.ReactElement {
   );
 }
 
-/** The card "Probe": the fixed sentence and a player that speaks it (PAGE-300). */
+/** The card "Probe": the fixed sentence and a player that speaks it. */
 export function VoiceSampleCard(
   props: VoiceSampleCardProps,
 ): React.ReactElement {

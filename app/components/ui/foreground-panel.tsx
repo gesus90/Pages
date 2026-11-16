@@ -14,13 +14,12 @@ interface ForegroundPanelProps extends HTMLAttributes<HTMLElement> {
   readonly keyboardInset?: number;
   /** Fills the main area beside the navigation instead of a reading width, as a terminal needs. */
   readonly isWide?: boolean;
-  /** Centred in the window, at most 82 × 52 rem and at least 28 px from its edges, as the Pages terminal of an agent node (PAGE-289). */
+  /** Centred in the window, at most 82 × 52 rem and at least 28 px from its edges, as the Pages terminal of an agent node. */
   readonly isFullscreen?: boolean;
 }
 
 /**
  * Renders into the document body; the server renders nothing.
- *
  * @remarks
  * The panel opens only in the browser, so the body is known at the first
  * render and the content mounts together with its caller, whose effects can
@@ -39,7 +38,6 @@ function BodyPortal({
 
 /**
  * The fixed foreground panel of the ticket view over a dimmed backdrop.
- *
  * @remarks
  * Position, size, animation and theme follow the layout, never stored
  * window coordinates: the panel cannot be moved or resized, and the page

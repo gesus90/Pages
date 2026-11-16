@@ -30,7 +30,6 @@ export function isProcessStopping(): boolean {
 
 /**
  * Adds ordered cleanup before the central writer is flushed and closed.
- *
  * @param task - The cleanup; its failure does not keep later tasks from running.
  * @param options - Its name in the logs and its time budget.
  */
@@ -61,12 +60,11 @@ export function installProcessLogging(): void {
 
 /**
  * Stops normal operation after a signal or a fatal error, with bounded cleanup and flush.
- *
  * @remarks
  * Node runs an `unhandledRejection` handler in the async context of the
  * rejected promise. A stop started there would inherit the abort signal of a
- * closed request and every database job of the cleanup would be refused
- * (PAGE-199), so the stop runs in a neutral context. Its log correlation stays.
+ * closed request and every database job of the cleanup would be refused,
+ * so the stop runs in a neutral context. Its log correlation stays.
  */
 export function shutdownProcess(
   exitCode: number,

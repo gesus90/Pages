@@ -8,7 +8,6 @@ interface InlineEditTriggerProps {
 
 /**
  * Shows text that turns into an input.
- *
  * @remarks
  * A pointer starts editing with a double click, so a single click can still
  * select the text. A keyboard starts it with Enter or Space, which browsers

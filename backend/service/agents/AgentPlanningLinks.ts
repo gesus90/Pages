@@ -37,16 +37,14 @@ async function requireTicket(
 
 /**
  * Replaces the tags of a ticket with tags of the catalog.
- *
  * @param context - The services of the call, bound to its transaction.
  * @param parameters - `ticketId`, the new `tagIds` and the `expectedTagIds` read before.
  * @returns The ticket and whether any tag was added or removed.
  * @throws {AgentOperationError} `INVALID_REQUEST` for a tag outside the catalog,
  * `CONFLICT` when the tags changed since they were read.
- *
  * @remarks
  * Nothing creates a tag here: a tag that the catalog does not list is refused
- * as a whole, before the first tag changes (T6.13.4).
+ * as a whole, before the first tag changes.
  */
 export async function applyAgentTicketTags(
   context: AgentTaskContext,
@@ -83,7 +81,6 @@ export async function applyAgentTicketTags(
 
 /**
  * Replaces the departments of a ticket.
- *
  * @param context - The services of the call, bound to its transaction.
  * @param parameters - `ticketId`, the new `departmentIds` (empty makes the
  * ticket visible to the whole project) and the `expectedDepartmentIds` read before.
@@ -91,7 +88,6 @@ export async function applyAgentTicketTags(
  * @throws {AgentOperationError} `NOT_FOUND` for a department the account
  * cannot see, `CONFLICT` when the departments changed since they were read,
  * `FORBIDDEN` for a department the account may not add or remove.
- *
  * @remarks
  * The rights are those of the ticket page: `TaskDepartmentService` decides
  * which departments the account may add or remove.
@@ -128,7 +124,6 @@ export async function applyAgentTicketDepartments(
 
 /**
  * Links an initiative with a milestone or removes the link.
- *
  * @param context - The services of the call, bound to its transaction.
  * @param operation - Whether the link is added or removed.
  * @param parameters - `projectId`, `milestoneId` and `initiativeId` (identifier or key).

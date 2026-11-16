@@ -24,8 +24,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpAutomationHandlers {
 }
 
 /**
- * Reads one run of an automation (`GET /api/mcp/v1/automations/{automationId}/runs/{runId}`), PAGE-297.
- *
+ * Reads one run of an automation (`GET /api/mcp/v1/automations/{automationId}/runs/{runId}`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

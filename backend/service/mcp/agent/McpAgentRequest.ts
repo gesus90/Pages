@@ -40,7 +40,7 @@ const reasoningField = z
   .nullable()
   .optional();
 const colorField = z.string().max(20).nullable().optional();
-// Pages sets no cost limit any more (PAGE-283); an older client may still send
+// Pages sets no cost limit any more; an older client may still send
 // one, which is accepted and ignored.
 const ignoredCostField = z.unknown().optional();
 const departmentsField = z
@@ -159,7 +159,6 @@ function requireSomeField(body: Readonly<Record<string, unknown>>): void {
 
 /**
  * Reads the query of a request as an object of single values.
- *
  * @throws {McpAgentError} `invalid_request` for a parameter named twice.
  */
 function queryObject(query: URLSearchParams): Record<string, string> {
@@ -172,8 +171,7 @@ function queryObject(query: URLSearchParams): Record<string, string> {
 }
 
 /**
- * Validators of every body and query the agent API takes (PAGE-267).
- *
+ * Validators of every body and query the agent API takes.
  * @remarks
  * Every body is a strict object: an unknown field such as `password` or
  * `isAdmin` is `invalid_request`, and a rejected input is never quoted. The

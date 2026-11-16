@@ -1,6 +1,6 @@
 /**
- * Contracts of the images an agent generates in a chat with its own model
- * (PAGE-382). There is no image model of its own and no setting for one: the
+ * Contracts of the images an agent generates in a chat with its own model.
+ * There is no image model of its own and no setting for one: the
  * model the agent works with in the chat decides whether it can.
  */
 
@@ -47,13 +47,11 @@ export const AGENT_IMAGE_MIME_TYPES: Readonly<Record<string, string>> = {
 
 /**
  * Whether the catalog states that a model outputs images.
- *
  * @remarks
  * Only the stated output modalities decide, never the name of a model:
  * OpenRouter's `architecture.output_modalities` and OpenCode's
  * `capabilities.output`. A catalog that states nothing, as those of Claude
  * Code, Codex and Antigravity, makes no model image capable.
- *
  * @param model - The stored output modalities of a catalog model.
  * @returns `true` when `image` is among them.
  */

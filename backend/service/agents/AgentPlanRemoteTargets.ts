@@ -68,7 +68,6 @@ export class AgentPlanRemoteTargets {
 
   /**
    * Lists the remote workspaces the person may see as choices of a plan target.
-   *
    * @remarks
    * A workspace the person sees but may not run plans on stays in the list
    * with the reason, so the choice explains missing rights; workspaces the
@@ -101,7 +100,6 @@ export class AgentPlanRemoteTargets {
 
   /**
    * Rejects a hidden or reassigned remote target before a plan revision can commit.
-   *
    * @remarks
    * The plan's own target is checked like a node's, together with every node
    * that inherits it.

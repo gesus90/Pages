@@ -1,7 +1,7 @@
-# PAGE-377: Wiki-Entwurf für „Agents: Festlegungen“
+# Wiki-Entwurf für „Agents: Festlegungen“
 
 Ziel-Seite: [Agents: Festlegungen](/wiki/93eb063a-a63c-4cac-8393-af182291a582).
-Der folgende Abschnitt ergänzt die Sitzungen je Chat aus PAGE-376 um das Lagebuch.
+Der folgende Abschnitt ergänzt die Sitzungen je Chat um das Lagebuch.
 
 ---
 
@@ -19,7 +19,7 @@ Der folgende Abschnitt ergänzt die Sitzungen je Chat aus PAGE-376 um das Lagebu
 
 Die Regel, wann er nachschlägt (etwas aus dem Kontext nicht verstanden, Bezug auf Früheres, Zusammenhänge zwischen Chats) und was er festhält, steht in den Anweisungen jeder Chat-Sitzung (`AgentEmployeeInstructions`).
 
-**Hinweiszeile.** Jede Runde einer Chat-Sitzung trägt höchstens eine Zeile am Ende der Anweisung: „Lagebuch: 3 neue Einträge (PAGE-370, Release Freitag, Testserver)“. Sie nennt die Zahl der Einträge aus anderen Chats seit dem Stand der Sitzung (`agent_conversations.logbook_seen`) und die Themen der drei neuesten. Ohne neue Einträge entfällt die Zeile. Der Stand rückt vor, sobald die Runde gestartet ist; Einträge des eigenen Chats zählen nicht.
+**Hinweiszeile.** Jede Runde einer Chat-Sitzung trägt höchstens eine Zeile am Ende der Anweisung: „Lagebuch: 3 neue Einträge (Wiki-Aufteilung, Release Freitag, Testserver)“. Sie nennt die Zahl der Einträge aus anderen Chats seit dem Stand der Sitzung (`agent_conversations.logbook_seen`) und die Themen der drei neuesten. Ohne neue Einträge entfällt die Zeile. Der Stand rückt vor, sobald die Runde gestartet ist; Einträge des eigenen Chats zählen nicht.
 
 **Ergänzung im Hintergrund.** `AgentLogbookScheduler` (alle 30 Sekunden, nur im Prozess, der die Hintergrundarbeit besitzt) sucht Chat-Sitzungen, deren Runde nach der letzten Zusammenfassung endete (`last_activity_at` nach `logbook_processed_at`) und die so lange ruhig waren, wie die Ruhezeit des Agents sagt (Standard 2 Minuten). Hat der Agent in keinem Chat zu tun, liest `AgentLogbookSummarizer` die neuen Nachrichten des Chats (`chat_lesen`-Leser, `logbook_through` als Position), zeigt dem Modell die vorhandenen Einträge des Chats und schreibt die fehlenden mit der Herkunft „Hintergrund“. Das Modell läuft als kurzer Lauf des Agents neben den Chat-Sitzungen (Zweck `memory`, `AgentMemoryModel.logbook`) und belastet sie nicht. Gibt es keine brauchbare Antwort, bleibt der Chat fällig und wird nach 10 Minuten erneut versucht; ein langer Rückstand wird über mehrere Läufe abgearbeitet.
 

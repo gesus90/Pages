@@ -54,7 +54,6 @@ const COMPONENT = "PagesPicaMobileCalendar";
 /**
  * Tells whether a committed event may change calendar entries: an event or
  * the project dates (`calendar.changed`), a due ticket or a milestone.
- *
  * @param event - A committed Pages event.
  */
 export function isPicaMobileCalendarEvent(event: PagesEvent): boolean {
@@ -94,7 +93,7 @@ function fieldsOf(payload: SaveRequest["payload"]): Record<string, unknown> {
 }
 
 /**
- * Answers `calendar.v1` with the calendar service of Pages (PAGE-301).
+ * Answers `calendar.v1` with the calendar service of Pages.
  *
  * @remarks
  * The account behind the session is read first; an ended session, a

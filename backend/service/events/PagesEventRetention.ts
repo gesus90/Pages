@@ -27,7 +27,6 @@ export interface PagesEventRetentionRun {
 
 /**
  * Removes old outbox events in small blocks.
- *
  * @remarks
  * Each block is a transaction of its own, so other writes run between two
  * blocks. An event after the lowest stored reader position stays whatever its
@@ -40,7 +39,6 @@ export class PagesEventRetention {
 
   /**
    * Creates the retention rule.
-   *
    * @param repository - Reads and removes outbox events.
    * @param limits - Age, block size and blocks per run.
    */
@@ -54,7 +52,6 @@ export class PagesEventRetention {
 
   /**
    * Removes expired blocks until none is left or the run reached its limit.
-   *
    * @returns How many events and blocks left and the floor afterwards.
    */
   public async runOnce(): Promise<PagesEventRetentionRun> {

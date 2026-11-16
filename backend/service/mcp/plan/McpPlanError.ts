@@ -37,7 +37,6 @@ const OPERATION_CODES: Readonly<
 
 /**
  * Fixed public failure of the plan API.
- *
  * @remarks
  * It carries a code, a status and at most the stable `reason` of the plan
  * operation layer; neither a message nor any part of the request leaves the
@@ -52,7 +51,6 @@ export class McpPlanError extends Error {
 
   /**
    * Creates the error.
-   *
    * @param code - The error code of the interface; it decides the HTTP status.
    * @param options - The stable reason of the refusal and the wait before a retry, where they exist.
    */
@@ -85,11 +83,9 @@ function fromOperationError(error: AgentOperationError): McpPlanError {
 
 /**
  * Translates a failure of the plan operation layer into the error of the interface.
- *
  * @param error - Whatever the API or the operation layer threw.
  * @returns The interface error, or `null` for a failure that is not the
  * client's doing and stays an internal error.
- *
  * @remarks
  * `INVALID_REQUEST` becomes `400 invalid_request`, `FORBIDDEN` `403
  * forbidden`, `NOT_FOUND` `404 not_found`, `CONFLICT` `409 conflict`,

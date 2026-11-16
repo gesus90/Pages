@@ -8,7 +8,7 @@ import type {
 } from "@/definition/ConversationMediaOverview";
 import type { ContentCardDescriptor, OpenedCard } from "../content/card-types";
 
-/** The files of one month, as the grids of images and videos group them (PAGE-387). */
+/** The files of one month, as the grids of images and videos group them. */
 export interface MediaMonthGroup {
   /** `2026-11`; stable for the list. */
   readonly key: string;
@@ -19,7 +19,6 @@ export interface MediaMonthGroup {
 
 /**
  * Groups files by the month they were sent in, keeping their order.
- *
  * @param files - The files, newest first.
  * @param language - The language of the interface, for the names of the months.
  */
@@ -77,7 +76,6 @@ function descriptorOf(file: ConversationMediaFile): ContentCardDescriptor {
 /**
  * The card of a file of the overview, as the split view, the full screen and
  * the video viewer open it.
- *
  * @param file - The file with its message.
  * @param senderName - The name of its sender.
  */

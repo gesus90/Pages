@@ -74,7 +74,7 @@ export interface ChatMenuSection {
   readonly entries: readonly ChatMenuEntry[];
 }
 
-/** The whole chat menu (PAGE-389): its head and its sections. */
+/** The whole chat menu: its head and its sections. */
 export interface ChatMenuModel {
   readonly title: string;
   readonly subtitle: string;
@@ -114,7 +114,7 @@ export interface DirectChatMenuInput extends ChatMenuCommonInput {
   /** Opens the released domains of a stored chat with a person; absent shows no entry. */
   readonly onOpenEmbedDomains?: () => void;
   readonly onOpenModel: () => void;
-  /** Starts a new session of the agent, as `/new` does (PAGE-380). */
+  /** Starts a new session of the agent, as `/new` does. */
   readonly onNewSession: () => void;
   readonly isNewSessionPending: boolean;
 }
@@ -133,7 +133,7 @@ export function chatModelNote(
   return `${name} · ${effort}`;
 }
 
-/** "Medien & Dateien", the first entry of every chat (PAGE-387). */
+/** "Medien & Dateien", the first entry of every chat. */
 function mediaEntry(input: ChatMenuCommonInput): ChatMenuAction {
   return {
     kind: "action",
@@ -178,7 +178,7 @@ function settingsSection(input: ChatMenuCommonInput): ChatMenuSection {
 /**
  * "Modell für diesen Chat" of a group: with one agent it opens its choice at
  * once, with several it asks which agent first. Absent without agents or
- * without the right to steer them (PAGE-380).
+ * without the right to steer them.
  */
 function groupModelEntry(input: GroupChatMenuInput): ChatMenuEntry | null {
   const { t, group, agents } = input;
@@ -278,7 +278,7 @@ export function groupMemberCount(group: VirtualGroup): number {
 }
 
 /**
- * The chat menu of a group (PAGE-389): "Inhalte" with "Medien & Dateien" and
+ * The chat menu of a group: "Inhalte" with "Medien & Dateien" and
  * "Gruppenkontext", "Zusammenarbeit" with the members, who answers, the
  * model per chat and the sessions of the agents, "Einstellungen" with the
  * two switches and, apart and red, "Gruppe auflösen".
@@ -360,7 +360,7 @@ function agentEntries(input: DirectChatMenuInput): readonly ChatMenuAction[] {
 }
 
 /**
- * The chat menu of a direct chat (PAGE-389): "Medien & Dateien", with a
+ * The chat menu of a direct chat: "Medien & Dateien", with a
  * person "Eingebettete Webseiten", with an agent "Modell für diesen Chat"
  * and "Neue Sitzung", then the switches "Vertraulich" and "Stummschalten"
  * where the chat has them.

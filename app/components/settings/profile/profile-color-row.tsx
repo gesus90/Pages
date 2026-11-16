@@ -11,9 +11,8 @@ interface ProfileColorRowProps {
 }
 
 /**
- * The person color of the own account (PAGE-266): chosen from the fixed
+ * The person color of the own account: chosen from the fixed
  * palette and saved at once; it draws the ring around the avatar everywhere.
- *
  * @remarks
  * Open to every signed-in account, like the avatar image. While the change
  * is on its way, the picked color is shown already.

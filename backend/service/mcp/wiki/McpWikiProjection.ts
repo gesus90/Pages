@@ -24,7 +24,6 @@ import type { McpWikiContext } from "./McpWikiContext";
 
 /**
  * Names a page by identifier and title only.
- *
  * @param page - Any page with an identifier and a title.
  */
 export function pageName(
@@ -35,7 +34,6 @@ export function pageName(
 
 /**
  * Builds the answer object "Seite" from the page view of the interface.
- *
  * @param context - The request, which names the owner by username.
  * @param view - The page with the rights of the account.
  */
@@ -76,7 +74,6 @@ export async function projectPage(
 
 /**
  * Reads a page anew and answers it as `{ page }`.
- *
  * @param context - The request.
  * @param id - Page identifier.
  */
@@ -116,7 +113,6 @@ export function projectTrashEntry(entry: WikiTrashEntry): McpWikiTrashEntry {
 
 /**
  * One version of a page without its text.
- *
  * @param context - The request, which names the author by username.
  * @param version - The stored version.
  */
@@ -135,7 +131,6 @@ export async function projectVersionSummary(
 
 /**
  * One version of a page with its text.
- *
  * @param context - The request, which names the author by username.
  * @param version - The stored version.
  */
@@ -151,7 +146,6 @@ export async function projectVersion(
 
 /**
  * The answer object "Kommentar".
- *
  * @param context - The request, which names the author by username.
  * @param entry - The comment and the first comment it answers.
  */

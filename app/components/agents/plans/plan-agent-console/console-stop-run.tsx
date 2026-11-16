@@ -12,7 +12,6 @@ import {
 
 /**
  * Stops the whole run from the header of the console, after a question.
- *
  * @remarks
  * Stopping ends every node of the run, not only this one; the dialog says so
  * before anything happens.

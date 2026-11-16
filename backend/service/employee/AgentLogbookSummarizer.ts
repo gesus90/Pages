@@ -40,8 +40,7 @@ export type AgentLogbookSummaryOutcome =
   | { readonly status: "retry" };
 
 /**
- * The background summary of a quiet chat for the Lagebuch (PAGE-377).
- *
+ * The background summary of a quiet chat for the Lagebuch.
  * @remarks
  * It reads the messages of the chat since its last summary, asks a model for
  * the entries the Lagebuch lacks and writes them with the origin
@@ -59,7 +58,6 @@ export class AgentLogbookSummarizer {
 
   /**
    * Summarizes the new messages of one chat.
-   *
    * @param session - The chat session that has been quiet since its last round.
    */
   public async summarize(

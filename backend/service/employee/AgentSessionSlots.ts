@@ -33,8 +33,7 @@ interface Waiter {
 }
 
 /**
- * The places of the concurrent chat sessions of agents (PAGE-304).
- *
+ * The places of the concurrent chat sessions of agents.
  * @remarks
  * Every chat of an agent runs its own session, so one agent answers in
  * several chats at once. Above the limit per agent or in total a session
@@ -78,7 +77,6 @@ export class AgentSessionSlots {
 
   /**
    * Takes a place for a session of the agent, waiting while the limits are reached.
-   *
    * @throws {AgentEmployeeError} `stopped` when the signal ends the wait.
    */
   public async acquire(

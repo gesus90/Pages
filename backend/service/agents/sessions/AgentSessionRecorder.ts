@@ -100,7 +100,6 @@ function nativeMessages(
 
 /**
  * Records what the adapter process of a plan session reports into the attempt whose turn runs.
- *
  * @remarks
  * Members of an ACP group take turns in one process, so the recorder of the
  * process is pointed at each member's attempt before its turn; their turns,
@@ -162,7 +161,6 @@ export class AgentSessionRecorder implements AcpSessionListener {
 
   /**
    * Points the recorder at the attempt whose turn starts next in the same process.
-   *
    * @param attempt - The attempt of the next group member or the next instruction.
    */
   public bind(attempt: AgentSessionAttemptRecord): void {
@@ -176,7 +174,6 @@ export class AgentSessionRecorder implements AcpSessionListener {
 
   /**
    * Stores a new state of the current attempt, such as its workspace or the end of its turn.
-   *
    * @param attempt - The changed attempt; its key stays the same.
    */
   public revise(attempt: AgentSessionAttemptRecord): void {

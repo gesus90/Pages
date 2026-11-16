@@ -74,7 +74,6 @@ export interface StoredSessionEvents {
 
 /**
  * Durable storage of PageAgentCLI sessions: attempts, events, usage and messages.
- *
  * @remarks
  * Appending events assigns sequences and removes events beyond the retention
  * in one transaction, so a crash never leaves a gap or a duplicate sequence.
@@ -111,7 +110,6 @@ export interface AgentSessionStore {
   saveMessage(message: AgentSessionMessage): Promise<void>;
   /**
    * Moves a message to `status` only from one of `from`.
-   *
    * @returns Whether this call changed it; `false` when another call came first.
    */
   updateMessage(
@@ -122,7 +120,6 @@ export interface AgentSessionStore {
   listMessages(attemptId: string): Promise<readonly AgentSessionMessage[]>;
   /**
    * Marks every delivery a stopped server left `delivering` as `uncertain`.
-   *
    * @returns How many messages changed.
    */
   markUncertainDeliveries(): Promise<number>;

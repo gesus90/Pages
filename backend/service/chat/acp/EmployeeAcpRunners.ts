@@ -10,8 +10,7 @@ import type { AgentEmployeeAccess } from "@/definition/AgentEmployee";
 import type { PicaAcpProvider, PicaAcpRunner } from "./PicaAcpRunners";
 
 /**
- * The run mode of the runner for an access level (PAGE-303).
- *
+ * The run mode of the runner for an access level.
  * @remarks
  * "Nur Pages" runs in "Nur Lesen", where the runner offers nothing but the
  * Pages tools and Pages refuses every other request. "Arbeitsplatz" and
@@ -27,7 +26,6 @@ export function employeeRunMode(
 /**
  * Whether a session of the employee reaches its Pages tools over Pica's
  * turn-bound bridge as one of its MCP servers.
- *
  * @remarks
  * Claude Code always uses the Pages helper and Antigravity always the bridge.
  * The native Pica builds of Codex and OpenCode refuse every built-in tool, so
@@ -44,7 +42,6 @@ function hasEmployeeBridgeMcp(
 
 /**
  * The runner of one job of an agent employee.
- *
  * @param agent - The assignment resolved from the agent's model.
  * @param access - The access level the agent is stored with.
  * @param hostMcpServers - The MCP servers configured on the host for the

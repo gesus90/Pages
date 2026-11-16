@@ -12,7 +12,6 @@ export class WorkItemTemplatePolicy {
 
   /**
    * Tests whether the account may see and use a template.
-   *
    * @param actor - Current account facts.
    * @param template - Owner and sharing of the template.
    * @param accessibleProjectIds - Projects the account may currently open.
@@ -54,7 +53,6 @@ export class WorkItemTemplatePolicy {
 
   /**
    * Tests whether the account may share a template the way requested.
-   *
    * @remarks
    * Everyone shares privately or with all. Sharing with departments needs at
    * least one department and only ones the account may select for a ticket,

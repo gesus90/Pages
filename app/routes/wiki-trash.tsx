@@ -46,7 +46,6 @@ const WIKI_TRASH_STATE: LocalStateRouteKind<WikiTrashLoaderData> = {
 
 /**
  * Opens the trash from the account's kept answer at once and asks the endpoint behind it.
- *
  * @remarks
  * The endpoint runs the server loader with its permission checks.
  */

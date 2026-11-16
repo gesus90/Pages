@@ -42,7 +42,6 @@ function readRevision(formData: FormData): number {
 
 /**
  * Parses the JSON input of a dialog.
- *
  * @remarks
  * A syntax error is replaced, not logged: the engine's message can quote
  * the input, which may hold a password or key.
@@ -152,7 +151,6 @@ function remoteFailureResponse(error: unknown, intent: string): Response {
 
 /**
  * Runs one remote intent of the working-directory page.
- *
  * @param context - Services, the signed-in person and the submitted form.
  * @returns The JSON response; secrets of the form never appear in it or in a log.
  */
@@ -179,7 +177,6 @@ export async function runRemoteAction(
 
 /**
  * Loads the remote part of the working-directory page, filtered for the person.
- *
  * @param services - The application services.
  * @param userId - The signed-in person.
  * @returns Connections, departments for administrators, profiles, choices and installation states.

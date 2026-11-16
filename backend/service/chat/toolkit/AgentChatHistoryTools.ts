@@ -11,10 +11,10 @@ import type { RuntimeToolRegistry } from "@/backend/agents/runtime/RuntimeToolRe
 import type { AgentChatHistory } from "@/definition/AgentChatHistory";
 import type { PicaToolOutcome } from "../PicaToolSchemas";
 
-/** The tool with which an agent searches the earlier messages of its chats (PAGE-393). */
+/** The tool with which an agent searches the earlier messages of its chats. */
 export const AGENT_HISTORY_SEARCH_TOOL = "verlauf_durchsuchen";
 
-/** The tool with which an agent reads the messages around a hit (PAGE-393). */
+/** The tool with which an agent reads the messages around a hit. */
 export const AGENT_HISTORY_READ_TOOL = "verlauf_lesen";
 
 const DAY = z.string().regex(/^\d{4}-\d{2}-\d{2}$/u, "YYYY-MM-DD");
@@ -89,7 +89,7 @@ async function read(
 
 /**
  * Registers `verlauf_durchsuchen` and `verlauf_lesen` of an agent employee's
- * job (PAGE-393): the full-text search over the earlier messages of its
+ * job: the full-text search over the earlier messages of its
  * chats and the excerpt around a hit, bound to the agent and the chat of
  * the job.
  */

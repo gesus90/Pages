@@ -12,8 +12,7 @@ import type { Route } from "./+types/users-group-agents-data";
 export const middleware: MiddlewareFunction[] = [requireAuthenticatedUser];
 
 /**
- * Answers the agents of a group for its overview in the user management (PAGE-308).
- *
+ * Answers the agents of a group for its overview in the user management.
  * @remarks
  * Only an administrator and the leaders of the group get it; every other
  * request is refused by the same rights the Pages interface of the MCP uses.

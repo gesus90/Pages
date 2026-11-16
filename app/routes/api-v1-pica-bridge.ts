@@ -35,7 +35,6 @@ async function handleRequest(request: Request): Promise<Response> {
 
 /**
  * The endpoint of Pica's turn-bound tools.
- *
  * @remarks
  * Only an active turn token admits a request, or the MCP credential of a
  * running job, whose calls need the job's running turn as well; browser

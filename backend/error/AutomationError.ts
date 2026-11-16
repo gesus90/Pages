@@ -10,7 +10,6 @@ export type AutomationErrorCode =
 
 /**
  * Why an automation call was refused, as a fixed name a client can act on.
- *
  * @remarks
  * - `time_required`: a once trigger needs a time in the future to run or to be switched on.
  * - `script_forbidden`: only active administrators may use script actions.

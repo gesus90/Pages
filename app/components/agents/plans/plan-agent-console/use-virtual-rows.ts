@@ -26,7 +26,6 @@ export interface VirtualRows {
 
 /**
  * Windows a list of equally high rows to the ones the viewport shows.
- *
  * @remarks
  * Only the visible rows and a few beyond each edge are drawn, however long
  * the list is.

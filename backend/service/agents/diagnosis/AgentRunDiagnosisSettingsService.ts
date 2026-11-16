@@ -26,8 +26,7 @@ function isWithin(
 }
 
 /**
- * The settings of the run diagnosis under Settings → Agents (PAGE-307).
- *
+ * The settings of the run diagnosis under Settings → Agents.
  * @remarks
  * Only an administrator in the active admin mode reads the form and saves.
  * The retention time applies to the log lines and failure records of runs;
@@ -56,7 +55,6 @@ export class AgentRunDiagnosisSettingsService {
 
   /**
    * Saves the settings.
-   *
    * @throws {AgentError} `profile_invalid` for a value outside its range,
    * `profile_conflict` after a concurrent change.
    */

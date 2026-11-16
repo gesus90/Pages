@@ -8,7 +8,6 @@ const MAXIMUM_IDS = 50;
 
 /**
  * Resolves the titles of wiki pages that tickets and projects link to.
- *
  * @remarks
  * Pages the person may not see are left out, so a link never reveals a title
  * and a missing page looks like a hidden one.

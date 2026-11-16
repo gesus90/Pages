@@ -33,14 +33,12 @@ function themeVariables(): Record<string, string> {
 }
 
 /**
- * Draws a Mermaid diagram as SVG (PAGE-383): flowcharts, sequence, state and
+ * Draws a Mermaid diagram as SVG: flowcharts, sequence, state and
  * class diagrams and every other kind Mermaid knows.
- *
  * @remarks
  * Mermaid is loaded only when a diagram is shown. It runs with the strict
  * security level: labels are sanitized, and neither scripts nor click
  * handlers of the diagram text run. The colors come from the theme tokens.
- *
  * @param source - The text of the diagram.
  * @returns The SVG, or the message of the error in the text.
  */

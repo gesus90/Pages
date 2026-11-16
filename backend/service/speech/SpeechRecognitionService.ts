@@ -61,8 +61,7 @@ function failure(
 }
 
 /**
- * Turns a finished recording into text with the model of the instance (PAGE-273).
- *
+ * Turns a finished recording into text with the model of the instance.
  * @remarks
  * The text comes after the recording, never live. Audio stays in memory: it
  * is checked, passed on unchanged and cleared afterwards, and it never
@@ -80,7 +79,6 @@ export class SpeechRecognitionService {
 
   /**
    * The limits that apply now.
-   *
    * @returns The longest recording and the formats, or `null` while speech
    * recognition is off.
    */
@@ -96,7 +94,6 @@ export class SpeechRecognitionService {
 
   /**
    * Recognizes the text of a finished recording.
-   *
    * @param input - The recording, its declared format and the cancellation.
    * @returns The text, or the code of why there is none.
    */

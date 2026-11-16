@@ -35,7 +35,7 @@ export interface PicaTurnBrief {
   readonly instructions: string;
   /**
    * Whether a continued agent session receives history and summary again
-   * on every turn (PAGE-305); without it only a new session gets them.
+   * on every turn; without it only a new session gets them.
    */
   readonly keepsContext?: boolean;
   readonly prompt: Omit<
@@ -101,16 +101,14 @@ function contentBlocks(
 
 /**
  * Turns the attachments selected for one message into prompt blocks.
- *
  * @param attachments - Exactly the attachments sent with the message.
  * @param reader - Reads their files; no other file is opened.
  * @param capabilities - What the adapter negotiated; images need its support.
  * @returns The blocks and, per attachment, how it reached the agent.
- *
  * @remarks
  * Text goes as an embedded resource, cut after the existing limit; the text
  * of a PDF or an Office document is extracted first, because the adapters drop
- * binary resources (PAGE-92). Raster images go as image blocks up to the
+ * binary resources. Raster images go as image blocks up to the
  * existing asset limit. Every other type is named with its status, so nothing
  * is dropped without a trace.
  */
@@ -135,7 +133,6 @@ export async function readPicaAttachments(
 
 /**
  * The brief of a continued agent session, which knows the transcript already.
- *
  * @param brief - The brief of the job.
  * @returns The brief without history and summary, unless it keeps its context on every turn.
  */
@@ -148,7 +145,6 @@ export function continuedPicaBrief(brief: PicaTurnBrief): PicaTurnBrief {
 /**
  * The text that opens the prompt of a turn: the instructions, then the
  * conversation as data with the current message.
- *
  * @param brief - Instructions and context of the job.
  * @param message - The message the turn answers.
  * @param attachments - The attachments of the message, named only; their content follows as blocks.
@@ -179,7 +175,6 @@ export function picaTurnPrompt(
 
 /**
  * The text of a message the person sent while the agent was answering.
- *
  * @param message - The message as the person wrote it.
  * @returns The block text; its attachments follow as blocks.
  */

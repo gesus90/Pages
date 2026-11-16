@@ -18,7 +18,6 @@ function toggled(ids: readonly string[], id: string): string[] {
 
 /**
  * Keeps the audience of a template while its form is edited.
- *
  * @param initial - The audience the form starts with.
  */
 export function useTemplateSharing(

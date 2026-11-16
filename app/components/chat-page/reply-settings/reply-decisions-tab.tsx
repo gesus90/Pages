@@ -87,7 +87,7 @@ function DecisionRow({
 }
 
 /**
- * The tab "Letzte Entscheidungen" (PAGE-379): time, message, the chance that
+ * The tab "Letzte Entscheidungen": time, message, the chance that
  * an answer is expected, the distribution among the agents and nobody, and the
  * result, including "keine Antwort" and @ addressings.
  */

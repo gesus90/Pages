@@ -43,7 +43,6 @@ function useHasIssue(decision: AgentPlanDecision, port: string): boolean {
 
 /**
  * The sequence input of a decision: when the flow reaches it, it decides.
- *
  * @remarks
  * It is drawn like the flow IN of every other node, so it never looks like
  * the data input below it.
@@ -234,11 +233,10 @@ function DecisionOutputs(props: {
 /**
  * The Decision node: a sequence input, one data input and one output per
  * answer, of which exactly one is activated each time it decides.
- *
  * @remarks
  * A boolean decision reads a boolean parameter or an agent's boolean and
  * calls no model; a model decision asks the chosen model one question about
- * a ticket or a text result (PAGE-286). While a run is shown, the card names
+ * a ticket or a text result. While a run is shown, the card names
  * the output it took and, for a model, its answer and reason.
  */
 export function PlanDecisionCard(props: {

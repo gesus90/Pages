@@ -8,7 +8,6 @@ export interface PlanNotationEntry {
 
 /**
  * Writes a text in quotes, escaping `\`, `"` and line breaks.
- *
  * @param text - Any text.
  */
 export function quotedPlanNotation(text: string): string {
@@ -21,7 +20,6 @@ export function quotedPlanNotation(text: string): string {
 
 /**
  * Writes a word bare when it is a DOT identifier and in quotes otherwise.
- *
  * @param text - A name, identifier or fixed word.
  */
 export function planNotationWord(text: string): string {
@@ -30,7 +28,6 @@ export function planNotationWord(text: string): string {
 
 /**
  * Writes a number bare when DOT reads it as one, in quotes otherwise.
- *
  * @param number - A finite number.
  */
 export function planNotationNumber(number: number): string {
@@ -40,7 +37,6 @@ export function planNotationNumber(number: number): string {
 
 /**
  * Writes JSON in quotes, for the long form of a structured field.
- *
  * @param value - Any JSON value.
  */
 export function planNotationJson(value: unknown): string {

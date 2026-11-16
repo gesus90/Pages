@@ -37,7 +37,6 @@ export interface SheetSort {
 
 /**
  * Whether a cell lies inside the marked rectangle.
- *
  * @param selection - The mark, or `null`.
  * @param position - The cell.
  */
@@ -56,9 +55,8 @@ export function isSelected(
 }
 
 /**
- * Adds up the numbers of the marked cells, as the foot of a table shows them
- * (PAGE-385). Only stored values count; nothing is recalculated.
- *
+ * Adds up the numbers of the marked cells, as the foot of a table shows them.
+ * Only stored values count; nothing is recalculated.
  * @param rows - The shown rows.
  * @param selection - The mark, or `null`.
  */
@@ -89,7 +87,6 @@ export function summarizeSelection(
 /**
  * Filters and sorts the rows of a sheet below its head for the search and
  * the column heads; each row keeps its number in the sheet.
- *
  * @param rows - The rows below the head.
  * @param options - The search, which any cell may contain regardless of case,
  * the order, and the number of the first row.

@@ -228,7 +228,6 @@ function findLanguageEntry(hint: string): LanguageEntry | null {
 
 /**
  * Resolves the language family of a code block or file.
- *
  * @param hint - Code fence info string ("ts", "bash", "yml") or a file name or
  *   extension ("console-terminal.tsx", ".py").
  * @returns The language, or `null` when the hint is unknown.
@@ -239,11 +238,9 @@ export function resolveSyntaxLanguage(hint: string): SyntaxLanguage | null {
 
 /**
  * Returns the label shown for a language hint, such as "TypeScript" or "Shell".
- *
  * @remarks
  * JavaScript hints are labelled "JavaScript" although they are highlighted as
  * TypeScript.
- *
  * @param hint - Code fence info string, file name, or extension.
  * @returns The label; for an unknown hint the trimmed hint itself, which is
  *   empty for an empty hint.
@@ -684,14 +681,12 @@ const LINE_SCANNER_FACTORIES: Readonly<
 
 /**
  * Splits source text into coloured tokens, one array per line.
- *
  * @remarks
  * Lines are split on `\n` and a trailing `\r` is dropped. Constructs that span
  * lines (block comments, template strings, Python triple quotes, HTML
  * comments) keep their kind across lines. The token texts of a line joined
  * together are the line itself; an empty line is an empty array. The scan is
  * linear in the source length and never throws.
- *
  * @param source - Source text to highlight.
  * @param language - Language of the source, or `null` for plain text.
  * @returns The tokens of every line.

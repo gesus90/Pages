@@ -15,7 +15,6 @@ export interface ChatMessageFacts {
 
 /**
  * Collects steer statuses and selection snapshots by message.
- *
  * @param activity - What the server stored for the conversation.
  * @param live - Steer statuses the running job reported since; they are newer.
  * @returns The facts of every message that has some.
@@ -43,7 +42,7 @@ export function chatMessageFacts(
   };
 }
 
-/** How one attachment reached the agent; a cut text names how much of it arrived (PAGE-92). */
+/** How one attachment reached the agent; a cut text names how much of it arrived. */
 function selectionText(t: TFunction, item: ChatSelectionItem): string {
   const { scope } = item;
   if (item.transfer !== "truncated" || scope === undefined)

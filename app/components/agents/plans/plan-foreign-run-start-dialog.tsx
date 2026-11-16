@@ -28,7 +28,6 @@ export function isForeignEndedRun(
 
 /**
  * Confirms that Starten begins a new run and continues nothing.
- *
  * @remarks
  * Only the executor of the ended run may continue it; this reader's plan
  * rights grant no control of it. A new run of the plan replaces the ended

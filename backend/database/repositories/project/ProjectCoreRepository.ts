@@ -143,7 +143,6 @@ export class ProjectCoreRepository {
 
   /**
    * Creates a project core repository.
-   *
    * @param database - Central database access.
    */
   public constructor(database: DatabaseTransaction) {

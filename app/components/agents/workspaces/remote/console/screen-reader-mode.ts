@@ -20,7 +20,6 @@ if (typeof document !== "undefined") {
 
 /**
  * Whether a new terminal keeps an accessible copy of its screen.
- *
  * @returns `true` unless the console was opened with a pointer: keyboard use
  * and the clicks of a screen reader come without one.
  */

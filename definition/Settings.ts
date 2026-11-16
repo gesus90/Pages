@@ -64,7 +64,6 @@ export function isUserTimezone(value: unknown): value is UserTimezone {
 
 /**
  * Color themes a user can select for the whole interface.
- *
  * @remarks
  * `system` follows the operating system preference (`prefers-color-scheme`),
  * `light` and `dark` override it.
@@ -90,13 +89,12 @@ interface UserNotifications {
   readonly assignments: boolean;
   readonly dueDates: boolean;
   readonly weeklySummary: boolean;
-  /** Push to Pica Mobile when the user is invited to a calendar event (PAGE-301). */
+  /** Push to Pica Mobile when the user is invited to a calendar event. */
   readonly calendarInvitations: boolean;
 }
 
 /**
  * Settings that belong to a single user.
- *
  * @remarks
  * Distinct from future server-wide settings, which apply to every user and
  * are restricted to administrators.

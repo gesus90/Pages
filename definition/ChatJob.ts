@@ -1,6 +1,5 @@
 /**
- * How a server-side Pica job (PAGE-68) ended or whether it still runs.
- *
+ * How a server-side Pica job ended or whether it still runs.
  * @remarks
  * `interrupted` marks a job the server ended by shutting down; it is never
  * repeated on its own.
@@ -16,7 +15,6 @@ export type ChatJobState = (typeof CHAT_JOB_STATES)[number];
 
 /**
  * What became of a message sent while Pica was answering.
- *
  * @remarks
  * `pending` is stored, `delivered` went to the adapter, `accepted` joined the
  * running turn, `followUp` is answered in a turn of its own, `failed` did not
@@ -33,11 +31,10 @@ export type ChatSteerStatus = (typeof CHAT_STEER_STATUSES)[number];
 
 /**
  * How a selected attachment reached the agent.
- *
  * @remarks
  * `extracted` is the complete text of a document such as a PDF or an Office
  * file, without its layout and images; `encrypted` and `noText` are documents
- * whose text could not be read (PAGE-92).
+ * whose text could not be read.
  */
 export const CHAT_SELECTION_TRANSFERS = [
   "full",
@@ -66,7 +63,7 @@ export interface ChatSelectionItem {
   readonly contentType: string;
   readonly size: number;
   readonly transfer: ChatSelectionTransfer;
-  /** For a cut text: how much reached the agent (PAGE-92). */
+  /** For a cut text: how much reached the agent. */
   readonly scope?: ChatSelectionScope;
 }
 
@@ -87,10 +84,9 @@ export interface ChatTokenUsage {
 
 /**
  * Costs as the adapter reported them.
- *
  * @remarks
  * `isEstimated` marks an amount the adapter computed itself from token counts
- * and list prices, as Claude Code does (PAGE-90); it is no billed amount and,
+ * and list prices, as Claude Code does; it is no billed amount and,
  * for a subscription sign-in, not charged at all.
  */
 export interface ChatCost {
@@ -147,16 +143,16 @@ export interface ChatJobToolEvent {
   readonly isPrivileged?: boolean;
   /**
    * A tool of the host the agent used beside the Pages tools, such as a shell
-   * command, the browser or an MCP server (PAGE-303).
+   * command, the browser or an MCP server.
    */
   readonly isNative?: boolean;
-  /** The command or the input of the call, bounded, credentials masked (PAGE-303). */
+  /** The command or the input of the call, bounded, credentials masked. */
   readonly input?: string;
-  /** The result of the call, bounded, credentials masked (PAGE-303). */
+  /** The result of the call, bounded, credentials masked. */
   readonly output?: string;
-  /** What the tool does, in one short sentence (PAGE-390). */
+  /** What the tool does, in one short sentence. */
   readonly summary?: string;
-  /** How long the call took, in milliseconds, once it ended (PAGE-390). */
+  /** How long the call took, in milliseconds, once it ended. */
   readonly durationMs?: number;
 }
 
@@ -181,8 +177,7 @@ export interface ChatJobUsageEvent {
 }
 
 /**
- * The agent compacted the context of its session on its own (PAGE-90).
- *
+ * The agent compacted the context of its session on its own.
  * @remarks
  * Compaction is neither a stop nor a steer and ends no turn. The token counts
  * are the adapter's report, `null` where it named none.
@@ -248,7 +243,6 @@ export interface ChatJob {
 
 /**
  * A consistent read of a job: its state and the journal after a cursor.
- *
  * @remarks
  * `cursor` is the sequence of the last returned entry; the next read asks for
  * the entries after it, so nothing is skipped or repeated.
@@ -284,7 +278,6 @@ export interface ChatSessionActivity {
 
 /**
  * The small state of a conversation that another device may have changed.
- *
  * @remarks
  * Read from the conversation and its newest job alone, without messages or
  * journal; `jobId` and `jobState` are `null` without a job.

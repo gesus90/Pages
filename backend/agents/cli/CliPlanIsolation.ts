@@ -20,10 +20,8 @@ const RETRY_FAILED_PROBE_MS = 60_000;
 const execFileAsync = promisify(execFile);
 /**
  * Proves that bubblewrap starts a namespace for this account on this host.
- *
  * @param run - Starts a program and fails with the program; defaults to a real process.
  * @returns Whether bubblewrap is installed and a throw-away namespace starts.
- *
  * @remarks
  * An installed binary is not enough: containers and hardened kernels refuse
  * unprivileged namespaces, and a CLI run would then fail for a reason nobody
@@ -67,7 +65,6 @@ interface IsolationMounts {
 
 /**
  * Hides the instance folders from CLI runs in a separate mount namespace.
- *
  * @remarks
  * File modes alone cannot protect `AGENT.md` and the run records from a model
  * process that runs under the account of the server. The namespace makes the
@@ -92,7 +89,6 @@ export class CliPlanIsolation {
 
   /**
    * Creates the isolation of one server process.
-   *
    * @param protectedDirectories - Folders that must stay out of reach, such as the data and agent folders.
    * @param probe - Decides whether bubblewrap works here; defaults to {@link probeBubblewrap}.
    * A positive answer is kept for the life of the server, a negative one for a minute.
@@ -113,7 +109,6 @@ export class CliPlanIsolation {
 
   /**
    * Wraps a run in bubblewrap.
-   *
    * @param request - The run as it would start without isolation.
    * @returns The wrapped run, or `null` when bubblewrap does not work on this host.
    * @throws {AgentError} `workspace_path_outside_roots` when the working

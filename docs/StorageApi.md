@@ -1,11 +1,11 @@
-# Storage interface for files and folders (PAGE-270)
+# Storage interface for files and folders
 
 [Documentation index](README.md) · [Access rights](#rights) ·
-[Google Drive sign-in](#google-drive-sign-in-page-170) ·
-[File area](#storage-google-drive-file-area-page-188)
+[Google Drive sign-in](#google-drive-sign-in) ·
+[File area](#storage-google-drive-file-area)
 
 Pages Storage manages the files and folders of the Google Drive the instance
-is connected to (system settings → Google Drive, PAGE-170). Besides the
+is connected to (system settings → Google Drive). Besides the
 Storage page, the server offers one documented, authenticated HTTP interface
 for external clients and Pica:
 
@@ -16,12 +16,12 @@ POST /storage-api/v1/<operation>   (JSON, or multipart/form-data for uploads)
 
 It is implemented by `app/routes/storage-api-v1.ts` and
 `backend/service/google/GoogleDriveFileService.ts` (reader, writer,
-confirmations). A separate MCP client is not part of PAGE-270.
+confirmations). A separate MCP client is not part of this repository.
 
 ## Rights
 
-- An active administrator in admin mode may use all operations. PAGE-323
-  also grants **Storage writing per folder** to roles, departments or groups.
+- An active administrator in admin mode may use all operations. The current
+  role grants also allow **Storage writing per folder** to roles, departments or groups.
   Current members (human or agent accounts) may list/read, create subfolders,
   upload and save versions in that folder and its descendants without admin
   mode. Missing rights return `403 forbidden` before any content read or write.
@@ -36,7 +36,7 @@ confirmations). A separate MCP client is not part of PAGE-270.
 - The session cookie authenticates the call (`SameSite=Lax`); changing calls
   are `POST` only.
 
-## Pages MCP API (PAGE-299)
+## Pages MCP API
 
 The paired-device API exposes the same reader and writer at
 `/api/mcp/v1/storage/<operation>`. It is a resource route in both the API and
@@ -87,7 +87,7 @@ Concrete decisions that a client must follow or compare against its contract:
   unsupported exports `exportFormats`. No provider response, credential or
   file content is included. JSON responses use `no-store` and `nosniff`.
 
-### Current account and folder rights (PAGE-323)
+### Current account and folder rights
 
 Paired-device authentication checks the current active account and password
 requirements. Every operation then uses `googleDriveFileService.forAccount`:
@@ -103,7 +103,6 @@ name, operation and reference, without bytes, tokens or input parameters.
 The UI history and `/storage-api/access?view=history` show the account's own
 activity; active administrators see all activity. The settings at
 `/settings/system` configure grants through `/storage-api/access`.
-See [Team setup](wiki/PAGE-323.md) for the A-Team configuration.
 
 ### File transfers and destructive changes
 
@@ -135,20 +134,20 @@ See [Team setup](wiki/PAGE-323.md) for the A-Team configuration.
 
 ### Isolated implementation evidence
 
-The PAGE-299 function exercise ran an API development server on the free
+The function exercise ran an API development server on the free
 loopback port 45267 with a private home/configuration, its own temporary
 PostgreSQL instance, a setup-created synthetic administrator, normal device
 pairing and `PAGES_GOOGLE_DRIVE_SIMULATION=1` (`NODE_ENV=development`). No
 production account or real Google connection was used. These are simulated
 observations, **not live Drive or external-client verification**:
 
-| Todo | Evidence                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| T1   | All listed operations answered direct JSON or a binary attachment; capabilities/quota/list returned 200. Unknown root/nested/prototype-named paths returned JSON 404, wrong method 405, cookie-only authentication 401.                                                                                                                                                                                                                                                                                       |
-| T2   | List (80 per page) and search (100 per page) each returned all 230 distinct paging entries in three calls. A resolved path was reused by ref; rename/move retained the ref. Ambiguity/conflict returned 409, missing entries 404, invalid search/ref/cursor 400, binary read and unsupported Google exports 422.                                                                                                                                                                                              |
-| T3   | The synthetic account in persisted admin mode received 200; the same device token in persisted role mode received 403, then 200 after the ordinary UI restored admin mode. Direct isolated policy exercises refused inactive, non-admin, agent, missing, mismatched and throwing contexts. Update/overwrite required 428 previews; changed versions, changed folder scope and spent tokens returned 409; fresh confirmations allowed updates, folder trash/restore and separate permanent deletion.           |
-| T4   | Raw and multipart binary upload succeeded; the eight downloaded bytes matched exactly. The generated 300 MiB download delivered an initial chunk and was cancelled without collecting the file. JSON above 64 KiB and raw upload above 64 MiB returned 413, including a chunked request without Content-Length. Supported Google PDF export returned 200, unsupported export 422. The session API still returned its original 200 `ok/result` envelope; Pica and its service implementation were not changed. |
-| T5   | This section records methods, aliases, schemas, transfer limits, errors, confirmation flow and persisted UI rights, including the unavailable external-client contract and the simulation/live distinction.                                                                                                                                                                                                                                                                                                   |
+| Check      | Evidence                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Operations | All listed operations answered direct JSON or a binary attachment; capabilities/quota/list returned 200. Unknown root/nested/prototype-named paths returned JSON 404, wrong method 405, cookie-only authentication 401.                                                                                                                                                                                                                                                                                       |
+| Paging     | List (80 per page) and search (100 per page) each returned all 230 distinct paging entries in three calls. A resolved path was reused by ref; rename/move retained the ref. Ambiguity/conflict returned 409, missing entries 404, invalid search/ref/cursor 400, binary read and unsupported Google exports 422.                                                                                                                                                                                              |
+| Rights     | The synthetic account in persisted admin mode received 200; the same device token in persisted role mode received 403, then 200 after the ordinary UI restored admin mode. Direct isolated policy exercises refused inactive, non-admin, agent, missing, mismatched and throwing contexts. Update/overwrite required 428 previews; changed versions, changed folder scope and spent tokens returned 409; fresh confirmations allowed updates, folder trash/restore and separate permanent deletion.           |
+| Transfers  | Raw and multipart binary upload succeeded; the eight downloaded bytes matched exactly. The generated 300 MiB download delivered an initial chunk and was cancelled without collecting the file. JSON above 64 KiB and raw upload above 64 MiB returned 413, including a chunked request without Content-Length. Supported Google PDF export returned 200, unsupported export 422. The session API still returned its original 200 `ok/result` envelope; Pica and its service implementation were not changed. |
+| Contract   | This section records methods, aliases, schemas, transfer limits, errors, confirmation flow and persisted UI rights, including the unavailable external-client contract and the simulation/live distinction.                                                                                                                                                                                                                                                                                                   |
 
 The targeted source files were formatted, linted and checked for TypeScript
 diagnostics in isolation (zero findings). Per the
@@ -240,7 +239,7 @@ JSON body (at most 64 KiB) unless noted. `onConflict` is `fail` (default),
 Names are trimmed, 1–255 characters, without `/`, control characters, `.`
 or `..`.
 
-#### `batch` (PAGE-272)
+#### `batch`
 
 Body: `action` (`copy`, `move` or `delete`), `sourceRef` (the folder the
 entries lie in), `refs` (a JSON array of 1–100 distinct references) and, for
@@ -325,7 +324,7 @@ Errors never contain tokens, file contents or Google's raw answer.
 ## Google write access and consent
 
 Every sign-in asks for `drive.file`, `drive.readonly` (read-only browsing)
-and, since PAGE-272, the full `drive` scope as well. Google's granular consent
+and the full `drive` scope as well. Google's granular consent
 lets the person decline `drive`; changing existing files needs it, so the
 interface checks the granted scopes on every changing call and answers
 `provider_scope_missing` with `consentPath`
@@ -344,7 +343,7 @@ changing actions disabled.
 The live Google sign-in and the real consent are an operator acceptance after
 deployment.
 
-## Pica (PAGE-271)
+## Pica
 
 Pica uses the same reader and writer as this interface through native tools
 (`backend/service/chat/admin/PicaStorage*.ts`): `storage_capabilities`,
@@ -423,12 +422,12 @@ curl -b "pages_session=…" -H 'content-type: application/json' -d '{"ref":"<ref
 curl -b "pages_session=…" -H 'content-type: application/json' -d '{"ref":"<ref>","confirmation":"<token>"}' "$PAGES/storage-api/v1/delete_permanently"
 ```
 
-## Google Drive sign-in (PAGE-170)
+## Google Drive sign-in
 
 Under **Settings → System** the **Storage** card connects one Google Drive account
 to the instance. It offers only the sign-in, a truthful status and the errors
 that belong to it. The file area that uses this connection is the **Storage**
-navigation entry (PAGE-188, see the file-area section below).
+navigation entry (see the file-area section below).
 
 ### Set up the Google OAuth client (once per instance)
 
@@ -442,7 +441,7 @@ An administrator of the Google Cloud project creates the client:
    _Internal_ for a Workspace organization), app name, support address. Add the
    scopes `https://www.googleapis.com/auth/drive.file` and, for the folder
    navigation of Storage, `https://www.googleapis.com/auth/drive.readonly`
-   (PAGE-188), nothing else.
+   nothing else.
 3. **Clients:** create an OAuth client of the type _Web application_ with the
    authorized redirect URIs of every address Pages is reached at, exactly and
    without wildcards:
@@ -512,7 +511,7 @@ example through an SSH port forward.
   A rejected client, a disabled Drive API or an unreachable Google shows a
   concrete error and never **Connected**.
 
-## Storage: Google Drive file area (PAGE-188)
+## Storage: Google Drive file area
 
 The **Storage** entry of the global navigation opens the Google Drive of the
 existing connection above. It adds no sign-in, no token storage and no settings
@@ -521,7 +520,7 @@ one sentence with a link to **Settings → System**.
 
 - **Pages rights:** the instance uses the Google account an administrator
   connected. Current folder grants also admit non-admin accounts to selected
-  folders and their descendants (PAGE-323); see [Rights](#rights).
+  folders and their descendants; see [Rights](#rights).
 - **Google rights:** every request takes a freshly confirmed access of the
   connection (`about.get` proves the bound `permissionId`, the access token is
   renewed with the stored refresh token when needed) and asks the official Drive
@@ -534,14 +533,14 @@ one sentence with a link to **Settings → System**.
   opened, never the existing folder tree. The sign-in therefore also asks for
   `drive.readonly`; Storage reads the granted scopes of the stored connection
   and, without a read scope, says so and points to a new sign-in under
-  **Settings → System**. A connection made before PAGE-188 needs that new
+  **Settings → System**. An older connection needs that new
   sign-in for the folder navigation. Shared drives are offered only with a read
   scope.
 - **Navigation:** path from My Drive or a shared drive down to the folder, each
   step clickable; folders first, then files, 200 per page with "Load more".
   `/storage?folder=<id>` is an explicit target and is never redirected; plain
   `/storage` opens the start folder, else My Drive.
-- **Folder change (PAGE-279):** opening a folder, a path step, My Drive, the
+- **Folder change:** opening a folder, a path step, My Drive, the
   shared drives or the start folder changes only the address and the file card.
   Frame, header, quota and toolbar stay in place; the frame's data is not read
   again for it. Until the new folder arrives, the card shows the former one
@@ -568,6 +567,6 @@ one sentence with a link to **Settings → System**.
   scrolls. The multicolored Drive logo beside the path is Google's own product
   logo, see `assets/google-drive/NOTICE.txt`.
 - **Further operations:** upload, versions, rename, move, trash and deletion
-  are documented in the API sections above. The original PAGE-188 read-only
+  are documented in the API sections above. The original read-only
   scope is historical; it does not describe the current writer or folder grants.
   This file area does not move existing ticket or wiki attachments.

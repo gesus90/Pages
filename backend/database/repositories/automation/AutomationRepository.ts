@@ -170,8 +170,7 @@ function writeParameters(
 }
 
 /**
- * Stores automations (PAGE-297).
- *
+ * Stores automations.
  * @remarks
  * The definitions are stored as validated JSON; a read parses them again, so
  * a row that no longer fits the contract fails loudly instead of running.
@@ -181,7 +180,6 @@ export class AutomationRepository {
 
   /**
    * Creates the repository.
-   *
    * @param database - The database or an open transaction.
    */
   public constructor(database: Executor) {

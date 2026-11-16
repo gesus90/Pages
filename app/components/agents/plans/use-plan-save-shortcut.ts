@@ -12,7 +12,6 @@ function isSaveShortcut(event: KeyboardEvent): boolean {
 
 /**
  * Saves the plan with Ctrl+S or Cmd+S while the editor is open, wherever the focus is.
- *
  * @remarks
  * The browser never saves the page instead, and a held key saves only once.
  * Saving stays explicit: nothing is stored without the shortcut.

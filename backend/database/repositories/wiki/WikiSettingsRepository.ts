@@ -9,7 +9,6 @@ export class WikiSettingsRepository {
 
   /**
    * Creates the repository.
-   *
    * @param database - Database access or the transaction to run in.
    */
   public constructor(database: DatabaseTransaction) {
@@ -18,7 +17,6 @@ export class WikiSettingsRepository {
 
   /**
    * Reads the stored settings.
-   *
    * @returns The settings, or `null` while an administrator never saved any.
    */
   public async find(): Promise<WikiSettings | null> {
@@ -49,7 +47,6 @@ export class WikiSettingsRepository {
 
   /**
    * Stores the settings, replacing earlier ones.
-   *
    * @param settings - Validated values.
    */
   public async save(settings: WikiSettings): Promise<void> {

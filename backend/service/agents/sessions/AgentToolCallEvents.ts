@@ -12,7 +12,6 @@ import type { SessionUpdate } from "@agentclientprotocol/sdk";
 
 /**
  * Turns the tool-call updates of one agent session into journal events.
- *
  * @remarks
  * Keeps the state of every open tool call, so that a later update can name
  * what an earlier update only announced.
@@ -22,7 +21,6 @@ export class AgentToolCallEvents {
 
   /**
    * The journal event that a tool-call update adds, if it adds one.
-   *
    * @param update - The tool-call update reported by the agent.
    * @returns The event to record, or `null` when the update adds none.
    */

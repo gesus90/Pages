@@ -157,7 +157,6 @@ function readDirectoryNames(
 
 /**
  * Reads the entry names from the central directory at the end of a ZIP file.
- *
  * @returns The names, or `null` when the directory is missing, damaged, uses
  * ZIP64 or does not lie within the kept tail of the file.
  */
@@ -221,8 +220,7 @@ function detectType(
 }
 
 /**
- * Decides the type of an uploaded file from its content (T6.12.4).
- *
+ * Decides the type of an uploaded file from its content.
  * @param fileName - The cleaned name; its extension names the expected kind.
  * @param facts - What the content revealed while it was stored.
  * @param isSafeSvg - Tells whether SVG markup is free of scripts and external references.

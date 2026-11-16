@@ -252,7 +252,6 @@ const LAYOUT_HANDLERS: Readonly<Record<string, WikiActionHandler>> = {
 
 /**
  * Handles the actions that change the structure of the wiki.
- *
  * @param context - The submission.
  * @returns The response for the client.
  */

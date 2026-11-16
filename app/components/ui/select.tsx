@@ -15,7 +15,6 @@ interface SelectOption<Value extends string = string> {
   readonly icon?: ReactNode;
   /**
    * Optional explanatory text shown below the option label.
-   *
    * @remarks
    * Rendered `aria-hidden` so the accessible option name stays the label.
    */
@@ -56,7 +55,6 @@ function fromRadixValue(value: string): string {
 
 /**
  * Renders a Pages-styled select built on Radix UI.
- *
  * @remarks
  * Fachlicher Code soll diese Abstraktion verwenden statt
  * `Select.Root` direkt zu nutzen oder native `select`-Elemente

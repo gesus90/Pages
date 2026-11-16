@@ -1,10 +1,10 @@
 [Unit]
 Description=Pages core: live streams, event delivery and WebSocket relay (%i)
 # Deliberately no dependency on pages-api@%i: the core holds the streams while
-# the API restarts and asks it again once it answers (PAGE-237). Without
+# the API restarts and asks it again once it answers. Without
 # PostgreSQL it retries; it never stops the API, the runs or the entrance.
 # With picaMobileRelayPort in config.toml it also listens on picaMobilePort,
-# on listenAddress or every interface, for the app (PAGE-239).
+# on listenAddress or every interface, for the app.
 After=network-online.target pages-postgres@%i.service
 Wants=network-online.target
 PartOf=pages.target
@@ -20,7 +20,7 @@ WorkingDirectory=/opt/pages
 Environment=PAGES_CORE_LISTEN=127.0.0.1:3200
 Environment=PAGES_CORE_API=http://127.0.0.1:3100
 # The service status of the services under pages.target, read from the system
-# manager over D-Bus (PAGE-238). Empty: the core reports no status. Unbraced,
+# manager over D-Bus. Empty: the core reports no status. Unbraced,
 # so the words become separate arguments.
 Environment="PAGES_CORE_STATUS_OPTIONS=--status-target pages.target --status-bus system"
 EnvironmentFile=-/etc/pages/%i/core.env
@@ -28,7 +28,7 @@ EnvironmentFile=-/etc/pages/%i/core.env
 ExecStart=/opt/pages/core/target/release/pages-core --config /etc/pages/%i/config.toml --listen ${PAGES_CORE_LISTEN} --api ${PAGES_CORE_API} $PAGES_CORE_STATUS_OPTIONS
 Restart=always
 RestartSec=2
-# PAGE-237 budget: 1,000 open streams were measured far below it.
+# Budget: 1,000 open streams were measured far below it.
 MemoryMax=256M
 MemorySwapMax=0
 OOMScoreAdjust=-300

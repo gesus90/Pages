@@ -28,8 +28,7 @@ function cut(text: string, maximum: number): string {
 }
 
 /**
- * The model calls of the memory in the development simulation (PAGE-305,
- * part of PAGE-268).
+ * The model calls of the memory in the development simulation.
  *
  * @remarks
  * It contacts no model provider and derives its answers from the input

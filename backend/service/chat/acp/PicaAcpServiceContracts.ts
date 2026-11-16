@@ -19,7 +19,7 @@ import type { PicaAcpSessionPool } from "./PicaAcpSessionPool";
 import type { PicaAcpConversationTurn } from "./PicaAcpSteering";
 import type { PicaAcpWorkspace } from "./PicaAcpWorkspace";
 
-/** A job of a conversation with its journal (PAGE-303). */
+/** A job of a conversation with its journal. */
 export interface ChatJobJournal {
   readonly job: ChatJob;
   readonly events: readonly ChatJobEntry[];
@@ -42,7 +42,7 @@ export interface PicaAcpServiceDependencies extends PicaAcpJobDependencies {
     userId: string,
     assignment: ResolvedAgentAssignment,
   ) => Promise<void>;
-  /** The chat sessions agent employees keep between rounds (PAGE-335); absent opens one per job. */
+  /** The chat sessions agent employees keep between rounds; absent opens one per job. */
   readonly pool?: Pick<
     PicaAcpSessionPool,
     "open" | "close" | "closeForWorkspace" | "keepWorkspace"
@@ -59,8 +59,7 @@ export interface PicaAcpRequest {
 }
 
 /**
- * How a job of an agent employee differs from one of Pica (PAGE-266).
- *
+ * How a job of an agent employee differs from one of Pica.
  * @remarks
  * The job runs as the agent's own account, with the runner of its stored
  * access. Each round pins its configuration and checks account availability
@@ -82,23 +81,23 @@ export interface PicaAcpEmployeeRun {
   readonly requireConnection: (connectionId: string) => Promise<void>;
   /** Searches the agent's own memory archive. */
   readonly searchMemory: (query: string) => Promise<unknown>;
-  /** Reads a group of the agent's own account (PAGE-296). */
+  /** Reads a group of the agent's own account. */
   readonly readConversationContext?: (input: unknown) => Promise<unknown>;
-  /** Reads the messages of the chat of the job's session after a position, for `chat_lesen` (PAGE-376). */
+  /** Reads the messages of the chat of the job's session after a position, for `chat_lesen`. */
   readonly readOwnChat?: (input: unknown) => Promise<unknown>;
-  /** The Lagebuch tools of the job's chat session (PAGE-377); absent for a run of the agent's own. */
+  /** The Lagebuch tools of the job's chat session; absent for a run of the agent's own. */
   readonly logbook?: AgentLogbookTools;
-  /** The recipe tool and the record of tool calls of the job's chat session (PAGE-378); absent for a run of the agent's own. */
+  /** The recipe tool and the record of tool calls of the job's chat session; absent for a run of the agent's own. */
   readonly recipes?: AgentRecipeTools;
   /**
    * A short run of the agent's own, such as the upkeep of its memory
-   * (PAGE-376): it starts a new agent session and never continues an
+   * It starts a new agent session and never continues an
    * earlier one, so it carries no context of a chat.
    */
   readonly isFreshSession?: boolean;
   /**
    * Attaches a file of the job's working folder to a ticket or a wiki page
-   * with the agent's rights; present only with host tools (PAGE-303).
+   * with the agent's rights; present only with host tools.
    */
   readonly attachFile?: (
     directory: string,
@@ -107,19 +106,19 @@ export interface PicaAcpEmployeeRun {
   ) => Promise<{ readonly ok: boolean; readonly error?: string }>;
   /**
    * Called once when the job ended, however it ended, so the caller frees
-   * the place of the session among the limits of the agent (PAGE-304).
+   * the place of the session among the limits of the agent.
    */
   readonly onSettled?: () => void;
-  /** The Pages tools to read chats and send messages (PAGE-311); absent where none run. */
+  /** The Pages tools to read chats and send messages; absent where none run. */
   readonly agentChat?: AgentChatTools;
   /**
-   * Creates the toolkit of the job in its working folder (PAGE-390): shell,
+   * Creates the toolkit of the job in its working folder: shell,
    * file and web tools and the policy of the agent's access level and
    * switched-off groups. Its background runs end with the job.
    */
   readonly toolkit?: (directory: string) => AgentToolkitJob;
   /**
-   * Keeps the session of the chat for the next round (PAGE-335): the label of
+   * Keeps the session of the chat for the next round: the label of
    * the conversation for the resource view and the revision of the agent,
    * retained as metadata. Only session configuration changes restart it.
    * Absent opens a session per job.

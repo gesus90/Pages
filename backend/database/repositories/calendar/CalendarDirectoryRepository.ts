@@ -55,7 +55,7 @@ function escapeLike(text: string): string {
 
 /**
  * Reads the people, agents, groups and departments the calendar invites and
- * resolves (PAGE-301).
+ * resolves.
  */
 export class CalendarDirectoryRepository {
   private readonly database: CalendarDatabase;

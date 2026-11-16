@@ -10,7 +10,6 @@ export class TooManyLoginAttemptsError extends Error {
 
   /**
    * Creates the error.
-   *
    * @param retryAfterSeconds - Seconds the caller has to wait.
    */
   public constructor(retryAfterSeconds: number) {
@@ -31,7 +30,6 @@ export interface LoginThrottleOptions {
 
 /**
  * Slows down password guessing by counting failed logins.
- *
  * @remarks
  * Failures are counted per username and, when the caller knows it, per client
  * address inside a sliding window. Unknown and known usernames are counted
@@ -50,7 +48,6 @@ export class LoginThrottle {
 
   /**
    * Creates a throttle.
-   *
    * @param options - Overrides for the limits and the clock.
    */
   public constructor(options: LoginThrottleOptions = {}) {
@@ -65,7 +62,6 @@ export class LoginThrottle {
 
   /**
    * Rejects the attempt when the username or address reached its limit.
-   *
    * @param username - Username entered by the visitor.
    * @param clientAddress - Address of the visitor, when known.
    * @throws {TooManyLoginAttemptsError} When a limit is reached.
@@ -94,7 +90,6 @@ export class LoginThrottle {
 
   /**
    * Counts a failed attempt for the username and the address.
-   *
    * @param username - Username entered by the visitor.
    * @param clientAddress - Address of the visitor, when known.
    */
@@ -111,7 +106,6 @@ export class LoginThrottle {
 
   /**
    * Forgets the failures of a username after a successful login.
-   *
    * @param username - Username that signed in.
    */
   public recordSuccess(username: string): void {

@@ -125,7 +125,7 @@ function useSampleAudio(): {
 }
 
 /**
- * Loads and plays samples of an agent's voice (PAGE-300).
+ * Loads and plays samples of an agent's voice.
  *
  * @param agentId - The stored agent; `null` for an agent not yet created,
  * which has no sample.

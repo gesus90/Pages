@@ -77,7 +77,7 @@ interface PreparationDependencies {
   readonly parameters: Pick<AgentParameterService, "prepare">;
   readonly tasks: Pick<AgentPlanTasks, "snapshot">;
   readonly scripts?: Pick<AgentPlanScriptPreparation, "prepare" | "validate">;
-  /** Reads the file of every connected asset node before the run starts (PAGE-268). */
+  /** Reads the file of every connected asset node before the run starts. */
   readonly planAssets?: Pick<
     PlanAssetService,
     "describe" | "read" | "isReadable"
@@ -117,7 +117,6 @@ export class AgentPlanPreparation {
 
   /**
    * Freezes definitions, values, resource revisions and graph order, while excluding credentials.
-   *
    * @remarks
    * Nodes without a target of their own take the plan's target here, so the
    * snapshot names the target of every node and a run keeps it, whatever
@@ -427,7 +426,6 @@ function requirePreparedRuntime(
 
 /**
  * The ticket nodes of a plan, the ticket entries of its stacks included.
- *
  * @remarks
  * Every ticket a stack may hand over is read with the executor's rights
  * before the run starts, so a ticket the executor cannot see refuses the
@@ -446,7 +444,6 @@ function planTaskNodes(plan: AgentPlan): readonly AgentPlan["nodes"][number][] {
 
 /**
  * The plan with the groups inside its loops dissolved into their agents.
- *
  * @remarks
  * The snapshot keeps each loop as one node of agents and scripts with their
  * edges, the edges inside its groups included; which agents share a session

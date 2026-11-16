@@ -28,7 +28,7 @@ import type { PreviewContribution } from "./StructuredImportStepPreview";
 import type { StructuredWikiPackage } from "./StructuredImportWiki";
 import type { WikiImportSource } from "./WikiImportPackage";
 
-/** The A9.7 plan of the wiki part with the package it was planned from. */
+/** The plan of the wiki part with the package it was planned from. */
 export interface StructuredWikiPlan {
   readonly package: StructuredWikiPackage;
   readonly plan: AgentImportPlan;
@@ -92,7 +92,7 @@ function matches(found: AgentStructuredIssue, page: AgentImportPage): boolean {
   );
 }
 
-/** Mirrors the comparison of the A9.8 source service, without writing the outcome. */
+/** Mirrors the comparison of the wiki source service, without writing the outcome. */
 async function compareWikiMapping(
   context: WikiContext,
   mapping: StoredAgentImportSource,
@@ -195,11 +195,10 @@ async function previewPage(
 }
 
 /**
- * Plans the pages: A9.7 diagnoses first, then each mapping is compared the way
- * the A9.8 source service compares it.
- *
+ * Plans the pages: the wiki plan diagnoses first, then each mapping is compared the way
+ * the wiki source service compares it.
  * @param environment - Account, rights and repositories of the call.
- * @param wiki - The A9.7 plan of the wiki package.
+ * @param wiki - The plan of the wiki package.
  * @returns One object and one edge per page, and the issues of the wiki plan.
  */
 export async function previewWiki(

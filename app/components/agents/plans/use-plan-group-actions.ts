@@ -513,7 +513,6 @@ function joinStackDrop(
 
 /**
  * Where a dropped group goes: the loop under the pointer, or the outer grid.
- *
  * @returns `null` for a group that is gone.
  */
 function groupPlacement(

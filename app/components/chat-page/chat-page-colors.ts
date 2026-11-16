@@ -26,9 +26,8 @@ const DEFAULT_COLORS: ParticipantColorClasses = {
 };
 
 /**
- * Resolves a participant's person color (PAGE-266) to what the chat page
+ * Resolves a participant's person color to what the chat page
  * draws: the one place that turns a color into classes and styles here.
- *
  * @remarks
  * A chosen color is a user-chosen color, so it is drawn directly: as a light
  * tint and a border of the bubble and, through the readable text class, as

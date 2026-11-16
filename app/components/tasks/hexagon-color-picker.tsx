@@ -10,7 +10,6 @@ interface HexagonColorPickerProps {
 
 /**
  * Renders a free color picker with a hexagon saturation pad.
- *
  * @remarks
  * Visually follows the hexagon-picker idea without pulling in its
  * unmaintained React 16 dependency: the saturation pad is clipped to a

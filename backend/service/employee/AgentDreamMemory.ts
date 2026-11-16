@@ -110,7 +110,7 @@ function describeDiscarded(
 }
 
 /**
- * Takes the durable points of the Lagebuch into `MEMORY.md` (PAGE-378): one
+ * Takes the durable points of the Lagebuch into `MEMORY.md`: one
  * topic each with its source and date, finished topics into the archive, and
  * names what was discarded as done or outdated.
  *

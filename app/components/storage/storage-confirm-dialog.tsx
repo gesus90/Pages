@@ -56,8 +56,7 @@ function ScopeSummary({
 
 /**
  * Asks before a destructive Storage action: moving a folder to the trash,
- * deleting permanently or overwriting a file (PAGE-270).
- *
+ * deleting permanently or overwriting a file.
  * @remarks
  * It shows the target, the action and, for a folder, the reached scope the
  * server counted. When the object changed meanwhile, the server issues a new

@@ -32,7 +32,6 @@ import type {
 
 /**
  * Creates the server settings service for the running instance.
- *
  * @param context - Services of the request.
  * @returns The service bound to the configuration file of this process.
  */
@@ -55,7 +54,6 @@ function readPort(formData: FormData): number {
 
 /**
  * Stores the server port an administrator entered.
- *
  * @remarks
  * The port is written to the configuration file and used after the next
  * restart; the running server keeps its port.
@@ -117,7 +115,6 @@ const SYSTEM_ACTION_HANDLERS = {
 
 /**
  * Runs the system settings action a form submission asks for.
- *
  * @param intent - The `intent` field of the submitted form.
  * @param context - User, request, form fields and services of the request.
  * @returns The response for the client.

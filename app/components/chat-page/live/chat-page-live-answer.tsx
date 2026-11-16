@@ -44,8 +44,7 @@ function nextWordEnd(text: string, from: number): number {
 }
 
 /**
- * Reveals a growing text word by word, as it was written (PAGE-381).
- *
+ * Reveals a growing text word by word, as it was written.
  * @remarks
  * The server sends complete words in short bursts; the page shows them one
  * after the other. A text that no longer continues the shown one, such as
@@ -107,7 +106,7 @@ export function liveToolUse(
 /**
  * The thoughts of an answer for the one reader who may see them: a hint
  * with the running time while the model thinks, folded "Gedanken · 12 s"
- * after that (PAGE-381).
+ * after that.
  */
 export function ChatPageThoughts({
   thought,
@@ -220,7 +219,7 @@ interface ChatPageLiveAnswerProps {
 }
 
 /**
- * The answer an agent is writing now (PAGE-381): name, model and a "live"
+ * The answer an agent is writing now: name, model and a "live"
  * hint above, an orange ring around the avatar, then its thoughts for the
  * reader allowed to see them, its tool calls and the text as it grows.
  */
@@ -298,8 +297,8 @@ export function ChatPageLiveAnswer({
 }
 
 /**
- * The placeholders of the images an agent is generating right now
- * (PAGE-382), as the gallery of its answer will show them.
+ * The placeholders of the images an agent is generating right now,
+ * as the gallery of its answer will show them.
  */
 function GeneratingImages({
   tools,
@@ -331,7 +330,7 @@ function GeneratingImages({
 }
 
 /**
- * The tool calls of an ended answer for its folded entry (PAGE-381): the
+ * The tool calls of an ended answer for its folded entry: the
  * stored calls, with the times the page saw them run, and the time of all.
  *
  * @param uses - The calls stored with the answer; empty where none are stored.

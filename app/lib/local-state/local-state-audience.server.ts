@@ -4,7 +4,6 @@ import type { LocalStateAudience } from "./local-state-audience";
 
 /**
  * The account's authorization fingerprint, as the page shell and `/account-version` report it.
- *
  * @param services - Initialized server-side services.
  * @param userId - The signed-in account.
  */

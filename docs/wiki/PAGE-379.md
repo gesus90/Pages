@@ -1,6 +1,6 @@
-# Wiki-Entwurf PAGE-379: Gruppen-Chats – Zuständigkeit per @ und Decision-Modell (OpenRouter Decisions) mit Schwellen
+# Wiki-Entwurf: Gruppen-Chats – Zuständigkeit per @ und Decision-Modell (OpenRouter Decisions) mit Schwellen
 
-Entwurf für All Might. Er ersetzt in [PAGE-317](./PAGE-317.md) die Abschnitte „Instanzweites Entscheidungsmodell“, „Wer antwortet?“ je Gruppenchat und „Ablauf und Fallback“; der Beobachter von PAGE-296 wählt in Gruppen keine Agents mehr. Die Wiki-Seiten liegen im Live-Dienst und wurden vom Lauf nicht geändert.
+Dieser Entwurf ersetzt im [früheren Entwurf zur Gruppenchat-Zuständigkeit](./PAGE-317.md) die Abschnitte „Instanzweites Entscheidungsmodell“, „Wer antwortet?“ je Gruppenchat und „Ablauf und Fallback“; der Beobachter wählt in Gruppen keine Agents mehr. Die Live-Wiki wird getrennt gepflegt.
 
 ---
 
@@ -73,4 +73,4 @@ Die Migration wurde auf einem Wegwerf-PostgreSQL 18 (Migrationen 001 bis 059, Al
 - Eine Nachricht, die nur Menschen mit `@` nennt, gilt als direkt angesprochen: kein Aufruf, keine Systemzeile.
 - Bei Gleichstand von „niemand“ und bestem Agent antwortet niemand.
 - Der Beobachter-Code für die Agent-Auswahl (`ConversationObserverRouting.choose`, Routing-Prompt und -Antwortleser) wird nicht mehr aufgerufen; Gruppenkontext und Zusammenfassungen nutzen den Beobachter weiter. Das Entfernen des ungenutzten Routings ist ein eigener Aufräumschritt.
-- `docs/wiki/PAGE-317.md` beschreibt den Stand davor.
+- Der frühere Entwurf zur Gruppenchat-Zuständigkeit beschreibt den Stand davor.

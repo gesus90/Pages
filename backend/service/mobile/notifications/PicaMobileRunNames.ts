@@ -3,11 +3,9 @@ import type { AgentPlanRun } from "@/definition/AgentPlan";
 
 /**
  * Finds the current name of a step instance in an authorized view of a run.
- *
  * @param run - The view of the run, read with the rights of the account.
  * @param step - The stored identity of the step instance.
  * @returns The name, or `null` when the run no longer shows that instance.
- *
  * @remarks
  * Names are never stored with an event; every use reads them again, so an
  * account that lost the right to the run sees none.

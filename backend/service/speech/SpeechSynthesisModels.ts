@@ -101,13 +101,11 @@ function isSpeechOutputConnection(connection: AgentConnectionRecord): boolean {
 }
 
 /**
- * Lists the speech output models of the instance (PAGE-300).
- *
+ * Lists the speech output models of the instance.
  * @param source - The stored connections and the simulation switch.
  * @param viewer - The administrator who chooses; `null` when Pages speaks for
  * the instance, which no connection scope limits.
  * @returns The models the central rule of `tts` keeps, the simulation last.
- *
  * @remarks
  * Only a model whose stored OpenRouter catalog states `speech` among its
  * outputs ({@link isSpeechSynthesisModel}) is listed. No provider is called.
@@ -139,7 +137,6 @@ export async function listSpeechSynthesisModels(
 
 /**
  * Finds the entry of a saved choice.
- *
  * @param entries - The listed speech output models.
  * @param selection - The saved choice; `null` without one.
  * @returns The entry, or `null` when the choice is not listed.

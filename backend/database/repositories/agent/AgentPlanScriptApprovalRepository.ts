@@ -11,8 +11,7 @@ export interface AgentPlanScriptApproval {
 }
 
 /**
- * Stores which script content an administrator approved (PAGE-329, part C).
- *
+ * Stores which script content an administrator approved.
  * @remarks
  * One approval per script step, bound to the hash of script, interpreter
  * profile and workspace. A changed script has another hash, so the stored

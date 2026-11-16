@@ -13,8 +13,7 @@ export const AGENT_TODO_LIMIT = 40;
 export const AGENT_TODO_TEXT_LENGTH = 200;
 
 /**
- * One entry of the TODO list a CLI reported as a structured plan (PAGE-306).
- *
+ * One entry of the TODO list a CLI reported as a structured plan.
  * @remarks
  * The ACP plan names no identifier, so the identifier is the position in the
  * list (`1`, `2`, ...). Pages never reads TODOs from free text.
@@ -50,7 +49,6 @@ function entryStatus(status: string): AgentPlanAgentTodo["status"] | null {
 
 /**
  * Reads the structured entries of a `plan` journal event.
- *
  * @param text - The journal text, JSON written by the session recorder.
  * @returns The entries; `null` for text of another form, which is never guessed at.
  */
@@ -79,7 +77,6 @@ export function readPlanEventEntries(
 
 /**
  * Turns a reported plan into the TODO list of the attempt.
- *
  * @param entries - The entries of the newest plan update; a plan replaces the list.
  * @param previous - The list reported before, whose times an unchanged entry keeps.
  * @param reportedAt - When the update arrived.

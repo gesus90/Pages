@@ -79,7 +79,7 @@ export interface PicaAcpServiceDependencies extends PicaAcpJobDependencies {
     userId: string,
     assignment: ResolvedAgentAssignment,
   ) => Promise<void>;
-  /** The chat sessions agent employees keep between rounds (PAGE-335); absent opens one per job. */
+  /** The chat sessions agent employees keep between rounds; absent opens one per job. */
   readonly pool?: Pick<
     PicaAcpSessionPool,
     "open" | "close" | "closeForWorkspace" | "keepWorkspace"
@@ -95,14 +95,13 @@ export interface PicaAcpRequest {
   readonly attachmentIds: unknown;
   /**
    * A message sent during an answer that waits for a turn of its own after
-   * the running one instead of joining it (PAGE-381, "Danach senden").
+   * the running one instead of joining it ("Danach senden").
    */
   readonly isDeferred?: boolean;
 }
 
 /**
- * How a job of an agent employee differs from one of Pica (PAGE-266).
- *
+ * How a job of an agent employee differs from one of Pica.
  * @remarks
  * The job runs as the agent's own account, with the runner of its stored
  * access. Each round pins its configuration and checks account availability
@@ -124,23 +123,23 @@ export interface PicaAcpEmployeeRun {
   readonly requireConnection: (connectionId: string) => Promise<void>;
   /** Searches the agent's own memory archive. */
   readonly searchMemory: (query: string) => Promise<unknown>;
-  /** Reads a group of the agent's own account (PAGE-296). */
+  /** Reads a group of the agent's own account. */
   readonly readConversationContext?: (input: unknown) => Promise<unknown>;
-  /** Reads the messages of the chat of the job's session after a position, for `chat_lesen` (PAGE-376). */
+  /** Reads the messages of the chat of the job's session after a position, for `chat_lesen`. */
   readonly readOwnChat?: (input: unknown) => Promise<unknown>;
-  /** The Lagebuch tools of the job's chat session (PAGE-377); absent for a run of the agent's own. */
+  /** The Lagebuch tools of the job's chat session; absent for a run of the agent's own. */
   readonly logbook?: AgentLogbookTools;
-  /** The recipe tool and the record of tool calls of the job's chat session (PAGE-378); absent for a run of the agent's own. */
+  /** The recipe tool and the record of tool calls of the job's chat session; absent for a run of the agent's own. */
   readonly recipes?: AgentRecipeTools;
   /**
    * A short run of the agent's own, such as the upkeep of its memory
-   * (PAGE-376): it starts a new agent session and never continues an
+   * It starts a new agent session and never continues an
    * earlier one, so it carries no context of a chat.
    */
   readonly isFreshSession?: boolean;
   /**
    * Attaches a file of the job's working folder to a ticket or a wiki page
-   * with the agent's rights; present only with host tools (PAGE-303).
+   * with the agent's rights; present only with host tools.
    */
   readonly attachFile?: (
     directory: string,
@@ -149,7 +148,7 @@ export interface PicaAcpEmployeeRun {
   ) => Promise<{ readonly ok: boolean; readonly error?: string }>;
   /**
    * Generates images with the model of the round into the job's working
-   * folder and notes them for the answer, in a conversation (PAGE-382).
+   * folder and notes them for the answer, in a conversation.
    */
   readonly generateImages?: (
     directory: string,
@@ -158,7 +157,7 @@ export interface PicaAcpEmployeeRun {
   ) => Promise<PicaToolOutcome>;
   /**
    * Generates a video or a sound with the model of the round into the job's
-   * working folder and notes it for the answer, in a conversation (PAGE-384).
+   * working folder and notes it for the answer, in a conversation.
    */
   readonly generateMedia?: (
     kind: AgentMediaKind,
@@ -168,22 +167,22 @@ export interface PicaAcpEmployeeRun {
   ) => Promise<PicaToolOutcome>;
   /**
    * Searches and reads the attachments of the chat of the round; images are
-   * written into the job's working folder for the model to open (PAGE-386).
+   * written into the job's working folder for the model to open.
    */
   readonly readAttachments?: AgentAttachmentToolRun;
   /**
    * Called once when the job ended, however it ended, so the caller frees
-   * the place of the session among the limits of the agent (PAGE-304).
+   * the place of the session among the limits of the agent.
    */
   readonly onSettled?: () => void;
-  /** Shows the answer on the chat page while it is written (PAGE-381). */
+  /** Shows the answer on the chat page while it is written. */
   readonly liveAnswer?: LiveAnswerSink;
   /** Creates the restricted tools of this employee job. */
   readonly toolkit?: (directory: string) => AgentToolkitJob;
-  /** The Pages tools to read chats and send messages (PAGE-311); absent where none run. */
+  /** The Pages tools to read chats and send messages; absent where none run. */
   readonly agentChat?: AgentChatTools;
   /**
-   * Keeps the session of the chat for the next round (PAGE-335): the label of
+   * Keeps the session of the chat for the next round: the label of
    * the conversation for the resource view and the revision of the agent,
    * retained as metadata. Only session configuration changes restart it.
    * Absent opens a session per job.
@@ -226,8 +225,7 @@ function readCursor(input: unknown): number {
 
 /**
  * Pica over ACP: jobs that run without the browser, steering and their
- * journal, with Codex CLI, Claude Code or native OpenCode (PAGE-91).
- *
+ * journal, with Codex CLI, Claude Code or native OpenCode.
  * @remarks
  * Every conversation has one queue; a sent message passes it and either joins
  * the running job or starts the next one, never both. A job keeps the agent
@@ -235,7 +233,7 @@ function readCursor(input: unknown): number {
  * changed assignment applies from the next message on. Jobs run in the
  * existing chat registry with its deadline and shutdown: one per person for
  * Pica, one per conversation for an agent employee, whose conversations run
- * side by side (PAGE-304). A conversation that rests gives its queue up
+ * side by side. A conversation that rests gives its queue up
  * after an idle time. Every read and stop is bound to the owner of the
  * conversation.
  */
@@ -262,7 +260,6 @@ export class PicaAcpService {
 
   /**
    * Sends a message into the running job of the conversation.
-   *
    * @returns The stored steer, or `null` when no job runs; a closing job is awaited first.
    */
   public async steer(
@@ -287,7 +284,6 @@ export class PicaAcpService {
 
   /**
    * Stores the message and starts its job, which runs on without the browser.
-   *
    * @throws {AgentExecutionError} `requestBusy` while another answer of the person runs.
    * @throws {ChatError} `acpProviderUnsupported` for an unsupported ACP
    * connection, `acpPermissionModeUnsupported` for
@@ -318,7 +314,6 @@ export class PicaAcpService {
 
   /**
    * Reads a job of an own conversation with its journal after a cursor.
-   *
    * @param actor - The signed-in person.
    * @param input - `sessionId`, optionally `jobId`, and `after`, the last sequence read.
    * @returns The update, or `null` when the conversation has no such job.
@@ -352,8 +347,7 @@ export class PicaAcpService {
 
   /**
    * Reads the journals of the newest jobs of an own conversation, for the
-   * tool calls the chat page shows under each answer (PAGE-303).
-   *
+   * tool calls the chat page shows under each answer.
    * @param actor - The account the conversation belongs to.
    * @param sessionId - The conversation.
    * @param limits - How many jobs, and journal entries per job, at most.
@@ -383,7 +377,7 @@ export class PicaAcpService {
 
   /**
    * Waits until the job of an own conversation released its place, for a
-   * start that found the conversation still busy (PAGE-304).
+   * start that found the conversation still busy.
    */
   public async settled(actor: User, sessionId: unknown): Promise<void> {
     const id = readChatSessionId(sessionId);
@@ -400,8 +394,7 @@ export class PicaAcpService {
 
   /**
    * Cancels the running tool call of the running job of an own conversation
-   * on the person's request; the job goes on (PAGE-303).
-   *
+   * on the person's request; the job goes on.
    * @returns Whether a running call was cancelled.
    */
   public async cancelTool(actor: User, sessionId: unknown): Promise<boolean> {
@@ -415,7 +408,6 @@ export class PicaAcpService {
   /**
    * What a stored message of an own conversation became on this path, for a
    * message the browser sends again because it lost the first answer.
-   *
    * @returns The job the message started or the steer it joined, or `null` for
    * a message that took neither path, such as one an API agent answered.
    */
@@ -620,7 +612,7 @@ export class PicaAcpService {
     sessionId: string,
     releaseWorkspace: () => Promise<void>,
   ): Promise<void> {
-    // A resting pooled process still owns its cwd and continues in it next round (PAGE-335); the folder goes with the process.
+    // A resting pooled process still owns its cwd and continues in it next round; the folder goes with the process.
     if (this.dependencies.pool?.keepWorkspace(sessionId, releaseWorkspace))
       return;
     // A pooled process still owns its cwd inode. End it before unlinking;

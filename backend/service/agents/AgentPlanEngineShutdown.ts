@@ -22,7 +22,6 @@ export interface PlanEngineShutdownInput {
 
 /**
  * Interrupts one run; its failure does not touch the other runs of the stop.
- *
  * @remarks
  * Its executions are aborted even when the interruption could not be saved.
  * The startup recovery then records the run as interrupted.
@@ -72,14 +71,12 @@ export async function drainPlanExecutions(
 
 /**
  * Closes every active run as interrupted, drains its executions and settles.
- *
  * @param input - The runs, their executions and the operations of the engine.
  * @throws The failure of a run, or an `AggregateError`; every run was attempted.
- *
  * @remarks
  * A shutdown is no decision of the executor: the runs close as interrupted, not
  * stopped. One run whose record cannot be saved must not leave the others
- * running (PAGE-199).
+ * running.
  */
 export async function shutdownPlanEngine(
   input: PlanEngineShutdownInput,

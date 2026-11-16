@@ -50,7 +50,7 @@ function ActivityText({
 }
 
 /**
- * The agents at work in the opened chat above the input (PAGE-381), each
+ * The agents at work in the opened chat above the input, each
  * with a small avatar and what it does now; an entry goes once its agent is
  * done. In a group several stand side by side.
  */

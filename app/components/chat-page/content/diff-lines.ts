@@ -179,13 +179,11 @@ function countKind(lines: readonly DiffLine[], kind: DiffLineKind): number {
 
 /**
  * Parses a unified diff into classified, numbered lines.
- *
  * @remarks
  * Line numbers come from `@@ -a,b +c,d @@` headers; without any hunk header
  * numbering starts at 1 on both sides. `diff --git`, `index`, `---`, `+++` and
  * `\ No newline` lines are "meta". Never throws; text that is no diff at all
  * comes back as context lines.
- *
  * @param source - Diff text, with `\n` or `\r\n` line endings.
  * @returns The lines, the file name of the first file, and the change counts.
  */
@@ -227,13 +225,11 @@ function flushChangeRun(
 
 /**
  * Builds the rows of the side-by-side view ("vorher" / "nachher").
- *
  * @remarks
  * Context and hunk lines appear on both sides. A run of removed lines followed
  * by added lines is paired row by row, the shorter side padded with `null`.
  * Meta lines are omitted and do not interrupt a run, so a `\ No newline`
  * marker between the removed and the added lines keeps them paired.
- *
  * @param lines - Lines of a parsed diff.
  * @returns One row per line pair.
  */

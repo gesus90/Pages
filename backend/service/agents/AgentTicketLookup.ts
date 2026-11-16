@@ -4,7 +4,6 @@ import type { AgentTaskContext } from "./AgentTaskAccess";
 
 /**
  * Reads the visible ticket a reference names.
- *
  * @param context - The services of the call, bound to the acting account.
  * @param reference - The identifier or key of the ticket.
  * @returns The ticket, archived ones included.
@@ -21,7 +20,6 @@ export async function requireAgentTicket(
 
 /**
  * Builds the Pages address of a ticket.
- *
  * @param key - The key of the ticket, such as `PAGE-12`.
  * @returns The address below the server.
  */

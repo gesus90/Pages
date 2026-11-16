@@ -132,7 +132,7 @@ interface SlidesPreviewProps {
   readonly onOpen: () => void;
 }
 
-/** The slides in a card (PAGE-385): one slide at a time, turned with the arrows. */
+/** The slides in a card: one slide at a time, turned with the arrows. */
 export function SlidesPreview({
   document,
   onOpen,
@@ -251,7 +251,7 @@ function useWindowSlideKeys(
 }
 
 /**
- * Every slide next to the chat and in the full screen (PAGE-385): the strip
+ * Every slide next to the chat and in the full screen: the strip
  * of slides, a search over titles and text, and the current slide, turned
  * with the arrows or, in the full screen, with the arrow keys.
  */

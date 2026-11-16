@@ -60,7 +60,6 @@ const WORKSPACE_PAGE_STATE: LocalStateRouteKind<WorkspaceOverview> = {
 
 /**
  * Opens the directory from the account's kept answer at once and asks the endpoint behind it.
- *
  * @remarks
  * The endpoint runs the server loader with its checks; a failed load shows
  * the same error as before.

@@ -28,8 +28,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpWikiHandlers {
 }
 
 /**
- * Resolves a thread of comments or opens it again (`POST /api/mcp/v1/wiki/comments/{commentId}/resolve`), PAGE-257 interface 15.
- *
+ * Resolves a thread of comments or opens it again (`POST /api/mcp/v1/wiki/comments/{commentId}/resolve`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

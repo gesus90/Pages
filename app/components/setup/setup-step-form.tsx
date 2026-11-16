@@ -13,7 +13,6 @@ interface SetupStepFormProps {
 
 /**
  * Renders one wizard step as a form, so the Enter key continues.
- *
  * @remarks
  * The values stay in the wizard state; the form element only provides
  * keyboard submission and grouping.

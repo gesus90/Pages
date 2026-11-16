@@ -42,7 +42,6 @@ export class ChatFileProbe {
 
   /**
    * Passes the bytes of an upload through unchanged while observing them.
-   *
    * @param source - The bytes as they arrive.
    * @returns The same bytes.
    */

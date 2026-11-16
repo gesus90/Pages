@@ -1,6 +1,6 @@
 /* Shared material boundaries; color and default material roles live in tailwind.css. */
 @layer utilities {
-  /* Primäraktion des Auth-Bereichs; der Verlauf gilt nur dort (§14.1). */
+  /* Primäraktion des Auth-Bereichs; der Verlauf gilt nur dort. */
   .pages-auth-button {
     background-image: linear-gradient(
       to right,
@@ -62,7 +62,7 @@
     isolation: var(--app-scene-isolation);
   }
 
-  /* Painting behind the content (PAGE-288): fixed, below every surface of the
+  /* Painting behind the content: fixed, below every surface of the
      frame and never catching a click. The wash is an arc around the right
      edge of the sidebar, so text near the navigation stays on a calm ground. */
   .pages-app-scene {
@@ -118,7 +118,7 @@
   /* A sticky heading covers what scrolls below it. A design with a painting
      shows the painting behind the heading while it rests in place; stuck, the
      heading lies on the veil of the design, so it ends in the painting
-     without an opaque band and a hard edge (PAGE-324). */
+     without an opaque band and a hard edge. */
   .pages-sticky-band {
     container-type: scroll-state;
   }
@@ -147,7 +147,7 @@
   }
 
   /* Painting in the free space between the upper and the lower navigation
-     items (PAGE-288). The navigation keeps priority: without free space the
+     items. The navigation keeps priority: without free space the
      painting has no height, and its soft edges reach a little above and below
      the free space, where the opaque sidebar color covers it. The width of
      the sheet or sidebar comes in as `--sidebar-scene-width`, so the painting
@@ -331,7 +331,7 @@
     }
   }
 
-  /* Ring einer Personenfarbe um einen Avatar (PAGE-266). Im dunklen Thema
+  /* Ring einer Personenfarbe um einen Avatar. Im dunklen Thema
      wird nur die Helligkeit angehoben, damit der Ring auf dunklem Grund
      erkennbar bleibt; der Farbton bleibt. */
   .pages-user-color-ring {
@@ -343,7 +343,7 @@
   }
 }
 
-/* The paintings of Koi Garden (PAGE-288). The addresses stay here, so the
+/* The paintings of Koi Garden. The addresses stay here, so the
    bundler processes the images; a browser loads them only while this design
    is active, because no other rule refers to them. */
 :root[data-design-theme="koi-garden"] {

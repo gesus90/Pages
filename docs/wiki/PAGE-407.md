@@ -1,4 +1,4 @@
-# PAGE-407: Agents – Festlegungen zur vollen Umgebung
+# Agents – Festlegungen zur vollen Umgebung
 
 Ziel-Seite: [Agents: Festlegungen](/wiki/93eb063a-a63c-4cac-8393-af182291a582).
 Dieser Repository-Text beschreibt das Produkt; die Live-Wiki wird getrennt gepflegt.
@@ -44,5 +44,5 @@ Umgebungsvariablen. Sie kann nicht jedes beliebige Geheimnis des gesamten
 Homes kennen und verhindert keine direkten Dateischreibzugriffe eines solchen
 Schritts. Journal und Berichte enthalten keine Umgebungs- oder Anmeldedumps.
 
-Der [Runner-Vertrag](../AgentPlanRunner.md#full-environment-full-host-owner-access-page-407)
+Der [Runner-Vertrag](../AgentPlanRunner.md#full-environment-full-host-owner-access)
 beschreibt Zuordnung, Start und Laufsteuerung.

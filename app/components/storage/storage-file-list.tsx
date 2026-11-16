@@ -222,9 +222,8 @@ function SelectAllCell({
 
 /**
  * The content of a folder: folders first, then files, as Drive sorts them.
- *
  * @remarks
- * With a selection (PAGE-272) a click on a row selects it, Ctrl/Cmd-click
+ * With a selection a click on a row selects it, Ctrl/Cmd-click
  * adds or removes it, Space does the same from the keyboard, and the
  * multi-select mode shows checkboxes. Names keep opening folders and files.
  * A right click selects only an unselected row and opens the own menu.

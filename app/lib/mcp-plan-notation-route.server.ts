@@ -50,7 +50,6 @@ async function createApi(): Promise<McpPlanNotationApi> {
 
 /**
  * Answers a plan notation request with JSON that no cache keeps.
- *
  * @param body - The answer of the interface.
  * @param status - The HTTP status.
  */
@@ -60,7 +59,6 @@ export function mcpPlanNotationResponse(body: unknown, status = 200): Response {
 
 /**
  * Answers a failure of a plan notation request.
- *
  * @remarks
  * The body holds the code, the findings of `notation_invalid` and the
  * current revision of `conflict`; never a message of a service and never a
@@ -72,12 +70,10 @@ function mcpPlanNotationFailure(error: unknown): Response {
 }
 
 /**
- * Runs one request of the plan notation API (PAGE-250).
- *
+ * Runs one request of the plan notation API.
  * @param request - The request of the machine.
  * @param handlers - The methods the resource serves.
  * @returns The answer; a failure answers `{ "error": "<code>", "issues"?, "currentRevision"? }`.
- *
  * @remarks
  * Only the bearer token admits a request, checked and noted by the device
  * API; browser cookies play no part. Failures of the token check keep the
@@ -138,13 +134,11 @@ async function readBodyText(request: Request): Promise<string> {
 
 /**
  * Reads the JSON object of a plan notation request.
- *
  * @param request - The request with `Content-Type: application/json`.
  * @returns The object, its fields still untrusted.
  * @throws {McpPlanNotationError} `too_large` above 2,000,000 bytes,
  * `invalid_request` for another content type, malformed JSON or anything
  * but an object.
- *
  * @remarks
  * A syntax error is replaced and not logged: the message of the parser can
  * quote the input.

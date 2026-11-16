@@ -12,7 +12,6 @@ type LinkTypeLabelKey =
 
 /**
  * Picks the translation key that names a link for the ticket showing it.
- *
  * @remarks
  * A link is stored once, so the opposite ticket sees the mirrored name:
  * "blocks" becomes "blocked by" and "duplicates" becomes "duplicated by".
@@ -37,7 +36,6 @@ export function getLinkTypeLabelKey(link: WorkItemLink): LinkTypeLabelKey {
 
 /**
  * Turns the value of the link type select into a link type.
- *
  * @param value - Value reported by the select.
  * @returns The link type, or "relates to" for a value that names none.
  */

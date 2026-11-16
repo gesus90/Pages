@@ -42,7 +42,6 @@ function isServedMethod(
 
 /**
  * Creates the project API over the services of the interface.
- *
  * @remarks
  * The project service acts on the MCP channel: an account with the
  * administrator role counts as administrator whatever role mode its browser
@@ -65,7 +64,6 @@ async function createApi(): Promise<McpProjectApi> {
 
 /**
  * Answers a project request with JSON that no cache keeps.
- *
  * @param body - The answer of the interface.
  * @param status - The HTTP status.
  */
@@ -74,12 +72,10 @@ export function mcpProjectResponse(body: unknown, status = 200): Response {
 }
 
 /**
- * Runs one request of the project API (PAGE-244).
- *
+ * Runs one request of the project API.
  * @param request - The request of the machine.
  * @param handlers - The methods the resource serves.
  * @returns The answer; a failure answers `{ "error": "<code>" }` and nothing else.
- *
  * @remarks
  * Only the bearer token admits a request, checked and noted by the device
  * API; browser cookies play no part. Failures of the token check keep the
@@ -136,7 +132,6 @@ async function readLimitedText(request: Request): Promise<string> {
 
 /**
  * Reads the JSON object of a project request.
- *
  * @param request - The request with `Content-Type: application/json`.
  * @returns The object, its fields still untrusted; an empty body counts as `{}`.
  * @throws {McpProjectError} `invalid_request` for another content type, a body
@@ -168,7 +163,6 @@ export async function readMcpProjectBody(
 
 /**
  * Reads a path parameter of a project resource.
- *
  * @param value - The parameter as React Router passes it.
  * @throws {McpProjectError} `not_found` for a missing parameter.
  */

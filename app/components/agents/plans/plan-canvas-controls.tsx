@@ -9,7 +9,6 @@ import type { PlanFlowEdge, PlanFlowNode } from "./plan-flow-model";
 
 /**
  * Fitting keeps the graph clear of the zoom bar above it and of the canvas edges.
- *
  * @remarks
  * Fitting never enlarges a small plan beyond its natural size.
  */
@@ -20,7 +19,6 @@ export const PLAN_FIT_VIEW: FitViewOptions<PlanFlowNode> = {
 
 /**
  * The only canvas control: zoom out, the current zoom, zoom in and fit.
- *
  * @remarks
  * The percentage reads React Flow's viewport, so wheel, pinch and the
  * buttons always show the zoom the canvas really has.

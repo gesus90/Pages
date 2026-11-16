@@ -26,7 +26,7 @@ import type { ConversationDelivery } from "@/definition/ConversationLiveAnswer";
 import type { AgentActivity } from "./live/chat-page-activity-row";
 import type { ComposerAttachments, ComposerVoice } from "./chat-page-input";
 
-/** What the input offers while agents answer (PAGE-381). */
+/** What the input offers while agents answer. */
 export interface ComposerAnswering {
   /** Who answers, for the labels, such as "Ed" or "Ed, Mei". */
   readonly name: string;
@@ -41,24 +41,24 @@ interface ChatPageComposerProps {
   readonly label: string;
   /**
    * Sends the text with the IDs of the uploaded attachments, in their order;
-   * while agents answer with how it goes to them (PAGE-381).
+   * while agents answer with how it goes to them.
    */
   readonly onSend: (
     content: string,
     attachmentIds: readonly string[],
     delivery?: ConversationDelivery,
   ) => void;
-  /** Present while agents answer: Enter steers, ⌥↵ sends afterwards, Esc stops (PAGE-381). */
+  /** Present while agents answer: Enter steers, ⌥↵ sends afterwards, Esc stops. */
   readonly answering?: ComposerAnswering;
-  /** The agents at work in the chat and what they do, above the field (PAGE-381). */
+  /** The agents at work in the chat and what they do, above the field. */
   readonly activity?: readonly AgentActivity[];
   /** Voice messages; missing where nothing can be recorded. */
   readonly voice?: ComposerVoice;
   /** Attachments; missing where no file can be attached. */
   readonly attachments?: ComposerAttachments;
-  /** Receives what puts `@username ` into the field, for the menu of an agent in the chat head (PAGE-376). */
+  /** Receives what puts `@username ` into the field, for the menu of an agent in the chat head. */
   readonly mentionRef?: React.RefObject<((username: string) => void) | null>;
-  /** What stands before "Abschicken", such as the context rings of the agents (PAGE-380). */
+  /** What stands before "Abschicken", such as the context rings of the agents. */
   readonly aside?: React.ReactNode;
 }
 
@@ -67,7 +67,6 @@ const WEB_ADDRESS = /^https?:\/\/\S+$/iu;
 
 /**
  * Appends a template of the "+" menu as new blocks at the end of the message.
- *
  * @remarks
  * The blocks are inserted into the document instead of appending to the
  * Markdown text and reading all of it again, which would rewrite what the
@@ -100,7 +99,6 @@ function appendTemplate(editor: Editor, text: string): void {
 
 /**
  * Puts `@username ` at the end of the message and focuses the field.
- *
  * @remarks
  * The mention goes where the person writes on: a space separates it from
  * text already there, and the field keeps the one that follows it.
@@ -258,9 +256,9 @@ function useComposerBindings({
  * chat, with people, with agents or of a group, the microphone and the file
  * button send a voice message, and files chosen in the "+" menu,
  * dropped on the chat or pasted are uploaded and go out with the next
- * message (PAGE-298); a message of attachments alone needs no text, and
+ * message; a message of attachments alone needs no text, and
  * nothing is sent while an upload runs. The menu of an agent in the chat head
- * puts its mention into the field through `mentionRef` (PAGE-376). The field
+ * puts its mention into the field through `mentionRef`. The field
  * ends 88 px before the right edge of the chat, so Pica's launcher never
  * covers it.
  */

@@ -1,6 +1,6 @@
 # Team-Zugriff auf Storage und Projektcode
 
-Seit PAGE-323 arbeitet jedes Konto mit seinen eigenen Pages-Rechten. Ein Agent
+Jedes Konto arbeitet mit seinen eigenen Pages-Rechten. Ein Agent
 braucht keinen Admin-Modus, um Berichte in freigegebenen Ordnern abzulegen oder
 den Code eines sichtbaren Projekts zu lesen.
 

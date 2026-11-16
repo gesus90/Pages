@@ -71,7 +71,6 @@ export class WorkItemAttachmentRepository {
 
   /**
    * Creates the repository.
-   *
    * @param database - Central database access.
    */
   public constructor(database: DatabaseTransaction) {
@@ -80,7 +79,6 @@ export class WorkItemAttachmentRepository {
 
   /**
    * Stores the metadata of an attached file.
-   *
    * @param attachment - What the server knows about the file.
    * @param id - Immutable attachment identifier, also used in the storage filename.
    * @param options - Direct uploads must still have an active ticket when metadata is inserted.

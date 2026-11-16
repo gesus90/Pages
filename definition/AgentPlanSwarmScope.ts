@@ -7,7 +7,6 @@ export const PLAN_SWARM_PATH_LENGTH = 1024;
 /**
  * Brings a path of the working directory into one form: no `./`, no doubled
  * or trailing slash.
- *
  * @param input - A path relative to the working directory of the swarm.
  * @returns The path, `""` for the whole directory, or `null` for an absolute
  * path, one that leaves the directory with `..` or one with control characters.
@@ -23,7 +22,6 @@ export function normalizePlanSwarmPath(input: string): string | null {
 
 /**
  * Whether a path lies in an area path: the same path or below it.
- *
  * @param path - A normalized file path.
  * @param area - A normalized area path; `""` covers everything.
  */

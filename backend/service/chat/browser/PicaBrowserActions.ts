@@ -43,7 +43,6 @@ const DIRECTIONS: Readonly<
 
 /**
  * Finds the element a reference of the last observation stands for.
- *
  * @param session - The browser.
  * @param ref - The reference, such as `e12`.
  * @returns The live element.
@@ -152,7 +151,6 @@ export async function hover(
 
 /**
  * Presses a key or key combination in the focused element.
- *
  * @param session - The browser.
  * @param input - The validated tool input.
  * @returns A short description for the action log.

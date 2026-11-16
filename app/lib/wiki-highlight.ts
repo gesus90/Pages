@@ -23,7 +23,6 @@ function collapse(text: string): string {
 
 /**
  * Lays the visible text of an element out as one string.
- *
  * @param root - The element that holds the rendered page.
  * @returns The text with every run of whitespace and every block boundary
  * reduced to one blank, and for each character the text node and offset it
@@ -93,7 +92,6 @@ function commonPrefixLength(left: string, right: string): number {
 
 /**
  * Finds a quoted passage in the rendered page.
- *
  * @param root - The element that holds the rendered page.
  * @param reference - Quote with its surroundings.
  * @returns A range around the passage, or `null` when it is gone. If the
@@ -143,7 +141,6 @@ export function findQuoteRange(
 
 /**
  * Reads the passage a person selected inside the rendered page.
- *
  * @param root - The element that holds the rendered page.
  * @param selection - The current selection of the window.
  * @returns The passage with the text before and after it, or `null` when the

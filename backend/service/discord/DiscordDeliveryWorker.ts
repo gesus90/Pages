@@ -59,7 +59,6 @@ export interface DiscordDeliveryWorkerDependencies {
 
 /**
  * Derives the nonce Discord uses to recognise a repeated message.
- *
  * @param deliveryId - Identifier of the stored delivery.
  * @returns A stable text of 24 characters; the same delivery always yields the same one.
  */
@@ -72,7 +71,6 @@ export function deliveryNonce(deliveryId: string): string {
 
 /**
  * Delivers the stored Discord messages with a bounded number of attempts.
- *
  * @remarks
  * A rate limit moves the message to the time Discord names in `Retry-After`
  * and does not count as a failed attempt; it also pauses the whole run, since
@@ -88,7 +86,6 @@ export class DiscordDeliveryWorker {
 
   /**
    * Creates the delivery worker.
-   *
    * @param dependencies - Outbox, connection storage and Discord access.
    */
   public constructor(dependencies: DiscordDeliveryWorkerDependencies) {
@@ -98,7 +95,6 @@ export class DiscordDeliveryWorker {
 
   /**
    * Sends every message that is due, one after the other and oldest first.
-   *
    * @returns Counters of the run; an overlapping call does nothing.
    */
   public async runDue(): Promise<DiscordDeliveryRunResult> {

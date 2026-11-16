@@ -89,7 +89,7 @@ function useEarlierTails(
 }
 
 /**
- * Pages older history into the terminal while the reader scrolls up (PAGE-284).
+ * Pages older history into the terminal while the reader scrolls up.
  *
  * @param key - The current attempt; its live window comes from the session.
  * @param options - The first sequence and the older flag of the live window, and the earlier attempts.

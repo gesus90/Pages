@@ -65,7 +65,7 @@ const SETTINGS_INPUT = z
       })
       .strict()
       .nullable(),
-    // The most contributions without @ per group round; absent keeps the stored one (PAGE-349).
+    // The most contributions without @ per group round; absent keeps the stored one.
     automaticRepliesPerOrigin: z
       .number()
       .int()
@@ -76,8 +76,7 @@ const SETTINGS_INPUT = z
   .strict();
 
 /**
- * The settings "Wer antwortet?" of group chats (PAGE-317, PAGE-379).
- *
+ * The settings "Wer antwortet?" of group chats.
  * @remarks
  * Every member reads them and the last decisions; only the account that
  * manages the group, the one that created it, changes them. The mode is
@@ -95,7 +94,6 @@ export class ConversationReplySettingsService {
 
   /**
    * Reads the settings of a group the person belongs to.
-   *
    * @throws {ConversationError} `not_found` for a conversation of which the
    * person is no member and for a direct conversation.
    */
@@ -135,7 +133,6 @@ export class ConversationReplySettingsService {
 
   /**
    * Changes the settings of a group the person manages.
-   *
    * @param person - The signed-in account.
    * @param input - Group, mode and the rules; `rules: null` returns the
    * thresholds and the most answering agents to the defaults of the instance.
@@ -179,7 +176,6 @@ export class ConversationReplySettingsService {
 
   /**
    * Lists the newest decisions of a group the person belongs to.
-   *
    * @returns The decisions, newest first, with the text of their messages:
    * the model's answer with its probabilities, "no answer", an @ addressing,
    * or that the model was unavailable.

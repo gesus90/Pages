@@ -1,6 +1,6 @@
-# Entwurf für „Einstellungen und Verwaltung“ – PAGE-316
+# Entwurf für „Einstellungen und Verwaltung“
 
-Dieser Entwurf wird nach Abnahme von All Might ins Live-Wiki übertragen. Der Lauf ändert keine Live-Wiki-Seite.
+Dieser Entwurf ist für die Live-Wiki bestimmt; die Live-Wiki wird getrennt gepflegt.
 
 ## Deutsch
 
@@ -20,7 +20,7 @@ Administratoren sehen im Admin-Modus in der Benutzerverwaltung den Reiter „Ver
 
 Die zehn Werkzeuge `users_list`, `users_read`, `users_create`, `users_update`, `users_set_status`, `users_set_avatar`, `groups_create`, `groups_update`, `project_members_set` und `projects_set_departments` stehen auch im internen Werkzeugkatalog `pages-pica`. Rechte werden bei jedem Aufruf mit den gleichen Services wie in der Oberfläche geprüft. `groups_read` ergänzt das Lesen des Gruppenstands und seiner Revision.
 
-Die HTTP-Pfade entsprechen dem Vertrag von PAGE-316 unter `/api/mcp/v1/`. Listen verwenden `cursor`, `limit` von 1 bis 100 (Standard 20) und `nextCursor`. `users_read` liefert die vollständige Benutzerrevision. Ein Gruppenstand mit Revision ist über `GET /api/mcp/v1/groups/{id}?view=management` lesbar; Projektrevisionen stehen in der Projektantwort und in `read_project`.
+Die HTTP-Pfade entsprechen dem Vertrag unter `/api/mcp/v1/`. Listen verwenden `cursor`, `limit` von 1 bis 100 (Standard 20) und `nextCursor`. `users_read` liefert die vollständige Benutzerrevision. Ein Gruppenstand mit Revision ist über `GET /api/mcp/v1/groups/{id}?view=management` lesbar; Projektrevisionen stehen in der Projektantwort und in `read_project`.
 
 Jede Änderung eines vorhandenen Objekts verlangt `expectedRevision`, auch der Avatar. Eine veraltete Revision liefert `CONFLICT` mit `currentRevision`, ohne Änderung. Eine wiederverwendete `operationId` mit identischen Eingaben wiederholt die gespeicherte Antwort; abweichende Eingaben werden abgewiesen. SVG-Avatare werden serverseitig von ausführbarem Inhalt und externen Referenzen bereinigt und als PNG gespeichert. Das Upload-Limit beträgt 5 MiB.
 

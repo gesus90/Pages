@@ -13,11 +13,9 @@ export interface TrustedProxyEntry {
 
 /**
  * Reads one entry of the `trustedProxies` setting.
- *
  * @param entry - An IPv4 or IPv6 address, optionally followed by `/prefix`.
  * @returns The parts of the entry, or `null` when it is not a valid address
  * or range.
- *
  * @remarks
  * A prefix of 0 is refused: it would name every address and so trust every
  * client. Host names and zone identifiers are refused as well, because the

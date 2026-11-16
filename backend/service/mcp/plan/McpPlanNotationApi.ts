@@ -13,8 +13,7 @@ export interface McpPlanNotationAccess {
 }
 
 /**
- * The plan notation API of the stand-alone Pages MCP program (PAGE-250).
- *
+ * The plan notation API of the stand-alone Pages MCP program.
  * @remarks
  * A paired machine writes, reads, checks and lays out agent plans as text,
  * a subset of Graphviz DOT. It acts with the rights of the account that
@@ -32,7 +31,6 @@ export class McpPlanNotationApi {
 
   /**
    * Creates the API.
-   *
    * @param services - The plan service of the `mcp` channel and the wiki.
    * @param access - The device token check and the account lookup.
    */
@@ -46,7 +44,6 @@ export class McpPlanNotationApi {
 
   /**
    * Checks the token of a request and names the account it acts for.
-   *
    * @param authorization - The `Authorization` header of the request.
    * @returns The paired account.
    * @throws {McpDeviceError} `invalid_token` for a missing, unknown or revoked token.

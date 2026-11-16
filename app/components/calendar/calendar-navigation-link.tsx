@@ -9,7 +9,7 @@ interface CalendarNavigationLinkProps {
   readonly onNavigate?: () => void;
 }
 
-/** The calendar (PAGE-301) in the main navigation, with the open invitations. */
+/** The calendar in the main navigation, with the open invitations. */
 export function CalendarNavigationLink({
   invitations,
   getClassName,

@@ -62,12 +62,10 @@ function readPriority(entry: Record<string, unknown>): number {
 
 /**
  * Reads `codex debug models`, the catalog the Codex CLI itself uses.
- *
  * @param stdout - JSON printed by the CLI.
  * @returns The models Codex lists for selection in its own priority order,
  * with their reasoning levels.
  * @throws {AgentError} `cli_unexpected_output` for anything but a model list.
- *
  * @remarks
  * Hidden entries are Codex internals, so only `visibility: "list"` models appear.
  */
@@ -150,7 +148,6 @@ function mergeRowsOfOneModel(
 
 /**
  * Reads the Claude SDK initialize response, without a user message or model turn.
- *
  * @remarks
  * Canonical IDs and per-model efforts come from the installed CLI's own picker.
  * Help aliases and global effort flags cannot establish model capabilities.
@@ -284,12 +281,10 @@ function isListedOpenCodeModel(entry: Record<string, unknown>): boolean {
 
 /**
  * Reads `opencode models <provider> --verbose`, the catalog OpenCode itself uses.
- *
  * @param stdout - The listing printed by the CLI.
  * @returns The models under their full OpenCode IDs, such as
  * `openrouter/z-ai/glm-5.2`, with the variants OpenCode offers as efforts.
  * @throws {AgentError} `cli_unexpected_output` for anything but a model list.
- *
  * @remarks
  * The global model filter leaves out models that are not active or that
  * generate images, video or audio. IDs Pages cannot store unchanged, such as

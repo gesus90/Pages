@@ -39,7 +39,7 @@ import type { AgentPlanCommandRequest } from "./AgentPlanCommandInput";
 import type { AgentPlanService } from "./AgentPlanService";
 import type { AgentPlanTemplateService } from "./AgentPlanTemplateService";
 
-/** The commands that run a plan or control its runs; the right to run decides them (PAGE-329). */
+/** The commands that run a plan or control its runs; the right to run decides them. */
 const RUN_COMMANDS: ReadonlySet<AgentPlanCommandOperation> = new Set([
   "plans.play",
   "plans.pause",
@@ -49,7 +49,6 @@ const RUN_COMMANDS: ReadonlySet<AgentPlanCommandOperation> = new Set([
 
 /**
  * Whether the person may give the command on the plan.
- *
  * @remarks
  * A clone only needs reading. Running and controlling runs needs the right to
  * run; everything else changes the plan. Deleting additionally needs the

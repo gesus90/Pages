@@ -56,7 +56,7 @@ export interface McpAgentModelOption extends McpAgentModel {
   readonly accessModes: readonly AgentEmployeeAccess[];
 }
 
-/** A stored template that fills `AGENT.md` (PAGE-283). */
+/** A stored template that fills `AGENT.md`. */
 export interface McpAgentTemplate {
   readonly id: string;
   readonly name: string;

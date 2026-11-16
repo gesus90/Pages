@@ -28,7 +28,7 @@ export interface NewChatMessage extends Pick<
 > {
   /**
    * The ID the browser gave a message the person sent; a second message with
-   * the same ID in the conversation is refused (PAGE-68).
+   * the same ID in the conversation is refused.
    */
   readonly clientMessageId?: string | null;
 }

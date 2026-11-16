@@ -46,13 +46,11 @@ function internalEdgeIssues(group: AgentPlanGroup): AgentPlanIssue[] {
 
 /**
  * The checks of the internal edges of a group or a loop.
- *
  * @param members - The IDs of the members of the container.
  * @param edges - Its internal edges.
- *
  * @remarks
  * Besides flow edges, a decision inside the container keeps its condition and
- * branch edges here (PAGE-286); an event edge never joins two members.
+ * branch edges here; an event edge never joins two members.
  */
 export function containerEdgeIssues(
   members: ReadonlySet<string>,

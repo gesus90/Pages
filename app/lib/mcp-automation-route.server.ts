@@ -63,7 +63,6 @@ async function authenticate(request: Request): Promise<{
 
 /**
  * Answers an automation request with JSON that no cache keeps.
- *
  * @param body - The result of the operation, unchanged.
  * @param status - `201` after creating, `200` otherwise.
  */
@@ -73,7 +72,6 @@ export function mcpAutomationResponse(body: unknown, status = 200): Response {
 
 /**
  * Answers a failure with the fixed codes of the MCP HTTP conventions.
- *
  * @remarks
  * The body holds the code, the stable `detail` reason, `currentRevision` on
  * a conflict and the paths of refused input; never values, never data of a
@@ -107,11 +105,9 @@ function mcpAutomationFailure(error: unknown): Response {
 }
 
 /**
- * Runs one request of the automation API (PAGE-297).
- *
+ * Runs one request of the automation API.
  * @param request - The request of the paired machine.
  * @param handlers - The methods the resource serves.
- *
  * @remarks
  * Only the device token of the existing pairing admits a request, with the
  * account it was paired for; browser cookies play no part. The same

@@ -65,7 +65,6 @@ export interface ChatSessionDeletionEffects {
 
 /**
  * Rejects deactivated accounts and accounts that still have to change their password.
- *
  * @throws {ChatError} `accessDenied`.
  */
 export function requireChatActor(actor: User): void {
@@ -79,7 +78,7 @@ export function readChatSessionId(input: unknown): string {
   return input;
 }
 
-/** The word that confirms a deletion in the interface language (T6.4.46). */
+/** The word that confirms a deletion in the interface language. */
 export function chatConfirmationWord(
   language: string | undefined,
 ): ChatConfirmationWord {
@@ -112,8 +111,7 @@ export function readChatDeletionIds(input: unknown): readonly string[] {
 
 /**
  * The personal sessions of the chat and the commands `/new`, `/sessions` and
- * `/delete` (T6.12.2, T6.12.3).
- *
+ * `/delete`.
  * @remarks
  * Every call is bound to the person's own sessions. An ID alone never opens a
  * session of someone else; administrators have no other read path.
@@ -130,7 +128,6 @@ export class ChatSessionService {
 
   /**
    * Connects deletion to the jobs of the Codex path, which are built on this service.
-   *
    * @param effects - Stops a running job before and cleans up after each deletion.
    */
   public setDeletionEffects(effects: ChatSessionDeletionEffects): void {
@@ -172,7 +169,6 @@ export class ChatSessionService {
   /**
    * Reads the last message time and the newest job of an own session, so
    * another device can tell whether its view is behind.
-   *
    * @remarks
    * Reads the session and its newest job only, never messages or journal;
    * the web chat and Pica Mobile ask every few seconds.
@@ -195,7 +191,6 @@ export class ChatSessionService {
 
   /**
    * Deletes an own session for good, with its messages and attachments (`/delete`).
-   *
    * @throws {ChatError} `sessionMissing` for a session that is not the person's.
    */
   public async remove(actor: User, sessionId: unknown): Promise<void> {
@@ -245,7 +240,6 @@ export class ChatSessionService {
 
   /**
    * Returns an own session.
-   *
    * @throws {ChatError} `sessionMissing` for an unknown or foreign session.
    */
   public async require(actor: User, sessionId: unknown): Promise<ChatSession> {

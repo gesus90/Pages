@@ -1,4 +1,4 @@
-/* One width drives the sidebar, the header and the main area (PAGE-95). The
+/* One width drives the sidebar, the header and the main area. The
    custom properties are global on purpose: panels placed against the main area
    read `--app-content-start`. The chosen width only ever comes in as
    `--app-sidebar-preferred`; the clamp keeps it between the designed width and

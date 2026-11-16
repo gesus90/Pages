@@ -6,7 +6,7 @@ import type {
 } from "@/definition/ConversationContent";
 
 /**
- * Facts the browser read during this visit, by attachment ID (PAGE-384), so
+ * Facts the browser read during this visit, by attachment ID, so
  * every card of the file shows them at once, before the server answers again.
  */
 const known = new Map<string, ConversationMediaFacts>();
@@ -33,8 +33,7 @@ function cleaned(facts: ConversationMediaFacts): ConversationMediaFacts {
 }
 
 /**
- * The query of facts as the files interface takes them (PAGE-384).
- *
+ * The query of facts as the files interface takes them.
  * @param facts - Width, height and length.
  * @returns For example `&width=1920&height=1080&durationSeconds=112.4`; empty without facts.
  */
@@ -71,7 +70,7 @@ function hasStoredFacts(attachment: ConversationAttachment): boolean {
 
 /**
  * Notes what a player read of a video or a sound and stores it once on the
- * server, for everyone who sees the message later (PAGE-384). A file whose
+ * server, for everyone who sees the message later. A file whose
  * facts the server knows already sends nothing.
  *
  * @param attachment - The attachment that was played.
@@ -94,7 +93,7 @@ export function reportMediaFacts(
 
 /**
  * The resolution and the length of a video or a sound as a card shows them
- * (PAGE-384): stored with the attachment, or read during this visit.
+ * Stored with the attachment, or read during this visit.
  *
  * @param attachment - The attachment of the card.
  */

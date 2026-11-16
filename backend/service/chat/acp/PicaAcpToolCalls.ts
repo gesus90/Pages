@@ -85,7 +85,7 @@ function status(update: ToolUpdate): ChatJobToolEvent["status"] | null {
 
 /**
  * Collects the tool calls an adapter reports for the chat of an agent with
- * host tools (PAGE-303): command or tool, input and result, bounded and with
+ * host tools: command or tool, input and result, bounded and with
  * credentials masked.
  *
  * @remarks

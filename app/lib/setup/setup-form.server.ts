@@ -21,10 +21,8 @@ export type SetupFormResult =
 
 /**
  * Reads and validates every field of a submitted setup.
- *
  * @param formData - The submitted wizard form.
  * @returns The trimmed input, or the error of each rejected field.
- *
  * @remarks
  * The whole form is checked, whichever step the wizard showed last. The
  * database connection is checked separately.

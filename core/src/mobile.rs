@@ -1,5 +1,5 @@
 //! The Pica Mobile port, held by the core while `picaMobileRelayPort` is set
-//! in the instance's `config.toml` (PAGE-239).
+//! in the instance's `config.toml`.
 //!
 //! The core listens on `picaMobilePort`, where the app connects, and relays
 //! each connection and each attachment request to the API's relay listener

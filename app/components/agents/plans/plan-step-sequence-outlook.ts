@@ -36,7 +36,6 @@ import type {
 
 /**
  * What the current round expects of a node.
- *
  * @remarks
  * `isDead` marks a node that cannot run in this round: the branch it lies on
  * was not taken, or is not expected to be taken. `isUncertain` marks a node
@@ -58,7 +57,6 @@ function isOpenDecision(
 
 /**
  * Whether an edge cannot release its target in this round.
- *
  * @remarks
  * It mirrors the scheduler: the branch a decision did not activate, a skipped
  * source and a used-up stack are dead. An open decision is expected to pass,
@@ -215,7 +213,6 @@ function nodeOutlook(
 
 /**
  * Whether a sender of the cycle's event has run or surely runs in this round.
- *
  * @remarks
  * Its result then starts the target again, unless the target reached the
  * limit of starts; the next round is therefore expected.
@@ -242,11 +239,9 @@ function expectsAnotherRound(
 
 /**
  * The assumed next round of the first cycle whose event is expected.
- *
  * @param context - The run and its graph.
  * @param states - What the current round expects of each node.
  * @param planned - Nodes that already have a block in the current round.
- *
  * @remarks
  * The round is projected as a fresh one: its decisions are open again and
  * expected to pass, so the senders of the event drop out and the nodes behind
@@ -278,7 +273,6 @@ function nextRoundBlocks(
 
 /**
  * The executions of agents and scripts that are still to come.
- *
  * @remarks
  * Sure blocks follow from the plan and the decisions taken so far; assumed
  * blocks estimate what the run cannot know yet: the iterations a loop may

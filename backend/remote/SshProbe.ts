@@ -42,11 +42,9 @@ function greetsWithSsh(greeting: string): boolean {
 
 /**
  * Checks that the machine answers on the port and identifies as an SSH server.
- *
  * @remarks
  * This is the reachability stage of a connection test; it sends nothing and
  * signs in to nothing, so it tells network trouble apart from sign-in trouble.
- *
  * @param endpoint - Host name or address and port.
  * @returns `null` when an SSH server answered, otherwise the classified failure.
  */

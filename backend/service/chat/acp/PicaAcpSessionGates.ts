@@ -14,9 +14,7 @@ interface SessionGate {
 }
 
 /**
- * One queue per conversation of the ACP path, released when it rests
- * (PAGE-304).
- *
+ * One queue per conversation of the ACP path, released when it rests.
  * @remarks
  * Every conversation passes its messages, starts and stops through its own
  * queue, so conversations never wait for each other. A conversation without
@@ -48,7 +46,6 @@ export class PicaAcpSessionGates {
 
   /**
    * Runs a task after the earlier tasks of the same conversation.
-   *
    * @param sessionId - The conversation.
    * @param task - The task.
    * @param isBusy - Whether a conversation still runs a job; its gate stays.

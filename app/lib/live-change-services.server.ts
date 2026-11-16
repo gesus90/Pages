@@ -34,13 +34,12 @@ export interface LiveChangeContext {
 /** The live view of a process and the audience check it shares with `pages-core`. */
 export interface LiveChangeServices {
   readonly liveChangeHub: LiveChangeHub;
-  /** Answers the decisions `pages-core` asks for (PAGE-237). */
+  /** Answers the decisions `pages-core` asks for. */
   readonly liveChangeAudience: LiveChangeAudience;
 }
 
 /**
  * Creates the live view of this process and joins it to the other processes.
- *
  * @remarks
  * Only the API process serves `/live-changes`. It hears its own publisher
  * directly and the plan engine, the local session owner and the integration
@@ -48,7 +47,6 @@ export interface LiveChangeServices {
  * committed event. Whenever the listening session starts listening, the first
  * time included, every open stream reads everything again, because PostgreSQL
  * keeps no notifications from before. The server stop ends the session.
- *
  * @param context - Database, publisher and the rights-checked reads.
  * @returns The hub and its audience check; in a process without the live
  * view nobody opens a stream on the hub.

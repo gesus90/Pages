@@ -7,7 +7,6 @@ const BINDING_PREFIX = "pica-push:";
 
 /**
  * Keeps the native push tokens of devices private.
- *
  * @remarks
  * A token is encrypted with the key the instance already uses for its
  * connection secrets and bound to its device, so a stored value cannot be
@@ -21,7 +20,6 @@ export class PicaMobilePushTokenVault {
 
   /**
    * Creates the vault.
-   *
    * @param instanceKey - The key of the instance for its private data.
    */
   public constructor(instanceKey: Buffer) {
@@ -33,7 +31,6 @@ export class PicaMobilePushTokenVault {
 
   /**
    * Encrypts the token of a device.
-   *
    * @param deviceId - The device the token belongs to.
    * @param token - The native push token.
    * @returns The stored form, which names its version and holds a fresh nonce.

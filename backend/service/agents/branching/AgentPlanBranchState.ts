@@ -10,7 +10,6 @@ export interface PendingPlanEvent {
 
 /**
  * The live bookkeeping of decisions and events of one run.
- *
  * @remarks
  * Only the scheduler changes it, under its serial queue. It is stored privately
  * alongside the public run, and a continuation carries consumed edges, pending

@@ -78,8 +78,7 @@ export interface VisibleAutomation {
 }
 
 /**
- * Reads automations, their runs and the options of an account (PAGE-297).
- *
+ * Reads automations, their runs and the options of an account.
  * @remarks
  * Hidden and missing automations answer `not_found` alike; a reader never
  * sees script content or a script's output.
@@ -187,7 +186,6 @@ export class AutomationReads {
 
   /**
    * Reads one visible automation.
-   *
    * @throws {AutomationError} `not_found` for a missing or hidden one.
    */
   public async read(userId: string, input: unknown): Promise<Automation> {
@@ -255,7 +253,6 @@ export class AutomationReads {
 
   /**
    * Reads a visible automation with the reader's permissions.
-   *
    * @throws {AutomationError} `not_found` for a missing or hidden one.
    */
   public async requireVisible(

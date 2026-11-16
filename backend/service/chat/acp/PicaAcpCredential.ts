@@ -31,7 +31,6 @@ export interface PicaAcpCredentialSource {
 
 /**
  * The MCP server of Pica's bridge with one credential.
- *
  * @param descriptor - The endpoint and the credential.
  * @returns The one server a session reaches the Pages tools through.
  */
@@ -51,7 +50,6 @@ export function bridgeServers(
 /**
  * The turn credential of one Pica job: its bridge lease, the private
  * descriptor file in the workspace and the turn the credential is bound to.
- *
  * @remarks
  * Revoking removes the file and the bridge binding together, so a credential
  * never outlives the turn it was issued for.
@@ -59,7 +57,7 @@ export function bridgeServers(
 export class PicaAcpCredential {
   private readonly directory: string;
   private readonly isClaude: boolean;
-  /** An agent employee on "Arbeitsplatz" or YOLO uses every tool of the host beside the Pages tools (PAGE-303). */
+  /** An agent employee on "Arbeitsplatz" or YOLO uses every tool of the host beside the Pages tools. */
   private readonly access: AgentRunAccess;
   /** Opened when the job runs, so a job that never ran leaves no token behind. */
   private lease: PicaBridgeLease | null = null;
@@ -100,7 +98,6 @@ export class PicaAcpCredential {
 
   /**
    * The MCP server of a session that reaches Pica's tools over MCP.
-   *
    * @remarks
    * Each call issues a new credential of the job and revokes the earlier one,
    * so only the session opened last reaches the bridge. The credential
@@ -111,7 +108,7 @@ export class PicaAcpCredential {
   }
 
   /**
-   * The MCP server of a chat session that outlives this job (PAGE-335): its
+   * The MCP server of a chat session that outlives this job: its
    * credential stays with the session and is bound to this job now.
    */
   public openMcpChannel(): PicaBridgeMcpChannel {

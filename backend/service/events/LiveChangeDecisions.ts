@@ -52,8 +52,7 @@ function toPositionedEvent(
 }
 
 /**
- * Answers `pages-core`: which session may learn about which outbox event (PAGE-237).
- *
+ * Answers `pages-core`: which session may learn about which outbox event.
  * @remarks
  * The core holds the streams and knows no business rule; every decision is
  * made here with the same rules as the in-process live view: the session is
@@ -67,7 +66,6 @@ export class LiveChangeDecisions {
 
   /**
    * Creates the decisions.
-   *
    * @param dependencies - Session, fingerprint and rights reads.
    */
   public constructor(dependencies: LiveChangeDecisionDependencies) {
@@ -76,7 +74,6 @@ export class LiveChangeDecisions {
 
   /**
    * Decides every asked session about every event of a request.
-   *
    * @param request - A request validated against contract v1.
    * @returns One answer per session, in the order asked.
    * @throws When an account or its fingerprint cannot be read; the core then

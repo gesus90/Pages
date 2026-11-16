@@ -74,13 +74,11 @@ export function planBranchingEdge(
 
 /**
  * Adds the edge of a connection; whether the plan stays valid is the caller's check.
- *
  * @param plan - The draft.
  * @param connection - The connection the person made.
- *
  * @remarks
  * An edge between two nodes of the same group or loop is kept with that
- * container, as a decision inside it needs (PAGE-286).
+ * container, as a decision inside it needs.
  */
 export function connectPlanBranching<Plan extends AgentPlanInput>(
   plan: Plan,
@@ -91,11 +89,9 @@ export function connectPlanBranching<Plan extends AgentPlanInput>(
 
 /**
  * Makes the boolean result of one agent the condition of a decision, or clears it.
- *
  * @param plan - The draft.
  * @param decisionId - The decision whose condition changes.
  * @param agentId - The agent to read, or `null` for no condition.
- *
  * @remarks
  * A decision reads exactly one result, so the earlier condition goes first.
  */
@@ -114,14 +110,12 @@ export function setPlanDecisionCondition<Plan extends AgentPlanInput>(
 
 /**
  * Binds the data input of a decision to a parameter, a ticket or a text result, or clears it.
- *
  * @param plan - The draft.
  * @param decisionId - The decision whose input changes.
  * @param input - The new binding, or `null` for no input.
- *
  * @remarks
  * A decision reads one source: the boolean edge of an agent and any earlier
- * binding go first (PAGE-286).
+ * binding go first.
  */
 export function setPlanDecisionInput<Plan extends AgentPlanInput>(
   plan: Plan,
@@ -142,7 +136,6 @@ export function setPlanDecisionInput<Plan extends AgentPlanInput>(
 
 /**
  * Removes exactly one edge named by both its nodes and its ports.
- *
  * @param plan - The draft.
  * @param edge - The edge to remove; other edges between the same nodes stay.
  */

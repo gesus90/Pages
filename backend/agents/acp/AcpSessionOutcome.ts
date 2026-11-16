@@ -99,7 +99,6 @@ export function finishAcpTurn(
 
 /**
  * Classifies native process diagnostics without persisting potentially sensitive stderr.
- *
  * @remarks
  * A generic ACP session code must not hide a permanent inner cause such as an
  * authentication, model, policy or quota failure. The outer code is returned
@@ -127,7 +126,6 @@ export function disconnectedAcpFailure(
 
 /**
  * Classifies an error that ended a turn nobody stopped.
- *
  * @param error - The error of the turn.
  * @param state - The session state; a provider failure is kept in it.
  * @param driver - The driver of the session.

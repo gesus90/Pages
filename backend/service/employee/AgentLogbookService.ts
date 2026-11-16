@@ -116,8 +116,7 @@ function describeEntry(
 }
 
 /**
- * The Lagebuch of an agent: a short memory across all its normal chats
- * (PAGE-377).
+ * The Lagebuch of an agent: a short memory across all its normal chats.
  *
  * @remarks
  * Entries come from the agent itself (`lagebuch_merken`) and from the
@@ -381,7 +380,7 @@ export class AgentLogbookService {
       store.employees().find(agentId),
       store.logbook().settings(agentId),
     ]);
-    // The schedule decides: the dream run must be on and ask for a full Lagebuch (PAGE-378).
+    // The schedule decides: the dream run must be on and ask for a full Lagebuch.
     if (
       !employee?.isLearningEnabled ||
       !employee.dreamSchedule.isOnFullLogbook ||

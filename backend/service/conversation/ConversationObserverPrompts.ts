@@ -131,7 +131,6 @@ function characters(text: string): number {
 
 /**
  * Parses the one JSON object of an answer; a single code fence around it is tolerated.
- *
  * @param output - The answer of a model.
  * @returns The parsed value, still to be validated.
  * @throws {ConversationObserverError} `observer_output_invalid` for text that is no JSON.
@@ -152,7 +151,6 @@ export function readJsonObject(output: string): unknown {
 /**
  * One message as the observer reads it: a long text becomes a marked
  * excerpt, never a silent cut.
- *
  * @param message - The stored message.
  * @param author - Its sender.
  * @param excerptCharacters - The longest text kept whole.
@@ -215,8 +213,7 @@ function candidateList(candidates: readonly ObserverCandidate[]): string {
 }
 
 /**
- * The question of one routing decision (PAGE-296).
- *
+ * The question of one routing decision.
  * @param material - Candidates, stored context and the bounded history.
  * @returns Instructions and prompt; the answer names agent IDs only.
  */
@@ -277,7 +274,7 @@ export function readRoutingAnswer(
 }
 
 /**
- * The question of one summary window (PAGE-296).
+ * The question of one summary window.
  *
  * @param material - The previous stored context and the new messages.
  * @returns Instructions and prompt for an incremental summary.

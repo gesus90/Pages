@@ -56,7 +56,6 @@ export class TaskMoveService {
 
   /**
    * Creates a move service.
-   *
    * @param dependencies - Collaborators the service moves through.
    */
   public constructor(dependencies: TaskMoveServiceDependencies) {
@@ -70,13 +69,11 @@ export class TaskMoveService {
 
   /**
    * Moves a work item with its descendants to another project.
-   *
    * @remarks
    * The internal id stays stable while every moved item receives a new
    * project-specific key. Project-bound relations that cannot travel
    * (parent outside the target, milestones, GitHub links, and
    * ineligible assignees) are cleared and recorded in the history.
-   *
    * @param actor - User moving the ticket; must hold write permission twice.
    * @param id - Work item starting the moved subtree.
    * @param targetProjectId - Project receiving the ticket.

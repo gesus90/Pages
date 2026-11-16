@@ -57,7 +57,6 @@ async function createApi(): Promise<McpTicketApi> {
 
 /**
  * Answers a ticket request with JSON that no cache keeps.
- *
  * @param body - The answer of the interface.
  * @param status - The HTTP status.
  */
@@ -66,12 +65,10 @@ export function mcpTicketResponse(body: unknown, status = 200): Response {
 }
 
 /**
- * Runs one request of the ticket API (PAGE-242).
- *
+ * Runs one request of the ticket API.
  * @param request - The request of the machine.
  * @param handlers - The methods the resource serves.
  * @returns The answer; a failure answers `{ "error": "<code>" }` and nothing else.
- *
  * @remarks
  * Only the bearer token admits a request, checked and noted by the device
  * API; browser cookies play no part. Failures of the token check keep the
@@ -127,7 +124,6 @@ async function readLimitedText(request: Request): Promise<string> {
 
 /**
  * Reads the JSON object of a ticket request.
- *
  * @param request - The request with `Content-Type: application/json`.
  * @returns The object, its fields still untrusted; an empty body counts as `{}`.
  * @throws {McpTicketError} `invalid_request` for another content type, a body
@@ -159,7 +155,6 @@ export async function readMcpTicketBody(
 
 /**
  * Reads a path parameter of a ticket resource.
- *
  * @param value - The parameter as React Router passes it.
  * @throws {McpTicketError} `not_found` for a missing parameter.
  */

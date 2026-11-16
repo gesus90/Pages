@@ -21,11 +21,9 @@ const speechSynthesisFormSchema = z.object({
 });
 
 /**
- * Saves the speech output setting of the instance (PAGE-300).
- *
+ * Saves the speech output setting of the instance.
  * @param context - The administrator in the admin mode and the form.
  * @returns Success; a refused choice throws an {@link AgentError}.
- *
  * @remarks
  * The service checks the administrator, the admin mode, the duration choice
  * and that the model is a speech output model of the instance.

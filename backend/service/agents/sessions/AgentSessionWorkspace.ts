@@ -82,7 +82,6 @@ async function findGitDirectory(
 
 /**
  * Reads the branch or commit of the repository that contains a directory.
- *
  * @param directory - A directory the caller already checked.
  * @param files - The file access, replaced in tests.
  * @returns The state from `HEAD` alone; no Git command and no command of the
@@ -111,7 +110,6 @@ export async function readWorkspaceGit(
 
 /**
  * Checks the directory a session works in and reads its Git state.
- *
  * @param assignment - The directory of the session and the workspace Pages assigned to it.
  * @param checkedAt - When the check ran.
  * @param files - The file access, replaced in tests.

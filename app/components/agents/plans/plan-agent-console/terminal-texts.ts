@@ -14,7 +14,6 @@ const TOOL_KINDS: ReadonlySet<string> = new Set([
 
 /**
  * The words of the Pages terminal in the language of the reader.
- *
  * @param t - The translation function of the console.
  */
 export function terminalTexts(t: TFunction): TerminalTexts {

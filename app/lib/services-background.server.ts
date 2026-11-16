@@ -95,7 +95,6 @@ export function startWikiMaintenanceScheduler(
 /**
  * Removes ticket attachment files nothing refers to any more, such as those
  * of projects deleted for good, once when the server starts.
- *
  * @param service - The ticket attachment service.
  */
 export async function sweepTicketAttachments(

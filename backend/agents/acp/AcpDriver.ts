@@ -50,7 +50,6 @@ export interface AcpModelRequest {
 
 /**
  * How one Pages mode runs in the ACP adapter of a runner.
- *
  * @remarks
  * The mode decides everything the session may do: the options the adapter
  * confirms before the prompt, the answer to each permission request and the
@@ -103,12 +102,11 @@ export interface AcpDriverErrors {
 /**
  * What a session serves: a plan node, a conversation with Pica, the model of
  * a decision, or the group observer.
- *
  * @remarks
- * A `decision` session (PAGE-286) reads only its prompt and answers once: a
+ * A `decision` session reads only its prompt and answers once: a
  * driver with a profile of its own denies every tool, every other driver runs
  * its read-only plan profile in an empty directory without the Pages MCP server.
- * An `observer` session (PAGE-296) routes or summarizes a group with Pica's
+ * An `observer` session routes or summarizes a group with Pica's
  * model: every driver denies every native tool, the web and every MCP server,
  * so it reads its prompt and answers with text alone.
  */
@@ -131,7 +129,6 @@ export interface AcpLaunchSpecification {
 
 /**
  * Everything that differs between the ACP adapters of the runners.
- *
  * @remarks
  * The session, its closing and the isolation are shared; a driver supplies the
  * adapter's identity, its start, its modes and the configuration files that
@@ -148,7 +145,6 @@ export interface AcpDriver {
   readonly errors: AcpDriverErrors;
   /**
    * The `_meta` of a steering request, or `null` for none.
-   *
    * @remarks
    * claude-agent-acp takes `steering.idleBehavior: "promptRequired"`: a steer
    * that finds the turn already ended comes back to Pages instead of starting
@@ -168,7 +164,6 @@ export interface AcpDriver {
   /**
    * Refuses a start when a configuration file that Pages did not write could
    * widen the session.
-   *
    * @throws {AgentError} With the code of the runner when such a file exists.
    */
   requireManagedConfiguration(home: CliHome, directory: string): Promise<void>;

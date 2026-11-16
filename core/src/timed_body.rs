@@ -1,4 +1,4 @@
-//! A streamed HTTP body with an idle limit and a lifetime (PAGE-239).
+//! A streamed HTTP body with an idle limit and a lifetime.
 //!
 //! The attachment requests of Pica Mobile pass through the core unbuffered,
 //! frame by frame. A body that stops moving, or one that trickles for too

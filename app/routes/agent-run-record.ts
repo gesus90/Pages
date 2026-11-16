@@ -11,7 +11,6 @@ import type { Route } from "./+types/agent-run-record";
 
 /**
  * Delivers the markdown of one agent run to the person who started it.
- *
  * @remarks
  * The agent must still be visible to the requester, the run must be theirs,
  * and the plan and its source resources must still be accessible to them.

@@ -29,7 +29,6 @@ export const PICA_MOBILE_MAXIMUM_STEP_COUNT = 1000;
 
 /**
  * Longest frame of a notification answer, in UTF-16 code units.
- *
  * @remarks
  * The app counts the text of a frame this way and ends the connection on a
  * longer one, so a `notification_event` answer is shortened to fit.
@@ -125,17 +124,15 @@ export const DEFAULT_NOTIFICATION_CHOICES: NotificationChoices = {
   teamRuns: false,
 };
 
-/** The name Pica answers under in chats (PAGE-266); history entries of Pica carry it as well. */
+/** The name Pica answers under in chats; history entries of Pica carry it as well. */
 export const PICA_ASSISTANT_NAME = "pica";
 
 /**
- * Whether a chat message counts as a message of Pica (PAGE-421).
- *
+ * Whether a chat message counts as a message of Pica.
  * @remarks
  * A message is Pica's when its author is the agent account named
  * {@link PICA_ASSISTANT_NAME}, compared without case and surrounding space.
  * A person named Pica and every other agent count as an ordinary chat.
- *
  * @param author - Kind and display name of the author.
  * @returns Whether the `pica` choice decides about the message.
  */
@@ -162,7 +159,6 @@ export const NOTIFICATION_CHOICE_KEYS = [
 
 /**
  * One choice of `notifications.team.v1` as Pages reports it.
- *
  * @remarks
  * `isAvailable` is `false` while this Pages cannot deliver it, for example
  * without a push sender; `isEnabled` is then `false` as well, whatever the
@@ -257,7 +253,6 @@ export interface PicaMobileNotificationEvent {
 
 /**
  * The answer to `notification_event_get`.
- *
  * @remarks
  * `forbidden` and `gone` carry nothing but the identifier: no names, no link.
  * `detailUrl` belongs beside `event` in the payload, where the app reads it,

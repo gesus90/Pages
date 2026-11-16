@@ -127,7 +127,7 @@ export interface ApplicationServices
   readonly liveChangeAudience: LiveChangeAudience;
   readonly permissionService: PermissionService;
   readonly passwordHasher: PasswordHasher;
-  /** The calendar of PAGE-301 for the interface, Pica Mobile, Pica and MCP. */
+  /** The calendar for the interface, Pica Mobile, Pica and MCP. */
   readonly calendarService: CalendarService;
 }
 
@@ -140,7 +140,6 @@ declare global {
 
 /**
  * Creates the services that need little more than the database.
- *
  * @param database - Central database access.
  * @param databasePath - Path of the database; attachments live next to it.
  * @param access - Decides project access and capabilities; the publisher
@@ -180,7 +179,6 @@ function createWorkspaceServices(
 
 /**
  * Creates the services that decide what an account may do.
- *
  * @param database - The open database.
  * @param passwordHasher - Hashes the passwords the administration sets.
  * @param serverCache - Shared cache the administration invalidates on changes.
@@ -486,10 +484,9 @@ function createRepositoryReads(
 
 /**
  * Creates the services of tickets: the tickets themselves, templates, GitHub
- * synchronization, ticket attachments, the ticket tree (A8.2), the
+ * synchronization, ticket attachments, the ticket tree, the
  * Discord notifications that follow ticket and milestone changes and the
- * Google Drive connection of the instance (PAGE-170).
- *
+ * Google Drive connection of the instance.
  * @param context - The repositories and services the ticket services use.
  * @returns The ticket services, with GitHub and attachment files attached,
  * and the event publisher both the interface and the agents announce on.
@@ -612,7 +609,6 @@ async function openConfiguredServices(): Promise<ApplicationServices> {
 
 /**
  * Returns the initialized server-side services for the current Pages process.
- *
  * @throws {SetupPendingError} While the setup is pending; no database is
  * opened or created before the setup finished.
  */
@@ -636,7 +632,6 @@ export function getApplicationServices(): Promise<ApplicationServices> {
 
 /**
  * Starts the services on the database a finished setup just prepared.
- *
  * @param database - Open database of the finished setup.
  * @param databasePath - Path of that database.
  * @returns The services, which later requests receive as well.

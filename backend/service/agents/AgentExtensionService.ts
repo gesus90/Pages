@@ -118,7 +118,7 @@ function translate(error: unknown): unknown {
   return translateAgentTicketError(error);
 }
 
-/** Server-owned dispatcher for the A11.1 operations; the adapter never supplies policy. */
+/** Server-owned dispatcher for the extension operations; the adapter never supplies policy. */
 export class AgentExtensionService {
   private readonly database: Pick<Database, "transaction">;
   private readonly cache: ServerCache;

@@ -49,20 +49,20 @@ a Pages instance or its private wiki. Some specialized guides are in German.
   [Claude](../backend/agents/acp/ClaudeAcpCapabilities.md),
   [OpenCode](../backend/agents/acp/OpenCodeAcpCapabilities.md).
 - [Paired-device user management API](McpUserManagement.md),
-  [Storage API](StorageApi.md#pages-mcp-api-page-299) and [z.ai account routing](ZaiAccountType.md).
+  [Storage API](StorageApi.md#pages-mcp-api) and [z.ai account routing](ZaiAccountType.md).
   The standalone MCP client is outside this repository; these are server contracts,
   not a verified public client installation guide.
 
 ## Historical evidence and open boundaries
 
-Ticket documents retain the date and limitations of their checks; they are not
-claims that a current checkout passed those checks. Where an older description
+Historical documents retain the date and limitations of their checks; they are
+not claims that a current checkout passed those checks. Where an older description
 conflicts with a current contract, follow the current guide and linked code.
 
-- [PAGE-332 inventory, source reconciliation and validation](PAGE-332.md).
+- [Documentation inventory, source reconciliation and validation](PAGE-332.md).
 - [CI test-tag execution](PAGE-290.md), [background work/shutdown](PAGE-199.md),
   [plan control and writer coordination](PAGE-184-185.md),
-  [remote acceptance](PAGE-169.md) and [pre-PAGE-157 Pica inventory](PicaRuntimeInventory.md).
+  [remote acceptance](PAGE-169.md) and [historical Pica inventory](PicaRuntimeInventory.md).
 - [Wiki companion documents](wiki/): versioned implementation notes. Links
   beginning `/wiki/` in those older notes require access to the relevant Pages
   instance; they are not publicly reachable setup instructions.

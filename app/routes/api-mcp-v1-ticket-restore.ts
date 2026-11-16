@@ -25,8 +25,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpTicketHandlers {
 }
 
 /**
- * Brings an archived ticket back (`POST /api/mcp/v1/tickets/{key}/restore`), PAGE-242 interface 15.
- *
+ * Brings an archived ticket back (`POST /api/mcp/v1/tickets/{key}/restore`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

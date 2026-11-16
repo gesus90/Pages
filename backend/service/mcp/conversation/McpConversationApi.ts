@@ -15,8 +15,7 @@ export interface McpConversationAccess {
 
 /**
  * The settings "Wer antwortet?" of group chats for the stand-alone Pages MCP
- * program (PAGE-317, PAGE-379).
- *
+ * program.
  * @remarks
  * A paired machine acts with the rights of the account that confirmed the
  * pairing, checked again on every request: it reads the settings of a group
@@ -32,7 +31,6 @@ export class McpConversationApi {
 
   /**
    * Creates the API.
-   *
    * @param settings - The service of the chat page.
    * @param access - The device token check and the account lookup.
    */
@@ -46,7 +44,6 @@ export class McpConversationApi {
 
   /**
    * Checks the token of a request and names the account it acts for.
-   *
    * @param authorization - The `Authorization` header of the request.
    * @returns The paired account.
    * @throws {McpDeviceError} `invalid_token` for a missing, unknown or revoked token.
@@ -65,7 +62,6 @@ export class McpConversationApi {
 
   /**
    * Reads the settings of a group.
-   *
    * @throws {ConversationError} `not_found` for a conversation the account is no member of or that is no group.
    */
   public read(
@@ -77,14 +73,13 @@ export class McpConversationApi {
 
   /**
    * Changes the settings of a group; a field the body leaves out keeps its value.
-   *
    * @param account - The paired account.
    * @param conversationId - The group.
    * @param body - `mode` (`mentions` or `decision`), the rules `answerThreshold`,
    * `responsibilityThreshold`, `secondThreshold` (whole percent) and
    * `maximumResponders`, or `useDefaults: true` to follow the defaults of the
    * instance again; `automaticRepliesPerOrigin` bounds the contributions
-   * without @ per round (PAGE-349).
+   * without @ per round.
    * @returns The stored settings.
    * @throws {ConversationError} As {@link ConversationReplySettingsService.save}.
    */

@@ -1,6 +1,5 @@
 /**
- * Every budget and bound of the database executor in one place (PAGE-197).
- *
+ * Every budget and bound of the database executor in one place.
  * @remarks
  * The values are conservative for a single self-hosted server; see
  * `docs/DatabaseExecutor.md` for the reasoning behind each of them.
@@ -13,7 +12,7 @@ export const DATABASE_EXECUTOR_LIMITS = {
    */
   readerConnections: 2,
   /**
-   * Largest memory the DuckDB instance of the worker may use (PAGE-202).
+   * Largest memory the DuckDB instance of the worker may use.
    * DuckDB's default of 80 % of the RAM let the worker take about 10 GB of
    * the 22 GB server during the OOM of 2026-11-03. A start value, adjusted
    * after measurement; a query beyond it fails on its own.

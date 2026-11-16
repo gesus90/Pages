@@ -56,7 +56,6 @@ function toQuery(form: WikiSearchForm, pageId: string | null): string {
 
 /**
  * Holds the search form and sends it a moment after the last change.
- *
  * @param pageId - The open page, for "only in this page"; `null` elsewhere.
  * @returns The form, its setter and the answer.
  */

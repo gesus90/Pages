@@ -56,8 +56,7 @@ async function run(
 
 /**
  * Registers the tools that attach a file the agent made, such as a rendered
- * PNG, to a ticket or a wiki page (PAGE-303).
- *
+ * PNG, to a ticket or a wiki page.
  * @remarks
  * Only an agent employee on "Arbeitsplatz" or YOLO gets them. They act with
  * the agent's own account, so the ticket and wiki rules decide every call.

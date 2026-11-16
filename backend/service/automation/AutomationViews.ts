@@ -35,7 +35,6 @@ function durationOf(run: StoredAutomationRun): number | null {
 
 /**
  * The list entry of a run.
- *
  * @param run - The stored run.
  * @param automationName - The name of its automation.
  */
@@ -100,7 +99,6 @@ function deliveryOf(job: StoredAutomationAgentJob): AutomationDelivery {
 
 /**
  * One run with its bounded outputs.
- *
  * @param run - The stored run.
  * @param context - The automation's name, the run's deliveries and whether
  * the reader may see a script's output.
@@ -125,7 +123,6 @@ export function automationRunDetail(
 
 /**
  * An automation as one account sees it.
- *
  * @param automation - The stored automation.
  * @param context - Its creator, the reader's permissions and its last run.
  */

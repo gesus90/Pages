@@ -40,7 +40,6 @@ const AGENT_ERRORS: Readonly<
 
 /**
  * Turns a refused agent operation into the response the panel shows.
- *
  * @param error - What the service rejected with; anything else is thrown again.
  * @param intent - The intent of the form.
  */
@@ -92,7 +91,7 @@ async function readAvatar(
   return upload.status === "ready" ? upload.avatar : undefined;
 }
 
-/** Creates an agent in the user administration (PAGE-266). */
+/** Creates an agent in the user administration. */
 export const handleCreateAgent: UsersActionHandler = async ({
   actor,
   formData,
@@ -110,7 +109,7 @@ export const handleCreateAgent: UsersActionHandler = async ({
   return data<UsersActionData>({ intent: "create-agent", ok: true });
 };
 
-/** Saves the panel of an agent (PAGE-266). */
+/** Saves the panel of an agent. */
 export const handleUpdateAgent: UsersActionHandler = async ({
   actor,
   formData,
@@ -141,7 +140,7 @@ export const handleUpdateAgent: UsersActionHandler = async ({
   return data<UsersActionData>({ intent: "update-agent", ok: true });
 };
 
-/** Restores a version of an agent's memory (PAGE-266). */
+/** Restores a version of an agent's memory. */
 export const handleRestoreAgentMemory: UsersActionHandler = async ({
   actor,
   formData,
@@ -164,7 +163,7 @@ export const handleRestoreAgentMemory: UsersActionHandler = async ({
   return data<UsersActionData>({ intent: "restore-agent-memory", ok: true });
 };
 
-/** Empties `MEMORY.md` or `DREAM.md` of an agent; the version before stays restorable (PAGE-305). */
+/** Empties `MEMORY.md` or `DREAM.md` of an agent; the version before stays restorable. */
 export const handleResetAgentMemory: UsersActionHandler = async ({
   actor,
   formData,
@@ -187,7 +186,7 @@ export const handleResetAgentMemory: UsersActionHandler = async ({
   return data<UsersActionData>({ intent: "reset-agent-memory", ok: true });
 };
 
-/** Sets the person color of another account (PAGE-266). */
+/** Sets the person color of another account. */
 export const handleSetUserColor: UsersActionHandler = async ({
   actor,
   formData,

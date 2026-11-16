@@ -111,7 +111,7 @@ export interface AgentPlanServices {
   readonly agentPlanRunHistoryService: AgentPlanRunHistoryService;
   /** Pica Mobile notifications for runs of plans the person owns. */
   readonly picaMobileNotifications: PicaMobileNotificationService;
-  /** Tells creators about finished automation runs on their devices (PAGE-297). */
+  /** Tells creators about finished automation runs on their devices. */
   readonly picaMobileAutomationPush: PicaMobileAutomationPush;
   /** Creating, copying and deleting plans from the plan page, each request once. */
   readonly agentPlanManagement: AgentPlanManagement;
@@ -119,7 +119,7 @@ export interface AgentPlanServices {
   readonly agentPlanTemplateService: AgentPlanTemplateService;
   readonly agentSessionService: AgentSessionService;
   readonly agentPlanRecoveryService: AgentPlanRecoveryService;
-  /** The retention and stall time of the run diagnosis under Settings → Agents (PAGE-307). */
+  /** The retention and stall time of the run diagnosis under Settings → Agents. */
   readonly agentRunDiagnosisSettingsService: AgentRunDiagnosisSettingsService;
 }
 
@@ -181,7 +181,7 @@ function planScripts(): AgentPlanScripts {
   });
 }
 
-/** The file store of asset nodes, where one was wired (PAGE-268). */
+/** The file store of asset nodes, where one was wired. */
 function planAssetsOf(
   agents: Pick<AgentApplicationServices, "agentPlanAssetService">,
 ): Pick<PlanDependencies, "planAssets"> {
@@ -439,7 +439,6 @@ function startWorkspaceCleanup(
 
 /**
  * The plan bridge access of this process.
- *
  * @remarks
  * `local` issues credentials and holds the bearers; it belongs to the process
  * that serves the bridge. An engine in its own process (`runsMode =

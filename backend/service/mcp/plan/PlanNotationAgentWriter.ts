@@ -36,7 +36,6 @@ function normalized(configuration: unknown): AgentPlanConfiguration | null {
 
 /**
  * Writes the execution target of the plan or a node: `local`, a remote workspace by name, or JSON.
- *
  * @param target - The stored target, or absent.
  * @param names - Names a remote workspace where its name is unique.
  */
@@ -90,7 +89,6 @@ function gateEntries(step: AgentPlanStep): readonly PlanNotationEntry[] {
 
 /**
  * The short forms that turn the agent's current copy into the stored one, or `null`.
- *
  * @remarks
  * Only a model offered for the node's target, the reasoning level and the
  * name can be said briefly; any other difference needs the whole copy.
@@ -157,7 +155,6 @@ function configurationEntries(
 
 /**
  * Writes the fields of an agent node, without its type and bindings.
- *
  * @param step - The stored agent node.
  * @param context - Names agents, models and targets.
  * @returns Short forms where they read back to the same field, long forms otherwise.

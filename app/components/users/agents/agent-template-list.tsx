@@ -224,7 +224,7 @@ function useTemplateListState(props: AgentTemplateListProps): {
 }
 
 /**
- * The templates of the tab "Aufgabe" (PAGE-283): picking one fills
+ * The templates of the tab "Aufgabe": picking one fills
  * `AGENT.md` once, asking first when the field already holds text. Whoever
  * may manage agents creates, changes, duplicates and deletes templates; a
  * change of a template changes no agent.

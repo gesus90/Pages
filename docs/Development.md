@@ -84,6 +84,50 @@ manual static checks. `postgres:restore-check` verifies an actual backup and
 `db:transfer` performs offline transfer; both are operating commands, described
 in [PostgreSQL operations](PostgresMigration.md).
 
+### Repository configuration inventory
+
+Reviewed source revision `5e0a033c2511c66f60b4a549e51492713091cba6` on
+2026-11-16, with the configuration consolidation described below applied on
+that revision. The inventory covers tracked root configuration and the Rust
+package; deployment templates and scripts are covered by the separate
+[repository audit](repository-reference-audit.md). A filename search cannot
+prove that an external tool or developer never uses a configuration.
+
+| Files                                                   | Consumer and decision                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `package.json`, `pnpm-lock.yaml`, `pnpm-workspace.yaml` | pnpm resolves scripts, dependencies, install policy and locked versions. Keep all three; the workspace file also restricts install scripts and dependency age.                                                                                                                                                                                                                                                                                                                                                                                  |
+| `vite.config.ts`                                        | React Router discovers it for `dev`, `dev:api` and the app and API builds. `scripts/build.mjs` selects `runtimes` for the independent Node entries. One file replaces the former separate runtime configuration; runtime mode deliberately excludes React Router plugins.                                                                                                                                                                                                                                                                       |
+| `react-router.config.ts`                                | React Router selects static app or API output through `PAGES_ROUTES`. Keep: it is a separate framework contract.                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| `eslint.config.js`                                      | ESLint, invoked by `scripts/run-lint.mjs`, discovers the flat config. Its former rule module is now included directly, preserving the same rules and ignores.                                                                                                                                                                                                                                                                                                                                                                                   |
+| `tsconfig.json`                                         | TypeScript and ESLint project service consume the project and aliases; keep.                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `prettier.config.mjs`, `.prettierignore`                | Prettier uses formatting options and exclusions for the `format` and `check` scripts; keep.                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `.gitignore`                                            | Git excludes generated and local files; keep. `.env.example` is an installation template, not a live credential file.                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `core/Cargo.toml`, `core/Cargo.lock`                    | Cargo builds and resolves the Rust service; keep the manifest and lock separately from pnpm.                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| `opencode.json`                                         | Project-level OpenCode configuration excludes generated directories and `data` from watching and reading, and denies environment-file patterns except examples. Keep the existing rules. `backend/agents/acp/OpenCodeAcpConfiguration.ts` checks other unmanaged configuration locations; it does not establish that every OpenCode invocation uses this project file. Actual use outside the repository is unknown. Removing it could change resource use and read permissions; these rules are tool permissions, not an OS security boundary. |
+
+There is no tracked Vitest configuration or dependency and no current Pages
+behavior suite; the future test setup is a separate assignment. Historical
+reports mentioning removed commands are retained as historical evidence. The
+ignored `build/`, `dist/`, `.react-router/`, `coverage/`, `core/target/` and
+`node_modules/` contain generated output or caches, while `data/`, `.env*`
+(except the template) and logs are local; none is a tracked configuration
+candidate. Do not delete them as part of this inventory.
+
+The OpenCode configuration may be installation-specific, but removing it
+without evidence of users and effective permissions would risk changing the
+read policy. Retain it pending an owner decision. No broad configuration
+removals are supported by the available evidence. The configuration count is
+now one Vite and one ESLint file; React Router, TypeScript, Prettier, pnpm,
+Cargo and OpenCode remain separate because their consumers and contracts differ.
+
+The configuration loader was run directly for app development and production,
+API development and production, and runtime build mode. It returned the
+expected app/API plugins, API server entry, runtime inputs, output names and
+alias. Importing the ESLint configuration returned its 12 sections and retained
+ignores. This checks configuration loading, not server startup or emitted
+bundles. Build, live development start, lint, typecheck and tests were not run
+at the assignment owner's instruction; no live service or data was accessed.
+
 ### Sequential block linting
 
 `pnpm run lint` (`node scripts/run-lint.mjs`) is the single standard entry point

@@ -40,7 +40,6 @@ const NO_SELECTION: TaskSelection = {
 
 /**
  * Loads the ticket the address selects together with everything its panel shows.
- *
  * @param services - Application services the panel data comes from.
  * @param request - Visitor, listed tickets and the selected key. The labels of
  * the listed tickets get the selected ticket's labels added when it lies
@@ -108,7 +107,6 @@ export async function loadSelection(
 
 /**
  * Resolves a selected ticket outside the current board filter from the database.
- *
  * @param services - Initialized server-side services.
  * @param actor - Authenticated user requesting the ticket.
  * @param selectedKey - Ticket key or id from the query string.

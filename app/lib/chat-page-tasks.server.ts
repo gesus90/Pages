@@ -8,7 +8,7 @@ import type {
 } from "@/definition/AgentChatTask";
 import type { User } from "@/definition/User";
 
-/** The changes of the dialog "Geplante Aufgaben" (PAGE-392). */
+/** The changes of the dialog "Geplante Aufgaben". */
 export const CHAT_TASK_INTENTS = [
   "chat-tasks",
   "chat-task-active",
@@ -52,9 +52,8 @@ function readChat(formData: FormData): AgentChatTaskPageChat {
 }
 
 /**
- * Lists, pauses, resumes or deletes the scheduled tasks of a chat
- * (PAGE-392); every change answers the list of the chat as it is now.
- *
+ * Lists, pauses, resumes or deletes the scheduled tasks of a chat;
+ * every change answers the list of the chat as it is now.
  * @param service - The scheduled tasks of chats.
  * @param person - The signed-in person, who must be in the chat.
  * @param intent - The change.

@@ -22,8 +22,7 @@ const SHELL_STATE: LocalStateKind<ShellData> = {
 };
 
 /**
- * Loads the workspace frame of the static app (PAGE-235).
- *
+ * Loads the workspace frame of the static app.
  * @remarks
  * Always asks the server first: the frame names the account and its rights.
  * The answer is kept for the account, so the frame opens from it, marked
@@ -31,7 +30,6 @@ const SHELL_STATE: LocalStateKind<ShellData> = {
  * sign-in page after the session ended, is passed on. The frame's account
  * and fingerprint are remembered before any route of the frame decides
  * whether its kept answer still applies.
- *
  * @param signal - Ends the request when the load is cancelled.
  * @returns The frame, from the server or kept.
  */

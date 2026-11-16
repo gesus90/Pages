@@ -315,7 +315,6 @@ function readRevision(
 
 /**
  * Reduces a business error to its public code and visible choices.
- *
  * @param error - The error the Pages operation raised.
  * @returns The whitelisted failure, or `undefined` for a malformed rejection; authentication failures never get here.
  */

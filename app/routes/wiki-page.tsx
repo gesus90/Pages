@@ -95,7 +95,6 @@ const WIKI_PAGE_STATE: LocalStateRouteKind<WikiPageLoaderData> = {
 
 /**
  * Opens a page from the account's kept answer at once and asks the endpoint behind it.
- *
  * @remarks
  * The endpoint runs the server loader with its permission checks; the
  * address's page, slug and query reach it unchanged.

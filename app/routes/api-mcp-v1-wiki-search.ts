@@ -20,8 +20,7 @@ const HANDLERS: McpWikiHandlers = {
 };
 
 /**
- * Searches the wiki like the search dialog (`GET /api/mcp/v1/wiki/search?text=…`), PAGE-257 interface 2.
- *
+ * Searches the wiki like the search dialog (`GET /api/mcp/v1/wiki/search?text=…`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

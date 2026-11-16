@@ -158,7 +158,6 @@ async function writeAll(handle, bytes) {
 
 /**
  * Writes one file to disk chunk by chunk and proves it is the pinned original.
- *
  * Memory holds one chunk, whatever the size of the file; a file that fails
  * its checks is removed again.
  */

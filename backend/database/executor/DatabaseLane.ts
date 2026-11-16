@@ -47,7 +47,6 @@ interface WaitingJob {
 
 /**
  * A bounded first-in-first-out queue in front of the writer or the readers.
- *
  * @remarks
  * Jobs start strictly in arrival order whatever their class, so neither
  * interactive requests, agent persistence nor background jobs can starve
@@ -76,7 +75,6 @@ export class DatabaseLane {
 
   /**
    * Runs `work` once a place is free.
-   *
    * @param work - Receives the time the job waited, in milliseconds.
    * @param options - Class, budget and abort signal of the job.
    * @returns Whatever `work` returns.
@@ -125,7 +123,6 @@ export class DatabaseLane {
 
   /**
    * Refuses every later job and waits for the jobs the lane already accepted.
-   *
    * @returns Settles once no job runs or waits any more.
    */
   public drain(): Promise<void> {

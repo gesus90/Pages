@@ -202,12 +202,10 @@ function placeholderRecord(
 }
 
 /**
- * Runs the script of an automation (PAGE-297).
- *
+ * Runs the script of an automation.
  * @param request - The interpreter, the workspace, the content, the stdin
  * JSON and the time limit, all already authorized.
  * @returns Exit code, bounded output and the failure, if any.
- *
  * @remarks
  * The same building blocks as the scripts of plans: a private resource
  * directory, the allowlisted environment, a release gate before the program

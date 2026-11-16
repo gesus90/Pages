@@ -48,9 +48,8 @@ function handlers(params: Route.LoaderArgs["params"]): McpUserHandlers {
 }
 
 /**
- * Reads a group with its leaders and members (`GET /api/mcp/v1/groups/{groupId}`, PAGE-308), the group of the user management
- * (`GET /api/mcp/v1/groups/{groupId}?view=administration`), changes it (`PATCH`) and deletes it (`DELETE`), PAGE-280.
- *
+ * Reads a group with its leaders and members (`GET /api/mcp/v1/groups/{groupId}`), the group of the user management
+ * (`GET /api/mcp/v1/groups/{groupId}?view=administration`), changes it (`PATCH`) and deletes it (`DELETE`).
  * @remarks
  * The profile read answers an administrator and every member of the group.
  * The administration view, `PATCH` and `DELETE` need the device token of a

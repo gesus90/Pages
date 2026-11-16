@@ -191,7 +191,7 @@ export class LocalAttachedSession implements PlanSession {
     );
   }
 
-  /** Interrupts the running prompt inside the authenticated native owner (PAGE-284). */
+  /** Interrupts the running prompt inside the authenticated native owner. */
   public async interrupt(): Promise<boolean> {
     const answer = await this.dependencies.control({ kind: "interrupt" });
     return (

@@ -99,9 +99,8 @@ function checkBatch(request: StorageBatchRequest): CheckedBatch | null {
 }
 
 /**
- * Changes several entries of one folder with one call (PAGE-272): copy,
+ * Changes several entries of one folder with one call: copy,
  * move or move to the trash.
- *
  * @remarks
  * Every entry has to lie in the named source folder, at most
  * {@link STORAGE_BATCH_LIMIT} per call. The entries run one after another
@@ -119,7 +118,6 @@ export class StorageBatchWriter {
 
   /**
    * Creates the batch writer.
-   *
    * @param connection - The Drive connection.
    * @param drive - The Drive client.
    * @param writer - The single changing operations.
@@ -136,7 +134,6 @@ export class StorageBatchWriter {
 
   /**
    * Runs one action for every named entry.
-   *
    * @param request - Action, source folder, entries and target folder.
    * @returns How many entries changed and which were refused with their reason.
    */

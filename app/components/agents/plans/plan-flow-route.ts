@@ -28,7 +28,6 @@ function toward(
 
 /**
  * An SVG path through the points with rounded corners.
- *
  * @param points - The corners of the line, the two ends included.
  * @param radius - The largest radius of a corner; short segments round less.
  */

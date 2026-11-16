@@ -178,7 +178,6 @@ function pickLabelIds(value: unknown): string[] {
 
 /**
  * Turns an untrusted value into complete, valid board preferences.
- *
  * @param raw - A stored or submitted object; anything else counts as empty.
  * @returns Preferences where every missing or invalid field has its default.
  */
@@ -230,7 +229,6 @@ export function normalizeBoardPreferences(raw: unknown): BoardPreferences {
 
 /**
  * Tells whether an address carries any board preference.
- *
  * @param params - Query parameters of the request.
  */
 export function hasBoardQuery(params: URLSearchParams): boolean {
@@ -239,7 +237,6 @@ export function hasBoardQuery(params: URLSearchParams): boolean {
 
 /**
  * Removes every board preference from the parameters of an address.
- *
  * @param params - Query parameters of the request.
  * @returns A copy that keeps only the other parameters, such as the open ticket.
  */
@@ -255,7 +252,6 @@ export function withoutBoardQuery(params: URLSearchParams): URLSearchParams {
 
 /**
  * Reads the board preferences out of an address.
- *
  * @param params - Query parameters of the request.
  * @param base - Preferences for the parameters the address does not carry,
  * usually the saved ones.
@@ -282,7 +278,6 @@ export function parseBoardQuery(
 
 /**
  * Writes every board preference into the parameters of an address.
- *
  * @param params - Parameters of the current address; other parameters stay.
  * @param preferences - Preferences to write.
  * @returns A copy with all board parameters set, defaults included, so the
@@ -305,7 +300,6 @@ export function withBoardQuery(
 
 /**
  * Turns preferences into the text the database stores.
- *
  * @param preferences - Preferences to store.
  */
 export function serializeBoardPreferences(
@@ -316,7 +310,6 @@ export function serializeBoardPreferences(
 
 /**
  * Reads stored preferences back; damaged text counts as nothing saved.
- *
  * @param text - Text written by {@link serializeBoardPreferences}.
  */
 export function parseStoredBoardPreferences(text: string): BoardPreferences {

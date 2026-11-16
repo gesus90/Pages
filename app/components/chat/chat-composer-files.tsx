@@ -46,7 +46,7 @@ function ChatUploadRejections({
 }
 
 /**
- * The files of the next message above the input field (PAGE-92): how many of
+ * The files of the next message above the input field: how many of
  * the ten places are taken, the files that were not taken, the chosen files
  * with their upload state and why sending waits.
  */

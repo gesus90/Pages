@@ -16,7 +16,7 @@ const LARGE_MESSAGE_TYPES: ReadonlySet<string> = new Set([
   "conversation_send",
   "voice_chunk",
   "speech_chunk",
-  // An event description alone may have 10,000 characters (PAGE-301).
+  // An event description alone may have 10,000 characters.
   "calendar_event_save",
 ]);
 
@@ -44,7 +44,6 @@ const LIMITS: Readonly<Record<PicaMobileFrameKind, BudgetLimit>> = {
 
 /**
  * Tells the budget a text frame counts in before it is parsed.
- *
  * @param text - The frame.
  * @param isAuthenticated - Whether the connection is authenticated; before
  * that every frame is a message.
@@ -61,7 +60,6 @@ export function readPicaMobileFrameKind(
 
 /**
  * Checks a parsed message against the frame it came in.
- *
  * @param type - The type of the parsed message.
  * @param frame - Whether the frame exceeded 16 KiB and the budget it counted in.
  * @returns Why the frame is refused, or `null` when it fits its message.
@@ -79,7 +77,6 @@ export function describePicaMobileFrameMismatch(
 
 /**
  * Counts the frames of one connection against its rate and queue limits.
- *
  * @remarks
  * Every frame counts in the window of ten seconds it arrives in, and as
  * pending until its handling ended. A peer that exceeds either limit loses
@@ -99,7 +96,6 @@ export class PicaMobileFrameBudget {
 
   /**
    * Creates the budget.
-   *
    * @param now - The clock of the connection in milliseconds.
    */
   public constructor(now: () => number) {

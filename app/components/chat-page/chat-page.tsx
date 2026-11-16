@@ -66,7 +66,7 @@ function placeholderKey(opened: OpenedConversation): string {
     : "chatPage.personPlaceholder";
 }
 
-/** The hint that agents wrote the most they may in a row, with the way to let them go on (PAGE-311). */
+/** The hint that agents wrote the most they may in a row, with the way to let them go on. */
 function AgentPausedBanner({
   onResume,
 }: {
@@ -120,7 +120,7 @@ function ConversationFoot({
 }: {
   readonly page: ChatPageState;
   readonly opened: OpenedConversation;
-  /** Receives what the menu of an agent in the head uses to mention it (PAGE-376). */
+  /** Receives what the menu of an agent in the head uses to mention it. */
   readonly mentionRef: React.RefObject<((username: string) => void) | null>;
 }): React.ReactElement {
   const { t } = useTranslation();
@@ -130,7 +130,7 @@ function ConversationFoot({
   const commands = useChatCommandRunner(opened);
   const name = conversationName(opened);
 
-  // A chat command steers an agent and is never sent as a message (PAGE-380).
+  // A chat command steers an agent and is never sent as a message.
   function handleSend(
     content: string,
     attachmentIds: readonly string[],
@@ -192,7 +192,7 @@ function ConversationFoot({
 
 /**
  * The message a "Zur Nachricht" link points to, once its chat is the opened
- * one (PAGE-393); another chat never looks for it.
+ * one; another chat never looks for it.
  */
 function focusOf(
   selection: VirtualChatSelection | null,
@@ -213,7 +213,7 @@ function ChatPageConversation({
 }: {
   readonly page: ChatPageState;
   readonly status?: ChatDecisionStatus;
-  /** The message a "Zur Nachricht" link points to (PAGE-393). */
+  /** The message a "Zur Nachricht" link points to. */
   readonly focusMessageId?: string;
 }): React.ReactElement {
   const { t } = useTranslation();
@@ -295,7 +295,7 @@ function storedConversationId(
 
 /**
  * The list of conversations; while the split view is open it makes room
- * for chat and panel on screens below 1536 px (PAGE-298).
+ * for chat and panel on screens below 1536 px.
  */
 function ListSlot({
   children,
@@ -312,25 +312,23 @@ function ListSlot({
 }
 
 /**
- * The chat page with people, agents and groups (PAGE-254, PAGE-266,
- * PAGE-259).
+ * The chat page with people, agents and groups.
  *
  * @remarks
  * Two columns 32 px apart down to the foot of the page: the list card of 340
  * px with a scroll area for each list, and the chat without card or
  * background. The list collapses to a bar of avatars of 72 px, by its toggle
- * or `Ctrl+Shift+L`, and the chat takes the room (PAGE-325). From 768 px on
+ * or `Ctrl+Shift+L`, and the chat takes the room. From 768 px on
  * the page fills the screen and the document never scrolls; only the
  * history and the list do.
  * Below `lg` the list stands above the chat; below `md` a selection replaces
  * it. Messages go to active agents, which answer over ACP, and into the
- * stored conversations with people and of groups (PAGE-278). The list holds
+ * stored conversations with people and of groups. The list holds
  * only existing people and agents the person chose or who wrote to them, and
  * groups of them. Content of messages shows as cards; one of them opens
- * right of the chat in the split view or over the page (PAGE-298), as does
- * "Medien & Dateien" of the chat (PAGE-387). A right click or a long press
- * on a conversation of the list opens it with its chat menu at the point
- * (PAGE-389).
+ * right of the chat in the split view or over the page, as does
+ * "Medien & Dateien" of the chat. A right click or a long press
+ * on a conversation of the list opens it with its chat menu at the point.
  */
 export function ChatPage({
   directory,
@@ -339,7 +337,7 @@ export function ChatPage({
 }: {
   readonly directory: VirtualChatDirectory;
   readonly requestedSelection?: VirtualChatSelection;
-  /** The message of a "Zur Nachricht" link in the requested chat (PAGE-393). */
+  /** The message of a "Zur Nachricht" link in the requested chat. */
   readonly requestedMessageId?: string;
 }): React.ReactElement {
   const { t } = useTranslation();

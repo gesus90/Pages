@@ -19,7 +19,6 @@ const SKIP_BYTES = 1024 * 1024;
 
 /**
  * One sequential read of a file: bytes are taken in order and hashed on the way.
- *
  * @remarks
  * The digest is checked when the last byte was taken, so a file that changed
  * since it was pinned fails the transfer at its end instead of being trusted.
@@ -45,7 +44,6 @@ class AssetCursor {
 
   /**
    * Takes the chunk at `offset`; the chunk before it is served again after a lost answer.
-   *
    * @throws {AgentError} `parameter_asset_unavailable` for an offset behind the
    * file or a stream that fails, `parameter_ticket_changed` when the file is
    * not the one that was pinned.
@@ -109,7 +107,6 @@ class AssetCursor {
 
 /**
  * The files of one step that are served in chunks without being held in memory.
- *
  * @remarks
  * A runner reads a file front to back, so one open cursor serves all its
  * chunks and the cost of a file is one read instead of one read per chunk. Only
@@ -124,7 +121,6 @@ export class RunnerAssetCursors {
 
   /**
    * Reads the next bytes of one file.
-   *
    * @param index - The position of the file in the step's manifest.
    * @param offset - Where the chunk starts.
    * @param length - How many bytes the chunk may have.

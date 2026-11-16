@@ -1,11 +1,11 @@
-# Wiki-Entwurf PAGE-310: Laufsteuerung (Starten, Pause, Fortsetzen, Stop)
+# Wiki-Entwurf: Laufsteuerung (Starten, Pause, Fortsetzen, Stop)
 
-Dieser Entwurf ist für zwei Seiten bestimmt. All Might überträgt ihn nach der Abnahme:
+Dieser Entwurf ist für zwei Seiten bestimmt:
 
 - [Agent-Definitionen, Arbeitsplätze und Arbeitspläne: technische Umsetzung](/wiki/3301f98d-8727-4c7b-97dc-8a8262d4e440): Teil A ersetzt die beiden Sätze zu Unterbrechung und „nicht implementiert“ und wird als neuer Abschnitt angehängt.
 - [Agents: Festlegungen](/wiki/93eb063a-a63c-4cac-8393-af182291a582): Teil B wird als neuer Abschnitt angehängt.
 
-> Hinweis zum Ablauf: Im ersten Versuch dieses Laufs wurden beide Seiten vor dem Wiki-Vorbehalt dieses Tickets bereits direkt im Live-Wiki geändert (technische Seite Revisionen 13 bis 16, Festlegungen Revision 23, jeweils als Seitenversion erhalten). Der Inhalt entspricht diesem Entwurf. All Might entscheidet, ob er bleibt oder aus den Seitenversionen zurückgesetzt wird.
+> Hinweis zum Ablauf: Beide Seiten wurden bereits direkt im Live-Wiki geändert (technische Seite Revisionen 13 bis 16, Festlegungen Revision 23, jeweils als Seitenversion erhalten). Der Inhalt entspricht diesem Entwurf. Die Live-Wiki wird getrennt gepflegt.
 
 ## Teil A: Technische Umsetzung
 
@@ -19,9 +19,9 @@ Neu: **Unterbrochene Läufe** (Absturz, Neustart des Dienstes) werden beim Start
 
 Alter Satz: „**Nicht implementiert (Information):** Retry/Resume, Bedingungen und die **automatische Freigabe** unbekannter Reservierungen.“
 
-Neu: **Umgesetzt seit PAGE-310 (Information):** Retry/Resume und die **automatische Freigabe** eigener Reservierungen nach bestätigtem Prozessende; ein Klick auf Fortsetzen setzt jeden fortsetzbaren Zustand fort. **Weiterhin nicht implementiert:** Bedingungen als eigener Knotentyp, die Fortsetzung von Plänen mit Decision oder Ereignis-Eingang (nur Neustart von vorn, Grund `branching_unsupported`) und die Freigabe von Reservierungen, deren Prozessende nicht bestätigt werden kann.
+Neu: **Umgesetzt (Information):** Retry/Resume und die **automatische Freigabe** eigener Reservierungen nach bestätigtem Prozessende; ein Klick auf Fortsetzen setzt jeden fortsetzbaren Zustand fort. **Weiterhin nicht implementiert:** Bedingungen als eigener Knotentyp, die Fortsetzung von Plänen mit Decision oder Ereignis-Eingang (nur Neustart von vorn, Grund `branching_unsupported`) und die Freigabe von Reservierungen, deren Prozessende nicht bestätigt werden kann.
 
-### Neuer Abschnitt: Laufsteuerung: Zustandsmodell, Fortsetzen und Freigabe nach Absturz (PAGE-310)
+### Neuer Abschnitt: Laufsteuerung: Zustandsmodell, Fortsetzen und Freigabe nach Absturz
 
 `read_plan_control` und die Oberfläche lesen dasselbe `AgentPlanControl`. Neben `status` und `canResume` liefert es `resumeKind` (der fortsetzbare Zustand) und, solange Fortsetzen gesperrt ist, `resumeBlock` mit Grund und Handlung. Bedienende unterscheiden nicht zwischen Resume, Recovery und Continue: der mittlere Button heißt **Fortsetzen**, der Server wählt den Weg.
 
@@ -66,7 +66,7 @@ Eine Sperre ohne Grund gibt es nicht: fehlt ein spezifischer Grund, nennt `resum
 
 #### Befund der Ursachen vom 11.11.2026
 
-- **Pages MCP (PMCP-13 blockiert):** Der Lauf 835bba8f endete `failed` mit `plan_acceptance_failed` (Fehlerklasse `harm`; Nachfolger `plan_dependency_failed`). Nach jedem „Starten“ aus einem beendeten Lauf legt `retireRestartSource` eine Bereinigungspflicht für den Vorgängerlauf an; `AgentWorkspaceCleanupService.settle` ruft daraufhin `engine.stop` auf, das bei einem beendeten Lauf nur `stopRequested: true` vermerkt (`AgentPlanRunCommands.stopDetached`). Das Journal zeigt `agent.run.stop_requested` jeweils zwei Sekunden nach dem Start des Folgelaufs (11:58:39 für Lauf 835bba8f nach dem Start um 11:58:37; ebenso 11:33:34 für Lauf 50018341). Die alten Prüfungen (`canControl = … && !run.stopRequested` in `planControl`, `resumeOption → cancelled_by_user`, `planRecoveryReason` ohne Wiederherstellungsgrund) machten einen so markierten Lauf endgültig unfortsetzbar: `status: failed`, `resumeAction: recovery`, `canResume: false`. Ein nachgestellter Lauf mit diesem Zustand ergab vorher `canResume: false` und `cancelled_by_user`, jetzt `resumeKind: stopped` und fortsetzbar. Nicht belegbar ist aus Code und Journal allein, welche Prüfung im Moment des Klicks vor 11:58 sperrte; Kandidaten sind der Befund der Startprüfung (siehe Session 2) und die Reservierungen.
+- **Pages MCP (eigenständiger Client blockiert):** Der Lauf 835bba8f endete `failed` mit `plan_acceptance_failed` (Fehlerklasse `harm`; Nachfolger `plan_dependency_failed`). Nach jedem „Starten“ aus einem beendeten Lauf legt `retireRestartSource` eine Bereinigungspflicht für den Vorgängerlauf an; `AgentWorkspaceCleanupService.settle` ruft daraufhin `engine.stop` auf, das bei einem beendeten Lauf nur `stopRequested: true` vermerkt (`AgentPlanRunCommands.stopDetached`). Das Journal zeigt `agent.run.stop_requested` jeweils zwei Sekunden nach dem Start des Folgelaufs (11:58:39 für Lauf 835bba8f nach dem Start um 11:58:37; ebenso 11:33:34 für Lauf 50018341). Die alten Prüfungen (`canControl = … && !run.stopRequested` in `planControl`, `resumeOption → cancelled_by_user`, `planRecoveryReason` ohne Wiederherstellungsgrund) machten einen so markierten Lauf endgültig unfortsetzbar: `status: failed`, `resumeAction: recovery`, `canResume: false`. Ein nachgestellter Lauf mit diesem Zustand ergab vorher `canResume: false` und `cancelled_by_user`, jetzt `resumeKind: stopped` und fortsetzbar. Nicht belegbar ist aus Code und Journal allein, welche Prüfung im Moment des Klicks vor 11:58 sperrte; Kandidaten sind der Befund der Startprüfung (siehe Session 2) und die Reservierungen.
 - **Pages Session 2:** Der Lauf c3faf60d endete um 11:27:41 mit `cli_not_logged_in` (Journal: `agent.step.completed … "code":"cli_not_logged_in"`, danach `agent.run.completed … failed`); der Dienst ist nicht abgestürzt. Fortsetzen war gesperrt, weil `AgentPlanControlService.read` bei jedem Befund der Startprüfung (zum Beispiel `plan_script_permission_denied` außerhalb des Admin-Modus, dazu `planExecutionIssues`) `canResume` auf `false` setzte und den Grund nur als Tooltip zeigte.
 - **Reservierungen:** Der Start hielt drei beendete Läufe dauerhaft (`AgentPlanStartupRecovery.releaseFinishedReservations` prüfte nur; Journal `reservationsKept: 3` bei jedem Start). Welche drei Läufe es sind, ist ohne Lesezugriff auf die Live-Datenbank nicht benannt.
 

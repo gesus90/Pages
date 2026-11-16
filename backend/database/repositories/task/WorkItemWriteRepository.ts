@@ -65,7 +65,6 @@ export interface WorkItemGitHubLink {
 
 /**
  * What a database that cannot store U+0000 makes of a text when it saves it.
- *
  * @remarks
  * A compared value keeps the character, so a second save of the same text would not
  * find the first one. This form lets one statement recognize a save that leaves the
@@ -83,7 +82,6 @@ export class WorkItemWriteRepository {
 
   /**
    * Creates a work item write repository.
-   *
    * @param database - Central database access.
    */
   public constructor(database: TaskDatabase) {

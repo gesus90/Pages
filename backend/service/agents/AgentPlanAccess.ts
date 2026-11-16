@@ -76,7 +76,6 @@ interface PlanPlace {
 
 /**
  * Decides who sees and changes a plan, on every call.
- *
  * @remarks
  * Live project access to the workspace controls every read or run. The owner
  * and the members and leaders of the plan's department, who also have that
@@ -110,7 +109,6 @@ export class AgentPlanAccess {
 
   /**
    * Returns the access rules for another surface, with the same plans and shares.
-   *
    * @param channel - The surface whose administrator reading decides workspace access.
    */
   public forChannel(channel: ActorChannel): AgentPlanAccess {
@@ -142,7 +140,6 @@ export class AgentPlanAccess {
 
   /**
    * Lists the plans the person reads as summaries, in the order of {@link list}.
-   *
    * @remarks
    * The same decisions as {@link list} without loading any graph, for pages
    * that only need to name, group and offer plans.
@@ -183,7 +180,6 @@ export class AgentPlanAccess {
 
   /**
    * Requires the current workspace/project and sharing rights for this surface.
-   *
    * @remarks
    * Reads only the one plan: whoever asks for a plan, for a run's plan or for
    * its control state does not wait for every other plan to be loaded.
@@ -228,7 +224,6 @@ export class AgentPlanAccess {
 
   /**
    * Validates the groups and departments of new teams.
-   *
    * @throws {AgentError} `profile_target_invalid` for an unknown target.
    */
   public async validateTeams(
@@ -253,7 +248,6 @@ export class AgentPlanAccess {
 
   /**
    * Resolves the department an object of the person belongs to and the project they work in.
-   *
    * @param userId - The signed-in person; an inactive account is refused.
    * @param workspaceId - The workspace being worked in, or `null` without one.
    * @throws {AgentError} `plan_access_denied` for a workspace outside the

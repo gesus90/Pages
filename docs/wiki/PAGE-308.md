@@ -1,11 +1,11 @@
 <!--
-Entwurf für das Wiki (PAGE-308). Die Wiki-Seiten liegen im Pages-Live-Dienst und werden vom Lauf nicht geändert.
-All Might überträgt die beiden Abschnitte nach der Abnahme:
+Entwurf für das Wiki. Die Live-Wiki wird getrennt gepflegt.
+Die beiden Abschnitte sind für folgende Seiten bestimmt:
 1. „Agents: Festlegungen“ (/wiki/93eb063a-a63c-4cac-8393-af182291a582) – Abschnitt „Profile lesbar machen“ unten.
 2. „Pages-Schnittstelle und MCP: technische Umsetzung“ (/wiki/6d5a37ed-6ab1-4c4e-8962-96b7f1224b5b) – Abschnitt „Schnittstellenvertrag“ unten.
 -->
 
-# PAGE-308: Agent-Profile für Administratoren, Gruppen- und Projektleitungen
+# Agent-Profile für Administratoren, Gruppen- und Projektleitungen
 
 ## Teil 1 – für die Seite „Agents: Festlegungen“
 
@@ -25,9 +25,9 @@ Alle anderen sehen wie bisher nur Name, Abteilungen und Gruppen (zum Beispiel ü
 
 **Projektleitung.** Wer in einem Projekt die Projektrolle „Projektmanager“ (`project_members.role = 'manager'`) hat, liest die Profile der Agents, die Mitglied dieses Projekts sind.
 
-**Was lesbar ist.** Name, Konto-ID, Kennzeichen Agent, Abteilungen, Gruppen, Projektmitgliedschaften mit Projektrolle; Rolle (Stellenbezeichnung des Agents, ersatzweise der Name seiner Rolle); Aufgabenbeschreibung (AGENT.md) und Persönlichkeit (SOUL.md); Modell und Anbindung, Reasoning, Zugriffsstufe; Stimme, sobald es sie gibt (PAGE-300); Auslastung (aktive Chats, laufende Plan-Schritte, offene zugewiesene Tickets); Zeitpunkt der letzten Aktivität.
+**Was lesbar ist.** Name, Konto-ID, Kennzeichen Agent, Abteilungen, Gruppen, Projektmitgliedschaften mit Projektrolle; Rolle (Stellenbezeichnung des Agents, ersatzweise der Name seiner Rolle); Aufgabenbeschreibung (AGENT.md) und Persönlichkeit (SOUL.md); Modell und Anbindung, Reasoning, Zugriffsstufe; Stimme, sobald es sie gibt; Auslastung (aktive Chats, laufende Plan-Schritte, offene zugewiesene Tickets); Zeitpunkt der letzten Aktivität.
 
-**Was nie lesbar ist.** MEMORY.md, DREAM.md und das Gedächtnisarchiv eines anderen Agents sowie Chatinhalte sind für Gruppen- und Projektleitungen nicht lesbar. Zugangsdaten sieht niemand; Zugangsdaten, die in AGENT.md oder SOUL.md stehen sollten, werden beim Lesen maskiert. Administratoren sehen das Gedächtnis im Agent-Panel wie in PAGE-305 vorgesehen; die Profil-Schnittstelle liefert es nicht.
+**Was nie lesbar ist.** MEMORY.md, DREAM.md und das Gedächtnisarchiv eines anderen Agents sowie Chatinhalte sind für Gruppen- und Projektleitungen nicht lesbar. Zugangsdaten sieht niemand; Zugangsdaten, die in AGENT.md oder SOUL.md stehen sollten, werden beim Lesen maskiert. Administratoren sehen das Gedächtnis im Agent-Panel wie für das Agent-Gedächtnis vorgesehen; die Profil-Schnittstelle liefert es nicht.
 
 **Ändern.** Agents anlegen und ändern bleibt in der Benutzerverwaltung bei Administratoren. Die Profil-Werkzeuge schreiben nichts.
 
@@ -116,11 +116,11 @@ Personen ohne Recht erhalten bei `agents_read` `forbidden` und in `agents_list` 
 
 ### Festlegungen der Umsetzung
 
-- **Gleiche Pfade wie die Agent-Verwaltung.** `GET /agents` und `GET /agents/{id}` waren bisher die Verwaltungssicht für Administratoren (PAGE-267), `GET /groups/{groupId}` die der Benutzerverwaltung (PAGE-280). Ohne weitere Angabe antworten sie jetzt mit dem Profil-Vertrag oben. Die bisherige Verwaltungssicht liefert `?view=administration` (zum Beispiel `GET /agents/{id}?view=administration` mit `revision` für eine Änderung); `POST`, `PATCH` und `DELETE` ändern sich nicht. Ein Client, der Agents ändert, muss `view=administration` setzen.
+- **Gleiche Pfade wie die Agent-Verwaltung.** `GET /agents` und `GET /agents/{id}` waren bisher die Verwaltungssicht für Administratoren, `GET /groups/{groupId}` die der Benutzerverwaltung. Ohne weitere Angabe antworten sie jetzt mit dem Profil-Vertrag oben. Die bisherige Verwaltungssicht liefert `?view=administration` (zum Beispiel `GET /agents/{id}?view=administration` mit `revision` für eine Änderung); `POST`, `PATCH` und `DELETE` ändern sich nicht. Ein Client, der Agents ändert, muss `view=administration` setzen.
 - **Rolle.** `role` ist die Stellenbezeichnung des Agents (`users.job_title`), ersatzweise der Name seiner Rolle.
 - **Kurzbeschreibung.** `summary` ist der erste Absatz von AGENT.md ohne Überschriften und Formatierung, höchstens 240 Zeichen.
-- **Zugriffsstufe.** `accessLevel` ist der gespeicherte Zugriffsmodus (`read_only` oder `yolo`). Feinere Stufen (PAGE-303) folgen, sobald es sie gibt.
-- **Stimme.** `voice` ist `null`, solange es keine Agent-Stimme gibt (PAGE-300).
+- **Zugriffsstufe.** `accessLevel` ist der gespeicherte Zugriffsmodus (`read_only` oder `yolo`). Feinere Stufen folgen, sobald es sie gibt.
+- **Stimme.** `voice` ist `null`, solange es keine Agent-Stimme gibt.
 - **Aktive Chats** sind die Chats des Agents mit einem laufenden Chat-Auftrag. **Laufende Plan-Schritte** sind Schritte, deren Sitzung für das Konto des Agents gerade startet oder läuft (`acp_resource_leases`); die Kennungen sind keine Berechtigung, den Lauf zu öffnen. **Offene Tickets** sind dem Agent zugewiesene, nicht erledigte und nicht archivierte Tickets; `agents_read` nennt höchstens 200 davon, `agents_list` zählt alle.
 - **Letzte Aktivität** ist der jüngste Zeitpunkt aus Chat-Aufträgen, Projektänderungen, Plan-Läufen und Lernläufen des Agents.
 - **Oberfläche und Schnittstelle** lesen über denselben Dienst. Die Oberfläche bietet dieselben Daten unter `/users-api/groups/{groupId}/agents` (Übersicht für Leitung und Administratoren) und `/users-api/agent-profiles/{agentId}`.

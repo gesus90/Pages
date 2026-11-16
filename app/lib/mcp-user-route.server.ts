@@ -48,10 +48,8 @@ function isServedMethod(
 
 /**
  * Answers a user management request with JSON that no cache keeps.
- *
  * @param body - The answer of the interface.
  * @param status - The HTTP status.
- *
  * @remarks
  * `Cache-Control: no-store` matters most for the one answer that holds a
  * temporary password.
@@ -62,7 +60,6 @@ export function mcpUserResponse(body: unknown, status = 200): Response {
 
 /**
  * Answers a change: `201` for the first answer of a creation, `200` otherwise.
- *
  * @param answer - The result of `McpUserApi.change`.
  * @param isCreation - Whether the request creates an object.
  */
@@ -74,13 +71,11 @@ export function mcpUserChangeResponse(
 }
 
 /**
- * Runs one request of the user management API (PAGE-280).
- *
+ * Runs one request of the user management API.
  * @param request - The request of the machine.
  * @param handlers - The methods the resource serves.
  * @returns The answer; a failure answers `{ "error": "<code>" }`, with
  * `confirmation` for `confirmation_required`.
- *
  * @remarks
  * Only the bearer token of a paired machine admits a request; browser
  * cookies play no part. Rights are read again on every call, inside the
@@ -116,7 +111,6 @@ export async function runMcpUserRoute(
 
 /**
  * Reads the JSON object of a user management request.
- *
  * @param request - The request with `Content-Type: application/json`.
  * @returns The object, its fields still untrusted; an empty body counts as `{}`.
  */
@@ -128,7 +122,6 @@ export async function readMcpUserBody(
 
 /**
  * Reads a path parameter of a user management resource.
- *
  * @param value - The parameter as React Router passes it.
  * @throws {McpUserError} `not_found` for a missing parameter.
  */
@@ -140,7 +133,6 @@ export function requireMcpUserParameter(value: string | undefined): string {
 
 /**
  * Reads the query of a request.
- *
  * @param request - The request.
  */
 export function mcpUserQuery(request: Request): URLSearchParams {

@@ -27,11 +27,9 @@ const UNASSIGNED: ResolvedAssignment = {
 
 /**
  * Takes a create call exactly as stated, without defaults.
- *
  * @param request - The create contract.
  * @returns The values to create the ticket with.
  * @throws {AgentOperationError} `INVALID_REQUEST` when the call names no project.
- *
  * @remarks
  * Callers that supply every value themselves, such as the structured import,
  * stay exactly as they were: nothing is inherited and nobody is assigned.
@@ -51,14 +49,12 @@ export function takeStatedTicketCreate(
 
 /**
  * Settles what a create call leaves open from the parent and the account.
- *
  * @param context - The services of the call, bound to the creating account.
  * @param request - The create contract.
  * @param parent - The visible parent the call names, or `null`.
  * @returns The values to create the ticket with.
  * @throws {AgentOperationError} `INVALID_REQUEST` without a project, `NOT_FOUND`
  * for a department, person or group the account cannot see.
- *
  * @remarks
  * The project, the milestone and the departments come from the parent, but
  * only what the parent carries and the account may use is taken; nothing is

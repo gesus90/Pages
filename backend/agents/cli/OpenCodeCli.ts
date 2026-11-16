@@ -37,7 +37,6 @@ const TEST_CONFIGURATION = JSON.stringify({
 
 /**
  * Controls the unchanged OpenCode binary with one provider key per connection.
- *
  * @remarks
  * OpenCode's free models need no key. A key stored with the connection
  * itself keeps its exact provider. Other Pages connections never supply keys.
@@ -110,7 +109,6 @@ export class OpenCodeCli implements CliToolAdapter {
 
   /**
    * Encrypts the native provider credential in this connection's private folder.
-   *
    * @param home - The prepared credential folder of the connection.
    * @param input - The validated native provider ID and its key.
    */

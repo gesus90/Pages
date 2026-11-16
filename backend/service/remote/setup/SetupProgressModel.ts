@@ -40,7 +40,6 @@ function isStopped(progress: SetupProgress): boolean {
 
 /**
  * The first phase of a run, with Pages still checking the machine before the script starts.
- *
  * @returns The progress at the first preparation step.
  */
 export function startedProgress(): SetupProgress {
@@ -52,7 +51,6 @@ export function startedProgress(): SetupProgress {
 
 /**
  * Moves the preparation on to its next step.
- *
  * @param progress - The current progress.
  * @param step - The step that begins now, or `null` once the script runs.
  * @returns The new progress; a stopped run stays as it is.
@@ -67,13 +65,11 @@ export function preparationStep(
 
 /**
  * Applies a progress report of the script.
- *
  * @remarks
  * A phase may only start after every earlier phase is done or skipped, a
  * finished phase is never reopened, and nothing follows a failed phase. A
  * report that breaks these rules changes nothing, so a forged or misordered
  * marker cannot advance the sequence or hide a failure.
- *
  * @param progress - The current progress.
  * @param marker - The report read from the terminal.
  * @returns The new progress, or the same object when the report is not accepted.
@@ -98,7 +94,6 @@ export function applyMarker(
 
 /**
  * The index of the phase that runs or waits; with none, the first phase that has not begun.
- *
  * @param progress - The current progress.
  * @returns The zero-based phase index, or the phase count when every phase is settled.
  */
@@ -115,7 +110,6 @@ export function currentPhaseIndex(progress: SetupProgress): number {
 
 /**
  * Ends the run with a failure in the phase that was current.
- *
  * @param progress - The current progress.
  * @param end - Translation key naming the cause, and `partial` when part of the installation stands.
  * @returns The progress with the phase failed and no later phase started.
@@ -138,7 +132,6 @@ export function failedProgress(
 
 /**
  * Ends the run with an outcome Pages decided on.
- *
  * @param progress - The current progress.
  * @param end - The outcome and, unless it is confirmed, the reason.
  * @returns The progress with the outcome set.

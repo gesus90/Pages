@@ -51,8 +51,7 @@ async function decideAccess(request: Request): Promise<Response> {
 }
 
 /**
- * Decides for `pages-core` whether a browser session may read the detailed service status (PAGE-238).
- *
+ * Decides for `pages-core` whether a browser session may read the detailed service status.
  * @remarks
  * Only the core's shared secret admits a request (see `admitPagesCore`).
  * The core asks for every detailed status request and keeps no answer, so a

@@ -41,7 +41,7 @@ function planDescription(
  * Name, project and workspace change in the Bearbeiten dialog of the plan
  * menu, teams and owner in its Teams dialog; opening another plan asks first
  * when the draft has unsaved changes. "Meine Teams" narrows the list to the
- * plans of the person's own teams (PAGE-329).
+ * plans of the person's own teams.
  */
 export function PlanPanelContext({
   page,

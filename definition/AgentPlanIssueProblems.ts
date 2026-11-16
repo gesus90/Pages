@@ -3,7 +3,6 @@ import { PLAN_STACK_PROBLEMS } from "./AgentPlanStackProblems.js";
 
 /**
  * Why the graph check refused a plan, as the plan page names it.
- *
  * @remarks
  * Declared here because the MCP package type-checks this file on its own; the
  * graph check of Pages uses exactly these names.

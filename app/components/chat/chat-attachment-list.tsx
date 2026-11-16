@@ -26,7 +26,7 @@ interface ChatAttachmentListProps {
 const FOLDED_CARDS = 4;
 
 /**
- * Attachments as preview cards (PAGE-92): images, PDF pages, the start of
+ * Attachments as preview cards: images, PDF pages, the start of
  * texts, tables and documents, each with name, type, size and a download.
  * The same cards show the files chosen for the next message, with their
  * upload state, and the files of sent messages and of Pica's answers.

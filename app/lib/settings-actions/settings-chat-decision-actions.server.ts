@@ -24,12 +24,9 @@ const chatDecisionFormSchema = z.object({
 });
 
 /**
- * Saves the decision model and the default thresholds of the instance
- * (PAGE-317, PAGE-379).
- *
+ * Saves the decision model and the default thresholds of the instance.
  * @param context - The administrator in the admin mode and the form.
  * @returns Success; a refused choice throws an {@link AgentError}.
- *
  * @remarks
  * The service checks the administrator, the admin mode, that the model is
  * one of the decision models the instance lists and that the thresholds are

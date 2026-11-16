@@ -50,8 +50,7 @@ function endingEvent(
 }
 
 /**
- * Writes the events of plan runs to the inbox of automations (PAGE-297).
- *
+ * Writes the events of plan runs to the inbox of automations.
  * @remarks
  * It observes the existing state changes of runs, so no second engine
  * watches the plans: a stored new run is `plan.started`, an ending

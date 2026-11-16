@@ -27,8 +27,7 @@ export interface GoogleDriveSimulatedConnectionDependencies {
 }
 
 /**
- * The connection of a development server with the simulated Drive (PAGE-270).
- *
+ * The connection of a development server with the simulated Drive.
  * @remarks
  * It counts as connected without any sign-in: there is no OAuth flow, no
  * stored or real credential and no request to Google. Like the real
@@ -42,7 +41,6 @@ export class GoogleDriveSimulatedConnection implements GoogleDriveConnection {
 
   /**
    * Creates the simulated connection.
-   *
    * @param dependencies - The account check and the granted scopes.
    */
   public constructor(dependencies: GoogleDriveSimulatedConnectionDependencies) {
@@ -52,7 +50,6 @@ export class GoogleDriveSimulatedConnection implements GoogleDriveConnection {
 
   /**
    * Starts no sign-in: the simulation has no OAuth flow.
-   *
    * @returns Always `null`.
    */
   public async start(): Promise<string | null> {
@@ -61,7 +58,6 @@ export class GoogleDriveSimulatedConnection implements GoogleDriveConnection {
 
   /**
    * Finishes no sign-in: the simulation has no OAuth flow.
-   *
    * @returns Always `invalid`.
    */
   public async complete(): Promise<GoogleDriveCallbackOutcome> {
@@ -70,7 +66,6 @@ export class GoogleDriveSimulatedConnection implements GoogleDriveConnection {
 
   /**
    * Tells where the simulated connection stands.
-   *
    * @param origins - The allowed origins, for the redirect URIs of the card.
    * @returns `connected` while the simulation answers, marked as simulation.
    */

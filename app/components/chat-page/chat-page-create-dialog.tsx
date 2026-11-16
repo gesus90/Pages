@@ -230,12 +230,12 @@ interface ChatPageCreateDialogProps {
 }
 
 /**
- * The dialog "Neue Gruppe" (PAGE-259): name, description and at least one
+ * The dialog "Neue Gruppe": name, description and at least one
  * participant of the person's own list, stored for the person.
  *
  * @remarks
  * The server checks the input again. A failure stays in the dialog with the
- * entered values. Participants are never created here (PAGE-266).
+ * entered values. Participants are never created here.
  */
 export function ChatPageCreateDialog({
   isOpen,

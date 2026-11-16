@@ -27,8 +27,7 @@ export interface AutomationPlanReference extends AutomationChoice {
 }
 
 /**
- * The facts of Pages that the rules of automations are decided on (PAGE-297).
- *
+ * The facts of Pages that the rules of automations are decided on.
  * @remarks
  * Every answer is read anew for each call: rights that were taken away count
  * at once, also for a run that was planned before.

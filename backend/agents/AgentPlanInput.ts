@@ -288,7 +288,6 @@ function readScriptOutputs(input: unknown): readonly AgentPlanScriptOutput[] {
 
 /**
  * Parses a script node; its own configuration is checked completely here.
- *
  * @throws {AgentError} `plan_script_invalid` for a missing or malformed field,
  * an empty or too long content, invalid or repeated names or a timeout out of
  * bounds. Whether the profile exists is checked when the plan is saved.
@@ -340,9 +339,8 @@ function readScriptNode(
 
 /**
  * Parses a saved Git closeout of an earlier version exactly as it was stored.
- *
  * @remarks
- * The node is no longer supported (PAGE-285); it is only read so a saved plan
+ * The node is no longer supported; it is only read so a saved plan
  * keeps its configuration and connections until someone removes the node.
  * Its role stays fixed, so it never turns into an ordinary step. Whether a
  * save may contain it at all is decided where the plan is saved.
@@ -529,7 +527,6 @@ function readGroupNode(
 
 /**
  * Parses a loop node with its members; its own fields are checked completely here.
- *
  * @throws {AgentError} `plan_loop_invalid` for a malformed field or a member
  * that is neither an agent, a script nor a group, `plan_loop_nested` for a
  * loop inside the loop, `plan_loop_runs_invalid` for a saved count outside
@@ -622,7 +619,6 @@ function readStackEntry(input: unknown): AgentPlanStackEntry {
 
 /**
  * Parses a stack node with its ordered entries.
- *
  * @throws {AgentError} `plan_stack_invalid` for a malformed field, an entry
  * that is neither a ticket nor a value, a repeated entry or too many entries.
  */

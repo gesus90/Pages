@@ -7,7 +7,6 @@ import type { ToolInventory } from "@/definition/RemoteSetup";
 /**
  * What a runner reported about OpenCode on its host: the ACP contract check
  * of the installed version and the providers set up there.
- *
  * @remarks
  * A runner without OpenCode support reports a version only, so the text asks
  * to update the runner instead of guessing a result.

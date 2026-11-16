@@ -32,10 +32,8 @@ function readFetcherNotice(
 
 /**
  * Keeps track of the setup token the wizard sends with every request.
- *
  * @param initialAccess - Access granted by the token in the setup link.
  * @param hasRejectedToken - Whether the link carried an invalid token.
- *
  * @remarks
  * The token only lives in this component state. A token the server later
  * rejects, for example after a restart, is withdrawn so the form asks for

@@ -27,7 +27,7 @@ export const RETAINED_EVENTS = 2_000;
 /** The largest page a reader gets at once. */
 export const MAXIMUM_PAGE = 200;
 
-/** The events that explain what went wrong in a session, copied into the log of the run (PAGE-307). */
+/** The events that explain what went wrong in a session, copied into the log of the run. */
 const RUN_LOG_EVENT_LEVELS: Readonly<
   Partial<Record<AgentSessionEventKind, AgentRunLogLevel>>
 > = { error: "error", tool_failed: "warn", recovery: "warn", status: "info" };
@@ -62,7 +62,6 @@ interface Follower {
 
 /**
  * The structured history of PageAgentCLI sessions: ordered, redacted, bounded and readable after restarts.
- *
  * @remarks
  * Events of one attempt are appended one batch after another, so their
  * sequences follow the order of the calls. A follower first reads what is
@@ -92,7 +91,6 @@ export class AgentSessionJournal {
 
   /**
    * Stores events of one attempt in the order given and passes them to its followers.
-   *
    * @returns The stored events; a dropped duplicate is not among them.
    */
   public async append(
@@ -124,7 +122,6 @@ export class AgentSessionJournal {
 
   /**
    * Reads stored events after a cursor.
-   *
    * @param attemptId - The attempt, already authorized by the caller.
    * @param after - The last sequence the reader has; 0 reads from the start.
    * @param limit - At most this many events, up to {@link MAXIMUM_PAGE}.
@@ -159,7 +156,6 @@ export class AgentSessionJournal {
 
   /**
    * Follows an attempt from a cursor: first the stored events after it, then every new one.
-   *
    * @returns Ends the following; it holds no process or resource slot.
    */
   public async follow(

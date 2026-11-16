@@ -4,7 +4,7 @@ import type {
 } from "./ConversationContent";
 import type { ConversationParticipantKind } from "./Conversation";
 
-/** The tabs of "Medien & Dateien" of a chat, in their order (PAGE-387). */
+/** The tabs of "Medien & Dateien" of a chat, in their order. */
 export const CONVERSATION_MEDIA_TABS = [
   "images",
   "videos",
@@ -133,10 +133,9 @@ function isDocument(name: string, mimeType: string): boolean {
 }
 
 /**
- * The tab of a file (PAGE-387): images, videos and sound by their kind; PDF,
+ * The tab of a file: images, videos and sound by their kind; PDF,
  * Office, tables and text as documents; binary files and everything else as
  * files.
- *
  * @param attachment - Name, type and kind of the file.
  */
 export function conversationMediaTab(
@@ -155,7 +154,6 @@ export function conversationMediaTab(
 
 /**
  * Whether the file of an attachment is gone: removed, or its time ran out.
- *
  * @param attachment - The attachment.
  * @param now - The current moment in milliseconds.
  */
@@ -172,7 +170,6 @@ export function isMediaExpired(
 
 /**
  * Whether a file of an agent has less than 24 hours left and is still there.
- *
  * @param attachment - The attachment.
  * @param now - The current moment in milliseconds.
  */
@@ -196,7 +193,6 @@ function matchesQuery(texts: readonly string[], query: string): boolean {
 
 /**
  * The files the search and the filters leave, in their order.
- *
  * @param files - The files of the chat.
  * @param filter - Search, sender and the filters of the remaining time.
  * @param now - The current moment in milliseconds.
@@ -219,7 +215,6 @@ export function filterMediaFiles(
 /**
  * The links the search and the sender filter leave; the filters of the
  * remaining time leave no link, since links never expire.
- *
  * @param links - The links of the chat.
  * @param filter - Search and sender.
  */
@@ -237,7 +232,6 @@ export function filterMediaLinks(
 
 /**
  * How many entries each tab holds.
- *
  * @param files - The files to count.
  * @param links - The links to count.
  */

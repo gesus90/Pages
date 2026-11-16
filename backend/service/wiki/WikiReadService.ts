@@ -37,7 +37,6 @@ export class WikiReadService {
 
   /**
    * Creates the service.
-   *
    * @param repository - Wiki persistence.
    * @param access - Resolves who is acting.
    * @param trash - Decides whether an administrator gets a placeholder.
@@ -54,7 +53,6 @@ export class WikiReadService {
 
   /**
    * Whether the actor sees a page right now, without remembering a visit.
-   *
    * @remarks
    * A page in the trash counts with the same visibility rules, so moving it
    * there or back reaches those who saw it. A purged page is gone and
@@ -71,7 +69,6 @@ export class WikiReadService {
 
   /**
    * Opens a page and remembers the visit.
-   *
    * @param actor - The signed-in user.
    * @param id - Page identifier.
    * @returns The page with the rights of the actor, or the placeholder an
@@ -100,7 +97,6 @@ export class WikiReadService {
 
   /**
    * Reads a page with the rights of the actor, without remembering a visit.
-   *
    * @param actor - The account that reads, such as a paired machine.
    * @param id - Page identifier.
    * @returns The page as the page view shows it.
@@ -134,7 +130,6 @@ export class WikiReadService {
 
   /**
    * Builds the data of the left navigation.
-   *
    * @param actor - The signed-in user.
    * @returns Visible pages, the projects that can hold pages, and the
    * personal state; favorites, open branches and recent pages are reduced to
@@ -168,7 +163,6 @@ export class WikiReadService {
 
   /**
    * Builds the lists of the wiki start page.
-   *
    * @param actor - The signed-in user.
    * @returns Recently edited pages, pages owned by the actor, favorites and
    * all visible pages.
@@ -190,7 +184,6 @@ export class WikiReadService {
 
   /**
    * Lists the templates the actor may use.
-   *
    * @param actor - The signed-in user.
    * @returns Template pages by title, without their text.
    */
@@ -205,7 +198,6 @@ export class WikiReadService {
 
   /**
    * Marks or unmarks a favorite.
-   *
    * @param actor - The signed-in user.
    * @param id - Page identifier.
    * @param isFavorite - Whether the page is a favorite afterwards.
@@ -224,7 +216,6 @@ export class WikiReadService {
 
   /**
    * Opens or closes a branch of the tree for the actor.
-   *
    * @param actor - The signed-in user.
    * @param id - Page identifier.
    * @param isExpanded - Whether the branch is open afterwards.

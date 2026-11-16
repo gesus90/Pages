@@ -48,7 +48,6 @@ export interface AgentSessionSendResult {
 
 /**
  * The queue of additional and repair instructions of PageAgentCLI sessions.
- *
  * @remarks
  * An instruction is stored and shown before anything is written to the
  * agent. While a turn of the native session runs, it waits; afterwards the
@@ -84,7 +83,6 @@ export class AgentSessionInbox {
 
   /**
    * Stores an instruction and delivers it at once when the native session is free.
-   *
    * @param target - The authorized attempt.
    * @param input - The kind and text; the text stays as written, apart from the frozen plan prompt.
    * @param delivery - Writes it into the native session.
@@ -103,8 +101,7 @@ export class AgentSessionInbox {
   }
 
   /**
-   * Stores an instruction and writes it into the running turn at once (PAGE-284).
-   *
+   * Stores an instruction and writes it into the running turn at once.
    * @param target - The authorized attempt.
    * @param input - The kind, the text and the person who wrote it.
    * @param delivery - Joins the running turn; it rejects when no turn takes the input.
@@ -133,7 +130,6 @@ export class AgentSessionInbox {
 
   /**
    * Withdraws an instruction that is still waiting.
-   *
    * @returns Whether it was withdrawn; a delivered instruction stays delivered.
    */
   public async withdraw(messageId: string): Promise<boolean> {
@@ -142,7 +138,6 @@ export class AgentSessionInbox {
 
   /**
    * Marks deliveries a stopped server lost on the way; none is repeated.
-   *
    * @returns How many messages became `uncertain`.
    */
   public async recover(): Promise<number> {
@@ -184,8 +179,7 @@ export class AgentSessionInbox {
   }
 
   /**
-   * Runs a delivery loop outside the request that woke it (PAGE-199).
-   *
+   * Runs a delivery loop outside the request that woke it.
    * @returns Whether the loop ended normally; it never rejects.
    */
   private async drainDetached(instanceId: string): Promise<boolean> {

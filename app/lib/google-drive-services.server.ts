@@ -30,8 +30,8 @@ const SIMULATED_APPLICATION = {
 };
 
 /**
- * The Google Drive sign-in of the system settings (PAGE-170), the Storage
- * area (PAGE-188) and the Storage interface for files and folders (PAGE-270).
+ * The Google Drive sign-in of the system settings, the Storage
+ * area and the Storage interface for files and folders.
  */
 export interface GoogleDriveApplicationServices {
   readonly googleDriveConnectionService: GoogleDriveConnection;
@@ -86,14 +86,12 @@ function simulatedWiring(simulation: GoogleDriveSimulation): DriveWiring {
 
 /**
  * Creates the Google Drive connection of the instance.
- *
  * @param database - Central database access.
  * @param instanceKey - The key the instance encrypts its connection secrets with.
  * @param account - The shared administration service resolving current account facts.
  * @returns The connection service, which without the OAuth client of the
  * instance only names the settings that are missing, the Storage area and the
  * Storage interface on it.
- *
  * @remarks
  * The OAuth client comes from the environment, like the Discord application,
  * and never leaves this process. With `PAGES_GOOGLE_DRIVE_SIMULATION=1` outside

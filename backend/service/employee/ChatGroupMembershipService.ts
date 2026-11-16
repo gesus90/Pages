@@ -56,8 +56,7 @@ function avatarImage(user: User): string | null {
 }
 
 /**
- * The members of a group and its end (PAGE-380).
- *
+ * The members of a group and its end.
  * @remarks
  * Only the one who created a group removes a member, person or agent, as
  * only that person adds one; an agent never joins or leaves a group on its
@@ -78,7 +77,6 @@ export class ChatGroupMembershipService {
 
   /**
    * The members of a group the viewer takes part in.
-   *
    * @throws {AgentEmployeeError} `notFound` for a group the viewer is no member of.
    */
   public async members(
@@ -136,7 +134,6 @@ export class ChatGroupMembershipService {
   /**
    * Chooses the members besides the creator that may steer the agents of the
    * group; agents are never chosen.
-   *
    * @throws {AgentEmployeeError} `forbidden` for a viewer who did not create
    * the group, `invalidInput` for an agent or somebody outside it.
    */
@@ -165,7 +162,6 @@ export class ChatGroupMembershipService {
   /**
    * Removes a member from the group; a removed agent loses its session and
    * its model of the group.
-   *
    * @throws {AgentEmployeeError} `forbidden` for a viewer who did not create
    * the group, `invalidInput` for the creator.
    */
@@ -195,7 +191,6 @@ export class ChatGroupMembershipService {
   /**
    * Dissolves the group: every agent loses its session in it, and its
    * history is deleted for good. A running answer is cancelled.
-   *
    * @throws {AgentEmployeeError} `forbidden` for a viewer who did not create the group.
    */
   public async dissolve(viewer: User, groupId: unknown): Promise<void> {

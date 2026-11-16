@@ -62,8 +62,7 @@ export interface McpProjectGitHub {
 }
 
 /**
- * The answer object "Projekt" of the interface (PAGE-244).
- *
+ * The answer object "Projekt" of the interface.
  * @remarks
  * A projection of its own: no internal column and never the GitHub token.
  */

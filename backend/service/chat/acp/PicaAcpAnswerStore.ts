@@ -25,7 +25,6 @@ export class PicaAcpAnswerStore {
 
   /**
    * Stores the answer of a turn as a message of the conversation.
-   *
    * @returns The ID of the stored message.
    */
   public async store(

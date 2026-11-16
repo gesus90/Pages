@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 
 /**
  * How far an on-screen keyboard covers the bottom of the layout viewport, in pixels.
- *
  * @remarks
  * Mobile browsers lay a keyboard over fixed elements instead of shrinking
  * them; the visual viewport tells how much of the page stays visible.

@@ -27,7 +27,7 @@ export type McpPlanOperation =
   | "plans.templates.read"
   | "plans.templates.save"
   | "plans.templates.update"
-  // The reads of runs for the whole team (PAGE-307).
+  // The reads of runs for the whole team.
   | "plans.runs.list"
   | "plans.run.read"
   | "plans.run.reports.read"
@@ -87,7 +87,6 @@ function invalid(): McpPlanError {
 
 /**
  * The input of an operation: the parameters of the request with the path parameters.
- *
  * @throws {McpPlanError} `invalid_request` when the request names a path parameter itself.
  */
 function operationInput(request: McpPlanRequest): Record<string, unknown> {
@@ -102,7 +101,6 @@ function operationInput(request: McpPlanRequest): Record<string, unknown> {
 
 /**
  * Splits `confirmed` off the parameters of a deletion.
- *
  * @throws {McpPlanError} `invalid_request` for a `confirmed` that is not a
  * boolean. A legacy `confirmation` is accepted and ignored.
  */
@@ -144,8 +142,7 @@ function readPlanName(text: string): string {
 }
 
 /**
- * The plan API of the stand-alone Pages MCP program (PAGE-246).
- *
+ * The plan API of the stand-alone Pages MCP program.
  * @remarks
  * A paired machine acts with the rights of the account that confirmed the
  * pairing. Every request checks the token again with the unchanged check of
@@ -163,7 +160,6 @@ export class McpPlanApi {
 
   /**
    * Creates the API.
-   *
    * @param services - The plan operation layer on the `mcp` channel and the account facts.
    * @param access - The device token check and the account lookup.
    */
@@ -174,7 +170,6 @@ export class McpPlanApi {
 
   /**
    * Checks the token of a request and names the identity it acts with.
-   *
    * @param authorization - The `Authorization` header of the request.
    * @returns The current rights of the paired account, without a run.
    * @throws {McpDeviceError} `invalid_token` for a missing, unknown or revoked token.
@@ -196,7 +191,6 @@ export class McpPlanApi {
 
   /**
    * Runs one operation with the parameters and path parameters of a request.
-   *
    * @param identity - The identity of the paired account.
    * @param operation - The operation of the endpoint.
    * @param request - The body or query and the path parameters.
@@ -214,7 +208,6 @@ export class McpPlanApi {
 
   /**
    * Deletes a plan after a question (`plans.delete`).
-   *
    * @param identity - The identity of the paired account.
    * @param request - `{ operationId, expectedRevision, confirmed? }` and the `planId` of the path.
    * @returns Without `confirmed: true` the scope of the deletion, unchanged
@@ -242,7 +235,6 @@ export class McpPlanApi {
 
   /**
    * Deletes a node template after a question (`plans.templates.delete`).
-   *
    * @param identity - The identity of the paired account.
    * @param request - `{ operationId, workspaceId, confirmed? }` and the `templateId` of the path.
    * @returns Without `confirmed: true` the template that would go, unchanged;
@@ -286,7 +278,6 @@ export class McpPlanApi {
 
   /**
    * Reads the name of a plan for a deletion question.
-   *
    * @remarks
    * A large plan is read in chunks; the parts are joined to the complete
    * JSON, which holds the name.

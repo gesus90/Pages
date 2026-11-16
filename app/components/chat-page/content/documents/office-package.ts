@@ -20,7 +20,6 @@ export interface OfficeRelation {
 
 /**
  * Reads the relations of a part of an Office package.
- *
  * @param archive - The package.
  * @param part - The path of the part, such as `word/document.xml`.
  * @returns The relations by their ID; internal targets resolved to package paths.
@@ -53,7 +52,7 @@ export async function readRelations(
  *
  * @remarks
  * Only images inside the package are read; an image that points outside the
- * file is never loaded (PAGE-385). Formats a browser cannot show are left out.
+ * file is never loaded. Formats a browser cannot show are left out.
  */
 export class PackageImages {
   public readonly images = new Map<string, Blob>();

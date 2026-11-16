@@ -157,7 +157,6 @@ async function readReply<Value>(
 
 /**
  * Reads one folder of the connected Google Drive.
- *
  * @param query - Target, page and whether only folders count.
  * @param signal - Ends the request when the view moves on.
  * @returns The folder, or why it is not shown.

@@ -68,7 +68,6 @@ function fingerprint(request: object): string {
 /**
  * Runs ticket and milestone operations in one transaction with the stored
  * result of their operation ID.
- *
  * @remarks
  * Account, rights and visibility are resolved anew inside the transaction. The
  * result is stored in the same commit as the change, so a lost response is
@@ -92,7 +91,6 @@ export class AgentTicketTransaction {
 
   /**
    * Runs one operation for the owner of a verified credential.
-   *
    * @param run - The operation, its parameters and the work to do.
    * @returns The stored or new outcome and the account.
    * @throws {AgentOperationError} `INVALID_REQUEST`, `FORBIDDEN`, `NOT_FOUND` or `CONFLICT`.
@@ -114,7 +112,6 @@ export class AgentTicketTransaction {
   /**
    * Runs one operation in a transaction the caller already holds, so the
    * object, its result and the caller's own records commit together.
-   *
    * @param transaction - The open transaction of the caller.
    * @param run - The operation, its parameters and the work to do.
    * @returns The stored or new outcome and the account; nothing is announced yet.

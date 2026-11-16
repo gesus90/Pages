@@ -15,13 +15,12 @@ import type {
 const ACTIVITY_ENTRIES = 60;
 
 /**
- * The costs and the activity of agent employees (PAGE-266).
- *
+ * The costs and the activity of agent employees.
  * @remarks
  * Costs are summed per calendar month (UTC) in US dollars from the known
  * costs of the agent's sessions, learning runs and Claude plan steps. Only
- * Claude plan work has an optional Pages budget (PAGE-359); other limits
- * stay at the providers (PAGE-283). A model that reports no cost
+ * Claude plan work has an optional Pages budget; other limits
+ * stay at the providers. A model that reports no cost
  * leaves its sessions unknown; they are counted and shown, never guessed.
  */
 export class AgentActivityService {
@@ -60,8 +59,7 @@ export class AgentActivityService {
   }
 
   /**
-   * Records a change of the access level with the person who made it (PAGE-303).
-   *
+   * Records a change of the access level with the person who made it.
    * @param store - The store of the open transaction, so the entry is kept only with the change.
    * @param change - The agent, the levels before and after, and who changed it.
    */

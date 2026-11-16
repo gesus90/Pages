@@ -55,7 +55,6 @@ type TabData = Pick<
 
 /**
  * Tells whether the visitor may archive the milestones of the project.
- *
  * @param services - Application services of the request.
  * @param actor - The signed-in user.
  * @param projectId - Project being viewed.
@@ -74,7 +73,6 @@ async function findArchiveHint(
 
 /**
  * Loads what the interfaces tab shows: the GitHub settings and whether Discord is connected.
- *
  * @param services - Application services of the request.
  * @param actor - The signed-in user.
  * @param projectId - Project being viewed.
@@ -101,7 +99,6 @@ async function findIntegrations(
 
 /**
  * Loads only the data the selected tab shows, so switching tabs stays cheap.
- *
  * @param services - Application services of the request.
  * @param actor - The signed-in user.
  * @param projectId - Project being viewed.

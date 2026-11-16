@@ -7,7 +7,7 @@ import type {
   ConversationMediaTab,
 } from "@/definition/ConversationMediaOverview";
 
-/** What the person chose in "Medien & Dateien" (PAGE-387). */
+/** What the person chose in "Medien & Dateien". */
 export interface MediaOverviewState {
   readonly tab: ConversationMediaTab;
   selectTab(tab: ConversationMediaTab): void;
@@ -26,8 +26,7 @@ export interface MediaOverviewState {
 
 /**
  * The tab, the search and filters, the marked files and the file shown large
- * of "Medien & Dateien" (PAGE-387).
- *
+ * of "Medien & Dateien".
  * @remarks
  * Changing the tab closes the file shown large; the marks stay across tabs,
  * so one archive can hold images and documents.

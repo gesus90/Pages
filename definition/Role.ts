@@ -10,7 +10,6 @@ export type Role = (typeof ROLE)[keyof typeof ROLE];
 
 /**
  * Narrows unknown data to a role.
- *
  * @param value - Value received from an untrusted source.
  * @returns Whether the value is a supported role.
  */

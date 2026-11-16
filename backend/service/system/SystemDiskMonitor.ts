@@ -87,7 +87,6 @@ function holdsData(entry: MountEntry): boolean {
 
 /**
  * Lists the mounted file systems that hold data, each once, by mount point.
- *
  * @param table - The text of `/proc/self/mounts`.
  * @returns Real drives and network shares; a mount point mounted over keeps
  * its top entry, and a device or share mounted at several places appears at
@@ -128,7 +127,6 @@ async function settleWithin<T>(
 
 /**
  * Measures every mounted file system on its own, so a hanging one delays nothing else.
- *
  * @remarks
  * Each file system is measured in a child process with a limit of one
  * second. While the measurement of a file system is still running, even after
@@ -141,7 +139,6 @@ export class SystemDiskMonitor {
 
   /**
    * Creates the monitor.
-   *
    * @param sources - Reader of the mount table and starter of the measurements.
    */
   public constructor(sources: SystemSources) {

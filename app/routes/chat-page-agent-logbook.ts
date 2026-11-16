@@ -52,7 +52,7 @@ async function viewerOf(person: User): Promise<AgentChatSessionViewer> {
 
 /**
  * Reads the Lagebuch of an agent for the tab "Lagebuch" of the popup
- * "Agent-Einstellungen" (PAGE-377): the viewer sees the entries of their own
+ * "Agent-Einstellungen": the viewer sees the entries of their own
  * chats, an administrator all entries of the agent.
  */
 export async function loader({
@@ -77,7 +77,7 @@ export async function loader({
 /**
  * Saves the limit, the quiet time and the summary model of an agent
  * (`save-settings`), or removes entries (`remove-entries`, one `entryId` per
- * entry); answers with the Lagebuch as it stands then (PAGE-377).
+ * entry); answers with the Lagebuch as it stands then.
  */
 export async function action({
   request,

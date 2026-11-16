@@ -257,7 +257,6 @@ function parse<Output>(schema: z.ZodType<Output>, input: unknown): Output {
 
 /**
  * Reads the query of a request as an object of single values.
- *
  * @throws {McpUserError} `invalid_request` for a parameter named twice.
  */
 function queryObject(query: URLSearchParams): Record<string, string> {
@@ -286,7 +285,7 @@ function requireExpectedProfile(
   return request;
 }
 
-/** Parsers of the queries and bodies of the user management API (PAGE-280). */
+/** Parsers of the queries and bodies of the user management API. */
 export const McpUserRequest = {
   list: (query: URLSearchParams): McpUserListRequest =>
     parse(listSchema, queryObject(query)),

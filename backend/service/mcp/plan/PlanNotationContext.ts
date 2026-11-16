@@ -25,7 +25,6 @@ export interface PlanNotationContext {
 
 /**
  * Reads a name of an attribute and reports a name that resolves to nothing or to several objects.
- *
  * @param attributes - The attributes the key belongs to.
  * @param key - The attribute.
  * @param resolve - The lookup of the name.
@@ -46,7 +45,6 @@ export function resolvedAttribute(
 
 /**
  * Reads a value of a given type: text, a number or the name of a ticket, workspace or wiki page.
- *
  * @param attributes - The attributes the key belongs to.
  * @param key - The attribute.
  * @param input - The type the value must have, and the context that resolves names.
@@ -103,7 +101,6 @@ export function typedAttribute(
 
 /**
  * Reads the execution target of the plan or a node: `local` or a remote workspace of the project.
- *
  * @param attributes - The attributes with `target` and `executionTarget`.
  * @param context - Resolves the name of a remote workspace.
  * @returns The target as stored, `undefined` when absent or invalid.
@@ -126,7 +123,6 @@ export function targetAttribute(
 
 /**
  * The target that decides which models and interpreters a node may use.
- *
  * @param target - The node's own target as read, possibly invalid or absent.
  * @param context - Holds the plan target that applies otherwise.
  */

@@ -31,7 +31,6 @@ function normalizeEmail(formData: FormData, key: string): string | null {
 
 /**
  * Reads the id of the user a form refers to.
- *
  * @param formData - The submitted form.
  * @returns The id as submitted, or `null` when it is missing or blank.
  */
@@ -47,7 +46,6 @@ function isValidEmail(email: string): boolean {
 
 /**
  * Reads the create user form.
- *
  * @param formData - The submitted form.
  * @returns The input, or `null` when a field is missing, empty or too long.
  */
@@ -90,7 +88,6 @@ function readProfile(formData: FormData): AccountProfileInput | null {
 
 /**
  * Reads the edit user form.
- *
  * @param formData - The submitted form.
  * @returns The input, or `null` when a field is missing, empty or too long.
  */

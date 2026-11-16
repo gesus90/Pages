@@ -10,10 +10,8 @@ import {
 
 /**
  * Brings a run up to date under the scheduler's queue: its pause, then its decisions and returning events.
- *
  * @param active - The run.
  * @returns Whether the view of the run changed and must be stored.
- *
  * @remarks
  * A run that is pausing queues the results on their way back first, so that
  * the pause boundary names the agent they will start again. Decisions and

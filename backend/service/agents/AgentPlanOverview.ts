@@ -55,7 +55,6 @@ export interface AgentPlanOverviewEntry {
 
 /**
  * The latest own run of one plan of the overview.
- *
  * @remarks
  * `gone` means the plan does not or no longer belong to the overview of the
  * person; `run: null` that it belongs there without an own run they may read.
@@ -75,7 +74,6 @@ export interface AgentPlanCheckedRun {
 
 /**
  * The checked runs of one reader of the overview, such as one connection.
- *
  * @remarks
  * A run is checked again only once it was written or its last check is older
  * than {@link PLAN_OVERVIEW_CHECK_MILLISECONDS}. The rights to the plan
@@ -87,7 +85,6 @@ export class AgentPlanOverviewCache {
 
   /**
    * Binds the cache to a person; a cache of somebody else starts empty.
-   *
    * @param userId - The person the overview is read for.
    */
   public bind(userId: string): void {
@@ -99,7 +96,6 @@ export class AgentPlanOverviewCache {
 
   /**
    * Returns the last check of the run of a plan.
-   *
    * @param planId - The plan.
    */
   public get(planId: string): AgentPlanCheckedRun | undefined {
@@ -108,7 +104,6 @@ export class AgentPlanOverviewCache {
 
   /**
    * Stores the check of the run of a plan.
-   *
    * @param planId - The plan.
    * @param checked - The outcome.
    */
@@ -118,7 +113,6 @@ export class AgentPlanOverviewCache {
 
   /**
    * Forgets every plan that left the overview.
-   *
    * @param planIds - The plans of the overview now.
    */
   public retain(planIds: ReadonlySet<string>): void {
@@ -132,11 +126,9 @@ export class AgentPlanOverviewCache {
 
 /**
  * Summarizes a run for the overview.
- *
  * @param run - The authorized view of the run.
  * @param stages - The steps of the revision it executes.
  * @returns Running, succeeded and all steps, failure, time and state key.
- *
  * @remarks
  * Only the steps of the stages count: Start, End, decisions, stacks and
  * steps on a branch a decision did not take never do, and a loop counts as
@@ -178,7 +170,6 @@ export function summarizePlanRun(
 
 /**
  * Lists the plans that concern a person, each with their latest own run.
- *
  * @remarks
  * A plan belongs to the overview while the person may read it and either
  * edits it (an own plan or one of their team) or started a run of it. Only
@@ -194,7 +185,6 @@ export class AgentPlanOverviewService {
 
   /**
    * Creates the service.
-   *
    * @param dependencies - Plan rights, run storage and the checks of a run.
    * @param plans - Reads the current control state of a plan.
    * @param now - Clock in milliseconds; tests replace it.
@@ -211,7 +201,6 @@ export class AgentPlanOverviewService {
 
   /**
    * Reads the overview of a person.
-   *
    * @param userId - The person; only their own runs are read.
    * @param cache - The checked runs of the reader, updated by the read.
    * @returns The plans in no particular order.
@@ -246,7 +235,6 @@ export class AgentPlanOverviewService {
 
   /**
    * Reads the latest own run of one plan of the overview with its structure.
-   *
    * @param userId - The person; only their own runs are read.
    * @param planId - The plan.
    * @returns The run, active or ended, or why there is none.

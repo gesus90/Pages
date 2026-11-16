@@ -22,7 +22,6 @@ export interface AgentChatModelChoicesDependencies {
  * a text model (text in, text alone out) that Pica would list and an agent
  * can run with its access. Decision, speech, transcription, image and other
  * special models stay out.
- *
  * @param model - A model of the shared catalog.
  * @param employee - The agent, whose access the rule of agents needs.
  */
@@ -61,8 +60,7 @@ function toChoice(model: PageAgentModel): AgentChatModelChoice {
 }
 
 /**
- * The models an agent can answer with in one chat (PAGE-380).
- *
+ * The models an agent can answer with in one chat.
  * @remarks
  * The choice holds the text models of every connection the agent's own
  * account may use, filtered as Pica's choice is ({@link isPicaModel}) and by
@@ -88,7 +86,6 @@ export class AgentChatModelChoices {
 
   /**
    * The choice a setting names, with a reasoning level the model offers.
-   *
    * @returns `null` for a model outside the choice or a level the model does
    * not offer.
    */
@@ -113,7 +110,6 @@ export class AgentChatModelChoices {
 
 /**
  * How a model of an agent in a chat reads, with the choice that names it.
- *
  * @param setting - The model the agent answers with.
  * @param choices - The models of the choice; a model missing there keeps its ID.
  * @param isOverride - Whether the chat deviates from the agent's own model.
@@ -144,9 +140,8 @@ export interface AgentChatModelLabelDependencies {
 
 /**
  * How the agents of one chat read in its head and its context rings
- * (PAGE-380): the model each one answers with there, its own or the one the
+ * The model each one answers with there, its own or the one the
  * chat chose.
- *
  * @param dependencies - The stores of the agents and their models.
  * @param chat - The direct chat of a person or a group, with its agents.
  * @returns The label of every agent the store knows, by agent.

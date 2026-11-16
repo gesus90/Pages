@@ -99,7 +99,7 @@ function resourceFile(
 
 /**
  * Takes the images and embedded files an ACP agent returns in its answer and
- * stores them as answer files of the job (PAGE-92).
+ * stores them as answer files of the job.
  *
  * @remarks
  * Only bytes that arrive inside the answer are taken. A `resource_link` or an

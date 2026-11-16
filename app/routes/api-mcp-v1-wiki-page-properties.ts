@@ -26,8 +26,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpWikiHandlers {
 }
 
 /**
- * Changes owner, review date and anchors of a page (`PATCH /api/mcp/v1/wiki/pages/{id}/properties`), PAGE-257 interface 8.
- *
+ * Changes owner, review date and anchors of a page (`PATCH /api/mcp/v1/wiki/pages/{id}/properties`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

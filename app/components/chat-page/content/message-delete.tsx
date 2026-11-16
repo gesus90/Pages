@@ -7,9 +7,8 @@ import { Button } from "@/app/components/ui/button";
 
 /**
  * Deletes an own stored message with its attachments and their preview
- * images (PAGE-298): the bin asks once more before the message is gone for
+ * images: the bin asks once more before the message is gone for
  * every member.
- *
  * @param messageId - The stored message of the signed-in person.
  */
 export function MessageDelete({

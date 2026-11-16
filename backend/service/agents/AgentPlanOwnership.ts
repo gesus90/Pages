@@ -7,14 +7,12 @@ import type { AgentPlanAccess } from "./AgentPlanAccess";
 
 /**
  * Keeps a plan in its project unless its owner moves it.
- *
  * @remarks
  * Project and department form the shared area and the name space of a plan, so
  * a move to another project would shift who sees it and which names it
  * collides with. Every team member may change the workspace within the
  * project, the usage and the share, like the owner; only the owner moves the
  * plan to a workspace of another project.
- *
  * @param userId - The person who saves.
  * @param previous - The stored plan.
  * @param projectId - The project of the workspace the save names.
@@ -36,12 +34,10 @@ export function requireOwnerForProjectChange(
 
 /**
  * The departments a person belongs to in the agent plan area.
- *
  * @remarks
  * Leading a department counts like being a member of it: the union of both
  * relations, each department once. Nothing else counts, in particular not the
  * administrator role or the right to see all departments.
- *
  * @param account - The person's current account facts.
  */
 export function planDepartments(
@@ -52,7 +48,6 @@ export function planDepartments(
 
 /**
  * The department a plan or template created by a person belongs to.
- *
  * @param departments - The departments the person belongs to now, see {@link planDepartments}.
  * @returns The department of a person who belongs to exactly one, `null` for a
  * person with none or several distinct ones: no department is guessed for them.
@@ -64,7 +59,6 @@ export function soleDepartment(departments: readonly string[]): string | null {
 
 /**
  * The owner, the department and the teams a plan is stored with.
- *
  * @param access - Resolves the department of a person.
  * @param userId - The person who saves.
  * @param previous - The stored plan, or `null` for a new one.

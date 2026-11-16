@@ -24,12 +24,10 @@ interface ReasoningOptionsInput {
 
 /**
  * The reasoning levels of a model choice, including those it does not support.
- *
  * @param input - The chosen model, its target's models and the current level.
  * @returns The default and every level the target reports. A level the chosen
  * model lacks is disabled and says so; a saved level that is not offered at
  * all stays in the list as a disabled, marked entry instead of vanishing.
- *
  * @remarks
  * Only levels a CLI or provider reports appear: nothing is added for a
  * level such as `ultra` unless the target lists it for some model.

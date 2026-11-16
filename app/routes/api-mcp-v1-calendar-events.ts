@@ -21,8 +21,7 @@ const HANDLERS: McpCalendarHandlers = {
 
 /**
  * Creates an event of the account
- * (`POST /api/mcp/v1/calendar/events`, create_calendar_event), PAGE-301.
- *
+ * (`POST /api/mcp/v1/calendar/events`, create_calendar_event).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

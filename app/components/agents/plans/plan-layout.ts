@@ -15,7 +15,7 @@ import type {
 import type { AgentPlanStack } from "@/definition/AgentPlanStack";
 import type { PlanFrame } from "@/definition/AgentPlanNodeSize";
 
-// The sizes of the cards are shared with the automatic layout of the server (PAGE-250).
+// The sizes of the cards are shared with the automatic layout of the server.
 export {
   PLAN_DECISION_WIDTH,
   PLAN_FRAME_FOOTER,
@@ -40,7 +40,6 @@ const FRAME_EDGE = 16;
 
 /**
  * The stack a dropped ticket or value node lands in, decided by the pointer alone.
- *
  * @returns The topmost stack card under the pointer, or `null`.
  */
 export function planDropStack(
@@ -61,7 +60,6 @@ export function planDropStack(
 
 /**
  * The frame a dropped node lands in, decided by the pointer alone.
- *
  * @param plan - The plan with its frames.
  * @param point - The pointer in grid coordinates.
  * @param sources - The agents whose templates size the members.
@@ -97,7 +95,6 @@ export function planDropGroup(
 
 /**
  * The name of an agent node: its own copy first, else its agent.
- *
  * @returns An empty text when neither is known; callers name the missing
  * agent instead of showing its identifier.
  */

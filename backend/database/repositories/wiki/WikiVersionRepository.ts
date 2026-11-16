@@ -40,7 +40,6 @@ export class WikiVersionRepository {
 
   /**
    * Creates the repository.
-   *
    * @param database - Database access or the transaction to run in.
    */
   public constructor(database: DatabaseTransaction) {
@@ -49,7 +48,6 @@ export class WikiVersionRepository {
 
   /**
    * Adds a version, or refreshes the newest one.
-   *
    * @param version - The saved state of the page.
    * @param coalesceMinutes - A newest version by the same author younger
    * than this many minutes is updated instead of adding a new one. Zero
@@ -118,7 +116,6 @@ export class WikiVersionRepository {
 
   /**
    * Lists the versions of a page, newest first.
-   *
    * @param pageId - Page identifier.
    * @returns The versions without their text.
    */
@@ -155,7 +152,6 @@ export class WikiVersionRepository {
 
   /**
    * Reads one version of a page.
-   *
    * @param pageId - Page identifier.
    * @param versionId - Version identifier.
    * @returns The version with its text, or `null`.
@@ -201,10 +197,8 @@ export class WikiVersionRepository {
 
   /**
    * Removes versions beyond the retention rules.
-   *
    * @param retentionDays - Versions younger than this many days stay.
    * @param keepLast - The newest versions of each page stay as well.
-   *
    * @remarks
    * A version stays when it is young enough or among the newest `keepLast`
    * of its page, whichever keeps more.

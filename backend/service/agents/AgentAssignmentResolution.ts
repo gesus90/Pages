@@ -27,7 +27,6 @@ export interface ResolvedAgentAssignment {
 
 /**
  * Finds the catalog entry a stored model value names.
- *
  * @remarks
  * The exact ID wins. A Claude CLI connection also accepts the alias an earlier
  * version of Pages stored, such as `sonnet`, when its catalog says which one
@@ -93,7 +92,6 @@ function isAvailableConnectionModel(
 
 /**
  * Requires verified access and capabilities from exactly the referenced connection.
- *
  * @param connections - Connection persistence.
  * @param assignment - Connection, model and effort a role, profile or node stored.
  * @returns The connection with the concrete model of its catalog: the stored
@@ -129,13 +127,11 @@ export async function resolveAgentAssignment(
 
 /**
  * Resolves an assignment for one person, after the connection scope admits them.
- *
  * @param connections - Connection persistence.
  * @param viewer - Current account facts and group memberships of the person.
  * @param assignment - The role or profile naming connection, model and effort.
  * @returns The resolved assignment, as {@link resolveAgentAssignment} does.
  * @throws {AgentExecutionError} `accessDenied` when the scope excludes the person.
- *
  * @remarks
  * The scope comes first, so a person outside it learns nothing about the state
  * of the connection. A missing connection passes here and fails as unavailable.

@@ -10,7 +10,6 @@ import type {
 
 /**
  * Checks the anchors a page is tied to and removes duplicates.
- *
  * @param repository - Wiki persistence.
  * @param viewer - What the person who ties the page may see.
  * @param placement - Scope and project the page ends up in.
@@ -18,9 +17,8 @@ import type {
  * @returns The anchors without duplicates.
  * @throws {WikiValidationError} When a target does not exist, the person
  * cannot see it, or it does not fit the page.
- *
  * @remarks
- * Tying a page needs only reading the target (T4.6.5). Private pages carry
+ * Tying a page needs only reading the target. Private pages carry
  * no anchors, and a project page can only be tied to targets of its project.
  */
 export async function validateAnchors(

@@ -10,8 +10,7 @@ export const GOOGLE_DOCUMENT_MIME_TYPES = {
 } as const;
 
 /**
- * The export formats Pages supports per Google document type (PAGE-270).
- *
+ * The export formats Pages supports per Google document type.
  * @remarks
  * A subset of the formats Drive's `about.get` lists; other Google types such
  * as forms, sites or shortcuts have no supported export and are refused.
@@ -53,7 +52,6 @@ export const GOOGLE_READ_FORMATS: Readonly<Record<string, string>> = {
 
 /**
  * Tells whether a type is one of Google's own types, which have no bytes.
- *
  * @param mimeType - The Drive type.
  * @returns Whether it starts with `application/vnd.google-apps.` and is no folder.
  */

@@ -42,7 +42,6 @@ export const ARCHIVED_LINK_COLOR = "#94a3b8";
 
 /**
  * Parses a `#rrggbb` color into HSL components.
- *
  * @param hex - Hex color code with leading `#`.
  * @returns Hue in degrees with saturation and lightness, or `null` when invalid.
  */
@@ -88,7 +87,6 @@ export function hexToHsl(hex: string): {
 
 /**
  * Formats HSL components as a `#rrggbb` color code.
- *
  * @param hue - Hue in degrees.
  * @param saturation - Saturation between 0 and 1.
  * @param lightness - Lightness between 0 and 1.

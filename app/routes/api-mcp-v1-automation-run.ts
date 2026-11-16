@@ -31,8 +31,7 @@ export async function loader({
 }
 
 /**
- * Runs an automation now (`POST /api/mcp/v1/automations/{automationId}/run`); the receipt is accepted or queued work, never a finished run, PAGE-297.
- *
+ * Runs an automation now (`POST /api/mcp/v1/automations/{automationId}/run`); the receipt is accepted or queued work, never a finished run.
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

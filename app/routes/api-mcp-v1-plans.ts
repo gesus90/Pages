@@ -28,8 +28,7 @@ function handlers(): McpPlanHandlers {
 }
 
 /**
- * Lists the visible plans (`GET /api/mcp/v1/plans`) and creates one (`POST`), PAGE-246 interface 2 and 3.
- *
+ * Lists the visible plans (`GET /api/mcp/v1/plans`) and creates one (`POST`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

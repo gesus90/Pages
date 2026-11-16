@@ -71,7 +71,7 @@ function UploadStatus({
 }
 
 /**
- * A chosen file that is not stored yet: its upload runs or failed (PAGE-92).
+ * A chosen file that is not stored yet: its upload runs or failed.
  * A failure names its reason and keeps every other file; it can be tried
  * again unless the file itself is refused.
  */

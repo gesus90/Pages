@@ -81,7 +81,6 @@ export interface AgentWikiPageChanged {
 
 /**
  * Result of a range patch; returned unchanged when the operation ID is repeated.
- *
  * @remarks
  * `start` and `end` delimit the replacement text in the new Markdown. The new
  * text is not part of the result unless `after` was asked for.

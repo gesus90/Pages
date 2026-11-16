@@ -12,7 +12,7 @@ export interface AgentShellLaunch {
 
 /**
  * Turns a command of the agent into the process that runs it, or `null`
- * when the required isolation does not work on this host (PAGE-390).
+ * when the required isolation does not work on this host.
  */
 export type AgentShellLauncher = (
   command: string,
@@ -77,7 +77,7 @@ export function bubblewrapArguments(
 }
 
 /**
- * The launcher of an access level (PAGE-390).
+ * The launcher of an access level.
  *
  * @param isIsolated - "Arbeitsplatz" runs every command in bubblewrap; YOLO
  * runs it directly with the rights of the server account.

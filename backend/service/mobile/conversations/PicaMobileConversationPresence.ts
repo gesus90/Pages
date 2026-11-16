@@ -6,7 +6,6 @@ export const BROWSER_CONNECTIONS_PER_ACCOUNT = 20;
 
 /**
  * Which conversation each Pica Mobile connection and browser tab shows.
- *
  * @remarks
  * A connection opens a conversation by reading its newest messages, sending
  * to it or marking it read, and leaves it by reading the list or closing.
@@ -38,7 +37,6 @@ export class PicaMobileConversationPresence {
 
   /**
    * Notes the conversation a connection shows; `null` when it shows none.
-   *
    * @param userId - The account of the connection.
    * @param connectionId - The connection.
    * @param conversationId - The open conversation, or `null`.
@@ -123,7 +121,6 @@ declare global {
 
 /**
  * The one presence of the process, shared by the connections and the push.
- *
  * @returns The same presence on every call.
  */
 export function sharedPicaMobileConversationPresence(): PicaMobileConversationPresence {

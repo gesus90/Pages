@@ -65,13 +65,12 @@ export interface AgentPlanSessionGrant {
    * follow the rights of the executor.
    */
   readonly canSetStatus?: boolean;
-  /** The swarm side whose tools the session gets besides its reach (PAGE-313). */
+  /** The swarm side whose tools the session gets besides its reach. */
   readonly swarm?: AgentSwarmRole;
 }
 
 /**
  * How far the Pages MCP access of a node reaches.
- *
  * @param provider - The runner of the node.
  * @param options - The run options the runner applies.
  * @returns For an ACP agent (Codex CLI, Claude Code or OpenCode) every read in "Nur
@@ -131,7 +130,6 @@ export interface AgentPlanSessionGrants {
 
 /**
  * Gives the session of a node its own way to Pages; the API process owns it.
- *
  * @remarks
  * The node gets a fresh credential for its executor, which Pages keeps as a
  * hash for the upload and attachment checks, and the address of this
@@ -190,7 +188,6 @@ export class AgentPlanSessionAccess implements AgentPlanSessionGrants {
 
   /**
    * Ends the access of one node, or of every node of a run.
-   *
    * @returns How many credentials were still valid.
    */
   public async revoke(runId: string, stepId: string | null): Promise<number> {

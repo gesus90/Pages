@@ -47,7 +47,6 @@ function middleMode(props: PlanRunActionsProps): MiddleMode {
 
 /**
  * Icon and label, centred in the space of the widest label.
- *
  * @remarks
  * An invisible copy of the widest label shares the grid cell, so every
  * button keeps one width whatever it says, also while it shows progress.
@@ -89,7 +88,6 @@ function ActionContent({
 
 /**
  * Starten, Pause or Fortsetzen, and Stop, in this order and of one width.
- *
  * @remarks
  * Starten starts a new run of the saved revision and nothing else; Pause suspends
  * running work and dispatches nothing new; Stop permanently ends the whole run.

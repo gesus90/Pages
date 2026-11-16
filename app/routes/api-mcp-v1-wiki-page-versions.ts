@@ -21,8 +21,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpWikiHandlers {
 }
 
 /**
- * Lists the versions of a page (`GET /api/mcp/v1/wiki/pages/{id}/versions`), PAGE-257 interface 9.
- *
+ * Lists the versions of a page (`GET /api/mcp/v1/wiki/pages/{id}/versions`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

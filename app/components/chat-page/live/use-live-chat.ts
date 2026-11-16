@@ -42,7 +42,6 @@ interface LiveChatInput {
 /**
  * The chat the live answers of the opened entry are written in: the group,
  * the direct chat with an agent, or the stored conversation with a person.
- *
  * @param opened - The opened entry.
  * @returns `null` when nothing is opened or no answer can be written there.
  */
@@ -92,7 +91,7 @@ function runningByAgent(
 }
 
 /**
- * The answers being written in the opened chat (PAGE-381): those the history
+ * The answers being written in the opened chat: those the history
  * shows, the ended ones whose stored message carries their thoughts and tool
  * times, how messages reached the agents, and who works on what.
  */

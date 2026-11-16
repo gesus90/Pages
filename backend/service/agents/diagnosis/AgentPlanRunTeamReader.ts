@@ -42,8 +42,7 @@ async function isPermitted(check: () => Promise<void>): Promise<boolean> {
 }
 
 /**
- * Reads runs for the whole team of a plan (PAGE-307).
- *
+ * Reads runs for the whole team of a plan.
  * @remarks
  * Whoever may read a plan reads every run of it, whoever started the run.
  * What a run used of tickets, pages and workspaces stays protected: when the
@@ -57,7 +56,6 @@ export class AgentPlanRunTeamReader {
 
   /**
    * Creates the reader.
-   *
    * @param dependencies - Run storage and the checks every read of a run needs.
    * @param starters - Names the people who started runs.
    */
@@ -71,7 +69,6 @@ export class AgentPlanRunTeamReader {
 
   /**
    * Reads a run of a plan the reader may see.
-   *
    * @param userId - The reader.
    * @param runId - The run.
    * @throws {AgentError} `plan_access_denied` for a missing run and for a run of a plan the reader may not see.
@@ -113,7 +110,6 @@ export class AgentPlanRunTeamReader {
 
   /**
    * Names a person who started a run.
-   *
    * @param userId - The account that started the run.
    */
   public async describeStarter(userId: string): Promise<AgentRunStarter> {

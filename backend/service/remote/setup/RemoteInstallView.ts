@@ -22,7 +22,6 @@ export interface InstallIdentity {
 
 /**
  * The binding of a connection as findings store it.
- *
  * @param identity - Host, port, user and the pinned key's fingerprint.
  * @returns The binding, or `null` while no host key is pinned.
  */
@@ -53,7 +52,6 @@ export function isSameBinding(
  * Whether the installation is confirmed: the runner is on the machine and
  * registered with its service manager, the service runs and starts at boot,
  * and Pages holds its pairing.
- *
  * @param components - The separate facts.
  * @returns Whether every one of them holds; being ready right now is not required.
  */
@@ -84,14 +82,12 @@ function stateOf(input: {
 
 /**
  * Builds the view of a connection's installation.
- *
  * @remarks
  * `confirmed` needs the runner code registered with the machine's service
  * manager, a running and enabled service, and a registration of Pages itself.
  * A machine without a service manager registers nothing, so it can never be
  * confirmed. A finding that is missing or no longer matches the connection
  * leaves the state `unknown`.
- *
  * @param input - The valid finding or `null`, Pages' runner status, and whether a setup runs now.
  * @returns The view.
  */

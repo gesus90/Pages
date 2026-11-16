@@ -7,13 +7,12 @@ const SCROLLBACK = 50_000;
 
 /**
  * Loads the browser terminal of the Pages terminal once its container is in the page.
- *
  * @param container - The element xterm draws into.
  * @param onCloseRequest - The console's own way to close.
  * @remarks
  * xterm is imported only here, inside an effect, so the server renders the
  * console without it. The terminal only shows: Pages builds the input line
- * itself (PAGE-284).
+ * itself.
  */
 export function useTerminalSurface(
   container: React.RefObject<HTMLDivElement | null>,
@@ -32,7 +31,7 @@ export function useTerminalSurface(
           onCloseRequest,
           scrollback: SCROLLBACK,
           palette: "agent-terminal",
-          // xterm multiplies the cell height, not the font size: 13 px on rows of about 18 px (PAGE-289).
+          // xterm multiplies the cell height, not the font size: 13 px on rows of about 18 px.
           fontSize: 13,
           lineHeight: 1.4,
           isOutputOnly: true,
@@ -58,7 +57,6 @@ export function useTerminalSurface(
 
 /**
  * The time now, renewed every second while `isTicking`, for running tools and countdowns.
- *
  * @param isTicking - Whether anything shown depends on the passing time.
  */
 export function useNow(isTicking: boolean): number {

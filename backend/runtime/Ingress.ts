@@ -33,23 +33,23 @@ export interface IngressOptions {
   /** Origin of the API process, such as `http://127.0.0.1:3100`. */
   readonly backend: URL;
   /**
-   * Origin of `pages-core`, such as `http://127.0.0.1:3200` (PAGE-237). Set:
+   * Origin of `pages-core`, such as `http://127.0.0.1:3200`. Set:
    * `/live-changes` is served by the core. Missing: by the API, as before.
    */
   readonly core?: URL;
   /**
    * Origin of the `pages-core` that reports the service status, such as
-   * `http://127.0.0.1:3200` (PAGE-238). Set: `/service-status` and its
+   * `http://127.0.0.1:3200`. Set: `/service-status` and its
    * details are served by it. Missing: they answer `404`.
    */
   readonly serviceStatus?: URL;
   /**
-   * Origin of the `pages-core` that relays the runner channels (PAGE-239).
+   * Origin of the `pages-core` that relays the runner channels.
    * Set: their WebSocket upgrades go to the core. Missing: to the API.
    */
   readonly coreRunner?: URL;
   /**
-   * Origin of the `pages-core` that relays the console channels (PAGE-239).
+   * Origin of the `pages-core` that relays the console channels.
    * Set: their WebSocket upgrades go to the core. Missing: to the API.
    */
   readonly coreConsole?: URL;
@@ -144,7 +144,6 @@ function headerText(value: string | string[] | undefined): string | null {
 /**
  * The headers the API receives: the browser's, without connection headers,
  * and with the client the entrance saw.
- *
  * @remarks
  * `Host` stays, so the API compares a change's `Origin` with the address the
  * browser used. `X-Forwarded-For` and `X-Forwarded-Proto` are the entrance's
@@ -396,7 +395,7 @@ async function answerRequest(
 }
 
 /**
- * Creates the static app's entrance (PAGE-235).
+ * Creates the static app's entrance.
  *
  * @param options - The static app's files and the API's origin.
  * @returns The HTTP server, not yet listening.

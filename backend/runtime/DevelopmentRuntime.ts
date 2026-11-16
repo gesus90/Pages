@@ -18,10 +18,8 @@ export type DevelopmentRequestLogger = (
 
 /**
  * Initializes the runtime inside the development server.
- *
  * @param serverUrls - Addresses the development server listens on, as
  * reported by Vite, for example `http://localhost:5173/`.
- *
  * @remarks
  * The development server is not started through `server.mjs`, so a Vite
  * plugin calls this once it listens. It reads `~/.pages/config.toml` like

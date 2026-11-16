@@ -31,8 +31,7 @@ export async function loader({
 }
 
 /**
- * Deletes an automation (`POST /api/mcp/v1/automations/{automationId}/delete`), PAGE-297.
- *
+ * Deletes an automation (`POST /api/mcp/v1/automations/{automationId}/delete`).
  * @remarks
  * Without `confirmed: true` the answer is the scope and nothing changes;
  * the client confirms it explicitly in a second call.

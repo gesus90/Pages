@@ -27,12 +27,10 @@ export function planStackRunOf(
 
 /**
  * Applies one trigger of a stack to the view of a run.
- *
  * @param run - The current view; it is not changed.
  * @param stack - The frozen stack.
  * @param origin - The loop iteration that triggered it, if any.
  * @returns The new view and what the trigger handed over.
- *
  * @remarks
  * The next entry follows from the deliveries recorded in the view, so the
  * caller must apply and store the result in the same turn of the engine's
@@ -58,7 +56,6 @@ export function triggeredPlanStackView(
 
 /**
  * The result of a stack node for what its trigger handed over.
- *
  * @remarks
  * The node succeeds either way. A used-up stack hands over nothing: its
  * `entryId` is `null`, which kills the edges out of its flow output, so the
@@ -77,12 +74,10 @@ export function planStackResult(
 
 /**
  * Triggers a stack of the outer graph: it hands over its next entry, or nothing once used up.
- *
  * @param active - The live run, owned by the engine.
  * @param stack - The frozen stack node.
  * @param dependencies - The engine's serial queue, the run store and the access check.
  * @returns The result of the stack node.
- *
  * @remarks
  * The handover is recorded and stored in one turn of the serial queue, so two
  * triggers never hand over the same entry and none is skipped. A stopped run

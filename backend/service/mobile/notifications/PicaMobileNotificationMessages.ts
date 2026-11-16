@@ -174,7 +174,6 @@ function readSettingsSet(
 
 /**
  * Reads the payload of a notification message.
- *
  * @param type - The `type` of the message.
  * @param requestId - The valid request identifier of the message.
  * @param payload - The payload object.
@@ -240,7 +239,6 @@ export function parsePicaMobileNotificationPayload(
 
 /**
  * Builds the text frame that answers `notification_register`.
- *
  * @param requestId - Identifier of the message that is answered.
  * @param payload - Device, instance, account, start and replay time.
  * @returns The frame content.
@@ -259,7 +257,6 @@ export function encodePicaMobileNotificationRegistered(
 
 /**
  * Builds the text frame that answers `notification_unregister`.
- *
  * @param requestId - Identifier of the message that is answered.
  * @param payload - The device that was named.
  * @returns The frame content.
@@ -278,7 +275,6 @@ export function encodePicaMobileNotificationUnregistered(
 
 /**
  * Builds the text frame that answers `notification_event_get`.
- *
  * @param requestId - Identifier of the message that is answered.
  * @param payload - The event with its access state.
  * @returns The frame content.
@@ -298,7 +294,6 @@ export function encodePicaMobileNotificationEvent(
 /**
  * Builds the text frame that answers `notification_settings_get` and
  * `notification_settings_set`.
- *
  * @param requestId - Identifier of the message that is answered.
  * @param payload - The account and its choices as Pages delivers them now.
  * @returns The frame content.

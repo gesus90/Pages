@@ -11,7 +11,6 @@ export interface SwarmStatusEntry {
 
 /**
  * What the working directory looks like at one moment.
- *
  * @remarks
  * `entries` maps every path that differs from `HEAD`, untracked files
  * included, to a signature of its status and content, so a file changed
@@ -45,7 +44,6 @@ function fieldCount(kind: string): number {
 
 /**
  * Reads the output of `git status --porcelain=v2 -z --untracked-files=all`.
- *
  * @param output - The raw output, records separated by NUL.
  * @returns Every changed, new, deleted or renamed path; a rename also names
  * its former path. Header and ignored records are skipped.
@@ -74,7 +72,6 @@ export function readSwarmStatus(output: string): readonly SwarmStatusEntry[] {
 
 /**
  * Names every path that changed between two states.
- *
  * @returns The sorted paths that appeared, disappeared or changed their signature.
  */
 export function changedSwarmPaths(
@@ -100,7 +97,6 @@ function isAllowed(
 
 /**
  * Compares the working directory before and after a period with what the helpers were allowed.
- *
  * @param before - The state when the period began.
  * @param after - The state when it ended.
  * @param allowances - Areas and locks of every helper active in the period.

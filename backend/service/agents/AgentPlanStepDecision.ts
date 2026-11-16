@@ -24,7 +24,6 @@ const MAXIMUM_ISSUE_LENGTH = 200;
 
 /**
  * How the turn of a step ended, the same for every provider.
- *
  * @remarks
  * `succeeded`: a valid `report_step_result` with met acceptance and the end
  * of the turn; Pages closes the session. `stopped`: a person stopped the run,
@@ -84,7 +83,6 @@ export function hasToolActivity(session: AgentPlanSessionRecord): boolean {
 
 /**
  * The native session a further attempt continues over ACP, or `null`.
- *
  * @param session - The record of the last attempt.
  * @returns The session ID when the adapter confirmed it can resume it.
  */
@@ -103,7 +101,6 @@ export function resumableSessionId(
 
 /**
  * Decides how the turn of a step ended.
- *
  * @param result - The result of the attempt.
  * @param isStopped - A person stopped the run.
  * @returns Success, stop, or the class of the failure.
@@ -144,7 +141,6 @@ function hasConfirmedCloseout(
 
 /**
  * The safety blocker of a replay, or `null` when a further attempt may start.
- *
  * @remarks
  * Each blocker names a different cause, so none is presented as an
  * exhausted budget: a break in the cleanup, a native session that is
@@ -176,7 +172,6 @@ function hasUnsafeSessionReplay(
 
 /**
  * One failed attempt for the history.
- *
  * @param session - The record of this attempt; absent for a start refused before it had one.
  * @param code - The code it failed with.
  * @param failureClass - The class of the failure.
@@ -203,7 +198,6 @@ function retryAttempt(
 
 /**
  * The wait before the next attempt of an infrastructure failure: 10 s, 60 s, 300 s.
- *
  * @param failedAttempts - Failed attempts of the class so far, from 1.
  */
 function infrastructureDelay(failedAttempts: number): number {
@@ -227,7 +221,6 @@ function retryReason(
 
 /**
  * The native session every later attempt continues.
- *
  * @remarks
  * A resumable native session is continued whether or not tool events were
  * recorded: it keeps what the agent did, and a new session would start over.
@@ -273,7 +266,6 @@ function retryBlocker(
 
 /**
  * The reason a failure ends the step whatever its budget says, or `null`.
- *
  * @remarks
  * A hard stop is never repeated. A functional failure without a regular agent
  * turn has nothing to send a repair to: a refused start fails the same way again.
@@ -319,12 +311,10 @@ function nextRetryState(
 
 /**
  * Decides whether and when a failed attempt of a step is followed by another one.
- *
  * @param result - The result of the attempt that just ended.
  * @param work - What the step is: shared, remote, a script.
  * @param previous - The retry state before this attempt.
  * @returns The new retry state, or `null` when the result stands as it is.
- *
  * @remarks
  * The one decision of every automatic retry, for all providers: an
  * `infrastructure` failure waits 10 s, 60 s and 300 s and blocks only after
@@ -376,7 +366,6 @@ export function decidePlanStepRetry(
 
 /**
  * Which native session the next attempt continues.
- *
  * @param retry - The retry state the next attempt starts from.
  * @param lastSession - The record of the last attempt.
  */
@@ -403,7 +392,6 @@ export function decidePlanRetryContinuation(
 
 /**
  * Whether a step may be taken up on its own after a restart of Pages.
- *
  * @param step - A step of the interrupted run.
  * @returns `true` for a step that did not fail and for an `infrastructure` failure.
  */
@@ -417,7 +405,6 @@ export function canResumeAfterRestart(step: AgentPlanStepResult): boolean {
 
 /**
  * Decides the automatic restart of a run a restart of Pages interrupted.
- *
  * @param attempt - Which automatic restart of the chain this is, from 1.
  * @returns The wait of the same budget as every `infrastructure` retry, or that it is used up.
  */
@@ -429,7 +416,6 @@ export function decideAutomaticRestart(attempt: number): PlanRestartDecision {
 
 /**
  * How the sessions of a run continue after a restart of Pages.
- *
  * @param sessions - The records of the retried steps.
  * @param canResumeNatively - Every retried session can be resumed over ACP.
  * @returns A native resume; else a new session where no tool ran.

@@ -133,7 +133,7 @@ function LogbookPlaceholder({
 }
 
 /**
- * The tab "Lagebuch" of the agent settings (PAGE-377): fill level, limit,
+ * The tab "Lagebuch" of the agent settings: fill level, limit,
  * quiet time and model of the background summary, and the entries with search
  * and filters by kind and chat, each removable.
  *

@@ -40,7 +40,6 @@ export function GoogleDriveSimulationBadge(): React.ReactElement {
 /**
  * Whether the working connection lacks the write access of Storage and a
  * targeted consent can help.
- *
  * @param status - The confirmed status of the connection.
  * @returns `true` for a real, connected account without write access.
  */
@@ -54,8 +53,7 @@ export function lacksWriteAccess(status: GoogleDriveStatus): boolean {
 
 /**
  * Explains the missing write access of Storage and starts the targeted
- * consent for it (PAGE-270).
- *
+ * consent for it.
  * @remarks
  * When the address asks for it (`?googleDriveAccess=write`, the link of
  * Storage), the notice is highlighted and scrolled into view.

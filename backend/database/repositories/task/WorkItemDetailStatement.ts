@@ -6,7 +6,6 @@ import type { WorkItemFilter } from "./WorkItemFilter";
 
 /**
  * Builds the statement that selects work items with their joined display data.
- *
  * @remarks
  * The column order is the contract of `toWorkItemDetail`.
  */

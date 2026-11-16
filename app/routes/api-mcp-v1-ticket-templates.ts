@@ -22,8 +22,7 @@ const HANDLERS: McpTicketHandlers = {
 };
 
 /**
- * Saves a ticket as a template (`POST /api/mcp/v1/ticket-templates`), PAGE-242 interface 13.
- *
+ * Saves a ticket as a template (`POST /api/mcp/v1/ticket-templates`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

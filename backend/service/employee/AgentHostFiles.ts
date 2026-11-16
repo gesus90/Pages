@@ -60,7 +60,6 @@ function refused(
 
 /**
  * Resolves a path the agent names to a regular file inside its working folder.
- *
  * @returns The real path, or `null` for a missing file, a folder or a path
  * that leads outside the folder, also through a symbolic link.
  */
@@ -114,7 +113,7 @@ function translate(error: unknown): AgentHostFileOutcome {
 }
 
 /**
- * Attaches files an agent made in its chat to a ticket or a wiki page (PAGE-303).
+ * Attaches files an agent made in its chat to a ticket or a wiki page.
  *
  * @remarks
  * The file must lie in the working folder of the chat; a path outside it,

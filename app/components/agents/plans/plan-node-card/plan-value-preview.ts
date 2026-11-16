@@ -40,7 +40,6 @@ export interface PlanValueContext {
 
 /**
  * Whether a typed value is empty, so that an input falls back to its default.
- *
  * @remarks
  * Unlike a check for usable input, text with only spaces is not empty, so
  * typing never loses a space.
@@ -77,7 +76,6 @@ function planAssetName(assetId: string, draft: AgentPlanInput): string | null {
 
 /**
  * A short readable form of a typed value.
- *
  * @returns Ticket key and title or workspace name; a reference that is gone
  * or not readable is named as unavailable, without any of its content.
  */

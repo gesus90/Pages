@@ -22,7 +22,7 @@ function isDetail(value: unknown): value is AgentEmployeeDetailData {
 }
 
 /**
- * Reads the panel of one agent from its endpoint (PAGE-266) while the panel
+ * Reads the panel of one agent from its endpoint while the panel
  * is open; `reloadKey` reads it again, for example after a save.
  */
 export function useAgentDetail(

@@ -15,7 +15,6 @@ const DEVICE_HEADERS = {
 
 /**
  * Answers a device request with JSON that no cache keeps.
- *
  * @param body - The answer of the interface.
  * @param status - The HTTP status.
  * @param headers - Further headers such as `Retry-After`.
@@ -42,11 +41,9 @@ function errorResponse(
 
 /**
  * Turns whatever a device route threw into the answer of the interface.
- *
  * @param error - The error of the route.
  * @returns The answer with `{ error }`, `Retry-After` for a limit.
  * @throws The error of the database executor, which the request middleware answers with `503`.
- *
  * @remarks
  * Nothing but the code leaves the server; the log names the error class
  * and never the request.
@@ -68,7 +65,6 @@ export function mcpDeviceFailure(error: unknown): Response {
 
 /**
  * Answers a method the route does not serve.
- *
  * @param allowed - The methods of the route, for the `Allow` header.
  */
 export function mcpDeviceMethodNotAllowed(allowed: string): Response {
@@ -77,7 +73,6 @@ export function mcpDeviceMethodNotAllowed(allowed: string): Response {
 
 /**
  * Reads the JSON object of a device request.
- *
  * @param request - The request with `Content-Type: application/json`.
  * @returns The object; its fields are still untrusted.
  * @throws {McpDeviceError} `invalid_request` for another content type, a large body or no object.

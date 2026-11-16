@@ -184,12 +184,10 @@ function useChangeRunner(onChanged: () => void): {
 }
 
 /**
- * Runs the changing operations of the Storage interface (PAGE-270) and leads
+ * Runs the changing operations of the Storage interface and leads
  * through their name conflicts and confirmations.
- *
  * @param options - The shown folder, the upload limit and the reload.
  * @returns The model of the toolbar, the row actions and the dialogs.
- *
  * @remarks
  * Nothing is changed without the server: a folder in the trash, a permanent
  * deletion and an overwrite always answer with a confirmation first, which

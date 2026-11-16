@@ -1,6 +1,5 @@
 /**
- * Templates for `AGENT.md` (PAGE-283).
- *
+ * Templates for `AGENT.md`.
  * @remarks
  * A template belongs to the whole instance. Picking it fills `AGENT.md` of
  * an agent once; a later change of the template changes no agent. The

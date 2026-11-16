@@ -7,7 +7,6 @@ import type {
 
 /**
  * The design Pages ships.
- *
  * @remarks
  * It overrides nothing: its palette is the one in `app/styles/tailwind.css`,
  * so it needs no stylesheet and its look cannot change by installing themes.

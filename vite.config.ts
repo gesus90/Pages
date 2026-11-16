@@ -19,7 +19,7 @@ import type { AppRoute } from "./backend/runtime/AppRouteMatch";
 import type { ServiceWorkerBuild } from "./app/service-worker/install-service-worker";
 import type { DevelopmentRequestLogger } from "./backend/runtime/DevelopmentRuntime";
 
-/** The API build or development server (PAGE-235); without it Vite serves the static app. */
+/** The API build or development server; without it Vite serves the static app. */
 const isApiBuild = process.env.PAGES_ROUTES === "api";
 
 /** Where the static app's development server finds the API's (`pnpm dev:api`). */
@@ -33,7 +33,7 @@ const SERVICE_WORKER_SOURCE = new URL(
   import.meta.url,
 );
 
-/** Pica's protected `SOUL.md` and `AGENTS.md` in the source tree (PAGE-51). */
+/** Pica's protected `SOUL.md` and `AGENTS.md` in the source tree. */
 const PICA_INSTRUCTION_SOURCE = new URL(
   "./backend/service/chat/pica/",
   import.meta.url,
@@ -139,7 +139,7 @@ async function createServiceWorker(assets: readonly string[]): Promise<string> {
 
 /**
  * Passes the static app's server requests to the API's development server,
- * as the entrance does in production (PAGE-235).
+ * as the entrance does in production.
  *
  * @remarks
  * `pnpm dev` serves the app, `pnpm dev:api` the API with the Pages runtime.
@@ -183,7 +183,7 @@ function pagesDevelopmentApi(): Plugin {
 }
 
 /**
- * Writes what serves the static app next to its files (PAGE-235): the route
+ * Writes what serves the static app next to its files: the route
  * list the API and the entrance decide by (`.pages-routes.json`, see
  * `backend/runtime/AppRoutes.ts`) and the service worker (`sw.js`).
  */
@@ -212,46 +212,70 @@ function pagesStaticApp(): Plugin {
   };
 }
 
-export default defineConfig({
-  environments: {
-    // The API's server build starts with the production server, which embeds
-    // the React Router build (see backend/runtime/ServerEntry.ts). The static
-    // app's build keeps React Router's own server entry; it renders only the
-    // app's `index.html`.
-    ...(isApiBuild
-      ? {
-          ssr: {
-            build: {
-              rollupOptions: {
-                input: "./backend/runtime/ServerEntry.ts",
-                // One file keeps the entry in `build/server`, where it finds
-                // the client files relative to itself. Code the browser loads
-                // lazily, such as the ticket description editor, must not
-                // split it.
-                output: { inlineDynamicImports: true },
-              },
+export default defineConfig(({ mode }) =>
+  mode === "runtimes"
+    ? {
+        resolve: {
+          alias: { "@": fileURLToPath(new URL(".", import.meta.url)) },
+        },
+        build: {
+          ssr: true,
+          target: "node22",
+          outDir: "build",
+          emptyOutDir: false,
+          rollupOptions: {
+            input: {
+              "local-owner/index": "backend/agents/local/LocalSessionOwner.ts",
+              "runs/index": "backend/runtime/RunsEntry.ts",
+            },
+            output: {
+              entryFileNames: "[name].js",
+              chunkFileNames: "runtime-chunks/[name]-[hash].js",
             },
           },
-        }
-      : {}),
-  },
-  // The dependency optimizer follows server imports while scanning routes.
-  // Keep Node-only drivers and browser controllers out of its browser bundle:
-  // canvas contains native binaries, pg opens sockets, and Playwright includes
-  // lazy optional BiDi imports that the optimizer would resolve eagerly.
-  optimizeDeps: {
-    exclude: ["@napi-rs/canvas", "pg", "playwright-core"],
-  },
-  plugins: [
-    tailwindcss(),
-    reactRouter(),
-    ...(isApiBuild
-      ? [pagesDevelopmentRuntime(), pagesPicaInstructions()]
-      : [pagesDevelopmentApi(), pagesStaticApp()]),
-  ],
-  resolve: {
-    alias: {
-      "@": fileURLToPath(new URL(".", import.meta.url)),
-    },
-  },
-});
+        },
+      }
+    : {
+        environments: {
+          // The API's server build starts with the production server, which embeds
+          // the React Router build (see backend/runtime/ServerEntry.ts). The static
+          // app's build keeps React Router's own server entry; it renders only the
+          // app's `index.html`.
+          ...(isApiBuild
+            ? {
+                ssr: {
+                  build: {
+                    rollupOptions: {
+                      input: "./backend/runtime/ServerEntry.ts",
+                      // One file keeps the entry in `build/server`, where it finds
+                      // the client files relative to itself. Code the browser loads
+                      // lazily, such as the ticket description editor, must not
+                      // split it.
+                      output: { inlineDynamicImports: true },
+                    },
+                  },
+                },
+              }
+            : {}),
+        },
+        // The dependency optimizer follows server imports while scanning routes.
+        // Keep Node-only drivers and browser controllers out of its browser bundle:
+        // canvas contains native binaries, pg opens sockets, and Playwright includes
+        // lazy optional BiDi imports that the optimizer would resolve eagerly.
+        optimizeDeps: {
+          exclude: ["@napi-rs/canvas", "pg", "playwright-core"],
+        },
+        plugins: [
+          tailwindcss(),
+          reactRouter(),
+          ...(isApiBuild
+            ? [pagesDevelopmentRuntime(), pagesPicaInstructions()]
+            : [pagesDevelopmentApi(), pagesStaticApp()]),
+        ],
+        resolve: {
+          alias: {
+            "@": fileURLToPath(new URL(".", import.meta.url)),
+          },
+        },
+      },
+);

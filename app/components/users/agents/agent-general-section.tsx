@@ -242,9 +242,9 @@ function AgentRightsFields({
 }
 
 /**
- * The tab "Allgemein" of the agent panel (PAGE-266): image and color, name,
+ * The tab "Allgemein" of the agent panel: image and color, name,
  * username, job title, model with reasoning, role and departments; the
- * access level has a tab of its own (PAGE-303).
+ * access level has a tab of its own.
  */
 export function AgentGeneralSection(
   props: AgentGeneralSectionProps,

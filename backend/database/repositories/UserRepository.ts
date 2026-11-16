@@ -43,7 +43,7 @@ export interface UserCredentials {
 
 /** Values required to persist a new user. */
 export interface NewUser {
-  /** Explicit A2 authorization; absent only for legacy callers and fixtures. */
+  /** Explicit authorization; absent only for legacy callers and fixtures. */
   readonly authorization?: AccountInitialization;
   readonly id: string;
   readonly username: string;
@@ -62,7 +62,6 @@ export interface NewUser {
 
 /**
  * Reads the result of `sha256(data)` as lowercase hexadecimal text.
- *
  * @remarks
  * Both databases know the function: DuckDB answers with the text, PostgreSQL
  * with the bytes.
@@ -87,7 +86,6 @@ export class UserRepository {
 
   /**
    * Creates a user repository.
-   *
    * @param database - Central database access.
    */
   public constructor(
@@ -98,7 +96,6 @@ export class UserRepository {
 
   /**
    * Returns the user with the given identifier.
-   *
    * @param id - User identifier.
    * @returns The user, or `null` when no user exists.
    */
@@ -130,7 +127,6 @@ export class UserRepository {
 
   /**
    * Returns every user ordered by display name.
-   *
    * @remarks
    * Intended for authorized readers. Conversation history may opt into
    * removed-agent tombstones to keep their names on earlier messages.
@@ -163,7 +159,6 @@ export class UserRepository {
 
   /**
    * Returns the user carrying the given email address.
-   *
    * @param email - Email address to look up.
    * @returns The user, or `null` when no user uses the address.
    */
@@ -195,12 +190,10 @@ export class UserRepository {
 
   /**
    * Returns the stored email address for each requested user.
-   *
    * @remarks
    * Kept as a separate lookup so the shared user mapping used by the
    * authentication paths stays untouched. Only the user-management screen
    * needs email addresses in bulk.
-   *
    * @param ids - Identifiers of the users to look up.
    * @returns Email addresses keyed by user identifier, `null` when unset.
    */

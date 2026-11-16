@@ -12,7 +12,6 @@ import type {
 
 /**
  * What the browser learned about the detailed service status.
- *
  * @remarks
  * - `granted`: the services in detail.
  * - `denied`: the session may not read them; only the light.
@@ -60,11 +59,9 @@ async function fetchStatus(
 }
 
 /**
- * Reads the public light of all services from `pages-core` (PAGE-238).
- *
+ * Reads the public light of all services from `pages-core`.
  * @param signal - Ends the request when the caller is gone.
  * @returns The light, or `null` when no status can be read.
- *
  * @remarks
  * The request goes to the entrance, which passes it to `pages-core`; the API
  * takes no part, so the light stays readable while the API is stopped.
@@ -80,7 +77,6 @@ export async function readServiceStatusLight(
 
 /**
  * Reads the detailed service status, which only an admin session receives.
- *
  * @param signal - Ends the request when the caller is gone.
  * @returns What the browser may show; details only on a confirmed `200`.
  */

@@ -32,7 +32,7 @@ function useBlockedReason(
 }
 
 /**
- * The tab "Stimme" of the agent panel (PAGE-300): the voice of the
+ * The tab "Stimme" of the agent panel: the voice of the
  * instance's speech output model and the speed, with a sample to hear.
  *
  * @remarks

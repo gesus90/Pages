@@ -1,4 +1,4 @@
-# Pages behind nginx (PAGE-249). Nothing here is applied by Pages: copy ONE of
+# Pages behind nginx. Nothing here is applied by Pages: copy ONE of
 # the two server blocks, adapt names, certificates and addresses, and test with
 # `nginx -t`. The contract is explained in deploy/proxy/README.md.
 #
@@ -51,7 +51,7 @@ server {
         proxy_buffering off;
         proxy_read_timeout 1h;
 
-        # A plan file is one request body of up to 512 MiB (PAGE-292); nginx
+        # A plan file is one request body of up to 512 MiB; nginx
         # refuses more than 1m by default, with a page the plan page cannot
         # explain. The body streams to Pages instead of landing on this disk.
         client_max_body_size 512m;

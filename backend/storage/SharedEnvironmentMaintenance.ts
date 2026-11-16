@@ -93,7 +93,7 @@ async function requiredBrowsers(): Promise<ReadonlySet<string>> {
   return required;
 }
 
-/** Removes only aged browser-revision folders; .links and unrelated directories stay. */
+/** Removes only aged browser-revision folders;.links and unrelated directories stay. */
 export async function pruneOldBrowsers(
   root: string,
   cutoff: number,

@@ -21,7 +21,6 @@ interface SidebarResizeHandleProps {
 /**
  * The draggable right edge of the open sidebar, also a focusable separator
  * that arrow keys, Home and End resize.
- *
  * @remarks
  * The edge lies inside the sidebar padding, so it covers neither links nor
  * the main area.

@@ -15,8 +15,7 @@ export interface McpWikiAccess {
 }
 
 /**
- * The wiki API of the stand-alone Pages MCP program (PAGE-257).
- *
+ * The wiki API of the stand-alone Pages MCP program.
  * @remarks
  * A paired machine acts with the rights of the account that confirmed the
  * pairing. Every request checks the token again with the unchanged check of
@@ -32,7 +31,6 @@ export class McpWikiApi {
 
   /**
    * Creates the API.
-   *
    * @param services - The wiki service of the interface and its companions.
    * @param access - The device token check and the account lookup.
    */
@@ -43,7 +41,6 @@ export class McpWikiApi {
 
   /**
    * Checks the token of a request and opens its context.
-   *
    * @param authorization - The `Authorization` header of the request.
    * @returns The context with the paired account as the actor.
    * @throws {McpDeviceError} `invalid_token` for a missing, unknown or revoked token.

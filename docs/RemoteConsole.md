@@ -1,18 +1,18 @@
-# Remote-Konsole (PAGE-140, PAGE-143)
+# Remote-Konsole
 
 Die Konsole öffnet eine interaktive SSH-Shell in einem zentrierten modalen
 Fokus-Panel (1152 × 816 px auf dem Desktop, in kleineren Fenstern innerhalb
 der sichtbaren Fläche). Es gibt zwei Einstiege mit derselben Technik:
 
-- **Agents → Arbeitsverzeichnis → Remote-Verbindungen → … → Konsole öffnen**
-  (PAGE-143): eine Shell auf dem Host der Verbindung. Sie startet als
+- **Agents → Arbeitsverzeichnis → Remote-Verbindungen → … → Konsole öffnen**:
+  eine Shell auf dem Host der Verbindung. Sie startet als
   Login-Shell des SSH-Benutzers im Anmeldeverzeichnis; das Panel zeigt dieses
   Verzeichnis, sobald der Host es gemeldet hat.
-- **Agents → Arbeitsverzeichnis → Arbeitsbereiche → … → Konsole öffnen**
-  (PAGE-140): eine Shell im registrierten, erneut geprüften Arbeitsverzeichnis
+- **Agents → Arbeitsverzeichnis → Arbeitsbereiche → … → Konsole öffnen**:
+  eine Shell im registrierten, erneut geprüften Arbeitsverzeichnis
   eines Remote-Arbeitsbereichs. Lokale Arbeitsbereiche bieten die Aktion nicht an.
 
-Dasselbe Panel führt auch das geführte Runner-Setup (PAGE-144, „Setup → Runner einrichten“): Der PTY startet dann das Skript statt einer Login-Shell, ein verlorener Transport startet es nie erneut, und über dem Terminal zeigt das Panel die acht Phasen. Das beschreibt [RemoteSetup.md](./RemoteSetup.md).
+Dasselbe Panel führt auch das geführte Runner-Setup („Setup → Runner einrichten“): Der PTY startet dann das Skript statt einer Login-Shell, ein verlorener Transport startet es nie erneut, und über dem Terminal zeigt das Panel die acht Phasen. Das beschreibt [RemoteSetup.md](./RemoteSetup.md).
 
 Die Konsole öffnen nur Mitglieder der Abteilung, für die die Verbindung
 freigegeben ist; die Administratorrolle allein genügt nicht. Für einen
@@ -43,12 +43,11 @@ Pages-Themes dunkel, mit eigenen semantischen Farb-Tokens.
 
 Den Screenreader-Modus wählt die Konsole bei jedem Öffnen automatisch:
 geöffnet per Tastatur ist er an, geöffnet mit Maus oder Touch aus. Eine
-Einstellung dafür gibt es nicht (PAGE-251).
+Einstellung dafür gibt es nicht.
 
 ## Transport und Zugriffsprüfung
 
-Die Konsole öffnet einen eigenen Shell-Kanal über den bestehenden
-PAGE-138-Control-Socket. Sie verwendet dessen isolierte SSH-Optionen und
+Die Konsole öffnet einen eigenen Shell-Kanal über den bestehenden Control-Socket. Sie verwendet dessen isolierte SSH-Optionen und
 fest bestätigten Hostschlüssel. Ohne Control-Socket sind sämtliche
 Authentifizierungsmethoden des Kanalprozesses deaktiviert. OpenSSH-Escapes
 sind deaktiviert, damit Terminaleingaben keinen lokalen Shell-Ausbruch

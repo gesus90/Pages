@@ -69,8 +69,8 @@ async function createPreview(
   const response = await fetch(attachment.url, { signal });
   if (!response.ok) return null;
   let factsQuery = "";
-  // A video gives its resolution and length with the frame (PAGE-384), a
-  // PDF its page count and title with the first page (PAGE-385).
+  // A video gives its resolution and length with the frame, a
+  // PDF its page count and title with the first page.
   const preview = await createThumbnail(
     await response.blob(),
     attachment.mimeType,
@@ -88,7 +88,7 @@ async function createPreview(
 }
 
 /**
- * The preview image of an attachment (PAGE-298).
+ * The preview image of an attachment.
  *
  * @remarks
  * A file an agent attached has no preview image. The browser of the first

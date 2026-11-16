@@ -39,8 +39,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpProjectHandlers {
 }
 
 /**
- * Marks a goal done or open (`PATCH /api/mcp/v1/projects/{id}/goals/{goalId}`) and deletes it (`DELETE`), PAGE-244 interface 7.
- *
+ * Marks a goal done or open (`PATCH /api/mcp/v1/projects/{id}/goals/{goalId}`) and deletes it (`DELETE`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

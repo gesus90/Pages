@@ -134,7 +134,7 @@ interface PreviewPanelProps {
   readonly origin: CardOrigin;
   /** Offers "Vollbild". */
   readonly onFullscreen?: () => void;
-  /** Shown next to the chat: "Daneben" lights as the active view and closes it (PAGE-384). */
+  /** Shown next to the chat: "Daneben" lights as the active view and closes it. */
   readonly isBeside?: boolean;
   readonly onClose: () => void;
   readonly className?: string;
@@ -143,7 +143,7 @@ interface PreviewPanelProps {
 }
 
 /**
- * A preview next to the chat (PAGE-383): the head of the cards with title,
+ * A preview next to the chat: the head of the cards with title,
  * sender and time, "Vorschau | Code", "Desktop | Tablet | Mobil" for HTML
  * and SVG, "Neu laden" for HTML, "Vollbild" and "Schließen", and below it
  * the preview in its browser frame or the code with its file tabs.
@@ -403,7 +403,7 @@ function useFullscreenState(firstFile: string): {
 }
 
 /**
- * A preview over the whole page (PAGE-383): a dark surface with the head of
+ * A preview over the whole page: a dark surface with the head of
  * the cards, "Vorschau | Code | Beides" (preview left, code with file tabs
  * right), the device widths, "Neu laden", "Kopieren", "Herunterladen" as
  * file or ZIP, "Zur Nachricht" and "Schließen". Escape closes it, R loads it

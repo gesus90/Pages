@@ -36,9 +36,8 @@ function handlers(params: Route.LoaderArgs["params"]): McpAgentHandlers {
 }
 
 /**
- * Reads an agent profile (`GET /api/mcp/v1/agents/{agentId}`, PAGE-308), the agent of the administration
- * (`GET /api/mcp/v1/agents/{id}?view=administration`) and changes it (`PATCH`), PAGE-267.
- *
+ * Reads an agent profile (`GET /api/mcp/v1/agents/{agentId}`), the agent of the administration
+ * (`GET /api/mcp/v1/agents/{id}?view=administration`) and changes it (`PATCH`).
  * @remarks
  * The profile answers every account that may read it: administrators, the
  * leaders of a group of the agent and the managers of a project of the

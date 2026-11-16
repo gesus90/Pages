@@ -12,7 +12,6 @@ export class GitHubSyncAccessGuard {
 
   /**
    * Creates an access guard.
-   *
    * @param projectService - Project business-logic boundary deciding access.
    * @param taskService - Task business-logic boundary resolving work items.
    */
@@ -23,7 +22,6 @@ export class GitHubSyncAccessGuard {
 
   /**
    * Verifies that the actor may see a project and change it.
-   *
    * @throws {ProjectManagementDeniedError} When the actor lacks write permission.
    */
   public async requireWritableProject(
@@ -36,7 +34,6 @@ export class GitHubSyncAccessGuard {
 
   /**
    * Returns a task after verifying that the actor may change its project.
-   *
    * @throws {ProjectManagementDeniedError} When the actor lacks write permission.
    */
   public async requireWritableTask(

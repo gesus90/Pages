@@ -64,7 +64,6 @@ export class McpDeviceRepository {
 
   /**
    * Finds the active account behind a token and notes the use in the same statement.
-   *
    * @param tokenHash - Hash of the presented token.
    * @param now - Unix milliseconds of the request.
    * @returns The machine and its account, or `null` for an unknown or revoked token, a
@@ -118,7 +117,6 @@ export class McpDeviceRepository {
 
   /**
    * Revokes the machine of a token.
-   *
    * @returns Whether a valid pairing was revoked.
    */
   public async revokeByTokenHash(
@@ -140,7 +138,6 @@ export class McpDeviceRepository {
 
   /**
    * Revokes one machine of an account.
-   *
    * @returns Whether a valid pairing of this account was revoked.
    */
   public async revokeForUser(

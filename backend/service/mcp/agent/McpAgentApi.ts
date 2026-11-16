@@ -19,8 +19,7 @@ export interface McpAgentActor {
 }
 
 /**
- * The agent API of the stand-alone Pages MCP program (PAGE-267).
- *
+ * The agent API of the stand-alone Pages MCP program.
  * @remarks
  * A paired machine acts with the rights of the account that confirmed the
  * pairing. Every request checks the token again with the unchanged check of
@@ -38,7 +37,6 @@ export class McpAgentApi {
 
   /**
    * Creates the API.
-   *
    * @param administration - The administration of agents of the interface, whichever channel it was built for.
    * @param access - The device token check and the account lookup.
    * @param templates - The stored templates of `AGENT.md` of the instance.
@@ -60,7 +58,6 @@ export class McpAgentApi {
 
   /**
    * Checks the token of a request and requires an administrator behind it.
-   *
    * @param authorization - The `Authorization` header of the request.
    * @returns The paired administrator as the actor.
    * @throws {McpDeviceError} `invalid_token` for a missing, unknown or revoked token.

@@ -11,7 +11,6 @@ const DARK_LABEL_TEXT = "#44403c";
 
 /**
  * Converts a `#rrggbb` hex code to HSV degrees and ratios.
- *
  * @param hex - Label color accepted by the backend.
  * @returns Hue in `[0, 360)` with saturation and value in `[0, 1]`.
  */
@@ -58,7 +57,6 @@ function channelToHex(channel: number): string {
 
 /**
  * Converts HSV degrees and ratios back to a lowercase `#rrggbb` hex code.
- *
  * @param color - Hue in `[0, 360)` with saturation and value in `[0, 1]`.
  * @returns The matching storable label color.
  */

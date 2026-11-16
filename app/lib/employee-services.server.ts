@@ -97,34 +97,34 @@ import type { ConversationApplicationServices } from "./conversation-services.se
 import type { AgentChatControlServices } from "./agent-chat-control-services.server";
 
 /**
- * Agents as employees, the chat directory and person colors (PAGE-266), with
- * the stored conversations the chat page shows (PAGE-278).
+ * Agents as employees, the chat directory and person colors, with
+ * the stored conversations the chat page shows.
  */
 export interface EmployeeApplicationServices
   extends ConversationApplicationServices, AgentChatControlServices {
   readonly agentEmployeeAdministration: AgentEmployeeAdministration;
   readonly agentDeletionService: AgentDeletionService;
-  /** The templates of `AGENT.md` (PAGE-283). */
+  /** The templates of `AGENT.md`. */
   readonly agentTemplateService: AgentTemplateService;
-  /** The readable profiles of agents for administrators and leaders (PAGE-308). */
+  /** The readable profiles of agents for administrators and leaders. */
   readonly agentProfileReadService: AgentProfileReadService;
   readonly agentEmployeeSessions: AgentEmployeeSessions;
   /** The files a person sends in the direct chat with an agent. */
   readonly agentChatAttachments: AgentChatAttachments;
-  /** The chat sessions of agents: the popup "Agent-Einstellungen" and the head of a chat (PAGE-376). */
+  /** The chat sessions of agents: the popup "Agent-Einstellungen" and the head of a chat. */
   readonly agentChatSessionService: AgentChatSessionService;
-  /** The tab "Lagebuch" of that popup: entries, settings, removal (PAGE-377). */
+  /** The tab "Lagebuch" of that popup: entries, settings, removal. */
   readonly agentLogbookAdministration: AgentLogbookAdministration;
-  /** The tab "Dreaming": schedule, last and next run, the files and "Jetzt träumen" (PAGE-378). */
+  /** The tab "Dreaming": schedule, last and next run, the files and "Jetzt träumen". */
   readonly agentDreamingAdministration: AgentDreamingAdministration;
-  /** The tab "Lektionen & Rezepte": lessons and recipes to view, edit, switch off and delete (PAGE-378). */
+  /** The tab "Lektionen & Rezepte": lessons and recipes to view, edit, switch off and delete. */
   readonly agentLessonsAdministration: AgentLessonsAdministration;
-  /** The limits of concurrent chat sessions of agents (PAGE-304). */
+  /** The limits of concurrent chat sessions of agents. */
   readonly agentSessionLimitService: AgentSessionLimitService;
   readonly agentLearningService: AgentLearningService;
-  /** Marks chats with agents confidential (PAGE-305). */
+  /** Marks chats with agents confidential. */
   readonly agentChatPrivacyService: AgentChatPrivacyService;
-  /** The scheduled tasks of chats: the entry "Geplante Aufgaben" of the chat menu (PAGE-392). */
+  /** The scheduled tasks of chats: the entry "Geplante Aufgaben" of the chat menu. */
   readonly agentChatTaskService: AgentChatTaskService;
   readonly chatDirectoryService: ChatDirectoryService;
   readonly chatGroupService: ChatGroupService;
@@ -134,7 +134,7 @@ export interface EmployeeApplicationServices
 /** What the employee services are built from. */
 export interface EmployeeServicesInput {
   readonly database: Database;
-  /** The automations whose agent work the agents' sessions deliver (PAGE-297). */
+  /** The automations whose agent work the agents' sessions deliver. */
   readonly automations: AutomationService;
   readonly cache: ServerCache;
   /** Pica's ACP path, which agent sessions share; `null` without ACP chat. */
@@ -144,52 +144,52 @@ export interface EmployeeServicesInput {
     ChatAttachmentService,
     "upload" | "discard" | "open"
   >;
-  /** The live processes of the chat sessions (PAGE-376); `null` without ACP chat. */
+  /** The live processes of the chat sessions; `null` without ACP chat. */
   readonly pool?: PicaAcpSessionPool | null;
-  /** The ticket and wiki attachments the file tools of an agent with host tools use (PAGE-303). */
+  /** The ticket and wiki attachments the file tools of an agent with host tools use. */
   readonly hostFiles?: AgentHostFileStores;
   /**
    * Folders the isolation of the toolkit's shell hides from agent commands,
-   * such as the data folder (PAGE-390).
+   * such as the data folder.
    */
   readonly toolkitHiddenDirectories?: readonly string[];
   /**
-   * Who may see a ticket or a wiki page (PAGE-305); without it a chat with
+   * Who may see a ticket or a wiki page; without it a chat with
    * further people gets no knowledge of other chats.
    */
   readonly knowledge?: {
     readonly tickets: Pick<TaskService, "getByKey">;
     readonly wiki: Pick<WikiService, "canView">;
   };
-  /** The folder of the chat workspaces, whose files an agent deletion removes (PAGE-321). */
+  /** The folder of the chat workspaces, whose files an agent deletion removes. */
   readonly workspaceRoot: string;
   /**
    * Decrypts the stored keys of connections, for the images an agent
-   * generates with its own model (PAGE-382); without it no agent generates images.
+   * generates with its own model; without it no agent generates images.
    */
   readonly cipher?: InstanceSecretCipher;
-  /** Where the stored conversations keep their audio and announce their changes (PAGE-278). */
+  /** Where the stored conversations keep their audio and announce their changes. */
   readonly conversations: {
     readonly directory: string;
     readonly events: PagesEventPublisher;
-    /** The speech model and the longest recording of `config.toml` (PAGE-277). */
+    /** The speech model and the longest recording of `config.toml`. */
     readonly speech?: SpeechRecognitionSetting;
-    /** The origin users reach Pages at; links to it embed (PAGE-298). */
+    /** The origin users reach Pages at; links to it embed. */
     readonly publicUrl?: string;
   };
-  /** Pica's model choice and the ACP path the group observer runs on (PAGE-296). */
+  /** Pica's model choice and the ACP path the group observer runs on. */
   readonly observer: {
     readonly picaSettingsService: Pick<
       PicaSettingsService,
       "resolve" | "requireCurrent"
     >;
     readonly agentPlanExecution: PlanExecution | null;
-    /** The decision model of the instance and its default rules (PAGE-317, PAGE-379). */
+    /** The decision model of the instance and its default rules. */
     readonly chatDecisionSettingsService: Pick<
       ChatDecisionSettingsService,
       "rules" | "modelView"
     >;
-    /** The decision model that gives the probabilities (PAGE-379). */
+    /** The decision model that gives the probabilities. */
     readonly chatDecisionModel: Pick<ConversationDecisionModel, "ask">;
   };
 }
@@ -347,11 +347,11 @@ export interface LateServices {
   chatTasks: AgentChatTaskService | null;
   contextReader: ConversationContextReader | null;
   logbook: AgentLogbookService | null;
-  /** Writes the state of a chat into the Lagebuch before its session closes (PAGE-380). */
+  /** Writes the state of a chat into the Lagebuch before its session closes. */
   logbookClose: ((sessionId: string) => Promise<void>) | null;
-  /** Stores the images agents generate in conversations (PAGE-382). */
+  /** Stores the images agents generate in conversations. */
   attachments: ConversationAttachments | null;
-  /** Lets agents search and read the attachments of their chats (PAGE-386). */
+  /** Lets agents search and read the attachments of their chats. */
   library: ConversationAttachmentLibrary | null;
 }
 
@@ -370,8 +370,8 @@ function lateAttachments(late: LateServices): ConversationAttachments {
 }
 
 /**
- * The generation of images with an agent's own model in conversations
- * (PAGE-382); without a cipher for the stored keys there is none.
+ * The generation of images with an agent's own model in conversations;
+ * without a cipher for the stored keys there is none.
  */
 function createImageTool(
   input: EmployeeServicesInput,
@@ -402,7 +402,7 @@ function createImageTool(
 
 /**
  * The generation of videos and sounds with an agent's own model in
- * conversations (PAGE-384); without a cipher for the stored keys there is none.
+ * conversations; without a cipher for the stored keys there is none.
  */
 function createMediaTool(
   input: EmployeeServicesInput,
@@ -580,7 +580,6 @@ function createEmployeeSessions(
 }
 
 /**
- *
  */
 export function createEmployeeServices(
   input: EmployeeServicesInput,

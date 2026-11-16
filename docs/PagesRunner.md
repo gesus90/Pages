@@ -1,23 +1,23 @@
-# Pages-Runner (PAGE-141)
+# Pages-Runner
 
-> Current control contract: [PAGE-184 / PAGE-185](./PAGE-184-185.md) documents
+> Current control contract: [Agent Plan control and Runner synchronization](./PAGE-184-185.md) documents
 > Pages plan contract 13, Runner 1.15.0, business acceptance for every CLI,
 > upper control actions, actual writer queues and logical workspace removal.
 > The versioned historical sections below describe their original releases.
 >
-> Runner **1.16.0** adds `continuationVersion: 1` (PAGE-191): resumable native
+> Runner **1.16.0** adds `continuationVersion: 1`: resumable native
 > sessions and proven tool activity for writing CLI jobs, see
 > [Runner 1.16.0: continuation](#runner-1160-continuation).
 >
-> Runner **1.17.0** reports `pagesAccessVersion: 3` (PAGE-292): files above the
+> Runner **1.17.0** reports `pagesAccessVersion: 3`: files above the
 > 10-MiB memory budget of a step, up to 512 MiB in all, are written to disk chunk
-> by chunk, see [Dateiübergabe bis 512 MiB](#dateiübergabe-bis-512-mib-page-292-runner-1170).
+> by chunk, see [Dateiübergabe bis 512 MiB](#dateiübergabe-bis-512-mib-runner-1170).
 
 Der lokale Teil stellt Protokoll v1, persistente Kopplung und Skriptübertragung bereit. Einstellungen → Agents zeigt API, Lokal und Remote direkt hintereinander vor den Pica-Einstellungen. Die CLI-Pfade sind aufklappbar; Remote verwendet dieselben Tabellenspalten mit tatsächlicher SSH-Prüfzeit und Abteilungsfreigabe. Remote enthält ausschließlich gespeicherte SSH-Anbindungen. Es werden keine Remote-Agenten aus einer Hostliste abgeleitet.
 
 ## Setup und Berechtigungen
 
-> Seit PAGE-144 startet das Kontextmenü einer Remote-Verbindung („Setup → Runner einrichten“) das Skript in einem Fokuspanel, richtet den Dienst ein und koppelt den Runner; siehe [RemoteSetup.md](./RemoteSetup.md). Die folgenden Absätze beschreiben die reine Übertragung in Einstellungen → Agents, die weiterhin nichts startet.
+> Seit dem geführten Setup startet das Kontextmenü einer Remote-Verbindung („Setup → Runner einrichten“) das Skript in einem Fokuspanel, richtet den Dienst ein und koppelt den Runner; siehe [RemoteSetup.md](./RemoteSetup.md). Die folgenden Absätze beschreiben die reine Übertragung in Einstellungen → Agents, die weiterhin nichts startet.
 
 Ein Administrator im aktiven Admin-Modus öffnet die registrierte Verbindung mit „Verbinden“. Nach mindestens fünf Sekunden verbundener SSH-Sitzung, erfolgreicher letzter Prüfung und bestätigtem Hostschlüssel erscheint bei fehlender Runner-Registrierung „Setup“. Der Server prüft dieselben Bedingungen erneut.
 
@@ -72,15 +72,15 @@ Grundlage sind die offiziellen OpenRouter-Verträge für [Schlüsselprüfung](ht
 
 Die HTTP-Schlüsselverwaltung bleibt getrennt von der unten beschriebenen Runner-SSH-Prüfung. Grundlage des HTTP-Vertrags ist die [GitHub-Dokumentation zu Deploy-Keys](https://docs.github.com/en/rest/deploy-keys/deploy-keys). Die CLI-Pakete entsprechen den offiziellen Installationsangaben für [Codex](https://developers.openai.com/codex/cli/), [Claude Code](https://docs.anthropic.com/en/docs/claude-code/getting-started) und [OpenCode 1](https://opencode.ai/docs/). Die tatsächliche Installation und Anmeldung bleibt separat zu prüfen.
 
-## Remote-Pläne (Scope-Erweiterung PAGE-142)
+## Remote-Pläne
 
-Der Planeditor liest die freigegebenen Modellmetadaten aus demselben OpenRouter-Speicher und Runner-Kanal wie die PAGE-141-Verwaltungsroute. Auswahl und Start verlangen Admin-Modus, aktuelle Projekt-/Workspace-Rechte, tatsächliche Verbindungsabteilungsmitgliedschaft, eine aktuelle Runner-Registrierung und einen ausführenden Runner. Modellrouten binden Verbindung, Workspace und Katalogrevision; erneute Synchronisation entwertet ältere Auswahlen. Es gibt keinen lokalen Ersatz.
+Der Planeditor liest die freigegebenen Modellmetadaten aus demselben OpenRouter-Speicher und Runner-Kanal wie die bestehende Verwaltungsroute. Auswahl und Start verlangen Admin-Modus, aktuelle Projekt-/Workspace-Rechte, tatsächliche Verbindungsabteilungsmitgliedschaft, eine aktuelle Runner-Registrierung und einen ausführenden Runner. Modellrouten binden Verbindung, Workspace und Katalogrevision; erneute Synchronisation entwertet ältere Auswahlen. Es gibt keinen lokalen Ersatz.
 
 Standalone-Remote-Agenten verwenden den gewählten OpenRouter-Chatweg oder ab Runner 1.4.0 Codex CLI bzw. Claude Code als native CLI-Einzelsitzung. Remote-Scripts verwenden die Runner-Identitäten Bash, Python 3 oder Node.js mit geprüftem Binärdigest. Gruppen und Schleifen mit Remote-Ziel und interaktive ACP-Gruppensitzungen bleiben gesperrt. Ressourcenparameter und Pages-Werkzeuge benötigen Runner 1.6.0 (siehe unten). Resultatbindungen werden erst beim Dispatch aus erfolgreichen Vorgängern ergänzt. Ein Pages-Prozessneustart stellt keine DAG-Fortsetzung her; der dauerhafte Jobstand bleibt erhalten und wird weiterhin abgeglichen.
 
 Die Script-Prozessgruppe erhält ausschließlich eine erlaubte Umgebung, private Quell-/HOME-Dateien, JSON-stdin, endliche Laufzeit, maximal 64 KiB Gesamtausgabe, CPU-, Dateigrößen-, Deskriptor-, Prozess- und Adressraumgrenzen. Node läuft ohne JIT/Wasm mit 128-MiB-Heap und 1-GiB-Adressraum; Bash/Python erhalten 512 MiB Adressraum. Dies ist keine Sandbox gegen bösartigen Code desselben Betriebssystemkontos und keine aggregierte Cgroup-Speicherquote. Vor Ressourcensignalen werden PID-Startzeit und eigene Prozessmarker geprüft. Bestätigtes Cleanup entfernt die privaten Laufzeitdateien. Terminale Claim-/Ergebnisjournale bleiben zur Verhinderung einer Wiederholung bestehen; pro Kopplung sind höchstens 1000 Jobs zulässig.
 
-## Remote-CLI-Agenten (PAGE-151, Runner 1.4.0)
+## Remote-CLI-Agenten (Runner 1.4.0)
 
 Der bestehende Jobvertrag ergänzt `program.kind=cli`. Die Route pinnt Werkzeug, Verbindung, Workspace und einen Digest des vom Werkzeug selbst gelesenen Modellkatalogs. `reconcile.cliExecutorVersion=1` bestätigt die Implementierung; ältere Runner werden für CLI-Aufträge nicht angeboten. Codex wird über `login status` und `debug models`, Claude über `auth status --json` und die SDK-Initialisierung ohne Benutzerprompt geprüft. Nur bestätigte Abonnement-Anmeldungen und Modelle dieses Pickers erscheinen. Dies prüft lokale Anmeldung und Metadaten, nicht Guthaben oder serverseitige Gültigkeit einer Sitzung.
 
@@ -112,15 +112,15 @@ Bei Resume bleiben erfolgreiche Remote-Versuche und ihre Checkpoints unveränder
 
 Bei einer bewussten Neu-Kopplung den alten Runner beenden, ausschließlich seine alte Maschinenkopplung ersetzen und die neue einmalige Freigabe verwenden. Ein vorhandenes `openrouter.json` getrennt davon behalten. Der Runner übernimmt keine andere Gegenstellenidentität stillschweigend.
 
-## Ressourcenparameter und Pages-Zugang (PAGE-156, Runner 1.6.0)
+## Ressourcenparameter und Pages-Zugang (Runner 1.6.0)
 
 Runner **1.6.0** meldet `reconcile.pagesAccessVersion=1`. Ticket-, Wiki- und Workspace-Parameter eines eigenständigen Remote-CLI-Knotens verwenden die bestehenden Pages-Rechteprüfungen. Das Ticket enthält Schlüssel, Titel, vollständige Beschreibung und Checkliste; die Wiki-Seite ihr vollständiges Markdown. Inhalt und Version werden im privaten Run-Snapshot gepinnt. Das Laufdetail zeigt Parameter, Ressource und Version. Eine spätere Änderung ersetzt den gepinnten Inhalt nicht. Archivierte, gelöschte und nicht sichtbare Ressourcen werden abgelehnt. Workspace-Parameter wählen einen registrierten Remote-Arbeitsbereich desselben Hosts und liefern ausschließlich dessen Namen und Remote-Pfad.
 
 Ab Runner 1.12.0 meldet der bestehende Pages-Zugang zusätzlich Asset-Vertrag v2. PNG, JPEG und WebP bleiben bytegleiche Bildquellen mit echtem MIME-Typ. SVG/HTML/Code und vollständiges UTF-8 werden ausschließlich als Quelle gelesen. PDF nutzt den bestehenden begrenzten Textleser; Auszüge sind ausdrücklich als solche und bei Bedarf als unvollständig markiert. Ohne Textschicht, bei Verschlüsselung oder nicht lesbarem Dokument bleibt das Original mit konkretem Status verfügbar. Beliebige Binärdateien erhalten keinen vorgetäuschten Modellinhalt. Eine sichere SVG-Rastervorschau ist nicht Bestandteil des Dateilesers; verfügbare autorisierte Werkzeuge können eine eigene, getrennt bezeichnete Ableitung erstellen.
 
-Die Übergabe ist lokal wie remote auf **64 Dateien und insgesamt 512 MiB (536.870.912 Bytes) Originalbytes** pro Schritt begrenzt (PAGE-292, [Dateiübergabe bis 512 MiB](#dateiübergabe-bis-512-mib-page-292-runner-1170)). Ein Original darf höchstens 512 MiB haben. Der Metadaten-/PDF-Auszug-Manifest ist zusätzlich auf 1 MiB begrenzt. Überschreitungen benennen die betroffene Datei und führen nicht zu stiller Kürzung. Jede Übertragung prüft Rechte und SHA-256 erneut. Ticket-Anhänge stammen lokal und remote aus den geprüften Startkopien (PAGE-331): spätere neue, geänderte oder entfernte Anhänge erzeugen eine Info-Zeile im Lauf-Log und ändern weder Manifest noch Bytes, auch bei weiteren Versuchen. Wiki- und direkt gebundene Plan-Dateien behalten ihre bisherigen Referenzprüfungen. Die Laufkopien liegen kollisionsfrei als `.pages-assets-<Laufkennung>/<Index>-<Name>` im autorisierten Arbeitsbereich, mit ursprünglichem Namen, Pages-ID, Herkunft, MIME, Größe und Digest im Manifest. Der zufällige Verzeichnisname verhindert parallele Kollisionen. Es werden keine Hostpfade von Pages auf den Runner übertragen. Dateien sind Daten und werden nicht ausgeführt. `read_parameter_file` unterscheidet Modellbild, Quelle, PDF-Auszug und Originaldatei; reine Textmodelle erhalten einen ausdrücklichen Hinweis statt einer behaupteten Bildverarbeitung. Native OpenRouter-Remote-Aufrufe verwenden dieselben Originalbytes und Repräsentationen. Externe Markdown-Bilder bleiben nicht abgerufene Quellen; Codebeispiele lösen keine Downloads aus.
+Die Übergabe ist lokal wie remote auf **64 Dateien und insgesamt 512 MiB (536.870.912 Bytes) Originalbytes** pro Schritt begrenzt ([Dateiübergabe bis 512 MiB](#dateiübergabe-bis-512-mib-runner-1170)). Ein Original darf höchstens 512 MiB haben. Der Metadaten-/PDF-Auszug-Manifest ist zusätzlich auf 1 MiB begrenzt. Überschreitungen benennen die betroffene Datei und führen nicht zu stiller Kürzung. Jede Übertragung prüft Rechte und SHA-256 erneut. Ticket-Anhänge stammen lokal und remote aus den geprüften Startkopien: spätere neue, geänderte oder entfernte Anhänge erzeugen eine Info-Zeile im Lauf-Log und ändern weder Manifest noch Bytes, auch bei weiteren Versuchen. Wiki- und direkt gebundene Plan-Dateien behalten ihre bisherigen Referenzprüfungen. Die Laufkopien liegen kollisionsfrei als `.pages-assets-<Laufkennung>/<Index>-<Name>` im autorisierten Arbeitsbereich, mit ursprünglichem Namen, Pages-ID, Herkunft, MIME, Größe und Digest im Manifest. Der zufällige Verzeichnisname verhindert parallele Kollisionen. Es werden keine Hostpfade von Pages auf den Runner übertragen. Dateien sind Daten und werden nicht ausgeführt. `read_parameter_file` unterscheidet Modellbild, Quelle, PDF-Auszug und Originaldatei; reine Textmodelle erhalten einen ausdrücklichen Hinweis statt einer behaupteten Bildverarbeitung. Native OpenRouter-Remote-Aufrufe verwenden dieselben Originalbytes und Repräsentationen. Externe Markdown-Bilder bleiben nicht abgerufene Quellen; Codebeispiele lösen keine Downloads aus.
 
-### Dateiübergabe bis 512 MiB (PAGE-292, Runner 1.17.0)
+### Dateiübergabe bis 512 MiB (Runner 1.17.0)
 
 Dasselbe Budget gilt für die Dateien, die ein Plan selbst besitzt (Asset-Knoten, Stapel-Dateien): Der Upload nimmt eine Datei bis einschließlich **512 MiB = 512 × 1024 × 1024 Bytes** an, die Übergabe an einen Schritt ebenso. Was darüber liegt, lehnt die Plan-Seite vor dem Senden mit der Meldung des Servers ab; der Server prüft die angekündigte Länge und zählt danach die eintreffenden Bytes mit, schneidet also nie still und speichert nichts. Ticket-/Wiki-Uploads, Chat-Anhänge, Modellinhalte und die von Agenten zurückgegebenen oder heruntergeladenen Dateien behalten ihre eigenen, kleineren Grenzen (`return_asset` und `read_asset`: 10 MiB).
 
@@ -146,9 +146,9 @@ Die bestehende Grenze von 100000 Zeichen für einen Remote-Prompt gilt auch nach
 
 Die statischen Pages-Werkzeugverträge liegen gemeinsam unter `definition/AgentTools/`. Runner-Zugang, die Plan-Bridge lokaler Sitzungen (`/api/v1/plan-bridge`) und Pica verwenden dieselben Beschreibungen und Schemata. Pages startet dafür keinen MCP-Prozess.
 
-## OpenCode über ACP (PAGE-154, Runner 1.7.0)
+## OpenCode über ACP (Runner 1.7.0)
 
-Runner **1.7.0** meldet `reconcile.openCodeExecutorVersion=1`. Sein Inventar nennt für OpenCode die Version, die auf dem Host eingerichteten Provider und die nutzbaren Modelle aus `opencode models --verbose` mit OpenCodes eigenen Angaben (Status, Ausgabemodalitäten, Tool-Aufrufe, Preis 0, Varianten als Effort-Stufen). Pages wendet darauf denselben globalen Modellfilter an wie lokal: nur aktive Modelle mit Textausgabe ohne Bild-, Video- oder Audioausgabe; Agent-Knoten zusätzlich nur Modelle mit Tool-Aufrufen. Die Klassifikations- und Moderationsmodelle aus PAGE-248 (`openai/gpt-oss-safeguard-20b`, `meta-llama/llama-guard-4-12b`) blendet die Modellauswahl nach ihrer exakten ID aus, weil kein Katalog den Zweck eines Modells nennt. Der Agent-Plan zeigt genau diese Modelle des Ziels als `HOST / ARBEITSBEREICH / opencode · Provider · Modell`, auch wenn die lokale Instanz für ihren Provider keinen Schlüssel hat. Lokaler und Remote-Katalog sowie die OpenCode-Versionen sind getrennt; Unterschiede sind kein Fehler.
+Runner **1.7.0** meldet `reconcile.openCodeExecutorVersion=1`. Sein Inventar nennt für OpenCode die Version, die auf dem Host eingerichteten Provider und die nutzbaren Modelle aus `opencode models --verbose` mit OpenCodes eigenen Angaben (Status, Ausgabemodalitäten, Tool-Aufrufe, Preis 0, Varianten als Effort-Stufen). Pages wendet darauf denselben globalen Modellfilter an wie lokal: nur aktive Modelle mit Textausgabe ohne Bild-, Video- oder Audioausgabe; Agent-Knoten zusätzlich nur Modelle mit Tool-Aufrufen. Die Klassifikations- und Moderationsmodelle (`openai/gpt-oss-safeguard-20b`, `meta-llama/llama-guard-4-12b`) blendet die Modellauswahl nach ihrer exakten ID aus, weil kein Katalog den Zweck eines Modells nennt. Der Agent-Plan zeigt genau diese Modelle des Ziels als `HOST / ARBEITSBEREICH / opencode · Provider · Modell`, auch wenn die lokale Instanz für ihren Provider keinen Schlüssel hat. Lokaler und Remote-Katalog sowie die OpenCode-Versionen sind getrennt; Unterschiede sind kein Fehler.
 
 OpenCode nutzt auf dem Host ausschließlich die dort eingerichteten Provider und Schlüssel. **Pages überträgt keine Schlüssel, Tokens oder Anmeldungen.** Der Runner startet OpenCode nur mit `OPENCODE_DISABLE_AUTOUPDATE=1`, `autoupdate=false` und `share=disabled`; die vorhandene OpenCode-Installation des Hosts wird nicht verändert.
 
@@ -158,13 +158,13 @@ Ein OpenCode-Knoten läuft im Worker als eigene ACP-Sitzung (`opencode.mjs`): Mo
 
 Ein älterer Runner meldet OpenCode nur mit Version. Pages zeigt dann **„Runner aktualisieren: OpenCode über ACP und sein Modellkatalog benötigen Runner 1.7.0 oder neuer.“** und blockiert OpenCode-Knoten mit `remoteRunnerUpdate`; Codex-, Claude- und Script-Knoten bleiben unverändert ausführbar.
 
-## Remote-Live-Verlauf und Zuschauer (PAGE-158, Runner 1.8.0)
+## Remote-Live-Verlauf und Zuschauer (Runner 1.8.0)
 
 Runner **1.8.0** meldet `reconcile.liveHistoryVersion=1`. Pages erneuert nur aus der geöffneten Planansicht eine flüchtige Zuschauer-Lease von höchstens **30 Sekunden**. Beim Öffnen werden vollständige aktuelle Ansichten sofort gelesen und der Runner wird sofort um Fortschritt gebeten. Danach fragen die Browser-Hooks alle **2 Sekunden**; unveränderte autorisierte Ansichten beantworten sie mit ETag/304 ohne Nutzlast. Nach dem Verlassen laufen keine Planabfragen dieses Editors weiter. Mehrere Tabs oder Personen erneuern dieselbe Plan-Lease; spätestens 30 Sekunden nach dem letzten Signal verfällt sie auch ohne Abmeldung. Bei einem erneuten Kanalabgleich werden noch gültige Zuschauer erneut gemeldet. Rechte werden vor jedem Browserabruf geprüft. Auch der bestehende 15-Sekunden-Katalogabgleich prüft nur einen bedingten Änderungsmarker: Sein ETag stammt aus dem autorisierten Seitenkontext ohne Lauf-/Kontrollfortschritt. Unveränderter Kontext liefert 304 ohne Katalog oder Routerzustand; nur echte Änderungen und Fensterfokus laden die Seite neu. Das erhält die Aktualisierung von Quellen, Arbeitsbereichen, Planliste und Rechten, ohne unveränderte vollständige Kataloge pro Takt zu übertragen.
 
 Der Runner prüft Fortschritt je Plan beobachtet alle **2 Sekunden**, unbeobachtet mit aktivem Job alle **15 Sekunden**, ohne aktive Jobs alle **60 Sekunden**. Ein neuer Dispatch beansprucht seinen dauerhaften Job sofort. Unveränderte Fortschritte erzeugen keine Ereignisnachricht. Die kleinen Heartbeats bleiben unabhängig davon alle **15 Sekunden**; die bisherige Offline-Grenze von **45 Sekunden** bleibt bestehen. Ein endgültig geschlossener Kanal wird sofort als offline geführt. Ein Taktwechsel beendet keinen Worker und wiederholt keinen Claim.
 
-Seit Runner **1.9.0 / PAGE-161** bleiben die obigen Beobachtungs- und Heartbeat-Takte erhalten. `exec --json` (Codex), `stream-json` (Claude) und die verifizierte OpenCode-ACP-Sitzung liefern öffentliche Agent-Nachrichten, Werkzeugereignisse und Pläne. Vollständige öffentliche Textfelder werden vor der Aufteilung redigiert. Gedanken, Account-/Anmeldemetadaten und rohe Diagnostik verlassen den privaten Runner nicht.
+Seit Runner **1.9.0** bleiben die obigen Beobachtungs- und Heartbeat-Takte erhalten. `exec --json` (Codex), `stream-json` (Claude) und die verifizierte OpenCode-ACP-Sitzung liefern öffentliche Agent-Nachrichten, Werkzeugereignisse und Pläne. Vollständige öffentliche Textfelder werden vor der Aufteilung redigiert. Gedanken, Account-/Anmeldemetadaten und rohe Diagnostik verlassen den privaten Runner nicht.
 
 Ein Paket enthält weiterhin höchstens **16 Ereignisse / 32 KiB**. Pro Job bleibt genau ein unbestätigtes Paket dauerhaft gespeichert. Der Kanal begrenzt einzelne Nachrichten auf 2 MiB, ausstehende Sendebytes auf 4 MiB und die Empfangsqueue auf 32 Aufgaben; bei Überlast wird aus bestätigten Positionen abgeglichen. Ein neuer Kanal wartet auf das Ende laufender Journalwrites des alten Kanals. Pages bestätigt erst nach der Transaktion für Ereignisbeleg, Session-Journal und Runner-/Plan-Checkpoint. `historyCursor` nummeriert Ereignisse ohne 2.000-Ereignis-Abbruch; `historyLength` fixiert beim Abschluss die noch nachzuliefernde Anzahl. Spätere Pakete verändern ausschließlich den Verlauf, niemals Ergebnis oder Erfolgscheckpoint. Nach einem verlorenen ACK wird derselbe Beleg bestätigt oder der bestätigte Stand abgeglichen. Ein neuer Agent wird dadurch nicht gestartet.
 
@@ -176,13 +176,13 @@ Abbruchwiederholungen werden im Kanal auf höchstens einen Befehl je zwei Sekund
 
 Nach dauerhaftem Schreiben eines terminalen Ergebnisses weckt der Worker den Transport einmal über den bereits privaten lokalen Unix-Socket (`job-completed`). Diese Nachricht benennt nur die eigene Job-ID; der Transport liest den unveränderten Ergebnisbeleg selbst. So dürfen wichtige Abschlüsse sofort übertragen werden, während gewöhnlicher Fortschritt im 2-/15-/60-Sekunden-Takt bleibt. Ein fehlender lokaler Hinweis ist unschädlich: Der nächste reguläre Takt bzw. Wiederabgleich liest denselben dauerhaften Beleg. Es entsteht kein neuer Server-Endpunkt und kein neues Persistenzformat.
 
-## Fortlaufende Ausgabe und getrenntes Ergebnis (PAGE-161, Runner 1.9.0)
+## Fortlaufende Ausgabe und getrenntes Ergebnis (Runner 1.9.0)
 
 Der private Jobordner enthält `history/raw/` und die öffentliche Projektion `history/events/`. Rohpakete werden in ihrer Empfangsreihenfolge mit Kanal, Länge und Datensatzsequenz gerahmt. Rohchunks enthalten genau **4.194.304 Bytes**, bis auf den letzten Teil. Je Strom ist höchstens ein Datendeskriptor offen. Die Dateischreibvorgänge behandeln Teilwrites und üben über eine Writable mit zwei Paketen Backpressure auf beide Prozesspipes aus. Es gibt keinen vollständigen stdout-/stderr-String und keinen kumulativen Roh-Ausgabe-Abbruch.
 
 Ein Chunk wird synchronisiert, abgeschlossen und umbenannt; Indexdateien werden synchronisiert und atomar veröffentlicht. Beim laufenden Teil bezeichnet der Index nur einen bestätigten Präfix. Ein Crashrest jenseits davon, ein unvollständiger gerahmter Datensatz, fehlende/ungeordnete Chunks und falsche Hashes sind unterscheidbar. Die Besitzbindung umfasst Run, Schritt, Versuch, Job und Launch. Verlust eines Workers ohne Exitbeleg bleibt `lost`. Ein History-Lesefehler erzeugt einen ausdrücklichen Fehlerhinweis; er wird nicht als vollständiger Verlauf dargestellt.
 
-Die Einzelgrenzen sind eigenständig: **8 MiB UTF-8 pro CLI-/ACP-Zeile** (`event_limit`, lokal `acp_output_overflow`; eine lokal zu große ausgehende Promptnachricht wird vor dem Schreiben mit `acp_input_too_large` abgelehnt, PAGE-295), **1 MiB pro zusammengesetzter OpenCode-/lokaler Recorder-Nachricht**, höchstens **64 KiB für das finale Remote-Ergebnis** (`result_limit`; bei alten unversionierten Aufträgen einschließlich des früheren Herkunftsvorspanns) und **200.000 Zeichen für eine lokale finale ACP-Antwort** (`acp_result_limit`). Der redigierte stderr-Schwanz hält höchstens 16.384 Zeichen und verbraucht kein finales Ergebnisbudget. Öffentliche Ereignisse haben höchstens 4.000 UTF-8-Bytes; große erlaubte Remote-Textfelder werden nach vollständiger Redigierung in fortlaufende Ereignisse zerlegt. Lokale bestehende Einzelereignisse behalten ihren ausdrücklichen Kürzungshinweis. Deduplizierung hält nur 64 Fingerabdrücke; lokale aktive Werkzeugtitel sind auf 512 begrenzt. Lokale native Reads warten auf die Verarbeitung der jeweiligen ACP-Mitteilung und die Journalwrites; ein Schreibfehler beendet den betroffenen Versuch.
+Die Einzelgrenzen sind eigenständig: **8 MiB UTF-8 pro CLI-/ACP-Zeile** (`event_limit`, lokal `acp_output_overflow`; eine lokal zu große ausgehende Promptnachricht wird vor dem Schreiben mit `acp_input_too_large` abgelehnt), **1 MiB pro zusammengesetzter OpenCode-/lokaler Recorder-Nachricht**, höchstens **64 KiB für das finale Remote-Ergebnis** (`result_limit`; bei alten unversionierten Aufträgen einschließlich des früheren Herkunftsvorspanns) und **200.000 Zeichen für eine lokale finale ACP-Antwort** (`acp_result_limit`). Der redigierte stderr-Schwanz hält höchstens 16.384 Zeichen und verbraucht kein finales Ergebnisbudget. Öffentliche Ereignisse haben höchstens 4.000 UTF-8-Bytes; große erlaubte Remote-Textfelder werden nach vollständiger Redigierung in fortlaufende Ereignisse zerlegt. Lokale bestehende Einzelereignisse behalten ihren ausdrücklichen Kürzungshinweis. Deduplizierung hält nur 64 Fingerabdrücke; lokale aktive Werkzeugtitel sind auf 512 begrenzt. Lokale native Reads warten auf die Verarbeitung der jeweiligen ACP-Mitteilung und die Journalwrites; ein Schreibfehler beendet den betroffenen Versuch.
 
 Codex bindet die letzte Agent-Antwort an `turn.completed` und die native Thread-ID; neue Werkzeugaktivität entwertet eine vorherige Zwischenantwort. Claude verwendet ausschließlich seinen terminalen `result` mit Erfolgssubtyp und nativer Session-ID. OpenCode verwendet ausschließlich den bestätigten ACP-`session/prompt`-Abschluss und dessen Stopgrund; ein ähnlich aussehender CLI-JSON-Stream genügt nicht. Session-ID, Status, berichtete Usage sowie Terminal- und Antwort-Digest sind separat gespeichert. Widersprüchliche oder fehlende Terminalbelege, Prozessabbruch und unbestätigter Closeout sind kein Erfolg. Bei neuen versionierten CLI-Aufträgen erhalten nachfolgende Nodes den redigierten Ergebnistext ohne Herkunftsvorspann; Logs werden nicht hineinkopiert. Bereits zugestellte unversionierte Aufträge behalten das frühere Format und geben es nach dem Upgrade nicht als erfolgreichen Datenwert frei.
 
@@ -205,7 +205,7 @@ Die Konsole liest zunächst ein aktuelles Fenster und hält höchstens **150 Ere
 
 Keine feste Gesamtausgabegrenze bedeutet **keine unendliche Platte**. Vor einem neuen privaten Chunk prüft der Runner 4 MiB Platz plus 8 MiB Reserve; ENOSPC, EDQUOT, EACCES, EROFS und EIO sind Fehler mit erhaltenem bestätigtem Präfix. Pages-Schreibfehler lassen die Transaktion zurückrollen und halten das ACK zurück; der Runner behält den Beleg. Abgeschlossene Chunks gehören weiterhin zum jeweiligen Job-/Run-Lebenszyklus; die Projektlöschung entfernt auch dessen öffentliche Chunks. Es werden keine fremden Läufe oder Dateien zur Platzbeschaffung gelöscht. Für isolierte Nachweise kann `PAGES_RUNNER_DIRECTORY` einen neuen absoluten privaten Runnerordner wählen; der Standard bleibt `~/.config/pages-runner`.
 
-## Remote-Kommunikation, parallele Läufe und Stop (PAGE-165, Runner 1.10.0)
+## Remote-Kommunikation, parallele Läufe und Stop (Runner 1.10.0)
 
 Runner **1.10.0** bleibt im Wire-Protokoll v1 und meldet zusätzlich `reconcile.communicationVersion=1` und `runnerVersion`. Pages antwortet im Abgleich ebenfalls mit `communicationVersion=1`. Ein Runner 1.10 lehnt eine Pages-Gegenstelle ohne diesen Vertrag ab und endet mit Status 78, den systemd nicht neu startet. Ein älterer Runner bleibt verbunden; seine vorhandenen Jobs werden weiter abgeglichen und können gestoppt werden. Neue Remote-Starts verweigert Pages aber mit `remoteRunnerUpdate` am Knoten bzw. `plan_runner_update_required`. Einstellungen → Agents zeigt für einen solchen Runner die gemeldete Version und den Upgradehinweis.
 
@@ -260,7 +260,7 @@ Die Runner-Dateien unter `scripts/runner/` werden beim Pages-Build in das Setup-
 
 Rollback: Pages auf die vorige Version zurücksetzen und den Runner über deren Setup neu installieren. Ein Runner 1.10 verweigert eine ältere Pages-Gegenstelle („Pages does not support Runner 1.10 communication; upgrade Pages explicitly.“) und endet mit Status 78. Es gibt keine Datenbankmigration. Gespeicherte Plan-Läufe behalten das Format der Vorversion: Warte-, Beobachtungs- und Stop-Fakten liegen nur im Runner-Journal und werden beim Lesen ergänzt. Ältere Versionen verwerfen beim Lesen des Runner-Zustands die zusätzlichen Felder (`catalog`, `cancellation`, `queueReason`, `observedAt`). Ein noch nicht zugestellter Stop geht dabei verloren; nach einem erneuten Upgrade meldet der Runner seinen Katalog wieder. Die Dateien `jobs/<job>.cancel.json` und `~/.local/state/pages-runner-admission` ignorieren ältere Runner.
 
-## Verbindlicher Stop und getrennte Historienübernahme (PAGE-169, Runner 1.11.0)
+## Verbindlicher Stop und getrennte Historienübernahme (Runner 1.11.0)
 
 Neue Ausführungen benötigen zusätzlich `executionLeaseVersion: 1`. Ältere Runner
 werden weiter abgeglichen, nehmen aber keine neuen Aufträge an. Das Setup enthält
@@ -332,11 +332,11 @@ falsche Revision wird vor Bereinigungsaktionen und erneut beim Commit abgewiesen
 Verlauf, Ergebnisse, Arbeitskopien und Kopplung werden nicht gelöscht.
 
 Die begrenzten isolierten Befunde und offenen NAS-/Provider-Kriterien stehen in
-[PAGE-169](./PAGE-169.md). Sie sind keine allgemeine Remote-Zuverlässigkeitsgarantie.
+[remote acceptance notes](./PAGE-169.md). Sie sind keine allgemeine Remote-Zuverlässigkeitsgarantie.
 
 Neue Ableitungen können `sourceType` (`ticket`, `wiki`, `agent`) mit `sourceAttachmentId` und `expectedDigest` angeben, wenn Herkunft und Ziel verschieden sind. Der Server autorisiert die Quelle separat und liefert `sourceType`/`sourceLink` zurück. Explizite Ersetzungen bleiben auf den gewählten Anhang und dessen Ziel beschränkt. PDF-Auszugstext wird ausschließlich vorübergehend übertragen und nicht im öffentlichen Ressourcenmanifest gespeichert.
 
-## Getrennte CLI-Ergebnisse (PAGE-171, Runner 1.13.0)
+## Getrennte CLI-Ergebnisse (Runner 1.13.0)
 
 Neue Remote-CLI-Aufträge verlangen beim Start den vom verbundenen Runner
 gemeldeten Vertrag `resultPayloadVersion: 1`. Der finale Antworttext enthält

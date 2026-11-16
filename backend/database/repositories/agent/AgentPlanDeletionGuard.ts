@@ -4,7 +4,6 @@ import type { DatabaseTransaction } from "@/backend/database/Database";
 
 /**
  * Finds one run of a plan that still holds a native owner or a writer lock.
- *
  * @remarks
  * Deleting a plan queues its private payload directory, which holds the
  * snapshots of all of its runs. A run that still owns a local session or a
@@ -33,7 +32,6 @@ const HELD_RUN = `
 
 /**
  * Refuses the deletion of a plan while one of its runs holds resources.
- *
  * @param transaction - The transaction that deletes the plan.
  * @param planId - The plan to delete.
  * @throws {AgentError} `plan_resources_held` while a run of the plan has an

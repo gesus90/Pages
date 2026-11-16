@@ -46,10 +46,8 @@ export function plainHeadingText(text: string): string {
 
 /**
  * Reads the headings H1 to H3 of a markdown text.
- *
  * @param source - Markdown text.
  * @returns The headings in order, each with a unique anchor identifier.
- *
  * @remarks
  * Lines inside fenced code blocks are no headings. The same function serves
  * the table of contents and the heading identifiers of the renderer, so

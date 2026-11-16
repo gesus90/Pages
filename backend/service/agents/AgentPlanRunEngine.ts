@@ -131,7 +131,6 @@ export class AgentPlanRunEngine {
 
   /**
    * Persists a snapshot and reserves writing copies before returning a new Play run.
-   *
    * @param userId - The executor.
    * @param snapshot - The prepared revision; every start gets its own run and fresh node states.
    * @param recording - Runs the creation of the run record inside a
@@ -152,7 +151,6 @@ export class AgentPlanRunEngine {
 
   /**
    * Starts the run an explicit restart or resume of an earlier run asked for.
-   *
    * @param userId - The executor.
    * @param snapshot - The prepared revision of the new run.
    * @param recovered - The origin and what is taken over from the earlier run.
@@ -203,7 +201,6 @@ export class AgentPlanRunEngine {
 
   /**
    * Whether this process still drives the run.
-   *
    * @remarks
    * A run of an earlier process keeps its durable remote jobs, but nothing
    * here schedules, finalizes or releases it anymore.
@@ -263,10 +260,8 @@ export class AgentPlanRunEngine {
 
   /**
    * Stops every active run of a project and waits until each has closed.
-   *
    * @param projectId - The project whose runs end.
    * @returns Whether all of them closed in time; their records are written by then.
-   *
    * @remarks
    * Meant for the deletion of a project, whose data a still running node
    * would otherwise keep writing to.
@@ -417,11 +412,10 @@ export class AgentPlanRunEngine {
 
   /**
    * Advances every active run.
-   *
    * @remarks
    * Any request can trigger it, but it works on the runs of all accounts and
    * dispatches their long-running nodes. It therefore runs as background work
-   * (PAGE-199): a node keeps the long writer budget for its whole lifetime, and
+   * A node keeps the long writer budget for its whole lifetime, and
    * no client leaving ends another person's run. An explicit stop or a server
    * stop acts through the controllers of the run, not through this context.
    */
@@ -549,7 +543,7 @@ export class AgentPlanRunEngine {
   ): Promise<void> {
     const step = active.view.steps.find((entry) => entry.id === node.id);
     const attemptId = step?.session?.attemptId ?? step?.execution?.attemptId;
-    // The log of the run names the step and attempt each line belongs to (PAGE-307).
+    // The log of the run names the step and attempt each line belongs to.
     return withLogContext(
       {
         ...active.logContext,

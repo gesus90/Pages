@@ -13,7 +13,7 @@ import type {
 } from "@/definition/ConversationMediaOverview";
 import type { MediaOverviewState } from "./use-media-overview-state";
 
-/** The tabs with the count of what each one shows (PAGE-387). */
+/** The tabs with the count of what each one shows. */
 export function MediaTabs({
   state,
   counts,
@@ -112,7 +112,7 @@ function senderOptions(
 
 /**
  * The search by name or link title, the filter by sender, "läuft bald ab"
- * (below 24 hours) and the switch that hides expired files (PAGE-387).
+ * (below 24 hours) and the switch that hides expired files.
  */
 export function MediaFilters({
   state,

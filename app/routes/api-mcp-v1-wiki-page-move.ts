@@ -22,8 +22,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpWikiHandlers {
 }
 
 /**
- * Moves a page or previews the move (`POST /api/mcp/v1/wiki/pages/{id}/move`), PAGE-257 interface 7.
- *
+ * Moves a page or previews the move (`POST /api/mcp/v1/wiki/pages/{id}/move`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

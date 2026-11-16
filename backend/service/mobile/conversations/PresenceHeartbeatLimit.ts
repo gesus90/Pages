@@ -10,8 +10,7 @@ interface HeartbeatWindow {
 }
 
 /**
- * Limits the browser presence heartbeats of each account (PAGE-421).
- *
+ * Limits the browser presence heartbeats of each account.
  * @remarks
  * Each account has one fixed window. At most once per window every expired
  * window of every account is removed, so accounts that stopped sending
@@ -29,7 +28,6 @@ export class PresenceHeartbeatLimit {
 
   /**
    * Counts one heartbeat of the account.
-   *
    * @param accountId - The signed-in account.
    * @returns Whether the heartbeat is within the limit.
    */
@@ -71,7 +69,6 @@ declare global {
 
 /**
  * The one heartbeat limit of the process.
- *
  * @returns The same limit on every call.
  */
 export function sharedPresenceHeartbeatLimit(): PresenceHeartbeatLimit {

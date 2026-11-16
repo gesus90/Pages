@@ -53,7 +53,6 @@ function releaseFilters(
 
 /**
  * Finds the people whose saved board filters name a project or one of its milestones.
- *
  * @param database - The transaction to read in.
  * @param projectId - The project about to be deleted.
  * @returns The preferences to store instead, one entry per affected person.

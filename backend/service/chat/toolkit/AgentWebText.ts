@@ -49,7 +49,7 @@ export function htmlTitle(html: string): string | null {
 }
 
 /**
- * Turns an HTML page into readable text (PAGE-390): scripts, styles and
+ * Turns an HTML page into readable text: scripts, styles and
  * markup go, blocks become lines, links keep their address in brackets.
  */
 export function htmlToText(html: string): string {

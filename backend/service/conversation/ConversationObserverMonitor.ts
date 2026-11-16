@@ -13,9 +13,8 @@ const HEALTH_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 /**
  * Makes a failing group observer visible instead of a silent series of
- * failures (PAGE-340): to the members in the group context and to
+ * failures: to the members in the group context and to
  * administrators in the ACP resource view.
- *
  * @remarks
  * It reads only the stored outcome and stable error code of each call,
  * never a prompt, an answer or provider text. Callers check access.
@@ -37,7 +36,6 @@ export class ConversationObserverMonitor {
 
   /**
    * The observer status of one group.
-   *
    * @param conversationId - A group whose membership the caller checked.
    */
   public async status(

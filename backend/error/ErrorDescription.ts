@@ -17,11 +17,9 @@ function readPath(error: Error): string | null {
 
 /**
  * Describes an error for a server log without the content it may carry.
- *
  * @param error - The caught value.
  * @returns The kind, the code, the first line of the message with every quoted
  * part left out and, for a system call, the path it failed on.
- *
  * @remarks
  * A parser or the database may quote the text it failed on, so quoted parts
  * never reach the log; the path of a failed system call is a server path.

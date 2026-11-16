@@ -45,7 +45,6 @@ function toChoice(
 
 /**
  * Lists the channels of a server together with what the bot may do in each.
- *
  * @remarks
  * Only text and announcement channels exist in the list. A channel is
  * selectable when the bot can see it and send in it; every other channel stays
@@ -58,7 +57,6 @@ export class DiscordChannelCatalog {
 
   /**
    * Creates a channel catalog.
-   *
    * @param client - Discord access with the bot token.
    * @param botUserId - User id of the bot, which equals the application id.
    */
@@ -69,7 +67,6 @@ export class DiscordChannelCatalog {
 
   /**
    * Reads the channels of a server and checks the bot's permissions in each.
-   *
    * @param guildId - Id of the verified server.
    * @returns The channels in the order of the server, or what went wrong.
    */

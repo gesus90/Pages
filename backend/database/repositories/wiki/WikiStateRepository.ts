@@ -11,7 +11,6 @@ export class WikiStateRepository {
 
   /**
    * Creates the repository.
-   *
    * @param database - Database access or the transaction to run in.
    */
   public constructor(database: DatabaseTransaction) {
@@ -20,7 +19,6 @@ export class WikiStateRepository {
 
   /**
    * Lists the pages a user marked as favorite.
-   *
    * @param userId - Account identifier.
    * @returns Page identifiers, oldest favorite first.
    */
@@ -33,7 +31,6 @@ export class WikiStateRepository {
 
   /**
    * Lists the pages whose branch a user keeps open in the tree.
-   *
    * @param userId - Account identifier.
    * @returns Page identifiers.
    */
@@ -46,7 +43,6 @@ export class WikiStateRepository {
 
   /**
    * Lists the pages a user opened last.
-   *
    * @param userId - Account identifier.
    * @returns Page identifiers, newest first.
    */
@@ -59,7 +55,6 @@ export class WikiStateRepository {
 
   /**
    * Marks or unmarks a favorite.
-   *
    * @param userId - Account identifier.
    * @param pageId - Page identifier.
    * @param isFavorite - Whether the page is a favorite afterwards.
@@ -74,7 +69,6 @@ export class WikiStateRepository {
 
   /**
    * Opens or closes a branch of the tree for a user.
-   *
    * @param userId - Account identifier.
    * @param pageId - Page identifier.
    * @param isExpanded - Whether the branch is open afterwards.
@@ -89,7 +83,6 @@ export class WikiStateRepository {
 
   /**
    * Remembers that a user opened a page.
-   *
    * @param userId - Account identifier.
    * @param pageId - Page identifier.
    */

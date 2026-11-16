@@ -54,7 +54,6 @@ interface ChoiceRowProps<Value extends string> {
 /**
  * A labeled row of pressed buttons over the full width, such as "Zeit /
  * Ereignis / Nur manuell".
- *
  * @remarks
  * Unlike the shared segmented control it can be read only: the panel shows
  * a saved automation in the same layout as the editor.

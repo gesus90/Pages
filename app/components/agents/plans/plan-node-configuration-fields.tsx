@@ -33,7 +33,6 @@ import type { PageAgentInput, PageAgentModel } from "@/definition/PageAgent";
 
 /**
  * The node with another released model and reasoning level.
- *
  * @remarks
  * Only the node's own configuration copy changes, never its template. A
  * changed provider must support the node's retained run options.

@@ -42,10 +42,8 @@ export const HEADLESS_SCHEMA_OPTIONS: EditorSchemaOptions = {
 
 /**
  * Builds the extensions that define what a document can hold.
- *
  * @param options - Texts and rules of the application.
  * @returns The extensions of the markdown block schema.
- *
  * @remarks
  * Everything here maps to markdown: there is no underline, table cells hold
  * one paragraph like GFM cells, cells cannot be merged, and code may carry

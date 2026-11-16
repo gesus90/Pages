@@ -1,7 +1,7 @@
 import type { PicaAcpJobDependencies } from "./PicaAcpJobDependencies";
 import type { PicaNativeToolEvent } from "./PicaAcpToolCalls";
 
-/** Records each finished host tool call once for the dream run (PAGE-378). */
+/** Records each finished host tool call once for the dream run. */
 export function notePicaNativeTool(
   event: PicaNativeToolEvent,
   notedCalls: Set<string>,

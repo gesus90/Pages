@@ -20,8 +20,8 @@ export interface AgentJobWaiting {
   readonly now: () => Date;
   readonly wait?: (milliseconds: number) => Promise<void>;
   /**
-   * Whether the job waits for a person to answer its question now
-   * (PAGE-391); that time does not count towards the timeout.
+   * Whether the job waits for a person to answer its question now;
+   * that time does not count towards the timeout.
    */
   readonly isWaitingForPerson?: () => boolean;
 }
@@ -33,8 +33,7 @@ function defaultWait(milliseconds: number): Promise<void> {
 }
 
 /**
- * Waits for the end of an agent's job and reads its answer (PAGE-266, PAGE-276).
- *
+ * Waits for the end of an agent's job and reads its answer.
  * @param job - The started job.
  * @param waiting - The reads and the limits of the wait.
  * @returns The last assistant message of the session; empty without one.

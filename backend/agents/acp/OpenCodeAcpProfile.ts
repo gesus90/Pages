@@ -6,7 +6,7 @@ import type { AcpSessionProfile, AcpSessionPurpose } from "./AcpDriver";
 /** The managed OpenCode agent whose only tools come from the Pica bridge. */
 export const OPENCODE_PICA_MODE = "pages-pica";
 
-/** The managed OpenCode agent of a decision model, which may use no tool at all (PAGE-286). */
+/** The managed OpenCode agent of a decision model, which may use no tool at all. */
 export const OPENCODE_DECISION_MODE = "pages-decision";
 
 /** Rules of a decision session: every tool is denied. */
@@ -147,12 +147,11 @@ function chatFullAccessProfile(): AcpSessionProfile {
 
 /**
  * The profile of one Pages mode.
- *
  * @param mode - "Nur Lesen" or "YOLO", as the agent stores it.
  * @param purpose - A Pica conversation takes the chat profile; the caller
  * decides beforehand which stored mode it accepts for it. Only an agent
  * employee with full access reaches the chat purpose in YOLO. A decision
- * model and the group observer (PAGE-296) take the profile without any
+ * model and the group observer take the profile without any
  * tool, whatever the mode.
  * @returns The plan profile of the mode, Pica's narrower read-only profile, or
  * the full access profile of an employee's conversation.
@@ -212,7 +211,7 @@ export const OPENCODE_PICA_PROFILE: AcpSessionProfile = {
 };
 
 /**
- * The OpenCode profile of a decision model (PAGE-286): one prompt, one JSON
+ * The OpenCode profile of a decision model: one prompt, one JSON
  * answer, every tool denied and no MCP server. A correction of an invalid
  * answer continues the same session once.
  */

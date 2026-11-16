@@ -90,7 +90,6 @@ export interface PlanStartFailureContext {
 
 /**
  * Settles a run whose start failed.
- *
  * @param id - The run whose start failed.
  * @param context - The engine state the settlement reads and updates.
  * @remarks

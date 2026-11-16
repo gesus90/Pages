@@ -102,7 +102,7 @@ function ChatComposerActions({
 }
 
 /**
- * The large input field with "+" for attachments and "Abschicken" (T6.12.1);
+ * The large input field with "+" for attachments and "Abschicken";
  * while an answer runs, the button cancels it instead.
  */
 export function ChatComposer({

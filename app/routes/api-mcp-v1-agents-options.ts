@@ -16,8 +16,7 @@ const HANDLERS: McpAgentHandlers = {
 };
 
 /**
- * Lists the choices of an agent (`GET /api/mcp/v1/agents/options`), PAGE-267.
- *
+ * Lists the choices of an agent (`GET /api/mcp/v1/agents/options`).
  * @remarks
  * Only the device token of a paired machine admits a request, and only for
  * an account with the administrator role. The models are exactly the

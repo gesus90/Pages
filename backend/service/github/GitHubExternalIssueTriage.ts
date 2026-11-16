@@ -44,7 +44,6 @@ export class GitHubExternalIssueTriage {
 
   /**
    * Creates an external issue triage.
-   *
    * @param options - Repository, service, and infrastructure dependencies.
    */
   public constructor(options: GitHubExternalIssueTriageOptions) {
@@ -59,7 +58,6 @@ export class GitHubExternalIssueTriage {
 
   /**
    * Imports a detected external issue as a new Pages task and links both sides.
-   *
    * @param actor - User importing the issue; must hold write permission.
    * @param projectId - Project receiving the new task.
    * @param issueNumber - Remote issue number to import.
@@ -148,7 +146,6 @@ export class GitHubExternalIssueTriage {
 
   /**
    * Links a detected external issue to an existing task.
-   *
    * @param actor - User linking the issue; must hold write permission.
    * @param workItemId - Task receiving the link.
    * @param externalId - Detected external issue to link.
@@ -221,7 +218,6 @@ export class GitHubExternalIssueTriage {
 
   /**
    * Hides a detected external issue without importing it.
-   *
    * @param actor - User dismissing the issue; must hold write permission.
    * @param externalId - Detected external issue to dismiss.
    */

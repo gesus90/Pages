@@ -211,7 +211,7 @@ export function pageOf<Item>(
 }
 
 /**
- * A stored template of `AGENT.md` as the interface answers it (PAGE-283).
+ * A stored template of `AGENT.md` as the interface answers it.
  *
  * @param template - A template of the instance.
  */

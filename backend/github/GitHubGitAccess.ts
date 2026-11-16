@@ -29,12 +29,10 @@ function readWriteAccess(status: number): GitHubWriteAccess {
 
 /**
  * Asks GitHub whether a token may push to a repository, without changing anything.
- *
  * @param repository - The validated `owner/name` of the project connection.
  * @param token - The token of that project; it only goes to github.com, never through a redirect.
  * @param request - Sends the request; defaults to the real network.
  * @returns The answer of GitHub, `unknown` when GitHub could not be asked.
- *
  * @remarks
  * This is the same reference advertisement `git push` starts with. It proves
  * the write permission of fine-grained tokens as well, which the `permissions`

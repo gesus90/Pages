@@ -8,8 +8,7 @@ import { isForwardedRoute } from "./AppRouteMatch";
 import type { AppRoute } from "./AppRouteMatch";
 
 /**
- * Route list the static app's build writes next to its files (PAGE-235).
- *
+ * Route list the static app's build writes next to its files.
  * @remarks
  * The name starts with a dot, so the static file handler never serves it.
  * `vite.config.ts` writes it from `app/routes.ts`.
@@ -29,7 +28,6 @@ function isAppRoute(value: unknown): value is AppRoute {
 
 /**
  * Reads the route list of the static app.
- *
  * @param clientDirectory - Absolute path of the static app's files.
  * @returns The routes, or `null` when the build wrote none.
  */
@@ -49,7 +47,6 @@ async function readRouteList(
 
 /**
  * Decides who answers a request: the static app's document or the API.
- *
  * @remarks
  * Reads the build's route list again when it changed on disk, so a new
  * build of the app is followed without a restart.
@@ -68,7 +65,6 @@ export class AppRoutes {
 
   /**
    * Whether the API answers a request, rather than the app's document.
-   *
    * @param method - The request method.
    * @param pathname - The request path, decoded.
    * @returns `true` for changes, data requests and server resources, and

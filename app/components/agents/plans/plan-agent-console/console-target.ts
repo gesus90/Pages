@@ -29,7 +29,6 @@ export type ConsoleSession =
 
 /**
  * Finds an agent node or a group by ID, members of groups included.
- *
  * @param draft - The plan as the editor holds it.
  * @param id - The node the console was opened for.
  */
@@ -59,7 +58,6 @@ export function isRunActive(run: AgentPlanRun): boolean {
 
 /**
  * The session of one agent node in a run, keyed by plan, run, node and attempt.
- *
  * @param run - The selected run; `null` before the plan ran.
  * @param stepId - The agent node.
  * @remarks

@@ -73,7 +73,6 @@ async function protectPagesAddresses(): Promise<void> {
 
 /**
  * Resolves a public host name to the one IPv4 address a request is pinned to.
- *
  * @param hostname - The host name of a URL that passed {@link publicBrowserUrl}.
  * @returns The first answer, once every answer is a public address.
  * @throws {PicaAdminError} `URL_DENIED` for no answer, or a private, reserved or Pages-owned one.

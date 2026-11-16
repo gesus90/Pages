@@ -21,7 +21,6 @@ export const ACP_STEERING_METHOD = "_session/steering";
 
 /**
  * What became of a steering prompt.
- *
  * @remarks
  * `injected` joined the running turn, `startedNewTurn` means the adapter found
  * no running turn and started one of its own, `promptRequired` means it found
@@ -87,12 +86,12 @@ export interface AcpChatOptions {
   /**
    * The only MCP servers of the session, in place of the Pages MCP process of
    * a plan node: Pica's bridge and, for an agent employee with host tools,
-   * the MCP servers configured on the host (PAGE-303).
+   * the MCP servers configured on the host.
    */
   readonly mcpServers?: readonly McpServer[];
   /**
    * The session of an agent employee on YOLO runs without the bubblewrap
-   * isolation, with the rights of the server account (PAGE-303); every other
+   * isolation, with the rights of the server account; every other
    * conversation starts only inside it.
    */
   readonly isUnisolated?: boolean;
@@ -105,7 +104,6 @@ export interface AcpChatOptions {
 
 /**
  * Sends a steer through the steering extension an adapter announced.
- *
  * @param agent - The ACP connection of the session.
  * @param steer - The session, the prompt blocks and the driver's extension meta.
  * @returns What became of the steer; `failed` when the adapter refused it or the connection is gone.
@@ -135,7 +133,6 @@ export async function requestAcpSteer(
 
 /**
  * Reads the answer of an adapter to a steering request.
- *
  * @param response - The result of `_session/steering`.
  * @returns The outcome; anything the adapter does not document counts as failed.
  */
@@ -151,7 +148,6 @@ export function readAcpSteerOutcome(response: unknown): AcpSteerOutcome {
 
 /**
  * Whether the adapter announced steering when it initialized.
- *
  * @param meta - The top-level `_meta` of the `initialize` response.
  * @returns `true` only for `steering.supported: true`; without it Pages never steers.
  */

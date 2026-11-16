@@ -2,7 +2,6 @@ import { PicaAcpJobError } from "@/backend/error/PicaAcpJobError";
 
 /**
  * Waits for the Codex thread to leave the state of a running turn.
- *
  * @remarks
  * codex-acp 2.2.2 reports no end of a turn it started itself for a steer; it
  * forwards the Codex thread status instead, and a turn ended when an active

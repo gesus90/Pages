@@ -159,12 +159,12 @@ function AgentSettingsBody({
 }
 
 /**
- * The popup "Agent-Einstellungen" of one agent (PAGE-376), the same from the
+ * The popup "Agent-Einstellungen" of one agent, the same from the
  * chat and from the user administration.
  *
  * @remarks
- * Its tabs are Sitzungen, Lagebuch (PAGE-377), Dreaming and Lektionen &
- * Rezepte (PAGE-378). A tab whose function is missing shows as switched off.
+ * Its tabs are Sitzungen, Lagebuch, Dreaming and Lektionen &
+ * Rezepte. A tab whose function is missing shows as switched off.
  * The popup reads the sessions of the agent when it opens and the Lagebuch,
  * Dreaming or lessons when their tab opens, and keeps no state after it
  * closes.

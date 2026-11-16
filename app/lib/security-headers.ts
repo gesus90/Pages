@@ -2,15 +2,14 @@ import { normalizePagePath } from "../service-worker/install-service-worker";
 
 /**
  * Content Security Policy of Pages.
- *
  * @remarks
  * React Router renders inline scripts for hydration and React sets inline
  * styles, so both directives allow `'unsafe-inline'`. Everything else is
  * restricted to the own origin. Media may also come from `blob:`: the voice
- * sample of an agent (PAGE-300) is fetched with a `POST` of the own origin
+ * sample of an agent is fetched with a `POST` of the own origin
  * and played from a blob URL the page created itself. Only Pages itself may
  * frame a page of Pages: the chat embeds released web content, Pages
- * included, in a sandboxed frame without credentials (PAGE-298), and frames
+ * included, in a sandboxed frame without credentials, and frames
  * nothing but its own `/chat/embed` document, which carries the policy of
  * the one embedded origin.
  */
@@ -30,14 +29,12 @@ const CONTENT_SECURITY_POLICY = [
 
 /**
  * Builds the security headers for HTML responses.
- *
  * @returns Header names with their values.
- *
  * @remarks
  * `Strict-Transport-Security` is not part of this set, because it only makes
  * sense behind TLS and a wrong value locks browsers out of plain HTTP. The
  * own origin may ask for the microphone, for the test recording of the speech
- * recognition (PAGE-273) and for the voice messages of the chat (PAGE-277);
+ * recognition and for the voice messages of the chat;
  * the browser still asks the person before it opens. The app is one document
  * for every page, so the permission cannot be limited to one page.
  */
@@ -53,9 +50,9 @@ export function createSecurityHeaders(): Record<string, string> {
 
 /**
  * Page addresses whose address carries the result or the code of a
- * connection: the Discord result and the pairing of a machine (PAGE-243).
+ * connection: the Discord result and the pairing of a machine.
  * Their documents are never stored and never name their
- * address to anyone, as they did with server rendering (PAGE-235).
+ * address to anyone, as they did with server rendering.
  */
 export const SENSITIVE_DOCUMENT_PATHS: readonly string[] = [
   "/discord/result",
@@ -64,7 +61,6 @@ export const SENSITIVE_DOCUMENT_PATHS: readonly string[] = [
 
 /**
  * Builds the headers of the static app's document for one page address.
- *
  * @param pathname - The page address, decoded; compared as the router
  * matches it, so `/Discord/Result/` counts as `/discord/result`.
  * @returns The security headers; `no-cache` so a new build arrives on the

@@ -9,7 +9,7 @@ import type {
   AutomationRunSummary,
 } from "./Automation";
 
-/** Reads of automations and their runs (PAGE-297). */
+/** Reads of automations and their runs. */
 export const AUTOMATION_READ_OPERATIONS = [
   "automations.options.read",
   "automations.list",
@@ -54,7 +54,6 @@ export type AutomationWriteResult =
 
 /**
  * Tells whether a name is a read of automations.
- *
  * @param value - The requested operation name.
  */
 export function isAutomationReadOperation(
@@ -65,7 +64,6 @@ export function isAutomationReadOperation(
 
 /**
  * Tells whether a name is an operation of automations.
- *
  * @param value - The requested operation name.
  */
 export function isAutomationOperation(

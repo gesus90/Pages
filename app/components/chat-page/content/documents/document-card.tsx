@@ -48,10 +48,9 @@ function DocumentPreview({
 }
 
 /**
- * The card of a Word, PowerPoint, OpenDocument or table file (PAGE-385), in
+ * The card of a Word, PowerPoint, OpenDocument or table file, in
  * the head every content card shares: "Herunterladen" in the accent color,
  * the line, "Daneben", "Vollbild" and "Zuklappen".
- *
  * @remarks
  * Expanded, the card shows the start of the document in the Pages design:
  * the first page of a text, one slide at a time, or the first rows of a

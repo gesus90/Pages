@@ -44,7 +44,6 @@ function groupByPlan(
 
 /**
  * Reads the teams of every plan, each list in its stored order.
- *
  * @param database - Any executor that queries.
  */
 export async function readAllPlanTeams(
@@ -81,7 +80,7 @@ export async function readPlanTeams(
 }
 
 /**
- * Stores the teams of plans (PAGE-329): groups and departments with their rights.
+ * Stores the teams of plans: groups and departments with their rights.
  *
  * @remarks
  * The teams live outside the plan graph, so a save of the graph never changes

@@ -141,8 +141,8 @@ function DescriptionView({
 }
 
 /**
- * The description of a ticket as in Jira (A8.2-E05): the rendered text, a
- * click turns it into the block editor of A8.1 with a toolbar, and saving
+ * The description of a ticket as in Jira: the rendered text, a
+ * click turns it into the block editor with a toolbar, and saving
  * or cancelling is explicit. Drafts stay available across page changes.
  */
 export function TicketDescription({

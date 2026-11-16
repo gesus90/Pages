@@ -29,7 +29,6 @@ export async function endInterruptedScriptWithFailure(
 
 /**
  * Settles an attempt that never got a process; the legacy scan below can never confirm one.
- *
  * @returns The settled step, or `null` when the attempt may own a process.
  */
 async function settledUnstartedStep(

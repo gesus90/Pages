@@ -35,6 +35,6 @@ export interface PicaAcpJobSpecification {
   ) => Promise<PicaAcpConversationTurn>;
   /** Runs a task in the queue of the conversation. */
   readonly gate: <Result>(task: () => Promise<Result>) => Promise<Result>;
-  /** The chat session of an agent employee kept between rounds (PAGE-335); absent opens one per job. */
+  /** The chat session of an agent employee kept between rounds; absent opens one per job. */
   readonly pool?: PicaAcpJobPool;
 }

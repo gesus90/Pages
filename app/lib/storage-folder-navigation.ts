@@ -1,11 +1,10 @@
 import type { ShouldRevalidateFunctionArgs } from "react-router";
 
-/** The address of the Storage area (PAGE-188). */
+/** The address of the Storage area. */
 const STORAGE_PATH = "/storage";
 
 /**
- * Recognizes a change of folder inside the Storage area (PAGE-279).
- *
+ * Recognizes a change of folder inside the Storage area.
  * @remarks
  * The folder is a search parameter of the same page, which loads it itself
  * from `/storage-api`; that endpoint checks session and rights on every call.

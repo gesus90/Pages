@@ -26,8 +26,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpPlanHandlers {
 }
 
 /**
- * Deletes a node template after a question (`POST /api/mcp/v1/plan-templates/{templateId}/delete`), PAGE-246 interface 17.
- *
+ * Deletes a node template after a question (`POST /api/mcp/v1/plan-templates/{templateId}/delete`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

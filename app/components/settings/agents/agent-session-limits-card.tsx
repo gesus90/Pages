@@ -55,8 +55,8 @@ function modelKey(
 }
 
 /**
- * The model the instance names for the background summary of the Lagebuch
- * (PAGE-377), for agents without a model of their own for it. Saved on its
+ * The model the instance names for the background summary of the Lagebuch,
+ * for agents without a model of their own for it. Saved on its
  * own, so it never conflicts with the limits above.
  */
 function LogbookModelForm({
@@ -145,9 +145,9 @@ function LimitField({
 }
 
 /**
- * The limits of concurrent chat sessions of agents (PAGE-304), the time
- * of day of the nightly dream run (PAGE-305) and the idle time after which a
- * resting chat session ends (PAGE-335).
+ * The limits of concurrent chat sessions of agents, the time
+ * of day of the nightly dream run and the idle time after which a
+ * resting chat session ends.
  *
  * @remarks
  * Every chat of an agent has its own session; sessions of different chats

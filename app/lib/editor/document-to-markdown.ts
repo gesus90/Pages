@@ -251,7 +251,6 @@ function trimEdges(content: PhrasingContent[]): PhrasingContent[] {
 
 /**
  * Writes the inline content of a text block as markdown phrasing.
- *
  * @param block - A paragraph, heading, table cell paragraph or summary.
  * @returns The phrasing nodes, with marks nested as markdown needs them.
  */

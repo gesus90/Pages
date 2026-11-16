@@ -61,7 +61,6 @@ function countCharacters(text: string, from: number, to: number): number {
 
 /**
  * Splits a text into lines at `\n`, `\r\n` and `\r`.
- *
  * @param text - The stored text, unchanged.
  * @returns The text with its lines; a final line break is followed by an empty line.
  */
@@ -86,10 +85,8 @@ export function indexText(text: string): IndexedText {
 
 /**
  * Names the exact text a range was read from, compactly.
- *
  * @param text - The stored text.
  * @returns The first 128 bits of the SHA-256 of its UTF-8 bytes, as 32 lower-case hex digits.
- *
  * @remarks
  * The server derives it from the stored text on every call, so it needs no
  * stored counter and cannot drift: two texts share a version only when they
@@ -104,7 +101,6 @@ export function agentTextVersion(text: string): string {
 
 /**
  * Measures a whole text without returning it.
- *
  * @param indexed - The indexed text.
  * @returns Lines, characters (a line break counted once) and UTF-8 bytes.
  */
@@ -118,7 +114,6 @@ export function measureText(indexed: IndexedText): AgentTextSize {
 
 /**
  * Turns a position into the UTF-16 offset it names.
- *
  * @param indexed - The indexed text.
  * @param position - A line and column, both counting from 1.
  * @returns The offset of the character at the position, or of the end of the line content.
@@ -141,7 +136,6 @@ export function offsetOf(
 
 /**
  * Turns a UTF-16 offset into the position that names it.
- *
  * @param indexed - The indexed text.
  * @param offset - An offset between 0 and the length of the text.
  * @returns The position; an offset inside a line break reads as the start of the next line.
@@ -195,12 +189,10 @@ function excerptBetween(
 
 /**
  * Reads one passage of a text.
- *
  * @param indexed - The indexed text.
  * @param request - Start, optional end and the character budget.
  * @returns The passage, its absolute positions and the size of the whole text.
  * @throws {AgentOperationError} `INVALID_REQUEST` for an unusable position, `PAYLOAD_TOO_LARGE` for an explicit range over the budget.
- *
  * @remarks
  * Nothing is cut silently: an explicit range over the budget is refused, and
  * an open range reports `truncated` with the position to continue from.
@@ -231,12 +223,10 @@ export function readTextRange(
 
 /**
  * Replaces exactly one range of a text.
- *
  * @param indexed - The indexed current text.
  * @param patch - The range, the text it must hold and its replacement.
  * @returns The new text, where the replacement stands in it and, when asked for, the changed passage.
  * @throws {AgentOperationError} `INVALID_REQUEST` for an unusable position, `CONFLICT` when the range holds other text.
- *
  * @remarks
  * Everything before and after the range is kept as it is, line endings
  * included. The replacement is inserted as sent; nothing is searched,

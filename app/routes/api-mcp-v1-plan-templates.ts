@@ -22,8 +22,7 @@ function handlers(): McpPlanHandlers {
 }
 
 /**
- * Lists the node templates of a workspace (`GET /api/mcp/v1/plan-templates`), PAGE-246 interface 13.
- *
+ * Lists the node templates of a workspace (`GET /api/mcp/v1/plan-templates`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

@@ -5,7 +5,6 @@ import { AGENT_VOICE_SPEED } from "@/definition/SpeechSynthesis";
 
 /**
  * Formats a speed in tenths as the slider shows it.
- *
  * @param tenths - The speed in tenths, such as 11.
  * @param language - The language of the page.
  * @returns For example "1,1×" in German.
@@ -18,7 +17,7 @@ export function formatVoiceSpeed(tenths: number, language: string): string {
   return `${speed}×`;
 }
 
-/** The slider "Geschwindigkeit" from 0.5× to 2.0× in steps of 0.1 (PAGE-300). */
+/** The slider "Geschwindigkeit" from 0.5× to 2.0× in steps of 0.1. */
 export function VoiceSpeedField({
   value,
   isDisabled,

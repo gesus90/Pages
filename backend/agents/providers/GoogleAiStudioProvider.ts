@@ -48,7 +48,6 @@ function readGeneration(
 
 /**
  * Names a catalog level as a value of Gemini's `ThinkingLevel` enum.
- *
  * @param effort - A level as Google's thinking documentation lists it, such as `medium`.
  * @returns The enum name the generateContent reference defines, such as `MEDIUM`.
  */

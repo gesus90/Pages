@@ -11,7 +11,6 @@ export interface PeriodicValueOptions {
 
 /**
  * An expensive value that is computed in the background, at most once per interval.
- *
  * @remarks
  * Reading never waits: it answers the last result, `null` until the first
  * one, and starts a new computation once the interval has passed and none is
@@ -25,7 +24,6 @@ export class PeriodicValue<T> {
 
   /**
    * Creates the value without computing it.
-   *
    * @param options - Interval, log component and clock.
    */
   public constructor(options: PeriodicValueOptions) {
@@ -34,7 +32,6 @@ export class PeriodicValue<T> {
 
   /**
    * Answers the last result and computes a new one when it is due.
-   *
    * @param compute - Computes the value; `null` keeps the previous result.
    * @returns The last result, `null` before the first.
    */

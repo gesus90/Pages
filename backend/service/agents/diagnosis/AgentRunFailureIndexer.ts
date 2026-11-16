@@ -32,7 +32,6 @@ function runEnd(run: AgentPlanRun): string | null {
 
 /**
  * Classifies the failures of a stored run.
- *
  * @param stored - The run as read for indexing.
  * @returns What the index keeps; a damaged record has no failures.
  */
@@ -68,7 +67,6 @@ export function buildFailureIndexEntry(
 
 /**
  * Classifies one run now and stores its failures.
- *
  * @param failures - The failure store.
  * @param runId - The run; a missing run is ignored.
  */
@@ -82,7 +80,6 @@ export async function indexRunFailures(
 
 /**
  * Keeps the failure index of runs current.
- *
  * @remarks
  * Runs are written in several processes, so the index is not driven by a
  * write hook: before a list or an overview reads it, runs whose write

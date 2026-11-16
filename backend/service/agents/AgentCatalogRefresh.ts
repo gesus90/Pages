@@ -48,10 +48,9 @@ interface CatalogDependencies {
 /**
  * Internal refresh executor shared by the authorized admin service and trusted
  * server scheduler.
- *
  * @remarks
  * A successful listing also gives a connection without a model its default
- * (A7 §21.6). This only reads the list; no model is asked to generate anything.
+ * This only reads the list; no model is asked to generate anything.
  */
 export class AgentCatalogRefresh {
   private readonly dependencies: CatalogDependencies;
@@ -72,10 +71,8 @@ export class AgentCatalogRefresh {
   }
 
   /**
-   * Loads the model list right after a confirmed access (A7 §21.6).
-   *
+   * Loads the model list right after a confirmed access.
    * @param id - A connection whose access check or sign-in just succeeded.
-   *
    * @remarks
    * The caller already holds this connection's operation lock. A provider
    * without a catalog or a failed listing never fails the access that
@@ -173,8 +170,8 @@ export class AgentCatalogRefresh {
       connection.zaiAccountType,
     );
     if (provider !== "openrouter") return models;
-    // OpenRouter names its speech-to-text (PAGE-294), text-to-speech
-    // (PAGE-300) and decision (PAGE-379) models only in listings of their own.
+    // OpenRouter names its speech-to-text, text-to-speech
+    // and decision models only in listings of their own.
     const withTranscription = await client.addTranscriptionModels(
       models,
       apiKey,

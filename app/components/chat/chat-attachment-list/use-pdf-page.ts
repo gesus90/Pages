@@ -35,7 +35,6 @@ export interface PdfPageState {
 
 /**
  * Draws one page of an own PDF attachment into a canvas once it is wanted.
- *
  * @param input - The attachment, the page, its width in CSS pixels and
  * whether it is shown at all.
  */

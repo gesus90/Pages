@@ -10,7 +10,7 @@ import type {
 import type { PagesAgentApiErrorCode } from "./PagesAgentApi.js";
 import type { AgentWikiCreated } from "./PagesAgentWrites.js";
 
-/** Bounds of one structured manifest; the wiki package follows the A9.7 limits. */
+/** Bounds of one structured manifest; the wiki package follows the wiki planning limits. */
 export const AGENT_STRUCTURED_IMPORT_LIMITS = {
   sources: 100,
   links: 200,
@@ -52,7 +52,7 @@ export interface AgentStructuredTicket {
   readonly description: string;
 }
 
-/** One Markdown page; its key is the relative path, as in the A9.7 manifest. */
+/** One Markdown page; its key is the relative path, as in the wiki manifest. */
 export interface AgentStructuredWikiSource {
   readonly kind: "wiki";
   readonly key: string;
@@ -126,7 +126,7 @@ export type AgentStructuredKind =
 export type AgentStructuredAction =
   "reference" | "create" | "unchanged" | "conflict" | "invalid" | "blocked";
 
-/** Why a plan or a result reports a problem; wiki reasons are those of the A9.7 plan. */
+/** Why a plan or a result reports a problem; wiki reasons are those of the wiki plan. */
 export type AgentStructuredReason =
   | AgentImportIssue["reason"]
   | "invalid_key"
@@ -172,7 +172,7 @@ export interface AgentStructuredPlanProject {
 /** One object of the plan, in the order the import applies it. */
 export interface AgentStructuredObject {
   readonly kind: AgentStructuredKind;
-  /** Plan key: `ticket:<key>`, `milestone:<key>`, `project:<key>`, or the A9.7 page key. */
+  /** Plan key: `ticket:<key>`, `milestone:<key>`, `project:<key>`, or the wiki page key. */
   readonly key: string;
   /** The key under which the mapping of a repeated import is stored. */
   readonly sourceKey: string;

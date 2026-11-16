@@ -12,7 +12,6 @@ export interface SimulatedUpload {
 
 /**
  * Builds a refusal in Drive's error format.
- *
  * @param status - HTTP status.
  * @param reason - Drive's `reason`, which the clients translate.
  * @param message - Drive's human-readable message.

@@ -30,7 +30,7 @@ export interface AgentPlanCommandRequest {
   readonly nodeId: string | null;
   readonly name: string | null;
   readonly workspaceId: string | null;
-  /** Set only for a clone that becomes a one-time plan (PAGE-309). */
+  /** Set only for a clone that becomes a one-time plan. */
   readonly oneShot?: true;
   readonly ownerId?: string;
   readonly teams?: AgentPlanCloneInput["teams"];
@@ -138,7 +138,6 @@ export interface AgentPlanTemplateCommandRequest {
 
 /**
  * Reads `plans.templates.update` and `plans.templates.delete` before any persistence.
- *
  * @param operation - The template command.
  * @param input - The raw parameters.
  * @throws {AgentOperationError} `INVALID_REQUEST` for a missing, unknown or

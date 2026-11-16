@@ -265,9 +265,8 @@ function guarded<Input>(
 }
 
 /**
- * The file tools of the toolkit (PAGE-390): read, list and search in every
+ * The file tools of the toolkit: read, list and search in every
  * mode that allows files, write, change and delete only with full access.
- *
  * @remarks
  * Every path is resolved inside the working folder of the job; a path that
  * leaves it, also through a link, is refused with `OUTSIDE_WORKSPACE`.

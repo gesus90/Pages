@@ -149,7 +149,6 @@ function transportOf(server: McpServer): AgentMcpTransport {
 
 /**
  * The configuration files a provider's CLI reads its user MCP servers from.
- *
  * @remarks
  * Claude Code keeps user servers in `~/.claude.json` (`claude mcp add -s user`),
  * Codex in `$CODEX_HOME/config.toml` or `~/.codex/config.toml`
@@ -221,8 +220,7 @@ async function readOptionalFile(file: string): Promise<string | null> {
 }
 
 /**
- * Finds the MCP servers configured on this host for the CLI of an agent (PAGE-303).
- *
+ * Finds the MCP servers configured on this host for the CLI of an agent.
  * @remarks
  * Pages keeps no list of tools or servers of its own: every chat reads the
  * configuration files anew, so a server set up afterwards is part of the next

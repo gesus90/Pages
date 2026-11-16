@@ -76,31 +76,31 @@ export interface ChatDirectoryDependencies {
   /** The active accounts, the same source as the owner choice of the wiki. */
   readonly lookups: Pick<WikiLookupRepository, "listActiveUsers">;
   readonly messages: Pick<ChatSessionRepository, "messages">;
-  /** The stored conversations with people and of groups (PAGE-278). */
+  /** The stored conversations with people and of groups. */
   readonly conversations: Pick<ConversationReader, "views" | "history">;
   /** Whether a job of the agent's conversation with the person runs now. */
   readonly isWorking: (agent: User, sessionId: string) => Promise<boolean>;
-  /** The tool calls of the newest job of an agent's conversation (PAGE-303). */
+  /** The tool calls of the newest job of an agent's conversation. */
   readonly toolCalls?: (
     agent: User,
     sessionId: string,
   ) => Promise<AgentToolCallView>;
-  /** The agents answering in a stored conversation now (PAGE-276). */
+  /** The agents answering in a stored conversation now. */
   readonly workingAgentIds?: (conversationId: string) => readonly string[];
-  /** The messages of a stored conversation whose answer waits (PAGE-304). */
+  /** The messages of a stored conversation whose answer waits. */
   readonly queuedMessages?: (
     conversationId: string,
   ) => ReadonlyMap<string, AgentMessageQueue>;
-  /** The messages of a stored conversation running answers took, with their agents (PAGE-381). */
+  /** The messages of a stored conversation running answers took, with their agents. */
   readonly steeredMessages?: (
     conversationId: string,
   ) => ReadonlyMap<string, readonly string[]>;
-  /** The messages of a direct chat with an agent its running job took into its answer (PAGE-381). */
+  /** The messages of a direct chat with an agent its running job took into its answer. */
   readonly injectedInJob?: (
     agent: User,
     sessionId: string,
   ) => Promise<ReadonlySet<string>>;
-  /** The messages of a direct chat with an agent its running job holds back (PAGE-304). */
+  /** The messages of a direct chat with an agent its running job holds back. */
   readonly waitingInJob?: (
     agent: User,
     sessionId: string,
@@ -114,12 +114,12 @@ export interface ChatDirectoryDependencies {
     sessionId: string,
     messages: readonly VirtualChatMessage[],
   ) => Promise<VirtualChatMessage[]>;
-  /** The sessions of agents in the chats, for the head of the chat (PAGE-376). */
+  /** The sessions of agents in the chats, for the head of the chat. */
   readonly agentSessions?: Pick<
     AgentChatSessionService,
     "directBrief" | "groupBriefs"
   >;
-  /** The models of agents in chats and the rights of the person in a group (PAGE-380); absent shows none. */
+  /** The models of agents in chats and the rights of the person in a group; absent shows none. */
   readonly chatControl?: {
     modelLabels(chat: {
       readonly kind: "direct" | "group";
@@ -131,32 +131,31 @@ export interface ChatDirectoryDependencies {
       groupId: string,
     ): Promise<{ readonly isOwner: boolean; readonly canControl: boolean }>;
   };
-  /** How many messages of a conversation wait for one agent (PAGE-376). */
+  /** How many messages of a conversation wait for one agent. */
   readonly queuedFor?: (conversationId: string, agentId: string) => number;
-  /** The person's messages to an agent that wait for a free place (PAGE-304). */
+  /** The person's messages to an agent that wait for a free place. */
   readonly queuedAgentMessages?: (
     agentId: string,
     personId: string,
   ) => readonly QueuedAgentMessage[];
-  /** The reply mode of groups, which the group menu names (PAGE-379); absent shows none. */
+  /** The reply mode of groups, which the group menu names; absent shows none. */
   readonly replyModes?: (
     conversationIds: readonly string[],
   ) => Promise<ReadonlyMap<string, ConversationReplyMode>>;
-  /** The conversations of agents only that administrators and leaders read (PAGE-311). */
+  /** The conversations of agents only that administrators and leaders read. */
   readonly oversight?: Pick<ConversationOversight, "views" | "history">;
-  /** Tells whether a chain of agent messages paused a conversation (PAGE-311). */
+  /** Tells whether a chain of agent messages paused a conversation. */
   readonly guard?: Pick<ConversationAgentGuard, "isPaused">;
-  /** The cards of the questions of agents (PAGE-391); absent shows their messages as text. */
+  /** The cards of the questions of agents; absent shows their messages as text. */
   readonly questions?: Pick<AgentChatQuestionService, "views">;
   /** The current time; tests pass a fixed one. */
   readonly now?: () => Date;
 }
 
 /**
- * The chat page of one person (PAGE-266, PAGE-259): their own participants
+ * The chat page of one person: their own participants
  * and groups, the people and agents the list can take, and their history
  * with every agent.
- *
  * @remarks
  * The list holds only existing accounts. Removing an entry removes it from
  * the person's own list and groups; the account or agent stays. The own
@@ -172,12 +171,11 @@ export class ChatDirectoryService {
 
   /**
    * Reads the chat page of the person.
-   *
    * @remarks
    * A person who wrote to them directly joins the list for this reading,
    * so a conversation started elsewhere, such as in Pica Mobile, is never
    * hidden; histories of people and groups come from the stored
-   * conversations (PAGE-278).
+   * conversations.
    */
   public async directory(person: User): Promise<VirtualChatDirectory> {
     const accounts = await this.accounts(person);
@@ -198,7 +196,7 @@ export class ChatDirectoryService {
     Object.assign(histories, overseen.histories);
     const shownIds = new Set(participants.map((participant) => participant.id));
     const chats = this.dependencies.store.chats();
-    // Which chats nothing is shared from (PAGE-305).
+    // Which chats nothing is shared from.
     const [confidentialAgents, groupEntries, participantList] =
       await Promise.all([
         chats.confidentialAgents(person.id),
@@ -233,8 +231,7 @@ export class ChatDirectoryService {
 
   /**
    * Reads the messages of a stored conversation before one the page shows,
-   * newest page first (PAGE-275).
-   *
+   * newest page first.
    * @throws {ConversationError} `not_found` for a conversation of which the
    * person is no member, `invalid` for a malformed ID or a message outside it.
    */
@@ -270,11 +267,9 @@ export class ChatDirectoryService {
 
   /**
    * Replaces the person's participant list.
-   *
    * @remarks
    * New entries are added newest last in the given order, so the last one
    * checked heads the list; kept entries keep their last activity.
-   *
    * @throws {AgentEmployeeError} `invalidInput` for an unknown or the own
    * account, or for an inactive person or deactivated agent that was not in
    * the list before.
@@ -421,7 +416,7 @@ export class ChatDirectoryService {
     );
   }
 
-  /** A page of a conversation of the person, or of one of agents only the person oversees (PAGE-311). */
+  /** A page of a conversation of the person, or of one of agents only the person oversees. */
   private async readHistory(
     person: User,
     conversationId: string,
@@ -447,7 +442,7 @@ export class ChatDirectoryService {
     }
   }
 
-  /** The groups whose agents wrote the most they may in a row (PAGE-311). */
+  /** The groups whose agents wrote the most they may in a row. */
   private async pausedGroupIds(
     conversations: ChatConversations,
   ): Promise<Set<string>> {
@@ -514,7 +509,7 @@ export class ChatDirectoryService {
     return result;
   }
 
-  /** The model each agent of the person's list answers with in its direct chat (PAGE-380). */
+  /** The model each agent of the person's list answers with in its direct chat. */
   private async withChatModels(
     person: User,
     participants: readonly VirtualParticipant[],
@@ -534,7 +529,7 @@ export class ChatDirectoryService {
     });
   }
 
-  /** The models of the agents of a group and the rights of the person in it (PAGE-380). */
+  /** The models of the agents of a group and the rights of the person in it. */
   private async groupControl(
     person: User,
     targetGroup: Pick<VirtualGroup, "id" | "memberIds">,
@@ -560,7 +555,7 @@ export class ChatDirectoryService {
     };
   }
 
-  /** The sessions of the agents in a group, with what each agent does in it now (PAGE-376). */
+  /** The sessions of the agents in a group, with what each agent does in it now. */
   private async groupSessions(
     groupId: string,
     workingIds: readonly string[],
@@ -623,7 +618,7 @@ export class ChatDirectoryService {
     const queued = queuedChatMessages(
       this.dependencies.queuedAgentMessages?.(agent.id, person.id) ?? [],
     );
-    // What the agent wrote to the person on its own joins the chat by time (PAGE-311).
+    // What the agent wrote to the person on its own joins the chat by time.
     const written = (agentChat?.messages ?? [])
       .filter((message) => isShownWithAgentChat(message, agent.id))
       .map((message) => toVirtualMessage(message, person));

@@ -5,7 +5,6 @@ import type { AgentPlanSnapshot } from "../AgentPlanSnapshot";
 
 /**
  * What a loop needs from the engine that schedules it.
- *
  * @remarks
  * The engine owns the run: its view, the stop signal and the durable writes.
  * The loop reads and changes only its own state through this boundary, so
@@ -28,7 +27,6 @@ export interface LoopHost {
   readonly current: (loopId: string) => AgentPlanLoopRun | undefined;
   /**
    * Changes the state of a loop and writes the run durably.
-   *
    * @returns The new state.
    * @throws When the write failed; the engine has then stopped the run.
    */
@@ -38,11 +36,9 @@ export interface LoopHost {
   ) => Promise<AgentPlanLoopRun>;
   /**
    * Triggers a stack of the loop for one iteration and records it with the iteration.
-   *
    * @remarks
    * The handover and the stack's node of the iteration are stored in one
    * write, so a resumed iteration never triggers the stack a second time.
-   *
    * @returns What the trigger handed over.
    * @throws When the write failed; the engine has then stopped the run.
    */

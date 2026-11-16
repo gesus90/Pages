@@ -101,7 +101,6 @@ async function parseBody(
 
 /**
  * Reads bounded JSON, multipart or raw file bytes; never fetches caller-supplied URLs.
- *
  * @param request - The authenticated HTTP call.
  * @param isTransfer - Whether this operation accepts file bytes.
  * @returns Metadata and bytes, or a structured size/parse error.

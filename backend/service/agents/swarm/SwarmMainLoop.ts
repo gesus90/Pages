@@ -41,8 +41,7 @@ function delay(milliseconds: number): Promise<void> {
 }
 
 /**
- * Drives the session of the main model of a swarm until it calls `swarm_finish` (PAGE-313).
- *
+ * Drives the session of the main model of a swarm until it calls `swarm_finish`.
  * @remarks
  * When a turn of the main model ends without `swarm_finish`, the loop waits
  * for the next change of the board, at most {@link IDLE_WAKE_MS}, and wakes

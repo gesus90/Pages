@@ -25,7 +25,7 @@ export interface PicaMobileConversationsHandlerOptions {
   readonly connectionId: string;
   readonly presence: Pick<PicaMobileConversationPresence, "set">;
   /**
-   * The answers agents are writing (PAGE-381): present only for the
+   * The answers agents are writing: present only for the
    * connection of the signed-in browser, which receives their parts and a
    * snapshot after the authentication; absent, as for Pica Mobile, the
    * connection receives none of them.
@@ -67,8 +67,7 @@ function openedConversation(
 
 /**
  * Answers `conversations.v1` for one connection and sends it the changes of
- * its account's conversations (PAGE-278).
- *
+ * its account's conversations.
  * @remarks
  * Without a provider every request is unknown. The requests need an
  * authenticated connection; the provider checks the session again for every
@@ -88,7 +87,6 @@ export class PicaMobileConversationsHandler {
 
   /**
    * Creates the handler.
-   *
    * @param provider - The business answers; none: the requests are unknown.
    * @param host - The connection the handler answers on.
    * @param options - The connection's ID and the presence it reports to.
@@ -135,7 +133,6 @@ export class PicaMobileConversationsHandler {
 
   /**
    * Handles one request of `conversations.v1`.
-   *
    * @param message - A request that passed every check of its payload.
    */
   public async handle(
@@ -231,7 +228,7 @@ export class PicaMobileConversationsHandler {
 
   /**
    * Sends the answers the account may read that are written now or ended a
-   * short while ago (PAGE-381), before any later part of them; a part a
+   * short while ago, before any later part of them; a part a
    * snapshot already holds is told apart by its number.
    */
   private sendSnapshots(): void {
@@ -261,7 +258,7 @@ export class PicaMobileConversationsHandler {
       !event.recipientIds.includes(session.userId)
     )
       return;
-    // Only the browser's connection takes the parts of live answers (PAGE-381).
+    // Only the browser's connection takes the parts of live answers.
     if (event.kind === "answer" && this.options.answers === undefined) return;
     this.host.enqueue(() => this.send(session, event));
   }

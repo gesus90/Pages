@@ -60,7 +60,7 @@ async function viewerOf(person: User): Promise<AgentChatSessionViewer> {
 
 /**
  * Reads the chat sessions of an agent for the popup "Agent-Einstellungen"
- * (PAGE-376): the viewer sees the sessions of their own chats, an administrator
+ * The viewer sees the sessions of their own chats, an administrator
  * every session of the agent.
  */
 export async function loader({
@@ -85,7 +85,7 @@ export async function loader({
 /**
  * Stops, summarizes or restarts a chat session of an agent, or saves the idle
  * time and the restart threshold of the agent; answers with the sessions as
- * they stand then (PAGE-376).
+ * they stand then.
  */
 export async function action({
   request,

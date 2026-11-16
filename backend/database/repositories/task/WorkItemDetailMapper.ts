@@ -194,7 +194,6 @@ function calculateProgressPercentage(
 
 /**
  * Maps a row of the work item detail statement to a work item.
- *
  * @param row - Row selected by `createWorkItemListStatement` or
  * `createWorkItemConditionStatement`.
  * @returns The work item including its joined display data.

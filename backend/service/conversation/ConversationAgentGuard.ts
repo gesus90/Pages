@@ -31,8 +31,7 @@ export interface ConversationAgentGuardDependencies {
 
 /**
  * The two protections of the chat of agents against endless conversations and
- * costs (PAGE-311).
- *
+ * costs.
  * @remarks
  * A chain of {@link CONVERSATION_AGENT_CHAIN_MAXIMUM} agent messages in a row
  * without a person pauses the conversation until a person allows it to go
@@ -57,7 +56,6 @@ export class ConversationAgentGuard {
 
   /**
    * Refuses a message into a paused conversation.
-   *
    * @throws {AgentChatError} `conversation_paused`.
    */
   public async requireRunning(conversationId: string): Promise<void> {
@@ -70,7 +68,6 @@ export class ConversationAgentGuard {
 
   /**
    * Refuses a message beyond the hourly limit of the agent.
-   *
    * @throws {AgentChatError} `rate_limited`.
    */
   public async requireQuota(agentId: string): Promise<void> {
@@ -92,7 +89,6 @@ export class ConversationAgentGuard {
 
   /**
    * Lets the agents of a paused conversation go on, on behalf of a person.
-   *
    * @throws {ConversationError} `not_found` for a person who is neither a
    * member nor an overseer of the conversation, `forbidden` for an agent.
    */

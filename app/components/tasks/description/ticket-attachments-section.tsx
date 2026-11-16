@@ -118,7 +118,7 @@ function AttachmentRow({
   );
 }
 
-/** The files attached to a ticket, with upload for writers (A8.2-E06). */
+/** The files attached to a ticket, with upload for writers. */
 export function TicketAttachmentsSection({
   attachments,
   canEdit,

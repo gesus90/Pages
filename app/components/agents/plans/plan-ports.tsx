@@ -15,7 +15,6 @@ import type { PlanGraphActions } from "./use-plan-graph";
 
 /**
  * Removes the binding of one data IN; a selected connection to it is no longer selected.
- *
  * @param graph - The editor actions of the plan.
  * @param node - The agent node, script or frame that owns the IN.
  * @param name - The parameter of the IN.

@@ -57,8 +57,7 @@ function isUpload(attachment: StoredChatAttachment): boolean {
 }
 
 /**
- * Stores attachments at a session (T6.12.4, T6.12.11).
- *
+ * Stores attachments at a session.
  * @remarks
  * The size follows the fixed limit of 16 MB and is enforced while the file
  * streams to the disk. The type is decided from the content; programs and
@@ -76,7 +75,6 @@ export class ChatAttachmentService {
 
   /**
    * Stores a file for the next message of an own session.
-   *
    * @throws {ChatError} `sessionMissing`, `fileNameTooLong`, `tooManyAttachments`,
    * `fileTooLarge`, `fileEmpty` or `fileTypeNotAllowed`.
    */
@@ -115,7 +113,6 @@ export class ChatAttachmentService {
 
   /**
    * Opens an attachment of an own session for download.
-   *
    * @throws {ChatError} `attachmentMissing` for an unknown or foreign attachment.
    */
   public async open(actor: User, id: unknown): Promise<OpenedChatAttachment> {
@@ -127,8 +124,7 @@ export class ChatAttachmentService {
   }
 
   /**
-   * Opens an image of an own session to be shown as a thumbnail (PAGE-92).
-   *
+   * Opens an image of an own session to be shown as a thumbnail.
    * @throws {ChatError} `attachmentMissing` for an unknown or foreign
    * attachment and for a file that is no image.
    */
@@ -147,8 +143,7 @@ export class ChatAttachmentService {
 
   /**
    * Reads the bounded content preview of a text, PDF or Office attachment of an
-   * own session (PAGE-92).
-   *
+   * own session.
    * @throws {ChatError} `attachmentMissing` for an unknown or foreign attachment.
    */
   public async preview(
@@ -161,7 +156,6 @@ export class ChatAttachmentService {
 
   /**
    * Removes an attachment that was not sent yet.
-   *
    * @throws {ChatError} `attachmentMissing` for a sent, unknown or foreign attachment.
    */
   public async discard(actor: User, id: unknown): Promise<void> {
@@ -176,7 +170,6 @@ export class ChatAttachmentService {
 
   /**
    * Returns the unsent attachments of a session that a message names.
-   *
    * @throws {ChatError} `tooManyAttachments` or `attachmentMissing` when an ID
    * is not an unsent attachment of this session.
    */
@@ -213,7 +206,6 @@ export class ChatAttachmentService {
 
   /**
    * Reads the start of a text attachment for the agent.
-   *
    * @param attachment - A text attachment of a session whose owner was checked.
    * @param maximumCharacters - How much text the agent receives at most.
    * @returns The text, cut after the given number of characters.
@@ -242,7 +234,6 @@ export class ChatAttachmentService {
 
   /**
    * Reads a whole attachment for the agent, such as an image.
-   *
    * @param attachment - An attachment of a session whose owner was checked.
    * @param maximumBytes - The largest file the agent receives.
    * @returns The bytes, or `null` when the file is larger.

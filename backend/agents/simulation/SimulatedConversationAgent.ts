@@ -6,7 +6,7 @@ import type { AgentSimulationMode } from "./AgentSimulationMode";
 const QUOTE_CHARACTERS = 200;
 const SLOW_DELAY_MS = 5_000;
 
-/** A line that the chat shows as a card: a code fence, a file line or a URL alone (PAGE-298). */
+/** A line that the chat shows as a card: a code fence, a file line or a URL alone. */
 const CONTENT_LINE = /^\s*(?:```|~~~|!\[[^\]]*\]\(file:|https?:\/\/\S+\s*$)/u;
 
 /**
@@ -26,19 +26,19 @@ export interface SimulatedConversationQuestion {
   readonly agentName: string;
   /** The text of the answered message. */
   readonly lastMessage: string;
-  /** Stops the answer (PAGE-304). */
+  /** Stops the answer. */
   readonly signal?: AbortSignal;
 }
 
 /**
- * The simulated agent of a conversation (PAGE-276), part of the development
- * simulation of PAGE-268.
+ * The simulated agent of a conversation, part of the development
+ * simulation.
  *
  * @remarks
  * It answers where the agent's model would answer and contacts no model
  * provider. `ok` answers at once with a fixed text that names the last
  * message, `slow` the same after five seconds, `failed` fails on purpose.
- * A stopped answer ends at once (PAGE-304).
+ * A stopped answer ends at once.
  * A message with content the chat shows as cards is sent back with it.
  * The other scenarios concern plan nodes and answer like `ok`.
  */

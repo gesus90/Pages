@@ -40,7 +40,7 @@ const TONE_CLASSES: Readonly<
 };
 
 /**
- * A small segmented switch of the card heads (PAGE-383): "Vorschau | Code",
+ * A small segmented switch of the card heads: "Vorschau | Code",
  * "Ansicht | Quelltext", "Vorschau | Code | Beides", the device widths and
  * the files of a preview.
  */

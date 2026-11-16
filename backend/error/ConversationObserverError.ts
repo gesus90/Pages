@@ -1,6 +1,5 @@
 /**
- * Why the group observer gave no result (PAGE-296), as a stable code.
- *
+ * Why the group observer gave no result, as a stable code.
  * @remarks
  * The code names the cause without details of the prompt or the provider:
  * `pica_disabled`, `pica_model_missing`, `pica_access_denied`,
@@ -13,7 +12,6 @@ export class ConversationObserverError extends Error {
 
   /**
    * Creates the failure.
-   *
    * @param code - The stable reason.
    */
   public constructor(code: string) {

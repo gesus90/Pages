@@ -1,6 +1,5 @@
 /**
  * Tells whether a connection holds an open transaction after a statement.
- *
  * @param statement - The statement that just ran.
  * @param wasOpen - Whether a transaction was open before it.
  * @returns Whether one is open now.

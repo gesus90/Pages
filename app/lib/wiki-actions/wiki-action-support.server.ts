@@ -61,7 +61,6 @@ export function succeeded(): WikiActionResponse {
 
 /**
  * Answers an action that succeeded with values for the client.
- *
  * @param payload - Values the client needs.
  * @returns The response.
  */
@@ -89,7 +88,6 @@ function failed(
 
 /**
  * Maps the failures of a wiki action to client responses.
- *
  * @param error - The failure thrown by a service.
  * @returns The response describing the failure.
  * @throws The original value when it is none of the wiki failures.
@@ -120,7 +118,6 @@ export function toWikiActionError(error: unknown): WikiActionResponse {
 
 /**
  * Checks a wiki form submission and gathers what its handler needs.
- *
  * @param args - Request and route context of the action.
  * @param pageId - The page of the route, or `null`.
  * @returns User, form fields and services of the submission.
@@ -157,7 +154,6 @@ export async function readWikiRequest(
 
 /**
  * Runs the handler of an intent and turns wiki failures into responses.
- *
  * @param handlers - Handler per intent.
  * @param context - The submission.
  * @returns The handler's response, or a failure response.

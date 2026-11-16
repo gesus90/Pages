@@ -19,11 +19,9 @@ function stepState(step: AgentPlanStepResult): unknown[] {
 
 /**
  * Describes everything of a run that its structure view shows.
- *
  * @param run - The stored view of the run.
  * @returns A text that changes exactly when the state of the run, of a node,
  * of a loop or of one of its iterations, the failure or the end changes.
- *
  * @remarks
  * Results, outputs, sessions and progress records are no part of it, so a
  * write that only records progress keeps it. Nested states count as much as
@@ -53,7 +51,6 @@ export function planRunVisibleState(run: AgentPlanRun): string {
 
 /**
  * A short key of {@link planRunVisibleState}.
- *
  * @param run - The stored view of the run.
  * @returns 16 hexadecimal digits; equal keys stand for an equal visible state.
  */

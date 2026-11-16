@@ -24,7 +24,7 @@ interface ChatContextOptions {
 /**
  * The context of the session as a read of the server returns it: while a job
  * runs, its adapter's latest report replaces the one loaded with the last
- * message (PAGE-90). An estimate of Pages is never replaced.
+ * message. An estimate of Pages is never replaced.
  */
 function currentContext(
   loaded: ChatContextSize | null,

@@ -8,7 +8,6 @@ import type { PicaMobileSessionIdentity } from "../PicaMobileDashboardProvider";
 
 /**
  * What the calendar answers to one request.
- *
  * @remarks
  * `refused` carries one of `forbidden`, `not_found` and `invalid_request`
  * and a message without foreign data. `sessionEnded` means the session or
@@ -29,8 +28,7 @@ export type PicaMobileCalendarChangesOutcome =
   | { readonly kind: "sessionEnded" };
 
 /**
- * The calendar of Pages for Pica Mobile (`calendar.v1`, PAGE-301).
- *
+ * The calendar of Pages for Pica Mobile (`calendar.v1`).
  * @remarks
  * A connection without a provider does not announce `calendar.v1` and
  * answers its requests as unknown. Every call checks the session first.
@@ -43,7 +41,6 @@ export interface PicaMobileCalendarProvider {
   ): Promise<PicaMobileCalendarOutcome>;
   /**
    * Hears every committed event that may change calendar entries.
-   *
    * @returns Stops hearing them.
    */
   follow(listener: (event: PagesEvent) => void): () => void;

@@ -97,7 +97,6 @@ const ARCHIVED_CONDITIONS: Readonly<Record<ArchivedScope, readonly string[]>> =
 
 /**
  * Maps every supported sort order to its ORDER BY fragment.
- *
  * @remarks
  * The fragments come from a fixed whitelist so callers can never inject
  * arbitrary SQL through the order option.

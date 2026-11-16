@@ -22,8 +22,7 @@ export interface TicketServices {
 }
 
 /**
- * Creates the services of ticket attachments and the ticket tree (A8.2).
- *
+ * Creates the services of ticket attachments and the ticket tree.
  * @param database - The open database.
  * @param databasePath - Path of the database; attachments lie next to it.
  * @param taskService - Checks the access to tickets.

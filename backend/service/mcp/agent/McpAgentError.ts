@@ -6,7 +6,7 @@ import { McpWorkspaceError } from "../workspace/McpWorkspaceError";
 import type { AgentEmployeeErrorCode } from "@/backend/error/AgentEmployeeError";
 import type { McpWorkspaceErrorCode } from "../workspace/McpWorkspaceError";
 
-/** Error codes of the agent API, as the interface names them (PAGE-267). */
+/** Error codes of the agent API, as the interface names them. */
 export type McpAgentErrorCode =
   | "invalid_token"
   | "forbidden"
@@ -58,7 +58,6 @@ const WORKSPACE_ERROR_CODES: Readonly<
 
 /**
  * Fixed public failure of the agent API.
- *
  * @remarks
  * It carries a code, a status and, for `conflict`, the current revision of
  * the agent; neither a message of the services nor any part of the request
@@ -72,7 +71,6 @@ export class McpAgentError extends Error {
 
   /**
    * Creates the error.
-   *
    * @param code - The error code of the interface; it decides the HTTP status.
    * @param revision - The current revision of the agent, for `conflict`.
    */
@@ -87,7 +85,6 @@ export class McpAgentError extends Error {
 
 /**
  * Translates a failure of the agent services into the error of the interface.
- *
  * @param error - Whatever a service or the request reader threw.
  * @returns The interface error, or `null` for a failure that is not the
  * client's doing and stays an internal error.

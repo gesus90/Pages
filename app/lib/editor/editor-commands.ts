@@ -48,7 +48,6 @@ const ANCHOR_ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789";
 /**
  * Starts a new undo step, so that undo reverts exactly the next change and
  * not the typing before it.
- *
  * @param editor - The editor.
  */
 export function startUndoStep(editor: Editor): void {
@@ -57,7 +56,6 @@ export function startUndoStep(editor: Editor): void {
 
 /**
  * Finds the top-level block at a position.
- *
  * @param doc - The document.
  * @param position - Any position inside or right before the block.
  * @returns The block, or `null` outside of the document.
@@ -83,7 +81,6 @@ export function findTopLevelBlock(
 
 /**
  * Finds the top-level block that holds the selection.
- *
  * @param editor - The editor.
  * @returns The block of the selection head.
  */
@@ -95,7 +92,6 @@ export function findSelectedBlock(editor: Editor): TopLevelBlock | null {
  * Puts the selection into a block, so that commands apply to it: the caret
  * goes to the start of its text, or the whole block is selected when it has
  * no text to hold a caret.
- *
  * @param editor - The editor.
  * @param position - Position right before the block.
  */
@@ -149,11 +145,9 @@ function wrapInToggle(editor: Editor): boolean {
 
 /**
  * Turns the block of the selection into another type of block.
- *
  * @param editor - The editor.
  * @param kind - The new type.
  * @returns Whether the block changed.
- *
  * @remarks
  * The change is an undo step of its own. The block is first reduced to plain
  * paragraphs, so a list item becomes a heading and a quote becomes a list.
@@ -192,11 +186,9 @@ export function turnBlockInto(editor: Editor, kind: BlockKind): boolean {
 
 /**
  * Inserts a block at the selection, as the slash menu does.
- *
  * @param editor - The editor.
  * @param kind - What to insert.
  * @returns Whether anything was inserted.
- *
  * @remarks
  * Block types are applied to the current block when it is empty and to a
  * new block below it otherwise.
@@ -246,7 +238,6 @@ function withoutAnchor(node: ProseMirrorNode): ProseMirrorNode {
 
 /**
  * Copies a top-level block and puts the copy right below it.
- *
  * @param editor - The editor.
  * @param position - Position right before the block.
  * @returns Whether the block was copied.
@@ -272,7 +263,6 @@ export function duplicateBlock(editor: Editor, position: number): boolean {
 
 /**
  * Deletes a top-level block.
- *
  * @param editor - The editor.
  * @param position - Position right before the block.
  * @returns Whether the block was deleted.
@@ -307,7 +297,6 @@ export function deleteBlock(editor: Editor, position: number): boolean {
 
 /**
  * Moves a top-level block one place up or down; the selection moves along.
- *
  * @param editor - The editor.
  * @param position - Position right before the block.
  * @param direction - Where to move the block.
@@ -363,11 +352,9 @@ function createAnchorId(): string {
 
 /**
  * Gives a top-level block an anchor, so that a link can point to it.
- *
  * @param editor - The editor.
  * @param position - Position right before the block.
  * @returns The anchor of the block, or `null` when it cannot have one.
- *
  * @remarks
  * A block keeps the anchor it already has. Adding one is no undo step: it is
  * invisible and must stay while the link is in use.
@@ -398,7 +385,6 @@ export function anchorBlock(editor: Editor, position: number): string | null {
 
 /**
  * Builds a slice of plain paragraphs from text, without reading markdown.
- *
  * @param text - Pasted text.
  * @param schema - Schema of the editor.
  * @returns One paragraph per line; a single line joins the paragraph it

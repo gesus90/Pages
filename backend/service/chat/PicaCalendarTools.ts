@@ -65,9 +65,8 @@ function isCalendarTool(name: string): name is PicaCalendarTool {
 }
 
 /**
- * Registers Pica's calendar tools (PAGE-301), which agent employees receive
+ * Registers Pica's calendar tools, which agent employees receive
  * through their bridge too.
- *
  * @param registry - The tool registry of one turn.
  * @param dispatch - Runs an operation through the chat's operation catalog.
  */

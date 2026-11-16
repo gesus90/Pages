@@ -96,8 +96,7 @@ function matchesTicket(
 
 /**
  * Turns the events of plans and tickets into runs of the automations that
- * wait for them (PAGE-297).
- *
+ * wait for them.
  * @remarks
  * An event reaches an automation only when its creator may see the plan or
  * project. It never starts the automation that caused it: a plan run that

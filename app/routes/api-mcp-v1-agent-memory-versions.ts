@@ -24,8 +24,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpAgentHandlers {
 }
 
 /**
- * Lists the versions of `MEMORY.md` (`GET /api/mcp/v1/agents/{id}/memory/versions`), the newest first, PAGE-267.
- *
+ * Lists the versions of `MEMORY.md` (`GET /api/mcp/v1/agents/{id}/memory/versions`), the newest first.
  * @remarks
  * Only the device token of a paired machine admits a request, and only for
  * an account with the administrator role.

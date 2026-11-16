@@ -54,7 +54,7 @@ export interface PicaAdminServiceOptions {
   readonly localOrigins?: () => PicaBrowserOrigins;
   /** Where signed-in sessions the administrator released are kept, encrypted. */
   readonly browserSessions?: PicaBrowserSessionStore;
-  /** The Storage interface of the instance Drive (PAGE-271); without it no Storage tool is offered. */
+  /** The Storage interface of the instance Drive; without it no Storage tool is offered. */
   readonly storage?: PicaStorageFiles & {
     readonly forAccount?: (userId: string) => PicaStorageFiles;
   };
@@ -123,7 +123,6 @@ export class PicaAdminService {
 
   /**
    * Resolves persisted personal eligibility and active UI admin mode on every call; cached actor flags never suffice.
-   *
    * @remarks
    * Host access additionally needs a process without OS administrator rights.
    */
@@ -138,8 +137,7 @@ export class PicaAdminService {
   }
 
   /**
-   * Runs Storage with account-scoped folder rights (PAGE-323).
-   *
+   * Runs Storage with account-scoped folder rights.
    * @param call - Tool, checked arguments, job scope and human turn.
    * @returns The outcome, or `FORBIDDEN` without a folder grant.
    */
@@ -273,7 +271,6 @@ export class PicaAdminService {
 
   /**
    * Runs one operator browser tool of the model in the administrator scope of its job.
-   *
    * @param tool - The operator browser tool.
    * @param input - The untrusted arguments.
    * @param context - The server-owned scope of the job or console task.
@@ -338,12 +335,10 @@ export class PicaAdminService {
 
   /**
    * Runs one privileged call in the administrator scope of its job.
-   *
    * @param call - The audited operation name and its untrusted arguments.
    * @param context - The server-owned scope of the job or console task.
    * @param work - The handler; it receives a context that is reauthorized on every use.
    * @returns The outcome of the handler, or a stable error code.
-   *
    * @remarks
    * The administrator right is resolved afresh before the handler, and again
    * after it. The scope watch keeps resolving it while the job runs, so

@@ -49,7 +49,6 @@ export class ProjectMemberRepository {
 
   /**
    * Creates a project member repository.
-   *
    * @param database - Central database access.
    */
   public constructor(database: DatabaseTransaction) {

@@ -34,7 +34,6 @@ const KEY_SEPARATOR = "\u001f";
 
 /**
  * The key a model is chosen by in the list.
- *
  * @param model - The model.
  */
 export function dreamModelKey(model: AgentDreamModelRef): string {

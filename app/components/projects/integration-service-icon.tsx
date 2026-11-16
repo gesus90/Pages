@@ -17,7 +17,6 @@ interface ServiceIconProps {
 
 /**
  * Renders the large service tile shown on the left of every card and panel.
- *
  * @remarks
  * Branding note: GitHub (Invertocat), Google Calendar, and Discord marks are
  * proprietary trademarks with restrictive brand programs (no recoloring, no

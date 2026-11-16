@@ -12,7 +12,6 @@ import type { Route } from "./+types/agent-plan-run-summaries";
 
 /**
  * Lists the executor's runs of a readable plan, newest first, without snapshots or results.
- *
  * @remarks
  * Each entry names only the start and the status. A run is listed only while
  * the person may read its content, as `/agent-api/plan-runs` checks it.

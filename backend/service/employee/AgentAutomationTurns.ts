@@ -33,7 +33,7 @@ export interface AgentAutomationTurnDependencies {
   readonly users: Pick<UserRepository, "findById">;
   readonly sessions: Pick<AgentEmployeeSessions, "run" | "job">;
   readonly messages: Pick<ChatSessionRepository, "messages">;
-  /** Stores the result of a run in a group as the agent's message (PAGE-376). */
+  /** Stores the result of a run in a group as the agent's message. */
   readonly chatPoster?: Pick<AgentChatService, "postResult">;
   /** The simulated agent; set only while the simulation is on, never in production. */
   readonly simulation: SimulatedConversationAgent | null;
@@ -48,15 +48,14 @@ interface TurnRequest {
   readonly prompt: string;
   readonly chat?: string | null;
   readonly runKey?: string;
-  /** The group a scheduled task of a chat is bound to (PAGE-392). */
+  /** The group a scheduled task of a chat is bound to. */
   readonly conversationId?: string | null;
 }
 
 /**
- * Wakes an agent employee for an automation (PAGE-297, PAGE-376).
- *
+ * Wakes an agent employee for an automation.
  * @remarks
- * An automation runs in the session of its target chat (PAGE-376): `@Agentname`
+ * An automation runs in the session of its target chat: `@Agentname`
  * and no target name the direct chat of the automation's owner with the
  * agent, `[[Chatname]]` a group the owner and the agent belong to. The input
  * goes into the one session of that chat, as the agent's own account with
@@ -78,7 +77,6 @@ export class AgentAutomationTurns implements AutomationAgentRunner {
 
   /**
    * Starts the turn of an agent.
-   *
    * @throws {AutomationAgentBusyError} While the agent is busy.
    * @throws {AutomationTargetError} `target_chat_invalid` or `target_chat_not_found`.
    * @throws {AgentEmployeeError} `notFound`, `inactive` or `unavailable`.

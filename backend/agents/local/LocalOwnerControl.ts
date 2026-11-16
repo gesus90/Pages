@@ -31,7 +31,6 @@ export function registerLocalOwnerInspection(
 /**
  * Reads whether a managed local owner holds a lease, without commanding or
  * signalling it.
- *
  * @returns `null` when no managed owner belongs to the lease.
  */
 export function inspectManagedLocalOwner(

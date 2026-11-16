@@ -2,23 +2,21 @@ import type { AgentEmployeeVoice } from "./SpeechSynthesis";
 import type { AgentToolGroup } from "./AgentToolGroups";
 
 /**
- * Contracts of agents that Pages keeps like employees (PAGE-266).
- *
+ * Contracts of agents that Pages keeps like employees.
  * @remarks
  * An agent is an account of its own: it has a username, a role, departments
  * and project memberships like a person, but no password, no sign-in and
  * never the administrator right. Beside the account it has a model, an
  * access mode and four documents: `SOUL.md`
  * (who it is), `AGENT.md` (what it does), `MEMORY.md` (its current topics,
- * with a searchable archive behind it) and `DREAM.md` (its lessons,
- * PAGE-305).
+ * with a searchable archive behind it) and `DREAM.md` (its lessons).
  */
 
 import type { AgentMemoryLimits, AgentMemorySource } from "./AgentMemory";
 
 /**
- * The access level of an agent in its chats (PAGE-303).
- *
+ * The access level of an agent in its chats.
+ * Plan steps keep their own run options; the level applies to chats only.
  * @remarks
  * - `read_only` ("Nur Pages", the default): the Pages tools alone; every
  *   other tool is refused by Pages, not only forbidden by the instruction.
@@ -27,8 +25,6 @@ import type { AgentMemoryLimits, AgentMemorySource } from "./AgentMemory";
  *   the CLI runs; it writes only in the working folder of the chat.
  * - `yolo`: no restriction by Pages on the host and no isolation; the agent
  *   works with the rights of the system account Pages runs under.
- *
- * Plan steps keep their own run options; the level applies to chats only.
  */
 export const AGENT_EMPLOYEE_ACCESS_MODES = [
   "read_only",
@@ -84,7 +80,7 @@ export const AGENT_DOCUMENT_LIMITS = {
 
 /**
  * Word limits of the archive; `MEMORY.md` and `DREAM.md` have character
- * limits per agent (PAGE-305).
+ * limits per agent.
  */
 export const AGENT_MEMORY_LIMITS = {
   /** The archive, searched only on demand. */
@@ -95,7 +91,6 @@ export const AGENT_MEMORY_LIMITS = {
 
 /**
  * Counts the words of a text as the memory limits count them.
- *
  * @param text - Markdown or plain text.
  * @returns The number of whitespace-separated words.
  */
@@ -113,7 +108,7 @@ export interface AgentEmployeeSettings {
   readonly reasoningEffort: string | null;
   readonly access: AgentEmployeeAccess;
   /**
-   * The tool groups an administrator switched off for the agent (PAGE-390);
+   * The tool groups an administrator switched off for the agent;
    * empty gives every group its access level allows.
    */
   readonly disabledToolGroups: readonly AgentToolGroup[];
@@ -130,7 +125,7 @@ export interface AgentEmployeeDocuments {
 /** What a dream run did. */
 export type AgentLearningStatus = "updated" | "unchanged" | "failed";
 
-/** The result of the last dream run (PAGE-305), formerly the learning run. */
+/** The result of the last dream run, formerly the learning run. */
 export interface AgentLearningResult {
   readonly status: AgentLearningStatus;
   /** Lessons taken in from the sources of the day. */
@@ -197,11 +192,11 @@ export interface AgentEmployee extends AgentEmployeeListItem {
   readonly departmentIds: readonly string[];
   readonly settings: AgentEmployeeSettings;
   readonly documents: AgentEmployeeDocuments;
-  /** The voice and speed of the agent (PAGE-300); kept when the instance's model changes. */
+  /** The voice and speed of the agent; kept when the instance's model changes. */
   readonly voice: AgentEmployeeVoice;
   /** `MEMORY.md`: the current topics. */
   readonly memory: string;
-  /** `DREAM.md`: the lessons of the dream run (PAGE-305). */
+  /** `DREAM.md`: the lessons of the dream run. */
   readonly dream: string;
   /** The character limits of both files. */
   readonly memoryLimits: AgentMemoryLimits;
@@ -234,7 +229,7 @@ export interface AgentArchiveEntry {
   readonly title: string;
   readonly content: string;
   readonly createdAt: string;
-  /** Where the entry comes from; `null` for entries of earlier versions (PAGE-305). */
+  /** Where the entry comes from; `null` for entries of earlier versions. */
   readonly source: AgentMemorySource | null;
 }
 

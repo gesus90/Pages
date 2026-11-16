@@ -18,7 +18,7 @@ import type {
 } from "./ConversationDocumentContent";
 import type { ConversationVideoFrameReader } from "./ConversationVideoFrames";
 
-/** Bytes of an image an agent receives at most (PAGE-386). */
+/** Bytes of an image an agent receives at most. */
 export const AGENT_IMAGE_BYTES = 20 * 1024 * 1024;
 
 /** Bytes of a sound or video the speech recognition takes at most. */
@@ -141,7 +141,7 @@ function textResult(
 }
 
 /**
- * Reads the content of one attachment of a chat for an agent (PAGE-386).
+ * Reads the content of one attachment of a chat for an agent.
  *
  * @remarks
  * Images reach only a model that can see them; text documents arrive by

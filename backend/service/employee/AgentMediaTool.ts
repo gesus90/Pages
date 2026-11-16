@@ -30,7 +30,7 @@ const PROMPT = z
   .min(1)
   .max(AGENT_MEDIA_LIMITS.promptCharacters);
 
-/** The input of `video_erzeugen` (PAGE-384). */
+/** The input of `video_erzeugen`. */
 export const AGENT_VIDEO_TOOL_SCHEMA = z
   .object({
     beschreibung: PROMPT,
@@ -44,7 +44,7 @@ export const AGENT_VIDEO_TOOL_SCHEMA = z
   })
   .strict();
 
-/** The input of `audio_erzeugen` (PAGE-384). */
+/** The input of `audio_erzeugen`. */
 export const AGENT_AUDIO_TOOL_SCHEMA = z
   .object({
     beschreibung: PROMPT,
@@ -181,7 +181,7 @@ export function mediaFileName(
 
 /**
  * Builds `video_erzeugen` and `audio_erzeugen` for one round of an agent in a
- * conversation (PAGE-384).
+ * conversation.
  *
  * @remarks
  * The tool asks {@link AgentMediaGeneration} with the model of the round. A

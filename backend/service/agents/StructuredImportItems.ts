@@ -15,8 +15,7 @@ export class StructuredStepBlockedError extends Error {
 
 /**
  * Turns a stored outcome into the public item, whatever kind of source wrote it.
- *
- * @param item - An outcome of the A9.8 source service or of a structured step.
+ * @param item - An outcome of the wiki source service or of a structured step.
  * @returns The public item; a wiki outcome has no kind of its own and becomes `wiki`.
  */
 export function toStructuredItem(
@@ -49,7 +48,6 @@ export function storedTargetId(
 
 /**
  * Describes a step that did not complete.
- *
  * @param step - The step that failed.
  * @param code - The fixed business code of the failure.
  * @param reason - Why, when the failure is a known one.

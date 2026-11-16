@@ -10,7 +10,7 @@ import type { UserGroupRepository } from "@/backend/database/repositories/UserGr
 import type { AgentConnectionRepository } from "@/backend/database/repositories/AgentConnectionRepository";
 import type { InstanceSecretCipher } from "@/backend/security/InstanceSecretCipher";
 
-/** The decision model and the default thresholds of the instance (PAGE-317, PAGE-379). */
+/** The decision model and the default thresholds of the instance. */
 export interface ChatDecisionApplicationServices {
   readonly chatDecisionSettingsService: ChatDecisionSettingsService;
   /** Asks the chosen OpenRouter decision model with the key of its connection. */
@@ -19,7 +19,6 @@ export interface ChatDecisionApplicationServices {
 
 /**
  * Wires the decision model setting with the stored connections.
- *
  * @param input - The database, the connections with the cipher of their keys
  * and the groups of accounts.
  * @returns The setting service and the model it chooses, which calls the

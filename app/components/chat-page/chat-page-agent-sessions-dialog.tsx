@@ -105,7 +105,7 @@ interface ChatPageAgentSessionsDialogProps {
 }
 
 /**
- * "Sitzungen der Agenten in diesem Chat" (PAGE-376): for every agent of the
+ * "Sitzungen der Agenten in diesem Chat": for every agent of the
  * chat its session here, with the buttons to stop, summarize and restart it
  * and the way to the agent's settings.
  */

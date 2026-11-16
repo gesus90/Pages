@@ -14,7 +14,6 @@ export class AgentPlanPauseGate {
 
   /**
    * Opens the same barrier without replacing any execution or its signal.
-   *
    * @remarks
    * Waiters wake at once, so a turn that finished during the pause is recorded
    * as soon as the run goes on, not at the next poll.

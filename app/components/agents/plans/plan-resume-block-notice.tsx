@@ -32,8 +32,7 @@ function visibleBlock(
 }
 
 /**
- * The button that lifts the block of Fortsetzen, alone among the run controls of the collapsed panel (PAGE-338).
- *
+ * The button that lifts the block of Fortsetzen, alone among the run controls of the collapsed panel.
  * @remarks
  * The reason stays in the open panel; a block whose action no person can
  * carry out shows no button.
@@ -62,7 +61,6 @@ export function PlanResumeBlockButton({
 
 /**
  * Says why Fortsetzen is off and offers the action that lifts the block.
- *
  * @remarks
  * The reason is visible text, not a tooltip, so touch screens read it too.
  * Without a block, nothing is shown; a block always names its reason.

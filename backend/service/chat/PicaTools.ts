@@ -95,80 +95,80 @@ export interface PicaToolsInput {
   /** Stores the files Pica writes for its answer; without it the file tool is not offered. */
   readonly answerFiles?: Pick<ChatAnswerFileService, "stage"> | undefined;
   /**
-   * Searches the memory archive of the agent employee whose job runs
-   * (PAGE-266); without it the memory tool is not offered.
+   * Searches the memory archive of the agent employee whose job runs;
+   * without it the memory tool is not offered.
    */
   readonly searchMemory?: ((query: string) => Promise<unknown>) | undefined;
   /**
    * Reads the stored context of a group the agent employee whose job runs is
-   * a member of (PAGE-296); without it the tool is not offered.
+   * a member of; without it the tool is not offered.
    */
   readonly readConversationContext?:
     ((input: unknown) => Promise<unknown>) | undefined;
   /**
-   * Reads the messages of the chat this session belongs to, after a position
-   * (PAGE-376); without it `chat_lesen` is not offered.
+   * Reads the messages of the chat this session belongs to, after a position;
+   * without it `chat_lesen` is not offered.
    */
   readonly readOwnChat?: ((input: unknown) => Promise<unknown>) | undefined;
   /**
-   * Keeps and reads the Lagebuch of the agent employee whose job runs
-   * (PAGE-377); without it `lagebuch_merken`, `lagebuch_suchen` and
+   * Keeps and reads the Lagebuch of the agent employee whose job runs;
+   * without it `lagebuch_merken`, `lagebuch_suchen` and
    * `lagebuch_lesen` are not offered.
    */
   readonly logbook?: AgentLogbookTools | undefined;
   /**
-   * The recipes of the agent employee whose job runs (PAGE-378): the tool
+   * The recipes of the agent employee whose job runs: the tool
    * `rezept(name, parameter)` and the record of its tool calls for the dream
    * run; without it neither exists.
    */
   readonly recipes?: AgentRecipeTools | undefined;
   /**
    * Attaches a file of the chat's working folder to a ticket or a wiki page,
-   * for an agent employee with host tools (PAGE-303); without it the tools
+   * for an agent employee with host tools; without it the tools
    * are not offered.
    */
   readonly attachHostFile?: PicaHostFileAttach | undefined;
   /**
-   * Reads chats and sends messages as the agent employee whose job runs
-   * (PAGE-311); without it the chat tools are not offered.
+   * Reads chats and sends messages as the agent employee whose job runs;
+   * without it the chat tools are not offered.
    */
   readonly agentChat?: AgentChatTools | undefined;
   /**
    * Generates images with the model of the round of an agent employee in a
-   * conversation (PAGE-382); without it `bilder_erzeugen` is not offered.
+   * conversation; without it `bilder_erzeugen` is not offered.
    */
   readonly generateImages?: PicaImageGenerate | undefined;
   /**
    * Generates a video or a sound with the model of the round of an agent
-   * employee in a conversation (PAGE-384); without it `video_erzeugen` and
+   * employee in a conversation; without it `video_erzeugen` and
    * `audio_erzeugen` are not offered.
    */
   readonly generateMedia?: PicaMediaGenerate | undefined;
   /**
    * Searches and reads the attachments of the chat of the round of an agent
-   * employee (PAGE-386); without it `anhaenge_suchen` and `anhang_lesen` are
+   * employee; without it `anhaenge_suchen` and `anhang_lesen` are
    * not offered.
    */
   readonly readAttachments?: PicaAttachmentRead | undefined;
-  /** The toolkit of an agent employee job (PAGE-390). */
+  /** The toolkit of an agent employee job. */
   readonly toolkit?: AgentToolkitBinding | undefined;
 }
 
-/** `anhaenge_suchen` and `anhang_lesen` of one job, bound to its working folder (PAGE-386). */
+/** `anhaenge_suchen` and `anhang_lesen` of one job, bound to its working folder. */
 export type PicaAttachmentRead = (
   action: AgentAttachmentAction,
   input: AgentAttachmentSearchInput | AgentAttachmentReadInput,
   signal: AbortSignal,
 ) => Promise<PicaToolOutcome>;
 
-/** `video_erzeugen` and `audio_erzeugen` of one job, bound to its working folder (PAGE-384). */
+/** `video_erzeugen` and `audio_erzeugen` of one job, bound to its working folder. */
 export type PicaMediaGenerate = (
   kind: AgentMediaKind,
   input: AgentMediaToolInput,
   signal: AbortSignal,
 ) => Promise<PicaToolOutcome>;
 
-/** `bilder_erzeugen` of one job, bound to its working folder (PAGE-382). */
+/** `bilder_erzeugen` of one job, bound to its working folder. */
 export type PicaImageGenerate = (
   input: AgentImageToolInput,
   signal: AbortSignal,
@@ -327,10 +327,9 @@ interface AdministratorToolParts {
 }
 
 /**
- * Registers host files, the restricted browser, the visual operator browser
- * (PAGE-181), the administrator catalog of Pages operations and the Storage
- * tools (PAGE-271).
- *
+ * Registers host files, the restricted browser, the visual operator browser,
+ * the administrator catalog of Pages operations and the Storage
+ * tools.
  * @remarks
  * Every call runs in the administrator scope of its job: the right is
  * resolved afresh before and after it, and its withdrawal aborts the job.
@@ -440,7 +439,7 @@ function toolkitTurn(input: PicaToolsInput): {
 
 /**
  * Registers the own-account browser of an agent employee; with a toolkit,
- * a call that submits a form waits for the person's approval (PAGE-390).
+ * a call that submits a form waits for the person's approval.
  */
 function registerOwnBrowserTools(
   registry: RuntimeToolRegistry,
@@ -467,8 +466,7 @@ function registerOwnBrowserTools(
 
 /**
  * Adds the shell, file and web tools of an agent employee's job, then
- * applies its policy to every tool of the turn and audits each call
- * (PAGE-390).
+ * applies its policy to every tool of the turn and audits each call.
  */
 function registerToolkit(
   registry: RuntimeToolRegistry,
@@ -508,7 +506,6 @@ function registerReadTools(
 
 /**
  * Creates the native tools with fixed service dispatch and fresh rights.
- *
  * @remarks
  * Reads find and read projects, tickets, milestones and the wiki. Writes
  * create and change them on user level when the person asks for it. Deletion
@@ -564,7 +561,7 @@ export function createPicaTools(
     if (failedWrites.has(attempt)) return refused("RETRY_REFUSED");
     const outcome = await execute(WRITE_TOOLS[tool], parameters, context);
     // A write the step limit or a pending approval held back never reached a
-    // service; once approved in the same turn it may run (PAGE-391).
+    // service; once approved in the same turn it may run.
     if (
       !outcome.ok &&
       outcome.error !== "STEP_LIMIT" &&

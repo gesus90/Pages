@@ -7,7 +7,7 @@ import { cn } from "@/app/lib/cn";
 import type { ReasoningSelectOptions } from "@/app/lib/reasoning-options";
 
 /*
- * The fixed measures of the model choice (PAGE-248), the same in settings,
+ * The fixed measures of the model choice, the same in settings,
  * dialogs and plan cards: no container or breakpoint enlarges them.
  */
 
@@ -21,7 +21,6 @@ export const MODEL_FIELD_CLASS =
 
 /**
  * Lays out the model and the reasoning field side by side.
- *
  * @remarks
  * Both columns are equally wide and start at the same top, so the labels
  * and the fields of the two choices stand flush in every place.
@@ -38,7 +37,6 @@ export function ModelFieldRow({
 
 /**
  * The reasoning level of the chosen model, styled like the model choice beside it.
- *
  * @remarks
  * The options come from {@link reasoningOptions}: the levels the chosen model
  * supports, and levels it lacks listed but disabled, as before.

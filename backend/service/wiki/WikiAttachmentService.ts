@@ -70,7 +70,6 @@ export class WikiAttachmentService {
 
   /**
    * Creates the service.
-   *
    * @param repository - Wiki persistence.
    * @param access - Resolves who is acting.
    * @param settings - Provides the upload limits.
@@ -90,7 +89,6 @@ export class WikiAttachmentService {
 
   /**
    * Attaches an uploaded file to a page.
-   *
    * @param actor - The signed-in user; they need the capability "write".
    * @param pageId - Page identifier.
    * @param file - The upload.
@@ -99,7 +97,6 @@ export class WikiAttachmentService {
    * @throws {WikiPageNotFoundError} When the page is missing or hidden.
    * @throws {WikiValidationError} For an empty file, a file name that is too
    * long, or a file above the limit of its kind.
-   *
    * @remarks
    * The type is found from the first bytes, not from the name, and decides
    * the limit (media or other file). The limit is enforced while the bytes
@@ -189,7 +186,6 @@ export class WikiAttachmentService {
 
   /**
    * Lists the attachments of a page.
-   *
    * @param actor - The signed-in user.
    * @param pageId - Page identifier.
    * @returns The attachments, oldest first.
@@ -205,7 +201,6 @@ export class WikiAttachmentService {
 
   /**
    * Opens an attachment for download.
-   *
    * @param actor - The signed-in user.
    * @param id - Attachment identifier.
    * @returns The attachment and its bytes.
@@ -234,7 +229,6 @@ export class WikiAttachmentService {
   /**
    * Removes an attachment and its file, and the cover of its page when the
    * cover showed that image.
-   *
    * @param actor - The signed-in user; the uploader or whoever manages the page.
    * @param id - Attachment identifier.
    * @throws {WikiAccessDeniedError} For everybody else.
@@ -270,7 +264,6 @@ export class WikiAttachmentService {
 
   /**
    * Removes stored files, for example those of pages deleted for good.
-   *
    * @param storageNames - Names the file store gave the files.
    */
   public async removeFiles(storageNames: readonly string[]): Promise<void> {
@@ -280,7 +273,6 @@ export class WikiAttachmentService {
   /**
    * Removes files that no attachment refers to any more, such as the files of
    * a deleted project or of an upload that was cut off.
-   *
    * @returns How many files were removed.
    */
   public async sweep(): Promise<number> {

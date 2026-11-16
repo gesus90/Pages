@@ -1,8 +1,7 @@
 import type { RouteConfigEntry } from "@react-router/dev/routes";
 
 /**
- * The Google Drive connection and the Storage resources (PAGE-170, PAGE-188, PAGE-270).
- *
+ * The Google Drive connection and the Storage resources.
  * @param resource - Declares a server resource of the current route table.
  * @returns The sign-in endpoints of the system settings, the folder view of
  * Storage and the Storage interface `/storage-api/v1/:operation`.

@@ -64,8 +64,7 @@ function clip(text: string): string {
 }
 
 /**
- * The task board of one swarm node (PAGE-313): subtasks, helpers and violations.
- *
+ * The task board of one swarm node: subtasks, helpers and violations.
  * @remarks
  * Every method changes the board completely or not at all: a refused
  * assignment leaves every subtask and helper as it was. A subtask is handed
@@ -90,7 +89,6 @@ export class SwarmBoard {
 
   /**
    * The board of a resumed run.
-   *
    * @remarks
    * Helper sessions are never revived: a running subtask goes back on the
    * board, waiting, and every helper is free without locks. Finished
@@ -145,7 +143,6 @@ export class SwarmBoard {
 
   /**
    * Puts a new subtask on the board, or a failed one again.
-   *
    * @param request - What the main model asked for, its area already normalized.
    * @returns The waiting subtask; the coordinator hands it to a helper.
    */
@@ -189,7 +186,6 @@ export class SwarmBoard {
 
   /**
    * Records a helper that could not get a session.
-   *
    * @remarks
    * The subtask fails without counting as an attempt, so the main model can
    * hand it to another helper; the node never fails for it.

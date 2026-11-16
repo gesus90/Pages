@@ -61,13 +61,12 @@ function isSettingsSystemLoaderData(
 
 /**
  * The system settings, kept per account and rights.
- *
  * @remarks
  * The rights include the admin mode, so leaving it never shows the kept
  * administrator data; the request for the admin mode is not kept.
  */
 const SETTINGS_SYSTEM_STATE: LocalStateRouteKind<SettingsSystemLoaderData> = {
-  // 2: without the status of the former "Status" card (PAGE-282).
+  // 2: without the status of the former "Status" card.
   schemaVersion: 2,
   isPayload: isSettingsSystemLoaderData,
   isCurrent: (system) =>
@@ -79,7 +78,6 @@ const SETTINGS_SYSTEM_STATE: LocalStateRouteKind<SettingsSystemLoaderData> = {
 
 /**
  * Opens the system settings from the account's kept answer at once and asks the endpoint behind it.
- *
  * @remarks
  * The endpoint checks the admin permission and the admin mode again, as the
  * server loader does.

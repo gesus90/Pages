@@ -31,7 +31,6 @@ function isLoopbackHost(host: string): boolean {
 
 /**
  * Lists the external IPv4 addresses of this machine.
- *
  * @returns Addresses of the network interfaces that a smartphone in the same
  * network can reach; loopback and link-local addresses are left out.
  */
@@ -49,12 +48,10 @@ export function listExternalIpv4Addresses(): string[] {
 
 /**
  * Chooses the host the app should connect to.
- *
  * @param input - Browser host, configured listen address and machine addresses.
  * @returns A host a smartphone can use, or `null` when there is none. A
  * loopback name such as `localhost` is never returned, since it points at the
  * phone itself.
- *
  * @remarks
  * A configured listen address wins, since the endpoint only answers there.
  * Otherwise the host the browser used is taken, which is the name the

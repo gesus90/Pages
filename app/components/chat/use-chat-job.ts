@@ -71,7 +71,6 @@ function shownJob(visible: ChatLiveJob | null): ChatLiveJob | null {
 
 /**
  * Reads the journal of the followed job, page after page, then at an interval.
- *
  * @param following - The job to read, or `null` to read nothing.
  * @param setLive - Receives each applied read.
  * @param reload - Reads the conversation again after a stored answer or the end.
@@ -109,8 +108,7 @@ function useJournalReads(
 }
 
 /**
- * Follows the server-side Pica job of the open conversation (PAGE-68).
- *
+ * Follows the server-side Pica job of the open conversation.
  * @remarks
  * The job runs on the server; the panel only reads its journal after the last
  * applied entry, so leaving and returning shows the current state without a

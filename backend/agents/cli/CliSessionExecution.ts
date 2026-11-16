@@ -137,7 +137,6 @@ interface SessionDependencies {
 
 /**
  * Starts the CLI sessions of plan nodes in their authorized workspaces.
- *
  * @remarks
  * Every session uses the credential folder of its connection, the exact model
  * and effort of the agent and only managed switches. The local sign-in is
@@ -168,7 +167,6 @@ export class CliSessionExecution implements PlanSessionRunner {
 
   /**
    * Starts the session of one node; the returned session is already running.
-   *
    * @throws {AgentError} `plan_run_option_unsupported` or
    * `codex_permission_mode_required` for options the runner cannot enforce,
    * `cli_not_logged_in` without a confirmed sign-in, the missing-adapter code
@@ -364,7 +362,6 @@ export class CliSessionExecution implements PlanSessionRunner {
 
   /**
    * Starts the ACP adapter of the runner and its session in the stored mode.
-   *
    * @remarks
    * "Nur Lesen" also gets its working copy read-only in the namespace. YOLO
    * runs the runner without an approval step, so only the namespace keeps it
@@ -545,7 +542,6 @@ export class CliSessionExecution implements PlanSessionRunner {
 
   /**
    * Wraps a worker in the namespace, or refuses it where the namespace is required.
-   *
    * @remarks
    * An explicitly authorized full-environment plan node and the YOLO chat
    * of an agent employee run on the host itself. Every other session keeps
@@ -578,7 +574,6 @@ export class CliSessionExecution implements PlanSessionRunner {
 
   /**
    * Starts the worker in a limited unit of the service manager.
-   *
    * @remarks
    * Pica's conversations never start without one. A plan node starts
    * without it, as before, where the host has no service manager for the

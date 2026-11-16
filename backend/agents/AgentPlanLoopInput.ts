@@ -41,7 +41,6 @@ export function readPlanLoopValue(input: unknown): AgentPlanLoopValue {
 
 /**
  * Narrows the saved end condition of a loop.
- *
  * @param input - The stored or submitted condition, or `null` for none.
  * @throws {AgentError} `plan_loop_invalid` for an unsupported operator, an
  * unsupported path or a malformed value, also while the condition is off.
@@ -72,7 +71,6 @@ export function readPlanLoopCondition(
 
 /**
  * Narrows the later checks of a while loop.
- *
  * @param input - The stored or submitted setting, or `null` for none.
  * @throws {AgentError} `plan_loop_invalid` for an unknown field, a too long
  * member id or an unsupported path. An empty member reads the bound boolean again.

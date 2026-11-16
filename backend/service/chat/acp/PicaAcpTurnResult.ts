@@ -39,7 +39,6 @@ export function turnBeganEvent(
 
 /**
  * Requires a turn the runner completed.
- *
  * @throws {PicaAcpJobError} With the code of the runner, `timeout` or `providerFailed`.
  */
 export function requireCompleted(result: PlanSessionTurn): void {
@@ -54,7 +53,6 @@ export function requireCompleted(result: PlanSessionTurn): void {
 
 /**
  * Reads the answer of a turn as the conversation stores it.
- *
  * @throws {PicaAcpJobError} `invalidOutput` for an empty or too long answer.
  */
 export function readAnswer(output: string): string {
@@ -105,7 +103,6 @@ export function picaAcpOutcome(
 
 /**
  * Sums the tokens of the turns of a job; a turn without a report makes the sum partial.
- *
  * @param usage - Context and cost as the adapter reported them last.
  * @param turns - The tokens of every turn, `null` for a turn without a report.
  * @param isAlwaysPartial - The runner never reports every token of a turn.

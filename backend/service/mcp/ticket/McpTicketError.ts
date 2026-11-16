@@ -59,7 +59,6 @@ export class McpTicketError extends Error {
 
   /**
    * Creates the error.
-   *
    * @param code - The error code of the interface; it decides the HTTP status.
    */
   public constructor(code: McpTicketErrorCode) {
@@ -80,11 +79,9 @@ function codeOfWorkItemError(code: WorkItemErrorCode): McpTicketErrorCode {
 
 /**
  * Translates a failure of the ticket services into the error of the interface.
- *
  * @param error - Whatever a service threw.
  * @returns The interface error, or `null` for a failure that is not the
  * client's doing and stays an internal error.
- *
  * @remarks
  * A missing right is `forbidden`; a ticket or project the account cannot see
  * is `not_found`, exactly like one that does not exist.

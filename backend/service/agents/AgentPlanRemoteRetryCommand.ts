@@ -8,7 +8,6 @@ import type { RunnerExecution } from "@/definition/RunnerExecution";
 
 /**
  * A retry names what it really is: the same native session, or a new remote one-shot.
- *
  * @remarks
  * Only a runner that resumed the recorded session may claim to continue the
  * conversation. Otherwise the notice says the earlier conversation is gone. A

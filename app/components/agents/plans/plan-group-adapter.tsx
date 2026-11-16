@@ -9,7 +9,6 @@ import type { AcpProviderId } from "@/definition/AgentConfiguration";
 
 /**
  * Names the ACP class in text; a neutral group also carries a distinct symbol.
- *
  * @param adapter - The class of the first member; `null` for a neutral group.
  */
 export function PlanGroupAdapterBadge({

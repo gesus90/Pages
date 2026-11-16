@@ -99,8 +99,7 @@ function useTerminalInput(
 }
 
 /**
- * The input line of the Pages terminal: `❯`, a block cursor and the hint below (PAGE-284).
- *
+ * The input line of the Pages terminal: `❯`, a block cursor and the hint below.
  * @remarks
  * Enter sends, Shift+Enter starts a new line, and pasted lines stay one
  * input. Arrow up and down bring back the own inputs of this console. Strg+C

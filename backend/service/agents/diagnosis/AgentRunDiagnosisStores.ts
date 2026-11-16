@@ -11,7 +11,7 @@ import type { Database } from "@/backend/database/Database";
 import type { PlanRunReadDependencies } from "../AgentPlanRunReader";
 import type { RunStarterDirectory } from "./AgentPlanRunTeamReader";
 
-/** The tables the diagnosis of runs reads and writes (PAGE-307). */
+/** The tables the diagnosis of runs reads and writes. */
 export interface AgentRunDiagnosisStores {
   readonly failures: AgentRunFailureRepository;
   readonly logs: AgentRunLogRepository;
@@ -21,7 +21,6 @@ export interface AgentRunDiagnosisStores {
 
 /**
  * Opens the diagnosis tables on a database.
- *
  * @param database - The instance database.
  */
 export function createAgentRunDiagnosisStores(
@@ -42,7 +41,6 @@ export const UNNAMED_STARTERS: RunStarterDirectory = {
 
 /**
  * Builds the team reader and the diagnosis over the dependencies of the plan service.
- *
  * @param dependencies - The read dependencies of the plan service.
  * @param parts - Who names starters and where the diagnosis keeps its tables.
  */

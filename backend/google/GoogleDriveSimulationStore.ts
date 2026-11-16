@@ -62,8 +62,7 @@ function compareFiles(left: SimulatedFile, right: SimulatedFile): number {
 }
 
 /**
- * The in-memory content of the simulated Google Drive (PAGE-270).
- *
+ * The in-memory content of the simulated Google Drive.
  * @remarks
  * It follows Drive's rules that matter to Pages: names need not be unique in
  * a folder, an entry in the trash takes its descendants with it, a restored
@@ -88,7 +87,6 @@ export class GoogleDriveSimulationStore {
 
   /**
    * Finds an entry; `root` is the alias of the My Drive root.
-   *
    * @param id - Drive identifier or `root`.
    * @returns The entry, or `null`.
    */
@@ -98,7 +96,6 @@ export class GoogleDriveSimulationStore {
 
   /**
    * Tells whether an entry or one of its ancestors is in the trash.
-   *
    * @param file - The entry.
    * @returns Whether Drive reports it as `trashed`.
    */
@@ -120,7 +117,6 @@ export class GoogleDriveSimulationStore {
 
   /**
    * Tells whether an entry lies below a folder.
-   *
    * @param file - The entry.
    * @param ancestorId - The folder.
    * @returns Whether the folder is the entry itself or one of its ancestors.
@@ -143,7 +139,6 @@ export class GoogleDriveSimulationStore {
 
   /**
    * Searches entries, folders first and by natural name order.
-   *
    * @param clauses - The conditions of the query.
    * @param driveId - Restricts the search to one shared drive.
    * @returns The matching entries; roots are never part of a search.
@@ -175,7 +170,6 @@ export class GoogleDriveSimulationStore {
 
   /**
    * Lists the shared drives.
-   *
    * @returns Every shared drive of the simulated account.
    */
   public listDrives(): readonly SimulatedDrive[] {
@@ -184,7 +178,6 @@ export class GoogleDriveSimulationStore {
 
   /**
    * Finds a shared drive.
-   *
    * @param id - Its identifier.
    * @returns The shared drive, or `null`.
    */
@@ -194,7 +187,6 @@ export class GoogleDriveSimulationStore {
 
   /**
    * Adds an entry below a folder.
-   *
    * @param input - Name, type, parent and bytes.
    * @returns The new entry.
    */

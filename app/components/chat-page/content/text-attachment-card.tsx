@@ -14,7 +14,7 @@ export function TextAttachmentCard({
   readonly origin: CardOrigin;
 }): React.ReactElement | null {
   const kind = textAttachmentKind(attachment);
-  // A file of an agent whose 72 hours ended keeps only its placeholder (PAGE-382).
+  // A file of an agent whose 72 hours ended keeps only its placeholder.
   if (attachment.expiredAt !== undefined)
     return <ExpiredAttachment attachment={attachment} />;
   const shared = {

@@ -40,7 +40,6 @@ export type AgentPlanRecoveryMode = "live" | "native_resume" | "new_session";
 
 /**
  * How a run came from an earlier run of the same plan.
- *
  * @remarks
  * A restart begins at the start of the plan. A resume takes over the verified
  * successful results of the earlier run unchanged and executes only its open,
@@ -160,7 +159,6 @@ export type AgentPlanRecoveryCommand = RecoveryCommandIdentity &
         readonly reviewedStepIds?: readonly string[];
         /**
          * The executor confirmed continuing the run at its failure point in one decision.
-         *
          * @remarks
          * It stands for every started node the resume runs again, in place of
          * single reviews: each of them gets the recovery notice to inspect its

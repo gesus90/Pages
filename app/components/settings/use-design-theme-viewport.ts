@@ -18,7 +18,6 @@ export interface DesignThemeViewport {
 
 /**
  * The height that shows four complete cards and a little of the next row.
- *
  * @remarks
  * The fifth card starts the next row in the two-column and in the
  * one-column layout, so its distance from the top of the grid is the height
@@ -46,7 +45,6 @@ function measureVisibleHeight(
 
 /**
  * Scrolls only the picker, never the page, until the chosen card is complete.
- *
  * @remarks
  * A card in a later row ends one row gap and the peek above the lower edge,
  * so the fade of the edge does not cover it; the last row ends at the edge.
@@ -74,10 +72,8 @@ function revealChosenCard(viewport: HTMLElement, grid: HTMLElement): void {
 
 /**
  * Limits the design picker to four complete cards and shows the chosen one.
- *
  * @param cardCount - Number of offered designs; up to four need no scroll area.
  * @returns Refs for the grid and the native scroll viewport, and the height.
- *
  * @remarks
  * The height follows the real cards: it is measured again whenever the grid
  * changes its size, for example at the breakpoint of the second column or

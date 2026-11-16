@@ -22,7 +22,6 @@ export interface SuggestionUpdate<Item> {
 /**
  * Keeps the state of one suggestion menu between the editor plugin, which
  * reports typing, and the React menu, which renders it.
- *
  * @remarks
  * Keys are routed here while the menu is open: arrows move the highlight,
  * Enter and Tab choose, Escape closes. Everything else goes on to the
@@ -36,7 +35,6 @@ export class SuggestionStore<Item> {
 
   /**
    * Creates a store.
-   *
    * @param isEnabled - Tells whether an item can be chosen.
    */
   public constructor(isEnabled: (item: Item) => boolean = () => true) {
@@ -45,7 +43,6 @@ export class SuggestionStore<Item> {
 
   /**
    * Registers a listener for changes, as `useSyncExternalStore` expects.
-   *
    * @param listener - Called after every change.
    * @returns A function that removes the listener.
    */
@@ -59,7 +56,6 @@ export class SuggestionStore<Item> {
 
   /**
    * Reads the current state.
-   *
    * @returns The open menu, or `null` while it is closed.
    */
   public readonly getSnapshot = (): SuggestionSnapshot<Item> | null =>
@@ -67,7 +63,6 @@ export class SuggestionStore<Item> {
 
   /**
    * Opens the menu or shows new items.
-   *
    * @param update - What the plugin reports.
    */
   public show(update: SuggestionUpdate<Item>): void {
@@ -93,7 +88,6 @@ export class SuggestionStore<Item> {
 
   /**
    * Chooses an item, as a click or Enter does.
-   *
    * @param index - Position of the item.
    * @returns Whether an enabled item was chosen.
    */
@@ -111,7 +105,6 @@ export class SuggestionStore<Item> {
 
   /**
    * Highlights an item.
-   *
    * @param index - Position of the item.
    */
   public highlight(index: number): void {
@@ -122,7 +115,6 @@ export class SuggestionStore<Item> {
 
   /**
    * Handles a key while the menu is open.
-   *
    * @param event - The key event of the editor.
    * @returns Whether the menu used the key.
    */

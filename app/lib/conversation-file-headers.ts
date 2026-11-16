@@ -20,7 +20,6 @@ export interface ConversationFileHead {
 
 /**
  * Reads the `Range` header of a request for one byte range.
- *
  * @param header - The header value, or `null` without one.
  * @param size - The size of the whole file.
  * @returns The first and the last byte, or `null` for no or an unusable range.
@@ -44,7 +43,6 @@ export function readByteRange(
 
 /**
  * The headers of a file of a conversation, for the web and for Pica Mobile.
- *
  * @param file - The opened original or preview image.
  * @param isDownload - Sends the file as a download with its name.
  * @returns Status 206 with the range for a part, else 200; byte ranges are

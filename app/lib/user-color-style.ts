@@ -2,7 +2,6 @@ import type { CSSProperties } from "react";
 
 /**
  * Inline style of an element tinted in a color a user chose.
- *
  * @remarks
  * The color is handed to the `pages-user-color-text` class as a custom
  * property, so the stylesheet decides how readable text in that color is in
@@ -15,7 +14,6 @@ export interface UserColorStyle extends CSSProperties {
 
 /**
  * Builds the style of an element whose text is drawn in a user-chosen color.
- *
  * @param color - The color as stored, `#rrggbb`.
  * @returns The style to combine with the `pages-user-color-text` class.
  */
@@ -25,7 +23,6 @@ export function createUserTextColorStyle(color: string): UserColorStyle {
 
 /**
  * Builds the style of a chip that shows a user-chosen color as a tint.
- *
  * @param color - The color as stored, `#rrggbb`.
  * @param tintAlpha - Two hex digits for the opacity of the background tint.
  * @param lightText - Text color for the light theme instead of the color
@@ -45,8 +42,7 @@ export function createUserColorStyle(
 }
 
 /**
- * Builds the style of the ring a person color draws around an avatar
- * (PAGE-266).
+ * Builds the style of the ring a person color draws around an avatar.
  *
  * @param color - The color as stored, `#rrggbb`.
  * @returns The style to combine with the `pages-user-color-ring` class.

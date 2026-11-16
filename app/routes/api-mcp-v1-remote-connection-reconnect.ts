@@ -25,8 +25,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpWorkspaceHandlers {
 }
 
 /**
- * Starts a new series of connection attempts (`POST /api/mcp/v1/remote-connections/{id}/reconnect`), PAGE-245 interface 15.
- *
+ * Starts a new series of connection attempts (`POST /api/mcp/v1/remote-connections/{id}/reconnect`).
  * @remarks
  * Only the device token of a paired machine admits a request. The account
  * needs the right to use the connection.

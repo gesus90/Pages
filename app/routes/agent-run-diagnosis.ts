@@ -62,9 +62,8 @@ async function readView(
 }
 
 /**
- * Answers the run view (PAGE-307): runs of all visible plans, the failure
+ * Answers the run view: runs of all visible plans, the failure
  * overview, one run with its timeline and logs.
- *
  * @remarks
  * The same service and rights as the Pages tools; reading never controls a run.
  */

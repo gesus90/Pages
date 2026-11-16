@@ -43,8 +43,7 @@ function combine(
 
 /**
  * Loads the stored history of the opened conversation with a person or of a
- * group page by page, the newest first (PAGE-275).
- *
+ * group page by page, the newest first.
  * @param conversationId - The stored conversation of the opened entry;
  * `null` for an agent or before the first message.
  * @param stored - The newest page of its history the page read, oldest first.

@@ -29,14 +29,12 @@ function messageElement(
 }
 
 /**
- * Scrolls the history to the message a "Zur Nachricht" link names (PAGE-393)
+ * Scrolls the history to the message a "Zur Nachricht" link names
  * and marks it for a moment.
- *
  * @remarks
  * A message outside the loaded part makes the history load older pages, at
  * most {@link MAXIMUM_OLDER_PAGES}; a message that is not found (deleted, or
  * older than that) leaves the history at its end.
- *
  * @param viewport - The scroll area of the history.
  * @param focus - The message ID of the link, the IDs shown and the older pages.
  */

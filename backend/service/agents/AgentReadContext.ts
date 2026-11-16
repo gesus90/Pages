@@ -22,7 +22,6 @@ export interface AgentReadDependencies {
 /**
  * Resolves the account of a verified credential anew and binds the ticket
  * services to it.
- *
  * @param dependencies - The database, the account lookup and the agent surface.
  * @param identity - The verified owner of the call.
  * @returns The ticket and project services for this one call.
@@ -44,7 +43,6 @@ export async function createAgentReadContext(
 
 /**
  * Wraps a read result in the version-one envelope within the response budget.
- *
  * @param result - What the read produced.
  * @returns The envelope.
  * @throws {AgentOperationError} `PAYLOAD_TOO_LARGE` when the serialized response exceeds the limit.

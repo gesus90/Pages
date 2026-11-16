@@ -59,7 +59,6 @@ function withoutTrailingDot(text: string): string {
 
 /**
  * Builds the formatter of the calendar.
- *
  * @param language - The language of the interface, such as `de`.
  * @param timeZone - The account's zone all instants are shown in.
  * @param allDayLabel - The text of an all-day entry.

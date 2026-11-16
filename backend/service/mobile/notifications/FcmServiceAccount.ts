@@ -178,14 +178,12 @@ function isOpenToOthers(mode: number): boolean {
 
 /**
  * Reads and validates a Google service-account key file for FCM.
- *
  * @remarks
  * Synchronous, meant for start-up. It never throws and never logs file content
  * or key material: a failure logs one warning with a short `reason` code. A key
  * file whose `token_uri` is not the fixed Google token endpoint is refused, so
  * the signed assertion cannot be sent elsewhere. A file that other users on a
  * POSIX system can access still loads, with a `file_permissions_open` warning.
- *
  * @param filePath - Path of the service-account JSON key file.
  * @returns The account, or `null` when the file is missing, unreadable, not a
  * service-account key, or holds no RSA private key.

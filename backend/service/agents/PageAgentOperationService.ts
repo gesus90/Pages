@@ -97,7 +97,6 @@ function toModelEntry(
 
 /**
  * Wraps a read of agents in the envelope within the response budget.
- *
  * @remarks
  * An agent carries an instruction of up to 200,000 characters, so a full page
  * of them can exceed the budget; the client asks for fewer with `limit`.
@@ -119,7 +118,6 @@ function respond(
 
 /**
  * Reads retained user definitions and direct connection models; definition writes are retired.
- *
  * @remarks
  * Every call runs under the rules of the agent management: it decides which
  * agents a person sees, which models they may give one and whether a share
@@ -137,7 +135,6 @@ export class PageAgentOperationService {
 
   /**
    * Handles an agent operation, returning `null` when another service owns the name.
-   *
    * @param identity - The verified identity of the call.
    * @param operation - The operation name as received.
    * @param input - The raw parameters.

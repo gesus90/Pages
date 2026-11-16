@@ -13,7 +13,6 @@ interface GitHubProjectHeaderProps {
 
 /**
  * Chooses the repository label shown in the project header.
- *
  * @param integration - Sanitized integration settings.
  * @returns The repository name, falling back to the raw address.
  */

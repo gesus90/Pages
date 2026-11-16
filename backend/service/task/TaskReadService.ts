@@ -31,7 +31,6 @@ export interface WorkItemsOverviewScope {
 
 /**
  * Builds a stable cache key for a work item query.
- *
  * @param options - Query options as passed by the caller.
  * @param effectiveProjectIds - Project ids already intersected with actor access.
  */
@@ -58,7 +57,6 @@ export class TaskReadService {
 
   /**
    * Creates a read service.
-   *
    * @param taskRepository - Task persistence boundary.
    * @param access - Verifier of project access.
    * @param cache - Shared server cache.
@@ -127,7 +125,6 @@ export class TaskReadService {
 
   /**
    * Returns eligible assignees for several projects with one query.
-   *
    * @remarks
    * Callers must only pass project ids the actor may access (loaders pass
    * their already filtered project list).

@@ -46,7 +46,6 @@ export interface AgentPlanningServices {
 
 /**
  * Wires the ticket and milestone operations around one transaction runner.
- *
  * @param dependencies - The database, the account lookup and what reacts to a commit.
  * @returns Ticket writes, milestone writes and the reads they depend on.
  */

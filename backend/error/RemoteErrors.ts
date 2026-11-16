@@ -32,7 +32,6 @@ const REMOTE_ERROR_STATUS: Partial<Record<RemoteErrorCode, number>> = {
 
 /**
  * A refused or failed remote action with a stable code.
- *
  * @remarks
  * The message is the code itself, so neither a secret nor native SSH output
  * can reach a log or the browser through it.

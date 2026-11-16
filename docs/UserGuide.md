@@ -51,8 +51,8 @@ removed, while its tickets and their assignments remain. There is no automatic
 purge. Permanent deletion is a separate administrator action in Pages.
 
 The agent tools `delete_ticket` and `delete_milestone` mean archiving.
-They follow the current explicit deletion request without a typed confirmation word
-(PAGE-322); rights and target visibility are still checked server-side.
+They follow the current explicit deletion request without a typed confirmation word;
+rights and target visibility are still checked server-side.
 Every call, including an `operationId` replay, rechecks the account, target
 visibility and archive rights. `tools/list` advertises operations and proves no
 right on a target. Visible unauthorized targets return `FORBIDDEN`; hidden or
@@ -60,7 +60,7 @@ missing targets return `NOT_FOUND`. Rejected calls create no archive history,
 project activity or operation key. Identical authorized repeats return the stored
 result without writing again; changed input returns `CONFLICT`.
 
-### Design themes (PAGE-36)
+### Design themes
 
 A design theme changes the colors and surfaces of the whole interface for one
 user. Every user chooses theirs in **Settings → Personal → Appearance**; the
@@ -70,13 +70,13 @@ separate setting: **Light**, **Dark** and **System** above the theme cards pick
 the palette of the chosen theme. The cards show four complete designs and a
 little of the next row; with more than four designs the list scrolls inside the
 picker with the usual fades and opens with the chosen design in view. Pages
-ships five themes, all built in and not removable: `standard`, which looks as Pages always did, `arctic-ice`
-(PAGE-129), a maritime ice-glass design with one white-and-blue palette for
+ships five themes, all built in and not removable: `standard`, which looks as Pages always did, `arctic-ice`,
+a maritime ice-glass design with one white-and-blue palette for
 light and one deep polar-sea palette for dark. Arctic Ice is one card with one
 identifier; under **System** it follows the device color scheme, including
 changes while Pages is open. Its only texture is a static, barely visible wave
 pattern on the permanent sidebar (a gradient, no image, no blur, no animation);
-content surfaces, tables and fields stay plain. `jungle-botanical` (PAGE-149)
+content surfaces, tables and fields stay plain. `jungle-botanical`
 is one additional card with light botanical and dark forest palettes, selected
 by the same Light/Dark/System control. Its own tropical leaf silhouettes stay
 in desktop and mobile navigation; content cards remain opaque and plain.
@@ -84,12 +84,12 @@ Navigation has separate contrast roles, including its selection and focus
 colors. Botanical strengthens field edges and caps the lightness of user-colored
 text on light surfaces without changing the stored color or its hue. Status,
 priority, workflow and plan colors and colors that users picked keep their
-meaning in every theme. `neural-rgb` (PAGE-150) is one card with light graphite-white
+meaning in every theme. `neural-rgb` is one card with light graphite-white
 and dark graphite/navy palettes. Cyan actions, quiet violet selection edges and
 static circuit traces in desktop and mobile navigation follow the same color
 mode. Its opaque content cards carry only a subtle edge; the four dashboard
 metric icons use decorative cyan, violet, magenta and blue roles. Fields and
-selection have accessible contours. `koi-garden` (PAGE-288) is one card with a
+selection have accessible contours. `koi-garden` is one card with a
 lilac morning palette for light and a moonlit palette for dark. An impressionist
 painting of a koi pond lies fixed behind the content of every page of the
 signed-in frame, washed in an arc around the sidebar edge so that headings near

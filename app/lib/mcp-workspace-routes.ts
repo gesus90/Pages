@@ -1,6 +1,6 @@
 import type { RouteConfigEntry } from "@react-router/dev/routes";
 
-/** The workspace and remote connection API of the stand-alone Pages MCP program, admitted by the device token (PAGE-245). */
+/** The workspace and remote connection API of the stand-alone Pages MCP program, admitted by the device token. */
 export function mcpWorkspaceRoutes(routes: {
   readonly resource: (path: string, file: string) => RouteConfigEntry;
 }): RouteConfigEntry[] {

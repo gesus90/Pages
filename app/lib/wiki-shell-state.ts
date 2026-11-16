@@ -39,7 +39,6 @@ export const WIKI_SHELL_STATE: LocalStateRouteKind<WikiShellData> = {
 
 /**
  * Reads the wiki frame of the signed-in account from its endpoint.
- *
  * @param signal - Ends the request when it is no longer needed.
  */
 export function readWikiShell(signal: AbortSignal): Promise<WikiShellData> {

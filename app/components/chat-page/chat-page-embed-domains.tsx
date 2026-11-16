@@ -20,8 +20,7 @@ interface ChatPageEmbedDomainsProps {
 
 /**
  * The domains released for embedding in one conversation, as its settings
- * list them (PAGE-298). Every member can take a release back.
- *
+ * list them. Every member can take a release back.
  * @returns The section, or `null` when the conversation is not stored yet.
  */
 export function ChatPageEmbedDomains({
@@ -91,7 +90,7 @@ export function ChatPageOpenedEmbedDomains(): React.ReactElement | null {
 /**
  * The small dialog with the released domains of the opened conversation,
  * which the entry "Eingebettete Webseiten" of the chat menu of a
- * conversation with a person opens (PAGE-298, PAGE-389).
+ * conversation with a person opens.
  */
 export function ChatPageEmbedDomainsDialog({
   isOpen,

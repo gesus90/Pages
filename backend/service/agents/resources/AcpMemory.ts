@@ -37,7 +37,6 @@ export async function readScheduledAcpMemory(
 
 /**
  * Why memory-aware admission holds a request back, or `null` when memory allows it.
- *
  * @param options - The admission options of the scheduler.
  * @param availableMemory - The last probe in MiB; `null` when unknown.
  */

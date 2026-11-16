@@ -51,7 +51,6 @@ const SETTINGS_CONNECTIONS_STATE: LocalStateRouteKind<ConnectionsData> = {
 
 /**
  * Opens the connections from the account's kept answer at once and asks the endpoint behind it.
- *
  * @remarks
  * The endpoint runs the server loader; a failed load shows the same notice
  * with its retry as before.

@@ -53,7 +53,6 @@ function sourceKind(
 
 /**
  * What a decision reads: the boolean of an agent, a parameter, a ticket or a text result.
- *
  * @param decision - The decision of the draft.
  * @returns The source with its name, or `null` while nothing is connected.
  */

@@ -12,8 +12,7 @@ interface MutableAllowance {
 }
 
 /**
- * What every running subtask may see changed during its period (PAGE-313).
- *
+ * What every running subtask may see changed during its period.
  * @remarks
  * A subtask collects the areas and locks of every helper that was active
  * at any time while it ran, its own included. So a change that another
@@ -26,7 +25,6 @@ export class SwarmAllowances {
 
   /**
    * Opens the period of a subtask.
-   *
    * @param taskId - The subtask that starts.
    * @param active - Area and locks of every helper active now, the starting one included.
    */
@@ -51,7 +49,6 @@ export class SwarmAllowances {
 
   /**
    * Closes the period of a subtask and finds its violations.
-   *
    * @returns The violations not reported before; a file changed once is
    * reported once, also when several periods saw it.
    */

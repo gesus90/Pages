@@ -1,4 +1,4 @@
-# Pica administrator operator (PAGE-180)
+# Pica administrator operator
 
 An administrator can let Pica manage Pages: accounts, roles, groups,
 departments, project members, agent connections and the instance settings, plus
@@ -158,6 +158,6 @@ lists a role-dependent catalog and marks privileged calls in the journal.
 - The connection key, a CLI account and any credential are never read or
   changed by Pica.
 - Ordinary Pica deletions (tickets, wiki pages, milestones) still run on request
-  without a confirmation line (PAGE-68); the confirmation applies to the
+  without a confirmation line; the confirmation applies to the
   administration.
 - Permanent project deletion stays MCP-only.

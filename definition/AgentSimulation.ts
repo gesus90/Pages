@@ -1,6 +1,5 @@
 /**
- * The connections of the agent simulation (PAGE-268), a development aid.
- *
+ * The connections of the agent simulation, a development aid.
  * @remarks
  * Neither is a stored connection. They exist only while the simulation is
  * switched on and never outside development: `local` runs the simulated agent
@@ -17,9 +16,8 @@ export const AGENT_SIMULATION_MODEL = "simulation";
 
 /**
  * The scenarios `PAGES_AGENT_SIMULATION_SCENARIO` selects.
- *
  * @remarks
- * `failed` lets the answer of an agent in a conversation fail (PAGE-276);
+ * `failed` lets the answer of an agent in a conversation fail;
  * `item_failed` and `runner_denied` concern plan nodes, and `slow` delays both.
  */
 export const AGENT_SIMULATION_SCENARIOS = [

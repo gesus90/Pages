@@ -20,7 +20,6 @@ const DAY_MS = 86_400_000;
 
 /**
  * Filters one log message of a run: credentials go and the text is bounded.
- *
  * @param message - The raw message.
  * @returns The safe message and whether filtering changed it.
  */

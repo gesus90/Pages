@@ -37,7 +37,6 @@ const BEGIN_SNAPSHOT =
 
 /**
  * Keeps the secret parts of the URL out of every later log text.
- *
  * @remarks
  * Nothing in this path logs the URL. This holds for a driver message that
  * ever quotes it, too.
@@ -51,7 +50,6 @@ function protectDatabaseUrl(databaseUrl: string): void {
 
 /**
  * Runs the statements of the server on a PostgreSQL connection pool.
- *
  * @remarks
  * Repositories rely on one writer: a transaction reads and writes without any
  * other change between its statements. The writer lane therefore keeps running
@@ -80,7 +78,6 @@ export class PostgresExecutor implements DatabaseEngine {
 
   /**
    * Opens the pool and proves that a connection works.
-   *
    * @param databaseUrl - The connection URL; it is never logged.
    * @returns The ready executor.
    * @throws The error of the driver or server when no connection opens, for
@@ -120,7 +117,6 @@ export class PostgresExecutor implements DatabaseEngine {
 
   /**
    * Runs one writer job: a statement or a whole transaction.
-   *
    * @param work - Receives the writer, bound to one connection.
    * @returns Whatever `work` returns.
    * @throws {DatabaseOverloadedError} When the job was refused unstarted.
@@ -154,7 +150,6 @@ export class PostgresExecutor implements DatabaseEngine {
 
   /**
    * Runs one read on a reader connection.
-   *
    * @param statement - SQL owned by a repository.
    * @param parameters - Values bound to the statement.
    * @returns The rows, as the last committed state shows them.
@@ -170,7 +165,6 @@ export class PostgresExecutor implements DatabaseEngine {
 
   /**
    * Runs several reads on one snapshot of the last committed state.
-   *
    * @param work - Receives the session; its first query begins it.
    * @returns Whatever `work` returns, after the session ended.
    * @throws {DatabaseOverloadedError} When the job was refused unstarted.

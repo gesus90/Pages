@@ -118,7 +118,7 @@ export class LocalSessionJournal {
     return records;
   }
 
-  /** Checks both the index digest and the PAGE-223 body checksum. */
+  /** Checks both the index digest and the body checksum. */
   public async body(record: LocalJournalRecord): Promise<LocalSessionMutation> {
     if (record.digest !== localJournalDigest(record))
       throw new Error("Invalid local journal digest");

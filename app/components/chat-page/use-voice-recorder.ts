@@ -40,12 +40,10 @@ function close(session: RecordingSession): void {
 }
 
 /**
- * Records from the microphone into a WAV file of 16 kHz mono (PAGE-277).
- *
+ * Records from the microphone into a WAV file of 16 kHz mono.
  * @param maximumMs - The longest recording of Pages; it stops there by itself.
  * @param onRecorded - Receives every finished recording.
  * @returns The recorder.
- *
  * @remarks
  * The samples come from the Web Audio API and are written as WAV in the
  * page, so no format is converted and no library is needed.

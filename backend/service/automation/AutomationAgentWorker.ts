@@ -34,7 +34,6 @@ export class AutomationAgentBusyError extends Error {
 
 /**
  * Starts a turn of an agent in its own automation session.
- *
  * @remarks
  * The turn runs as the agent's own account with its own rights; the creator
  * of the automation only names the person it works for. Exchangeable, so a
@@ -47,12 +46,12 @@ export interface AutomationAgentRunner {
     /** The session key of a run without a target chat: one session per automation and purpose. */
     readonly sessionKey: string;
     readonly prompt: string;
-    /** The target chat of the automation (PAGE-376), as it names it; `null` for the direct chat of its owner. */
+    /** The target chat of the automation, as it names it; `null` for the direct chat of its owner. */
     readonly chat?: string | null;
     /** The run, which makes the result posted into a chat unique. */
     readonly runKey?: string;
     /**
-     * The group a scheduled task of a chat is bound to (PAGE-392); it wins
+     * The group a scheduled task of a chat is bound to; it wins
      * over `chat`, which then stays `null`.
      */
     readonly conversationId?: string | null;
@@ -66,7 +65,7 @@ export interface AutomationAgentWorkerDependencies {
   readonly runner: AutomationAgentRunner;
   readonly now: () => Date;
   readonly tickMilliseconds?: number;
-  /** The bindings of scheduled tasks to their chats (PAGE-392); without it no automation is bound. */
+  /** The bindings of scheduled tasks to their chats; without it no automation is bound. */
   readonly chatTasks?: Pick<AgentChatTaskRepository, "find">;
 }
 
@@ -90,7 +89,7 @@ function sessionKeyOf(job: StoredAutomationAgentJob): string {
 }
 
 /**
- * Delivers the queued work of automations to agents (PAGE-297).
+ * Delivers the queued work of automations to agents.
  *
  * @remarks
  * It runs in the process that serves the agents' sessions. Each agent works
@@ -226,8 +225,8 @@ export class AutomationAgentWorker {
   }
 
   /**
-   * The chat of a delivery: the chat a scheduled task is bound to
-   * (PAGE-392), otherwise the target chat its automation names (PAGE-376).
+   * The chat of a delivery: the chat a scheduled task is bound to,
+   * otherwise the target chat its automation names.
    *
    * @remarks
    * A task of a direct chat belongs to the person of that chat, so the
@@ -246,7 +245,7 @@ export class AutomationAgentWorker {
     return { chat: await this.targetChat(job) };
   }
 
-  /** The target chat the automation of an action names (PAGE-376); `null` for every other delivery. */
+  /** The target chat the automation of an action names; `null` for every other delivery. */
   private async targetChat(
     job: StoredAutomationAgentJob,
   ): Promise<string | null> {

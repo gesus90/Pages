@@ -44,7 +44,7 @@ const TEXTS = {
 } as const;
 
 /**
- * The instruction the agent receives when its task is due (PAGE-392).
+ * The instruction the agent receives when its task is due.
  *
  * @remarks
  * A reminder asks for a reminder text that refers to the original request;

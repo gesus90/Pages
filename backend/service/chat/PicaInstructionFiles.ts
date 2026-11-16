@@ -12,7 +12,6 @@ import {
 
 /**
  * Directory of Pica's protected files, fixed by the location of the server code.
- *
  * @remarks
  * In the source tree it is `backend/service/chat/pica/`; the build copies the
  * files next to the server bundle, to `build/server/pica/`. Neither the
@@ -26,7 +25,7 @@ export const PICA_INSTRUCTION_DIRECTORY = fileURLToPath(
 /** Largest protected file; a bigger one counts as unreadable. */
 const MAXIMUM_FILE_BYTES = 64 * 1024;
 
-/** Pica's identity and rules as one chat turn reads them (PAGE-51). */
+/** Pica's identity and rules as one chat turn reads them. */
 export interface PicaInstructions {
   /** `SOUL.md`: identity, tone and style of communication. */
   readonly soul: string;
@@ -105,10 +104,8 @@ async function readOrReport(file: PicaInstructionFile): Promise<string> {
 
 /**
  * Reads Pica's protected `SOUL.md` and `AGENTS.md` for one chat turn.
- *
  * @returns Both texts, trimmed.
  * @throws {ChatError} `instructionsUnavailable` when a file is missing or unreadable.
- *
  * @remarks
  * The files are read anew for every message, so they apply in every session
  * and after every compaction. They are read from the fixed directory only, and

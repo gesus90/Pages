@@ -27,7 +27,7 @@ export const buttonVariants = cva(
           "bg-primary text-primary-foreground shadow-xs hover:bg-primary-hover",
         ghost: "bg-transparent text-foreground hover:bg-muted",
         link: "h-auto min-h-0 bg-transparent p-0 font-medium text-primary-text hover:text-primary-text-hover xl:min-h-0 xl:p-0",
-        // Primary action of the login and setup pages only (DESIGN.md §14.1).
+        // Primary action of the login and setup pages only.
         auth: "pages-auth-button h-12 w-full rounded-xl px-6 text-base text-primary-foreground sm:h-14 xl:px-6 xl:text-base",
         outline:
           "border border-border bg-surface text-foreground shadow-xs hover:bg-surface-hover",

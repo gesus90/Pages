@@ -26,7 +26,7 @@ interface ContextRound {
   readonly afterSequence: number | null;
   /**
    * The newest message the session of the chat received already, above zero
-   * for a session that knows the chat (PAGE-376); only the news follow then.
+   * for a session that knows the chat; only the news follow then.
    */
   readonly deliveredThrough: number;
 }
@@ -84,7 +84,7 @@ export class ConversationReplyContext {
     const content = await this.dependencies.content.describe(selected);
     return {
       prompt: createConversationAgentPrompt({ ...input, content }),
-      // The content of files is not laid into every round (PAGE-386): the
+      // The content of files is not laid into every round: the
       // prompt names each file in one line, and the agent reads it with
       // `anhang_lesen` when it needs it.
       attachments: [],

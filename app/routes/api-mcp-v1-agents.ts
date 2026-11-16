@@ -34,9 +34,8 @@ const HANDLERS: McpAgentHandlers = {
 };
 
 /**
- * Lists the readable agent profiles (`GET /api/mcp/v1/agents`, PAGE-308), searches agents for the administration
- * (`GET /api/mcp/v1/agents?view=administration&text=&status=active|inactive`) and creates one (`POST`), PAGE-267.
- *
+ * Lists the readable agent profiles (`GET /api/mcp/v1/agents`), searches agents for the administration
+ * (`GET /api/mcp/v1/agents?view=administration&text=&status=active|inactive`) and creates one (`POST`).
  * @remarks
  * Only the device token of a paired machine admits a request. The profile
  * list answers every account with the agents it may read: all for an

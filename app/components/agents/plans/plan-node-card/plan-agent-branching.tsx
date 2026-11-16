@@ -14,7 +14,6 @@ import type { AgentPlanStep } from "@/definition/AgentPlan";
 /**
  * The optional event input of an agent: a result sent here starts the agent
  * again in its open session, with that result as the new prompt.
- *
  * @remarks
  * The row is always there, so that the connection can be made from either
  * side. Once an event is connected, a chip names what happens.
@@ -82,7 +81,6 @@ export function PlanAgentEventIn(props: {
 /**
  * The boolean result of an agent: `true` when its closing report showed every
  * todo done and every criterion met, `false` otherwise.
- *
  * @remarks
  * A decision reads it. It is a result of its own beside the text result, so
  * its row and its port are named for what they carry.

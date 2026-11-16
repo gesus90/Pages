@@ -32,7 +32,6 @@ const STORED_TIMESTAMP_PATTERN = /^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2})$/u;
 
 /**
  * Turns a stored time into ISO-8601.
- *
  * @param text - A stored time, `YYYY-MM-DD HH:MM:SS` in UTC or already ISO.
  */
 export function toIsoTimestamp(text: string): string {

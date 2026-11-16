@@ -21,9 +21,8 @@ const FIRST_OF_SEVERAL = 0.5;
 const FURTHER_AGENT = 0.4;
 
 /**
- * The simulated decision model (PAGE-317, PAGE-379), part of the development
- * simulation of PAGE-268.
- *
+ * The simulated decision model, part of the development
+ * simulation.
  * @remarks
  * It answers where the decision model would and contacts no provider: it
  * gives the agents whose name, username or a word of their role or
@@ -40,7 +39,6 @@ export class SimulatedConversationDecision {
 
   /**
    * Answers one decision with probabilities.
-   *
    * @throws {Error} In the scenario `failed`.
    */
   public decide(material: DecisionMaterial): DecisionProbabilities {

@@ -71,7 +71,7 @@ export interface GoogleDriveStorageDependencies {
     "find" | "save" | "rename" | "remove"
   >;
   readonly now?: () => number;
-  /** Whether Drive is the in-memory simulation (PAGE-270); answers say so. */
+  /** Whether Drive is the in-memory simulation; answers say so. */
   readonly isSimulation?: boolean;
 }
 
@@ -158,9 +158,8 @@ function displayName(folder: ResolvedFolder): string {
 }
 
 /**
- * The Storage area (PAGE-188): browses the Google Drive of the instance
+ * The Storage area: browses the Google Drive of the instance
  * connection read-only and keeps the start folder of each account.
- *
  * @remarks
  * Every request takes a freshly confirmed access of the existing connection,
  * so Google decides with the rights of the bound account and the granted
@@ -177,7 +176,6 @@ export class GoogleDriveStorageService {
 
   /**
    * Creates the storage service.
-   *
    * @param dependencies - The connection, the Drive client, the start folders and the clock.
    */
   public constructor(dependencies: GoogleDriveStorageDependencies) {
@@ -191,7 +189,6 @@ export class GoogleDriveStorageService {
   /**
    * Shows one folder: an explicit target exactly, otherwise the saved start
    * folder or, without one, My Drive.
-   *
    * @param request - Account, target, page and whether only folders count.
    * @returns The folder with path and content, or why it is not shown.
    */
@@ -236,7 +233,6 @@ export class GoogleDriveStorageService {
 
   /**
    * Reads the storage quota of the connected Google account.
-   *
    * @returns Use and limit as Drive `about.get` names them, or why not.
    */
   public async readQuota(): Promise<StorageQuotaResponse> {
@@ -269,11 +265,9 @@ export class GoogleDriveStorageService {
 
   /**
    * Saves a folder as start folder of an account after Drive confirmed it.
-   *
    * @param userId - The account.
    * @param folderId - The Drive identifier the person chose.
    * @returns The saved start folder, or why it was not saved.
-   *
    * @remarks
    * Name and path come from Drive, never from the browser, and the folder is
    * stored by its identifier together with the bound Google account.
@@ -327,7 +321,6 @@ export class GoogleDriveStorageService {
 
   /**
    * Removes the start folder of an account; Storage then opens My Drive.
-   *
    * @param userId - The account.
    * @returns The empty start folder.
    */
@@ -361,7 +354,6 @@ export class GoogleDriveStorageService {
 
   /**
    * Opens the saved start folder by its identifier.
-   *
    * @remarks
    * A folder Drive no longer shows, has in the trash or refuses is reported
    * for a new choice instead of opening another folder. A rename keeps the

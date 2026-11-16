@@ -140,7 +140,6 @@ export class AgentRunCredentialRepository {
 
   /**
    * Ends every credential of one node, or of every node of a run.
-   *
    * @returns The number of credentials that were still valid.
    */
   public async revoke(

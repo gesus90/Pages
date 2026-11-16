@@ -8,9 +8,8 @@ import { logCaughtError } from "@/backend/logging/Logger";
 import type { Route } from "./+types/conversation-link-image";
 
 /**
- * Sends the preview image the server stored for a linked page (PAGE-298):
+ * Sends the preview image the server stored for a linked page:
  * `GET /chat/link-image?url=<url>`.
- *
  * @remarks
  * The image comes from the file store of Pages, so no browser contacts the
  * linked site for a link card. It is sent to signed-in accounts only and

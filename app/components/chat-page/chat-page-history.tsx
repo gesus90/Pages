@@ -31,7 +31,7 @@ import type {
 } from "@/definition/VirtualChat";
 import type { LiveAnswerView, LiveDelivery } from "./live/live-answer-state";
 
-/** What the history shows of the answers agents are writing (PAGE-381). */
+/** What the history shows of the answers agents are writing. */
 export interface HistoryLive {
   /** The answers written now, after the stored messages. */
   readonly answers: readonly LiveAnswerView[];
@@ -76,7 +76,7 @@ function groupRuns(messages: readonly VirtualChatMessage[]): MessageRun[] {
 
 /**
  * The author of a message from what the conversation tells, for one outside
- * the person's list (PAGE-278).
+ * the person's list.
  */
 function authorOf(message: VirtualChatMessage): VirtualParticipant | null {
   if (!message.author || message.authorId === null) return null;
@@ -115,7 +115,7 @@ function liveAuthor(
   };
 }
 
-/** A stretch of the history: messages in runs, or one system line between them (PAGE-380). */
+/** A stretch of the history: messages in runs, or one system line between them. */
 type HistorySegment =
   | { readonly kind: "messages"; readonly messages: VirtualChatMessage[] }
   | { readonly kind: "system"; readonly message: VirtualChatMessage };
@@ -138,7 +138,7 @@ function historySegments(
 }
 
 /**
- * A system line every member sees (PAGE-380), such as "Igor hat Ed in diesem
+ * A system line every member sees, such as "Igor hat Ed in diesem
  * Chat auf Claude Opus 5.5 · hoch umgestellt": centered between rules.
  */
 function SystemLine({
@@ -164,9 +164,9 @@ const FOCUS_MARK =
   "rounded-lg transition-shadow data-[message-focus=true]:ring-2 data-[message-focus=true]:ring-primary data-[message-focus=true]:ring-offset-4";
 
 /**
- * The hint why an agent did not answer (PAGE-276) in a bubble, or the voice
+ * The hint why an agent did not answer in a bubble, or the voice
  * message as a row of the sound grid outside the bubbles, so that it lines
- * up with the other voice messages (PAGE-388).
+ * up with the other voice messages.
  */
 function AnswerNotice({
   message,
@@ -232,11 +232,11 @@ interface AnswerBubbleProps {
   readonly author: VirtualParticipant;
   /** Shows name and role as first line, for the first answer of a run. */
   readonly hasName: boolean;
-  /** The live answer this stored message ended, for its thoughts and tool times (PAGE-381). */
+  /** The live answer this stored message ended, for its thoughts and tool times. */
   readonly live?: LiveAnswerView;
 }
 
-/** A bubble in the author's color; an interim message is quieter (PAGE-391). */
+/** A bubble in the author's color; an interim message is quieter. */
 function Bubble({
   author,
   isQuiet = false,
@@ -265,7 +265,7 @@ function Bubble({
 }
 
 /**
- * The tools an answer used, folded into one entry under it (PAGE-381), such
+ * The tools an answer used, folded into one entry under it, such
  * as "4 Werkzeuge · 3,1 s"; opened, every call with its result and time.
  */
 function ToolUses({
@@ -312,7 +312,7 @@ function ToolUses({
   );
 }
 
-/** The text of an answer in bubbles; an interim message quieter (PAGE-391). */
+/** The text of an answer in bubbles; an interim message quieter. */
 function PlainAnswer({
   message,
   author,
@@ -356,7 +356,7 @@ function PlainAnswer({
 
 /**
  * One answer: its text in bubbles in the author's color, its cards between
- * and below them (PAGE-298), and the used tools at its foot.
+ * and below them, and the used tools at its foot.
  */
 function AnswerBubble({
   message,
@@ -451,7 +451,7 @@ function AnswerRun({
   );
 }
 
-/** The older pages of a stored history, loaded on request (PAGE-275). */
+/** The older pages of a stored history, loaded on request. */
 interface OlderMessages {
   readonly hasMore: boolean;
   readonly isLoading: boolean;
@@ -497,16 +497,16 @@ interface ChatPageHistoryProps {
   readonly older?: OlderMessages;
   /** Who is answering; the conversation's name by default. */
   readonly answeringNames?: readonly string[];
-  /** The answers agents are writing now and what they told (PAGE-381). */
+  /** The answers agents are writing now and what they told. */
   readonly live?: HistoryLive;
-  /** The message a "Zur Nachricht" link points to (PAGE-393); shown and marked once. */
+  /** The message a "Zur Nachricht" link points to; shown and marked once. */
   readonly focusMessageId?: string;
 }
 
 /**
  * The scrollable history of the opened group or participant: own messages
  * at the right, answers at the left in bubbles in the participant's color.
- * A stored history loads older pages from its head (PAGE-275).
+ * A stored history loads older pages from its head.
  */
 export function ChatPageHistory({
   messages: allMessages,
@@ -520,7 +520,7 @@ export function ChatPageHistory({
 }: ChatPageHistoryProps): React.ReactElement {
   const { t } = useTranslation();
   const viewport = useRef<HTMLElement>(null);
-  // A stored round_limit notice of PAGE-337 never shows: the talk just goes on (PAGE-349).
+  // A stored round_limit notice never shows: the talk just goes on.
   const messages = allMessages.filter(
     (message) => message.notice !== "round_limit",
   );

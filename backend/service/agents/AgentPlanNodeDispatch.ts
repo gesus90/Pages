@@ -28,7 +28,6 @@ export interface PlanNodeDispatchContext {
 
 /**
  * Runs a script as a process, lets a stack hand over its next entry or asks the model of a decision.
- *
  * @returns The outcome, or `null` for every other node.
  */
 export function dispatchPlanLocalNode(
@@ -89,8 +88,7 @@ function dispatchPlanDecision(
 }
 
 /**
- * A swarm runs its main model and helpers in sessions of their own (PAGE-313).
- *
+ * A swarm runs its main model and helpers in sessions of their own.
  * @remarks
  * Its lanes and board are written into the node result after every change,
  * through the engine's write queue, so the run view shows them live.

@@ -9,7 +9,6 @@ export class TicketDepartmentPolicy {
 
   /**
    * Tests whether the account may put a ticket into the department.
-   *
    * @remarks
    * Own departments always qualify, even without a department-bound role.
    * Managers additionally select the departments they administer, and a

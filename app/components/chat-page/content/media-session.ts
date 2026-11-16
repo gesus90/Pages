@@ -1,8 +1,7 @@
 /**
- * The one playback of the chat page (PAGE-384): which video or sound plays,
+ * The one playback of the chat page: which video or sound plays,
  * where each one stopped, and the hand-over between the views of the same
  * file.
- *
  * @remarks
  * A video can be shown at once in its card, in the split view and in the
  * full screen; each view has its own element. The store keeps the position
@@ -43,7 +42,6 @@ let mounted = 0;
 
 /**
  * Registers the element of a player.
- *
  * @param attachmentId - The file it plays.
  * @param element - Reads the element.
  */
@@ -94,7 +92,6 @@ export function releasePlayback(handle: MediaHandle): void {
 /**
  * A new view takes the file over: the other views of the same file pause,
  * and the new one starts at their position, playing when they played.
- *
  * @param handle - The new view.
  */
 export function takeOver(handle: MediaHandle): MediaHandover {
@@ -117,7 +114,6 @@ export function takeOver(handle: MediaHandle): MediaHandover {
 /**
  * Removes a view. When it played, the newest remaining view of the same file
  * that is still on the page continues at its position.
- *
  * @param handle - The view that closes.
  * @param schedule - Runs the hand-back after the closing view is gone; tests
  * pass a direct one.

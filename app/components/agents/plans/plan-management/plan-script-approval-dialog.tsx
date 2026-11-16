@@ -16,8 +16,7 @@ function pendingScriptNames(plan: AgentPlanView): readonly string[] {
 }
 
 /**
- * An administrator approves the current content of the plan's script steps (PAGE-329, part C).
- *
+ * An administrator approves the current content of the plan's script steps.
  * @remarks
  * The approval is bound to the hash of script, interpreter profile and
  * workspace. Team members with the right to run may start the plan until a

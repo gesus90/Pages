@@ -40,7 +40,6 @@ interface McpUserListWindow {
 
 /**
  * Cuts one page out of a list that is already filtered by the policy.
- *
  * @param entries - The visible entries only, so `total` counts nothing hidden.
  * @param window - The list, the query and the session.
  * @returns The page and an opaque cursor bound to the actor, the list, the
@@ -82,7 +81,6 @@ export function matchesMcpUserText(
 
 /**
  * Shows an account of the user management.
- *
  * @param session - The request.
  * @param user - The row of the user management with its policy hints.
  * @param groups - The groups the actor sees.

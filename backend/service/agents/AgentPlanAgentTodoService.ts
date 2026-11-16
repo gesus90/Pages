@@ -16,8 +16,7 @@ function attemptOf(step: AgentPlanStepResult): string | undefined {
 }
 
 /**
- * Reads the TODO lists CLIs reported through structured plans (PAGE-306).
- *
+ * Reads the TODO lists CLIs reported through structured plans.
  * @remarks
  * The list is looked up by the attempt of a node result, so every iteration
  * of a loop and every member of a group shows its own list.
@@ -31,7 +30,6 @@ export class AgentPlanAgentTodoService {
 
   /**
    * Reads the lists of every attempt of a run.
-   *
    * @param runId - A run the caller already authorized.
    * @returns The lists by attempt ID; a row that cannot be read is left out.
    */
@@ -66,7 +64,6 @@ export class AgentPlanAgentTodoService {
 
 /**
  * Adds the reported TODO list to every node result of a run that has one, loop members included.
- *
  * @param run - The run view.
  * @param lists - The lists by attempt ID.
  */

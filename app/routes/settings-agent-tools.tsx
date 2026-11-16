@@ -43,7 +43,7 @@ function isAgentToolsData(value: unknown): value is AgentToolsData {
 
 /** The tool inventory, kept per account and rights, the admin mode included. */
 const SETTINGS_AGENT_TOOLS_STATE: LocalStateRouteKind<AgentToolsData> = {
-  // 2: tools name their executable, rollback generation and terminal entry (PAGE-293).
+  // 2: tools name their executable, rollback generation and terminal entry.
   schemaVersion: 2,
   isPayload: isAgentToolsData,
   isCurrent: (inventory) => isCurrentLocalStateAudience(inventory.audience),
@@ -53,7 +53,6 @@ const SETTINGS_AGENT_TOOLS_STATE: LocalStateRouteKind<AgentToolsData> = {
 
 /**
  * Opens the tool inventory from the account's kept answer at once and asks the endpoint behind it.
- *
  * @remarks
  * The endpoint enforces the same administrator rights as the server loader;
  * the polling of the page reads the endpoint as well.

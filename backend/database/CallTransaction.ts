@@ -18,7 +18,6 @@ export interface CallTransactionHost {
 
 /**
  * One call whose database work, from its opening to its end, is a single transaction.
- *
  * @remarks
  * The writer job stays open while the call runs, so every statement, nested
  * transaction and read of the call after the opening joins it and sees its
@@ -38,7 +37,6 @@ export class CallTransaction {
 
   /**
    * Creates a call that is not open yet.
-   *
    * @param host - Opens the writer transaction of the call.
    */
   public constructor(host: CallTransactionHost) {
@@ -57,7 +55,6 @@ export class CallTransaction {
 
   /**
    * Opens the transaction of the call once and returns it.
-   *
    * @returns The transaction every later statement of the call runs in.
    */
   public open(): Promise<DatabaseTransaction> {

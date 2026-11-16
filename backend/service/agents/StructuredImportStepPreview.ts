@@ -145,7 +145,6 @@ async function compareStep(
 
 /**
  * Plans the milestones, tickets and dependencies in application order.
- *
  * @param environment - Account, rights and repositories of the call.
  * @param context - The graph, the project IDs and the errors found so far.
  * @returns One object per step, and a conflict for each mapped source that differs.

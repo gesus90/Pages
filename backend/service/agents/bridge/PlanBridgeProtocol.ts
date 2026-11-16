@@ -128,11 +128,9 @@ async function answerRequest(
 
 /**
  * Answers one MCP message of the plan bridge (Streamable HTTP, JSON only).
- *
  * @param body - The request body; one JSON-RPC message.
  * @param handlers - The tools of the step the token belongs to.
  * @returns The HTTP answer; notifications and client responses get `202`.
- *
  * @remarks
  * The bridge offers no server stream and no batch. Errors carry only the
  * JSON-RPC code and a fixed message, never input or output of a tool.

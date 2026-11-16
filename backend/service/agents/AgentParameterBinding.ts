@@ -39,13 +39,13 @@ export interface AgentReferenceResolvers {
   readonly asset?: (id: string) => Promise<AgentPlanAssetFile>;
 }
 
-/** Immutable preparation contract for later A10.4 steps; this never starts a runner. */
+/** Immutable preparation contract for later parameter steps; this never starts a runner. */
 export interface BoundAgentParameters {
   readonly markdown: string;
   readonly directory: string | null;
   readonly values: Readonly<Record<string, AgentParameterValue | null>>;
   readonly wikiVersions: Readonly<Record<string, string>>;
-  /** Objects keyed by declaration name; a bare ticket or .assets requests file delivery. */
+  /** Objects keyed by declaration name; a bare ticket or `.assets` requests file delivery. */
   readonly tickets: Readonly<Record<string, ResolvedAgentTicket>>;
   readonly assetInputs: readonly AgentTicketInput[];
 }

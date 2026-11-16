@@ -21,7 +21,7 @@ export interface AgentProfileInput {
   readonly isActive: boolean;
   readonly purposes: readonly AgentProfilePurpose[];
   readonly targets: readonly AgentProfileTarget[];
-  /** Absent only for callers of the A10.1 compatibility API. */
+  /** Absent only for callers of the compatibility API. */
   readonly configuration?: AgentConfiguration;
   /** A supplied revision protects editor saves against stale concurrent changes. */
   readonly revision?: number;

@@ -22,7 +22,6 @@ export interface PreferenceApplicationServices {
 
 /**
  * Creates the services for the preferences of a user.
- *
  * @param database - Central database access.
  * @param databasePath - Path of the database; the design themes live next to it.
  * @returns The settings, design theme and board preference services.

@@ -15,10 +15,10 @@ interface ChatSettingsCardProps {
 }
 
 /**
- * Supplementary instruction of the chat agent Pica (T6.12.8); the attachment
- * limit is fixed (PAGE-251). Access and model are chosen in the agents panel
- * (T6.12.14). Pica's protected `SOUL.md` and `AGENTS.md` cannot be edited
- * here or anywhere else in Pages (PAGE-51).
+ * Supplementary instruction of the chat agent Pica; the attachment
+ * limit is fixed. Access and model are chosen in the agents panel.
+ * Pica's protected `SOUL.md` and `AGENTS.md` cannot be edited
+ * here or anywhere else in Pages.
  */
 export function ChatSettingsCard({
   settings,

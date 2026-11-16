@@ -33,7 +33,6 @@ async function settleProcessGroup(processId) {
 
 /**
  * Runs one step to its end; a time limit or a signal is a failure, never a pass.
- *
  * @returns The exit code of the step, {@link TIMEOUT_EXIT_CODE} after its limit.
  */
 export function runStep(command, args, options) {

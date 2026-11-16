@@ -39,7 +39,6 @@ export async function createApplicationAuthentication(
 
 /**
  * Brings accounts and sessions up to date at startup.
- *
  * @param setupService - Upgrades a legacy bootstrap administrator.
  * @param sessionService - Removes the sessions that expired meanwhile.
  * @returns The session service, ready for requests.

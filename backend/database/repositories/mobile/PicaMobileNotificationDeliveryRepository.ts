@@ -64,7 +64,6 @@ function toDelivery(row: readonly DatabaseValue[]): DeliveryRecord {
 
 /**
  * Persistence of the outbox of Pica Mobile push attempts.
- *
  * @remarks
  * A delivery is handed out under a lock that runs out, so a crash while
  * sending leaves it to be handed out again rather than lost. A handed-out
@@ -76,7 +75,6 @@ export class PicaMobileNotificationDeliveryRepository {
 
   /**
    * Creates the repository.
-   *
    * @param database - Central database access.
    */
   public constructor(database: Pick<Database, "execute" | "query">) {
@@ -85,7 +83,6 @@ export class PicaMobileNotificationDeliveryRepository {
 
   /**
    * Hands out the pending deliveries that are due and counts the attempt.
-   *
    * @param now - The current moment as ISO-8601 text.
    * @param lockedUntil - When the hand-out lapses if nobody finishes it.
    * @param limit - Most deliveries to hand out.

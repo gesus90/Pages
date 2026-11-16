@@ -27,7 +27,6 @@ const STATUS_FAILURES: Readonly<Partial<Record<number, AgentDreamingFailure>>> =
 
 /**
  * Whether a value is an object whose fields can be looked at.
- *
  * @param value - The value to check.
  */
 export function isRecord(value: unknown): value is Record<string, unknown> {
@@ -36,7 +35,6 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
 
 /**
  * Whether every named field is a string.
- *
  * @param record - The object to check.
  * @param keys - The names of the fields.
  */
@@ -49,7 +47,6 @@ export function hasStrings(
 
 /**
  * Whether every named field is a number.
- *
  * @param record - The object to check.
  * @param keys - The names of the fields.
  */
@@ -62,7 +59,6 @@ export function hasNumbers(
 
 /**
  * Whether every named field is a boolean.
- *
  * @param record - The object to check.
  * @param keys - The names of the fields.
  */
@@ -75,7 +71,6 @@ export function hasBooleans(
 
 /**
  * Whether a value is a string or `null`.
- *
  * @param value - The value to check.
  */
 export function isNullableString(value: unknown): value is string | null {
@@ -84,7 +79,6 @@ export function isNullableString(value: unknown): value is string | null {
 
 /**
  * Whether a value is a list whose every item passes a check.
- *
  * @param value - The value to check.
  * @param isItem - The check of one item.
  */
@@ -97,7 +91,6 @@ export function isList<Item>(
 
 /**
  * Whether a value names how many characters a file uses and how many it may.
- *
  * @param value - The value to check.
  */
 export function isFileSize(value: unknown): value is AgentDreamFileSize {
@@ -106,7 +99,6 @@ export function isFileSize(value: unknown): value is AgentDreamFileSize {
 
 /**
  * Whether a value is the refusal of an endpoint with a known reason.
- *
  * @param value - The answer to check.
  */
 export function isFailureAnswer(value: Record<string, unknown>): boolean {
@@ -128,7 +120,6 @@ async function readAnswer<Answer>(
 
 /**
  * Reads the overview of one agent from an endpoint.
- *
  * @param endpoint - The endpoint to ask.
  * @param agentId - The ID of the agent.
  * @param signal - Cancels the request when the view goes away.

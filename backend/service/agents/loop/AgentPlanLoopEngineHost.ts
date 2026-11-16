@@ -25,11 +25,9 @@ export interface LoopHostDependencies {
 
 /**
  * Gives a loop its view of the run it is part of.
- *
  * @param active - The live state of the run, owned by the engine.
  * @param signal - The abort signal of the loop's node.
  * @param dependencies - The engine's queue and store.
- *
  * @remarks
  * Every change of the loop's state goes through the engine's serial write
  * queue and is stored with the run, the way the engine stores a node's

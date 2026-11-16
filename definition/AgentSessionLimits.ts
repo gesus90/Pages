@@ -1,10 +1,9 @@
 /**
- * Limits of the concurrent chat sessions of agents (PAGE-304).
- *
+ * Limits of the concurrent chat sessions of agents.
  * @remarks
  * Every chat of an agent has its own session; sessions of different chats
  * run side by side. A session rests between the rounds of its chat and ends
- * after the idle time (PAGE-335). Above a limit a message is queued, never refused, and
+ * after the idle time. Above a limit a message is queued, never refused, and
  * answered once a place is free.
  */
 
@@ -16,7 +15,7 @@ export const AGENT_SESSION_DEFAULT_TOTAL = 16;
 export const AGENT_SESSION_LIMIT_MAXIMUM = 64;
 /**
  * Minutes a chat session of an agent rests after its last round before it
- * ends and releases its process (PAGE-335).
+ * ends and releases its process.
  */
 export const AGENT_CHAT_IDLE_DEFAULT_MINUTES = 30;
 /** The longest idle time of a resting chat session, one day. */
@@ -27,9 +26,9 @@ export interface AgentSessionLimits {
   readonly perAgent: number;
   readonly total: number;
   readonly revision: number;
-  /** The time of day of the nightly dream run, `HH:MM` in the time zone of the server (PAGE-305). */
+  /** The time of day of the nightly dream run, `HH:MM` in the time zone of the server. */
   readonly dreamTime: string;
-  /** Minutes a chat session of an agent rests before it ends (PAGE-335). */
+  /** Minutes a chat session of an agent rests before it ends. */
   readonly idleMinutes: number;
 }
 
@@ -39,8 +38,8 @@ export interface AgentSessionLimitsAdministration {
   readonly running: number;
   readonly waiting: number;
   /**
-   * The model the instance names for the background summary of the Lagebuch
-   * (PAGE-377); `null` leaves the agent's own. Absent in an older kept answer.
+   * The model the instance names for the background summary of the Lagebuch;
+   * `null` leaves the agent's own. Absent in an older kept answer.
    */
   readonly logbookModel?: {
     readonly connectionId: string;
@@ -56,7 +55,6 @@ export interface AgentSessionLimitsAdministration {
 
 /**
  * Why a message waits before its agent answers it.
- *
  * @remarks
  * `chat` waits for the answer the agent is giving in the same chat; `limit`
  * waits because the agent or all agents together reached their limit of

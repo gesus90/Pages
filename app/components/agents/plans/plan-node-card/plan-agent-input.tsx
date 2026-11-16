@@ -43,7 +43,6 @@ function usePlanValueContext(): PlanValueContext {
 
 /**
  * One input of an agent or a script: its violet data IN, its name and its value.
- *
  * @remarks
  * An input holds one binding. A connection shows its source read only and
  * is released with the X; without one, the field takes a manual value,

@@ -10,8 +10,7 @@ import { getApplicationServices } from "@/app/lib/services.server";
 import type { Route } from "./+types/api-mcp-v1-pairing";
 
 /**
- * Starts the pairing of a machine (`POST /api/mcp/v1/pairing`, PAGE-243).
- *
+ * Starts the pairing of a machine (`POST /api/mcp/v1/pairing`).
  * @remarks
  * Answers `201` with the code to show, the secret to keep and the link to
  * open; `429` with `Retry-After` for an address over its limits. Neither

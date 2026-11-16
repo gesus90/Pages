@@ -109,11 +109,9 @@ function* shorterRuns(run: PicaMobilePlanRun): Generator<PicaMobilePlanRun> {
 
 /**
  * Builds the `plan` frame within the frame limit.
- *
  * @param requestId - Identifier of the `plan_get` that is answered.
  * @param payload - The answer.
  * @returns The frame; `null` when even the shortest form does not fit.
- *
  * @remarks
  * A frame that is too long first gets names of at most
  * 200 code units, then keeps only the newest 20, 5, 1 and finally no

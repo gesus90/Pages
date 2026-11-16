@@ -61,7 +61,6 @@ async function readPrivateFile(file: string): Promise<string | null> {
 
 /**
  * Supplies the connection's own key and the public free provider to an isolated child.
- *
  * @param own - The one key selected for this connection, if any.
  * @returns Process credentials and exact-secret redaction for that key only.
  */

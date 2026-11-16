@@ -10,10 +10,8 @@ import type { UserTheme } from "@/definition/Settings";
 
 /**
  * Returns the theme the document is shown in.
- *
  * @param storedTheme - Theme from the root loader; `undefined` where the
  * router provides no loader data, for example on a thrown error page.
- *
  * @remarks
  * A theme the user just chose applies at once from the pending settings
  * submission, before the server answered. When the save succeeded the loader

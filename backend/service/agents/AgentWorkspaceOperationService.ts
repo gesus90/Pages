@@ -192,7 +192,6 @@ class OperationRecorder {
 
 /**
  * Lists and manages agent workspaces for the agent tools.
- *
  * @remarks
  * Every call runs under the rules of the interface: the registry decides who
  * may see a workspace and who may register one, so no right of the adapter
@@ -209,7 +208,6 @@ export class AgentWorkspaceOperationService {
 
   /**
    * Handles a workspace operation, returning `null` when another service owns the name.
-   *
    * @param identity - The verified identity of the call.
    * @param operation - The operation name as received.
    * @param input - The raw parameters.

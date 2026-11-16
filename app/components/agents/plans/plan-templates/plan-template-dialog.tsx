@@ -95,7 +95,6 @@ function useTemplateSave(props: PlanTemplateDialogProps): {
 
 /**
  * Names a node configuration and saves it as a personal template.
- *
  * @remarks
  * The name starts as the node's own name and stays editable. Cancel writes
  * nothing; a refused save keeps the dialog open with its reason. Saving

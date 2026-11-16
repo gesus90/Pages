@@ -103,7 +103,6 @@ function planReadiness(
 
 /**
  * The canvas stays editable while a save runs; other pending commands lock it.
- *
  * @remarks
  * Edits made during a save stay unsaved on top of the revision that save
  * stores, and the next save carries them. An existing drag may also finish

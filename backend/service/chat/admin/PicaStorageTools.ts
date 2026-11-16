@@ -42,11 +42,9 @@ function explained(outcome: PicaToolOutcome): PicaToolOutcome {
 }
 
 /**
- * Registers the native Storage tools (PAGE-271).
- *
+ * Registers the native Storage tools.
  * @param registry - The registry of the turn.
  * @param parts - The privileged dispatch, the human turn and the budget.
- *
  * @remarks
  * All tools use the acting account and check folder grants in the service. A change that failed is not sent
  * again unchanged in the same turn; a requested confirmation is no failure,

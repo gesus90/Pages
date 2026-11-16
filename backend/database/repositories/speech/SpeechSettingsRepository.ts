@@ -11,7 +11,7 @@ import {
 import type { Database } from "@/backend/database/Database";
 import type { SpeechSettings } from "@/definition/SpeechRecognition";
 
-/** Persists the one speech recognition setting of the instance (PAGE-273); it never holds audio. */
+/** Persists the one speech recognition setting of the instance; it never holds audio. */
 export class SpeechSettingsRepository {
   private readonly database: Database;
 
@@ -48,7 +48,6 @@ export class SpeechSettingsRepository {
 
   /**
    * Replaces model and longest recording with optimistic concurrency.
-   *
    * @param settings - The new setting with the revision it was read at.
    * @throws {AgentError} `profile_conflict` when the setting changed since.
    */

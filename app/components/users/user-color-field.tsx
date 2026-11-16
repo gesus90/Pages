@@ -6,7 +6,7 @@ import { PersonColorPicker } from "@/app/components/common/person-color-picker";
 import type { PersonColor } from "@/definition/PersonColor";
 
 /**
- * The person color of another account in the administration (PAGE-266),
+ * The person color of another account in the administration,
  * saved at once; the server checks the right to change the account.
  */
 export function UserColorField({

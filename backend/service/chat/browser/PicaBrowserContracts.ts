@@ -31,7 +31,6 @@ const formField = z
 
 /**
  * The inputs of the operator browser tools.
- *
  * @remarks
  * No tool accepts an actor, a script, a header, a cookie or a credential. The
  * model names a place by the reference of its last observation or by the

@@ -42,8 +42,7 @@ export interface NewChatGroup {
 type GroupDatabase = Pick<Database, "query" | "execute" | "transaction">;
 
 /**
- * The groups of the chat page (PAGE-259), each owned by one account.
- *
+ * The groups of the chat page, each owned by one account.
  * @remarks
  * Every statement is bound to the owner, so a group or participant ID of
  * another account never matches. Members are entries of the owner's own
@@ -183,7 +182,7 @@ export class ChatGroupRepository {
     });
   }
 
-  /** Removes a participant from one of the owner's groups (PAGE-380); removing a non-member changes nothing. */
+  /** Removes a participant from one of the owner's groups; removing a non-member changes nothing. */
   public async removeMember(
     ownerId: string,
     groupId: string,
@@ -200,7 +199,7 @@ export class ChatGroupRepository {
     );
   }
 
-  /** Deletes one of the owner's groups with its member list (PAGE-380). */
+  /** Deletes one of the owner's groups with its member list. */
   public async remove(ownerId: string, groupId: string): Promise<void> {
     await this.database.execute(
       `
@@ -214,7 +213,6 @@ export class ChatGroupRepository {
 
   /**
    * Records a sent message as the last activity of a group.
-   *
    * @returns Whether the group belongs to the person.
    */
   public async touch(

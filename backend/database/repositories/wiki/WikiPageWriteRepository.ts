@@ -41,7 +41,6 @@ export class WikiPageWriteRepository {
 
   /**
    * Creates the repository.
-   *
    * @param database - Database access or the transaction to run in.
    */
   public constructor(database: DatabaseTransaction) {
@@ -55,7 +54,6 @@ export class WikiPageWriteRepository {
 
   /**
    * Returns the position a new sibling takes: after all existing ones.
-   *
    * @param placement - Parent, scope and project of the new page.
    * @param ownerId - Owner, which separates private root pages.
    * @returns The next position.
@@ -88,7 +86,6 @@ export class WikiPageWriteRepository {
 
   /**
    * Stores a new page.
-   *
    * @param page - Validated values.
    * @param position - Position among its siblings.
    */
@@ -142,7 +139,6 @@ export class WikiPageWriteRepository {
 
   /**
    * Stores an edit and raises the revision.
-   *
    * @param id - Page identifier.
    * @param edit - New values.
    * @param expectedRevision - Revision read before the edit, when a conflict must be detected.
@@ -183,7 +179,6 @@ export class WikiPageWriteRepository {
 
   /**
    * Places a page below a parent.
-   *
    * @param id - Page identifier.
    * @param placement - New parent, scope and project.
    * @param position - Position among the new siblings.
@@ -220,7 +215,6 @@ export class WikiPageWriteRepository {
 
   /**
    * Applies the scope of a moved page to everything below it.
-   *
    * @param id - Page identifier whose descendants change.
    * @param placement - Scope and project to apply.
    */
@@ -258,7 +252,6 @@ export class WikiPageWriteRepository {
 
   /**
    * Writes the order of a list of siblings.
-   *
    * @param orderedIds - Sibling identifiers in their new order.
    */
   public async writePositions(orderedIds: readonly string[]): Promise<void> {
@@ -272,7 +265,6 @@ export class WikiPageWriteRepository {
 
   /**
    * Lists the siblings of a placement, deleted pages excluded.
-   *
    * @param placement - Parent, scope and project.
    * @param ownerId - Owner, which separates private root pages.
    * @returns Sibling identifiers in order.
@@ -305,7 +297,6 @@ export class WikiPageWriteRepository {
 
   /**
    * Sets or clears the date until which a page counts as up to date.
-   *
    * @param id - Page identifier.
    * @param currentUntil - Date as `YYYY-MM-DD`, or `null` to clear it.
    */
@@ -322,7 +313,6 @@ export class WikiPageWriteRepository {
   /**
    * Sets or removes the cover of a page. The cover is no part of the text,
    * so the revision stays.
-   *
    * @param id - Page identifier.
    * @param cover - `preset:<name>`, `attachment:<id>` or `null`.
    */
@@ -335,7 +325,6 @@ export class WikiPageWriteRepository {
 
   /**
    * Changes the owner of a page.
-   *
    * @param id - Page identifier.
    * @param ownerId - New owner.
    */
@@ -348,7 +337,6 @@ export class WikiPageWriteRepository {
 
   /**
    * Marks a page and its subtree as deleted.
-   *
    * @param id - Page identifier that the user deletes.
    * @param userId - Account that deletes.
    */
@@ -381,7 +369,6 @@ export class WikiPageWriteRepository {
 
   /**
    * Brings a deleted page and the pages deleted with it back.
-   *
    * @param id - Identifier of the page that was deleted.
    */
   public async clearDeleted(id: string): Promise<void> {

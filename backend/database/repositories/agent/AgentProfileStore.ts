@@ -210,7 +210,6 @@ export class AgentProfileStore {
 
   /**
    * Names every administrator agent whose scope or usage sharing still references a group, department or person.
-   *
    * @remarks
    * Agents of users do not count: an administrator cannot change them, so they
    * would block the deletion without a way to resolve it. A deleted group

@@ -46,7 +46,6 @@ export interface MilestoneMutations {
 
 /**
  * Sends milestone saves and archives and shows them before the server answers.
- *
  * @remarks
  * Every call records what it waits for, so the outcome hooks can revert the
  * optimistic change when the server refuses it.

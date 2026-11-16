@@ -24,7 +24,6 @@ function saveResult(
 
 /**
  * Saves the plan with Ctrl+S or Cmd+S and keeps the answer visible.
- *
  * @remarks
  * Saving stays explicit; an unchanged plan is not stored again. A stored plan
  * is confirmed by the document toast as soon as the server answered; a

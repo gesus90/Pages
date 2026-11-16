@@ -95,7 +95,6 @@ export class CliProcessRunner {
 
   /**
    * Starts a streaming session whose input stays open until the caller ends it.
-   *
    * @param request - Tool, arguments, isolated home, authorized working directory and callbacks.
    * @returns The running session; it counts against the same process limit.
    * @throws {AgentError} `login_limit_reached` at the limit or during shutdown,

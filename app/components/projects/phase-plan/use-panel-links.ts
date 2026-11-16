@@ -30,12 +30,10 @@ function isPendingLink(link: WorkingLink): boolean {
 
 /**
  * Keeps the outgoing dependencies the milestone panel edits.
- *
  * @remarks
  * A new revert token for this milestone, which a failed save hands over, makes
  * the panel fall back to the links the server has. A token that exists
  * already when the panel opens belongs to an earlier save and is ignored.
- *
  * @param outgoingLinks - The dependencies of the milestone as the server has
  * them; they are the baseline.
  * @param revertToken - Latest failure of a save, if any.

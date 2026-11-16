@@ -64,7 +64,6 @@ function resolveProjectId(defaults: TaskFormDefaults): string {
 
 /**
  * Builds the selections for an edited work item or for a new one.
- *
  * @param defaults - The edited item, or the defaults of a new item.
  */
 function buildSelections(defaults: TaskFormDefaults): TaskFormSelections {
@@ -103,7 +102,6 @@ function buildSelections(defaults: TaskFormDefaults): TaskFormSelections {
 /**
  * Keeps the selections of the work item form and resets them whenever the
  * dialog opens.
- *
  * @param isOpen - Whether the dialog is open.
  * @param defaults - The edited item, or the defaults of a new item.
  */

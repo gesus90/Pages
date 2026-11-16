@@ -48,12 +48,12 @@ export interface ConversationReaderDependencies {
   readonly messages: ConversationMessageRepository;
   readonly directory: Pick<ConversationDirectory, "read">;
   readonly files: Pick<WikiFileStore, "open">;
-  /** The decisions about messages of groups, which the chat page shows (PAGE-317, PAGE-379). */
+  /** The decisions about messages of groups, which the chat page shows. */
   readonly decisions: Pick<
     ConversationDecisionRepository,
     "forMessages" | "forReplies"
   >;
-  /** The attachments and links of messages (PAGE-298). */
+  /** The attachments and links of messages. */
   readonly content: ConversationMessageContentReader;
 }
 
@@ -69,13 +69,12 @@ export interface ConversationView {
   readonly summary: ConversationSummary;
   /** The newest page of the history, oldest first. */
   readonly messages: readonly ConversationMessage[];
-  /** Whether older messages exist than this page holds (PAGE-275). */
+  /** Whether older messages exist than this page holds. */
   readonly hasMore: boolean;
 }
 
 /**
  * Turns a stored message into the message every client sees.
- *
  * @param stored - The stored message.
  * @param accounts - The accounts that name its sender.
  * @param content - Its attachments and links; none by default.
@@ -176,10 +175,9 @@ export interface ConversationHistoryOptions {
 }
 
 /**
- * The reads of conversations for one member (PAGE-278): the list, a
+ * The reads of conversations for one member: the list, a
  * history, the people and agents to write to, and the audio of a voice
  * message.
- *
  * @remarks
  * Every read is bound to the signed-in account: a conversation of which it
  * is no member answers `not_found`, as a missing one does, also for its
@@ -221,7 +219,6 @@ export class ConversationReader {
 
   /**
    * Reads one conversation of the person.
-   *
    * @throws {ConversationError} `not_found` for a conversation of which the
    * person is no member.
    */
@@ -238,7 +235,6 @@ export class ConversationReader {
   /**
    * Reads a page of a history: the newest messages, or those before a
    * message, oldest first.
-   *
    * @throws {ConversationError} `not_found` for a conversation of which the
    * person is no member, `invalid` for a `beforeId` outside it.
    */
@@ -254,8 +250,7 @@ export class ConversationReader {
 
   /**
    * Reads a page of the history of a conversation of agents only for an
-   * overseer who is no member (PAGE-311); the caller has checked the right.
-   *
+   * overseer who is no member; the caller has checked the right.
    * @throws {ConversationError} `invalid` for a `beforeId` outside the conversation.
    */
   public inspectHistory(
@@ -267,7 +262,7 @@ export class ConversationReader {
 
   /**
    * Reads conversations of agents only with their newest messages for an
-   * overseer who is no member (PAGE-311); the caller has checked the right.
+   * overseer who is no member; the caller has checked the right.
    */
   public async inspect(
     viewer: User,
@@ -329,7 +324,6 @@ export class ConversationReader {
 
   /**
    * Opens the audio of a voice message for a member of its conversation.
-   *
    * @throws {ConversationError} `not_found` for a missing message, one
    * without audio, or one of a conversation of which the person is no member.
    */
@@ -377,8 +371,7 @@ export class ConversationReader {
 
   /**
    * Turns stored messages into the messages every client sees, with their
-   * attachments and links (PAGE-298).
-   *
+   * attachments and links.
    * @param stored - The stored messages.
    * @param accounts - The accounts that name their senders.
    */
@@ -450,7 +443,7 @@ export class ConversationReader {
   }
 
   /**
-   * Adds the decisions the chat shows (PAGE-379): to the message of a person
+   * Adds the decisions the chat shows: to the message of a person
    * that nobody answered, so the chat can say so under it, and to the answer an
    * agent gave because the decision model chose it, for its "Why?".
    */

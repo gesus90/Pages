@@ -23,7 +23,7 @@ interface ModelNodeServices {
 
 /**
  * Builds the runners of the nodes that ask models in sessions of their own:
- * model decisions (PAGE-286) and swarms (PAGE-313).
+ * model decisions and swarms.
  */
 export function createModelNodeRunners(
   input: ModelNodeServices,
@@ -46,8 +46,7 @@ export function createModelNodeRunners(
 }
 
 /**
- * Builds the runner of swarm nodes for the engine process (PAGE-313).
- *
+ * Builds the runner of swarm nodes for the engine process.
  * @remarks
  * The swarm tools of its sessions reach it through the registry of this
  * process, directly or over the private socket of the engine.

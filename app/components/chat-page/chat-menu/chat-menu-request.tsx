@@ -8,7 +8,7 @@ export interface ChatMenuPoint {
   readonly y: number;
 }
 
-/** The wish to open the chat menu of a conversation of the list at a point (PAGE-389). */
+/** The wish to open the chat menu of a conversation of the list at a point. */
 export interface ChatMenuRequest {
   readonly selection: VirtualChatSelection;
   readonly point: ChatMenuPoint;

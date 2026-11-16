@@ -18,7 +18,6 @@ export interface ImageViewerControls {
 
 /**
  * The state of an image viewer that opens on an image of rendered text.
- *
  * @remarks
  * The images are read once when the viewer opens, so the set and the order
  * stay stable while a person pages through them, even if the text changes

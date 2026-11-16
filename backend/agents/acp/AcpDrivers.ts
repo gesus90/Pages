@@ -18,7 +18,6 @@ const DRIVERS: Readonly<Record<NativeAcpProviderId, AcpDriver>> = {
 
 /**
  * The driver of an ACP runner.
- *
  * @param provider - A native ACP runner, shared by plans and Pica.
  * @returns What differs between the runners' verified ACP contracts.
  */

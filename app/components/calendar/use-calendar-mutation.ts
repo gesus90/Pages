@@ -25,7 +25,6 @@ export interface CalendarMutation {
 
 /**
  * Sends changes of the calendar page through its action.
- *
  * @param onSuccess - Called once per successful change.
  */
 export function useCalendarMutation(

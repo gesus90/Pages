@@ -109,7 +109,7 @@ export interface TerminalSurfaceOptions {
   readonly fontSize?: number;
   /** Row height as a multiple of the font size; 1.52 when absent. */
   readonly lineHeight?: number;
-  /** Shows output only: no cursor and no keyboard input, as the Pages terminal of agent nodes (PAGE-284). */
+  /** Shows output only: no cursor and no keyboard input, as the Pages terminal of agent nodes. */
   readonly isOutputOnly?: boolean;
 }
 

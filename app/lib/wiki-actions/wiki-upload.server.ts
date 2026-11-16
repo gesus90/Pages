@@ -8,7 +8,6 @@ import type { UploadedFile } from "@/backend/service/WikiService";
 
 /**
  * Reads a request body as chunks.
- *
  * @param body - The body of an upload request.
  * @yields The chunks, as they arrive.
  */
@@ -34,7 +33,6 @@ export async function* readBody(
 
 /**
  * Describes an upload request for the wiki service.
- *
  * @param request - A `PUT` request whose body is the file.
  * @param fileName - Name of the file, from the address.
  * @returns The file as the service takes it; a request without a body counts
@@ -57,7 +55,6 @@ export function toUploadedFile(
 
 /**
  * Maps the failure of an upload to a status code.
- *
  * @param error - The failure.
  * @returns The status and the code the client translates, or `null` for
  * failures that are not the person's doing.

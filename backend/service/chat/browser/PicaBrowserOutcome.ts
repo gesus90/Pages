@@ -50,7 +50,6 @@ const HINTS: Readonly<Record<string, string>> = {
 
 /**
  * Turns an observation into the outcome of a tool.
- *
  * @param reply - The bounded text and the screenshots.
  * @returns A successful outcome carrying the images for the model.
  */
@@ -73,7 +72,6 @@ export interface PicaBrowserFailureDetails {
 
 /**
  * Turns a failure into an outcome that tells the model what to do next.
- *
  * @param code - The stable error code.
  * @param details - The observation and facts that go with it.
  * @returns A failed outcome with the code, a hint and the observation.

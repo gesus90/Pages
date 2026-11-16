@@ -36,7 +36,6 @@ export interface AgentPlansView extends AgentPlanPage {
 
 /**
  * The rights-checked endpoint of the plan page.
- *
  * @remarks
  * It lies below `/agents`, so the browser sends the plan choice it remembers
  * there, as it does for the page.
@@ -75,7 +74,6 @@ const PLAN_PAGE_STATE: LocalStateRouteKind<AgentPlansView> = {
 
 /**
  * The kept plan the server would open for the plain address, which names no plan.
- *
  * @remarks
  * The server opens the plan this browser remembers for the account; the
  * address then names it. Only a plan whose answer is kept opens this way.

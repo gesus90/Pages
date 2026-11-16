@@ -39,7 +39,6 @@ function associatedData(binding: PlanBridgeSealBinding): Buffer {
 
 /**
  * The lookup key of a bearer; it finds a grant but opens nothing.
- *
  * @param bearer - The bearer of a session.
  * @returns The SHA-256 of the bearer in hex.
  */
@@ -49,7 +48,6 @@ export function planBridgeBearerHash(bearer: string): string {
 
 /**
  * Seals the step credential of a grant with a key only its bearer yields.
- *
  * @param bearer - The bearer the session receives; it is never stored.
  * @param token - The clear step credential.
  * @param binding - The run, step, instance and expiry the grant is bound to.
@@ -74,7 +72,6 @@ export function sealPlanBridgeToken(
 
 /**
  * Opens a sealed step credential with the bearer a session presents.
- *
  * @param bearer - The presented bearer.
  * @param sealed - The stored seal.
  * @param binding - The run, step, instance and expiry of the stored grant.

@@ -32,7 +32,6 @@ export interface PlanTemplates {
 
 /**
  * Saving node configurations as templates and inserting them again.
- *
  * @remarks
  * The dialog takes the node as the draft holds it at that moment, members
  * of a group included; neither saving nor inserting starts a run.

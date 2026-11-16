@@ -54,7 +54,6 @@ type WikiDatabase = Pick<Database, "execute" | "query" | "transaction">;
 
 /**
  * Establishes the persistence boundary for the wiki.
- *
  * @remarks
  * Coordinates the wiki aggregates and their shared transaction.
  */
@@ -94,7 +93,6 @@ export class WikiRepository {
 
   /**
    * Creates a wiki repository.
-   *
    * @param database - Central database access.
    */
   public constructor(
@@ -122,7 +120,6 @@ export class WikiRepository {
 
   /**
    * Runs several wiki reads and writes atomically.
-   *
    * @param work - Receives a repository bound to the transaction.
    * @returns Whatever `work` returns once the transaction committed.
    */
@@ -147,7 +144,6 @@ export class WikiRepository {
 
   /**
    * Deletes pages for good with everything that belongs to them.
-   *
    * @param selection - The pages to delete.
    * @returns Storage names of the attachment files to remove from the disk.
    */

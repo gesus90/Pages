@@ -41,12 +41,10 @@ function namesActiveRun(result: AgentPlanActionResult): boolean {
 
 /**
  * Follows an address while the tab is visible; a dropped connection keeps the editor mounted and retries without replaying a mutation.
- *
  * @param url - The address to read, or `null` when there is nothing to read.
  * @param refresh - The latest command; a new one reads at once and drops the earlier answer.
  * @param mode - `active` ends the reads with the run, `always` keeps reading and observing.
  * @param readRequest - A new value reads at once and keeps the earlier answer until the new one.
- *
  * @remarks
  * The pace is one second while the last answer names an active run and also
  * before the first answer, otherwise 16 seconds.

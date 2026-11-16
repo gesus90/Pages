@@ -35,8 +35,7 @@ export type AcpTurnInput =
 
 /**
  * Lets a person intervene in the running turn of a plan session in the same
- * way for every adapter (PAGE-284).
- *
+ * way for every adapter.
  * @remarks
  * Where the adapter has no steering extension of its own, an input cancels
  * the running `session/prompt` and follows as the next prompt of the same
@@ -70,7 +69,6 @@ export class AcpTurnControl {
 
   /**
    * Takes an input of a person for the running turn.
-   *
    * @param prompt - The blocks of the input.
    */
   public add(prompt: readonly ContentBlock[]): "injected" | "inactive" {
@@ -81,7 +79,6 @@ export class AcpTurnControl {
 
   /**
    * Sends the prompts of one turn until a prompt ends without waiting input.
-   *
    * @param drive - The first prompt, how to send one and what happens between them.
    * @returns The answer of the last prompt, which ends the turn.
    */
@@ -112,7 +109,6 @@ export class AcpTurnControl {
 
   /**
    * Interrupts the running prompt for a person; the turn then waits for the next input.
-   *
    * @returns Whether a prompt was running.
    */
   public interrupt(): boolean {
@@ -124,8 +120,7 @@ export class AcpTurnControl {
 
   /**
    * Cancels the running prompt and continues the turn at once with a note,
-   * as when a person cancels the running tool call of a chat (PAGE-303).
-   *
+   * as when a person cancels the running tool call of a chat.
    * @returns Whether a prompt was running.
    */
   public cancelWith(note: string): boolean {
@@ -136,7 +131,6 @@ export class AcpTurnControl {
 
   /**
    * The next prompt of the same turn, after a prompt ended.
-   *
    * @param stopReason - How the prompt ended.
    * @param signal - The stop of the node, which ends a wait at once.
    * @returns The waiting input, or `null` when the turn ends here.

@@ -13,7 +13,6 @@ import type { AgentSimulator } from "./AgentSimulator";
 
 /**
  * The plan execution while the agent simulation is on.
- *
  * @remarks
  * A node that chose a simulation model runs the simulated agent. Every other
  * request and every CLI session is refused with

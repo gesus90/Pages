@@ -11,7 +11,7 @@ export const LONG_PRESS_MS = 500;
 /** How far a finger may move, in pixels, before the press counts as scrolling. */
 const MOVE_TOLERANCE = 10;
 
-/** The events of an entry of the list that open the chat menu (PAGE-389). */
+/** The events of an entry of the list that open the chat menu. */
 export interface ListEntryMenuHandlers {
   onContextMenu(event: React.MouseEvent<HTMLElement>): void;
   onPointerDown(event: React.PointerEvent<HTMLElement>): void;
@@ -44,12 +44,10 @@ function contextMenuPoint(event: React.MouseEvent<HTMLElement>): ChatMenuPoint {
 /**
  * Opens the chat menu of one conversation of the list with a right click,
  * and with a long press of a finger or pen on tablets and phones.
- *
  * @remarks
  * The menu belongs to the opened chat, as its entries open the dialogs and
  * the column beside it; so the press opens the conversation first and then
  * its menu at the point. The click that follows a long press does nothing.
- *
  * @param selection - The conversation of the entry.
  * @param onSelect - Opens the conversation, as a click on the entry does.
  */

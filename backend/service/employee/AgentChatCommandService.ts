@@ -55,8 +55,7 @@ function sameName(first: string, second: string): boolean {
 }
 
 /**
- * The chat commands `/model`, `/new` and `/compact` of a person (PAGE-380).
- *
+ * The chat commands `/model`, `/new` and `/compact` of a person.
  * @remarks
  * A command never reaches an agent: it is no message, so it asks for no
  * answer and no decision. Only a person runs one; the rights are those of the
@@ -74,7 +73,6 @@ export class AgentChatCommandService {
 
   /**
    * Runs a typed command.
-   *
    * @throws {AgentEmployeeError} `invalidInput` for a text that is no
    * command, `notFound` for a chat the person does not take part in.
    */

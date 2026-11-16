@@ -17,7 +17,7 @@ import type { StoredConversationAttachment } from "./ConversationAttachmentRepos
 /** Columns of an attachment row: the next column after them has this index. */
 const ATTACHMENT_COLUMN_COUNT = 21;
 
-/** An attachment of a sent message with the facts of that message (PAGE-386). */
+/** An attachment of a sent message with the facts of that message. */
 export interface StoredLibraryAttachment {
   readonly attachment: StoredConversationAttachment;
   readonly messageId: string;
@@ -29,7 +29,7 @@ export interface StoredLibraryAttachment {
   readonly hasText: boolean;
 }
 
-/** A voice message of a conversation (PAGE-386). */
+/** A voice message of a conversation. */
 export interface StoredLibraryVoice {
   readonly messageId: string;
   readonly senderId: string;
@@ -43,7 +43,7 @@ export interface StoredLibraryVoice {
   readonly transcriptionState: string;
 }
 
-/** A line of an answer that shows an earlier attachment again, as stored (PAGE-386). */
+/** A line of an answer that shows an earlier attachment again, as stored. */
 export interface StoredAttachmentReference {
   readonly messageId: string;
   readonly position: number;
@@ -126,7 +126,7 @@ const LIBRARY_SELECT = `
 
 /**
  * The attachments of a chat as its agents search and read them, the text
- * Pages recognized in them, and the references of answers (PAGE-386).
+ * Pages recognized in them, and the references of answers.
  *
  * @remarks
  * Only attachments of sent messages are listed: an upload without a message

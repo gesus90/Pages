@@ -20,8 +20,7 @@ const HANDLERS: McpPlanNotationHandlers = {
 };
 
 /**
- * Creates a plan from notation (`POST /api/mcp/v1/plan-notation`), PAGE-250 interface 3.
- *
+ * Creates a plan from notation (`POST /api/mcp/v1/plan-notation`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

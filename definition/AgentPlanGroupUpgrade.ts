@@ -12,7 +12,6 @@ import type { AgentPlanInput } from "./AgentPlan";
 
 /**
  * Resolves unambiguous legacy frame connections to real agent endpoints.
- *
  * @remarks
  * This is an idempotent read/write upgrade of the existing JSON contract, not
  * a schema change. Original boundary definitions remain readable as legacy

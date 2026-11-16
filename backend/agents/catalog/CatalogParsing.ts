@@ -48,10 +48,8 @@ const ANTHROPIC_EFFORT_LADDER: readonly string[] = [
 
 /**
  * Accepts the model IDs every catalog may list and Pages may store.
- *
  * @param value - A listed or stored model ID.
  * @returns Whether the ID is safe to save, show and pass on unchanged.
- *
  * @remarks
  * OpenRouter aliases start with `~`. Claude Code names its 1M-context
  * variants with a bracketed suffix such as `claude-opus-5-5[1m]`.
@@ -150,7 +148,7 @@ function readAnthropicReasoning(value: unknown): ReasoningFields {
 }
 
 // Gemini's model resource only says whether a model thinks; the levels come
-// from Google's documented table for exactly that model (A8.4-Fix2-E04).
+// from Google's documented table for exactly that model.
 function readGoogleReasoning(
   model: Record<string, unknown>,
   id: string,
@@ -228,7 +226,7 @@ function readModalityList(value: unknown): readonly string[] | undefined {
 const VOICE_ID_PATTERN = /^[\p{L}\p{N}][\p{L}\p{N} _.:@()+-]{0,99}$/u;
 
 // OpenRouter lists the voices of a speech output model in `supported_voices`
-// (PAGE-300); a stored snapshot keeps them under the same name. An unreadable
+// a stored snapshot keeps them under the same name. An unreadable
 // list counts as none, so the voice tab asks for a voice ID instead.
 function readSupportedVoices(entry: unknown): {
   readonly supportedVoices?: readonly string[];
@@ -353,17 +351,15 @@ function readOpenRouterCursor(
 
 /**
  * Strictly parses a complete page without storing raw descriptions or provider bodies.
- *
  * @param payload - One page as the provider returned it.
  * @param provider - The provider that returned the page.
  * @param offset - OpenRouter's offset of this page.
  * @returns The page's text, transcription and speech output models and the
  * cursor of the next page.
- *
  * @remarks
- * Only entries that the catalog's own metadata marks as text models
- * (A8.4-Fix2-E02), as transcription models (PAGE-294) or as speech output
- * models (PAGE-300) are kept. Pagination
+ * Only entries that the catalog's own metadata marks as text models,
+ * as transcription models or as speech output
+ * models are kept. Pagination
  * still counts every listed entry.
  */
 export function parseCatalogPage(
@@ -416,7 +412,7 @@ function readStoredToolCall(entry: unknown): {
   return typeof toolCall === "boolean" ? { isToolCapable: toolCall } : {};
 }
 
-// Snapshots saved before PAGE-248 state no modalities, which hides no model.
+// Older snapshots state no modalities, which hides no model.
 function readStoredModalities(
   entry: unknown,
 ): Pick<AgentCatalogModel, "inputModalities" | "outputModalities"> {
@@ -430,8 +426,7 @@ function readStoredModalities(
 }
 
 /**
- * Reads a persisted snapshot; snapshots from before A7 §21.3 have no reasoning data.
- *
+ * Reads a persisted snapshot; older snapshots have no reasoning data.
  * @param entries - The stored `models_json` array.
  * @returns The models with the reasoning support saved for each of them.
  */

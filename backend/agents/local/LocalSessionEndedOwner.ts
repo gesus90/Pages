@@ -4,11 +4,9 @@ import type { LocalSessionEntry } from "@/backend/database/repositories/agent/Lo
 
 /**
  * Releases an unadoptable owner whose unit and process are provably gone.
- *
  * @param entry - The stored owner that discovery could not prove alive.
  * @param settle - Proves the end, stops leftover worker units and records the release.
  * @returns Whether the owner ended and is released; `false` keeps it uncertain.
- *
  * @remarks
  * A reboot or a killed unit ends an owner without Pages. Nothing of such an
  * owner can still write, so it is not uncertain and its run may go on. Every

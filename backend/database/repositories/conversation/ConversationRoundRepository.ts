@@ -40,13 +40,13 @@ export interface ConversationReplyClaim extends ConversationRoundOrigin {
   readonly reason: string;
   /**
    * Whether the answer was chosen without @, by the observer or the decision
-   * model, and counts against the limit of such contributions (PAGE-349).
+   * model, and counts against the limit of such contributions.
    */
   readonly isAutomatic: boolean;
   /** The continuation of a ready batch of the agent's own question; consumes it. */
   readonly isFollowUp?: boolean;
   /**
-   * The stored @ hand-over this answer takes (PAGE-349): `pending` right
+   * The stored @ hand-over this answer takes: `pending` right
    * after it was stored, `paused` when a person's message resumes it.
    */
   readonly handoff?: "pending" | "paused";
@@ -80,7 +80,7 @@ export interface ConversationReplyOrigin {
 /** A round as the next hand-over needs it. */
 export interface ConversationRoundState {
   readonly personId: string;
-  /** Contributions without @ so far; @ hand-overs are not counted (PAGE-349). */
+  /** Contributions without @ so far; @ hand-overs are not counted. */
   readonly automaticCount: number;
   /** One entry per claimed answer, including repeated agents and unfinished answers. */
   readonly agentIds: readonly string[];
@@ -256,8 +256,7 @@ async function hasTarget(
 
 /**
  * The rounds of answers in conversations, their asked agents and the routing
- * decisions of the observer (PAGE-296, PAGE-349).
- *
+ * decisions of the observer.
  * @remarks
  * Everything a loop guard needs is stored, never only held in memory. An
  * agent starts at most once per message that asks it: the unique key
@@ -270,7 +269,7 @@ export class ConversationRoundRepository {
   private readonly database: RoundDatabase;
   /** Durable batches of questions and their addressed replies. */
   public readonly followUps: ConversationFollowUpRepository;
-  /** Stored explicit @ hand-overs, pending or paused (PAGE-349). */
+  /** Stored explicit @ hand-overs, pending or paused. */
   public readonly handoffs: ConversationHandoffRepository;
 
   public constructor(database: RoundDatabase) {
@@ -286,12 +285,10 @@ export class ConversationRoundRepository {
 
   /**
    * Claims the answer of one agent to one asking message, atomically.
-   *
    * @remarks
    * The answer target, the end of a stored hand-over, the consumption of a
    * question batch and the count of contributions without @ commit together,
    * so a failed claim leaves everything available again.
-   *
    * @returns `claimed` when the agent may answer now.
    */
   public async claim(
@@ -445,7 +442,6 @@ export class ConversationRoundRepository {
 
   /**
    * Takes the one routing decision of a message.
-   *
    * @returns `false` when it was taken before, by this or an earlier process.
    */
   public async claimRouting(routing: {
@@ -518,7 +514,6 @@ export class ConversationRoundRepository {
   /**
    * Ends the answers and decisions an earlier process left open: none of
    * them is started again, so a restart causes no wave of answers.
-   *
    * @param before - Only what was created before this moment.
    * @returns How many answers were marked interrupted.
    */

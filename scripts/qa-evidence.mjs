@@ -20,7 +20,6 @@ const PACKAGES = { pages: "." };
 
 /**
  * Builds the sorted manifest and its SHA-256.
- *
  * @param files - Repository-relative paths, in any order.
  * @param readHash - The SHA-256 of a file, or `null` for a deleted one.
  * @param runtime - Facts outside the files, such as the installed lockfile.

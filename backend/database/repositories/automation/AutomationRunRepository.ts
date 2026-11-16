@@ -154,8 +154,7 @@ function readRunRow(row: readonly DatabaseValue[]): StoredAutomationRun {
 }
 
 /**
- * Stores the runs of automations (PAGE-297).
- *
+ * Stores the runs of automations.
  * @remarks
  * Two partial unique indexes allow one running and one waiting run per
  * automation; {@link AutomationRunRepository.enqueue} joins a trigger to the
@@ -166,7 +165,6 @@ export class AutomationRunRepository {
 
   /**
    * Creates the repository.
-   *
    * @param database - The database or an open transaction.
    */
   public constructor(database: Executor) {

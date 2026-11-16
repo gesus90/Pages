@@ -180,7 +180,7 @@ function bindingForms(
   );
 }
 
-/** The bound data input of a decision, written as the condition wire it is drawn as (PAGE-286). */
+/** The bound data input of a decision, written as the condition wire it is drawn as. */
 function decisionInputEdges(node: AgentPlanNode): readonly string[] {
   if (node.type !== "decision" || !node.input) return [];
   const { input } = node;
@@ -284,7 +284,7 @@ class PlanNotationDocumentWriter {
 }
 
 /**
- * Writes a plan as notation (PAGE-250).
+ * Writes a plan as notation.
  *
  * @param plan - The stored plan.
  * @param catalog - The choices of the plan's workspace, which turn identifiers into names.

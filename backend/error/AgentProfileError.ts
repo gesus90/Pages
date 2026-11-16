@@ -1,4 +1,4 @@
-/** Stable failures of reading agent profiles (PAGE-308). */
+/** Stable failures of reading agent profiles. */
 export type AgentProfileErrorCode =
   "forbidden" | "not_found" | "invalid_request" | "payload_too_large";
 
@@ -10,7 +10,6 @@ export class AgentProfileError extends Error {
 
   /**
    * Creates the refusal.
-   *
    * @param code - The failure the interface reports.
    * @param reason - The refused input, for `invalid_request`.
    */

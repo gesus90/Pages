@@ -58,7 +58,7 @@ function SessionItem({
 
 /**
  * The chat sessions each agent holds open between the rounds of its
- * conversations (PAGE-335), with the conversation and the last activity.
+ * conversations, with the conversation and the last activity.
  */
 export function AcpChatSessionList({
   sessions,

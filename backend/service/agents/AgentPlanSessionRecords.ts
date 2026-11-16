@@ -56,7 +56,6 @@ function connectionOf(agent: ResolvedAgentAssignment): {
 
 /**
  * Creates the record of a node before anything starts.
- *
  * @param start - Instance, prepared input, contract and MCP use of the node.
  * @returns A record whose requested configuration and contract are fixed.
  */

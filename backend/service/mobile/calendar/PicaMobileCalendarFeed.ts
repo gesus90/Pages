@@ -10,8 +10,7 @@ const GATHER_MILLISECONDS = 250;
 const MAXIMUM_PENDING_EVENTS = 256;
 
 /**
- * Sends `calendar_changed` to one authenticated connection (PAGE-301).
- *
+ * Sends `calendar_changed` to one authenticated connection.
  * @remarks
  * Committed events that may change entries are gathered for a moment, then
  * checked behind the queued messages of the connection with the account's
@@ -29,7 +28,6 @@ export class PicaMobileCalendarFeed {
 
   /**
    * Creates the feed.
-   *
    * @param provider - Hears the events and decides what the account sees.
    * @param host - The connection the feed sends on.
    */

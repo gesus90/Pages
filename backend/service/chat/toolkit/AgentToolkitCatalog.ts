@@ -26,7 +26,7 @@ import type {
 } from "@/definition/AgentToolGroups";
 import type { AgentToolkitTool } from "./AgentToolkitContracts";
 
-/** Every tool the toolkit adds to the bridge (PAGE-390). */
+/** Every tool the toolkit adds to the bridge. */
 export const AGENT_TOOLKIT_TOOLS: readonly AgentToolkitTool[] = [
   ...AGENT_SHELL_TOOLS,
   ...AGENT_FILE_TOOLS,
@@ -95,8 +95,7 @@ export interface AgentBridgeToolClass {
 }
 
 /**
- * Sorts a tool of the bridge into its group (PAGE-390).
- *
+ * Sorts a tool of the bridge into its group.
  * @param id - The name of the tool.
  * @returns Its group and whether it writes; a tool Pages does not know
  * otherwise is a Pages tool, so the Pages group and its mode decide.
@@ -112,7 +111,6 @@ export function classifyBridgeTool(id: string): AgentBridgeToolClass {
 
 /**
  * Whether the policy of a session offers a tool of the bridge.
- *
  * @remarks
  * A group that is `off` offers nothing, one in `read` mode only its tools
  * that do not write. Pages checks writes again on every call, so a tool this

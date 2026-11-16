@@ -28,11 +28,10 @@ function readInstruction(input: string | null): string | null {
 }
 
 /**
- * Administrator settings of the chat: the supplement to Pica's instructions
- * (T6.12.8). The attachment limit is fixed (PAGE-251).
- *
+ * Administrator settings of the chat: the supplement to Pica's instructions.
+ * The attachment limit is fixed.
  * @remarks
- * Pica's protected `SOUL.md` and `AGENTS.md` are no setting (PAGE-51): no
+ * Pica's protected `SOUL.md` and `AGENTS.md` are no setting: no
  * method here or anywhere else in Pages reads them for editing or writes them.
  * The supplement only adds to them.
  */
@@ -55,7 +54,6 @@ export class ChatSettingsService {
 
   /**
    * Returns the settings for the system settings page.
-   *
    * @throws {InstanceSettingsDeniedError} When the actor is no administrator in the admin mode.
    */
   public async administration(actor: User): Promise<ChatAdministration> {
@@ -69,7 +67,6 @@ export class ChatSettingsService {
 
   /**
    * Replaces the settings.
-   *
    * @throws {InstanceSettingsDeniedError} When the actor is no administrator in the admin mode.
    * @throws {ChatError} `invalidSetting` for a too long supplement,
    * `credentialsInText` for a supplement with credentials.

@@ -21,7 +21,7 @@ interface DocumentSearchProps {
 }
 
 /**
- * The search of a document, slides, a table or a PDF (PAGE-385): a field,
+ * The search of a document, slides, a table or a PDF: a field,
  * the number of matches and, where it helps, the previous and next match.
  * Enter jumps to the next one.
  */

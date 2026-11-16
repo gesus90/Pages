@@ -144,7 +144,6 @@ function isLessonsResponse(value: unknown): value is AgentLessonsResponse {
 
 /**
  * Reads the lessons and recipes of one agent.
- *
  * @param agentId - The ID of the agent.
  * @param signal - Cancels the request when the view goes away.
  * @returns The overview, or why the server refused it.
@@ -200,7 +199,6 @@ function appendFields(form: FormData, request: AgentLessonsRequest): void {
 
 /**
  * Changes a lesson or a recipe of an agent.
- *
  * @param request - What to change.
  * @returns The fresh overview, or why the server refused the change.
  */

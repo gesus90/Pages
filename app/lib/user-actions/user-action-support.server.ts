@@ -136,7 +136,6 @@ export function invalidInput(intent: UsersIntent): UsersActionResult {
 
 /**
  * Turns a failure of a directory action into the response the client shows.
- *
  * @param error - What the service or repository rejected with.
  * @param intent - The action that failed.
  * @returns The response for a known failure.

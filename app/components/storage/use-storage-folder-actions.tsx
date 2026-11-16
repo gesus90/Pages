@@ -50,10 +50,9 @@ function exportFormatsOf(
 }
 
 /**
- * Connects the shown folder with the Storage actions (PAGE-270): the
+ * Connects the shown folder with the Storage actions: the
  * capabilities decide whether anything can change, and every successful
  * change reloads the folder.
- *
  * @param result - The loaded folder, or `null` before it is shown.
  * @param onChanged - Reloads the folder.
  * @returns The actions of the toolbar, the rows and the dialogs.

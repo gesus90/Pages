@@ -128,7 +128,6 @@ function BooleanValueInput(props: {
 
 /**
  * Name, type and value of a parameter node, edited in place.
- *
  * @remarks
  * The name stays the stable key of the value; the data OUT sits at the row
  * of the value it sends.

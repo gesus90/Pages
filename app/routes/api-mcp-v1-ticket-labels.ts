@@ -20,8 +20,7 @@ const HANDLERS: McpTicketHandlers = {
 };
 
 /**
- * Adds a label to the shared catalog (`POST /api/mcp/v1/ticket-labels`), PAGE-242 interface 12.
- *
+ * Adds a label to the shared catalog (`POST /api/mcp/v1/ticket-labels`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

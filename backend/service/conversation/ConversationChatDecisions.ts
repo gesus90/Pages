@@ -106,8 +106,7 @@ function candidatesOf(
 }
 
 /**
- * Decides which agents answer a message of a person without an @ in a group
- * (PAGE-317, PAGE-379).
+ * Decides which agents answer a message of a person without an @ in a group.
  *
  * @remarks
  * One call of the decision model asks two typed questions: whether the

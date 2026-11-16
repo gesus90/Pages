@@ -117,7 +117,6 @@ const LOCAL_PATH_PREFIX = "workspace_path_";
 
 /**
  * Fixed public failure of the workspace API.
- *
  * @remarks
  * It carries a code, a status and at most a stable finding; neither a
  * message of the services nor any part of the request leaves the server
@@ -130,7 +129,6 @@ export class McpWorkspaceError extends Error {
 
   /**
    * Creates the error.
-   *
    * @param code - The error code of the interface; it decides the HTTP status.
    * @param detail - The stable finding that explains the code, if the interface names one.
    */
@@ -180,11 +178,9 @@ function fromAgentError(error: AgentError): McpWorkspaceError | null {
 
 /**
  * Translates a failure of the workspace and connection services into the error of the interface.
- *
  * @param error - Whatever a service threw.
  * @returns The interface error, or `null` for a failure that is not the
  * client's doing and stays an internal error.
- *
  * @remarks
  * A missing right is `forbidden`; a workspace, project or connection the
  * account cannot see is `not_found`, exactly like one that does not exist.
@@ -198,11 +194,9 @@ export function toMcpWorkspaceError(error: unknown): McpWorkspaceError | null {
 
 /**
  * Runs a call that names a project of the request and answers a hidden one like a missing one.
- *
  * @remarks
  * The registry reports a project the account cannot open as an access
  * failure; for a project the request names, the interface calls that `not_found`.
- *
  * @param work - The call that reads or uses the project.
  * @throws {McpWorkspaceError} `not_found` when the project is hidden or missing.
  */

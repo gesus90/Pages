@@ -14,9 +14,7 @@ export interface ProfileFeedback {
 
 /**
  * Reacts to the server's answer to a profile or avatar submission.
- *
  * @param feedback - What the card does with the answer.
- *
  * @remarks
  * Each answer is handled once, even though the card renders again afterwards.
  */

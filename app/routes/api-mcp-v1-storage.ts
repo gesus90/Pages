@@ -2,7 +2,7 @@ import { runMcpStorageRoute } from "@/app/lib/mcp-storage-route.server";
 
 import type { Route } from "./+types/api-mcp-v1-storage";
 
-/** Serves Storage reads and unknown paths with bearer-authenticated JSON (PAGE-299). */
+/** Serves Storage reads and unknown paths with bearer-authenticated JSON. */
 export async function loader({
   request,
   params,

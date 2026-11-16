@@ -19,12 +19,10 @@ interface DreamingPollOptions {
 /**
  * Reads the Dreaming of an agent again and again while a run is going on or
  * waits for a quiet moment, so that the tab shows the end of the run.
- *
  * @remarks
  * One timer runs at a time: it fires, reads the overview and, once the answer
  * is in, the next one is set. A failed read just tries again at the next turn.
  * The timer and the request end with the tab.
- *
  * @param options - Which agent to ask, whether to ask, how often, and where
  * the answer goes.
  */

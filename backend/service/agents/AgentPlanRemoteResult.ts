@@ -107,7 +107,6 @@ function remoteAgentResult(
 
 /**
  * The continuation evidence of a runner that kept the session of a writing job.
- *
  * @remarks
  * The capability follows the runner's own statement and never the tool's
  * name; a runner without continuation support reports nothing, so the record

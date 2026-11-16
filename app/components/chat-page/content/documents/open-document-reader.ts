@@ -317,12 +317,10 @@ function metaTitle(meta: Element | null): string | null {
 }
 
 /**
- * Reads an OpenDocument text (`.odt`) as a readable view (PAGE-385).
- *
+ * Reads an OpenDocument text (`.odt`) as a readable view.
  * @remarks
  * Macros and scripts (`Basic/`, `Scripts/`) and embedded objects are never
  * run; pictures that point outside the file are not loaded.
- *
  * @param archive - The opened package.
  * @returns The document, or `null` without `office:text`.
  */
@@ -394,8 +392,7 @@ async function readOpenSlide(
 }
 
 /**
- * Reads an OpenDocument presentation (`.odp`) as slides (PAGE-385).
- *
+ * Reads an OpenDocument presentation (`.odp`) as slides.
  * @param archive - The opened package.
  * @returns The slides, or `null` without `office:presentation`.
  */
@@ -514,9 +511,8 @@ function readOpenSheetRows(table: Element): {
 }
 
 /**
- * Reads an OpenDocument spreadsheet (`.ods`) as tables (PAGE-385). Formulas
+ * Reads an OpenDocument spreadsheet (`.ods`) as tables. Formulas
  * show the values the file stored; nothing is recalculated.
- *
  * @param archive - The opened package.
  * @returns The workbook, or `null` without `office:spreadsheet`.
  */

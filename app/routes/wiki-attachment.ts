@@ -10,7 +10,6 @@ import type { Route } from "./+types/wiki-attachment";
 
 /**
  * Policy of every attachment response.
- *
  * @remarks
  * Even a file that is opened by its address runs no script and loads
  * nothing; only an image may show itself.
@@ -20,7 +19,6 @@ const ATTACHMENT_CONTENT_SECURITY_POLICY =
 
 /**
  * Sends an attached file after checking that the person sees its page.
- *
  * @remarks
  * Raster images are shown inline with the type found in their bytes. Every
  * other file, SVG and HTML included, is only ever sent as a download of an

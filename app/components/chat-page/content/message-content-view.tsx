@@ -30,7 +30,7 @@ export interface MessageContentSource {
   readonly archiveUrl?: string;
   /** What the server knows of the URLs that stand alone in a line. */
   readonly links?: readonly ConversationLink[];
-  /** Earlier attachments of the chat an agent shows again (PAGE-386). */
+  /** Earlier attachments of the chat an agent shows again. */
   readonly references?: readonly ConversationAttachmentReference[];
 }
 
@@ -39,7 +39,6 @@ interface MessageContentViewProps {
   readonly origin: CardOrigin;
   /**
    * Renders a passage of plain text, as the surrounding chat shows text.
-   *
    * @param text - The Markdown of the passage.
    * @param isFirst - Whether nothing of the message stands before it.
    */
@@ -68,7 +67,7 @@ interface PartViewProps {
 
 type CodePart = Extract<MessagePart, { readonly kind: "code" }>;
 
-/** A code block: a preview for HTML, SVG, Mermaid, JSON and CSV (PAGE-383), else a code card. */
+/** A code block: a preview for HTML, SVG, Mermaid, JSON and CSV, else a code card. */
 function CodePartCard({
   part,
   cardKey,
@@ -156,17 +155,16 @@ function PartCard({
 }
 
 /**
- * The content of one chat message (PAGE-298): its text as the chat shows
+ * The content of one chat message: its text as the chat shows
  * text, and in between and below it the cards.
- *
  * @remarks
  * Fenced code, ` ```diff ` blocks, ` ```markdown ` blocks and a URL alone
  * in a line become cards at their place in the text. HTML, SVG, Mermaid,
  * JSON and CSV blocks become previews; an HTML block takes the CSS and
- * JavaScript blocks of the message into one preview (PAGE-383). Attachments follow
+ * JavaScript blocks of the message into one preview. Attachments follow
  * below: text files as code, diff or Markdown cards, everything else by its
  * MIME type. Earlier attachments an agent shows again follow last, each as
- * the card of its original (PAGE-386). The component knows nothing of the page around it, so the Pica
+ * the card of its original. The component knows nothing of the page around it, so the Pica
  * panel and groups render messages with it alike.
  */
 export function MessageContentView({

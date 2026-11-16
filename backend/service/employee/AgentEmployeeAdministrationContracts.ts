@@ -25,7 +25,7 @@ export interface AgentEmployeeAdministrationDependencies {
   readonly models: AgentEmployeeModels;
   readonly memory: AgentMemoryService;
   readonly activity: AgentActivityService;
-  /** Isolation and MCP servers of the host for the access levels (PAGE-303); absent offers no isolation. */
+  /** Isolation and MCP servers of the host for the access levels; absent offers no isolation. */
   readonly accessEnvironment?: AgentAccessEnvironmentService;
 }
 

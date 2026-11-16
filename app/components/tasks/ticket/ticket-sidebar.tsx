@@ -332,7 +332,7 @@ function StatusField({
 }
 
 /**
- * The right column of a ticket (A8.2-E07): status on top, then the areas
+ * The right column of a ticket: status on top, then the areas
  * details, dates and progress, GitHub and further actions, each of which
  * opens and closes.
  */

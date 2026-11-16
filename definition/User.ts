@@ -23,7 +23,6 @@ export function isUserAvatarType(value: unknown): value is UserAvatarType {
 
 /**
  * A user as exposed to the client.
- *
  * @remarks
  * This shape never contains credentials or session data. Avatar values are
  * optional for compatibility with existing snapshots; the database uses the
@@ -43,7 +42,7 @@ export interface User {
   readonly avatarColor?: string | null;
   readonly avatarImageUrl?: string | null;
   /**
-   * Marks an agent account (PAGE-266): no password login; issued job-bound browser sessions only, never an
+   * Marks an agent account: no password login; issued job-bound browser sessions only, never an
    * administrator. Absent for every person.
    */
   readonly isAgent?: boolean;
@@ -51,7 +50,6 @@ export interface User {
 
 /**
  * Narrows unknown data to a user.
- *
  * @param value - Value received from an untrusted source.
  * @returns Whether the value is a user.
  */

@@ -12,7 +12,7 @@ import type { ConversationLinks } from "./ConversationLinks";
 export interface MessageContent {
   readonly attachments: readonly ConversationAttachment[];
   readonly links: readonly ConversationLink[];
-  /** Earlier attachments of the chat the message shows again (PAGE-386); missing without any. */
+  /** Earlier attachments of the chat the message shows again; missing without any. */
   readonly references?: readonly ConversationAttachmentReference[];
 }
 
@@ -30,7 +30,7 @@ export const EMPTY_MESSAGE_CONTENT: MessageContent = {
 };
 
 /**
- * Reads what a conversation message carries besides its text (PAGE-298):
+ * Reads what a conversation message carries besides its text:
  * its attachments, and the links that stand alone in a line of it.
  */
 export class ConversationMessageContent implements ConversationMessageContentReader {
@@ -43,10 +43,9 @@ export class ConversationMessageContent implements ConversationMessageContentRea
 
   /**
    * Creates the reader.
-   *
    * @param attachments - The attachments of messages.
    * @param links - The links of messages.
-   * @param references - The earlier attachments messages show again (PAGE-386); none without it.
+   * @param references - The earlier attachments messages show again; none without it.
    */
   public constructor(
     attachments: Pick<ConversationAttachments, "forMessages">,
@@ -63,7 +62,6 @@ export class ConversationMessageContent implements ConversationMessageContentRea
 
   /**
    * Reads the attachments and links of messages.
-   *
    * @param messages - The stored messages.
    * @returns The content by message ID; every message has an entry.
    */

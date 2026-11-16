@@ -41,7 +41,6 @@ const ROW_FIELDS: readonly PicaMobilePlanRowField[] = [
 
 /**
  * Cuts a text to the longest length a row field may have.
- *
  * @param text - The text.
  * @returns At most {@link PICA_MOBILE_MAXIMUM_PLAN_TEXT_LENGTH} code units,
  * never ending in half a surrogate pair.
@@ -96,7 +95,6 @@ function runFields(
 
 /**
  * Maps a plan of the overview onto a row of `plans`.
- *
  * @param entry - The plan with its latest own run.
  * @param options - Whether a row of a run carries its `state` key, which
  * only a connection that asked for `flow` gets.
@@ -161,7 +159,6 @@ function compareRows(
 
 /**
  * Picks the rows a connection holds, in the order of the contract.
- *
  * @param rows - Every row of the overview.
  * @returns At most {@link PICA_MOBILE_MAXIMUM_PLAN_ROWS} rows: running ones
  * with a failure, running ones, paused, failed, then all others; within each
@@ -215,7 +212,6 @@ function diffRow(
 
 /**
  * Finds what changed between two lists of rows.
- *
  * @param previous - The rows the connection holds, by plan.
  * @param next - The rows it gets next.
  * @returns New rows in full, changed rows with only their changed fields

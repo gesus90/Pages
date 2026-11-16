@@ -34,7 +34,6 @@ interface EditorBlockHandleProps {
 /**
  * Starts dragging a block: the block becomes the selection and ProseMirror
  * moves it to where it is dropped, showing the drop cursor on the way.
- *
  * @param editor - The editor.
  * @param position - Position right before the block.
  * @param event - The drag event of the handle.
@@ -66,7 +65,6 @@ export function startBlockDrag(
 /**
  * Adds an empty block below a block and opens the slash menu in it, as the
  * plus of the handle does in Notion.
- *
  * @param editor - The editor.
  * @param position - Position right before the block.
  */

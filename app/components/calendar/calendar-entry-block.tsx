@@ -19,7 +19,6 @@ interface CalendarEntryProps {
 /**
  * The look of an entry: the muted fill of its calendar, a dashed outline
  * while the account has not answered, faded when it declined.
- *
  * @param entry - The entry.
  * @param color - The color of its calendar.
  */
@@ -38,7 +37,6 @@ export function entryClassName(
 
 /**
  * Names an invitee in the line below a title, such as „Gruppe Team Pages“.
- *
  * @param invitee - The invitee.
  * @param t - The translation function.
  */

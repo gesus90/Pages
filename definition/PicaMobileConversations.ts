@@ -28,7 +28,6 @@ const voiceUploadIdSchema = z.string().regex(/^[\w.:-]{1,64}$/u);
 
 /**
  * The requests of `conversations.v1`, each with its payload.
- *
  * @remarks
  * `text` is bounded here by UTF-16 code units only; Pages counts its
  * characters and answers a longer text with `conversation_error`
@@ -66,7 +65,7 @@ export const picaMobileConversationRequestSchema = z.discriminatedUnion(
         conversationId: conversationIdSchema,
         clientMessageId: z.uuid(),
         text: z.string().max(40_000),
-        /** The uploaded attachments of the message in their order (PAGE-298). */
+        /** The uploaded attachments of the message in their order. */
         attachmentIds: z.array(conversationIdSchema).max(10).optional(),
       }),
     }),
@@ -146,7 +145,7 @@ export type PicaMobileConversationMessagesPayload = ConversationHistoryPage;
 /** The answer to `conversation_participants`. */
 export type PicaMobileConversationParticipantListPayload = ConversationContacts;
 
-/** An agent that starts (`isTyping: true`) or ends an answer in a conversation (PAGE-276). */
+/** An agent that starts (`isTyping: true`) or ends an answer in a conversation. */
 export interface PicaMobileConversationTyping {
   readonly conversationId: string;
   readonly participantId: string;
@@ -155,7 +154,6 @@ export interface PicaMobileConversationTyping {
 
 /**
  * The payload of `conversation_event`: what happened and its data.
- *
  * @remarks
  * `message` is a new message, `message_updated` a changed one, such as the
  * text of a voice message, `conversation` a new or changed conversation as
@@ -163,8 +161,8 @@ export interface PicaMobileConversationTyping {
  * The answers to `conversation_create`, `conversation_send`,
  * `conversation_read`, `conversation_mute` and `voice_finish` are events
  * with the request's identifier; Pages sends every other event on its own.
- * The `answer_*` events carry the parts of an answer an agent is writing
- * (PAGE-381); only a connection that announced `conversations.stream.v1`
+ * The `answer_*` events carry the parts of an answer an agent is writing;
+ * only a connection that announced `conversations.stream.v1`
  * receives them, the web chat page, so Pica Mobile sees no new event.
  */
 export type PicaMobileConversationEventPayload =

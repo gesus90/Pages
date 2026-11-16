@@ -16,7 +16,6 @@ export class MilestoneInitiativeRepository {
 
   /**
    * Creates a milestone initiative repository.
-   *
    * @param database - Central database access.
    */
   public constructor(database: TaskDatabase) {
@@ -25,10 +24,8 @@ export class MilestoneInitiativeRepository {
 
   /**
    * Returns the links of the milestones of the given projects.
-   *
    * @param projectIds - Projects whose active milestones are read.
    * @returns Linked and own-milestone initiatives, each pair once.
-   *
    * @remarks
    * An initiative belongs to its own `milestone_id` as well as to every row of
    * the link table. Both count as one relation here, and a row only counts

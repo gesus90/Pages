@@ -37,7 +37,6 @@ interface RevisionContext {
 
 /**
  * Requires an editable stored plan and the revision the editor saw.
- *
  * @param previous - The stored plan, or `null` for a new plan.
  * @param proposed - The graph the editor saves.
  * @throws {AgentError} `plan_access_denied` without edit rights, `plan_conflict` for another revision.
@@ -54,7 +53,6 @@ function requireRevisionMatches(
 
 /**
  * Prepares the execution of a saved plan that has groups and can run as it is.
- *
  * @param dependencies - The plan dependencies of the service.
  * @param userId - The person who saves the plan.
  * @param plan - The plan as it is stored.

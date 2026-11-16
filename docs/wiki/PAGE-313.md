@@ -1,6 +1,6 @@
 # Swarm-Knoten im Agent-Plan
 
-> Entwurf zu PAGE-313. Wird nach der Abnahme ins Wiki übertragen.
+> Entwurf. Die Live-Wiki wird getrennt gepflegt.
 
 ## Was ist Swarm
 

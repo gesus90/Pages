@@ -50,7 +50,7 @@ import type { VirtualParticipant } from "@/definition/VirtualChat";
 import type { AgentControlRequest } from "./use-agent-control";
 import type { AgentSessionActions } from "./use-agent-session-actions";
 
-/** What the menu of an agent steers in the opened chat (PAGE-380). */
+/** What the menu of an agent steers in the opened chat. */
 export interface AgentMenuControl {
   readonly target: AgentChatControlTarget;
   /** Whether the person may change the model and restart or compact the session. */
@@ -76,9 +76,9 @@ export interface AgentMenuOptions {
   readonly onOpenDirect?: (agent: VirtualParticipant) => void;
   /** Puts `@username` into the input field; left out in the direct chat with the agent. */
   readonly onMention?: (agent: VirtualParticipant) => void;
-  /** The model and session of the agent in this chat (PAGE-380); absent shows none of it. */
+  /** The model and session of the agent in this chat; absent shows none of it. */
   readonly control?: AgentMenuControl;
-  /** Opens "Geplante Aufgaben" of the direct chat with the agent (PAGE-392); left out in a group, whose menu has it. */
+  /** Opens "Geplante Aufgaben" of the direct chat with the agent; left out in a group, whose menu has it. */
   readonly onOpenTasks?: (agent: VirtualParticipant) => void;
 }
 
@@ -119,7 +119,7 @@ function modelNote(
     : `${name} · ${effortLabel(t, model.reasoningEffort)}`;
 }
 
-/** "Modell in diesem Chat …", "Jetzt verdichten" and "Neu starten" (PAGE-380); off with a hint without the right. */
+/** "Modell in diesem Chat …", "Jetzt verdichten" and "Neu starten"; off with a hint without the right. */
 function ControlEntries({
   agent,
   control,
@@ -334,7 +334,7 @@ function AgentSection({
   );
 }
 
-/** "Aus Gruppe entfernen …" (PAGE-380): only the creator of the group may; others see it off with a hint. */
+/** "Aus Gruppe entfernen …": only the creator of the group may; others see it off with a hint. */
 function RemoveEntry({
   agent,
   control,
@@ -372,15 +372,15 @@ interface ChatPageAgentMenuProps {
 }
 
 /**
- * The menu of an agent in the chat (PAGE-376): its session in this chat with
- * "Modell in diesem Chat …", "Jetzt verdichten", "Neu starten" (PAGE-380) and
+ * The menu of an agent in the chat: its session in this chat with
+ * "Modell in diesem Chat …", "Jetzt verdichten", "Neu starten" and
  * "Sitzung anhalten", then the agent's settings, its direct chat, its
  * mention and, in a group, "Aus Gruppe entfernen …".
  *
  * @remarks
  * A click on `children` opens it, and so does a right click wherever the
  * caller wires `state.openFromContextMenu`. "Lagebuch …" and "Dreaming,
- * Lektionen & Rezepte …" open the popup in its tabs (PAGE-377, PAGE-378).
+ * Lektionen & Rezepte …" open the popup in its tabs.
  */
 export function ChatPageAgentMenu({
   agent,

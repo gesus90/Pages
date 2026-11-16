@@ -6,7 +6,6 @@ export type PlanPanelTone =
 
 /**
  * The one line the collapsed panel shows: a status marker and a short sentence.
- *
  * @remarks
  * `state` names the translation `plans.panel.state.<state>.label` and `.hint`;
  * `variant` picks another hint of the same state.
@@ -76,7 +75,6 @@ function endedState(input: PlanPanelStateInput): PlanPanelState | null {
 
 /**
  * Derives the status line of the plan panel.
- *
  * @remarks
  * An active run speaks first, honestly in its intermediate states: a
  * requested pause is not yet a pause. Without one, unsaved changes, missing
@@ -101,7 +99,7 @@ export function planPanelState(input: PlanPanelStateInput): PlanPanelState {
   return endedState(input) ?? { state: "ready", tone: "ready" };
 }
 
-/** How urgent the notices are that the collapsed panel hides (PAGE-338). */
+/** How urgent the notices are that the collapsed panel hides. */
 export type PlanPanelAttention = "warning" | "error";
 
 /** What the collapsed panel hides and the status marker therefore points at. */
@@ -117,7 +115,6 @@ export interface PlanPanelAttentionInput {
 
 /**
  * Says whether the collapsed panel hides a warning or an error.
- *
  * @remarks
  * A refused recovery request is an error; waiting for the workspace, an open
  * cleanup obligation, a missing workspace, a block of Fortsetzen and a

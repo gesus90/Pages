@@ -14,7 +14,6 @@ export class AgentProjectService {
 
   /**
    * Returns only the names of the active projects the account may read, in Pages' project order.
-   *
    * @param userId - Owner of the verified agent credential.
    * @remarks
    * The personal administrator property counts independently of the browser role mode on

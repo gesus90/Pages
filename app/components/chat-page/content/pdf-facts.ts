@@ -2,7 +2,7 @@ import { useSyncExternalStore } from "react";
 
 import type { ConversationAttachment } from "@/definition/ConversationContent";
 
-/** Page count, title and protection of a PDF as a card shows them (PAGE-385). */
+/** Page count, title and protection of a PDF as a card shows them. */
 export interface PdfFacts {
   readonly pageCount?: number;
   /** The title from the metadata. */
@@ -26,7 +26,6 @@ function subscribe(listener: () => void): () => void {
 
 /**
  * The query of the page count and title as the files interface takes them.
- *
  * @param facts - What the browser read; other facts are left out.
  * @returns For example `&pageCount=12&title=Bericht`; empty without facts.
  */

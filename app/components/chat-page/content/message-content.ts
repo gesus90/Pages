@@ -7,7 +7,7 @@ import { resolveSyntaxLanguage } from "./syntax-highlight";
 import type { ConversationAttachment } from "@/definition/ConversationContent";
 import type { PreviewFile } from "./preview-kinds";
 
-/** One part of a message text, in its order (PAGE-298). */
+/** One part of a message text, in its order. */
 export type MessagePart =
   | { readonly kind: "text"; readonly text: string }
   | {
@@ -17,7 +17,7 @@ export type MessagePart =
       /** The language word of the fence, or the file name; empty without one. */
       readonly languageHint: string;
       readonly source: string;
-      /** Set when the fence named no language and Pages recognized it (PAGE-383). */
+      /** Set when the fence named no language and Pages recognized it. */
       readonly isDetected?: true;
     }
   | { readonly kind: "diff"; readonly source: string }
@@ -29,7 +29,7 @@ export type MessagePart =
   | {
       /**
        * An HTML block with the CSS and JavaScript blocks of the same message,
-       * shown as one preview (PAGE-383).
+       * shown as one preview.
        */
       readonly kind: "preview";
       /** The HTML file first, then the style sheets and the scripts. */
@@ -44,7 +44,7 @@ type CodePart = Extract<MessagePart, { readonly kind: "code" }>;
 export type TextAttachmentKind = "code" | "diff" | "markdown";
 
 /**
- * Endings of plain text files the chat shows as a text card (PAGE-385), such
+ * Endings of plain text files the chat shows as a text card, such
  * as notes and logs; their language stays plain text.
  */
 const PLAIN_TEXT_ENDINGS: readonly string[] = [
@@ -148,8 +148,7 @@ function isCodePart(part: MessagePart): part is CodePart {
 
 /**
  * Joins the first HTML block of a message with its CSS and JavaScript blocks
- * into one preview (PAGE-383); the joined blocks leave their places.
- *
+ * into one preview; the joined blocks leave their places.
  * @param parts - The parts of a message in their order.
  * @returns The parts with the HTML block as a preview, or unchanged without one.
  */
@@ -204,12 +203,10 @@ function readUrlLine(line: string): string | null {
  * Splits the text of a message into what the chat shows as text and what it
  * shows as cards: fenced code, ` ```diff ` blocks, ` ```markdown ` blocks and
  * a URL that stands alone in a line.
- *
  * @remarks
  * A fence without a language gets the one its content shows clearly, else
- * it stays plain text (PAGE-383). The first HTML block takes the CSS and
+ * it stays plain text. The first HTML block takes the CSS and
  * JavaScript blocks of the message into one preview.
- *
  * @param text - The Markdown text of the message.
  * @returns The parts in their order; text between cards keeps its lines.
  * A fence that never closes holds the rest of the message.
@@ -252,10 +249,9 @@ export function parseMessageContent(text: string): MessagePart[] {
 /**
  * Tells whether the chat renders an attachment as code, diff or Markdown
  * instead of offering it as a file.
- *
  * @param attachment - The attachment.
  * @returns The kind of text card; plain text such as `.txt` or `.log` is a
- * code card in plain text (PAGE-385). `null` for media, documents and tables,
+ * code card in plain text. `null` for media, documents and tables,
  * unknown types and text above 1 MB.
  */
 export function textAttachmentKind(

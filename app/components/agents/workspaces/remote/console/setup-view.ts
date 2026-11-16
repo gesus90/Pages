@@ -14,12 +14,10 @@ const FAILED_FIRST_PHASE: SetupProgress = {
 
 /**
  * The progress the panel draws, also when the server stopped the run before it reported any.
- *
  * @remarks
  * A refusal at the start, such as a missing right or a confirmed
  * installation, answers with an error instead of progress. It is phase 1 that
  * failed, so the panel shows the same sequence with its reason.
- *
  * @param state - The console state.
  * @param view - What the panel shows.
  * @returns The progress to draw.
@@ -40,7 +38,6 @@ export function effectiveSetupProgress(
 
 /**
  * The phase the sequence is at: the one that runs, waits or failed, else the next to begin.
- *
  * @param progress - The progress to draw.
  * @returns The zero-based index, or the number of phases when every phase is settled.
  */

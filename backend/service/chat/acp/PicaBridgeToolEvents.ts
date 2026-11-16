@@ -56,7 +56,7 @@ function readableOutput(
 
 /**
  * The details a call of the tool bridge shows in the tool line of the
- * answer (PAGE-390): short description, input and, at its end, output and
+ * answer: short description, input and, at its end, output and
  * duration, each with credentials masked.
  *
  * @remarks

@@ -21,11 +21,9 @@ export type ChatModelReply =
 
 /**
  * Reads a model reply as a final answer or as a request for one action.
- *
  * @param output - The complete text the model returned.
  * @returns The answer for the person, the requested action, or `invalid` for a
  * malformed action block.
- *
  * @remarks
  * Only Pages executes actions. A reply with an action block never reaches the
  * person; its JSON must name an operation and an object of parameters.

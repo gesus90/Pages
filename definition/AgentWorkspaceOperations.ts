@@ -37,7 +37,6 @@ export interface AgentWorkspaceGitHub {
 
 /**
  * A workspace as an MCP client reads it, with what the planning of agent work needs.
- *
  * @remarks
  * `id` is stable for the life of the registration. `revision` is the value to
  * pass as `expectedRevision` to a change.

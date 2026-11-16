@@ -89,7 +89,6 @@ function toSent(sent: ChatSendResult): PicaMobileChatOutcome {
 
 /**
  * Answers `chat.v1` with the chat of Pages, in the same conversations as the web.
- *
  * @remarks
  * Every request reads the account behind the session first and then uses the
  * same services as the web chat, so rights, limits, the ACP path and the
@@ -106,7 +105,6 @@ export class PagesPicaMobileChat implements PicaMobileChatProvider {
 
   /**
    * Creates the provider.
-   *
    * @param resolveServices - Resolves the Pages services when a request needs
    * them, so the listener works before the database does.
    */
@@ -313,7 +311,6 @@ export class PagesPicaMobileChat implements PicaMobileChatProvider {
 
   /**
    * Deletes one own session with the deletion of the web chat.
-   *
    * @remarks
    * `removeSelected` checks the session, stops a running answer, removes the
    * rows and files and logs as it does for the web. A session in `deleted`

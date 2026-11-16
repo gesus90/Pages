@@ -110,7 +110,7 @@ function readDecision(
 }
 
 /**
- * The decisions about messages of groups (PAGE-317, PAGE-379); one per
+ * The decisions about messages of groups; one per
  * message, kept with the model, the probabilities and the outcome, also when
  * nobody answers.
  */

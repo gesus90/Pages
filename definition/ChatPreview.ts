@@ -7,7 +7,7 @@ const CHAT_IMAGE_TYPES: ReadonlySet<string> = new Set([
   "image/svg+xml",
 ]);
 
-/** The Office types Pages accepts and reads as text (PAGE-92). */
+/** The Office types Pages accepts and reads as text. */
 export const CHAT_OFFICE_TYPES = {
   document:
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -39,7 +39,6 @@ export interface ChatPreviewSection {
 
 /**
  * The bounded, escaped-on-render content preview of a text or Office attachment.
- *
  * @remarks
  * Every text is plain data; the browser shows it as text, never as markup.
  * `isTruncated` marks a preview that holds only the start of the file.
@@ -69,7 +68,6 @@ export type ChatAttachmentPreview =
 
 /**
  * Tells how the chat previews an attachment of this type.
- *
  * @param contentType - The type Pages determined from the content.
  * @returns `image` for a thumbnail, `pdf` for a page rendered in the browser,
  * `content` for a text, table or document preview, `none` without a preview.

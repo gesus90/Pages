@@ -53,11 +53,9 @@ function parseRequest(line: string): Readonly<Record<string, unknown>> | null {
 
 /**
  * Decides a bridge request before anything reaches the host's SSH client.
- *
  * @param line - The request line of the session.
  * @param policy - The capability of this session.
  * @returns The service to run with the values of the policy, or the refusal.
- *
  * @remarks
  * The repository the bridge contacts always comes from the policy. The request
  * can only match it, so no text of the session reaches an argument vector.

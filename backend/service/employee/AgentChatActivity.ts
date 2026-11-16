@@ -19,8 +19,7 @@ export interface AgentChatIdleWait {
 }
 
 /**
- * Which agents answer in a chat now (PAGE-376).
- *
+ * Which agents answer in a chat now.
  * @remarks
  * Background work of an agent, such as the upkeep of its memory and its
  * learning, runs only while the agent works in no chat: it never competes
@@ -31,7 +30,6 @@ export class AgentChatActivity {
 
   /**
    * Notes that a round of a chat of the agent begins.
-   *
    * @returns Ends the round once; calling it again changes nothing.
    */
   public begin(agentId: string): () => void {
@@ -53,7 +51,6 @@ export class AgentChatActivity {
 
   /**
    * Waits until the agent works in no chat.
-   *
    * @returns Whether it is free; `false` after the longest wait.
    */
   public async whenIdle(waiting: AgentChatIdleWait): Promise<boolean> {

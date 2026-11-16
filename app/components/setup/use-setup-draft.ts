@@ -60,10 +60,8 @@ function findFirstStepWithError(errors: SetupFieldErrors): number {
 
 /**
  * Keeps the values and the step of the wizard.
- *
  * @param suggestedDatabaseUrl - Connection suggestion, used until the
  * field is edited; `null` before access was granted.
- *
  * @remarks
  * Moving forward checks the fields of the current step with the same rules
  * the server applies. Moving back never loses entered values.

@@ -12,7 +12,6 @@ const LOCAL_STATE_PATHS: readonly RegExp[] = [
 
 /**
  * Whether a navigation opens a local-state route, which the shell's loaders need not wait for.
- *
  * @remarks
  * The shell's data does not depend on the address. Reading it again would
  * make the opening wait for the server and fail while the backend is

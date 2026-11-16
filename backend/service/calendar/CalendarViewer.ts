@@ -15,7 +15,6 @@ import type { User } from "@/definition/User";
 
 /**
  * What a new invitation tells the push of the app.
- *
  * @remarks
  * `startAt` is stored UTC text of a timed event or the first date of an
  * all-day event; the push formats it in the zone and language of each
@@ -100,7 +99,6 @@ export interface CalendarProjectRef {
 
 /**
  * The account a calendar request runs for, with its current memberships.
- *
  * @remarks
  * Read anew for every request, so a left group, department or project hides
  * its events at once.
@@ -117,7 +115,6 @@ export interface CalendarViewer {
 
 /**
  * Tells the zone an account sees times in: its own setting, or the server's.
- *
  * @param settings - The settings service.
  * @param userId - The account.
  */
@@ -133,7 +130,6 @@ export async function readCalendarTimeZone(
 
 /**
  * Reads the viewer of a request.
- *
  * @param dependencies - Repositories and services.
  * @param user - The signed-in account.
  */

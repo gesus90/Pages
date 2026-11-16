@@ -148,9 +148,8 @@ function toContext(row: readonly DatabaseValue[]): StoredGroupContext {
 }
 
 /**
- * The stored context of each group (PAGE-296): summary, decisions, open
+ * The stored context of each group: summary, decisions, open
  * points, responsibilities, their sources and how far they reach.
- *
  * @remarks
  * The context is private data of its group and goes with it. A summary
  * saves only against the revision it was built on, so two processes never

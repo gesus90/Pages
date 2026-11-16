@@ -15,7 +15,6 @@ const IDLE_VIEW: RemoteSessionView = {
 
 /**
  * Holds one logical connection per remote connection of this server process.
- *
  * @remarks
  * A series on one connection never affects another, so a blocked machine
  * does not stop runs on other machines.

@@ -10,7 +10,6 @@ const TOKEN_PATTERN = /"([^"]+)"|(\S+)/g;
 
 /**
  * Splits a search text into words and quoted phrases.
- *
  * @param text - What the person typed.
  * @returns Words and phrases in order of appearance; quotes that are never
  * closed count as part of a word.
@@ -32,7 +31,6 @@ export function parseSearchText(text: string): ParsedSearchText {
 
 /**
  * Cuts a short passage around the first hit out of a page text.
- *
  * @param content - Markdown text of a page the viewer may see.
  * @param needles - Words and phrases that were searched.
  * @param radius - Characters kept on each side of the hit.

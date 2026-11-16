@@ -87,7 +87,6 @@ function hasSamePausedWork(
 
 /**
  * The scheduler nodes a pause stands at, which a continuation must still find.
- *
  * @remarks
  * A group summary is derived from its members and is no node of the plan; a
  * running member already names the work the group's session continues.
@@ -157,7 +156,6 @@ export class AgentPlanRunCommands {
 
   /**
    * Ends a run because the server shuts down, without recording a stop of its executor.
-   *
    * @remarks
    * Dispatch closes and every execution is aborted like a stop, but the run
    * closes as interrupted, so its executor can resume it after the restart.

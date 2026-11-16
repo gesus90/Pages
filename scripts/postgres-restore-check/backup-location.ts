@@ -38,7 +38,6 @@ async function pathExists(target: string): Promise<boolean> {
 
 /**
  * Reads the location from the variables of `deploy/postgres/backup.env.example`.
- *
  * @param environment - The environment of the process.
  * @returns The location, or `null` when a variable is missing.
  */
@@ -59,7 +58,6 @@ export function readBackupLocation(
 
 /**
  * Makes sure the backup directory lies on the expected file system.
- *
  * @param location - The location to check.
  * @throws {RestoreCheckFailure} When it lies on another one, for example because
  * the disk is not mounted and the path now belongs to the system disk.

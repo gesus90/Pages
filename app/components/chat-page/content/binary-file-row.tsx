@@ -21,7 +21,7 @@ import type { LucideIcon } from "lucide-react";
 import type { ConversationAttachment } from "@/definition/ConversationContent";
 
 /**
- * The fixed columns of a file row (PAGE-385): icon, name with kind, size and
+ * The fixed columns of a file row: icon, name with kind, size and
  * remaining time, checksum, download. Every row of the chat uses the same
  * widths, so rows below each other line up exactly; on a phone the checksum
  * moves to a line of its own.
@@ -105,7 +105,6 @@ const CHECKSUM_SHOWN = 8;
 
 /**
  * The ending of a file name as its kind, such as `ZIP` or `TAR.GZ`.
- *
  * @param name - The file name.
  * @returns The ending in upper case, or an empty text without one.
  */
@@ -191,7 +190,7 @@ interface BinaryFileRowProps {
 
 /**
  * The plain row of a binary file or any format the chat shows no view of
- * (PAGE-385): icon · name with kind, size and remaining time · checksum ·
+ * Icon · name with kind, size and remaining time · checksum ·
  * "Herunterladen" in the accent color. No preview, no "Daneben", no full
  * screen; the file is never opened in the browser.
  */

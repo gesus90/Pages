@@ -16,7 +16,6 @@ export interface PlanAssetFacts {
 
 /**
  * A file size in binary units, such as `2,4 MiB`.
- *
  * @remarks
  * The unit is the one of the limit for plan files, 512 MiB = 512 × 1024 × 1024
  * bytes, so a file at the limit reads `512 MiB`.

@@ -12,13 +12,11 @@ import type { AgentApplicationServices } from "./agent-services.server";
 
 /**
  * Detaches durable native work and closes PostgreSQL after transient requests have drained.
- *
  * @param database - Central database access to close on shutdown.
  * @param agents - The agent services, which stop before it.
  * @param plans - The plan service, which detaches proven durable local runs and drains other work.
- *
  * @remarks
- * The steps keep their order but do not depend on each other (PAGE-199): a
+ * The steps keep their order but do not depend on each other: a
  * failing or stuck step is reported under its name, and every later step and
  * the attempt to close the database still run.
  */

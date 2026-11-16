@@ -31,7 +31,6 @@ interface PlanDialogFrameProps {
 
 /**
  * The centred modal of the plan menu: title, fields, Cancel and the action.
- *
  * @remarks
  * Nothing happens before the action button: closing, Cancel and Escape
  * leave the plan as it is. While the request runs the dialog stays open and

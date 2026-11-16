@@ -363,7 +363,7 @@ function UsageFacts(props: UsageSectionProps): React.ReactElement {
   );
 }
 
-/** How long the session of the node ran, ticking while it runs, else up to its end (PAGE-289). */
+/** How long the session of the node ran, ticking while it runs, else up to its end. */
 function RuntimeFact({
   step,
   label,
@@ -441,7 +441,7 @@ function SessionSection(props: ConsoleSidebarProps): React.ReactElement {
 }
 
 /**
- * The sidebar of the Pages terminal: todos, activity, usage and session (PAGE-284, PAGE-289).
+ * The sidebar of the Pages terminal: todos, activity, usage and session.
  *
  * @remarks
  * It follows the run while it runs: the todos and the activity come from the

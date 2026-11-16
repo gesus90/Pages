@@ -13,7 +13,6 @@ import type {
 
 /**
  * The scheduler side of FIFO admission, as the admission loop sees it.
- *
  * @remarks
  * Live values are read through functions so the loop observes reductions and
  * shutdowns that happen while it runs.

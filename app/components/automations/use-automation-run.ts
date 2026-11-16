@@ -29,7 +29,7 @@ function isRunDetail(value: unknown): value is AutomationRunDetail {
 
 /**
  * Reads one run with its answer, output, error, trigger data and
- * deliveries while the dialog shows it (PAGE-297).
+ * deliveries while the dialog shows it.
  */
 export function useAutomationRun(
   reference: RunReference | null,

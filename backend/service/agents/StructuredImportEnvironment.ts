@@ -21,7 +21,6 @@ export type StructuredImportScope = Pick<
 
 /**
  * Everything one structured import call reads, bound to one database scope.
- *
  * @remarks
  * Account, rights and visibility are resolved when the environment is built,
  * on the scope it is built for, with the channel policy of MCP calls.
@@ -39,7 +38,6 @@ export interface StructuredImportEnvironment {
 
 /**
  * Builds the environment of one call for a verified account.
- *
  * @param scope - The database, or the scope of the transaction the call runs in.
  * @param userId - The verified owner of the call.
  * @returns The services and repositories bound to the scope.

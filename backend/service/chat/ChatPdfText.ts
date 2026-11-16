@@ -40,7 +40,7 @@ function pageText(items: readonly unknown[]): string {
 }
 
 /**
- * Reads the text layer of a PDF with pdf.js (PAGE-92).
+ * Reads the text layer of a PDF with pdf.js.
  *
  * @remarks
  * pdf.js parses the file without running its scripts (pdf.js 6 has no `eval`

@@ -47,7 +47,7 @@ async function nearestExisting(candidate: string): Promise<string> {
 }
 
 /**
- * Resolves a path the agent names inside its working folder (PAGE-390).
+ * Resolves a path the agent names inside its working folder.
  *
  * @param root - The working folder of the session: the agent's assigned
  * workspace or the folder of the chat session.

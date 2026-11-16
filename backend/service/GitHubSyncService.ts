@@ -61,7 +61,6 @@ export interface GitHubSyncServiceOptions {
 
 /**
  * Creates a live GitHub API client.
- *
  * @param token - Personal access token, kept inside the server process.
  * @returns Client speaking to the GitHub REST API.
  */
@@ -71,7 +70,6 @@ export function createGitHubApiClient(token: string): GitHubApiClient {
 
 /**
  * Returns the current timestamp for synchronization bookkeeping.
- *
  * @returns Current time as an ISO string.
  */
 export function currentGitHubSyncTime(): string {
@@ -80,7 +78,6 @@ export function currentGitHubSyncTime(): string {
 
 /**
  * Establishes the business-logic boundary for GitHub synchronization.
- *
  * @remarks
  * A facade over the collaborators in `./github/`; it forwards requests and
  * holds no synchronization logic of its own.
@@ -101,7 +98,6 @@ export class GitHubSyncService {
 
   /**
    * Creates a GitHub synchronization service.
-   *
    * @param options - Repository, service, and infrastructure dependencies.
    */
   public constructor(options: GitHubSyncServiceOptions) {
@@ -185,7 +181,6 @@ export class GitHubSyncService {
 
   /**
    * Runs a full bidirectional synchronization for one project.
-   *
    * @param actor - User triggering the run; must hold write permission.
    * @param projectId - Project to synchronize.
    * @returns Outcome counters describing the run.
@@ -210,7 +205,6 @@ export class GitHubSyncService {
 
   /**
    * Synchronizes every project whose scheduled run is due.
-   *
    * @returns Completed and failed run counters; failures never abort the batch.
    */
   public async runScheduledSyncs(): Promise<ScheduledSyncResult> {
@@ -221,7 +215,6 @@ export class GitHubSyncService {
 
   /**
    * Synchronizes a single linked task without touching the rest of the project.
-   *
    * @param actor - User triggering the run; must hold write permission.
    * @param workItemId - Linked task to synchronize.
    * @returns Outcome counters describing the run.
@@ -245,7 +238,6 @@ export class GitHubSyncService {
 
   /**
    * Pushes one task to GitHub, creating the remote issue when missing.
-   *
    * @param actor - User owning the change.
    * @param item - Fresh task detail after its Pages mutation.
    */
@@ -267,7 +259,6 @@ export class GitHubSyncService {
 
   /**
    * Imports a detected external issue as a new Pages task and links both sides.
-   *
    * @param actor - User importing the issue; must hold write permission.
    * @param projectId - Project receiving the new task.
    * @param issueNumber - Remote issue number to import.
@@ -298,7 +289,6 @@ export class GitHubSyncService {
 
   /**
    * Links a detected external issue to an existing task.
-   *
    * @param actor - User linking the issue; must hold write permission.
    * @param workItemId - Task receiving the link.
    * @param externalId - Detected external issue to link.
@@ -328,7 +318,6 @@ export class GitHubSyncService {
 
   /**
    * Hides a detected external issue without importing it.
-   *
    * @param actor - User dismissing the issue; must hold write permission.
    * @param externalId - Detected external issue to dismiss.
    */
@@ -343,7 +332,6 @@ export class GitHubSyncService {
 
   /**
    * Assigns a pull request to a task or clears its assignment.
-   *
    * @param actor - User assigning the pull request; must hold write permission.
    * @param pullRequestId - Stored pull request to assign.
    * @param workItemId - Task receiving the reference, or `null` to clear it.
@@ -360,7 +348,6 @@ export class GitHubSyncService {
 
   /**
    * Resolves a synchronization conflict in favor of one side.
-   *
    * @param actor - User resolving the conflict; must hold write permission.
    * @param workItemId - Task carrying the conflict flag.
    * @param resolution - Side whose values win the conflict.
@@ -390,7 +377,6 @@ export class GitHubSyncService {
 
   /**
    * Returns detected external issues after verifying project access.
-   *
    * @param actor - User requesting the issues.
    * @param projectId - Project to inspect.
    */
@@ -405,7 +391,6 @@ export class GitHubSyncService {
 
   /**
    * Returns stored pull requests after verifying project access.
-   *
    * @param actor - User requesting the pull requests.
    * @param projectId - Project to inspect.
    */
@@ -423,7 +408,6 @@ export class GitHubSyncService {
 
   /**
    * Returns external issues for already access-checked projects.
-   *
    * @remarks
    * Callers must only pass project ids the actor may access (the tasks
    * overview passes its already filtered project list).

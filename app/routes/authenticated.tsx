@@ -36,7 +36,6 @@ export function shouldRevalidate(args: ShouldRevalidateFunctionArgs): boolean {
 
 /**
  * Loads the authenticated user and their navigation permissions from the API.
- *
  * @remarks
  * The endpoint runs behind the authentication middleware; a missing or
  * ended session redirects to the sign-in page as before. Without a backend

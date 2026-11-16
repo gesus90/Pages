@@ -6,7 +6,6 @@ const SUMMARY_CHARACTERS = 240;
 /**
  * The short description of an agent for a list: the first paragraph of its
  * `AGENT.md` without headings, markup characters and credentials.
- *
  * @param instructions - The text of `AGENT.md`.
  * @returns At most 240 characters, or `null` for an empty document.
  */
@@ -61,13 +60,11 @@ function responsibilityLines(lines: readonly string[]): string[] {
 
 /**
  * What an agent is specialized in, for the decision of who answers in a group
- * (PAGE-379): its opening paragraph and the list under the heading that states
+ * Its opening paragraph and the list under the heading that states
  * what it is responsible for, without markup and credentials.
- *
  * @param instructions - The text of `AGENT.md`.
  * @param limit - The most characters the result keeps.
  * @returns At most `limit` characters, or an empty text for an empty document.
- *
  * @remarks
  * The headings that count are "Zuständig für", "Zuständigkeit", "Spezialisierung"
  * and "Schwerpunkt" and their English forms. A document without one gives its

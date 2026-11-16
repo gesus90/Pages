@@ -64,7 +64,7 @@ export function formatToolDuration(durationMs: number): string {
     : `${Math.floor(seconds / 60)} min ${Math.round(seconds % 60)} s`;
 }
 
-/** The short description and the duration of a call beside its name (PAGE-390). */
+/** The short description and the duration of a call beside its name. */
 function ToolFacts({
   use,
 }: {
@@ -87,8 +87,8 @@ function ToolFacts({
 }
 
 /**
- * One tool call of an agent (PAGE-303): the tool or command with its short
- * description and duration in the summary (PAGE-390), input and result when
+ * One tool call of an agent: the tool or command with its short
+ * description and duration in the summary, input and result when
  * opened, and a cancel button while it runs.
  */
 export function ChatPageToolUse({
@@ -99,7 +99,7 @@ export function ChatPageToolUse({
   readonly use: VirtualToolUse;
   /** Cancels the running call; absent for a call of a stored answer. */
   readonly onCancel?: () => void;
-  /** How long the call ran, such as "1,2 s" (PAGE-381); absent where unknown. */
+  /** How long the call ran, such as "1,2 s"; absent where unknown. */
   readonly durationLabel?: string;
 }): React.ReactElement {
   const { t } = useTranslation();
@@ -151,7 +151,7 @@ export function ChatPageToolUse({
   );
 }
 
-/** The tool calls of the answer an agent is working on now (PAGE-303). */
+/** The tool calls of the answer an agent is working on now. */
 export function ChatPageLiveTools({
   tools,
   onCancel,

@@ -72,8 +72,7 @@ function readBytes(text: string | null): number | null {
 }
 
 /**
- * Measures the server for the system dashboard (PAGE-282).
- *
+ * Measures the server for the system dashboard.
  * @remarks
  * One measurement serves every open page for a second after it finished, and
  * a measurement under way serves every request that arrives meanwhile.
@@ -93,7 +92,6 @@ export class SystemDashboardService {
 
   /**
    * Creates the service; nothing is measured before the first request.
-   *
    * @param dependencies - Sources, data directory and the instance's readers.
    */
   public constructor(dependencies: SystemDashboardDependencies) {
@@ -120,7 +118,6 @@ export class SystemDashboardService {
 
   /**
    * Answers the current measurement, shared with the other open pages.
-   *
    * @param actor - An administrator in the active admin mode; the caller checked it.
    * @returns The measurement, checked against {@link systemDashboardSchema}.
    */

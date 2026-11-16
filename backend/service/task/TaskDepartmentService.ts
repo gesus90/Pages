@@ -60,7 +60,6 @@ export class TaskDepartmentService {
 
   /**
    * Creates a department service.
-   *
    * @param taskRepository - Task persistence boundary.
    * @param access - Guard resolving write access and current account facts.
    * @param history - Recorder of the ticket audit trail.
@@ -93,7 +92,6 @@ export class TaskDepartmentService {
 
   /**
    * Validates a department selection of a new ticket against the live catalog and scope.
-   *
    * @param actor - User making the selection.
    * @param selection - Raw department ids; blank or empty means no department.
    * @returns The distinct department ids to store, empty for a ticket without one.
@@ -119,12 +117,10 @@ export class TaskDepartmentService {
 
   /**
    * Replaces the departments of a ticket, apart from content edits.
-   *
    * @param actor - User with write access to the ticket.
    * @param id - Ticket to reassign.
    * @param selection - New department ids; empty makes the ticket visible to the whole project.
    * @param expected - Previously displayed department ids, when checking for conflicts.
-   *
    * @remarks
    * Added departments and removed departments each need the right to select
    * them. Removing every department is the exception: anyone who may write
@@ -176,12 +172,10 @@ export class TaskDepartmentService {
 
   /**
    * Tells whether the person, or the members of the group, can see a ticket with the given departments.
-   *
    * @param actor - User asking; may only offer departments they can select.
    * @param target - Departments of the ticket and the person or group assigned.
    * @returns Whether everyone concerned sees the ticket, and the departments
    * of those who do not, which the actor could add.
-   *
    * @remarks
    * Assigning gives no sight. This only answers the question for the notice
    * shown before the assignment; it never changes anything.

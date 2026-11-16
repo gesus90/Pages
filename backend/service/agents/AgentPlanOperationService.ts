@@ -62,7 +62,6 @@ function isPersonalEvidenceRead(operation: unknown, input: unknown): boolean {
 /**
  * Lists, reads, creates and changes agent plans, and reads runs and their reports,
  * for the agent tools and the chat.
- *
  * @remarks
  * The adapter holds no right of its own: every call runs through the plan
  * service with the rules of the plan page. Plans are visible through their
@@ -92,7 +91,6 @@ export class AgentPlanOperationService {
 
   /**
    * Handles a plan operation, returning `null` when another service owns the name.
-   *
    * @param identity - The verified identity of the call.
    * @param operation - The operation name as received.
    * @param input - The raw parameters.

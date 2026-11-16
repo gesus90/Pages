@@ -38,8 +38,7 @@ function PlanSwarmRunSection(props: {
 }
 
 /**
- * The floating settings panel of a swarm (PAGE-313).
- *
+ * The floating settings panel of a swarm.
  * @remarks
  * Its sections follow the order Aufgabe → Hauptmodell → Helfer →
  * Ausführung. Changes go into the plan draft at once and are stored when the

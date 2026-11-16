@@ -60,7 +60,6 @@ const INVALID_ID_PROBLEM =
 
 /**
  * Knows the design themes that are installed in one directory.
- *
  * @remarks
  * A theme is a sub-directory with a `theme.json`; its name is the theme's
  * identifier. The directory is read when somebody asks, never only at start,
@@ -80,7 +79,6 @@ export class DesignThemeRegistry {
 
   /**
    * Creates a registry.
-   *
    * @param directory - Directory that holds the theme directories; it need not exist.
    */
   public constructor(directory: string) {
@@ -89,7 +87,6 @@ export class DesignThemeRegistry {
 
   /**
    * Scans the directory again.
-   *
    * @returns Every usable theme and every directory that was skipped, with the reason.
    */
   public async list(): Promise<DesignThemeCatalog> {
@@ -114,7 +111,6 @@ export class DesignThemeRegistry {
 
   /**
    * Looks up one theme.
-   *
    * @param id - Identifier to look for; any text is safe, it is checked first.
    * @returns The theme, or `null` when it is not installed, was removed, or its
    * manifest is invalid.

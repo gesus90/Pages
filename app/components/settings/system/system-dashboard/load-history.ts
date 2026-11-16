@@ -7,7 +7,6 @@ export const HISTORY_POINTS = 300;
 
 /**
  * One reading of a tile, or a break where the page was not watched.
- *
  * @remarks
  * A break (`ratio: null`) separates the curve; nothing is drawn across it.
  */
@@ -41,7 +40,6 @@ function appendSamples(
 
 /**
  * Adds one reading of every tile.
- *
  * @param history - The readings so far.
  * @param ratios - The shares of this reading; `null` where a value is missing.
  * @param options - When it was read and whether the page was hidden before.

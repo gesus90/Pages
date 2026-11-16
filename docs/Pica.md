@@ -4,21 +4,21 @@
 CLI differences and protected instructions. For installation, see
 [Agent runtime](AgentRuntime.md); for administration, see
 [Pica administrator operator](PicaAdminOperator.md).
-The tool table below lists the original PAGE-157 core; later catalogs also
+The tool table below lists the original core; later catalogs also
 include the [Storage interface](StorageApi.md) and administrator tools.
 
-- [Pica native tools (PAGE-157)](#pica-native-tools-page-157)
-- [Pica execution budgets (PAGE-103)](#pica-execution-budgets-page-103)
-- [Pica over Codex ACP (PAGE-68)](#pica-over-codex-acp-page-68)
-- [Pica over Claude Code ACP (PAGE-90)](#pica-over-claude-code-acp-page-90)
-- [Pica over native OpenCode ACP (PAGE-91)](#pica-over-native-opencode-acp-page-91)
-- [Pica live activity (PAGE-103)](#pica-live-activity-page-103)
-- [Pica sessions and conversation context (PAGE-48)](#pica-sessions-and-conversation-context-page-48)
-- [Pica quota demo (PAGE-96)](#pica-quota-demo-page-96)
-- [Pica's mascot and protected instructions (PAGE-51)](#picas-mascot-and-protected-instructions-page-51)
-- [Direct model selection and Pica (PAGE-124)](#direct-model-selection-and-pica-page-124)
+- [Pica native tools](#pica-native-tools)
+- [Pica execution budgets](#pica-execution-budgets)
+- [Pica over Codex ACP](#pica-over-codex-acp)
+- [Pica over Claude Code ACP](#pica-over-claude-code-acp)
+- [Pica over native OpenCode ACP](#pica-over-native-opencode-acp)
+- [Pica live activity](#pica-live-activity)
+- [Pica sessions and conversation context](#pica-sessions-and-conversation-context)
+- [Pica quota demo](#pica-quota-demo)
+- [Pica's mascot and protected instructions](#picas-mascot-and-protected-instructions)
+- [Direct model selection and Pica](#direct-model-selection-and-pica)
 
-## Pica native tools (PAGE-157)
+## Pica native tools
 
 The Pica chat runs Codex CLI, Claude Code, opencode and Antigravity
 through ACP; Antigravity reaches the catalog as the one MCP server of its
@@ -35,7 +35,7 @@ the current account rights:
 | Wiki       | `wiki_page_create`, `wiki_page_set_title`, `wiki_page_set_content`, `wiki_page_move`, `wiki_page_delete`, `wiki_comment_add`, `wiki_comment_edit`, `wiki_comment_resolve`, `wiki_comment_delete`                                                                                           |
 
 Sessions of agent employees (not Pica) additionally get `chats_list`,
-`chat_read` and `chat_send` (PAGE-311): an agent reads the chats it takes part
+`chat_read` and `chat_send`: an agent reads the chats it takes part
 in and sends a message to a chat, person, agent or user group it may assign
 tickets to. A message to an agent is answered like one of a person, queued
 while the agent is busy; `waitForReply` returns the answer or `pending`. Ten
@@ -47,18 +47,18 @@ There is no generic operation tool and no text-action fallback. A normal
 person gets no administration (accounts, roles, connections, instance
 settings); an administrator in the active admin mode additionally gets the
 administrator catalog described in [Pica administrator
-operator](PicaAdminOperator.md) (PAGE-180). `projects.list`, the read
+operator](PicaAdminOperator.md). `projects.list`, the read
 behind `projects_list`, is also an operation of the agent API. Wiki comments
 are the only comments Pages has; tickets have none.
 
 Pica acts on user level when the person asks, without a confirmation line or
-word (PAGE-68), and names the result. Every call runs through the existing
+word, and names the result. Every call runs through the existing
 services with the current rights of the person; a missing right returns
 `FORBIDDEN`, which Pica reports. Changes carry the expected old value or
 revision wherever the operation checks one, so a concurrent change ends in
 `CONFLICT` instead of being overwritten. Tickets, milestones and wiki pages are
 archived or moved to the trash on an explicit current request. Typed
-confirmation words were removed in PAGE-322; authorization and revision checks
+confirmation words were removed; authorization and revision checks
 remain. Permanent deletion has its own administration rules. A write that failed is refused with `RETRY_REFUSED` when it
 is sent again unchanged in the same turn. A text of a write holds at most
 20,000 characters, as much as a tool result can show.
@@ -79,7 +79,7 @@ functions, while Pica uses the Codex and Claude CLI sign-ins.
 The z.ai account choice and additive migration rollback are documented in
 [z.ai account routing](ZaiAccountType.md).
 
-## Pica execution budgets (PAGE-103)
+## Pica execution budgets
 
 ACP and legacy actions permit up to **256 actual Pages tool executions
 per turn**. Validated calls reserve their place before dispatch, including
@@ -106,7 +106,7 @@ before. Provider context limits, bounded history, attachment/result size
 limits and resource admission still apply, so 256 calls is a ceiling rather
 than a guarantee for arbitrary workloads.
 
-## Pica over Codex ACP (PAGE-68)
+## Pica over Codex ACP
 
 When the chat agent under _Settings › Agents_ uses a Codex CLI connection, Pica
 answers through `codex-acp` with the same native tools. There is no model choice
@@ -160,14 +160,14 @@ for every new answer, so a change applies from the next message on.
 The capability matrix of the installed adapter is in
 [backend/agents/acp/CodexAcpCapabilities.md](../backend/agents/acp/CodexAcpCapabilities.md).
 
-## Pica over Claude Code ACP (PAGE-90)
+## Pica over Claude Code ACP
 
 When the chat agent under _Settings › Agents_ uses a Claude Code connection,
 Pica answers through `claude-agent-acp` on the same server-side jobs, journal,
 steering, attachments and tool bridge as with Codex: jobs run on without the
 browser, a message is stored once, steers and selection snapshots keep their
-statuses, and the native tools act on user level as described in the PAGE-83
-section. This section names what differs.
+statuses, and the native tools act on user level as described in the native tools section
+above. This section names what differs.
 
 - **Assignment only.** Connection, model, effort and the permission mode come
   from the assigned chat agent and nothing else: no model default, no fallback
@@ -207,7 +207,7 @@ section. This section names what differs.
 The capability matrix of the installed adapter is in
 [backend/agents/acp/ClaudeAcpCapabilities.md](../backend/agents/acp/ClaudeAcpCapabilities.md).
 
-## Pica over native OpenCode ACP (PAGE-91)
+## Pica over native OpenCode ACP
 
 An OpenCode chat agent starts the installed `opencode acp` directly through
 the shared ACP client. Pages verifies the native contract of **1.18.34** before
@@ -261,9 +261,9 @@ configurations are not imported. No model, provider or API fallback is used.
 The protocol observations and upstream source references are in
 [backend/agents/acp/OpenCodeAcpCapabilities.md](../backend/agents/acp/OpenCodeAcpCapabilities.md).
 OpenCode plan nodes also use the native ACP entry point; see
-[OpenCode plan setup](AgentRuntime.md#opencode-plan-nodes-with-a-console--zen-key-page-66).
+[OpenCode plan setup](AgentRuntime.md#opencode-plan-nodes-with-a-console--zen-key).
 
-## Pica live activity (PAGE-103)
+## Pica live activity
 
 While an ACP job runs, the message list shows one compact row:
 the unchanged Pica mascot, three orange dots, a neutral phrase that changes
@@ -285,7 +285,7 @@ horizontal borders, and a transparent mask fades the message edges. The outer
 panel frame and mascot asset stay unchanged. The launcher uses the panel
 surface, shadow, subtle hover/active fills, keyboard focus and an open ring.
 
-## Pica sessions and conversation context (PAGE-48)
+## Pica sessions and conversation context
 
 In the Pica panel, `/delete` opens a selection of the signed-in person's own
 sessions, including a select-all option. The permanent deletion button states
@@ -310,9 +310,9 @@ is conversation context only: system instructions, new attachments and current
 turn action results are excluded.
 
 Session deletion through agent tools also follows the explicit current request
-without a typed confirmation word (PAGE-322).
+without a typed confirmation word.
 
-## Pica quota demo (PAGE-96)
+## Pica quota demo
 
 Pica's quota panel does not query provider budgets. Agent Plan's provider waits
 are separate from this demonstration. To show how Pica reports a used-up quota, `/quota`
@@ -331,12 +331,12 @@ starts a simulated state that exists only in the open browser tab and is marked
   demo. Nothing is sent again on its own; sending the message again is the
   person's own action.
 
-## Pica's mascot and protected instructions (PAGE-51)
+## Pica's mascot and protected instructions
 
 ### Mascot
 
-Pica appears with one graphic: `assets/pica/pica_maskottchen.svg`, the SVG
-attached to PAGE-51, taken over byte for byte. `app/components/chat/pica-mascot.tsx`
+Pica appears with one graphic: `assets/pica/pica_maskottchen.svg`, the original
+SVG, taken over byte for byte. `app/components/chat/pica-mascot.tsx`
 renders it in the launcher (44 px in the 56 px round button), in the chat header
 (36 px), beside Pica's answers and the pending row (28 px) and on the chat
 settings card (28 px in the 36 px symbol tile). It keeps its square canvas
@@ -406,7 +406,7 @@ copies in `build/server/pica/`, as it can change the server code itself. That
 happens outside of Pages and applies from the next message. Keep `build/`
 writable only for the account that deploys Pages.
 
-## Direct model selection and Pica (PAGE-124)
+## Direct model selection and Pica
 
 Agent Plan nodes select a concrete **connection + model ID** directly. No
 administrator model profile or personal agent definition is required. The

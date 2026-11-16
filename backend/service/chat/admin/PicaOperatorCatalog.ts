@@ -17,7 +17,6 @@ export interface PicaOperatorEntry {
 
 /**
  * Operations of the chat catalog that no native tool offers, each with its reason.
- *
  * @remarks
  * Everything else in the chat catalog is reachable natively: the tools of
  * every person, the plan tools and the administrator catalog below.
@@ -42,7 +41,6 @@ const CRITICAL_OPERATIONS: ReadonlySet<string> = new Set([
 
 /**
  * Tells whether an operation always needs the person's typed confirmation in a later message.
- *
  * @remarks
  * Besides these, a service may still answer `CONFIRMATION_REQUIRED` for a
  * change that withdraws rights or memberships; Pages then asks the same way.
@@ -56,11 +54,9 @@ export function isPicaCriticalOperation(operation: string): boolean {
 
 /**
  * Lists the operations only an administrator can use as native tools.
- *
  * @param native - The operations that already have a native tool for every person.
  * @returns The administration operations first, then every other operation of
  * the shared tool catalog that the chat knows and no native tool covers.
- *
  * @remarks
  * Plan, automation and calendar operations have their own native tools. The list is derived from the
  * shared static contracts, so a new operation of the agent API

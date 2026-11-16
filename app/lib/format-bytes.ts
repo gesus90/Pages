@@ -2,7 +2,6 @@ const UNITS = ["B", "KB", "MB", "GB", "TB"] as const;
 
 /**
  * Writes a size in bytes in the largest sensible unit.
- *
  * @param bytes - Size in bytes.
  * @returns For example `512 B`, `1.5 MB` or `42 GB`; one decimal below ten.
  */

@@ -62,7 +62,7 @@ function AutomationsContent({
 }
 
 /**
- * The page "Automationen" (PAGE-297): jobs for agents, scripts and plans
+ * The page "Automationen": jobs for agents, scripts and plans
  * that start at times, in intervals, on events or by hand.
  *
  * @remarks

@@ -110,7 +110,7 @@ function CalendarBody({
 }
 
 /**
- * The calendar page (PAGE-301): the left column with the small month and
+ * The calendar page: the left column with the small month and
  * the calendars, the head with the views, the shown view, the detail of an
  * entry and the event form.
  */

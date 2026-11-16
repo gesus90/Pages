@@ -109,12 +109,11 @@ function wikiContext(
 
 /**
  * Previews and applies structured imports of Wiki, ticket, milestone and project sources.
- *
  * @remarks
  * The preview is a read. Applying it needs the fingerprint of a fresh preview,
  * writes one source per transaction and keeps every outcome, so a lost
  * response or an interruption is recovered by repeating the call with the same
- * operation ID. Wiki pages go through the A9.8 source service unchanged.
+ * operation ID. Wiki pages go through the wiki source service unchanged.
  */
 export class StructuredImportService {
   private readonly dependencies: StructuredImportDependencies;
@@ -134,7 +133,6 @@ export class StructuredImportService {
 
   /**
    * Previews a manifest without writing, visiting or contacting anything.
-   *
    * @param identity - The verified owner of the call.
    * @param request - The raw operation parameters: `manifest`.
    * @returns Objects with their actions, links, assets, conflicts, errors and the fingerprint.
@@ -166,7 +164,6 @@ export class StructuredImportService {
 
   /**
    * Applies a confirmed manifest, or recovers the run of its operation ID.
-   *
    * @param identity - The verified owner of the call.
    * @param request - The raw operation parameters: `operationId`, `fingerprint`, `manifest`.
    * @param verify - Verifies the credential of the call anew, before each source.

@@ -30,7 +30,6 @@ function noticeOf(result: AgentSessionActionResult): SessionNotice {
 
 /**
  * Sends instructions to and cancels a session through the PageAgentCLI route.
- *
  * @param key - The session.
  * @param onSettled - Reads the session again once the backend answered.
  * @remarks

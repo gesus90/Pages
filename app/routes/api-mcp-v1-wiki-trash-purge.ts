@@ -26,8 +26,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpWikiHandlers {
 }
 
 /**
- * Removes a page from the trash for good after a confirmed question (`POST /api/mcp/v1/wiki/trash/{id}/purge`), PAGE-257 interface 14.
- *
+ * Removes a page from the trash for good after a confirmed question (`POST /api/mcp/v1/wiki/trash/{id}/purge`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

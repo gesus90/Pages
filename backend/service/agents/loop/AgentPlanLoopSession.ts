@@ -21,7 +21,6 @@ export interface LoopSessionTerms {
 
 /**
  * The loop of a member and the policy of its session, or `null` outside loops.
- *
  * @param step - The frozen member.
  * @param snapshot - The frozen plan, which holds the loop's policy.
  * @param iteration - The iteration this run belongs to.
@@ -51,12 +50,10 @@ export function loopSessionTerms(
 
 /**
  * The key part that names the session container of a node within its run.
- *
  * @remarks
  * A group member shares the group's session. A member of a loop that reuses
  * its sessions owns one session per agent node, named by loop and node; the
  * iteration is never part of it. Everything else opens a session of its own.
- *
  * A group inside a loop keeps sharing one session among its agents: across
  * all iterations when the loop reuses sessions, within one iteration when the
  * loop starts fresh ones, so the iteration then names the session.

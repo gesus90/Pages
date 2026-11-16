@@ -24,7 +24,7 @@ export function hostOf(link: ConversationLink): string {
   }
 }
 
-/** The title of a page in the head of its card: its own title, else its host (PAGE-388). */
+/** The title of a page in the head of its card: its own title, else its host. */
 export function linkTitleOf(link: ConversationLink): string {
   return link.title === "" ? hostOf(link) : link.title;
 }
@@ -53,13 +53,13 @@ interface WebViewProps {
 }
 
 /**
- * An embedded, usable web page (PAGE-298): the page in the frame document
+ * An embedded, usable web page: the page in the frame document
  * of Pages.
  *
  * @remarks
  * Used as the body of a web card, in the split view and in the overlay. The
  * head of the card carries the address, "Im neuen Tab öffnen" and "Neu
- * laden" (PAGE-388). The page keeps its own colors. Reloading mounts the
+ * laden". The page keeps its own colors. Reloading mounts the
  * frame anew, because the document inside belongs to another origin and
  * cannot be reloaded from here.
  */
@@ -109,7 +109,7 @@ interface LinkCardProps {
 }
 
 /**
- * A page that may be embedded here (PAGE-298, PAGE-388): collapsed to its
+ * A page that may be embedded here: collapsed to its
  * head until asked for. The head names title and address; the actions are
  * "Im neuen Tab öffnen", "Freigabe entfernen" where the release can be
  * taken back, "Neu laden", "Daneben", "Vollbild" and "Zuklappen".
@@ -192,7 +192,7 @@ function LinkPreview({
 }
 
 /**
- * A page that may not be embedded here (PAGE-298, PAGE-388): the shared
+ * A page that may not be embedded here: the shared
  * head with the link icon, the title and below it the domain, then
  * description and preview image. Its main action opens a new tab; a member
  * can release its domain for the conversation with the quiet "In diesem
@@ -246,7 +246,7 @@ interface LinkCardsProps {
 }
 
 /**
- * The cards of the URLs of one message (PAGE-298), in their order.
+ * The cards of the URLs of one message, in their order.
  *
  * @remarks
  * A page that may be embedded in this conversation (Pages itself, a local

@@ -26,7 +26,6 @@ export interface SpeechTest {
 
 /**
  * Records a short test from the microphone and lets Pages recognize it.
- *
  * @param effectiveMaxDurationMs - The longest recording that applies now.
  * @returns The state and the control of the test.
  */

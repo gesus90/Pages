@@ -187,7 +187,7 @@ export class PicaMobileChatFiles {
    * @param request - A plain HTTP request on the port of Pica Mobile.
    * @param response - Its answer.
    * @param clientAddress - The app's address; the peer of the request unless
-   * `pages-core` relayed it (PAGE-239).
+   * `pages-core` relayed it.
    * @returns Whether the request is one of the endpoints; the caller answers every other one.
    */
   public handle(

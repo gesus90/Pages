@@ -9,8 +9,7 @@ import { logCaughtError } from "@/backend/logging/Logger";
 import type { Route } from "./+types/conversation-voice";
 
 /**
- * Sends the audio of a voice message to a member of its conversation (PAGE-278).
- *
+ * Sends the audio of a voice message to a member of its conversation.
  * @remarks
  * Membership is checked on every request; a message of a conversation the
  * person does not belong to answers like a missing one. The audio plays in

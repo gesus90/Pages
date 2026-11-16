@@ -10,7 +10,6 @@ export interface AssigneeFields {
 
 /**
  * Encodes the assignment of a ticket as the single value of an assignee select.
- *
  * @param item - Ticket whose person or group is selected.
  * @returns A user id, `group:<id>`, or the empty string for nobody.
  */

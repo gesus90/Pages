@@ -15,7 +15,6 @@ export const DOCUMENT_ICONS: Readonly<Record<DocumentView, LucideIcon>> = {
 /**
  * The kind of a document as a card head names it, such as "Word-Dokument"
  * or "OpenDocument-Tabelle".
- *
  * @param format - The format.
  * @param t - The translation of the page.
  */

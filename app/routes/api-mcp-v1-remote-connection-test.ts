@@ -20,8 +20,7 @@ const HANDLERS: McpWorkspaceHandlers = {
 };
 
 /**
- * Tests a connection without storing it (`POST /api/mcp/v1/remote-connections/test`), PAGE-245 interface 11.
- *
+ * Tests a connection without storing it (`POST /api/mcp/v1/remote-connections/test`).
  * @remarks
  * Only the device token of a paired machine admits a request, and only for
  * an account with the administrator role.

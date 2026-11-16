@@ -1,6 +1,6 @@
 import type { RouteConfigEntry } from "@react-router/dev/routes";
 
-/** The calendar API of the stand-alone Pages MCP program, admitted by the device token (PAGE-301). */
+/** The calendar API of the stand-alone Pages MCP program, admitted by the device token. */
 export function mcpCalendarRoutes(routes: {
   readonly resource: (path: string, file: string) => RouteConfigEntry;
 }): RouteConfigEntry[] {

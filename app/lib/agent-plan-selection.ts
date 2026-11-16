@@ -16,7 +16,6 @@ export interface PlanSelectionPreference extends PlanSelectionScope {
 
 /**
  * Keeps the existing cookie preference accessible to both SSR and router data requests.
- *
  * @remarks
  * Only the committed page writes this non-secret identifier. Loader responses
  * never write it, so a cancelled, late response cannot replace a newer choice.

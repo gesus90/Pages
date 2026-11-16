@@ -21,7 +21,6 @@ export class TaskAccessGuard {
 
   /**
    * Creates an access guard.
-   *
    * @param taskRepository - Task persistence boundary.
    * @param projectService - Project business-logic boundary deciding access.
    */
@@ -54,12 +53,10 @@ export class TaskAccessGuard {
 
   /**
    * Verifies that the actor may see a project and change tickets in it.
-   *
    * @remarks
    * The single write rule of tickets: current project access plus the global
    * `write` capability. Department scope is enforced where a concrete ticket
    * is loaded, see {@link TaskAccessGuard.requireWritableWorkItem}.
-   *
    * @throws {WorkItemAccessDeniedError} When the actor lacks write permission.
    */
   public async requireWritableProject(
@@ -74,7 +71,6 @@ export class TaskAccessGuard {
 
   /**
    * Returns a work item after verifying that the actor may see its project.
-   *
    * @throws {WorkItemNotFoundError} When no such work item exists.
    */
   public async requireWorkItem(
@@ -136,7 +132,6 @@ export class TaskAccessGuard {
 
   /**
    * Tells whether the actor may archive tickets and milestones of a project.
-   *
    * @remarks
    * The single archive rule of tickets and milestones: the role capability
    * "milestones" together with the project responsibility that milestone
@@ -155,7 +150,6 @@ export class TaskAccessGuard {
 
   /**
    * Verifies that the actor may archive in a project.
-   *
    * @throws {WorkItemAccessDeniedError} Without the archive right there.
    */
   public async requireArchiveRight(
@@ -169,7 +163,6 @@ export class TaskAccessGuard {
 
   /**
    * Returns a work item the actor may see and archive.
-   *
    * @throws {WorkItemNotFoundError} When the ticket does not exist or is hidden.
    * @throws {WorkItemAccessDeniedError} Without the archive right in its project.
    */
@@ -185,7 +178,6 @@ export class TaskAccessGuard {
 
   /**
    * Narrows projects to those the actor may archive in.
-   *
    * @param actor - User asking.
    * @param projectIds - Projects to test, in the order they are returned.
    * @returns The projects of the list with the archive right; empty without
@@ -212,7 +204,6 @@ export class TaskAccessGuard {
 
   /**
    * Tells whether the actor may archive in at least one of the projects.
-   *
    * @remarks
    * Stops at the first project that qualifies, which is what the archive
    * filter needs to decide whether it is offered at all.
@@ -246,7 +237,6 @@ export class TaskAccessGuard {
 
   /**
    * Resolves the projects of a query to those the actor may see.
-   *
    * @param actor - User asking.
    * @param requestedIds - Projects the caller asked for, or `undefined` for all of the actor.
    */

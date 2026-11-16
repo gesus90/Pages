@@ -127,10 +127,9 @@ async function recordActivity(
 }
 
 /**
- * Sends a voice message of the chat page (PAGE-277):
+ * Sends a voice message of the chat page:
  * `POST /chat-page-api/voice?kind=group|participant&id=…&clientMessageId=…&durationMs=…`
  * with the WAV or MP3 file as body and its type as `Content-Type`.
- *
  * @remarks
  * The audio streams into the file store of Pages and is checked there: WAV
  * or MP3 by its content, at most 25 MB and the longest recording of Pages.

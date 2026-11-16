@@ -52,8 +52,7 @@ export function agentApiFailure(
 }
 
 /**
- * Answers a database job the executor refused or could not confirm (PAGE-197).
- *
+ * Answers a database job the executor refused or could not confirm.
  * @param error - The error of the executor.
  * @returns `503` with `Retry-After`; `retryable` is true only when the job
  * certainly never started. A change of unknown outcome is checked, not repeated.

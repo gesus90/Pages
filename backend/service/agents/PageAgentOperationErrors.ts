@@ -10,7 +10,6 @@ type Reason = AgentRejectionReason["reason"];
 
 /**
  * Refusals of a definition that name the input to change.
- *
  * @remarks
  * `agent_usage_denied` is a model refusal here: the operation service reads
  * the agent as the person sees it before a save, so an agent that does not
@@ -33,7 +32,6 @@ const AGENT_REASONS: Readonly<Partial<Record<AgentErrorCode, Reason>>> = {
 
 /**
  * What keeps a saved model from running for the person.
- *
  * @remarks
  * `accessDenied` belongs here: the identity of the call was verified before,
  * so it is the scope of the model's connection that no longer admits the
@@ -79,10 +77,8 @@ function translateExecutionError(
 
 /**
  * Turns the failures of the agent management into the fixed codes of the agent API.
- *
  * @param error - Whatever the agent service or the model rules threw.
  * @returns The agent API error for a business failure, or the error unchanged.
- *
  * @remarks
  * No message of the management is passed on, only its class: a refusal never
  * names a connection, a provider or the state of a model grant. A revision

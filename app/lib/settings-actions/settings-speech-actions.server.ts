@@ -14,8 +14,7 @@ interface SpeechActionContext {
 }
 
 /**
- * Saves the speech recognition setting of the instance (PAGE-273).
- *
+ * Saves the speech recognition setting of the instance.
  * @param context - The administrator in the admin mode and the form.
  * @returns Success; a refused choice throws an {@link AgentError}.
  */
@@ -44,11 +43,9 @@ export async function saveSpeechSettings({
 
 /**
  * Recognizes a test recording of the settings card with the saved setting.
- *
  * @param context - The administrator in the admin mode and the form with the
  * recording as the file `audio`.
  * @returns The recognized text or the code of why there is none.
- *
  * @remarks
  * The recording is read into memory, recognized and cleared; it is neither
  * stored nor logged.

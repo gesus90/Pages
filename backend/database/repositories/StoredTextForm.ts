@@ -5,11 +5,9 @@ import type { DatabaseTransaction } from "@/backend/database/Database";
 
 /**
  * Returns the text as this database would store it.
- *
  * @param database - The open database or transaction.
  * @param text - A text about to be saved.
  * @returns The text without U+0000 on a database that removes it, otherwise the text.
- *
  * @remarks
  * Only for telling whether a save would change what is stored. The value to save stays
  * the original, so that its removal is counted, and a read or a comparison of an identity

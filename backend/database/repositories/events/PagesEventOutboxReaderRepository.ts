@@ -143,7 +143,6 @@ function toStoredEvent(row: readonly DatabaseValue[]): StoredPagesEvent {
 
 /**
  * Reads the outbox after a stored position and removes what every reader consumed.
- *
  * @remarks
  * Positions become visible in commit order, so a reader that continues after
  * the highest position it processed misses nothing. A position may be absent
@@ -157,7 +156,6 @@ export class PagesEventOutboxReaderRepository {
 
   /**
    * Creates the repository.
-   *
    * @param database - The open database.
    */
   public constructor(
@@ -171,7 +169,6 @@ export class PagesEventOutboxReaderRepository {
 
   /**
    * Reads committed events after a position, oldest first.
-   *
    * @param after - The last position the reader processed, `0` for the start.
    * @param limit - The most events to return.
    * @returns The events and the retention floor of the same snapshot.
@@ -192,7 +189,6 @@ export class PagesEventOutboxReaderRepository {
 
   /**
    * Returns the stored position of a reader.
-   *
    * @param reader - Fixed name of the reader, such as `pages-core`.
    * @returns The position, or `null` when the reader never stored one.
    */
@@ -211,7 +207,6 @@ export class PagesEventOutboxReaderRepository {
 
   /**
    * Stores the last position a reader processed; retention keeps what follows.
-   *
    * @param reader - Fixed name of the reader, such as `pages-core`.
    * @param position - The highest position the reader processed.
    */
@@ -239,7 +234,6 @@ export class PagesEventOutboxReaderRepository {
 
   /**
    * Removes one block of expired events that every stored reader consumed.
-   *
    * @param limits - Minimum age and block size.
    * @returns How many events left and the floor after the block.
    */

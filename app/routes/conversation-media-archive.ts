@@ -20,9 +20,8 @@ function refusalOf(error: ConversationError): Response {
 }
 
 /**
- * Sends the files a member chose in "Medien & Dateien" as one ZIP archive
- * (PAGE-387): `GET /chat/media/<conversationId>/files.zip?ids=<id>,<id>`.
- *
+ * Sends the files a member chose in "Medien & Dateien" as one ZIP archive:
+ * `GET /chat/media/<conversationId>/files.zip?ids=<id>,<id>`.
  * @remarks
  * Membership is checked on every request; a conversation the person does not
  * belong to answers like a missing one. Expired files are left out; the

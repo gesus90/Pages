@@ -1,8 +1,7 @@
 import { useEffect } from "react";
 
 /**
- * Registers the service worker that keeps the static app available offline (PAGE-235).
- *
+ * Registers the service worker that keeps the static app available offline.
  * @remarks
  * Only the production build has a worker. Browsers allow one only in a
  * secure context: over HTTPS or on `localhost`.

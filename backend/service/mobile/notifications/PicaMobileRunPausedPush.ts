@@ -71,7 +71,7 @@ function clean(text: string): string {
 }
 
 /**
- * Builds the push of a paused run for one device (PAGE-422).
+ * Builds the push of a paused run for one device.
  *
  * @param device - Token, language and preview choice of the device.
  * @param notice - The run, its plan and the moment of the pause.
@@ -110,7 +110,7 @@ export function buildPicaMobileRunPausedPushMessage(
 }
 
 /**
- * Tells the people who may see a plan run that Pages paused it (PAGE-422).
+ * Tells the people who may see a plan run that Pages paused it.
  *
  * @remarks
  * The pause is pushed directly, like an automation run: no event table, no

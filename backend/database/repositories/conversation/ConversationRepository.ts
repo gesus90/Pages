@@ -104,8 +104,7 @@ async function insertMembers(
 }
 
 /**
- * The conversations and their members (PAGE-278).
- *
+ * The conversations and their members.
  * @remarks
  * Reads of a member are bound to that member, so a conversation of which an
  * account is no member never answers. A direct conversation exists once per
@@ -120,7 +119,6 @@ export class ConversationRepository {
 
   /**
    * Stores a conversation with its members.
-   *
    * @param conversation - The new conversation.
    * @param event - The live event that commits with a new conversation.
    * @returns The ID of the stored conversation and whether it is new; for a
@@ -223,7 +221,6 @@ export class ConversationRepository {
 
   /**
    * Adds members to a conversation; existing members stay as they are.
-   *
    * @param conversationId - The conversation.
    * @param members - The new members and when they joined.
    * @param event - The live event that commits with the change.
@@ -245,9 +242,8 @@ export class ConversationRepository {
   }
 
   /**
-   * Removes one member from a conversation (PAGE-380); the member no longer
+   * Removes one member from a conversation; the member no longer
    * sees it or its history.
-   *
    * @param conversationId - The conversation.
    * @param userId - The member.
    * @param event - The live event that commits with the change.
@@ -271,9 +267,8 @@ export class ConversationRepository {
   }
 
   /**
-   * Deletes a conversation for good (PAGE-380): its members, messages,
+   * Deletes a conversation for good: its members, messages,
    * attachment rows, decisions and settings go with it.
-   *
    * @returns The storage names of the voice messages, whose audio the caller removes.
    */
   public async remove(

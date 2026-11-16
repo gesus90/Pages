@@ -49,11 +49,9 @@ const RANGE_MARKER_SIZE = 20;
 
 /**
  * Determines how much content a milestone element can show.
- *
  * @remarks
  * The width always mirrors the exact time span; only the content steps
  * down: date first, then title, then everything but a scaled marker.
- *
  * @param width - Rendered element width in pixels.
  * @returns The matching density level.
  */
@@ -95,7 +93,6 @@ function getChipSize(spanWidth: number): number {
 
 /**
  * Sizes and places the element of one milestone from its time span.
- *
  * @param start - First instant of the milestone.
  * @param end - Last instant; equal to `start` for a single day.
  * @param timeToX - Maps an instant to its horizontal position.
@@ -149,7 +146,6 @@ export interface LaneLayoutInput {
 
 /**
  * Sorts the dated milestones into lanes and stacks overlapping ones.
- *
  * @returns The lanes with the cards inside the visible buffer and the total
  * height of all lanes.
  */
@@ -264,13 +260,11 @@ function linkOpacity(from: CardAnchor, to: CardAnchor): number {
 
 /**
  * Resolves the dependency lines between the placed cards.
- *
  * @remarks
  * Links render in both directions: the curve starts at the source edge
  * facing the target and ends with an arrow at the target edge. Only truly
  * overlapping cards stay link-free, where the curve would hide behind the
  * cards.
- *
  * @param links - Dependencies between milestones.
  * @param lanes - Lanes with the placed cards.
  */
@@ -317,13 +311,11 @@ export function buildDependencyLinks(
 
 /**
  * Builds the cubic curve between two milestone edges.
- *
  * @remarks
  * The bend scales with the visible gap so adjacent milestones still get a
  * readable curve instead of no connection at all. Both ends run slightly
  * underneath the connected cards (which render above the lines), so the
  * visible line always touches the card edges regardless of the dash rhythm.
- *
  * @param link - Connection with resolved edge anchors.
  * @returns The SVG path description running into both card edges.
  */

@@ -24,7 +24,6 @@ export const ToggleSummaryNode = Node.create({
 /**
  * Starts the content of a toggle: Enter in the summary opens the toggle and
  * puts the caret into a new first block below the summary.
- *
  * @param editor - The editor.
  * @returns Whether the key was handled.
  */
@@ -52,7 +51,6 @@ export function enterToggleBody(editor: Editor): boolean {
 /**
  * Turns a toggle back into plain blocks when Backspace is pressed at the
  * start of its summary: the summary becomes a paragraph, the content stays.
- *
  * @param editor - The editor.
  * @returns Whether the key was handled.
  */

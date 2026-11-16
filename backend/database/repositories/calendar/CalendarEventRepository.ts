@@ -21,7 +21,6 @@ export type CalendarDatabase = Pick<Database, "query" | "execute">;
 
 /**
  * One stored event or series.
- *
  * @remarks
  * `startAt` and `endAt` are UTC ISO texts for a timed event and dates
  * `YYYY-MM-DD` for an all-day event, whose `endAt` is its last day.
@@ -49,7 +48,6 @@ export type NewCalendarEvent = Omit<
 
 /**
  * One occurrence that was changed or cancelled on its own.
- *
  * @remarks
  * `occurrenceStart` is the original start in the stored form of its event;
  * `null` fields keep the value of the series.
@@ -154,13 +152,12 @@ function toException(row: readonly DatabaseValue[]): CalendarExceptionRecord {
   };
 }
 
-/** Owns the stored events, their rules and their exceptions (PAGE-301). */
+/** Owns the stored events, their rules and their exceptions. */
 export class CalendarEventRepository {
   private readonly database: CalendarDatabase;
 
   /**
    * Creates the repository.
-   *
    * @param database - Central database access; inside an announced call its
    * statements join the call's transaction.
    */
@@ -170,7 +167,6 @@ export class CalendarEventRepository {
 
   /**
    * Returns one event, deleted ones included.
-   *
    * @param id - Event identifier.
    */
   public async findById(id: string): Promise<CalendarEventRecord | null> {

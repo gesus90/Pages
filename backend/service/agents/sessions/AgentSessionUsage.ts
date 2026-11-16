@@ -9,7 +9,6 @@ import type {
 
 /**
  * How an adapter counts the tokens of `PromptResponse.usage`.
- *
  * @remarks
  * `per_prompt` reports one prompt; `session_total` reports the native session
  * so far, as the ACP schema describes `Usage`, so a turn is the difference to
@@ -28,7 +27,6 @@ export interface AcpUsageCapability {
 
 /**
  * The token counting of every ACP adapter Pages runs.
- *
  * @remarks
  * From the capability notes next to the drivers: claude-agent-acp reports
  * input without cache and a total of all four counts; codex-acp reports each
@@ -105,7 +103,6 @@ export const UNKNOWN_CONTEXT: AgentSessionContextUsage = {
 
 /**
  * Reads the context occupancy of a `usage_update`.
- *
  * @param update - The update as the adapter sent it.
  * @param reportedAt - When Pages received it.
  * @returns The occupancy; a zero occupancy reads as unknown, because
@@ -169,12 +166,10 @@ function difference(previous: TokenCounts, current: TokenCounts): TokenCounts {
 
 /**
  * Reads the tokens of one finished prompt.
- *
  * @param capability - How the adapter counts.
  * @param usage - `PromptResponse.usage`, or `null` when the adapter sent none.
  * @param previous - The adapter's last report in the same native session, for a `session_total` counting.
  * @returns The turn's own counts, or `null` when the adapter reported none.
- *
  * @remarks
  * A running total that decreased started over, after a new native session
  * or a reset of the adapter; the report then counts on its own.
@@ -206,7 +201,6 @@ export function readTurnTokens(
 
 /**
  * Adds the usage of a turn to the turns of an attempt.
- *
  * @param turns - The turns recorded so far.
  * @param next - The report of one turn.
  * @returns The turns with `next` in place of an earlier report of the same
@@ -292,7 +286,6 @@ function totalOf(
 
 /**
  * Sums turns per provider, for one attempt or a whole run.
- *
  * @param turns - Turns of any attempts; each attempt and turn counts once.
  * @returns One sum per provider; countings of different providers are never added.
  */

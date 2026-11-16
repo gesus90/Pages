@@ -19,8 +19,7 @@ const HANDLERS: McpWorkspaceHandlers = {
 };
 
 /**
- * Browses the local folders of the server (`GET /api/mcp/v1/workspaces/folders`), PAGE-245 interface 8.
- *
+ * Browses the local folders of the server (`GET /api/mcp/v1/workspaces/folders`).
  * @remarks
  * Only the device token of a paired machine admits a request. Folders of
  * remote machines cannot be browsed.

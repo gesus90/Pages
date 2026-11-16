@@ -94,7 +94,6 @@ export class WorkItemLinkRepository {
 
   /**
    * Creates a work item link repository.
-   *
    * @param database - Central database access.
    */
   public constructor(database: TaskDatabase) {

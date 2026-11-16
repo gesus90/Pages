@@ -20,8 +20,7 @@ export interface PicaMobileSpeechServices {
 }
 
 /**
- * Answers `speech.v1` with the speech recognition of the instance (PAGE-273).
- *
+ * Answers `speech.v1` with the speech recognition of the instance.
  * @remarks
  * The account behind the session is read first. An account that may use
  * Pica is active and has no pending password change, as the chat demands;
@@ -32,7 +31,6 @@ export class PagesPicaMobileSpeech implements PicaMobileSpeechProvider {
 
   /**
    * Creates the provider.
-   *
    * @param resolveServices - Resolves the Pages services when a request needs
    * them, so the listener works before the database does.
    */

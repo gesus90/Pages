@@ -134,12 +134,10 @@ function readScopeTargets(input: unknown): AgentConnectionScopeTarget[] {
 
 /**
  * Narrows an untrusted usage scope before persistence.
- *
  * @param input - Parsed request content.
  * @returns A scope that is either global without targets or restricted with at
  * least one person, group or department.
  * @throws {AgentError} `connection_scope_invalid` for anything else.
- *
  * @remarks
  * Whether the named targets exist is decided by the repository inside the
  * saving transaction.

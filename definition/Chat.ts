@@ -11,7 +11,7 @@ export type {
 /** One mebibyte. */
 export const CHAT_MEBIBYTE = 1024 * 1024;
 
-/** The fixed size limit of one chat attachment, uploaded or answered (PAGE-251). */
+/** The fixed size limit of one chat attachment, uploaded or answered. */
 export const CHAT_ATTACHMENT_LIMIT_BYTES = 16 * CHAT_MEBIBYTE;
 
 /** Fixed bounds of chat input, output and the administrator instruction. */
@@ -21,7 +21,7 @@ export const CHAT_LIMITS = {
   instructionCharacters: 20_000,
   attachmentsPerMessage: 10,
   /**
-   * Files Pica may attach to one answer (PAGE-92); a bound for storage, not
+   * Files Pica may attach to one answer; a bound for storage, not
    * the person's limit of ten files per sent message.
    */
   filesPerAnswer: 20,
@@ -31,7 +31,7 @@ export const CHAT_LIMITS = {
   sessionsListed: 200,
 } as const;
 
-/** Chat commands that act on the person's own sessions (T6.12.3). */
+/** Chat commands that act on the person's own sessions. */
 export const CHAT_COMMANDS = [
   "/new",
   "/sessions",
@@ -46,8 +46,7 @@ export type ChatCommand = (typeof CHAT_COMMANDS)[number];
 export type ChatConfirmationWord = "LÖSCHEN" | "DELETE";
 
 /**
- * Providers whose own search function the chat may use (T6.12.6).
- *
+ * Providers whose own search function the chat may use.
  * @remarks
  * Every other provider answers without internet search; the chat never adds a
  * search of its own.
@@ -68,7 +67,7 @@ export interface ChatAttachment {
   readonly contentType: string;
   readonly size: number;
   /**
-   * `assistant` for a file Pica attached to its answer (PAGE-92); absent for a
+   * `assistant` for a file Pica attached to its answer; absent for a
    * file the person uploaded, as for every attachment stored before.
    */
   readonly origin?: "assistant";
@@ -83,11 +82,11 @@ export interface ChatMessage {
   readonly attachments: readonly ChatAttachment[];
   /**
    * The person stopped this answer of Pica before it ended; it holds what the
-   * agent had written until then (PAGE-90). Absent for every other message.
+   * agent had written until then. Absent for every other message.
    */
   readonly isStopped?: boolean;
   /**
-   * The person sent this message from a preview of the chat (PAGE-383).
+   * The person sent this message from a preview of the chat.
    * Absent for every other message.
    */
   readonly isFromPreview?: boolean;
@@ -116,7 +115,7 @@ export interface ChatSessionView {
   readonly messages: readonly ChatMessage[];
   /** Attachments uploaded for the next message and not sent yet. */
   readonly pending: readonly ChatAttachment[];
-  /** Jobs, steers and selection snapshots of the Codex path (PAGE-68). */
+  /** Jobs, steers and selection snapshots of the Codex path. */
   readonly activity?: ChatSessionActivity;
 }
 
@@ -140,7 +139,7 @@ export type ChatSendResult =
   | { readonly kind: "job"; readonly job: ChatJobStart }
   | { readonly kind: "steer"; readonly steer: ChatSteer };
 
-/** Session IDs are five lowercase words joined by hyphens (T6.12.2). */
+/** Session IDs are five lowercase words joined by hyphens. */
 export const CHAT_SESSION_ID_PATTERN = /^[a-z]{2,12}(?:-[a-z]{2,12}){4}$/u;
 
 /** Narrows an external session ID without interpreting it as a path or SQL fragment. */

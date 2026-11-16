@@ -117,7 +117,6 @@ function readBody(
 
 /**
  * Sends the requests of one operator browser to their pinned addresses.
- *
  * @remarks
  * The browser has no network of its own. Every request, redirect target and
  * subresource passes the target policy first and arrives here with the address
@@ -137,7 +136,6 @@ export class PicaBrowserTransport {
 
   /**
    * Creates the transport of one browser.
-   *
    * @param limits - The response size and per-request time of the browser.
    */
   public constructor(limits: PicaBrowserTransportLimits) {

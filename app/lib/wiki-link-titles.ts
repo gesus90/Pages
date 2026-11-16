@@ -8,7 +8,6 @@ let isScheduled = false;
 
 /**
  * Reads the page identifier out of the address of a wiki page.
- *
  * @param path - In-app path of a link.
  * @returns The identifier, or `null` for other paths and for the fixed
  * addresses below `/wiki`.

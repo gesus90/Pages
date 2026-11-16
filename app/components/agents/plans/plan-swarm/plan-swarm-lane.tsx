@@ -15,8 +15,7 @@ import type {
 } from "@/definition/AgentPlanSwarmRun";
 
 /**
- * The columns every lane shares (PAGE-313).
- *
+ * The columns every lane shares.
  * @remarks
  * Wide: badge 60 px · model 190 px · area and subtask (rest) · locks 60 px ·
  * TODOs 130 px · arrow 28 px. Narrow: badge, model and arrow stay in the

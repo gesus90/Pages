@@ -8,9 +8,8 @@ import type { AcpResourceStore } from "./AcpResourceStore";
 
 /**
  * The durable lease bookkeeping the journal writes for the scheduler.
- *
  * @remarks
- * Every write runs through the scheduler's ordered background queue (PAGE-199).
+ * Every write runs through the scheduler's ordered background queue.
  */
 export interface AcpLeaseJournalContext {
   readonly store: AcpResourceStore;
@@ -50,7 +49,6 @@ export async function transitionAcpLease(
 
 /**
  * Removes a confirmed lease durably or marks it cleanup_failed, then wakes the queue.
- *
  * @returns Whether the capacity is proven free again.
  */
 export async function finishAcpLease(

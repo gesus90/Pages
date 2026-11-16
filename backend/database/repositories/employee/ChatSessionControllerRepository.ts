@@ -4,8 +4,7 @@ import type { Database } from "@/backend/database/Database";
 
 /**
  * The members of a group its creator allows to steer the agents of the group
- * (PAGE-380): to change their model, to restart and to compact their sessions.
- *
+ * To change their model, to restart and to compact their sessions.
  * @remarks
  * The creator may always and is never stored; a dissolved group takes its
  * rows along.

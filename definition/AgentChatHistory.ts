@@ -1,11 +1,10 @@
 /**
- * Contracts of the history search of chat agents (PAGE-393).
- *
+ * Contracts of the history search of chat agents.
  * @remarks
  * An agent searches the earlier messages of the chats it is a member of now,
  * also far outside its current context ("Was hatten wir letzten Monat zur
  * Ruhezeit entschieden?"), and reads a hit with the messages around it. The
- * search complements the Lagebuch (PAGE-377). A confidential chat is found
+ * search complements the Lagebuch. A confidential chat is found
  * only from inside itself; deleted messages and dissolved groups are gone.
  */
 
@@ -98,8 +97,7 @@ export interface AgentHistoryRead {
 }
 
 /**
- * The history tools of one job, bound to its agent and chat (PAGE-393).
- *
+ * The history tools of one job, bound to its agent and chat.
  * @remarks
  * Pages binds the agent and the chat from the job, never from model input.
  */

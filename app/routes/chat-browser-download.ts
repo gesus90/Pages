@@ -7,7 +7,6 @@ import type { Route } from "./+types/chat-browser-download";
 
 /**
  * Sends a file an operator browser downloaded to its administrator.
- *
  * @remarks
  * The file is always an attachment of an unknown type, so a downloaded page
  * or script cannot run in the origin of Pages.

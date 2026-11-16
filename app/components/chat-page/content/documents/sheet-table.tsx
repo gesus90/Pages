@@ -105,7 +105,7 @@ function HeadCell({
 }
 
 /**
- * The grid of a sheet (PAGE-385): row numbers, column letters with the first
+ * The grid of a sheet: row numbers, column letters with the first
  * row as head, numbers right aligned, and optionally sorting, a fixed head and
  * marked cells. Cells are text; nothing of the file runs.
  */

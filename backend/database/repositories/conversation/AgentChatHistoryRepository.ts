@@ -7,7 +7,7 @@ import {
 import type { Database, DatabaseValue } from "@/backend/database/Database";
 import type { AgentHistoryCurrentChat } from "@/definition/AgentChatHistory";
 
-/** One message of a chat of an agent as the history search reads it (PAGE-393). */
+/** One message of a chat of an agent as the history search reads it. */
 export interface StoredHistoryMessage {
   /** `direct` for a message of the direct chat session, `conversation` for a stored conversation. */
   readonly source: "direct" | "conversation";
@@ -42,7 +42,6 @@ export interface HistoryFilter {
 
 /**
  * The messages an agent may find, with the chat they belong to.
- *
  * @remarks
  * Direct chats count while the person keeps the agent in their list
  * (`chat_contacts`); groups and stored direct conversations while the agent
@@ -248,8 +247,7 @@ function filterConditions(filter: HistoryFilter): {
 }
 
 /**
- * Reads the earlier messages of the chats of an agent for its history search
- * (PAGE-393).
+ * Reads the earlier messages of the chats of an agent for its history search.
  *
  * @remarks
  * Every read applies the same visibility: only chats the agent is a member

@@ -15,7 +15,6 @@ const HEADERS = {
 
 /**
  * Reads the body as a stream and stops at the bridge limit.
- *
  * @remarks
  * `Content-Length` may be missing, malformed, understated or absent for a
  * chunked body, so the header bounds nothing; a valid declaration above the
@@ -23,7 +22,6 @@ const HEADERS = {
  * counted as they arrive, and the stream is cancelled as soon as the limit is
  * exceeded, so at most the limit plus one chunk is ever held. A failed or
  * aborted read throws and releases the stream; no payload is logged.
- *
  * @returns The text, or `null` when the body exceeds the limit.
  */
 async function readBody(request: Request): Promise<string | null> {
@@ -89,7 +87,6 @@ async function handleRequest(request: Request): Promise<Response> {
 
 /**
  * The MCP endpoint of the run-bound tools of an agent plan step.
- *
  * @remarks
  * Only the token of an active step admits a request; browser cookies play no
  * part. Bodies, tool arguments and results are never logged.

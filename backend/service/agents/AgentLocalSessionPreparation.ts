@@ -36,7 +36,6 @@ export class AgentLocalSessionPreparation {
 
   /**
    * Uses the pinned original prompt only after checking its persisted attempt and digest.
-   *
    * @param launch - The stored turn request, which carries no bearer.
    * @param bearer - The plan bridge bearer the owner holds in memory; required exactly when the turn offers Pages tools.
    * @throws {AgentError} `plan_mcp_unavailable` when the turn needs a bearer and none was handed over.

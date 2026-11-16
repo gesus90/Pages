@@ -14,9 +14,8 @@ export const PLAN_GIT_CLOSEOUT_DEFAULT_TIMEOUT = 3600;
 
 /**
  * A Git closeout node of an earlier version, kept only so saved plans stay readable.
- *
  * @remarks
- * The dedicated node is no longer supported (PAGE-285): nobody can add one,
+ * The dedicated node is no longer supported: nobody can add one,
  * and a plan that still contains one is refused before Play with the advice to
  * remove it or to replace it with an agent or script step of its own. Its
  * configuration, connections and bindings stay unchanged until someone

@@ -180,7 +180,6 @@ export function planSourceType(
 
 /**
  * Tells whether a source node may feed a parameter of the given type.
- *
  * @remarks
  * A ticket node also fits a text parameter and then supplies its markdown, as
  * before ticket parameters existed, so earlier plans keep their bindings.
@@ -197,7 +196,6 @@ export function fitsPlanParameter(
 
 /**
  * Replaces flow edges through ticket nodes by direct edges between their neighbours.
- *
  * @remarks
  * Ticket nodes were flow checkpoints in earlier plans. They are pure value
  * sources now, so a saved plan keeps its execution order without them.
@@ -395,7 +393,6 @@ export function planConnectionIssues(
 /**
  * Text inputs that `AGENT.md` names but nothing fills: no binding, no typed
  * value and no default.
- *
  * @remarks
  * A predecessor's result is never taken by itself, not even with a single
  * candidate; with several agents before the node the missing choice is named
@@ -586,7 +583,7 @@ function flowNodeIssues(
     );
   if (node.type === "script") issues.push(...scriptIssues(node, plan));
   if (node.type === "swarm") issues.push(...planSwarmGraphIssues(node, plan));
-  // The removed Git closeout (PAGE-285) is never run; it has to be removed or replaced first.
+  // The removed Git closeout is never run; it has to be removed or replaced first.
   if (node.type === "git_closeout")
     issues.push({
       nodeId: node.id,

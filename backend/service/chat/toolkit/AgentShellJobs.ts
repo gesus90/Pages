@@ -108,7 +108,7 @@ function stopProcess(child: ChildProcess): void {
 }
 
 /**
- * The shell runs of one chat job (PAGE-390): foreground commands with a time
+ * The shell runs of one chat job: foreground commands with a time
  * limit and background runs whose output and end the agent queries.
  *
  * @remarks

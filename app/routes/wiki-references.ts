@@ -5,7 +5,6 @@ import type { Route } from "./+types/wiki-references";
 
 /**
  * Offers pages, tickets and people for the `[[` and `@` pickers as JSON.
- *
  * @remarks
  * Pages and tickets appear only when the person may see them.
  */

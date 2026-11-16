@@ -16,7 +16,7 @@ interface ConsoleComposerProps {
   readonly view: AgentSessionView;
   readonly isReadOnly: boolean;
   readonly commands: SessionCommands;
-  /** A turn runs that the interrupt button can stop (PAGE-284). */
+  /** A turn runs that the interrupt button can stop. */
   readonly canInterrupt?: boolean;
 }
 
@@ -104,7 +104,7 @@ function NoticeLine({
  * @remarks
  * The original plan assignment stays as it is. On phones and in narrow
  * windows it is the input of the Pages terminal: the instruction joins the
- * running turn, and the interrupt button stops the running step (PAGE-284).
+ * running turn, and the interrupt button stops the running step.
  */
 export function ConsoleComposer({
   view,

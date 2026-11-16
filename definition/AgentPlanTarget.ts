@@ -14,7 +14,6 @@ export const LOCAL_PLAN_TARGET: AgentPlanExecutionTarget = { kind: "local" };
 
 /**
  * A registered remote workspace that a plan may name as its execution target.
- *
  * @remarks
  * Only workspaces the person may see are listed; one they may see but not
  * run plans on is listed with the reason, so missing rights stay
@@ -51,7 +50,6 @@ export function isSamePlanTarget(
 
 /**
  * Where an agent or script node runs.
- *
  * @remarks
  * A node's own target is an explicit deviation and always wins; a node
  * without one inherits the plan's target, and a plan without one runs on the
@@ -73,7 +71,6 @@ function inherited<Node extends AgentPlanStep | AgentPlanScript>(
 
 /**
  * The plan with its remote target written into every node that names none.
- *
  * @remarks
  * Execution reads targets from the nodes alone, so this is the one place
  * where inheritance turns into the target a run snapshot freezes. Group and
@@ -106,7 +103,6 @@ export function withInheritedPlanTarget<Plan extends AgentPlanInput>(
 
 /**
  * The agent and script nodes whose own target differs from a plan target.
- *
  * @remarks
  * Changing the plan target never rewrites them silently; the person decides
  * whether they keep their deviation or follow the plan.
@@ -129,7 +125,6 @@ export function planTargetDeviations(
 
 /**
  * The plan with the given nodes following the plan target again.
- *
  * @param plan - The plan to change.
  * @param nodeIds - The nodes that drop their own target.
  */
@@ -375,7 +370,6 @@ const LOCAL_PATH_PATTERN =
 
 /**
  * The absolute local paths a script names, at most three of them.
- *
  * @remarks
  * Pages never rewrites them for a remote target, and it cannot tell whether
  * the remote machine has them; the editor only points them out.

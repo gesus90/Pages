@@ -21,11 +21,9 @@ export function hostKeyLabel(hostKey: RemoteHostKey): string {
 
 /**
  * The pinned key the dialog keeps when it is saved.
- *
  * @remarks
  * Mirrors the server: a key confirmed in the dialog wins, and a new host or
  * port drops the stored key.
- *
  * @param connection - The edited connection, or `null`.
  * @param draft - The dialog's current values.
  * @param confirmed - The key confirmed in this dialog.

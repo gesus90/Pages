@@ -7,7 +7,6 @@ import type { AcpPermissionDecision } from "./AcpDriver";
 
 /**
  * Picks the option of the first kind a request offers.
- *
  * @param request - The permission request of the adapter.
  * @param kinds - The kinds that answer the request the way Pages decided.
  * @returns The selected option, or a cancellation when none is offered.

@@ -61,7 +61,7 @@ async function displayNames(
 
 /**
  * Loads the automations of the signed-in account with their runs and
- * options (PAGE-297); the workspace frame applies the authentication.
+ * options; the workspace frame applies the authentication.
  */
 export async function loader({
   context,
@@ -143,7 +143,6 @@ async function runIntent(
 
 /**
  * Creates, changes, switches, runs and deletes automations of the page.
- *
  * @remarks
  * The page sends the operation's input as JSON in `payload`, with its own
  * operation ID; the same automation service as Pica, the agent tools and

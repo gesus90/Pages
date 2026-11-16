@@ -27,11 +27,9 @@ const MINIMUM_BLOCK_MINUTES = 20;
 
 /**
  * The wall-clock time `YYYY-MM-DDTHH:MM` of an entry time.
- *
  * @remarks
  * The server sends times with the offset of the viewer's zone, so the local
  * date and time stand in the text itself; a date alone is its midnight.
- *
  * @param time - Start or end of an entry.
  */
 export function wallClockOf(time: string): string {

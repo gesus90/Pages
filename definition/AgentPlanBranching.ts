@@ -5,11 +5,10 @@ import type { AgentPlanEdge, AgentPlanInput } from "./AgentPlan";
 
 /**
  * The port identifiers of the connections a decision and the retrigger use.
- *
  * @remarks
  * An edge names the handle it leaves and the handle it enters, so the editor
  * and the scheduler read the same contract. `flow-*` and `value-out` exist
- * since the first plans; the others belong to the Decision node (PAGE-174).
+ * since the first plans; the others belong to the Decision node.
  */
 export const PLAN_PORT = {
   flowIn: "flow-in",
@@ -28,7 +27,6 @@ export const PLAN_PORT = {
 
 /**
  * What an edge means, derived from the ports it connects.
- *
  * @remarks
  * `flow` orders execution. `branch` leaves a decision through its true or
  * false output and orders execution too. `condition` carries the boolean
@@ -41,9 +39,8 @@ export type AgentPlanEdgeKind = "flow" | "branch" | "condition" | "event";
 
 /**
  * The branch of a decision a result belongs to.
- *
  * @remarks
- * A value of a classification is its output port `case:<id>` (PAGE-286), so
+ * A value of a classification is its output port `case:<id>`, so
  * the branch and the port of the edge it activates are the same text.
  */
 export type AgentPlanBranch = "true" | "false" | `case:${string}`;
@@ -174,7 +171,7 @@ export function planReceivesEvents(
  * Every edge of a plan: the outer ones and those inside its groups and loops.
  *
  * @remarks
- * A decision inside a group or loop (PAGE-286) keeps its condition and branch
+ * A decision inside a group or loop keeps its condition and branch
  * edges with the container, like the flow edges between members.
  */
 export function planContainedEdges(

@@ -10,7 +10,6 @@ import type { Route } from "./+types/plan-asset-refs";
 /**
  * Hands a runner the file of a plan asset reference:
  * `GET /api/v1/plan-asset-references` with `X-Pages-Asset-Reference`.
- *
  * @remarks
  * The reference is the only credential: it is signed, short-lived, names
  * one file, and is redeemed with the rights of the person the run belongs

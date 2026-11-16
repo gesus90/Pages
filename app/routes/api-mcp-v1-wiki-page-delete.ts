@@ -26,8 +26,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpWikiHandlers {
 }
 
 /**
- * Moves a page into the trash after a confirmed question (`POST /api/mcp/v1/wiki/pages/{id}/delete`), PAGE-257 interface 11.
- *
+ * Moves a page into the trash after a confirmed question (`POST /api/mcp/v1/wiki/pages/{id}/delete`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

@@ -1,19 +1,19 @@
 # Agent Plans, snapshots and runner events
 
 [Documentation index](README.md). The current access and cloning contract is
-[Cloning and teams](#klonen-und-teams-page-330-vertragsversion-18). Older
-PAGE-118 descriptions below describe the legacy department default; explicit
+[Cloning and teams](#klonen-und-teams-vertragsversion-18). Older
+descriptions below describe the legacy department default; explicit
 `teams` grants and current owner/admin rules take precedence.
 
 - [Plan editor and execution](#agent-plans)
-- [Ticket parameters and assets](#ticket-parameters-and-assets-page-60)
-- [Recovery](#restart-and-resume-after-a-disturbance-page-127)
+- [Ticket parameters and assets](#ticket-parameters-and-assets)
+- [Recovery](#restart-and-resume-after-a-disturbance)
 - [Remote runner](PagesRunner.md)
 - [Script runtime](../backend/service/agents/ScriptRuntime.md)
 - [Runtime installation and adapters](AgentRuntime.md)
-- [Full environment: full host owner access (PAGE-407)](#full-environment-full-host-owner-access-page-407)
+- [Full environment: full host owner access](#full-environment-full-host-owner-access)
 
-## Full environment: full host owner access (PAGE-407)
+## Full environment: full host owner access
 
 An administrator can explicitly choose **Full environment / Volle Umgebung** on
 an individual local ACP agent node, alongside Read only and YOLO. It is stored
@@ -94,7 +94,7 @@ the agent must never print credentials or copy them into reports, logs or
 tickets. The unisolated owner can also write files directly, so this level
 cannot enforce that instruction as a host security policy.
 
-The repository wiki wording is in [PAGE-407](wiki/PAGE-407.md); its design
+The repository wiki wording is in [the wiki notes](wiki/PAGE-407.md); its design
 context is in [the feature notes](reports/PAGE-407.md).
 
 Agent Plan supports direct Bash, Python and Node.js script steps through configured
@@ -103,7 +103,7 @@ for authorization, stdin/stdout, limits, parallel joins, pause/stop and recovery
 Its [three-review repair example](../backend/service/agents/ScriptRuntime.md#example-three-reviews-repair-recheck-and-finish)
 shows explicit report bindings and a separate passing recheck gate.
 
-## Groups own loop sessions (PAGE-412)
+## Groups own loop sessions
 
 A session group may hold complete loops in its optional `loops` array alongside
 its direct agent `steps` and separate `decisions`. Loop membership stays in the
@@ -151,18 +151,18 @@ separately from loop controller results; no consumption counters are aggregated
 into the group holder. Existing per-attempt accounting and TODO acceptance stay
 in force. No cross-run memory or new external MCP access is introduced.
 
-## Plan snapshots and runner events (PAGE-142)
+## Plan snapshots and runner events
 
-Lokale ACP-Planagenten verwenden ab PAGE-224 einen unabhängigen nativen Sitzungsbesitzer mit dauerhaftem Journal und Wiederanbindung desselben Runs/Versuchs. Normaler Pages-Shutdown trennt die Beobachtung; Nutzer-Stop bleibt wirksam. Eigentumsprüfung, Kompatibilität und Abnahmegrenzen stehen in [LocalAgentSessions.md](./LocalAgentSessions.md).
+Lokale ACP-Planagenten verwenden einen unabhängigen nativen Sitzungsbesitzer mit dauerhaftem Journal und Wiederanbindung desselben Runs/Versuchs. Normaler Pages-Shutdown trennt die Beobachtung; Nutzer-Stop bleibt wirksam. Eigentumsprüfung, Kompatibilität und Abnahmegrenzen stehen in [LocalAgentSessions.md](./LocalAgentSessions.md).
 
-> Current control contract: [PAGE-184 / PAGE-185](./PAGE-184-185.md) documents
+> Current control contract: [Agent Plan control and Runner synchronization](./PAGE-184-185.md) documents
 > Pages plan contract 13, Runner 1.15.0, business acceptance for every CLI,
 > upper control actions, actual writer queues and logical workspace removal.
 > The versioned historical sections below describe their original releases.
 
 Planänderungen über Editor, MCP und Pica speichern ausschließlich eine neue Planrevision. Ein aktiver Run behält seine ursprüngliche Plan-/Node-Konfiguration. Nur die ausdrücklichen Aktionen Play und Resume dürfen Ausführung anfordern. Ein ausdrücklich fortgesetzter pausierter Run kann wie bisher eine neue, angehängte Ausführungsgrundlage übernehmen; die ursprüngliche Grundlage und erfolgreiche Checkpoints werden dabei nicht überschrieben.
 
-## Starten und Zwangsfreigabe (PAGE-353)
+## Starten und Zwangsfreigabe
 
 Play und Neu starten ermitteln vor der Reservierung die Besitzer der tatsächlichen Schreibverzeichnisse, Git-Branches und Remote-Workspaces. Offene Besitzer werden gestoppt, auch wenn sie zu einem anderen Plan gehören; der Bestätigungsdialog nennt ihre Plannamen und Lauf-IDs. Die Bereinigung nutzt die Sitzungs-, Namespace-, Script- und Runner-Grenzen der Wiederherstellungsfreigabe. Ein unbestätigtes Prozessende oder ein unerreichbarer alter Runner hält den neuen Lauf nicht auf: Sitzungsbesitzer, Kapazität und Schreibsperren werden zwangsweise freigegeben, die Unsicherheit erscheint als Hinweis.
 
@@ -170,13 +170,13 @@ Der alte Lauf behält seine Ergebnisse und erhält unter `resourceReleases` eine
 
 ## Snapshot und Anzeige
 
-Seit PAGE-355 ist die einzige fachliche Startbedingung ein durchgehender Ablaufpfad von Start nach End. Daten- und Ereignisverbindungen allein erfüllen sie nicht. Fehlt der Pfad, lautet die Meldung „Start ist nicht mit End verbunden.“ Knoten außerhalb vollständiger Ablaufpfade werden weder vorbereitet noch ausgeführt; benötigte Datenquellen bleiben erhalten. Das gilt auch für Neu starten und die gemeinsamen Startwege von Automation, Pica und Agent-/MCP-Werkzeugen.
+Seit der aktuellen Startprüfung ist die einzige fachliche Startbedingung ein durchgehender Ablaufpfad von Start nach End. Daten- und Ereignisverbindungen allein erfüllen sie nicht. Fehlt der Pfad, lautet die Meldung „Start ist nicht mit End verbunden.“ Knoten außerhalb vollständiger Ablaufpfade werden weder vorbereitet noch ausgeführt; benötigte Datenquellen bleiben erhalten. Das gilt auch für Neu starten und die gemeinsamen Startwege von Automation, Pica und Agent-/MCP-Werkzeugen.
 
 Fehlende oder ungültige Werte und Bindungen sind Warnungen mit Knoten und Feld. Der Editor zeigt sie am Knoten mit Tooltip und gesammelt beim Startklick; der Klick sendet den Start ohne weiteren Warndialog. Agent-Platzhalter bleiben bei fehlenden Eingaben leer, deklarierte Script-Eingaben erhalten leeren Text. Konfigurationsfehler werden beim betroffenen Schritt gemeldet; nach Korrektur kann Fortsetzen erfolgreiche Vorgänger übernehmen. Ein leerer Ticket-Stack ergibt null Schleifendurchläufe und setzt den Ablauf danach fort. Zugriffsrechte und Script-Freigaben gelten weiterhin. Die Plan-API trennt harte `status.issues` von beratenden `status.warnings`.
 
 Vor dem Speichern eines Runs wird die vorbereitete Konfiguration nochmals strukturiert kopiert. `snapshot_json.execution` enthält Schema v1, Plan-ID, Run-ID, Planrevision und je Agent-/Script-Schritt eine initiale Versuchs-ID mit Schritt-ID. Das Modell, Reasoning, der Modellzugang und der Workspace werden als angeforderte Metadaten festgehalten. Die erste lokale Ausführung verwendet diese Versuchs-ID; weitere Versuche haben eigene IDs im vorhandenen Session-/Retry-Journal. Historische Runs ohne diese zusätzlichen Metadaten bleiben lesbar.
 
-Ticket-Anhänge werden vor dem Start als private, nach SHA-256 deduplizierte Originalkopien im Datenverzeichnis unter `ticket-asset-snapshots/` gesichert (PAGE-331). Der private Snapshot enthält nur Dateinamen und Originalmetadaten, keine Binärinhalte oder Hostpfade. Weitere Versuche und Fortsetzungen derselben Ticket-Eingabe behalten diesen ersten Stand, auch wenn er leer war. Neue Anhänge werden nicht übergeben; geänderte oder entfernte Originale ersetzen die geprüften Kopien nicht. Eine Info-Zeile im Lauf-Log nennt die Abweichung, beispielsweise „1 Anhang kam nach dem Start dazu und ist nicht in diesem Lauf.“ Die aktuellen Ticketrechte bleiben erforderlich. Beschädigte, fehlende oder durch Symlinks ersetzte eigene Kopien führen weiterhin zu `parameter_ticket_changed`. Die privaten Originalkopien bleiben für Wiederaufnahmen erhalten; die bestätigte Prozessbereinigung entfernt nur die Workspace-Kopien. Historische Snapshots ohne gesicherte Kopien behalten ihre bisherige Prüfung.
+Ticket-Anhänge werden vor dem Start als private, nach SHA-256 deduplizierte Originalkopien im Datenverzeichnis unter `ticket-asset-snapshots/` gesichert. Der private Snapshot enthält nur Dateinamen und Originalmetadaten, keine Binärinhalte oder Hostpfade. Weitere Versuche und Fortsetzungen derselben Ticket-Eingabe behalten diesen ersten Stand, auch wenn er leer war. Neue Anhänge werden nicht übergeben; geänderte oder entfernte Originale ersetzen die geprüften Kopien nicht. Eine Info-Zeile im Lauf-Log nennt die Abweichung, beispielsweise „1 Anhang kam nach dem Start dazu und ist nicht in diesem Lauf.“ Die aktuellen Ticketrechte bleiben erforderlich. Beschädigte, fehlende oder durch Symlinks ersetzte eigene Kopien führen weiterhin zu `parameter_ticket_changed`. Die privaten Originalkopien bleiben für Wiederaufnahmen erhalten; die bestätigte Prozessbereinigung entfernt nur die Workspace-Kopien. Historische Snapshots ohne gesicherte Kopien behalten ihre bisherige Prüfung.
 
 Die Node-Konfiguration kann `executionTarget` enthalten: `{kind:"local"}` oder `{kind:"remote",workspaceId}`. Remote-Ziele stammen ausschließlich aus den registrierten Arbeitsbereichen, für die die Person Projektzugriff und die tatsächliche Abteilungsmitgliedschaft der SSH-Verbindung hat. Speichern prüft dies erneut, ohne SSH-Verbindung oder Verzeichnisprüfung auszulösen. Die Vorbereitung pinnt Workspace- und Verbindungsrevision, Namen und Pfad. Ein ausdrücklich gewähltes Remote-Ziel fällt niemals still auf lokale Ausführung zurück.
 
@@ -184,15 +184,15 @@ Die Referenzaggregation eines Laufs erhält das ursprüngliche Remote-Planziel u
 
 Der Node-Dialog zeigt Ziel und Modellzugang, die Node-Karte kennzeichnet Remote. Laufdetails zeigen Plan-/Run-/Schritt-/Versuchs-ID, Revision, Ziel, Workspace, Modellzugang und Reasoning. Zugang bedeutet hier ausschließlich Verbindungs-ID, Name und Provider; weder SSH-Geheimnisse noch Provider-Schlüssel werden kopiert. Gemeldete effektive Session-Einstellungen bleiben von diesen angeforderten Einstellungen getrennt. Die obere Leiste zeigt Planname und Entwurfsrevision mit einer direkten Speichern-Aktion. Während eines aktiven Runs bleibt dessen Snapshot getrennt sichtbar; neue Revisionen gelten für den nächsten Run. Agent- und Script-Dialoge bearbeiten eine Kopie, die erst „In Plan übernehmen“ in den Entwurf schreibt. Abbrechen verwirft die Dialogänderungen. Zusätzliche Optionen bleiben aufklappbar. Revisionskonflikte behalten den Entwurf und zeigen einen Dialog mit Entwurfs- und gespeicherter Revision sowie der Möglichkeit zum Neuladen. Die Node-Karten nennen Host, Arbeitsbereich und beim Agent den Modellzugang. Scripts können ein eigenes registriertes Remote-Ziel auswählen; nur dessen Runner-Interpreter stehen dafür bereit.
 
-Remote-Play verwendet seit der ausdrücklich freigegebenen Scope-Erweiterung in Lauf 6 den ausführenden Dispatcher von Runner 1.2.0. Start-Claim, Quellinhalt, Textparameter, Workspace-/SSH-Revision, Modellroute bzw. Binärdigest und Grenzen werden dauerhaft gebunden. Nicht bereite Remote-Ziele bleiben gesperrt. Die verfügbaren Betriebsarten und Grenzen beschreibt [PagesRunner.md](./PagesRunner.md#remote-pläne-scope-erweiterung-page-142).
+Remote-Play verwendet seit der ausdrücklich freigegebenen Scope-Erweiterung den ausführenden Dispatcher von Runner 1.2.0. Start-Claim, Quellinhalt, Textparameter, Workspace-/SSH-Revision, Modellroute bzw. Binärdigest und Grenzen werden dauerhaft gebunden. Nicht bereite Remote-Ziele bleiben gesperrt. Die verfügbaren Betriebsarten und Grenzen beschreibt [PagesRunner.md](./PagesRunner.md#remote-pläne).
 
 ## Ereignisübernahme
 
-Das Protokoll aus PAGE-141 bleibt versioniert als v1. Ein Job kann eine von Pages autorisierte `plan`-Bindung tragen: `planId,runId,stepId,attemptId,planRevision`. `RunnerService.enqueue` akzeptiert diese Bindung ausschließlich für den privaten aktiven Run der berechtigten Person, passende Snapshot-Ziele und aktuelle Modell-/Remote-Rechte. Derselbe Versuch bekommt beim erneuten Einreihen dieselbe Job-ID. Einreihen speichert den vollständigen privaten Befehl vor der Auslieferung an den Runner.
+Das Protokoll bleibt versioniert als v1. Ein Job kann eine von Pages autorisierte `plan`-Bindung tragen: `planId,runId,stepId,attemptId,planRevision`. `RunnerService.enqueue` akzeptiert diese Bindung ausschließlich für den privaten aktiven Run der berechtigten Person, passende Snapshot-Ziele und aktuelle Modell-/Remote-Rechte. Derselbe Versuch bekommt beim erneuten Einreihen dieselbe Job-ID. Einreihen speichert den vollständigen privaten Befehl vor der Auslieferung an den Runner.
 
 Runner-Ereignisse müssen die gespeicherte Bindung unverändert mitführen. Terminale Planereignisse tragen `result:{output,stderr,closeout,exitCode,signal,reason}`, wobei `closeout` `confirmed`, `pending` oder `failed` ist. Ein erfolgreicher Abschluss benötigt bestätigtes Cleanup. Ausgabe wird vor der Run-Übernahme redigiert. Erfolgreiche Schritte erhalten einen unveränderlichen Checkpoint in der bestehenden Tabelle `agent_plan_checkpoints`; andere Zustände aktualisieren die vorhandene Run-Ansicht.
 
-Migration `072_runner_plan_events.sql` ergänzt ausschließlich Ereignisbelege: Verbindung, Session, Sequenz, Ereignis-ID und kanonischen Digest. Ereignisbeleg, Run-Fortschritt, erfolgreicher Checkpoint und Runner-Checkpoint committen gemeinsam. Erst danach wird bestätigt. Auch ältere identische Ereignisse werden anhand ihres Belegs erneut bestätigt, ohne nochmals übernommen zu werden. Geänderte Payload bei gleicher ID, eine fremde Session, andere Bindung, ein falscher Versuch oder eine Sequenzlücke werden abgewiesen. Historische PAGE-141-Ereignisse ohne Digest erfordern Wiederabgleich.
+Migration `072_runner_plan_events.sql` ergänzt ausschließlich Ereignisbelege: Verbindung, Session, Sequenz, Ereignis-ID und kanonischen Digest. Ereignisbeleg, Run-Fortschritt, erfolgreicher Checkpoint und Runner-Checkpoint committen gemeinsam. Erst danach wird bestätigt. Auch ältere identische Ereignisse werden anhand ihres Belegs erneut bestätigt, ohne nochmals übernommen zu werden. Geänderte Payload bei gleicher ID, eine fremde Session, andere Bindung, ein falscher Versuch oder eine Sequenzlücke werden abgewiesen. Historische Ereignisse ohne Digest erfordern Wiederabgleich.
 
 Beim Wiederabgleich bleibt Pages maßgeblich; fehlende akzeptierte/laufende Jobs werden als `lost` abgeschlossen. Unbestätigtes Remote-Cleanup behält Workspace-Reservierungen. Startup-Recovery behandelt Remote-Runs nicht als lokale Prozesse. Ereignisübernahme und Wiederabgleich wiederholen keinen Launch. Noch nicht ausgelieferte Start-Claims behalten ihre ID; der Runner startet nur einen bislang nicht beanspruchten Claim. Die bestehende DAG-Engine disponiert nach dem bestätigten Ergebnis den nächsten Schritt.
 
@@ -200,21 +200,21 @@ Beim Wiederabgleich bleibt Pages maßgeblich; fehlende akzeptierte/laufende Jobs
 
 Der gemeinsame Vertrag umfasst:
 
-| Editor-Funktion                                                                                                | Agentenwerkzeug / natives Pica-Werkzeug                                                                                                     | Gemeinsame Prüfung                                                                                           |
-| -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| Pläne finden, lesen, Quellen und eigene Runs/Berichte                                                          | `list_plans`, `read_plan`, `read_plan_sources`, `list_plan_runs`, `read_plan_run`, `read_plan_run_reports`                                  | Sichtbarkeit, Ressourcen, private Runs                                                                       |
-| Erstellen, Name/Freigabe/Workspace ändern, Nodes und Verbindungen bearbeiten                                   | `create_plan`, `update_plan`                                                                                                                | Planservice, Graph, Rechte, erwartete Revision, Operationsjournal                                            |
-| Parameter anlegen/ändern/entfernen                                                                             | `create_plan_parameter`, `update_plan_parameter`, `remove_plan_parameter`                                                                   | derselbe Schreibpfad                                                                                         |
-| Schleifen erstellen, konfigurieren, Mitglieder/Verbindungen/Previous-Bindungen ändern und auflösen             | gezielte `changes` in `create_plan`/`update_plan`                                                                                           | gemeinsame Editor-Funktionen und Graphprüfung                                                                |
-| Vorlagen auflisten/lesen/speichern/einfügen; eigene Vorlagen ändern/löschen (ohne Editor-Oberfläche, PAGE-246) | `list_plan_templates`, `read_plan_template`, `save_plan_template`, `update_plan_template`, `delete_plan_template`, `changes.insertTemplate` | vorhandener Vorlagenservice, nur Eigentümer ändert/löscht, unabhängige Kopien                                |
-| Löschen, Laufaktionen und Verfügbarkeit                                                                        | `delete_plan`, `play_plan`, `pause_plan`, `resume_plan`, `stop_plan`, `read_plan_control`                                                   | Eigentum bzw. eigene Runs, aktuelle Revision und Rechte                                                      |
-| Remote-Ziel am Agent-Node                                                                                      | `updateNode.fields.executionTarget`                                                                                                         | sichtbarer registrierter Workspace im Planprojekt; ausführender Runner und passende Modellroute erforderlich |
+| Editor-Funktion                                                                                      | Agentenwerkzeug / natives Pica-Werkzeug                                                                                                     | Gemeinsame Prüfung                                                                                           |
+| ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Pläne finden, lesen, Quellen und eigene Runs/Berichte                                                | `list_plans`, `read_plan`, `read_plan_sources`, `list_plan_runs`, `read_plan_run`, `read_plan_run_reports`                                  | Sichtbarkeit, Ressourcen, private Runs                                                                       |
+| Erstellen, Name/Freigabe/Workspace ändern, Nodes und Verbindungen bearbeiten                         | `create_plan`, `update_plan`                                                                                                                | Planservice, Graph, Rechte, erwartete Revision, Operationsjournal                                            |
+| Parameter anlegen/ändern/entfernen                                                                   | `create_plan_parameter`, `update_plan_parameter`, `remove_plan_parameter`                                                                   | derselbe Schreibpfad                                                                                         |
+| Schleifen erstellen, konfigurieren, Mitglieder/Verbindungen/Previous-Bindungen ändern und auflösen   | gezielte `changes` in `create_plan`/`update_plan`                                                                                           | gemeinsame Editor-Funktionen und Graphprüfung                                                                |
+| Vorlagen auflisten/lesen/speichern/einfügen; eigene Vorlagen ändern/löschen (ohne Editor-Oberfläche) | `list_plan_templates`, `read_plan_template`, `save_plan_template`, `update_plan_template`, `delete_plan_template`, `changes.insertTemplate` | vorhandener Vorlagenservice, nur Eigentümer ändert/löscht, unabhängige Kopien                                |
+| Löschen, Laufaktionen und Verfügbarkeit                                                              | `delete_plan`, `play_plan`, `pause_plan`, `resume_plan`, `stop_plan`, `read_plan_control`                                                   | Eigentum bzw. eigene Runs, aktuelle Revision und Rechte                                                      |
+| Remote-Ziel am Agent-Node                                                                            | `updateNode.fields.executionTarget`                                                                                                         | sichtbarer registrierter Workspace im Planprojekt; ausführender Runner und passende Modellroute erforderlich |
 
 Pica registriert diese Werkzeuge nativ im Pages-Backend. Die statischen Schemata und Beschreibungen kommen aus demselben Planwerkzeugkatalog; es wird kein MCP-Client, Serverprozess oder Transport gestartet. Die Aufrufe gehen über den vorhandenen `ChatToolExecutor` und denselben Planservice mit frischen Benutzerrechten. Pages setzt die Operations-ID; der Modellaufruf darf keine Identität vorgeben. Löschen folgt nur einer ausdrücklichen aktuellen Bitte der Person. Das vorhandene Aktionsbudget und die Sperre unverändert wiederholter fehlgeschlagener Schreibaufrufe bleiben wirksam.
 
-Vorlagen ändern und löschen (`plans.templates.update`, `plans.templates.delete`, PAGE-246) gibt es für Agentenwerkzeuge, Pica und die Plan-API von Pages MCP; der Editor bietet dafür weiterhin keine Oberfläche. Plan und Vorlage werden nach ausdrücklicher aktueller Bitte der Person ohne Bestätigungswort gelöscht; Eigentum und gelesener Stand werden geprüft. Planänderungen, Vorlagenoperationen und reine Lesezugriffe starten keinen Run.
+Vorlagen ändern und löschen (`plans.templates.update`, `plans.templates.delete`) gibt es für Agentenwerkzeuge, Pica und die Plan-API von Pages MCP; der Editor bietet dafür weiterhin keine Oberfläche. Plan und Vorlage werden nach ausdrücklicher aktueller Bitte der Person ohne Bestätigungswort gelöscht; Eigentum und gelesener Stand werden geprüft. Planänderungen, Vorlagenoperationen und reine Lesezugriffe starten keinen Run.
 
-## Klonen und Teams (PAGE-330, Vertragsversion 18)
+## Klonen und Teams (Vertragsversion 18)
 
 `clone_plan` und `POST /api/mcp/v1/plans/{planId}/clone` verwenden wie der
 Klon-Dialog `AgentPlanCloning`. Die Quelle muss sichtbar sein. Kopiert wird
@@ -252,45 +252,45 @@ Quelle werden dabei weder gespeichert noch übernommen. Ein Speichern von
 Graph und Freigaben im Bearbeitendialog ist atomar; es zählt die Graphrevision
 und, falls vorhanden, die gesonderte Zugriffsrevision samt Audit.
 
-## Native Remote-CLI-Knoten (PAGE-151)
+## Native Remote-CLI-Knoten
 
 Runner 1.4.0 erweitert die bestehende Remote-Route um Codex und Claude Code. Nur Modelle aus dem authentifizierten CLI-Picker dieses Remote-Hosts sind auswählbar. Arbeitsverzeichnis, Werkzeug, Modell, Reasoning, Zugriffsstufe und Timeout stammen aus dem eingefrorenen Knoten. Ein neuer Knoten ist lesend; YOLO verlangt die ausdrückliche Wahl am Knoten. `workspace_write` bleibt entsprechend den lokalen ACP-Verträgen gesperrt. Lokale Ausführung bleibt unverändert.
 
 Die Modellliste eines Knotens gehört zum Ziel: Sie entsteht aus dem Picker der Claude Code bzw. Codex CLI des Remote-Hosts und kann daher andere Versionen und Reasoning-Stufen nennen als die lokale CLI. Claude-Modelle tragen ihre Version im Namen (`Sonnet 5.5`) und zeigen die konkrete Modell-ID, die der Knoten speichert und als `--model` übergibt. Eine Stufe, die das Ziel nur für andere Modelle meldet, bleibt sichtbar, ist gesperrt und nennt das Modell als Grund. Wird das gespeicherte Modell oder die Stufe nicht mehr gemeldet, bleibt der Knoten unverändert, nennt den Grund und startet nicht.
 
-Die neue Programmart ist eine native Einzelsitzung über den vorhandenen dauerhaften Runner-Job, keine interaktive ACP-Gruppensitzung. Finale Antworten enthalten Hostname und Remote-Pfad. Bereinigte Ergebnisse gehen über dieselben Resultatbindungen an Nachfolger. Bericht-/Todo-Diagnostik benutzt die vorhandenen Pages-Verträge. Pause wartet auf disponierte Knoten, Resume startet verbleibende Knoten neu; laufende native Sitzungen werden nicht eingefroren. Gruppen/Schleifen mit Remote-Ziel und Browser-MCP bleiben konkret gesperrt. Ab Runner 1.6.0 bietet der schrittgebundene Pages-Zugang auch Ticketänderungen entsprechend der Zugriffsstufe (PAGE-156).
+Die neue Programmart ist eine native Einzelsitzung über den vorhandenen dauerhaften Runner-Job, keine interaktive ACP-Gruppensitzung. Finale Antworten enthalten Hostname und Remote-Pfad. Bereinigte Ergebnisse gehen über dieselben Resultatbindungen an Nachfolger. Bericht-/Todo-Diagnostik benutzt die vorhandenen Pages-Verträge. Pause wartet auf disponierte Knoten, Resume startet verbleibende Knoten neu; laufende native Sitzungen werden nicht eingefroren. Gruppen/Schleifen mit Remote-Ziel und Browser-MCP bleiben konkret gesperrt. Ab Runner 1.6.0 bietet der schrittgebundene Pages-Zugang auch Ticketänderungen entsprechend der Zugriffsstufe.
 
-Die bestehende Problemliste erhält Knotenbefunde für Werkzeug, Anmeldung, Katalog, Modellrevision, Runner-Verbindung, Identität, Workspace und Interpreter. Beim Plan-/Knotenzielwechsel blockiert ein lokales Script-Profil mit dem konkreten Interpreter-Hinweis, bis die Person ein Profil des Remote-Workspaces wählt. Die Modellauswahl erklärt auch leere Kataloge mit einem Link zur Synchronisation. Details und die getrennte GitHub-Schlüsselprüfung stehen in [PagesRunner.md](./PagesRunner.md#remote-cli-agenten-page-151-runner-140).
+Die bestehende Problemliste erhält Knotenbefunde für Werkzeug, Anmeldung, Katalog, Modellrevision, Runner-Verbindung, Identität, Workspace und Interpreter. Beim Plan-/Knotenzielwechsel blockiert ein lokales Script-Profil mit dem konkreten Interpreter-Hinweis, bis die Person ein Profil des Remote-Workspaces wählt. Die Modellauswahl erklärt auch leere Kataloge mit einem Link zur Synchronisation. Details und die getrennte GitHub-Schlüsselprüfung stehen in [PagesRunner.md](./PagesRunner.md#remote-cli-agenten-runner-140).
 
-Ab Runner 1.7.0 kommt OpenCode als dritter Remote-Werkzeugweg hinzu (PAGE-154). Der Runner führt ihn über ACP aus, mit den auf dem Remote-Host eingerichteten Providern; die Modellliste des Knotens stammt aus dem OpenCode-Inventar des Hosts und durchläuft den globalen Modellfilter. Die geprüfte OpenCode-Version, der ACP-Vertragscheck anderer Versionen und die Meldung „Runner aktualisieren“ für ältere Runner beschreibt [PagesRunner.md](./PagesRunner.md#opencode-über-acp-page-154-runner-170).
+Ab Runner 1.7.0 kommt OpenCode als dritter Remote-Werkzeugweg hinzu. Der Runner führt ihn über ACP aus, mit den auf dem Remote-Host eingerichteten Providern; die Modellliste des Knotens stammt aus dem OpenCode-Inventar des Hosts und durchläuft den globalen Modellfilter. Die geprüfte OpenCode-Version, der ACP-Vertragscheck anderer Versionen und die Meldung „Runner aktualisieren“ für ältere Runner beschreibt [PagesRunner.md](./PagesRunner.md#opencode-über-acp-runner-170).
 
 Auch Remote-Fortsetzungen besitzen aktuelle Versuchsmetadaten im angehängten Snapshot. Bereits erfolgreiche Ergebnisse bleiben unverändert. Die Auswertung des CLI-Abschlussberichts erfolgt atomar mit dem Runner-Ereignis und dem unveränderlichen Erfolgscheckpoint; spätere Engine-Schreibvorgänge übernehmen diesen Remote-Session-Datensatz unverändert. Ein Stop vor dem dauerhaften Start-Claim wird als nicht gestartet abgebrochen.
 
-## Remote-Ressourcen (PAGE-156)
+## Remote-Ressourcen
 
 Der private Snapshot eines Remote-Agent-Knotens enthält nun seine typisierten Parameter, autorisierte Ticket-/Wiki-Inhalte, Versionen, Remote-Workspace-Referenzen und Dateimetadaten mit Digest. Binärdateien und persönliche Zugangsdaten sind ausgeschlossen. Die öffentliche Ausführungsbasis enthält ausschließlich die gepinnten Ressourcenmetadaten. Übertragene Dateimetadaten sowie Werkzeug, Ziel und Ergebnis stehen im vorhandenen Run-JSON; eine neue Datenbankmigration ist dafür nicht erforderlich. Fortschrittsschreibvorgänge übernehmen dieses Pages-seitige Protokoll, statt es durch einen älteren Engine-Stand zu ersetzen.
 
 Der Runner-Job trägt bei neuer CLI-Unterstützung `pagesAccess:1`. Flüchtige `pages-request`/`pages-result`-Nachrichten sind vom dauerhaften Job-/Ereignisjournal getrennt. Pages prüft Verbindung, Job, aktuelle Versuchs-ID, Run-/Schrittzustand und live Rechte, bevor es Dateien oder Werkzeugergebnisse überträgt. Die Session-Credential wird ausschließlich auf Pages ausgestellt, gehalten und widerrufen. Sie wird niemals an den Runner gesendet. Beendete, gestoppte oder abgelaufene Versuche können den Kanal nicht wiederverwenden.
 
-Editor- und Startprüfungen nennen Knoten, Parameter und Ursache für nicht verfügbare Tickets, Wiki-Seiten, Workspace-Referenzen, Dateiübergabe und fehlende Runner-Fähigkeit. Die Übersetzungen liegen für Deutsch und Englisch vor. Ein Zielwechsel überschreibt keine Bindung und keinen Modellzugang. Ältere Runner bleiben für bestehende Textpläne nutzbar; Ressourcenparameter verlangen eine Aktualisierung auf 1.6.0. Details zu Dateiarten, Grenzen und Bereinigung stehen in [PagesRunner.md](./PagesRunner.md#ressourcenparameter-und-pages-zugang-page-156-runner-160).
+Editor- und Startprüfungen nennen Knoten, Parameter und Ursache für nicht verfügbare Tickets, Wiki-Seiten, Workspace-Referenzen, Dateiübergabe und fehlende Runner-Fähigkeit. Die Übersetzungen liegen für Deutsch und Englisch vor. Ein Zielwechsel überschreibt keine Bindung und keinen Modellzugang. Ältere Runner bleiben für bestehende Textpläne nutzbar; Ressourcenparameter verlangen eine Aktualisierung auf 1.6.0. Details zu Dateiarten, Grenzen und Bereinigung stehen in [PagesRunner.md](./PagesRunner.md#ressourcenparameter-und-pages-zugang-runner-160).
 
-## Beobachtung und Remote-Verlauf (PAGE-158)
+## Beobachtung und Remote-Verlauf
 
-Runner 1.8.0 ergänzt eine flüchtige, nach 30 Sekunden verfallende Plan-Beobachtung und bestätigte, begrenzte CLI-Verlaufspakete. Die Planansicht liest beim Öffnen sofort, danach bei einem aktiven Lauf alle 2 Sekunden und ohne aktiven Lauf alle 16 Sekunden; nach einer eigenen Aktion liest sie sofort neu. Ein verborgener Tab liest nicht, seine Beobachtung verfällt, und beim Zurückkehren öffnet die Ansicht sie mit einer sofortigen Abfrage neu (PAGE-206). Unveränderte autorisierte Antworten übertragen keinen Zustand (ETag/304). Ohne Planansicht gibt es keine Browser-Planabfragen. Der Runner prüft beobachtete Pläne alle 2 Sekunden, unbeobachtete aktive Jobs alle 15 Sekunden und leeren Betrieb alle 60 Sekunden; Heartbeats und die Offline-Grenze bleiben unverändert.
+Runner 1.8.0 ergänzt eine flüchtige, nach 30 Sekunden verfallende Plan-Beobachtung und bestätigte, begrenzte CLI-Verlaufspakete. Die Planansicht liest beim Öffnen sofort, danach bei einem aktiven Lauf alle 2 Sekunden und ohne aktiven Lauf alle 16 Sekunden; nach einer eigenen Aktion liest sie sofort neu. Ein verborgener Tab liest nicht, seine Beobachtung verfällt, und beim Zurückkehren öffnet die Ansicht sie mit einer sofortigen Abfrage neu. Unveränderte autorisierte Antworten übertragen keinen Zustand (ETag/304). Ohne Planansicht gibt es keine Browser-Planabfragen. Der Runner prüft beobachtete Pläne alle 2 Sekunden, unbeobachtete aktive Jobs alle 15 Sekunden und leeren Betrieb alle 60 Sekunden; Heartbeats und die Offline-Grenze bleiben unverändert.
 
-Der neue Verlauf wird im vorhandenen Sitzungsjournal atomar mit Ereignisbeleg und Runner-/Plan-Checkpoint gespeichert. Ein Fortschrittspaket enthält nur die Änderungen und verwendet den bereits dauerhaft gebundenen Ausführungsauftrag. Der eigene Verlaufscursor wächst strikt; Bestätigung und Wiederabgleich benutzen weiter die bisherige Ereignisfolge. Text, Werkzeuge und TODOs bleiben diagnostisch, die finale Antwort bleibt maßgeblich. Ältere Runner erhalten keine neue Nachricht und zeigen für Codex/Claude „Runner aktualisieren“. Größenlimits, Redigierung, Ereignisgrenze und Anzeige stehen in [PagesRunner.md](./PagesRunner.md#remote-live-verlauf-und-zuschauer-page-158-runner-180).
+Der neue Verlauf wird im vorhandenen Sitzungsjournal atomar mit Ereignisbeleg und Runner-/Plan-Checkpoint gespeichert. Ein Fortschrittspaket enthält nur die Änderungen und verwendet den bereits dauerhaft gebundenen Ausführungsauftrag. Der eigene Verlaufscursor wächst strikt; Bestätigung und Wiederabgleich benutzen weiter die bisherige Ereignisfolge. Text, Werkzeuge und TODOs bleiben diagnostisch, die finale Antwort bleibt maßgeblich. Ältere Runner erhalten keine neue Nachricht und zeigen für Codex/Claude „Runner aktualisieren“. Größenlimits, Redigierung, Ereignisgrenze und Anzeige stehen in [PagesRunner.md](./PagesRunner.md#remote-live-verlauf-und-zuschauer-runner-180).
 
-## Lange CLI-Läufe (PAGE-161)
+## Lange CLI-Läufe
 
 Neue Remote-CLI-Knoten benötigen Runner 1.9.0 und dessen Chunk-Fähigkeit. Die private Rohhistory wird während des Laufs in 4-MiB-Chunks geschrieben; eine kumulative 32-MiB-Grenze gibt es nicht mehr. Native terminale Ergebnisse und bestätigter Closeout bleiben separat und erzeugen höchstens einen Erfolgscheckpoint. Der bestehende Ergebnisstring samt Remote-Herkunft bleibt für Parameterbindungen erhalten.
 
-Die öffentliche Konsole hält 150 Ereignisse, lädt frühere Abschnitte über Sequenzcursor und streamt den erlaubten vollständigen Download aus dem Session-Journal. Alte Retention, fehlender Verlauf und konkrete Lesefehler werden angezeigt. Einzelereignis-, Ergebnis- und Dateisystemgrenzen sowie Upgrade und Recovery stehen in [PagesRunner.md](./PagesRunner.md#fortlaufende-ausgabe-und-getrenntes-ergebnis-page-161-runner-190). Eine History-Abfrage startet und rekonstruiert keinen Agenten.
+Die öffentliche Konsole hält 150 Ereignisse, lädt frühere Abschnitte über Sequenzcursor und streamt den erlaubten vollständigen Download aus dem Session-Journal. Alte Retention, fehlender Verlauf und konkrete Lesefehler werden angezeigt. Einzelereignis-, Ergebnis- und Dateisystemgrenzen sowie Upgrade und Recovery stehen in [PagesRunner.md](./PagesRunner.md#fortlaufende-ausgabe-und-getrenntes-ergebnis-runner-190). Eine History-Abfrage startet und rekonstruiert keinen Agenten.
 
-## Remote-Kommunikation (PAGE-165)
+## Remote-Kommunikation
 
-Runner 1.10.0 ist für neue Remote-Starts erforderlich. Mehrere Remote-Läufe laufen unabhängig parallel, höchstens vier je Host-Konto; wartende Jobs nennen `capacity` oder `workspace`. Profile verschwinden bei Verbindungsproblemen nicht mehr, sondern zeigen ihren Zustand. Stop wird dauerhaft gespeichert, versuchsgebunden zugestellt und getrennt nach angefordert, empfangen und bestätigt angezeigt. Fristen, Zustände, Upgrade und Rollback beschreibt [PagesRunner.md](./PagesRunner.md#remote-kommunikation-parallele-läufe-und-stop-page-165-runner-1100).
+Runner 1.10.0 ist für neue Remote-Starts erforderlich. Mehrere Remote-Läufe laufen unabhängig parallel, höchstens vier je Host-Konto; wartende Jobs nennen `capacity` oder `workspace`. Profile verschwinden bei Verbindungsproblemen nicht mehr, sondern zeigen ihren Zustand. Stop wird dauerhaft gespeichert, versuchsgebunden zugestellt und getrennt nach angefordert, empfangen und bestätigt angezeigt. Fristen, Zustände, Upgrade und Rollback beschreibt [PagesRunner.md](./PagesRunner.md#remote-kommunikation-parallele-läufe-und-stop-runner-1100).
 
-## Decision, boolesches Ergebnis und Ereignis-Eingang (PAGE-174)
+## Decision, boolesches Ergebnis und Ereignis-Eingang
 
 Die Node **Decision** verzweigt einen Plan anhand des booleschen Ergebnisses eines Agenten. Ein Agent mit verbundenem Ergebnis-Ausgang `passed-out` meldet `true`, wenn sein Abschlussbericht angenommen wurde, und `false`, wenn der Bericht gültig ist und nur nicht erfüllte Kriterien oder offene TODOs enthält. Fehlende, unlesbare oder widersprüchliche Berichte und technische Fehler bleiben Fehler des Agenten und werden nie zu `false`. Der Scheduler wertet die Decision selbst aus (kein Modell, kein Provider) und aktiviert genau einen der Ausgänge `true-out` oder `false-out`; der nicht gewählte Zweig und alles dahinter gilt als `skipped`.
 
@@ -298,7 +298,7 @@ Bei **jedem** Durchlauf liest die Decision das Ergebnis des zugehörigen Agenten
 
 Vertrag, Randfälle, Pause/Fortsetzen, Persistenz und Grenzen stehen in [backend/service/agents/branching/README.md](../backend/service/agents/branching/README.md). Im Editor tragen die Ports eigene Farben und Beschriftungen (Bedingung/Boolean violett, `true` grün, `false` bernstein, Ereignis blau); eine Kante endet exakt auf der Mitte ihres Ports, auch nach Zoom und Größenänderung.
 
-## Sequenzanzeige des Laufs (PAGE-177)
+## Sequenzanzeige des Laufs
 
 Die untere Lauffortschrittsanzeige nummeriert ausschließlich Ausführungen von Agents und Scripts. Start, Ende, Decision, Stack, Parameter sowie Loop- und Group-Container erhöhen den Zähler nicht; sie bestimmen nur Reihenfolge, Wiederholung und Auswahl. Jede Ausführung ist ein eigener Block: jeder Start eines Knotens (`activation`, frühere Starts aus `history`) und jedes Mitglied je Loop-Durchlauf (`run.loops[].iterations[].nodes`). Der Blockschlüssel ist `Knoten#Start` bzw. `Loop#Durchlauf/Mitglied` und damit derselbe, wenn ein geplanter Block später tatsächlich startet. Die Auswahl öffnet den Datensatz genau dieser Ausführung; ein früherer Start zeigt den in `history` gespeicherten Stand.
 
@@ -313,7 +313,7 @@ Tatsächlich gestartete Blöcke stehen zuerst, in Flussreihenfolge. Die Knoten e
 
 Der Zähler zeigt die aktuelle Position und den Gesamtumfang, bei Annahmen als `3 / ca. 9`. Darunter steht getrennt die Zahl tatsächlich erfolgreich abgeschlossener Ausführungen. Wiederholungen tragen die Durchlaufnummer (`↻2`, im Namen „Durchlauf 2“).
 
-## Ticket parameters and assets (PAGE-60)
+## Ticket parameters and assets
 
 Declare a single parameter of type `ticket`, for example `ticket` or `referenz`.
 Its saved value stays `{ "type": "ticket", "ticketId": "…" }`; users do not
@@ -322,13 +322,13 @@ select an additional asset parameter. At execution, Pages resolves it to:
 ```ts
 {
   id: "ticket-id",
-  key: "PAGE-60",
+  key: "PROJ-42",
   title: "Ticket title",
   description: "The complete, untrimmed ticket description",
   assets: [
     { source: "ticket", id: "attachment-id", link: "/aufgaben/attachments/attachment-id" }
   ],
-  markdown: "# PAGE-60: Ticket title\n\nDescription and stored acceptance criteria",
+  markdown: "# PROJ-42: Ticket title\n\nDescription and stored acceptance criteria",
   version: "opaque revision"
 }
 ```
@@ -358,7 +358,7 @@ uploaded to Pages; they fail explicitly instead of becoming filename-only input.
 PNG images and complete UTF-8 text files are supported (including TXT uploaded
 as `application/octet-stream`); other binary formats fail explicitly. A plan
 step receives at most 64 files and 512 MiB (536,870,912 bytes) of unencoded
-file contents in all (PAGE-292). The first 10 MiB are read into memory and
+file contents in all. The first 10 MiB are read into memory and
 offered to the model as before; every further file is measured as a stream and
 reaches the agent as an original file only, in a copy inside its workspace, so
 memory and model content stay bounded. Files an agent downloads or returns keep
@@ -401,11 +401,11 @@ links have been removed from the ticket description.
 
 Under **Agents → Agent Plan** (`/agents/plans`) the plan editor is one
 [React Flow](https://reactflow.dev/) canvas over the whole content area beside
-the global navigation, from the global header to the bottom of the window
-(PAGE-102). It shows only the nodes, their connections and one compact zoom bar
+the global navigation, from the global header to the bottom of the window.
+It shows only the nodes, their connections and one compact zoom bar
 at the top left: **−**, the current zoom in percent, **+** and **Fit all nodes**.
 An expandable plan/run panel floats inside the editor, alongside the zoom bar
-on wide canvases and below it on narrow ones (PAGE-106). It is independent of
+on wide canvases and below it on narrow ones. It is independent of
 the graph and its zoom. There are no permanent side/bottom panels or MiniMap;
 the canvas has no frame and no scroll area of its own. The Pages background and its
 dotted raster continue under the graph in the light/dark semantic palette; the
@@ -443,7 +443,7 @@ snapping to the dotted raster. Pan and zoom change the view, not the saved
 coordinates. Names, instructions, parameters and supported run options are
 edited directly on each agent node.
 
-An ACP group is a yellow session container on the grid (PAGE-113), with no
+An ACP group is a yellow session container on the grid, with no
 flow, input, result or session ports. Agent connections determine execution;
 the frame is never an additional executable step. The first member sets the
 technical runner class: Codex, Claude Code or OpenCode over ACP. Other runner
@@ -546,7 +546,7 @@ and the others dashed; a release on the empty grid or Escape adds nothing:
   text parameter of an earlier plan still receives the ticket markdown. Plans
   that used tickets as flow checkpoints open with direct edges between the
   neighbours of those tickets. A ticket's status never changes implicitly.
-- The ticket field of a ticket node opens a large choice below it (PAGE-109):
+- The ticket field of a ticket node opens a large choice below it:
   search by key or title, a **Kanban phase** filter from the project's own
   workflow (menu and chips share one state; several phases combine with OR,
   the search with AND), and an order by title, creation or change time in
@@ -575,7 +575,7 @@ while nodes move: flow connections are solid, data connections dashed; both
 have directional arrows, labels and visible selection. Invalid targets are
 marked in the preview, and a refused IN chosen with the port buttons is named
 below the zoom bar.
-The node menu holds only **Delete** (PAGE-109): it removes the node together
+The node menu holds only **Delete**: it removes the node together
 with its own connections, never the referenced ticket, agent or run history.
 Delete or Backspace removes the selected
 node or connection while the grid or the selected node's header has focus, but
@@ -594,9 +594,9 @@ Node templates remain optional independent copies, subject to current model
 and resource rights at save and insertion. A withdrawn selection remains visible
 and is refused at save and Play without a fallback. Inside an ACP group, models
 of another runner stay listed but disabled; detach the node to select them.
-In the node editor (PAGE-176) the execution target stands once above the
+In the node editor the execution target stands once above the
 model choice. Pica, agent profiles, plan nodes, the palette, node cards and
-page agents use this one choice with the same fixed measures (PAGE-248): 40 px
+page agents use this one choice with the same fixed measures: 40 px
 fields, 36 px rows and 20 × 20 provider tiles, with model and reasoning side by
 side. Its panel starts with a search field and lists the target's models under
 collapsible tools in a fixed order (Claude Code, Codex, Antigravity, OpenCode,
@@ -1007,7 +1007,7 @@ current agent/model and ticket/wiki permissions; sharing never delegates
 credentials. Only the executor may read, pause, resume or stop their run, and
 resource access is rechecked on the server before execution and disclosure.
 
-### Team plans and templates (PAGE-118)
+### Team plans and templates
 
 A person who is a member or the leader of exactly one department creates plans
 and node templates for the team of that department. Leading a department
@@ -1033,7 +1033,7 @@ department is guessed for them.
   reads the same departments: a leader matches a department target without the
   `manage_users` capability that sharing an agent asks for. A revoked membership or leadership, a revoked project access or a
   deactivated account takes effect in an editor that is already open: its next
-  save is refused. Templates stored before PAGE-118 have no team and stay
+  save is refused. Templates stored before teams were introduced have no team and stay
   personal.
 - **Plans of before teams.** Migration 062 marks the plans that exist when it
   runs (`legacy_share_pending`; plans created later are never marked). Each
@@ -1082,15 +1082,15 @@ department is guessed for them.
   the creator or the last editor, and every run belongs to the person who
   started it.
 
-### React Flow migration inventory and acceptance (PAGE-87)
+### React Flow migration inventory and acceptance
 
 Historical evidence from 2026-10-17, retained for traceability. The UI comparison,
 SSR/hydration description and then-current permissions below are not the current
-product contract: PAGE-235 uses a static app; current canvas behavior is above,
+product contract: the app is static; current canvas behavior is above,
 and current access/cloning is described at the start of this document.
 
 The inventory below is from the domain definitions, editor, input readers,
-repository, permission service and run views on the PAGE-86 base. It describes
+repository, permission service and run views on the earlier base. It describes
 the preserved contracts, not a claim that a live database roundtrip was run.
 
 | Model or behavior      | Preserved contract                                                                                                                                                                                                                                                              |
@@ -1103,7 +1103,7 @@ the preserved contracts, not a claim that a live database roundtrip was run.
 | Group                  | Name, position, ordered membership records, member-relative coordinates, explicit internal edges (or existing legacy-chain reading), retained legacy boundary metadata, direct member bindings and shared-session display.                                                      |
 | Flow                   | Outer and internal edges remain separate; only same-level flow ports connect; duplicate edges and cycles are refused.                                                                                                                                                           |
 | Data                   | Literal bindings stay in the model; source bindings refer directly to value nodes; legacy group aliases are resolved on read; result bindings retain predecessor/path requirements. Data never becomes a scheduling edge.                                                       |
-| Editing                | Existing source filters, button/drag insertion, copied template defaults, movement, selection, node dialog, inspector, group assignment/removal choice, disconnect and node removal remain attached to domain actions. Double-click still opens the PAGE-86 node/group console. |
+| Editing                | Existing source filters, button/drag insertion, copied template defaults, movement, selection, node dialog, inspector, group assignment/removal choice, disconnect and node removal remain attached to domain actions. Double-click still opens the earlier node/group console. |
 | Runs                   | Waiting/running/succeeded/failed/paused/cancelled, blocked/cancellation diagnostics, group sessions, historical runs, progress, console and run controls keep their existing meanings.                                                                                          |
 | Access and persistence | Owner-only editing, executor-only run access, server authorization, optimistic revisions, Save/Play payloads, dirty-draft leave guard, in-flight edit preservation and run polling retain their existing implementations.                                                       |
 
@@ -1120,7 +1120,7 @@ of this migration. Project/milestone diagram implementations remain unchanged.
 
 Source comparison of the implemented interface (not screenshot evidence):
 
-| Before PAGE-87                                                | After PAGE-87                                                                                                              |
+| Before the migration                                          | After the migration                                                                                                        |
 | ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | Custom transformed canvas, pointer gestures and SVG curves    | React Flow canvas, measured handles, native dragging, zoom/fit controls and MiniMap                                        |
 | Floating configuration/source/run panels over a fading raster | Framed canvas with separate configuration, selection/source and run areas; collapsible narrow-screen panels                |
@@ -1138,8 +1138,8 @@ accept the repository's React 19 versions. The library supports
 receives the initial graph and nodes have initial dimensions; client hydration
 measures their handles and draws the edges. The Pages static type gate checks
 the integration against the installed types.
-PAGE-87 used the free built-in components and attribution and linked the MIT
-notice from canvas help; PAGE-102 replaced them with the zoom bar, hid the
+The React Flow migration used the free built-in components and attribution and linked the MIT
+notice from canvas help; a later change replaced them with the zoom bar, hid the
 attribution and keeps the notice with the source (see License).
 
 Verification boundaries on 2026-10-17:
@@ -1169,7 +1169,7 @@ Verification boundaries on 2026-10-17:
   source comparison or the static gates. Existing tests that describe details
   of the former renderer have neither been adapted nor executed in this task.
 
-### Restart and resume after a disturbance (PAGE-127)
+### Restart and resume after a disturbance
 
 When the newest run of a plan failed or was stopped, its executor sees a
 **Recover the run** section in the run panel: the state (recoverable,
@@ -1308,9 +1308,9 @@ step.
 The earlier removal of an external MCP server is historical. The current
 repository implements a paired-device HTTP API under `/api/mcp/v1/`
 (see [User management API](McpUserManagement.md) and
-[Storage API](StorageApi.md#pages-mcp-api-page-299)).
+[Storage API](StorageApi.md#pages-mcp-api)).
 The standalone MCP client lives outside this repository; its installation
-and external-client compatibility were not verified in PAGE-332. Pica keeps
+and external-client compatibility were not verified in this checkout. Pica keeps
 its job-token bridge, plan agents their step-bound bridge, and remote runners
 their own pairing and channel.
 
@@ -1320,15 +1320,15 @@ operator browser reads the origin as a Pages origin. Earlier files that name it
 as `[mcpHttp].publicUrl` are still read and are rewritten as `publicUrl` when
 Pages saves the file.
 
-## Lokale Codex-Steuerung (PAGE-361)
+## Lokale Codex-Steuerung
 
 Pläne mit ausschließlich lokalen Codex-Agent-Schritten halten beim Pausieren den laufenden ACP-Aufruf offen. Der unabhängige Sitzungsbesitzer friert die Worker-cgroup ein; Skripte werden vor dem Freigeben ihres Startsignals registriert und ihre eigenen Namespace-Prozesse über geprüfte pidfds angehalten. Die Ausführungsfristen zählen währenddessen nicht weiter. Die Engine speichert erst nach der Bestätigung `paused` und behält laufende Versuche, die aktuelle Iteration, Sitzungskennungen, Ergebnisse, TODOs und Reservierungen. Fortsetzen taut dieselben Prozesse auf; eine während des angehaltenen Zuges geänderte Planrevision wird abgewiesen. Die bestehende Wiederanbindung unabhängiger Sitzungsbesitzer stellt nach einem Pages-Neustart denselben pausierten Agent-Zug wieder her. Remote- und gemischte Provider-Pläne behalten ihren bisherigen Pausepfad.
 
-Die native Planpflicht für Codex gilt nur, wenn für den aktuellen Versuch ein nativer ACP-`plan` gespeichert wurde (PAGE-434). Ein leerer Plan oder offene native TODOs verhindern dann einen erfolgreichen Abschlussbericht und werden über die vorhandenen Korrekturzüge an dieselbe Sitzung zurückgegeben. Ohne solchen Fähigkeitsbeleg entscheiden Ticket-TODOs, Kriterien und `report_step_result`; der Providername allein begründet keine native Planpflicht. Beim Sitzungsstart gibt es keinen pauschalen Auftrag für natives `update_plan`: Das gleichnamige Pages-Werkzeug bearbeitet Agent-Pläne und ist kein Ersatz dafür. Die Ticket-Checkboxen werden weiterhin durch `update_step_progress` gesetzt. Das Lauf-Panel übernimmt native Codex-Statusänderungen auch dann, wenn die passende Ticket-Aufgabe bereits abgehakt war; aktive Ansichten lesen im Sekundentakt. Gespeicherte Läufe und Berichte werden nicht umgeschrieben.
+Die native Planpflicht für Codex gilt nur, wenn für den aktuellen Versuch ein nativer ACP-`plan` gespeichert wurde. Ein leerer Plan oder offene native TODOs verhindern dann einen erfolgreichen Abschlussbericht und werden über die vorhandenen Korrekturzüge an dieselbe Sitzung zurückgegeben. Ohne solchen Fähigkeitsbeleg entscheiden Ticket-TODOs, Kriterien und `report_step_result`; der Providername allein begründet keine native Planpflicht. Beim Sitzungsstart gibt es keinen pauschalen Auftrag für natives `update_plan`: Das gleichnamige Pages-Werkzeug bearbeitet Agent-Pläne und ist kein Ersatz dafür. Die Ticket-Checkboxen werden weiterhin durch `update_step_progress` gesetzt. Das Lauf-Panel übernimmt native Codex-Statusänderungen auch dann, wenn die passende Ticket-Aufgabe bereits abgehakt war; aktive Ansichten lesen im Sekundentakt. Gespeicherte Läufe und Berichte werden nicht umgeschrieben.
 
 Stop beendet einen Codex-Prozessrahmen bereits mit dem ersten Signal per SIGKILL. Ein gestoppter Codex-Lauf kann weder über Fortsetzen noch über den Recovery-Zugang wiederaufgenommen werden. Nach einem Endzustand schickt Start unmittelbar einen neuen Lauf ab; dessen bestehende Ressourcenbereinigung übernimmt alte Besitzer. Andere Provider behalten ihre bisherigen Fortsetzungs- und Bestätigungsregeln.
 
-Die isolierte Quelleninstanz und der getrennte Prozessversuch sind mit `pnpm exec tsx tests/browser/support/page361-isolated-probe.ts` bzw. `pnpm exec tsx tests/browser/support/page361-process-probe.ts` reproduzierbar. Beide räumen ihre temporären Daten auf. Der Quellen-Probe prüft nur Start, PostgreSQL-Setup und den nativen Prozess-Owner; er startet keinen Provider und ist kein echter Codex-Planlauf. Am 14.11.2026 gelang laut historischem Ticketprotokoll das Setup auf den Ports 37771 und 46251, aber der Benutzer-D-Bus fehlte; zusätzlich verweigerte Bubblewrap neue Namespaces. Aus diesem früheren Versuch stammen die Prozessmessungen Pause 38/29/26 ms und Stop aus Pause 5 ms, ohne Provider. Diese Angaben wurden beim Wiederanlauf nicht erneut gemessen. Echte Provider-/Planprüfungen sind seit Igors Entscheidung vom 14.11.2026 kein Abschlusskriterium; ihr Fehlen gilt weiterhin als unbestätigt, nicht als bestanden.
+Die isolierte Quelleninstanz und der getrennte Prozessversuch waren mit zwei inzwischen entfernten Probeskripten reproduzierbar. Beide räumten ihre temporären Daten auf. Der Quellen-Probe prüft nur Start, PostgreSQL-Setup und den nativen Prozess-Owner; er startet keinen Provider und ist kein echter Codex-Planlauf. Am 14.11.2026 gelang laut historischem Protokoll das Setup auf den Ports 37771 und 46251, aber der Benutzer-D-Bus fehlte; zusätzlich verweigerte Bubblewrap neue Namespaces. Aus diesem früheren Versuch stammen die Prozessmessungen Pause 38/29/26 ms und Stop aus Pause 5 ms, ohne Provider. Diese Angaben wurden beim Wiederanlauf nicht erneut gemessen. Echte Provider-/Planprüfungen sind seit Igors Entscheidung vom 14.11.2026 kein Abschlusskriterium; ihr Fehlen gilt weiterhin als unbestätigt, nicht als bestanden.
 
 ### Ergänzungen und technische Nachweise des Wiederanlaufs
 
@@ -1338,17 +1338,10 @@ Beim Wiederanbinden eines lokalen Codex-Laufs wird eine vor dem HTTP-Neustart an
 
 Der unabhängige Besitzer zählt bei Codex-Planarbeitern die konfigurierte Frist, ohne konfigurierte Frist 24 Stunden, als aktive Zeit. Das zusätzliche systemd-Wandzeitlimit würde auch eingefrorene Prozesse beenden und wird deshalb für diese Arbeiter durch die pausierbare Besitzerfrist ersetzt. cgroup-Ressourcengrenzen und Namespace-Isolation bleiben erhalten. Die Trennung zwischen systemd-[Prozesspause](https://www.freedesktop.org/software/systemd/man/latest/systemctl.html) und [maximaler Laufzeit](https://www.freedesktop.org/software/systemd/man/latest/systemd.service.html#RuntimeMaxSec=) ist dabei maßgeblich. Andere Provider und Codex-Chats behalten ihre bisherigen Fristen. Token- und Kostenrechnung werden nicht geändert.
 
-| Vertrag / Punkte | Implementierung und lokale Funktionsbelege                                                                                                                                                                                                                                                               | Grenze des Nachweises                                                                           |
-| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| T8 / 1–7         | `page361-todos`, `page358-todos`, `page358-continuation`, ACP-Sitzungstests; Frontend `page361-todos`, `page358-todo-count`, `use-plan-poll`, `plan-run-panel`, `agent-plan-poll`: native Planpflicht, Korrekturzüge, Ticket-Haken, Iterationsisolation, Zusammenführung, Statuswechsel und Sekundentakt | Gemockte Dateisystem-/Datenbank-/Providergrenzen und jsdom; keine gemessene reale UI-Latenz     |
-| T9 / 9–10        | `page361-control`, `page361-scripts`, `page361-namespace`, `page361-deadline`, `page361-worker-budget`, `worker-unit-limits`, `local-owner-session-next`: Prozesspause vor Bestätigung, unveränderte Controller/Sitzungen, angehaltene Fristen, Polling-Reihenfolge                                      | systemd/Bubblewrap werden in Units simuliert; historische Prozessmessung separat oben           |
-| T10 / 11–13      | `page361-control`, `page361-restart`, `local-owner-session-next`, `local-owner-session-start`, `local-sessions-reattach`: wiederholte Zyklen, Wiederanbindung aus `paused` und `pausing` mit gleicher Identität, kein neuer nativer Dispatch beim Wiederanbinden                                         | Kein tatsächlicher HTTP-Neustart mit echtem Codex-Thread                                        |
-| T11 / 14–16      | `page361-control`, `page361-deadline`, `local-owner-session-start`, `cli-session-process`, `owned-script-process`: erstes Kill-Signal, Stop während Pause/Start, endgültige Stop-/Recovery-Sperre                                                                                                        | Keine vollständige Prozessliste eines echten Providerlaufs in allen Ausgangszuständen           |
-| T12 / 8, 17–18   | `page353-start-resources`, `agent-plan-service-control`, `page84-run-checkpoints`; Frontend `plan-run-panel`, `agent-plan-poll`: Bereinigung alter Besitzer vor neuer Reservierung, erster Start-Klick und gemeinsame gespeicherte Zustandsabbildung                                                     | Kein zeitgleicher Live-Vergleich zwischen UI, MCP `read_plan_run` und PostgreSQL                |
-| T13 / K1         | Diese Dokumentation ordnet Änderungen und Nachweise den TODOs zu; der Wiederanlauf verwendet nur gezielte Unit-Tests mit Mocks/Stubs                                                                                                                                                                     | Keine neuen Provider-/Server-/Datenbankprozesse; keine realen Lauf-/Thread-IDs als Abnahmebeleg |
+Die historischen Prüfungen deckten native Planpflicht, Korrekturzüge, Ticket-Haken, Iterationsisolation, Pausen und Fristen, Stop, Wiederanbindung und die gemeinsame Zustandsabbildung ab. Ein Teil lief mit gemockten Dateisystem-, Datenbank- und Providergrenzen und jsdom; systemd und Bubblewrap wurden in Units simuliert. Ein echter HTTP-Neustart mit einem Codex-Thread, eine vollständige Prozessliste eines echten Providerlaufs und ein zeitgleicher Live-Vergleich zwischen UI, MCP und PostgreSQL wurden nicht ausgeführt.
 
-Ergebnis des Wiederanlaufs: **278 Backend-Tests in 23 ausgewählten Dateien bestanden**, einschließlich der neuen Regressionen für pausierten Start/Stop, verspätete Besitzerabfragen, Besitzerfrist und Neustart-Wiederanbindung. **98 Frontend-Tests in 5 ausgewählten Dateien bestanden**. Ausführung jeweils mit `pnpm exec vitest run --config vitest.backend.config.ts --coverage.enabled=false <Dateien>` bzw. `pnpm exec vitest run --config vitest.frontend.config.ts --coverage.enabled=false <Dateien>`. Die Backend-Auswahl umfasst die im historischen Bericht genannten 18 Dateien sowie `page361-restart`, `page361-worker-budget`, `worker-unit-limits`, `page328-browser-mount` und `local-sessions-reattach`; die Frontend-Auswahl umfasst die fünf Dateien der T8-Zeile. Zwei zunächst rote neue Start-Regressionen wurden korrigiert und sind in den 278 bestandenen Tests enthalten. Ein asynchroner Journalnachlauf wird im Test abgewartet; Stop beim pausierten Start wird nun tatsächlich als Abbruch erfasst.
+Ergebnis des Wiederanlaufs: **278 Backend-Tests in 23 ausgewählten Dateien bestanden**, einschließlich der neuen Regressionen für pausierten Start/Stop, verspätete Besitzerabfragen, Besitzerfrist und Neustart-Wiederanbindung. **98 Frontend-Tests in 5 ausgewählten Dateien bestanden**. Die Auswahl umfasste die im historischen Bericht genannten Dateien und zusätzliche Regressionen für Neustart, Worker-Budget, Worker-Grenzen und Wiederanbindung. Zwei zunächst rote neue Start-Regressionen wurden korrigiert und sind in den 278 bestandenen Tests enthalten. Ein asynchroner Journalnachlauf wird im Test abgewartet; Stop beim pausierten Start wird nun tatsächlich als Abbruch erfasst.
 
 Im Wiederanlauf wurden keine Prüfserver, Datenbanken, ACP-Adapter oder Provider gestartet. Alle selbst gestarteten Vitest-Prozesse sind beendet; es wurden keine temporären Instanzdaten angelegt. Die historische Bereinigung wird ausschließlich dem früheren Bericht zugeordnet.
 
-Lint, Check, Typecheck, Formatprüfung, Build, vollständige Suiten und Coverage: **an die Abschluss-QA übergeben**, im Wiederanlauf ausdrücklich nicht ausgeführt. Der historische Ticketbericht bleibt unverändert; seine damaligen Live-Blocker bestimmen die technische Abnahme nicht mehr. Kein Push, Deployment, Zugriff auf Live-Dienste, Live-Daten oder Zugangsdaten.
+Lint, Check, Typecheck, Formatprüfung, Build, vollständige Suiten und Coverage: **an die Abschluss-QA übergeben**, im Wiederanlauf ausdrücklich nicht ausgeführt. Der historische Bericht bleibt unverändert; seine damaligen Live-Blocker bestimmen die technische Abnahme nicht mehr. Kein Push, Deployment, Zugriff auf Live-Dienste, Live-Daten oder Zugangsdaten.

@@ -28,8 +28,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpProjectHandlers {
 }
 
 /**
- * Archives a project after a confirmed question; administrators only (`POST /api/mcp/v1/projects/{id}/archive`), PAGE-244 interface 12.
- *
+ * Archives a project after a confirmed question; administrators only (`POST /api/mcp/v1/projects/{id}/archive`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

@@ -14,7 +14,6 @@ export class WikiLookupRepository {
 
   /**
    * Creates the repository.
-   *
    * @param database - Database access or the transaction to run in.
    */
   public constructor(database: DatabaseTransaction) {
@@ -23,7 +22,6 @@ export class WikiLookupRepository {
 
   /**
    * Tells whether an active account exists.
-   *
    * @param userId - Account identifier.
    * @returns Whether the account exists and is active.
    */
@@ -38,7 +36,6 @@ export class WikiLookupRepository {
 
   /**
    * Reads the display name of an account.
-   *
    * @param userId - Account identifier.
    * @returns The name, or an empty text for an unknown account.
    */
@@ -54,7 +51,6 @@ export class WikiLookupRepository {
 
   /**
    * Reads the names of projects.
-   *
    * @param projectIds - Project identifiers.
    * @returns Identifier and name of each project that exists.
    */

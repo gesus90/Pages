@@ -42,7 +42,7 @@ The server checks UTF8, the libc locale provider, byte-order collation
 provides that locale. Sources: [locale validation](../backend/database/postgres/PostgresLocale.ts),
 [setup connection check](../backend/setup/SetupConnection.ts) and
 [transactional setup](../backend/setup/SetupPostgresRepository.ts).
-These instructions were source-reviewed in PAGE-332, not executed against a
+These instructions were source-reviewed, not executed against a
 new cluster during that documentation task.
 
 ## Schema

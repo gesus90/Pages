@@ -344,7 +344,7 @@ export class AdministrationService {
         !this.policy.isAdministrator(actor)
       )
         throw new AgentOperationError("FORBIDDEN", { reason: "core_system" });
-      // An agent has no password to reset (PAGE-266).
+      // An agent has no password to reset.
       if (target.isAgent === true)
         throw new AdministrationError("invalidInput");
       const temporaryPassword = generateTemporaryPassword();
@@ -482,7 +482,7 @@ export class AdministrationService {
         throw new AgentOperationError("FORBIDDEN", { reason: "role_grant" });
       requireAdministration(this.policy.isAdministrator(actor));
       const target = findAccount(snapshot, targetId);
-      // An agent never becomes an administrator (PAGE-266).
+      // An agent never becomes an administrator.
       if (isAdmin && target.isAgent === true)
         throw new AdministrationError("invalidInput");
       if (!isAdmin) {

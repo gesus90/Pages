@@ -90,7 +90,6 @@ export interface ProjectDeletionScope {
 
 /**
  * Tells whether every key received a number, which narrows a partial record to a complete one.
- *
  * @param keys - The keys the record must have.
  * @param values - The record read so far.
  * @returns Whether `values` holds a number for each key.

@@ -20,7 +20,6 @@ import type { SpeechSimulationMode } from "./SpeechSimulation";
 
 /**
  * Z.AI's speech recognition model.
- *
  * @remarks
  * Z.AI's model listing names no capabilities, so this documented entry is
  * the one place in Pages that names its recognition model
@@ -141,13 +140,11 @@ async function isUsableSpeechConnection(
 }
 
 /**
- * Lists the speech models of the instance (PAGE-273).
- *
+ * Lists the speech models of the instance.
  * @param source - The stored connections and the simulation switch.
  * @param viewer - The administrator who chooses; `null` when Pages runs the
  * recognition for the instance, which no connection scope limits.
  * @returns The models the central rule of `stt` keeps, the simulation last.
- *
  * @remarks
  * OpenRouter's stored catalog states the modalities of each model; only a
  * transcription model ({@link isTranscriptionModel}) is listed, never a chat
@@ -180,7 +177,6 @@ export async function listSpeechModels(
 
 /**
  * Finds the entry of a saved choice.
- *
  * @param entries - The listed speech models.
  * @param selection - The saved choice; `null` without one.
  * @returns The entry, or `null` when the choice is not listed.
@@ -204,8 +200,7 @@ export type UnlistedSpeechStatus =
   "modelUnavailable" | "modelUnsuitable" | "modelNotInCatalog";
 
 /**
- * Tells why a saved choice is no longer listed (PAGE-294, PAGE-302).
- *
+ * Tells why a saved choice is no longer listed.
  * @param source - The stored connections and the simulation switch.
  * @param viewer - The administrator who reads the setting.
  * @param selection - The saved choice that {@link listSpeechModels} no longer lists.
@@ -214,7 +209,6 @@ export type UnlistedSpeechStatus =
  * `modelNotInCatalog` when the usable OpenRouter connection's catalog no
  * longer lists the model at all; `modelUnavailable` when the connection is
  * gone, switched off, without a key or outside the viewer's scope.
- *
  * @remarks
  * It only tells the settings card why a saved model is unusable; the choice
  * stays saved, nothing replaces it and nothing runs with it.

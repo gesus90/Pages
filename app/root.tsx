@@ -97,10 +97,9 @@ const ACCOUNT_BOUNDARY_PATHS: ReadonlySet<string> = new Set([
  * Keeps the shell settings when only a board overlay opens or closes, a
  * local-state route opens or Storage changes its folder; reads them again on
  * the way to the sign-in page.
- *
  * @remarks
  * A route that finds the session ended redirects to the sign-in page during
- * a client navigation (PAGE-235). The root loader then names the visitor
+ * a client navigation. The root loader then names the visitor
  * anew, so the previous account's kept answers and drafts leave the page.
  */
 export function shouldRevalidate(args: ShouldRevalidateFunctionArgs): boolean {
@@ -119,9 +118,8 @@ export function shouldRevalidate(args: ShouldRevalidateFunctionArgs): boolean {
 
 /**
  * Loads the document language, color mode and design theme from the API.
- *
  * @remarks
- * The static app has no server rendering (PAGE-235); `/app-api/root`
+ * The static app has no server rendering; `/app-api/root`
  * answers what the root loader answered before. It also names the
  * document's account for the browser's local state, and opens the document
  * from that state when the backend is down (see `loadRoot`).
@@ -148,7 +146,6 @@ export const meta: MetaFunction = () => [{ title: "Pages" }];
 
 /**
  * Provides the HTML document and request-scoped localization provider.
- *
  * @remarks
  * The color mode and the design theme are written to the document root, and
  * the stylesheet of a design theme sits in the head, once the root loader
@@ -233,7 +230,6 @@ export default function Root(): React.ReactElement {
 
 /**
  * Renders the error page for thrown responses and unexpected errors.
- *
  * @remarks
  * The copy depends on the status only, and for a `503` of the database
  * executor on whether a change may have been saved. The message and stack

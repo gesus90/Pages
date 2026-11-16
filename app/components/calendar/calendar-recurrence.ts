@@ -90,7 +90,6 @@ function baseOf(
 
 /**
  * Builds the rule of a series from the form.
- *
  * @param fields - The repeat fields.
  * @param startDate - The first day of the event; weekly rules default to its weekday.
  * @returns The rule, or `null` for „Nie“.
@@ -120,7 +119,6 @@ function presetOf(rule: CalendarRecurrence, startDate: string): RepeatPreset {
 
 /**
  * Reads a rule into the fields of the form.
- *
  * @param rule - The rule of an entry, or `null`.
  * @param startDate - The first day of the event.
  */
@@ -185,7 +183,6 @@ function describeBase(
 
 /**
  * Describes a rule, such as „Jede Woche am Donnerstag · bis 31.03.2027“.
- *
  * @param rule - The rule of an entry.
  * @param startDate - The first day of the event, for the day of a monthly or yearly rule.
  * @param t - The translation function.

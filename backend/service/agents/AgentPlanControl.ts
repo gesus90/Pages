@@ -35,7 +35,6 @@ function isBlockedByBusiness(step: AgentPlanStepResult): boolean {
 
 /**
  * The state "Fortsetzen" continues, which names the way the server takes.
- *
  * @remarks
  * A paused run continues at its pause point. Every ended, unfinished run
  * continues as a new linked run at its last safe state. Stopped is display-only.
@@ -78,7 +77,7 @@ export function planControl(
       continuationVersion: 0,
       frontierStepIds: [],
     };
-  // An administrator controls every run, also one somebody else started (PAGE-329).
+  // An administrator controls every run, also one somebody else started.
   const canIdentify =
     canRunPlan(plan) &&
     (run.userId === context.userId || isPlanAdministrator(plan));
@@ -182,7 +181,6 @@ export function isEndedResumable(run: AgentPlanRun): boolean {
 
 /**
  * Stop reaches every run that is not finished, also one that already stops.
- *
  * @remarks
  * A run that ended at a failure still holds what it ran with, so Stop settles
  * it as cancelled; a run that already stops is ended by force on the second

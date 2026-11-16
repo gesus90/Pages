@@ -42,9 +42,8 @@ function clear(chunks: Buffer[]): void {
 }
 
 /**
- * Answers `speech.v1` for one connection (PAGE-273): the limits and the
+ * Answers `speech.v1` for one connection: the limits and the
  * chunked recording that ends in its text.
- *
  * @remarks
  * A connection runs at most one recording at a time; a second `speech_start`
  * is refused with `invalid_sequence` and leaves the first one alone. Chunks
@@ -64,7 +63,6 @@ export class PicaMobileSpeechHandler {
 
   /**
    * Creates the handler.
-   *
    * @param provider - The speech recognition; none: the requests are unknown.
    * @param host - The connection the handler answers on.
    */
@@ -78,7 +76,6 @@ export class PicaMobileSpeechHandler {
 
   /**
    * Handles one request of `speech.v1`.
-   *
    * @param message - A request that passed every check of its payload.
    */
   public async handle(message: PicaMobileSpeechClientMessage): Promise<void> {

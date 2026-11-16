@@ -19,7 +19,6 @@ import type { User } from "@/definition/User";
 
 /**
  * What a deletion touches beyond the database.
- *
  * @remarks
  * Both effects belong to the process that runs the plans and keeps the files,
  * so the services receive them instead of reaching for those parts.
@@ -42,12 +41,10 @@ export interface ProjectDeletionOutcome {
 
 /**
  * Finishes a committed deletion: forgets the project in the cache and removes its files.
- *
  * @param cache - The shared server cache.
  * @param effects - Removes the files, when the process has a store for them.
  * @param projectId - The project that is gone.
  * @param files - The files whose rows the deletion removed.
- *
  * @remarks
  * The rows are gone for good by now, so a problem with a file is reported and
  * never turned into a failure; the sweeps remove what stays behind.
@@ -80,7 +77,6 @@ export async function finishProjectDeletion(
 
 /**
  * The one authorized way to remove a project for good.
- *
  * @remarks
  * The interface and the MCP tool both end here, so the administrator check,
  * the scope check and the extent of the deletion cannot differ between them.
@@ -96,7 +92,6 @@ export class ProjectDeletionService {
 
   /**
    * Creates the service.
-   *
    * @param repository - Project persistence; bound to a transaction when the caller holds one.
    * @param cache - Cache to invalidate once a deletion committed.
    * @param channel - Whether the administrator is read from the interface mode or from MCP eligibility.
@@ -113,7 +108,6 @@ export class ProjectDeletionService {
 
   /**
    * Checks that the actor may delete the project, without reading or changing anything else.
-   *
    * @param actor - The authenticated account.
    * @param projectId - The project to delete.
    * @throws {ProjectManagementDeniedError} When the actor is no administrator or the project is out of reach.
@@ -127,7 +121,6 @@ export class ProjectDeletionService {
 
   /**
    * Describes the project and the data its deletion would remove.
-   *
    * @param actor - The authenticated account.
    * @param projectId - The project to describe.
    * @returns The extent of the deletion.
@@ -148,13 +141,11 @@ export class ProjectDeletionService {
 
   /**
    * Deletes the project and everything that belongs to it in one transaction.
-   *
    * @param actor - The authenticated account.
    * @param projectId - The project to delete.
    * @returns What went and which files are left to remove.
    * @throws {ProjectManagementDeniedError} When the actor may not delete the project.
    * @throws {ProjectNotFoundError} When no such project exists, such as after an earlier call.
-   *
    * @remarks
    * The data goes or stays as a whole; a failure rolls everything back. The
    * caller removes the returned files after the commit and invalidates the
@@ -180,12 +171,10 @@ export class ProjectDeletionService {
 
   /**
    * Runs the deletion with the effects outside the database around it.
-   *
    * @param actor - The authenticated account.
    * @param projectId - The project to delete.
    * @param effects - Stops runs before and removes files after the deletion.
    * @returns What went with the project.
-   *
    * @remarks
    * Authorization comes first, so nobody else can stop runs. The runs are
    * stopped outside the deleting transaction because their own writes use the

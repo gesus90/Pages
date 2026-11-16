@@ -23,7 +23,7 @@ import type { StorageMenuPoint } from "./storage-context-menu";
 import type { StorageFolderModel } from "./use-storage-folder";
 import type { StorageSelection } from "./use-storage-selection";
 
-/** The file management around the list of a loaded folder (PAGE-272). */
+/** The file management around the list of a loaded folder. */
 export interface StorageListTools {
   /** The menu bar above the list; it stays visible while the list scrolls. */
   readonly menuBar: ReactNode;
@@ -245,7 +245,6 @@ function SwitchingStatus(): React.ReactElement {
 
 /**
  * The file card of the Storage area with its loading, empty and error states.
- *
  * @remarks
  * Only the list scrolls; the card keeps its menu bar, column heads and
  * footer visible and its bottom edge above the free space of the Pica

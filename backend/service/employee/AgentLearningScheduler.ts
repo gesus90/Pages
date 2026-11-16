@@ -7,7 +7,7 @@ import type { AgentLearningService } from "./AgentLearningService";
 const TICK_MILLISECONDS = 60_000;
 
 /**
- * Starts the due dream runs of agent employees (PAGE-305, PAGE-378): every
+ * Starts the due dream runs of agent employees: every
  * agent dreams on its own schedule, from every hour to every 30 days (by
  * default daily at the time set under Einstellungen → Agents, 03:00), and a
  * run somebody asked for follows once the agent works in no chat. A run that

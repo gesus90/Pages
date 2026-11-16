@@ -28,9 +28,8 @@ function readReturnTo(request: Request): string | null {
 
 /**
  * Redirects a visitor who already has an active Pages session.
- *
  * @remarks
- * The endpoint `/app-api/login` answers with it (PAGE-235).
+ * The endpoint `/app-api/login` answers with it.
  * Everyone else gets their previously selected or browser-derived language
  * so the page, including its language switcher, renders correctly.
  */
@@ -100,7 +99,7 @@ export async function action({
       );
     }
 
-    // The database is busy or restarting (PAGE-197); the form asks to retry.
+    // The database is busy or restarting; the form asks to retry.
     if (error instanceof DatabaseExecutorError) {
       return data<LoginActionData>(
         { error: "unavailable" },

@@ -119,7 +119,7 @@ const AGENT_ACTION_HANDLERS: Readonly<Record<string, AgentActionHandler>> = {
     return { ok: true };
   },
   "save-speech": saveSpeechSettings,
-  // The zod schema of the service checks the values (PAGE-304).
+  // The zod schema of the service checks the values.
   "save-agent-session-limits": async ({ actor, services, formData }) => {
     await services.agentSessionLimitService.save(actor, {
       perAgent: readTextOrEmpty(formData, "perAgent"),

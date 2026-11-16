@@ -17,7 +17,6 @@ function readStatus(input: string): ChatSteerStatus {
 
 /**
  * Messages sent while Pica answered and the selection snapshots of messages.
- *
  * @remarks
  * Callers check the ownership of the conversation first. A selection snapshot
  * is written once and never changed; a steer only moves between statuses.

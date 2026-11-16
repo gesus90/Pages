@@ -112,7 +112,6 @@ async function measure(
 /**
  * Numbers names that occur more than once, before the extension: `a.png`,
  * `a (2).png`, so no file of an archive replaces another when it is unpacked.
- *
  * @param names - The names in their order.
  * @returns The names to store, in the same order.
  */
@@ -148,7 +147,7 @@ export function archiveSize(
 }
 
 /**
- * Writes the files as one ZIP archive without compression (PAGE-382).
+ * Writes the files as one ZIP archive without compression.
  *
  * @remarks
  * Images, videos and audio are compressed already, so the files are stored

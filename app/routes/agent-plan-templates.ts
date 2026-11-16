@@ -27,7 +27,6 @@ function readTemplateContext(formData: FormData): AgentPlanTemplateContext {
 
 /**
  * Lists the node templates the signed-in person works with.
- *
  * @remarks
  * The person's personal templates and, with the workspace of the open plan, the
  * shared templates of its project that belong to a department the person is
@@ -60,7 +59,6 @@ export async function loader({
 
 /**
  * Saves a node configuration as a template, or returns a checked copy of one for the draft.
- *
  * @remarks
  * Neither intent changes a plan: an inserted copy joins the editor's draft
  * and is stored only with the plan's next save.

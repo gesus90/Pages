@@ -7,13 +7,12 @@ import type { AutomationNotificationMode } from "@/definition/Automation";
 export const DEFAULT_AUTOMATION_NOTIFICATION: AutomationNotificationMode =
   "error";
 
-/** Stores when a person hears about the runs of their automations (PAGE-297). */
+/** Stores when a person hears about the runs of their automations. */
 export class AutomationNotificationPreferenceRepository {
   private readonly database: Pick<Database, "query" | "execute">;
 
   /**
    * Creates the repository.
-   *
    * @param database - The database.
    */
   public constructor(database: Pick<Database, "query" | "execute">) {

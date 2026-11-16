@@ -7,7 +7,6 @@ import type { AgentPlan } from "@/definition/AgentPlan";
 
 /**
  * Requires every agent connection the plan's steps name, within the write transaction.
- *
  * @throws {AgentError} `plan_context_changed` for a connection that is gone.
  */
 export async function requirePlanConnections(
@@ -36,7 +35,6 @@ export async function requirePlanConnections(
 
 /**
  * Requires the remote workspace and connection of every remote model route, within the write transaction.
- *
  * @throws {AgentError} `plan_context_changed` for a route that no longer fits the plan's project.
  */
 export async function requireRemotePlanModels(

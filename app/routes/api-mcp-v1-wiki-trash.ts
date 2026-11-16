@@ -13,8 +13,7 @@ const HANDLERS: McpWikiHandlers = {
 };
 
 /**
- * Lists the trash (`GET /api/mcp/v1/wiki/trash`), PAGE-257 interface 12.
- *
+ * Lists the trash (`GET /api/mcp/v1/wiki/trash`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

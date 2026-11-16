@@ -34,17 +34,17 @@ import type { AgentRecipeBrief } from "./AgentRecipeService";
 /** Parameters for building the runner of one agent job. */
 export interface EmployeeRunSpec {
   readonly assignment: ResolvedAgentAssignment;
-  /** The chat whose rules of sharing `memory_search` applies (PAGE-305). */
+  /** The chat whose rules of sharing `memory_search` applies. */
   readonly audience: AgentMemoryAudience;
   readonly keptSession: PicaAcpEmployeeRun["keptSession"];
-  /** The chat the job runs in (PAGE-376). */
+  /** The chat the job runs in. */
   readonly chat: AgentChatScope;
   /** The connection the job runs on, which stays the only one it may use. */
   readonly connectionId: string;
 }
 
 /**
- * What a round of a chat is told about the recipes of its agent (PAGE-378);
+ * What a round of a chat is told about the recipes of its agent;
  * a run of the agent's own gets none, and a failed read leaves them out.
  */
 async function recipeBrief(
@@ -63,7 +63,7 @@ async function recipeBrief(
 }
 
 /**
- * The hint line of the Lagebuch for a round of a chat (PAGE-377). A run of
+ * The hint line of the Lagebuch for a round of a chat. A run of
  * the agent's own has none, and a failed read leaves the line out.
  */
 async function logbookHint(
@@ -100,8 +100,8 @@ async function requireCurrentAgent(
 }
 
 /**
- * The interim messages and questions (PAGE-391), the scheduled tasks
- * (PAGE-392) and the history search (PAGE-393) of a job, bound to its
+ * The interim messages and questions, the scheduled tasks
+ * and the history search of a job, bound to its
  * chat; a run of the agent's own has no chat and offers none of them.
  */
 export function chatInteractionsFor(
@@ -146,7 +146,7 @@ export function chatInteractionsFor(
 }
 
 /**
- * The instruction and the context of a job (PAGE-305): a chat gets its
+ * The instruction and the context of a job: a chat gets its
  * history after the summary, the summary, the topics of `MEMORY.md` and
  * the related archive entries the rules of sharing give it, and
  * `DREAM.md`; a run of the agent's own gets none of them.
@@ -161,7 +161,7 @@ export async function buildEmployeeBrief(
 ): Promise<{
   readonly brief: PicaAcpStart["brief"];
   readonly audience: AgentMemoryAudience;
-  /** The newest entry of the Lagebuch the round's hint line covers (PAGE-377). */
+  /** The newest entry of the Lagebuch the round's hint line covers. */
   readonly logbookNewest: number;
 }> {
   const { dependencies, context: chatContext } = sources;
@@ -197,7 +197,7 @@ export async function buildEmployeeBrief(
         ...(recipes ? { recipes } : {}),
       }),
       // A continued agent session knows its chat; only a new or restarted one
-      // gets the summary and the last messages (PAGE-376).
+      // gets the summary and the last messages.
       keepsContext: false,
       prompt: {
         personName: person?.displayName ?? agent.displayName,
@@ -213,7 +213,7 @@ export async function buildEmployeeBrief(
   };
 }
 
-/** Tells the session the entries of the Lagebuch its round just carried the hint line for (PAGE-377). */
+/** Tells the session the entries of the Lagebuch its round just carried the hint line for. */
 export async function markLogbookSeen(
   dependencies: AgentEmployeeSessionDependencies,
   sessionId: string,
@@ -230,7 +230,7 @@ export async function markLogbookSeen(
 }
 
 /**
- * Hands the finished answer of a direct chat to the memory (PAGE-305):
+ * Hands the finished answer of a direct chat to the memory:
  * the person's messages since the previous answer and the answer itself.
  */
 export function recordEmployeeAnswer(
@@ -296,7 +296,7 @@ export function chatScopeOf(
 }
 
 /**
- * The runner of a job with the agent's access level (PAGE-303): the host's
+ * The runner of a job with the agent's access level: the host's
  * MCP servers, read anew for every job, and the file tools only with host
  * tools.
  */
@@ -317,15 +317,15 @@ export async function buildEmployeeRun(
   const { hostFiles } = dependencies;
   return {
     // The chat tools stay bound to the job's chat: a confidential chat keeps
-    // its own session and `chat_lesen` reads only that chat (PAGE-376).
+    // its own session and `chat_lesen` reads only that chat.
     ...chatToolsOf(dependencies, agent, chat),
     ...(keptSession ? { keptSession } : {}),
-    // A run of the agent's own is short and carries no chat (PAGE-376).
+    // A run of the agent's own is short and carries no chat.
     ...(keptSession ? {} : { isFreshSession: true }),
     runner: employeeAcpRunner(assignment, access, hostServers),
-    // The browser follows the tool policy (PAGE-390): read-only for "Nur Lesen".
+    // The browser follows the tool policy: read-only for "Nur Lesen".
     hasBrowser: policy.browser !== "off",
-    // Every model gets the same toolkit over the bridge of Pages (PAGE-390).
+    // Every model gets the same toolkit over the bridge of Pages.
     toolkit: (directory) =>
       createAgentToolkitJob({
         agentId: agent.id,

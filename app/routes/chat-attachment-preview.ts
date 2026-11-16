@@ -16,8 +16,7 @@ const PREVIEW_CONTENT_SECURITY_POLICY =
   "default-src 'none'; style-src 'unsafe-inline'; sandbox";
 
 /**
- * Sends an image of an own chat session to be shown as a thumbnail (PAGE-92).
- *
+ * Sends an image of an own chat session to be shown as a thumbnail.
  * @remarks
  * Only images pass: raster images and SVG files that passed the safety check
  * at the upload. Every other type, a foreign and a missing attachment answer

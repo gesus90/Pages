@@ -13,7 +13,7 @@ import type { ConversationService } from "@/backend/service/conversation/Convers
 import type { AgentChatSessionLifecycle } from "@/backend/service/employee/AgentChatSessionLifecycle";
 import type { AgentEmployeeModels } from "@/backend/service/employee/AgentEmployeeModels";
 
-/** The control of agents in single chats and the members of groups (PAGE-380). */
+/** The control of agents in single chats and the members of groups. */
 export interface AgentChatControlServices {
   /** The model of an agent per chat, `/new` and `/compact` from the menu of the agent. */
   readonly agentChatControlService: AgentChatControlService;
@@ -35,9 +35,8 @@ export interface AgentChatControlInput {
 }
 
 /**
- * Wires the control of agents in single chats (PAGE-380): who may steer an
+ * Wires the control of agents in single chats: who may steer an
  * agent, the model choice, the commands and the members of groups.
- *
  * @param input - The shared stores and services of the employee wiring.
  */
 export function createAgentChatControl(

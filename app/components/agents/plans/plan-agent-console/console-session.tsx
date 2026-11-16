@@ -156,7 +156,7 @@ function inputModeOf(facts: {
 }
 
 /**
- * The session of one node: the Pages terminal on the left, the sidebar on the right (PAGE-284).
+ * The session of one node: the Pages terminal on the left, the sidebar on the right.
  *
  * @remarks
  * Every provider looks and works the same. Below 680 px the sidebar stands

@@ -75,12 +75,10 @@ interface FactRowProps {
 
 /**
  * The eight facts below the panels: a small muted label above each value.
- *
  * @remarks
  * Narrow cards show two columns, cards from `34rem` four. From `60rem` the
  * eight facts stand in two rows of four; the first column is wider
  * (`1.6fr` against `1fr`) so the version with its build fits on one line.
- *
  * The values carry the weight of the values in the panels above, medium and
  * not bold, and no line separates the row from the panels. A value without
  * a source is `—`.

@@ -51,7 +51,6 @@ export interface StorageParameters {
 
 /**
  * Answers a Storage call as JSON that is never stored by a cache.
- *
  * @param result - The result of the service.
  * @param isSimulation - Whether the simulated Drive answered.
  * @returns `{ ok, simulation, result }` or `{ ok, simulation, error }`.
@@ -72,7 +71,6 @@ export function storageResponse<Value>(
 
 /**
  * Answers a failed Storage call with the status of its code.
- *
  * @param error - The error; it carries no token and no file content.
  * @param isSimulation - Whether the simulated Drive answered.
  * @returns The JSON answer.
@@ -106,11 +104,9 @@ function contentDisposition(fileName: string): string {
 
 /**
  * Streams a download as an attachment.
- *
  * @param download - The open stream with its type and name.
  * @param isSimulation - Whether the simulated Drive answered.
  * @returns The answer; the content never runs as a page of Pages.
- *
  * @remarks
  * `attachment`, `nosniff` and a sandboxing content security policy keep a
  * downloaded HTML or SVG file from running on the origin of Pages.
@@ -136,7 +132,6 @@ export function storageDownloadResponse(
 
 /**
  * Reads the conflict policy of a call.
- *
  * @param parameters - The parameters of the call.
  * @returns The policy; `fail` when none or an unknown one is named.
  */
@@ -150,7 +145,6 @@ export function readConflictPolicy(
 
 /**
  * Reads a page cursor.
- *
  * @param parameters - The parameters of the call.
  * @returns The cursor, or `null` when none or an implausible one is named.
  */
@@ -164,7 +158,6 @@ export function readPageToken(parameters: StorageParameters): string | null {
 
 /**
  * Reads a page size.
- *
  * @param parameters - The parameters of the call.
  * @returns The number, or `null` for the default.
  */
@@ -176,7 +169,6 @@ export function readPageSize(parameters: StorageParameters): number | null {
 
 /**
  * Wraps the query of a `GET` call.
- *
  * @param url - The address of the call.
  * @returns Its parameters; files never come in a query.
  */
@@ -282,11 +274,9 @@ function jsonParameters(body: unknown): StorageParameters | null {
 
 /**
  * Reads the body of a changing call: JSON, a form, or a multipart upload.
- *
  * @param request - The request.
  * @param limitBytes - The largest file the call accepts.
  * @returns The parameters, `too_large` past the limit, or `null` for an unreadable body.
- *
  * @remarks
  * The body is read with a hard limit before it is parsed, so an oversized
  * upload is refused without being held in memory.

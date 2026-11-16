@@ -2,7 +2,6 @@ import type { TomlTable } from "smol-toml";
 
 /**
  * Lets one plan step of one project reach one repository through a host SSH alias.
- *
  * @remarks
  * Nothing has a default: without a complete entry no session gets a bridge.
  */
@@ -66,7 +65,6 @@ function readEntry(input: unknown): AgentGitBridgeSetting {
 
 /**
  * Reads the bridges an operator configured by hand.
- *
  * @param table - The configuration document.
  * @returns The validated entries, empty when the key is missing.
  * @throws {Error} When an entry is incomplete, malformed or repeated for one step.

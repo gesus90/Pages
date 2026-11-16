@@ -40,10 +40,8 @@ export class PostgresLocaleError extends Error {
 
 /**
  * Refuses a database whose text rules differ from those of DuckDB.
- *
  * @param engine - The open connection pool.
  * @throws {PostgresLocaleError} When the locale of the database does not fit.
- *
  * @remarks
  * Every `ORDER BY`, `<` and `lower()` of the repositories follows the locale of
  * the database, and the default of a cluster is the locale of its system. Text

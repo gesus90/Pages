@@ -22,8 +22,7 @@ import type { McpWikiDeleteRequest } from "./McpWikiRequest";
 
 /**
  * Moves pages into the trash, brings them back, removes them for good and
- * restores versions (PAGE-257, interface 9 and 11–14).
- *
+ * restores versions.
  * @remarks
  * Every call goes through the announcing wiki service of the interface. A
  * move into the trash and a purge change nothing until the client confirms
@@ -32,7 +31,6 @@ import type { McpWikiDeleteRequest } from "./McpWikiRequest";
 export class McpWikiLifecycleService {
   /**
    * Moves a page with its subtree into the trash after a confirmed question.
-   *
    * @param context - The request.
    * @param id - Page identifier.
    * @param request - The revision read and the confirmation.
@@ -73,7 +71,6 @@ export class McpWikiLifecycleService {
 
   /**
    * Lists the pages in the trash the account may restore.
-   *
    * @param context - The request.
    */
   public async trash(
@@ -85,7 +82,6 @@ export class McpWikiLifecycleService {
 
   /**
    * Brings a page back from the trash with the pages deleted with it.
-   *
    * @param context - The request.
    * @param id - Page that was deleted as such.
    */
@@ -99,7 +95,6 @@ export class McpWikiLifecycleService {
 
   /**
    * Removes a page from the trash for good after a confirmed question.
-   *
    * @param context - The request.
    * @param id - Page that was deleted as such.
    * @param request - The confirmation.
@@ -128,7 +123,6 @@ export class McpWikiLifecycleService {
 
   /**
    * Lists the versions of a page, newest first.
-   *
    * @param context - The request.
    * @param id - Page identifier.
    */
@@ -149,7 +143,6 @@ export class McpWikiLifecycleService {
 
   /**
    * Reads one version of a page with its text.
-   *
    * @param context - The request.
    * @param id - Page identifier.
    * @param versionId - Version identifier.
@@ -169,7 +162,6 @@ export class McpWikiLifecycleService {
 
   /**
    * Replaces a page with the text of an earlier version, as a new version on top.
-   *
    * @param context - The request.
    * @param id - Page identifier.
    * @param versionId - Version to take title and text from.
@@ -191,8 +183,7 @@ export class McpWikiLifecycleService {
 
   /**
    * Moves a private page of somebody else into its owner's trash, the way
-   * the user management of the interface does (PAGE-280).
-   *
+   * the user management of the interface does.
    * @remarks
    * Only an administrator in the admin mode gets a placeholder. The question
    * names the identifier and the owner, never a title or text; the page has

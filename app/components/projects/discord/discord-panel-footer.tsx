@@ -12,7 +12,6 @@ interface DiscordPanelFooterProps {
 
 /**
  * Offers the test message and, after a second click, the disconnect.
- *
  * @remarks
  * Disconnecting removes the settings of this project only. The explanation
  * that the bot stays on the Discord server is part of the confirmation.

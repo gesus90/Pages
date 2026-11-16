@@ -70,7 +70,6 @@ function contractOf(termsJson: string): AgentPlanContract {
 
 /**
  * Converts a stored row into the progress a view reads.
- *
  * @param stored - The row of one step.
  * @returns The progress, or `null` when the row cannot be read.
  */
@@ -91,8 +90,7 @@ export function readStepLiveProgress(
 }
 
 /**
- * Takes the live progress agents report through `update_step_progress` (PAGE-284).
- *
+ * Takes the live progress agents report through `update_step_progress`.
  * @remarks
  * Like `report_step_result`, the credential alone names the run and the
  * step, and only the attempt whose turn runs may report. A report changes
@@ -130,7 +128,6 @@ export class AgentPlanStepProgressService {
 
   /**
    * Checks one call and stores the progress of the running step.
-   *
    * @param identity - The verified caller; only a session credential has a run.
    * @param input - The arguments of the tool.
    * @throws {AgentOperationError} With the concrete problems; nothing is stored.

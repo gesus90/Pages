@@ -22,7 +22,6 @@ export interface RecoveryCleanupDependencies {
 
 /**
  * Ends the processes of a stopped or disturbed run and proves that none remain.
- *
  * @remarks
  * Recovery actions call these checks before anything starts again or any
  * working copy and lease is released. Failures are reported as
@@ -37,7 +36,6 @@ export class AgentPlanRecoveryProcessCleanup {
 
   /**
    * Asks the remote executor to stop when a remote closeout of the run is unconfirmed.
-   *
    * @param run - The run whose remote results are checked.
    */
   public async requestRemoteCleanup(run: AgentPlanRun): Promise<void> {
@@ -47,7 +45,6 @@ export class AgentPlanRecoveryProcessCleanup {
 
   /**
    * Ends every local session of the run that still owns a process.
-   *
    * @param run - The run whose local sessions are ended.
    * @param scope - The process scan since the run started, or `null` when it failed.
    * @throws {AgentPlanRecoveryError} `cleanup_unconfirmed` while a process of
@@ -91,7 +88,6 @@ export class AgentPlanRecoveryProcessCleanup {
 
   /**
    * Rechecks the ACP leases of the run and fails closed when any of them remains.
-   *
    * @param runId - The run whose leases are checked.
    * @throws {AgentPlanRecoveryError} `cleanup_unconfirmed` while a lease of the
    * run remains or the scheduler cannot be read.

@@ -34,7 +34,6 @@ async function grantedServices(
 
 /**
  * Tells an administrator in the admin mode where the Google Drive connection stands.
- *
  * @remarks
  * A stored connection is confirmed by a real read-only Drive request on every
  * call, so the card never shows a connection Google no longer accepts.
@@ -58,11 +57,10 @@ export async function loader({
 
 /**
  * Starts the Google sign-in for an administrator in the admin mode.
- *
  * @remarks
  * The answer carries the official Google link; the browser opens it itself,
  * so no password of Google ever passes through Pages. `access=write` asks for
- * the targeted write consent of Storage (PAGE-270) instead of the first sign-in. Only an allowed origin
+ * the targeted write consent of Storage instead of the first sign-in. Only an allowed origin
  * starts a sign-in, and the link returns to exactly that origin.
  */
 export async function action({

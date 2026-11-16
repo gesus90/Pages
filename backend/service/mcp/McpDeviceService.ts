@@ -29,7 +29,6 @@ function readBearerToken(header: string | null): string | null {
 
 /**
  * Serves the paired machines: token checks, self-service unpairing and the list of an account.
- *
  * @remarks
  * A token acts with the rights of its account, checked on every request: a
  * revoked machine, a deactivated or a deleted account makes it `invalid_token`.
@@ -41,7 +40,6 @@ export class McpDeviceService {
 
   /**
    * Creates the service.
-   *
    * @param repository - Storage of the paired machines.
    * @param now - The clock in Unix milliseconds.
    */
@@ -55,7 +53,6 @@ export class McpDeviceService {
 
   /**
    * Checks a token and notes its use.
-   *
    * @param authorization - The `Authorization` header of the request.
    * @returns The machine and its account.
    * @throws {McpDeviceError} `invalid_token` with `401` for a missing, unknown or revoked token.
@@ -81,7 +78,6 @@ export class McpDeviceService {
 
   /**
    * Lets a machine end its own pairing.
-   *
    * @param authorization - The `Authorization` header of the request.
    * @throws {McpDeviceError} `invalid_token` with `401` when the token is not valid.
    */
@@ -100,7 +96,6 @@ export class McpDeviceService {
 
   /**
    * Lists the active machines of an account.
-   *
    * @param userId - The account.
    * @returns The machines for the connections page; no hash and no token.
    */
@@ -120,7 +115,6 @@ export class McpDeviceService {
 
   /**
    * Revokes one machine of an account; its token fails on the next request.
-   *
    * @param userId - The signed-in account.
    * @param deviceId - The machine to revoke.
    * @returns Whether a machine of this account was revoked.

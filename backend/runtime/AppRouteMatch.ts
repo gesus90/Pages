@@ -1,6 +1,6 @@
 import { matchRoutes } from "react-router";
 
-/** One address pattern of the static app's route table (PAGE-235). */
+/** One address pattern of the static app's route table. */
 export interface AppRoute {
   /** Full path pattern, as React Router matches it. */
   readonly path: string;
@@ -13,7 +13,6 @@ const DATA_REQUEST_SUFFIX = ".data";
 
 /**
  * Whether the API answers a request, rather than the static app's document.
- *
  * @param routes - The static app's route list.
  * @param method - The request method.
  * @param pathname - The request path, decoded.

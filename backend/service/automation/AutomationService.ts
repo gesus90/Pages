@@ -30,8 +30,7 @@ export interface AutomationServiceDependencies {
 }
 
 /**
- * The business service of automations (PAGE-297).
- *
+ * The business service of automations.
  * @remarks
  * The page, Pica, the agent tools and the HTTP API of the Pages MCP client
  * all call this service; none of them has a scheduler, a queue or a rule of
@@ -159,7 +158,6 @@ export class AutomationService {
 
   /**
    * Stores when the person hears about runs of their automations.
-   *
    * @throws {AutomationError} `invalid_request` for an unknown mode.
    */
   public async setNotificationMode(

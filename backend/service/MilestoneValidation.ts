@@ -63,7 +63,6 @@ function requireOptional<Value>(
 
 /**
  * Validates and normalizes the fields shared by creating and updating a milestone.
- *
  * @param input - The fields as received from the caller.
  * @returns The trimmed name, the dates, and the optional look as `null` when missing.
  * @throws WorkItemValidationError When a field is missing, malformed or inconsistent.

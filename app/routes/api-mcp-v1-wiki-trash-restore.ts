@@ -25,8 +25,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpWikiHandlers {
 }
 
 /**
- * Brings a page back from the trash (`POST /api/mcp/v1/wiki/trash/{id}/restore`), PAGE-257 interface 13.
- *
+ * Brings a page back from the trash (`POST /api/mcp/v1/wiki/trash/{id}/restore`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

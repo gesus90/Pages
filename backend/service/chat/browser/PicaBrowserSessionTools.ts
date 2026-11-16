@@ -305,7 +305,6 @@ const PREPARE: Partial<Record<PicaBrowserTool, Prepare>> = {
 
 /**
  * Runs a tool that acts on an open browser.
- *
  * @param request - The tool, its arguments and the scope of the job.
  * @param host - Finds the browser of the scope and reads handover files.
  * @returns The outcome with the screenshot as image data.

@@ -32,7 +32,6 @@ export class WikiLinkRepository {
 
   /**
    * Creates the repository.
-   *
    * @param database - Database access or the transaction to run in.
    */
   public constructor(database: DatabaseTransaction) {
@@ -41,7 +40,6 @@ export class WikiLinkRepository {
 
   /**
    * Replaces the links a page contains.
-   *
    * @param pageId - Page identifier.
    * @param targets - The pages and tickets the text links to.
    */
@@ -85,7 +83,6 @@ export class WikiLinkRepository {
 
   /**
    * Lists the visible pages that link to a page.
-   *
    * @param scope - What the viewer may see.
    * @param pageId - The linked page.
    * @returns Visible pages by title; pages the viewer cannot see do not

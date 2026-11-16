@@ -26,9 +26,8 @@ interface StorageContextMenuProps {
 }
 
 /**
- * The own context menu of the Storage list (PAGE-272): the same actions as
+ * The own context menu of the Storage list: the same actions as
  * the menu bar at the position of the right click.
- *
  * @remarks
  * No context-menu dependency is used: the existing `DropdownMenu` is
  * anchored to an invisible point at the pointer position. Radix moves the

@@ -9,7 +9,6 @@ export type ClipboardOutcome = "done" | "denied" | "unavailable";
 /**
  * Copies or cuts the selection of the editor, exactly as the keyboard
  * shortcut does: the editor fills the clipboard with HTML and markdown.
- *
  * @param editor - The editor.
  * @param action - `copy` or `cut`.
  * @returns Whether the browser carried out the action.
@@ -48,7 +47,6 @@ async function readRichClipboard(
 
 /**
  * Pastes from the clipboard into the editor, for the menu entries.
- *
  * @param editor - The editor.
  * @param isPlain - Whether formatting is dropped ("paste as plain text").
  * @returns `done` after pasting; `unavailable` without the clipboard API
@@ -98,7 +96,6 @@ export async function pasteFromClipboard(
 
 /**
  * Puts text on the clipboard, such as the link to a block.
- *
  * @param text - The text.
  * @returns Whether the text is on the clipboard.
  */

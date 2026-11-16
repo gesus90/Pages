@@ -1,6 +1,5 @@
 /**
  * Builds a `Content-Disposition` header value for a download or an inline file.
- *
  * @param disposition - `attachment` to download, `inline` to show.
  * @param fileName - Name of the file as shown to the person.
  * @returns A header value with an ASCII fallback name and the full name in the

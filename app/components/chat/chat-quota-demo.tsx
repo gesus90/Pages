@@ -47,7 +47,7 @@ function ChatQuotaDemoBadge(): React.ReactElement {
 }
 
 /**
- * The simulated quota state above the input (PAGE-96): what it means, how
+ * The simulated quota state above the input: what it means, how
  * long it lasts, and the buttons that refresh, switch or reset it.
  */
 export function ChatQuotaDemoStatus({

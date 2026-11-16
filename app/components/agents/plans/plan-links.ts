@@ -64,7 +64,7 @@ interface PlanDataLink {
   readonly output?: AgentPlanStackOutput;
   /** The binding feeds a loop's own input, its count or its while boolean. */
   readonly isLoopInput?: boolean;
-  /** The binding is the data input of a decision, drawn into its `condition-in` (PAGE-286). */
+  /** The binding is the data input of a decision, drawn into its `condition-in`. */
   readonly isDecisionInput?: boolean;
 }
 
@@ -75,7 +75,6 @@ export type PlanWireChannel = "branch" | "condition" | "event";
  * An edge of the branching contract: the boolean result of an agent into a
  * decision, an output of a decision into a flow input, or the text result of a
  * node into the event input of an agent.
- *
  * @remarks
  * Only the first two order execution; an event never does. The ports name the
  * handles the line starts and ends at, so two wires between the same nodes
@@ -97,7 +96,6 @@ export type PlanLink = PlanFlowLink | PlanDataLink | PlanWireLink;
 
 /**
  * How a connection is drawn and named: its line, its colour and its label.
- *
  * @remarks
  * The two branches have a channel each, so that the colour is never the only
  * difference between them.
@@ -314,7 +312,6 @@ export function planLinks(plan: AgentPlanInput): readonly PlanLink[] {
 
 /**
  * A stable key; a parameter accepts one binding and two nodes one flow edge.
- *
  * @remarks
  * A plain flow keeps `flow:from:to`; a wire names its channel, and a branch
  * also its output, so that no two connections share a key.

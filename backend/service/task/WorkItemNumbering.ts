@@ -23,7 +23,6 @@ export class WorkItemNumbering {
 
   /**
    * Creates a numbering.
-   *
    * @param taskRepository - Task persistence boundary holding the sequences.
    */
   public constructor(taskRepository: TaskRepository) {
@@ -32,13 +31,11 @@ export class WorkItemNumbering {
 
   /**
    * Runs work that consumes numbers of a project, excluding other requests.
-   *
    * @remarks
    * Number allocation and insert must not interleave between requests, or
    * two tickets created at the same moment would claim the same key. The
    * numbers are reserved for good: a key is not handed out again when the
    * work fails or when its ticket is deleted or moved away later.
-   *
    * @param project - Project whose key sequence the work continues.
    * @param count - How many consecutive numbers the work consumes.
    * @param work - Work receiving the sequence to continue from.

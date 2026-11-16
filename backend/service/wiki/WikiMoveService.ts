@@ -37,7 +37,6 @@ export class WikiMoveService {
 
   /**
    * Creates the service.
-   *
    * @param repository - Wiki persistence.
    * @param access - Resolves who is acting.
    */
@@ -48,7 +47,6 @@ export class WikiMoveService {
 
   /**
    * Tells how a move would change who sees the page, without moving it.
-   *
    * @param actor - The signed-in user.
    * @param id - Page identifier.
    * @param input - The intended place.
@@ -85,7 +83,6 @@ export class WikiMoveService {
 
   /**
    * Moves a page with its subtree.
-   *
    * @param actor - The signed-in user.
    * @param id - Page identifier.
    * @param input - The new place.
@@ -93,7 +90,6 @@ export class WikiMoveService {
    * or cannot write.
    * @throws {WikiValidationError} When the place is not allowed, would form
    * a cycle or get the tree too deep.
-   *
    * @remarks
    * The subtree takes the scope of the new place. Milestone and epic anchors
    * belong to a project, so they are dropped when the project changes; a

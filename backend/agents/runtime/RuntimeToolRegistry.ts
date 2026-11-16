@@ -42,9 +42,9 @@ export interface RuntimeToolCall {
   /** The untrusted arguments of the call. */
   readonly input: unknown;
   readonly invocation: RuntimeToolInvocation;
-  /** How long the call took, in milliseconds (PAGE-390). */
+  /** How long the call took, in milliseconds. */
   readonly durationMs?: number;
-  /** The chat session of the call, for the audit of the tool bridge (PAGE-390). */
+  /** The chat session of the call, for the audit of the tool bridge. */
   readonly sessionId?: string;
 }
 
@@ -56,7 +56,6 @@ export interface RuntimeToolListing {
 
 /**
  * Decides on every call whether the caller is currently an administrator.
- *
  * @remarks
  * The answer comes from persisted account facts, never from the context or
  * the model. `false` means denied; an error means the answer is unknown and
@@ -107,7 +106,6 @@ async function authorizedContext(
 
 /**
  * Registers schema-bound tools and enforces their access class before the handler runs.
- *
  * @remarks
  * Retries and execution loops stay outside. Business permissions stay in the
  * services behind the handlers; the registry only keeps an `administrator`
@@ -121,7 +119,6 @@ export class RuntimeToolRegistry {
 
   /**
    * Creates a registry.
-   *
    * @param gate - Admits administrators; without it every administrator tool is refused.
    */
   public constructor(gate?: RuntimeAdministratorGate) {
@@ -159,7 +156,6 @@ export class RuntimeToolRegistry {
 
   /**
    * Lists the registered tools for a transport over ACP.
-   *
    * @param listing - Leaves the administrator tools out for a person who is none.
    */
   public describe(
@@ -175,11 +171,10 @@ export class RuntimeToolRegistry {
 
   /**
    * Hears of every call that ended with an answer, whether its input was valid
-   * or not, such as for the record of an agent's tool use (PAGE-378). A call
+   * or not, such as for the record of an agent's tool use. A call
    * that throws is not reported. An observer must not throw; every observer
    * hears of every call, such as the record of recipes and the audit of the
-   * tool bridge (PAGE-390).
-   *
+   * tool bridge.
    * @param observer - Called after each call.
    */
   public observe(observer: (call: RuntimeToolCall) => void): void {
@@ -188,8 +183,7 @@ export class RuntimeToolRegistry {
 
   /**
    * Keeps only the tools a predicate admits; every other tool is neither
-   * listed nor callable afterwards (PAGE-390).
-   *
+   * listed nor callable afterwards.
    * @param isKept - Decides by the tool name.
    */
   public retain(isKept: (id: string) => boolean): void {
@@ -204,7 +198,6 @@ export class RuntimeToolRegistry {
 
   /**
    * Runs one tool over ACP with the same schema, authorization and handler.
-   *
    * @param id - The registered tool name.
    * @param input - The untrusted arguments of the call.
    * @param context - The invocation scope; it is reauthorized before the handler runs.

@@ -63,7 +63,6 @@ export interface AgentTicketAssignee {
 
 /**
  * A new ticket; it is created locally and never overwrites.
- *
  * @remarks
  * What a call leaves open is taken from the parent and the account, never
  * invented: the project and a milestone and department the parent carries, and
@@ -184,7 +183,6 @@ export interface AgentTicketChanged {
 
 /**
  * Result of a description range patch; returned unchanged when the operation ID is repeated.
- *
  * @remarks
  * `start` and `end` delimit the replacement text in the new description. The
  * new description is not part of the result unless `after` was asked for.

@@ -118,7 +118,6 @@ export function restartOption(facts: RecoveryFacts): AgentPlanRecoveryOption {
 
 /**
  * A resume continues only the newest ended, unfinished run of the plan, once.
- *
  * @remarks
  * Stop is terminal. Failed runs retain their durable results, including
  * control nodes and loop iterations, independently of checkpoint availability.
@@ -178,7 +177,6 @@ export function releaseOption(facts: RecoveryFacts): AgentPlanRecoveryOption {
 
 /**
  * Splits the durable run into completed results and unfinished work.
- *
  * @remarks
  * The stored run is authoritative even when a crash prevented an additional
  * checkpoint write. A skipped branch stays skipped. Native sessions are

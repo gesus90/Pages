@@ -4,12 +4,10 @@ function isTabHidden(): boolean {
 
 /**
  * Repeats a read while the browser tab is visible and reads at once on return.
- *
  * @param read - One read that handles its own errors. It receives whether the
  * tab was hidden since the last read and answers with the delay to the next
  * read, or with `null` when no further read is due.
  * @returns Stops the reads and the observation of the tab.
- *
  * @remarks
  * A hidden tab starts no read, not even the first. A read that is still under
  * way when the tab returns serves as the read on return, so reads never overlap.

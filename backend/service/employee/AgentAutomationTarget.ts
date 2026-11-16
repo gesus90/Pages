@@ -12,7 +12,7 @@ export class AutomationTargetError extends Error {
   }
 }
 
-/** The chat an automation of an agent runs in (PAGE-376). */
+/** The chat an automation of an agent runs in. */
 export type AutomationTarget =
   | {
       /** The direct chat of the owner with the agent. */
@@ -39,8 +39,7 @@ function sameName(left: string, right: string): boolean {
 }
 
 /**
- * Resolves the target chat of an automation (PAGE-376).
- *
+ * Resolves the target chat of an automation.
  * @remarks
  * `@Agentname` is the direct chat of the owner of the automation with that
  * agent, which has to be the agent that runs it. `[[Chatname]]` is the group
@@ -57,7 +56,6 @@ export class AgentAutomationTarget {
 
   /**
    * Resolves the chat of one run.
-   *
    * @param input - The agent that runs it, the owner of the automation, the
    * target as the automation names it and the group a scheduled task is
    * bound to.
@@ -69,7 +67,7 @@ export class AgentAutomationTarget {
     readonly agent: User;
     readonly owner: User | null;
     readonly chat: string | null | undefined;
-    /** The group a scheduled task is bound to (PAGE-392); it wins over `chat`. */
+    /** The group a scheduled task is bound to; it wins over `chat`. */
     readonly conversationId?: string | null;
   }): Promise<AutomationTarget> {
     const text = input.chat?.trim() ?? "";

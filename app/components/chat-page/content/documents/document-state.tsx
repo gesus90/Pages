@@ -7,7 +7,7 @@ import type { DocumentState } from "./use-document";
 
 /**
  * What a document card or panel shows while the document loads or when it
- * cannot be read (PAGE-385): an encrypted file, a damaged one, or one whose
+ * cannot be read: an encrypted file, a damaged one, or one whose
  * parts are too large. The file stays downloadable in every case.
  */
 export function DocumentStateMessage({

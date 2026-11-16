@@ -48,7 +48,6 @@ const TOOL_MARKS: Readonly<Record<string, ToolMarkImage>> = {
 
 /**
  * Whether a mark key has a vendor icon of its own.
- *
  * @param mark - A key such as `claude` or `opencode`.
  * @returns `false` for a key that shows the neutral mark.
  */
@@ -58,7 +57,6 @@ export function hasToolMark(mark: string): boolean {
 
 /**
  * The app icon of a tool or provider as a uniform 20 × 20 tile.
- *
  * @remarks
  * Every icon fills the same tile with the same radius, so the marks look
  * equally large and the names beside them start in one column. The written

@@ -6,7 +6,7 @@ export interface PcmLayout {
 
 /**
  * OpenRouter's PCM: 16-bit little-endian, 24 kHz, mono, unless the
- * `Content-Type` names other values (PAGE-300).
+ * `Content-Type` names other values.
  */
 const DEFAULT_PCM_LAYOUT: PcmLayout = { sampleRate: 24_000, channels: 1 };
 
@@ -25,7 +25,6 @@ function readParameter(contentType: string, name: string): number | null {
 
 /**
  * Reads the layout of raw PCM from its content type.
- *
  * @param contentType - Such as `audio/pcm;rate=24000;channels=1`.
  * @returns The stated sample rate and channels, OpenRouter's defaults for
  * values it leaves out or states outside a sane range.
@@ -47,7 +46,6 @@ export function readPcmLayout(contentType: string): PcmLayout {
 
 /**
  * Wraps raw 16-bit PCM into a WAV file a browser plays.
- *
  * @param pcm - The samples, 16-bit little-endian.
  * @param layout - Sample rate and channels of the samples.
  * @returns The WAV file; a trailing odd byte is dropped.

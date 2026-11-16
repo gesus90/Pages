@@ -35,7 +35,6 @@ function ActionIcon({
 /**
  * The calls Pica makes with administrator rights, as they happen: the tool,
  * its state and, when it failed, the reason.
- *
  * @remarks
  * Ordinary tool calls stay out of the quiet activity row. Parameters and
  * results never reach the browser; the audit trail of the administration

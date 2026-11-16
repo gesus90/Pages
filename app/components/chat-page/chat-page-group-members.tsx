@@ -204,7 +204,7 @@ function AddMembers({
 }
 
 /**
- * "Mitglieder" of the group menu (PAGE-380): every person and agent of the
+ * "Mitglieder" of the group menu: every person and agent of the
  * group, who may steer its agents, "Entfernen" and the field that adds a
  * participant for the creator. The dashed plus of the head moved here.
  */

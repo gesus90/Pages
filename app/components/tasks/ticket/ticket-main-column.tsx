@@ -33,7 +33,7 @@ interface TicketMainColumnProps {
 }
 
 /**
- * The left column of a ticket, which takes most of the space (A8.2-E07): the
+ * The left column of a ticket, which takes most of the space: the
  * large description, attachments, children, checklist, links and activity.
  */
 export function TicketMainColumn({

@@ -88,7 +88,6 @@ export interface GoogleDriveConnectionDependencies {
 
 /**
  * A usable connection for one server-side Drive request, or why there is none.
- *
  * @remarks
  * The access token is a secret: it stays in the server process, goes only
  * into the `Authorization` header of a Drive request and never into an
@@ -111,7 +110,7 @@ export type GoogleDriveAccess =
 
 /**
  * The part of the connection the routes and Storage use; the real connection
- * and the simulated one (PAGE-270) both provide it.
+ * and the simulated one both provide it.
  */
 export type GoogleDriveConnection = Pick<
   GoogleDriveConnectionService,
@@ -207,7 +206,7 @@ export class GoogleDriveConnectionService {
    *
    * @param input - The administrator, the public address of the instance and
    * the access asked for; `write` is the targeted consent for the full drive
-   * scope (PAGE-270).
+   * scope.
    * @returns The link, or `null` without an OAuth client.
    */
   public async start(input: {

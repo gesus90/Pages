@@ -8,13 +8,13 @@ const identifier = z
   .max(100)
   .regex(/^[\w-]+$/u);
 
-/** The tool with which an agent lists its chats (PAGE-311). */
+/** The tool with which an agent lists its chats. */
 export const PICA_CHATS_LIST_TOOL = "chats_list";
 
-/** The tool with which an agent reads a chat it takes part in (PAGE-311). */
+/** The tool with which an agent reads a chat it takes part in. */
 export const PICA_CHAT_READ_TOOL = "chat_read";
 
-/** The tool with which an agent sends a message and may wait for the reply (PAGE-311). */
+/** The tool with which an agent sends a message and may wait for the reply. */
 export const PICA_CHAT_SEND_TOOL = "chat_send";
 
 /** How long a reply is awaited while the agent names no limit, in seconds. */

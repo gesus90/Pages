@@ -34,7 +34,7 @@ function isMcpPairingPageData(value: unknown): value is McpPairingPageData {
 
 /**
  * Reads the pairing request from the API, which sends a visitor without a
- * session to sign in first (PAGE-243).
+ * session to sign in first.
  */
 export async function clientLoader({
   request,

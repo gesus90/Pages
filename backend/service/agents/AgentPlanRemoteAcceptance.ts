@@ -42,7 +42,6 @@ function remoteAgentTerms(remote: RemotePlanStep):
 
 /**
  * What a remote agent's report is assessed against.
- *
  * @param remote - The frozen step.
  * @returns Contract, instruction, reach and provider; `null` when the frozen command holds no contract or is no CLI agent.
  */

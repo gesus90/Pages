@@ -27,8 +27,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpAgentHandlers {
 }
 
 /**
- * Restores a version of `MEMORY.md` and its archive (`POST /api/mcp/v1/agents/{id}/memory/versions/{versionId}/restore`), PAGE-267.
- *
+ * Restores a version of `MEMORY.md` and its archive (`POST /api/mcp/v1/agents/{id}/memory/versions/{versionId}/restore`).
  * @remarks
  * Only the device token of a paired machine admits a request, and only for
  * an account with the administrator role.

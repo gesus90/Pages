@@ -24,7 +24,6 @@ function addEdge(
 
 /**
  * Indexes the edges once per edge list.
- *
  * @remarks
  * A validation asks for the path between many pairs of nodes of one plan.
  * Scanning every edge at every step made that quadratic in the nodes and
@@ -69,7 +68,6 @@ export function hasPlanPath(
 
 /**
  * Every node with a flow path to the node, found in one walk against the edges.
- *
  * @param edges - The flow edges of the plan.
  * @param to - The node whose predecessors are wanted.
  * @returns The nodes that reach `to`; `to` itself only when it lies on a cycle.

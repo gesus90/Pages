@@ -50,7 +50,7 @@ worker is derived from the same constants and reads
 `memory infinity, swap infinity, tasks 512, CPU 200%, OOM score 500`: the values of
 the unit, not the budget of the slice.
 
-PAGE-361 adds an exception to the wall-clock backstop for Codex plan workers:
+Codex plan workers have an exception to the wall-clock backstop:
 their independent native owner enforces the configured deadline, or 24 hours
 when none was configured, as active execution time. `RuntimeMaxSec=infinity`
 prevents systemd from killing a frozen worker during a long pause. The owner's
@@ -63,6 +63,6 @@ The capability probe (`probeWorkerUnits`) still starts a throw-away unit with
 
 ## Runtime guide
 
-The current [worker-unit guide](AgentRuntime.md#limited-worker-units-page-127)
+The current [worker-unit guide](AgentRuntime.md#limited-worker-units)
 uses these shared budgets. The former README values (1536 MiB memory and
 256 MiB swap per worker) are historical and no longer apply.

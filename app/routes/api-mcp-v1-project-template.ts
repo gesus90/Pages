@@ -25,8 +25,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpProjectHandlers {
 }
 
 /**
- * Saves the project as its template (`POST /api/mcp/v1/projects/{id}/template`), PAGE-244 interface 9.
- *
+ * Saves the project as its template (`POST /api/mcp/v1/projects/{id}/template`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

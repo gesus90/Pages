@@ -1,4 +1,4 @@
-# Agent plan script runtime (PAGE-123)
+# Agent plan script runtime
 
 Scripts are ordinary server processes in the existing Pages DAG engine. Saving,
 opening, validating, upgrading and migrating a plan never executes its script
@@ -10,11 +10,11 @@ timeouts and output/process limits. A transport interruption never restarts a
 claim. A vanished worker without an exit record finishes as `lost`; explicit
 cancellation finishes as `interrupted`, with cleanup evidence. Remote profiles
 are offered separately from local profiles and rechecked before dispatch. No
-remote target falls back to a local process. See [the runner contract](../../../docs/PagesRunner.md#remote-pläne-scope-erweiterung-page-142)
+remote target falls back to a local process. See [the runner contract](../../../docs/PagesRunner.md#remote-pläne)
 for supported modes and operational limits. Local plans retain their existing runtime.
 Existing agent nodes and groups keep their existing runners. Script members of
 loops remain stored but are refused with `loopScriptUnsupported`; extending loop
-execution is outside PAGE-123.
+execution is outside this runtime.
 
 ## Authorization and interpreters
 
@@ -253,7 +253,7 @@ restores the preference and rechecks access. A missing/revoked plan remains
 visibly unavailable. Without a preference, existing default-plan behavior
 applies. Remembering a selection starts no run.
 
-## Removed Git closeout node (PAGE-211, PAGE-285)
+## Removed Git closeout node
 
 The dedicated `git_closeout` node is no longer supported. A plan does its Git
 closeout, when it needs one, with an ordinary agent or script step of its own;

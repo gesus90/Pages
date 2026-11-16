@@ -21,10 +21,10 @@ import type {
 import type { PicaPlanConfirmation } from "../PicaPlanConfirmation";
 import type { PicaToolOutcome } from "../PicaToolSchemas";
 
-/** The tool with which an agent writes an interim message during its round (PAGE-391). */
+/** The tool with which an agent writes an interim message during its round. */
 export const AGENT_SAY_TOOL = "nachricht_senden";
 
-/** The tool with which an agent asks the people of its chat with answer buttons (PAGE-391). */
+/** The tool with which an agent asks the people of its chat with answer buttons. */
 export const AGENT_ASK_TOOL = "rueckfrage";
 
 const SAY_SCHEMA = z
@@ -224,8 +224,8 @@ async function ask(
 
 /**
  * Registers `nachricht_senden` and `rueckfrage` of an agent employee's job
- * (PAGE-391): interim messages during a round and questions with answer
- * buttons, which also confirm consequential steps (PAGE-390).
+ * Interim messages during a round and questions with answer
+ * buttons, which also confirm consequential steps.
  */
 export function registerAgentChatInteractionTools(
   registry: RuntimeToolRegistry,

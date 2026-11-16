@@ -1,7 +1,6 @@
 /**
  * Where the Google Drive connection of the instance stands, as the last real
  * Drive request showed it.
- *
  * - `not_configured`: the OAuth client of the instance is missing.
  * - `disconnected`: no Google account was ever connected.
  * - `connected`: a read-only Drive request just succeeded.
@@ -41,7 +40,7 @@ export interface GoogleDriveStatus {
   readonly canSignIn: boolean;
   /** Whether the working connection lacks the read access that Storage needs for the folder tree. */
   readonly needsFolderAccess: boolean;
-  /** Whether the working connection lacks the write access Storage needs to change files (PAGE-270). */
+  /** Whether the working connection lacks the write access Storage needs to change files. */
   readonly needsWriteAccess: boolean;
   /** Whether Drive is the in-memory simulation of a development server, not a real account. */
   readonly isSimulation: boolean;

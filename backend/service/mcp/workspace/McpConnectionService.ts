@@ -35,7 +35,6 @@ type ConnectionInput = Readonly<Record<string, unknown>>;
 
 /**
  * Fills the fields a change leaves out from the stored connection.
- *
  * @remarks
  * Secrets are not part of the stored view: a missing secret stays missing in
  * the input, which the service of the interface reads as "keep the stored one".
@@ -61,7 +60,6 @@ function mergedInput(
 
 /**
  * Manages SSH connections for a paired machine.
- *
  * @remarks
  * Every call runs through the connection service of the interface on the MCP
  * channel, which decides who may see, use or configure a connection. This
@@ -74,7 +72,6 @@ export class McpConnectionService {
 
   /**
    * Creates the service.
-   *
    * @param services - The workspace and connection services, already on the MCP channel.
    */
   public constructor(services: McpWorkspaceServices) {
@@ -93,7 +90,6 @@ export class McpConnectionService {
 
   /**
    * Reads one connection the account may use.
-   *
    * @param userId - The paired account.
    * @param id - The connection.
    * @throws {McpWorkspaceError} `not_found` for a missing or hidden connection.
@@ -107,13 +103,11 @@ export class McpConnectionService {
 
   /**
    * Tests a connection without storing anything.
-   *
    * @remarks
    * With a fingerprint the machine is asked for its key first. Only a key
    * whose fingerprint is exactly the given one is used for the sign-in test;
    * another key answers `host_key_mismatch`. A machine that shows no key
    * answers with the test result, which names the stage that failed.
-   *
    * @param userId - The paired account, an administrator.
    * @param request - The connection to test.
    */
@@ -145,7 +139,6 @@ export class McpConnectionService {
 
   /**
    * Creates a connection; its secrets are stored encrypted only.
-   *
    * @param userId - The paired account, an administrator.
    * @param request - The connection to create.
    * @throws {McpWorkspaceError} `host_key_mismatch` when the fingerprint does not
@@ -168,12 +161,10 @@ export class McpConnectionService {
 
   /**
    * Changes a connection after the checks of the interface.
-   *
    * @remarks
    * Missing fields keep their stored value. A change that leaves workspaces
    * outside the allowed directories, or another department, changes nothing
    * and returns the question with its scope until the client confirms.
-   *
    * @param userId - The paired account, an administrator.
    * @param id - The connection.
    * @param request - The fields to change with the revision read before.
@@ -207,7 +198,6 @@ export class McpConnectionService {
 
   /**
    * Starts the check of a stored connection in the background.
-   *
    * @param userId - The paired account, an administrator.
    * @param id - The connection.
    * @returns The connection, which is checking until the result is stored.
@@ -222,7 +212,6 @@ export class McpConnectionService {
 
   /**
    * Starts a new series of connection attempts.
-   *
    * @param userId - A paired account that may use the connection.
    * @param id - The connection.
    * @throws {McpWorkspaceError} `not_found` for a missing or hidden connection.
@@ -238,11 +227,9 @@ export class McpConnectionService {
 
   /**
    * Removes a connection no workspace uses, after a confirmation.
-   *
    * @remarks
    * A connection that workspaces still use is `in_use` with or without
    * confirmation. Its stored secrets are deleted with it.
-   *
    * @param userId - The paired account, an administrator.
    * @param id - The connection.
    * @param request - The revision read before and the confirmation.
@@ -281,7 +268,6 @@ export class McpConnectionService {
 
   /**
    * Adds the host key the machine shows when its fingerprint is the given one.
-   *
    * @remarks
    * The machine is asked for its key before anything is stored, with the
    * test of the interface. Without a fingerprint the input stays as it is.

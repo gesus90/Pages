@@ -1,7 +1,7 @@
-# Runner-Setup über das Arbeitsverzeichnis (PAGE-144)
+# Runner-Setup über das Arbeitsverzeichnis
 
 [Documentation index](README.md) ·
-[Remote connections and directories](#remote-working-directories-page-138)
+[Remote connections and directories](#remote-working-directories)
 
 Im Kontextmenü einer Remote-Verbindung (Agents → Arbeitsverzeichnis → Remote-Verbindungen → …) steht direkt unter „Konsole öffnen“ die Gruppe **Setup** mit der Zeile **Runner einrichten**. Ein Klick überträgt `pages_setup.sh`, prüft die Übertragung, macht die Datei für den Eigentümer ausführbar, öffnet das Konsolen-Fokuspanel und startet das Skript dort. Beim bloßen Verbinden wird nichts installiert.
 
@@ -21,7 +21,7 @@ Start, Vorbereitung, Eingaben und der Ausgabestream prüfen die Rechte jeweils n
 
 ## Ablauf im Panel
 
-Die Sequenz erscheint im selben Fokuspanel wie die Konsole (PAGE-143), mit Begrüßung, einer Leiste für acht Phasen und den Vorbereitungsschritten von Pages. Es gibt keine zweite Terminalarchitektur: Das Panel ist die Konsole, nur startet der PTY das Skript statt einer Login-Shell.
+Die Sequenz erscheint im selben Fokuspanel wie die Konsole, mit Begrüßung, einer Leiste für acht Phasen und den Vorbereitungsschritten von Pages. Es gibt keine zweite Terminalarchitektur: Das Panel ist die Konsole, nur startet der PTY das Skript statt einer Login-Shell.
 
 **Vorbereitung durch Pages (Phase 1):** Rechte → SSH-Sitzung → Übertragung (temporäre Datei, SHA-256, `bash -n`, atomisch verlinken; nur eine frühere Lieferung dieses Artefakts wird ersetzt) → Prüfsumme und Syntax erneut am Ziel → `chmod u=rwx,go=` (Modus genau 0700) → Konsole → Start. Ein fehlgeschlagener Schritt stoppt alle folgenden; dann wurde das Skript nie gestartet.
 
@@ -84,7 +84,7 @@ Der Runner ab Version 1.4.0 verwendet das bestehende Protokoll v1 und hält die 
 Angezeigt wird nur, was Werkzeug oder Adapter tatsächlich liefern. **Unbekannt bleibt unbekannt, nie 0.**
 
 - Der Runner meldet beim Abgleich die gefundenen Werkzeuge (`--version`). Fehlt die Versionsangabe, zeigt Einstellungen → Agents „Version unbekannt“. Meldet ein Runner (vor 1.3.0) kein Inventar, steht nichts da.
-- Ab Runner 1.7.0 meldet er für OpenCode zusätzlich die auf dem Host eingerichteten Provider, die nutzbaren Modelle mit OpenCodes eigenen Angaben und das Ergebnis des ACP-Vertragschecks (PAGE-154, siehe [PagesRunner.md](./PagesRunner.md#opencode-über-acp-page-154-runner-170)).
+- Ab Runner 1.7.0 meldet er für OpenCode zusätzlich die auf dem Host eingerichteten Provider, die nutzbaren Modelle mit OpenCodes eigenen Angaben und das Ergebnis des ACP-Vertragschecks (siehe [PagesRunner.md](./PagesRunner.md#opencode-über-acp-runner-170)).
 - Kontext- und Ausgabelimit eines Remote-OpenRouter-Modells stammen aus dessen Katalog (`context_length`, `top_provider.max_completion_tokens`) und erscheinen in der Modellauswahl des Plan-Editors nur, wenn sie genannt wurden. Der Katalog nennt nichts zu Fast Mode, Thinking oder Reasoning-Stufen; Remote-Modelle haben dafür den Wert `unknown` (bisher fälschlich `none`).
 - Die Antworten von `store-provider-key` und `check-provider` tragen `usage` aus `GET /api/v1/key` (`used`, `limit`, `remaining`, `resets` als vom Anbieter genannte Kadenz). Fehlende Angaben sind `null`. Kontingent-Reset, Laufdauer eines Jobs, Sitzungsablauf und Wiederaufnahme sind getrennte Angaben; für die beiden letzten liefert kein Remote-Pfad belastbare Daten, sie werden nicht angezeigt.
 
@@ -97,9 +97,9 @@ Angezeigt wird nur, was Werkzeug oder Adapter tatsächlich liefern. **Unbekannt 
 - Schließt die Person das Panel, endet das Skript; ein laufender Paketvorgang des Hosts wird dabei unterbrochen. Die Anzeige warnt davor.
 - Das Skript legt kein Programm mit `curl | sh` an, ändert keine Shell-Profile und speichert keine Provider-Schlüssel. Neue GitHub-Schlüssel und bestätigte Hostdaten liegen unter `~/.config/pages-runner/github_ed25519` und `github_known_hosts`; nach Bestätigung kann ein Eintrag für `github.com` in `~/.ssh/config` darauf verweisen. Bestehende Schlüssel werden nicht automatisch migriert.
 
-## PAGE-151: Anmeldung, Identität und Katalog
+## Anmeldung, Identität und Katalog
 
-Runner 1.5.0 installiert `cli.mjs` und `github.mjs` neben Transport und Executor. Codex und Claude Code können anschließend als native Remote-CLI-Knoten eines Agent Plans laufen; siehe [PagesRunner.md](./PagesRunner.md#remote-cli-agenten-page-151-runner-140). Die CLI-Anmeldung führt die Person selbst auf dem Remote-Host aus. Phase 4 erklärt die Befehle, startet keine Anmeldung und überträgt keine vorhandenen lokalen Credentials oder Sitzungen. Einstellungen → Agents zeigt bestätigte Anmeldung getrennt von Installation und bietet „Inventar aktualisieren“.
+Runner 1.5.0 installiert `cli.mjs` und `github.mjs` neben Transport und Executor. Codex und Claude Code können anschließend als native Remote-CLI-Knoten eines Agent Plans laufen; siehe [PagesRunner.md](./PagesRunner.md#remote-cli-agenten-runner-140). Die CLI-Anmeldung führt die Person selbst auf dem Remote-Host aus. Phase 4 erklärt die Befehle, startet keine Anmeldung und überträgt keine vorhandenen lokalen Credentials oder Sitzungen. Einstellungen → Agents zeigt bestätigte Anmeldung getrennt von Installation und bietet „Inventar aktualisieren“.
 
 Eine zusätzliche erlaubte Wurzel, ein anderer Anzeigename oder erneuerte SSH-Secrets bei unveränderter Authentifizierungsart erhalten eine vorher gültige Runner-Kopplung. Host, Port, Benutzer, Hostschlüssel, Authentifizierungsart und Abteilung bleiben sicherheitsrelevant. Der Verbindungsdialog erklärt vor dem Speichern, dass diese Änderungen die Kopplung ungültig machen. Danach zeigt die Runner-Zeile den Zustand ausdrücklich und bietet Widerruf sowie nach stabiler Verbindung eine neue einmalige Freigabe. Eine fremde oder bereits ungültige Identität wird nicht übernommen.
 
@@ -107,7 +107,7 @@ Nach Neu-Kopplung liest Pages den vorhandenen Remote-OpenRouter-Katalog erneut. 
 
 Die Remote-Workspace-Zeile prüft den eigenen GitHub-Schlüssel des Runners über `git ls-remote` und einen ausschließlich mit `git push --dry-run` ausgeführten Schreibprobeaufruf. Lesen und Schreiben werden getrennt ausgewiesen: nur lesend, kein Zugriff oder nicht prüfbar. Ein zufälliger, vorher als nicht vorhanden geprüfter Referenzname und ein privates temporäres Bare-Repository vermeiden Änderungen am Projekt; keine Remote-Referenz wird angelegt. Es werden keine Schlüsselrechte verändert. Fehlende Schlüssel, nicht bestätigte Hostdaten und Netzwerkfehler bleiben unbekannt. Die bisherigen Offline-Metadatenoperationen bleiben netzwerkfrei. Details einschließlich Betreiberpfaden und Protokoll stehen in [PagesRunner.md](./PagesRunner.md#katalog-und-github-rechte).
 
-## Remote working directories (PAGE-138)
+## Remote working directories
 
 The page **Agents → Arbeitsverzeichnis** lists remote connections above the
 workspaces. A remote connection is SSH access to a Linux machine, for example

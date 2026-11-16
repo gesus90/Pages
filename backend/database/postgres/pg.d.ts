@@ -1,6 +1,5 @@
 /**
  * The part of the `pg` driver Pages uses; the package ships no types.
- *
  * @remarks
  * `rows` holds {@link DatabaseValue} because `PostgresValues.ts` installs a
  * parser for every column type, so the driver defaults never apply.

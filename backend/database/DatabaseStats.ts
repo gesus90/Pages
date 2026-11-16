@@ -21,7 +21,7 @@ export function resetDatabaseStats(): void {
   counters.totalMs = 0;
 }
 
-/** Time of a statement outside DuckDB and write-ahead log sizes around it (PAGE-197). */
+/** Time of a statement outside DuckDB and write-ahead log sizes around it. */
 export interface DatabaseStatementBreakdown {
   /** Connection the statement ran on. */
   readonly role: "writer" | "reader";
@@ -59,13 +59,11 @@ export function readDatabaseStats(): DatabaseStats {
 
 /**
  * Records one finished statement for aggregate analysis.
- *
  * @remarks
  * Counting stays always on because two additions per query are negligible
  * next to DuckDB itself. Statements log an operation and stable hash, never
  * SQL text or parameter values. Ordinary statements contribute to enclosing
  * operation totals; only slow statements also emit an individual warning.
- *
  * @param statement - SQL text of the finished statement.
  * @param durationMs - Execution of the statement inside DuckDB, measured by
  * the database worker; queue wait and IPC transfer are not part of it.

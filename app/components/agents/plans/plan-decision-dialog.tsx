@@ -52,7 +52,6 @@ interface PlanDecisionDialogProps {
 
 /**
  * The agents of the plan a boolean decision can read, named for the choice.
- *
  * @remarks
  * Two agents with the same name get a number, so that the choice is never
  * ambiguous; the value is always the identifier of the agent.

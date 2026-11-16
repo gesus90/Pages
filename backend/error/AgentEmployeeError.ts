@@ -1,4 +1,4 @@
-/** Stable failures of agent employees (PAGE-266), safe to translate and show. */
+/** Stable failures of agent employees, safe to translate and show. */
 export type AgentEmployeeErrorCode =
   | "forbidden"
   | "invalidInput"
@@ -13,7 +13,7 @@ export type AgentEmployeeErrorCode =
   | "inactive"
   | "busy"
   | "unavailable"
-  /** A person stopped the answer, or its wait in the queue (PAGE-304). */
+  /** A person stopped the answer, or its wait in the queue. */
   | "stopped";
 
 /** A refused operation on an agent employee, without persistence details. */

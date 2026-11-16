@@ -7,7 +7,6 @@ import type {
 
 /**
  * Whether a team choice covers an event of a given moment.
- *
  * @param preference - The current choices of the account.
  * @param occurredAt - The moment of the event as ISO-8601 text.
  * @returns `true` while team runs are switched on and were already on when the event happened.
@@ -25,7 +24,6 @@ export function coversTeamEvent(
 
 /**
  * Decides whether an account may be told about an event of a run.
- *
  * @remarks
  * The starter of a run is told about its own runs. A team member is told only
  * while the account has team runs switched on, had them on when the event
@@ -41,7 +39,6 @@ export class PicaMobileNotificationAccess {
 
   /**
    * Creates the decision.
-   *
    * @param runs - The rights check on concrete runs.
    * @param preferences - The stored choices of the accounts.
    */
@@ -55,7 +52,6 @@ export class PicaMobileNotificationAccess {
 
   /**
    * Reads a run for an account that is to be told about one of its events.
-   *
    * @param accountId - The recipient.
    * @param runId - The run.
    * @param occurredAt - The moment of the event as ISO-8601 text.

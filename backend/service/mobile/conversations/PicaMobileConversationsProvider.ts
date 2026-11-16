@@ -70,7 +70,7 @@ export type PicaMobileVoiceFileOutcome =
 
 /**
  * The business answers of an authenticated Pica Mobile connection for
- * `conversations.v1` (PAGE-278).
+ * `conversations.v1`.
  *
  * @remarks
  * A connection without a provider does not announce `conversations.v1`,

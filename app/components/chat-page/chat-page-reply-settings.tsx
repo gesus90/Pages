@@ -57,7 +57,7 @@ function AnswersBody({
 }
 
 /**
- * The popup "Wer antwortet?" of a group (PAGE-317, PAGE-379), centered like
+ * The popup "Wer antwortet?" of a group, centered like
  * the ticket view and opened from the group menu in the head of the chat.
  *
  * @remarks

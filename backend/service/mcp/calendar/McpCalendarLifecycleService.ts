@@ -7,8 +7,7 @@ import type { McpCalendarContext } from "./McpCalendarContext";
 import type { McpCalendarDeleteRequest } from "./McpCalendarRequest";
 
 /**
- * Deletes events in two steps (PAGE-301, delete_calendar_event).
- *
+ * Deletes events in two steps (delete_calendar_event).
  * @remarks
  * Without `confirmed: true` nothing changes and the client receives the
  * question: the event, the scope, the number of occurrences that would go
@@ -18,7 +17,6 @@ import type { McpCalendarDeleteRequest } from "./McpCalendarRequest";
 export class McpCalendarLifecycleService {
   /**
    * Asks for or carries out the deletion of an event or a scope of a series.
-   *
    * @param context - The request.
    * @param eventId - The event or one of its occurrences.
    * @param request - Operation ID, target and the confirmation.

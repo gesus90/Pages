@@ -17,14 +17,12 @@ import type {
 import type { AgentPlanAcceptance } from "@/definition/AgentPlanSession";
 
 /**
- * The one assignment of every error code to a blocker class (PAGE-210).
- *
+ * The one assignment of every error code to a blocker class.
  * @remarks
  * The record type makes it complete: a new code in `AgentErrors.ts` does not
  * compile until it has its class here. Codes that no step produces today, such
  * as those of connection management, need a class as well, because a step may
  * surface them later.
- *
  * `harm` also holds what a repeat cannot make safe: a process that may still
  * run, effects nobody can reconcile, and every missing right or isolation,
  * which only a person may grant. `open` holds what a person has to look at when
@@ -383,7 +381,6 @@ export interface PlanStepFailureFacts {
 
 /**
  * The class of one error code.
- *
  * @param code - The stored code of a step.
  * @returns Its class; a code nobody knows counts as functionally open.
  */
@@ -405,10 +402,8 @@ function isFormOnly(acceptance: AgentPlanAcceptance): boolean {
 
 /**
  * The class of a failed step, with what its closing report adds to the code.
- *
  * @param facts - The code of the step, its acceptance and its final answer.
  * @returns The class that decides how the step goes on.
- *
  * @remarks
  * An agent that declares `blocked` asks for a person, for instance about a
  * diverged `main` or work of somebody else, so it never gets pressed to go on.
@@ -431,7 +426,6 @@ export function classifyPlanStepFailure(
 
 /**
  * Whether the agent can be asked to repair this failure.
- *
  * @param failureClass - The class of the failure.
  * @param facts - The failure; a regular final answer is what an open failure is judged on.
  * @returns `false` where no agent turn exists that a repair could go back to, such as a refused start.
@@ -452,7 +446,6 @@ function attemptClass(attempt: AgentPlanRetryAttempt): AgentPlanBlockerClass {
 
 /**
  * How many attempts of a sequence failed with this class.
- *
  * @param attempts - The failed attempts of one sequence.
  * @param failureClass - The class to count; each class has its own budget.
  * @returns The number of failed attempts of the class.
@@ -467,7 +460,6 @@ export function failedPlanAttempts(
 
 /**
  * The reason a failed step stopped, naming its class and its attempts.
- *
  * @param result - The final result of the step.
  * @returns What a person and a client read about the stop.
  */
@@ -495,7 +487,6 @@ export function planFailureStop(
 
 /**
  * The stop of a node; a loop reports the member that ended it, because only that one knows the attempts.
- *
  * @param run - The run of the node.
  * @param node - The node.
  * @param result - The final result of the node.

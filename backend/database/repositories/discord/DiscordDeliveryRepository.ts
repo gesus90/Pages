@@ -47,7 +47,6 @@ export interface DiscordDeliveryRetry {
 export interface DiscordDeliveryStore {
   /**
    * Writes one message to the outbox, due immediately.
-   *
    * @remarks
    * While a message about the same ticket or milestone still waits, a change
    * is merged into it instead of adding a second one: the waiting message
@@ -57,7 +56,6 @@ export interface DiscordDeliveryStore {
   enqueueDelivery(delivery: NewDiscordDelivery): Promise<void>;
   /**
    * Hands out the pending deliveries that are due and locks them.
-   *
    * @returns The claimed deliveries, oldest first.
    */
   claimDue(
@@ -175,7 +173,6 @@ export class DiscordDeliveryRepository implements DiscordDeliveryStore {
 
   /**
    * Creates a Discord delivery repository.
-   *
    * @param database - Central database access.
    */
   public constructor(database: DiscordDatabase) {

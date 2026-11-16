@@ -5,7 +5,6 @@ const PARSE_BASE = "http://pages.invalid";
 
 /**
  * Neutralises unsafe link targets of rendered markdown.
- *
  * @param url - Link target as written in the markdown.
  * @returns The target when it is http, https, mailto or a relative path,
  * otherwise an empty string.
@@ -32,10 +31,8 @@ export function transformMarkdownUrl(url: string): string {
 
 /**
  * Tells whether an in-app path belongs to the Wiki.
- *
  * @param path - Path as returned by `toOwnPath`.
  * @returns `true` for `/wiki` and everything below it.
- *
  * @remarks
  * A link never grants access: the Wiki route checks visibility itself.
  */
@@ -60,7 +57,6 @@ function parseUrl(text: string): ParsedUrl | undefined {
 
 /**
  * Returns the in-app path of a relative or same-origin target.
- *
  * @param href - Sanitised link target.
  * @param ownOrigin - Origin of this application, when known.
  * @returns The path, or `undefined` for a foreign target.

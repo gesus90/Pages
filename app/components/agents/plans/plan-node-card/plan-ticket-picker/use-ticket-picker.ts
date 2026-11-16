@@ -50,7 +50,6 @@ const ARROW_STEPS: Partial<Record<string, number>> = {
 
 /**
  * Holds the state of a ticket choice: search, phases, order and highlight.
- *
  * @remarks
  * Search, filters and order never change the node's ticket. The highlight
  * starts at the chosen ticket when it is listed, else at the first match.

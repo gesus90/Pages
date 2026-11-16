@@ -242,7 +242,6 @@ export function readAttemptRow(row: Row): AgentSessionAttemptRecord {
 
 /**
  * Reads an event selected as sequence, turn, kind, body, truncation, time and node.
- *
  * @param row - The row of the event.
  * @param attemptId - The attempt the caller read.
  */

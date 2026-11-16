@@ -39,7 +39,6 @@ const EMPTY_CELL: SheetCell = { text: "", number: null };
 
 /**
  * The index of a column from its letters.
- *
  * @param letters - Such as `A`, `Z` or `AB`.
  * @returns The index from 0.
  */
@@ -52,7 +51,6 @@ export function columnIndex(letters: string): number {
 
 /**
  * The letters of a column, as a table head shows them.
- *
  * @param index - The index from 0.
  * @returns Such as `A`, `Z` or `AA`.
  */
@@ -70,7 +68,6 @@ export function columnLetters(index: number): string {
 /**
  * Reads a cell text as a number when it is one, with a dot or a comma as
  * decimal sign.
- *
  * @param text - The text of the cell.
  * @returns The number, or `null` for any other text.
  */
@@ -137,8 +134,7 @@ function decodeText(bytes: Uint8Array): string {
 }
 
 /**
- * Reads a CSV or TSV file as a table (PAGE-385).
- *
+ * Reads a CSV or TSV file as a table.
  * @param bytes - The file.
  * @param options - The name of the file and whether it is a TSV file; the
  * delimiter of a CSV file is recognized: tab, semicolon or comma.
@@ -272,7 +268,7 @@ async function readWorksheet(
 }
 
 /**
- * Reads an Excel workbook (`.xlsx`) as tables, one per visible sheet (PAGE-385).
+ * Reads an Excel workbook (`.xlsx`) as tables, one per visible sheet.
  *
  * @remarks
  * A formula shows the value the file stored for it; nothing is recalculated

@@ -89,7 +89,7 @@ function delay(milliseconds: number): Promise<void> {
 }
 
 /**
- * The API's side of the Pica Mobile relay of `pages-core` (PAGE-239).
+ * The API's side of the Pica Mobile relay of `pages-core`.
  *
  * @remarks
  * While `picaMobileRelayPort` is set, `pages-core` holds the app's port and

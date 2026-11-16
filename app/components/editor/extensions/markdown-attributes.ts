@@ -23,7 +23,6 @@ function readAlignment(element: HTMLElement): string | null {
 /**
  * Drops repeated block anchors, which a paste or a duplicated block can
  * bring in; the first block keeps the anchor, the others lose it.
- *
  * @param doc - The document after a change.
  * @param transaction - Transaction to add the fixes to.
  * @returns Whether anything was fixed.

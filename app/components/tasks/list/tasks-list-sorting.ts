@@ -19,7 +19,6 @@ const PRIORITY_WEIGHT: Record<WorkItemPriority, number> = {
 
 /**
  * Normalizes optional due dates for lexicographic sorting.
- *
  * @param value - Due date or `null` for unscheduled items.
  * @returns The date, or an empty string sorting before any real date.
  */
@@ -49,7 +48,6 @@ const SORT_COMPARISONS: Record<
 
 /**
  * Orders work items by one column.
- *
  * @param workItems - Items to order; the array itself stays untouched.
  * @param sortField - Column whose values are compared.
  * @param sortDirection - `asc` keeps the comparison order, `desc` reverses it.

@@ -31,8 +31,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpWikiHandlers {
 }
 
 /**
- * Lists the comments of a page (`GET /api/mcp/v1/wiki/pages/{id}/comments`) and adds one (`POST`), PAGE-257 interface 15.
- *
+ * Lists the comments of a page (`GET /api/mcp/v1/wiki/pages/{id}/comments`) and adds one (`POST`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

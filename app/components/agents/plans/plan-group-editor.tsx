@@ -33,7 +33,6 @@ interface GroupEditorProps {
 
 /**
  * The settings of a selected session container and its retained legacy contracts.
- *
  * @remarks
  * Membership is listed in stored order; only explicit edges determine the
  * schedule. Members are configured by selecting them like any other agent
@@ -154,7 +153,6 @@ function GroupMembers(props: GroupEditorProps): React.ReactElement {
 
 /**
  * Offers only usable agents that may join: ACP agents of the group's class, or of any class while it is neutral.
- *
  * @remarks
  * A template that cannot be loaded adds nothing and is named here, where the agent was chosen.
  */

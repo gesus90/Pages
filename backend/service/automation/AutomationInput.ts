@@ -121,7 +121,6 @@ export type AutomationCreateInput = z.infer<typeof createInputSchema>;
 
 /**
  * Reads the input of an operation.
- *
  * @param schema - The schema of the operation.
  * @param input - The raw input; `undefined` counts as an empty object.
  * @throws {AutomationError} `invalid_request` with the paths and messages of

@@ -29,7 +29,6 @@ const serialized = new WeakMap<AgentPlanInput, string>();
 
 /**
  * The text that tells two drafts apart, without their revision.
- *
  * @remarks
  * Every render compares the draft with the stored plan. Serializing a large
  * plan each time made typing and dragging wait for `JSON.stringify`, so the
@@ -71,7 +70,6 @@ export interface PlanDraftState {
 
 /**
  * Adopts newer server revisions only while the draft has no local edits.
- *
  * @remarks
  * `isSubmitting` is true while the request itself is on its way. The reload of
  * the page data that follows does not delay the acknowledgement: the stored

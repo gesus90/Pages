@@ -78,7 +78,6 @@ function isClientFailure(failure: DiscordFailure): boolean {
 
 /**
  * Binds the Discord installation flow to a Pages user and project.
- *
  * @remarks
  * Starting an attempt stores only the hash of a random OAuth `state`, the user
  * and the project. The callback may arrive from another device, for example the
@@ -94,7 +93,6 @@ export class DiscordAuthorizationService {
 
   /**
    * Creates the authorization service.
-   *
    * @param dependencies - Attempt storage, Discord access and the clock.
    */
   public constructor(dependencies: DiscordAuthorizationDependencies) {
@@ -105,7 +103,6 @@ export class DiscordAuthorizationService {
 
   /**
    * Starts an attempt and builds the official Discord install link.
-   *
    * @param input - The signed-in user, the project and the public address.
    * @returns The attempt with the link; the link is only available here.
    * @throws {DiscordError} `not_configured` without a Discord application.

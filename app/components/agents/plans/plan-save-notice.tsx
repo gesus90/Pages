@@ -43,7 +43,6 @@ function NoticeFrame(props: {
 
 /**
  * Tells while a requested save runs, why it was refused and that the plan is read only.
- *
  * @remarks
  * Nothing shows without such a request; the editor keeps no permanent status bar.
  */

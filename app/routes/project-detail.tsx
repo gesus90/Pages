@@ -111,7 +111,6 @@ const PROJECT_DETAIL_STATE: LocalStateRouteKind<ProjectDetailLoaderData> = {
 
 /**
  * Opens the project from the account's kept answer at once and asks the endpoint behind it.
- *
  * @remarks
  * The endpoint runs the server loader with its permission checks; a missing
  * or refused project shows the same error page as before.

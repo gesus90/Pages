@@ -60,7 +60,7 @@ export interface ChatToolDependencies {
   readonly repositoryReads?: RepositoryReadService;
   /** Shared ticket API lifecycle for Pica's archive and restore operations. */
   readonly ticketLifecycle?: Pick<PicaTicketLifecycleService, "handle">;
-  /** The calendar service of the interface for Pica's calendar operations (PAGE-301). */
+  /** The calendar service of the interface for Pica's calendar operations. */
   readonly calendar?: Pick<PicaCalendarToolService, "handle">;
   /** The operation catalog of the agent API, wired for the chat channel. */
   readonly router: Pick<AgentOperationRouter, "handle">;
@@ -68,9 +68,7 @@ export interface ChatToolDependencies {
 }
 
 /**
- * Runs the actions of the chat agent with the current rights of the person
- * (T6.12.5, T6.12.7).
- *
+ * Runs the actions of the chat agent with the current rights of the person.
  * @remarks
  * Every action goes through the same services and checks as the interface.
  * Rights are resolved anew for every action. Operations outside the catalog, such as files, the database or
@@ -92,7 +90,6 @@ export class ChatToolExecutor {
 
   /**
    * Runs one action for the person.
-   *
    * @param userId - The person the chat speaks with.
    * @param action - The operation and parameters the agent requested.
    * @param confirmation - The legacy administrative confirmation, or `null`.
@@ -160,12 +157,10 @@ export class ChatToolExecutor {
 
   /**
    * Runs one administrator operation with server-owned identity and stable keys.
-   *
    * @param action - The operation and the parameters the model requested.
    * @param context - The server-owned scope; the caller has resolved the administrator right.
    * @param turn - The raw human message of this turn and the server-owned legacy confirmation.
    * @returns The result, or `CONFIRMATION_REQUIRED` with the exact call to approve.
-   *
    * @remarks
    * A critical change, and any change a service holds back for a
    * confirmation, runs only after the person explicitly approved it in a

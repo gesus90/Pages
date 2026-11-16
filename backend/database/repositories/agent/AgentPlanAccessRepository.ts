@@ -50,8 +50,7 @@ function isNameViolation(error: unknown): boolean {
 }
 
 /**
- * Changes who a plan belongs to and records its history (PAGE-329).
- *
+ * Changes who a plan belongs to and records its history.
  * @remarks
  * Every change of owner or teams is a revision of its own: it is refused for a
  * stale revision, raises the revision by one and is written to the history of
@@ -68,7 +67,6 @@ export class AgentPlanAccessRepository {
 
   /**
    * Stores a new owner and/or new teams.
-   *
    * @returns The new revision of the plan.
    * @throws {AgentError} `plan_conflict` for a stale revision or a missing
    * plan, `plan_name_taken` for a name the new team already uses.
@@ -86,7 +84,6 @@ export class AgentPlanAccessRepository {
 
   /**
    * Stores the approval of script steps; the revision of the plan stays.
-   *
    * @throws {AgentError} `plan_conflict` when the plan changed since that revision.
    */
   public async approveScripts(

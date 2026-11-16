@@ -224,7 +224,7 @@ function ViewerBody({
 
 /**
  * The larger, accessible view of an attachment with its name, type, size,
- * origin and an explicit download (PAGE-92).
+ * origin and an explicit download.
  *
  * @remarks
  * The dialog keeps the focus inside, closes with Escape or its button and

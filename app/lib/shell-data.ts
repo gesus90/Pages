@@ -16,7 +16,7 @@ export interface ShellData {
   readonly branding: InstanceBranding;
   readonly isPicaEnabled: boolean;
   /**
-   * Open calendar invitations of the account (PAGE-301); missing in answers
+   * Open calendar invitations of the account; missing in answers
    * kept from before the calendar.
    */
   readonly calendarInvitations?: number;
@@ -56,7 +56,6 @@ function hasShellSettings(value: object): boolean {
 
 /**
  * Whether a value has the shape of {@link ShellData}.
- *
  * @param value - An answer of `/app-api/shell` or a kept one.
  */
 export function isShellData(value: unknown): value is ShellData {

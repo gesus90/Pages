@@ -1,6 +1,5 @@
 /**
- * Errors of the database executor (PAGE-197).
- *
+ * Errors of the database executor.
  * @remarks
  * Each error says whether the statement was certainly never started. Only
  * an unstarted job is safe to repeat; a job whose outcome is unknown must be

@@ -19,7 +19,6 @@ interface TasksDetailOverlayProps {
 
 /**
  * Tells whether a key press happened inside another dialog than the ticket.
- *
  * @remarks
  * The image viewer opens above the ticket. Its dialog layer is only
  * registered a moment after it appears, and an Escape in that moment would

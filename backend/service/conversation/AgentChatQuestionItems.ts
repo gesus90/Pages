@@ -10,7 +10,7 @@ import type {
 } from "@/definition/AgentChatQuestion";
 
 /**
- * Turns the questions of an agent into the items of its card (PAGE-391):
+ * Turns the questions of an agent into the items of its card:
  * stable IDs, the recommended answer first and marked.
  */
 export function questionItems(

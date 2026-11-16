@@ -7,7 +7,7 @@ import type { Database, DatabaseValue } from "@/backend/database/Database";
 import type { AgentChatKind } from "@/definition/AgentChatSession";
 import type { AgentChatModelSetting } from "@/definition/AgentChatControl";
 
-/** The model one agent answers with in one chat (PAGE-380). */
+/** The model one agent answers with in one chat. */
 export interface StoredAgentChatModel extends AgentChatModelSetting {
   readonly agentId: string;
   readonly chatKind: AgentChatKind;
@@ -43,9 +43,7 @@ function toModel(row: readonly DatabaseValue[]): StoredAgentChatModel {
 }
 
 /**
- * The models agents answer with in single chats instead of their own
- * (PAGE-380).
- *
+ * The models agents answer with in single chats instead of their own.
  * @remarks
  * A row lasts until somebody resets the choice, the agent leaves the group or
  * the group is dissolved; resting sessions and restarts of Pages keep it.

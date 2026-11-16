@@ -8,9 +8,8 @@ import type { ConversationAttachments } from "./ConversationAttachments";
 const COMPONENT = "ConversationAttachmentExpiry";
 
 /**
- * Removes the files agents attached in chats once their 72 hours end
- * (PAGE-382), in the background of the Pages process.
- *
+ * Removes the files agents attached in chats once their 72 hours end,
+ * in the background of the Pages process.
  * @remarks
  * It runs at once when it starts, so a file whose time ran out while Pages
  * was stopped goes right after the restart, and then every five minutes.

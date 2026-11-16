@@ -8,7 +8,6 @@ import type { RouterContextProvider } from "react-router";
 
 /**
  * Checks a settings form submission and gathers what its handler needs.
- *
  * @param args - Request and route context of the action.
  * @returns User, request, form fields and services of the submission.
  * @throws A `405` response for anything but a POST and a `403` response

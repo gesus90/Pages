@@ -32,7 +32,6 @@ export interface AgentPlanInterpreterSource {
 
 /**
  * The interpreter profiles that script nodes name, as plans see them.
- *
  * @remarks
  * Plans get each profile's name, version and status, never its program
  * path. Without a source, as in a server without interpreter settings, no
@@ -73,14 +72,12 @@ export class AgentPlanScripts {
 
   /**
    * Requires every script node to name a configured interpreter profile.
-   *
    * @remarks
    * A script whose saved profile has since been removed from the server keeps
    * it while its reference stays unchanged: the card shows it as missing and
    * the plan does not run, but other changes of the plan can still be saved.
    * A new or changed reference must name a configured profile; nothing falls
    * back to another one.
-   *
    * @param nodes - The nodes about to be saved or inserted.
    * @param saved - The nodes of the plan's saved revision; empty for new nodes.
    * @throws {AgentError} `plan_script_profile_missing` for an unknown profile.

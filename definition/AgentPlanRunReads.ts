@@ -44,7 +44,7 @@ export interface AgentPlanRunStepEntry extends Partial<AgentRunErrorFields> {
   readonly endedAt: string | null;
   /** Whether {@link AgentPlanReport} has something for this node. */
   readonly hasReport: boolean;
-  /** The last TODO list the CLI reported in this node's attempt; absent when it reported none (PAGE-306). */
+  /** The last TODO list the CLI reported in this node's attempt; absent when it reported none. */
   readonly agentTodos?: AgentPlanAgentTodoList;
   /** Why a failed node stopped: the class of its failure and its attempts. */
   readonly failureStop?: AgentPlanFailureStop;
@@ -137,7 +137,7 @@ export interface AgentPlanReport extends Partial<AgentRunErrorFields> {
   /**
    * The last TODO list the CLI reported as a structured plan in this node's
    * attempt, with identifier, text, status and time of the last change;
-   * `null` when it reported none (PAGE-306). Unlike `todos`, which holds the
+   * `null` when it reported none. Unlike `todos`, which holds the
    * contract todos of the closing report, it is the agent's own list.
    */
   readonly agentTodos: AgentPlanAgentTodoList | null;

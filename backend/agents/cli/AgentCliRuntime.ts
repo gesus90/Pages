@@ -59,7 +59,6 @@ export class AgentCliRuntime {
 
   /**
    * Resolves a CLI that signs in through its own interactive account flow.
-   *
    * @throws {AgentError} `provider_invalid` for OpenCode, which signs in with a provider key.
    */
   public async loginAdapter(provider: CliProviderId): Promise<CliLoginAdapter> {
@@ -135,7 +134,6 @@ export class AgentCliRuntime {
 
   /**
    * Lists the CLI's own models once this connection is signed in.
-   *
    * @param connection - A CLI connection.
    * @param signal - Deadline of the catalog refresh.
    * @returns The models the CLI offers, with their reasoning levels.

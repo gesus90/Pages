@@ -40,13 +40,13 @@ export interface AgentConversationAnswerDependencies {
   readonly messages: Pick<ChatSessionRepository, "messages">;
   /** The simulated agent; set only while the simulation is on, never in production. */
   readonly simulation: SimulatedConversationAgent | null;
-  /** Keeps `MEMORY.md` current after each answer (PAGE-305); absent records nothing. */
+  /** Keeps `MEMORY.md` current after each answer; absent records nothing. */
   readonly recorder?: Pick<AgentMemoryRecorder, "record">;
   readonly now?: () => Date;
   readonly wait?: (milliseconds: number) => Promise<void>;
   /**
    * Whether the agent waits for the answer to its question in the
-   * conversation (PAGE-391); the answer then keeps waiting for its job.
+   * conversation; the answer then keeps waiting for its job.
    */
   readonly isWaitingForPerson?: (
     agentId: string,
@@ -55,17 +55,17 @@ export interface AgentConversationAnswerDependencies {
 }
 
 /**
- * Runs the answer of an agent employee in a conversation (PAGE-276).
+ * Runs the answer of an agent employee in a conversation.
  *
  * @remarks
  * The agent must be active. Its answer runs on the
  * ACP path of its sessions as its own account, with its model, instructions
  * and rights, in one session per agent and conversation that answers every
- * round of the conversation until it rests too long (PAGE-335). While the
+ * round of the conversation until it rests too long. While the
  * simulation is on, the simulated agent answers instead, after the same
  * checks and within the same limits of concurrent sessions, and no model
- * provider is asked. A stopped answer ends only its own session (PAGE-304).
- * Every answer updates the memory of the agent at once (PAGE-305).
+ * provider is asked. A stopped answer ends only its own session.
+ * Every answer updates the memory of the agent at once.
  */
 export class AgentConversationAnswers implements ConversationAgentRunner {
   private readonly dependencies: AgentConversationAnswerDependencies;
@@ -110,7 +110,7 @@ export class AgentConversationAnswers implements ConversationAgentRunner {
       ...(request.liveAnswer ? { liveAnswer: request.liveAnswer } : {}),
     });
     if (!started) throw new AgentEmployeeError("busy");
-    // The round reached the session: its next round carries only what is newer (PAGE-376).
+    // The round reached the session: its next round carries only what is newer.
     await this.advance(started.sessionId, request);
     const stop = (): void => {
       void this.dependencies.sessions
@@ -147,7 +147,7 @@ export class AgentConversationAnswers implements ConversationAgentRunner {
 
   /**
    * Hands the round to the answer the agent is giving in the conversation
-   * now (PAGE-376); the new messages join it and no second answer starts.
+   * now; the new messages join it and no second answer starts.
    *
    * @returns Whether the running answer took the round.
    */
@@ -163,8 +163,8 @@ export class AgentConversationAnswers implements ConversationAgentRunner {
   }
 
   /**
-   * Cancels the running tool calls of the agent's answer in a conversation
-   * (PAGE-381); the answer goes on with what it has.
+   * Cancels the running tool calls of the agent's answer in a conversation;
+   * the answer goes on with what it has.
    *
    * @returns Whether a running call was cancelled.
    */
@@ -182,7 +182,7 @@ export class AgentConversationAnswers implements ConversationAgentRunner {
 
   /**
    * The newest message of the conversation the agent's session received; `0`
-   * before its first round (PAGE-376).
+   * before its first round.
    */
   public async deliveredThrough(
     agentId: string,
@@ -216,7 +216,7 @@ export class AgentConversationAnswers implements ConversationAgentRunner {
     if (session) await this.advance(session.sessionId, request);
   }
 
-  /** Hands the answer to the memory, which updates it in the background (PAGE-305). */
+  /** Hands the answer to the memory, which updates it in the background. */
   private record(
     agent: User,
     request: ConversationAgentRequest,

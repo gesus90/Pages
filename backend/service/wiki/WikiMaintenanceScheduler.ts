@@ -14,7 +14,6 @@ export class WikiMaintenanceScheduler {
 
   /**
    * Creates the scheduler.
-   *
    * @param wikiService - Service that removes what outlived its retention.
    * @param intervalMs - Time between two cleanups in milliseconds.
    */
@@ -53,7 +52,6 @@ export class WikiMaintenanceScheduler {
 
   /**
    * Runs one cleanup and never throws.
-   *
    * @returns Whether the cleanup finished.
    */
   public async runOnce(): Promise<boolean> {

@@ -135,7 +135,7 @@ export class ChatZipArchive {
   }
 
   /**
-   * Reads one part as bytes, such as an image embedded in a document (PAGE-386).
+   * Reads one part as bytes, such as an image embedded in a document.
    *
    * @returns The bytes, or `null` when the package has no such part.
    * @throws {ChatZipError} For an encrypted, damaged or too large part.

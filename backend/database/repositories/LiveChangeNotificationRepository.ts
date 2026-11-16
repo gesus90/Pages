@@ -9,7 +9,6 @@ export class LiveChangeNotificationRepository {
 
   /**
    * Creates the repository.
-   *
    * @param database - The open database.
    */
   public constructor(database: Database) {
@@ -18,7 +17,6 @@ export class LiveChangeNotificationRepository {
 
   /**
    * Notifies every listening session; PostgreSQL drops it when nobody listens.
-   *
    * @param payload - Event type, id and audience as JSON, never content.
    */
   public async notify(payload: string): Promise<void> {

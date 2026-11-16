@@ -24,7 +24,6 @@ function StatusRow({ label, value }: StatusRowProps): React.ReactElement {
 
 /**
  * Shows the connected server and channel and how the deliveries are going.
- *
  * @remarks
  * A delivery problem is explained in words and stays visible until a later
  * message arrived, so a missing permission is noticed without reading a log.

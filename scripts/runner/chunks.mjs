@@ -207,7 +207,7 @@ export async function journalIndex(directory, binding) {
   return index;
 }
 
-/** Reads one verified committed chunk, including a recoverable prefix of the final .part file. */
+/** Reads one verified committed chunk, including a recoverable prefix of the final `.part` file. */
 export async function readJournalChunk(directory, index, sequence) {
   const prefix = join(directory, filename(sequence));
   const metadata = await readRecord(`${prefix}.json`);

@@ -47,7 +47,6 @@ export class WorkItemLifecycleRepository {
 
   /**
    * Creates a work item lifecycle repository.
-   *
    * @param database - Central database access.
    */
   public constructor(database: TaskDatabase) {
@@ -56,7 +55,6 @@ export class WorkItemLifecycleRepository {
 
   /**
    * Returns the ids of a work item and all its descendants.
-   *
    * @param rootId - Work item starting the subtree.
    * @param visibility - When given, only the members within this scope; the
    * traversal itself is unaffected, so hidden items never cut off a branch.

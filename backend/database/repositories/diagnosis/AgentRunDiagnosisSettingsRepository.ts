@@ -8,7 +8,7 @@ import {
 import type { Database } from "@/backend/database/Database";
 import type { AgentRunDiagnosisSettings } from "@/definition/AgentRunDiagnosis";
 
-/** Persists the one diagnosis setting row of the instance (PAGE-307). */
+/** Persists the one diagnosis setting row of the instance. */
 export class AgentRunDiagnosisSettingsRepository {
   private readonly database: Pick<Database, "query">;
 
@@ -41,7 +41,6 @@ export class AgentRunDiagnosisSettingsRepository {
 
   /**
    * Replaces the settings with optimistic concurrency.
-   *
    * @param settings - The new settings with the revision they were read at.
    * @throws {AgentError} `profile_conflict` when the settings changed since.
    */

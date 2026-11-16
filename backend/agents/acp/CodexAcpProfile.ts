@@ -15,7 +15,6 @@ export type CodexAcpSessionMode = "read-only" | "agent-full-access";
 
 /**
  * How one Pages mode runs in the Codex ACP adapter.
- *
  * @remarks
  * The adapter applies approval policy and sandbox of its session mode to
  * every turn; codex-acp 2.1.1 to 2.x map `read-only` to approval `on-request`
@@ -44,11 +43,9 @@ const REPORTED_OPTIONS = {
 
 /**
  * Answers a permission request of the adapter; nobody is asked during a run.
- *
  * @param mode - The mode of the agent.
  * @param request - The request of the adapter.
  * @returns The selected option and whether it refuses.
- *
  * @remarks
  * YOLO approves every request once, so nothing waits for a person and no
  * approval is stored for later runs. "Nur Lesen" refuses every command, file
@@ -200,7 +197,7 @@ const CHAT_PROFILE: CodexAcpProfile = {
 };
 
 /**
- * The group observer (PAGE-296): Pica's model on the stock runner in an empty
+ * The group observer: Pica's model on the stock runner in an empty
  * directory, without command, app, plugin or web tool and without any MCP
  * server; Pages refuses every request, so it answers with text alone.
  */
@@ -240,7 +237,6 @@ const CHAT_FULL_ACCESS_PROFILE: CodexAcpProfile = {
 
 /**
  * The adapter configuration of one Pages mode.
- *
  * @param mode - "Nur Lesen" or "YOLO", as the agent stores it.
  * @param purpose - A Pica conversation takes the chat profile; the caller
  * decides beforehand which stored mode it accepts for it. Only an agent

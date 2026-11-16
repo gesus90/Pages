@@ -53,7 +53,6 @@ function readStoredPlanId(stored: StoredAgentOperation): string {
 
 /**
  * Creates, copies and deletes plans for the plan page, each request once.
- *
  * @remarks
  * Every request carries a key the page made when the person opened the
  * dialog. The result is stored under it in the same commit as the change, so
@@ -82,7 +81,6 @@ export class AgentPlanManagement {
 
   /**
    * Creates an empty plan with a name, a workspace and a plan target; no run starts.
-   *
    * @returns The identifier of the new plan.
    */
   public async create(
@@ -114,7 +112,6 @@ export class AgentPlanManagement {
 
   /**
    * Copies the saved revision of a plan into a new, independent plan.
-   *
    * @returns The identifier of the copy.
    */
   public async clone(
@@ -170,7 +167,6 @@ export class AgentPlanManagement {
 
   /**
    * Deletes a plan at the revision the person saw.
-   *
    * @remarks
    * Runs, checkpoints and the files of the workspace stay; only the plan
    * goes. The owner alone deletes, never while a run of the plan is active.
@@ -199,8 +195,7 @@ export class AgentPlanManagement {
   }
 
   /**
-   * Keeps a one-time plan: removes the mark and cancels its scheduled deletion (PAGE-309).
-   *
+   * Keeps a one-time plan: removes the mark and cancels its scheduled deletion.
    * @remarks
    * Whoever may change the plan keeps it, at the revision the person saw.
    */

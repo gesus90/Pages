@@ -77,9 +77,8 @@ function AnchoredMenu({
 }
 
 /**
- * The menu ☰ at the right edge of the head of every chat (PAGE-389), with
+ * The menu ☰ at the right edge of the head of every chat, with
  * all settings and actions of the chat.
- *
  * @remarks
  * On a screen from `md` on it opens as a dropdown below the button, and at
  * the mouse when a right click or a long press in the list asks for it; on

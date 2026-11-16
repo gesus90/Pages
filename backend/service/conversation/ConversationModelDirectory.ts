@@ -6,15 +6,13 @@ export const CONVERSATION_MODEL_DIRECTORY_NAME = "observer-sessions";
 
 /**
  * The root of observer and decision working directories next to Pica's own.
- *
  * @param picaWorkspaceRoot - The root of Pica's working directories.
  * @returns A sibling folder, outside the data and agent folders the isolation hides.
- *
  * @remarks
  * A session runs in a worker unit of the account's service manager, which
  * does not see a private `/tmp` of the Pages service (`PrivateTmp=true`). A
  * directory below `tmpdir()` therefore did not exist for the session and
- * every observer start failed (PAGE-340).
+ * every observer start failed.
  */
 export function conversationModelRoot(picaWorkspaceRoot: string): string {
   return path.join(
@@ -25,7 +23,6 @@ export function conversationModelRoot(picaWorkspaceRoot: string): string {
 
 /**
  * Creates one private working directory for a single model session.
- *
  * @param root - See {@link conversationModelRoot}.
  * @param prefix - The start of the directory name.
  * @throws {Error} When the root is a link or not the server account's own folder.

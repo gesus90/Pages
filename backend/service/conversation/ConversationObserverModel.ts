@@ -143,8 +143,7 @@ function failureCode(error: unknown): string {
 }
 
 /**
- * Asks Pica's chat model as the group observer (PAGE-296).
- *
+ * Asks Pica's chat model as the group observer.
  * @remarks
  * Every call resolves Pica's current choice through Pica's authorized
  * resolver for the person whose content causes it: no other model, no other
@@ -164,7 +163,6 @@ export class ConversationObserverModel {
 
   /**
    * Asks one question.
-   *
    * @returns The text of the answer, still to be validated by the caller.
    * @throws {ConversationObserverError} When Pica is off, its choice is
    * missing or not the person's to use, or the call failed.

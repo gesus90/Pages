@@ -22,7 +22,6 @@ function realTimer(check: () => void, intervalMs: number): () => void {
 
 /**
  * Sets the deadline of one-time plans when a run succeeds and carries the deletion out when it falls due.
- *
  * @remarks
  * As an observer it only queues its own work. The check at start and then at
  * a fixed interval reads the deadlines from the database, so a deletion that
@@ -76,7 +75,6 @@ export class AgentPlanOneShotScheduler implements AgentPlanRunObserver {
 
   /**
    * Carries out every deletion that is due, one check at a time.
-   *
    * @returns The identifiers of the plans that were deleted.
    */
   public async check(): Promise<readonly AgentPlan["id"][]> {

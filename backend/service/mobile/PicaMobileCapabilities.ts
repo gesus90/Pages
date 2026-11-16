@@ -22,7 +22,6 @@ async function isSpeechAvailable(
 
 /**
  * Reads the extensions a connection answers, for its `connected` message.
- *
  * @param options - The providers of the connection; each one that is present
  * adds its extension.
  * @param session - The account and session the connection authenticated

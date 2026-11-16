@@ -55,10 +55,9 @@ function statusOf(
 }
 
 /**
- * The decision model of the instance (PAGE-317, PAGE-379): the one OpenRouter
+ * The decision model of the instance: the one OpenRouter
  * decision model that judges which agent a message of a group chat means,
  * together with the default thresholds of the groups.
- *
  * @remarks
  * It is one setting of the instance next to the speech recognition. Only an
  * administrator in the active admin mode reads the form and saves. The model
@@ -77,7 +76,6 @@ export class ChatDecisionSettingsService {
 
   /**
    * Supplies the settings card.
-   *
    * @param actor - The administrator in the admin mode.
    * @returns The setting, its state and the models that can be chosen.
    */
@@ -100,7 +98,6 @@ export class ChatDecisionSettingsService {
 
   /**
    * Saves the decision model and the default rules.
-   *
    * @param actor - The administrator in the admin mode.
    * @param input - The choice and rules with the revision they were read at;
    * a `null` choice removes the model.
@@ -137,7 +134,6 @@ export class ChatDecisionSettingsService {
 
   /**
    * The model that decides now, for every group of the instance.
-   *
    * @returns Where it runs and which model it is, or `null` while none is
    * chosen or the chosen one is no longer listed; the groups then behave like
    * "Nur @".
@@ -152,7 +148,6 @@ export class ChatDecisionSettingsService {
 
   /**
    * The default thresholds and the most answering agents of the instance.
-   *
    * @returns The rules a group follows without values of its own.
    */
   public async rules(): Promise<ConversationDecisionRules> {
@@ -161,7 +156,6 @@ export class ChatDecisionSettingsService {
 
   /**
    * The decision model as the popup of a group shows it.
-   *
    * @returns Its state and name; it names no connection detail.
    */
   public async modelView(): Promise<ConversationDecisionModelView> {

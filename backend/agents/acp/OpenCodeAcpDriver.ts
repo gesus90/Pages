@@ -33,7 +33,7 @@ function sessionAgent(specification: AcpLaunchSpecification): {
       permission: OPENCODE_PICA_PERMISSIONS,
       isPica,
     };
-  // The group observer (PAGE-296) runs the same agent without any tool.
+  // The group observer runs the same agent without any tool.
   if (
     specification.purpose === "decision" ||
     specification.purpose === "observer"

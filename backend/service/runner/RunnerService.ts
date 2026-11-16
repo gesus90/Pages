@@ -361,12 +361,10 @@ export class RunnerService {
 
   /**
    * Pages' own view of a runner, independent of what a machine reports about itself.
-   *
    * @remarks
    * Paired means a registration of the current SSH configuration exists;
    * ready means that runner reported within the heartbeat window and attached
    * its executor. Neither follows from a running service on the machine.
-   *
    * @param connectionId - The SSH connection.
    * @returns The two facts.
    */
@@ -607,7 +605,6 @@ export class RunnerService {
 
   /**
    * Lets runner facts settle a stopped plan run that no engine of this process drives.
-   *
    * @param isOwned - Whether the plan engine still drives the run.
    */
   public attachRunOwnership(isOwned: (runId: string) => boolean): void {

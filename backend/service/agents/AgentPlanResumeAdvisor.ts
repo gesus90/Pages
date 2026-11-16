@@ -6,7 +6,6 @@ import type {
 
 /**
  * What the plan service asks of the recovery for a run that ended unfinished.
- *
  * @remarks
  * The recovery needs the plan service to read runs, and the plan service needs
  * the recovery to continue and stop them. The slot closes that circle once at

@@ -36,8 +36,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpPlanHandlers {
 }
 
 /**
- * Reads a node template (`GET /api/mcp/v1/plan-templates/{templateId}`) and renames or replaces it (`PATCH`), PAGE-246 interface 14 and 16.
- *
+ * Reads a node template (`GET /api/mcp/v1/plan-templates/{templateId}`) and renames or replaces it (`PATCH`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

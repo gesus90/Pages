@@ -19,8 +19,7 @@ export interface ChatQuotaDemoHold {
 }
 
 /**
- * The simulated quota state of the panel (PAGE-96).
- *
+ * The simulated quota state of the panel.
  * @remarks
  * It exists only in this browser tab and is never read from or sent to a
  * provider; reloading the page ends it.
@@ -68,7 +67,6 @@ export function isQuotaDemoCommand(text: string): boolean {
 
 /**
  * The held message of the open session, shown with Pica's simulated answer.
- *
  * @param demo - The simulated quota state of the panel.
  * @param sessionId - The open session.
  */
@@ -81,9 +79,7 @@ export function shownQuotaDemoHold(
 }
 
 /**
- * A simulated quota state for demonstrating how Pica reports a used-up quota
- * (PAGE-96).
- *
+ * A simulated quota state for demonstrating how Pica reports a used-up quota.
  * @remarks
  * No provider is asked; the state is local to the panel and marked as a
  * demonstration wherever it shows. A held-back message stays in the input and

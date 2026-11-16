@@ -30,7 +30,7 @@ import type {
 import type { ChatPreviewSection } from "@/definition/ChatPreview";
 import type { AgentAttachmentKind } from "./ConversationAttachmentKinds";
 
-/** Characters of text one reading returns at most (PAGE-386). */
+/** Characters of text one reading returns at most. */
 export const AGENT_READ_CHARACTERS = 30_000;
 
 /** Characters of recognized text Pages keeps for the search of a chat. */
@@ -44,7 +44,7 @@ export interface AgentReadImage {
   readonly data: Buffer;
 }
 
-/** What one reading of an attachment yields (PAGE-386). */
+/** What one reading of an attachment yields. */
 export interface AgentAttachmentReading {
   /** The fields of the tool result; every text is data, credentials redacted. */
   readonly result: Readonly<Record<string, unknown>>;
@@ -297,7 +297,7 @@ function documentResult(
 
 /**
  * Reads a PDF, a Word, PowerPoint or OpenDocument file or a table for an agent
- * (PAGE-386): text by numbered pages or slides, tables as header and rows,
+ * Text by numbered pages or slides, tables as header and rows,
  * embedded pictures as images on request.
  *
  * @remarks

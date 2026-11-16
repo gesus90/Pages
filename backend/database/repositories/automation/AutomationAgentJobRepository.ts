@@ -91,8 +91,7 @@ function readJobRow(row: readonly DatabaseValue[]): StoredAutomationAgentJob {
 }
 
 /**
- * The queue of every agent (PAGE-297).
- *
+ * The queue of every agent.
  * @remarks
  * Deliveries of one agent start in the order they arrived; one run delivers
  * to one agent at most once per kind.
@@ -102,7 +101,6 @@ export class AutomationAgentJobRepository {
 
   /**
    * Creates the repository.
-   *
    * @param database - The database or an open transaction.
    */
   public constructor(database: Executor) {
@@ -111,7 +109,6 @@ export class AutomationAgentJobRepository {
 
   /**
    * Adds a delivery to the agent's queue.
-   *
    * @returns Whether it was added; a second delivery of the same run, agent and kind is not.
    */
   public async enqueue(request: AutomationAgentJobRequest): Promise<boolean> {

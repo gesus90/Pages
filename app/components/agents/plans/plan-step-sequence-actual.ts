@@ -94,7 +94,6 @@ function roundBlocks(
 
 /**
  * Executions the run recorded for nodes the graph does not know.
- *
  * @remarks
  * Only a run of another revision than the graph has such records; an
  * execution with a session or a script process is kept rather than hidden.
@@ -119,7 +118,6 @@ function unknownBlocks(
 
 /**
  * Every execution of an agent or script the run recorded as started.
- *
  * @remarks
  * The blocks follow the flow order of the plan. A loop contributes its
  * members once per recorded iteration. The nodes of a cycle are interleaved

@@ -60,7 +60,6 @@ function RemoteHostKeyStatus(props: {
 
 /**
  * Adds or edits an SSH connection in the centered Pages dialog.
- *
  * @remarks
  * Sharing is the department field of the same dialog; there is no separate
  * sharing window. "Test connection" sits bottom left, cancel and save bottom

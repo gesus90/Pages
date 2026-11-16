@@ -1,6 +1,6 @@
-# Recoverable plan runs (PAGE-84, executing since PAGE-127)
+# Recoverable plan runs
 
-## PAGE-356: continue a failed run after fixing its cause
+## Continue a failed run after fixing its cause
 
 The newest failed run (including a server interruption or a legacy failure)
 can continue as a linked run. Stop is final: `stopRequested` or `cancelled`
@@ -37,9 +37,9 @@ and `page356-resume-dialog.unit.test.tsx`. All external process, model, database
 and network boundaries are mocked. Lint, type checking, build and coverage are
 left to final QA for this ticket.
 
-The PAGE-356 rules above supersede historical restrictions below.
+The rules above supersede historical restrictions below.
 
-## PAGE-395: bounded cleanup and verified restart release
+## Bounded cleanup and verified restart release
 
 A restart now ends its predecessor's units and processes before preparing the
 new run. Every cleanup phase permits three attempts; an unconfirmed end prevents
@@ -55,9 +55,9 @@ Registration cleanup uses due retries, not unconditional two-second checks of
 every obligation. Eight failures or 24 hours move it to `needs_decision`; the plan
 panel offers explicit retry and attested manual release. Run changes, runner
 reconnection and pending work at server startup wake the appropriate retries.
-See [PAGE-395 implementation and measurement](../../../../docs/PAGE-395.md).
+See [Cleanup implementation and measurement](../../../../docs/PAGE-395.md).
 
-## PAGE-269: one confirmation, and loops continue at their failed member
+## One confirmation and continuation at the failed loop member
 
 The resume dialog asks one question. Its command carries `confirmContinue: true`
 instead of a mode and single reviews; it stands for every started node the
@@ -74,7 +74,7 @@ failed again at once with `plan_stack_content_missing`, and the next iteration
 would have handed over the first entry again. Now the resumed member reads the
 entry its iteration was handed, and the next iteration takes the following one.
 
-## PAGE-209: work done, closeout open
+## Work done, closeout open
 
 A plan can mark an agent or script node of its flow with `role: "closeout"`. When
 only such a step fails, and every other step completed or never started because
@@ -83,7 +83,7 @@ it follows that step, the run ends as `work_done_closeout_open` instead of
 over the verified work results as usual and repeats only the closeout step;
 steps behind it start for the first time. Without the field nothing changes.
 Runs stored earlier keep their status. A server stop during the closeout stays
-an interrupted failure, which continues under PAGE-210. Pica Mobile knows a
+an interrupted failure, which can continue after a restart. Pica Mobile knows a
 closed set of states, so it receives `failed` with the error code
 `work_done_closeout_open`.
 
@@ -92,27 +92,27 @@ waiting successors before the run is settled. If the graph is unavailable or inv
 the run keeps the conservative failure status; unrelated waiting work is not treated
 as completed.
 
-## PAGE-210: continuing after a restart
+## Continuing after a restart
 
 A run a server restart interrupted now continues on its own where that is safe,
 as described in [PlanRetries.md](../PlanRetries.md). Where this document says an
 interrupted run never replays automatically, that rule applies. Failures that
 stay with a person keep the explicit recovery below.
 
-## PAGE-128: stopped runs and provider waits
+## Stopped runs and provider waits
 
-PAGE-128 allowed a reviewed continuation of stopped runs. PAGE-356 replaces
-that behavior: an explicit Stop is terminal and cannot be resumed.
+Earlier versions allowed a reviewed continuation of stopped runs. The current
+behavior is: an explicit Stop is terminal and cannot be resumed.
 Known provider failures have the bounded, in-process waiting policy described
-in [PlanRetries.md](../PlanRetries.md). The historical PAGE-84 limitations below
+in [PlanRetries.md](../PlanRetries.md). The historical limitations below
 do not override these executing paths.
 
-## PAGE-127: restart, resume and release
+## Restart, resume and release
 
-PAGE-127 connects the recovery contract below to the existing engine instead
+The recovery contract below connects to the existing engine instead
 of a workflow framework; no second engine or scheduler was introduced. Where
 this document says that execution "requires the missing workflow
-integration", the PAGE-127 rules apply:
+integration", the rules in this section apply:
 
 - `AgentPlanRecoveryActions` executes `restart`, `resume` and `release`.
   Each command is checked against the run's recovery revision and the
@@ -139,9 +139,9 @@ integration", the PAGE-127 rules apply:
   working copies and ACP leases (`cleanup_unconfirmed` otherwise).
 - A graceful server shutdown records running work as `interrupted`
   (`AgentPlanRunCommands.interrupt`), no longer as an explicit stop. An
-  explicit stop can continue only through the reviewed PAGE-128 action.
+  explicit stop can continue only through the reviewed continuation action.
 - Without its execution boundary (`execution` dependency) the service keeps the
-  PAGE-84 behaviour: preparations only, `workflow_unavailable` for a resume.
+  earlier behaviour: preparations only, `workflow_unavailable` for a resume.
 
 ## Verified integration boundary
 
@@ -156,7 +156,7 @@ Pages has no separate workflow adapter or workflow storage. The existing
 ACP scheduler provides native session admission; it does not establish a
 workflow checkpoint restoration contract.
 
-PAGE-85 already provides per-session attempts, redacted events, usage, separate
+The session service already provides per-session attempts, redacted events, usage, separate
 repair messages, continuation capability detection, and bounded reconstruction
 text. Its plan recovery paths are deliberately disabled. Pica's ACP resume path
 is specific to chat and does not establish a plan recovery contract. Existing
@@ -438,7 +438,7 @@ These gates do not establish functional or coverage validation.
 
 ## Remaining integration work
 
-The full PAGE-84 definition of done depends on the missing workflow restoration
+The historical recovery design depends on the missing workflow restoration
 integration: executing a repair, re-assessment before dependency release,
 continuing open DAG branches, and all three provider-specific native modes.
 Unchanged worktree contents, original resolved group inputs, and arbitrary

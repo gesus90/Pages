@@ -22,8 +22,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpProjectHandlers {
 }
 
 /**
- * Archives a date (`DELETE /api/mcp/v1/projects/{id}/events/{eventId}`), PAGE-244 interface 8.
- *
+ * Archives a date (`DELETE /api/mcp/v1/projects/{id}/events/{eventId}`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

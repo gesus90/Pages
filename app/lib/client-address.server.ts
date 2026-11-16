@@ -2,10 +2,8 @@ import { createContext } from "react-router";
 
 /**
  * Reads the client address a reverse proxy reports for a request.
- *
  * @param request - Incoming request.
  * @returns The first address of `X-Forwarded-For`, or `null` without proxy.
- *
  * @remarks
  * The header can be sent by anyone when Pages is reachable without a proxy.
  * It is therefore only used as an additional key for login throttling and

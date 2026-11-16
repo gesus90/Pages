@@ -71,10 +71,9 @@ async function currentProfile(
 }
 
 /**
- * Changes accounts through the administration of the interface (PAGE-280):
+ * Changes accounts through the administration of the interface:
  * creation, profile, activity, password reset, memberships, scope and
  * administrator eligibility.
- *
  * @remarks
  * Each method returns the command for `McpUserApi.change`. The command
  * reads the target inside the transaction, compares the state the client
@@ -84,7 +83,6 @@ async function currentProfile(
 export class McpUserWriteService {
   /**
    * Creates an account with a temporary password and forced password change.
-   *
    * @param request - The validated body.
    */
   public create(request: McpUserCreateRequest): McpUserCommand {
@@ -124,7 +122,6 @@ export class McpUserWriteService {
 
   /**
    * Changes username, first and last name or email; omitted fields stay.
-   *
    * @param userId - The account.
    * @param request - The changed fields and their read values in `expected`.
    */
@@ -170,7 +167,6 @@ export class McpUserWriteService {
 
   /**
    * Activates or deactivates an account; a deactivation needs a confirmation.
-   *
    * @param userId - The account.
    * @param request - The new state and the read one.
    */
@@ -215,10 +211,8 @@ export class McpUserWriteService {
 
   /**
    * Replaces the password of an account by a temporary one.
-   *
    * @param userId - The account.
    * @param request - The operation ID and the confirmation.
-   *
    * @remarks
    * The reset forces a password change and ends the sessions of the
    * account, like in the interface; no other account data changes.
@@ -270,10 +264,8 @@ export class McpUserWriteService {
 
   /**
    * Replaces the department memberships of an account.
-   *
    * @param userId - The account.
    * @param request - The complete new list and the read one.
-   *
    * @remarks
    * An empty list is an explicit change; an account that had a department
    * keeps at least one (`last_membership`). Removing a membership needs a

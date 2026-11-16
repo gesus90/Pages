@@ -55,7 +55,7 @@ export function swarmTodoAttempt(runId: string, nodeId: string): string {
 }
 
 /**
- * Runs a swarm node of a plan (PAGE-313).
+ * Runs a swarm node of a plan.
  *
  * @remarks
  * The main model runs in one session with the swarm tools; every helper

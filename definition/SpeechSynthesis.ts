@@ -43,7 +43,7 @@ const SAMPLE_SENTENCES: Readonly<Record<AgentVoiceSampleLanguage, string>> = {
   en: "Hello, I am {name}. This is how I sound in Pages.",
 };
 
-/** The stored speech output setting of the instance (PAGE-300). */
+/** The stored speech output setting of the instance. */
 export interface SpeechSynthesisSettings {
   /** `null` while no model is chosen; no agent has a voice then. */
   readonly selection: SpeechModelSelection | null;
@@ -53,7 +53,6 @@ export interface SpeechSynthesisSettings {
 
 /**
  * Whether the speech output can run.
- *
  * - `ready`: the chosen model is one of the listed speech output models.
  * - `noModel`: no model is chosen.
  * - `modelUnavailable`: the chosen model is no longer in the catalog of a
@@ -84,7 +83,7 @@ export interface AgentVoiceModel {
   readonly voices: readonly string[] | null;
 }
 
-/** What the voice tab of the agent panel offers (PAGE-300). */
+/** What the voice tab of the agent panel offers. */
 export interface AgentVoiceOptions {
   readonly status: SpeechSynthesisStatus;
   /** The model of the instance; `null` unless the status is `ready`. */
@@ -108,11 +107,9 @@ export interface EffectiveAgentVoice {
 }
 
 /**
- * Whether a catalog model is a speech output (text-to-speech) model (PAGE-300).
- *
+ * Whether a catalog model is a speech output (text-to-speech) model.
  * @param model - The modalities its catalog states.
  * @returns `true` only when the catalog states `speech` among the outputs.
- *
  * @remarks
  * OpenRouter lists these models only under `output_modalities=speech` and
  * runs them through `POST /api/v1/audio/speech`
@@ -127,7 +124,6 @@ export function isSpeechSynthesisModel(
 
 /**
  * Whether a number is one of the choices of the longest output.
- *
  * @param value - A submitted or stored number of milliseconds.
  */
 export function isSpeechSynthesisDurationChoice(
@@ -138,7 +134,6 @@ export function isSpeechSynthesisDurationChoice(
 
 /**
  * Whether a number is a speed of an agent's voice in tenths.
- *
  * @param value - A submitted or stored number.
  */
 export function isAgentVoiceSpeed(value: number): boolean {
@@ -151,12 +146,10 @@ export function isAgentVoiceSpeed(value: number): boolean {
 
 /**
  * The voice that applies to an agent.
- *
  * @param voices - The voices of the instance's model; `null` without a list.
  * @param saved - The agent's saved voice ID; `null` without one.
  * @returns The saved voice when the model offers it, otherwise the model's
  * first voice, with the saved voice the model lacks.
- *
  * @remarks
  * Without a list the saved voice ID is used as it is, since the model's
  * catalog cannot say whether it knows it.
@@ -173,7 +166,6 @@ export function effectiveAgentVoice(
 
 /**
  * The fixed sample sentence of an agent's voice.
- *
  * @param name - The agent's stored display name.
  * @param language - The language of the sentence.
  * @returns For example "Hallo, ich bin All Might. So klinge ich in Pages."

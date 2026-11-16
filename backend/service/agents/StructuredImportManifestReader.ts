@@ -307,7 +307,6 @@ export function isStructuredKey(key: string): boolean {
 
 /**
  * The canonical text of a manifest, so the order the client chose for its lists never matters.
- *
  * @param manifest - The validated manifest.
  * @returns A string that is equal for equal manifests.
  */

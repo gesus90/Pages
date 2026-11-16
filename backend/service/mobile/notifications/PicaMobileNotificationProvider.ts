@@ -18,7 +18,6 @@ export interface PicaMobileRegistrationInput {
 
 /**
  * The answer to a registration.
- *
  * @remarks
  * `pushUnavailable` means Pages has no usable FCM sender; nothing was stored.
  * `sessionEnded` means the session or the account no longer holds.
@@ -47,7 +46,6 @@ export type PicaMobileEventOutcome =
 
 /**
  * The answer to a read or a change of the notification choices.
- *
  * @remarks
  * `pushUnavailable` means a choice was to be switched on that Pages cannot
  * deliver without a usable FCM sender; nothing was stored.
@@ -63,7 +61,6 @@ export type PicaMobileSettingsOutcome =
 /**
  * The business answers of an authenticated Pica Mobile connection for
  * `notifications.v1`.
- *
  * @remarks
  * A connection without a provider announces neither `notifications.v1`,
  * `notifications.push.fcm` nor `notifications.team.v1` and answers the

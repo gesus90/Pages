@@ -82,7 +82,6 @@ export function groupRuntimeFields(
 
 /**
  * Rejects a conflicting agent and field before the plan acquires any execution resources.
- *
  * @remarks
  * Every member runs over ACP with the adapter class of the first member. The
  * same class guarantees nothing more: connection, workspace, model, effort,

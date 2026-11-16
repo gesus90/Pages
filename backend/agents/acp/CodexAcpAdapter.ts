@@ -27,7 +27,6 @@ const MCP_STARTUP_WAIT_MS = 30_000;
 
 /**
  * Whether the adapter that answered `initialize` is one Pages verified.
- *
  * @param agent - What the adapter reported about itself.
  * @returns `true` for codex-acp from 2.1.1 below 3.0.0; previews and other
  * agents are refused.
@@ -65,10 +64,8 @@ function sessionConfiguration(
 
 /**
  * Builds the start of the adapter for one session.
- *
  * @param specification - Instance, Codex CLI, mode profile and MCP access of the node.
  * @returns The variables of the adapter process and the Pages MCP server.
- *
  * @remarks
  * The adapter runs the Codex CLI of the connection, so the session uses its
  * ChatGPT sign-in in the credential folder and nothing else. The MCP

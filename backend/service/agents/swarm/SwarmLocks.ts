@@ -18,8 +18,7 @@ export type SwarmLockOutcome =
     };
 
 /**
- * The virtual lock list of one swarm run (PAGE-313).
- *
+ * The virtual lock list of one swarm run.
  * @remarks
  * No `.lock` file is ever written into the repository. A request never
  * waits: it answers at once with the lock or with the helper that holds it.
@@ -33,7 +32,6 @@ export class SwarmLockTable {
 
   /**
    * Creates an empty list.
-   *
    * @param now - The clock in epoch milliseconds.
    * @param leaseMs - How long a lock lives without renewal.
    */
@@ -44,7 +42,6 @@ export class SwarmLockTable {
 
   /**
    * Locks a file for a helper, or names the helper that holds it.
-   *
    * @param owner - The asking helper.
    * @param path - A normalized file path.
    */
@@ -63,7 +60,6 @@ export class SwarmLockTable {
 
   /**
    * Releases one lock of its owner.
-   *
    * @returns Whether the owner held it.
    */
   public unlock(owner: string, path: string): boolean {
@@ -75,7 +71,6 @@ export class SwarmLockTable {
 
   /**
    * Releases every lock of a helper, when its subtask ends, is cancelled or it crashes.
-   *
    * @returns The released paths.
    */
   public releaseOwner(owner: string): readonly string[] {
@@ -94,7 +89,6 @@ export class SwarmLockTable {
 
   /**
    * Drops every lock whose lease ran out.
-   *
    * @returns The owners whose locks ran out, each once.
    */
   public expire(): readonly string[] {

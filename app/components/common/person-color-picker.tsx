@@ -34,8 +34,7 @@ interface PersonColorPickerProps {
 }
 
 /**
- * The fixed palette of twelve person colors (PAGE-266), as radio buttons.
- *
+ * The fixed palette of twelve person colors, as radio buttons.
  * @remarks
  * The chosen swatch gets a ring with a gap, as the avatar ring looks. The
  * swatches are user-chosen colors, so they are drawn directly.

@@ -8,7 +8,6 @@ import type { AgentPlanSnapshot } from "./AgentPlanSnapshot";
 
 /**
  * Whether a paused run's step lost its native owner outside Pages.
- *
  * @remarks
  * The owner provably ended, so no replacement can collide with it. A step
  * that an earlier start marked unverified for the same owner counts too.

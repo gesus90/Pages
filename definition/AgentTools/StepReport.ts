@@ -8,7 +8,6 @@ const text = { type: "string", minLength: 1, maxLength: 2000 } as const;
 
 /**
  * Reports the result of the running step of a run-bound connection.
- *
  * @remarks
  * Read-only sessions must be able to call it, and they run without anybody who
  * could confirm a call. So it carries the hints of an additive write: it only

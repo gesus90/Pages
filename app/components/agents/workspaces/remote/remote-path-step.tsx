@@ -11,7 +11,6 @@ import type { WorkspaceDraft } from "../use-workspace-form";
 
 /**
  * The connection and the absolute path on its machine.
- *
  * @remarks
  * Saving checks the directory over the chosen connection, within its
  * allowed directories; a typed `host:path` is no connection and is refused.

@@ -156,7 +156,6 @@ function frozenNodes(snapshot: AgentPlanSnapshot): {
 /**
  * Restarts a disturbed run from the start, resumes it from its last safe
  * state, or releases what its unproven cleanup still holds.
- *
  * @remarks
  * Every decision is explicit, checked against the current rights of the
  * executor and the run's recovery revision, idempotent by its key and
@@ -176,7 +175,6 @@ export class AgentPlanRecoveryActions {
 
   /**
    * Reads everything a decision about the run depends on.
-   *
    * @throws {AgentError} `plan_access_denied` without the executor's current access.
    */
   public async facts(
@@ -228,7 +226,6 @@ export class AgentPlanRecoveryActions {
 
   /**
    * Whether the run could be continued now, without starting or changing anything.
-   *
    * @remarks
    * It is the same check a resume makes first, so the control of a run and the
    * resume agree on every reason.
@@ -243,10 +240,8 @@ export class AgentPlanRecoveryActions {
 
   /**
    * Ends what a stop leaves behind: the run's own processes, its leases and its record.
-   *
    * @throws {AgentPlanRecoveryError} `cleanup_unconfirmed` while a process of
    * the run is still alive or cannot be ruled out.
-   *
    * @remarks
    * A run that an engine still drives only has its hung processes ended; the
    * engine closes the record itself. Every other run, ended at a failure or
@@ -340,7 +335,6 @@ export class AgentPlanRecoveryActions {
 
   /**
    * Continues the run from its last safe state as a new, linked run.
-   *
    * @throws {AgentPlanRecoveryError} `review_required` while a started node
    * lacks the executor's reviewed decision or confirmation,
    * `native_resume_unavailable` when a named native resume is not possible.
@@ -417,7 +411,6 @@ export class AgentPlanRecoveryActions {
 
   /**
    * Ends what is left of the run's processes and releases its working copies and leases.
-   *
    * @throws {AgentPlanRecoveryError} `cleanup_unconfirmed` while a process of
    * the run is still alive or cannot be ruled out.
    */
@@ -492,7 +485,6 @@ export class AgentPlanRecoveryActions {
 
   /**
    * Proves that no process of the run is left before anything starts again.
-   *
    * @remarks
    * Every unconfirmed session and script must have a settled owned boundary.
    * Only then are working copies and ACP leases released.

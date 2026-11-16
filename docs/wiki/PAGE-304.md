@@ -1,4 +1,4 @@
-# PAGE-304: Wiki-Entwurf für „Agents: Festlegungen“
+# Wiki-Entwurf für „Agents: Festlegungen“
 
 Ziel-Seite: [Agents: Festlegungen](/wiki/93eb063a-a63c-4cac-8393-af182291a582).
 Der folgende Abschnitt wird als neuer Abschnitt nach „Laufsteuerung: Fortsetzen in jedem Zustand“ eingefügt.
@@ -9,7 +9,7 @@ Der folgende Abschnitt wird als neuer Abschnitt nach „Laufsteuerung: Fortsetze
 
 Ein Agent arbeitet gleichzeitig in mehreren Chats: im Direktchat, in Gruppenchats und weiteren. Eine Nachricht wird nie abgewiesen, nur weil der Agent woanders oder im selben Chat noch arbeitet.
 
-**Ursache der früheren Sperre (PAGE-304)**
+**Ursache der früheren Sperre**
 
 - Die Registry der laufenden Chat-Antworten ließ je Konto nur **eine** laufende Antwort zu (`ChatRequestRegistry.requireAdmission`, Prüfung „ein Eintrag je `userId`“). Ein Agent antwortet unter seinem eigenen Konto; lief seine Antwort im Direktchat, wurde jede Antwort in einem Gruppenchat mit `requestBusy` abgewiesen. Der Gruppenchat zeigte dann „… konnte nicht antworten, die Antwort ist fehlgeschlagen“, im Log stand `conversation.agent_reply.refused` mit `notice: agent_failed`.
 - Die Sitzungen selbst waren bereits je Agent und Chat getrennt (eigene Chat-Sitzung, eigenes Arbeitsverzeichnis, eigener Verlauf). Pica behält die Regel „eine Antwort je Person“.

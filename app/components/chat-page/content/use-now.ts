@@ -4,9 +4,8 @@ import { useEffect, useState } from "react";
 const NOW_INTERVAL_MILLISECONDS = 60 * 1000;
 
 /**
- * The current moment for the remaining time of files (PAGE-382), updated
+ * The current moment for the remaining time of files, updated
  * every minute.
- *
  * @returns Milliseconds since the epoch; `null` during the server render and
  * the first browser render, so both render the same.
  */

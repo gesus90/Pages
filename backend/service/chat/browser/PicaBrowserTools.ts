@@ -74,7 +74,7 @@ export function registerPicaBrowserTools(
 }
 
 /**
- * Holds a browser call back before it runs (PAGE-390): `null` lets it run,
+ * Holds a browser call back before it runs: `null` lets it run,
  * otherwise the answer returned instead.
  */
 export type AgentBrowserGuard = (
@@ -90,7 +90,7 @@ export type AgentBrowserGuard = (
  * @param service - Browser execution service for own-account calls.
  * @param spend - Consumes one step budget unit before executing a tool.
  * @param guard - The toolkit's check of the access level and of a
- * consequential step (PAGE-390); without it every call runs.
+ * consequential step; without it every call runs.
  */
 export function registerAgentBrowserTools(
   registry: RuntimeToolRegistry,

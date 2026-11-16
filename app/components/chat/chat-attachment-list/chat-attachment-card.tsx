@@ -60,8 +60,8 @@ export const CARD_OVERLAY_ACTION =
   "absolute top-1 right-1 rounded-full bg-surface/90 p-1 text-foreground shadow-sm ring-1 ring-border hover:bg-surface focus-visible:outline-2 focus-visible:outline-primary";
 
 /**
- * One attachment as a card with its preview, name, type, size and origin
- * (PAGE-92). The preview opens the larger view; name and icon download.
+ * One attachment as a card with its preview, name, type, size and origin.
+ * The preview opens the larger view; name and icon download.
  */
 export function ChatAttachmentCard({
   attachment,

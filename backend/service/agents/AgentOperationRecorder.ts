@@ -7,7 +7,6 @@ import type { StoredAgentOperation } from "@/backend/database/repositories/agent
 
 /**
  * Binds an operation ID to the exact request it was first used with.
- *
  * @param request - The request as it was read, in a fixed order of its fields.
  * @returns A fingerprint that differs for any other request.
  */
@@ -27,7 +26,6 @@ export class StoredOperationFound extends Error {
 
 /**
  * Stores the result of one call under its operation ID, in the commit of the change itself.
- *
  * @remarks
  * Used as the journal of a save: when the same operation ID was committed
  * meanwhile, {@link StoredOperationFound} aborts the save, so a repetition
@@ -60,7 +58,6 @@ export class OperationRecorder<Result extends object> {
 
   /**
    * Stores a result, or reports that the operation ID was used before.
-   *
    * @param transaction - The transaction of the change.
    * @param result - What a repetition of the call returns.
    * @throws {StoredOperationFound} When the operation ID has a stored result.

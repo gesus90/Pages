@@ -62,8 +62,7 @@ function matchesQuery(choice: AgentChatModelChoice, query: string): boolean {
 
 /**
  * Reads the model choice of an agent in a chat when the dialog opens and
- * keeps what the person picks (PAGE-380).
- *
+ * keeps what the person picks.
  * @param target - The chat and its agent; `null` while the dialog is closed.
  */
 export function useModelChoice(

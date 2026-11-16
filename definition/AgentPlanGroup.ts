@@ -29,7 +29,6 @@ export interface AgentPlanGroupParameter extends AgentParameter {
 
 /**
  * Why an agent node cannot join a group.
- *
  * @remarks
  * `notAcp` covers API agents and every runner whose plan nodes do not run as
  * an ACP session; `otherAdapter` is an ACP agent of another adapter class
@@ -42,7 +41,6 @@ export type AgentPlanGroupRefusal =
 
 /**
  * An ACP group: a subgraph of agents of one adapter class that share one session per run.
- *
  * @remarks
  * The group has no adapter class of its own; it takes the class of its first
  * member and is neutral while it has none, see {@link planGroupAdapter}. The
@@ -58,8 +56,7 @@ export interface AgentPlanGroup extends AgentPlanPosition {
   /** Loops owned by this group; their agents inherit its session across every iteration. */
   readonly loops?: readonly AgentPlanLoop[];
   /**
-   * Decisions inside the frame (PAGE-286); absent in groups without one.
-   *
+   * Decisions inside the frame; absent in groups without one.
    * @remarks
    * A decision is no agent: it never takes a turn of the shared session and
    * does not decide the adapter class. A model decision opens a session of its
@@ -68,7 +65,6 @@ export interface AgentPlanGroup extends AgentPlanPosition {
   readonly decisions?: readonly AgentPlanDecision[];
   /**
    * Flow edges between members, which alone decide the execution order.
-   *
    * Absent only in groups saved before this field existed, whose member order
    * was their execution order; {@link planGroupEdges} reads them as that chain.
    */
@@ -92,7 +88,6 @@ export function planStepProvider(
 
 /**
  * The ACP adapter class of an agent node.
- *
  * @returns The technical adapter ID (`codex_cli`, `claude_code`, `opencode`, `antigravity`) of a node
  * that runs as an ACP plan session, or `null` for API agents and the other
  * runners. The display name of an agent never decides it.
@@ -107,7 +102,6 @@ export function planStepAdapter(
 
 /**
  * The adapter class of a group, taken from its first member.
- *
  * @returns `null` for a neutral group: one without members, whose class the
  * next ACP agent that joins decides.
  */
@@ -121,7 +115,6 @@ export function planGroupAdapter(
 
 /**
  * Tells why an agent node may not join a group, or `null` when it may.
- *
  * @param group - The group, possibly already holding the node.
  * @param step - The agent node that joins or stays.
  * @param agents - The agents the editor or the server knows.
@@ -144,7 +137,6 @@ export function planGroupRefusal(
 
 /**
  * Tells why a member of a group may not run on a provider, or `null` when it may.
- *
  * @param group - The group that holds the member.
  * @param stepId - The member whose model would change.
  * @param provider - The provider of the model it would run on.
@@ -211,7 +203,6 @@ export function planGroupExits(
 
 /**
  * The members in execution order, following the internal flow edges.
- *
  * @returns `null` unless the internal edges form one chain. This historical
  * diagnostic does not constrain the session container or add dependencies.
  */
@@ -274,7 +265,6 @@ export function mapPlanSteps<Plan extends AgentPlanInput>(
 
 /**
  * Expands only scheduling and boundary bindings; the saved outer graph stays intact.
- *
  * @remarks
  * Members become plain agent nodes with their explicit internal and external
  * edges. Legacy frame edges must first be resolved by withPortlessPlanGroups;

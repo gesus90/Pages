@@ -1,7 +1,5 @@
 /**
- * Contracts of the decision of who answers in a group chat (PAGE-317,
- * PAGE-379).
- *
+ * Contracts of the decision of who answers in a group chat.
  * @remarks
  * Agents answer a message of a group when it names them with `@Name`. A
  * message of a person without an @ is judged by the decision model of the
@@ -16,7 +14,6 @@ import type { PageAgentModel } from "./PageAgent";
 
 /**
  * Who answers a message of a person without an @ in a group.
- *
  * - `mentions`: only the agents named with @ answer; nobody else is chosen.
  * - `decision`: like `mentions`, and the decision model of the instance
  *   decides who is meant when a message names nobody with @.
@@ -32,10 +29,9 @@ export const CONVERSATION_DEFAULT_REPLY_MODE: ConversationReplyMode =
 
 /**
  * The range of the most agents that answer one message.
- *
  * @remarks
  * This bounds the initial selection; the separate budget of contributions
- * without @ per round (PAGE-349) bounds the observer and the decision model.
+ * without @ per round bounds the observer and the decision model.
  */
 export const CONVERSATION_MAXIMUM_RESPONDERS_RANGE = {
   minimum: 1,
@@ -50,7 +46,6 @@ export const CONVERSATION_THRESHOLD_RANGE = {
 
 /**
  * What Pages decides with after the decision model gave its probabilities.
- *
  * @remarks
  * The thresholds are whole percent. Nobody answers when the chance that an
  * answer is expected stays below `answerThreshold` or nobody is the most
@@ -89,12 +84,11 @@ export const CONVERSATION_NO_RULE_OVERRIDES: ConversationDecisionRuleOverrides =
 
 /**
  * The fixed limits of one decision.
- *
  * @remarks
  * `historyMessages`/`historyCharacters` bound what the model reads of the
  * history, `specializationCharacters` what it reads of one agent's `AGENT.md`,
  * `timeoutSeconds` the longest wait, `agentStreak` the most agent messages in
- * a row without a message of a person (PAGE-349): once that many stand in a
+ * a row without a message of a person: once that many stand in a
  * row, a further hand-over is stored instead of started and starts once a
  * person writes again, `listedDecisions` how many decisions the popup lists.
  */
@@ -110,7 +104,6 @@ export const CONVERSATION_DECISION_LIMITS = {
 /**
  * The rules that apply to a group: its own value where it set one, the default
  * of the instance otherwise.
- *
  * @param defaults - The defaults of the instance.
  * @param overrides - The values the group set itself.
  * @returns The rules that apply to the group.
@@ -132,7 +125,6 @@ export function resolveDecisionRules(
 /**
  * Whether a number is a valid set of rules: whole percents and a count of
  * answering agents in range.
- *
  * @param rules - The submitted or stored rules.
  */
 export function isValidDecisionRules(
@@ -153,7 +145,6 @@ export function isValidDecisionRules(
 
 /**
  * A probability in whole percent, as the chat shows it.
- *
  * @param probability - A probability from 0 to 1.
  */
 export function probabilityPercent(probability: number): number {
@@ -161,11 +152,9 @@ export function probabilityPercent(probability: number): number {
 }
 
 /**
- * Whether a catalog model is a decision model (PAGE-379).
- *
+ * Whether a catalog model is a decision model.
  * @param model - The modalities its catalog states.
  * @returns `true` only when the catalog states `decisions` among the outputs.
- *
  * @remarks
  * OpenRouter lists these models only under `output_modalities=decisions` and
  * runs them through `POST /api/alpha/decisions`
@@ -184,13 +173,12 @@ export interface ConversationReplySettings {
   readonly mode: ConversationReplyMode;
   /** The values the group set itself; the rest follows the instance. */
   readonly overrides: ConversationDecisionRuleOverrides;
-  /** Contributions without @ per group round; defaults to eight, at most nine (PAGE-349). */
+  /** Contributions without @ per group round; defaults to eight, at most nine. */
   readonly automaticRepliesPerOrigin?: number;
 }
 
 /**
  * Why decisions cannot run now, which the managers of a group read.
- *
  * - `noModel`: no decision model is chosen.
  * - `modelUnavailable`: the chosen model is not listed any longer.
  * - `modelFailed`: the last call of the model failed or gave no valid answer.
@@ -211,7 +199,7 @@ export interface ConversationReplySettingsView {
   readonly mode: ConversationReplyMode;
   /** The rules that apply: the group's own values and the defaults for the rest. */
   readonly rules: ConversationDecisionRules;
-  /** Contributions without @ per group round (PAGE-349); absent means the default. */
+  /** Contributions without @ per group round; absent means the default. */
   readonly automaticRepliesPerOrigin?: number;
   /** The defaults of the instance, which the group follows without values of its own. */
   readonly defaults: ConversationDecisionRules;
@@ -227,7 +215,6 @@ export interface ConversationReplySettingsView {
 
 /**
  * What a decision led to.
- *
  * - `responders`: the chosen agents answer.
  * - `nobody`: nobody answers, as the model or the thresholds chose nobody.
  * - `mention`: the person named agents with @; the model was not asked.
@@ -238,7 +225,6 @@ export type ConversationDecisionOutcome =
 
 /**
  * Why the model was not used.
- *
  * - `none`: it was used, or not needed.
  * - `no_model`: no decision model is chosen or it is unavailable.
  * - `model_failed`: the model failed, timed out or gave an invalid answer.
@@ -291,7 +277,6 @@ export interface ChatDecisionSettings {
 
 /**
  * Whether decisions can run.
- *
  * - `noModel`: none is chosen.
  * - `modelUnavailable`: the chosen model is not listed any longer.
  * - `ready`: the chosen model is one of the listed decision models.

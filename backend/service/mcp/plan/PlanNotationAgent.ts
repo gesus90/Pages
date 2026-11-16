@@ -33,7 +33,6 @@ export function planNotationList(text: string): readonly string[] {
 
 /**
  * The configuration a node of this identifier and agent starts from.
- *
  * @remarks
  * As the save of the editor does: a node that kept its agent keeps its
  * stored copy; any other node takes the copy of its agent as offered now.
@@ -130,7 +129,6 @@ function withModel(
 
 /**
  * The configuration copy of an agent node.
- *
  * @remarks
  * `configuration` takes the whole copy as JSON. Otherwise the node starts
  * from {@link planNotationBaseConfiguration}; `model` and `provider` choose
@@ -176,7 +174,6 @@ function readConfiguration(
 
 /**
  * Reads the fields of an agent node, without its bindings.
- *
  * @param attributes - The attributes of the node.
  * @param context - Resolves names and holds the stored plan.
  * @param id - The identifier of the node.

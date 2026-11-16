@@ -53,30 +53,30 @@ export interface PicaAcpJobDependencies {
   /** The scope of the connection, checked again before every tool call. */
   readonly access: ExecutionAuthorizer;
   readonly sessions: Pick<ChatSessionService, "require" | "confirmationWord">;
-  /** Files Pica writes or returns for its answers, linked once an answer is stored (PAGE-92). */
+  /** Files Pica writes or returns for its answers, linked once an answer is stored. */
   readonly answerFiles?: PicaAnswerFiles;
-  /** The archive search of an agent employee (PAGE-266); absent for Pica. */
+  /** The archive search of an agent employee; absent for Pica. */
   readonly searchMemory?: (query: string) => Promise<unknown>;
-  /** `read_conversation_context` of an agent employee (PAGE-296); absent for Pica. */
+  /** `read_conversation_context` of an agent employee; absent for Pica. */
   readonly readConversationContext?: (input: unknown) => Promise<unknown>;
-  /** `chat_lesen` of an agent employee: its own chat after a position (PAGE-376); absent for Pica. */
+  /** `chat_lesen` of an agent employee: its own chat after a position; absent for Pica. */
   readonly readOwnChat?: (input: unknown) => Promise<unknown>;
-  /** The Lagebuch tools of an agent employee's chat session (PAGE-377); absent for Pica. */
+  /** The Lagebuch tools of an agent employee's chat session; absent for Pica. */
   readonly logbook?: AgentLogbookTools;
-  /** The recipe tool and the record of tool calls of an agent employee's chat session (PAGE-378); absent for Pica. */
+  /** The recipe tool and the record of tool calls of an agent employee's chat session; absent for Pica. */
   readonly recipes?: AgentRecipeTools;
-  /** Attaches a file of the job's working folder for an agent employee with host tools (PAGE-303). */
+  /** Attaches a file of the job's working folder for an agent employee with host tools. */
   readonly attachHostFile?: PicaHostFileAttach;
-  /** `bilder_erzeugen` of an agent employee in a conversation, bound to the job's working folder (PAGE-382). */
+  /** `bilder_erzeugen` of an agent employee in a conversation, bound to the job's working folder. */
   readonly generateImages?: PicaImageGenerate;
-  /** `video_erzeugen` and `audio_erzeugen` of an agent employee in a conversation, bound to the job's working folder (PAGE-384). */
+  /** `video_erzeugen` and `audio_erzeugen` of an agent employee in a conversation, bound to the job's working folder. */
   readonly generateMedia?: PicaMediaGenerate;
-  /** `anhaenge_suchen` and `anhang_lesen` of an agent employee in a conversation, bound to the job's working folder (PAGE-386). */
+  /** `anhaenge_suchen` and `anhang_lesen` of an agent employee in a conversation, bound to the job's working folder. */
   readonly readAttachments?: PicaAttachmentRead;
-  /** The chat tools of an agent employee (PAGE-311); absent for Pica. */
+  /** The chat tools of an agent employee; absent for Pica. */
   readonly agentChat?: AgentChatTools;
-  /** Shows the answer of an agent employee on the chat page while it is written (PAGE-381); absent for Pica. */
+  /** Shows the answer of an agent employee on the chat page while it is written; absent for Pica. */
   readonly liveAnswer?: LiveAnswerSink;
-  /** The toolkit of an agent employee's job in its working folder (PAGE-390); absent for Pica. */
+  /** The toolkit of an agent employee's job in its working folder; absent for Pica. */
   readonly toolkit?: AgentToolkitBinding;
 }

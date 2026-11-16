@@ -110,12 +110,10 @@ export class AgentAssignmentTargetService {
 
   /**
    * Searches the visible assignment targets by name.
-   *
    * @param identity - The verified owner of the call.
    * @param parameters - The raw operation parameters: optional `text`, `targetType`, `projectId`, `cursor` and `limit`.
    * @returns One page of targets with the number of all matches.
    * @throws {AgentOperationError} `INVALID_REQUEST`, `NOT_FOUND` or `PAYLOAD_TOO_LARGE`.
-   *
    * @remarks
    * A name is never resolved to one target: every match is listed with its
    * type and identifier, people with the departments and groups that tell

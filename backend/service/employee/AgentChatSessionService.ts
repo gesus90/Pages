@@ -83,7 +83,6 @@ const settingsInput = z.object({
 
 /**
  * Where a session stands.
- *
  * @param facts - Whether a round runs, whether a process lives and whether
  * the context reached the threshold.
  */
@@ -98,9 +97,7 @@ export function agentChatSessionState(facts: {
 }
 
 /**
- * The chat sessions of agents for their popup and the head of a chat
- * (PAGE-376).
- *
+ * The chat sessions of agents for their popup and the head of a chat.
  * @remarks
  * An administrator sees every session of an agent; everybody else only the
  * sessions of chats they take part in: their own direct chat with the agent
@@ -118,7 +115,6 @@ export class AgentChatSessionService {
 
   /**
    * Reads the sessions of an agent as the viewer may see them.
-   *
    * @throws {AgentEmployeeError} `notFound` for an account that is no agent.
    */
   public async overview(
@@ -154,7 +150,6 @@ export class AgentChatSessionService {
 
   /**
    * Stops, summarizes or restarts one session.
-   *
    * @throws {AgentEmployeeError} `notFound` for a session the viewer does not
    * see.
    */
@@ -182,7 +177,6 @@ export class AgentChatSessionService {
 
   /**
    * Saves the idle time and the restart threshold of an agent.
-   *
    * @throws {AgentEmployeeError} `forbidden` for a viewer who is no
    * administrator, `invalidInput` for a value outside its range, `notFound`
    * for an account that is no agent.
@@ -205,7 +199,6 @@ export class AgentChatSessionService {
   /**
    * The session of an agent in its direct chat with a person, for the head of
    * the chat.
-   *
    * @returns `undefined` before the first message.
    */
   public async directBrief(
@@ -229,7 +222,6 @@ export class AgentChatSessionService {
 
   /**
    * The sessions of the agents in a group, for the head of the chat.
-   *
    * @param conversationId - The group.
    * @param signals - What the agent is doing in the group now.
    */

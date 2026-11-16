@@ -29,13 +29,13 @@ interface IngressArguments {
   readonly address: string;
   readonly port: number;
   readonly backend: URL;
-  /** Set: `pages-core` serves the live stream (PAGE-237). */
+  /** Set: `pages-core` serves the live stream. */
   readonly core?: URL;
-  /** Set: `pages-core` serves the service status (PAGE-238). */
+  /** Set: `pages-core` serves the service status. */
   readonly serviceStatus?: URL;
-  /** Set: `pages-core` relays the runner channels (PAGE-239). */
+  /** Set: `pages-core` relays the runner channels. */
   readonly coreRunner?: URL;
-  /** Set: `pages-core` relays the console channels (PAGE-239). */
+  /** Set: `pages-core` relays the console channels. */
   readonly coreConsole?: URL;
 }
 
@@ -84,11 +84,9 @@ function readSwitches(
 
 /**
  * Starts the entrance's own logs with the instance's retention.
- *
  * @param configPath - The instance's `config.toml`.
  * @returns The configuration the retention was read from, or `null` when the
  * file does not exist.
- *
  * @remarks
  * The entrance writes to `log/ingress/` with a lock of its own. Sharing the
  * API's directory would let it take the API's single writer lock while the
@@ -151,7 +149,7 @@ function parseIngressArguments(
 }
 
 /**
- * Starts the static app's entrance as its own process (PAGE-235).
+ * Starts the static app's entrance as its own process.
  *
  * @param argumentList - Command-line arguments after the script name.
  *

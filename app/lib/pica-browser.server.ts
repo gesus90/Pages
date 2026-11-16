@@ -10,12 +10,10 @@ import type { PicaAdminServiceOptions } from "@/backend/service/chat/admin/PicaA
 import type { PicaBrowserOrigins } from "@/backend/service/chat/browser/PicaBrowserTargets";
 
 /**
- * The local origins the operator browser of Pica may reach (PAGE-181).
- *
+ * The local origins the operator browser of Pica may reach.
  * @param config - The instance configuration, read on every request.
  * @returns This instance on its own port, its public address, and the local
  * services the operator released in `picaBrowserLocalOrigins`.
- *
  * @remarks
  * Only the configuration decides. The address a request arrived under never
  * widens the list, because a client chooses its `Host` header.
@@ -40,7 +38,6 @@ export function picaBrowserOrigins(
 
 /**
  * The operator browser parts the chat services are wired with.
- *
  * @param input - Where sessions are kept, the key that encrypts them, and the configuration.
  * @returns Options for the administrator service.
  */
@@ -71,7 +68,6 @@ const FAILURE_STATUSES: Readonly<Record<string, number>> = {
 
 /**
  * Maps a failure of the live interface to a stable code and status; messages and page content never leave.
- *
  * @param error - The failure.
  * @returns A JSON answer that is never cached.
  */

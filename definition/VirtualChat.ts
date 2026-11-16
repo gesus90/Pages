@@ -1,7 +1,5 @@
 /**
- * Contracts of the chat page with people, agents and groups (PAGE-254,
- * PAGE-266, PAGE-259).
- *
+ * Contracts of the chat page with people, agents and groups.
  * @remarks
  * The page reads one {@link VirtualChatDirectory}: the participants a person
  * keeps in their own list, the people and agents the list can take, and the
@@ -56,14 +54,14 @@ export interface VirtualParticipant {
   /** Whether a message can be sent: to an active agent or an active person. */
   readonly canChat: boolean;
   /**
-   * The stored direct conversation with a person (PAGE-278); `null` before
+   * The stored direct conversation with a person; `null` before
    * the first message and for an agent, whose history is its chat session.
    */
   readonly conversationId?: string | null;
-  /** Whether the person muted the stored direct conversation for themselves alone (PAGE-275). */
+  /** Whether the person muted the stored direct conversation for themselves alone. */
   readonly isMuted?: boolean;
   /**
-   * The direct conversation in which the agent wrote to the person (PAGE-311);
+   * The direct conversation in which the agent wrote to the person;
    * its messages stand in the history, and reading marks it read up to the
    * newest of them.
    */
@@ -73,13 +71,13 @@ export interface VirtualParticipant {
   };
   /** ISO time of the adding or the last sent message. */
   readonly lastActivityAt: string;
-  /** The access level of an agent, shown in the head of its chat (PAGE-303). */
+  /** The access level of an agent, shown in the head of its chat. */
   readonly accessLevel?: AgentEmployeeAccess;
-  /** Whether the person marked the direct chat with this agent confidential (PAGE-305). */
+  /** Whether the person marked the direct chat with this agent confidential. */
   readonly isConfidential?: boolean;
-  /** The session of this agent in its direct chat with the person (PAGE-376); absent before the first message. */
+  /** The session of this agent in its direct chat with the person; absent before the first message. */
   readonly session?: AgentChatSessionBrief;
-  /** The model this agent answers with in its direct chat with the person (PAGE-380). */
+  /** The model this agent answers with in its direct chat with the person. */
   readonly chatModel?: AgentChatModelLabel;
 }
 
@@ -91,38 +89,38 @@ export interface VirtualGroup {
   /** Participant ids in display order. */
   readonly memberIds: readonly string[];
   readonly unreadCount: number;
-  /** Whether the person muted the group for themselves alone (PAGE-275). */
+  /** Whether the person muted the group for themselves alone. */
   readonly isMuted?: boolean;
   /** ISO time of the creation or the last sent message. */
   readonly lastActivityAt: string;
-  /** The names of the agents answering in the group now (PAGE-276). */
+  /** The names of the agents answering in the group now. */
   readonly workingAgentNames?: readonly string[];
-  /** The agents answering in the group now, each of which can be stopped alone (PAGE-304). */
+  /** The agents answering in the group now, each of which can be stopped alone. */
   readonly workingAgents?: readonly {
     readonly id: string;
     readonly name: string;
   }[];
-  /** Whether the group is marked confidential: its agents share and learn nothing from it (PAGE-305). */
+  /** Whether the group is marked confidential: its agents share and learn nothing from it. */
   readonly isConfidential?: boolean;
   /**
    * A conversation in which only agents take part, which the person reads as
-   * an administrator or leader without being a member (PAGE-311); nobody
+   * an administrator or leader without being a member; nobody
    * writes in it from the page.
    */
   readonly isAgentConversation?: boolean;
   /** The agents of an {@link VirtualGroup.isAgentConversation}, which the person's list does not hold. */
   readonly agentMembers?: readonly VirtualParticipant[];
-  /** Agents wrote the most they may in a row and wait for a person to allow it to go on (PAGE-311). */
+  /** Agents wrote the most they may in a row and wait for a person to allow it to go on. */
   readonly isAgentPaused?: boolean;
-  /** The sessions of the agents of the group in this group, one per agent (PAGE-376). */
+  /** The sessions of the agents of the group in this group, one per agent. */
   readonly agentSessions?: readonly AgentChatSessionBrief[];
-  /** The model each agent of the group answers with in it, by agent (PAGE-380). */
+  /** The model each agent of the group answers with in it, by agent. */
   readonly agentModels?: Readonly<Record<string, AgentChatModelLabel>>;
-  /** Whether the person created the group, so adds and removes members and dissolves it (PAGE-380). */
+  /** Whether the person created the group, so adds and removes members and dissolves it. */
   readonly isOwner?: boolean;
-  /** Whether the person may change the model of its agents and restart or compact their sessions (PAGE-380). */
+  /** Whether the person may change the model of its agents and restart or compact their sessions. */
   readonly canControlSessions?: boolean;
-  /** Who answers in the group (PAGE-379), which the entry "Wer antwortet?" of the group menu names. */
+  /** Who answers in the group, which the entry "Wer antwortet?" of the group menu names. */
   readonly replyMode?: ConversationReplyMode;
 }
 
@@ -130,10 +128,10 @@ export interface VirtualGroup {
 export interface VirtualToolUse {
   readonly name: string;
   readonly detail: string;
-  /** The ID of the call within its job (PAGE-303). */
+  /** The ID of the call within its job. */
   readonly callId?: string;
   readonly status?: "running" | "completed" | "failed" | "cancelled";
-  /** How long the call took, in milliseconds, where the page saw it run (PAGE-381). */
+  /** How long the call took, in milliseconds, where the page saw it run. */
   readonly durationMs?: number;
   /** The command or input of the call, bounded and with credentials masked. */
   readonly input?: string;
@@ -141,11 +139,11 @@ export interface VirtualToolUse {
   readonly output?: string;
   /** A tool of the host rather than a Pages tool. */
   readonly isNative?: boolean;
-  /** What the tool does, in one short sentence (PAGE-390). */
+  /** What the tool does, in one short sentence. */
   readonly summary?: string;
 }
 
-/** The audio of a voice message (PAGE-278). */
+/** The audio of a voice message. */
 export interface VirtualVoice {
   /** The address the browser plays it from; the server checks membership on every request. */
   readonly url: string;
@@ -163,7 +161,7 @@ export interface VirtualChatMessage {
   readonly content: string;
   /** ISO time the message was stored; missing for one still on its way. */
   readonly createdAt?: string;
-  /** The account IDs the text mentions with `@username`, as stored (PAGE-275). */
+  /** The account IDs the text mentions with `@username`, as stored. */
   readonly mentions?: readonly string[];
   readonly toolUses: readonly VirtualToolUse[];
   /** The author as the conversation names it, for one outside the person's list. */
@@ -174,25 +172,25 @@ export interface VirtualChatMessage {
   };
   /** Present only for a voice message. */
   readonly voice?: VirtualVoice;
-  /** Present only for a hint why an agent did not answer (PAGE-276). */
+  /** Present only for a hint why an agent did not answer. */
   readonly notice?: ConversationNotice;
   /**
-   * The decision of the decision model (PAGE-379): on the message of a person
+   * The decision of the decision model: on the message of a person
    * that nobody answered, which the chat shows as a quiet line; on the answer
    * of an agent the decision model chose, which the chat shows as "Why?".
    */
   readonly decision?: ConversationDecisionView;
   /**
-   * Present while the answer to this message waits (PAGE-304): for the answer
+   * Present while the answer to this message waits: for the answer
    * the agent gives in this chat, or for a free place among the limits.
    */
   readonly queue?: AgentMessageQueue;
   /**
-   * The agents whose running answer took this message of the person
-   * (PAGE-381), which the chat shows as "in Eds Antwort eingeschoben".
+   * The agents whose running answer took this message of the person,
+   * which the chat shows as "in Eds Antwort eingeschoben".
    */
   readonly steeredInto?: readonly string[];
-  /** The files of a stored message (PAGE-298). */
+  /** The files of a stored message. */
   readonly attachments?: readonly ConversationAttachment[];
   /**
    * The address of the ZIP archive of the files, where the message is no
@@ -201,19 +199,19 @@ export interface VirtualChatMessage {
    */
   readonly archiveUrl?: string;
   /**
-   * The person sent this message from a preview of the chat (PAGE-383); the
+   * The person sent this message from a preview of the chat; the
    * chat marks it "aus der Vorschau gesendet". Absent for every other message.
    */
   readonly isFromPreview?: boolean;
-  /** What the server knows of the URLs that stand alone in a line (PAGE-298). */
+  /** What the server knows of the URLs that stand alone in a line. */
   readonly links?: readonly ConversationLink[];
-  /** Earlier attachments of the chat an agent shows again (PAGE-386). */
+  /** Earlier attachments of the chat an agent shows again. */
   readonly references?: readonly ConversationAttachmentReference[];
-  /** Whether the person may delete the message: their own stored one (PAGE-298). */
+  /** Whether the person may delete the message: their own stored one. */
   readonly canDelete?: boolean;
-  /** An interim message an agent wrote during its round (PAGE-391); the chat shows it quieter. */
+  /** An interim message an agent wrote during its round; the chat shows it quieter. */
   readonly isInterim?: boolean;
-  /** The question with answer buttons the message carries (PAGE-391). */
+  /** The question with answer buttons the message carries. */
   readonly question?: AgentQuestionView;
 }
 
@@ -252,25 +250,25 @@ export interface VirtualChatDirectory {
   readonly histories: Readonly<Record<string, readonly VirtualChatMessage[]>>;
   /**
    * The ids of the participants and groups whose stored history holds older
-   * messages than the ones shown, which the page loads page by page (PAGE-275).
+   * messages than the ones shown, which the page loads page by page.
    */
   readonly olderHistoryIds?: readonly string[];
   /**
    * The tool calls of the answer an agent is working on now, by the agent's
-   * id; a running call can be cancelled (PAGE-303).
+   * id; a running call can be cancelled.
    */
   readonly liveToolUses?: Readonly<Record<string, readonly VirtualToolUse[]>>;
   /** People and agents the dialog "Teilnehmer hinzufügen" offers; never the own account. */
   readonly contactChoices: readonly VirtualContactChoice[];
-  /** The longest voice message Pages takes, in milliseconds (PAGE-277). */
+  /** The longest voice message Pages takes, in milliseconds. */
   readonly voiceMaximumMs?: number;
-  /** The domains that may be embedded in conversations (PAGE-298). */
+  /** The domains that may be embedded in conversations. */
   readonly embedDomains?: ChatEmbedDomains;
-  /** The person's card states and split width (PAGE-298). */
+  /** The person's card states and split width. */
   readonly viewPreferences?: ChatViewPreferences;
 }
 
-/** A page of older messages of a stored conversation (PAGE-275). */
+/** A page of older messages of a stored conversation. */
 export interface VirtualChatHistoryPage {
   readonly conversationId: string;
   /** The messages before the requested one, oldest first. */

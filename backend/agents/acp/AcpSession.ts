@@ -76,7 +76,6 @@ export type {
 
 /**
  * The ACP session of one plan node, from the handshake to the closeout.
- *
  * @remarks
  * Pages is the ACP client. The session starts in the authorized workspace,
  * takes the stored mode, model and effort exactly and confirms each of them
@@ -122,7 +121,6 @@ export class AcpSession implements PlanSession {
 
   /**
    * Connects to the started adapter and begins the turn at once.
-   *
    * @param process - The adapter process; it ends with the node's signal.
    * @param stream - The ACP messages over the process input and output.
    * @param context - Request, mode profile, observer and closeout of the node.
@@ -244,7 +242,6 @@ export class AcpSession implements PlanSession {
   /**
    * Adds a prompt to the running turn through the steering extension the
    * adapter announced in `initialize`.
-   *
    * @param prompt - The blocks of the additional message.
    * @returns What became of it; `inactive` without the announced extension or
    * without a running prompt of Pages, so a steer never reaches the adapter
@@ -270,7 +267,7 @@ export class AcpSession implements PlanSession {
         prompt,
         meta: this.context.driver.steeringMeta,
       });
-    // Without the extension the input cuts the prompt short and follows as the next prompt (PAGE-284).
+    // Without the extension the input cuts the prompt short and follows as the next prompt.
     return this.context.acceptsTurnInput === true
       ? this.control.add(prompt)
       : "inactive";
@@ -278,7 +275,6 @@ export class AcpSession implements PlanSession {
 
   /**
    * Interrupts the running prompt of a plan turn; the turn waits for the next input of a person.
-   *
    * @returns Whether a prompt of Pages was running.
    */
   public interrupt(): Promise<boolean> {
@@ -289,11 +285,9 @@ export class AcpSession implements PlanSession {
 
   /**
    * Cancels the running prompt of a chat turn, which stops its running tool
-   * call, and continues the same turn with the note (PAGE-303).
-   *
+   * call, and continues the same turn with the note.
    * @param note - What the agent reads about the cancellation.
    * @returns Whether a prompt of Pages was running.
-   *
    * @remarks
    * ACP has no cancellation of a single tool call; `session/cancel` ends the
    * running prompt and with it the call. The note follows at once as the
@@ -310,7 +304,6 @@ export class AcpSession implements PlanSession {
    * Continues the ACP session with a fresh, turn-scoped prompt: the next
    * member of a Codex, Claude Code or OpenCode plan group or the next turn of a Pica
    * conversation.
-   *
    * @throws {AgentError} `provider_invalid` for a profile that runs one turn only.
    */
   public async next(
@@ -418,7 +411,7 @@ export class AcpSession implements PlanSession {
       this.context.request.modelSupportsImages === false
         ? { ...this.promptCapabilities, image: false }
         : this.promptCapabilities;
-    // A person's input or interruption continues the same turn (PAGE-284).
+    // A person's input or interruption continues the same turn.
     const response = await this.control.drive({
       first: await acpTurnPrompt(request, sessionId, capabilities),
       // Measured before writing: an oversized prompt is refused, never sent or repeated.

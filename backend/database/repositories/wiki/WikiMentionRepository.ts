@@ -8,7 +8,6 @@ export class WikiMentionRepository {
 
   /**
    * Creates the repository.
-   *
    * @param database - Database access or the transaction to run in.
    */
   public constructor(database: DatabaseTransaction) {
@@ -17,7 +16,6 @@ export class WikiMentionRepository {
 
   /**
    * Makes the mentions of a text exactly the given people.
-   *
    * @param source - Page, comment (empty for the page text) and author.
    * @param userIds - The mentioned accounts.
    */

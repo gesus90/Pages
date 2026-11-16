@@ -40,14 +40,11 @@ interface LoadState {
 const LOADING: LoadState = { overview: null, failure: null };
 
 /**
- * Reads the Lagebuch of an agent and changes its settings and entries
- * (PAGE-377).
- *
+ * Reads the Lagebuch of an agent and changes its settings and entries.
  * @remarks
  * Every answer of a change carries the fresh overview, which replaces the
  * shown one; nothing is merged on the client. The Lagebuch is read when the
  * tab opens, not with the popup.
- *
  * @param agentId - The agent whose Lagebuch the tab shows.
  */
 export function useAgentLogbook(agentId: string): AgentLogbookState {

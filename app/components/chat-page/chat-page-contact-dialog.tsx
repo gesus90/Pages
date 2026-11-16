@@ -195,9 +195,8 @@ function useContactSelection(
 }
 
 /**
- * The dialog "Teilnehmer hinzufügen" (PAGE-266): a searchable choice of
+ * The dialog "Teilnehmer hinzufügen": a searchable choice of
  * existing people and agents for the person's own list.
- *
  * @remarks
  * Checking adds to the list, unchecking removes from it; neither creates nor
  * deletes an account or agent. A deactivated agent is shown but cannot be

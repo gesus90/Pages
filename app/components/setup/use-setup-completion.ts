@@ -30,10 +30,8 @@ export interface SetupCompletionHandlers {
 
 /**
  * Submits the whole wizard and reports why a completion was refused.
- *
  * @param handlers - Reactions to field errors and refused requests.
  * @returns How to finish and the state of the last attempt.
- *
  * @remarks
  * A successful completion answers with a redirect into the dashboard,
  * which the router follows; the session cookie comes with it.

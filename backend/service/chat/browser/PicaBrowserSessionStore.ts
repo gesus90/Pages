@@ -82,7 +82,6 @@ function originsOf(state: PicaBrowserStorageState): string[] {
 
 /**
  * Keeps the sessions an administrator released for Pica, encrypted on the server.
- *
  * @remarks
  * A saved session is the cookies and local storage of an isolated browser the
  * administrator signed in to. It is stored per person, encrypted with a key
@@ -96,7 +95,6 @@ export class PicaBrowserSessionStore {
 
   /**
    * Creates the store.
-   *
    * @param directory - Where the encrypted files live, next to the database.
    * @param instanceKey - The instance key the encryption key derives from.
    */
@@ -133,7 +131,6 @@ export class PicaBrowserSessionStore {
 
   /**
    * Saves the state of a browser under a name; an existing name is replaced.
-   *
    * @param userId - The person who owns it.
    * @param name - The validated session name.
    * @param state - Cookies and local storage of the browser.

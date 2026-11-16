@@ -32,7 +32,6 @@ export interface RemoteInstallLinks {
 
 /**
  * Observes what is installed on each connected machine and keeps the latest finding.
- *
  * @remarks
  * After every successful SSH connect a read-only probe records the finding,
  * bound to host, port, user and pinned host key. A finding that no longer
@@ -63,7 +62,6 @@ export class RemoteInstallService {
 
   /**
    * Probes the machine after a connect without letting a failure reach the caller.
-   *
    * @param connectionId - The connection that just connected.
    */
   public inspectAfterConnect(connectionId: string): void {
@@ -74,11 +72,9 @@ export class RemoteInstallService {
 
   /**
    * Runs the probe over the connection and stores the finding.
-   *
    * @remarks
    * Concurrent calls for one connection share a single probe. A result is
    * dropped when the connection's identity changed while the probe ran.
-   *
    * @param connectionId - The connection.
    * @returns Settles when the finding is stored.
    */
@@ -94,7 +90,6 @@ export class RemoteInstallService {
 
   /**
    * The installation view of each given connection.
-   *
    * @param connections - Connections the caller may manage.
    * @returns The view by connection identifier.
    */
@@ -112,7 +107,6 @@ export class RemoteInstallService {
 
   /**
    * The installation view of one stored connection.
-   *
    * @param connectionId - The connection.
    * @returns The view; `unknown` when the connection does not exist.
    */

@@ -6,7 +6,7 @@ import {
 
 /**
  * The policy of the frame document: everything may be loaded from the
- * network, scripts and styles included (PAGE-383), only Pages may frame it,
+ * network, scripts and styles included, only Pages may frame it,
  * and the browser sandboxes it even when it is opened on its own.
  */
 export const PREVIEW_FRAME_POLICY = [
@@ -47,8 +47,8 @@ const FRAME_DOCUMENT = `<!doctype html>
 </html>`;
 
 /**
- * The empty document every HTML and SVG preview of the chat runs in
- * (PAGE-383): `GET /chat/preview-frame`.
+ * The empty document every HTML and SVG preview of the chat runs in:
+ * `GET /chat/preview-frame`.
  *
  * @remarks
  * The chat frames it sandboxed without the own origin, so the preview gets

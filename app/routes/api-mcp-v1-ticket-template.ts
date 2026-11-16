@@ -42,8 +42,7 @@ function handlers(params: Route.LoaderArgs["params"]): McpTicketHandlers {
 }
 
 /**
- * Reads (`GET`), reshapes (`PATCH`) or deletes (`DELETE`) a template (`/api/mcp/v1/ticket-templates/{templateId}`), PAGE-242 interface 13.
- *
+ * Reads (`GET`), reshapes (`PATCH`) or deletes (`DELETE`) a template (`/api/mcp/v1/ticket-templates/{templateId}`).
  * @remarks
  * Only the device token of a paired machine admits a request.
  */

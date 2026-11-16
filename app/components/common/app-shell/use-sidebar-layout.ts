@@ -83,7 +83,6 @@ function writeStoredLayout(layout: StoredSidebarLayout): void {
 
 /**
  * Keeps whether the permanent sidebar is collapsed and how wide it is open.
- *
  * @remarks
  * The state lives in the authenticated layout, so it survives every route
  * change; the browser storage only restores it after a reload. The server and

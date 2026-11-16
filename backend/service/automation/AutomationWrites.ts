@@ -96,7 +96,6 @@ function hasPassed(trigger: AutomationTrigger, now: Date): boolean {
 
 /**
  * The switch state, trigger and next run after a patch.
- *
  * @remarks
  * Switching a once automation off after its time passed clears the time;
  * switching it on needs a time in the future. A new trigger or switching on
@@ -128,8 +127,7 @@ function scheduleOf(
 }
 
 /**
- * Creates, changes, switches, runs and deletes automations (PAGE-297).
- *
+ * Creates, changes, switches, runs and deletes automations.
  * @remarks
  * Every change carries an operation ID: a repetition with the same input
  * answers the stored receipt without a second effect, other input with the
@@ -268,7 +266,6 @@ export class AutomationWrites {
 
   /**
    * Answers the scope of a deletion, or deletes after an explicit confirmation.
-   *
    * @param userId - The calling account.
    * @param input - The raw input of the deletion.
    */

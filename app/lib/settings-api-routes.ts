@@ -3,7 +3,6 @@ import type { RouteConfigEntry } from "@react-router/dev/routes";
 /**
  * The data endpoints of the settings pages, where the static app reads what
  * the pages show.
- *
  * @param resource - Declares a server resource of the current route table.
  * @returns The resources under `/settings-api`.
  */

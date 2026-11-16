@@ -1,4 +1,4 @@
-# claude-agent-acp capability matrix (PAGE-90)
+# claude-agent-acp capability matrix
 
 What Pica over Claude Code relies on, checked against the **installed** adapter,
 not against its documentation. Checked on 16 October 2026.
@@ -8,7 +8,7 @@ not against its documentation. Checked on 16 October 2026.
 | `@agentclientprotocol/claude-agent-acp`               | 0.90.0  | global npm package of the server account (`claude-agent-acp --version`) |
 | `@anthropic-ai/claude-agent-sdk` (adapter)            | 0.3.296 | `node_modules` of the adapter                                           |
 | `@agentclientprotocol/sdk` (adapter)                  | 1.8.0   | `node_modules` of the adapter                                           |
-| Host `claude` (used through `CLAUDE_CODE_EXECUTABLE`) | 2.1.322 | Pages-managed generation, `claude --version` (PAGE-293)                 |
+| Host `claude` (used through `CLAUDE_CODE_EXECUTABLE`) | 2.1.322 | Pages-managed generation, `claude --version`                            |
 | `@agentclientprotocol/sdk` in Pages                   | 1.7.0   | `node_modules/@agentclientprotocol/sdk`                                 |
 
 Pages accepts claude-agent-acp 0.90.x (`ClaudeAcpAdapter.ts`). Another version
@@ -18,7 +18,7 @@ The adapter starts the CLI Pages passes as `CLAUDE_CODE_EXECUTABLE`
 (`dist/acp-agent.js`, `pathToClaudeCodeExecutable`), never its bundled one. Its
 SDK 0.3.296 bundles Claude Code 2.1.296 but does not check the version of an
 external CLI; the contract between them is the SDK's stream-json control
-protocol. PAGE-293 checked it again on 10 November 2026 against the Pages-managed
+protocol. It was checked again on 10 November 2026 against the Pages-managed
 Claude Code 2.1.322, live and without sign-in or prompt: `initialize` reports
 claude-agent-acp 0.90.0 and protocol 1; `session/new` started exactly the
 managed generation and answered with the model values `default`, `opus`,
@@ -86,7 +86,7 @@ Behaviour beyond `initialize` (steering, usage, compaction) is read from the
 adapter's `dist/acp-agent.js`, `dist/context-compaction.js` and
 `dist/tool-calls/reporters/compaction.js`.
 
-## Plan accounting (PAGE-359)
+## Plan accounting
 
 The plan profile additionally requests `_meta.claudeCode.emitRawSDKMessages` for
 `assistant` and `result`. The adapter sends `_claude/sdkMessage` notifications.

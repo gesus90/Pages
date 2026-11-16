@@ -47,7 +47,7 @@ function swarmTool(
   };
 }
 
-/** The swarm tools of main model and helpers (PAGE-313), with their operations. */
+/** The swarm tools of main model and helpers, with their operations. */
 export const SWARM_TOOLS: readonly {
   readonly operation: AgentSwarmOperation;
   readonly tool: Tool;
