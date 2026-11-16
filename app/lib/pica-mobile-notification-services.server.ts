@@ -88,6 +88,31 @@ function followConversationMessages(input: {
   );
 }
 
+/**
+ * Reads the instance identifier once and shares it between all pushes.
+ *
+ * @param eventRepository - The repository that stores the identifier.
+ * @returns A reader that resolves to the same identifier on every call.
+ */
+function createInstanceIdReader(
+  eventRepository: PicaMobileNotificationEventRepository,
+): () => Promise<string> {
+  let instanceId: Promise<string> | null = null;
+
+  return () => {
+    // A failed read is not remembered, so the next request tries again.
+    instanceId ??= eventRepository
+      .readInstanceId(createNotificationEventId())
+      .catch((error: unknown) => {
+        instanceId = null;
+
+        throw error;
+      });
+
+    return instanceId;
+  };
+}
+
 /** Logs that the notifications started, and whether a push sender exists. */
 function logStarted(isPushAvailable: boolean): void {
   logEvent({
@@ -143,19 +168,7 @@ export async function createPicaMobileNotificationServices(
   const vault = new PicaMobilePushTokenVault(
     resolveGitHubTokenKey(runtime.getDatabasePath()),
   );
-  let instanceId: Promise<string> | null = null;
-  const readInstanceId = (): Promise<string> => {
-    // A failed read is not remembered, so the next request tries again.
-    instanceId ??= eventRepository
-      .readInstanceId(createNotificationEventId())
-      .catch((error: unknown) => {
-        instanceId = null;
-
-        throw error;
-      });
-
-    return instanceId;
-  };
+  const readInstanceId = createInstanceIdReader(eventRepository);
   const accounts = new PagesPicaMobileAccountChecks(
     new SessionRepository(input.database),
     input.users,
