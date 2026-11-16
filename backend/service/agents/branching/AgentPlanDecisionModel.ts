@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import path from "node:path";
 
+import { pagesTempDirectory } from "@/backend/config/PagesTempDirectory";
 import { AgentError } from "@/backend/error/AgentErrors";
 import { AgentPlanCancelledError } from "@/backend/error/AgentPlanCancelledError";
 import { logCaughtError } from "@/backend/logging/Logger";
@@ -136,6 +136,23 @@ function cancelled(): Partial<AgentPlanStepResult> {
 }
 
 /**
+ * Creates the empty working directory of one decision session.
+ *
+ * @returns A new folder below `~/.pages/tmp/plan-decisions`.
+ *
+ * @remarks
+ * The session runs in a unit of the account's service manager, which does not
+ * see the private `/tmp` of the plan service (`PrivateTmp=true`). A folder
+ * below `tmpdir()` did not exist for the sandbox, so every model decision
+ * failed with `plan_claude_acp_session_failed` before the model was asked.
+ */
+async function createDecisionDirectory(): Promise<string> {
+  const root = pagesTempDirectory("plan-decisions");
+  await mkdir(root, { recursive: true, mode: 0o700 });
+  return mkdtemp(path.join(root, "pages-decision-"));
+}
+
+/**
  * Asks the model of a decision in a short ACP session of its own (PAGE-286).
  *
  * @remarks
@@ -243,7 +260,7 @@ export class AgentPlanDecisionModel {
     source: PlanDecisionSource,
     assignment: ResolvedAgentAssignment,
   ): Promise<SessionOutcome> {
-    const directory = await mkdtemp(path.join(tmpdir(), "pages-decision-"));
+    const directory = await createDecisionDirectory();
     let session: PlanSession | null = null;
     try {
       const prompt = decisionPrompt(request.decision, source);
